@@ -3,9 +3,19 @@ THE RECOVERY INPUT (kogaki#871). Runtime-read by src/review-draft.mjs, the same
 arrangement src/packet-template.md has with src/draft.mjs: the wording lives in
 a file a person can edit, and the Harness fills its slots.
 
-Slots: {{step_id}}, {{article_so_far}}, {{step_lines}}, {{step_prose}},
-{{recover_command}}. The renderer refuses on an unfilled slot rather than
-shipping a hole, inherited from the Packet renderer's own rule.
+Slots: {{step_id}}, {{article_so_far}}, {{step_lines}}, {{figure_passage}},
+{{step_prose}}, {{record_field_count}}, {{figure_field}}, {{recover_command}}.
+The renderer refuses on an unfilled slot rather than shipping a hole, inherited
+from the Packet renderer's own rule.
+
+THE FIGURE SLOTS ARE EMPTY FOR A STEP THAT CARRIES NO FIGURE (kogaki#880), and
+that is the whole of how this file serves both. {{figure_passage}} renders the
+block AS THE READER MET IT -- the fence and the caption, sliced out of the Draft
+at the lines the trace records -- and NOTHING from the figure record: no role
+name, no ground address, no relation line, no kind and no position word. A
+reviewer shown the record's own vocabulary would name the elements the record
+names, and the element-to-ground join downstream would be checking the record
+against itself.
 
 THE REVIEWER'S IGNORANCE IS THE INSTRUMENT. This file holds prose and an
 instruction, and NOTHING from the Packet — no thesis, no grounds, no Move, no
@@ -40,7 +50,7 @@ has read it: it is what they already know.
 
 {{article_so_far}}
 
-## The passage — draft lines {{step_lines}}
+{{figure_passage}}## The passage — draft lines {{step_lines}}
 
 Every line is numbered with its line number in the Draft. Cite those numbers in
 the spans your record carries.
@@ -67,14 +77,15 @@ prose.
   something out: `{"text": "…", "span": [start, end]}`.
 - `restates` — spans that repeat something already said in the article before
   this passage: `{"span": [start, end], "of": "what it repeats"}`.
-
+{{figure_field}}
 Every span is a pair of Draft line numbers lying inside {{step_lines}}. A span
 outside that range is refused by name, because a record pointing outside the
 passage is not evidence about it.
 
-**These seven are the whole record, and an eighth field is refused by name.**
-The top-level key set is closed: a key outside the seven above is refused with
-the key named, so write no annotation, no aside and no note beside them. Every
+**These {{record_field_count}} are the whole record, and a further field is
+refused by name.** The top-level key set is closed: a key outside the ones above
+is refused with the key named, so write no annotation, no aside and no note
+beside them. Every
 field here is a fact about the prose, and a field that could not be checked by
 pointing at the passage would be you asserting rather than recovering — which
 is the same reason a verdict, advice, a score or a rating is refused wherever

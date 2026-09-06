@@ -53,7 +53,23 @@
     "level whose vocabulary `required` declares. A nested object's admissible",
     "keys are `fields.<name>.item_required`, which the per-field checks",
     "already enforce, and closing depth against a list this file does not hold",
-    "would refuse on a name no declaration names."
+    "would refuse on a name no declaration names.",
+    "",
+    "THE EIGHTH FIELD EXISTS AND IS CONDITIONAL (kogaki#880). `figure_reading`",
+    "is owed by a Step whose trace entry carries a figure and REFUSED on one",
+    "that does not, which is why it is declared in `conditional_required`",
+    "rather than added to `required`. The closed set above is not weakened by",
+    "it: the admissible top-level key set is still TOTAL for every Step, it is",
+    "just computed from the Step rather than fixed for the Draft. A reviewer",
+    "who writes `figure_reading` for a figureless passage is refused with the",
+    "key named, exactly as an unnamed key is -- an invented reading of a figure",
+    "nobody rendered is the same contamination as an invented annotation.",
+    "",
+    "ITS THREE SUB-FIELDS ARE THE READER'S, NOT THE RECORD'S. `shows`,",
+    "`elements` and `reader_state_after` are what a reader can say after",
+    "looking at the rendered block; the figure record's own vocabulary (roles,",
+    "grounds, relations, kind) is never asked for, because the reviewer has not",
+    "seen the record and asking in its terms would hand back the input."
   ],
   "version": "1",
   "required": [
@@ -92,6 +108,37 @@
       "item_required": ["span", "of"],
       "text_key": "of",
       "span_key": "span"
+    }
+  },
+  "conditional_required": {
+    "note": [
+      "Keyed by the CONDITION the Harness evaluates on the Step, never by a",
+      "flag the reviewer sets. `when: figure` is true exactly when the Step's",
+      "trace entry carries a `figure` key -- the same fact src/review-draft.mjs",
+      "reads to decide whether the recovery input carries a figure at all, so",
+      "the input and the record it validates cannot disagree about whether a",
+      "figure was there."
+    ],
+    "figure_reading": {
+      "when": "figure",
+      "type": "object",
+      "item_required": ["shows", "elements", "reader_state_after"],
+      "fields": {
+        "shows": {
+          "type": "string",
+          "why": "what the figure shows, one or two lines -- the reading, not a description of the markup"
+        },
+        "elements": {
+          "type": "array",
+          "of": "string",
+          "min": 1,
+          "why_min": "a figure whose reader can name no element is one the reader could not read; an empty list is a reviewer who did not look rather than a figure with nothing in it"
+        },
+        "reader_state_after": {
+          "type": "string",
+          "why": "what the reader holds after looking -- the half the record's caption is judged against. NAMED FOR THE FIELD IT PARALLELS, and never `holds`: that word is a VERDICT TOKEN this schema forbids at every depth, so a sub-field spelled that way is refused by the walk above and the refusal reads as a reviewer smuggling in a judgment. A synonym in a join key is the same defect as a divergence, and so is a homonym."
+        }
+      }
     }
   },
   "spans_lie_inside_the_step": true,

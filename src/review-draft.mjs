@@ -221,6 +221,62 @@ function resolveInputs(draft) {
     }
     // The range is 1-based over the file; slice is 0-based and end-exclusive.
     const prose = draft.lines.slice(t.lines[0] - 1, t.lines[1]).join("\n");
+    // THE FIGURE IS RESOLVED ON THE SAME TERMS THE PACKET IS (kogaki#880).
+    // §4.18 gives a figure-carrying Step a `figure` entry naming the validated
+    // record, its sha and its own line range, and a Step declaring none carries
+    // NO `figure` KEY AT ALL — an absent field rather than a null one — so the
+    // presence test below is the same fact the spec writes.
+    //
+    // THREE REFUSALS, EACH THE FIGURE'S COUNTERPART OF A REFUSAL ABOVE, and
+    // they are here rather than at the first item that reads the record because
+    // a Draft whose figure record moved is one whose whole figure half is
+    // meaningless — the same reason the Packet's sha is checked before any item
+    // is computed rather than at the item that first needs a block.
+    let figure = null;
+    if (t.figure !== undefined && t.figure !== null) {
+      const f = t.figure;
+      if (!Array.isArray(f.lines) || f.lines.length !== 2
+          || !Number.isInteger(f.lines[0]) || !Number.isInteger(f.lines[1])) {
+        fail(`step ${id}: its trace entry carries a figure with no line range — §4.18 records the `
+          + "figure's own range beside the Step's prose range, and without it the blind recovery "
+          + "has no block to quote; re-emit the Draft (node src/draft.mjs emit --brief <brief.md>)");
+      }
+      if (typeof f.record !== "string" || typeof f.record_sha !== "string") {
+        fail(`step ${id}: its trace entry carries a figure naming no record — the record is the `
+          + "declared side of every figure item, so a figure without one cannot be reviewed");
+      }
+      const recordPath = resolve(dir, f.record);
+      if (!existsSync(recordPath)) {
+        fail(`step ${id}: the figure record the trace names is absent — ${recordPath}. The run `
+          + "workspace is machine state and is pruned (DESIGN.md §6); re-record it with "
+          + `\`node src/draft.mjs figure --brief <brief.md> --step ${id} --file <record.json>\``);
+      }
+      const recordText = readFileSync(recordPath, "utf8");
+      const recordActual = sha256(recordText);
+      if (recordActual !== f.record_sha) {
+        fail(`step ${id}: the figure record's sha differs from the trace's — the Draft was not `
+          + `emitted from this record.\n  trace  ${f.record_sha}\n  file   ${recordActual}\n`
+          + `  at     ${recordPath}\n`
+          + "The rendered block the reader met came from the record as it stood at emit; comparing "
+          + "it against a record edited since compares two unrelated things.");
+      }
+      let record;
+      try { record = JSON.parse(recordText); }
+      catch (e) {
+        fail(`step ${id}: the figure record at ${recordPath} is not readable JSON (${e.message}) `
+          + "— it was written by `draft.mjs figure` and validated then, so a record unreadable now "
+          + "was edited outside the Harness");
+      }
+      figure = {
+        position: f.position,
+        record: f.record,
+        record_path: recordPath,
+        record_sha: f.record_sha,
+        lines: f.lines,
+        rendered: draft.lines.slice(f.lines[0] - 1, f.lines[1]).join("\n"),
+        record_json: record,
+      };
+    }
     steps.push({
       step_id: id,
       section: t.section,
@@ -230,6 +286,7 @@ function resolveInputs(draft) {
       packet_path: packetPath,
       packet_sha: t.packet_sha,
       prose,
+      figure,
     });
   }
   // Sections come from the trace's own grouping, never from a heading scan of
@@ -361,10 +418,109 @@ function articleBefore(steps, stepId) {
 // reviewer's spans and the trace's ranges are in one coordinate system. A
 // reviewer counting lines itself would be inventing the join key.
 function numberedProse(step) {
-  const width = String(step.lines[1]).length;
-  return step.prose.split("\n")
-    .map((l, i) => `${String(step.lines[0] + i).padStart(width, " ")} | ${l}`)
+  return numberedRange(step.prose, step.lines);
+}
+
+// The same rendering for any contiguous draft range, so the figure block and
+// the prose are numbered by ONE function rather than by two that agree until
+// one is edited. The width comes from the range's own last line, which is what
+// keeps a Step's own listing aligned with itself.
+function numberedRange(text, lines) {
+  const width = String(lines[1]).length;
+  return text.split("\n")
+    .map((l, i) => `${String(lines[0] + i).padStart(width, " ")} | ${l}`)
     .join("\n");
+}
+
+// THE FIGURE AS THE READER MET IT (kogaki#880) — the Draft's own bytes over the
+// range §4.18 records, numbered in the same coordinate the prose is, and
+// NOTHING from the record. Two facts reach the blind reviewer from this and
+// they are both facts about the article: what the block says, and where in the
+// Draft it sits relative to the passage. The record's roles, ground addresses,
+// relations, kind and position word reach it nowhere, which is what makes the
+// element-to-ground join downstream a comparison rather than a restatement.
+function numberedFigure(step) {
+  return numberedRange(step.figure.rendered, step.figure.lines);
+}
+
+// The passage a JUDGING reader is shown: the prose, with the figure quoted
+// beside it in draft-line order where the Step has one. The judging reader is
+// not blind — it already sees the declared side — so withholding the block from
+// it would leave three of the five figure items asking about something they
+// cannot see.
+function quotedPassage(step) {
+  if (!step.figure) return numberedProse(step);
+  const parts = step.figure.lines[0] < step.lines[0]
+    ? [numberedFigure(step), numberedProse(step)]
+    : [numberedProse(step), numberedFigure(step)];
+  return parts.join("\n\n");
+}
+
+// THE REVIEWER IS TOLD WHAT TO WRITE, NEVER WHAT THE FIGURE HOLDS. Every line
+// below asks for a reading of the rendered block; none of it names a role, a
+// ground, a relation or the record's own position word, so a reviewer who has
+// only the article can answer all of it and a reviewer who has seen the record
+// gains nothing by it.
+const FIGURE_FIELD_INSTRUCTION = `- \`figure_reading\` — your reading of the figure above, as a reader who met it
+  with this passage and nothing else.
+  - \`shows\` — what the figure shows. One or two lines.
+  - \`elements\` — the things you can name in it. A list of strings, in whatever
+    order you met them.
+  - \`reader_state_after\` — what you hold after looking at it. One or two
+    sentences.
+`;
+
+// The record's field count FOR THIS STEP: the closed seven, plus each
+// conditional field whose condition this Step satisfies.
+function recoveredFieldCount(step) {
+  const schema = readSchema();
+  const conditional = schema.conditional_required || {};
+  let n = (schema.required || []).length;
+  for (const [name, spec] of Object.entries(conditional)) {
+    if (name === "note") continue;
+    if (conditionHolds(spec.when, step)) n++;
+  }
+  return n;
+}
+
+// THE CONDITION VOCABULARY IS CLOSED AND THE UNKNOWN TOKEN REFUSES. A schema
+// naming a condition this runtime cannot evaluate would otherwise resolve
+// false, and the field would be silently forbidden on every Step — an eighth
+// field nobody could ever write, declared and unreachable.
+function conditionHolds(when, step) {
+  if (when === "figure") return Boolean(step.figure);
+  fail(`src/recovered-schema.json declares the condition \`${when}\`, which this Harness cannot `
+    + "evaluate — a condition the runtime does not know would resolve false for every Step, so the "
+    + "field it guards would be declared and unreachable rather than conditional");
+}
+
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+  "nine", "ten", "eleven", "twelve"];
+
+// A COUNT WRITTEN AS A WORD, because it lands in the reviewer's instruction and
+// this Harness's own rule is that a review carries no digit but a line number.
+// Past the table it falls back to the numeral rather than refusing: the
+// instruction is the reviewer's and a refusal here would withhold the whole
+// input over a number nobody reads as a score.
+function numberWord(n) {
+  return NUMBER_WORDS[n] ?? String(n);
+}
+
+// The figure section of the blind recovery input. THE HEADING SAYS WHERE THE
+// READER MET IT WITHOUT SAYING THE RECORD'S WORD: the draft line numbers on the
+// block and on the passage below already carry the placement, and they are the
+// article's own facts rather than the record's declaration of intent — which is
+// exactly the pair `figure-position` exists to lay against each other.
+function renderFigurePassage(step) {
+  return ["## The figure the reader met with this passage",
+    "",
+    "It is rendered in the Draft, not written by the passage's author. Read it as",
+    "the reader does — the numbers are its lines in the Draft, so you can see",
+    "where it sits relative to the passage below.",
+    "",
+    numberedFigure(step),
+    "",
+    ""].join("\n");
 }
 
 // THE WORDING LIVES IN A FILE A PERSON CAN EDIT, the same arrangement
@@ -395,10 +551,24 @@ function renderRecoveryInput(ws, draft, step, steps) {
   // repair the Draft's author cannot perform. The finding was raised against
   // the cold reader's renderer; it was the same ordering here, and the fixture
   // written for it refused on THIS function first.
-  const ARTICLE_SLOTS = { article_so_far: articleBefore(steps, step.step_id), step_prose: numberedProse(step) };
+  //
+  // `figure_passage` IS AN ARTICLE SLOT for the same reason the other two are:
+  // its content is the Draft's own bytes, and a Draft about this pipeline can
+  // carry a `{{word}}` inside a fenced block as its subject matter.
+  const ARTICLE_SLOTS = {
+    article_so_far: articleBefore(steps, step.step_id),
+    step_prose: numberedProse(step),
+    figure_passage: step.figure ? renderFigurePassage(step) : "",
+  };
   const fields = {
     step_id: step.step_id,
     step_lines: `${step.lines[0]}–${step.lines[1]}`,
+    // COUNTED FROM THE SCHEMA, never spelled here. The sentence the reviewer
+    // reads about how many fields the record has is the same number the
+    // validator refuses on, so a schema gaining a field cannot leave the
+    // instruction saying the old count.
+    record_field_count: numberWord(recoveredFieldCount(step)),
+    figure_field: step.figure ? FIGURE_FIELD_INSTRUCTION : "",
     recover_command: `node src/review-draft.mjs recover --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${step.step_id} --file <recovered.json>`,
   };
   for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
@@ -591,13 +761,85 @@ function validateRecovered(text, step, file) {
   // TOP LEVEL ONLY, which is deliberate and not an oversight. `required` is
   // the declaration of this level's vocabulary; a nested object's admissible
   // keys are `fields.<name>.item_required`, already enforced per field below.
+  //
+  // THE ADMISSIBLE SET IS COMPUTED FROM THE STEP, NOT FIXED FOR THE DRAFT
+  // (kogaki#880). `conditional_required` declares a field owed by a Step
+  // satisfying its condition and refused on one that does not, so the set is
+  // still TOTAL at every Step — which is the property #885 closed the set for —
+  // while a figure-carrying Step owes the eighth field and a figureless one is
+  // refused it BY NAME. A reviewer inventing `figure_reading` for a passage
+  // that met no figure is not annotating harmlessly: it is a reading of
+  // something nobody rendered, and accepting it would put an invention beside
+  // seven recovered facts with nothing marking which is which.
+  const conditional = schema.conditional_required || {};
+  const owedConditional = [];
+  const refusedConditional = [];
+  for (const [name, spec] of Object.entries(conditional)) {
+    if (name === "note") continue;
+    (conditionHolds(spec.when, step) ? owedConditional : refusedConditional).push([name, spec]);
+  }
   if (schema.closed_key_set) {
-    const named = new Set(schema.required || []);
+    const named = new Set([...(schema.required || []), ...owedConditional.map(([n]) => n)]);
+    const refusedNames = new Map(refusedConditional);
     for (const k of Object.keys(rec)) {
       if (named.has(k) || forbidden.has(k)) continue;
+      if (refusedNames.has(k)) {
+        problems.push(`carries \`${k}\`, which this Step does not owe — src/recovered-schema.json `
+          + `declares it only where \`${refusedNames.get(k).when}\` holds of the Step, and it does `
+          + `not hold of ${step.step_id}. A reading of something the Draft did not put in front of `
+          + "the reviewer is an invention, not a recovery");
+        continue;
+      }
       problems.push(`carries the unnamed top-level key \`${k}\` — the record's shape is CLOSED to `
         + `the fields src/recovered-schema.json declares (${(schema.required || []).join(", ")}), `
         + "so a key the Harness does not read cannot silently carry a judgment");
+    }
+  }
+
+  // The owed conditional fields, validated by the same per-field rules the
+  // required ones get. An OBJECT field is the one shape `required` has no
+  // member of, so its interior is walked here rather than through the array
+  // path above.
+  for (const [name, spec] of owedConditional) {
+    if (!Object.prototype.hasOwnProperty.call(rec, name)) {
+      problems.push(`is missing \`${name}\`, which this Step owes — the Draft renders a figure at `
+        + `lines ${step.figure ? `${step.figure.lines[0]}–${step.figure.lines[1]}` : "(none)"} and `
+        + "the recovery input quoted it, so a record with no reading of it leaves the figure "
+        + "reviewed by nothing");
+      continue;
+    }
+    const v = rec[name];
+    if (v === null || typeof v !== "object" || Array.isArray(v)) {
+      problems.push(`\`${name}\` must be an object carrying ${(spec.item_required || []).join(", ")}`);
+      continue;
+    }
+    const admissible = new Set(spec.item_required || []);
+    for (const k of Object.keys(v)) {
+      if (!admissible.has(k)) {
+        problems.push(`\`${name}\`.${k} is not one of the fields src/recovered-schema.json declares `
+          + `for it (${[...admissible].join(", ")})`);
+      }
+    }
+    for (const req of spec.item_required || []) {
+      const sub = (spec.fields || {})[req] || {};
+      const at = `\`${name}\`.${req}`;
+      if (!Object.prototype.hasOwnProperty.call(v, req)) { problems.push(`${at} is missing`); continue; }
+      const val = v[req];
+      if (sub.type === "string") {
+        if (typeof val !== "string" || val.trim() === "") problems.push(`${at} must be a non-empty string`);
+        continue;
+      }
+      if (sub.type !== "array") continue;
+      if (!Array.isArray(val)) { problems.push(`${at} must be an array`); continue; }
+      if (sub.min !== undefined && val.length < sub.min) {
+        problems.push(`${at} carries ${val.length} entr${val.length === 1 ? "y" : "ies"} and needs `
+          + `at least ${sub.min}${sub.why_min ? ` — ${sub.why_min}` : ""}`);
+      }
+      val.forEach((x, i) => {
+        if (sub.of === "string" && (typeof x !== "string" || x.trim() === "")) {
+          problems.push(`${at}[${i}] must be a non-empty string`);
+        }
+      });
     }
   }
 
@@ -752,7 +994,15 @@ function cmdRecover(args) {
   // workspace and validated later would leave `compare` to discover the defect,
   // by which point the reviewer who could fix it has finished reading.
   const content = readFileSync(file, "utf8");
-  const step = run.steps.find((x) => x.step_id === stepId);
+  // THE STEP COMES FROM THE DRAFT, NOT FROM THE RUN RECORD (kogaki#880). The
+  // run record carries the Step's identity and its ranges; whether the Step has
+  // a figure — and where its block sits — is resolved from the trace, which is
+  // the same read the recovery input was rendered from. Validating against the
+  // run record's copy would let the conditional eighth field be owed at render
+  // and unowed at validation, which is the two-answers-to-one-question shape
+  // this Harness refuses everywhere else.
+  const { steps } = resolveInputs(draft);
+  const step = steps.find((x) => x.step_id === stepId);
   validateRecovered(content, step, file);
 
   const dir = join(ws, "recovered");
@@ -764,7 +1014,6 @@ function cmdRecover(args) {
   const next = nextUnrecovered(run);
   let nextInput = null;
   if (next) {
-    const { steps } = resolveInputs(draft);
     const full = steps.find((s) => s.step_id === next.step_id);
     nextInput = renderRecoveryInput(ws, draft, full, steps);
     run.rendered[next.step_id] = nextInput;
@@ -1142,6 +1391,11 @@ function declaredFor(step, items) {
   const text = readFileSync(step.packet_path, "utf8");
   const need = new Set();
   for (const it of items.items) {
+    // A ROW THIS STEP DOES NOT RUN ASKS FOR NO BLOCK (kogaki#880). Collecting a
+    // figure row's Packet blocks on a figureless Step would refuse that Step as
+    // a Packet gap for a block no item on it ever reads — a refusal naming a
+    // repair nobody owes.
+    if (it.figure_only && !step.figure) continue;
     if (it.declared_block) need.add(it.declared_block);
     for (const b of it.also_declared_blocks || []) need.add(b);
   }
@@ -1325,6 +1579,121 @@ const MECHANICAL = {
 // ---------------------------------------------------------------------------
 // Rendering one join Packet, and recording the verdict that comes back.
 
+// ---------------------------------------------------------------------------
+// THE FIGURE'S DECLARED SIDE (kogaki#880). Read from the validated record the
+// trace pins, never from the Packet: the record IS the declaration for a figure
+// — the Brief bound each role to a ground and the record worded it — and the
+// Packet carries no figure block at all (§4.17 keeps the figure input behind
+// its own marker, outside the Packet the reviewer's items read).
+//
+// A ROW NAMING BOTH SIDES IS REFUSED. Two declared carriers on one row is two
+// questions, and this table holds one per row; a runtime that picked one
+// silently would make which carrier answered a fact about the reading order.
+function figureDeclared(step, item) {
+  if (item.declared_block && item.record_field) {
+    fail(`the item table declares \`${item.id}\` with both a Packet block and a figure record `
+      + "field. One row asks one question of one declared side; a row with two would be answered "
+      + "against whichever the runtime happened to read first");
+  }
+  const rec = step.figure.record_json;
+  const v = rec[item.record_field];
+  if (v === undefined) {
+    fail(`step ${step.step_id}: item \`${item.id}\` reads the figure record's `
+      + `\`${item.record_field}\`, and the record at ${step.figure.record_path} carries no such `
+      + "field. The record was validated against src/figure-schema.json when it was written, so a "
+      + "field absent now means the schema and the item table disagree about the record's shape");
+  }
+  return v;
+}
+
+// The record's elements as a reader-facing list: the role and the wording, and
+// NEVER the ground address. The ground is what the element is judged against
+// and appears on its own side of the mechanical check below; rendering it here
+// would put the answer into the question.
+function renderElements(elements) {
+  return Object.entries(elements)
+    .map(([role, el]) => `- **${role}.** ${el && el.text}`).join("\n");
+}
+
+// The one figure row the Harness decides alone. EVERY ELEMENT'S TEXT IS
+// ENTAILED BY ITS BOUND GROUND, and the instrument is containment against the
+// ground the record's address POINTS AT — the same containment `grounds` uses
+// on the prose side, with its own declared floor, so the two halves of the
+// round trip measure entailment the same way.
+//
+// THE BINDING ITSELF IS NOT WHAT THIS CHECKS, and saying so is the point.
+// §4.17 already refuses a record that moves a role to a ground the Brief did
+// not bind it to, at the act that validates the record — so re-deciding it here
+// would be a second validator agreeing with the first until one is edited. What
+// no act before this one can ask is whether the WORDING the element finally got
+// is carried by the material it was licensed from, because the wording is
+// written after the prose and judged against nothing until the round trip.
+//
+// STRING CONTAINMENT FIRST, JUDGED SECOND. What is mechanical here is the
+// verdict: containment above the floor holds, below it fails, and no model is
+// asked either way — which is what the mode declares and what makes a
+// mechanical fail cheap enough to run on every Step of every pass. The judgment
+// comes second and elsewhere: a fail on this preserved row is what sends the
+// Step to `correct --figure`, where a reader is shown the element beside the
+// ground it was worded from.
+//
+// THE ADDRESS IS `g<n>` OVER THE STEP'S OWN GROUNDS, 1-based, which is §4.16's
+// grammar. An address outside the Step's ground count is refused by name rather
+// than scored against whatever happens to sit at that index — §4.16's own
+// grammar refuses one at composition, so a record carrying one now was written
+// against a Brief this Draft was not emitted from.
+function groundAt(address, grounds) {
+  const m = /^g(\d+)$/.exec(String(address ?? ""));
+  if (!m) return { error: `is bound to ${renderSide(address ?? null)}, which is not a ground `
+    + "address — §4.16 binds a role to `g<n>` over the Step's own grounds" };
+  const i = Number(m[1]);
+  if (i < 1 || i > grounds.length) {
+    return { error: `is bound to ${address} and this Step declares `
+      + `${grounds.length} ground${grounds.length === 1 ? "" : "s"} — the address points past them` };
+  }
+  return { ground: grounds[i - 1] };
+}
+
+const MECHANICAL_FIGURE = {
+  "figure-element-ground": ({ step, declared, items, item }) => {
+    const floor = items.thresholds.figure_element_ground_containment;
+    if (typeof floor !== "number") {
+      fail("the item table declares no `thresholds.figure_element_ground_containment`, and the "
+        + "element-to-ground check is containment against a floor. With none every element would "
+        + "pass, which is the silent `holds` this comparison exists to refuse");
+    }
+    const grounds = declared.grounds || [];
+    const elements = figureDeclared(step, item);
+    for (const [role, el] of Object.entries(elements)) {
+      const r = groundAt(el && el.ground, grounds);
+      if (r.error) {
+        return {
+          verdict: "fails",
+          reason: "an element's ground address does not resolve against this Step's grounds",
+          evidence: [`${role} ${r.error}`],
+          span: step.figure.lines,
+        };
+      }
+      const cw = contentWords(el && el.text);
+      const gs = new Set(contentWords(r.ground));
+      const share = cw.length ? cw.filter((w) => gs.has(w)).length / cw.length : 0;
+      if (share < floor) {
+        return {
+          verdict: "fails",
+          reason: "an element is worded in terms its bound ground does not carry",
+          evidence: [`${role} — ${renderSide(el && el.text)}`, `its ground — ${r.ground}`],
+          span: step.figure.lines,
+        };
+      }
+    }
+    return {
+      verdict: "holds",
+      reason: "every element is worded in the terms of the ground it is bound to",
+      span: step.figure.lines,
+    };
+  },
+};
+
 function renderJoinPacket(ws, draft, step, item, pair, declaredText, recoveredText) {
   const tplPath = join(dirname(fileURLToPath(import.meta.url)), "join-template.md");
   if (!existsSync(tplPath)) {
@@ -1340,7 +1709,12 @@ function renderJoinPacket(ws, draft, step, item, pair, declaredText, recoveredTe
     declared: declaredText,
     recovered: recoveredText,
     span: `${step.lines[0]}–${step.lines[1]}`,
-    quoted: numberedProse(step),
+    // THE JUDGING READER IS TOLD WHICH CARRIER DECLARED THE LINE. It is not the
+    // blind reader — it sees both sides by design — and a figure record's line
+    // rendered under a heading saying `Packet` would name the wrong artifact in
+    // every finding a reader of the join record goes on to repair.
+    declared_source: item.declared_source ?? "Packet",
+    quoted: quotedPassage(step),
     question: item.question,
     record_command: `node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path} --verdicts <verdicts.json>`,
   };
@@ -1446,6 +1820,46 @@ function recordVerdicts(run, file, owed, items) {
 // field means the recovered side IS THE PROSE — the negative items, which ask
 // whether something is absent from the passage rather than whether two lines
 // agree.
+// A DOTTED PATH REACHES ONE LEVEL INTO THE RECOVERED RECORD, and no further.
+// `figure_reading` is the record's one object field, so its sub-fields are the
+// only recovered sides that are not top-level — and bounding the reach at one
+// level is what keeps the item table from becoming a query language over a
+// record whose shape the schema declares.
+function recoveredAt(rec, path) {
+  const parts = String(path).split(".");
+  if (parts.length === 1) return rec[parts[0]];
+  if (parts.length !== 2) {
+    fail(`the item table names the recovered field \`${path}\`, and a recovered side is a `
+      + "top-level field or one sub-field of one. A deeper path would be a query over a record "
+      + "whose shape src/recovered-schema.json declares");
+  }
+  const outer = rec[parts[0]];
+  return outer === null || outer === undefined ? undefined : outer[parts[1]];
+}
+
+// The declared side of one judged row, rendered. THREE CARRIERS, and the row
+// says which — the Packet block, the figure record's field, or the passage
+// itself. `elements` is rendered by its own function because a bare object
+// dump would carry each element's ground address into the question, and the
+// ground is what the mechanical row already answers.
+function declaredSide(step, item, declared, items) {
+  if (item.record_field) {
+    const v = figureDeclared(step, item);
+    if (item.record_field === "elements") return renderElements(v);
+    const also = (item.also_declared_blocks || [])
+      .map((b) => `- **the Step's ${b}.** ${renderSide(declared[b])}`);
+    return also.length
+      ? [`- **the record's ${item.record_field}.** ${renderSide(v)}`, ...also].join("\n")
+      : renderSide(v);
+  }
+  if (item.declared_block) return renderSide(declared[item.declared_block]);
+  if (item.declared_source === "passage") {
+    return "(the passage and the figure beside it, quoted below — both sides of this pair were "
+      + "recovered from them)";
+  }
+  return renderSide(null);
+}
+
 function renderSide(v) {
   if (v === null || v === undefined) return "(none)";
   if (Array.isArray(v)) return v.length ? v.map((x) => `- ${x}`).join("\n") : "(none)";
@@ -1492,6 +1906,14 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       : [];
 
     for (const item of items.items) {
+      // A FIGURE ROW ON A FIGURELESS STEP IS NOT EVALUATED, NOT RENDERED AND
+      // NOT LOGGED (kogaki#880), and the skip is FIRST — before the bound, so
+      // pass two neither carries it nor demands a pass-one answer for it. A
+      // vacuous `holds` would be the cheaper implementation and the wrong one:
+      // it puts an answer about nothing beside answers about something, and it
+      // makes the mechanical arm of the second pass's bound report coverage of
+      // Steps that have no figure to cover.
+      if (item.figure_only && !step.figure) continue;
       // OUT OF BOUND: CARRIED, AND THE CHECK IS FIRST. Placed before the
       // mechanical dispatch and before any join Packet is rendered, so an
       // out-of-bound pair costs no model call and appears in neither log. A
@@ -1527,7 +1949,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       const ctx = { declared, rec, step, draft, earlier, items, pairs, item };
 
       if (item.mode === "mechanical") {
-        const impl = MECHANICAL[item.id];
+        const impl = MECHANICAL[item.id] || MECHANICAL_FIGURE[item.id];
         if (!impl) {
           fail(`the item table declares \`${item.id}\` mechanical and this Harness has no `
             + "implementation for it — a mechanical item with no check would report `holds` for "
@@ -1581,8 +2003,8 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       } else {
         const key = verdictKey(step.step_id, item.id, null);
         const file = renderJoinPacket(ws, draft, step, item, null,
-          renderSide(item.declared_block ? declared[item.declared_block] : null),
-          item.recovered_field ? renderSide(rec[item.recovered_field])
+          declaredSide(step, item, declared, items),
+          item.recovered_field ? renderSide(recoveredAt(rec, item.recovered_field))
             : "(the passage itself, quoted below — this item asks whether something is ABSENT from it)");
         modelCalls.push({ step_id: step.step_id, item: item.id, pair: null, packet: file });
         const v = verdicts[key];
@@ -2179,13 +2601,144 @@ function correctionOwed(run) {
   return run.steps.map((s) => s.step_id).filter((id) => failing.has(id));
 }
 
+// ---------------------------------------------------------------------------
+// THE FIGURE CORRECTION (kogaki#880). A failing PRESERVED figure item sends its
+// Step to correction exactly as a failing prose item does — same class rule,
+// same consequence — but what is re-realized is the RECORD, not the passage.
+//
+// TWO CORRECTIONS, NOT ONE WIDENED ONE, and the split is the design rather than
+// an implementation convenience. The prose correction hands back prose and goes
+// through `draft.mjs section`; the figure correction hands back a JSON record
+// and goes through `draft.mjs figure`, which re-validates it against
+// src/figure-schema.json and the Move's own form. Composing them would mean one
+// act whose input shape depends on which item failed, and a session would have
+// to know which before it could answer.
+//
+// PROSE FIRST WHERE A STEP OWES BOTH. §4.17's whole ground for filling the
+// record after the text is that the caption is stated in what the reader holds
+// after reading THIS passage — so a record corrected against prose that is
+// about to change is a record corrected against nothing.
+
+// The figure rows of the table, read from it rather than spelled here: a
+// runtime naming figure item ids could not be told from one restating the
+// table, the same rule `pass_two` already states about the second pass's arms.
+function figureItemIds(items) {
+  return new Set(items.items.filter((i) => i.figure_only).map((i) => i.id));
+}
+
+// Which of a Step's failing preserved items are the figure's, and which are the
+// passage's. A Section route localizes to a Step and never to its figure, so it
+// counts on the prose side — ReviewDraft corrects at Step granularity and a
+// Section's complaint is about the prose the Section groups.
+function failingSides(run, items, stepId) {
+  const fig = figureItemIds(items);
+  const rows = (run.findings || [])
+    .filter((f) => f.step_id === stepId && f.verdict === "fails" && f.class === "preserved");
+  const localized = (run.section_routes || []).some((r) => r.kind === "localized" && r.step_id === stepId);
+  return {
+    prose: rows.filter((f) => !fig.has(f.item)).map((f) => f.item).concat(localized ? ["(section)"] : []),
+    figure: rows.filter((f) => fig.has(f.item)).map((f) => f.item),
+  };
+}
+
+// The Steps owed a PASSAGE correction, in path order. A Step whose only failing
+// preserved items are the figure's is not here — its re-realization is the
+// record, and `correct` without `--figure` would hand it the wrong input.
+function correctionOwedProse(run, items) {
+  return run.steps.map((s) => s.step_id).filter((id) => failingSides(run, items, id).prose.length);
+}
+
+// The Steps owed a figure correction, in path order — the same order and the
+// same enforcement the prose corrections run under.
+function figureCorrectionOwed(run, items) {
+  return run.steps.map((s) => s.step_id).filter((id) => failingSides(run, items, id).figure.length);
+}
+
+// The evidence a figure Correction block carries: this Step's rows, split the
+// way the block renders them, restricted to the figure's own items. The held
+// side is restricted the same way — what a figure correction must not break is
+// the figure's other preserved items, and listing the passage's would ask the
+// author of a JSON record not to break prose they are not editing.
+function figureCorrectionEvidence(joinRec, items, stepId) {
+  const fig = figureItemIds(items);
+  const rows = (joinRec.results || []).filter((r) => r.step_id === stepId && fig.has(r.item));
+  return {
+    failed: rows.filter((r) => r.verdict === "fails"),
+    held: rows.filter((r) => r.verdict === "holds" && r.class === "preserved"),
+    undecided: rows.filter((r) => r.verdict === "cannot-decide"),
+  };
+}
+
+function renderFigureCorrectionBlock(step, evidence, packet) {
+  const out = [];
+  out.push("# Correct the figure record — " + step.step_id, "",
+    "This Step's figure has already been designed once. What you hand back is a",
+    "RECORD, not prose: one JSON object, the instance of this Step's Move form,",
+    "validated against `src/figure-schema.json` by the same act that validated",
+    "the first one. The passage itself is not yours to change here.", "");
+  out.push("## The Step this figure belongs to", "",
+    "The Packet below is this Step's, re-rendered as it now stands. The record's",
+    "elements are worded from the grounds it declares, and its caption is stated",
+    "in what the Step says its reader holds afterwards.", "", packet.trim(), "");
+  out.push("## The passage, as it now stands", "",
+    ...numberedProse(step).split("\n").map((l) => `    ${l}`), "");
+  out.push("## The figure as the reader currently meets it", "",
+    ...numberedFigure(step).split("\n").map((l) => `    ${l}`), "",
+    "Rendered by the Harness from the record below. You do not write this markup",
+    "and nothing you hand back may contain any: the renderer re-runs on the",
+    "record you return, which is what makes the transcription the same function",
+    "every time.", "");
+  out.push("## The previous record, verbatim", "",
+    "```json",
+    JSON.stringify(step.figure.record_json, null, 2),
+    "```", "");
+  out.push("## What failed", "");
+  if (!evidence.failed.length) {
+    out.push("_No figure item failed on this Step._", "");
+  } else {
+    for (const f of evidence.failed) {
+      out.push(`- **${f.item}** (${f.class}) — ${f.reason}`);
+      out.push(`  - span: lines ${f.span[0]}–${f.span[1]} of the Draft as it stood`);
+      for (const e of [].concat(f.evidence ?? [])) out.push(`  - evidence: ${e}`);
+      for (const pr of f.pairs || []) {
+        if (pr.verdict && pr.verdict !== "holds") {
+          out.push(`  - pair ${pr.pair === null ? "(whole item)" : pr.pair} — ${pr.verdict}: ${pr.reason}`);
+        }
+      }
+    }
+    out.push("");
+  }
+  out.push("## What held, and must go on holding", "");
+  out.push(evidence.held.length
+    ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
+    : "_No preserved figure item holds on this Step, so this correction breaks nothing by leaving it._");
+  out.push("");
+  if (evidence.undecided.length) {
+    out.push("## What the reader could not settle", "",
+      "Listed and never rounded. These are not instructions.", "",
+      ...evidence.undecided.map((u) => `- **${u.item}** — ${u.reason}`), "");
+  }
+  out.push("## The instruction", "",
+    "Change what the findings above name and nothing else. Keep the record's",
+    "`kind` — it is the Move form's and not a choice made here — and keep every",
+    "role the form declares. An element's `ground` names the ground the Brief",
+    "bound its role to; reword the element, never the binding, unless a finding",
+    "says the binding itself is wrong.", "");
+  return out.join("\n");
+}
+
 // The two sides of the Correction block's evidence, from the pass-one record:
 // what failed on this Step, and what HELD on it as a preserved item. The second
 // is not decoration — it is what the correction must not break, and a
 // correction instruction that named only the failures would be asking for a
 // rewrite rather than a repair.
-function correctionEvidence(joinRec, stepId) {
-  const rows = (joinRec.results || []).filter((r) => r.step_id === stepId);
+// THE FIGURE'S ROWS ARE NOT IN THE PROSE BLOCK (kogaki#880). What failed on the
+// record is repaired by editing the record, and listing it here would ask the
+// author of a passage to fix something the passage cannot reach — and put it
+// under a heading saying "change what the findings above name".
+function correctionEvidence(joinRec, stepId, items) {
+  const fig = items ? figureItemIds(items) : new Set();
+  const rows = (joinRec.results || []).filter((r) => r.step_id === stepId && !fig.has(r.item));
   return {
     failed: rows.filter((r) => r.verdict === "fails"),
     held: rows.filter((r) => r.verdict === "holds" && r.class === "preserved"),
@@ -2275,9 +2828,166 @@ function correctionInputPath(ws, stepId) {
   return join(ws, "correction", `${stepId}.md`);
 }
 
+// THE FIGURE CORRECTION'S TWO PHASES (kogaki#880), the same shape the prose
+// correction has: render the input, then record what came back. Between them
+// the run is MID-CORRECTION on this Step and every other act refuses by name,
+// which is `requireCurrent`'s existing guard and is not re-implemented here.
+function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId }) {
+  const step = resolveInputs(draft).steps.find((x) => x.step_id === stepId);
+  if (!step.figure) {
+    fail(`step ${stepId} carries no figure in the Draft's trace, so there is no record to `
+      + "correct. A figure enters at composition, on the Brief (§4.16), and never here");
+  }
+
+  // --- phase A: render the correction input ------------------------------
+  if (args.file === undefined) {
+    // THE PACKET IS RE-RENDERED FOR THE SAME REASON THE PROSE CORRECTION
+    // RE-RENDERS IT: the record's elements are worded from the Step's grounds
+    // and its caption from the state the Step leaves its reader in, and both
+    // are the Packet's. A record corrected against the Packet that produced the
+    // failing figure would be corrected against the input already found wanting.
+    const r = draftLane("packet", draft, args, ["--step", stepId]);
+    const prefix = `packet ${stepId}: `;
+    const line = (r.stderr || "").split("\n").find((l) => l.startsWith(prefix));
+    if (!line) {
+      fail("the realization lane rendered a Packet and did not say where it stored it, so this "
+        + "cannot show a reviewer the input the correction is written from. Its output, "
+        + `verbatim:\n${(r.stderr || r.stdout || "(no output)").trim()}`);
+    }
+    const freshPath = line.slice(prefix.length).trim();
+    if (!existsSync(freshPath)) fail(`the realization lane named a Packet at ${freshPath} and no file is there`);
+    const fresh = readFileSync(freshPath, "utf8");
+    const dest = join(ws, "correction", `${stepId}.figure.md`);
+    mkdirSync(dirname(dest), { recursive: true });
+    writeFileSync(dest, renderFigureCorrectionBlock(
+      step, figureCorrectionEvidence(joinRec, items, stepId), fresh) + "\n");
+    run.correction_inputs = run.correction_inputs || {};
+    run.correction_inputs[`${stepId}#figure`] = {
+      path: dest, packet: freshPath, packet_sha: sha256(fresh),
+      record: step.figure.record_path, record_sha: step.figure.record_sha,
+      rendered: step.figure.rendered, rendered_at: new Date().toISOString(),
+    };
+    run.correcting = { step_id: stepId, seat: "figure", input: dest, since: new Date().toISOString() };
+    writeRun(ws, run);
+    process.stdout.write(
+      `figure correction input: ${dest}\n`
+      + "  It carries this Step's Packet re-rendered as it now stands, the passage, the figure as\n"
+      + "  the reader currently meets it, the previous record verbatim, what failed and what must\n"
+      + "  go on holding.\n"
+      + "Design the record again from it, then record with\n"
+      + `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure --file <record.json>\n`
+      + "You write no markup: `draft.mjs figure` re-validates the record and `emit` re-renders the\n"
+      + "block from it, so the transcription is the same function it was the first time.\n");
+    return;
+  }
+
+  // --- phase B: record the corrected record ------------------------------
+  const file = argString(args, "file",
+    "usage: review-draft correct --draft <draft.md> --step <id> --figure --file <record.json>");
+  const input = (run.correction_inputs || {})[`${stepId}#figure`];
+  if (!input) {
+    fail(`step ${stepId} has no rendered FIGURE correction input, so this record was not written `
+      + `against one. Render it first:\n  node src/review-draft.mjs correct --draft `
+      + `${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure`);
+  }
+  if (!existsSync(file)) fail(`no corrected figure record at ${file}`);
+
+  const snapDir = join(ws, "snapshots");
+  mkdirSync(snapDir, { recursive: true });
+  const seq = String((run.corrections || []).length + 1).padStart(2, "0");
+  writeFileSync(join(snapDir, `${seq}-before-${stepId}.figure.md`), draft.text);
+
+  // THE RENDERER RE-RUNS BY CONSTRUCTION. `figure` re-validates the record
+  // against src/figure-schema.json and the Move's own form — every role
+  // present, no extra role, the kind the form's, a position from the closed
+  // pair — and `emit` renders the block from it. Nothing here transcribes
+  // anything, which is why a syntax defect in a corrected figure stays a defect
+  // of src/render-figure.mjs rather than of the sitting that corrected it.
+  draftLane("figure", draft, args, ["--step", stepId, "--file", resolve(file)]);
+  draftLane("emit", draft, args, []);
+
+  const after = readDraft(draftPath);
+  const afterSteps = resolveInputs(after).steps;
+  const corrected = afterSteps.find((s) => s.step_id === stepId);
+  if (!corrected) fail(`step ${stepId} is absent from the re-emitted Draft's trace`);
+  if (!corrected.figure) {
+    fail(`step ${stepId} carries no figure in the re-emitted Draft — the correction was recorded `
+      + "and the block did not come back, which is the drop-with-no-report shape §4.18 refuses");
+  }
+  writeFileSync(join(snapDir, `${seq}-after-${stepId}.figure.md`), after.text);
+
+  const ev = figureCorrectionEvidence(joinRec, items, stepId);
+  run.corrections = run.corrections || [];
+  run.corrections.push({
+    step_id: stepId,
+    seat: "figure",
+    pass: 1,
+    what: "the figure record re-designed from a Packet re-rendered against the article as it "
+      + `stood, with a Correction block carrying ${ev.failed.length} failed figure item(s) and `
+      + `${ev.held.length} held preserved figure item(s); re-validated by \`draft.mjs figure\` and `
+      + "re-rendered by `emit`",
+    failed_items: ev.failed.map((f) => f.item),
+    held_preserved: ev.held.map((h) => h.item),
+    input: input.path,
+    packet_sha: input.packet_sha,
+    record_sha_before: input.record_sha,
+    record_sha_after: corrected.figure.record_sha,
+    // DRIFT IS REPORTED FOR THE FIGURE TOO, and it is the one figure a reader
+    // can check: whether the rendered block moved at all. A correction that
+    // re-validated a record and produced identical bytes changed nothing the
+    // reader meets, which is information the owner reads rather than a refusal.
+    block_changed: corrected.figure.rendered !== input.rendered
+      ? "the rendered block differs from the one the reader met"
+      : "the rendered block is byte-identical to the one the reader met",
+    snapshot_before: join(snapDir, `${seq}-before-${stepId}.figure.md`),
+    snapshot_after: join(snapDir, `${seq}-after-${stepId}.figure.md`),
+    corrected_at: new Date().toISOString(),
+  });
+
+  run.body_sha = after.body_sha;
+  delete run.correcting;
+  delete run.pass_two_at;
+  delete run.pass_two_cleared;
+  run.steps = afterSteps.map((s) => ({
+    step_id: s.step_id, section: s.section, section_title: s.section_title,
+    lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
+  }));
+  // THE RECOVERY IS DISCARDED for the same reason a prose correction discards
+  // it: the blind reviewer read a figure that no longer exists, and keeping the
+  // record would let pass two judge a new block against an old reading.
+  delete run.recovered[stepId];
+  delete run.rendered[stepId];
+  writeRun(ws, run);
+
+  const proseDone = new Set(run.corrections.filter((c) => (c.seat || "prose") === "prose").map((c) => c.step_id));
+  const figureDone = new Set(run.corrections.filter((c) => c.seat === "figure").map((c) => c.step_id));
+  const stillOwed = [
+    ...correctionOwedProse(run, items).filter((id) => !proseDone.has(id)),
+    ...figureCorrectionOwed(run, items).filter((id) => !figureDone.has(id)).map((id) => `${id} (--figure)`),
+  ];
+  process.stdout.write(
+    `corrected: ${stepId} (figure)\n`
+    + `  record  ${input.record_sha}\n`
+    + `       -> ${corrected.figure.record_sha}\n`
+    + `  ${run.corrections[run.corrections.length - 1].block_changed}\n`
+    + "  reported, never gated — what an unchanged block means is the owner's reading\n"
+    + `  snapshots ${join(snapDir, `${seq}-before-${stepId}.figure.md`)}\n`
+    + `            ${join(snapDir, `${seq}-after-${stepId}.figure.md`)}\n`
+    + (stillOwed.length
+      ? `still owed a correction, in path order: ${stillOwed.join(", ")}\n`
+      : "every Step pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"));
+}
+
 function cmdCorrect(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft correct --draft <draft.md> --step <id> [--file <prose>]");
-  const stepId = argString(args, "step", "usage: review-draft correct --draft <draft.md> --step <id> [--file <prose>]");
+  const usage = "usage: review-draft correct --draft <draft.md> --step <id> [--figure] [--file <prose|record.json>]";
+  const draftPath = argString(args, "draft", usage);
+  const stepId = argString(args, "step", usage);
+  // THE FLAG SAYS WHICH SEAT IS BEING CORRECTED, and it is a flag rather than a
+  // fact derived from what failed (kogaki#880). A Step can owe both a prose and
+  // a figure correction, and the two take different inputs — prose in one and a
+  // JSON record in the other — so a runtime that inferred the seat would decide
+  // what shape the session's file had to be after the session wrote it.
+  const figureMode = args.figure === true;
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
@@ -2291,28 +3001,66 @@ function cmdCorrect(args) {
   const known = run.steps.map((s) => s.step_id);
   if (!known.includes(stepId)) fail(`unknown step \`${stepId}\` — this Draft's Steps are ${known.join(", ")}`);
 
-  const owed = correctionOwed(run);
+  const items = readItems();
+  const owed = figureMode ? figureCorrectionOwed(run, items) : correctionOwedProse(run, items);
   if (!owed.includes(stepId)) {
-    fail(`step ${stepId} carries no failing PRESERVED item, so pass one did not send it to `
-      + "correction. A best-effort fail rides along when its Step is re-realized anyway and never "
-      + `sends one here.\n  owed: ${owed.length ? owed.join(", ") : "(none — no Step is owed a correction)"}`);
+    const sides = failingSides(run, items, stepId);
+    // THE REFUSAL NAMES THE OTHER SEAT WHERE THAT IS WHY IT REFUSED. A Step
+    // owing a figure correction and asked for a prose one is not a Step with
+    // nothing owed, and reporting it as one would send a session looking for a
+    // finding that is recorded and readable.
+    if (!figureMode && sides.figure.length) {
+      fail(`step ${stepId} carries no failing PRESERVED item of the PASSAGE, and it does carry one `
+        + `of the FIGURE (${sides.figure.join(", ")}). What is re-realized there is the figure `
+        + `record, not the prose:\n  node src/review-draft.mjs correct --draft `
+        + `${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure`);
+    }
+    if (figureMode && sides.prose.length) {
+      fail(`step ${stepId} carries no failing PRESERVED FIGURE item, and it does carry one of the `
+        + `passage (${sides.prose.join(", ")}). Drop --figure to correct the prose.`);
+    }
+    fail(`step ${stepId} carries no failing PRESERVED ${figureMode ? "figure " : ""}item, so pass `
+      + "one did not send it to correction. A best-effort fail rides along when its Step is "
+      + `re-realized anyway and never sends one here.\n  owed: ${owed.length ? owed.join(", ") : "(none — no Step is owed a correction)"}`);
   }
   // PATH ORDER IS ENFORCED, not requested. Corrections run in path order so
   // each later one sees the earlier ones in its own "article so far" block —
   // which is the mechanism the whole correction path rests on, and a session
   // correcting out of order would silently get the opposite: a Step realized
   // against prose that is about to change under it.
-  const already = new Set((run.corrections || []).map((c) => c.step_id));
+  //
+  // ORDER IS TRACKED PER SEAT (kogaki#880): a Step's recorded figure correction
+  // does not discharge the prose correction owed on an earlier Step, and the
+  // seat a record carries is what says which it discharged.
+  const seat = figureMode ? "figure" : "prose";
+  const already = new Set((run.corrections || [])
+    .filter((c) => (c.seat || "prose") === seat).map((c) => c.step_id));
   const earlier = owed.slice(0, owed.indexOf(stepId)).filter((id) => !already.has(id));
   if (earlier.length) {
     fail(`corrections run in path order and step ${stepId} is not next — ${earlier.join(", ")} `
-      + `${earlier.length === 1 ? "is" : "are"} owed a correction first. Each correction re-renders `
-      + "the next Step's Packet against the article as it then stands, so correcting out of order "
-      + "realizes a Step against prose that is about to move under it.");
+      + `${earlier.length === 1 ? "is" : "are"} owed a ${seat} correction first. Each correction `
+      + "re-renders the next Step's Packet against the article as it then stands, so correcting out "
+      + "of order realizes a Step against prose that is about to move under it.");
+  }
+  // THE PASSAGE IS CORRECTED BEFORE THE FIGURE IT CARRIES, and this is §4.17's
+  // own ordering rather than a convention chosen here: the record's caption is
+  // stated in what the reader holds after reading THIS passage, and its
+  // elements are worded against prose that must already exist. A record
+  // corrected against prose that is about to change is corrected against
+  // nothing.
+  if (figureMode) {
+    const proseOwed = correctionOwedProse(run, items).includes(stepId);
+    const proseDone = (run.corrections || []).some((c) => c.step_id === stepId && (c.seat || "prose") === "prose");
+    if (proseOwed && !proseDone) {
+      fail(`step ${stepId} owes a correction on its PASSAGE as well, and the passage is corrected `
+        + "first: the record's caption is stated in what the reader holds after reading this "
+        + "passage, and its elements are worded from prose that must already exist (§4.17).\n"
+        + `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId}`);
+    }
   }
 
-  const items = readItems();
   const joinRec = readJoin(ws);
+  if (figureMode) { correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId }); return; }
 
   // --- phase A: render the correction input ------------------------------
   if (args.file === undefined) {
@@ -2337,7 +3085,7 @@ function cmdCorrect(args) {
     const freshPath = line.slice(prefix.length).trim();
     if (!existsSync(freshPath)) fail(`the realization lane named a Packet at ${freshPath} and no file is there`);
     const fresh = readFileSync(freshPath, "utf8");
-    const block = renderCorrectionBlock(step, correctionEvidence(joinRec, stepId));
+    const block = renderCorrectionBlock(step, correctionEvidence(joinRec, stepId, items));
     const dest = correctionInputPath(ws, stepId);
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, (fresh.endsWith("\n") ? fresh : fresh + "\n") + block);
@@ -2406,10 +3154,11 @@ function cmdCorrect(args) {
   writeFileSync(join(snapDir, `${seq}-after-${stepId}.md`), after.text);
 
   const drift = driftOf(before, corrected.prose, packetLines, items.thresholds.verbatim_overlap_words);
-  const ev = correctionEvidence(joinRec, stepId);
+  const ev = correctionEvidence(joinRec, stepId, items);
   run.corrections = run.corrections || [];
   run.corrections.push({
     step_id: stepId,
+    seat: "prose",
     pass: 1,
     what: `re-realized from a Packet re-rendered against the article as it stood, with a Correction `
       + `block carrying ${ev.failed.length} failed item(s) and ${ev.held.length} held preserved item(s)`,
@@ -2442,7 +3191,12 @@ function cmdCorrect(args) {
   delete run.rendered[stepId];
   writeRun(ws, run);
 
-  const stillOwed = correctionOwed(run).filter((id) => !new Set(run.corrections.map((c) => c.step_id)).has(id));
+  const proseDone = new Set(run.corrections.filter((c) => (c.seat || "prose") === "prose").map((c) => c.step_id));
+  const figureDone = new Set(run.corrections.filter((c) => c.seat === "figure").map((c) => c.step_id));
+  const stillOwed = [
+    ...correctionOwedProse(run, items).filter((id) => !proseDone.has(id)),
+    ...figureCorrectionOwed(run, items).filter((id) => !figureDone.has(id)).map((id) => `${id} (--figure)`),
+  ];
   process.stdout.write(
     `corrected: ${stepId}\n`
     + `  drift   ${drift.change_share}\n`
@@ -2895,6 +3649,7 @@ const USAGE = `review-draft — the round-trip review of a CanonicalDraft agains
   node src/review-draft.mjs read    --draft <draft.md> --claim --file <claim.json>
   node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
   node src/review-draft.mjs correct --draft <draft.md> --step <id> [--file <prose>]
+  node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure [--file <record.json>]
   node src/review-draft.mjs check   --draft <draft.md> [--verdicts <verdicts.json>]
   node src/review-draft.mjs close   --draft <draft.md>
 
@@ -2913,6 +3668,15 @@ go on holding. With \`--file\` it records the corrected prose through the
 realization lane and reports the drift: the share of sentences changed and the
 verbatim overlap with the Packet's ground and state lines. Both are REPORTED and
 neither gates. Corrections run in path order, and a Step out of order refuses.
+
+\`--figure\` corrects the Step's FIGURE RECORD instead of its passage, and it is
+the seat a failing preserved figure item sends the Step to. Phase A renders the
+Packet as it now stands, the passage, the block as the reader currently meets
+it, the previous record verbatim, and what failed and held; phase B takes the
+re-designed record and hands it to \`draft.mjs figure\`, which re-validates it,
+and \`emit\`, which re-renders the block from it. You write no markup. A Step
+owing both corrections takes the passage first: the record's caption is stated
+in what the reader holds after reading that passage.
 
 \`check\` is pass two and is BOUNDED: it re-runs the blind recovery for the
 corrected Steps, then re-judges their own failed and held preserved items, the
@@ -2987,18 +3751,63 @@ async function runSelfTest() {
     { index: 2, title: "The second heading", steps: ["a3"] },
   ];
 
+  // THE FIGURE'S MARKUP COMES FROM THE REAL RENDERER (kogaki#880), reached by
+  // SPAWNING it rather than importing it: this pass asserts a closed input
+  // allowlist that forbids importing anything but node builtins and ./runs.mjs,
+  // and a hand-written block would be this fixture's belief about what §4.18
+  // emits — the same belief PR #895 found wrong twice about the Packet
+  // template. Spawning costs one process per figure and buys the property that
+  // matters: what the blind reviewer is shown here is what a reader meets.
+  function renderFigureMarkup(record) {
+    const src = "import(process.argv[1]).then(m => {"
+      + " const r = m.renderFigure(JSON.parse(process.argv[2]));"
+      + " if (r.error) { process.stderr.write(r.error); process.exit(1); }"
+      + " process.stdout.write(r.markup); });";
+    const r = spawnSync(process.execPath,
+      ["-e", src, join(dirname(self), "render-figure.mjs"), JSON.stringify(record)],
+      { encoding: "utf8" });
+    if (r.status !== 0) {
+      throw new Error(`the fixture could not render a figure through src/render-figure.mjs: `
+        + `${(r.stderr || "(no output)").trim()}`);
+    }
+    return r.stdout;
+  }
+
   function buildDraft(dir, { packetDir, mutate = (t) => t, omitLines = null, omitPacket = null,
-    prose = PROSE } = {}) {
+    prose = PROSE, figures = null } = {}) {
     mkdirSync(dir, { recursive: true });
-    // Body first, recording each Step's 1-based body range.
-    const body = []; const ranges = {};
+    // The figure records are written first: the body needs their markup and the
+    // trace needs their shas, and both are the record AS STORED.
+    const figureFiles = {};
+    for (const [id, f] of Object.entries(figures || {})) {
+      const fp = join(dir, `figure-${id}.json`);
+      writeFileSync(fp, JSON.stringify(f.record, null, 2) + "\n");
+      figureFiles[id] = { path: fp, sha: sha256(readFileSync(fp, "utf8")),
+        markup: renderFigureMarkup(f.record), position: f.record.position };
+    }
+    // Body first, recording each Step's 1-based body range. The figure is
+    // pushed before or after the prose per its record's `position`, which is
+    // exactly what `src/draft.mjs assembleBody` does — and its range is
+    // recorded separately, because §4.18's whole point is that the Step's own
+    // range spans the prose alone.
+    const body = []; const ranges = {}; const figureRanges = {};
+    const pushBlock = (markup) => {
+      const start = body.length + 1;
+      body.push(...markup.replace(/\n+$/, "").split("\n"));
+      const span = [start, body.length];
+      body.push("");
+      return span;
+    };
     for (const sec of SECTIONS) {
       body.push(`## ${sec.title}`, "");
       for (const id of sec.steps) {
+        const f = figureFiles[id];
+        if (f && f.position === "before") figureRanges[id] = pushBlock(f.markup);
         const start = body.length + 1;
         body.push(...prose[id]);
         ranges[id] = [start, body.length];
         body.push("");
+        if (f && f.position === "after") figureRanges[id] = pushBlock(f.markup);
       }
     }
     while (body.length && body[body.length - 1] === "") body.pop();
@@ -3020,12 +3829,18 @@ async function runSelfTest() {
         t.packet = relative(dir, p);
         t.packet_sha = sha256(readFileSync(p, "utf8"));
       }
+      const f = figureFiles[t.step_id];
+      if (f) {
+        const fr = figureRanges[t.step_id];
+        t.figure = { position: f.position, record: relative(dir, f.path), record_sha: f.sha,
+          lines: [fr[0] + bodyOffset, fr[1] + bodyOffset] };
+      }
     }
     const fm = [...head, ...trace.map((t) => `  - ${JSON.stringify(t)}`), "---"].join("\n");
     const text = mutate(fm + "\n\n" + body.join("\n") + "\n");
     const out = join(dir, "draft.md");
     writeFileSync(out, text);
-    return { path: out, ranges, bodyOffset };
+    return { path: out, ranges, bodyOffset, figureRanges, figureFiles };
   }
 
   // THE FIXTURE PACKETS ARE RENDERED IN THE TEMPLATE'S OWN SHAPE (kogaki#872),
@@ -3651,10 +4466,29 @@ async function runSelfTest() {
 
     const ITEMS = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     baseLines = linesOf(r.stdout);
+    // THE ROWS THAT APPLY TO THIS DRAFT, computed from the table rather than
+    // counted here (kogaki#880). This fixture's Steps carry no figure, so the
+    // figure rows are not evaluated on them — and the count is derived from
+    // `figure_only` so a table gaining a sixth figure row moves this number
+    // without anyone editing it, while a table gaining an ordinary row still
+    // fails here if the runtime does not compute it.
+    const PROSE_ITEMS = ITEMS.items.filter((i) => !i.figure_only);
     ok("one comparison line per (Step, item), over the whole item table",
-      baseLines.size === 3 * ITEMS.items.length);
+      baseLines.size === 3 * PROSE_ITEMS.length);
     ok("every Step and every item the table declares has a line",
-      ["a1", "a2", "a3"].every((s) => ITEMS.items.every((i) => baseLines.has(`${s}/${i.id}`))));
+      ["a1", "a2", "a3"].every((s) => PROSE_ITEMS.every((i) => baseLines.has(`${s}/${i.id}`))));
+    // kogaki#880 AC3: A DRAFT WITH NO FIGURES RUNS WITH NO FIGURE ITEMS IN ITS
+    // LOG. Asserted as absence over the whole emission rather than over a list
+    // written here: a vacuous `holds` would satisfy the two cases above and is
+    // exactly what this refuses.
+    ok("AC3: a figureless Draft's comparison carries no figure item at all",
+      ITEMS.items.filter((i) => i.figure_only).length > 0
+      && !ITEMS.items.filter((i) => i.figure_only)
+        .some((i) => [...baseLines.keys()].some((k) => k.endsWith(`/${i.id}`))));
+    ok("AC3: and none is logged as decided mechanically or as a model call either",
+      !ITEMS.items.filter((i) => i.figure_only).some((i) =>
+        (rec.mechanical || []).some((c) => c.item === i.id)
+        || (rec.model_calls || []).some((c) => c.item === i.id)));
 
     // THE NO-NUMBERS PROPERTY, asserted over what the HARNESS composes: the
     // step id and the span are the line's only numeric fields, and stripping
@@ -4176,7 +5010,7 @@ async function runSelfTest() {
     ok("every item the table calls mechanical costs no model call on any Step",
       mech.length > 0 && !rec.model_calls.some((c) => mech.includes(c.item)));
     ok("and every judged item DOES cost one",
-      ITEMS.items.filter((i) => i.mode === "judged")
+      ITEMS.items.filter((i) => i.mode === "judged" && !i.figure_only)
         .every((i) => rec.model_calls.some((c) => c.item === i.id)));
   }
 
@@ -4839,6 +5673,7 @@ async function runSelfTest() {
     const chk = JSON.parse(readOrEmpty(checkPath) || "{}");
     const items = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     const mech = new Set(items.items.filter((i) => i.mode === "mechanical").map((i) => i.id));
+    const FIGURE_ITEM_IDS = new Set(items.items.filter((i) => i.figure_only).map((i) => i.id));
     const succItems = items.pass_two.successor_items;
     const p1rec = JSON.parse(readOrEmpty(joinPath) || "{}");
     const ownOf = (id) => {
@@ -4861,8 +5696,13 @@ async function runSelfTest() {
       calls.length > 0 && calls.every((c) => inBound(c.step_id, c.item)));
     ok("AC3: and no judged item is outside it — the count matches the bound exactly",
       calls.filter((c) => !inBound(c.step_id, c.item)).length === 0);
+    // The mechanical arm covers every Step, and `mech` is narrowed to the rows
+    // this Draft actually runs: a figure row is mechanical and applies to no
+    // Step here, so demanding it over every Step would assert coverage of a
+    // figure the fixture does not have.
+    const proseMech = [...mech].filter((m) => !FIGURE_ITEM_IDS.has(m));
     ok("AC3: every mechanical item is re-run over EVERY Step",
-      STEPS.every((s) => [...mech].every((m) =>
+      STEPS.every((s) => proseMech.every((m) =>
         (chk.mechanical || []).some((x) => x.step_id === s.id && x.item === m))));
     ok("AC3: the untouched Step's judged items are CARRIED, not re-judged",
       !calls.some((c) => c.step_id === "s1" && !mech.has(c.item))
@@ -5332,6 +6172,604 @@ async function runSelfTest() {
     ok("and it appears in the Section mechanical log and in no model call",
       mech.includes("1/section-belief-before")
       && !baseRecord.sections.model_calls.some((m) => m.section === 1 && m.item === "section-belief-before"));
+  }
+
+  // ---- kogaki#880 -------------------------------------------------------
+  // THE FIGURE'S ROUND TRIP: the blind reading, the element-to-ground join, and
+  // the caption against the declared reader state. Driven on its OWN Draft
+  // rather than by adding a figure to the fixture above — every case above
+  // asserts a count or an absence over that Draft, and a figure appearing in it
+  // would move those numbers for a reason unrelated to what they measure.
+  {
+    const fdir = join(root, "fig");
+    const fPacketDir = join(fdir, "packets");
+    mkdirSync(fPacketDir, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(fPacketDir, id);
+
+    // The record is an INSTANCE of the `axis` form. Each element's `ground` is
+    // §4.16's ADDRESS over this Step's own grounds, 1-based — `g1` and `g2` are
+    // the two `GROUNDS.a1` lines. The binding itself is §4.17's to refuse; what
+    // `figure-element-ground` asks is whether each element's WORDING is carried
+    // by the line its address points at.
+    const FIG_RECORD = {
+      kind: "axis",
+      elements: {
+        endpoint_a: { text: "the harness renders the recovery input", ground: "g1" },
+        endpoint_b: { text: "the reviewer never reads the packet that produced the prose",
+          ground: "g2" },
+        criterion: { text: "the recovery input is rendered before any record is accepted",
+          ground: "g1" },
+      },
+      relations: ["the two endpoints sit on the criterion"],
+      emphasis: "endpoint_a",
+      caption: "The reader knows which act renders the input.",
+      position: "after",
+    };
+    const fdraft = buildDraft(fdir, { packetDir: fPacketDir, figures: { a1: { record: FIG_RECORD } } });
+    // `--workspace` IS A BASE AND THE SLUG IS JOINED ONTO IT, which is the
+    // reading `workspaceFor` gives the flag; the run directory is therefore the
+    // base plus this Draft's own slug, and reading the base would read a
+    // directory nothing writes.
+    const FWS_BASE = join(root, "fws");
+    const FWS = join(FWS_BASE, "fig");
+    const fdrive = (...a) => spawnSync(process.execPath,
+      [self, a[0], "--draft", fdraft.path, "--workspace", FWS_BASE, ...a.slice(1)], { encoding: "utf8" });
+
+    const o = fdrive("open");
+    ok("#880: a Draft carrying a figure opens", o.status === 0);
+    const input = readOrEmpty(join(FWS, "recovery", "a1.md"));
+
+    // AC1 — THE RECOVERY INPUT SHOWS THE FENCE AND THE CAPTION.
+    ok("#880 AC1: the blind recovery input carries the figure's fence",
+      input.includes("```mermaid") && input.includes("flowchart LR"));
+    ok("#880 AC1: and its caption",
+      input.includes(FIG_RECORD.caption));
+    ok("#880 AC1: with its own draft line numbers, so the reader can see where it sits",
+      new RegExp(`^\\s*${fdraft.figureRanges.a1[0] + fdraft.bodyOffset} \\| \`\`\`mermaid$`, "m").test(input));
+
+    // AC1 — AND NO STRING THAT OCCURS ONLY IN THE RECORD FILE. The element→
+    // ground BINDING is that string: it is the whole of what the record adds
+    // over the rendering, and a reviewer shown it would name the elements the
+    // record names — which would make `figure-element-ground` a check of the
+    // record against itself.
+    //
+    // THE POSITION WORD IS DELIBERATELY NOT ASSERTED HERE, and saying so is the
+    // point: `before`/`after` are ordinary English that the reviewer's own
+    // instruction uses, so an absence case on them would assert about the
+    // template's wording rather than about the record. What the reviewer may
+    // see of the placement is the LINE NUMBERS, which are the article's fact.
+    ok("#880 AC1: and no element's ground binding reaches the blind reviewer",
+      !/ground: g\d/.test(input) && !/"ground"/.test(input));
+    // THE RELATIONS ARE NOT AMONG THEM, and that is §4.18 rather than an
+    // oversight: every relation reaches the output as an edge label, so a
+    // relation string is the ARTICLE'S and not the record's. What the record
+    // has and the rendering does not is the JSON itself — the field names that
+    // carry the bindings — and that is what is asserted.
+    ok("#880 AC1: nor does the record's own JSON reach it",
+      !input.includes('"ground"') && !input.includes('"elements"')
+      && !input.includes('"relations"') && !input.includes('"emphasis"'));
+
+    // The eighth field is OWED here and REFUSED on a figureless Step, which is
+    // the conditional closed set working in both directions.
+    ok("#880: the recovery input asks for `figure_reading` on a figure Step",
+      /`figure_reading`/.test(input) && /`shows`/.test(input)
+      && /`reader_state_after` — what you hold after looking/.test(input));
+    ok("#880: and says the record has EIGHT fields rather than seven",
+      /\*\*These eight are the whole record/.test(input));
+    ok("#880: while a figureless Step's input asks for neither",
+      !readOrEmpty(join(WS, "recovery", "a1.md")).includes("figure_reading")
+      && /\*\*These seven are the whole record/.test(readOrEmpty(join(WS, "recovery", "a1.md"))));
+
+    const FIG_READING = {
+      shows: "two endpoints sitting on a criterion about when the input is rendered",
+      elements: ["the harness rendering the recovery input",
+        "the reviewer not reading the packet", "the criterion they sit on"],
+      reader_state_after: "The reader knows which act renders the input.",
+    };
+    // THE RECOVERED CLAIMS PAIR WITH THE STEP'S OWN GROUNDS, deliberately. The
+    // figure cases below turn on which PRESERVED item fails, so a fixture whose
+    // claims paired with nothing would fail `grounds` on every Step and make
+    // every figure routing case assert against a Draft that was failing for a
+    // reason unrelated to its figure. Each claim is a paraphrase rather than
+    // the ground's own wording — enough content-word overlap to pair, short of
+    // the verbatim run `packet-wording` refuses.
+    const CLAIMS = {
+      a1: ["The harness renders the recovery input before a record is accepted.",
+        "The reviewer never reads the packet which produced this prose."],
+      a2: ["The session cannot get an ordering the harness owns wrong."],
+      a3: ["The owner classifies a residue line, never the tool."],
+    };
+    const claimsFor = (id, ranges, offset) => CLAIMS[id].map((claim) => ({
+      claim, span: [ranges[id][0] + offset, ranges[id][0] + offset],
+    }));
+    const recFor = (id, extra = {}) => ({
+      claims: claimsFor(id, fdraft.ranges, fdraft.bodyOffset),
+      reader_state_after: "The reader knows which act renders the input.",
+      purpose: "To open the claim.",
+      terms_introduced: [], shape: "It opens.", concessions: [], restates: [],
+      ...extra,
+    });
+    const wrote = (obj) => {
+      const f = join(root, "fig-recovered.json");
+      writeFileSync(f, JSON.stringify(obj) + "\n");
+      return f;
+    };
+
+    const rNo = fdrive("recover", "--step", "a1", "--file", wrote(recFor("a1")));
+    ok("#880: a figure Step's record without `figure_reading` refuses, naming the field",
+      rNo.status === 1 && /is missing `figure_reading`, which this Step owes/.test(rNo.stderr));
+
+    const rBad = fdrive("recover", "--step", "a1", "--file",
+      wrote(recFor("a1", { figure_reading: { shows: "x", elements: [], reader_state_after: "y" } })));
+    ok("#880: an empty `elements` refuses — a reader who named nothing did not look",
+      rBad.status === 1 && /`figure_reading`\.elements carries 0 entries and needs at least 1/.test(rBad.stderr));
+
+    const rExtra = fdrive("recover", "--step", "a1", "--file",
+      wrote(recFor("a1", { figure_reading: { ...FIG_READING, confidence: "high" } })));
+    ok("#880: a field inside `figure_reading` the schema does not declare refuses by name",
+      rExtra.status === 1 && /`figure_reading`\.confidence is not one of the fields/.test(rExtra.stderr));
+
+    const rOk = fdrive("recover", "--step", "a1", "--file",
+      wrote(recFor("a1", { figure_reading: FIG_READING })));
+    ok("#880: and the record with a reading of the figure is recorded", rOk.status === 0);
+
+    // The eighth field on a Step that met no figure is refused, and the refusal
+    // says WHY it is refused rather than reporting it as an unnamed key: an
+    // invented reading and a stray annotation are different mistakes.
+    const rUnowed = fdrive("recover", "--step", "a2", "--file",
+      wrote(recFor("a2", { figure_reading: FIG_READING })));
+    ok("#880: `figure_reading` on a Step that met no figure refuses, saying it is not owed",
+      rUnowed.status === 1 && /which this Step does not owe/.test(rUnowed.stderr)
+      && /is an invention, not a recovery/.test(rUnowed.stderr));
+
+    ok("#880: a2 recovers without it", fdrive("recover", "--step", "a2", "--file", wrote(recFor("a2"))).status === 0);
+    ok("#880: a3 recovers without it", fdrive("recover", "--step", "a3", "--file", wrote(recFor("a3"))).status === 0);
+
+    const led = join(root, "fig-led.json");
+    writeFileSync(led, JSON.stringify({ question: "which act renders the input", belief: "the harness does" }) + "\n");
+    fdrive("read", "--section", "1", "--file", led);
+    fdrive("read", "--section", "2", "--file", led);
+    const clm = join(root, "fig-claim.json");
+    writeFileSync(clm, JSON.stringify({ claim: "the harness owns the ordering" }) + "\n");
+    fdrive("read", "--claim", "--file", clm);
+
+    const c = fdrive("compare");
+    ok("#880: the comparison runs over the figure Draft", c.status === 0);
+    const frec = JSON.parse(readOrEmpty(join(FWS, "join.json")) || "{}");
+    const ITEMS_ALL = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    const FIG_IDS = new Set(ITEMS_ALL.items.filter((i) => i.figure_only).map((i) => i.id));
+
+    // The figure rows exist on the Step that has a figure and NOWHERE ELSE —
+    // AC3 asserted from the other side, on a Draft that does have one.
+    const figRows = (frec.results || []).filter((r) => FIG_IDS.has(r.item));
+    ok("#880: every figure item is computed on the Step that carries a figure",
+      [...FIG_IDS].every((id) => figRows.some((r) => r.step_id === "a1" && r.item === id)));
+    ok("#880 AC3: and on no other Step, even in a Draft that has one",
+      figRows.every((r) => r.step_id === "a1"));
+
+    // The mechanical row costs no model call and the judged ones do — the same
+    // property the prose half asserts, over the figure's own rows.
+    ok("#880: the element-to-ground row is decided by the Harness alone",
+      (frec.mechanical || []).some((m) => m.step_id === "a1" && m.item === "figure-element-ground")
+      && !(frec.model_calls || []).some((m) => m.item === "figure-element-ground"));
+    ok("#880: and every judged figure row renders one join Packet",
+      ITEMS_ALL.items.filter((i) => i.figure_only && i.mode === "judged")
+        .every((i) => (frec.model_calls || []).some((m) => m.step_id === "a1" && m.item === i.id)));
+
+    // The join Packet names the RECORD as the carrier the declared line came
+    // from, never the Packet — the finding a reader repairs is in the record.
+    const fp = (frec.owed || []).find((o) => o.item === "figure-elements");
+    const fpText = fp ? readOrEmpty(fp.packet) : "";
+    ok("#880: a figure join Packet says its declared side came from the figure record",
+      /### What the figure record DECLARED/.test(fpText));
+    ok("#880: and quotes the figure beside the prose, so the judged pair can see it",
+      fpText.includes("```mermaid"));
+
+    ok("#880: the element-to-ground row holds when every element is worded from its ground",
+      (figRows.find((r) => r.item === "figure-element-ground") || {}).verdict === "holds");
+
+    // AC2 — REPLACING AN ELEMENT'S TEXT WITH WORDING ITS GROUND DOES NOT CARRY
+    // YIELDS EXACTLY ONE MECHANICAL FAIL ON THAT ITEM. Built as a second Draft
+    // from the same fixture, mutating the record and nothing else.
+    {
+      const mdir = join(root, "fig-mut");
+      const mPacketDir = join(mdir, "packets");
+      mkdirSync(mPacketDir, { recursive: true });
+      for (const id of ["a1", "a2", "a3"]) writePacket(mPacketDir, id);
+      const mutated = JSON.parse(JSON.stringify(FIG_RECORD));
+      mutated.elements.endpoint_b.text = "harbours and tides under a shifting weather front";
+      const mdraft = buildDraft(mdir, { packetDir: mPacketDir, figures: { a1: { record: mutated } } });
+      const MWS_BASE = join(root, "fig-mut-ws");
+      const MWS = join(MWS_BASE, "fig-mut");
+      const mdrive = (...a) => spawnSync(process.execPath,
+        [self, a[0], "--draft", mdraft.path, "--workspace", MWS_BASE, ...a.slice(1)], { encoding: "utf8" });
+      mdrive("open");
+      const mrecFor = (id, extra = {}) => ({
+        claims: claimsFor(id, mdraft.ranges, mdraft.bodyOffset),
+        reader_state_after: "The reader knows which act renders the input.",
+        purpose: "To open the claim.",
+        terms_introduced: [], shape: "It opens.", concessions: [], restates: [],
+        ...extra,
+      });
+      const mwrote = (obj) => {
+        const f = join(root, "fig-mut-recovered.json");
+        writeFileSync(f, JSON.stringify(obj) + "\n");
+        return f;
+      };
+      mdrive("recover", "--step", "a1", "--file", mwrote(mrecFor("a1", { figure_reading: FIG_READING })));
+      mdrive("recover", "--step", "a2", "--file", mwrote(mrecFor("a2")));
+      mdrive("recover", "--step", "a3", "--file", mwrote(mrecFor("a3")));
+      mdrive("read", "--section", "1", "--file", led);
+      mdrive("read", "--section", "2", "--file", led);
+      mdrive("read", "--claim", "--file", clm);
+      const mc = mdrive("compare");
+      ok("#880 AC2: the mutated Draft compares", mc.status === 0);
+      // The judged pairs are answered so the join FILLS: the mechanical fail
+      // below is decided in phase one either way, but `correct` is reachable
+      // only from a completed pass one, and the seat case further down is about
+      // where a figure fail routes rather than about an unfilled join.
+      {
+        const rec0 = JSON.parse(readOrEmpty(join(MWS, "join.json")) || "{}");
+        const owed = [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
+        const vf = join(root, "fig-mut-verdicts.json");
+        writeFileSync(vf, JSON.stringify({
+          verdicts: owed.map((o) => ({
+            step_id: o.step_id, item: o.item,
+            ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
+            ...(o.section === undefined ? {} : { section: o.section }),
+            verdict: "holds", reason: "it agrees",
+          })),
+        }, null, 2) + "\n");
+        ok("#880 AC2: and fills once every judged pair is answered",
+          mdrive("compare", "--verdicts", vf).status === 0);
+      }
+      const mrec = JSON.parse(readOrEmpty(join(MWS, "join.json")) || "{}");
+      const mechFails = (mrec.results || [])
+        .filter((r) => r.verdict === "fails" && r.decided_by === "harness" && FIG_IDS.has(r.item));
+      ok("#880 AC2: exactly one mechanical figure fail, on the element-to-ground item",
+        mechFails.length === 1 && mechFails[0].item === "figure-element-ground"
+        && mechFails[0].step_id === "a1",
+        `saw ${mechFails.length}: ${mechFails.map((f) => `${f.step_id}/${f.item}`).join(", ") || "(none)"}`);
+      // READ THROUGH A DEFAULT, because a mutation that removes the fail is
+      // exactly what this case is for and indexing into an empty array would
+      // take the whole pass down with it — a crash reports no case count at
+      // all, which the check reads as "the pass did not run" rather than as
+      // "this case failed". Found by running that mutation.
+      const mechFail = mechFails[0] || {};
+      ok("#880 AC2: and it names the element and its ground rather than a score",
+        /worded in terms its bound ground does not carry/.test(mechFail.reason || "")
+        && (mechFail.evidence || []).some((e) => e.includes("endpoint_b")));
+      ok("#880 AC2: the fail costs no model call — it is decided from string facts",
+        !(mrec.model_calls || []).some((m) => m.item === "figure-element-ground"));
+      ok("#880 AC2: and it is a PRESERVED fail, so it sends its Step to correction",
+        mechFail.class === "preserved");
+
+      // An element whose address points past the Step's grounds fails BEFORE
+      // containment is computed — a record carrying one was written against a
+      // Brief this Draft was not emitted from, and scoring it against whatever
+      // sits at that index would be an answer about nothing.
+      const udir = join(root, "fig-unbound");
+      const uPacketDir = join(udir, "packets");
+      mkdirSync(uPacketDir, { recursive: true });
+      for (const id of ["a1", "a2", "a3"]) writePacket(uPacketDir, id);
+      const unbound = JSON.parse(JSON.stringify(FIG_RECORD));
+      unbound.elements.criterion.ground = "g9";
+      const udraft = buildDraft(udir, { packetDir: uPacketDir, figures: { a1: { record: unbound } } });
+      const UWS_BASE = join(root, "fig-unbound-ws");
+      const UWS = join(UWS_BASE, "fig-unbound");
+      const udrive = (...a) => spawnSync(process.execPath,
+        [self, a[0], "--draft", udraft.path, "--workspace", UWS_BASE, ...a.slice(1)], { encoding: "utf8" });
+      udrive("open");
+      const urecFor = (id, extra = {}) => ({
+        claims: claimsFor(id, udraft.ranges, udraft.bodyOffset),
+        reader_state_after: "s", purpose: "p", terms_introduced: [], shape: "s",
+        concessions: [], restates: [], ...extra,
+      });
+      const uwrote = (obj) => {
+        const f = join(root, "fig-unbound-recovered.json");
+        writeFileSync(f, JSON.stringify(obj) + "\n");
+        return f;
+      };
+      udrive("recover", "--step", "a1", "--file", uwrote(urecFor("a1", { figure_reading: FIG_READING })));
+      udrive("recover", "--step", "a2", "--file", uwrote(urecFor("a2")));
+      udrive("recover", "--step", "a3", "--file", uwrote(urecFor("a3")));
+      udrive("read", "--section", "1", "--file", led);
+      udrive("read", "--section", "2", "--file", led);
+      udrive("read", "--claim", "--file", clm);
+      udrive("compare");
+      const urec = JSON.parse(readOrEmpty(join(UWS, "join.json")) || "{}");
+      const ufail = (urec.results || []).find((r) => r.item === "figure-element-ground");
+      ok("#880: an element whose ground address points past this Step's grounds fails by name",
+        ufail && ufail.verdict === "fails"
+        && /ground address does not resolve against this Step's grounds/.test(ufail.reason)
+        && (ufail.evidence || []).some((e) => /the address points past them/.test(e)));
+    }
+
+    // THE FIGURE CORRECTION IS THE SEAT A FIGURE FAIL ROUTES TO, and `correct`
+    // without `--figure` refuses it by naming the other seat rather than
+    // reporting a Step with nothing owed.
+    {
+      const rWrong = spawnSync(process.execPath,
+        [self, "correct", "--draft", join(root, "fig-mut", "draft.md"), "--workspace", join(root, "fig-mut-ws"), "--step", "a1"],
+        { encoding: "utf8" });
+      ok("#880: `correct` without --figure on a figure-only fail names the figure seat",
+        rWrong.status === 1 && /--figure/.test(rWrong.stderr)
+        && /the figure record, not the prose/.test(rWrong.stderr));
+    }
+
+    // The trace's own pins are checked on the figure exactly as on the Packet:
+    // a record edited after emit makes every figure finding meaningless, so it
+    // refuses rather than reporting findings nobody can act on.
+    {
+      const edir = join(root, "fig-edited");
+      const ePacketDir = join(edir, "packets");
+      mkdirSync(ePacketDir, { recursive: true });
+      for (const id of ["a1", "a2", "a3"]) writePacket(ePacketDir, id);
+      const edraft = buildDraft(edir, { packetDir: ePacketDir, figures: { a1: { record: FIG_RECORD } } });
+      const rp = join(edir, "figure-a1.json");
+      const edited = JSON.parse(readFileSync(rp, "utf8"));
+      edited.caption = "A caption nobody validated.";
+      writeFileSync(rp, JSON.stringify(edited, null, 2) + "\n");
+      const r = spawnSync(process.execPath,
+        [self, "open", "--draft", edraft.path, "--workspace", join(root, "fig-edited-ws")], { encoding: "utf8" });
+      ok("#880: a figure record edited after emit refuses, naming both shas",
+        r.status === 1 && /the figure record's sha differs from the trace's/.test(r.stderr));
+      rmSync(rp);
+      const r2 = spawnSync(process.execPath,
+        [self, "open", "--draft", edraft.path, "--workspace", join(root, "fig-edited-ws2")], { encoding: "utf8" });
+      ok("#880: and an absent figure record refuses with the act that re-records it",
+        r2.status === 1 && /the figure record the trace names is absent/.test(r2.stderr)
+        && /draft\.mjs figure/.test(r2.stderr));
+    }
+  }
+
+  // ---- kogaki#880, the correction half, END TO END --------------------------
+  // A REAL Brief, a real Move with a `visual_form`, the realization lane, a
+  // validated figure record and the emitted Draft — driven through the review
+  // to a figure fail and out through `correct --figure`. Nothing here is
+  // stubbed, for the reason the prose correction's own drive gives: the acts
+  // under test are `draft.mjs figure` re-validating the record and `emit`
+  // re-rendering the block from it, and a stand-in for either would let this
+  // pass assert that the renderer re-ran when nothing ran.
+  //
+  // ITS OWN BRIEF, not the correction fixture's. That one's cases assert counts
+  // over four Steps and two Sections, and adding a figure to it would move
+  // those numbers for a reason unrelated to what they measure.
+  {
+    const draftCli = join(dirname(self), "draft.mjs");
+    const gRoot = join(root, "figure-correction");
+    const gBrief = join(gRoot, "theses", "figure-fixture");
+    const gMoves = join(gRoot, "moves");
+    const gWs = join(gRoot, "ws-draft");
+    mkdirSync(gBrief, { recursive: true });
+    mkdirSync(gMoves, { recursive: true });
+    // ONE MOVE CARRIES A FORM AND THE OTHER DOES NOT, so the Draft has a Step
+    // that may declare a figure and a Step that may not — which is what makes
+    // the figureless half of every case below a fact about this Draft rather
+    // than an absence nobody constructed.
+    writeFileSync(join(gMoves, "axis_move.md"), [
+      "id: axis_move", "status: observed",
+      "intent: >-", "  establish a distinction between two endpoints.",
+      "requires: >-", "  the reader has no stable distinction yet.",
+      "effect: >-", "  the reader can orient later cases on the axis.",
+      "constraints: >-", "  the endpoints must clarify the same axis.",
+      "failure_modes: >-", "  pairing cases that differ along unrelated dimensions.",
+      "excerpt: >-", "  the author's account of the movement they observed.",
+      "visual_form:", "  kind: axis",
+      "  endpoint_a: the first endpoint the Move presents",
+      "  endpoint_b: the opposing endpoint",
+      "  criterion: the one axis both endpoints clarify",
+    ].join("\n") + "\n");
+    writeFileSync(join(gMoves, "plain_move.md"), [
+      "id: plain_move", "status: observed",
+      "intent: >-", "  carry the claim one step further.",
+      "requires: >-", "  the reader holds what the previous passage settled.",
+      "effect: >-", "  the reader holds one more consequence.",
+      "constraints: >-", "  never re-open what the earlier passage settled.",
+      "failure_modes: >-", "  restating the previous passage in new words.",
+      "excerpt: >-", "  the author's account of the movement they observed.",
+    ].join("\n") + "\n");
+
+    const gBriefText = [
+      "# Brief — figure-fixture", "",
+      "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+      "## Strands", "",
+      "### L1 — first-strand", "",
+      "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+      "## Thesis", "", "The fixture claim.", "",
+      "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+      "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
+      "## Opening question", "", "What makes the fixture claim worth stating?", "",
+      "## Sequence", "",
+      "```step", "step_id: f1", "move: axis_move", "opens_section: The only heading",
+      "purpose: the job f1 does.",
+      "reader_state_before: the reader arrives at f1 holding nothing in particular.",
+      "reader_state_after: the reader leaves f1 able to say what separates the two harbours.",
+      "materials: L1",
+      "rationale: f1 sits here because the path put it here.",
+      "figure: it lets the reader hold both harbours against the one tide that separates them",
+      "figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3",
+      "ground (strand L1): the first harbour keeps its own hours.",
+      "ground (strand L1): the second harbour keeps different hours.",
+      "ground (strand L1): the tide is the one measure both harbours are read against.",
+      "```", "",
+      "```step", "step_id: f2", "move: plain_move",
+      "purpose: the job f2 does.",
+      "reader_state_before: the reader arrives at f2 holding what f1 settled.",
+      "reader_state_after: the reader leaves f2 able to say who did the measuring.",
+      "materials: L1",
+      "rationale: f2 sits here because the path put it here.",
+      "ground (strand L1): a table records what somebody measured on days somebody chose.",
+      "```", "",
+    ].join("\n");
+    writeFileSync(join(gBrief, "brief.md"), gBriefText);
+
+    const gdl = (cmd, ...extra) => spawnSync(process.execPath,
+      [draftCli, cmd, "--brief", join(gBrief, "brief.md"), "--workspace", gWs, "--moves-dir", gMoves, ...extra],
+      { encoding: "utf8" });
+    const gFile = (name, text) => {
+      const f = join(gRoot, name);
+      writeFileSync(f, text + "\n");
+      return f;
+    };
+
+    // The FIRST record's endpoint_b is worded from a ground it is NOT bound to,
+    // which is what `figure-element-ground` refuses — the fail this whole drive
+    // exists to route.
+    const RECORD_BAD = {
+      kind: "axis",
+      elements: {
+        endpoint_a: { text: "the first harbour keeps its own hours", ground: "g1" },
+        endpoint_b: { text: "a table records what somebody measured on chosen days", ground: "g2" },
+        criterion: { text: "the tide both harbours are read against", ground: "g3" },
+      },
+      relations: ["the two harbours sit on the tide"],
+      caption: "The reader knows what separates the two harbours.",
+      position: "after",
+    };
+
+    let ready = gdl("resolve").status === 0;
+    ready = ready && gdl("section", "--step", "f1", "--file", gFile("prose-f1.md",
+      "One harbour keeps its own hours and the next keeps others, and the water they are both "
+      + "read against is the same water.")).status === 0;
+    const rFig = gdl("figure", "--step", "f1", "--file",
+      gFile("record-f1.json", JSON.stringify(RECORD_BAD, null, 2)));
+    ready = ready && rFig.status === 0;
+    ready = ready && gdl("section", "--step", "f2", "--file", gFile("prose-f2.md",
+      "A skipper reading either set of hours is reading a measurement, and the question worth "
+      + "asking is who was standing there.")).status === 0;
+    const gEmit = gdl("emit");
+    ready = ready && gEmit.status === 0;
+    const gDraft = join(gBrief, "draft.md");
+    ok("#880: the realization lane produces a Draft whose Step carries a validated figure",
+      ready && existsSync(gDraft));
+
+    const gwsBase = join(gRoot, "ws-review");
+    const gWsRun = join(gwsBase, "figure-fixture");
+    const GD = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", gDraft, "--workspace", gwsBase,
+        "--draft-workspace", gWs, "--moves-dir", gMoves], { encoding: "utf8" });
+
+    ok("#880: ReviewDraft opens it", GD("open").status === 0);
+    const gTrace = () => JSON.parse(readOrEmpty(join(gWsRun, "run.json")) || "{}").steps || [];
+    // Claims that PAIR with each Step's own grounds, for the reason the
+    // synthetic drive above gives: this drive turns on which preserved item
+    // fails, and a claim pairing with nothing would fail `grounds` on every
+    // Step and route the corrections for a reason unrelated to the figure.
+    const G_CLAIMS = {
+      f1: "The first harbour keeps its own hours and the second keeps different ones.",
+      f2: "A table records a measurement somebody made on days somebody picked.",
+    };
+    const gRecFor = (id, tag, extra = {}) => {
+      const st = gTrace().find((s) => s.step_id === id);
+      const f = join(gRoot, `rec-${tag}-${id}.json`);
+      writeFileSync(f, JSON.stringify({
+        claims: [{ claim: G_CLAIMS[id], span: st.lines }],
+        reader_state_after: `the reader leaves ${id} able to say what it settled`,
+        purpose: `the job ${id} does`,
+        terms_introduced: [], shape: "It states a thing and moves on.",
+        concessions: [], restates: [], ...extra,
+      }, null, 2) + "\n");
+      return f;
+    };
+    const gReading = {
+      shows: "two harbours placed on the tide they are both read against",
+      elements: ["the first harbour", "a table of measurements", "the tide"],
+      reader_state_after: "The reader knows what separates the two harbours.",
+    };
+    ok("#880: the figure Step recovers with a reading of the block",
+      GD("recover", "--step", "f1", "--file", gRecFor("f1", "p1", { figure_reading: gReading })).status === 0);
+    ok("#880: and the Step with no figure recovers without one",
+      GD("recover", "--step", "f2", "--file", gRecFor("f2", "p1")).status === 0);
+    const gLed = gFile("led.json", JSON.stringify({ question: "what separates the harbours", belief: "the tide does" }));
+    const gClaim = gFile("claim.json", JSON.stringify({ claim: "the tide is the measure" }));
+    GD("read", "--section", "1", "--file", gLed);
+    GD("read", "--claim", "--file", gClaim);
+    GD("compare");
+    const gJoin = join(gWsRun, "join.json");
+    const gAnswer = (tag) => {
+      const rec0 = JSON.parse(readOrEmpty(gJoin) || "{}");
+      const owed = [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
+      return gFile(`verdicts-${tag}.json`, JSON.stringify({
+        verdicts: owed.map((o) => ({
+          step_id: o.step_id, item: o.item,
+          ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
+          verdict: "holds", reason: "the declared line and the recovered one agree",
+        })),
+      }, null, 2));
+    };
+    const gp1 = GD("compare", "--verdicts", gAnswer("p1"));
+    ok("#880: pass one completes and sends the figure-failing Step to correction",
+      gp1.status === 0 && /Steps sent to correction[^\n]*f1/.test(gp1.stdout));
+
+    // Phase A — the figure correction input.
+    const gcA = GD("correct", "--step", "f1", "--figure");
+    const gcInput = readOrEmpty(join(gWsRun, "correction", "f1.figure.md"));
+    ok("#880: `correct --figure` renders a figure correction input", gcA.status === 0 && gcInput !== "");
+    ok("#880: it carries the previous record verbatim",
+      gcInput.includes('"endpoint_b"') && gcInput.includes(RECORD_BAD.elements.endpoint_b.text));
+    ok("#880: and the block as the reader currently meets it",
+      gcInput.includes("```mermaid"));
+    ok("#880: and the finding that failed, with the element and the ground it names",
+      /figure-element-ground/.test(gcInput) && /worded in terms its bound ground does not carry/.test(gcInput));
+    ok("#880: and the instruction that the record's kind and roles are not the correction's to change",
+      /Keep the record's/.test(gcInput) && /`kind`/.test(gcInput));
+    ok("#880: while the run is mid-correction on that Step",
+      GD("compare").status === 1);
+
+    // Phase B — the corrected record goes through `draft.mjs figure` and `emit`.
+    const RECORD_GOOD = JSON.parse(JSON.stringify(RECORD_BAD));
+    RECORD_GOOD.elements.endpoint_b.text = "the second harbour keeps different hours";
+    const gcB = GD("correct", "--step", "f1", "--figure", "--file",
+      gFile("record-f1-corrected.json", JSON.stringify(RECORD_GOOD, null, 2)));
+    ok("#880: the corrected record is recorded through the realization lane", gcB.status === 0);
+    ok("#880: and the run reports the record sha moving", /record  \w{16}/.test(gcB.stdout));
+    ok("#880: and reports whether the rendered block moved, never gating on it",
+      /the rendered block differs from the one the reader met/.test(gcB.stdout)
+      && /never gated/.test(gcB.stdout));
+
+    // THE RENDERER RE-RAN BY CONSTRUCTION: the Draft's own bytes now carry the
+    // corrected element, and nothing in this pass wrote any Mermaid.
+    const gAfter = readOrEmpty(gDraft);
+    ok("#880: the emitted Draft carries the corrected element in its rendered block",
+      gAfter.includes("the second harbour keeps different hours")
+      && !gAfter.includes(RECORD_BAD.elements.endpoint_b.text));
+
+    // Pass two re-recovers the corrected Step and re-judges its figure items.
+    // `check` is what RENDERS that recovery input — the corrected Step's own
+    // recovery was discarded by the correction, and the reviewer reads the
+    // block as it now stands rather than the one it read before.
+    const gChk0 = GD("check");
+    ok("#880: `check` re-renders the corrected Step's recovery input",
+      gChk0.status === 1 && /f1/.test(gChk0.stderr));
+    const gRe = GD("recover", "--step", "f1", "--file", gRecFor("f1", "p2", { figure_reading: gReading }));
+    ok("#880: the corrected Step's recovery is discarded and re-run", gRe.status === 0);
+    GD("check");
+    // Pass two answers its OWN owed pairs, through `check --verdicts` and never
+    // through `compare`'s — the two records are separate by design.
+    const gChkOwed = () => {
+      const rec0 = JSON.parse(readOrEmpty(join(gWsRun, "check.json")) || "{}");
+      return [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
+    };
+    const gChk = GD("check", "--verdicts", gFile("verdicts-p2.json", JSON.stringify({
+      verdicts: gChkOwed().map((o) => ({
+        step_id: o.step_id, item: o.item,
+        ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
+        verdict: "holds", reason: "the declared line and the recovered one agree",
+      })),
+    }, null, 2)));
+    ok("#880: pass two completes over the corrected figure", gChk.status === 0);
+    const gChkRec = JSON.parse(readOrEmpty(join(gWsRun, "check.json")) || "{}");
+    ok("#880: and the element-to-ground row now holds",
+      (gChkRec.results || []).some((r) => r.step_id === "f1"
+        && r.item === "figure-element-ground" && r.verdict === "holds" && !r.carried));
+    const gClose = GD("close");
+    const gReview = readOrEmpty(join(gBrief, "review.md"));
+    ok("#880: the owner record closes", gClose.status === 0 && gReview !== "");
+    ok("#880: and no figure item survives as residue — the correction discharged it",
+      !/figure-element-ground/.test(gReview.slice(gReview.indexOf("## Residue"))));
+    ok("#880: while the figure correction itself is recorded, naming the seat it repaired",
+      /f1/.test(gReview) && /figure record re-designed/.test(gReview));
   }
 
   rmSync(root, { recursive: true, force: true });

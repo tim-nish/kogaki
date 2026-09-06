@@ -382,4 +382,64 @@ if ! node --input-type=module -e '
 fi
 echo "ok: every mechanical item has an implementation, every judged item carries a question, and the verdict set is the closed three"
 
+# --- AND EVERY RECOVERED SIDE THE TABLE NAMES IS A FIELD THE SCHEMA DECLARES
+#     (kogaki#880).
+#
+# THE FAILURE MODE IS A CLEAN PASS, like the one above. `buildJoin` reads the
+# recovered side by name, and a name the schema does not declare reads
+# `undefined`, renders as `(none)` and asks the judging model whether nothing
+# agrees with a declared line — a question it can answer `holds` in good faith.
+# The item table and the record schema are two carriers that agree until one is
+# edited, and this is the join that keeps them from drifting.
+#
+# THE FORBIDDEN-KEY HALF IS THE ONE THIS CAUGHT IN AUTHORING. The third
+# sub-field of `figure_reading` was first spelled `holds` — a VERDICT TOKEN the schema forbids
+# at every depth — so every recovered record carrying a figure reading was
+# refused as a reviewer smuggling in a judgment. A homonym in a join key is the
+# same defect as a divergence, and the refusal named the reviewer rather than
+# the table that chose the name.
+if ! node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  const t = JSON.parse(readFileSync("src/review-items.json", "utf8"));
+  const s = JSON.parse(readFileSync("src/recovered-schema.json", "utf8"));
+  const cond = s.conditional_required || {};
+  const forbidden = new Set(s.forbidden_keys || []);
+  const bad = [];
+  for (const it of t.items) {
+    if (!it.recovered_field) continue;
+    const [outer, inner] = String(it.recovered_field).split(".");
+    if (inner === undefined) {
+      if (!(s.required || []).includes(outer) && !(outer in cond)) {
+        bad.push(`${it.id} reads "${outer}", which the schema does not declare`);
+      }
+      continue;
+    }
+    const spec = cond[outer];
+    if (!spec) { bad.push(`${it.id} reads "${outer}", which the schema does not declare`); continue; }
+    if (!(spec.item_required || []).includes(inner)) {
+      bad.push(`${it.id} reads "${outer}.${inner}" and the schema declares ${(spec.item_required || []).join(", ")}`);
+    }
+    if (forbidden.has(inner)) {
+      bad.push(`${it.id} reads "${outer}.${inner}" and "${inner}" is a forbidden key, so every record carrying it is refused`);
+    }
+  }
+  // The declared side of a figure row names a field the FIGURE schema declares,
+  // by the same argument one carrier over.
+  const f = JSON.parse(readFileSync("src/figure-schema.json", "utf8"));
+  const fields = new Set([...(f.required || []), ...(f.optional || [])]);
+  for (const it of t.items) {
+    if (it.record_field && !fields.has(it.record_field)) {
+      bad.push(`${it.id} reads the figure record field "${it.record_field}", which src/figure-schema.json does not declare`);
+    }
+    if (it.record_field && it.declared_block) {
+      bad.push(`${it.id} names both a Packet block and a figure record field — one row, one declared side`);
+    }
+  }
+  if (bad.length) { console.error(bad.join("\n")); process.exit(1); }
+'; then
+  echo "FAIL: src/review-items.json names a recovered or declared side its schema does not declare -- the join would read undefined, render it as (none) and ask a model whether nothing agrees with a declared line"
+  exit 1
+fi
+echo "ok: every side the item table names is a field its schema declares, and no recovered sub-field is a forbidden key"
+
 echo "PASS: ReviewDraft runtime"
