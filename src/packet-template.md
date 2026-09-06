@@ -123,3 +123,57 @@ what replaces it is the three tests in this paragraph.
 Where making it plain loses something, either restore the loss or **concede it
 explicitly in the prose**. A concession is part of the output; a silent
 omission is not a simplification, it is a loss.
+
+<!-- FIGURE-INPUT -->
+
+The block below is NOT part of a Step Packet. It is appended, filled, to the
+Packet of a Step that carries `figure:` — and only after that Step's prose is
+recorded, which is the whole reason it is separated here rather than rendered
+inline: the figure is designed from the text, never before it. `draft.mjs`
+splits this file at the marker above; the Packet render never sees what
+follows.
+
+## The figure this Step carries
+
+The Step's prose is written and recorded. Design its figure now, from the text
+above and the material below, and from nothing else.
+
+The **form** is the Move's, not yours. It names the positions a figure of this
+kind has; it carries no subject matter and nothing here is a word the reader
+sees.
+
+- **kind.** {{figure_kind}}
+- **roles.**
+
+{{figure_form_roles}}
+
+The **binding** is the Brief's. Each role above is bound to one of this Step's
+grounds, quoted verbatim. An element is that ground worded for the reader — not
+a new claim, and not a claim from anywhere else on the page.
+
+{{figure_binding}}
+
+**What the figure is for**, as the Brief stated it: {{figure_reason}}
+
+### This Step's prose, as recorded — verbatim
+
+{{figure_prose}}
+
+### Write the record
+
+Return one JSON object and nothing else:
+
+- `kind` — exactly the kind named above.
+- `elements` — one entry per role above, `{"text": ..., "ground": "g<n>"}`.
+  `text` is the bound ground worded for the reader. `ground` is the address the
+  binding gives that role: do not move a role to a different ground.
+- `relations` — what holds between the elements, one entry per relation the
+  figure asserts. The kind's own relation line is what these instantiate.
+- `emphasis` — optional; the role the figure leans on, if one does.
+- `caption` — one line, in the terms of this Step's `reader_state_after`: what
+  the reader holds after looking at the figure.
+- `position` — `before` or `after`: whether the reader meets the figure before
+  this Step's prose or after it.
+
+Assert nothing the grounds above do not carry. You are not writing diagram
+syntax: the markup is the Harness's, rendered from this record.

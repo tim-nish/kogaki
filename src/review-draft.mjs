@@ -3068,8 +3068,22 @@ async function runSelfTest() {
   // import. The fixed instruction prose around every slot is therefore the
   // TEMPLATE'S, not a copy, so a template edit reaches these cases instead of
   // sliding past them.
-  const TEMPLATE = readFileSync(join(dirname(self), "packet-template.md"), "utf8")
-    .replace(/^<!--[\s\S]*?-->\n*/, "");
+  // THE FIGURE BLOCK IS NOT PART OF A PACKET (kogaki#878). The template file
+  // carries the Packet and, behind a marker, the figure input block that
+  // `draft.mjs section` appends for a Step declaring `figure:` — so a fixture
+  // reading the whole file would render a Packet these cases never receive.
+  // The marker is spelled here rather than imported because this pass asserts
+  // a closed input allowlist that forbids importing `src/draft.mjs`; the guard
+  // below is what keeps that second spelling loud instead of silent — a
+  // template whose marker moved fails HERE, naming the drift, rather than
+  // reappearing three cases later as an unfilled slot.
+  const TEMPLATE_MARKER = "<!-- FIGURE-INPUT -->";
+  const TEMPLATE_FILE = readFileSync(join(dirname(self), "packet-template.md"), "utf8");
+  if (!TEMPLATE_FILE.includes(TEMPLATE_MARKER)) {
+    throw new Error(`the Packet template carries no ${TEMPLATE_MARKER} marker — this fixture splits the Packet from the figure block there, and a template that moved it would put the block into every fixture Packet`);
+  }
+  const TEMPLATE = TEMPLATE_FILE.slice(0, TEMPLATE_FILE.indexOf(TEMPLATE_MARKER))
+    .replace(/^<!--[\s\S]*?-->\n*/, "").trimEnd() + "\n";
   function writePacket(dir, id, { grounds = GROUNDS[id] } = {}) {
     const f = PACKET_FIELDS[id];
     const bullets = (xs, empty) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : empty);
