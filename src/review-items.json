@@ -40,7 +40,40 @@
     "",
     "NOT COMPARED, enumerated so a reader can tell a boundary from a hole:",
     "rationale, materials, reader_state_before, and the thesis and reader target",
-    "per Step. The article level is the cold reader's (kogaki#873)."
+    "per Step. The article level is the cold reader's (kogaki#873).",
+    "",
+    "THE FIGURE HALF (kogaki#880). Five items carry the figure through the same",
+    "round trip the prose goes through, and they are rows of THIS table rather",
+    "than a second table beside it -- same three verdicts, same two classes,",
+    "same three modes, same consequence rule. A figure that reviewed under its",
+    "own vocabulary would be the one element of a Step whose findings could not",
+    "be read against the others.",
+    "",
+    "`figure_only: true` marks a row that exists only for a Step whose trace",
+    "entry carries a figure. On a Step without one the row is not evaluated, not",
+    "rendered and NOT LOGGED -- a vacuous `holds` for every figureless Step",
+    "would fill the log with answers about nothing and make the mechanical arm",
+    "of the second pass's bound report work it never did.",
+    "",
+    "`declared_source` names WHERE THE DECLARED SIDE COMES FROM, and it is here",
+    "because the figure's is not the Packet. Three values are in use: `Packet`",
+    "(the default, and what every prose row reads), `figure record` (the",
+    "validated record src/draft.mjs `figure` wrote, pinned in the trace beside",
+    "the Packet), and `passage` (the prose itself, for a row whose declared side",
+    "IS the article). The join Packet renders this word, so the judging reader",
+    "is never told a record's line came from a Packet.",
+    "",
+    "`record_field` is to the figure record what `declared_block` is to the",
+    "Packet. A row naming both is refused by the runtime: two declared sides is",
+    "two questions, and this table holds one per row.",
+    "",
+    "WHY THE RECORD IS AN INPUT AND THE BLIND READER STILL NEVER SEES IT. The",
+    "recovery input carries the figure as RENDERED -- the fence and the caption,",
+    "the bytes a reader meets -- and nothing else, so `figure_reading` is",
+    "recovered from the same evidence a reader has. The record is read only on",
+    "the DECLARED side, at the join, where the whole act is laying the two",
+    "against each other. That is the kogaki#871 arrangement unchanged, applied",
+    "to a second declared carrier."
   ],
   "version": "1",
   "verdicts": ["holds", "fails", "cannot-decide"],
@@ -125,7 +158,15 @@
         "",
         "`drift_blocks` are the Packet blocks the drift measure reports",
         "verbatim overlap against -- the ground and state lines. Same",
-        "arrangement, same reason."
+        "arrangement, same reason.",
+        "",
+        "THE FIGURE ROWS RIDE THE ARMS THAT ALREADY EXIST (kogaki#880) and add",
+        "no fourth. `figure-element-ground` is mechanical, so it is in the",
+        "bound over the whole Draft like every other mechanical row; the four",
+        "judged figure rows are in it on a corrected Step exactly as that",
+        "Step's other rows are. No figure row is a successor item: a correction",
+        "moves the prose the NEXT Step continues from, and it moves no figure",
+        "of that Step's."
       ],
       "successor_items": [
         "already-knows",
@@ -143,6 +184,7 @@
       "numeric, so a reader cannot mistake a tuning constant for evidence."
     ],
     "claim_ground_containment": 0.34,
+    "figure_element_ground_containment": 0.34,
     "verbatim_overlap_words": 8
   },
 
@@ -370,6 +412,59 @@
       "declared_block": "grounds",
       "also_declared_blocks": ["reader_state_after"],
       "recovered_field": null
+    },
+
+    {
+      "id": "figure-elements",
+      "class": "preserved",
+      "mode": "judged",
+      "figure_only": true,
+      "declared_source": "figure record",
+      "record_field": "elements",
+      "recovered_field": "figure_reading.elements",
+      "question": "Every element the record declares is above, with the wording it was given. Can a reader name each of them from the figure as it was rendered? Answer `fails` if an element the record declares is not among the ones the reader named. This asks about presence, never about how well an element is worded."
+    },
+    {
+      "id": "figure-caption",
+      "class": "preserved",
+      "mode": "judged",
+      "figure_only": true,
+      "declared_source": "figure record",
+      "record_field": "caption",
+      "also_declared_blocks": ["reader_state_after"],
+      "recovered_field": "figure_reading.reader_state_after",
+      "question": "The declared side carries the record's caption and the state the Step says its reader is left in. Does what the reader holds after looking at the figure agree with both? Answer `fails` if it agrees with neither, or if it agrees with the caption while the caption and the Step's state pull apart."
+    },
+    {
+      "id": "figure-element-ground",
+      "class": "preserved",
+      "mode": "mechanical",
+      "figure_only": true,
+      "declared_source": "figure record",
+      "record_field": "elements",
+      "also_declared_blocks": ["grounds"],
+      "recovered_field": null,
+      "question": null
+    },
+    {
+      "id": "figure-reading-prose",
+      "class": "best-effort",
+      "mode": "judged",
+      "figure_only": true,
+      "declared_source": "passage",
+      "declared_block": null,
+      "recovered_field": "figure_reading.shows",
+      "question": "Both sides here were recovered blind, from the passage and the figure the reader met beside it. Do the figure and the prose of this Step say the same thing? Answer `fails` if the figure asserts something the passage does not, or the other way about."
+    },
+    {
+      "id": "figure-position",
+      "class": "best-effort",
+      "mode": "judged",
+      "figure_only": true,
+      "declared_source": "figure record",
+      "record_field": "position",
+      "recovered_field": "figure_reading",
+      "question": "The declared side says whether the figure was designed to set the passage up or to discharge it. The figure's draft line numbers in the prose below say where the reader actually met it. Did the reader meet it where the prose needed it? Answer `fails` if the passage had already done the work the figure was meant to set up, or still needed the figure it had not yet been given."
     }
   ]
 }

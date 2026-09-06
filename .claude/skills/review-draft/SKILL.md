@@ -17,8 +17,9 @@ session does not sequence those acts and cannot get the sequence wrong.
 ## The closed input set
 
 The Harness reads `theses/<slug>/draft.md`, its frontmatter trace — which
-carries each Step's line range and its Packet's path and sha — and the Packet
-files that trace names. **It reads no Brief, no Move file and no Strand**, by
+carries each Step's line range and its Packet's path and sha, and for a Step
+carrying a figure its record's path, sha and own line range — and the files that
+trace names: the Packets, and each figure record. **It reads no Brief, no Move file and no Strand**, by
 the owner's 2026-09-04 ruling: the Packet was designed to be the only source a
 Step needs, so a check that turns out to need anything else is evidence the
 **Packet** is missing information. File that against `src/packet-template.md`;
@@ -32,6 +33,7 @@ never satisfy it with a side read here.
     node src/review-draft.mjs read    --draft <draft.md> --claim --file <claim.json>
     node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
     node src/review-draft.mjs correct --draft <draft.md> --step <id> [--file <prose>]
+    node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure [--file <record.json>]
     node src/review-draft.mjs check   --draft <draft.md> [--verdicts <verdicts.json>]
     node src/review-draft.mjs close   --draft <draft.md>
 
@@ -41,8 +43,9 @@ blind recovery and renders the next. `read` records the cold reader's entry for
 one Section, or with `--claim` the one final claim for the whole Draft, and
 validates each against the shape `src/review-items.json` declares. `compare`
 runs the join.
-`correct` renders a correction input and records the re-realized Step; `check`
-runs the bounded second pass. `close` writes the owner record.
+`correct` renders a correction input and records the re-realized Step; with
+`--figure` the seat it corrects is the Step's figure RECORD rather than its
+prose. `check` runs the bounded second pass. `close` writes the owner record.
 
 ## The comparison, and what the judging model is not asked
 
@@ -51,6 +54,24 @@ runs the bounded second pass. `close` writes the owner record.
 call — and renders **one join Packet per judged pair**, each carrying the
 declared line, the recovered line, the quoted prose and **one** question. The
 second records the answers with `--verdicts` and emits the comparison.
+
+**The figure joins the same table (kogaki#880).** A Step whose trace entry
+carries a figure gains five rows — the record's elements against the ones the
+reader could name, its caption against what the reader holds and the Step's
+`reader_state_after`, each element's wording against the ground its `g<n>`
+address points at, the figure's reading against the passage's prose, and the
+position the record declares against where the reader met the block. Three are
+preserved and two best-effort, same three verdicts, same consequence rule. **A
+Step with no figure runs none of them** — not as a vacuous `holds` but not at
+all, so a figureless Draft's log carries no figure item anywhere.
+
+**The element-to-ground row is the Harness's alone.** Containment against the
+ground the record's address names, above a declared floor: no model call and no
+join Packet, and a fail is what sends the Step to `correct --figure`. It does
+**not** re-check the binding — §4.17 already refuses a record that moves a role
+to a ground the Brief did not bind it to — it asks whether the wording the
+element finally got is carried by the material it was licensed from, which is
+the one question nothing before the round trip can ask.
 
 **The item table is `src/review-items.json` and it is fixed in the Harness.**
 Which Packet information must be recoverable is decided there, per item class,
@@ -94,6 +115,20 @@ and nothing else. With `--file` it records the prose through the realization
 lane, so the Draft is re-assembled by the same code that wrote it, and snapshots
 land in the review workspace.
 
+**A figure fail routes to `correct --figure`, and that is a different act.**
+What comes back is a JSON record, not prose: the input carries the Step's Packet
+as it now stands, the passage, the block as the reader currently meets it, the
+previous record verbatim, what failed and what must go on holding. Recording it
+hands the record to `draft.mjs figure`, which re-validates it against
+`src/figure-schema.json` and the Move's own form, and to `emit`, which renders
+the block from it — **you write no markup**, so a syntax defect in a corrected
+figure stays a defect of `src/render-figure.mjs` rather than of the sitting that
+corrected it. A Step owing both corrections takes the **passage first**: the
+record's caption is stated in what the reader holds after reading that passage,
+so a record corrected against prose about to change is corrected against
+nothing. `correct` on a Step whose only preserved fails are the figure's refuses
+by naming the other seat.
+
 **Corrections run in path order** and a Step out of order refuses — each later
 one must see the earlier ones in its own "article so far". Between the render
 and the recording the run is **mid-correction** on that Step and every other act
@@ -123,6 +158,13 @@ renders prose alone — the wording is `src/recovery-template.md`, which holds n
 thesis, no grounds, no Move, no reader states and no term list — and refuses a
 record for a Step whose input it did not render.
 
+**And it sees the figure the reader saw.** For a Step whose trace carries one,
+the recovery input quotes the rendered block — the fence and the caption, sliced
+from the Draft at the range the trace records, with its own line numbers — and
+nothing from the record: no role binding, no ground address, no relation list.
+The reviewer reads the figure exactly as a reader does, which is what makes its
+account of it evidence rather than a confirmation.
+
 The record it returns is one JSON object validated against
 `src/recovered-schema.json`: `claims` (each with the draft line span it rests
 on), `reader_state_after`, `purpose`, `terms_introduced`, `shape`, `concessions`
@@ -132,6 +174,14 @@ span outside the passage, and a verdict or a piece of advice are each **refused
 by name** — an empty array is an answer, an absent key is not. The top-level key
 set is **closed** (kogaki#885): the seven are the whole record, and a key
 outside them is refused with the key named rather than accepted and ignored.
+
+**The eighth field is conditional (kogaki#880).** A Step that carries a figure
+owes `figure_reading` — what the figure shows, the elements the reader can name,
+and what the reader holds after looking — and a Step that carries none is
+**refused** it by name. The closed set stays total at every Step; it is computed
+from the Step rather than fixed for the Draft. A reading of a figure nobody
+rendered is an invention, not a recovery, and the refusal says so rather than
+reporting an unnamed key.
 
 **The cold reader reads the body only** — no frontmatter, no trace, no Packet,
 and no Step boundary marked — and writes, after each Section, the question it

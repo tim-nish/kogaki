@@ -11,6 +11,12 @@ and what each one asks; this file decides only how a pair is put in front of a
 reader. A template that carried a second question, or a scale, would be the
 place a score got back in after the item table refused to hold one.
 
+THE DECLARED SIDE IS NOT ALWAYS THE PACKET'S. {{declared_source}} names the
+carrier the declared line was read from — the Packet for every prose pair, the
+figure record for a figure pair (kogaki#880), the passage itself where the
+declared side IS the article. A heading that said `Packet` for all three would
+name the wrong artifact in every finding a reader goes on to repair.
+
 THE JUDGING MODEL IS NOT THE RECOVERING ONE. The recovering reviewer is blind
 to the Packet by design (kogaki#871) and this reader is not: it sees the
 declared line, the recovered line and the quoted prose together, because
@@ -34,7 +40,7 @@ problems, do not rank this against anything, and do not weigh how bad it is.
 - **Step.** {{step_id}}
 - **Item.** {{item}} ({{item_class}})
 
-### What the Packet DECLARED
+### What the {{declared_source}} DECLARED
 
 {{declared}}
 
