@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// brief — the Brief entry point (SPEC-draft-pipeline §5.3, v9 re-sequencing,
+// brief — the Brief entry point (SPEC-draft-pipeline, the durable home and the entry point, v9 re-sequencing,
 // kogaki#494; slug PAIRED INTO THE ONE GATE at v11, kogaki#518; entry point
 // v7, kogaki#482; stories 1.71, 1.72 and 1.76).
 //
@@ -15,9 +15,9 @@
 //
 // Three commands, one per block of the re-sequenced flow:
 //   enter  — resolves LessonDisplayIDs against the survey record (refusals
-//            unchanged from §5.3: unknown id names both sides; G-ids refused
+//            unchanged from the durable home and the entry point: unknown id names both sides; G-ids refused
 //            by name), composes 2–3 Thesis candidates FROM THE SETTLED SET
-//            ONLY (§3's read-not-invented rule), DERIVES ONE SLUG PER
+//            ONLY (the read-not-invented rule), DERIVES ONE SLUG PER
 //            CANDIDATE from that candidate's own Thesis, and writes the
 //            machine-local run state. Emits the thesis-determination gate's
 //            declaration, whose every option is a (Thesis, slug) PAIR.
@@ -26,7 +26,7 @@
 //            named in the same answer. Emits no ask of its own.
 //   mint   — consumes the adopted (Thesis, slug) PAIR from the run state and
 //            creates theses/<slug>/brief.md with `thesis` FILLED AT MINT BY
-//            CONSTRUCTION and every downstream §5.1 field a typed unfilled
+//            CONSTRUCTION and every downstream the settled structure section field a typed unfilled
 //            slot. Idempotence by slug; a collision refuses (creator, never
 //            an editor).
 //
@@ -35,7 +35,7 @@
 // nothing below emits a `slug_gate` and no command carries a
 // brief-slug-approval declaration, so a second slug ask is UNPRODUCIBLE
 // rather than prohibited. The merge is admissible only under the served
-// constraint §5.3 v11 binds it by — a gate may carry a second decision class
+// constraint the durable home and the entry point v11 binds it by — a gate may carry a second decision class
 // only if that class is SEPARATELY RENDERED and SEPARATELY DECLINABLE — so
 // each option renders its slug as its own element of the option body (the
 // bare slug, never a `theses/` path), and `adopt --slug` declines that half
@@ -86,16 +86,16 @@ function parseArgs(argv) {
   return args;
 }
 
-// The §5.1 fields DOWNSTREAM OF THE THESIS, every one present as a TYPED
+// The the settled structure section fields DOWNSTREAM OF THE THESIS, every one present as a TYPED
 // UNFILLED SLOT — an absent field and a field awaiting composition are
 // different silences, and only the second lets a later sitting resume
-// (§5.3). The `thesis` field is NOT in this list at v9: it is filled at
+// (the durable home and the entry point). The `thesis` field is NOT in this list at v9: it is filled at
 // mint by construction, because the mint runs at Thesis adoption.
 const SLOT = "*(awaiting composition)*";
 // THE CAPTIONS ARE READ FROM ONE TABLE, NOT WRITTEN HERE (kogaki#526). Every
 // caption used to carry its own field key and, in three cases, a section
 // reference — `thesis_closure — explanation and established_by_steps.`,
-// `sequence — the ordered steps of §4.1.` — on a TRACKED document the owner
+// `sequence — the ordered steps of the Step's shape.` — on a TRACKED document the owner
 // reads directly. kogaki#520 removed that vocabulary from the gate payload and
 // installed a tripwire there; the tripwire reads the payload and had no reach
 // into the minted document, which is why this was a separate carrier.
@@ -106,10 +106,10 @@ const fields = () => [...SLOT_CAPTIONS.entries()];
 // exists without one.
 export function composeBrief({ slug, pin, strands, thesis }) {
   if (typeof thesis !== "string" || thesis === "") {
-    throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (§5.3 v9)");
+    throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)");
   }
   const L = [];
-  // TWO EMITTERS, and the split IS the tripwire's reach (§5.3 v15, kogaki#537).
+  // TWO EMITTERS, and the split IS the tripwire's reach (the durable home and the entry point v15, kogaki#537).
   // `say` emits text THIS COMPOSER AUTHORS and is guarded; `material` emits text
   // that arrived from the owner or from the served substrate and is not.
   //
@@ -128,7 +128,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   //
   // THE COST, STATED RATHER THAN LEFT: a leak written INTO a material line is
   // unguarded, and the set of material lines is an enumeration that can go
-  // stale. It is small, it is all in this function, and §5.3 v15 names it — a
+  // stale. It is small, it is all in this function, and the durable home and the entry point v15 names it — a
   // future line carrying external content goes through `material` or the guard
   // silently widens to text this codebase did not write.
   const guarded = [];
@@ -136,7 +136,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   const material = (s = "") => { L.push(s); };
   material(`# Brief — ${slug}`);
   say();
-  // The reader-facing definition, in the act that uses the term (§5.3).
+  // The reader-facing definition, in the act that uses the term (the durable home and the entry point).
   say("> A **brief** is the working plan for one article: the served");
   say("> material (Strands) the owner settled on, and the composition");
   // THE THIRD OWNER-FACING SURFACE (PR #581 round 1). This definition names the
@@ -160,7 +160,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
     material(`- cite: \`${s.cite ?? "none recorded"}\``);
     if (s.journey) {
       // The served Journey cite is part of "their pins and served cites"
-      // (§5.3) — a cite the record holds and the document drops sends the
+      // (the durable home and the entry point) — a cite the record holds and the document drops sends the
       // composition sitting back to the run workspace, which is what a
       // durable Brief exists to avoid (PR #484 round 1 finding 5).
       //
@@ -215,7 +215,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   // kogaki#520 took at the gate: a rewrite layer would let the leak keep being
   // written and the next term of art would arrive unlabelled.
   //
-  // WHAT IS CHECKED, and it is no longer every line (§5.3 v15, kogaki#537).
+  // WHAT IS CHECKED, and it is no longer every line (the durable home and the entry point v15, kogaki#537).
   // kogaki#526 checked all of them, which was right about the captions — three
   // lines outside them carried a section reference, and narrowing to captions
   // would have satisfied #526's sentence while leaving the document leaking.
@@ -240,7 +240,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
 }
 
 // Resolve the entered ids against the survey record. Refusals are the
-// contract's own (§5.3): an unknown id names BOTH sides, never a silent
+// contract's own (the durable home and the entry point): an unknown id names BOTH sides, never a silent
 // drop; a Group/SubGroup id is refused BY NAME as a per-report-identity
 // token. Exported for the check's refusal cases. UNCHANGED at v9 — the
 // re-sequencing moved the mint, not the entry refusals.
@@ -249,16 +249,16 @@ export function resolveStrandIds(record, entered) {
   if (gids.length) {
     return { error:
       `${gids.join(", ")}: Group/SubGroup ids are per-REPORT-IDENTITY tokens `
-      + "(SPEC-terrain §12.1) — they name a grouping, not the settled set, and "
+      + "— they name a grouping, not the settled set, and "
       + "a pin advance renumbers them. Enter the LessonDisplayIDs (L<n>) that "
       + "stand in the report's member headings beside the grouping you "
-      + "navigated by (SPEC-draft-pipeline §5.3)." };
+      + "navigated by." };
   }
   const bad = entered.filter((x) => !/^L[0-9]+$/.test(x));
   if (bad.length) {
     return { error:
       `${bad.join(", ")}: not a LessonDisplayID. The input unit is L<n> and `
-      + "nothing else (SPEC-draft-pipeline §5.3; SPEC-terrain §14.3)." };
+      + "nothing else." };
   }
   const byDid = new Map((record.candidates || [])
     .filter((c) => c.display_id).map((c) => [c.display_id, c]));
@@ -269,8 +269,8 @@ export function resolveStrandIds(record, entered) {
     return { error:
       `${missing.join(", ")}: the survey record carries no such display id. `
       + `Entered: ${entered.join(", ")}. The record holds: `
-      + `${held.join(", ") || "no display ids (the record predates §14.3)"}. `
-      + "Nothing was dropped silently (§3's completeness rider at entry)." };
+      + `${held.join(", ") || "no display ids (the record predates the display-ID rule)"}. `
+      + "Nothing was dropped silently — every entered id is placed or named." };
   }
   // Dedup preserving the entered order — the set is the unit, and a repeat
   // is not an error the owner should be stopped for.
@@ -284,7 +284,7 @@ export function resolveStrandIds(record, entered) {
   return { strands };
 }
 
-// Compose 2–3 Thesis candidates FROM THE SETTLED STRAND SET ONLY (§3,
+// Compose 2–3 Thesis candidates FROM THE SETTLED STRAND SET ONLY (the read-not-invented rule,
 // story 1.72 AC2), and from that set's SERVED GLOSS RENDERINGS rather than
 // from its slugs (kogaki#519/#528).
 //
@@ -296,12 +296,13 @@ export function resolveStrandIds(record, entered) {
 // amount of care at the composing step turns an identifier into prose.
 //
 // NEVER WIDENED, AND STILL NEVER FETCHED BY THIS LANE. The set is closed at
-// entry and this composes from its members and nothing else — the §5.3
+// entry and this composes from its members and nothing else — the durable home and the entry point
 // invariant is about GROWING the set, and resolving the material a settled
 // member already names is not growth. The resolution itself is terrain's:
 // `resolveHeadlines` is called there, bounded by the members' own tags, so the
 // Brief lane gains no seam read of its own and terrain stays the one component
-// that reads served renderings (§3, §9).
+// that reads served renderings (SPEC-terrain, the served-renderings input rule
+// and the rendering rule).
 //
 // AN ABSENT RENDERING IS DISCLOSED, NEVER SUBSTITUTED: the member's phrase
 // becomes terrain's own NO_HEADLINE marker, which is loud at the gate and is
@@ -313,27 +314,28 @@ export function resolveStrandIds(record, entered) {
 //
 // PLAIN REGISTER'S DEFINITION IS NOT RESTATED HERE (kogaki#749, reg-0220).
 // Its carrier is src/packet-template.md, which the model reads at generation,
-// and its ground is specs/spec-brief-draft-design/DESIGN.md §4. This comment
+// and its ground is specs/spec-brief-draft-design/DESIGN.md, "Plain register, and the round trip". This comment
 // used to spell the definition out inline beside a citation to
-// SPEC-style-contract §4 — a second carrier for a rule with one, and the same
-// shape the design record struck from its own §4 one PR earlier. The spec is
+// the deleted SPEC-style-contract's own plain-register clause — a second
+// carrier for a rule with one, and the same shape the design record struck
+// from its own plain-register section one PR earlier. The spec is
 // deleted; the restatement went with it rather than being repointed.
 //
 // Exported for the check's compose-from-settled-set case.
 //
-// PROSE AT THE SURFACE, SCHEMA IN THE RECORD (§5.1.3 v20, kogaki#566). What
+// PROSE AT THE SURFACE, SCHEMA IN THE RECORD (the prose-at-the-surface rule v20, kogaki#566). What
 // this function returns is a RECORD and keeps its fields; what the owner reads
 // is prose composed from them, and it carries NO FIELD LABEL. The three frames
 // that shipped before — "The article's spine is this claim:", "The article makes
 // one claim:", "Concedes:" — handed the owner labelled fields at the one surface
-// the design record's §4 promises plain register to, so they are gone rather
+// the design record's plain-register section promises plain register to, so they are gone rather
 // than reworded: the colon-framed shape was the defect, not the words inside it.
 //
 // AND `claim` IS SEPARATE FROM `thesis`, WHICH IS THE HALF THE MINT NEEDS.
 // `claim` is what the owner adopts; `thesis` is `claim` plus the sentence saying
 // how the other settled members serve it, and that second half is GATE
 // SCAFFOLDING. Keeping them apart here is what lets the mint record the claim
-// and drop the frame (§5.1.3) without the mint re-parsing prose it did not
+// and drop the frame (the prose-at-the-surface rule) without the mint re-parsing prose it did not
 // compose. The supporting members are NOT restated inline: splicing served
 // sentences together with "; " produced one unreadable sentence, and the members
 // are readable on the Full Report the ids came from and in the Brief's own
@@ -345,7 +347,7 @@ export function resolveStrandIds(record, entered) {
 // (Thesis, slug) pair. Deriving it here rather than at adoption is what
 // makes the second ask unproducible: the name is already on the table when
 // the owner answers, so there is nothing left to ask afterwards.
-// ONE TERMINAL PERIOD, AND NEVER TWO (§5.1.3, kogaki#566). A served headline is
+// ONE TERMINAL PERIOD, AND NEVER TWO (the prose-at-the-surface rule, kogaki#566). A served headline is
 // a sentence and already ends in a period; the old templates appended their own,
 // so every option read `…you already keep..` at the gate. Trimming first and
 // adding one back is what makes the composer's output independent of how the
@@ -362,7 +364,7 @@ function sentence(text) {
   return /[?!]$/.test(t) ? t : `${t}.`;
 }
 
-// THE CLAIM IS A PREFIX OF WHAT THE GATE RENDERS (§5.1.3; kogaki#572). The mint
+// THE CLAIM IS A PREFIX OF WHAT THE GATE RENDERS (the prose-at-the-surface rule; kogaki#572). The mint
 // records `claim` and the gate shows `thesis`, and the strip is only honest while
 // the first is contained in the second — the Brief then holds LESS than the owner
 // read, never something else. That held for free while every `thesis` was its
@@ -389,7 +391,7 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
     // for every member, so a bare marker made all 2-3 candidates byte-identical
     // — one option presented three times, at the moment the owner most needed
     // to see that something was wrong (PR #534 round 1). The display_id is the
-    // token §14.3 already renders on owner surfaces, so naming it here keeps
+    // token the display-ID rule already renders on owner surfaces, so naming it here keeps
     // the options distinguishable AND says which member is missing material.
     return `${s.display_id} ${NO_RENDERING}`;
     // KNOWN AND BOUNDED, stated rather than left: on a FULLY degraded set the
@@ -413,7 +415,7 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
     // twice, which is the defect PR #534 round 1 found in another form.
     //
     // SO THE SECOND OPTION'S CLAIM CARRIES ITS OWN COMMITMENT. That sentence is
-    // NOT the scaffolding §5.1.3 strips: scaffolding says how the OTHER settled
+    // NOT the scaffolding the prose-at-the-surface rule strips: scaffolding says how the OTHER settled
     // members serve the claim, and there are no other members here. This says
     // what the article does with THIS claim, which is part of what the owner
     // adopts — the same reason a free-form Thesis is taken verbatim however it
@@ -470,7 +472,7 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
 
 // Derive ONE slug from a Thesis (story 1.72 AC4; paired into the gate at
 // v11, kogaki#518): the slug is thesis-derived and owner-decided, never
-// machine identity — §12.2's no-machine-identity repair kept by this route
+// machine identity — location and naming's no-machine-identity repair kept by this route
 // exactly as v9 kept it by its own. THIS IS THE ONE DERIVATION: the paired
 // candidate slugs and a free-form Thesis's slug both come from here.
 // Exported for the check's thesis-derived-slug case.
@@ -522,10 +524,10 @@ function defaultRunState() {
 function readRunState(args) {
   const p = argString(args, "run-state",
     "this command needs --run-state <path> — the machine-local run record "
-    + "`enter` wrote (pre-Thesis state is machine-local, §5.3 v9)");
+    + "`enter` wrote (pre-Thesis state is machine-local, the durable home and the entry point v9)");
   if (!existsSync(p)) {
     fail(`run state ${p} does not exist — run \`brief.mjs enter\` first `
-      + "(entry → thesis-determination gate → mint, §5.3 v9).");
+      + "(entry → thesis-determination gate → mint, the durable home and the entry point v9).");
   }
   return { path: p, state: JSON.parse(readFileSync(p, "utf8")) };
 }
@@ -539,7 +541,7 @@ function cmdEnter(args) {
     argString(args, "survey", "enter needs --survey <survey record> — the machine-local run-workspace JSON the terrain survey wrote (a value is required; a bare --survey flag is the omitted-value defect)"), "utf8"));
   const entered = argString(args, "ids",
     "enter needs --ids <L1,L2,...> — the settled Strand set as "
-    + "LessonDisplayIDs (SPEC-draft-pipeline §5.3)")
+    + "LessonDisplayIDs")
     .split(",").map((s) => s.trim()).filter(Boolean);
   if (!entered.length) fail("--ids was empty. A Brief needs at least one settled Strand.");
 
@@ -574,15 +576,15 @@ function cmdEnter(args) {
   // inside the Thesis text, and it shows the BARE slug, never a `theses/`
   // path (owner rendering ruling 2026-08-18; the option body is already
   // dense). Placement in the body rather than the label is a try-one-first
-  // instruction: moving it to the label needs no amendment (§5.3 v11).
+  // instruction: moving it to the label needs no amendment (the durable home and the entry point v11).
   const gate = {
     gate_id: "brief-thesis-adoption",
     where: `the settled Strand set: ${r.strands.map((s) => s.display_id).join(", ")} at pin ${record.pin}`,
-    why: "the machine's premise, rendered: this settled set supports a Thesis — the candidates below are composed from the set's own members and from nothing else (§3), and each carries the name it would give the Brief",
+    why: "the machine's premise, rendered: this settled set supports a Thesis — the candidates below are composed from the set's own members and from nothing else (the read-not-invented rule), and each carries the name it would give the Brief",
     label: "Adopting a Thesis starts the Brief: the mint runs next and the Brief's durable home is created under the adopted name, carrying the adopted Thesis",
     options: [
       // THE NAME RIDES THE LABEL (kogaki#567). The slug was a `rendering` entry
-      // in the option BODY, which §5.3 v11 declared a TRY-ONE-FIRST placement
+      // in the option BODY, which the durable home and the entry point v11 declared a TRY-ONE-FIRST placement
       // with its own release condition — "if it reads badly in use, it moves to
       // the label, and that move needs no amendment". It read badly at the
       // 2026-08-20 dogfood: the body entry sinks the name below the fold of an
@@ -627,13 +629,13 @@ function cmdEnter(args) {
   };
   writeFileSync(runPath, JSON.stringify(state, null, 2) + "\n");
   console.log(JSON.stringify({ run_state: runPath, gate }, null, 2));
-  console.log(`# entry resolved ${r.strands.length} member(s); nothing written under theses/ — pre-Thesis state is machine-local (§5.3 v9).`);
+  console.log(`# entry resolved ${r.strands.length} member(s); nothing written under theses/ — pre-Thesis state is machine-local (the durable home and the entry point v9).`);
 }
 
-// ---- THE THESIS-DETERMINATION GATE'S EXECUTOR (§5.3; kogaki#891). ----
+// ---- THE THESIS-DETERMINATION GATE'S EXECUTOR (the durable home and the entry point; kogaki#891). ----
 //
 // ONE ACT, TWO MODES, AND NO ENTRY POINT THAT CAN MINT STATE OUT OF BAND —
-// the shape §4.12.3's ratification gate established (kogaki#893) and the
+// the shape the owner gate over a passing specialization record's ratification gate established (kogaki#893) and the
 // property kogaki#625 item 1 established on the Terrain side: an answer is
 // admitted only at the wait that declared it. `--declare` writes the run
 // declaration from the gate `enter` already composed and renders the options;
@@ -668,7 +670,7 @@ function cmdGateThesis(args) {
   // adoption: a run state carrying no gate was never rendered to an owner,
   // so there is no question for an answer to be an answer TO.
   if (!state.gate || !Array.isArray(state.gate.options) || state.gate.options.length === 0) {
-    fail("this run state carries no thesis-determination gate declaration — `enter` composes it (§5.3), "
+    fail("this run state carries no thesis-determination gate declaration — `enter` composes it (the durable home and the entry point), "
       + "and an answer is admitted only at the wait that declared it. Re-run `enter`. Nothing was written.");
   }
   const gateId = state.gate.gate_id;
@@ -682,7 +684,7 @@ function cmdGateThesis(args) {
   if (args.capture) {
     let decl;
     try { decl = JSON.parse(readFileSync(declPath, "utf8")); }
-    catch { fail(`no declaration at ${declPath} — an answer is admitted at the wait that declared it, so run --declare and raise the gate first (§5.3; kogaki#891).`); }
+    catch { fail(`no declaration at ${declPath} — an answer is admitted at the wait that declared it, so run --declare and raise the gate first (the durable home and the entry point; kogaki#891).`); }
     if (decl.answers_over?.option_set_digest !== digest) {
       fail(`the declaration at ${declPath} was raised over an option set digesting ${JSON.stringify(decl.answers_over?.option_set_digest)}, `
         + `but this run state now offers one digesting ${JSON.stringify(digest)} — the candidates changed after the gate was raised, `
@@ -758,7 +760,7 @@ function cmdGateThesis(args) {
 // exists is a channel, and leaving it beside the capture would make the
 // capture optional in exactly the runs that skip it.
 //
-// The answer still has two halves and they still arrive together (§5.3 v11,
+// The answer still has two halves and they still arrive together (the durable home and the entry point v11,
 // kogaki#518) — the adopted candidate (or the owner's own words) and the
 // OPTIONAL name override — but both halves now ride the captured row rather
 // than two arguments. This command emits NO ask.
@@ -768,7 +770,7 @@ function cmdAdopt(args) {
   // adoption. A run state carrying no gate was never rendered to an owner.
   if (!state.gate || !Array.isArray(state.gate.options) || state.gate.options.length === 0) {
     fail("this run state carries no thesis-determination gate declaration — nothing was ever rendered to the owner, "
-      + "so there is no answer to adopt (§5.3; kogaki#891). Re-run `enter`. Nothing was written.");
+      + "so there is no answer to adopt (the durable home and the entry point; kogaki#891). Re-run `enter`. Nothing was written.");
   }
   if (typeof args.thesis === "string" || typeof args.slug === "string") {
     // THE REMOVED CHANNEL REFUSES LOUDLY rather than being ignored. A silently
@@ -793,14 +795,14 @@ function cmdAdopt(args) {
 
   if (verdict.option === "back-to-terrain") {
     fail("the owner ruled the settled set is what should change — route back "
-      + "through Terrain. No Brief is started (§5.3: never a Brief fetch).");
+      + "through Terrain. No Brief is started (the durable home and the entry point: never a Brief fetch).");
   }
   const hit = (state.thesis_candidates || []).find((c) => c.id === verdict.option);
   if (verdict.option !== undefined && !hit) {
     fail(`the captured answer names option ${JSON.stringify(verdict.option)}, which is offered by the gate but is not a Thesis candidate — `
-      + "an option routed nowhere is not adopted (§5.3). Nothing was written.");
+      + "an option routed nowhere is not adopted (the durable home and the entry point). Nothing was written.");
   }
-  // THE MINT RECORDS THE CLAIM, NEVER THE FRAME (§5.1.3 v20, kogaki#566). What
+  // THE MINT RECORDS THE CLAIM, NEVER THE FRAME (the prose-at-the-surface rule v20, kogaki#566). What
   // the owner adopted at the gate is the claim; `thesis` also carries the
   // sentence about how the other settled members serve it, which is scaffolding
   // for the gate and has no business in a tracked document. A free-form answer
@@ -815,7 +817,7 @@ function cmdAdopt(args) {
   // (PR #571 round 1).
   if (hit && (typeof hit.claim !== "string" || hit.claim === "")) {
     fail(`candidate ${hit.id} carries no claim — the mint records the adopted claim `
-      + "(§5.1.3), and a run state whose candidates predate that field cannot be "
+      + "(the prose-at-the-surface rule), and a run state whose candidates predate that field cannot be "
       + "adopted from. Re-run `enter` to recompose the gate.");
   }
   const thesis = hit ? hit.claim : verdict.free_text;
@@ -853,7 +855,7 @@ function cmdAdopt(args) {
   // the question the harness asked rather than only the value it produced.
   state.adopted_by = { gate_id: gateId, tool_use_id: verdict.tool_use_id, capture: resolve(capPath) };
   writeFileSync(runPath, JSON.stringify(state, null, 2) + "\n");
-  console.log(`thesis-determination answer (§5.3): read from ${capPath} — the owner answered at the ${gateId} gate (AskUserQuestion ${verdict.tool_use_id}); no argument carried it`);
+  console.log(`thesis-determination answer (the durable home and the entry point): read from ${capPath} — the owner answered at the ${gateId} gate (AskUserQuestion ${verdict.tool_use_id}); no argument carried it`);
   console.log(JSON.stringify({
     run_state: runPath,
     adopted_thesis: thesis,
@@ -862,7 +864,7 @@ function cmdAdopt(args) {
     adopted_slug_via: via,
     adopted_by: state.adopted_by,
   }, null, 2));
-  console.log("# the pair is settled; `mint` consumes it and creates the Brief's durable home (§5.3 v11).");
+  console.log("# the pair is settled; `mint` consumes it and creates the Brief's durable home (the durable home and the entry point v11).");
 }
 
 function cmdMint(args) {
@@ -871,10 +873,10 @@ function cmdMint(args) {
     // THE GATE BLOCKS (story 1.72 AC6): no adopted Thesis, no writes — a
     // pre-Thesis Brief is unproducible, not prohibited (kogaki#494 remedy).
     fail("no Thesis has been adopted in this run — the thesis-determination "
-      + "gate blocks and nothing is written under theses/ (§5.3 v9; "
+      + "gate blocks and nothing is written under theses/ (the durable home and the entry point v9; "
       + "kogaki#494: a pre-Thesis Brief is unproducible).");
   }
-  // THE MINT CONSUMES THE ADOPTED PAIR (§5.3 v11, kogaki#518). The owner's
+  // THE MINT CONSUMES THE ADOPTED PAIR (the durable home and the entry point v11, kogaki#518). The owner's
   // name reaches here one way only — through `adopt`, as the half of the one
   // gate's answer they settled — and the mint DERIVES NOTHING of its own: a
   // run whose pair carries no name refuses rather than inventing one, which
@@ -887,14 +889,14 @@ function cmdMint(args) {
     ? args.slug : state.adopted_slug;
   if (typeof slug !== "string" || !SLUG_RE.test(slug)) {
     fail("the run state carries no adopted name — re-run `adopt` with the "
-      + "owner's answer at the thesis-determination gate (§5.3 v11: the one "
+      + "owner's answer at the thesis-determination gate (the durable home and the entry point v11: the one "
       + "gate carries the Thesis and its name together; there is no separate "
       + "slug ask to answer).");
   }
 
   const thesesDir = resolve(typeof args["theses-dir"] === "string" && args["theses-dir"] !== "" ? args["theses-dir"] : "theses");
   const home = join(thesesDir, slug);
-  // IDEMPOTENCE IS BY SLUG, AND A COLLISION REFUSES (§5.3): a Brief is owner
+  // IDEMPOTENCE IS BY SLUG, AND A COLLISION REFUSES (the durable home and the entry point): a Brief is owner
   // state from the moment it exists, and this runtime is a creator, never an
   // editor.
   if (existsSync(home)) {
@@ -907,7 +909,7 @@ function cmdMint(args) {
     fail(`${home}/ already exists. The entry point creates and never `
       + "overwrites — resume that Brief by opening its document, or re-answer "
       + "the thesis-determination gate naming a different name (`adopt "
-      + "--thesis <id|text> --slug <name>`, SPEC-draft-pipeline §5.3 v11).");
+      + "--thesis <id|text> --slug <name>`).");
   }
   mkdirSync(home, { recursive: true });
   const out = join(home, "brief.md");
@@ -919,10 +921,10 @@ function cmdMint(args) {
   // the collision refusal above guarantees it — so the mint writes only its
   // `after` snapshot. Machine-local trace; a failure warns and never blocks.
   snapshotBrief(out, "mint", "after", doc);
-  console.log(`Brief minted — READ THIS ONE (owner document, SPEC-draft-pipeline §5.3): ${out}`);
+  console.log(`Brief minted — READ THIS ONE (owner document): ${out}`);
   console.log(`Strands: ${state.strands.map((s) => s.display_id).join(", ")} `
     + `(${state.strands.length} member(s), set closed at mint)`);
-  console.log("The thesis field is FILLED at mint by construction (§5.3 v9); every downstream composition field is a typed unfilled slot — the next sitting resumes from the document.");
+  console.log("The thesis field is FILLED at mint by construction (the durable home and the entry point v9); every downstream composition field is a typed unfilled slot — the next sitting resumes from the document.");
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -933,7 +935,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     case "adopt": cmdAdopt(args); break;
     case "mint": cmdMint(args); break;
     case "start":
-      fail("`start` no longer exists — SPEC-draft-pipeline §5.3 was "
+      fail("`start` no longer exists — the durable home and the entry point was "
         + "re-sequenced at v9 (kogaki#494): entry → thesis-determination "
         + "gate → mint. Run `enter`, then `adopt`, then `mint`.");
       break;
