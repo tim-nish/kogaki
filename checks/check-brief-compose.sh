@@ -14,6 +14,15 @@
 # Move was bound after the reasoning — and NOTHING here judges any of it.
 # This member exercises the record's SHAPE and the fill's PLUMBING only; the
 # judge is the path-review agent (story 1.74), and its human gate.
+#
+# ONE SHAPE, STATED ONCE FOR THE WHOLE FILE (kogaki#951): an assertion that
+# binds only the ABSENCE of one message binds a PROXY, not the property. Where
+# a case drives an act that refuses, assert WHICH refusal landed and read the
+# EXIT STATUS beside it — a negative-only assertion goes green the day some
+# earlier clause refuses first, reporting an arm exercised that was never
+# reached. The same shape is recorded case-locally at (r) AC4/AC5 and at
+# (l) AC5; this note is what makes the next one recognisable before it is
+# written.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -713,10 +722,23 @@ try {
   const bothAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
     "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
     "--selection", selCapPath], { encoding: "utf8" });
-  // It gets PAST the selection clause. It still refuses further down — this
-  // call passes no --ratification — so the assertion is on WHICH refusal, and
-  // the free-text one is the wrong one.
-  if (/in their own words/.test(bothAdopt.stderr || "")) fails.push("(g6) a selection carrying a comment beside it was refused as free text — the arm reads the free text's presence rather than the option's absence");
+  // It gets PAST the selection clause and stops at the RATIFICATION barrier —
+  // this call passes no --ratification — so the assertion ANCHORS POSITIVELY
+  // on that refusal and reads the exit status beside it. Bound negatively, on
+  // the free-text message's absence alone (kogaki#951), any clause refusing
+  // ABOVE the free-text arm would satisfy this case while the arm itself went
+  // unreached: the stderr would carry that other refusal, `in their own words`
+  // would be absent, and the case would report the arm as admitting an
+  // option-plus-comment selection it never evaluated. That is the
+  // ASSERTION-BINDS-A-PROXY shape stated at the head of this file and recorded
+  // against itself at (r) AC4/AC5 above.
+  const bothErr = bothAdopt.stderr || "";
+  if (bothAdopt.status === 0) {
+    fails.push("(g6) adoption of an option-plus-comment selection SUCCEEDED with no --ratification — it no longer stops at the ratification barrier, so this case's anchor is gone and what it exercises is unknown");
+  } else if (!/PASSING RECORD IS NOT THE SOLE UNLOCK/.test(bothErr)) {
+    fails.push(`(g6) an option-plus-comment selection refused somewhere other than the ratification barrier, so the §6 selection arm was never reached and this case exercises nothing: ${bothErr.trim().split("\n")[0]}`);
+  }
+  if (/in their own words/.test(bothErr)) fails.push("(g6) a selection carrying a comment beside it was refused as free text — the arm reads the free text's presence rather than the option's absence");
 
   const gCapYes = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
     "--tool-use-id", "toolu_sel_yes", "--option", "cand-2"], { encoding: "utf8" });
