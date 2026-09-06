@@ -72,6 +72,14 @@ Every span is a pair of Draft line numbers lying inside {{step_lines}}. A span
 outside that range is refused by name, because a record pointing outside the
 passage is not evidence about it.
 
+**These seven are the whole record, and an eighth field is refused by name.**
+The top-level key set is closed: a key outside the seven above is refused with
+the key named, so write no annotation, no aside and no note beside them. Every
+field here is a fact about the prose, and a field that could not be checked by
+pointing at the passage would be you asserting rather than recovering — which
+is the same reason a verdict, advice, a score or a rating is refused wherever
+it appears, at any depth.
+
 Hand the file back with:
 
     {{recover_command}}
