@@ -432,6 +432,15 @@ function numberedRange(text, lines) {
     .join("\n");
 }
 
+// THE INSTRUCTION NAMES NO SIDE (PR #946 round 1). It read "where it sits
+// relative to the passage BELOW", which was true while the block was always
+// rendered above the passage and became false for half the cases the moment
+// kogaki#945 made the placement faithful — handing a blind reviewer a sentence
+// asserting the opposite arrangement to the one on their page, which is the
+// inverted-order reading `figure-position` exists to prevent, reintroduced in
+// prose one line from the fix. The placement cases assert by slot index and
+// cannot see a wrong word, so a case asserts the absence directly.
+//
 // THE FIGURE AS THE READER MET IT (kogaki#880) — the Draft's own bytes over the
 // range §4.18 records, numbered in the same coordinate the prose is, and
 // NOTHING from the record. Two facts reach the blind reviewer from this and
@@ -527,8 +536,8 @@ function renderFigurePassage(step) {
   return ["## The figure the reader met with this passage",
     "",
     "It is rendered in the Draft, not written by the passage's author. Read it as",
-    "the reader does — the numbers are its lines in the Draft, so you can see",
-    "where it sits relative to the passage below.",
+    "the reader does — the numbers are its lines in the Draft, and this section",
+    "sits on the side of the passage the reader met it on.",
     "",
     numberedFigure(step),
     "",
@@ -2419,7 +2428,7 @@ function cmdCompare(args) {
   // kept in their own fields rather than merged into `findings`. Two reasons,
   // and the second is the load-bearing one: a Section row carries a Section
   // index where a Step row carries a `step_id`, so merging them would put a
-  // `section:2` into the set `correctionOwed` reads as Steps; and an upstream
+  // `section:2` into the set `failingSides` reads as Steps; and an upstream
   // route is residue that NO pass produces — it never goes to correction at
   // all — so folding it into pass two's residue would claim it survived a pass
   // that never looked at it.
@@ -3464,7 +3473,7 @@ function cmdCheck(args) {
     + `  mechanical items      re-run over every Step\n`
     + `${mechanicalLog.length} pair(s) decided mechanically and ${judged} judged.\n`
     + (uncorrected.length
-      ? `UNCORRECTED — pass one sent ${uncorrected.join(", ")} to correction and no correction was made.\n`
+      ? `UNCORRECTED — pass one sent these to correction and they are still owed: ${uncorrected.join(", ")}.\n`
         + "  An entry marked `(--figure)` is the figure seat; the rest are the passage. A Step can\n"
         + "  appear on both, and a Step that received one seat still appears for the other.\n"
         + "  Their preserved fails are residue CARRIED from pass one, not re-judged by this pass;\n"
@@ -5631,8 +5640,13 @@ async function runSelfTest() {
     // only point in this run where the state exists.
     {
       const r = RD("check");
+      // THE HEADLINE'S CLAIM CHANGED AT PR #946 round 1 AND THIS CASE'S DOES
+      // NOT: it asserts the Steps are NAMED, which is PR #906 round 1's finding
+      // and is untouched. What moved is the sentence around them — it read "and
+      // no correction was made", which the per-seat line made false for a Step
+      // that received one seat and still owes the other.
       ok("check with nothing corrected NAMES the Steps pass one sent to correction",
-        r.status === 0 && /UNCORRECTED — pass one sent s2, s3 to correction/.test(r.stdout));
+        r.status === 0 && /UNCORRECTED — pass one sent these to correction and they are still owed: s2, s3/.test(r.stdout));
       ok("and says their fails are carried rather than re-judged",
         /not re-judged by this pass/.test(r.stdout));
       const rc = RD("close");
@@ -6985,6 +6999,13 @@ async function runSelfTest() {
     // THE SIDE IS READ FROM THE DRAFT, NOT FROM THE RECORD, and this is the case
     // that says so: the input must still leak nothing the record alone carries,
     // so a repair that arranged the page by reading `position` would fail here.
+    // AND THE INSTRUCTION NAMES NO SIDE (PR #946 round 1, finding 1). The five
+    // cases around this one assert by slot index, so every one of them stays
+    // green while the prose beside the block tells the reviewer the passage is
+    // on the other side of it. This asserts the words.
+    ok("#947: and the figure section's instruction claims no arrangement of its own",
+      iFig !== -1 && !/passage below/.test(sInput) && !/below\.\s*$/m.test(sInput.slice(iFig, iFig + 400)),
+      sInput.slice(iFig, iFig + 260).replace(/\n/g, " / "));
     ok("#945: while leaking nothing the record alone holds",
       !/"ground"/.test(sInput) && !/"elements"/.test(sInput)
       && !/"position"/.test(sInput) && !/ground: g\d/.test(sInput));
