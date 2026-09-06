@@ -2394,7 +2394,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
   }
 }
 
-const CASE_COUNT = 25;
+const CASE_COUNT = 26;
 {
   const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
   const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;
