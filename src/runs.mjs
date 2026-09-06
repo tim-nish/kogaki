@@ -552,7 +552,7 @@ function selfTest() {
     ok("(k) a complete block reads back", keepLast("brief", cfg({ lanes: full })) === 3);
 
     // (l) THE SHIPPED CARRIER, not a fixture: `src/runs.json` as it stands must
-    // answer for all three lanes. A pass over fixtures alone stays green on a
+    // answer for every lane in LANES. A pass over fixtures alone stays green on a
     // repository whose real config is broken, which is the one state that
     // matters here.
     for (const lane of LANES) {

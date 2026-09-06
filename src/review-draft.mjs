@@ -2961,7 +2961,14 @@ async function runSelfTest() {
   const self = fileURLToPath(import.meta.url);
   const root = mkdtempSync(join(tmpdir(), "review-draft-selftest-"));
   let passed = 0; const failures = [];
-  const ok = (name, cond) => { if (cond) passed++; else failures.push(name); };
+  // `detail` RENDERS (kogaki#883, finding 3). Case 23 always passed its
+  // offending-import list as a third argument, and the two-parameter form
+  // dropped it — so a future allowlist failure would have named the case and
+  // never the import that broke it, the one fact a repair needs. Same shape as
+  // the sibling `ok` in src/runs.mjs.
+  const ok = (name, cond, detail = "") => {
+    if (cond) passed++; else failures.push(`${name}${detail ? ` — ${detail}` : ""}`);
+  };
   // A CASE MUST FAIL, NEVER THROW. A mutation that stops `close` writing its
   // record used to take the whole pass down with an ENOENT from the next case,
   // and a crash reports no case count at all — which is the shape
@@ -3791,10 +3798,30 @@ async function runSelfTest() {
     // below are what would catch a Move or Strand read composed at runtime.
     const ALLOWED = new Set(["node:fs", "node:path", "node:url", "node:crypto",
       "node:child_process", "./runs.mjs"]);
-    const imports = [...code.matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
+    // BOTH IMPORT FORMS (kogaki#883, finding 1). The first scan matched static
+    // `from "…"` only, so a production-side `await import("./strand.mjs")` —
+    // the exact form this very function uses for its own builtins — was
+    // invisible to it. One scanner, used on the Harness and on the fixture
+    // below, so the fixture exercises the scan the case runs rather than a
+    // copy of it.
+    const importsOf = (text) => [
+      ...[...text.matchAll(/from "([^"]+)"/g)].map((m) => m[1]),
+      ...[...text.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]),
+    ];
+    const imports = importsOf(code);
     const foreign = imports.filter((m) => !ALLOWED.has(m));
     ok("the Harness imports ONLY node builtins and ./runs.mjs — an allowlist, so an unanticipated reader is refused by default",
       imports.length > 0 && foreign.length === 0, foreign.join(", "));
+    // The scan's own reach, asserted on a fixture rather than trusted: a
+    // dynamic import of a disallowed module must be CAUGHT, and a dynamic
+    // import of an allowed one must not be.
+    const dyn = 'import { x } from "node:fs";\nconst s = await import("./strand.mjs");\nconst o = await import("node:os");';
+    const dynForeign = importsOf(dyn).filter((m) => !ALLOWED.has(m));
+    ok("and the scan sees a dynamic import — a fixture importing ./strand.mjs at runtime is refused by name",
+      dynForeign.length === 2 && dynForeign.includes("./strand.mjs") && dynForeign.includes("node:os"),
+      dynForeign.join(", "));
+    ok("while a dynamic import of an allowed module passes the same scan",
+      importsOf('const { x } = await import("node:child_process");').filter((m) => !ALLOWED.has(m)).length === 0);
     // The two store literals stay asserted beside it: a Move or Strand reached
     // by a path composed at runtime imports nothing, so the allowlist alone
     // cannot see it. Neither case subsumes the other.
