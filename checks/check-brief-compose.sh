@@ -68,16 +68,17 @@ const REPO_ROOT = resolvePath(".");
 // than a caveat (kogaki#959, found by a mutation probe at implementation).
 // `run_declaration_suffix` is a real join key: `src/brief.mjs:696` composes the
 // declaration filename from it, so producer and consumer move together and a
-// change to the field is a change to the product. `capture.glob` is read by
-// NOBODY — every producer writes `.gate-capture.json` out
-// (`src/brief.mjs:697`, `src/assemble.mjs:1082,1172`, `src/terrain.mjs`), and
-// `check-gate-carrier.sh:371` globs the literal too. So deriving here binds
-// this member to a DECLARED name that no writer honours: move the field and
-// this member goes red while nothing about the product changed. That is the
-// declaration being enforced at one reader ahead of its writers, not a join
-// being repaired, and the asymmetry is a defect in the writers rather than in
-// this derivation. Carried at kogaki#961; do not read this helper as evidence
-// that the field is live.
+// change to the field is a change to the product. `capture.glob` has READERS
+// but no WRITER — `check-gate-carrier.sh:173` derives from it, and this member
+// now does too, while every producer of a capture filename writes the suffix
+// out (`src/brief.mjs:697`, `src/assemble.mjs:1082,1172`, `src/terrain.mjs`;
+// `check-gate-carrier.sh:371` globs the literal as well). So deriving here
+// binds one more reader to a declared name no writer honours: move the field
+// and the readers go red while nothing about the product changed. That is the
+// declaration being enforced ahead of its writers, not a join being repaired,
+// and the asymmetry is a defect in the writers rather than in this derivation.
+// Carried at kogaki#961; do not read this helper as evidence that the field is
+// live end-to-end.
 const GATE_SCHEMA = JSON.parse(readFileSync("src/gate-schema.json", "utf8"));
 const CAPTURE_SUFFIX = GATE_SCHEMA.capture.glob.replace(/^\*/, "");
 const DECLARATION_SUFFIX = GATE_SCHEMA.capture.run_declaration_suffix;
