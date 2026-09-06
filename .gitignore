@@ -82,6 +82,16 @@ policy/shape.md
 # diff — is withdrawn with SPEC.md §4's amendment of the same date.
 !.claude/review-lane.json
 
+# The PROJECT-scope Harness settings file (kogaki#954). The reader that makes
+# it public is the Harness itself: it loads project-scope settings at session
+# start, and it cannot load a file a fresh clone does not carry. What the file
+# holds is `autoCompactWindow`, the compaction window a `/ship-cycle` run in
+# this repository is bound by — so an untracked copy means every clone runs at
+# the shipped default while `CLAUDE.md` states 400K, which is the divergence
+# the section there is written to prevent. `settings.local.json` stays ignored:
+# local scope is per-machine by construction.
+!.claude/settings.json
+
 # The two skill files a registered check READS. Each carries a contract with no
 # second carrier, and the check is the enforcement: `check-brief-entry.sh:796`
 # asserts /brief's completion stages against its skill (the 2026-08-18 dogfood
