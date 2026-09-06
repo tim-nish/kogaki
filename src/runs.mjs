@@ -1,11 +1,25 @@
 // runs — the ONE home for run intermediates, and the ONE reader of the
 // retention bound (kogaki#750, owner rulings 2026-09-01).
 //
+// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
+// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
+// the copy is what the code was implemented against, NOT the spec's current
+// text, and propagating a later spec change into this file is a separate,
+// explicit act. A pointer carrying no authority is marked `[see: <spec>
+// "<name>"]`. Neither names a section number: section numbers renumber, and
+// three of this file's did not resolve to the content they were cited for.
+//
 // Every lane's machine state — survey records, proposal records, gate
 // declarations, captures, Brief and Draft workspaces, snapshots, packets, run
 // records — lands under `runs/<lane>/` in the working tree. That is a MOVE and
-// not a reclassification: the state is still machine-facing and still
-// uncommitted (`specs/SPEC.md` §4 rider 3), and `.gitignore` keeps it so. What
+// not a reclassification: machine-readable intermediates, caches, journals and
+// resumable run state live in machine-state directories, so the state is still
+// machine-facing and still uncommitted, and `.gitignore` keeps it so. `runs/`
+// is not a hidden path, so the separate rule that no owner-facing output prints
+// a hidden path is untouched by the move.
+// [implemented-against: specs/SPEC.md "Human-facing files live where the human
+// works", and its "Where machine state lives" amendment, copied 2026-09-06]
+// What
 // changes is that it is now legible where a contributor works instead of
 // accumulating unbounded in `~/.kogaki`, which nothing pruned and nobody read.
 //
@@ -43,9 +57,16 @@ export const RUNS_ROOT = join(REPO, "runs");
 export const LANES = Object.freeze(["terrain", "brief", "draft", "review"]);
 
 // Entries a lane's pruning never removes, by name. `runs/terrain/reports/` is
-// the report RECORD store, whose home is stable by §12.2's own argument — the
-// same identity run twice is ONE report, which a timestamped-and-pruned
-// directory would make false by construction. It sits inside the lane rather
+// the report RECORD store, and its home is stable because identity and
+// idempotence are carried by the machine record ALONE — the owner rendering is
+// a fixed human name overwritten on every pull, and the machine record is
+// identity-named, which is what identity-naming is for. Two runs matching on
+// the report identity are ONE report, which a timestamped-and-pruned directory
+// would make false by construction.
+// [implemented-against: SPEC-terrain "Location and naming", for the
+// machine-record-alone rule, and SPEC-terrain "Identity — the quadruple", for
+// what makes two runs the same report; copied 2026-09-06. The section numbers
+// this comment previously carried named only the first of the two.] It sits inside the lane rather
 // than beside it because the ruling names three lane directories and no fourth
 // sibling, so the exemption is stated here rather than the layout bent to
 // avoid stating it.
@@ -140,7 +161,9 @@ export function terrainRunEntry(now = new Date()) {
 // lane's K comes from here and none is restated at a call site.
 //
 // A MISSING OR MALFORMED BLOCK FAILS LOUDLY rather than returning a permissive
-// default, exactly as `subdivisionLimits` does for §8's caps: a default here
+// default, exactly as `subdivisionLimits` does for the subdivision caps
+// [see: SPEC-terrain "Semantic subdivision — a judged substrate one level
+// down"]: a default here
 // would silently delete the bound the owner ruled, and unbounded growth is the
 // condition this whole change exists to end — a silent K of Infinity would
 // restore it while every check stayed green.
@@ -436,9 +459,11 @@ function selfTest() {
       JSON.stringify(names(gTerrain)) === beforeOther, JSON.stringify(names(gTerrain)));
 
     // (h) `runs/terrain/reports/` survives its own lane's prune even as the
-    // OLDEST entry. §12.1's same-identity-run-twice-is-ONE-report claim spans
-    // runs, and a keep-last window would falsify it on the K+1th run rather
-    // than at any review point.
+    // OLDEST entry. Two runs matching on the report identity are ONE report,
+    // and that claim spans runs, so a keep-last window would falsify it on the
+    // K+1th run rather than at any review point.
+    // [implemented-against: SPEC-terrain "Identity — the quadruple",
+    // copied 2026-09-06]
     const h = fixture("terrain", ["reports", "v1", "v2", "v3"]);
     const removed4 = pruneLaneForRun("terrain", "v4", { keep: 2, root: h.root });
     ok("(h) reports is never a prune candidate", !removed4.includes("reports"), JSON.stringify(removed4));
