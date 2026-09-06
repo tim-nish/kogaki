@@ -443,6 +443,18 @@ function numberedFigure(step) {
   return numberedRange(step.figure.rendered, step.figure.lines);
 }
 
+// WHERE THE READER MET THE FIGURE, read from the DRAFT'S OWN LINE NUMBERS and
+// never from the record's `position` field. The distinction is the whole reason
+// this is a function rather than a read of the record (kogaki#945): `position`
+// is the DECLARED side, and the blind recovery input below must carry nothing
+// from the record — arranging that input by `position` would show a blind
+// reviewer the very value the `figure-position` item exists to join against
+// their independent reading. Line numbers are already on the reviewer's page,
+// so ordering by them discloses nothing they were not given.
+function figureBeforePassage(step) {
+  return step.figure.lines[0] < step.lines[0];
+}
+
 // The passage a JUDGING reader is shown: the prose, with the figure quoted
 // beside it in draft-line order where the Step has one. The judging reader is
 // not blind — it already sees the declared side — so withholding the block from
@@ -450,7 +462,7 @@ function numberedFigure(step) {
 // cannot see.
 function quotedPassage(step) {
   if (!step.figure) return numberedProse(step);
-  const parts = step.figure.lines[0] < step.lines[0]
+  const parts = figureBeforePassage(step)
     ? [numberedFigure(step), numberedProse(step)]
     : [numberedProse(step), numberedFigure(step)];
   return parts.join("\n\n");
@@ -555,10 +567,22 @@ function renderRecoveryInput(ws, draft, step, steps) {
   // `figure_passage` IS AN ARTICLE SLOT for the same reason the other two are:
   // its content is the Draft's own bytes, and a Draft about this pipeline can
   // carry a `{{word}}` inside a fenced block as its subject matter.
+  //
+  // THE FIGURE HAS TWO SLOTS AND EXACTLY ONE IS FILLED (kogaki#945). The
+  // template emitted the block above the passage unconditionally, so a record
+  // whose figure sits BELOW the prose in the Draft was handed to the blind
+  // reviewer inverted — and this half's whole claim is that the reviewer reads
+  // the figure exactly as a reader does. `figure-position` then joined the
+  // declared side against a reading taken from an order the reader never met.
+  // The side is chosen by `figureBeforePassage`, which reads the Draft's line
+  // numbers and not the record.
+  const figureBlock = step.figure ? renderFigurePassage(step) : "";
+  const figureFirst = step.figure ? figureBeforePassage(step) : false;
   const ARTICLE_SLOTS = {
     article_so_far: articleBefore(steps, step.step_id),
     step_prose: numberedProse(step),
-    figure_passage: step.figure ? renderFigurePassage(step) : "",
+    figure_passage: figureFirst ? figureBlock : "",
+    figure_passage_after: step.figure && !figureFirst ? figureBlock : "",
   };
   const fields = {
     step_id: step.step_id,
@@ -2581,25 +2605,22 @@ function readJoin(ws) {
   catch (e) { fail(`the join record at ${p} is not readable (${e.message})`); }
 }
 
-// Steps owed a correction, IN PATH ORDER — a Step with a failing preserved
-// item. Best-effort fails are not here and never send a Step to correction;
-// they ride along when the Step is re-realized anyway, which is what the item
-// table's class means at this act exactly as it means it at `close`.
-// A LOCALIZED SECTION FAIL ADDS ITS TARGET STEP (kogaki#873). ReviewDraft
-// corrects at Step granularity only, so this is where a Section finding becomes
-// correctable work — and it is the only place it can: nothing downstream reads
-// `section_routes`, and a route computed and then never acted on would be a
-// finding the run made and dropped. An UPSTREAM route adds nothing here, by
-// design: no correction runs for a Brief defect.
-function correctionOwed(run) {
-  const failing = new Set((run.findings || [])
-    .filter((f) => f.verdict === "fails" && f.class === "preserved")
-    .map((f) => f.step_id));
-  for (const r of run.section_routes || []) {
-    if (r.kind === "localized") failing.add(r.step_id);
-  }
-  return run.steps.map((s) => s.step_id).filter((id) => failing.has(id));
-}
+// THE SEAT-BLIND `correctionOwed` IS DELETED (kogaki#945), not left beside its
+// replacement. Its last reader was `check`'s UNCORRECTED line, which is now
+// per seat; keeping an unreferenced Step-granular owed-set would leave the next
+// reader a choice between two answers to one question, and the seat-blind one
+// is the answer that was wrong.
+//
+// What it carried that still binds, restated where the computation now lives:
+// best-effort fails never send a Step to correction — they ride along when the
+// Step is re-realized anyway, which is what the item table's class means at
+// this act exactly as it means it at `close`; and a LOCALIZED Section fail adds
+// its target Step (kogaki#873), because ReviewDraft corrects at Step
+// granularity and this is the only place a Section finding becomes correctable
+// work. `failingSides` below is now the sole computer of both, and it puts a
+// localized route on the PROSE side — a Section's complaint is about the prose
+// the Section groups, never about the figure. An UPSTREAM route adds nothing,
+// by design: no correction runs for a Brief defect.
 
 // ---------------------------------------------------------------------------
 // THE FIGURE CORRECTION (kogaki#880). A failing PRESERVED figure item sends its
@@ -2652,6 +2673,33 @@ function correctionOwedProse(run, items) {
 // same enforcement the prose corrections run under.
 function figureCorrectionOwed(run, items) {
   return run.steps.map((s) => s.step_id).filter((id) => failingSides(run, items, id).figure.length);
+}
+
+// THE (Step, seat) PAIRS STILL OWED A CORRECTION, in path order, prose first
+// and each figure entry marked with the flag that reaches it. ONE definition
+// for three readers (kogaki#945): the two `correct` reports and `check`'s
+// UNCORRECTED line.
+//
+// THE UNCORRECTED LINE KEYED ON THE STEP ALONE until this, and that is the
+// defect. `bound.corrected` is the set of Steps carrying ANY recorded
+// correction, so a Step that owed BOTH seats and received one was in it — and
+// `correctionOwed(run).filter((id) => !bound.corrected.has(id))` therefore
+// dropped it, reporting no UNCORRECTED line for a Step still owing its other
+// seat. That is the same silence PR #906 round 1's finding 1 repaired at the
+// single-seat level, reappearing at the seat kogaki#880 introduced.
+//
+// The two `correct` reports already computed exactly this, twice, inline. They
+// now read it from here, so a third seat cannot be added to one reader and
+// missed by the others.
+function seatsStillOwed(run, items) {
+  const done = (seat) => new Set((run.corrections || [])
+    .filter((c) => (c.seat || "prose") === seat).map((c) => c.step_id));
+  const proseDone = done("prose");
+  const figureDone = done("figure");
+  return [
+    ...correctionOwedProse(run, items).filter((id) => !proseDone.has(id)),
+    ...figureCorrectionOwed(run, items).filter((id) => !figureDone.has(id)).map((id) => `${id} (--figure)`),
+  ];
 }
 
 // The evidence a figure Correction block carries: this Step's rows, split the
@@ -2959,12 +3007,7 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   delete run.rendered[stepId];
   writeRun(ws, run);
 
-  const proseDone = new Set(run.corrections.filter((c) => (c.seat || "prose") === "prose").map((c) => c.step_id));
-  const figureDone = new Set(run.corrections.filter((c) => c.seat === "figure").map((c) => c.step_id));
-  const stillOwed = [
-    ...correctionOwedProse(run, items).filter((id) => !proseDone.has(id)),
-    ...figureCorrectionOwed(run, items).filter((id) => !figureDone.has(id)).map((id) => `${id} (--figure)`),
-  ];
+  const stillOwed = seatsStillOwed(run, items);
   process.stdout.write(
     `corrected: ${stepId} (figure)\n`
     + `  record  ${input.record_sha}\n`
@@ -3191,12 +3234,7 @@ function cmdCorrect(args) {
   delete run.rendered[stepId];
   writeRun(ws, run);
 
-  const proseDone = new Set(run.corrections.filter((c) => (c.seat || "prose") === "prose").map((c) => c.step_id));
-  const figureDone = new Set(run.corrections.filter((c) => c.seat === "figure").map((c) => c.step_id));
-  const stillOwed = [
-    ...correctionOwedProse(run, items).filter((id) => !proseDone.has(id)),
-    ...figureCorrectionOwed(run, items).filter((id) => !figureDone.has(id)).map((id) => `${id} (--figure)`),
-  ];
+  const stillOwed = seatsStillOwed(run, items);
   process.stdout.write(
     `corrected: ${stepId}\n`
     + `  drift   ${drift.change_share}\n`
@@ -3412,7 +3450,11 @@ function cmdCheck(args) {
   // because every correction was made produce the same exit, and telling them
   // apart is exactly what "stopping early and finishing produce the same
   // silence" warns about.
-  const uncorrected = correctionOwed(run).filter((id) => !bound.corrected.has(id));
+  // PER SEAT, NOT PER STEP (kogaki#945). `bound.corrected` holds every Step
+  // carrying ANY correction, so keying this line on it reported nothing for a
+  // Step that owed both seats and received one — the seat still owed went
+  // unnamed while its preserved fails were carried as residue.
+  const uncorrected = seatsStillOwed(run, items);
   process.stdout.write(
     results.filter((r) => !r.carried).map(comparisonLine).join("\n") + "\n\n"
     + `check: pass two over ${results.filter((r) => !r.carried).length} re-judged (Step, item) pair(s); `
@@ -3423,8 +3465,10 @@ function cmdCheck(args) {
     + `${mechanicalLog.length} pair(s) decided mechanically and ${judged} judged.\n`
     + (uncorrected.length
       ? `UNCORRECTED — pass one sent ${uncorrected.join(", ")} to correction and no correction was made.\n`
+        + "  An entry marked `(--figure)` is the figure seat; the rest are the passage. A Step can\n"
+        + "  appear on both, and a Step that received one seat still appears for the other.\n"
         + "  Their preserved fails are residue CARRIED from pass one, not re-judged by this pass;\n"
-        + "  the owner record says so per line. `correct --step <id>` is the act that changes that.\n"
+        + "  the owner record says so per line. `correct --step <id> [--figure]` is the act that changes that.\n"
       : "")
     + (run.residue.length
       ? `residue — preserved item(s) reaching the owner to classify: `
@@ -6808,6 +6852,277 @@ async function runSelfTest() {
       !/figure-element-ground/.test(gReview.slice(gReview.indexOf("## Residue"))));
     ok("#880: while the figure correction itself is recorded, naming the seat it repaired",
       /f1/.test(gReview) && /figure record re-designed/.test(gReview));
+  }
+
+  // ---- kogaki#945 -----------------------------------------------------------
+  // THE SEAT-BLIND UNCORRECTED REPORT, AND THE BLIND INPUT'S FIGURE PLACEMENT.
+  // Two findings carried out of PR #944 round 1, asserted here rather than left
+  // as the comments they were reported against.
+  //
+  // ITS OWN BRIEF, for the reason the #880 drive states about its own: the
+  // drives above turn on which preserved item fails, and adding a second
+  // failing seat to one of them would move cases that measure something else.
+  // This one is built so that f1 owes BOTH seats — a mechanical
+  // `figure-element-ground` fail from a record worded off its bound ground, and
+  // a `reader-state-after` fail supplied as a verdict — which is the shape the
+  // report could not see.
+  {
+    const draftCli = join(dirname(self), "draft.mjs");
+    const sRoot = join(root, "seat-report");
+    const sBrief = join(sRoot, "theses", "seat-fixture");
+    const sMoves = join(sRoot, "moves");
+    const sWs = join(sRoot, "ws-draft");
+    mkdirSync(sBrief, { recursive: true });
+    mkdirSync(sMoves, { recursive: true });
+    writeFileSync(join(sMoves, "axis_move.md"), [
+      "id: axis_move", "status: observed",
+      "intent: >-", "  establish a distinction between two endpoints.",
+      "requires: >-", "  the reader has no stable distinction yet.",
+      "effect: >-", "  the reader can orient later cases on the axis.",
+      "constraints: >-", "  the endpoints must clarify the same axis.",
+      "failure_modes: >-", "  pairing cases that differ along unrelated dimensions.",
+      "excerpt: >-", "  the author's account of the movement they observed.",
+      "visual_form:", "  kind: axis",
+      "  endpoint_a: the first endpoint the Move presents",
+      "  endpoint_b: the opposing endpoint",
+      "  criterion: the one axis both endpoints clarify",
+    ].join("\n") + "\n");
+    writeFileSync(join(sMoves, "plain_move.md"), [
+      "id: plain_move", "status: observed",
+      "intent: >-", "  carry the claim one step further.",
+      "requires: >-", "  the reader holds what the previous passage settled.",
+      "effect: >-", "  the reader holds one more consequence.",
+      "constraints: >-", "  never re-open what the earlier passage settled.",
+      "failure_modes: >-", "  restating the previous passage in new words.",
+      "excerpt: >-", "  the author's account of the movement they observed.",
+    ].join("\n") + "\n");
+    writeFileSync(join(sBrief, "brief.md"), [
+      "# Brief — seat-fixture", "",
+      "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+      "## Strands", "",
+      "### L1 — first-strand", "",
+      "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+      "## Thesis", "", "The fixture claim.", "",
+      "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+      "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
+      "## Opening question", "", "What makes the fixture claim worth stating?", "",
+      "## Sequence", "",
+      "```step", "step_id: f1", "move: axis_move", "opens_section: The only heading",
+      "purpose: the job f1 does.",
+      "reader_state_before: the reader arrives at f1 holding nothing in particular.",
+      "reader_state_after: the reader leaves f1 able to say what separates the two harbours.",
+      "materials: L1",
+      "rationale: f1 sits here because the path put it here.",
+      "figure: it lets the reader hold both harbours against the one tide that separates them",
+      "figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3",
+      "ground (strand L1): the first harbour keeps its own hours.",
+      "ground (strand L1): the second harbour keeps different hours.",
+      "ground (strand L1): the tide is the one measure both harbours are read against.",
+      "```", "",
+      "```step", "step_id: f2", "move: plain_move",
+      "purpose: the job f2 does.",
+      "reader_state_before: the reader arrives at f2 holding what f1 settled.",
+      "reader_state_after: the reader leaves f2 able to say who did the measuring.",
+      "materials: L1",
+      "rationale: f2 sits here because the path put it here.",
+      "ground (strand L1): a table records what somebody measured on days somebody chose.",
+      "```", "",
+    ].join("\n"));
+
+    const sdl = (cmd, ...extra) => spawnSync(process.execPath,
+      [draftCli, cmd, "--brief", join(sBrief, "brief.md"), "--workspace", sWs, "--moves-dir", sMoves, ...extra],
+      { encoding: "utf8" });
+    const sFile = (name, text) => {
+      const f = join(sRoot, name);
+      writeFileSync(f, text + "\n");
+      return f;
+    };
+    // `position: after` — the figure sits BELOW the prose in the Draft, which is
+    // the placement finding's whole subject.
+    const S_RECORD = {
+      kind: "axis",
+      elements: {
+        endpoint_a: { text: "the first harbour keeps its own hours", ground: "g1" },
+        endpoint_b: { text: "a table records what somebody measured on chosen days", ground: "g2" },
+        criterion: { text: "the tide both harbours are read against", ground: "g3" },
+      },
+      relations: ["the two harbours sit on the tide"],
+      caption: "The reader knows what separates the two harbours.",
+      position: "after",
+    };
+    let sReady = sdl("resolve").status === 0;
+    sReady = sReady && sdl("section", "--step", "f1", "--file", sFile("s-prose-f1.md",
+      "One harbour keeps its own hours and the next keeps others, and the water they are both "
+      + "read against is the same water.")).status === 0;
+    sReady = sReady && sdl("figure", "--step", "f1", "--file",
+      sFile("s-record-f1.json", JSON.stringify(S_RECORD, null, 2))).status === 0;
+    sReady = sReady && sdl("section", "--step", "f2", "--file", sFile("s-prose-f2.md",
+      "A skipper reading either set of hours is reading a measurement, and the question worth "
+      + "asking is who was standing there.")).status === 0;
+    sReady = sReady && sdl("emit").status === 0;
+    const sDraft = join(sBrief, "draft.md");
+    ok("#945: the fixture Draft realizes with a figure below its Step's prose", sReady && existsSync(sDraft));
+
+    const swsBase = join(sRoot, "ws-review");
+    const sWsRun = join(swsBase, "seat-fixture");
+    const SD = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", sDraft, "--workspace", swsBase,
+        "--draft-workspace", sWs, "--moves-dir", sMoves], { encoding: "utf8" });
+    ok("#945: ReviewDraft opens it", SD("open").status === 0);
+
+    // FINDING 3 — THE BLIND INPUT PLACES THE FIGURE WHERE THE READER MET IT.
+    // The Draft puts the block below the prose, so the input must too. Asserted
+    // by ORDER rather than by presence: the block was always present, and it was
+    // always above, which is exactly the defect a presence case cannot see.
+    const sInput = readOrEmpty(join(sWsRun, "recovery", "f1.md"));
+    const iFig = sInput.indexOf("## The figure the reader met with this passage");
+    const iPass = sInput.indexOf("## The passage — draft lines");
+    ok("#945: the blind recovery input still carries the figure block",
+      iFig !== -1 && sInput.includes("```mermaid"));
+    ok("#945: and renders it BELOW the passage, the side the reader met it on",
+      iFig !== -1 && iPass !== -1 && iFig > iPass,
+      `figure at ${iFig}, passage at ${iPass}`);
+    // THE SIDE IS READ FROM THE DRAFT, NOT FROM THE RECORD, and this is the case
+    // that says so: the input must still leak nothing the record alone carries,
+    // so a repair that arranged the page by reading `position` would fail here.
+    ok("#945: while leaking nothing the record alone holds",
+      !/"ground"/.test(sInput) && !/"elements"/.test(sInput)
+      && !/"position"/.test(sInput) && !/ground: g\d/.test(sInput));
+
+    // The control: the same record placed BEFORE renders above the passage, so
+    // the case above is bound to the placement and not to a constant.
+    {
+      const bRoot = join(sRoot, "before");
+      const bBrief = join(bRoot, "theses", "seat-fixture");
+      mkdirSync(bBrief, { recursive: true });
+      writeFileSync(join(bBrief, "brief.md"), readFileSync(join(sBrief, "brief.md"), "utf8"));
+      const bWs = join(bRoot, "ws-draft");
+      const bdl = (cmd, ...extra) => spawnSync(process.execPath,
+        [draftCli, cmd, "--brief", join(bBrief, "brief.md"), "--workspace", bWs, "--moves-dir", sMoves, ...extra],
+        { encoding: "utf8" });
+      const bFile = (name, text) => { const f = join(bRoot, name); writeFileSync(f, text + "\n"); return f; };
+      mkdirSync(bRoot, { recursive: true });
+      let bReady = bdl("resolve").status === 0;
+      bReady = bReady && bdl("section", "--step", "f1", "--file", bFile("b-prose-f1.md",
+        "One harbour keeps its own hours and the next keeps others, and the water they are both "
+        + "read against is the same water.")).status === 0;
+      bReady = bReady && bdl("figure", "--step", "f1", "--file",
+        bFile("b-record-f1.json", JSON.stringify({ ...S_RECORD, position: "before" }, null, 2))).status === 0;
+      bReady = bReady && bdl("section", "--step", "f2", "--file", bFile("b-prose-f2.md",
+        "A skipper reading either set of hours is reading a measurement, and the question worth "
+        + "asking is who was standing there.")).status === 0;
+      bReady = bReady && bdl("emit").status === 0;
+      const bDraft = join(bBrief, "draft.md");
+      const bwsBase = join(bRoot, "ws-review");
+      const bOpen = spawnSync(process.execPath,
+        [self, "open", "--draft", bDraft, "--workspace", bwsBase,
+          "--draft-workspace", bWs, "--moves-dir", sMoves], { encoding: "utf8" });
+      const bInput = readOrEmpty(join(bwsBase, "seat-fixture", "recovery", "f1.md"));
+      const bFig = bInput.indexOf("## The figure the reader met with this passage");
+      const bPass = bInput.indexOf("## The passage — draft lines");
+      ok("#945 control: a figure the reader met ABOVE the prose renders above it",
+        bReady && bOpen.status === 0 && bFig !== -1 && bPass !== -1 && bFig < bPass,
+        `figure at ${bFig}, passage at ${bPass}`);
+    }
+
+    // FINDING 1 — A STEP OWING BOTH SEATS AND RECEIVING ONE IS NAMED.
+    const sTrace = () => JSON.parse(readOrEmpty(join(sWsRun, "run.json")) || "{}").steps || [];
+    const S_CLAIMS = {
+      f1: "The first harbour keeps its own hours and the second keeps different ones.",
+      f2: "A table records a measurement somebody made on days somebody picked.",
+    };
+    const sRecFor = (id, tag, extra = {}) => {
+      const st = sTrace().find((s) => s.step_id === id);
+      const f = join(sRoot, `s-rec-${tag}-${id}.json`);
+      writeFileSync(f, JSON.stringify({
+        claims: [{ claim: S_CLAIMS[id], span: st.lines }],
+        reader_state_after: `the reader leaves ${id} able to say what it settled`,
+        purpose: `the job ${id} does`,
+        terms_introduced: [], shape: "It states a thing and moves on.",
+        concessions: [], restates: [], ...extra,
+      }, null, 2) + "\n");
+      return f;
+    };
+    SD("recover", "--step", "f1", "--file", sRecFor("f1", "p1", {
+      figure_reading: {
+        shows: "two harbours placed on the tide they are both read against",
+        elements: ["the first harbour", "a table of measurements", "the tide"],
+        reader_state_after: "The reader knows what separates the two harbours.",
+      },
+    }));
+    SD("recover", "--step", "f2", "--file", sRecFor("f2", "p1"));
+    SD("read", "--section", "1", "--file",
+      sFile("s-led.json", JSON.stringify({ question: "what separates the harbours", belief: "the tide does" })));
+    SD("read", "--claim", "--file", sFile("s-claim.json", JSON.stringify({ claim: "the tide is the measure" })));
+    SD("compare");
+    // THE PROSE SEAT IS FAILED BY A VERDICT and the figure seat by the record's
+    // own wording, so f1 owes both. `reader-state-after` is a PRESERVED judged
+    // item, which is what makes its fail route to correction rather than ride
+    // along.
+    const sAnswer = (tag, failProse) => {
+      const rec0 = JSON.parse(readOrEmpty(join(sWsRun, "join.json")) || "{}");
+      const owed = [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
+      return sFile(`s-verdicts-${tag}.json`, JSON.stringify({
+        verdicts: owed.map((o) => {
+          const fails = failProse && o.step_id === "f1" && o.item === "reader-state-after";
+          return {
+            step_id: o.step_id, item: o.item,
+            ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
+            verdict: fails ? "fails" : "holds",
+            reason: fails ? "the recovered reader state is not the one the Step declared" : "they agree",
+          };
+        }),
+      }, null, 2));
+    };
+    const sp1 = SD("compare", "--verdicts", sAnswer("p1", true));
+    ok("#945: pass one completes with f1 owing BOTH seats",
+      sp1.status === 0 && /Steps sent to correction[^\n]*f1/.test(sp1.stdout));
+
+    // ONE SEAT IS CORRECTED — the passage, which §4.17's ordering requires
+    // first — and the figure seat is deliberately left owed.
+    const scA = SD("correct", "--step", "f1");
+    ok("#945: the passage correction input renders", scA.status === 0);
+    const scB = SD("correct", "--step", "f1", "--file", sFile("s-corrected-f1.md",
+      "One harbour keeps its own hours and the next keeps others, and the single body of water "
+      + "they are both read against is what the reader leaves holding."));
+    ok("#945: and the passage correction is recorded, leaving the figure seat owed",
+      scB.status === 0 && /\(--figure\)/.test(scB.stdout),
+      scB.stdout.split("\n").slice(-6).join(" | "));
+
+    // Pass two: re-run the corrected Step's blind recovery, then complete.
+    SD("check");
+    SD("recover", "--step", "f1", "--file", sRecFor("f1", "p2", {
+      figure_reading: {
+        shows: "two harbours placed on the tide they are both read against",
+        elements: ["the first harbour", "a table of measurements", "the tide"],
+        reader_state_after: "The reader knows what separates the two harbours.",
+      },
+    }));
+    SD("check");
+    const sChkOwed = () => {
+      const rec0 = JSON.parse(readOrEmpty(join(sWsRun, "check.json")) || "{}");
+      return [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
+    };
+    const sp2 = SD("check", "--verdicts", sFile("s-verdicts-p2.json", JSON.stringify({
+      verdicts: sChkOwed().map((o) => ({
+        step_id: o.step_id, item: o.item,
+        ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
+        verdict: "holds", reason: "the declared line and the recovered one agree",
+      })),
+    }, null, 2)));
+    // THE CASE THE REPORT COULD NOT PRODUCE. f1 carries a recorded correction,
+    // so the Step-keyed read put it in `bound.corrected` and dropped it from
+    // UNCORRECTED entirely — the run finished silent about a seat it had itself
+    // routed to correction.
+    ok("#945: pass two completes over the corrected passage", sp2.status === 0,
+      `status ${sp2.status}: ${(sp2.stderr || "").split("\n")[0]}`);
+    ok("#945: and UNCORRECTED names the seat still owed on a Step that received the other",
+      /UNCORRECTED/.test(sp2.stdout) && /f1 \(--figure\)/.test(sp2.stdout),
+      sp2.stdout.split("\n").filter((l) => /UNCORRECTED|f1/.test(l)).join(" | "));
+    // AND IT SAYS WHICH SEAT, rather than naming the Step and leaving the reader
+    // to work out which half is outstanding.
+    ok("#945: the line tells the reader what `(--figure)` marks",
+      /`\(--figure\)` is the figure seat/.test(sp2.stdout));
   }
 
   rmSync(root, { recursive: true, force: true });
