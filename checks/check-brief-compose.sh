@@ -407,6 +407,73 @@ try {
       }
     }
   }
+  // (w2) THE FIGURE CLAUSE'S STEP IDS ARE ADMISSIBLE, AND ONLY THEY ARE
+  // (kogaki#934). §4.16 mandates rendering step ids into the option label and
+  // the label is walked by the spec-internal-vocabulary tripwire, whose
+  // identifier pattern matches ANY snake_case token — so a figure on a Step
+  // whose id is snake_case made `assembleSelection` return the leak error and
+  // produce NO PAYLOAD AT ALL: the whole gate refused, on every option, because
+  // of one Step's name. Every fixture in (w) and (w1) uses `s1`/`f1`-style ids,
+  // which is exactly the id shape that cannot trip the wire, so the case was
+  // green over the only shape that was safe. Asserted in BOTH directions, per
+  // acceptance items 2 and 3: the mandated caller passes, and the wire stays
+  // armed over everything the caller did not produce.
+  {
+    const snakeSteps = [
+      { ...step1, step_id: "open_the_claim",
+        figure: "what the opening figure lets the reader hold",
+        figure_roles: { endpoint_a: "g1" } },
+      { ...step2, step_id: "close_the_case", depends_on: ["open_the_claim"],
+        grounds: [{ type: "step_effect", step: "open_the_claim", proposition: "open_the_claim leaves the claim stated" }] },
+    ];
+    const snakeCand = { ...candA, candidate_id: "cand-snake", steps: snakeSteps,
+      obligations: [{ text: "the case's generality is asserted", introduced_by: "close_the_case" }] };
+    // DIRECTION 1 — the mandated caller assembles, and the whole option set is
+    // present. Asserting only that the label renders would miss the defect's
+    // actual shape: the refusal returned no payload, so EVERY option vanished.
+    const snakeAsm = assembleSelection({ candidates: [snakeCand, candB] }, doc0);
+    if (snakeAsm.error) {
+      fails.push(`(w2) a Candidate carrying a figure on a snake_case step_id was REFUSED — §4.16 mandates rendering the id into the label, so the tripwire is refusing its own mandated caller: ${snakeAsm.error}`);
+    } else {
+      const ids = (snakeAsm.payload.options || []).map((o) => o.id);
+      for (const want of ["cand-snake", "cand-2", "none-of-these"]) {
+        if (!ids.includes(want)) fails.push(`(w2) option ${want} is missing from the gate a snake_case step_id assembled — the refusal took the whole option set, not one label`);
+      }
+      const ls = (snakeAsm.payload.options || []).find((o) => o.id === "cand-snake")?.label || "";
+      if (!/open_the_claim/.test(ls)) {
+        fails.push(`(w2) the figure-carrying Step's id does not reach the label — the repair is an override on the wire, not a removal of the disclosure §4.16 sites here: ${ls}`);
+      }
+    }
+    // DIRECTION 2 — THE WIRE IS STILL ARMED IN THAT SAME LABEL. A term of art
+    // the Candidate did not author is caught exactly as before. Without this the
+    // repair is indistinguishable from disarming the wire (acceptance item 3).
+    const leaky = { ...snakeCand, candidate_id: "cand-snake-leak",
+      reader_experience: "claim first, and the thesis_closure is what carries it" };
+    const leakAsm = assembleSelection({ candidates: [leaky, candB] }, doc0);
+    if (!leakAsm.error || !/thesis_closure/.test(leakAsm.error || "")) {
+      fails.push("(w2) a genuine spec-internal term in the SAME label a step id was exempted from was NOT caught — the override disarmed the wire instead of narrowing it");
+    }
+    // THE OVERRIDE IS PER-OPTION. cand-snake's ids license nothing in another
+    // Candidate's label, where nothing produced them — an override scoped to the
+    // payload rather than to its producer would be an allowlist by spelling.
+    const borrower = { ...candB, candidate_id: "cand-borrow",
+      reader_experience: "the case first, reached by open_the_claim" };
+    const borrowAsm = assembleSelection({ candidates: [snakeCand, borrower] }, doc0);
+    if (!borrowAsm.error || !/open_the_claim/.test(borrowAsm.error || "")) {
+      fails.push("(w2) one Candidate's step id was exempt in ANOTHER Candidate's label — the override is scoped to the option whose own data produced the token");
+    }
+    // AND IT REACHES ONE SURFACE. `o.rendering` and the ask's own fields are
+    // composed by the code, not by the author, so no token there is ever exempt:
+    // a leak that escaped by moving into a field the predicate stopped walking is
+    // the failure a tripwire exists to make impossible (kogaki#568).
+    const bare = denyInternalVocabulary({
+      where: "w", why: "y", label: "l", free_text: { prompt: "p" },
+      options: [{ id: "cand-snake", label: "clean", rendering: ["the open_the_claim paragraph"] }],
+    }, new Map([["cand-snake", new Set(["open_the_claim"])]]));
+    if (!bare.error || !/open_the_claim/.test(bare.error || "")) {
+      fails.push("(w2) an exempted token was skipped in a surface OTHER than the option label — the override reaches the label its producer writes and nothing else");
+    }
+  }
   const negOpt = (pay.options || []).find((o) => o.negates_premise === true);
   if (!negOpt) fails.push("(e) no option flagged negates_premise — the premise's negation is first-class (§6)");
   else if (!/Thesis or the selected set/.test(negOpt.label)) fails.push("(e) the negation option does not state the premise it negates");
@@ -2327,7 +2394,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
   }
 }
 
-const CASE_COUNT = 25;
+const CASE_COUNT = 26;
 {
   const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
   const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;
@@ -2343,7 +2410,7 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
-  + "(v)(w)(w1)(x) §4.16's FIGURE DECISION (kogaki#877): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the ground addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's ground count — which is what makes a binding to ANOTHER Step\'s ground unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
+  + "(v)(w)(w1)(w2)(x) §4.16's FIGURE DECISION (kogaki#877, kogaki#934): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the ground addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's ground count — which is what makes a binding to ANOTHER Step\'s ground unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names. (w2) THE CLAUSE'S STEP IDS ARE ADMISSIBLE AND ONLY THEY ARE (kogaki#934): the label the clause writes is walked by the spec-internal-vocabulary tripwire, whose identifier pattern matches ANY snake_case token, so a figure on a Step whose id is snake_case made the gate return NO PAYLOAD AT ALL — every option refused because of one Step's name, and every fixture in (w) and (w1) uses `s1`/`f1`-style ids, which is exactly the id shape that cannot trip the wire. The repair is an admissible-override set computed from `figureSteps`, the clause's OWN selector, so the exempted tokens cannot drift from the rendered ones by being derived twice; it is asserted in BOTH directions and in BOTH scopings — the mandated caller assembles with the whole option set present and its id in the label, a genuine term of art in that SAME label still refuses, one Candidate's ids are NOT exempt in another Candidate's label, and no surface but the option label consults the override, because nothing here is exempt by spelling and everything by provenance; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -2473,10 +2540,15 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "is full of internal keys passes, which is the assertion that catches the evidence "
   + "returning by a side door. The tripwire reads REGISTER, never a composition MUST (§4.6 "
   + "clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877): FORTY "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934): FORTY-THREE "
   + "mutations. RE-DERIVED, not incremented — this paragraph's own standing rule, and the one it has twice failed: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
-  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three = 40. "
+  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three = 43. "
   + "THE UNIT OF THE COUNT IS A TRIAL TAKEN, NEVER A DISTINCT PHYSICAL MUTATION (kogaki#889), and it is declared because leaving it implicit has now produced a finding: two heads may apply the SAME EDIT against DIFFERENT assertions, and that is two trials rather than one counted twice — kogaki#520 deleted the per-option `rendering` against (j)'s LABEL assertions and kogaki#859 deleted it against (j)'s KEY-PRESENT one, at two heads, and both runs happened. Read as physical mutations the enumeration double-counts; read as trials it does not, and the second reading is the one kogaki#568's own ground already commits this paragraph to — \u0022the tally counts both, because the historical evidence was real when it was taken\u0022. A SUPERSEDED ENTRY THEREFORE STAYS COUNTED, and what it owes is the past-tense marking below rather than removal, since a deleted mutation and a superseded one read identically to a later reader. Owner decision at the kogaki#889 gate, recorded rather than re-derived per sitting. "
+  + "KOGAKI#934'S THREE, all against case (w2) and all at the head that has the repair — which is stated because the pre-#934 head is not a control here: at that head the mutation IS the defect, so a run there fails (w2) for the reason the issue was filed rather than for the reason a mutation is taken. "
+  + "Dropping the override set at the call site (`denyInternalVocabulary(payload)`) is the load-bearing one: it restores the pre-#934 behaviour exactly and fails (w2)'s first direction — the mandated caller is refused again, and the assertion catches it at the OPTION SET rather than at the label, because the refusal took every option and not one rendering. "
+  + "Widening the override past the option label — one flattened Set consulted for every surface — fails TWO of (w2)'s assertions at once, the per-option scoping and the per-surface one, which is the direct evidence that the two scopings are asserted apart rather than by one test standing in for both. "
+  + "Blanking the option label before the walk fails (w2)'s second direction, the genuine term of art in the same label, which is the assertion that separates narrowing the wire from disarming it (acceptance item 3). "
+  + "Control: unmutated, the member exits 0, so the three refusals discriminate rather than refusing everything. "
   + "KOGAKI#893'S THREE, all against §4.12.3's owner ratification gate — the first is the load-bearing one because it restores the PRE-#893 HEAD exactly: "
   + "deleting the act-level ratification requirement from adoptCandidate leaves `validateRatification` to refuse an undefined capture on its SHAPE (`rows is an array`), "
   + "which is a refusal for the wrong reason — it reports a malformed capture where no gate was raised, and it would keep passing a mutation that deleted the mandatory occasion outright. "
