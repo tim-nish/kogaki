@@ -4,14 +4,12 @@
 // [see: SPEC-draft-command "One mechanical instrument on grounding, and no
 // second"]
 //
-// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
-// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
-// the copy is what the code was implemented against, NOT the spec's current
-// text, and propagating a later spec change into this file is a separate,
-// explicit act. A pointer carrying no authority is marked `[see: <spec>
-// "<name>"]`. Neither names a section number or a line range, because both
-// renumber — the line range this file used to print to the owner had already
-// drifted onto an unrelated bullet.
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
+// The rule these entries are written under -- what a copy is, what the two
+// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
+// names a section number or a line range -- lives in ONE place:
+// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
+// already drifted into eight variants, which is what kogaki#982 collapsed.
 //
 // THE SOLE MECHANICAL INSTRUMENT ON GROUNDING, and the check's own output
 // states the boundary it stops at, quoting the guarantee split it rests on

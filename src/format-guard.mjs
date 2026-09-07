@@ -1,12 +1,11 @@
 // THE EMIT-TIME REFUSAL (story 1.54, kogaki#346).
 // [see: SPEC-terrain "The emitters refuse; they do not report"]//
-// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
-// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
-// the copy is what the code was implemented against, NOT the spec's current
-// text, and propagating a later spec change into this file is a separate,
-// explicit act. A pointer carrying no authority is marked `[see: <spec>
-// "<name>"]`. Neither names a section number, because section numbers renumber.
-// No owner-facing string below names a spec section.
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
+// The rule these entries are written under -- what a copy is, what the two
+// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
+// names a section number or a line range -- lives in ONE place:
+// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
+// already drifted into eight variants, which is what kogaki#982 collapsed.
 //
 // THE NAMES THIS FILE USES, and the spec content each one names. A bare name
 // below is a `[see: ...]` pointer carrying no authority; where the content is

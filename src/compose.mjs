@@ -33,14 +33,12 @@
 // rationale presence; the order invariant itself is invisible in the
 // artifact and is carried by the grounds test, judged at review.
 //
-// SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).
-// Implemented code does not refer to a Spec. Content this file was implemented
-// against is stated HERE, and what is stated here is what the code was
-// implemented against — NOT the spec's current text. It stays true for this file
-// even if the spec is rewritten or deleted, and propagating a later spec change
-// into this file is a SEPARATE, EXPLICIT act. A bare name below is a pointer
-// carrying no authority. Nothing names a section number, because section numbers
-// renumber, and no owner-facing string names a spec section.
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
+// The rule these entries are written under -- what a copy is, what the two
+// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
+// names a section number or a line range -- lives in ONE place:
+// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
+// already drifted into eight variants, which is what kogaki#982 collapsed.
 //
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   the read-not-invented rule

@@ -1,5 +1,20 @@
 # The path-review agent — every composition MUST applied as judgment
 
+<!--
+SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
+The rule these entries are written under - what a copy is, what the two
+markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
+names a section number or a line range - lives in ONE place:
+src/SPEC-REFERENCES.md. It is not restated here; fifteen copies of it had
+already drifted into eight variants, which is what kogaki#982 collapsed.
+
+THE NAMES THIS FILE USES, and the spec each one names:
+  Every MUST is judgment, and nothing becomes a lint
+      SPEC-draft-pipeline
+  the Reader Path workflow
+      SPEC-draft-pipeline
+-->
+
 SPEC-draft-pipeline "Every MUST is judgment, and nothing becomes a lint" (kogaki#490,
 story 1.74). This file IS the agent:
 a prompt block the composition flow runs once per Candidate, machine-side,
