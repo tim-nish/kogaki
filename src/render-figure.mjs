@@ -1,13 +1,16 @@
 // The deterministic figure renderer (kogaki#879).
 // [see: SPEC-draft-pipeline "The renderer and the anchor — markup from the
 // record, at the Step"]//
-// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
-// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
-// the copy is what the code was implemented against, NOT the spec's current
-// text, and propagating a later spec change into this file is a separate,
-// explicit act. A pointer carrying no authority is marked `[see: <spec>
-// "<name>"]`. Neither names a section number, because section numbers renumber.
-// No owner-facing string below names a spec at all.
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
+// The rule these entries are written under -- what a copy is, what the two
+// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
+// names a section number or a line range -- lives in ONE place:
+// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
+// already drifted into eight variants, which is what kogaki#982 collapsed.
+//
+// This file's own stronger property, established by kogaki#953's sweep and
+// kept at the site because the carrier states only the general rule: NO
+// OWNER-FACING STRING BELOW NAMES A SPEC AT ALL, not merely no spec section.
 //
 // ONE RECORD IN, ONE STRING OUT, NO MODEL CALL. The figure record — the
 // form's instance, filled after the prose — is the

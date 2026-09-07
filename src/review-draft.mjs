@@ -56,12 +56,16 @@
 // FIGURES REMAIN OUT OF SCOPE for this batch (kogaki#869) — they change the
 // Step schema and the Packet, so they are a later batch and not a hole here.
 //
-// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
-// against is COPIED here; the copy is what the code was implemented against,
-// NOT the spec's current text, and propagating a later spec change into this
-// file is a separate, explicit act. A bare name below is a pointer carrying no
-// authority. Nothing names a section number, because section numbers renumber,
-// and no owner-facing string names a spec at all.
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
+// The rule these entries are written under -- what a copy is, what the two
+// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
+// names a section number or a line range -- lives in ONE place:
+// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
+// already drifted into eight variants, which is what kogaki#982 collapsed.
+//
+// This file's own stronger property, established by kogaki#953's sweep and
+// kept at the site because the carrier states only the general rule: NO
+// OWNER-FACING STRING BELOW NAMES A SPEC AT ALL, not merely no spec section.
 //
 // THE NAMES THIS FILE USES:
 //   "the figure decision"   SPEC-draft-pipeline "The figure decision — `figure:`

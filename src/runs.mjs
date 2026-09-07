@@ -1,13 +1,12 @@
 // runs — the ONE home for run intermediates, and the ONE reader of the
 // retention bound (kogaki#750, owner rulings 2026-09-01).
 //
-// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
-// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
-// the copy is what the code was implemented against, NOT the spec's current
-// text, and propagating a later spec change into this file is a separate,
-// explicit act. A pointer carrying no authority is marked `[see: <spec>
-// "<name>"]`. Neither names a section number: section numbers renumber, and
-// three of this file's did not resolve to the content they were cited for.
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
+// The rule these entries are written under -- what a copy is, what the two
+// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
+// names a section number or a line range -- lives in ONE place:
+// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
+// already drifted into eight variants, which is what kogaki#982 collapsed.
 //
 // Every lane's machine state — survey records, proposal records, gate
 // declarations, captures, Brief and Draft workspaces, snapshots, packets, run
