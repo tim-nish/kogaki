@@ -302,9 +302,8 @@
       "declared_block": "grounds",
       "recovered_field": "claims",
       "pair_text_key": "claim",
-      "unpaired_reason": "widened",
-      "unpaired_sentence": "this recovered claim pairs with no ground the Packet declares, so the passage asserts more than it was given — widened",
-      "question": "Does this recovered claim assert no more than the ground it is paired with? Answer `fails` if the claim goes beyond the ground in scope, in certainty, or in subject."
+      "unpaired": "judge",
+      "question": "Does this recovered claim assert no more than the grounds this Step declares? Every declared ground is listed above; the claim need not correspond to any one of them in wording. Answer `fails` if the claim goes beyond ALL of them in scope, in certainty, or in subject."
     },
     {
       "id": "reader-state-after",
