@@ -147,7 +147,18 @@ EXCEEDS_ARM = re.compile(r'>\s*\$?\{?(?:FLOOR|floor)\b')
 # ITS BLIND SIDE IS THE MEMBER'S OWN, INHERITED: a case authored with no
 # `ranCase` site is invisible here exactly as it is to the count, because both
 # read the registrations and neither reads the cases.
-RANCASE = re.compile(r'\branCase\(\s*"([^"]+)"\s*\)')
+# THE THREE QUOTED SPELLINGS ARE ALL RECOGNISED, and the one that is not is
+# named (PR #1000 round 1). A registration written with single quotes or as a
+# template literal registers and counts at runtime exactly as the double-quoted
+# form does, so a pattern reading only the double-quoted spelling lets an
+# undescribed case return by a change of quote character — a route neither
+# declared limit above covers. WHAT REMAINS OUTSIDE IS A NON-LITERAL ARGUMENT:
+# a call taking a variable or an expression registers an id this pattern cannot
+# read, and that is a THIRD declared limit rather than a gap to be closed by a
+# cleverer regex — the id is not in the text at all, so no reader of the text
+# can recover it. A member spelling its registrations that way is invisible
+# here in the same way it is invisible to any reader of its file.
+RANCASE = re.compile(r'\branCase\(\s*(?:"([^"]+)"|\'([^\']+)\'|`([^`]+)`)\s*\)')
 
 
 def resolve_efficacy_case(payload, opener=None):
@@ -394,7 +405,9 @@ def validate_registered_cases_described(entries, file_reader=None):
             body = file_reader(path)
         except OSError:
             continue  # a missing file is the dangling-entry failure, reported above
-        ids = sorted(set(RANCASE.findall(body)))
+        # One group per quoting spelling; exactly one is filled per match.
+        ids = sorted({next(g for g in m if g)
+                      for m in RANCASE.findall(body)})
         if not ids:
             continue  # not a registering member; this rule says nothing about it
         if not contract.strip():
@@ -635,7 +648,7 @@ def fixture_pass():
     cases.append(("none accepted", not validate_entries([entry("none: y")])))
     cases.append(("probe accepted", not validate_entries([entry("probe: z")])))
     f = validate_entries([entry("act: x", removal_signal="")])
-    cases.append(("admission shape still enforced (kogaki#243 + kogaki#990)",
+    cases.append(("admission shape still enforced",
                   any("admission record incomplete" in x for x in f)))
 
     # Efficacy evidence (kogaki#243). Mutants derived from the diff that
@@ -885,6 +898,17 @@ def fixture_pass():
     cases.append(("a missing check file is not reported by the described rule",
                   not validate_registered_cases_described(
                       [reg("gone", "(a) x")], reg_files)))
+    # THE THREE QUOTED SPELLINGS (PR #1000 round 1). Each fixture registers one
+    # id the contract does not describe, so a spelling the pattern stopped
+    # reading shows up as a case that STOPS FAILING — the direction that
+    # matters, since an unread registration is silence and not a false red.
+    for spelling, body in (("single quotes", f"{RC}('solo');\n"),
+                           ("a template literal", f"{RC}(`tmpl`);\n")):
+        REG_FILES["checks/check-q.sh"] = body
+        cases.append((f"a registration written with {spelling} is read",
+                      any("under-describes" in x for x in
+                          validate_registered_cases_described(
+                              [reg("q", "(a) unrelated")], reg_files))))
 
     def base(**floors):
         def reader():
@@ -1113,6 +1137,21 @@ for line in failures:
     print(line)
 if failures:
     sys.exit(1)
+# MUTATION EVIDENCE (assert-by-breaking-once, kogaki#243 + kogaki#990): the
+# self-test above is what `efficacy` cites, and it is cited as a WHOLE rather
+# than through one case's label, because the record's claim is about two rules
+# and a single case binds one of them. kogaki#243's counterfactual is the
+# incomplete-record case, which goes green if `validate_entries` stops reporting
+# a missing `removal_signal`. kogaki#990's are the described-case cases: deleting
+# `validate_registered_cases_described` fails the case that expects `count` to be
+# named; relaxing the rule to require the LITERAL id fails the case that expects
+# `l-bridge` NOT to be named, which is the 13-of-35 false red the stem form
+# exists to refuse; and narrowing RANCASE back to the double-quoted spelling
+# fails the two quoting cases beside them. THE CITE WAS UNBOUND WHEN THIS
+# COMMIT'S PARENT LANDED (PR #1000 round 1): `efficacy` advertised kogaki#990
+# while naming a case that calls the new validator nowhere, so deleting the
+# whole rule left the cited counterfactual green — the unbound-claim class
+# kogaki#243 exists to refuse, rebuilt inside the repair for it.
 # THE TERMINAL LINE NEVER CLAIMS A COMPARISON THAT DID NOT HAPPEN (PR #663
 # round 1). An unresolvable base renders CANNOT-DETERMINE and fails nothing —
 # but the summary asserting "no floor was lowered unpaired" would be exactly
