@@ -1,5 +1,18 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v39 (kogaki#927) — **an input that decides the rendered artifact is
+KEYED or RECORDED, and never neither; `--thesis-candidates` becomes the fourth
+recorded composed input.** The flag decided §12.3's content and the `serves: …
+for TC<n>` rows joining against it while sitting in neither the identity nor the
+recorded set, so a rerun at the same identity with an *edited* candidates file
+took the replay branch, found an empty delta, re-rendered the prior record's
+section and pronounced itself **idempotent** — reporting success while rendering
+a candidate list the invocation did not supply. §12.1 now states the disjunction
+as a rule, enumerates the recorded set as a table, and records the Thesis
+candidates in it on this section's own membership discriminator: an edited file
+changes what the report *says*, never *who is in it*.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v38 (kogaki#925) — **§13.4's refusal enumeration and §12.3's
 absent-input clause state what kogaki#861 shipped.** §13.4 said J3 refuses
 three ways after kogaki#861 gave it three more and a fourth had gone
@@ -578,10 +591,44 @@ The rendered form is `report-format.json`'s `surfaces.full_report`.
   neighborhood judgment changes which candidates are displayed at all,
   because §13.4's fill is level-ordered.
 
-**The record carries a digest of the composed inputs, RECORDED and never KEYED**
-— for the claims and the subdivisions. The discriminator is again membership: a
-claims or subdivisions record changes what a section *says*; the neighborhood
-judgment changes *who is in it*.
+**The record carries a digest of the composed inputs, RECORDED and never KEYED.**
+The discriminator is again membership: a record that changes what a section
+*says* is RECORDED, and one that changes *who is in the report* is KEYED — which
+is why the neighborhood judgment sits in the quadruple above and the rest sit
+here.
+
+**EVERY INPUT THAT DECIDES THE RENDERED ARTIFACT IS KEYED OR RECORDED, AND
+NEVER NEITHER** (v39, kogaki#927). This is the rule the enumeration below
+serves, stated first because the enumeration is what a reader checks an input
+against and the rule is what decides whether it belongs in one. An input in
+neither set is invisible to both instruments at once: the identity does not
+separate it, so a rerun matches, and the composed-input delta does not name it,
+so the rerun is pronounced **idempotent** while replaying a stored section the
+invocation did not supply. That combination reports success, which is why the
+rule is written as a closed disjunction rather than as a list that may be
+incomplete.
+
+**The recorded set is enumerated, and the enumeration is the contract** — a
+reader who cannot tell a deliberate omission from a forgotten one has no rule:
+
+| recorded input | what it decides | admitted |
+|---|---|---|
+| the claims record | what a GroupClaim section *says* | founding |
+| the subdivisions record | what a judged subdivision *says* | founding |
+| the emitter's neighborhood-candidate enumeration | what the pull consumes rather than recomputes | kogaki#700 |
+| the composed Thesis candidates | §12.3's claim text and strand picks, and the `serves: … for TC<n>` rows that join against them | kogaki#927 |
+
+**The Thesis candidates are RECORDED and not KEYED, and the ground is this
+section's own discriminator rather than a new one.** An edited candidates file
+changes what §12.3 says and what the judged §13.4 rows name; it does not change
+which Strands the report renders, which stays the query's and the neighborhood
+judgment's to decide. So it takes the treatment the claims and subdivisions take,
+and a rerun at the same identity with an edited file meets
+`COMPOSED_INPUT_MISMATCH` rather than a replay. **A record predating the field
+is recomputed, never replayed and never refused** — the per-flag absence rule
+already stated for every other member, applied here for the same reason: a
+record that cannot be shown idempotent is recomputed, and refusing would fail a
+rerun that has done nothing wrong.
 
 **The cost is stated rather than discovered.** Re-pulling a set with a better
 judgment produces a different report under a different identity, and the earlier

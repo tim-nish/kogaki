@@ -3531,7 +3531,26 @@ function identityDigest(identity) {
 // discriminator is membership: a claims or subdivisions record changes what a
 // group SAYS about members the query already fixed, while the judgment record
 // decides WHICH CANDIDATES ARE DISPLAYED AT ALL.
-export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood-candidates"];
+// `thesis-candidates` JOINED THE SET AT kogaki#927, and it joined the RECORDED
+// half rather than the identity because §12.1's own discriminator puts it
+// there: the claims and subdivisions change what a section SAYS about members
+// the query already fixed, while the neighborhood judgment decides WHICH
+// CANDIDATES ARE DISPLAYED AT ALL. An edited candidates file changes the §12.3
+// claim text and strand picks, and the `serves: … for TC<n>` rows that join
+// against them — what the report says, never who is in it. So it is RECORDED,
+// and `COMPOSED_INPUT_MISMATCH` is what a rerun at the same identity with an
+// edited file now meets.
+//
+// WHAT THE OMISSION COST, kept because the failure reported SUCCESS. The flag
+// decided the artifact while sitting in neither the identity nor this list, so
+// a same-identity rerun with an edited file took the replay branch, found an
+// empty delta, re-rendered the PRIOR record's §12.3 section, and printed that
+// the rerun was idempotent — rendering a candidate list the invocation did not
+// supply, and returning before `refuseTargetsOutsideCandidates` could see it.
+// kogaki#861 raised the cost rather than creating it: every judged §13.4 row
+// now names a TC id, so a stale replay can put a `serves: … for TC2` row
+// against a TC2 the supplied candidates no longer describe.
+export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood-candidates", "thesis-candidates"];
 export function composedInputDigests(args) {
   const out = {};
   for (const flag of COMPOSED_INPUT_FLAGS) {
@@ -7765,6 +7784,58 @@ switch (cmd) {
             && shouldReplayPrior(wrap(post), idty, same)
             && shouldReplayPrior(wrap(none), idty, same)
             && !shouldReplayPrior({ identity: {} }, idty, same);
+        })());
+
+      // ---- AN EDITED CANDIDATES FILE AT THE SAME IDENTITY IS NOT IDEMPOTENT
+      // (kogaki#927). The defect this binds reported SUCCESS: `--thesis-candidates`
+      // decided §12.3 and the `serves: … for TC<n>` rows while sitting in neither
+      // the identity nor the recorded set, so the rerun replayed the prior
+      // section and printed that it was idempotent. The case drives the two
+      // functions `cmdReport`'s replay branch actually asks — the digest
+      // composer and the delta — over REAL FILE BYTES, because the digest is a
+      // read of the file and asserting over hand-written digests would bind a
+      // restatement rather than the act.
+      //
+      // FOUR CONJUNCTS, and each is one of the ways the fix could be wrong: the
+      // flag is in the set at all; an edited file is NAMED in the delta rather
+      // than merely counted; an UNCHANGED file still reports empty, which is the
+      // control that this is not a blanket disabling of the rerun path; and a
+      // record predating the field recomputes rather than refusing.
+      ok("an edited --thesis-candidates file at the same identity is named in the composed-input delta, an unchanged one still replays, and a record predating the field recomputes",
+        (() => {
+          const d = join(tmpdir(), `terrain-selftest-tc-${process.pid}`);
+          mkdirSync(d, { recursive: true });
+          try {
+            const write = (name, body) => {
+              const f = join(d, name);
+              writeFileSync(f, JSON.stringify(body, null, 2) + "\n");
+              return f;
+            };
+            const claims = write("claims.json", { a: 1 });
+            const before = write("tc-before.json", [{ claim: "one", strands: ["L1", "L2"] }]);
+            const after = write("tc-after.json", [{ claim: "ONE, EDITED", strands: ["L1", "L2"] }]);
+            const argsOf = (tc) => ({ claims, "thesis-candidates": tc });
+
+            const prior = composedInputDigests(argsOf(before));
+            const edited = composedInputDigests(argsOf(after));
+            const same = composedInputDigests(argsOf(before));
+
+            const namesIt = COMPOSED_INPUT_FLAGS.includes("thesis-candidates");
+            const deltaEdited = composedInputDelta(prior, edited);
+            const deltaSame = composedInputDelta(prior, same);
+            // A PRE-#927 RECORD carries every other flag and not this one.
+            const preRecord = { ...prior };
+            delete preRecord["thesis-candidates"];
+
+            return namesIt
+              && prior["thesis-candidates"] !== NO_JUDGE
+              && composedInputDigests({ claims })["thesis-candidates"] === NO_JUDGE
+              && Array.isArray(deltaEdited) && deltaEdited.join(",") === "thesis-candidates"
+              && Array.isArray(deltaSame) && deltaSame.length === 0
+              && composedInputDelta(preRecord, edited) === null;
+          } finally {
+            rmSync(d, { recursive: true, force: true });
+          }
         })());
 
       // ---- THE ORDERING, read from the shipped carrier (the workflow table keeps the state
