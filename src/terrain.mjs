@@ -756,11 +756,10 @@ export function parseGlossShard(resp) {
 
 // Tag-scoped and bounded: one shard per viewed tag, addressed `<kind>/<tag>`
 // and never `<tag>` alone. No fan-out, no whole-corpus prefetch (SPEC.md, the rendering rule).
-// `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN. The injecting
-// caller this shape was written for — `renderTagRowView` — is gone with the
-// per-tag row view (kogaki#856), so `composeInput` carries it alone; the shape
-// is kept rather than collapsed, because widening the return would make a
-// caller's contract a casualty of a fetch accounting change.
+// `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN. `composeInput` is
+// its only injecting caller, and the shape is kept rather than collapsed to
+// that one caller, because widening the return would make a caller's contract
+// a casualty of a fetch accounting change.
 //
 // TWO COUNTS, BECAUSE AN EMPTY MAP HAS TWO CAUSES (kogaki#689). A shard that
 // ANSWERED and carried nothing, and a seam that never answered, both leave the
@@ -6558,11 +6557,10 @@ function cmdRun(args) {
   console.log("");
   if (stopped && stopped.kind === "wait") {
     console.log(`Executor STOPPED at ${stopped.id} — a wait (the wait rule). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
-    // NO INVOCATION IS PRINTED HERE (kogaki#856). The stop used to render the
-    // table's `owner_reads` keys — commands the owner was to type — and that
-    // field is retired. A wait whose owner must READ something before answering
-    // carries the reading in its gate declaration instead, where the session
-    // renders it above the question.
+    // NO INVOCATION IS PRINTED HERE (kogaki#856). A wait whose owner must READ
+    // something before answering carries the reading in its gate declaration,
+    // where the session renders it above the question — so this stop names the
+    // wait and what the owner supplies, and never a command to type.
     const owedHere = stopped.renders_gate_declaration
       ? rec.gate_declarations_owed.find((g) => g.state === stopped.id) : null;
     if (!stopped.renders_gate_declaration) {
@@ -6627,39 +6625,6 @@ function reportRunStatus(dir, tablePath, table) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
 
-// NO OWNER-EXECUTED LISTING SURVIVES (kogaki#856, owner rulings 2026-09-04).
-//
-// `tags`, `tag-rows` and `cotag-selection` all printed a rendering the owner
-// was expected to type the invocation for. The premise that channel rested on
-// — that output cannot reach the owner without a file or an owner-typed
-// command — was ruled false on 2026-09-04: the owner types nothing, and the
-// Harness displays what the runtime produces. So the pre-selection listing now
-// rides the TAG_SELECTION gate declaration — composed by `GATE_WORK`'s
-// TAG_SELECTION entry, through `composeOwnerListing` — and the other two are
-// DELETED rather than re-sited.
-//
-// THE DELETION IS A RECORDED DECLINE, not a side effect of removing the
-// channel. A removal criterion measures what must NOT remain, so it is
-// satisfied most cheaply by dropping behaviour, and a behaviour leaves only
-// under a decline somebody made on purpose:
-// consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:77
-//
-//   · the per-tag row view (`tag-rows`) — DECLINED. With over 100 served tags
-//     the owner reports no demand for browsing one tag's Lessons individually,
-//     and it was never approved. `renderTagRowView`, `composeDisplayText` and
-//     the `tag_row_listing` grammar go with it.
-//   · the co-tag SELECTION display (`cotag-selection`) — DECLINED. It printed
-//     the first-tag table a SECOND time, after the tag was already chosen; the
-//     table now sits above the question that chooses it, so the surface has no
-//     place. `renderCotagSelection`, `refuseIntent`, the `--intent` bound and
-//     the `cotag_selection` grammar go with it.
-//
-// NEITHER SURVIVES IN THE DISPATCHER (kogaki#901, propagating SPEC-terrain v36
-// §"A removed entry point is DELETED, and leaves no stub"). The stub
-// was a refusal, never a route, so its removal changes no reachability: the
-// acts stay unreachable either way, and a caller now meets an ordinary
-// unknown-command error instead of a pointer to the replacement.
-
 function main() {
 const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
@@ -6708,12 +6673,10 @@ switch (cmd) {
         try { refuseUnlessConformant(surface, emitted, grammar); return true; }
         catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
       };
-      // ONE DECLARING SURFACE, DOWN FROM TWO (kogaki#856). `tag_row_listing`
-      // was the second, and its emitter — the per-tag row view — is deleted
-      // with the surface, so the case that named it is dropped rather than
-      // re-pointed at a surface that never emitted this line. `cotag_groups` is
-      // now the only surface an emit site renders it into (the two call sites
-      // above, in the co-tag group renderer), and it stays the assertion.
+      // ONE DECLARING SURFACE. `cotag_groups` is the only surface an emit site
+      // renders this line into (the two call sites above, in the co-tag group
+      // renderer), so it is the only surface asserted here — a surface no emit
+      // site reaches would be admitted against nothing.
       for (const surface of ["cotag_groups"]) {
         ok(`${surface} admits the line displayIdAbnormalLine actually emits`, admits(surface));
       }
