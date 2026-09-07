@@ -5793,7 +5793,7 @@ async function runSelfTest() {
     D("read", "--claim", "--file", claimFile);
     const cmp = D("compare");
     ok("#995: the run reaches a join over a record carrying a concession", cmp.status === 0);
-    const conceded = readOrEmpty(join(wsBase, "entries", "join", "a3.concessions.md"));
+    const conceded = readOrEmpty(join(wsBase, "entries", "pass-1", "join", "a3.concessions.md"));
     ok("#995: the concessions Packet carries the concession's own words",
       conceded.includes(CONCEDED), conceded.slice(0, 400));
     ok("#995: and never the stringified object the entry used to render as",
@@ -5802,7 +5802,7 @@ async function runSelfTest() {
       conceded.includes(`${CONCEDED} (lines ${lo3}\u2013${hi3})`));
     // The Step that conceded nothing still renders the stated absence, so the
     // case above is bound to the entry and not to the field being present.
-    const nothingConceded = readOrEmpty(join(wsBase, "entries", "join", "a1.concessions.md"));
+    const nothingConceded = readOrEmpty(join(wsBase, "entries", "pass-1", "join", "a1.concessions.md"));
     ok("#995: while a Step conceding nothing renders the absence",
       /\(none\)/.test(nothingConceded) && !nothingConceded.includes("[object Object]"));
   }
