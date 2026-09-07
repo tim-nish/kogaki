@@ -382,7 +382,7 @@ function writeRun(ws, run) {
 //
 //   runs/review/<slug>/pass-1/{recovery,recovered,join,ledger,corrections,
 //                              cold-reader.md,join.json}
-//   runs/review/<slug>/pass-2/{recovery,recovered,join,corrections,check.json}
+//   runs/review/<slug>/pass-2/{recovery,recovered,join,check.json}
 //   runs/review/<slug>/snapshots/     — before/after per corrected Step
 //   runs/review/<slug>/run.json
 //
@@ -394,6 +394,14 @@ function writeRun(ws, run) {
 
 // The pass the run is ON. Absent on a record written before this split, which
 // reads as pass one — the pass such a record's evidence was in fact written by.
+//
+// WHAT THAT DEFAULT DOES NOT DO IS RESOLVE THE OLD PATHS (PR #1004 round 1,
+// finding 4). A pre-split run's evidence sits at the workspace ROOT, not under
+// `pass-1/`, so a run open across this change meets `readJoin` refusing at
+// `pass-1/join.json` and is repaired by re-opening it — `runs/` is machine
+// state, pruned by design, and re-opening is the repair the workspace's own
+// lifetime rule already assumes. The default is about the pass a record BELONGS
+// to, never about where its files are.
 function currentPass(run) {
   const p = run.pass;
   if (p === undefined || p === null) return 1;
@@ -406,6 +414,19 @@ function currentPass(run) {
 }
 
 function passDirFor(ws, pass) { return join(ws, `pass-${pass}`); }
+
+// A pass a CALLER named, checked rather than trusted. Both join builders take
+// one, and a missing or malformed value is a wiring defect in this file rather
+// than a state a run can reach, so it refuses by naming the site.
+function requirePass(pass, site) {
+  if (!Number.isInteger(pass) || pass < 1) {
+    fail(`${site} was called without the pass it is building for `
+      + `(${JSON.stringify(pass)}). The pass is the caller's — \`compare\` is one and \`check\` is `
+      + "two — and there is no default, because a wrong default files a pass's pair inputs under "
+      + "another pass's directory.");
+  }
+  return pass;
+}
 
 // THE REVIEWED DRAFT HAS ITS OWN FILENAME, AND `draft.md` STAYS THE DRAFT THAT
 // WAS REVIEWED (kogaki#994). `correct` re-realizes a Step through the draft
@@ -1862,7 +1883,14 @@ const MECHANICAL_FIGURE = {
   },
 };
 
-function renderJoinPacket(ws, run, draft, step, item, pair, declaredText, recoveredText) {
+// THE PASS IS THE CALLER'S, NOT THE RUN RECORD'S (PR #1004 round 1, finding 1).
+// `compare` IS pass one whatever pass the run has since reached — the record it
+// writes is named `pass-1/join.json` for exactly that reason — so the pair
+// inputs that record indexes must land beside it. Reading the pass off the run
+// record here put a `compare` run made after `check` into `pass-2/join/`, over
+// the inputs pass two was judging, and the ledger could not refuse it because
+// the writing pass read as the owning one.
+function renderJoinPacket(ws, run, pass, draft, step, item, pair, declaredText, recoveredText) {
   const tplPath = join(dirname(fileURLToPath(import.meta.url)), "join-template.md");
   if (!existsSync(tplPath)) {
     fail(`the join template is absent — ${tplPath}. It is the judging model's entire input, so a `
@@ -1893,7 +1921,7 @@ function renderJoinPacket(ws, run, draft, step, item, pair, declaredText, recove
       + "disagree about the slot set, which is the round trip failing silently");
   }
   const name = pair === null ? `${step.step_id}.${item.id}.md` : `${step.step_id}.${item.id}.${pair}.md`;
-  const dest = passPath(ws, run, "join", name);
+  const dest = passPathAt(ws, run, pass, "join", name);
   writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
   return dest;
 }
@@ -2117,7 +2145,12 @@ function renderSide(v) {
 // holds and is neither rendered as a join Packet nor logged — which is what
 // makes the bound checkable in `check.json` rather than merely stated, since a
 // filter applied after the log was written would count work it did not do.
+// `opts.pass` is REQUIRED and is the pass the CALLING COMMAND is — `compare`
+// passes 1 and `check` passes 2. It is not defaulted: a default here would be a
+// second answer to the question the caller already answers, and the wrong one is
+// exactly the defect this parameter exists to close.
 function buildJoin(draft, run, items, ws, opts = {}) {
+  const pass = requirePass(opts.pass, "buildJoin");
   const { steps } = resolveInputs(draft);
   const floor = items.thresholds.claim_ground_containment;
   const bound = typeof opts.bound === "function" ? opts.bound : null;
@@ -2230,7 +2263,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             return;
           }
           const key = verdictKey(step.step_id, item.id, i);
-          const file = renderJoinPacket(ws, run, draft, step, item, i,
+          const file = renderJoinPacket(ws, run, pass, draft, step, item, i,
             declared[item.declared_block][p.ground_index],
             renderSide(entry[item.pair_text_key]));
           // THE VERDICT IS READ BEFORE THE CALL IS LOGGED, so the log can name
@@ -2247,7 +2280,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         });
       } else {
         const key = verdictKey(step.step_id, item.id, null);
-        const file = renderJoinPacket(ws, run, draft, step, item, null,
+        const file = renderJoinPacket(ws, run, pass, draft, step, item, null,
           declaredSide(step, item, declared, items),
           item.recovered_field ? renderSide(recoveredAt(rec, item.recovered_field))
             : "(the passage itself, quoted below — this item asks whether something is ABSENT from it)");
@@ -2456,7 +2489,8 @@ function sectionVacuous(item, sec, order) {
     + "bind everywhere or nowhere, and the two are indistinguishable in the output");
 }
 
-function buildSectionJoin(draft, run, items, ws) {
+function buildSectionJoin(draft, run, items, ws, joinPass) {
+  const pass = requirePass(joinPass, "buildSectionJoin");
   const table = items.sections || {};
   if (!Array.isArray(table.items) || !table.items.length) {
     fail("the item table declares no `sections.items`, so the cold reader's ledger would be "
@@ -2484,7 +2518,7 @@ function buildSectionJoin(draft, run, items, ws) {
       const declared = sectionDeclared(item, draft, sec, view, items);
       const recovered = sectionRecovered(item, run, sec, order);
       const key = verdictKey(view.step_id, item.id, null);
-      const file = renderJoinPacket(ws, run, draft, view, item, null,
+      const file = renderJoinPacket(ws, run, pass, draft, view, item, null,
         renderSide(declared), renderSide(recovered));
       const v = verdicts[key];
       modelCalls.push({ section: sec.index, item: item.id, pair: null, packet: file,
@@ -2639,8 +2673,8 @@ function cmdCompare(args) {
   // is what the file is validated against: what a run asks about is a property
   // of the Draft, the Packets and the item table, never of the answers it has
   // already been given.
-  let pass = buildJoin(draft, run, items, ws);
-  let sec = buildSectionJoin(draft, run, items, ws);
+  let pass = buildJoin(draft, run, items, ws, { pass: 1 });
+  let sec = buildSectionJoin(draft, run, items, ws, 1);
   let recorded = 0;
   if (args.verdicts !== undefined) {
     const file = argString(args, "verdicts", "usage: review-draft compare --draft <draft.md> --verdicts <verdicts.json>");
@@ -2648,8 +2682,8 @@ function cmdCompare(args) {
     // files would make it possible to record one and not the other and reach a
     // complete-looking join over half the review.
     recorded = recordVerdicts(run, file, [...pass.owed, ...sec.owed], items);
-    pass = buildJoin(draft, run, items, ws);
-    sec = buildSectionJoin(draft, run, items, ws);
+    pass = buildJoin(draft, run, items, ws, { pass: 1 });
+    sec = buildSectionJoin(draft, run, items, ws, 1);
   }
 
   const { results, owed, modelCalls, mechanicalLog } = pass;
@@ -3639,13 +3673,13 @@ function cmdCheck(args) {
   // resetting `compared_at` to a comparison nobody made. The two passes have
   // different owed sets by construction, so they need different doors.
   let pass = buildJoin(draft, run, items, ws,
-    { bound: bound.inBound, carry: priorJoin.results || [] });
+    { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
   let recorded = 0;
   if (args.verdicts !== undefined) {
     const vf = argString(args, "verdicts", "usage: review-draft check --draft <draft.md> [--verdicts <verdicts.json>]");
     recorded = recordVerdicts(run, vf, pass.owed, items);
     pass = buildJoin(draft, run, items, ws,
-      { bound: bound.inBound, carry: priorJoin.results || [] });
+      { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
   }
   const { results, owed, modelCalls, mechanicalLog } = pass;
   const complete = owed.length === 0;
@@ -3769,6 +3803,54 @@ function cmdCheck(args) {
 // ABOUT — the Packet, or ReviewDraft itself — is exactly the judgment the owner
 // holds. A tool that guessed would be answering the one question the whole
 // two-pass bound exists to put in front of a person.
+// The pass-directory pointers item 4 of kogaki#994 asks for, rendered from the
+// passes the run actually made rather than from the layout constant — a run that
+// never reached `check` has no `pass-2/`, and naming one would send a reader to
+// a directory nothing wrote.
+// The recovery record and the join input a single verdict rests on. Rendered
+// from the same rule the writers compose their paths with, so a reader following
+// one lands on the file the judge was actually handed.
+function findingEvidencePaths(ws, pass, f) {
+  if (!f.step_id) return [];
+  const rel = (...a) => relative(process.cwd(), join(ws, `pass-${pass}`, ...a))
+    || join(ws, `pass-${pass}`, ...a);
+  const name = f.pair === null || f.pair === undefined
+    ? `${f.step_id}.${f.item}.md` : `${f.step_id}.${f.item}.${f.pair}.md`;
+  return [
+    `  - recovered record: \`${rel("recovered", `${f.step_id}.json`)}\``,
+    `  - the pair the judge saw: \`${rel("join", name)}\``,
+  ];
+}
+
+function evidenceLines(ws, run) {
+  const rel = (...a) => relative(process.cwd(), join(ws, ...a)) || join(ws, ...a);
+  const out = [
+    `- **Pass 1 — \`compare\`.** \`${rel("pass-1")}/\``,
+    `  - \`recovery/<step>.md\` — what the blind reviewer was handed`,
+    `  - \`recovered/<step>.json\` — what they wrote back`,
+    `  - \`join/<step>.<item>[.<pair>].md\` — the pair each verdict was given on`,
+    `  - \`ledger/\` — the cold reader's Section entries and final claim`,
+    `  - \`corrections/<step>.md\` — the input each correction was written from`,
+    `  - \`join.json\` — pass one's verdicts, and which pairs were decided mechanically`,
+  ];
+  if (run.checked_at || currentPass(run) > 1) {
+    out.push(
+      `- **Pass 2 — \`check\`.** \`${rel("pass-2")}/\``,
+      `  - \`recovery/<step>.md\` and \`recovered/<step>.json\` — the corrected Steps, re-read blind`,
+      `  - \`join/<step>.<item>[.<pair>].md\` — the pairs inside the second pass's bound`,
+      `  - \`check.json\` — pass two's verdicts, the bound it applied, and what it carried`,
+      "",
+      "A pair pass two carried rather than re-judged has its verdict in `pass-1/join.json`",
+      "and its input under `pass-1/join/`; the bound in `check.json` says which.");
+  } else {
+    out.push("- **Pass 2 — `check`.** Did not run, so there is no `pass-2/`.");
+  }
+  out.push("",
+    `- **Snapshots.** \`${rel("snapshots")}/\` — the article before and after each correction.`,
+    `- **Run record.** \`${rel("run.json")}\` — every path above, per Step, as it was written.`);
+  return out;
+}
+
 function cmdClose(args) {
   const draftPath = argString(args, "draft", "usage: review-draft close --draft <draft.md>");
   const ws = workspaceFor(args, slugOf(draftPath));
@@ -3882,6 +3964,20 @@ function cmdClose(args) {
     "",
     ...run.steps.map((s) => `- \`${s.step_id}\` — \`${s.packet}\` sha \`${s.packet_sha}\``),
     "",
+    // ITEM 4 OF kogaki#994. A finding names a Step and an item; the two
+    // artefacts that make it checkable — the input the judge was handed and
+    // the record the blind reviewer wrote — live in the pass directory, and
+    // until this the record pointed at neither. `runs/` is machine state and is
+    // pruned, so the paths are named as the shape they have rather than
+    // promised to be there: a reader whose workspace has been pruned learns
+    // what was pruned rather than that nothing was written.
+    "### Where this run's evidence is",
+    "",
+    `The workspace is \`${ws}\` — machine state, gitignored and pruned to the last few`,
+    "runs. Each pass wrote only under its own directory:",
+    "",
+    ...evidenceLines(ws, run),
+    "",
     "## Findings",
     "",
   ];
@@ -3906,6 +4002,11 @@ function cmdClose(args) {
       if (f.declared) lines.push(`  - declared: ${f.declared}`);
       if (f.recovered) lines.push(`  - recovered: ${f.recovered}`);
       if (f.span) lines.push(`  - span: ${JSON.stringify(f.span)}`);
+      // THE TWO ARTEFACTS BEHIND THE VERDICT (kogaki#994 item 4). This row is
+      // pass one's — `run.findings` is what `compare` wrote — so both paths are
+      // pass one's. A row pass two re-judged reaches the Residue section below,
+      // which names the pass that read it last.
+      for (const l of findingEvidencePaths(ws, 1, f)) lines.push(l);
     }
     lines.push("");
   }
@@ -3962,6 +4063,11 @@ function cmdClose(args) {
   } else {
     for (const r of run.residue) {
       lines.push(`- **${r.step_id} / ${r.item}** — ${r.why}`);
+      // RESIDUE SURVIVED PASS TWO, so the reading behind it is pass two's and
+      // the pointers are pass two's. Pass one's are still on disk under
+      // `pass-1/`, which is the comparison the owner classifying this line is
+      // most likely to want.
+      for (const l of findingEvidencePaths(ws, run.checked_at ? 2 : 1, r)) lines.push(l);
       lines.push("  classified:");
     }
     // AN UPSTREAM LINE SAYS SO, AND SAYS IT IS NOT ABOUT A STEP. It reached the
@@ -4041,7 +4147,7 @@ than a convention:
 
   runs/review/<slug>/pass-1/{recovery,recovered,join,ledger,corrections,
                              cold-reader.md,join.json}
-  runs/review/<slug>/pass-2/{recovery,recovered,join,corrections,check.json}
+  runs/review/<slug>/pass-2/{recovery,recovered,join,check.json}
   runs/review/<slug>/snapshots/    before/after per corrected Step
   runs/review/<slug>/run.json
 
@@ -4049,7 +4155,9 @@ Every pass writes only under its own directory, and a write that would land on a
 file another pass wrote is REFUSED BY NAME. A later third pass is \`pass-3/\` and
 nothing else moves. \`snapshots/\` and \`run.json\` stay at the root: a snapshot
 pair spans the correction that separates two passes, and the run record is the
-one file every pass writes.
+one file every pass writes. \`corrections/\` is PASS ONE'S ONLY — \`correct\`
+discharges a verdict pass one recorded, and pass two turns a still-failing item
+into residue rather than into another correction — so pass two has none.
 
 \`close\` writes the corrected article to \`theses/<slug>/draft.reviewed.md\` and
 RESTORES \`theses/<slug>/draft.md\` to the Draft the run reviewed, so the Draft is
@@ -6504,6 +6612,58 @@ async function runSelfTest() {
         again.status === 1 && /this run is closed/.test(again.stderr));
       ok("#994: and the reviewed Draft is untouched by the refusal",
         readOrEmpty(cReviewed) !== cArticleAsReviewed);
+    }
+
+    // --- PR #1004 round 1, finding 1: `compare` IS PASS ONE, AND ITS PAIR
+    //     INPUTS FOLLOW ITS RECORD. Driven by running `compare` again with the
+    //     run on pass two, which is the door `check`'s own comment names as the
+    //     plausible wrong one. Before the fix the Packets landed in
+    //     `pass-2/join/`, over the inputs pass two was judging, while the record
+    //     indexing them stayed in `pass-1/join.json`.
+    {
+      writeFileSync(cDraft, readFileSync(join(cBrief, REVIEWED_BASENAME), "utf8"));
+      const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
+      delete rr.reviewed_at; delete rr.restored_from; delete rr.closed_at;
+      writeFileSync(join(cWsRun, "run.json"), JSON.stringify(rr, null, 2) + "\n");
+      const p2JoinBefore = existsSync(P2("join"))
+        ? readdirSync(P2("join")).sort().join(",") : "";
+      // THE CASE IS ONLY EXPRESSED IF PASS TWO HAS PAIR INPUTS TO LOSE. An
+      // empty pass-2 `join/` would make the comparison below vacuously true,
+      // which is the shape this whole Harness exists to refuse.
+      ok("#1004/1: pass two has pair inputs of its own for the case to be about",
+        p2JoinBefore.length > 0);
+      const rCmp = RD("compare");
+      ok("#1004/1: compare re-runs with the run on pass two", rCmp.status === 0);
+      const p2JoinAfter = existsSync(P2("join"))
+        ? readdirSync(P2("join")).sort().join(",") : "";
+      ok("#1004/1: and writes no pair input into pass two's directory",
+        p2JoinAfter === p2JoinBefore);
+      ok("#1004/1: its pair inputs land beside the record that indexes them, in pass one",
+        existsSync(P1("join")) && readdirSync(P1("join")).length > 0);
+      ok("#1004/1: and the record it wrote is still pass one's",
+        existsSync(P1("join.json")));
+    }
+
+    // --- PR #1004 round 1, finding 3: kogaki#994 item 4 — the owner record
+    //     points at the pass directories, so a finding leads to the input the
+    //     judge saw and the record the blind reviewer wrote.
+    {
+      const rC = RD("close");
+      const rv = readOrEmpty(join(cBrief, "review.md"));
+      ok("#1004/3: close succeeds and the record names where the evidence is",
+        rC.status === 0 && /^### Where this run's evidence is$/m.test(rv));
+      ok("#1004/3: it names both passes' directories",
+        /\*\*Pass 1 — `compare`\.\*\*/.test(rv) && /\*\*Pass 2 — `check`\.\*\*/.test(rv)
+        && rv.includes("pass-1") && rv.includes("pass-2"));
+      ok("#1004/3: and the artefacts a reader goes from a finding to",
+        /recovered\/<step>\.json/.test(rv) && /join\/<step>\.<item>/.test(rv));
+      ok("#1004/3: the snapshots and the run record are named at the root",
+        /\*\*Snapshots\.\*\*/.test(rv) && /\*\*Run record\.\*\*/.test(rv));
+      // Undo the close again — the pass-collision case below needs a live run.
+      writeFileSync(cDraft, readFileSync(join(cBrief, REVIEWED_BASENAME), "utf8"));
+      const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
+      delete rr.reviewed_at; delete rr.restored_from; delete rr.closed_at;
+      writeFileSync(join(cWsRun, "run.json"), JSON.stringify(rr, null, 2) + "\n");
     }
 
     // --- kogaki#994: A WRITE THAT WOULD LAND ON ANOTHER PASS'S FILE IS REFUSED

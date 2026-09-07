@@ -117,6 +117,11 @@ discharges a verdict pass one recorded, and pass two turns a still-failing item
 into residue rather than into another correction. A later third pass is
 `pass-3/` and nothing else moves.
 
+`review.md` points at both pass directories, and every finding carries the two
+artefacts behind it — the recovered record the blind reviewer wrote and the pair
+input the judge was handed — so a reader goes from a finding to its evidence in
+either pass.
+
 ## The reviewed Draft has its own filename
 
 `close` writes the corrected article to **`theses/<slug>/draft.reviewed.md`**
