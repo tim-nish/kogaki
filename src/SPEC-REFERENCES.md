@@ -53,13 +53,22 @@ Both were found by two review rounds reading **one** diff (PR #989 rounds 1 and
 2), the second only after the first was reported and answered. No act that runs
 on every head saw either.
 
-**The population is measured, not residual.** At the head that fixed them, 8
-`§` sites across 32 `src/` files, of which exactly **2** were the defect. The
-other six are this file's own grammar specimen; two regex literals
-(`src/assemble.mjs`'s leak-guard constant and `src/draft.mjs`'s self-test);
-the licensed `§"name"` form in `src/cite-check.mjs`; and two issue-section
-names carrying no number. "Two sites" is therefore a count of the class rather
-than the residue of two review rounds.
+**The population is measured, not residual.** The sweep was run at `3cf7cb0`,
+the head **before** the fix: 8 `§` sites across 32 `src/` files, of which
+exactly **2** were the defect. The other six are this file's own grammar
+specimen; two regex literals (`src/assemble.mjs`'s leak-guard constant and
+`src/draft.mjs`'s self-test); the licensed `§"name"` form in
+`src/cite-check.mjs`; and two issue-section names carrying no number. "Two
+sites" is therefore a count of the class rather than the residue of two review
+rounds.
+
+**The 8 is pinned to that head on purpose, and this paragraph says why.** This
+section is itself a `src/` file writing about the form, so **it adds `§` sites
+of its own** — every one of them a licensed or escaped shape, none of them the
+defect. A reader re-running the sweep at any later head therefore finds a
+number **larger** than 8 and must not read the difference as drift. The figure
+that does not move is the one the section exists for: the defect count, **2**,
+which the registered check holds at zero from `3cf7cb0` onward.
 
 **So this half is now asserted:** `checks/check-section-numbers.sh`, registered
 pre-push, refuses a section sign followed by a digit anywhere under `src/`.

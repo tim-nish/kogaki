@@ -109,20 +109,32 @@ if "--self-test" in sys.argv:
 
 files = subprocess.run(["git", "ls-files", "src/"],
                        capture_output=True, text=True, check=True).stdout.split()
+# THE PRINTED COUNT IS READS PERFORMED, NEVER FILES LISTED. A file that could
+# not be opened or decoded is skipped, and counting the listing instead would
+# report it as read — a number that cannot go DOWN when coverage does is the
+# same shape of evidence that let this family's sibling pass over six files it
+# appeared to cover. Skipped files are named rather than absorbed.
 failures = []
+read = 0
+skipped = []
 for f in files:
     try:
         text = open(f, encoding="utf-8").read()
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError) as exc:
+        skipped.append((f, exc.__class__.__name__))
         continue
+    read += 1
     failures.extend((f, n, l) for n, l in hits(text))
+
+for f, why in skipped:
+    print("skipped: %s (%s) — NOT read, and not counted as read." % (f, why))
 
 if failures:
     for f, n, l in failures:
         print("FAIL: %s:%d names a spec section number." % (f, n))
         print("      %s" % (l[:120],))
     print()
-    print("read: %d file(s) under src/." % len(files))
+    print("read: %d of %d file(s) under src/." % (read, len(files)))
     print()
     print("A section number renumbers, and a reader cannot check a number that")
     print("has moved. This is measured rather than feared: see the ground in")
@@ -135,7 +147,8 @@ if failures:
     print("deletion rather than a rewrite.")
     sys.exit(1)
 
-print("ok: no src/ file names a spec section number — read %d file(s)." % len(files))
+print("ok: no src/ file names a spec section number — read %d of %d file(s)"
+      " under src/." % (read, len(files)))
 print("    No exemption list: regex source for this pattern does not match it,")
 print("    and a comment naming a specimen escapes it at the site.")
 PYX
