@@ -6655,7 +6655,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 //     the `cotag_selection` grammar go with it.
 //
 // NEITHER SURVIVES IN THE DISPATCHER (kogaki#901, propagating SPEC-terrain v36
-// §15.6.3 — "A removed entry point is DELETED, and leaves no stub"). The stub
+// §"A removed entry point is DELETED, and leaves no stub"). The stub
 // was a refusal, never a route, so its removal changes no reachability: the
 // acts stay unreachable either way, and a caller now meets an ordinary
 // unknown-command error instead of a pointer to the replacement.

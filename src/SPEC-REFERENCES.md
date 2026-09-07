@@ -41,6 +41,58 @@ were cited for.
 **No owner-facing string names a spec section**, for the same reason one level
 out: an owner reading a rendered surface cannot check a number that has moved.
 
+## The section-number half is MECHANICAL (kogaki#991)
+
+The rule above was carried by reading alone, and two `src/` sites named a
+section number anyway — `src/workflow.json` and `src/terrain.mjs`, both writing
+`SPEC-terrain v36 \u00a715.6.3` beside the very heading the number pointed at
+— the specimen is written **escaped** here, on the convention
+`src/assemble.mjs` set at its own, because a file quoting the defect verbatim
+becomes an instance of it and this one carries the rule.
+Both were found by two review rounds reading **one** diff (PR #989 rounds 1 and
+2), the second only after the first was reported and answered. No act that runs
+on every head saw either.
+
+**The population is measured, not residual.** At the head that fixed them, 8
+`§` sites across 32 `src/` files, of which exactly **2** were the defect. The
+other six are this file's own grammar specimen; two regex literals
+(`src/assemble.mjs`'s leak-guard constant and `src/draft.mjs`'s self-test);
+the licensed `§"name"` form in `src/cite-check.mjs`; and two issue-section
+names carrying no number. "Two sites" is therefore a count of the class rather
+than the residue of two review rounds.
+
+**So this half is now asserted:** `checks/check-section-numbers.sh`, registered
+pre-push, refuses a section sign followed by a digit anywhere under `src/`.
+
+**Why this is admissible where the forward direction below is declined.** That
+decline's ground is that a *reference* is written in free prose, so a matcher
+over it yields candidates a reader must judge. This check matches no reference.
+It matches a **forbidden form** — closed, with no grammar to parse — so a hit
+is a failure rather than a candidate, and the sibling's ground does not
+transfer. It is not inherited by analogy, which is the move that would have
+made the decline look like a rule about matchers in general.
+
+**It carries no exemption list, and the absence is chosen.** The two regex
+literals hold this pattern as *source*, where the section sign is followed by a
+backslash, so neither matches; `src/assemble.mjs`'s comment naming its own
+specimen writes it escaped and says so at the site. The convention that keeps
+the tree clean is textual and already established, so no blessed-path list
+exists for a later site to be quietly added to.
+
+**The other half of the rule — the line range — stays with the reader**, and is
+declined at the check's birth rather than left looking covered. A line range is
+written as bare digits indistinguishable from every other number in these
+files, so a matcher for it would produce exactly the candidate stream this
+member exists by not producing.
+
+The served position the assertion rests on:
+
+> "A rule is enforced only at the layer where it can be broken — a prohibition
+> needs a mechanical gate at the tool boundary because prose is advisory to a
+> system whose job is to satisfy instructions."
+
+`consulted: product-lab@4a58f2a3a895ffa358115db2ad38cb95a56b5523 LESSONS.md:209`
+
 ## Why one carrier rather than a copy per file (kogaki#982)
 
 The header was written into fifteen `src/` carriers, and by the time nine more
