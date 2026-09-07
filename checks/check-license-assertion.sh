@@ -18,6 +18,14 @@
 #   - the exemption APPLIES and the commit passes with no #N   (arm 1)
 #   - the exemption does NOT apply and the commit is refused   (arm 2, closed)
 #
+# THE SECOND DIRECTION IS NOW ALSO A DIRECTION OF TRAVEL ON THE PATH ITSELF
+# (kogaki#977). The exemption argues the WRITING of an emission and reaches no
+# further, so the cases assert both halves of that scope: an added or modified
+# emission passes with no #N, and a DELETED one is refused. A path list carries
+# statuses for exactly this reason, so the cases below are `<status> <path>`
+# and a statusless line has its own case — the format's blind spot is the one
+# the narrowing closes, and a check that admitted both forms could not see it.
+#
 # WHAT IT DOES NOT VERIFY, stated rather than left to look covered: that the CI
 # job passes the right facts in. The job reads `git diff-tree` and the head
 # commit message and hands them over; a defect in THAT plumbing — a merge
@@ -41,19 +49,11 @@ trap 'rm -rf "$tmp"' EXIT
 failures=0
 ran=0
 
-# run_case <name> <expected: pass|refuse> <event> <message> [path...]
-run_case() {
-  local name="$1" expect="$2" event="$3" message="$4"; shift 4
-  local paths_file="$tmp/paths"
-  printf '%s\n' "$@" > "$paths_file"
-  [[ $# -eq 0 ]] && : > "$paths_file"
-
-  ran=$((ran + 1))
-  local out status
-  set +e
-  out="$("$SCRIPT_UNDER_TEST" --event "$event" --message "$message" --paths-file "$paths_file" 2>&1)"
-  status=$?
-  set -e
+# report_case <name> <expected: pass|refuse> <status> <output>
+# The one place a case's verdict is graded, so run_case and run_fifo_case
+# cannot drift on what an exit code means.
+report_case() {
+  local name="$1" expect="$2" status="$3" out="$4"
 
   local got
   case "$status" in
@@ -72,7 +72,49 @@ run_case() {
   fi
 }
 
-echo "license-assertion — the predicate's cases (kogaki#905):"
+# run_case <name> <expected: pass|refuse> <event> <message> [entry...]
+# An entry is `<status> <path>` — every space becomes a tab, which is the
+# `git diff-tree --name-status` line the CI job passes, and a rename's second
+# path is a third field. An entry with NO space is written verbatim, so a
+# statusless line can be asserted as the fail-closed input it is.
+run_case() {
+  local name="$1" expect="$2" event="$3" message="$4"; shift 4
+  local paths_file="$tmp/paths"
+  : > "$paths_file"
+  local entry
+  for entry in "$@"; do
+    printf '%s\n' "${entry// /$'\t'}" >> "$paths_file"
+  done
+
+  ran=$((ran + 1))
+  local out status
+  set +e
+  out="$("$SCRIPT_UNDER_TEST" --event "$event" --message "$message" --paths-file "$paths_file" 2>&1)"
+  status=$?
+  set -e
+
+  report_case "$name" "$expect" "$status" "$out"
+}
+
+# run_fifo_case <name> <expected> <message> [line...]
+# The same predicate reached through a process substitution, whose lines are
+# written verbatim. `--paths-file <(git diff-tree ...)` is how a person checks
+# by hand what the gate will do before pushing, and it died at exit 2 until
+# kogaki#977 with the predicate never consulted. The CI job passes a real file,
+# so nothing else here would ever exercise a fifo.
+run_fifo_case() {
+  local name="$1" expect="$2" message="$3"; shift 3
+  ran=$((ran + 1))
+  local out status
+  set +e
+  out="$("$SCRIPT_UNDER_TEST" --event push --message "$message" \
+          --paths-file <(printf '%b\n' "$@") 2>&1)"
+  status=$?
+  set -e
+  report_case "$name" "$expect" "$status" "$out"
+}
+
+echo "license-assertion — the predicate's cases (kogaki#905, kogaki#977):"
 
 # --- arm 1: the exemption applies -------------------------------------------
 
@@ -81,12 +123,66 @@ echo "license-assertion — the predicate's cases (kogaki#905):"
 run_case "an emission-only push with no #N passes" \
   pass push \
   "emit(policy): a removal list goes stale silently when the document moves" \
-  "policy/emissions/2026-09-01-a-removal-list-goes-stale.md"
+  "A policy/emissions/2026-09-01-a-removal-list-goes-stale.md"
 
 run_case "several emissions in one push pass" \
   pass push \
   "emit(policy): two learnings from the /ship-cycle 856 sitting" \
-  "policy/emissions/2026-09-01-a.md" "policy/emissions/2026-09-01-b.md"
+  "A policy/emissions/2026-09-01-a.md" "A policy/emissions/2026-09-01-b.md"
+
+# Amending a candidate already written is still the writing of an emission —
+# the same by-product of the same sitting — so M is exempt beside A.
+run_case "amending an existing emission with no #N passes" \
+  pass push \
+  "emit(policy): sharpen a candidate written yesterday" \
+  "M policy/emissions/2026-09-01-a.md"
+
+# kogaki#977 acceptance 3: the predicate reached through a process
+# substitution returns a verdict rather than dying at exit 2.
+run_fifo_case "--paths-file accepts a process substitution" \
+  pass \
+  "emit(policy): a learning" \
+  "A\tpolicy/emissions/2026-09-01-a.md"
+
+# --- kogaki#977: the exemption does not reach a REMOVAL ----------------------
+
+# kogaki#977 acceptance 1. Deleting a staging candidate is a deliberate act on
+# the candidate, not a by-product of the sitting that wrote it, so the argument
+# arm 1 rests on does not reach it and the licence is owed.
+run_case "deleting an emission with no #N is refused" \
+  refuse push \
+  "chore: drop a stale candidate" \
+  "D policy/emissions/2026-09-01-a.md"
+
+# And the route a removal takes instead: arm 2, licensed like ordinary work.
+run_case "deleting an emission naming an issue passes" \
+  pass push \
+  "chore(policy): retract a candidate superseded by its promotion (for #977)" \
+  "D policy/emissions/2026-09-01-a.md"
+
+# A push that writes one candidate and removes another is not a write; the
+# exemption is all-paths in this direction too.
+run_case "an emission added beside one deleted is refused" \
+  refuse push \
+  "emit(policy): replace a candidate" \
+  "A policy/emissions/2026-09-01-b.md" "D policy/emissions/2026-09-01-a.md"
+
+# A rename away from policy/emissions/ removes an emission under a status the
+# exempt set does not name. `git diff-tree` reports it as D+A without `-M`;
+# this asserts the predicate is right either way.
+run_case "a rename out of policy/emissions/ is not exempt" \
+  refuse push \
+  "chore: move a candidate into the docs tree" \
+  "R100 policy/emissions/2026-09-01-a.md docs/a.md"
+
+# The format's own fail-closed arm. A caller passing `--name-only` output
+# supplies no status, and the only safe reading of an unknown status is "not
+# exempt" — otherwise the blind spot kogaki#977 closed reopens through the
+# input rather than through the predicate.
+run_case "a statusless path list is not exempt" \
+  refuse push \
+  "emit(policy): a learning" \
+  "policy/emissions/2026-09-01-a.md"
 
 # --- arm 2: the exemption does not apply, and the gate still refuses ---------
 
@@ -95,43 +191,43 @@ run_case "several emissions in one push pass" \
 run_case "a code change with no #N is still refused" \
   refuse push \
   "fix(terrain): tighten the anchor resolver" \
-  "src/terrain.mjs"
+  "M src/terrain.mjs"
 
 run_case "a spec change with no #N is still refused" \
   refuse push \
   "docs: rewrite the responsibility clause" \
-  "specs/SPEC.md"
+  "M specs/SPEC.md"
 
 # The exemption must not be claimable by attaching an emission to other work.
 run_case "an emission carried alongside code is refused" \
   refuse push \
   "emit(policy): a learning, and a fix" \
-  "policy/emissions/2026-09-01-a.md" "src/terrain.mjs"
+  "A policy/emissions/2026-09-01-a.md" "M src/terrain.mjs"
 
 # An empty path set satisfies "every path matches" vacuously; it must not be
 # exempted by that accident. This is what a merge commit reads as.
 run_case "an empty path set is not exempt" \
   refuse push \
-  "Merge branch 'x'" 
+  "Merge branch x"
 
 # --- the licensed paths still pass -------------------------------------------
 
 run_case "a code change naming an issue passes" \
   pass push \
   "fix(terrain): tighten the anchor resolver (for #927) (#969)" \
-  "src/terrain.mjs"
+  "M src/terrain.mjs"
 
 # A pull request is never exempted: its licence is read from a surface a human
 # reviews, and arm 1 is scoped to `push` for that reason.
 run_case "a pull request of emissions only is NOT exempt" \
   refuse pull_request \
   "emit(policy): a learning" \
-  "policy/emissions/2026-09-01-a.md"
+  "A policy/emissions/2026-09-01-a.md"
 
 run_case "a pull request naming an issue passes" \
   pass pull_request \
   "fix: something (for #905)" \
-  "src/terrain.mjs"
+  "M src/terrain.mjs"
 
 echo
 # THE FLOOR IS READ FROM THE REGISTRY, never hardcoded here (kogaki#661), and
