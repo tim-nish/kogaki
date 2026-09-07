@@ -7770,10 +7770,19 @@ switch (cmd) {
           const pre = { thesis_candidates: [{ claim: "one", strands: ["L1"] }] };
           const post = { thesis_candidates: [{ id: "TC1", claim: "one", strands: ["L1"] }] };
           const none = { thesis_candidates: [] };
-          // THE DECISION IS WHAT IS CALLED, never the conjunct alone: an
+          // THE DECISION IS WHAT IS CALLED, never the conjunct alone: the
           // identity comparison is injected so this reaches the same function
-          // `cmdReport` asks, and a conjunct dropped from it fails here.
+          // `cmdReport` asks. ALL THREE CONJUNCTS ARE REACHED, and the third
+          // one is why the injection takes two values rather than one
+          // (kogaki#926): with `same` alone every assertion above was decided
+          // by the two predating guards and the id predicate, so deleting
+          // `sameIdentityFn(...)` from `shouldReplayPrior` left this case
+          // GREEN — the case claimed the whole decision and bound two thirds
+          // of it. `differs` is the discriminator: the records that replay
+          // under a comparison returning true are RECOMPUTED under one
+          // returning false, which no other conjunct can produce.
           const same = () => true;
+          const differs = () => false;
           const idty = { neighborhood_judgment: "NO_JUDGE" };
           const wrap = (r) => ({ identity: idty, ...r });
           return priorPredatesCandidateIds(pre)
@@ -7783,7 +7792,9 @@ switch (cmd) {
             && !shouldReplayPrior(wrap(pre), idty, same)
             && shouldReplayPrior(wrap(post), idty, same)
             && shouldReplayPrior(wrap(none), idty, same)
-            && !shouldReplayPrior({ identity: {} }, idty, same);
+            && !shouldReplayPrior({ identity: {} }, idty, same)
+            && !shouldReplayPrior(wrap(post), idty, differs)
+            && !shouldReplayPrior(wrap(none), idty, differs);
         })());
 
       // ---- AN EDITED CANDIDATES FILE AT THE SAME IDENTITY IS NOT IDEMPOTENT
