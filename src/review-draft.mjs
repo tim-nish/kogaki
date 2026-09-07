@@ -1956,9 +1956,47 @@ function declaredSide(step, item, declared, items) {
   return renderSide(null);
 }
 
+// THE ENTRIES OF A RECOVERED LIST ARE OBJECTS, and `src/recovered-schema.json`
+// is where their two keys are declared — `claims` carries `{claim, span}`,
+// `concessions` `{text, span}`, `restates` `{of, span}`. READ FROM THE SCHEMA
+// rather than restated here, the same arrangement `readSchema` already has with
+// the field list, so a field that gains a pair is covered by the declaration and
+// not by a second copy of it. Memoized because the join renders one side per
+// pair and the schema is one file on disk.
+let ENTRY_KEY_PAIRS = null;
+function entryKeyPairs() {
+  if (ENTRY_KEY_PAIRS) return ENTRY_KEY_PAIRS;
+  ENTRY_KEY_PAIRS = Object.values(readSchema().fields || {})
+    .filter((f) => f && f.text_key && f.span_key)
+    .map((f) => [f.text_key, f.span_key]);
+  return ENTRY_KEY_PAIRS;
+}
+
+// ONE ENTRY OF A RENDERED LIST (kogaki#995). Interpolating the entry directly
+// put `[object Object]` in front of the judging model, which answered
+// `cannot-decide` — correctly, since it was shown nothing — and the run recorded
+// that as a judgment about the article rather than as a defect in the tool. An
+// entry renders as its own words AND the draft lines it was recovered from,
+// because the span is the coordinate every other side of the join already cites.
+function renderEntry(x) {
+  if (x === null || x === undefined) return "(none)";
+  if (typeof x !== "object") return String(x);
+  for (const [textKey, spanKey] of entryKeyPairs()) {
+    const span = x[spanKey];
+    if (typeof x[textKey] === "string" && Array.isArray(span) && span.length === 2) {
+      return `${x[textKey]} (lines ${span[0]}\u2013${span[1]})`;
+    }
+  }
+  // A shape the schema does not declare still reads as its own keys and values.
+  // Falling back to the stringification is what produced the defect above.
+  return Object.entries(x).map(([k, v]) => `**${k}.** ${v}`).join("; ");
+}
+
 function renderSide(v) {
   if (v === null || v === undefined) return "(none)";
-  if (Array.isArray(v)) return v.length ? v.map((x) => `- ${x}`).join("\n") : "(none)";
+  if (Array.isArray(v)) {
+    return v.length ? v.map((x) => `- ${renderEntry(x)}`).join("\n") : "(none)";
+  }
   if (typeof v === "object") return Object.entries(v).map(([k, x]) => `- **${k}.** ${x}`).join("\n");
   return String(v);
 }
@@ -5391,6 +5429,64 @@ async function runSelfTest() {
     ok("the run completes", r.second.status === 0);
     ok("and a term occurring only in the frontmatter does not fail the Step that introduces it",
       /\sholds\s/.test(linesOf(r.second.stdout).get("a3/term-before-introduction")));
+  }
+
+  // kogaki#995 — A CONCESSION REACHES THE JUDGING MODEL AS ITS OWN WORDS. The
+  // `concessions` item's recovered side is a list of OBJECTS, and the renderer
+  // interpolated each one directly, so the join input read `- [object Object]`.
+  // Every `concessions` judgment in the 2026-09-07 ReviewDraft run came back
+  // `cannot-decide` on that input, which is the right answer to an unreadable
+  // pair and the wrong thing for the record to carry as a judgment.
+  // ASSERTED ON THE JOIN PACKET THE RUN WROTE, never on the renderer: what the
+  // defect was about is what reached the reader, and a unit assertion on
+  // `renderSide` would pass while the Packet still carried the placeholder.
+  {
+    const pd = join(root, "packets-entries"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
+    const d = buildDraft(join(root, "theses", "entries"), { packetDir: pd });
+    const wsBase = join(root, "ws-entries");
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsBase], { encoding: "utf8" });
+    D("open");
+    const CONCEDED = "the passage carries the ground more weakly than the packet declares it";
+    const RESTATED = "the claim the opening Step already settled";
+    let lo3 = 0, hi3 = 0;
+    for (const id of ["a1", "a2", "a3"]) {
+      const rg = d.ranges[id];
+      const [lo, hi] = [rg[0] + d.bodyOffset, rg[1] + d.bodyOffset];
+      if (id === "a3") { lo3 = lo; hi3 = hi; }
+      const fx = RECOVERED[id];
+      const p2 = join(root, `rec-entries-${id}.json`);
+      writeFileSync(p2, JSON.stringify({
+        claims: fx.claims.map((claim) => ({ claim, span: [lo, hi] })),
+        reader_state_after: fx.after,
+        purpose: fx.purpose,
+        terms_introduced: [],
+        shape: "It states a thing and moves on.",
+        // ONE STEP CARRIES ENTRIES AND THE OTHERS DO NOT, so the case witnesses
+        // the rendering rather than a constant: an empty list still renders
+        // `(none)` beside it.
+        concessions: id === "a3" ? [{ text: CONCEDED, span: [lo, hi] }] : [],
+        restates: id === "a3" ? [{ of: RESTATED, span: [lo, hi] }] : [],
+      }, null, 2) + "\n");
+      D("recover", "--step", id, "--file", p2);
+    }
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("read", "--claim", "--file", claimFile);
+    const cmp = D("compare");
+    ok("#995: the run reaches a join over a record carrying a concession", cmp.status === 0);
+    const conceded = readOrEmpty(join(wsBase, "entries", "join", "a3.concessions.md"));
+    ok("#995: the concessions Packet carries the concession's own words",
+      conceded.includes(CONCEDED), conceded.slice(0, 400));
+    ok("#995: and never the stringified object the entry used to render as",
+      conceded !== "" && !conceded.includes("[object Object]"));
+    ok("#995: the entry carries the draft lines it was recovered from",
+      conceded.includes(`${CONCEDED} (lines ${lo3}\u2013${hi3})`));
+    // The Step that conceded nothing still renders the stated absence, so the
+    // case above is bound to the entry and not to the field being present.
+    const nothingConceded = readOrEmpty(join(wsBase, "entries", "join", "a1.concessions.md"));
+    ok("#995: while a Step conceding nothing renders the absence",
+      /\(none\)/.test(nothingConceded) && !nothingConceded.includes("[object Object]"));
   }
 
   // A TERM CARRYING A DIGIT STILL YIELDS A DIGIT-FREE COMPARISON LINE. This is
