@@ -2137,13 +2137,28 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       // rounded into `holds`.
       const chosen = subs.find((s) => s.verdict === "fails")
         || subs.find((s) => s.verdict === "cannot-decide") || subs[0];
+      const rowDecidedBy = subs.every((s) => s.decided_by === "harness") ? "harness" : "model";
       results.push({ step_id: step.step_id, item: item.id, class: item.class,
-        decided_by: subs.every((s) => s.decided_by === "harness") ? "harness" : "model",
+        decided_by: rowDecidedBy,
         verdict: chosen.verdict, reason: chosen.reason,
-        // A HARNESS-DECIDED LINE CARRIES NO `model` KEY, and that absence is the
-        // record rather than a gap in it: the Harness decided it from string
-        // facts and no model was asked. Every pair's own model rides `pairs`.
-        ...(chosen.decided_by === "model" ? { model: chosen.model ?? null } : {}),
+        // THE KEY IS PRESENT EXACTLY WHERE `decided_by` IS `model`, and its
+        // VALUE is the chosen pair's — the pair whose verdict, reason and span
+        // this row renders (PR #1001 round 1).
+        //
+        // The two facts come apart on a HYBRID item. `decided_by` is a fact
+        // about the row's pairs — any one judged makes it `model` — while every
+        // other field here is the CHOSEN pair's, and `grounds` can choose a
+        // Harness-decided `widened` fail out of a row whose other pairs a model
+        // answered. Keying presence on the chosen pair, as this first did, then
+        // produced a row saying `decided_by: "model"` and carrying no `model` —
+        // the one shape the absence was supposed to rule out.
+        //
+        // So presence answers "was a model asked here at all", which is exactly
+        // what `decided_by` says, and `null` answers "not for the line you are
+        // reading" — a Harness-decided pair won the selection. A row with no
+        // key is a row where nothing was asked; the truth per pair is in
+        // `pairs`, and it always was.
+        ...(rowDecidedBy === "model" ? { model: chosen.model ?? null } : {}),
         span: chosen.span, pairs: subs });
     }
   });
@@ -5193,6 +5208,27 @@ async function runSelfTest() {
     // assignment and cannot disagree about the same Step.
     ok("and the unused-grounds item, which reads the same pairing, still holds",
       /\sholds\s/.test(L2.get("a1/grounds-unused")));
+    // kogaki#997, PR #1001 round 1 — THE HYBRID ROW IS WHERE THE ROW-LEVEL
+    // `model` KEY CAME APART. `grounds` here has one Harness-decided `widened`
+    // fail beside pairs a model answered, and `fails` wins the selection — so
+    // the row is `decided_by: "model"` while the line it renders came from the
+    // Harness. Keying the key's PRESENCE on the chosen pair made exactly this
+    // row claim a judge and name none.
+    {
+      const row = (recShort.results || [])
+        .find((r) => r.step_id === "a1" && r.item === "grounds");
+      ok("#997: the hybrid row is decided_by model — some pair was judged",
+        row && row.decided_by === "model" && row.verdict === "fails");
+      ok("#997: and it CARRIES the model key, because presence answers `was a model asked here`",
+        row && "model" in row);
+      ok("#997: whose value is null — a Harness-decided pair won the selection, so the "
+        + "line being read was not produced by a model",
+        row && row.model === null);
+      // AND THE TRUTH PER PAIR IS STILL THERE, which is what makes the null
+      // safe to render rather than a loss.
+      ok("#997: while the judged pairs inside it still name what answered them",
+        row && (row.pairs || []).some((sub) => sub.decided_by === "model" && sub.model === JUDGE_MODEL));
+    }
     // A PRESERVED item failing is what sends a Step to correction, and the run
     // says which — the class is the consequence, never a severity.
     ok("a preserved item failing sends its Step to correction, and the run names it",

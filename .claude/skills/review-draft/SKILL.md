@@ -81,9 +81,16 @@ carries. What the Harness does is **record what served**: every verdict is
 So a pass that answered its pair judgments on the pinned Haiku and its
 corrections on the stronger model reads as two ids, which is the intended
 split; a **third** id, or the interactive default, is a pin that slipped, and
-the line is where that becomes visible. A harness-decided row carries **no
-`model` key at all** — no call was made, and writing one there would claim a
-call that never happened.
+the line is where that becomes visible.
+
+**The row-level key answers "was a model asked here", and the per-pair one
+answers "by what".** A row the Harness decided alone carries **no `model` key
+at all** — no call was made, and writing one would claim a call that never
+happened. A row with any judged pair carries the key, and its value is the
+**chosen** pair's, which is `null` where a Harness-decided pair won the
+selection: a hybrid item like `grounds` can render a mechanical `widened` fail
+out of a row whose other pairs a model answered. The truth per pair is always
+in `pairs`.
 
 ## The comparison, and what the judging model is not asked
 
