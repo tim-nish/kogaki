@@ -6652,98 +6652,23 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 //     place. `renderCotagSelection`, `refuseIntent`, the `--intent` bound and
 //     the `cotag_selection` grammar go with it.
 //
-// Both cases survive in the dispatcher as loud refusals naming the ruling
-// (the deleted entry point): a removed entry point does not vanish, or a reader meets a bare
-// unknown-command.
+// NEITHER SURVIVES IN THE DISPATCHER (kogaki#901, propagating SPEC-terrain v36
+// §15.6.3 — "A removed entry point is DELETED, and leaves no stub"). The stub
+// was a refusal, never a route, so its removal changes no reachability: the
+// acts stay unreachable either way, and a caller now meets an ordinary
+// unknown-command error instead of a pointer to the replacement.
 
 function main() {
 const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 switch (cmd) {
   case "survey": cmdSurvey(args); break;
-  // REMOVED, AND REFUSING WITH A POINTER (the deleted entry point, kogaki#856). The listing
-  // itself is not gone — it moved into the TAG_SELECTION gate declaration, and
-  // the refusal names where.
-  case "tags":
-    fail("tags is removed as an entry point (SPEC-terrain, the pre-selection listing, kogaki#856). The pre-selection "
-      + "tag listing is no longer a command the owner types: the executor carries it in the "
-      + "TAG_SELECTION gate declaration's `tag_listing` key, byte-for-byte, and the session "
-      + "renders it above the question. Drive it through the executor: `run --run-dir <D>`, "
-      + "render the declaration it writes, answer it through AskUserQuestion, then re-enter with a bare `run --run-dir <D>`.");
-    break;
-  // RETIRED WITH NO SUCCESSOR (owner rulings 2026-09-04, kogaki#856). Unlike
-  // `tags` these name no replacement, because there is none — the refusal says
-  // so rather than pointing at a surface that does not exist.
-  case "tag-rows":
-    fail("tag-rows is retired (owner ruling 2026-09-04, kogaki#856) and has NO successor surface. "
-      + "With over 100 served tags there is no demonstrated demand for browsing one tag's Lessons "
-      + "individually; the per-tag row view, its `tag_row_listing` grammar and its renderer are "
-      + "deleted rather than re-sited. The pre-selection listing is in the TAG_SELECTION gate "
-      + "declaration and the co-tag groups are `run`'s `cotag_groups` state.");
-    break;
-  case "cotag-selection":
-    fail("cotag-selection is retired (owner ruling 2026-09-04, kogaki#856) and has NO successor "
-      + "surface. It printed the first-tag table a second time after the tag was chosen; the table "
-      + "now sits above the TAG_SELECTION question that chooses it. The `cotag_selection` grammar (retired; no section of SPEC-terrain carries it at this head), the "
-      + "grammar and the `--intent` bound are deleted with it.");
-    break;
   case "cotags": cmdCotags(args); break;
-  // RETIRED, LOUDLY (the settled-strand-set input v20, kogaki#473) — the same shape `--all-groups`
-  // and `--group` took: a refusal naming the replacement, never a silent
-  // no-op. The post-gate act is the defect, not a deprecated convenience —
-  // a suggestion delivered after the selection cannot inform it.
-  case "neighborhood":
-    fail("neighborhood is retired as a standalone act (SPEC-terrain, the settled-strand-set input v20, kogaki#472): "
-      + "the provenance-neighborhood section renders on every `report` pull, seeded by the "
-      + "entered ID set, inside reports/FullReport.md. Pull the report — "
-      + "`report --survey <f> --tag <T> --ids <G…> --claims <f> --subdivisions <f> [--neighborhood <f>] "
-      + "--judge-model <m> --judge-effort <e>` — and read the section there.");
-    break;
   case "compose-input": cmdComposeInput(args); break;
   case "report": cmdReport(args); break;
   // the control plane's ONE ENTRY POINT, entered once per act (the re-entrant executor). Every standalone
   // owner-facing act is now a state of the table, reachable only through here.
   case "run": cmdRun(args); break;
-  // REMOVED, AND REFUSING WITH A POINTER (the deleted entry point, kogaki#625 item 1). A
-  // removed entry point does not simply vanish: the settled-strand-set input's `neighborhood`
-  // precedent is a refusal NAMING THE REPLACEMENT, never a silent no-op, and
-  // without the stub a reader meets a bare unknown-command. They emit no owner
-  // surface and carry no sequencing authority, which is why these stubs do not
-  // reopen the non-flow utilities's removal.
-  //
-  // This is what makes write authority's claim TRUE rather than aspirational: with these
-  // six gone there is no callable surface by which an act can happen out of
-  // order, because every one of them wrote run state a session could mint from
-  // outside the executor.
-  case "claim":
-  case "adopt":
-    fail(`${cmd} is removed as an entry point (SPEC-terrain, the claim re-offer wait/the non-flow utilities, kogaki#625). `
-      + "Composing the claims record is the outside composer's; VALIDATING it is the "
-      + "`J1_claims` state's; the subset RE-OFFER GroupClaim-first rendering rules a gate event is the "
-      + "`CLAIM_REOFFER` state's, and adoption is that wait's captured answer. Drive them "
-      + "through the executor: `run --run-dir <D> --claims <f>`, then, on a proper-subset "
-      + "claim, `run --run-dir <D> --enter CLAIM_REOFFER --group <G> --text <line> "
-      + "--members a,b`, answer the gate through AskUserQuestion, then re-enter with a bare `run --run-dir <D>`.");
-    break;
-  case "subdivide":
-    fail("subdivide is removed as an entry point (SPEC-terrain, subdivide's composition fold and the non-flow utilities, kogaki#625). "
-      + "The judgment and its composition — subgroup placement, the three instruments and "
-      + "the SUBDIVISION_COVER_INCOMPLETE refusal — are the `J2_subdivision` state's. Drive "
-      + "it through the executor: `run --run-dir <D> --subdivisions <f> --classification <f> "
-      + "--tag <T> --group <G> --group-claim <line> --judge-model <m> --judge-effort <e> "
-      + "--display-budget <n>`.");
-    break;
-  case "act":
-  case "gate":
-  case "capture":
-    fail(`${cmd} is removed as an entry point (SPEC-terrain, the deleted entry point/the non-flow utilities, kogaki#625). `
-      + "The proposal record, the run declaration and the capture are the executor's, at the "
-      + "wait that owes them — composing and recording are engine work; RENDERING the "
-      + "declaration through AskUserQuestion stays the session's. Drive it through the "
-      + "executor: `run --run-dir <D> --enter TRIM_RATIFICATION --act trim --where <w> "
-      + "--why <p> --label <l> --ids a,b`, render the declaration it writes, then "
-      + "answering the gate through AskUserQuestion, then a bare `run --run-dir <D>`.");
-    break;
   case "self-test": {
     // The composed-form fixture pass (kogaki#612): pure, seam-free — every
     // case constructs its own inputs, so the trial runs with no gateway.
@@ -7438,32 +7363,6 @@ switch (cmd) {
         rmSync(gs, { recursive: true, force: true });
       }
 
-      // A REMOVED ENTRY POINT REFUSES WITH A POINTER (the deleted entry point). Deleting the
-      // handlers and leaving the cases out would meet a reader with a bare
-      // unknown-command instead of the ruling.
-      //
-      // THE DISCRIMINATOR IS THE DISPOSITION, NOT THE ISSUE NUMBER. The first
-      // form of this case tested a non-zero exit plus the string `kogaki#856`,
-      // and deleting all three cases PASSED it: the usage banner names the same
-      // issue and `default:` exits 1 on an unknown command, so the assertion
-      // bound a proxy that the failure mode satisfies. Each refusal is now
-      // required to name what happened to ITS OWN surface, and to not be the
-      // banner — verified by deleting the cases, which fails this case.
-      {
-        const selfPath = fileURLToPath(import.meta.url);
-        const expect = {
-          "tags": /TAG_SELECTION gate declaration/,          // MOVED — the refusal points at the successor
-          "tag-rows": /retired[\s\S]*NO successor surface/,  // RETIRED — the refusal says there is none
-          "cotag-selection": /retired[\s\S]*NO successor surface/,
-        };
-        const refusals = Object.entries(expect).map(([cmd, re]) => {
-          const r = spawnSync(process.execPath, [selfPath, cmd, "--survey", surveyPath, "--tag", "testing"], { encoding: "utf8" });
-          const out = `${r.stdout || ""}${r.stderr || ""}`;
-          return { cmd, ok: r.status !== 0 && re.test(out) && !/usage: terrain\.mjs/.test(out) };
-        });
-        ok("tags, tag-rows and cotag-selection each refuse with their OWN disposition — the moved one names its successor, the retired two say there is none, and none of them falls through to the usage banner",
-          refusals.every((x) => x.ok), refusals.filter((x) => !x.ok).map((x) => x.cmd).join(", ") || "(all matched)");
-      }
     }
 
     // ---- JUDGMENT PROVENANCE (kogaki#892). The subdivisions record's own
@@ -7879,13 +7778,6 @@ switch (cmd) {
   }
   default:
     console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
-  tags | tag-rows | cotag-selection         GONE (kogaki#856). The owner types no command in this
-                                            flow. 'tags' MOVED — the pre-selection tag listing is
-                                            carried in the TAG_SELECTION gate declaration and the
-                                            session renders it above the question. 'tag-rows' and
-                                            'cotag-selection' were RETIRED with no successor by
-                                            owner ruling on 2026-09-04. All three still answer, with
-                                            a refusal naming which of the two happened.
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
       (a declared gate's answer takes NO flag — it is read from the harness's capture)
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F] [--thesis-candidates F]
@@ -7949,23 +7841,6 @@ switch (cmd) {
                                             generates one report per composed group.
   validate --survey F                       run the composition rules on a record
   self-test                                 the composed-form fixture pass (identity cites, kogaki#612)
-
- RETIRED, and refusing with a pointer (the settled-strand-set input v20, kogaki#472) — the precedent:
-   neighborhood                              the provenance-neighborhood section rides every
-                                             'report' pull, seeded by the entered ID set. Its
-                                             behaviour is GONE FROM THE SYSTEM as a standalone act;
-                                             the pointer names where the material now renders.
-
- REMOVED, and refusing with a pointer (the deleted entry point, the non-flow utilities — kogaki#625 item 1):
-   claim  adopt  subdivide  act  gate  capture
-                                             each is a STATE of the workflow table now, reachable
-                                             only through 'run'. Invoke one and its refusal names
-                                             the state and the exact 'run' invocation that gets
-                                             you there. Listed rather than dropped for the same
-                                             reason they still have cases: a reader who knew the
-                                             old surface is owed the replacement, and an entry
-                                             point that simply vanishes hands them a bare
-                                             unknown-command (the settled-strand-set input's precedent).
 
  At a wait that declares a gate, the executor WRITES the run declaration and names its path.
  Render it through AskUserQuestion — options verbatim, nothing pre-selected, free text always on
