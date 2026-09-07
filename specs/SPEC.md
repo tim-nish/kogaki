@@ -2549,8 +2549,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      - **Row 5 was filed `carried wrongly` and re-derives as CARRIED**, and
        this is the sharpest of the four because three separate written records
-       still say otherwise. kogaki#246's append of 2026-08-08T02:34, kogaki#270's
-       own row 5, and the note on PR #276 all state that *"rounds are counted
+       still say otherwise. A since-deleted ledger append of 2026-08-08T02:34,
+       kogaki#270's own row 5, and the note on PR #276 all state that *"rounds are counted
        from segments"* and that two segments at one head therefore spend the
        cap. **Exercised against the shipped script this sitting, that is
        false:** two performed segments naming one head return `rally_cycles →
@@ -2662,8 +2662,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
        never what *gates*. A sitting that reaches this clause to re-argue the
        budget is out of its licence.
      - **The review lane's dimensions.** Widening the lane by a third
-       dimension is kogaki#246's own trigger and stays there. This is the
-       lane's *record*, not its judgment.
+       dimension is not decided here and earns its own filing on its own
+       evidence. This is the lane's *record*, not its judgment.
      - **kogaki#243's invariant.** That issue asks whether a verification
        artifact verifies what it claims; this asks whether a transition is
        observed at all. A perfectly-bound fixture for a transition nobody
@@ -2680,8 +2680,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
        admits, modifies or retires a check, and the `instrument: none` above
        is the clause's own conformance to that.
 
-     **THE DECLINED HOMES, recorded with their grounds** rather than dropped,
-     both of which the owner considered and did not select.
+     **THE DECLINED HOME, recorded with its grounds** rather than dropped,
+     which the owner considered and did not select.
      *A dedicated `spec-review-record/SPEC.md`.* Its merits are real — its own
      governing text, and §4 stops accreting. Declined on cost of consultation:
      it mints a file every reader of the review record must learn to consult,
@@ -2689,15 +2689,6 @@ invariant: Gukan guarantees Unit schema, never data schema).
      hop while the four artifacts the enumeration is derived from all remain
      addressed from here. It stays the better arm the day §4's clause list
      needs splitting for its own reasons, and that is its reopen trigger.
-     *The observation register, kogaki#246.* The cheapest arm by a distance at
-     the time, since it already accumulated three of these very transitions as
-     `out-of-dimension:` appends. Declined because **a ledger is not a
-     governing text**: it held observations whose value is the count, and
-     kogaki#191 split it from the deliverable record precisely to stop that
-     conflation, which siting a typing rule there would recreate. The arm is
-     recorded in the past tense because the carrier it names was deleted on
-     2026-09-03 (kogaki#804) — the decline stands on its own ground and does not
-     depend on the arm still existing.
 
      **deferred slots: none.**
 
@@ -3570,8 +3561,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
       **WHY A TOKEN AND NOT A BETTER PARSE, which is measured rather than
       argued.** A reader for this relation already exists —
-      `_successor_from_closing_comment` in `~/.claude/tools/issue-sync`, used by
-      `register-append` to refuse an append to a closed register — and it
+      `_successor_from_closing_comment` in `~/.claude/tools/issue-sync` — and it
       scrapes the closing comment for `successor|superseded by … #N`. Run
       against **#269 it returns #269**: it matches an argumentative sentence
       containing the word "successor" before reaching the line that actually

@@ -572,12 +572,12 @@ the deletion's base commit `3840ba6`:
 
     git grep -o -i "style.contract" 3840ba6 -- . ':!specs/spec-style-contract' | wc -l   # 23
     git grep -o -i "style.contract" 3840ba6 -- . ':!specs/spec-style-contract' \
-        ':!reviews/register' | wc -l                                                     # 20
+        ':!reviews' | wc -l                                                              # 20
 
 The bare command returns **38**; the first exclusion drops the 15 occurrences
 inside the deleted spec's own directory, which are not referrers to it, and the
-second drops **3** register records — historical records of what a round found,
-never repointed. **20** remain, across the seven files the enumeration above
+second drops **3** review-record files under a tree since deleted — historical
+records of what a round found, never repointed. **20** remain, across the seven files the enumeration above
 names.
 
 **The commands are written out because the first form of this paragraph gave
