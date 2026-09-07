@@ -2580,24 +2580,63 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
   try { spec = readFileSync(specPath, "utf8"); } catch { fails.push(`(y) ${specPath} is unreadable — the field list cannot be derived, and an underivable list is not a pass`); }
   try { skill = readFileSync(skillPath, "utf8"); } catch { fails.push(`(y) ${skillPath} is unreadable — the authoring carrier cannot be read, and an unreadable carrier is not a pass`); }
   if (spec && skill) {
-    // §4.1's optional-field bullets: `- **`name`** ... — optional ...; §4.NN.`
+    // §4.1 ONLY, AND THE SLICE IS THE CARRIER (kogaki#942, from PR #941 round 2).
+    // The bullets are read from a heading-to-next-heading slice of §4.1, taken
+    // the way `step7Of` slices the skill and refused the same way when the
+    // heading cannot be found. The form this replaces read EVERY line of the
+    // spec: §9's open-trigger bullets are the same shape and already carry a
+    // subsection pointer (`- **\`bridge-approval-shape\`** (§4.11)`), so a
+    // wording that added `optional` to one of them entered it in the list and the
+    // member went red saying "§4.1 declares `bridge-approval-shape` as an
+    // optional Step field" — a false statement about §4.1 diagnosing an
+    // unrelated §9 edit as step-7 drift.
+    const section41Of = (specText) => {
+      const m = /^### 4\.1 [\s\S]*?(?=^#{1,4} )/m.exec(specText);
+      return m ? m[0] : null;
+    };
+    // TWO PREDICATES OVER ONE BULLET, SEPARATE ON PURPOSE. A bullet is
+    // OPTIONAL-SHAPED if it carries either tell — the word `optional` or a
+    // §4.NN pointer — and it is DERIVED only if it carries both plus a
+    // backticked name. An optional-shaped bullet that yields no name is a live
+    // bullet the derivation stopped matching, which is exactly the silent drop
+    // the length floor let through (kogaki#942, finding 2): the floor stood at 4
+    // while the live derivation yields 5, so a §4.1 bullet reworded until
+    // `bridges` or `opens_section` stopped matching left four names, cleared the
+    // floor, and the field was reported covered by a check whose whole subject
+    // is a field going unmentioned. A floor AT the derived count is not the
+    // repair — it goes red on a legitimate retirement, the false red round 1
+    // objected to. Naming the unmatched bullet separates the two: a bullet's
+    // disappearance is a spec edit and may move the count freely; a bullet's
+    // silent non-match is refused by name.
     // A pair travelling together (`figure`/`figure_roles`) is one bullet naming
     // both, so every backticked name on the line is collected.
+    const isBullet = (line) => /^- /.test(line);
+    const looksOptional = (line) => /\boptional\b/.test(line) || /§\s*4\.\d+/.test(line);
+    const namesOn = (line) => {
+      if (!/^- \*\*`/.test(line)) return [];
+      if (!/\boptional\b/.test(line)) return [];
+      if (!/§\s*4\.\d+/.test(line)) return [];
+      return [...line.matchAll(/\*\*`([a-z_]+)`\*\*/g)].map((m) => m[1]);
+    };
     const optionalFields = (specText) => {
+      const slice = section41Of(specText);
+      if (slice === null) return null;
       const out = [];
-      for (const line of specText.split("\n")) {
-        if (!/^- \*\*`/.test(line)) continue;
-        if (!/\boptional\b/.test(line)) continue;
-        if (!/§\s*4\.\d+/.test(line)) continue;
-        for (const m of line.matchAll(/\*\*`([a-z_]+)`\*\*/g)) out.push(m[1]);
-      }
+      for (const line of slice.split("\n")) out.push(...namesOn(line));
       return out;
+    };
+    const unmatchedOptionalBullets = (specText) => {
+      const slice = section41Of(specText);
+      if (slice === null) return null;
+      return slice
+        .split("\n")
+        .filter((line) => isBullet(line) && looksOptional(line) && namesOn(line).length === 0);
     };
     // ONE COMPARATOR, run over the real pair AND over synthetic input below, so
     // the negative direction exercises the code the positive one runs and not a
     // restatement of it.
     const uncovered = (specText, skillText) =>
-      optionalFields(specText).filter((f) => !new RegExp(`\\b${f}\\b`).test(skillText));
+      (optionalFields(specText) || []).filter((f) => !new RegExp(`\\b${f}\\b`).test(skillText));
     // STEP 7 ONLY. The block runs from the `7. **Compose` item to the next
     // numbered item; a skill whose step 7 cannot be found is refused rather than
     // read whole, because "read the whole file" is exactly the weakening this
@@ -2608,8 +2647,11 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
     };
 
     const optional = optionalFields(spec);
-    if (optional.length < 4) {
-      fails.push(`(y) §4.1's optional-field bullets yielded ${optional.length} field(s) — the derivation stopped matching the spec's own form, and a list that silently empties reports every field as covered`);
+    if (optional === null) {
+      fails.push(`(y) §4.1's heading was not found in ${specPath} — the optional-field list is read from a §4.1 slice, and an unlocatable section is not a pass`);
+    }
+    for (const line of unmatchedOptionalBullets(spec) || []) {
+      fails.push(`(y) a §4.1 bullet declares an optional Step field and the derivation did not match it: ${line.trim()} — a RETIRED bullet is a spec edit and may move the count, but a bullet that silently stops matching drops its field out of the coverage list with this member green`);
     }
     const step7 = step7Of(skill);
     if (step7 === null) fails.push(`(y) step 7 of ${skillPath} was not found — the coverage test is scoped to the step that authors Steps, and an unlocatable step is not a pass`);
@@ -2619,7 +2661,8 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
     // THE NEGATIVE DIRECTION, run through the SAME comparator. A test that only
     // ever looks for fields that are present cannot tell "all covered" from
     // "nothing derived" — one regex edit and it is vacuous forever.
-    const synthSpec = "- **`frobnicate`** — optional; §4.99.\n";
+    const synth41 = (body) => `### 4.1 The Step\n${body}### 4.2 The next section\n`;
+    const synthSpec = synth41("- **`frobnicate`** — optional; §4.99.\n");
     if (uncovered(synthSpec, "a skill that names no such field").length !== 1) {
       fails.push("(y) a §4.1 optional field absent from the authoring skill was NOT reported — the coverage test is vacuous");
     }
@@ -2628,7 +2671,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
     }
     // WORD-BOUND: a name that is a prefix of another name is not covered by the
     // longer one — `figure` by `figure_roles` is the live instance.
-    if (uncovered("- **`figure`** — optional; §4.16.\n", "only figure_roles is written here").length !== 1) {
+    if (uncovered(synth41("- **`figure`** — optional; §4.16.\n"), "only figure_roles is written here").length !== 1) {
       fails.push("(y) `figure` was reported covered by `figure_roles` alone — the comparator is a substring match, and the field kogaki#935 was filed for can vanish from step 7 with the case green");
     }
     // SCOPED: a mention outside step 7 does not count, and a mention inside does.
@@ -2643,8 +2686,32 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
     // `optional` and no subsection pointer, so it must not enter the list:
     // sweeping every bullet in would make the assertion pass or fail for
     // reasons that have nothing to do with the drift it names.
-    if (optionalFields("- **`purpose`** — what the Step does to the reader.\n").length !== 0) {
+    if (optionalFields(synth41("- **`purpose`** — what the Step does to the reader.\n")).length !== 0) {
       fails.push("(y) a REQUIRED §4.1 field entered the optional list — the derivation reads the bullet's form, not merely its backticks");
+    }
+    // SLICED, both directions. A matching bullet OUTSIDE §4.1 yields nothing —
+    // this is the §9 false-red the whole-spec read produced — and one inside it
+    // still yields its field.
+    if (optionalFields("### 4.1 The Step\n\n### 9. Open triggers\n- **`frobnicate`** — optional; §4.11.\n").length !== 0) {
+      fails.push("(y) a bullet OUTSIDE §4.1 entered the optional-field list — the derivation reads past §4.1's own section, so a §9 open-trigger bullet reworded to carry `optional` is reported as a §4.1 Step field");
+    }
+    if (optionalFields(synthSpec).length !== 1) {
+      fails.push("(y) a bullet INSIDE §4.1 was not derived — the §4.1 slice does not reach its own bullets");
+    }
+    if (optionalFields("- **`frobnicate`** — optional; §4.99.\n") !== null) {
+      fails.push("(y) a spec carrying no §4.1 heading was not refused — an unlocatable section reads as an empty field list, which reports every field as covered");
+    }
+    // PER-BULLET PRESENCE, both directions. An optional-shaped §4.1 bullet the
+    // derivation does not match is named; a fully-matched one, and a REQUIRED
+    // one, are not.
+    if (unmatchedOptionalBullets(synth41("- **`frobnicate`** — §4.99.\n")).length !== 1) {
+      fails.push("(y) a §4.1 bullet that reads as an optional-field declaration and yields no field was NOT named — the derivation can stop matching a live bullet with this member green, which is the drop the length floor let through");
+    }
+    if (unmatchedOptionalBullets(synthSpec).length !== 0) {
+      fails.push("(y) a fully-matched §4.1 optional bullet was reported unmatched — the presence assertion refuses the covered case");
+    }
+    if (unmatchedOptionalBullets(synth41("- **`purpose`** — what the Step does to the reader.\n")).length !== 0) {
+      fails.push("(y) a REQUIRED §4.1 bullet was named as an unmatched optional one — the presence assertion reads the bullet's form, not merely its bullet marker");
     }
   }
 }
@@ -2901,10 +2968,16 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "is full of internal keys passes, which is the assertion that catches the evidence "
   + "returning by a side door. The tripwire reads REGISTER, never a composition MUST (§4.6 "
   + "clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934 + kogaki#935): FORTY-SIX "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934 + kogaki#935 + kogaki#942): FIFTY-ONE "
   + "mutations. RE-DERIVED, not incremented — this paragraph's own standing rule, and the one it has twice failed: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
-  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three = 46. "
+  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three, plus kogaki#942's five = 51. "
   + "THE UNIT OF THE COUNT IS A TRIAL TAKEN, NEVER A DISTINCT PHYSICAL MUTATION (kogaki#889), and it is declared because leaving it implicit has now produced a finding: two heads may apply the SAME EDIT against DIFFERENT assertions, and that is two trials rather than one counted twice — kogaki#520 deleted the per-option `rendering` against (j)'s LABEL assertions and kogaki#859 deleted it against (j)'s KEY-PRESENT one, at two heads, and both runs happened. Read as physical mutations the enumeration double-counts; read as trials it does not, and the second reading is the one kogaki#568's own ground already commits this paragraph to — \u0022the tally counts both, because the historical evidence was real when it was taken\u0022. A SUPERSEDED ENTRY THEREFORE STAYS COUNTED, and what it owes is the past-tense marking below rather than removal, since a deleted mutation and a superseded one read identically to a later reader. Owner decision at the kogaki#889 gate, recorded rather than re-derived per sitting. "
+  + "KOGAKI#942'S FIVE, all against case (y) again, and all five are about the DERIVATION rather than the comparator kogaki#935's three attacked — which is the split the issue found: the skill side was scoped at PR #941 round 1 and the spec side was not. "
+  + "Returning the whole spec from the section reader, rather than a §4.1 heading-to-next-heading slice, is the load-bearing one: it fails (y) by NAMING §9's own bullets, which is the false red the finding predicted arriving as evidence rather than as argument — a §9 open-trigger bullet reported as a §4.1 optional Step field. "
+  + "Returning the empty string instead of null for an unfound §4.1 fails (y)'s refusal assertion, the direct evidence that an unlocatable section is refused rather than read as an empty field list — an empty list reports every field covered, which is the vacuity the whole case exists to refuse. "
+  + "Forcing the optional-shaped predicate false fails (y)'s per-bullet presence assertion, and dropping the `optional` guard from the name collector fails the same one from the other side: the two predicates over a bullet are kept apart precisely so a bullet the derivation stopped matching can be named, and each mutation disarms one of them. "
+  + "Rewording §4.1's live `opens_section` bullet so it stops matching fails (y) BY NAME against the real spec, which is kogaki#942's second finding exactly — under the retired length floor of 4 the derivation dropped from five names to four, cleared the floor, and reported the field covered in silence. "
+  + "Control: unmutated, the member exits 0. AND A SECOND, MUTATED CONTROL, counted as a control rather than as a trial because its passing condition is silence: RETIRING §4.1's `bridges` bullet outright produces zero findings, which is the direct evidence that the presence assertion did not buy the false red a floor at the derived count would have — a bullet that disappears is a spec edit and may move the count, a bullet that silently stops matching may not. "
   + "KOGAKI#935'S THREE, all against case (y), and all three are about the case being ABLE TO FAIL rather than about the repair — which is the point: the defect (y) names is a check that stayed green while a field went unauthored, so a vacuous (y) would reproduce it one layer up. "
   + "Restoring the pre-#935 authoring skill is the load-bearing one: it fails (y) four times over, once each for `bridges`, `opens_section`, `figure` and `figure_roles` (`bridges` joined at PR #941 round 1, when the comparator was scoped to step 7 and the field's only mention was the revise-pass prose below it), which is the direct evidence that the case reads the real carrier and not a fixture. "
   + "Neutering the comparator to report every field covered fails (y)'s synthetic-absent assertion and nothing else — the direct evidence that the negative direction runs through the SAME comparator the positive one does, since a restated negative would have passed this. "
