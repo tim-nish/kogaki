@@ -96,8 +96,16 @@ if [[ -z "$N" ]]; then
 elif (( N < FLOOR )); then
   echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were LOST rather than broken, and this member would otherwise report their absence as evidence (kogaki#661)"
   FAIL=1
+# THE UPWARD ARM (kogaki#970). Below the floor is cases LOST; above it is cases
+# ADDED with the floor left behind, and until this arm existed the two were the
+# same silence. It sets FAIL=1 rather than exiting, for the reason stated above
+# this block: the scope disclosure below is unconditional, and an early exit
+# here would make it conditional.
+elif (( N > FLOOR )); then
+  echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were ADDED and the floor was not advanced in the same act, so the ratchet is $((N - FLOOR)) behind and cannot see a case deleted inside that gap (kogaki#970). Set case_floor to $N for 'owner-surface-pins' in checks/registry.json, in this commit"
+  FAIL=1
 else
-  echo "ok: owner-register fixture pass ran ${N} case(s) clean, at or above its declared floor of ${FLOOR}"
+  echo "ok: owner-register fixture pass ran ${N} case(s) clean, exactly at its declared floor of ${FLOOR}"
 fi
 
 # UNCONDITIONAL, per story 1.50 AC5.

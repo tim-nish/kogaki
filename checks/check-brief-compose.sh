@@ -2870,6 +2870,13 @@ const CASE_COUNT = 28;
     fails.push("(floor) checks/registry.json declares no case_floor for brief-compose — an unreadable floor is not a pass (kogaki#661)");
   } else if (CASE_COUNT < floor) {
     fails.push(`(floor) this member reports ${CASE_COUNT} case(s) against a declared case_floor of ${floor} — cases were LOST rather than broken, and the pass line would otherwise report their absence as evidence (kogaki#661)`);
+  // THE UPWARD ARM (kogaki#970). Below the floor is cases LOST; above it is
+  // cases ADDED with the floor left behind, and until this arm existed the two
+  // were the same silence. This member counts by a declared constant rather
+  // than by parsing a pass line, so the drift here is between two numbers in
+  // this repository — which makes the arm cheaper, not less owed.
+  } else if (CASE_COUNT > floor) {
+    fails.push(`(floor) this member reports ${CASE_COUNT} case(s) against a declared case_floor of ${floor} — cases were ADDED and the floor was not advanced in the same act, so the ratchet is ${CASE_COUNT - floor} behind and cannot see a case deleted inside that gap (kogaki#970). Set case_floor to ${CASE_COUNT} for \`brief-compose\` in checks/registry.json, in this commit`);
   }
 }
 if (fails.length) {

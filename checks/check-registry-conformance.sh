@@ -71,6 +71,46 @@ PROBE_TIMEOUT_S = 10
 # admission review.
 DELEGATES = re.compile(r'\b(?:node|bash|python3)\s+\S+\s+(?:--)?self-test\b')
 
+# THE EXCEEDS ARM (kogaki#970). A member declaring `case_floor` owes BOTH
+# directions of the comparison, not just the one that refuses downward.
+#
+# The defect this closes, measured rather than argued: `terrain-runtime`
+# declared 83 against a pass reporting 96. The assertion `N < FLOOR` is green
+# for every N above the floor, so a floor 13 behind detected nothing — any of
+# those 13 cases could have been deleted and the member would still have
+# passed. A ratchet that only ever refuses downward, and is advanced by hand
+# at some increments and not others, is a ratchet that stops holding. Six of
+# the eight members sat exactly at their floor; two had drifted, and nothing
+# in the suite could tell those two states apart.
+#
+# So the floor becomes an EQUALITY, and the ground the registry note gave for
+# preferring a floor — "asserting the exact number turns every legitimate new
+# case into a failing check, which is the pressure that gets the assertion
+# deleted" — is answered rather than ignored. It was a real objection about
+# FRICTION, and the answer is at the refusal's wording: the upward arm names
+# the exact one-line registry edit that discharges it, so the sitting that
+# adds a case is told what to do rather than left to discover why CI is red.
+# The downward arm keeps its "cases were LOST" refusal verbatim, and the
+# decrement gate above — a `case_floor_note` pairing, denied when absent or
+# stale — is untouched, because an increment was already free under the
+# owner ruling of 2026-08-26 and mechanizing a free act ratifies nothing new.
+#
+# DECLARED LIMIT, the same one DELEGATES declares and for the same reason:
+# the match is over TEXT, so a file that merely CONTAINS the shape is
+# indistinguishable from one that runs it, and THIS check's own fixtures need
+# the shape — which puts the observer inside the set it searches. The remedy
+# is at the WRITER, so a fixture needing it splits the literal, exactly as the
+# DISPATCH fixture below does. A member comparing through some other spelling
+# is out of reach here and is caught at admission review.
+#
+# The pattern is the floor IDENTIFIER on the right of a `>`, which is what the
+# members actually write: `(( N > FLOOR ))` in the seven shell members and
+# `CASE_COUNT > floor` in the one JavaScript one. It is deliberately not keyed
+# on either variable's name on the LEFT — that would enumerate the members
+# this rule exists to stop enumerating, and member N+1 would be uncovered by
+# default.
+EXCEEDS_ARM = re.compile(r'>\s*\$?\{?(?:FLOOR|floor)\b')
+
 
 def resolve_efficacy_case(payload, opener=None):
     """Resolve a `case: <path>::<label>` payload against the tree.
@@ -240,6 +280,48 @@ def validate_case_floor(entries, file_reader=None):
                 f"FAIL case_floor malformed: {path} — must be an integer at "
                 f"or above 1, got {floor!r}; a floor of zero is the vacuous "
                 f"pass the field refuses, spelled as a declaration")
+    return failures
+
+
+def validate_floor_exceeds_arm(entries, file_reader=None):
+    """A member declaring `case_floor` refuses ABOVE the floor as well as below.
+
+    Returns a list of failures. The rule is stated over the DECLARATION and
+    not over the delegating class: a member that declares a floor owes both
+    arms whether or not it spawns another artifact's pass, because the defect
+    is a property of the comparison and not of the dispatch.
+
+    Why this is a check on the MEMBER rather than a number this file computes:
+    the count lives in the pass's own output, in three different grammars the
+    registry note deliberately refuses to unify, and the extraction is each
+    member's own. So the only place both numbers are in hand at once is inside
+    the member, which is where the comparison has to be. What is enumerable
+    HERE is that the comparison exists — that is the class-closing property,
+    and it is why a repair to `terrain-runtime` alone would have left every
+    other member, and member N+1, exactly as it was.
+    """
+    if file_reader is None:
+        def file_reader(path):
+            return pathlib.Path(path).read_text(encoding="utf-8")
+    failures = []
+    for entry in entries:
+        admission = entry.get("admission") or {}
+        if admission.get("case_floor") is None:
+            continue
+        path = entry_path(entry)
+        try:
+            body = file_reader(path)
+        except OSError:
+            continue  # a missing file is the dangling-entry failure, reported above
+        if not EXCEEDS_ARM.search(body):
+            failures.append(
+                f"FAIL case_floor declared with no exceeds arm: {path} "
+                f"refuses when the pass reports FEWER cases than its floor "
+                f"and is green for every count ABOVE it, so a floor left "
+                f"behind the count detects nothing in the gap — which is the "
+                f"state kogaki#970 measured at 13 cases on one member. "
+                f"Compare in BOTH directions: refuse above the floor too, "
+                f"naming the registry edit that discharges it")
     return failures
 
 
@@ -619,6 +701,46 @@ def fixture_pass():
     cases.append(("a missing check file is not reported here",
                   not validate_case_floor([floor("gone")], files)))
 
+    # THE EXCEEDS ARM (kogaki#970). The literals are SPLIT for the reason the
+    # DISPATCH fixture above states: this file is inside the set its own
+    # pattern searches, so a fixture carrying the shape whole would make the
+    # check match itself and the rule would pass for a reason no member
+    # supplied.
+    BOTH = DISPATCH + "if (( N < FLOOR )); then :; elif (( N >" + " FLOOR ))\n"
+    DOWN_ONLY = DISPATCH + "if (( N < FLOOR )); then exit 1; fi\n"
+    JS_BOTH = DISPATCH + "if (CASE_COUNT >" + " floor) fails.push(x)\n"
+    ARM_FILES = dict(FILES, **{"checks/check-both.sh": BOTH,
+                               "checks/check-down.sh": DOWN_ONLY,
+                               "checks/check-js.sh": JS_BOTH})
+
+    def arm_files(path):
+        if path not in ARM_FILES:
+            raise FileNotFoundError(path)
+        return ARM_FILES[path]
+
+    cases.append(("a member declaring a floor with NO exceeds arm fails",
+                  any("no exceeds arm" in x for x in
+                      validate_floor_exceeds_arm(
+                          [floor("down", case_floor=3)], arm_files))))
+    cases.append(("a member comparing in BOTH directions passes",
+                  not validate_floor_exceeds_arm(
+                      [floor("both", case_floor=3)], arm_files)))
+    # The one JavaScript member spells the same comparison with different
+    # identifiers, so the pattern is keyed on the floor's name and never on
+    # the count's — a rule keyed on `N` would enumerate the seven shell
+    # members and leave the eighth uncovered.
+    cases.append(("the arm is recognised through a different count identifier",
+                  not validate_floor_exceeds_arm(
+                      [floor("js", case_floor=3)], arm_files)))
+    # The rule is over the DECLARATION, not the delegating class: a member
+    # that declares no floor owes no arm, so a non-declaring member must not
+    # be dragged in by the file's contents.
+    cases.append(("a member declaring NO case_floor owes no exceeds arm",
+                  not validate_floor_exceeds_arm([floor("down")], arm_files)))
+    cases.append(("a missing check file is not reported by the arm rule",
+                  not validate_floor_exceeds_arm(
+                      [floor("gone", case_floor=3)], arm_files)))
+
     def base(**floors):
         def reader():
             return {"checks": [{"id": k,
@@ -831,6 +953,7 @@ else:
 failures += validate_entries(entries)
 # The delegating class and its floor (kogaki#661).
 failures += validate_case_floor(entries)
+failures += validate_floor_exceeds_arm(entries)
 floor_rows, floor_failures = check_floor_decrements(entries)
 failures += floor_failures
 
@@ -852,7 +975,8 @@ undetermined = any("CANNOT-DETERMINE" in row for row in floor_rows)
 print(f"ok: registry and checks/ tree agree ({len(present)} check(s)); "
       "every admission record complete; every removal signal instrumented; "
       "every efficacy case resolves to a label its cited file carries; "
-      "every delegating member declares a case_floor"
+      "every delegating member declares a case_floor, and every "
+      "declared floor is compared in BOTH directions"
       + ("; DECREMENTS NOT CHECKED — see the CANNOT-DETERMINE row above"
          if undetermined else
          "; no floor was lowered unpaired or against a stale note"))

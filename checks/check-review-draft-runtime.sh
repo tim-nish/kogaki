@@ -123,7 +123,19 @@ if (( N < FLOOR )); then
   echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were LOST rather than broken, and this member would otherwise report their absence as evidence (kogaki#661)"
   exit 1
 fi
-echo "ok: ReviewDraft runtime fixture pass ran ${N} case(s) clean, at or above its declared floor of ${FLOOR}"
+# THE UPWARD ARM (kogaki#970). Below the floor is cases LOST; above it is
+# cases ADDED with the floor left behind, and until this arm existed the two
+# were the same silence — `N < FLOOR` is green for every N above the floor, so
+# a floor that fell 13 behind on this suite detected nothing in the gap.
+# It names the edit rather than only the fault, which is the whole answer to
+# the registry note's original objection that an exact count "turns every
+# legitimate new case into a failing check": the sitting that added the case
+# is told what to do in the same breath as being stopped.
+if (( N > FLOOR )); then
+  echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were ADDED and the floor was not advanced in the same act, so the ratchet is $((N - FLOOR)) behind and cannot see a case deleted inside that gap (kogaki#970). Set case_floor to $N for 'review-draft-runtime' in checks/registry.json, in this commit"
+  exit 1
+fi
+echo "ok: ReviewDraft runtime fixture pass ran ${N} case(s) clean, exactly at its declared floor of ${FLOOR}"
 
 # --- THE SKILL NAMES ONLY PATHS AND SUBCOMMANDS THE HARNESS HAS (kogaki#812).
 #
