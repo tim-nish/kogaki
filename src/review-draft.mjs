@@ -63,6 +63,10 @@
 // `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
 // already drifted into eight variants, which is what kogaki#982 collapsed.
 //
+// This file's own stronger property, established by kogaki#953's sweep and
+// kept at the site because the carrier states only the general rule: NO
+// OWNER-FACING STRING BELOW NAMES A SPEC AT ALL, not merely no spec section.
+//
 // THE NAMES THIS FILE USES:
 //   "the figure decision"   SPEC-draft-pipeline "The figure decision — `figure:`
 //                           and `figure_roles` on a Step"

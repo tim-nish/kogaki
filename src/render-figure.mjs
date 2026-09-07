@@ -8,6 +8,10 @@
 // `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
 // already drifted into eight variants, which is what kogaki#982 collapsed.
 //
+// This file's own stronger property, established by kogaki#953's sweep and
+// kept at the site because the carrier states only the general rule: NO
+// OWNER-FACING STRING BELOW NAMES A SPEC AT ALL, not merely no spec section.
+//
 // ONE RECORD IN, ONE STRING OUT, NO MODEL CALL. The figure record — the
 // form's instance, filled after the prose — is the
 // instance of the Move's form and stops there; this maps that record to the
