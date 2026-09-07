@@ -111,6 +111,55 @@ DELEGATES = re.compile(r'\b(?:node|bash|python3)\s+\S+\s+(?:--)?self-test\b')
 # default.
 EXCEEDS_ARM = re.compile(r'>\s*\$?\{?(?:FLOOR|floor)\b')
 
+# THE REGISTERING CLASS AND ITS DESCRIBED-CASE RULE (kogaki#990). A member
+# that registers its cases by id — the `ranCase` call, written with the id as
+# its one string argument, which kogaki#972 introduced so the case count is the
+# size of the set that RAN rather than a constant beside it. THE CALL IS NAMED
+# HERE WITHOUT ITS ARGUMENT PARENTHESES, and that is a DECLARED LIMIT of the
+# same kind DELEGATES declares above: this file is inside the set its own
+# pattern searches, so prose carrying the call whole makes this member register
+# a case it does not have and the rule reports the observer as a member of the
+# set it searches. The first run of this rule caught exactly that, on this
+# file. A member can be compared against its own admission record: every
+# id it registers should be findable in the `contract` that says what the
+# member asserts. A record that omits a case describes a member it does not
+# describe, and `validate_entries` above cannot see it, because that validator
+# tests `contract` for NON-EMPTINESS only.
+#
+# DETECTED, NEVER ENUMERATED, the same way DELEGATES is: membership is the
+# call in the file. Population is ONE today (`check-brief-compose.sh`), and a
+# second member joins by carrying `ranCase`, never by an edit here.
+#
+# THE COMPARISON IS THE ID OR ITS LETTER STEM, AND THAT IS THE WHOLE DESIGN.
+# A registration id disambiguates where a reused letter cannot — `brief-compose`
+# carries a second (k), (l) and (r), so its ids are `k-composed-body`,
+# `l-bridge`, `w1` — while `contract` speaks in letters. Requiring the LITERAL
+# id fires on 13 of that member's 35 ids today and every one of them IS
+# described: that is a false red on the naming convention, not on an omission.
+# Requiring the stem fires on exactly the ids `contract` never mentions, which
+# at the head that authored this rule was three — `count`, `h` and `y`.
+#
+# WHAT IT DOES NOT PROVE, stated rather than implied: that the clause says the
+# RIGHT thing about the case. A mention is mechanically checkable and adequacy
+# is not, so this refuses the SILENCE and never grades the prose — the same
+# line case (y) of `brief-compose` draws for the same reason.
+#
+# ITS BLIND SIDE IS THE MEMBER'S OWN, INHERITED: a case authored with no
+# `ranCase` site is invisible here exactly as it is to the count, because both
+# read the registrations and neither reads the cases.
+# THE THREE QUOTED SPELLINGS ARE ALL RECOGNISED, and the one that is not is
+# named (PR #1000 round 1). A registration written with single quotes or as a
+# template literal registers and counts at runtime exactly as the double-quoted
+# form does, so a pattern reading only the double-quoted spelling lets an
+# undescribed case return by a change of quote character — a route neither
+# declared limit above covers. WHAT REMAINS OUTSIDE IS A NON-LITERAL ARGUMENT:
+# a call taking a variable or an expression registers an id this pattern cannot
+# read, and that is a THIRD declared limit rather than a gap to be closed by a
+# cleverer regex — the id is not in the text at all, so no reader of the text
+# can recover it. A member spelling its registrations that way is invisible
+# here in the same way it is invisible to any reader of its file.
+RANCASE = re.compile(r'\branCase\(\s*(?:"([^"]+)"|\'([^\']+)\'|`([^`]+)`)\s*\)')
+
 
 def resolve_efficacy_case(payload, opener=None):
     """Resolve a `case: <path>::<label>` payload against the tree.
@@ -322,6 +371,65 @@ def validate_floor_exceeds_arm(entries, file_reader=None):
                 f"state kogaki#970 measured at 13 cases on one member. "
                 f"Compare in BOTH directions: refuse above the floor too, "
                 f"naming the registry edit that discharges it")
+    return failures
+
+
+def validate_registered_cases_described(entries, file_reader=None):
+    """Every registered case id is findable in its member's `contract`.
+
+    Returns a list of failure lines. The class is the REGISTERING one — a
+    member whose file carries a `ranCase` call — detected from the file, so a
+    member joins by registering cases and never by an edit to a list here. The
+    call is named without its argument parentheses for the reason the note
+    beside RANCASE states: this file is searched by its own pattern.
+
+    An id is described when `contract` carries `(<id>)` or `(<stem>)`, where
+    the stem is the id's leading run of letters. Both spellings are accepted
+    because the two vocabularies are deliberately different: the id
+    disambiguates a reused letter and the contract speaks in letters. See the
+    note beside RANCASE for why the literal-id form is refused as the rule.
+
+    A member with no `contract` is not reported here — that is
+    `validate_entries`' incomplete-record failure, and double-reporting one
+    state as two defects sends a reader looking for a second problem.
+    """
+    if file_reader is None:
+        def file_reader(path):
+            return pathlib.Path(path).read_text(encoding="utf-8")
+    failures = []
+    for entry in entries:
+        admission = entry.get("admission") or {}
+        contract = str(admission.get("contract", ""))
+        path = entry_path(entry)
+        try:
+            body = file_reader(path)
+        except OSError:
+            continue  # a missing file is the dangling-entry failure, reported above
+        # One group per quoting spelling; exactly one is filled per match.
+        ids = sorted({next(g for g in m if g)
+                      for m in RANCASE.findall(body)})
+        if not ids:
+            continue  # not a registering member; this rule says nothing about it
+        if not contract.strip():
+            continue  # the incomplete-record failure owns this, not this rule
+        undescribed = []
+        for case_id in ids:
+            stem = re.match(r"[a-zA-Z]+", case_id)
+            spellings = {f"({case_id})"}
+            if stem:
+                spellings.add(f"({stem.group(0)})")
+            if not any(sp in contract for sp in spellings):
+                undescribed.append(case_id)
+        if undescribed:
+            failures.append(
+                f"FAIL admission record under-describes its member: {path} "
+                f"registers {len(ids)} case(s) and its `contract` describes "
+                f"neither the id nor its letter stem for "
+                f"{', '.join(undescribed)} — a record that omits a case "
+                f"describes a member it does not describe, and the "
+                f"non-emptiness test above cannot see it (kogaki#990). "
+                f"Add a clause per case to `contract` for this member in "
+                f"checks/registry.json, in this commit")
     return failures
 
 
@@ -741,6 +849,67 @@ def fixture_pass():
                   not validate_floor_exceeds_arm(
                       [floor("gone", case_floor=3)], arm_files)))
 
+    # THE REGISTERING CLASS AND ITS DESCRIBED-CASE RULE (kogaki#990). The
+    # `ranCase` literals are SPLIT for the reason the fixtures above state:
+    # this file is inside the set its own pattern searches, so a fixture
+    # carrying the call whole would make the rule match this file and pass for
+    # a reason no member supplied.
+    RC = "ran" + "Case"
+    REG = f'{RC}("a");\n{RC}("l-bridge");\n{RC}("count");\n'
+    REG_FILES = dict(FILES, **{"checks/check-reg.sh": REG,
+                               "checks/check-noreg.sh": "echo nothing\n"})
+
+    def reg_files(path):
+        if path not in REG_FILES:
+            raise FileNotFoundError(path)
+        return REG_FILES[path]
+
+    def reg(id_, contract):
+        e = entry("act: x", id_=id_)
+        e["admission"]["contract"] = contract
+        return e
+
+    f = validate_registered_cases_described(
+        [reg("reg", "(a) the first; (l) the bridge")], reg_files)
+    cases.append(("a registering member whose contract omits a case fails, "
+                  "naming that case and no other",
+                  any("under-describes" in x and "count" in x
+                      and "l-bridge" not in x for x in f)))
+    cases.append(("the LETTER STEM satisfies the rule — an id that "
+                  "disambiguates a reused letter is described by its letter",
+                  not validate_registered_cases_described(
+                      [reg("reg", "(a) x; (l) y; (count) z")], reg_files)))
+    # The mutant this case exists to kill: requiring the LITERAL id. Under
+    # that rule `l-bridge` is undescribed here, which is the 13-of-35 false
+    # red measured on the live member.
+    cases.append(("the literal id is NOT required — `(l)` describes "
+                  "`l-bridge`",
+                  not any("l-bridge" in x for x in
+                          validate_registered_cases_described(
+                              [reg("reg", "(a) x; (l) y; (count) z")],
+                              reg_files))))
+    cases.append(("a member registering NO cases is outside the class",
+                  not validate_registered_cases_described(
+                      [reg("noreg", "")], reg_files)))
+    cases.append(("an EMPTY contract is left to the incomplete-record rule, "
+                  "never double-reported here",
+                  not validate_registered_cases_described(
+                      [reg("reg", "")], reg_files)))
+    cases.append(("a missing check file is not reported by the described rule",
+                  not validate_registered_cases_described(
+                      [reg("gone", "(a) x")], reg_files)))
+    # THE THREE QUOTED SPELLINGS (PR #1000 round 1). Each fixture registers one
+    # id the contract does not describe, so a spelling the pattern stopped
+    # reading shows up as a case that STOPS FAILING — the direction that
+    # matters, since an unread registration is silence and not a false red.
+    for spelling, body in (("single quotes", f"{RC}('solo');\n"),
+                           ("a template literal", f"{RC}(`tmpl`);\n")):
+        REG_FILES["checks/check-q.sh"] = body
+        cases.append((f"a registration written with {spelling} is read",
+                      any("under-describes" in x for x in
+                          validate_registered_cases_described(
+                              [reg("q", "(a) unrelated")], reg_files))))
+
     def base(**floors):
         def reader():
             return {"checks": [{"id": k,
@@ -954,6 +1123,8 @@ failures += validate_entries(entries)
 # The delegating class and its floor (kogaki#661).
 failures += validate_case_floor(entries)
 failures += validate_floor_exceeds_arm(entries)
+# The registering class and its described-case rule (kogaki#990).
+failures += validate_registered_cases_described(entries)
 floor_rows, floor_failures = check_floor_decrements(entries)
 failures += floor_failures
 
@@ -966,6 +1137,21 @@ for line in failures:
     print(line)
 if failures:
     sys.exit(1)
+# MUTATION EVIDENCE (assert-by-breaking-once, kogaki#243 + kogaki#990): the
+# self-test above is what `efficacy` cites, and it is cited as a WHOLE rather
+# than through one case's label, because the record's claim is about two rules
+# and a single case binds one of them. kogaki#243's counterfactual is the
+# incomplete-record case, which goes green if `validate_entries` stops reporting
+# a missing `removal_signal`. kogaki#990's are the described-case cases: deleting
+# `validate_registered_cases_described` fails the case that expects `count` to be
+# named; relaxing the rule to require the LITERAL id fails the case that expects
+# `l-bridge` NOT to be named, which is the 13-of-35 false red the stem form
+# exists to refuse; and narrowing RANCASE back to the double-quoted spelling
+# fails the two quoting cases beside them. THE CITE WAS UNBOUND WHEN THIS
+# COMMIT'S PARENT LANDED (PR #1000 round 1): `efficacy` advertised kogaki#990
+# while naming a case that calls the new validator nowhere, so deleting the
+# whole rule left the cited counterfactual green — the unbound-claim class
+# kogaki#243 exists to refuse, rebuilt inside the repair for it.
 # THE TERMINAL LINE NEVER CLAIMS A COMPARISON THAT DID NOT HAPPEN (PR #663
 # round 1). An unresolvable base renders CANNOT-DETERMINE and fails nothing —
 # but the summary asserting "no floor was lowered unpaired" would be exactly
@@ -976,7 +1162,8 @@ print(f"ok: registry and checks/ tree agree ({len(present)} check(s)); "
       "every admission record complete; every removal signal instrumented; "
       "every efficacy case resolves to a label its cited file carries; "
       "every delegating member declares a case_floor, and every "
-      "declared floor is compared in BOTH directions"
+      "declared floor is compared in BOTH directions; "
+      "every registering member's contract describes every case it registers"
       + ("; DECREMENTS NOT CHECKED — see the CANNOT-DETERMINE row above"
          if undetermined else
          "; no floor was lowered unpaired or against a stale note"))
