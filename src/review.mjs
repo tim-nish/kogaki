@@ -10,17 +10,17 @@
 // `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
 // already drifted into eight variants, which is what kogaki#982 collapsed.
 //
-// THE NAMES THIS FILE USES:
-//   "the judgment rule"      SPEC-draft-pipeline "Every MUST is judgment, and
-//                            nothing becomes a lint"
-//   "the revise pass"        SPEC-draft-pipeline "The Bridge Step and the
-//                            revise pass"
-//   "the five review areas"  SPEC-draft-pipeline "The Step's grounding, and the
-//                            `entailed` flag", "The grounds test — the
-//                            observable form of describe-never-generate",
-//                            "Semantic economy — what binds Move AUTHORING",
-//                            "Journey integrity — the arc, not the layout" and
-//                            the judgment rule
+// The quoted heading beside a name is the spec content that name stands for.
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   the judgment rule
+//       SPEC-draft-pipeline "Every MUST is judgment, and nothing becomes a lint"
+//   the revise pass
+//       SPEC-draft-pipeline "The Bridge Step and the revise pass"
+//   the five review areas
+//       SPEC-draft-pipeline "The Step's grounding, and the `entailed` flag",
+//       "The grounds test — the observable form of describe-never-generate",
+//       "Semantic economy — what binds Move AUTHORING", "Journey integrity —
+//       the arc, not the layout", and the judgment rule
 //
 // THE JUDGE IS THE AGENT, NOT THIS FILE. The path-review agent
 // (src/path-review-agent.md) applies every MUST of the five review areas as

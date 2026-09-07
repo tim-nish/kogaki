@@ -4,7 +4,7 @@
 // structure section and the obligations ledger;
 // kogaki#489, story 1.73).
 //
-// Machine-side blocks 1-2 of the Reader Path artifact's five: path
+// Machine-side blocks 1-2 of the Reader Path artifact and its five blocks: path
 // composition → Move binding.
 // THIS RUNTIME RECORDS; IT NEVER JUDGES AND NEVER COMPOSES. The composing
 // producer is the sitting that authors the Step records toward the adopted
@@ -83,6 +83,8 @@
 //       SPEC-draft-pipeline
 //   the constraints that survive
 //       SPEC-draft-pipeline
+//   payload and answer capture
+//       SPEC-gate-carrier
 //
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";

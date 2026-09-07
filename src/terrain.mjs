@@ -35,6 +35,8 @@
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   the open questions
 //       SPEC-terrain
+//   the open-questions section
+//       SPEC-terrain
 //   the Full Report
 //       SPEC-terrain
 //   the report identity
@@ -83,8 +85,6 @@
 //       SPEC-terrain
 //   subdivide's composition fold
 //       SPEC-terrain
-//   the deleted entry point
-//       SPEC-terrain
 //   the non-flow utilities
 //       SPEC-terrain
 //   what is not carried
@@ -121,6 +121,10 @@
 //       SPEC-terrain
 //   the rendering rule
 //       SPEC-terrain
+//   what `options_offered` is judged against
+//       SPEC-gate-carrier
+//   Human-facing files live where the human works
+//       specs/SPEC.md
 //
 import { spawnSync, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
