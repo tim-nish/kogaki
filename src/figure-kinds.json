@@ -10,8 +10,9 @@
     "A Move's optional `visual_form` block names one `kind` from this set and",
     "maps EVERY role of that kind into the Move's own vocabulary - the terms",
     "its `requires`/`effect`/`intent` already use. Ingestion validates exactly",
-    "three things (SPEC-draft-pipeline 6.9.3): the kind exists, every role of",
-    "that kind is mapped, and no extra role is mapped. It judges no wording.",
+    "three things (the closed kind set and the Move's visual_form): the kind",
+    "exists, every role of that kind is mapped, and no extra role is mapped.",
+    "It judges no wording.",
     "",
     "`kind` is reserved and can never be a role name - the block is flat, so a",
     "role named `kind` would be indistinguishable from the kind selector.",
@@ -22,7 +23,20 @@
     "name, which is what makes the set closed rather than advisory.",
     "",
     "A form on a Move OBLIGES NO STEP TO USE IT. Nothing in the draft pipeline",
-    "reads this file to decide anything today; it is a vocabulary, not a gate."
+    "reads this file to decide anything today; it is a vocabulary, not a gate.",
+    "",
+    "SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).",
+    "Implemented code does not refer to a Spec. Content this file was",
+    "implemented against is stated HERE, and what is stated here is what the",
+    "code was implemented against - NOT the spec's current text. It stays true",
+    "for this file even if the spec is rewritten or deleted, and propagating a",
+    "later spec change into this file is a SEPARATE, EXPLICIT act. A bare name",
+    "below is a pointer carrying no authority. Nothing names a section number,",
+    "because section numbers renumber.",
+    "",
+    "THE NAMES THIS FILE USES, and the spec each one names:",
+    "  the closed kind set and the Move's visual_form",
+    "      SPEC-draft-pipeline"
   ],
   "kinds": {
     "axis": {

@@ -3532,10 +3532,10 @@ function identityDigest(identity) {
 // group SAYS about members the query already fixed, while the judgment record
 // decides WHICH CANDIDATES ARE DISPLAYED AT ALL.
 // `thesis-candidates` JOINED THE SET AT kogaki#927, and it joined the RECORDED
-// half rather than the identity because §12.1's own discriminator puts it
+// half rather than the identity because the report identity's own discriminator puts it
 // there: the claims and subdivisions change what a section SAYS about members
 // the query already fixed, while the neighborhood judgment decides WHICH
-// CANDIDATES ARE DISPLAYED AT ALL. An edited candidates file changes the §12.3
+// CANDIDATES ARE DISPLAYED AT ALL. An edited candidates file changes the Thesis-candidates
 // claim text and strand picks, and the `serves: … for TC<n>` rows that join
 // against them — what the report says, never who is in it. So it is RECORDED,
 // and `COMPOSED_INPUT_MISMATCH` is what a rerun at the same identity with an
@@ -3544,10 +3544,10 @@ function identityDigest(identity) {
 // WHAT THE OMISSION COST, kept because the failure reported SUCCESS. The flag
 // decided the artifact while sitting in neither the identity nor this list, so
 // a same-identity rerun with an edited file took the replay branch, found an
-// empty delta, re-rendered the PRIOR record's §12.3 section, and printed that
+// empty delta, re-rendered the PRIOR record's Thesis-candidates section, and printed that
 // the rerun was idempotent — rendering a candidate list the invocation did not
 // supply, and returning before `refuseTargetsOutsideCandidates` could see it.
-// kogaki#861 raised the cost rather than creating it: every judged §13.4 row
+// kogaki#861 raised the cost rather than creating it: every judged neighborhood-section row
 // now names a TC id, so a stale replay can put a `serves: … for TC2` row
 // against a TC2 the supplied candidates no longer describe.
 export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood-candidates", "thesis-candidates"];
@@ -7799,7 +7799,7 @@ switch (cmd) {
 
       // ---- AN EDITED CANDIDATES FILE AT THE SAME IDENTITY IS NOT IDEMPOTENT
       // (kogaki#927). The defect this binds reported SUCCESS: `--thesis-candidates`
-      // decided §12.3 and the `serves: … for TC<n>` rows while sitting in neither
+      // decided the Thesis candidates and the `serves: … for TC<n>` rows while sitting in neither
       // the identity nor the recorded set, so the rerun replayed the prior
       // section and printed that it was idempotent. The case drives the two
       // functions `cmdReport`'s replay branch actually asks — the digest
