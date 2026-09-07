@@ -95,6 +95,41 @@ const declarationPath = (d, stem) => join(d, `${stem}${DECLARATION_SUFFIX}`);
 // it is: a survey record, read here.
 const SURVEY = "checks/fixtures/survey/lone-tag-member.json";
 const fails = [];
+
+// THE CASE COUNT IS THE SET OF CASES THAT RAN, never a constant beside them
+// (kogaki#972). What stood here was `const CASE_COUNT = 28`, and kogaki#970's
+// two-directional arm compared it against the registry's `case_floor` — two
+// DECLARATIONS in this repository, neither of which is the thing the floor is
+// defined over. The arm forced the floor to follow the constant; it could not
+// see a case ACTUALLY LOST, because nothing counted the cases. The seven
+// sibling members already parse a count out of a spawned pass's own output;
+// this member IS its own pass, so the equivalent producer-side reading is a
+// registration each case performs when it runs.
+//
+// A REUSED ID IS REFUSED BY NAME, and that is the half a bare `Set` would get
+// wrong. This file's own case LETTERS are reused — the header says so, and a
+// second (k), (l) and (r) exist — so two cases sharing one registration id
+// would collapse into one count, and deleting either would leave the count
+// unchanged: the very blindness this instrument replaces, rebuilt inside it.
+// The registration ids therefore disambiguate where the letter cannot
+// (`k-instantiation` / `k-composed-body`, `l-reader-fields` / `l-bridge`,
+// `r-posthoc` / `r-plain-labels`), and a duplicate is a failure rather than a
+// silent absorption.
+//
+// A FACTORY rather than a bare set, so that (count) below can exercise the
+// instrument on its OWN instances. A probe against the live registry would
+// have to register into the number it is checking.
+const newCaseRegistry = () => {
+  const seen = new Set();
+  const duplicates = [];
+  return {
+    ran(id) { if (seen.has(id)) duplicates.push(id); seen.add(id); },
+    get size() { return seen.size; },
+    get duplicates() { return duplicates.slice(); },
+  };
+};
+const CASES = newCaseRegistry();
+const ranCase = (id) => CASES.ran(id);
 let exemplarLine = "the Move library was not read";
 const dir = mkdtempSync(join(tmpdir(), "brief-compose-"));
 const theses = join(dir, "theses");
@@ -229,6 +264,7 @@ const step2 = {
 try {
   // (a) SHAPE (§4.1/§4.4): a conforming path validates; each broken record
   // is refused NAMING the missing field — a schema refusal, never a judgment.
+  ranCase("a");
   if (validateSteps([step1, step2]).error) fails.push(`(a) a conforming path was refused: ${validateSteps([step1, step2]).error}`);
   const drop = (s, k) => { const c = JSON.parse(JSON.stringify(s)); delete c[k]; return c; };
   for (const k of ["step_id", "materials", "purpose", "reader_state_before", "reader_state_after", "depends_on", "rationale", "grounds"]) {
@@ -255,6 +291,7 @@ try {
   // (b) FILL (§5.1/§5.2): sequence, strand_coverage and the ledger land in
   // the minted document; the ledger entries carry introduced_by /
   // discharged_by and an undischarged entry RENDERS as undischarged.
+  ranCase("b");
   const doc0 = readFileSync(briefPath, "utf8");
   const input = {
     steps: [step1, step2],
@@ -294,6 +331,7 @@ try {
   // is taken from the composed steps' PLACEMENTS, never from a declaration;
   // an unplaced selected Strand DISCLOSES and the fill still succeeds — a
   // disclosure, never a refusal.
+  ranCase("c");
   const only2 = {
     steps: [step1],
     // the declaration CLAIMS L1 is covered; the count must not believe it
@@ -334,6 +372,7 @@ try {
   // The retirement is asserted rather than assumed, because a removed
   // subcommand and a subcommand that still works are indistinguishable to a
   // suite that stops calling it.
+  ranCase("d");
   const r1 = run(["src/compose.mjs", "fill", "--brief", briefPath, "--path", join(dir, "nonexistent.json")]);
   if (r1.status === 0) fails.push("(d) `fill` still succeeds — the ungated route §6's selection gate exists to replace is still reachable");
   const r1err = `${r1.stderr || ""}${r1.stdout || ""}`;
@@ -384,6 +423,7 @@ try {
   // (e) ASSEMBLY: 2-3 Candidates differing in reader experience; the count
   // and the difference are the contract; the payload rides the record shape
   // with per-Candidate evidence and the first-class negation.
+  ranCase("e");
   const one = assembleSelection({ candidates: [candA] }, doc0);
   if (!one.error || !/1 Candidate/.test(one.error)) fails.push("(e) a single Candidate was presented — a default in disguise (§6: two to three)");
   const four = assembleSelection({ candidates: [candA, candB, mkCand("cand-3", "x3", [step1]), mkCand("cand-4", "x4", [step1])] }, doc0);
@@ -420,6 +460,7 @@ try {
   // assertions — the composer was green while the surface the acceptance names
   // rendered nothing. `installed`, `current` and `fires` are not `acts`, and
   // the label is the act.
+  ranCase("w1");
   {
     const figStep = (st, n) => ({ ...st, figure: `what figure ${n} lets the reader hold`,
                                   figure_roles: { endpoint_a: "g1" } });
@@ -464,6 +505,7 @@ try {
   // green over the only shape that was safe. Asserted in BOTH directions, per
   // acceptance items 2 and 3: the mandated caller passes, and the wire stays
   // armed over everything the caller did not produce.
+  ranCase("w2");
   {
     const snakeSteps = [
       { ...step1, step_id: "open_the_claim",
@@ -592,6 +634,7 @@ try {
 
   // (f) ADOPTION: the adopted Candidate's Reader Path lands in the Brief's
   // sequence; thesis_closure and tradeoffs fill from its reasoning (§5.1).
+  ranCase("f");
   const ad = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB, {}, { candidates: [candA, candB] }));
   if (ad.error) fails.push(`(f) adopting a reviewed Candidate was refused: ${ad.error}`);
   const doc3 = ad.doc || "";
@@ -610,6 +653,7 @@ try {
   // present and unfilled before adoption, adoption fills it, and it carries the
   // ADOPTED Candidate's values — because a slot that renders and never fills is
   // the fires-but-does-not-act shape this whole decision was raised against.
+  ranCase("r-posthoc");
   {
     // AC1 — present and UNFILLED before adoption. Asserted apart from the fill,
     // so a slot that was never minted and one that was minted-and-filled cannot
@@ -695,6 +739,7 @@ try {
   }
 
   // (g) COMMAND PATHS agree with the exported functions.
+  ranCase("g");
   const rvf = join(dir, "reviewed.json"); const ouf = join(dir, "payload.json");
   writeFileSync(rvf, JSON.stringify({ candidates: [candA, candB] }));
   const bp2 = join(dir, "brief-adopt.md"); writeFileSync(bp2, doc0);
@@ -708,6 +753,7 @@ try {
   // declare-then-capture discipline §4.12.3 established, driven through the
   // command path so the executor is exercised rather than a hand-written
   // capture testing `validateOwnerAnswer` twice and the executor never.
+  ranCase("g6");
   const selArgv = ["--brief", bp2, "--reviewed", rvf];
   const gDecl = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--declare", ...selArgv], { encoding: "utf8" });
   if (gDecl.status !== 0) fails.push(`(g6) gate-candidate --declare exited ${gDecl.status}: ${(gDecl.stderr || "").trim()}`);
@@ -883,6 +929,7 @@ try {
   // write that lands a sequence in an existing Brief.
   //
   // THE MECHANICAL HALF — the move id resolves, or the adoption refuses.
+  ranCase("k-instantiation");
   {
     const dangler = { ...candB, steps: [{ ...candB.steps[0], move: "no_such_move" }, candB.steps[1]] };
     const d = adoptCandidate(doc0, { candidates: [candA, dangler] }, "cand-2", inst(dangler, {}, { candidates: [candA, dangler] }));
@@ -912,6 +959,7 @@ try {
     // `validateSteps`'s and are asserted in (v); what can only be decided with
     // the library open is decided here, and only here can it be made
     // unskippable.
+    ranCase("x");
     const figStepOf = (st, over = {}) => ({
       ...st, move: "axis-form-move",
       grounds: [
@@ -1059,6 +1107,7 @@ try {
   // compares anything to anything: §4.6 clause 3 and §7.5 stand, and the
   // declined arm of acceptance item 1 was the one that owed them an
   // amendment.
+  ranCase("s");
   {
     // THE FIXTURE THE ISSUE NAMES. `spec()` composes exactly this — every
     // verdict `consistent`, every `why` a shape-valid sentence with no
@@ -1158,6 +1207,7 @@ try {
   // introduced here, whether its anchor explains it, and whether an excerpt is
   // the right passage are judgments (§4.6 clause 3), and nothing below reads
   // meaning.
+  ranCase("m");
   {
     // THE FIELD IS OPTIONAL, and that is asserted first: every existing Step
     // carries no `introduces`, so a requirement would have refused the whole
@@ -1322,6 +1372,7 @@ try {
   // class are indistinguishable in the count, and removal stays a judgment
   // (consulted: product-lab@f8794c6454cb475b4f835dc7c9db0eab3525441c
   // topics/claude-code-ops.md:202). The owner made that judgment at the gate.
+  ranCase("n");
   {
     const SKILL = readFileSync(".claude/skills/brief/SKILL.md", "utf8");
   
@@ -1417,6 +1468,7 @@ try {
   // ITS NORMATIVE HOME IS THE DESIGN RECORD, not a spec section: the ground
   // for the round trip lives at specs/spec-brief-draft-design/DESIGN.md, and
   // this case is the mechanical half that document cannot be.
+  ranCase("o");
   {
     const strands = [
       { id: "L1", display_id: "L1", slug: "alpha", claim: "the alpha claim, stated plainly" },
@@ -1457,6 +1509,7 @@ try {
   // where it lands is to land one. It writes and creates; it does not PRUNE, so
   // this case cannot evict a real workspace. The fixture slug is its own, and
   // the whole entry is removed afterwards.
+  ranCase("p");
   {
     const slug = `brief-compose-lane-case-${process.pid}`;
     const briefDir = join(dir, slug);
@@ -1492,6 +1545,7 @@ try {
   // PLACED OR ITS OMISSION DISCLOSED — derived from the composed steps, never
   // declared. The fixture's L2 carries a Journey and L1 does not, which is
   // what makes the two refusals below separable.
+  ranCase("h");
   if (JSON.stringify(journeyBearingStrands(doc0)) !== JSON.stringify(["L2"]))
     fails.push(`(h) journey-bearing members misread: got ${JSON.stringify(journeyBearingStrands(doc0))}, expected ["L2"] (L2 carries a journey cite, L1 does not)`);
 
@@ -1535,6 +1589,7 @@ try {
   // property is asserted where it is now computed, and the assembly call is
   // KEPT beside it as the control that a journey-placing Candidate still
   // reaches the gate at all.
+  ranCase("i");
   const jcandA = { ...JSON.parse(JSON.stringify(candA)), steps: [jstep] };
   const jpay = assembleSelection({ candidates: [jcandA, candB] }, doc0);
   if (jpay.error) fails.push(`(i) assembly refused a Candidate placing journey material: ${jpay.error}`);
@@ -1568,6 +1623,7 @@ try {
   // THE RECORD ASSERTIONS SURVIVE UNCHANGED and are the other half: a
   // reduction that also dropped the evidence would satisfy an emptiness test
   // while losing what the ruling explicitly kept.
+  ranCase("j");
   const INTERNAL = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
   const plain = assembleSelection({ candidates: [candA, candB] }, doc0);
   if (plain.error) fails.push(`(j) a plain-register Candidate set was refused: ${plain.error}`);
@@ -1624,6 +1680,7 @@ try {
   // well formed in BOTH directions, every declared grade is reached by a real
   // producer, and the gate's rendering is DERIVED from the table rather than
   // enumerating the fields it knows about. ----
+  ranCase("u");
   {
     // AC1 — the live table validates. This is the control: every refusal below
     // is only evidence if the unmutated table passes.
@@ -1759,6 +1816,7 @@ try {
   // ---- (l) THE THREE READER FIELDS (§5.1 v12, kogaki#521, story 1.77):
   // authored at PATH COMPOSITION per Candidate, riding the EXISTING gate,
   // landing at adoption, and REFUSING by name when unauthored. ----
+  ranCase("l-reader-fields");
   {
     // AC1 — the axis is real: cand-1 and cand-2 carry DIFFERENT values.
     // RE-POINTED FROM THE GATE TO THE DERIVATION (kogaki#859 as amended): the
@@ -1947,6 +2005,7 @@ try {
   // (kogaki#891). Driven through the command path, because the property under
   // test is that a CHANNEL is gone: exercising the exported reader would test
   // the validator and never the removal.
+  ranCase("t");
   {
     const mk = (name) => {
       const rsx = join(dir, name);
@@ -2061,6 +2120,7 @@ try {
 // while leaving `$1` and `$<name>` alone — `$1` only because this regex has no
 // capture groups, which is a property of the pattern and not a guarantee. A
 // case exercising one shape would have passed against the defect.
+ranCase("k-composed-body");
 {
   const doc = "## Reader start\n\n*(awaiting composition)*\n";
   const bodies = [
@@ -2129,6 +2189,7 @@ try {
 // the runtime cannot admit and the branch it claimed to cover was dead
 // (kogaki#209 — a fixture whose only demonstrated failure mode is the code's
 // total absence).
+ranCase("l-bridge");
 {
   const S = (id, extra = {}) => ({
     step_id: id, move: "m", materials: ["L1"], purpose: "p", reader_state_before: "b",
@@ -2186,6 +2247,7 @@ try {
   // (l2) THE FIELD IS ADMITTED AND BOUNDED (#546 round 1, finding 3). §4.11
   // recognises a Bridge Step by this field, so §4.1 admits it and validateSteps
   // bounds it — an unvalidated marking renders `between :` at an owner surface.
+  ranCase("l2");
   for (const [bad, what] of [[[], "empty"], [["only-one"], "single"], [true, "non-array"], [["a", "c", "d"], "three-id"]]) {
     if (!validateSteps([S("a"), S("c"), S("b", { bridges: bad })]).error) {
       fails.push(`(l2) a ${what} bridges value is admitted — the gate would disclose a pair that was never named`);
@@ -2194,6 +2256,7 @@ try {
   // (l3) IT SURVIVES SERIALIZATION (#546 round 1, finding 4). Post-hoc
   // disclosure is the WHOLE approval shape, so a Brief re-read from its
   // recorded form must still say what was bridged.
+  ranCase("l3");
   if (!/^bridges: a, c$/m.test(renderStep(S("b", { bridges: ["a", "c"] })))) {
     fails.push("(l3) renderStep drops `bridges` — a Brief re-read from its recorded form discloses no bridge at all");
   }
@@ -2206,6 +2269,7 @@ try {
 // Rules 2, 3 and rule 4's Step-count clause are mechanical; rule 1 is the
 // POSITIVE case whose negation rule 2 refuses, and rule 4's prose-length
 // clause is §4.15's named deferred slot, so neither is asserted here.
+ranCase("q");
 {
   const Q = (id, extra = {}) => ({
     step_id: id, move: "m1", materials: ["L1"], purpose: "p",
@@ -2280,6 +2344,7 @@ try {
 // REVIEW_AREAS. Both directions are asserted, because they fail differently:
 // a key with no label is an item a restoring ruling could not render, and a
 // label with no key is the decayed table the retention argument rests on.
+ranCase("r-plain-labels");
 {
   // The KEY SET is what is under test and it does not vary with the path's
   // content, so an empty path is the honest input: it derives every key the
@@ -2359,6 +2424,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // be read as an omission: whether the figure CARRIES something is the
 // composer's one judgment, stated in the `figure:` line, and §4.6 forbids a
 // lint over a judgment — a missing field is refused, a weak one is not.
+ranCase("v");
 {
   const F = (id, extra = {}) => ({
     step_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1"], purpose: "p",
@@ -2496,6 +2562,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 //
 // THE WARNING HAS NO TARGET AND REFUSES NOTHING (topics/articles.md 2026-08-01
 // D11), so the above-three case is asserted to WARN and to stay SELECTABLE.
+ranCase("w");
 {
   const G = (id, extra = {}) => ({
     step_id: id, move: "m", materials: ["L1"], purpose: "p",
@@ -2573,6 +2640,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // not — this refuses the silence, which is the defect the class was found by,
 // and never grades the prose (§4.6: a missing field is refused, a weak one is
 // not).
+ranCase("y");
 {
   const specPath = "specs/spec-draft-pipeline/SPEC.md";
   const skillPath = ".claude/skills/brief/SKILL.md";
@@ -2794,6 +2862,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // later reader — which is the same class of defect as the wording this
 // amendment repairs. So the removal is performed and the adoption is asserted
 // to SUCCEED.
+ranCase("z");
 {
   const zdir = mkdtempSync(join(tmpdir(), "brief-decl-"));
   // THE CASE REMOVES ITS OWN TEMPORARY DIRECTORY ON EVERY PATH IT CAN
@@ -2862,7 +2931,60 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
   }
 }
 
-const CASE_COUNT = 28;
+// (count) THE COUNT THIS MEMBER REPORTS IS THE SET OF CASES THAT RAN
+// (kogaki#972). Placed LAST on purpose: `CASES.duplicates` is only complete
+// once every case above has registered, so an assertion sited earlier would
+// pass over a file it had not finished reading.
+//
+// THE INSTRUMENT IS BOUND BY THIS CASE, which is the acceptance item and not a
+// courtesy: an instrument whose own arithmetic nothing exercises is exactly
+// the unmeasured declaration it replaces, one level up.
+//
+// MUTATIONS RECORDED (this suite's convention). Two were run against the tree
+// at this head, and both are quoted by their observed output rather than by
+// what they were expected to do.
+//
+//   (1) `ranCase("z")` DELETED, the case body left intact:
+//       `(floor) this member reports 34 case(s) against a declared case_floor
+//       of 35 — cases were LOST rather than broken`.
+//       That is the defect kogaki#972 names, and under the constant this
+//       replaces the same edit went green — a case removed from the file
+//       moved no number, because no number was reading the file.
+//
+//   (2) `ranCase("l-bridge")` CHANGED to `ranCase("l-reader-fields")`, so two
+//       cases share one registration id:
+//       `(count) case id(s) registered twice in this member: l-reader-fields`,
+//       and `(floor) ... reports 34 case(s) against a declared case_floor of
+//       35`.
+//       Both arms fire, and that pairing is the point: the collapse is named
+//       HERE by its own cause rather than reaching the reader only as an
+//       unexplained count one lower.
+ranCase("count");
+{
+  const probe = newCaseRegistry();
+  if (probe.size !== 0) fails.push(`(count) a fresh case registry reports ${probe.size} rather than 0 — a count that starts non-empty is not a count of what ran`);
+  probe.ran("one");
+  probe.ran("two");
+  if (probe.size !== 2) fails.push(`(count) two distinct registrations counted ${probe.size} — the registry does not count what it is given`);
+  // THE DELETION THIS INSTRUMENT EXISTS TO SEE, asserted rather than assumed:
+  // a registry missing one case reports a LOWER number than one holding it,
+  // which is the whole mechanism by which a deleted case reaches the floor.
+  const short = newCaseRegistry();
+  short.ran("one");
+  if (!(short.size < probe.size)) fails.push(`(count) a registry missing one case reports ${short.size} against ${probe.size} — a deleted case does not lower the count, so the floor comparison below cannot see the loss it is declared for`);
+  // A REUSED ID IS REFUSED BY NAME rather than silently absorbed.
+  probe.ran("two");
+  if (probe.size !== 2) fails.push(`(count) a repeated id changed the size to ${probe.size} — a registry that counts repeats counts cases that did not run`);
+  if (!probe.duplicates.includes("two")) fails.push("(count) a repeated case id was absorbed silently — two cases sharing one id count as ONE, so deleting either leaves the count unchanged, which is the blindness this instrument replaces rebuilt inside it");
+  if (CASES.duplicates.length) fails.push(`(count) case id(s) registered twice in this member: ${CASES.duplicates.join(", ")} — this file REUSES its case letters (a second (k), (l) and (r) exist), so the registration id must disambiguate where the letter cannot`);
+}
+
+// THE FLOOR, now compared against a MEASUREMENT on one side (kogaki#972). The
+// comparison itself is unchanged and stays where kogaki#970 put it, over the
+// declaration in `validate_floor_exceeds_arm`, so no member is exempted by a
+// list; what changed is that the left-hand side is produced by the pass rather
+// than declared beside it.
+const CASE_COUNT = CASES.size;
 {
   const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
   const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;
@@ -2872,9 +2994,12 @@ const CASE_COUNT = 28;
     fails.push(`(floor) this member reports ${CASE_COUNT} case(s) against a declared case_floor of ${floor} — cases were LOST rather than broken, and the pass line would otherwise report their absence as evidence (kogaki#661)`);
   // THE UPWARD ARM (kogaki#970). Below the floor is cases LOST; above it is
   // cases ADDED with the floor left behind, and until this arm existed the two
-  // were the same silence. This member counts by a declared constant rather
-  // than by parsing a pass line, so the drift here is between two numbers in
-  // this repository — which makes the arm cheaper, not less owed.
+  // were the same silence. THE NOTE THAT STOOD HERE IS SUPERSEDED RATHER THAN
+  // DELETED (kogaki#972): it said the drift on this member is `between two
+  // numbers in this repository — which makes the arm cheaper, not less owed`,
+  // and that was the defect kogaki#972 was filed on. Only ONE side is a
+  // declaration now; the other is the size of the set the cases registered
+  // into as they ran, so this arm reads a measurement against a floor.
   } else if (CASE_COUNT > floor) {
     fails.push(`(floor) this member reports ${CASE_COUNT} case(s) against a declared case_floor of ${floor} — cases were ADDED and the floor was not advanced in the same act, so the ratchet is ${CASE_COUNT - floor} behind and cannot see a case deleted inside that gap (kogaki#970). Set case_floor to ${CASE_COUNT} for \`brief-compose\` in checks/registry.json, in this commit`);
   }
@@ -2885,6 +3010,7 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
+  + "(count) THE COUNT IN THIS LINE IS MEASURED, NOT DECLARED (kogaki#972): it is the size of the set each case registers into as it runs, so deleting a case lowers it and the floor arm below sees the loss. What stood here was a hand-maintained `CASE_COUNT = 28` compared against a `case_floor` of 28 — two declarations in this repository agreeing with each other, neither of them the cases. The gap that made the defect concrete: 35 cases register today, so SEVEN existed that the constant never counted, and a deletion inside that gap was invisible in both directions at once. A REUSED REGISTRATION ID is refused BY NAME rather than absorbed, because this file reuses its case LETTERS — a second (k), (l) and (r) exist — and two cases sharing one id would count as one, rebuilding the blindness inside the repair; the ids therefore disambiguate where the letter cannot. NOT COVERED, stated rather than implied: this counts cases that RAN and never judges what any of them asserts, so a case emptied of its assertions still registers — the floor sees DELETION and not evisceration, which is the half kogaki#661 admitted the field for and the half it did not; "
   + "(z) THE RUN-DECLARATION FILE IS NOT THE BARRIER, AND ITS REMOVAL IS ADMISSIBLE (\u00a75.3/\u00a76 v36, kogaki#915): "
   + "v32's acceptance item 2 said `adopt` refuses when no declaration for this run state was rendered, and what "
   + "`cmdAdopt` checks is `state.gate`. The owner ruled the WORDING was wrong rather than the barrier — the file is "
