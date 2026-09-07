@@ -47,6 +47,51 @@ runs the join.
 `--figure` the seat it corrects is the Step's figure RECORD rather than its
 prose. `check` runs the bounded second pass. `close` writes the owner record.
 
+## The models, and where each is pinned
+
+**Every spawn this skill makes pins `--model` explicitly.** Never inherit the
+interactive default — the owner's 2026-08-05 ruling — and the reason is
+sharper here than elsewhere: a ReviewDraft run is over a hundred model calls,
+and the two kinds are not close in what they cost or in what they need. The
+pins, per role:
+
+| role | model | why this one |
+|---|---|---|
+| pair judgments — one join Packet each, `compare` and `check` | `claude-haiku-4-5-20251001` | one pair, one fixed question from `src/review-items.json`, an answer from a closed three plus one sentence. Fixed shape, no prose, no evidence written |
+| Section judgments — the cold reader's ledger against the trace | `claude-haiku-4-5-20251001` | the same shape one level up: one declared side, one recovered side, the same three tokens |
+| blind recoveries — `recover` | `claude-opus-5` | it writes the record the whole comparison is then run against; a weak recovery makes every pair downstream of it measure the recovery instead of the Draft |
+| the cold read — `read` | `claude-opus-5` | it reads the article as a reader and writes what it believes, which is prose about prose |
+| corrections — `correct`, passage and `--figure` alike | `claude-opus-5` | it re-realizes a Step, or re-designs a figure record, against everything that must go on holding |
+
+**The split is by what the call produces, not by how hard it looks.** The
+judgments answer a fixed question and write a token; the recoveries, the cold
+read and the corrections write the evidence and the prose the rest of the run
+is judged against. The first kind is the bulk of the calls and the cheap half;
+the second is where a weaker model costs the run its meaning.
+
+**The Harness names no model of its own, and verifies none.** It invokes no
+judge, so a pin is something you DECLARE — the same reading terrain's judge pin
+carries. What the Harness does is **record what served**: every verdict is
+`{step_id, item, pair?, verdict, reason, model}` and one with no `model` is
+**refused by name**, the id rides both the verdict and the `model_calls` log in
+`join.json` and `check.json`, and each pass emits
+
+    judged by DECLARED model(s) — <ids>; the Harness invoked no model and verified none.
+
+So a pass that answered its pair judgments on the pinned Haiku and its
+corrections on the stronger model reads as two ids, which is the intended
+split; a **third** id, or the interactive default, is a pin that slipped, and
+the line is where that becomes visible.
+
+**The row-level key answers "was a model asked here", and the per-pair one
+answers "by what".** A row the Harness decided alone carries **no `model` key
+at all** — no call was made, and writing one would claim a call that never
+happened. A row with any judged pair carries the key, and its value is the
+**chosen** pair's, which is `null` where a Harness-decided pair won the
+selection: a hybrid item like `grounds` can render a mechanical `widened` fail
+out of a row whose other pairs a model answered. The truth per pair is always
+in `pairs`.
+
 ## The comparison, and what the judging model is not asked
 
 `compare` runs in two phases and the Harness owns both. The first decides every
