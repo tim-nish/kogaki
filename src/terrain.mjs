@@ -4419,7 +4419,7 @@ export function composeTrimProposal(args, dir) {
       reason: `act ${JSON.stringify(act)} is in neither the proposal list (${acts.proposal.join(", ")}) nor the navigation list (${acts.navigation.join(", ")}) — specs/spec-terrain/SPEC.md, the second-proposer boundary: an act not in either list is a report, not a choice`,
       narrows: false,
     };
-    const out = join(dir, `${record.id}.proposal.json`);
+    const out = join(dir, `${record.id}${RECORD_SCHEMA.records_home.suffix}`);
     writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
     console.log(`Unclassified act — report record written (narrows nothing): ${out}`);
     return null;
@@ -4458,7 +4458,7 @@ export function composeTrimProposal(args, dir) {
   if (label.trim().split(/\s+/).length < floor.min_words || label.trim() === act) {
     fail(`label fails the effect-stating floor (≥${floor.min_words} words, never the bare act token). The floor is form only; sufficiency is the review lane's.`);
   }
-  const out = join(dir, `${record.id}.proposal.json`);
+  const out = join(dir, `${record.id}${RECORD_SCHEMA.records_home.suffix}`);
   writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
   console.log(`Proposal record written (presented at gate terrain-trim-ratification, never as navigation): ${out}`);
   return out;
