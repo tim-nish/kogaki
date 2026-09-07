@@ -756,8 +756,8 @@ export function parseGlossShard(resp) {
 
 // Tag-scoped and bounded: one shard per viewed tag, addressed `<kind>/<tag>`
 // and never `<tag>` alone. No fan-out, no whole-corpus prefetch (SPEC.md, the rendering rule).
-// `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN. `composeInput` is
-// its only injecting caller, and the shape is kept rather than collapsed to
+// `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN. `resolveHeadlines`
+// is its only injecting caller, and the shape is kept rather than collapsed to
 // that one caller, because widening the return would make a caller's contract
 // a casualty of a fetch accounting change.
 //
@@ -1575,12 +1575,10 @@ function composeOwnerListing(surfaceName, text) {
 //
 // The re-offer routes through the gate carrier (manifest item 4), never
 // through an affordance of Terrain's own: the sequencing refusal and the out-of-scope
-// decision are unchanged. The sentence that stood here named `claim` and `gate`
-// as the two commands emitting this declaration, and both are removed
-// (kogaki#625 item 1) — the declaration is composed by the executor at the wait
-// that owes it, and adoption is that wait's captured answer. What the removal
-// did NOT change is which surface renders it: AskUserQuestion, the gate
-// carrier, as it always was.
+// decision are unchanged. The declaration is composed by the executor at the
+// wait that owes it, and adoption is that wait's captured answer; nothing
+// outside a run emits it. The surface that renders it is AskUserQuestion, the
+// gate carrier.
 // --------------------------------------------------------------------------
 const CLAIM_GATE = "terrain-claim-reoffer";
 
@@ -1692,11 +1690,9 @@ export function composeClaimReoffer(args, dir, record) {
 
 // The one place a run declaration is composed. Its callers are `GATE_WORK`'s
 // option composers, reached from the executor at the wait that owes the
-// declaration; `gate` and the standalone claim re-offer, which this comment
-// used to name as its two callers, are both removed (kogaki#625 item 1). The
-// re-offer still routes through manifest item 4's carrier and never through an
-// affordance of Terrain's own (SPEC.md, GroupClaim-first rendering, the out-of-scope decision) — what changed is that nothing
-// outside a run can reach this composer at all.
+// declaration, and nothing outside a run can reach this composer at all. The
+// claim re-offer routes through manifest item 4's carrier and never through an
+// affordance of Terrain's own (SPEC.md, GroupClaim-first rendering, the out-of-scope decision).
 export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
   if (!registered) fail(`${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
@@ -5798,16 +5794,13 @@ const STATE_WORK = {
     return null;
   },
 
-  // `tag_display` AND `tag_row_view` ARE GONE AS STATES (the pre-selection listing v29, kogaki#682,
-  // owner ruling 2026-08-28 + owner selection 2026-08-29). Neither renders a
-  // Display — a Display is the rendering written AFTER a tag is selected — so
-  // neither writes `reports/CoTagGroups.md`, and with no artifact to write and no
-  // sequencing authority to carry there is nothing left for a state to do.
-  // The tag listing now reaches the owner in the TAG_SELECTION gate
-  // declaration and the row view is retired outright (kogaki#856), so neither
-  // has a command either. `reports/CoTagGroups.md` has exactly one writing state,
-  // `cotag_groups`; with `full_report` the owner-artifact writes per run are
-  // TWO.
+  // EVERY STATE HERE WRITES A DISPLAY, and a Display is the rendering written
+  // AFTER a tag is selected (the pre-selection listing v29, kogaki#682). The
+  // pre-selection tag listing is therefore not one: it carries no artifact and
+  // no sequencing authority, and reaches the owner as bytes in the
+  // TAG_SELECTION gate declaration instead. `reports/CoTagGroups.md` has
+  // exactly one writing state, `cotag_groups`; with `full_report` the
+  // owner-artifact writes per run are TWO.
 
   compose_input: (rec, st, args) => {
     cmdComposeInput({
@@ -6233,14 +6226,11 @@ const GATE_WORK = {
 // spans a chat turn, `parseArgs` reads process.argv only, and supplying a
 // stdin path would turn a wait into a prompt — which the post-tag-selection window's empty question
 // allowlist for that window forbids.
-// THE `owner_reads` HAND-OVER IS RETIRED (kogaki#856), and `ownerReadsLines`
-// with it. The field named a command the OWNER was to type, on the premise that
-// a session's tool output does not reach them; the owner ruled that premise
-// false on 2026-09-04 and no stop in this flow prints an invocation any more.
-// The one hand-over the field carried that still has a reader — the
-// pre-selection tag listing — moved into the TAG_SELECTION gate declaration,
-// where the executor composes the bytes and the session renders them above the
-// question.
+// NO STOP IN THIS FLOW PRINTS AN INVOCATION (kogaki#856). A hand-over whose
+// owner must read something before answering rides the gate declaration for
+// that wait — the pre-selection tag listing is the one such reader, carried in
+// the TAG_SELECTION declaration, where the executor composes the bytes and the
+// session renders them above the question.
 //
 // THE FIELD IS GONE FROM `field_semantics` TOO, not merely unused. A schema key
 // no state declares is an invitation to declare one, and what would then be
