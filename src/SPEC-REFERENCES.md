@@ -165,6 +165,28 @@ different files across the tables at once: `specs/SPEC.md` in
 per file and unreadable across files, which is exactly the half a cross-file
 reader needs.
 
+### 2a. The NAME's form is the file's too, and that is a cost, not an oversight
+
+The same convention as the label's, with the opposite trade, so it is written
+down rather than discovered: a row's name is the wording **its file** uses, so
+one spec name can appear in two forms across two carriers.
+`src/specialization-schema.json` writes "The Step↔Move instantiation contract"
+and `src/gate-registry.json` writes "the Step-Move instantiation contract",
+because that is what each file says.
+
+**Normalising the name across carriers was declined**, and the ground is the
+one this whole issue turns on: a table is a record of what its file names, so a
+row normalised away from its file's wording is a row derived from something
+other than the file — the defect, in miniature. The label got the opposite
+treatment because a bare `SPEC.md` was **ambiguous** across files rather than
+merely varied; two spellings of one name are legible where two meanings of one
+label are not.
+
+**The cost, stated rather than left to be met:** a cross-file reader searching
+either spelling finds one carrier and not the other.
+`checks/check-names-tables.sh` cannot help — it reads each file against itself
+by construction — so this is a reader's problem, priced here.
+
 ### 3. A disposition-1 copy owes the pointer too
 
 A file that uses the marker vocabulary — `[implemented-against: …]` or

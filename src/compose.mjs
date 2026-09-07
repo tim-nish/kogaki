@@ -4,7 +4,7 @@
 // structure section and the obligations ledger;
 // kogaki#489, story 1.73).
 //
-// Machine-side blocks 1-2 of the Reader Path artifact and its five blocks: path
+// Machine-side blocks 1-2 of the Reader Path artifact's five: path
 // composition → Move binding.
 // THIS RUNTIME RECORDS; IT NEVER JUDGES AND NEVER COMPOSES. The composing
 // producer is the sitting that authors the Step records toward the adopted
@@ -61,7 +61,7 @@
 //       SPEC-draft-pipeline
 //   the figure decision
 //       SPEC-draft-pipeline
-//   the Reader Path artifact and its five blocks
+//   the Reader Path artifact's five
 //       SPEC-draft-pipeline
 //   the grounding rule
 //       SPEC-draft-pipeline
