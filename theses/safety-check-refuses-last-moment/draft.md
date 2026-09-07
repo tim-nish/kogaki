@@ -2,7 +2,7 @@
 brief: brief.md
 brief_pin: sha256:e95e14ba29f8801fec0b30759d1c6da67e60868e96ef828deb2a5d4254e98c65
 survey_pin: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d
-generated_by: {"at":"2026-08-31T13:00:48.861Z","by":"draft/draft.mjs (story 1.80, kogaki#587)","brief_sha":"163b1a4fedd118e76824dac67b3808cf95b35d839b67c85663a5fadbf50bb9ae"}
+generated_by: {"at":"2026-09-07T12:02:49.144Z","by":"src/draft.mjs (story 1.80, kogaki#587)","brief_sha":"e95e14ba29f8801fec0b30759d1c6da67e60868e96ef828deb2a5d4254e98c65"}
 cites:
   - {"strand":"L148","slug":"force-the-missing-axis-at-the-acts-own-trigger","kind":"cite","cite":"gloss/ELEMENTS.jsonl slug=force-the-missing-axis-at-the-acts-own-trigger kind=lesson @4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d"}
   - {"strand":"L96","slug":"authenticate-facts-mechanically-gate-judgments","kind":"cite","cite":"gloss/ELEMENTS.jsonl slug=authenticate-facts-mechanically-gate-judgments kind=lesson @4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d"}
@@ -15,101 +15,83 @@ cites:
   - {"strand":"L173","slug":"order-self-revoking-steps-by-restriction","kind":"cite","cite":"gloss/ELEMENTS.jsonl slug=order-self-revoking-steps-by-restriction kind=lesson @4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d"}
   - {"strand":"L173","slug":"order-self-revoking-steps-by-restriction","kind":"journey cite","cite":"gloss/ELEMENTS.jsonl slug=order-self-revoking-steps-by-restriction kind=journey @4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d"}
 trace:
-  - {"step_id":"c1","section":1,"section_title":"Four questions to ask while you are installing a check"}
-  - {"step_id":"c2","section":2,"section_title":"Whether the check can fire, and what kind it is"}
-  - {"step_id":"c3","section":2,"section_title":"Whether the check can fire, and what kind it is"}
-  - {"step_id":"c4","section":3,"section_title":"Where the refusal sits in the process"}
-  - {"step_id":"c5","section":3,"section_title":"Where the refusal sits in the process"}
+  - {"step_id":"c1","section":1,"section_title":"Four questions to ask while you are installing a check","lines":[27,45],"packet":"../../runs/draft/safety-check-refuses-last-moment/packets/c1.md","packet_sha":"7ea8dbe9453a333e4683ff6bc7f8b4a25689b53dd7cb3ef9c0c03e5650c274ab"}
+  - {"step_id":"c2","section":2,"section_title":"Whether the check can fire, and what kind it is","lines":[49,57],"packet":"../../runs/draft/safety-check-refuses-last-moment/packets/c2.md","packet_sha":"99b6c3c0e068c57487ad14c7839a398eaab62a93e47b833503f73ecf35a05a86"}
+  - {"step_id":"c3","section":2,"section_title":"Whether the check can fire, and what kind it is","lines":[59,67],"packet":"../../runs/draft/safety-check-refuses-last-moment/packets/c3.md","packet_sha":"9020af3c6c61eafb128c3c043b58f92a7a205416aa3731beb041f02d7295fa40"}
+  - {"step_id":"c4","section":3,"section_title":"Where the refusal sits in the process","lines":[71,83],"packet":"../../runs/draft/safety-check-refuses-last-moment/packets/c4.md","packet_sha":"d738b86e19ae09995de69fdfbe536defbf0c92f02a473bc871ff3ba61c4d459f"}
+  - {"step_id":"c5","section":3,"section_title":"Where the refusal sits in the process","lines":[85,97],"packet":"../../runs/draft/safety-check-refuses-last-moment/packets/c5.md","packet_sha":"d12682ec552e0d7c2eccd7d1b0e5c1684e07c514e2527169593caefb523107ec"}
 ---
 
 ## Four questions to ask while you are installing a check
 
-There is a familiar way to finish an article about a class of defect. You read it, you recognise the shape, and you expect to recognise the shape again when it turns up in your own work. That expectation is the thing this article is written against, and it is worth saying so before anything else, because if it holds then everything after this paragraph is decoration.
+A short set of questions has to be attached to the act of installing a check. It cannot be attached to your intention to be careful. That is the finding this article is built on, and it is worth having before the argument for it.
 
-It does not hold. People concentrating on a task ask questions along the line they are already following. Asking them to be more careful does not move that line — it asks the line to move itself, using the attention that is already committed elsewhere. The person installing a check is concentrating on the rule the check enforces. That is the line they are following, and it is a good line. It simply does not pass through any of the places where checks fail.
+The reason is that attention follows the line already being pursued. Someone installing a check is pursuing the rule the check enforces. A question that waits to be remembered is waiting on attention that is committed elsewhere.
 
-The disciplines that have solved this did not solve it by raising the standard of attention. Industrial hazard studies apply a short fixed set of prompts — about seven of them — at every step of a process, whether or not the step looks like it needs them. Aviation checklists are triggered by the action rather than by the subject: the checklist runs because you are about to do the thing, not because you judged that this instance warranted a checklist. Both methods work by attaching a small number of questions to a moment. Neither works by asking anyone to think harder.
+Two disciplines already work this way. Industrial hazard studies apply about seven fixed prompts at every step of a process. Aviation checklists trigger on the action rather than on the subject — the list runs because you are about to do the thing, not because you judged this instance worth a list.
 
-Two properties of those sets matter more than their contents. The set is small, and it is triggered by the act. A long set gets skipped under pressure, and a set triggered by your own judgment that this case is risky has been triggered by exactly the attention it was supposed to replace.
+So here is the set this article argues for, put in front of you before its case is made:
 
-So here is the set this article argues for, stated before the argument, so you can carry it away now and let the rest of the article earn it:
+Can this check actually fire?
 
-Can this check actually fire? Not whether it is correct — whether there is any occasion on which it runs, reads what it needs, and can see the thing it is deciding about.
+Is this a fact the acting code can compute, or a judgment nobody has made yet?
 
-Is this a fact the acting code can compute, or a judgment nobody has made yet? The two have different homes, and putting either in the other's home fails in a way you can recognise on sight.
+Whose effort does this refusal spend?
 
-Whose effort does this refusal spend? A refusal costs something, and what it costs depends entirely on where in the process it happens.
+Does any earlier step revoke something a later step still needs?
 
-Does any earlier step revoke something a later step still needs? This one is not about a check at all. It is about the sequence the checks sit in.
+Four questions, and one rule for adding a fifth: add only when something that was genuinely available got missed. The list is meant to stay small enough to be asked every time.
 
-Four questions, and one rule for growing the list: add to it only when something that was genuinely available got missed. Not when a new kind of failure is imagined, and not when a near-miss makes the list feel thin. The value of a short list is that it gets asked, and every addition is paid for out of that.
-
-The rest of this article is the case for each question — where it came from, what it caught, and why the shorter version of it does not work. If you stop reading here you have the practice. What follows is why you should trust it.
+The rest of the article is the case for each question. If you stop reading here you have the practice. What follows is the reason to trust it.
 
 ## Whether the check can fire, and what kind it is
 
-The first question looks like the weakest of the four. It reads as a formality — of course the check runs, it was merged, there is a configuration entry naming its file. That reading is the reason the question is on the list, and the reason it has to be fanned out into its separate routes rather than asked once. A single yes-or-no gets answered once, confidently, from the surface evidence, and then never asked again.
+You are holding the four questions now, weighing each one against the others to see whether it earns its place on a list this short. Start with the first, because it looks like the one to cut. The check runs; someone merged it; a configuration entry names its file. That entry records only that a check was set up. It does not show that the check can reach the moment it is supposed to judge.
 
-There are at least three different ways for the answer to be no, and they do not look alike.
+That gap opens in more than one place, and the places do not resemble each other.
 
-The first is that the check has no occasion. A team had spent a long time fixing the same two bugs — twelve times, each time by adding a check at the outermost edge of their own code, and each time the bug came back. It kept coming back because it was happening one layer further out, in a place their code never touched. So the thirteenth attempt moved the check out to that layer, into a hook the surrounding tool provides. That was the right diagnosis and the right layer. It merged. The next day the owner hit the identical bug.
+Take the inputs first. A check reads things — a variable, a stored key, a file on disk. If nothing in the system ever writes one of those things, the check cannot fire, no matter how correct its rule is. Ordinary discipline does not catch this. A team can test that every component it ships is called from somewhere, and the version that can never fire passes that test unchanged.
 
-The hook was reading three things: an environment variable, a state key, and an evidence file. Not one of them was written by anything. Each missing piece made the hook quietly decline to judge rather than fail, so every surface said installed. The team had spent twelve attempts learning where the check belonged, and the thing that beat them was not the layer at all. Having the right layer had felt like the whole problem, and it turned out to be the easy half.
+Now take the destination. A rule can name a place the check is supposed to send something to, or a place it is supposed to look at, while the arguments the check receives never carry that place. Then the check cannot enforce the rule. It can offer the rule as advice and nothing more. There is a tell, and it arrives while the requirement is still being written: you ask what should happen in some ordinary case, and every answer available to you is unattractive.
 
-That is the shape to take from it: an input with no writer means the safeguard can never fire. The check to run is not a review of the code — it is to take every input the safeguard reads and find the thing that writes it. And the reason this route is invisible to ordinary discipline is that the standard test passes on the dead version. A check that every shipped component is called from somewhere will confirm the hook is wired in. Being called is only half of being able to run.
+The third place is the plain one. The check sits on some occasions and not on the occasions where the work actually happens. It is worth naming so that the first two are not mistaken for it.
 
-The second route is that the check cannot see what the rule is about. Consider a filing check that seemed to need one more option: a way to say "this is accumulating material" and have it appended to a project's observation notes instead of becoming a work item. Writing the requirement broke it. Someone asked what should happen when the project has no such notes file, and every available answer was unattractive — block the filing, file it anyway and defeat the point, or create the file inside someone else's project.
+You can now settle whether a check reaches the moment it is meant to judge. That answer says nothing about what kind of check the property deserves, and it is the precondition for asking. So ask it next.
 
-The reason none of the answers worked is structural rather than a matter of finding a better one. The check runs across every project one person works in; the notes file belongs to individual projects. The destination was simply not in what the check was handed. Where a rule names a destination the check cannot see in its arguments, that rule can only ever be advice, however carefully it is worded and wherever it is installed. And the tell arrives early: a requirement whose every available answer is unattractive is usually a rule being asked of the wrong component, not a rule that is underspecified. The companion rule adopted the same day pointed at another work item in the same project, which the check already receives, and that one was enforceable.
+The question resists the abstract form. Whether a property is a fact the acting code can compute or a judgment nobody has made yet sounds like a distinction you either see at once or argue about all afternoon. The two wrong mechanisms are the shorter route, because each one fails in a way you can recognise on sight.
 
-The third route is the plain one — the check is installed on some occasions and not on the occasions where the work actually happens — and it is worth naming only so the first two are not mistaken for it.
+Consider a flag the calling code passes to declare itself allowed through. The code path that made the mistake is the code path that passes the flag. The check therefore consults the very actor it exists to catch, and the actor asserts its way past.
 
-What ties the routes together is what they do to the surface. All three leave the system reading as safe. A configuration entry naming a real file, a merge commit, a green suite: each is evidence that something was set up, and none of them is evidence that it can run. So the first question is not answered by looking at the check. It is answered by replaying the original failure through it and watching it block.
+Consider a confirmation prompt placed over something the code could compute for itself. It puts the same question to a person on every pass, and the person gives the same answer nearly every time. That person learns to stop reading it.
 
-Establishing that a check can fire tells you nothing about what kind of check it should be. That is the next question, and asked in the abstract it is close to useless: whether a property is a fact or a judgment sounds like a distinction you either see immediately or argue about forever. The useful route in is not the definition. It is the two failure signatures, because each wrong answer fails in a way you can recognise without knowing anything about the property in advance.
-
-A work item was filed carrying an origin label it should not have had. The first fix proposed was a command-line flag that only the legitimate code path would pass. The owner declined that and offered the opposite mechanism instead: a human confirmation on every filing.
-
-Both proposals were reasonable, and working through them showed they failed for opposite reasons.
-
-The flag fails because it is asserted by the very actor that made the mistake. The code path that mislabelled the item is the code path that would be passing the flag, so the check consults the thing it exists to catch. Any mechanism where the actor supplies the evidence of its own correctness has this shape, and it always looks like a check while behaving like a preference.
-
-The confirmation fails from the other side. It asks a person to verify something the machine already knows, on every single filing, where the answer is almost always the same. That trains people to click through — and in this case the point was already proven, because the bad label had just survived exactly such a human reading. A prompt that is almost always answered the same way is not a check on the rare case; it is a rehearsal of the common one.
-
-So the diagnosis runs from the signature back to the category. If your proposed mechanism lets the acting code assert its way past the check, you were treating a computable fact as though it were a judgment, and you handed the judgment to the wrong party. If your proposed mechanism asks a person to confirm something the code could have computed, you were treating a judgment as though it needed one — and you have bought a click-through habit that will cost you on the day it matters.
-
-The resolution in that case was neither mechanism. It was a routing rule: a property the acting code can compute gets checked mechanically at the moment of the act, by verifying the calling context rather than trusting anything the caller supplies. A genuine judgment does need a person, but it rides a confirmation step the workflow already has, with the relevant details surfaced there, rather than minting a second prompt.
-
-The phrase "at the moment of the act" is doing real work in that sentence. Which code path is creating this record is a fact that exists while the record is being created and is often gone immediately afterwards. Deferring the check to a later stage does not make it harder; it makes it impossible, and then it gets replaced by the caller-supplied flag, which is where this section started.
+Now run each signature backwards. A mechanism the acting code can assert its way past was carrying a fact the code could have computed, and you routed that fact through the actor instead of through the machine. A mechanism that asks a person to confirm what the code already knows was carrying no judgment at all, and you bought the click-through habit for nothing. The signature answers the question that the definition would not.
 
 ## Where the refusal sits in the process
 
-By now the check is in a good state. It has an occasion, its inputs have writers, it can see what the rule is about, and the property it decides has been routed to the mechanism that suits it. A reasonable person would stop here. The check fires, and when it fires it is right.
+Two things about this check are settled now. It reaches the moment it is meant to judge. The property it decides sits in the mechanism that suits it. What you are still holding is a check that refuses at the last moment.
 
-This is where the third question earns its place, because the cost it asks about does not go away when the earlier problems are fixed. It survives every one of them.
+That is the state the third question is for. It asks about something the first two questions leave untouched.
 
-Consider a check that refuses at the last moment, and refuses correctly. The thing it rejects is genuinely faulty. Nothing about the refusal is wrong. But the item it rejects has already been read and approved by a person, and that person's effort is now spent and cannot be cheaply repeated. Meanwhile the fault was introduced much earlier, by whatever produced the item in the first place. The refusal is correct and the bill is sent to the wrong party — to the scarcest input in the process, at the point where it is least recoverable.
+Follow what a late refusal lands on. The thing it rejects has already been read by a person. That person approved it. The reading is effort that has been spent. It will not be repeated cheaply. The fault in the thing came from whatever produced it, further back.
 
-That is the claim this article is built around, and it is worth stating in its weak form rather than its strong one. A safety check that refuses work at the last moment is not necessarily in the right place, even when its refusal is correct. Not wrong — not necessarily right. The refusal being correct is simply not evidence about placement, and it is treated as evidence constantly, because a correct refusal feels like the system working.
+Now change the conditions the earlier questions govern. Give the check the occasion it was missing. The spent reading is still spent. Move the property off the actor and onto the machine. The spent reading is still spent. Neither repair reaches back to the moment the person read the thing, because neither repair is about that moment.
 
-The practical form of the question is: validate the shape of something when it is created rather than when it is finally used. Most of what a late check catches is a property the producing step could have been made to establish, and establishing it there costs the producer's attention rather than the reviewer's.
+So the cost holds still while the rest of the check improves around it. That is the reason it earns a question of its own rather than a footnote to the other two.
 
-The diagnostic is a pattern rather than an instance. One late refusal on approved work tells you nothing — sometimes the fault genuinely could not have been seen earlier. A pattern of late refusals on already-approved work is evidence that the check is sited too far downstream, and it is the kind of evidence you have to go looking for, because each individual instance arrives looking like a success.
+It is also the claim this article is built on, and the weak form is the one to state. A safety check that refuses work at the last moment is not necessarily in the right place. That holds even where the refusal is correct. Not wrong — not necessarily right.
 
-This is also where the earlier questions stop helping, and it is worth being clear about that. Everything in the previous two sections was about whether a check works. This question is about a check that works. You can pass the first three questions completely and still be holding a system that spends its most expensive resource on faults it was told about much earlier.
+Which leaves the question this section opens. The refusal is late in the process. The fault entered the process earlier. What follows from the gap between those two points is the next thing to work out.
 
-Three questions in, the list looks finished. Each one takes a check and asks something about that check: can it run, what kind is it, where does its refusal land. Applied one check at a time, they cover the ground — and that is exactly the assumption the fourth question exists to break.
+Everything so far has taken one check and turned it over. The list you are holding is settled and it works that way: you pick up a mechanism, you ask what it can reach, what it decides, whose effort it spends. Nothing in that habit gives you a reason to look at what sits between one step and the next. The fourth question is the one that sends you there, and the case for it is that the space between steps has to be reached deliberately, because everything already standing in the way of a defect there lets it through.
 
-A written procedure for closing out a reviewed batch of work said to lock the checklist first and to write the final index entry last. Both halves sounded right. Locking early protects the record; writing the index entry at the end is what an index entry is for. The order was treated as settled, and there was no reason to look at it again.
+Follow what such a defect has to survive to reach the end. Each thing in its path would have to stop it, and each has to be got past before the next one matters.
 
-Running the documented order under the permission check produced a denial at the final step. Locking the checklist had revoked all write permission immediately — including the permission the last step still needed. The failure landed after the expensive, already-committed work had gone through, which is the worst possible place for it, and it landed on a sequence in which every individual step was correct.
+The first is the reading. Someone goes over the sequence with the list in hand and audits the steps one at a time. A flaw that lives in the relation between two steps is not in either of them, so an audit conducted step by step passes over it. The reader is not being careless. They are looking where the list points.
 
-That last property is what makes this a separate question rather than a corollary of the others. Every step reads as correct in isolation, so reviewers nod along line by line and the flaw lives only in the relation between steps. There is nothing wrong to see at any point where a reviewer is looking.
+Past that stands the per-step test. Each step gets its own coverage, and every one of those tests can pass, for the same reason the reading passed: what is being tested is the step, and the step is correct.
 
-It defeats the obvious tests for the same reason. Unit tests of each step can all pass. Tests of every denial case can all pass. And the single authorised end-to-end path — the one where everything is permitted and the sequence actually runs to the end — can have zero coverage, because it is the only path nobody wrote a test for, on the grounds that it is the one that is supposed to work.
+Past that stand the denial cases. These are the tests you write when you are thinking about what could go wrong — every case where the sequence is supposed to refuse. All of them can pass too.
 
-The question to ask, for each step in a teardown or close-out sequence: does any earlier step remove something a later step requires? The general form is to order such steps by increasing restriction, so that nothing revokes a permission a later step still needs. The check that carries weight is an end-to-end run of the whole sequence, because that is the only thing that exercises the relation the defect lives in.
+What is left after those three is the single authorised path: everything permitted, the sequence running from its first step to its last. That path can have zero coverage. It is the one arrangement in which the relation between the steps is actually exercised, and it is the one the earlier instruments were never going to reach, because each of them was looking at a unit.
 
-The same shape turns up wherever a process dismantles its own authorisation. Credential rotation that revokes the old key before the new one has propagated. A privilege downgrade inside a transaction that still has work to commit. Feature-flag or sandbox teardown that removes the switch a later cleanup step reads. In each case the individual steps are defensible and the ordering is where the failure lives.
-
-So the list is four questions, not three, and the fourth is different in kind from the others. The first three interrogate a check. The fourth interrogates the space between checks, which is precisely where the first three cannot look. That is the argument for keeping it on a list that is otherwise about single mechanisms — and it is also the model for anything you later add. Add a question when something that was genuinely available got missed, and when no question already on the list was standing anywhere it could have seen it.
+So a check applied to one step at a time cannot see this, and neither can a test written against one step at a time. That is why the question about ordering has to be asked separately, and why the thing that answers it is a run of the whole authorised path end to end rather than a further round of per-step review.
