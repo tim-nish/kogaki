@@ -1,5 +1,21 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v37, amended 2026-09-07 (kogaki#904) — **§1: the scope limit is
+carried by the general rule, and the defence citing a removed clause is
+DELETED.** The sentence defended the limit by pointing at
+`specs/spec-terrain/SPEC.md`'s WA baseline, a clause SPEC-terrain v36 (kogaki#857,
+PR #903) removed on merge — so a reader checking whether this pipeline inherits
+WA design followed a citation and landed nowhere, which is worse than an absent
+one. The premise it guarded against is unassertable: `specs/SPEC.md` §4.5.1
+clause 2 states flatly that Kogaki inherits no `writing-assistant` baseline
+unless one is declared per subject, and §4.5.2's finding aid already carries this
+subject's row. Deletion rather than a repoint, because a per-subject restatement
+is a second carrier of one rule and each carrier would then owe a cite to the
+other at the point of the rule — `consulted: product-lab@32852644 LESSONS.md:68`
+— which widens the change to `specs/SPEC.md` for a defence the general rule
+already makes. Owner selection at the pickup gate. No code change and no case.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v36, amended 2026-09-06 (kogaki#915) — **§5.3/§6: the run state's
 `gate` key IS the declaration, and the run-declaration FILE is a derived
 artifact that is not the barrier.** v32's acceptance item 2 read *"`adopt`
@@ -150,9 +166,7 @@ amendment can restore.
 ## 1. Scope — what this pipeline may not import
 
 This spec is authored here, fresh. It is **not** a port of writing-assistant's
-Brief, and `specs/spec-terrain/SPEC.md`'s WA baseline does not reach it: that
-clause is scoped strictly to Terrain design, and a sitting citing it for a
-Brief or Draft question is misusing it.
+Brief.
 
 The owner's inheritance whitelist for this pipeline is exactly four items — the
 Terrain → Brief pipeline idea, the way it reads Thesis and Strands, the policy
