@@ -1795,6 +1795,24 @@ function renderJoinPacket(ws, draft, step, item, pair, declaredText, recoveredTe
 const verdictKey = (step_id, item, pair) => (pair === null || pair === undefined
   ? `${step_id}/${item}` : `${step_id}/${item}#${pair}`);
 
+// WHAT JUDGED THIS PASS, READ BACK FROM THE RECORDED VERDICTS (kogaki#997).
+// ReviewDraft pins a different model per role, and the Harness invokes none of
+// them, so this line is a RENDERING OF A DECLARATION and says so — the same
+// shape terrain took for its judge pin, where naming it as an observation
+// claimed a check nobody performed.
+//
+// SEVERAL IDS RENDER AS SEVERAL, never as one summary. A pass whose pair and
+// Section judgments ran on the pinned Haiku and whose corrections ran on the
+// stronger model is the intended split; a pass showing a THIRD id, or the
+// interactive default, is a pin that slipped, and that is exactly the reading
+// this line exists to make possible.
+const judgedByLine = (...callSets) => {
+  const ids = [...new Set(callSets.flat().map((c) => c && c.model).filter(Boolean))].sort();
+  return ids.length
+    ? `judged by DECLARED model(s) — ${ids.join(", ")}; the Harness invoked no model and verified none.\n`
+    : "";
+};
+
 // THE VERDICT FILE IS VALIDATED AGAINST WHAT THE RUN ACTUALLY OWES, and every
 // refusal names what it saw. Three refusals matter and each is its own mistake:
 // a pair nobody was asked about, a token outside the closed three, and a reason
@@ -1812,12 +1830,12 @@ function recordVerdicts(run, file, owed, items) {
   try { doc = JSON.parse(readFileSync(file, "utf8")); }
   catch (e) {
     fail(`${file} is not readable JSON (${e.message}) — a verdicts file is one JSON object `
-      + `carrying \`verdicts\`: [{step_id, item, pair?, verdict, reason}]`);
+      + `carrying \`verdicts\`: [{step_id, item, pair?, verdict, reason, model}]`);
   }
   const list = doc && !Array.isArray(doc) && Array.isArray(doc.verdicts) ? doc.verdicts : null;
   if (!list) {
     fail(`${file} carries no \`verdicts\` array — it is one JSON object of the form `
-      + `{"verdicts": [{"step_id": ..., "item": ..., "verdict": ..., "reason": ...}]}`);
+      + `{"verdicts": [{"step_id": ..., "item": ..., "verdict": ..., "reason": ..., "model": ...}]}`);
   }
   // A PAIR ALREADY ANSWERED IS STILL ANSWERABLE (PR #895 round 1, finding 5).
   // `owed` shrinks as verdicts land, so validating against it alone refused a
@@ -1861,8 +1879,26 @@ function recordVerdicts(run, file, owed, items) {
         + "every other number in a review is a score by another name; write it as a word");
       return;
     }
+    // THE MODEL THAT PRODUCED THE VERDICT IS PART OF THE VERDICT (kogaki#997).
+    // ReviewDraft pins a different model per role — the pair and Section
+    // judgments are one fixed question with a three-token answer, the
+    // recoveries, the cold read and the corrections write evidence and prose —
+    // and a record that does not say which one answered cannot be read back to
+    // check that the pin held. The 2026-09-07 run is the case: a hundred and
+    // more model calls, and nothing in `join.json` says what ran any of them.
+    if (typeof v.model !== "string" || v.model.trim() === "") {
+      problems.push(`${at} carries no \`model\` — the id of the model that produced this verdict, `
+        + "as passed to `--model` at the spawn. It is a DECLARATION: the Harness invokes no judge and "
+        + "verifies nothing about it, which is exactly why it must be written down rather than inferred");
+      return;
+    }
+    if (/\s/.test(v.model.trim())) {
+      problems.push(`${at}'s \`model\` carries whitespace — it is one model id, the value \`--model\` `
+        + `took, and \`${v.model.trim()}\` is not one`);
+      return;
+    }
     accepted.push({ key, step_id: v.step_id, item: v.item, pair: v.pair === undefined ? null : v.pair,
-      verdict: v.verdict, reason: v.reason.trim() });
+      verdict: v.verdict, reason: v.reason.trim(), model: v.model.trim() });
   });
   if (problems.length) {
     fail(`the verdicts in ${file} were not recorded:\n  - ${problems.join("\n  - ")}`);
@@ -2053,10 +2089,15 @@ function buildJoin(draft, run, items, ws, opts = {}) {
           const file = renderJoinPacket(ws, draft, step, item, i,
             declared[item.declared_block][p.ground_index],
             renderSide(entry[item.pair_text_key]));
-          modelCalls.push({ step_id: step.step_id, item: item.id, pair: i, packet: file });
+          // THE VERDICT IS READ BEFORE THE CALL IS LOGGED, so the log can name
+          // the model that answered it. An unanswered call carries `model:
+          // null` — owed, not judged by nobody.
           const v = verdicts[key];
+          modelCalls.push({ step_id: step.step_id, item: item.id, pair: i, packet: file,
+            model: v ? v.model ?? null : null });
           subs.push(v
-            ? { pair: i, verdict: v.verdict, reason: v.reason, span: entry.span || step.lines, decided_by: "model" }
+            ? { pair: i, verdict: v.verdict, reason: v.reason, model: v.model ?? null,
+                span: entry.span || step.lines, decided_by: "model" }
             : { pair: i, owed: true, key, packet: file, span: entry.span || step.lines });
           if (!v) owed.push({ key, step_id: step.step_id, item: item.id, pair: i, packet: file });
         });
@@ -2066,10 +2107,12 @@ function buildJoin(draft, run, items, ws, opts = {}) {
           declaredSide(step, item, declared, items),
           item.recovered_field ? renderSide(recoveredAt(rec, item.recovered_field))
             : "(the passage itself, quoted below — this item asks whether something is ABSENT from it)");
-        modelCalls.push({ step_id: step.step_id, item: item.id, pair: null, packet: file });
         const v = verdicts[key];
+        modelCalls.push({ step_id: step.step_id, item: item.id, pair: null, packet: file,
+          model: v ? v.model ?? null : null });
         subs.push(v
-          ? { pair: null, verdict: v.verdict, reason: v.reason, span: step.lines, decided_by: "model" }
+          ? { pair: null, verdict: v.verdict, reason: v.reason, model: v.model ?? null,
+              span: step.lines, decided_by: "model" }
           : { pair: null, owed: true, key, packet: file, span: step.lines });
         if (!v) owed.push({ key, step_id: step.step_id, item: item.id, pair: null, packet: file });
       }
@@ -2096,7 +2139,12 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         || subs.find((s) => s.verdict === "cannot-decide") || subs[0];
       results.push({ step_id: step.step_id, item: item.id, class: item.class,
         decided_by: subs.every((s) => s.decided_by === "harness") ? "harness" : "model",
-        verdict: chosen.verdict, reason: chosen.reason, span: chosen.span, pairs: subs });
+        verdict: chosen.verdict, reason: chosen.reason,
+        // A HARNESS-DECIDED LINE CARRIES NO `model` KEY, and that absence is the
+        // record rather than a gap in it: the Harness decided it from string
+        // facts and no model was asked. Every pair's own model rides `pairs`.
+        ...(chosen.decided_by === "model" ? { model: chosen.model ?? null } : {}),
+        span: chosen.span, pairs: subs });
     }
   });
 
@@ -2279,10 +2327,12 @@ function buildSectionJoin(draft, run, items, ws) {
       const key = verdictKey(view.step_id, item.id, null);
       const file = renderJoinPacket(ws, draft, view, item, null,
         renderSide(declared), renderSide(recovered));
-      modelCalls.push({ section: sec.index, item: item.id, pair: null, packet: file });
       const v = verdicts[key];
+      modelCalls.push({ section: sec.index, item: item.id, pair: null, packet: file,
+        model: v ? v.model ?? null : null });
       if (v) {
         results.push({ ...row, decided_by: "model", verdict: v.verdict, reason: v.reason,
+          model: v.model ?? null,
           declared: renderSide(declared), recovered: renderSide(recovered) });
       } else {
         results.push({ ...row, owed: true });
@@ -2517,6 +2567,7 @@ function cmdCompare(args) {
       `compare: every input present — ${run.steps.length} recovered Step(s), `
       + `${run.sections.length} Section entr${run.sections.length === 1 ? "y" : "ies"} and the final claim.\n`
       + `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n`
+      + judgedByLine(modelCalls, sec.modelCalls)
       + `${owed.length + sec.owed.length} pair(s) await a verdict — one join Packet each, under ${join(ws, "join")}:\n`
       + [...owed, ...sec.owed].map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
       + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
@@ -2538,6 +2589,7 @@ function cmdCompare(args) {
     + `${mechanicalLog.length} decided mechanically and ${modelCalls.length} judged.\n`
     + `         ${sec.results.length} (Section, item) pair(s) joined, `
     + `${sec.mechanicalLog.length} vacuous by the table and ${sec.modelCalls.length} judged.\n`
+    + judgedByLine(modelCalls, sec.modelCalls)
     + (preserved.length
       ? `Steps sent to correction — a preserved item fails: ${[...new Set(preserved.map((r) => r.step_id))].join(", ")}\n`
       : "No preserved item fails, so no Step is sent to correction.\n")
@@ -3500,6 +3552,7 @@ function cmdCheck(args) {
     + `  successors re-checked ${[...bound.successors].join(", ") || "(none)"} on ${bound.successorItems.join(", ")}\n`
     + `  mechanical items      re-run over every Step\n`
     + `${mechanicalLog.length} pair(s) decided mechanically and ${judged} judged.\n`
+    + judgedByLine(modelCalls)
     + (uncorrected.length
       ? `UNCORRECTED — pass one sent these to correction and they are still owed: ${uncorrected.join(", ")}.\n`
         + "  An entry marked `(--figure)` is the figure seat; the rest are the passage. A Step can\n"
@@ -3772,6 +3825,14 @@ item) once every pair is answered, and never before: there is no fourth token
 for "not asked yet", and \`cannot-decide\` is a real answer rather than a place
 to round one.
 
+EVERY VERDICT NAMES THE MODEL THAT PRODUCED IT — \`{step_id, item, pair?,
+verdict, reason, model}\`, and a verdict with no \`model\` is refused. The id
+rides the verdict, the \`model_calls\` log and the emitted \`judged by DECLARED
+model(s)\` line. It is a DECLARATION: the Harness invokes no judge, pins no
+model and verifies nothing about the value, which is why the record must carry
+what the spawn was pinned to rather than leaving it to be inferred from a run
+that no longer exists.
+
 \`open\` also renders the COLD READER'S input: the Draft body alone, no
 frontmatter and nothing from a Packet. That reader records, per Section, the
 question it answered and what they now believe, and one final claim for the
@@ -3805,6 +3866,12 @@ async function runSelfTest() {
   const { spawnSync } = await import("node:child_process");
   const self = fileURLToPath(import.meta.url);
   const root = mkdtempSync(join(tmpdir(), "review-draft-selftest-"));
+  // THE FIXTURE'S DECLARED JUDGE (kogaki#997). Every verdict a case records
+  // names the model that produced it, because the surface refuses one that does
+  // not; this is a stand-in id and never a pin — the pins live in
+  // `.claude/skills/review-draft/SKILL.md`, and the Harness names no model of
+  // its own anywhere.
+  const JUDGE_MODEL = "a-judging-model";
   let passed = 0; const failures = [];
   // `detail` RENDERS (kogaki#883, finding 3). Case 23 always passed its
   // offending-import list as a third argument, and the two-parameter form
@@ -4150,7 +4217,7 @@ async function runSelfTest() {
       verdicts: owed.map((o) => ({
         step_id: o.step_id, item: o.item,
         ...(o.pair === null ? {} : { pair: o.pair }),
-        verdict, reason,
+        verdict, reason, model: JUDGE_MODEL,
       })),
     }, null, 2) + "\n");
     return f;
@@ -4518,6 +4585,24 @@ async function runSelfTest() {
       "every other number in a review is a score by another name");
     bad("a verdicts file that is not one object carrying `verdicts` is refused",
       undefined, "carries no `verdicts` array");
+    // kogaki#997 — A VERDICT THAT DOES NOT SAY WHAT PRODUCED IT IS REFUSED.
+    // The 2026-09-07 run made a hundred and more model calls and its record
+    // says what ran none of them, so a reader cannot check that the per-role
+    // pins held. The refusal is what makes the omission unreachable rather
+    // than merely discouraged.
+    bad("a verdict carrying no `model` is refused, naming it as the id of what produced it",
+      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine" }],
+      "carries no `model`");
+    bad("and an empty `model` is refused by the same clause, not accepted as a value",
+      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine", model: "   " }],
+      "carries no `model`");
+    // ONE ID, NOT A SENTENCE ABOUT ONE. `--model` takes a single token, and a
+    // value with a space in it is a description of the spawn rather than the
+    // thing the spawn was pinned to.
+    bad("a `model` carrying whitespace is refused — it is the one id `--model` took",
+      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine",
+        model: "haiku but the strong one for corrections" }],
+      "carries whitespace");
     // EVERY problem in one refusal, never the first found.
     {
       const f = join(root, "bad-verdicts-many.json");
@@ -4551,6 +4636,48 @@ async function runSelfTest() {
     ok("recording the verdicts completes the join", r.status === 0 && /recorded: \d+ verdict/.test(r.stdout));
     const rec = JSON.parse(readFileSync(join(WS, "join.json"), "utf8"));
     ok("and the join record says so", rec.complete === true);
+
+    // kogaki#997 — WHAT JUDGED EACH PAIR IS RECOVERABLE FROM THE RECORD.
+    // Asserted over EVERY model-decided row and EVERY call in both branches of
+    // the log rather than over a sample: the defect the Issue reports is that a
+    // hundred and more calls carried step, item, pair and packet and nothing
+    // else, and a case that checked one row would pass on a record that lost
+    // the rest.
+    {
+      const stepCalls = rec.model_calls || [];
+      const secCalls = (rec.sections || {}).model_calls || [];
+      ok("#997: every model call in the Step log names the model that answered it",
+        stepCalls.length > 0 && stepCalls.every((c) => c.model === JUDGE_MODEL),
+        `${stepCalls.filter((c) => c.model !== JUDGE_MODEL).length} without it, of ${stepCalls.length}`);
+      ok("#997: and every model call in the Section log names it too",
+        secCalls.length > 0 && secCalls.every((c) => c.model === JUDGE_MODEL),
+        `${secCalls.filter((c) => c.model !== JUDGE_MODEL).length} without it, of ${secCalls.length}`);
+      // PER PAIR, not only per item: an item whose pairs were answered by
+      // different models is what a slipped pin looks like, and the per-pair
+      // record is the only place that is visible.
+      const pairs = (rec.results || []).flatMap((r) => r.pairs || [])
+        .filter((sub) => sub.decided_by === "model");
+      ok("#997: every model-decided PAIR carries the model beside its verdict",
+        pairs.length > 0 && pairs.every((sub) => sub.model === JUDGE_MODEL));
+      ok("#997: and every model-decided Section row does",
+        ((rec.sections || {}).results || []).filter((x) => x.decided_by === "model").length > 0
+        && ((rec.sections || {}).results || []).filter((x) => x.decided_by === "model")
+          .every((x) => x.model === JUDGE_MODEL));
+      // THE ABSENCE IS THE RECORD ON A HARNESS ROW. A mechanical item was
+      // decided from string facts and no model was asked, so writing one there
+      // would be a claim about a call that never happened — and a reader could
+      // no longer tell a judged row from a decided one by its own fields.
+      const harnessRows = (rec.results || []).filter((x) => x.decided_by === "harness");
+      ok("#997: a harness-decided row carries NO model key — no call was made to name",
+        harnessRows.length > 0 && harnessRows.every((x) => !("model" in x)));
+      // AND THE RUN SAYS IT OUT LOUD, as a DECLARATION rather than as an
+      // observation: the Harness invoked no judge, which is the same reading
+      // terrain's judge pin was corrected to at kogaki#892.
+      ok("#997: the emission names the declared judge and says nothing verified it",
+        new RegExp(`judged by DECLARED model\\(s\\) — ${JUDGE_MODEL}; `
+          + "the Harness invoked no model and verified none\\.").test(r.stdout),
+        r.stdout.split("\n").filter((l) => /DECLARED/.test(l)).join(" | ") || "(no such line)");
+    }
 
     const ITEMS = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     baseLines = linesOf(r.stdout);
@@ -5182,7 +5309,8 @@ async function runSelfTest() {
   {
     const f = join(root, "revise.json");
     writeFileSync(f, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
-      verdict: "fails", reason: "the passage is doing a different job from the declared one" }] }) + "\n");
+      verdict: "fails", reason: "the passage is doing a different job from the declared one",
+      model: JUDGE_MODEL }] }) + "\n");
     const r = drive("compare", "--verdicts", f);
     ok("an answered pair can be answered again", r.status === 0 && /recorded: 1 verdict/.test(r.stdout));
     ok("and the revision is what the comparison line now renders",
@@ -5190,7 +5318,8 @@ async function runSelfTest() {
     // Put it back, so the cases after this one see the run they expect.
     const g = join(root, "revise-back.json");
     writeFileSync(g, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
-      verdict: "holds", reason: "the declared line and the recovered one agree" }] }) + "\n");
+      verdict: "holds", reason: "the declared line and the recovered one agree",
+      model: JUDGE_MODEL }] }) + "\n");
     const back = drive("compare", "--verdicts", g);
     ok("and a revision is not one-way", /\sholds\s/.test(linesOf(back.stdout).get("a1/purpose")));
     // A pair the run never asked about is STILL refused, and the refusal now
@@ -5642,6 +5771,7 @@ async function runSelfTest() {
             reason: failing
               ? "the recovered reader would not be the declared one"
               : "the declared line and the recovered one agree",
+            model: JUDGE_MODEL,
           };
         }),
       }, null, 2) + "\n");
@@ -5905,6 +6035,7 @@ async function runSelfTest() {
               reason: failing
                 ? "the recovered reader would not be the declared one"
                 : "the declared line and the recovered one agree",
+              model: JUDGE_MODEL,
             };
           }),
         }, null, 2) + "\n");
@@ -6093,7 +6224,8 @@ async function runSelfTest() {
             verdict: failing ? "fails" : "holds",
             reason: failing
               ? "the heading promises a question this Section does not answer"
-              : "the declared line and the recovered one agree" };
+              : "the declared line and the recovered one agree",
+            model: JUDGE_MODEL };
         }),
       }, null, 2) + "\n");
       return f;
@@ -6180,6 +6312,7 @@ async function runSelfTest() {
           reason: failKeys.includes(o.key)
             ? "the recovered reader would not be the declared one"
             : "the declared line and the recovered one agree",
+          model: JUDGE_MODEL,
         })),
       }, null, 2) + "\n");
       return f;
@@ -6235,7 +6368,7 @@ async function runSelfTest() {
           const v = byKey[o.key] || "holds";
           return { step_id: o.step_id, item: o.item,
             ...(o.pair === null ? {} : { pair: o.pair }),
-            verdict: v, reason: REASONS[v] };
+            verdict: v, reason: REASONS[v], model: JUDGE_MODEL };
         }),
       }, null, 2) + "\n");
       return f;
@@ -6541,7 +6674,7 @@ async function runSelfTest() {
             step_id: o.step_id, item: o.item,
             ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
             ...(o.section === undefined ? {} : { section: o.section }),
-            verdict: "holds", reason: "it agrees",
+            verdict: "holds", reason: "it agrees", model: JUDGE_MODEL,
           })),
         }, null, 2) + "\n");
         ok("#880 AC2: and fills once every judged pair is answered",
@@ -6819,6 +6952,7 @@ async function runSelfTest() {
           step_id: o.step_id, item: o.item,
           ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
           verdict: "holds", reason: "the declared line and the recovered one agree",
+          model: JUDGE_MODEL,
         })),
       }, null, 2));
     };
@@ -6880,6 +7014,7 @@ async function runSelfTest() {
         step_id: o.step_id, item: o.item,
         ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
         verdict: "holds", reason: "the declared line and the recovered one agree",
+        model: JUDGE_MODEL,
       })),
     }, null, 2)));
     ok("#880: pass two completes over the corrected figure", gChk.status === 0);
@@ -7119,6 +7254,7 @@ async function runSelfTest() {
             ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
             verdict: fails ? "fails" : "holds",
             reason: fails ? "the recovered reader state is not the one the Step declared" : "they agree",
+            model: JUDGE_MODEL,
           };
         }),
       }, null, 2));
@@ -7157,6 +7293,7 @@ async function runSelfTest() {
         step_id: o.step_id, item: o.item,
         ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
         verdict: "holds", reason: "the declared line and the recovered one agree",
+        model: JUDGE_MODEL,
       })),
     }, null, 2)));
     // THE CASE THE REPORT COULD NOT PRODUCE. f1 carries a recorded correction,
