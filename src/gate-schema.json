@@ -6,7 +6,20 @@
     "them \u2014 this file is the single carrier, so amending the contract is",
     "one edit and never a two-copy divergence. Same arrangement as",
     "src/record-schema.json, deliberately: item 3",
-    "and item 4 are adjacent contracts and share no machinery."
+    "and item 4 are adjacent contracts and share no machinery.",
+    "",
+    "SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).",
+    "Implemented code does not refer to a Spec. Content this file was",
+    "implemented against is stated HERE, and what is stated here is what the",
+    "code was implemented against - NOT the spec's current text. It stays true",
+    "for this file even if the spec is rewritten or deleted, and propagating a",
+    "later spec change into this file is a SEPARATE, EXPLICIT act. A bare name",
+    "below is a pointer carrying no authority. Nothing names a section number,",
+    "because section numbers renumber.",
+    "",
+    "THE NAMES THIS FILE USES, and the spec each one names:",
+    "  what the capture-writer decision does not close",
+    "      specs/spec-gate-carrier/SPEC.md"
   ],
   "version": "1",
   "hosts": {
@@ -105,7 +118,7 @@
       "option_set_digest"
     ],
     "owner_answer_rationale": "kogaki#891. A capture for a gate whose answer IS the owner's decision (rather than their ratification of a machine record) binds to the OPTION SET it answered, digested over [gate_id, [option ids]]. The same option id offered beside different alternatives is a different question, so without this axis a capture taken at one rendering certifies a choice at another. The ratification gate's own two-axis binding (`ratifies`) is unchanged and is a separate key: it binds WHAT was ratified, this binds WHAT WAS OFFERED.",
-    "gate_instance_id_rationale": "kogaki#890. Every RAISING of a gate mints a nonce, written into the run declaration and echoed onto the captured row, and the executor joins the two on it and on nothing else. It is a nonce rather than a digest because a binding computed from content identifies the CONTENT and never the INSTANCE: it separates two raisings exactly when they differ and fails exactly when they are alike, which is the pair a reader is least able to tell apart. Two runs over one settled input compose the same question and the same option set and therefore the same option_set_digest, so answers_over alone cannot keep one run's answer from advancing the other's wait. answers_over is unchanged and is not replaced: it binds WHAT WAS OFFERED, and this binds WHICH RAISING OFFERED IT. REQUIRED PER GATE, NOT GLOBALLY, and the scoping is the decision rather than a weakening (PR #917 round 1, finding 2). The field was first added to gate_row_required, which check-gate-carrier.sh enforces against EVERY row it finds anywhere in the working tree; the brief lane's three writers emit no such field and its run state lands inside the tree at runs/brief/ (gitignored, which the scanner does not consult). So the first /brief run on any working copy would have reddened the local suite against captures no writer in the tree could make conforming -- exactly the class kogaki#818 was filed to repair, rebuilt inside its own repair. A requirement binds the gates whose writer emits it; extending it to the brief lane is that lane's own act, named as a deferred slot at specs/spec-gate-carrier/SPEC.md 10.4.",
+    "gate_instance_id_rationale": "kogaki#890. Every RAISING of a gate mints a nonce, written into the run declaration and echoed onto the captured row, and the executor joins the two on it and on nothing else. It is a nonce rather than a digest because a binding computed from content identifies the CONTENT and never the INSTANCE: it separates two raisings exactly when they differ and fails exactly when they are alike, which is the pair a reader is least able to tell apart. Two runs over one settled input compose the same question and the same option set and therefore the same option_set_digest, so answers_over alone cannot keep one run's answer from advancing the other's wait. answers_over is unchanged and is not replaced: it binds WHAT WAS OFFERED, and this binds WHICH RAISING OFFERED IT. REQUIRED PER GATE, NOT GLOBALLY, and the scoping is the decision rather than a weakening (PR #917 round 1, finding 2). The field was first added to gate_row_required, which check-gate-carrier.sh enforces against EVERY row it finds anywhere in the working tree; the brief lane's three writers emit no such field and its run state lands inside the tree at runs/brief/ (gitignored, which the scanner does not consult). So the first /brief run on any working copy would have reddened the local suite against captures no writer in the tree could make conforming -- exactly the class kogaki#818 was filed to repair, rebuilt inside its own repair. A requirement binds the gates whose writer emits it; extending it to the brief lane is that lane's own act, named as a deferred slot at what the capture-writer decision does not close.",
     "open_gate_pointer": {
       "dir_env": "KOGAKI_OPEN_GATES",
       "dir_default": "~/.claude/kogaki-open-gates",

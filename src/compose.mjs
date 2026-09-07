@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // compose — the Step-record runtime over the Brief's settled materials
-// (SPEC-draft-pipeline, the Step's shape, the Step's grounding and the
-// entailed flag, the settled structure section and the obligations ledger;
+// (SPEC-draft-pipeline, the Step's shape, the grounding rule, the settled
+// structure section and the obligations ledger;
 // kogaki#489, story 1.73).
 //
-// Machine-side blocks 1-2 of the Reader Path artifact and its five blocks's five: path composition → Move binding.
+// Machine-side blocks 1-2 of the Reader Path artifact's five: path
+// composition → Move binding.
 // THIS RUNTIME RECORDS; IT NEVER JUDGES AND NEVER COMPOSES. The composing
 // producer is the sitting that authors the Step records toward the adopted
 // Thesis; this runtime validates their SHAPE (the Step's shape's fields — a schema
