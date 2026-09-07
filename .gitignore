@@ -92,6 +92,22 @@ policy/shape.md
 # local scope is per-machine by construction.
 !.claude/settings.json
 
+# The Review lane's FINDING LEDGER (kogaki#992; claude-toolkit#951 decision 1,
+# owner 2026-09-07). The reader that makes it public is the lane engine itself:
+# `review-lane` appends a row here at every non-blocking disposition and reads
+# the file back to count a class toward promotion, and a count assembled from
+# whichever machine happened to run the round is not a count. The public-need
+# criterion is met the way `settings.json` meets it — a fresh clone that does
+# not carry the file has no ledger, and the engine refuses at its first `done`
+# rather than failing loudly at a clone.
+#
+# THE MACHINE-LOCAL ALTERNATIVE WAS CONSIDERED AND DECLINED at that decision:
+# keeping the file out of the tree keeps it out of the other machine too, which
+# is the defect the migration away from the Issue-backed register was for. The
+# ledger's ROWS are tracked; nothing else about the lane is — the round bound,
+# the trigger and the freeze stay in the machine-local declaration.
+!.claude/findings-registry.jsonl
+
 # The two skill files a registered check READS. Each carries a contract with no
 # second carrier, and the check is the enforcement: `check-brief-entry.sh:796`
 # asserts /brief's completion stages against its skill (the 2026-08-18 dogfood
