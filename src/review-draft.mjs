@@ -2126,6 +2126,16 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             + "(`judge`) or failed by the Harness (`fail`), and the choice is the item's to make "
             + "rather than the matcher's to supply.");
         }
+        // AND A CHOSEN FALLBACK OWES THE FIELDS IT RENDERS (PR #1003 round 1).
+        // `fail` renders `unpaired_sentence` as the comparison line's reason, so
+        // an item declaring `fail` without one would put `undefined` where the
+        // reason belongs — the same inherited-or-absent shape this refusal
+        // exists to remove, one field further in.
+        if (item.unpaired === "fail" && !item.unpaired_sentence) {
+          fail(`the paired item \`${item.id}\` declares \`unpaired: "fail"\` and no `
+            + "`unpaired_sentence`. The Harness renders that sentence as the reason a claim "
+            + "was failed, so the fallback would decide the item and say nothing about why.");
+        }
         const entries = rec[item.recovered_field] || [];
         entries.forEach((entry, i) => {
           const p = pairs[i];
@@ -4296,9 +4306,11 @@ async function runSelfTest() {
       verdicts: owed.map((o) => ({
         step_id: o.step_id, item: o.item,
         ...(o.pair === null ? {} : { pair: o.pair }),
-        // `override` comes last so a case can restate the verdict and its reason;
-        // the model is the run's and is never a case's to name (kogaki#997).
-        verdict, reason, model: JUDGE_MODEL, ...(override ? override(o) || {} : {}),
+        // `override` is spread BEFORE `model`, so a case can restate the verdict
+        // and its reason and CANNOT name the model — which is the run's, never a
+        // case's (kogaki#997). Spread after, the comment would be the only thing
+        // enforcing it (PR #1003 round 1).
+        verdict, reason, ...(override ? override(o) || {} : {}), model: JUDGE_MODEL,
       })),
     }, null, 2) + "\n");
     return f;
@@ -7574,6 +7586,18 @@ async function runSelfTest() {
     // THE HARNESS DECIDES NO CLAIM. This is the defect's own signature: on the
     // 2026-09-07 run 87 of 93 failing claims sat in `mechanical` with no model
     // call, and none may now.
+    // THE PREMISE IS ASSERTED, NOT ONLY STATED (PR #1003 round 1). Every
+    // assertion below passes whether or not the claims pair, so without this the
+    // case would stay green while silently ceasing to exercise the unpaired path
+    // it exists for. `grounds-unused` reads the same assignment from the other
+    // side: if neither a1 claim reaches the floor, BOTH of a1's grounds are
+    // carried by nothing and the item fails naming them.
+    const gUnused = (grec.results || []).find((r) => r.step_id === "a1" && r.item === "grounds-unused");
+    ok("#996 PREMISE: neither claim on a1 pairs with a ground, so both grounds go unused",
+      !!gUnused && gUnused.verdict === "fails"
+      && GROUNDS.a1.every((g) => (gUnused.evidence || []).includes(g)),
+      gUnused ? `verdict ${gUnused.verdict}, evidence ${(gUnused.evidence || []).length}` : "no row");
+
     ok("#996: no `grounds` pair is decided by the Harness, however it pairs",
       !(grec.mechanical || []).some((m) => m.item === "grounds"));
     // AND EVERY CLAIM IS ASKED ABOUT. The count is the recovered claims', not
