@@ -77,6 +77,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # The predicate lives in tools/assert-licensed.sh so it can be exercised
+      # by cases (checks/check-license-assertion.sh) rather than only by
+      # pushing and reading the result — kogaki#905 acceptance 2. This step
+      # gathers the event's facts and calls it; it decides nothing itself.
       - name: Assert a licensing issue is named
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -89,15 +93,12 @@ jobs:
             haystack="$PR_TITLE
           $PR_BODY
           $(git log --format='%s %b' "$PR_BASE".."$PR_HEAD")"
+            tools/assert-licensed.sh --event pull_request --message "$haystack"
           else
             haystack="$(git log -1 --format='%s %b' HEAD)"
-          fi
-          if printf '%s' "$haystack" | grep -qE '#[0-9]+'; then
-            printf 'ok: licensing issue named — gate checked: #N present in %s\n' \
-              "$([ "$EVENT_NAME" = "pull_request" ] && echo 'PR title/body/commits' || echo 'the pushed head commit')"
-          else
-            echo "FAIL: no licensing issue named (#N) in title, body, or commits."
-            echo "A change without a license is refused — deny, never warn; the"
-            echo "work re-routes to an issue (specs/SPEC.md §4, responsibility clause)."
-            exit 1
+            # Single-parent commits only; a merge commit yields no paths here
+            # and so falls through to the #N requirement, which is fail-closed.
+            git diff-tree --no-commit-id --name-only -r HEAD > /tmp/changed-paths
+            tools/assert-licensed.sh --event push --message "$haystack" \
+              --paths-file /tmp/changed-paths
           fi
