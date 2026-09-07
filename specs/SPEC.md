@@ -2061,32 +2061,42 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:28`
      (`a-routing-habit-reads-as-conformance-outside-its-domain`)
 
-     **THIS REPOSITORY DECLARES NO REGISTER, so `carried: register` is not an
-     available disposition here** (owner ruling 2026-09-03, kogaki#804). The
-     directory this clause used to name is deleted, and nothing in this
-     repository can write a review observation into the tree. A disposition
-     therefore resolves to one of three: resolved in the diff, an issue, or an
-     explicit `declined:` with its reason. The vocabulary itself belongs to the
-     review engine, which holds it for repositories that do declare a register;
-     what changed is that this is not one of them.
+     **THIS REPOSITORY DECLARES A REGISTER AGAIN, AND IT IS A FILE THE ENGINE
+     WRITES** (kogaki#992, carrying claude-toolkit#954; the shape is
+     claude-toolkit#951 decision 1, owner 2026-09-07). `carried: register` is an
+     available disposition here once more, and what it writes is a row in
+     `.claude/findings-registry.jsonl` — created by `review-lane setup`, tracked
+     through a named `.gitignore` re-include so the rows survive a clone. A
+     disposition therefore resolves to one of four: resolved in the diff, a
+     register row, an issue, or an explicit `declined:` with its reason.
+     **THE 2026-09-03 RULING IS NOT REVERSED** (kogaki#804): what it refused was
+     a carrier the engine did not create — a per-item directory kept by hand,
+     whose rows no reader ever counted — and deleting it was right on that
+     ground. What exists now is the opposite artifact on the same question: the
+     engine creates it at setup, writes every row, and reads them back. The
+     vocabulary itself still belongs to the review engine; what changed is that
+     this repository is once again one that declares a register.
 
      **THE COST THIS COSTS US IS STATED RATHER THAN LEFT TO BE DISCOVERED.**
-     This clause once promised not to mint one issue per nit, and the register
-     was what made the promise true — a cheap write for an observation whose
-     value is the count rather than the instance. With the register gone the
-     promise is weaker here: an accretion-class finding that is worth keeping
-     costs an issue, and one that is not worth an issue is declined in the open
-     with its reason. The served line that argued for a cheap exit —
+     This clause promises not to mint one issue per nit, and the register is
+     what makes the promise true — a cheap write for an observation whose value
+     is the count rather than the instance. **THE PROMISE HOLDS AGAIN HERE**
+     (kogaki#992): an accretion-class finding that is worth keeping costs a row
+     rather than an issue, and one that is not worth keeping is still declined
+     in the open with its reason. The served line that argued for a cheap exit —
      "termination requires at least one exit whose cost does not reproduce the
-     process" — is not satisfied by an issue, and the honest reading is that
-     this repository accepts that cost rather than that it has been answered.
+     process" — is satisfied by the row and was not satisfied by the issue this
+     clause named while the carrier was absent, which is why the interval
+     2026-09-03 to kogaki#992 is recorded here as a cost paid rather than
+     silently dropped.
      `consulted: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/claude-code-ops.md:78`
 
      **A `carried: register` DISPOSITION WRITTEN BEFORE 2026-09-03 IS A
-     HISTORICAL POINTER**, read under §3.2: it records where an observation went
-     under a carrier this repository no longer has, and it is not an instruction
-     to recreate one. kogaki#13 is the lane's *deliverable* record and was never
-     its register.
+     HISTORICAL POINTER**, read under §3.2: it names the deleted per-item
+     directory, not the file, and its rows were not migrated into the file —
+     claude-toolkit#951 ruled that existing rows are deleted rather than
+     migrated. A disposition written from kogaki#992 forward names the file.
+     kogaki#13 is the lane's *deliverable* record and was never its register.
 
      **WHERE NO FURTHER CYCLE IS REACHABLE, A LATENT IN-DIFF FINDING TAKES THE
      FLOOR'S EXIT — THE REACHABILITY FLOOR** (kogaki#374, owner approval
@@ -2110,14 +2120,14 @@ invariant: Gukan guarantees Unit schema, never data schema).
      state under which it fires) or an **explicit owner promotion**, recorded at
      the disposition itself rather than in a comment beside it.
 
-     **THE FLOOR'S CHEAP EXIT IS GONE HERE, AND THE CELL SAYS SO RATHER THAN
-     READING AS THOUGH NOTHING CHANGED** (owner ruling 2026-09-03, kogaki#804).
-     The cell held `carried: register` from 2026-08-12 until the register was
-     deleted; what replaced it is the pair this repository still has. The floor
-     itself is untouched — it still separates a latent finding from a reachable
-     one, and still keeps a latent finding from taking the successor lane by
-     default — but the exit it names now costs an issue where it once cost a
-     record, which is the trade the clause above states in full.
+     **THE FLOOR'S CHEAP EXIT IS RESTORED** (kogaki#992). The cell held
+     `carried: register` from 2026-08-12 until the per-item directory was
+     deleted on 2026-09-03 (kogaki#804), and stood at the issue-or-`declined:`
+     pair through that interval; the exit it names costs a register row again.
+     The floor itself is untouched across all three states — it still separates
+     a latent finding from a reachable one, and still keeps a latent finding
+     from taking the successor lane by default. Only the price of its exit
+     moved, and the clause above states that trade in full.
 
      **Reachability is a CLAIM, written in the disposition's own reason, and
      nothing gates on it.** It is prose a reader can argue with, in the shape
