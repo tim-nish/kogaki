@@ -61,7 +61,7 @@
 //       SPEC-draft-pipeline
 //   the figure decision
 //       SPEC-draft-pipeline
-//   the Reader Path artifact and its five blocks
+//   the Reader Path artifact's five
 //       SPEC-draft-pipeline
 //   the grounding rule
 //       SPEC-draft-pipeline
@@ -83,6 +83,8 @@
 //       SPEC-draft-pipeline
 //   the constraints that survive
 //       SPEC-draft-pipeline
+//   payload and answer capture
+//       SPEC-gate-carrier
 //
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";

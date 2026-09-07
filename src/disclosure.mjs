@@ -12,6 +12,12 @@
 // `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
 // already drifted into eight variants, which is what kogaki#982 collapsed.
 //
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   The Bridge Step and the revise pass
+//       SPEC-draft-pipeline
+//   Candidates ride the existing gate — no new carrier, no new check
+//       SPEC-draft-pipeline
+//
 // WHY A MODULE OF ITS OWN. `src/assemble.mjs` already imports `src/review.mjs`,
 // so a table sited in either is reachable from one side only, and a table
 // duplicated on both sides is the two-carriers-of-one-rule shape — they agree

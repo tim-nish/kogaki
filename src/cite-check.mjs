@@ -11,6 +11,16 @@
 // `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
 // already drifted into eight variants, which is what kogaki#982 collapsed.
 //
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   One mechanical instrument on grounding, and no second
+//       SPEC-draft-command
+//   The guarantee split
+//       specs/SPEC.md
+//   Schema — the record half
+//       SPEC-draft-command
+//   Completeness is a cover counted in placements
+//       SPEC-terrain
+//
 // THE SOLE MECHANICAL INSTRUMENT ON GROUNDING, and the check's own output
 // states the boundary it stops at, quoting the guarantee split it rests on
 // — a reader learns the boundary from the instrument.

@@ -67,16 +67,18 @@
 // kept at the site because the carrier states only the general rule: NO
 // OWNER-FACING STRING BELOW NAMES A SPEC AT ALL, not merely no spec section.
 //
-// THE NAMES THIS FILE USES:
-//   "the figure decision"   SPEC-draft-pipeline "The figure decision — `figure:`
-//                           and `figure_roles` on a Step"
-//   "the figure record"     SPEC-draft-pipeline "The figure record — the form's
-//                           instance, filled after the prose"
-//   "the renderer"          SPEC-draft-pipeline "The renderer and the anchor —
-//                           markup from the record, at the Step"
-//   "the lifetimes rule"    specs/spec-brief-draft-design/DESIGN.md "Lifetimes:
-//                           what is owner state and what is machine state"
-//   "the frontmatter trace" SPEC-draft-command "The three-layer boundary"
+// The quoted heading beside a name is the spec content that name stands for.
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   the figure decision
+//       SPEC-draft-pipeline "The figure decision — `figure:` and `figure_roles` on a Step"
+//   the figure record
+//       SPEC-draft-pipeline "The figure record — the form's instance, filled after the prose"
+//   the renderer
+//       SPEC-draft-pipeline "The renderer and the anchor — markup from the record, at the Step"
+//   the lifetimes rule
+//       specs/spec-brief-draft-design/DESIGN.md "Lifetimes: what is owner state and what is machine state"
+//   the frontmatter trace
+//       SPEC-draft-command "The three-layer boundary"
 //
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname, basename, relative } from "node:path";

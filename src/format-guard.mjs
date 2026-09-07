@@ -7,25 +7,27 @@
 // `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
 // already drifted into eight variants, which is what kogaki#982 collapsed.
 //
-// THE NAMES THIS FILE USES, and the spec content each one names. A bare name
-// below is a `[see: ...]` pointer carrying no authority; where the content is
-// stated at the site it is a copy of what this file was implemented against.
-//   "the emit-time refusal"        SPEC-terrain "The emitters refuse; they do
-//                                  not report"
-//   "the carrier rule"             SPEC-terrain "The carrier is
-//                                  `src/report-format.json`, and it wins"
-//   "the display-ID rule"          SPEC-terrain "No owner surface renders an
-//                                  element NAME — the display ID does"
-//   "the report identity"          SPEC-terrain "Identity — the quadruple"
-//   "location and naming"          SPEC-terrain "Location and naming"
-//   "the rendering rule"           SPEC-terrain "Rendering — headlines, and
-//                                  every figure names its families"
-//   "semantic subdivision"         SPEC-terrain "Semantic subdivision — a
-//                                  judged substrate one level down"
-//   "the SubGroup rule"            SPEC-terrain "SubGroups on the CoTagGroups
-//                                  display, and the threshold"
-//   "the display's serve rule"     SPEC-terrain "What the CoTagGroups display
-//                                  SERVES"
+// A bare name below is a `[see: ...]` pointer carrying no authority; the
+// quoted heading beside it is the spec content that name stands for.
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   the emit-time refusal
+//       SPEC-terrain "The emitters refuse; they do not report"
+//   the carrier rule
+//       SPEC-terrain "The carrier is `src/report-format.json`, and it wins"
+//   the display-ID rule
+//       SPEC-terrain "No owner surface renders an element NAME — the display ID does"
+//   the report identity
+//       SPEC-terrain "Identity — the quadruple"
+//   location and naming
+//       SPEC-terrain "Location and naming"
+//   the rendering rule
+//       SPEC-terrain "Rendering — headlines, and every figure names its families"
+//   semantic subdivision
+//       SPEC-terrain "Semantic subdivision — a judged substrate one level down"
+//   the SubGroup rule
+//       SPEC-terrain "SubGroups on the CoTagGroups display, and the threshold"
+//   the display's serve rule
+//       SPEC-terrain "What the CoTagGroups display SERVES"
 //
 //
 // The emitters validate the text they are ABOUT TO EMIT against

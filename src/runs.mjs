@@ -8,6 +8,18 @@
 // `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
 // already drifted into eight variants, which is what kogaki#982 collapsed.
 //
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   Human-facing files live where the human works
+//       specs/SPEC.md
+//   Where machine state lives
+//       specs/SPEC.md
+//   Location and naming
+//       SPEC-terrain
+//   Identity — the quadruple
+//       SPEC-terrain
+//   Semantic subdivision — a judged substrate one level down
+//       SPEC-terrain
+//
 // Every lane's machine state — survey records, proposal records, gate
 // declarations, captures, Brief and Draft workspaces, snapshots, packets, run
 // records — lands under `runs/<lane>/` in the working tree. That is a MOVE and
