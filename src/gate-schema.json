@@ -60,7 +60,7 @@
   },
   "capture": {
     "suffix": ".gate-capture.json",
-    "glob_note": "the scanner pattern is composed as \"*\" + suffix; the SUFFIX is the declared key because a bare suffix is what a producer can concatenate, and a glob is not \u2014 which is why every writer hardcoded the name for as long as this field was declared as a glob (kogaki#961)",
+    "suffix_note": "the scanner pattern is composed as \"*\" + suffix; the SUFFIX is the declared key because a bare suffix is what a producer can concatenate, and a glob is not \u2014 which is why every writer hardcoded the name for as long as this field was declared as a glob (kogaki#961)",
     "scope": "anywhere in the repository",
     "rationale": "a default carrier, not an enumerated directory \u2014 an enumerated home leaves capture file N+1 uncovered by default",
     "rows_key": "rows",

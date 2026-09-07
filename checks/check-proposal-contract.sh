@@ -2,9 +2,10 @@
 # The owner-facing proposal contract, made checkable (manifest item 3,
 # specs/SPEC.md:97-98; kogaki#15, umbrella kogaki#14).
 #
-# Validates every proposal record (*.proposal.json, anywhere in the tree)
-# against src/record-schema.json — the single
-# carrier, whose field lists this check READS rather than restates.
+# Validates every proposal record (the tree-wide default carrier, named by
+# `records_home.suffix`, anywhere in the tree) against src/record-schema.json
+# — the single carrier, whose field lists AND whose record suffix this check
+# READS rather than restates.
 #
 # The fixtures under checks/fixtures/proposal-contract/ are this check's
 # discrimination evidence: every non-conforming fixture declares the
@@ -175,8 +176,14 @@ def load(path):
 
 failures = []
 
-# 1. Real records — the default carrier: any *.proposal.json in the tree.
-records = sorted(p for p in root.rglob("*.proposal.json") if ".git" not in p.parts)
+# 1. Real records — the default carrier: any record carrying the schema's
+# declared suffix, anywhere in the tree. The pattern is COMPOSED from
+# `records_home.suffix` rather than repeated as a literal: a producer
+# concatenates a suffix and cannot concatenate a glob, which is why the
+# declared form is the suffix and the scanner is the one site that wants a
+# pattern (kogaki#964, carrying kogaki#961).
+RECORDS_SUFFIX = schema["records_home"]["suffix"]
+records = sorted(p for p in root.rglob("*" + RECORDS_SUFFIX) if ".git" not in p.parts)
 for path in records:
     record, error = load(path)
     if error:
@@ -229,9 +236,9 @@ if failures:
 
 # The report. What is carried, and — explicitly — what is not.
 if records:
-    print(f"records: {len(records)} *.proposal.json, all conforming")
+    print(f"records: {len(records)} *{RECORDS_SUFFIX}, all conforming")
 else:
-    print("records: 0 *.proposal.json in the tree — none yet; the contract is "
+    print(f"records: 0 *{RECORDS_SUFFIX} in the tree — none yet; the contract is "
           "ported ahead of its first consumer (Terrain, specs/SPEC.md:109-112)")
 print(f"fixtures: {len(conforming)} conforming accepted, {len(nonconforming)} "
       f"non-conforming each rejected with its declared code "

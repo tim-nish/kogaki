@@ -47,7 +47,8 @@
     "narrows_must_be": false
   },
   "records_home": {
-    "glob": "*.proposal.json",
+    "suffix": ".proposal.json",
+    "suffix_note": "the scanner pattern is composed as \"*\" + suffix; the SUFFIX is the declared key because a bare suffix is what a producer can concatenate, and a glob is not \u2014 which is why both writers hardcoded the name for as long as this field was declared as a glob (kogaki#964, carrying kogaki#961)",
     "scope": "anywhere in the repository",
     "rationale": "a default carrier, not an enumerated directory — an enumerated home leaves record N+1 uncovered by default"
   }

@@ -248,10 +248,5 @@
     },
     "offered_by_default_must_be": false,
     "offering_rationale": "SPEC.md, measurement before offering — subdivision ships DOGFOOD-FIRST: implemented → dogfooded → owner-verdicted → offered. Co-tags stay the default for a run naming no substrate, and subdivision is reachable only by explicitly naming it. Merging this code ARRIVES at the offering gate rather than discharging it: merged code evidences existence, never the gate's standing (topics/articles.md:53@f918c515). The hub-side gate at product-lab:q_a/staging/2026-07-31-subdivision-offering-measurement-due.md is undischarged and this record does not discharge it."
-  },
-  "records_home": {
-    "glob": "*.terrain-survey.json",
-    "scope": "anywhere in the repository",
-    "rationale": "a default carrier, not an enumerated directory — an enumerated home leaves record N+1 uncovered by default; real runs live in the machine-local run workspace and are never committed (specs/SPEC.md, the out-of-scope decision rider 3)"
   }
 }
