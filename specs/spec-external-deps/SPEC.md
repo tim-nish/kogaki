@@ -99,8 +99,9 @@ Each entry declares:
   removable rather than permanent.
 - **`verification`** — the read that decides presence, **where decidable**: a
   command whose output answers the question (`gh api repos/:owner/:repo --jq
-  .allow_auto_merge`; a presence read over `~/.claude/settings.json` for the
-  PreToolUse deny). Where no cheap read exists, the field carries
+  .allow_auto_merge`; a read over the hook dispatcher's own family table and
+  registration for the PreToolUse deny -- never a grep of `~/.claude/settings.json`
+  for a hook filename, which that file no longer carries, kogaki#832). Where no cheap read exists, the field carries
   `none: <why not decidable>` — a typed value that must be written, never an
   omission.
 - **`absence_signature`** — what an unmet dependency *looks like* from inside a

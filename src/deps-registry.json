@@ -33,6 +33,12 @@
     "installed and in force -- an absence signature printed over a present control.",
     "The registration fact is produced by the dispatcher, so the read is taken there:",
     "its FAMILY table AND its own registration for the matcher the member declares.",
+    "AND THE REPAIRED READ BINDS THE PROPERTY, NOT ITS SPELLING (kogaki#832 round 1).",
+    "A matcher is a REGEX, so comparing it as a literal `|`-alternation list printed a",
+    "false absence for a `.*` or `Bash.*` registration -- the filed defect one level",
+    "over. The tools the member declares are matched against the matcher as a regex,",
+    "and the registered dispatcher is compared by RESOLVED PATH to the table actually",
+    "parsed, so a same-named file elsewhere no longer satisfies the read.",
     "AUDIT OF THE OTHER ENTRIES (kogaki#832 Acceptance 2), stated rather than assumed:",
     "`repo-allow-auto-merge` reads `gh api repos/...`, which greps no settings file;",
     "`spawned-session-tool-grants` is `decidable: false` and declares no command at all.",
@@ -80,8 +86,8 @@
       ],
       "verification": {
         "decidable": true,
-        "command": "python3 -c '\nimport json, os, re, sys\nmember, event = \"lint-pr-merge.py\", \"PreToolUse\"\ntbl = open(os.path.expanduser(\"~/.claude/hooks/hook-dispatch.py\")).read()\nrow = re.search(r\"\\(\\s*\\\"\" + re.escape(member) + r\"\\\"\\s*,\\s*\\\"\" + event + r\"\\\"\\s*,\\s*\\n?\\s*\\\"([^\\\"]+)\\\"\", tbl)\nif not row:\n    print(\"false\"); sys.exit(0)\ndeclared = set(row.group(1).split(\"|\"))\nreg = json.load(open(os.path.expanduser(\"~/.claude/settings.json\"))).get(\"hooks\", {}).get(event, [])\nrouted = any(\n    \"hook-dispatch.py\" in h.get(\"command\", \"\") and declared <= set(e.get(\"matcher\", \"\").split(\"|\"))\n    for e in reg for h in e.get(\"hooks\", []))\nprint(\"true\" if routed else \"false\")\n'",
-        "answers": "is the merge-eligibility deny routed to on PreToolUse? two conjuncts, because either alone is a proxy one level over: (1) `hook-dispatch.py`'s FAMILY table carries a `lint-pr-merge.py` row for PreToolUse, and (2) `settings.json` registers that dispatcher for PreToolUse under a matcher covering every tool the member's row declares. The read prints `true` or `false`"
+        "command": "python3 -c '\nimport json, os, re, shlex, sys\nmember, event = \"lint-pr-merge.py\", \"PreToolUse\"\ndisp = os.path.expanduser(\"~/.claude/hooks/hook-dispatch.py\")\nconf = os.path.expanduser(\"~/.claude/settings.json\")\ntry:\n    tbl = open(disp).read()\n    reg = json.load(open(conf)).get(\"hooks\", {}).get(event, [])\nexcept FileNotFoundError:\n    print(\"false\"); sys.exit(0)\nrow = re.search(r\"\\(\\s*\\\"\" + re.escape(member) + r\"\\\"\\s*,\\s*\\\"\" + event + r\"\\\"\\s*,\\s*\\n?\\s*\\\"([^\\\"]+)\\\"\", tbl)\nif not row:\n    print(\"false\"); sys.exit(0)\ndeclared = row.group(1).split(\"|\")\ndef routes(entry):\n    for h in entry.get(\"hooks\", []):\n        for tok in shlex.split(h.get(\"command\", \"\")):\n            if os.path.basename(tok) == os.path.basename(disp) and \\\n               os.path.realpath(tok) == os.path.realpath(disp):\n                return True\n    return False\ndef covers(matcher):\n    try:\n        return all(re.fullmatch(matcher, t) for t in declared)\n    except re.error:\n        return False\nprint(\"true\" if any(routes(e) and covers(e.get(\"matcher\", \"\")) for e in reg) else \"false\")\n'",
+        "answers": "is the merge-eligibility deny routed to on PreToolUse? two conjuncts, because either alone is a proxy one level over: (1) `hook-dispatch.py`'s FAMILY table carries a `lint-pr-merge.py` row for PreToolUse, and (2) `settings.json` registers THAT SAME FILE (compared by resolved path, never by substring) for PreToolUse under a matcher that MATCHES AS A REGEX every tool the member's row declares. An absent `~/.claude` prints `false` — the unmet dependency this entry exists to detect — while an unreadable one exits non-zero and is typed COULD-NOT-ESTABLISH. The read prints `true` or `false`"
       },
       "absence_signature": "an ineligible `gh pr merge` runs to completion and merges — nothing refuses it and nothing logs the refusal that did not happen, so the enforcement gap is visible only in the merged result, which looks exactly like an eligible merge",
       "license": "kogaki#55"
