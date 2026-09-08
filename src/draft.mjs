@@ -99,7 +99,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve, relative, dirname, basename, sep } from "node:path";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 // the Step-Move instantiation contract's mechanical half is ONE function shared with the composition side
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
@@ -2809,17 +2809,29 @@ async function runSelfTest() {
   if (failures.length) process.exit(1);
 }
 
-const args = parseArgs(process.argv.slice(2));
-if (args["self-test"]) {
-  await runSelfTest();
-} else {
-  switch (args._cmd) {
-    case "resolve": cmdResolve(args); break;
-    case "material": cmdMaterial(args); break;
-    case "packet": cmdPacket(args); break;
-    case "section": cmdSection(args); break;
-    case "figure": cmdFigure(args); break;
-    case "emit": cmdEmit(args); break;
-    default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> [--file <f>]] | --self-test");
+// THIS FILE IS BOTH A COMMAND AND A LIBRARY, AND THE GUARD IS WHAT MAKES THE
+// SECOND POSSIBLE (kogaki#1014). `parseStepBlock` is the Brief's own reader for
+// a `step` block and ReviewDraft's Reverse Outline is one — "parsed by the same
+// function that parses a Brief Step" is the acceptance, so this module has to be
+// importable. Without the guard the dispatch below ran at import, read the
+// IMPORTER's argv, matched no subcommand and exited 1: `review-draft open`
+// died on draft.mjs's usage line before writing anything.
+//
+// The check is the module's own URL against the process entry point, so
+// `node src/draft.mjs …` still runs the CLI and every import is silent.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = parseArgs(process.argv.slice(2));
+  if (args["self-test"]) {
+    await runSelfTest();
+  } else {
+    switch (args._cmd) {
+      case "resolve": cmdResolve(args); break;
+      case "material": cmdMaterial(args); break;
+      case "packet": cmdPacket(args); break;
+      case "section": cmdSection(args); break;
+      case "figure": cmdFigure(args); break;
+      case "emit": cmdEmit(args); break;
+      default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> [--file <f>]] | --self-test");
+    }
   }
 }
