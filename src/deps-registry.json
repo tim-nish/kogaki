@@ -27,6 +27,17 @@
     "and that gap is stated in the check's own output rather than left to be",
     "assumed covered.",
     "",
+    "THE READS DO NOT GREP settings.json FOR A HOOK FILENAME (kogaki#832).",
+    "`~/.claude/settings.json` registers ONE dispatcher and no member filenames, so a",
+    "read that greps it for a hook file name reports `false` for a control that is",
+    "installed and in force -- an absence signature printed over a present control.",
+    "The registration fact is produced by the dispatcher, so the read is taken there:",
+    "its FAMILY table AND its own registration for the matcher the member declares.",
+    "AUDIT OF THE OTHER ENTRIES (kogaki#832 Acceptance 2), stated rather than assumed:",
+    "`repo-allow-auto-merge` reads `gh api repos/...`, which greps no settings file;",
+    "`spawned-session-tool-grants` is `decidable: false` and declares no command at all.",
+    "NO OTHERS FOUND -- one member carried the defect and it is the one repaired here.",
+    "",
     "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
     "The rule these entries are written under -- what a copy is, what the two",
     "markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing",
@@ -62,15 +73,15 @@
     },
     {
       "id": "merge-eligibility-pretooluse-deny",
-      "capability": "the merge-eligibility PreToolUse deny installed in the actor's own Claude Code settings (`~/.claude/settings.json`), written by `~/.claude/tools/issue-sync install-hooks`",
+      "capability": "the merge-eligibility PreToolUse deny installed in the actor's own Claude Code hook family (`~/.claude/hooks/lint-pr-merge.py`, carried by `~/.claude/hooks/hook-dispatch.py`'s FAMILY table and reached through the single dispatcher registration in `~/.claude/settings.json`), written by `~/.claude/tools/issue-sync install-hooks`",
       "needed_by": [
         "the merge-eligibility rule's enforcement half — the deny is what refuses a `gh pr merge` that no approved-closes receipt covers",
         "any lane that treats the merge layer as guarded rather than as advice; with the hook uninstalled the rule is a document nobody is required to read"
       ],
       "verification": {
         "decidable": true,
-        "command": "grep -q lint-pr-merge \"$HOME/.claude/settings.json\" 2>/dev/null && echo true || echo false",
-        "answers": "does the actor's settings file register the merge-eligibility PreToolUse hook? the read prints `true` or `false`"
+        "command": "python3 -c '\nimport json, os, re, sys\nmember, event = \"lint-pr-merge.py\", \"PreToolUse\"\ntbl = open(os.path.expanduser(\"~/.claude/hooks/hook-dispatch.py\")).read()\nrow = re.search(r\"\\(\\s*\\\"\" + re.escape(member) + r\"\\\"\\s*,\\s*\\\"\" + event + r\"\\\"\\s*,\\s*\\n?\\s*\\\"([^\\\"]+)\\\"\", tbl)\nif not row:\n    print(\"false\"); sys.exit(0)\ndeclared = set(row.group(1).split(\"|\"))\nreg = json.load(open(os.path.expanduser(\"~/.claude/settings.json\"))).get(\"hooks\", {}).get(event, [])\nrouted = any(\n    \"hook-dispatch.py\" in h.get(\"command\", \"\") and declared <= set(e.get(\"matcher\", \"\").split(\"|\"))\n    for e in reg for h in e.get(\"hooks\", []))\nprint(\"true\" if routed else \"false\")\n'",
+        "answers": "is the merge-eligibility deny routed to on PreToolUse? two conjuncts, because either alone is a proxy one level over: (1) `hook-dispatch.py`'s FAMILY table carries a `lint-pr-merge.py` row for PreToolUse, and (2) `settings.json` registers that dispatcher for PreToolUse under a matcher covering every tool the member's row declares. The read prints `true` or `false`"
       },
       "absence_signature": "an ineligible `gh pr merge` runs to completion and merges — nothing refuses it and nothing logs the refusal that did not happen, so the enforcement gap is visible only in the merged result, which looks exactly like an eligible merge",
       "license": "kogaki#55"
