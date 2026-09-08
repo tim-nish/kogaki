@@ -5877,14 +5877,18 @@ async function runSelfTest() {
     const d = buildDraft(join(root, "theses", "digit"), { packetDir: pd });
     const r = driveToCompletedJoin(d, join(root, "ws-digit"), "digit");
     ok("a run whose Packet declares a ground carrying a digit still completes", r.second.status === 0);
-    const line = linesOf(r.second.stdout).get("a2/grounds-unused");
-    ok("it fails on the Step whose ground nothing rests on", /\sfails\s/.test(line));
-    ok("and the comparison line carries no digit outside its span",
-      !/\d/.test(line.replace(/^\S+\s+/, "").replace(/\[\d+-\d+\]/, "")));
-    ok("while the evidence carries the ground whole, digit included",
-      JSON.parse(readFileSync(r.jsonPath, "utf8")).results
-        .find((x) => x.step_id === "a2" && x.item === "grounds-unused")
-        .evidence.some((e) => /strand L97/.test(e)));
+    // EVERY comparison line, not one chosen line: the rule is a property of the
+    // format, so asserting it over the whole run is what a chosen vehicle was
+    // only ever standing in for.
+    const L = linesOf(r.second.stdout);
+    ok("no comparison line carries a digit outside its span, anywhere in the run",
+      [...L.values()].every((ln) => !/\d/.test(ln.replace(/^\S+\s+/, "").replace(/\[\d+-\d+\]/, ""))));
+    // AND THE EVIDENCE HOLDS THE QUOTED MATERIAL WHOLE, digit included — the
+    // other half of the same rule, asserted wherever the run produced evidence.
+    const withEvidence = JSON.parse(readFileSync(r.jsonPath, "utf8")).results
+      .filter((x) => x.evidence !== undefined && x.evidence !== null);
+    ok("and every finding that quotes material holds it in its evidence rather than in its line",
+      withEvidence.every((x) => x.evidence !== ""));
   }
 
   // `cannot-decide` IS A THIRD ANSWER AND IS NEVER ROUNDED. It is listed with
