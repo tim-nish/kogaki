@@ -5002,7 +5002,7 @@ async function runSelfTest() {
       ok(name, r.status === 1 && hit);
     };
     bad("a verdict for a MECHANICAL item is refused, saying it would replace a computed fact",
-      [{ step_id: "a1", item: "term-before-introduction", verdict: "holds", reason: "it reads fine" }],
+      [{ step_id: "a1", item: "grounds-unused", verdict: "holds", reason: "it reads fine" }],
       "which is a MECHANICAL item");
     bad("a verdict for a pair this run never asked about is refused, naming the pairs it owes",
       [{ step_id: "a1", item: "purpose", pair: 4, verdict: "holds", reason: "it reads fine" }],
@@ -5128,18 +5128,18 @@ async function runSelfTest() {
       baseLines.size === 3 * PROSE_ITEMS.length);
     ok("every Step and every item the table declares has a line",
       ["a1", "a2", "a3"].every((s) => PROSE_ITEMS.every((i) => baseLines.has(`${s}/${i.id}`))));
-    // kogaki#880 AC3: A DRAFT WITH NO FIGURES RUNS WITH NO FIGURE ITEMS IN ITS
-    // LOG. Asserted as absence over the whole emission rather than over a list
-    // written here: a vacuous `holds` would satisfy the two cases above and is
-    // exactly what this refuses.
-    ok("AC3: a figureless Draft's comparison carries no figure item at all",
-      ITEMS.items.filter((i) => i.figure_only).length > 0
-      && !ITEMS.items.filter((i) => i.figure_only)
-        .some((i) => [...baseLines.keys()].some((k) => k.endsWith(`/${i.id}`))));
-    ok("AC3: and none is logged as decided mechanically or as a model call either",
-      !ITEMS.items.filter((i) => i.figure_only).some((i) =>
-        (rec.mechanical || []).some((c) => c.item === i.id)
-        || (rec.model_calls || []).some((c) => c.item === i.id)));
+    // kogaki#880 AC3 asked that a figureless Draft carry no figure item in its
+    // log. THE ROWS THEMSELVES ARE GONE (kogaki#1014, the decline recorded in
+    // `src/review-items.json`), so the property is now unconditional and the
+    // case says the stronger thing: the table declares no figure row for ANY
+    // Draft. It fails the moment one is added back outside kogaki#1018.
+    ok("the declined figure rows are absent from the table, for every Draft",
+      ITEMS.items.every((i) => !i.figure_only)
+      && ITEMS.items.every((i) => !/^figure-/.test(i.id)));
+    ok("and no run logs one, mechanically or as a model call",
+      ![...baseLines.keys()].some((k) => /\/figure-/.test(k))
+      && !(rec.mechanical || []).some((c) => /^figure-/.test(c.item))
+      && !(rec.model_calls || []).some((c) => /^figure-/.test(c.item)));
 
     // THE NO-NUMBERS PROPERTY, asserted over what the HARNESS composes: the
     // step id and the span are the line's only numeric fields, and stripping
@@ -5514,8 +5514,11 @@ async function runSelfTest() {
     // A BLOCK THE BRIEF ITSELF COULD NOT CARRY IS REFUSED BY THE BRIEF'S OWN
     // REFUSAL, which is the acceptance rather than a way of meeting it: the
     // grammar below is `introducesRefusal`'s, reached through `parseStepBlock`.
+    // A BARE TERM IS VALID — the grammar is "term, or term — anchor" — so the
+    // malformed entry is the SEPARATOR WITH NOTHING AFTER IT, which is the one
+    // shape `parseIntroducesEntry` names in its own words.
     bad("a malformed introduces entry is refused by the Brief parser's own grammar",
-      (o) => { o.introduces = ["opacity"]; return o; },
+      (o) => { o.introduces = ["opacity —"]; return o; },
       /introduces/);
 
     // THE VALIDATION HAPPENS BEFORE THE OUTLINE IS WRITTEN. One validated
@@ -5836,26 +5839,19 @@ async function runSelfTest() {
       [self, ...a, "--draft", d.path, "--workspace", wsBase], { encoding: "utf8" });
     D("open");
     const CONCEDED = "the passage carries the ground more weakly than the packet declares it";
-    const RESTATED = "the claim the opening Step already settled";
-    let lo3 = 0, hi3 = 0;
+    // ONE STEP CARRIES A CONCESSION AND THE OTHERS DO NOT, so the case witnesses
+    // the rendering rather than a constant: an absence still renders `(none)`
+    // beside it.
+    //
+    // THE SPAN HALF OF THIS CASE LEFT WITH THE RECORD (kogaki#1014). It used to
+    // assert the entry rendered as `<text> (lines lo–hi)`, and a Brief Step
+    // field carries no draft coordinate — the span was the deleted record's own
+    // invention. What the case was FOR survives whole: the entry must reach the
+    // judging model as its own words.
     for (const id of ["a1", "a2", "a3"]) {
-      const rg = d.ranges[id];
-      const [lo, hi] = [rg[0] + d.bodyOffset, rg[1] + d.bodyOffset];
-      if (id === "a3") { lo3 = lo; hi3 = hi; }
-      const fx = RECOVERED[id];
-      const p2 = join(root, `rec-entries-${id}.json`);
-      writeFileSync(p2, JSON.stringify({
-        claims: fx.claims.map((claim) => ({ claim, span: [lo, hi] })),
-        reader_state_after: fx.after,
-        purpose: fx.purpose,
-        terms_introduced: [],
-        shape: "It states a thing and moves on.",
-        // ONE STEP CARRIES ENTRIES AND THE OTHERS DO NOT, so the case witnesses
-        // the rendering rather than a constant: an empty list still renders
-        // `(none)` beside it.
-        concessions: id === "a3" ? [{ text: CONCEDED, span: [lo, hi] }] : [],
-        restates: id === "a3" ? [{ of: RESTATED, span: [lo, hi] }] : [],
-      }, null, 2) + "\n");
+      const p2 = join(root, `rec-entries-${id}.md`);
+      writeFileSync(p2, renderOutline({ ...outlineFor(id),
+        concession: id === "a3" ? [CONCEDED] : [] }));
       D("recover", "--step", id, "--file", p2);
     }
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
@@ -5867,8 +5863,8 @@ async function runSelfTest() {
       conceded.includes(CONCEDED), conceded.slice(0, 400));
     ok("#995: and never the stringified object the entry used to render as",
       conceded !== "" && !conceded.includes("[object Object]"));
-    ok("#995: the entry carries the draft lines it was recovered from",
-      conceded.includes(`${CONCEDED} (lines ${lo3}\u2013${hi3})`));
+    ok("#995: and the entry is rendered as a list entry rather than run together",
+      /^\s*[-*] .*the passage carries the ground more weakly/m.test(conceded), conceded.slice(0, 400));
     // The Step that conceded nothing still renders the stated absence, so the
     // case above is bound to the entry and not to the field being present.
     const nothingConceded = readOrEmpty(join(wsBase, "entries", "pass-1", "join", "a1.concessions.md"));
@@ -7450,18 +7446,13 @@ async function runSelfTest() {
       a2: ["a sequence the machinery owns cannot be mistaken by whoever sits at it"],
       a3: ["leftover text is sorted by the person in charge and never by the program"],
     };
-    const gRec = (id) => ({
-      claims: UNPAIRED[id].map((claim) => ({
-        claim, span: [gdraft.ranges[id][0] + gdraft.bodyOffset, gdraft.ranges[id][0] + gdraft.bodyOffset],
-      })),
-      reader_state_after: "The reader knows which act renders the input.",
-      purpose: "To open the claim.",
-      terms_introduced: [], shape: "It opens.", concessions: [], restates: [],
-    });
+    // THE READ GROUNDS ARE THE UNPAIRED ONES, and nothing else about the outline
+    // is special: `outlineFor` supplies the fields every Step owes so this
+    // fixture says only what it is for.
     gdrive("open");
     for (const id of ["a1", "a2", "a3"]) {
-      const f = join(gdir, `rec-${id}.json`);
-      writeFileSync(f, JSON.stringify(gRec(id)) + "\n");
+      const f = join(gdir, `rec-${id}.md`);
+      writeFileSync(f, renderOutline({ ...outlineFor(id), grounds: UNPAIRED[id].slice() }));
       gdrive("recover", "--step", id, "--file", f);
     }
     const gled = join(gdir, "led.json");
