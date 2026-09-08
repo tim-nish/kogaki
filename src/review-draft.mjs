@@ -5830,6 +5830,22 @@ async function runSelfTest() {
     const L = linesOf(r.second.stdout);
     ok("and the unused-grounds item says so in its own words",
       /this Step declares no grounds/.test(L.get("a2/grounds-unused")));
+    // AND `grounds` ITSELF IS DECIDED BY THE TABLE, NOT ASKED OVER AN EMPTY
+    // LIST (PR #1003 successor). Under `unpaired: "judge"` a groundless Step
+    // put one Packet per claim to a judge whose declared side read `(none)`
+    // against a question quantifying over it — a coin flip on a preserved
+    // item. The item declares its answer for a stated absence, as
+    // `exemplar-leak` does, so no Packet is rendered and no model is asked.
+    {
+      const grec = JSON.parse(readOrEmpty(r.jsonPath) || "{}");
+      const row = (grec.results || []).find((x) => x.step_id === "a2" && x.item === "grounds");
+      ok("a Step declaring no grounds has `grounds` decided by the item's declared-absence arm",
+        !!row && row.decided_by === "harness" && row.verdict === "holds"
+        && /declares no grounds/.test(row.reason || ""), row ? JSON.stringify(row).slice(0, 200) : "no row");
+      ok("and no join Packet is rendered for it",
+        !(grec.model_calls || []).some((c) => c.step_id === "a2" && c.item === "grounds")
+        && (grec.mechanical || []).some((m) => m.step_id === "a2" && m.item === "grounds"));
+    }
     // The other Steps are untouched: the absence is this Step's, not the run's.
     ok("while a Step that does declare grounds still carries them",
       /every ground is carried by a recovered claim/.test(L.get("a1/grounds-unused")));
@@ -8239,8 +8255,12 @@ async function runSelfTest() {
     const gpk = gowed ? readOrEmpty(gowed.packet) : "";
     ok("#996: and its declared side carries EVERY ground the Step declares",
       GROUNDS.a1.every((g) => gpk.includes(g)), `packet ${gowed ? gowed.packet : "(none)"}`);
-    ok("#996: while the question asks whether the claim goes beyond all of them",
-      /goes beyond ALL of them/.test(gpk));
+    // THE QUANTIFIER IS THE UNION, NOT EACH GROUND ALONE (PR #1003 successor). A
+    // claim resting on two grounds at once goes beyond either of them singly,
+    // and "beyond ALL of them" read literally instructed the judge to fail it.
+    ok("#996: while the question asks whether the claim goes beyond the grounds taken together",
+      /goes beyond what those grounds, taken together, license/.test(gpk)
+      && !/goes beyond ALL of them/.test(gpk));
 
     // THE ACCEPTANCE ITSELF: with the prose judged faithful, the item HOLDS.
     const gv = join(gdir, "verdicts.json");
@@ -8269,6 +8289,28 @@ async function runSelfTest() {
     ok("#996: the paired item declares which fallback it takes",
       gitems.items.filter((i) => i.mode === "paired")
         .every((i) => i.unpaired === "judge" || i.unpaired === "fail"));
+
+    // THE OWNER RECORD'S "NONE" ARM, EXPRESSED (PR #1004 successor, #1006). This
+    // fixture's `a1/grounds-unused` fail is Harness-decided by construction —
+    // the PREMISE case above depends on it — so its finding line must render
+    // no Packet pointer and point at the join record instead, while every
+    // pointer the record does compose resolves. `close` is reachable here: the
+    // only fail is best-effort, and nothing was corrected.
+    {
+      const gcl = gdrive("close");
+      const grv = readOrEmpty(join(gdir, "review.md"));
+      ok("#1006: close writes the owner record over a run whose one fail the Harness decided",
+        gcl.status === 0 && grv.length > 0, `status ${gcl.status}: ${(gcl.stderr || "").split("\n")[0]}`);
+      const gline = grv.slice(grv.indexOf("**a1 / grounds-unused**"));
+      const gblock = gline.slice(0, gline.indexOf("\n- **") > 0 ? gline.indexOf("\n- **") : undefined);
+      ok("#1006: a Harness-decided finding renders no Packet pointer and names the join record",
+        /the pair the judge saw: none — [^\n]*pass-1\/join\.json/.test(gblock)
+        && !/the pair the judge saw: `/.test(gblock), gblock.slice(0, 300));
+      const gptrs = [...grv.matchAll(/^ {2}- (?:recovered record|the pair the judge saw): `([^`]+)`/gm)].map((m) => m[1]);
+      ok("#1006: and every pointer the record composes resolves",
+        gptrs.length > 0 && gptrs.every((f) => existsSync(resolve(process.cwd(), f))),
+        gptrs.filter((f) => !existsSync(resolve(process.cwd(), f))).join(", "));
+    }
   }
 
   rmSync(root, { recursive: true, force: true });
