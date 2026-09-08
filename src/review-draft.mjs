@@ -2185,10 +2185,11 @@ function buildJoin(draft, run, items, ws, opts = {}) {
     catch (e) { fail(`the recovered record for ${step.step_id} is not readable (${e.message})`); }
     const earlier = steps.slice(0, si);
 
-    // THE PAIRING IS COMPUTED ONCE AND TWO ITEMS READ IT. `grounds` asks what a
-    // claim rests on and `grounds-unused` asks what no claim rests on; they are
-    // the two halves of one assignment, and computing it twice would let them
-    // disagree about the same Step.
+    // THE PAIRING IS COMPUTED ONCE, AND SINCE kogaki#996 ONE ITEM READS IT.
+    // `grounds-unused` asks what no claim rests on, and the assignment is how
+    // it knows. `grounds` no longer reads `ground_index` for its verdict — it
+    // is judged against the whole declared ground list — so the pairing decides
+    // coverage only, never whether a claim is admissible.
     const pairedItem = items.items.find((it) => it.mode === "paired");
     const pairs = pairedItem
       ? pairClaims(declared[pairedItem.declared_block], rec[pairedItem.recovered_field] || [],
@@ -2267,10 +2268,34 @@ function buildJoin(draft, run, items, ws, opts = {}) {
 
       const subs = [];
       if (item.mode === "paired") {
+        // THE NON-MEMBER FALLBACK IS DECLARED, NEVER INHERITED FROM THE MATCHER
+        // (kogaki#996). `pairClaims` is a matcher over declared instances, and
+        // what it does with a claim it does NOT match is the load-bearing half.
+        // Left implicit it was `fail`, and that fallback decided the item: on
+        // the 2026-09-07 run, 87 of 93 failing claims were this branch firing
+        // and only 6 were a model reading the prose, so `grounds` failed every
+        // Step regardless of what the prose said. An item now says which
+        // fallback it takes, and omitting it is refused rather than defaulted.
+        if (item.unpaired !== "judge" && item.unpaired !== "fail") {
+          fail(`the paired item \`${item.id}\` declares no \`unpaired\` disposition. A claim that `
+            + "pairs with no declared ground is either judged against the whole ground list "
+            + "(`judge`) or failed by the Harness (`fail`), and the choice is the item's to make "
+            + "rather than the matcher's to supply.");
+        }
+        // AND A CHOSEN FALLBACK OWES THE FIELDS IT RENDERS (PR #1003 round 1).
+        // `fail` renders `unpaired_sentence` as the comparison line's reason, so
+        // an item declaring `fail` without one would put `undefined` where the
+        // reason belongs — the same inherited-or-absent shape this refusal
+        // exists to remove, one field further in.
+        if (item.unpaired === "fail" && !item.unpaired_sentence) {
+          fail(`the paired item \`${item.id}\` declares \`unpaired: "fail"\` and no `
+            + "`unpaired_sentence`. The Harness renders that sentence as the reason a claim "
+            + "was failed, so the fallback would decide the item and say nothing about why.");
+        }
         const entries = rec[item.recovered_field] || [];
         entries.forEach((entry, i) => {
           const p = pairs[i];
-          if (!p || p.ground_index === -1) {
+          if (item.unpaired === "fail" && (!p || p.ground_index === -1)) {
             // DECIDED HERE, BY NAME, WITH NO MODEL CALL. An entry that pairs
             // with nothing has no counterpart to put a question about, and
             // `widened` is a fact about the pairing rather than a reading of it.
@@ -2280,8 +2305,15 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             return;
           }
           const key = verdictKey(step.step_id, item.id, i);
+          // UNDER `judge` THE DECLARED SIDE IS THE WHOLE GROUND LIST, not the
+          // one ground the matcher picked. The question is whether the claim
+          // goes beyond ANY declared ground, so a judge shown a single ground
+          // would be asked a narrower question than the item states — and an
+          // unpaired claim would have no side to be shown at all.
           const file = renderJoinPacket(ws, run, pass, draft, step, item, i,
-            declared[item.declared_block][p.ground_index],
+            item.unpaired === "judge"
+              ? renderSide(declared[item.declared_block])
+              : declared[item.declared_block][p.ground_index],
             renderSide(entry[item.pair_text_key]));
           // THE VERDICT IS READ BEFORE THE CALL IS LOGGED, so the log can name
           // the model that answered it. An unanswered call carries `model:
@@ -4655,8 +4687,12 @@ async function runSelfTest() {
   // property the fixture is asserting — the Harness tells the judging model
   // exactly which pairs it is asking about, so a transcribed list would pass
   // while the Harness asked for something else.
+  // `override` lets ONE pair carry a different answer from the rest (kogaki#996).
+  // Since `grounds` became a judged item, a case that needs a preserved fail has
+  // to SAY the judge failed it — there is no longer a Packet mutation that
+  // produces one mechanically, which is the whole point of the change.
   const answerOwed = (jsonPath, tag, verdict = "holds",
-    reason = "the declared line and the recovered one agree") => {
+    reason = "the declared line and the recovered one agree", override = null) => {
     // AN ABSENT JOIN RECORD ANSWERS NOTHING RATHER THAN THROWING. A mutation
     // that makes `compare` refuse leaves no record, and reading it directly took
     // the whole pass down with an ENOENT — which reports no case count at all,
@@ -4673,7 +4709,11 @@ async function runSelfTest() {
       verdicts: owed.map((o) => ({
         step_id: o.step_id, item: o.item,
         ...(o.pair === null ? {} : { pair: o.pair }),
-        verdict, reason, model: JUDGE_MODEL,
+        // `override` is spread BEFORE `model`, so a case can restate the verdict
+        // and its reason and CANNOT name the model — which is the run's, never a
+        // case's (kogaki#997). Spread after, the comment would be the only thing
+        // enforcing it (PR #1003 round 1).
+        verdict, reason, ...(override ? override(o) || {} : {}), model: JUDGE_MODEL,
       })),
     }, null, 2) + "\n");
     return f;
@@ -4682,7 +4722,7 @@ async function runSelfTest() {
   // open -> recover x3 -> read x2 -> compare -> answer -> compare. The whole
   // flow, driven through the real entry points, for a fixture Draft of this
   // shape.
-  const driveToCompletedJoin = (d, wsBase, tag) => {
+  const driveToCompletedJoin = (d, wsBase, tag, override = null) => {
     const slug = basename(dirname(resolve(d.path)));
     const D = (...a) => spawnSync(process.execPath,
       [self, ...a, "--draft", d.path, "--workspace", wsBase], { encoding: "utf8" });
@@ -4692,7 +4732,8 @@ async function runSelfTest() {
     D("read", "--claim", "--file", claimFile);
     const first = D("compare");
     const jsonPath = join(wsBase, slug, "pass-1", "join.json");
-    const second = D("compare", "--verdicts", answerOwed(jsonPath, tag));
+    const second = D("compare", "--verdicts",
+      answerOwed(jsonPath, tag, "holds", "the declared line and the recovered one agree", override));
     return { first, second, jsonPath, ws: join(wsBase, slug) };
   };
 
@@ -5619,56 +5660,92 @@ async function runSelfTest() {
     const dFull = buildDraft(join(root, "theses", "full"), { packetDir: full });
     const dShort = buildDraft(join(root, "theses", "short"), { packetDir: short });
     const rFull = driveToCompletedJoin(dFull, join(root, "ws-full"), "full");
-    const rShort = driveToCompletedJoin(dShort, join(root, "ws-short"), "short");
+    // THE ORPHANED CLAIM IS FAILED BY THE JUDGE, NOT BY THE MATCHER (kogaki#996).
+    // Before the ruling of 2026-09-07 this case needed no override: removing the
+    // ground made claim 1 pair with nothing and the Harness failed it as
+    // `widened`. `grounds` is now judged against the whole remaining ground list,
+    // so the fail is a READING, and a case that wants one has to say the judge
+    // gave it. What the case still measures is unchanged — that ONE pair failing
+    // moves exactly one line and sends exactly that Step to correction.
+    const rShort = driveToCompletedJoin(dShort, join(root, "ws-short"), "short",
+      (o) => (o.step_id === "a1" && o.item === "grounds" && o.pair === 1
+        ? { verdict: "fails", reason: "the claim rests on no ground this Packet declares" }
+        : null));
     ok("both runs reach a completed join", rFull.second.status === 0 && rShort.second.status === 0);
 
     const L1 = linesOf(rFull.second.stdout);
     const L2 = linesOf(rShort.second.stdout);
     const failing = (m) => [...m.entries()].filter(([, l]) => /\sfails\s/.test(l)).map(([k]) => k);
     ok("the unmutated run has no failing item", failing(L1).length === 0);
-    ok("removing one ground yields EXACTLY ONE new fail", failing(L2).length === 1);
+    ok("one failed pair yields EXACTLY ONE failing item", failing(L2).length === 1);
     ok("and it is on the Step whose Packet lost the ground, on the grounds item",
       failing(L2)[0] === "a1/grounds");
-    ok("and it is named `widened` — the claim rests on no ground the Packet declares",
-      /widened/.test(L2.get("a1/grounds")));
+    ok("and the line carries the judge's own reason rather than a pairing fact",
+      /rests on no ground this Packet declares/.test(L2.get("a1/grounds")));
     // NO CHANGE ELSEWHERE, asserted as line-for-line identity over every OTHER
     // pair rather than as a count: a count would pass while two items swapped
     // verdicts.
     const changed = [...L1.keys()].filter((k) => k !== "a1/grounds" && L1.get(k) !== L2.get(k));
     ok("and nothing else changes — every other (Step, item) line is identical",
       L1.size === L2.size && changed.length === 0, changed.join(", "));
-    // THE WIDENED PAIR COSTS NO MODEL CALL. A claim that pairs with nothing has
-    // no counterpart to put a question about, so the fail is a fact about the
-    // pairing rather than a reading of it.
+    // THE ORPHANED PAIR IS ASKED ABOUT RATHER THAN DECIDED. This is the inverse
+    // of what this case asserted before kogaki#996, and it is the behaviour the
+    // ruling bought: the claim the matcher could not place is the one most in
+    // need of a reading, and it used to be the one that never got one.
     const recShort = JSON.parse(readFileSync(rShort.jsonPath, "utf8"));
-    ok("the widened claim is decided by the Harness, with no join Packet rendered for it",
-      !recShort.model_calls.some((c) => c.step_id === "a1" && c.item === "grounds" && c.pair === 1)
-      && recShort.mechanical.some((c) => c.step_id === "a1" && c.item === "grounds" && c.pair === 1));
+    ok("the claim that pairs with nothing is asked about, not decided by the Harness",
+      recShort.model_calls.some((c) => c.step_id === "a1" && c.item === "grounds" && c.pair === 1)
+      && !recShort.mechanical.some((c) => c.item === "grounds"));
     // The other half of the same pairing: the ground the claim used to rest on
     // is gone, so `grounds-unused` still holds — the two items read ONE
     // assignment and cannot disagree about the same Step.
     ok("and the unused-grounds item, which reads the same pairing, still holds",
       /\sholds\s/.test(L2.get("a1/grounds-unused")));
-    // kogaki#997, PR #1001 round 1 — THE HYBRID ROW IS WHERE THE ROW-LEVEL
-    // `model` KEY CAME APART. `grounds` here has one Harness-decided `widened`
-    // fail beside pairs a model answered, and `fails` wins the selection — so
-    // the row is `decided_by: "model"` while the line it renders came from the
-    // Harness. Keying the key's PRESENCE on the chosen pair made exactly this
-    // row claim a judge and name none.
+    // kogaki#997, PR #1001 round 1 — THE ROW-LEVEL `model` KEY, AND THE VEHICLE
+    // THIS CASE LOST TO kogaki#996.
+    //
+    // #997's defect was the HYBRID ROW: `grounds` used to carry a Harness-decided
+    // `widened` fail beside pairs a model answered, `fails` won the selection,
+    // and the row read `decided_by: "model"` while the line it rendered came
+    // from the Harness — a row claiming a judge and naming none. The fix keys
+    // the key's PRESENCE on the row and its VALUE on the chosen pair, and that
+    // fix is untouched here (the selection at `rowDecidedBy`).
+    //
+    // WHAT CHANGED IS THAT THE SHIPPED TABLE CAN NO LONGER BUILD ONE. `grounds`
+    // was the only `paired` item and it now takes `unpaired: "judge"`, so every
+    // one of its pairs is answered by a model and no row mixes the two. The
+    // `"fail"` branch that produces a hybrid is still in the Harness and still
+    // reachable by any item that declares it — but no item does, and the item
+    // table is FIXED in the Harness by design (`readItems`), so this case has no
+    // fixture that can reach it. It is recorded here rather than deleted: the
+    // guarantee is live code with no current specimen, not a retired rule.
+    //
+    // WHAT IS ASSERTED INSTEAD IS VEHICLE-INDEPENDENT and stronger for it —
+    // stated over EVERY row the run produced rather than over one built row.
     {
       const row = (recShort.results || [])
         .find((r) => r.step_id === "a1" && r.item === "grounds");
-      ok("#997: the hybrid row is decided_by model — some pair was judged",
+      ok("#997: the judged row is decided_by model — some pair was judged",
         row && row.decided_by === "model" && row.verdict === "fails");
       ok("#997: and it CARRIES the model key, because presence answers `was a model asked here`",
         row && "model" in row);
-      ok("#997: whose value is null — a Harness-decided pair won the selection, so the "
-        + "line being read was not produced by a model",
-        row && row.model === null);
-      // AND THE TRUTH PER PAIR IS STILL THERE, which is what makes the null
-      // safe to render rather than a loss.
+      // AND THE TRUTH PER PAIR IS STILL THERE, which is what makes a null at the
+      // row safe to render rather than a loss.
       ok("#997: while the judged pairs inside it still name what answered them",
         row && (row.pairs || []).some((sub) => sub.decided_by === "model" && sub.model === JUDGE_MODEL));
+      // THE INVARIANT THE HYBRID CASE WAS PROTECTING, over every row in the run:
+      // presence tracks `was a model asked`, and nothing names a model it did
+      // not consult. A hybrid row would satisfy both of these too — which is
+      // why these hold whether or not the table can build one.
+      const allRows = recShort.results || [];
+      ok("#997: every model-decided row carries the model key, across the whole run",
+        allRows.filter((r) => r.decided_by === "model").every((r) => "model" in r),
+        `${allRows.filter((r) => r.decided_by === "model" && !("model" in r)).length} without it`);
+      ok("#997: and no Harness-decided row names a model it never consulted",
+        allRows.filter((r) => r.decided_by === "harness").every((r) => !("model" in r)));
+      ok("#997: while every pair naming a model was answered by one",
+        allRows.flatMap((r) => r.pairs || [])
+          .every((sub) => (sub.model == null) || sub.decided_by === "model"));
     }
     // A PRESERVED item failing is what sends a Step to correction, and the run
     // says which — the class is the consequence, never a severity.
@@ -5753,6 +5830,22 @@ async function runSelfTest() {
     const L = linesOf(r.second.stdout);
     ok("and the unused-grounds item says so in its own words",
       /this Step declares no grounds/.test(L.get("a2/grounds-unused")));
+    // AND `grounds` ITSELF IS DECIDED BY THE TABLE, NOT ASKED OVER AN EMPTY
+    // LIST (PR #1003 successor). Under `unpaired: "judge"` a groundless Step
+    // put one Packet per claim to a judge whose declared side read `(none)`
+    // against a question quantifying over it — a coin flip on a preserved
+    // item. The item declares its answer for a stated absence, as
+    // `exemplar-leak` does, so no Packet is rendered and no model is asked.
+    {
+      const grec = JSON.parse(readOrEmpty(r.jsonPath) || "{}");
+      const row = (grec.results || []).find((x) => x.step_id === "a2" && x.item === "grounds");
+      ok("a Step declaring no grounds has `grounds` decided by the item's declared-absence arm",
+        !!row && row.decided_by === "harness" && row.verdict === "holds"
+        && /declares no grounds/.test(row.reason || ""), row ? JSON.stringify(row).slice(0, 200) : "no row");
+      ok("and no join Packet is rendered for it",
+        !(grec.model_calls || []).some((c) => c.step_id === "a2" && c.item === "grounds")
+        && (grec.mechanical || []).some((m) => m.step_id === "a2" && m.item === "grounds"));
+    }
     // The other Steps are untouched: the absence is this Step's, not the run's.
     ok("while a Step that does declare grounds still carries them",
       /every ground is carried by a recovered claim/.test(L.get("a1/grounds-unused")));
@@ -6001,7 +6094,12 @@ async function runSelfTest() {
     for (const id of ["a1", "a2", "a3"]) writePacket(short, id, id === "a1" ? { grounds: [GROUNDS.a1[0]] } : {});
     const d2 = buildDraft(join(root, "theses", "riding-short"), { packetDir: short });
     const wsb2 = join(root, "ws-riding-short");
-    driveToCompletedJoin(d2, wsb2, "ridingshort");
+    // The PRESERVED fail is the judge's, for the reason kogaki#996 gives at the
+    // sibling case above: removing the ground no longer fails the item by itself.
+    driveToCompletedJoin(d2, wsb2, "ridingshort",
+      (o) => (o.step_id === "a1" && o.item === "grounds" && o.pair === 1
+        ? { verdict: "fails", reason: "the claim rests on no ground this Packet declares" }
+        : null));
     const c2 = spawnSync(process.execPath,
       [self, "close", "--draft", d2.path, "--workspace", wsb2], { encoding: "utf8" });
     ok("while a PRESERVED fail still withholds the record, naming the class",
@@ -8067,6 +8165,152 @@ async function runSelfTest() {
     // to work out which half is outstanding.
     ok("#945: the line tells the reader what `(--figure)` marks",
       /`\(--figure\)` is the figure seat/.test(sp2.stdout));
+  }
+
+  // ---- kogaki#996 -------------------------------------------------------
+  // A STEP WHOSE PROSE FAITHFULLY REALIZES A TWO-GROUND PACKET, ASSERTING THAT
+  // `grounds` HOLDS. `GROUNDS.a1` is the two-ground Packet; the claims below
+  // are faithful realizations of its two lines in wholly different vocabulary,
+  // so `pairClaims` assigns neither of them a ground.
+  //
+  // UNDER THE OLD FALLBACK THIS STEP FAILED BY CONSTRUCTION: an unpaired claim
+  // was failed by the Harness as `widened` with no model call, so `grounds`
+  // failed however faithful the prose was. That is what made the item's verdict
+  // evidence about the matcher rather than about the Draft. Driven on its own
+  // Draft — the cases above assert counts over the shared fixture, and a record
+  // whose claims pair with nothing would move them.
+  {
+    const gdir = join(root, "grounds996");
+    const gPacketDir = join(gdir, "packets");
+    mkdirSync(gPacketDir, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(gPacketDir, id);
+    const gdraft = buildDraft(gdir, { packetDir: gPacketDir });
+    const GWS_BASE = join(root, "gws996");
+    const GWS = join(GWS_BASE, "grounds996");
+    const gdrive = (...a) => spawnSync(process.execPath,
+      [self, a[0], "--draft", gdraft.path, "--workspace", GWS_BASE, ...a.slice(1)], { encoding: "utf8" });
+
+    // Neither claim shares enough content words with either ground to reach the
+    // 0.34 containment floor, and each is a faithful reading of one of them.
+    const UNPAIRED = {
+      a1: ["no submission is admitted until the tool has already drawn up its blind questionnaire",
+        "whoever judges the writing is kept from seeing the brief behind it"],
+      a2: ["a sequence the machinery owns cannot be mistaken by whoever sits at it"],
+      a3: ["leftover text is sorted by the person in charge and never by the program"],
+    };
+    const gRec = (id) => ({
+      claims: UNPAIRED[id].map((claim) => ({
+        claim, span: [gdraft.ranges[id][0] + gdraft.bodyOffset, gdraft.ranges[id][0] + gdraft.bodyOffset],
+      })),
+      reader_state_after: "The reader knows which act renders the input.",
+      purpose: "To open the claim.",
+      terms_introduced: [], shape: "It opens.", concessions: [], restates: [],
+    });
+    gdrive("open");
+    for (const id of ["a1", "a2", "a3"]) {
+      const f = join(gdir, `rec-${id}.json`);
+      writeFileSync(f, JSON.stringify(gRec(id)) + "\n");
+      gdrive("recover", "--step", id, "--file", f);
+    }
+    const gled = join(gdir, "led.json");
+    writeFileSync(gled, JSON.stringify({ question: "which act renders the input", belief: "the harness does" }) + "\n");
+    gdrive("read", "--section", "1", "--file", gled);
+    gdrive("read", "--section", "2", "--file", gled);
+    const gclm = join(gdir, "claim.json");
+    writeFileSync(gclm, JSON.stringify({ claim: "the harness owns the ordering" }) + "\n");
+    gdrive("read", "--claim", "--file", gclm);
+
+    const gc = gdrive("compare");
+    ok("#996: the comparison runs over a Draft whose claims pair with no ground", gc.status === 0,
+      `status ${gc.status}: ${(gc.stderr || "").split("\n")[0]}`);
+    const grec = JSON.parse(readOrEmpty(join(GWS, "pass-1", "join.json")) || "{}");
+
+    // THE HARNESS DECIDES NO CLAIM. This is the defect's own signature: on the
+    // 2026-09-07 run 87 of 93 failing claims sat in `mechanical` with no model
+    // call, and none may now.
+    // THE PREMISE IS ASSERTED, NOT ONLY STATED (PR #1003 round 1). Every
+    // assertion below passes whether or not the claims pair, so without this the
+    // case would stay green while silently ceasing to exercise the unpaired path
+    // it exists for. `grounds-unused` reads the same assignment from the other
+    // side: if neither a1 claim reaches the floor, BOTH of a1's grounds are
+    // carried by nothing and the item fails naming them.
+    const gUnused = (grec.results || []).find((r) => r.step_id === "a1" && r.item === "grounds-unused");
+    ok("#996 PREMISE: neither claim on a1 pairs with a ground, so both grounds go unused",
+      !!gUnused && gUnused.verdict === "fails"
+      && GROUNDS.a1.every((g) => (gUnused.evidence || []).includes(g)),
+      gUnused ? `verdict ${gUnused.verdict}, evidence ${(gUnused.evidence || []).length}` : "no row");
+
+    ok("#996: no `grounds` pair is decided by the Harness, however it pairs",
+      !(grec.mechanical || []).some((m) => m.item === "grounds"));
+    // AND EVERY CLAIM IS ASKED ABOUT. The count is the recovered claims', not
+    // the paired ones' — which is what the old branch made unequal.
+    ok("#996: every recovered claim on the two-ground Step renders one join Packet",
+      (grec.model_calls || []).filter((m) => m.step_id === "a1" && m.item === "grounds").length
+        === UNPAIRED.a1.length);
+
+    // THE JUDGE SEES THE WHOLE GROUND LIST. Shown one ground it would be asked
+    // a narrower question than the item states, and an unpaired claim would
+    // have no declared side to be shown at all.
+    const gowed = (grec.owed || []).find((o) => o.step_id === "a1" && o.item === "grounds");
+    const gpk = gowed ? readOrEmpty(gowed.packet) : "";
+    ok("#996: and its declared side carries EVERY ground the Step declares",
+      GROUNDS.a1.every((g) => gpk.includes(g)), `packet ${gowed ? gowed.packet : "(none)"}`);
+    // THE QUANTIFIER IS THE UNION, NOT EACH GROUND ALONE (PR #1003 successor). A
+    // claim resting on two grounds at once goes beyond either of them singly,
+    // and "beyond ALL of them" read literally instructed the judge to fail it.
+    ok("#996: while the question asks whether the claim goes beyond the grounds taken together",
+      /goes beyond what those grounds, taken together, license/.test(gpk)
+      && !/goes beyond ALL of them/.test(gpk));
+
+    // THE ACCEPTANCE ITSELF: with the prose judged faithful, the item HOLDS.
+    const gv = join(gdir, "verdicts.json");
+    writeFileSync(gv, JSON.stringify({
+      verdicts: [...(grec.owed || []), ...((grec.sections || {}).owed || [])].map((o) => ({
+        step_id: o.step_id, item: o.item,
+        ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
+        verdict: "holds", reason: "the claim rests within the grounds the Step declares",
+        model: JUDGE_MODEL,
+      })),
+    }, null, 2) + "\n");
+    const gc2 = gdrive("compare", "--verdicts", gv);
+    ok("#996: the filled join completes", gc2.status === 0,
+      `status ${gc2.status}: ${(gc2.stderr || "").split("\n")[0]}`);
+    const grec2 = JSON.parse(readOrEmpty(join(GWS, "pass-1", "join.json")) || "{}");
+    const grow = (grec2.results || []).find((r) => r.step_id === "a1" && r.item === "grounds");
+    ok("#996 ACCEPTANCE: `grounds` HOLDS on a Step that faithfully realizes a two-ground Packet",
+      !!grow && grow.verdict === "holds", grow ? `verdict ${grow.verdict}` : "no grounds row");
+    ok("#996: and every one of its pairs was decided by the model",
+      !!grow && (grow.pairs || []).every((x) => x.decided_by === "model"));
+
+    // THE FALLBACK IS DECLARED, NEVER INHERITED. An item that omits `unpaired`
+    // is refused rather than defaulted — the half LESSONS.md:88 names as
+    // load-bearing, made impossible to leave to the matcher.
+    const gitems = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    ok("#996: the paired item declares which fallback it takes",
+      gitems.items.filter((i) => i.mode === "paired")
+        .every((i) => i.unpaired === "judge" || i.unpaired === "fail"));
+
+    // THE OWNER RECORD'S "NONE" ARM, EXPRESSED (PR #1004 successor, #1006). This
+    // fixture's `a1/grounds-unused` fail is Harness-decided by construction —
+    // the PREMISE case above depends on it — so its finding line must render
+    // no Packet pointer and point at the join record instead, while every
+    // pointer the record does compose resolves. `close` is reachable here: the
+    // only fail is best-effort, and nothing was corrected.
+    {
+      const gcl = gdrive("close");
+      const grv = readOrEmpty(join(gdir, "review.md"));
+      ok("#1006: close writes the owner record over a run whose one fail the Harness decided",
+        gcl.status === 0 && grv.length > 0, `status ${gcl.status}: ${(gcl.stderr || "").split("\n")[0]}`);
+      const gline = grv.slice(grv.indexOf("**a1 / grounds-unused**"));
+      const gblock = gline.slice(0, gline.indexOf("\n- **") > 0 ? gline.indexOf("\n- **") : undefined);
+      ok("#1006: a Harness-decided finding renders no Packet pointer and names the join record",
+        /the pair the judge saw: none — [^\n]*pass-1\/join\.json/.test(gblock)
+        && !/the pair the judge saw: `/.test(gblock), gblock.slice(0, 300));
+      const gptrs = [...grv.matchAll(/^ {2}- (?:recovered record|the pair the judge saw): `([^`]+)`/gm)].map((m) => m[1]);
+      ok("#1006: and every pointer the record composes resolves",
+        gptrs.length > 0 && gptrs.every((f) => existsSync(resolve(process.cwd(), f))),
+        gptrs.filter((f) => !existsSync(resolve(process.cwd(), f))).join(", "));
+    }
   }
 
   rmSync(root, { recursive: true, force: true });
