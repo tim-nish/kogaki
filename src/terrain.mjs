@@ -7656,6 +7656,49 @@ switch (cmd) {
             && !shouldReplayPrior(wrap(none), idty, differs);
         })());
 
+      // ---- THE SHIPPED COMPARATOR IS DRIVEN, NOT INJECTED (kogaki#974). The
+      // case above binds the identity conjunct's PRESENCE in the decision and
+      // nothing else: all six of its `shouldReplayPrior` calls pass a stub
+      // through `sameIdentityFn`, while `cmdReport` calls with the DEFAULT. So
+      // `sameIdentity` and its `reportIdentityKey` had no reader in any case,
+      // and dropping the `neighborhood_judgment` component from that key left
+      // the pass green at 95 — the bind-a-proxy shape kogaki#926 repaired one
+      // layer up, at the next seam in.
+      //
+      // The two records differ ONLY in that component, which is what makes the
+      // comparator the thing being asserted: every other conjunct of the
+      // decision is identical across the pair, so no predating guard and no id
+      // predicate can produce the discrimination.
+      //
+      // THE kogaki#741 ABSENCE-HASHING RULE IS REACHED HERE RATHER THAN STATED
+      // IN A COMMENT. It is unreachable through `shouldReplayPrior`, whose
+      // `predatesJudgmentKey` guard short-circuits on exactly the record the
+      // rule is about, so the rule is driven through the exported `sameIdentity`
+      // directly — with a control that an absent component still discriminates
+      // against a REAL judgment, so the case is not satisfied by a key that
+      // hashes everything to `NO_JUDGE`.
+      ok("shouldReplayPrior with the SHIPPED comparator recomputes two report identities differing only in neighborhood_judgment, and an absent component hashes as NO_JUDGE without collapsing the key",
+        (() => {
+          const identity = (nj) => ({
+            pin: "product-lab@abc1234",
+            query: { tag: "testing", ids: ["G1", "G2"] },
+            judge_pin: NO_JUDGE,
+            neighborhood_judgment: nj,
+          });
+          const a = identity("J-A");
+          const b = identity("J-B");
+          // NO THIRD ARGUMENT — this is the call `cmdReport` makes.
+          const replaysAtItsOwnIdentity = shouldReplayPrior({ identity: a }, a);
+          const recomputesAtTheOther = !shouldReplayPrior({ identity: a }, b);
+          // the kogaki#741 rule, and its control.
+          const absenceHashesAsNoJudge = sameIdentity(identity(undefined), identity(NO_JUDGE));
+          const absenceStillDiscriminates = !sameIdentity(identity(undefined), a);
+          return replaysAtItsOwnIdentity
+            && recomputesAtTheOther
+            && absenceHashesAsNoJudge
+            && absenceStillDiscriminates;
+        })());
+
       // ---- AN EDITED CANDIDATES FILE AT THE SAME IDENTITY IS NOT IDEMPOTENT
       // (kogaki#927). The defect this binds reported SUCCESS: `--thesis-candidates`
       // decided the Thesis candidates and the `serves: … for TC<n>` rows while
