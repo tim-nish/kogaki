@@ -5931,20 +5931,19 @@ async function runSelfTest() {
   // on every Step, so `close` would have been unreachable for that Draft.
   {
     const pd = join(root, "packets-riding"); mkdirSync(pd, { recursive: true });
-    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
-    // a2 repeats a run of a1's words verbatim — `restates-earlier-step`, which
-    // the table calls best-effort and mechanical.
-    const ridingProse = {
-      a1: PROSE.a1,
-      a2: ["The first passage opens the claim and says what the reader is about to be shown again."],
-      a3: PROSE.a3,
-    };
-    const d = buildDraft(join(root, "theses", "riding"), { packetDir: pd, prose: ridingProse });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id,
+      id === "a2" ? { grounds: [GROUNDS.a2[0], "a ground the prose never reaches for"] } : {});
+    // THE VEHICLE CHANGED AND THE RULE DID NOT (kogaki#1014). This case used to
+    // ride `restates-earlier-step`, whose row left the table with the rest of
+    // the hygiene items. `grounds-unused` is the surviving row the table calls
+    // best-effort AND mechanical, so it fails the same way with no judge to
+    // stub: a2's Packet declares a ground no read ground rests on.
+    const d = buildDraft(join(root, "theses", "riding"), { packetDir: pd });
     const wsb = join(root, "ws-riding");
     const r = driveToCompletedJoin(d, wsb, "riding");
     ok("the run completes", r.second.status === 0);
     const L = linesOf(r.second.stdout);
-    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/restates-earlier-step")));
+    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/grounds-unused")));
     ok("and no Step is sent to correction, because no PRESERVED item failed",
       /no Step is sent to correction/.test(r.second.stdout));
     const D = (...a) => spawnSync(process.execPath,
@@ -5953,7 +5952,7 @@ async function runSelfTest() {
     ok("close is reachable with a best-effort fail outstanding", c.status === 0);
     const rev = readOrEmpty(join(root, "theses", "riding", "review.md"));
     ok("and the owner record carries the finding with its class",
-      /a2 \/ restates-earlier-step\*\* — fails \(best-effort\)/.test(rev));
+      /a2 \/ grounds-unused\*\* — fails \(best-effort\)/.test(rev));
     // THE EVIDENCE IS WHERE THE QUOTED MATERIAL LIVES, and this is the other
     // half of the comparison line's no-numbers rule: the line refuses to carry a
     // quote, so the record is where a finding becomes actionable rather than
