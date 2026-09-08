@@ -10,10 +10,11 @@
     "two-copy divergence, and that property is unchanged — what is gone is the",
     "check that would notice a divergence appearing. Same arrangement",
     "as record-schema.json (item 3) and gate-schema.json (item 4).",
-    "The three contracts bound here are SPEC.md, the placement cover–the second-proposer boundary: completeness is",
+    "The three contracts bound here are the placement cover, presentation-only grouping",
+    "and the second-proposer boundary (SPEC.md): completeness is",
     "a cover counted in placements, grouping is presentation-only, and the",
     "second-proposer boundary keeps narrowing out of navigation state.",
-    "v2 (kogaki#26/#27, story 1.22) carries SPEC.md, the candidate model's candidate model and",
+    "v2 (kogaki#26/#27, story 1.22) carries the candidate model (SPEC.md) and",
     "the rendering rule's family-named figures: candidate rows are LESSONS ONLY, the Journey",
     "family is a per-Lesson MARK read by absence, `journeys` carries the",
     "served Journey set so count-in stays computable against count-out, and",
@@ -197,7 +198,7 @@
     "gate_rationale": "adoption happens only at the gate carrier (manifest item 4): the recomposed claim is re-offered as a GATE EVENT, never a silent refresh, so an adopted claim with no gate row was never offered"
   },
   "subdivision": {
-    "note": "SPEC.md, semantic subdivision — semantic subdivision as a judged substrate one level down. Placement plus title-derivation, hiding none: a cap decides WHICH members appear, subdivision decides WHERE each appears and hides none, so it is inside the presentation-only invariant and is not the refused within-axis cap.",
+    "note": "SPEC.md, semantic subdivision — a judged substrate one level down. Placement plus title-derivation, hiding none: a cap decides WHICH members appear, subdivision decides WHERE each appears and hides none, so it is inside the presentation-only invariant and is not the refused within-axis cap.",
     "required": [
       "id",
       "kind",

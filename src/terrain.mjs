@@ -5,10 +5,10 @@
 //
 // Terrain reads SERVED RENDERINGS only, through the seam (element_survey),
 // and composes the survey under its three contracts:
-//   the placement cover completeness is a cover counted in placements, AFTER composition,
+//   the placement cover — completeness is a cover counted in placements, AFTER composition,
 //        with every figure naming which family it counted;
 //   grouping is presentation-only — navigation narrows nothing;
-//   the second-proposer boundary the second-proposer boundary — rank/trim/hide are proposals routed
+//   the second-proposer boundary — rank/trim/hide are proposals routed
 //        through the item-3 record contract; enumerate/sort/filter-by-owner
 //        are navigation; an act in neither list is a report.
 //
@@ -451,7 +451,7 @@ function narrowingKeys(obj, s) {
   return s.narrowing_keys_forbidden.filter((k) => Object.prototype.hasOwnProperty.call(obj, k));
 }
 
-// The family split over a set of placed ids. Under SPEC.md, the candidate model the rows are
+// The family split over a set of placed ids. Under SPEC.md, the candidate model, the rows are
 // Lessons, so the Journey half is counted from the MARKS the placed Lessons
 // carry — Lessons plus marks reconstructs the Strand set exactly (what would falsify the candidate model), which
 // is what keeps `agents (115 — 59 lessons + 56 journeys)` a true statement
@@ -718,7 +718,7 @@ export function sectionFigure(sec, lessonsServed) {
 }
 
 // A count of Lessons, family-named (SPEC.md, the rendering rule): the figure names the one
-// family the candidate model's candidate model puts on the row.
+// family the candidate model puts on the row.
 export function lessonCount(n) {
   return `${n} ${n === 1 ? "Lesson" : "Lessons"}`;
 }
@@ -1027,7 +1027,7 @@ function renderTagDisplay(record) {
 // cotags — the second navigation step (SPEC.md, the co-tag navigation step). Selecting a tag displays
 // the other tags its members carry, grouped by co-tag with counts.
 //
-// It is NAVIGATION in the full the second-proposer boundary sense — it is that section's `enumerate`
+// It is NAVIGATION in the full sense the second-proposer boundary gives — it is that section's `enumerate`
 // and `sort` applied to the tags the members already carry on the served
 // surface — so it writes NO record of any kind, proposal or otherwise. A
 // navigation act wrapped as a proposal is a contract violation from the other
@@ -2211,7 +2211,7 @@ function resolveReportTargets(record, tag, enteredIds, args) {
 }
 
 // --------------------------------------------------------------------------
-// report — the Full Report (SPEC.md, the Full Report).
+// report — the Full Report (SPEC.md).
 //
 // The other half of the display's serve rule's compact display: the display is what the owner
 // NAVIGATES, this is what they READ. Untruncated Claims and Glosses, with no
@@ -3119,7 +3119,7 @@ function announceDisplay(path) {
 // The owner register (location and naming v11). Markdown, because the artifact's whole job is
 // to be READ — the JSON beside it keeps every machine property, so nothing here
 // is load-bearing for identity and nothing may parse it back.
-// the Thesis candidates — the Thesis candidates section (kogaki#760).
+// the Thesis candidates — the section this register renders (kogaki#760).
 //
 // THE ABSENT CASE RENDERS THE SECTION AND SAYS IT IS EMPTY, which is the
 // fallback CHOSEN at the gate rather than inherited from the code. The three
@@ -3413,7 +3413,7 @@ export function servedLinesBlock(report) {
 // every file in `reports/`, no Journey Gloss text anywhere, and a file that
 // opened with `> Untruncated.` and printed `- journey: 1` in its Counted block
 // while containing no journey. That is the kogaki#243 form-E shape exactly:
-// the prose asserted a property no carrier held, and every the report identity assertion
+// the prose asserted a property no carrier held, and every assertion under the report identity
 // stayed green because identity and idempotence are true of a rendering that
 // drops its material.
 //
@@ -4608,11 +4608,11 @@ export function ownerGateDigest(gateId, optionIds) {
 }
 
 // --------------------------------------------------------------------------
-// neighborhood — SPEC-terrain, the provenance neighborhood, the provenance neighborhood (story 1.44,
+// neighborhood — SPEC-terrain, the provenance neighborhood (story 1.44,
 // kogaki#302, umbrella kogaki#300).
 //
 // A WIDENING OF THE SETTLED STRAND SET, offered BESIDE it. The neighborhood as a report: a report,
-// never a proposal — it narrows nothing, so the second-proposer boundary second-proposer boundary
+// never a proposal — it narrows nothing, so the second-proposer boundary
 // does not engage, and the full population stays reachable.
 //
 // INPUT IS THE SETTLED STRAND SET ALONE (the settled-strand-set input v15). There is no Thesis
@@ -5070,7 +5070,7 @@ export function neighborhoodJudgmentsFrom(raw) {
     if (typeof t.candidate !== "string" || !THESIS_CANDIDATE_ID.test(t.candidate.trim())) {
       throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} targets `
         + `${JSON.stringify(t.candidate)}, which is not a Thesis-candidate id (TC<n>). The target names a `
-        + "candidate of THIS report's the Thesis candidates section; a slug, a display id or free text there would render a "
+        + "candidate of the Thesis candidates section in THIS report; a slug, a display id or free text there would render a "
         + "line the reader cannot join to anything above it.");
     }
     if (typeof t.role !== "string" || !t.role.trim()) {
@@ -5198,8 +5198,9 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // WHAT WAS DELETED HERE, and why the deletions are not "kept beside their
 // exception": the per-family tallies, the walk-settings line, the "narrows
 // nothing" boilerplate, the per-Batch section headers, and the disjointness and
-// unresolved footnotes. Each existed to discharge a the neighborhood defect/the neighborhood as a report/the neighborhood section's shape
-// disclosure obligation over an enumeration this section no longer performs —
+// unresolved footnotes. Each existed to discharge a disclosure obligation that
+// the neighborhood defect, the neighborhood as a report or the neighborhood
+// section's shape imposes over an enumeration this section no longer performs —
 // with exploration fixed to one substrate at one hop, a per-family denominator
 // and a substrate-grouping heading describe a shape the output cannot have.
 //
@@ -7771,7 +7772,7 @@ switch (cmd) {
   report --survey F --tag T (--group G | --all-groups) [--claims F]
          [--subdivisions F] [--neighborhood F] [--thesis-candidates F]
          [--judge-model M --judge-effort E] [--report-dir D]
-                                            the Full Report (the Full Report) — untruncated Claims and
+                                            the Full Report — untruncated Claims and
                                             Glosses, identified by the QUADRUPLE (substrate pin,
                                             co-tag query, judge pin, neighborhood judgment
                                             record — widened from the triple at kogaki#741).
