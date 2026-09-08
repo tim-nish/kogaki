@@ -1020,24 +1020,19 @@ function validateReverseOutline(text, step, file) {
       + problems.join("\n  - "));
   }
 
-  // THE ADAPTER, AND IT IS TEMPORARY BY DECLARATION (kogaki#1014 → #1015).
-  // The Round Trip table still addresses the reading through the translation
-  // column `recovered_field`, which kogaki#1015 removes along with this
-  // projection. Until then the outline is projected into the key names that
-  // column names, so this PR changes the ARTIFACT the Blind Reader returns
-  // without also rewriting the table that consumes it. Nothing new is invented
-  // here: every key below is one Brief field under another name, which is
-  // precisely why the column goes.
+  // THE READING, UNDER THE BRIEF'S OWN NAMES. There is no translation left to
+  // do: `field` in the Round Trip table names a Brief Step field, and this
+  // returns that field. What used to sit here was a projection into a second
+  // schema's key names, and the column that read it is gone with the schema.
   return {
     step_id: outline.step_id,
     purpose: stepField(body, "purpose"),
     reader_state_before: stepField(body, "reader_state_before"),
     reader_state_after: stepField(body, "reader_state_after"),
-    claims: outlineGrounds(body).map((l) => ({ text: l.replace(/^ground[ \t]+/, "").trim() })),
-    terms_introduced: repeatedLines(body, "introduces").map((t) => ({ text: t })),
-    concessions: repeatedLines(body, "concession").map((t) => ({ text: t })),
-    shape: outline.opens_section === undefined ? "" : outline.opens_section,
-    reverse_outline: outline,
+    grounds: outlineGrounds(body).map((l) => ({ text: l.replace(/^ground[ \t]+/, "").trim() })),
+    introduces: repeatedLines(body, "introduces").map((t) => ({ text: t })),
+    concession: repeatedLines(body, "concession").map((t) => ({ text: t })),
+    opens_section: outline.opens_section === undefined ? "" : outline.opens_section,
   };
 }
 
@@ -1157,9 +1152,18 @@ function cmdRecover(args) {
   const step = steps.find((x) => x.step_id === stepId);
   const projected = validateReverseOutline(content, step, file);
 
+  // BOTH ARE KEPT, AND THE OUTLINE IS THE EVIDENCE. The `.md` is the Reverse
+  // Outline exactly as it was written — the artifact a later reader checks the
+  // Round Trip against — and the `.json` is the reading the Harness compares,
+  // under the Brief's own field names. Writing only the second would leave the
+  // run's own record unable to show what the Blind Reader actually said.
+  const outlinePath = passPath(ws, run, "recovered", `${stepId}.md`);
+  writeFileSync(outlinePath, content.endsWith("\n") ? content : content + "\n");
   const out = passPath(ws, run, "recovered", `${stepId}.json`);
-  writeFileSync(out, content);
+  writeFileSync(out, JSON.stringify(projected, null, 2) + "\n");
   run.recovered[stepId] = out;
+  run.outlines = run.outlines || {};
+  run.outlines[stepId] = outlinePath;
 
   const next = nextUnrecovered(run);
   let nextInput = null;
@@ -2153,7 +2157,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
     // coverage only, never whether a claim is admissible.
     const pairedItem = items.items.find((it) => it.mode === "paired");
     const pairs = pairedItem
-      ? pairClaims(declared[pairedItem.declared_block], rec[pairedItem.recovered_field] || [],
+      ? pairClaims(declared[pairedItem.declared_block], rec[pairedItem.field] || [],
         pairedItem.pair_text_key, floor)
       : [];
 
@@ -2253,7 +2257,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             + "`unpaired_sentence`. The Harness renders that sentence as the reason a claim "
             + "was failed, so the fallback would decide the item and say nothing about why.");
         }
-        const entries = rec[item.recovered_field] || [];
+        const entries = rec[item.field] || [];
         entries.forEach((entry, i) => {
           const p = pairs[i];
           if (item.unpaired === "fail" && (!p || p.ground_index === -1)) {
@@ -2292,7 +2296,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         const key = verdictKey(step.step_id, item.id, null);
         const file = renderJoinPacket(ws, run, pass, draft, step, item, null,
           declaredSide(step, item, declared, items),
-          item.recovered_field ? renderSide(recoveredAt(rec, item.recovered_field))
+          item.field ? renderSide(recoveredAt(rec, item.field))
             : "(the passage itself, quoted below — this item asks whether something is ABSENT from it)");
         const v = verdicts[key];
         modelCalls.push({ step_id: step.step_id, item: item.id, pair: null, packet: file,
