@@ -10,7 +10,9 @@ lives in the Harness (`src/review-draft.mjs`), the same ruling
 `.claude/skills/draft/SKILL.md` records for /draft: `recover` refuses a Step
 whose recovery input it did not render, `compare` refuses while any Step
 recovery, Section entry or the cold reader's final claim is missing, `check`
-refuses before `compare`, and `close` is
+refuses before `compare`, `compare` refuses once a correction has landed
+(pass one is over, and re-rendering its join inputs from the corrected article
+would lose the reading its verdicts were given on), and `close` is
 reachable from `compare` with zero fails or from `check` in every state. A
 session does not sequence those acts and cannot get the sequence wrong.
 
@@ -92,6 +94,50 @@ selection: a hybrid item like `grounds` can render a mechanical `widened` fail
 out of a row whose other pairs a model answered. The truth per pair is always
 in `pairs`.
 
+## The workspace is split by pass, and every pass's evidence survives
+
+The layout is the Harness's contract, not a convention:
+
+    runs/review/<slug>/pass-1/{recovery,recovered,join,ledger,corrections,
+                               cold-reader.md,join.json}
+    runs/review/<slug>/pass-2/{recovery,recovered,join,check.json}
+    runs/review/<slug>/snapshots/     before/after per corrected Step
+    runs/review/<slug>/run.json
+
+**A pass writes only under its own directory, and a write that would land on a
+file another pass wrote is refused by name.** Until this, pass two re-read the
+corrected Steps blind and wrote its inputs and records at pass one's paths, so
+pass one's reading of the ORIGINAL Draft was overwritten in place — and `runs/`
+is gitignored, so nothing else held a copy. The surviving verdicts pointed at
+recovered records that no longer existed. A rule saying "do not overwrite" would
+be prose where a refusal belongs.
+
+`snapshots/` and `run.json` stay at the root: a snapshot pair spans the
+correction that separates two passes, and the run record is the one file every
+pass writes. **The correction inputs are pass one's** — `correct` only ever
+discharges a verdict pass one recorded, and pass two turns a still-failing item
+into residue rather than into another correction. A later third pass is
+`pass-3/` and nothing else moves.
+
+`review.md` points at both pass directories, and every finding and residue
+line carries the artefacts behind it: the recovered record the run actually
+read for that line (pass one's for a carried line, and for a successor Step's
+continuity item judged in pass two, since pass two re-reads only corrected
+Steps), and the pair input the judge was handed — or, for a line the Harness
+decided, a statement that no Packet was rendered and a pointer at the pass's
+join record instead. Every pointer names a file the run wrote.
+
+## The reviewed Draft has its own filename
+
+`close` writes the corrected article to **`theses/<slug>/draft.reviewed.md`**
+and restores **`theses/<slug>/draft.md`** to the Draft the run actually read, so
+the Draft is byte-identical before and after a run and the diff between the two
+files is the review. `review.md` names both. Corrections still land on
+`draft.md` while the run is live — the realization lane emits there, which is
+what makes each later correction's "article so far" current — so `close` is the
+act that ends a run, and **a second `close` over a restored run refuses**:
+running it again would copy the restored original back over the reviewed Draft.
+
 ## The comparison, and what the judging model is not asked
 
 `compare` runs in two phases and the Harness owns both. The first decides every
@@ -158,7 +204,8 @@ failed with their pairs and spans, the items that **held** as what the
 correction must not break, and the instruction to change what the findings name
 and nothing else. With `--file` it records the prose through the realization
 lane, so the Draft is re-assembled by the same code that wrote it, and snapshots
-land in the review workspace.
+land in the review workspace. Its input is filed under `pass-1/corrections/`,
+beside the verdicts that sent the Step there.
 
 **A figure fail routes to `correct --figure`, and that is a different act.**
 What comes back is a JSON record, not prose: the input carries the Step's Packet
