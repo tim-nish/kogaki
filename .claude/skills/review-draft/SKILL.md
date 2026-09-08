@@ -146,6 +146,15 @@ call — and renders **one join Packet per judged pair**, each carrying the
 declared line, the recovered line, the quoted prose and **one** question. The
 second records the answers with `--verdicts` and emits the comparison.
 
+**A judged item whose DECLARED side is empty is decided by the Harness too, and
+costs no call.** Where the Packet renders a stated absence — no grounds, no
+`introduces`, no Move exemplar — the item's own table row declares the answer
+and its sentence, so nothing is rendered and no model is asked a question
+quantifying over nothing. The answer is a fact about the declared side rather
+than a reading of the prose, which is why it is the table's to state and not the
+runtime's to decide; an item that declares no such arm is still judged on an
+empty side, because whether the absence settles the question is per item.
+
 **The figure joins the same table (kogaki#880).** A Step whose trace entry
 carries a figure gains five rows — the record's elements against the ones the
 reader could name, its caption against what the reader holds and the Step's

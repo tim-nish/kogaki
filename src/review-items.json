@@ -323,6 +323,10 @@
       "mode": "judged",
       "declared_block": "introduces",
       "recovered_field": "terms_introduced",
+      "when_declared_absent": {
+        "verdict": "holds",
+        "sentence": "this Step's Packet says to introduce no term, so the question below quantifies over nothing; the absence is named on the mechanical side by `term-before-introduction`"
+      },
       "question": "Is every term the Packet says to introduce here actually introduced in this passage — usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
     },
     {
