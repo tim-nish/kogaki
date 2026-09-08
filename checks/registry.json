@@ -456,7 +456,7 @@
         "license": "kogaki#905",
         "tier": "fast",
         "runtime_ms": 70,
-        "case_floor": 16,
+        "case_floor": 25,
         "case_floor_note": "the live count, declared equal to it rather than below it. The floor is a ratchet on the two directions the contract names — arm 1 applying where it should, and arm 2 still refusing — and a count that drops means one direction stopped being exercised. Retiring a case is legitimate and lowers the floor in the same act, which is the deliberate edit that records the retirement.",
         "removal_signal": "the CI job ceasing to be a licence carrier — that is, `specs/spec-implementation-license/SPEC.md`'s actor-level deny extending to cover commits pushed to the default branch, at which point the generation constraint subsumes this after-the-fact detection and the workflow job, the predicate and this member go together (constrain-generation-not-post-hoc-detection). The second, independent trigger is the emission duty itself being retired or re-routed through pull requests — CLAUDE.md's \"same sitting, unasked\" clause is the whole premise of arm 1, and without it the exemption has nothing to exempt and the predicate collapses back to the one-line grep this member was created to make testable.",
         "removal_instrument": "act: the PR that lands either change — an extension of the implementation-licence deny to push events, or a successor to CLAUDE.md's emission duty — owes this member's removal row in the same act, so the fired trigger is observed at the act that fires it",

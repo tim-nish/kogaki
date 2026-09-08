@@ -26,15 +26,27 @@
 # and a statusless line has its own case — the format's blind spot is the one
 # the narrowing closes, and a check that admitted both forms could not see it.
 #
+# THE THIRD DIRECTION IS THE RANGE (kogaki#976). A push is an event over a
+# range of commits, and the gate used to read only its head — so a push of
+# [code commit naming no issue, emission commit] was exempted on the strength of
+# its last commit and the code beneath it was never examined. The predicate now
+# gathers the range's own facts from `--before`/`--after`, and the cases below
+# build real repositories to exercise that gathering, because a two-commit push
+# cannot be constructed from a path list at all.
+#
 # WHAT IT DOES NOT VERIFY, stated rather than left to look covered: that the CI
-# job passes the right facts in. The job reads `git diff-tree` and the head
-# commit message and hands them over; a defect in THAT plumbing — a merge
-# commit's empty path list, say — is invisible here. The predicate's own
-# fail-closed handling of an empty path set is covered (case 6), which is the
-# half a case can reach; the wiring stays with review.
+# job passes the right facts in. It hands `github.event.before` and
+# `github.event.after` to the predicate and reads nothing itself, so the surface
+# left unasserted is now the two `${{ }}` expressions rather than a `git`
+# pipeline — smaller than it was, and still not nothing. The range cases reach
+# everything below those two expressions; the wiring stays with review.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# The range cases run the predicate from inside a throwaway repository, so its
+# path is resolved here while the repository root is still the working
+# directory — `$OLDPWD` is the caller's, not this one's.
+REPO_ROOT="$PWD"
 SCRIPT_UNDER_TEST=tools/assert-licensed.sh
 
 if [[ ! -x "$SCRIPT_UNDER_TEST" ]]; then
@@ -228,6 +240,143 @@ run_case "a pull request naming an issue passes" \
   pass pull_request \
   "fix: something (for #905)" \
   "M src/terrain.mjs"
+
+# --- kogaki#976: the push arm reads the RANGE, not the head -------------------
+
+# run_range_case <name> <expected> <spec...>
+# Each spec is `<message>|<op> <path>[;<op> <path>...]`, one commit, applied in
+# order in a throwaway repository; the case then runs the predicate over
+# `first-parent..HEAD` exactly as the CI job does. A real repository is the
+# only way to state a two-commit push, which is what the finding is about.
+run_range_case() {
+  local name="$1" expect="$2"; shift 2
+  local repo="$tmp/repo.$ran"
+  mkdir -p "$repo"
+  git -C "$repo" init -q
+  git -C "$repo" config user.email c@example.com
+  git -C "$repo" config user.name c
+
+  # A base commit so `before` names something; it is outside the pushed range.
+  mkdir -p "$repo/policy/emissions" "$repo/src"
+  echo base > "$repo/README.md"
+  git -C "$repo" add -A
+  git -C "$repo" commit -qm "base (for #0)"
+  local before
+  before="$(git -C "$repo" rev-parse HEAD)"
+
+  local spec msg ops op path
+  for spec in "$@"; do
+    msg="${spec%%|*}"
+    ops="${spec#*|}"
+    while [[ -n "$ops" ]]; do
+      op="${ops%%;*}"
+      [[ "$op" == "$ops" ]] && ops="" || ops="${ops#*;}"
+      path="${op#* }"
+      case "${op%% *}" in
+        A|M) mkdir -p "$repo/$(dirname "$path")"; echo "$RANDOM" > "$repo/$path" ;;
+        D)   rm -f "$repo/$path" ;;
+      esac
+    done
+    git -C "$repo" add -A
+    git -C "$repo" commit -qm "$msg"
+  done
+
+  local after
+  after="$(git -C "$repo" rev-parse HEAD)"
+
+  ran=$((ran + 1))
+  local out status
+  set +e
+  out="$(cd "$repo" && "$REPO_ROOT/$SCRIPT_UNDER_TEST" --event push \
+          --before "$before" --after "$after" 2>&1)"
+  status=$?
+  set -e
+  report_case "$name" "$expect" "$status" "$out"
+}
+
+# ACCEPTANCE 1, the finding itself: the emission is last, so the head-only read
+# exempted the whole push and the code commit beneath it was never examined.
+run_range_case "a code commit with no #N under an emission commit is refused" \
+  refuse \
+  "fix(terrain): tighten the anchor resolver|M src/terrain.mjs" \
+  "emit(policy): a learning from the sitting|A policy/emissions/2026-09-08-a.md"
+
+# The same two commits in the other order — the exemption must not be reachable
+# from either end of the range.
+run_range_case "an emission commit under a code commit with no #N is refused" \
+  refuse \
+  "emit(policy): a learning from the sitting|A policy/emissions/2026-09-08-a.md" \
+  "fix(terrain): tighten the anchor resolver|M src/terrain.mjs"
+
+# ACCEPTANCE 2: a range that is emissions and nothing else is still exempt.
+run_range_case "a range of emission commits only is still exempt" \
+  pass \
+  "emit(policy): one learning|A policy/emissions/2026-09-08-a.md" \
+  "emit(policy): another learning|A policy/emissions/2026-09-08-b.md"
+
+run_range_case "a single emission commit is still exempt" \
+  pass \
+  "emit(policy): one learning|A policy/emissions/2026-09-08-a.md"
+
+# The licence is pooled across the range, which is what the `pull_request` arm
+# has always done — a range licensed once on its last commit stays green.
+run_range_case "a range licensed once on its last commit passes" \
+  pass \
+  "fix(terrain): tighten the anchor resolver|M src/terrain.mjs" \
+  "fix(terrain): and its test (for #976)|M src/terrain.test.mjs"
+
+# The union is taken over the COMMITS and not as the net diff: a source file
+# touched and reverted has still been touched, and owes its licence.
+run_range_case "a source file touched and reverted still owes its licence" \
+  refuse \
+  "wip|M src/terrain.mjs" \
+  "revert wip|D src/terrain.mjs" \
+  "emit(policy): a learning|A policy/emissions/2026-09-08-a.md"
+
+# ACCEPTANCE 3, both shapes of an unreadable range. The stated arm is
+# fail-closed: no exemption, and the head commit must name an issue.
+run_range_case_unreadable() {
+  local name="$1" expect="$2" before="$3" head_msg="$4" head_path="$5"
+  local repo="$tmp/repo.$ran"
+  mkdir -p "$repo"
+  git -C "$repo" init -q
+  git -C "$repo" config user.email c@example.com
+  git -C "$repo" config user.name c
+  mkdir -p "$repo/$(dirname "$head_path")"
+  echo x > "$repo/$head_path"
+  git -C "$repo" add -A
+  git -C "$repo" commit -qm "$head_msg"
+  local after
+  after="$(git -C "$repo" rev-parse HEAD)"
+
+  ran=$((ran + 1))
+  local out status
+  set +e
+  out="$(cd "$repo" && "$REPO_ROOT/$SCRIPT_UNDER_TEST" --event push \
+          --before "$before" --after "$after" 2>&1)"
+  status=$?
+  set -e
+  report_case "$name" "$expect" "$status" "$out"
+}
+
+ZEROES=0000000000000000000000000000000000000000
+
+# A branch's first push: `before` is all zeroes. The emission exemption does
+# NOT apply, so an emission-only head with no #N is refused rather than exempt.
+run_range_case_unreadable "a first push of an emission with no #N is refused" \
+  refuse "$ZEROES" \
+  "emit(policy): a learning" policy/emissions/2026-09-08-a.md
+
+# And the arm it falls to is arm 2, which a named issue satisfies.
+run_range_case_unreadable "a first push naming an issue passes" \
+  pass "$ZEROES" \
+  "emit(policy): a learning (for #976)" policy/emissions/2026-09-08-a.md
+
+# A force push: `before` names a commit that is not in this repository at all,
+# which is the same unreadable state by a different route.
+run_range_case_unreadable "an unresolvable before falls to the same closed arm" \
+  refuse "6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f" \
+  "emit(policy): a learning" policy/emissions/2026-09-08-a.md
 
 echo
 # THE FLOOR IS READ FROM THE REGISTRY, never hardcoded here (kogaki#661), and
