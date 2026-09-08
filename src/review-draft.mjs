@@ -1283,6 +1283,23 @@ function cmdRead(args) {
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
   requireCurrent(run, draft);
+
+  // THE COLD READER IS A PASS-ONE ACT, AND PASS ONE ENDS AT THE FIRST
+  // CORRECTION (PR #1007 round 1, finding 2). Its input is rendered at `open`
+  // into `pass-1/cold-reader.md`, and `pass-1/join.json`'s Section verdicts are
+  // given on the entries it records. `correct` moves `body_sha` with the
+  // article, so `requireCurrent` admits a `read` over the corrected Draft —
+  // and that entry would land where pass one's was, orphaning the entry the
+  // Section verdicts rest on. Refused, the way `compare` refuses, and the
+  // writes below are pinned to pass one the way the correction inputs are, so
+  // the layout the legend declares (`ledger/` under `pass-1/` only) is the
+  // layout the Harness writes whatever pass the run has reached.
+  if ((run.corrections || []).length) {
+    fail(`this run has ${run.corrections.length} correction(s) recorded, so pass one is over: the cold `
+      + "reader's entries are pass one's, and re-recording one now would replace the entry pass one's "
+      + "Section verdicts were given on. Pass two re-reads corrected Steps through `check`, never "
+      + "the Sections.");
+  }
   const items = readItems();
   if (!existsSync(file)) fail(`no cold-reader entry at ${file}`);
   const text = readFileSync(file, "utf8");
@@ -1315,7 +1332,7 @@ function cmdRead(args) {
         + "article claimed, in the reader's own words. An empty claim would be laid against the "
         + "thesis and would report agreement.");
     }
-    const out = passPath(ws, run, "ledger", "final-claim.json");
+    const out = passPathAt(ws, run, 1, "ledger", "final-claim.json");
     writeFileSync(out, JSON.stringify({ [key]: v.trim() }, null, 2) + "\n");
     run.final_claim = out;
     writeRun(ws, run);
@@ -1334,7 +1351,7 @@ function cmdRead(args) {
     fail(`unknown section ${n} — this Draft's Sections are ${known.join(", ")}`);
   }
   const entry = validateLedgerEntry(text, n, file, items);
-  const out = passPath(ws, run, "ledger", `section-${n}.json`);
+  const out = passPathAt(ws, run, 1, "ledger", `section-${n}.json`);
   writeFileSync(out, JSON.stringify(entry, null, 2) + "\n");
   run.ledger[String(n)] = out;
   writeRun(ws, run);
@@ -6609,7 +6626,12 @@ async function runSelfTest() {
         // DECIDED IT rather than at a Packet nothing rendered. This run's
         // findings include mechanically-decided rows, so the arm is expressed.
         const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
-        const harnessRows = (rr.findings || []).filter((f) => !chosenJudged(f)).length;
+        // COUNTED OVER BOTH SECTIONS THE LINE IS RENDERED IN (PR #1007 round 1,
+        // finding 1): a preserved fail is a finding AND a residue row, so its
+        // none-line renders twice, and a count over `findings` alone would
+        // fail the equality on correct output.
+        const harnessRows = (rr.findings || []).filter((f) => !chosenJudged(f)).length
+          + (rr.residue || []).filter((r) => !chosenJudged(r)).length;
         // This fixture's findings are all judged, so the equality is the
         // whole of what it can express here; the arm with a Harness-decided
         // row is asserted on the #996 fixture, whose `grounds-unused` fail is
@@ -6760,6 +6782,19 @@ async function runSelfTest() {
         dirBytes(P1("join")) === p1JoinBefore);
       ok("#1004/1: and pass one's record is unchanged",
         readOrEmpty(P1("join.json")) === p1RecordBefore);
+      // THE COLD READER'S ENTRIES ARE PASS ONE'S TOO (PR #1007 round 1, finding
+      // 2): a `read` over a run with corrections is refused the same way, and
+      // no ledger exists under pass two whatever pass the run has reached.
+      const ledgerBefore = readdirSync(P1("ledger")).sort()
+        .map((n) => `${n}:${readFileSync(P1("ledger", n), "utf8")}`).join("\u0000");
+      const rRead = RD("read", "--section", "1", "--file", ledgerFile);
+      ok("#1007/2: read over a run with corrections is refused by name",
+        rRead.status === 1 && /pass one is over/.test(rRead.stderr)
+        && /Section verdicts were given on/.test(rRead.stderr));
+      ok("#1007/2: pass one's ledger entries are byte-for-byte untouched and pass two has no ledger",
+        readdirSync(P1("ledger")).sort()
+          .map((n) => `${n}:${readFileSync(P1("ledger", n), "utf8")}`).join("\u0000") === ledgerBefore
+        && !existsSync(P2("ledger")));
     }
 
     // --- PR #1004 round 1, finding 3: kogaki#994 item 4 — the owner record
