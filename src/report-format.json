@@ -463,7 +463,7 @@
           "allowlist": [
             "ThesisCandidateID"
           ],
-          "governing": "SPEC-terrain, the neighborhood section's shape / the Thesis candidates — kogaki#861, owner report 2026-09-04. A FIXED line class: every rendered row carries it, so a reader can always tell what a suggested neighbor is FOR. The id names a candidate of THIS report's the Thesis candidates section, and the runtime refuses a judgment whose target names a candidate the `thesis_candidates` state did not compose — the join is checked before anything renders, because a TC id pointing at a section that does not carry it fails silently in the one direction the reader cannot see."
+          "governing": "SPEC-terrain, the neighborhood section's shape / the Thesis candidates — kogaki#861, owner report 2026-09-04. A FIXED line class: every rendered row carries it, so a reader can always tell what a suggested neighbor is FOR. The id names a candidate of the Thesis candidates section in THIS report, and the runtime refuses a judgment whose target names a candidate the `thesis_candidates` state did not compose — the join is checked before anything renders, because a TC id pointing at a section that does not carry it fails silently in the one direction the reader cannot see."
         },
         {
           "id": "neighborhood_suggestion_target_absent",
