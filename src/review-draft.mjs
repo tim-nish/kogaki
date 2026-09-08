@@ -788,13 +788,20 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
   // THE ARTICLE'S OWN TEXT GOES IN LAST, and the passage comes after the
   // article that precedes it — the order the reader meets them in, and the
   // order the section prose above describes.
-  const parts = [head, articleBefore(steps, step.step_id), "",
+  //
+  // THE FIGURE SITS ON THE SIDE OF THE PASSAGE THE READER MET IT ON, and a
+  // figure met ABOVE the prose goes above the passage's own HEADING rather
+  // than under it: a block the reader met first, rendered below the heading
+  // that announces the passage, is the inverted arrangement kogaki#945 removed,
+  // one line further down the page.
+  const parts = [head, articleBefore(steps, step.step_id), ""];
+  if (figureFirst && figureBlock) parts.push(figureBlock, "");
+  parts.push(
     `## The passage — ${step.step_id}, draft lines ${step.lines[0]}–${step.lines[1]}`,
     "",
     "Every line is numbered with its line number in the Draft.",
-    ""];
-  if (figureFirst && figureBlock) parts.push(figureBlock, "");
-  parts.push(numberedProse(step), "");
+    "",
+    numberedProse(step), "");
   if (!figureFirst && figureBlock) parts.push(figureBlock, "");
 
   const dest = passPath(ws, run, "recovery", `${step.step_id}.md`);
@@ -5467,7 +5474,20 @@ async function runSelfTest() {
     // reader could not have read off the passage is an inference, and dropping
     // it silently would leave the inference having shaped the rest of the
     // outline with no trace. Iterated from the declaration for the same reason.
+    //
+    // `figure` IS REFUSED ONE READER EARLIER, and that is asserted rather than
+    // exempted (kogaki#1014): a bare `figure:` line is not a Brief Step field
+    // the Brief itself would accept, so `parseStepBlock` refuses it before the
+    // disposition list is consulted. Every field is still refused — which is
+    // the property — and this one is refused by the Brief's own grammar, which
+    // is the acceptance the single-parser change was for.
     for (const f of NOT_RECONSTRUCTIBLE_FIELDS) {
+      if (f.name === "figure") {
+        bad("an outline carrying `figure` is refused by the Brief parser before the disposition list",
+          (o) => { o.extra = { ...(o.extra || {}), figure: "something" }; return o; },
+          /figure: is declared with no figure_roles/);
+        continue;
+      }
       bad(`an outline carrying \`${f.name}\` is refused — it is declared not reconstructible`,
         (o) => { o.extra = { ...(o.extra || {}), [f.name]: "something" }; return o; },
         `carries \`${f.name}:\`, which is declared NOT reconstructible`);
@@ -5825,8 +5845,16 @@ async function runSelfTest() {
       /packet/.test(fmText));
     const r = driveToCompletedJoin(d, join(root, "ws-fm"), "fm");
     ok("the run completes", r.second.status === 0);
-    ok("and a term occurring only in the frontmatter does not fail the Step that introduces it",
-      /\sholds\s/.test(linesOf(r.second.stdout).get("a3/term-before-introduction")));
+    // THE ASSERTION THIS DRIVE CARRIED LEFT WITH ITS ROW (kogaki#1014). It read
+    // `a3/term-before-introduction` and that row went with the hygiene items,
+    // whose removal is the ruling recorded in `src/review-items.json`: a reader
+    // cannot infer the source a structure was produced from. The frontmatter
+    // defect was a property of THAT row's mechanical haystack — it scanned the
+    // whole file — and no surviving row scans anything, `introduces` being
+    // judged from the passage. So what is asserted now is the property the
+    // removal makes available: no row reaches outside the passage at all.
+    ok("no surviving row can fail a Step on a term the frontmatter alone carries",
+      [...linesOf(r.second.stdout).keys()].every((k) => !/term-before-introduction/.test(k)));
   }
 
   // kogaki#995 — A CONCESSION REACHES THE JUDGING MODEL AS ITS OWN WORDS. The
@@ -5961,7 +5989,8 @@ async function runSelfTest() {
   {
     const pd = join(root, "packets-riding"); mkdirSync(pd, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) writePacket(pd, id,
-      id === "a2" ? { grounds: [GROUNDS.a2[0], "a ground the prose never reaches for"] } : {});
+      id === "a2" ? { grounds: [GROUNDS.a2[0],
+        "ground epsilon — a ground the prose never reaches for."] } : {});
     // THE VEHICLE CHANGED AND THE RULE DID NOT (kogaki#1014). This case used to
     // ride `restates-earlier-step`, whose row left the table with the rest of
     // the hygiene items. `grounds-unused` is the surviving row the table calls
@@ -5972,7 +6001,8 @@ async function runSelfTest() {
     const r = driveToCompletedJoin(d, wsb, "riding");
     ok("the run completes", r.second.status === 0);
     const L = linesOf(r.second.stdout);
-    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/grounds-unused")));
+    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/grounds-unused")),
+      `LINE=${JSON.stringify(L.get("a2/grounds-unused"))} KEYS=${[...L.keys()].join(",")}`);
     ok("and no Step is sent to correction, because no PRESERVED item failed",
       /no Step is sent to correction/.test(r.second.stdout));
     const D = (...a) => spawnSync(process.execPath,
