@@ -633,38 +633,18 @@ function quotedPassage(step) {
   return parts.join("\n\n");
 }
 
-// THE REVIEWER IS TOLD WHAT TO WRITE, NEVER WHAT THE FIGURE HOLDS. Every line
-// below asks for a reading of the rendered block; none of it names a role, a
-// ground, a relation or the record's own position word, so a reviewer who has
-// only the article can answer all of it and a reviewer who has seen the record
-// gains nothing by it.
-const FIGURE_FIELD_INSTRUCTION = `- \`figure_reading\` — your reading of the figure above, as a reader who met it
-  with this passage and nothing else.
-  - \`shows\` — what the figure shows. One or two lines.
-  - \`elements\` — the things you can name in it. A list of strings, in whatever
-    order you met them.
-  - \`reader_state_after\` — what you hold after looking at it. One or two
-    sentences.
-`;
-
 // The number of fields the Blind Reader is asked to fill, COUNTED FROM THE
 // DECLARATION rather than spelled in the instruction — so a disposition table
 // gaining a field cannot leave the sentence the reader reads saying the old
-// count. `figure` is not among them: the figure's own Round Trip compares the
-// figure record's own fields.
-function reverseOutlineFieldCount(step) {
+// count.
+//
+// IT TAKES NO STEP (PR #1022 round 1, finding 5). It took one while the count
+// was per Step — a Step carrying a figure owed an eighth field — and the figure
+// half left under the decline recorded in `src/review-items.json`. A parameter
+// nothing reads says the count still varies by Step, which is the shape a
+// reader would trust and a later edit would build on.
+function reverseOutlineFieldCount() {
   return RECONSTRUCTIBLE_FIELDS.length;
-}
-
-// THE CONDITION VOCABULARY IS CLOSED AND THE UNKNOWN TOKEN REFUSES. A schema
-// naming a condition this runtime cannot evaluate would otherwise resolve
-// false, and the field would be silently forbidden on every Step — an eighth
-// field nobody could ever write, declared and unreachable.
-function conditionHolds(when, step) {
-  if (when === "figure") return Boolean(step.figure);
-  fail(`the Reverse Outline declares the condition \`${when}\`, which this Harness cannot `
-    + "evaluate — a condition the runtime does not know would resolve false for every Step, so the "
-    + "field it guards would be declared and unreachable rather than conditional");
 }
 
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
@@ -741,7 +721,7 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "",
     "Write no verdicts and no advice. Nothing here asks whether the passage is good.",
     "",
-    `## The ${numberWord(reverseOutlineFieldCount(step))} fields`,
+    `## The ${numberWord(reverseOutlineFieldCount())} fields`,
     "",
     ...fieldLines,
     "",
@@ -768,7 +748,8 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "reader_state_after: …",
     "ground …",
     "ground …",
-    "introduces: <term> — <where the passage anchors it>",
+    "introduces: <term>",
+    "introduces: <term> — <where the passage anchors it, only if it does>",
     "opens_section: <section title, only if this passage opens one>",
     "concession: <a loss the passage concedes in so many words>",
     "```",
@@ -934,9 +915,19 @@ export const RECONSTRUCTIBLE_FIELDS = [
     definition: "what a reader knows and believes once they have read it." },
   { name: "grounds", kind: "ground-lines",
     definition: "one `ground ` line per thing the passage ASSERTS — what it asks the reader to accept." },
+  // BOTH ARMS, and the bare one first (PR #1022 round 1, finding 3). This read
+  // `introduces: <term> — <anchor>`, which is only half of what
+  // `parseIntroducesEntry` accepts: a term may be written BARE, and only a
+  // separator with nothing after it is refused. A reader who took the anchor
+  // for mandatory would supply one for a term the passage anchors nowhere —
+  // an invention reaching the comparison through the one field the blind half
+  // exists to keep clean.
   { name: "introduces", kind: "repeated-line",
-    definition: "one `introduces: <term> — <anchor>` line per term this passage introduces to the reader, "
-      + "in the Brief's own grammar; a passage that introduces nothing carries no line." },
+    definition: "one `introduces: <term>` line per term this passage introduces to the reader, "
+      + "in the Brief's own grammar. Where the passage also says what the term MEANS, write "
+      + "`introduces: <term> — <anchor>` and let the anchor be that meaning, in the passage's own "
+      + "words; where it does not, write the term bare rather than inventing one. A passage that "
+      + "introduces nothing carries no line." },
   { name: "opens_section", kind: "optional-line",
     definition: "the section title, where this passage reads as OPENING a new section; omitted where it continues one." },
   { name: "concession", kind: "repeated-line",
@@ -1642,12 +1633,6 @@ function pairClaims(grounds, claims, textKey, floor) {
   });
 }
 
-// Every draft line of this Step, paired with its own draft line number — the
-// coordinate the trace, the recovered spans and every finding below share.
-function numberedLines(step) {
-  return step.prose.split("\n").map((text, i) => ({ n: step.lines[0] + i, text }));
-}
-
 // The first N-word window of `line` that occurs verbatim in `haystack`.
 // Normalized to a word sequence on both sides, so a wrap, a double space or a
 // comma is not what decides it — the words are.
@@ -1658,27 +1643,6 @@ function verbatimWindow(line, haystacks, n) {
   for (let i = 0; i + n <= w.length; i++) {
     const win = w.slice(i, i + n).join(" ");
     if (hays.some((h) => h.includes(" " + win + " "))) return win;
-  }
-  return null;
-}
-
-// The earliest draft line on which `term` occurs as a word sequence, over the
-// whole BODY rather than over one Step: `term-before-introduction` asks where
-// the reader first meets a word, and the reader reads the article.
-//
-// THE FRONTMATTER IS SKIPPED, AND THAT IS CORRECTNESS RATHER THAN TIDINESS. The
-// record half carries the trace, the Brief pin and every cite the Draft was
-// composed from, so a Step introducing a term the trace happens to contain —
-// `draft`, `packet`, `cite`, a Strand slug — would fail on a line NO READER EVER
-// SEES, and the finding would point at a JSON line as the place the reader met
-// the word. The search starts where `readDraft`'s own body starts, so the two
-// cannot disagree about where the article begins.
-function firstOccurrence(draft, term) {
-  const t = wordsOf(term);
-  if (!t.length) return null;
-  const needle = " " + t.join(" ") + " ";
-  for (let i = draft.frontmatterEnd + 2; i < draft.lines.length; i++) {
-    if ((" " + wordsOf(draft.lines[i]).join(" ") + " ").includes(needle)) return i + 1;
   }
   return null;
 }
@@ -6306,7 +6270,7 @@ async function runSelfTest() {
     // the declaration cannot leave the instruction saying the old number.
     ok("and the count in the reader's instruction is computed from that declaration",
       /RECONSTRUCTIBLE_FIELDS\.length/.test(prod)
-      && /numberWord\(reverseOutlineFieldCount\(step\)\)/.test(prod));
+      && /numberWord\(reverseOutlineFieldCount\(\)\)/.test(prod));
     // THE BLOCK IS PARSED BY THE BRIEF'S OWN FUNCTION. A `parseStepBlock`
     // DEFINED here rather than imported is the second parser this act removed,
     // and it would read exactly like the first until one of them was edited.

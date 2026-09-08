@@ -257,10 +257,18 @@ done
 # The renderer's own literals, which is what the recovery input's headings now
 # are. Sliced at the function so a heading elsewhere in the runtime -- the join
 # Packet's, the cold reader's -- is not read as this input's.
+#
+# BOTH RENDERERS ARE SLICED (PR #1022 round 1, finding 1). The input's headings
+# come from `renderReverseOutlineInput` AND from `renderFigurePassage`, which
+# writes the figure section's own; slicing one would leave the other's headings
+# outside the guard's reach entirely.
 RENDERED_HEADS="$(mktemp)"
-awk '/^function renderReverseOutlineInput\(/ { inside=1 } inside { print } inside && /^}$/ { exit }' "$RD" > "$RENDERED_HEADS"
-if [[ ! -s "$RENDERED_HEADS" ]]; then
-  echo "FAIL: renderReverseOutlineInput was not found in $RD -- the leak guard below would read an empty file and report ok on every Packet block"
+awk '/^function (renderReverseOutlineInput|renderFigurePassage)\(/ { inside=1 }
+     inside { print }
+     inside && /^}$/ { inside=0 }' "$RD" > "$RENDERED_HEADS"
+if ! grep -q "renderReverseOutlineInput" "$RENDERED_HEADS" \
+   || ! grep -q "renderFigurePassage" "$RENDERED_HEADS"; then
+  echo "FAIL: one of the recovery input's two renderers was not found in $RD -- the leak guard below would read a partial slice and report ok on every Packet block it could not see"
   exit 1
 fi
 
@@ -292,9 +300,16 @@ while IFS= read -r h; do
   # already (kogaki#886, this comment naming `/^##/` against the code's `/^#/`),
   # so each names the other here rather than only the wrong side being corrected
   # -- edit one and the other is owed the same edit.
-  # The renderer writes its headings as quoted literals, so the heading is
-  # matched inside a string rather than at the start of a line.
-  if grep -qF "## $h" "$RENDERED_HEADS"; then
+  #
+  # AND THEY DISAGREED AGAIN AT kogaki#1014 (PR #1022 round 1, finding 1). When
+  # the template became a composed input this test was rewritten as
+  # `grep -qF "## $h"` -- a level-2 SUBSTRING match, which is both halves of
+  # what the paragraph above forbids, while the paragraph and the registry note
+  # went on describing the old behaviour. Every level is selected again below,
+  # and the ANCHOR is what keeps it from being a substring: the renderer writes
+  # its headings as quoted literals, so a heading is preceded by a quote or a
+  # backtick and its `#` run, never by other prose.
+  if grep -qE "[\"\`]#+ $(printf '%s' "$h" | sed 's/[][\\.^$*+?(){}|/]/\\&/g')([\"\`]|\$|,)" "$RENDERED_HEADS"; then
     echo "FAIL: the recovery input renders the Packet block heading \"$h\" -- the reviewer is blind by design, and a Packet block in the recovery input ends the measurement while looking helpful"
     LEAK=1
   fi
