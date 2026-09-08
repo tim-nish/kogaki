@@ -3552,8 +3552,9 @@ function cmdCorrect(args) {
 // rather than from this file (see `pass_two` there):
 //
 //   - a corrected Step, on its own failed items and its held preserved items;
-//   - the Step immediately AFTER each corrected Step, on the two continuity
-//     items — the correction moved the prose that Step continues from;
+//   - the Step immediately AFTER each corrected Step, on the continuity items
+//     the table names — the correction moved the prose that Step continues
+//     from;
 //   - every mechanical item, over the whole Draft.
 //
 // Nothing else is re-judged, and "nothing else" is the point rather than a
@@ -3561,10 +3562,17 @@ function cmdCorrect(args) {
 // an untouched pair would put a second reading beside a recorded one with
 // nothing to distinguish them.
 function passTwoBound(run, items) {
+  // THE ARM MUST BE NON-EMPTY, AND ITS SIZE IS THE TABLE'S (kogaki#1014). This
+  // read for a pair of exactly two, which was the runtime restating a shape the
+  // table owns: when `restates-earlier-step` left under the hygiene decline the
+  // count went to one, and a run whose bound was correct refused on the number.
+  // What the refusal is actually for is an EMPTY arm — pass two over the
+  // corrections alone, reporting continuity it never looked at — so that is
+  // what it now says.
   const declaredSuccessor = (items.pass_two || {}).successor_items;
-  if (!Array.isArray(declaredSuccessor) || declaredSuccessor.length !== 2) {
-    fail("the item table declares no `pass_two.successor_items` pair, and the bounded second pass "
-      + "re-checks each corrected Step's successor on exactly two continuity items. A bound with "
+  if (!Array.isArray(declaredSuccessor) || declaredSuccessor.length === 0) {
+    fail("the item table declares no `pass_two.successor_items`, and the bounded second pass "
+      + "re-checks each corrected Step's successor on the continuity items it names. A bound with "
       + "no successor arm would pass two over the corrections alone and report continuity it never "
       + "looked at.");
   }
@@ -6348,7 +6356,8 @@ async function runSelfTest() {
     const FAILS = ["s2/reader-state-after", "s3/reader-state-after"];
     const p1 = RD("compare", "--verdicts", answer(joinPath, "p1", FAILS));
     ok("pass one completes and sends the two preserved-failing Steps to correction",
-      p1.status === 0 && /Steps sent to correction[^\n]*s2, s3/.test(p1.stdout));
+      p1.status === 0 && /Steps sent to correction[^\n]*s2, s3/.test(p1.stdout),
+      `P1 STATUS ${p1.status} ERR ${(p1.stderr||"").slice(0,600)}`);
 
     // --- FINDING 1 (PR #906 round 1): `check` with NOTHING corrected --------
     // Declining to correct is a legitimate route — `close` is reachable from
@@ -6365,7 +6374,8 @@ async function runSelfTest() {
       // no correction was made", which the per-seat line made false for a Step
       // that received one seat and still owes the other.
       ok("check with nothing corrected NAMES the Steps pass one sent to correction",
-        r.status === 0 && /UNCORRECTED — pass one sent these to correction and they are still owed: s2, s3/.test(r.stdout));
+        r.status === 0 && /UNCORRECTED — pass one sent these to correction and they are still owed: s2, s3/.test(r.stdout),
+        `STATUS ${r.status} ERR ${(r.stderr||"").slice(0,500)} OUT ${(r.stdout||"").slice(0,500)}`);
       ok("and says their fails are carried rather than re-judged",
         /not re-judged by this pass/.test(r.stdout));
       const rc = RD("close");
