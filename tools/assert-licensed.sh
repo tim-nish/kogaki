@@ -67,6 +67,36 @@
 # `git diff-tree` without `-m`, and a merge is exactly the change that must
 # carry a licence. Empty falls through to arm 2, which is fail-closed.
 #
+#
+# WHY THE PUSH ARM READS THE RANGE AND NOT `HEAD` (kogaki#976). A push is an
+# event over a RANGE of commits, and the gate used to read only the pushed head
+# — `git log -1` for the message, `git diff-tree ... HEAD` for the paths. The
+# exemption above was then enforced per commit against an event that is not one.
+# A sitting that commits its work and then its emission — the ordinary shape
+# CLAUDE.md's emission duty produces, where the emission is written in the same
+# sitting as the work it came from — pushes two commits with the emission last.
+# The gate read the emission, exempted it, and the code commit beneath it was
+# never examined: no `#N` was required anywhere in the push.
+#
+# THE PREDICATE IS THE RANGE AS A WHOLE. Owner selection on kogaki#976: the
+# push is licensed iff the UNION of the changed paths across the range is all
+# A/M under `policy/emissions/`, OR some commit in the range names an issue.
+# The union is taken over the commits (`git log --name-status`), not as the net
+# diff, so a range that touches a source file and reverts it has still touched
+# it and owes its licence. The declined alternative was to license each commit
+# independently, which refuses a range whose licence is named once on its last
+# commit — a normal shape today — and which would disagree with the
+# `pull_request` arm, that has always pooled `base..head` messages into one
+# haystack. Pooling is what makes the two events answer alike.
+#
+# WHY AN UNREADABLE RANGE FALLS TO THE HEAD ALONE. `github.event.before` is all
+# zeroes on a branch's first push, and on a force push it names a commit that is
+# no longer an ancestor of the head, so the range is not resolvable in either
+# case. The stated arm is the fail-closed one, per the empty-path reasoning
+# above: the emission exemption does NOT apply, and the head commit must name an
+# issue. It is stated here rather than left to whichever branch happens to run,
+# because a range this gate cannot read is exactly when it must not guess.
+#
 # WHAT THIS DOES NOT VERIFY, stated rather than left to look covered: that the
 # issue named in arm 2 is open, is real, or licenses THIS change. Arm 2 matches
 # `#<digits>` anywhere in the message, so a number in ordinary prose satisfies
@@ -79,6 +109,16 @@ set -euo pipefail
 event=""
 message=""
 paths_file=""
+before=""
+after=""
+# Arm 1 fills these; the refusal below reads them whether or not arm 1 ran. They
+# are defaulted HERE and not inside arm 1, because the unreadable-range arm
+# (kogaki#976) skips arm 1 by design and would otherwise reach the refusal with
+# them unset — under `set -u` that is an abort, not a refusal, and it exits 1
+# just like a refusal does, so a case asserting "refused" cannot tell them apart.
+n_foreign=0
+first_foreign=""
+first_foreign_why=""
 
 die() { echo "assert-licensed: $*" >&2; exit 2; }
 
@@ -87,14 +127,57 @@ while [[ $# -gt 0 ]]; do
     --event)      [[ $# -ge 2 ]] || die "--event needs a value";      event="$2";      shift 2 ;;
     --message)    [[ $# -ge 2 ]] || die "--message needs a value";    message="$2";    shift 2 ;;
     --paths-file) [[ $# -ge 2 ]] || die "--paths-file needs a value"; paths_file="$2"; shift 2 ;;
+    --before)     [[ $# -ge 2 ]] || die "--before needs a value";     before="$2";     shift 2 ;;
+    --after)      [[ $# -ge 2 ]] || die "--after needs a value";      after="$2";      shift 2 ;;
     -h|--help)
-      sed -n '2,76p' "$0" | sed 's/^# \?//'
+      sed -n '2,106p' "$0" | sed 's/^# \?//'
       exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
 
 [[ -n "$event" ]] || die "--event is required (push | pull_request)"
+
+# Range mode (kogaki#976). `--before`/`--after` name the pushed range, and the
+# facts arm 1 and arm 2 read are gathered from it here rather than by the
+# caller, so the cases exercise the gathering too — the CI job's plumbing was
+# the half `checks/check-license-assertion.sh` could not see, and the head-only
+# read this replaces lived exactly there.
+range_note=""
+if [[ -n "$before" || -n "$after" ]]; then
+  [[ "$event" == "push" ]] || die "--before/--after are push-only; a pull request carries base..head in --message"
+  [[ -n "$after" ]] || die "--after is required with --before"
+  [[ -n "$paths_file" ]] && die "--paths-file and --before/--after are two ways to supply the same fact; pass one"
+
+  range_readable=1
+  if [[ "$before" =~ ^0+$ ]]; then
+    range_readable=0
+    range_note="\`before\` is all zeroes — a branch's first push names no range"
+  elif ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
+    range_readable=0
+    range_note="\`before\` ($before) is not a commit in this repository"
+  elif ! git merge-base --is-ancestor "$before" "$after" 2>/dev/null; then
+    range_readable=0
+    range_note="\`before\` ($before) is not an ancestor of \`after\` — the history was rewritten"
+  fi
+
+  if (( range_readable )); then
+    message="$(git log --format='%s %b' "$before..$after")"
+    paths_file="$(mktemp)"
+    # Removed on every exit: the header advertises a by-hand invocation, and the
+    # range form is the one CI runs, so an unremoved file accumulates.
+    trap 'rm -f "$paths_file"' EXIT
+    # The union over the COMMITS, not the net diff: a range that touched a
+    # source file and reverted it has still touched it. Duplicate lines are
+    # harmless — every line is judged, and one foreign line is enough.
+    git log --format= --name-status "$before..$after" > "$paths_file"
+  else
+    # The stated fail-closed arm: no emission exemption, and the head commit
+    # must name an issue. `paths_file` stays empty, so arm 1 is skipped.
+    message="$(git log -1 --format='%s %b' "$after")"
+    paths_file=""
+  fi
+fi
 
 # Arm 1 — the emission exemption. Only on `push`: a pull request carries its
 # licence in its title and body, which arm 2 already reads, and exempting a PR
@@ -109,9 +192,6 @@ if [[ "$event" == "push" && -n "$paths_file" ]]; then
   [[ -r "$paths_file" ]] || die "--paths-file is not readable: $paths_file"
 
   n_paths=0
-  n_foreign=0
-  first_foreign=""
-  first_foreign_why=""
   note_foreign() {
     n_foreign=$((n_foreign + 1))
     if [[ -z "$first_foreign_why" ]]; then
@@ -154,6 +234,10 @@ fi
 if printf '%s' "$message" | grep -qE '#[0-9]+'; then
   if [[ "$event" == "pull_request" ]]; then
     where="PR title/body/commits"
+  elif [[ -n "$range_note" ]]; then
+    where="the pushed head commit — the range was not readable ($range_note)"
+  elif [[ -n "$before" ]]; then
+    where="the pushed range $before..$after"
   else
     where="the pushed head commit"
   fi
@@ -164,6 +248,12 @@ fi
 echo "FAIL: no licensing issue named (#N) in title, body, or commits."
 echo "A change without a license is refused — deny, never warn; the"
 echo "work re-routes to an issue (specs/SPEC.md §4, responsibility clause)."
+if [[ -n "$range_note" ]]; then
+  echo
+  echo "The pushed range was not readable, so the gate fell to its stated arm"
+  echo "(kogaki#976): the emission exemption does not apply and the head commit"
+  echo "must name an issue. $range_note"
+fi
 if [[ "$event" == "push" && -n "$first_foreign_why" ]]; then
   echo
   echo "The emission exemption (kogaki#905, narrowed by kogaki#977) does not apply:"

@@ -88,6 +88,8 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
             haystack="$PR_TITLE
@@ -95,15 +97,14 @@ jobs:
           $(git log --format='%s %b' "$PR_BASE".."$PR_HEAD")"
             tools/assert-licensed.sh --event pull_request --message "$haystack"
           else
-            haystack="$(git log -1 --format='%s %b' HEAD)"
-            # Single-parent commits only; a merge commit yields no paths here
-            # and so falls through to the #N requirement, which is fail-closed.
-            # `--name-status` and not `--name-only`: the emission exemption is
-            # scoped to added and modified paths, so the predicate needs each
-            # path's status to tell an emission written from one removed
-            # (kogaki#977). Passing the statusless form is fail-closed there,
-            # not a silent exemption.
-            git diff-tree --no-commit-id --name-status -r HEAD > /tmp/changed-paths
-            tools/assert-licensed.sh --event push --message "$haystack" \
-              --paths-file /tmp/changed-paths
+            # The push is an event over a RANGE, and the predicate gathers the
+            # range's own facts (kogaki#976). The job hands over `before` and
+            # `after` and reads nothing itself: the head-only read that used to
+            # live here exempted a whole push on the strength of its last
+            # commit, and it sat in the one place the cases could not reach.
+            # An unreadable range — a branch's first push, a force push — falls
+            # to the predicate's stated fail-closed arm rather than to whichever
+            # branch happens to run.
+            tools/assert-licensed.sh --event push \
+              --before "$PUSH_BEFORE" --after "$PUSH_AFTER"
           fi
