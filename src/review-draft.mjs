@@ -6210,9 +6210,10 @@ async function runSelfTest() {
       { encoding: "utf8" });
 
     // The realized prose. Deliberately unlike the Packet's own wording: the
-    // mechanical `packet-wording` item fires on a run of the Packet's ground or
-    // state lines, and prose that tripped it would make every case below assert
-    // against the fixture's phrasing rather than against the correction path.
+    // Round Trip judges the prose against what the Packet licenses, and prose
+    // that merely echoed the Packet's own wording would make every case below
+    // assert against the fixture's phrasing rather than against the correction
+    // path it names.
     const REAL = {
       s1: "Two harbours keep different hours and a boat leaving one arrives at the other on a tide nobody planned.",
       s2: "The harbourmaster writes the hours down each spring, and the writing is what makes them argue rather than what settles them.",
@@ -6244,22 +6245,21 @@ async function runSelfTest() {
       [self, ...a, "--draft", cDraft, "--workspace", cwsBase,
         "--draft-workspace", cWs, "--moves-dir", cMoves], { encoding: "utf8" });
 
-    // A record whose spans come from the EMITTED trace, not from a fixture's own
-    // arithmetic: this Draft's ranges are `emit`'s, and transcribing them would
-    // be the drifting-range defect this Harness is itself about.
-    const traceOf = () => JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8")).steps;
+    // A REVERSE OUTLINE IN THE BRIEF'S OWN STEP FORM. It needs no line
+    // arithmetic at all now: a Brief Step field carries no draft coordinate, so
+    // the drifting-range defect this fixture used to guard against has no site
+    // left to occur at.
     const recFor = (id, tag) => {
-      const st = traceOf().find((s) => s.step_id === id);
-      const f = join(cRoot, `rec-${tag}-${id}.json`);
-      writeFileSync(f, JSON.stringify({
-        claims: [{ claim: `the material supports what ${id} asserts, as the passage has it`, span: st.lines }],
-        reader_state_after: `the reader leaves ${id} able to say what it settled`,
-        purpose: `the job ${id} does`,
-        terms_introduced: [],
-        shape: "It states a thing and moves on.",
-        concessions: [],
-        restates: [],
-      }, null, 2) + "\n");
+      const f = join(cRoot, `rec-${tag}-${id}.md`);
+      writeFileSync(f, [
+        "```step",
+        `step_id: ${id}`,
+        `purpose: the job ${id} does`,
+        `reader_state_before: the reader arrives at ${id} holding what came before`,
+        `reader_state_after: the reader leaves ${id} able to say what it settled`,
+        `ground the material supports what ${id} asserts, as the passage has it`,
+        "```",
+      ].join("\n") + "\n");
       return f;
     };
     // Answer every owed pair, failing exactly the pairs named. A `fails` on a
