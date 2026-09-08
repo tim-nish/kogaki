@@ -2194,9 +2194,13 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         continue;
       }
 
-      // A declared side the Packet renders as a stated absence can make a
-      // negative item vacuous — there is no exemplar, so nothing of one can
-      // leak. The table says so per item rather than the runtime deciding it.
+      // A declared side the Packet renders as a stated absence can leave an
+      // item with nothing to ask about: a negative item goes vacuous (there is
+      // no exemplar, so nothing of one can leak) and a positive one quantifies
+      // over an empty list (`grounds`, and since kogaki#1016 `introduces`).
+      // Either way the answer is a FACT about the declared side, so the table
+      // says so per item and NO Packet is rendered — the runtime never decides
+      // it, and never pays a judge for a question about nothing.
       const dv = item.declared_block ? declared[item.declared_block] : null;
       if (item.when_declared_absent
           && (dv === "" || (Array.isArray(dv) && dv.length === 0))) {
@@ -4496,7 +4500,11 @@ async function runSelfTest() {
   }
   const TEMPLATE = TEMPLATE_FILE.slice(0, TEMPLATE_FILE.indexOf(TEMPLATE_MARKER))
     .replace(/^<!--[\s\S]*?-->\n*/, "").trimEnd() + "\n";
-  function writePacket(dir, id, { grounds = GROUNDS[id] } = {}) {
+  // `introduces` is overridable for the same reason `grounds` is: a Step whose
+  // Brief declares none is an ORDINARY Step, and the only way to exercise the
+  // stated absence the renderer writes into that slot is to render a Packet
+  // that carries it.
+  function writePacket(dir, id, { grounds = GROUNDS[id], introduces = PACKET_FIELDS[id].introduces } = {}) {
     const f = PACKET_FIELDS[id];
     const bullets = (xs, empty) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : empty);
     const slots = {
@@ -4528,7 +4536,7 @@ async function runSelfTest() {
           + "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Step that opens its own.",
       reader_already_knows: bullets(f.knows,
         "(nothing — this is the first Step to introduce anything, or the path introduces no terms)"),
-      introduces: bullets(f.introduces, "(nothing new)"),
+      introduces: bullets(introduces, "(nothing new)"),
       prior_sections: "PACKETONLYTOKEN the article so far.",
     };
     let out = TEMPLATE;
@@ -5793,6 +5801,97 @@ async function runSelfTest() {
     // The other Steps are untouched: the absence is this Step's, not the run's.
     ok("while a Step that does declare grounds still carries them",
       /every ground is carried by a recovered claim/.test(L.get("a1/grounds-unused")));
+  }
+
+  // kogaki#1016 — A STEP WHOSE PACKET DECLARES NO `introduces` IS DECIDED BY THE
+  // HARNESS, and this case COUNTS the calls rather than reading a line. The
+  // 2026-09-08 run spent ten model calls asking whether every term in an EMPTY
+  // list was introduced — a question quantifying over nothing, answered `holds`
+  // ten times at a judge's price. The short circuit is the arm `grounds` already
+  // declares (`when_declared_absent`), reached through the same runtime branch,
+  // so this is one table entry and no second mechanism.
+  //
+  // THE CASE'S OWN ADMISSION, declared here because a check owes it at birth
+  // rather than at its first review:
+  //   - LOOP POSITION: `pre-push`, the tier check-review-draft-runtime.sh
+  //     already sits at. It adds one drive of the fixture flow — no gateway, no
+  //     network, no newly spawned artifact — so nothing here argues the member
+  //     earlier or later in the loop.
+  //   - BUDGET: inside the member's declared `runtime_ms`, re-measured at this
+  //     admission act and recorded in its `runtime_ms_note`. A measurement, not
+  //     an assertion: nothing fails on the number.
+  //   - REMOVAL SIGNAL: the `introduces` row leaves the item table, or its
+  //     declared side stops being able to be empty — at which point there is no
+  //     empty declared side for a call to be spent on. It is NOT retired by a
+  //     successor that merely renders fewer Packets: the property is that ZERO
+  //     calls are made for this field, and a pass that never counts them cannot
+  //     witness it, which is the further condition this member's own
+  //     `removal_signal` already states of its siblings.
+  {
+    const pd = join(root, "packets-termless"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id, { introduces: [] });
+    ok("the fixture's termless Packet carries the stated absence the renderer writes",
+      /\(nothing new\)/.test(readFileSync(join(pd, "a1.md"), "utf8")));
+    const d = buildDraft(join(root, "theses", "termless"), { packetDir: pd });
+    const r = driveToCompletedJoin(d, join(root, "ws-termless"), "termless");
+    ok("a Brief whose Steps introduce no term reaches a completed join",
+      r.second.status === 0, (r.second.stderr || "").slice(0, 200));
+    const rec = JSON.parse(readOrEmpty(r.jsonPath) || "{}");
+    // THE COUNT, AND IT IS ZERO. Asserted as a count over the WHOLE run rather
+    // than as one Step's row: a case reading a single row would pass on a run
+    // that still spent a call on the other two Steps.
+    const calls = (rec.model_calls || []).filter((c) => c.item === "introduces");
+    ok("a Brief with no `introduces` line costs ZERO model calls for that field",
+      calls.length === 0, `${calls.length} call(s) on ${calls.map((c) => c.step_id).join(", ")}`);
+    ok("and every Step records the field as decided by the Harness",
+      ["a1", "a2", "a3"].every((s) =>
+        (rec.mechanical || []).some((m) => m.step_id === s && m.item === "introduces")));
+    // THE ANSWER IS THE TABLE'S, IN THE TABLE'S OWN WORDS — read from
+    // review-items.json rather than transcribed here, so an amended sentence
+    // reaches this case instead of sliding past it.
+    const armItems = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    const arm = armItems.items.find((i) => i.id === "introduces").when_declared_absent;
+    const row = (rec.results || []).find((x) => x.step_id === "a2" && x.item === "introduces");
+    ok("the row is the item's declared-absence arm, verdict and sentence both",
+      !!row && row.decided_by === "harness" && row.verdict === arm.verdict
+      && row.reason === arm.sentence, row ? JSON.stringify(row).slice(0, 220) : "no row");
+    ok("and it still renders a comparison line like any other row",
+      /\sholds\s/.test(linesOf(r.second.stdout).get("a2/introduces") || ""));
+
+    // THE NON-EMPTY PATH KEEPS FOUR BEHAVIOURS, each named with the case that
+    // fails if it stops holding. They are asserted against the DEFAULT fixture,
+    // whose `a1` declares a term while `a2` and `a3` do not, so one run
+    // witnesses both sides of the branch:
+    //   1. a declared term still costs exactly one model call;
+    //   2. that call's declared side still carries the term rather than the
+    //      stated absence;
+    //   3. the empty-declared Steps of the SAME run are still short-circuited,
+    //      so the branch is per Step and never per run;
+    //   4. the OTHER mechanical rows still answer on every Step, empty declared
+    //      side included — the short-circuit is per ITEM, never per Step.
+    //
+    // CASE 4'S ORIGINAL VEHICLE LEFT THE TABLE (kogaki#1016 wrote it against
+    // `term-before-introduction`; kogaki#1014 removed that row with the rest of
+    // the hygiene items). The property it asserts is about the SHORT-CIRCUIT's
+    // reach, not about that row, so it rides `grounds-unused` — the surviving
+    // mechanical row that answers on every Step — and says the same thing.
+    ok("1: a Step that DOES declare a term still costs one model call for it",
+      (baseRecord.model_calls || [])
+        .filter((c) => c.item === "introduces" && c.step_id === "a1").length === 1);
+    const dcall = (baseRecord.model_calls || [])
+      .find((c) => c.item === "introduces" && c.step_id === "a1");
+    const djp = dcall && existsSync(dcall.packet) ? readFileSync(dcall.packet, "utf8") : "";
+    const dside = (djp.split("### What the Packet DECLARED")[1] || "").split("###")[0];
+    ok("2: and its declared side carries the term, not the stated absence",
+      /harness/.test(dside) && !/nothing new/.test(dside), dside.trim().slice(0, 140));
+    ok("3: while the same run's term-less Steps are decided by the Harness",
+      ["a2", "a3"].every((s) => (baseRecord.mechanical || [])
+        .some((m) => m.step_id === s && m.item === "introduces"))
+      && !(baseRecord.model_calls || [])
+        .some((c) => c.item === "introduces" && c.step_id !== "a1"));
+    ok("4: and the mechanical sibling still answers on every Step either way",
+      ["a1", "a2", "a3"].every((s) => (baseRecord.mechanical || [])
+        .some((m) => m.step_id === s && m.item === "grounds-unused")));
   }
 
   // ROUND 1, FINDING 3: the Section block's declared side is the RENDERED VALUE,

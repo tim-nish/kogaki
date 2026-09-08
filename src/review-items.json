@@ -425,6 +425,10 @@
       "mode": "judged",
       "declared_block": "introduces",
       "field": "introduces",
+      "when_declared_absent": {
+        "verdict": "holds",
+        "sentence": "this Step's Packet says to introduce no term, so the question below quantifies over nothing, and a passage that introduces nothing carries no `introduces:` line to read against it"
+      },
       "question": "Is every term the Packet says to introduce here actually introduced in this passage — usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
     },
     {
