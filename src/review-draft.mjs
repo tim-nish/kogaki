@@ -4568,21 +4568,25 @@ async function runSelfTest() {
   const drive = (cmd, ...extra) => spawnSync(process.execPath,
     [self, cmd, "--draft", draft.path, "--workspace", wsBase, ...extra], { encoding: "utf8" });
 
-  // A schema-valid recovered record for one Step, built from that Step's own
-  // draft line range so its spans lie inside the passage. The fixture's records
-  // are REAL records from here on (kogaki#871) — a plain-text stand-in would
-  // now be refused by the validator, and the ordering cases below must fail on
-  // the ORDERING rather than on the record's shape.
+  // A REVERSE OUTLINE for one Step, in the Brief's own Step form (kogaki#1014).
+  // The fixture's outlines are REAL `step` blocks from here on — a plain-text
+  // stand-in is refused by the Brief parser, and the ordering cases below must
+  // fail on the ORDERING rather than on the block's shape.
   //
-  // THE CLAIMS PAIR WITH THE FIXTURE PACKETS' GROUNDS (kogaki#872). The
-  // comparison assigns each recovered claim to the ground it rests on by
-  // containment, so a record whose claims share no words with any ground would
-  // make EVERY Step fail `widened` and the join cases would assert against the
-  // fixture rather than against the pairing. And no field carries a digit: the
-  // comparison lines quote recovered material, and the no-numbers-but-line-
-  // numbers case must fail on the FORMAT rather than on this record's wording.
+  // THE GROUNDS PAIR WITH THE FIXTURE PACKETS' GROUNDS (kogaki#872). The Round
+  // Trip assigns each read ground to the declared ground it rests on by
+  // containment, so an outline whose grounds share no words with any declared
+  // one would make EVERY Step fail `widened` and the join cases would assert
+  // against the fixture rather than against the pairing. And no field carries a
+  // digit: the comparison lines quote what was read, and the
+  // no-numbers-but-line-numbers case must fail on the FORMAT rather than on
+  // this outline's wording.
+  //
+  // NO SPANS. A Reverse Outline is a Brief Step block and a Brief field carries
+  // no draft coordinate — the span was the deleted record's own invention, and
+  // the cases that asserted one lie inside the passage went with it.
   const RECOVERED = {
-    a1: { claims: ["the harness renders the recovery input before any record is accepted",
+    a1: { claims: ["the harness renders the reverse outline input before any outline is accepted",
       "the reviewer never reads the packet that produced the prose"],
       after: "The reader knows which act renders the input.", purpose: "To open the claim." },
     a2: { claims: ["an ordering owned by the harness cannot be got wrong by a session"],
@@ -4590,44 +4594,45 @@ async function runSelfTest() {
     a3: { claims: ["a residue line is classified by the owner and never by the tool"],
       after: "The reader knows who classifies residue.", purpose: "To open the second question." },
   };
-  const recordFor = (id) => {
-    const r = draft.ranges[id];
-    const [lo, hi] = [r[0] + draft.bodyOffset, r[1] + draft.bodyOffset];
-    const f = RECOVERED[id];
-    return {
-      claims: f.claims.map((claim) => ({ claim, span: [lo, hi] })),
-      reader_state_after: f.after,
-      purpose: f.purpose,
-      terms_introduced: [],
-      shape: "It states a thing and moves on.",
-      concessions: [],
-      restates: [],
-    };
+  // The block itself. `mutate` takes the field object so a case can widen a
+  // ground, blank a field or add one the dispositions refuse.
+  const outlineFor = (id) => ({
+    step_id: id,
+    purpose: RECOVERED[id].purpose,
+    reader_state_before: "The reader arrives holding what came before.",
+    reader_state_after: RECOVERED[id].after,
+    grounds: RECOVERED[id].claims.slice(),
+    introduces: [],
+    concession: [],
+    opens_section: null,
+  });
+  const renderOutline = (o) => {
+    const L = ["```step", `step_id: ${o.step_id}`];
+    if (o.purpose !== null) L.push(`purpose: ${o.purpose}`);
+    if (o.reader_state_before !== null) L.push(`reader_state_before: ${o.reader_state_before}`);
+    if (o.reader_state_after !== null) L.push(`reader_state_after: ${o.reader_state_after}`);
+    for (const g of o.grounds) L.push(`ground ${g}`);
+    for (const x of o.introduces) L.push(`introduces: ${x}`);
+    for (const c of o.concession) L.push(`concession: ${c}`);
+    if (o.opens_section !== null) L.push(`opens_section: ${o.opens_section}`);
+    for (const [k, v] of Object.entries(o.extra || {})) L.push(`${k}: ${v}`);
+    L.push("```");
+    return L.join("\n") + "\n";
   };
-  const writeRecord = (id, mutate = (r) => r) => {
-    const f = join(root, `rec-${id}.json`);
-    writeFileSync(f, JSON.stringify(mutate(recordFor(id)), null, 2) + "\n");
+  const writeRecord = (id, mutate = (o) => o) => {
+    const f = join(root, `rec-${id}.md`);
+    writeFileSync(f, renderOutline(mutate(outlineFor(id))));
     return f;
   };
 
-  // The same record, against ANY fixture Draft's ranges — the kogaki#872 cases
-  // build their own Drafts (a Packet with a ground removed, a Draft using a term
-  // before the Step that introduces it) and each needs records whose spans lie
-  // inside ITS passages.
+  // The same outline, against ANY fixture Draft — the kogaki#872 cases build
+  // their own Drafts (a Packet with a ground removed, a Draft using a term
+  // before the Step that introduces it). With no spans to place, the outline no
+  // longer depends on the Draft's ranges; the parameter stays so the call sites
+  // and their reasons read unchanged.
   const writeRecordFor = (d, id, tag) => {
-    const r = d.ranges[id];
-    const [lo, hi] = [r[0] + d.bodyOffset, r[1] + d.bodyOffset];
-    const f = RECOVERED[id];
-    const p = join(root, `rec-${tag}-${id}.json`);
-    writeFileSync(p, JSON.stringify({
-      claims: f.claims.map((claim) => ({ claim, span: [lo, hi] })),
-      reader_state_after: f.after,
-      purpose: f.purpose,
-      terms_introduced: [],
-      shape: "It states a thing and moves on.",
-      concessions: [],
-      restates: [],
-    }, null, 2) + "\n");
+    const p = join(root, `rec-${tag}-${id}.md`);
+    writeFileSync(p, renderOutline(outlineFor(id)));
     return p;
   };
 
