@@ -5856,33 +5856,35 @@ async function runSelfTest() {
   // by the Strands they came from, so quoting the offending material into the
   // reason put a number in front of a reader that was not a line number. The
   // line refuses to carry a quote; the evidence holds it in full.
+  //
+  // THE VEHICLE CHANGED AND THE RULE DID NOT (kogaki#1014). This case used to
+  // ride `term-before-introduction`, whose row left the table with the rest of
+  // the hygiene items; the rule it binds — a comparison line quotes nothing,
+  // and the evidence holds the quoted material whole — is unchanged, so the
+  // case is retargeted rather than deleted. `grounds-unused` is the surviving
+  // mechanical row that carries evidence, and the fixture's ground names a
+  // Strand, which is exactly the shape that put a non-line-number digit in
+  // front of a reader on the first live drive.
   {
     const pd = join(root, "packets-digit"); mkdirSync(pd, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) {
-      writePacket(pd, id);
-      if (id === "a3") {
-        const p = join(pd, "a3.md");
-        writeFileSync(p, readFileSync(p, "utf8").replace("- **introduce here.** (nothing new)",
-          "- **introduce here.** - strand L97"));
-      }
+      // a2 declares a second ground no read ground rests on, and it carries a
+      // digit in its own text.
+      writePacket(pd, id, id === "a2"
+        ? { grounds: [GROUNDS.a2[0], "the pinned survey at strand L97 settles the boundary"] }
+        : {});
     }
-    const digitProse = {
-      a1: ["The first passage opens the claim and cites strand L97 as if it were settled.", "",
-        "It runs two paragraphs so a range covering more than one line is exercised.",
-        "The harness renders each input in the path's recorded order."],
-      a2: PROSE.a2,
-      a3: PROSE.a3,
-    };
-    const d = buildDraft(join(root, "theses", "digit"), { packetDir: pd, prose: digitProse });
+    const d = buildDraft(join(root, "theses", "digit"), { packetDir: pd });
     const r = driveToCompletedJoin(d, join(root, "ws-digit"), "digit");
-    ok("a run whose Packet names a term carrying a digit still completes", r.second.status === 0);
-    const line = linesOf(r.second.stdout).get("a3/term-before-introduction");
-    ok("it fails on the Step that introduces the term", /\sfails\s/.test(line));
+    ok("a run whose Packet declares a ground carrying a digit still completes", r.second.status === 0);
+    const line = linesOf(r.second.stdout).get("a2/grounds-unused");
+    ok("it fails on the Step whose ground nothing rests on", /\sfails\s/.test(line));
     ok("and the comparison line carries no digit outside its span",
       !/\d/.test(line.replace(/^\S+\s+/, "").replace(/\[\d+-\d+\]/, "")));
-    ok("while the evidence carries the term whole, digit included",
+    ok("while the evidence carries the ground whole, digit included",
       JSON.parse(readFileSync(r.jsonPath, "utf8")).results
-        .find((x) => x.step_id === "a3" && x.item === "term-before-introduction").evidence === "strand L97");
+        .find((x) => x.step_id === "a2" && x.item === "grounds-unused")
+        .evidence.some((e) => /strand L97/.test(e)));
   }
 
   // `cannot-decide` IS A THIRD ANSWER AND IS NEVER ROUNDED. It is listed with
