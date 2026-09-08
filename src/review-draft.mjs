@@ -1664,27 +1664,16 @@ function firstOccurrence(draft, term) {
 // implementation is refused below rather than silently skipped, which is the
 // half that keeps the two from drifting apart.
 const MECHANICAL = {
-  "term-before-introduction": ({ declared, step, draft, item }) => {
-    const terms = declared[item.declared_block];
-    for (const term of terms) {
-      const at = firstOccurrence(draft, term);
-      if (at !== null && at < step.lines[0]) {
-        return {
-          verdict: "fails",
-          reason: "a term this Step introduces is used before it",
-          evidence: term,
-          span: [at, at],
-        };
-      }
-    }
-    return {
-      verdict: "holds",
-      reason: terms.length
-        ? "no term this Step introduces occurs before it"
-        : "this Step introduces no term",
-      span: step.lines,
-    };
-  },
+  // THE HYGIENE ITEMS ARE GONE, AND THEIR ABSENCE IS A RULING RATHER THAN A
+  // TRIM (owner 2026-09-09; kogaki#1013 item 3). `term-before-introduction`,
+  // `restates-earlier-step` and `packet-wording` each asked whether the prose
+  // betrayed the material it was produced from. Prose hygiene is not part of
+  // Reverse Outlining: a reader cannot infer the source a structure was
+  // produced from, and being able to would be abnormal. Whether any of them
+  // survives as a realization-time lint in `draft` is a separate question for
+  // the owner, not this rebuild. Their rows left `src/review-items.json` in the
+  // same act, and the binding check below is what makes a row with no
+  // implementation refuse rather than silently skip — so the two cannot drift.
 
   "grounds-unused": ({ declared, pairs, step, item }) => {
     const grounds = declared[item.declared_block];
@@ -1704,44 +1693,6 @@ const MECHANICAL = {
       evidence: unused.map(([g]) => g),
       span: step.lines,
     };
-  },
-
-  "restates-earlier-step": ({ step, earlier, items }) => {
-    const n = items.thresholds.verbatim_overlap_words;
-    const haystack = earlier.map((s) => s.prose);
-    if (haystack.length) {
-      for (const { n: ln, text } of numberedLines(step)) {
-        const win = verbatimWindow(text, haystack, n);
-        if (win) {
-          return { verdict: "fails", reason: "this line repeats an earlier Step verbatim",
-            evidence: win, span: [ln, ln] };
-        }
-      }
-    }
-    return {
-      verdict: "holds",
-      reason: haystack.length ? "no run of words here repeats an earlier Step verbatim"
-        : "nothing precedes this Step, so there is nothing to repeat",
-      span: step.lines,
-    };
-  },
-
-  "packet-wording": ({ step, declared, items, item }) => {
-    const n = items.thresholds.verbatim_overlap_words;
-    const haystack = [item.declared_block, ...(item.also_declared_blocks || [])]
-      .flatMap((b) => (Array.isArray(declared[b]) ? declared[b] : [declared[b]]));
-    for (const { n: ln, text } of numberedLines(step)) {
-      const win = verbatimWindow(text, haystack, n);
-      if (win) {
-        return {
-          verdict: "fails",
-          reason: "this line quotes the Packet rather than writing from it",
-          evidence: win,
-          span: [ln, ln],
-        };
-      }
-    }
-    return { verdict: "holds", reason: "no run of words here repeats the Packet's own wording", span: step.lines };
   },
 };
 
@@ -5694,59 +5645,33 @@ async function runSelfTest() {
       /Steps sent to correction[^\n]*a1/.test(rShort.second.stdout));
   }
 
-  // ACCEPTANCE 3: a Draft using a term one Step BEFORE the Step whose Packet
-  // says to introduce it is caught MECHANICALLY — no model call for that item.
+  // THE HYGIENE AND MOVE ROWS ARE GONE, AND THIS IS THE RECORDED DECLINE
+  // (kogaki#1013 item 3, owner 2026-09-09). What stood here was ACCEPTANCE 3's
+  // `term-before-introduction` case — a term used one Step before the Step
+  // whose Packet says to introduce it, caught mechanically with the earlier
+  // occurrence as its span. Prose hygiene is not part of Reverse Outlining: a
+  // reader cannot infer the source a structure was produced from, and being
+  // able to would be abnormal. So the row left the table and its implementation
+  // left `MECHANICAL` — and this case asserts the removal rather than being
+  // deleted with them, because a behaviour leaves under a recorded decline and
+  // never silently. Whether any of the five survives as a realization-time lint
+  // in `draft` is a separate question for the owner, not this rebuild.
+  //
+  // WHAT SURVIVES HERE IS THE BINDING BETWEEN THE TABLE AND THE CODE, which is
+  // the half that would let a row come back with no implementation behind it.
   {
-    const pd = join(root, "packets-early"); mkdirSync(pd, { recursive: true });
-    for (const id of ["a1", "a2", "a3"]) {
-      writePacket(pd, id);
-      if (id === "a3") {
-        // a3's Packet declares the term; a1's prose already used it.
-        const p = join(pd, "a3.md");
-        writeFileSync(p, readFileSync(p, "utf8").replace("- **introduce here.** (nothing new)",
-          "- **introduce here.** - opacity"));
-      }
-    }
-    const earlyProse = {
-      a1: ["The first passage opens the claim and reaches for opacity as if it were settled.", "",
-        "It runs two paragraphs so a range covering more than one line is exercised.",
-        "The harness renders each input in the path's recorded order."],
-      a2: PROSE.a2,
-      a3: PROSE.a3,
-    };
-    const d = buildDraft(join(root, "theses", "early"), { packetDir: pd, prose: earlyProse });
-    const r = driveToCompletedJoin(d, join(root, "ws-early"), "early");
-    ok("the run reaches a completed join", r.second.status === 0);
-    const L = linesOf(r.second.stdout);
-    const line = L.get("a3/term-before-introduction");
-    ok("a term used before the Step that introduces it FAILS on that Step", /\sfails\s/.test(line));
-    // THE TERM IS EVIDENCE, NOT PART OF THE LINE. Quoted material is where a
-    // number gets into a comparison line — the live drive's own grounds are
-    // labelled by the Strands they came from — so the line refuses to carry it
-    // and the join record holds it in full.
-    ok("and the line itself quotes nothing", !/opacity/.test(line));
-    ok("while the finding's evidence names the term",
-      JSON.parse(readFileSync(r.jsonPath, "utf8")).results
-        .find((x) => x.step_id === "a3" && x.item === "term-before-introduction").evidence === "opacity");
-    // THE SPAN IS THE EARLIER OCCURRENCE, not the Step's own range: the finding
-    // points at where the reader actually met the word.
-    const early = readFileSync(d.path, "utf8").split("\n")
-      .findIndex((l) => /reaches for opacity/.test(l)) + 1;
-    ok("and the span points at the line where the reader first meets it",
-      line.includes(`[${early}-${early}]`));
-
-    // NO MODEL CALL IN THE LOG FOR THAT ITEM, for any Step — which is what
-    // makes "decided mechanically" checkable rather than claimed.
-    const rec = JSON.parse(readFileSync(r.jsonPath, "utf8"));
-    ok("no join Packet is rendered for a mechanical item, on any Step",
-      !rec.model_calls.some((c) => c.item === "term-before-introduction"));
-    ok("and every Step records it as decided by the Harness",
-      ["a1", "a2", "a3"].every((s) =>
-        rec.mechanical.some((c) => c.step_id === s && c.item === "term-before-introduction")));
-    // The whole mechanical set, asserted from the TABLE rather than from a list
-    // written here: a table row that gained `mode: mechanical` and no
-    // implementation would otherwise report `holds` for every Draft.
     const ITEMS = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    const ids = ITEMS.items.map((i) => i.id);
+    for (const gone of ["term-before-introduction", "restates-earlier-step", "packet-wording",
+      "exemplar-leak", "move-contract"]) {
+      ok(`the Round Trip table carries no \`${gone}\` row`, !ids.includes(gone));
+    }
+    ok("and no row keeps a translation column — every row names a Brief Step field",
+      ITEMS.items.every((i) => !Object.prototype.hasOwnProperty.call(i, "recovered_field")));
+
+    const r = driveToCompletedJoin(draft, join(root, "ws-mech"), "mech");
+    ok("a run still reaches a completed join with those rows gone", r.second.status === 0);
+    const rec = JSON.parse(readFileSync(r.jsonPath, "utf8"));
     const mech = ITEMS.items.filter((i) => i.mode === "mechanical").map((i) => i.id);
     ok("every item the table calls mechanical costs no model call on any Step",
       mech.length > 0 && !rec.model_calls.some((c) => mech.includes(c.item)));
