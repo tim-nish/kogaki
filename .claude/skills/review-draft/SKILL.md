@@ -109,7 +109,7 @@ file another pass wrote is refused by name.** Until this, pass two re-read the
 corrected Steps blind and wrote its inputs and records at pass one's paths, so
 pass one's reading of the ORIGINAL Draft was overwritten in place — and `runs/`
 is gitignored, so nothing else held a copy. The surviving verdicts pointed at
-recovered records that no longer existed. A rule saying "do not overwrite" would
+readings that no longer existed. A rule saying "do not overwrite" would
 be prose where a refusal belongs.
 
 `snapshots/` and `run.json` stay at the root: a snapshot pair spans the
@@ -120,7 +120,7 @@ into residue rather than into another correction. A later third pass is
 `pass-3/` and nothing else moves.
 
 `review.md` points at both pass directories, and every finding and residue
-line carries the artefacts behind it: the recovered record the run actually
+line carries the artefacts behind it: the Reverse Outline the run actually
 read for that line (pass one's for a carried line, and for a successor Step's
 continuity item judged in pass two, since pass two re-reads only corrected
 Steps), and the pair input the judge was handed — or, for a line the Harness
@@ -251,50 +251,69 @@ never `compare`'s. A preserved item still failing after it is **residue**.
 
 ## The two readers, and why each is blind to something
 
-**The recovering reviewer has never seen the Packet.** It reads the article
-before one passage, then that passage, and writes down the Step record it
-believes the passage realizes. A recovered record that agrees with the input
-because it guessed at the input measures nothing, which is why the Harness
-renders prose alone — the wording is `src/recovery-template.md`, which holds no
-thesis, no grounds, no Move, no reader states and no term list — and refuses a
-record for a Step whose input it did not render.
+**The recovering reviewer has never seen the Brief.** It reads the article
+before one passage, then that passage, and writes the **Reverse Outline** — the
+outline entry it believes the passage was written from, in the Brief's own Step
+form. An outline that agrees with the Brief because it guessed at the Brief
+measures nothing, which is why the Harness renders prose alone — it carries no
+thesis, no grounds, no Move, no reader states and no term list — and refuses an
+outline for a Step whose input it did not render.
 
 **And it sees the figure the reader saw.** For a Step whose trace carries one,
 the recovery input quotes the rendered block — the fence and the caption, sliced
-from the Draft at the range the trace records, with its own line numbers — and
-nothing from the record: no role binding, no ground address, no relation list.
-The reviewer reads the figure exactly as a reader does, which is what makes its
-account of it evidence rather than a confirmation.
+from the Draft at the range the trace records, with its own line numbers, on the
+side of the passage the reader met it on — and nothing from the figure record:
+no role binding, no ground address, no relation list.
 
-The record it returns is one JSON object validated against
-`src/recovered-schema.json`: `claims` (each with the draft line span it rests
-on), `reader_state_after`, `purpose`, `terms_introduced`, `shape`, `concessions`
-and `restates`. Every field is a fact about the prose, so every field can be
-checked by pointing at the prose. A missing field, an UNNAMED EIGHTH FIELD, a
-span outside the passage, and a verdict or a piece of advice are each **refused
-by name** — an empty array is an answer, an absent key is not. The top-level key
-set is **closed** (kogaki#885): the seven are the whole record, and a key
-outside them is refused with the key named rather than accepted and ignored.
+**There is no template file and no second schema (kogaki#1014).** The input is
+composed from the Brief's own field declaration, because there is no second
+artifact to describe: the reader fills a fenced `step` block. It is asked for
+`purpose`, `reader_state_before`, `reader_state_after`, the `ground ` lines,
+`introduces`, `opens_section` and `concession` — the Brief's fields with the
+Brief's definitions — and the count in its instruction is computed from that
+declaration rather than spelled, so a field joining it cannot leave the sentence
+saying the old number. `introduces`, `opens_section` and `concession` are each
+legitimately absent; `grounds` is not, because a passage that asserts nothing is
+not a passage.
 
-**The eighth field is conditional (kogaki#880).** A Step that carries a figure
-owes `figure_reading` — what the figure shows, the elements the reader can name,
-and what the reader holds after looking — and a Step that carries none is
-**refused** it by name. The closed set stays total at every Step; it is computed
-from the Step rather than fixed for the Draft. A reading of a figure nobody
-rendered is an invention, not a recovery, and the refusal says so rather than
-reporting an unnamed key.
+`concession` is the one field that is not a Brief field, and it is declared as
+such rather than smuggled in: the Packet's write instruction requires a loss to
+be conceded in the prose, so a conceded softening is told from a silent one.
+
+**The block is validated by the Brief's own parser**, `parseStepBlock` — the
+function `parseBrief` calls per fenced block — so a Reverse Outline the Brief
+could not carry is refused by the code that would refuse it inside a Brief, and
+every refusal names what it saw. `move`, `materials`, `rationale`, `depends_on`,
+`bridges` and `figure` are declared **not reconstructible** and are **refused
+rather than dropped**: a field the reader could not have read off the passage is
+an inference, and dropping it silently would leave the inference having shaped
+the rest of the outline with no trace.
+
+**The figure's own round trip is declined to kogaki#1018.** Its five rows read
+their recovered side from `figure_reading.*`, which is not a Brief Step field;
+they left `src/review-items.json` under a decline recorded in that file, and
+kogaki#1018 is the act that restores them. The figure is still rendered to the
+reader — that is the article as the reader meets it — and it is not compared.
 
 **The cold reader reads the body only** — no frontmatter, no trace, no Packet,
 and no Step boundary marked — and writes, after each Section, the question it
 answered and what they now believe, then one final claim for the whole article.
 Its input is `src/cold-reader-template.md`, rendered whole at `open`.
 
+**It answers in the Brief's own top-level field names (kogaki#1014)** —
+`opening_question` and `reader_target` per Section, and `thesis` once at the
+end. They were `question`, `belief` and `claim`: a third vocabulary for what the
+plan already names, which is the same drift one carrier over as the deleted
+recovered record. The reader is not shown the plan and does not need it — each
+name says in plain words what to write — and sharing the names is what lets the
+answer be laid beside the plan's without a third vocabulary in between.
+
 The Harness pairs those entries with what the trace and the Packets declare: the
-heading against the reader's question, the belief at a Section's end against its
-last Step's `reader_state_after`, the belief it arrived with against the first
-Step's `reader_state_before`, the final claim against the thesis, and what the
-first Section did with the opening question. The pairs and their classes are
-`sections` in `src/review-items.json`.
+heading against the reader's question, the `reader_target` at a Section's end
+against its last Step's `reader_state_after`, the one it arrived with against the
+first Step's `reader_state_before`, the `thesis` against the declared thesis, and
+what the first Section did with the opening question. The pairs and their classes
+are `sections` in `src/review-items.json`.
 
 **A Section fail is routed, never corrected.** ReviewDraft corrects at Step
 granularity only, so a Section finding goes one of three ways. It **localizes**

@@ -1,8 +1,7 @@
 <!--
 THE COLD READER'S INPUT (kogaki#873). Runtime-read by src/review-draft.mjs, the
-same arrangement src/recovery-template.md has with the Step half and
-src/packet-template.md has with src/draft.mjs: the wording lives in a file a
-person can edit, and the Harness fills its slots.
+same arrangement src/packet-template.md has with src/draft.mjs: the wording
+lives in a file a person can edit, and the Harness fills its slots.
 
 Slots: {{slug}}, {{section_count}}, {{body}}, {{ledger_shape}}, {{read_command}},
 {{claim_command}}. The renderer refuses on an unfilled slot rather than shipping
@@ -36,6 +35,11 @@ Your entries are evidence about **what this prose did to you**. Do not reason
 about what the author was probably aiming at — an entry that agrees with the
 plan because it guessed at the plan measures nothing.
 
+The field names below are the article plan's own. You are not being shown the
+plan and you do not need it: each name says in plain words what to write, and
+sharing the names is what lets your answer be laid beside the plan's without a
+third vocabulary in between.
+
 Write no verdicts and no advice. Nothing here asks whether the article is good.
 
 ## The article — {{section_count}}
@@ -58,10 +62,10 @@ Hand each one back, in Section order, with:
 
     {{read_command}}
 
-**At the end, once**, what the article claimed — one or two sentences, in your
-own words, as a claim rather than as a summary of topics:
+**At the end, once**, the article's thesis — one or two sentences, in your own
+words, as a claim rather than as a summary of topics:
 
-    {"claim": "…"}
+    {"thesis": "…"}
 
 Hand it back with:
 

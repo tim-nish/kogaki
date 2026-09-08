@@ -99,7 +99,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve, relative, dirname, basename, sep } from "node:path";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 // the Step-Move instantiation contract's mechanical half is ONE function shared with the composition side
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
@@ -150,6 +150,116 @@ const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 // settled Strand set with its cite lines, and the Sequence's step blocks in
 // document order. Everything else in the Brief is reachable material, not
 // structure this harness interprets.
+// ONE PARSER, AND THIS IS IT (kogaki#1014). A `step` block's fields are read
+// HERE and nowhere else: `parseBrief` calls it once per fenced block, and the
+// Reverse Outline a Blind Reader hands back is validated by the same call. A
+// second reader for the same block is exactly the two-copy divergence the
+// Reverse Outlining rebuild exists to remove — the Reverse Outline is a Brief
+// Step block, so it is parsed by the Brief parser or it is not one.
+//
+// Returns `{ step }` or `{ refusal }`. The caller decides what a refusal costs:
+// `parseBrief` collects it and keeps reading the document, while a Reverse
+// Outline has one block and refuses on it.
+export function parseStepBlockBody(body, path) {
+  const idM = body.match(/^step_id:\s*(\S+)\s*$/m);
+  if (!idM) return { refusal: `the Brief at ${path} carries a step block with no step_id` };
+  // `move:` IS READ (the Step-Move instantiation contract, kogaki#747). It was parsed for `step_id` only
+  // and the Move binding sat here as uninterpreted dead input, so a typo'd
+  // or renamed id rode a minted Brief in silence until the Step Packet
+  // assembler joined Step.move → moves/<id>.md and failed mid-draft. Read
+  // here, refused at `resolve` below — at the entry to realization rather
+  // than partway through it.
+  const moveM = body.match(/^move:\s*(\S+)\s*$/m);
+  // the reader-knowledge ledger's `introduces:` (kogaki#751), read back from the serialized form.
+  // ONE LINE PER ENTRY, matching `renderStep`'s writer — a term may contain
+  // a comma and its anchor almost always does, so a comma-joined field could
+  // not be parsed back at all. Absent entirely is the ordinary case and is
+  // not an absence to report: a Step that introduces nothing carries no
+  // line, and the ledger below simply has nothing to fold in from it.
+  const introduces = [...body.matchAll(/^introduces:\s*(.*)$/gm)].map((x) => x[1]);
+  // A MALFORMED ENTRY REFUSES NAMING THE STEP (acceptance). The shape
+  // grammar is the composition side's, imported rather than re-expressed:
+  // the writer and the reader disagreeing about what an entry is would be
+  // the round trip failing silently at exactly the field whose value is an
+  // accumulation nobody re-derives by hand.
+  if (introduces.length) {
+    const bad = introducesRefusal(introduces, `the Brief at ${path}, step ${idM[1]}`);
+    if (bad) return { refusal: bad };
+  }
+  // the Section grouping's `opens_section:` (kogaki#823), read back from the serialized form
+  // `renderStep` writes. THE PARSE-BACK IS WHAT MAKES THE DECLARATION LIVE:
+  // kogaki#822 landed the field, its four grouping rules and its writer, and
+  // nothing on this side read it — so a Brief could declare its Sections
+  // perfectly and the Draft would still render one heading per Step, with
+  // every check green. The round trip is asserted at both ends through ONE
+  // shared shape grammar, imported rather than re-expressed, for the reason
+  // `introduces` is: a writer and a reader disagreeing about what a value is
+  // fails silently at exactly the field whose value reaches an owner-facing
+  // heading.
+  // `[ \t]*` and NOT `\s*`: `\s` matches a newline, so a blank value would
+  // eat the line break and capture the NEXT field's line as the title — a
+  // Section silently headed "purpose: ..." instead of refusing. Caught by the
+  // blank-value fixture below; the same idiom `stepField` already uses.
+  const opensM = body.match(/^opens_section:[ \t]*(.*)$/m);
+  let opens_section;
+  if (opensM) {
+    const bad = opensSectionRefusal(opensM[1].trim(), `the Brief at ${path}, step ${idM[1]}`);
+    if (bad) return { refusal: bad };
+    opens_section = opensM[1].trim();
+  }
+  // the figure decision's `figure:`/`figure_roles:` (kogaki#877), read back from the
+  // serialized form `renderStep` writes. THE PARSE-BACK IS WHAT MAKES THE
+  // DECLARATION REACH THE PAGE: #877 landed the field, its grammar and its
+  // writer, and nothing on this side read it — so a Brief could declare a
+  // figure perfectly and the Draft would render none, with every check green.
+  // The same round-trip arrangement `introduces` and `opens_section` have,
+  // through the SAME shared grammar imported from the composition side: a
+  // writer and a reader disagreeing about what a binding is fails silently at
+  // exactly the field whose value reaches a rendered figure.
+  //
+  // `[ \t]*` and not `\s*`, for the reason `opens_section` states: `\s`
+  // spans a newline, so a blank `figure:` would capture the NEXT field's line
+  // as the figure's reason instead of refusing.
+  const figM = body.match(/^figure:[ \t]*(.*)$/m);
+  const rolesM = body.match(/^figure_roles:[ \t]*(.*)$/m);
+  let figure, figure_roles;
+  if (figM || rolesM) {
+    let parsedRoles;
+    if (rolesM) {
+      const r = parseFigureRoles(rolesM[1]);
+      if (r.error) return { refusal: `the Brief at ${path}, step ${idM[1]}: figure_roles — ${r.error} (the figure decision)` };
+      parsedRoles = r.roles;
+    }
+    // THE GRAMMAR IS THE COMPOSITION SIDE'S, not a second expression of it.
+    // A blank `figure:` reaches here as the empty string, which is what the
+    // shared refusal already calls a half-declaration.
+    const bad = figureRefusal(figM ? figM[1].trim() : undefined, parsedRoles,
+      `the Brief at ${path}, step ${idM[1]}`);
+    if (bad) return { refusal: bad };
+    figure = figM[1].trim();
+    figure_roles = parsedRoles;
+  }
+  return { step: { step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, figure, figure_roles, body } };
+}
+
+// The fenced form. A Reverse Outline is ONE `step` block and this is what
+// unwraps it: the fence grammar is `parseBrief`'s own, so a Blind Reader who
+// writes a block the Brief could not carry is refused here rather than
+// downstream at a field nobody declared.
+export function parseStepBlock(text, path = "<reverse-outline>") {
+  const m = /^```step\n([\s\S]*?)\n```/m.exec(text);
+  if (!m) {
+    return { refusal: `${path} carries no fenced \`step\` block — a Reverse Outline IS a Brief Step block, `
+      + "written in the Brief's own field names, so there is nothing here to compare against the Forward Artifact" };
+  }
+  const rest = text.slice(m.index + m[0].length);
+  if (/^```step\n/m.test(rest)) {
+    return { refusal: `${path} carries more than one fenced \`step\` block — a Reverse Outline is the reading of ONE passage, `
+      + "and two blocks leave the Harness to pick which one the reader meant" };
+  }
+  return parseStepBlockBody(m[1], path);
+}
+
 export function parseBrief(text, path = "<brief>") {
   const lines = text.split("\n");
   const refusals = [];
@@ -191,86 +301,9 @@ export function parseBrief(text, path = "<brief>") {
   const steps = [];
   const stepRe = /^```step\n([\s\S]*?)\n```/gm;
   while ((m = stepRe.exec(text)) !== null) {
-    const body = m[1];
-    const idM = body.match(/^step_id:\s*(\S+)\s*$/m);
-    if (!idM) { refusals.push(`the Brief at ${path} carries a step block with no step_id`); continue; }
-    // `move:` IS READ (the Step-Move instantiation contract, kogaki#747). It was parsed for `step_id` only
-    // and the Move binding sat here as uninterpreted dead input, so a typo'd
-    // or renamed id rode a minted Brief in silence until the Step Packet
-    // assembler joined Step.move → moves/<id>.md and failed mid-draft. Read
-    // here, refused at `resolve` below — at the entry to realization rather
-    // than partway through it.
-    const moveM = body.match(/^move:\s*(\S+)\s*$/m);
-    // the reader-knowledge ledger's `introduces:` (kogaki#751), read back from the serialized form.
-    // ONE LINE PER ENTRY, matching `renderStep`'s writer — a term may contain
-    // a comma and its anchor almost always does, so a comma-joined field could
-    // not be parsed back at all. Absent entirely is the ordinary case and is
-    // not an absence to report: a Step that introduces nothing carries no
-    // line, and the ledger below simply has nothing to fold in from it.
-    const introduces = [...body.matchAll(/^introduces:\s*(.*)$/gm)].map((x) => x[1]);
-    // A MALFORMED ENTRY REFUSES NAMING THE STEP (acceptance). The shape
-    // grammar is the composition side's, imported rather than re-expressed:
-    // the writer and the reader disagreeing about what an entry is would be
-    // the round trip failing silently at exactly the field whose value is an
-    // accumulation nobody re-derives by hand.
-    if (introduces.length) {
-      const bad = introducesRefusal(introduces, `the Brief at ${path}, step ${idM[1]}`);
-      if (bad) { refusals.push(bad); continue; }
-    }
-    // the Section grouping's `opens_section:` (kogaki#823), read back from the serialized form
-    // `renderStep` writes. THE PARSE-BACK IS WHAT MAKES THE DECLARATION LIVE:
-    // kogaki#822 landed the field, its four grouping rules and its writer, and
-    // nothing on this side read it — so a Brief could declare its Sections
-    // perfectly and the Draft would still render one heading per Step, with
-    // every check green. The round trip is asserted at both ends through ONE
-    // shared shape grammar, imported rather than re-expressed, for the reason
-    // `introduces` is: a writer and a reader disagreeing about what a value is
-    // fails silently at exactly the field whose value reaches an owner-facing
-    // heading.
-    // `[ \t]*` and NOT `\s*`: `\s` matches a newline, so a blank value would
-    // eat the line break and capture the NEXT field's line as the title — a
-    // Section silently headed "purpose: ..." instead of refusing. Caught by the
-    // blank-value fixture below; the same idiom `stepField` already uses.
-    const opensM = body.match(/^opens_section:[ \t]*(.*)$/m);
-    let opens_section;
-    if (opensM) {
-      const bad = opensSectionRefusal(opensM[1].trim(), `the Brief at ${path}, step ${idM[1]}`);
-      if (bad) { refusals.push(bad); continue; }
-      opens_section = opensM[1].trim();
-    }
-    // the figure decision's `figure:`/`figure_roles:` (kogaki#877), read back from the
-    // serialized form `renderStep` writes. THE PARSE-BACK IS WHAT MAKES THE
-    // DECLARATION REACH THE PAGE: #877 landed the field, its grammar and its
-    // writer, and nothing on this side read it — so a Brief could declare a
-    // figure perfectly and the Draft would render none, with every check green.
-    // The same round-trip arrangement `introduces` and `opens_section` have,
-    // through the SAME shared grammar imported from the composition side: a
-    // writer and a reader disagreeing about what a binding is fails silently at
-    // exactly the field whose value reaches a rendered figure.
-    //
-    // `[ \t]*` and not `\s*`, for the reason `opens_section` states: `\s`
-    // spans a newline, so a blank `figure:` would capture the NEXT field's line
-    // as the figure's reason instead of refusing.
-    const figM = body.match(/^figure:[ \t]*(.*)$/m);
-    const rolesM = body.match(/^figure_roles:[ \t]*(.*)$/m);
-    let figure, figure_roles;
-    if (figM || rolesM) {
-      let parsedRoles;
-      if (rolesM) {
-        const r = parseFigureRoles(rolesM[1]);
-        if (r.error) { refusals.push(`the Brief at ${path}, step ${idM[1]}: figure_roles — ${r.error} (the figure decision)`); continue; }
-        parsedRoles = r.roles;
-      }
-      // THE GRAMMAR IS THE COMPOSITION SIDE'S, not a second expression of it.
-      // A blank `figure:` reaches here as the empty string, which is what the
-      // shared refusal already calls a half-declaration.
-      const bad = figureRefusal(figM ? figM[1].trim() : undefined, parsedRoles,
-        `the Brief at ${path}, step ${idM[1]}`);
-      if (bad) { refusals.push(bad); continue; }
-      figure = figM[1].trim();
-      figure_roles = parsedRoles;
-    }
-    steps.push({ step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, figure, figure_roles, body });
+    const parsed = parseStepBlockBody(m[1], path);
+    if (parsed.refusal) { refusals.push(parsed.refusal); continue; }
+    steps.push(parsed.step);
   }
   if (steps.length === 0 && refusals.length === 0) {
     refusals.push(`the Brief at ${path} carries no Reader Path steps — there is nothing to realize`);
@@ -646,7 +679,7 @@ function briefSection(text, heading) {
 }
 
 // The step block's fields, read off the recorded form `renderStep` writes.
-function stepField(body, field) {
+export function stepField(body, field) {
   const m = body.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
   return m ? m[1].trim() : null;
 }
@@ -764,7 +797,7 @@ export function figureRecordRefusal(record, step, form, schema) {
   const known = new Set([...schema.required, ...(schema.optional || [])]);
   const extra = Object.keys(record).filter((k) => !known.has(k)).sort();
   if (extra.length) {
-    // REFUSED RATHER THAN IGNORED, the rule src/recovered-schema.json states
+    // REFUSED RATHER THAN IGNORED, the rule a closed key set states
     // for its own forbidden keys: an ignored field still shaped the reading
     // that produced the rest of the record.
     return `${at} carries ${extra.map((x) => `"${x}"`).join(", ")}, which src/figure-schema.json does not define — the record's fields are ${[...known].sort().join(", ")}`;
@@ -2776,17 +2809,29 @@ async function runSelfTest() {
   if (failures.length) process.exit(1);
 }
 
-const args = parseArgs(process.argv.slice(2));
-if (args["self-test"]) {
-  await runSelfTest();
-} else {
-  switch (args._cmd) {
-    case "resolve": cmdResolve(args); break;
-    case "material": cmdMaterial(args); break;
-    case "packet": cmdPacket(args); break;
-    case "section": cmdSection(args); break;
-    case "figure": cmdFigure(args); break;
-    case "emit": cmdEmit(args); break;
-    default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> [--file <f>]] | --self-test");
+// THIS FILE IS BOTH A COMMAND AND A LIBRARY, AND THE GUARD IS WHAT MAKES THE
+// SECOND POSSIBLE (kogaki#1014). `parseStepBlock` is the Brief's own reader for
+// a `step` block and ReviewDraft's Reverse Outline is one — "parsed by the same
+// function that parses a Brief Step" is the acceptance, so this module has to be
+// importable. Without the guard the dispatch below ran at import, read the
+// IMPORTER's argv, matched no subcommand and exited 1: `review-draft open`
+// died on draft.mjs's usage line before writing anything.
+//
+// The check is the module's own URL against the process entry point, so
+// `node src/draft.mjs …` still runs the CLI and every import is silent.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = parseArgs(process.argv.slice(2));
+  if (args["self-test"]) {
+    await runSelfTest();
+  } else {
+    switch (args._cmd) {
+      case "resolve": cmdResolve(args); break;
+      case "material": cmdMaterial(args); break;
+      case "packet": cmdPacket(args); break;
+      case "section": cmdSection(args); break;
+      case "figure": cmdFigure(args); break;
+      case "emit": cmdEmit(args); break;
+      default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> [--file <f>]] | --self-test");
+    }
   }
 }

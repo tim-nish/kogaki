@@ -9,7 +9,7 @@
     "each bound ground is finally worded for the reader.",
     "",
     "src/draft.mjs READS these lists rather than restating them, the same",
-    "arrangement src/recovered-schema.json has with src/review-draft.mjs: the",
+    "arrangement src/review-items.json has with src/review-draft.mjs: the",
     "record's shape is amended in one place and never in two that agree until",
     "one is edited.",
     "",
