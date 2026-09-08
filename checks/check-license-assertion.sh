@@ -74,6 +74,20 @@ report_case() {
     *) got="error($status)" ;;
   esac
 
+  # A REFUSAL IS GRADED ON ITS TEXT AND NOT ONLY ITS STATUS (kogaki#976, PR
+  # #1011 round 1). A `set -u` abort exits 1, which is the refusal's own status,
+  # so a case asserting "refused" passed over a script that had aborted before
+  # reaching the arm it was asserting — which is exactly what the three
+  # unreadable-range cases did until the unbound `first_foreign_why` was fixed.
+  # The refusal is the gate's stated sentence; anything else exiting 1 is a
+  # defect wearing the verdict's clothes.
+  if [[ "$got" == refuse && "$out" != *"FAIL: no licensing issue named"* ]]; then
+    got="aborted-before-the-refusal"
+  fi
+  if [[ "$out" == *"unbound variable"* || "$out" == *"command not found"* ]]; then
+    got="shell-fault"
+  fi
+
   if [[ "$got" != "$expect" ]]; then
     failures=$((failures + 1))
     echo "  FAIL  $name"

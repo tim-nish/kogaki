@@ -111,6 +111,14 @@ message=""
 paths_file=""
 before=""
 after=""
+# Arm 1 fills these; the refusal below reads them whether or not arm 1 ran. They
+# are defaulted HERE and not inside arm 1, because the unreadable-range arm
+# (kogaki#976) skips arm 1 by design and would otherwise reach the refusal with
+# them unset — under `set -u` that is an abort, not a refusal, and it exits 1
+# just like a refusal does, so a case asserting "refused" cannot tell them apart.
+n_foreign=0
+first_foreign=""
+first_foreign_why=""
 
 die() { echo "assert-licensed: $*" >&2; exit 2; }
 
@@ -156,6 +164,9 @@ if [[ -n "$before" || -n "$after" ]]; then
   if (( range_readable )); then
     message="$(git log --format='%s %b' "$before..$after")"
     paths_file="$(mktemp)"
+    # Removed on every exit: the header advertises a by-hand invocation, and the
+    # range form is the one CI runs, so an unremoved file accumulates.
+    trap 'rm -f "$paths_file"' EXIT
     # The union over the COMMITS, not the net diff: a range that touched a
     # source file and reverted it has still touched it. Duplicate lines are
     # harmless — every line is judged, and one foreign line is enough.
@@ -181,9 +192,6 @@ if [[ "$event" == "push" && -n "$paths_file" ]]; then
   [[ -r "$paths_file" ]] || die "--paths-file is not readable: $paths_file"
 
   n_paths=0
-  n_foreign=0
-  first_foreign=""
-  first_foreign_why=""
   note_foreign() {
     n_foreign=$((n_foreign + 1))
     if [[ -z "$first_foreign_why" ]]; then
