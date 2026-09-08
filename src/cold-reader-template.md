@@ -1,6 +1,6 @@
 <!--
 THE COLD READER'S INPUT (kogaki#873). Runtime-read by src/review-draft.mjs, the
-same arrangement src/recovery-template.md has with the Step half and
+same arrangement src/packet-template.md has with the realization lane and
 src/packet-template.md has with src/draft.mjs: the wording lives in a file a
 person can edit, and the Harness fills its slots.
 

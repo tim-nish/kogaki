@@ -239,14 +239,30 @@ echo "ok: the review lane is registered in both LANES and src/runs.json, asked o
 # it does catch is the copy-paste, which is the shape the failure actually
 # takes. The registry contract states the same bound; a guard described as
 # total coverage would be the overclaim this finding named.
-RT="src/recovery-template.md"
+# THE RECOVERY INPUT HAS NO TEMPLATE FILE ANY MORE (kogaki#1014). It is composed
+# by `renderReverseOutlineInput` from the Brief's own field declaration, because
+# there is no second artifact left to describe -- the reader fills a `step`
+# block. So the leak guard below reads the RENDERER'S OWN HEADING LITERALS in
+# place of a template's headings; the property, and the derivation from the
+# Packet rather than a transcribed list, are unchanged.
+RD="src/review-draft.mjs"
 PT="src/packet-template.md"
-for f in "$RT" "$PT" src/recovered-schema.json src/review-items.json src/join-template.md; do
+for f in "$RD" "$PT" src/review-items.json src/join-template.md; do
   if [[ ! -f "$f" ]]; then
-    echo "FAIL: $f is missing -- the recovery input and its record contract are runtime-read, so an absent one is a defect rather than a skip"
+    echo "FAIL: $f is missing -- the recovery input and the item table are runtime-read, so an absent one is a defect rather than a skip"
     exit 1
   fi
 done
+
+# The renderer's own literals, which is what the recovery input's headings now
+# are. Sliced at the function so a heading elsewhere in the runtime -- the join
+# Packet's, the cold reader's -- is not read as this input's.
+RENDERED_HEADS="$(mktemp)"
+awk '/^function renderReverseOutlineInput\(/ { inside=1 } inside { print } inside && /^}$/ { exit }' "$RD" > "$RENDERED_HEADS"
+if [[ ! -s "$RENDERED_HEADS" ]]; then
+  echo "FAIL: renderReverseOutlineInput was not found in $RD -- the leak guard below would read an empty file and report ok on every Packet block"
+  exit 1
+fi
 
 # The Packet's own headings, as a heading-line pattern each.
 LEAK=0
@@ -276,13 +292,16 @@ while IFS= read -r h; do
   # already (kogaki#886, this comment naming `/^##/` against the code's `/^#/`),
   # so each names the other here rather than only the wrong side being corrected
   # -- edit one and the other is owed the same edit.
-  if awk -v want="$h" '/^#/ { line=$0; sub(/^#+[ ]*/, "", line); sub(/[ ]*$/, "", line); if (line == want) found=1 } END { exit !found }' "$RT"; then
-    echo "FAIL: $RT carries the Packet block heading \"$h\" -- the reviewer is blind by design, and a Packet block in the recovery input ends the measurement while looking helpful"
+  # The renderer writes its headings as quoted literals, so the heading is
+  # matched inside a string rather than at the start of a line.
+  if grep -qF "## $h" "$RENDERED_HEADS"; then
+    echo "FAIL: the recovery input renders the Packet block heading \"$h\" -- the reviewer is blind by design, and a Packet block in the recovery input ends the measurement while looking helpful"
     LEAK=1
   fi
 done < <(sed -nE 's/^#{1,6} (.*[^ ]) *$/\1/p' "$PT")
+rm -f "$RENDERED_HEADS"
 if (( LEAK )); then exit 1; fi
-echo "ok: $RT carries no block heading from $PT (derived from its headings, never transcribed)"
+echo "ok: the composed recovery input carries no block heading from $PT (derived from its headings, never transcribed)"
 
 # --- THE ITEM TABLE'S PACKET SHAPE MATCHES THE REAL TEMPLATE (kogaki#872).
 #
@@ -394,64 +413,49 @@ if ! node --input-type=module -e '
 fi
 echo "ok: every mechanical item has an implementation, every judged item carries a question, and the verdict set is the closed three"
 
-# --- AND EVERY RECOVERED SIDE THE TABLE NAMES IS A FIELD THE SCHEMA DECLARES
-#     (kogaki#880).
+# --- AND EVERY RECOVERED SIDE THE TABLE NAMES IS A BRIEF STEP FIELD THE BLIND
+#     READER IS ASKED FOR (kogaki#880, re-cut at kogaki#1014).
 #
-# THE FAILURE MODE IS A CLEAN PASS, like the one above. `buildJoin` reads the
-# recovered side by name, and a name the schema does not declare reads
-# `undefined`, renders as `(none)` and asks the judging model whether nothing
-# agrees with a declared line — a question it can answer `holds` in good faith.
-# The item table and the record schema are two carriers that agree until one is
-# edited, and this is the join that keeps them from drifting.
+# THE FAILURE MODE IS A CLEAN PASS. `buildJoin` reads the recovered side by
+# name, and a name nothing declares reads `undefined`, renders as `(none)` and
+# asks the judging model whether nothing agrees with a declared line -- a
+# question it can answer `holds` in good faith.
 #
-# THE FORBIDDEN-KEY HALF IS THE ONE THIS CAUGHT IN AUTHORING. The third
-# sub-field of `figure_reading` was first spelled `holds` — a VERDICT TOKEN the schema forbids
-# at every depth — so every recovered record carrying a figure reading was
-# refused as a reviewer smuggling in a judgment. A homonym in a join key is the
-# same defect as a divergence, and the refusal named the reviewer rather than
-# the table that chose the name.
+# THE SECOND CARRIER MOVED, AND THE JOIN DID NOT. It used to be
+# `src/recovered-schema.json`, a second schema for the Brief's own information;
+# that file is deleted and the recovered side is now a Brief Step field, so the
+# table is joined against `RECONSTRUCTIBLE_FIELDS` -- the one declaration the
+# Blind Reader's input is composed from. Two carriers that agree until one is
+# edited, exactly as before, one carrier over.
 if ! node --input-type=module -e '
   import { readFileSync } from "node:fs";
+  const { RECONSTRUCTIBLE_FIELDS } = await import("./src/review-draft.mjs");
   const t = JSON.parse(readFileSync("src/review-items.json", "utf8"));
-  const s = JSON.parse(readFileSync("src/recovered-schema.json", "utf8"));
-  const cond = s.conditional_required || {};
-  const forbidden = new Set(s.forbidden_keys || []);
+  const asked = new Set(RECONSTRUCTIBLE_FIELDS.map((f) => f.name));
   const bad = [];
   for (const it of t.items) {
-    if (!it.recovered_field) continue;
-    const [outer, inner] = String(it.recovered_field).split(".");
-    if (inner === undefined) {
-      if (!(s.required || []).includes(outer) && !(outer in cond)) {
-        bad.push(`${it.id} reads "${outer}", which the schema does not declare`);
-      }
+    if (!it.field) continue;
+    if (String(it.field).includes(".")) {
+      bad.push(`${it.id} reads "${it.field}", and a recovered side is ONE Brief Step field`);
       continue;
     }
-    const spec = cond[outer];
-    if (!spec) { bad.push(`${it.id} reads "${outer}", which the schema does not declare`); continue; }
-    if (!(spec.item_required || []).includes(inner)) {
-      bad.push(`${it.id} reads "${outer}.${inner}" and the schema declares ${(spec.item_required || []).join(", ")}`);
-    }
-    if (forbidden.has(inner)) {
-      bad.push(`${it.id} reads "${outer}.${inner}" and "${inner}" is a forbidden key, so every record carrying it is refused`);
+    if (!asked.has(it.field)) {
+      bad.push(`${it.id} reads "${it.field}", which the Blind Reader is never asked for`);
     }
   }
-  // The declared side of a figure row names a field the FIGURE schema declares,
-  // by the same argument one carrier over.
-  const f = JSON.parse(readFileSync("src/figure-schema.json", "utf8"));
-  const fields = new Set([...(f.required || []), ...(f.optional || [])]);
+  // ONE ROW, ONE DECLARED SIDE. The figure record was the second carrier a row
+  // could name; the rows that named it left under the decline recorded in
+  // src/review-items.json, and this keeps one from returning without it.
   for (const it of t.items) {
-    if (it.record_field && !fields.has(it.record_field)) {
-      bad.push(`${it.id} reads the figure record field "${it.record_field}", which src/figure-schema.json does not declare`);
-    }
-    if (it.record_field && it.declared_block) {
-      bad.push(`${it.id} names both a Packet block and a figure record field — one row, one declared side`);
+    if (it.record_field) {
+      bad.push(`${it.id} names the figure record field "${it.record_field}", whose rows are declined to kogaki#1018`);
     }
   }
   if (bad.length) { console.error(bad.join("\n")); process.exit(1); }
 '; then
-  echo "FAIL: src/review-items.json names a recovered or declared side its schema does not declare -- the join would read undefined, render it as (none) and ask a model whether nothing agrees with a declared line"
+  echo "FAIL: src/review-items.json names a recovered side the Blind Reader is not asked for -- the join would read undefined, render it as (none) and ask a model whether nothing agrees with a declared line"
   exit 1
 fi
-echo "ok: every side the item table names is a field its schema declares, and no recovered sub-field is a forbidden key"
+echo "ok: every recovered side the item table names is a Brief Step field the Blind Reader is asked for"
 
 echo "PASS: ReviewDraft runtime"

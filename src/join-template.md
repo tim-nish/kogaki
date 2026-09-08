@@ -2,7 +2,7 @@
 The JOIN PACKET template (kogaki#872) — the judging model's ENTIRE input for
 ONE (Step, item) pair.
 
-Runtime-read, like src/packet-template.md and src/recovery-template.md:
+Runtime-read, like src/packet-template.md and src/cold-reader-template.md:
 `review-draft compare` fills the {{...}} slots and writes the result into the
 run workspace, and the written result is everything the judging model reads.
 

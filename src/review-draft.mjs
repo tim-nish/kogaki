@@ -843,9 +843,9 @@ function numberedBody(draft) {
 
 // The ledger entry's shape, rendered from the item table rather than written
 // into the template. A template naming its own fields and a table naming them
-// too is the two-copy divergence `src/recovered-schema.json` is arranged to
-// avoid one layer over: `read` validates against the table, so the instruction
-// a reader follows and the rule they are judged by are one edit.
+// too is the two-copy divergence this whole arrangement avoids one layer over:
+// `read` validates against the table, so the instruction a reader follows and
+// the rule they are judged by are one edit.
 function ledgerShape(items) {
   const f = (items.sections || {}).ledger_fields;
   const keys = f ? Object.keys(f) : [];
@@ -1375,8 +1375,8 @@ function missingFor(run) {
 // THE ITEM TABLE IS FIXED IN THE HARNESS AND READ FROM `src/review-items.json`
 // — which item classes exist, which are preserved and which are best-effort,
 // which are decided mechanically and which are put to a model. The runtime does
-// not restate it, the same arrangement `src/recovered-schema.json` already has
-// with the recovery half: amending the table is one edit.
+// not restate it, the same arrangement `src/packet-template.md` has with
+// `src/draft.mjs`: amending the table is one edit.
 //
 // THE MODEL NEVER ASSIGNS SEVERITY, and that is the whole reason the table is
 // here rather than in a prompt. A judging model sees ONE pair, answers ONE
@@ -2008,21 +2008,21 @@ function recordVerdicts(run, file, owed, items) {
 // field means the recovered side IS THE PROSE — the negative items, which ask
 // whether something is absent from the passage rather than whether two lines
 // agree.
-// A DOTTED PATH REACHES ONE LEVEL INTO THE RECOVERED RECORD, and no further.
-// `figure_reading` is the record's one object field, so its sub-fields are the
-// only recovered sides that are not top-level — and bounding the reach at one
-// level is what keeps the item table from becoming a query language over a
-// record whose shape the schema declares.
+// A RECOVERED SIDE IS ONE BRIEF STEP FIELD, AND THE PATH IS FLAT (kogaki#1014).
+// The dotted one-level reach this function used to allow existed for
+// `figure_reading`, the deleted record's one object field; a Brief Step field
+// is a line, so there is nothing left to reach into. A dotted path is refused
+// by name rather than resolved to `undefined`, which is how a table naming a
+// field nobody computes would otherwise read as a side that simply was not
+// recovered.
 function recoveredAt(rec, path) {
-  const parts = String(path).split(".");
-  if (parts.length === 1) return rec[parts[0]];
-  if (parts.length !== 2) {
-    fail(`the item table names the recovered field \`${path}\`, and a recovered side is a `
-      + "top-level field or one sub-field of one. A deeper path would be a query over a record "
-      + "whose shape src/recovered-schema.json declares");
+  if (String(path).includes(".")) {
+    fail(`the item table names the recovered field \`${path}\`, and a recovered side is ONE `
+      + "Brief Step field, which is a line rather than an object. A dotted path would be a query "
+      + "over a second schema beside the Brief's, which is what src/review-items.json's own note "
+      + "records as declined");
   }
-  const outer = rec[parts[0]];
-  return outer === null || outer === undefined ? undefined : outer[parts[1]];
+  return rec[path];
 }
 
 // The declared side of one judged row, rendered. THREE CARRIERS, and the row
@@ -4673,6 +4673,23 @@ async function runSelfTest() {
     return f;
   };
 
+  // A COPY OF `src/` WITH ONE FILE TAKEN OUT, which is how the
+  // absent-companion cases are driven. THE WHOLE DIRECTORY IS COPIED rather
+  // than an enumerated list (kogaki#1014): the runtime imports the Brief parser
+  // now, and that module has imports of its own, so a list is a second
+  // dependency graph beside the real one — it went stale the moment
+  // `./draft.mjs` joined, and every case here failed on module resolution
+  // instead of on the absence it names.
+  const soloWithout = (name, missing) => {
+    const dir = join(root, name);
+    mkdirSync(dir, { recursive: true });
+    for (const f of readdirSync(dirname(self))) {
+      if (f === missing) continue;
+      writeFileSync(join(dir, f), readFileSync(join(dirname(self), f)));
+    }
+    return join(dir, "review-draft.mjs");
+  };
+
   // open -> recover x3 -> read x2 -> compare -> answer -> compare. The whole
   // flow, driven through the real entry points, for a fixture Draft of this
   // shape.
@@ -6001,8 +6018,7 @@ async function runSelfTest() {
     const r = driveToCompletedJoin(d, wsb, "riding");
     ok("the run completes", r.second.status === 0);
     const L = linesOf(r.second.stdout);
-    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/grounds-unused")),
-      `LINE=${JSON.stringify(L.get("a2/grounds-unused"))} KEYS=${[...L.keys()].join(",")}`);
+    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/grounds-unused")));
     ok("and no Step is sent to correction, because no PRESERVED item failed",
       /no Step is sent to correction/.test(r.second.stdout));
     const D = (...a) => spawnSync(process.execPath,
@@ -6137,15 +6153,11 @@ async function runSelfTest() {
   // Harness refuses rather than asking a question with no form. Driven against a
   // copy of the module with the template removed from beside it.
   {
-    const solo = join(root, "solo-join"); mkdirSync(solo, { recursive: true });
-    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "draft.mjs",
-      "cold-reader-template.md", "review-items.json"]) {
-      writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
-    }
+    const soloCli = soloWithout("solo-join", "join-template.md");
     const d = buildDraft(join(root, "theses", "nojointpl"), { packetDir });
     const wsb = join(root, "ws-nojointpl");
     const D = (...a) => spawnSync(process.execPath,
-      [join(solo, "review-draft.mjs"), ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+      [soloCli, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "njt"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
@@ -6164,22 +6176,18 @@ async function runSelfTest() {
   // earlier than it was — and asserting at `compare` would now assert against
   // "no run record", which is true and is not this refusal.
   {
-    const solo = join(root, "solo-items"); mkdirSync(solo, { recursive: true });
-    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "draft.mjs",
-      "cold-reader-template.md", "join-template.md"]) {
-      writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
-    }
+    const soloCli = soloWithout("solo-items", "review-items.json");
     const d = buildDraft(join(root, "theses", "noitems"), { packetDir });
     const wsb = join(root, "ws-noitems");
     const D = (...a) => spawnSync(process.execPath,
-      [join(solo, "review-draft.mjs"), ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+      [soloCli, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
     const r = D("open");
     ok("an absent item table refuses rather than joining against a table it invented",
       r.status === 1 && /item table is absent/.test(r.stderr));
   }
 
   // ONE DECLARATION OF THE FIELD LIST, AND ONE PARSER FOR THE BLOCK (kogaki#1014).
-  // The property `src/recovered-schema.json` used to carry — the runtime holds
+  // The property the deleted `src/recovered-schema.json` used to carry — the runtime holds
   // no second copy of the record's shape — survives its carrier's deletion,
   // re-cut onto what replaced it. There is no second schema to disagree with,
   // so the case asserts the two things that would REINTRODUCE one: a second
@@ -6386,8 +6394,7 @@ async function runSelfTest() {
     const FAILS = ["s2/reader-state-after", "s3/reader-state-after"];
     const p1 = RD("compare", "--verdicts", answer(joinPath, "p1", FAILS));
     ok("pass one completes and sends the two preserved-failing Steps to correction",
-      p1.status === 0 && /Steps sent to correction[^\n]*s2, s3/.test(p1.stdout),
-      `P1 STATUS ${p1.status} ERR ${(p1.stderr||"").slice(0,600)}`);
+      p1.status === 0 && /Steps sent to correction[^\n]*s2, s3/.test(p1.stdout));
 
     // --- FINDING 1 (PR #906 round 1): `check` with NOTHING corrected --------
     // Declining to correct is a legitimate route — `close` is reachable from
@@ -6404,8 +6411,7 @@ async function runSelfTest() {
       // no correction was made", which the per-seat line made false for a Step
       // that received one seat and still owes the other.
       ok("check with nothing corrected NAMES the Steps pass one sent to correction",
-        r.status === 0 && /UNCORRECTED — pass one sent these to correction and they are still owed: s2, s3/.test(r.stdout),
-        `STATUS ${r.status} ERR ${(r.stderr||"").slice(0,500)} OUT ${(r.stdout||"").slice(0,500)}`);
+        r.status === 0 && /UNCORRECTED — pass one sent these to correction and they are still owed: s2, s3/.test(r.stdout));
       ok("and says their fails are carried rather than re-judged",
         /not re-judged by this pass/.test(r.stdout));
       const rc = RD("close");
@@ -6901,7 +6907,11 @@ async function runSelfTest() {
       delete rr.reviewed_at; delete rr.restored_from;
       delete rr.recovered.s2;
       writeFileSync(join(cWsRun, "run.json"), JSON.stringify(rr, null, 2) + "\n");
-      const r = RD("recover", "--step", "s2", "--file", P2("recovered", "s2.json"));
+      // THE FILE HANDED BACK IS THE OUTLINE BLOCK, not the reading of it: since
+      // kogaki#1014 `recover` takes a Brief `step` block, and a JSON record is
+      // now refused on its shape before the pass ledger is ever consulted —
+      // which would make this case pass on the wrong refusal.
+      const r = RD("recover", "--step", "s2", "--file", P2("recovered", "s2.md"));
       ok("#994: a pass writing over a file another pass wrote is refused by name",
         r.status === 1 && /would write over a file pass 2 wrote/.test(r.stderr));
       ok("#994: and the refusal says why the other pass's reading is not recoverable",
@@ -6981,12 +6991,8 @@ async function runSelfTest() {
       && cold.includes("mentions {{not_a_real_slot}}"));
     // The check still catches a template the renderer really does disagree with,
     // which is the property that must survive the reordering.
-    const solo = join(root, "solo-slot"); mkdirSync(solo, { recursive: true });
-    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "draft.mjs",
-      "cold-reader-template.md", "review-items.json",
-      "join-template.md"]) {
-      writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
-    }
+    const soloCli = soloWithout("solo-slot", null);
+    const solo = dirname(soloCli);
     // MUTATE THE RENDERED HALF, NEVER THE COMMENT. The template's authoring
     // comment lists its own slot names and is stripped at render, so an edit
     // there reaches nothing — a first attempt did exactly that and the case

@@ -797,7 +797,7 @@ export function figureRecordRefusal(record, step, form, schema) {
   const known = new Set([...schema.required, ...(schema.optional || [])]);
   const extra = Object.keys(record).filter((k) => !known.has(k)).sort();
   if (extra.length) {
-    // REFUSED RATHER THAN IGNORED, the rule src/recovered-schema.json states
+    // REFUSED RATHER THAN IGNORED, the rule a closed key set states
     // for its own forbidden keys: an ignored field still shaped the reading
     // that produced the rest of the record.
     return `${at} carries ${extra.map((x) => `"${x}"`).join(", ")}, which src/figure-schema.json does not define — the record's fields are ${[...known].sort().join(", ")}`;
