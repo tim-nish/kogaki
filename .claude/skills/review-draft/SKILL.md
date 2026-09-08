@@ -10,7 +10,9 @@ lives in the Harness (`src/review-draft.mjs`), the same ruling
 `.claude/skills/draft/SKILL.md` records for /draft: `recover` refuses a Step
 whose recovery input it did not render, `compare` refuses while any Step
 recovery, Section entry or the cold reader's final claim is missing, `check`
-refuses before `compare`, and `close` is
+refuses before `compare`, `compare` refuses once a correction has landed
+(pass one is over, and re-rendering its join inputs from the corrected article
+would lose the reading its verdicts were given on), and `close` is
 reachable from `compare` with zero fails or from `check` in every state. A
 session does not sequence those acts and cannot get the sequence wrong.
 
@@ -117,10 +119,13 @@ discharges a verdict pass one recorded, and pass two turns a still-failing item
 into residue rather than into another correction. A later third pass is
 `pass-3/` and nothing else moves.
 
-`review.md` points at both pass directories, and every finding carries the two
-artefacts behind it — the recovered record the blind reviewer wrote and the pair
-input the judge was handed — so a reader goes from a finding to its evidence in
-either pass.
+`review.md` points at both pass directories, and every finding and residue
+line carries the artefacts behind it: the recovered record the run actually
+read for that line (pass one's for a carried line, and for a successor Step's
+continuity item judged in pass two, since pass two re-reads only corrected
+Steps), and the pair input the judge was handed — or, for a line the Harness
+decided, a statement that no Packet was rendered and a pointer at the pass's
+join record instead. Every pointer names a file the run wrote.
 
 ## The reviewed Draft has its own filename
 

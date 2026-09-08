@@ -2317,6 +2317,12 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       const rowDecidedBy = subs.every((s) => s.decided_by === "harness") ? "harness" : "model";
       results.push({ step_id: step.step_id, item: item.id, class: item.class,
         decided_by: rowDecidedBy,
+        // THE CHOSEN PAIR IS NAMED ON THE ROW (PR #1004 round 2, finding 5). The
+        // row's verdict, reason and span are one pair's, and the owner record's
+        // pointer to the Packet that pair was judged on cannot be composed from a
+        // row that does not say which — `pairs` holds every pair, and the
+        // selection is what this line is.
+        pair: chosen.pair,
         verdict: chosen.verdict, reason: chosen.reason,
         // THE KEY IS PRESENT EXACTLY WHERE `decided_by` IS `model`, and its
         // VALUE is the chosen pair's — the pair whose verdict, reason and span
@@ -2651,6 +2657,23 @@ function cmdCompare(args) {
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
   requireCurrent(run, draft);
+
+  // `compare` IS PASS ONE, AND PASS ONE ENDS AT THE FIRST CORRECTION (PR #1004
+  // round 2 successor). `correct` moves `body_sha` with the article, so
+  // `requireCurrent` admits a `compare` over the corrected Draft — and that
+  // `compare` would re-render every pass-one join Packet from the CORRECTED
+  // prose, over the inputs pass one's verdicts were actually given on, and
+  // reset the pass-one record to an unbounded join. That is the loss
+  // kogaki#994 was filed for, one pass over, and the pass ledger cannot catch
+  // it: pass one writing over its own files is a permitted write. The pass over
+  // a corrected Draft is `check`, and the refusal names it.
+  if ((run.corrections || []).length) {
+    fail(`this run has ${run.corrections.length} correction(s) recorded, so pass one is over: `
+      + "`compare` would re-render pass one's join inputs from the corrected article, over the "
+      + "inputs its verdicts were given on, and pass one's reading of the original would be lost.\n"
+      + "The pass over a corrected Draft is `check`:\n"
+      + `  node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path}`);
+  }
 
   // EVERY MISSING INPUT IS NAMED IN ONE REFUSAL, and the Section entries are
   // named BY SECTION NUMBER (kogaki#873). A reviewer sent back for "a missing
@@ -3719,6 +3742,13 @@ function cmdCheck(args) {
       + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
       + `  node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path} --verdicts <verdicts.json>\n`
       + `check record: ${joinPath}\n`);
+    // THE RUN RECORD IS WRITTEN ON THIS EXIT TOO (PR #1004 round 1, finding 3).
+    // `buildJoin` registered pass two's join inputs in `run.pass_files` and
+    // `recordVerdicts` may have taken answers into `run.verdicts`; a return
+    // that dropped both would keep the pass ledger true only on the completing
+    // call and hand a partially-answered pass back to the reviewer to answer
+    // again.
+    writeRun(ws, run);
     return;
   }
 
@@ -3745,6 +3775,10 @@ function cmdCheck(args) {
     .filter((f) => f.verdict === "fails" && f.class === "preserved")
     .map((f) => ({
       step_id: f.step_id, item: f.item,
+      // WHAT THE OWNER RECORD'S POINTERS ARE COMPOSED FROM, kept on the row: the
+      // pass that read it (a carried row is pass one's whatever pass the run
+      // reached) and whether a judge was handed a Packet for the chosen pair.
+      pair: f.pair, carried: Boolean(f.carried), judged: chosenJudged(f),
       why: f.carried
         ? `${f.reason} — carried from pass one and NOT re-judged: this Step was not corrected, `
           + "so nothing in pass two read it again"
@@ -3810,16 +3844,51 @@ function cmdCheck(args) {
 // The recovery record and the join input a single verdict rests on. Rendered
 // from the same rule the writers compose their paths with, so a reader following
 // one lands on the file the judge was actually handed.
-function findingEvidencePaths(ws, pass, f) {
+//
+// BOTH HALVES ARE READ OFF THE ROW, NEVER OFF THE SECTION IT RENDERS IN (PR
+// #1004 round 2, findings 5 and 6). Which pass read a row: a carried row was
+// read by pass one whatever pass the run has reached, and every other row by
+// the last pass that ran. Whether a Packet exists for it: a Harness-decided
+// line — a mechanical item, a stated absence, an empty recovered side, or a
+// paired item whose chosen pair the matcher decided — never had a join Packet
+// rendered, so no pointer to one is composed; the pass's join record says how
+// it was decided. Composing `pass-2/` for a carried row, or a Packet name for a
+// mechanical row, pointed the owner at files nothing ever wrote.
+//
+// THE RECOVERED RECORD IS THE ONE THE RUN READ, taken from the run record's
+// own map rather than composed from the pass: pass two re-reads only the
+// corrected Steps, so a successor Step's continuity item is judged in pass two
+// against pass ONE's recovered record, and `run.recovered` is the map every
+// join reads from. A carried row's is pass one's by definition.
+function evidencePass(run, f) {
+  return f.carried ? 1 : (run.checked_at ? 2 : 1);
+}
+function chosenJudged(f) {
+  if (typeof f.judged === "boolean") return f.judged;
+  if (Array.isArray(f.pairs)) {
+    const sub = f.pairs.find((p) => p.pair === f.pair);
+    return sub ? sub.decided_by === "model" : false;
+  }
+  return f.decided_by === "model";
+}
+function findingEvidencePaths(ws, run, f) {
   if (!f.step_id) return [];
+  const pass = evidencePass(run, f);
   const rel = (...a) => relative(process.cwd(), join(ws, `pass-${pass}`, ...a))
     || join(ws, `pass-${pass}`, ...a);
-  const name = f.pair === null || f.pair === undefined
-    ? `${f.step_id}.${f.item}.md` : `${f.step_id}.${f.item}.${f.pair}.md`;
-  return [
-    `  - recovered record: \`${rel("recovered", `${f.step_id}.json`)}\``,
-    `  - the pair the judge saw: \`${rel("join", name)}\``,
-  ];
+  const recovered = f.carried
+    ? join(ws, "pass-1", "recovered", `${f.step_id}.json`)
+    : ((run.recovered || {})[f.step_id] || join(ws, `pass-${pass}`, "recovered", `${f.step_id}.json`));
+  const out = [`  - recovered record: \`${relative(process.cwd(), recovered) || recovered}\``];
+  if (chosenJudged(f)) {
+    const name = f.pair === null || f.pair === undefined
+      ? `${f.step_id}.${f.item}.md` : `${f.step_id}.${f.item}.${f.pair}.md`;
+    out.push(`  - the pair the judge saw: \`${rel("join", name)}\``);
+  } else {
+    out.push("  - the pair the judge saw: none — this line was not a judge's answer to a rendered "
+      + `Packet; \`${rel(pass === 1 ? "join.json" : "check.json")}\` records how it was decided`);
+  }
+  return out;
 }
 
 function evidenceLines(ws, run) {
@@ -4002,11 +4071,11 @@ function cmdClose(args) {
       if (f.declared) lines.push(`  - declared: ${f.declared}`);
       if (f.recovered) lines.push(`  - recovered: ${f.recovered}`);
       if (f.span) lines.push(`  - span: ${JSON.stringify(f.span)}`);
-      // THE TWO ARTEFACTS BEHIND THE VERDICT (kogaki#994 item 4). This row is
-      // pass one's — `run.findings` is what `compare` wrote — so both paths are
-      // pass one's. A row pass two re-judged reaches the Residue section below,
-      // which names the pass that read it last.
-      for (const l of findingEvidencePaths(ws, 1, f)) lines.push(l);
+      // THE TWO ARTEFACTS BEHIND THE VERDICT (kogaki#994 item 4). `run.findings`
+      // is pass two's once `check` has run and pass one's before, and a carried
+      // row is pass one's either way — the row says which, and the pointer
+      // follows the row.
+      for (const l of findingEvidencePaths(ws, run, f)) lines.push(l);
     }
     lines.push("");
   }
@@ -4063,11 +4132,10 @@ function cmdClose(args) {
   } else {
     for (const r of run.residue) {
       lines.push(`- **${r.step_id} / ${r.item}** — ${r.why}`);
-      // RESIDUE SURVIVED PASS TWO, so the reading behind it is pass two's and
-      // the pointers are pass two's. Pass one's are still on disk under
-      // `pass-1/`, which is the comparison the owner classifying this line is
-      // most likely to want.
-      for (const l of findingEvidencePaths(ws, run.checked_at ? 2 : 1, r)) lines.push(l);
+      // A RESIDUE LINE PASS TWO RE-JUDGED POINTS AT PASS TWO; ONE IT CARRIED
+      // POINTS AT PASS ONE, which is the only pass that read it. The row carries
+      // the distinction its own `why` was written from.
+      for (const l of findingEvidencePaths(ws, run, r)) lines.push(l);
       lines.push("  classified:");
     }
     // AN UPSTREAM LINE SAYS SO, AND SAYS IT IS NOT ABOUT A STEP. It reached the
@@ -6522,6 +6590,43 @@ async function runSelfTest() {
         && !/^ {2}classified:[^\n]*\S/m.test(residue));
       ok("and the residue line says the item survived pass two",
         /still failing after pass two/.test(residue));
+      // EVERY POINTER THE RECORD RENDERS RESOLVES (PR #1004 round 2, finding 5).
+      // The legend above asserts the template text; this asserts the paths
+      // composed for the run's actual findings and residue — which used to
+      // name `<step>.<item>.md` for a paired item whose inputs are
+      // `<step>.<item>.<n>.md`, a Packet for a Harness-decided row that never
+      // had one, and `pass-2/` for a row pass two never read.
+      {
+        const pointers = [...revR.matchAll(/^ {2}- (?:recovered record|the pair the judge saw): `([^`]+)`/gm)]
+          .map((m) => m[1]);
+        const none = (revR.match(/^ {2}- the pair the judge saw: none — /gm) || []).length;
+        ok("#1004/5: the record composes pointers for its findings and residue",
+          pointers.length > 0, `pointers: ${pointers.length}`);
+        const dead = pointers.filter((f) => !existsSync(resolve(process.cwd(), f)));
+        ok("#1004/5: and every pointer names a file this run wrote",
+          dead.length === 0, dead.join(", "));
+        // A ROW THE HARNESS DECIDED SAYS SO, AND POINTS AT THE RECORD THAT
+        // DECIDED IT rather than at a Packet nothing rendered. This run's
+        // findings include mechanically-decided rows, so the arm is expressed.
+        const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
+        const harnessRows = (rr.findings || []).filter((f) => !chosenJudged(f)).length;
+        // This fixture's findings are all judged, so the equality is the
+        // whole of what it can express here; the arm with a Harness-decided
+        // row is asserted on the #996 fixture, whose `grounds-unused` fail is
+        // decided by the Harness by construction.
+        ok("#1004/5: a Harness-decided line renders no Packet pointer, and only such a line does",
+          none === harnessRows
+          && (harnessRows === 0 || /the pair the judge saw: none — [^\n]*(join|check)\.json/.test(revR)),
+          `harness-decided rows: ${harnessRows}, none-lines: ${none}`);
+        // A CARRIED RESIDUE LINE POINTS AT PASS ONE even though `check` ran.
+        const carriedResidue = (rr.residue || []).filter((r) => r.carried);
+        const residueText = revR.slice(revR.indexOf("## Residue"));
+        ok("#1004/5: a carried residue line points at pass one, the only pass that read it",
+          carriedResidue.every((r) => new RegExp(
+            `\\*\\*${r.step_id} / ${r.item}\\*\\*[^]*?recovered record: \`[^\`]*pass-1/recovered/${r.step_id}\\.json\``)
+            .test(residueText)),
+          `carried residue rows: ${carriedResidue.length}`);
+      }
       // AND THE CLOSE IS UNDONE TOO (kogaki#994). `close` now ends a run: it
       // writes the reviewed Draft, restores `draft.md` to the article the run
       // read, and refuses a second close that would copy that original back
@@ -6614,12 +6719,15 @@ async function runSelfTest() {
         readOrEmpty(cReviewed) !== cArticleAsReviewed);
     }
 
-    // --- PR #1004 round 1, finding 1: `compare` IS PASS ONE, AND ITS PAIR
-    //     INPUTS FOLLOW ITS RECORD. Driven by running `compare` again with the
-    //     run on pass two, which is the door `check`'s own comment names as the
-    //     plausible wrong one. Before the fix the Packets landed in
-    //     `pass-2/join/`, over the inputs pass two was judging, while the record
-    //     indexing them stayed in `pass-1/join.json`.
+    // --- PR #1004 round 1, finding 1, and its successor's finding 4: `compare`
+    //     IS PASS ONE, AND PASS ONE ENDS AT THE FIRST CORRECTION. Driven by
+    //     running `compare` again with the run on pass two, which is the door
+    //     `check`'s own comment names as the plausible wrong one. Round 1 found
+    //     the Packets landing in `pass-2/join/`; the successor review found
+    //     that, with that fixed, the re-run still re-rendered pass ONE's
+    //     Packets from the corrected prose over the inputs its verdicts were
+    //     given on. So the act is refused, and both directories are asserted
+    //     byte-for-byte untouched.
     {
       writeFileSync(cDraft, readFileSync(join(cBrief, REVIEWED_BASENAME), "utf8"));
       const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
@@ -6632,16 +6740,26 @@ async function runSelfTest() {
       // which is the shape this whole Harness exists to refuse.
       ok("#1004/1: pass two has pair inputs of its own for the case to be about",
         p2JoinBefore.length > 0);
+      const dirBytes = (d) => readdirSync(d).sort()
+        .map((n) => `${n}:${readFileSync(join(d, n), "utf8")}`).join("\u0000");
+      ok("#1004/1: and pass one has pair inputs of its own for the case to be about",
+        existsSync(P1("join")) && readdirSync(P1("join")).length > 0);
+      const p1JoinBefore = dirBytes(P1("join"));
+      const p1RecordBefore = readOrEmpty(P1("join.json"));
       const rCmp = RD("compare");
-      ok("#1004/1: compare re-runs with the run on pass two", rCmp.status === 0);
+      ok("#1004/1: compare over a run with corrections is refused by name",
+        rCmp.status === 1 && /pass one is over/.test(rCmp.stderr)
+        && /over the inputs its verdicts were given on/.test(rCmp.stderr));
+      ok("#1004/1: and the refusal names `check` as the pass over a corrected Draft",
+        /review-draft\.mjs check --draft/.test(rCmp.stderr));
       const p2JoinAfter = existsSync(P2("join"))
         ? readdirSync(P2("join")).sort().join(",") : "";
-      ok("#1004/1: and writes no pair input into pass two's directory",
+      ok("#1004/1: pass two's pair inputs are untouched",
         p2JoinAfter === p2JoinBefore);
-      ok("#1004/1: its pair inputs land beside the record that indexes them, in pass one",
-        existsSync(P1("join")) && readdirSync(P1("join")).length > 0);
-      ok("#1004/1: and the record it wrote is still pass one's",
-        existsSync(P1("join.json")));
+      ok("#1004/1: and pass one's pair inputs are byte-for-byte the ones its verdicts were given on",
+        dirBytes(P1("join")) === p1JoinBefore);
+      ok("#1004/1: and pass one's record is unchanged",
+        readOrEmpty(P1("join.json")) === p1RecordBefore);
     }
 
     // --- PR #1004 round 1, finding 3: kogaki#994 item 4 — the owner record
