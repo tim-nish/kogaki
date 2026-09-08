@@ -249,12 +249,29 @@
       "structure, and this table exists so that none is needed.",
       "",
       "The cold reader reads the BODY ONLY: frontmatter stripped, no Packet",
-      "content. After each Section it records the question that Section",
-      "answered and what it now believes; at the end it records what the",
-      "article claimed. The pairs below are what the Harness lays those entries",
-      "against, and `class` is the CONSEQUENCE exactly as it is for the Step",
-      "items. The verdict vocabulary is the same three tokens, shared rather",
-      "than re-declared: `cannot-decide` is not rounded here either.",
+      "content. After each Section it records the question that Section put to",
+      "it and where the Section left it; at the end it records the article's",
+      "thesis. The pairs below are what the Harness lays those entries against,",
+      "and `class` is the CONSEQUENCE exactly as it is for the Step items. The",
+      "verdict vocabulary is the same three tokens, shared rather than",
+      "re-declared: `cannot-decide` is not rounded here either.",
+      "",
+      "THE ENTRY'S FIELD NAMES ARE THE BRIEF'S OWN (kogaki#1014). They were",
+      "`question`, `belief` and `claim` -- a third vocabulary for what the Brief",
+      "already names `Opening question`, `Reader target` and the thesis, and a",
+      "name nobody else uses is the same drift one carrier over as the deleted",
+      "recovered record was. So the cold reader answers in `opening_question`,",
+      "`reader_target` and `thesis`, and the Harness lays them against the",
+      "declared sides it already read. WHAT EACH PAIR COMPARES IS UNCHANGED:",
+      "this is a renaming of the reader's own answer sheet, not a new item, not",
+      "a new declared side and not a new consequence.",
+      "",
+      "THE NAMES APPLY PER SECTION AND ONCE AT THE END, which is what the Brief",
+      "does with them too: `Opening question` is the question put to a reader",
+      "standing somewhere, and a Section is exactly the unit where that question",
+      "changes; `Reader target` is where they are left, and a Section leaves",
+      "them somewhere on the way to where the article does.",
+      "",
       "",
       "WHAT DIFFERS IS WHERE A FAIL GOES. ReviewDraft corrects at Step",
       "granularity only, so a Section fail either LOCALIZES to a Step or routes",
@@ -290,14 +307,14 @@
       "runtime cannot be told from one restating this table."
     ],
     "ledger_fields": {
-      "question": {
-        "prompt": "the question this Section answered, in one line"
+      "opening_question": {
+        "prompt": "the question this Section put to you, in one line"
       },
-      "belief": {
-        "prompt": "what you now believe, having read it, in one or two sentences"
+      "reader_target": {
+        "prompt": "where this Section left you — what you now believe, in one or two sentences"
       }
     },
-    "final_claim_field": "claim",
+    "final_claim_field": "thesis",
     "localizing_item": "reader-state-after",
     "items": [
       {
@@ -308,7 +325,7 @@
         },
         "recovered": {
           "from": "entry",
-          "field": "question"
+          "field": "opening_question"
         },
         "question": "Does the question this reader says the Section answered match what its heading promises? Answer `fails` if the heading promises a different question, or promises one the reader did not find answered."
       },
@@ -321,7 +338,7 @@
         },
         "recovered": {
           "from": "entry",
-          "field": "belief"
+          "field": "reader_target"
         },
         "question": "Do the declared reader state at the Section's end and what this reader now believes describe the same reader? Answer `fails` if a reader holding the recovered belief would not be in the declared state."
       },
@@ -334,7 +351,7 @@
         },
         "recovered": {
           "from": "previous_entry",
-          "field": "belief"
+          "field": "reader_target"
         },
         "vacuous_when": "no_previous_entry",
         "vacuous_sentence": "this is the article's first Section, so no previous entry declares what the reader arrived believing",
@@ -363,7 +380,7 @@
         },
         "recovered": {
           "from": "entry",
-          "field": "belief"
+          "field": "reader_target"
         },
         "vacuous_when": "not_first_section",
         "vacuous_sentence": "this item asks what the first Section did with the opening question, and binds there only",

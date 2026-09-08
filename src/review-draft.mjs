@@ -2444,7 +2444,7 @@ function sectionDeclared(item, draft, sec, view, items) {
 }
 
 // The recovered side: which ledger entry answers this pair.
-function sectionRecovered(item, run, sec, order) {
+function sectionRecovered(item, run, sec, order, items) {
   const from = (item.recovered || {}).from;
   const field = (item.recovered || {}).field;
   const readEntry = (idx) => {
@@ -2463,7 +2463,12 @@ function sectionRecovered(item, run, sec, order) {
     let doc;
     try { doc = JSON.parse(readFileSync(run.final_claim, "utf8")); }
     catch (e) { fail(`the final claim is not readable (${e.message}) — ${run.final_claim}`); }
-    return doc[item.recovered.field || "claim"] ?? Object.values(doc)[0] ?? null;
+    // THE DEFAULT KEY IS THE TABLE'S, never a literal here (kogaki#1014): the
+    // final claim is recorded under `sections.final_claim_field`, and a
+    // fallback spelled in the runtime would keep reading the old name for as
+    // long as the old name happened to be there.
+    const key = item.recovered.field || (items.sections || {}).final_claim_field;
+    return doc[key] ?? Object.values(doc)[0] ?? null;
   }
   fail(`the item table's Section pair \`${item.id}\` declares the recovered source \`${from}\`, `
     + "which this Harness has no reader for");
@@ -2512,7 +2517,7 @@ function buildSectionJoin(draft, run, items, ws, joinPass) {
         continue;
       }
       const declared = sectionDeclared(item, draft, sec, view, items);
-      const recovered = sectionRecovered(item, run, sec, order);
+      const recovered = sectionRecovered(item, run, sec, order, items);
       const key = verdictKey(view.step_id, item.id, null);
       const file = renderJoinPacket(ws, run, pass, draft, view, item, null,
         renderSide(declared), renderSide(recovered));
@@ -4628,12 +4633,12 @@ async function runSelfTest() {
   // material reaches a reason, and a reason with a digit refuses the emission.
   const ledgerFile = join(root, "ledger-entry.json");
   writeFileSync(ledgerFile, JSON.stringify({
-    question: "what the passage was for",
-    belief: "The reader believes the claim and knows who classifies residue.",
+    opening_question: "what the passage was for",
+    reader_target: "The reader believes the claim and knows who classifies residue.",
   }, null, 2) + "\n");
   const claimFile = join(root, "final-claim.json");
   writeFileSync(claimFile, JSON.stringify({
-    claim: "The article claimed that a review is laid against the record that produced the prose.",
+    thesis: "The article claimed that a review is laid against the record that produced the prose.",
   }, null, 2) + "\n");
 
   // ANSWER EVERY PAIR THE RUN SAYS IT OWES, read from the run's OWN join record
@@ -4925,21 +4930,21 @@ async function runSelfTest() {
     const rPlain = drive("read", "--section", "1", "--file", notJson);
     ok("an entry that is not JSON refuses, naming the Section and the fields owed",
       rPlain.status === 1 && /Section 1 entry/.test(rPlain.stderr)
-      && /`question`/.test(rPlain.stderr) && /`belief`/.test(rPlain.stderr));
+      && /`opening_question`/.test(rPlain.stderr) && /`reader_target`/.test(rPlain.stderr));
 
     const empty = join(root, "led-empty.json");
-    writeFileSync(empty, JSON.stringify({ question: "what it was for", belief: "   " }) + "\n");
+    writeFileSync(empty, JSON.stringify({ opening_question: "what it was for", reader_target: "   " }) + "\n");
     const rEmpty = drive("read", "--section", "1", "--file", empty);
     ok("an empty field refuses by name rather than recording a blank entry",
-      rEmpty.status === 1 && /`belief` is empty/.test(rEmpty.stderr));
+      rEmpty.status === 1 && /`reader_target` is empty/.test(rEmpty.stderr));
 
     const missing = join(root, "led-missing.json");
-    writeFileSync(missing, JSON.stringify({ question: "what it was for" }) + "\n");
+    writeFileSync(missing, JSON.stringify({ opening_question: "what it was for" }) + "\n");
     const rMissing = drive("read", "--section", "1", "--file", missing);
-    ok("an absent field refuses by name", rMissing.status === 1 && /`belief` is absent/.test(rMissing.stderr));
+    ok("an absent field refuses by name", rMissing.status === 1 && /`reader_target` is absent/.test(rMissing.stderr));
 
     const extra = join(root, "led-extra.json");
-    writeFileSync(extra, JSON.stringify({ question: "q", belief: "b", verdict: "good" }) + "\n");
+    writeFileSync(extra, JSON.stringify({ opening_question: "q", reader_target: "b", verdict: "good" }) + "\n");
     const rExtra = drive("read", "--section", "1", "--file", extra);
     ok("a field the ledger does not declare refuses rather than being dropped",
       rExtra.status === 1 && /`verdict`/.test(rExtra.stderr));
@@ -4953,10 +4958,10 @@ async function runSelfTest() {
 
     // The final claim, through the same entry point and the same reader.
     const badClaim = join(root, "claim-empty.json");
-    writeFileSync(badClaim, JSON.stringify({ claim: "" }) + "\n");
+    writeFileSync(badClaim, JSON.stringify({ thesis: "" }) + "\n");
     const rc0 = drive("read", "--claim", "--file", badClaim);
     ok("an empty final claim refuses rather than being laid against the thesis",
-      rc0.status === 1 && /carries no `claim`/.test(rc0.stderr));
+      rc0.status === 1 && /carries no `thesis`/.test(rc0.stderr));
     const rc1 = drive("read", "--claim", "--section", "1", "--file", claimFile);
     ok("`--claim` and `--section` together refuse: they are two records, not one",
       rc1.status === 1 && /two records at once/.test(rc1.stderr));
@@ -6937,6 +6942,7 @@ async function runSelfTest() {
   // would silently end the measurement, and only a string test catches that.
   {
     const cold = readOrEmpty(join(WS, "pass-1", "cold-reader.md"));
+    const LEDGER_TABLE = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     ok("open renders the cold reader's input", cold.length > 0);
     ok("AC1: it carries no string that occurs only in a Packet", !/PACKETONLYTOKEN/.test(cold));
     // The body IS there — an empty file would pass the test above for the wrong
@@ -6962,6 +6968,28 @@ async function runSelfTest() {
     // The frontmatter is stripped: a reader shown the trace has been shown the
     // Packet pointers and the Step ranges, which is the plan by another route.
     ok("AC1: and the frontmatter is not in it", !/trace:/.test(cold) && !/packet_sha/.test(cold));
+
+    // THE READER ANSWERS IN THE BRIEF'S OWN TOP-LEVEL NAMES (kogaki#1014). The
+    // entry used to read `question`/`belief` and the final one `claim` — a
+    // third vocabulary for what the plan already names, which is the same drift
+    // one carrier over as the deleted recovered record. Asserted on the
+    // RENDERED input rather than on the table, because the reader's answer
+    // sheet is what the reader sees.
+    ok("the cold reader is asked in the Brief's own top-level field names",
+      /`opening_question`/.test(cold) && /`reader_target`/.test(cold)
+      && cold.includes('{"thesis": "…"}'));
+    // AND THE OLD VOCABULARY IS GONE, not merely joined. A template carrying
+    // both would let a reader answer under either name while only one is read.
+    ok("and the recovered record's own vocabulary is nowhere in it",
+      !/`question`/.test(cold) && !/`belief`/.test(cold) && !/`claim`/.test(cold)
+      && !/recovered record/.test(cold) && !/terms_introduced/.test(cold));
+    // THE HARNESS READS WHAT IT ASKED FOR. A rename that moved the instruction
+    // and not the reader would leave every Section pair reading `null` and
+    // reporting agreement it never checked, which is the clean-pass shape.
+    ok("and the Harness reads the ledger under exactly those names",
+      ["opening_question", "reader_target"].every((f) =>
+        Object.prototype.hasOwnProperty.call(LEDGER_TABLE.sections.ledger_fields, f))
+      && LEDGER_TABLE.sections.final_claim_field === "thesis");
   }
 
   // A DRAFT THAT QUOTES A TEMPLATE SLOT IN ITS OWN PROSE (round 1, finding 4).
@@ -7502,11 +7530,11 @@ async function runSelfTest() {
       gdrive("recover", "--step", id, "--file", f);
     }
     const gled = join(gdir, "led.json");
-    writeFileSync(gled, JSON.stringify({ question: "which act renders the input", belief: "the harness does" }) + "\n");
+    writeFileSync(gled, JSON.stringify({ opening_question: "which act renders the input", reader_target: "the harness does" }) + "\n");
     gdrive("read", "--section", "1", "--file", gled);
     gdrive("read", "--section", "2", "--file", gled);
     const gclm = join(gdir, "claim.json");
-    writeFileSync(gclm, JSON.stringify({ claim: "the harness owns the ordering" }) + "\n");
+    writeFileSync(gclm, JSON.stringify({ thesis: "the harness owns the ordering" }) + "\n");
     gdrive("read", "--claim", "--file", gclm);
 
     const gc = gdrive("compare");
