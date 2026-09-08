@@ -5427,25 +5427,14 @@ async function runSelfTest() {
       third.includes(`## ${SECTIONS[0].title}`) && !third.includes(`## ${SECTIONS[1].title}`));
   }
 
-  // The template is the reviewer's ENTIRE input, so its absence is a hole the
-  // reviewer fills by invention. Driven against a copy of the module with no
-  // template beside it.
-  {
-    const solo = join(root, "solo"); mkdirSync(solo, { recursive: true });
-    writeFileSync(join(solo, "review-draft.mjs"), readFileSync(self, "utf8"));
-    writeFileSync(join(solo, "runs.mjs"), readFileSync(join(dirname(self), "runs.mjs"), "utf8"));
-    writeFileSync(join(solo, "runs.json"), readFileSync(join(dirname(self), "runs.json"), "utf8"));
-    const r = spawnSync(process.execPath,
-      [join(solo, "review-draft.mjs"), "open", "--draft", draft.path, "--workspace", join(root, "ws-solo")],
-      { encoding: "utf8" });
-    ok("an absent recovery template refuses rather than rendering prose with no instruction",
-      r.status === 1 && /recovery template is absent/.test(r.stderr));
-  }
-
-  // AC2 — the recovered record is validated against src/recovered-schema.json,
-  // and every refusal NAMES what it saw. A record is the one artifact in this
-  // flow a person writes by hand, so a bare "invalid" costs another read of the
-  // schema to act on.
+  // THE REVERSE OUTLINE IS VALIDATED BY THE BRIEF PARSER, and every refusal
+  // NAMES what it saw (kogaki#1014). An outline is the one artifact in this flow
+  // a person writes by hand, so a bare "invalid" costs another read to act on.
+  //
+  // THERE IS NO TEMPLATE FILE ANY MORE, so the absent-template case above is
+  // gone with it: the input is rendered from the field declaration, and a
+  // declaration that lost a field is caught by the count case below rather than
+  // by a file's absence.
   {
     const ws3 = join(root, "ws3");
     const D = (...a) => spawnSync(process.execPath,
@@ -5462,149 +5451,131 @@ async function runSelfTest() {
       ok(name, r.status === 1 && hit);
     };
 
-    // ITERATED FROM THE SCHEMA, never transcribed (PR #884 round 1, finding 3).
-    // This was the one place in the change that restated the list it exists to
-    // prove is read, so a field added to the schema gained no refusal case.
-    const SCHEMA = JSON.parse(readFileSync(join(dirname(self), "recovered-schema.json"), "utf8"));
-    for (const field of SCHEMA.required) {
-      bad(`a record missing \`${field}\` is refused BY NAME`,
-        (r) => { delete r[field]; return r; },
-        `missing the required field \`${field}\``);
+    // ITERATED FROM THE DECLARATION, never transcribed — the same discipline PR
+    // #884 round 1 finding 3 imposed on the deleted schema. A field added to
+    // RECONSTRUCTIBLE_FIELDS gains its refusal case here without an edit.
+    for (const f of RECONSTRUCTIBLE_FIELDS.filter((x) => x.kind === "line")) {
+      bad(`an outline missing \`${f.name}\` is refused BY NAME`,
+        (o) => { o[f.name] = null; return o; },
+        `carries no \`${f.name}:\` line`);
+      bad(`a blank \`${f.name}\` is refused, and is a different refusal from an absent one`,
+        (o) => { o[f.name] = ""; return o; },
+        `\`${f.name}:\` is blank`);
     }
 
-    // AN EMPTY ARRAY IS AN ANSWER AND AN ABSENT KEY IS NOT — the pair that
-    // makes the previous three cases mean something.
+    // AN ABSENT OPTIONAL FIELD IS AN ANSWER. `introduces`, `opens_section` and
+    // `concession` are each legitimately absent — a passage that introduces
+    // nothing, continues a section, or concedes nothing carries no line — and
+    // this is the case that makes the refusals above mean something.
     {
       const f = writeRecord("a1");
       const r = D("recover", "--step", "a1", "--file", f);
-      ok("while an EMPTY terms_introduced/concessions/restates is accepted", r.status === 0);
+      ok("while an outline with no introduces, opens_section or concession is accepted", r.status === 0);
     }
 
-    const [lo, hi] = [draft.ranges.a1[0] + draft.bodyOffset, draft.ranges.a1[1] + draft.bodyOffset];
-    bad("a span BEFORE the Step's range is refused, naming the range",
-      (r) => { r.claims[0].span = [lo - 1, hi]; return r; },
-      `does not lie inside a1's draft line range [${lo}, ${hi}]`);
-    bad("a span AFTER the Step's range is refused",
-      (r) => { r.claims[0].span = [lo, hi + 1]; return r; },
-      /does not lie inside/);
-    bad("an inverted span is refused",
-      (r) => { r.claims[0].span = [hi, lo]; return r; },
-      /does not lie inside/);
-    bad("a span that is not a pair of integers is refused",
-      (r) => { r.claims[0].span = ["a", "b"]; return r; },
-      /does not lie inside/);
-    bad("a restates span outside the range is refused too — every span_key is checked, not only claims'",
-      (r) => { r.restates = [{ span: [lo - 5, lo - 4], of: "something earlier" }]; return r; },
-      "`restates`[0].span");
-    bad("a claims entry missing its span is refused",
-      (r) => { delete r.claims[0].span; return r; },
-      "`claims`[0] is missing `span`");
-    bad("an empty claims list is refused, with the schema's own reason",
-      (r) => { r.claims = []; return r; },
-      /needs at least 1 — a passage asserting nothing is not a Step/);
-    bad("an empty string field is refused",
-      (r) => { r.purpose = "   "; return r; },
-      "`purpose` must be a non-empty string");
-    bad("a non-array where the schema says array is refused",
-      (r) => { r.terms_introduced = "opacity"; return r; },
-      "`terms_introduced` must be an array");
-    bad("a non-string inside terms_introduced is refused",
-      (r) => { r.terms_introduced = [42]; return r; },
-      "`terms_introduced`[0] must be a non-empty string");
+    // `grounds` IS THE ONE RECONSTRUCTIBLE FIELD WITH A FLOOR, because a
+    // passage that asserts nothing is not a passage.
+    bad("an outline carrying no ground line is refused, with its own reason",
+      (o) => { o.grounds = []; return o; },
+      /carries no `ground ` line/);
 
-    // THE REVIEWER WRITES NO VERDICTS AND NO ADVICE, and the key is REFUSED
-    // rather than dropped: an ignored field still shaped the reading that
-    // produced the rest of the record.
-    bad("a record carrying a verdict is refused rather than accepted with the key ignored",
-      (r) => { r.verdict = "holds"; return r; },
-      "forbidden key `verdict`");
-    bad("and so is one carrying advice",
-      (r) => { r.advice = "tighten the second paragraph"; return r; },
-      "forbidden key `advice`");
-    // NESTED, which is where a judgment is most likely to be smuggled in (PR
-    // #884 round 1, finding 2): a top-level-only check accepted this silently.
-    bad("a verdict smuggled INSIDE a claim object is refused, naming its path",
-      (r) => { r.claims[0].verdict = "holds"; return r; },
-      "forbidden key `claims`[0].verdict");
-    bad("and one nested inside concessions is refused too",
-      (r) => { r.concessions = [{ text: "a concession", span: [lo, lo], score: 2 }]; return r; },
-      "forbidden key `concessions`[0].score");
-
-    // THE TOP-LEVEL KEY SET IS CLOSED (kogaki#885, owner selection
-    // 2026-09-06). The half of PR #884 round 1's finding 2 that the fix commit
-    // left unresolved: `forbidden_keys` refuses the names somebody enumerated,
-    // and everything else passed. `impression` is the specimen precisely
-    // because nobody would have thought to forbid it.
-    bad("an unnamed top-level key beside the seven is refused — the shape is closed, not forbidden-list-only",
-      (r) => { r.impression = "the passage reads well"; return r; },
-      "unnamed top-level key `impression`");
-    // AND THE REFUSAL SAYS WHY, quoting the schema's own vocabulary rather
-    // than only reporting that the key is unknown.
-    {
-      const f = writeRecord("a1", (r) => { r.confidence = 0.8; return r; });
-      const r = D("recover", "--step", "a1", "--file", f);
-      ok("the closed-set refusal names the declared fields, so the repair is readable from the message",
-        r.status === 1 && /unnamed top-level key `confidence`/.test(r.stderr)
-        && /reader_state_after/.test(r.stderr) && /restates/.test(r.stderr));
-    }
-    // A FORBIDDEN KEY IS NOT REPORTED TWICE. It is unnamed AND forbidden, and
-    // the forbidden refusal is the one that says why — reporting both would
-    // make the more specific reason harder to find, not easier.
-    {
-      const f = writeRecord("a1", (r) => { r.verdict = "holds"; return r; });
-      const r = D("recover", "--step", "a1", "--file", f);
-      ok("a forbidden top-level key keeps its own refusal and is not ALSO reported as unnamed",
-        r.status === 1 && /forbidden key `verdict`/.test(r.stderr)
-        && !/unnamed top-level key `verdict`/.test(r.stderr));
-    }
-    // CLOSING BINDS THE TOP LEVEL ONLY, which is the scope the schema declares
-    // — `required` is this level's vocabulary, and a nested object's is
-    // `item_required`. An extra key inside a claim is not this rule's business.
-    {
-      const f = writeRecord("a1", (r) => { r.claims[0].note = "an aside"; return r; });
-      const r = D("recover", "--step", "a1", "--file", f);
-      ok("an extra key INSIDE a claim is not refused by the closed set — the declaration is top-level",
-        r.status === 0);
+    // THE NOT-RECONSTRUCTIBLE FIELDS ARE REFUSED, NOT DROPPED. A field the
+    // reader could not have read off the passage is an inference, and dropping
+    // it silently would leave the inference having shaped the rest of the
+    // outline with no trace. Iterated from the declaration for the same reason.
+    for (const f of NOT_RECONSTRUCTIBLE_FIELDS) {
+      bad(`an outline carrying \`${f.name}\` is refused — it is declared not reconstructible`,
+        (o) => { o.extra = { ...(o.extra || {}), [f.name]: "something" }; return o; },
+        `carries \`${f.name}:\`, which is declared NOT reconstructible`);
     }
 
-    // The refusal collects EVERY problem rather than the first, so a reviewer
-    // repairing a record does not discover them one run at a time.
+    // THE LINE SET IS CLOSED. A name nobody declared carries a judgment the
+    // Harness never reads, and admit-by-default is how that arrives with no
+    // trace — the same reason the deleted record's key set was closed
+    // (kogaki#885). `impression` is the specimen precisely because nobody would
+    // have thought to forbid it.
+    bad("an undeclared line is refused — the set is closed, not forbidden-list-only",
+      (o) => { o.extra = { impression: "the passage reads well" }; return o; },
+      "carries `impression:`, which is not a Brief Step field");
+    bad("and a verdict is refused by the same rule",
+      (o) => { o.extra = { verdict: "holds" }; return o; },
+      "carries `verdict:`, which is not a Brief Step field");
+    bad("and so is advice",
+      (o) => { o.extra = { advice: "tighten the second paragraph" }; return o; },
+      "carries `advice:`, which is not a Brief Step field");
+
+    // THE OUTLINE IS FILED AGAINST THE PASSAGE IT READ. A block whose step_id
+    // names another Step is a reading of something else.
+    bad("an outline whose step_id names a different Step is refused, naming both",
+      (o) => { o.step_id = "a2"; return o; },
+      "is `a2` and this pass is reading a1");
+
+    // The refusal collects EVERY problem rather than the first, so a reader
+    // repairing an outline does not discover them one run at a time.
     {
-      const f = writeRecord("a1", (r) => { delete r.purpose; delete r.shape; r.score = 3; return r; });
+      const f = writeRecord("a1", (o) => { o.purpose = null; o.reader_state_after = null; o.extra = { score: "3" }; return o; });
       const r = D("recover", "--step", "a1", "--file", f);
       ok("every problem is named in one refusal, never the first one found",
-        r.status === 1 && /missing the required field `purpose`/.test(r.stderr)
-        && /missing the required field `shape`/.test(r.stderr)
-        && /forbidden key `score`/.test(r.stderr));
+        r.status === 1 && /carries no `purpose:` line/.test(r.stderr)
+        && /carries no `reader_state_after:` line/.test(r.stderr)
+        && /carries `score:`, which is not a Brief Step field/.test(r.stderr));
     }
 
-    // Not-JSON and not-an-object are separate refusals, because they are
-    // separate mistakes.
+    // NOT A STEP BLOCK AT ALL, and TWO of them, are separate refusals because
+    // they are separate mistakes. Both come from the Brief's own fence grammar.
     {
-      const f = join(root, "notjson.json"); writeFileSync(f, "recovered a1, in prose\n");
+      const f = join(root, "notblock.md"); writeFileSync(f, "recovered a1, in prose\n");
       const r = D("recover", "--step", "a1", "--file", f);
-      ok("a record that is not JSON is refused, naming the parse error",
-        r.status === 1 && /is not readable JSON/.test(r.stderr));
-      const g = join(root, "notobj.json"); writeFileSync(g, "[1,2,3]\n");
+      ok("an outline that is not a fenced step block is refused, saying what one is",
+        r.status === 1 && /carries no fenced `step` block/.test(r.stderr));
+      const g = join(root, "twoblocks.md");
+      writeFileSync(g, readFileSync(writeRecord("a1"), "utf8") + "\n" + readFileSync(writeRecord("a2"), "utf8"));
       const r2 = D("recover", "--step", "a1", "--file", g);
-      ok("a JSON array is refused, naming the fields a record carries",
-        r2.status === 1 && /is not a JSON object/.test(r2.stderr));
+      ok("two step blocks are refused — an outline is the reading of ONE passage",
+        r2.status === 1 && /carries more than one fenced `step` block/.test(r2.stderr));
     }
 
-    // THE VALIDATION HAPPENS BEFORE THE RECORD IS WRITTEN. A record validated
+    // A BLOCK THE BRIEF ITSELF COULD NOT CARRY IS REFUSED BY THE BRIEF'S OWN
+    // REFUSAL, which is the acceptance rather than a way of meeting it: the
+    // grammar below is `introducesRefusal`'s, reached through `parseStepBlock`.
+    bad("a malformed introduces entry is refused by the Brief parser's own grammar",
+      (o) => { o.introduces = ["opacity"]; return o; },
+      /introduces/);
+
+    // THE VALIDATION HAPPENS BEFORE THE OUTLINE IS WRITTEN. One validated
     // afterwards would leave `compare` to discover the defect, by which point
-    // the reviewer who could fix it has finished reading.
+    // the reader who could fix it has finished reading.
     {
       // A FRESH workspace: `ws3` already holds a successful a1 recovery from the
-      // empty-arrays case above, and asserting absence there would pass or fail
-      // on that history rather than on this refusal.
+      // accepted case above, and asserting absence there would pass or fail on
+      // that history rather than on this refusal.
       const ws4 = join(root, "ws4");
       spawnSync(process.execPath, [self, "open", "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
-      const f = writeRecord("a1", (r) => { delete r.shape; return r; });
+      const f = writeRecord("a1", (o) => { o.purpose = null; return o; });
       const r = spawnSync(process.execPath,
         [self, "recover", "--step", "a1", "--file", f, "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
-      ok("a refused record is not written to the workspace",
-        r.status === 1 && !existsSync(join(ws4, "fixture", "pass-1", "recovered", "a1.json")));
+      ok("a refused outline is not written to the workspace",
+        r.status === 1 && !existsSync(join(ws4, "fixture", "pass-1", "recovered", "a1.json"))
+        && !existsSync(join(ws4, "fixture", "pass-1", "recovered", "a1.md")));
+    }
+
+    // BOTH HALVES ARE KEPT, and this is what makes the run's own record able to
+    // show what the Blind Reader said rather than only what the Harness read
+    // out of it.
+    {
+      const f = writeRecord("a2");
+      const r = D("recover", "--step", "a2", "--file", f);
+      ok("an accepted outline lands as BOTH the block it was written as and the reading",
+        r.status === 0
+        && existsSync(join(ws3, "fixture", "pass-1", "recovered", "a2.md"))
+        && existsSync(join(ws3, "fixture", "pass-1", "recovered", "a2.json")));
+      const rec = JSON.parse(readFileSync(join(ws3, "fixture", "pass-1", "recovered", "a2.json"), "utf8"));
+      ok("and the reading carries the BRIEF's field names, with no translation left",
+        Object.prototype.hasOwnProperty.call(rec, "grounds")
+        && Object.prototype.hasOwnProperty.call(rec, "introduces")
+        && !Object.prototype.hasOwnProperty.call(rec, "claims")
+        && !Object.prototype.hasOwnProperty.call(rec, "terms_introduced")
+        && !Object.prototype.hasOwnProperty.call(rec, "shape"));
     }
   }
 
