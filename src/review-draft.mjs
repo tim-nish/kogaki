@@ -726,13 +726,20 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     `# Reverse Outline — ${step.step_id}`,
     "",
     "You are reading one passage of an article, and the article that came before it. You have",
-    "not seen the outline the article was written from, and you will not: your reading is the",
-    "other half of a comparison, and it is worth nothing if it was told the answer.",
+    "not seen the outline the article was written from, and you must not go looking for it:",
+    "your reading is the other half of a comparison, and it is worth nothing if it was told the",
+    "answer.",
     "",
     "Write the outline entry this passage would have been written from — what it is FOR, what a",
     "reader holds arriving at it and leaving it, and what it asks the reader to accept. Write it",
     `in the form below. Answer from the passage alone; where the passage does not settle a field,`,
     "say what the passage does say rather than what would make it come out well.",
+    "",
+    "Your outline is evidence about **this prose**. Do not reason about what the",
+    "author was probably told — an outline that agrees with the Brief because it guessed at the",
+    "Brief measures nothing.",
+    "",
+    "Write no verdicts and no advice. Nothing here asks whether the passage is good.",
     "",
     `## The ${numberWord(reverseOutlineFieldCount(step))} fields`,
     "",
@@ -769,15 +776,26 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "",
     `Then file it: \`${cmd}\``,
     "",
-    `## The passage — ${step.step_id}, draft lines ${step.lines[0]}–${step.lines[1]}`,
+    "## The article before this passage",
+    "",
+    "Everything already written, in order, under the Section headings it was written into. It",
+    "ends with this passage's own Section so far — the prose immediately above where the passage",
+    "begins. Read it as the reader arriving at the passage has read it: it is what they already",
+    "know.",
     "",
   ].join("\n");
 
-  const parts = [head];
+  // THE ARTICLE'S OWN TEXT GOES IN LAST, and the passage comes after the
+  // article that precedes it — the order the reader meets them in, and the
+  // order the section prose above describes.
+  const parts = [head, articleBefore(steps, step.step_id), "",
+    `## The passage — ${step.step_id}, draft lines ${step.lines[0]}–${step.lines[1]}`,
+    "",
+    "Every line is numbered with its line number in the Draft.",
+    ""];
   if (figureFirst && figureBlock) parts.push(figureBlock, "");
   parts.push(numberedProse(step), "");
   if (!figureFirst && figureBlock) parts.push(figureBlock, "");
-  parts.push("## The article before it", "", articleBefore(steps, step.step_id), "");
 
   const dest = passPath(ws, run, "recovery", `${step.step_id}.md`);
   const out = parts.join("\n");
@@ -4779,7 +4797,7 @@ async function runSelfTest() {
     // numbers and the text catches both.
     const fileLines = readFileSync(draft.path, "utf8").split("\n");
     const [s, e] = [draft.ranges.a1[0] + draft.bodyOffset, draft.ranges.a1[1] + draft.bodyOffset];
-    const block = input.split(`## The passage — draft lines ${s}–${e}`)[1] || "";
+    const block = input.split(`## The passage — a1, draft lines ${s}–${e}`)[1] || "";
     const numbered = block.split("\n").filter((l) => /^\s*\d+ \| /.test(l));
     const reconstructed = numbered.map((l) => l.replace(/^\s*\d+ \| /, ""));
     const numbers = numbered.map((l) => Number(l.match(/^\s*(\d+) \| /)[1]));
@@ -5256,8 +5274,15 @@ async function runSelfTest() {
     // Packets rather than by a second one written here. The ruling it protects
     // is about what the REVIEWER reads, and the two store literals asserted
     // below are what would catch a Move or Strand read composed at runtime.
+    // `./draft.mjs` joins the set at kogaki#1014, and it too is a NARROWING
+    // read rather than a widening of what the reviewer may see: the Reverse
+    // Outline is a Brief Step block, so it is parsed by `parseStepBlock` —
+    // the function `parseBrief` calls per fenced block — instead of by a
+    // second reader written here. A second parser is the two-copy divergence
+    // this whole act removes, and `draft.mjs` is already re-entered as a
+    // subprocess by `correct`, so no store this case guards becomes reachable.
     const ALLOWED = new Set(["node:fs", "node:path", "node:url", "node:crypto",
-      "node:child_process", "./runs.mjs"]);
+      "node:child_process", "./runs.mjs", "./draft.mjs"]);
     // BOTH IMPORT FORMS (kogaki#883, finding 1). The first scan matched static
     // `from "…"` only, so a production-side `await import("./strand.mjs")` —
     // the exact form this very function uses for its own builtins — was
@@ -5274,7 +5299,7 @@ async function runSelfTest() {
     ];
     const imports = importsOf(code);
     const foreign = imports.filter((m) => !ALLOWED.has(m));
-    ok("the Harness imports ONLY node builtins and ./runs.mjs — an allowlist, so an unanticipated reader is refused by default",
+    ok("the Harness imports ONLY node builtins, ./runs.mjs and the Brief parser — an allowlist, so an unanticipated reader is refused by default",
       imports.length > 0 && foreign.length === 0, foreign.join(", "));
     // The scan's own reach, asserted on a fixture rather than trusted: a
     // dynamic import of a disallowed module must be CAUGHT, and a dynamic
@@ -6035,9 +6060,29 @@ async function runSelfTest() {
     const table = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     const code = readFileSync(self, "utf8");
     const prod = code.slice(0, code.indexOf("async function runSelfTest"));
+    // THE PROPERTY IS RE-CUT RATHER THAN RELAXED (kogaki#1014). One row per
+    // Brief Step field means three item ids — `grounds`, `introduces`,
+    // `purpose` — are now spelled exactly like the Brief FIELDS they read, and
+    // the runtime declares those fields because it renders them to the Blind
+    // Reader. So the string occurring proves nothing about those three, and the
+    // case says so instead of passing on a coincidence: every id that is NOT a
+    // declared field name must still be absent, and the three that are get
+    // their own assertion below.
+    const fieldNames = new Set([...RECONSTRUCTIBLE_FIELDS, ...NOT_RECONSTRUCTIBLE_FIELDS]
+      .map((f) => f.name));
     const judged = table.items.filter((i) => i.mode !== "mechanical").map((i) => i.id);
+    const judgedNotFields = judged.filter((id) => !fieldNames.has(id));
     ok("no JUDGED item's id occurs in the runtime — the table is the only carrier",
-      judged.length > 0 && !judged.some((id) => prod.includes(`"${id}"`)));
+      judgedNotFields.length > 0 && !judgedNotFields.some((id) => prod.includes(`"${id}"`)),
+      judgedNotFields.filter((id) => prod.includes(`"${id}"`)).join(", "));
+    // AND THE THREE THAT SHARE A FIELD'S SPELLING ARE NEVER COMPARED AGAINST AS
+    // ITEMS. A `item === "grounds"` anywhere in the runtime would be the table
+    // bypass this case exists to catch, wearing a field name as cover.
+    const asItem = judged.filter((id) => fieldNames.has(id))
+      .filter((id) => new RegExp(`item(?:\\.id)?\\s*===\\s*"${id}"`).test(prod)
+        || new RegExp(`\\bit\\.id\\s*===\\s*"${id}"`).test(prod));
+    ok("and an id spelled like a Brief field is never compared against as an item id",
+      asItem.length === 0, asItem.join(", "));
     ok("every MECHANICAL item the table declares has an implementation keyed by its id",
       table.items.filter((i) => i.mode === "mechanical").every((i) => prod.includes(`"${i.id}"`)));
     // The runtime enumerates no verdict set of its own — it VALIDATES against
@@ -6059,8 +6104,8 @@ async function runSelfTest() {
   // copy of the module with the template removed from beside it.
   {
     const solo = join(root, "solo-join"); mkdirSync(solo, { recursive: true });
-    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "recovery-template.md",
-      "cold-reader-template.md", "recovered-schema.json", "review-items.json"]) {
+    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "draft.mjs",
+      "cold-reader-template.md", "review-items.json"]) {
       writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
     }
     const d = buildDraft(join(root, "theses", "nojointpl"), { packetDir });
@@ -6086,8 +6131,8 @@ async function runSelfTest() {
   // "no run record", which is true and is not this refusal.
   {
     const solo = join(root, "solo-items"); mkdirSync(solo, { recursive: true });
-    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "recovery-template.md",
-      "cold-reader-template.md", "recovered-schema.json", "join-template.md"]) {
+    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "draft.mjs",
+      "cold-reader-template.md", "join-template.md"]) {
       writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
     }
     const d = buildDraft(join(root, "theses", "noitems"), { packetDir });
@@ -6099,21 +6144,29 @@ async function runSelfTest() {
       r.status === 1 && /item table is absent/.test(r.stderr));
   }
 
-  // THE SCHEMA IS READ, NEVER RESTATED. The runtime must not carry its own copy
-  // of the field list, or amending the record's shape becomes two edits that
-  // can disagree.
+  // ONE DECLARATION OF THE FIELD LIST, AND ONE PARSER FOR THE BLOCK (kogaki#1014).
+  // The property `src/recovered-schema.json` used to carry — the runtime holds
+  // no second copy of the record's shape — survives its carrier's deletion,
+  // re-cut onto what replaced it. There is no second schema to disagree with,
+  // so the case asserts the two things that would REINTRODUCE one: a second
+  // spelling of the field list, and a second reader for the block.
   {
-    const schema = JSON.parse(readFileSync(join(dirname(self), "recovered-schema.json"), "utf8"));
     const code = readFileSync(self, "utf8");
     const prod = code.slice(0, code.indexOf("async function runSelfTest"));
-    ok("the schema declares the seven fields the issue names",
-      schema.required.length === 7 && schema.required.includes("terms_introduced"));
-    // `!some` and NOT `!every` (PR #884 round 1, finding 3): the `every` form
-    // passed as soon as ONE of the seven names was absent from production code,
-    // so a runtime restating six of seven read clean. `!some` is the property
-    // this case's own name claims.
-    ok("and the runtime does not restate the field list",
-      !schema.required.some((f) => prod.includes(`"${f}"`)));
+    ok("the Blind Reader's field list is declared exactly once",
+      (prod.match(/^export const RECONSTRUCTIBLE_FIELDS = \[/gm) || []).length === 1
+      && (prod.match(/^export const NOT_RECONSTRUCTIBLE_FIELDS = \[/gm) || []).length === 1);
+    // THE COUNT THE READER IS TOLD IS COMPUTED, never spelled — a field joining
+    // the declaration cannot leave the instruction saying the old number.
+    ok("and the count in the reader's instruction is computed from that declaration",
+      /RECONSTRUCTIBLE_FIELDS\.length/.test(prod)
+      && /numberWord\(reverseOutlineFieldCount\(step\)\)/.test(prod));
+    // THE BLOCK IS PARSED BY THE BRIEF'S OWN FUNCTION. A `parseStepBlock`
+    // DEFINED here rather than imported is the second parser this act removed,
+    // and it would read exactly like the first until one of them was edited.
+    ok("and the step block is read by the Brief parser rather than by a second one here",
+      /import \{ parseStepBlock, stepField \} from "\.\/draft\.mjs";/.test(prod)
+      && !/function parseStepBlock\b/.test(prod));
   }
 
   // 24 — usage with no command, and an unknown command.
@@ -6728,7 +6781,7 @@ async function runSelfTest() {
     //     given on. So the act is refused, and both directories are asserted
     //     byte-for-byte untouched.
     {
-      writeFileSync(cDraft, readFileSync(join(cBrief, REVIEWED_BASENAME), "utf8"));
+      writeFileSync(cDraft, readOrEmpty(join(cBrief, REVIEWED_BASENAME)));
       const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
       delete rr.reviewed_at; delete rr.restored_from; delete rr.closed_at;
       writeFileSync(join(cWsRun, "run.json"), JSON.stringify(rr, null, 2) + "\n");
@@ -6790,7 +6843,7 @@ async function runSelfTest() {
       ok("#1004/3: the snapshots and the run record are named at the root",
         /\*\*Snapshots\.\*\*/.test(rv) && /\*\*Run record\.\*\*/.test(rv));
       // Undo the close again — the pass-collision case below needs a live run.
-      writeFileSync(cDraft, readFileSync(join(cBrief, REVIEWED_BASENAME), "utf8"));
+      writeFileSync(cDraft, readOrEmpty(join(cBrief, REVIEWED_BASENAME)));
       const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
       delete rr.reviewed_at; delete rr.restored_from; delete rr.closed_at;
       writeFileSync(join(cWsRun, "run.json"), JSON.stringify(rr, null, 2) + "\n");
@@ -6805,7 +6858,7 @@ async function runSelfTest() {
       // The close restored `draft.md`, so the corrected article goes back first:
       // `requireCurrent` guards every act and would refuse on the restore before
       // the pass ledger was ever consulted.
-      writeFileSync(cDraft, readFileSync(cReviewed, "utf8"));
+      writeFileSync(cDraft, readOrEmpty(cReviewed));
       const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
       rr.pass = 1;
       rr.pass_files[["pass-1", "recovered", "s2.json"].join("/")] = 2;
@@ -6893,8 +6946,8 @@ async function runSelfTest() {
     // The check still catches a template the renderer really does disagree with,
     // which is the property that must survive the reordering.
     const solo = join(root, "solo-slot"); mkdirSync(solo, { recursive: true });
-    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "recovery-template.md",
-      "cold-reader-template.md", "recovered-schema.json", "review-items.json",
+    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "draft.mjs",
+      "cold-reader-template.md", "review-items.json",
       "join-template.md"]) {
       writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
     }
