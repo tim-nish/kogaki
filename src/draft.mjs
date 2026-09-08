@@ -652,7 +652,7 @@ function stepField(body, field) {
 }
 
 // ---------------------------------------------------------------------------
-// the figure record — the figure record's realization-side machinery (kogaki#878).
+// the figure record — its realization-side machinery (kogaki#878).
 //
 // THE PACKET IS THE MODEL'S ENTIRE INPUT, AND THE FIGURE INPUT IS THAT PACKET
 // PLUS ONE BLOCK. The block is appended only for a Step carrying `figure:`,

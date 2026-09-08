@@ -1140,7 +1140,7 @@ export function journeyBearingStrands(doc) {
   return out;
 }
 
-// Journey placement, the journey register as a Candidate axis MUST 1 half of the completeness rider: a
+// Journey placement — journey register as a Candidate axis, MUST 1, the completeness rider's half: a
 // Journey is a DISTINCT material (the Step's shape — "which Strands, which Journeys"),
 // carried in a step's materials as `<L-id>.journey`. Derived from the
 // composed steps for the same reason placements() is, and the reason is

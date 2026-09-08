@@ -28,8 +28,8 @@
 //     vocabulary, because the rendering being empty today is a fact about
 //     today's producer and not a property of the shape.
 //   adopt-candidate — the owner's recorded answer: the adopted Candidate's
-//     Reader Path lands in the Brief's sequence (through the same the Step's shape
-//     fill the composition runtime owns), and thesis_closure and tradeoffs
+//     Reader Path lands in the Brief's sequence (through the same fill under the
+//     Step's shape that the composition runtime owns), and thesis_closure and tradeoffs
 //     fill from its reasoning (the settled structure section).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
@@ -105,7 +105,7 @@ export const REASONING_FIELDS = ["step_validity", "transition_continuity", "thes
 // key name has no rendering path at all: `rendering` below is the whole
 // owner-facing surface, and it carries labels and prose, never key names.
 // One label per key, in the order the owner reads them.
-// The three the settled structure section fields whose authoring block is PATH COMPOSITION (v12,
+// The three fields of the settled structure section whose authoring block is PATH COMPOSITION (v12,
 // kogaki#521). Each pairs its record key with the Brief slot heading it
 // lands in; src/brief.mjs's FIELDS table owns those headings, and this is
 // the join to them. ONE declaration: the evidence, the rendering, the
