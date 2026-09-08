@@ -6003,19 +6003,27 @@ async function runSelfTest() {
       /PACKET GAP/.test(r.stderr) && /src\/packet-template\.md/.test(r.stderr));
   }
 
-  // A MOVE RECORD WITH NO EXEMPLAR MAKES THE NEGATIVE ITEM VACUOUS, and the
-  // table says so per item rather than the runtime deciding it: there is no
-  // exemplar, so no subject matter can leak from one.
+  // THE TABLE DECIDES A VACUOUS ANSWER, NOT THE RUNTIME — and the vehicle
+  // changed while the rule did not (kogaki#1014). This case used to ride
+  // `exemplar-leak`: a Move record with no exemplar made the negative item
+  // vacuous, and the table said so per item. That row left the table with the
+  // Move itself, because the Move is not in the Reverse Outline at all —
+  // supplying the candidates would make the outcome ride on supplied
+  // information, and its effect is carried by the reader states, which are
+  // compared. The rule's surviving carrier is `when_declared_absent`, which is
+  // the same declaration under the name the table already gave it.
   {
+    const ITEMS = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    ok("no row asks about the Move or its exemplar",
+      !ITEMS.items.some((i) => /move/.test(i.id) || i.declared_block === "move_excerpt"
+        || i.declared_block === "move_contract"));
+    ok("while the vacuous-answer declaration survives, on the rows that own one",
+      ITEMS.items.some((i) => i.when_declared_absent && i.when_declared_absent.verdict
+        && i.when_declared_absent.sentence));
     const rec = JSON.parse(readFileSync(join(WS, "pass-1", "join.json"), "utf8"));
-    const a3 = rec.results.find((x) => x.step_id === "a3" && x.item === "exemplar-leak");
-    const a1 = rec.results.find((x) => x.step_id === "a1" && x.item === "exemplar-leak");
-    ok("a Step whose Move carries no exemplar is decided by the Harness, with no model call",
-      a3.decided_by === "harness" && /no exemplar/.test(a3.reason)
-      && !rec.model_calls.some((c) => c.step_id === "a3" && c.item === "exemplar-leak"));
-    ok("while a Step whose Move DOES carry one is judged",
-      a1.decided_by === "model"
-      && rec.model_calls.some((c) => c.step_id === "a1" && c.item === "exemplar-leak"));
+    ok("and no run asks a model about an item the table decided",
+      rec.results.filter((x) => x.decided_by === "harness")
+        .every((x) => !rec.model_calls.some((c) => c.step_id === x.step_id && c.item === x.item)));
   }
 
   // THE ITEM TABLE IS READ, NEVER RESTATED — the same arrangement the recovered
