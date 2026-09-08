@@ -62,7 +62,13 @@
 #
 #   L1. IT READS TEXT. A `case "x":` inside a string literal or a comment
 #       within the dispatcher's span is indistinguishable from a real case.
-#       None exists today and the check would report one as a case.
+#       None exists today and the check would report one as a case. THE SPAN
+#       IS NOT SHORT, and that is the half of this limit worth stating: it
+#       runs from `switch (cmd) {` to the FIRST `default:`, which at this head
+#       is roughly 1,100 lines, because the `self-test` case body sits inside
+#       it. That body is the region of `src/terrain.mjs` most likely to grow
+#       fixture strings, so the exposure is a fixture line shaped like a case
+#       label rather than a stray comment near the dispatcher.
 #   L2. IT ASSUMES ONE DISPATCHER. `src/terrain.mjs` holds exactly one
 #       `switch (`, asserted by arm (c) below rather than believed: a second
 #       switch appearing inside the span would contribute its cases here, and
@@ -229,22 +235,40 @@ if control:
                  "of an already-broken tree and prove nothing: "
                  + "; ".join(control))
 
-# efficacy case: the pre-kogaki#901 specimen, run in no map, must refuse
-specimen = totality(runtime_text, mutate(drop="run"))
-if not any("'run'" in f and "NONE" in f for f in specimen):
-    fails.append("(b) THE READER DOES NOT DISCRIMINATE: the pre-kogaki#901 "
-                 "specimen — `run` present as a dispatcher case and absent "
-                 "from all five maps — was not reported. Every (a) pass is "
-                 "therefore unevidenced: a reader that computes nothing is "
-                 "indistinguishable from a tree that holds the invariant.")
+# THE SPECIMEN'S OWN DRIFT IS DIAGNOSED, never reported as a reader failure.
+# `run` is hard-coded because it is the REAL pre-kogaki#901 defect and a
+# synthetic name would not be. But `run` may legitimately leave the dispatcher
+# — SPEC-terrain's "a removed entry point is DELETED" contemplates exactly
+# that — and then both mutants below become no-ops over a baseline that never
+# held it. Without this guard the arms would fire "THE READER DOES NOT
+# DISCRIMINATE", pointing the editor at the instrument when what actually
+# changed was the dispatcher. So the drift is named as itself.
+if "run" not in cases:
+    fails.append("(b) THE SPECIMEN IS NO LONGER LIVE: `run` is not a "
+                 "dispatcher case at this head, so the pre-kogaki#901 "
+                 "specimen cannot be reconstructed and the two arms below "
+                 "would pass vacuously. This is a change to the DISPATCHER, "
+                 "not a defect in this reader: pick a live case as the "
+                 "specimen here and say in the header which real defect it "
+                 "stands for.")
+else:
+    # efficacy case: the pre-kogaki#901 specimen, run in no map, must refuse
+    specimen = totality(runtime_text, mutate(drop="run"))
+    if not any("'run'" in f and "NONE" in f for f in specimen):
+        fails.append("(b) THE READER DOES NOT DISCRIMINATE: the pre-kogaki#901 "
+                     "specimen — `run` present as a dispatcher case and absent "
+                     "from all five maps — was not reported. Every (a) pass is "
+                     "therefore unevidenced: a reader that computes nothing is "
+                     "indistinguishable from a tree that holds the invariant.")
 
-doubled = totality(runtime_text, mutate(alias=("run", "non_flow_entry_points")))
-if not any("'run'" in f and "of the five maps" in f for f in doubled):
-    fails.append("(b) THE `IN TWO` HALF IS NOT READ: `run` planted into a "
-                 "second map was not reported, so half of the sentence "
-                 "`entry_point_accounting` states — a case in none of them, "
-                 "OR IN TWO — has no reader and the other half's pass says "
-                 "nothing about it.")
+    doubled = totality(runtime_text,
+                       mutate(alias=("run", "non_flow_entry_points")))
+    if not any("'run'" in f and "of the five maps" in f for f in doubled):
+        fails.append("(b) THE `IN TWO` HALF IS NOT READ: `run` planted into a "
+                     "second map was not reported, so half of the sentence "
+                     "`entry_point_accounting` states — a case in none of them, "
+                     "OR IN TWO — has no reader and the other half's pass says "
+                     "nothing about it.")
 
 # ---- (c) THE SCOPE ASSUMPTION HOLDS (limit L2, asserted rather than
 # believed). The span from `switch (cmd) {` to `default:` is the whole
