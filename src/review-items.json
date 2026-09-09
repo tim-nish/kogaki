@@ -225,10 +225,16 @@
       "verbatim overlap against -- the ground and state lines. Same",
       "arrangement, same reason.",
       "",
-      "THE FIGURE ROWS ARE GONE FROM THIS BOUND because they are gone from the",
-      "table (kogaki#1014, the decline recorded in the top-level note). They",
-      "added no arm while they were here and they remove none by leaving;",
-      "kogaki#1018 is the act that puts them back."
+      "THE FIGURE ROWS ARE BACK IN THE TABLE (kogaki#1018) AND STILL ADD NO ARM",
+      "HERE. They added none while they were here before, they removed none by",
+      "leaving, and they add none returning: the second pass's arms are the",
+      "corrected Steps' own items, the successor's continuity item and every",
+      "mechanical item, and a figure row is reached by whichever of those its",
+      "Step is in. `figure-element-ground` is mechanical, so it is in the third",
+      "arm over the whole Draft; the judged figure rows are in the first on a",
+      "corrected Step exactly as that Step's other rows are. NO FIGURE ROW IS A",
+      "SUCCESSOR ITEM: a correction moves the prose the NEXT Step continues",
+      "from, and it moves no figure."
     ],
     "successor_items": [
       "already-knows"
