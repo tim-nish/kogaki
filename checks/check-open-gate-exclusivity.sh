@@ -331,17 +331,32 @@ else
 fi
 
 # ------------------------------------------------- item 6: the registration
+# The assertion is about the COMMIT, never the checkout (kogaki#1052). The
+# review lane builds its worktree without `.claude/settings.json` on purpose,
+# so a file read from the tree made this case fail on every round with
+# "settings.json is unreadable" -- a check defect reported as cannot-determine.
+# So the settings are read with `git show HEAD:` and the hook files' existence
+# with `git ls-files`, and both hold in any worktree carrying the commit.
 # The predicate is a file so it can be run twice: once over the committed
-# settings, once over a copy naming a hook that is not in the tree (PR #1043
-# round 3, finding 1 -- a registration that names a file nobody proves exists
-# is green for a gitignored hook, which is how round 1's finding 1 arose).
+# settings, once over a listing that omits a hook the registration names (PR
+# #1043 round 3, finding 1 -- a registration that names a file nobody proves
+# exists is green for a gitignored hook, which is how round 1's finding 1
+# arose).
 cat >"$WORK/registration.py" <<'PY'
-import json, os, sys
-HOOKS_DIR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(".claude", "hooks")
+import json, sys
+# argv[1]: the committed settings.json, materialized from the commit.
+# argv[2]: a listing of the hook paths TRACKED in that commit, one per line,
+#          as `git ls-files .claude/hooks` renders them. The counterfactual
+#          run passes the same listing with one entry removed.
 try:
     s = json.load(open(sys.argv[1]))
 except Exception as exc:
     print(f"settings.json is unreadable: {exc}"); sys.exit(1)
+try:
+    tracked = {line.strip().rsplit("/", 1)[-1]
+               for line in open(sys.argv[2]) if line.strip()}
+except Exception as exc:
+    print(f"the tracked-hook listing is unreadable: {exc}"); sys.exit(1)
 hooks = s.get("hooks") or {}
 want = {"PreToolUse", "PostToolUse", "Stop", "UserPromptSubmit"}
 missing = sorted(want - set(hooks))
@@ -351,8 +366,8 @@ blob = json.dumps(hooks)
 for f in ("gate-open-terrain-gate.py", "write-gate-capture.py", "gate-terrain-executor.py", "advance-terrain.py"):
     if f not in blob:
         print(f"committed settings.json does not register {f}"); sys.exit(1)
-    if not os.path.exists(os.path.join(HOOKS_DIR, f)):
-        print(f"settings.json registers {f}, which does not exist in {HOOKS_DIR}"); sys.exit(1)
+    if f not in tracked:
+        print(f"settings.json registers {f}, which does not exist in the commit -- it is untracked"); sys.exit(1)
 # The matcher must ask for EVERY tool. The user-level registration that let
 # `mcp__tsurezure__*` and `ListAgents` through on 2026-09-09 named eight tools.
 for entry in hooks["PreToolUse"]:
@@ -361,17 +376,24 @@ for entry in hooks["PreToolUse"]:
             print(f"the exclusivity hook's PreToolUse matcher is {entry.get('matcher')!r}, not '*' — a named list is what let ListAgents through"); sys.exit(1)
 sys.exit(0)
 PY
-if python3 "$WORK/registration.py" .claude/settings.json; then
-  pass "the hooks are registered in the committed .claude/settings.json, every registered hook file exists, and the exclusivity matcher asks for every tool"
+# Both inputs come from the commit, so the case holds where the working tree
+# omits either one -- which is exactly the review lane's worktree.
+if ! git show HEAD:.claude/settings.json >"$WORK/settings-committed.json" 2>"$WORK/settings-committed.err"; then
+  bad "the committed .claude/settings.json could not be read from HEAD: $(cat "$WORK/settings-committed.err")"
+  : >"$WORK/settings-committed.json"
+fi
+git ls-files .claude/hooks >"$WORK/hooks-tracked" 2>/dev/null || : >"$WORK/hooks-tracked"
+if python3 "$WORK/registration.py" "$WORK/settings-committed.json" "$WORK/hooks-tracked"; then
+  pass "the hooks are registered in the committed .claude/settings.json, every registered hook file is tracked in the same commit, and the exclusivity matcher asks for every tool"
 else
   bad "the committed registration is incomplete — a rendered gate could not advance a run, which is the state write-gate-capture.py was in on 2026-09-09"
 fi
-# The registration is left as committed; the TREE is what lacks a file.
-mkdir -p "$WORK/hooks-missing"; cp .claude/hooks/*.py "$WORK/hooks-missing/"; rm -f "$WORK/hooks-missing/advance-terrain.py"
-if OUT="$(python3 "$WORK/registration.py" .claude/settings.json "$WORK/hooks-missing" 2>&1)"; then
-  bad "a registration naming a hook file that is not in the tree passed — the case asserts names, not existence"
+# The registration is left as committed; the COMMIT is what lacks a file.
+grep -v '/advance-terrain\.py$' "$WORK/hooks-tracked" >"$WORK/hooks-tracked-missing"
+if OUT="$(python3 "$WORK/registration.py" "$WORK/settings-committed.json" "$WORK/hooks-tracked-missing" 2>&1)"; then
+  bad "a registration naming a hook file that is not in the commit passed — the case asserts names, not existence"
 elif grep -q "does not exist" <<<"$OUT"; then
-  pass "a registration naming a hook file that is not in the tree is refused by name"
+  pass "a registration naming a hook file that is not in the commit is refused by name"
 else
   bad "a registration naming a missing hook file was refused for another reason: $OUT"
 fi
