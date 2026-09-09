@@ -182,6 +182,14 @@ policy/shape.md
 # does, which is why that check asserts the files and not their wiring.
 !.claude/hooks/gate-terrain-executor.py
 !.claude/hooks/advance-terrain.py
+# THE OPEN-GATE INTERVAL (kogaki#1028), re-included on the same criterion:
+# `checks/check-open-gate-exclusivity.sh` is its named reader, so it is
+# repository material. Its REGISTRATION is the one departure from the split
+# above, and it is the issue's own item 6 rather than a drift: this hook is the
+# only one whose absence is UNOBSERVABLE from inside a session -- a gate that
+# nothing enforces looks exactly like a gate nobody reached -- so it is
+# registered in the committed `.claude/settings.json` and asserted there.
+!.claude/hooks/gate-open-terrain-gate.py
 !.claude/skills/consult-first/
 .claude/skills/consult-first/*
 !.claude/skills/consult-first/SKILL.md
