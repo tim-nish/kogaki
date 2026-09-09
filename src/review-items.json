@@ -3,7 +3,7 @@
     "The Round Trip table: ONE ROW PER BRIEF STEP FIELD (kogaki#1013/#1014).",
     "",
     "`field` names the Brief Step field the Reverse Outline side is read from, under",
-    "the Brief's own name and definition. It replaces `recovered_field`, which was a",
+    "the Brief's own name and definition. It replaces the translation column, which was a",
     "TRANSLATION COLUMN between the Brief and a second schema for the same",
     "information — that schema is deleted, so what the column translated between no",
     "longer has two sides. Where `field` and `declared_block` read the same, that is",
@@ -26,7 +26,7 @@
     "",
     "The comparison's ITEM TABLE, fixed in the Harness (kogaki#872).",
     "",
-    "WHICH PACKET INFORMATION MUST BE RECOVERABLE IS DECIDED ONCE, HERE, per",
+    "WHICH PACKET INFORMATION MUST BE RECONSTRUCTIBLE IS DECIDED ONCE, HERE, per",
     "item class — and the judging model never assigns one. It answers one",
     "question about one pair and returns one of three tokens. src/review-draft.mjs",
     "READS this file rather than restating it, the same arrangement",
@@ -43,9 +43,9 @@
     "  - `mechanical` — the Harness decides from string facts about the Draft and",
     "    the Packet. NO join Packet is rendered and no model call is made.",
     "  - `judged`     — the Harness renders one join Packet (the declared line,",
-    "    the recovered line, the quoted span, one question) and records the",
+    "    the outlined line, the quoted span, one question) and records the",
     "    verdict that comes back.",
-    "  - `paired`     — the Harness pairs the recovered entries against the",
+    "  - `paired`     — the Harness pairs the outlined entries against the",
     "    declared ones MECHANICALLY; an entry that pairs with nothing is decided",
     "    here, by name, with no model call, and the paired set is then judged.",
     "    This is the one hybrid, and it exists because `widened` is a fact about",
@@ -61,31 +61,42 @@
     "rationale, materials, reader_state_before, and the thesis and reader target",
     "per Step. The article level is the cold reader's (kogaki#873).",
     "",
-    "THE FIGURE HALF LEFT THIS TABLE UNDER A RECORDED DECLINE (kogaki#1014, owner",
-    "2026-09-09), and this paragraph IS that record rather than a note about one.",
+    "THE FIGURE HALF IS BACK, RESTATED AGAINST THE RECORD'S OWN FIELDS",
+    "(kogaki#1018). It left this table at kogaki#1014 under a recorded decline: its",
+    "five rows read a reverse side out of the second schema that act deleted, and",
+    "the Blind Reader returns a Brief Step block, which carries no such field.",
     "",
-    "Five rows -- figure-elements, figure-caption, figure-element-ground,",
-    "figure-reading-prose and figure-position -- read their recovered side from",
-    "`figure_reading.*`, which is not a Brief Step field. The Blind Reader now",
-    "returns a Brief Step block and nothing else, so those rows had no reconstructed",
-    "side left to read: keeping them would have meant a second schema beside the",
-    "Brief's, which is exactly the drift this act removes.",
+    "WHAT REPLACED IT IS THE PASSAGE'S OWN RULE, ONE ARTIFACT DOWN. A passage is",
+    "written from a Brief Step, so its Reverse Outline is a Brief Step block; a",
+    "figure is written from its RECORD, so its Reverse Outline is a block in the",
+    "fields src/figure-schema.json declares. There is no second schema at either",
+    "level, which is the property kogaki#1014 landed and this is that property for",
+    "the figure.",
     "",
-    "THE ACT THAT RESTORES THEM IS kogaki#1018, named here rather than left to be",
-    "found. It carries the figure Round Trip with its SKILL and Spec halves, and it",
-    "is where the figure's declared side is laid against a reading expressible in",
-    "the Brief's own grammar. Until it lands the figure is NOT COMPARED, and that is",
-    "a declared boundary rather than a hole -- the enumeration below is where a",
-    "reader looks for the difference.",
+    "THE DISPOSITION RULE IS THE SAME RULE. `element`, `caption` and `position` are",
+    "reconstructible and COMPARED -- a reader who met the rendered block can say",
+    "each of them. `kind`, `relations` and `emphasis` are not reconstructible and",
+    "are REFUSED rather than merely unasked: the kind and the relations are the",
+    "Move form's, and a reader cannot infer the form a structure was produced from.",
     "",
-    "WHAT DID NOT LEAVE. The figure is still RENDERED to the Blind Reader, on the",
-    "side of the passage the reader met it on, because that is the article as the",
-    "reader meets it and withholding it would change what the prose rows are read",
-    "against. The seat that left is the ANSWER, never the evidence.",
+    "IT IS ITS OWN FENCE AND ITS OWN FILE. `figure` IS a Brief Step field and is",
+    "declared not reconstructible, so a `figure:` line inside the passage's outline",
+    "stays refused; one file per vocabulary is what keeps either reading from",
+    "acquiring a key belonging to the other.",
     "",
-    "NOT COMPARED, and enumerated so a reader can tell a boundary from a hole:",
+    "`figure_only: true` marks a row that exists only for a Step whose trace entry",
+    "carries a figure. On a Step without one the row is not evaluated, not rendered",
+    "and NOT LOGGED -- a vacuous `holds` for every figureless Step would put a",
+    "figure line in a Draft that has no figure. `record_field` is to the figure",
+    "record what `declared_block` is to the Packet, and `figure_field` names the",
+    "line read back out of the figure's own Reverse Outline. A row naming both",
+    "`field` and `figure_field` is refused: that pair would be a translation",
+    "between the Brief's names and the record's, which is the column this chain",
+    "removed.",
+    "",
+    "NOW COMPARED, and enumerated so a reader can tell a boundary from a hole:",
     "the figure's elements, its caption, its element-to-ground binding, its reading",
-    "against the prose, and its position -- every one of them owed to kogaki#1018."
+    "against the prose, and its position -- five rows, three preserved and two best-effort, on the same three verdicts and the same consequence rule."
   ],
   "version": "1",
   "verdicts": [
@@ -104,7 +115,7 @@
   ],
   "packet_blocks": {
     "note": [
-      "THE PACKET'S SHAPE IS DATA, not a literal in the runtime (kogaki#872).",
+      "THE PACKET'S LAYOUT IS DATA, not a literal in the runtime (kogaki#872).",
       "src/review-draft.mjs reads a declared block by its KIND, and every label,",
       "heading and fixed instruction sentence the reader keys on lives here. Two",
       "things follow, and the second is the reason:",
@@ -113,7 +124,7 @@
       "    through the comparison for a string that used to match;",
       "  - the runtime carries no literal that HAPPENS to equal a field name",
       "    somewhere else. `grounds`, `purpose` and `reader_state_after` are",
-      "    each a Packet label AND an item id AND (for two of them) a recovered",
+      "    each a Packet label AND an item id AND (for two of them) an outlined",
       "    record field, and a runtime spelling them out cannot be told apart",
       "    from one restating the table or the schema. A synonym in a join key",
       "    is the same defect as a divergence.",
@@ -154,7 +165,7 @@
     "move_excerpt": {
       "kind": "block",
       "heading": "An exemplar of this Move — FORM ONLY",
-      "after_words": "Read it for the shape of the movement and nothing else."
+      "after_words": "Read it for the form of the movement and nothing else."
     },
     "section_placement": {
       "kind": "block",
@@ -214,10 +225,16 @@
       "verbatim overlap against -- the ground and state lines. Same",
       "arrangement, same reason.",
       "",
-      "THE FIGURE ROWS ARE GONE FROM THIS BOUND because they are gone from the",
-      "table (kogaki#1014, the decline recorded in the top-level note). They",
-      "added no arm while they were here and they remove none by leaving;",
-      "kogaki#1018 is the act that puts them back."
+      "THE FIGURE ROWS ARE BACK IN THE TABLE (kogaki#1018) AND STILL ADD NO ARM",
+      "HERE. They added none while they were here before, they removed none by",
+      "leaving, and they add none returning: the second pass's arms are the",
+      "corrected Steps' own items, the successor's continuity item and every",
+      "mechanical item, and a figure row is reached by whichever of those its",
+      "Step is in. `figure-element-ground` is mechanical, so it is in the third",
+      "arm over the whole Draft; the judged figure rows are in the first on a",
+      "corrected Step exactly as that Step's other rows are. NO FIGURE ROW IS A",
+      "SUCCESSOR ITEM: a correction moves the prose the NEXT Step continues",
+      "from, and it moves no figure."
     ],
     "successor_items": [
       "already-knows"
@@ -260,7 +277,7 @@
       "`question`, `belief` and `claim` -- a third vocabulary for what the Brief",
       "already names `Opening question`, `Reader target` and the thesis, and a",
       "name nobody else uses is the same drift one carrier over as the deleted",
-      "recovered record was. So the cold reader answers in `opening_question`,",
+      "Reverse Outline was. So the cold reader answers in `opening_question`,",
       "`reader_target` and `thesis`, and the Harness lays them against the",
       "declared sides it already read. WHAT EACH PAIR COMPARES IS UNCHANGED:",
       "this is a renaming of the reader's own answer sheet, not a new item, not",
@@ -281,7 +298,7 @@
       "`declared.from` names WHERE the declared side is read: `section_title`",
       "from the trace, `first_step`/`last_step` from that Step's own Packet,",
       "`any_packet` for a block every Packet carries identically because it is",
-      "a fixed point of the whole article. `recovered.from` names which ledger",
+      "a fixed point of the whole article. `reverse.from` names which ledger",
       "entry answers: this Section's, the previous Section's, or the final",
       "claim.",
       "",
@@ -301,7 +318,7 @@
       "",
       "`localizing_item` is the STEP item a Section fail localizes on when no",
       "Step in the Section has failed a preserved item outright: the first Step",
-      "whose recovered reader state does not hold is where the Section's own",
+      "whose outlined reader state does not hold is where the Section's own",
       "reader path came apart. It is named here rather than in the runtime for",
       "the reason the packet_blocks note gives -- an item id spelled out in the",
       "runtime cannot be told from one restating this table."
@@ -323,7 +340,7 @@
         "declared": {
           "from": "section_title"
         },
-        "recovered": {
+        "reverse": {
           "from": "entry",
           "field": "opening_question"
         },
@@ -336,11 +353,11 @@
           "from": "last_step",
           "block": "reader_state_after"
         },
-        "recovered": {
+        "reverse": {
           "from": "entry",
           "field": "reader_target"
         },
-        "question": "Do the declared reader state at the Section's end and what this reader now believes describe the same reader? Answer `fails` if a reader holding the recovered belief would not be in the declared state."
+        "question": "Do the declared reader state at the Section's end and what this reader now believes describe the same reader? Answer `fails` if a reader holding the outlined belief would not be in the declared state."
       },
       {
         "id": "section-belief-before",
@@ -349,7 +366,7 @@
           "from": "first_step",
           "block": "reader_state_before"
         },
-        "recovered": {
+        "reverse": {
           "from": "previous_entry",
           "field": "reader_target"
         },
@@ -364,12 +381,12 @@
           "from": "any_packet",
           "block": "thesis"
         },
-        "recovered": {
+        "reverse": {
           "from": "final_claim"
         },
         "vacuous_when": "not_last_section",
         "vacuous_sentence": "the final claim is recorded once for the whole Draft and is paired at its last Section",
-        "question": "Is what this reader says the article claimed the article's thesis? Answer `fails` if the recovered claim is a different claim, or a weaker or a wider one."
+        "question": "Is what this reader says the article claimed the article's thesis? Answer `fails` if the outlined claim is a different claim, or a weaker or a wider one."
       },
       {
         "id": "opening-question",
@@ -378,7 +395,7 @@
           "from": "any_packet",
           "block": "opening_question"
         },
-        "recovered": {
+        "reverse": {
           "from": "entry",
           "field": "reader_target"
         },
@@ -401,7 +418,7 @@
         "verdict": "holds",
         "sentence": "this Step declares no grounds, so there is no declared ground for a claim to go beyond; what its claims assert is judged by the Step's other items, and `grounds-unused` names the absence"
       },
-      "question": "Does this recovered claim assert no more than the grounds this Step declares? Every declared ground is listed above; the claim need not correspond to any one of them in wording, and a claim may rest on several of them at once. Answer `fails` if the claim goes beyond what those grounds, taken together, license — in scope, in certainty, or in subject."
+      "question": "Does this outlined claim assert no more than the grounds this Step declares? Every declared ground is listed above; the claim need not correspond to any one of them in wording, and a claim may rest on several of them at once. Answer `fails` if the claim goes beyond what those grounds, taken together, license — in scope, in certainty, or in subject."
     },
     {
       "id": "reader-state-before",
@@ -417,7 +434,7 @@
       "mode": "judged",
       "declared_block": "reader_state_after",
       "field": "reader_state_after",
-      "question": "Do the declared reader state and the recovered one describe the same reader? Answer `fails` if a reader in the recovered state would not be in the declared one."
+      "question": "Do the declared reader state and the outlined one describe the same reader? Answer `fails` if a reader in the outlined state would not be in the declared one."
     },
     {
       "id": "introduces",
@@ -437,7 +454,7 @@
       "mode": "judged",
       "declared_block": "grounds",
       "field": "concession",
-      "question": "Is any ground carried more weakly in the prose than the Packet declares it, with no concession recovered for it? Answer `fails` if a ground was softened silently."
+      "question": "Is any ground carried more weakly in the prose than the Packet declares it, with no concession outlined for it? Answer `fails` if a ground was softened silently."
     },
     {
       "id": "purpose",
@@ -445,7 +462,7 @@
       "mode": "judged",
       "declared_block": "purpose",
       "field": "purpose",
-      "question": "Do the declared purpose and the recovered one name the same job for this Step? Answer `fails` if the passage is doing a different job."
+      "question": "Do the declared purpose and the outlined one name the same job for this Step? Answer `fails` if the passage is doing a different job."
     },
     {
       "id": "grounds-unused",
@@ -476,6 +493,59 @@
       "mode": "judged",
       "declared_block": "register_tests",
       "question": "Read the passage against the three register tests the Packet states, cited as its clauses. Answer `fails` if one of them is not met, naming which."
+    },
+    {
+      "id": "figure-elements",
+      "class": "preserved",
+      "mode": "judged",
+      "figure_only": true,
+      "declared_source": "figure record",
+      "record_field": "elements",
+      "figure_field": "element",
+      "question": "Every element the record declares is above, with the wording it was given. Can a reader name each of them from the figure as it was rendered? Answer `fails` if an element the record declares is not among the ones the reader named. This asks about presence, never about how well an element is worded."
+    },
+    {
+      "id": "figure-caption",
+      "class": "preserved",
+      "mode": "judged",
+      "figure_only": true,
+      "declared_source": "figure record",
+      "record_field": "caption",
+      "also_declared_blocks": [
+        "reader_state_after"
+      ],
+      "figure_field": "caption",
+      "question": "The declared side carries the record's caption and the state the Step says its reader is left in. Does what the reader holds after looking at the figure agree with both? Answer `fails` if it agrees with neither, or if it agrees with the caption while the caption and the Step's state pull apart."
+    },
+    {
+      "id": "figure-element-ground",
+      "class": "preserved",
+      "mode": "mechanical",
+      "figure_only": true,
+      "declared_source": "figure record",
+      "record_field": "elements",
+      "also_declared_blocks": [
+        "grounds"
+      ]
+    },
+    {
+      "id": "figure-reading-prose",
+      "class": "best-effort",
+      "mode": "judged",
+      "figure_only": true,
+      "declared_source": "passage",
+      "figure_field": "element",
+      "question": "Both sides here were read blind, from the passage and the figure the reader met beside it. Do the figure and the prose of this Step say the same thing? Answer `fails` if the figure asserts something the passage does not, or the other way about."
+    },
+    {
+      "id": "figure-position",
+      "class": "best-effort",
+      "mode": "judged",
+      "figure_only": true,
+      "declared_source": "figure record",
+      "record_field": "position",
+      "figure_field": "position",
+      "question": "The declared side says whether the figure was designed to set the passage up or to discharge it, and the reverse side is where the reader says they met it. The figure's draft line numbers in the prose below say where it actually sits. Did the reader meet it where the prose needed it? Answer `fails` if the passage had already done the work the figure was meant to set up, or still needed the figure it had not yet been given."
     }
   ]
 }

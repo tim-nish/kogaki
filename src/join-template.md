@@ -17,9 +17,9 @@ figure record for a figure pair (kogaki#880), the passage itself where the
 declared side IS the article. A heading that said `Packet` for all three would
 name the wrong artifact in every finding a reader goes on to repair.
 
-THE JUDGING MODEL IS NOT THE RECOVERING ONE. The recovering reviewer is blind
+THE JUDGING MODEL IS NOT THE BLIND READER. The Blind Reader is blind
 to the Packet by design (kogaki#871) and this reader is not: it sees the
-declared line, the recovered line and the quoted prose together, because
+declared line, the outlined line and the quoted prose together, because
 judging whether they agree is the whole act. The blindness that matters here is
 of a different kind — this reader sees ONE pair and never the others, so it
 cannot rank, weigh or aggregate across a Step.
@@ -31,7 +31,7 @@ other number in a review is a score by another name.
 
 # Judge one pair
 
-You are judging **one** pair — one declared line against one line recovered from
+You are judging **one** pair — one declared line against one line outlined from
 the prose. Answer the question below and nothing else. Do not look for other
 problems, do not rank this against anything, and do not weigh how bad it is.
 
@@ -44,9 +44,9 @@ problems, do not rank this against anything, and do not weigh how bad it is.
 
 {{declared}}
 
-### What was RECOVERED from the prose
+### What the REVERSE OUTLINE says
 
-{{recovered}}
+{{reverse}}
 
 ### The prose itself — draft lines {{span}}
 

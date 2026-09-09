@@ -58,7 +58,7 @@ This is the transformation you are performing. `intent` says what it does;
 
 The passage below demonstrates how this Move is realized. **Do not reuse its
 subject matter, facts, entities, terminology, or claims.** Read it for the
-shape of the movement and nothing else.
+form of the movement and nothing else.
 
 {{move_excerpt}}
 
