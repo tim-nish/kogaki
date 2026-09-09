@@ -220,6 +220,45 @@ capture_payload "$SESSION"
   && pass "two pointers for one question write no row" \
   || bad "the ambiguity arm chose between two outstanding gates — the misattribution the nonce exists to prevent"
 
+# ------------------------------------ PR #1043 round 3, carried by kogaki#1047
+# Finding 3: PreToolUse applies the has_capture filter the other two events do.
+rm -f "$GATES"/*.json
+open_pointer
+cat >"$RUN/terrain.gate-capture.json" <<JSON
+{ "rows": [ { "gate_instance_id": "$INSTANCE", "gate_id": "terrain-tag-selection" } ] }
+JSON
+[[ "$(pre Bash '{"command":"ls"}' | decision)" == "allow" ]] \
+  && pass "a pointer whose capture row exists gates nothing — PreToolUse filters on has_capture as Stop and UserPromptSubmit do" \
+  || bad "a captured pointer still denied every tool — the session stays frozen until the file is removed from outside it"
+rm -f "$RUN/terrain.gate-capture.json"
+
+# Finding 4: the two pointer readers share one expiry.
+rm -f "$GATES"/*.json
+open_pointer
+python3 - "$GATES/$INSTANCE.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d["opened_at"]="2000-01-01T00:00:00.000Z"; json.dump(d,open(p,"w"))
+PY
+[[ "$(pre Bash '{"command":"ls"}' | decision)" == "allow" ]] \
+  && pass "a pointer past the capture hook's TTL gates nothing" \
+  || bad "an expired pointer still denied every tool — the deny hook reads a TTL the capture hook honours and it does not"
+
+# Finding 2: the composed free-text row has a reader on the capture side.
+rm -f "$GATES"/*.json "$RUN/terrain.gate-capture.json"
+open_pointer
+printf '%s' "{\"session_id\":\"$SESSION\",\"tool_name\":\"AskUserQuestion\",\"tool_use_id\":\"toolu_row\",\"tool_response\":{\"answers\":{\"Which tag does the survey open on?\":\"Answer in your own words instead\"}}}" \
+  | KOGAKI_OPEN_GATES="$GATES" python3 "$CAPTURE" 2>/dev/null
+if python3 - "$RUN/terrain.gate-capture.json" <<'PY'
+import json,sys
+rows=json.load(open(sys.argv[1])).get("rows") or []
+a=rows[-1]["payload"]["answer"] if rows else {}
+sys.exit(0 if a.get("label_unresolved") and a.get("free_text_row_selected") and "free_text" not in a else 1)
+PY
+then pass "clicking the composed free-text row is recorded as unresolved, never as the owner's own words"
+else bad "the free-text row's label was recorded as the answer — a sentence about answering lands where a value goes"
+fi
+rm -f "$GATES"/*.json "$RUN/terrain.gate-capture.json"
+
 # ---------------------------------------------------------------- acceptance 5
 OUT="$(env -u KOGAKI_OPEN_GATES bash checks/check-terrain-runtime.sh 2>&1)"; RC=$?
 if [[ $RC -ne 0 ]] && grep -q "KOGAKI_OPEN_GATES is not set" <<<"$OUT" && ! grep -q "terrain self-test:" <<<"$OUT"; then
@@ -269,10 +308,15 @@ else
 fi
 
 # ------------------------------------------------- item 6: the registration
-if python3 - <<'PY'
-import json, sys
+# The predicate is a file so it can be run twice: once over the committed
+# settings, once over a copy naming a hook that is not in the tree (PR #1043
+# round 3, finding 1 -- a registration that names a file nobody proves exists
+# is green for a gitignored hook, which is how round 1's finding 1 arose).
+cat >"$WORK/registration.py" <<'PY'
+import json, os, sys
+HOOKS_DIR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(".claude", "hooks")
 try:
-    s = json.load(open(".claude/settings.json"))
+    s = json.load(open(sys.argv[1]))
 except Exception as exc:
     print(f"settings.json is unreadable: {exc}"); sys.exit(1)
 hooks = s.get("hooks") or {}
@@ -284,6 +328,8 @@ blob = json.dumps(hooks)
 for f in ("gate-open-terrain-gate.py", "write-gate-capture.py", "gate-terrain-executor.py", "advance-terrain.py"):
     if f not in blob:
         print(f"committed settings.json does not register {f}"); sys.exit(1)
+    if not os.path.exists(os.path.join(HOOKS_DIR, f)):
+        print(f"settings.json registers {f}, which does not exist in {HOOKS_DIR}"); sys.exit(1)
 # The matcher must ask for EVERY tool. The user-level registration that let
 # `mcp__tsurezure__*` and `ListAgents` through on 2026-09-09 named eight tools.
 for entry in hooks["PreToolUse"]:
@@ -292,10 +338,19 @@ for entry in hooks["PreToolUse"]:
             print(f"the exclusivity hook's PreToolUse matcher is {entry.get('matcher')!r}, not '*' — a named list is what let ListAgents through"); sys.exit(1)
 sys.exit(0)
 PY
-then
-  pass "the hooks are registered in the committed .claude/settings.json, and the exclusivity matcher asks for every tool"
+if python3 "$WORK/registration.py" .claude/settings.json; then
+  pass "the hooks are registered in the committed .claude/settings.json, every registered hook file exists, and the exclusivity matcher asks for every tool"
 else
   bad "the committed registration is incomplete — a rendered gate could not advance a run, which is the state write-gate-capture.py was in on 2026-09-09"
+fi
+# The registration is left as committed; the TREE is what lacks a file.
+mkdir -p "$WORK/hooks-missing"; cp .claude/hooks/*.py "$WORK/hooks-missing/"; rm -f "$WORK/hooks-missing/advance-terrain.py"
+if OUT="$(python3 "$WORK/registration.py" .claude/settings.json "$WORK/hooks-missing" 2>&1)"; then
+  bad "a registration naming a hook file that is not in the tree passed — the case asserts names, not existence"
+elif grep -q "does not exist" <<<"$OUT"; then
+  pass "a registration naming a hook file that is not in the tree is refused by name"
+else
+  bad "a registration naming a missing hook file was refused for another reason: $OUT"
 fi
 
 if [[ $FAILED -eq 0 ]]; then

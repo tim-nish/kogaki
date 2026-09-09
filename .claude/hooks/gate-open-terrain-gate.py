@@ -50,7 +50,7 @@ re-entry, which is the recoverable direction.
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # The one tool that may run while a gate is open.
@@ -62,6 +62,33 @@ GATE_TOOL = "AskUserQuestion"
 # instead is write it onto the run record beside the failure -- a run that ended
 # with the gate unrendered says so, and says how it got past the block.
 STOP_BLOCK_BOUND = 8
+
+# THE SAME EXPIRY THE CAPTURE READS (PR #1043 round 3, finding 4). The two
+# readers of one pointer schema disagreed: `write-gate-capture.py` reaps a
+# pointer older than its `POINTER_TTL` and refuses to write for it, while this
+# hook read no expiry at all -- so a pointer past its TTL still denied every
+# tool call for its session, and the only way out was to send the gate
+# question so PostToolUse could reap it. The value is copied rather than
+# imported because a hook is one file the harness runs by path; the sibling's
+# constant is the one to change alongside this.
+POINTER_TTL = timedelta(hours=12)
+
+
+def expired(pointer):
+    """Is this pointer past the TTL the capture hook reaps at?
+
+    An unreadable timestamp is NOT expired, for the sibling's reason: reaping
+    on a field this hook failed to parse would drop live gates on a formatting
+    change, which is the expensive direction of this trade.
+    """
+    opened = pointer.get("opened_at")
+    try:
+        when = datetime.fromisoformat(str(opened).replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+    except Exception:                                             # noqa: BLE001
+        return False
+    return datetime.now(timezone.utc) - when > POINTER_TTL
 
 
 def pointer_dir():
@@ -112,6 +139,10 @@ def open_pointers(session_id):
         mine = str(doc.get("session_id") or "")
         theirs = str(session_id or "")
         if not mine or not theirs or mine != theirs:
+            continue
+        if expired(doc):
+            note(f"pointer {p.name} is past its {POINTER_TTL} TTL and gates nothing; "
+                 f"the capture hook reaps it at the next raising")
             continue
         doc["_pointer_path"] = p
         out.append(doc)
@@ -174,7 +205,13 @@ def deny(reason):
 
 def pre_tool_use(payload, pointers):
     tool = payload.get("tool_name")
-    pointer = pointers[0]
+    # THE SAME FILTER THE OTHER TWO EVENTS APPLY (PR #1043 round 3, finding 3).
+    # A row written where the pointer could not be unlinked must not deny every
+    # tool call in the session until someone removes the file from outside it.
+    outstanding = [p for p in pointers if not has_capture(p)]
+    if not outstanding:
+        return 0
+    pointer = outstanding[0]
     where = gate_line(pointer)
     if tool != GATE_TOOL:
         deny(

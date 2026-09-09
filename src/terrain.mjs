@@ -6478,6 +6478,12 @@ const STATE_WORK = {
     // `neighborhood_input` already records its output to avoid.
     rec.composition_input = cmdComposeInput({
       ...args,
+      // THE RUN'S OWN DIRECTORY (kogaki#1045). The control plane resolved this
+      // run through the open-run pointer; without this key `runDir(args)` falls
+      // to its default branch and mints a second, timestamp-named workspace --
+      // which is where the 2026-09-09 live run's composition input landed while
+      // the run record named the first.
+      "run-dir": rec._dir,
       survey: needSurvey(rec),
       tag: ownerInput(rec, "TAG_SELECTION")
         || fail("compose_input needs a tag, and no wait has supplied one yet."),
@@ -7906,6 +7912,13 @@ switch (cmd) {
         const gs = join(tmpdir(), `terrain-selftest-tagstop-${process.pid}`);
         const rd = join(gs, "rd");
         mkdirSync(rd, { recursive: true });
+        // EVERY EXECUTOR SPAWN IN THIS CASE CARRIES THE TEST SEAM (kogaki#1046).
+        // The two spawns below declare the tag gate, and a declaration writes an
+        // open-gate pointer; without `KOGAKI_OPEN_GATES` that pointer lands in
+        // the owner's live directory, where the capture hook's refuse-when-
+        // ambiguous rule then drops the next real answer -- which is what
+        // happened on 2026-09-09, three pointers per self-test run.
+        const execEnv = { ...process.env, KOGAKI_OPEN_GATES: join(gs, "open-gates", "exec") };
         const tp = join(gs, "table.json");
         writeFileSync(tp, JSON.stringify({ version: 1, states: [
           { id: "TAG_SELECTION", kind: "wait", owner_supplies: "one tag name, or the standing option",
@@ -7918,7 +7931,7 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8" });
+        const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: execEnv });
         const out = `${r.stdout || ""}${r.stderr || ""}`;
         ok("a run reaching TAG_SELECTION stops with its declaration WRITTEN rather than owed and unwritten",
           r.status === 0 && /run declaration is WRITTEN/.test(out) && !/OWED AND UNWRITTEN/.test(out),
@@ -7990,8 +8003,26 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        const rBad = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdBad, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8" });
+        const rBad = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdBad, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: execEnv });
         const outBad = `${rBad.stdout || ""}${rBad.stderr || ""}`;
+        {
+          // The live directory holds no pointer this case minted (kogaki#1046
+          // acceptance 1). Read only when it exists: a machine with no live
+          // directory has nothing to leak into.
+          const live = join(homedir(), ".claude", "kogaki-open-gates");
+          const leaked = [];
+          if (existsSync(live)) {
+            for (const f of readdirSync(live)) {
+              if (!f.endsWith(".json")) continue;
+              try {
+                const p = readJson(join(live, f));
+                if (String(p.declaration_path || "").startsWith(gs)) leaked.push(f);
+              } catch { /* an unreadable pointer is not this case's */ }
+            }
+          }
+          ok("the self-test's executor spawns leave the live open-gate directory untouched (kogaki#1046)",
+            leaked.length === 0, leaked.join(", "));
+        }
         ok("a listing the tag_listing grammar refuses does not ride into a declaration — the gate refuses instead",
           rBad.status !== 0 && /refusing to emit tag_listing/.test(outBad),
           outBad.trim().split("\n")[0].slice(0, 140));

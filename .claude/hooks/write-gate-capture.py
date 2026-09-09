@@ -79,6 +79,11 @@ from pathlib import Path
 # gate class.
 POINTER_TTL = timedelta(hours=12)
 
+# The label `src/terrain.mjs`'s `composeGateCall` gives the free-text row it
+# composes (GATE_CALL_FREE_TEXT_LABEL there). Two copies of one string, for the
+# reason `POINTER_TTL` is copied into the exclusivity hook: a hook is one file.
+FREE_TEXT_ROW_LABEL = "Answer in your own words instead"
+
 
 def pointer_dir():
     return Path(os.environ.get("KOGAKI_OPEN_GATES")
@@ -240,6 +245,17 @@ def resolve_answer(declaration, label):
     payload alone, and naming that is honest where guessing is not.
     """
     want = normalise(label)
+    # THE COMPOSED FREE-TEXT ROW (PR #1043 round 3, finding 2). `composeGateCall`
+    # adds a row labelled `free_text_label` (default below) to a gate declaring
+    # fewer options than the question UI admits. Clicking that row reports the
+    # label itself as the answer and names no value, so it is recorded as
+    # UNRESOLVED -- the executor refuses on that and the gate is re-offered --
+    # rather than as the owner's own words, which is what the label would
+    # otherwise be read as at every gate that takes free text.
+    row_label = str(declaration.get("free_text_label") or FREE_TEXT_ROW_LABEL)
+    if want and want == normalise(row_label):
+        return {"label_unresolved": True, "raw": str(label),
+                "free_text_row_selected": True}
     for opt in declaration.get("options") or []:
         if normalise(opt.get("label", "")) == want:
             return {"option": str(opt.get("id"))}
