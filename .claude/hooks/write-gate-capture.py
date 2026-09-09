@@ -154,7 +154,24 @@ def answers_of(payload):
     return {}
 
 
-def load_pointers():
+def load_pointers(session_id=None):
+    """Live pointers, narrowed to this session where both sides name one.
+
+    THE JOIN IS ON THE NONCE AND THE SESSION (kogaki#1028 item 5). The nonce
+    alone identifies a RAISING; it does not identify whose raising it was, and
+    the narrowing step above matches on question TEXT, which is a constant in
+    `src/gate-registry.json`. So two sessions at the same gate on one machine
+    were two pointers carrying one question, and the ambiguity arm wrote nothing
+    for either — the wedge, arriving as a tie rather than as a misattribution.
+    With the session named, each session sees only its own and the tie does not
+    arise.
+
+    A POINTER THAT NAMES NO SESSION IS NOT A WILDCARD. It is matched to nothing
+    and skipped: pre-kogaki#1028 pointers and runs started outside a session
+    carry `None`, and admitting them for every session would restore exactly the
+    cross-session write this narrows away. Such a run refuses at re-entry, which
+    is recoverable; a row written into another session's capture is not.
+    """
     d = pointer_dir()
     if not d.is_dir():
         return []
@@ -166,6 +183,10 @@ def load_pointers():
         except Exception:                                         # noqa: BLE001
             note(f"pointer {p.name} is unreadable and was skipped "
                  "(a finding, not a skip: its gate will refuse at re-entry)")
+            continue
+        mine = str(doc.get("session_id") or "")
+        theirs = str(session_id or "")
+        if not mine or not theirs or mine != theirs:
             continue
         doc["_pointer_path"] = p
         expired = is_expired(doc)
@@ -298,7 +319,7 @@ def main():
              "to a question the harness actually asked — so no row was written")
         return 0
 
-    pointers = load_pointers()
+    pointers = load_pointers(payload.get("session_id"))
     if not pointers:
         return 0
 

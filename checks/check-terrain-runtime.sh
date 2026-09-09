@@ -56,6 +56,13 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "== terrain runtime fixture pass (kogaki#659)"
 
+# BEFORE THE EXECUTOR STARTS, NOT AFTER (kogaki#1028 item 5). This member is the
+# one that actually runs the executor, and the executor mints open-gate pointers
+# wherever `KOGAKI_OPEN_GATES` points. See tools/open-gates-guard.sh.
+# shellcheck source=../tools/open-gates-guard.sh
+. tools/open-gates-guard.sh
+kogaki_open_gates_guard || exit 1
+
 OUT=$(node src/terrain.mjs self-test 2>&1); RC=$?
 printf '%s\n' "$OUT"
 if [[ $RC -ne 0 ]] || ! grep -q "terrain self-test:" <<<"$OUT"; then
