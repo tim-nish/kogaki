@@ -494,6 +494,117 @@ else
   bad "a registration naming a missing hook file was refused for another reason: $OUT"
 fi
 
+# -------------------------------------------- kogaki#1029 acceptance 2
+# THE TABLE IS SEVENTEEN ROWS, AND ONE MISSING ROW IS THE DIFFERENCE THAT MUST
+# DENY. The acceptance-1 cases above prove byte-equality over a ONE-ROW table:
+# "table missing" removes the whole field and "table paraphrased" rewrites the
+# only row in it. Neither is the size kogaki#1029 names. At the current pin the
+# survey renders seventeen tags, and the payload that matters is one identical
+# to the executor's in every byte except that a single row of the seventeen is
+# gone -- the owner reads sixteen tags, chooses among them, and nothing anywhere
+# says a tag was withheld. A comparison that turned on a prefix, on a length, or
+# on the first and last lines alone would admit exactly that payload while
+# passing every case above it.
+#
+# THE PAYLOAD BELOW IS THIS FILE'S OWN, AND IS NOT `renderTagDisplay`'s OUTPUT
+# (PR #1061 round 1, finding 1). The composer emits a display headline, indented
+# rows and a navigation hint; the fixture here emits a plain header and
+# seventeen unindented rows, because what is under test is the hook's byte
+# comparison over a table of that SIZE, not the survey's own rendering. That
+# a seventeen-tag survey renders seventeen rows into the question is acceptance
+# 2's FIRST clause, and it is asserted in the terrain runtime self-test where
+# the composer lives -- not here, over a payload this file wrote itself.
+#
+# SO THE ROW IS REMOVED AT THREE POSITIONS, NOT ONE. First, middle and last are
+# what a prefix comparison, a suffix comparison and a header-plus-tail
+# comparison respectively fail to tell apart, and a single removal at any one of
+# them leaves the other two untested. The three share one fixture, so a case
+# that passes because the payload was malformed rather than because the row was
+# missing is not available.
+#
+# THE THREE ARE UNROLLED, NOT LOOPED (PR #1061 round 1, finding 3). This file
+# already unrolls the `ListAgents` case for the reason stated at it: a case
+# string composed at runtime is not in the file, and `check-registry-
+# conformance.sh` resolves a registry `efficacy` cite by finding the literal
+# here. Nothing cites these three today; following the convention now is what
+# keeps citing one later a registry edit rather than a rewrite of this section.
+rm -f "$GATES"/*.json "$RUN/terrain.gate-capture.json"
+
+CALL17="$RUN/terrain-tag-selection-17.gate-call.json"
+python3 - "$CALL17" <<'PY17'
+import json, sys
+
+# Seventeen tags plus the header, which is the shape the Issue pins. The counts
+# are the fixture's own and are never read from a survey -- this case is about
+# the payload comparison, not about what a survey computes.
+TAGS = [("agents", 4), ("altitude", 3), ("boundary", 9), ("carrier", 12),
+        ("consultation", 6), ("degradation", 2), ("emission", 5), ("gate", 14),
+        ("harness", 7), ("isolation", 3), ("ledger", 4), ("licence", 8),
+        ("pin", 11), ("receipt", 6), ("removal", 2), ("seam", 10),
+        ("vitality", 5)]
+assert len(TAGS) == 17, len(TAGS)
+
+listing = "\n".join(["tag           count"]
+                    + [f"{t:<14}{c}" for t, c in TAGS])
+json.dump({"questions": [{
+    "question": listing + "\n\nWhich tag does the survey open on?",
+    "header": "selection",
+    "multiSelect": False,
+    "options": [
+        {"label": "Use a method other than co-tags", "description": "other-method"},
+        {"label": "Answer in your own words instead", "description": "free text"},
+    ],
+}]}, open(sys.argv[1], "w"), indent=2)
+PY17
+
+cat >"$GATES/$INSTANCE.json" <<JSON
+{ "gate_instance_id": "$INSTANCE", "gate_id": "terrain-tag-selection",
+  "question": "Which tag does the survey open on?",
+  "declaration_path": "$RUN/terrain-tag-selection.run-declaration.json",
+  "capture_path": "$RUN/terrain.gate-capture.json",
+  "gate_call_path": "$CALL17",
+  "gate_call_unavailable": null,
+  "session_id": "$SESSION",
+  "opened_at": "2999-01-01T00:00:00.000Z" }
+JSON
+
+EXACT17="$(cat "$CALL17")"
+if [[ "$(python3 -c '
+import json,sys
+q=json.load(open(sys.argv[1]))["questions"][0]["question"]
+print(len(q.split("\n\n")[0].splitlines()))' "$CALL17")" == "18" ]]; then
+  pass "the fixture payload carries all 17 rows and their header"
+else
+  bad "the 17-row fixture is not 17 rows plus a header — every removal case below would be measured against the wrong table"
+fi
+
+[[ "$(pre AskUserQuestion "$EXACT17" | decision)" == "allow" ]] \
+  && pass "the exact 17-row payload is admitted" \
+  || bad "the exact 17-row payload was not admitted — a survey at the current pin has no admissible act and the run is wedged"
+
+# `row` is the 1-based index into the seventeen data rows; the header is line 0
+# of the listing and is never the row removed.
+drop_row() { python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1]))
+q=d["questions"][0]["question"]
+listing,tail=q.split("\n\n",1)
+lines=listing.splitlines()
+del lines[int(sys.argv[2])]
+d["questions"][0]["question"]="\n".join(lines)+"\n\n"+tail
+print(json.dumps(d))' "$CALL17" "$1"; }
+
+[[ "$(pre AskUserQuestion "$(drop_row 1)" | decision)" == "deny" ]] \
+  && pass "17-row table with the first row removed — denied" \
+  || bad "a 17-row table with the first row removed was ADMITTED; the owner can be shown sixteen of seventeen tags and choose among them with nothing saying one was withheld"
+[[ "$(pre AskUserQuestion "$(drop_row 9)" | decision)" == "deny" ]] \
+  && pass "17-row table with a middle row removed — denied" \
+  || bad "a 17-row table with a middle row removed was ADMITTED; the owner can be shown sixteen of seventeen tags and choose among them with nothing saying one was withheld"
+[[ "$(pre AskUserQuestion "$(drop_row 17)" | decision)" == "deny" ]] \
+  && pass "17-row table with the last row removed — denied" \
+  || bad "a 17-row table with the last row removed was ADMITTED; the owner can be shown sixteen of seventeen tags and choose among them with nothing saying one was withheld"
+rm -f "$GATES"/*.json "$RUN/terrain.gate-capture.json"
+
 if [[ $FAILED -eq 0 ]]; then
   echo "catch: open-gate exclusivity — the gate interval admits one act, ends on an answer, and survives the prose being deleted"
   exit 0
