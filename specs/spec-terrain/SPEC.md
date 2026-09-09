@@ -46,9 +46,11 @@ later re-cut reads back in, which is how a removed surface returns.
 
 ## What this file is for, and what it is not
 
-**The runtime never reads this file.** It reads three JSON carriers. This prose
-exists for LLM sessions at judgment points and delivery, for the owner, and for a
-future implementer facing a semantic rule no carrier can hold.
+**Nothing reads this file** — not the runtime, not a hook, not a check. It is a
+**conformance oracle**: the surface a run is judged against, never a surface a
+run is advanced from. The runtime reads three JSON carriers. This prose exists
+for the owner and for a future implementer facing a semantic rule no carrier can
+hold, and the operational content of that claim is the Removal Test at §15.9.
 
 **The precedence map — the carrier wins, per axis:**
 
@@ -893,7 +895,34 @@ settled member.
 the carriers, because it says which of them wins. The display-ID rule is a join
 constraint across three artifacts, which no single one can state.
 
-## 15. The control plane — a workflow table, and a re-entrant executor
+## 15. The control plane — ownership, and the conformance the carriers are read against
+
+### 15.0 The ownership definition, and what it forecloses
+
+**The Harness owns this workflow and executes its Acts.** Ownership is
+determined by **which component executes each Act**, never by where an
+instruction is written. A sentence telling a session what to do carries no Act;
+the component that performs the Act carries it.
+
+**So this section names no mechanism by which a session advances a run**, and
+the absence is the contract rather than an omission. Across kogaki#17 through
+#890 this control plane was specified as Harness-controlled and every
+implementation satisfied the words while leaving the Acts that mattered to the
+model — starting the executor, putting a rendering on screen, raising the
+question, re-entering the run. A file that names such a mechanism has handed
+back the Act it was written to place, and naming it here is the one way this
+spec could re-open that gap.
+
+**This file is a CONFORMANCE ORACLE.** Nothing reads it: no hook, no executor
+path, no check. It states what a conformant run looks like, and a run is
+conformant or not whether or not this file is present — which is the property
+§15.9 tests.
+
+`necessity:` ownership is the one thing the carriers cannot say about
+themselves. `workflow.json` states the order of Acts and `terrain.mjs` performs
+them; neither can state that the set of Acts is closed under the Harness, which
+is exactly the claim every prior implementation satisfied in words and broke in
+fact.
 
 ### 15.1 The workflow table is DATA, and its carrier is `src/workflow.json`
 
@@ -904,10 +933,16 @@ owner decision.
 The states, waits, write bindings, judgment points, counted baseline and
 entry-point accounting are **all in the carrier**. They are not restated here.
 
+`necessity:` that the table is data rather than code is a property of the
+design, not a row the table can hold.
+
 ### 15.2 The executor is RE-ENTRANT, and no single process owns the run
 
 **ONE entry point, entered once per act.** The executor reads the run record,
 performs the act, and returns.
+
+`necessity:` re-entrancy is a property of the process boundary, which no
+carrier field can state.
 
 ### 15.3 The run record carries CONTROL state, and never a second copy
 
@@ -917,13 +952,22 @@ performs the act, and returns.
 Lifetime and siting follow §12.2's machine-record precedent: machine-local, never
 committed.
 
-### 15.4 A wait is the executor STOPPING; it is never the runtime asking
+`necessity:` a negative — what the record does NOT hold — has no field.
 
-**§6.3's ruling binds the table.** Nothing runs unattended between the display and
-the owner's answer.
+### 15.4 A wait is the executor STOPPING, and the Harness is what resumes it
+
+**§6.3's ruling binds the table.** Nothing runs unattended between the display
+and the owner's answer.
 
 Which waits render a gate declaration is `workflow.json`'s
-`renders_gate_declaration`, per state.
+`renders_gate_declaration`, per state — a statement about which states the
+executor composes a declaration for, and about which hook chain carries that
+declaration to the owner and the answer back. It is never an obligation on a
+session.
+
+`necessity:` the distinction between the executor stopping and the runtime
+asking is a claim about who holds control at a wait, which the table's rows
+cannot make about themselves.
 
 ### 15.5 Write authority — owner artifacts are written only from writing states
 
@@ -936,6 +980,9 @@ is refused is the *write*, not the computation.
 **One writer per artifact, and grammar binds to the STATE, never to the artifact
 path.** The artifact **name** does not change; per-state names were the declined
 arm.
+
+`necessity:` the write/compute split and the declined per-state-name arm are
+decisions, and a decision's declined arm has no carrier.
 
 ### 15.6 Judgment points are typed, fenced, and reached only from declared states
 
@@ -953,40 +1000,35 @@ An entry point that is gone is gone: no refusing case, no pointer, no record of
 what it used to do. Where its behaviour **is** a state, a stub would additionally
 be a second way to reach that state.
 
-### 15.6.4 A GATE WAIT IS ANSWERED BY A CAPTURE, AND THE HARNESS WRITES IT (v37)
+### 15.6.4 A GATE WAIT IS ANSWERED BY A CAPTURE, AND THE HARNESS WRITES IT
 
 At a wait whose declaration was written, **the capture is not one way to answer;
-it is the way.** `GATE_WORK` carries the carve-out, and `--input` remains
-admissible at a wait whose declaration was *not* written, because refusing both
-would leave such a wait unanswerable.
+it is the way.**
 
-**And the capture is written by the harness (v37, kogaki#890).** The row is
-written by `.claude/hooks/write-gate-capture.py` when the owner answers the
-question; `--capture-option`, `--capture-free-text` and `--tool-use-id` are
-**removed from `run` and refused by name**. A re-entry at an outstanding
-declared gate takes no argument at all: the executor reads the recorded answer
-and advances, or refuses and names the hook, the capture path and the
-open-gate pointer.
+The declaration is composed by the executor. The question reaches the owner on a
+harness-rendered surface, the answer is recorded by
+`.claude/hooks/write-gate-capture.py` at the moment the owner gives it, and the
+same hook chain invokes the executor again. **Every component in that sentence is
+the Harness**, which is what §15.0 requires of a gate.
 
 The join is the declaration's `gate_instance_id`, minted per **raising** — the
 mechanism, and why it is a nonce rather than a digest, is
 `specs/spec-gate-carrier/SPEC.md` §10, cited here and restated nowhere.
 
-**What the old channel actually cost, kept because the option bound made it
-look guarded.** An option the declaration never offered was refused, which was
-real; it was also the whole of it. A mis-transcribed option that *was* offered,
-or a capture issued with no gate rendered at all, was admitted, the wait
-completed, and the run advanced on an answer the owner never gave — the right
-act with the guard silently disabled.
+**What a session-carried answer actually cost, kept because the option bound made
+it look guarded.** An option the declaration never offered was refused, which was
+real; it was also the whole of it. A mis-transcribed option that *was* offered, or
+an answer issued with no gate rendered at all, was admitted, the wait completed,
+and the run advanced on an answer the owner never gave — the right act with the
+guard silently disabled.
 
-### 15.6.5 `ID_SELECTION` DECLARES A GATE (v37, kogaki#890)
+### 15.6.5 `ID_SELECTION` DECLARES A GATE
 
 It was this table's one wait that declared none, so its owner input — a G/SG id
-list — arrived as a bare `--input` the session composed, with no declaration to
-check it against and no evidence that any question was put. **The gap is the
-finding rather than an oversight**: gate coverage was computed over the
-*declared* gates, so the one undeclared wait sat outside the enumeration and a
-complete-looking number could never have found it.
+list — arrived with no declaration to check it against and no evidence that any
+question was put. **The gap is the finding rather than an oversight**: gate
+coverage was computed over the *declared* gates, so the one undeclared wait sat
+outside the enumeration and a complete-looking number could never have found it.
 
 Its registry row is `terrain-id-selection`. It composes **no run option** and
 that is its shape rather than an omission: the answer is a *list*, and a list is
@@ -1005,10 +1047,17 @@ in front of the owner.
 
 This is a statement about the **runtime**, not about the owner's surface.
 
+`necessity:` §15.6's subsections state placement grounds and declined arms —
+why the re-offer is a wait, why a removed entry point leaves no stub, why a gate
+wait admits one answering path — none of which a typed row can carry.
+
 ### 15.7 `self-test` and `validate` are NON-FLOW utilities
 
 They emit no owner surface, carry no sequencing authority, and are reachable
 without a run record. Every other entry point is a state.
+
+`necessity:` the non-flow class is a property of what an entry point is FOR,
+which the accounting counts but cannot define.
 
 ### 15.8 What is NOT carried — the honest list
 
@@ -1024,10 +1073,51 @@ a surface that can disagree with this one.
   lane.
 - **Falsifier 2 carries `instrument: none`** (§5.2).
 - **The judge's duty for `other` is unverifiable** (§8).
+- **Nothing holds the path half of §15.9's precondition.** That no hook,
+  executor path or check names this file's path was measured once, at
+  kogaki#1032, and no member re-measures it. A reference reintroduced on a later
+  head is caught by a reader or not at all — the same class as the rendering
+  files above, and stated here rather than left to be discovered by a Removal
+  Test that nothing runs.
+- **The runtime's answering affordances are not enumerated here.** Which flags
+  `run` accepts at which wait is the executor's own surface and its refusals;
+  enumerating them in this file would be naming a way to advance a run, which
+  §15.0 forecloses. What this file states is that at a declared gate the
+  answering path is the capture.
 
 `deferred slots:` none.
 
-`necessity:` §15 states only what the table cannot say about itself —
-re-entrancy, where write authority lives and when it is released, why the
-re-offer is a wait rather than a judgment — plus the honest list of what nothing
-enforces, which by construction has no carrier.
+`necessity:` §15 states only what the carriers cannot say about themselves —
+ownership, re-entrancy, where write authority lives and when it is released, why
+the re-offer is a wait rather than a judgment — plus the honest list of what
+nothing enforces, which by construction has no carrier.
+
+### 15.9 The Removal Test — what makes this file an oracle rather than a dependency
+
+**The test.** With `.claude/skills/terrain/SKILL.md` reduced to its start line
+and `specs/spec-terrain/` moved out of the tree, a run driven by hook payloads
+alone produces artifacts byte-equal to the golden run.
+
+**What passing it establishes, and it is not that the file is worthless.** It
+establishes that no Act of the workflow is performed by reading this file —
+that every Act has an executing component, and that component is reachable
+without the prose. A spec whose removal changes a run is a dependency wearing a
+spec's name, and the Act it was carrying was being performed by whoever read it.
+
+**What passing it does NOT establish.** That the run is *correct*. The oracle is
+what a reader judges a run against; the test only shows the judgment is made
+from outside the machinery rather than inside it.
+
+**It is a test of the tree, not a schedule.** Nothing here removes the
+directory, and nothing runs the test on every head: §15.8's honest list already
+records that semantic conformance routes to the review lane, and this is the
+same class. What runs mechanically is one half of one precondition — that the
+skill file carries nothing but its start line
+(`checks/check-terrain-skill-is-one-line.sh`). That no hook, executor path or
+check names this spec's path was established once, at kogaki#1032, and is held
+by nothing on later heads; §15.8 records the gap rather than this section
+claiming a member it does not have.
+
+`necessity:` the test is the operational content of "conformance oracle", and
+it is a statement about the whole tree with this file removed from it — which
+by construction no carrier inside the tree can hold.

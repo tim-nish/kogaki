@@ -226,6 +226,16 @@ different files across the tables at once: `specs/SPEC.md` in
 per file and unreadable across files, which is exactly the half a cross-file
 reader needs.
 
+**The exception is discharged by the FILE, never by the table** (kogaki#1032).
+A file whose own references stop writing a bare `SPEC.md` leaves the exception
+behind and takes the ordinary rule: `src/survey-schema.json` now names
+`SPEC-terrain` throughout and its table's second column says so. That is the
+primary rule reasserting itself rather than a carve-out, and it is the route
+any other file takes out of the exception — the exception exists to disambiguate
+a bare label, so a file with no bare label has nothing to disambiguate. The
+three-file example above is kept at its own head as the ground the rule was
+measured on, and is not a claim about the tree today.
+
 ### 2a. The NAME's form is the file's too, and that is a cost, not an oversight
 
 The same convention as the label's, with the opposite trade, so it is written
