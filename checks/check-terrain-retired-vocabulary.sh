@@ -18,11 +18,18 @@
 # fact, and its tell is a suite growing one member per incident. The
 # produce-side fix is kogaki#685's re-cut to current-contract-only, which
 # landed at ee4f581 and removed the corpus that regenerated the vocabulary.
-# Measured at this admission: `specs/spec-terrain/SPEC.md` now contains the
-# word "leaf" ZERO times, so the SPEC half of this check is already vacuous,
-# exactly as #708 predicted. What remains is the two carriers the re-cut does
-# not reach — `terrain/` and `checks/` — where five sites still stated the
-# frame as current and were renamed in the same act.
+# Measured at the #708 admission: the Terrain spec contained the word "leaf"
+# ZERO times, so the SPEC half of this check was already vacuous, exactly as
+# #708 predicted. What remains is the two carriers the re-cut does not reach —
+# `src/` and `checks/` — where five sites still stated the frame as current and
+# were renamed in that act.
+#
+# THE SPEC ROOT IS GONE FROM THE LIST (kogaki#1032), and it left by RULING
+# rather than by being empty. The Terrain spec is a conformance oracle: no
+# hook, executor path or check reads it. A vocabulary tripwire over a document
+# nothing reads is a check aimed at a non-carrier, and the vacuous half above
+# is what that ruling makes permanent rather than incidental. Three roots
+# remain, and arm (c) asserts all three.
 #
 #   "A ported mechanism can carry its DATA SHAPE across intact while the RULE
 #   that gave it meaning is left behind, and the surviving shape is what makes
@@ -104,7 +111,7 @@ TERMS=(
   "NOT a leaf"
 )
 
-ROOTS=(specs/spec-terrain src checks .claude/skills/terrain)
+ROOTS=(src checks .claude/skills/terrain)
 
 # roots_missing <tree> — prints every declared ROOT that resolves to no tracked
 # file in <tree>.
@@ -118,7 +125,7 @@ ROOTS=(specs/spec-terrain src checks .claude/skills/terrain)
 # on a clean tree.
 #
 # MEASURED, not reasoned (2026-09-02). kogaki#765 moved `terrain/` to `src/`,
-# one of the four roots below. The pre-repair check run against the post-move
+# one of the roots below. The pre-repair check run against the post-move
 # tree printed `ok: … 11 terms, no operative carrier states them as current`
 # while `src/` carried FOUR live hits it never looked at.
 #
@@ -187,11 +194,11 @@ fi
 # that matched nothing at all would read identically to a clean tree.
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/src" "$tmp/specs/spec-terrain" "$tmp/checks" "$tmp/.claude/skills/terrain"
+mkdir -p "$tmp/src" "$tmp/checks" "$tmp/.claude/skills/terrain"
 ( cd "$tmp" && git init -q . && git config user.email c@e && git config user.name c )
 # EVERY declared root carries a tracked file, so the mutant tree is a faithful
 # model of a well-formed repository and can serve as (c)'s control arm. git
-# tracks no empty directory, so mkdir alone would leave three of the four roots
+# tracks no empty directory, so mkdir alone would leave every declared root
 # unresolvable and (c) would fire on its own fixture.
 for r in "${ROOTS[@]}"; do
   mkdir -p "$tmp/$r"
