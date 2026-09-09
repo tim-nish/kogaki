@@ -7451,6 +7451,28 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       if (existsSync(callHere)) {
         console.log(`The AskUserQuestion call is WRITTEN: ${callHere}`);
         console.log(`Send that file's contents as the tool_input, byte-for-byte — it already carries the reading (\`tag_listing\`) above the question. Nothing is retyped, summarized, reformatted or pre-selected, and the executor renders no question UI of its own (the post-tag-selection window).`);
+        // AND THE BYTES ARE HERE, NOT ONLY THEIR ADDRESS (kogaki#1057). On
+        // 2026-09-09 at 15:48 UTC this stop named the file and printed none of
+        // it. The session's one admissible act needed those bytes; the act that
+        // fetches bytes is a `Read`, and `.claude/hooks/gate-open-terrain-
+        // gate.py` denies every tool inside the interval, no tool exempt. The
+        // two refusals were each correct and jointly unrenderable: a payload
+        // named and not printed is a payload no admissible act can obtain.
+        // A PATH IS AN INSTRUCTION TO READ; the interval closes over the read.
+        // So the start act delivers the payload on the one channel it already
+        // owns to the session — this stdout, which the skill expansion hands
+        // over before any tool exists to deny. THE FILE STAYS THE REFERENCE:
+        // the PreToolUse equality check is unchanged and still compares against
+        // it, so a payload that arrives paraphrased is refused exactly as
+        // before, and nothing here admits a second act into the interval.
+        // ONE SITE, BOTH ENTRIES (kogaki#1057 item 2). A re-entry that stops at
+        // a gate wait with a written call prints through this same branch, so
+        // "the same holds at re-entry" is a property of where this stands
+        // rather than a second copy that could drift from it.
+        console.log(`Its bytes are below — the payload itself, not a path to one. No tool is admissible inside the open-gate interval, the Read that would fetch this file included, so a call named and unprinted is one nothing can obtain (kogaki#1057).`);
+        console.log("```json");
+        console.log(readFileSync(callHere, "utf8").replace(/\n+$/, ""));
+        console.log("```");
         console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028).`);
       } else {
         console.log(`No AskUserQuestion call could be composed for this gate, and the reason is on the open-gate pointer (\`gate_call_unavailable\`). Render the declaration's options verbatim, nothing pre-selected, free text on.`);
@@ -8012,6 +8034,31 @@ switch (cmd) {
         ok("the stop names the WRITTEN AskUserQuestion call rather than instructing the session to compose one",
           /call is WRITTEN/.test(out) && /byte-for-byte/.test(out) && !/OWED AND UNWRITTEN/.test(out),
           out.split("\n").filter((l) => /call is WRITTEN|byte-for-byte/.test(l)).join(" | ").slice(0, 200));
+        // AND THE BYTES ARE ON THE STDOUT, NOT ONLY THEIR ADDRESS (kogaki#1057
+        // item 3, the fixture the issue asks for). This is the case that would
+        // have failed on 2026-09-09: the stop named the call and printed none of
+        // it, and the session's one admissible act needed bytes that no
+        // admissible act could fetch. It asserts the delivery rather than the
+        // wording -- the block is PARSED and canonicalised against the written
+        // file, so a printed path, a summary, or a re-serialisation that dropped
+        // or reordered a field is a failure, and a re-worded sentence around the
+        // block is not.
+        {
+          const callPath = join(rd, `terrain-tag-selection${GATE_CALL_SUFFIX}`);
+          // The same canonicalisation the PreToolUse hook compares with: key
+          // order is not part of the payload, and everything else is.
+          const canon = (v) => JSON.stringify(v, (_k, x) => (
+            x && typeof x === "object" && !Array.isArray(x)
+              ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, x[k]]))
+              : x));
+          const fenced = out.match(/```json\n([\s\S]*?)\n```/);
+          let printed = null;
+          try { printed = fenced ? JSON.parse(fenced[1]) : null; } catch { printed = null; }
+          ok("the stop PRINTS the gate call's bytes, and the printed block canonicalises equal to the written file — the payload reaches the session on a channel the open-gate interval does not deny",
+            !!fenced && printed !== null && existsSync(callPath)
+              && canon(printed) === canon(readJson(callPath)),
+            fenced ? `parsed=${printed !== null}` : "(no fenced block on the stop's stdout)");
+        }
         {
           const callPath = join(rd, `terrain-tag-selection${GATE_CALL_SUFFIX}`);
           const call = existsSync(callPath) ? readJson(callPath) : null;
