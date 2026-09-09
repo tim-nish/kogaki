@@ -31,6 +31,18 @@ owner's, which is the class `write-gate-capture.py` exists to close. The
 owner's answer enters through the question's own free-text row and is written by
 PostToolUse under the pointer's `gate_instance_id`, or it does not enter.
 
+AND THE INTERVAL ONCE CLOSED OVER ITS OWN OPENING (kogaki#1051). On 2026-09-09
+at 13:01 UTC the owner typed `/terrain` in two sessions. The skill's `!` line
+ran first and opened the gate at 13:01:50.331; the harness ran UserPromptSubmit
+on that same prompt 133ms later; the arm below refused it as typed text at an
+open gate; and the session ended the turn with no model call at all -- one
+system line, zero usage, and no Stop hook, because no turn ran. Every later
+prompt was refused the same way. THE RECOVERY WAS FROM OUTSIDE THE SESSION: the
+pointers were moved out of `~/.claude/kogaki-open-gates/` by hand, which is not
+a recovery this file offers and not one a session can perform. A gate whose
+only admissible act is unreachable is a wedged run, and the fix is the
+`skill-expansion` mark below, not a wider refusal.
+
 SCOPED TO THIS SESSION, ALWAYS. A pointer names the session that opened it. A
 machine runs several sessions, and a deny keyed on "some pointer exists" would
 freeze every session on the machine because one of them is at a gate -- which is
@@ -191,6 +203,70 @@ def gate_line(pointer):
 
 
 # --------------------------------------------------------------------------
+# THE PROMPT THAT OPENED THE GATE (kogaki#1051)
+#
+# THE ORDER THE INTERVAL DESIGN ASSUMED IS REVERSED FOR THE START ACT. The
+# interval was designed around a pointer a model turn opens, with the owner's
+# typed text arriving later -- and there, typed text is never an answer. The
+# terrain skill's `!` line runs BEFORE the harness runs UserPromptSubmit on the
+# prompt that invoked the skill, so for the start act the gate is already open
+# when the prompt that opened it is judged, and the arm below refused it.
+#
+# So the mark, and the one thing it says. `skill-expansion` on a pointer says
+# no model turn can yet have run for it: the start act wrote it during the
+# expansion of the prompt now being judged. A prompt is admitted for exactly
+# that state, and for nothing else -- the first PreToolUse event of the session,
+# or the Stop ending a turn that called no tool, is evidence a turn ran, and it
+# stamps `turn_seen_at`, after which the arm refuses as before. Both sources are
+# named because one alone leaves a turn shape unspent: PreToolUse never fires
+# for a text-only turn, and Stop fires too late for a turn that goes on to act.
+#
+# THE MARK IS STAMPED, NOT ERASED. Clearing `opened_by` itself would also erase
+# WHICH executor opened the gate, which is the provenance the field was added to
+# carry; a second field says the same thing without spending the first.
+
+SKILL_EXPANSION = "skill-expansion"
+
+
+def unturned(pointer):
+    """Opened by the skill's `!` line, with no model turn seen since?"""
+    return pointer.get("opened_by") == SKILL_EXPANSION and not pointer.get("turn_seen_at")
+
+
+def stamp_turn_seen(pointer):
+    """Record that a turn has run for this pointer.
+
+    CALLED FROM TWO ARMS, because no single event sees every turn shape: the
+    first tool call (`pre_tool_use`), and the Stop that ends a turn which
+    called none (`stop`). The write is idempotent under `unturned`, so a turn
+    reaching both spends the mark once.
+
+    THIS HOOK IS WHERE IT LANDS BECAUSE THIS HOOK IS WHAT SEES EVERY TOOL. The
+    sibling `gate-terrain-executor.py` is a PreToolUse hook too, but it is
+    matched to the Bash commands naming the executor; only this one asks for
+    `"*"`, and a mark cleared by the first *Bash* call would leave a session
+    that rendered the question first still marked.
+
+    A failure to write is reported and not raised. The cost is one pointer that
+    keeps admitting prompts for its session until the gate is answered -- the
+    open direction, which is this file's polarity throughout.
+    """
+    path = pointer.get("_pointer_path")
+    if path is None:
+        return
+    try:
+        with open(path, encoding="utf-8") as f:
+            doc = json.load(f)
+        doc["turn_seen_at"] = datetime.now(timezone.utc).isoformat()
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(doc, f, indent=2)
+            f.write("\n")
+    except Exception as exc:                                      # noqa: BLE001
+        note(f"pointer {getattr(path, 'name', path)} could not be stamped as "
+             f"having seen a turn ({exc}); a typed prompt stays admitted for it")
+
+
+# --------------------------------------------------------------------------
 # PreToolUse
 
 def deny(reason):
@@ -211,6 +287,12 @@ def pre_tool_use(payload, pointers):
     outstanding = [p for p in pointers if not has_capture(p)]
     if not outstanding:
         return 0
+    # A TOOL CALL IS THE EVIDENCE A TURN RAN (kogaki#1051), and it is evidence
+    # whether or not the call is admitted below -- a denied call is still a turn
+    # that saw the gate. Stamped before the decision for exactly that reason.
+    for p in outstanding:
+        if unturned(p):
+            stamp_turn_seen(p)
     pointer = outstanding[0]
     where = gate_line(pointer)
     if tool != GATE_TOOL:
@@ -296,6 +378,19 @@ def stop(payload, pointers):
     outstanding = [p for p in pointers if not has_capture(p)]
     if not outstanding:
         return 0
+    # A STOP IS EVIDENCE A TURN RAN, and for a turn that called no tool it is
+    # the ONLY such evidence. `pre_tool_use` stamps at the first tool call, so
+    # a turn emitting text alone never reaches it: the block below fires,
+    # writes nothing to the pointer, and `unturned` stays true -- which keeps
+    # `user_prompt_submit` admitting typed text for this session until
+    # POINTER_TTL reaps the pointer, and leaves a run recorded
+    # `gate-unrendered` beside a pointer still claiming no turn has run.
+    # Stamping here closes that; with both sites every turn shape spends the
+    # mark exactly once, and the stamp precedes the block so it lands on the
+    # turn that earned it rather than the next one.
+    for p in outstanding:
+        if unturned(p):
+            stamp_turn_seen(p)
     pointer = outstanding[0]
     if payload.get("stop_hook_active"):
         record_unrendered(pointer, STOP_BLOCK_BOUND)
@@ -321,6 +416,12 @@ def stop(payload, pointers):
 def user_prompt_submit(payload, pointers):
     outstanding = [p for p in pointers if not has_capture(p)]
     if not outstanding:
+        return 0
+    # THE PROMPT THAT OPENED THE GATE RIDES THROUGH (kogaki#1051). Only where
+    # EVERY outstanding pointer is one no turn has run for: an unmarked pointer
+    # beside a marked one is a gate this session was already asked to render,
+    # and admitting the prompt would admit typed text at that gate too.
+    if all(unturned(p) for p in outstanding):
         return 0
     pointer = outstanding[0]
     print(json.dumps({
