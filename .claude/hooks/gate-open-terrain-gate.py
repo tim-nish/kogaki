@@ -43,6 +43,23 @@ a recovery this file offers and not one a session can perform. A gate whose
 only admissible act is unreachable is a wedged run, and the fix is the
 `skill-expansion` mark below, not a wider refusal.
 
+AND ONCE OVER THE PAYLOAD ITSELF (kogaki#1057). On 2026-09-09 at 15:48 UTC the
+tag gate opened cleanly and the prompt was admitted -- kogaki#1051's arm below
+held, and a model turn ran. The turn then could not render the question. The
+start act's stdout named `gate-call.json` and printed none of its bytes; the
+session called `Read` on that file and the PreToolUse arm refused it, correctly,
+because no tool is exempt; it then composed an `AskUserQuestion` without the
+bytes and the equality check refused that too, also correctly. The one
+admissible act needed bytes that no admissible act could obtain. The Stop arm
+blocked eight times, the harness overrode it, and the run recorded
+`gate-unrendered`. THE RECOVERY WAS AGAIN FROM OUTSIDE THE SESSION: the pointer
+was moved out of the live directory by hand. The fix is not a wider exemption
+here -- admitting a `Read` of exactly `gate_call_path` would make a second act
+admissible inside an interval whose whole property is that exactly one is. It is
+that the start act now PRINTS the payload on the stdout the skill expansion
+already delivers, before any tool exists to deny, and this file is unchanged:
+the written file stays the reference and a paraphrased payload is still refused.
+
 SCOPED TO THIS SESSION, ALWAYS. A pointer names the session that opened it. A
 machine runs several sessions, and a deny keyed on "some pointer exists" would
 freeze every session on the machine because one of them is at a gate -- which is
