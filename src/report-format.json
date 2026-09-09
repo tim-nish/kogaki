@@ -32,7 +32,7 @@
     "  the second-proposer boundary",
     "      SPEC-terrain"
   ],
-  "governing_text": "specs/spec-terrain/SPEC.md, the carrier rule",
+  "governing_text": "SPEC-terrain, the carrier rule",
   "licensed_by": "kogaki#861 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (src/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
@@ -123,7 +123,7 @@
     "cotag_groups": {
       "emitter": "cmdCotags (src/terrain.mjs), through emitOrRefuse",
       "medium": "terminal text",
-      "governing_prose": "specs/spec-terrain/SPEC.md, the display's serve rule, the SubGroup threshold",
+      "governing_prose": "SPEC-terrain, the display's serve rule, the SubGroup threshold",
       "stream": "stdout",
       "non_member_fallback": "REFUSE — a line whose class is not in line_classes is not rendered and the emitter refuses to print (the emit-time refusal). The fallback is refuse and never admit, because an enumerated prohibition's non-member fallback is admit and that is the shape the rendering rule chose against.",
       "line_classes": [
@@ -237,7 +237,7 @@
     "full_report": {
       "emitter": "renderReportMarkdown, written by cmdReport (src/terrain.mjs)",
       "medium": "Markdown, the owner rendering of location and naming v11",
-      "governing_prose": "specs/spec-terrain/SPEC.md the Full Report, the report identity, location and naming, and the provenance neighborhood for the provenance-neighborhood section",
+      "governing_prose": "SPEC-terrain, the Full Report, the report identity, location and naming, and the provenance neighborhood for the provenance-neighborhood section",
       "stream": "a written file under reports/ in the working tree (location and naming v11), never stdout",
       "non_member_fallback": "REFUSE",
       "line_classes": [

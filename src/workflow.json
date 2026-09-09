@@ -73,7 +73,7 @@
     "  the lifetime discriminator",
     "      specs/SPEC.md (named by content; no section carries it at this head)"
   ],
-  "governing_text": "specs/spec-terrain/SPEC.md, the control plane",
+  "governing_text": "SPEC-terrain, the control plane",
   "licensed_by": "kogaki#861 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
@@ -83,7 +83,7 @@
     "terminal": "The run is over. Runs nothing, writes nothing, and the executor stops without awaiting an owner. Distinct from `compute` because a generic interpreter holds no state list of its own (SPEC-terrain, the workflow table) and must read the end from the table rather than from position."
   },
   "field_semantics": {
-    "renders_gate_declaration": "Required on every state. `true` only where the state renders a gate declaration for AskUserQuestion, and `true` is what SCHEDULES the executor's composition of that state's declaration. It is a statement about the table and never about the runtime asking — the post-tag-selection window's question allowlist for the post-tag window is empty and stays empty; the executor writes a file and stops.",
+    "renders_gate_declaration": "Required on every state. `true` only where the state declares a gate, and `true` is what SCHEDULES the executor's composition of that state's declaration. It NAMES THE HOOK CHAIN THAT EXECUTES THE GATE and places no obligation on a session: the executor composes the declaration and stops, the harness renders the question the declaration carries, `.claude/hooks/write-gate-capture.py` records the answer at the moment the owner gives it, and that same chain invokes the executor again. It is a statement about the table and never about the runtime asking — the post-tag-selection window's question allowlist is empty and stays empty; the executor writes a file and stops.",
     "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states.",
     "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
     "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. The binding is per state, never per artifact path (SPEC-terrain, write authority).",

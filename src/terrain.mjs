@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Terrain — the survey/selection surface (manifest item 1, specs/SPEC.md, the port manifest;
 // kogaki#14 umbrella, kogaki#17 story 1.8; governing spec
-// specs/spec-terrain/SPEC.md).
+// SPEC-terrain).
 //
 // Terrain reads SERVED RENDERINGS only, through the seam (element_survey),
 // and composes the survey under its three contracts:
@@ -4482,7 +4482,7 @@ export function composeTrimProposal(args, dir) {
       id: `terrain-report-${Date.now()}`,
       kind: "report",
       act,
-      reason: `act ${JSON.stringify(act)} is in neither the proposal list (${acts.proposal.join(", ")}) nor the navigation list (${acts.navigation.join(", ")}) — specs/spec-terrain/SPEC.md, the second-proposer boundary: an act not in either list is a report, not a choice`,
+      reason: `act ${JSON.stringify(act)} is in neither the proposal list (${acts.proposal.join(", ")}) nor the navigation list (${acts.navigation.join(", ")}) — SPEC-terrain, the second-proposer boundary: an act not in either list is a report, not a choice`,
       narrows: false,
     };
     const out = join(dir, `${record.id}${RECORD_SCHEMA.records_home.suffix}`);
