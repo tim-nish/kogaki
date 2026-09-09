@@ -2044,6 +2044,12 @@ export function writeOpenGatePointer(dir, declaration, declPath, callPath = null
     gate_call_path: callPath ? resolve(callPath) : null,
     gate_call_unavailable: callUnavailable,
     session_id: sessionId(),
+    // WHICH EXECUTOR OPENED THIS GATE (kogaki#1051). `skill-expansion` is the
+    // start act, and it is the one kind for which no model turn can yet have
+    // run -- see `OPENED_BY`. `hook` means a turn ran to produce the tool call
+    // the hook fired on. `null` is a run started outside either route, and the
+    // reader treats it as the ordinary pointer it was before this field.
+    opened_by: OPENED_BY,
     opened_at: declaration.declared_at,
   }, null, 2) + "\n");
 }
@@ -6169,6 +6175,32 @@ const EXECUTOR_KINDS = ["hook", "skill-expansion"];
 // above.
 const SKILL_EXPANSION_EXECUTOR = { executor: "skill-expansion" };
 
+// WHO OPENED THE POINTER THIS ACT WRITES (kogaki#1051).
+//
+// The pointer already records WHICH gate is open and WHOSE session it is open
+// for. What it could not say is whether the model has had a turn since -- and
+// for the START act the answer is no, by construction: the harness runs the
+// skill's `!` line BEFORE it runs UserPromptSubmit on the prompt that invoked
+// the skill, so the gate is already open when the prompt that opened it is
+// judged, and `gate-open-terrain-gate.py` refused it. On 2026-09-09 that
+// wedged two sessions at their first prompt with no model turn ever running,
+// and the recovery was to move the pointers out of the directory by hand.
+//
+// A PROCESS-WIDE VARIABLE, AND THAT IS THE SCOPE OF THE FACT. One invocation
+// of this file is one act with one attribution: `cmdRun` receives it from its
+// caller and every pointer written under that call was opened by it. Threading
+// it through `emitGateDeclaration`'s callers -- the option composers, several
+// frames down -- would carry the same single value along a longer path and
+// give a second place for it to disagree with itself.
+let OPENED_BY = null;
+
+// Set once per act, by the one caller that knows: see `cmdRun`.
+function setOpenedBy(advancedBy) {
+  OPENED_BY = (advancedBy && EXECUTOR_KINDS.includes(advancedBy.executor))
+    ? advancedBy.executor
+    : null;
+}
+
 // The hook payload, read from stdin ONCE per act. Returns null when there is
 // nothing readable there: no payload, an empty stream, or bytes that are not
 // JSON. It never throws and never exits -- the REFUSAL is the caller's, so
@@ -7045,6 +7077,10 @@ const GATE_WORK = {
 // produce -- `survey` and the stop at TAG_SELECTION -- so a start invocation
 // cannot walk a whole run under one skill-expansion attribution.
 function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
+  // The attribution the caller resolved is also what every open-gate pointer
+  // this act writes records as `opened_by` (kogaki#1051). Set here rather than
+  // at the writer because here is where it is known.
+  setOpenedBy(advancedBy);
   // THE START ACT OPENS a workspace; an ADVANCE RESOLVES the one that is open
   // (PR #1034 round 1). An explicit `--run-dir` still wins for both, because a
   // caller who named a directory named it because they hold it -- that is the
@@ -8547,6 +8583,62 @@ switch (cmd) {
         ok("three raisings of one gate in one run leave exactly ONE pointer — the prescribed recovery does not accumulate the orphans it would then be blocked by",
           readdirSync(gatesFor("reraise")).filter((f) => f.endsWith(".json")).length === 1,
           `${readdirSync(gatesFor("reraise")).length} pointer(s)`);
+
+        // THE POINTER NAMES WHO OPENED IT (kogaki#1051). The hook admits the
+        // prompt that invoked the skill for a `skill-expansion` pointer and for
+        // no other, so the field has to be on the file the start act writes --
+        // and it has to be the OTHER value on the file an advance writes, or
+        // every gate in every run would admit typed text.
+        const readOnly = (name) => {
+          const dir = gatesFor(name);
+          if (!existsSync(dir)) return null;
+          const f = readdirSync(dir).filter((x) => x.endsWith(".json"))[0];
+          return f ? readJson(join(dir, f)) : null;
+        };
+        ok("a pointer written under a hook-attributed advance records `opened_by: hook` — the ordinary gate, where a turn has run by construction",
+          (readOnly("reraise") || {}).opened_by === "hook",
+          JSON.stringify((readOnly("reraise") || {}).opened_by));
+
+        // AND THE START ATTRIBUTION WRITES THE OTHER VALUE. The case above is
+        // the whole wiring — `hook` reaches the pointer only through `cmdRun`'s
+        // `setOpenedBy(advancedBy)`, so a writer that ignored the attribution
+        // would record null there and fail. What remains is the VALUE the start
+        // act carries, and the case at ITEM 1 above already asserts that its
+        // transitions carry `executor: "skill-expansion"` — the same object
+        // this drives the writer with.
+        //
+        // DRIVEN AT THE WRITER RATHER THAN THROUGH `start` BECAUSE THE CLI
+        // START CANNOT REACH A GATE HERE: the start act mints its own run
+        // record, its first state is the survey, and the survey state runs
+        // `cmdSurvey` against the gateway — which this pass, being seam-free by
+        // construction, does not have. A fixture that pre-wrote the survey
+        // record would be refused as a resumption, which is the start act's own
+        // rule working correctly.
+        {
+          const startGates = gatesFor("startwriter");
+          const rdSW = join(gs, "rd-start-writer");
+          mkdirSync(rdSW, { recursive: true });
+          const declSW = {
+            id: "terrain-tag-selection", question: "Which tag does the survey open on?",
+            gate_instance_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            declared_at: new Date().toISOString(),
+          };
+          const declPathSW = join(rdSW, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`);
+          writeFileSync(declPathSW, JSON.stringify(declSW, null, 2) + "\n");
+          const savedGates = process.env.KOGAKI_OPEN_GATES;
+          process.env.KOGAKI_OPEN_GATES = startGates;
+          try {
+            setOpenedBy(SKILL_EXPANSION_EXECUTOR);
+            writeOpenGatePointer(rdSW, declSW, declPathSW);
+          } finally {
+            setOpenedBy(null);
+            if (savedGates === undefined) delete process.env.KOGAKI_OPEN_GATES;
+            else process.env.KOGAKI_OPEN_GATES = savedGates;
+          }
+          ok("a pointer written under the START attribution records `opened_by: skill-expansion` — the one state in which no model turn can yet have run, and the one the prompt arm admits",
+            (readOnly("startwriter") || {}).opened_by === "skill-expansion",
+            JSON.stringify((readOnly("startwriter") || {}).opened_by));
+        }
 
         rmSync(gs, { recursive: true, force: true });
       }
