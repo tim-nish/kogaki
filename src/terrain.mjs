@@ -6350,6 +6350,10 @@ const STATE_WORK = {
 // checking rather than assuming: the executor still asks nothing and still
 // renders no question UI. It writes a file and stops. What changed is that the
 // file can no longer be written from anywhere else.
+// The selector affordance holds four options; one is the registry's standing
+// option, so the run contributes at most three (kogaki#1029).
+const TAG_OPTION_COUNT = 3;
+
 const GATE_WORK = {
   // THE LISTING RIDES THE DECLARATION, and that is the whole of kogaki#856's
   // display fix. `tag_listing` carries the runtime's own pre-selection
@@ -6367,10 +6371,25 @@ const GATE_WORK = {
   // and free-form entry of a tag name. A per-tag option set is not offered —
   // the served tag count is in the hundreds and the selector affordance holds
   // four.
-  TAG_SELECTION: (rec) => ({
-    options: [],
-    extra: { tag_listing: composeOwnerListing("tag_listing", renderTagDisplay(readJson(needSurvey(rec)))) },
-  }),
+  //
+  // REVISED 2026-09-09 (kogaki#1029, the first live hook-driven run): the
+  // harness's selector REFUSES a question with fewer than two options, so the
+  // one-standing-option shape above was unrenderable — the gate never appeared
+  // and the run could not be advanced by anyone. The FORMAT is the surface's
+  // (two to four options); the VALUES are the run's. The composer now offers
+  // the largest served tags, up to TAG_OPTION_COUNT, each option id being the
+  // tag name itself so a click lands exactly where a typed tag lands; the
+  // standing option still rides beside them, and any other tag is free text.
+  TAG_SELECTION: (rec) => {
+    const survey = readJson(needSurvey(rec));
+    const ranked = [...(survey.sections || [])]
+      .sort((a, b) => (((b.by_family || {}).lesson || 0) - ((a.by_family || {}).lesson || 0)) || String(a.name).localeCompare(String(b.name)))
+      .slice(0, TAG_OPTION_COUNT);
+    return {
+      options: ranked.map((sec) => ({ id: String(sec.name), label: tagRow(sec) })),
+      extra: { tag_listing: composeOwnerListing("tag_listing", renderTagDisplay(survey)) },
+    };
+  },
 
   TRIM_RATIFICATION: (rec, st, args, dir) => {
     const proposalPath = args.proposal ? String(args.proposal) : composeTrimProposal(args, dir);
@@ -7297,8 +7316,17 @@ switch (cmd) {
       // EXACTLY TWO WAYS TO ANSWER (owner rulings 1 and 2, 2026-09-04): the
       // standing option, and free text. The composer contributes none of its
       // own, and the standing one is the premise negation the gate owes.
-      ok("the composer offers no run-computed option — the option set is the registry's standing one alone",
-        Array.isArray(composed.options) && composed.options.length === 0);
+      // TWO TO FOUR OPTIONS, because that is the selector's format (kogaki#1029,
+      // the first live hook-driven run: one option was refused by the harness).
+      // The run contributes the largest served tags, ids = tag names, and the
+      // standing option rides beside them.
+      const rankedNames = [...surveyRec.sections]
+        .sort((a, b) => (((b.by_family || {}).lesson || 0) - ((a.by_family || {}).lesson || 0)) || String(a.name).localeCompare(String(b.name)))
+        .slice(0, 3).map((x) => String(x.name));
+      ok("the composer offers the largest served tags as options, ids equal to the tag names, at most three",
+        Array.isArray(composed.options) && composed.options.length === Math.min(3, surveyRec.sections.length)
+          && composed.options.every((o, i) => o.id === rankedNames[i] && o.label === tagRow(surveyRec.sections.find((x) => String(x.name) === o.id))),
+        JSON.stringify(composed.options));
 
       // THE BYTES REACH THE ARTIFACT, not only the composer's return value.
       // The session renders the FILE, so a declaration that dropped the key on
@@ -7311,8 +7339,11 @@ switch (cmd) {
         const decl = readJson(declPath);
         ok("the WRITTEN declaration carries the listing — the bytes reach the file the session renders, not only the composer's return",
           decl.tag_listing === renderTagDisplay(surveyRec));
-        ok("the written declaration offers the standing option and free text, and nothing else",
-          decl.options.length === 1 && decl.options[0].id === "other-method" && decl.free_text_offered === true,
+        ok("the written declaration offers the tag options plus the standing option — between two and four, a shape the selector renders — and free text",
+          decl.options.length >= 2 && decl.options.length <= 4
+            && decl.options[decl.options.length - 1].id === "other-method"
+            && decl.options.slice(0, -1).every((o, i) => o.id === rankedNames[i])
+            && decl.free_text_offered === true,
           JSON.stringify(decl.options.map((o) => o.id)));
         rmSync(gd, { recursive: true, force: true });
       }
