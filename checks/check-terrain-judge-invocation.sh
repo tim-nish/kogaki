@@ -35,9 +35,17 @@ pass() { cases=$((cases + 1)); }
 SCRATCH=$(mktemp -d) || { echo "FAIL — no temp directory; CANNOT-DETERMINE, never a pass"; exit 1; }
 trap 'rm -rf "$SCRATCH"' EXIT
 
-# ---- THE SEAM STUB. Three Lessons over two tags, so the selected tag yields one
-# co-tag group with two members — above nothing and below the SubGroup threshold,
-# which is what makes a judged-EMPTY subdivision the conformant answer.
+# ---- THE SEAM STUB. Five Lessons over three tags, so the selected tag yields
+# TWO co-tag groups of two members each — each above nothing and below
+# `min_subgroup_members`, which is what makes a judged-EMPTY subdivision the
+# conformant answer for both.
+#
+# TWO GROUPS RATHER THAN ONE, AND THAT IS LOAD-BEARING (kogaki#1062). The survey
+# composed a single co-tag group until this issue, and one group cannot
+# discriminate "one judge call per composed group" from "one judge call over all
+# of them": both make exactly one call. The per-group assertions below count
+# calls and compare each call's input against the group it names, so the fixture
+# has to compose more than one group for either observation to mean anything.
 build_tree() {                      # build_tree <dir> [--reduced]
   local root=$1 reduced=${2:-}
   mkdir -p "$root/policy/kit/bin"
@@ -61,6 +69,10 @@ const PIN = "product-lab@f1x7ure";
 const LESSONS = [
   { slug: "one-thing-per-act", tags: ["fixture", "shared"] },
   { slug: "a-bound-that-cannot-fire", tags: ["fixture", "shared"] },
+  // The second co-tag group (kogaki#1062). Two members, like the first, so both
+  // sit below `min_subgroup_members` and judged-EMPTY stays conformant for each.
+  { slug: "a-derivation-with-no-measurement", tags: ["fixture", "derived"] },
+  { slug: "a-bound-that-straddles-its-work", tags: ["fixture", "derived"] },
   { slug: "an-unrelated-lesson", tags: ["other"] },
 ];
 if (tool === "element_survey") {
@@ -97,6 +109,7 @@ STUB
 // with hard-coded group names would be refused by the very subset check the
 // state exists to run, and would therefore test nothing.
 const fs = require("node:fs");
+const path = require("node:path");
 const MARKER = "----- INPUT (JSON) -----";
 const prompt = fs.readFileSync(0, "utf8");
 const at = prompt.indexOf(MARKER);
@@ -110,8 +123,26 @@ if (input.kind === "composition-input" && /J1_claims/.test(prompt)) {
     claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
   };
 } else if (input.kind === "composition-input") {
-  // J2_subdivision. Judged EMPTY: the fixture's one group is below the split
+  // J2_subdivision. Judged EMPTY: each of the fixture's groups is below the split
   // threshold, so "no split" is the conformant answer rather than an evasion.
+  //
+  // KEYED OFF `input.groups` AND NOT OFF A FIXED NAME, which is what makes this
+  // stub answer the per-group ask (kogaki#1062) without being rewritten for it:
+  // the scoped input carries exactly the one group the call is about, so the same
+  // expression yields the one-key record that ask demands and the whole map the
+  // whole-input ask demanded.
+  //
+  // EVERY J2 CALL IS LOGGED, one line per call naming the group it was asked
+  // about and how many groups its input carried. The call COUNT is the property
+  // acceptance 1 is about and no run record carries it per call, so the stub --
+  // which is the only party that sees each invocation -- is what records it.
+  const log = path.join(__dirname, "j2-calls");
+  fs.appendFileSync(log, JSON.stringify({
+    judging_group: input.judging_group === undefined ? null : input.judging_group,
+    groups: input.groups.map((g) => g.name),
+    material: (input.material || []).map((m) => m.id),
+    pin_groups: Object.keys((input.composition_pin || {}).groups || {}),
+  }) + "\n");
   record = Object.fromEntries(input.groups.map((g) => [g.name, { judged: true, subgroups: [] }]));
 } else if (input.state === "thesis_candidates") {
   const strands = input.strands_you_may_use;
@@ -217,8 +248,95 @@ process.stdout.write(JSON.stringify({ result: JSON.stringify({
   claims: input.groups.map((g) => ({ group: g.name, claim: "A fixture claim in the array form." })),
 }) }) + "\n");
 JUDGE
+  # ---- THE PER-GROUP REPAIR STUB (kogaki#1062, acceptance 1's second half). J1 is
+  # answered conformantly. At J2 the group whose name sorts LAST is refused once --
+  # by returning the live 2026-09-09 shape, the entry wrapped in an envelope
+  # carrying a `kind` key -- and answered conformantly on its second call. Every
+  # other group is answered conformantly on its FIRST call, which is what makes
+  # the property under test observable: a group that passed is not re-asked, so
+  # the refusal must land against that one group alone.
+  cat > "$root/judge-group-repairs" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+if (/`J1_claims` judgment point/.test(prompt)) {
+  process.stdout.write(JSON.stringify({ result: JSON.stringify({
+    composition_pin: input.composition_pin,
+    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
+  }) }) + "\n");
+  process.exit(0);
+}
+// J2. THE TARGET IS WRITTEN DOWN BY THE FIRST CALL AND READ BACK BY THE REST, so
+// the assertions can name it without retyping the group naming the executor mints.
+const g = input.groups[0];
+const targetFile = path.join(__dirname, "group-repair-target");
+const seenFile = path.join(__dirname, `group-repair-seen-${g.name.replace(/[^a-zA-Z0-9]+/g, "-")}`);
+let target;
+try { target = fs.readFileSync(targetFile, "utf8").trim(); } catch { target = ""; }
+if (!target) {
+  // THE GROUP OF THE FIRST J2 CALL, then fixed. The stub sees one group per call
+  // and cannot know the whole set, so the target is whichever group is asked
+  // about first; that is enough, because the property under test is that the
+  // OTHER groups are not re-asked, and their identity does not matter.
+  target = g.name;
+  fs.writeFileSync(targetFile, target);
+}
+let seen = 0;
+try { seen = Number(fs.readFileSync(seenFile, "utf8").trim()) || 0; } catch { seen = 0; }
+fs.writeFileSync(seenFile, String(seen + 1));
+fs.writeFileSync(path.join(__dirname, `group-repair-prompt-${g.name.replace(/[^a-zA-Z0-9]+/g, "-")}-${seen + 1}.txt`), prompt);
+let record;
+if (g.name === target && seen === 0) {
+  // THE LIVE 2026-09-09 SHAPE: the entry wrapped in an envelope carrying a `kind`
+  // key, which is what the run's one in-bound attempt actually returned.
+  record = { kind: "subdivision", [g.name]: { judged: true, subgroups: [] } };
+} else {
+  record = { [g.name]: { judged: true, subgroups: [] } };
+}
+process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
+JUDGE
+
+  # ---- THE PER-GROUP UNREPAIRABLE STUB (kogaki#1062, acceptance 2). One group is
+  # answered with the wrong shape on EVERY call; the rest are conformant. The state
+  # must fail after that group's declared bound, and the failure must name the
+  # group -- a refusal naming only the state would leave an operator with eleven
+  # groups and no way to tell which one spent the bound.
+  cat > "$root/judge-group-wrong-shape" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+if (/`J1_claims` judgment point/.test(prompt)) {
+  process.stdout.write(JSON.stringify({ result: JSON.stringify({
+    composition_pin: input.composition_pin,
+    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
+  }) }) + "\n");
+  process.exit(0);
+}
+const g = input.groups[0];
+const targetFile = path.join(__dirname, "group-wrong-target");
+let target;
+try { target = fs.readFileSync(targetFile, "utf8").trim(); } catch { target = ""; }
+if (!target) { target = g.name; fs.writeFileSync(targetFile, target); }
+const record = g.name === target
+  // THE WITHDRAWN PRE-V9 BARE ARRAY, which `readSubdivisionEntry` refuses by
+  // name -- the shipped refusal, composed nowhere here.
+  ? { [g.name]: [] }
+  : { [g.name]: { judged: true, subgroups: [] } };
+process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
+JUDGE
   chmod +x "$root/judge-conformant" "$root/judge-nonconformant" "$root/judge-garbage" \
-           "$root/judge-repairs" "$root/judge-wrong-shape"
+           "$root/judge-repairs" "$root/judge-wrong-shape" \
+           "$root/judge-group-repairs" "$root/judge-group-wrong-shape"
 }
 
 # ---- THE SYNTHESIZED PAYLOAD. One PostToolUse event for an AskUserQuestion the
@@ -401,6 +519,71 @@ PY
     bad "$label: the run record names no J1_claims/J2_subdivision judgment — the executor did not invoke the judge, or did not record which record it validated"
   fi
 
+  # --- kogaki#1062 ACCEPTANCE 1, FIRST HALF. ONE J2 CALL PER COMPOSED GROUP, and
+  # each call carries THAT GROUP'S MATERIAL ALONE. The stub logged every J2
+  # invocation it received; the composed input names the groups. Both sides are
+  # read independently — the count from the calls the stub saw, the expected set
+  # from the input the executor composed — because a count derived from the same
+  # object it is compared against cannot fail.
+  #
+  # THE MATERIAL NARROWING IS THE HALF THAT MATTERS FOR THE BOUND. One call per
+  # group that still shipped all eleven groups' untruncated Gloss bodies would
+  # make the same measurement worse, not better: it would pay the whole-input cost
+  # eleven times.
+  if python3 - "$root/j2-calls" "$D" "$root" <<'PY'
+import json, sys, pathlib
+calls = [json.loads(l) for l in pathlib.Path(sys.argv[1]).read_text().splitlines() if l.strip()]
+rec = json.load(open(pathlib.Path(sys.argv[2], "run-record.json")))
+ci = pathlib.Path(rec["composition_input"])
+inp = json.load(open(ci if ci.is_absolute() else pathlib.Path(sys.argv[3]) / ci))
+groups = {g["name"]: set(g["members"]) for g in inp["groups"]}
+if len(groups) < 2:
+    print("the fixture survey composes", len(groups), "group(s); one group cannot discriminate "
+          "one-call-per-group from one-call-over-all", file=sys.stderr); sys.exit(1)
+if len(calls) != len(groups):
+    print(f"expected {len(groups)} J2 call(s), one per composed group; the stub saw {len(calls)}: "
+          f"{[c['judging_group'] for c in calls]}", file=sys.stderr); sys.exit(1)
+if sorted(c["judging_group"] or "" for c in calls) != sorted(groups):
+    print("the calls do not name each composed group exactly once:",
+          [c["judging_group"] for c in calls], "vs", sorted(groups), file=sys.stderr); sys.exit(1)
+for c in calls:
+    name = c["judging_group"]
+    if c["groups"] != [name]:
+        print(f"the call for {name!r} carried groups {c['groups']} — the ask must carry that group "
+              "alone", file=sys.stderr); sys.exit(1)
+    if set(c["material"]) != groups[name]:
+        print(f"the call for {name!r} carried material {sorted(c['material'])} and that group's "
+              f"members are {sorted(groups[name])} — the narrowing is what puts one call inside the "
+              "per-call bound", file=sys.stderr); sys.exit(1)
+    if c["pin_groups"] != [name]:
+        print(f"the call for {name!r} carried a composition_pin naming {c['pin_groups']} — a pin "
+              "still naming every group licenses members this ask never handed over",
+              file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: J2_subdivision did not make one judge call per composed group, each carrying that group's members alone (kogaki#1062). The stub's call log: $(tr '\n' ' ' < "$root/j2-calls" 2>/dev/null | head -c 400)"
+  fi
+  # AND THE INVOCATION RECORD SAYS SO. The call count is the figure the advance
+  # bound is derived from, so a reader checking that derivation must be able to
+  # read what the run actually spent rather than recount it from a stub log that
+  # exists only in this fixture.
+  if python3 - "$D" "$root" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+ci = pathlib.Path(rec["composition_input"])
+inp = json.load(open(ci if ci.is_absolute() else pathlib.Path(sys.argv[2]) / ci))
+row = (rec.get("judge_calls") or {}).get("J2_subdivision")
+if not row:
+    print("the run record carries no judge_calls row for J2_subdivision", file=sys.stderr); sys.exit(1)
+if row.get("per_group") is not True or row.get("calls") != len(inp["groups"]):
+    print("expected per_group=true and calls =", len(inp["groups"]), "; got", row, file=sys.stderr); sys.exit(1)
+if sorted(row.get("groups") or []) != sorted(g["name"] for g in inp["groups"]):
+    print("the row does not name every composed group:", row.get("groups"), file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the J2_subdivision invocation record does not name the per-group call count — the figure the advance bound is derived from is not readable from the run (kogaki#1062)"
+  fi
+
   # --- ACCEPTANCE 3. One payload for the ID answer produces the Full Report and
   # the STRAND_SELECTION declaration.
   local q2 p2
@@ -443,11 +626,18 @@ PY
       KOGAKI_JUDGE_CLI="$root/judge-nonconformant" \
       python3 .claude/hooks/advance-terrain.py >"$root/advbad.out" 2>&1)
 
-  local declared
+  local declared declared_j2
   declared=$(python3 -c "
 import json,sys
 t=json.load(open('$root/src/workflow.json'))
 print([s for s in t['states'] if s['id']=='J1_claims'][0]['retries'])")
+  # J2's OWN bound, read separately. `retries` is declared PER STATE precisely
+  # because the states differ in what a re-ask can repair, so a per-group
+  # assertion reading J1's count would be green on a table that moved J2's.
+  declared_j2=$(python3 -c "
+import json,sys
+t=json.load(open('$root/src/workflow.json'))
+print([s for s in t['states'] if s['id']=='J2_subdivision'][0]['retries'])")
   if grep -q "on all $((declared + 1)) attempt(s)" "$root/advbad.out"; then pass; else
     bad "$label: the run did not fail after the $declared re-ask(s) the table declares for J1_claims. It said: $(tail -4 "$root/advbad.out" | tr '\n' ' ')"
   fi
@@ -622,6 +812,167 @@ PY
   then pass; else
     bad "$label: the exhausted run's record does not carry every refusal the bound absorbed, marked unrepaired"
   fi
+
+  # --- kogaki#1062 ACCEPTANCE 1, SECOND HALF. A stub that refuses ONE group's
+  # record on its first call and conforms on its second advances the run, with
+  # exactly one refusal recorded against THAT group and none against the others.
+  # The discriminator against a whole-record retry is the untouched group: under
+  # the old shape one bad entry re-asked the entire record, so every group's
+  # judgment was recomputed and no per-group count existed to be wrong.
+  local D7="$root/run-group-repair"
+  mkdir -p "$D7"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D7" >/dev/null 2>&1)
+  local qgr pgr
+  qgr=$(declared_question "$D7" TAG_SELECTION "$root") || {
+    bad "$label: the per-group repair run wrote no TAG_SELECTION declaration"
+    return
+  }
+  pgr=$(payload "toolu_fixture_group_repair" "$qgr" "fixture")
+  capture "$root" "$D7" "$pgr" group-repair
+  printf '%s' "$pgr" | (cd "$root" && KOGAKI_RUN_DIR="$D7" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-group-repairs" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advgrouprepair.out" 2>&1)
+
+  if python3 - "$D7" "$root/group-repair-target" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+target = pathlib.Path(sys.argv[2]).read_text().strip()
+if "J2_subdivision" not in (rec.get("judgments") or {}):
+    print("the state did not advance", file=sys.stderr); sys.exit(1)
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision")
+if not r:
+    print("the record carries no judgment_refusals entry for J2_subdivision", file=sys.stderr); sys.exit(1)
+if not r.get("repaired"):
+    print("the entry is not marked repaired:", r, file=sys.stderr); sys.exit(1)
+groups = r.get("groups") or {}
+if target not in groups:
+    print("the per-group breakdown does not name the refused group", target, "; it names",
+          sorted(groups), file=sys.stderr); sys.exit(1)
+hit = groups[target]
+if hit.get("attempts") != 2 or len(hit.get("refusals") or []) != 1 or not hit.get("repaired"):
+    print("expected the refused group at attempts=2 with one refusal, repaired; got", hit,
+          file=sys.stderr); sys.exit(1)
+others = {k: v for k, v in groups.items() if k != target}
+if not others:
+    print("only one group was judged; the fixture cannot show that a passing group is not re-asked",
+          file=sys.stderr); sys.exit(1)
+for name, v in others.items():
+    if v.get("attempts") != 1 or (v.get("refusals") or []):
+        print(f"group {name!r} was re-asked although its own record was never refused: {v}",
+              file=sys.stderr); sys.exit(1)
+# AND THE FLAT LIST NAMES THE GROUP, so an operator reading `refusals` can tell
+# which of eleven groups each refusal is about.
+if len(r.get("refusals") or []) != 1 or target not in r["refusals"][0]:
+    print("the flat refusal list does not carry exactly the one refusal, naming its group:",
+          r.get("refusals"), file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: a judge that refused ONE group once and conformed next did not advance with exactly one refusal recorded against that group and none against the others (kogaki#1062). The advance said: $(tail -3 "$root/advgrouprepair.out" | tr '\n' ' ')"
+  fi
+  # AND THAT GROUP'S SECOND ASK CARRIED ITS OWN PRIOR REFUSAL — kogaki#1060's
+  # per-attempt feedback applied PER GROUP, which is what makes the re-ask a
+  # repair rather than a repetition at the per-group scale.
+  if python3 - "$root" "$D7" <<'PY'
+import json, sys, pathlib, glob
+root = pathlib.Path(sys.argv[1])
+import re
+target = (root / "group-repair-target").read_text().strip()
+slug = re.sub(r"[^a-zA-Z0-9]+", "-", target)
+p2 = root / f"group-repair-prompt-{slug}-2.txt"
+if not p2.exists():
+    print("no second ask was made for the refused group:", p2.name, file=sys.stderr); sys.exit(1)
+p1 = root / f"group-repair-prompt-{slug}-1.txt"
+t1, t2 = p1.read_text(), p2.read_text()
+if t1 == t2:
+    print("the second ask is byte-identical to the first", file=sys.stderr); sys.exit(1)
+if "----- YOUR PREVIOUS ANSWER WAS REFUSED -----" not in t2:
+    print("the second ask carries no refusal marker", file=sys.stderr); sys.exit(1)
+rec = json.load(open(pathlib.Path(sys.argv[2], "run-record.json")))
+refusal = rec["judgment_refusals"]["J2_subdivision"]["groups"][target]["refusals"][0]
+if refusal not in t2:
+    print("the second ask does not carry the first's refusal VERBATIM", file=sys.stderr); sys.exit(1)
+if t2.index("----- YOUR PREVIOUS ANSWER WAS REFUSED -----") > t2.index("----- INPUT (JSON) -----"):
+    print("the refusal was appended past the input marker", file=sys.stderr); sys.exit(1)
+# AND EVERY OTHER GROUP WAS ASKED EXACTLY ONCE.
+for f in root.glob("group-repair-prompt-*-2.txt"):
+    if f.name != p2.name:
+        print("a group that was never refused was asked twice:", f.name, file=sys.stderr); sys.exit(1)
+# THE FIRST ASK ALREADY CARRIED THE LITERAL RECORD SHAPE, keyed by this group and
+# filled from the run's own composed input — the `record_example` this issue adds
+# (item 5). Asserted on ask ONE, because an example that appeared only on the
+# re-ask would leave the first attempt spent on prose, which is the defect
+# kogaki#1059 closed for J1_claims and this state still carried.
+head = t1.split("----- INPUT (JSON) -----")[0]
+if f'"{target}"' not in head:
+    print("the first ask carries no filled example keyed by this group", file=sys.stderr); sys.exit(1)
+for token in ('"judged": true', '"subgroups"', '"coherence"', '"coherence_why"'):
+    if token not in head:
+        print("the filled example does not carry", token, file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the refused group's second ask did not carry its own prior refusal beside a filled record example keyed by that group (kogaki#1062 items 2 and 5)"
+  fi
+
+  # --- kogaki#1062 ACCEPTANCE 2. A stub that always returns the wrong shape for
+  # ONE group fails the state after the declared bound, and the failure NAMES the
+  # group and its refusal. A refusal naming only the state leaves an operator with
+  # eleven groups and no way to tell which one spent the bound.
+  local D8="$root/run-group-wrong"
+  mkdir -p "$D8"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D8" >/dev/null 2>&1)
+  local qgw pgw
+  qgw=$(declared_question "$D8" TAG_SELECTION "$root") || {
+    bad "$label: the per-group wrong-shape run wrote no TAG_SELECTION declaration"
+    return
+  }
+  pgw=$(payload "toolu_fixture_group_wrong" "$qgw" "fixture")
+  capture "$root" "$D8" "$pgw" group-wrong
+  printf '%s' "$pgw" | (cd "$root" && KOGAKI_RUN_DIR="$D8" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-group-wrong-shape" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advgroupwrong.out" 2>&1)
+
+  local wrong_target
+  wrong_target=$(cat "$root/group-wrong-target" 2>/dev/null || echo "")
+  if [ -z "$wrong_target" ]; then
+    bad "$label: the per-group wrong-shape stub was never reached at J2_subdivision"
+  elif grep -qF "group \"$wrong_target\" was refused on all $((declared_j2 + 1)) attempt(s)" "$root/advgroupwrong.out"; then
+    pass
+  else
+    bad "$label: the failure does not name the group that spent its bound, nor the $declared_j2 re-ask(s) the table declares (kogaki#1062). It said: $(tail -4 "$root/advgroupwrong.out" | tr '\n' ' ')"
+  fi
+  if grep -q "withdrawn pre-v9 form" "$root/advgroupwrong.out"; then pass; else
+    bad "$label: the exhausted per-group failure does not carry the state's own refusal text — an operator is told a group failed and never why"
+  fi
+  if python3 - "$D8" "$root/group-wrong-target" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+target = pathlib.Path(sys.argv[2]).read_text().strip()
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision")
+if not r or r.get("repaired") is not False:
+    print("expected an unrepaired judgment_refusals entry for J2_subdivision; got", r,
+          file=sys.stderr); sys.exit(1)
+hit = (r.get("groups") or {}).get(target)
+if not hit or hit.get("repaired") is not False:
+    print("the per-group breakdown does not mark the refused group unrepaired:", r.get("groups"),
+          file=sys.stderr); sys.exit(1)
+if len(hit.get("refusals") or []) != hit.get("attempts"):
+    print("the group's record does not carry one refusal per spent attempt:", hit,
+          file=sys.stderr); sys.exit(1)
+if "judged_before" not in r:
+    print("the record does not say which groups were judged before the failure", file=sys.stderr)
+    sys.exit(1)
+if target in (r.get("judged_before") or []):
+    print("the failed group is listed among those judged before it", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the exhausted per-group run's record does not mark the failing group unrepaired beside the groups judged before it (kogaki#1062)"
+  fi
+  # AND IT WROTE NO ASSEMBLED RECORD. A state that failed on one group and still
+  # left a partial per-group record behind would let the rest of the run read a
+  # judgment that was never completed.
+  if [ ! -f "$D8/terrain-judge-J2_subdivision.json" ]; then pass; else
+    bad "$label: the failed per-group state wrote an assembled subdivision record anyway"
+  fi
 }
 
 
@@ -639,6 +990,7 @@ b = (t.get('judge') or {}).get('timeout_s')
 sys.exit(0 if isinstance(b, (int, float)) and b > 0 else 1)"; then pass; else
   bad "src/workflow.json's judge block declares no positive numeric timeout_s — the per-call bound is a property of the workflow and a table that can omit it silently does not have one"
 fi
+
 
 build_tree "$SCRATCH/gold"
 drive "this tree" "$SCRATCH/gold"

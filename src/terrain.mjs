@@ -2826,6 +2826,23 @@ export function judgeRecordExample(st, input) {
       + "anything else would put a shape in front of the judge that this run never composed "
       + "(kogaki#1059).");
   }
+  // `$per-group` AS THE SOLE KEY, WHOSE VALUE IS THE TEMPLATE (kogaki#1062).
+  // This is the SAME directive as the string form below, not a third one: what
+  // widens is WHERE it may stand. `J1_claims`' record wraps its per-group map
+  // under a `claims` key, so the string form under an ordinary key expresses it;
+  // `J2_subdivision`'s record IS the per-group map, and its entries are OBJECTS
+  // rather than sentences. Neither is expressible as a value under a key, so a
+  // state whose whole record is the map had no way to bind its shape by example
+  // and stayed bound by prose — which is the defect kogaki#1059 closed for its
+  // sibling and this state still carried.
+  const soleKeys = Object.keys(tpl);
+  if (soleKeys.length === 1 && soleKeys[0] === "$per-group") {
+    if (!Array.isArray(input.groups)) {
+      fail(`${st.id}: \`record_example\` is the per-group map itself, and the composed input carries `
+        + "no `groups` array to name its keys (kogaki#1062).");
+    }
+    return Object.fromEntries(input.groups.map((g) => [String(g && g.name), tpl["$per-group"]]));
+  }
   const out = {};
   for (const [key, value] of Object.entries(tpl)) {
     if (typeof value !== "string" || !value.startsWith("$")) { out[key] = value; continue; }
@@ -2930,31 +2947,22 @@ function judgeRecordFrom(stdout, st) {
 // THE FAILURE CARRIES THE REFUSAL TEXT, which is the issue's own wording: the
 // last refusal the state raised is what the run fails with, so the operator
 // reads why the judge's record was rejected rather than "the judge failed".
-function invokeJudge(table, st, inputPath, dir, validate, rec) {
-  const cfg = judgeSettings(table);
-  const retries = Number.isInteger(st.retries) ? st.retries : fail(
-    `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
-    + `key of exactly the judgment states -- the count is a property of the workflow and is held in `
-    + `the table, never in this file (kogaki#1030).`);
-  // READ AND PARSED ONCE, and the PROMPT is what is composed per attempt
-  // (kogaki#1059). The input does not change between attempts -- the whole of
-  // what a re-ask repairs is the judge's record -- so re-reading the file each
-  // time would spend a read to make the two asks look different.
-  const inputText = readFileSync(inputPath, "utf8");
-  let input = null;
-  try { input = JSON.parse(inputText); }
-  catch (e) {
-    // ONLY THE EXAMPLE NEEDS IT PARSED, so a state declaring none is unaffected
-    // and a state declaring one refuses rather than silently dropping the
-    // example -- an example that vanishes on a bad input is the prose-only
-    // prompt returning at exactly the moment nothing would report it.
-    if (st.record_example !== undefined && st.record_example !== null) {
-      fail(`${st.id}: the composed input at ${inputPath} is not JSON (${e.message}), so the filled `
-        + "record example this state declares cannot be built from the run's own material "
-        + "(kogaki#1059).");
-    }
-  }
+// ONE BOUNDED ASK-AND-VALIDATE LOOP, WRITTEN ONCE AND SPENT BY BOTH INVOCATION
+// SHAPES (kogaki#1062). `invokeJudge` asks once over the whole composed input;
+// `invokeJudgePerGroup` asks once per composed group. The bound, the per-attempt
+// prompt composition, the widened refusal window and the deliberate
+// spawn-failure exception are properties of AN ASK rather than of either shape,
+// so a second copy of them for the per-group path would be two readings of one
+// licence -- exactly the shape `judgedRecordPath` already refuses for the
+// VALIDATION body one line below it.
+//
+// IT RETURNS RATHER THAN FAILING on an exhausted bound, and that is what the
+// per-group shape needs: the failure text names the group and the groups already
+// judged, and only the caller knows those. The whole-input caller's `fail()` is
+// unchanged and still carries the same words it did.
+function judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label }) {
   const argv = ["-p", "--model", cfg.model, "--output-format", cfg.outputFormat];
+  const at = label || "";
   let lastRefusal = null;
   // EVERY REFUSAL THE BOUND ABSORBED, in order. The run record carries them on
   // BOTH arms (kogaki#1059): a run refused once and repaired on the second ask
@@ -2973,7 +2981,6 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
     // THE ASK CARRIES THE PRIOR REFUSAL (kogaki#1059). Composed HERE, inside the
     // loop, so attempt N+1 is a different ask from attempt N.
     const prompt = judgePrompt(st, inputText, input, lastRefusal);
-    const out = join(dir, `terrain-judge-${st.id}.json`);
     try {
       // THE WHOLE RESPONSE HANDLING IS INSIDE THE WINDOW (PR #1044 round 1).
       // The first cut wrapped only `validate`, so `retries` bounded the
@@ -3004,7 +3011,7 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
           timeout: cfg.timeoutMs,
         });
         if (r.error && r.error.code === "ETIMEDOUT") {
-          fail(`${st.id}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
+          fail(`${st.id}${at}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
             + "`judge` block declares. The bound exists so that several calls in one span cannot exhaust the "
             + "PostToolUse advance's own timeout and leave a half-finished record (kogaki#1030).");
         }
@@ -3014,7 +3021,7 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
           throw r.error;
         }
         if (r.status !== 0) {
-          fail(`${st.id}: the judge exited ${r.status}. Its stderr, verbatim: ${(r.stderr || "").trim() || "(empty)"}`);
+          fail(`${st.id}${at}: the judge exited ${r.status}. Its stderr, verbatim: ${(r.stderr || "").trim() || "(empty)"}`);
         }
         return r;
       });
@@ -3023,39 +3030,14 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
       // THE STATE'S OWN REFUSALS, run against the judge's record exactly as they
       // run against an owner-supplied one.
       softRefusals(() => validate(out));
-      recordJudgeInvocation(st.id, {
-        state: st.id,
-        command: cfg.command,
-        model: cfg.model,
-        stubbed: cfg.stubbed,
-        attempts: attempt + 1,
-        retries_declared: retries,
-        refusals_repaired: refusals.length,
-        // TAKEN FROM THE BYTES ON DISK BY THIS LAYER, like every other sha in
-        // this file. A sha the response supplied would be one more declaration.
-        response_sha: createHash("sha256").update(readFileSync(out)).digest("hex").slice(0, 16),
-        at: new Date().toISOString(),
-      });
-      // THE REPAIRED ARM WRITES THE RECORD TOO (kogaki#1059). `judgment_refusals`
-      // used to be written on exhaustion alone, so a run the retry loop REPAIRED
-      // was indistinguishable at the record from one the judge answered first
-      // time -- and a repair loop nothing counts is a bound whose approach is
-      // invisible until it is spent. `repaired` is what keeps the two arms
-      // apart, so the existing exhaustion reader is unchanged by the widening.
-      if (rec && refusals.length) {
-        rec.judgment_refusals = rec.judgment_refusals || {};
-        rec.judgment_refusals[st.id] = {
-          attempts, retries_declared: retries, refusal: lastRefusal, refusals, repaired: true,
-        };
-      }
-      return out;
+      return { ok: true, out, record, attempts, refusals, lastRefusal, prompt };
     } catch (e) {
       if (!(e instanceof JudgmentRefusal)) {
         // The spawn failure the window deliberately re-throws, given its own
         // refusal here rather than at the throw site so the two arms of "the
         // judge did not answer" read alike to an operator.
         if (e && e.syscall) {
-          fail(`${st.id}: the judge could not be run (${cfg.command}: ${e.message}). The command and the `
+          fail(`${st.id}${at}: the judge could not be run (${cfg.command}: ${e.message}). The command and the `
             + "model are pinned in the workflow table's `judge` block; nothing here falls back to another "
             + "model, and a binary that is not there will not be there on a re-ask, so the bound is not spent on it.");
         }
@@ -3064,6 +3046,83 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
       lastRefusal = e.message;
       refusals.push(e.message);
     }
+  }
+  return { ok: false, out, attempts, refusals, lastRefusal };
+}
+
+// THE WHOLE COMPOSED INPUT, ONE ASK. The default shape, and the one every
+// judgment state but `J2_subdivision` still spends.
+function invokeJudge(table, st, inputPath, dir, validate, rec) {
+  const cfg = judgeSettings(table);
+  const retries = Number.isInteger(st.retries) ? st.retries : fail(
+    `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
+    + `key of exactly the judgment states -- the count is a property of the workflow and is held in `
+    + `the table, never in this file (kogaki#1030).`);
+  // READ AND PARSED ONCE, and the PROMPT is what is composed per attempt
+  // (kogaki#1059). The input does not change between attempts -- the whole of
+  // what a re-ask repairs is the judge's record -- so re-reading the file each
+  // time would spend a read to make the two asks look different.
+  const inputText = readFileSync(inputPath, "utf8");
+  let input = null;
+  try { input = JSON.parse(inputText); }
+  catch (e) {
+    // ONLY THE EXAMPLE NEEDS IT PARSED, so a state declaring none is unaffected
+    // and a state declaring one refuses rather than silently dropping the
+    // example -- an example that vanishes on a bad input is the prose-only
+    // prompt returning at exactly the moment nothing would report it.
+    if (st.record_example !== undefined && st.record_example !== null) {
+      fail(`${st.id}: the composed input at ${inputPath} is not JSON (${e.message}), so the filled `
+        + "record example this state declares cannot be built from the run's own material "
+        + "(kogaki#1059).");
+    }
+  }
+  // ONE CALL PER COMPOSED GROUP WHERE THE TABLE DECLARES IT (kogaki#1062). A
+  // TABLE fact, so a second state joins by a row and no code here -- the
+  // property `judgeRecordExample` and `judgePrompt` already have.
+  if (st.per_group === true) {
+    return invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec);
+  }
+  const out = join(dir, `terrain-judge-${st.id}.json`);
+  const r = judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label: "" });
+  if (r.ok) {
+    recordJudgeInvocation(st.id, {
+      state: st.id,
+      command: cfg.command,
+      model: cfg.model,
+      stubbed: cfg.stubbed,
+      calls: 1,
+      attempts: r.attempts,
+      retries_declared: retries,
+      refusals_repaired: r.refusals.length,
+      // TAKEN FROM THE BYTES ON DISK BY THIS LAYER, like every other sha in
+      // this file. A sha the response supplied would be one more declaration.
+      response_sha: createHash("sha256").update(readFileSync(out)).digest("hex").slice(0, 16),
+      at: new Date().toISOString(),
+    });
+    // ONE CALL, ON THE RUN RECORD, for the per-group arm's own reason: the two
+    // shapes are distinguishable at the record rather than only by which fields
+    // happen to be absent.
+    if (rec) {
+      rec.judge_calls = rec.judge_calls || {};
+      rec.judge_calls[st.id] = {
+        per_group: false, calls: 1, attempts: r.attempts,
+        retries_declared: retries, refusals_repaired: r.refusals.length,
+      };
+    }
+    // THE REPAIRED ARM WRITES THE RECORD TOO (kogaki#1059). `judgment_refusals`
+    // used to be written on exhaustion alone, so a run the retry loop REPAIRED
+    // was indistinguishable at the record from one the judge answered first
+    // time -- and a repair loop nothing counts is a bound whose approach is
+    // invisible until it is spent. `repaired` is what keeps the two arms
+    // apart, so the existing exhaustion reader is unchanged by the widening.
+    if (rec && r.refusals.length) {
+      rec.judgment_refusals = rec.judgment_refusals || {};
+      rec.judgment_refusals[st.id] = {
+        attempts: r.attempts, retries_declared: retries, refusal: r.lastRefusal,
+        refusals: r.refusals, repaired: true,
+      };
+    }
+    return out;
   }
   // THE RUN RECORD NAMES THE REFUSAL, not only stderr (PR #1044 round 1, D1's
   // partial-discharge note). #1030 acceptance 2 reads "the run fails after the
@@ -3075,12 +3134,192 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
   if (rec) {
     rec.judgment_refusals = rec.judgment_refusals || {};
     rec.judgment_refusals[st.id] = {
-      attempts, retries_declared: retries, refusal: lastRefusal, refusals, repaired: false,
+      attempts: r.attempts, retries_declared: retries, refusal: r.lastRefusal,
+      refusals: r.refusals, repaired: false,
     };
   }
-  fail(`${st.id}: the judge's record was refused on all ${attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
-    + `the workflow table declares for this state). The last refusal, verbatim: ${lastRefusal}`);
+  fail(`${st.id}: the judge's record was refused on all ${r.attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
+    + `the workflow table declares for this state). The last refusal, verbatim: ${r.lastRefusal}`);
   return null;
+}
+
+// THE COMPOSED INPUT, NARROWED TO ONE GROUP (kogaki#1062). The whole point of
+// the per-group ask is that each call carries THAT GROUP'S material alone: the
+// composed input's `material` holds every member's untruncated Gloss body, so
+// the whole-input ask grows with the tag and the per-group ask does not.
+//
+// IT NARROWS AND NEVER ADDS. Every key the composed input carries is kept as it
+// stands -- the tag, the pin, the bound -- and only the three that are keyed BY
+// GROUP are cut down: `groups`, `material`, and `composition_pin.groups`. A
+// judge told about eleven groups and asked about one would compose a claim
+// against a parent it cannot see the rest of, and a `composition_pin` still
+// naming all eleven would license members this ask never handed over -- which
+// is the subset check's own reason for carrying the member set rather than a
+// digest.
+export function scopeCompositionInput(input, group) {
+  const name = String(group && group.name);
+  const members = new Set(group && Array.isArray(group.members) ? group.members : []);
+  const out = { ...input, groups: [group] };
+  if (Array.isArray(input.material)) {
+    out.material = input.material.filter((m) => members.has(m && m.id));
+  }
+  const cp = input.composition_pin;
+  if (cp && typeof cp === "object" && !Array.isArray(cp) && cp.groups && typeof cp.groups === "object") {
+    out.composition_pin = { ...cp, groups: { [name]: [...members] } };
+  }
+  if (input.accounting && typeof input.accounting === "object") {
+    out.accounting = {
+      ...input.accounting,
+      candidates: Array.isArray(out.material) ? out.material.length : input.accounting.candidates,
+      placements: members.size,
+      // NAMED RATHER THAN SILENT: the shard fetches were spent once for the RUN,
+      // not once per group, and a per-group figure copied from the whole input's
+      // would say this ask paid for them.
+      shard_fetches_note: "spent once for the run, before this narrowing",
+    };
+  }
+  // WHICH GROUP THIS ASK IS ABOUT, stated rather than left to be inferred from a
+  // one-entry array. The filled record example names the same group, so the two
+  // agree by construction.
+  out.judging_group = name;
+  return out;
+}
+
+// ONE CALL PER COMPOSED GROUP (kogaki#1062). The per-group records are ASSEMBLED
+// into the typed per-group record the existing validator reads, and that
+// validator then runs over the assembly -- so no refusal moves and no validation
+// is re-implemented. What changes is the SIZE of one ask and the SCOPE of one
+// re-ask, which is the whole of the repair: on 2026-09-09 the whole-input ask
+// straddled the 90s per-call bound (two of three attempts exceeded it) while
+// `J1_claims`, the smaller judgment over the same input, already spent ~70s of
+// it.
+//
+// A GROUP'S REFUSAL IS RE-ASKED ALONE, to the state's own `retries`, and the
+// groups that passed are not re-asked -- kogaki#1060's per-attempt feedback
+// applied per group, which is what makes the bound a per-group repair loop
+// rather than a whole-run one.
+function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec) {
+  if (!input || typeof input !== "object" || Array.isArray(input) || !Array.isArray(input.groups)) {
+    fail(`${st.id}: this state declares \`per_group\`, and the composed input at ${inputPath} carries no `
+      + "`groups` array to ask about. The per-group ask is one call per composed group, so an input that "
+      + "names no groups is not an input this state can be asked over (kogaki#1062).");
+  }
+  const groups = input.groups;
+  const assembled = {};
+  const perGroup = {};
+  const judged = [];
+  let attemptsTotal = 0;
+  let refusalsTotal = 0;
+  let lastRefusal = null;
+  const allRefusals = [];
+  for (const g of groups) {
+    const name = String(g && g.name);
+    const slug = name.replace(/[^a-zA-Z0-9]+/g, "-") || "group";
+    const scoped = scopeCompositionInput(input, g);
+    const scopedText = JSON.stringify(scoped, null, 2);
+    // WRITTEN BESIDE THE RUN'S OWN INPUT, so a reader can see exactly what each
+    // call was handed rather than reconstructing the narrowing from the whole.
+    writeFileSync(join(dir, `terrain-judge-input-${st.id}-${slug}.json`), scopedText + "\n");
+    const out = join(dir, `terrain-judge-${st.id}-${slug}.json`);
+    // THE STATE'S OWN VALIDATOR, OVER A ONE-KEY RECORD. `validate` iterates the
+    // record's keys, so a one-key record validates exactly this group's entry
+    // through the shipped reader; what is added here is that the key must be THE
+    // GROUP ASKED ABOUT, which the whole-record validator has no way to check
+    // because there the key set IS the question.
+    const validateOne = (p) => {
+      const raw = readJson(p);
+      const keys = raw && typeof raw === "object" && !Array.isArray(raw) ? Object.keys(raw) : null;
+      if (!keys || keys.length !== 1 || keys[0] !== name) {
+        fail(`${st.id} refuses this group's record: it must be the one-key object `
+          + `{${JSON.stringify(name)}: {"judged": true, "subgroups": [...]}}. This ask carried exactly one `
+          + `composed group, so its answer names exactly that group; the record carried `
+          + `${keys ? JSON.stringify(keys) : "no key at all"}, and an envelope around the entry -- or a `
+          + `second group this ask never handed over -- is not an answer to the question asked `
+          + `(kogaki#1062).`);
+      }
+      validate(p);
+    };
+    const r = judgeAttempts(cfg, st, retries, {
+      inputText: scopedText, input: scoped, out, validate: validateOne,
+      label: ` (group ${JSON.stringify(name)})`,
+    });
+    attemptsTotal += r.attempts;
+    refusalsTotal += r.refusals.length;
+    // PREFIXED BY GROUP, because the run record's `refusals` is one flat list and
+    // an operator reading eleven groups' refusals needs to know which group each
+    // one is about.
+    for (const text of r.refusals) allRefusals.push(`group ${JSON.stringify(name)}: ${text}`);
+    if (r.refusals.length) lastRefusal = `group ${JSON.stringify(name)}: ${r.refusals[r.refusals.length - 1]}`;
+    perGroup[name] = {
+      attempts: r.attempts, retries_declared: retries, refusals: r.refusals, repaired: r.ok,
+    };
+    if (!r.ok) {
+      // THE PARTIAL IS ON THE RECORD BEFORE THE REFUSAL, for the reason the
+      // whole-input arm writes its own: `fail()` persists the pending record, and
+      // a reader coming back to the run needs to see which groups were judged
+      // before the one that spent its bound.
+      if (rec) {
+        rec.judgment_refusals = rec.judgment_refusals || {};
+        rec.judgment_refusals[st.id] = {
+          attempts: attemptsTotal, retries_declared: retries, refusal: lastRefusal,
+          refusals: allRefusals, repaired: false, groups: perGroup, judged_before: [...judged],
+        };
+      }
+      fail(`${st.id}: the judge's record for group ${JSON.stringify(name)} was refused on all ${r.attempts} `
+        + `attempt(s) (${retries} re-ask(s) licensed, the count the workflow table declares for this state). `
+        + `${judged.length} of ${groups.length} group(s) were judged before it`
+        + `${judged.length ? `: ${judged.join(", ")}` : ""}. The last refusal, verbatim: ${r.lastRefusal}`);
+    }
+    assembled[name] = readJson(out)[name];
+    judged.push(name);
+  }
+  const out = join(dir, `terrain-judge-${st.id}.json`);
+  writeFileSync(out, JSON.stringify(assembled, null, 2) + "\n");
+  // AND THE WHOLE RECORD'S REFUSALS RUN OVER THE ASSEMBLY. The per-group calls
+  // validated their own entries; this is the record the rest of the run reads,
+  // and it is validated as a record rather than trusted because its parts were.
+  validate(out);
+  recordJudgeInvocation(st.id, {
+    state: st.id,
+    command: cfg.command,
+    model: cfg.model,
+    stubbed: cfg.stubbed,
+    // ONE PER GROUP, and named, because this is the figure the advance bound is
+    // derived from and a reader checking that derivation needs the count the run
+    // actually made.
+    calls: groups.length,
+    per_group: true,
+    attempts: attemptsTotal,
+    retries_declared: retries,
+    refusals_repaired: refusalsTotal,
+    response_sha: createHash("sha256").update(readFileSync(out)).digest("hex").slice(0, 16),
+    at: new Date().toISOString(),
+  });
+  // AND ON THE RUN RECORD, because that is the carrier that outlives the process
+  // (kogaki#1062). `recordJudgeInvocation` fills an in-memory map the subdivision
+  // display reads through `judgmentProvenance`; the CALL COUNT is the figure
+  // `.claude/hooks/advance-terrain.py`'s bound is derived from, and a reader
+  // checking that derivation comes back to a finished run rather than standing
+  // inside the process that made the calls.
+  if (rec) {
+    rec.judge_calls = rec.judge_calls || {};
+    rec.judge_calls[st.id] = {
+      per_group: true,
+      calls: groups.length,
+      groups: [...judged],
+      attempts: attemptsTotal,
+      retries_declared: retries,
+      refusals_repaired: refusalsTotal,
+    };
+  }
+  if (rec && refusalsTotal) {
+    rec.judgment_refusals = rec.judgment_refusals || {};
+    rec.judgment_refusals[st.id] = {
+      attempts: attemptsTotal, retries_declared: retries, refusal: lastRefusal,
+      refusals: allRefusals, repaired: true, groups: perGroup,
+    };
+  }
+  return out;
 }
 
 // The one place a judgment state decides between the record it was HANDED and
