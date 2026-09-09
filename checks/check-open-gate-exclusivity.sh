@@ -201,10 +201,18 @@ rm -f "$GATES/$INSTANCE.json"
 # `skill-expansion` mark the arm above refused it, no model turn ever ran, and
 # the two sessions of 2026-09-09 13:01 UTC were recovered by moving the
 # pointers out of the live directory by hand.
+# MARKING RESTORES THE UNTURNED STATE, BOTH HALVES OF IT (PR #1054 round 1).
+# The first cut set `opened_by` and left `turn_seen_at` where it stood, so a
+# pointer re-marked after a tool call was still not `unturned` — and the
+# beside-an-unmarked-one case below then had NO unturned pointer in its
+# outstanding set, where its whole subject is one. `any` and `all` block alike
+# over that set, so the case went green against the widening it names.
 mark_skill_expansion() {
   python3 - "$GATES/$INSTANCE.json" <<'PY'
 import json,sys
-p=sys.argv[1]; d=json.load(open(p)); d["opened_by"]="skill-expansion"; json.dump(d,open(p,"w"))
+p=sys.argv[1]; d=json.load(open(p))
+d["opened_by"]="skill-expansion"; d.pop("turn_seen_at",None)
+json.dump(d,open(p,"w"))
 PY
 }
 
