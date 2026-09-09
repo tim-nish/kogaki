@@ -1,6 +1,6 @@
 {
   "note": [
-    "The Terrain survey record, machine-readable (SPEC-terrain, the prose half beside this file",
+    "The Terrain survey record, machine-readable (SPEC-terrain beside this file",
     "is the prose half; kogaki#14 umbrella, kogaki#17 story 1.8, manifest",
     "item 1). checks/check-terrain-composition.sh READ these lists rather",
     "than restating them, and that member was REMOVED at kogaki#770 — so this",

@@ -1073,6 +1073,12 @@ a surface that can disagree with this one.
   lane.
 - **Falsifier 2 carries `instrument: none`** (§5.2).
 - **The judge's duty for `other` is unverifiable** (§8).
+- **Nothing holds the path half of §15.9's precondition.** That no hook,
+  executor path or check names this file's path was measured once, at
+  kogaki#1032, and no member re-measures it. A reference reintroduced on a later
+  head is caught by a reader or not at all — the same class as the rendering
+  files above, and stated here rather than left to be discovered by a Removal
+  Test that nothing runs.
 - **The runtime's answering affordances are not enumerated here.** Which flags
   `run` accepts at which wait is the executor's own surface and its refusals;
   enumerating them in this file would be naming a way to advance a run, which
@@ -1105,9 +1111,12 @@ from outside the machinery rather than inside it.
 **It is a test of the tree, not a schedule.** Nothing here removes the
 directory, and nothing runs the test on every head: §15.8's honest list already
 records that semantic conformance routes to the review lane, and this is the
-same class. What runs mechanically is the narrower pair — that the skill file
-carries nothing but its start line, and that no hook, executor path or check
-names this spec's path.
+same class. What runs mechanically is one half of one precondition — that the
+skill file carries nothing but its start line
+(`checks/check-terrain-skill-is-one-line.sh`). That no hook, executor path or
+check names this spec's path was established once, at kogaki#1032, and is held
+by nothing on later heads; §15.8 records the gap rather than this section
+claiming a member it does not have.
 
 `necessity:` the test is the operational content of "conformance oracle", and
 it is a statement about the whole tree with this file removed from it — which
