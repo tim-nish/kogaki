@@ -26,13 +26,38 @@ table. It reads the command string handed to it and nothing else, so there is
 no environment that could be unreadable, and the act being unreachable is the
 whole of what the guard buys.
 
-WHAT IT DOES NOT CLAIM. The match is over TEXT. A command that merely mentions
-`terrain.mjs` in a comment or a grep pattern is indistinguishable here from one
-that runs it, and it is refused too -- the same boundary `check-registry-
-conformance.sh` declares between code and comment, and the same refusal of a
-language-aware parser as a lint over judgment. The cost is a refused `grep`,
-whose recovery is in the message; the cost of the other direction is the
-prohibition silently not applying.
+WHAT IT DOES NOT CLAIM. The match is over TEXT, and it is anchored on the
+INVOCATION SHAPE rather than on the bare filename (kogaki#1063). A segment is
+refused when the executor's path stands in COMMAND POSITION -- first in the
+segment, or behind an interpreter token -- and not when the name merely appears
+as data. This is a NARROWING, and the distinction is the whole of the repair:
+the first cut matched `\\bterrain.mjs\\b` anywhere in a segment, which refused
+the one act that MUST name the file and has no route around it. An Issue's
+footprint declaration (`admit-issue verdict --plan-cell '...;files=src/
+terrain.mjs,...'`) spells the path as data, with one spelling and no substitute,
+so under the bare-literal match no Issue whose work is in this executor could be
+truthfully admitted at all -- kogaki#1062 was the live case.
+
+The over-refusal the first cut accepted was measured against a comment and a
+grep pattern, and its message told the reader to route around both by reading
+the file instead. Neither must name the file; the footprint cell must. So the
+anchor moves, and what it moves to still catches every reachable invocation
+spelling: `src/terrain.mjs`, `./src/terrain.mjs`, an absolute path, a worktree
+path, a direct `./…` execution with no interpreter, and an interpreter reached
+through `sudo`, `env`, `exec` or a `sh -c` string. The over-refusal direction is
+kept where it is cheap -- a quoted `-c` payload and a leading env assignment are
+both read as command position.
+
+THE BOUNDARY IS DECLARED, and it is not a completeness claim. The served
+position on enumerated deny rules (product-lab, threads/decisions/archive/
+claude-code-ops.md:18) accepts them with a STATED boundary, on the ground that
+completeness over shell syntax is unachievable and a gate that claims it is a
+pretend gate. So: this reads TOKENS, not a shell grammar. It resolves quoting by
+stripping, not by parsing; a command constructed at runtime, reached through a
+variable, or assembled inside a `$(...)` it never splits is outside it. What the
+prohibition rests on is that the executor's self-declared start attribution is
+only worth reading because the ordinary Bash route is closed -- and the ordinary
+route is what these tokens cover.
 """
 
 import json
@@ -44,18 +69,22 @@ EXECUTOR = "terrain.mjs"
 ADMITTED = "--status"
 
 REASON = (
-    "`{cmd}` names {executor}, and the Terrain executor is invoked by hooks only "
-    "(kogaki#1027).\n\n"
+    "`{cmd}` RUNS {executor} -- the path stands in command position -- and the "
+    "Terrain executor is invoked by hooks only (kogaki#1027).\n\n"
     "A run is STARTED by the terrain skill's own `!` line, which the harness "
     "executes at invocation before you see anything, and ADVANCED inside the "
     "PostToolUse hook for the AskUserQuestion that answered its gate "
     "(.claude/hooks/advance-terrain.py). There is no model-typed route to either, "
     "and there is no stub: `--input`, `--at` and `--enter` are deleted and the "
     "executor refuses them by name.\n\n"
-    "The one verb admitted from a Bash command is `{admitted}`, which is read-only. "
-    "If you are inspecting a run, re-issue the command with `{admitted}`; if you are "
-    "searching the tree for the string rather than running it, this deny cannot tell "
-    "the two apart and refuses both -- read the file instead."
+    "The one verb admitted from a Bash command is `run {admitted}`, which is "
+    "read-only. If you are inspecting a run, re-issue the command with "
+    "`{admitted}`.\n\n"
+    "NAMING the file is not running it: a grep pattern, a comment and an Issue's "
+    "`files=` footprint cell all pass, because this deny anchors on the "
+    "invocation shape rather than on the bare filename (kogaki#1063). If you are "
+    "seeing this on a command that does not run the executor, the path is "
+    "standing where a command goes."
 )
 
 
@@ -91,15 +120,72 @@ def segments(command):
     return [seg for seg in SEGMENT_SPLIT.split(command or "") if seg.strip()]
 
 
-def names_executor(segment):
-    """Does this segment name the executor file?
+# THE INVOCATION SHAPE (kogaki#1063).
+#
+# A PATH TOKEN is a token that IS a path ending in the executor's filename --
+# not a token that merely contains it. `src/terrain.mjs`, `./src/terrain.mjs`,
+# `/abs/wt1063/src/terrain.mjs` are path tokens; `files=src/terrain.mjs`,
+# `files=src/terrain.mjs,src/workflow.json` and `"terrain.mjs"` inside a longer
+# `--plan-cell` value are not, because a token carrying `=` or `,` is a data
+# cell rather than a command. That exclusion is what makes an Issue whose work
+# is in the executor admissible at all.
+PATH_TOKEN = re.compile(r"^[^\s=,]*(?:^|/)terrain\.mjs$")
 
-    Anchored on the bare filename rather than a path, because the executor is
-    reachable as `src/terrain.mjs`, `./src/terrain.mjs`, an absolute path, or
+# INTERPRETERS. The tokens after which a path is being RUN. Node's own spellings
+# plus the runners that reach it; the version-suffixed forms (`node20`) are
+# covered by the pattern rather than by enumeration. The SHELLS are here so that
+# `sh -c 'src/terrain.mjs run'` -- whose payload carries no interpreter of its
+# own -- lands in command position; `sh <a .mjs file>` is not a real invocation,
+# and refusing it is this hook's declared direction rather than a cost.
+INTERPRETER = re.compile(
+    r"^(?:node(?:js)?[\d.]*|npx|bun|deno|ts-node|tsx|sh|bash|zsh|dash|ksh)$")
+
+# TRANSPARENT PREFIXES. Tokens that stand before a command without being one, so
+# the command position is the token AFTER them. `-c` is here because `sh -c
+# 'src/terrain.mjs run'` puts a command in the next token; a leading `VAR=value`
+# assignment is matched by shape. Erring toward over-refusal is this hook's
+# declared direction, and every member widens what counts as command position.
+TRANSPARENT = {"sudo", "env", "exec", "nohup", "time", "command", "builtin",
+               "then", "do", "else", "-c", "-lc"}
+ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z_0-9]*=")
+
+
+def _unquote(token):
+    """Strip the shell quoting a split on whitespace leaves attached.
+
+    A quote character is not part of a path, and `bash -c "node src/terrain.mjs
+    start"` hands us `"node` as one token. Stripping is what lets the
+    interpreter behind a quote still read as an interpreter.
+    """
+    return (token or "").strip("\"'`()")
+
+
+def _transparent(token):
+    return token in TRANSPARENT or ASSIGNMENT.match(token) is not None
+
+
+def invokes_executor(segment):
+    """Does this segment RUN the executor, as opposed to naming it?
+
+    True when a path token stands in command position: first in the segment
+    after any transparent prefix, or immediately behind an interpreter token.
+    Anchored on the path's TAIL rather than one spelling, because the executor
+    is reachable as `src/terrain.mjs`, `./src/terrain.mjs`, an absolute path or
     through a worktree -- and a matcher keyed to one spelling is a matcher a
     second spelling walks past.
     """
-    return re.search(r"\bterrain\.mjs\b", segment or "") is not None
+    tokens = [_unquote(t) for t in (segment or "").split()]
+    tokens = [t for t in tokens if t]
+    for i, token in enumerate(tokens):
+        if PATH_TOKEN.match(token) is None:
+            continue
+        # Behind an interpreter, or behind nothing but transparent prefixes.
+        j = i - 1
+        while j >= 0 and _transparent(tokens[j]):
+            j -= 1
+        if j < 0 or INTERPRETER.match(tokens[j]) is not None:
+            return True
+    return False
 
 
 def admitted(segment):
@@ -122,9 +208,9 @@ def admitted(segment):
 
 
 def offending(command):
-    """The first segment that names the executor without admitting itself."""
+    """The first segment that RUNS the executor without admitting itself."""
     for seg in segments(command):
-        if names_executor(seg) and not admitted(seg):
+        if invokes_executor(seg) and not admitted(seg):
             return seg.strip()
     return None
 

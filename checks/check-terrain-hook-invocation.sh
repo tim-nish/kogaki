@@ -123,6 +123,48 @@ assert_denied "a start piped from a status read"   "node src/terrain.mjs run --s
 # command are still two status reads.
 assert_admitted "two chained status reads" "node src/terrain.mjs run --status; node src/terrain.mjs run --run-dir /tmp/y --status"
 
+# THE ANCHOR IS THE INVOCATION SHAPE, NOT THE BARE FILENAME (kogaki#1063).
+#
+# The first cut matched `\bterrain\.mjs\b` anywhere in a segment, so the one act
+# that MUST name the executor's path and has no route around it -- an Issue
+# declaring its own file footprint -- was refused as though it were an
+# invocation, while kogaki#997 refuses the routing that omits the footprint. No
+# Issue whose work is in this executor could be truthfully admitted at all
+# (kogaki#1062, the live case). These cases each fail a hook that lacks the
+# command-position clause.
+#
+# NAMING IS NOT RUNNING. A path in DATA position passes.
+assert_admitted "an Issue's footprint cell" \
+  "issue-sync admit-issue verdict 1062 --plan-cell 'act=implement-issue;files=src/terrain.mjs'"
+assert_admitted "a footprint cell of several paths" \
+  "issue-sync admit-issue verdict 1062 --plan-cell 'files=src/terrain.mjs,src/workflow.json'"
+assert_admitted "a grep pattern over the executor" 'grep -n "judgePrompt" src/terrain.mjs'
+assert_admitted "a comment mentioning the executor" "echo hi # src/terrain.mjs run is denied"
+assert_admitted "the file read as data" "wc -l src/terrain.mjs"
+
+# ...AND RUNNING IS STILL RUNNING, in every reachable spelling. The multi-
+# spelling property the first matcher was written for is preserved: the anchor
+# moved from the filename alone to a path in command position, which every one
+# of these still satisfies.
+assert_denied "a relative path"            "node src/terrain.mjs start"
+assert_denied "a dot-slash path"           "node ./src/terrain.mjs run"
+assert_denied "an absolute path (literal)" "node /abs/path/terrain.mjs run"
+assert_denied "a worktree path"            "node /tmp/wt1063/src/terrain.mjs start"
+# Direct execution carries no interpreter token at all: the path IS the command.
+assert_denied "direct execution"           "./src/terrain.mjs run"
+assert_denied "direct execution, absolute" "/abs/path/terrain.mjs start"
+# The command position survives what stands in front of it.
+assert_denied "an interpreter behind sudo" "sudo node src/terrain.mjs start"
+assert_denied "a leading env assignment"   "NODE_ENV=x node src/terrain.mjs start"
+assert_denied "an exec'd direct run"       "exec ./src/terrain.mjs run"
+assert_denied "a quoted -c payload"        'bash -c "node src/terrain.mjs start"'
+assert_denied "a -c payload, no interpreter" "sh -c 'src/terrain.mjs run'"
+# A version-suffixed interpreter is covered by shape, not by enumeration.
+assert_denied "a version-suffixed node"    "node20 src/terrain.mjs start"
+# The PR #1040 round 1 finding, re-asserted at the new anchor.
+assert_admitted "the status verb at the new anchor" "node src/terrain.mjs run --status"
+assert_denied "a status flag on the start verb, at the new anchor" "node src/terrain.mjs start --status"
+
 # THE HOOK'S CHILD BOUND FIRES BEFORE THE HARNESS'S OWN (PR #1034 round 1,
 # finding 3). A bound set AT the default can never fire first, which is a
 # declared bound that does nothing; the relay message it exists to make
