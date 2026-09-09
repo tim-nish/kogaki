@@ -7564,10 +7564,34 @@ switch (cmd) {
           ok("the call carries the tag listing VERBATIM and ABOVE the question line, so a missing or paraphrased table is a byte difference",
             !!q && typeof listing === "string" && q.question === `${listing}\n\n${"Which tag does the survey open on?"}`,
             q ? q.question.slice(0, 160) : "(no call written)");
-          ok("the call satisfies AskUserQuestion's own bound — two options, composed from the one declared arm plus the declaration's free-text row (owner ruling 2026-09-09)",
-            !!q && q.options.length === 2 && q.options[0].description === "other-method"
+          // THE CALL CARRIES THE DECLARATION'S OWN OPTIONS AND ADDS NOTHING.
+          // kogaki#1029 landed the tag gate's dynamic options (the largest
+          // served tags, plus the standing one) between this branch's first head
+          // and its rebase, so this gate now declares two to four by itself and
+          // the free-text fallback below is not reached for it. The case asserts
+          // that: the composer transcribes, and only a gate that would otherwise
+          // be UNRENDERABLE gets a row it did not declare.
+          const declOptions = readJson(join(rd, "terrain-tag-selection.run-declaration.json")).options;
+          ok("the call carries the declaration's own options unchanged, within AskUserQuestion's two-to-four bound",
+            !!q && q.options.length === declOptions.length
+              && q.options.length >= 2 && q.options.length <= 4
+              && q.options.every((o, i) => o.label === declOptions[i].label)
               && q.multiSelect === false && q.header.length <= 12,
             q ? JSON.stringify({ n: q.options.length, header: q.header }) : "(no call written)");
+          // AND THE FALLBACK IS STILL LIVE FOR THE GATES kogaki#1029 DID NOT
+          // TOUCH — six of the eight still declare one option, so the arm the
+          // owner ruled on is exercised directly rather than left unreached.
+          const oneArm = composeGateCall({
+            id: "fixture-one-option", question: "One arm?",
+            options: [{ id: "only", label: "The only declared arm" }], free_text_offered: true,
+          });
+          ok("a gate still declaring ONE option gets the free-text row composed from its own `free_text_offered`, never an invented arm (owner ruling 2026-09-09)",
+            !!oneArm.tool_input && oneArm.tool_input.questions[0].options.length === 2
+              && oneArm.tool_input.questions[0].options[0].label === "The only declared arm",
+            JSON.stringify((oneArm.tool_input || {}).questions || oneArm.unavailable));
+          ok("a gate declaring one option and NO free text composes no call at all, and the reason is stated rather than an arm being invented",
+            !composeGateCall({ id: "fixture-mute", question: "?", options: [{ id: "a", label: "A" }], free_text_offered: false }).tool_input,
+            composeGateCall({ id: "fixture-mute", question: "?", options: [{ id: "a", label: "A" }], free_text_offered: false }).unavailable);
         }
         ok("the stop prints no invocation for the owner to run — no READ FIRST block, and no `terrain.mjs tags` hand-over",
           !/READ FIRST/.test(out) && !/terrain\.mjs tags/.test(out),
