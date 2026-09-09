@@ -188,8 +188,15 @@ if not owed or not owed[0].get("declaration"):
 # THE PATH IS RECORDED REPO-RELATIVE and is read back the same way the executor
 # reads it — resolved against the tree root, absolute paths left alone.
 p = pathlib.Path(owed[0]["declaration"])
-decl = json.load(open(p if p.is_absolute() else pathlib.Path(sys.argv[3], p)))
-print(decl["question"])
+p = p if p.is_absolute() else pathlib.Path(sys.argv[3], p)
+decl = json.load(open(p))
+# THE QUESTION AS SENT (PR #1048 round 1, finding 1): the composed call's text
+# where one was written beside the declaration, else the declaration's own.
+call = p.with_name(f"{decl['id']}.gate-call.json")
+if call.exists():
+    print(json.load(open(call))["questions"][0]["question"])
+else:
+    print(decl["question"])
 PY
 }
 

@@ -1993,6 +1993,19 @@ function sessionId() {
   return process.env.CLAUDE_CODE_SESSION_ID || null;
 }
 
+// The question text the session actually sends for this gate: the composed
+// call's, where one was written, else the declaration's own.
+function sentQuestion(declaration, callPath) {
+  if (callPath && existsSync(callPath)) {
+    try {
+      const q = readJson(callPath);
+      const text = q && q.questions && q.questions[0] && q.questions[0].question;
+      if (typeof text === "string" && text) return text;
+    } catch { /* an unreadable call is the composer's fault and is reported at its write */ }
+  }
+  return declaration.question;
+}
+
 export function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callUnavailable = null) {
   const gd = openGateDir();
   mkdirSync(gd, { recursive: true });
@@ -2016,7 +2029,14 @@ export function writeOpenGatePointer(dir, declaration, declPath, callPath = null
   writeFileSync(join(gd, `${declaration.gate_instance_id}.json`), JSON.stringify({
     gate_instance_id: declaration.gate_instance_id,
     gate_id: declaration.id,
-    question: declaration.question,
+    // THE QUESTION AS SENT, never the bare declaration's (PR #1048 round 1,
+    // finding 1). `write-gate-capture.py` joins the harness's `answers` key to
+    // this field by exact equality, and the key is the question text the
+    // session sent -- which, where the composed call prepends `tag_listing`,
+    // differs from `declaration.question` by the whole table. A pointer
+    // carrying the bare text matches nothing, no row is written, and under the
+    // exclusivity hook the session then has no admissible act at all.
+    question: sentQuestion(declaration, callPath),
     declaration_path: resolve(declPath),
     capture_path: resolve(capPath),
     // The byte-fixed call the session must send, or the stated reason there is
@@ -7491,6 +7511,15 @@ switch (cmd) {
     // case constructs its own inputs, so the trial runs with no gateway.
     let n = 0; const bad = [];
     const ok = (name, cond) => { if (cond) n++; else bad.push(name); };
+    // THE ANSWERS KEY IS THE QUESTION AS SENT (PR #1048 round 1, finding 1). A
+    // fixture answering with the bare declaration question would pass against a
+    // pointer that also carries the bare question, and both are wrong together.
+    const sentQ = (rd, decl) => {
+      const p = join(rd, `${decl.id}${GATE_CALL_SUFFIX}`);
+      if (!existsSync(p)) return decl.question;
+      const q = readJson(p);
+      return q.questions[0].question;
+    };
     ok("a lesson cite composes in the identity form from the record's own fields",
       composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa") === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @aaaaaaa");
     ok("a journey cite carries its own kind in the join key",
@@ -8175,7 +8204,7 @@ switch (cmd) {
           // tags a corpus happens to carry is a case that fails for the wrong
           // reason. Free text is the affordance every gate here declares on, and
           // it advances the wait exactly as a routed option does.
-          answerThroughHook("driven", declDrive.question, "a tag the owner typed", "toolu_test_hook_driven");
+          answerThroughHook("driven", sentQ(rdDrive, declDrive), "a tag the owner typed", "toolu_test_hook_driven");
           const rDrive = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdDrive, "--workflow", tp],
             { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("driven") });
           const recDrive = readRunRecord(rdDrive);
@@ -8328,7 +8357,7 @@ switch (cmd) {
             && /open-gate pointer/.test(outUnanswered),
           outUnanswered.trim().split("\n")[0].slice(0, 160));
 
-        answerThroughHook("opt", declOpt.question, standingLabel, "toolu_test_unrouted");
+        answerThroughHook("opt", sentQ(rdOpt, declOpt), standingLabel, "toolu_test_unrouted");
         const rOpt = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("opt") });
         const outOpt = `${rOpt.stdout || ""}${rOpt.stderr || ""}`;
@@ -8360,7 +8389,7 @@ switch (cmd) {
         }));
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("free") });
         const declFree = readJson(join(rdFree, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
-        answerThroughHook("free", declFree.question, "testing", "toolu_test_freetext");
+        answerThroughHook("free", sentQ(rdFree, declFree), "testing", "toolu_test_freetext");
         const rFree = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("free") });
         const recFree = readRunRecord(rdFree);
@@ -8411,7 +8440,7 @@ switch (cmd) {
           gate_declarations_owed: [], done: false,
         }));
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin2, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("shared") });
-        const rTwoOpen = answerThroughHook("shared", declTwin.question, "testing", "toolu_test_ambiguous");
+        const rTwoOpen = answerThroughHook("shared", sentQ(rdTwin, declTwin), "testing", "toolu_test_ambiguous");
         ok("with two outstanding gates carrying one question the hook writes no row and names the ambiguity, rather than picking one",
           /does not choose between them/.test(`${rTwoOpen.stdout || ""}${rTwoOpen.stderr || ""}`),
           `${rTwoOpen.stderr || ""}`.trim().split("\n")[0].slice(0, 160));
@@ -8434,7 +8463,7 @@ switch (cmd) {
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("trunc") });
         const declTrunc = readJson(join(rdTrunc, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const fullLabel = declTrunc.options.find((o) => o.id === "other-method").label;
-        answerThroughHook("trunc", declTrunc.question, fullLabel.slice(0, 24), "toolu_test_truncated");
+        answerThroughHook("trunc", sentQ(rdTrunc, declTrunc), fullLabel.slice(0, 24), "toolu_test_truncated");
         const rTrunc = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("trunc") });
         const outTrunc = `${rTrunc.stdout || ""}${rTrunc.stderr || ""}`;
@@ -8456,7 +8485,7 @@ switch (cmd) {
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("wrap") });
         const declWrap = readJson(join(rdWrap, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const wrapped = declWrap.options.find((o) => o.id === "other-method").label.replace(/ /g, "\n  ");
-        answerThroughHook("wrap", declWrap.question, wrapped, "toolu_test_rewrapped");
+        answerThroughHook("wrap", sentQ(rdWrap, declWrap), wrapped, "toolu_test_rewrapped");
         const rWrap = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("wrap") });
         ok("a RE-WRAPPED label still resolves to its option — whitespace is presentation, and the near-miss refusal is not a refusal of every inexact label",
@@ -8487,7 +8516,7 @@ switch (cmd) {
         }));
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("orphan") });
         const declAfter = readJson(join(rdAfter, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
-        const rAfterHook = answerThroughHook("orphan", declAfter.question, "a-tag", "toolu_test_after_orphan");
+        const rAfterHook = answerThroughHook("orphan", sentQ(rdAfter, declAfter), "a-tag", "toolu_test_after_orphan");
         const rAfter = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("orphan") });
         const recAfter = readRunRecord(rdAfter);

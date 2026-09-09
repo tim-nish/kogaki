@@ -259,6 +259,29 @@ else bad "the free-text row's label was recorded as the answer — a sentence ab
 fi
 rm -f "$GATES"/*.json "$RUN/terrain.gate-capture.json"
 
+# The copied constants AGREE, compared rather than trusted (PR #1048 round 1,
+# finding 3): the free-text row label the composer writes and the one the
+# capture hook reads; the pointer TTL the capture hook reaps at and the one the
+# exclusivity hook skips at. A wording change on one side alone fails here.
+if python3 - <<'PY'
+import re, sys
+def one(path, pattern):
+    m = re.search(pattern, open(path, encoding="utf-8").read(), re.M)
+    if not m: print(f"{path}: {pattern!r} not found"); sys.exit(1)
+    return m.group(1)
+composer = one("src/terrain.mjs", r'^const GATE_CALL_FREE_TEXT_LABEL = "([^"]+)";')
+reader = one(".claude/hooks/write-gate-capture.py", r'^FREE_TEXT_ROW_LABEL = "([^"]+)"')
+if composer != reader:
+    print(f"free-text row label: composer {composer!r} != capture reader {reader!r}"); sys.exit(1)
+ttl_cap = one(".claude/hooks/write-gate-capture.py", r'^POINTER_TTL = timedelta\(hours=(\d+)\)')
+ttl_gate = one(".claude/hooks/gate-open-terrain-gate.py", r'^POINTER_TTL = timedelta\(hours=(\d+)\)')
+if ttl_cap != ttl_gate:
+    print(f"pointer TTL: capture {ttl_cap}h != exclusivity {ttl_gate}h"); sys.exit(1)
+PY
+then pass "the free-text row label and the pointer TTL agree across their copies"
+else bad "a copied constant diverged — the composer and a hook now disagree about the row label or the TTL"
+fi
+
 # ---------------------------------------------------------------- acceptance 5
 OUT="$(env -u KOGAKI_OPEN_GATES bash checks/check-terrain-runtime.sh 2>&1)"; RC=$?
 if [[ $RC -ne 0 ]] && grep -q "KOGAKI_OPEN_GATES is not set" <<<"$OUT" && ! grep -q "terrain self-test:" <<<"$OUT"; then
