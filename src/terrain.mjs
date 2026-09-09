@@ -7133,7 +7133,7 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     if (args[dead] !== undefined) {
       fail(`--${dead} is REMOVED (kogaki#890). The owner's answer at a declared gate is written by `
         + `.claude/hooks/write-gate-capture.py at the moment the question is answered, from the harness's own payload, and is never composed by the session. `
-        + `Render the gate through AskUserQuestion — options verbatim, nothing pre-selected, free text on — and then re-enter with a bare \`run --run-dir ${dir}\`, which reads the recorded answer.`);
+        + `The gate's byte-fixed call is written beside its declaration and is the one payload the exclusivity hook admits (kogaki#1028); the answer is recorded when the harness reports it, and the advance runs inside that hook. Nothing here is re-entered by hand.`);
     }
   }
   //
@@ -7191,7 +7191,7 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       const unrouted = (decl.unrouted_options || {})[capOption];
       if (unrouted) {
         fail(`${JSON.stringify(capOption)} is an option gate ${owed.gate_id} declares as ROUTED NOWHERE, so the run does not advance past ${rec.awaiting}. `
-          + `The answer was recorded (${capPath}) and the wait is still outstanding — re-render the declaration and capture a different answer. `
+          + `The answer was recorded (${capPath}) and the wait is still outstanding — the gate is re-offered at its next raising, and a different answer is captured there. `
           + `The declaration's own reason: ${unrouted}`);
       }
       // The answer IS the owner input for this wait. Adoption, ratification and
@@ -7274,8 +7274,9 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
         // recorded the id of a state that owed a declaration and left composing
         // it to a `gate` invocation outside the run — which is how a session
         // minted run state the executor never saw. Composing is `record`, and
-        // record is engine work; the RENDERING through AskUserQuestion is the
-        // judgment step and is still not performed here.
+        // record is engine work; the RENDERING is the harness UI's, over the
+        // byte-fixed call the exclusivity hook admits (kogaki#1028), and is
+        // still not performed here.
         //
         // the workflow table binds this exactly as it binds a renderer: a new gate state is a
         // table row PLUS an option composer, and the executor invents neither.
@@ -9089,7 +9090,8 @@ switch (cmd) {
   self-test                                 the composed-form fixture pass (identity cites, kogaki#612)
 
  At a wait that declares a gate, the executor WRITES the run declaration and names its path.
- Render it through AskUserQuestion — options verbatim, nothing pre-selected, free text always on.
+ Beside it, the byte-fixed gate call the harness renders; the exclusivity hook admits that payload and
+ no other (kogaki#1028).
  THE RE-ENTRY IS NOT YOURS TO MAKE: .claude/hooks/advance-terrain.py runs the executor inside the
  PostToolUse hook for that question, after .claude/hooks/write-gate-capture.py has written the
  owner's answer. A Bash command naming this file with any verb but --status is denied.`);
