@@ -238,6 +238,31 @@ fi
   && pass "the same pointer refuses a typed prompt once a turn has run — the admission is bounded to the prompt that opened the gate" \
   || bad "a typed prompt was admitted after a turn had run — typed text is an answer again, which is the whole class this arm closes"
 
+# A TURN THAT CALLS NO TOOL SPENDS THE MARK TOO, and Stop is the only event that
+# sees it (PR #1054 round 1, carried to kogaki#1055). PreToolUse never fires for
+# a turn emitting text alone, so before this the Stop arm blocked and wrote
+# nothing: the pointer stayed `unturned` and kept admitting typed prompts for the
+# session until POINTER_TTL reaped it, while the run was recorded
+# `gate-unrendered` beside a pointer still claiming no turn had run. The case
+# fires Stop as the FIRST event after the mark, so a pass cannot be borrowed from
+# the tool-call stamp above.
+rm -f "$GATES"/*.json "$RUN/terrain.gate-capture.json"
+open_pointer
+mark_skill_expansion
+stop_payload false >/dev/null
+if python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1]))
+raise SystemExit(0 if d.get("turn_seen_at") and d.get("opened_by")=="skill-expansion" else 1)
+' "$GATES/$INSTANCE.json"; then
+  pass "a turn ending at Stop with no tool call stamps turn_seen_at and leaves opened_by intact — the mark has an evidence source for every turn shape"
+else
+  bad "a text-only turn left the pointer unstamped — the mark never expires for that session, and typed prompts stay admitted until POINTER_TTL reaps the pointer"
+fi
+[[ "$(ups "$SESSION" | decision)" == "block" ]] \
+  && pass "the same pointer refuses a typed prompt after a text-only turn — the admission is bounded by the turn, not by whether it happened to call a tool" \
+  || bad "a typed prompt was admitted after a text-only turn had run — the bound the arm above establishes is escapable by not calling a tool"
+
 # A marked pointer beside an unmarked one refuses: the session was already
 # asked to render that other gate, and typed text is not an answer to it.
 cp "$GATES/$INSTANCE.json" "$GATES/bbbb-unmarked.json"

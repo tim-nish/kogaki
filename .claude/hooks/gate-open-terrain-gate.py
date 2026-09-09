@@ -215,9 +215,11 @@ def gate_line(pointer):
 # So the mark, and the one thing it says. `skill-expansion` on a pointer says
 # no model turn can yet have run for it: the start act wrote it during the
 # expansion of the prompt now being judged. A prompt is admitted for exactly
-# that state, and for nothing else -- the first PreToolUse event of the session
-# is evidence a turn ran, and it stamps `turn_seen_at`, after which the arm
-# refuses as before.
+# that state, and for nothing else -- the first PreToolUse event of the session,
+# or the Stop ending a turn that called no tool, is evidence a turn ran, and it
+# stamps `turn_seen_at`, after which the arm refuses as before. Both sources are
+# named because one alone leaves a turn shape unspent: PreToolUse never fires
+# for a text-only turn, and Stop fires too late for a turn that goes on to act.
 #
 # THE MARK IS STAMPED, NOT ERASED. Clearing `opened_by` itself would also erase
 # WHICH executor opened the gate, which is the provenance the field was added to
@@ -232,7 +234,12 @@ def unturned(pointer):
 
 
 def stamp_turn_seen(pointer):
-    """Record that a turn has run for this pointer, at the first tool call.
+    """Record that a turn has run for this pointer.
+
+    CALLED FROM TWO ARMS, because no single event sees every turn shape: the
+    first tool call (`pre_tool_use`), and the Stop that ends a turn which
+    called none (`stop`). The write is idempotent under `unturned`, so a turn
+    reaching both spends the mark once.
 
     THIS HOOK IS WHERE IT LANDS BECAUSE THIS HOOK IS WHAT SEES EVERY TOOL. The
     sibling `gate-terrain-executor.py` is a PreToolUse hook too, but it is
@@ -371,6 +378,19 @@ def stop(payload, pointers):
     outstanding = [p for p in pointers if not has_capture(p)]
     if not outstanding:
         return 0
+    # A STOP IS EVIDENCE A TURN RAN, and for a turn that called no tool it is
+    # the ONLY such evidence. `pre_tool_use` stamps at the first tool call, so
+    # a turn emitting text alone never reaches it: the block below fires,
+    # writes nothing to the pointer, and `unturned` stays true -- which keeps
+    # `user_prompt_submit` admitting typed text for this session until
+    # POINTER_TTL reaps the pointer, and leaves a run recorded
+    # `gate-unrendered` beside a pointer still claiming no turn has run.
+    # Stamping here closes that; with both sites every turn shape spends the
+    # mark exactly once, and the stamp precedes the block so it lands on the
+    # turn that earned it rather than the next one.
+    for p in outstanding:
+        if unturned(p):
+            stamp_turn_seen(p)
     pointer = outstanding[0]
     if payload.get("stop_hook_active"):
         record_unrendered(pointer, STOP_BLOCK_BOUND)
