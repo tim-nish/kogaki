@@ -211,6 +211,13 @@ def resolve_answer(declaration, label):
     for opt in declaration.get("options") or []:
         if normalise(opt.get("label", "")) == want:
             return {"option": str(opt.get("id"))}
+    # A typed answer equal to an option's ID is that option (kogaki#1029): the
+    # tag gate's run-computed options are keyed by tag name, so an owner who
+    # types `architecture` under "Other" has named the option, not a near-miss
+    # of its label -- and the prefix rule below would otherwise refuse it.
+    for opt in declaration.get("options") or []:
+        if normalise(str(opt.get("id", ""))) == want:
+            return {"option": str(opt.get("id"))}
     for opt in declaration.get("options") or []:
         have = normalise(opt.get("label", ""))
         if not have or not want:
