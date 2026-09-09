@@ -58,8 +58,19 @@ bangs=$(grep -c '^!' "$SKILL" 2>/dev/null || echo 0)
 if [ "$bangs" = "1" ]; then pass; else
   bad "$SKILL carries $bangs '!' line(s); exactly one is owed, running the start act"
 fi
-if grep -q '^! node src/terrain.mjs start$' "$SKILL" 2>/dev/null; then pass; else
-  bad "$SKILL's '!' line does not run \`node src/terrain.mjs start\` — the start act is the harness's, and the skill file is where it is declared"
+# THE FORM IS THE HARNESS'S, NOT OURS: a skill line executes at invocation only
+# as `!` immediately followed by a backtick-quoted command (Claude Code skills
+# documentation, "Inject dynamic context"). `!node …` and `! node …` are plain
+# text and never ran -- which is how every Terrain run before 2026-09-09 was
+# started by whatever the model typed.
+# The Bash pattern is pre-allowed in the frontmatter, because an un-allowed
+# pattern aborts the invocation instead of prompting; the line is load-bearing
+# for the start act and is asserted with it.
+if grep -q '^allowed-tools: Bash(node src/terrain.mjs start)$' "$SKILL" 2>/dev/null; then pass; else
+  bad "$SKILL does not pre-allow \`Bash(node src/terrain.mjs start)\` in its frontmatter — without it the harness aborts the skill invocation instead of running the start act"
+fi
+if grep -q '^!`node src/terrain.mjs start`$' "$SKILL" 2>/dev/null; then pass; else
+  bad "$SKILL's '!' line is not \`!\\\`node src/terrain.mjs start\\\`\` (backtick-quoted, no space) — any other form is plain text the harness never executes"
 fi
 
 # ---- ACCEPTANCE 3. THE DENY FIRES, AND ADMITS `--status`.
@@ -180,7 +191,7 @@ PY
   mkdir -p "$tmp/red/src" "$tmp/red/.claude/hooks" "$tmp/red/.claude/skills/terrain"
   cp -r src/. "$tmp/red/src/"
   cp .claude/hooks/*.py "$tmp/red/.claude/hooks/"
-  printf '! node src/terrain.mjs start\n' > "$tmp/red/.claude/skills/terrain/SKILL.md"
+  printf '!`node src/terrain.mjs start`\n' > "$tmp/red/.claude/skills/terrain/SKILL.md"
   if [ -e "$tmp/red/specs" ]; then
     bad "the reduced tree carries specs/ — the removal test asserts the runtime works with the spec absent, so a copy of it defeats the test"
   else
