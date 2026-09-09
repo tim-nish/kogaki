@@ -6475,6 +6475,14 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // caller who named a directory named it because they hold it -- that is the
   // fixture path and the second-repository path, and it is unchanged.
   let dir;
+  // `start --status` is refused BEFORE any workspace is opened (PR #1040
+  // round 1, blocking finding): the start act mints a workspace and repoints
+  // the open run, and a status read must never do either. `run --status` is
+  // the one read-only route.
+  if (stopAtFirstWait && args.status) {
+    fail("`start --status` is refused: `start` opens a run and `--status` reads one, and the two are not one act. "
+      + "The read-only route is `node src/terrain.mjs run --status` (kogaki#1038).");
+  }
   if (stopAtFirstWait || args["run-dir"] || process.env.KOGAKI_RUN_DIR) {
     dir = runDir(args);
     if (stopAtFirstWait && !args["run-dir"] && !process.env.KOGAKI_RUN_DIR) writeOpenRunPointer(dir);

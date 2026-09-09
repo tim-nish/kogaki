@@ -109,7 +109,16 @@ def admitted(segment):
     not admit; and the absence of any other flag is not an admission -- a bare
     `node src/terrain.mjs run` carries no verb at all and is denied.
     """
-    return re.search(r"(?<![\w-])--status(?![\w-])", segment or "") is not None
+    seg = segment or ""
+    if re.search(r"(?<![\w-])--status(?![\w-])", seg) is None:
+        return False
+    # AND the verb is `run`, read as the first token after the executor path.
+    # `start --status` carried the flag and rode through (PR #1040 round 1,
+    # blocking finding): `start` opens a workspace and repoints the open run
+    # BEFORE it looks at `--status`, so the flag admitted an act that clobbers
+    # the owner's live run. Only `run --status` is the read-only route.
+    m = re.search(r"terrain\.mjs\s+([^\s]+)", seg)
+    return m is not None and m.group(1) == "run"
 
 
 def offending(command):

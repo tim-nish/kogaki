@@ -96,6 +96,9 @@ assert_admitted "an unrelated command" "node src/draft.mjs run"
 # `--status-key` must not admit: a flag that merely STARTS with the admitted one
 # is not the admitted one, and this is the shape a prefix match gets wrong.
 assert_denied "a flag resembling --status" "node src/terrain.mjs run --status-key in_review"
+# `start --status` must not admit: the flag rode through on the wrong verb and
+# the start act opened a workspace before it read the flag (PR #1040 round 1).
+assert_denied "a status flag on the start verb" "node src/terrain.mjs start --status"
 
 # THE ADMISSION IS PER SEGMENT, NOT PER COMMAND (PR #1034 round 1, finding 2).
 # A whole-string read admits every segment on one segment's `--status`, so an
