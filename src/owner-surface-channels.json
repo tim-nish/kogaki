@@ -1,0 +1,47 @@
+{
+  "_what": "Which harness-rendered surfaces put the Terrain tag table in front of the owner (kogaki#1029 item 1). One row per candidate surface the Issue names: `visible` is the owner's recorded click for a surface that was rendered, `null` for one not yet rendered, and `how: not tried` carries the stated reason a surface was not rendered. A reason is not a click, and a null row is an open measurement, never a result.",
+  "harness": "Claude Code 2.1.266",
+  "measured_on": "2026-09-09",
+  "surfaces": [
+    {
+      "surface": "screen output above the question",
+      "how": "the session printed the executor's tag_listing bytes as assistant text, then called AskUserQuestion",
+      "run": "runs/terrain/terrain-2026-09-09T10-56-00-021Z",
+      "visible": true,
+      "evidence": "gate capture row tool_use_id toolu_01YRLqguLGVt62nqfkCTWNjZ; the owner's first answer named `agents`, a row present only in the printed table and in none of the four rendered options",
+      "note": "a model act, retired by kogaki#1028: the rendering is no longer an Act of the workflow"
+    },
+    {
+      "surface": "question text",
+      "how": "the executor composes gate-call.json with tag_listing prepended to the question; the PreToolUse equality check admits only that payload (kogaki#1028, merged as eca0a3f)",
+      "run": null,
+      "visible": null,
+      "evidence": null,
+      "note": "measured by the first live run after the hooks are registered -- kogaki#1047 acceptance 5; the row is filled from that run's capture, never by hand"
+    },
+    {
+      "surface": "option preview",
+      "how": "not tried",
+      "run": null,
+      "visible": null,
+      "evidence": null,
+      "note": "the composed call carries no preview; a table longer than the 12-line preview bound would be clipped"
+    },
+    {
+      "surface": "hook systemMessage (PostToolUse, UserPromptSubmit)",
+      "how": "not tried",
+      "run": null,
+      "visible": null,
+      "evidence": null,
+      "note": "display is undocumented for the harness version above"
+    },
+    {
+      "surface": "PreToolUse deny reason",
+      "how": "not tried",
+      "run": null,
+      "visible": null,
+      "evidence": null,
+      "note": "a deny reason reaches the model, and reaching the owner is what this file measures"
+    }
+  ]
+}

@@ -59,7 +59,7 @@
   "gates": [
     {
       "id": "terrain-tag-selection",
-      "raised_by": "src/terrain.mjs — the executor composes this declaration at its `TAG_SELECTION` wait and the session renders it through AskUserQuestion (SPEC-terrain, the pre-selection listing and the wait rule; kogaki#856)",
+      "raised_by": "src/terrain.mjs — the executor composes this declaration and its byte-fixed gate call at its `TAG_SELECTION` wait; the harness UI renders that call, and the PreToolUse equality check admits no other payload (kogaki#1028) (SPEC-terrain, the pre-selection listing and the wait rule; kogaki#856)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which tag does the survey open on?",
@@ -113,7 +113,7 @@
     },
     {
       "id": "terrain-id-selection",
-      "raised_by": "src/terrain.mjs — the executor composes this declaration at its `ID_SELECTION` wait and the session renders it through AskUserQuestion (SPEC-terrain, the post-tag-selection window; kogaki#890)",
+      "raised_by": "src/terrain.mjs — the executor composes this declaration and its byte-fixed gate call at its `ID_SELECTION` wait; the harness UI renders that call, and the PreToolUse equality check admits no other payload (kogaki#1028) (SPEC-terrain, the post-tag-selection window; kogaki#890)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which composed groups does the survey enter?",

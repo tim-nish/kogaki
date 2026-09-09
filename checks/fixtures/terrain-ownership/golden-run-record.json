@@ -1,0 +1,49 @@
+{
+  "_origin": "the live run runs/terrain/terrain-2026-09-09T10-56-00-021Z of 2026-09-09, the first in which every transition was executed by the harness (kogaki#1031). Transitions copied verbatim; the survey path is dropped because it is machine-local.",
+  "workflow": {
+    "path": "src/workflow.json",
+    "version": 15
+  },
+  "completed": [
+    "survey",
+    "TAG_SELECTION",
+    "compose_input"
+  ],
+  "waits_reached": [
+    "TAG_SELECTION"
+  ],
+  "awaiting": null,
+  "owner_input": {
+    "TAG_SELECTION": "agents"
+  },
+  "transitions": [
+    {
+      "state": "survey",
+      "advanced_by": {
+        "executor": "skill-expansion"
+      },
+      "at": "2026-09-09T10:56:00.811Z"
+    },
+    {
+      "state": "TAG_SELECTION",
+      "advanced_by": {
+        "executor": "hook",
+        "hook_event_name": "PostToolUse",
+        "session_id": "410c1afe-980d-437f-aae4-242418abbe80",
+        "tool_use_id": "toolu_01YRLqguLGVt62nqfkCTWNjZ"
+      },
+      "at": "2026-09-09T10:59:37.190Z"
+    },
+    {
+      "state": "compose_input",
+      "advanced_by": {
+        "executor": "hook",
+        "hook_event_name": "PostToolUse",
+        "session_id": "410c1afe-980d-437f-aae4-242418abbe80",
+        "tool_use_id": "toolu_01YRLqguLGVt62nqfkCTWNjZ"
+      },
+      "at": "2026-09-09T10:59:38.062Z"
+    }
+  ],
+  "done": false
+}
