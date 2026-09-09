@@ -165,6 +165,38 @@ assert_denied "a version-suffixed node"    "node20 src/terrain.mjs start"
 assert_admitted "the status verb at the new anchor" "node src/terrain.mjs run --status"
 assert_denied "a status flag on the start verb, at the new anchor" "node src/terrain.mjs start --status"
 
+# AN OPTION BETWEEN THE INTERPRETER AND THE PATH (PR #1064 round 1, blocking).
+# A walk back over a fixed prefix set stopped on `--no-warnings`, so the segment
+# read as data and rode through -- UNDER-refusal on the ordinary Bash route,
+# which is the one direction this hook declares it never errs in. An option
+# belongs to whatever precedes it, and so does the token an option takes.
+assert_denied "an interpreter flag before the path"  "node --no-warnings src/terrain.mjs start"
+assert_denied "a source-maps flag before the path"   "node --enable-source-maps src/terrain.mjs start"
+assert_denied "an option that takes an argument"     "node -r foo src/terrain.mjs run"
+# ...and the option rule must not swallow the command itself: a grep whose
+# pattern follows a flag is still a grep.
+assert_admitted "a flagged grep over the executor"   'grep -n "judgePrompt" src/terrain.mjs'
+assert_admitted "a flagged read of the executor"     "head -100 src/terrain.mjs"
+
+# THE RUNNERS A DIRECT EXECUTION IS REACHED THROUGH (PR #1064 round 1). With no
+# interpreter token the path must be first-after-transparent, so a runner that
+# is not a member admits an execution the bare-literal matcher denied.
+assert_denied "a timeout-wrapped direct run" "timeout 300 ./src/terrain.mjs start"
+assert_denied "an xargs-wrapped direct run"  "xargs ./src/terrain.mjs start"
+assert_denied "a setsid-wrapped direct run"  "setsid ./src/terrain.mjs run"
+assert_denied "a stdbuf-wrapped direct run"  "stdbuf -o0 ./src/terrain.mjs start"
+
+# THE ADMISSION READS THE ANCHOR'S OWN ARGUMENTS (PR #1064 round 1). The verb
+# read searched the raw segment for the filename, so a data mention standing
+# EARLIER in the segment supplied the verb for a LATER invocation: the deny
+# fired on the anchor and the admission then let it through on someone else's
+# `run`.
+assert_denied "a data mention supplying the verb" \
+  "NOTE=terrain.mjs run node src/terrain.mjs start --status"
+# ...and the mirror: a data mention must not hide an invocation behind it.
+assert_denied "an invocation after a data mention" \
+  "echo src/terrain.mjs run --status node src/terrain.mjs start"
+
 # THE HOOK'S CHILD BOUND FIRES BEFORE THE HARNESS'S OWN (PR #1034 round 1,
 # finding 3). A bound set AT the default can never fire first, which is a
 # declared bound that does nothing; the relay message it exists to make

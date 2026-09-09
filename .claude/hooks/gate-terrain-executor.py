@@ -48,15 +48,13 @@ through `sudo`, `env`, `exec` or a `sh -c` string. The over-refusal direction is
 kept where it is cheap -- a quoted `-c` payload and a leading env assignment are
 both read as command position.
 
-THE BOUNDARY IS DECLARED, and it is not a completeness claim. The served
-position on enumerated deny rules (product-lab, threads/decisions/archive/
-claude-code-ops.md:18) accepts them with a STATED boundary, on the ground that
-completeness over shell syntax is unachievable and a gate that claims it is a
-pretend gate. So: this reads TOKENS, not a shell grammar. It resolves quoting by
-stripping, not by parsing; a command constructed at runtime, reached through a
-variable, or assembled inside a `$(...)` it never splits is outside it. What the
-prohibition rests on is that the executor's self-declared start attribution is
-only worth reading because the ordinary Bash route is closed -- and the ordinary
+THE BOUNDARY IS DECLARED, and it is not a completeness claim. This reads TOKENS,
+not a shell grammar: it splits on whitespace, resolves quoting by stripping
+rather than parsing, and walks back over options and runners by shape. A command
+constructed at runtime, reached through a variable, or assembled inside a
+`$(...)` it never splits is outside it. That is a fact about this code, stated
+here because a gate whose reach is unstated is read as total; what the
+prohibition rests on is that the ordinary Bash route is closed, and the ordinary
 route is what these tokens cover.
 """
 
@@ -141,13 +139,21 @@ INTERPRETER = re.compile(
     r"^(?:node(?:js)?[\d.]*|npx|bun|deno|ts-node|tsx|sh|bash|zsh|dash|ksh)$")
 
 # TRANSPARENT PREFIXES. Tokens that stand before a command without being one, so
-# the command position is the token AFTER them. `-c` is here because `sh -c
-# 'src/terrain.mjs run'` puts a command in the next token; a leading `VAR=value`
-# assignment is matched by shape. Erring toward over-refusal is this hook's
-# declared direction, and every member widens what counts as command position.
-TRANSPARENT = {"sudo", "env", "exec", "nohup", "time", "command", "builtin",
-               "then", "do", "else", "-c", "-lc"}
+# the command position is the token AFTER them. The runners that reach a direct
+# execution are members because the path carries no interpreter of its own there
+# and the prefix is the whole of what stands in front of it (PR #1064 round 1).
+# Erring toward over-refusal is this hook's declared direction, and every member
+# widens what counts as command position.
+TRANSPARENT = {"sudo", "doas", "env", "exec", "nohup", "time", "timeout",
+               "xargs", "setsid", "stdbuf", "nice", "ionice", "command",
+               "builtin", "then", "do", "else"}
+# ...and three transparent SHAPES, which is where the enumeration would
+# otherwise have to guess: a leading `VAR=value` assignment, an OPTION and the
+# ARGUMENT an option takes.
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z_0-9]*=")
+# `timeout 300`, `timeout 5m` -- a runner's duration argument, which is not an
+# option and so is not caught by the option rule below.
+DURATION = re.compile(r"^\d+(?:\.\d+)?[smhd]?$")
 
 
 def _unquote(token):
@@ -161,56 +167,89 @@ def _unquote(token):
 
 
 def _transparent(token):
-    return token in TRANSPARENT or ASSIGNMENT.match(token) is not None
+    return (token in TRANSPARENT
+            or ASSIGNMENT.match(token) is not None
+            or DURATION.match(token) is not None
+            or token.startswith("-"))
 
 
-def invokes_executor(segment):
-    """Does this segment RUN the executor, as opposed to naming it?
+def _tokens(segment):
+    return [t for t in (_unquote(x) for x in (segment or "").split()) if t]
 
-    True when a path token stands in command position: first in the segment
-    after any transparent prefix, or immediately behind an interpreter token.
-    Anchored on the path's TAIL rather than one spelling, because the executor
-    is reachable as `src/terrain.mjs`, `./src/terrain.mjs`, an absolute path or
-    through a worktree -- and a matcher keyed to one spelling is a matcher a
-    second spelling walks past.
+
+def command_index(tokens):
+    """Index of the path token standing in COMMAND POSITION, or None.
+
+    Command position is: first in the segment after any transparent prefix, or
+    immediately behind an interpreter token. Anchored on the path's TAIL rather
+    than one spelling, because the executor is reachable as `src/terrain.mjs`,
+    `./src/terrain.mjs`, an absolute path or through a worktree -- and a matcher
+    keyed to one spelling is a matcher a second spelling walks past.
+
+    THE WALK BACK SKIPS AN OPTION AND THE ARGUMENT IT TAKES (PR #1064 round 1,
+    blocking). Reading only a fixed prefix set stopped on `--no-warnings`, so
+    `node --no-warnings src/terrain.mjs start` read as data and rode through --
+    UNDER-refusal on the ordinary Bash route, which is the one direction this
+    hook declares it never errs in. An option belongs to whatever precedes it,
+    and so does the token after an option (`node -r foo <path>`), so both are
+    walked past rather than treated as the command's neighbour.
+
+    EVERY PATH TOKEN IS TRIED, not just the first: a data mention earlier in the
+    same segment must not hide an invocation later in it.
     """
-    tokens = [_unquote(t) for t in (segment or "").split()]
-    tokens = [t for t in tokens if t]
     for i, token in enumerate(tokens):
         if PATH_TOKEN.match(token) is None:
             continue
-        # Behind an interpreter, or behind nothing but transparent prefixes.
         j = i - 1
-        while j >= 0 and _transparent(tokens[j]):
-            j -= 1
+        while j >= 0:
+            # An interpreter ENDS the walk. Tested first, because the
+            # option-argument rule below would otherwise step over it: in
+            # `... --status node <path>`, `node` follows an option and is not
+            # its argument.
+            if INTERPRETER.match(tokens[j]) is not None:
+                break
+            if _transparent(tokens[j]):
+                j -= 1
+                continue
+            # An option's ARGUMENT: in `node -r foo <path>`, `foo` belongs to
+            # `-r` and is not the token standing before the command.
+            if j >= 1 and tokens[j - 1].startswith("-"):
+                j -= 2
+                continue
+            break
         if j < 0 or INTERPRETER.match(tokens[j]) is not None:
-            return True
-    return False
+            return i
+    return None
 
 
-def admitted(segment):
-    """Only `--status`, and only in the SAME segment, rides through.
+def admitted(tokens, index):
+    """Only `run --status`, on the INVOCATION's own arguments, rides through.
 
-    Read as a WHOLE WORD so `--status-key` and a path ending in `--status` do
-    not admit; and the absence of any other flag is not an admission -- a bare
+    READ FROM THE SAME TOKEN THE DENY ANCHORS ON (PR #1064 round 1). The first
+    cut read the verb by searching the raw segment for the filename, so a data
+    mention standing earlier in the segment supplied the verb for a later
+    invocation: `NOTE=terrain.mjs run node src/terrain.mjs start --status` was
+    denied by the anchor and then admitted by the verb read. The admission now
+    takes the arguments of the command the anchor found, and nothing else.
+
+    `--status` is matched as a WHOLE TOKEN so `--status-key` does not admit; and
+    the absence of any other flag is not an admission -- a bare
     `node src/terrain.mjs run` carries no verb at all and is denied.
+
+    THE VERB IS `run` (PR #1040 round 1, blocking finding): `start` opens a
+    workspace and repoints the open run BEFORE it looks at `--status`, so the
+    flag admitted an act that clobbers the owner's live run.
     """
-    seg = segment or ""
-    if re.search(r"(?<![\w-])--status(?![\w-])", seg) is None:
-        return False
-    # AND the verb is `run`, read as the first token after the executor path.
-    # `start --status` carried the flag and rode through (PR #1040 round 1,
-    # blocking finding): `start` opens a workspace and repoints the open run
-    # BEFORE it looks at `--status`, so the flag admitted an act that clobbers
-    # the owner's live run. Only `run --status` is the read-only route.
-    m = re.search(r"terrain\.mjs\s+([^\s]+)", seg)
-    return m is not None and m.group(1) == "run"
+    args = tokens[index + 1:]
+    return bool(args) and args[0] == "run" and ADMITTED in args[1:]
 
 
 def offending(command):
     """The first segment that RUNS the executor without admitting itself."""
     for seg in segments(command):
-        if invokes_executor(seg) and not admitted(seg):
+        tokens = _tokens(seg)
+        index = command_index(tokens)
+        if index is not None and not admitted(tokens, index):
             return seg.strip()
     return None
 
