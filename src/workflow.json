@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "spec_references": [
     "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
     "The rule these entries are written under -- what a copy is, what the two",
@@ -25,8 +25,6 @@
     "      SPEC-terrain",
     "  GroupClaim-first rendering",
     "      SPEC-terrain",
-    "  the rule that a derived origin member set announces itself",
-    "      SPEC-terrain (named by content; no section carries it at this head)",
     "  semantic subdivision",
     "      SPEC-terrain",
     "  measurement before offering",
@@ -74,11 +72,11 @@
     "      specs/SPEC.md (named by content; no section carries it at this head)"
   ],
   "governing_text": "SPEC-terrain, the control plane",
-  "licensed_by": "kogaki#861 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
+  "licensed_by": "kogaki#1030 -- this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
     "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (write authority) and renders under the grammar_surface THIS STATE declares, never one bound to the artifact path.",
-    "judgment": "Reaches a declared judgment point. The judgment arrives as a typed record; the executor validates and never composes it (SPEC-terrain, the typed judgment points).",
+    "judgment": "Reaches a declared judgment point. THE EXECUTOR INVOKES THE JUDGE ITSELF (kogaki#1030): it calls the model named in this table's `judge` block, validates the returned record through this state's own refusals, and retries up to the state's `retries` before failing with the refusal text. The model is a CALLED FUNCTION and never the driver -- the executor still validates and never composes (SPEC-terrain, the typed judgment points).",
     "wait": "The executor stops. Nothing further runs until the owner speaks and the session re-enters (SPEC-terrain, the re-entrant executor and the wait rule).",
     "terminal": "The run is over. Runs nothing, writes nothing, and the executor stops without awaiting an owner. Distinct from `compute` because a generic interpreter holds no state list of its own (SPEC-terrain, the workflow table) and must read the end from the table rather than from position."
   },
@@ -87,7 +85,17 @@
     "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states.",
     "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
     "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. The binding is per state, never per artifact path (SPEC-terrain, write authority).",
-    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. A property this table exists to carry may not be read off a missing key, so the two conditions are one biconditional over the states array and NOT a count: this note deliberately enumerates no number of gate states, because the count moved from three to four at kogaki#856 and a note carrying it would have gone stale in the same commit — which is the defect kogaki#807 repaired one field over, in the `owner_reads` note that used to read \"Three keys\" and enumerate them."
+    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. A property this table exists to carry may not be read off a missing key, so the two conditions are one biconditional over the states array and NOT a count: this note deliberately enumerates no number of gate states, because the count moved from three to four at kogaki#856 and a note carrying it would have gone stale in the same commit — which is the defect kogaki#807 repaired one field over, in the `owner_reads` note that used to read \"Three keys\" and enumerate them.",
+    "retries": "Required on every state whose `kind` is `judgment`, and absent otherwise. The number of times the executor RE-ASKS the judge after a response its own refusals rejected; 0 means the first refusal is final. Declared PER STATE rather than once for the table because the states differ in how much a re-ask can plausibly repair -- and declared HERE rather than in the executor because the count is a property of the workflow, which is what this carrier holds.",
+    "judge": "A table-level block, not a state field. Names the command the executor runs for every judgment state, THE MODEL IT PINS, and the output format it parses. THE MODEL IS PINNED HERE AND NEVER INHERITED FROM THE SESSION (kogaki#1030): a judgment whose model is whatever happened to be driving is not reproducible, and the run record could not say what judged it. `KOGAKI_JUDGE_CLI` overrides the resolved binary FOR FIXTURES ONLY and is how the acceptance fixtures stub the call; it changes no other behaviour and pins no model of its own. It also declares `timeout_s`, the per-CALL bound in seconds -- named apart from the advance hook's own timeout because one bounds a call and the other bounds an advance."
+  },
+  "judge": {
+    "command": "claude",
+    "model": "claude-opus-5",
+    "effort": "high",
+    "output_format": "json",
+    "timeout_s": 90,
+    "note": "The executor invokes this for every `judgment` state: `<command> -p --model <model> --output-format <output_format>`, the state's prompt on stdin, the typed record parsed out of the response. A response the state's refusals reject is re-asked up to that state's `retries` and then the run FAILS with the refusal text -- the judgment provenance state `observed` has a producer from this act on, because the Harness now holds an invocation record its own act wrote. `effort` IS THE PIN'S FOURTH COMPONENT AND IS DECLARED RATHER THAN OBSERVED: the call carries no effort flag, so this names the tier the run declares it is asking at, exactly as the judge pin has always been a declaration. What is no longer a declaration is `model` -- it is now the model the executor actually ran, which is why the pin is worth more after kogaki#1030 than before it, not less. `timeout_s` BOUNDS ONE CALL, and it is derived from the bound around it (PR #1044 round 1): .claude/hooks/advance-terrain.py kills the whole advance at ADVANCE_TIMEOUT_S = 480, and a span can make up to six calls (two judgment states at retries: 2), so a per-call bound above 80s could let one span exhaust the hook and leave the half-finished record that bound exists to relay. 90 is above that ratio deliberately: the arithmetic bounds the WORST case, in which every call is both slow and refused, and pricing the ordinary case at the worst case would make a normal run fail on a slow answer. What the bound guarantees is that a HUNG call cannot consume the advance silently; a span that legitimately needs six slow calls is over the hook budget whatever this value is, and that is the hook timeout relaying a real fact rather than this bound hiding it."
   },
   "states": [
     {
@@ -123,6 +131,7 @@
       "kind": "judgment",
       "judgment_point": "GroupClaim / SubGroupClaim composition",
       "input_shape": "typed claims record carrying composition_pin and one claim per group",
+      "retries": 2,
       "refusal": "claims whose group/member set is not a subset of the composition pin are refused, naming the members outside it",
       "writes": null,
       "conditional": false,
@@ -130,20 +139,11 @@
       "governing": "GroupClaim-first rendering, the open questions"
     },
     {
-      "id": "CLAIM_REOFFER",
-      "kind": "wait",
-      "owner_supplies": "adoption of the recomposed claim, the original wording kept, or free text",
-      "writes": null,
-      "conditional": "entered ONLY when a claim validated at J1_claims is pinned to a PROPER SUBSET of the member set its composition_pin served for that group. A full-group claim reaches no gate: GroupClaim-first rendering makes the full-group rendering per-invocation and not an adopted claim, so there is nothing to re-offer.",
-      "renders_gate_declaration": true,
-      "governing": "GroupClaim-first rendering (the origin travels as an argument), the rule that a derived origin member set announces itself (named by its content: no section of SPEC-terrain carries it at this head), the wait rule",
-      "gate_id": "terrain-claim-reoffer"
-    },
-    {
       "id": "J2_subdivision",
       "kind": "judgment",
       "judgment_point": "semantic subdivision",
       "input_shape": "typed per-group record, judged: true, one entry per composed group, carrying the judge pin; each SubGroup carries a `coherence` label from the closed set tight | related | forced and a `coherence_why` sentence",
+      "retries": 2,
       "refusal": "a missing group entry, a bare array, or an absent judge pin is refused; a SubGroup whose `coherence` is outside the closed set, or that carries no `coherence_why`, is refused — the label is the judge's and is never defaulted here; and a judged-EMPTY outcome for a group at or above the split threshold is refused, because at that size WHETHER to split is the engine's decision rather than the judge's (semantic subdivision)",
       "writes": null,
       "conditional": false,
@@ -175,6 +175,7 @@
       "kind": "judgment",
       "judgment_point": "Thesis-candidate composition (the Thesis candidates)",
       "input_shape": "typed array of {claim, strands} objects, exactly `limits.thesis_candidates` of them, each combining 2 to 8 LessonDisplayIDs THIS report renders",
+      "retries": 2,
       "refusal": "a count other than the declared limit, a claim spanning more than one line, a strand list outside 2 to 8, a strand no entered Group or SubGroup carries, and a repeated strand are each refused",
       "writes": null,
       "conditional": false,
@@ -196,6 +197,7 @@
       "kind": "judgment",
       "judgment_point": "provenance-neighborhood recommendation",
       "input_shape": "typed record keyed by candidate slug, each carrying one free-form claim, one level from the harness-fixed set, and one target naming the Thesis candidate it serves and its role for that candidate",
+      "retries": 2,
       "refusal": "a level outside the closed set, a level with no claim, a judgment with no target, a target that is not a TC id, a target naming a Thesis candidate the thesis_candidates state did not compose, and a key no mechanical candidate carries are each refused, naming the offending slug",
       "writes": null,
       "conditional": false,
@@ -243,8 +245,8 @@
     }
   ],
   "counted_baseline": {
-    "waits": 5,
-    "conditional_states": 2,
+    "waits": 4,
+    "conditional_states": 1,
     "owner_artifact_writes": 2,
     "judgment_points": 4,
     "grammared_writing_states": 2
