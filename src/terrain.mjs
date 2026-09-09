@@ -1825,8 +1825,131 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   // which is the pre-#818 behaviour it would then report as a pass (kogaki#837).
   const out = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
   writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
-  writeOpenGatePointer(dir, declaration, out);
+  // THE CALL IS COMPOSED HERE, BESIDE THE DECLARATION (kogaki#1028 item 1).
+  const call = composeGateCall(declaration);
+  let callPath = null;
+  if (call.tool_input) {
+    callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
+    writeFileSync(callPath, JSON.stringify(call.tool_input, null, 2) + "\n");
+  }
+  writeOpenGatePointer(dir, declaration, out, callPath, call.unavailable || null);
   return out;
+}
+
+// --------------------------------------------------------------------------
+// THE GATE CALL (kogaki#1028 item 1).
+//
+// WHAT THIS IS. The exact `AskUserQuestion` `tool_input` the session must send,
+// written by the executor beside the declaration. Before it, the session read a
+// declaration and COMPOSED a question from it -- and on 2026-09-09, with the tag
+// gate open, it composed nothing at all: it called two MCP tools, wrote a file,
+// declined to render the gate, and answered the typed tag by calling
+// `ListAgents`. A payload the model composes is a payload the model can decline
+// to compose, paraphrase, or reorder, and no downstream carrier could tell.
+//
+// SO THE PAYLOAD IS AN ARTIFACT, NOT AN INSTRUCTION. `.claude/hooks/gate-open-
+// terrain-gate.py` allows exactly the call that is byte-equal to this file
+// after JSON canonicalisation and denies every other tool while the gate is
+// open. That comparison is only possible because the bytes exist on disk; a
+// prose instruction to "render it as declared" is checkable by nobody.
+//
+// THE READING RIDES INSIDE THE PAYLOAD. Where the declaration carries the
+// runtime's own pre-selection listing (`tag_listing`), it goes into the question
+// text ABOVE the question line rather than being left for the session to put on
+// screen. kogaki#856 put the reading before the question; this puts it inside
+// the thing that is compared, so a table that arrives missing, paraphrased or
+// reordered is a byte difference and is denied rather than merely regretted.
+//
+// THE SECOND OPTION IS COMPOSED, AND THAT IS AN OWNER RULING (2026-09-09, at the
+// /ship-cycle gate on this issue). `AskUserQuestion` admits 2-4 options; seven
+// of this repository's eight registered gates declare exactly one. The
+// declaration's `free_text_offered: true` is the second way to answer -- the
+// registry says so in as many words for the tag gate ("exactly two ways to
+// answer exist ... the standing option above, or free-form entry of a tag
+// name") -- so the composer TRANSCRIBES that flag into the row the harness
+// requires rather than the session inventing one at render time. It is the
+// deterministic half extended by one step, not a new arm: the ground is that an
+// automated lane which stops at one ruled outcome and says nothing about what
+// follows hands the following act to judgment, where a new design decision
+// enters disguised as a mechanical continuation.
+// consulted: product-lab@0f31c3bebdd65a126dd5c2928b86c2a212bba5c2 LESSONS.md:42
+//
+// AND WHERE IT CANNOT COMPOSE ONE, IT SAYS SO RATHER THAN WEDGING THE RUN. A
+// gate offering no option at all, or more than four after the free-text row, has
+// no valid payload -- so no `gate-call.json` is written and the pointer carries
+// `gate_call_unavailable` instead. The hook then still denies every tool but
+// `AskUserQuestion`, which is the exclusivity this issue is about, and admits
+// any payload for the question itself, because there is nothing to compare it
+// to. A deny with no admissible act is a wedge, and the failure this repository
+// already ruled on is that a fail-closed refusal relocates the choice it
+// refuses rather than preventing anything.
+// consulted: product-lab@0f31c3bebdd65a126dd5c2928b86c2a212bba5c2 LESSONS.md:44
+export const GATE_CALL_SUFFIX = ".gate-call.json";
+
+// The harness's own bound on an AskUserQuestion payload. Read from its schema,
+// restated here because there is no module to import it from across the seam --
+// the same two-implementations-of-one-constant trade `option_set_digest` makes,
+// and `checks/check-open-gate-exclusivity.sh` is what compares them.
+const ASK_MIN_OPTIONS = 2;
+const ASK_MAX_OPTIONS = 4;
+
+// ONE constant, never a per-gate wording composed at render time. A gate that
+// wants its own words declares `free_text_label` in `src/gate-registry.json`,
+// where an owner merges it, rather than the executor inventing a phrasing per
+// gate -- which is the composition this whole file removes.
+const GATE_CALL_FREE_TEXT_LABEL = "Answer in your own words instead";
+const GATE_CALL_FREE_TEXT_DESCRIPTION =
+  "This gate offers free text. Choose this row and type the answer; the harness "
+  + "records what you type, and the executor reads it from the capture.";
+
+// The chip label, at most 12 characters, DERIVED rather than composed: the last
+// hyphen-separated segment of the gate id. `terrain-tag-selection` -> `selection`.
+// A gate may override it with `header` in the registry.
+export function gateCallHeader(declaration) {
+  const declared = declaration.header;
+  if (typeof declared === "string" && declared.trim()) return declared.trim().slice(0, 12);
+  const segments = String(declaration.id || "gate").split("-").filter(Boolean);
+  return (segments[segments.length - 1] || "gate").slice(0, 12);
+}
+
+export function composeGateCall(declaration) {
+  const declared = Array.isArray(declaration.options) ? declaration.options : [];
+  const options = declared.map((o) => ({
+    label: String(o.label),
+    // The description is the option's OWN, and where it carries none the id is
+    // shown rather than a sentence invented about it.
+    description: String(o.description || o.id || ""),
+  }));
+  if (options.length === 0) {
+    return { unavailable: `${declaration.id} declares no option, and a question with no arm is not a gate — the free-text row alone would leave the owner one way to answer where the declaration promises none` };
+  }
+  if (options.length < ASK_MIN_OPTIONS) {
+    if (!declaration.free_text_offered) {
+      return { unavailable: `${declaration.id} declares ${options.length} option(s) and no free text, and AskUserQuestion admits at least ${ASK_MIN_OPTIONS} — there is no row to compose from, so none is invented` };
+    }
+    options.push({
+      label: String(declaration.free_text_label || GATE_CALL_FREE_TEXT_LABEL),
+      description: GATE_CALL_FREE_TEXT_DESCRIPTION,
+    });
+  }
+  if (options.length > ASK_MAX_OPTIONS) {
+    return { unavailable: `${declaration.id} composes ${options.length} options and AskUserQuestion admits at most ${ASK_MAX_OPTIONS} — no payload is written, and nothing here drops an option the declaration offered` };
+  }
+  const reading = typeof declaration.tag_listing === "string" && declaration.tag_listing.trim()
+    ? declaration.tag_listing : null;
+  const question = reading
+    ? `${reading}\n\n${String(declaration.question)}`
+    : String(declaration.question);
+  return {
+    tool_input: {
+      questions: [{
+        question,
+        header: gateCallHeader(declaration),
+        multiSelect: false,
+        options,
+      }],
+    },
+  };
 }
 
 // --------------------------------------------------------------------------
@@ -1850,7 +1973,22 @@ export function openGateDir() {
   return process.env.KOGAKI_OPEN_GATES || join(homedir(), ".claude", "kogaki-open-gates");
 }
 
-export function writeOpenGatePointer(dir, declaration, declPath) {
+// THE POINTER NAMES ITS SESSION (kogaki#1028 item 5).
+//
+// Every consumer of this directory previously matched on the question text
+// alone, so one machine's outstanding gate was every session's outstanding gate:
+// a second session answering a question with the same text wrote a row into the
+// first session's capture, and a PreToolUse deny keyed on "a pointer exists"
+// would have frozen every session on the machine rather than the one at the
+// gate. The id is read from the environment the harness sets, and a run started
+// outside a Claude Code session simply carries `null` -- which the readers treat
+// as "matches nothing to exclude" rather than as a wildcard, so a pointer that
+// never learned its session still reaches the run that made it.
+function sessionId() {
+  return process.env.CLAUDE_CODE_SESSION_ID || null;
+}
+
+export function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callUnavailable = null) {
   const gd = openGateDir();
   mkdirSync(gd, { recursive: true });
   const capPath = join(dir, `terrain${GATE_SCHEMA.capture.suffix}`);
@@ -1876,6 +2014,11 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
     question: declaration.question,
     declaration_path: resolve(declPath),
     capture_path: resolve(capPath),
+    // The byte-fixed call the session must send, or the stated reason there is
+    // none. Exactly one of the two is non-null, always.
+    gate_call_path: callPath ? resolve(callPath) : null,
+    gate_call_unavailable: callUnavailable,
+    session_id: sessionId(),
     opened_at: declaration.declared_at,
   }, null, 2) + "\n");
 }
@@ -6840,8 +6983,20 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       // leaving the order to the session (kogaki#856). A declaration carrying a
       // rendering carries it so the owner can answer from it; rendered after the
       // question, or not at all, it is the defect this issue was filed about.
-      console.log(`Where that declaration carries a rendering key (\`tag_listing\`), put those bytes on screen VERBATIM and BEFORE the question — they are the runtime's own output and are not retyped, summarized or reformatted.`);
-      console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. The executor renders no question UI and asks nothing (the post-tag-selection window).`);
+      // AND THE CALL IS NAMED, NOT DESCRIBED (kogaki#1028 item 1). The two lines
+      // this replaces told the session what to compose; a session that composed
+      // nothing at all was indistinguishable from one that had not been told.
+      // The payload is now a file, the only admissible act while the pointer is
+      // open is sending it byte-for-byte, and `.claude/hooks/gate-open-terrain-
+      // gate.py` is what makes that true rather than this sentence.
+      const callHere = join(dir, `${stopped.gate_id}${GATE_CALL_SUFFIX}`);
+      if (existsSync(callHere)) {
+        console.log(`The AskUserQuestion call is WRITTEN: ${callHere}`);
+        console.log(`Send that file's contents as the tool_input, byte-for-byte — it already carries the reading (\`tag_listing\`) above the question. Nothing is retyped, summarized, reformatted or pre-selected, and the executor renders no question UI of its own (the post-tag-selection window).`);
+        console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028).`);
+      } else {
+        console.log(`No AskUserQuestion call could be composed for this gate, and the reason is on the open-gate pointer (\`gate_call_unavailable\`). Render the declaration's options verbatim, nothing pre-selected, free text on.`);
+      }
       console.log(`Then re-enter with a bare  run --run-dir ${dir}  — the answer is read from the harness's own capture, written by .claude/hooks/write-gate-capture.py when the owner answers. No flag carries it (kogaki#890).`);
       console.log(`A bare --input is refused at a gate wait: it would skip the declaration's own option check and the tool_use_id that evidences the rendering.`);
     } else {
@@ -7373,8 +7528,29 @@ switch (cmd) {
         ok("a run reaching TAG_SELECTION stops with its declaration WRITTEN rather than owed and unwritten",
           r.status === 0 && /run declaration is WRITTEN/.test(out) && !/OWED AND UNWRITTEN/.test(out),
           out.trim().split("\n").slice(-3).join(" | ").slice(0, 160));
-        ok("the stop instructs the session to put the listing on screen BEFORE the question, and names it verbatim",
-          /BEFORE the question/.test(out) && /tag_listing/.test(out) && /VERBATIM/.test(out));
+        // THE ORDER IS NOW A PROPERTY OF THE PAYLOAD, NOT OF THE STOP TEXT
+        // (kogaki#1028 item 1). kogaki#856's case asserted that the stop TOLD the
+        // session to put the listing on screen before the question; the listing
+        // now rides inside the question text of the call the executor composed,
+        // so what is asserted is that the call exists, is named, and carries the
+        // listing above the question line. An instruction the session could
+        // decline to follow has become bytes the PreToolUse hook compares.
+        ok("the stop names the WRITTEN AskUserQuestion call rather than instructing the session to compose one",
+          /call is WRITTEN/.test(out) && /byte-for-byte/.test(out) && !/OWED AND UNWRITTEN/.test(out),
+          out.split("\n").filter((l) => /call is WRITTEN|byte-for-byte/.test(l)).join(" | ").slice(0, 200));
+        {
+          const callPath = join(rd, `terrain-tag-selection${GATE_CALL_SUFFIX}`);
+          const call = existsSync(callPath) ? readJson(callPath) : null;
+          const q = call && call.questions && call.questions[0];
+          const listing = readJson(join(rd, "terrain-tag-selection.run-declaration.json")).tag_listing;
+          ok("the call carries the tag listing VERBATIM and ABOVE the question line, so a missing or paraphrased table is a byte difference",
+            !!q && typeof listing === "string" && q.question === `${listing}\n\n${"Which tag does the survey open on?"}`,
+            q ? q.question.slice(0, 160) : "(no call written)");
+          ok("the call satisfies AskUserQuestion's own bound — two options, composed from the one declared arm plus the declaration's free-text row (owner ruling 2026-09-09)",
+            !!q && q.options.length === 2 && q.options[0].description === "other-method"
+              && q.multiSelect === false && q.header.length <= 12,
+            q ? JSON.stringify({ n: q.options.length, header: q.header }) : "(no call written)");
+        }
         ok("the stop prints no invocation for the owner to run — no READ FIRST block, and no `terrain.mjs tags` hand-over",
           !/READ FIRST/.test(out) && !/terrain\.mjs tags/.test(out),
           out.split("\n").filter((l) => /READ FIRST|terrain\.mjs tags/.test(l)).join(" | "));
@@ -7421,12 +7597,21 @@ switch (cmd) {
         // shared directory, on purpose.
         const hookPath = join(REPO, ".claude", "hooks", "write-gate-capture.py");
         const gatesFor = (name) => join(gs, "open-gates", name);
-        const envFor = (name) => ({ ...process.env, KOGAKI_OPEN_GATES: gatesFor(name) });
+        // THE SELF-TEST NAMES ITS OWN SESSION (kogaki#1028 item 5). The capture
+        // hook joins a payload to a pointer on the nonce AND the session, and an
+        // empty id on either side matches nothing — so a fixture inheriting the
+        // ambient `CLAUDE_CODE_SESSION_ID` into the pointer while sending a
+        // payload without one would write no row, and the fixture would be
+        // reporting the join rather than what it means to cover. Pinned here so
+        // the pass is the same inside a session and outside one.
+        const SELF_TEST_SESSION = "terrain-self-test-session";
+        const envFor = (name) => ({ ...process.env, KOGAKI_OPEN_GATES: gatesFor(name), CLAUDE_CODE_SESSION_ID: SELF_TEST_SESSION });
         const answerThroughHook = (gatesName, questionText, label, toolUseId) => spawnSync(
           "python3", [hookPath],
           { encoding: "utf8", env: envFor(gatesName),
             input: JSON.stringify({
               tool_name: "AskUserQuestion",
+              session_id: SELF_TEST_SESSION,
               tool_use_id: toolUseId,
               tool_input: { questions: [{ question: questionText, options: [] }] },
               tool_response: { answers: { [questionText]: label } },

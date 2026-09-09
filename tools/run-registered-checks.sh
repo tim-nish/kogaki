@@ -59,6 +59,27 @@
 set -euo pipefail
 cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
+# THE SUITE GETS ITS OWN OPEN-GATE DIRECTORY (kogaki#1028 item 5).
+#
+# The guard members source refuses when `KOGAKI_OPEN_GATES` is unset, because a
+# check that starts the executor otherwise mints pointers in the owner's live
+# directory — and that directory now gates a live session. The runner is the one
+# place that can supply one for the whole suite, so it does, and says so: the
+# suite is unaffected, a check run BY HAND without one still refuses, and no run
+# of either kind reaches the live directory.
+#
+# A CALLER'S OWN SETTING IS NEVER OVERRIDDEN. A member being debugged against a
+# prepared directory keeps it.
+if [[ -z "${KOGAKI_OPEN_GATES:-}" ]]; then
+  KOGAKI_OPEN_GATES="$(mktemp -d "${TMPDIR:-/tmp}/kogaki-open-gates-suite.XXXXXX")"
+  export KOGAKI_OPEN_GATES
+  trap 'rm -rf "${KOGAKI_OPEN_GATES}"' EXIT
+  echo "open-gates: this run writes its gate pointers to ${KOGAKI_OPEN_GATES} (kogaki#1028)"
+else
+  export KOGAKI_OPEN_GATES
+  echo "open-gates: using the caller's KOGAKI_OPEN_GATES=${KOGAKI_OPEN_GATES}"
+fi
+
 # MEMBERS RUN CONCURRENTLY AND THE LOG IS PRINTED IN REGISTRY ORDER (kogaki#789).
 # The work is unchanged and so is every observation: the same members run, each
 # still gets its `== ` header, its own output and its own `catch:` line, in the
