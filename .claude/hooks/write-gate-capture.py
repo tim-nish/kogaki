@@ -166,11 +166,22 @@ def load_pointers(session_id=None):
     With the session named, each session sees only its own and the tie does not
     arise.
 
-    A POINTER THAT NAMES NO SESSION IS NOT A WILDCARD. It is matched to nothing
-    and skipped: pre-kogaki#1028 pointers and runs started outside a session
-    carry `None`, and admitting them for every session would restore exactly the
-    cross-session write this narrows away. Such a run refuses at re-entry, which
-    is recoverable; a row written into another session's capture is not.
+    A POINTER THAT NAMES NO SESSION KEEPS THE PRE-kogaki#1028 BEHAVIOUR, and
+    that is a correction of this hook's first cut (PR #1043 round 1, blocking
+    finding 2). Skipping it looked like the safe direction and was not: the
+    session id is read from an environment variable at the executor, and a run
+    whose process never had it writes `null` — so a strict rule turned "we
+    cannot prove which session owns this" into "no row is ever written", which
+    silently breaks the kogaki#890 capture path that works today. The narrowing
+    is a REFINEMENT of the question-text match, so it can only ever remove
+    candidates the old code would have accepted; where there is nothing to
+    narrow by, the old match stands and the ambiguity arm below still refuses to
+    choose.
+
+    The asymmetry with the pointer naming a session and the PAYLOAD naming none
+    is deliberate: there the pointer asserts an owner and this payload cannot be
+    shown to be it, so writing would be the misattribution. Absence of a claim
+    is not the same as a claim that fails.
     """
     d = pointer_dir()
     if not d.is_dir():
@@ -186,7 +197,7 @@ def load_pointers(session_id=None):
             continue
         mine = str(doc.get("session_id") or "")
         theirs = str(session_id or "")
-        if not mine or not theirs or mine != theirs:
+        if mine and mine != theirs:
             continue
         doc["_pointer_path"] = p
         expired = is_expired(doc)

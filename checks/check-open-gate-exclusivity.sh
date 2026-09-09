@@ -77,7 +77,35 @@ JSON
 
 # Feed a payload to the hook and print its stdout. `KOGAKI_OPEN_GATES` is the
 # whole of the environment it reads.
-fire() { KOGAKI_OPEN_GATES="$GATES" python3 "$HOOK" 2>/dev/null; }
+#
+# THE INSTRUMENT REPORTS ITSELF BEFORE IT REPORTS ITS SUBJECT (PR #1043 round 1,
+# finding 4). The first cut discarded stderr and the exit status and read empty
+# stdout as `allow`, so a hook that had crashed — or, as actually happened, one
+# that was never committed and was not in the tree at all — was indistinguishable
+# from one that deliberately admitted. That run produced thirteen FAIL lines
+# blaming the payload comparison and the 2026-09-09 event, and not one of them
+# said the file was missing. A broken instrument must say it is broken.
+fire() {
+  local out rc
+  out="$(KOGAKI_OPEN_GATES="$GATES" python3 "$HOOK" 2>"$WORK/hook.err")"; rc=$?
+  if [[ $rc -ne 0 ]]; then
+    echo "{\"decision\":\"hook-error\"}"
+    echo "  (hook exited $rc: $(head -c 300 "$WORK/hook.err"))" >&2
+    return 0
+  fi
+  printf '%s' "$out"
+}
+
+if [[ ! -f "$HOOK" ]]; then
+  echo "  FAIL: $HOOK is not in the tree — every case below would report the SUBJECT admitting when the instrument has no subject at all"
+  echo "FAIL: checks/check-open-gate-exclusivity.sh"
+  exit 1
+fi
+if ! python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$HOOK" 2>/dev/null; then
+  echo "  FAIL: $HOOK does not parse — see above"
+  echo "FAIL: checks/check-open-gate-exclusivity.sh"
+  exit 1
+fi
 
 pre() {  # $1 = tool name, $2 = tool_input JSON
   printf '%s' "{\"hook_event_name\":\"PreToolUse\",\"session_id\":\"$SESSION\",\"tool_name\":\"$1\",\"tool_input\":$2}" | fire
@@ -204,44 +232,40 @@ fi
 # THE REMOVAL TEST, EXECUTED. Cases 1 to 4 above are re-run with the skill file
 # and the Terrain spec moved aside. Only the hook, the pointer and the payload
 # remain; if a case needs the prose, the guarantee is not a hook's.
-HID="$WORK/hidden"; mkdir -p "$HID"
-REMOVAL_PATHS=(.claude/skills/terrain/SKILL.md specs/spec-terrain)
-# RESTORE HAS A BACKSTOP, BECAUSE THE FIRST CUT LOST A TRACKED FILE. A run killed
-# between the move and the restore — which happened once while this member was
-# being written — left `.claude/skills/terrain/SKILL.md` absent from the working
-# tree, and the trap that was supposed to prevent it never ran. Moving a tracked
-# file aside is only safe where git is the second copy, so git is asked
-# explicitly for anything still missing rather than assumed to be consulted later
-# by someone who notices.
-restore() {
-  for f in "$HID"/*; do [[ -e "$f" ]] || continue; mv "$f" "$(basename "$f" | tr _ /)"; done
-  for p in "${REMOVAL_PATHS[@]}"; do
-    [[ -e "$p" ]] || git checkout -- "$p" 2>/dev/null || true
-  done
-}
-trap 'restore; rm -rf "$WORK"' EXIT
-# And armed BEFORE the moves happen, so an interrupt between them is covered too.
-trap 'restore; rm -rf "$WORK"; exit 130' INT TERM HUP
-
-moved=0
-for p in "${REMOVAL_PATHS[@]}"; do
-  if [[ -e "$p" ]]; then mv "$p" "$HID/$(echo "$p" | tr / _)"; moved=$((moved+1)); fi
-done
+# THE PROSE IS ABSENT BY CONSTRUCTION, NOT BY BEING MOVED (PR #1043 round 1,
+# blocking finding 3). The first cut moved `.claude/skills/terrain/SKILL.md` and
+# `specs/spec-terrain` out of the shared working tree and put them back — and
+# `tools/run-registered-checks.sh` runs members CONCURRENTLY in that tree, where
+# three siblings read exactly those paths. Any of them scheduled inside the
+# removal window fails for a reason that is not a defect, so the suite's verdict
+# becomes nondeterministic; and the `git checkout --` backstop that was supposed
+# to make the move safe would discard uncommitted work under those paths instead.
+# It also lost a tracked file once, when a run was killed mid-window.
+#
+# So nothing is moved. The hook is COPIED into a directory that contains the hook
+# and nothing else — no skill file, no spec, no repository around it — and the
+# four decisions are driven there. That is a stronger reading of acceptance item
+# 6 than the move was: the move proved the decisions survive the prose being
+# deleted, and this proves they never needed anything but the hook.
+REMOVAL_DIR="$WORK/removal"; mkdir -p "$REMOVAL_DIR"
+cp "$HOOK" "$REMOVAL_DIR/hook.py"
+[[ -e .claude/skills/terrain/SKILL.md || -e specs/spec-terrain ]] && prose_exists=1 || prose_exists=0
 
 rm -f "$GATES"/*.json "$RUN/terrain.gate-capture.json"
 open_pointer
 removal_ok=1
+HOOK_SAVED="$HOOK"; HOOK="$REMOVAL_DIR/hook.py"
 [[ "$(pre AskUserQuestion "$EXACT" | decision)" == "allow" ]] || removal_ok=0
 [[ "$(pre ListAgents '{}' | decision)" == "deny" ]] || removal_ok=0
 [[ "$(stop_payload false | decision)" == "block" ]] || removal_ok=0
 [[ "$(ups "$SESSION" | decision)" == "block" ]] || removal_ok=0
-restore
-if [[ $removal_ok -eq 1 && $moved -gt 0 ]]; then
-  pass "Removal Test: the admit/deny/block decisions hold with the skill file and the Spec absent ($moved artifact(s) moved aside)"
-elif [[ $moved -eq 0 ]]; then
-  bad "Removal Test could not run: neither the skill file nor the Terrain spec was present to move aside"
+HOOK="$HOOK_SAVED"
+if [[ $removal_ok -eq 1 && $prose_exists -eq 1 ]]; then
+  pass "Removal Test: the admit/deny/block decisions hold for a copy of the hook alone, with no skill file, no Spec and no repository around it"
+elif [[ $prose_exists -eq 0 ]]; then
+  bad "Removal Test is vacuous: neither the skill file nor the Terrain spec is present in the tree, so their absence proves nothing"
 else
-  bad "Removal Test: a decision changed with the prose absent — the guarantee is not carried by the hook"
+  bad "Removal Test: a decision changed away from the repository — the guarantee is not carried by the hook alone"
 fi
 
 # ------------------------------------------------- item 6: the registration

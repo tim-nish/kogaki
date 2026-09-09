@@ -1980,11 +1980,29 @@ export function openGateDir() {
 // a second session answering a question with the same text wrote a row into the
 // first session's capture, and a PreToolUse deny keyed on "a pointer exists"
 // would have frozen every session on the machine rather than the one at the
-// gate. The id is read from the environment the harness sets, and a run started
-// outside a Claude Code session simply carries `null` -- which the readers treat
-// as "matches nothing to exclude" rather than as a wildcard, so a pointer that
-// never learned its session still reaches the run that made it.
+// gate.
+//
+// THE ID IS READ FROM AN ENVIRONMENT VARIABLE, SO ITS ABSENCE IS A CASE AND NOT
+// AN ERROR, AND THE TWO READERS TREAT IT DIFFERENTLY ON PURPOSE (PR #1043 round
+// 1, findings 2 and 5 -- the first cut's comment here said one thing and the
+// reader did another, which is the worse half of the defect):
+//
+//   `.claude/hooks/write-gate-capture.py` treats a null-session pointer as it
+//       treated every pointer before this field existed, matching on question
+//       text alone. Refusing it would turn "we cannot prove who owns this" into
+//       "no answer is ever recorded", breaking a path that works today.
+//   `.claude/hooks/gate-open-terrain-gate.py` gates nothing on a null-session
+//       pointer. Denying every tool call in a session that cannot be shown to
+//       own the gate is the failure with no recovery inside the session.
+//
+// Both readers therefore fail toward the recoverable side of their own act, and
+// neither treats the absence as a wildcard.
 function sessionId() {
+  // `CLAUDE_CODE_SESSION_ID` is what Claude Code exports into a Bash tool call
+  // and into a hook's process, which are the two routes the executor is started
+  // by (the skill's `!` line, and `.claude/hooks/advance-terrain.py`). A run
+  // started any other way carries null, and the readers above say what that
+  // means rather than leaving it to be inferred.
   return process.env.CLAUDE_CODE_SESSION_ID || null;
 }
 
