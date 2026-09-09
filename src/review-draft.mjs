@@ -24,14 +24,14 @@
 // is a stronger statement than a rule saying not to.
 //
 // THE HARNESS OWNS THE ORDERING (the same ruling `.claude/skills/draft/SKILL.md`
-// records for /draft): `recover` refuses a Step whose recovery input it did not
+// records for /draft): `outline` refuses a Step whose Reverse Outline input it did not
 // render, `compare` refuses while any Step or Section entry is missing, `check`
 // refuses before `compare`, and `close` is reachable from `compare` with zero
 // fails or from `check` in every state. A session does not sequence these acts
 // and cannot get the sequence wrong.
 //
 // THE COMPARISON IS FIXED IN THE HARNESS (kogaki#872). `src/review-items.json`
-// decides which Packet information must be recoverable per item class, which
+// decides which Packet information must be reconstructible per item class, which
 // items are preserved and which best-effort, and which are decided from string
 // facts rather than put to a reader. The judging model sees ONE pair and ONE
 // question and answers with one of three tokens — it never assigns severity,
@@ -48,7 +48,7 @@
 // a hole. EVERY DECLARED BOUNDARY IS NOW FILLED, and each is named here as
 // landed rather than dropped from the list, because a boundary that quietly
 // stops being one cannot be told from a boundary a reader misremembered: the
-// recovery input's record schema (kogaki#871); the item classes, the
+// Reverse Outline input's record schema (kogaki#871); the item classes, the
 // three-valued verdict and the mechanical checks (kogaki#872); the cold
 // reader's Section pairing and where a Section finding goes (kogaki#873); and
 // the correction path with its bounded second pass (kogaki#874).
@@ -267,7 +267,7 @@ function resolveInputs(draft) {
       if (!Array.isArray(f.lines) || f.lines.length !== 2
           || !Number.isInteger(f.lines[0]) || !Number.isInteger(f.lines[1])) {
         fail(`step ${id}: its trace entry carries a figure with no line range — the renderer records the `
-          + "figure's own range beside the Step's prose range, and without it the blind recovery "
+          + "figure's own range beside the Step's prose range, and without it Reverse Outlining "
           + "has no block to quote; re-emit the Draft (node src/draft.mjs emit --brief <brief.md>)");
       }
       if (typeof f.record !== "string" || typeof f.record_sha !== "string") {
@@ -344,7 +344,7 @@ function slugOf(draftPath) {
 // `src/draft.mjs`'s own `workspaceFor` gives the flag (PR #882 round 1,
 // finding 3). Returning the flag verbatim made two Drafts driven under one
 // `--workspace` share a single `run.json`, so the second `open` overwrote the
-// first run's rendered inputs and recoveries with no error and no trace. Two
+// first run's rendered inputs and outlines with no error and no trace. Two
 // commands whose flag has the same name and different arity is the homonym
 // defect; the sibling's reading is the one that was already load-bearing.
 function workspaceFor(args, slug) {
@@ -375,18 +375,18 @@ function writeRun(ws, run) {
 // ---------------------------------------------------------------------------
 // THE WORKSPACE IS SPLIT BY PASS, AND THE SPLIT IS THE CONTRACT (kogaki#994).
 //
-// Until this, pass two wrote `recovery/<step>.md`, `recovered/<step>.json` and
+// Until this, pass two wrote `outline-input/<step>.md`, `outline/<step>.json` and
 // `join/<step>.<item>.md` at the paths pass one had used, so the corrected
 // Steps' first-pass evidence was overwritten in place. `runs/` is gitignored,
 // so nothing else held a copy: pass one's blind reading of the ORIGINAL Draft,
 // and every pair input judged against it, were gone — and the surviving
-// verdicts in `join.json` indexed into recovered records that no longer
+// verdicts in `join.json` indexed into Reverse Outlines that no longer
 // existed. A rule saying "do not overwrite" would be prose where a refusal
 // belongs, so the layout is the Harness's:
 //
-//   runs/review/<slug>/pass-1/{recovery,recovered,join,ledger,corrections,
+//   runs/review/<slug>/pass-1/{outline-input,outline,join,ledger,corrections,
 //                              cold-reader.md,join.json}
-//   runs/review/<slug>/pass-2/{recovery,recovered,join,check.json}
+//   runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
 //   runs/review/<slug>/snapshots/     — before/after per corrected Step
 //   runs/review/<slug>/run.json
 //
@@ -483,7 +483,7 @@ function passPathAt(ws, run, pass, ...segments) {
   if (owner !== undefined && owner !== pass) {
     fail(`refused: pass ${pass} would write over a file pass ${owner} wrote — ${dest}. Each pass's `
       + "evidence is its own record of what a reviewer read and judged, and pass "
-      + `${owner}'s reading is not recoverable once this write lands. Pass ${pass}'s copy belongs `
+      + `${owner}'s reading is not retrievable once this write lands. Pass ${pass}'s copy belongs `
       + `under ${dir}.`);
   }
   run.pass_files[key] = pass;
@@ -507,7 +507,7 @@ function requireCurrent(run, draft, allowCorrecting = null) {
   if (run.body_sha !== draft.body_sha) {
     fail(`the Draft has changed since this run was opened.\n  opened on  ${run.body_sha}\n`
       + `  now        ${draft.body_sha}\n`
-      + "Re-open the run (`open --draft <draft.md>`) — the recovery inputs already rendered were "
+      + "Re-open the run (`open --draft <draft.md>`) — the Reverse Outline inputs already rendered were "
       + "rendered from prose that is no longer there.");
   }
   // THE MID-CORRECTION STATE IS NAMED RATHER THAN MET AS A SHA MISMATCH
@@ -531,8 +531,8 @@ function requireCurrent(run, draft, allowCorrecting = null) {
 }
 
 // ---------------------------------------------------------------------------
-// Rendering a recovery input. The reviewer is BLIND: it sees the prose and
-// never the Packet, which is what makes the recovered record evidence about the
+// Rendering a Reverse Outline input. The reviewer is BLIND: it sees the prose and
+// never the Packet, which is what makes the Reverse Outline evidence about the
 // prose rather than a re-reading of the input.
 //
 // The RECORD's schema is kogaki#871's and is deliberately not fixed here — this
@@ -611,7 +611,7 @@ function numberedFigure(step) {
 // WHERE THE READER MET THE FIGURE, read from the DRAFT'S OWN LINE NUMBERS and
 // never from the record's `position` field. The distinction is the whole reason
 // this is a function rather than a read of the record (kogaki#945): `position`
-// is the DECLARED side, and the blind recovery input below must carry nothing
+// is the DECLARED side, and the Reverse Outline input below must carry nothing
 // from the record — arranging that input by `position` would show a blind
 // reviewer the very value the `figure-position` item exists to join against
 // their independent reading. Line numbers are already on the reviewer's page,
@@ -641,7 +641,7 @@ function quotedPassage(step) {
 // IT TAKES NO STEP (PR #1022 round 1, finding 5). It took one while the count
 // was per Step — a Step carrying a figure owed an eighth field — and the figure
 // half left under the decline recorded in `src/review-items.json`. A parameter
-// nothing reads says the count still varies by Step, which is the shape a
+// nothing reads says the count still varies by Step, which is the form a
 // reader would trust and a later edit would build on.
 function reverseOutlineFieldCount() {
   return RECONSTRUCTIBLE_FIELDS.length;
@@ -659,7 +659,7 @@ function numberWord(n) {
   return NUMBER_WORDS[n] ?? String(n);
 }
 
-// The figure section of the blind recovery input. THE HEADING SAYS WHERE THE
+// The figure section of the Reverse Outline input. THE HEADING SAYS WHERE THE
 // READER MET IT WITHOUT SAYING THE RECORD'S WORD: the draft line numbers on the
 // block and on the passage below already carry the placement, and they are the
 // article's own facts rather than the record's declaration of intent — which is
@@ -699,8 +699,44 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
   const figureFirst = step.figure ? figureBeforePassage(step) : false;
   const fieldLines = RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`);
   const withheld = NOT_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.why}`);
-  const cmd = `node src/review-draft.mjs recover --draft ${relative(process.cwd(), draft.path) || draft.path} `
+  const cmd = `node src/review-draft.mjs outline --draft ${relative(process.cwd(), draft.path) || draft.path} `
     + `--step ${step.step_id} --file <reverse-outline.md>`;
+
+  // THE FIGURE'S ASK RIDES THE SAME INPUT AND IS OWED ONLY WHERE THE READER MET
+  // ONE. A figureless Step is not asked for a figure block and is refused one:
+  // a reader inventing a reading of a block that was never rendered is not
+  // annotating harmlessly, it is a reading of nothing reaching the comparison.
+  const figureFieldLines = step.figure
+    ? FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`)
+    : [];
+  const figureWithheld = step.figure
+    ? FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.why}`)
+    : [];
+  const figureAsk = step.figure
+    ? ["## The figure you met, in its own terms",
+      "",
+      "This passage was rendered with a block beside it, and that block was written from a record",
+      "of its own. Read it as you read the passage — from what is on the page — and answer in the",
+      "record's own fields:",
+      "",
+      ...figureFieldLines,
+      "",
+      "You are NOT asked for these, and a block carrying one is refused:",
+      "",
+      ...figureWithheld,
+      "",
+      "Reply with a SECOND fenced block, after the `step` block:",
+      "",
+      "````",
+      "```figure",
+      "element: …",
+      "element: …",
+      "caption: …",
+      "position: before",
+      "```",
+      "````",
+      ""].join("\n")
+    : "";
 
   const head = [
     `# Reverse Outline — ${step.step_id}`,
@@ -757,6 +793,7 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "",
     `Then file it: \`${cmd}\``,
     "",
+    figureAsk,
     "## The article before this passage",
     "",
     "Everything already written, in order, under the Section headings it was written into. It",
@@ -785,7 +822,7 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     numberedProse(step), "");
   if (!figureFirst && figureBlock) parts.push(figureBlock, "");
 
-  const dest = passPath(ws, run, "recovery", `${step.step_id}.md`);
+  const dest = passPath(ws, run, "outline-input", `${step.step_id}.md`);
   const out = parts.join("\n");
   writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
   return dest;
@@ -822,18 +859,18 @@ function numberedBody(draft) {
   return lines.map((l, i) => `${String(first + i).padStart(width, " ")} | ${l}`).join("\n");
 }
 
-// The ledger entry's shape, rendered from the item table rather than written
+// The ledger entry's field list, rendered from the item table rather than written
 // into the template. A template naming its own fields and a table naming them
 // too is the two-copy divergence this whole arrangement avoids one layer over:
 // `read` validates against the table, so the instruction a reader follows and
 // the rule they are judged by are one edit.
-function ledgerShape(items) {
+function ledgerFields(items) {
   const f = (items.sections || {}).ledger_fields;
   const keys = f ? Object.keys(f) : [];
   if (!keys.length) {
     fail("the item table declares no `sections.ledger_fields`, and the cold reader's entry is "
       + "what the Section pairs are laid against. A template rendered with no field list would "
-      + "ask for a record whose shape nobody declared.");
+      + "ask for a record whose fields nobody declared.");
   }
   return "```json\n{ " + keys.map((k) => `"${k}": "…"`).join(", ") + " }\n```\n\n"
     + keys.map((k) => `- \`${k}\` — ${f[k].prompt}`).join("\n");
@@ -852,7 +889,7 @@ function renderColdReaderInput(ws, run, draft, items) {
   const fields = {
     slug: run.slug,
     section_count: `${n} Section${n === 1 ? "" : "s"}, in order`,
-    ledger_shape: ledgerShape(items),
+    ledger_fields: ledgerFields(items),
     read_command: `node src/review-draft.mjs read --draft ${rel} --section <n> --file <entry.json>`,
     claim_command: `node src/review-draft.mjs read --draft ${rel} --claim --file <claim.json>`,
   };
@@ -889,8 +926,8 @@ function renderColdReaderInput(ws, run, draft, items) {
 // prose actually says, in the same form as the forward outline, and compare
 // entry by entry. So the Reverse Outline is a BRIEF STEP BLOCK — every field is
 // a Brief field under the Brief's own name and definition — and there is no
-// second schema for the same information. `src/recovered-schema.json` and
-// `src/recovery-template.md` were that second schema and are deleted with this.
+// second schema for the same information. `src/outlined-schema.json` and
+// `src/outline-template.md` were that second schema and are deleted with this.
 //
 // THE DISPOSITIONS ARE DECLARED ONCE, HERE, PER BRIEF STEP FIELD, and the table
 // below is that declaration. A field the Blind Reader is asked for is one a
@@ -949,6 +986,145 @@ export const NOT_RECONSTRUCTIBLE_FIELDS = [
   { name: "figure", why: "the figure's own round trip is a separate comparison against the figure record's own fields" },
 ];
 
+// ---------------------------------------------------------------------------
+// THE FIGURE'S OWN ROUND TRIP (kogaki#880, restated against the record's own
+// fields at kogaki#1018).
+//
+// ONE LEVEL DOWN, UNDER THE SAME RULE. A passage is written from a Brief Step,
+// so its Reverse Outline is a Brief Step block. A figure is written from its
+// RECORD, so the figure's Reverse Outline is a block in the FIGURE RECORD's own
+// field names — `src/figure-schema.json`'s, which is where they are declared and
+// where they stay. There is no second schema at either level, which is the
+// property kogaki#1014 landed for the passage and this is the same property for
+// the figure.
+//
+// WHY IT IS ITS OWN BLOCK RATHER THAN A FIELD OF THE STEP'S. `figure` IS a Brief
+// Step field and it is declared NOT reconstructible above — a reader cannot read
+// the Brief's figure decision off a rendered block — so a `figure:` line inside
+// the Reverse Outline is refused there and stays refused. What a reader CAN do
+// is say what they met, and that answer is about a different artifact with a
+// different field list. Filing it as its own fence and its own file is what
+// keeps the Step reading's key set closed against the Brief's names.
+//
+// THE DISPOSITION RULE IS THE SAME RULE. Reconstructible is "a reader who met
+// the rendered block could say this"; everything else is REFUSED rather than
+// merely unasked, for the reason the Brief half gives — an unasked field a
+// reader supplies anyway is an inference that reaches the comparison.
+export const FIGURE_RECONSTRUCTIBLE_FIELDS = [
+  { name: "element", kind: "repeated-line",
+    definition: "one `element: <what it is>` line per thing you can name in the block, in your own "
+      + "words. At least one. You are naming what is THERE, never judging how well it is put." },
+  { name: "caption", kind: "line",
+    definition: "what you hold after looking at the block, in your own words — one line." },
+  { name: "position", kind: "line",
+    definition: "`before` where you met the block above this passage, `after` where you met it below." },
+];
+
+// Declared NOT reconstructible, and refused in a figure's Reverse Outline.
+export const FIGURE_NOT_RECONSTRUCTIBLE_FIELDS = [
+  { name: "kind", why: "the record's kind is the Move FORM's, and a reader cannot infer the form a "
+      + "structure was produced from — the same ruling that keeps `move` out of the passage's outline" },
+  { name: "relations", why: "the relation a form holds between its roles belongs to the form and is "
+      + "read out of src/figure-kinds.json; a reader naming one would be naming the source rather "
+      + "than the block" },
+  { name: "emphasis", why: "which element the figure leans on is a decision recorded beside the block, "
+      + "and a rendering does not ask its reader to separate that out" },
+];
+
+// The record's `position` vocabulary, and it is the RECORD's rather than a
+// second copy: `src/figure-schema.json` declares the closed pair, so a third
+// value entering there is refused here without this file being edited.
+function figurePositions() {
+  const p = join(dirname(fileURLToPath(import.meta.url)), "figure-schema.json");
+  if (!existsSync(p)) {
+    fail(`the figure record's contract is absent — ${p}. The figure Round Trip reads its field `
+      + "vocabulary from that file rather than carrying a copy, so this refuses rather than "
+      + "validating against a vocabulary it invented.");
+  }
+  let schema;
+  try { schema = JSON.parse(readFileSync(p, "utf8")); }
+  catch (e) { fail(`the figure schema at ${p} is not readable JSON (${e.message})`); }
+  const one = schema.fields?.position?.one_of;
+  if (!Array.isArray(one) || one.length === 0) {
+    fail(`the figure schema at ${p} declares no closed set for \`position\`, and the Round Trip `
+      + "reads that set from the record's own contract rather than restating it");
+  }
+  return one;
+}
+
+// The fenced form, the Step block's grammar one artifact over.
+function parseFigureBlock(text, path) {
+  const m = /^```figure\n([\s\S]*?)\n```/m.exec(text);
+  if (!m) {
+    return { refusal: `${path} carries no fenced \`figure\` block — this Step's reader met a figure, so `
+      + "the Round Trip owes a reading of it in the figure record's own field names" };
+  }
+  if (/^```figure\n/m.test(text.slice(m.index + m[0].length))) {
+    return { refusal: `${path} carries more than one fenced \`figure\` block — a Step renders one figure, `
+      + "and two blocks leave the Harness to pick which one the reader meant" };
+  }
+  return { body: m[1] };
+}
+
+// The figure's Reverse Outline, validated and projected into the record's own
+// field names. EVERY REFUSAL NAMES WHAT IT SAW, for the reason the passage half
+// gives: this is the one artifact in the flow a person wrote by hand.
+function validateFigureOutline(text, step, file) {
+  const parsed = parseFigureBlock(text, file);
+  if (parsed.refusal) fail(parsed.refusal);
+  const body = parsed.body;
+  const problems = [];
+
+  const caption = stepField(body, "caption");
+  if (caption === null) problems.push("carries no `caption:` line — " + FIGURE_RECONSTRUCTIBLE_FIELDS[1].definition);
+  else if (caption === "") problems.push("`caption:` is blank — " + FIGURE_RECONSTRUCTIBLE_FIELDS[1].definition);
+
+  const position = stepField(body, "position");
+  const positions = figurePositions();
+  if (position === null) problems.push("carries no `position:` line — " + FIGURE_RECONSTRUCTIBLE_FIELDS[2].definition);
+  else if (!positions.includes(position)) {
+    problems.push(`\`position:\` reads \`${position}\`, and the record's position is one of `
+      + `${positions.map((x) => `\`${x}\``).join(" or ")} — a third value is a placement the article has no seat for`);
+  }
+
+  const elements = repeatedLines(body, "element");
+  if (elements.length === 0) {
+    problems.push("carries no `element:` line — a figure a reader can name nothing in is a figure "
+      + "that showed them nothing, and that is the finding rather than a blank side");
+  }
+
+  // THE LINE SET IS CLOSED, exactly as the Step block's is: a name nobody
+  // declared carries a judgment the Harness never reads, and admit-by-default is
+  // how that arrives with no trace.
+  const declared = new Set([...FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => f.name),
+    ...FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name)]);
+  const refused = new Set(FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name));
+  for (const ln of body.split("\n")) {
+    if (ln.trim() === "") continue;
+    const m = /^([a-z_][a-z0-9_]*):/.exec(ln);
+    if (!m) continue;
+    if (refused.has(m[1])) {
+      const why = FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.find((f) => f.name === m[1]).why;
+      problems.push(`carries \`${m[1]}:\`, which is declared not reconstructible — ${why}`);
+    } else if (!declared.has(m[1])) {
+      problems.push(`carries \`${m[1]}:\`, which is not a figure record field — a field in a figure's `
+        + "Reverse Outline that the record does not declare needs its own ruling, so it is refused rather than read");
+    }
+  }
+
+  if (problems.length) {
+    fail(`the figure's Reverse Outline for ${step.step_id} (${file}) is not a block this Round Trip can read:\n  - `
+      + problems.join("\n  - "));
+  }
+
+  return {
+    step_id: step.step_id,
+    element: elements.map((t) => ({ text: t })),
+    caption,
+    position,
+  };
+}
+
 const RECONSTRUCTIBLE_NAMES = new Set(RECONSTRUCTIBLE_FIELDS.map((f) => f.name));
 
 // The Reverse Outline's own ground lines, read with the Brief's grammar.
@@ -1004,11 +1180,11 @@ function validateReverseOutline(text, step, file) {
       }
       continue;
     }
-    // optional-line: `opens_section` is shape-checked by the Brief parser above.
+    // optional-line: `opens_section` is validated by the Brief parser above.
   }
 
   // THE REVIEWER WRITES NO VERDICTS AND NO ADVICE, and a field they could not
-  // have read is REFUSED rather than dropped: an ignored field still shaped the
+  // have read is REFUSED rather than dropped: an ignored field still steered the
   // reading that produced the rest of the outline, so accepting it and
   // discarding the key would keep exactly the contamination the blind half
   // exists to prevent.
@@ -1052,11 +1228,11 @@ function validateReverseOutline(text, step, file) {
   };
 }
 
-// The next Step with no recovery yet, in the path's recorded order. `open`
-// renders the first; `recover` renders the next, which is what makes the flow
+// The next Step with no outline yet, in the path's recorded order. `open`
+// renders the first; `outline` renders the next, which is what makes the flow
 // self-driving rather than a sequence a session has to remember.
-function nextUnrecovered(run) {
-  return run.steps.find((s) => !run.recovered[s.step_id]);
+function nextOutlineOwed(run) {
+  return run.steps.find((s) => !run.outlineFields[s.step_id]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1089,7 +1265,7 @@ function cmdOpen(args) {
     pass: 1,
     pass_files: {},
     rendered: {},
-    recovered: {},
+    outlineFields: {},
     correction_inputs: {},
     ledger: {},
     final_claim: null,
@@ -1124,14 +1300,14 @@ function cmdOpen(args) {
     + `  sections  ${sections.length} — ${sections.map((s) => `${s.index}. ${s.title ?? "(untitled)"}`).join(" | ")}\n`
     + `  packets   ${steps.length} verified against the trace's shas\n`
     + `  workspace ${ws}\n`
-    + `\nfirst recovery input: ${input}\n`
+    + `\nfirst Reverse Outline input: ${input}\n`
     + `cold reader input:    ${cold}\n`);
 }
 
-function cmdRecover(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft recover --draft <draft.md> --step <id> --file <recovered>");
-  const stepId = argString(args, "step", "usage: review-draft recover --draft <draft.md> --step <id> --file <recovered>");
-  const file = argString(args, "file", "usage: review-draft recover --draft <draft.md> --step <id> --file <recovered>");
+function cmdOutline(args) {
+  const draftPath = argString(args, "draft", "usage: review-draft outline --draft <draft.md> --step <id> --file <outline.md>");
+  const stepId = argString(args, "step", "usage: review-draft outline --draft <draft.md> --step <id> --file <outline.md>");
+  const file = argString(args, "file", "usage: review-draft outline --draft <draft.md> --step <id> --file <outline.md>");
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
@@ -1141,17 +1317,17 @@ function cmdRecover(args) {
   if (!known.includes(stepId)) {
     fail(`unknown step \`${stepId}\` — this Draft's Steps are ${known.join(", ")}`);
   }
-  // THE RENDERED-INPUT GUARD IS WHAT MAKES THE RECOVERY BLIND. A record handed
+  // THE RENDERED-INPUT GUARD IS WHAT MAKES THE OUTLINE_INPUT BLIND. A record handed
   // back for a Step whose input was never rendered was written against
   // something else — the Packet, the Brief, or the reviewer's memory of the
   // article — and there is no way to tell which afterwards. So the refusal is
   // here, at the only moment the distinction is still observable.
   if (!run.rendered[stepId]) {
-    fail(`step ${stepId} has no rendered recovery input, so this record was not written against one.\n`
+    fail(`step ${stepId} has no rendered Reverse Outline input, so this record was not written against one.\n`
       + "The Harness renders inputs in the path's recorded order — `open` renders the first and each "
-      + `\`recover\` renders the next. The Step now owed is ${nextUnrecovered(run)?.step_id ?? "(none)"}.`);
+      + `\`outline\` renders the next. The Step now owed is ${nextOutlineOwed(run)?.step_id ?? "(none)"}.`);
   }
-  if (!existsSync(file)) fail(`no recovered record at ${file}`);
+  if (!existsSync(file)) fail(`no Reverse Outline at ${file}`);
 
   // VALIDATED BEFORE IT IS RECORDED (kogaki#871). A record written to the
   // workspace and validated later would leave `compare` to discover the defect,
@@ -1160,28 +1336,54 @@ function cmdRecover(args) {
   // THE STEP COMES FROM THE DRAFT, NOT FROM THE RUN RECORD (kogaki#880). The
   // run record carries the Step's identity and its ranges; whether the Step has
   // a figure — and where its block sits — is resolved from the trace, which is
-  // the same read the recovery input was rendered from. Validating against the
+  // the same read the Reverse Outline input was rendered from. Validating against the
   // run record's copy would let the conditional eighth field be owed at render
-  // and unowed at validation, which is the two-answers-to-one-question shape
+  // and unowed at validation, which is the two-answers-to-one-question pattern
   // this Harness refuses everywhere else.
   const { steps } = resolveInputs(draft);
   const step = steps.find((x) => x.step_id === stepId);
   const projected = validateReverseOutline(content, step, file);
+
+  // THE FIGURE'S HALF, VALIDATED IN THE SAME ACT (kogaki#1018). Owed where the
+  // trace says the reader met a block, and REFUSED where it says they did not —
+  // the two refusals are the figure's counterpart of the Step block's own, and
+  // they are here rather than at `compare` for the reason the Step's are: the
+  // reviewer who could fix it has finished reading by then.
+  let figureProjected = null;
+  const hasFigureBlock = /^```figure\n/m.test(content);
+  if (step.figure) {
+    figureProjected = validateFigureOutline(content, step, file);
+  } else if (hasFigureBlock) {
+    fail(`the Reverse Outline for ${stepId} (${file}) carries a fenced \`figure\` block, and this Step `
+      + "renders no figure. A reading of a block the reader never met is an invention, and the "
+      + "comparison downstream would treat it as evidence, so it is refused rather than dropped.");
+  }
 
   // BOTH ARE KEPT, AND THE OUTLINE IS THE EVIDENCE. The `.md` is the Reverse
   // Outline exactly as it was written — the artifact a later reader checks the
   // Round Trip against — and the `.json` is the reading the Harness compares,
   // under the Brief's own field names. Writing only the second would leave the
   // run's own record unable to show what the Blind Reader actually said.
-  const outlinePath = passPath(ws, run, "recovered", `${stepId}.md`);
+  const outlinePath = passPath(ws, run, "outline", `${stepId}.md`);
   writeFileSync(outlinePath, content.endsWith("\n") ? content : content + "\n");
-  const out = passPath(ws, run, "recovered", `${stepId}.json`);
+  const out = passPath(ws, run, "outline", `${stepId}.json`);
   writeFileSync(out, JSON.stringify(projected, null, 2) + "\n");
-  run.recovered[stepId] = out;
+  run.outlineFields[stepId] = out;
   run.outlines = run.outlines || {};
   run.outlines[stepId] = outlinePath;
 
-  const next = nextUnrecovered(run);
+  // THE FIGURE'S READING IS ITS OWN FILE, for the reason it is its own fence:
+  // it is written in the FIGURE RECORD's field names, and the Step's reading is
+  // written in the BRIEF's. One file per vocabulary is what keeps either from
+  // acquiring a key belonging to the other.
+  run.figureOutlineFields = run.figureOutlineFields || {};
+  if (figureProjected) {
+    const fout = passPath(ws, run, "outline", `${stepId}.figure.json`);
+    writeFileSync(fout, JSON.stringify(figureProjected, null, 2) + "\n");
+    run.figureOutlineFields[stepId] = fout;
+  }
+
+  const next = nextOutlineOwed(run);
   let nextInput = null;
   if (next) {
     const full = steps.find((s) => s.step_id === next.step_id);
@@ -1191,8 +1393,8 @@ function cmdRecover(args) {
   writeRun(ws, run);
 
   process.stdout.write(`recorded: ${stepId} -> ${out}\n`);
-  if (nextInput) process.stdout.write(`next recovery input: ${nextInput}\n`);
-  else process.stdout.write("every Step is recovered. The Section ledger is what `compare` still owes — "
+  if (nextInput) process.stdout.write(`next Reverse Outline input: ${nextInput}\n`);
+  else process.stdout.write("every Step is outlined. The Section ledger is what `compare` still owes — "
     + `${run.sections.length} entr${run.sections.length === 1 ? "y" : "ies"}, `
     + `\`read --section <n> --file <ledger>\`.\n`);
 }
@@ -1206,8 +1408,8 @@ function cmdRecover(args) {
 // "recorded" by an empty file and `compare` would then lay nothing against the
 // heading and report agreement. What a Section entry must carry is
 // `sections.ledger_fields` in the item table — read here rather than restated,
-// the same arrangement `validateRecovered` has with the recovered schema, so
-// the shape the template ASKS for and the shape `read` ACCEPTS cannot diverge.
+// the same arrangement `validateOutlineFields` has with the outlined schema, so
+// the form the template ASKS for and the form `read` ACCEPTS cannot diverge.
 //
 // EVERY FIELD IS ONE THE READER CAN ANSWER FROM THE PROSE ALONE. There is no
 // field here whose honest answer needs the Packet: a reader asked for something
@@ -1215,7 +1417,7 @@ function cmdRecover(args) {
 // instrument rests on would end at that field.
 
 // One entry, as JSON. The refusal names the field and the Section, because a
-// reviewer who has written three entries and mis-shaped one needs to know which.
+// reviewer who has written three entries and malformed one needs to know which.
 function validateLedgerEntry(text, n, file, items) {
   const spec = (items.sections || {}).ledger_fields || {};
   const keys = Object.keys(spec);
@@ -1354,14 +1556,14 @@ function cmdRead(args) {
 // the whole Draft, so naming it by a Section number would send a reviewer to
 // re-read a Section they already recorded.
 function missingFor(run) {
-  const steps = run.steps.map((s) => s.step_id).filter((id) => !run.recovered[id]);
+  const steps = run.steps.map((s) => s.step_id).filter((id) => !run.outlineFields[id]);
   const sections = run.sections.map((s) => s.index).filter((i) => !run.ledger[String(i)]);
   return { steps, sections, claim: !run.final_claim };
 }
 
 // ---------------------------------------------------------------------------
 // THE COMPARISON (kogaki#872). The join between what a Packet DECLARED and what
-// the blind reviewer RECOVERED from the prose it produced.
+// the blind reviewer OUTLINE from the prose it produced.
 //
 // THE ITEM TABLE IS FIXED IN THE HARNESS AND READ FROM `src/review-items.json`
 // — which item classes exist, which are preserved and which are best-effort,
@@ -1485,7 +1687,7 @@ function packetBlock(text, heading, { after = null } = {}) {
 // keys on comes from `packet_blocks` in the item table. The runtime therefore
 // carries no literal that happens to equal a field name somewhere else —
 // `grounds`, `purpose` and `reader_state_after` are each a Packet label AND an
-// item id AND (for two of them) a recovered-record field, and a runtime
+// item id AND (for two of them) a outlined-record field, and a runtime
 // spelling them out cannot be told apart from one restating the table or the
 // schema.
 const PACKET_READERS = {
@@ -1549,13 +1751,13 @@ function wordSequence(s) {
 // carry. Both sides of the review read a Packet block through here — the Step
 // items and, since kogaki#873, the Section pairs — so a Packet gap is one
 // refusal with one wording however it was reached, and a second reader cannot
-// grow beside this one and disagree with it about what the Packet's shape is.
+// grow beside this one and disagree with it about what the Packet's layout is.
 function readPacketBlock(text, name, items, step, wantedBy) {
   const spec = (items.packet_blocks || {})[name];
   const reader = spec && PACKET_READERS[spec.kind];
   if (!reader) {
     fail(`the item table names the Packet block \`${name}\`, which this Harness has no reader for `
-      + "— the table and the runtime disagree about the Packet's shape, and a comparison run "
+      + "— the table and the runtime disagree about the Packet's layout, and a comparison run "
       + "against a block nobody reads would report agreement it never checked");
   }
   const v = reader(text, spec);
@@ -1601,7 +1803,7 @@ function declaredFor(step, items) {
 
 // The literal below is wrapped so that no line ends on the preposition an
 // import statement uses. The closed-input case reads this file's own text for
-// import shapes, and a stopword list is not an import. THE SHAPE IS NOT SPELLED
+// import forms, and a stopword list is not an import. THE FORM IS NOT SPELLED
 // OUT HERE, deliberately: a comment that writes the pattern it exists to avoid
 // becomes the first hit of the reader looking for it, which is the use-versus-
 // mention defect src/packet-template.md's own header records.
@@ -1617,7 +1819,7 @@ function contentWords(s) { return wordsOf(s).filter((w) => !STOPWORDS.has(w)); }
 // CONTAINMENT, not similarity: the question is whether the CLAIM is covered by
 // a ground, so the denominator is the claim's own content words. A symmetric
 // score would let a long ground pair with anything and a short one with
-// nothing, which is the wrong shape for "may this passage assert this".
+// nothing, which is the wrong question form for "may this passage assert this".
 function pairClaims(grounds, claims, textKey, floor) {
   const gsets = grounds.map((g) => new Set(contentWords(g)));
   return claims.map((c, i) => {
@@ -1671,14 +1873,14 @@ const MECHANICAL = {
     if (!unused.length) {
       return {
         verdict: "holds",
-        reason: grounds.length ? "every ground is carried by a recovered claim"
+        reason: grounds.length ? "every ground is carried by a outlined claim"
           : "this Step declares no grounds",
         span: step.lines,
       };
     }
     return {
       verdict: "fails",
-      reason: "a ground no recovered claim rests on",
+      reason: "a ground no outlined claim rests on",
       evidence: unused.map(([g]) => g),
       span: step.lines,
     };
@@ -1710,7 +1912,7 @@ function figureDeclared(step, item) {
     fail(`step ${step.step_id}: item \`${item.id}\` reads the figure record's `
       + `\`${item.record_field}\`, and the record at ${step.figure.record_path} carries no such `
       + "field. The record was validated against src/figure-schema.json when it was written, so a "
-      + "field absent now means the schema and the item table disagree about the record's shape");
+      + "field absent now means the schema and the item table disagree about the record's field list");
   }
   return v;
 }
@@ -1812,7 +2014,7 @@ const MECHANICAL_FIGURE = {
 // record here put a `compare` run made after `check` into `pass-2/join/`, over
 // the inputs pass two was judging, and the ledger could not refuse it because
 // the writing pass read as the owning one.
-function renderJoinPacket(ws, run, pass, draft, step, item, pair, declaredText, recoveredText) {
+function renderJoinPacket(ws, run, pass, draft, step, item, pair, declaredText, outlineText) {
   const tplPath = join(dirname(fileURLToPath(import.meta.url)), "join-template.md");
   if (!existsSync(tplPath)) {
     fail(`the join template is absent — ${tplPath}. It is the judging model's entire input, so a `
@@ -1825,7 +2027,7 @@ function renderJoinPacket(ws, run, pass, draft, step, item, pair, declaredText, 
     item: item.id,
     item_class: item.class,
     declared: declaredText,
-    recovered: recoveredText,
+    reverse: outlineText,
     span: `${step.lines[0]}–${step.lines[1]}`,
     // THE JUDGING READER IS TOLD WHICH CARRIER DECLARED THE LINE. It is not the
     // blind reader — it sees both sides by design — and a figure record's line
@@ -1854,7 +2056,7 @@ const verdictKey = (step_id, item, pair) => (pair === null || pair === undefined
 // WHAT JUDGED THIS PASS, READ BACK FROM THE RECORDED VERDICTS (kogaki#997).
 // ReviewDraft pins a different model per role, and the Harness invokes none of
 // them, so this line is a RENDERING OF A DECLARATION and says so — the same
-// shape terrain took for its judge pin, where naming it as an observation
+// form terrain took for its judge pin, where naming it as an observation
 // claimed a check nobody performed.
 //
 // SEVERAL IDS RENDER AS SEVERAL, never as one summary. A pass whose pair and
@@ -1938,7 +2140,7 @@ function recordVerdicts(run, file, owed, items) {
     // THE MODEL THAT PRODUCED THE VERDICT IS PART OF THE VERDICT (kogaki#997).
     // ReviewDraft pins a different model per role — the pair and Section
     // judgments are one fixed question with a three-token answer, the
-    // recoveries, the cold read and the corrections write evidence and prose —
+    // outlines, the cold read and the corrections write evidence and prose —
     // and a record that does not say which one answered cannot be read back to
     // check that the pin held. The 2026-09-07 run is the case: a hundred and
     // more model calls, and nothing in `join.json` says what ran any of them.
@@ -1967,26 +2169,52 @@ function recordVerdicts(run, file, owed, items) {
 // ---------------------------------------------------------------------------
 // The join itself.
 
-// The declared and recovered sides as the judging model reads them. An array
-// renders as a list, an object as its own labelled lines, and a NULL recovered
-// field means the recovered side IS THE PROSE — the negative items, which ask
+// The declared and reverse sides as the judging model reads them. An array
+// renders as a list, an object as its own labelled lines, and a NULL outlined
+// field means the reverse side IS THE PROSE — the negative items, which ask
 // whether something is absent from the passage rather than whether two lines
 // agree.
-// A RECOVERED SIDE IS ONE BRIEF STEP FIELD, AND THE PATH IS FLAT (kogaki#1014).
+// A OUTLINE SIDE IS ONE BRIEF STEP FIELD, AND THE PATH IS FLAT (kogaki#1014).
 // The dotted one-level reach this function used to allow existed for
 // `figure_reading`, the deleted record's one object field; a Brief Step field
 // is a line, so there is nothing left to reach into. A dotted path is refused
 // by name rather than resolved to `undefined`, which is how a table naming a
 // field nobody computes would otherwise read as a side that simply was not
-// recovered.
-function recoveredAt(rec, path) {
+// outlined.
+function outlineField(rec, path) {
   if (String(path).includes(".")) {
-    fail(`the item table names the recovered field \`${path}\`, and a recovered side is ONE `
+    fail(`the item table names the reverse field \`${path}\`, and a reverse side is ONE `
       + "Brief Step field, which is a line rather than an object. A dotted path would be a query "
       + "over a second schema beside the Brief's, which is what src/review-items.json's own note "
       + "records as declined");
   }
   return rec[path];
+}
+
+// The REVERSE side of one judged row, rendered. A row names its side on exactly
+// one of two artifacts — `field` reads the passage's Reverse Outline in the
+// Brief's names, `figure_field` reads the figure's in the RECORD's names — and a
+// row naming neither is asking whether something is ABSENT from the prose, whose
+// side is the prose itself.
+//
+// A ROW NAMING BOTH IS REFUSED. The two readings are separate artifacts written
+// in separate vocabularies, and a row reading one line out of each would be the
+// translation column kogaki#1014 deleted, arriving back as a pair of keys.
+function reverseSide(item, rec, figRec) {
+  if (item.field && item.figure_field) {
+    fail(`the item table declares \`${item.id}\` with both \`field\` and \`figure_field\` — a row reads `
+      + "ONE reading, and a row spanning both would be a translation between the Brief's field names "
+      + "and the figure record's");
+  }
+  if (item.figure_field) {
+    if (!figRec) {
+      fail(`the item table declares \`${item.id}\` against the figure's reading, and this Step has none `
+        + "— a figure row is evaluated only on a Step whose trace carries a figure");
+    }
+    return renderSide(outlineField(figRec, item.figure_field));
+  }
+  if (item.field) return renderSide(outlineField(rec, item.field));
+  return "(the passage itself, quoted below — this item asks whether something is ABSENT from it)";
 }
 
 // The declared side of one judged row, rendered. THREE CARRIERS, and the row
@@ -2007,14 +2235,14 @@ function declaredSide(step, item, declared, items) {
   if (item.declared_block) return renderSide(declared[item.declared_block]);
   if (item.declared_source === "passage") {
     return "(the passage and the figure beside it, quoted below — both sides of this pair were "
-      + "recovered from them)";
+      + "read from them)";
   }
   return renderSide(null);
 }
 
 // AN ENTRY OF A REVERSE OUTLINE LIST IS AN OBJECT CARRYING ITS OWN WORDS.
 // `grounds`, `introduces` and `concession` each read back as `{ text }` — the
-// Brief's own line, verbatim. There is no span: a span was the recovered
+// Brief's own line, verbatim. There is no span: a span was the outlined
 // record's coordinate, and a Brief Step field does not carry one, so an entry
 // renders as what it says. `renderEntry` below still honours a `text`/`span`
 // pair where one exists, because the figure half still writes them.
@@ -2025,7 +2253,7 @@ function entryKeyPairs() { return ENTRY_KEY_PAIRS; }
 // put `[object Object]` in front of the judging model, which answered
 // `cannot-decide` — correctly, since it was shown nothing — and the run recorded
 // that as a judgment about the article rather than as a defect in the tool. An
-// entry renders as its own words AND the draft lines it was recovered from,
+// entry renders as its own words AND the draft lines it was read from,
 // because the span is the coordinate every other side of the join already cites.
 function renderEntry(x) {
   if (x === null || x === undefined) return "(none)";
@@ -2039,11 +2267,11 @@ function renderEntry(x) {
     // NO SPAN IS THE ORDINARY CASE NOW (kogaki#1014). A Reverse Outline is a
     // Brief Step block and a Brief field carries no draft coordinate, so the
     // entry renders as its own words rather than falling through to the
-    // key-by-key dump, which is what put `[object Object]`-shaped noise in
+    // key-by-key dump, which is what put `[object Object]` noise in
     // front of the judging model before.
     return x[textKey];
   }
-  // A shape the schema does not declare still reads as its own keys and values.
+  // A form the schema does not declare still reads as its own keys and values.
   // Falling back to the stringification is what produced the defect above.
   return Object.entries(x).map(([k, v]) => `**${k}.** ${v}`).join("; ");
 }
@@ -2086,8 +2314,22 @@ function buildJoin(draft, run, items, ws, opts = {}) {
   steps.forEach((step, si) => {
     const declared = declaredFor(step, items);
     let rec;
-    try { rec = JSON.parse(readFileSync(run.recovered[step.step_id], "utf8")); }
-    catch (e) { fail(`the recovered record for ${step.step_id} is not readable (${e.message})`); }
+    try { rec = JSON.parse(readFileSync(run.outlineFields[step.step_id], "utf8")); }
+    catch (e) { fail(`the Reverse Outline for ${step.step_id} is not readable (${e.message})`); }
+    // THE FIGURE'S READING, WHERE THE READER MET ONE. Absent on a figureless
+    // Step, and the figure rows are not evaluated there at all — never as a
+    // vacuous `holds`, which would put a figure line in a figureless Draft's log.
+    let figRec = null;
+    if (step.figure) {
+      const fp = (run.figureOutlineFields || {})[step.step_id];
+      if (!fp || !existsSync(fp)) {
+        fail(`step ${step.step_id} renders a figure and its Reverse Outline carries no reading of it — `
+          + "re-file the Step's outline with its `figure` block, which `outline` validates and records "
+          + "in the same act");
+      }
+      try { figRec = JSON.parse(readFileSync(fp, "utf8")); }
+      catch (e) { fail(`the figure's Reverse Outline for ${step.step_id} is not readable (${e.message})`); }
+    }
     const earlier = steps.slice(0, si);
 
     // THE PAIRING IS COMPUTED ONCE, AND SINCE kogaki#996 ONE ITEM READS IT.
@@ -2130,7 +2372,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         // coordinates: a correction changes the Draft's line count, so a
         // pre-correction range rendered under the post-correction body sha
         // names whatever now sits at those numbers. That is the drifting-range
-        // defect this Harness's own recovery cases are built to catch, one
+        // defect this Harness's own outline cases are built to catch, one
         // layer out. A step-level range is coarser than the pair-level one it
         // replaces and it is TRUE, which is the trade: a true coarse
         // coordinate beats a false precise one. Pass one's own is kept beside
@@ -2194,7 +2436,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         // AND A CHOSEN FALLBACK OWES THE FIELDS IT RENDERS (PR #1003 round 1).
         // `fail` renders `unpaired_sentence` as the comparison line's reason, so
         // an item declaring `fail` without one would put `undefined` where the
-        // reason belongs — the same inherited-or-absent shape this refusal
+        // reason belongs — the same inherited-or-absent form this refusal
         // exists to remove, one field further in.
         if (item.unpaired === "fail" && !item.unpaired_sentence) {
           fail(`the paired item \`${item.id}\` declares \`unpaired: "fail"\` and no `
@@ -2240,8 +2482,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         const key = verdictKey(step.step_id, item.id, null);
         const file = renderJoinPacket(ws, run, pass, draft, step, item, null,
           declaredSide(step, item, declared, items),
-          item.field ? renderSide(recoveredAt(rec, item.field))
-            : "(the passage itself, quoted below — this item asks whether something is ABSENT from it)");
+          reverseSide(item, rec, figRec));
         const v = verdicts[key];
         modelCalls.push({ step_id: step.step_id, item: item.id, pair: null, packet: file,
           model: v ? v.model ?? null : null });
@@ -2254,7 +2495,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
 
       if (!subs.length) {
         results.push({ step_id: step.step_id, item: item.id, class: item.class, decided_by: "harness",
-          verdict: "holds", reason: "the recovered side carries nothing for this item to disagree with",
+          verdict: "holds", reason: "the reverse side carries nothing for this item to disagree with",
           span: step.lines });
         mechanicalLog.push({ step_id: step.step_id, item: item.id });
         continue;
@@ -2292,7 +2533,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         // Harness-decided `widened` fail out of a row whose other pairs a model
         // answered. Keying presence on the chosen pair, as this first did, then
         // produced a row saying `decided_by: "model"` and carrying no `model` —
-        // the one shape the absence was supposed to rule out.
+        // the one case the absence was supposed to rule out.
         //
         // So presence answers "was a model asked here at all", which is exactly
         // what `decided_by` says, and `null` answers "not for the line you are
@@ -2411,10 +2652,10 @@ function sectionDeclared(item, draft, sec, view, items) {
     + "comes from, and a pair read from nowhere would report agreement it never checked");
 }
 
-// The recovered side: which ledger entry answers this pair.
-function sectionRecovered(item, run, sec, order, items) {
-  const from = (item.recovered || {}).from;
-  const field = (item.recovered || {}).field;
+// The reverse side: which ledger entry answers this pair.
+function sectionOutline(item, run, sec, order, items) {
+  const from = (item.reverse || {}).from;
+  const field = (item.reverse || {}).field;
   const readEntry = (idx) => {
     const path = run.ledger[String(idx)];
     if (!path) return null;
@@ -2435,10 +2676,10 @@ function sectionRecovered(item, run, sec, order, items) {
     // final claim is recorded under `sections.final_claim_field`, and a
     // fallback spelled in the runtime would keep reading the old name for as
     // long as the old name happened to be there.
-    const key = item.recovered.field || (items.sections || {}).final_claim_field;
+    const key = item.reverse.field || (items.sections || {}).final_claim_field;
     return doc[key] ?? Object.values(doc)[0] ?? null;
   }
-  fail(`the item table's Section pair \`${item.id}\` declares the recovered source \`${from}\`, `
+  fail(`the item table's Section pair \`${item.id}\` declares the reverse source \`${from}\`, `
     + "which this Harness has no reader for");
 }
 
@@ -2485,17 +2726,17 @@ function buildSectionJoin(draft, run, items, ws, joinPass) {
         continue;
       }
       const declared = sectionDeclared(item, draft, sec, view, items);
-      const recovered = sectionRecovered(item, run, sec, order, items);
+      const reverse = sectionOutline(item, run, sec, order, items);
       const key = verdictKey(view.step_id, item.id, null);
       const file = renderJoinPacket(ws, run, pass, draft, view, item, null,
-        renderSide(declared), renderSide(recovered));
+        renderSide(declared), renderSide(reverse));
       const v = verdicts[key];
       modelCalls.push({ section: sec.index, item: item.id, pair: null, packet: file,
         model: v ? v.model ?? null : null });
       if (v) {
         results.push({ ...row, decided_by: "model", verdict: v.verdict, reason: v.reason,
           model: v.model ?? null,
-          declared: renderSide(declared), recovered: renderSide(recovered) });
+          declared: renderSide(declared), reverse: renderSide(reverse) });
       } else {
         results.push({ ...row, owed: true });
         owed.push({ key, step_id: view.step_id, section: sec.index, item: item.id, pair: null,
@@ -2510,7 +2751,7 @@ function buildSectionJoin(draft, run, items, ws, joinPass) {
 // granularity only, so a Section fail is routed rather than corrected:
 //
 //   1. it LOCALIZES when some Step in the Section already FAILS a preserved
-//      item, or when the per-Step recovered reader state first FAILS at a Step
+//      item, or when the per-Step outlined reader state first FAILS at a Step
 //      — that Step is the correction target;
 //   2. and when every Step in the Section holds and the Section still fails,
 //      the GROUPING is wrong: the heading promises what the Steps it groups do
@@ -2544,7 +2785,7 @@ function routeSectionFail(sec, run, stepResults, items) {
   const localizing = (items.sections || {}).localizing_item;
   if (!localizing) {
     fail("the item table declares no `sections.localizing_item`, and a Section fail localizes on "
-      + "the first Step whose recovered reader state does not hold. With none declared every "
+      + "the first Step whose outlined reader state does not hold. With none declared every "
       + "Section fail would route upstream, which would report a Brief defect for every Step "
       + "defect the Section happens to contain.");
   }
@@ -2559,7 +2800,7 @@ function routeSectionFail(sec, run, stepResults, items) {
     && r.item === localizing && r.verdict === "fails"));
   if (diverged) {
     return { kind: "localized", step_id: diverged,
-      why: "the recovered reader state first fails at this Step" };
+      why: "the outlined reader state first fails at this Step" };
   }
   const undecided = ids.filter((id) => stepResults.some((r) => r.step_id === id
     && r.verdict === "cannot-decide"));
@@ -2646,7 +2887,7 @@ function cmdCompare(args) {
   const missing = missingFor(run);
   if (missing.steps.length || missing.sections.length || missing.claim) {
     const parts = [];
-    if (missing.steps.length) parts.push(`step recover${missing.steps.length === 1 ? "y" : "ies"}: ${missing.steps.join(", ")}`);
+    if (missing.steps.length) parts.push(`step outline${missing.steps.length === 1 ? "" : "s"}: ${missing.steps.join(", ")}`);
     if (missing.sections.length) parts.push(`section ledger entr${missing.sections.length === 1 ? "y" : "ies"}: ${missing.sections.join(", ")}`);
     if (missing.claim) parts.push("the cold reader's final claim: `read --claim --file <claim.json>`");
     fail(`the join has inputs missing, so it would compare a partial review against a whole Draft `
@@ -2747,7 +2988,7 @@ function cmdCompare(args) {
     // round an absence into an answer — the one rounding the three-valued
     // verdict exists to refuse.
     process.stdout.write(
-      `compare: every input present — ${run.steps.length} recovered Step(s), `
+      `compare: every input present — ${run.steps.length} outlined Step(s), `
       + `${run.sections.length} Section entr${run.sections.length === 1 ? "y" : "ies"} and the final claim.\n`
       + `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n`
       + judgedByLine(modelCalls, sec.modelCalls)
@@ -2903,7 +3144,7 @@ function readJoin(ws) {
 // through `draft.mjs section`; the figure correction hands back a JSON record
 // and goes through `draft.mjs figure`, which re-validates it against
 // src/figure-schema.json and the Move's own form. Composing them would mean one
-// act whose input shape depends on which item failed, and a session would have
+// act whose input depends on which item failed, and a session would have
 // to know which before it could answer.
 //
 // PROSE FIRST WHERE A STEP OWES BOTH. The figure record's whole ground for filling the
@@ -3155,7 +3396,7 @@ function correctionInputPath(ws, run, stepId) {
   return passPathAt(ws, run, 1, "corrections", `${stepId}.md`);
 }
 
-// THE FIGURE CORRECTION'S TWO PHASES (kogaki#880), the same shape the prose
+// THE FIGURE CORRECTION'S TWO PHASES (kogaki#880), the same two phases the prose
 // correction has: render the input, then record what came back. Between them
 // the run is MID-CORRECTION on this Step and every other act refuses by name,
 // which is `requireCurrent`'s existing guard and is not re-implemented here.
@@ -3238,7 +3479,7 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   if (!corrected) fail(`step ${stepId} is absent from the re-emitted Draft's trace`);
   if (!corrected.figure) {
     fail(`step ${stepId} carries no figure in the re-emitted Draft — the correction was recorded `
-      + "and the block did not come back, which is the drop-with-no-report shape the renderer refuses");
+      + "and the block did not come back, which is the drop-with-no-report case the renderer refuses");
   }
   writeFileSync(join(snapDir, `${seq}-after-${stepId}.figure.md`), after.text);
 
@@ -3278,10 +3519,10 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
     step_id: s.step_id, section: s.section, section_title: s.section_title,
     lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
   }));
-  // THE RECOVERY IS DISCARDED for the same reason a prose correction discards
+  // THE OUTLINE_INPUT IS DISCARDED for the same reason a prose correction discards
   // it: the blind reviewer read a figure that no longer exists, and keeping the
   // record would let pass two judge a new block against an old reading.
-  delete run.recovered[stepId];
+  delete run.outlineFields[stepId];
   delete run.rendered[stepId];
   writeRun(ws, run);
 
@@ -3307,7 +3548,7 @@ function cmdCorrect(args) {
   // fact derived from what failed (kogaki#880). A Step can owe both a prose and
   // a figure correction, and the two take different inputs — prose in one and a
   // JSON record in the other — so a runtime that inferred the seat would decide
-  // what shape the session's file had to be after the session wrote it.
+  // what form the session's file had to be in after the session wrote it.
   const figureMode = args.figure === true;
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
@@ -3434,7 +3675,7 @@ function cmdCorrect(args) {
   // --- phase B: record the corrected realization -------------------------
   const file = argString(args, "file", "usage: review-draft correct --draft <draft.md> --step <id> --file <prose>");
   const input = (run.correction_inputs || {})[stepId];
-  // THE RENDERED-INPUT GUARD, the same one `recover` has and for the same
+  // THE RENDERED-INPUT GUARD, the same one `outline` has and for the same
   // reason. Prose handed back for a Step whose correction input was never
   // rendered was written against something else — the old Packet, or the
   // finding text alone — and afterwards there is no way to tell which.
@@ -3496,7 +3737,7 @@ function cmdCorrect(args) {
     ...drift,
   });
 
-  // The run record follows the Draft. And the corrected Step's RECOVERY is
+  // The run record follows the Draft. And the corrected Step's OUTLINE_INPUT is
   // discarded: the blind reviewer read prose that no longer exists, so keeping
   // the record would let pass two re-judge new prose against an old reading —
   // which is the failure mode this whole Harness is about, one layer in.
@@ -3511,7 +3752,7 @@ function cmdCorrect(args) {
     step_id: s.step_id, section: s.section, section_title: s.section_title,
     lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
   }));
-  delete run.recovered[stepId];
+  delete run.outlineFields[stepId];
   delete run.rendered[stepId];
   writeRun(ws, run);
 
@@ -3543,7 +3784,7 @@ function cmdCorrect(args) {
 // nothing to distinguish them.
 function passTwoBound(run, items) {
   // THE ARM MUST BE NON-EMPTY, AND ITS SIZE IS THE TABLE'S (kogaki#1014). This
-  // read for a pair of exactly two, which was the runtime restating a shape the
+  // read for a pair of exactly two, which was the runtime restating a layout the
   // table owns: when `restates-earlier-step` left under the hygiene decline the
   // count went to one, and a run whose bound was correct refused on the number.
   // What the refusal is actually for is an EMPTY arm — pass two over the
@@ -3594,7 +3835,7 @@ function cmdCheck(args) {
   // what pass one found, and there is nothing to re-check before `compare`.
   if (!run.compared_at) {
     fail("`check` is pass two and there is no pass one — run `compare --draft <draft.md>` first. "
-      + "Pass two re-runs recovery and the join only for the corrected Steps, their successors' "
+      + "Pass two re-runs outline and the join only for the corrected Steps, their successors' "
       + "continuity items and the mechanical items, so it has nothing to narrow to until the join has run.");
   }
 
@@ -3611,7 +3852,7 @@ function cmdCheck(args) {
   // marker, so a correction landing after the pass opened re-opens it.
   //
   // AND THE PASS NUMBER MOVES HERE, BEFORE ANY EVIDENCE IS WRITTEN (kogaki#994).
-  // The blind recovery below is THIS pass's reading, so it belongs in this
+  // The Reverse Outlining below is THIS pass's reading, so it belongs in this
   // pass's directory; setting the number after it would file pass two's re-read
   // under pass one and overwrite exactly the record the split exists to keep.
   //
@@ -3620,7 +3861,7 @@ function cmdCheck(args) {
   // cleared verdicts over the same corrected Steps — rather than starting a
   // third. So a re-entry sets 2 again, and its re-rendered inputs land beside
   // the ones it is replacing, which is within-pass and is what `correct`
-  // discarding the recovered record already means. A genuine third pass would
+  // discarding the Reverse Outline already means. A genuine third pass would
   // be a third act, and it gets `pass-3/` with nothing else moving.
   if (!run.pass_open_at) {
     const verdicts = run.verdicts || {};
@@ -3636,27 +3877,27 @@ function cmdCheck(args) {
     writeRun(ws, run);
   }
 
-  // RECOVERY IS RE-RUN FOR THE CORRECTED STEPS AND FOR NO OTHERS. `correct`
-  // discarded each corrected Step's recovered record because the reviewer read
+  // OUTLINE_INPUT IS RE-RUN FOR THE CORRECTED STEPS AND FOR NO OTHERS. `correct`
+  // discarded each corrected Step's Reverse Outline because the reviewer read
   // prose that no longer exists; this renders the input again and refuses until
   // it comes back, which is the same blind round trip pass one made and not a
   // cheaper stand-in for it.
   const steps = resolveInputs(draft).steps;
-  const owedRecovery = [...bound.corrected].filter((id) => !run.recovered[id]);
-  if (owedRecovery.length) {
+  const owedOutline = [...bound.corrected].filter((id) => !run.outlineFields[id]);
+  if (owedOutline.length) {
     const order = run.steps.map((s) => s.step_id);
-    owedRecovery.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-    for (const id of owedRecovery) {
+    owedOutline.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    for (const id of owedOutline) {
       if (run.rendered[id]) continue;
       run.rendered[id] = renderReverseOutlineInput(ws, run, draft, steps.find((s) => s.step_id === id), steps);
     }
     writeRun(ws, run);
-    fail(`pass two re-runs the blind recovery for every corrected Step, and `
-      + `${owedRecovery.length} ${owedRecovery.length === 1 ? "is" : "are"} outstanding. The prose `
-      + "these Steps carry now is not the prose the first recovery read, so the recorded reading is "
+    fail(`pass two re-runs Reverse Outlining for every corrected Step, and `
+      + `${owedOutline.length} ${owedOutline.length === 1 ? "is" : "are"} outstanding. The prose `
+      + "these Steps carry now is not the prose the first Reverse Outline read, so the recorded reading is "
       + `about text that is gone.\n`
-      + owedRecovery.map((id) => `  ${id}  ${run.rendered[id]}`).join("\n") + "\n"
-      + "Read each blind and record it with `recover --draft <draft.md> --step <id> --file <recovered>`, "
+      + owedOutline.map((id) => `  ${id}  ${run.rendered[id]}`).join("\n") + "\n"
+      + "Read each blind and record it with `outline --draft <draft.md> --step <id> --file <outline.md>`, "
       + "then run `check` again.");
   }
 
@@ -3812,7 +4053,7 @@ function cmdCheck(args) {
 // passes the run actually made rather than from the layout constant — a run that
 // never reached `check` has no `pass-2/`, and naming one would send a reader to
 // a directory nothing wrote.
-// The recovery record and the join input a single verdict rests on. Rendered
+// The outline record and the join input a single verdict rests on. Rendered
 // from the same rule the writers compose their paths with, so a reader following
 // one lands on the file the judge was actually handed.
 //
@@ -3820,16 +4061,16 @@ function cmdCheck(args) {
 // #1004 round 2, findings 5 and 6). Which pass read a row: a carried row was
 // read by pass one whatever pass the run has reached, and every other row by
 // the last pass that ran. Whether a Packet exists for it: a Harness-decided
-// line — a mechanical item, a stated absence, an empty recovered side, or a
+// line — a mechanical item, a stated absence, an empty reverse side, or a
 // paired item whose chosen pair the matcher decided — never had a join Packet
 // rendered, so no pointer to one is composed; the pass's join record says how
 // it was decided. Composing `pass-2/` for a carried row, or a Packet name for a
 // mechanical row, pointed the owner at files nothing ever wrote.
 //
-// THE RECOVERED RECORD IS THE ONE THE RUN READ, taken from the run record's
+// THE OUTLINE RECORD IS THE ONE THE RUN READ, taken from the run record's
 // own map rather than composed from the pass: pass two re-reads only the
 // corrected Steps, so a successor Step's continuity item is judged in pass two
-// against pass ONE's recovered record, and `run.recovered` is the map every
+// against pass ONE's Reverse Outline, and `run.outlineFields` is the map every
 // join reads from. A carried row's is pass one's by definition.
 function evidencePass(run, f) {
   return f.carried ? 1 : (run.checked_at ? 2 : 1);
@@ -3847,10 +4088,10 @@ function findingEvidencePaths(ws, run, f) {
   const pass = evidencePass(run, f);
   const rel = (...a) => relative(process.cwd(), join(ws, `pass-${pass}`, ...a))
     || join(ws, `pass-${pass}`, ...a);
-  const recovered = f.carried
-    ? join(ws, "pass-1", "recovered", `${f.step_id}.json`)
-    : ((run.recovered || {})[f.step_id] || join(ws, `pass-${pass}`, "recovered", `${f.step_id}.json`));
-  const out = [`  - recovered record: \`${relative(process.cwd(), recovered) || recovered}\``];
+  const outlineFile = f.carried
+    ? join(ws, "pass-1", "outline", `${f.step_id}.json`)
+    : ((run.outlineFields || {})[f.step_id] || join(ws, `pass-${pass}`, "outline", `${f.step_id}.json`));
+  const out = [`  - Reverse Outline: \`${relative(process.cwd(), outlineFile) || outlineFile}\``];
   if (chosenJudged(f)) {
     const name = f.pair === null || f.pair === undefined
       ? `${f.step_id}.${f.item}.md` : `${f.step_id}.${f.item}.${f.pair}.md`;
@@ -3866,8 +4107,8 @@ function evidenceLines(ws, run) {
   const rel = (...a) => relative(process.cwd(), join(ws, ...a)) || join(ws, ...a);
   const out = [
     `- **Pass 1 — \`compare\`.** \`${rel("pass-1")}/\``,
-    `  - \`recovery/<step>.md\` — what the blind reviewer was handed`,
-    `  - \`recovered/<step>.json\` — what they wrote back`,
+    `  - \`outline-input/<step>.md\` — what the blind reviewer was handed`,
+    `  - \`outline/<step>.json\` — what they wrote back`,
     `  - \`join/<step>.<item>[.<pair>].md\` — the pair each verdict was given on`,
     `  - \`ledger/\` — the cold reader's Section entries and final claim`,
     `  - \`corrections/<step>.md\` — the input each correction was written from`,
@@ -3876,7 +4117,7 @@ function evidenceLines(ws, run) {
   if (run.checked_at || currentPass(run) > 1) {
     out.push(
       `- **Pass 2 — \`check\`.** \`${rel("pass-2")}/\``,
-      `  - \`recovery/<step>.md\` and \`recovered/<step>.json\` — the corrected Steps, re-read blind`,
+      `  - \`outline-input/<step>.md\` and \`outline/<step>.json\` — the corrected Steps, re-read blind`,
       `  - \`join/<step>.<item>[.<pair>].md\` — the pairs inside the second pass's bound`,
       `  - \`check.json\` — pass two's verdicts, the bound it applied, and what it carried`,
       "",
@@ -4008,7 +4249,7 @@ function cmdClose(args) {
     // artefacts that make it checkable — the input the judge was handed and
     // the record the blind reviewer wrote — live in the pass directory, and
     // until this the record pointed at neither. `runs/` is machine state and is
-    // pruned, so the paths are named as the shape they have rather than
+    // pruned, so the paths are named as the form they have rather than
     // promised to be there: a reader whose workspace has been pruned learns
     // what was pruned rather than that nothing was written.
     "### Where this run's evidence is",
@@ -4040,7 +4281,7 @@ function cmdClose(args) {
       // merely located.
       for (const e of [].concat(f.evidence ?? [])) lines.push(`  - evidence: ${e}`);
       if (f.declared) lines.push(`  - declared: ${f.declared}`);
-      if (f.recovered) lines.push(`  - recovered: ${f.recovered}`);
+      if (f.reverse) lines.push(`  - reverse: ${f.reverse}`);
       if (f.span) lines.push(`  - span: ${JSON.stringify(f.span)}`);
       // THE TWO ARTEFACTS BEHIND THE VERDICT (kogaki#994 item 4). `run.findings`
       // is pass two's once `check` has run and pass one's before, and a carried
@@ -4066,7 +4307,7 @@ function cmdClose(args) {
       lines.push(`- **Section ${f.section} / ${f.item}** — ${f.verdict} (${f.class ?? "unclassed"})`);
       if (f.reason) lines.push(`  - ${f.reason}`);
       if (f.declared) lines.push(`  - declared: ${f.declared}`);
-      if (f.recovered) lines.push(`  - recovered: ${f.recovered}`);
+      if (f.reverse) lines.push(`  - reverse: ${f.reverse}`);
       if (f.span) lines.push(`  - span: ${JSON.stringify(f.span)}`);
       const r = f.verdict === "fails" ? routeFor(f.section) : null;
       if (r) {
@@ -4155,7 +4396,7 @@ function cmdClose(args) {
 
 const COMMANDS = {
   open: cmdOpen,
-  recover: cmdRecover,
+  outline: cmdOutline,
   read: cmdRead,
   compare: cmdCompare,
   correct: cmdCorrect,
@@ -4166,7 +4407,7 @@ const COMMANDS = {
 const USAGE = `review-draft — the round-trip review of a CanonicalDraft against its Packets
 
   node src/review-draft.mjs open    --draft <draft.md>
-  node src/review-draft.mjs recover --draft <draft.md> --step <id> --file <recovered>
+  node src/review-draft.mjs outline --draft <draft.md> --step <id> --file <outline.md>
   node src/review-draft.mjs read    --draft <draft.md> --section <n> --file <entry.json>
   node src/review-draft.mjs read    --draft <draft.md> --claim --file <claim.json>
   node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
@@ -4175,8 +4416,8 @@ const USAGE = `review-draft — the round-trip review of a CanonicalDraft agains
   node src/review-draft.mjs check   --draft <draft.md> [--verdicts <verdicts.json>]
   node src/review-draft.mjs close   --draft <draft.md>
 
-The Harness owns the ordering: \`recover\` refuses a Step whose recovery input it
-did not render, \`compare\` refuses while any Step recovery, Section entry or the
+The Harness owns the ordering: \`outline\` refuses a Step whose Reverse Outline input it
+did not render, \`compare\` refuses while any Step outline, Section entry or the
 cold reader's final claim is missing,
 \`check\` refuses before \`compare\`, and \`close\` is reachable from \`compare\` with
 zero fails or from \`check\` in every state.
@@ -4184,9 +4425,9 @@ zero fails or from \`check\` in every state.
 THE WORKSPACE IS SPLIT BY PASS, and the layout is this command's contract rather
 than a convention:
 
-  runs/review/<slug>/pass-1/{recovery,recovered,join,ledger,corrections,
+  runs/review/<slug>/pass-1/{outline-input,outline,join,ledger,corrections,
                              cold-reader.md,join.json}
-  runs/review/<slug>/pass-2/{recovery,recovered,join,check.json}
+  runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
   runs/review/<slug>/snapshots/    before/after per corrected Step
   runs/review/<slug>/run.json
 
@@ -4222,7 +4463,7 @@ and \`emit\`, which re-renders the block from it. You write no markup. A Step
 owing both corrections takes the passage first: the record's caption is stated
 in what the reader holds after reading that passage.
 
-\`check\` is pass two and is BOUNDED: it re-runs the blind recovery for the
+\`check\` is pass two and is BOUNDED: it re-runs Reverse Outlining for the
 corrected Steps, then re-judges their own failed and held preserved items, the
 two continuity items on each corrected Step's successor, and every mechanical
 item over the whole Draft. Every other pair is CARRIED from pass one, marked as
@@ -4250,7 +4491,7 @@ whole article; \`read\` takes those back and validates them. \`compare\` lays th
 against the heading the trace declares and the reader states the Section's first
 and last Packets declare, on the same three tokens. A Section fail is ROUTED
 rather than corrected — ReviewDraft corrects at Step granularity only: to a Step
-when one in the Section is already failing or its recovered reader state stops
+when one in the Section is already failing or its outlined reader state stops
 holding, and otherwise UPSTREAM to the Brief as residue marked
 \`upstream: brief\`, with no correction run.
 
@@ -4286,14 +4527,14 @@ async function runSelfTest() {
   // `detail` RENDERS (kogaki#883, finding 3). Case 23 always passed its
   // offending-import list as a third argument, and the two-parameter form
   // dropped it — so a future allowlist failure would have named the case and
-  // never the import that broke it, the one fact a repair needs. Same shape as
+  // never the import that broke it, the one fact a repair needs. Same case as
   // the sibling `ok` in src/runs.mjs.
   const ok = (name, cond, detail = "") => {
     if (cond) passed++; else failures.push(`${name}${detail ? ` — ${detail}` : ""}`);
   };
   // A CASE MUST FAIL, NEVER THROW. A mutation that stops `close` writing its
   // record used to take the whole pass down with an ENOENT from the next case,
-  // and a crash reports no case count at all — which is the shape
+  // and a crash reports no case count at all — which is the form
   // checks/check-review-draft-runtime.sh reads as "the pass did not run" rather
   // than as "these cases failed". Every later read of a written artifact goes
   // through this.
@@ -4408,7 +4649,7 @@ async function runSelfTest() {
     return { path: out, ranges, bodyOffset, figureRanges, figureFiles };
   }
 
-  // THE FIXTURE PACKETS ARE RENDERED IN THE TEMPLATE'S OWN SHAPE (kogaki#872),
+  // THE FIXTURE PACKETS ARE RENDERED IN THE TEMPLATE'S OWN FORM (kogaki#872),
   // not stubbed: `compare` reads the DECLARED side back out of a Packet block by
   // block, and a stub carrying two lines would make every join case assert
   // against a refusal rather than against the comparison. They are hand-written
@@ -4421,7 +4662,7 @@ async function runSelfTest() {
   // would land in one and make the no-numbers-but-line-numbers case assert
   // against the fixture's own wording rather than against the format.
   const GROUNDS = {
-    a1: ["ground alpha — the harness renders the recovery input before any record is accepted.",
+    a1: ["ground alpha — the harness renders the Reverse Outline input before any record is accepted.",
       "ground beta — the reviewer never reads the packet that produced the prose."],
     a2: ["ground gamma — an ordering owned by the harness cannot be got wrong by a session."],
     a3: ["ground delta — a residue line is classified by the owner and never by the tool."],
@@ -4435,7 +4676,7 @@ async function runSelfTest() {
       introduces: [], knows: ["harness"], opens: true, excerpt: null },
   };
   // THE FIXTURE PACKET IS THE REAL TEMPLATE WITH ITS SLOTS FILLED (PR #895
-  // round 1, findings 2 and 3). It used to be written out by hand in the shape
+  // round 1, findings 2 and 3). It used to be written out by hand in the form
   // the author believed the template had, and BOTH of those findings are that
   // belief being wrong: the grounds reader tested a bullet whose value lives in
   // a block below it, and the Section anchor stopped a sentence short of its
@@ -4532,7 +4773,7 @@ async function runSelfTest() {
   // A REVERSE OUTLINE for one Step, in the Brief's own Step form (kogaki#1014).
   // The fixture's outlines are REAL `step` blocks from here on — a plain-text
   // stand-in is refused by the Brief parser, and the ordering cases below must
-  // fail on the ORDERING rather than on the block's shape.
+  // fail on the ORDERING rather than on the block's form.
   //
   // THE GROUNDS PAIR WITH THE FIXTURE PACKETS' GROUNDS (kogaki#872). The Round
   // Trip assigns each read ground to the declared ground it rests on by
@@ -4546,7 +4787,7 @@ async function runSelfTest() {
   // NO SPANS. A Reverse Outline is a Brief Step block and a Brief field carries
   // no draft coordinate — the span was the deleted record's own invention, and
   // the cases that asserted one lie inside the passage went with it.
-  const RECOVERED = {
+  const OUTLINE = {
     a1: { claims: ["the harness renders the reverse outline input before any outline is accepted",
       "the reviewer never reads the packet that produced the prose"],
       after: "The reader knows which act renders the input.", purpose: "To open the claim." },
@@ -4559,10 +4800,10 @@ async function runSelfTest() {
   // ground, blank a field or add one the dispositions refuse.
   const outlineFor = (id) => ({
     step_id: id,
-    purpose: RECOVERED[id].purpose,
+    purpose: OUTLINE[id].purpose,
     reader_state_before: "The reader arrives holding what came before.",
-    reader_state_after: RECOVERED[id].after,
-    grounds: RECOVERED[id].claims.slice(),
+    reader_state_after: OUTLINE[id].after,
+    grounds: OUTLINE[id].claims.slice(),
     introduces: [],
     concession: [],
     opens_section: null,
@@ -4597,10 +4838,10 @@ async function runSelfTest() {
     return p;
   };
 
-  // THE LEDGER FIXTURE IS A VALID ENTRY, in the shape src/review-items.json
+  // THE LEDGER FIXTURE IS A VALID ENTRY, in the form src/review-items.json
   // declares (kogaki#873). One entry serves every Section: the Section pairs
   // are judged, so the fixture answers them through `answerOwed` like every
-  // other judged pair, and what this file has to be RIGHT about is its shape.
+  // other judged pair, and what this file has to be RIGHT about is its form.
   // It carries NO DIGIT, for the reason the Packets carry none — quoted
   // material reaches a reason, and a reason with a digit refuses the emission.
   const ledgerFile = join(root, "ledger-entry.json");
@@ -4623,11 +4864,11 @@ async function runSelfTest() {
   // to SAY the judge failed it — there is no longer a Packet mutation that
   // produces one mechanically, which is the whole point of the change.
   const answerOwed = (jsonPath, tag, verdict = "holds",
-    reason = "the declared line and the recovered one agree", override = null) => {
+    reason = "the declared line and the outlined one agree", override = null) => {
     // AN ABSENT JOIN RECORD ANSWERS NOTHING RATHER THAN THROWING. A mutation
     // that makes `compare` refuse leaves no record, and reading it directly took
     // the whole pass down with an ENOENT — which reports no case count at all,
-    // the shape the member reads as "the pass did not run" rather than as "these
+    // the form the member reads as "the pass did not run" rather than as "these
     // cases failed".
     // BOTH JOINS' OWED SETS, read from the record's own two branches. A helper
     // that answered only the Step half would leave every Section pair owed and
@@ -4667,21 +4908,21 @@ async function runSelfTest() {
     return join(dir, "review-draft.mjs");
   };
 
-  // open -> recover x3 -> read x2 -> compare -> answer -> compare. The whole
+  // open -> outline x3 -> read x2 -> compare -> answer -> compare. The whole
   // flow, driven through the real entry points, for a fixture Draft of this
-  // shape.
+  // form.
   const driveToCompletedJoin = (d, wsBase, tag, override = null) => {
     const slug = basename(dirname(resolve(d.path)));
     const D = (...a) => spawnSync(process.execPath,
       [self, ...a, "--draft", d.path, "--workspace", wsBase], { encoding: "utf8" });
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, tag));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, tag));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
     D("read", "--claim", "--file", claimFile);
     const first = D("compare");
     const jsonPath = join(wsBase, slug, "pass-1", "join.json");
     const second = D("compare", "--verdicts",
-      answerOwed(jsonPath, tag, "holds", "the declared line and the recovered one agree", override));
+      answerOwed(jsonPath, tag, "holds", "the declared line and the outlined one agree", override));
     return { first, second, jsonPath, ws: join(wsBase, slug) };
   };
 
@@ -4783,18 +5024,18 @@ async function runSelfTest() {
   ok("open names the Steps it found", rOpen.stdout.includes("a1, a2, a3"));
   ok("open names the Sections it found", /sections\s+2 —/.test(rOpen.stdout));
   ok("open reports the Packets as verified against the trace", /packets\s+3 verified/.test(rOpen.stdout));
-  ok("open renders the FIRST recovery input", /first recovery input: .*recovery[\/\\]a1\.md/.test(rOpen.stdout));
+  ok("open renders the FIRST Reverse Outline input", /first Reverse Outline input: .*outline-input[\/\\]a1\.md/.test(rOpen.stdout));
   ok("open writes a run record", existsSync(join(WS, "run.json")));
 
-  // 8 — THE RECOVERY IS BLIND, and this is the case that binds it. The input
+  // 8 — THE OUTLINE_INPUT IS BLIND, and this is the case that binds it. The input
   // carries the prose and nothing from the Packet; a token only the Packet has
   // must not appear.
   {
-    const input = readFileSync(join(WS, "pass-1", "recovery", "a1.md"), "utf8");
-    ok("the recovery input carries the Step's prose", input.includes("The first passage opens the claim"));
-    ok("the recovery input carries NOTHING from the Packet", !input.includes("PACKETONLYTOKEN"));
-    ok("the recovery input names the draft line range it quoted", /draft lines \d+–\d+/.test(input));
-    ok("the recovery input tells the reviewer not to reason about the input",
+    const input = readFileSync(join(WS, "pass-1", "outline-input", "a1.md"), "utf8");
+    ok("the Reverse Outline input carries the Step's prose", input.includes("The first passage opens the claim"));
+    ok("the Reverse Outline input carries NOTHING from the Packet", !input.includes("PACKETONLYTOKEN"));
+    ok("the Reverse Outline input names the draft line range it quoted", /draft lines \d+–\d+/.test(input));
+    ok("the Reverse Outline input tells the reviewer not to reason about the input",
       /Do not reason about what the\s+author was probably told/.test(input));
     ok("and forbids verdicts and advice outright (kogaki#871)",
       /Write no verdicts and no advice/.test(input));
@@ -4819,7 +5060,7 @@ async function runSelfTest() {
   // 9 — an unknown Step names BOTH sides.
   {
     const bad = writeRecord("a1");
-    const r = drive("recover", "--step", "zz", "--file", bad);
+    const r = drive("outline", "--step", "zz", "--file", bad);
     ok("an unknown step_id refuses naming both sides",
       r.status === 1 && /unknown step `zz`/.test(r.stderr) && /a1, a2, a3/.test(r.stderr));
   }
@@ -4829,47 +5070,47 @@ async function runSelfTest() {
   // no way to tell what.
   {
     const rec = writeRecord("a3");
-    const r = drive("recover", "--step", "a3", "--file", rec);
-    ok("a Step whose recovery input was never rendered refuses",
-      r.status === 1 && /step a3 has no rendered recovery input/.test(r.stderr));
+    const r = drive("outline", "--step", "a3", "--file", rec);
+    ok("a Step whose Reverse Outline input was never rendered refuses",
+      r.status === 1 && /step a3 has no rendered Reverse Outline input/.test(r.stderr));
     ok("and the refusal names the Step actually owed", /The Step now owed is a1/.test(r.stderr));
   }
 
-  // 11 — recording one recovery renders the next.
+  // 11 — recording one outline renders the next.
   {
     const rec = writeRecord("a1");
-    const r = drive("recover", "--step", "a1", "--file", rec);
-    ok("a recovery is recorded", r.status === 0 && /recorded: a1/.test(r.stdout));
-    ok("and the NEXT recovery input is rendered", /next recovery input: .*a2\.md/.test(r.stdout));
-    ok("the recovered record lands in the workspace", existsSync(join(WS, "pass-1", "recovered", "a1.json")));
+    const r = drive("outline", "--step", "a1", "--file", rec);
+    ok("a Reverse Outline is recorded", r.status === 0 && /recorded: a1/.test(r.stdout));
+    ok("and the NEXT Reverse Outline input is rendered", /next Reverse Outline input: .*a2\.md/.test(r.stdout));
+    ok("the Reverse Outline lands in the workspace", existsSync(join(WS, "pass-1", "outline", "a1.json")));
   }
 
-  // 12 — ACCEPTANCE 2: compare before every recovery refuses, naming what is
+  // 12 — ACCEPTANCE 2: compare before every outline refuses, naming what is
   // missing. Both halves are named, not only the first one found.
   {
     const r = drive("compare");
-    ok("compare with recoveries outstanding refuses", r.status === 1);
-    ok("and names the missing Steps", /step recoveries: a2, a3/.test(r.stderr));
+    ok("compare with outlines outstanding refuses", r.status === 1);
+    ok("and names the missing Steps", /step outlines: a2, a3/.test(r.stderr));
     ok("and names the missing Section entries in the SAME refusal",
       /section ledger entries: 1, 2/.test(r.stderr));
     ok("and says why a partial join is worse than none",
       /report the gaps as agreement/.test(r.stderr));
   }
 
-  // 13 — finish the recoveries. The LAST one hands over to the Section ledger
+  // 13 — finish the outlines. The LAST one hands over to the Section ledger
   // rather than rendering a next input, which is what makes the flow
   // self-driving all the way to `compare` instead of stopping silently.
-  let lastRecover = null;
+  let lastOutline = null;
   for (const id of ["a2", "a3"]) {
     const rec = writeRecord(id);
-    lastRecover = drive("recover", "--step", id, "--file", rec);
-    ok(`recovery ${id} is recorded`, lastRecover.status === 0);
+    lastOutline = drive("outline", "--step", id, "--file", rec);
+    ok(`Reverse Outline ${id} is recorded`, lastOutline.status === 0);
   }
-  ok("the last recovery renders no next input",
-    !/next recovery input/.test(lastRecover.stdout));
+  ok("the last Reverse Outline renders no next input",
+    !/next Reverse Outline input/.test(lastOutline.stdout));
   ok("and hands over to the Section ledger, naming how many entries it owes",
-    /every Step is recovered/.test(lastRecover.stdout)
-    && /2 entries/.test(lastRecover.stdout));
+    /every Step is outlined/.test(lastOutline.stdout)
+    && /2 entries/.test(lastOutline.stdout));
 
   // 14 — compare now names ONLY the cold reader's inputs, and names the final
   // claim as its own kind rather than as a Section number (kogaki#873's
@@ -4879,15 +5120,15 @@ async function runSelfTest() {
   {
     const r = drive("compare");
     ok("compare with only the cold reader's inputs outstanding refuses on those alone",
-      r.status === 1 && /section ledger entries: 1, 2/.test(r.stderr) && !/step recover/.test(r.stderr));
+      r.status === 1 && /section ledger entries: 1, 2/.test(r.stderr) && !/step outline/.test(r.stderr));
     ok("and names the final claim as its own missing input, not as a Section",
       /final claim/.test(r.stderr) && !/section ledger entries: 1, 2, /.test(r.stderr));
   }
 
-  // 15 — the Section ledger: an unknown Section refuses, a mis-shaped entry
+  // 15 — the Section ledger: an unknown Section refuses, a malformed entry
   // refuses BY SECTION NUMBER, and a valid one records (kogaki#873).
   //
-  // THE MIS-SHAPED CASES ARE THE POINT. Before kogaki#873 this entry point
+  // THE MALFORMED CASES ARE THE POINT. Before kogaki#873 this entry point
   // recorded whatever file it was handed, so a Section could be "recorded" by
   // an empty file and `compare` would lay nothing against the heading and
   // report agreement — the silent pass the whole comparison exists to refuse,
@@ -4961,7 +5202,7 @@ async function runSelfTest() {
   {
     const r = drive("compare");
     ok("compare succeeds once every input is present", r.status === 0);
-    ok("and reports the counts it joined over", /3 recovered Step\(s\), 2 Section entries/.test(r.stdout));
+    ok("and reports the counts it joined over", /3 outlined Step\(s\), 2 Section entries/.test(r.stdout));
     ok("a join record lands in the workspace", existsSync(join(WS, "pass-1", "join.json")));
 
     const rec = JSON.parse(readFileSync(join(WS, "pass-1", "join.json"), "utf8"));
@@ -4982,8 +5223,8 @@ async function runSelfTest() {
     // it will accept. The judging model cannot rank, because it is never shown
     // two pairs at once.
     const jp = rec.owed.length ? readFileSync(rec.owed[0].packet, "utf8") : "";
-    ok("a join Packet carries the declared side, the recovered side and the quoted prose",
-      /### What the Packet DECLARED/.test(jp) && /### What was RECOVERED from the prose/.test(jp)
+    ok("a join Packet carries the declared side, the reverse side and the quoted prose",
+      /### What the Packet DECLARED/.test(jp) && /### What the REVERSE OUTLINE says/.test(jp)
       && /### The prose itself — draft lines/.test(jp));
     ok("and exactly one question", (jp.match(/^## The question$/gm) || []).length === 1);
     ok("and the closed three-token answer set", /holds.*fails.*cannot-decide/.test(jp));
@@ -5082,7 +5323,7 @@ async function runSelfTest() {
     const rec = JSON.parse(readFileSync(join(WS, "pass-1", "join.json"), "utf8"));
     ok("and the join record says so", rec.complete === true);
 
-    // kogaki#997 — WHAT JUDGED EACH PAIR IS RECOVERABLE FROM THE RECORD.
+    // kogaki#997 — WHAT JUDGED EACH PAIR IS READABLE FROM THE RECORD.
     // Asserted over EVERY model-decided row and EVERY call in both branches of
     // the log rather than over a sample: the defect the Issue reports is that a
     // hundred and more calls carried step, item, pair and packet and nothing
@@ -5137,15 +5378,16 @@ async function runSelfTest() {
       baseLines.size === 3 * PROSE_ITEMS.length);
     ok("every Step and every item the table declares has a line",
       ["a1", "a2", "a3"].every((s) => PROSE_ITEMS.every((i) => baseLines.has(`${s}/${i.id}`))));
-    // kogaki#880 AC3 asked that a figureless Draft carry no figure item in its
-    // log. THE ROWS THEMSELVES ARE GONE (kogaki#1014, the decline recorded in
-    // `src/review-items.json`), so the property is now unconditional and the
-    // case says the stronger thing: the table declares no figure row for ANY
-    // Draft. It fails the moment one is added back outside kogaki#1018.
-    ok("the declined figure rows are absent from the table, for every Draft",
-      ITEMS.items.every((i) => !i.figure_only)
-      && ITEMS.items.every((i) => !/^figure-/.test(i.id)));
-    ok("and no run logs one, mechanically or as a model call",
+    // kogaki#880 AC3, RESTORED AT kogaki#1018: a figureless Draft carries no
+    // figure item in its log. The rows are back in the table, so the property is
+    // conditional again and this is the figureless half of it — the Steps of
+    // this fixture carry no figure, and a figure row appearing here would be the
+    // vacuous `holds` the design refuses. The figure-carrying half is the
+    // kogaki#880 block further down.
+    ok("the table declares its figure rows, every one of them figure-only",
+      ITEMS.items.filter((i) => /^figure-/.test(i.id)).length === 5
+      && ITEMS.items.filter((i) => /^figure-/.test(i.id)).every((i) => i.figure_only === true));
+    ok("and no run over a FIGURELESS Draft logs one, mechanically or as a model call",
       ![...baseLines.keys()].some((k) => /\/figure-/.test(k))
       && !(rec.mechanical || []).some((c) => /^figure-/.test(c.item))
       && !(rec.model_calls || []).some((c) => /^figure-/.test(c.item)));
@@ -5226,7 +5468,7 @@ async function runSelfTest() {
   {
     const run = JSON.parse(readFileSync(join(WS, "run.json"), "utf8"));
     run.residue = [
-      { step_id: "a1", item: "reader_state_after", why: "the recovered state still differs after pass two" },
+      { step_id: "a1", item: "reader_state_after", why: "the outlined state still differs after pass two" },
       { step_id: "a3", item: "restates", why: "the passage restates the Packet's wording" },
     ];
     writeFileSync(join(WS, "run.json"), JSON.stringify(run, null, 2) + "\n");
@@ -5336,7 +5578,7 @@ async function runSelfTest() {
     // `resolveInputs` name `draft.mjs emit --brief <brief.md>` as the act that
     // repairs a stale trace, and a literal test cannot tell that MENTION from a
     // READ. Widening it would have failed on a correct refusal message, which
-    // is the guard-that-fires-on-correct-behaviour shape. The Brief is covered
+    // is the guard-that-fires-on-correct-behaviour case. The Brief is covered
     // by the allowlist above, where the distinction is decidable.
     ok("and reads no moves/ or gloss/ store literal",
       !/moves\//.test(code) && !/ELEMENTS\.jsonl/.test(code));
@@ -5344,7 +5586,7 @@ async function runSelfTest() {
 
   // 23a — FINDING 2: `body_sha` is the SAME number on both sides. `emit` writes
   // `fm + "\n\n" + body + "\n"` and records `sha256(body)`; the fixture Draft is
-  // built in exactly that shape, so the two can be compared directly. The
+  // built in exactly that form, so the two can be compared directly. The
   // pre-fix reader hashed `body + "\n"` and no case could witness it, because
   // every assertion went through this module's own reader.
   {
@@ -5385,13 +5627,13 @@ async function runSelfTest() {
   }
 
   // ---- kogaki#871 -------------------------------------------------------
-  // AC1 — the recovery input for a CONTINUING Step carries the article before
+  // AC1 — the Reverse Outline input for a CONTINUING Step carries the article before
   // it and none of its own Packet. The fixture's Packets hold PACKETONLYTOKEN,
   // and case 8 already asserts its absence for a1; a2 is the case that matters
   // for the article-so-far block, because a1's block is the empty one.
   {
-    const input = readFileSync(join(WS, "pass-1", "recovery", "a2.md"), "utf8");
-    ok("a continuing Step's recovery input carries the PRECEDING Step's prose",
+    const input = readFileSync(join(WS, "pass-1", "outline-input", "a2.md"), "utf8");
+    ok("a continuing Step's Reverse Outline input carries the PRECEDING Step's prose",
       input.includes(PROSE.a1[0]));
     ok("and its own prose", input.includes(PROSE.a2[0]));
     ok("and none of the strings that appear only in its Packet",
@@ -5403,11 +5645,11 @@ async function runSelfTest() {
     ok("the article-so-far block ends where the passage begins",
       input.indexOf(PROSE.a1[0]) < input.indexOf("## The passage"));
     // a1 opens the article, so its own block says so rather than rendering empty.
-    const first = readFileSync(join(WS, "pass-1", "recovery", "a1.md"), "utf8");
+    const first = readFileSync(join(WS, "pass-1", "outline-input", "a1.md"), "utf8");
     ok("the article's FIRST passage says nothing precedes it rather than rendering an empty block",
       /nothing yet — this is the article's first passage/.test(first));
     // a3 opens the SECOND Section, so its block carries both headings.
-    const third = readFileSync(join(WS, "pass-1", "recovery", "a3.md"), "utf8");
+    const third = readFileSync(join(WS, "pass-1", "outline-input", "a3.md"), "utf8");
     ok("a Step opening a later Section carries every earlier Section's heading",
       third.includes(`## ${SECTIONS[0].title}`) && !third.includes(`## ${SECTIONS[1].title}`));
   }
@@ -5431,7 +5673,7 @@ async function runSelfTest() {
     // escaped through two layers.
     const bad = (name, mutate, expect) => {
       const f = writeRecord("a1", mutate);
-      const r = D("recover", "--step", "a1", "--file", f);
+      const r = D("outline", "--step", "a1", "--file", f);
       const hit = typeof expect === "string" ? r.stderr.includes(expect) : expect.test(r.stderr);
       ok(name, r.status === 1 && hit);
     };
@@ -5454,7 +5696,7 @@ async function runSelfTest() {
     // this is the case that makes the refusals above mean something.
     {
       const f = writeRecord("a1");
-      const r = D("recover", "--step", "a1", "--file", f);
+      const r = D("outline", "--step", "a1", "--file", f);
       ok("while an outline with no introduces, opens_section or concession is accepted", r.status === 0);
     }
 
@@ -5466,7 +5708,7 @@ async function runSelfTest() {
 
     // THE NOT-RECONSTRUCTIBLE FIELDS ARE REFUSED, NOT DROPPED. A field the
     // reader could not have read off the passage is an inference, and dropping
-    // it silently would leave the inference having shaped the rest of the
+    // it silently would leave the inference having steered the rest of the
     // outline with no trace. Iterated from the declaration for the same reason.
     //
     // `figure` IS REFUSED ONE READER EARLIER, and that is asserted rather than
@@ -5512,7 +5754,7 @@ async function runSelfTest() {
     // repairing an outline does not discover them one run at a time.
     {
       const f = writeRecord("a1", (o) => { o.purpose = null; o.reader_state_after = null; o.extra = { score: "3" }; return o; });
-      const r = D("recover", "--step", "a1", "--file", f);
+      const r = D("outline", "--step", "a1", "--file", f);
       ok("every problem is named in one refusal, never the first one found",
         r.status === 1 && /carries no `purpose:` line/.test(r.stderr)
         && /carries no `reader_state_after:` line/.test(r.stderr)
@@ -5522,13 +5764,13 @@ async function runSelfTest() {
     // NOT A STEP BLOCK AT ALL, and TWO of them, are separate refusals because
     // they are separate mistakes. Both come from the Brief's own fence grammar.
     {
-      const f = join(root, "notblock.md"); writeFileSync(f, "recovered a1, in prose\n");
-      const r = D("recover", "--step", "a1", "--file", f);
+      const f = join(root, "notblock.md"); writeFileSync(f, "outlined a1, in prose\n");
+      const r = D("outline", "--step", "a1", "--file", f);
       ok("an outline that is not a fenced step block is refused, saying what one is",
         r.status === 1 && /carries no fenced `step` block/.test(r.stderr));
       const g = join(root, "twoblocks.md");
       writeFileSync(g, readFileSync(writeRecord("a1"), "utf8") + "\n" + readFileSync(writeRecord("a2"), "utf8"));
-      const r2 = D("recover", "--step", "a1", "--file", g);
+      const r2 = D("outline", "--step", "a1", "--file", g);
       ok("two step blocks are refused — an outline is the reading of ONE passage",
         r2.status === 1 && /carries more than one fenced `step` block/.test(r2.stderr));
     }
@@ -5538,7 +5780,7 @@ async function runSelfTest() {
     // grammar below is `introducesRefusal`'s, reached through `parseStepBlock`.
     // A BARE TERM IS VALID — the grammar is "term, or term — anchor" — so the
     // malformed entry is the SEPARATOR WITH NOTHING AFTER IT, which is the one
-    // shape `parseIntroducesEntry` names in its own words.
+    // form `parseIntroducesEntry` names in its own words.
     bad("a malformed introduces entry is refused by the Brief parser's own grammar",
       (o) => { o.introduces = ["opacity —"]; return o; },
       /introduces/);
@@ -5547,17 +5789,17 @@ async function runSelfTest() {
     // afterwards would leave `compare` to discover the defect, by which point
     // the reader who could fix it has finished reading.
     {
-      // A FRESH workspace: `ws3` already holds a successful a1 recovery from the
+      // A FRESH workspace: `ws3` already holds a successful a1 outline from the
       // accepted case above, and asserting absence there would pass or fail on
       // that history rather than on this refusal.
       const ws4 = join(root, "ws4");
       spawnSync(process.execPath, [self, "open", "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
       const f = writeRecord("a1", (o) => { o.purpose = null; return o; });
       const r = spawnSync(process.execPath,
-        [self, "recover", "--step", "a1", "--file", f, "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
+        [self, "outline", "--step", "a1", "--file", f, "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
       ok("a refused outline is not written to the workspace",
-        r.status === 1 && !existsSync(join(ws4, "fixture", "pass-1", "recovered", "a1.json"))
-        && !existsSync(join(ws4, "fixture", "pass-1", "recovered", "a1.md")));
+        r.status === 1 && !existsSync(join(ws4, "fixture", "pass-1", "outline", "a1.json"))
+        && !existsSync(join(ws4, "fixture", "pass-1", "outline", "a1.md")));
     }
 
     // BOTH HALVES ARE KEPT, and this is what makes the run's own record able to
@@ -5565,18 +5807,25 @@ async function runSelfTest() {
     // out of it.
     {
       const f = writeRecord("a2");
-      const r = D("recover", "--step", "a2", "--file", f);
+      const r = D("outline", "--step", "a2", "--file", f);
       ok("an accepted outline lands as BOTH the block it was written as and the reading",
         r.status === 0
-        && existsSync(join(ws3, "fixture", "pass-1", "recovered", "a2.md"))
-        && existsSync(join(ws3, "fixture", "pass-1", "recovered", "a2.json")));
-      const rec = JSON.parse(readFileSync(join(ws3, "fixture", "pass-1", "recovered", "a2.json"), "utf8"));
-      ok("and the reading carries the BRIEF's field names, with no translation left",
+        && existsSync(join(ws3, "fixture", "pass-1", "outline", "a2.md"))
+        && existsSync(join(ws3, "fixture", "pass-1", "outline", "a2.json")));
+      const rec = JSON.parse(readFileSync(join(ws3, "fixture", "pass-1", "outline", "a2.json"), "utf8"));
+      // ASSERTED AS A SUBSET, NEVER AS A BLACKLIST (kogaki#1018). This used to
+      // name three keys of the deleted second schema and check they were
+      // absent, which passes for a fourth key nobody thought to list — and the
+      // second schema arrived one field at a time, so the key nobody listed is
+      // exactly the one that would arrive. The reading's key set is closed
+      // against the Brief's own field list instead, so ANY foreign key fails
+      // here, listed or not.
+      const briefNames = new Set([...RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
+      const foreign = Object.keys(rec).filter((k) => !briefNames.has(k));
+      ok("and the reading carries the BRIEF's field names and no other schema's",
         Object.prototype.hasOwnProperty.call(rec, "grounds")
         && Object.prototype.hasOwnProperty.call(rec, "introduces")
-        && !Object.prototype.hasOwnProperty.call(rec, "claims")
-        && !Object.prototype.hasOwnProperty.call(rec, "terms_introduced")
-        && !Object.prototype.hasOwnProperty.call(rec, "shape"));
+        && foreign.length === 0);
     }
   }
 
@@ -5595,7 +5844,7 @@ async function runSelfTest() {
     const short = join(root, "packets-short"); mkdirSync(short, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) {
       writePacket(full, id);
-      // a1 keeps only its FIRST ground; the second recovered claim now rests on
+      // a1 keeps only its FIRST ground; the second outlined claim now rests on
       // nothing the Packet declares.
       writePacket(short, id, id === "a1" ? { grounds: [GROUNDS.a1[0]] } : {});
     }
@@ -5717,7 +5966,7 @@ async function runSelfTest() {
       ok(`the Round Trip table carries no \`${gone}\` row`, !ids.includes(gone));
     }
     ok("and no row keeps a translation column — every row names a Brief Step field",
-      ITEMS.items.every((i) => !Object.prototype.hasOwnProperty.call(i, "recovered_field")));
+      ITEMS.items.every((i) => !Object.prototype.hasOwnProperty.call(i, "outlined_field")));
 
     const r = driveToCompletedJoin(draft, join(root, "ws-mech"), "mech");
     ok("a run still reaches a completed join with those rows gone", r.second.status === 0);
@@ -5764,7 +6013,7 @@ async function runSelfTest() {
     }
     // The other Steps are untouched: the absence is this Step's, not the run's.
     ok("while a Step that does declare grounds still carries them",
-      /every ground is carried by a recovered claim/.test(L.get("a1/grounds-unused")));
+      /every ground is carried by a outlined claim/.test(L.get("a1/grounds-unused")));
   }
 
   // kogaki#1016 — A STEP WHOSE PACKET DECLARES NO `introduces` IS DECIDED BY THE
@@ -5895,7 +6144,7 @@ async function runSelfTest() {
     // Put it back, so the cases after this one see the run they expect.
     const g = join(root, "revise-back.json");
     writeFileSync(g, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
-      verdict: "holds", reason: "the declared line and the recovered one agree",
+      verdict: "holds", reason: "the declared line and the outlined one agree",
       model: JUDGE_MODEL }] }) + "\n");
     const back = drive("compare", "--verdicts", g);
     ok("and a revision is not one-way", /\sholds\s/.test(linesOf(back.stdout).get("a1/purpose")));
@@ -5943,7 +6192,7 @@ async function runSelfTest() {
   }
 
   // kogaki#995 — A CONCESSION REACHES THE JUDGING MODEL AS ITS OWN WORDS. The
-  // `concessions` item's recovered side is a list of OBJECTS, and the renderer
+  // `concessions` item's reverse side is a list of OBJECTS, and the renderer
   // interpolated each one directly, so the join input read `- [object Object]`.
   // Every `concessions` judgment in the 2026-09-07 ReviewDraft run came back
   // `cannot-decide` on that input, which is the right answer to an unreadable
@@ -5973,7 +6222,7 @@ async function runSelfTest() {
       const p2 = join(root, `rec-entries-${id}.md`);
       writeFileSync(p2, renderOutline({ ...outlineFor(id),
         concession: id === "a3" ? [CONCEDED] : [] }));
-      D("recover", "--step", id, "--file", p2);
+      D("outline", "--step", id, "--file", p2);
     }
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
     D("read", "--claim", "--file", claimFile);
@@ -6005,7 +6254,7 @@ async function runSelfTest() {
   // and the evidence holds the quoted material whole — is unchanged, so the
   // case is retargeted rather than deleted. `grounds-unused` is the surviving
   // mechanical row that carries evidence, and the fixture's ground names a
-  // Strand, which is exactly the shape that put a non-line-number digit in
+  // Strand, which is exactly the case that put a non-line-number digit in
   // front of a reader on the first live drive.
   {
     const pd = join(root, "packets-digit"); mkdirSync(pd, { recursive: true });
@@ -6043,7 +6292,7 @@ async function runSelfTest() {
     const D = (...a) => spawnSync(process.execPath,
       [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "und"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "und"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
     D("read", "--claim", "--file", claimFile);
     D("compare");
@@ -6135,7 +6384,7 @@ async function runSelfTest() {
     const D = (...a) => spawnSync(process.execPath,
       [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "gap"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "gap"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
     D("read", "--claim", "--file", claimFile);
     const r = D("compare");
@@ -6169,7 +6418,7 @@ async function runSelfTest() {
         .every((x) => !rec.model_calls.some((c) => c.step_id === x.step_id && c.item === x.item)));
   }
 
-  // THE ITEM TABLE IS READ, NEVER RESTATED — the same arrangement the recovered
+  // THE ITEM TABLE IS READ, NEVER RESTATED — the same arrangement the outlined
   // record's schema has. The item ids that DO occur in the runtime are the keys
   // of the mechanical implementations and of the Packet-block readers, which is
   // the binding the table's `mode` and `declared_block` fields name; every other
@@ -6227,7 +6476,7 @@ async function runSelfTest() {
     const D = (...a) => spawnSync(process.execPath,
       [soloCli, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "njt"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "njt"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
     D("read", "--claim", "--file", claimFile);
     const r = D("compare");
@@ -6239,7 +6488,7 @@ async function runSelfTest() {
   // comparison would otherwise join against a table it invented.
   //
   // IT REFUSES AT `open` SINCE kogaki#873, and the case is moved rather than
-  // relaxed. `open` renders the cold reader's input, whose entry shape is the
+  // relaxed. `open` renders the cold reader's input, whose entry form is the
   // table's `sections.ledger_fields`, so the table is load-bearing one act
   // earlier than it was — and asserting at `compare` would now assert against
   // "no run record", which is true and is not this refusal.
@@ -6255,8 +6504,8 @@ async function runSelfTest() {
   }
 
   // ONE DECLARATION OF THE FIELD LIST, AND ONE PARSER FOR THE BLOCK (kogaki#1014).
-  // The property the deleted `src/recovered-schema.json` used to carry — the runtime holds
-  // no second copy of the record's shape — survives its carrier's deletion,
+  // The property the deleted `src/outlined-schema.json` used to carry — the runtime holds
+  // no second copy of the record's field list — survives its carrier's deletion,
   // re-cut onto what replaced it. There is no second schema to disagree with,
   // so the case asserts the two things that would REINTRODUCE one: a second
   // spelling of the field list, and a second reader for the block.
@@ -6284,7 +6533,7 @@ async function runSelfTest() {
     const u = spawnSync(process.execPath, [self], { encoding: "utf8" });
     ok("bare invocation prints usage and exits 0", u.status === 0 && /review-draft —/.test(u.stdout));
     ok("usage names every entry point the design declares",
-      ["open", "recover", "read", "compare", "correct", "check", "close"].every((c) => u.stdout.includes(`review-draft.mjs ${c}`)));
+      ["open", "outline", "read", "compare", "correct", "check", "close"].every((c) => u.stdout.includes(`review-draft.mjs ${c}`)));
     const b = spawnSync(process.execPath, [self, "nonsense"], { encoding: "utf8" });
     ok("an unknown command exits 1 with the usage", b.status === 1);
   }
@@ -6444,8 +6693,8 @@ async function runSelfTest() {
             ...(o.pair === null ? {} : { pair: o.pair }),
             verdict: failing ? "fails" : "holds",
             reason: failing
-              ? "the recovered reader would not be the declared one"
-              : "the declared line and the recovered one agree",
+              ? "the outlined reader would not be the declared one"
+              : "the declared line and the outlined one agree",
             model: JUDGE_MODEL,
           };
         }),
@@ -6454,7 +6703,7 @@ async function runSelfTest() {
     };
 
     RD("open");
-    for (const s of STEPS) RD("recover", "--step", s.id, "--file", recFor(s.id, "p1"));
+    for (const s of STEPS) RD("outline", "--step", s.id, "--file", recFor(s.id, "p1"));
     for (const n of ["1", "2"]) RD("read", "--section", n, "--file", ledgerFile);
     RD("read", "--claim", "--file", claimFile);
     RD("compare");
@@ -6530,11 +6779,11 @@ async function runSelfTest() {
     ok("AC1: and the instruction to change what the findings name and nothing else",
       /Change what the findings above name and nothing else/.test(inA)
       && /Do not restate the/.test(inA) && /Packet's wording/.test(inA));
-    // The blindness of the RECOVERY is not the blindness of the CORRECTION: a
+    // The blindness of the OUTLINE_INPUT is not the blindness of the CORRECTION: a
     // corrected Step is realized from its Packet by design, which is the whole
     // of what "a freshly rendered Packet" means. Asserted so the two are not
     // read as one property — this input SHOULD carry Packet material.
-    ok("the correction input carries the Packet's own blocks, which the recovery input never does",
+    ok("the correction input carries the Packet's own blocks, which the Reverse Outline input never does",
       /## What this Step must do/.test(inA) || /## Write/.test(inA));
 
     // --- record s2's correction ---------------------------------------------
@@ -6562,7 +6811,7 @@ async function runSelfTest() {
     ok("and the before-snapshot holds the prose the correction replaced",
       readOrEmpty(join(cWsRun, "snapshots", "01-before-s2.md")).includes(REAL.s2));
 
-    // --- the rendered-input guard, the same one `recover` has. Placed HERE, after s2 is
+    // --- the rendered-input guard, the same one `outline` has. Placed HERE, after s2 is
     // recorded, because the ORDER refusal above runs first and would answer for
     // s3 while s2 was still owed — a case asserting the input guard against a
     // refusal about ordering would pass on the wrong refusal.
@@ -6587,16 +6836,16 @@ async function runSelfTest() {
     ok("and reports that every Step pass one sent to correction has been corrected",
       /every Step pass one sent to correction has been corrected/.test(rD.stdout));
 
-    // --- pass two re-runs the blind recovery for the corrected Steps --------
+    // --- pass two re-runs Reverse Outlining for the corrected Steps --------
     const rE = RD("check");
-    ok("check re-runs the blind recovery for the corrected Steps and refuses until it comes back",
-      rE.status === 1 && /re-runs the blind recovery/.test(rE.stderr)
+    ok("check re-runs Reverse Outlining for the corrected Steps and refuses until it comes back",
+      rE.status === 1 && /re-runs Reverse Outlining/.test(rE.stderr)
       && /s2/.test(rE.stderr) && /s3/.test(rE.stderr));
     ok("and says why — the recorded reading is about text that is gone",
       /about text that is gone/.test(rE.stderr));
-    ok("and it re-runs recovery for the CORRECTED Steps only",
+    ok("and it re-runs outline for the CORRECTED Steps only",
       !/\ss1\s{2}/.test(rE.stderr) && !/\ss4\s{2}/.test(rE.stderr));
-    for (const id of ["s2", "s3"]) RD("recover", "--step", id, "--file", recFor(id, "p2"));
+    for (const id of ["s2", "s3"]) RD("outline", "--step", id, "--file", recFor(id, "p2"));
 
     // --- ACCEPTANCE 3: the bound. `check` judges ONLY the corrected Steps'
     //     own items, the successors' two continuity items, and the mechanical
@@ -6649,7 +6898,7 @@ async function runSelfTest() {
     // A CASE MUST FAIL, NEVER THROW (the readOrEmpty rule above, applied to a
     // record rather than to a file): an absent `bound` is a failing case here,
     // and reading through it would take the whole pass down with a TypeError —
-    // which reports no case count at all, the shape the member reads as "the
+    // which reports no case count at all, the form the member reads as "the
     // pass did not run".
     const bnd = chk.bound || { corrected: [], successors: [], verdicts_cleared: 0 };
     // FINDING 2 (PR #906 round 1): a carried row's span is the Step's CURRENT
@@ -6714,8 +6963,8 @@ async function runSelfTest() {
               ...(c.pair === null ? {} : { pair: c.pair }),
               verdict: failing ? "fails" : "holds",
               reason: failing
-                ? "the recovered reader would not be the declared one"
-                : "the declared line and the recovered one agree",
+                ? "the outlined reader would not be the declared one"
+                : "the declared line and the outlined one agree",
               model: JUDGE_MODEL,
             };
           }),
@@ -6754,7 +7003,7 @@ async function runSelfTest() {
       // `<step>.<item>.<n>.md`, a Packet for a Harness-decided row that never
       // had one, and `pass-2/` for a row pass two never read.
       {
-        const pointers = [...revR.matchAll(/^ {2}- (?:recovered record|the pair the judge saw): `([^`]+)`/gm)]
+        const pointers = [...revR.matchAll(/^ {2}- (?:Reverse Outline|the pair the judge saw): `([^`]+)`/gm)]
           .map((m) => m[1]);
         const none = (revR.match(/^ {2}- the pair the judge saw: none — /gm) || []).length;
         ok("#1004/5: the record composes pointers for its findings and residue",
@@ -6785,7 +7034,7 @@ async function runSelfTest() {
         const residueText = revR.slice(revR.indexOf("## Residue"));
         ok("#1004/5: a carried residue line points at pass one, the only pass that read it",
           carriedResidue.every((r) => new RegExp(
-            `\\*\\*${r.step_id} / ${r.item}\\*\\*[^]*?recovered record: \`[^\`]*pass-1/recovered/${r.step_id}\\.json\``)
+            `\\*\\*${r.step_id} / ${r.item}\\*\\*[^]*?Reverse Outline: \`[^\`]*pass-1/outlined/${r.step_id}\\.json\``)
             .test(residueText)),
           `carried residue rows: ${carriedResidue.length}`);
       }
@@ -6832,11 +7081,11 @@ async function runSelfTest() {
     const P1 = (...a) => join(cWsRun, "pass-1", ...a);
     const P2 = (...a) => join(cWsRun, "pass-2", ...a);
     ok("#994: pass one's own directory holds the whole of its evidence",
-      ["recovery", "recovered", "join", "ledger", "corrections"]
+      ["outline-input", "outline", "join", "ledger", "corrections"]
         .every((d) => existsSync(P1(d)))
       && existsSync(P1("cold-reader.md")) && existsSync(P1("join.json")));
     ok("#994: and pass two's holds its own, in its own directory",
-      existsSync(P2("check.json")) && existsSync(P2("recovery")) && existsSync(P2("recovered")));
+      existsSync(P2("check.json")) && existsSync(P2("outline-input")) && existsSync(P2("outline")));
     ok("#994: the run record and the snapshots stay at the workspace root",
       existsSync(join(cWsRun, "run.json")) && existsSync(join(cWsRun, "snapshots"))
       && !existsSync(P1("run.json")) && !existsSync(P2("run.json")));
@@ -6845,12 +7094,12 @@ async function runSelfTest() {
     // on a pass-two file that was a copy of pass one's; the point is that the
     // corrected Step was read twice, against two different articles.
     for (const id of ["s2", "s3"]) {
-      const r1 = readOrEmpty(P1("recovery", `${id}.md`));
-      const r2 = readOrEmpty(P2("recovery", `${id}.md`));
-      ok(`#994: ${id}'s pass-one recovery input survives pass two re-reading it`,
+      const r1 = readOrEmpty(P1("outline-input", `${id}.md`));
+      const r2 = readOrEmpty(P2("outline-input", `${id}.md`));
+      ok(`#994: ${id}'s pass-one Reverse Outline input survives pass two re-reading it`,
         r1.length > 0 && r2.length > 0 && r1 !== r2);
-      ok(`#994: and both passes' recovered records for ${id} are on disk`,
-        existsSync(P1("recovered", `${id}.json`)) && existsSync(P2("recovered", `${id}.json`)));
+      ok(`#994: and both passes' Reverse Outlines for ${id} are on disk`,
+        existsSync(P1("outline", `${id}.json`)) && existsSync(P2("outline", `${id}.json`)));
     }
     ok("#994: pass one's join record and pass two's are separate files",
       existsSync(P1("join.json")) && existsSync(P2("check.json"))
@@ -6899,7 +7148,7 @@ async function runSelfTest() {
         ? readdirSync(P2("join")).sort().join(",") : "";
       // THE CASE IS ONLY EXPRESSED IF PASS TWO HAS PAIR INPUTS TO LOSE. An
       // empty pass-2 `join/` would make the comparison below vacuously true,
-      // which is the shape this whole Harness exists to refuse.
+      // which is the form this whole Harness exists to refuse.
       ok("#1004/1: pass two has pair inputs of its own for the case to be about",
         p2JoinBefore.length > 0);
       const dirBytes = (d) => readdirSync(d).sort()
@@ -6949,7 +7198,7 @@ async function runSelfTest() {
         /\*\*Pass 1 — `compare`\.\*\*/.test(rv) && /\*\*Pass 2 — `check`\.\*\*/.test(rv)
         && rv.includes("pass-1") && rv.includes("pass-2"));
       ok("#1004/3: and the artefacts a reader goes from a finding to",
-        /recovered\/<step>\.json/.test(rv) && /join\/<step>\.<item>/.test(rv));
+        /outline\/<step>\.json/.test(rv) && /join\/<step>\.<item>/.test(rv));
       ok("#1004/3: the snapshots and the run record are named at the root",
         /\*\*Snapshots\.\*\*/.test(rv) && /\*\*Run record\.\*\*/.test(rv));
       // Undo the close again — the pass-collision case below needs a live run.
@@ -6971,19 +7220,19 @@ async function runSelfTest() {
       writeFileSync(cDraft, readOrEmpty(cReviewed));
       const rr = JSON.parse(readFileSync(join(cWsRun, "run.json"), "utf8"));
       rr.pass = 1;
-      rr.pass_files[["pass-1", "recovered", "s2.json"].join("/")] = 2;
+      rr.pass_files[["pass-1", "outline", "s2.json"].join("/")] = 2;
       delete rr.reviewed_at; delete rr.restored_from;
-      delete rr.recovered.s2;
+      delete rr.outlineFields.s2;
       writeFileSync(join(cWsRun, "run.json"), JSON.stringify(rr, null, 2) + "\n");
       // THE FILE HANDED BACK IS THE OUTLINE BLOCK, not the reading of it: since
-      // kogaki#1014 `recover` takes a Brief `step` block, and a JSON record is
-      // now refused on its shape before the pass ledger is ever consulted —
+      // kogaki#1014 `outline` takes a Brief `step` block, and a JSON record is
+      // now refused on its form before the pass ledger is ever consulted —
       // which would make this case pass on the wrong refusal.
-      const r = RD("recover", "--step", "s2", "--file", P2("recovered", "s2.md"));
+      const r = RD("outline", "--step", "s2", "--file", P2("outline", "s2.md"));
       ok("#994: a pass writing over a file another pass wrote is refused by name",
         r.status === 1 && /would write over a file pass 2 wrote/.test(r.stderr));
-      ok("#994: and the refusal says why the other pass's reading is not recoverable",
-        /not recoverable once this write lands/.test(r.stderr));
+      ok("#994: and the refusal says why the other pass's reading is not retrievable",
+        /not retrievable once this write lands/.test(r.stderr));
     }
   }
 
@@ -7000,7 +7249,7 @@ async function runSelfTest() {
   //
   // ASSERTED AS STRING ABSENCE, not as a reading of the renderer. The fixture
   // Packets carry a token that appears nowhere in the prose for exactly this,
-  // and it is the same instrument the recovery input's own blindness case uses:
+  // and it is the same instrument the Reverse Outline input's own blindness case uses:
   // a template edit that pasted a Packet block in would read as helpful and
   // would silently end the measurement, and only a string test catches that.
   {
@@ -7009,7 +7258,7 @@ async function runSelfTest() {
     ok("open renders the cold reader's input", cold.length > 0);
     ok("AC1: it carries no string that occurs only in a Packet", !/PACKETONLYTOKEN/.test(cold));
     // The body IS there — an empty file would pass the test above for the wrong
-    // reason, which is the shape a blindness assertion is most likely to fail in.
+    // reason, which is the form a blindness assertion is most likely to fail in.
     ok("AC1: and it does carry the Draft's body, so the absence above is not vacuous",
       cold.includes("The first passage opens the claim")
       && cold.includes("The third passage opens the second Section"));
@@ -7035,7 +7284,7 @@ async function runSelfTest() {
     // THE READER ANSWERS IN THE BRIEF'S OWN TOP-LEVEL NAMES (kogaki#1014). The
     // entry used to read `question`/`belief` and the final one `claim` — a
     // third vocabulary for what the plan already names, which is the same drift
-    // one carrier over as the deleted recovered record. Asserted on the
+    // one carrier over as the deleted Reverse Outline. Asserted on the
     // RENDERED input rather than on the table, because the reader's answer
     // sheet is what the reader sees.
     ok("the cold reader is asked in the Brief's own top-level field names",
@@ -7043,12 +7292,12 @@ async function runSelfTest() {
       && cold.includes('{"thesis": "…"}'));
     // AND THE OLD VOCABULARY IS GONE, not merely joined. A template carrying
     // both would let a reader answer under either name while only one is read.
-    ok("and the recovered record's own vocabulary is nowhere in it",
+    ok("and the Reverse Outline's own vocabulary is nowhere in it",
       !/`question`/.test(cold) && !/`belief`/.test(cold) && !/`claim`/.test(cold)
-      && !/recovered record/.test(cold) && !/terms_introduced/.test(cold));
+      && !/Reverse Outline/.test(cold) && !/terms_introduced/.test(cold));
     // THE HARNESS READS WHAT IT ASKED FOR. A rename that moved the instruction
     // and not the reader would leave every Section pair reading `null` and
-    // reporting agreement it never checked, which is the clean-pass shape.
+    // reporting agreement it never checked, which is the clean-pass form.
     ok("and the Harness reads the ledger under exactly those names",
       ["opening_question", "reader_target"].every((f) =>
         Object.prototype.hasOwnProperty.call(LEDGER_TABLE.sections.ledger_fields, f))
@@ -7145,7 +7394,7 @@ async function runSelfTest() {
             verdict: failing ? "fails" : "holds",
             reason: failing
               ? "the heading promises a question this Section does not answer"
-              : "the declared line and the recovered one agree",
+              : "the declared line and the outlined one agree",
             model: JUDGE_MODEL };
         }),
       }, null, 2) + "\n");
@@ -7153,7 +7402,7 @@ async function runSelfTest() {
     };
 
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "bd"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "bd"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
     D("read", "--claim", "--file", claimFile);
     D("compare");
@@ -7210,7 +7459,7 @@ async function runSelfTest() {
   }
 
   // AND THE OTHER ROUTE: a Section fail LOCALIZES when a Step in it is already
-  // failing. Same shape, one Step's preserved item failing too — which is the
+  // failing. Same case, one Step's preserved item failing too — which is the
   // control for the case above, since without it "upstream" could be what this
   // Harness answers for every Section fail.
   {
@@ -7231,15 +7480,15 @@ async function runSelfTest() {
           ...(o.pair === null ? {} : { pair: o.pair }),
           verdict: failKeys.includes(o.key) ? "fails" : "holds",
           reason: failKeys.includes(o.key)
-            ? "the recovered reader would not be the declared one"
-            : "the declared line and the recovered one agree",
+            ? "the outlined reader would not be the declared one"
+            : "the declared line and the outlined one agree",
           model: JUDGE_MODEL,
         })),
       }, null, 2) + "\n");
       return f;
     };
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "loc"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "loc"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
     D("read", "--claim", "--file", claimFile);
     D("compare");
@@ -7282,7 +7531,7 @@ async function runSelfTest() {
       const REASONS = {
         fails: "the heading promises a question this Section does not answer",
         "cannot-decide": "the passage could be read either way and this reader will not choose",
-        holds: "the declared line and the recovered one agree",
+        holds: "the declared line and the outlined one agree",
       };
       writeFileSync(f, JSON.stringify({
         verdicts: owed.map((o) => {
@@ -7295,7 +7544,7 @@ async function runSelfTest() {
       return f;
     };
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "und"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "und"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
     D("read", "--claim", "--file", claimFile);
     D("compare");
@@ -7352,25 +7601,209 @@ async function runSelfTest() {
       && !baseRecord.sections.model_calls.some((m) => m.section === 1 && m.item === "section-belief-before"));
   }
 
-  // ---- kogaki#880 and kogaki#945, THE FIGURE ROUND TRIP: DECLINED HERE ------
-  // The figure's own round trip — the blind reading of the block, the
-  // element-to-ground join, the caption against the declared reader state, the
-  // figure correction seat and the seat-blind UNCORRECTED report — left this
-  // pass with the five `figure_only` rows it drove, under the decline recorded
-  // in `src/review-items.json` (owner, 2026-09-09). Its recovered side was
-  // `figure_reading.*`, and the Blind Reader now returns a Brief Step block,
-  // which carries no such field.
+  // ---- kogaki#880, RESTATED AGAINST THE RECORD'S OWN FIELDS (kogaki#1018) ----
+  // THE FIGURE'S ROUND TRIP: the blind reading of the block, the element-to-
+  // ground join, the caption against the declared reader state, and the seat a
+  // figure fail routes to. Driven on its OWN Draft rather than by adding a
+  // figure to the fixture above — every case above asserts a count or an absence
+  // over that Draft, and a figure appearing in it would move those numbers for a
+  // reason unrelated to what they measure.
   //
-  // kogaki#1018 IS THE ACT THAT RESTORES THEM, named here so a reader of this
-  // file finds the boundary where the cases used to be rather than an absence
-  // they have to reconstruct. What it owes back is those five rows, their
-  // drives, and the `correct --figure` seat.
-  //
-  // WHAT DID NOT LEAVE IS ASSERTED BELOW, NOT PROMISED HERE. The figure is
-  // still rendered to the Blind Reader on the side of the passage the reader
-  // met it on, and it still leaks nothing the record alone holds — the two
-  // placement cases and the leak case in the kogaki#945 block that follows are
-  // what fail if either stops holding.
+  // WHAT CHANGED SINCE #880, and it is the whole of what changed: the reading
+  // used to arrive as a `figure_reading` object inside the recovered record's
+  // second schema. It now arrives as a SECOND FENCED BLOCK in the figure
+  // record's own field names, so neither reading carries a key belonging to the
+  // other artifact. The cases below drive the new grammar; the properties they
+  // assert are #880's own.
+  {
+    const fdir = join(root, "fig");
+    const fPacketDir = join(fdir, "packets");
+    mkdirSync(fPacketDir, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(fPacketDir, id);
+
+    // The record is an INSTANCE of the `axis` form. Each element's `ground` is
+    // the figure decision's ADDRESS over this Step's own grounds, 1-based — `g1`
+    // and `g2` are the two `GROUNDS.a1` lines. The binding itself is the figure
+    // record's to refuse; what `figure-element-ground` asks is whether each
+    // element's WORDING is carried by the line its address points at.
+    const FIG_RECORD = {
+      kind: "axis",
+      elements: {
+        endpoint_a: { text: "the harness renders the reverse outline input", ground: "g1" },
+        endpoint_b: { text: "the reviewer never reads the packet that produced the prose",
+          ground: "g2" },
+        criterion: { text: "the reverse outline input is rendered before any outline is accepted",
+          ground: "g1" },
+      },
+      relations: ["the two endpoints sit on the criterion"],
+      emphasis: "endpoint_a",
+      caption: "The reader knows which act renders the input.",
+      position: "after",
+    };
+    const fdraft = buildDraft(fdir, { packetDir: fPacketDir, figures: { a1: { record: FIG_RECORD } } });
+    // `--workspace` IS A BASE AND THE SLUG IS JOINED ONTO IT, which is the
+    // reading `workspaceFor` gives the flag; the run directory is therefore the
+    // base plus this Draft's own slug, and reading the base would read a
+    // directory nothing writes.
+    const FWS_BASE = join(root, "fws");
+    const FWS = join(FWS_BASE, "fig");
+    const fdrive = (...a) => spawnSync(process.execPath,
+      [self, a[0], "--draft", fdraft.path, "--workspace", FWS_BASE, ...a.slice(1)], { encoding: "utf8" });
+
+    const o = fdrive("open");
+    ok("#880: a Draft carrying a figure opens", o.status === 0);
+    const input = readOrEmpty(join(FWS, "pass-1", "outline-input", "a1.md"));
+
+    // AC1 — THE BLIND READER'S INPUT SHOWS THE FENCE AND THE CAPTION.
+    ok("#880 AC1: the Reverse Outline input carries the figure's fence",
+      input.includes("```mermaid") && input.includes("flowchart LR"));
+    ok("#880 AC1: and its caption", input.includes(FIG_RECORD.caption));
+    ok("#880 AC1: with its own draft line numbers, so the reader can see where it sits",
+      new RegExp(`^\\s*${fdraft.figureRanges.a1[0] + fdraft.bodyOffset} \\| \`\`\`mermaid$`, "m").test(input));
+
+    // AC1 — AND NO STRING THAT OCCURS ONLY IN THE RECORD FILE. The element→
+    // ground BINDING is that string: it is the whole of what the record adds
+    // over the rendering, and a reviewer shown it would name the elements the
+    // record names — which would make `figure-element-ground` a check of the
+    // record against itself.
+    //
+    // THE POSITION WORD IS DELIBERATELY NOT ASSERTED ABSENT, and saying so is
+    // the point: `before`/`after` are the record's own field vocabulary and the
+    // reader is now ASKED for it, so an absence case on them would assert the
+    // opposite of the design. What the reader may not see is the BINDING.
+    ok("#880 AC1: and no element's ground binding reaches the Blind Reader",
+      !/ground: g\d/.test(input) && !/"ground"/.test(input));
+    // THE RELATIONS ARE NOT AMONG THEM, and that is the renderer rather than an
+    // oversight: every relation reaches the output as an edge label, so a
+    // relation string is the ARTICLE'S and not the record's. What the record
+    // has and the rendering does not is the JSON itself.
+    ok("#880 AC1: nor does the record's own JSON reach it",
+      !input.includes('"ground"') && !input.includes('"elements"')
+      && !input.includes('"relations"') && !input.includes('"emphasis"'));
+
+    // THE ASK IS CONDITIONAL IN BOTH DIRECTIONS (kogaki#1018). A figure Step is
+    // asked for the figure block in the RECORD's field names; a figureless Step
+    // is asked for nothing of the sort, and the withheld fields are named there
+    // rather than merely omitted.
+    ok("#1018: the input asks for the figure in the record's own fields",
+      /```figure/.test(input) && /`element` —/.test(input)
+      && /`caption` —/.test(input) && /`position` —/.test(input));
+    ok("#1018: and names the record fields it refuses, with why",
+      /`kind` —/.test(input) && /`relations` —/.test(input) && /`emphasis` —/.test(input));
+    ok("#1018: while a figureless Step's input asks for no figure block at all",
+      !readOrEmpty(join(WS, "pass-1", "outline-input", "a1.md")).includes("```figure"));
+
+    // The figure's Reverse Outline, in the record's own field names.
+    const FIG_BLOCK = ["```figure",
+      "element: the harness rendering the reverse outline input",
+      "element: the reviewer not reading the packet",
+      "element: the criterion they sit on",
+      "caption: The reader knows which act renders the input.",
+      "position: after",
+      "```"].join("\n");
+    const outlineWith = (id, figure = null, mutate = (o) => o) => {
+      const f = join(root, `fig-outline-${id}.md`);
+      writeFileSync(f, renderOutline(mutate(outlineFor(id))) + (figure ? `\n${figure}\n` : ""));
+      return f;
+    };
+
+    const rNo = fdrive("outline", "--step", "a1", "--file", outlineWith("a1"));
+    ok("#1018: a figure Step's outline with no `figure` block refuses, naming what is owed",
+      rNo.status === 1 && /carries no fenced `figure` block/.test(rNo.stderr));
+
+    const rEmpty = fdrive("outline", "--step", "a1", "--file",
+      outlineWith("a1", ["```figure", "caption: c", "position: after", "```"].join("\n")));
+    ok("#1018: a figure block naming no element refuses — a reader who named nothing did not look",
+      rEmpty.status === 1 && /carries no `element:` line/.test(rEmpty.stderr));
+
+    const rWithheld = fdrive("outline", "--step", "a1", "--file",
+      outlineWith("a1", FIG_BLOCK.replace(/```$/, "kind: axis\n```")));
+    ok("#1018: a field the record declares NOT reconstructible is refused, with its reason",
+      rWithheld.status === 1 && /carries `kind:`, which is declared not reconstructible/.test(rWithheld.stderr));
+
+    const rUnknown = fdrive("outline", "--step", "a1", "--file",
+      outlineWith("a1", FIG_BLOCK.replace(/```$/, "confidence: high\n```")));
+    ok("#1018: and a field the record does not declare at all is refused by name",
+      rUnknown.status === 1 && /carries `confidence:`, which is not a figure record field/.test(rUnknown.stderr));
+
+    const rPos = fdrive("outline", "--step", "a1", "--file",
+      outlineWith("a1", FIG_BLOCK.replace("position: after", "position: beside")));
+    ok("#1018: a position outside the record's closed pair refuses, naming the pair",
+      rPos.status === 1 && /`position:` reads `beside`/.test(rPos.stderr)
+      && /`before` or `after`/.test(rPos.stderr));
+
+    const rOk = fdrive("outline", "--step", "a1", "--file", outlineWith("a1", FIG_BLOCK));
+    ok("#1018: and the outline carrying a reading of the figure is recorded", rOk.status === 0);
+    ok("#1018: the figure's reading lands as its OWN file, beside the passage's",
+      existsSync(join(FWS, "pass-1", "outline", "a1.figure.json"))
+      && existsSync(join(FWS, "pass-1", "outline", "a1.json")));
+    {
+      // NEITHER READING CARRIES A KEY OF THE OTHER'S ARTIFACT. That is the whole
+      // reason the figure's reading is a second file rather than a field of the
+      // first, so it is asserted rather than described.
+      const stepRec = JSON.parse(readOrEmpty(join(FWS, "pass-1", "outline", "a1.json")) || "{}");
+      const figRec = JSON.parse(readOrEmpty(join(FWS, "pass-1", "outline", "a1.figure.json")) || "{}");
+      const briefNames = new Set([...RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
+      const recordNames = new Set([...FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
+      ok("#1018: the passage's reading carries Brief field names only",
+        Object.keys(stepRec).every((k) => briefNames.has(k)));
+      ok("#1018: and the figure's carries the RECORD's field names only",
+        Object.keys(figRec).every((k) => recordNames.has(k))
+        && Array.isArray(figRec.element) && figRec.element.length === 3);
+    }
+
+    // A figure block on a Step that met no figure is refused, and the refusal
+    // says WHY rather than reporting it as an unnamed key: an invented reading
+    // and a stray annotation are different mistakes.
+    const rUnowed = fdrive("outline", "--step", "a2", "--file", outlineWith("a2", FIG_BLOCK));
+    ok("#1018: a figure block on a Step that met no figure refuses, saying it is an invention",
+      rUnowed.status === 1 && /this Step renders no figure/.test(rUnowed.stderr)
+      && /is an invention/.test(rUnowed.stderr));
+
+    ok("#880: a2 outlines without one", fdrive("outline", "--step", "a2", "--file", outlineWith("a2")).status === 0);
+    ok("#880: a3 outlines without one", fdrive("outline", "--step", "a3", "--file", outlineWith("a3")).status === 0);
+
+    fdrive("read", "--section", "1", "--file", ledgerFile);
+    fdrive("read", "--section", "2", "--file", ledgerFile);
+    fdrive("read", "--claim", "--file", claimFile);
+
+    const c = fdrive("compare");
+    ok("#880: the comparison runs over the figure Draft", c.status === 0, (c.stderr || "").trim());
+    const frec = JSON.parse(readOrEmpty(join(FWS, "pass-1", "join.json")) || "{}");
+    const ITEMS_ALL = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    const FIG_IDS = new Set(ITEMS_ALL.items.filter((i) => i.figure_only).map((i) => i.id));
+
+    // The figure rows exist on the Step that has a figure and NOWHERE ELSE —
+    // AC3 asserted from the other side, on a Draft that does have one.
+    const figRows = (frec.results || []).filter((r) => FIG_IDS.has(r.item));
+    ok("#880: every figure item is computed on the Step that carries a figure",
+      [...FIG_IDS].every((id) => figRows.some((r) => r.step_id === "a1" && r.item === id)));
+    ok("#880 AC3: and on no other Step, even in a Draft that has one",
+      figRows.length > 0 && figRows.every((r) => r.step_id === "a1"));
+
+    // The mechanical row costs no model call and the judged ones do — the same
+    // property the prose half asserts, over the figure's own rows.
+    ok("#880: the element-to-ground row is decided by the Harness alone",
+      (frec.mechanical || []).some((m) => m.step_id === "a1" && m.item === "figure-element-ground")
+      && !(frec.model_calls || []).some((m) => m.item === "figure-element-ground"));
+    ok("#880: and every judged figure row renders one join Packet",
+      ITEMS_ALL.items.filter((i) => i.figure_only && i.mode === "judged")
+        .every((i) => (frec.model_calls || []).some((m) => m.step_id === "a1" && m.item === i.id)));
+
+    // The join Packet names the RECORD as the carrier the declared line came
+    // from, never the Packet — the finding a reader repairs is in the record.
+    const fp = (frec.owed || []).find((x) => x.item === "figure-elements");
+    const fpText = fp ? readOrEmpty(fp.packet) : "";
+    ok("#880: a figure join Packet says its declared side came from the figure record",
+      /### What the figure record DECLARED/.test(fpText));
+    ok("#880: and quotes the figure beside the prose, so the judged pair can see it",
+      fpText.includes("```mermaid"));
+    ok("#1018: and its reverse side is the reader's own figure block, not the passage's outline",
+      fpText.includes("the criterion they sit on"));
+
+    ok("#880: the element-to-ground row holds when every element is worded from its ground",
+      (figRows.find((r) => r.item === "figure-element-ground") || {}).verdict === "holds");
+  }
 
   // ---- kogaki#945 -----------------------------------------------------------
   // THE SEAT-BLIND UNCORRECTED REPORT, AND THE BLIND INPUT'S FIGURE PLACEMENT.
@@ -7382,7 +7815,7 @@ async function runSelfTest() {
   // failing seat to one of them would move cases that measure something else.
   // This one is built so that f1 owes BOTH seats — a mechanical
   // `figure-element-ground` fail from a record worded off its bound ground, and
-  // a `reader-state-after` fail supplied as a verdict — which is the shape the
+  // a `reader-state-after` fail supplied as a verdict — which is the form the
   // report could not see.
   {
     const draftCli = join(dirname(self), "draft.mjs");
@@ -7492,10 +7925,10 @@ async function runSelfTest() {
     // The Draft puts the block below the prose, so the input must too. Asserted
     // by ORDER rather than by presence: the block was always present, and it was
     // always above, which is exactly the defect a presence case cannot see.
-    const sInput = readOrEmpty(join(sWsRun, "pass-1", "recovery", "f1.md"));
+    const sInput = readOrEmpty(join(sWsRun, "pass-1", "outline-input", "f1.md"));
     const iFig = sInput.indexOf("## The figure the reader met with this passage");
     const iPass = sInput.indexOf("## The passage — ");
-    ok("#945: the blind recovery input still carries the figure block",
+    ok("#945: the Reverse Outline input still carries the figure block",
       iFig !== -1 && sInput.includes("```mermaid"));
     ok("#945: and renders it BELOW the passage, the side the reader met it on",
       iFig !== -1 && iPass !== -1 && iFig > iPass,
@@ -7542,7 +7975,7 @@ async function runSelfTest() {
       const bOpen = spawnSync(process.execPath,
         [self, "open", "--draft", bDraft, "--workspace", bwsBase,
           "--draft-workspace", bWs, "--moves-dir", sMoves], { encoding: "utf8" });
-      const bInput = readOrEmpty(join(bwsBase, "seat-fixture", "pass-1", "recovery", "f1.md"));
+      const bInput = readOrEmpty(join(bwsBase, "seat-fixture", "pass-1", "outline-input", "f1.md"));
       const bFig = bInput.indexOf("## The figure the reader met with this passage");
       const bPass = bInput.indexOf("## The passage — ");
       ok("#945 control: a figure the reader met ABOVE the prose renders above it",
@@ -7590,7 +8023,7 @@ async function runSelfTest() {
     for (const id of ["a1", "a2", "a3"]) {
       const f = join(gdir, `rec-${id}.md`);
       writeFileSync(f, renderOutline({ ...outlineFor(id), grounds: UNPAIRED[id].slice() }));
-      gdrive("recover", "--step", id, "--file", f);
+      gdrive("outline", "--step", id, "--file", f);
     }
     const gled = join(gdir, "led.json");
     writeFileSync(gled, JSON.stringify({ opening_question: "which act renders the input", reader_target: "the harness does" }) + "\n");
@@ -7622,9 +8055,9 @@ async function runSelfTest() {
 
     ok("#996: no `grounds` pair is decided by the Harness, however it pairs",
       !(grec.mechanical || []).some((m) => m.item === "grounds"));
-    // AND EVERY CLAIM IS ASKED ABOUT. The count is the recovered claims', not
+    // AND EVERY CLAIM IS ASKED ABOUT. The count is the outlined claims', not
     // the paired ones' — which is what the old branch made unequal.
-    ok("#996: every recovered claim on the two-ground Step renders one join Packet",
+    ok("#996: every outlined claim on the two-ground Step renders one join Packet",
       (grec.model_calls || []).filter((m) => m.step_id === "a1" && m.item === "grounds").length
         === UNPAIRED.a1.length);
 
@@ -7686,7 +8119,7 @@ async function runSelfTest() {
       ok("#1006: a Harness-decided finding renders no Packet pointer and names the join record",
         /the pair the judge saw: none — [^\n]*pass-1\/join\.json/.test(gblock)
         && !/the pair the judge saw: `/.test(gblock), gblock.slice(0, 300));
-      const gptrs = [...grv.matchAll(/^ {2}- (?:recovered record|the pair the judge saw): `([^`]+)`/gm)].map((m) => m[1]);
+      const gptrs = [...grv.matchAll(/^ {2}- (?:Reverse Outline|the pair the judge saw): `([^`]+)`/gm)].map((m) => m[1]);
       ok("#1006: and every pointer the record composes resolves",
         gptrs.length > 0 && gptrs.every((f) => existsSync(resolve(process.cwd(), f))),
         gptrs.filter((f) => !existsSync(resolve(process.cwd(), f))).join(", "));

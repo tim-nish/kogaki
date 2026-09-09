@@ -3,7 +3,7 @@ THE COLD READER'S INPUT (kogaki#873). Runtime-read by src/review-draft.mjs, the
 same arrangement src/packet-template.md has with src/draft.mjs: the wording
 lives in a file a person can edit, and the Harness fills its slots.
 
-Slots: {{slug}}, {{section_count}}, {{body}}, {{ledger_shape}}, {{read_command}},
+Slots: {{slug}}, {{section_count}}, {{body}}, {{ledger_fields}}, {{read_command}},
 {{claim_command}}. The renderer refuses on an unfilled slot rather than shipping
 a hole, inherited from the Packet renderer's own rule.
 
@@ -52,7 +52,7 @@ Every line is numbered with its line number in the Draft.
 
 **After each Section, before reading on**, one entry:
 
-{{ledger_shape}}
+{{ledger_fields}}
 
 Record the entry for a Section from where the Section left you — not from where
 you now are, having read further. If you read ahead first, the entry is about a
