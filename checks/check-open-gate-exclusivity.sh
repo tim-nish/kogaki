@@ -345,9 +345,11 @@ fi
 cat >"$WORK/registration.py" <<'PY'
 import json, sys
 # argv[1]: the committed settings.json, materialized from the commit.
-# argv[2]: a listing of the hook paths TRACKED in that commit, one per line,
-#          as `git ls-files .claude/hooks` renders them. The counterfactual
-#          run passes the same listing with one entry removed.
+# argv[2]: a listing of the hook paths the COMMIT carries, one per line, as
+#          `git ls-tree -r --name-only HEAD .claude/hooks` renders them -- the
+#          same revision argv[1] is read from, so the two inputs cannot
+#          disagree about which tree is being asserted. The counterfactual run
+#          passes the same listing with one entry removed.
 try:
     s = json.load(open(sys.argv[1]))
 except Exception as exc:
@@ -356,7 +358,9 @@ try:
     tracked = {line.strip().rsplit("/", 1)[-1]
                for line in open(sys.argv[2]) if line.strip()}
 except Exception as exc:
-    print(f"the tracked-hook listing is unreadable: {exc}"); sys.exit(1)
+    print(f"the committed-hook listing is unreadable: {exc}"); sys.exit(1)
+if not tracked:
+    print("the committed-hook listing is empty -- nothing was read to assert against"); sys.exit(1)
 hooks = s.get("hooks") or {}
 want = {"PreToolUse", "PostToolUse", "Stop", "UserPromptSubmit"}
 missing = sorted(want - set(hooks))
@@ -382,13 +386,21 @@ if ! git show HEAD:.claude/settings.json >"$WORK/settings-committed.json" 2>"$WO
   bad "the committed .claude/settings.json could not be read from HEAD: $(cat "$WORK/settings-committed.err")"
   : >"$WORK/settings-committed.json"
 fi
-git ls-files .claude/hooks >"$WORK/hooks-tracked" 2>/dev/null || : >"$WORK/hooks-tracked"
+# The SAME revision the settings came from -- `git ls-files` would read the
+# INDEX, and a hook `git add`ed but not committed would then satisfy a message
+# that says "in the commit" (round 1, finding 1).
+git ls-tree -r --name-only HEAD .claude/hooks >"$WORK/hooks-tracked" 2>/dev/null || : >"$WORK/hooks-tracked"
 if python3 "$WORK/registration.py" "$WORK/settings-committed.json" "$WORK/hooks-tracked"; then
-  pass "the hooks are registered in the committed .claude/settings.json, every registered hook file is tracked in the same commit, and the exclusivity matcher asks for every tool"
+  pass "the hooks are registered in the committed .claude/settings.json, every registered hook file is carried by the same commit, and the exclusivity matcher asks for every tool"
 else
   bad "the committed registration is incomplete — a rendered gate could not advance a run, which is the state write-gate-capture.py was in on 2026-09-09"
 fi
-# The registration is left as committed; the COMMIT is what lacks a file.
+# The registration is left as committed; the COMMIT is what lacks a file. The
+# entry must be PRESENT before it is removed, or the counterfactual would grep
+# its token off an empty listing and prove nothing (round 1, finding 2).
+if ! grep -q '/advance-terrain\.py$' "$WORK/hooks-tracked"; then
+  bad "the counterfactual cannot run: advance-terrain.py is not in the committed-hook listing, so removing it removes nothing"
+fi
 grep -v '/advance-terrain\.py$' "$WORK/hooks-tracked" >"$WORK/hooks-tracked-missing"
 if OUT="$(python3 "$WORK/registration.py" "$WORK/settings-committed.json" "$WORK/hooks-tracked-missing" 2>&1)"; then
   bad "a registration naming a hook file that is not in the commit passed — the case asserts names, not existence"
