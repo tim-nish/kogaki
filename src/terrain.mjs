@@ -2777,26 +2777,128 @@ function judgeSettings(table) {
 // Everything after this line in a judge prompt is the input file, verbatim.
 export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
 
+// AND EVERYTHING AFTER THIS LINE IS THE PRIOR ATTEMPT'S REFUSAL, verbatim
+// (kogaki#1059). It appears only on a re-ask, and it appears BEFORE the input
+// marker, because the input marker's own contract is that everything after it
+// is the input file — a refusal appended past it would be read as input by any
+// reader keying on position, which is the one thing that marker promises.
+export const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
+
+// THE FILLED RECORD EXAMPLE (kogaki#1059). A PROSE SHAPE DESCRIPTION CANNOT BIND
+// A VALIDATOR'S SHAPE. `input_shape` is one sentence — for `J1_claims`, "typed
+// claims record carrying composition_pin and one claim per group" — and on
+// 2026-09-09 the live judge returned a record that SATISFIES that sentence and
+// the validator refused three times: the pin as the pin STRING rather than the
+// pin OBJECT the subset check needs the `groups` map out of, and the claims as
+// an array of `{group, claim}` rather than the `{group: claim}` map. The literal
+// shape existed only in a source comment and in the refusal text, neither of
+// which the judge sees.
+//
+// SO THE EXAMPLE IS FILLED FROM THE RUN'S OWN COMPOSED INPUT rather than written
+// out as a literal in the table. A hand-written example is a fourth carrier of
+// the shape that can drift from the validator exactly as the prose did; one
+// built from `composition_pin` as the input actually holds it, and keyed by the
+// group names that input actually composed, cannot name a pin the run did not
+// compose or a group the subset check would then refuse.
+//
+// TABLE-DRIVEN, so a fifth judgment state gets an example by adding a row and no
+// code here — the property the prompt composer above already has. Two directives
+// and no third, each refused by name:
+//
+//   "$input:<key>"          the composed input's top-level <key>, verbatim
+//   "$per-group:<text>"     an object mapping each composed group's name to <text>
+//
+// Any other value is a literal. A `$`-prefixed string that is neither directive
+// is a REFUSAL rather than a literal: a typo'd directive rendered as its own text
+// would put the word `$per-groups:` in front of the judge as though it were the
+// shape, which is the prose-instead-of-shape defect returning through the carrier
+// that exists to end it.
+export function judgeRecordExample(st, input) {
+  const tpl = st.record_example;
+  if (tpl === undefined || tpl === null) return null;
+  if (typeof tpl !== "object" || Array.isArray(tpl)) {
+    fail(`${st.id}: \`record_example\` must be a JSON object whose values are literals or one of the `
+      + "two directives `$input:<key>` and `$per-group:<text>` (kogaki#1059).");
+  }
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    fail(`${st.id}: \`record_example\` is declared and this state's composed input is not a JSON `
+      + "object, so the example cannot be filled from the run's own material. An example filled from "
+      + "anything else would put a shape in front of the judge that this run never composed "
+      + "(kogaki#1059).");
+  }
+  const out = {};
+  for (const [key, value] of Object.entries(tpl)) {
+    if (typeof value !== "string" || !value.startsWith("$")) { out[key] = value; continue; }
+    const at = value.indexOf(":");
+    const directive = at < 0 ? value : value.slice(0, at);
+    const arg = at < 0 ? "" : value.slice(at + 1).trim();
+    if (directive === "$input") {
+      if (!Object.prototype.hasOwnProperty.call(input, arg)) {
+        fail(`${st.id}: \`record_example\` fills \`${key}\` from the composed input's \`${arg}\`, and `
+          + "the input carries no such key. The example binds the shape the validator reads, so an "
+          + "example filled from a key that is not there is worse than none (kogaki#1059).");
+      }
+      out[key] = input[arg];
+    } else if (directive === "$per-group") {
+      if (!Array.isArray(input.groups)) {
+        fail(`${st.id}: \`record_example\` fills \`${key}\` with one entry per composed group, and the `
+          + "composed input carries no `groups` array to name them (kogaki#1059).");
+      }
+      out[key] = Object.fromEntries(input.groups.map((g) => [String(g && g.name), arg]));
+    } else {
+      fail(`${st.id}: \`record_example\` names the unknown directive \`${directive}\`. The two are `
+        + "`$input:<key>` and `$per-group:<text>`, and a third is added by ruling rather than by "
+        + "spelling (kogaki#1059).");
+    }
+  }
+  return out;
+}
+
 // The prompt is composed FROM THE TABLE, so a fifth judgment state needs a table
 // row and no code here: its judgment point, input shape and refusal text are
 // already the three things the state declares about what it wants.
-function judgePrompt(st, inputPath) {
+//
+// COMPOSED PER ATTEMPT (kogaki#1059). It was composed once outside the retry
+// loop, so attempt N+1 was byte-identical to attempt N and never saw attempt N's
+// refusal — which made the declared bound a REPETITION rather than a repair loop:
+// on 2026-09-09 it reproduced one deterministic refusal three times at about
+// ninety seconds each. `lastRefusal` is what makes the second ask a different
+// ask.
+function judgePrompt(st, inputText, input, lastRefusal) {
   const L = [];
   L.push(`You are the judge at the Terrain workflow's \`${st.id}\` judgment point.`);
   L.push("");
   L.push(`JUDGMENT POINT: ${st.judgment_point || st.id}`);
   L.push(`REQUIRED RECORD SHAPE: ${st.input_shape || "the typed record this state declares"}`);
   if (st.refusal) L.push(`WHAT IS REFUSED: ${st.refusal}`);
+  const example = judgeRecordExample(st, input);
+  if (example) {
+    L.push("");
+    L.push("THE LITERAL RECORD SHAPE, filled from THIS run's own composed input. Answer with a record");
+    L.push("of exactly this shape: the same keys, the same nesting, and the same group names, with");
+    L.push("each placeholder replaced by your judgment. The sentence above DESCRIBES the record; this");
+    L.push("is the record.");
+    L.push(JSON.stringify(example, null, 2));
+  }
   L.push("");
   L.push("Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.");
   L.push("Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.");
+  if (lastRefusal) {
+    L.push("");
+    L.push(JUDGE_REFUSAL_MARKER);
+    L.push(lastRefusal);
+    L.push("");
+    L.push("That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly");
+    L.push("it. The input below is unchanged, so re-reading the material is not what is wanted -- the");
+    L.push("shape of your record is.");
+  }
   L.push("");
   // THE MARKER IS PART OF THE CONTRACT, not decoration. Everything after it is
   // the input file verbatim, so a reader — the judge, or a fixture stub standing
   // in for one — can find the input by position rather than by scanning for a
   // brace that the state's own `input_shape` text might also contain.
   L.push(JUDGE_INPUT_MARKER);
-  L.push(readFileSync(inputPath, "utf8"));
+  L.push(inputText);
   return L.join("\n");
 }
 
@@ -2834,9 +2936,31 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
     `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
     + `key of exactly the judgment states -- the count is a property of the workflow and is held in `
     + `the table, never in this file (kogaki#1030).`);
-  const prompt = judgePrompt(st, inputPath);
+  // READ AND PARSED ONCE, and the PROMPT is what is composed per attempt
+  // (kogaki#1059). The input does not change between attempts -- the whole of
+  // what a re-ask repairs is the judge's record -- so re-reading the file each
+  // time would spend a read to make the two asks look different.
+  const inputText = readFileSync(inputPath, "utf8");
+  let input = null;
+  try { input = JSON.parse(inputText); }
+  catch (e) {
+    // ONLY THE EXAMPLE NEEDS IT PARSED, so a state declaring none is unaffected
+    // and a state declaring one refuses rather than silently dropping the
+    // example -- an example that vanishes on a bad input is the prose-only
+    // prompt returning at exactly the moment nothing would report it.
+    if (st.record_example !== undefined && st.record_example !== null) {
+      fail(`${st.id}: the composed input at ${inputPath} is not JSON (${e.message}), so the filled `
+        + "record example this state declares cannot be built from the run's own material "
+        + "(kogaki#1059).");
+    }
+  }
   const argv = ["-p", "--model", cfg.model, "--output-format", cfg.outputFormat];
   let lastRefusal = null;
+  // EVERY REFUSAL THE BOUND ABSORBED, in order. The run record carries them on
+  // BOTH arms (kogaki#1059): a run refused once and repaired on the second ask
+  // is not a run that was never refused, and a reader who cannot tell the two
+  // apart cannot see a judge drifting toward the bound until it is spent.
+  const refusals = [];
   // COUNTED AS IT HAPPENS, never derived from the bound. A message composed from
   // `retries + 1` reports the number of attempts the table LICENSED rather than
   // the number this call made -- so a loop that stopped early would still say it
@@ -2846,6 +2970,9 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
   let attempts = 0;
   for (let attempt = 0; attempt <= retries; attempt++) {
     attempts += 1;
+    // THE ASK CARRIES THE PRIOR REFUSAL (kogaki#1059). Composed HERE, inside the
+    // loop, so attempt N+1 is a different ask from attempt N.
+    const prompt = judgePrompt(st, inputText, input, lastRefusal);
     const out = join(dir, `terrain-judge-${st.id}.json`);
     try {
       // THE WHOLE RESPONSE HANDLING IS INSIDE THE WINDOW (PR #1044 round 1).
@@ -2903,11 +3030,24 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
         stubbed: cfg.stubbed,
         attempts: attempt + 1,
         retries_declared: retries,
+        refusals_repaired: refusals.length,
         // TAKEN FROM THE BYTES ON DISK BY THIS LAYER, like every other sha in
         // this file. A sha the response supplied would be one more declaration.
         response_sha: createHash("sha256").update(readFileSync(out)).digest("hex").slice(0, 16),
         at: new Date().toISOString(),
       });
+      // THE REPAIRED ARM WRITES THE RECORD TOO (kogaki#1059). `judgment_refusals`
+      // used to be written on exhaustion alone, so a run the retry loop REPAIRED
+      // was indistinguishable at the record from one the judge answered first
+      // time -- and a repair loop nothing counts is a bound whose approach is
+      // invisible until it is spent. `repaired` is what keeps the two arms
+      // apart, so the existing exhaustion reader is unchanged by the widening.
+      if (rec && refusals.length) {
+        rec.judgment_refusals = rec.judgment_refusals || {};
+        rec.judgment_refusals[st.id] = {
+          attempts, retries_declared: retries, refusal: lastRefusal, refusals, repaired: true,
+        };
+      }
       return out;
     } catch (e) {
       if (!(e instanceof JudgmentRefusal)) {
@@ -2922,6 +3062,7 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
         throw e;
       }
       lastRefusal = e.message;
+      refusals.push(e.message);
     }
   }
   // THE RUN RECORD NAMES THE REFUSAL, not only stderr (PR #1044 round 1, D1's
@@ -2933,7 +3074,9 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
   // persist carries it out.
   if (rec) {
     rec.judgment_refusals = rec.judgment_refusals || {};
-    rec.judgment_refusals[st.id] = { attempts, retries_declared: retries, refusal: lastRefusal };
+    rec.judgment_refusals[st.id] = {
+      attempts, retries_declared: retries, refusal: lastRefusal, refusals, repaired: false,
+    };
   }
   fail(`${st.id}: the judge's record was refused on all ${attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
     + `the workflow table declares for this state). The last refusal, verbatim: ${lastRefusal}`);

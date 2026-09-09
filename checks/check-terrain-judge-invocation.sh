@@ -156,7 +156,69 @@ const fs = require("node:fs");
 fs.readFileSync(0, "utf8");
 process.stdout.write("I think the answer is probably fine.\n");
 JUDGE
-  chmod +x "$root/judge-conformant" "$root/judge-nonconformant" "$root/judge-garbage"
+  # ---- THE REPAIR STUB (kogaki#1059, fixture 1). Attempt one returns THE LIVE
+  # 2026-09-09 SHAPE -- the `composition_pin` as the pin STRING and `claims` as an
+  # array of `{group, claim}` -- which satisfies the state's `input_shape`
+  # SENTENCE and is refused by its validator. Attempt two returns the conformant
+  # record. Wrong-then-right rather than wrong-always is the whole point: it is
+  # the only stub that can show the bound REPAIRING rather than repeating.
+  cat > "$root/judge-repairs" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+const isJ1 = /`J1_claims` judgment point/.test(prompt);
+// THE PROMPTS ARE KEPT, because the property under test is a property OF THE
+// PROMPT: that attempt two is a different ask from attempt one. A stub that only
+// answered differently would leave that unasserted.
+let seen = 0;
+if (isJ1) {
+  const counter = path.join(__dirname, "repair-calls");
+  try { seen = Number(fs.readFileSync(counter, "utf8").trim()) || 0; } catch { seen = 0; }
+  fs.writeFileSync(counter, String(seen + 1));
+  fs.writeFileSync(path.join(__dirname, `repair-prompt-${seen + 1}.txt`), prompt);
+}
+let record;
+if (isJ1 && seen === 0) {
+  record = {
+    composition_pin: input.composition_pin.pin,
+    claims: input.groups.map((g) => ({ group: g.name, claim: "A fixture claim in the array form." })),
+  };
+} else if (isJ1) {
+  record = {
+    composition_pin: input.composition_pin,
+    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
+  };
+} else {
+  record = Object.fromEntries(input.groups.map((g) => [g.name, { judged: true, subgroups: [] }]));
+}
+process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
+JUDGE
+
+  # ---- THE SAME WRONG SHAPE, EVERY TIME (kogaki#1059, fixture 2). The other half
+  # of the pair: a shape mistake the judge never repairs still spends the bound
+  # and fails carrying the refusal. `judge-nonconformant` above returns the
+  # withdrawn BARE MAP; this returns the shape the live run actually returned, and
+  # the two refuse at different clauses of the same reader.
+  cat > "$root/judge-wrong-shape" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+process.stdout.write(JSON.stringify({ result: JSON.stringify({
+  composition_pin: input.composition_pin.pin,
+  claims: input.groups.map((g) => ({ group: g.name, claim: "A fixture claim in the array form." })),
+}) }) + "\n");
+JUDGE
+  chmod +x "$root/judge-conformant" "$root/judge-nonconformant" "$root/judge-garbage" \
+           "$root/judge-repairs" "$root/judge-wrong-shape"
 }
 
 # ---- THE SYNTHESIZED PAYLOAD. One PostToolUse event for an AskUserQuestion the
@@ -440,6 +502,126 @@ PY
   if grep -q "is not JSON" "$root/advgarbage.out"; then pass; else
     bad "$label: the failure does not name the parse refusal it exhausted its attempts on"
   fi
+
+  # --- kogaki#1059 FIXTURE 1. THE BOUND REPAIRS RATHER THAN REPEATS. The judge
+  # returns the live 2026-09-09 shape first and the conformant record second; the
+  # run advances on attempt two, and the record carries the one refusal it
+  # absorbed. The discriminator against the pre-fix behaviour is not the advance
+  # alone -- a stub that repaired itself would advance even under a byte-identical
+  # re-ask -- it is that ATTEMPT TWO'S PROMPT CARRIES ATTEMPT ONE'S REFUSAL.
+  local D5="$root/run-repair"
+  mkdir -p "$D5"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D5" >/dev/null 2>&1)
+  local qr pr
+  qr=$(declared_question "$D5" TAG_SELECTION "$root") || {
+    bad "$label: the repair run wrote no TAG_SELECTION declaration"
+    return
+  }
+  pr=$(payload "toolu_fixture_repair" "$qr" "fixture")
+  capture "$root" "$D5" "$pr" repair
+  printf '%s' "$pr" | (cd "$root" && KOGAKI_RUN_DIR="$D5" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-repairs" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advrepair.out" 2>&1)
+
+  if python3 - "$D5" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get("J1_claims")
+if not r:
+    print("the record carries no judgment_refusals entry for J1_claims", file=sys.stderr); sys.exit(1)
+if r.get("attempts") != 2 or not r.get("repaired") or len(r.get("refusals") or []) != 1:
+    print("expected attempts=2, repaired=true and one refusal; got", r, file=sys.stderr); sys.exit(1)
+if "composition_pin" not in (r["refusals"][0] or ""):
+    print("the recorded refusal is not the shape refusal:", r["refusals"][0], file=sys.stderr); sys.exit(1)
+if "J1_claims" not in (rec.get("judgments") or {}):
+    print("the state did not advance", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: a judge that returned the live wrong shape once and the conformant record next did not advance on attempt two with ONE refusal on the record (kogaki#1059). The advance said: $(tail -3 "$root/advrepair.out" | tr '\n' ' ')"
+  fi
+
+  # THE FIRST ASK ALREADY CARRIED THE LITERAL SHAPE, filled from this run's own
+  # composed input: the pin OBJECT with its `groups` map, and the composed group
+  # names as the keys of `claims`. Asserted on prompt ONE, because an example that
+  # only appeared on the re-ask would leave the first attempt spent on prose.
+  if python3 - "$root/repair-prompt-1.txt" "$D5" "$root" <<'PY'
+import json, sys, pathlib
+prompt = pathlib.Path(sys.argv[1]).read_text()
+rec = json.load(open(pathlib.Path(sys.argv[2], "run-record.json")))
+ci = pathlib.Path(rec["composition_input"])
+inp = json.load(open(ci if ci.is_absolute() else pathlib.Path(sys.argv[3]) / ci))
+head = prompt.split("----- INPUT (JSON) -----")[0]
+if '"composition_pin"' not in head or '"groups"' not in head:
+    print("the ask carries no filled composition_pin object", file=sys.stderr); sys.exit(1)
+for g in inp["groups"]:
+    if f'"{g["name"]}"' not in head:
+        print("the example does not name the composed group", g["name"], file=sys.stderr); sys.exit(1)
+if inp["composition_pin"]["pin"] not in head:
+    print("the example does not carry the run's own pin", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the FIRST ask carried no filled record example built from this run's composed input — the judge is told its record shape in prose alone, which is the defect kogaki#1059 closes"
+  fi
+
+  # AND ATTEMPT TWO IS A DIFFERENT ASK. Before kogaki#1059 the prompt was composed
+  # once outside the retry loop, so attempt N+1 was byte-identical to attempt N:
+  # the declared bound could not repair a shape mistake, it reproduced one
+  # deterministic refusal three times.
+  if python3 - "$root/repair-prompt-1.txt" "$root/repair-prompt-2.txt" "$D5" <<'PY'
+import json, sys, pathlib
+p1 = pathlib.Path(sys.argv[1]).read_text()
+p2 = pathlib.Path(sys.argv[2]).read_text()
+if p1 == p2:
+    print("attempt two is byte-identical to attempt one", file=sys.stderr); sys.exit(1)
+if "----- YOUR PREVIOUS ANSWER WAS REFUSED -----" not in p2:
+    print("attempt two carries no refusal marker", file=sys.stderr); sys.exit(1)
+rec = json.load(open(pathlib.Path(sys.argv[3], "run-record.json")))
+refusal = rec["judgment_refusals"]["J1_claims"]["refusals"][0]
+if refusal not in p2:
+    print("attempt two does not carry attempt one's refusal VERBATIM", file=sys.stderr); sys.exit(1)
+# And the refusal rides BEFORE the input marker, whose own contract is that
+# everything after it is the input file verbatim.
+if p2.index("----- YOUR PREVIOUS ANSWER WAS REFUSED -----") > p2.index("----- INPUT (JSON) -----"):
+    print("the refusal was appended past the input marker", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: attempt two's prompt does not carry attempt one's refusal verbatim ahead of the input marker — the retry is a repetition rather than a repair loop (kogaki#1059)"
+  fi
+
+  # --- kogaki#1059 FIXTURE 2. THE SAME WRONG SHAPE EVERY TIME still fails after
+  # the declared bound, carrying the refusal. The repair loop must not turn an
+  # unrepairable answer into a run that never ends.
+  local D6="$root/run-wrong-shape"
+  mkdir -p "$D6"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D6" >/dev/null 2>&1)
+  local qw pw
+  qw=$(declared_question "$D6" TAG_SELECTION "$root") || {
+    bad "$label: the wrong-shape run wrote no TAG_SELECTION declaration"
+    return
+  }
+  pw=$(payload "toolu_fixture_wrong_shape" "$qw" "fixture")
+  capture "$root" "$D6" "$pw" wrong-shape
+  printf '%s' "$pw" | (cd "$root" && KOGAKI_RUN_DIR="$D6" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-wrong-shape" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advwrong.out" 2>&1)
+  if grep -q "on all $((declared + 1)) attempt(s)" "$root/advwrong.out"; then pass; else
+    bad "$label: a judge returning the live wrong shape every time did not fail after the $declared re-ask(s) the table declares. It said: $(tail -3 "$root/advwrong.out" | tr '\n' ' ')"
+  fi
+  if grep -q "no usable .composition_pin. object" "$root/advwrong.out"; then pass; else
+    bad "$label: the exhausted failure does not name the shape refusal it spent its attempts on"
+  fi
+  if python3 - "$D6" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get("J1_claims")
+if not r or r.get("repaired") is not False:
+    print("expected an unrepaired judgment_refusals entry; got", r, file=sys.stderr); sys.exit(1)
+if len(r.get("refusals") or []) != r.get("attempts"):
+    print("the record does not carry one refusal per spent attempt:", r, file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the exhausted run's record does not carry every refusal the bound absorbed, marked unrepaired"
+  fi
 }
 
 
@@ -476,7 +658,7 @@ fi
 drive "the reduced tree" "$SCRATCH/red"
 
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; and all of it holds with specs/ absent (kogaki#1030)"
+  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030)"
   note "not asserted here: that the PINNED MODEL is reachable. The judge binary is stubbed through KOGAKI_JUDGE_CLI, so these cases bind the executor's call, parse, retry and refusal — never the model's answer, which is not this repository's to assert."
 fi
 exit "$fail"
