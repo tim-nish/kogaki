@@ -2577,6 +2577,12 @@ function judgeSettings(table) {
       || fail("the workflow table's `judge` block names no `command`")),
     model: String(j.model || fail("the workflow table's `judge` block pins no `model`")),
     outputFormat: String(j.output_format || "json"),
+    // PER CALL, IN SECONDS IN THE TABLE AND MILLISECONDS HERE. Required rather
+    // than defaulted: a bound that a table can silently omit is not a bound.
+    timeoutMs: 1000 * (Number.isFinite(j.timeout_s) ? j.timeout_s : fail(
+      "the workflow table's `judge` block declares no numeric `timeout_s`. A judgment call inside a "
+      + "PostToolUse hook is bounded by that hook, and an unbounded child can exhaust the hook's own "
+      + "timeout mid-span (kogaki#1030, PR #1044 round 1).")),
     stubbed: !!process.env.KOGAKI_JUDGE_CLI,
   };
 }
@@ -2635,7 +2641,7 @@ function judgeRecordFrom(stdout, st) {
 // THE FAILURE CARRIES THE REFUSAL TEXT, which is the issue's own wording: the
 // last refusal the state raised is what the run fails with, so the operator
 // reads why the judge's record was rejected rather than "the judge failed".
-function invokeJudge(table, st, inputPath, dir, validate) {
+function invokeJudge(table, st, inputPath, dir, validate, rec) {
   const cfg = judgeSettings(table);
   const retries = Number.isInteger(st.retries) ? st.retries : fail(
     `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
@@ -2653,22 +2659,55 @@ function invokeJudge(table, st, inputPath, dir, validate) {
   let attempts = 0;
   for (let attempt = 0; attempt <= retries; attempt++) {
     attempts += 1;
-    const res = spawnSync(cfg.command, argv, { input: prompt, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-    if (res.error) {
-      fail(`${st.id}: the judge could not be run (${cfg.command}: ${res.error.message}). The command and the `
-        + "model are pinned in the workflow table's `judge` block; nothing here falls back to another model.");
-    }
-    if (res.status !== 0) {
-      fail(`${st.id}: the judge exited ${res.status}. Its stderr, verbatim: ${(res.stderr || "").trim() || "(empty)"}`);
-    }
     const out = join(dir, `terrain-judge-${st.id}.json`);
     try {
-      const record = judgeRecordFrom(res.stdout, st);
+      // THE WHOLE RESPONSE HANDLING IS INSIDE THE WINDOW (PR #1044 round 1).
+      // The first cut wrapped only `validate`, so `retries` bounded the
+      // CONFORMANCE arm alone: a response that was not JSON, a `result` that did
+      // not parse, and a non-zero exit each reached `fail()` outside the window
+      // and ended the run on the first occurrence. Those are the arms a re-ask is
+      // LIKELIEST to repair, and the licence does not distinguish them -- #1030
+      // item 1 says "the response passes through the existing refusals; a refused
+      // response is retried at most the count `workflow.json` declares".
+      //
+      // `res.error` STAYS OUTSIDE IT, and that is the one deliberate exception: a
+      // command that could not be SPAWNED will not spawn on the next attempt
+      // either, so re-asking would spend the bound on a fact that cannot change.
+      // A model that answered badly is a different case from a binary that is not
+      // there.
+      const res = softRefusals(() => {
+        const r = spawnSync(cfg.command, argv, {
+          input: prompt, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
+          // THE CHILD IS BOUNDED, AND ITS BOUND IS DERIVED FROM THE HOOK'S
+          // (PR #1044 round 1). `.claude/hooks/advance-terrain.py` kills the whole
+          // advance at `ADVANCE_TIMEOUT_S`, and a span can now make several pinned
+          // calls inside one PostToolUse event -- so an unbounded child could
+          // exhaust the hook's bound mid-span and leave the half-finished record
+          // that bound exists to relay, falsifying the one-hook-event guarantee
+          // with no state misbehaving. The table declares the per-call seconds;
+          // the two are named apart rather than conflated, because one bounds a
+          // CALL and the other bounds an ADVANCE.
+          timeout: cfg.timeoutMs,
+        });
+        if (r.error && r.error.code === "ETIMEDOUT") {
+          fail(`${st.id}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
+            + "`judge` block declares. The bound exists so that several calls in one span cannot exhaust the "
+            + "PostToolUse advance's own timeout and leave a half-finished record (kogaki#1030).");
+        }
+        if (r.error) {
+          // OUTSIDE THE RETRY, by the exception above: re-thrown past the window
+          // so a spawn failure exits on the first occurrence.
+          throw r.error;
+        }
+        if (r.status !== 0) {
+          fail(`${st.id}: the judge exited ${r.status}. Its stderr, verbatim: ${(r.stderr || "").trim() || "(empty)"}`);
+        }
+        return r;
+      });
+      const record = softRefusals(() => judgeRecordFrom(res.stdout, st));
       writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
       // THE STATE'S OWN REFUSALS, run against the judge's record exactly as they
-      // run against an owner-supplied one. The soft window is what makes a
-      // refusal here a re-ask instead of an exit; it is opened around this call
-      // and nothing else.
+      // run against an owner-supplied one.
       softRefusals(() => validate(out));
       recordJudgeInvocation(st.id, {
         state: st.id,
@@ -2684,9 +2723,30 @@ function invokeJudge(table, st, inputPath, dir, validate) {
       });
       return out;
     } catch (e) {
-      if (!(e instanceof JudgmentRefusal)) throw e;
+      if (!(e instanceof JudgmentRefusal)) {
+        // The spawn failure the window deliberately re-throws, given its own
+        // refusal here rather than at the throw site so the two arms of "the
+        // judge did not answer" read alike to an operator.
+        if (e && e.syscall) {
+          fail(`${st.id}: the judge could not be run (${cfg.command}: ${e.message}). The command and the `
+            + "model are pinned in the workflow table's `judge` block; nothing here falls back to another "
+            + "model, and a binary that is not there will not be there on a re-ask, so the bound is not spent on it.");
+        }
+        throw e;
+      }
       lastRefusal = e.message;
     }
+  }
+  // THE RUN RECORD NAMES THE REFUSAL, not only stderr (PR #1044 round 1, D1's
+  // partial-discharge note). #1030 acceptance 2 reads "the run fails after the
+  // declared retry count and THE RECORD NAMES THE REFUSAL", and stderr and the
+  // persisted record are not one carrier: `fail()` persists the pending record
+  // and prints the text, so a reader coming back to the run afterwards had the
+  // failure and not its reason. Written before the refusal, so kogaki#808's
+  // persist carries it out.
+  if (rec) {
+    rec.judgment_refusals = rec.judgment_refusals || {};
+    rec.judgment_refusals[st.id] = { attempts, retries_declared: retries, refusal: lastRefusal };
   }
   fail(`${st.id}: the judge's record was refused on all ${attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
     + `the workflow table declares for this state). The last refusal, verbatim: ${lastRefusal}`);
@@ -2703,7 +2763,7 @@ function judgedRecordPath(rec, st, table, args, flag, composeInput, validate) {
     validate(p);
     return p;
   }
-  return invokeJudge(table, st, composeInput(), rec._dir, validate);
+  return invokeJudge(table, st, composeInput(), rec._dir, validate, rec);
 }
 
 export function judgmentProvenance(subdivisionsPath) {

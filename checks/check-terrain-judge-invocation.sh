@@ -145,7 +145,18 @@ fs.readFileSync(0, "utf8");
 // refuses by name. The refusal is the shipped one; nothing here composes it.
 process.stdout.write(JSON.stringify({ result: JSON.stringify({ "some-group": "a claim" }) }) + "\n");
 JUDGE
-  chmod +x "$root/judge-conformant" "$root/judge-nonconformant"
+  cat > "$root/judge-garbage" <<'JUDGE'
+#!/usr/bin/env node
+// A RESPONSE THAT IS NOT JSON (PR #1044 round 1, finding 3). Before the retry
+// window was widened this arm reached `fail()` outside it and ended the run on
+// the FIRST occurrence, so `retries` bounded only the conformance arm — while the
+// licence makes no such distinction, and this is among the arms a re-ask is
+// likeliest to repair.
+const fs = require("node:fs");
+fs.readFileSync(0, "utf8");
+process.stdout.write("I think the answer is probably fine.\n");
+JUDGE
+  chmod +x "$root/judge-conformant" "$root/judge-nonconformant" "$root/judge-garbage"
 }
 
 # ---- THE SYNTHESIZED PAYLOAD. One PostToolUse event for an AskUserQuestion the
@@ -182,12 +193,54 @@ print(decl["question"])
 PY
 }
 
+# THE CAPTURE HOOK'S STDERR IS KEPT (PR #1044 round 1). `write-gate-capture.py`
+# is written so that "every failure path returns 0 and says so on stderr" —
+# PostToolUse cannot deny a call that already happened — so discarding it throws
+# away the ONE diagnostic that separates its arms. With it silenced, this check's
+# own failure text then pointed a reader at "the hook is not installed on this
+# machine", which cannot be the cause here: the check invokes the hook by path
+# and never through a machine-local registration. A check that silences its
+# subject's only diagnostic and then guesses is worse than one that says nothing.
+capture() {                          # capture <tree> <run-dir> <payload> <label>
+  local root=$1 dir=$2 body=$3 what=$4 err
+  err=$(printf '%s' "$body" | (cd "$root" && KOGAKI_RUN_DIR="$dir" KOGAKI_OPEN_GATES="$root/open-gates" \
+        python3 .claude/hooks/write-gate-capture.py 2>&1 >/dev/null))
+  if [ -n "$err" ]; then
+    note "  write-gate-capture ($what): $err"
+  fi
+}
+
 # ---- THE SPAN, driven once per tree (this one, and the reduced one).
 # Acceptance 1, 2 and 3 are asserted inside; acceptance 4 is the second call.
+# THE CAPTURE'S POINTER DIRECTORY IS PER TREE, AND THAT IS LOAD-BEARING
+# (PR #1044 round 1, blocking). `write-gate-capture.py` keys its open-gate
+# pointers on the gate QUESTION, and its documented ambiguity arm writes NO row
+# when two live pointers carry the same one. The registered runner executes
+# members in parallel (8 jobs by default) and `check-terrain-hook-invocation.sh`
+# also opens `TAG_SELECTION` runs over the same fixture survey — so two members
+# of one suite contended for one gate class through the shared machine-local
+# directory, the capture silently wrote nothing, and every span assertion here
+# failed with `missing transitions`. Serially, both passed; that is exactly the
+# shape a green sequential run cannot see.
+#
+# `src/terrain.mjs` already sets a per-tree `KOGAKI_OPEN_GATES` for its own
+# fixtures and says why: several of them "deliberately leave a gate unanswered
+# and every one of them asks the same question over the same survey". This is
+# the same fact one layer out, so it is the same instrument.
+capture_env() {                      # capture_env <tree>
+  printf 'KOGAKI_OPEN_GATES=%s' "$1/open-gates"
+}
+
 drive() {                            # drive <label> <tree>
   local label=$1 root=$2
   local D="$root/run"
-  mkdir -p "$D"
+  mkdir -p "$D" "$root/open-gates"
+  # EXPORTED FOR THE WHOLE SPAN, not only for the capture. The START ACT is what
+  # WRITES the open-gate pointer, so a start run outside this directory leaves the
+  # pointer in the shared one and the capture then finds nothing to key on — which
+  # is the same silent no-row this variable exists to prevent, arriving from the
+  # other end. Re-assigned per call, so the two trees never share.
+  export KOGAKI_OPEN_GATES="$root/open-gates"
 
   # --- The start act: opens the run and stops at TAG_SELECTION.
   if ! (cd "$root" && node src/terrain.mjs start --run-dir "$D" >"$root/start.out" 2>&1); then
@@ -204,8 +257,9 @@ drive() {                            # drive <label> <tree>
   # --- ACCEPTANCE 1. ONE payload, and the co-tag file exists at the end of it.
   local p1
   p1=$(payload "toolu_fixture_tag" "$q" "fixture")
-  printf '%s' "$p1" | (cd "$root" && KOGAKI_RUN_DIR="$D" python3 .claude/hooks/write-gate-capture.py >/dev/null 2>&1)
-  printf '%s' "$p1" | (cd "$root" && KOGAKI_RUN_DIR="$D" KOGAKI_JUDGE_CLI="$root/judge-conformant" \
+  capture "$root" "$D" "$p1" tag
+  printf '%s' "$p1" | (cd "$root" && KOGAKI_RUN_DIR="$D" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-conformant" \
       python3 .claude/hooks/advance-terrain.py >"$root/adv1.out" 2>&1)
 
   if [ -f "$root/reports/CoTagGroups.md" ]; then pass; else
@@ -257,8 +311,9 @@ PY
     return
   }
   p2=$(payload "toolu_fixture_ids" "$q2" "G1")
-  printf '%s' "$p2" | (cd "$root" && KOGAKI_RUN_DIR="$D" python3 .claude/hooks/write-gate-capture.py >/dev/null 2>&1)
-  printf '%s' "$p2" | (cd "$root" && KOGAKI_RUN_DIR="$D" KOGAKI_JUDGE_CLI="$root/judge-conformant" \
+  capture "$root" "$D" "$p2" ids
+  printf '%s' "$p2" | (cd "$root" && KOGAKI_RUN_DIR="$D" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-conformant" \
       python3 .claude/hooks/advance-terrain.py >"$root/adv2.out" 2>&1)
 
   if [ -f "$root/reports/FullReport.md" ]; then pass; else
@@ -285,8 +340,9 @@ PY
     return
   }
   pb=$(payload "toolu_fixture_bad" "$qb" "fixture")
-  printf '%s' "$pb" | (cd "$root" && KOGAKI_RUN_DIR="$D2" python3 .claude/hooks/write-gate-capture.py >/dev/null 2>&1)
-  printf '%s' "$pb" | (cd "$root" && KOGAKI_RUN_DIR="$D2" KOGAKI_JUDGE_CLI="$root/judge-nonconformant" \
+  capture "$root" "$D2" "$pb" nonconformant
+  printf '%s' "$pb" | (cd "$root" && KOGAKI_RUN_DIR="$D2" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-nonconformant" \
       python3 .claude/hooks/advance-terrain.py >"$root/advbad.out" 2>&1)
 
   local declared
@@ -302,12 +358,69 @@ print([s for s in t['states'] if s['id']=='J1_claims'][0]['retries'])")
   if grep -q "the withdrawn pre-v10 form" "$root/advbad.out"; then pass; else
     bad "$label: the failure does not carry the state's own refusal text — an operator is told the judge failed and never why"
   fi
+  # AND THE RUN RECORD NAMES IT (PR #1044 round 1, D1's partial-discharge note).
+  # Acceptance 2 reads "the run fails after the declared retry count and THE
+  # RECORD names the refusal"; stderr and the persisted record are different
+  # carriers, and only the second is still there when a reader comes back to the
+  # run. `fail()` persists the pending record (kogaki#808), so the entry is
+  # written before the refusal rather than after it.
+  if python3 - "$D2" J1_claims <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get(sys.argv[2])
+sys.exit(0 if r and r.get("refusal") and r.get("attempts") else 1)
+PY
+  then pass; else
+    bad "$label: the run record carries no judgment_refusals entry for J1_claims — the refusal reached stderr and not the record, and acceptance 2 names the record"
+  fi
+
   # AND IT LEFT NO CO-TAG FILE. A run that failed at J1 and still wrote the
   # display would be the defect this issue closes, arriving from the other side.
   if [ ! -f "$root/reports-bad/CoTagGroups.md" ]; then pass; else
     bad "$label: the failed run wrote a co-tag display anyway"
   fi
+
+  # --- THE WIDENED RETRY WINDOW (PR #1044 round 1, finding 3). A response that is
+  # not JSON is a REFUSAL like any other, so it is re-asked to the same bound and
+  # the run then fails carrying the parse refusal. The discriminator against the
+  # pre-fix behaviour is the ATTEMPT COUNT: before the window was widened this
+  # exited on the first call.
+  local D3="$root/run-garbage"
+  mkdir -p "$D3"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D3" >/dev/null 2>&1)
+  local qg pg
+  qg=$(declared_question "$D3" TAG_SELECTION "$root") || {
+    bad "$label: the third run wrote no TAG_SELECTION declaration"
+    return
+  }
+  pg=$(payload "toolu_fixture_garbage" "$qg" "fixture")
+  capture "$root" "$D3" "$pg" garbage
+  printf '%s' "$pg" | (cd "$root" && KOGAKI_RUN_DIR="$D3" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-garbage" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advgarbage.out" 2>&1)
+  if grep -q "on all $((declared + 1)) attempt(s)" "$root/advgarbage.out"; then pass; else
+    bad "$label: an unparseable judge response was not re-asked to the table's bound — the retry window covers the conformance arm alone, which is narrower than the licence describes. It said: $(tail -3 "$root/advgarbage.out" | tr '\n' ' ')"
+  fi
+  if grep -q "is not JSON" "$root/advgarbage.out"; then pass; else
+    bad "$label: the failure does not name the parse refusal it exhausted its attempts on"
+  fi
 }
+
+
+# ---- THE PER-CALL BOUND IS DECLARED IN THE TABLE, AND ITS ABSENCE REFUSES
+# (PR #1044 round 1, finding 4). A judgment call runs inside a PostToolUse hook
+# that kills the whole advance at its own timeout, and a span can now make several
+# calls; an unbounded child can exhaust that budget mid-span and leave exactly the
+# half-finished record the hook's bound exists to relay. Asserted as a CARRIER
+# rather than by driving a slow judge: a case that waited out a real timeout would
+# add its own bound to the suite's runtime to prove that a bound exists.
+if python3 -c "
+import json, sys
+t = json.load(open('src/workflow.json'))
+b = (t.get('judge') or {}).get('timeout_s')
+sys.exit(0 if isinstance(b, (int, float)) and b > 0 else 1)"; then pass; else
+  bad "src/workflow.json's judge block declares no positive numeric timeout_s — the per-call bound is a property of the workflow and a table that can omit it silently does not have one"
+fi
 
 build_tree "$SCRATCH/gold"
 drive "this tree" "$SCRATCH/gold"
