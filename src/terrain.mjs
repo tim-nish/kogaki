@@ -8135,6 +8135,55 @@ switch (cmd) {
         rmSync(gd, { recursive: true, force: true });
       }
 
+      // ACCEPTANCE ITEM 2's FIRST CLAUSE, AT THE SIZE IT NAMES (kogaki#1029;
+      // PR #1061 round 1, finding 2). Everything above compares the composer
+      // against `renderTagDisplay` over a THREE-section record, and the
+      // hook-side cases in `checks/check-open-gate-exclusivity.sh` drive
+      // payloads that check writes itself. So a renderer that dropped rows past
+      // some N would satisfy both sides of the byte-equality above AND every
+      // deny case over there, while the owner read a truncated table. The clause
+      // is "a survey with 17 tags carries all 17 rows", and this is the only
+      // case anywhere that reads a seventeen-section record.
+      //
+      // THE RECORD IS BUILT HERE RATHER THAN COMMITTED AS A FIXTURE. Seventeen
+      // sections cloned from this survey's own differ from it in exactly one
+      // field, the name, so a failure is about the COUNT and never about a
+      // second record's shape having drifted from the first's.
+      {
+        const many = {
+          ...surveyRec,
+          sections: Array.from({ length: 17 }, (_, i) => ({
+            ...surveyRec.sections[i % surveyRec.sections.length],
+            name: `tag-${String(i + 1).padStart(2, "0")}`,
+          })),
+        };
+        const manyPath = join(tmpdir(), `terrain-selftest-17tags-${process.pid}.json`);
+        writeFileSync(manyPath, JSON.stringify(many));
+        const listing17 = renderTagDisplay(many);
+        const rows17 = listing17.split("\n").filter((l) => l.startsWith("  ") && l.trim());
+        ok("a seventeen-tag survey renders seventeen tag rows — one per section, none dropped",
+          rows17.length === 17 && many.sections.every((sec) => listing17.includes(tagRow(sec))),
+          JSON.stringify({ rendered: rows17.length, sections: many.sections.length }));
+
+        const composed17 = GATE_WORK.TAG_SELECTION({ survey_record: manyPath });
+        ok("the declaration over a seventeen-tag survey carries that listing whole",
+          composed17.extra.tag_listing === listing17,
+          JSON.stringify((composed17.extra.tag_listing || "").length));
+
+        // The end of the clause: the bytes the OWNER is shown. `composeGateCall`
+        // is what puts the listing in front of the question, and this asserts
+        // every one of the seventeen rows survives that composition.
+        const call17 = composeGateCall({
+          id: "terrain-tag-selection", question: "Which tag does the survey open on?",
+          options: composed17.options, free_text_offered: true, ...composed17.extra,
+        });
+        const q17 = (call17.tool_input || { questions: [{}] }).questions[0].question || "";
+        ok("the composed gate call for a seventeen-tag survey carries all seventeen rows in the question the owner reads",
+          q17.startsWith(`${listing17}\n\n`) && many.sections.every((sec) => q17.includes(tagRow(sec))),
+          JSON.stringify({ missing: many.sections.filter((sec) => !q17.includes(tagRow(sec))).map((sec) => sec.name) }));
+        rmSync(manyPath, { force: true });
+      }
+
       // THE ORDER IS THE DEFECT. A declaration carrying the bytes and a stop
       // that never says when to show them reproduces exactly what was filed:
       // the question rendered with the table nowhere on screen.
