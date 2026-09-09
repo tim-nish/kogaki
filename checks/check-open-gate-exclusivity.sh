@@ -194,6 +194,57 @@ rm -f "$GATES/$INSTANCE.json"
   && pass "UserPromptSubmit admits with no pointer open" \
   || bad "prompts are blocked with no gate open — every session on the machine is frozen"
 
+# ------------------------------------------------------------- kogaki#1051
+# THE PROMPT THAT OPENED THE GATE. The harness runs the terrain skill's `!`
+# line before it runs UserPromptSubmit on the prompt that invoked the skill, so
+# the start act's gate is already open when that prompt is judged. Before the
+# `skill-expansion` mark the arm above refused it, no model turn ever ran, and
+# the two sessions of 2026-09-09 13:01 UTC were recovered by moving the
+# pointers out of the live directory by hand.
+mark_skill_expansion() {
+  python3 - "$GATES/$INSTANCE.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d["opened_by"]="skill-expansion"; json.dump(d,open(p,"w"))
+PY
+}
+
+rm -f "$GATES"/*.json "$RUN/terrain.gate-capture.json"
+open_pointer
+mark_skill_expansion
+[[ "$(ups "$SESSION" | decision)" == "allow" ]] \
+  && pass "a pointer opened by skill expansion admits the prompt that opened it — the start act's own invocation is not refused by the gate it just opened" \
+  || bad "the prompt that opened the gate was refused — this is the 2026-09-09 13:01 event, and the run is reachable only from outside the session"
+
+# One PreToolUse event is the first evidence a turn ran, and it spends the mark.
+pre Bash '{"command":"ls"}' >/dev/null
+if python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1]))
+raise SystemExit(0 if d.get("turn_seen_at") and d.get("opened_by")=="skill-expansion" else 1)
+' "$GATES/$INSTANCE.json"; then
+  pass "the first tool call stamps turn_seen_at and leaves opened_by intact — the mark is spent without losing which executor opened the gate"
+else
+  bad "the first tool call left the pointer unstamped, or erased opened_by — the mark either never expires or takes the provenance with it"
+fi
+[[ "$(ups "$SESSION" | decision)" == "block" ]] \
+  && pass "the same pointer refuses a typed prompt once a turn has run — the admission is bounded to the prompt that opened the gate" \
+  || bad "a typed prompt was admitted after a turn had run — typed text is an answer again, which is the whole class this arm closes"
+
+# A marked pointer beside an unmarked one refuses: the session was already
+# asked to render that other gate, and typed text is not an answer to it.
+cp "$GATES/$INSTANCE.json" "$GATES/bbbb-unmarked.json"
+python3 - "$GATES/bbbb-unmarked.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p))
+d["gate_instance_id"]="88888888-0000-0000-0000-000000000000"; d.pop("opened_by",None); d.pop("turn_seen_at",None)
+json.dump(d,open(p,"w"))
+PY
+mark_skill_expansion
+[[ "$(ups "$SESSION" | decision)" == "block" ]] \
+  && pass "a skill-expansion pointer beside an unmarked one refuses — the admission needs every outstanding gate to be one no turn has run for" \
+  || bad "an unmarked gate was admitted past because a marked one sat beside it"
+rm -f "$GATES"/*.json
+
 # ---------------------------------------------------------------- acceptance 4
 CAPTURE=".claude/hooks/write-gate-capture.py"
 capture_payload() { printf '%s' "{\"session_id\":\"$1\",\"tool_name\":\"AskUserQuestion\",\"tool_use_id\":\"toolu_x\",\"tool_response\":{\"answers\":{\"Which tag does the survey open on?\":\"Use a method other than co-tags\"}}}" \
