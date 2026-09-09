@@ -3250,9 +3250,14 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
     // one is about.
     for (const text of r.refusals) allRefusals.push(`group ${JSON.stringify(name)}: ${text}`);
     if (r.refusals.length) lastRefusal = `group ${JSON.stringify(name)}: ${r.refusals[r.refusals.length - 1]}`;
-    perGroup[name] = {
-      attempts: r.attempts, retries_declared: retries, refusals: r.refusals, repaired: r.ok,
-    };
+    // `repaired` IS WRITTEN ONLY WHERE THERE WAS SOMETHING TO REPAIR (PR #1065
+    // round 1). On the whole-input arm the whole entry is written only when
+    // `refusals.length`, so `repaired` there means *was refused and then
+    // repaired* -- and a per-group row saying `repaired: true` of a group nothing
+    // ever refused makes the flag whose stated job is keeping those two arms
+    // apart stop doing it across the two carriers.
+    perGroup[name] = { attempts: r.attempts, retries_declared: retries, refusals: r.refusals };
+    if (r.refusals.length) perGroup[name].repaired = r.ok;
     if (!r.ok) {
       // THE PARTIAL IS ON THE RECORD BEFORE THE REFUSAL, for the reason the
       // whole-input arm writes its own: `fail()` persists the pending record, and

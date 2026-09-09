@@ -991,6 +991,56 @@ sys.exit(0 if isinstance(b, (int, float)) and b > 0 else 1)"; then pass; else
   bad "src/workflow.json's judge block declares no positive numeric timeout_s — the per-call bound is a property of the workflow and a table that can omit it silently does not have one"
 fi
 
+# ---- THE RECORD EXAMPLE'S LABEL ENUMERATION IS A COPY, SO IT OWES A MISMATCH
+# CHECK (PR #1065 round 1). `record_example` exists so a record shape stops being
+# carried by prose — and the first one written for `J2_subdivision` arrived
+# carrying a THREE-label set while `COHERENCE_LABELS` holds four, `loose` having
+# joined at kogaki#738. A judge that follows the shape it is handed could then
+# never emit `loose`, so every borderline SubGroup landed as `related` or in the
+# residual: the example was a fourth hand-written carrier of the set, drifting on
+# arrival exactly as the row's own `input_shape` sentence already had.
+#
+# THE COPY IS KEPT AND SUBORDINATED rather than removed. Filling it from the
+# constant would need a third `record_example` directive, which is added by ruling
+# and not by spelling; a copy with a declared mismatch check is the shape that is
+# already ratified for this situation. Both the example and the row's prose are
+# checked, because two carriers of one set is what produced the defect.
+if python3 - <<'PY'
+import json, re, sys
+labels = re.search(r'COHERENCE_LABELS = Object\.freeze\(\[([^\]]*)\]\)',
+                   open("src/terrain.mjs", encoding="utf-8").read())
+if not labels:
+    print("src/terrain.mjs declares no COHERENCE_LABELS — the set this checks against is gone",
+          file=sys.stderr); sys.exit(1)
+declared = re.findall(r'"([a-z]+)"', labels.group(1))
+table = json.load(open("src/workflow.json"))
+row = [s for s in table["states"] if s["id"] == "J2_subdivision"][0]
+ex = row.get("record_example")
+if not ex:
+    print("J2_subdivision declares no record_example — its shape is carried by prose again",
+          file=sys.stderr); sys.exit(1)
+found = json.dumps(ex)
+verdicts = ex["$per-group"]["subgroups"][0]["verdicts"]["coherence"]
+in_example = re.findall(r'[a-z]+', verdicts)
+if in_example != declared:
+    print(f"the record example offers {in_example} and COHERENCE_LABELS is {declared} — a judge "
+          "following the shape it is handed cannot emit a label the example omits",
+          file=sys.stderr); sys.exit(1)
+# AND THE ROW'S OWN PROSE, which is the carrier that drifted first.
+for field in ("input_shape", "refusal"):
+    text = row.get(field) or ""
+    for retired in ("forced",):
+        if re.search(rf'\b{retired}\b', text):
+            print(f"the row's {field} still names the retired label {retired!r} (kogaki#738)",
+                  file=sys.stderr); sys.exit(1)
+if "closed set " + " | ".join(declared) not in row["input_shape"]:
+    print("the row's input_shape does not name the closed set COHERENCE_LABELS declares",
+          file=sys.stderr); sys.exit(1)
+PY
+then pass; else
+  bad "J2_subdivision's record_example or its input_shape does not agree with src/terrain.mjs's COHERENCE_LABELS — the example is a copy of that set and a copy without a mismatch check is how it arrived wrong (PR #1065 round 1)"
+fi
+
 
 build_tree "$SCRATCH/gold"
 drive "this tree" "$SCRATCH/gold"

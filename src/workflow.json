@@ -148,7 +148,7 @@
       "id": "J2_subdivision",
       "kind": "judgment",
       "judgment_point": "semantic subdivision",
-      "input_shape": "typed per-group record, judged: true, one entry per composed group, carrying the judge pin; each SubGroup carries a `coherence` label from the closed set tight | related | forced and a `coherence_why` sentence",
+      "input_shape": "typed per-group record, judged: true, one entry per composed group, carrying the judge pin; each SubGroup carries a `coherence` label from the closed set tight | related | loose | other and a `coherence_why` sentence",
       "per_group": true,
       "record_example": {
         "$per-group": {
@@ -161,7 +161,7 @@
                 "<ids drawn from this group's `members` in `groups[0]`, and from nowhere else>"
               ],
               "verdicts": {
-                "coherence": "<tight | related | other>",
+                "coherence": "<tight | related | loose | other>",
                 "coherence_why": "<one sentence: why this SubGroup holds together at that label>",
                 "trails_into_enumeration": false,
                 "true_of_every_member": true,
