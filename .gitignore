@@ -175,6 +175,13 @@ policy/shape.md
 !.claude/hooks/
 .claude/hooks/*
 !.claude/hooks/write-gate-capture.py
+# THE TERRAIN EXECUTOR'S INVOCATION BOUNDARY (kogaki#1027), re-included on the
+# block's own criterion above: `checks/check-terrain-hook-invocation.sh` is the
+# named reader of both files, so they are repository material and not private
+# ones. The REGISTRATION stays machine-local exactly as write-gate-capture.py's
+# does, which is why that check asserts the files and not their wiring.
+!.claude/hooks/gate-terrain-executor.py
+!.claude/hooks/advance-terrain.py
 !.claude/skills/consult-first/
 .claude/skills/consult-first/*
 !.claude/skills/consult-first/SKILL.md
