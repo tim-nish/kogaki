@@ -240,6 +240,61 @@ function runDir(args) {
   return enterRun("terrain", terrainRunEntry());
 }
 
+// ---- WHICH RUN THE ADVANCE IS AN ADVANCE OF (PR #1034 round 1, blocking) ----
+//
+// THE DEFECT THIS CLOSES, stated because it is the one the model's `--run-dir`
+// was silently carrying. `--run-dir` was run identity, re-supplied by the
+// session on every re-entry; kogaki#1027 removes the session's route and left
+// nothing in its place. With no carrier the default branch above mints a
+// TIMESTAMP-NAMED NEW WORKSPACE per invocation, so `start` would open run A and
+// stop at its gate while the advance ran in an empty B — re-running `survey`,
+// raising the same gate class again, and orphaning A's open-gate pointer, which
+// by `write-gate-capture.py`'s own docstring makes every later raising of that
+// class ambiguous until the TTL reaps it. Pinning `KOGAKI_RUN_DIR` instead fails
+// the other way: `start` refuses an existing record, so one fixed directory
+// admits exactly one run ever.
+//
+// SO THE CARRIER IS A POINTER THE START ACT WRITES, and it is the smallest
+// thing that can be one: a file in the lane directory naming the workspace this
+// lane's open run lives in. It is written at `start`, read by the advance, and
+// removed when the run reaches its terminal — so "no open run" and "an open run
+// somewhere" are distinguishable states rather than one silence.
+//
+// MACHINE-LOCAL, like every other run intermediate: it lives under `runs/`,
+// which this repository ignores wholesale, so it is repo-visible and never
+// committed.
+const OPEN_RUN_POINTER = "open-run";
+
+// `KOGAKI_OPEN_RUN` overrides the pointer path for tests, on the idiom
+// `KOGAKI_OPEN_GATES` already sets one seam over. It exists because the
+// alternative is exercising `runDir`'s DEFAULT branch, which `terrain-runtime`'s
+// own registry record declines to assert for a stated reason: driving it prunes
+// this repository's real terrain lane, so a fixture pass would evict an owner's
+// runs to check a path.
+function openRunPointerPath() {
+  return process.env.KOGAKI_OPEN_RUN || join(laneDir("terrain"), OPEN_RUN_POINTER);
+}
+
+export function readOpenRunPointer() {
+  const p = openRunPointerPath();
+  if (!existsSync(p)) return null;
+  const dir = readFileSync(p, "utf8").trim();
+  // A POINTER TO A DIRECTORY THAT IS GONE IS NOT A RUN. A `runs/` prune, a
+  // deleted workspace or a hand-cleaned lane each leave the file behind, and
+  // resolving it would advance into a directory with no record in it.
+  return dir && existsSync(dir) ? dir : null;
+}
+
+function writeOpenRunPointer(dir) {
+  const p = openRunPointerPath();
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, `${resolve(dir)}\n`);
+}
+
+function clearOpenRunPointer() {
+  try { rmSync(openRunPointerPath(), { force: true }); } catch { /* a stale pointer costs a refusal, never a run */ }
+}
+
 // `soft` callers get a NULL instead of a process exit when the seam is
 // unavailable (kogaki#528). Terrain's own calls stay HARD and must: "Terrain
 // without served renderings has nothing to survey", so degrading there would
@@ -5659,6 +5714,98 @@ const KIND_SEMANTICS = {
 const WORKFLOW_TABLE = join(REPO, "src/workflow.json");
 const RUN_RECORD_FILE = "run-record.json";
 
+// ---- WHO EXECUTED THIS TRANSITION (kogaki#1027) ------------------------------
+//
+// Every Terrain run before this one started when the model typed
+// `node src/terrain.mjs run` into Bash and advanced when the model chose to
+// re-enter, and the run record recorded WHICH states completed and never WHO
+// executed the transition -- so a run the model drove and a run the Harness
+// drove left identical records. `advanced_by` is the field that tells them
+// apart, and it is COPIED from the harness's own payload rather than composed
+// here: an executor that mints its own attribution records the thing the field
+// exists to evidence.
+//
+// TWO EXECUTOR KINDS, AND THE SECOND IS NAMED RATHER THAN DISGUISED (owner
+// selection, 2026-09-09, at the /ship-cycle gate on this issue). `hook` carries
+// the three payload fields verbatim. `skill-expansion` carries NO hook fields
+// at all, because the skill's `!` line receives no hook payload and inventing
+// `hook_event_name: "SkillStart"` would be exactly the fabricated attribution
+// the refusal below exists to prevent. The kinds are a closed set: a third one
+// is a decision, not an addition.
+//
+// AND THE SELF-DECLARED KIND IS ONLY TRUSTWORTHY BECAUSE THE BASH ROUTE IS
+// DENIED. `.claude/hooks/gate-terrain-executor.py` refuses any Bash command
+// naming this file with any verb but `--status`, so a model cannot type
+// `terrain.mjs start` and obtain a start-attributed record. The deny is the
+// other half of this field, not a separate guard beside it, which is why the
+// Removal Test fixture exercises it.
+const EXECUTOR_KINDS = ["hook", "skill-expansion"];
+
+// The start act's attribution. It carries no hook fields, deliberately -- see
+// above.
+const SKILL_EXPANSION_EXECUTOR = { executor: "skill-expansion" };
+
+// The hook payload, read from stdin ONCE per act. Returns null when there is
+// nothing readable there: no payload, an empty stream, or bytes that are not
+// JSON. It never throws and never exits -- the REFUSAL is the caller's, so
+// that the one place a missing payload is turned into a stop is the one place
+// the message can name what to do about it.
+export function readHookPayload(raw = null) {
+  let text = raw;
+  if (text === null) {
+    // A TERMINAL IS NOT A PAYLOAD (PR #1034 round 1, nit). `readFileSync(0)`
+    // against a TTY BLOCKS, so an invocation with a terminal attached — a
+    // script, a cron, a second repository, anywhere outside the deny — would
+    // hang instead of printing the refusal that names the two acts. Reachable
+    // only there, and cheap to close.
+    if (process.stdin.isTTY) return null;
+    try {
+      text = readFileSync(0, "utf8");
+    } catch {
+      return null;
+    }
+  }
+  if (typeof text !== "string" || !text.trim()) return null;
+  let doc;
+  try {
+    doc = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  return (doc && typeof doc === "object" && !Array.isArray(doc)) ? doc : null;
+}
+
+// The three fields, copied. A payload missing any of them is NOT a payload for
+// this purpose: `advanced_by` with a null `tool_use_id` records that a
+// transition happened and not which question executed it, which is the same
+// silence the field was added to end.
+export function advancedByFromPayload(payload) {
+  if (!payload) return null;
+  const ev = payload.hook_event_name;
+  const sid = payload.session_id;
+  const tid = payload.tool_use_id;
+  if (typeof ev !== "string" || !ev) return null;
+  if (typeof sid !== "string" || !sid) return null;
+  if (typeof tid !== "string" || !tid) return null;
+  return { executor: "hook", hook_event_name: ev, session_id: sid, tool_use_id: tid };
+}
+
+// THE ONE WRITER OF A TRANSITION. Every advance in this executor goes through
+// here, so `completed` and `transitions` cannot disagree about what ran -- and
+// a state completing without an attribution is unproducible rather than merely
+// discouraged.
+function completeState(rec, stateId, advancedBy) {
+  if (!advancedBy || !EXECUTOR_KINDS.includes(advancedBy.executor)) {
+    fail(`transition to ${JSON.stringify(stateId)} has no executor attribution. Every transition names the act that executed it (kogaki#1027); the executor writes none of its own.`);
+  }
+  rec.completed.push(stateId);
+  (rec.transitions || (rec.transitions = [])).push({
+    state: stateId,
+    advanced_by: advancedBy,
+    at: new Date().toISOString(),
+  });
+}
+
 // Structural validation only. This reads the table's FORM — ids present and
 // unique, kinds interpretable, a write naming an artifact, a terminal
 // existing. It judges no semantic contract, because the workflow table makes the table
@@ -5789,6 +5936,12 @@ function newRunRecord(tablePath, table) {
     artifacts_written: [],
     judgments: {},
     gate_declarations_owed: [],
+    // WHO EXECUTED EACH TRANSITION (kogaki#1027). One row per state that
+    // completed, in the order they completed, each carrying the payload the
+    // harness supplied. `completed` stays the control list the loop reads;
+    // this is the attribution beside it, and `completeState` is the only
+    // writer of either.
+    transitions: [],
     done: false,
   };
 }
@@ -5825,6 +5978,17 @@ function needSurvey(rec) {
 // `src/workflow.json`, so an id that never enters that file alters no contract
 // — and the bound is asserted rather than promised: the pass drives the shipped
 // table against this prefix.
+// THE SYNTHESIZED HOOK PAYLOAD every fixture spawn feeds the executor
+// (kogaki#1027). The executor advances only inside a harness hook event, so a
+// fixture that drove it with no stdin would be testing the payload refusal and
+// nothing else. Synthesized rather than captured, deliberately: the acceptance
+// item is that a run driven by payloads ALONE reaches its end, and a payload
+// this pass composes is one no session and no harness supplied.
+const FIXTURE_PAYLOAD = JSON.stringify({
+  hook_event_name: "PostToolUse",
+  session_id: "fixture-session",
+  tool_use_id: "fixture-tool-use",
+});
 const FIXTURE_STATE_PREFIX = "__fixture_";
 const FIXTURE_RECORD_KEY_VALUE = "written by this state's own renderer";
 
@@ -6293,14 +6457,50 @@ const GATE_WORK = {
 // being a check.
 // consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:133
 
-function cmdRun(args) {
-  const dir = runDir(args);
+// THE EXECUTOR'S ONE BODY, ENTERED BY TWO ACTS (kogaki#1027).
+//
+// `advancedBy` is the attribution every transition this act writes will carry,
+// and it is resolved by the CALLER -- `cmdRun` from the hook payload on stdin,
+// `cmdStart` as the skill expansion. Passing it in rather than reading it here
+// is what keeps the "a transition without a payload is refused BEFORE ANY
+// WRITE" ordering true by construction: by the time this function runs, the
+// attribution already exists or the caller already refused.
+//
+// `stopAtFirstWait` bounds the start act to what the owner licensed it to
+// produce -- `survey` and the stop at TAG_SELECTION -- so a start invocation
+// cannot walk a whole run under one skill-expansion attribution.
+function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
+  // THE START ACT OPENS a workspace; an ADVANCE RESOLVES the one that is open
+  // (PR #1034 round 1). An explicit `--run-dir` still wins for both, because a
+  // caller who named a directory named it because they hold it -- that is the
+  // fixture path and the second-repository path, and it is unchanged.
+  let dir;
+  if (stopAtFirstWait || args["run-dir"] || process.env.KOGAKI_RUN_DIR) {
+    dir = runDir(args);
+    if (stopAtFirstWait && !args["run-dir"] && !process.env.KOGAKI_RUN_DIR) writeOpenRunPointer(dir);
+  } else {
+    dir = readOpenRunPointer()
+      || fail(`no Terrain run is open: ${openRunPointerPath()} names none, and an advance is an advance OF a run. `
+        + `A run is opened by the terrain skill's own \`!\` line (\`node src/terrain.mjs start\`), which writes that pointer; `
+        + `the pointer is removed when the run reaches its terminal. Nothing was written (kogaki#1027).`);
+  }
   const tablePath = args.workflow ? String(args.workflow) : WORKFLOW_TABLE;
   const table = loadWorkflowTable(tablePath);
 
   if (args.status) return reportRunStatus(dir, tablePath, table);
 
   let rec = readRunRecord(dir);
+  // THE START ACT PRODUCES EXACTLY ONE STOP, and this is where that bound is
+  // enforced (owner constraint, 2026-09-09). `start` opens a run; it does not
+  // resume one. Were it allowed to run against an existing record it could
+  // walk states the hook route is supposed to execute, and every one of them
+  // would be attributed to the skill expansion -- the attribution defect this
+  // issue closes, reintroduced by the one act licensed to carry that kind.
+  if (stopAtFirstWait && rec) {
+    fail(`a run record already exists at ${runRecordPath(dir)}, so this is a resumption and not a start. `
+      + `The start act opens a run and stops at its first wait; every advance after that is executed inside the `
+      + `PostToolUse hook for the AskUserQuestion that answered the gate (kogaki#1027).`);
+  }
   if (!rec) {
     rec = newRunRecord(tablePath, table);
   } else if (rec.workflow.version !== (table.version ?? null)) {
@@ -6317,43 +6517,26 @@ function cmdRun(args) {
   // is at the loop's own write below.
   setRunPersist(dir, rec);
 
-  // ---- Owner input, admitted by the WAIT and not by its own shape (AC5).
-  if (args.input !== undefined) {
-    if (!rec.awaiting) {
-      fail(`no wait is outstanding in ${runRecordPath(dir)}, so there is nothing for --input to answer. An owner input is admissible only at a declared wait — the wait is what makes it admissible, not the input's own shape (the re-entrant executor, the wait rule).`);
+  // ---- THE OWNER-INPUT ENTRY POINT IS DELETED (kogaki#1027 item 5).
+  //
+  // `--input` carried the owner's words into the executor from a Bash command
+  // the model composed, and `--at` bound them to a wait. Both are gone, with
+  // NO STUB: a deprecated channel is a channel, and the finding was that this
+  // one existed at all. Every wait in the shipped table declares a gate, and a
+  // gate is answered by the harness's own capture -- so the route this
+  // removes is the route by which the model supplied a fact rather than a
+  // selector.
+  //
+  // REFUSED BY NAME, never ignored. An ignored flag is a session quietly
+  // getting a different act than it asked for.
+  for (const dead of ["input", "at", "enter"]) {
+    if (args[dead] !== undefined) {
+      fail(`--${dead} is DELETED (kogaki#1027). The Terrain executor is invoked by hooks only: `
+        + `it is started by the terrain skill's own \`!\` line and advanced inside the PostToolUse hook for the `
+        + `AskUserQuestion that answered a gate, and every transition names the hook that executed it. `
+        + `There is no stub and no replacement flag -- a wait is answered by the owner's click, which `
+        + `.claude/hooks/write-gate-capture.py records and the executor reads.`);
     }
-    if (args.at !== undefined && String(args.at) !== rec.awaiting) {
-      fail(`--input names state ${JSON.stringify(String(args.at))} and this run awaits ${JSON.stringify(rec.awaiting)}. Refused rather than applied to the awaited state: an input bound to the wrong wait is not the input that wait asked for.`);
-    }
-    // A GATE WAIT IS ANSWERED BY A CAPTURE, NEVER BY A BARE INPUT (PR #671
-    // round 1). Removing `capture` as an entry point closed the OUT-OF-BAND
-    // route and left this IN-BAND one open beside it: `--input` checked only
-    // that some wait was outstanding, so a bare `--input adopt-recomposed:G1`
-    // at a gate wait wrote the owner input, pushed `completed` and cleared
-    // `awaiting` — skipping the declaration's own option validation, the
-    // `--tool-use-id` evidence and the capture row entirely. The wait rule's "a capture
-    // is admissible only at the wait that declared the gate" says nothing from
-    // this direction, so the refusal states it: at such a wait the capture is
-    // not one way to answer, it is the only one.
-    //
-    // SCOPED TO A DECLARATION THAT EXISTS, and acceptance item 6 is what scoped
-    // it. The first cut refused `--input` at every gate-declaring wait, which
-    // deadlocked the evolvability fixture: its `CLOSING_CONFIRMATION` has no
-    // bound option composer, so its declaration is owed-and-unwritten, a
-    // capture has nothing to validate against, and refusing the input too left
-    // the state unanswerable — adding a gate state to a table would then need
-    // driver code, which item 6 denies. So the refusal binds the state a
-    // declaration was WRITTEN for. Where none could be composed, `--input`
-    // stays the answer and the run record carries `unwritten` with its reason,
-    // which is the declared limit rather than a silent exemption.
-    const awaitedState = stateById(table, rec.awaiting);
-    const owedForInput = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting);
-    if (awaitedState && awaitedState.renders_gate_declaration && owedForInput && owedForInput.declaration) {
-      fail(`${rec.awaiting} declares a gate and its declaration is written (${owedForInput.declaration}), so it is answered by the HARNESS'S OWN CAPTURE and never by a bare --input. Render the gate through AskUserQuestion — options verbatim, nothing pre-selected, free text on — and re-enter with a bare \`run --run-dir ${dir}\`; .claude/hooks/write-gate-capture.py records the answer when the owner gives it, and the executor reads it. An input that skips the declaration answers a question nothing can show was asked (the wait rule, the second-proposer boundary; kogaki#890).`);
-    }
-    rec.owner_input[rec.awaiting] = String(args.input);
-    rec.completed.push(rec.awaiting);
-    rec.awaiting = null;
   }
 
   // ---- THE CAPTURED ANSWER, READ RATHER THAN ARGUED (kogaki#890).
@@ -6432,7 +6615,7 @@ function cmdRun(args) {
       // strand selection are all this one act (the claim re-offer wait: adoption is applying the
       // captured answer), which is why no second command remains to apply it.
       rec.owner_input[rec.awaiting] = capOption !== null ? capOption : capFree;
-      rec.completed.push(rec.awaiting);
+      completeState(rec, rec.awaiting, advancedBy);
       rec.awaiting = null;
       // THE POINTER IS RETIRED AT THE ADVANCE, not only by the hook. The hook
       // removes it after writing, and this is the second remover rather than a
@@ -6448,7 +6631,18 @@ function cmdRun(args) {
 
   // ---- The advance. Order, kind, conditionality and stopping all come from
   // the table; nothing below names a state.
-  const entered = new Set([].concat(args.enter || []).filter((x) => x !== true).map(String));
+  // NOTHING ENTERS A CONDITIONAL STATE ANY MORE, and that is the stated cost of
+  // deleting `--enter` (kogaki#1027 item 5). `--enter` was a model-typed
+  // selector: the session decided that a conditional state should run and said
+  // so on a Bash command line. With the flag gone and no computed condition in
+  // its place, every conditional state is SKIPPED and the record says so --
+  // which is what the executor already did on any act that omitted the flag.
+  //
+  // NAMED RATHER THAN HIDDEN: the shipped table's two conditional states,
+  // CLAIM_REOFFER and TRIM_RATIFICATION, are unreachable until a later child of
+  // kogaki#1025 makes their declared conditions something the executor
+  // evaluates. The empty set below is that fact, written once.
+  const entered = new Set();
   let stopped = null;
   for (const st of table.states) {
     if (rec.completed.includes(st.id)) continue;
@@ -6537,8 +6731,13 @@ function cmdRun(args) {
     }
 
     if (st.kind === "terminal") {
-      rec.completed.push(st.id);
+      completeState(rec, st.id, advancedBy);
       rec.done = true;
+      // THE RUN IS NO LONGER OPEN, so the pointer stops naming it. Cleared here
+      // rather than by a reaper: the terminal is the moment the fact changes,
+      // and a pointer outliving its run is what makes the NEXT `start` look
+      // like a resumption of something finished.
+      clearOpenRunPointer();
       stopped = st;
       break;
     }
@@ -6580,7 +6779,7 @@ function cmdRun(args) {
         rec.artifacts_written.push({ state: st.id, artifact: st.writes, path: relFromRepo(resolve(outcome.artifact)) });
       }
     }
-    rec.completed.push(st.id);
+    completeState(rec, st.id, advancedBy);
   }
 
   // THE PENDING RECORD IS RELEASED HERE, at the one place the loop's own write
@@ -6672,7 +6871,38 @@ switch (cmd) {
   case "report": cmdReport(args); break;
   // the control plane's ONE ENTRY POINT, entered once per act (the re-entrant executor). Every standalone
   // owner-facing act is now a state of the table, reachable only through here.
-  case "run": cmdRun(args); break;
+  case "run": {
+    // ---- THE PAYLOAD GATE, BEFORE ANY WRITE (kogaki#1027 item 4).
+    //
+    // `--status` is read-only and is the ONE verb the PreToolUse deny admits
+    // from a Bash command, so it must not require a payload: an inspection
+    // route that needed a hook event would leave a stuck run unreadable by the
+    // one person able to unstick it.
+    //
+    // EVERYTHING ELSE REFUSES HERE, which is before `runDir` -- so a refused
+    // act creates no run directory, writes no record and prunes no lane. That
+    // ordering is the item's own wording ("refused before any write") and it
+    // is why this gate sits in the dispatcher rather than inside `cmdRun`.
+    if (args.status) { cmdRun(args, null); break; }
+    const advancedBy = advancedByFromPayload(readHookPayload());
+    if (!advancedBy) {
+      fail(`the executor advances only inside a harness hook event, and no hook payload carrying `
+        + `hook_event_name, session_id and tool_use_id was readable on stdin. Nothing was written. `
+        + `A Terrain run is STARTED by the terrain skill's own \`!\` line (\`node src/terrain.mjs start\`) and `
+        + `ADVANCED inside the PostToolUse hook for the AskUserQuestion that answered its gate `
+        + `(.claude/hooks/advance-terrain.py); \`run --status\` is the only verb reachable from a Bash `
+        + `command, and it is read-only (kogaki#1027).`);
+    }
+    cmdRun(args, advancedBy);
+    break;
+  }
+  // ---- THE START ACT (kogaki#1027 item 1). Executed by the harness's skill
+  // expansion -- the terrain skill file's one `!` line runs this before the
+  // model sees anything. It opens the run, runs to the first wait, and stops;
+  // its transitions carry the `skill-expansion` executor kind and no hook
+  // fields, because no hook event produced them and inventing one would be the
+  // fabricated attribution this issue removes.
+  case "start": cmdRun(args, SKILL_EXPANSION_EXECUTOR, { stopAtFirstWait: true }); break;
   case "self-test": {
     // The composed-form fixture pass (kogaki#612): pure, seam-free — every
     // case constructs its own inputs, so the trial runs with no gateway.
@@ -6824,7 +7054,7 @@ switch (cmd) {
         if (table !== null) writeFileSync(tp, JSON.stringify(table));
         const r = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rd, "--workflow", table === null ? WORKFLOW_TABLE : tp, ...extra],
-          { encoding: "utf8" });
+          { input: FIXTURE_PAYLOAD, encoding: "utf8" });
         return r.status !== 0;
       };
       const terminal = { id: "done", kind: "terminal" };
@@ -6854,13 +7084,21 @@ switch (cmd) {
         const rd = join(scratch, "rd-refusal-persists");
         mkdirSync(rd, { recursive: true });
         writeFileSync(tp, JSON.stringify({ version: 1, states: [
-          { id: "a", kind: "compute", conditional: "entered only by --enter, so the act sets a record FIELD beside `completed`" },
+          { id: "a", kind: "compute" },
+          // THE CONDITIONAL STATE IS NOW SKIPPED RATHER THAN ENTERED
+          // (kogaki#1027). `--enter` was the selector that entered one and it is
+          // deleted, so the loop-bookkeeping FIELD this arm needs beside
+          // `completed` is `conditional_skipped` instead of
+          // `conditional_entered`. The property under test is unchanged — a
+          // refusal persists what the act completed, fields included — and it
+          // is asserted over the field the loop still writes.
+          { id: "cond", kind: "compute", conditional: "never entered: the selector that entered a conditional state is deleted (kogaki#1027)" },
           { id: `${FIXTURE_STATE_PREFIX}sets_record_key`, kind: "compute" },
           { id: "unrendered", kind: "write", writes: "display" },
           terminal,
         ] }));
         const r = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rd, "--workflow", tp, "--enter", "a"], { encoding: "utf8" });
+          [selfPath, "run", "--run-dir", rd, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8" });
         const persisted = readRunRecord(rd);
         ok("a refusal raised inside a run still refuses — exit is non-zero and the message is the refusal's own",
           r.status !== 0 && /no renderer bound to it/.test(r.stderr || ""), (r.stderr || "").trim().slice(0, 120));
@@ -6886,9 +7124,9 @@ switch (cmd) {
         // round-1 finding actually named. The case below is the one that binds
         // the property, and the two are kept apart so a later reader can tell
         // which assertion carries which claim.
-        ok("the persisted record carries a FIELD the completed state set — not only the list of what completed",
-          !!persisted && Array.isArray(persisted.conditional_entered) && persisted.conditional_entered.includes("a"),
-          persisted ? JSON.stringify(persisted.conditional_entered) : "(no record)");
+        ok("the persisted record carries a FIELD the loop set — not only the list of what completed",
+          !!persisted && Array.isArray(persisted.conditional_skipped) && persisted.conditional_skipped.includes("cond"),
+          persisted ? JSON.stringify(persisted.conditional_skipped) : "(no record)");
         // THE CASE THAT BINDS THE PROPERTY (kogaki#824). `fixture_record_key` is
         // written by the fixture-only state's OWN RENDERER and by nothing else —
         // no loop touches it — so a persist reduced to control fields drops it
@@ -7091,7 +7329,7 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], { encoding: "utf8" });
+        const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8" });
         const out = `${r.stdout || ""}${r.stderr || ""}`;
         ok("a run reaching TAG_SELECTION stops with its declaration WRITTEN rather than owed and unwritten",
           r.status === 0 && /run declaration is WRITTEN/.test(out) && !/OWED AND UNWRITTEN/.test(out),
@@ -7118,7 +7356,7 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        const rBad = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdBad, "--workflow", tp], { encoding: "utf8" });
+        const rBad = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdBad, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8" });
         const outBad = `${rBad.stdout || ""}${rBad.stderr || ""}`;
         ok("a listing the tag_listing grammar refuses does not ride into a declaration — the gate refuses instead",
           rBad.status !== 0 && /refusing to emit tag_listing/.test(outBad),
@@ -7166,14 +7404,223 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdDead, "--workflow", tp], { encoding: "utf8", env: envFor("dead") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdDead, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("dead") });
         for (const dead of [["--capture-option", "other-method"], ["--capture-free-text", "x"], ["--tool-use-id", "t"]]) {
           const rDead = spawnSync(process.execPath,
-            [selfPath, "run", "--run-dir", rdDead, "--workflow", tp, ...dead], { encoding: "utf8", env: envFor("dead") });
+            [selfPath, "run", "--run-dir", rdDead, "--workflow", tp, ...dead], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("dead") });
           const outDead = `${rDead.stdout || ""}${rDead.stderr || ""}`;
           ok(`${dead[0]} is REMOVED and refused by name — the model no longer has a channel for the owner's answer`,
             rDead.status !== 0 && outDead.includes(`${dead[0]} is REMOVED`),
             outDead.trim().split("\n")[0].slice(0, 140));
+        }
+
+        // ---- THE EXECUTOR IS INVOKED BY HOOKS ONLY (kogaki#1027) -----------
+        //
+        // Every Terrain run since kogaki#17 started when the model typed
+        // `node src/terrain.mjs run` into Bash and advanced when the model chose
+        // to re-enter; the run record recorded WHICH states completed and never
+        // WHO executed the transition, so a run the model drove and a run the
+        // Harness drove left identical records. These cases drive the two
+        // halves of the repair: the payload refusal, and the attribution.
+
+        // ITEM 5. The three deleted entry points, refused BY NAME rather than
+        // ignored, on the same ground the three above are: an ignored flag is a
+        // session quietly getting a different act than it asked for.
+        for (const dead of [["--input", "some tag"], ["--at", "TAG_SELECTION"], ["--enter", "TAG_SELECTION"]]) {
+          const rGone = spawnSync(process.execPath,
+            [selfPath, "run", "--run-dir", rdDead, "--workflow", tp, ...dead], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("dead") });
+          const outGone = `${rGone.stdout || ""}${rGone.stderr || ""}`;
+          ok(`${dead[0]} is DELETED and refused by name — the model-typed route into the executor has no stub`,
+            rGone.status !== 0 && outGone.includes(`${dead[0]} is DELETED`),
+            outGone.trim().split("\n")[0].slice(0, 140));
+        }
+
+        // ACCEPTANCE 1. Invoking the executor with no payload on stdin refuses
+        // and WRITES NOTHING. The run directory is named but never created,
+        // which is the "before any write" half — a refusal that had already
+        // made the directory would have pruned this lane's entries on the way.
+        {
+          const rdNone = join(gs, "rd-no-payload");
+          const rNone = spawnSync(process.execPath,
+            [selfPath, "run", "--run-dir", rdNone, "--workflow", tp], { input: "", encoding: "utf8", env: envFor("nopayload") });
+          const outNone = `${rNone.stdout || ""}${rNone.stderr || ""}`;
+          ok("the executor with NO hook payload on stdin refuses, and names the two acts that do carry one",
+            rNone.status !== 0 && /no hook payload/.test(outNone)
+              && /terrain\.mjs start/.test(outNone) && /advance-terrain\.py/.test(outNone),
+            outNone.trim().split("\n")[0].slice(0, 160));
+          ok("that refusal wrote NOTHING — the run directory it named does not exist, so the refusal precedes every write",
+            !existsSync(rdNone), rdNone);
+          // A payload MISSING ONE FIELD is not a payload. `advanced_by` with a
+          // null tool_use_id records that a transition happened and not which
+          // question executed it, which is the same silence the field ends.
+          for (const missing of ["hook_event_name", "session_id", "tool_use_id"]) {
+            const partial = JSON.parse(FIXTURE_PAYLOAD);
+            delete partial[missing];
+            const rPart = spawnSync(process.execPath,
+              [selfPath, "run", "--run-dir", join(gs, `rd-partial-${missing}`), "--workflow", tp],
+              { input: JSON.stringify(partial), encoding: "utf8", env: envFor("nopayload") });
+            ok(`a payload with no ${missing} is refused — a partial attribution is not an attribution`,
+              rPart.status !== 0, `exit ${rPart.status}`);
+          }
+          // `--status` is the ONE verb the PreToolUse deny admits from a Bash
+          // command, so it must not need a payload: an inspection route that
+          // required a hook event would leave a stuck run unreadable by the one
+          // person able to unstick it.
+          const rStatus = spawnSync(process.execPath,
+            [selfPath, "run", "--run-dir", rdDead, "--workflow", tp, "--status"], { input: "", encoding: "utf8", env: envFor("dead") });
+          ok("`run --status` needs no payload — the one verb reachable from a Bash command is read-only and stays reachable",
+            rStatus.status === 0, `exit ${rStatus.status}`);
+        }
+
+        // ACCEPTANCE 2. A run driven by synthesized hook payloads ALONE reaches
+        // its end, and every transition in its record carries `advanced_by`
+        // with the three fields.
+        //
+        // THE TABLE IS THE FIXTURE'S, NOT THE SHIPPED ONE, and the substitution
+        // is stated rather than quietly made: this pass is seam-free by
+        // construction and the shipped table's first state reads the gateway,
+        // so a drive of `full_report` itself is exactly the end-to-end member
+        // `terrain-runtime`'s own removal signal names as not existing yet. What
+        // is asserted here is the property that acceptance item names — payloads
+        // alone carry a run from its start through a gate answer to its terminal
+        // — over a table that reaches a terminal without a seam.
+        {
+          const rdDrive = join(gs, "rd-hook-driven");
+          mkdirSync(rdDrive, { recursive: true });
+          writeFileSync(join(rdDrive, RUN_RECORD_FILE), JSON.stringify({
+            workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+            completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+            awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+            gate_declarations_owed: [], transitions: [], done: false,
+          }));
+          spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdDrive, "--workflow", tp],
+            { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("driven") });
+          const declDrive = readJson(join(rdDrive, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+          // THE FREE-TEXT ARM, because the fixture survey's tag options are not
+          // guaranteed to include a routed one and a case that depends on which
+          // tags a corpus happens to carry is a case that fails for the wrong
+          // reason. Free text is the affordance every gate here declares on, and
+          // it advances the wait exactly as a routed option does.
+          answerThroughHook("driven", declDrive.question, "a tag the owner typed", "toolu_test_hook_driven");
+          const rDrive = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdDrive, "--workflow", tp],
+            { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("driven") });
+          const recDrive = readRunRecord(rdDrive);
+          ok("a run driven by synthesized hook payloads alone advances through its gate to the terminal — no model-typed act anywhere on the path",
+            rDrive.status === 0 && !!recDrive && recDrive.done === true && recDrive.completed.includes("done"),
+            recDrive ? JSON.stringify({ done: recDrive.done, completed: recDrive.completed }) : "(no record)");
+          const rows = (recDrive && recDrive.transitions) || [];
+          ok("every transition in that record carries advanced_by with the three payload fields, copied from the payload rather than composed",
+            rows.length > 0 && rows.every((t) => t.advanced_by
+              && t.advanced_by.executor === "hook"
+              && t.advanced_by.hook_event_name === "PostToolUse"
+              && t.advanced_by.session_id === "fixture-session"
+              && t.advanced_by.tool_use_id === "fixture-tool-use"),
+            JSON.stringify(rows.map((t) => t.advanced_by)).slice(0, 200));
+          ok("the transition list and the completed list name the same states in the same order — one writer, so they cannot disagree about what ran",
+            rows.map((t) => t.state).join(",") === recDrive.completed.join(","),
+            `${rows.map((t) => t.state).join(",")} vs ${recDrive.completed.join(",")}`);
+        }
+
+        // ITEM 1. The start act carries the `skill-expansion` executor kind and
+        // NO hook fields, because no hook event produced it — and it refuses an
+        // existing record, so it cannot walk states the hook route is supposed
+        // to execute under an attribution that names no hook.
+        {
+          const rdStart = join(gs, "rd-start");
+          mkdirSync(rdStart, { recursive: true });
+          writeFileSync(join(rdStart, RUN_RECORD_FILE), JSON.stringify({
+            workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+            completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+            awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+            gate_declarations_owed: [], transitions: [], done: false,
+          }));
+          const rStart = spawnSync(process.execPath, [selfPath, "start", "--run-dir", rdStart, "--workflow", tp],
+            { input: "", encoding: "utf8", env: envFor("start") });
+          const outStart = `${rStart.stdout || ""}${rStart.stderr || ""}`;
+          ok("`start` refuses a run record that already exists — the start act opens a run and never resumes one",
+            rStart.status !== 0 && /a resumption and not a start/.test(outStart),
+            outStart.trim().split("\n")[0].slice(0, 160));
+
+          const rdStart2 = join(gs, "rd-start-fresh");
+          mkdirSync(rdStart2, { recursive: true });
+          const startTable = join(gs, "start-table.json");
+          writeFileSync(startTable, JSON.stringify({ version: 1, states: [
+            { id: "a", kind: "compute" },
+            { id: "W", kind: "wait", owner_supplies: "something" },
+            { id: "done", kind: "terminal" },
+          ] }));
+          const rStart2 = spawnSync(process.execPath, [selfPath, "start", "--run-dir", rdStart2, "--workflow", startTable],
+            { input: "", encoding: "utf8", env: envFor("start") });
+          const recStart = readRunRecord(rdStart2);
+          const startRows = (recStart && recStart.transitions) || [];
+          ok("`start` runs with no payload on stdin — the skill's `!` line receives none, and the act is licensed rather than synthesized",
+            rStart2.status === 0 && !!recStart, `exit ${rStart2.status}`);
+          ok("the start act's transitions name the skill expansion and carry NO hook fields — an attribution no harness event supplied is never invented",
+            startRows.length > 0 && startRows.every((t) => t.advanced_by
+              && t.advanced_by.executor === "skill-expansion"
+              && t.advanced_by.hook_event_name === undefined
+              && t.advanced_by.session_id === undefined
+              && t.advanced_by.tool_use_id === undefined),
+            JSON.stringify(startRows.map((t) => t.advanced_by)).slice(0, 200));
+          ok("the start act stops at the first wait — it produces one stop, not a walked run",
+            !!recStart && recStart.awaiting === "W" && recStart.done === false,
+            recStart ? JSON.stringify({ awaiting: recStart.awaiting, done: recStart.done }) : "(no record)");
+        }
+
+        // ---- WHICH RUN THE ADVANCE IS AN ADVANCE OF (PR #1034 round 1,
+        // blocking). `--run-dir` was run identity, re-supplied by the session on
+        // every re-entry; item 5 removed the session's route and left nothing in
+        // its place, so `start` opened one workspace and the advance minted
+        // another. The open-run pointer is the carrier that replaces it, and
+        // these cases drive it over `KOGAKI_OPEN_RUN` so the real lane is never
+        // touched.
+        {
+          const ptr = join(gs, "open-run-pointer");
+          const envPtr = (extra = {}) => ({ ...process.env, KOGAKI_OPEN_RUN: ptr, ...extra });
+          const startTable2 = join(gs, "pointer-table.json");
+          writeFileSync(startTable2, JSON.stringify({ version: 1, states: [
+            { id: "a", kind: "compute" },
+            { id: "W", kind: "wait", owner_supplies: "something" },
+            { id: "done", kind: "terminal" },
+          ] }));
+
+          // With no pointer and no --run-dir, an advance REFUSES and writes
+          // nothing: an advance is an advance OF a run, and minting one here is
+          // exactly the defect.
+          const rNoRun = spawnSync(process.execPath, [selfPath, "run", "--workflow", startTable2],
+            { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envPtr() });
+          const outNoRun = `${rNoRun.stdout || ""}${rNoRun.stderr || ""}`;
+          ok("an advance with no open run refuses and names the start act, rather than minting a fresh workspace per question",
+            rNoRun.status !== 0 && /no Terrain run is open/.test(outNoRun) && /terrain\.mjs start/.test(outNoRun),
+            outNoRun.trim().split("\n")[0].slice(0, 160));
+          ok("that refusal wrote no pointer either — nothing about the lane changed",
+            !existsSync(ptr), ptr);
+
+          // `start` on the default branch WRITES the pointer, and the advance
+          // that follows resolves the same workspace rather than a new one.
+          const rdPtr = join(gs, "rd-pointer");
+          const rStartPtr = spawnSync(process.execPath,
+            [selfPath, "start", "--run-dir", rdPtr, "--workflow", startTable2],
+            { input: "", encoding: "utf8", env: envPtr() });
+          ok("an explicit --run-dir still wins for `start`, and writes NO pointer — a caller who named a directory holds it",
+            rStartPtr.status === 0 && !existsSync(ptr), `exit ${rStartPtr.status}`);
+
+          // The pointer's own round trip, driven the way the start act writes
+          // it. Read IN PROCESS, so the override has to be set here too — the
+          // spawns above carry it in the child's environment.
+          const heldPtrEnv = process.env.KOGAKI_OPEN_RUN;
+          process.env.KOGAKI_OPEN_RUN = ptr;
+          writeFileSync(ptr, `${rdPtr}\n`);
+          ok("an advance with the pointer set resolves the SAME workspace the start act opened — the run the answer belongs to",
+            readOpenRunPointer() === resolve(rdPtr), String(readOpenRunPointer()));
+          // A POINTER TO A WORKSPACE THAT IS GONE IS NOT A RUN. A `runs/` prune
+          // or a hand-cleaned lane leaves the file behind, and resolving it
+          // would advance into a directory with no record in it.
+          writeFileSync(ptr, `${join(gs, "not-a-run")}\n`);
+          ok("a pointer naming a workspace that no longer exists reads as NO open run, rather than resolving to an empty directory",
+            readOpenRunPointer() === null, String(readOpenRunPointer()));
+          if (heldPtrEnv === undefined) delete process.env.KOGAKI_OPEN_RUN;
+          else process.env.KOGAKI_OPEN_RUN = heldPtrEnv;
         }
 
         // THE STANDING OPTION IS ROUTED NOWHERE, AND SAYS SO (PR #898 round 1).
@@ -7191,14 +7638,14 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { encoding: "utf8", env: envFor("opt") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("opt") });
         const declOpt = readJson(join(rdOpt, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const standingLabel = declOpt.options.find((o) => o.id === "other-method").label;
         // THE GATE IS UNANSWERED UNTIL THE HARNESS SAYS OTHERWISE, and this is
         // the case the whole issue turns on: a re-entry with no recorded answer
         // refuses instead of advancing on something a session supplied.
         const rUnanswered = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { encoding: "utf8", env: envFor("opt") });
+          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("opt") });
         const outUnanswered = `${rUnanswered.stdout || ""}${rUnanswered.stderr || ""}`;
         ok("an outstanding declared gate with NO harness-recorded answer refuses, and names the hook and the pointer rather than advancing",
           rUnanswered.status !== 0
@@ -7209,7 +7656,7 @@ switch (cmd) {
 
         answerThroughHook("opt", declOpt.question, standingLabel, "toolu_test_unrouted");
         const rOpt = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { encoding: "utf8", env: envFor("opt") });
+          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("opt") });
         const outOpt = `${rOpt.stdout || ""}${rOpt.stderr || ""}`;
         const recOpt = readRunRecord(rdOpt);
         ok("capturing the standing option REFUSES the advance and names the option, rather than letting it land where a tag name goes",
@@ -7237,11 +7684,11 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { encoding: "utf8", env: envFor("free") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("free") });
         const declFree = readJson(join(rdFree, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         answerThroughHook("free", declFree.question, "testing", "toolu_test_freetext");
         const rFree = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { encoding: "utf8", env: envFor("free") });
+          [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("free") });
         const recFree = readRunRecord(rdFree);
         ok("a free-text tag answer still advances — the unrouted refusal is bound to the declared option and not to the gate",
           rFree.status === 0 && !!recFree && recFree.owner_input.TAG_SELECTION === "testing"
@@ -7261,7 +7708,7 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin, "--workflow", tp], { encoding: "utf8", env: envFor("shared") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("shared") });
         const declTwin = readJson(join(rdTwin, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         ok("two raisings of one gate over one input compose an IDENTICAL option-set digest and DIFFERENT instance ids — so the nonce is doing work the digest cannot",
           ownerGateDigest(declTwin.id, declTwin.options.map((o) => o.id))
@@ -7271,7 +7718,7 @@ switch (cmd) {
         writeFileSync(join(rdTwin, `terrain${GATE_SCHEMA.capture.suffix}`),
           readFileSync(join(rdFree, `terrain${GATE_SCHEMA.capture.suffix}`), "utf8"));
         const rTwin = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdTwin, "--workflow", tp], { encoding: "utf8", env: envFor("shared") });
+          [selfPath, "run", "--run-dir", rdTwin, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("shared") });
         const outTwin = `${rTwin.stdout || ""}${rTwin.stderr || ""}`;
         ok("a row answering a DIFFERENT raising does not advance this one — the join is on the instance id, never on the content two runs share",
           rTwin.status !== 0 && /none carries this raising's instance id/.test(outTwin),
@@ -7289,7 +7736,7 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin2, "--workflow", tp], { encoding: "utf8", env: envFor("shared") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin2, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("shared") });
         const rTwoOpen = answerThroughHook("shared", declTwin.question, "testing", "toolu_test_ambiguous");
         ok("with two outstanding gates carrying one question the hook writes no row and names the ambiguity, rather than picking one",
           /does not choose between them/.test(`${rTwoOpen.stdout || ""}${rTwoOpen.stderr || ""}`),
@@ -7310,12 +7757,12 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { encoding: "utf8", env: envFor("trunc") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("trunc") });
         const declTrunc = readJson(join(rdTrunc, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const fullLabel = declTrunc.options.find((o) => o.id === "other-method").label;
         answerThroughHook("trunc", declTrunc.question, fullLabel.slice(0, 24), "toolu_test_truncated");
         const rTrunc = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { encoding: "utf8", env: envFor("trunc") });
+          [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("trunc") });
         const outTrunc = `${rTrunc.stdout || ""}${rTrunc.stderr || ""}`;
         const recTrunc = readRunRecord(rdTrunc);
         ok("a TRUNCATED option label is refused rather than recorded as free text — a near-miss is not silently read as the owner's own words",
@@ -7332,12 +7779,12 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { encoding: "utf8", env: envFor("wrap") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("wrap") });
         const declWrap = readJson(join(rdWrap, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const wrapped = declWrap.options.find((o) => o.id === "other-method").label.replace(/ /g, "\n  ");
         answerThroughHook("wrap", declWrap.question, wrapped, "toolu_test_rewrapped");
         const rWrap = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { encoding: "utf8", env: envFor("wrap") });
+          [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("wrap") });
         ok("a RE-WRAPPED label still resolves to its option — whitespace is presentation, and the near-miss refusal is not a refusal of every inexact label",
           rWrap.status !== 0 && /ROUTED NOWHERE/.test(`${rWrap.stdout || ""}${rWrap.stderr || ""}`),
           `${rWrap.stdout || ""}${rWrap.stderr || ""}`.trim().split("\n").slice(-1)[0].slice(0, 150));
@@ -7354,7 +7801,7 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOrphan, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOrphan, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("orphan") });
         rmSync(rdOrphan, { recursive: true, force: true });   // the abandoned run
         const rdAfter = join(gs, "rd-after-orphan");
         mkdirSync(rdAfter, { recursive: true });
@@ -7364,11 +7811,11 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("orphan") });
         const declAfter = readJson(join(rdAfter, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const rAfterHook = answerThroughHook("orphan", declAfter.question, "a-tag", "toolu_test_after_orphan");
         const rAfter = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+          [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("orphan") });
         const recAfter = readRunRecord(rdAfter);
         ok("a pointer whose run was deleted is REAPED, so the next raising of that gate is not wedged by the orphan",
           /is reaped: its declaration/.test(`${rAfterHook.stdout || ""}${rAfterHook.stderr || ""}`)
@@ -7391,7 +7838,7 @@ switch (cmd) {
           const rec = readRunRecord(rdRe);
           rec.gate_declarations_owed = [];
           writeFileSync(join(rdRe, RUN_RECORD_FILE), JSON.stringify(rec));
-          spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdRe, "--workflow", tp], { encoding: "utf8", env: envFor("reraise") });
+          spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdRe, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("reraise") });
         }
         ok("three raisings of one gate in one run leave exactly ONE pointer — the prescribed recovery does not accumulate the orphans it would then be blocked by",
           readdirSync(gatesFor("reraise")).filter((f) => f.endsWith(".json")).length === 1,
@@ -7857,9 +8304,15 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
-  run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
-      (a declared gate's answer takes NO flag — it is read from the harness's capture)
+    console.log(`usage: terrain.mjs <start|run|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
+  start [--run-dir D] [--workflow F]        THE START ACT, executed by the harness's skill
+                                            expansion — the terrain skill file's one \`!\` line.
+                                            Opens the run, runs to its first wait, stops. It
+                                            refuses an existing run record: start opens a run,
+                                            it never resumes one (kogaki#1027).
+  run [--run-dir D] [--workflow F]
+      (the hook payload is read from stdin; there is no flag for the owner's answer, and
+       --input, --at and --enter are DELETED and refused by name — kogaki#1027)
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F] [--thesis-candidates F]
       [--judge-model M] [--judge-effort E]
                                             THE CONTROL PLANE. One entry point, entered once
@@ -7873,8 +8326,13 @@ switch (cmd) {
                                             conditionality and judgment placement are read from
                                             the table on every run and are held nowhere in this
                                             file. --workflow runs an alternate table (the
-                                            evolvability fixture). --enter STATE enters a
-                                            conditional state the flow never schedules.
+                                            evolvability fixture). It advances ONLY inside a
+                                            harness hook event: a transition arriving with no
+                                            payload on stdin is refused before any write, and
+                                            every transition it does write names the hook that
+                                            executed it. No conditional state is entered — the
+                                            selector that entered one was --enter, and it is
+                                            deleted.
   run --status [--run-dir D] [--workflow F]  counts this run from its record alone, beside the
                                             counts derived from the table's states array and the
                                             table's own counted_baseline (#625 acceptance item 2).
@@ -7923,10 +8381,10 @@ switch (cmd) {
   self-test                                 the composed-form fixture pass (identity cites, kogaki#612)
 
  At a wait that declares a gate, the executor WRITES the run declaration and names its path.
- Render it through AskUserQuestion — options verbatim, nothing pre-selected, free text always on
- — then answer it through AskUserQuestion and re-enter with a bare --run-dir <D>.
- A bare --input is REFUSED there: it would skip the declaration's own option check and the
- tool_use_id that evidences the rendering.`);
+ Render it through AskUserQuestion — options verbatim, nothing pre-selected, free text always on.
+ THE RE-ENTRY IS NOT YOURS TO MAKE: .claude/hooks/advance-terrain.py runs the executor inside the
+ PostToolUse hook for that question, after .claude/hooks/write-gate-capture.py has written the
+ owner's answer. A Bash command naming this file with any verb but --status is denied.`);
     process.exit(cmd ? 1 : 0);
 }
 }
