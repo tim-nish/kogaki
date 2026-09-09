@@ -1,4 +1,43 @@
 {
   "autoCompactWindow": 400000,
-  "hooks": {}
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" PreToolUse", "timeout": 30 }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-terrain-executor.py\"", "timeout": 30 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          { "type": "command", "command": "sh -c 'p=$(cat); printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/write-gate-capture.py\"; printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/advance-terrain.py\"'", "timeout": 540 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" Stop", "timeout": 30 }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" UserPromptSubmit", "timeout": 30 }
+        ]
+      }
+    ]
+  }
 }

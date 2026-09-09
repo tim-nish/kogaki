@@ -79,6 +79,11 @@ from pathlib import Path
 # gate class.
 POINTER_TTL = timedelta(hours=12)
 
+# The label `src/terrain.mjs`'s `composeGateCall` gives the free-text row it
+# composes (GATE_CALL_FREE_TEXT_LABEL there). Two copies of one string, for the
+# reason `POINTER_TTL` is copied into the exclusivity hook: a hook is one file.
+FREE_TEXT_ROW_LABEL = "Answer in your own words instead"
+
 
 def pointer_dir():
     return Path(os.environ.get("KOGAKI_OPEN_GATES")
@@ -154,7 +159,35 @@ def answers_of(payload):
     return {}
 
 
-def load_pointers():
+def load_pointers(session_id=None):
+    """Live pointers, narrowed to this session where both sides name one.
+
+    THE JOIN IS ON THE NONCE AND THE SESSION (kogaki#1028 item 5). The nonce
+    alone identifies a RAISING; it does not identify whose raising it was, and
+    the narrowing step above matches on question TEXT, which is a constant in
+    `src/gate-registry.json`. So two sessions at the same gate on one machine
+    were two pointers carrying one question, and the ambiguity arm wrote nothing
+    for either — the wedge, arriving as a tie rather than as a misattribution.
+    With the session named, each session sees only its own and the tie does not
+    arise.
+
+    A POINTER THAT NAMES NO SESSION KEEPS THE PRE-kogaki#1028 BEHAVIOUR, and
+    that is a correction of this hook's first cut (PR #1043 round 1, blocking
+    finding 2). Skipping it looked like the safe direction and was not: the
+    session id is read from an environment variable at the executor, and a run
+    whose process never had it writes `null` — so a strict rule turned "we
+    cannot prove which session owns this" into "no row is ever written", which
+    silently breaks the kogaki#890 capture path that works today. The narrowing
+    is a REFINEMENT of the question-text match, so it can only ever remove
+    candidates the old code would have accepted; where there is nothing to
+    narrow by, the old match stands and the ambiguity arm below still refuses to
+    choose.
+
+    The asymmetry with the pointer naming a session and the PAYLOAD naming none
+    is deliberate: there the pointer asserts an owner and this payload cannot be
+    shown to be it, so writing would be the misattribution. Absence of a claim
+    is not the same as a claim that fails.
+    """
     d = pointer_dir()
     if not d.is_dir():
         return []
@@ -166,6 +199,10 @@ def load_pointers():
         except Exception:                                         # noqa: BLE001
             note(f"pointer {p.name} is unreadable and was skipped "
                  "(a finding, not a skip: its gate will refuse at re-entry)")
+            continue
+        mine = str(doc.get("session_id") or "")
+        theirs = str(session_id or "")
+        if mine and mine != theirs:
             continue
         doc["_pointer_path"] = p
         expired = is_expired(doc)
@@ -208,6 +245,17 @@ def resolve_answer(declaration, label):
     payload alone, and naming that is honest where guessing is not.
     """
     want = normalise(label)
+    # THE COMPOSED FREE-TEXT ROW (PR #1043 round 3, finding 2). `composeGateCall`
+    # adds a row labelled `free_text_label` (default below) to a gate declaring
+    # fewer options than the question UI admits. Clicking that row reports the
+    # label itself as the answer and names no value, so it is recorded as
+    # UNRESOLVED -- the executor refuses on that and the gate is re-offered --
+    # rather than as the owner's own words, which is what the label would
+    # otherwise be read as at every gate that takes free text.
+    row_label = str(declaration.get("free_text_label") or FREE_TEXT_ROW_LABEL)
+    if want and want == normalise(row_label):
+        return {"label_unresolved": True, "raw": str(label),
+                "free_text_row_selected": True}
     for opt in declaration.get("options") or []:
         if normalise(opt.get("label", "")) == want:
             return {"option": str(opt.get("id"))}
@@ -298,7 +346,7 @@ def main():
              "to a question the harness actually asked — so no row was written")
         return 0
 
-    pointers = load_pointers()
+    pointers = load_pointers(payload.get("session_id"))
     if not pointers:
         return 0
 

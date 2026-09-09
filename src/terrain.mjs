@@ -1812,8 +1812,131 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   // which is the pre-#818 behaviour it would then report as a pass (kogaki#837).
   const out = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
   writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
-  writeOpenGatePointer(dir, declaration, out);
+  // THE CALL IS COMPOSED HERE, BESIDE THE DECLARATION (kogaki#1028 item 1).
+  const call = composeGateCall(declaration);
+  let callPath = null;
+  if (call.tool_input) {
+    callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
+    writeFileSync(callPath, JSON.stringify(call.tool_input, null, 2) + "\n");
+  }
+  writeOpenGatePointer(dir, declaration, out, callPath, call.unavailable || null);
   return out;
+}
+
+// --------------------------------------------------------------------------
+// THE GATE CALL (kogaki#1028 item 1).
+//
+// WHAT THIS IS. The exact `AskUserQuestion` `tool_input` the session must send,
+// written by the executor beside the declaration. Before it, the session read a
+// declaration and COMPOSED a question from it -- and on 2026-09-09, with the tag
+// gate open, it composed nothing at all: it called two MCP tools, wrote a file,
+// declined to render the gate, and answered the typed tag by calling
+// `ListAgents`. A payload the model composes is a payload the model can decline
+// to compose, paraphrase, or reorder, and no downstream carrier could tell.
+//
+// SO THE PAYLOAD IS AN ARTIFACT, NOT AN INSTRUCTION. `.claude/hooks/gate-open-
+// terrain-gate.py` allows exactly the call that is byte-equal to this file
+// after JSON canonicalisation and denies every other tool while the gate is
+// open. That comparison is only possible because the bytes exist on disk; a
+// prose instruction to "render it as declared" is checkable by nobody.
+//
+// THE READING RIDES INSIDE THE PAYLOAD. Where the declaration carries the
+// runtime's own pre-selection listing (`tag_listing`), it goes into the question
+// text ABOVE the question line rather than being left for the session to put on
+// screen. kogaki#856 put the reading before the question; this puts it inside
+// the thing that is compared, so a table that arrives missing, paraphrased or
+// reordered is a byte difference and is denied rather than merely regretted.
+//
+// THE SECOND OPTION IS COMPOSED, AND THAT IS AN OWNER RULING (2026-09-09, at the
+// /ship-cycle gate on this issue). `AskUserQuestion` admits 2-4 options; seven
+// of this repository's eight registered gates declare exactly one. The
+// declaration's `free_text_offered: true` is the second way to answer -- the
+// registry says so in as many words for the tag gate ("exactly two ways to
+// answer exist ... the standing option above, or free-form entry of a tag
+// name") -- so the composer TRANSCRIBES that flag into the row the harness
+// requires rather than the session inventing one at render time. It is the
+// deterministic half extended by one step, not a new arm: the ground is that an
+// automated lane which stops at one ruled outcome and says nothing about what
+// follows hands the following act to judgment, where a new design decision
+// enters disguised as a mechanical continuation.
+// consulted: product-lab@0f31c3bebdd65a126dd5c2928b86c2a212bba5c2 LESSONS.md:42
+//
+// AND WHERE IT CANNOT COMPOSE ONE, IT SAYS SO RATHER THAN WEDGING THE RUN. A
+// gate offering no option at all, or more than four after the free-text row, has
+// no valid payload -- so no `gate-call.json` is written and the pointer carries
+// `gate_call_unavailable` instead. The hook then still denies every tool but
+// `AskUserQuestion`, which is the exclusivity this issue is about, and admits
+// any payload for the question itself, because there is nothing to compare it
+// to. A deny with no admissible act is a wedge, and the failure this repository
+// already ruled on is that a fail-closed refusal relocates the choice it
+// refuses rather than preventing anything.
+// consulted: product-lab@0f31c3bebdd65a126dd5c2928b86c2a212bba5c2 LESSONS.md:44
+export const GATE_CALL_SUFFIX = ".gate-call.json";
+
+// The harness's own bound on an AskUserQuestion payload. Read from its schema,
+// restated here because there is no module to import it from across the seam --
+// the same two-implementations-of-one-constant trade `option_set_digest` makes,
+// and `checks/check-open-gate-exclusivity.sh` is what compares them.
+const ASK_MIN_OPTIONS = 2;
+const ASK_MAX_OPTIONS = 4;
+
+// ONE constant, never a per-gate wording composed at render time. A gate that
+// wants its own words declares `free_text_label` in `src/gate-registry.json`,
+// where an owner merges it, rather than the executor inventing a phrasing per
+// gate -- which is the composition this whole file removes.
+const GATE_CALL_FREE_TEXT_LABEL = "Answer in your own words instead";
+const GATE_CALL_FREE_TEXT_DESCRIPTION =
+  "This gate offers free text. Choose this row and type the answer; the harness "
+  + "records what you type, and the executor reads it from the capture.";
+
+// The chip label, at most 12 characters, DERIVED rather than composed: the last
+// hyphen-separated segment of the gate id. `terrain-tag-selection` -> `selection`.
+// A gate may override it with `header` in the registry.
+export function gateCallHeader(declaration) {
+  const declared = declaration.header;
+  if (typeof declared === "string" && declared.trim()) return declared.trim().slice(0, 12);
+  const segments = String(declaration.id || "gate").split("-").filter(Boolean);
+  return (segments[segments.length - 1] || "gate").slice(0, 12);
+}
+
+export function composeGateCall(declaration) {
+  const declared = Array.isArray(declaration.options) ? declaration.options : [];
+  const options = declared.map((o) => ({
+    label: String(o.label),
+    // The description is the option's OWN, and where it carries none the id is
+    // shown rather than a sentence invented about it.
+    description: String(o.description || o.id || ""),
+  }));
+  if (options.length === 0) {
+    return { unavailable: `${declaration.id} declares no option, and a question with no arm is not a gate — the free-text row alone would leave the owner one way to answer where the declaration promises none` };
+  }
+  if (options.length < ASK_MIN_OPTIONS) {
+    if (!declaration.free_text_offered) {
+      return { unavailable: `${declaration.id} declares ${options.length} option(s) and no free text, and AskUserQuestion admits at least ${ASK_MIN_OPTIONS} — there is no row to compose from, so none is invented` };
+    }
+    options.push({
+      label: String(declaration.free_text_label || GATE_CALL_FREE_TEXT_LABEL),
+      description: GATE_CALL_FREE_TEXT_DESCRIPTION,
+    });
+  }
+  if (options.length > ASK_MAX_OPTIONS) {
+    return { unavailable: `${declaration.id} composes ${options.length} options and AskUserQuestion admits at most ${ASK_MAX_OPTIONS} — no payload is written, and nothing here drops an option the declaration offered` };
+  }
+  const reading = typeof declaration.tag_listing === "string" && declaration.tag_listing.trim()
+    ? declaration.tag_listing : null;
+  const question = reading
+    ? `${reading}\n\n${String(declaration.question)}`
+    : String(declaration.question);
+  return {
+    tool_input: {
+      questions: [{
+        question,
+        header: gateCallHeader(declaration),
+        multiSelect: false,
+        options,
+      }],
+    },
+  };
 }
 
 // --------------------------------------------------------------------------
@@ -1837,7 +1960,53 @@ export function openGateDir() {
   return process.env.KOGAKI_OPEN_GATES || join(homedir(), ".claude", "kogaki-open-gates");
 }
 
-export function writeOpenGatePointer(dir, declaration, declPath) {
+// THE POINTER NAMES ITS SESSION (kogaki#1028 item 5).
+//
+// Every consumer of this directory previously matched on the question text
+// alone, so one machine's outstanding gate was every session's outstanding gate:
+// a second session answering a question with the same text wrote a row into the
+// first session's capture, and a PreToolUse deny keyed on "a pointer exists"
+// would have frozen every session on the machine rather than the one at the
+// gate.
+//
+// THE ID IS READ FROM AN ENVIRONMENT VARIABLE, SO ITS ABSENCE IS A CASE AND NOT
+// AN ERROR, AND THE TWO READERS TREAT IT DIFFERENTLY ON PURPOSE (PR #1043 round
+// 1, findings 2 and 5 -- the first cut's comment here said one thing and the
+// reader did another, which is the worse half of the defect):
+//
+//   `.claude/hooks/write-gate-capture.py` treats a null-session pointer as it
+//       treated every pointer before this field existed, matching on question
+//       text alone. Refusing it would turn "we cannot prove who owns this" into
+//       "no answer is ever recorded", breaking a path that works today.
+//   `.claude/hooks/gate-open-terrain-gate.py` gates nothing on a null-session
+//       pointer. Denying every tool call in a session that cannot be shown to
+//       own the gate is the failure with no recovery inside the session.
+//
+// Both readers therefore fail toward the recoverable side of their own act, and
+// neither treats the absence as a wildcard.
+function sessionId() {
+  // `CLAUDE_CODE_SESSION_ID` is what Claude Code exports into a Bash tool call
+  // and into a hook's process, which are the two routes the executor is started
+  // by (the skill's `!` line, and `.claude/hooks/advance-terrain.py`). A run
+  // started any other way carries null, and the readers above say what that
+  // means rather than leaving it to be inferred.
+  return process.env.CLAUDE_CODE_SESSION_ID || null;
+}
+
+// The question text the session actually sends for this gate: the composed
+// call's, where one was written, else the declaration's own.
+function sentQuestion(declaration, callPath) {
+  if (callPath && existsSync(callPath)) {
+    try {
+      const q = readJson(callPath);
+      const text = q && q.questions && q.questions[0] && q.questions[0].question;
+      if (typeof text === "string" && text) return text;
+    } catch { /* an unreadable call is the composer's fault and is reported at its write */ }
+  }
+  return declaration.question;
+}
+
+export function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callUnavailable = null) {
   const gd = openGateDir();
   mkdirSync(gd, { recursive: true });
   const capPath = join(dir, `terrain${GATE_SCHEMA.capture.suffix}`);
@@ -1860,9 +2029,21 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
   writeFileSync(join(gd, `${declaration.gate_instance_id}.json`), JSON.stringify({
     gate_instance_id: declaration.gate_instance_id,
     gate_id: declaration.id,
-    question: declaration.question,
+    // THE QUESTION AS SENT, never the bare declaration's (PR #1048 round 1,
+    // finding 1). `write-gate-capture.py` joins the harness's `answers` key to
+    // this field by exact equality, and the key is the question text the
+    // session sent -- which, where the composed call prepends `tag_listing`,
+    // differs from `declaration.question` by the whole table. A pointer
+    // carrying the bare text matches nothing, no row is written, and under the
+    // exclusivity hook the session then has no admissible act at all.
+    question: sentQuestion(declaration, callPath),
     declaration_path: resolve(declPath),
     capture_path: resolve(capPath),
+    // The byte-fixed call the session must send, or the stated reason there is
+    // none. Exactly one of the two is non-null, always.
+    gate_call_path: callPath ? resolve(callPath) : null,
+    gate_call_unavailable: callUnavailable,
+    session_id: sessionId(),
     opened_at: declaration.declared_at,
   }, null, 2) + "\n");
 }
@@ -6317,6 +6498,12 @@ const STATE_WORK = {
     // `neighborhood_input` already records its output to avoid.
     rec.composition_input = cmdComposeInput({
       ...args,
+      // THE RUN'S OWN DIRECTORY (kogaki#1045). The control plane resolved this
+      // run through the open-run pointer; without this key `runDir(args)` falls
+      // to its default branch and mints a second, timestamp-named workspace --
+      // which is where the 2026-09-09 live run's composition input landed while
+      // the run record named the first.
+      "run-dir": rec._dir,
       survey: needSurvey(rec),
       tag: ownerInput(rec, "TAG_SELECTION")
         || fail("compose_input needs a tag, and no wait has supplied one yet."),
@@ -7217,8 +7404,20 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       // leaving the order to the session (kogaki#856). A declaration carrying a
       // rendering carries it so the owner can answer from it; rendered after the
       // question, or not at all, it is the defect this issue was filed about.
-      console.log(`Where that declaration carries a rendering key (\`tag_listing\`), put those bytes on screen VERBATIM and BEFORE the question — they are the runtime's own output and are not retyped, summarized or reformatted.`);
-      console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. The executor renders no question UI and asks nothing (the post-tag-selection window).`);
+      // AND THE CALL IS NAMED, NOT DESCRIBED (kogaki#1028 item 1). The two lines
+      // this replaces told the session what to compose; a session that composed
+      // nothing at all was indistinguishable from one that had not been told.
+      // The payload is now a file, the only admissible act while the pointer is
+      // open is sending it byte-for-byte, and `.claude/hooks/gate-open-terrain-
+      // gate.py` is what makes that true rather than this sentence.
+      const callHere = join(dir, `${stopped.gate_id}${GATE_CALL_SUFFIX}`);
+      if (existsSync(callHere)) {
+        console.log(`The AskUserQuestion call is WRITTEN: ${callHere}`);
+        console.log(`Send that file's contents as the tool_input, byte-for-byte — it already carries the reading (\`tag_listing\`) above the question. Nothing is retyped, summarized, reformatted or pre-selected, and the executor renders no question UI of its own (the post-tag-selection window).`);
+        console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028).`);
+      } else {
+        console.log(`No AskUserQuestion call could be composed for this gate, and the reason is on the open-gate pointer (\`gate_call_unavailable\`). Render the declaration's options verbatim, nothing pre-selected, free text on.`);
+      }
       console.log(`Then re-enter with a bare  run --run-dir ${dir}  — the answer is read from the harness's own capture, written by .claude/hooks/write-gate-capture.py when the owner answers. No flag carries it (kogaki#890).`);
       console.log(`A bare --input is refused at a gate wait: it would skip the declaration's own option check and the tool_use_id that evidences the rendering.`);
     } else {
@@ -7312,6 +7511,15 @@ switch (cmd) {
     // case constructs its own inputs, so the trial runs with no gateway.
     let n = 0; const bad = [];
     const ok = (name, cond) => { if (cond) n++; else bad.push(name); };
+    // THE ANSWERS KEY IS THE QUESTION AS SENT (PR #1048 round 1, finding 1). A
+    // fixture answering with the bare declaration question would pass against a
+    // pointer that also carries the bare question, and both are wrong together.
+    const sentQ = (rd, decl) => {
+      const p = join(rd, `${decl.id}${GATE_CALL_SUFFIX}`);
+      if (!existsSync(p)) return decl.question;
+      const q = readJson(p);
+      return q.questions[0].question;
+    };
     ok("a lesson cite composes in the identity form from the record's own fields",
       composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa") === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @aaaaaaa");
     ok("a journey cite carries its own kind in the join key",
@@ -7733,6 +7941,13 @@ switch (cmd) {
         const gs = join(tmpdir(), `terrain-selftest-tagstop-${process.pid}`);
         const rd = join(gs, "rd");
         mkdirSync(rd, { recursive: true });
+        // EVERY EXECUTOR SPAWN IN THIS CASE CARRIES THE TEST SEAM (kogaki#1046).
+        // The two spawns below declare the tag gate, and a declaration writes an
+        // open-gate pointer; without `KOGAKI_OPEN_GATES` that pointer lands in
+        // the owner's live directory, where the capture hook's refuse-when-
+        // ambiguous rule then drops the next real answer -- which is what
+        // happened on 2026-09-09, three pointers per self-test run.
+        const execEnv = { ...process.env, KOGAKI_OPEN_GATES: join(gs, "open-gates", "exec") };
         const tp = join(gs, "table.json");
         writeFileSync(tp, JSON.stringify({ version: 1, states: [
           { id: "TAG_SELECTION", kind: "wait", owner_supplies: "one tag name, or the standing option",
@@ -7745,13 +7960,58 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8" });
+        const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: execEnv });
         const out = `${r.stdout || ""}${r.stderr || ""}`;
         ok("a run reaching TAG_SELECTION stops with its declaration WRITTEN rather than owed and unwritten",
           r.status === 0 && /run declaration is WRITTEN/.test(out) && !/OWED AND UNWRITTEN/.test(out),
           out.trim().split("\n").slice(-3).join(" | ").slice(0, 160));
-        ok("the stop instructs the session to put the listing on screen BEFORE the question, and names it verbatim",
-          /BEFORE the question/.test(out) && /tag_listing/.test(out) && /VERBATIM/.test(out));
+        // THE ORDER IS NOW A PROPERTY OF THE PAYLOAD, NOT OF THE STOP TEXT
+        // (kogaki#1028 item 1). kogaki#856's case asserted that the stop TOLD the
+        // session to put the listing on screen before the question; the listing
+        // now rides inside the question text of the call the executor composed,
+        // so what is asserted is that the call exists, is named, and carries the
+        // listing above the question line. An instruction the session could
+        // decline to follow has become bytes the PreToolUse hook compares.
+        ok("the stop names the WRITTEN AskUserQuestion call rather than instructing the session to compose one",
+          /call is WRITTEN/.test(out) && /byte-for-byte/.test(out) && !/OWED AND UNWRITTEN/.test(out),
+          out.split("\n").filter((l) => /call is WRITTEN|byte-for-byte/.test(l)).join(" | ").slice(0, 200));
+        {
+          const callPath = join(rd, `terrain-tag-selection${GATE_CALL_SUFFIX}`);
+          const call = existsSync(callPath) ? readJson(callPath) : null;
+          const q = call && call.questions && call.questions[0];
+          const listing = readJson(join(rd, "terrain-tag-selection.run-declaration.json")).tag_listing;
+          ok("the call carries the tag listing VERBATIM and ABOVE the question line, so a missing or paraphrased table is a byte difference",
+            !!q && typeof listing === "string" && q.question === `${listing}\n\n${"Which tag does the survey open on?"}`,
+            q ? q.question.slice(0, 160) : "(no call written)");
+          // THE CALL CARRIES THE DECLARATION'S OWN OPTIONS AND ADDS NOTHING.
+          // kogaki#1029 landed the tag gate's dynamic options (the largest
+          // served tags, plus the standing one) between this branch's first head
+          // and its rebase, so this gate now declares two to four by itself and
+          // the free-text fallback below is not reached for it. The case asserts
+          // that: the composer transcribes, and only a gate that would otherwise
+          // be UNRENDERABLE gets a row it did not declare.
+          const declOptions = readJson(join(rd, "terrain-tag-selection.run-declaration.json")).options;
+          ok("the call carries the declaration's own options unchanged, within AskUserQuestion's two-to-four bound",
+            !!q && q.options.length === declOptions.length
+              && q.options.length >= 2 && q.options.length <= 4
+              && q.options.every((o, i) => o.label === declOptions[i].label)
+              && q.multiSelect === false && q.header.length <= 12,
+            q ? JSON.stringify({ n: q.options.length, header: q.header }) : "(no call written)");
+          // AND THE FALLBACK IS STILL LIVE FOR THE GATES kogaki#1029 DID NOT
+          // TOUCH — six of the eight still declare one option, so the arm the
+          // owner ruled on is exercised directly rather than left unreached.
+          const oneArm = composeGateCall({
+            id: "fixture-one-option", question: "One arm?",
+            options: [{ id: "only", label: "The only declared arm" }], free_text_offered: true,
+          });
+          ok("a gate still declaring ONE option gets the free-text row composed from its own `free_text_offered`, never an invented arm (owner ruling 2026-09-09)",
+            !!oneArm.tool_input && oneArm.tool_input.questions[0].options.length === 2
+              && oneArm.tool_input.questions[0].options[0].label === "The only declared arm",
+            JSON.stringify((oneArm.tool_input || {}).questions || oneArm.unavailable));
+          ok("a gate declaring one option and NO free text composes no call at all, and the reason is stated rather than an arm being invented",
+            !composeGateCall({ id: "fixture-mute", question: "?", options: [{ id: "a", label: "A" }], free_text_offered: false }).tool_input,
+            composeGateCall({ id: "fixture-mute", question: "?", options: [{ id: "a", label: "A" }], free_text_offered: false }).unavailable);
+        }
         ok("the stop prints no invocation for the owner to run — no READ FIRST block, and no `terrain.mjs tags` hand-over",
           !/READ FIRST/.test(out) && !/terrain\.mjs tags/.test(out),
           out.split("\n").filter((l) => /READ FIRST|terrain\.mjs tags/.test(l)).join(" | "));
@@ -7772,8 +8032,26 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        const rBad = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdBad, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8" });
+        const rBad = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdBad, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: execEnv });
         const outBad = `${rBad.stdout || ""}${rBad.stderr || ""}`;
+        {
+          // The live directory holds no pointer this case minted (kogaki#1046
+          // acceptance 1). Read only when it exists: a machine with no live
+          // directory has nothing to leak into.
+          const live = join(homedir(), ".claude", "kogaki-open-gates");
+          const leaked = [];
+          if (existsSync(live)) {
+            for (const f of readdirSync(live)) {
+              if (!f.endsWith(".json")) continue;
+              try {
+                const p = readJson(join(live, f));
+                if (String(p.declaration_path || "").startsWith(gs)) leaked.push(f);
+              } catch { /* an unreadable pointer is not this case's */ }
+            }
+          }
+          ok("the self-test's executor spawns leave the live open-gate directory untouched (kogaki#1046)",
+            leaked.length === 0, leaked.join(", "));
+        }
         ok("a listing the tag_listing grammar refuses does not ride into a declaration — the gate refuses instead",
           rBad.status !== 0 && /refusing to emit tag_listing/.test(outBad),
           outBad.trim().split("\n")[0].slice(0, 140));
@@ -7798,12 +8076,21 @@ switch (cmd) {
         // shared directory, on purpose.
         const hookPath = join(REPO, ".claude", "hooks", "write-gate-capture.py");
         const gatesFor = (name) => join(gs, "open-gates", name);
-        const envFor = (name) => ({ ...process.env, KOGAKI_OPEN_GATES: gatesFor(name) });
+        // THE SELF-TEST NAMES ITS OWN SESSION (kogaki#1028 item 5). The capture
+        // hook joins a payload to a pointer on the nonce AND the session, and an
+        // empty id on either side matches nothing — so a fixture inheriting the
+        // ambient `CLAUDE_CODE_SESSION_ID` into the pointer while sending a
+        // payload without one would write no row, and the fixture would be
+        // reporting the join rather than what it means to cover. Pinned here so
+        // the pass is the same inside a session and outside one.
+        const SELF_TEST_SESSION = "terrain-self-test-session";
+        const envFor = (name) => ({ ...process.env, KOGAKI_OPEN_GATES: gatesFor(name), CLAUDE_CODE_SESSION_ID: SELF_TEST_SESSION });
         const answerThroughHook = (gatesName, questionText, label, toolUseId) => spawnSync(
           "python3", [hookPath],
           { encoding: "utf8", env: envFor(gatesName),
             input: JSON.stringify({
               tool_name: "AskUserQuestion",
+              session_id: SELF_TEST_SESSION,
               tool_use_id: toolUseId,
               tool_input: { questions: [{ question: questionText, options: [] }] },
               tool_response: { answers: { [questionText]: label } },
@@ -7917,7 +8204,7 @@ switch (cmd) {
           // tags a corpus happens to carry is a case that fails for the wrong
           // reason. Free text is the affordance every gate here declares on, and
           // it advances the wait exactly as a routed option does.
-          answerThroughHook("driven", declDrive.question, "a tag the owner typed", "toolu_test_hook_driven");
+          answerThroughHook("driven", sentQ(rdDrive, declDrive), "a tag the owner typed", "toolu_test_hook_driven");
           const rDrive = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdDrive, "--workflow", tp],
             { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("driven") });
           const recDrive = readRunRecord(rdDrive);
@@ -8070,7 +8357,7 @@ switch (cmd) {
             && /open-gate pointer/.test(outUnanswered),
           outUnanswered.trim().split("\n")[0].slice(0, 160));
 
-        answerThroughHook("opt", declOpt.question, standingLabel, "toolu_test_unrouted");
+        answerThroughHook("opt", sentQ(rdOpt, declOpt), standingLabel, "toolu_test_unrouted");
         const rOpt = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("opt") });
         const outOpt = `${rOpt.stdout || ""}${rOpt.stderr || ""}`;
@@ -8102,7 +8389,7 @@ switch (cmd) {
         }));
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("free") });
         const declFree = readJson(join(rdFree, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
-        answerThroughHook("free", declFree.question, "testing", "toolu_test_freetext");
+        answerThroughHook("free", sentQ(rdFree, declFree), "testing", "toolu_test_freetext");
         const rFree = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("free") });
         const recFree = readRunRecord(rdFree);
@@ -8153,7 +8440,7 @@ switch (cmd) {
           gate_declarations_owed: [], done: false,
         }));
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin2, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("shared") });
-        const rTwoOpen = answerThroughHook("shared", declTwin.question, "testing", "toolu_test_ambiguous");
+        const rTwoOpen = answerThroughHook("shared", sentQ(rdTwin, declTwin), "testing", "toolu_test_ambiguous");
         ok("with two outstanding gates carrying one question the hook writes no row and names the ambiguity, rather than picking one",
           /does not choose between them/.test(`${rTwoOpen.stdout || ""}${rTwoOpen.stderr || ""}`),
           `${rTwoOpen.stderr || ""}`.trim().split("\n")[0].slice(0, 160));
@@ -8176,7 +8463,7 @@ switch (cmd) {
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("trunc") });
         const declTrunc = readJson(join(rdTrunc, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const fullLabel = declTrunc.options.find((o) => o.id === "other-method").label;
-        answerThroughHook("trunc", declTrunc.question, fullLabel.slice(0, 24), "toolu_test_truncated");
+        answerThroughHook("trunc", sentQ(rdTrunc, declTrunc), fullLabel.slice(0, 24), "toolu_test_truncated");
         const rTrunc = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("trunc") });
         const outTrunc = `${rTrunc.stdout || ""}${rTrunc.stderr || ""}`;
@@ -8198,7 +8485,7 @@ switch (cmd) {
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("wrap") });
         const declWrap = readJson(join(rdWrap, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const wrapped = declWrap.options.find((o) => o.id === "other-method").label.replace(/ /g, "\n  ");
-        answerThroughHook("wrap", declWrap.question, wrapped, "toolu_test_rewrapped");
+        answerThroughHook("wrap", sentQ(rdWrap, declWrap), wrapped, "toolu_test_rewrapped");
         const rWrap = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("wrap") });
         ok("a RE-WRAPPED label still resolves to its option — whitespace is presentation, and the near-miss refusal is not a refusal of every inexact label",
@@ -8229,7 +8516,7 @@ switch (cmd) {
         }));
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("orphan") });
         const declAfter = readJson(join(rdAfter, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
-        const rAfterHook = answerThroughHook("orphan", declAfter.question, "a-tag", "toolu_test_after_orphan");
+        const rAfterHook = answerThroughHook("orphan", sentQ(rdAfter, declAfter), "a-tag", "toolu_test_after_orphan");
         const rAfter = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("orphan") });
         const recAfter = readRunRecord(rdAfter);

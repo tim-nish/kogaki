@@ -188,8 +188,15 @@ if not owed or not owed[0].get("declaration"):
 # THE PATH IS RECORDED REPO-RELATIVE and is read back the same way the executor
 # reads it — resolved against the tree root, absolute paths left alone.
 p = pathlib.Path(owed[0]["declaration"])
-decl = json.load(open(p if p.is_absolute() else pathlib.Path(sys.argv[3], p)))
-print(decl["question"])
+p = p if p.is_absolute() else pathlib.Path(sys.argv[3], p)
+decl = json.load(open(p))
+# THE QUESTION AS SENT (PR #1048 round 1, finding 1): the composed call's text
+# where one was written beside the declaration, else the declaration's own.
+call = p.with_name(f"{decl['id']}.gate-call.json")
+if call.exists():
+    print(json.load(open(call))["questions"][0]["question"])
+else:
+    print(decl["question"])
 PY
 }
 
@@ -241,6 +248,11 @@ drive() {                            # drive <label> <tree>
   # is the same silent no-row this variable exists to prevent, arriving from the
   # other end. Re-assigned per call, so the two trees never share.
   export KOGAKI_OPEN_GATES="$root/open-gates"
+  # THE SESSION JOIN (kogaki#1028, carried by #1047). The pointer the start act
+  # writes carries the session the executor was started in, and the capture
+  # writes a row only for a payload from that same session. The fixture's
+  # payloads name `fixture-session`, so the start act must be told the same.
+  export CLAUDE_CODE_SESSION_ID="fixture-session"
 
   # --- The start act: opens the run and stops at TAG_SELECTION.
   if ! (cd "$root" && node src/terrain.mjs start --run-dir "$D" >"$root/start.out" 2>&1); then
@@ -258,9 +270,33 @@ drive() {                            # drive <label> <tree>
   local p1
   p1=$(payload "toolu_fixture_tag" "$q" "fixture")
   capture "$root" "$D" "$p1" tag
-  printf '%s' "$p1" | (cd "$root" && KOGAKI_RUN_DIR="$D" KOGAKI_OPEN_GATES="$root/open-gates" \
+  # THIS SPAN RESOLVES THE RUN THE WAY THE LIVE HOOK DOES (kogaki#1045): through
+  # the open-run pointer, with no `KOGAKI_RUN_DIR` and no `--run-dir`. On the
+  # 2026-09-09 live run that route reached `compose_input`, whose handler
+  # re-resolved its directory through `runDir`'s default branch and minted a
+  # second, timestamp-named workspace in the lane. The two spans below keep the
+  # env route; this one is the fixture for the pointer route.
+  printf '%s\n' "$D" >"$root/open-run"
+  printf '%s' "$p1" | (cd "$root" && env -u KOGAKI_RUN_DIR KOGAKI_OPEN_RUN="$root/open-run" KOGAKI_OPEN_GATES="$root/open-gates" \
       KOGAKI_JUDGE_CLI="$root/judge-conformant" \
       python3 .claude/hooks/advance-terrain.py >"$root/adv1.out" 2>&1)
+
+  # ONE WORKSPACE (kogaki#1045). The lane under this tree holds no directory the
+  # advance minted, and the composition input the record names is inside $D.
+  if [ -z "$(ls -d "$root"/runs/terrain/terrain-* 2>/dev/null)" ] \
+     && python3 - "$D" <<'PY'
+import json, sys, pathlib, os
+d = pathlib.Path(sys.argv[1]).resolve()
+rec = json.load(open(d / "run-record.json"))
+ci = rec.get("composition_input") or ""
+p = pathlib.Path(ci)
+if not p.is_absolute():
+    p = (pathlib.Path(os.getcwd()) / p)
+sys.exit(0 if ci and p.resolve().parent == d else 1)
+PY
+  then pass; else
+    bad "$label: the advance minted a second workspace in the lane, or the composition input landed outside the run directory — compose_input re-resolved its directory through runDir's default branch (kogaki#1045). Lane: $(ls "$root"/runs/terrain 2>/dev/null | tr '\n' ' ')"
+  fi
 
   if [ -f "$root/reports/CoTagGroups.md" ]; then pass; else
     bad "$label: one payload for the tag answer did not produce reports/CoTagGroups.md — the co-tag file is not complete before the ID question (kogaki#1030 item 2). The advance said: $(tail -3 "$root/adv1.out" | tr '\n' ' ')"
