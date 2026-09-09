@@ -1,5 +1,18 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v40 (kogaki#1030) — **the four judgment states are model calls the
+EXECUTOR makes, and `CLAIM_REOFFER` is deleted.** §15.6 fenced the judgment
+points and left who *produces* the record unstated, which was harmless while a
+session could pass one on argv; kogaki#1027 deleted that route and the states
+became unreachable — a hook-driven run met `J1_claims`, was told it needed a
+`--claims` file, and stopped, so `reports/CoTagGroups.md` did not exist when the
+ID question was asked. §15.6.6 gives the states a producer: the executor invokes
+the model `src/workflow.json`'s `judge` block PINS, never one inherited from the
+session, validates the response through the state's own existing refusals, and
+re-asks up to the count that state declares before failing with the refusal text.
+§15.6.1 is REVERSED with its ground named rather than quietly dropped.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v39 (kogaki#927) — **an input that decides the rendered artifact is
 KEYED or RECORDED, and never neither; `--thesis-candidates` becomes the fourth
 recorded composed input.** The flag decided §12.3's content and the `serves: …
@@ -986,11 +999,41 @@ decisions, and a decision's declined arm has no carrier.
 
 ### 15.6 Judgment points are typed, fenced, and reached only from declared states
 
-### 15.6.1 The claim re-offer is a WAIT beside J1, never part of it
+### 15.6.1 The claim re-offer is DELETED — and the clause it reversed is named
 
-A wait is *the executor stopping* (§15.4); folding the re-offer into the judgment
-point would make the judgment ask the question. The declaration and capture stay
-**inside** the executor.
+**This section formerly ruled the re-offer a WAIT beside J1**, on the ground that
+a wait is *the executor stopping* (§15.4) and that folding the re-offer into the
+judgment point would make the judgment ask the question. That ground was sound
+and is not what changed. What changed is that §15.6.6 requires `compose_input`,
+both judgments and the `cotag_groups` write to complete **inside one hook event**,
+so the co-tag file is finished before the ID question is offered — and
+`CLAIM_REOFFER` sat between `J1_claims` and `J2_subdivision`. A wait in that span
+falsifies the guarantee on exactly the runs where it fires, so the gate and the
+requirement cannot both hold.
+
+**The wait's subject survives it.** The re-offer's subject is a claim pinned to a
+PROPER SUBSET of the member set its composition pin served — a derived origin
+member set — and that is governed by *the rule that a derived origin member set
+announces itself*, a duty on the **rendering**. The announcement discharges what
+the wait was protecting; the wait only added a stop.
+
+**Owner selection, 2026-09-09 (kogaki#1030 item 4).** The alternative on the
+table was to give `CLAIM_REOFFER` a computed condition — evaluable for the first
+time, since an executor-run `J1_claims` holds both the claims record and the
+composition pin — under the tag gate's enforcement. It was DECLINED: it would
+make §15.6.6's guarantee conditional and add a second handoff to the span this
+change exists to close. The cost is stated rather than absorbed: an owner can no
+longer override a subset claim's wording mid-run, and the recourse is re-running
+Terrain.
+
+**DELETED, and leaving no stub**, per §15.6.3: the state is gone from
+`src/workflow.json`, `terrain-claim-reoffer` is gone from `src/gate-registry.json`,
+and the option composer is gone with them. `counted_baseline` moves with it —
+`waits` 5 to 4, `conditional_states` 2 to 1 — which is what keeps the table's own
+counts a reader of the state set rather than a second copy of it.
+
+`necessity:` a reversal whose superseded ground is not written down reads, to the
+next editor, as a clause nobody thought about.
 
 ### 15.6.2 `subdivide` folds its COMPOSITION into J2, not only its validation
 
@@ -1050,6 +1093,65 @@ This is a statement about the **runtime**, not about the owner's surface.
 `necessity:` §15.6's subsections state placement grounds and declined arms —
 why the re-offer is a wait, why a removed entry point leaves no stub, why a gate
 wait admits one answering path — none of which a typed row can carry.
+
+### 15.6.6 A JUDGMENT POINT IS A CALL THE EXECUTOR MAKES, AND THE MODEL IS PINNED
+
+**The executor invokes the judge.** At every state of kind `judgment` it runs the
+command `src/workflow.json`'s `judge` block names, with the model that block
+**pins**, hands it the state's own declaration — its judgment point, its input
+shape, its refusal text — and the composed input the preceding state wrote, and
+parses one typed record out of the response.
+
+**The model is a called function and never the driver.** Nothing about what runs
+next is decided by the response: the record passes through the state's EXISTING
+refusals, unchanged and not duplicated, and every decision stays in the executor.
+
+**THE MODEL IS PINNED IN THE TABLE AND NEVER INHERITED FROM THE SESSION.** A
+judgment performed by whatever model happened to be driving is not reproducible,
+and the run record could not say what judged it.
+
+**A refused response is RE-ASKED, up to the count the STATE declares.** `retries`
+is a per-state field, required of exactly the judgment states, because the states
+differ in how much a re-ask can plausibly repair. When they are spent the run
+FAILS, carrying the state's own refusal text — so an operator reads why the
+record was rejected rather than that the judge failed. **The count reported in
+that failure is the attempts MADE, never the attempts licensed**: a message
+composed from the bound would say a call had been retried when it had not.
+
+**Two spans, and each completes in one hook event.** After the tag answer:
+`compose_input`, `J1_claims`, `J2_subdivision`, the `cotag_groups` write, and the
+`ID_SELECTION` declaration. After the ID answer: `thesis_candidates`,
+`neighborhood_input`, `J3_neighborhood`, the `full_report` write, and the
+`STRAND_SELECTION` declaration. **No state of either span leaves the hook chain**,
+which is what makes "the co-tag file is complete before the ID question" a
+property of the table rather than a hope about ordering.
+
+**The judged records travel on the RUN RECORD, not on argv.** `J1_claims` and
+`J2_subdivision` validated them, so the writing states read back what those
+states wrote — the rule §12 already states for the neighborhood judgment,
+applied to the states beside it. Before this, a hook-driven run reached
+`cotag_groups` holding judgments it had just made invisible to itself.
+
+**The judgment provenance state `observed` now has a producer** (§13's split
+between what the Harness OBSERVED and what a record DECLARES). The invocation
+record is the Harness's own act — the command it ran, the model it pinned, the
+attempts it made, and a sha it took from the response bytes on disk. Nothing in
+it comes from the response's content: a model cannot write its own provenance by
+saying it judged.
+
+**The judge pin's two halves are now of different kinds, and are not conflated.**
+`model_id` is OBSERVED — the model the executor actually ran. `effort_tier` is
+DECLARED in the same block, because the call carries no effort flag and a value
+read back from nothing would be the provenance lie §13 exists to prevent.
+
+**What is NOT asserted anywhere**: that the pinned model is reachable, or that
+its answers are good. The registered fixture stubs the binary through
+`KOGAKI_JUDGE_CLI` and binds the executor's call, parse, retry and refusal —
+never the judgment, which is not this repository's to assert.
+
+`necessity:` who produces a judgment record is a placement decision, and §15.6
+fenced the judgment points without making it — which is how the states came to be
+fenced and unreachable at the same time.
 
 ### 15.7 `self-test` and `validate` are NON-FLOW utilities
 

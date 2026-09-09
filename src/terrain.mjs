@@ -193,7 +193,42 @@ function persistPendingRun() {
   } catch { /* the refusal below is the message that matters */ }
 }
 
+// ---- THE ONE SOFT WINDOW, AND IT IS A JUDGE RE-ASK (kogaki#1030). ----------
+//
+// A judgment state's refusals are `fail()` — `process.exit(1)` — which is right
+// for every caller it has ever had: an owner-supplied record that the state
+// refuses is the run stopping. With the executor invoking the judge itself, the
+// same refusal is now also the thing a RETRY reads: "the response passes through
+// the existing refusals; a refused response is retried at most the count
+// `workflow.json` declares for the state, then the run fails with the refusal
+// text" (kogaki#1030 item 1).
+//
+// SO THE REFUSALS ARE NOT DUPLICATED, THE EXIT IS DEFERRED. A second copy of
+// each state's refusal, written to throw for the retry path, is two readings of
+// one rule — the shape `J3_neighborhood`'s own comment sets out to avoid. The
+// window is opened around ONE call, the validation of one judge response, and
+// closed in a `finally`; inside it `fail()` throws the refusal instead of
+// exiting, and `invokeJudge`'s caller decides between re-asking and letting the
+// refusal reach `fail()` for real.
+//
+// COUNTED, NOT BOOLEAN, so a nested open cannot close the window early.
+//
+// EVERYTHING OUTSIDE THAT WINDOW IS UNCHANGED. A refusal raised anywhere else in
+// a run still exits, still persists the pending record, and still prints the
+// same text — this adds no second exit path and retires none.
+let SOFT_REFUSAL_DEPTH = 0;
+
+function softRefusals(fn) {
+  SOFT_REFUSAL_DEPTH += 1;
+  try { return fn(); }
+  finally { SOFT_REFUSAL_DEPTH -= 1; }
+}
+
 function fail(msg) {
+  // The window is the judge re-ask's and nothing else's; `JudgmentRefusal` is
+  // the existing carrier for "a refusal that has not exited yet", declared with
+  // `orFail` further down and reused here rather than a second class.
+  if (SOFT_REFUSAL_DEPTH > 0) throw new JudgmentRefusal(msg);
   persistPendingRun();
   process.stderr.write(`terrain: ${msg}\n`);
   process.exit(1);
@@ -1681,8 +1716,6 @@ function composeOwnerListing(surfaceName, text) {
 // outside a run emits it. The surface that renders it is AskUserQuestion, the
 // gate carrier.
 // --------------------------------------------------------------------------
-const CLAIM_GATE = "terrain-claim-reoffer";
-
 function memberPins(ids, candidates) {
   return ids.map((id) => {
     const c = candidates.find((x) => x.id === id);
@@ -1725,70 +1758,24 @@ function validateClaimRecord(rec, block) {
   return v;
 }
 
-// THE RE-OFFER, reachable only from `CLAIM_REOFFER` (the claim re-offer wait, kogaki#625
-// item 1). `claim` and `adopt` ceased to be entry points, and the three halves
-// they welded together split by owner: COMPOSING the claims record is the
-// outside composer's (the typed judgment points), VALIDATING it is `J1_claims`', and the GATE EVENT
-// GroupClaim-first rendering rules a subset selection is this state's. Adoption is applying the
-// captured answer, which the executor records at this same wait — so no
-// separate `adopt` act remains to be performed out of order.
+// THE RE-OFFER IS DELETED, AND LEAVES NO STUB (kogaki#1030 item 4, owner
+// selection 2026-09-09). `CLAIM_REOFFER` was a `wait` sited between
+// `J1_claims` and `J2_subdivision`; item 2 of that issue requires
+// `compose_input`, both judgments and the `reports/CoTagGroups.md` write to
+// complete inside ONE PostToolUse hook, so the co-tag file is finished before
+// the ID question is offered. A wait in that span makes that guarantee false on
+// exactly the runs where it fires, so the gate and the requirement cannot both
+// hold. What the wait existed for is not lost: its subject is a claim pinned to
+// a PROPER SUBSET of the set its composition pin served -- a derived origin
+// member set -- and that is governed by the rule that a derived origin member
+// set ANNOUNCES ITSELF, a duty on the rendering rather than a wait.
 //
-// The subset check is kept here rather than inherited: GroupClaim-first rendering pins a claim to the
-// member set it was composed over, and a re-offer over members that were never
-// in the group is not a recomposition of anything.
-export function composeClaimReoffer(args, dir, record) {
-  const tag = String(args.tag || fail("CLAIM_REOFFER needs --tag <selected tag>"));
-  const groupArg = String(args.group || fail("CLAIM_REOFFER needs --group <co-tag>: the group whose claim is re-offered"));
-  const text = String(args.text || fail("--text is required: the RECOMPOSED \"in common:\" line. GroupClaim-first rendering binds the pinning, the gate event and the declaration's shape — the composer's prompt, model and wording are not specified here and are not invented here."));
-  const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
-  const group = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
-  const subset = args.members ? String(args.members).split(",").map((s) => s.trim()).filter(Boolean) : null;
-  if (!subset) fail("CLAIM_REOFFER needs --members a,b,c — the SUBSET the claim is recomposed over. A full-group claim reaches no gate: GroupClaim-first rendering makes that rendering per-invocation and not an adopted claim, so there is nothing to re-offer.");
-  const stray = subset.filter((id) => !group.members.includes(id));
-  if (stray.length) fail(`--members names ${stray.join(", ")}, which are not members of ${group.name} — a subset is a subset of the set the claim was pinned to`);
-  if (subset.length === group.members.length) {
-    fail(`--members names all ${group.members.length} member(s) of ${group.name}, which is not a subset. This state's own \`conditional\` says so: it is entered ONLY on a PROPER subset.`);
-  }
-  const members = subset;
-  const original = args.original ? readJson(String(args.original)) : null;
-  const originText = args["original-text"] ? String(args["original-text"]) : null;
-  const originMembers = args["original-members"]
-    ? String(args["original-members"]).split(",").map((s) => s.trim()).filter(Boolean)
-    : null;
-  let originBlock;
-  if (original) {
-    originBlock = { original_claim: original.claim, original_members: original.members,
-                    original_members_provenance: "recorded",
-                    original_source: "claim-record" };
-  } else if (originText) {
-    // The member set may be DERIVED from the group the claim was composed over
-    // — the display's serve rule composes a GroupClaim over a group's WHOLE member set, so those
-    // members genuinely are a display-composed origin's. What GroupClaim-first rendering forbids is the
-    // substitution being SILENT: a derived set and a recorded one are otherwise
-    // indistinguishable at the gate, and the owner comparing a recomposed claim
-    // against its origin cannot see which they hold. So the fallback announces
-    // itself at the point of substitution, which is the only place the evidence
-    // still exists, and `derived` is a WRITTEN value rather than an omission.
-    const derived = !originMembers;
-    originBlock = { original_claim: originText,
-                    original_members: originMembers || group.members,
-                    original_members_provenance: derived ? "derived" : "recorded",
-                    original_source: derived
-                      ? "display-composed (wording passed as an argument; MEMBER SET DERIVED from the group it was composed over, not recorded — SPEC.md, GroupClaim-first rendering)"
-                      : "display-composed (passed as an argument; the display writes no record — SPEC.md, GroupClaim-first rendering)" };
-  } else {
-    // An absent origin is STATED, never fabricated (GroupClaim-first rendering v4 rider). A gate that
-    // silently omitted it would present a recomposed wording as if it had one.
-    originBlock = { original_claim: null, original_members: null,
-                    original_members_provenance: "none",
-                    original_source: "NONE — this is the first composition over this set; no original exists and none is invented (SPEC.md, GroupClaim-first rendering)" };
-  }
-  return {
-    options: [{ id: `adopt-recomposed:${group.name}`, label: `Adopt the recomposed wording over these ${members.length} member(s): ${text}` }],
-    extra: { ...originBlock, recomposed_claim: text, recomposed_members: members, recomposed_over_subset: true },
-  };
-}
-
+// DELETED RATHER THAN DEPRECATED, per SPEC-terrain "A removed entry point is
+// DELETED, and leaves no stub": the state is gone from `src/workflow.json`, its
+// gate is gone from `src/gate-registry.json`, and this composer is gone with
+// them. Nothing refuses by name here because nothing can reach it -- a table row
+// naming a gate this runtime has no composer for is already a declared,
+// reported state (`gate_declarations_owed[].unwritten`).
 // The one place a run declaration is composed. Its callers are `GATE_WORK`'s
 // option composers, reached from the executor at the wait that owes the
 // declaration, and nothing outside a run can reach this composer at all. The
@@ -1879,12 +1866,11 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
     opened_at: declaration.declared_at,
   }, null, 2) + "\n");
 }
-// `adopt` ceased to be an entry point (kogaki#625 item 1). The claim re-offer wait rules
-// adoption the OWNER's act rather than a judgment, and the executor records it
-// as the captured answer at `CLAIM_REOFFER` — the wait that offered it. The
-// refusal the retired command carried ("a recomposed claim that was never
-// offered cannot be adopted") is now structural: there is no capture without a
-// declaration, and no declaration without the state.
+// `adopt` ceased to be an entry point (kogaki#625 item 1), and the wait that
+// replaced it is itself deleted (kogaki#1030 item 4). The refusal the retired
+// command carried ("a recomposed claim that was never offered cannot be
+// adopted") stays structural, and by a shorter route than before: there is no
+// capture without a declaration, no declaration without a state, and no state.
 
 // --------------------------------------------------------------------------
 // subdivide — semantic subdivision as a judged substrate one level down
@@ -2496,13 +2482,16 @@ export function readSubdivisionEntry(name, entry) {
 // reader to infer:
 //
 //   `observed`  the Harness invoked the judge itself, or holds a judgment
-//               record its OWN act wrote. Terrain invokes no judge, so this
-//               state HAS NO PRODUCER TODAY. It is named rather than omitted
-//               because a single-state provenance is indistinguishable from no
-//               provenance at all, and because it is the arm a judge-invoking
-//               act would light up without touching either renderer.
+//               record its OWN act wrote. SINCE kogaki#1030 THIS STATE HAS A
+//               PRODUCER: the executor invokes the pinned model at every
+//               judgment state, so a run that reached one holds an invocation
+//               record its own act wrote. The arm was named here before it had
+//               one -- a single-state provenance is indistinguishable from no
+//               provenance at all -- and lighting it up touched neither
+//               renderer, which is what that naming was for.
 //   `declared`  no such record. The pin names what the COMPOSER says judged
-//               this split. This is every run today.
+//               this split. This is every run whose judgment record arrived on
+//               argv, and every run made before kogaki#1030.
 //
 // WHAT THE HARNESS DOES OBSERVE, in both states: the `--subdivisions` artifact
 // it read, whose sha it takes ITSELF from the bytes on disk — the same read
@@ -2522,12 +2511,199 @@ export function readSubdivisionEntry(name, entry) {
 export const JUDGMENT_OBSERVED = "observed";
 export const JUDGMENT_DECLARED = "declared";
 
-// The Harness's own judgment-invocation record. `null` because terrain invokes
-// no judge — the one honest value. A FUNCTION rather than a bare constant so
-// that the site a judge-invoking act would fill is named and reachable, and so
-// the two renderers below read one source rather than each testing a literal.
-export function harnessJudgeInvocation() {
+// THE SITE IS FILLED (kogaki#1030). The comment above says `observed` "HAS NO
+// PRODUCER TODAY … it is the arm a judge-invoking act would light up without
+// touching either renderer". This is that act, and neither renderer is touched:
+// the executor now invokes the judge itself at every `judgment` state, and what
+// it records here is ITS OWN act — the model it pinned from the workflow table,
+// the command it ran, the state it ran it for, how many times it asked, and the
+// sha it took from the response bytes on disk.
+//
+// STILL NOT A READ-BACK OF MODEL OUTPUT. The distinction kogaki#892 draws is
+// between a record the HARNESS wrote about an act it performed and a record the
+// MODEL composed about itself; this is the first. Nothing in the invocation
+// record comes from the response's content — the model cannot write its own
+// provenance by saying it judged.
+//
+// SET BY `invokeJudge` AND BY NOTHING ELSE, per state, for the life of the
+// process. A run where the owner supplied the record on argv sets none and stays
+// `declared`, which is the honest reading: that run's judgment was declared to
+// this layer, not observed by it.
+const JUDGE_INVOCATIONS = new Map();
+
+export function recordJudgeInvocation(stateId, invocation) {
+  JUDGE_INVOCATIONS.set(stateId, invocation);
+}
+
+// The Harness's own judgment-invocation record. `null` where this process
+// invoked no judge — the one honest value, and the state every pre-#1030 run is
+// in. A FUNCTION rather than a bare constant so that the site is named and
+// reachable, and so the two renderers below read one source rather than each
+// testing a literal.
+//
+// THE DEFAULT ARGUMENT IS THE SUBDIVISION STATE because the two renderers that
+// read this are the subdivision display's, and `judgmentProvenance` is called
+// with the `--subdivisions` artifact. A caller naming another state gets that
+// state's invocation.
+export function harnessJudgeInvocation(stateId = "J2_subdivision") {
+  return JUDGE_INVOCATIONS.get(stateId) || null;
+}
+
+// ---- THE JUDGE CALL ITSELF (kogaki#1030 item 1). ---------------------------
+//
+// THE MODEL IS A CALLED FUNCTION, NEVER THE DRIVER. The executor composes the
+// prompt from the table's own declaration of the state — its judgment point, its
+// input shape and its refusal text — hands the state's composed input alongside,
+// runs the pinned model, and parses ONE typed record out. Every decision about
+// what happens next stays here.
+//
+// THE MODEL IS PINNED IN `workflow.json` AND NEVER INHERITED FROM THE SESSION.
+// A judgment carried out by whatever model happened to be driving is not
+// reproducible and the run record could not say what judged it.
+//
+// `KOGAKI_JUDGE_CLI` REPLACES THE BINARY, FOR FIXTURES. The acceptance cases
+// drive this path with `claude -p` stubbed, and a fixture that had to reach the
+// real CLI would be a fixture that cannot run. It overrides WHICH executable is
+// run and nothing else: the argv, the pinned model, the parse and every refusal
+// below are the same on both paths, so the fixture exercises the shipped code
+// rather than a second one written for it.
+function judgeSettings(table) {
+  const j = (table && table.judge) || fail(
+    "the workflow table declares no `judge` block, so a judgment state has no model to invoke. "
+    + "field_semantics: the block names the command, THE PINNED MODEL and the output format, and the "
+    + "model is never inherited from the session (kogaki#1030).");
+  return {
+    command: process.env.KOGAKI_JUDGE_CLI || String(j.command
+      || fail("the workflow table's `judge` block names no `command`")),
+    model: String(j.model || fail("the workflow table's `judge` block pins no `model`")),
+    outputFormat: String(j.output_format || "json"),
+    stubbed: !!process.env.KOGAKI_JUDGE_CLI,
+  };
+}
+
+// Everything after this line in a judge prompt is the input file, verbatim.
+export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
+
+// The prompt is composed FROM THE TABLE, so a fifth judgment state needs a table
+// row and no code here: its judgment point, input shape and refusal text are
+// already the three things the state declares about what it wants.
+function judgePrompt(st, inputPath) {
+  const L = [];
+  L.push(`You are the judge at the Terrain workflow's \`${st.id}\` judgment point.`);
+  L.push("");
+  L.push(`JUDGMENT POINT: ${st.judgment_point || st.id}`);
+  L.push(`REQUIRED RECORD SHAPE: ${st.input_shape || "the typed record this state declares"}`);
+  if (st.refusal) L.push(`WHAT IS REFUSED: ${st.refusal}`);
+  L.push("");
+  L.push("Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.");
+  L.push("Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.");
+  L.push("");
+  // THE MARKER IS PART OF THE CONTRACT, not decoration. Everything after it is
+  // the input file verbatim, so a reader — the judge, or a fixture stub standing
+  // in for one — can find the input by position rather than by scanning for a
+  // brace that the state's own `input_shape` text might also contain.
+  L.push(JUDGE_INPUT_MARKER);
+  L.push(readFileSync(inputPath, "utf8"));
+  return L.join("\n");
+}
+
+// The response's typed record. `--output-format json` wraps the answer in the
+// CLI's own envelope, so the record is dug out of `result` rather than parsed
+// off the whole of stdout; a bare record is admitted too, because that is what a
+// stub is likeliest to emit and because admitting it costs no ambiguity.
+function judgeRecordFrom(stdout, st) {
+  let outer;
+  try { outer = JSON.parse(stdout); }
+  catch (e) {
+    fail(`${st.id}: the judge's response is not JSON (${e.message}). The response is what the `
+      + `pinned model returned to \`--output-format json\`, unedited: ${String(stdout).slice(0, 400)}`);
+  }
+  const inner = outer && typeof outer === "object" && !Array.isArray(outer)
+    && Object.prototype.hasOwnProperty.call(outer, "result") ? outer.result : outer;
+  if (typeof inner !== "string") return inner;
+  try { return JSON.parse(inner); }
+  catch (e) {
+    fail(`${st.id}: the judge's response envelope parsed and its \`result\` did not (${e.message}). `
+      + `The record must be the typed record alone -- no prose and no fences: ${inner.slice(0, 400)}`);
+  }
   return null;
+}
+
+// THE RETRY IS BOUNDED BY THE TABLE, and the bound is the STATE's. `retries` is
+// the number of RE-ASKS, so a state declaring 2 makes at most three calls.
+//
+// THE FAILURE CARRIES THE REFUSAL TEXT, which is the issue's own wording: the
+// last refusal the state raised is what the run fails with, so the operator
+// reads why the judge's record was rejected rather than "the judge failed".
+function invokeJudge(table, st, inputPath, dir, validate) {
+  const cfg = judgeSettings(table);
+  const retries = Number.isInteger(st.retries) ? st.retries : fail(
+    `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
+    + `key of exactly the judgment states -- the count is a property of the workflow and is held in `
+    + `the table, never in this file (kogaki#1030).`);
+  const prompt = judgePrompt(st, inputPath);
+  const argv = ["-p", "--model", cfg.model, "--output-format", cfg.outputFormat];
+  let lastRefusal = null;
+  // COUNTED AS IT HAPPENS, never derived from the bound. A message composed from
+  // `retries + 1` reports the number of attempts the table LICENSED rather than
+  // the number this call made -- so a loop that stopped early would still say it
+  // had spent them all, and an operator reading the refusal would be told a
+  // count nothing performed. Found by mutating the loop bound and watching the
+  // case stay green.
+  let attempts = 0;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    attempts += 1;
+    const res = spawnSync(cfg.command, argv, { input: prompt, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    if (res.error) {
+      fail(`${st.id}: the judge could not be run (${cfg.command}: ${res.error.message}). The command and the `
+        + "model are pinned in the workflow table's `judge` block; nothing here falls back to another model.");
+    }
+    if (res.status !== 0) {
+      fail(`${st.id}: the judge exited ${res.status}. Its stderr, verbatim: ${(res.stderr || "").trim() || "(empty)"}`);
+    }
+    const out = join(dir, `terrain-judge-${st.id}.json`);
+    try {
+      const record = judgeRecordFrom(res.stdout, st);
+      writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
+      // THE STATE'S OWN REFUSALS, run against the judge's record exactly as they
+      // run against an owner-supplied one. The soft window is what makes a
+      // refusal here a re-ask instead of an exit; it is opened around this call
+      // and nothing else.
+      softRefusals(() => validate(out));
+      recordJudgeInvocation(st.id, {
+        state: st.id,
+        command: cfg.command,
+        model: cfg.model,
+        stubbed: cfg.stubbed,
+        attempts: attempt + 1,
+        retries_declared: retries,
+        // TAKEN FROM THE BYTES ON DISK BY THIS LAYER, like every other sha in
+        // this file. A sha the response supplied would be one more declaration.
+        response_sha: createHash("sha256").update(readFileSync(out)).digest("hex").slice(0, 16),
+        at: new Date().toISOString(),
+      });
+      return out;
+    } catch (e) {
+      if (!(e instanceof JudgmentRefusal)) throw e;
+      lastRefusal = e.message;
+    }
+  }
+  fail(`${st.id}: the judge's record was refused on all ${attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
+    + `the workflow table declares for this state). The last refusal, verbatim: ${lastRefusal}`);
+  return null;
+}
+
+// The one place a judgment state decides between the record it was HANDED and
+// the one it ASKS FOR. An explicit `--<flag>` still wins — that is the fixture
+// path, the second-repository path and the owner's own, and it is unchanged —
+// and its absence is no longer a refusal but a call.
+function judgedRecordPath(rec, st, table, args, flag, composeInput, validate) {
+  if (args[flag] !== undefined) {
+    const p = String(args[flag]);
+    validate(p);
+    return p;
+  }
+  return invokeJudge(table, st, composeInput(), rec._dir, validate);
 }
 
 export function judgmentProvenance(subdivisionsPath) {
@@ -2610,10 +2786,12 @@ export function judgePinLine(pin, prov) {
   const seen = p.artifact_sha
     ? `the --subdivisions record it read, sha \`${p.artifact_sha}\``
     : "no --subdivisions record at all";
-  // BOTH ARMS WRAP, by one rule (kogaki#919 acceptance 2). The observed arm is
-  // unreachable today — terrain invokes no judge — so wrapping only the arm a
-  // run can produce would leave the divergence standing for whenever a producer
-  // appears, which is the amend-it-later shape this file refuses.
+  // BOTH ARMS WRAP, by one rule (kogaki#919 acceptance 2). The observed arm was
+  // unreachable when that rule was written, and wrapping only the arm a run
+  // could then produce would have left the divergence standing for whenever a
+  // producer appeared — the amend-it-later shape this file refuses. kogaki#1030
+  // is that producer, and the rule needed no amendment to meet it, which is the
+  // whole of what writing it that way bought.
   //
   // THE PIN CLAUSE IS THE HEAD, on both arms, and that is what keeps a long
   // composer-supplied `model_id` from moving the text the grammar classifies
@@ -2859,6 +3037,10 @@ function cmdComposeInput(args) {
   const input = composeInput(record, tag, groups, fetchShard);
   const out = join(dir, `terrain-composition-input-${tag.replace(/[^a-zA-Z0-9]+/g, "-")}.json`);
   writeFileSync(out, JSON.stringify(input, null, 2) + "\n");
+  // OBSERVED AND RETURNED, like `cmdSurvey` and the two renderers beside it: the
+  // caller records the path this act actually wrote rather than re-deriving the
+  // filename from the tag (kogaki#1030).
+  const composedInputPath = out;
 
   const a = input.accounting;
   console.log(`Composition input (bounded): ${out}`);
@@ -2872,6 +3054,7 @@ function cmdComposeInput(args) {
   console.log(`Classification: REPORT (SPEC.md, the second-proposer boundary) — it ranks nothing, narrows nothing and hides nothing. It composes no claim and judges nothing: the claim wording stays the composer's (GroupClaim-first rendering) and the coherence label the judge's (semantic subdivision).`);
   console.log(`Machine-local run workspace, never committed (founding spec rider 3).`);
   console.log(`\nNext: cotags --survey ${String(args.survey)} --tag ${tag} --claims <F> [--subdivisions <F> --judge-model M --judge-effort E]`);
+  return composedInputPath;
 }
 
 // Where the machine RECORD lives (location and naming v11). A record is machine-facing and
@@ -5999,6 +6182,57 @@ const FIXTURE_RECORD_KEY_VALUE = "written by this state's own renderer";
 // this map is an unrendered state — refused for `write` and `judgment`, and a
 // no-op advance for `compute`, which is what makes a pure-sequencing table
 // edit cost no code.
+// The composed input `compose_input` wrote, demanded rather than recomputed
+// (kogaki#1030). It is the judge's whole input at `J1_claims` and
+// `J2_subdivision`, and its absence means the state before this one did not run
+// — which is a refusal about the RUN and not about the judge, so it is raised
+// here rather than inside the call.
+function needCompositionInput(rec, st) {
+  return rec.composition_input
+    || fail(`${st.id} has no composed input to judge over — \`compose_input\` writes it and precedes this `
+      + `state in the workflow table. A judgment asked over nothing is a judgment about nothing (kogaki#1030).`);
+}
+
+// The judge pin the two writing states record, from the table that pins the
+// model and the invocation the executor actually made (kogaki#1030).
+//
+// THE MODEL HALF IS OBSERVED AND THE EFFORT HALF IS DECLARED, and the two are
+// not conflated: the model is the one this process ran, read from the same
+// `judge` block the call read; the effort tier is what the table declares the
+// run asks at, because the call carries no effort flag and a value read back
+// from nothing would be the provenance lie kogaki#892 exists to prevent.
+//
+// AN EXPLICIT FLAG STILL WINS. This supplies a default where a hook-driven run
+// has no route to supply one; it overrides nothing.
+// The judged records the two writing states render FROM, joined from the run
+// record rather than from this act's argv (kogaki#1030).
+//
+// THE RULE IS `full_report`'s OWN, APPLIED TO THE STATES BESIDE IT. That state
+// already joins the neighborhood judgment this way, and says why: "J3 wrote the
+// path it validated; reading it back here is what makes deleting the judgment
+// file after J3 and re-rendering fail loudly — the record still names the path".
+// The claims and the subdivision records are in exactly that position: `J1_claims`
+// and `J2_subdivision` validated them, and before this act nothing carried them
+// forward, so a hook-driven run reached `cotag_groups` with the judgments it had
+// just made invisible to it and `full_report` refused for want of an entry the
+// run already held.
+//
+// AN EXPLICIT FLAG STILL WINS, for the fixture and second-repository paths.
+function judgmentJoins(rec, args) {
+  const j = (rec && rec.judgments) || {};
+  const join = {};
+  if (j.J1_claims && args.claims === undefined) join.claims = resolve(REPO, j.J1_claims);
+  if (j.J2_subdivision && args.subdivisions === undefined) join.subdivisions = resolve(REPO, j.J2_subdivision);
+  return join;
+}
+
+function judgePinArgs(table, args) {
+  const j = (table && table.judge) || {};
+  if (!j.model || !j.effort) return {};
+  if (args["judge-model"] !== undefined || args["judge-effort"] !== undefined) return {};
+  return { "judge-model": String(j.model), "judge-effort": String(j.effort) };
+}
+
 const STATE_WORK = {
   survey: (rec, st, args) => {
     rec.survey_record = cmdSurvey({ ...args, "run-dir": rec._dir });
@@ -6014,7 +6248,14 @@ const STATE_WORK = {
   // owner-artifact writes per run are TWO.
 
   compose_input: (rec, st, args) => {
-    cmdComposeInput({
+    // THE PATH IS RECORDED, not recomputed (kogaki#1030). `J1_claims` and
+    // `J2_subdivision` are now the executor's own judge calls and both judge
+    // over THIS artifact — the state's own note says the subdivision judgment
+    // "is composed from the SAME artifact and spends no further read". A second
+    // computation of the filename in each of them is two answers to the question
+    // of which composition the run is judging, which is the shape
+    // `neighborhood_input` already records its output to avoid.
+    rec.composition_input = cmdComposeInput({
       ...args,
       survey: needSurvey(rec),
       tag: ownerInput(rec, "TAG_SELECTION")
@@ -6024,34 +6265,54 @@ const STATE_WORK = {
   },
 
   // JUDGMENT POINTS. The executor VALIDATES and never composes (the typed judgment points): the
-  // typed record arrives as a file, and the refusals are the existing ones —
-  // this story adds no new judgment semantics and re-implements none.
-  J1_claims: (rec, st, args) => {
-    const path = String(args.claims
-      || fail(`${st.id} is a declared judgment point and needs its typed record: --claims <file>. ${st.refusal || ""}`.trim()));
+  // refusals are the existing ones — this story adds no new judgment semantics
+  // and re-implements none.
+  //
+  // WHAT kogaki#1030 CHANGES IS WHO PRODUCES THE RECORD, and nothing else. The
+  // typed record used to arrive only as a file on argv, and with `--input`,
+  // `--at` and `--enter` deleted (kogaki#1027) nothing in a hook-driven run
+  // could put one there — so a run reached `J1_claims` and stopped at a refusal
+  // asking for a flag no route could supply. The executor now ASKS THE PINNED
+  // MODEL for the record itself, writes it, and runs these same refusals over
+  // it; an explicit flag still wins and is unchanged.
+  //
+  // THE VALIDATION BODY IS THE SAME FUNCTION ON BOTH PATHS, which is why it is
+  // written once as `validate` and handed to `judgedRecordPath`. Two copies —
+  // one for the owner's record, one for the judge's — is two readings of one
+  // rule, and it is the shape the two states below this one already refuse.
+  J1_claims: (rec, st, args, table) => {
     const survey = readJson(needSurvey(rec));
-    const { claims, pin } = readClaimsRecord(readJson(path), survey);
     const tag = ownerInput(rec, "TAG_SELECTION")
       || fail("J1_claims needs a tag, and no wait has supplied one yet.");
-    const members = survey.candidates.filter((c) => (c.tags || []).includes(tag));
-    const outside = claimsOutsideBound(claims, pin, cotagGroups(members, tag));
-    if (outside.length) {
-      fail(`${st.id} refuses: ${outside.map((o) => `${o.group} (${o.reason}${o.members.length ? `: ${o.members.join(", ")}` : ""})`).join("; ")}`);
-    }
+    const validate = (p) => {
+      const { claims, pin } = readClaimsRecord(readJson(p), survey);
+      const members = survey.candidates.filter((c) => (c.tags || []).includes(tag));
+      const outside = claimsOutsideBound(claims, pin, cotagGroups(members, tag));
+      if (outside.length) {
+        fail(`${st.id} refuses: ${outside.map((o) => `${o.group} (${o.reason}${o.members.length ? `: ${o.members.join(", ")}` : ""})`).join("; ")}`);
+      }
+    };
+    const path = judgedRecordPath(rec, st, table, args, "claims",
+      () => needCompositionInput(rec, st), validate);
     rec.judgments[st.id] = relFromRepo(resolve(path));
     return null;
   },
 
-  J2_subdivision: (rec, st, args) => {
-    const path = String(args.subdivisions
-      || fail(`${st.id} is a declared judgment point and needs its typed record: --subdivisions <file>. ${st.refusal || ""}`.trim()));
-    const raw = readJson(path);
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-      fail(`${st.id} refuses a bare array or non-object --subdivisions record; ${st.input_shape || "one typed entry per composed group"}.`);
-    }
-    // Each entry is read by the EXISTING validator, which carries the judged
-    // flag, the judge pin and the coherence rules (semantic subdivision, measurement before offering, the report identity).
-    for (const name of Object.keys(raw)) readSubdivisionEntry(name, raw[name]);
+  J2_subdivision: (rec, st, args, table) => {
+    const validate = (p) => {
+      const raw = readJson(p);
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        fail(`${st.id} refuses a bare array or non-object --subdivisions record; ${st.input_shape || "one typed entry per composed group"}.`);
+      }
+      // Each entry is read by the EXISTING validator, which carries the judged
+      // flag, the judge pin and the coherence rules (semantic subdivision, measurement before offering, the report identity).
+      for (const name of Object.keys(raw)) readSubdivisionEntry(name, raw[name]);
+    };
+    // THE SAME COMPOSED ARTIFACT `J1_claims` JUDGED OVER, which is this state's
+    // own standing note: semantic subdivision "is composed from the SAME
+    // artifact and spends no further read".
+    const path = judgedRecordPath(rec, st, table, args, "subdivisions",
+      () => needCompositionInput(rec, st), validate);
     rec.judgments[st.id] = relFromRepo(resolve(path));
 
     // AND THE COMPOSITION, WHICH THE RETIRED `subdivide` OWNED (subdivide's composition fold,
@@ -6109,9 +6370,7 @@ const STATE_WORK = {
   // arity and membership refusals unchanged. What this state adds is the WRITE
   // — the minted list goes to the run workspace so J3 and the pull read one
   // fixed set of ids rather than each re-deciding what TC1 is.
-  thesis_candidates: (rec, st, args) => {
-    const path = String(args["thesis-candidates"]
-      || fail(`${st.id} is a declared judgment point and needs its typed record: --thesis-candidates <file>. ${st.refusal || ""}`.trim()));
+  thesis_candidates: (rec, st, args, table) => {
     const record = readJson(needSurvey(rec));
     const tag = ownerInput(rec, "TAG_SELECTION")
       || fail(`${st.id} needs a tag, and no wait has supplied one yet.`);
@@ -6127,8 +6386,29 @@ const STATE_WORK = {
       targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
       .map((mid) => displayIdOf(mid, record.candidates))
       .filter((d) => d && d !== NO_DISPLAY_ID);
-    const composed = readThesisCandidates(readJson(path), memberDisplayIds,
-      loadGrammar(REPORT_FORMAT).limits || {});
+    const limits = loadGrammar(REPORT_FORMAT).limits || {};
+    // COMPOSED HERE SO IT IS COMPOSED ONCE. `readThesisCandidates` mints the ids
+    // and carries the count, arity and membership refusals; running it inside
+    // `validate` is what makes a judge's record pass exactly the refusals an
+    // owner's does, and holding the result is what keeps the ids the run writes
+    // the ids the run validated.
+    let composed = null;
+    const validate = (p) => {
+      composed = readThesisCandidates(readJson(p), memberDisplayIds, limits);
+    };
+    // THE JUDGE'S INPUT IS THE SET IT MAY COMPOSE OVER, and nothing wider. The
+    // strand refusals are stated over `memberDisplayIds`, so handing the judge
+    // anything else would be asking for a record this state must then refuse.
+    const composeInputFor = () => {
+      const p = join(rec._dir, `terrain-judge-input-${st.id}.json`);
+      writeFileSync(p, JSON.stringify({
+        state: st.id,
+        strands_you_may_use: memberDisplayIds,
+        candidates_required: limits.thesis_candidates,
+      }, null, 2) + "\n");
+      return p;
+    };
+    const path = judgedRecordPath(rec, st, table, args, "thesis-candidates", composeInputFor, validate);
     const out = join(rec._dir, "terrain-thesis-candidates.json");
     writeFileSync(out, JSON.stringify(composed, null, 2) + "\n");
     // STORED ABSOLUTE, like `neighborhood_candidates` beside it — a run
@@ -6180,9 +6460,8 @@ const STATE_WORK = {
     return null;
   },
 
-  J3_neighborhood: (rec, st, args) => {
-    const path = String(args.neighborhood
-      || fail(`${st.id} is a declared judgment point and needs its typed record: --neighborhood <file>. ${st.refusal || ""}`.trim()));
+  J3_neighborhood: (rec, st, args, table) => {
+    const validate = (path) => {
     // THE CLOSED-SET AND LEVEL-WITHOUT-CLAIM REFUSALS ARE THE EXISTING ONES.
     // the typed judgment points: the executor validates and never composes, and re-implementing a
     // refusal that already ships is how two readings of one rule appear.
@@ -6241,12 +6520,33 @@ const STATE_WORK = {
         + "level label PER CANDIDATE, so a record that judges only some of them is the "
         + "LLM-controlled skip kogaki#741 removes. Judge every candidate the enumeration wrote.");
     }
+    };
+    // THE JUDGE'S INPUT IS THE ENUMERATION `neighborhood_input` WROTE, plus the
+    // composed Thesis candidates its targets must name. Both are read from the
+    // run record rather than from argv, for the reason this state's refusals are:
+    // the ids J3 is judged against must be the ids the pull will render.
+    const composeInputFor = () => {
+      const emitted = rec.neighborhood_candidates
+        ? readJson(rec.neighborhood_candidates)
+        : fail(`${st.id} has no candidate enumeration to judge against — neighborhood_input writes it and it precedes this state in the table.`);
+      const tc = rec.thesis_candidates ? readJson(rec.thesis_candidates) : [];
+      const p = join(rec._dir, `terrain-judge-input-${st.id}.json`);
+      writeFileSync(p, JSON.stringify({
+        state: st.id,
+        candidates_you_must_judge: emitted.candidates || [],
+        thesis_candidates_a_target_may_name: (tc || []).map((c) => ({ id: c.id, claim: c.claim })),
+      }, null, 2) + "\n");
+      return p;
+    };
+    const path = judgedRecordPath(rec, st, table, args, "neighborhood", composeInputFor, validate);
     rec.judgments[st.id] = relFromRepo(resolve(path));
     return null;
   },
 
-  cotag_groups: (rec, st, args) => ({
+  cotag_groups: (rec, st, args, table) => ({
     artifact: cmdCotags({
+      ...judgePinArgs(table, args),
+      ...judgmentJoins(rec, args),
       ...args,
       survey: needSurvey(rec),
       tag: ownerInput(rec, "TAG_SELECTION")
@@ -6256,6 +6556,15 @@ const STATE_WORK = {
 
   full_report: (rec, st, args, table) => {
     const written = cmdReport({
+      // THE JUDGE PIN NOW HAS A PRODUCER (kogaki#1030). `--judge-model` and
+      // `--judge-effort` are required for every report invocation (the report
+      // identity v9) and, since kogaki#1027 deleted the model-typed route, a
+      // hook-driven run had nothing that could supply them — the same shape as
+      // the judgment records themselves, and the same repair: the executor
+      // supplies what it now knows. `model_id` is the model it ACTUALLY RAN.
+      // Spread FIRST, so an explicit flag still wins.
+      ...judgePinArgs(table, args),
+      ...judgmentJoins(rec, args),
       ...args,
       survey: needSurvey(rec),
       tag: ownerInput(rec, "TAG_SELECTION")
@@ -6343,8 +6652,9 @@ const STATE_WORK = {
 //
 // COMPOSING a declaration and RECORDING a capture are `record`, and record is
 // engine code; RENDERING the question is the judgment step and stays the
-// session's. This is the same split the claim re-offer wait made for CLAIM_REOFFER, generalised
-// to every wait the table marks `renders_gate_declaration: true`.
+// session's. This is the split the claim re-offer wait was the first case of,
+// generalised to every wait the table marks `renders_gate_declaration: true` --
+// and it outlived that wait, which kogaki#1030 deleted.
 //
 // the post-tag-selection window's EMPTY QUESTION ALLOWLIST IS UNTOUCHED, and that is the clause worth
 // checking rather than assuming: the executor still asks nothing and still
@@ -6409,7 +6719,6 @@ const GATE_WORK = {
     return { options: ids.map((id) => ({ id: `strand:${id}`, label: id })), extra: {} };
   },
 
-  CLAIM_REOFFER: (rec, st, args) => composeClaimReoffer(args, rec._dir, readJson(needSurvey(rec))),
 
   // THE ONE WAIT THAT DECLARED NO GATE (kogaki#890, acceptance item 3).
   //
@@ -6665,10 +6974,18 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // its place, every conditional state is SKIPPED and the record says so --
   // which is what the executor already did on any act that omitted the flag.
   //
-  // NAMED RATHER THAN HIDDEN: the shipped table's two conditional states,
-  // CLAIM_REOFFER and TRIM_RATIFICATION, are unreachable until a later child of
-  // kogaki#1025 makes their declared conditions something the executor
-  // evaluates. The empty set below is that fact, written once.
+  // NAMED RATHER THAN HIDDEN: the shipped table's ONE remaining conditional
+  // state, TRIM_RATIFICATION, is unreachable until a later child of kogaki#1025
+  // makes its declared condition something the executor evaluates. The empty set
+  // below is that fact, written once.
+  //
+  // IT WAS TWO. `CLAIM_REOFFER` was the other, and kogaki#1030 deleted it rather
+  // than giving it the computed condition this comment anticipated -- because
+  // that issue's item 2 requires the two judgments and the co-tag write to
+  // complete inside one hook, and a wait sited between them cannot be made
+  // reachable without falsifying that. Recorded here because a reader meeting a
+  // one-member set where the history says two should be able to tell a deletion
+  // from a state that quietly stopped being listed.
   const entered = new Set();
   let stopped = null;
   for (const st of table.states) {
@@ -8354,6 +8671,11 @@ switch (cmd) {
        --input, --at and --enter are DELETED and refused by name — kogaki#1027)
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F] [--thesis-candidates F]
       [--judge-model M] [--judge-effort E]
+      (the five record flags are OPTIONAL since kogaki#1030: a judgment state whose
+       flag is absent INVOKES THE JUDGE ITSELF, using the model src/workflow.json's
+       \`judge\` block pins -- never one inherited from the session -- and retries a
+       refused response the number of times that state declares before failing with
+       the refusal text. A flag that IS supplied still wins, unchanged.)
                                             THE CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
                                             src/workflow.json declares until the
