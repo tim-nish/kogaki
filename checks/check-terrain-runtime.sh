@@ -97,5 +97,52 @@ if (( N > FLOOR )); then
   echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were ADDED and the floor was not advanced in the same act, so the ratchet is $((N - FLOOR)) behind and cannot see a case deleted inside that gap (kogaki#970). Set case_floor to $N for 'terrain-runtime' in checks/registry.json, in this commit"
   exit 1
 fi
+
+# ---- THE ACT ARM (kogaki#1026). The self-test above drives the composer the
+# empty-survey refusal is made of; this arm drives the ACT, because what failed
+# on 2026-09-09 was not the composer — it answered correctly — but the caller,
+# which printed the answer and carried on into the tag gate. A case over the
+# composer alone would have been green through the whole incident.
+#
+# SEAM-FREE, like every case above it. The arm builds a scratch REPO — `src/`
+# copied whole, plus a STUB `policy/kit/bin/gateway-query.mjs` that prints the
+# miss shape — so `terrain survey` reaches no gateway and no network. `REPO` is
+# the parent of `src/`, which is what makes the substitution a copy rather than
+# a patch to the runtime.
+echo "== the empty-survey refusal, driven as an act (kogaki#1026)"
+SCRATCH=$(mktemp -d)
+trap 'rm -rf "$SCRATCH"' EXIT
+mkdir -p "$SCRATCH/policy/kit/bin"
+cp -R src "$SCRATCH/src"
+cat > "$SCRATCH/policy/kit/bin/gateway-query.mjs" <<'STUB'
+// The miss shape, verbatim in the fields the survey reads: no records, a pin.
+process.stdout.write(JSON.stringify({
+  miss: true, tool: "element_survey", pin: "product-lab@f1x7ure", lines: [],
+}) + "\n");
+STUB
+
+SURVEY_OUT=$(cd "$SCRATCH" && node src/terrain.mjs survey 2>&1); SURVEY_RC=$?
+printf '%s\n' "$SURVEY_OUT"
+if [[ $SURVEY_RC -eq 0 ]]; then
+  echo "FAIL: survey exited 0 over a miss-shape response — an empty survey is a refusal (kogaki#1026), and a zero exit is what let the executor advance to the tag gate"
+  exit 1
+fi
+if ! grep -q "0 served line(s)" <<<"$SURVEY_OUT"; then
+  echo "FAIL: the refusal does not name the served-line count, which is half of what tells the call apart from the corpus"
+  exit 1
+fi
+if ! grep -q "pin product-lab@f1x7ure" <<<"$SURVEY_OUT"; then
+  echo "FAIL: the refusal does not name the pin, so an operator cannot ask a second surface at the same pin — the one check that distinguishes the two causes"
+  exit 1
+fi
+# `runs/` UNTOUCHED is asserted as ABSENCE, not as emptiness: `runDir` creates
+# and prunes, so a directory that exists at all means the refusal ran after a
+# write it was supposed to precede.
+if [[ -e "$SCRATCH/runs" ]]; then
+  echo "FAIL: the refusal left $SCRATCH/runs behind — it must fire before the run directory is taken, not after"
+  exit 1
+fi
+echo "ok: the empty-survey refusal exits non-zero, names served lines and pin, and touches no run store"
+
 echo "ok: terrain runtime fixture pass ran ${N} case(s) clean, exactly at its declared floor of ${FLOOR}"
 exit 0
