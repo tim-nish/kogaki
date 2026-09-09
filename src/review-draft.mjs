@@ -7610,10 +7610,10 @@ async function runSelfTest() {
   // reason unrelated to what they measure.
   //
   // WHAT CHANGED SINCE #880, and it is the whole of what changed: the reading
-  // used to arrive as a `figure_reading` object inside the recovered record's
-  // second schema. It now arrives as a SECOND FENCED BLOCK in the figure
-  // record's own field names, so neither reading carries a key belonging to the
-  // other artifact. The cases below drive the new grammar; the properties they
+  // used to arrive as one object field of the second schema kogaki#1014 deleted.
+  // It now arrives as a SECOND FENCED BLOCK in the figure record's own field
+  // names, so neither reading carries a key belonging to the other artifact.
+  // The cases below drive the new grammar; the properties they
   // assert are #880's own.
   {
     const fdir = join(root, "fig");

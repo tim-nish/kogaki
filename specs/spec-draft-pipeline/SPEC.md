@@ -1313,10 +1313,25 @@ without its content moving is a pin that answers for nothing.
 **Nothing here judges wording.** Whether an element's text is a fair wording of
 its ground, and whether the relations instantiate the kind's `relation` line,
 are judgments — §4.6's rule that a missing field is refused and a weak one is
-not. That is also why kogaki#880 reviews the figure by a **round trip** rather
+not. That is also why kogaki#880 reviews the figure by a **Round Trip** rather
 than by a lint here: the check that an element is entailed by its ground is
 owed against the *rendered* figure a reader meets, not against the record the
 renderer was given.
+
+**The form that Round Trip takes is this record's own fields (kogaki#1018).** A
+passage is written from a Brief Step, so its Reverse Outline is a Brief Step
+block; a figure is written from the record above, so its Reverse Outline is a
+block in the fields declared here — the same rule, one artifact down, and no
+second schema at either level. `element`, `caption` and `position` are declared
+**reconstructible** and compared, because a reader who met the rendered block
+can say each of them. `kind`, `relations` and `emphasis` are declared **not
+reconstructible** and are REFUSED rather than merely unasked: the kind is the
+Move form's and the relations are the form's, and a reader cannot infer the form
+a structure was produced from — which is the same ruling that keeps `move` out of
+a passage's Reverse Outline. It is filed as its own fenced block and its own
+file, because `figure` IS a Brief Step field and is refused inside the passage's
+outline; one file per vocabulary is what keeps either reading from acquiring a
+key belonging to the other.
 
 **`emit` refuses while a figure-carrying Step owes its record**, naming the
 Step, exactly as it refuses a Step that owes its prose. A Draft emitted without
@@ -1406,9 +1421,9 @@ carries **no `figure` key at all**, an absent field rather than a null one.
 
 **The Step's own `lines` span the prose alone (kogaki#868), and the figure's own
 lines are `figure.lines`.** This is the load-bearing half of the entry rather
-than a formatting choice: kogaki#870's blind recovery quotes a Step at exactly
-its `lines`, and a range that swallowed the block would hand the reviewer markup
-to re-derive prose from. One range carrying both would answer for neither.
+than a formatting choice: kogaki#870's Reverse Outlining quotes a Step at exactly
+its `lines`, and a range that swallowed the block would hand the Blind Reader
+markup to re-derive prose from. One range carrying both would answer for neither.
 
 **A recorded figure that will not render stops the artifact.** §4.17's guard
 answers *is a record owed*; this answers *does it render*, and the two are
@@ -1424,7 +1439,7 @@ naming the Step** — beside the heading refusal (§4.15) and for the same reaso
 one element over: the figure seat is the Brief's, and a second author on it is
 the same defect as a second heading author. Prose that draws its own diagram is
 a figure the Brief never declared, rendered by nobody, pinned by no record, and
-invisible to kogaki#880's round trip.
+invisible to kogaki#880's Round Trip.
 
 **Refused on every Step, not only on figure-carrying ones.** A Step that
 declares none has the strongest claim of all to draw none — the default is NONE
