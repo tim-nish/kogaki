@@ -524,22 +524,38 @@ export function displayIdAbnormalLine(missing, total) {
     + "Re-run `terrain survey` to regenerate the record (location and naming v11).";
 }
 
-// A SURVEY WITH NO CANDIDATES IS AMBIGUOUS, and the ambiguity is what let
-// kogaki#368 live: an empty survey validated, exited zero, and could mean the
-// corpus has no Lessons or that the call never reached one. The transport now
-// refuses an undeclared key before sending, which removes the cause — but the
-// surface still owes the distinction, because the cause is not the only way to
-// arrive here. Pure, so it can be fixtured; the caller prints what it returns.
-export function surveyEmptinessNote(servedLines, lessonCount) {
+// A SURVEY WITH NO CANDIDATES IS A REFUSAL (kogaki#1026), and it was a NOTE
+// until 2026-09-09, when the difference cost two runs. The note was correct
+// and said the right thing — the ambiguity kogaki#368 left behind, that zero
+// candidates can mean the corpus holds no Lessons or that the call reached no
+// surface — but it printed and returned, and the executor carried on into
+// `TAG_SELECTION`, wrote a gate declaration whose tag listing held only its
+// header lines, and minted an open-gate pointer. Raising the tag question over
+// an empty table is precisely what the pre-selection listing exists to
+// prevent, so the surface that states the ambiguity is also the one that must
+// stop.
+//
+// THE PIN IS PART OF THE REFUSAL, not decoration. The two causes are told
+// apart by asking a second served surface AT THE SAME PIN, and an operator who
+// is not told which pin was read cannot perform that check — which is how the
+// 2026-09-09 runs were read as a corpus with no material when the corpus held
+// 558 lines.
+//
+// Pure, so it can be fixtured; the caller prints what it returns and exits.
+export function surveyEmptinessRefusal(servedLines, lessonCount, pin) {
   if (lessonCount > 0) return null;
+  const at = `pin ${pin ?? "absent"}`;
   if (servedLines === 0) {
-    return "0 candidates, and THE SEAM SERVED NOTHING AT ALL — this is a "
-      + "statement about the call, not about the corpus. A served surface with "
-      + "no records is not a corpus with no Lessons.";
+    return `0 candidates, and THE SEAM SERVED NOTHING AT ALL — 0 served `
+      + `line(s) at ${at}. This is a statement about the CALL, not about the `
+      + "corpus: a served surface with no records is not a corpus with no "
+      + "Lessons. Ask a second surface at the same pin — if one answers while "
+      + "this one misses, the fault is the element manifest and re-running "
+      + "changes nothing.";
   }
-  return `0 candidates, from ${servedLines} served record(s) — the seam `
-    + "answered and NONE of what it served was a Lesson. This is a statement "
-    + "about the corpus.";
+  return `0 candidates, from ${servedLines} served record(s) at ${at} — the `
+    + "seam answered and NONE of what it served was a Lesson. This is a "
+    + "statement about the CORPUS.";
 }
 
 // The cite is COMPOSED at this producing site in the identity form
@@ -562,7 +578,12 @@ export function composeIdentityCite(slug, kind, pin) {
 // survey — read the seam, compose, validate, write.
 // --------------------------------------------------------------------------
 function cmdSurvey(args) {
-  const dir = runDir(args);
+  // THE RUN DIRECTORY IS NOT CREATED HERE ANY MORE (kogaki#1026). `runDir`
+  // creates — and on the default path PRUNES — under `runs/`, so calling it
+  // first made every survey touch the run store before it knew whether it had
+  // anything to survey. The refusal below must leave `runs/` alone, so the
+  // read and the decision both come first and the directory is taken only
+  // once this act is going to write into it.
   // `{}`, NOT a kind filter. `element_survey` declares `kind` (SINGULAR) and
   // `tag`; this sent `kinds` and the gateway dropped the undeclared key and
   // returned the miss shape, so the survey composed with ZERO candidates at
@@ -611,8 +632,24 @@ function cmdSurvey(args) {
       journeys.push({ slug: rec.slug, cite });
     }
   }
-  const emptiness = surveyEmptinessNote((resp.lines || []).length, lessons.length);
-  if (emptiness) console.log(emptiness);
+  // THE REFUSAL, and it is sited HERE — after the read and the family split,
+  // before the run directory, the survey record, and every state the executor
+  // would run after this one. What it refuses is not a bad survey but an
+  // EMPTY one: a tag question composed over zero candidates asks the owner to
+  // name a tag from a listing that has no rows.
+  const emptiness = surveyEmptinessRefusal((resp.lines || []).length, lessons.length, resp.pin);
+  if (emptiness) {
+    // THE PENDING RUN IS RELEASED RATHER THAN PERSISTED (kogaki#808's persist
+    // is armed by the executor before this state runs). Its rule — a refusal
+    // is not a rollback of the transitions the same act completed — is about
+    // states that COMPLETED; `survey` is the first state of the table, so
+    // there is nothing behind it to preserve, and a record naming a survey
+    // that does not exist is worse than no record. This is the one release
+    // outside the loop's own write, and it is stated rather than incidental.
+    setRunPersist(null, null);
+    process.stderr.write(`terrain: ${emptiness}\n`);
+    process.exit(1);
+  }
   // The mark reads by ABSENCE: a Lesson with no Journey is decorated, a Lesson
   // with one is not.
   const journeyBySlug = new Map(journeys.map((j) => [j.slug, j]));
@@ -664,6 +701,7 @@ function cmdSurvey(args) {
   if (violations.length) {
     fail(`refusing to write a non-conforming survey record:\n  ${violations.join("\n  ")}`);
   }
+  const dir = runDir(args);
   const out = join(dir, `${id}.terrain-survey.json`);
   writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
   // Rendering. The figure takes the first line here as a PRESENTATION choice;
@@ -6644,6 +6682,41 @@ switch (cmd) {
       && composeIdentityCite("alpha", "lesson", "product-lab@") === null);
     ok("the positional form is not producible by this composer",
       !/ELEMENTS\.jsonl:\d/.test(composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa")));
+
+    // ---- AN EMPTY SURVEY IS A REFUSAL (kogaki#1026). The cases drive the
+    // composer the refusal is made of, and the ACT is asserted beside it in
+    // `checks/check-terrain-runtime.sh`'s sibling arm — the composer answering
+    // correctly while the caller printed and carried on is exactly the state
+    // the 2026-09-09 runs were in.
+    //
+    // THESE ARE THE REMOVAL TEST TOO (acceptance 3). Nothing here reads the
+    // skill file or the Spec: `surveyEmptinessRefusal` is a pure function of
+    // this module, so the cases pass with both absent from the tree, which is
+    // what makes the refusal the executor's own code path rather than a rule
+    // carried in prose beside it.
+    ok("the miss shape refuses as a statement about the CALL, naming 0 served lines and the pin",
+      (() => {
+        const r = surveyEmptinessRefusal(0, 0, "product-lab@0f31c3b");
+        return typeof r === "string"
+          && /0 served line\(s\)/.test(r)
+          && r.includes("pin product-lab@0f31c3b")
+          && /about the CALL/.test(r);
+      })());
+    ok("a served response with records and no Lesson refuses as a statement about the CORPUS, naming the count and the pin",
+      (() => {
+        const r = surveyEmptinessRefusal(12, 0, "product-lab@0f31c3b");
+        return typeof r === "string"
+          && r.includes("12 served record(s)")
+          && r.includes("pin product-lab@0f31c3b")
+          && /about the CORPUS/.test(r);
+      })());
+    ok("an absent pin is NAMED rather than elided — the operator is told which pin was read, or that none was",
+      surveyEmptinessRefusal(0, 0, undefined).includes("pin absent"));
+    ok("a survey with candidates is not a refusal, so the ordinary path is untouched",
+      surveyEmptinessRefusal(0, 1, "product-lab@0f31c3b") === null
+      && surveyEmptinessRefusal(9, 4, "product-lab@0f31c3b") === null);
+    ok("the two refusals are DISTINGUISHABLE — the whole point is telling the call apart from the corpus",
+      surveyEmptinessRefusal(0, 0, "p@a") !== surveyEmptinessRefusal(12, 0, "p@a"));
     // ---- THE ABBREVIATED-FORM COMPILER (kogaki#653). A `…` in a `form`
     // abbreviates the rest of a long fixed line, so the class matches as a
     // PREFIX. The compiler truncated per split-part, and the masked form is
