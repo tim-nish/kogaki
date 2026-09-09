@@ -581,9 +581,17 @@ function cmdSurvey(args) {
   // THE RUN DIRECTORY IS NOT CREATED HERE ANY MORE (kogaki#1026). `runDir`
   // creates — and on the default path PRUNES — under `runs/`, so calling it
   // first made every survey touch the run store before it knew whether it had
-  // anything to survey. The refusal below must leave `runs/` alone, so the
-  // read and the decision both come first and the directory is taken only
-  // once this act is going to write into it.
+  // anything to survey. The read and the decision both come first, and the
+  // directory is taken only once this act is going to write into it.
+  //
+  // WHAT THAT DOES AND DOES NOT BUY, stated rather than left to be assumed
+  // (PR #1033 round 1). On the STANDALONE `terrain survey` path it leaves
+  // `runs/` absent, which is what the act arm asserts. Under the EXECUTOR it
+  // does not: `cmdRun` takes the run directory before the `survey` state runs,
+  // so the lane is already entered and pruned by then. What the refusal
+  // withholds there — and what kogaki#1026 actually asks for — is the run
+  // RECORD, the gate declaration and the open-gate pointer, none of which is
+  // written once this state exits non-zero.
   // `{}`, NOT a kind filter. `element_survey` declares `kind` (SINGULAR) and
   // `tag`; this sent `kinds` and the gateway dropped the undeclared key and
   // returned the miss shape, so the survey composed with ZERO candidates at
