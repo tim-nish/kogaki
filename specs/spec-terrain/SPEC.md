@@ -1118,6 +1118,15 @@ check names this spec's path was established once, at kogaki#1032, and is held
 by nothing on later heads; §15.8 records the gap rather than this section
 claiming a member it does not have.
 
+**Owner decision, 2026-09-09 (kogaki#1036 acceptance 1): the test is NOT owed on
+this head, and it is owed at the first live hook-driven run.** The run the test
+requires — driven by hook payloads alone — exists only once the executor is
+invoked by hooks (kogaki#1027's successor); on this head there is no such path
+to drive, so a run here would measure nothing. The act that runs it is the
+live-run close kogaki#1029 names, and that close is its watcher: a Removal Test
+still unrun when #1029 closes is a defect of that close, never a quiet default.
+The result is recorded here, beside the test, when it runs.
+
 `necessity:` the test is the operational content of "conformance oracle", and
 it is a statement about the whole tree with this file removed from it — which
 by construction no carrier inside the tree can hold.
