@@ -360,12 +360,35 @@ def gate_context(pointer):
             "on.")
 
 
+def refusal_context(text):
+    """The executor's refusal, on the one channel that reaches the session.
+
+    A REFUSAL RAISED INSIDE AN ADVANCE REACHED NOBODY (kogaki#1085). `note`
+    writes to stderr, and a PostToolUse hook's stderr reaches the transcript
+    nowhere -- so an advance that ended a run ended it silently, and the
+    session's only reading was a run record naming one state fewer than it
+    expected. kogaki#1081 opened `additionalContext` for gate payloads; this
+    puts the refusal there beside them.
+
+    IT IS RELAYED, NEVER INTERPRETED. The executor's stderr is the message, and
+    the empty case is stated rather than dropped: an exit code with no text is
+    itself the only thing there is to say.
+    """
+    body = text.strip() or ("the executor exited non-zero and wrote nothing to "
+                            "stderr")
+    return ("The Terrain advance was refused by the executor; nothing further "
+            "was advanced. Its refusal, verbatim:\n"
+            "```\n" + body + "\n```")
+
+
 def emit_context(text):
     """The one channel a PostToolUse hook has to the model.
 
     Everything else this hook writes -- every `note` above -- reaches stderr and
-    stops there. Written as the last act, after the executor's own output, so a
-    malformed line can never truncate the payload block.
+    stops there, which is why an executor refusal is relayed through here as
+    well (kogaki#1085) rather than through the `note` that reports it. Written
+    as the last act, after the executor's own output, so a malformed line can
+    never truncate the payload block.
     """
     json.dump({"hookSpecificOutput": {
         "hookEventName": "PostToolUse",
@@ -458,6 +481,11 @@ def main():
     # around the spawn and the delivery in `finally` is what makes "on every exit
     # code" a property of where the read STANDS rather than of remembering to
     # repeat it on each arm.
+    # THE REFUSAL IS HELD FOR THE DELIVERY POINT rather than emitted where it is
+    # read (kogaki#1085): the `finally` below is the one place every post-spawn
+    # exit passes through, and a gate payload and a refusal can both be
+    # outstanding at once.
+    refusal = None
     try:
         try:
             # THE PAYLOAD GOES IN VERBATIM. `input=raw` rather than a
@@ -480,17 +508,25 @@ def main():
             # acts on -- an unrouted option, an answer the harness did not
             # record -- and its refusal is the message. Relaying it is all this
             # hook can do.
-            note("the executor refused this advance:\n" + (proc.stderr or "").strip())
+            refusal = (proc.stderr or "").strip()
+            note("the executor refused this advance:\n" + refusal)
         return 0
     finally:
         # The pointer is the evidence a gate is open, and its absence -- an
         # advance that reached a non-gate wait, or `done`, or that never got far
-        # enough to raise one -- is exactly the case that emits no
-        # `additionalContext` at all. Written last, after the executor's own
-        # output, so nothing can truncate the payload block.
+        # enough to raise one -- emits no gate block. WITH NO REFUSAL BESIDE IT
+        # that is the case that emits no `additionalContext` at all
+        # (kogaki#1085); a refused advance with no gate open still speaks, which
+        # is the whole repair. Written last, after the executor's own output, so
+        # nothing can truncate the payload block.
         pointer = outstanding_pointer(run_dir)
+        blocks = []
+        if refusal is not None:
+            blocks.append(refusal_context(refusal))
         if pointer is not None:
-            emit_context(gate_context(pointer))
+            blocks.append(gate_context(pointer))
+        if blocks:
+            emit_context("\n\n".join(blocks))
 
 
 if __name__ == "__main__":

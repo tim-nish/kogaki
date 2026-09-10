@@ -635,6 +635,82 @@ PY
     bad "an advance that never spawned left its open gate undelivered — the pointer read must stand on a path every post-spawn exit passes through, not be repeated on the arms someone remembered: ${h_out:-(silent)}"
   fi
 
+  # ---- kogaki#1085. A REFUSAL RAISED INSIDE AN ADVANCE REACHES THE SESSION.
+  #
+  # kogaki#1081 opened `additionalContext` for gate payloads and left refusals
+  # where they were: `note()`, which writes to stderr, which a PostToolUse hook
+  # reaches nobody through. So an advance that ENDED a run ended it silently --
+  # on 2026-09-10 the session that answered the ID gate saw a completed wait, no
+  # judge input, and a run record naming one state fewer than it expected, with
+  # the executor's reason on a stream nothing reads. The two cases below are the
+  # refusal alone and the refusal beside an open gate, because the delivery point
+  # is one `finally` and either can be outstanding at it.
+  #
+  # THE STUB EXITS NON-ZERO, WHICH IS THE WHOLE PRECONDITION. What is under test
+  # is the hook's relay, not the executor's reasons: a fixture driving a real
+  # refusal would be asserting the executor's message and would carry every
+  # dependency of a judged run to do it.
+  cat > "$stub_repo/src/terrain.mjs" <<'JS'
+// An advance the executor refused: nothing written, nothing opened, a reason on
+// stderr and a non-zero exit -- the shape of every `fail()` in the executor.
+process.stderr.write("terrain: report --ids names G1-3, which resolve to no Group or "
+  + "SubGroup on this display.\n");
+process.exit(1);
+JS
+  cat > "$hooktmp/refusal-verdict.py" <<'REFPY'
+import json, sys
+raw = sys.stdin.read()
+want = sys.argv[1:]
+try:
+    ctx = json.loads(raw)["hookSpecificOutput"]["additionalContext"]
+except Exception as exc:                                          # noqa: BLE001
+    print(f"the hook emitted no additionalContext ({exc}): {raw[:200]!r}"); raise SystemExit
+missing = [w for w in want if w not in ctx]
+if missing:
+    print(f"the block is missing {missing}: {ctx[:300]!r}"); raise SystemExit
+print("ok")
+REFPY
+  rm -rf "$hooktmp/stub-gates"
+  i_out=$(fire_stub)
+  i_verdict=$(printf '%s' "$i_out" | python3 "$hooktmp/refusal-verdict.py" "resolve to no Group or SubGroup")
+  if [ "$i_verdict" = "ok" ]; then pass; else
+    bad "an advance whose executor exited non-zero delivered its refusal on stderr alone — the session that answered the gate is left with a completed wait and no reason (kogaki#1085): ${i_verdict:-(the verdict script produced nothing)}"
+  fi
+
+  # AND IT RIDES BESIDE AN OPEN GATE RATHER THAN REPLACING IT. A refusal raised
+  # after a gate was opened leaves both outstanding, and a delivery carrying one
+  # of them would trade this issue's silence for kogaki#1081's.
+  cat > "$stub_repo/src/terrain.mjs" <<'JS'
+// A gate opened, and then a refusal: the pointer and the call are written, the
+// reason goes to stderr, and the exit is non-zero.
+import fs from "node:fs";
+import path from "node:path";
+const dir = process.env.KOGAKI_RUN_DIR, gd = process.env.KOGAKI_OPEN_GATES;
+const gate = "terrain-id-selection", instance = "fixture-raising";
+const call = { questions: [{ question: "Which Strand ids?", header: "selection",
+  multiSelect: true, options: [{ label: "L2", description: "the first" },
+                               { label: "L5", description: "the second" }] }] };
+const callPath = path.join(dir, gate + ".gate-call.json");
+fs.writeFileSync(callPath, JSON.stringify(call, null, 2) + "\n");
+fs.mkdirSync(gd, { recursive: true });
+fs.writeFileSync(path.join(gd, instance + ".json"), JSON.stringify({
+  gate_instance_id: instance, gate_id: gate, question: "Which Strand ids?",
+  declaration_path: path.resolve(path.join(dir, gate + ".gate-declaration.json")),
+  capture_path: path.resolve(path.join(dir, "terrain" + process.env.FIXTURE_CAPSUF)),
+  gate_call_path: path.resolve(callPath), gate_call_unavailable: null,
+  session_id: null, opened_by: "hook", opened_at: "2026-09-10T12:45:43.031Z",
+}, null, 2) + "\n");
+process.stderr.write("terrain: the state after this gate refused\n");
+process.exit(1);
+JS
+  rm -rf "$hooktmp/stub-gates"
+  j_out=$(fire_stub)
+  j_verdict=$(printf '%s' "$j_out" | python3 "$hooktmp/refusal-verdict.py" \
+    "the state after this gate refused" "fixture-raising" '```json')
+  if [ "$j_verdict" = "ok" ]; then pass; else
+    bad "an advance that opened a gate AND then refused did not deliver both — one of the two readings the session needs was dropped (kogaki#1085): ${j_verdict:-(the verdict script produced nothing)}"
+  fi
+
   rm -rf "$hooktmp"
 fi
 
@@ -760,7 +836,7 @@ fi
 
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — the executor's Bash route denied with --status admitted, the skill file's single start line, and the removal test's byte-equal artifacts with the spec absent and the deny still firing (kogaki#1027)"
-  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081)."
+  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081); and that an executor REFUSAL rides that same channel, alone where no gate is open and beside the gate payload where one is, so an advance that ends a run no longer ends it silently (kogaki#1085)."
   note "not asserted here: that either hook is LOADED on this machine. That wiring is machine-local and never committed, so asserting it would fail on every fresh clone and would be a claim about a machine rather than about this repository — which is why the order above is read from the tracked file rather than from a live registration."
 fi
 exit "$fail"
