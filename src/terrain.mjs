@@ -1440,14 +1440,11 @@ function cmdCotags(args) {
       // one member in two SubGroups, which makes the counts sum OVER the parent
       // and renders that member twice. The withdrawn grammar rule caught both;
       // between this and the cover refusal, both are caught again.
-      const placedCount = subgroups.reduce((n, sg) => n + sg.members.length, 0);
-      if (placedCount !== g.members.length) {
-        fail(`SUBGROUP_MEMBERS_DO_NOT_SUM — ${g.name} holds ${g.members.length} member Lesson(s) and its SubGroups place ${placedCount}. `
-          + "the SubGroup threshold rule 1 requires the SubGroup member counts to sum to the parent's total: over the total means a member was placed "
-          + "in more than one SubGroup and renders twice, under it means a member is hidden. Subdivision decides WHERE a member "
-          + "appears, never how many times "
-          + "(SPEC.md, the SubGroup threshold; report-format.json v13 carries this as a pre-render refusal, the heading no longer rendering a parent count).");
-      }
+      // THE SUM REFUSAL IS `subgroupPlacement`'s NOW (PR #1070 round 1), on the
+      // ground this block's own comment already gave: two implementations of one
+      // refusal is the drift the SubGroup limits' single carrier exists to
+      // prevent. What the note below records is unchanged and is kept because it
+      // is about the RULE rather than about its address.
       for (const sg of subgroups) {
         sg.by_family = familySplit(sg.members, record.candidates);
         judgeSubgroup(sg, claim, g.members.length);
@@ -2221,6 +2218,25 @@ export function subgroupPlacement(parent, classification, block) {
   // that the same day — `other` = unlimited is an ANTI-PATTERN. A judged bucket
   // with no bound still lets Lessons disappear into it, which is the instability
   // the issue was filed over.
+  // DOUBLE PLACEMENT, HERE RATHER THAN AT A CALLER (PR #1070 round 1). The cover
+  // refusal above cannot see it: a member named in two SubGroups IS placed, so
+  // the cover is complete and the counts sum OVER the parent instead. It lived
+  // at the co-tag display alone, which meant the report's two placement sites
+  // never had it and kogaki#1068's new judgment-state call arrived with a second
+  // copy of it -- two wordings citing two different grounds on their first day.
+  // It sits with `placedIds`, which is what it is actually about, and every
+  // caller gets one reading of it.
+  const placedCount = subgroups.reduce((n, sg) => n + sg.members.length, 0);
+  if (placedCount !== parent.members.length) {
+    fail(`SUBGROUP_MEMBERS_DO_NOT_SUM — ${parent.name} holds ${parent.members.length} member Lesson(s) `
+      + `and its SubGroups place ${placedCount}. the SubGroup threshold rule 1 requires the SubGroup `
+      + `member counts to sum to the parent's total: over the total means a member was placed in more `
+      + `than one SubGroup and renders twice, under it means a member is hidden. Subdivision decides `
+      + `WHERE a member appears, never how many times `
+      + `(SPEC.md, the SubGroup threshold; report-format.json v13 carries this as a pre-render refusal, `
+      + `the heading no longer rendering a parent count).`);
+  }
+
   const { maxResidual } = subdivisionLimits();
   const residual = subgroups
     .filter((sg) => (sg.verdicts || {}).coherence === RESIDUAL_LABEL)
@@ -2396,6 +2412,89 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
     sg.disclosures.push("undiscriminating-claim: honest, but true of every member at the size served — an honest summary true of every member discriminates between none");
   }
   return sg;
+}
+
+// THE SubGroup RULES, RUN WHERE THE RE-ASK IS (kogaki#1068). Until this landed
+// they ran only in `subgroupPlacement` and `judgeSubgroup` at the two RENDER
+// states — the co-tag display and `cotag_groups` — and `J2_subdivision`, the
+// state that HAS the bounded re-ask loop, validated the envelope alone
+// (`judged: true`, `subgroups` an array). So a record that breached a cap, fell
+// under the minimum, overran the residual or left a member unplaced passed J2,
+// spent every group's call, and failed the run at a state with no route back to
+// the judge. On the parked 2026-09-09 live run nine of eleven groups breached a
+// rule this way.
+//
+// IT RE-IMPLEMENTS NOTHING. The refusals are `subgroupPlacement`'s and
+// `judgeSubgroup`'s, called over this group's own entry — the same two functions
+// `cotag_groups` calls, which is what keeps one reading of every limit.
+// `cotag_groups` KEEPS ITS CHECKS and is simply expected never to be the first
+// to fire them; a second implementation here would be the drift the SubGroup
+// limits' single carrier exists to prevent.
+//
+// THE DISCLOSURES ARE NOT THIS LAYER'S. `judgeSubgroup` also computes the two
+// disclosures, which are a RENDERING concern and need the GroupClaim to compute
+// the undiscriminating-claim one; the display holds that claim and recomputes
+// them there. What is wanted here is the refusals, so the claim is passed empty
+// and the disclosures this call produces are discarded — a disclosure is not a
+// refusal, and none of them can fail.
+//
+// A GROUP WITH NO COMPOSED PARENT IS NOT JUDGED HERE, and that is a bound rather
+// than a hole: the rules are all statements ABOUT the parent's membership — the
+// cover, the sum, the whole-group exemption — so a record supplied by argv
+// against no composed input has nothing here to be judged against. Those runs
+// reach the render state exactly as they did before.
+export function subdivisionRules(name, entry, parent) {
+  if (!entry || !parent) return;
+  // JUDGED-EMPTY IS CONFORMANT and has no SubGroup for any rule to bind on
+  // (the report identity v9). It is refused at the split threshold, and that
+  // refusal is the display's, keyed on a size this function is not the place to
+  // re-decide.
+  if (!entry.subgroups.length) return;
+  const { subgroups } = subgroupPlacement(parent, entry.subgroups, SURVEY_SCHEMA.subdivision);
+  for (const sg of subgroups) judgeSubgroup(sg, "", parent.members.length);
+}
+
+// THE LIMITS THE RECORD IS JUDGED AGAINST, PUT IN FRONT OF THE JUDGE
+// (kogaki#1068 item 2). The per-group ask carried the group, its material, the
+// composition pin, the bound and the accounting; it named no cap, no minimum and
+// no residual bound, and `record_example` carries the closed label set with no
+// count against it. A judge asked to subdivide eight members at `tight` under a
+// cap of five it has not been told breaches it — and did, in four of eleven
+// groups on the 2026-09-09 run.
+//
+// READ, NEVER RETYPED. Every number comes back through `subdivisionLimits`, the
+// one reader of `report-format.json`'s `limits` block, so the numbers in the ask
+// and the numbers in the refusal cannot disagree.
+//
+// KEYED ON THE STATE'S OWN DECLARATION, so a second state joins by a table row
+// rather than by an edit here — the property `per_group`, `retries` and
+// `record_example` already have. An unknown block name is refused BY NAME, on
+// `record_example`'s directive ground: a third block is added by ruling rather
+// than by spelling.
+const JUDGE_LIMIT_BLOCKS = Object.freeze({
+  subdivision: () => {
+    const { caps, min, maxResidual } = subdivisionLimits();
+    return {
+      _read_from: "report-format.json `limits` — the one carrier of these numbers; this ask restates none of them",
+      subgroup_member_cap: Object.fromEntries(CAPPED_LABELS.map((l) => [l, Number(caps[l])])),
+      min_subgroup_members: min,
+      max_residual_members: maxResidual,
+      every_member_must_be_placed: `Every member of this group appears in exactly one SubGroup. The engine composes no catch-all: a member you place nowhere is a refusal naming it, and a member you place twice is a refusal too. Place a member you find no affinity for in a SubGroup labelled ${JSON.stringify(RESIDUAL_LABEL)} — the residual, which carries no minimum and is bounded at ${maxResidual}.`,
+      _refused: `A SubGroup over its label's cap, or under ${min} members, is refused and you are asked again with the refusal. A SubGroup holding the WHOLE group is exempt from the minimum alone — it divided nothing — and never from the cap.`,
+    };
+  },
+});
+
+export function judgeLimits(st) {
+  if (st.limits === undefined || st.limits === null) return null;
+  const key = String(st.limits);
+  if (!Object.prototype.hasOwnProperty.call(JUDGE_LIMIT_BLOCKS, key)) {
+    fail(`${st.id}: the workflow table declares \`limits\` ${JSON.stringify(key)}, which names no known limit `
+      + `block. The known one is ${Object.keys(JUDGE_LIMIT_BLOCKS).map((k) => JSON.stringify(k)).join(", ")}; `
+      + "a second is added by ruling rather than by spelling, exactly as `record_example`'s directives are "
+      + "(kogaki#1068).");
+  }
+  return JUDGE_LIMIT_BLOCKS[key]();
 }
 
 // THE RECORD HALF OF THE RETIRED `subdivide` SUBCOMMAND, reachable only from
@@ -3096,8 +3195,27 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
   // ONE CALL PER COMPOSED GROUP WHERE THE TABLE DECLARES IT (kogaki#1062). A
   // TABLE fact, so a second state joins by a row and no code here -- the
   // property `judgeRecordExample` and `judgePrompt` already have.
+  // THE LIMITS THE RECORD IS JUDGED AGAINST (kogaki#1068 item 2), RESOLVED FOR
+  // EVERY JUDGMENT STATE AND SPENT BY ONE (PR #1070 round 1). Resolving it inside
+  // the per-group arm made both properties the table's `limits` row claims false
+  // for a state that declared the key without `per_group`: the block silently did
+  // not reach the ask, and the unknown-block-name refusal was unreachable, so a
+  // typo in the table read as an absent key. Resolving it here makes the refusal
+  // a property of DECLARING the key, which is what the row says it is.
+  //
+  // IT IS SPENT ON THE PER-GROUP ASK ALONE, and the asymmetry is deliberate
+  // rather than an oversight the line above repairs. `judgePrompt` embeds the
+  // whole-input arm's input file VERBATIM, by the marker's own contract --
+  // everything past it is the file, so a reader or a stub can find the input by
+  // position -- and injecting a key there would put a prompt in front of the
+  // judge that disagrees with the artifact on disk. The per-group arm already
+  // COMPOSES its text from a narrowed object, so the limits ride the same
+  // narrowing. A state that wants them on the whole-input ask needs the composer
+  // to write them into the artifact, which is a change to `compose_input` and not
+  // to this line.
+  const limits = judgeLimits(st);
   if (st.per_group === true) {
-    return invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec);
+    return invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits);
   }
   const out = join(dir, `terrain-judge-${st.id}.json`);
   const r = judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label: "" });
@@ -3215,7 +3333,7 @@ export function scopeCompositionInput(input, group) {
 // groups that passed are not re-asked -- kogaki#1060's per-attempt feedback
 // applied per group, which is what makes the bound a per-group repair loop
 // rather than a whole-run one.
-function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec) {
+function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits) {
   if (!input || typeof input !== "object" || Array.isArray(input) || !Array.isArray(input.groups)) {
     fail(`${st.id}: this state declares \`per_group\`, and the composed input at ${inputPath} carries no `
       + "`groups` array to ask about. The per-group ask is one call per composed group, so an input that "
@@ -3233,6 +3351,7 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
     const name = String(g && g.name);
     const slug = name.replace(/[^a-zA-Z0-9]+/g, "-") || "group";
     const scoped = scopeCompositionInput(input, g);
+    if (limits) scoped.limits = limits;
     const scopedText = JSON.stringify(scoped, null, 2);
     // WRITTEN BESIDE THE RUN'S OWN INPUT, so a reader can see exactly what each
     // call was handed rather than reconstructing the narrowing from the whole.
@@ -6982,6 +7101,21 @@ const STATE_WORK = {
   },
 
   J2_subdivision: (rec, st, args, table) => {
+    // THE COMPOSED PARENTS, READ ONCE (kogaki#1068). The SubGroup rules are
+    // statements about a group's own membership -- the cover, the caps, the
+    // minimum with its whole-group exemption -- so the validator needs the
+    // parent this run composed. It is the SAME artifact this state judges over,
+    // so reading it here spends no further read and cannot name a group the ask
+    // did not carry.
+    //
+    // ABSENT MEANS THE RULES BIND AT THE RENDER STATE, unchanged. A run supplying
+    // `--subdivisions` on argv against no composed input -- the fixture path and
+    // the second-repository path -- reaches `cotag_groups` exactly as it did.
+    const composed = rec.composition_input ? readJson(String(rec.composition_input)) : null;
+    const parents = new Map();
+    if (composed && Array.isArray(composed.groups)) {
+      for (const g of composed.groups) parents.set(String(g && g.name), g);
+    }
     const validate = (p) => {
       const raw = readJson(p);
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -6989,7 +7123,14 @@ const STATE_WORK = {
       }
       // Each entry is read by the EXISTING validator, which carries the judged
       // flag, the judge pin and the coherence rules (semantic subdivision, measurement before offering, the report identity).
-      for (const name of Object.keys(raw)) readSubdivisionEntry(name, raw[name]);
+      //
+      // AND THEN BY THE SubGroup RULES, INSIDE THE RE-ASK WINDOW (kogaki#1068).
+      // This is the state with the bound and the per-group refusal feedback, so
+      // a breach here is fed back to the judge and repaired; the same breach at
+      // `cotag_groups` failed the run after every group's call was spent.
+      for (const name of Object.keys(raw)) {
+        subdivisionRules(name, readSubdivisionEntry(name, raw[name]), parents.get(name));
+      }
     };
     // THE SAME COMPOSED ARTIFACT `J1_claims` JUDGED OVER, which is this state's
     // own standing note: semantic subdivision "is composed from the SAME
@@ -7011,8 +7152,8 @@ const STATE_WORK = {
     // `--classification` is judged on the typed record alone, exactly as
     // before. What is no longer possible is composing one from outside.
     if (args.classification !== undefined) {
-      const composed = composeSubdivisionRecord(args, rec._dir, readJson(needSurvey(rec)));
-      rec.judgments[`${st.id}:composed`] = relFromRepo(resolve(composed));
+      const composedRecord = composeSubdivisionRecord(args, rec._dir, readJson(needSurvey(rec)));
+      rec.judgments[`${st.id}:composed`] = relFromRepo(resolve(composedRecord));
     }
     return null;
   },
