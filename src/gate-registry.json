@@ -51,8 +51,6 @@
     "  the constraints that survive",
     "      SPEC-draft-pipeline",
     "  the lifetime discriminator",
-    "      specs/SPEC.md",
-    "  the machine-state location rule",
     "      specs/SPEC.md"
   ],
   "version": "1",
