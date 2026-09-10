@@ -502,11 +502,22 @@ SKILL="$TMP/repo/.claude/skills/consult-first/SKILL.md"
 [[ -f "$SKILL" ]] || fail "consult-first skill not installed at .claude/skills/"
 head -1 "$SKILL" | grep -q '^---' || fail "skill has no frontmatter — the harness will not load it"
 grep -q '^name: consult-first' "$SKILL" || fail "skill frontmatter has no name"
+#    AND THE MANAGED BLOCK STATES THE PER-CHECKOUT CONSEQUENCE (PR #1084 round
+#    1). `git worktree add` does not populate ignored paths, so a linked
+#    worktree carries no installed skill until the install is re-run there —
+#    the cost of this arm, and the one shape the clean-install assertions above
+#    structurally cannot reach, since they install into a fresh directory. It is
+#    asserted on the BLOCK rather than on the skill because the block is what
+#    reaches a worktree and the skill is precisely what does not.
 grep -qx '.claude/skills/consult-first/SKILL.md' "$TMP/repo/.gitignore" \
   || fail "the installed skill is not gitignored — a committed install output is an undeclared duplicate of the kit source"
 [[ $(grep -cx '.claude/skills/consult-first/SKILL.md' "$TMP/repo/.gitignore") -eq 1 ]] \
   || fail "duplicate installed-skill gitignore entry across two installs (not idempotent)"
-echo "ok: skill installed harness-loadably, and gitignored (once, across two installs)"
+grep -q 'per-checkout' "$TMP/repo/CLAUDE.md" \
+  || fail "the managed block does not state that the installed skill is per-checkout — a worktree silently loses it"
+grep -q 'worktree add' "$TMP/repo/CLAUDE.md" \
+  || fail "the managed block does not name why a worktree loses the skill (ignored paths are not populated)"
+echo "ok: skill installed harness-loadably, gitignored (once, across two installs), and its per-checkout cost stated in the managed block"
 
 # 6. Boundary (consultation-map entry 2, kogaki#7): no kit tool reads gateway
 #    internals. The access log is the SERVER's record; consumer-side receipts
@@ -1066,7 +1077,7 @@ echo "ok: an explicitly empty declared set still refuses an argued call, truthfu
 #     NON-MEMBER FALLBACK, chosen rather than inherited: an artifact
 #     `install.sh` starts placing and this list does not name is NOT covered.
 #     The list is kept beside the `cp` lines it mirrors (install.sh 75, 84, 96,
-#     112, 192) and a sixth destination owes a sixth entry here.
+#     112, 193) and a sixth destination owes a sixth entry here.
 INSTALLED=(
   "$TMP/repo/.claude/skills/consult-first/SKILL.md"
   "$TMP/repo/policy/CAPABILITIES.md"
