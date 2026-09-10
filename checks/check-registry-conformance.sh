@@ -1076,45 +1076,21 @@ for name in sorted(present - registered):
 for name in sorted(registered - present):
     failures.append(f"FAIL dangling registry entry (no such file): {name}")
 
-# THE KIT'S ENTRIES ARE A CONFORMANCE COPY WITH DECLARED PRECEDENCE, and this
-# is the mismatch check that makes the copy admissible (kogaki#724).
+# THE KIT'S ENTRIES ARE COMPARED BY THE KIT'S OWN CHECK, NOT HERE (kogaki#732).
 #
-# The kit vendors the seam checks and ships the registry entries a consumer
-# owes for them; this repository's registry then holds its own copy, because
-# the registry is what the runner reads. A copy of a centrally-managed
-# artifact with no precedence rule and no drift check is exactly the defect
-# the relocation was filed to end, so: THE KIT WINS, and any divergence fails
-# here naming the id rather than being discovered when a consumer's check
-# behaves differently from the kit's.
+# This file used to hold that comparison, and `policy/kit/install.sh` told
+# every consumer the divergence would fail "naming the id" on the strength of
+# it. The instrument was THIS repository's file: in any tree but this one the
+# fragment was a copy with a declared source and no enforcement, which is the
+# advisory form the sentence claims to have escaped. The comparison is now
+# vendored with the kit at `policy/kit/checks/check-registry-fragment.sh`, so
+# the sentence holds wherever it is read.
 #
-# Absent fragment is NOT a failure — a repository that vendors no kit owes
-# nothing — but it is stated, so "no fragment" and "fragment agrees" are
-# distinguishable rather than both rendering as silence.
-KIT_ENTRIES = pathlib.Path("policy/kit/registry-entries.json")
-if KIT_ENTRIES.is_file():
-    kit = json.loads(KIT_ENTRIES.read_text())["checks"]
-    mine = {e["id"]: e for e in entries}
-    for k in sorted(kit, key=lambda e: e["id"]):
-        local = mine.get(k["id"])
-        if local is None:
-            failures.append(
-                f"FAIL kit check not registered: {k['id']} — the kit vendors "
-                f"{k['file']} and this registry does not name it, so it runs "
-                f"on zero occasions")
-        elif local != k:
-            differing = sorted(
-                key for key in set(local) | set(k)
-                if local.get(key) != k.get(key))
-            failures.append(
-                f"FAIL kit entry drifted: {k['id']} — this registry disagrees "
-                f"with policy/kit/registry-entries.json on "
-                f"{', '.join(differing)}; the KIT is the source, so repair the "
-                f"copy here rather than the fragment")
-    print(f"kit-entries: {len(kit)} vendored entry/entries checked against "
-          f"policy/kit/registry-entries.json")
-else:
-    print("kit-entries: no policy/kit/registry-entries.json — no kit vendored, "
-          "nothing owed")
+# IT MOVED RATHER THAN BEING COPIED. Keeping a second comparison here would be
+# an undeclared duplicate of a centrally-managed artifact — the defect
+# kogaki#724 relocated the kit to end — reproduced inside its own remedy. The
+# kit's member is registered in checks/registry.json like any other, so the
+# both-ways scan above still sees its file and this suite still runs it.
 
 # Admission-shape validation (widened under kogaki#6, story 1.2; instrument
 # grammar added under kogaki#113): an empty record passed the filename

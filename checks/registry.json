@@ -447,6 +447,21 @@
       }
     },
     {
+      "id": "registry-fragment",
+      "file": "policy/kit/checks/check-registry-fragment.sh",
+      "admission": {
+        "contract": "kogaki#732: the kit ships `policy/kit/registry-entries.json` — the registry entries a consumer owes for the checks the kit vendors — and `install.sh` tells every consumer the kit is the SOURCE for them, so on divergence the check fails naming the id and the copy cannot drift. THIS MEMBER IS THAT ENFORCEMENT, vendored with the kit, so the sentence holds wherever it is read rather than only in the repository that happens to host the kit. It compares the fragment against this repository's own check registry ONE WAY: every id the kit ships must be registered and must match, while an id the consumer holds and the kit does not is that repository's own check and no divergence — a both-ways comparison would refuse every consumer that registers a check of its own, which is every consumer. An ABSENT fragment is stated and passes (a repository vendoring no kit owes nothing); an absent REGISTRY beside a present fragment FAILS, because the kit is vendored here and every check it ships would run on zero occasions. The comparison MOVED here from `checks/check-registry-conformance.sh` rather than being copied: two copies of one centrally-managed comparison is the undeclared duplicate the kit's relocation (kogaki#724) exists to end, and reproducing it inside the remedy is the shape this issue refuses. What it does NOT decide, so the narrower claim is the true one: whether the registry's other entries are well-formed, whether the files they name exist, or whether any member ever runs — all of which are the host repository's own meta-check's.",
+        "license": "kogaki#732, executing the owner's selection of the vendor-the-enforcement arm over narrowing the installer's wording (2026-09-10)",
+        "tier": "pre-push",
+        "runtime_ms": 128,
+        "runtime_ms_note": "Measured at this admission act: three local runs, 128/127/138 ms; the number is that median. It reads two JSON files and compares them in memory, so nearly all of it is interpreter start-up plus the `git rev-parse` that anchors the repository root. LOCAL measurement — CI's runner is slower, and this is a tier input rather than a budget assertion. Re-measure at the next admission act that touches this check.",
+        "removal_signal": "`policy/kit/registry-entries.json` ceasing to ship with the kit. The member exists to make the fragment's declared precedence checkable; a kit that vendors no entries owes no conformance over them, and this member would then be asserting about a file nobody ships. It proposes the removal ROW and never the deletion — a never-fired member is a review candidate.",
+        "removal_instrument": "probe: test ! -f policy/kit/registry-entries.json",
+        "efficacy": "case: policy/kit/checks/check-registry-fragment.sh::kit entry drifted is refused, naming the id and the differing keys (kogaki#732)",
+        "efficacy_note": "The cited case constructs the exact defect the contract names — one id present on both sides with a differing `admission` — and asserts the comparison refuses it AND names the differing key, not merely that it refuses. The sibling cases cover the unregistered id, the identical copy, the consumer-only entry that must stay silent, and a drifted `file` key. All are pure functions of two in-memory registries, so this member spawns no other artifact's pass and is outside the delegating class rather than exempted from it. THE CASES RUN ON EVERY INVOCATION, not only under `--self-test`: this member's live reading here is agreement, so its refusing paths would otherwise never execute and the case this field cites could be deleted with the suite staying green — the unbound-claim shape kogaki#243 names, which is the shape kogaki#732 exists to refuse."
+      }
+    },
+    {
       "id": "gate-capture-hook",
       "file": "check-gate-capture-hook.sh",
       "admission": {

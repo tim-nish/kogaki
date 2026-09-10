@@ -239,8 +239,11 @@ if [ -d "$KIT_DIR/checks" ]; then
     if [ -f "$KIT_DIR/registry-entries.json" ]; then
       say "the entries they owe ship with the kit, ready to merge into"
       say "  <repo>/checks/registry.json  <-  policy/kit/registry-entries.json"
-      say "the kit is the SOURCE for them: on divergence the registry"
-      say "conformance check fails naming the id, so the copy cannot drift."
+      say "the kit is the SOURCE for them: on divergence"
+      say "  policy/kit/checks/check-registry-fragment.sh"
+      say "fails naming the id, so the copy cannot drift. THAT CHECK SHIPS"
+      say "WITH THIS KIT, so this holds in your tree and not only in the"
+      say "repository the kit came from (kogaki#732)."
     else
       say "NO registry-entries.json ships with this kit — the entries these"
       say "checks owe must be authored by hand, which is the advisory form"

@@ -1251,6 +1251,59 @@ printf '%s\n' "$SEAM" | grep -qF "$VENDORED seam check(s) vendored" \
 #     above while reintroducing the duplicate.
 [ ! -e "$TMP/seam/checks" ] \
   || fail "the install created $TMP/seam/checks — the kit must NOT copy seam checks into the consumer's tree (kogaki#724): the registry names the kit's own file so that exactly one copy exists"
+#     THE FRAGMENT ANNOUNCEMENT IS ASSERTED THE SAME WAY THE CHECKS ARE
+#     (kogaki#732). The lines announcing `registry-entries.json` were added
+#     beside the per-file loop above and were asserted by NOTHING: suppressing
+#     them entirely, or losing them to the `else` branch by shipping no
+#     fragment, passed this case in silence — the same non-member-fallback-is-
+#     admit shape the header above refuses one level down, inside the case
+#     that refuses it.
+#
+#     SO THE SET THAT MUST NOT BE EMPTY IS ASSERTED FIRST, exactly as
+#     $VENDORED is. Without this line the `else` branch is a free pass: a kit
+#     that stopped shipping the fragment would print the advisory wording and
+#     every assertion below would be vacuously true.
+[ -f "$KIT_DIR/registry-entries.json" ] \
+  || fail "the kit ships no registry-entries.json (kogaki#732) — the entries the vendored checks owe must ship WITH the kit; leaving them to be authored by hand is the advisory form this kit refuses, and it is the branch that makes every assertion below vacuous"
+
+printf '%s\n' "$SEAM" | grep -qF "policy/kit/registry-entries.json" \
+  || fail "the install does not announce the registry fragment it ships (kogaki#732) — a consumer told nothing about it merges nothing, and the entries the vendored checks owe stay unwritten: $SEAM"
+
+if printf '%s\n' "$SEAM" | grep -qF "NO registry-entries.json ships with this kit"; then
+  fail "the install took the no-fragment branch while $KIT_DIR/registry-entries.json exists (kogaki#732) — the advisory wording is being printed over a fragment that shipped"
+fi
+
+#     AND EVERY CHECK THE ANNOUNCEMENT NAMES MUST BE ONE THE KIT ACTUALLY
+#     VENDORS. This is the assertion whose absence kogaki#732 was filed on:
+#     the drift sentence promised an enforcement — "on divergence the registry
+#     conformance check fails naming the id" — that the kit did not ship, so
+#     in any tree but the kit's own home the sentence was false at the moment
+#     it was said. Derived from the kit's directory rather than from a literal
+#     written here, so a sentence naming check N+1 is covered by the same
+#     assertion.
+#     THE GUARD IS SCOPED PAST THE `vendored:` LINES, and the scoping is the
+#     whole assertion. Grepping $SEAM whole cannot fail: the per-file loop
+#     above already prints one `vendored: policy/kit/checks/check-*.sh` line
+#     per check, and $VENDORED is asserted non-empty twenty lines up, so an
+#     unscoped guard is non-empty by construction and describes a state this
+#     case cannot reach. Scoped, it refuses the mutation nearest the defect
+#     this issue was filed on: a drift sentence that promises an enforcement
+#     and names no instrument at all.
+#     `|| true` IS LOAD-BEARING under `set -euo pipefail`: a `grep` that
+#     matches nothing exits 1, pipefail carries that out of the command
+#     substitution, and the script would abort HERE — silently, before the
+#     guard below could say why. A guard that kills the run instead of
+#     failing with its own reason is the shape this case refuses one level
+#     down, and it was measured on the first mutation run of this very line.
+DRIFT=$(printf '%s\n' "$SEAM" | grep -v '^vendored: ' | grep -o 'policy/kit/checks/check-[a-z0-9-]*\.sh' | sort -u || true)
+[ -n "$DRIFT" ] \
+  || fail "the fragment announcement names no check under policy/kit/checks/ (kogaki#732) — it promises an enforcement without saying which file makes it true, which is the advisory form the sentence claims to have escaped"
+NAMED=$(printf '%s\n' "$SEAM" | grep -o 'policy/kit/checks/check-[a-z0-9-]*\.sh' | sort -u || true)
+for NAME in $NAMED; do
+  [ -f "$KIT_DIR/${NAME#policy/kit/}" ] \
+    || fail "the install names '$NAME' and the kit does not vendor it (kogaki#732) — a claim wider than what holds where it is read, said to the consumer at the moment of install"
+done
+
 echo "ok: the install announces every seam check it vendors, and copies none ($VENDORED check(s), kogaki#724)"
 
 # 7. THE KIT STAMP (kogaki#795; contract specs/spec-client-kit/SPEC.md §10.2).
