@@ -35,16 +35,37 @@ leaves a record whose last transition is attributed to a hook event that did
 not finish. So the bound is written here, once, next to the call it bounds.
 
 EVERY FAILURE PATH RETURNS 0 AND SAYS SO ON STDERR, for its sibling's reason:
-PostToolUse cannot deny the call that already happened and cannot speak to the
-model, so this hook has no way to turn its own failure into a refusal -- and it
-does not need one. The absence of an advance IS the stop, and the next raising
-of the gate re-offers it.
+PostToolUse cannot deny the call that already happened, so this hook has no way
+to turn its own failure into a refusal -- and it does not need one. The absence
+of an advance IS the stop, and the next raising of the gate re-offers it.
+
+AND STDERR IS WHERE THOSE NOTES DIE (kogaki#1081). A PostToolUse hook reaches the
+model through exactly one channel -- the JSON `hookSpecificOutput.additionalContext`
+field of its own stdout -- and everything else it writes goes nowhere. That was
+survivable while this hook only ever had failures to report. It stopped being
+survivable when the advance it runs began OPENING GATES: kogaki#1057 delivered
+the tag gate's payload on the start act's stdout, which the skill expansion hands
+to the session before any tool exists to deny, and every LATER gate is opened by
+this hook instead. On 2026-09-10 the ID-selection gate opened at 12:45:43Z with
+its `gate-call.json` written, and the session had no route to the bytes at all:
+the open-gate hook denied `Read`, `Bash`, `Agent` and `Skill`, each correctly,
+and a composed substitute failed the equality check, also correctly. The run
+recorded `gate-unrendered` and was recovered from outside the session, by hand.
+
+SO THE PAYLOAD RIDES OUT ON THAT ONE CHANNEL, AND THE FILE STAYS THE REFERENCE.
+Where the advance leaves a gate outstanding for this run, `main` emits the
+written call's bytes verbatim inside `additionalContext`, fenced, with the gate
+id and the instance id beside them. `gate-open-terrain-gate.py` is UNCHANGED:
+its PreToolUse equality check still compares the sent payload against the file
+on disk, so a payload that arrives paraphrased is refused exactly as before, and
+nothing here admits a second act into the interval.
 """
 
 import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # The bound on one advance, in seconds, DECLARED (item 3) and set BELOW the
@@ -83,6 +104,34 @@ RUN_DIR_ENV = "KOGAKI_RUN_DIR"
 # compares this constant against the schema rather than trusting the two to
 # agree by reading.
 CAPTURE_SUFFIX = ".gate-capture.json"
+
+# The open-gate pointer directory, `src/terrain.mjs`'s `openGateDir()`, copied
+# here on the same ground `CAPTURE_SUFFIX` is copied: a hook is one file, with no
+# module to import. `KOGAKI_OPEN_GATES` overrides it for tests, exactly as it
+# does for the executor and for the two hooks that already read this directory.
+#
+# WHY THIS HOOK READS IT AT ALL. The pointer is written by `emitGateDeclaration`
+# at every raising and removed by `write-gate-capture.py` when the answer's row
+# lands -- which is the hook registered BEFORE this one. So by the time this hook
+# runs, the pointer for the gate just answered is gone, and a pointer naming this
+# run's capture is the raising the advance below has just opened. That is the
+# whole read: no second convention, and no second reader of run identity.
+OPEN_GATES_ENV = "KOGAKI_OPEN_GATES"
+
+# THE THIRD COPY OF ONE CONSTANT, and it is copied for the reason the second
+# was: a hook is one file the harness runs by path, with no module to import
+# from. `write-gate-capture.py` reaps a pointer older than this and
+# `gate-open-terrain-gate.py` gates nothing on one -- so a reader here that
+# read no expiry would deliver a payload for a raising both siblings have
+# already written off. Change it in all three or in none.
+POINTER_TTL = timedelta(hours=12)
+
+
+def open_gate_dir():
+    env = os.environ.get(OPEN_GATES_ENV)
+    if env:
+        return Path(env)
+    return Path.home() / ".claude" / "kogaki-open-gates"
 
 
 def note(msg):
@@ -162,6 +211,169 @@ def capture_names(run_dir, tool_use_id):
     return False
 
 
+def pointer_expired(pointer):
+    """Is this pointer past the TTL the capture hook reaps at?
+
+    An unreadable timestamp is NOT expired, which is the sibling's arm and its
+    reason: reaping on a field this reader failed to parse would drop live gates
+    on a formatting change.
+    """
+    try:
+        when = datetime.fromisoformat(
+            str(pointer.get("opened_at")).replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+    except Exception:                                             # noqa: BLE001
+        return False
+    return datetime.now(timezone.utc) - when > POINTER_TTL
+
+
+def pointer_answered(pointer):
+    """Has the harness already written this raising's row?
+
+    `gate-open-terrain-gate.py`'s `has_capture`, in this file because a hook has
+    no module to share one from. The pointer is normally REMOVED by
+    `write-gate-capture.py` the moment it writes the row -- but that hook has a
+    named arm where the write succeeds and the unlink FAILS, and after such a
+    miss an advance reaching `done` or a non-gate wait leaves the ANSWERED
+    pointer as the only match here. Delivering it would announce a gate for a
+    question already answered, while the open-gate hook -- which filters exactly
+    this -- denies nothing and lets the re-ask through (PR #1082 round 1).
+    """
+    cap = pointer.get("capture_path")
+    if not cap:
+        return False
+    try:
+        with open(cap, encoding="utf-8") as f:
+            doc = json.load(f)
+    except Exception:                                             # noqa: BLE001
+        return False
+    for row in doc.get("rows") or []:
+        if str(row.get("gate_instance_id")) == str(pointer.get("gate_instance_id")):
+            return True
+    return False
+
+
+def outstanding_pointer(run_dir):
+    """The gate this run has open, or None.
+
+    MATCHED ON THE CAPTURE PATH, which is the field a pointer carries naming the
+    run it belongs to -- the same key `writeOpenGatePointer` supersedes its own
+    previous pointer on. A pointer is a forwarding address and grants nothing, so
+    reading one here puts nothing new on the trust surface.
+
+    AND WHERE SEVERAL MATCH, THE ONE THE OPEN-GATE HOOK WILL COMPARE AGAINST IS
+    TAKEN -- not the newest, and that is the whole point (PR #1082 round 1).
+    `pre_tool_use` there takes `outstanding[0]` of `sorted(dir.glob("*.json"))`,
+    which is instance-nonce FILENAME order, after dropping pointers that are
+    expired or already answered. A reader here keyed on `opened_at` can select a
+    different file, and then a session that sends these bytes byte-for-byte is
+    DENIED for sending "not the question the Harness wrote" -- the wedge this
+    file exists to close, arriving through the repair. So the three filters and
+    the order are the sibling's, copied deliberately: the delivered payload is
+    by construction the one the equality check compares against.
+
+    THE SESSION FILTER IS THE ONE THIS READER DOES NOT APPLY, and its absence is
+    stated rather than left to look like an oversight. The sibling narrows to
+    pointers naming the payload's own session because it DENIES on them, and
+    gating a session that cannot be shown to own the gate is the failure with no
+    recovery inside it. This reader only puts bytes on screen for the advance it
+    just ran; a pointer naming another session is one the open-gate hook gates
+    nothing on, so delivering it costs a paragraph and never an admissible act.
+
+    NONE IS NOT A FAILURE. An advance that stopped at no gate has no pointer, and
+    an unreadable directory is a gate this hook cannot name -- both leave the
+    session exactly where it was before, with the executor's own stdout on the
+    run record.
+    """
+    try:
+        want = os.path.realpath(str(run_dir / f"terrain{CAPTURE_SUFFIX}"))
+    except OSError:
+        return None
+    try:
+        entries = sorted(open_gate_dir().glob("*.json"))
+    except OSError:
+        return None
+    for f in entries:
+        try:
+            with open(f, encoding="utf-8") as fh:
+                doc = json.load(fh)
+        except Exception:                                         # noqa: BLE001
+            # An unreadable pointer is the open-gate hook's to report; this
+            # reader skips it rather than turning a stray file into a stop.
+            continue
+        if not isinstance(doc, dict):
+            continue
+        cap = doc.get("capture_path")
+        if not isinstance(cap, str) or os.path.realpath(cap) != want:
+            continue
+        if pointer_expired(doc) or pointer_answered(doc):
+            continue
+        return doc
+    return None
+
+
+def gate_context(pointer):
+    """The `additionalContext` block for an outstanding gate.
+
+    THE BYTES, NOT THEIR ADDRESS (kogaki#1081, and kogaki#1057's own ground). A
+    path is an instruction to read, and the open-gate interval closes over the
+    read -- so a call named and unprinted is one nothing admissible can obtain.
+    The gate id and the instance id ride BESIDE the fence rather than inside it,
+    because what is fenced has to stay byte-equal to the file.
+
+    AND WHERE NO CALL COULD BE COMPOSED, THE STATED REASON RIDES OUT INSTEAD. The
+    pointer carries exactly one of `gate_call_path` and `gate_call_unavailable`,
+    and the second is the arm `composeGateCall` takes rather than wedging the
+    run; a session told nothing at that gate is left composing from a declaration
+    it also cannot read.
+    """
+    gate_id = pointer.get("gate_id")
+    instance = pointer.get("gate_instance_id")
+    head = (f"A Terrain gate is open: {gate_id} (raising {instance}).")
+    call_path = pointer.get("gate_call_path")
+    if isinstance(call_path, str) and call_path:
+        try:
+            with open(call_path, encoding="utf-8") as f:
+                payload = f.read()
+        except OSError as exc:
+            return (f"{head} Its AskUserQuestion call is at {call_path} and "
+                    f"could not be read here ({exc}); no tool is admissible "
+                    "inside the open-gate interval, so this gate cannot be "
+                    "rendered until the pointer is recovered by hand.")
+        return (
+            f"{head} Send the payload below as the `AskUserQuestion` "
+            "tool_input, byte-for-byte. Nothing is retyped, summarized, "
+            "reformatted or pre-selected, and the reading it already carries "
+            "stays above the question.\n"
+            f"The file it was read from is {call_path}, and that file — not "
+            "this copy — is what the PreToolUse equality check compares "
+            "against.\n"
+            "```json\n" + payload.rstrip("\n") + "\n```\n"
+            "While this gate is open, every other tool call is DENIED and the "
+            "turn cannot end until the answer is captured (kogaki#1028)."
+        )
+    reason = pointer.get("gate_call_unavailable")
+    return (f"{head} No AskUserQuestion call could be composed for it: "
+            f"{reason or 'no reason was recorded on the pointer'}. Render the "
+            "declaration's options verbatim, nothing pre-selected, free text "
+            "on.")
+
+
+def emit_context(text):
+    """The one channel a PostToolUse hook has to the model.
+
+    Everything else this hook writes -- every `note` above -- reaches stderr and
+    stops there. Written as the last act, after the executor's own output, so a
+    malformed line can never truncate the payload block.
+    """
+    json.dump({"hookSpecificOutput": {
+        "hookEventName": "PostToolUse",
+        "additionalContext": text,
+    }}, sys.stdout)
+    sys.stdout.write("\n")
+
+
 def main():
     raw = sys.stdin.read()
     try:
@@ -237,27 +449,48 @@ def main():
     # is inherited by the child.
     cmd = ["node", str(executor), "run"]
 
+    # THE DELIVERY IS ONE POINT AND EVERY POST-SPAWN EXIT PASSES THROUGH IT
+    # (kogaki#1081, PR #1082 round 1). The first cut read the pointer on the two
+    # `returncode` arms and returned above it on the other two -- so an executor
+    # killed at ADVANCE_TIMEOUT_S *after* `emitGateDeclaration` had written the
+    # call and the pointer left precisely the state this file exists to deliver,
+    # undelivered, with its only note on the stderr this issue is about. `try`
+    # around the spawn and the delivery in `finally` is what makes "on every exit
+    # code" a property of where the read STANDS rather than of remembering to
+    # repeat it on each arm.
     try:
-        # THE PAYLOAD GOES IN VERBATIM. `input=raw` rather than a re-serialised
-        # dict: a round trip through this process is a chance for a field to
-        # change shape, and the executor's attribution is supposed to be a copy.
-        proc = subprocess.run(cmd, input=raw, capture_output=True, text=True,
-                              timeout=ADVANCE_TIMEOUT_S, cwd=str(root))
-    except subprocess.TimeoutExpired:
-        note(f"the advance exceeded {ADVANCE_TIMEOUT_S}s and was stopped; the "
-             "run record holds whatever transitions completed before that, and "
-             "the gate is re-offered at the next raising")
-        return 0
-    except Exception as exc:                                      # noqa: BLE001
-        note(f"the executor could not be run ({exc}); nothing was advanced")
-        return 0
+        try:
+            # THE PAYLOAD GOES IN VERBATIM. `input=raw` rather than a
+            # re-serialised dict: a round trip through this process is a chance
+            # for a field to change shape, and the executor's attribution is
+            # supposed to be a copy.
+            proc = subprocess.run(cmd, input=raw, capture_output=True, text=True,
+                                  timeout=ADVANCE_TIMEOUT_S, cwd=str(root))
+        except subprocess.TimeoutExpired:
+            note(f"the advance exceeded {ADVANCE_TIMEOUT_S}s and was stopped; the "
+                 "run record holds whatever transitions completed before that, and "
+                 "the gate is re-offered at the next raising")
+            return 0
+        except Exception as exc:                                  # noqa: BLE001
+            note(f"the executor could not be run ({exc}); nothing was advanced")
+            return 0
 
-    if proc.returncode != 0:
-        # NOT A FINDING BY ITSELF. The executor refuses for reasons the owner
-        # acts on -- an unrouted option, an answer the harness did not record --
-        # and its refusal is the message. Relaying it is all this hook can do.
-        note("the executor refused this advance:\n" + (proc.stderr or "").strip())
-    return 0
+        if proc.returncode != 0:
+            # NOT A FINDING BY ITSELF. The executor refuses for reasons the owner
+            # acts on -- an unrouted option, an answer the harness did not
+            # record -- and its refusal is the message. Relaying it is all this
+            # hook can do.
+            note("the executor refused this advance:\n" + (proc.stderr or "").strip())
+        return 0
+    finally:
+        # The pointer is the evidence a gate is open, and its absence -- an
+        # advance that reached a non-gate wait, or `done`, or that never got far
+        # enough to raise one -- is exactly the case that emits no
+        # `additionalContext` at all. Written last, after the executor's own
+        # output, so nothing can truncate the payload block.
+        pointer = outstanding_pointer(run_dir)
+        if pointer is not None:
+            emit_context(gate_context(pointer))
 
 
 if __name__ == "__main__":

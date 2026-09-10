@@ -60,6 +60,24 @@ that the start act now PRINTS the payload on the stdout the skill expansion
 already delivers, before any tool exists to deny, and this file is unchanged:
 the written file stays the reference and a paraphrased payload is still refused.
 
+AND ONCE MORE, AT THE GATE THE START ACT DOES NOT OPEN (kogaki#1081). On
+2026-09-10 at 12:45:43Z the ID-selection gate opened with its `gate-call.json`
+written, and kogaki#1057's repair did not reach it: that repair prints on the
+START act's stdout, and every later gate is opened by an advance that
+`.claude/hooks/advance-terrain.py` runs as a subprocess with `capture_output`,
+whose stdout goes nowhere. So the second gate's payload had no route into the
+session at all. The arms below each held and each was correct -- `Read`, `Bash`,
+`Agent` and `Skill` denied, a composed substitute refused at the equality check,
+Stop blocking nine times until the harness overrode it -- and the run recorded
+`gate-unrendered`. THE RECOVERY WAS AGAIN FROM OUTSIDE THE SESSION: the pointer
+was moved into `~/.claude/kogaki-open-gates/abandoned/` by hand. The channel is
+the fix and it is not here either: a PostToolUse hook reaches the model through
+`hookSpecificOutput.additionalContext` and through nothing else, so the advance
+hook now emits the written call's bytes on that field. This file is unchanged
+for the third time, and for the third time that is the point -- the interval
+still admits exactly one act, and the file on disk is still what it is compared
+against.
+
 SCOPED TO THIS SESSION, ALWAYS. A pointer names the session that opened it. A
 machine runs several sessions, and a deny keyed on "some pointer exists" would
 freeze every session on the machine because one of them is at a gate -- which is
