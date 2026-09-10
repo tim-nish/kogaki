@@ -269,8 +269,15 @@ decl = {"id": gate_id, "gate_instance_id": instance, "options": options,
         "question": "Which tag?"}
 decl_path = os.path.join(d, f"{gate_id}.gate-declaration.json")
 with open(decl_path, "w") as f: json.dump(decl, f)
+# THE TABLE VERSION IS READ, NEVER A LITERAL (PR #1077 round 1). The executor
+# hard-refuses a resume across a table version change, so a hardcoded 16 turns
+# this case red at the next bump with a message blaming the keying -- while (a)
+# and (c) keep passing vacuously, because they assert that nothing happened.
+# The digest two lines down is computed for the same reason, one line earlier.
+with open("src/workflow.json", encoding="utf-8") as f:
+    table_version = json.load(f)["version"]
 with open(os.path.join(d, "run-record.json"), "w") as f:
-    json.dump({"workflow": {"path": "src/workflow.json", "version": 16},
+    json.dump({"workflow": {"path": "src/workflow.json", "version": table_version},
                "completed": [], "waits_reached": [], "conditional_entered": [],
                "conditional_skipped": [], "awaiting": "TAG_SELECTION",
                "owner_input": {}, "artifacts_written": [], "judgments": {},
@@ -331,6 +338,18 @@ PY
   if [ "$b_before" != "$b_after" ] && printf '%s' "$b_rec" | grep -q 'TAG_SELECTION'; then pass; else
     bad "the payload whose id the capture row carries did NOT advance the run — the keying refuses the one question it exists to admit. completed=[$b_rec] ${b_out:-(silent)}"
   fi
+  # ...AND WHERE THE RUN THEN STOPPED IS NAMED, NOT LEFT INVISIBLE (PR #1077
+  # round 1). The advance hook relays a non-zero executor exit on stderr, so
+  # `$b_out` is this case's reading of that exit. It is NOT asserted empty: the
+  # hook takes no `--workflow`, so this fires against the SHIPPED table and the
+  # run walks on past the state under test into `compose_input`, which refuses
+  # over a staged record carrying no survey. That refusal is expected and its
+  # NAME is the assertion -- an executor that advanced the gate and then died
+  # INSIDE it, or that stopped for a reason about the capture, is a different
+  # outcome and this case now tells them apart instead of passing on both.
+  if [ -z "$b_out" ] || ! printf '%s' "$b_out" | grep -qE 'TAG_SELECTION|terrain-tag-selection'; then pass; else
+    bad "the executor stopped AT the gate under test rather than past it — the row was read and the advance still did not clear TAG_SELECTION: $b_out"
+  fi
 
   # (c) A PAYLOAD FROM ANOTHER SESSION, WITH AN IDENTICAL ANSWER, DOES NOT
   # ADVANCE. The answer text is the same and the question text is the same:
@@ -358,11 +377,18 @@ fi
 # this repository, so its contents are a fact about the repository, and their
 # ORDER is a claim this pass can make on any clone. What is still not asserted
 # is that any machine loaded it.
-SETTINGS=.claude/settings.json
-if [ ! -f "$SETTINGS" ]; then
-  bad "$SETTINGS is missing — the order the advance's precondition depends on has no carrier in this repository"
+# THE ASSERTION IS ABOUT THE COMMIT, NEVER THE CHECKOUT (kogaki#1052, applied
+# here at PR #1077 round 1). The review lane builds its worktree WITHOUT
+# `.claude/settings.json` on purpose, so a read from the working tree fails on
+# every round -- a check defect arriving as a finding, which is what
+# `check-open-gate-exclusivity.sh` already ruled on for the sibling case and
+# repaired with `git show HEAD:`. It is also what this block's own ground asks
+# for: the claim is what the TRACKED file says, not what a checkout holds.
+settings_committed=$(mktemp) || settings_committed=""
+if [ -z "$settings_committed" ] || ! git show HEAD:.claude/settings.json >"$settings_committed" 2>/dev/null; then
+  bad ".claude/settings.json could not be read from HEAD — the order the advance's precondition depends on has no carrier in this commit"
 else
-  order=$(python3 - "$SETTINGS" <<'PY'
+  order=$(python3 - "$settings_committed" <<'PY'
 import json, sys
 doc = json.load(open(sys.argv[1], encoding="utf-8"))
 text = json.dumps(doc.get("hooks", {}).get("PostToolUse", []))
@@ -371,8 +397,9 @@ print("missing" if cap < 0 or adv < 0 else ("ok" if cap < adv else "reversed"))
 PY
 )
   if [ "$order" = "ok" ]; then pass; else
-    bad "$SETTINGS registers the PostToolUse hooks in the order '$order' — write-gate-capture.py must run BEFORE advance-terrain.py, because since kogaki#1075 the row it writes is the advance's precondition and a reversed order makes every first advance a silent no-op"
+    bad "the committed .claude/settings.json registers the PostToolUse hooks in the order '$order' — write-gate-capture.py must run BEFORE advance-terrain.py, because since kogaki#1075 the row it writes is the advance's precondition and a reversed order makes every first advance a silent no-op"
   fi
+  rm -f "$settings_committed"
 fi
 
 # ---- ACCEPTANCE 4. THE REMOVAL TEST.
