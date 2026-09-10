@@ -1,17 +1,17 @@
 {
   "id": "terrain-dynamic",
-  "raised_by": "the fixture pair for specs/spec-gate-carrier/SPEC.md §4.1 (kogaki#818) — shaped after the real declaration src/terrain.mjs:1798 writes",
+  "raised_by": "the fixture pair for specs/spec-gate-carrier/SPEC.md §4.1 (kogaki#818) — shaped after the real declaration the executor writes at a gate wait; repointed at kogaki#1087 from the deleted Strand-selection gate to the tag gate, whose one-standing-option shape is the one this pair exercises",
   "host": "claude-code",
   "medium": "selector",
-  "question": "Which Strand does the article take as material?",
+  "question": "Which tag does the survey open on?",
   "options": [
     {
-      "id": "strand:g1-1",
-      "label": "G1-1"
+      "id": "agents",
+      "label": "agents — 41 Lesson(s)"
     },
     {
-      "id": "no-strand",
-      "label": "Take no Strand from this survey; nothing is selected and the survey stands"
+      "id": "other-method",
+      "label": "Use a method other than co-tags — no other method exists yet, and this option is routed nowhere"
     }
   ],
   "free_text_offered": true,

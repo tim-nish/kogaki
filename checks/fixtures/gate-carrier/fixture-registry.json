@@ -7,7 +7,13 @@
     "gate whose CLASS-level declaration is one standing option, with the rest",
     "composed per run. Its static list is deliberately NOT what the run offers,",
     "which is what lets the fixture pair discriminate the two readings of the",
-    "comparison target (specs/spec-gate-carrier/SPEC.md §4.1)."
+    "comparison target (specs/spec-gate-carrier/SPEC.md §4.1).",
+    "REPOINTED AT kogaki#1087. The pair was shaped after the Strand-selection",
+    "gate, which that issue deleted; the SHAPE it exercises is unchanged and is",
+    "now `terrain-tag-selection`'s, which carries exactly one standing option",
+    "beside per-run composed ones. The synthetic id stays `terrain-dynamic`: it",
+    "is this fixture's own key and never a registered gate of this repository,",
+    "which is the whole point of the separate registry above."
   ],
   "gates": [
     {
@@ -26,7 +32,7 @@
       "id": "terrain-dynamic",
       "options": [
         {
-          "id": "no-strand"
+          "id": "other-method"
         }
       ]
     }

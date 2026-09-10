@@ -11,12 +11,12 @@
       },
       "payload": {
         "options_offered": [
-          "strand:g1-1",
-          "no-strand"
+          "agents",
+          "other-method"
         ],
         "free_text_offered": true,
         "answer": {
-          "option": "strand:g1-1"
+          "option": "agents"
         }
       }
     }

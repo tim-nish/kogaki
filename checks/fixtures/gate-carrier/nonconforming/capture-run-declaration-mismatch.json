@@ -10,12 +10,12 @@
       },
       "payload": {
         "options_offered": [
-          "strand:g1-2",
-          "no-strand"
+          "testing",
+          "other-method"
         ],
         "free_text_offered": true,
         "answer": {
-          "option": "strand:g1-2"
+          "option": "testing"
         }
       }
     }
