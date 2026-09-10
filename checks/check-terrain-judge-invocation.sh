@@ -165,6 +165,111 @@ if (input.kind === "composition-input" && /J1_claims/.test(prompt)) {
 process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
 JUDGE
 
+  # ---- THE SUBDIVIDING STUB (kogaki#1067). Every other J2 stub in this file
+  # answers `{"judged": true, "subgroups": []}`, which is the cheapest conformant
+  # record and exercises the ENVELOPE alone: `readSubdivisionEntry` checks
+  # `judged` and that `subgroups` is an array, and nothing inside the entries. So
+  # no fixture ever carried a SubGroup through `subgroupPlacement`, and the
+  # renderer read a key — `sg.subgroup` — that the record example the judge is
+  # bound to never writes. Both kogaki#1062 acceptances stayed green while every
+  # live run stalled before `cotag_groups`.
+  #
+  # THE RECORD IS DERIVED FROM THE EXAMPLE, NEVER HAND-WRITTEN. It reads
+  # `src/workflow.json`'s own `J2_subdivision.record_example` — the same object
+  # the executor puts in front of the live judge — and fills its placeholders.
+  # A hand-written record here would be a THIRD carrier of the shape, free to
+  # drift from the example exactly as the reader did; filled from the example,
+  # the example and the reader cannot disagree again without this fixture going
+  # red. A placeholder the value table does not know is a hard exit naming the
+  # key, so a key ADDED to the example fails here rather than being filled with
+  # something invented.
+  #
+  # ONE SUBGROUP HOLDING THE WHOLE PARENT, which is what makes this fixture legal
+  # over the tree's own two-member groups: `min_subgroup_members` is 3, and
+  # report-format.json's `_why_min` exempts "a SubGroup holding the WHOLE parent
+  # group" for the reason it states — M refuses a splinter, and a SubGroup that
+  # divided nothing produced none. The label is `tight` rather than the residual
+  # `other`, because a lone `other` SubGroup below the split threshold is exactly
+  # what the display SUPPRESSES, and a suppressed split renders no SubGroup line
+  # at all — the fixture would then assert nothing about the renderer.
+  cat > "$root/judge-subdivides" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+
+// The values, keyed by the EXAMPLE'S OWN KEY NAMES. Every placeholder the
+// example carries must resolve here; nothing else is filled.
+const VALUES = {
+  name: (g) => `${g.name} — one fixture SubGroup`,
+  claim: () => "In common: one fixture SubGroupClaim over this group's members.",
+  coherence: () => "tight",
+  coherence_why: () => "A fixture reason: the stub placed this group's whole membership together.",
+};
+
+function fill(node, g, key) {
+  if (Array.isArray(node)) {
+    // `members` is the one array whose CONTENT comes from the ask rather than
+    // from the example: the example's entry is a placeholder describing where
+    // the ids are drawn from, and the ids are this group's own.
+    if (key === "members") return g.members.slice();
+    return node.map((v) => fill(v, g, key));
+  }
+  if (node && typeof node === "object") {
+    return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, fill(v, g, k)]));
+  }
+  if (typeof node === "string" && /^<.*>$/.test(node.trim())) {
+    if (!VALUES[key]) {
+      process.stderr.write(`the record example carries a placeholder under \`${key}\` that this stub `
+        + "has no value for — the example and this fixture have drifted (kogaki#1067)\n");
+      process.exit(6);
+    }
+    return VALUES[key](g);
+  }
+  return node;
+}
+
+let record;
+if (input.kind === "composition-input" && /J1_claims/.test(prompt)) {
+  record = {
+    composition_pin: input.composition_pin,
+    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
+  };
+} else if (input.kind === "composition-input") {
+  const table = JSON.parse(fs.readFileSync(path.join(__dirname, "src", "workflow.json"), "utf8"));
+  const row = table.states.find((s) => s.id === "J2_subdivision");
+  const template = ((row || {}).record_example || {})["$per-group"];
+  if (!template) {
+    process.stderr.write("J2_subdivision carries no `$per-group` record_example for this stub to fill "
+      + "— the state's shape is bound by prose again (kogaki#1067)\n");
+    process.exit(5);
+  }
+  record = Object.fromEntries(input.groups.map((g) => [g.name, fill(template, g)]));
+} else if (input.state === "thesis_candidates") {
+  const strands = input.strands_you_may_use;
+  const n = input.candidates_required;
+  record = Array.from({ length: n }, (_, i) => ({
+    claim: `A fixture Thesis candidate, number ${i + 1}.`,
+    strands: strands.slice(0, 2),
+  }));
+} else if (input.state === "J3_neighborhood") {
+  const tc = (input.thesis_candidates_a_target_may_name[0] || {}).id;
+  record = Object.fromEntries((input.candidates_you_must_judge || []).map((c) => [c.slug, {
+    level: "useful",
+    claim: `A fixture neighborhood claim for ${c.slug}.`,
+    target: { candidate: tc, role: "supporting material" },
+  }]));
+} else {
+  process.stderr.write("the subdividing stub does not know this state\n");
+  process.exit(4);
+}
+process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
+JUDGE
+
   cat > "$root/judge-nonconformant" <<'JUDGE'
 #!/usr/bin/env node
 // A RECORD THE STATE'S OWN REFUSALS REJECT (acceptance 2), on EVERY attempt —
@@ -336,7 +441,8 @@ process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
 JUDGE
   chmod +x "$root/judge-conformant" "$root/judge-nonconformant" "$root/judge-garbage" \
            "$root/judge-repairs" "$root/judge-wrong-shape" \
-           "$root/judge-group-repairs" "$root/judge-group-wrong-shape"
+           "$root/judge-group-repairs" "$root/judge-group-wrong-shape" \
+           "$root/judge-subdivides"
 }
 
 # ---- THE SYNTHESIZED PAYLOAD. One PostToolUse event for an AskUserQuestion the
@@ -972,6 +1078,72 @@ PY
   # judgment that was never completed.
   if [ ! -f "$D8/terrain-judge-J2_subdivision.json" ]; then pass; else
     bad "$label: the failed per-group state wrote an assembled subdivision record anyway"
+  fi
+
+  # --- kogaki#1067 ACCEPTANCE 1. A NON-EMPTY SUBDIVISION REACHES THE DISPLAY.
+  # The stub returns the `record_example` FILLED for every composed group, so one
+  # tag answer carries the run through `J2_subdivision` into `cotag_groups` with a
+  # real SubGroup in hand and writes the co-tag display with it rendered.
+  #
+  # WHAT NO OTHER CASE HERE CAN REACH. Every span above answers J2 with
+  # `subgroups: []`, which is conformant and exercises the envelope alone — so the
+  # placement, the coherence read, the SubGroupID derivation and the SubGroup lines
+  # of the display were all unreached, and `subgroupPlacement` read `sg.subgroup`
+  # and took the whole entry as the verdicts object against an example writing
+  # `name` and a nested `verdicts` (kogaki#1067). The assertion is on the WRITTEN
+  # DISPLAY rather than on the record, because the record is what was already
+  # green while the display did not exist.
+  #
+  # THE CO-TAG FILE IS REWRITTEN BY THIS RUN, which is why the case sits last: the
+  # spans above assert that `reports/CoTagGroups.md` EXISTS, and this one asserts
+  # what a subdividing run puts in it.
+  local D9="$root/run-subdivides"
+  mkdir -p "$D9"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D9" >/dev/null 2>&1)
+  local qsd psd
+  qsd=$(declared_question "$D9" TAG_SELECTION "$root") || {
+    bad "$label: the subdividing run wrote no TAG_SELECTION declaration"
+    return
+  }
+  psd=$(payload "toolu_fixture_subdivides" "$qsd" "fixture")
+  capture "$root" "$D9" "$psd" subdivides
+  printf '%s' "$psd" | (cd "$root" && KOGAKI_RUN_DIR="$D9" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-subdivides" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advsubdiv.out" 2>&1)
+
+  if python3 - "$D9" "$root" <<'PY'
+import json, sys, pathlib
+run, root = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+rec = json.load(open(run / "run-record.json"))
+by = {t["state"]: t for t in rec.get("transitions", [])}
+for s in ("J2_subdivision", "cotag_groups"):
+    if s not in by:
+        print("the subdividing span never reached", s, file=sys.stderr); sys.exit(1)
+# THE JUDGE'S OWN SUBGROUP, read from the assembled record rather than retyped:
+# the name the fixture asserts on the display is the one the stub composed.
+entry = json.load(open(run / "terrain-judge-J2_subdivision.json"))
+record = entry.get("record") if isinstance(entry, dict) and "record" in entry else entry
+groups = [g for g in record.values() if isinstance(g, dict) and g.get("subgroups")]
+if not groups:
+    print("the assembled J2 record carries no SubGroup — the stub's filled example did not survive "
+          "the state's own reader", file=sys.stderr); sys.exit(1)
+names = [sg["name"] for g in groups for sg in g["subgroups"]]
+display = (root / "reports" / "CoTagGroups.md").read_text(encoding="utf-8")
+missing = [n for n in names if n not in display]
+if missing:
+    print("the co-tag display names no such SubGroup:", missing, file=sys.stderr); sys.exit(1)
+# The SubGroupID and the coherence line are the two things a SubGroup adds to the
+# display; a run that printed the name inside the group heading alone would pass
+# on the name check and have rendered no SubGroup at all.
+import re
+if not re.search(r'^G\d+-1 — ', display, re.M):
+    print("the display carries no `G<n>-1` SubGroup line", file=sys.stderr); sys.exit(1)
+if "coherence: tight — " not in display:
+    print("the display carries no coherence line for the rendered SubGroup", file=sys.stderr)
+    sys.exit(1)
+PY
+  then pass; else
+    bad "$label: a judge returning the filled J2_subdivision record_example did not carry the run through cotag_groups into a co-tag display rendering that SubGroup (kogaki#1067). The advance said: $(tail -4 "$root/advsubdiv.out" | tr '\n' ' ')"
   fi
 }
 
