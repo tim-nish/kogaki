@@ -358,8 +358,9 @@ def pre_tool_use(payload, pointers):
         f"The payload is composed by the executor and written to "
         f"{pointer.get('gate_call_path')}. Send that file's contents as the "
         f"tool_input with nothing added, dropped, reordered or reworded — the "
-        f"reading (`tag_listing`) is already inside the question text, and a table "
-        f"that arrives missing or paraphrased is exactly what this compares for."
+        f"reading this gate owes the owner (the tag listing, or the composed "
+        f"grouping) is already inside the question text, and a reading that "
+        f"arrives missing or paraphrased is exactly what this compares for."
     )
     return 0
 

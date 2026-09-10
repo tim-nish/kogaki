@@ -39,8 +39,14 @@ fi
 # ids need JSON escaping: the canonical form is a two-element array and the way
 # two implementations drift is separator and escaping conventions, not the
 # happy path.
+# THE MULTI-ID SHAPE IS RE-POINTED, NOT DROPPED (kogaki#1087). It rode on
+# `terrain-strand-selection|strand:a,strand:b,no-strand`, and that gate is
+# deleted; the tag gate composes run options beside its standing one, so the
+# three-id shape is carried there. A digest case is about the shape of the id
+# list and not about which gate holds it, but a case naming a gate the registry
+# no longer has reads as coverage of a surface that is gone.
 for case in 'terrain-tag-selection|other-method' \
-            'terrain-strand-selection|strand:a,strand:b,no-strand' \
+            'terrain-tag-selection|agents,method,other-method' \
             'terrain-id-selection|enter-no-groups' \
             'brief-thesis-adoption|' \
             'x"y|a b,c/d'; do

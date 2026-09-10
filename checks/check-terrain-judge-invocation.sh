@@ -999,7 +999,9 @@ PY
   fi
 
   # --- ACCEPTANCE 3. One payload for the ID answer produces the Full Report and
-  # the STRAND_SELECTION declaration.
+  # reaches the terminal. It used to end at the STRAND_SELECTION declaration;
+  # kogaki#1087 deleted that wait, so `full_report` is the last state before
+  # `done` and the span's end is what this case now reads.
   local q2 p2
   q2=$(declared_question "$D" ID_SELECTION "$root") || {
     bad "$label: no ID_SELECTION question to answer"
@@ -1047,14 +1049,77 @@ PY
   then pass; else
     bad "$label: the Full Report's identity does not pin the resolved binary's version (kogaki#1076 item 3)"
   fi
-  if python3 - "$D" STRAND_SELECTION <<'PY'
+  # THE SPAN ENDS AT THE TERMINAL, AND NO THIRD QUESTION IS OWED (kogaki#1087).
+  # Read as a CONJUNCTION rather than as `done: true` alone: a table that grew a
+  # fourth wait back would leave `awaiting` naming it, and one that kept a stub
+  # would leave a declaration owed over a state nothing reads.
+  if python3 - "$D" <<'PY'
 import json, sys, pathlib
 rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
-owed = [g for g in rec["gate_declarations_owed"] if g["state"] == sys.argv[2]]
-sys.exit(0 if rec.get("awaiting") == sys.argv[2] and owed and owed[0].get("declaration") else 1)
+if not rec.get("done"):
+    print("the run did not reach the terminal after the ID answer", file=sys.stderr); sys.exit(1)
+if rec.get("awaiting") is not None:
+    print("the run is still awaiting", rec.get("awaiting"), file=sys.stderr); sys.exit(1)
+unwritten = [g for g in rec["gate_declarations_owed"] if not g.get("declaration")]
+if unwritten:
+    print("declarations owed and unwritten:", unwritten, file=sys.stderr); sys.exit(1)
+if "STRAND_SELECTION" in rec["completed"] or "STRAND_SELECTION" in rec["waits_reached"]:
+    print("the deleted STRAND_SELECTION wait was reached", file=sys.stderr); sys.exit(1)
 PY
   then pass; else
-    bad "$label: the run is not awaiting STRAND_SELECTION with its declaration written after the ID answer"
+    bad "$label: the ID answer does not carry the run to its terminal with no further question owed (kogaki#1087)"
+  fi
+
+  # AND THE LEDGER NAMES BOTH OWNER ARTIFACTS (kogaki#1087 acceptance 5). The
+  # live run of 2026-09-10 completed `full_report`, wrote reports/FullReport.md,
+  # and recorded only the co-tag file -- the write outcome is OBSERVED from a
+  # return value the report path had stopped returning. Asserted over the RECORD
+  # rather than over the filesystem, because the file existing is what made the
+  # loss invisible.
+  if python3 - "$D" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+by_state = {a["state"]: a for a in rec.get("artifacts_written") or []}
+for state in ("cotag_groups", "full_report"):
+    if state not in by_state:
+        print("artifacts_written names no write for", state, ":", rec.get("artifacts_written"),
+              file=sys.stderr); sys.exit(1)
+    if not by_state[state].get("path"):
+        print(state, "is recorded with no path:", by_state[state], file=sys.stderr); sys.exit(1)
+if not by_state["full_report"]["path"].endswith("FullReport.md"):
+    print("full_report recorded", by_state["full_report"]["path"], file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the run record's artifacts_written does not name the Full Report beside the co-tag file (kogaki#1087 acceptance 5)"
+  fi
+
+  # AND THE ID QUESTION CARRIED THE GROUPING (kogaki#1087 acceptance 4). The
+  # declaration holds the written artifact's BYTES, and the byte-fixed gate call
+  # puts them above the question line -- so the owner answers over the grouping
+  # rather than over a path they may or may not have opened.
+  if python3 - "$D" <<'PY'
+import json, sys, pathlib
+d = pathlib.Path(sys.argv[1])
+decl = json.load(open(d / "terrain-id-selection.run-declaration.json"))
+listing = decl.get("groups_listing")
+if "groups_artifact" in decl:
+    print("the declaration still carries the retired groups_artifact pointer", file=sys.stderr); sys.exit(1)
+if not isinstance(listing, str) or not listing.strip():
+    print("the declaration carries no groups_listing", file=sys.stderr); sys.exit(1)
+if listing.lstrip().startswith("none"):
+    print("the grouping was absent at the gate:", listing[:120], file=sys.stderr); sys.exit(1)
+call = json.load(open(d / "terrain-id-selection.gate-call.json"))
+q = call["questions"][0]["question"]
+if not q.startswith(listing):
+    print("the gate call does not open with the grouping", file=sys.stderr); sys.exit(1)
+if "read in full" not in q:
+    print("the question is not the owner-vocabulary wording:", q[-200:], file=sys.stderr); sys.exit(1)
+labels = [o["label"] for o in call["questions"][0]["options"]]
+if not any(l.lower().startswith("none of these") for l in labels):
+    print("the decline arm is not reworded:", labels, file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the ID gate's call does not carry the composed grouping above an owner-vocabulary question (kogaki#1087 acceptance 4)"
   fi
 
   # --- ACCEPTANCE 2. The non-conformant stub: the run fails after the declared
@@ -2442,7 +2507,7 @@ build_tree "$SCRATCH/binary-red" --reduced
 drive_binary "the reduced binary-resolution tree" "$SCRATCH/binary-red"
 
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073); and the judge binary is resolved ONCE by the session that starts the run -- a failing shim ahead of a working install on PATH resolves to the working one, a PATH offering only the shim refuses before the survey and names it, and an advance fired from a session whose PATH resolves the shim first still judges through the recorded path and pins its version (kogaki#1076); and a hook-driven run that enters a SubGroup ID THE DISPLAY PRINTED reaches thesis_candidates composing over that SubGroup's members alone, rather than refusing an id it had just offered (kogaki#1085)"
+  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and the terminal with no third question owed, its record naming BOTH owner artifacts, and the ID gate's own call carrying the composed grouping above an owner-vocabulary question (kogaki#1087); a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073); and the judge binary is resolved ONCE by the session that starts the run -- a failing shim ahead of a working install on PATH resolves to the working one, a PATH offering only the shim refuses before the survey and names it, and an advance fired from a session whose PATH resolves the shim first still judges through the recorded path and pins its version (kogaki#1076); and a hook-driven run that enters a SubGroup ID THE DISPLAY PRINTED reaches thesis_candidates composing over that SubGroup's members alone, rather than refusing an id it had just offered (kogaki#1085)"
   note "not asserted here: that the PINNED MODEL is reachable. The judge binary is stubbed through KOGAKI_JUDGE_CLI, so these cases bind the executor's call, parse, retry and refusal — never the model's answer, which is not this repository's to assert."
 fi
 exit "$fail"

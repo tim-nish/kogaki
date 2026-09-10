@@ -147,9 +147,6 @@ const GATES_REGISTRY = readJson(join(REPO, "src/gate-registry.json"));
 const REPORT_FORMAT = join(REPO, "src/report-format.json");
 
 const NO_RELATION_SECTION = "No relation (no served tag)";
-// The selector affordance (AskUserQuestion) holds at most 4 options; one is
-// always the standing registry option, so at most 3 strands ride a gate.
-const MAX_STRAND_OPTIONS = 3;
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -1846,10 +1843,11 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 // open. That comparison is only possible because the bytes exist on disk; a
 // prose instruction to "render it as declared" is checkable by nobody.
 //
-// THE READING RIDES INSIDE THE PAYLOAD. Where the declaration carries the
-// runtime's own pre-selection listing (`tag_listing`), it goes into the question
-// text ABOVE the question line rather than being left for the session to put on
-// screen. kogaki#856 put the reading before the question; this puts it inside
+// THE READING RIDES INSIDE THE PAYLOAD. Where the declaration carries a reading
+// the owner answers over -- the runtime's own pre-selection listing at the tag
+// gate, its composed grouping at the ID gate; `GATE_CALL_READING_KEYS` is the
+// enumeration -- it goes into the question text ABOVE the question line rather
+// than being left for the session to put on screen. kogaki#856 put the reading before the question; this puts it inside
 // the thing that is compared, so a table that arrives missing, paraphrased or
 // reordered is a byte difference and is denied rather than merely regretted.
 //
@@ -1890,6 +1888,15 @@ const ASK_MAX_OPTIONS = 4;
 // wants its own words declares `free_text_label` in `src/gate-registry.json`,
 // where an owner merges it, rather than the executor inventing a phrasing per
 // gate -- which is the composition this whole file removes.
+// THE READING KEYS, IN ONE LIST RATHER THAN ONE BRANCH PER GATE (kogaki#1087).
+// A declaration whose gate owes the owner something to read before answering
+// carries those bytes under one of these keys, and the composer puts the first
+// one it finds above the question line. It was a single `tag_listing` test until
+// the ID gate stopped carrying a pointer and started carrying its grouping; a
+// second `||` branch beside the first is how two carriers of one rule begin, so
+// the keys are enumerated here and the composer reads the enumeration.
+const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing"];
+
 const GATE_CALL_FREE_TEXT_LABEL = "Answer in your own words instead";
 const GATE_CALL_FREE_TEXT_DESCRIPTION =
   "This gate offers free text. Choose this row and type the answer; the harness "
@@ -1928,8 +1935,9 @@ export function composeGateCall(declaration) {
   if (options.length > ASK_MAX_OPTIONS) {
     return { unavailable: `${declaration.id} composes ${options.length} options and AskUserQuestion admits at most ${ASK_MAX_OPTIONS} — no payload is written, and nothing here drops an option the declaration offered` };
   }
-  const reading = typeof declaration.tag_listing === "string" && declaration.tag_listing.trim()
-    ? declaration.tag_listing : null;
+  const reading = GATE_CALL_READING_KEYS
+    .map((k) => (typeof declaration[k] === "string" && declaration[k].trim() ? declaration[k] : null))
+    .find(Boolean) || null;
   const question = reading
     ? `${reading}\n\n${String(declaration.question)}`
     : String(declaration.question);
@@ -5282,7 +5290,17 @@ function cmdReport(args) {
   };
 
   // ONE report over the whole entered set (the Full Report v6/v7) — not one per group.
-  generateReport(targets);
+  //
+  // AND ITS RETURN VALUE IS THIS FUNCTION'S (kogaki#1087). The call discarded it
+  // and `cmdReport` then fell off its end returning `undefined`, so the executor's
+  // `written || null` mapped a real owner artifact to `{ artifact: null }` and
+  // `classifyWriteOutcome` reported `wrote-nothing` -- the run record's
+  // `artifacts_written` named `reports/CoTagGroups.md` alone on a run that had
+  // written `reports/FullReport.md` beside it. Both of `generateReport`'s own
+  // returns are already the observed path, and PR #667 round 2 repaired the
+  // idempotent branch to return one; the loss was one frame further out, where
+  // nothing was reading what either branch returned.
+  return generateReport(targets);
 
   function generateReport(entered) {
   // the Full Report v7 — ONE report over the entered set. The identity is the set; each
@@ -7983,24 +8001,15 @@ const GATE_WORK = {
     return { options: (p.options || []).map((o) => ({ id: o.id, label: o.label })), extra: { proposal: relFromRepo(resolve(proposalPath)) } };
   },
 
-  STRAND_SELECTION: (rec, st, args) => {
-    const raw = args.ids !== undefined ? String(args.ids) : ownerInput(rec, "ID_SELECTION");
-    const ids = String(raw || fail("STRAND_SELECTION needs --ids a,b,c — the current view's Strands. No wait has supplied an ID selection yet either.")).split(",").map((s) => s.trim()).filter(Boolean);
-    if (ids.length > MAX_STRAND_OPTIONS) {
-      fail(`${ids.length} Strands exceed the selector affordance (${MAX_STRAND_OPTIONS} beside the standing option). Narrowing the view for the gate is a TRIM — enter TRIM_RATIFICATION with \`--act trim\`; picking a subset here silently would be the refused minimal-form bundling.`);
-    }
-    return { options: ids.map((id) => ({ id: `strand:${id}`, label: id })), extra: {} };
-  },
-
-
   // THE ONE WAIT THAT DECLARED NO GATE (kogaki#890, acceptance item 3).
   //
   // `ID_SELECTION` took the owner's G/SG id list as a bare `--input` — a value
   // the model composed after reading the grouping, with no declaration to
   // check it against and no evidence that any question was ever put. That is
-  // the same channel the other four waits closed, surviving in the one state a
-  // gate-coverage number computed over the DECLARED gates could not see: the
-  // enumeration was complete and the uncovered wait was outside it.
+  // the same channel the other waits of the table AS IT THEN STOOD had closed --
+  // four of them, before kogaki#1030 and kogaki#1087 deleted two -- surviving in
+  // the one state a gate-coverage number computed over the DECLARED gates could
+  // not see: the enumeration was complete and the uncovered wait was outside it.
   //
   // NO RUN-COMPUTED OPTION, and the empty list is the shape rather than an
   // omission. The answer is a LIST, and a list is not an option: a composed run
@@ -8010,21 +8019,43 @@ const GATE_WORK = {
   // free-form entry of the ids — which is `terrain-tag-selection`'s shape in
   // this same table, arrived at from the same constraint.
   //
-  // THE GROUPING RIDES THE DECLARATION AS A POINTER, not as bytes. The other
-  // listing-carrying gate inlines its table because `renderTagDisplay` produces
-  // one and `report-format.json` grammars it; the composed grouping is an
-  // ARTIFACT this run already wrote, and naming it is the delivery the terrain
-  // skill's own rule licenses ("you put its bytes on screen, or name the
-  // artifact it wrote"). Inventing a second rendering surface here would put a
-  // format nothing grammars in front of the owner, which is the defect the
-  // format guard exists to refuse.
+  // THE GROUPING RIDES THE DECLARATION AS BYTES (kogaki#1087). It rode as a
+  // POINTER until this issue -- `groups_artifact` named the file `cotag_groups`
+  // wrote and left the rendering to the session, on the ground that inlining it
+  // would invent a second rendering surface nothing grammars. That ground was
+  // false in one respect and it was the load-bearing one: `report-format.json`
+  // grammars `cotag_groups` exactly as it grammars `tag_listing`, so the bytes
+  // this state reads have already passed the emit-time refusal at the write, and
+  // passing them through `composeOwnerListing` re-checks them against the same
+  // surface rather than against a format of this state's own.
+  //
+  // WHAT THE POINTER COST, observed rather than argued: on the live run of
+  // 2026-09-10 the owner was asked which groups to enter with the grouping
+  // nowhere on screen -- a pointer is rendered by whoever chooses to open it, and
+  // the one act the tag gate proved must not be left to a session is putting the
+  // reading in front of the owner. As bytes it is inside the payload the
+  // PreToolUse equality check admits, so a grouping that arrives missing or
+  // paraphrased is a byte difference and is denied.
+  //
+  // THE ABSENCE STAYS TYPED AND STAYS A NON-REFUSAL. A run whose `cotag_groups`
+  // wrote nothing reaches this wait with no reading to carry, and the gate is
+  // still raised: the sentence below rides in the reading's place, so the owner
+  // is told what they are not being shown instead of being asked over a silence.
+  // Refusing here would wedge the one run that most needs an owner.
   ID_SELECTION: (rec) => {
     const written = (rec.artifacts_written || []).filter((a) => a.state === "cotag_groups").pop();
+    // `resolve` against the repository root rather than the cwd: the recorded
+    // path is repo-relative by `relFromRepo`, which falls back to an ABSOLUTE
+    // path for a rendering written outside the tree, and `resolve` reads both.
+    const artifact = written ? resolve(repoRoot(), written.path) : null;
+    const listing = artifact && existsSync(artifact)
+      ? composeOwnerListing("cotag_groups", readFileSync(artifact, "utf8"))
+      : null;
     return {
       options: [],
       extra: {
-        groups_artifact: written ? written.path
-          : "none — cotag_groups wrote no artifact in this run, so the gate is raised over a grouping the owner has not been shown; render the run's own report before answering",
+        groups_listing: listing
+          || "none — cotag_groups wrote no readable artifact in this run, so this question is raised over a grouping you have not been shown; the run's own report is the surface to read before answering",
       },
     };
   },
