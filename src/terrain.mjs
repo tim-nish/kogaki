@@ -7644,7 +7644,14 @@ const STATE_WORK = {
     // candidate's strands are checked against is exactly the set the pull will
     // render.
     const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
-    const { targets } = resolveReportTargets(record, tag, enteredIds, args);
+    // THE SUBDIVISION RECORD COMES FROM THE RUN RECORD, exactly as it does at
+    // the state that PRINTED these ids (kogaki#1085). `cotag_groups` renders the
+    // SubGroup ids through `judgmentJoins`, and resolving them here from
+    // `args.subdivisions` alone meant a hook-driven run -- which supplies no
+    // argv at all since kogaki#1027 -- refused every id it had just offered.
+    // Two carriers for one fact is what was wrong; the explicit flag still
+    // wins, for the fixture and second-repository paths.
+    const { targets } = resolveReportTargets(record, tag, enteredIds, { ...judgmentJoins(rec, args), ...args });
     const memberDisplayIds = [...new Set(
       targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
       .map((mid) => displayIdOf(mid, record.candidates))
@@ -7693,7 +7700,10 @@ const STATE_WORK = {
     // one, so the emitter's candidate list and the rendering's would have been
     // computed over different sets.
     const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
-    const { targets } = resolveReportTargets(record, tag, enteredIds, args);
+    // ONE CARRIER, as at `thesis_candidates` beside it (kogaki#1085): the
+    // subdivision record is joined from the run record so the ids this state
+    // resolves are the ids `cotag_groups` printed.
+    const { targets } = resolveReportTargets(record, tag, enteredIds, { ...judgmentJoins(rec, args), ...args });
     const n = neighborhoodForTargets(record, targets);
     const path = join(rec._dir, "terrain-neighborhood-candidates.json");
     writeFileSync(path, JSON.stringify({
@@ -10339,6 +10349,59 @@ switch (cmd) {
             && ids.indexOf("thesis_candidates") < ids.indexOf("J3_neighborhood")
             && ids.indexOf("J3_neighborhood") < ids.indexOf("full_report");
         })());
+    }
+
+    // ---- THE SUBDIVISION RECORD'S ARGUMENT PATH (kogaki#1085 fixture 3(b)).
+    //
+    // The states that RESOLVE an entered id now join the subdivision record from
+    // the run record, because a hook-driven run supplies no argv and every
+    // SubGroup id the display had just printed resolved to nothing. The join is
+    // a FALLBACK ORDER and not a replacement: an explicit `--subdivisions` still
+    // wins, which is what keeps the fixture and second-repository paths --
+    // callers with a record on disk and no run record at all -- resolving
+    // exactly the ids they resolve today. These two cases are that path and its
+    // control, driven over `resolveReportTargets` itself.
+    {
+      const subdivDir = mkdtempSync(join(tmpdir(), "terrain-selftest-subids-"));
+      try {
+        const members = ["m1", "m2", "m3", "m4", "m5", "m6"];
+        const record = { candidates: members.map((id) => ({ id, tags: ["fix", "wide"] })) };
+        const groupName = "fix × wide";
+        const subgroup = (name, ms) => ({
+          name, claim: `A fixture claim over ${ms.length} member(s).`, members: ms,
+          verdicts: { coherence: "tight", coherence_why: "a fixture reason" },
+        });
+        const subPath = join(subdivDir, "subdivisions.json");
+        writeFileSync(subPath, JSON.stringify({
+          [groupName]: {
+            judged: true,
+            subgroups: [subgroup("the first three", members.slice(0, 3)),
+                        subgroup("the second three", members.slice(3))],
+          },
+        }) + "\n");
+        ok("a caller supplying --subdivisions resolves a SubGroup id to that SubGroup's members alone, with no run record in play",
+          (() => {
+            const r = resolveReportTargets(record, "fix", ["G1-1"], { subdivisions: subPath });
+            const t = r.targets[0];
+            return r.targets.length === 1
+              && t.kind === "subgroup"
+              && t.gid === "G1-1"
+              // NARROWER THAN THE PARENT, which is the half that discriminates:
+              // a resolver that quietly handed back the whole Group would render
+              // the same report and pass a membership-free assertion.
+              && t.sg.members.join(",") === "m1,m2,m3"
+              && t.group.members.length === 6;
+          })());
+        ok("the same display with no subdivisions record offers no SubGroup ids at all — the control that the case above is about the record rather than about the id",
+          (() => {
+            const r = resolveReportTargets(record, "fix", ["G1"], {});
+            return r.subOf(r.groups[0]) === null
+              && r.targets.length === 1
+              && r.targets[0].kind === "group";
+          })());
+      } finally {
+        rmSync(subdivDir, { recursive: true, force: true });
+      }
     }
 
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);

@@ -687,10 +687,70 @@ process.stdout.write(JSON.stringify({ result: JSON.stringify({
 }) }) + "\n");
 JUDGE
 
+  # ---- THE WHOLE-SPAN SUBDIVIDING STUB (kogaki#1085). Conformant at every
+  # judgment point the span reaches AND returning REAL SubGroups at J2, which no
+  # other stub in this file does: `judge-conformant` answers judged-EMPTY, so a
+  # run driven by it prints no SubGroup id and cannot enter one, and
+  # `judge-cap-repairs` returns SubGroups but knows no state past J2. The defect
+  # this fixture covers lives BETWEEN those two — a display that prints SubGroup
+  # ids and a next state that cannot resolve them — so it needs one stub that
+  # reaches both.
+  cat > "$root/judge-span-subgroups" <<'JUDGE'
+#!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076).
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
+const fs = require("node:fs");
+const path = require("node:path");
+const lib = require(path.join(__dirname, "judge-subgroup-lib.js"));
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+let record;
+if (input.kind === "composition-input" && /J1_claims/.test(prompt)) {
+  record = lib.j1(input);
+} else if (input.kind === "composition-input") {
+  // J2_subdivision, per group. A group above the minimum is SPLIT IN HALF, which
+  // is what puts SubGroup ids on the display; one at or below it becomes a single
+  // SubGroup holding the whole parent, which the minimum exempts by name.
+  const g = input.groups[0];
+  const subgroups = g.members.length <= 2
+    ? [lib.subgroup(__dirname, `${g.name} — whole`, g.members, "tight")]
+    : (() => {
+        const half = Math.ceil(g.members.length / 2);
+        return [lib.subgroup(__dirname, `${g.name} — first`, g.members.slice(0, half), "tight"),
+                lib.subgroup(__dirname, `${g.name} — second`, g.members.slice(half), "tight")];
+      })();
+  record = { [g.name]: { judged: true, subgroups } };
+} else if (input.state === "thesis_candidates") {
+  // THE ASK'S OWN STRAND SET IS WHAT IS COMPOSED OVER, never a wider one: the
+  // state refuses a candidate naming a Strand outside `strands_you_may_use`, so
+  // a stub reaching past it would be refused rather than green.
+  const strands = input.strands_you_may_use;
+  record = Array.from({ length: input.candidates_required }, (_, i) => ({
+    claim: `A fixture Thesis candidate, number ${i + 1}.`,
+    strands: strands.slice(0, 2),
+  }));
+} else if (input.state === "J3_neighborhood") {
+  const tc = (input.thesis_candidates_a_target_may_name[0] || {}).id;
+  record = Object.fromEntries((input.candidates_you_must_judge || []).map((c) => [c.slug, {
+    level: "useful",
+    claim: `A fixture neighborhood claim for ${c.slug}.`,
+    target: { candidate: tc, role: "supporting material" },
+  }]));
+} else {
+  process.stderr.write("the span stub does not know this state\n");
+  process.exit(4);
+}
+process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
+JUDGE
+
   chmod +x "$root/judge-conformant" "$root/judge-nonconformant" "$root/judge-garbage" \
            "$root/judge-repairs" "$root/judge-wrong-shape" \
            "$root/judge-group-repairs" "$root/judge-group-wrong-shape" \
-           "$root/judge-subdivides" "$root/judge-cap-repairs" "$root/judge-unplaced"
+           "$root/judge-subdivides" "$root/judge-cap-repairs" "$root/judge-unplaced" \
+           "$root/judge-span-subgroups"
 }
 
 # ---- THE SYNTHESIZED PAYLOAD. One PostToolUse event for an AskUserQuestion the
@@ -1759,6 +1819,140 @@ drive "the reduced tree" "$SCRATCH/red"
 build_tree "$SCRATCH/wide"
 drive_limits "the wide tree" "$SCRATCH/wide"
 
+# ---- kogaki#1085. A SubGroup ID THE DISPLAY PRINTED IS AN ID THE NEXT STATE
+# RESOLVES.
+#
+# WHAT THIS REACHES THAT NOTHING ABOVE DOES. `cotag_groups` renders SubGroup ids
+# from the J2 record the executor itself wrote and named on the run record;
+# `thesis_candidates` and `neighborhood_input` resolved an entered id through
+# `--subdivisions` alone, and a hook-driven run supplies no argv at all since
+# kogaki#1027 deleted `--input`, `--at` and `--enter`. So every Group id on the
+# display resolved and every SubGroup id on the SAME display did not, and the
+# refusal named an id the run had just printed. Each half was internally
+# consistent, which is why no case above could see it: the ID span there answers
+# `G1`, a Group, and every J2 record above this tree is judged-EMPTY, which
+# prints no SubGroup id to enter at all.
+#
+# THE ANSWER IS COMPUTED FROM THE RUN'S OWN RECORDS, never a literal. A `G2-1`
+# typed here would be an assertion about the fixture survey's sort order rather
+# than about resolution, and would go green against a display offering nothing.
+drive_subgroup_ids() {               # drive_subgroup_ids <label> <tree>
+  local label=$1 root=$2
+  mkdir -p "$root/open-gates"
+  export KOGAKI_OPEN_GATES="$root/open-gates"
+  export CLAUDE_CODE_SESSION_ID="fixture-session"
+  export KOGAKI_FIXTURE_LESSONS="$WIDE_LESSONS"
+  local D="$root/run-subids"
+  mkdir -p "$D"
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-span-subgroups" node src/terrain.mjs start --run-dir "$D" >/dev/null 2>&1)
+  local q1 p1
+  q1=$(declared_question "$D" TAG_SELECTION "$root") || {
+    bad "$label: the SubGroup-id run wrote no TAG_SELECTION declaration"
+    unset KOGAKI_FIXTURE_LESSONS
+    return
+  }
+  p1=$(payload "toolu_fixture_subids_tag" "$q1" "fixture")
+  capture "$root" "$D" "$p1" subids-tag
+  printf '%s' "$p1" | (cd "$root" && KOGAKI_RUN_DIR="$D" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-span-subgroups" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advsubids1.out" 2>&1)
+
+  # THE ID TO ENTER, AND THE MEMBERS IT MUST NARROW TO, both read from the
+  # records this run wrote: the composed input for the group order the ids are
+  # minted over, and the J2 record for the SubGroups the display placed under it.
+  if python3 - "$D" "$root" <<'PY'
+import json, pathlib, sys
+d, root = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+rec = json.load(open(d / "run-record.json"))
+def under(p):
+    p = pathlib.Path(p)
+    return p if p.is_absolute() else root / p
+inp = json.load(open(under(rec["composition_input"])))
+sub = json.load(open(under((rec.get("judgments") or {})["J2_subdivision"])))
+for i, g in enumerate(inp["groups"]):
+    entry = sub.get(g["name"]) or {}
+    sgs = entry.get("subgroups") or []
+    # A group the fixture SPLIT: more than one SubGroup under it, so the id names
+    # a subset and the assertion below can tell narrowing from a whole-group
+    # pass-through.
+    if len(sgs) > 1:
+        (root / "subid-target").write_text(f"G{i + 1}-1\n")
+        (root / "subid-members").write_text(json.dumps(sorted(sgs[0]["members"])) + "\n")
+        (root / "subid-parent").write_text(json.dumps(sorted(g["members"])) + "\n")
+        sys.exit(0)
+print("no composed group was subdivided into more than one SubGroup — the fixture "
+      "cannot offer a SubGroup id to enter", file=sys.stderr)
+sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the tag-answer span left no subdivided group, so there is no SubGroup id on the display to enter. The advance said: $(tail -3 "$root/advsubids1.out" | tr '\n' ' ')"
+    unset KOGAKI_FIXTURE_LESSONS
+    return
+  fi
+  local target
+  target=$(cat "$root/subid-target")
+
+  # AND THE DISPLAY PRINTED IT. The defect is a disagreement between the state
+  # that PRINTS an id and the states that RESOLVE it, so the printing half is
+  # asserted rather than assumed.
+  if grep -qF "$target" "$root/reports/CoTagGroups.md"; then pass; else
+    bad "$label: the co-tag display does not print $target — the id this case enters is not one the owner could have read off it"
+  fi
+
+  local q2 p2
+  q2=$(declared_question "$D" ID_SELECTION "$root") || {
+    bad "$label: no ID_SELECTION question to answer"
+    unset KOGAKI_FIXTURE_LESSONS
+    return
+  }
+  p2=$(payload "toolu_fixture_subids" "$q2" "$target")
+  capture "$root" "$D" "$p2" subids
+  printf '%s' "$p2" | (cd "$root" && KOGAKI_RUN_DIR="$D" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-span-subgroups" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advsubids2.out" 2>&1)
+
+  if python3 - "$D" "$root" <<'PY'
+import json, pathlib, sys
+d, root = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+rec = json.load(open(d / "run-record.json"))
+if "thesis_candidates" not in (rec.get("judgments") or {}):
+    print("the run did not reach thesis_candidates:", sorted((rec.get("judgments") or {})),
+          file=sys.stderr); sys.exit(1)
+inp_path = d / "terrain-judge-input-thesis_candidates.json"
+if not inp_path.exists():
+    print("no thesis-candidate judge input was written", file=sys.stderr); sys.exit(1)
+inp = json.load(open(inp_path))
+sp = pathlib.Path(rec["survey_record"])
+survey = json.load(open(sp if sp.is_absolute() else root / sp))
+by_id = {c["id"]: c.get("display_id") for c in survey["candidates"]}
+want = [by_id[m] for m in json.loads((root / "subid-members").read_text())]
+parent = [by_id[m] for m in json.loads((root / "subid-parent").read_text())]
+got = sorted(inp["strands_you_may_use"])
+if got != sorted(want):
+    print("the composed input names", got, "and the entered SubGroup holds", sorted(want),
+          file=sys.stderr); sys.exit(1)
+# THE NARROWING IS THE HALF THAT DISCRIMINATES: a resolver handing back the whole
+# parent Group would compose a perfectly valid input over a wider set.
+if len(parent) <= len(want):
+    print("the fixture's SubGroup is not narrower than its parent, so this case cannot "
+          "tell resolution from a whole-group pass-through", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: a hook-driven run entering the SubGroup id $target did not reach thesis_candidates composing over that SubGroup's members alone (kogaki#1085). The advance said: $(tail -4 "$root/advsubids2.out" | tr '\n' ' ')"
+  fi
+
+  # AND THE REFUSAL THE DEFECT RAISED IS GONE BY NAME. Without this the case
+  # would go green on a run that refused for some other reason and happened to
+  # leave the records above behind.
+  if ! grep -q "resolve to no Group or SubGroup" "$root/advsubids2.out"; then pass; else
+    bad "$label: the advance refused the id the display had just printed — the state that renders the ids and the state that resolves them are reading different carriers (kogaki#1085): $(tail -3 "$root/advsubids2.out" | tr '\n' ' ')"
+  fi
+  unset KOGAKI_FIXTURE_LESSONS
+}
+
+build_tree "$SCRATCH/subids"
+drive_subgroup_ids "the SubGroup-id tree" "$SCRATCH/subids"
+
 # ---- THE PER-GROUP RECORDS ON DISK ARE READ, AND THE CALLS RUN CONCURRENTLY
 # (kogaki#1073, acceptance 1).
 #
@@ -2248,7 +2442,7 @@ build_tree "$SCRATCH/binary-red" --reduced
 drive_binary "the reduced binary-resolution tree" "$SCRATCH/binary-red"
 
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073); and the judge binary is resolved ONCE by the session that starts the run -- a failing shim ahead of a working install on PATH resolves to the working one, a PATH offering only the shim refuses before the survey and names it, and an advance fired from a session whose PATH resolves the shim first still judges through the recorded path and pins its version (kogaki#1076)"
+  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073); and the judge binary is resolved ONCE by the session that starts the run -- a failing shim ahead of a working install on PATH resolves to the working one, a PATH offering only the shim refuses before the survey and names it, and an advance fired from a session whose PATH resolves the shim first still judges through the recorded path and pins its version (kogaki#1076); and a hook-driven run that enters a SubGroup ID THE DISPLAY PRINTED reaches thesis_candidates composing over that SubGroup's members alone, rather than refusing an id it had just offered (kogaki#1085)"
   note "not asserted here: that the PINNED MODEL is reachable. The judge binary is stubbed through KOGAKI_JUDGE_CLI, so these cases bind the executor's call, parse, retry and refusal — never the model's answer, which is not this repository's to assert."
 fi
 exit "$fail"
