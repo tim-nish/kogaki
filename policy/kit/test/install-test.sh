@@ -480,12 +480,33 @@ echo "ok: issue-pins content-liveness fixture pass (kogaki#188)"
 node "$KIT_DIR/bin/effectiveness.mjs" --self-test || fail "effectiveness-ledger fixtures failed"
 echo "ok: effectiveness-ledger fixture pass (kogaki#608)"
 
-# 5. Skill is installed where the harness loads it, with frontmatter.
+# 5. Skill is installed where the harness loads it, with frontmatter — AND the
+#    install is its ONLY delivery (kogaki#725).
+#
+#    THE TWO HALVES ARE ONE PROPERTY AND THAT IS WHY THEY SIT TOGETHER. Step 4c
+#    untracks the installed copy in every consumer, and untracking a skill the
+#    harness loads is exactly how a discipline becomes advisory by accident: if
+#    the install stopped delivering it, no consumer would carry it at all. So
+#    the loadability assertion is the untracking's precondition rather than a
+#    neighbour of it, and a regression in either half fails here.
+#
+#    THE GITIGNORE ASSERTION IS THE THIRD MEMBER ON 2b/2e's AXIS, and it answers
+#    "not committed" for a THIRD reason: 2b's artifact is uncommitted because
+#    its content is SENSITIVE, 2e's is committed because its content is
+#    consumer-authored, and this one is uncommitted because its content is
+#    DERIVED — `install.sh` copies source over copy on every run, so a committed
+#    copy is an undeclared duplicate of a centrally-managed artifact. Reading
+#    the three together is the point; any one alone reads as arbitrary, and the
+#    reasons are asserted separately so a later change cannot collapse them.
 SKILL="$TMP/repo/.claude/skills/consult-first/SKILL.md"
 [[ -f "$SKILL" ]] || fail "consult-first skill not installed at .claude/skills/"
 head -1 "$SKILL" | grep -q '^---' || fail "skill has no frontmatter — the harness will not load it"
 grep -q '^name: consult-first' "$SKILL" || fail "skill frontmatter has no name"
-echo "ok: skill installed harness-loadably"
+grep -qx '.claude/skills/consult-first/SKILL.md' "$TMP/repo/.gitignore" \
+  || fail "the installed skill is not gitignored — a committed install output is an undeclared duplicate of the kit source"
+[[ $(grep -cx '.claude/skills/consult-first/SKILL.md' "$TMP/repo/.gitignore") -eq 1 ]] \
+  || fail "duplicate installed-skill gitignore entry across two installs (not idempotent)"
+echo "ok: skill installed harness-loadably, and gitignored (once, across two installs)"
 
 # 6. Boundary (consultation-map entry 2, kogaki#7): no kit tool reads gateway
 #    internals. The access log is the SERVER's record; consumer-side receipts
@@ -1045,7 +1066,7 @@ echo "ok: an explicitly empty declared set still refuses an argued call, truthfu
 #     NON-MEMBER FALLBACK, chosen rather than inherited: an artifact
 #     `install.sh` starts placing and this list does not name is NOT covered.
 #     The list is kept beside the `cp` lines it mirrors (install.sh 75, 84, 96,
-#     112, 160) and a sixth destination owes a sixth entry here.
+#     112, 192) and a sixth destination owes a sixth entry here.
 INSTALLED=(
   "$TMP/repo/.claude/skills/consult-first/SKILL.md"
   "$TMP/repo/policy/CAPABILITIES.md"

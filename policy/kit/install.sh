@@ -112,6 +112,39 @@ mkdir -p "$REPO/.claude/skills/consult-first"
 cp "$KIT_DIR/skills/consult-first.md" "$REPO/.claude/skills/consult-first/SKILL.md"
 say ".claude/skills/consult-first/SKILL.md: installed (harness-loadable)"
 
+#     AND the .gitignore entry, which is the SECOND act and is what makes this
+#     an install rather than a duplicate (kogaki#725). The installed copy is
+#     derived: this script copies source -> copy on every run, so a consumer
+#     that also COMMITS the copy holds an undeclared duplicate of a
+#     centrally-managed artifact, and the two drift with the divergence
+#     attributed to the consumer's environment rather than to the stale copy.
+#     The served position names the two admissible resolutions -- a load of the
+#     centre's artifact, or a declared fork with a version and a reason -- and
+#     this is the first: the install is the only delivery.
+#
+#     THE AXIS HERE IS NOT 4d's. The shape read is untracked because its
+#     CONTENT is sensitive; this file is untracked because its CONTENT IS
+#     DERIVED. Same act, different reason, and the reasons are written at each
+#     site so a later change cannot 'make them consistent' by collapsing one
+#     into the other.
+if [[ -f "$REPO/.gitignore" ]] && grep -qx '.claude/skills/consult-first/SKILL.md' "$REPO/.gitignore"; then
+  say ".gitignore: .claude/skills/consult-first/SKILL.md already excluded"
+else
+  { [[ -f "$REPO/.gitignore" ]] && printf '\n'; cat <<'IGEOF'
+# The consult-first skill's INSTALLED COPY (kogaki's
+# specs/spec-client-kit/SPEC.md §2, kogaki#725) -- written by
+# policy/kit/install.sh step 4c from
+# policy/kit/skills/consult-first.md, which is the authoritative side. Committed
+# it would be an undeclared duplicate of a centrally-managed artifact; the
+# install is the delivery, so the harness loads a copy this tree never carries.
+# Untracked for a DIFFERENT reason than the shape read below: that one's content
+# is sensitive, this one's content is derived.
+.claude/skills/consult-first/SKILL.md
+IGEOF
+  } >> "$REPO/.gitignore"
+  say ".gitignore: .claude/skills/consult-first/SKILL.md excluded (installed, not committed)"
+fi
+
 # 4d. The SHAPE READ (kogaki#325; specs/spec-client-kit/SPEC.md §3). Two acts,
 #     and they are separate on purpose:
 #       (i)  the .gitignore entry — the digest derives from hub owner-realm

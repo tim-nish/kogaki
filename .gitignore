@@ -139,12 +139,40 @@ policy/shape.md
 !.claude/skills/draft/SKILL.md
 !.claude/skills/review-draft/SKILL.md
 
-# The remaining reader, admitted by the same criterion (kogaki#621).
-# Tracking it is what lets its absence guard be deleted rather than placed:
-# `check-client-kit-install.sh` compares the kit source against the installed
-# copy — the assertion does not exist without its file, and a guard standing
-# in for it can hide more than it states (PR #620 round 2, where an `exit 0`
-# guard silently skipped the check's primary job on every clone).
+# THE CONSULT-FIRST SKILL'S RE-INCLUDE IS GONE (kogaki#725), and the argument
+# it stood on is answered rather than deleted. That argument, from kogaki#621,
+# was: tracking the installed copy is what lets its absence guard be deleted
+# rather than placed, because `check-client-kit-install.sh` compares the kit
+# source against the installed copy — the assertion does not exist without its
+# file, and a guard standing in for it can hide more than it states (PR #620
+# round 2, where an `exit 0` guard silently skipped the check's primary job on
+# every clone).
+#
+# It fails on a distinction it did not have to make. That file is an INSTALL
+# OUTPUT — `policy/kit/install.sh` step 4c writes it from
+# `policy/kit/skills/consult-first.md` on every run — so tracking it made this
+# repository hold an undeclared duplicate of a centrally-managed artifact, and
+# the served position admits only a load of the centre's artifact or a declared
+# fork carrying a version and a reason. The other four skills here are
+# repo-native: kogaki authored them, and tracking them is correct.
+#
+# WHAT REPLACES THE ASSERTION IS STRONGER THAN IT. The comparison detected a
+# divergence the tree ADMITTED; untracking makes the committed divergence
+# unreachable, and the check's primary job is now the unconditional assertion
+# that the copy is never tracked — which holds on every clone, including the
+# ones where no install has run. The equality comparison remains as the second
+# arm for machines that have installed.
+#
+# AND #620's OBJECTION IS MET ON ITS OWN TERMS. Its defect was a guard that
+# SILENTLY skipped; the fresh-clone arm prints `inapplicable:` naming the
+# absence and what would make it applicable, so a reader can tell a comparison
+# that was made from one that had no second operand. An `ok:` line there would
+# have been the #620 shape wearing a passing label.
+#
+# The literal ignore line below is redundant under the blanket above and is
+# kept anyway: it is the exact line `install.sh` step 4c appends, so a re-install
+# in this repository is a no-op rather than an edit to this file.
+.claude/skills/consult-first/SKILL.md
 #
 # THE HOOK RE-INCLUDE IS GONE (kogaki#630; PR #631 round 1, finding 4). This
 # block used to admit `.claude/hooks/review-trigger.py` on the argument that
@@ -190,9 +218,6 @@ policy/shape.md
 # nothing enforces looks exactly like a gate nobody reached -- so it is
 # registered in the committed `.claude/settings.json` and asserted there.
 !.claude/hooks/gate-open-terrain-gate.py
-!.claude/skills/consult-first/
-.claude/skills/consult-first/*
-!.claude/skills/consult-first/SKILL.md
 
 # check-terrain-workflow.sh mints ONE run workspace at the repository root, on
 # purpose: it is the only place an in-repo `--run-dir` can be driven from a
