@@ -1544,6 +1544,75 @@ then pass; else
 fi
 
 
+# ---- THE `limits` TABLE KEY IS RESOLVED FOR EVERY JUDGMENT STATE, AND THE SUM
+# REFUSAL HAS ONE CARRIER (PR #1070 round 1). Both are asserted STRUCTURALLY
+# rather than by driving a run, and the reason is each finding's own: the first
+# is about a state the table does not currently declare -- a `limits` key without
+# `per_group` -- so there is nothing in this repository to drive, and a fixture
+# adding such a state to the shipped table would be asserting a table nobody
+# ships. The second is about how many places one refusal is written, which is a
+# property of the source and of no run.
+if python3 - <<'PY'
+import json, re, sys
+src = open("src/terrain.mjs", encoding="utf-8").read()
+
+# (1) EVERY DECLARED `limits` NAMES A KNOWN BLOCK. The key's own field_semantics
+# row claims an unknown name is refused BY NAME; that refusal lives in
+# `judgeLimits`, and this is what keeps the shipped table on the admitted side of
+# it without waiting for a judge call to find out.
+m = re.search(r'const JUDGE_LIMIT_BLOCKS = Object\.freeze\(\{(.*?)\n\}\);', src, re.S)
+if not m:
+    print("src/terrain.mjs declares no JUDGE_LIMIT_BLOCKS -- the set this checks against is gone",
+          file=sys.stderr); sys.exit(1)
+known = re.findall(r'^  ([a-z_]+):', m.group(1), re.M)
+if not known:
+    print("JUDGE_LIMIT_BLOCKS names no block", file=sys.stderr); sys.exit(1)
+table = json.load(open("src/workflow.json"))
+for row in table["states"]:
+    if row.get("limits") is None:
+        continue
+    if row["limits"] not in known:
+        print(f"{row['id']} declares limits {row['limits']!r}, which JUDGE_LIMIT_BLOCKS does not carry "
+              f"({known}) -- `judgeLimits` refuses it at the first judge call", file=sys.stderr)
+        sys.exit(1)
+if "limits" not in (table.get("field_semantics") or {}):
+    print("the table declares `limits` on a state with no field_semantics row for it",
+          file=sys.stderr); sys.exit(1)
+
+# (2) IT IS RESOLVED BEFORE THE PER-GROUP BRANCH, not inside it. Resolved inside,
+# the refusal above is unreachable for a state declaring the key without
+# `per_group` and the block silently never reaches the ask -- which is exactly the
+# two properties the field_semantics row claims. Keyed on ORDER in `invokeJudge`,
+# because that is the fact that makes the refusal a property of DECLARING the key.
+body = re.search(r'function invokeJudge\(table, st, inputPath, dir, validate, rec\) \{(.*?)\n\}\n',
+                 src, re.S)
+if not body:
+    print("invokeJudge not found under its expected signature", file=sys.stderr); sys.exit(1)
+b = body.group(1)
+if "judgeLimits(st)" not in b:
+    print("invokeJudge does not resolve `limits` at all, so a state declaring an unknown block "
+          "never reaches its refusal", file=sys.stderr); sys.exit(1)
+if b.index("judgeLimits(st)") > b.index("st.per_group === true"):
+    print("invokeJudge resolves `limits` after the per_group branch, so a state declaring the key "
+          "without per_group never reaches the unknown-block refusal", file=sys.stderr); sys.exit(1)
+
+# (3) THE SUM REFUSAL IS WRITTEN ONCE. A second copy is what PR #1070 round 1
+# found on its first day, two wordings citing two different grounds -- the drift
+# the SubGroup limits' single carrier exists to prevent, rebuilt beside it.
+sites = src.count("SUBGROUP_MEMBERS_DO_NOT_SUM —")
+if sites != 1:
+    print(f"SUBGROUP_MEMBERS_DO_NOT_SUM is raised at {sites} sites; one refusal owes one carrier",
+          file=sys.stderr); sys.exit(1)
+place = re.search(r'export function subgroupPlacement\(parent, classification, block\) \{(.*?)\n\}\n',
+                  src, re.S)
+if not place or "SUBGROUP_MEMBERS_DO_NOT_SUM" not in place.group(1):
+    print("the one site is not inside `subgroupPlacement`, so the callers that never carried the "
+          "check still do not", file=sys.stderr); sys.exit(1)
+PY
+then pass; else
+  bad "the workflow table's \`limits\` key or the SUBGROUP_MEMBERS_DO_NOT_SUM refusal does not hold the carrier properties their own declarations claim (PR #1070 round 1)"
+fi
+
 build_tree "$SCRATCH/gold"
 drive "this tree" "$SCRATCH/gold"
 
