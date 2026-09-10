@@ -126,9 +126,9 @@
 //   Human-facing files live where the human works
 //       specs/SPEC.md
 //
-import { spawnSync, execFileSync } from "node:child_process";
+import { spawnSync, spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, readdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -2886,8 +2886,100 @@ function judgeSettings(table) {
       "the workflow table's `judge` block declares no numeric `timeout_s`. A judgment call inside a "
       + "PostToolUse hook is bounded by that hook, and an unbounded child can exhaust the hook's own "
       + "timeout mid-span (kogaki#1030, PR #1044 round 1).")),
+    // HOW MANY OF THOSE BOUNDED CALLS RUN AT ONCE (kogaki#1073). `timeout_s`
+    // bounds ONE call and `ADVANCE_TIMEOUT_S` bounds the WHOLE advance, and
+    // between them sat a quantity neither named: the SUM. kogaki#1062 made each
+    // per-group call small and left the sum untouched, and on 2026-09-10 eleven
+    // sequential calls of thirty to ninety seconds each were killed at the
+    // advance bound after eight of them. The repair is to remove the sum rather
+    // than to choose a number for it: with the calls running concurrently the
+    // wall time of a per-group judgment state is about the LONGEST call, not the
+    // total, so neither bound has to move.
+    //
+    // REQUIRED AND POSITIVE, on `timeout_s`'s own ground one field above: a cap
+    // a table can silently omit is not a cap, and a run that defaulted it would
+    // be running at a width nothing declared. A cap of 1 is the sequential
+    // behaviour, declared rather than inherited.
+    concurrency: Number.isInteger(j.concurrency) && j.concurrency > 0 ? j.concurrency : fail(
+      "the workflow table's `judge` block declares no positive integer `concurrency`. It is the number "
+      + "of judge calls a per-group judgment state runs at once; the per-call bound `timeout_s` and the "
+      + "advance's own bound both hold unchanged, and this is what keeps their SUM from being what the "
+      + "advance is measured against (kogaki#1073)."),
     stubbed: !!process.env.KOGAKI_JUDGE_CLI,
   };
+}
+
+// THE CHILD, RUN WITHOUT BLOCKING THE THREAD (kogaki#1073). `spawnSync` is what
+// made the per-group calls a SUM: nothing else can run while one is in flight,
+// so eleven calls cost eleven call-lengths however small each one is. This is
+// `spawnSync`'s contract over `spawn` — the same argv, the same stdin, the same
+// per-call bound and the same `maxBuffer` — returning a promise instead of a
+// value, so the pool below can hold several in flight at once.
+//
+// THE TIMEOUT ARM IS REPRODUCED RATHER THAN INHERITED, and its shape is
+// `spawnSync`'s: `error.code === "ETIMEDOUT"`, which is the token the caller
+// already reads. `spawn`'s own `timeout` option reports a kill through a signal
+// on `close`, and a caller distinguishing a bound from a crash by signal would
+// be reading a different fact than the one it reads today.
+function judgeSpawnAsync(command, argv, { input, timeoutMs, maxBuffer }) {
+  return new Promise((resolvePromise) => {
+    let child;
+    try { child = spawn(command, argv, { stdio: ["pipe", "pipe", "pipe"] }); }
+    catch (e) { resolvePromise({ error: e, status: null, stdout: "", stderr: "" }); return; }
+    const outChunks = [];
+    const errChunks = [];
+    let outLen = 0;
+    let settled = false;
+    let timer = null;
+    const settle = (r) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolvePromise(r);
+    };
+    const kill = (err) => { try { child.kill("SIGKILL"); } catch { /* already gone */ } settle(err); };
+    child.stdout.on("data", (d) => {
+      outLen += d.length;
+      // THE SAME CEILING `spawnSync`'s `maxBuffer` CARRIED, enforced here because
+      // `spawn` has none: a judge that streamed without end would otherwise fill
+      // this process's memory rather than being cut off with a named error.
+      if (outLen > maxBuffer) { kill({ error: Object.assign(new Error("stdout maxBuffer exceeded"), { code: "ENOBUFS" }), status: null, stdout: "", stderr: "" }); return; }
+      outChunks.push(d);
+    });
+    child.stderr.on("data", (d) => errChunks.push(d));
+    child.on("error", (e) => settle({ error: e, status: null, stdout: "", stderr: "" }));
+    child.on("close", (status) => settle({
+      error: null, status,
+      stdout: Buffer.concat(outChunks).toString("utf8"),
+      stderr: Buffer.concat(errChunks).toString("utf8"),
+    }));
+    timer = setTimeout(() => {
+      kill({ error: Object.assign(new Error("child timed out"), { code: "ETIMEDOUT" }), status: null, stdout: "", stderr: "" });
+    }, timeoutMs);
+    child.stdin.on("error", () => { /* a child that exited before reading its prompt is the close arm's */ });
+    child.stdin.end(input);
+  });
+}
+
+// N AT A TIME, IN DECLARATION ORDER, AND THE RESULTS COME BACK IN THAT ORDER
+// (kogaki#1073). A worker takes the next index until there is none left, so the
+// cap bounds how many are IN FLIGHT and never how many run. The results array is
+// indexed by the item's own position, so the bookkeeping that follows the pool
+// reads the groups in the order the composed input declared them — the order the
+// sequential loop read them in, unchanged by the concurrency.
+async function runPool(items, cap, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const width = Math.max(1, Math.min(cap, items.length));
+  await Promise.all(Array.from({ length: width }, async () => {
+    for (;;) {
+      const i = next;
+      next += 1;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i], i);
+    }
+  }));
+  return results;
 }
 
 // Everything after this line in a judge prompt is the input file, verbatim.
@@ -3076,7 +3168,7 @@ function judgeRecordFrom(stdout, st) {
 // per-group shape needs: the failure text names the group and the groups already
 // judged, and only the caller knows those. The whole-input caller's `fail()` is
 // unchanged and still carries the same words it did.
-function judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label }) {
+async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label }) {
   const argv = ["-p", "--model", cfg.model, "--output-format", cfg.outputFormat];
   const at = label || "";
   let lastRefusal = null;
@@ -3112,20 +3204,27 @@ function judgeAttempts(cfg, st, retries, { inputText, input, out, validate, labe
       // either, so re-asking would spend the bound on a fact that cannot change.
       // A model that answered badly is a different case from a binary that is not
       // there.
+      // THE CALL IS AWAITED OUTSIDE THE WINDOW AND ITS RESULT IS JUDGED INSIDE
+      // (kogaki#1073). The soft window is a synchronous depth counter, and a
+      // window held across an `await` would be open while OTHER groups' results
+      // were being judged in the same process — so the two are separated: the
+      // child runs first and raises nothing, and every refusal below is decided
+      // in one synchronous window as it always was.
+      const raw = await judgeSpawnAsync(cfg.command, argv, {
+        input: prompt, maxBuffer: 64 * 1024 * 1024,
+        // THE CHILD IS BOUNDED, AND ITS BOUND IS DERIVED FROM THE HOOK'S
+        // (PR #1044 round 1). `.claude/hooks/advance-terrain.py` kills the whole
+        // advance at `ADVANCE_TIMEOUT_S`, and a span can now make several pinned
+        // calls inside one PostToolUse event -- so an unbounded child could
+        // exhaust the hook's bound mid-span and leave the half-finished record
+        // that bound exists to relay, falsifying the one-hook-event guarantee
+        // with no state misbehaving. The table declares the per-call seconds;
+        // the two are named apart rather than conflated, because one bounds a
+        // CALL and the other bounds an ADVANCE.
+        timeoutMs: cfg.timeoutMs,
+      });
       const res = softRefusals(() => {
-        const r = spawnSync(cfg.command, argv, {
-          input: prompt, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
-          // THE CHILD IS BOUNDED, AND ITS BOUND IS DERIVED FROM THE HOOK'S
-          // (PR #1044 round 1). `.claude/hooks/advance-terrain.py` kills the whole
-          // advance at `ADVANCE_TIMEOUT_S`, and a span can now make several pinned
-          // calls inside one PostToolUse event -- so an unbounded child could
-          // exhaust the hook's bound mid-span and leave the half-finished record
-          // that bound exists to relay, falsifying the one-hook-event guarantee
-          // with no state misbehaving. The table declares the per-call seconds;
-          // the two are named apart rather than conflated, because one bounds a
-          // CALL and the other bounds an ADVANCE.
-          timeout: cfg.timeoutMs,
-        });
+        const r = raw;
         if (r.error && r.error.code === "ETIMEDOUT") {
           fail(`${st.id}${at}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
             + "`judge` block declares. The bound exists so that several calls in one span cannot exhaust the "
@@ -3142,10 +3241,20 @@ function judgeAttempts(cfg, st, retries, { inputText, input, out, validate, labe
         return r;
       });
       const record = softRefusals(() => judgeRecordFrom(res.stdout, st));
-      writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
+      // WRITTEN UNDER A TEMPORARY NAME AND RENAMED AFTER IT VALIDATES
+      // (kogaki#1073). The per-group records are now READ BACK on a later
+      // advance, so what sits at `out` is evidence rather than a by-product: a
+      // record cut off mid-write, or one this attempt is about to refuse, would
+      // be taken by the next run as a group already judged. The rename is the
+      // one act that makes "the file exists" and "the file validated" the same
+      // fact. A refused attempt therefore leaves the temporary beside the run
+      // for a reader, and never at the name the reuse check reads.
+      const partial = `${out}.partial`;
+      writeFileSync(partial, JSON.stringify(record, null, 2) + "\n");
       // THE STATE'S OWN REFUSALS, run against the judge's record exactly as they
       // run against an owner-supplied one.
-      softRefusals(() => validate(out));
+      softRefusals(() => validate(partial));
+      renameSync(partial, out);
       return { ok: true, out, record, attempts, refusals, lastRefusal, prompt };
     } catch (e) {
       if (!(e instanceof JudgmentRefusal)) {
@@ -3168,7 +3277,7 @@ function judgeAttempts(cfg, st, retries, { inputText, input, out, validate, labe
 
 // THE WHOLE COMPOSED INPUT, ONE ASK. The default shape, and the one every
 // judgment state but `J2_subdivision` still spends.
-function invokeJudge(table, st, inputPath, dir, validate, rec) {
+async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   const cfg = judgeSettings(table);
   const retries = Number.isInteger(st.retries) ? st.retries : fail(
     `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
@@ -3215,10 +3324,10 @@ function invokeJudge(table, st, inputPath, dir, validate, rec) {
   // to this line.
   const limits = judgeLimits(st);
   if (st.per_group === true) {
-    return invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits);
+    return await invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits);
   }
   const out = join(dir, `terrain-judge-${st.id}.json`);
-  const r = judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label: "" });
+  const r = await judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label: "" });
   if (r.ok) {
     recordJudgeInvocation(st.id, {
       state: st.id,
@@ -3333,7 +3442,7 @@ export function scopeCompositionInput(input, group) {
 // groups that passed are not re-asked -- kogaki#1060's per-attempt feedback
 // applied per group, which is what makes the bound a per-group repair loop
 // rather than a whole-run one.
-function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits) {
+async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits) {
   if (!input || typeof input !== "object" || Array.isArray(input) || !Array.isArray(input.groups)) {
     fail(`${st.id}: this state declares \`per_group\`, and the composed input at ${inputPath} carries no `
       + "`groups` array to ask about. The per-group ask is one call per composed group, so an input that "
@@ -3345,9 +3454,14 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
   const judged = [];
   let attemptsTotal = 0;
   let refusalsTotal = 0;
+  let callsMade = 0;
   let lastRefusal = null;
   const allRefusals = [];
-  for (const g of groups) {
+
+  // ---- THE ASK IS PREPARED FOR EVERY GROUP FIRST, then run under the cap.
+  // Preparing is a narrowing and a file write; asking is a child process. They
+  // are separated because only the second is what the pool bounds.
+  const asks = groups.map((g) => {
     const name = String(g && g.name);
     const slug = name.replace(/[^a-zA-Z0-9]+/g, "-") || "group";
     const scoped = scopeCompositionInput(input, g);
@@ -3375,10 +3489,70 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
       }
       validate(p);
     };
-    const r = judgeAttempts(cfg, st, retries, {
-      inputText: scopedText, input: scoped, out, validate: validateOne,
-      label: ` (group ${JSON.stringify(name)})`,
+    return { g, name, slug, scoped, scopedText, out, validateOne };
+  });
+
+  // ---- THE RECORD ALREADY ON DISK IS TAKEN, AND IT IS VALIDATED FIRST
+  // (kogaki#1073). On 2026-09-10 an advance was killed at its bound with eight of
+  // eleven per-group records written, and re-answering the gate asked for all
+  // eleven again -- so the retry died where the first attempt died, because the
+  // remaining work was the same work plus everything already done. What makes the
+  // reuse safe rather than a second trust surface is that the record goes through
+  // THE SAME VALIDATOR a fresh response gets: a record that fails it is redone,
+  // and `judgeAttempts` renames into this name only after validating, so a group
+  // cut off mid-write has no file here to be trusted.
+  const reused = new Set();
+  for (const a of asks) {
+    if (!existsSync(a.out)) continue;
+    try {
+      softRefusals(() => a.validateOne(a.out));
+      reused.add(a.name);
+    } catch (e) {
+      // A REFUSAL MEANS REDO, and nothing else does. Anything that is not the
+      // state's own refusal is a fault in this layer and is not swallowed.
+      if (!(e instanceof JudgmentRefusal)) throw e;
+    }
+  }
+
+  // ---- THE CALLS RUN CONCURRENTLY UNDER THE TABLE'S CAP (kogaki#1073). One
+  // `judgeAttempts` per group, unchanged -- its bound, its per-attempt feedback
+  // and its refusals are a property of AN ASK and are untouched by how many asks
+  // are in flight. The pool returns results in the composed input's own order, so
+  // every reading below is the order the sequential loop read.
+  const results = await runPool(asks, cfg.concurrency, async (a) => {
+    if (reused.has(a.name)) {
+      // NOT A CALL, AND COUNTED AS ONE NOWHERE. `attempts: 0` is the honest
+      // figure: this group's record was judged by an earlier advance, and a run
+      // reporting it as an attempt of its own would say a call happened that
+      // did not.
+      return { ok: true, out: a.out, attempts: 0, refusals: [], lastRefusal: null, reused: true };
+    }
+    callsMade += 1;
+    const r = await judgeAttempts(cfg, st, retries, {
+      inputText: a.scopedText, input: a.scoped, out: a.out, validate: a.validateOne,
+      label: ` (group ${JSON.stringify(a.name)})`,
     });
+    // ---- THE RUN RECORD IS WRITTEN AFTER EVERY COMPLETED PER-GROUP RECORD
+    // (kogaki#1073 item 3). The advance's own record used to be written only when
+    // the advance ENDED, so an advance killed at its bound left a record saying
+    // nothing had happened -- eight finished groups on disk as files and absent
+    // from the one carrier a later reader consults. The checkpoint costs one
+    // small write per group and is what makes the resume point readable from the
+    // run's own record.
+    if (r.ok && rec) {
+      rec.judge_group_records = rec.judge_group_records || {};
+      (rec.judge_group_records[st.id] = rec.judge_group_records[st.id] || {})[a.name] = relFromRepo(a.out);
+      checkpointRun(rec);
+    }
+    return r;
+  });
+
+  // ---- THE BOOKKEEPING, IN THE COMPOSED INPUT'S ORDER. Read after the pool
+  // rather than inside it, because the refusal below ends the run and which group
+  // ends it must not depend on which call happened to finish first.
+  for (let i = 0; i < asks.length; i++) {
+    const { name } = asks[i];
+    const r = results[i];
     attemptsTotal += r.attempts;
     refusalsTotal += r.refusals.length;
     // PREFIXED BY GROUP, because the run record's `refusals` is one flat list and
@@ -3393,6 +3567,7 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
     // ever refused makes the flag whose stated job is keeping those two arms
     // apart stop doing it across the two carriers.
     perGroup[name] = { attempts: r.attempts, retries_declared: retries, refusals: r.refusals };
+    if (r.reused) perGroup[name].reused = true;
     if (r.refusals.length) perGroup[name].repaired = r.ok;
     if (!r.ok) {
       // THE PARTIAL IS ON THE RECORD BEFORE THE REFUSAL, for the reason the
@@ -3411,7 +3586,7 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
         + `${judged.length} of ${groups.length} group(s) were judged before it`
         + `${judged.length ? `: ${judged.join(", ")}` : ""}. The last refusal, verbatim: ${r.lastRefusal}`);
     }
-    assembled[name] = readJson(out)[name];
+    assembled[name] = readJson(r.out)[name];
     judged.push(name);
   }
   const out = join(dir, `terrain-judge-${st.id}.json`);
@@ -3428,7 +3603,16 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
     // ONE PER GROUP, and named, because this is the figure the advance bound is
     // derived from and a reader checking that derivation needs the count the run
     // actually made.
-    calls: groups.length,
+    //
+    // THE COUNT IS WHAT THIS ADVANCE ASKED, NOT HOW MANY GROUPS THERE ARE
+    // (kogaki#1073). With per-group records reused from an earlier advance the
+    // two figures come apart, and `groups.length` would report calls this run
+    // never made -- the figure the advance's bound is derived from saying the
+    // opposite of what the run did. `groups` beside it is still the whole set.
+    calls: callsMade,
+    groups_declared: groups.length,
+    reused_records: reused.size,
+    concurrency: cfg.concurrency,
     per_group: true,
     attempts: attemptsTotal,
     retries_declared: retries,
@@ -3446,7 +3630,10 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
     rec.judge_calls = rec.judge_calls || {};
     rec.judge_calls[st.id] = {
       per_group: true,
-      calls: groups.length,
+      calls: callsMade,
+      groups_declared: groups.length,
+      reused_records: reused.size,
+      concurrency: cfg.concurrency,
       groups: [...judged],
       attempts: attemptsTotal,
       retries_declared: retries,
@@ -3467,13 +3654,13 @@ function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, 
 // the one it ASKS FOR. An explicit `--<flag>` still wins — that is the fixture
 // path, the second-repository path and the owner's own, and it is unchanged —
 // and its absence is no longer a refusal but a call.
-function judgedRecordPath(rec, st, table, args, flag, composeInput, validate) {
+async function judgedRecordPath(rec, st, table, args, flag, composeInput, validate) {
   if (args[flag] !== undefined) {
     const p = String(args[flag]);
     validate(p);
     return p;
   }
-  return invokeJudge(table, st, composeInput(), rec._dir, validate, rec);
+  return await invokeJudge(table, st, composeInput(), rec._dir, validate, rec);
 }
 
 export function judgmentProvenance(subdivisionsPath) {
@@ -6897,6 +7084,28 @@ function writeRunRecord(dir, rec) {
   return runRecordPath(dir);
 }
 
+// ---- THE RECORD AS IT STANDS, WRITTEN MID-ADVANCE (kogaki#1073 item 3).
+//
+// The loop's own write at the end of the advance is unchanged and is still the
+// release point; this is the same write performed EARLIER as well, after every
+// state that completes and after every per-group judge record that lands. An
+// advance killed at `ADVANCE_TIMEOUT_S` runs no exit path -- `persistPendingRun`
+// is `fail()`'s, and a SIGKILL calls nothing -- so before this the only carrier
+// of an interrupted advance's progress was the files on disk, and the run's own
+// record said the owner's answered gate was still awaiting an answer.
+//
+// IT IS THE SAME WRITER AND THE SAME SHAPE, `_dir` stripped exactly as the
+// release does, so a checkpoint and a final record cannot disagree about form.
+// A failing write is NOT swallowed: the run directory is where every artifact of
+// this advance is going, and a checkpoint that could not be written is a fact
+// about the run rather than an inconvenience of the tracing.
+function checkpointRun(rec) {
+  if (!rec || !rec._dir) return null;
+  const out = { ...rec };
+  delete out._dir;
+  return writeRunRecord(rec._dir, out);
+}
+
 // CONTROL STATE ONLY (the run record). The survey record is referenced BY PATH and
 // nothing is copied out of it — copying the ID->slug map here would discharge
 // the control plane's one-record rule by breaching the display-ID rule's single-carrier rule in the same
@@ -7082,7 +7291,7 @@ const STATE_WORK = {
   // written once as `validate` and handed to `judgedRecordPath`. Two copies —
   // one for the owner's record, one for the judge's — is two readings of one
   // rule, and it is the shape the two states below this one already refuse.
-  J1_claims: (rec, st, args, table) => {
+  J1_claims: async (rec, st, args, table) => {
     const survey = readJson(needSurvey(rec));
     const tag = ownerInput(rec, "TAG_SELECTION")
       || fail("J1_claims needs a tag, and no wait has supplied one yet.");
@@ -7094,13 +7303,13 @@ const STATE_WORK = {
         fail(`${st.id} refuses: ${outside.map((o) => `${o.group} (${o.reason}${o.members.length ? `: ${o.members.join(", ")}` : ""})`).join("; ")}`);
       }
     };
-    const path = judgedRecordPath(rec, st, table, args, "claims",
+    const path = await judgedRecordPath(rec, st, table, args, "claims",
       () => needCompositionInput(rec, st), validate);
     rec.judgments[st.id] = relFromRepo(resolve(path));
     return null;
   },
 
-  J2_subdivision: (rec, st, args, table) => {
+  J2_subdivision: async (rec, st, args, table) => {
     // THE COMPOSED PARENTS, READ ONCE (kogaki#1068). The SubGroup rules are
     // statements about a group's own membership -- the cover, the caps, the
     // minimum with its whole-group exemption -- so the validator needs the
@@ -7135,7 +7344,7 @@ const STATE_WORK = {
     // THE SAME COMPOSED ARTIFACT `J1_claims` JUDGED OVER, which is this state's
     // own standing note: semantic subdivision "is composed from the SAME
     // artifact and spends no further read".
-    const path = judgedRecordPath(rec, st, table, args, "subdivisions",
+    const path = await judgedRecordPath(rec, st, table, args, "subdivisions",
       () => needCompositionInput(rec, st), validate);
     rec.judgments[st.id] = relFromRepo(resolve(path));
 
@@ -7194,7 +7403,7 @@ const STATE_WORK = {
   // arity and membership refusals unchanged. What this state adds is the WRITE
   // — the minted list goes to the run workspace so J3 and the pull read one
   // fixed set of ids rather than each re-deciding what TC1 is.
-  thesis_candidates: (rec, st, args, table) => {
+  thesis_candidates: async (rec, st, args, table) => {
     const record = readJson(needSurvey(rec));
     const tag = ownerInput(rec, "TAG_SELECTION")
       || fail(`${st.id} needs a tag, and no wait has supplied one yet.`);
@@ -7232,7 +7441,7 @@ const STATE_WORK = {
       }, null, 2) + "\n");
       return p;
     };
-    const path = judgedRecordPath(rec, st, table, args, "thesis-candidates", composeInputFor, validate);
+    const path = await judgedRecordPath(rec, st, table, args, "thesis-candidates", composeInputFor, validate);
     const out = join(rec._dir, "terrain-thesis-candidates.json");
     writeFileSync(out, JSON.stringify(composed, null, 2) + "\n");
     // STORED ABSOLUTE, like `neighborhood_candidates` beside it — a run
@@ -7284,7 +7493,7 @@ const STATE_WORK = {
     return null;
   },
 
-  J3_neighborhood: (rec, st, args, table) => {
+  J3_neighborhood: async (rec, st, args, table) => {
     const validate = (path) => {
     // THE CLOSED-SET AND LEVEL-WITHOUT-CLAIM REFUSALS ARE THE EXISTING ONES.
     // the typed judgment points: the executor validates and never composes, and re-implementing a
@@ -7362,7 +7571,7 @@ const STATE_WORK = {
       }, null, 2) + "\n");
       return p;
     };
-    const path = judgedRecordPath(rec, st, table, args, "neighborhood", composeInputFor, validate);
+    const path = await judgedRecordPath(rec, st, table, args, "neighborhood", composeInputFor, validate);
     rec.judgments[st.id] = relFromRepo(resolve(path));
     return null;
   },
@@ -7621,7 +7830,7 @@ const GATE_WORK = {
 // `stopAtFirstWait` bounds the start act to what the owner licensed it to
 // produce -- `survey` and the stop at TAG_SELECTION -- so a start invocation
 // cannot walk a whole run under one skill-expansion attribution.
-function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
+async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // The attribution the caller resolved is also what every open-gate pointer
   // this act writes records as `opened_by` (kogaki#1051). Set here rather than
   // at the writer because here is where it is known.
@@ -7927,7 +8136,7 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     if (work) {
       const held = WRITING_STATE;
       if (st.kind === "write") WRITING_STATE = st.id;
-      try { outcome = work(rec, st, args, table); }
+      try { outcome = await work(rec, st, args, table); }
       finally { WRITING_STATE = held; }
     }
     if (st.kind === "write") {
@@ -7953,6 +8162,10 @@ function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       }
     }
     completeState(rec, st.id, advancedBy);
+    // AFTER EVERY COMPLETED STATE (kogaki#1073 item 3). The advance that was
+    // killed on 2026-09-10 had completed `compose_input` and `J1_claims` and its
+    // record named neither, because the only write was the one below.
+    checkpointRun(rec);
   }
 
   // THE PENDING RECORD IS RELEASED HERE, at the one place the loop's own write

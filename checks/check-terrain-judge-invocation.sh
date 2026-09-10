@@ -362,7 +362,8 @@ process.stdout.write(JSON.stringify({ result: JSON.stringify({
 }) }) + "\n");
 JUDGE
   # ---- THE PER-GROUP REPAIR STUB (kogaki#1062, acceptance 1's second half). J1 is
-  # answered conformantly. At J2 the group whose name sorts LAST is refused once --
+  # answered conformantly. At J2 exactly ONE group -- whichever call claims the
+  # target file, the claim being exclusive (kogaki#1073) -- is refused once --
   # by returning the live 2026-09-09 shape, the entry wrapped in an envelope
   # carrying a `kind` key -- and answered conformantly on its second call. Every
   # other group is answered conformantly on its FIRST call, which is what makes
@@ -389,16 +390,25 @@ if (/`J1_claims` judgment point/.test(prompt)) {
 const g = input.groups[0];
 const targetFile = path.join(__dirname, "group-repair-target");
 const seenFile = path.join(__dirname, `group-repair-seen-${g.name.replace(/[^a-zA-Z0-9]+/g, "-")}`);
-let target;
-try { target = fs.readFileSync(targetFile, "utf8").trim(); } catch { target = ""; }
-if (!target) {
-  // THE GROUP OF THE FIRST J2 CALL, then fixed. The stub sees one group per call
-  // and cannot know the whole set, so the target is whichever group is asked
-  // about first; that is enough, because the property under test is that the
-  // OTHER groups are not re-asked, and their identity does not matter.
-  target = g.name;
-  fs.writeFileSync(targetFile, target);
+// THE TARGET IS CLAIMED EXCLUSIVELY, NOT READ-THEN-WRITTEN (kogaki#1073). The
+// per-group calls now run CONCURRENTLY under the table's cap, so two stubs reach
+// this line at the same instant; a read-then-write would let both find the file
+// empty and both name themselves the target, and the case would then see two
+// groups refused where it asserts exactly one. `linkSync` fails when the name
+// already exists, so exactly one call wins and every other reads the winner's
+// fully written file rather than a file mid-write.
+function claimTarget(targetFile, name) {
+  const tmp = `${targetFile}.${process.pid}`;
+  fs.writeFileSync(tmp, name);
+  try { fs.linkSync(tmp, targetFile); } catch { /* another call claimed it first */ }
+  fs.unlinkSync(tmp);
+  return fs.readFileSync(targetFile, "utf8").trim();
 }
+// THE GROUP OF WHICHEVER J2 CALL CLAIMS THE TARGET, then fixed. The stub sees one
+// group per call and cannot know the whole set, so the target is whichever group
+// claims it; that is enough, because the property under test is that the OTHER
+// groups are not re-asked, and their identity does not matter.
+const target = claimTarget(targetFile, g.name);
 let seen = 0;
 try { seen = Number(fs.readFileSync(seenFile, "utf8").trim()) || 0; } catch { seen = 0; }
 fs.writeFileSync(seenFile, String(seen + 1));
@@ -437,9 +447,21 @@ if (/`J1_claims` judgment point/.test(prompt)) {
 }
 const g = input.groups[0];
 const targetFile = path.join(__dirname, "group-wrong-target");
-let target;
-try { target = fs.readFileSync(targetFile, "utf8").trim(); } catch { target = ""; }
-if (!target) { target = g.name; fs.writeFileSync(targetFile, target); }
+// THE TARGET IS CLAIMED EXCLUSIVELY, NOT READ-THEN-WRITTEN (kogaki#1073). The
+// per-group calls now run CONCURRENTLY under the table's cap, so two stubs reach
+// this line at the same instant; a read-then-write would let both find the file
+// empty and both name themselves the target, and the case would then see two
+// groups refused where it asserts exactly one. `linkSync` fails when the name
+// already exists, so exactly one call wins and every other reads the winner's
+// fully written file rather than a file mid-write.
+function claimTarget(targetFile, name) {
+  const tmp = `${targetFile}.${process.pid}`;
+  fs.writeFileSync(tmp, name);
+  try { fs.linkSync(tmp, targetFile); } catch { /* another call claimed it first */ }
+  fs.unlinkSync(tmp);
+  return fs.readFileSync(targetFile, "utf8").trim();
+}
+const target = claimTarget(targetFile, g.name);
 const record = g.name === target
   // THE WITHDRAWN PRE-V9 BARE ARRAY, which `readSubdivisionEntry` refuses by
   // name -- the shipped refusal, composed nowhere here.
@@ -1634,8 +1656,321 @@ drive "the reduced tree" "$SCRATCH/red"
 build_tree "$SCRATCH/wide"
 drive_limits "the wide tree" "$SCRATCH/wide"
 
+# ---- THE PER-GROUP RECORDS ON DISK ARE READ, AND THE CALLS RUN CONCURRENTLY
+# (kogaki#1073, acceptance 1).
+#
+# WHAT THIS REACHES THAT NOTHING ABOVE DOES. Every case above drives a per-group
+# state over a run directory that starts EMPTY, so no fixture could see what the
+# loop does with a record it already wrote — and on 2026-09-10 that was the whole
+# defect: an advance killed at `ADVANCE_TIMEOUT_S` after eight of eleven groups,
+# and a retry that started again at group one. The property is a property of a
+# SECOND advance over a directory holding the first one's work, so it needs a
+# tree wide enough for the numbers the Issue names and a run directory primed
+# with real records rather than hand-written ones.
+#
+# THE PRIMING RECORDS ARE A REAL RUN'S OUTPUT, never composed here. A fixture
+# that hand-wrote the eight records would be asserting that the loop agrees with
+# the fixture; these are copied from a completed run over the same survey, so
+# they are exactly the bytes the shipped writer produced.
+ELEVEN_LESSONS=$(python3 - <<'PY'
+import json
+out = []
+for i in range(1, 12):
+    tag = f"g{i:02d}"
+    out.append({"slug": f"a-lesson-{tag}-one", "tags": ["fixture", tag]})
+    out.append({"slug": f"a-lesson-{tag}-two", "tags": ["fixture", tag]})
+print(json.dumps(out))
+PY
+)
+
+# THE SLEEPING STUB (acceptance 4(c)). Conformant, and slow by a fixed amount, so
+# the WALL TIME of a per-group state is the quantity under test. The sleep blocks
+# the child for the whole span whatever its event loop is doing, which a timer
+# would not.
+build_pool_stubs() {                 # build_pool_stubs <dir>
+  local root=$1
+  cat > "$root/judge-slow" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+const SLEEP_MS = Number(process.env.KOGAKI_FIXTURE_SLEEP_MS || 1200);
+Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, SLEEP_MS);
+let record;
+if (/`J1_claims` judgment point/.test(prompt)) {
+  record = {
+    composition_pin: input.composition_pin,
+    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
+  };
+} else {
+  fs.appendFileSync(path.join(__dirname, "slow-calls"), JSON.stringify({
+    group: input.judging_group, at: Date.now(),
+  }) + "\n");
+  record = Object.fromEntries(input.groups.map((g) => [g.name, { judged: true, subgroups: [] }]));
+}
+process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
+JUDGE
+  # THE STUB THAT NEVER ANSWERS FOR ONE GROUP (acceptance 4(d)). Whichever call
+  # claims the target hangs past any bound the case allows; every other group is
+  # answered at once. The advance is then KILLED from outside, which is the live
+  # shape — `ADVANCE_TIMEOUT_S` sends a signal, and a signal runs no exit path —
+  # so the only thing that can have written the run record is the checkpoint.
+  cat > "$root/judge-one-hangs" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+if (/`J1_claims` judgment point/.test(prompt)) {
+  process.stdout.write(JSON.stringify({ result: JSON.stringify({
+    composition_pin: input.composition_pin,
+    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
+  }) }) + "\n");
+  process.exit(0);
+}
+const g = input.groups[0];
+const targetFile = path.join(__dirname, "hang-target");
+const tmp = `${targetFile}.${process.pid}`;
+fs.writeFileSync(tmp, g.name);
+try { fs.linkSync(tmp, targetFile); } catch { /* another call claimed it first */ }
+fs.unlinkSync(tmp);
+if (fs.readFileSync(targetFile, "utf8").trim() === g.name) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 600000);
+  process.exit(7);
+}
+process.stdout.write(JSON.stringify({ result: JSON.stringify({
+  [g.name]: { judged: true, subgroups: [] },
+}) }) + "\n");
+JUDGE
+  chmod +x "$root/judge-slow" "$root/judge-one-hangs"
+}
+
+# ONE ADVANCE OVER A SURVEY THE CALLER CHOOSES, whose per-group records are what
+# the reuse cases are primed from and whose call log is the count they are
+# compared against.
+drive_wide() {                       # drive_wide <label> <tree> <run-dir> <stub> <outfile>
+  local label=$1 root=$2 D=$3 stub=$4 outfile=$5
+  mkdir -p "$D" "$root/open-gates"
+  export KOGAKI_OPEN_GATES="$root/open-gates"
+  export CLAUDE_CODE_SESSION_ID="fixture-session"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D" >/dev/null 2>&1)
+  local q p
+  q=$(declared_question "$D" TAG_SELECTION "$root") || { bad "$label: no TAG_SELECTION declaration for $(basename "$D")"; return 1; }
+  p=$(payload "toolu_fixture_$(basename "$D")" "$q" "fixture")
+  capture "$root" "$D" "$p" "$(basename "$D")"
+  printf '%s' "$p" | (cd "$root" && KOGAKI_RUN_DIR="$D" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/$stub" \
+      python3 .claude/hooks/advance-terrain.py >"$outfile" 2>&1)
+  return 0
+}
+
+drive_reuse() {                      # drive_reuse <label> <tree>
+  local label=$1 root=$2
+  build_pool_stubs "$root"
+  export KOGAKI_FIXTURE_LESSONS="$ELEVEN_LESSONS"
+
+  # --- THE GOLD ADVANCE. Eleven groups, eleven calls, a completed span.
+  local G="$root/run-gold"
+  rm -f "$root/j2-calls"
+  drive_wide "$label" "$root" "$G" judge-conformant "$root/adv-gold.out" || return
+  local gold_calls
+  gold_calls=$(wc -l < "$root/j2-calls" 2>/dev/null | tr -d ' ')
+  if [ "$gold_calls" = "11" ] && [ -f "$root/reports/CoTagGroups.md" ]; then pass; else
+    bad "$label: the wide survey did not compose eleven groups judged in eleven calls (saw ${gold_calls:-0}) — the reuse cases below are primed from this run and cannot mean anything without it. The advance said: $(tail -3 "$root/adv-gold.out" | tr '\n' ' ')"
+    return
+  fi
+
+  # --- 4(a). EIGHT VALID RECORDS ON DISK AND THREE MISSING MAKES EXACTLY THREE
+  # CALLS. The primed directory is a fresh run whose per-group records are the
+  # gold run's own, less three.
+  local A="$root/run-reuse"
+  mkdir -p "$A"
+  local copied=0 f
+  for f in "$G"/terrain-judge-J2_subdivision-*.json; do
+    [ -e "$f" ] || continue
+    if [ "$copied" -lt 8 ]; then cp "$f" "$A/"; copied=$((copied + 1)); fi
+  done
+  if [ "$copied" = "8" ]; then pass; else
+    bad "$label: the gold run left $copied per-group records, so the eight-of-eleven priming could not be built"
+    return
+  fi
+  rm -f "$root/j2-calls" "$root/reports/CoTagGroups.md"
+  drive_wide "$label" "$root" "$A" judge-conformant "$root/adv-reuse.out" || return
+  local reuse_calls
+  reuse_calls=$(wc -l < "$root/j2-calls" 2>/dev/null | tr -d ' ')
+  if [ "$reuse_calls" = "3" ]; then pass; else
+    bad "$label: a run directory holding eight valid per-group records and three missing ones made ${reuse_calls:-0} J2 call(s), not 3 — the loop does not read the records it wrote (kogaki#1073 defect 1). The advance said: $(tail -3 "$root/adv-reuse.out" | tr '\n' ' ')"
+  fi
+  # AND THE RUN STILL FINISHED, so reuse is not a shortcut that leaves the state
+  # half-judged: the assembled record covers all eleven groups.
+  if [ -f "$root/reports/CoTagGroups.md" ] && python3 - "$A" "$root" <<'PY'
+import json, sys, pathlib
+d = pathlib.Path(sys.argv[1])
+rec = json.load(open(d / "run-record.json"))
+jc = (rec.get("judge_calls") or {}).get("J2_subdivision") or {}
+if jc.get("calls") != 3 or jc.get("groups_declared") != 11 or jc.get("reused_records") != 8:
+    print("the run record's judge_calls says", jc, file=sys.stderr); sys.exit(1)
+p = pathlib.Path(rec["judgments"]["J2_subdivision"])
+if not p.is_absolute():
+    p = pathlib.Path(sys.argv[2]) / p
+sub = json.load(open(p))
+if len(sub) != 11:
+    print(f"the assembled record covers {len(sub)} group(s), not 11", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the reusing advance did not finish with an eleven-group record whose run record names three calls over eight reused records (kogaki#1073)"
+  fi
+
+  # --- 4(b). A PER-GROUP FILE THAT FAILS VALIDATION IS CALLED AGAIN. Primed with
+  # all eleven, one of them replaced by the live 2026-09-09 shape — the entry
+  # wrapped in an envelope carrying a `kind` key, which `J2_subdivision`'s own
+  # one-key refusal rejects. Exactly one call, and it is for that group.
+  local B="$root/run-invalid"
+  mkdir -p "$B"
+  cp "$G"/terrain-judge-J2_subdivision-*.json "$B/"
+  local victim
+  victim=$(ls "$B"/terrain-judge-J2_subdivision-*.json | sort | head -1)
+  python3 - "$victim" "$root/invalid-group" <<'PY'
+import json, sys
+rec = json.load(open(sys.argv[1]))
+name = list(rec)[0]
+json.dump({"kind": "subdivision", name: rec[name]}, open(sys.argv[1], "w"))
+open(sys.argv[2], "w").write(name)
+PY
+  rm -f "$root/j2-calls" "$root/reports/CoTagGroups.md"
+  drive_wide "$label" "$root" "$B" judge-conformant "$root/adv-invalid.out" || return
+  if python3 - "$root/j2-calls" "$root/invalid-group" <<'PY'
+import json, sys, pathlib
+lines = [json.loads(l) for l in pathlib.Path(sys.argv[1]).read_text().splitlines() if l.strip()]
+want = pathlib.Path(sys.argv[2]).read_text().strip()
+if len(lines) != 1:
+    print(f"{len(lines)} call(s) were made, not 1:", [l["judging_group"] for l in lines],
+          file=sys.stderr); sys.exit(1)
+if lines[0]["judging_group"] != want:
+    print(f"the one call was for {lines[0]['judging_group']!r}, not the invalid group {want!r}",
+          file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: a per-group record that fails validation was not the one and only group re-asked — a record on disk is taken without being validated (kogaki#1073). The advance said: $(tail -3 "$root/adv-invalid.out" | tr '\n' ' ')"
+  fi
+
+  # --- 4(c). ELEVEN GROUPS UNDER A CAP OF FOUR FINISH IN ABOUT THREE CALL
+  # LENGTHS. Asserted against the SEQUENTIAL floor rather than against a target:
+  # the claim is that the SUM is no longer what the advance is measured against,
+  # and eleven sequential sleeps could not fit under the bound this case sets.
+  local cap
+  cap=$(python3 -c "
+import json
+print((json.load(open('src/workflow.json')).get('judge') or {}).get('concurrency'))")
+  if [ "$cap" = "4" ]; then pass; else
+    bad "$label: the workflow table declares concurrency=$cap; this case is written against the declared 4 and would assert nothing at another width"
+  fi
+  local C="$root/run-slow" sleep_ms=1200 t0 t1 elapsed_ms
+  rm -f "$root/slow-calls" "$root/reports/CoTagGroups.md"
+  t0=$(python3 -c 'import time; print(int(time.time() * 1000))')
+  KOGAKI_FIXTURE_SLEEP_MS=$sleep_ms drive_wide "$label" "$root" "$C" judge-slow "$root/adv-slow.out" || return
+  t1=$(python3 -c 'import time; print(int(time.time() * 1000))')
+  elapsed_ms=$((t1 - t0))
+  # THE FLOOR AND THE CEILING ARE BOTH STATED. Sequential is 11 sleeps at J2 plus
+  # one at J1 = 12; concurrent at a cap of 4 is ceil(11/4) = 3 plus J1 = 4. The
+  # ceiling is 8 sleeps, comfortably above the concurrent figure and comfortably
+  # below the sequential one, so neither process startup nor a loaded machine
+  # decides the case.
+  local slow_calls
+  slow_calls=$(wc -l < "$root/slow-calls" 2>/dev/null | tr -d ' ')
+  if [ "$slow_calls" = "11" ] && [ "$elapsed_ms" -lt "$((sleep_ms * 8))" ]; then pass; else
+    bad "$label: eleven judge calls of ${sleep_ms}ms each (${slow_calls:-0} logged) took ${elapsed_ms}ms, which is the sequential sum rather than about three call-lengths — the per-group calls do not run concurrently under the table's cap (kogaki#1073 defect 2). The advance said: $(tail -3 "$root/adv-slow.out" | tr '\n' ' ')"
+  fi
+
+  # --- 4(d). A RUN RECORD WRITTEN AFTER THE SECOND OF THREE GROUPS NAMES THE
+  # TWO. The advance is KILLED, not failed: `ADVANCE_TIMEOUT_S` sends a signal
+  # and a signal runs no exit path, so `persistPendingRun` cannot be what wrote
+  # the record and the checkpoint is the only remaining writer.
+  local THREE
+  THREE=$(python3 - <<'PY'
+import json
+out = []
+for tag in ("h01", "h02", "h03"):
+    out.append({"slug": f"a-lesson-{tag}-one", "tags": ["fixture", tag]})
+    out.append({"slug": f"a-lesson-{tag}-two", "tags": ["fixture", tag]})
+print(json.dumps(out))
+PY
+)
+  export KOGAKI_FIXTURE_LESSONS="$THREE"
+  local E="$root/run-killed"
+  mkdir -p "$E" "$root/open-gates"
+  rm -f "$root/hang-target"
+  export KOGAKI_OPEN_GATES="$root/open-gates"
+  export CLAUDE_CODE_SESSION_ID="fixture-session"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$E" >/dev/null 2>&1)
+  local qk pk
+  qk=$(declared_question "$E" TAG_SELECTION "$root") || { bad "$label: the killed run wrote no TAG_SELECTION declaration"; return; }
+  pk=$(payload "toolu_fixture_killed" "$qk" "fixture")
+  capture "$root" "$E" "$pk" killed
+  printf '%s' "$pk" | (cd "$root" && KOGAKI_RUN_DIR="$E" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-one-hangs" \
+      python3 .claude/hooks/advance-terrain.py >"$root/adv-killed.out" 2>&1) &
+  local adv_pid=$! waited=0
+  # WAITED ON THE ARTIFACT, never on a fixed nap alone: the two groups that
+  # answer are quick, and the case is about what is on disk when the signal
+  # arrives rather than about how long it took to get there.
+  while [ "$waited" -lt 300 ]; do
+    if python3 - "$E" <<'PY'
+import json, sys, pathlib
+try:
+    rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+except Exception:
+    sys.exit(1)
+g = (rec.get("judge_group_records") or {}).get("J2_subdivision") or {}
+sys.exit(0 if len(g) >= 2 else 1)
+PY
+    then break; fi
+    waited=$((waited + 1))
+    python3 -c 'import time; time.sleep(0.1)'
+  done
+  pkill -KILL -P "$adv_pid" 2>/dev/null
+  kill -KILL "$adv_pid" 2>/dev/null
+  wait "$adv_pid" 2>/dev/null
+  pkill -KILL -f judge-one-hangs 2>/dev/null
+  if python3 - "$E" "$root/hang-target" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+named = (rec.get("judge_group_records") or {}).get("J2_subdivision") or {}
+if len(named) != 2:
+    print(f"the record of the killed advance names {len(named)} finished group(s), not 2:",
+          sorted(named), file=sys.stderr); sys.exit(1)
+hung = pathlib.Path(sys.argv[2]).read_text().strip()
+if hung in named:
+    print(f"the record names {hung!r}, the group that never answered", file=sys.stderr); sys.exit(1)
+# AND THE STATES THAT COMPLETED BEFORE THE JUDGMENT ARE NAMED TOO, which is the
+# other half of item 3: the killed advance of 2026-09-10 had completed
+# `compose_input` and `J1_claims` and its record named neither.
+for s in ("compose_input", "J1_claims"):
+    if s not in rec.get("completed", []):
+        print(f"the record does not name completed state {s!r}: {rec.get('completed')}",
+              file=sys.stderr); sys.exit(1)
+if rec.get("awaiting") is not None:
+    print(f"the record still reads awaiting {rec['awaiting']!r} — the owner answered that gate",
+          file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: a KILLED advance left a run record that does not name the two groups it finished, the states it completed, or that its gate was answered (kogaki#1073 defect 3). The advance said: $(tail -3 "$root/adv-killed.out" | tr '\n' ' ')"
+  fi
+  unset KOGAKI_FIXTURE_LESSONS KOGAKI_FIXTURE_SLEEP_MS
+}
+
+build_tree "$SCRATCH/reuse"
+drive_reuse "the reuse tree" "$SCRATCH/reuse"
+
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030)"
+  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073)"
   note "not asserted here: that the PINNED MODEL is reachable. The judge binary is stubbed through KOGAKI_JUDGE_CLI, so these cases bind the executor's call, parse, retry and refusal — never the model's answer, which is not this repository's to assert."
 fi
 exit "$fail"
