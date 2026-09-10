@@ -1171,6 +1171,45 @@ never the judgment, which is not this repository's to assert.
 fenced the judgment points without making it — which is how the states came to be
 fenced and unreachable at the same time.
 
+### 15.6.7 THE JUDGE BINARY IS THE RUN'S, RESOLVED ONCE BY THE SESSION THAT STARTS IT
+
+**The pinned model is not the whole pin.** §15.6.6 pins the MODEL in the table so
+a judgment cannot be performed by whatever model happened to be driving. The
+command that reaches that model was left as the table writes it — the bare word
+`claude` — and a bare word is resolved by whoever spawns it. So the EXECUTABLE a
+judgment ran was whatever the firing session's `PATH` offered first, which is the
+same defect one layer down: a run's judgments depending on something the run
+neither owned nor recorded.
+
+**The start act resolves it, verifies it, and records it.** The session that
+opens a run walks `PATH` in its declared order and RUNS each candidate with
+`--version`; the first to exit 0 is the run's binary, and its path and version
+are written onto the run record. **Running the candidate is what makes the walk a
+resolution**: existence and the execute bit do not tell a working install from a
+shim whose own `exec` fails, so a walk that stopped at the first existing file
+would choose the shim. **A start whose resolution fails REFUSES before the
+survey**, naming every candidate `PATH` offered and why each was rejected — the
+shim's own stderr beside the path it came from, because "the judge could not be
+run" over a bare word is not something an operator can act on.
+
+**Every later judgment call of that run executes the recorded path.** An advance
+is fired inside the PostToolUse hook of whichever session answered a gate, and
+that session's `PATH` is not the run's business. A record already carrying a
+resolution is never re-resolved.
+
+**The judge pin carries the binary's version as a component**, present-and-null
+where nothing observed a binary — `judge_pin`'s own uniform arity, and §13's
+distinction between what the Harness OBSERVED and what a record DECLARES: a
+declared pin names a model a composer says judged, and there is no executable
+behind it to name. **It enters the report identity**, which is the whole point of
+putting it on the pin: two runs with equal `model_id` and `effort_tier` had run
+different executables, and an identity that cannot tell them apart is the
+drift-undetectable shape the pin exists to close.
+
+`necessity:` §15.6.6 pinned the model and left the command, and the two are not
+one fact — the observed 2026-09-10 failure ran the pinned model's name against a
+binary that was not one.
+
 ### 15.7 `self-test` and `validate` are NON-FLOW utilities
 
 They emit no owner surface, carry no sequencing authority, and are reachable

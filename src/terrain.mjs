@@ -129,7 +129,7 @@
 import { spawnSync, spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
-import { basename, dirname, join, resolve, sep } from "node:path";
+import { basename, delimiter, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { loadGrammar, refuseUnlessConformant, validateSurface, classMatchers, FormatRefusal } from "./format-guard.mjs";
@@ -1356,7 +1356,16 @@ function cmdCotags(args) {
     const m = args["judge-model"];
     const e = args["judge-effort"];
     if (!m || !e) fail("--judge-model and --judge-effort are required when the display serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md, the SubGroup threshold, semantic subdivision)");
-    judgePin = { model_id: String(m), effort_tier: String(e) };
+  // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). PRESENT-AND-NULL where
+  // nothing observed a binary, on `judge_pin`'s own uniform-arity ground: a
+  // declared pin names a model the composer says judged, and there is no
+  // executable behind it to name. The executor's own path supplies it, which is
+  // the path every judged surface this repository mints comes through.
+    judgePin = {
+      model_id: String(m), effort_tier: String(e),
+      binary_version: args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
+        ? null : String(args["judge-binary-version"]),
+    };
   }
   // WHAT THE HARNESS OBSERVED about that pin (kogaki#892). Computed here, beside
   // the pin it qualifies, so a pin can never reach the display without it.
@@ -2511,6 +2520,13 @@ export function composeSubdivisionRecord(args, dir, record) {
   const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the SubGroup claims' coherence is judged against"));
   const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
   const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
+  // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). PRESENT-AND-NULL where
+  // nothing observed a binary, on `judge_pin`'s own uniform-arity ground: a
+  // declared pin names a model the composer says judged, and there is no
+  // executable behind it to name. The executor's own path supplies it, which is
+  // the path every judged surface this repository mints comes through.
+  const binaryVersion = args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
+    ? null : String(args["judge-binary-version"]);
   const displayBudget = Number(args["display-budget"] || fail("--display-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a display lands, not of the material, so it is the caller's to state (SPEC.md, semantic subdivision)"));
   const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|other) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
 
@@ -2553,7 +2569,7 @@ export function composeSubdivisionRecord(args, dir, record) {
     id,
     kind: "subdivision",
     pin: record.pin,
-    judge: { model_id: modelId, effort_tier: effortTier },
+    judge: { model_id: modelId, effort_tier: effortTier, binary_version: binaryVersion },
     group: parent.name,
     group_claim: groupClaim,
     parent_members: parent.members,
@@ -2870,14 +2886,143 @@ export function harnessJudgeInvocation(stateId = "J2_subdivision") {
 // run and nothing else: the argv, the pinned model, the parse and every refusal
 // below are the same on both paths, so the fixture exercises the shipped code
 // rather than a second one written for it.
-function judgeSettings(table) {
+// ---- THE JUDGE BINARY IS RESOLVED ONCE, BY THE SESSION THAT STARTS THE RUN
+// (kogaki#1076).
+//
+// The table's `judge.command` is the bare word `claude`, and a bare word is
+// resolved by whoever spawns it -- so the binary a judgment call ran was
+// whatever the FIRING session's `PATH` offered first. On 2026-09-10 an advance
+// fired from a second session resolved a Windows npm shim under `/mnt/c`, whose
+// own `exec` failed, and three judge calls exited 127 against a tree in which
+// the same judge had run to completion an hour earlier. Nothing in the tree had
+// changed; the session had.
+//
+// THE PIN NAMED EVERYTHING BUT THE BINARY. `judge_pin` carries the model, the
+// effort tier and the survey revision, so two runs with equal pins had run
+// different executables and one of them was not an executable at all. A run's
+// judgments depended on an environment the run neither owned nor recorded.
+//
+// RESOLUTION IS A WALK, AND RUNNING THE CANDIDATE IS WHAT MAKES IT ONE.
+// Existence and the execute bit do not discriminate: the shim HAS both, and
+// fails only when it is run. So each candidate is RUN, with `--version`, and the
+// first that exits 0 is the run's binary -- a walk that stopped at the first
+// existing file would have chosen the shim, which is the defect with an extra
+// step.
+const JUDGE_VERSION_PROBE_MS = 20000;
+
+// THE ORDER `PATH` DECLARES, DE-DUPLICATED. A command carrying a separator is
+// not a `PATH` lookup at all and stands as its own single candidate -- that is
+// the absolute form this act exists to produce, and an absolute path handed in
+// is already it.
+export function judgeBinaryCandidates(command, pathEnv) {
+  if (command.includes("/") || command.includes(sep)) return [resolve(command)];
+  const seen = new Set();
+  const out = [];
+  for (const entry of String(pathEnv || "").split(delimiter)) {
+    if (!entry) continue;
+    const cand = resolve(entry, command);
+    if (seen.has(cand)) continue;
+    seen.add(cand);
+    out.push(cand);
+  }
+  return out;
+}
+
+// STDIN IS CLOSED FOR THE PROBE. A judgment call feeds its prompt on stdin, and
+// a binary that blocked here waiting for one would hang the start act rather
+// than answering it -- so the probe is bounded as well, on the ground the
+// per-call bound is: a bound a hung child can outlast is not a bound.
+function probeJudgeBinary(candidate) {
+  const r = spawnSync(candidate, ["--version"], {
+    stdio: ["ignore", "pipe", "pipe"], encoding: "utf8", timeout: JUDGE_VERSION_PROBE_MS,
+  });
+  if (r.error) return { ok: false, why: `${r.error.code || "spawn failed"}: ${r.error.message}` };
+  if (r.status !== 0) {
+    const said = String(r.stderr || r.stdout || "").trim().split("\n")[0].trim() || "(no output)";
+    return { ok: false, why: `${r.status === null ? `killed on ${r.signal}` : `exited ${r.status}`}: ${said}` };
+  }
+  const first = (t) => String(t || "").trim().split("\n")[0].trim();
+  return { ok: true, version: first(r.stdout) || first(r.stderr) || "(no version output)" };
+}
+
+// THE REFUSAL NAMES WHAT `PATH` OFFERED, every candidate that existed and the
+// reason each one was rejected. "The judge could not be run" over a bare word
+// tells an operator nothing they can act on; the shim's own stderr, quoted
+// beside the path it came from, is the whole diagnosis.
+export function resolveJudgeBinary(command, pathEnv) {
+  const candidates = judgeBinaryCandidates(command, pathEnv);
+  const rejected = [];
+  for (const cand of candidates) {
+    // NOT PROBED WHERE NOTHING IS THERE, and this is not the discriminating
+    // check returning: a candidate that does not exist is not REJECTED on a
+    // property, it is simply not a candidate, and spawning it to learn ENOENT
+    // would cost one child per `PATH` entry to reach the same list.
+    if (!existsSync(cand)) continue;
+    const r = probeJudgeBinary(cand);
+    if (r.ok) return { command, path: cand, version: r.version, rejected };
+    rejected.push({ path: cand, why: r.why });
+  }
+  fail(`the judge command ${JSON.stringify(command)} resolves to no runnable binary. The judgment `
+    + `states run a pinned model through this command, and the run resolves it ONCE -- here, in the `
+    + `session that starts the run -- so that an advance fired from another session cannot run a `
+    + `different executable (kogaki#1076).\n`
+    + `  searched ${candidates.length} candidate(s) over PATH, ${rejected.length} of which exist:\n`
+    + (rejected.length
+      ? rejected.map((r) => `    ${r.path}\n      ${r.why}`).join("\n")
+      : "    (none -- no PATH entry carries a file by that name)")
+    + `\n  Each candidate is RUN with \`--version\` and the first to exit 0 is taken: existence and the `
+    + `execute bit do not discriminate a working install from a shim whose own \`exec\` fails.`);
+}
+
+// RESOLVED AT THE START ACT, BEFORE THE SURVEY (kogaki#1076 item 1), and read
+// back by every later act of the same run. A record that already carries one is
+// never re-resolved: that is the whole of item 2 -- the advance uses the RUN's
+// binary and not the session's.
+//
+// A RECORD WRITTEN BEFORE THIS FIELD EXISTED RESOLVES AT ITS NEXT ACT rather
+// than falling back to the bare word. The fallback is the defect; a resolution
+// that refuses in a session whose PATH offers only the shim names the shim,
+// which is strictly better than the exit 127 it replaces.
+//
+// `KOGAKI_JUDGE_CLI` IS RESOLVED LIKE ANY OTHER COMMAND, not around this act.
+// It replaces WHICH executable is run, and a fixture whose stub cannot answer
+// `--version` is a fixture running something the shipped path would refuse.
+function ensureJudgeBinary(rec, table) {
+  if (rec.judge_binary) return rec.judge_binary;
+  const declared = process.env.KOGAKI_JUDGE_CLI || ((table && table.judge) || {}).command;
+  // A TABLE THAT DECLARES NO JUDGE REACHES NO JUDGMENT STATE, so there is
+  // nothing to resolve and nothing to refuse. `judgeSettings` still refuses the
+  // missing block at the state that needs it.
+  if (!declared) return null;
+  const r = resolveJudgeBinary(String(declared), process.env.PATH);
+  rec.judge_binary = {
+    command: r.command,
+    path: r.path,
+    version: r.version,
+    stubbed: !!process.env.KOGAKI_JUDGE_CLI,
+  };
+  return rec.judge_binary;
+}
+
+function judgeSettings(table, rec) {
   const j = (table && table.judge) || fail(
     "the workflow table declares no `judge` block, so a judgment state has no model to invoke. "
     + "field_semantics: the block names the command, THE PINNED MODEL and the output format, and the "
     + "model is never inherited from the session (kogaki#1030).");
+  // THE RECORDED ABSOLUTE PATH, NEVER THE BARE WORD (kogaki#1076 item 2). The
+  // table's `command` is what was RESOLVED; what is RUN is what the resolution
+  // found and verified, so an advance fired from a session whose `PATH` differs
+  // runs the run's own binary.
+  const binary = (rec && rec.judge_binary) || null;
   return {
-    command: process.env.KOGAKI_JUDGE_CLI || String(j.command
-      || fail("the workflow table's `judge` block names no `command`")),
+    command: binary ? String(binary.path) : fail(
+      "this run's record carries no resolved judge binary, so a judgment call would spawn whatever the "
+      + "firing session's PATH offers first -- which is the defect kogaki#1076 closed. The binary is "
+      + "resolved and verified by the session that STARTS the run and written onto the run record; a "
+      + "record carrying none is one this act never opened."),
+    // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). What `--version` said,
+    // taken from the executable the run actually resolved.
+    binaryVersion: binary ? (binary.version || null) : null,
     model: String(j.model || fail("the workflow table's `judge` block pins no `model`")),
     outputFormat: String(j.output_format || "json"),
     // PER CALL, IN SECONDS IN THE TABLE AND MILLISECONDS HERE. Required rather
@@ -2905,7 +3050,10 @@ function judgeSettings(table) {
       + "of judge calls a per-group judgment state runs at once; the per-call bound `timeout_s` and the "
       + "advance's own bound both hold unchanged, and this is what keeps their SUM from being what the "
       + "advance is measured against (kogaki#1073)."),
-    stubbed: !!process.env.KOGAKI_JUDGE_CLI,
+    // READ FROM THE RESOLUTION, not from this act's environment: the run's
+    // binary was chosen once, and whether it was the fixture seam's is a fact
+    // about that choice rather than about whoever is advancing the run now.
+    stubbed: binary ? !!binary.stubbed : !!process.env.KOGAKI_JUDGE_CLI,
   };
 }
 
@@ -3278,7 +3426,7 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
 // THE WHOLE COMPOSED INPUT, ONE ASK. The default shape, and the one every
 // judgment state but `J2_subdivision` still spends.
 async function invokeJudge(table, st, inputPath, dir, validate, rec) {
-  const cfg = judgeSettings(table);
+  const cfg = judgeSettings(table, rec);
   const retries = Number.isInteger(st.retries) ? st.retries : fail(
     `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
     + `key of exactly the judgment states -- the count is a property of the workflow and is held in `
@@ -3332,6 +3480,10 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     recordJudgeInvocation(st.id, {
       state: st.id,
       command: cfg.command,
+      // WHAT `--version` SAID, beside the path (kogaki#1076). Two invocation
+      // records naming one command told a reader nothing about whether one
+      // executable produced both.
+      binary_version: cfg.binaryVersion,
       model: cfg.model,
       stubbed: cfg.stubbed,
       calls: 1,
@@ -3351,6 +3503,11 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
       rec.judge_calls[st.id] = {
         per_group: false, calls: 1, attempts: r.attempts,
         retries_declared: retries, refusals_repaired: r.refusals.length,
+        // WHAT MADE THESE CALLS (kogaki#1076). `harnessJudgeInvocation`'s record
+        // holds it too and lives in this process alone, so before this the run
+        // record -- the one carrier a later reader has -- said how many calls
+        // were made and nothing about which executable made them.
+        command: cfg.command, binary_version: cfg.binaryVersion,
       };
     }
     // THE REPAIRED ARM WRITES THE RECORD TOO (kogaki#1059). `judgment_refusals`
@@ -3598,6 +3755,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
   recordJudgeInvocation(st.id, {
     state: st.id,
     command: cfg.command,
+    binary_version: cfg.binaryVersion,
     model: cfg.model,
     stubbed: cfg.stubbed,
     // ONE PER GROUP, and named, because this is the figure the advance bound is
@@ -3630,6 +3788,8 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
     rec.judge_calls = rec.judge_calls || {};
     rec.judge_calls[st.id] = {
       per_group: true,
+      command: cfg.command,
+      binary_version: cfg.binaryVersion,
       calls: callsMade,
       groups_declared: groups.length,
       reused_records: reused.size,
@@ -4823,8 +4983,17 @@ export function sameIdentity(a, b) {
 }
 function reportIdentityKey(i) {
   return [i.pin, i.query.tag, i.query.ids,
+    // THE BINARY IS IN THE KEY (kogaki#1076 item 3), and that is the whole point
+    // of putting it on the pin: two runs with equal model and effort had run
+    // different executables, and an identity that cannot tell them apart is the
+    // drift-undetectable shape the pin exists to close. A pin written before the
+    // field existed carries `undefined` and keys as `NO_JUDGE`, which is what it
+    // meant -- no binary entered its identity -- on the fourth component's own
+    // precedent one line below.
     i.judge_pin === NO_JUDGE ? NO_JUDGE
-      : `${i.judge_pin.model_id}/${i.judge_pin.effort_tier}`,
+      : `${i.judge_pin.model_id}/${i.judge_pin.effort_tier}/${
+        i.judge_pin.binary_version === undefined || i.judge_pin.binary_version === null
+          ? NO_JUDGE : i.judge_pin.binary_version}`,
     // the report identity's fourth component (kogaki#741). A record written before the field
     // existed carries `undefined` here and hashes as `NO_JUDGE`, which is what
     // it meant: no neighborhood judgment entered its identity.
@@ -5054,7 +5223,16 @@ function cmdReport(args) {
       + "of `none`: judged-with-no-split and never-judged are different states, and a "
       + "report carrying `none` is indistinguishable from a run that never asked");
   }
-  const suppliedJudge = { model_id: String(m), effort_tier: String(e) };
+  // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). PRESENT-AND-NULL where
+  // nothing observed a binary, on `judge_pin`'s own uniform-arity ground: a
+  // declared pin names a model the composer says judged, and there is no
+  // executable behind it to name. The executor's own path supplies it, which is
+  // the path every judged surface this repository mints comes through.
+  const suppliedJudge = {
+    model_id: String(m), effort_tier: String(e),
+    binary_version: args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
+      ? null : String(args["judge-binary-version"]),
+  };
 
   // EVERY TARGET MUST BE JUDGED. An absent entry is `not judged`, and the
   // co-tag path refuses it rather than minting `none` for it — the whole of
@@ -7114,6 +7292,11 @@ function checkpointRun(rec) {
 function newRunRecord(tablePath, table) {
   return {
     workflow: { path: relFromRepo(tablePath), version: table.version ?? null },
+    // THE BINARY THIS RUN'S JUDGMENT CALLS EXECUTE (kogaki#1076). Declared here
+    // as a null rather than left to appear when it is first written, so a record
+    // that was never resolved and one written before the field existed are the
+    // same shape and neither reads as a resolution that happened.
+    judge_binary: null,
     survey_record: null,
     completed: [],
     waits_reached: [],
@@ -7231,11 +7414,19 @@ function judgmentJoins(rec, args) {
   return join;
 }
 
-function judgePinArgs(table, args) {
+function judgePinArgs(table, args, rec) {
   const j = (table && table.judge) || {};
   if (!j.model || !j.effort) return {};
   if (args["judge-model"] !== undefined || args["judge-effort"] !== undefined) return {};
-  return { "judge-model": String(j.model), "judge-effort": String(j.effort) };
+  // AND THE BINARY THE RUN RESOLVED (kogaki#1076 item 3), from the run record
+  // rather than from this act's environment -- the same rule the command itself
+  // follows one layer down, and for the same reason.
+  const binary = (rec && rec.judge_binary) || null;
+  return {
+    "judge-model": String(j.model),
+    "judge-effort": String(j.effort),
+    ...(binary && binary.version ? { "judge-binary-version": String(binary.version) } : {}),
+  };
 }
 
 const STATE_WORK = {
@@ -7578,7 +7769,7 @@ const STATE_WORK = {
 
   cotag_groups: (rec, st, args, table) => ({
     artifact: cmdCotags({
-      ...judgePinArgs(table, args),
+      ...judgePinArgs(table, args, rec),
       ...judgmentJoins(rec, args),
       ...args,
       survey: needSurvey(rec),
@@ -7596,7 +7787,7 @@ const STATE_WORK = {
       // the judgment records themselves, and the same repair: the executor
       // supplies what it now knows. `model_id` is the model it ACTUALLY RAN.
       // Spread FIRST, so an explicit flag still wins.
-      ...judgePinArgs(table, args),
+      ...judgePinArgs(table, args, rec),
       ...judgmentJoins(rec, args),
       ...args,
       survey: needSurvey(rec),
@@ -7882,6 +8073,19 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     // against this one: the position it names may not mean what it meant.
     fail(`run record ${runRecordPath(dir)} was written against workflow table version ${rec.workflow.version} and this table is version ${table.version}. The run cannot be resumed across a table version change — start a fresh run directory.`);
   }
+  // ---- THE JUDGE BINARY, RESOLVED BEFORE THE SURVEY (kogaki#1076 item 1).
+  //
+  // BEFORE `setRunPersist`, so a start whose resolution fails writes nothing at
+  // all: it refuses ahead of the survey and leaves no record naming a run that
+  // never began. It stands here rather than at the first judgment state because
+  // the fact it establishes -- which executable this run's judgments run -- must
+  // be settled by the session that STARTS the run, and a judgment state is
+  // reached inside an advance fired from whatever session answered a gate.
+  //
+  // AND IT RUNS ON EVERY ACT, not only on the start: a record already carrying a
+  // resolution is returned untouched, so this is a resolution exactly once per
+  // run and a no-op on every advance after it.
+  ensureJudgeBinary(rec, table);
   rec._dir = dir;
   // ARMED FROM HERE (kogaki#808). Every refusal raised for the rest of this act
   // — an owner-input refusal, a capture refusal, a judgment state's missing
@@ -9964,7 +10168,7 @@ switch (cmd) {
       (the hook payload is read from stdin; there is no flag for the owner's answer, and
        --input, --at and --enter are DELETED and refused by name — kogaki#1027)
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F] [--thesis-candidates F]
-      [--judge-model M] [--judge-effort E]
+      [--judge-model M] [--judge-effort E] [--judge-binary-version V]
       (the five record flags are OPTIONAL since kogaki#1030: a judgment state whose
        flag is absent INVOKES THE JUDGE ITSELF, using the model src/workflow.json's
        \`judge\` block pins -- never one inherited from the session -- and retries a
@@ -9999,7 +10203,7 @@ switch (cmd) {
                                             is read once and the read count does not grow with
                                             the placements. Run it BEFORE composing --claims.
   cotags --survey F --tag T [--group G] [--claims F]
-         [--subdivisions F --judge-model M --judge-effort E] [--connective F]
+         [--subdivisions F --judge-model M --judge-effort E [--judge-binary-version V]] [--connective F]
                                             the second navigation step (the co-tag navigation step) — narrows nothing.
                                             The heading carries the GroupID, Lesson count and
                                             member IDs, claim beneath (the display's serve rule v5); SubGroups
@@ -10008,7 +10212,7 @@ switch (cmd) {
                                             group missing a claim is MARKED, never substituted.
   report --survey F --tag T (--group G | --all-groups) [--claims F]
          [--subdivisions F] [--neighborhood F] [--thesis-candidates F]
-         [--judge-model M --judge-effort E] [--report-dir D]
+         [--judge-model M --judge-effort E [--judge-binary-version V]] [--report-dir D]
                                             the Full Report — untruncated Claims and
                                             Glosses, identified by the QUADRUPLE (substrate pin,
                                             co-tag query, judge pin, neighborhood judgment
