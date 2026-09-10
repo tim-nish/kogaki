@@ -1281,9 +1281,24 @@ fi
 #     it was said. Derived from the kit's directory rather than from a literal
 #     written here, so a sentence naming check N+1 is covered by the same
 #     assertion.
-NAMED=$(printf '%s\n' "$SEAM" | grep -o 'policy/kit/checks/check-[a-z0-9-]*\.sh' | sort -u)
-[ -n "$NAMED" ] \
-  || fail "the install names no check under policy/kit/checks/ at all (kogaki#732) — the announcement promises an enforcement without saying what it is"
+#     THE GUARD IS SCOPED PAST THE `vendored:` LINES, and the scoping is the
+#     whole assertion. Grepping $SEAM whole cannot fail: the per-file loop
+#     above already prints one `vendored: policy/kit/checks/check-*.sh` line
+#     per check, and $VENDORED is asserted non-empty twenty lines up, so an
+#     unscoped guard is non-empty by construction and describes a state this
+#     case cannot reach. Scoped, it refuses the mutation nearest the defect
+#     this issue was filed on: a drift sentence that promises an enforcement
+#     and names no instrument at all.
+#     `|| true` IS LOAD-BEARING under `set -euo pipefail`: a `grep` that
+#     matches nothing exits 1, pipefail carries that out of the command
+#     substitution, and the script would abort HERE — silently, before the
+#     guard below could say why. A guard that kills the run instead of
+#     failing with its own reason is the shape this case refuses one level
+#     down, and it was measured on the first mutation run of this very line.
+DRIFT=$(printf '%s\n' "$SEAM" | grep -v '^vendored: ' | grep -o 'policy/kit/checks/check-[a-z0-9-]*\.sh' | sort -u || true)
+[ -n "$DRIFT" ] \
+  || fail "the fragment announcement names no check under policy/kit/checks/ (kogaki#732) — it promises an enforcement without saying which file makes it true, which is the advisory form the sentence claims to have escaped"
+NAMED=$(printf '%s\n' "$SEAM" | grep -o 'policy/kit/checks/check-[a-z0-9-]*\.sh' | sort -u || true)
 for NAME in $NAMED; do
   [ -f "$KIT_DIR/${NAME#policy/kit/}" ] \
     || fail "the install names '$NAME' and the kit does not vendor it (kogaki#732) — a claim wider than what holds where it is read, said to the consumer at the moment of install"

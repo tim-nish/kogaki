@@ -145,8 +145,21 @@ def self_test():
 
 
 args = sys.argv[1:]
-if "--self-test" in args:
-    sys.exit(self_test())
+
+# THE CASES RUN ON EVERY INVOCATION, and that is not a convenience.
+#
+# This member's live reading in this repository is AGREEMENT, so the only path
+# the suite ever executed was the one that finds nothing — every refusal it
+# claims to make, including the case its admission record cites verbatim as
+# `efficacy`, could have been deleted with the suite staying green. A check
+# whose only executed path is its own quiet arm is indistinguishable from one
+# that never looked, which is the unbound-claim shape kogaki#243 names and the
+# shape kogaki#732 exists to refuse — so reproducing it here would be the
+# defect rebuilt inside its own remedy. The idiom and its ground are
+# `check-kit-currency.sh`'s, transferred unchanged.
+rc = self_test()
+if rc or "--self-test" in args:
+    sys.exit(rc)
 
 registry_path = pathlib.Path(DEFAULT_REGISTRY)
 if "--registry" in args:
