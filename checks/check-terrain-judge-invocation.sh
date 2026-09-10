@@ -66,7 +66,15 @@ build_tree() {                      # build_tree <dir> [--reduced]
 const argv = process.argv.slice(2);
 const tool = argv[argv.indexOf("--tool") + 1];
 const PIN = "product-lab@f1x7ure";
-const LESSONS = [
+// THE SET IS OVERRIDABLE, and the override is what makes a CAP testable
+// (kogaki#1068). Every group this default composes holds two members, and the
+// `tight` cap is 5 -- so no record over this survey can breach it, and the four
+// live breaches of 2026-09-09 had no fixture that could reproduce them. The
+// override is read from the environment rather than by writing a second stub,
+// because a second stub is a second served surface free to drift from this one.
+const LESSONS = process.env.KOGAKI_FIXTURE_LESSONS
+  ? JSON.parse(process.env.KOGAKI_FIXTURE_LESSONS)
+  : [
   { slug: "one-thing-per-act", tags: ["fixture", "shared"] },
   { slug: "a-bound-that-cannot-fire", tags: ["fixture", "shared"] },
   // The second co-tag group (kogaki#1062). Two members, like the first, so both
@@ -439,10 +447,158 @@ const record = g.name === target
   : { [g.name]: { judged: true, subgroups: [] } };
 process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
 JUDGE
+  # ---- THE SubGroup RULE STUBS (kogaki#1068). Both answer J1 conformantly and
+  # subdivide at J2 from the state's own `record_example`, so the SHAPE is the
+  # example's and only the PARTITION is the fixture's -- the same discipline
+  # `judge-subdivides` takes, for the same reason: a hand-written record here
+  # would be a further carrier of the shape, free to drift from the example.
+  #
+  # THEY ARE SPENT AGAINST THE WIDE TREE, whose selected tag composes one group
+  # of six members and one of two. Six is what makes the `tight` cap of 5 a rule
+  # a record can actually breach; every other tree in this file composes groups
+  # of two, under which no cap can fire.
+  cat > "$root/judge-subgroup-lib.js" <<'LIB'
+// The SubGroup shape, FILLED FROM `src/workflow.json`'s own record example and
+// never written out here. `members` is the one field the fixture supplies: the
+// example's entry is a placeholder naming where the ids come from, and which ids
+// go in which SubGroup is exactly what these cases vary.
+const fs = require("node:fs");
+const path = require("node:path");
+function template(root) {
+  const table = JSON.parse(fs.readFileSync(path.join(root, "src", "workflow.json"), "utf8"));
+  const row = table.states.find((s) => s.id === "J2_subdivision");
+  const t = ((row || {}).record_example || {})["$per-group"];
+  if (!t) {
+    process.stderr.write("J2_subdivision carries no `$per-group` record_example for this stub to fill\n");
+    process.exit(5);
+  }
+  return t;
+}
+function subgroup(root, name, members, coherence) {
+  const VALUES = {
+    name: () => name,
+    claim: () => "In common: one fixture SubGroupClaim over these members.",
+    coherence: () => coherence,
+    coherence_why: () => "A fixture reason: the stub placed these members together.",
+  };
+  const fill = (node, key) => {
+    if (Array.isArray(node)) {
+      if (key === "members") return members.slice();
+      return node.map((v) => fill(v, key));
+    }
+    if (node && typeof node === "object") {
+      return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, fill(v, k)]));
+    }
+    if (typeof node === "string" && /^<.*>$/.test(node.trim())) {
+      if (!VALUES[key]) {
+        process.stderr.write(`the record example carries a placeholder under \`${key}\` that this stub `
+          + "has no value for -- the example and this fixture have drifted (kogaki#1068)\n");
+        process.exit(6);
+      }
+      return VALUES[key]();
+    }
+    return node;
+  };
+  return fill(template(root).subgroups[0], null);
+}
+function j1(input) {
+  return {
+    composition_pin: input.composition_pin,
+    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
+  };
+}
+module.exports = { subgroup, j1 };
+LIB
+
+  # ---- ACCEPTANCE 1. OVER THE CAP ONCE, THEN CONFORMANT. The wide group's first
+  # record puts all six members in ONE `tight` SubGroup, which is over the cap of
+  # 5; its second splits them into two of three, which is not. The property is
+  # that the breach is a refusal INSIDE the re-ask window -- before this issue it
+  # was a `cotag_groups` failure, raised after every group's call was spent, with
+  # no route back to the judge.
+  cat > "$root/judge-cap-repairs" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const lib = require(path.join(__dirname, "judge-subgroup-lib.js"));
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+if (/`J1_claims` judgment point/.test(prompt)) {
+  process.stdout.write(JSON.stringify({ result: JSON.stringify(lib.j1(input)) }) + "\n");
+  process.exit(0);
+}
+const g = input.groups[0];
+const slug = g.name.replace(/[^a-zA-Z0-9]+/g, "-");
+// EVERY PROMPT IS KEPT, because acceptance 3 is a property OF THE PROMPT: the
+// limits the record is judged against have to be IN the ask.
+const seenFile = path.join(__dirname, `cap-seen-${slug}`);
+let seen = 0;
+try { seen = Number(fs.readFileSync(seenFile, "utf8").trim()) || 0; } catch { seen = 0; }
+fs.writeFileSync(seenFile, String(seen + 1));
+fs.writeFileSync(path.join(__dirname, `cap-prompt-${slug}-${seen + 1}.txt`), prompt);
+let subgroups;
+if (g.members.length <= 2) {
+  // The small group: one SubGroup holding the whole parent, which the minimum
+  // exempts by name and no cap binds at this size.
+  subgroups = [lib.subgroup(__dirname, `${g.name} — whole`, g.members, "tight")];
+} else if (seen === 0) {
+  // OVER THE CAP: all six at `tight`, the shape four of eleven live groups
+  // returned on 2026-09-09.
+  fs.writeFileSync(path.join(__dirname, "cap-target"), g.name);
+  subgroups = [lib.subgroup(__dirname, `${g.name} — all of it`, g.members, "tight")];
+} else {
+  const half = Math.ceil(g.members.length / 2);
+  subgroups = [
+    lib.subgroup(__dirname, `${g.name} — first`, g.members.slice(0, half), "tight"),
+    lib.subgroup(__dirname, `${g.name} — second`, g.members.slice(half), "tight"),
+  ];
+}
+process.stdout.write(JSON.stringify({ result: JSON.stringify({
+  [g.name]: { judged: true, subgroups },
+}) }) + "\n");
+JUDGE
+
+  # ---- ACCEPTANCE 2. A MEMBER LEFT UNPLACED, ON EVERY CALL. The wide group's
+  # record places five of its six members and never the sixth, so the bound is
+  # spent and the state fails naming the group and the member it left.
+  cat > "$root/judge-unplaced" <<'JUDGE'
+#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const lib = require(path.join(__dirname, "judge-subgroup-lib.js"));
+const MARKER = "----- INPUT (JSON) -----";
+const prompt = fs.readFileSync(0, "utf8");
+const at = prompt.indexOf(MARKER);
+if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
+const input = JSON.parse(prompt.slice(at + MARKER.length));
+if (/`J1_claims` judgment point/.test(prompt)) {
+  process.stdout.write(JSON.stringify({ result: JSON.stringify(lib.j1(input)) }) + "\n");
+  process.exit(0);
+}
+const g = input.groups[0];
+let subgroups;
+if (g.members.length <= 2) {
+  subgroups = [lib.subgroup(__dirname, `${g.name} — whole`, g.members, "tight")];
+} else {
+  const kept = g.members.slice(0, g.members.length - 1);
+  // THE LEFT MEMBER IS WRITTEN DOWN, so the assertion names it without retyping
+  // an id the survey stub mints.
+  fs.writeFileSync(path.join(__dirname, "unplaced-target"),
+    JSON.stringify({ group: g.name, member: g.members[g.members.length - 1] }));
+  subgroups = [lib.subgroup(__dirname, `${g.name} — most of it`, kept, "tight")];
+}
+process.stdout.write(JSON.stringify({ result: JSON.stringify({
+  [g.name]: { judged: true, subgroups },
+}) }) + "\n");
+JUDGE
+
   chmod +x "$root/judge-conformant" "$root/judge-nonconformant" "$root/judge-garbage" \
            "$root/judge-repairs" "$root/judge-wrong-shape" \
            "$root/judge-group-repairs" "$root/judge-group-wrong-shape" \
-           "$root/judge-subdivides"
+           "$root/judge-subdivides" "$root/judge-cap-repairs" "$root/judge-unplaced"
 }
 
 # ---- THE SYNTHESIZED PAYLOAD. One PostToolUse event for an AskUserQuestion the
@@ -1148,6 +1304,180 @@ PY
 }
 
 
+# ---- THE SubGroup RULES BIND WHERE THE RE-ASK IS (kogaki#1068).
+#
+# WHAT THIS REACHES THAT NOTHING ELSE DOES. The rules -- the per-label member
+# caps, `min_subgroup_members`, the residual bound and the cover -- lived in
+# `subgroupPlacement` and `judgeSubgroup`, which only the two RENDER states call.
+# `J2_subdivision`, the state holding the bounded per-group re-ask, checked the
+# ENVELOPE alone. So a record breaching a rule passed J2, spent every group's
+# call, and failed the run at `cotag_groups` with a refusal the judge never saw;
+# on the parked 2026-09-09 live run nine of eleven groups breached one. Every
+# case above composes groups of two members, under which no cap can fire and no
+# member can be left over -- so no fixture in this file could construct the
+# defect until this tree.
+#
+# THE WIDE SURVEY, and it is the whole reason for a third tree: one co-tag group
+# of six members, over which the `tight` cap of 5 binds and a five-member
+# placement leaves exactly one member over, beside one group of two so a refusal
+# naming a group names something.
+WIDE_LESSONS='[
+  {"slug":"a-wide-one","tags":["fixture","wide"]},
+  {"slug":"a-wide-two","tags":["fixture","wide"]},
+  {"slug":"a-wide-three","tags":["fixture","wide"]},
+  {"slug":"a-wide-four","tags":["fixture","wide"]},
+  {"slug":"a-wide-five","tags":["fixture","wide"]},
+  {"slug":"a-wide-six","tags":["fixture","wide"]},
+  {"slug":"a-narrow-one","tags":["fixture","narrow"]},
+  {"slug":"a-narrow-two","tags":["fixture","narrow"]}
+]'
+
+drive_limits() {                     # drive_limits <label> <tree>
+  local label=$1 root=$2
+  mkdir -p "$root/open-gates"
+  export KOGAKI_OPEN_GATES="$root/open-gates"
+  export CLAUDE_CODE_SESSION_ID="fixture-session"
+  # THE SURVEY THE STUB SERVES, for this tree alone. Exported rather than written
+  # into a second gateway stub, so the served shape stays one file.
+  export KOGAKI_FIXTURE_LESSONS="$WIDE_LESSONS"
+  local declared_j2
+  declared_j2=$(python3 -c "
+import json
+t = json.load(open('src/workflow.json'))
+print([s for s in t['states'] if s['id'] == 'J2_subdivision'][0]['retries'])")
+
+  # --- ACCEPTANCE 1. A record over the `tight` cap is refused INSIDE the re-ask
+  # window, and a conformant second answer advances the run: exactly one refusal
+  # against that group, and the refusal text names the cap.
+  local D1="$root/run-cap"
+  mkdir -p "$D1"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D1" >/dev/null 2>&1)
+  local q1 p1
+  q1=$(declared_question "$D1" TAG_SELECTION "$root") || {
+    bad "$label: the cap run wrote no TAG_SELECTION declaration"
+    return
+  }
+  p1=$(payload "toolu_fixture_cap" "$q1" "fixture")
+  capture "$root" "$D1" "$p1" cap
+  printf '%s' "$p1" | (cd "$root" && KOGAKI_RUN_DIR="$D1" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-cap-repairs" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advcap.out" 2>&1)
+
+  if python3 - "$D1" "$root/cap-target" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+tgt = pathlib.Path(sys.argv[2])
+if not tgt.exists():
+    print("the over-cap stub never reached the wide group at J2", file=sys.stderr); sys.exit(1)
+target = tgt.read_text().strip()
+if "J2_subdivision" not in (rec.get("judgments") or {}):
+    print("the state did not advance past J2_subdivision", file=sys.stderr); sys.exit(1)
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision")
+if not r or not r.get("repaired"):
+    print("expected a repaired judgment_refusals entry for J2_subdivision; got", r,
+          file=sys.stderr); sys.exit(1)
+hit = (r.get("groups") or {}).get(target)
+if not hit or hit.get("attempts") != 2 or len(hit.get("refusals") or []) != 1:
+    print("expected exactly one refusal against the over-cap group; got", hit,
+          file=sys.stderr); sys.exit(1)
+# THE REFUSAL NAMES THE CAP, and the number is read from the carrier rather than
+# retyped here -- a case asserting a literal 5 would go green against a
+# report-format.json an owner had edited.
+cap = json.load(open("src/report-format.json"))["limits"]["subgroup_member_cap"]["tight"]
+text = hit["refusals"][0]
+if f"over the cap of {cap}" not in text:
+    print("the refusal does not name the tight cap the carrier declares:", text,
+          file=sys.stderr); sys.exit(1)
+if "limits.subgroup_member_cap.tight" not in text:
+    print("the refusal does not name the carrier the cap was read from:", text,
+          file=sys.stderr); sys.exit(1)
+# AND IT WAS RAISED AT J2, NOT AT cotag_groups: the run reached the render state
+# and wrote its display, which the pre-repair order could never do.
+by = {t["state"]: t for t in rec.get("transitions", [])}
+if "cotag_groups" not in by:
+    print("the run never reached cotag_groups", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: a judge returning an over-cap SubGroup once and conforming next did not advance with exactly one refusal, naming the cap, recorded against that group (kogaki#1068 acceptance 1). The advance said: $(tail -4 "$root/advcap.out" | tr '\n' ' ')"
+  fi
+
+  # --- ACCEPTANCE 3. THE ASK STATES THE LIMITS, and the numbers in the prompt are
+  # the file's. Asserted on ask ONE: limits that appeared only on a re-ask would
+  # leave the first attempt spent on a rule the judge was never told.
+  if python3 - "$root" <<'PY'
+import json, sys, pathlib, re
+root = pathlib.Path(sys.argv[1])
+target = (root / "cap-target").read_text().strip()
+slug = re.sub(r"[^a-zA-Z0-9]+", "-", target)
+p1 = root / f"cap-prompt-{slug}-1.txt"
+if not p1.exists():
+    print("no first ask was kept for the wide group", file=sys.stderr); sys.exit(1)
+text = p1.read_text()
+body = text.split("----- INPUT (JSON) -----", 1)[1]
+inp = json.loads(body)
+limits = inp.get("limits")
+if not limits:
+    print("the per-group ask carries no `limits` block", file=sys.stderr); sys.exit(1)
+declared = json.load(open("src/report-format.json"))["limits"]
+caps = {k: v for k, v in declared["subgroup_member_cap"].items() if not k.startswith("_")}
+if limits.get("subgroup_member_cap") != caps:
+    print("the ask's caps are not report-format.json's:", limits.get("subgroup_member_cap"),
+          "vs", caps, file=sys.stderr); sys.exit(1)
+if limits.get("min_subgroup_members") != declared["min_subgroup_members"]:
+    print("the ask's minimum is not the file's", file=sys.stderr); sys.exit(1)
+if limits.get("max_residual_members") != declared["max_residual_members"]:
+    print("the ask's residual bound is not the file's", file=sys.stderr); sys.exit(1)
+# AND THE COVER RULE IS STATED, which is the one limit that is not a number.
+if "every_member_must_be_placed" not in limits:
+    print("the ask does not state that every member must be placed", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the per-group ask does not carry the limits its record is judged against, equal to report-format.json's own numbers (kogaki#1068 acceptance 3)"
+  fi
+
+  # --- ACCEPTANCE 2. A member left unplaced on EVERY call fails the state after
+  # the declared bound, naming the group and the member -- and writes no assembled
+  # record, so nothing downstream reads a judgment that was never completed.
+  local D2="$root/run-unplaced"
+  mkdir -p "$D2"
+  (cd "$root" && node src/terrain.mjs start --run-dir "$D2" >/dev/null 2>&1)
+  local q2 p2
+  q2=$(declared_question "$D2" TAG_SELECTION "$root") || {
+    bad "$label: the unplaced run wrote no TAG_SELECTION declaration"
+    return
+  }
+  p2=$(payload "toolu_fixture_unplaced" "$q2" "fixture")
+  capture "$root" "$D2" "$p2" unplaced
+  printf '%s' "$p2" | (cd "$root" && KOGAKI_RUN_DIR="$D2" KOGAKI_OPEN_GATES="$root/open-gates" \
+      KOGAKI_JUDGE_CLI="$root/judge-unplaced" \
+      python3 .claude/hooks/advance-terrain.py >"$root/advunplaced.out" 2>&1)
+
+  local unplaced_group unplaced_member
+  unplaced_group=$(python3 -c "
+import json,sys
+try: print(json.load(open('$root/unplaced-target'))['group'])
+except Exception: sys.exit(1)" 2>/dev/null || echo "")
+  unplaced_member=$(python3 -c "
+import json,sys
+try: print(json.load(open('$root/unplaced-target'))['member'])
+except Exception: sys.exit(1)" 2>/dev/null || echo "")
+  if [ -z "$unplaced_group" ]; then
+    bad "$label: the unplaced stub was never reached at J2_subdivision"
+  elif grep -qF "group \"$unplaced_group\" was refused on all $((declared_j2 + 1)) attempt(s)" "$root/advunplaced.out"; then
+    pass
+  else
+    bad "$label: the failure does not name the group that spent its bound over the $declared_j2 re-ask(s) the table declares (kogaki#1068 acceptance 2). It said: $(tail -4 "$root/advunplaced.out" | tr '\n' ' ')"
+  fi
+  if grep -qF "$unplaced_member" "$root/advunplaced.out" \
+     && grep -q "SUBDIVISION_COVER_INCOMPLETE" "$root/advunplaced.out"; then pass; else
+    bad "$label: the exhausted failure does not carry the cover refusal naming the member left unplaced -- an operator is told a group failed and never which member it left"
+  fi
+  if [ ! -f "$D2/terrain-judge-J2_subdivision.json" ]; then pass; else
+    bad "$label: the state failed on the cover rule and wrote an assembled subdivision record anyway (kogaki#1068 acceptance 2)"
+  fi
+  unset KOGAKI_FIXTURE_LESSONS
+}
+
 # ---- THE PER-CALL BOUND IS DECLARED IN THE TABLE, AND ITS ABSENCE REFUSES
 # (PR #1044 round 1, finding 4). A judgment call runs inside a PostToolUse hook
 # that kills the whole advance at its own timeout, and a span can now make several
@@ -1230,6 +1560,10 @@ else
   pass
 fi
 drive "the reduced tree" "$SCRATCH/red"
+
+# ---- kogaki#1068. The SubGroup rules, over a survey wide enough for them to bind.
+build_tree "$SCRATCH/wide"
+drive_limits "the wide tree" "$SCRATCH/wide"
 
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030)"

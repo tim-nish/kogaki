@@ -459,6 +459,24 @@ it is not "tidied" later.
 **Two disclosures, disjunctive.** A degenerate claim — one true of every member
 at the size served — is disclosed, and so is a suppressed split (§6.2).
 
+**The refusals bind at the state that can RE-ASK, and the ask states them**
+(kogaki#1068). "Enforced mechanically" was satisfied by a refusal anywhere, and
+they sat only in the placement and the coherence judgment — which the two
+RENDER states call and the judgment state did not. So a record breaching a cap,
+falling under M, overrunning N or leaving a member unplaced passed the judgment
+state, spent every group's call, and failed the run at a render state with no
+route back to the judge; on the parked 2026-09-09 live run nine of eleven groups
+breached one. The same refusals now run inside the judgment state's own
+per-group validation, where the declared re-ask bound and the per-group refusal
+feedback already live, and the render states keep theirs — one implementation,
+called twice, expected never to fire second.
+
+**And the ask carries the limits it is judged against**, read from the format
+carrier and restated nowhere. A judge asked to subdivide eight members at
+`tight` under a cap of five it was never told breaches it, and did: the caps,
+M, N and the cover duty are named in the per-group ask, so a refusal is a
+repairable mistake rather than a rule the judge could not have followed.
+
 **The split decision is the engine's at ten or more.** Its ground is arithmetic
 rather than taste, and the two carriers holding the threshold are checked against
 each other.
