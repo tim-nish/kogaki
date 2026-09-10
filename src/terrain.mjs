@@ -2159,12 +2159,29 @@ export function subgroupPlacement(parent, classification, block) {
   const subgroups = [];
   const placedIds = new Set();
   for (const sg of classification) {
-    const name = String(sg.subgroup || fail("each SubGroup needs a `subgroup` name"));
+    // THE KEYS ARE THE RECORD EXAMPLE'S, AND THE EXAMPLE IS THE BINDING
+    // (kogaki#1067). `src/workflow.json`'s `J2_subdivision.record_example` — the
+    // literal shape kogaki#1062 item 5 put in front of the judge — writes each
+    // SubGroup as `{name, claim, members, verdicts: {coherence, …}}`, and the
+    // live 2026-09-10 judge conformed to it. This reader read a `subgroup` key and
+    // took the WHOLE entry as the verdicts object, so it refused every real
+    // classification with "each SubGroup needs a `subgroup` name" and stalled
+    // the run before `cotag_groups`. Every other reader of a SubGroup in this
+    // file — the coherence checks, the display and report renderers,
+    // `resolveEnteredIds` — already read `name`, and `judgeSubgroup` and the
+    // residual filter already read `.verdicts.coherence`, so the two spellings
+    // here were the only ones out of step.
+    //
+    // NO SECOND SPELLING IS ACCEPTED. A reader tolerating both keys re-opens
+    // exactly the drift this closes: the example would stop being the one
+    // binding, and the next judge to conform to it would have no way to tell
+    // which half of the reader it was talking to.
+    const name = String(sg.name || fail("each SubGroup needs a `name` — the key `J2_subdivision.record_example` declares (kogaki#1067)"));
     const members = [...new Set(sg.members || [])].sort();
     const stray = members.filter((id) => !parent.members.includes(id));
     if (stray.length) fail(`SubGroup ${JSON.stringify(name)} places ${stray.join(", ")}, which are not members of ${parent.name} — subdivision decides WHERE a member appears, never that a new one exists`);
     members.forEach((id) => placedIds.add(id));
-    subgroups.push({ name, claim: String(sg.claim || ""), members, verdicts: sg });
+    subgroups.push({ name, claim: String(sg.claim || ""), members, verdicts: sg.verdicts || {} });
   }
   // AN UNPLACED MEMBER IS A REFUSAL NAMING IT (the SubGroup threshold rule 1, kogaki#738 ruling 1).
   // This branch used to SWEEP: every member the judge left out was pushed into a
