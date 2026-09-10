@@ -39,7 +39,19 @@ routing in `policy/CAPABILITIES.md`, consultation occasions in
 `policy/consultation-map.md`, presence toggle in `policy/source.yaml`, the
 shape read at `policy/shape.md`, emissions in `policy/emissions/`, and the kit
 itself in `policy/kit/`. The discipline loads as a harness skill from
-`.claude/skills/consult-first/`.
+`.claude/skills/consult-first/SKILL.md`, which is **installed and not
+committed**: `install.sh` writes it from `policy/kit/skills/consult-first.md`
+and gitignores the path, so the copy is a delivery rather than a second
+authority. Edit the kit source and re-install; editing the copy loses the edit
+at the next run.
+
+**The copy is per-checkout, and a linked worktree does not get one.** `git
+worktree add` does not populate ignored paths, so a sitting working in a
+worktree has no consult-first skill until `policy/kit/install.sh` is re-run
+there. **This block is the carrier that reaches it** — the skill is a
+procedure surface and never the sole carrier of the discipline, so what is lost
+in a worktree is the convenience of loading it by name, not the obligation. Run
+the install in the worktree to get the skill back.
 
 The gateway's location is **machine-local configuration** — `--gateway`,
 `$TSUREZURE_GATEWAY_JS`, or the MCP registration — never a committed path
