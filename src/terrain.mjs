@@ -128,7 +128,7 @@
 //
 import { spawnSync, spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
 import { basename, delimiter, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -7416,16 +7416,24 @@ function judgmentJoins(rec, args) {
 
 function judgePinArgs(table, args, rec) {
   const j = (table && table.judge) || {};
-  if (!j.model || !j.effort) return {};
-  if (args["judge-model"] !== undefined || args["judge-effort"] !== undefined) return {};
-  // AND THE BINARY THE RUN RESOLVED (kogaki#1076 item 3), from the run record
-  // rather than from this act's environment -- the same rule the command itself
-  // follows one layer down, and for the same reason.
+  // THE BINARY IS INJECTED BESIDE THE MODEL AND EFFORT, NEVER GATED BEHIND THEIR
+  // ABSENCE (kogaki#1076, PR #1078 round 1 finding 3). The model and the effort
+  // are the TABLE's, so a caller supplying them explicitly is overriding the
+  // table and this withholds both; the binary version is the RUN's, which no
+  // `--judge-model` on an argv overrides and no caller can know. Withheld with
+  // them, one run reported through the executor's auto-pin and again with
+  // explicit flags yielded TWO identities -- and, with the component in the
+  // identity key, an idempotent rerun that recomputes. An explicit
+  // `--judge-binary-version` still wins, on the same rule the other two follow.
   const binary = (rec && rec.judge_binary) || null;
+  const fromRun = binary && binary.version && args["judge-binary-version"] === undefined
+    ? { "judge-binary-version": String(binary.version) } : {};
+  if (!j.model || !j.effort) return fromRun;
+  if (args["judge-model"] !== undefined || args["judge-effort"] !== undefined) return fromRun;
   return {
     "judge-model": String(j.model),
     "judge-effort": String(j.effort),
-    ...(binary && binary.version ? { "judge-binary-version": String(binary.version) } : {}),
+    ...fromRun,
   };
 }
 
@@ -10079,6 +10087,97 @@ switch (cmd) {
             && recomputesAtTheOther
             && absenceHashesAsNoJudge
             && absenceStillDiscriminates;
+        })());
+
+      // ---- AND THE SAME DISCRIMINATION OVER THE BINARY COMPONENT (kogaki#1076,
+      // PR #1078 round 1 finding 1). The component was added to
+      // `reportIdentityKey` with nothing driving the comparator over it: the
+      // registered fixture asserts the pin's COMPOSITION in a written report, so
+      // striking the component back out of the key left both it and this pass
+      // green -- the kogaki#974 defect one component over, arriving through the
+      // same door and repaired with the same shape.
+      //
+      // THE CLAIM UNDER TEST IS THE ONE SPEC-terrain §"THE JUDGE BINARY IS THE
+      // RUN'S, RESOLVED ONCE BY THE SESSION THAT STARTS IT" MAKES: two runs with equal
+      // `model_id` and `effort_tier` that ran different executables are DIFFERENT
+      // identities. So the pair differs only in `binary_version` and every other
+      // conjunct is identical, which is what makes the comparator the thing being
+      // asserted rather than some other guard. The absence control is the
+      // kogaki#741 rule applied to this component -- a pin written before the
+      // field existed hashes as `NO_JUDGE`, which is what it meant -- with its
+      // own control that the absence still discriminates against a pin naming a
+      // binary, so the case is not satisfied by a key that hashes everything.
+      ok("two report identities differing ONLY in the judge pin's binary_version are not the same identity, and an absent component hashes as NO_JUDGE without collapsing the key",
+        (() => {
+          const identity = (bv) => ({
+            pin: "product-lab@abc1234",
+            query: { tag: "testing", ids: ["G1", "G2"] },
+            judge_pin: { model_id: "m", effort_tier: "high", binary_version: bv },
+            neighborhood_judgment: NO_JUDGE,
+          });
+          const a = identity("claude 1.2.3");
+          const b = identity("claude 4.5.6");
+          const sameAtItself = sameIdentity(a, a);
+          const differsOnTheBinary = !sameIdentity(a, b);
+          const absenceHashesAsNoJudge = sameIdentity(identity(undefined), identity(null));
+          const absenceStillDiscriminates = !sameIdentity(identity(undefined), a);
+          // AND THROUGH THE DECISION TOO, on the kogaki#974 case's own ground: the
+          // comparator is what `cmdReport` reaches with NO third argument, so a
+          // case that only called `sameIdentity` would leave the shipped call
+          // path unread exactly as the six injected calls above it did.
+          const replaysAtItsOwnIdentity = shouldReplayPrior({ identity: a }, a);
+          const recomputesAtTheOther = !shouldReplayPrior({ identity: a }, b);
+          return sameAtItself && differsOnTheBinary
+            && absenceHashesAsNoJudge && absenceStillDiscriminates
+            && replaysAtItsOwnIdentity && recomputesAtTheOther;
+        })());
+
+      // ---- THE RESOLUTION'S TWO EXPORTS HAVE A READER (kogaki#1076, PR #1078
+      // round 1 finding 2). `checks/check-terrain-judge-invocation.sh` drives
+      // them through a whole start act, which is the property that matters and is
+      // also the most expensive way to ask any single question about them; these
+      // are the two questions a fixture that builds a PATH and runs `node` cannot
+      // ask cheaply, and an export offered to nobody reads as a case that was
+      // intended and not written.
+      ok("judgeBinaryCandidates walks PATH in its declared order and de-duplicates it, and treats a command carrying a separator as its own single candidate",
+        (() => {
+          const walked = judgeBinaryCandidates("claude", ["/a", "/b", "/a", "", "/c"].join(delimiter));
+          const inOrder = JSON.stringify(walked)
+            === JSON.stringify(["/a/claude", "/b/claude", "/c/claude"]);
+          // A PATH LOOKUP IS WHAT A BARE WORD GETS, and nothing else does: an
+          // absolute path and a relative one are each already the single
+          // candidate this act exists to produce, so neither is searched for.
+          const absolute = judgeBinaryCandidates("/opt/claude", ["/a", "/b"].join(delimiter));
+          const relative = judgeBinaryCandidates("./bin/claude", ["/a", "/b"].join(delimiter));
+          return inOrder
+            && JSON.stringify(absolute) === JSON.stringify(["/opt/claude"])
+            && relative.length === 1 && relative[0].endsWith("/bin/claude");
+        })());
+
+      // A SHIM AHEAD OF A WORKING BINARY, AT THE FUNCTION. The shim EXISTS and is
+      // EXECUTABLE and fails only when it is run, so a resolution testing either
+      // property picks it; this is the case that says the walk RUNS its
+      // candidates. It asserts the rejected candidate is NAMED as well, because
+      // the refusal is composed from that list and "the judge could not be run"
+      // over a bare word is not something an operator can act on -- the refusal
+      // itself is driven end to end by the registered fixture's case (b), which
+      // is where a `process.exit` refusal can be observed.
+      ok("resolveJudgeBinary runs each PATH candidate and takes the first that exits 0, naming the ones it rejected",
+        (() => {
+          const root = mkdtempSync(join(tmpdir(), "terrain-judge-resolve-"));
+          const shimDir = join(root, "shim");
+          const goodDir = join(root, "good");
+          mkdirSync(shimDir, { recursive: true });
+          mkdirSync(goodDir, { recursive: true });
+          const shim = join(shimDir, "claude");
+          const good = join(goodDir, "claude");
+          writeFileSync(shim, '#!/bin/sh\nexec "$0.exe" "$@"\n', { mode: 0o755 });
+          writeFileSync(good, "#!/bin/sh\necho 'fixture-judge 9.9.9'\n", { mode: 0o755 });
+          const r = resolveJudgeBinary("claude", [shimDir, goodDir].join(delimiter));
+          rmSync(root, { recursive: true, force: true });
+          return r.path === good
+            && r.version === "fixture-judge 9.9.9"
+            && r.rejected.length === 1 && r.rejected[0].path === shim;
         })());
 
       // ---- AN EDITED CANDIDATES FILE AT THE SAME IDENTITY IS NOT IDEMPOTENT
