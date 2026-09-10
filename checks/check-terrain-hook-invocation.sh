@@ -258,10 +258,18 @@ if [ -n "${hooktmp:-}" ] && [ -d "$hooktmp" ]; then
   # the capture row a real raising leaves behind. Composed by python3 so the
   # option-set digest is the one the executor recomputes rather than a literal
   # that would rot the first time the canonical form moved.
+  # THE STUB THE STAGED RECORD'S RESOLVED JUDGE BINARY POINTS AT (kogaki#1079,
+  # PR #1080 round 1). It is a real file that really answers `--version`, so the
+  # record below names something that exists rather than a plausible path; no
+  # case here reaches a judgment state, so it is never spawned for a judgment.
+  judge_stub="$hooktmp/judge-stub"
+  printf '#!/bin/sh\n[ "$1" = --version ] && { echo "terrain-fixture judge stub 0"; exit 0; }\necho "the fixture judge stub was asked to judge; no case in this file reaches a judgment state" >&2\nexit 1\n' > "$judge_stub"
+  chmod +x "$judge_stub"
+
   stage_run() {                      # $1 dir, $2 the capture row's tool_use_id
-    python3 - "$1" "$2" "$CAPSUF" "$REPO/checks/fixtures/survey/lone-tag-member.json" <<'PY'
+    python3 - "$1" "$2" "$CAPSUF" "$REPO/checks/fixtures/survey/lone-tag-member.json" "$judge_stub" <<'PY'
 import hashlib, json, os, sys, uuid
-d, tuid, suffix, survey_record = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+d, tuid, suffix, survey_record, judge_stub = sys.argv[1:6]
 os.makedirs(d, exist_ok=True)
 gate_id, instance = "terrain-tag-selection", str(uuid.uuid4())
 options = [{"id": "other-method", "label": "Some other method entirely"}]
@@ -293,6 +301,24 @@ with open(os.path.join(d, "run-record.json"), "w") as f:
                # truthful survey record this repository already keeps, rather
                # than a shell re-implementation of the executor's own schema.
                "completed": ["survey"], "survey_record": survey_record,
+               # AND THE START ACT'S OTHER PRODUCT, for the same reason
+               # (kogaki#1079, PR #1080 round 1). `ensureJudgeBinary` runs on
+               # EVERY act, before the survey and before an outstanding wait is
+               # re-entered, and it resolves the table's `judge.command` --
+               # `"claude"` -- over PATH, refusing where no candidate answers
+               # `--version`. A CI runner carries no such binary, so the
+               # executor refused before it reached the gate and this case read
+               # `completed=[survey]` with the record unmoved: kogaki#1079's own
+               # defect on a second axis, arriving with kogaki#1076/#1078. A
+               # record that already carries the field is never re-resolved, so
+               # staging it is what makes the trio depend on NOTHING outside
+               # this repository -- neither the policy seam nor a judge install.
+               # `stubbed` is true because it is one, and the path is a real
+               # file this block writes; no case here reaches a judgment state,
+               # so the stub answers `--version` and nothing else.
+               "judge_binary": {"command": "claude", "path": judge_stub,
+                                "version": "terrain-fixture judge stub 0",
+                                "stubbed": True},
                "waits_reached": [], "conditional_entered": [],
                "conditional_skipped": [], "awaiting": "TAG_SELECTION",
                "owner_input": {}, "artifacts_written": [], "judgments": {},
