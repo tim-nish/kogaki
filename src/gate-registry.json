@@ -51,8 +51,6 @@
     "  the constraints that survive",
     "      SPEC-draft-pipeline",
     "  the lifetime discriminator",
-    "      specs/SPEC.md",
-    "  the machine-state location rule",
     "      specs/SPEC.md"
   ],
   "version": "1",
@@ -78,23 +76,6 @@
       }
     },
     {
-      "id": "terrain-strand-selection",
-      "raised_by": "src/terrain.mjs gate + .claude/skills/terrain — the co-tag selection question (SPEC-terrain, the placement cover; kogaki#17)",
-      "host": "claude-code",
-      "medium": "selector",
-      "question": "Which Strand does the article take as material?",
-      "options": [
-        {
-          "id": "no-strand",
-          "label": "Take no Strand from this survey; nothing is selected and the survey stands"
-        }
-      ],
-      "free_text_offered": true,
-      "fork": false,
-      "requires_gate_instance_id": true,
-      "dynamic_options": "Strand options are composed per run from the owner's current view (ids strand:<slug>, at most 3 beside the standing option — the selector affordance holds 4); the run's full declaration is written beside its capture in the machine-local run workspace, which never enters the tree (specs/SPEC.md, the machine-state location rule). Consulted 2026-08-05 (product-lab@16a6dbf6, two framings): no served position discriminates declaring a run-computed option set in a static registry — recorded as a miss, not resolved silently. The class is declared here, the content with the run; a capture is judged against the run declaration where one sits beside it and against THIS entry where none does, and disagreement with whichever applies FAILS the options-equality check by design rather than being exempted (SPEC-gate-carrier, what `options_offered` is judged against). Until kogaki#818 this sentence read 'a capture that somehow reaches the tree' and meant the COMMITTED tree, while the check read the WORKING DIRECTORY — so every conforming run reddened the local suite."
-    },
-    {
       "id": "terrain-trim-ratification",
       "raised_by": "src/terrain.mjs gate --proposal + .claude/skills/terrain — a rank/trim/hide proposal record presented for ratification (SPEC-terrain, the placement cover; kogaki#17)",
       "host": "claude-code",
@@ -109,25 +90,25 @@
       "free_text_offered": true,
       "fork": false,
       "requires_gate_instance_id": true,
-      "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation — the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting, the same comparison target (SPEC-gate-carrier, what `options_offered` is judged against), and the same recorded consult miss as terrain-strand-selection. fork:false deliberately: Terrain attaches no recommendation to a trim — a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
+      "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation — the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting and the same comparison target (SPEC-gate-carrier, what `options_offered` is judged against). The recorded consult miss this sentence used to share with `terrain-strand-selection` is carried here alone since kogaki#1087 deleted that gate: consulted 2026-08-05 (product-lab@16a6dbf6, two framings), no served position discriminated declaring a run-computed option set in a static registry, recorded as a miss rather than resolved silently. fork:false deliberately: Terrain attaches no recommendation to a trim — a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
     },
     {
       "id": "terrain-id-selection",
       "raised_by": "src/terrain.mjs — the executor composes this declaration and its byte-fixed gate call at its `ID_SELECTION` wait; the harness UI renders that call, and the PreToolUse equality check admits no other payload (kogaki#1028) (SPEC-terrain, the post-tag-selection window; kogaki#890)",
       "host": "claude-code",
       "medium": "selector",
-      "question": "Which composed groups does the survey enter?",
+      "question": "Which groups do you want to read in full?",
       "options": [
         {
           "id": "enter-no-groups",
-          "label": "Enter no groups — the composed grouping is not what this survey should narrow to; nothing is entered and the grouping stands",
+          "label": "None of these — nothing is read in full, and the grouping stands",
           "negates_premise": true
         }
       ],
       "free_text_offered": true,
       "fork": false,
       "requires_gate_instance_id": true,
-      "dynamic_options": "NONE, and that is this gate's shape rather than an omission. The owner supplies a G/SG id LIST, and a list is not an option: a composed run routinely carries more groups than the selector affordance's four, and any per-group option set would either truncate the view or refuse the run outright. So exactly two ways to answer exist — the standing negation, or free-form entry of the id list — which is the shape `terrain-tag-selection` already has in this same registry and for the same reason. What the run DOES carry is not an option: the declaration's `groups_artifact` key names the artifact `cotag_groups` wrote for THIS run, so the session renders the runtime's own composed grouping rather than retyping or summarising it (the terrain skill's Delivery rule licenses naming the artifact the runtime wrote). REGISTERED AT kogaki#890, AND THE GAP IS THE FINDING RATHER THAN AN OVERSIGHT: `ID_SELECTION` was this workflow's ONE wait that declared no gate, so its owner input arrived as a bare `--input` the model composed — the channel the 2026-09-04 ruling refuses, surviving in the one state a gate-coverage number computed over the declared gates could not see. The standing negation is the PREMISE NEGATION the gate owes: the wait is reached on the premise that the composed grouping is what the survey should enter, and a gate whose every answer shares a machine-computed premise makes it unfalsifiable at the one moment a human is present to falsify it — a free-text escape is not sufficient, because it is the option a hurried operator skips. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198 fork:false deliberately, and for the same reason as the other terrain gates: the runtime attaches no recommendation to which groups are worth entering, and a ranked recommendation here would be the machine narrowing the survey twice — once by composing the grouping and again by scoring it.",
+      "dynamic_options": "NONE, and that is this gate's shape rather than an omission. The owner supplies a G/SG id LIST, and a list is not an option: a composed run routinely carries more groups than the selector affordance's four, and any per-group option set would either truncate the view or refuse the run outright. So exactly two ways to answer exist — the standing negation, or free-form entry of the id list — which is the shape `terrain-tag-selection` already has in this same registry and for the same reason. What the run DOES carry is not an option: the declaration's `groups_listing` key holds the runtime's own composed grouping BYTE-FOR-BYTE, the way `terrain-tag-selection` carries `tag_listing`, and `composeGateCall` puts it inside the question text above the question line — so the reading the owner answers over is part of the payload the PreToolUse equality check admits, and a grouping that arrives missing, paraphrased or reordered is a byte difference rather than a regret. IT WAS A POINTER (`groups_artifact`, kogaki#890) UNTIL kogaki#1087: naming the artifact left the rendering to a session that might or might not open it, and on the live run of 2026-09-10 the owner was asked which groups to enter with the grouping nowhere on screen. The wording changed in the same act — \"enter\" and \"composed groups\" are executor vocabulary, and this gate is the ONE place the owner's selection now happens, kogaki#1087 having deleted the Strand-selection gate that asked a second time for a token nothing read. REGISTERED AT kogaki#890, AND THE GAP IS THE FINDING RATHER THAN AN OVERSIGHT: `ID_SELECTION` was this workflow's ONE wait that declared no gate, so its owner input arrived as a bare `--input` the model composed — the channel the 2026-09-04 ruling refuses, surviving in the one state a gate-coverage number computed over the declared gates could not see. The standing negation is the PREMISE NEGATION the gate owes: the wait is reached on the premise that the composed grouping is what the survey should enter, and a gate whose every answer shares a machine-computed premise makes it unfalsifiable at the one moment a human is present to falsify it — a free-text escape is not sufficient, because it is the option a hurried operator skips. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198 fork:false deliberately, and for the same reason as the other terrain gates: the runtime attaches no recommendation to which groups are worth entering, and a ranked recommendation here would be the machine narrowing the survey twice — once by composing the grouping and again by scoring it.",
       "unrouted_options": {
         "enter-no-groups": "Routed to a REFUSAL, not to a state. The executor records the capture — the answer is evidence and the gate carrier owes the row — and then refuses the advance, naming the option and leaving the wait outstanding so the gate can be re-rendered once the grouping changes. Routed nowhere is not the same as accepted: without this the option id would land where a G/SG id list goes and the run would die two states later in `full_report`, telling the owner that \"enter-no-groups\" is not a known id — a refusal that misdescribes what they did."
       }

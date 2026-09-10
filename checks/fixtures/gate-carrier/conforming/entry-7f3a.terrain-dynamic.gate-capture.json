@@ -21,12 +21,12 @@
       },
       "payload": {
         "options_offered": [
-          "strand:g2-4",
-          "no-strand"
+          "method",
+          "other-method"
         ],
         "free_text_offered": true,
         "answer": {
-          "option": "strand:g2-4"
+          "option": "method"
         }
       }
     }

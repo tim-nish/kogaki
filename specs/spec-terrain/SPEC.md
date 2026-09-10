@@ -1012,6 +1012,16 @@ is refused is the *write*, not the computation.
 path.** The artifact **name** does not change; per-state names were the declined
 arm.
 
+**The ledger records what a writing state OBSERVED, and an under-report is the
+same defect as an assertion facing the other way.** A write state names the path
+its renderer returned; `{ artifact: null }` is the state that ran and deliberately
+wrote nothing. So the return value has to travel the whole way out of the
+renderer: on the live run of 2026-09-10 `full_report` wrote `reports/FullReport.md`
+and the record's `artifacts_written` named only the co-tag file, because
+`cmdReport` called its inner generator without returning what it returned and fell
+off its end as `undefined`. The count is countable only if every writing state's
+observed path reaches it.
+
 `necessity:` the write/compute split and the declined per-state-name arm are
 decisions, and a decision's declined arm has no carrier.
 
@@ -1099,12 +1109,36 @@ view or refuse the run. Exactly two ways to answer exist, the standing negation
 or free-form entry of the ids, which is `terrain-tag-selection`'s shape arrived
 at from the same constraint.
 
-**The grouping rides the declaration as a POINTER, not as bytes.**
-`terrain-tag-selection` inlines its table because `renderTagDisplay` produces
-one and `report-format.json` grammars it; the composed grouping is an artifact
-the run already wrote, and naming it is the delivery §14's own rule licenses.
-Inventing a second rendering surface here would put a format nothing grammars
-in front of the owner.
+**The grouping rides the declaration as BYTES, and this reverses what this
+section said.** It ruled the grouping a POINTER — `terrain-tag-selection` inlines
+its table because `renderTagDisplay` produces one and `report-format.json`
+grammars it, while the composed grouping was an artifact the run already wrote,
+so naming it was the delivery §14's own rule licenses, and inlining it would
+invent a second rendering surface nothing grammars. **The last clause was false,
+and it was the load-bearing one**: `report-format.json` grammars `cotag_groups`
+exactly as it grammars `tag_listing`, so the bytes have already passed the
+emit-time refusal at the write and re-checking them through the same surface
+invents nothing. What the pointer cost was observed rather than argued — on the
+live run of 2026-09-10 the owner was asked which groups to enter with the
+grouping nowhere on screen, because a pointer is rendered by whoever chooses to
+open it, and putting the reading in front of the owner is the one act the tag
+gate had already established must not be left to a session.
+
+So the declaration carries `groups_listing`, the written artifact's bytes, and
+`composeGateCall` puts them above the question line the way it puts `tag_listing`
+there. The reading is then inside the payload the PreToolUse equality check
+admits, so a grouping that arrives missing, paraphrased or reordered is a byte
+difference. **A run whose `cotag_groups` wrote nothing still reaches the gate**:
+a typed sentence rides in the reading's place, because refusing there would wedge
+the one run that most needs an owner.
+
+**And the question is asked in the owner's vocabulary.** *Which groups do you
+want to read in full?*, declining with *none of these* — where it read "which
+composed groups does the survey enter?" and "enter no groups". `enter` and
+`composed groups` are the executor's words for its own states; the owner is
+choosing what to read. The option **id** is unchanged (`enter-no-groups`): it is
+a join key between a declaration and its capture, and renaming it would break
+that join to no reader's benefit.
 
 This is a statement about the **runtime**, not about the owner's surface.
 
@@ -1139,8 +1173,9 @@ composed from the bound would say a call had been retried when it had not.
 **Two spans, and each completes in one hook event.** After the tag answer:
 `compose_input`, `J1_claims`, `J2_subdivision`, the `cotag_groups` write, and the
 `ID_SELECTION` declaration. After the ID answer: `thesis_candidates`,
-`neighborhood_input`, `J3_neighborhood`, the `full_report` write, and the
-`STRAND_SELECTION` declaration. **No state of either span leaves the hook chain**,
+`neighborhood_input`, `J3_neighborhood`, and the `full_report` write — which is
+where the second span now ENDS, §15.6.8 having deleted the `STRAND_SELECTION`
+declaration that used to close it. **No state of either span leaves the hook chain**,
 which is what makes "the co-tag file is complete before the ID question" a
 property of the table rather than a hope about ordering.
 
@@ -1209,6 +1244,53 @@ drift-undetectable shape the pin exists to close.
 `necessity:` §15.6.6 pinned the model and left the command, and the two are not
 one fact — the observed 2026-09-10 failure ran the pinned model's name against a
 binary that was not one.
+
+### 15.6.8 The Strand-selection gate is DELETED — it committed nothing
+
+**Terrain asked the owner three questions where this design owes two.** The third,
+`STRAND_SELECTION`, put "Which Strand does the article take as material?" over the
+ids the owner had entered one question earlier, and it committed nothing: its
+table row declared `writes: null`, its answer landed in the run record's
+`owner_input` and in no artifact, no transition input and no reader, and the next
+stage refuses the token it collected — a Brief's input is Lesson display ids read
+off the Full Report, and Group and SubGroup ids are refused there by name. The
+decision it appeared to offer had already been made: `full_report` writes one
+report over exactly the entered set, so the entered set WAS the selection.
+
+**How it got into the table**, because a state with no responsibility of its own
+did not arrive by decision. The Terrain port (kogaki#17) carried one selection
+question and registered it as *the co-tag selection question*; that registry entry
+was still this gate's. The rebuild of kogaki#625 named two waits — tag selection
+and ID selection — then the Full Report, then `done`. The spec review of
+kogaki#636 found the `gate` and `capture` CLI entry points were the carriers
+behind this gate's declaration-and-capture and folded them into the table as
+states so they would be accounted for; that is where `STRAND_SELECTION` first
+appears. The ground was **entry-point accounting**. No Decision, Issue or section
+of this spec ever gave the state a responsibility.
+
+**And it contradicted the boundary this spec is built on.** The owner correction
+of 2026-08-09 is a served Decision: Terrain ENDS at Strand exploration, a
+browsing tool stops when the gathering is done, and an offer to hand off does not
+belong in the contract. A gate whose question names what the article takes as
+material is that offer, asked inside the contract.
+
+`consulted: product-lab@2fe5bebfbab55ffd0c7c0950a6071c95271583ba GLOSSARY.md:242`
+
+**DELETED, and leaving no stub**, per §15.6.3 and in the shape §15.6.1's deletion
+took: the state is gone from `src/workflow.json`, `terrain-strand-selection` is
+gone from `src/gate-registry.json`, the option composer is gone with them, and
+`counted_baseline.waits` moves 4 to 3. Nothing is left as a conditional and
+nothing is left as a refusing case. `full_report` is the last state before the
+terminal, so the flow reaches `done` from it.
+
+**What the owner loses is stated rather than absorbed**: nothing. The gate
+recorded a token no reader read, so no consumer, artifact or later stage can tell
+the difference — which is what made it removable rather than replaceable, and is
+exactly the evidence a state with a responsibility could not have offered.
+
+`necessity:` a state deleted for having no responsibility must have that absence
+written down, or the next reader of the entry-point accounting that produced it
+re-adds it for the same reason.
 
 ### 15.7 `self-test` and `validate` are NON-FLOW utilities
 

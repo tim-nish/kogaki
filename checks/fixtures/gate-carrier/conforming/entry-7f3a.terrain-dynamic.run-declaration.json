@@ -3,15 +3,15 @@
   "raised_by": "the run-state-keyed half of the §4.1 fixture pair (kogaki#891) — shaped after the declaration src/brief.mjs:659 writes, whose name carries the run state's stem because two entries can share one workspace",
   "host": "claude-code",
   "medium": "selector",
-  "question": "Which Strand does the article take as material?",
+  "question": "Which tag does the survey open on?",
   "options": [
     {
-      "id": "strand:g2-4",
-      "label": "G2-4"
+      "id": "method",
+      "label": "method — 12 Lesson(s)"
     },
     {
-      "id": "no-strand",
-      "label": "Take no Strand from this survey; nothing is selected and the survey stands"
+      "id": "other-method",
+      "label": "Use a method other than co-tags — no other method exists yet, and this option is routed nowhere"
     }
   ],
   "free_text_offered": true,

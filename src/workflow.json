@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "spec_references": [
     "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
     "The rule these entries are written under -- what a copy is, what the two",
@@ -256,16 +256,6 @@
       "gate_id": "terrain-trim-ratification"
     },
     {
-      "id": "STRAND_SELECTION",
-      "kind": "wait",
-      "owner_supplies": "up to three Strand ids, or free text",
-      "writes": null,
-      "conditional": false,
-      "renders_gate_declaration": true,
-      "governing": "the second-proposer boundary",
-      "gate_id": "terrain-strand-selection"
-    },
-    {
       "id": "done",
       "kind": "terminal",
       "does": "Terminal. The flow ends here; Brief is outside the boundary and this table neither names nor guarantees a Brief launch.",
@@ -276,7 +266,7 @@
     }
   ],
   "counted_baseline": {
-    "waits": 4,
+    "waits": 3,
     "conditional_states": 1,
     "owner_artifact_writes": 2,
     "judgment_points": 4,
