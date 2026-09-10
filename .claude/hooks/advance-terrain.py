@@ -68,15 +68,49 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# The bound on one advance, in seconds, DECLARED (item 3) and set BELOW the
-# harness's own default rather than at it (PR #1034 round 1, finding 3).
+# The bound on one advance, in seconds, DECLARED (item 3), set BELOW the harness's
+# own default (PR #1034 round 1, finding 3), and since kogaki#1062 item 4 DERIVED
+# FROM MEASUREMENT rather than from the budget above it.
 #
-# The first cut used 600, which is the harness's hook default -- so it could
-# never fire first: the hook starts before the subprocess, the harness kills the
-# hook at ~600s, and the half-finished record this file's docstring names is
-# reached by the same path as before. A bound that cannot fire is not a bound.
-# 480 leaves two clear minutes for the relay message below to be written, which
-# is the whole reason a child bound exists here at all.
+# THE NUMBER IS UNCHANGED AT 480 AND ITS GROUND IS NOT. The first cut used 600,
+# the harness's hook default -- so it could never fire first: the hook starts
+# before the subprocess, the harness kills the hook at ~600s, and the
+# half-finished record this file's docstring names is reached by the same path as
+# before. A bound that cannot fire is not a bound. 480 was then kept for two
+# minutes of relay margin and for a six-call worst case that nobody had measured.
+# The measurement arrived on 2026-09-10 and it supports the same number for a
+# different reason, which is why this block is rewritten rather than the constant.
+#
+# THE MEASUREMENT. runs/terrain/terrain-2026-09-10T17-49-18-327Z advanced
+# `survey` -> `cotag_groups` inside ONE PostToolUse event in 274s: `J1_claims` 75s
+# as one call, `J2_subdivision` 167s as eleven per-group calls at the workflow
+# table's `concurrency` of 4 -- about 56s per call over three waves. That is the
+# heaviest advance the workflow has, and it finished at 57% of this bound.
+#
+# THE DERIVATION, as an inequality rather than a number to trust. A
+# first-attempt-clean advance costs (ceil(groups / concurrency) + 1) * timeout_s,
+# the +1 being `J1_claims`, the one non-per-group judgment in the same span. At
+# timeout_s 90 and concurrency 4, 480 holds while ceil(groups / concurrency) <= 4
+# -- UP TO 16 COMPOSED GROUPS. The measured run composed 11. A tag composing more
+# than 16 co-tag groups is the NAMED CONDITION under which this number is owed a
+# re-derivation; it is a condition and not a guard on purpose, because the
+# overflow path is the relay note below -- completed transitions recorded, the
+# gate re-offered -- and not a lost run.
+#
+# AND THE CEILING IS THE RELAY, NOT THE WORK. 480 must stay far enough below the
+# harness's 600s default for that relay note to be written, which is the whole
+# reason a child bound exists here. 120s is that margin. The bound is squeezed
+# from both sides -- the measured advance beneath it, the relay margin above it.
+#
+# WHAT THIS BOUND DOES NOT COVER, said rather than left to be discovered: the
+# per-group retry worst case is ceil(groups / concurrency) * (retries + 1) *
+# timeout_s plus J1's own, which is 1080s at eleven groups. No bound below the
+# harness default covers that at any concurrency. It is not a hole -- a state that
+# exhausts its `retries` FAILS the run with the refusal text, so an advance
+# needing the full product has already failed, and a bound sized for it would be
+# hiding a dead run rather than saving a live one. This bound guarantees that a
+# HUNG or SLOW advance cannot consume the harness's own timeout silently; it never
+# guaranteed that every licensed re-ask fits inside it.
 #
 # THE HOOK'S OWN TIMEOUT LIVES IN THE MACHINE-LOCAL REGISTRATION this repository
 # deliberately does not commit, and item 3's subject is that one. What is
