@@ -5932,7 +5932,7 @@ export function composeTrimProposal(args, dir) {
 // its reader, and every refusal below is a refusal to advance rather than a
 // complaint about a shape: the wait stays outstanding, so the recovery is
 // always to render the gate again.
-export function readCapturedAnswer(dir, decl) {
+export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
   const capPath = join(dir, `terrain${GATE_SCHEMA.capture.suffix}`);
   const instance = decl.gate_instance_id;
   if (!instance) {
@@ -5951,6 +5951,37 @@ export function readCapturedAnswer(dir, decl) {
   if (mine.length === 0) {
     fail(noAnswerRefusal(decl, capPath,
       `the capture holds ${rows.length} row(s) and none carries this raising's instance id ${JSON.stringify(instance)}`));
+  }
+  // THE ADVANCE IS THE ANSWER'S OWN, AND THIS IS THE SECOND READER OF THAT
+  // (kogaki#1075). `.claude/hooks/advance-terrain.py` will not spawn this act
+  // for a question whose `tool_use_id` no row of this run carries; the guard
+  // holds here too, at the re-entry, for the reason the open-gate exclusivity
+  // has two readers -- a precondition enforced only where it cannot re-ask is a
+  // precondition one direct invocation walks past.
+  //
+  // WHAT IT REFUSES. An advance driven by a payload that answered SOME OTHER
+  // question while this gate's row was already on disk: the run would move on
+  // an answer the owner did give, attributed to a question they gave it at
+  // nowhere. That is what happened on 2026-09-10, when a `/ship-cycle` cleanup
+  // question in another session walked a parked run through two states and
+  // three failed judgments.
+  //
+  // A NULL ID DOES NOT REFUSE, and the asymmetry is deliberate: a caller that
+  // names no payload is asserting nothing about which question drove it, and
+  // absence of a claim is not a claim that fails. Every route that can advance
+  // a run names one -- `completeState` refuses a transition with no attribution
+  // -- so the admitted case is a reader, not an advance.
+  if (typeof payloadToolUseId === "string" && payloadToolUseId !== "") {
+    const answered = mine.filter((r) => (r.evidence || {}).tool_use_id === payloadToolUseId);
+    if (answered.length === 0) {
+      fail(`this advance was driven by AskUserQuestion ${JSON.stringify(payloadToolUseId)}, and no captured row for gate ${decl.id} `
+        + `(raising ${JSON.stringify(instance)}) carries that id — the ${mine.length} row(s) here answer `
+        + `${JSON.stringify([...new Set(mine.map((r) => (r.evidence || {}).tool_use_id))])}. `
+        + `A question that did not answer this gate does not advance it, however open the run is (kogaki#1075). `
+        + `Nothing was advanced, and the wait is still outstanding: the gate is re-offered at its next raising.`);
+    }
+    mine.length = 0;
+    mine.push(...answered);
   }
   // THE LAST ROW. A gate can be re-rendered after an answer the owner wants to
   // change, and the answer that governs is the one they gave last.
@@ -8167,7 +8198,11 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       // inverse of the write rather than a second convention that agrees with
       // it by luck.
       const decl = readJson(resolve(REPO, owed.declaration));
-      const captured = readCapturedAnswer(dir, decl);
+      // THE PAYLOAD'S OWN ID IS PASSED, and it is the one `advancedBy` already
+      // carries: `advancedByFromPayload` copied it out of the harness event
+      // that spawned this act, so the two readers of *which question drove
+      // this* are one field rather than two (kogaki#1075).
+      const captured = readCapturedAnswer(dir, decl, advancedBy && advancedBy.tool_use_id);
       const capOption = captured.option;
       const capFree = captured.freeText;
       const capPath = captured.path;
@@ -9188,6 +9223,20 @@ switch (cmd) {
         // the pass is the same inside a session and outside one.
         const SELF_TEST_SESSION = "terrain-self-test-session";
         const envFor = (name) => ({ ...process.env, KOGAKI_OPEN_GATES: gatesFor(name), CLAUDE_CODE_SESSION_ID: SELF_TEST_SESSION });
+        // THE ADVANCE CARRIES THE PAYLOAD THAT PRODUCED THE ROW (kogaki#1075).
+        // In an installation the capture hook and this hook read ONE harness
+        // event, so the row's `evidence.tool_use_id` and the advancing
+        // payload's are the same string by construction. The fixtures used to
+        // decouple them -- answer under `toolu_test_*`, advance under
+        // `fixture-tool-use` -- which was a shape no installation can produce
+        // and which the executor now refuses by name. Composed here so a case
+        // that means to drive an answered gate drives it the way the hook pair
+        // does.
+        const payloadAnswering = (toolUseId) => JSON.stringify({
+          hook_event_name: "PostToolUse",
+          session_id: "fixture-session",
+          tool_use_id: toolUseId,
+        });
         const answerThroughHook = (gatesName, questionText, label, toolUseId) => spawnSync(
           "python3", [hookPath],
           { encoding: "utf8", env: envFor(gatesName),
@@ -9307,7 +9356,7 @@ switch (cmd) {
           // tags a corpus happens to carry is a case that fails for the wrong
           // reason. Free text is the affordance every gate here declares on, and
           // it advances the wait exactly as a routed option does.
-          answerThroughHook("driven", sentQ(rdDrive, declDrive), "a tag the owner typed", "toolu_test_hook_driven");
+          answerThroughHook("driven", sentQ(rdDrive, declDrive), "a tag the owner typed", "fixture-tool-use");
           const rDrive = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdDrive, "--workflow", tp],
             { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("driven") });
           const recDrive = readRunRecord(rdDrive);
@@ -9462,7 +9511,7 @@ switch (cmd) {
 
         answerThroughHook("opt", sentQ(rdOpt, declOpt), standingLabel, "toolu_test_unrouted");
         const rOpt = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("opt") });
+          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { input: payloadAnswering("toolu_test_unrouted"), encoding: "utf8", env: envFor("opt") });
         const outOpt = `${rOpt.stdout || ""}${rOpt.stderr || ""}`;
         const recOpt = readRunRecord(rdOpt);
         ok("capturing the standing option REFUSES the advance and names the option, rather than letting it land where a tag name goes",
@@ -9494,7 +9543,7 @@ switch (cmd) {
         const declFree = readJson(join(rdFree, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         answerThroughHook("free", sentQ(rdFree, declFree), "testing", "toolu_test_freetext");
         const rFree = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("free") });
+          [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { input: payloadAnswering("toolu_test_freetext"), encoding: "utf8", env: envFor("free") });
         const recFree = readRunRecord(rdFree);
         ok("a free-text tag answer still advances — the unrouted refusal is bound to the declared option and not to the gate",
           rFree.status === 0 && !!recFree && recFree.owner_input.TAG_SELECTION === "testing"
@@ -9568,7 +9617,7 @@ switch (cmd) {
         const fullLabel = declTrunc.options.find((o) => o.id === "other-method").label;
         answerThroughHook("trunc", sentQ(rdTrunc, declTrunc), fullLabel.slice(0, 24), "toolu_test_truncated");
         const rTrunc = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("trunc") });
+          [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { input: payloadAnswering("toolu_test_truncated"), encoding: "utf8", env: envFor("trunc") });
         const outTrunc = `${rTrunc.stdout || ""}${rTrunc.stderr || ""}`;
         const recTrunc = readRunRecord(rdTrunc);
         ok("a TRUNCATED option label is refused rather than recorded as free text — a near-miss is not silently read as the owner's own words",
@@ -9590,7 +9639,7 @@ switch (cmd) {
         const wrapped = declWrap.options.find((o) => o.id === "other-method").label.replace(/ /g, "\n  ");
         answerThroughHook("wrap", sentQ(rdWrap, declWrap), wrapped, "toolu_test_rewrapped");
         const rWrap = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("wrap") });
+          [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { input: payloadAnswering("toolu_test_rewrapped"), encoding: "utf8", env: envFor("wrap") });
         ok("a RE-WRAPPED label still resolves to its option — whitespace is presentation, and the near-miss refusal is not a refusal of every inexact label",
           rWrap.status !== 0 && /ROUTED NOWHERE/.test(`${rWrap.stdout || ""}${rWrap.stderr || ""}`),
           `${rWrap.stdout || ""}${rWrap.stderr || ""}`.trim().split("\n").slice(-1)[0].slice(0, 150));
@@ -9621,12 +9670,59 @@ switch (cmd) {
         const declAfter = readJson(join(rdAfter, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         const rAfterHook = answerThroughHook("orphan", sentQ(rdAfter, declAfter), "a-tag", "toolu_test_after_orphan");
         const rAfter = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("orphan") });
+          [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { input: payloadAnswering("toolu_test_after_orphan"), encoding: "utf8", env: envFor("orphan") });
         const recAfter = readRunRecord(rdAfter);
         ok("a pointer whose run was deleted is REAPED, so the next raising of that gate is not wedged by the orphan",
           /is reaped: its declaration/.test(`${rAfterHook.stdout || ""}${rAfterHook.stderr || ""}`)
             && rAfter.status === 0 && recAfter.owner_input.TAG_SELECTION === "a-tag",
           `${rAfterHook.stderr || ""}`.trim().split("\n")[0].slice(0, 150));
+
+        // ANOTHER QUESTION'S PAYLOAD DOES NOT ADVANCE THIS GATE (kogaki#1075).
+        // The row is on disk and answers THIS raising, so every check above it
+        // passes; what refuses is the payload, which answered something else.
+        // This is the live shape of 2026-09-10: a parked run, a cleanup
+        // question in another session, and an executor that read the last
+        // capture and moved. The hook is the first reader and this is the
+        // second, so a direct invocation reaches the same stop.
+        {
+          const rdOther = join(gs, "rd-other-question");
+          mkdirSync(rdOther, { recursive: true });
+          writeFileSync(join(rdOther, RUN_RECORD_FILE), JSON.stringify({
+            workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+            completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+            awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+            gate_declarations_owed: [], transitions: [], done: false,
+          }));
+          spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOther, "--workflow", tp],
+            { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("other") });
+          const declOther = readJson(join(rdOther, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+          answerThroughHook("other", sentQ(rdOther, declOther), "a-tag", "toolu_the_gates_own_question");
+          const rElse = spawnSync(process.execPath,
+            [selfPath, "run", "--run-dir", rdOther, "--workflow", tp],
+            { input: payloadAnswering("toolu_some_other_sessions_cleanup_plan"), encoding: "utf8", env: envFor("other") });
+          const outElse = `${rElse.stdout || ""}${rElse.stderr || ""}`;
+          const recElse = readRunRecord(rdOther);
+          ok("a payload from a question that did not answer this gate REFUSES the advance by name, however open the run is",
+            rElse.status !== 0
+              && /no captured row for gate/.test(outElse)
+              && /toolu_some_other_sessions_cleanup_plan/.test(outElse),
+            outElse.trim().split("\n")[0].slice(0, 170));
+          ok("that refusal advances nothing and leaves the wait outstanding — the run is re-offered its gate rather than walked by someone else's question",
+            !!recElse && recElse.awaiting === "TAG_SELECTION"
+              && !recElse.completed.includes("TAG_SELECTION")
+              && recElse.owner_input.TAG_SELECTION === undefined,
+            recElse ? JSON.stringify({ awaiting: recElse.awaiting, completed: recElse.completed }) : "(no record)");
+          // ...AND THE GATE'S OWN PAYLOAD STILL ADVANCES IT, so the refusal
+          // discriminates rather than closing the route it guards.
+          const rOwn = spawnSync(process.execPath,
+            [selfPath, "run", "--run-dir", rdOther, "--workflow", tp],
+            { input: payloadAnswering("toolu_the_gates_own_question"), encoding: "utf8", env: envFor("other") });
+          const recOwn = readRunRecord(rdOther);
+          ok("the gate's OWN question advances it — the payload check narrows to the question that answered, and refuses nothing else",
+            rOwn.status === 0 && !!recOwn && recOwn.owner_input.TAG_SELECTION === "a-tag"
+              && recOwn.completed.includes("TAG_SELECTION"),
+            recOwn ? JSON.stringify(recOwn.owner_input) : `(no record) ${(rOwn.stderr || "").slice(0, 140)}`);
+        }
 
         // A RE-RAISING SUPERSEDES ITS OWN POINTER, so the recovery this file
         // prescribes — re-render after a refusal — does not itself accumulate

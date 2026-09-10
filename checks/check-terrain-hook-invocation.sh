@@ -24,6 +24,13 @@
 # ground: hook wiring is machine-local and never committed, so a check
 # asserting it would fail on every fresh clone and would be asserting a fact
 # about a machine rather than about this repository.
+#
+# THEIR ORDER IN `.claude/settings.json` IS (kogaki#1075), and the two are not
+# the same claim. Whether a machine LOADED that file is machine-local and stays
+# unasserted; what the file SAYS is tracked in this repository and reads the
+# same on every clone. It became worth asserting when the capture row stopped
+# being a convenience for the advance hook and became its precondition: run the
+# two the other way round and every first advance is a silent no-op.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 REPO=$PWD
@@ -220,6 +227,231 @@ else
   fi
 fi
 
+# ---- kogaki#1075. THE ADVANCE IS KEYED TO THE OPEN RUN'S OWN CAPTURE ROW.
+#
+# The precondition used to be "an open-run pointer exists", and the trigger
+# "any AskUserQuestion carrying answers". Neither names the run's gate, so
+# while a run stayed open every question in every session rooted at this tree
+# advanced it. On 2026-09-10 a `/ship-cycle` cleanup question in another
+# session walked a parked run through two states and three failed judgments,
+# attributed to a `tool_use_id` that answered the cleanup plan.
+#
+# THE THREE CASES ARE THE DISCRIMINATION, not one of them alone: a hook that
+# advanced nothing would pass (a) and (c) and fail (b), and the first cut
+# passes (b) and fails the other two.
+#
+# STAGED AGAINST A REAL RUN DIRECTORY, with `KOGAKI_OPEN_RUN` naming a pointer
+# of this pass's own — the seam-free half of what `src/terrain.mjs self-test`
+# covers on the executor's side, run here because the HOOK is Python and that
+# pass is JavaScript.
+CAPSUF=$(python3 -c 'import json;print(json.load(open("src/gate-schema.json"))["capture"]["suffix"])')
+# The constant the hook copies, compared rather than trusted — the discipline
+# `check-gate-capture-hook.sh` applies to the option-set digest, for the same
+# reason: two spellings of one schema key in two languages.
+if grep -q "^CAPTURE_SUFFIX = \"$CAPSUF\"$" "$ADVANCE"; then pass; else
+  bad "$ADVANCE's CAPTURE_SUFFIX does not equal src/gate-schema.json's capture.suffix ($CAPSUF) — the hook would look for the capture under a name nothing writes, and every advance would silently stop"
+fi
+
+hooktmp=$(mktemp -d) || bad "no temp directory for the advance-keying cases — CANNOT-DETERMINE, never a pass"
+if [ -n "${hooktmp:-}" ] && [ -d "$hooktmp" ]; then
+  # A run record awaiting the shipped table's gate, with the declaration and
+  # the capture row a real raising leaves behind. Composed by python3 so the
+  # option-set digest is the one the executor recomputes rather than a literal
+  # that would rot the first time the canonical form moved.
+  # THE STUB THE STAGED RECORD'S RESOLVED JUDGE BINARY POINTS AT (kogaki#1079,
+  # PR #1080 round 1). It is a real file that really answers `--version`, so the
+  # record below names something that exists rather than a plausible path; no
+  # case here reaches a judgment state, so it is never spawned for a judgment.
+  judge_stub="$hooktmp/judge-stub"
+  printf '#!/bin/sh\n[ "$1" = --version ] && { echo "terrain-fixture judge stub 0"; exit 0; }\necho "the fixture judge stub was asked to judge; no case in this file reaches a judgment state" >&2\nexit 1\n' > "$judge_stub"
+  chmod +x "$judge_stub"
+
+  stage_run() {                      # $1 dir, $2 the capture row's tool_use_id
+    python3 - "$1" "$2" "$CAPSUF" "$REPO/checks/fixtures/survey/lone-tag-member.json" "$judge_stub" <<'PY'
+import hashlib, json, os, sys, uuid
+d, tuid, suffix, survey_record, judge_stub = sys.argv[1:6]
+os.makedirs(d, exist_ok=True)
+gate_id, instance = "terrain-tag-selection", str(uuid.uuid4())
+options = [{"id": "other-method", "label": "Some other method entirely"}]
+decl = {"id": gate_id, "gate_instance_id": instance, "options": options,
+        "question": "Which tag?"}
+decl_path = os.path.join(d, f"{gate_id}.gate-declaration.json")
+with open(decl_path, "w") as f: json.dump(decl, f)
+# THE TABLE VERSION IS READ, NEVER A LITERAL (PR #1077 round 1). The executor
+# hard-refuses a resume across a table version change, so a hardcoded 16 turns
+# this case red at the next bump with a message blaming the keying -- while (a)
+# and (c) keep passing vacuously, because they assert that nothing happened.
+# The digest two lines down is computed for the same reason, one line earlier.
+with open("src/workflow.json", encoding="utf-8") as f:
+    table_version = json.load(f)["version"]
+with open(os.path.join(d, "run-record.json"), "w") as f:
+    json.dump({"workflow": {"path": "src/workflow.json", "version": table_version},
+               # `survey` IS ALREADY COMPLETE, AND THE RECORD IT MINTS IS
+               # SUPPLIED (kogaki#1079). A record staged with `completed: []`
+               # resumes at the table's FIRST state, which is `survey` -- and
+               # `survey` reads the policy seam. So this case reached its own
+               # subject only on a machine with the gateway up, and was RED in
+               # CI on the one member the licence adds. This file's members are
+               # seam-free by construction, so the state that needs the seam is
+               # staged as done. `survey_record` is supplied WITH it because
+               # completing the state alone is not enough: `needSurvey` reads
+               # this field and every state after the gate goes through it, so
+               # `completed: ["survey"]` on its own moves the failure to a crash
+               # on the absent record. The path is the committed fixture, a
+               # truthful survey record this repository already keeps, rather
+               # than a shell re-implementation of the executor's own schema.
+               "completed": ["survey"], "survey_record": survey_record,
+               # AND THE START ACT'S OTHER PRODUCT, for the same reason
+               # (kogaki#1079, PR #1080 round 1). `ensureJudgeBinary` runs on
+               # EVERY act, before the survey and before an outstanding wait is
+               # re-entered, and it resolves the table's `judge.command` --
+               # `"claude"` -- over PATH, refusing where no candidate answers
+               # `--version`. A CI runner carries no such binary, so the
+               # executor refused before it reached the gate and this case read
+               # `completed=[survey]` with the record unmoved: kogaki#1079's own
+               # defect on a second axis, arriving with kogaki#1076/#1078. A
+               # record that already carries the field is never re-resolved, so
+               # staging it is what makes the trio depend on NOTHING outside
+               # this repository -- neither the policy seam nor a judge install.
+               # `stubbed` is true because it is one, and the path is a real
+               # file this block writes; no case here reaches a judgment state,
+               # so the stub answers `--version` and nothing else.
+               "judge_binary": {"command": "claude", "path": judge_stub,
+                                "version": "terrain-fixture judge stub 0",
+                                "stubbed": True},
+               "waits_reached": [], "conditional_entered": [],
+               "conditional_skipped": [], "awaiting": "TAG_SELECTION",
+               "owner_input": {}, "artifacts_written": [], "judgments": {},
+               "gate_declarations_owed": [{"state": "TAG_SELECTION",
+                                           "declaration": decl_path}],
+               "transitions": [], "done": False}, f)
+if tuid:
+    canonical = json.dumps([gate_id, [o["id"] for o in options]], separators=(",", ":"))
+    with open(os.path.join(d, f"terrain{suffix}"), "w") as f:
+        json.dump({"rows": [{
+            "stop_id": f"stop-{instance}", "gate_id": gate_id,
+            "gate_instance_id": instance,
+            "evidence": {"tool": "AskUserQuestion", "tool_use_id": tuid},
+            "answers_over": {"option_set_digest":
+                             hashlib.sha256(canonical.encode()).hexdigest()},
+            "payload": {"options_offered": [o["id"] for o in options],
+                        "free_text_offered": True,
+                        "answer": {"free_text": "a-tag"}},
+        }]}, f)
+PY
+  }
+  fire_advance() {                   # $1 run dir, $2 payload tool_use_id, $3 session
+    local d=$1 tuid=$2 sid=$3 ptr
+    ptr="$hooktmp/pointer-$(basename "$d")"
+    printf '%s\n' "$d" > "$ptr"
+    # THE PAYLOAD IS THE HARNESS'S SHAPE, all three fields: the executor reads
+    # `hook_event_name`, `session_id` and `tool_use_id` and refuses a payload
+    # missing any of them, so a fixture that sent two would be testing that
+    # refusal rather than the keying.
+    printf '{"tool_name":"AskUserQuestion","hook_event_name":"PostToolUse","session_id":"%s","tool_use_id":"%s","tool_response":{"answers":{"Which tag?":"a-tag"}}}' \
+      "$sid" "$tuid" \
+      | KOGAKI_OPEN_RUN="$ptr" KOGAKI_OPEN_GATES="$hooktmp/gates" python3 "$ADVANCE" 2>&1
+  }
+
+  # (a) A QUESTION THAT PRODUCED NO CAPTURE ROW LEAVES THE RECORD UNCHANGED.
+  # This is the live defect: the run is open, the pointer is there, and the
+  # question belongs to somebody else.
+  a_dir="$hooktmp/no-row"; stage_run "$a_dir" ""
+  a_before=$(md5sum < "$a_dir/run-record.json")
+  a_out=$(fire_advance "$a_dir" "toolu_another_sessions_cleanup_plan" "some-other-session")
+  a_after=$(md5sum < "$a_dir/run-record.json")
+  if [ "$a_before" = "$a_after" ]; then pass; else
+    bad "a question with no capture row advanced the open run — this is kogaki#1075's defect: the record moved on an answer given to something else${a_out:+ ($a_out)}"
+  fi
+  # ...and it says nothing, because an unrelated question is answered in this
+  # repository every day and a note on each is noise on the common path.
+  if [ -z "$a_out" ]; then pass; else
+    bad "the advance hook spoke on an ordinary non-gate question: $a_out"
+  fi
+
+  # (b) THE SAME PAYLOAD, AFTER THE CAPTURE ROW EXISTS, ADVANCES. Without this
+  # case a hook that advanced nothing at all would pass the pass.
+  b_dir="$hooktmp/with-row"; stage_run "$b_dir" "toolu_the_gates_own_question"
+  b_before=$(md5sum < "$b_dir/run-record.json")
+  b_out=$(fire_advance "$b_dir" "toolu_the_gates_own_question" "some-session")
+  b_after=$(md5sum < "$b_dir/run-record.json")
+  b_rec=$(python3 -c 'import json,sys;print(",".join(json.load(open(sys.argv[1]))["completed"]))' "$b_dir/run-record.json" 2>/dev/null)
+  if [ "$b_before" != "$b_after" ] && printf '%s' "$b_rec" | grep -q 'TAG_SELECTION'; then pass; else
+    bad "the payload whose id the capture row carries did NOT advance the run — the keying refuses the one question it exists to admit. completed=[$b_rec] ${b_out:-(silent)}"
+  fi
+  # ...AND WHERE THE RUN THEN STOPPED IS NAMED, NOT LEFT INVISIBLE (PR #1077
+  # round 1). The advance hook relays a non-zero executor exit on stderr, so
+  # `$b_out` is this case's reading of that exit. It is NOT asserted empty: the
+  # hook takes no `--workflow`, so this fires against the SHIPPED table and the
+  # run walks on past the state under test into `compose_input`, which refuses
+  # over the staged survey because the free text the capture row carries is no
+  # tag in that survey's vocabulary. That refusal is expected and its NAME is
+  # the assertion -- an executor that advanced the gate and then died INSIDE
+  # it, or that stopped for a reason about the capture, is a different outcome
+  # and this case tells them apart.
+  #
+  # THE ASSERTION IS POSITIVE (kogaki#1079, carrying PR #1077 round 2's
+  # `class:vacuous-assertion` finding). Its previous form -- `[ -z "$b_out" ]`
+  # OR the gate's name is absent -- passed on SILENCE while the comment above
+  # said a name was being asserted, so a hook that relayed nothing at all
+  # scored a pass here. What binds it is the refusal this case says it expects,
+  # grepped for by name, conjoined with the gate's own name being absent.
+  if printf '%s' "$b_out" | grep -q 'no candidate carries the served tag' \
+     && ! printf '%s' "$b_out" | grep -qE 'TAG_SELECTION|terrain-tag-selection'; then pass; else
+    bad "the executor did not stop where this case says it stops — past the gate under test, at \`compose_input\`'s refusal over the staged survey. Either it stopped AT the gate (the row was read and the advance still did not clear TAG_SELECTION) or it said nothing at all: ${b_out:-(silent)}"
+  fi
+
+  # (c) A PAYLOAD FROM ANOTHER SESSION, WITH AN IDENTICAL ANSWER, DOES NOT
+  # ADVANCE. The answer text is the same and the question text is the same:
+  # what differs is the id, which is the only field that identifies the act.
+  c_dir="$hooktmp/other-session"; stage_run "$c_dir" "toolu_the_gates_own_question"
+  c_before=$(md5sum < "$c_dir/run-record.json")
+  c_out=$(fire_advance "$c_dir" "toolu_a_different_question_same_words" "a-different-session")
+  c_after=$(md5sum < "$c_dir/run-record.json")
+  if [ "$c_before" = "$c_after" ]; then pass; else
+    bad "an identical answer from another session's question advanced the run — matching on the answer's CONTENT is exactly what the tool_use_id exists to replace${c_out:+ ($c_out)}"
+  fi
+
+  rm -rf "$hooktmp"
+fi
+
+# ---- kogaki#1075 ITEM 3. THE TWO HOOKS' ORDER, ASSERTED.
+#
+# The capture hook writes the row the advance hook now reads as its
+# precondition, so a registration running them the other way round would make
+# every first advance a silent no-op — the failure mode with no error in it.
+#
+# ASSERTED HERE DESPITE THIS FILE'S HEADER, and the distinction is the point:
+# the header declines to assert that a hook is registered ON THIS MACHINE,
+# because that wiring is machine-local. `.claude/settings.json` is TRACKED in
+# this repository, so its contents are a fact about the repository, and their
+# ORDER is a claim this pass can make on any clone. What is still not asserted
+# is that any machine loaded it.
+# THE ASSERTION IS ABOUT THE COMMIT, NEVER THE CHECKOUT (kogaki#1052, applied
+# here at PR #1077 round 1). The review lane builds its worktree WITHOUT
+# `.claude/settings.json` on purpose, so a read from the working tree fails on
+# every round -- a check defect arriving as a finding, which is what
+# `check-open-gate-exclusivity.sh` already ruled on for the sibling case and
+# repaired with `git show HEAD:`. It is also what this block's own ground asks
+# for: the claim is what the TRACKED file says, not what a checkout holds.
+settings_committed=$(mktemp) || settings_committed=""
+if [ -z "$settings_committed" ] || ! git show HEAD:.claude/settings.json >"$settings_committed" 2>/dev/null; then
+  bad ".claude/settings.json could not be read from HEAD — the order the advance's precondition depends on has no carrier in this commit"
+else
+  order=$(python3 - "$settings_committed" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+text = json.dumps(doc.get("hooks", {}).get("PostToolUse", []))
+cap, adv = text.find("write-gate-capture.py"), text.find("advance-terrain.py")
+print("missing" if cap < 0 or adv < 0 else ("ok" if cap < adv else "reversed"))
+PY
+)
+  if [ "$order" = "ok" ]; then pass; else
+    bad "the committed .claude/settings.json registers the PostToolUse hooks in the order '$order' — write-gate-capture.py must run BEFORE advance-terrain.py, because since kogaki#1075 the row it writes is the advance's precondition and a reversed order makes every first advance a silent no-op"
+  fi
+  rm -f "$settings_committed"
+fi
+
 # ---- ACCEPTANCE 4. THE REMOVAL TEST.
 # The same start act, run once in this tree and once in a tree holding only the
 # runtime and the hooks — the skill file reduced to its `!` line, and
@@ -305,6 +537,7 @@ fi
 
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — the executor's Bash route denied with --status admitted, the skill file's single start line, and the removal test's byte-equal artifacts with the spec absent and the deny still firing (kogaki#1027)"
-  note "not asserted here: that either hook is REGISTERED on this machine. That wiring is machine-local and never committed, so asserting it would fail on every fresh clone and would be a claim about a machine rather than about this repository."
+  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on."
+  note "not asserted here: that either hook is LOADED on this machine. That wiring is machine-local and never committed, so asserting it would fail on every fresh clone and would be a claim about a machine rather than about this repository — which is why the order above is read from the tracked file rather than from a live registration."
 fi
 exit "$fail"
