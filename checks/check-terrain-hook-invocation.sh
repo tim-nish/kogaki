@@ -412,6 +412,136 @@ PY
     bad "an identical answer from another session's question advanced the run — matching on the answer's CONTENT is exactly what the tool_use_id exists to replace${c_out:+ ($c_out)}"
   fi
 
+  # ---- kogaki#1081. THE GATE THE ADVANCE OPENS REACHES THE SESSION.
+  #
+  # A PostToolUse hook reaches the model through exactly one channel -- the JSON
+  # `hookSpecificOutput.additionalContext` field of its own stdout -- and the
+  # advance hook wrote nothing on it. kogaki#1057 delivered the TAG gate's
+  # payload on the start act's stdout, which the skill expansion hands over
+  # before any tool exists to deny; every LATER gate is opened by this hook
+  # instead, and its subprocess's stdout is captured and dropped. On 2026-09-10
+  # the ID-selection gate opened with its call written and the session had no
+  # admissible act that could fetch the bytes: the run recorded
+  # `gate-unrendered` and was recovered by hand from outside the session.
+  #
+  # THE EXECUTOR IS STUBBED HERE, AND THAT IS THE POINT. What is under test is
+  # what the hook does with the state an advance LEAVES BEHIND -- a pointer and
+  # a written call, or neither -- so the two cases differ in exactly that state
+  # and in nothing else. Driving the real executor to a second gate would need a
+  # judged run and would put this case back on the machine-local dependencies
+  # kogaki#1079 spent two rounds removing from the trio above.
+  #
+  # THE STUB REPO IS A REAL TREE, because `repo_root()` resolves from the hook
+  # file's own location and the executor path is composed from it. So the hook
+  # is COPIED beside a stub `src/terrain.mjs`: the copy is the shipped file, and
+  # a fixture that re-implemented the hook would assert nothing about it.
+  stub_repo="$hooktmp/stub-repo"
+  mkdir -p "$stub_repo/.claude/hooks" "$stub_repo/src" "$stub_repo/rundir"
+  cp "$ADVANCE" "$stub_repo/.claude/hooks/advance-terrain.py"
+  # The capture row is this hook's precondition (the trio above), so the staged
+  # run carries one naming the payload's own id -- otherwise the stub is never
+  # spawned and both cases would pass on the narrowing rather than on the emit.
+  python3 - "$stub_repo/rundir/terrain$CAPSUF" <<'PY'
+import json, sys
+with open(sys.argv[1], "w") as f:
+    json.dump({"rows": [{"stop_id": "stop-fixture", "gate_id": "terrain-id-selection",
+                         "gate_instance_id": "fixture-raising",
+                         "evidence": {"tool": "AskUserQuestion",
+                                      "tool_use_id": "toolu_the_gates_own_question"}}]}, f)
+PY
+  # THE RAISING STUB. It writes what `emitGateDeclaration` writes at a gate: the
+  # byte-fixed call, and the open-gate pointer naming this run's capture.
+  cat > "$stub_repo/src/terrain.mjs" <<'JS'
+// ESM, because the executor is `.mjs` and node loads it as a module: `require`
+// is not defined there, and a stub that used it would fail before writing
+// anything -- which reads exactly like a hook that emitted nothing.
+import fs from "node:fs";
+import path from "node:path";
+const dir = process.env.KOGAKI_RUN_DIR, gd = process.env.KOGAKI_OPEN_GATES;
+const gate = "terrain-id-selection", instance = "fixture-raising";
+const call = { questions: [{ question: "Which Strand ids?", header: "selection",
+  multiSelect: true, options: [{ label: "L2", description: "the first" },
+                               { label: "L5", description: "the second" }] }] };
+const callPath = path.join(dir, gate + ".gate-call.json");
+fs.writeFileSync(callPath, JSON.stringify(call, null, 2) + "\n");
+fs.mkdirSync(gd, { recursive: true });
+fs.writeFileSync(path.join(gd, instance + ".json"), JSON.stringify({
+  gate_instance_id: instance, gate_id: gate, question: "Which Strand ids?",
+  declaration_path: path.resolve(path.join(dir, gate + ".gate-declaration.json")),
+  capture_path: path.resolve(path.join(dir, "terrain" + process.env.FIXTURE_CAPSUF)),
+  gate_call_path: path.resolve(callPath), gate_call_unavailable: null,
+  session_id: null, opened_by: "hook", opened_at: "2026-09-10T12:45:43.031Z",
+}, null, 2) + "\n");
+JS
+  fire_stub() {                      # stdout only -- stderr is the channel that dies
+    printf '{"tool_name":"AskUserQuestion","hook_event_name":"PostToolUse","session_id":"s","tool_use_id":"toolu_the_gates_own_question","tool_response":{"answers":{"Which tag?":"a-tag"}}}' \
+      | KOGAKI_RUN_DIR="$stub_repo/rundir" \
+        KOGAKI_OPEN_GATES="$hooktmp/stub-gates" \
+        FIXTURE_CAPSUF="$CAPSUF" \
+        python3 "$stub_repo/.claude/hooks/advance-terrain.py" 2>/dev/null
+  }
+
+  # (d) THE PAYLOAD ARRIVES, AND IT IS THE FILE'S. Parsed out of the fenced
+  # block and compared against the written call after canonicalisation, which is
+  # the same comparison `gate-open-terrain-gate.py` makes against a sent payload.
+  # Equality is asserted on the CONTENT, not on the bytes of the fence, so a
+  # trailing newline the block strips is not a failure and a reordered key is.
+  # THE VERDICT IS A FILE, NOT A SECOND HEREDOC. Two stdin redirections on one
+  # command do not compose -- the last wins -- so a `<<PY ... <<<"$out"` pair
+  # feeds the hook's output in as the SCRIPT and reads nothing at all.
+  cat > "$hooktmp/verdict.py" <<'PY'
+import json, re, sys
+written_path = sys.argv[1]
+raw = sys.stdin.read()
+try:
+    doc = json.loads(raw)
+except Exception as exc:
+    print(f"the hook's stdout does not parse as hook JSON ({exc}): {raw[:200]!r}"); raise SystemExit
+hso = doc.get("hookSpecificOutput")
+if not isinstance(hso, dict):
+    print(f"the hook's stdout carries no hookSpecificOutput object: {raw[:200]!r}"); raise SystemExit
+if hso.get("hookEventName") != "PostToolUse":
+    print(f"hookEventName is {hso.get('hookEventName')!r}, not 'PostToolUse' — the harness reads the field by that name"); raise SystemExit
+ctx = hso.get("additionalContext")
+if not isinstance(ctx, str) or not ctx:
+    print("additionalContext is absent or empty — the gate's payload reached the session on no channel at all"); raise SystemExit
+for field, what in (("terrain-id-selection", "the gate id"),
+                    ("fixture-raising", "the instance id")):
+    if field not in ctx:
+        print(f"{what} is not beside the payload; a block naming no raising cannot be told from a stale one"); raise SystemExit
+m = re.search(r"```json\n(.*?)\n```", ctx, re.S)
+if not m:
+    print("additionalContext carries no fenced json block — the payload was named and not printed, which is kogaki#1057's shape"); raise SystemExit
+try:
+    sent = json.loads(m.group(1))
+except Exception as exc:
+    print(f"the fenced block does not parse as JSON ({exc})"); raise SystemExit
+with open(written_path, encoding="utf-8") as f:
+    written = json.load(f)
+if json.dumps(sent, sort_keys=True) != json.dumps(written, sort_keys=True):
+    print("the fenced payload is not the written call — a paraphrased payload is refused at the equality check, so delivering one is the same wedge by another route"); raise SystemExit
+print("ok")
+PY
+  d_out=$(fire_stub)
+  d_verdict=$(printf '%s' "$d_out" | python3 "$hooktmp/verdict.py" "$stub_repo/rundir/terrain-id-selection.gate-call.json")
+  if [ "$d_verdict" = "ok" ]; then pass; else
+    bad "the advance hook did not deliver the open gate's payload to the session: ${d_verdict:-(the verdict script produced nothing)}"
+  fi
+
+  # (e) AND AN ADVANCE THAT STOPS AT NO GATE SAYS NOTHING. Without this case a
+  # hook that emitted a block unconditionally would pass (d) — and a block on
+  # every AskUserQuestion in the session is the noise the two narrowings above
+  # exist to keep off the common path.
+  cat > "$stub_repo/src/terrain.mjs" <<'JS'
+// An advance that reached a non-gate wait, or `done`: no call written, no
+// pointer, nothing outstanding.
+JS
+  rm -rf "$hooktmp/stub-gates"
+  e_out=$(fire_stub)
+  if [ -z "$e_out" ] || ! printf '%s' "$e_out" | grep -q 'additionalContext'; then pass; else
+    bad "the advance hook emitted additionalContext for an advance that opened no gate: $e_out"
+  fi
+
   rm -rf "$hooktmp"
 fi
 
@@ -537,7 +667,7 @@ fi
 
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — the executor's Bash route denied with --status admitted, the skill file's single start line, and the removal test's byte-equal artifacts with the spec absent and the deny still firing (kogaki#1027)"
-  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on."
+  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081)."
   note "not asserted here: that either hook is LOADED on this machine. That wiring is machine-local and never committed, so asserting it would fail on every fresh clone and would be a claim about a machine rather than about this repository — which is why the order above is read from the tracked file rather than from a live registration."
 fi
 exit "$fail"
