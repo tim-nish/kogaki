@@ -112,6 +112,13 @@ STUB
   # CLI's `--output-format json` envelope, which is what the shipped parse reads.
   cat > "$root/judge-conformant" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 // A FIXED CONFORMANT RECORD (acceptance 1), composed over the input the executor
 // handed it — fixed in SHAPE, which is what "conformant" means here; a record
 // with hard-coded group names would be refused by the very subset check the
@@ -202,6 +209,13 @@ JUDGE
   # at all — the fixture would then assert nothing about the renderer.
   cat > "$root/judge-subdivides" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const path = require("node:path");
 const MARKER = "----- INPUT (JSON) -----";
@@ -280,6 +294,13 @@ JUDGE
 
   cat > "$root/judge-nonconformant" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 // A RECORD THE STATE'S OWN REFUSALS REJECT (acceptance 2), on EVERY attempt —
 // a stub that repaired itself on the second call would show the retry happening
 // and hide what happens when it runs out.
@@ -291,6 +312,13 @@ process.stdout.write(JSON.stringify({ result: JSON.stringify({ "some-group": "a 
 JUDGE
   cat > "$root/judge-garbage" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 // A RESPONSE THAT IS NOT JSON (PR #1044 round 1, finding 3). Before the retry
 // window was widened this arm reached `fail()` outside it and ended the run on
 // the FIRST occurrence, so `retries` bounded only the conformance arm — while the
@@ -308,6 +336,13 @@ JUDGE
   # the only stub that can show the bound REPAIRING rather than repeating.
   cat > "$root/judge-repairs" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const path = require("node:path");
 const MARKER = "----- INPUT (JSON) -----";
@@ -350,6 +385,13 @@ JUDGE
   # the two refuse at different clauses of the same reader.
   cat > "$root/judge-wrong-shape" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const MARKER = "----- INPUT (JSON) -----";
 const prompt = fs.readFileSync(0, "utf8");
@@ -371,6 +413,13 @@ JUDGE
   # the refusal must land against that one group alone.
   cat > "$root/judge-group-repairs" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const path = require("node:path");
 const MARKER = "----- INPUT (JSON) -----";
@@ -431,6 +480,13 @@ JUDGE
   # groups and no way to tell which one spent the bound.
   cat > "$root/judge-group-wrong-shape" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const path = require("node:path");
 const MARKER = "----- INPUT (JSON) -----";
@@ -540,6 +596,13 @@ LIB
   # no route back to the judge.
   cat > "$root/judge-cap-repairs" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const path = require("node:path");
 const lib = require(path.join(__dirname, "judge-subgroup-lib.js"));
@@ -588,6 +651,13 @@ JUDGE
   # spent and the state fails naming the group and the member it left.
   cat > "$root/judge-unplaced" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const path = require("node:path");
 const lib = require(path.join(__dirname, "judge-subgroup-lib.js"));
@@ -719,7 +789,7 @@ drive() {                            # drive <label> <tree>
   export CLAUDE_CODE_SESSION_ID="fixture-session"
 
   # --- The start act: opens the run and stops at TAG_SELECTION.
-  if ! (cd "$root" && node src/terrain.mjs start --run-dir "$D" >"$root/start.out" 2>&1); then
+  if ! (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-conformant" node src/terrain.mjs start --run-dir "$D" >"$root/start.out" 2>&1); then
     bad "$label: the start act failed: $(tail -3 "$root/start.out" | tr '\n' ' ')"
     return
   fi
@@ -884,6 +954,39 @@ PY
   if [ -f "$root/reports/FullReport.md" ]; then pass; else
     bad "$label: one payload for the ID answer did not produce reports/FullReport.md (kogaki#1030 item 3). The advance said: $(tail -3 "$root/adv2.out" | tr '\n' ' ')"
   fi
+  # AND ITS IDENTITY CARRIES THE BINARY (kogaki#1076 item 3). The judge pin named
+  # the model, the effort and the survey revision, so two reports with equal pins
+  # could have been produced by different executables and the identity they
+  # collide on could not tell them apart.
+  if python3 - "$D" <<'PY'
+import json, sys, pathlib
+d = pathlib.Path(sys.argv[1])
+rec = json.load(open(d / "run-record.json"))
+want = (rec.get("judge_binary") or {}).get("version")
+if not want:
+    print("the run record carries no resolved binary version", file=sys.stderr); sys.exit(1)
+seen = 0
+for f in sorted(d.glob("*.json")):
+    try:
+        doc = json.load(open(f))
+    except Exception:
+        continue
+    identity = doc.get("identity") if isinstance(doc, dict) else None
+    if not isinstance(identity, dict) or "judge_pin" not in identity:
+        continue
+    seen += 1
+    pin = identity["judge_pin"]
+    if not isinstance(pin, dict):
+        print(f"{f.name}: judge_pin is {pin!r}", file=sys.stderr); sys.exit(1)
+    if pin.get("binary_version") != want:
+        print(f"{f.name}: judge_pin.binary_version is {pin.get('binary_version')!r}, not {want!r}",
+              file=sys.stderr); sys.exit(1)
+if not seen:
+    print("no report record carrying an identity was written", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label: the Full Report's identity does not pin the resolved binary's version (kogaki#1076 item 3)"
+  fi
   if python3 - "$D" STRAND_SELECTION <<'PY'
 import json, sys, pathlib
 rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
@@ -898,7 +1001,7 @@ PY
   # retry count, and the failure names the refusal.
   local D2="$root/run-bad"
   mkdir -p "$D2"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D2" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-nonconformant" node src/terrain.mjs start --run-dir "$D2" >/dev/null 2>&1)
   local qb pb
   qb=$(declared_question "$D2" TAG_SELECTION "$root") || {
     bad "$label: the second run wrote no TAG_SELECTION declaration"
@@ -959,7 +1062,7 @@ PY
   # exited on the first call.
   local D3="$root/run-garbage"
   mkdir -p "$D3"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D3" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-garbage" node src/terrain.mjs start --run-dir "$D3" >/dev/null 2>&1)
   local qg pg
   qg=$(declared_question "$D3" TAG_SELECTION "$root") || {
     bad "$label: the third run wrote no TAG_SELECTION declaration"
@@ -985,7 +1088,7 @@ PY
   # re-ask -- it is that ATTEMPT TWO'S PROMPT CARRIES ATTEMPT ONE'S REFUSAL.
   local D5="$root/run-repair"
   mkdir -p "$D5"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D5" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-repairs" node src/terrain.mjs start --run-dir "$D5" >/dev/null 2>&1)
   local qr pr
   qr=$(declared_question "$D5" TAG_SELECTION "$root") || {
     bad "$label: the repair run wrote no TAG_SELECTION declaration"
@@ -1067,7 +1170,7 @@ PY
   # unrepairable answer into a run that never ends.
   local D6="$root/run-wrong-shape"
   mkdir -p "$D6"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D6" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-wrong-shape" node src/terrain.mjs start --run-dir "$D6" >/dev/null 2>&1)
   local qw pw
   qw=$(declared_question "$D6" TAG_SELECTION "$root") || {
     bad "$label: the wrong-shape run wrote no TAG_SELECTION declaration"
@@ -1105,7 +1208,7 @@ PY
   # judgment was recomputed and no per-group count existed to be wrong.
   local D7="$root/run-group-repair"
   mkdir -p "$D7"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D7" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-group-repairs" node src/terrain.mjs start --run-dir "$D7" >/dev/null 2>&1)
   local qgr pgr
   qgr=$(declared_question "$D7" TAG_SELECTION "$root") || {
     bad "$label: the per-group repair run wrote no TAG_SELECTION declaration"
@@ -1203,7 +1306,7 @@ PY
   # eleven groups and no way to tell which one spent the bound.
   local D8="$root/run-group-wrong"
   mkdir -p "$D8"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D8" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-group-wrong-shape" node src/terrain.mjs start --run-dir "$D8" >/dev/null 2>&1)
   local qgw pgw
   qgw=$(declared_question "$D8" TAG_SELECTION "$root") || {
     bad "$label: the per-group wrong-shape run wrote no TAG_SELECTION declaration"
@@ -1277,7 +1380,7 @@ PY
   # what a subdividing run puts in it.
   local D9="$root/run-subdivides"
   mkdir -p "$D9"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D9" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-subdivides" node src/terrain.mjs start --run-dir "$D9" >/dev/null 2>&1)
   local qsd psd
   qsd=$(declared_question "$D9" TAG_SELECTION "$root") || {
     bad "$label: the subdividing run wrote no TAG_SELECTION declaration"
@@ -1373,7 +1476,7 @@ print([s for s in t['states'] if s['id'] == 'J2_subdivision'][0]['retries'])")
   # against that group, and the refusal text names the cap.
   local D1="$root/run-cap"
   mkdir -p "$D1"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D1" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-cap-repairs" node src/terrain.mjs start --run-dir "$D1" >/dev/null 2>&1)
   local q1 p1
   q1=$(declared_question "$D1" TAG_SELECTION "$root") || {
     bad "$label: the cap run wrote no TAG_SELECTION declaration"
@@ -1462,7 +1565,7 @@ PY
   # record, so nothing downstream reads a judgment that was never completed.
   local D2="$root/run-unplaced"
   mkdir -p "$D2"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D2" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-unplaced" node src/terrain.mjs start --run-dir "$D2" >/dev/null 2>&1)
   local q2 p2
   q2=$(declared_question "$D2" TAG_SELECTION "$root") || {
     bad "$label: the unplaced run wrote no TAG_SELECTION declaration"
@@ -1691,6 +1794,13 @@ build_pool_stubs() {                 # build_pool_stubs <dir>
   local root=$1
   cat > "$root/judge-slow" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const path = require("node:path");
 const MARKER = "----- INPUT (JSON) -----";
@@ -1721,6 +1831,13 @@ JUDGE
   # so the only thing that can have written the run record is the checkpoint.
   cat > "$root/judge-one-hangs" <<'JUDGE'
 #!/usr/bin/env node
+// THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
+// resolved by RUNNING each candidate, because existence and the execute bit do
+// not tell a working install from a shim whose own `exec` fails -- so a stub
+// that could not answer this would be a stub the shipped path refuses. It
+// answers FIRST, before any stdin read: the probe closes stdin, and a stub that
+// blocked for a prompt would hang the start act.
+if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\n"); process.exit(0); }
 const fs = require("node:fs");
 const path = require("node:path");
 const MARKER = "----- INPUT (JSON) -----";
@@ -1760,7 +1877,7 @@ drive_wide() {                       # drive_wide <label> <tree> <run-dir> <stub
   mkdir -p "$D" "$root/open-gates"
   export KOGAKI_OPEN_GATES="$root/open-gates"
   export CLAUDE_CODE_SESSION_ID="fixture-session"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$D" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/$stub" node src/terrain.mjs start --run-dir "$D" >/dev/null 2>&1)
   local q p
   q=$(declared_question "$D" TAG_SELECTION "$root") || { bad "$label: no TAG_SELECTION declaration for $(basename "$D")"; return 1; }
   p=$(payload "toolu_fixture_$(basename "$D")" "$q" "fixture")
@@ -1909,7 +2026,7 @@ PY
   rm -f "$root/hang-target"
   export KOGAKI_OPEN_GATES="$root/open-gates"
   export CLAUDE_CODE_SESSION_ID="fixture-session"
-  (cd "$root" && node src/terrain.mjs start --run-dir "$E" >/dev/null 2>&1)
+  (cd "$root" && KOGAKI_JUDGE_CLI="$root/judge-one-hangs" node src/terrain.mjs start --run-dir "$E" >/dev/null 2>&1)
   local qk pk
   qk=$(declared_question "$E" TAG_SELECTION "$root") || { bad "$label: the killed run wrote no TAG_SELECTION declaration"; return; }
   pk=$(payload "toolu_fixture_killed" "$qk" "fixture")
@@ -1969,8 +2086,169 @@ PY
 build_tree "$SCRATCH/reuse"
 drive_reuse "the reuse tree" "$SCRATCH/reuse"
 
+# ---- THE JUDGE BINARY IS THE RUN'S, NOT THE FIRING SESSION'S (kogaki#1076).
+#
+# WHAT THESE THREE CASES REACH THAT NOTHING ELSE DOES. Every case above stubs
+# the binary through `KOGAKI_JUDGE_CLI`, which hands the executor a path — so
+# none of them exercises RESOLUTION at all, and the defect was entirely in
+# resolution: the table's `judge.command` is the bare word `claude`, the
+# executor handed that word to the spawn, and the binary a judgment ran was
+# whatever the FIRING session's `PATH` offered first. On 2026-09-10 an advance
+# fired from a second session resolved a Windows npm shim under `/mnt/c` whose
+# own `exec` failed, and three calls exited 127 in a tree where the same judge
+# had run clean an hour before.
+#
+# THE SHIM IS THE FIXTURE'S CENTREPIECE, and it is built to be indistinguishable
+# from a working install by every cheap test: it EXISTS, it is EXECUTABLE, and it
+# fails only when it is RUN. A resolution that stopped at the first existing file
+# on `PATH` would choose it, which is the defect with one more step in it.
+judge_path_tree() {                  # judge_path_tree <dir>
+  local root=$1
+  mkdir -p "$root/path-shim" "$root/path-good" "$root/path-node"
+  # `node` and `python3` reachable under a PATH this fixture controls: the start
+  # act and the advance hook are both run through them, so a literally emptied
+  # PATH would remove the act under test rather than the judge under it.
+  ln -s "$(command -v node)" "$root/path-node/node"
+  ln -s "$(command -v python3)" "$root/path-node/python3"
+  # THE SHIM, verbatim in shape: a script whose `exec` target is not there, which
+  # is exit 127 and the stderr the live run recorded.
+  cat > "$root/path-shim/claude" <<'SHIM'
+#!/bin/sh
+exec "$0.exe" "$@"
+SHIM
+  # THE WORKING INSTALL, BEHIND IT ON PATH. It is the conformant stub under
+  # another name, so a run that resolves it judges exactly as every case above.
+  cp "$root/judge-conformant" "$root/path-good/claude"
+  chmod +x "$root/path-shim/claude" "$root/path-good/claude"
+}
+
+drive_binary() {                     # drive_binary <label> <tree>
+  local label=$1 root=$2
+  judge_path_tree "$root"
+  export KOGAKI_OPEN_GATES="$root/open-gates"
+  export CLAUDE_CODE_SESSION_ID="fixture-session"
+  mkdir -p "$root/open-gates" "$root/open-gates-a" "$root/open-gates-b"
+
+  # --- FIXTURE (a). The shim AHEAD of a working install: the start act records
+  # the working one, because it RAN each candidate rather than trusting that a
+  # file that exists is a binary that works.
+  local A="$root/run-a"
+  mkdir -p "$A"
+  (cd "$root" && env -u KOGAKI_JUDGE_CLI KOGAKI_OPEN_GATES="$root/open-gates-a" PATH="$root/path-shim:$root/path-good:$root/path-node" node src/terrain.mjs start --run-dir "$A" \
+      >"$root/start-a.out" 2>&1)
+  if python3 - "$A" "$root/path-good/claude" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+b = rec.get("judge_binary")
+if not b:
+    print("the run record carries no judge_binary at all", file=sys.stderr); sys.exit(1)
+if b.get("path") != sys.argv[2]:
+    print(f"resolved {b.get('path')!r}, not the working install {sys.argv[2]!r}", file=sys.stderr); sys.exit(1)
+if b.get("command") != "claude":
+    print(f"the record does not name the command it resolved: {b.get('command')!r}", file=sys.stderr); sys.exit(1)
+if not b.get("version"):
+    print("the record carries no version — the `--version` verification is what "
+          "discriminates the working install from the shim, so its answer is owed",
+          file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label (a): with a failing shim ahead of a working install on PATH, the start act did not record the working install's absolute path and version (kogaki#1076 item 1). The start act said: $(tail -3 "$root/start-a.out" | tr '\n' ' ')"
+  fi
+
+  # --- FIXTURE (b). ONLY the shim: the start refuses, BEFORE the survey, and
+  # names the shim. "The judge could not be run" over a bare word tells an
+  # operator nothing they can act on; the shim's own path is the whole diagnosis.
+  local B="$root/run-b"
+  mkdir -p "$B"
+  if (cd "$root" && env -u KOGAKI_JUDGE_CLI KOGAKI_OPEN_GATES="$root/open-gates-b" PATH="$root/path-shim:$root/path-node" node src/terrain.mjs start --run-dir "$B" \
+        >"$root/start-b.out" 2>&1); then
+    bad "$label (b): with only a failing shim on PATH the start act SUCCEEDED — a run whose judge binary cannot be run must refuse before the survey (kogaki#1076 item 1)"
+  else
+    pass
+  fi
+  if grep -qF "$root/path-shim/claude" "$root/start-b.out"; then pass; else
+    bad "$label (b): the refusal does not name the shim it rejected, so an operator is told a bare word failed and not which file: $(tail -3 "$root/start-b.out" | tr '\n' ' ')"
+  fi
+  if [ ! -f "$B/run-record.json" ] && [ ! -f "$root/reports/CoTagGroups.md" ]; then pass; else
+    bad "$label (b): the refused start left a run record or a rendering behind — it must refuse BEFORE the survey, leaving nothing that reads as a run that began"
+  fi
+
+  # --- FIXTURE (c). The run STARTS with a working binary and the ADVANCE is
+  # fired from a session whose PATH resolves the shim first — the live shape of
+  # 2026-09-10. The judgment still runs, because the call executes the path the
+  # run recorded rather than the word the table declares.
+  local C="$root/run-c"
+  mkdir -p "$C"
+  (cd "$root" && env -u KOGAKI_JUDGE_CLI PATH="$root/path-good:$root/path-node" node src/terrain.mjs start --run-dir "$C" \
+      >"$root/start-c.out" 2>&1)
+  local q
+  q=$(declared_question "$C" TAG_SELECTION "$root") || {
+    bad "$label (c): the start act wrote no TAG_SELECTION declaration, so there is no question to answer: $(tail -3 "$root/start-c.out" | tr '\n' ' ')"
+    return
+  }
+  local pc
+  pc=$(payload "toolu_fixture_binary" "$q" "fixture")
+  capture "$root" "$C" "$pc" tag
+  printf '%s' "$pc" | (cd "$root" && env -u KOGAKI_JUDGE_CLI PATH="$root/path-shim:$PATH" \
+      KOGAKI_RUN_DIR="$C" KOGAKI_OPEN_GATES="$root/open-gates" python3 .claude/hooks/advance-terrain.py \
+      >"$root/adv-c.out" 2>&1)
+  if python3 - "$C" "$root/path-good/claude" <<'PY'
+import json, sys, pathlib
+d = pathlib.Path(sys.argv[1])
+rec = json.load(open(d / "run-record.json"))
+j = rec.get("judgments") or {}
+for st in ("J1_claims", "J2_subdivision"):
+    if st not in j:
+        print(f"the advance did not judge {st}: {sorted(j)}", file=sys.stderr); sys.exit(1)
+# AND IT RAN THE RECORDED PATH, which is the property under test rather than the
+# fact that a judgment happened: the invocation record names the command it spawned.
+inv = rec.get("judge_calls") or {}
+if not inv:
+    print("the advance recorded no judge call", file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label (c): an advance fired from a session whose PATH resolves a failing shim did not complete its judgments through the run's recorded binary (kogaki#1076 item 2). The advance said: $(tail -5 "$root/adv-c.out" | tr '\n' ' ')"
+  fi
+  # THE RECORD SAYS WHAT PRODUCED IT (kogaki#1076 item 3). Two runs with equal
+  # model and effort had run different executables and no durable carrier said
+  # so: the Harness's own invocation record lives in the process that made the
+  # calls, so the run record was the only thing a later reader had and it named
+  # counts alone.
+  if python3 - "$C" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+b = rec.get("judge_binary") or {}
+want_path, want_version = b.get("path"), b.get("version")
+if not want_path or not want_version:
+    print("the run record carries no resolved binary to compare against", file=sys.stderr); sys.exit(1)
+calls = rec.get("judge_calls") or {}
+if not calls:
+    print("the advance recorded no judge call", file=sys.stderr); sys.exit(1)
+for state, row in sorted(calls.items()):
+    if row.get("command") != want_path:
+        print(f"{state} recorded command {row.get('command')!r}, not the run's binary {want_path!r}",
+              file=sys.stderr); sys.exit(1)
+    if row.get("binary_version") != want_version:
+        print(f"{state} recorded binary_version {row.get('binary_version')!r}, not {want_version!r}",
+              file=sys.stderr); sys.exit(1)
+PY
+  then pass; else
+    bad "$label (c): the run record's judge_calls rows do not name the resolved binary and its version, so a record cannot say what produced its judgments (kogaki#1076 item 3)"
+  fi
+}
+
+build_tree "$SCRATCH/binary"
+drive_binary "the binary-resolution tree" "$SCRATCH/binary"
+
+# AND THE SAME THREE WITH THE SPEC AND THE SKILL PROSE ABSENT (kogaki#1076
+# acceptance 3). The resolution is the runtime's, so a tree carrying only the
+# runtime and the hooks must reach the same three verdicts -- a fixture that
+# passed only where the prose stood would be asserting the prose.
+build_tree "$SCRATCH/binary-red" --reduced
+drive_binary "the reduced binary-resolution tree" "$SCRATCH/binary-red"
+
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073)"
+  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and STRAND_SELECTION; a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073); and the judge binary is resolved ONCE by the session that starts the run -- a failing shim ahead of a working install on PATH resolves to the working one, a PATH offering only the shim refuses before the survey and names it, and an advance fired from a session whose PATH resolves the shim first still judges through the recorded path and pins its version (kogaki#1076)"
   note "not asserted here: that the PINNED MODEL is reachable. The judge binary is stubbed through KOGAKI_JUDGE_CLI, so these cases bind the executor's call, parse, retry and refusal — never the model's answer, which is not this repository's to assert."
 fi
 exit "$fail"
