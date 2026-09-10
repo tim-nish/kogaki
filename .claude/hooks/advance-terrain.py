@@ -13,9 +13,14 @@ performs neither act and has no route to either: a Bash command naming
 
 ORDER MATTERS, and it is the family table's rather than this file's.
 `write-gate-capture.py` is registered before this hook, so the row exists by
-the time the executor reads for it. A run of this hook that finds no row is not
-a failure here -- the executor refuses at its own re-entry and says which of
-the two carriers is missing.
+the time this hook reads for it. Since kogaki#1075 that order is load-bearing
+rather than merely convenient: the row is this hook's own PRECONDITION, and
+`checks/check-terrain-hook-invocation.sh` asserts the registration order in
+`.claude/settings.json` because of it.
+
+AND THE ADVANCE IS KEYED TO THAT ROW, NOT TO THE POINTER (kogaki#1075). An
+open-run pointer says a run exists; it does not say this question is the one
+that answered its gate. See `main` for what that cost and what the key is.
 
 THE PAYLOAD IS FORWARDED, NOT SUMMARISED. The executor is handed this hook's
 own payload on stdin, verbatim, and copies `hook_event_name`, `session_id` and
@@ -72,6 +77,13 @@ LANE_POINTER = ("runs", "terrain", "open-run")
 # pointer above.
 RUN_DIR_ENV = "KOGAKI_RUN_DIR"
 
+# The capture file's suffix, `src/gate-schema.json`'s `capture.suffix`, copied
+# here on the same ground `write-gate-capture.py` copies `POINTER_TTL`: a hook
+# is one file with no module to import. `checks/check-terrain-hook-invocation.sh`
+# compares this constant against the schema rather than trusting the two to
+# agree by reading.
+CAPTURE_SUFFIX = ".gate-capture.json"
+
 
 def note(msg):
     print(f"advance-terrain: {msg}", file=sys.stderr)
@@ -85,6 +97,69 @@ def repo_root():
     session happens to stand in.
     """
     return Path(__file__).resolve().parent.parent.parent
+
+
+def resolve_run_dir(pointer):
+    """The workspace this advance would belong to, or None.
+
+    RESOLVED THE WAY THE EXECUTOR RESOLVES IT, in the same order and with the
+    same fallbacks: `KOGAKI_RUN_DIR` first, then the open-run pointer's
+    contents. Two readers of run identity that could disagree is exactly the
+    shape `readOpenRunPointer` was written to avoid, so this one is its copy
+    rather than a second convention -- including the *pointer to a directory
+    that is gone is not a run* rule, which a `runs/` prune reaches every time.
+
+    NONE IS NOT A FAILURE HERE. A pointer this hook cannot resolve is a run it
+    cannot show this question belongs to, and the absence of an advance IS the
+    stop.
+    """
+    env_dir = os.environ.get(RUN_DIR_ENV)
+    if env_dir:
+        d = Path(env_dir)
+        return d if d.is_dir() else None
+    try:
+        named = pointer.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not named:
+        return None
+    d = Path(named)
+    return d if d.is_dir() else None
+
+
+def capture_names(run_dir, tool_use_id):
+    """Whether this run's capture holds a row raised by THIS question.
+
+    ONE FILE, AND ITS NAME IS THE EXECUTOR'S. `src/gate-schema.json` declares
+    the suffix and `src/terrain.mjs` composes the path as `terrain` + it; the
+    constant is copied here for the reason `POINTER_TTL` is copied into the
+    capture hook -- a hook is one file, with no module to share.
+
+    THE MATCH IS ON `evidence.tool_use_id`, which is the field
+    `write-gate-capture.py` copies out of the harness's own payload and the
+    field the executor reads back at its re-entry, so the two readers ask one
+    question of one carrier. A row this hook cannot read is not a row that
+    matches: an unreadable capture is named on stderr and stops the advance,
+    because *cannot tell* is not *this question answered the gate*.
+    """
+    cap = run_dir / f"terrain{CAPTURE_SUFFIX}"
+    if not cap.is_file():
+        return False
+    try:
+        with open(cap, encoding="utf-8") as f:
+            doc = json.load(f)
+    except Exception as exc:                                      # noqa: BLE001
+        note(f"the capture at {cap} is unreadable ({exc}); nothing was "
+             "advanced, and the gate is re-offered at its next raising")
+        return False
+    rows = doc.get("rows")
+    if not isinstance(rows, list):
+        return False
+    for row in rows:
+        ev = row.get("evidence") if isinstance(row, dict) else None
+        if isinstance(ev, dict) and ev.get("tool_use_id") == tool_use_id:
+            return True
+    return False
 
 
 def main():
@@ -122,6 +197,33 @@ def main():
     pointer = Path(os.environ["KOGAKI_OPEN_RUN"]) if os.environ.get("KOGAKI_OPEN_RUN") \
         else root.joinpath(*LANE_POINTER)
     if not os.environ.get(RUN_DIR_ENV) and not pointer.exists():
+        return 0
+
+    # THE SECOND NARROWING, AND IT IS THE ONE THAT MAKES THE FIRST HONEST
+    # (kogaki#1075). An open-run pointer says a run exists; it does not say that
+    # THIS question is the one that answered its gate. So while a run stayed
+    # open, every question in every session rooted at this tree advanced it --
+    # a cleanup plan, a filing gate, a review grant -- and the executor then
+    # read whatever capture the gate had last received and moved. On
+    # 2026-09-10 that walked a parked run through two states and three failed
+    # judgments from a `/ship-cycle` cleanup question in another session. The
+    # attribution written was correct in form and wrong in fact: the transition
+    # named a `tool_use_id` that answered a different question.
+    #
+    # THE PRECONDITION IS THE CAPTURE ROW, NOT THE POINTER. `write-gate-capture.py`
+    # runs before this hook and writes a row only for the question the gate
+    # declared and only under the pointer's own session -- so a row carrying
+    # this payload's `tool_use_id` is exactly the evidence that this question
+    # was that gate's. Reading it costs one file read, and no question that
+    # produced no row costs a subprocess.
+    #
+    # SILENT ON THE ORDINARY MISS. A question this repository did not raise is
+    # answered here every day, and a note on each would be noise on the one
+    # path this hook is on for every question in the session.
+    run_dir = resolve_run_dir(pointer)
+    if run_dir is None:
+        return 0
+    if not capture_names(run_dir, payload["tool_use_id"]):
         return 0
 
     executor = root / "src" / "terrain.mjs"
