@@ -259,9 +259,9 @@ if [ -n "${hooktmp:-}" ] && [ -d "$hooktmp" ]; then
   # option-set digest is the one the executor recomputes rather than a literal
   # that would rot the first time the canonical form moved.
   stage_run() {                      # $1 dir, $2 the capture row's tool_use_id
-    python3 - "$1" "$2" "$CAPSUF" <<'PY'
+    python3 - "$1" "$2" "$CAPSUF" "$REPO/checks/fixtures/survey/lone-tag-member.json" <<'PY'
 import hashlib, json, os, sys, uuid
-d, tuid, suffix = sys.argv[1], sys.argv[2], sys.argv[3]
+d, tuid, suffix, survey_record = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 os.makedirs(d, exist_ok=True)
 gate_id, instance = "terrain-tag-selection", str(uuid.uuid4())
 options = [{"id": "other-method", "label": "Some other method entirely"}]
@@ -278,7 +278,22 @@ with open("src/workflow.json", encoding="utf-8") as f:
     table_version = json.load(f)["version"]
 with open(os.path.join(d, "run-record.json"), "w") as f:
     json.dump({"workflow": {"path": "src/workflow.json", "version": table_version},
-               "completed": [], "waits_reached": [], "conditional_entered": [],
+               # `survey` IS ALREADY COMPLETE, AND THE RECORD IT MINTS IS
+               # SUPPLIED (kogaki#1079). A record staged with `completed: []`
+               # resumes at the table's FIRST state, which is `survey` -- and
+               # `survey` reads the policy seam. So this case reached its own
+               # subject only on a machine with the gateway up, and was RED in
+               # CI on the one member the licence adds. This file's members are
+               # seam-free by construction, so the state that needs the seam is
+               # staged as done. `survey_record` is supplied WITH it because
+               # completing the state alone is not enough: `needSurvey` reads
+               # this field and every state after the gate goes through it, so
+               # `completed: ["survey"]` on its own moves the failure to a crash
+               # on the absent record. The path is the committed fixture, a
+               # truthful survey record this repository already keeps, rather
+               # than a shell re-implementation of the executor's own schema.
+               "completed": ["survey"], "survey_record": survey_record,
+               "waits_reached": [], "conditional_entered": [],
                "conditional_skipped": [], "awaiting": "TAG_SELECTION",
                "owner_input": {}, "artifacts_written": [], "judgments": {},
                "gate_declarations_owed": [{"state": "TAG_SELECTION",
@@ -343,12 +358,21 @@ PY
   # `$b_out` is this case's reading of that exit. It is NOT asserted empty: the
   # hook takes no `--workflow`, so this fires against the SHIPPED table and the
   # run walks on past the state under test into `compose_input`, which refuses
-  # over a staged record carrying no survey. That refusal is expected and its
-  # NAME is the assertion -- an executor that advanced the gate and then died
-  # INSIDE it, or that stopped for a reason about the capture, is a different
-  # outcome and this case now tells them apart instead of passing on both.
-  if [ -z "$b_out" ] || ! printf '%s' "$b_out" | grep -qE 'TAG_SELECTION|terrain-tag-selection'; then pass; else
-    bad "the executor stopped AT the gate under test rather than past it — the row was read and the advance still did not clear TAG_SELECTION: $b_out"
+  # over the staged survey because the free text the capture row carries is no
+  # tag in that survey's vocabulary. That refusal is expected and its NAME is
+  # the assertion -- an executor that advanced the gate and then died INSIDE
+  # it, or that stopped for a reason about the capture, is a different outcome
+  # and this case tells them apart.
+  #
+  # THE ASSERTION IS POSITIVE (kogaki#1079, carrying PR #1077 round 2's
+  # `class:vacuous-assertion` finding). Its previous form -- `[ -z "$b_out" ]`
+  # OR the gate's name is absent -- passed on SILENCE while the comment above
+  # said a name was being asserted, so a hook that relayed nothing at all
+  # scored a pass here. What binds it is the refusal this case says it expects,
+  # grepped for by name, conjoined with the gate's own name being absent.
+  if printf '%s' "$b_out" | grep -q 'no candidate carries the served tag' \
+     && ! printf '%s' "$b_out" | grep -qE 'TAG_SELECTION|terrain-tag-selection'; then pass; else
+    bad "the executor did not stop where this case says it stops — past the gate under test, at \`compose_input\`'s refusal over the staged survey. Either it stopped AT the gate (the row was read and the advance still did not clear TAG_SELECTION) or it said nothing at all: ${b_out:-(silent)}"
   fi
 
   # (c) A PAYLOAD FROM ANOTHER SESSION, WITH AN IDENTICAL ANSWER, DOES NOT
