@@ -445,7 +445,7 @@ PY
 import json, sys
 with open(sys.argv[1], "w") as f:
     json.dump({"rows": [{"stop_id": "stop-fixture", "gate_id": "terrain-id-selection",
-                         "gate_instance_id": "fixture-raising",
+                         "gate_instance_id": "fixture-answered",
                          "evidence": {"tool": "AskUserQuestion",
                                       "tool_use_id": "toolu_the_gates_own_question"}}]}, f)
 PY
@@ -540,6 +540,99 @@ JS
   e_out=$(fire_stub)
   if [ -z "$e_out" ] || ! printf '%s' "$e_out" | grep -q 'additionalContext'; then pass; else
     bad "the advance hook emitted additionalContext for an advance that opened no gate: $e_out"
+  fi
+
+  # (f) A POINTER THE HARNESS HAS ALREADY ANSWERED IS NOT A GATE (PR #1082 round
+  # 1). `write-gate-capture.py` normally unlinks the pointer the moment it writes
+  # the row, but it has a named arm where the write succeeds and the unlink
+  # fails. After such a miss an advance reaching `done` leaves the ANSWERED
+  # pointer as the only match, and a reader with no `has_capture` filter would
+  # announce a gate for a question already answered -- while
+  # `gate-open-terrain-gate.py`, which applies that filter, denies nothing and
+  # lets the re-ask through. Three readers, one rule.
+  cat > "$stub_repo/src/terrain.mjs" <<'JS'
+// An advance that reached `done`: it opens nothing. The only pointer left is
+// the one the capture hook wrote a row for and could not unlink.
+JS
+  rm -rf "$hooktmp/stub-gates"; mkdir -p "$hooktmp/stub-gates"
+  python3 - "$hooktmp/stub-gates/fixture-answered.json" "$stub_repo/rundir" "$CAPSUF" <<'PY'
+import json, os, sys
+out, dir_, suffix = sys.argv[1:4]
+with open(out, "w") as f:
+    json.dump({"gate_instance_id": "fixture-answered",
+               "gate_id": "terrain-id-selection", "question": "Which tag?",
+               "declaration_path": os.path.join(dir_, "d.json"),
+               "capture_path": os.path.realpath(os.path.join(dir_, "terrain" + suffix)),
+               "gate_call_path": None,
+               "gate_call_unavailable": "this pointer is already answered",
+               "session_id": None, "opened_by": "hook",
+               "opened_at": "2026-09-10T12:45:43.031Z"}, f)
+PY
+  f_out=$(fire_stub)
+  if [ -z "$f_out" ] || ! printf '%s' "$f_out" | grep -q 'additionalContext'; then pass; else
+    bad "the advance hook announced a gate whose answer the capture already holds — the open-gate hook filters that pointer out, so the session is handed a re-ask nothing denies: $f_out"
+  fi
+
+  # (g) WHERE TWO POINTERS NAME ONE RUN, THE ONE DELIVERED IS THE ONE THE
+  # OPEN-GATE HOOK WILL COMPARE AGAINST (PR #1082 round 1). `pre_tool_use` takes
+  # `outstanding[0]` of `sorted(dir.glob("*.json"))` -- instance-nonce FILENAME
+  # order. A reader keyed on `opened_at` instead can pick the other file, and a
+  # session sending the delivered bytes byte-for-byte is then DENIED for sending
+  # "not the question the Harness wrote", with no admissible act left. So the
+  # two pointers here are staged with filename order and `opened_at` order
+  # OPPOSED: `0000…` is the older, `zzzz…` the newer. A newest-wins reader
+  # delivers `zzzz`'s gate and fails this case.
+  rm -rf "$hooktmp/stub-gates"; mkdir -p "$hooktmp/stub-gates"
+  for pair in "0000-first:2026-09-10T12:00:00.000Z" "zzzz-second:2026-09-10T13:00:00.000Z"; do
+    python3 - "$hooktmp/stub-gates/${pair%%:*}.json" "${pair%%:*}" "${pair#*:}" \
+             "$stub_repo/rundir" "$CAPSUF" <<'PY'
+import json, os, sys
+out, instance, opened, dir_, suffix = sys.argv[1:6]
+call = os.path.join(dir_, instance + ".gate-call.json")
+with open(call, "w") as f:
+    json.dump({"questions": [{"question": instance, "header": "sel",
+                              "multiSelect": False,
+                              "options": [{"label": "a", "description": "b"}]}]}, f, indent=2)
+with open(out, "w") as f:
+    json.dump({"gate_instance_id": instance, "gate_id": "terrain-id-selection",
+               "question": instance,
+               "declaration_path": os.path.join(dir_, "d.json"),
+               "capture_path": os.path.realpath(os.path.join(dir_, "terrain" + suffix)),
+               "gate_call_path": os.path.realpath(call),
+               "gate_call_unavailable": None, "session_id": None,
+               "opened_by": "hook", "opened_at": opened}, f)
+PY
+  done
+  g_out=$(fire_stub)
+  if printf '%s' "$g_out" | grep -q '0000-first' \
+     && ! printf '%s' "$g_out" | grep -q 'zzzz-second'; then pass; else
+    bad "with two pointers naming one run the hook did not deliver the one \`gate-open-terrain-gate.py\` compares against (filename-first, \`0000-first\`) — a session sending these bytes byte-for-byte would be denied for sending the wrong question, which is this file's own wedge arriving through its repair: ${g_out:-(silent)}"
+  fi
+
+  # (h) AND THE DELIVERY SURVIVES AN EXECUTOR THAT COULD NOT BE SPAWNED AT ALL
+  # (PR #1082 round 1). The first cut read the pointer on the two `returncode`
+  # arms and returned above it on the timeout and generic-exception arms — so an
+  # advance killed AFTER `emitGateDeclaration` wrote the call and the pointer
+  # left exactly the state this file exists to deliver, undelivered, with its
+  # only note on the stderr kogaki#1081 is about. The timeout arm cannot be
+  # driven in a check that must finish (`ADVANCE_TIMEOUT_S` is 480s); the
+  # generic arm is the same `finally` and is one `PATH` away — with no `node`,
+  # `subprocess.run` raises before the executor exists.
+  # THE INTERPRETER IS NAMED ABSOLUTELY, because `PATH` is what this case takes
+  # away and `python3` on a developer machine is often a shim that re-resolves
+  # itself through it (pyenv's is a `#!/usr/bin/env bash` script). Emptying PATH
+  # around a shim kills the HOOK instead of the executor, which reads as the
+  # silence this case is asserting against.
+  mkdir -p "$hooktmp/empty-path"
+  real_python=$(python3 -c 'import sys; print(sys.executable)')
+  h_out=$(printf '{"tool_name":"AskUserQuestion","hook_event_name":"PostToolUse","session_id":"s","tool_use_id":"toolu_the_gates_own_question","tool_response":{"answers":{"Which tag?":"a-tag"}}}' \
+    | env PATH="$hooktmp/empty-path" \
+          KOGAKI_RUN_DIR="$stub_repo/rundir" \
+          KOGAKI_OPEN_GATES="$hooktmp/stub-gates" \
+          FIXTURE_CAPSUF="$CAPSUF" \
+          "$real_python" "$stub_repo/.claude/hooks/advance-terrain.py" 2>/dev/null)
+  if printf '%s' "$h_out" | grep -q 'additionalContext'; then pass; else
+    bad "an advance that never spawned left its open gate undelivered — the pointer read must stand on a path every post-spawn exit passes through, not be repeated on the arms someone remembered: ${h_out:-(silent)}"
   fi
 
   rm -rf "$hooktmp"
