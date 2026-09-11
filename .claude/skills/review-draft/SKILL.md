@@ -43,15 +43,30 @@ else is evidence the **Packet** is missing information. File that against
 
 ## Entry points
 
-    node src/review-draft.mjs open    --draft <draft.md>
-    node src/review-draft.mjs outline --draft <draft.md> --step <id> --file <outline.md>
-    node src/review-draft.mjs read    --draft <draft.md> --section <n> --file <entry.json>
-    node src/review-draft.mjs read    --draft <draft.md> --claim --file <claim.json>
-    node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
-    node src/review-draft.mjs correct --draft <draft.md> --step <id> [--file <prose>]
-    node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure [--file <record.json>]
-    node src/review-draft.mjs check   --draft <draft.md> [--verdicts <verdicts.json>]
-    node src/review-draft.mjs close   --draft <draft.md>
+                            node src/review-draft.mjs open    --draft <draft.md>
+    <reverse outline>     | node src/review-draft.mjs outline --draft <draft.md> --step <id>
+    <section entry>       | node src/review-draft.mjs read    --draft <draft.md> --section <n>
+    <final claim>         | node src/review-draft.mjs read    --draft <draft.md> --claim
+    [<verdicts>]          | node src/review-draft.mjs compare --draft <draft.md>
+    [<corrected prose>]   | node src/review-draft.mjs correct --draft <draft.md> --step <id>
+    [<corrected record>]  | node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure
+    [<verdicts>]          | node src/review-draft.mjs check   --draft <draft.md>
+                            node src/review-draft.mjs close   --draft <draft.md>
+
+**Every reply reaches the Harness on standard input, and no act takes a path to
+one.** Pipe the spawn's output straight into the recording act — you name no
+file, and `--file` and `--verdicts` are gone and are refused by name if passed.
+Where an act has two phases, the stream is what selects one: with nothing piped
+in `compare`, `check` and `correct` render what they owe, and with a reply piped
+in they record it. `outline` and `read` record a reply and nothing else, so an
+empty stream is a refusal there rather than a phase.
+
+**`runs/` holds what the Harness wrote and nothing else.** After each act the
+Harness already holds the reply verbatim under its own name — `outline/<step>.md`,
+`ledger/`, `join.json`, `check.json`, the Draft itself with its before-and-after
+pair under `snapshots/` — so a reply file of your own would be a second copy of
+those bytes, written into machine state with no owner. Do not write one, inside
+the run directory or beside it.
 
 `open` verifies the inputs, opens `runs/review/<slug>/` and renders both the
 first Reverse Outline input and the cold reader's whole input. `outline` records
@@ -150,7 +165,7 @@ join record as the place that says how it was decided instead.
 **Why it exists.** The surface a person debugs from mid-run was the verdicts file
 they handed in, which carries the model's answer and nothing about what the
 answer means: not the item's class, and not whether the fail sends the Step to
-correction, rides along, or is reported only. Reading `pass-1/verdicts/s1.json`
+correction, rides along, or is reported only. Reading back the verdicts reply
 alone it was impossible to tell why a Step with three fails was never corrected —
 all three were best-effort, and no surface said so. While the best-effort class
 exists, a file recording both the answer and its consequence is mandatory, and it
@@ -195,7 +210,7 @@ again would copy the restored original back over the reviewed Draft.
 **mechanical** item — string facts about the Draft and its Packets, no model
 call — and renders **one join Packet per judged pair**, each carrying the
 declared line, the outlined line, the quoted prose and **one** question. The
-second records the answers with `--verdicts` and emits the comparison.
+second takes the answers on standard input and emits the comparison.
 
 **A judged item whose DECLARED side is empty is decided by the Harness too, and
 costs no call.** Where the Packet renders a stated absence — no grounds, no
@@ -290,12 +305,12 @@ reader-knowledge ledger and Section block come with it. That block is the
 continuity mechanism, and rendering fresh is what keeps a corrected Step
 continuous with the article rather than drifting toward being self-contained.
 
-`correct` runs in two phases, like `compare`. With no `--file` it renders the
-input: the fresh Packet with **one Correction block** appended after the write
+`correct` runs in two phases, like `compare`, and standard input selects the
+phase. With nothing piped in it renders the input: the fresh Packet with **one Correction block** appended after the write
 instruction, carrying the previous realization verbatim, the findings that
 failed with their pairs and spans, the items that **held** as what the correction
 must not break, and the instruction to change what the findings name and nothing
-else. With `--file` it records the prose through the realization lane, so the
+else. With the corrected prose piped in it records it through the realization lane, so the
 Draft is re-assembled by the same code that wrote it, and snapshots land in the
 review workspace. Its input is filed under `pass-1/corrections/`, beside the
 verdicts that sent the Step there.
@@ -317,7 +332,7 @@ the other seat.
 **Corrections run in path order** and a Step out of order refuses — each later one
 must see the earlier ones in its own "article so far". Between the render and the
 recording the run is **mid-correction** on that Step and every other act refuses
-by name; the act that ends it is `correct --file`.
+by name; the act that ends it is the same `correct` with the prose piped in.
 
 **Drift is reported and never gated.** Per corrected Step the Harness states the
 share of sentences changed against the previous realization and the verbatim
@@ -330,8 +345,8 @@ corrected Steps, then re-judges their own failed and held preserved items, the
 continuity item on each corrected Step's successor, and every mechanical item
 over the whole Draft. Every other pair is **carried** from pass one, marked as
 carried, at no model call. The bound is recorded in `check.json` rather than only
-applied. Pass two answers its own owed pairs through `check --verdicts`, never
-`compare`'s. A preserved item still failing after it is **residue**.
+applied. Pass two answers its own owed pairs by piping them into `check`, never
+into `compare`. A preserved item still failing after it is **residue**.
 
 ## The two readers, and why each is blind to something
 
