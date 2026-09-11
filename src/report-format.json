@@ -121,7 +121,7 @@
       ]
     },
     "cotag_groups": {
-      "emitter": "cmdCotags (src/terrain.mjs), through emitOrRefuse; and re-checked against this same surface when the ID_SELECTION gate declaration carries the written artifact's bytes under `groups_listing` (composeOwnerListing, kogaki#1087)",
+      "emitter": "cmdCotags (src/terrain.mjs), through emitOrRefuse; and re-checked against this same surface when the ID_SELECTION gate declaration composes its `groups_listing` (composeOwnerListing, kogaki#1087). What rides that declaration is a BOUNDED PROJECTION of the judged text rather than the whole of it (composeIdGateListing, kogaki#1090) — the guard still runs over the artifact's bytes, and the rows the owner reads are taken off heading lines this surface has already admitted",
       "medium": "terminal text, and the gate declaration the ID question is composed from — one surface, two media, because the bytes are the same bytes",
       "governing_prose": "SPEC-terrain, the display's serve rule, the SubGroup threshold",
       "stream": "stdout",
