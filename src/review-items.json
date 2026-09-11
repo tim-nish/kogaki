@@ -19,6 +19,27 @@
     "by the reader states, which ARE compared. Whether any of the five survives as a",
     "realization-time lint in `draft` is a separate question for the owner.",
     "",
+    "`register-tests` LEFT THE TABLE FOR THE SAME REASON, one ruling later",
+    "(owner, 2026-09-11). It was the last prose lint standing: its declared side",
+    "was the Packet's write-instruction paragraph and its reverse side was the",
+    "passage itself, so no Reverse Outline field was involved at all. In the",
+    "first full run it failed on seven of eight Steps, every time on \"one",
+    "relation per sentence\", and sent nothing to correction -- a best-effort row",
+    "that fires on almost every Step reports the register of the prose, not a",
+    "reconstruction gap. Whether register lints return at realization time inside",
+    "`draft` stays the open question the paragraph above already records; it is",
+    "the same question for this row.",
+    "",
+    "AND `already-knows` GAINS A `when_declared_absent` ARM in the same act. Its",
+    "declared side is the Packet's `already knows` list, which is EMPTY for the",
+    "first Step of every article by construction, and the pair was rendered",
+    "anyway: the model was asked whether the passage re-introduced a term the",
+    "reader already knew, over a list of no terms, and returned `fails` with a",
+    "reason stating the opposite -- that the passage introduces both terms for",
+    "the first time. `grounds` and `introduces` already carry such an arm and",
+    "reach the same runtime branch, so this is one table entry and no second",
+    "mechanism.",
+    "",
     "`concession` is the ONE row whose field is a Packet clause rather than a Brief",
     "field, and it is declared as such: the Packet's write instruction requires a",
     "loss to be conceded in the prose, so a conceded softening is told from a silent",
@@ -171,10 +192,6 @@
       "kind": "block",
       "heading": "The Section this Step sits in",
       "after_words": "one, and the line below says which. Where it continues, the heading is already on the page and you are writing further into it: do not restate the heading's claim, and do not open a new subject."
-    },
-    "register_tests": {
-      "kind": "paragraph",
-      "opens_with": "**Plain register, operationally:**"
     },
     "thesis": {
       "kind": "bullet",
@@ -477,6 +494,10 @@
       "mode": "judged",
       "declared_block": "already_knows",
       "field": "introduces",
+      "when_declared_absent": {
+        "verdict": "holds",
+        "sentence": "this Step's Packet lists no term the reader already knows, so there is nothing for the passage to re-introduce and the question below quantifies over nothing"
+      },
       "question": "Does the passage re-introduce a term the reader already knows — explaining again what an earlier Step established? Answer `fails` if it does."
     },
     {
@@ -486,13 +507,6 @@
       "declared_block": "section_placement",
       "field": "opens_section",
       "question": "The Packet says whether this Step opens its Section or continues one. Where it CONTINUES, does the passage re-open the subject or restate the heading's claim? Answer `fails` if it does; answer `holds` where the Step opens its Section, since the item does not bind there."
-    },
-    {
-      "id": "register-tests",
-      "class": "best-effort",
-      "mode": "judged",
-      "declared_block": "register_tests",
-      "question": "Read the passage against the three register tests the Packet states, cited as its clauses. Answer `fails` if one of them is not met, naming which."
     },
     {
       "id": "figure-elements",
