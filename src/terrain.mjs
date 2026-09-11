@@ -1697,6 +1697,57 @@ function composeOwnerListing(surfaceName, text) {
 }
 
 // --------------------------------------------------------------------------
+// THE ID GATE'S BOUNDED READING (kogaki#1090).
+//
+// WHAT CHANGED AND WHY. kogaki#1087 put the whole `reports/CoTagGroups.md`
+// rendering inside the ID question, on the correct ground that a pointer is
+// rendered by whoever chooses to open it. For the `agents` tag that rendering is
+// 40,789 characters, the composed call was 42,432 bytes, and the delivery
+// channel truncated it — so the gate never rendered and the run wedged. A 40 KB
+// question is also not a reading surface an owner can use in a terminal.
+//
+// SO THE READING IS A PROJECTION OF THAT ARTIFACT, NOT A SECOND RENDERING OF
+// THE DATA. One line per Group and one per SubGroup — id, Lesson count, name —
+// read off the heading lines of the text `cotag_groups` wrote and
+// `composeOwnerListing` has already judged against the `cotag_groups` surface.
+// The claims, the coherence lines, the disclosures and the member id lists stay
+// in the artifact, which the question names as the full reading.
+//
+// PROJECTED RATHER THAN RECOMPOSED, and that is the load-bearing half. Deriving
+// the rows from the survey record again would be a second computation of the
+// grouping, free to disagree with the file the owner is being pointed at —
+// which is the two-carriers-of-one-fact shape this repository keeps removing.
+// Read off the artifact, the listing cannot say anything the artifact does not.
+//
+// A HEADING IT CANNOT REDUCE IS A REFUSAL, never a dropped row. A projection
+// that silently loses a group would send the owner a shorter grouping than the
+// one that exists, which is the failure mode of the payload this replaces
+// arriving by a quieter route.
+const COTAG_GROUP_HEADING = /^(G\d+) — (.+?) — (\d+ Lessons?)(?::.*)?$/;
+const COTAG_SUBGROUP_HEADING = /^(G\d+-\d+) — (\d+ Lessons?): .* — (.+)$/;
+const COTAG_ANY_ID_LINE = /^G\d+(?:-\d+)? — /;
+
+export function composeIdGateListing(text, artifactPath) {
+  const rows = [];
+  for (const line of String(text).split("\n")) {
+    const g = COTAG_GROUP_HEADING.exec(line);
+    if (g) { rows.push(`${g[1]} — ${g[3]} — ${g[2]}`); continue; }
+    const sg = COTAG_SUBGROUP_HEADING.exec(line);
+    if (sg) { rows.push(`${sg[1]} — ${sg[2]} — ${sg[3]}`); continue; }
+    if (COTAG_ANY_ID_LINE.test(line)) {
+      fail(`the co-tag rendering carries a Group or SubGroup heading this listing cannot reduce to an id, a count and a name: ${JSON.stringify(line)}. `
+        + "The ID gate's reading is a projection of that file's heading lines (kogaki#1090), so a heading shape it does not know is a row the owner would never see — and a listing shorter than the grouping is the failure the whole-file payload was replaced to avoid.");
+    }
+  }
+  if (!rows.length) return null;
+  return [
+    `The composed grouping — ${rows.length} row(s). Read ${artifactPath} for the claims, the coherence lines and the disclosures; this is the id, the count and the name alone.`,
+    "",
+    ...rows,
+  ].join("\n");
+}
+
+// --------------------------------------------------------------------------
 // claim / adopt — GroupClaim-first rendering, and claim pinning (SPEC.md, GroupClaim-first rendering).
 //
 // A claim composed over a member set is PINNED to that set: the record carries
@@ -1814,9 +1865,15 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   // one side makes the check silently fall back to the registry comparison,
   // which is the pre-#818 behaviour it would then report as a pass (kogaki#837).
   const out = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
-  writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
   // THE CALL IS COMPOSED HERE, BESIDE THE DECLARATION (kogaki#1028 item 1).
+  // AND IT IS COMPOSED BEFORE ANYTHING IS WRITTEN (kogaki#1090). The byte bound
+  // below has to be able to leave NO artifact behind — `gate-call.json`, the
+  // pointer, and the declaration that names them — and a composer called after
+  // the declaration write would have to unwrite one. Ordering is what makes
+  // "no gate opens" a property of where this call stands.
   const call = composeGateCall(declaration);
+  if (call.over_bound) fail(call.over_bound);
+  writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
   let callPath = null;
   if (call.tool_input) {
     callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
@@ -1897,6 +1954,34 @@ const ASK_MAX_OPTIONS = 4;
 // the keys are enumerated here and the composer reads the enumeration.
 const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing"];
 
+// THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
+// rather than written here: the number has a measured ground, the ground is
+// prose, and a constant in this file would put the number one place and its
+// argument another. Its rationale — what is measured, why, and where 8192 comes
+// from — is `gate_call_bound_note` beside it, cited here and restated nowhere.
+//
+// AN ABSENT OR MALFORMED BOUND IS A REFUSAL AT LOAD, never a default. A bound
+// that silently falls back to Infinity is the state this issue was filed from,
+// reintroduced as a fallback: PR #1088's acceptance made the ID payload as long
+// as the grouping and no bound was declared on it at all.
+const GATE_CALL_MAX_BYTES = (() => {
+  const declared = GATES_REGISTRY.gate_call_max_bytes;
+  if (!Number.isInteger(declared) || declared <= 0) {
+    throw new Error(
+      "src/gate-registry.json declares no usable `gate_call_max_bytes` — a composed gate call is delivered "
+      + "on a channel with a cap (kogaki#1081, kogaki#1090) and an undeclared bound is the state that wedged "
+      + "the 2026-09-11 run, not a permissive one");
+  }
+  return declared;
+})();
+
+// The bytes the WRITER writes, not the bytes of some other serialisation. See
+// `gate_call_bound_note`: the file is what the advance hook relays and what the
+// PreToolUse equality check compares against.
+export function gateCallBytes(toolInput) {
+  return Buffer.byteLength(JSON.stringify(toolInput, null, 2) + "\n", "utf8");
+}
+
 const GATE_CALL_FREE_TEXT_LABEL = "Answer in your own words instead";
 const GATE_CALL_FREE_TEXT_DESCRIPTION =
   "This gate offers free text. Choose this row and type the answer; the harness "
@@ -1941,16 +2026,38 @@ export function composeGateCall(declaration) {
   const question = reading
     ? `${reading}\n\n${String(declaration.question)}`
     : String(declaration.question);
-  return {
-    tool_input: {
-      questions: [{
-        question,
-        header: gateCallHeader(declaration),
-        multiSelect: false,
-        options,
-      }],
-    },
+  const tool_input = {
+    questions: [{
+      question,
+      header: gateCallHeader(declaration),
+      multiSelect: false,
+      options,
+    }],
   };
+  // THE BOUND, CHECKED OVER THE WHOLE COMPOSED CALL (kogaki#1090). Over the
+  // reading alone it would miss a question or an option set that grew, and the
+  // channel does not care which field the bytes came from.
+  const bytes = gateCallBytes(tool_input);
+  if (bytes > GATE_CALL_MAX_BYTES) {
+    return {
+      bytes,
+      // A SEPARATE ARM FROM `unavailable`, and the separation is the point.
+      // `unavailable` writes an open-gate pointer and leaves the gate
+      // renderable from the declaration's own options; there is no smaller
+      // rendering of an oversized payload, so this writes nothing and ends the
+      // run. A refusal at compose is loud; a truncated payload at render is the
+      // silent failure the 2026-09-11 run showed.
+      over_bound: `${declaration.id} composes a ${bytes}-byte gate call and `
+        + `src/gate-registry.json declares a bound of ${GATE_CALL_MAX_BYTES} bytes. `
+        + "No declaration, no gate-call.json and no open-gate pointer were written, and no gate is open. "
+        + "The call is delivered on a PostToolUse hook's additionalContext, which truncates above the "
+        + "bound, and the open-gate interval refuses the Read that would fetch the remainder — so an "
+        + "oversized call reaches the owner as a fragment nothing in the session can complete "
+        + "(kogaki#1028, kogaki#1081, kogaki#1090). The reading this gate carries belongs in its written "
+        + "artifact, which the question names, rather than inside the question text.",
+    };
+  }
+  return { tool_input, bytes };
 }
 
 // --------------------------------------------------------------------------
@@ -8048,8 +8155,15 @@ const GATE_WORK = {
     // path is repo-relative by `relFromRepo`, which falls back to an ABSOLUTE
     // path for a rendering written outside the tree, and `resolve` reads both.
     const artifact = written ? resolve(repoRoot(), written.path) : null;
+    // THE GUARD IS UNCHANGED AND THE PAYLOAD IS BOUNDED (kogaki#1090). The
+    // artifact's bytes still pass `composeOwnerListing` against the
+    // `cotag_groups` surface — the reading carried to the owner is a projection
+    // of text that was judged, not of text nobody grammared — and what rides the
+    // declaration is the projection rather than the whole file.
     const listing = artifact && existsSync(artifact)
-      ? composeOwnerListing("cotag_groups", readFileSync(artifact, "utf8"))
+      ? composeIdGateListing(
+        composeOwnerListing("cotag_groups", readFileSync(artifact, "utf8")),
+        written.path)
       : null;
     return {
       options: [],

@@ -1122,6 +1122,61 @@ PY
     bad "$label: the ID gate's call does not carry the composed grouping above an owner-vocabulary question (kogaki#1087 acceptance 4)"
   fi
 
+  # AND IT IS BOUNDED, AND THE READING IS ONE ROW PER GROUP (kogaki#1090). The
+  # whole `reports/CoTagGroups.md` rendering rode inside the question text from
+  # kogaki#1087 until this issue; for the `agents` tag that made a 42,432-byte
+  # call, the delivery channel truncated it, and the live run of 2026-09-11
+  # wedged with the gate unrendered. Both halves are asserted here: the declared
+  # byte bound over the call AS WRITTEN, and the row shape that is what makes a
+  # real grouping fit under it.
+  #
+  # THE BOUND IS READ FROM THE REGISTRY, never typed here. A number restated in a
+  # check is a second declaration of it, free to agree with the runtime while
+  # both disagree with the channel.
+  if python3 - "$D" "$root" <<'BOUNDPY'
+import json, re, sys, pathlib
+d, root = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+reg = json.load(open(root / "src/gate-registry.json"))
+bound = reg.get("gate_call_max_bytes")
+if not isinstance(bound, int) or isinstance(bound, bool) or bound <= 0:
+    print("src/gate-registry.json declares no usable gate_call_max_bytes:", repr(bound),
+          file=sys.stderr); sys.exit(1)
+size = (d / "terrain-id-selection.gate-call.json").stat().st_size
+if size > bound:
+    print("the written gate call is", size, "bytes against a declared bound of", bound,
+          file=sys.stderr); sys.exit(1)
+listing = json.load(open(d / "terrain-id-selection.run-declaration.json"))["groups_listing"]
+lines = listing.split("\n")
+head, rows = lines[0], [l for l in lines[1:] if l.strip()]
+if "CoTagGroups.md" not in head:
+    print("the listing's header does not name the full reading:", head[:160], file=sys.stderr); sys.exit(1)
+ROW = re.compile(r"^G\d+(?:-\d+)? \u2014 \d+ Lessons? \u2014 .+$")
+for l in rows:
+    if not ROW.match(l):
+        print("a listing row is not <id> - <count> - <name>:", repr(l), file=sys.stderr); sys.exit(1)
+# NOTHING ELSE PER ROW. The claims, the coherence lines, the disclosures and the
+# member id lists are what the artifact is for, and carrying them here is the
+# payload this bound removes arriving by the same route.
+for marker in ("in common:", "DISCLOSURE \u2014", "Cover:"):
+    if marker in listing:
+        print("the listing carries artifact material it should have left behind:", marker,
+              file=sys.stderr); sys.exit(1)
+# AND IT DROPS NOTHING. Every Group and SubGroup heading the artifact renders has
+# a row; a projection that silently lost one would show the owner a shorter
+# grouping than the one that exists.
+text = (root / "reports/CoTagGroups.md").read_text()
+want = set()
+for l in text.split("\n"):
+    m = re.match(r"^(G\d+(?:-\d+)?) \u2014 ", l)
+    if m: want.add(m.group(1))
+got = {l.split(" \u2014 ")[0] for l in rows}
+if got != want:
+    print("the listing's ids do not match the artifact's:", sorted(want ^ got), file=sys.stderr); sys.exit(1)
+BOUNDPY
+  then pass; else
+    bad "$label: the ID gate's call is not under the registry's declared byte bound with one id/count/name row per Group and SubGroup (kogaki#1090)"
+  fi
+
   # --- ACCEPTANCE 2. The non-conformant stub: the run fails after the declared
   # retry count, and the failure names the refusal.
   local D2="$root/run-bad"
@@ -2345,6 +2400,113 @@ PY
 build_tree "$SCRATCH/reuse"
 drive_reuse "the reuse tree" "$SCRATCH/reuse"
 
+# ---- A GATE CALL OVER THE DECLARED BOUND REFUSES THE ADVANCE, AND OPENS NO
+# GATE (kogaki#1090 acceptance 2).
+#
+# WHAT THIS IS FOR. The bound asserted above is measured on a grouping that fits
+# it, which says nothing about what happens to one that does not. The live
+# failure this issue is filed from is the over-bound case, and before this member
+# it had no fixture: the payload was simply written, delivered as a fragment, and
+# the run wedged with no refusal anywhere.
+#
+# THE SURVEY IS WIDE IN ITS NAMES RATHER THAN IN ITS GROUPS, and that is a cost
+# decision rather than a shape one. The bounded listing spends about twenty bytes
+# of structure per row, so reaching 8 KB by row COUNT would mean a few hundred
+# co-tag groups and a judge call for each; four groups whose co-tag names are
+# long reach the same total in four calls. What is being exercised is the
+# composer's measurement of the whole call, which does not care which field the
+# bytes came from.
+BOUND_LESSONS=$(python3 - <<'BOUNDFIXPY'
+import json
+# 260 co-tags with SHORT names, one member each. The width is in the ROW COUNT
+# rather than in the names, and that is forced rather than chosen: a co-tag is a
+# tag, so a long co-tag name lands in the TAG listing too, and a survey made wide
+# by its names trips the same bound one gate earlier -- at TAG_SELECTION, which
+# would exercise the bound over a different gate's payload than the one this
+# issue is about. Short names keep the tag listing at about 5 KB while 260
+# grouping rows put the ID listing over 8 KB.
+lessons = []
+for i in range(260):
+    lessons.append({"slug": "bf%03d" % i, "tags": ["fixture", "c%03d" % i]})
+print(json.dumps(lessons))
+BOUNDFIXPY
+)
+
+drive_bound() {                      # drive_bound <label> <tree>
+  local label=$1 root=$2
+  export KOGAKI_FIXTURE_LESSONS="$BOUND_LESSONS"
+  local B="$root/run-bound" drove=0
+  # UNSET ON EVERY ARM. `drive_wide` returns early when the start act writes no
+  # declaration, and an override still exported at that point is inherited by
+  # every tree built after this one -- which is a fixture leaking into cases that
+  # have nothing to do with it.
+  drive_wide "$label" "$root" "$B" judge-conformant "$root/adv-bound.out" && drove=1
+  unset KOGAKI_FIXTURE_LESSONS
+  [ "$drove" = "1" ] || return
+
+  # THE REFUSAL REACHES THE SESSION. A PostToolUse hook's stderr reaches the
+  # transcript nowhere (kogaki#1085), so the assertion is over the
+  # `additionalContext` the hook emits on stdout and not over the note beside it.
+  if python3 - "$root/adv-bound.out" "$root" <<'BOUNDADVPY'
+import json, re, sys, pathlib
+out = pathlib.Path(sys.argv[1]).read_text()
+bound = json.load(open(pathlib.Path(sys.argv[2]) / "src/gate-registry.json"))["gate_call_max_bytes"]
+blocks = []
+for line in out.splitlines():
+    line = line.strip()
+    if not line.startswith("{"):
+        continue
+    try:
+        payload = json.loads(line)
+    except Exception:
+        continue
+    ctx = (payload.get("hookSpecificOutput") or {}).get("additionalContext")
+    if ctx: blocks.append(ctx)
+if not blocks:
+    print("the advance emitted no additionalContext at all:", out[-400:], file=sys.stderr); sys.exit(1)
+ctx = "\n".join(blocks)
+if "refused by the executor" not in ctx:
+    print("the additionalContext carries no executor refusal:", ctx[:400], file=sys.stderr); sys.exit(1)
+if str(bound) not in ctx:
+    print("the refusal does not name the declared bound", bound, ":", ctx[:600], file=sys.stderr); sys.exit(1)
+if not re.search(r"terrain-id-selection composes a \d+-byte gate call", ctx):
+    print("the refusal does not name the gate and the size it composed:", ctx[:600],
+          file=sys.stderr); sys.exit(1)
+BOUNDADVPY
+  then pass; else
+    bad "$label: an ID gate call over the declared bound did not refuse the advance with a typed reason on additionalContext (kogaki#1090 acceptance 2). The advance said: $(tail -4 "$root/adv-bound.out" | tr '\n' ' ')"
+  fi
+
+  # AND NOTHING WAS WRITTEN FOR IT. A refusal that still left a call, a
+  # declaration or an open-gate pointer behind would leave the session under the
+  # exclusivity hook with a gate it can neither render nor close.
+  if python3 - "$root/run-bound" "$root/open-gates" <<'BOUNDARTPY'
+import json, sys, pathlib
+d, gates = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+for name in ("terrain-id-selection.gate-call.json", "terrain-id-selection.run-declaration.json"):
+    if (d / name).exists():
+        print("the refused advance wrote", name, file=sys.stderr); sys.exit(1)
+for f in gates.glob("*.json"):
+    ptr = json.load(open(f))
+    if ptr.get("gate_id") == "terrain-id-selection" and str(d.resolve()) in str(ptr.get("capture_path")):
+        print("the refused advance left an open-gate pointer:", ptr, file=sys.stderr); sys.exit(1)
+BOUNDARTPY
+  then pass; else
+    bad "$label: an over-bound ID gate call left a gate-call.json, a declaration or an open-gate pointer behind — the refusal is supposed to open no gate (kogaki#1090 acceptance 2)"
+  fi
+
+  # AND THE CO-TAG FILE IS STILL THERE. The refusal is at the GATE and not at the
+  # write: the grouping was composed and written, and what is refused is putting
+  # it inside a question. A run that lost the artifact too would have nothing for
+  # the owner to read at all.
+  if [ -f "$root/reports/CoTagGroups.md" ]; then pass; else
+    bad "$label: the over-bound refusal also cost the co-tag rendering — the artifact is written before the gate and is not what the bound refuses"
+  fi
+}
+
+build_tree "$SCRATCH/bound"
+drive_bound "the bound tree" "$SCRATCH/bound"
+
 # ---- THE JUDGE BINARY IS THE RUN'S, NOT THE FIRING SESSION'S (kogaki#1076).
 #
 # WHAT THESE THREE CASES REACH THAT NOTHING ELSE DOES. Every case above stubs
@@ -2507,7 +2669,7 @@ build_tree "$SCRATCH/binary-red" --reduced
 drive_binary "the reduced binary-resolution tree" "$SCRATCH/binary-red"
 
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and the terminal with no third question owed, its record naming BOTH owner artifacts, and the ID gate's own call carrying the composed grouping above an owner-vocabulary question (kogaki#1087); a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073); and the judge binary is resolved ONCE by the session that starts the run -- a failing shim ahead of a working install on PATH resolves to the working one, a PATH offering only the shim refuses before the survey and names it, and an advance fired from a session whose PATH resolves the shim first still judges through the recorded path and pins its version (kogaki#1076); and a hook-driven run that enters a SubGroup ID THE DISPLAY PRINTED reaches thesis_candidates composing over that SubGroup's members alone, rather than refusing an id it had just offered (kogaki#1085)"
+  note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and the terminal with no third question owed, its record naming BOTH owner artifacts, and the ID gate's own call carrying the composed grouping above an owner-vocabulary question (kogaki#1087); a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073); and the judge binary is resolved ONCE by the session that starts the run -- a failing shim ahead of a working install on PATH resolves to the working one, a PATH offering only the shim refuses before the survey and names it, and an advance fired from a session whose PATH resolves the shim first still judges through the recorded path and pins its version (kogaki#1076); and a hook-driven run that enters a SubGroup ID THE DISPLAY PRINTED reaches thesis_candidates composing over that SubGroup's members alone, rather than refusing an id it had just offered (kogaki#1085); and the ID gate's call is under the byte bound src/gate-registry.json declares, carrying one id/count/name row per Group and SubGroup with the full reading named rather than inlined, while a grouping whose listing exceeds that bound refuses the advance with a typed reason on additionalContext and writes no call, no declaration and no open-gate pointer (kogaki#1090)"
   note "not asserted here: that the PINNED MODEL is reachable. The judge binary is stubbed through KOGAKI_JUDGE_CLI, so these cases bind the executor's call, parse, retry and refusal — never the model's answer, which is not this repository's to assert."
 fi
 exit "$fail"
