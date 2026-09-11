@@ -6126,6 +6126,96 @@ async function runSelfTest() {
         .some((m) => m.step_id === s && m.item === "grounds-unused")));
   }
 
+  // kogaki#1098 — `register-tests` LEFT THE ITEM TABLE, and the id is UNKNOWN
+  // rather than merely unlisted. It was the last prose lint standing: its
+  // declared side was the Packet's write-instruction paragraph and its reverse
+  // side the passage itself, so no Reverse Outline field was involved at all,
+  // and in the first full run it failed on seven of eight Steps — every time on
+  // "one relation per sentence" — and sent nothing to correction. The table
+  // entry was the whole carrier, so these assertions run against the surfaces a
+  // CALLER meets: the rendered comparison, the run record, and `compare
+  // --verdicts`. A case reading only the JSON would pass on a runtime that
+  // still knew the id from somewhere else.
+  {
+    const t1098 = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    ok("#1098: `register-tests` is absent from the item table",
+      !t1098.items.some((i) => i.id === "register-tests"));
+    ok("#1098: and its Packet block is absent from `packet_blocks`",
+      !Object.prototype.hasOwnProperty.call(t1098.packet_blocks, "register_tests"));
+    ok("#1098: the run renders no join Packet for it, and records no row",
+      !(baseRecord.model_calls || []).some((c) => c.item === "register-tests")
+      && !(baseRecord.results || []).some((x) => x.item === "register-tests")
+      && !(baseRecord.mechanical || []).some((m) => m.item === "register-tests"));
+    ok("#1098: and no comparison line names it",
+      ![...baseLines.keys()].some((k) => k.endsWith("/register-tests")));
+    // THE UNKNOWN-ID ASSERTION IS AT THE SURFACE. A recorded verdict naming it
+    // is refused as a pair the run never asked about — which is what "unknown"
+    // means to a caller, and is a stronger statement than an absence this case
+    // could read out of a file either way.
+    const f1098 = join(root, "verdicts-register-tests.json");
+    writeFileSync(f1098, JSON.stringify({ verdicts: [{ step_id: "a1", item: "register-tests",
+      verdict: "holds", reason: "the passage reads plainly", model: JUDGE_MODEL }] }) + "\n");
+    const r1098 = drive("compare", "--verdicts", f1098);
+    ok("#1098: and a verdict naming it is refused as a pair the run never asked about",
+      r1098.status === 1
+      && /`a1\/register-tests`, which this run did not ask about/.test(r1098.stderr),
+      (r1098.stderr || "").split("\n").slice(0, 2).join(" | "));
+  }
+
+  // kogaki#1098 — `already-knows` ON AN EMPTY DECLARED SIDE IS THE HARNESS'S.
+  // The Packet's `already knows` list is empty for the FIRST Step of every
+  // article by construction, and the pair was rendered anyway: the model was
+  // asked whether the passage re-introduced a term the reader already knew,
+  // over a list of no terms, and on the first full run it answered `fails` with
+  // a reason stating the opposite — that the passage introduces both terms for
+  // the first time. The arm is the one `grounds` and `introduces` already
+  // declare, reached through the same runtime branch, so this is one table
+  // entry and no second mechanism.
+  //
+  // THE CASE'S OWN ADMISSION, in the form its #1016 sibling declares:
+  //   - LOOP POSITION: `pre-push`, the tier check-review-draft-runtime.sh
+  //     already sits at. It adds no drive of its own — every assertion reads the
+  //     base run captured above — so nothing here argues the member earlier or
+  //     later in the loop.
+  //   - BUDGET: no new spawn, so the member's declared `runtime_ms` is unmoved.
+  //   - REMOVAL SIGNAL: the `already-knows` row leaves the item table, or its
+  //     declared side stops being able to be empty. It is NOT retired by a
+  //     successor that merely renders fewer Packets: the property is that ZERO
+  //     calls are made for this field on such a Step, and a pass that never
+  //     counts them cannot witness it.
+  {
+    const armT = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    const arm = armT.items.find((i) => i.id === "already-knows").when_declared_absent;
+    ok("#1098: `already-knows` declares a when_declared_absent arm with verdict `holds`",
+      !!arm && arm.verdict === "holds"
+      && typeof arm.sentence === "string" && /lists no term/.test(arm.sentence),
+      JSON.stringify(arm || null));
+    // THE COUNT IS ZERO FOR THE STEP WHOSE LIST IS EMPTY AND ONE FOR EACH STEP
+    // WHOSE LIST IS NOT, asserted over the whole run: a case reading only a1's
+    // row would pass on a run that had stopped asking about a2 and a3 as well,
+    // which is a different defect wearing the same green.
+    const aCalls = (baseRecord.model_calls || []).filter((c) => c.item === "already-knows");
+    ok("#1098: the first Step, whose `already knows` list is empty, costs ZERO model calls",
+      !aCalls.some((c) => c.step_id === "a1"), aCalls.map((c) => c.step_id).join(", "));
+    ok("#1098: while the Steps that DO declare a known term still cost one each",
+      ["a2", "a3"].every((s) => aCalls.filter((c) => c.step_id === s).length === 1),
+      aCalls.map((c) => c.step_id).join(", "));
+    // THE ANSWER IS THE TABLE'S, IN THE TABLE'S OWN WORDS — read from
+    // review-items.json rather than transcribed here, so an amended sentence
+    // reaches this case instead of sliding past it.
+    const aRow = (baseRecord.results || [])
+      .find((x) => x.step_id === "a1" && x.item === "already-knows");
+    ok("#1098: and a1's row is the declared-absence arm, verdict and sentence both",
+      !!aRow && aRow.decided_by === "harness" && aRow.verdict === arm.verdict
+      && aRow.reason === arm.sentence, aRow ? JSON.stringify(aRow).slice(0, 220) : "no row");
+    ok("#1098: it still renders a comparison line like any other row",
+      /\sholds\s/.test(baseLines.get("a1/already-knows") || ""),
+      baseLines.get("a1/already-knows") || "(no line)");
+    ok("#1098: and the run never asks a model about the row the table decided",
+      !(baseRecord.model_calls || [])
+        .some((c) => c.step_id === "a1" && c.item === "already-knows"));
+  }
+
   // ROUND 1, FINDING 3: the Section block's declared side is the RENDERED VALUE,
   // never the template's instruction prose. The anchor used to stop one sentence
   // short of its paragraph, so the sentence after it was prepended to what the
@@ -6608,8 +6698,17 @@ async function runSelfTest() {
     // arm of the bound assertable on its own: a successor that had also been
     // corrected would be in the bound twice and the case could not tell which
     // arm put it there.
+    //
+    // AND s1 INTRODUCES A TERM (kogaki#1098), so the Steps after it arrive
+    // KNOWING one. `already-knows` is the successor arm's one item and this
+    // drive's best-effort vehicle, and it now declares a `when_declared_absent`
+    // arm: a Brief introducing nothing leaves every Step's `already knows` list
+    // empty, the Harness decides all four rows with no model call, and both
+    // properties would go on reporting green over a pass that had stopped
+    // asking. The term is declared once, on the Step no correction touches.
     const STEPS = [
-      { id: "s1", move: "open_the_claim", opens: "The first heading" },
+      { id: "s1", move: "open_the_claim", opens: "The first heading",
+        introduces: "tide table — a record of measurements somebody took on days somebody chose" },
       { id: "s2", move: "carry_the_claim", opens: null },
       { id: "s3", move: "open_the_claim", opens: "The second heading" },
       { id: "s4", move: "carry_the_claim", opens: null },
@@ -6627,6 +6726,7 @@ async function runSelfTest() {
       "## Sequence", "",
       ...STEPS.flatMap((s) => ["```step", `step_id: ${s.id}`, `move: ${s.move}`,
         ...(s.opens ? [`opens_section: ${s.opens}`] : []),
+        ...(s.introduces ? [`introduces: ${s.introduces}`] : []),
         `purpose: the job ${s.id} does.`,
         `reader_state_before: the reader arrives at ${s.id} holding what came before.`,
         `reader_state_after: the reader leaves ${s.id} able to say what it settled.`,
@@ -7003,6 +7103,16 @@ async function runSelfTest() {
       // residue: the class is the consequence here exactly as it is at `close`,
       // and a residue list counting every fail would hand the owner a question
       // the design already answered.
+      //
+      // ITS VEHICLE IS WHY THE FIXTURE'S BRIEF INTRODUCES A TERM (kogaki#1098).
+      // The row is `already-knows`, which is also the successor arm's one item,
+      // and that row now declares a `when_declared_absent` arm. The Brief used
+      // to declare no `introduces:` at all, so every Step's `already knows`
+      // list was empty and the Harness would decide all four rows with no model
+      // call — taking this case's vehicle AND the successor arm's only judged
+      // pair with it, silently, while both cases went on reporting green
+      // against a pass that had stopped asking. s1 introduces one term instead,
+      // so s2 through s4 arrive knowing it and the pair is judged.
       ok("and a BEST-EFFORT item failing in the same pass does not",
         failed.some((r) => r.item === "already-knows")
         && !/s4\/already-knows/.test(back.stdout.slice(back.stdout.indexOf("residue —"))));
