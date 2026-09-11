@@ -112,9 +112,9 @@ out of a row whose other pairs a model answered. The truth per pair is always in
 
 The layout is the Harness's contract, not a convention:
 
-    runs/review/<slug>/pass-1/{outline-input,outline,join,ledger,corrections,
-                               cold-reader.md,join.json}
-    runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
+    runs/review/<slug>/pass-1/{outline-input,outline,join,comparison,ledger,
+                               corrections,cold-reader.md,join.json}
+    runs/review/<slug>/pass-2/{outline-input,outline,join,comparison,check.json}
     runs/review/<slug>/snapshots/     before/after per corrected Step
     runs/review/<slug>/run.json
 
@@ -131,6 +131,37 @@ pass one's reading of the ORIGINAL Draft was overwritten in place — and `runs/
 is gitignored, so nothing else held a copy. The surviving verdicts pointed at
 readings that no longer existed. A rule saying "do not overwrite" would be prose
 where a refusal belongs.
+
+**`comparison/` is the readable half of `join.json`, and the Harness writes it.**
+One file per Step plus `comparison/sections.md`, written at the moment each pass
+completes. Every line is one pair and carries the item, its class, its mode, the
+verdict, the span, who decided it — a model id, or the Harness — the join Packet
+the verdict was given on, and the **consequence in words**:
+
+    - reader-state-after | preserved | judged | fails | lines 12-18 |
+      decided by <model id> | sent to correction |
+      packet: pass-1/join/s2.reader-state-after.md | <the reason, verbatim>
+
+The four consequence words are a closed set — `sent to correction`, `reported
+only`, `carried from pass one`, `decided without a model call` — and a
+Harness-decided line says so where the Packet pointer goes, naming the pass's
+join record as the place that says how it was decided instead.
+
+**Why it exists.** The surface a person debugs from mid-run was the verdicts file
+they handed in, which carries the model's answer and nothing about what the
+answer means: not the item's class, and not whether the fail sends the Step to
+correction, rides along, or is reported only. Reading `pass-1/verdicts/s1.json`
+alone it was impossible to tell why a Step with three fails was never corrected —
+all three were best-effort, and no surface said so. While the best-effort class
+exists, a file recording both the answer and its consequence is mandatory, and it
+is the Harness that writes it.
+
+A Section line's consequence is its **route's**, never its class's: ReviewDraft
+corrects at Step granularity only, so a preserved Section fail sends nothing to
+correction by itself — it localizes onto a Step, or it reaches the owner with no
+target at all, and `comparison/sections.md` ends with where each fail was routed
+and why. Pass two re-judges no Section pair, so its `sections.md` is pass one's,
+carried, and every line of it says so.
 
 `snapshots/` and `run.json` stay at the root: a snapshot pair spans the
 correction that separates two passes, and the run record is the one file every
