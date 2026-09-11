@@ -698,9 +698,6 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
   const figureBlock = step.figure ? renderFigurePassage(step) : "";
   const figureFirst = step.figure ? figureBeforePassage(step) : false;
   const fieldLines = RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`);
-  const withheld = NOT_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.why}`);
-  const cmd = `node src/review-draft.mjs outline --draft ${relative(process.cwd(), draft.path) || draft.path} `
-    + `--step ${step.step_id} --file <reverse-outline.md>`;
 
   // THE FIGURE'S ASK RIDES THE SAME INPUT AND IS OWED ONLY WHERE THE READER MET
   // ONE. A figureless Step is not asked for a figure block and is refused one:
@@ -708,9 +705,6 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
   // annotating harmlessly, it is a reading of nothing reaching the comparison.
   const figureFieldLines = step.figure
     ? FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`)
-    : [];
-  const figureWithheld = step.figure
-    ? FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.why}`)
     : [];
   const figureAsk = step.figure
     ? ["## The figure you met, in its own terms",
@@ -720,10 +714,6 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
       "record's own fields:",
       "",
       ...figureFieldLines,
-      "",
-      "You are NOT asked for these, and a block carrying one is refused:",
-      "",
-      ...figureWithheld,
       "",
       "Reply with a SECOND fenced block, after the `step` block:",
       "",
@@ -755,8 +745,8 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "say what the passage does say rather than what would make it come out well.",
     "",
     "Your outline is evidence about **this prose**. Do not reason about what the",
-    "author was probably told — an outline that agrees with the Brief because it guessed at the",
-    "Brief measures nothing.",
+    "author was probably told — an outline that guessed at what produced the passage measures",
+    "nothing.",
     "",
     "Write no verdicts and no advice. Nothing here asks whether the passage is good.",
     "",
@@ -767,13 +757,6 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "`introduces`, `opens_section` and `concession` are each legitimately absent — a passage that",
     "introduces nothing, continues a section, or concedes nothing carries no such line. `grounds`",
     "is not: every passage asserts something.",
-    "",
-    "## What you are NOT asked for, and why",
-    "",
-    ...withheld,
-    "",
-    "A block carrying one of these is refused rather than read: a field you could not have read",
-    "off the passage is an inference, and the comparison downstream would treat it as a reading.",
     "",
     "## The form",
     "",
@@ -793,8 +776,6 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "concession: <a loss the passage concedes in so many words>",
     "```",
     "````",
-    "",
-    `Then file it: \`${cmd}\``,
     "",
     figureAsk,
     "## The article before this passage",
@@ -963,11 +944,11 @@ export const RECONSTRUCTIBLE_FIELDS = [
   // an invention reaching the comparison through the one field the blind half
   // exists to keep clean.
   { name: "introduces", kind: "repeated-line",
-    definition: "one `introduces: <term>` line per term this passage introduces to the reader, "
-      + "in the Brief's own grammar. Where the passage also says what the term MEANS, write "
-      + "`introduces: <term> — <anchor>` and let the anchor be that meaning, in the passage's own "
-      + "words; where it does not, write the term bare rather than inventing one. A passage that "
-      + "introduces nothing carries no line." },
+    definition: "one `introduces: <term>` line per term this passage introduces to the reader. "
+      + "There are two forms and both are accepted: write the term BARE, or — where the passage "
+      + "also says what the term MEANS — write `introduces: <term> — <anchor>` and let the anchor "
+      + "be that meaning, in the passage's own words. Where the passage anchors nothing, write the "
+      + "term bare rather than inventing an anchor. A passage that introduces nothing carries no line." },
   { name: "opens_section", kind: "optional-line",
     definition: "the section title, where this passage reads as OPENING a new section; omitted where it continues one." },
   { name: "concession", kind: "repeated-line",
@@ -5340,6 +5321,52 @@ async function runSelfTest() {
   ok("open renders the FIRST Reverse Outline input", /first Reverse Outline input: .*outline-input[\/\\]a1\.md/.test(rOpen.stdout));
   ok("open writes a run record", existsSync(join(WS, "run.json")));
 
+  // THE PLAN'S VOCABULARY IS A DATA LIST, NOT A HAND SWEEP (kogaki#1099 acceptance 1).
+  // The Blind Reader is handed the passage, the article before it, the seven
+  // fields, its role and constraints, and the answer form. Every term below
+  // names something a reader who has only read the article cannot have heard
+  // of, so one appearing in the rendered input is a boundary failure rather
+  // than a wording quibble — and because the set is written down, the leak is
+  // mechanically detectable. A term coined for the plan joins this list in the
+  // act that coins it, which is what keeps the check from being a grep someone
+  // ran once. The list is a CHEAP FIRST PASS and not the criterion: it catches
+  // coined identifiers and cannot catch a sentence that is internal in meaning
+  // while made of ordinary words.
+  //
+  // AND IT IS SCANNED OVER THE HARNESS'S HALF OF THE FILE, NEVER THE WHOLE OF
+  // IT. The rendered input is the Harness's own text followed by the article's,
+  // and an article about this pipeline quotes the pipeline's words as its own
+  // subject matter — this fixture's first passage says "in the path's recorded
+  // order" — so a scan over the whole file would refuse the Draft for what the
+  // Draft is about. The split is at the heading that opens the quoted half, so
+  // everything the Harness wrote about the ask is scanned and nothing the
+  // author wrote is.
+  const PLAN_VOCABULARY = [
+    [/\bBriefs?\b/i, "Brief"],
+    [/\bMoves?\b/i, "Move"],
+    [/\bStrands?\b/i, "Strand"],
+    [/\bcomposer\b/i, "composer"],
+    [/\blibrary entry\b/i, "library entry"],
+    [/\bpaths?\b/i, "path"],
+  ];
+  // The bound is stated rather than left to be discovered: what follows the
+  // split is the article, the passage and the passage's own two-line heading,
+  // so a term coined into THAT heading is outside this scan. It is the price of
+  // not refusing a Draft for its subject matter, and the Harness text it gives
+  // up is two lines long.
+  const harnessHalf = (text) => text.split("## The article before this passage")[0];
+  const planLeaks = (text) =>
+    PLAN_VOCABULARY.filter(([re]) => re.test(harnessHalf(text))).map(([, n]) => n);
+  // THE SCAN IS EXERCISED BOTH WAYS. An absence catcher that never fires is
+  // indistinguishable from one that has nothing to catch, and every assertion
+  // it carries below is an absence — so a leak is planted here and must be
+  // named, and the article's own half must NOT be.
+  ok("#1099: the plan-vocabulary scan names a leak planted in the Harness's half",
+    planLeaks("the Brief's own Move\n## The article before this passage\nclean")
+      .join(",") === "Brief,Move");
+  ok("#1099: and reads none of the article's own half, which may quote the pipeline",
+    planLeaks("clean\n## The article before this passage\nthe Brief named a Move on the path").length === 0);
+
   // 8 — THE REVERSE OUTLINE INPUT IS BLIND, and this is the case that binds it. The input
   // carries the prose and nothing from the Packet; a token only the Packet has
   // must not appear.
@@ -5347,7 +5374,19 @@ async function runSelfTest() {
     const input = readFileSync(join(WS, "pass-1", "outline-input", "a1.md"), "utf8");
     ok("the Reverse Outline input carries the Step's prose", input.includes("The first passage opens the claim"));
     ok("the Reverse Outline input carries NOTHING from the Packet", !input.includes("PACKETONLYTOKEN"));
+    // kogaki#1099 ACCEPTANCE 1 — three absences over the same rendered file.
+    ok("#1099: the rendered input carries no withheld-field section",
+      !/NOT asked for/.test(input));
+    ok("#1099: nor the filing command, which is an instruction to the session and not to the reader",
+      !/node src\/review-draft\.mjs outline/.test(input) && !/Then file it/.test(input));
+    ok("#1099: nor any of the plan's vocabulary", planLeaks(input).length === 0, planLeaks(input).join(", "));
     ok("the Reverse Outline input names the draft line range it quoted", /draft lines \d+–\d+/.test(input));
+    // kogaki#1099 ACCEPTANCE 3 — `introduces` states BOTH line forms in its own
+    // terms. The bare form is what a reader supplies for a term the passage
+    // anchors nowhere, and naming only the anchored form would have them invent
+    // one; the definition used to reach for the Brief's grammar to say it.
+    ok("#1099: the `introduces` definition states the bare form and the anchored one",
+      /write the term BARE/.test(input) && /introduces: <term> — <anchor>/.test(input));
     ok("the Reverse Outline input tells the reviewer not to reason about the input",
       /Do not reason about what the\s+author was probably told/.test(input));
     ok("and forbids verdicts and advice outright (kogaki#871)",
@@ -8259,13 +8298,23 @@ async function runSelfTest() {
 
     // THE ASK IS CONDITIONAL IN BOTH DIRECTIONS (kogaki#1018). A figure Step is
     // asked for the figure block in the RECORD's field names; a figureless Step
-    // is asked for nothing of the sort, and the withheld fields are named there
-    // rather than merely omitted.
+    // is asked for nothing of the sort.
     ok("#1018: the input asks for the figure in the record's own fields",
       /```figure/.test(input) && /`element` —/.test(input)
       && /`caption` —/.test(input) && /`position` —/.test(input));
-    ok("#1018: and names the record fields it refuses, with why",
-      /`kind` —/.test(input) && /`relations` —/.test(input) && /`emphasis` —/.test(input));
+    // THE REFUSED FIELDS ARE NO LONGER NAMED HERE, AND THIS CASE IS THE #1018
+    // ONE INVERTED (kogaki#1099, owner 2026-09-11). #1018 rendered the figure's
+    // withheld list "rather than merely omitted"; the later ruling is that a
+    // reader who has never heard of a field cannot supply it, so the list
+    // creates the knowledge it withholds — and the refusal it announced is the
+    // parser's, which works without the announcement. The declaration stays as
+    // that refusal list and is asserted below at `outline`; what goes is the
+    // rendering, exactly as acceptance 2 keeps NOT_RECONSTRUCTIBLE_FIELDS.
+    ok("#1099: and names none of the record fields it refuses — the announcement created the knowledge it withheld",
+      !/`kind` —/.test(input) && !/`relations` —/.test(input) && !/`emphasis` —/.test(input)
+      && !/NOT asked for/.test(input));
+    ok("#1099: so a figure Step's input carries none of the plan's vocabulary either",
+      planLeaks(input).length === 0, planLeaks(input).join(", "));
     ok("#1018: while a figureless Step's input asks for no figure block at all",
       !readOrEmpty(join(WS, "pass-1", "outline-input", "a1.md")).includes("```figure"));
 

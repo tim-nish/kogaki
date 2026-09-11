@@ -256,9 +256,11 @@ the rendered block could say this":
 | `relations` | **refused** | the relation a form holds between its roles belongs to the form, read out of `src/figure-kinds.json` |
 | `emphasis` | **refused** | which element the figure leans on is recorded beside the block; a rendering does not ask its reader to separate that out |
 
-A refused field is **refused rather than merely unasked**, for the reason the
+A refused field is **refused rather than merely dropped**, for the reason the
 passage half gives: an unasked field a reader supplies anyway is an inference
-that reaches the comparison.
+that reaches the comparison. The refusal lives in the parser and **is not
+rendered into the input** — this table is the record of the disposition, not a
+description of a section the reader meets.
 
 **A Step whose trace carries a figure gains five rows** — the record's elements
 against the ones the reader could name, its caption against what the reader
@@ -341,6 +343,15 @@ nothing, which is why the Harness renders prose alone — it carries no thesis, 
 grounds, no Move, no reader states and no term list — and refuses an outline for
 a Step whose input it did not render.
 
+**The input is fixed, and it is fixed by what a reader can have (kogaki#1099).**
+It carries the passage, the article before it, the seven fields with their
+definitions, the reader's role and constraints, and the answer form — and
+nothing else. In particular it names none of the fields the parser refuses, and
+it carries no filing command: naming a field a reader has never heard of creates
+the knowledge it withholds, and the command is an instruction to the session
+rather than to the reader. The refusal it used to announce is the parser's and
+works without the announcement.
+
 **And it sees the figure the reader saw.** For a Step whose trace carries one,
 the Reverse Outline input quotes the rendered block — the fence and the caption,
 sliced from the Draft at the range the trace records, with its own line numbers,
@@ -369,7 +380,10 @@ every refusal names what it saw. `move`, `materials`, `rationale`, `depends_on`,
 `bridges` and `figure` are declared **not reconstructible** and are **refused
 rather than dropped**: a field the reader could not have read off the passage is
 an inference, and dropping it silently would leave the inference having steered
-the rest of the outline with no trace.
+the rest of the outline with no trace. The declaration is the parser's refusal
+list and **nothing renders it** — the input does not tell the reader which
+fields it would refuse, because a reader who has not heard of them cannot supply
+one.
 
 **The cold reader reads the body only** — no frontmatter, no trace, no Packet,
 and no Step boundary marked — and writes, after each Section, the question it
