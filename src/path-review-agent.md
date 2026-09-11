@@ -42,13 +42,17 @@ specification, no field-level prose contract, and no mechanism holding declared
 inputs in state while a field is generated.**
 
 The only mechanical control is `validateSteps` in `src/compose.mjs`, and it
-is SHAPE-ONLY: field presence and type, ground types in the closed set,
-`step_effect` grounds naming an earlier Step, `strand` grounds and materials
-inside the Brief's closed set, `entailed` requiring reasoning, and `bridges`
-naming two ids. **No content conformance is checked anywhere but here.**
+is SHAPE-ONLY: field presence and type, every ground naming its Strand, grounds
+and materials inside the Brief's closed set, `entailed` requiring reasoning, and
+`bridges` naming two ids. **No content conformance is checked anywhere but
+here.**
 
-Step-to-Step connection is deliberately weak too — only `depends_on`, optional
-`step_effect` grounds, and reader-state continuity that nothing verifies.
+Step-to-Step connection is deliberately weaker than it was — only `depends_on`
+and reader-state continuity that nothing verifies. A ground is one claim derived
+from a Strand and nothing else (kogaki#1095), so the `step_effect` ground that
+used to name an earlier Step's effect is gone: inherited state is carried by
+`reader_state_before` and by the computed `already knows` ledger, which are the
+two places to read it from.
 
 **So when a Draft comes out strange, inspect this absence FIRST** before
 attributing the defect to composition strategy, Move selection, or the
@@ -60,9 +64,12 @@ dogfood failure (kogaki#549, owner ruling).
 ## The MUSTs you apply, per Candidate — each as judgment
 
 1. **The grounds test.** For each Step: delete the Move name from
-   the rationale. Does what remains stand on its grounds — a specific
-   Strand proposition, a named earlier Step's effect, or a declared reader
-   assumption? Write what you find: which Steps stand, which read
+   the rationale. Does what remains stand on its grounds — each of them one
+   claim derived from a Strand, and nothing else (kogaki#1095)? A named
+   earlier Step's effect and a declared reader assumption were grounds and
+   are not: inherited state is `reader_state_before`'s and the computed
+   already-knows ledger's, and a reader premise is the Brief's Reader
+   start's. Write what you find: which Steps stand, which read
    Move-first, and why. The observable defect is a rationale that cannot
    be stated without naming the Move.
 2. **Entailment.** For each Step flagged `entailed`: read its

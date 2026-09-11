@@ -254,7 +254,11 @@ const step2 = {
   depends_on: ["s1"],
   rationale: "the bravo material carries the concrete case, and the case only reads after the claim is stated",
   grounds: [
-    { type: "step_effect", step: "s1", proposition: "s1 leaves the claim stated, which the case presupposes" },
+    // A ground is one claim derived from a Strand (kogaki#1095). This slot
+    // carried a `step_effect` ground; what it was standing for — that s1 left
+    // the claim stated — is `reader_state_before`'s and the ledger's, and
+    // composition now refuses it here.
+    { type: "strand", strand: "L1", proposition: "the bravo lesson records what the case turned on" },
     { type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" },
   ],
   entailed: true,
@@ -278,6 +282,68 @@ try {
   if (!badDep.error || !/EARLIER/.test(badDep.error)) fails.push("(a) a depends_on naming a non-earlier step was accepted");
   const badGround = validateSteps([{ ...step1, grounds: [{ type: "vibes", proposition: "x" }] }]);
   if (!badGround.error || !/closed/.test(badGround.error)) fails.push("(a) a ground type outside §4.4's closed list was accepted");
+  // A GROUND IS ONE CLAIM DERIVED FROM A STRAND (kogaki#1095). The two retired
+  // types are asserted BY NAME and separately from the closed-set case above:
+  // a Brief written under the old grammar is the caller this arm exists for,
+  // and the refusal owes it WHERE the content it was carrying now belongs.
+  // Asserting only that they are refused would bind a proxy — the closed-set
+  // message already refuses them, and this file's stated shape is that a case
+  // asserts WHICH refusal landed.
+  for (const [type, extra, where] of [
+    ["step_effect", { step: "s1" }, /reader_state_before/],
+    ["reader_assumption", {}, /Reader start/],
+  ]) {
+    const r = validateSteps([step1, { ...step2, grounds: [{ type, proposition: "p", ...extra }] }]);
+    if (!r.error) {
+      fails.push(`(a) a ${type} ground was ACCEPTED — a ground is one claim derived from a Strand (kogaki#1095), and this file is the seat that makes the other kinds unwritable`);
+    } else if (!r.error.includes(type) || !where.test(r.error)) {
+      fails.push(`(a) a ${type} ground was refused without naming the type and where its content now belongs: ${r.error}`);
+    }
+  }
+  // THE REFUSAL IS THE VALIDATOR'S, NOT A DOCUMENT'S (kogaki#1095 acceptance 6).
+  // A REMOVAL TEST rather than an inspection of imports: `src/compose.mjs` and
+  // its one repository import are copied ALONE into a temporary directory with
+  // no `.claude/skills/brief/SKILL.md`, no `specs/spec-draft-pipeline/SPEC.md`
+  // and no repository around them, and the refusal is driven there. An
+  // assertion that the module names neither path would bind a proxy — the two
+  // documents could still be load-bearing through any reader the module
+  // reaches — and the whole point of moving the type set into the validator is
+  // that deleting the prose changes nothing.
+  {
+    const cell = mkdtempSync(join(tmpdir(), "kogaki-ground-removal-"));
+    try {
+      mkdirSync(join(cell, "src"));
+      for (const f of ["compose.mjs", "runs.mjs"]) {
+        writeFileSync(join(cell, "src", f), readFileSync(join(REPO_ROOT, "src", f), "utf8"));
+      }
+      for (const doc of [".claude/skills/brief/SKILL.md", "specs/spec-draft-pipeline/SPEC.md"]) {
+        if (existsSync(join(cell, doc))) fails.push(`(a) the removal cell carries ${doc} — the test would prove nothing`);
+      }
+      const alone = await import(`file://${join(cell, "src", "compose.mjs")}`);
+      const r = alone.validateSteps([step1, { ...step2, grounds: [{ type: "step_effect", step: "s1", proposition: "p" }] }]);
+      // BOUND TO THE RETIRED-TYPE MESSAGE, not to the type NAME: the closed-set
+      // refusal quotes the offending type too, so `includes("step_effect")`
+      // goes green against the wrong arm — the proxy this case's own comment
+      // warns about, found by driving the arm out and watching nothing fire.
+      if (!r.error || !r.error.includes("step_effect") || !/reader_state_before/.test(r.error)) {
+        fails.push(`(a) with the brief skill and the pipeline spec absent, a step_effect ground was not refused by name with where its content now belongs — the refusal is a document's rather than the validator's: ${r.error || "ACCEPTED"}`);
+      }
+      const ok = alone.validateSteps([step1, step2]);
+      if (ok.error) fails.push(`(a) the removal cell refuses a CONFORMING path, so its refusal above proves nothing: ${ok.error}`);
+    } finally {
+      rmSync(cell, { recursive: true, force: true });
+    }
+  }
+  // AND THE SERIALIZATION CARRIES ONE FORM (kogaki#1095): `ground (strand
+  // L<n>): <proposition>`, which is what `src/draft.mjs material --strand` and
+  // the figure `g<n>` addressing read. Asserted at the writer rather than
+  // inferred from a round trip, because the writer is the half this issue moved.
+  {
+    const line = renderStep(step1).split("\n").filter((l) => l.startsWith("ground "));
+    if (line.length !== 1 || line[0] !== "ground (strand L2): the alpha lesson states the claim in its own words") {
+      fails.push(`(a) the ground line is not serialized as \`ground (strand L<n>): <proposition>\`: ${JSON.stringify(line)}`);
+    }
+  }
   // move is REQUIRED on every Step — §4.1 v18 (kogaki#642), which supersedes
   // §7.5's no-mandatory-Moves rider by name. The assertion is INVERTED rather
   // than removed: the case it covers is the same one, and deleting it would
@@ -416,7 +482,7 @@ try {
   const candB = mkCand("cand-2", "the case first, claim emerging from it", [
     { ...step1, step_id: "t1", materials: ["L1"], grounds: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" }] },
     { ...step2, step_id: "t2", move: "generalize-from-the-seen-case", materials: ["L2"], depends_on: ["t1"],
-      grounds: [{ type: "step_effect", step: "t1", proposition: "t1 leaves the case seen, which the claim generalizes" }], entailed: undefined, entailment_reasoning: undefined },
+      grounds: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim the case generalizes to" }], entailed: undefined, entailment_reasoning: undefined },
   ]);
   candB.obligations = [{ text: "the claim's scope beyond the case", introduced_by: "t2" }];
 
@@ -512,7 +578,7 @@ try {
         figure: "what the opening figure lets the reader hold",
         figure_roles: { endpoint_a: "g1" } },
       { ...step2, step_id: "close_the_case", depends_on: ["open_the_claim"],
-        grounds: [{ type: "step_effect", step: "open_the_claim", proposition: "open_the_claim leaves the claim stated" }] },
+        grounds: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the case that closes the claim" }] },
     ];
     const snakeCand = { ...candA, candidate_id: "cand-snake", steps: snakeSteps,
       obligations: [{ text: "the case's generality is asserted", introduced_by: "close_the_case" }] };
@@ -2212,13 +2278,16 @@ ranCase("l-bridge");
     ["entailment reasoning",
       [S("s1"), S("b1", { bridges: ["s1", "s2"], entailed: true, entailment_reasoning: "the case generalises" }), S("s2")],
       /between s1 → s2: the case generalises/],
-    // The §4.4 TOKEN, not a plausible synonym — this is finding 1's fixture.
-    ["declared assumption",
-      [S("a"), S("c"), S("b", { bridges: ["a", "c"], grounds: [{ type: "reader_assumption", proposition: "readers have shipped software" }] })],
-      /readers have shipped software/],
-    // A bridge carrying NEITHER flag is abnormal and must SAY so rather than
-    // render an empty reason — §4.4 gives every Step those flags, so a bridge
-    // without one is a composition fault the gate is owed.
+    // THE SECOND SOURCE IS GONE (kogaki#1095), and the case that exercised it
+    // is REMOVED rather than reworded. It drove a bridge whose only reasoning
+    // was a `reader_assumption` ground; a ground is now one claim derived from
+    // a Strand, so no such Step composes at all — the arm is unreachable, not
+    // renamed, and the refusal that makes it unreachable is asserted in (a).
+    // The premise itself did not vanish from the gate: it belongs to the
+    // Brief's Reader start, which this same payload renders from READER_FIELDS.
+    // A bridge carrying no entailment reasoning is abnormal and must SAY so
+    // rather than render an empty reason — a bridge without one is a
+    // composition fault the gate is owed, and it is now the ONLY other arm.
     ["no reasoning", [S("a"), S("c"), S("b", { bridges: ["a", "c"] })], /NO REASONING CARRIED/],
   ];
   for (const [what, steps, want] of cases) {
@@ -2433,7 +2502,7 @@ ranCase("v");
     grounds: [
       { type: "strand", strand: "L1", proposition: "the defensive wall is the first endpoint" },
       { type: "strand", strand: "L1", proposition: "the offensive artillery is the other" },
-      { type: "reader_assumption", proposition: "a weapon's function reveals intent" },
+      { type: "strand", strand: "L1", proposition: "the material names function as what the two are read against" },
     ],
     ...extra,
   });

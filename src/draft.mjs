@@ -1551,7 +1551,9 @@ async function runSelfTest() {
     "reader_state_before: the reader can state the claim.",
     "reader_state_after: the reader can say why it holds.",
     "materials: L1", "rationale: the close is what the opening owes.",
-    "ground (step_effect s1): s1 leaves the claim stated.", "```", "",
+    // A ground is one claim derived from a Strand (kogaki#1095) — this fixture
+    // carried a `step_effect` ground, which composition now refuses.
+    "ground (strand L1): the material states why the claim holds.", "```", "",
   ].join("\n");
   writeFileSync(join(briefDir, "brief.md"), goodBrief);
 

@@ -231,9 +231,13 @@ records forces it, and the collapse is a convenience that reads as tidiness.
 
 - **`step_id`** — the Step's identity within this Brief.
 - **`move`** — a binding to a Move library entry (§7). **Required.**
-- **`materials`** — which Strands, which Journeys, the Thesis, a
-  `reader_assumption`, or `constructed_material` it works on. **Many-to-many**
-  with Steps.
+- **`materials`** — which Strands, which Journeys, the Thesis, a reader
+  premise, or `constructed_material` it works on. **Many-to-many** with Steps.
+  The reader premise is the Brief's **Reader start**, named here in words
+  rather than by the retired `reader_assumption` token: that token was a
+  GROUND type, it left the grammar at §4.4, and leaving it standing as this
+  field's one surviving use would hand a reader a term with nothing left
+  defining it (kogaki#1095).
 - **`purpose`** — what the Step does to the reader.
 - **`reader_state_before`** / **`reader_state_after`**.
 - **`depends_on`** — the earlier Steps whose conclusions this Step stands on.
@@ -327,12 +331,29 @@ against itself once (§5.1.1), which is the argument for keeping it stated.
 
 ### 4.4 The Step's grounding, and the `entailed` flag
 
-A Step's grounds are **specific propositions**, each exactly one of: a
-**Strand proposition** traceable to sentences in the material; a **named
-earlier Step's effect**, naming which effect of which Step; or a **declared
-reader assumption**, declared in the Brief and visible at Candidate selection.
-Because a previous-Step ground names its effect the same way, **Strand-less
-Steps are covered unchanged**.
+**A ground is one claim derived from a Strand, and nothing else** (owner
+ruling, 2026-09-11; kogaki#1095). A Step's grounds are **specific
+propositions**, each a **Strand proposition** traceable to sentences in the
+material and each naming its Strand.
+
+**The set was three, and the two that left are named with where their content
+belongs.** A `step_effect` ground was inherited reader state and a
+`reader_assumption` ground was a presupposed premise; the Step Packet renders
+every ground under one instruction — *these are what this Step may assert* — and
+neither of those is an assertion, so a passage that realizes its Step correctly
+never states them and the Blind Reader, asked for one line per thing the passage
+asserts, never recovers them. The first full review run failed `grounds-unused`
+on 8 of 8 Steps against premise-type grounds alone: a comparison whose declared
+side carries a category its reverse side cannot produce measures nothing.
+**Inherited state stays where it already lives** — `reader_state_before` and the
+computed `already knows` ledger, which were already carrying it twice over — and
+**a reader premise belongs to the Brief's Reader start**.
+
+**The carrier is `validateSteps` in `src/compose.mjs`**, which holds the type
+set and the `ground (strand L<n>): <proposition>` serialization together. That
+is what makes a non-Strand ground **unwritable** rather than discouraged:
+removing this spec and the brief skill from the tree leaves the refusal
+standing.
 
 **A proposition not explicit in the material is flagged `entailed`, with its
 entailment reasoning exposed at the human gate** — entailment is
@@ -1191,9 +1212,8 @@ line for a Step that declares none, so the bytes do not move.
 **Three conditions, and only two of them are mechanical.**
 
 1. the Step's Move carries a `visual_form`;
-2. every role of that form binds to one of **this Step's** grounds — a role may
-   bind a `reader_assumption` ground, and a role bound to a ground of another
-   Step is refused;
+2. every role of that form binds to one of **this Step's** grounds — a role
+   bound to a ground of another Step is refused;
 3. the figure carries something.
 
 The third is the composer's one judgment and is stated in the `figure:` line
