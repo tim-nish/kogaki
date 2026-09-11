@@ -78,7 +78,11 @@
 //       SPEC-terrain
 //
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { resolveHeadlines, glossFor, NO_HEADLINE as NO_RENDERING } from "./terrain.mjs";
+// `NO_HEADLINE` IS NO LONGER IMPORTED AS A VALUE (PR #1107 round 1, nit). With
+// the dead `|| NO_RENDERING` disjunct removed, `glossFor` is the only thing
+// that names a marker here — which is the point of delegating the choice to it.
+// The name survives in the comments below as the marker they discuss.
+import { resolveHeadlines, glossFor } from "./terrain.mjs";
 import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
 import { snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry } from "./compose.mjs";
 import { enterSubRun, BRIEF_ENTRIES } from "./runs.mjs";
@@ -432,8 +436,15 @@ export function composeThesisCandidates(strands, headlines = new Map(), resolved
     // six-state vocabulary and the order the states resolve in; a second
     // reading of the same question, sited in the consumer, is how this lane
     // came to render a marker terrain had already ruled out.
+    // NO `|| NO_RENDERING` DISJUNCT (PR #1107 round 1, nit). `glossFor` returns
+    // one of six non-empty string constants on every path, so the right-hand
+    // side could only ever be unreachable — the identical residue PR #694
+    // round 2 removed one seam over, where the comment it left reads: in a
+    // function whose whole point is that each marker states exactly one fact, a
+    // branch that cannot fire states a second one. Here it would state that
+    // `glossFor` might decline to answer, which it may not.
     const marker = glossFor(s, e, resolved.seam, resolved.namespaces,
-      resolved.unaddressable) || NO_RENDERING;
+      resolved.unaddressable);
     // THE MARKER CARRIES ITS MEMBER. An unresolved rendering is the same text
     // for every member, so a bare marker made all 2-3 candidates byte-identical
     // — one option presented three times, at the moment the owner most needed

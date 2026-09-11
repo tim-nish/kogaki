@@ -974,7 +974,6 @@ export function selectShardNames(names, namespace, tag) {
 // thing. `null` means the read did not happen — which is a seam state and not
 // an empty corpus, and the two are kept apart by the caller.
 let SERVED_SHARD_NAMES;
-export function resetServedShardNames() { SERVED_SHARD_NAMES = undefined; }
 function servedShardNames({ soft = false } = {}) {
   if (SERVED_SHARD_NAMES !== undefined) return SERVED_SHARD_NAMES;
   const resp = gatewayQuery("surface_names", { kind: "gloss" }, { soft });
@@ -1095,6 +1094,26 @@ export const NO_SHARD_NAME = "⟨the served enumeration names no Gloss shard for
 
 export const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
 
+// A TAG IS UNADDRESSABLE ONLY WHERE **EVERY** NAMESPACE READ FAILED TO NAME A
+// SHARD FOR IT (PR #1107 round 1, blocking). The first cut accumulated one
+// shared set across the namespace loop, so on the two-namespace report path
+// every tag served under `lessons` alone — the common case — was added by the
+// `journeys` pass even though its `lessons` shard had been selected, requested
+// and read. `glossFor`'s row arm then rendered `NO_SHARD_NAME` for a row whose
+// shard WAS read and simply carried no rendering: `NO_HEADLINE`'s fact asserted
+// as the address fault's, which is the exact inversion of the separation these
+// markers exist to create, on the one path that renders them to an owner.
+//
+// PURE AND SEPARATE FROM THE LOOP, because the defect is in the QUANTIFIER and
+// a case that had to reach a gateway to drive two namespaces would be asserting
+// the seam again. An empty list of namespaces yields the empty set: nothing was
+// read, so nothing is established about any tag.
+export function intersectUnaddressable(sets) {
+  const list = (sets || []).filter(Boolean);
+  if (!list.length) return new Set();
+  return new Set([...list[0]].filter((t) => list.every((s2) => s2.has(t))));
+}
+
 // THE NAMESPACES THE NEIGHBORHOOD FETCH ADDRESSES (kogaki#689). `cmdView` reads
 // both for the same reason the rendering rule gives, and the neighborhood's members are not all
 // Lessons — `neighborhoodOf` indexes every served record carrying a slug and
@@ -1151,9 +1170,15 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
   // of the three questions is derivable from the other two.
   const stats = { calls: 0, answered: 0, namesRead: false, namesServed: 0,
                   tagsAsked: 0, tagsAddressed: 0, unaddressable: new Set() };
+  // ONE SET PER NAMESPACE, INTERSECTED AFTER THE LOOP. `fetchHeadlines` reports
+  // what ITS namespace could not name, which is a different question from what
+  // the pull could not name; keeping one shared set answered the second with
+  // the first (PR #1107 round 1).
+  const perNamespace = [];
   const heads = new Map();
   if (tags.length) {
     for (const ns of namespaces) {
+      stats.unaddressable = new Set();
       for (const [slug, e] of fetchHeadlines(ns, tags, { soft: true, stats })) {
         // FIRST NAMESPACE WINS on a slug present in both, which is the same
         // first-wins rule `fetchHeadlines` already applies across tags.
@@ -1168,8 +1193,10 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
         // as covered would be counting a comment.
         if (!heads.has(slug)) heads.set(slug, e);
       }
+      perNamespace.push(stats.unaddressable);
     }
   }
+  const unaddressable = intersectUnaddressable(perNamespace);
   const out = new Map();
   for (const m of list) {
     const e = heads.get(m.slug);
@@ -1209,7 +1236,7 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
   // `answered`, and a row whose every tag is in this set would then be stamped
   // with a read that never happened. The aggregate answers for the pull; this
   // answers for the row.
-  return { headlines: out, seam, namespaces, unaddressable: stats.unaddressable };
+  return { headlines: out, seam, namespaces, unaddressable };
 }
 
 // WHICH MARKER A ROW WITH NO RENDERABLE QUOTATION CARRIES (PR #694 round 1).
@@ -9043,6 +9070,23 @@ switch (cmd) {
     // THE PARTIAL ARM, which the aggregate cannot answer: one tag was named and
     // read, another was not, so the pull is `answered` while this row was never
     // addressed at all.
+    // THE QUANTIFIER, ASSERTED (PR #1107 round 1, blocking). The report path
+    // reads two namespaces, and a tag served under `lessons` alone is a tag the
+    // `journeys` pass names no shard for — so the union answers "unaddressable"
+    // for a tag whose shard was selected, requested and read. Only the
+    // intersection answers the question the row arm asks.
+    ok("a tag unaddressable in ONE namespace but named in another is not unaddressable for the pull",
+      (() => {
+        const lessons = new Set(["knowledge-architecture"]);
+        const journeys = new Set(["knowledge-architecture", "agents", "testing"]);
+        const both = intersectUnaddressable([lessons, journeys]);
+        return both.size === 1 && both.has("knowledge-architecture")
+          // THE CONTROL that this is an intersection rather than a first-wins
+          // read: the single-namespace answer is the set itself, and no
+          // namespace read at all establishes nothing about any tag.
+          && intersectUnaddressable([journeys]).size === 3
+          && intersectUnaddressable([]).size === 0;
+      })());
     ok("a row whose every tag is unaddressable renders the address marker even when the pull as a whole answered",
       glossFor({ slug: "bravo", family: "lesson", tags: ["knowledge-architecture"] },
         missEntry, "answered", ["lessons"], new Set(["knowledge-architecture"])) === NO_SHARD_NAME
