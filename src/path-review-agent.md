@@ -64,9 +64,12 @@ dogfood failure (kogaki#549, owner ruling).
 ## The MUSTs you apply, per Candidate — each as judgment
 
 1. **The grounds test.** For each Step: delete the Move name from
-   the rationale. Does what remains stand on its grounds — a specific
-   Strand proposition, a named earlier Step's effect, or a declared reader
-   assumption? Write what you find: which Steps stand, which read
+   the rationale. Does what remains stand on its grounds — each of them one
+   claim derived from a Strand, and nothing else (kogaki#1095)? A named
+   earlier Step's effect and a declared reader assumption were grounds and
+   are not: inherited state is `reader_state_before`'s and the computed
+   already-knows ledger's, and a reader premise is the Brief's Reader
+   start's. Write what you find: which Steps stand, which read
    Move-first, and why. The observable defect is a rationale that cannot
    be stated without naming the Move.
 2. **Entailment.** For each Step flagged `entailed`: read its

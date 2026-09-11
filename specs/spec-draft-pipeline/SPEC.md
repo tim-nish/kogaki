@@ -231,9 +231,13 @@ records forces it, and the collapse is a convenience that reads as tidiness.
 
 - **`step_id`** — the Step's identity within this Brief.
 - **`move`** — a binding to a Move library entry (§7). **Required.**
-- **`materials`** — which Strands, which Journeys, the Thesis, a
-  `reader_assumption`, or `constructed_material` it works on. **Many-to-many**
-  with Steps.
+- **`materials`** — which Strands, which Journeys, the Thesis, a reader
+  premise, or `constructed_material` it works on. **Many-to-many** with Steps.
+  The reader premise is the Brief's **Reader start**, named here in words
+  rather than by the retired `reader_assumption` token: that token was a
+  GROUND type, it left the grammar at §4.4, and leaving it standing as this
+  field's one surviving use would hand a reader a term with nothing left
+  defining it (kogaki#1095).
 - **`purpose`** — what the Step does to the reader.
 - **`reader_state_before`** / **`reader_state_after`**.
 - **`depends_on`** — the earlier Steps whose conclusions this Step stands on.
