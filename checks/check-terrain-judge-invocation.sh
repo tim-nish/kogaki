@@ -2504,6 +2504,74 @@ BOUNDARTPY
   fi
 }
 
+# ---- THE PROJECTION READS A NAME WHOLE, OR REFUSES (PR #1091 round 1,
+# findings 2 and 4).
+#
+# A DIRECT CALL ON THE COMPOSER, and the exception is declared rather than
+# quiet. Every other case here drives the real producer through the advance
+# hook, which is the right shape for behaviour that depends on a run. This one
+# is about the PROJECTOR'S GRAMMAR over one rendered line, and the inputs that
+# break it -- a SubGroup name carrying the display's own em-dash separator, and
+# the `NO_DISPLAY_ID` token, which carries that separator inside itself -- are
+# a judge's free text and a legacy survey record. Neither is reachable from the
+# fixture survey without stubbing a judge to compose a particular name, which
+# would be asserting the stub. The LINE TEMPLATE is the one src/terrain.mjs
+# renders, so the case is still bound to the producer's shape.
+check_projection() {                 # check_projection <label> <tree>
+  local label=$1 root=$2
+  if (cd "$root" && node --input-type=module -e "$(cat <<'PROJJS'
+import { composeIdGateListing, NO_DISPLAY_ID } from "./src/terrain.mjs";
+const fail = (m) => { console.error(m); process.exit(1); };
+
+// The rendered forms, from the display's own emitter:
+//   group     `${g.gid} — ${g.name} — ${count}`
+//   subgroup  `${sg.sgid} — ${count}: ${ids} — ${sg.name}`
+const EMDASH_NAME = "Guards that fire — and the ones that never do";
+const text = [
+  "agents — the second navigation step. Grouped by co-tag; sort: members desc.",
+  "",
+  "G1 — agents \u00d7 architecture — 8 Lessons",
+  "in common: a claim.",
+  "",
+  "G1-1 — 4 Lessons: L1, L2, L3, L4 — " + EMDASH_NAME,
+  "in common: a subgroup claim.",
+  "",
+  "G1-2 — 4 Lessons: L5, " + NO_DISPLAY_ID + ", L7, L8 — A plain name",
+].join("\n");
+
+const listing = composeIdGateListing(text, "reports/CoTagGroups.md");
+const rows = listing.split("\n").slice(1).filter((l) => l.trim());
+if (rows.length !== 3) fail("expected 3 rows, got " + rows.length + ": " + JSON.stringify(rows));
+if (rows[1] !== "G1-1 — 4 Lessons — " + EMDASH_NAME) {
+  fail("a SubGroup name carrying the display's own separator was truncated: " + JSON.stringify(rows[1]));
+}
+if (rows[2] !== "G1-2 — 4 Lessons — A plain name") {
+  fail("a member list carrying the abnormal display-id token mis-bound the name: " + JSON.stringify(rows[2]));
+}
+PROJJS
+)" 2>"$root/proj.err"); then pass; else
+    bad "$label: the ID listing's projection does not read a SubGroup name whole across the display's own separator and the abnormal display-id token (PR #1091 round 1, finding 2): $(tr '\n' ' ' < "$root/proj.err" | head -c 400)"
+  fi
+
+  # AND AN ARTIFACT THAT REDUCES TO NOTHING REFUSES rather than returning the
+  # absence. `cmdCotags` refuses a tag with no member, so a written rendering
+  # always carries a Group heading; an empty projection over a non-empty file is
+  # a read that failed, and reporting it as "no grouping was written" would put
+  # the ID question on screen with the grouping nowhere -- the 2026-09-10 defect
+  # kogaki#1087 was filed from, reached by a quieter route.
+  if (cd "$root" && node --input-type=module -e "$(cat <<'PROJEMPTYJS'
+import { composeIdGateListing } from "./src/terrain.mjs";
+const out = composeIdGateListing("a rendering carrying no Group heading at all.\n", "reports/CoTagGroups.md");
+console.error("it returned instead of refusing: " + JSON.stringify(out));
+process.exit(0);
+PROJEMPTYJS
+)" 2>"$root/projempty.err"); then
+    bad "$label: a co-tag rendering that reduces to no row did not refuse (PR #1091 round 1, finding 4): $(tr '\n' ' ' < "$root/projempty.err" | head -c 300)"
+  else pass; fi
+}
+
+check_projection "the projection" "$SCRATCH/gold"
+
 build_tree "$SCRATCH/bound"
 drive_bound "the bound tree" "$SCRATCH/bound"
 

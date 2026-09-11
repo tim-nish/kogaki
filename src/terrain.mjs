@@ -1719,12 +1719,24 @@ function composeOwnerListing(surfaceName, text) {
 // which is the two-carriers-of-one-fact shape this repository keeps removing.
 // Read off the artifact, the listing cannot say anything the artifact does not.
 //
-// A HEADING IT CANNOT REDUCE IS A REFUSAL, never a dropped row. A projection
-// that silently loses a group would send the owner a shorter grouping than the
-// one that exists, which is the failure mode of the payload this replaces
-// arriving by a quieter route.
+// A HEADING IT CANNOT REDUCE IS A REFUSAL, never a dropped row, AND NEVER A
+// WRONG ROW (PR #1091 round 1, finding 2). A projection that silently loses a
+// group would send the owner a shorter grouping than the one that exists; one
+// that silently MIS-REDUCES a heading sends them a wrong one, which is the
+// quieter of the two and the one a reader cannot detect. So the member id list
+// is matched against its own grammar rather than by a wildcard: the SubGroup
+// line is `<sgid> — <count>: <ids> — <name>`, and `<name>` is model-composed
+// free text free to contain the em-dash separator this display uses everywhere.
+// A wildcard id segment binds the name to the tail after the LAST separator and
+// truncates it; a lazy one is no better, because `NO_DISPLAY_ID` — the abnormal
+// token that stands where a display_id is missing — contains the separator
+// itself, so laziness would stop inside a token. The id grammar is the only
+// anchor that is right in both cases, and a line whose id segment does not
+// satisfy it falls through to the refusal below rather than being guessed at.
+const COTAG_MEMBER_ID = "(?:L\\d+|⟨[^⟩]*⟩)";
 const COTAG_GROUP_HEADING = /^(G\d+) — (.+?) — (\d+ Lessons?)(?::.*)?$/;
-const COTAG_SUBGROUP_HEADING = /^(G\d+-\d+) — (\d+ Lessons?): .* — (.+)$/;
+const COTAG_SUBGROUP_HEADING = new RegExp(
+  `^(G\\d+-\\d+) — (\\d+ Lessons?): ${COTAG_MEMBER_ID}(?:, ${COTAG_MEMBER_ID})* — (.+)$`);
 const COTAG_ANY_ID_LINE = /^G\d+(?:-\d+)? — /;
 
 export function composeIdGateListing(text, artifactPath) {
@@ -1739,7 +1751,20 @@ export function composeIdGateListing(text, artifactPath) {
         + "The ID gate's reading is a projection of that file's heading lines (kogaki#1090), so a heading shape it does not know is a row the owner would never see — and a listing shorter than the grouping is the failure the whole-file payload was replaced to avoid.");
     }
   }
-  if (!rows.length) return null;
+  // AN ARTIFACT THAT YIELDS NO ROW IS THE SAME REFUSAL, not an absence (PR
+  // #1091 round 1, finding 4). `cmdCotags` refuses a tag with no member, so a
+  // written rendering always carries at least one Group heading; a projection
+  // that finds none over a file that exists has failed to read it, and
+  // returning null there would hand the caller the absence sentence — telling
+  // the owner no grouping was written when one was, and putting the ID question
+  // on screen with the grouping nowhere, which is exactly the 2026-09-10 defect
+  // kogaki#1087 was filed from. The absence arm belongs to a MISSING artifact
+  // and stays with the caller, which is the only party that can tell the two
+  // apart.
+  if (!rows.length) {
+    fail(`the co-tag rendering at ${artifactPath} carries no Group heading this listing could reduce, and a written rendering always carries at least one. `
+      + "The ID gate's reading is a projection of that file (kogaki#1090), so an empty projection over a non-empty file is a read that failed rather than a grouping that is absent.");
+  }
   return [
     `The composed grouping — ${rows.length} row(s). Read ${artifactPath} for the claims, the coherence lines and the disclosures; this is the id, the count and the name alone.`,
     "",
