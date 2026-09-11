@@ -887,8 +887,117 @@ export function parseGlossShard(resp) {
   return out;
 }
 
-// Tag-scoped and bounded: one shard per viewed tag, addressed `<kind>/<tag>`
-// and never `<tag>` alone. No fan-out, no whole-corpus prefetch (SPEC.md, the rendering rule).
+// --------------------------------------------------------------------------
+// Shard ADDRESSES are read from the served enumeration, never composed here
+// (kogaki#1106).
+// --------------------------------------------------------------------------
+// WHAT WAS WRONG, stated before the rule. Every address in this module was
+// composed as `` `${kind}/${tag}` ``. The served surface states its own
+// addressing rule in each shard's header, quoted whole at its pin:
+//
+//   "Full plain-register renderings for every lesson in this cell. The cell is
+//    the `axis=value` pairs in its address; the path is only their rendering in
+//    the Kind's declared order (`PACKAGE-MANIFEST.json` `kinds.lesson.shard_axes`)."
+//   product-lab@7e109c8c views/lessons/tag=agents,window=2026-08.md:3-5
+//
+// So an address is a CELL of `axis=value` pairs, and `<kind>/<tag>` encodes one
+// axis and no others. When the surface added a `window` axis every address this
+// module formed became a miss — a well-formed answer, exit 0, real pin, no
+// error anywhere — and the absence surfaced downstream as missing MATERIAL,
+// where it read as the corpus being empty rather than the name being wrong.
+//
+// AND THE CELL SHAPE IS NOT UNIFORM, which is why adding `window=` by hand
+// would have been the same defect one axis later: the served enumeration today
+// carries `tag`, `tag,window`, `tag,window,date`, `thread`, `thread,window` and
+// `thread,window,date` cells side by side, so no single template addresses them
+// all and the axis order is the Kind's to declare rather than this module's to
+// know.
+//
+// THE ADDRESS IS THEREFORE SELECTED, NEVER COMPOSED. `surface_names(kind:
+// "gloss")` is the served enumeration of every shard name; a request for
+// (namespace, tag) resolves to the served names whose namespace matches and
+// whose cell carries that tag. Nothing here renders a path, so the declared
+// axis order is never a thing this module can get wrong.
+//
+// WHICH CONJUNCT THIS ESTABLISHES, named because the served position requires
+// it: "Reachability of a served artifact is the conjunction of an address that
+// resolves to it and a surface that discloses the address exists — neither
+// implies the other … a fix invoking a conjunction lesson must name which
+// conjunct it establishes and name the one it leaves open"
+// (product-lab@7e109c8c LESSONS.md:168). This establishes the ADDRESS conjunct
+// by deriving it from the DISCLOSURE conjunct, so the two can no longer
+// disagree: an address exists here only because the surface disclosed it. What
+// it leaves open is the disclosure surface itself — if `surface_names` stops
+// enumerating a shard that still exists, this module cannot reach it, and that
+// state reports as an address fault rather than as material.
+//
+// A served name parsed into its namespace and its cell. Returns null for a name
+// this module cannot read as an address at all, which is reported rather than
+// skipped by the selector's caller.
+export function parseShardName(name) {
+  if (typeof name !== "string") return null;
+  const slash = name.indexOf("/");
+  if (slash <= 0 || slash === name.length - 1) return null;
+  const namespace = name.slice(0, slash);
+  const cell = new Map();
+  for (const pair of name.slice(slash + 1).split(",")) {
+    const eq = pair.indexOf("=");
+    // A SEGMENT WITH NO `=` IS NOT AN AXIS PAIR, and is kept under the empty
+    // axis name rather than dropped: a name shaped `lessons/agents` — the form
+    // this module used to compose — must not parse as a cell carrying
+    // `tag=agents`, or the selector would match the very address the surface
+    // stopped serving and the fault would be invisible again.
+    if (eq <= 0) { cell.set("", pair); continue; }
+    cell.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
+  return { name, namespace, cell };
+}
+
+// The served names addressing (namespace, tag), in the order the surface served
+// them. PURE, and separate from the read above it, because the property this
+// change asserts is about ADDRESS SELECTION and a case that had to reach a
+// gateway to drive it would be asserting the seam instead.
+export function selectShardNames(names, namespace, tag) {
+  const out = [];
+  for (const n of names || []) {
+    const p = parseShardName(n);
+    if (!p || p.namespace !== namespace) continue;
+    if (p.cell.get("tag") !== tag) continue;
+    out.push(p.name);
+  }
+  return out;
+}
+
+// THE ENUMERATION IS READ ONCE PER PROCESS. It is one call for the whole run
+// and it is what every address in this module is now derived from, so a
+// per-caller read would spend the same request repeatedly to learn the same
+// thing. `null` means the read did not happen — which is a seam state and not
+// an empty corpus, and the two are kept apart by the caller.
+let SERVED_SHARD_NAMES;
+function servedShardNames({ soft = false } = {}) {
+  if (SERVED_SHARD_NAMES !== undefined) return SERVED_SHARD_NAMES;
+  const resp = gatewayQuery("surface_names", { kind: "gloss" }, { soft });
+  // A TRANSPORT FAILURE AND AN EMPTY ENUMERATION ARE DIFFERENT ANSWERS. The
+  // first establishes nothing; the second is the surface saying it serves no
+  // Gloss shard, which is a read and is the empty corpus.
+  SERVED_SHARD_NAMES = resp ? (resp.miss ? [] : (resp.lines || []).map((l) => l.text.trim()).filter(Boolean)) : null;
+  return SERVED_SHARD_NAMES;
+}
+
+// Tag-scoped and bounded: the shards the served enumeration names for the
+// viewed tags, and nothing else. No fan-out, no whole-corpus prefetch (SPEC.md,
+// the rendering rule).
+//
+// THE BOUND MOVED FROM ONE SHARD PER TAG TO ONE CELL SET PER TAG, and that is
+// stated rather than left to be noticed. A tag is served across several cells
+// — `agents` is four today, one per window — so reading a tag costs as many
+// requests as the surface has cells for it. It is still a function of the
+// VIEWED TAGS and never of the corpus, which is what the rendering rule's bound
+// is about; what it is not is the literal "one shard per viewed tag" the old
+// composed address happened to make true. Reading fewer would drop members:
+// each cell carries a different set, so a cell not read is material silently
+// absent, which is the state this whole family of markers exists to prevent.
+//
 // `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN. `resolveHeadlines`
 // is its only injecting caller, and the shape is kept rather than collapsed to
 // that one caller, because widening the return would make a caller's contract
@@ -900,15 +1009,38 @@ export function parseGlossShard(resp) {
 // rendering for these tags" from "no read happened". `answered` counts the
 // responses the seam actually produced, miss responses included: a miss is the
 // seam saying there is no such shard, which is a read.
+//
+// AND A THIRD CAUSE, WHICH IS WHY THE NAMES ARE COUNTED TOO (kogaki#1106). A
+// tag the enumeration names no shard for leaves the map empty having made no
+// request at all, so `calls` and `answered` are both silent about it. That is
+// the state the whole address drift presented as, and `unaddressable` is what
+// separates it from a corpus that lost its entries.
 function fetchHeadlines(kind, tags, { soft = false, stats = null } = {}) {
   const out = new Map();
+  const names = servedShardNames({ soft });
+  if (stats) {
+    stats.namesRead = names !== null;
+    stats.namesServed = names ? names.length : 0;
+  }
   for (const t of tags) {
-    const resp = gatewayQuery("gloss_index", { tag: `${kind}/${t}` }, { soft });
-    if (stats) stats.calls += 1;
-    if (!resp) continue;
-    if (stats) stats.answered += 1;
-    if (resp.miss) continue;
-    for (const [slug, entry] of parseGlossShard(resp)) if (!out.has(slug)) out.set(slug, entry);
+    if (stats) stats.tagsAsked += 1;
+    const addresses = names ? selectShardNames(names, kind, t) : [];
+    if (!addresses.length) {
+      // NAMED AS UNADDRESSABLE RATHER THAN COUNTED AS A MISS. No request was
+      // made for this tag, so reporting it as one would say the surface was
+      // asked and answered nothing.
+      if (stats) stats.unaddressable.add(t);
+      continue;
+    }
+    if (stats) stats.tagsAddressed += 1;
+    for (const address of addresses) {
+      const resp = gatewayQuery("gloss_index", { tag: address }, { soft });
+      if (stats) stats.calls += 1;
+      if (!resp) continue;
+      if (stats) stats.answered += 1;
+      if (resp.miss) continue;
+      for (const [slug, entry] of parseGlossShard(resp)) if (!out.has(slug)) out.set(slug, entry);
+    }
   }
   return out;
 }
@@ -944,6 +1076,43 @@ export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it car
 // layer further out. The shape is this repository's own degradation idiom: a
 // seam-absent member reports CANNOT-DETERMINE rather than passing or failing.
 export const NO_SEAM = "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
+
+// THE FIFTH AND SIXTH STATES (kogaki#1106). The four above all presuppose that
+// an ADDRESS existed to read. When the address itself is the fault they are all
+// false of the row, and the one that got stamped — `NO_HEADLINE`, "a shard was
+// READ and carried none" — is the most misleading of the four: it says the
+// corpus is missing the material, which sent two `/brief` runs and a six-day-old
+// emission candidate looking for the material rather than for the name.
+//
+// AND THE TWO ARE SEPARATE BECAUSE A CORPUS THAT LOST EVERY ENTRY AND A SCHEME
+// THAT RENAMED EVERY ENTRY ARE OTHERWISE THE SAME OBSERVATION. Both leave every
+// row unrendered; only one of them is repaired by fixing an address. The seam
+// state carries the same split (`address-fault` against `empty-corpus`), so a
+// caller reading the aggregate and a reader reading a row are told the same
+// thing.
+export const NO_SHARD_NAME = "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
+
+export const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
+
+// A TAG IS UNADDRESSABLE ONLY WHERE **EVERY** NAMESPACE READ FAILED TO NAME A
+// SHARD FOR IT (PR #1107 round 1, blocking). The first cut accumulated one
+// shared set across the namespace loop, so on the two-namespace report path
+// every tag served under `lessons` alone — the common case — was added by the
+// `journeys` pass even though its `lessons` shard had been selected, requested
+// and read. `glossFor`'s row arm then rendered `NO_SHARD_NAME` for a row whose
+// shard WAS read and simply carried no rendering: `NO_HEADLINE`'s fact asserted
+// as the address fault's, which is the exact inversion of the separation these
+// markers exist to create, on the one path that renders them to an owner.
+//
+// PURE AND SEPARATE FROM THE LOOP, because the defect is in the QUANTIFIER and
+// a case that had to reach a gateway to drive two namespaces would be asserting
+// the seam again. An empty list of namespaces yields the empty set: nothing was
+// read, so nothing is established about any tag.
+export function intersectUnaddressable(sets) {
+  const list = (sets || []).filter(Boolean);
+  if (!list.length) return new Set();
+  return new Set([...list[0]].filter((t) => list.every((s2) => s2.has(t))));
+}
 
 // THE NAMESPACES THE NEIGHBORHOOD FETCH ADDRESSES (kogaki#689). `cmdView` reads
 // both for the same reason the rendering rule gives, and the neighborhood's members are not all
@@ -994,10 +1163,22 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
   // function of the members handed in, so a namespace is a second shard per tag
   // ALREADY in that union and never a wider tag set — the corpus-wide prefetch
   // the rendering rule forbids stays unreachable from here.
-  const stats = { calls: 0, answered: 0 };
+  // SIX FIELDS, BECAUSE THE SEAM STATE IS NOW A SIX-WAY READ (kogaki#1106).
+  // `namesRead`/`namesServed` answer whether the ENUMERATION was reachable and
+  // whether it carries anything; `tagsAsked`/`tagsAddressed` and `unaddressable`
+  // answer whether the tags this pull holds are names the surface serves. None
+  // of the three questions is derivable from the other two.
+  const stats = { calls: 0, answered: 0, namesRead: false, namesServed: 0,
+                  tagsAsked: 0, tagsAddressed: 0, unaddressable: new Set() };
+  // ONE SET PER NAMESPACE, INTERSECTED AFTER THE LOOP. `fetchHeadlines` reports
+  // what ITS namespace could not name, which is a different question from what
+  // the pull could not name; keeping one shared set answered the second with
+  // the first (PR #1107 round 1).
+  const perNamespace = [];
   const heads = new Map();
   if (tags.length) {
     for (const ns of namespaces) {
+      stats.unaddressable = new Set();
       for (const [slug, e] of fetchHeadlines(ns, tags, { soft: true, stats })) {
         // FIRST NAMESPACE WINS on a slug present in both, which is the same
         // first-wins rule `fetchHeadlines` already applies across tags.
@@ -1012,8 +1193,10 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
         // as covered would be counting a comment.
         if (!heads.has(slug)) heads.set(slug, e);
       }
+      perNamespace.push(stats.unaddressable);
     }
   }
+  const unaddressable = intersectUnaddressable(perNamespace);
   const out = new Map();
   for (const m of list) {
     const e = heads.get(m.slug);
@@ -1027,16 +1210,33 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
     out.set(m.slug, e ? { headline: e.headline, cite: e.cite, found: true }
                       : { headline: NO_HEADLINE, cite: null, found: false });
   }
-  // THREE SEAM STATES, REPORTED RATHER THAN INFERRED FROM AN EMPTY MAP.
+  // FIVE SEAM STATES, REPORTED RATHER THAN INFERRED FROM AN EMPTY MAP.
   // `not-attempted` is not a degraded seam: no row had a tag, so no address
   // could be formed and there was nothing to read. Collapsing it into
   // `unreachable` would blame the seam for a property of the rows.
-  const seam = stats.calls === 0 ? "not-attempted"
+  //
+  // THE ORDER IS THE ORDER THE QUESTIONS BECOME ANSWERABLE (kogaki#1106).
+  // Whether anything was asked for comes first; then whether the enumeration
+  // this pull's addresses are derived from was reachable at all, because with
+  // it unread nothing below it can be established; then whether it carries any
+  // shard name (an empty corpus); then whether any of those names addresses a
+  // tag this pull holds (an address fault); and only then the read states,
+  // which presuppose that a request was actually made.
+  const seam = stats.tagsAsked === 0 ? "not-attempted"
+             : !stats.namesRead ? "unreachable"
+             : stats.namesServed === 0 ? "empty-corpus"
+             : stats.tagsAddressed === 0 ? "address-fault"
              : stats.answered > 0 ? "answered"
              : "unreachable";
   // THE NAMESPACE SET TRAVELS WITH THE RESULT, so `glossFor` decides
   // addressability against what was read rather than against a second list.
-  return { headlines: out, seam, namespaces };
+  //
+  // AND SO DOES THE UNADDRESSABLE TAG SET, for the same reason one level in: a
+  // PARTIAL address fault — some tags named, some not — leaves the aggregate
+  // `answered`, and a row whose every tag is in this set would then be stamped
+  // with a read that never happened. The aggregate answers for the pull; this
+  // answers for the row.
+  return { headlines: out, seam, namespaces, unaddressable };
 }
 
 // WHICH MARKER A ROW WITH NO RENDERABLE QUOTATION CARRIES (PR #694 round 1).
@@ -1091,7 +1291,7 @@ function glossMarkerFor(x) {
 // `fetchGlossBodies` before the neighborhood's soft fetch runs, so a down seam
 // exits and the pull renders nothing. The arm is correct and prospective; its
 // reopen trigger is the first Gloss caller on this path that reads SOFTLY.
-export function glossFor(sug, headline, seam, namespaces = ["lessons"]) {
+export function glossFor(sug, headline, seam, namespaces = ["lessons"], unaddressable = null) {
   // READ `found`, NEVER TRUTHINESS OF THE ENTRY. `resolveHeadlines` returns an
   // entry for every member it was handed, so `if (headline)` was true on every
   // miss and this function's whole second half was unreachable from the report
@@ -1111,6 +1311,17 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"]) {
   // be false of this row. A caller that passes no `seam` gets the pre-#689
   // behaviour rather than a silent new marker.
   if (seam === "unreachable") return NO_SEAM;
+  // THE ADDRESS ARMS SIT ABOVE THE READ MARKER, because both are states in
+  // which no request was made for this row (kogaki#1106). A caller that passes
+  // neither the new seam states nor `unaddressable` gets the pre-#1106
+  // behaviour, on the same rule the arm above it follows.
+  if (seam === "empty-corpus") return NO_SHARD_SERVED;
+  // THE ROW-LEVEL READ IS TRIED BEFORE THE AGGREGATE ONE and subsumes it: on a
+  // total fault every row's tags are in the set, so the aggregate arm below is
+  // reached only by a caller that passed the seam state without the set.
+  const tags = (sug && sug.tags) || [];
+  if (unaddressable && tags.length && tags.every((t) => unaddressable.has(t))) return NO_SHARD_NAME;
+  if (seam === "address-fault") return NO_SHARD_NAME;
   return NO_HEADLINE;
 }
 
@@ -4153,10 +4364,26 @@ export function parseGlossFull(resp) {
   return out;
 }
 
+// THE ADDRESS IS SELECTED HERE TOO (kogaki#1106) — see `fetchHeadlines` above
+// for why no address in this module is composed any more. A tag resolves to
+// every served cell carrying it, merged first-wins across cells in the order
+// the surface served them, which is the same rule `fetchHeadlines` applies.
+//
+// AN UNADDRESSABLE TAG RETURNS AN EMPTY MAP, as a tag with no served rendering
+// always did — and unlike the headline path this one has no marker vocabulary
+// to report the difference through, because its callers render BODIES and a
+// body's absence is disclosed by the surface that wanted it. What this path
+// does not do is pretend a request was made: the empty map is reached without
+// spending one.
 function fetchGlossBodies(kind, tag) {
-  const resp = gatewayQuery("gloss_index", { tag: `${kind}/${tag}` });
-  if (resp.miss) return new Map();
-  return parseGlossFull(resp);
+  const names = servedShardNames();
+  const out = new Map();
+  for (const address of names ? selectShardNames(names, kind, tag) : []) {
+    const resp = gatewayQuery("gloss_index", { tag: address });
+    if (resp.miss) continue;
+    for (const [slug, entry] of parseGlossFull(resp)) if (!out.has(slug)) out.set(slug, entry);
+  }
+  return out;
 }
 
 // --------------------------------------------------------------------------
@@ -5870,12 +6097,12 @@ function cmdReport(args) {
   // rule the slug substitution was refused under at #686 round 1.
   const shownRows = neighborhoodDisplaySet(neighborhood.suggestions || []).shown || [];
   if (shownRows.length) {
-    const { headlines: heads, seam, namespaces: ns } = resolveHeadlines(
+    const { headlines: heads, seam, namespaces: ns, unaddressable } = resolveHeadlines(
       shownRows.map((x) => ({ slug: x.slug, tags: x.tags || [] })),
       { namespaces: NEIGHBORHOOD_GLOSS_NAMESPACES });
     for (const sug of shownRows) {
       const h = heads.get(sug.slug);
-      sug.gloss = glossFor(sug, h, seam, ns);
+      sug.gloss = glossFor(sug, h, seam, ns, unaddressable);
       sug.gloss_cite = h ? h.cite : null;
     }
   }
@@ -8776,6 +9003,96 @@ switch (cmd) {
       && composeIdentityCite("alpha", "lesson", "product-lab@") === null);
     ok("the positional form is not producible by this composer",
       !/ELEMENTS\.jsonl:\d/.test(composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa")));
+
+    // ---- THE SHARD ADDRESS IS SELECTED FROM THE SERVED ENUMERATION, NEVER
+    // COMPOSED (kogaki#1106). Seam-free by construction, and that is the point
+    // rather than a convenience: the property is about ADDRESS SELECTION, so a
+    // case that had to reach a gateway to drive it would be asserting the seam
+    // — which is exactly what was already monitored and exactly what stayed
+    // green through the whole drift.
+    //
+    // THE SERVED NAMES BELOW ARE A TRANSCRIPT, not an invention:
+    // `surface_names(kind: "gloss")` at product-lab@7e109c8c serves 132 names
+    // in these six cell shapes.
+    const SERVED = [
+      "lessons/tag=agents,window=2026-07",
+      "lessons/tag=agents,window=2026-08",
+      "lessons/tag=agents,window=undated",
+      "lessons/tag=method,window=2026-08,date=2026-08-16",
+      "lessons/tag=product-design",
+      "journeys/tag=agents,window=2026-08",
+      "decisions/thread=articles,window=2026-08",
+    ];
+    ok("a served name parses into its namespace and the axis=value pairs of its cell",
+      (() => {
+        const sn = parseShardName("lessons/tag=method,window=2026-08,date=2026-08-16");
+        return sn.namespace === "lessons"
+          && sn.cell.get("tag") === "method"
+          && sn.cell.get("window") === "2026-08"
+          && sn.cell.get("date") === "2026-08-16";
+      })());
+    // THE CONTROL THAT KEEPS THE FAULT VISIBLE. If the retired one-axis form
+    // parsed as a cell carrying `tag=agents`, the selector would match the very
+    // address the surface stopped serving, the fetch would form it again, and
+    // the miss would be invisible exactly as it was for six days.
+    ok("the retired one-axis form does not parse as a cell carrying that tag",
+      (() => {
+        const sn = parseShardName("lessons/agents");
+        return sn.namespace === "lessons" && sn.cell.get("tag") === undefined;
+      })());
+    ok("a tag selects EVERY served cell carrying it, in the order the surface served them",
+      selectShardNames(SERVED, "lessons", "agents").join("|")
+        === "lessons/tag=agents,window=2026-07|lessons/tag=agents,window=2026-08|lessons/tag=agents,window=undated");
+    ok("selection is namespace-scoped, and a cell with no window is selected like any other",
+      selectShardNames(SERVED, "journeys", "agents").join("|") === "journeys/tag=agents,window=2026-08"
+      && selectShardNames(SERVED, "lessons", "product-design").join("|") === "lessons/tag=product-design"
+      // The `decisions` namespace shards by `thread`, so no `tag` addresses it
+      // — the discriminator that selection reads the CELL rather than the path.
+      && selectShardNames(SERVED, "decisions", "articles").length === 0);
+    ok("a tag the enumeration names no shard for selects nothing rather than composing an address for it",
+      selectShardNames(SERVED, "lessons", "knowledge-architecture").length === 0);
+
+    // ---- AND THE FAULT IS REPORTED AS AN ADDRESS FAULT (kogaki#1106). Every
+    // case below drives `glossFor`, because the marker is what a reader sees and
+    // the seam token is what a caller reads; asserting the token alone would
+    // leave the row rendering whatever it rendered before.
+    const addrRow = { slug: "alpha", family: "lesson", tags: ["agents"] };
+    const missEntry = { headline: NO_HEADLINE, cite: null, found: false };
+    ok("a total address fault renders the address marker, never the read-and-empty one",
+      glossFor(addrRow, missEntry, "address-fault", ["lessons"]) === NO_SHARD_NAME);
+    // THE TWO ARE SEPARATE BECAUSE A CORPUS THAT LOST EVERY ENTRY AND A SCHEME
+    // THAT RENAMED EVERY ENTRY ARE OTHERWISE THE SAME OBSERVATION, and a reader
+    // who cannot tell them apart repairs the wrong one.
+    ok("an empty corpus renders its own marker, distinct from the address fault and from the seam",
+      glossFor(addrRow, missEntry, "empty-corpus", ["lessons"]) === NO_SHARD_SERVED
+      && NO_SHARD_SERVED !== NO_SHARD_NAME
+      && NO_SHARD_SERVED !== NO_SEAM);
+    // THE PARTIAL ARM, which the aggregate cannot answer: one tag was named and
+    // read, another was not, so the pull is `answered` while this row was never
+    // addressed at all.
+    // THE QUANTIFIER, ASSERTED (PR #1107 round 1, blocking). The report path
+    // reads two namespaces, and a tag served under `lessons` alone is a tag the
+    // `journeys` pass names no shard for — so the union answers "unaddressable"
+    // for a tag whose shard was selected, requested and read. Only the
+    // intersection answers the question the row arm asks.
+    ok("a tag unaddressable in ONE namespace but named in another is not unaddressable for the pull",
+      (() => {
+        const lessons = new Set(["knowledge-architecture"]);
+        const journeys = new Set(["knowledge-architecture", "agents", "testing"]);
+        const both = intersectUnaddressable([lessons, journeys]);
+        return both.size === 1 && both.has("knowledge-architecture")
+          // THE CONTROL that this is an intersection rather than a first-wins
+          // read: the single-namespace answer is the set itself, and no
+          // namespace read at all establishes nothing about any tag.
+          && intersectUnaddressable([journeys]).size === 3
+          && intersectUnaddressable([]).size === 0;
+      })());
+    ok("a row whose every tag is unaddressable renders the address marker even when the pull as a whole answered",
+      glossFor({ slug: "bravo", family: "lesson", tags: ["knowledge-architecture"] },
+        missEntry, "answered", ["lessons"], new Set(["knowledge-architecture"])) === NO_SHARD_NAME
+      // THE CONTROL: a row with an addressed tag keeps the read-and-empty
+      // marker, so the arm above is about the ROW and not a blanket downgrade.
+      && glossFor(addrRow, missEntry, "answered", ["lessons"], new Set(["knowledge-architecture"])) === NO_HEADLINE);
 
     // ---- AN EMPTY SURVEY IS A REFUSAL (kogaki#1026). The cases drive the
     // composer the refusal is made of, and the ACT is asserted beside it in
