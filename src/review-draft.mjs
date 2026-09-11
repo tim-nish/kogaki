@@ -2907,7 +2907,14 @@ function consequenceOf(r) {
   if (r.verdict === "fails") {
     return r.class === "preserved" ? CONSEQUENCE.correction : CONSEQUENCE.reported;
   }
-  if (r.decided_by === "harness") return CONSEQUENCE.mechanical;
+  // THE MODE IS READ THROUGH `chosenJudged`, THE SAME READ `deciderOf` MAKES
+  // (PR #1102 round 1, finding 2). `decided_by` is a fact about the ROW — any
+  // one pair judged makes it `model` — while every other field on the line is
+  // the CHOSEN pair's, so a hybrid item can render a Harness-decided pair out of
+  // a row whose other pairs a model answered. Keyed on the row, this line said
+  // `decided by the Harness | reported only`: it named the Harness as the
+  // decider and withheld the word that says so.
+  if (!chosenJudged(r)) return CONSEQUENCE.mechanical;
   return CONSEQUENCE.reported;
 }
 
@@ -2923,7 +2930,7 @@ function sectionConsequenceOf(r, routes) {
     const route = (routes || []).find((x) => x.section === r.section);
     return route && route.kind === "localized" ? CONSEQUENCE.correction : CONSEQUENCE.reported;
   }
-  if (r.decided_by === "harness") return CONSEQUENCE.mechanical;
+  if (!chosenJudged(r)) return CONSEQUENCE.mechanical;
   return CONSEQUENCE.reported;
 }
 
@@ -3010,7 +3017,7 @@ function writeComparison(ws, run, pass, { results, sections, routes, calls, item
   // SECTION — this is its first, this one has no previous entry — rather than
   // about the item. So the mode is read off the row that was produced, which is
   // where that fact ended up.
-  const sectionMode = (r) => (r.decided_by === "harness" ? "vacuous" : "judged");
+  const sectionMode = (r) => (chosenJudged(r) ? "judged" : "vacuous");
   const order = run.steps.map((s) => s.step_id);
   const byStep = new Map();
   for (const r of results) {
@@ -4246,10 +4253,24 @@ function cmdCheck(args) {
   // pass two's heading with no mark would claim a reading this pass never made;
   // rendering nothing would leave the pass with half a comparison. So they are
   // carried, in the same word the carried Step rows use.
+  //
+  // AND A CARRIED SECTION ROW'S SPAN IS RE-ANCHORED, exactly as a carried STEP
+  // row's is (PR #1102 round 1, finding 1). `carried from pass one` says the
+  // VERDICT is pass one's; it does not say the COORDINATES are, and the file is
+  // headed by this pass's body sha. A correction changes the Draft's line count,
+  // so a pre-correction range rendered under the post-correction sha names
+  // whatever now sits at those numbers — the drifting-range defect this
+  // Harness's own outline cases exist to catch, one layer out. Pass one's range
+  // is kept beside it under its own name, so nothing is lost, only re-labelled.
   const priorSections = (priorJoin.sections || {});
   const comparisonFiles = writeComparison(ws, run, currentPass(run), {
     results,
-    sections: (priorSections.results || []).map((r) => ({ ...r, carried: true })),
+    sections: (priorSections.results || []).map((r) => {
+      const sec0 = run.sections.find((x) => x.index === r.section);
+      if (!sec0) return { ...r, carried: true };
+      return { ...r, carried: true,
+        span: sectionAsStep(draft, run, sec0, steps).lines, pass_one_span: r.span };
+    }),
     routes: run.section_routes,
     calls: [...modelCalls, ...(priorJoin.model_calls || []), ...(priorSections.model_calls || [])],
     items, carriedSections: true,
@@ -7426,6 +7447,53 @@ async function runSelfTest() {
         secs2.split("\n").filter((l) => l.startsWith("- section ")).join("\n"));
       ok("#1097 AC5: and `check` names the files it wrote",
         /comparison — one file per Step/.test(rG.stdout));
+
+      // --- PR #1102 round 1, finding 1: A CARRIED SECTION SPAN IS RE-ANCHORED
+      // The file is headed by THIS pass's body sha, and the corrections between
+      // the passes moved the article — so pass one's ranges rendered here would
+      // name whatever now sits at those numbers. The case is driven from the
+      // drive's own two Sections, both of which move, so it witnesses the
+      // re-anchoring rather than asserting it over an article that never moved.
+      const spanOf = (text, prefix) => {
+        const m = (text.split("\n").find((l) => l.startsWith(prefix)) || "").match(/\| lines (\d+)-(\d+) \|/);
+        return m ? [Number(m[1]), Number(m[2])] : null;
+      };
+      const secs1 = readOrEmpty(join(cWsRun, "pass-1", "comparison", "sections.md"));
+      const p1sec1 = spanOf(secs1, "- section 1/section-question");
+      const p2sec1 = spanOf(secs2, "- section 1/section-question");
+      // s2 is IN section 1 and was corrected, so its current range is the fact
+      // the Section's range has to still cover. Section 1 is chosen over section
+      // 2 deliberately: pass one's range for section 2 happens to still contain
+      // its Steps after the corrections, so a case driven from it would pass on
+      // the stale coordinates and witness nothing.
+      const s2span = spanOf(readOrEmpty(join(cmp2, "s2.md")), "- grounds");
+      ok("#1102 PREMISE: the corrections moved the first Section's range between the passes",
+        Boolean(p1sec1 && p2sec1) && String(p1sec1) !== String(p2sec1),
+        `pass one ${p1sec1} pass two ${p2sec1}`);
+      ok("#1102: so the carried Section line renders THIS pass's range, containing its Steps' current spans",
+        Boolean(p2sec1 && s2span) && p2sec1[0] <= s2span[0] && p2sec1[1] >= s2span[1],
+        `section 1 ${p2sec1} vs s2 ${s2span}`);
+      ok("#1102 DISCRIMINATION: pass one's range would NOT contain them, so this case sees the re-anchoring",
+        Boolean(p1sec1 && s2span) && p1sec1[1] < s2span[1],
+        `pass one section 1 ${p1sec1} vs s2 now ${s2span}`);
+
+      // --- PR #1102 round 1, finding 2: ONE READ OF WHO DECIDED THE LINE ------
+      // `consequenceOf` and `deciderOf` must not read different facts: a row
+      // naming the Harness as its decider and withholding `decided without a
+      // model call` is the pair coming apart. WHAT THIS WITNESSES IS THE
+      // INVARIANT, NOT THE DEFECT: the shipped item table declares no
+      // `unpaired: "fail"`, so no hybrid row exists to construct the
+      // disagreement with, and the case holds over the rows this drive does
+      // produce. It fires the moment such an item is admitted.
+      const everyLine = ["s1", "s2", "s3"].flatMap((id) =>
+        [readOrEmpty(join(cmp2, `${id}.md`)), readOrEmpty(join(cWsRun, "pass-1", "comparison", `${id}.md`))])
+        .concat([secs1, secs2])
+        .flatMap((t) => t.split("\n")).filter((l) => l.startsWith("- "));
+      ok("#1102: no line names the Harness as its decider while withholding the word that says so",
+        everyLine.every((l) => !(l.includes("| decided by the Harness |")
+          && !l.includes("| decided without a model call |") && !l.includes("| carried from pass one |"))),
+        everyLine.find((l) => l.includes("| decided by the Harness |")
+          && !l.includes("| decided without a model call |") && !l.includes("| carried from pass one |")) || "");
     }
 
     // RESIDUE: a PRESERVED item still failing after pass two, and only a
