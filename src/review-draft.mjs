@@ -4894,9 +4894,14 @@ async function runSelfTest() {
   // acts take their reply on standard input now, so every driver below goes
   // through here: a `--file`/`--verdicts` argument a case still writes is the
   // FIXTURE naming its own file, and this turns it into the stream the act
-  // reads rather than an argument the act no longer has. A path that does not
-  // exist becomes an EMPTY stream, which is what an absent reply now is — the
-  // cases that named a missing file assert the absent-reply refusal.
+  // reads rather than an argument the act no longer has.
+  //
+  // A PATH THAT IS NOT THERE THROWS, AND IS NEVER AN EMPTY STREAM (PR #1105
+  // round 1, finding 2). An empty stream is a REFUSAL only for `outline` and
+  // `read`; for `compare`, `check` and `correct` it is phase A, which renders
+  // an input and exits 0 — so a case that mistyped its reply path would pass
+  // vacuously on exactly the three acts where a vacuous pass is hardest to
+  // see. A case that means "no reply" passes no argument at all.
   const selfRun = (argv) => {
     const a = [];
     let input;
@@ -4904,7 +4909,12 @@ async function runSelfTest() {
       if ((argv[i] === "--file" || argv[i] === "--verdicts")
           && typeof argv[i + 1] === "string" && !argv[i + 1].startsWith("--")) {
         const p = argv[++i];
-        input = existsSync(p) ? readFileSync(p, "utf8") : "";
+        if (!existsSync(p)) {
+          throw new Error(`the fixture named a reply at ${p} and no file is there — a case that `
+            + "means an absent reply passes no argument at all, because an empty stream is phase A "
+            + "for `compare`, `check` and `correct` rather than a refusal");
+        }
+        input = readFileSync(p, "utf8");
         continue;
       }
       a.push(argv[i]);
@@ -7882,6 +7892,33 @@ async function runSelfTest() {
       ok(`#1100 AC3: and ${p} holds only what the legend names for it`,
         allowed.length > 0 && stray.length === 0, stray.join(", "));
     }
+
+    // AND THE READ DESCENDS, because the class has an instance ONE LEVEL DOWN
+    // (PR #1105 round 1, finding 1). The session's correction reply landed at
+    // `pass-1/corrections/<step>.prose.md` — inside a directory the legend
+    // names, where a top-level read never looks — so a guard that stopped at
+    // the legend caught four of the five strays #1100 enumerates and missed
+    // the fifth.
+    //
+    // BELOW A PASS DIRECTORY THE LEGEND HAS NOTHING TO SAY: the entries there
+    // are per Step and per Section, and enumerating them here would be the
+    // restated second legend this case already refuses. The authority is the
+    // run record's OWN register instead — `passPathAt` records every path it
+    // composes under `run.pass_files` — so a file beneath a pass directory
+    // that is not registered there is a file this Harness did not write.
+    const filesUnder = (dir) => readdirSync(dir, { withFileTypes: true })
+      .flatMap((e) => (e.isDirectory() ? filesUnder(join(dir, e.name)) : [join(dir, e.name)]));
+    const runRec = JSON.parse(readOrEmpty(join(cWsRun, "run.json")) || "{}");
+    const registered = new Set(Object.keys(runRec.pass_files || {}));
+    const unregistered = [];
+    for (const p of ["pass-1", "pass-2"]) {
+      for (const f of filesUnder(join(cWsRun, p))) {
+        const key = relative(cWsRun, f).split(sep).join("/");
+        if (!registered.has(key)) unregistered.push(key);
+      }
+    }
+    ok("#1100 AC3: and every file BENEATH a pass directory is one the run record says the Harness wrote",
+      registered.size > 0 && unregistered.length === 0, unregistered.join(", "));
 
     // THE TWO READINGS BOTH EXIST, AND THEY DIFFER. Presence alone would pass
     // on a pass-two file that was a copy of pass one's; the point is that the
