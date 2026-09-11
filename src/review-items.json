@@ -156,7 +156,7 @@
     ],
     "grounds": {
       "kind": "ground_lines",
-      "prefix": "ground",
+      "prefix": "ground:",
       "bullet_label": "grounds"
     },
     "reader_state_after": {

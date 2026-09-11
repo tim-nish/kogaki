@@ -953,7 +953,16 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
 
-  const grounds = step.body.split("\n").filter((l) => l.startsWith("ground ")).join("\n");
+  // THE STRAND ID IS THE BRIEF'S, NOT THE PACKET'S (kogaki#1094). The Brief
+  // serializes one form, `ground (strand L<n>): <proposition>` (kogaki#1095),
+  // and the id in it addresses material the realizer cannot open. The Packet
+  // renders the proposition alone, so every ground line it carries is a claim
+  // and nothing else — which is also what keeps a Strand id's digits out of a
+  // review comparison line.
+  const grounds = step.body.split("\n")
+    .filter((l) => l.startsWith("ground "))
+    .map((l) => l.replace(/^ground\s*\([^)]*\)\s*:\s*/, "ground: "))
+    .join("\n");
   const intro = (step.introduces || []);
   const known = (ledgerRow?.reader_already_knows || []);
 
@@ -979,8 +988,6 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
     purpose: need(`step ${step.step_id}'s purpose`, stepField(step.body, "purpose")),
     reader_state_before: need(`step ${step.step_id}'s reader_state_before`, stepField(step.body, "reader_state_before")),
     reader_state_after: need(`step ${step.step_id}'s reader_state_after`, stepField(step.body, "reader_state_after")),
-    materials: stepField(step.body, "materials") || "(none)",
-    rationale: need(`step ${step.step_id}'s rationale`, stepField(step.body, "rationale")),
     grounds: grounds || "(none recorded)",
     reader_already_knows: known.length
       ? known.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
@@ -1732,6 +1739,65 @@ async function runSelfTest() {
       readFileSync(join(movesDir, "open_the_claim.md"), "utf8").includes(reqText));
     ok("the Step's instantiated states ARE present",
       /reader_state_before/.test(p1.stdout) && /reader_state_after/.test(p1.stdout));
+    // THE PACKET CARRIES NO POINTER TO MATERIAL THE REALIZER CANNOT OPEN
+    // (kogaki#1094). `rationale` is the composer's reason for placing the Step
+    // and its only consumer is the grounds test at path review; `materials`
+    // names Strands and the thesis, and the realizer never reads a Strand. Both
+    // are asserted ABSENT as VALUES, not as labels — a renderer leaking either
+    // under some other label would pass a label test — and the fixture Brief is
+    // shown to carry them, so the exclusion is not vacuous.
+    const briefText = readFileSync(join(briefDir, "brief.md"), "utf8");
+    const rationaleText = "the claim opens the article.";
+    ok("the fixture Brief carries rationale and materials, so their exclusion is not vacuous",
+      briefText.includes(`rationale: ${rationaleText}`) && /^materials: /m.test(briefText));
+    ok("the packet carries neither the rationale's value nor a rationale or materials bullet",
+      !p1.stdout.includes(rationaleText)
+      && !/^- \*\*(rationale|materials)\.\*\*/m.test(p1.stdout));
+    // AND THE GROUND LINES CARRY NO STRAND ID. The Brief serializes one form,
+    // `ground (strand L<n>): <proposition>`; the id addresses material the
+    // realizer cannot open, and its digits once reached a review comparison
+    // line. The Packet renders the proposition alone.
+    ok("the fixture Brief's ground line carries a Strand id, so the strip is not vacuous",
+      /^ground \(strand L1\): the material states the claim\.$/m.test(briefText));
+    ok("the packet renders each ground as its content alone, with no Strand id",
+      /^ground: the material states the claim\.$/m.test(p1.stdout)
+      && !/\(strand /.test(p1.stdout));
+    // THE GROUNDS SENTENCE STATES THE OBLIGATION the review's `grounds-unused`
+    // item enforces: a ground no outlined claim rests on is a fail there, so a
+    // Packet saying only "assert nothing else" asked for less than it is judged
+    // against.
+    ok("the grounds block states that every ground must be recoverable from the prose",
+      /prose must make every one of them recoverable/.test(p1.stdout)
+      && /assert nothing beyond/.test(p1.stdout));
+    // A STEP CARRYING NEITHER FIELD RENDERS. They were required inputs; a Brief
+    // written without them is now an ordinary Brief rather than a refusal.
+    {
+      const barestDir = join(root, "theses", "barest"); mkdirSync(barestDir, { recursive: true });
+      writeFileSync(join(barestDir, "brief.md"),
+        goodBrief.split("\n").filter((l) => !/^(materials|rationale): /.test(l)).join("\n"));
+      const barest = spawnSync(process.execPath,
+        [self, "packet", "--brief", join(barestDir, "brief.md"), "--workspace", join(root, "ws-barest"),
+         "--moves-dir", movesDir, "--step", "s1"], { encoding: "utf8" });
+      ok("a Step declaring neither rationale nor materials still renders a packet",
+        barest.status === 0 && barest.stdout.includes("# Write one Step"),
+        (barest.stderr || "").slice(0, 240));
+    }
+    // THE RENDER IS THE TEMPLATE AND THE BRIEF, AND NOTHING ELSE IN THE TREE
+    // (kogaki#1094 acceptance 5). Driven against a COPY of `src/` in a tree that
+    // carries no skill and no spec at all, so a render reading either would
+    // differ here rather than being argued about. Byte equality is the claim.
+    {
+      const { cpSync } = await import("node:fs");
+      const isoSrc = join(root, "iso", "src");
+      mkdirSync(dirname(isoSrc), { recursive: true });
+      cpSync(dirname(self), isoSrc, { recursive: true });
+      const iso = spawnSync(process.execPath,
+        [join(isoSrc, basename(self)), "packet", "--brief", join(briefDir, "brief.md"),
+         "--workspace", join(root, "ws-iso"), "--moves-dir", movesDir, "--step", "s1"],
+        { encoding: "utf8" });
+      ok("a tree carrying no skill and no spec renders the same packet, byte for byte",
+        iso.status === 0 && iso.stdout === p1.stdout, (iso.stderr || "").slice(0, 240));
+    }
     // The exemplar's FORM-ONLY header is what stops the passage being read as
     // content — the block whose absence fails worst.
     // THE FOLD ACTUALLY FOLDS. The fixture's intent wraps across two lines, so
