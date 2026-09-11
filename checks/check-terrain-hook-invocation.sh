@@ -926,23 +926,38 @@ fi
 # that did not touch this file. So the absence is made decidable here rather
 # than left to review.
 #
-# THE RULE IS NARROW ON PURPOSE: an ISO-8601 instant on a line this file
-# EXECUTES OR STAGES. Prose is exempt -- a comment is where the dates grounding
-# this reasoning belong, and this block's own ground is written above one -- so
-# the exemption is keyed on the line being a comment in either of the two
-# languages staged here, shell and JS. It reads the tracked file rather than
-# `$0`, which this script's own `cd` makes unresolvable.
-absolute_instants=$(python3 - "$REPO/checks/$(basename "$0")" <<'PY'
+# THE RULE IS NARROW ON PURPOSE: an ISO-8601 date on a line this file EXECUTES
+# OR STAGES. Prose is exempt -- a comment is where the dates grounding this
+# reasoning belong, and this block's own ground is written above one -- so the
+# exemption is keyed on the line being a comment in either of the two languages
+# staged here, shell and JS. It reads the tracked file rather than `$0`, which
+# this script's own `cd` makes unresolvable.
+#
+# AND IT IS THE READER'S GRAMMAR, NOT THE OLD LITERAL'S. `pointer_expired` parses
+# with `datetime.fromisoformat`, which takes a date-only `2026-09-10` and a
+# space-separated `2026-09-10 12:00:00` as readily as the `...T...Z` form the
+# three sites happened to use -- and either ages out on the calendar exactly as
+# that one did. A guard narrower than the defect it refuses is a guard the next
+# site walks past, so the time is optional here and the separator is either.
+#
+# THE READ ITSELF CANNOT PASS BY FAILING. An empty result means "no literal" only
+# if the file was read at all; absent that, it is the same CANNOT-DETERMINE the
+# TTL read above refuses on, and this is the carrier that stops site N+1. So the
+# reader prints a sentinel on the clean path and its absence is the refusal.
+absolute_instants=$(python3 - "$REPO/checks/$(basename "$0")" <<'PY' 2>/dev/null
 import re, sys
-pat = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d")
+pat = re.compile(r"\d{4}-\d\d-\d\d(?:[ T]\d\d:\d\d)?")
 with open(sys.argv[1], encoding="utf-8") as f:
     hits = [f"{n}: {line.strip()[:90]}" for n, line in enumerate(f, 1)
             if not line.lstrip().startswith(("#", "//")) and pat.search(line)]
-print(" | ".join(hits))
+print(" | ".join(hits) if hits else "no-absolute-instant")
 PY
 )
-if [ -z "$absolute_instants" ]; then pass; else
-  bad "a staged timestamp in this file is written as an absolute instant. The reader under test compares opened_at against now() and drops anything older than POINTER_TTL, so a literal passes on the day it is written and fails every day after — derive it from the TTL the way the sites above do: $absolute_instants"
+if [ "$absolute_instants" = "no-absolute-instant" ]; then pass
+elif [ -z "$absolute_instants" ]; then
+  bad "this file's own source could not be read for absolute timestamps, so the guard that stops the next staging site has established nothing — CANNOT-DETERMINE, never a pass"
+else
+  bad "a staged timestamp in this file is written as an absolute date. The reader under test parses opened_at with datetime.fromisoformat and drops anything older than POINTER_TTL, so a literal — in any of the forms that parser takes — passes on the day it is written and fails every day after: derive it from the TTL the way the sites above do: $absolute_instants"
 fi
 
 if [ "$fail" -eq 0 ]; then
