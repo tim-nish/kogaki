@@ -80,7 +80,7 @@
 //   the frontmatter trace
 //       SPEC-draft-command "The three-layer boundary"
 //
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname, basename, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -92,6 +92,7 @@ import { createHash } from "node:crypto";
 // Move or a Strand — the reviewer's blindness is a property of what this
 // module READS, and it reads none of them.
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { enterRun } from "./runs.mjs";
 // ONE PARSER FOR A `step` BLOCK, and it is the Brief's (kogaki#1014). The
 // Reverse Outline is a Brief Step block, so it is read by the function
@@ -114,6 +115,47 @@ function argString(args, key, usage) {
   const v = args[key];
   if (typeof v !== "string" || v === "") fail(usage);
   return v;
+}
+
+// THE REPLY REACHES THE HARNESS ON STANDARD INPUT (kogaki#1100), and the
+// `--file` and `--verdicts` arguments are gone with it. `runs/` is machine
+// state and holds what the Harness wrote; a reply the SESSION names a file for
+// is a write with no owner, and after each act the Harness already holds the
+// same bytes under its own name — so the file the session composed was a
+// duplicate sitting inside the Harness's own layout. Piping is also what the
+// acts are actually for: a spawn's output goes straight into the recording act
+// with nothing written in between.
+//
+// AN ABSENT REPLY IS THE EMPTY STRING, NEVER A BLOCKED READ. A terminal leaves
+// fd 0 open on a tty, so a two-phase act typed by hand would wait forever on a
+// reply nobody is piping; `isTTY` is what tells an absent reply from one still
+// arriving, and it is read here rather than at each call site so the five acts
+// cannot disagree about what absent means.
+const STDIN_LABEL = "standard input";
+
+function readReply() {
+  if (process.stdin.isTTY) return "";
+  try { return readFileSync(0, "utf8"); }
+  catch (e) {
+    if (e.code === "EOF") return "";
+    if (e.code === "EAGAIN") {
+      fail("standard input could not be read (EAGAIN) — the reply is piped into this act, and a "
+        + "non-blocking stream with nothing on it yet is not an absent reply. Pipe the reply in, or "
+        + "run the act with standard input closed to mean there is none.");
+    }
+    throw e;
+  }
+}
+
+// A reply an act REQUIRES. `outline` and `read` record a reading and have no
+// second phase to fall back to, so an empty stream is the usage refusal rather
+// than a recorded blank.
+function requireReply(usage) {
+  const text = readReply();
+  if (text.trim() === "") {
+    fail(`nothing arrived on standard input, and this act records a reply — pipe it in.\n${usage}`);
+  }
+  return text;
 }
 
 function parseArgs(argv) {
@@ -525,7 +567,7 @@ function requireCurrent(run, draft, allowCorrecting = null) {
       + "the current article and its prose has not been re-realized yet, so the Draft's trace names "
       + `a Packet that did not produce the prose beside it.\n  input  ${c.input}\n`
       + "Realize the Step from that input and record it with\n"
-      + `  node src/review-draft.mjs correct --draft <draft.md> --step ${c.step_id} --file <prose>\n`
+      + `  <the corrected prose> | node src/review-draft.mjs correct --draft <draft.md> --step ${c.step_id}\n`
       + "Re-emitting the Draft would discard the correction instead of completing it.");
   }
 }
@@ -874,8 +916,8 @@ function renderColdReaderInput(ws, run, draft, items) {
     slug: run.slug,
     section_count: `${n} Section${n === 1 ? "" : "s"}, in order`,
     ledger_fields: ledgerFields(items),
-    read_command: `node src/review-draft.mjs read --draft ${rel} --section <n> --file <entry.json>`,
-    claim_command: `node src/review-draft.mjs read --draft ${rel} --claim --file <claim.json>`,
+    read_command: `<entry.json> | node src/review-draft.mjs read --draft ${rel} --section <n>`,
+    claim_command: `<claim.json> | node src/review-draft.mjs read --draft ${rel} --claim`,
   };
   // THE BODY GOES IN LAST, AND THE SLOT CHECK RUNS BEFORE IT (round 1, finding
   // 4). The body is the one field whose content this Harness does not write,
@@ -1289,9 +1331,9 @@ function cmdOpen(args) {
 }
 
 function cmdOutline(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft outline --draft <draft.md> --step <id> --file <outline.md>");
-  const stepId = argString(args, "step", "usage: review-draft outline --draft <draft.md> --step <id> --file <outline.md>");
-  const file = argString(args, "file", "usage: review-draft outline --draft <draft.md> --step <id> --file <outline.md>");
+  const usage = "usage: <reverse outline> | review-draft outline --draft <draft.md> --step <id>";
+  const draftPath = argString(args, "draft", usage);
+  const stepId = argString(args, "step", usage);
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
@@ -1311,12 +1353,15 @@ function cmdOutline(args) {
       + "The Harness renders inputs in the path's recorded order — `open` renders the first and each "
       + `\`outline\` renders the next. The Step now owed is ${nextOutlineOwed(run)?.step_id ?? "(none)"}.`);
   }
-  if (!existsSync(file)) fail(`no Reverse Outline at ${file}`);
-
+  // READ AFTER THE GUARDS, not before them. The reply arrives on standard input
+  // and the refusals above are about the Step rather than about the reading, so
+  // consuming the stream first would make an unknown Step's refusal depend on a
+  // reply nobody needed to write.
+  //
   // VALIDATED BEFORE IT IS RECORDED (kogaki#871). A record written to the
   // workspace and validated later would leave `compare` to discover the defect,
   // by which point the reviewer who could fix it has finished reading.
-  const content = readFileSync(file, "utf8");
+  const content = requireReply(usage);
   // THE STEP COMES FROM THE DRAFT, NOT FROM THE RUN RECORD (kogaki#880). The
   // run record carries the Step's identity and its ranges; whether the Step has
   // a figure — and where its block sits — is resolved from the trace, which is
@@ -1326,7 +1371,7 @@ function cmdOutline(args) {
   // this Harness refuses everywhere else.
   const { steps } = resolveInputs(draft);
   const step = steps.find((x) => x.step_id === stepId);
-  const projected = validateReverseOutline(content, step, file);
+  const projected = validateReverseOutline(content, step, STDIN_LABEL);
 
   // THE FIGURE'S HALF, VALIDATED IN THE SAME ACT (kogaki#1018). Owed where the
   // trace says the reader met a block, and REFUSED where it says they did not —
@@ -1336,9 +1381,9 @@ function cmdOutline(args) {
   let figureProjected = null;
   const hasFigureBlock = /^```figure\n/m.test(content);
   if (step.figure) {
-    figureProjected = validateFigureOutline(content, step, file);
+    figureProjected = validateFigureOutline(content, step, STDIN_LABEL);
   } else if (hasFigureBlock) {
-    fail(`the Reverse Outline for ${stepId} (${file}) carries a fenced \`figure\` block, and this Step `
+    fail(`the Reverse Outline for ${stepId} (${STDIN_LABEL}) carries a fenced \`figure\` block, and this Step `
       + "renders no figure. A reading of a block the reader never met is an invention, and the "
       + "comparison downstream would treat it as evidence, so it is refused rather than dropped.");
   }
@@ -1380,7 +1425,7 @@ function cmdOutline(args) {
   if (nextInput) process.stdout.write(`next Reverse Outline input: ${nextInput}\n`);
   else process.stdout.write("every Step is outlined. The Section ledger is what `compare` still owes — "
     + `${run.sections.length} entr${run.sections.length === 1 ? "y" : "ies"}, `
-    + `\`read --section <n> --file <ledger>\`.\n`);
+    + `\`<entry.json> | read --section <n>\`.\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -1442,10 +1487,9 @@ function validateLedgerEntry(text, n, file, items) {
 }
 
 function cmdRead(args) {
-  const usage = "usage: review-draft read --draft <draft.md> --section <n> --file <entry.json>\n"
-    + "       review-draft read --draft <draft.md> --claim --file <claim.json>";
+  const usage = "usage: <entry.json> | review-draft read --draft <draft.md> --section <n>\n"
+    + "       <claim.json> | review-draft read --draft <draft.md> --claim";
   const draftPath = argString(args, "draft", usage);
-  const file = argString(args, "file", usage);
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
@@ -1468,8 +1512,7 @@ function cmdRead(args) {
       + "the Sections.");
   }
   const items = readItems();
-  if (!existsSync(file)) fail(`no cold-reader entry at ${file}`);
-  const text = readFileSync(file, "utf8");
+  const text = requireReply(usage);
 
   // THE FINAL CLAIM IS ONE RECORD FOR THE WHOLE DRAFT, not a Section's. It is
   // recorded through this same entry point rather than a command of its own,
@@ -1490,12 +1533,12 @@ function cmdRead(args) {
     let doc;
     try { doc = JSON.parse(text); }
     catch (e) {
-      fail(`the final claim at ${file} is not readable JSON (${e.message}) — it is one JSON object `
+      fail(`the final claim on ${STDIN_LABEL} is not readable JSON (${e.message}) — it is one JSON object `
         + `of the form {"${key}": "…"}`);
     }
     const v = doc && !Array.isArray(doc) && typeof doc === "object" ? doc[key] : undefined;
     if (typeof v !== "string" || v.trim() === "") {
-      fail(`the final claim at ${file} carries no \`${key}\` — one or two sentences saying what the `
+      fail(`the final claim on ${STDIN_LABEL} carries no \`${key}\` — one or two sentences saying what the `
         + "article claimed, in the reader's own words. An empty claim would be laid against the "
         + "thesis and would report agreement.");
     }
@@ -1517,7 +1560,7 @@ function cmdRead(args) {
   if (!known.includes(n)) {
     fail(`unknown section ${n} — this Draft's Sections are ${known.join(", ")}`);
   }
-  const entry = validateLedgerEntry(text, n, file, items);
+  const entry = validateLedgerEntry(text, n, STDIN_LABEL, items);
   const out = passPathAt(ws, run, 1, "ledger", `section-${n}.json`);
   writeFileSync(out, JSON.stringify(entry, null, 2) + "\n");
   run.ledger[String(n)] = out;
@@ -1528,7 +1571,7 @@ function cmdRead(args) {
     + (owed.length ? `sections still owed: ${owed.join(", ")}\n`
       : run.final_claim ? "every Section entry and the final claim are recorded.\n"
         : "every Section entry is recorded. The final claim is what `compare` still owes — "
-          + "`read --claim --file <claim.json>`.\n"));
+          + "`<claim.json> | read --claim`.\n"));
 }
 
 // What `compare` is missing, computed once and rendered as the refusal's whole
@@ -2020,7 +2063,7 @@ function renderJoinPacket(ws, run, pass, draft, step, item, pair, declaredText, 
     declared_source: item.declared_source ?? "Packet",
     quoted: quotedPassage(step),
     question: item.question,
-    record_command: `node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path} --verdicts <verdicts.json>`,
+    record_command: `<verdicts.json> | node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path}`,
   };
   for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
   const left = out.match(/\{\{(\w+)\}\}/);
@@ -2066,17 +2109,19 @@ const judgedByLine = (...callSets) => {
 // five grounds", "eighty percent" — and once one is written a later reader
 // compares them. Line numbers are the Harness's and are already rendered in the
 // span; every other number in a review is a score by another name.
-function recordVerdicts(run, file, owed, items) {
-  if (!existsSync(file)) fail(`no verdicts file at ${file}`);
+// THE VERDICTS ARRIVE AS TEXT, not as a path (kogaki#1100). The caller has
+// already taken the reply off standard input, so this validates what it was
+// handed and names the stream in every refusal.
+function recordVerdicts(run, text, owed, items) {
   let doc;
-  try { doc = JSON.parse(readFileSync(file, "utf8")); }
+  try { doc = JSON.parse(text); }
   catch (e) {
-    fail(`${file} is not readable JSON (${e.message}) — a verdicts file is one JSON object `
-      + `carrying \`verdicts\`: [{step_id, item, pair?, verdict, reason, model}]`);
+    fail(`the verdicts on ${STDIN_LABEL} are not readable JSON (${e.message}) — a verdicts reply is `
+      + `one JSON object carrying \`verdicts\`: [{step_id, item, pair?, verdict, reason, model}]`);
   }
   const list = doc && !Array.isArray(doc) && Array.isArray(doc.verdicts) ? doc.verdicts : null;
   if (!list) {
-    fail(`${file} carries no \`verdicts\` array — it is one JSON object of the form `
+    fail(`the reply on ${STDIN_LABEL} carries no \`verdicts\` array — it is one JSON object of the form `
       + `{"verdicts": [{"step_id": ..., "item": ..., "verdict": ..., "reason": ..., "model": ...}]}`);
   }
   // A PAIR ALREADY ANSWERED IS STILL ANSWERABLE (PR #895 round 1, finding 5).
@@ -2143,7 +2188,7 @@ function recordVerdicts(run, file, owed, items) {
       verdict: v.verdict, reason: v.reason.trim(), model: v.model.trim() });
   });
   if (problems.length) {
-    fail(`the verdicts in ${file} were not recorded:\n  - ${problems.join("\n  - ")}`);
+    fail(`the verdicts on ${STDIN_LABEL} were not recorded:\n  - ${problems.join("\n  - ")}`);
   }
   run.verdicts = run.verdicts || {};
   for (const a of accepted) run.verdicts[a.key] = a;
@@ -3062,7 +3107,13 @@ function writeComparison(ws, run, pass, { results, sections, routes, calls, item
 }
 
 function cmdCompare(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft compare --draft <draft.md> [--verdicts <verdicts.json>]");
+  const draftPath = argString(args, "draft", "usage: review-draft compare --draft <draft.md>   (verdicts on standard input record them)");
+  // BOTH PHASES ARE ONE COMMAND, AND THE STREAM IS WHAT SELECTS ONE
+  // (kogaki#1100). With nothing piped in, `compare` renders what it owes; with
+  // a verdicts reply piped in, it records. The flag that used to say which is
+  // gone, so the reply itself is read once, here, before any refusal consumes
+  // the stream.
+  const reply = readReply();
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
@@ -3095,7 +3146,7 @@ function cmdCompare(args) {
     const parts = [];
     if (missing.steps.length) parts.push(`step outline${missing.steps.length === 1 ? "" : "s"}: ${missing.steps.join(", ")}`);
     if (missing.sections.length) parts.push(`section ledger entr${missing.sections.length === 1 ? "y" : "ies"}: ${missing.sections.join(", ")}`);
-    if (missing.claim) parts.push("the cold reader's final claim: `read --claim --file <claim.json>`");
+    if (missing.claim) parts.push("the cold reader's final claim: `<claim.json> | read --claim`");
     fail(`the join has inputs missing, so it would compare a partial review against a whole Draft `
       + `and report the gaps as agreement.\n  ${parts.join("\n  ")}`);
   }
@@ -3109,12 +3160,11 @@ function cmdCompare(args) {
   let pass = buildJoin(draft, run, items, ws, { pass: 1 });
   let sec = buildSectionJoin(draft, run, items, ws, 1);
   let recorded = 0;
-  if (args.verdicts !== undefined) {
-    const file = argString(args, "verdicts", "usage: review-draft compare --draft <draft.md> --verdicts <verdicts.json>");
-    // ONE VERDICTS FILE ANSWERS BOTH JOINS, validated against their union. Two
-    // files would make it possible to record one and not the other and reach a
+  if (reply.trim() !== "") {
+    // ONE VERDICTS REPLY ANSWERS BOTH JOINS, validated against their union. Two
+    // replies would make it possible to record one and not the other and reach a
     // complete-looking join over half the review.
-    recorded = recordVerdicts(run, file, [...pass.owed, ...sec.owed], items);
+    recorded = recordVerdicts(run, reply, [...pass.owed, ...sec.owed], items);
     pass = buildJoin(draft, run, items, ws, { pass: 1 });
     sec = buildSectionJoin(draft, run, items, ws, 1);
   }
@@ -3201,7 +3251,7 @@ function cmdCompare(args) {
       + `${owed.length + sec.owed.length} pair(s) await a verdict — one join Packet each, under ${passReadPath(ws, 1, "join")}:\n`
       + [...owed, ...sec.owed].map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
       + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
-      + `  node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path} --verdicts <verdicts.json>\n`
+      + `  <verdicts.json> | node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path}\n`
       + `join record: ${joinPath}\n`);
     return;
   }
@@ -3307,6 +3357,21 @@ function briefOf(draft) {
       + "rendered against the CURRENT Draft, and the Packet renderer is entered by its Brief.");
   }
   return p;
+}
+
+// THE REPLY REACHES THE REALIZATION LANE AS A FILE, AND THE FILE IS THE
+// HARNESS'S OWN (kogaki#1100). `draft.mjs` takes its prose and its figure
+// record as a path, and that interface is not this issue's to move; what this
+// issue removes is a reply file the SESSION names, and a run directory holding
+// one. So the reply is spilled to a Harness-named temporary file OUTSIDE the
+// workspace, handed to the lane, and removed when the lane returns — `runs/`
+// gains nothing, and the lane's own argument is untouched.
+function withReplyFile(text, name, fn) {
+  const dir = mkdtempSync(join(tmpdir(), "review-draft-reply-"));
+  const p = join(dir, name);
+  writeFileSync(p, text);
+  try { return fn(p); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
 function draftLane(sub, draft, args, extra) {
@@ -3626,7 +3691,7 @@ function correctionInputPath(ws, run, stepId) {
 // correction has: render the input, then record what came back. Between them
 // the run is MID-CORRECTION on this Step and every other act refuses by name,
 // which is `requireCurrent`'s existing guard and is not re-implemented here.
-function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId }) {
+function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId, reply }) {
   const step = resolveInputs(draft).steps.find((x) => x.step_id === stepId);
   if (!step.figure) {
     fail(`step ${stepId} carries no figure in the Draft's trace, so there is no record to `
@@ -3634,7 +3699,7 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   }
 
   // --- phase A: render the correction input ------------------------------
-  if (args.file === undefined) {
+  if (reply.trim() === "") {
     // THE PACKET IS RE-RENDERED FOR THE SAME REASON THE PROSE CORRECTION
     // RE-RENDERS IT: the record's elements are worded from the Step's grounds
     // and its caption from the state the Step leaves its reader in, and both
@@ -3668,22 +3733,19 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
       + "  the reader currently meets it, the previous record verbatim, what failed and what must\n"
       + "  go on holding.\n"
       + "Design the record again from it, then record with\n"
-      + `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure --file <record.json>\n`
+      + `  <record.json> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure\n`
       + "You write no markup: `draft.mjs figure` re-validates the record and `emit` re-renders the\n"
       + "block from it, so the transcription is the same function it was the first time.\n");
     return;
   }
 
   // --- phase B: record the corrected record ------------------------------
-  const file = argString(args, "file",
-    "usage: review-draft correct --draft <draft.md> --step <id> --figure --file <record.json>");
   const input = (run.correction_inputs || {})[`${stepId}#figure`];
   if (!input) {
     fail(`step ${stepId} has no rendered FIGURE correction input, so this record was not written `
       + `against one. Render it first:\n  node src/review-draft.mjs correct --draft `
       + `${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure`);
   }
-  if (!existsSync(file)) fail(`no corrected figure record at ${file}`);
 
   const snapDir = join(ws, "snapshots");
   mkdirSync(snapDir, { recursive: true });
@@ -3696,7 +3758,8 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   // pair — and `emit` renders the block from it. Nothing here transcribes
   // anything, which is why a syntax defect in a corrected figure stays a defect
   // of src/render-figure.mjs rather than of the sitting that corrected it.
-  draftLane("figure", draft, args, ["--step", stepId, "--file", resolve(file)]);
+  withReplyFile(reply, `${stepId}.figure.json`, (p) =>
+    draftLane("figure", draft, args, ["--step", stepId, "--file", p]));
   draftLane("emit", draft, args, []);
 
   const after = readDraft(draftPath);
@@ -3767,9 +3830,13 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
 }
 
 function cmdCorrect(args) {
-  const usage = "usage: review-draft correct --draft <draft.md> --step <id> [--figure] [--file <prose|record.json>]";
+  const usage = "usage: review-draft correct --draft <draft.md> --step <id> [--figure]\n"
+    + "       (the corrected prose, or the corrected figure record, on standard input records it)";
   const draftPath = argString(args, "draft", usage);
   const stepId = argString(args, "step", usage);
+  // THE STREAM SELECTS THE PHASE, as it does in `compare` and `check`
+  // (kogaki#1100), and it is read once here so both seats see the same answer.
+  const reply = readReply();
   // THE FLAG SAYS WHICH SEAT IS BEING CORRECTED, and it is a flag rather than a
   // fact derived from what failed (kogaki#880). A Step can owe both a prose and
   // a figure correction, and the two take different inputs — prose in one and a
@@ -3849,10 +3916,10 @@ function cmdCorrect(args) {
   }
 
   const joinRec = readJoin(ws);
-  if (figureMode) { correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId }); return; }
+  if (figureMode) { correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId, reply }); return; }
 
   // --- phase A: render the correction input ------------------------------
-  if (args.file === undefined) {
+  if (reply.trim() === "") {
     // RESOLVED BEFORE THE LANE IS ENTERED, and only here. Phase A still holds a
     // consistent Draft — the trace and every Packet agree — and re-rendering
     // this Step's Packet is what ends that agreement, so the previous prose is
@@ -3891,7 +3958,7 @@ function cmdCorrect(args) {
       + "  Correction block appended carrying the previous realization, what failed, and what\n"
       + "  must go on holding.\n"
       + `Realize the Step from it, then record with\n`
-      + `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --file <prose>\n`
+      + `  <the corrected prose> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId}\n`
       + "Until then this run is MID-CORRECTION on this Step: its Packet is the freshly rendered\n"
       + "one and its prose is still the old realization, so every other act refuses by name\n"
       + "rather than reporting a comparison between prose and an input that did not produce it.\n");
@@ -3899,7 +3966,6 @@ function cmdCorrect(args) {
   }
 
   // --- phase B: record the corrected realization -------------------------
-  const file = argString(args, "file", "usage: review-draft correct --draft <draft.md> --step <id> --file <prose>");
   const input = (run.correction_inputs || {})[stepId];
   // THE RENDERED-INPUT GUARD, the same one `outline` has and for the same
   // reason. Prose handed back for a Step whose correction input was never
@@ -3910,7 +3976,6 @@ function cmdCorrect(args) {
       + `one. Render it first:\n  node src/review-draft.mjs correct --draft `
       + `${relative(process.cwd(), draft.path) || draft.path} --step ${stepId}`);
   }
-  if (!existsSync(file)) fail(`no corrected prose at ${file}`);
 
   // THE PREVIOUS PROSE AND THE FRESH PACKET COME FROM THE PHASE-A RECORD, not
   // from the Draft. The Draft is mid-correction by construction here — its
@@ -3929,7 +3994,8 @@ function cmdCorrect(args) {
   const seq = String((run.corrections || []).length + 1).padStart(2, "0");
   writeFileSync(join(snapDir, `${seq}-before-${stepId}.md`), draft.text);
 
-  draftLane("section", draft, args, ["--step", stepId, "--file", resolve(file)]);
+  withReplyFile(reply, `${stepId}.prose.md`, (p) =>
+    draftLane("section", draft, args, ["--step", stepId, "--file", p]));
   draftLane("emit", draft, args, []);
 
   // The Draft is a different document now: new prose, new line ranges, and a
@@ -4051,7 +4117,10 @@ function passTwoBound(run, items) {
 }
 
 function cmdCheck(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft check --draft <draft.md>");
+  const draftPath = argString(args, "draft", "usage: review-draft check --draft <draft.md>   (verdicts on standard input record them)");
+  // The same two-phase selection `compare` makes, and read at the same point
+  // and for the same reason (kogaki#1100).
+  const reply = readReply();
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
@@ -4123,11 +4192,11 @@ function cmdCheck(args) {
       + "these Steps carry now is not the prose the first Reverse Outline read, so the recorded reading is "
       + `about text that is gone.\n`
       + owedOutline.map((id) => `  ${id}  ${run.rendered[id]}`).join("\n") + "\n"
-      + "Read each blind and record it with `outline --draft <draft.md> --step <id> --file <outline.md>`, "
+      + "Read each blind and record it with `<reverse outline> | outline --draft <draft.md> --step <id>`, "
       + "then run `check` again.");
   }
 
-  // PASS TWO ANSWERS ITS OWN OWED SET, through `check --verdicts` and never
+  // PASS TWO ANSWERS ITS OWN OWED SET, through `check`'s own stream and never
   // through `compare`'s. Routing them through `compare` would rebuild the
   // UNBOUNDED join against the corrected Draft — re-rendering a join Packet for
   // every pair, overwriting the pass-one record this pass carries from, and
@@ -4136,9 +4205,8 @@ function cmdCheck(args) {
   let pass = buildJoin(draft, run, items, ws,
     { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
   let recorded = 0;
-  if (args.verdicts !== undefined) {
-    const vf = argString(args, "verdicts", "usage: review-draft check --draft <draft.md> [--verdicts <verdicts.json>]");
-    recorded = recordVerdicts(run, vf, pass.owed, items);
+  if (reply.trim() !== "") {
+    recorded = recordVerdicts(run, reply, pass.owed, items);
     pass = buildJoin(draft, run, items, ws,
       { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
   }
@@ -4178,7 +4246,7 @@ function cmdCheck(args) {
       + `${owed.length} pair(s) await a verdict — one join Packet each:\n`
       + owed.map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
       + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
-      + `  node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path} --verdicts <verdicts.json>\n`
+      + `  <verdicts.json> | node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path}\n`
       + `check record: ${joinPath}\n`);
     // THE RUN RECORD IS WRITTEN ON THIS EXIT TOO (PR #1004 round 1, finding 3).
     // `buildJoin` registered pass two's join inputs in `run.pass_files` and
@@ -4456,7 +4524,7 @@ function cmdClose(args) {
       fail(`the join has run and is UNFILLED — ${run.join_state}. \`close\` writes the owner `
         + "record, and a record written over unanswered pairs would render them as no findings, "
         + "which reads as a clean review. Answer the join Packets under the workspace's `join/` "
-        + "directory and record them with `compare --draft <draft.md> --verdicts <verdicts.json>`.");
+        + "directory and record them with `<verdicts.json> | compare --draft <draft.md>`.");
     }
     fail("`close` is reachable from `compare` with zero fails, or from `check` in every state — "
       + "and neither has run. Run `compare --draft <draft.md>` first.");
@@ -4693,15 +4761,15 @@ const COMMANDS = {
 
 const USAGE = `review-draft — the round-trip review of a CanonicalDraft against its Packets
 
-  node src/review-draft.mjs open    --draft <draft.md>
-  node src/review-draft.mjs outline --draft <draft.md> --step <id> --file <outline.md>
-  node src/review-draft.mjs read    --draft <draft.md> --section <n> --file <entry.json>
-  node src/review-draft.mjs read    --draft <draft.md> --claim --file <claim.json>
-  node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
-  node src/review-draft.mjs correct --draft <draft.md> --step <id> [--file <prose>]
-  node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure [--file <record.json>]
-  node src/review-draft.mjs check   --draft <draft.md> [--verdicts <verdicts.json>]
-  node src/review-draft.mjs close   --draft <draft.md>
+                        node src/review-draft.mjs open    --draft <draft.md>
+  <reverse outline>   | node src/review-draft.mjs outline --draft <draft.md> --step <id>
+  <entry.json>        | node src/review-draft.mjs read    --draft <draft.md> --section <n>
+  <claim.json>        | node src/review-draft.mjs read    --draft <draft.md> --claim
+  [<verdicts.json>]   | node src/review-draft.mjs compare --draft <draft.md>
+  [<corrected prose>] | node src/review-draft.mjs correct --draft <draft.md> --step <id>
+  [<record.json>]     | node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure
+  [<verdicts.json>]   | node src/review-draft.mjs check   --draft <draft.md>
+                        node src/review-draft.mjs close   --draft <draft.md>
 
 The Harness owns the ordering: \`outline\` refuses a Step whose Reverse Outline input it
 did not render, \`compare\` refuses while any Step outline, Section entry or the
@@ -4735,17 +4803,27 @@ verdicts file a reviewer hands in carries the answer and nothing about what the
 answer means, so a Step with three fails and no correction was unreadable until
 the class and the consequence sat beside them.
 
+EVERY REPLY REACHES THIS HARNESS ON STANDARD INPUT, and no act takes a path to
+one. \`runs/\` holds what the Harness wrote and nothing else: the Reverse
+Outline lands at \`outline/<step>.md\`, the cold reader's entries under
+\`ledger/\`, the verdicts in \`join.json\` and \`check.json\`, and a correction in
+the Draft itself with its before-and-after pair under \`snapshots/\` — one copy
+each, under the Harness's own name. A reply the session wrote to a file of its
+own naming was a duplicate of that copy, and a write into machine state with no
+owner.
+
 \`close\` writes the corrected article to \`theses/<slug>/draft.reviewed.md\` and
 RESTORES \`theses/<slug>/draft.md\` to the Draft the run reviewed, so the Draft is
 byte-identical before and after a run and the diff between the two files is the
 review. \`review.md\` names both. A second \`close\` on a closed run refuses.
 
-\`correct\` runs in TWO PHASES like \`compare\`: with no \`--file\` it renders the
+\`correct\` runs in TWO PHASES like \`compare\`, and STANDARD INPUT selects the
+phase: with nothing piped in it renders the
 correction input — the Step's Packet RE-RENDERED against the article as it now
 stands, so the "article so far" block carries the current preceding prose
 including Steps corrected earlier in the same pass, with one Correction block
 appended holding the previous realization, what failed, and what held and must
-go on holding. With \`--file\` it records the corrected prose through the
+go on holding. With the corrected prose piped in it records it through the
 realization lane and reports the drift: the share of sentences changed and the
 verbatim overlap with the Packet's ground and state lines. Both are REPORTED and
 neither gates. Corrections run in path order, and a Step out of order refuses.
@@ -4767,7 +4845,7 @@ carried, at no model call. A preserved item still failing after pass two is
 residue, and \`close\` hands it to the owner with an empty \`classified:\` field.
 
 \`compare\` decides the mechanical items itself and renders one join Packet per
-judged pair; \`--verdicts\` records the answers. It emits one line per (Step,
+judged pair; a verdicts reply piped in records the answers. It emits one line per (Step,
 item) once every pair is answered, and never before: there is no fourth token
 for "not asked yet", and \`cannot-decide\` is a real answer rather than a place
 to round one.
@@ -4812,6 +4890,38 @@ async function runSelfTest() {
   const { tmpdir } = await import("node:os");
   const { spawnSync } = await import("node:child_process");
   const self = fileURLToPath(import.meta.url);
+  // THE REPLY IS PIPED, AND THE CASES SAY SO AT ONE SITE (kogaki#1100). The
+  // acts take their reply on standard input now, so every driver below goes
+  // through here: a `--file`/`--verdicts` argument a case still writes is the
+  // FIXTURE naming its own file, and this turns it into the stream the act
+  // reads rather than an argument the act no longer has.
+  //
+  // A PATH THAT IS NOT THERE THROWS, AND IS NEVER AN EMPTY STREAM (PR #1105
+  // round 1, finding 2). An empty stream is a REFUSAL only for `outline` and
+  // `read`; for `compare`, `check` and `correct` it is phase A, which renders
+  // an input and exits 0 — so a case that mistyped its reply path would pass
+  // vacuously on exactly the three acts where a vacuous pass is hardest to
+  // see. A case that means "no reply" passes no argument at all.
+  const selfRun = (argv) => {
+    const a = [];
+    let input;
+    for (let i = 0; i < argv.length; i++) {
+      if ((argv[i] === "--file" || argv[i] === "--verdicts")
+          && typeof argv[i + 1] === "string" && !argv[i + 1].startsWith("--")) {
+        const p = argv[++i];
+        if (!existsSync(p)) {
+          throw new Error(`the fixture named a reply at ${p} and no file is there — a case that `
+            + "means an absent reply passes no argument at all, because an empty stream is phase A "
+            + "for `compare`, `check` and `correct` rather than a refusal");
+        }
+        input = readFileSync(p, "utf8");
+        continue;
+      }
+      a.push(argv[i]);
+    }
+    return spawnSync(process.execPath, a,
+      { encoding: "utf8", ...(input === undefined ? {} : { input }) });
+  };
   const root = mkdtempSync(join(tmpdir(), "review-draft-selftest-"));
   // THE FIXTURE'S DECLARED JUDGE (kogaki#997). Every verdict a case records
   // names the model that produced it, because the surface refuses one that does
@@ -5061,8 +5171,8 @@ async function runSelfTest() {
   // reading the base would pass under the pre-fix behaviour too.
   const wsBase = join(root, "ws");
   const WS = join(wsBase, "fixture");
-  const drive = (cmd, ...extra) => spawnSync(process.execPath,
-    [self, cmd, "--draft", draft.path, "--workspace", wsBase, ...extra], { encoding: "utf8" });
+  const drive = (cmd, ...extra) => selfRun(
+    [self, cmd, "--draft", draft.path, "--workspace", wsBase, ...extra]);
 
   // A REVERSE OUTLINE for one Step, in the Brief's own Step form (kogaki#1014).
   // The fixture's outlines are REAL `step` blocks from here on — a plain-text
@@ -5207,8 +5317,8 @@ async function runSelfTest() {
   // form.
   const driveToCompletedJoin = (d, wsBase, tag, override = null) => {
     const slug = basename(dirname(resolve(d.path)));
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", d.path, "--workspace", wsBase], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", d.path, "--workspace", wsBase]);
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, tag));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
@@ -5593,6 +5703,40 @@ async function runSelfTest() {
       /reads as a clean review/.test(c.stderr));
   }
 
+  // 16b — THE REPLY ARRIVES ON STANDARD INPUT, AND THE OLD ARGUMENTS ARE GONE
+  // (kogaki#1100). Two halves, and the second is the load-bearing one: an
+  // argument that is merely unread is an argument that silently does nothing,
+  // and a call still passing `--file` would be handed phase A — a rendered
+  // input — while reading as a recording that ran.
+  {
+    // RAW, not through `selfRun`: the driver turns a `--file` into the stream,
+    // which is the whole point of it, so a case about the argument itself has
+    // to spawn past it.
+    const raw = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", draft.path, "--workspace", wsBase], { encoding: "utf8" });
+
+    const rFile = raw("outline", "--step", "a1", "--file", join(root, "rec-a1.md"));
+    ok("#1100: `--file` is refused BY NAME rather than ignored, and the refusal names the pipe",
+      rFile.status === 1 && /`--file` is gone/.test(rFile.stderr)
+      && /\| node src\/review-draft\.mjs outline/.test(rFile.stderr));
+
+    const rVerd = raw("compare", "--verdicts", join(root, "verdicts-main.json"));
+    ok("#1100: and `--verdicts` is refused by the same clause",
+      rVerd.status === 1 && /`--verdicts` is gone/.test(rVerd.stderr));
+
+    // AN ABSENT REPLY IS THE USAGE REFUSAL, never a recorded blank. `outline`
+    // and `read` have no second phase to fall back to, so an empty stream is a
+    // mistake rather than a phase.
+    const rNoOutline = drive("outline", "--step", "a1");
+    ok("#1100: an `outline` with nothing piped in refuses, naming standard input",
+      rNoOutline.status === 1 && /nothing arrived on standard input/.test(rNoOutline.stderr)
+      && /\| review-draft outline/.test(rNoOutline.stderr));
+
+    const rNoRead = drive("read", "--section", "1");
+    ok("#1100: and a `read` with nothing piped in refuses the same way",
+      rNoRead.status === 1 && /nothing arrived on standard input/.test(rNoRead.stderr));
+  }
+
   // 17b — the verdicts file is validated against WHAT THE RUN OWES, and each
   // refusal is its own mistake.
   {
@@ -5884,8 +6028,13 @@ async function runSelfTest() {
     // second reader written here. A second parser is the two-copy divergence
     // this whole act removes, and `draft.mjs` is already re-entered as a
     // subprocess by `correct`, so no store this case guards becomes reachable.
+    // `node:os` JOINED THE LIST AT kogaki#1100, and it is a builtin the
+    // BLINDNESS does not touch: the reply arrives on standard input now, and
+    // handing it to `draft.mjs` — which takes a path — needs a temporary
+    // directory outside the workspace. It reads no material the reviewer is
+    // blind to; what the list refuses is a reader, and `tmpdir` is not one.
     const ALLOWED = new Set(["node:fs", "node:path", "node:url", "node:crypto",
-      "node:child_process", "./runs.mjs", "./draft.mjs"]);
+      "node:child_process", "node:os", "./runs.mjs", "./draft.mjs"]);
     // BOTH IMPORT FORMS (kogaki#883, finding 1). The first scan matched static
     // `from "…"` only, so a production-side `await import("./strand.mjs")` —
     // the exact form this very function uses for its own builtins — was
@@ -5907,10 +6056,15 @@ async function runSelfTest() {
     // The scan's own reach, asserted on a fixture rather than trusted: a
     // dynamic import of a disallowed module must be CAUGHT, and a dynamic
     // import of an allowed one must not be.
-    const dyn = 'import { x } from "node:fs";\nconst s = await import("./strand.mjs");\nconst o = await import("node:os");';
+    // THE SECOND DISALLOWED NAME MOVED WHEN THE LIST DID (kogaki#1100). It was
+    // `node:os`, which the list now admits, and a fixture whose second example
+    // became allowed would have gone on passing while asserting one name where
+    // it says two. `node:https` is the replacement and a truer example besides:
+    // a builtin that reads something the reviewer is blind to.
+    const dyn = 'import { x } from "node:fs";\nconst s = await import("./strand.mjs");\nconst o = await import("node:https");';
     const dynForeign = importsOf(dyn).filter((m) => !ALLOWED.has(m));
     ok("and the scan sees a dynamic import — a fixture importing ./strand.mjs at runtime is refused by name",
-      dynForeign.length === 2 && dynForeign.includes("./strand.mjs") && dynForeign.includes("node:os"),
+      dynForeign.length === 2 && dynForeign.includes("./strand.mjs") && dynForeign.includes("node:https"),
       dynForeign.join(", "));
     ok("while a dynamic import of an allowed module passes the same scan",
       importsOf('const { x } = await import("node:child_process");').filter((m) => !ALLOWED.has(m)).length === 0);
@@ -6016,8 +6170,8 @@ async function runSelfTest() {
   // by a file's absence.
   {
     const ws3 = join(root, "ws3");
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", draft.path, "--workspace", ws3], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", draft.path, "--workspace", ws3]);
     ok("a third run opens", D("open").status === 0);
 
     // `expect` is a substring or a regex. The refusals quote field names in
@@ -6147,8 +6301,8 @@ async function runSelfTest() {
       const ws4 = join(root, "ws4");
       spawnSync(process.execPath, [self, "open", "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
       const f = writeRecord("a1", (o) => { o.purpose = null; return o; });
-      const r = spawnSync(process.execPath,
-        [self, "outline", "--step", "a1", "--file", f, "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
+      const r = selfRun(
+        [self, "outline", "--step", "a1", "--file", f, "--draft", draft.path, "--workspace", ws4]);
       ok("a refused outline is not written to the workspace",
         r.status === 1 && !existsSync(join(ws4, "fixture", "pass-1", "outline", "a1.json"))
         && !existsSync(join(ws4, "fixture", "pass-1", "outline", "a1.md")));
@@ -6647,8 +6801,8 @@ async function runSelfTest() {
     for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
     const d = buildDraft(join(root, "theses", "entries"), { packetDir: pd });
     const wsBase = join(root, "ws-entries");
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", d.path, "--workspace", wsBase], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", d.path, "--workspace", wsBase]);
     D("open");
     const CONCEDED = "the passage carries the ground more weakly than the packet declares it";
     // ONE STEP CARRIES A CONCESSION AND THE OTHERS DO NOT, so the case witnesses
@@ -6731,8 +6885,8 @@ async function runSelfTest() {
     for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
     const d = buildDraft(join(root, "theses", "undecided"), { packetDir: pd });
     const wsb = join(root, "ws-undecided");
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", d.path, "--workspace", wsb]);
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "und"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
@@ -6780,8 +6934,8 @@ async function runSelfTest() {
     ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/grounds-unused")));
     ok("and no Step is sent to correction, because no PRESERVED item failed",
       /no Step is sent to correction/.test(r.second.stdout));
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", d.path, "--workspace", wsb]);
     const c = D("close");
     ok("close is reachable with a best-effort fail outstanding", c.status === 0);
     const rev = readOrEmpty(join(root, "theses", "riding", "review.md"));
@@ -6805,8 +6959,8 @@ async function runSelfTest() {
       (o) => (o.step_id === "a1" && o.item === "grounds" && o.pair === 1
         ? { verdict: "fails", reason: "the claim rests on no ground this Packet declares" }
         : null));
-    const c2 = spawnSync(process.execPath,
-      [self, "close", "--draft", d2.path, "--workspace", wsb2], { encoding: "utf8" });
+    const c2 = selfRun(
+      [self, "close", "--draft", d2.path, "--workspace", wsb2]);
     ok("while a PRESERVED fail still withholds the record, naming the class",
       c2.status === 1 && /failing PRESERVED item/.test(c2.stderr)
       && /A best-effort fail does not withhold the record/.test(c2.stderr));
@@ -6823,8 +6977,8 @@ async function runSelfTest() {
       .split("\n").filter((l) => !/^- \*\*purpose\.\*\*/.test(l)).join("\n"));
     const d = buildDraft(join(root, "theses", "gapped"), { packetDir: pd });
     const wsb = join(root, "ws-gapped");
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", d.path, "--workspace", wsb]);
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "gap"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
@@ -6915,8 +7069,8 @@ async function runSelfTest() {
     const soloCli = soloWithout("solo-join", "join-template.md");
     const d = buildDraft(join(root, "theses", "nojointpl"), { packetDir });
     const wsb = join(root, "ws-nojointpl");
-    const D = (...a) => spawnSync(process.execPath,
-      [soloCli, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [soloCli, ...a, "--draft", d.path, "--workspace", wsb]);
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "njt"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
@@ -6938,8 +7092,8 @@ async function runSelfTest() {
     const soloCli = soloWithout("solo-items", "review-items.json");
     const d = buildDraft(join(root, "theses", "noitems"), { packetDir });
     const wsb = join(root, "ws-noitems");
-    const D = (...a) => spawnSync(process.execPath,
-      [soloCli, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [soloCli, ...a, "--draft", d.path, "--workspace", wsb]);
     const r = D("open");
     ok("an absent item table refuses rather than joining against a table it invented",
       r.status === 1 && /item table is absent/.test(r.stderr));
@@ -7105,9 +7259,9 @@ async function runSelfTest() {
     // --- the review, up to a completed join with two preserved fails --------
     const cwsBase = join(cRoot, "ws-review");
     const cWsRun = join(cwsBase, "correction-fixture");
-    const RD = (...a) => spawnSync(process.execPath,
+    const RD = (...a) => selfRun(
       [self, ...a, "--draft", cDraft, "--workspace", cwsBase,
-        "--draft-workspace", cWs, "--moves-dir", cMoves], { encoding: "utf8" });
+        "--draft-workspace", cWs, "--moves-dir", cMoves]);
 
     // A REVERSE OUTLINE IN THE BRIEF'S OWN STEP FORM. It needs no line
     // arithmetic at all now: a Brief Step field carries no draft coordinate, so
@@ -7705,6 +7859,67 @@ async function runSelfTest() {
       existsSync(join(cWsRun, "run.json")) && existsSync(join(cWsRun, "snapshots"))
       && !existsSync(P1("run.json")) && !existsSync(P2("run.json")));
 
+    // #1100 AC3 — THE RUN DIRECTORY HOLDS ONLY WHAT THE LAYOUT LEGEND NAMES.
+    // This fixture is the one that reaches every corner of the layout — two
+    // passes, a ledger, corrections and snapshots — so it is where the whole
+    // directory is answerable rather than a subset of it.
+    //
+    // THE LEGEND IS PARSED FROM `USAGE`, NEVER RESTATED HERE. A list written
+    // out in this case would be a second legend: the layout could grow an
+    // entry, both copies could be updated, and the case would still be
+    // asserting against itself. Parsed, a directory the legend does not name
+    // fails here, and so does a legend nobody kept current.
+    const legend = (() => {
+      const m = new Map();
+      const flat = USAGE.replace(/\n\s+/g, " ");
+      for (const g of flat.matchAll(/runs\/review\/<slug>\/([A-Za-z0-9_.-]+)\/?(?:\{([^}]*)\})?/g)) {
+        if (!m.has(g[1]) || g[2]) {
+          m.set(g[1], g[2] ? g[2].split(",").map((x) => x.trim()).filter(Boolean) : null);
+        }
+      }
+      return m;
+    })();
+    ok("#1100 AC3: the layout legend is readable from the command's own usage",
+      legend.has("pass-1") && legend.has("pass-2") && legend.has("snapshots")
+      && legend.has("run.json") && (legend.get("pass-1") || []).includes("cold-reader.md"),
+      [...legend.keys()].join(", "));
+    const strayRoot = readdirSync(cWsRun).filter((e) => !legend.has(e));
+    ok("#1100 AC3: a run directory holds only the entries the layout legend names",
+      strayRoot.length === 0, strayRoot.join(", "));
+    for (const p of ["pass-1", "pass-2"]) {
+      const allowed = legend.get(p) || [];
+      const stray = readdirSync(join(cWsRun, p)).filter((e) => !allowed.includes(e));
+      ok(`#1100 AC3: and ${p} holds only what the legend names for it`,
+        allowed.length > 0 && stray.length === 0, stray.join(", "));
+    }
+
+    // AND THE READ DESCENDS, because the class has an instance ONE LEVEL DOWN
+    // (PR #1105 round 1, finding 1). The session's correction reply landed at
+    // `pass-1/corrections/<step>.prose.md` — inside a directory the legend
+    // names, where a top-level read never looks — so a guard that stopped at
+    // the legend caught four of the five strays #1100 enumerates and missed
+    // the fifth.
+    //
+    // BELOW A PASS DIRECTORY THE LEGEND HAS NOTHING TO SAY: the entries there
+    // are per Step and per Section, and enumerating them here would be the
+    // restated second legend this case already refuses. The authority is the
+    // run record's OWN register instead — `passPathAt` records every path it
+    // composes under `run.pass_files` — so a file beneath a pass directory
+    // that is not registered there is a file this Harness did not write.
+    const filesUnder = (dir) => readdirSync(dir, { withFileTypes: true })
+      .flatMap((e) => (e.isDirectory() ? filesUnder(join(dir, e.name)) : [join(dir, e.name)]));
+    const runRec = JSON.parse(readOrEmpty(join(cWsRun, "run.json")) || "{}");
+    const registered = new Set(Object.keys(runRec.pass_files || {}));
+    const unregistered = [];
+    for (const p of ["pass-1", "pass-2"]) {
+      for (const f of filesUnder(join(cWsRun, p))) {
+        const key = relative(cWsRun, f).split(sep).join("/");
+        if (!registered.has(key)) unregistered.push(key);
+      }
+    }
+    ok("#1100 AC3: and every file BENEATH a pass directory is one the run record says the Harness wrote",
+      registered.size > 0 && unregistered.length === 0, unregistered.join(", "));
+
     // THE TWO READINGS BOTH EXIST, AND THEY DIFFER. Presence alone would pass
     // on a pass-two file that was a copy of pass one's; the point is that the
     // corrected Step was read twice, against two different articles.
@@ -7991,8 +8206,8 @@ async function runSelfTest() {
       mutate: (t) => t.split("The second heading").join("An unrelated title") });
     const wsb = join(root, "ws-briefdefect");
     const wsRun = join(wsb, "briefdefect");
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", d.path, "--workspace", wsb]);
 
     // Every pair holds except the Section's own question pair: the Steps are
     // untouched, so what is wrong can only be the grouping.
@@ -8082,8 +8297,8 @@ async function runSelfTest() {
     const d = buildDraft(lRoot, { packetDir });
     const wsb = join(root, "ws-localize");
     const wsRun = join(wsb, "localize");
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", d.path, "--workspace", wsb]);
     const answerBut = (tag, failKeys) => {
       const rec0 = existsSync(join(wsRun, "pass-1", "join.json"))
         ? JSON.parse(readFileSync(join(wsRun, "pass-1", "join.json"), "utf8")) : {};
@@ -8136,8 +8351,8 @@ async function runSelfTest() {
     const d = buildDraft(uRoot, { packetDir });
     const wsb = join(root, "ws-undecided");
     const wsRun = join(wsb, "undecided");
-    const D = (...a) => spawnSync(process.execPath,
-      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const D = (...a) => selfRun(
+      [self, ...a, "--draft", d.path, "--workspace", wsb]);
     const answerWith = (tag, byKey) => {
       const rec0 = existsSync(join(wsRun, "pass-1", "join.json"))
         ? JSON.parse(readFileSync(join(wsRun, "pass-1", "join.json"), "utf8")) : {};
@@ -8262,8 +8477,8 @@ async function runSelfTest() {
     // directory nothing writes.
     const FWS_BASE = join(root, "fws");
     const FWS = join(FWS_BASE, "fig");
-    const fdrive = (...a) => spawnSync(process.execPath,
-      [self, a[0], "--draft", fdraft.path, "--workspace", FWS_BASE, ...a.slice(1)], { encoding: "utf8" });
+    const fdrive = (...a) => selfRun(
+      [self, a[0], "--draft", fdraft.path, "--workspace", FWS_BASE, ...a.slice(1)]);
 
     const o = fdrive("open");
     ok("#880: a Draft carrying a figure opens", o.status === 0);
@@ -8574,9 +8789,9 @@ async function runSelfTest() {
 
     const swsBase = join(sRoot, "ws-review");
     const sWsRun = join(swsBase, "seat-fixture");
-    const SD = (...a) => spawnSync(process.execPath,
+    const SD = (...a) => selfRun(
       [self, ...a, "--draft", sDraft, "--workspace", swsBase,
-        "--draft-workspace", sWs, "--moves-dir", sMoves], { encoding: "utf8" });
+        "--draft-workspace", sWs, "--moves-dir", sMoves]);
     ok("#945: ReviewDraft opens it", SD("open").status === 0);
 
     // FINDING 3 — THE BLIND INPUT PLACES THE FIGURE WHERE THE READER MET IT.
@@ -8663,8 +8878,8 @@ async function runSelfTest() {
     const gdraft = buildDraft(gdir, { packetDir: gPacketDir });
     const GWS_BASE = join(root, "gws996");
     const GWS = join(GWS_BASE, "grounds996");
-    const gdrive = (...a) => spawnSync(process.execPath,
-      [self, a[0], "--draft", gdraft.path, "--workspace", GWS_BASE, ...a.slice(1)], { encoding: "utf8" });
+    const gdrive = (...a) => selfRun(
+      [self, a[0], "--draft", gdraft.path, "--workspace", GWS_BASE, ...a.slice(1)]);
 
     // Neither claim shares enough content words with either ground to reach the
     // 0.34 containment floor, and each is a faithful reading of one of them.
@@ -8797,6 +9012,18 @@ async function main() {
   if (!cmd || !COMMANDS[cmd]) {
     process.stdout.write(USAGE);
     process.exit(cmd ? 1 : 0);
+  }
+  // THE RETIRED ARGUMENTS ARE REFUSED BY NAME, NEVER IGNORED (kogaki#1100). A
+  // call still carrying `--file` or `--verdicts` was written against the old
+  // interface and is piping nothing, so silently dropping the argument would
+  // give it phase A — a rendered input where it asked to record — and the
+  // session would read that as the act having run. The refusal names the pipe.
+  for (const k of ["file", "verdicts"]) {
+    if (args[k] !== undefined) {
+      fail(`\`--${k}\` is gone: a reply reaches this Harness on standard input, so that it can be `
+        + "piped straight from the spawn that produced it and `runs/` holds no file the Harness did "
+        + `not write.\n  <the reply> | node src/review-draft.mjs ${cmd} …`);
+    }
   }
   COMMANDS[cmd](args);
 }
