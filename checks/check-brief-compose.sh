@@ -41,6 +41,7 @@ import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDige
          figureRefusal, figureGroundRefusal, resolveFigureForms, visualFormOf,
          figureClause, figureSteps, renderFigureRoles, parseFigureRoles, figureKinds } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
+import { NO_HEADLINE, NO_SHARD_NAME } from "./src/terrain.mjs";
 import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS, decisionGradeRendering } from "./src/assemble.mjs";
 import { validateDisclosureTable, disclosureSurface, disclosureFieldsPresent } from "./src/disclosure.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
@@ -2997,6 +2998,57 @@ ranCase("z");
     }
   } finally {
     rmSync(zdir, { recursive: true, force: true });
+  }
+}
+
+// (aa) A FULLY-UNRESOLVED SET STILL COMPOSES DISTINGUISHABLE CANDIDATES
+// (kogaki#1106). On 2026-09-11 two `/brief` runs over two unrelated settled
+// sets composed every candidate as the same string, so the thesis-determination
+// gate had nothing to choose between and could not be raised.
+//
+// THE CAUSE WAS A FLAG THIS LANE WAS NOT READING, not the marker text.
+// `resolveHeadlines` stamps a marker into `headline` and reports the miss in
+// `found`; the composer branched on `e.headline` being truthy, which it is on
+// every miss — so the member-naming branch added for exactly this case at
+// PR #534 round 1 was unreachable from the one caller that matters. That is the
+// same shape as the two defects PR #693 found one seam over: a branch that
+// never ran and a branch that ran correctly are one silence to the suite.
+//
+// SEAM-FREE AND DRIVEN THROUGH THE COMPOSER'S OWN ARGUMENT, because the
+// headlines map is exactly what `enter` passes: a case reaching a gateway
+// would assert the seam, and the seam answered correctly throughout.
+ranCase("aa");
+{
+  const strands = [
+    { id: "L1", display_id: "L1", slug: "alpha", family: "lesson", tags: ["agents"], claim: "the alpha claim" },
+    { id: "L2", display_id: "L2", slug: "bravo", family: "lesson", tags: ["agents"], claim: "the bravo claim" },
+    { id: "L3", display_id: "L3", slug: "charlie", family: "lesson", tags: ["agents"], claim: "the charlie claim" },
+  ];
+  const missed = new Map(strands.map((s2) => [s2.slug, { headline: NO_HEADLINE, cite: null, found: false }]));
+  const cands = composeThesisCandidates(strands, missed);
+  const claims = cands.map((c) => c.claim);
+  if (new Set(claims).size !== claims.length) {
+    fails.push(`(aa) ${claims.length} candidates over a fully-unresolved set carry ${new Set(claims).size} distinct claim(s) — the gate is offered one option several times at the moment the owner most needs to see that something is wrong`);
+  }
+  // AND EACH ONE NAMES ITS OWN MEMBER, which is what makes them distinguishable
+  // as a READING rather than merely as strings.
+  for (const s2 of strands) {
+    if (!claims.some((c) => c.includes(s2.display_id))) {
+      fails.push(`(aa) no candidate names ${s2.display_id} — a set whose renderings are all missing must still say WHICH member is missing material`);
+    }
+  }
+  // THE ADDRESS FAULT REACHES THE OWNER SURFACE, not only the seam state
+  // (kogaki#1106 acceptance 2 and 3). With the seam reporting an address fault
+  // the candidates must carry the address marker: rendering the read-and-empty
+  // one here is what sent two runs and a six-day-old emission candidate looking
+  // for missing MATERIAL instead of for a missing NAME.
+  const faulted = composeThesisCandidates(strands, missed,
+    { seam: "address-fault", namespaces: ["lessons"], unaddressable: new Set(["agents"]) });
+  if (!faulted.every((c) => c.claim.includes(NO_SHARD_NAME))) {
+    fails.push("(aa) an address fault composed candidates carrying the read-and-empty marker — a shard that was READ and carried nothing is a different fault from one the served enumeration never named, and only one of them is repaired by fixing an address");
+  }
+  if (faulted.some((c) => c.claim.includes(NO_HEADLINE))) {
+    fails.push("(aa) an address fault still rendered NO_HEADLINE somewhere in the candidate set — the marker asserts a read that never happened");
   }
 }
 

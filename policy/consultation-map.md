@@ -284,25 +284,38 @@ it is admissible under the finding-aid carve-out, is stated once in
 mechanics and does not restate the rationale. Two copies of a governing rule
 is the conformance-copy shape the pinned-quote invariant already refuses.
 
-A shard is addressed **`<kind>/<tag>`, never `<tag>` alone** — the served
-surface's own kind-qualification rule, quoted at its pin:
+A shard is addressed by a **cell of `axis=value` pairs**, kind-qualified — the
+served surface's own addressing rule, quoted at its pin:
 
-> **Shard kinds** (`specs/gloss.md` §5.1 — a shard is addressed by
-> `<kind>/<tag>`, never by `<tag>` alone):
+> "Full plain-register renderings for every lesson in this cell. The cell is the
+> `axis=value` pairs in its address; the path is only their rendering in the
+> Kind's declared order (`PACKAGE-MANIFEST.json` `kinds.lesson.shard_axes`)."
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/INDEX.md:12-17
+consulted: product-lab@7e109c8c36b47df2c665b21149844639e4a418e7 views/lessons/tag=agents,window=2026-08.md:3-5
 
-This receipt is DECLARED FROZEN provenance (owner ruling 2026-08-22,
-kogaki#603): it records a historical consult at its pin and is only ever read
-at that revision. `gloss/INDEX.md` is neither a lesson/journey record nor a
-topic decision line, so neither identity class applies; the frozen form is the
-ruling, not a leftover.
+**THE `<kind>/<tag>` FORM THIS SECTION CARRIED IS SUPERSEDED, AND ITS RECEIPT IS
+KEPT AS HISTORY RATHER THAN DELETED** (kogaki#1106). The earlier rule read "a
+shard is addressed by `<kind>/<tag>`, never by `<tag>` alone"
+(`gloss/INDEX.md:12-17` at `product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299`,
+DECLARED FROZEN provenance under the owner ruling of 2026-08-22, kogaki#603 —
+it records a historical consult at its pin and is only ever read at that
+revision). It was true when it was quoted and the kind-qualification half of it
+still is; what moved is the rest of the cell. Every address Kogaki formed under
+the one-axis reading became a miss when the surface added a `window` axis, and
+because a miss is a well-formed answer — exit 0, a real pin, valid shape — the
+drift surfaced downstream as absent *material* and went six days unnamed.
 
-The kinds are `lessons/<tag>`, `journeys/<tag>`, and `decisions/<topic>` —
-the last sharded by topic rather than by tag. A prescription names that
-address, which is the argument `gloss_index` takes; it never names a served
-file path, because a path is a fact about how the substrate stores its
-renderings and this map may not depend on one.
+**So a prescription names the TAG, never a rendered path.** The served cell
+shapes are not uniform — `tag`, `tag,window`, `tag,window,date`, `thread`,
+`thread,window` and `thread,window,date` are all served side by side today — and
+the axis order is the Kind's to declare, so a prescription carrying a rendered
+address would be this file depending on a fact about how the substrate stores
+its renderings, which it may not. **The addresses are resolved at the moment of
+reading, from `surface_names(kind: "gloss")`**, which is the served enumeration
+of every shard name: the addresses for a tag are the names whose namespace
+matches and whose cell carries it, and there is usually more than one. The
+namespaces are `lessons`, `journeys` and `decisions` — the last sharded by
+`thread` rather than by `tag`, so no tag addresses it.
 
 **A `Served line (pinned)` pin must RESOLVE ON THE SERVED SURFACE** (kogaki#176).
 The pin's own enumeration is `surface_names`, and it returns
@@ -628,9 +641,13 @@ a human wrote — and the map's own choice is the one that line prescribes:
 - **Read prescription:**
   - *act class:* admitting, modifying, or retiring a check, hook, or CI
     surface.
-  - *survey before acting:* `gloss_index("lessons/claude-code-ops")` and
-    `gloss_index("lessons/testing")` — headline-first, both shards, before
-    the check is written rather than at review.
+  - *survey before acting:* the `lessons` shards carrying the tags
+    **`claude-code-ops`** and **`testing`** — headline-first, every served cell
+    of both, before the check is written rather than at review. Resolve the
+    addresses through `surface_names(kind: "gloss")` per the addressing rule
+    above; both tags are served as a single windowless cell at
+    `product-lab@7e109c8c`, and that is an observation at a pin rather than a
+    guarantee about the next one.
 - **Served line (pinned):** the position spans **two** served lines, and each
   is quoted whole at its own pin rather than joined into one sentence — the
   governing kernel, and the admission rule that is the operative half for this
@@ -677,11 +694,15 @@ a human wrote — and the map's own choice is the one that line prescribes:
 - **Read prescription:**
   - *act class:* writing an acceptance criterion, check, or report that
     claims evidence about a consultation.
-  - *survey before acting:* `gloss_index("lessons/knowledge-architecture")`
-    and `gloss_index("lessons/architecture")` — headline-first, before the
-    criterion is written, because the defect this entry catches is a
-    criterion that is **unimplementable** rather than one that is wrong, and
-    that is invisible at review of the criterion's own wording.
+  - *survey before acting:* the `lessons` shards carrying the tags
+    **`knowledge-architecture`** and **`architecture`** — headline-first, every
+    served cell of each, before the criterion is written, because the defect
+    this entry catches is a criterion that is **unimplementable** rather than
+    one that is wrong, and that is invisible at review of the criterion's own
+    wording. Resolve the addresses through `surface_names(kind: "gloss")` per
+    the addressing rule above; each tag is served across four windowed cells at
+    `product-lab@7e109c8c`, so reading one of them is reading a quarter of the
+    prescription.
 - **Served line (pinned):** "served mode = server-side access log is the
   canonical record (caller, realm, files, pin), consumer `consulted:` lines
   remain as their own receipts; logging lives with whichever component
@@ -720,8 +741,10 @@ a human wrote — and the map's own choice is the one that line prescribes:
     found both sides, which is after the cost has been paid; the case this
     entry is for is the one where the disagreement is latent because the
     other record has not been swept.
-  - *survey before acting:* `gloss_index("lessons/knowledge-architecture")`
-    — headline-first, before the reading is written down — **and the carrier
+  - *survey before acting:* the `lessons` shards carrying the tag
+    **`knowledge-architecture`** — headline-first, every served cell of it,
+    before the reading is written down, with the addresses resolved through
+    `surface_names(kind: "gloss")` per the addressing rule above — **and the carrier
     itself read WHOLE** (`gh issue view <n> --comments`, untruncated), because
     a rule that names a source is satisfied by a partial view of it: "When you
     write a rule that names a source, also name what a complete read of that

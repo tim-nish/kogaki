@@ -78,7 +78,7 @@
 //       SPEC-terrain
 //
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "./terrain.mjs";
+import { resolveHeadlines, glossFor, NO_HEADLINE as NO_RENDERING } from "./terrain.mjs";
 import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
 import { snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry } from "./compose.mjs";
 import { enterSubRun, BRIEF_ENTRIES } from "./runs.mjs";
@@ -415,17 +415,32 @@ function buildCandidate({ id, claim, extra, concession, nameFrom }) {
            name_source: sentence(nameFrom || String(c).split(/(?<=[.?!])\s+/)[0] || c) };
 }
 
-export function composeThesisCandidates(strands, headlines = new Map()) {
+export function composeThesisCandidates(strands, headlines = new Map(), resolved = {}) {
   const phrase = (s) => {
     const e = headlines.get(s.slug);
-    if (e && e.headline) return e.headline;
+    // READ `found`, NEVER TRUTHINESS OF THE ENTRY (kogaki#1106). `resolveHeadlines`
+    // stamps a MARKER into `headline` on a miss, so `e.headline` was truthy for
+    // every member of a fully-missing set and this returned the bare marker —
+    // the same string for all of them. That is what made three Thesis
+    // candidates byte-identical on 2026-09-11 and left the determination gate
+    // with nothing to choose between: the member-naming branch below, added for
+    // exactly this case at PR #534 round 1, was unreachable from this caller.
+    // The `found` flag PR #693 round 2 added for this defect class is what
+    // separates the two, and this lane was not reading it.
+    if (e && e.found) return e.headline;
+    // WHICH MARKER, DECIDED BY TERRAIN RATHER THAN HERE. `glossFor` holds the
+    // six-state vocabulary and the order the states resolve in; a second
+    // reading of the same question, sited in the consumer, is how this lane
+    // came to render a marker terrain had already ruled out.
+    const marker = glossFor(s, e, resolved.seam, resolved.namespaces,
+      resolved.unaddressable) || NO_RENDERING;
     // THE MARKER CARRIES ITS MEMBER. An unresolved rendering is the same text
     // for every member, so a bare marker made all 2-3 candidates byte-identical
     // — one option presented three times, at the moment the owner most needed
     // to see that something was wrong (PR #534 round 1). The display_id is the
     // token the display-ID rule already renders on owner surfaces, so naming it here keeps
     // the options distinguishable AND says which member is missing material.
-    return `${s.display_id} ${NO_RENDERING}`;
+    return `${s.display_id} ${marker}`;
     // KNOWN AND BOUNDED, stated rather than left: on a FULLY degraded set the
     // derived slugs still collide, because `deriveSlugCandidate` drops tokens of
     // two characters or fewer and every display_id is one. Three abnormally
@@ -587,8 +602,15 @@ function cmdEnter(args) {
   // settled Lessons by construction, so the neighborhood's `journeys/` widening
   // buys nothing here and would spend a shard per tag; `resolveHeadlines`
   // defaults to `lessons` and this call takes the default.
-  const { headlines } = resolveHeadlines(r.strands);
-  const candidates = composeThesisCandidates(r.strands, headlines);
+  // THE SEAM STATE IS CONSUMED, NOT DROPPED (kogaki#1106). This destructured
+  // `{ headlines }` alone, so every state `resolveHeadlines` distinguishes —
+  // an unreachable seam, an empty corpus, an address the served enumeration
+  // does not name — arrived here as the same read-and-empty marker, which is
+  // the one thing each of those markers exists to stop being said. The four
+  // (now six) markers were built one seam over and this lane read past them.
+  const { headlines, seam, namespaces, unaddressable } = resolveHeadlines(r.strands);
+  const candidates = composeThesisCandidates(r.strands, headlines,
+    { seam, namespaces, unaddressable });
   const runPath = typeof args["run-state"] === "string" && args["run-state"] !== ""
     ? args["run-state"] : defaultRunState();
   mkdirSync(dirname(runPath), { recursive: true });
