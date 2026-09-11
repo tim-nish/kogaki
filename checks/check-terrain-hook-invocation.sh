@@ -435,6 +435,45 @@ PY
   # file's own location and the executor path is composed from it. So the hook
   # is COPIED beside a stub `src/terrain.mjs`: the copy is the shipped file, and
   # a fixture that re-implemented the hook would assert nothing about it.
+  # ---- THE STAGED TIMESTAMPS ARE COMPUTED, NEVER WRITTEN (kogaki#1092).
+  #
+  # Every pointer below was staged with one fixed instant until this issue, and
+  # `advance-terrain.py` drops a pointer whose `opened_at` is older than
+  # `POINTER_TTL`. So this file passed on the day it was written and went red
+  # twelve hours later, on every machine and in CI, with nothing in it moved:
+  # master's own run at d4a4349 was green at 2026-09-10T23:12Z and returned
+  # `failure` on re-run the next day at the same head, with no commit between.
+  # A fixture that pins one side of a comparison to a literal while the other
+  # side reads `now()` is asserting the calendar.
+  #
+  # THE OFFSETS ARE DERIVED FROM THE TTL, not chosen beside it. An offset of
+  # "eleven hours" written here against a TTL of twelve is the same
+  # two-declarations-of-one-fact shape at a smaller scale, and it is what makes
+  # the next change to that constant silently re-arm the bomb. So the constant
+  # is READ from the hook that declares it, by loading that hook as a module.
+  ttl_s=$(python3 - "$REPO/$ADVANCE" <<'TTLPY' 2>/dev/null
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("advance_terrain_ttl", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+print(int(mod.POINTER_TTL.total_seconds()))
+TTLPY
+) || ttl_s=""
+  case "$ttl_s" in ''|*[!0-9]*)
+    bad "the pointer TTL could not be read from $ADVANCE, so no staged timestamp below can be derived and every delivery case would assert the calendar instead — CANNOT-DETERMINE, never a pass"
+    exit 1 ;;
+  esac
+  # Three instants, named for what they MEAN to the reader under test rather
+  # than for their arithmetic: two comfortably inside the window, ordered so the
+  # ordering case can oppose them to filename order, and one past it.
+  stage_at() {                         # stage_at <seconds before now>
+    python3 -c 'import sys,datetime as d;print((d.datetime.now(d.timezone.utc)-d.timedelta(seconds=int(sys.argv[1]))).isoformat().replace("+00:00","Z"))' "$1"
+  }
+  FIXTURE_OPENED_LIVE=$(stage_at "$((ttl_s / 4))")
+  FIXTURE_OPENED_LIVE_OLDER=$(stage_at "$((ttl_s / 2))")
+  FIXTURE_OPENED_EXPIRED=$(stage_at "$((ttl_s + 3600))")
+  export FIXTURE_OPENED_LIVE FIXTURE_OPENED_LIVE_OLDER FIXTURE_OPENED_EXPIRED
+
   stub_repo="$hooktmp/stub-repo"
   mkdir -p "$stub_repo/.claude/hooks" "$stub_repo/src" "$stub_repo/rundir"
   cp "$ADVANCE" "$stub_repo/.claude/hooks/advance-terrain.py"
@@ -470,7 +509,11 @@ fs.writeFileSync(path.join(gd, instance + ".json"), JSON.stringify({
   declaration_path: path.resolve(path.join(dir, gate + ".gate-declaration.json")),
   capture_path: path.resolve(path.join(dir, "terrain" + process.env.FIXTURE_CAPSUF)),
   gate_call_path: path.resolve(callPath), gate_call_unavailable: null,
-  session_id: null, opened_by: "hook", opened_at: "2026-09-10T12:45:43.031Z",
+  session_id: null, opened_by: "hook",
+  // Derived, never literal (kogaki#1092): a pointer older than POINTER_TTL
+  // is dropped by the reader under test, so a fixed instant would make this
+  // case expire on the calendar rather than on anything it asserts.
+  opened_at: process.env.FIXTURE_OPENED_LIVE,
 }, null, 2) + "\n");
 JS
   fire_stub() {                      # stdout only -- stderr is the channel that dies
@@ -566,11 +609,48 @@ with open(out, "w") as f:
                "gate_call_path": None,
                "gate_call_unavailable": "this pointer is already answered",
                "session_id": None, "opened_by": "hook",
-               "opened_at": "2026-09-10T12:45:43.031Z"}, f)
+               # Live (kogaki#1092), so what keeps this pointer out of the
+               # delivery is the ANSWERED filter this case is about. Staged
+               # past the TTL it would pass for the wrong reason.
+               "opened_at": os.environ["FIXTURE_OPENED_LIVE"]}, f)
 PY
   f_out=$(fire_stub)
   if [ -z "$f_out" ] || ! printf '%s' "$f_out" | grep -q 'additionalContext'; then pass; else
     bad "the advance hook announced a gate whose answer the capture already holds — the open-gate hook filters that pointer out, so the session is handed a re-ask nothing denies: $f_out"
+  fi
+
+  # (f2) AND A POINTER PAST THE TTL IS NOT A GATE EITHER (kogaki#1092). The
+  # expiry arm had no case at all before this issue, which is how a fixture came
+  # to depend on it by accident: every pointer in this file aged out of the
+  # window and four cases went red for a reason none of them was written to
+  # assert. Asserted here, the derived timestamps above have a stated meaning
+  # rather than merely working -- and this is the ONE pointer deliberately
+  # staged outside the window, which is what makes it legible as a choice
+  # instead of indistinguishable from a stale literal.
+  #
+  # The stub is (f)'s: an advance that opens nothing, so the staged pointer is
+  # the only candidate. It is `fixture-stale` and the capture holds a row for
+  # `fixture-answered`, so the ANSWERED filter does not reach it and expiry is
+  # the only thing that can keep it off the channel.
+  rm -rf "$hooktmp/stub-gates"; mkdir -p "$hooktmp/stub-gates"
+  python3 - "$hooktmp/stub-gates/fixture-stale.json" "$stub_repo/rundir" "$CAPSUF" <<'PY'
+import json, os, sys
+out, dir_, suffix = sys.argv[1:4]
+with open(out, "w") as f:
+    json.dump({"gate_instance_id": "fixture-stale",
+               "gate_id": "terrain-id-selection", "question": "Which tag?",
+               "declaration_path": os.path.join(dir_, "d.json"),
+               "capture_path": os.path.realpath(os.path.join(dir_, "terrain" + suffix)),
+               "gate_call_path": None,
+               "gate_call_unavailable": "this pointer is past the TTL",
+               "session_id": None, "opened_by": "hook",
+               # The odd one out, and derived from the same constant the live
+               # ones are: one TTL plus an hour ago.
+               "opened_at": os.environ["FIXTURE_OPENED_EXPIRED"]}, f)
+PY
+  f2_out=$(fire_stub)
+  if [ -z "$f2_out" ] || ! printf '%s' "$f2_out" | grep -q 'additionalContext'; then pass; else
+    bad "the advance hook announced a gate whose pointer is past POINTER_TTL — write-gate-capture.py reaps at that bound and gate-open-terrain-gate.py filters on it, so delivering one hands the session a payload no sibling reader still holds a gate for: $f2_out"
   fi
 
   # (g) WHERE TWO POINTERS NAME ONE RUN, THE ONE DELIVERED IS THE ONE THE
@@ -583,7 +663,9 @@ PY
   # OPPOSED: `0000…` is the older, `zzzz…` the newer. A newest-wins reader
   # delivers `zzzz`'s gate and fails this case.
   rm -rf "$hooktmp/stub-gates"; mkdir -p "$hooktmp/stub-gates"
-  for pair in "0000-first:2026-09-10T12:00:00.000Z" "zzzz-second:2026-09-10T13:00:00.000Z"; do
+  # Both live and derived (kogaki#1092); what this case needs of them is
+  # their relative order, opposed to filename order, never their value.
+  for pair in "0000-first:$FIXTURE_OPENED_LIVE_OLDER" "zzzz-second:$FIXTURE_OPENED_LIVE"; do
     python3 - "$hooktmp/stub-gates/${pair%%:*}.json" "${pair%%:*}" "${pair#*:}" \
              "$stub_repo/rundir" "$CAPSUF" <<'PY'
 import json, os, sys
@@ -698,7 +780,11 @@ fs.writeFileSync(path.join(gd, instance + ".json"), JSON.stringify({
   declaration_path: path.resolve(path.join(dir, gate + ".gate-declaration.json")),
   capture_path: path.resolve(path.join(dir, "terrain" + process.env.FIXTURE_CAPSUF)),
   gate_call_path: path.resolve(callPath), gate_call_unavailable: null,
-  session_id: null, opened_by: "hook", opened_at: "2026-09-10T12:45:43.031Z",
+  session_id: null, opened_by: "hook",
+  // Derived, never literal (kogaki#1092): a pointer older than POINTER_TTL
+  // is dropped by the reader under test, so a fixed instant would make this
+  // case expire on the calendar rather than on anything it asserts.
+  opened_at: process.env.FIXTURE_OPENED_LIVE,
 }, null, 2) + "\n");
 process.stderr.write("terrain: the state after this gate refused\n");
 process.exit(1);
@@ -834,9 +920,35 @@ PY
   fi
 fi
 
+# ---- AND NO SITE REINTRODUCES AN ABSOLUTE ONE (kogaki#1092). The three sites
+# above were not the population to fix one at a time -- a fourth is one edit
+# away, and the failure it causes arrives twelve hours later, in CI, on a diff
+# that did not touch this file. So the absence is made decidable here rather
+# than left to review.
+#
+# THE RULE IS NARROW ON PURPOSE: an ISO-8601 instant on a line this file
+# EXECUTES OR STAGES. Prose is exempt -- a comment is where the dates grounding
+# this reasoning belong, and this block's own ground is written above one -- so
+# the exemption is keyed on the line being a comment in either of the two
+# languages staged here, shell and JS. It reads the tracked file rather than
+# `$0`, which this script's own `cd` makes unresolvable.
+absolute_instants=$(python3 - "$REPO/checks/$(basename "$0")" <<'PY'
+import re, sys
+pat = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d")
+with open(sys.argv[1], encoding="utf-8") as f:
+    hits = [f"{n}: {line.strip()[:90]}" for n, line in enumerate(f, 1)
+            if not line.lstrip().startswith(("#", "//")) and pat.search(line)]
+print(" | ".join(hits))
+PY
+)
+if [ -z "$absolute_instants" ]; then pass; else
+  bad "a staged timestamp in this file is written as an absolute instant. The reader under test compares opened_at against now() and drops anything older than POINTER_TTL, so a literal passes on the day it is written and fails every day after — derive it from the TTL the way the sites above do: $absolute_instants"
+fi
+
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — the executor's Bash route denied with --status admitted, the skill file's single start line, and the removal test's byte-equal artifacts with the spec absent and the deny still firing (kogaki#1027)"
-  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081); and that an executor REFUSAL rides that same channel, alone where no gate is open and beside the gate payload where one is, so an advance that ends a run no longer ends it silently (kogaki#1085)."
+  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081); and that an executor REFUSAL rides that same channel, alone where no gate is open and beside the gate payload where one is, so an advance that ends a run no longer ends it silently (kogaki#1085); and that a pointer past POINTER_TTL is delivered on no channel, which is the one arm these cases had come to depend on without asserting (kogaki#1092)."
+  note "also asserted: that no line this file executes or stages carries an absolute instant. Every staged opened_at is computed from this run's clock at an offset derived from POINTER_TTL, read from .claude/hooks/advance-terrain.py — so the cases above assert the hook's expiry arm rather than the date the fixture was written on, and a reintroduced literal reddens here instead of twelve hours later in CI (kogaki#1092)."
   note "not asserted here: that either hook is LOADED on this machine. That wiring is machine-local and never committed, so asserting it would fail on every fresh clone and would be a claim about a machine rather than about this repository — which is why the order above is read from the tracked file rather than from a live registration."
 fi
 exit "$fail"
