@@ -19,11 +19,26 @@
 // refused, a weak rationale is not.
 //
 // THE GROUNDS ARE RECORDED FOR REVIEW, NOT VERDICT-ED (story 1.73 SQ2): a
-// Step carries typed grounds (the grounding rule: a Strand proposition / a named earlier
-// Step's effect / a declared reader assumption) and, where a proposition is
+// Step carries typed grounds (the grounding rule) and, where a proposition is
 // not explicit in the material, the `entailed` flag WITH its entailment
 // reasoning — recorded here so path review and the human gate can judge
 // them. No grounds-test verdict is produced anywhere in this file.
+//
+// A GROUND IS ONE CLAIM DERIVED FROM A STRAND, AND NOTHING ELSE (kogaki#1095).
+// The type set was three — `strand`, `step_effect`, `reader_assumption` — and
+// the Step Packet renders every ground under one instruction: these are what
+// this Step may ASSERT. A `step_effect` ground is inherited reader state and a
+// `reader_assumption` ground is a presupposed premise; neither is an
+// assertion, so a passage that realizes its Step correctly never states them
+// and the Blind Reader never recovers them. `grounds-unused` failed on 8 of 8
+// Steps of the first full review run against premise-type grounds alone — a
+// comparison whose declared side carries a category its reverse side cannot
+// produce measures nothing. Inherited state was already carried twice, by
+// `reader_state_before` and by the computed `already knows` ledger; the
+// premise grounds were a third copy. THIS FILE IS THE CARRIER: the type set
+// and the ground line serialization both live here, which is what makes a
+// non-Strand ground UNWRITABLE rather than discouraged. Removing the brief
+// skill and the pipeline spec from the tree leaves the refusal standing.
 //
 // MOVE BINDING CHANGES THE TYPE OF NOTHING (the Step and the Move it binds): `move` is REQUIRED on every
 // Step (the Step's shape v18, kogaki#642 — the Move is a Step's State component, and this
@@ -136,7 +151,15 @@ export function snapshotBrief(briefPath, stage, phase, content, seq = null) {
   }
 }
 
-const GROUND_TYPES = new Set(["strand", "step_effect", "reader_assumption"]);
+const GROUND_TYPES = new Set(["strand"]);
+// The two types that LEFT the set (kogaki#1095), each with where its content
+// now belongs — the refusal names them rather than reporting them as unknown,
+// because a Brief composed under the old grammar meets this message and needs
+// to be told where to put what it was carrying.
+const RETIRED_GROUND_TYPES = new Map([
+  ["step_effect", "inherited reader state, which is already carried by this Step's `reader_state_before` and by the computed `already knows` ledger"],
+  ["reader_assumption", "a presupposed premise, which belongs to the Brief's Reader start"],
+]);
 const SLOT = "*(awaiting composition)*";
 
 // ---- shape validation (the Step's shape — the fields, not the markup) ----
@@ -199,19 +222,23 @@ export function validateSteps(steps) {
       if (bad) return { error: bad };
     }
     if (!Array.isArray(s.grounds) || s.grounds.length === 0) {
-      return { error: `${at}: grounds are required — specific propositions, each a Strand proposition, a named earlier Step's effect, or a declared reader assumption (the grounding rule)` };
+      return { error: `${at}: grounds are required — specific propositions, each one claim derived from a Strand (the grounding rule)` };
     }
     for (const g of s.grounds) {
+      // The retired types are refused BY NAME and ahead of the closed-set
+      // message (kogaki#1095): a Brief written under the old grammar is the
+      // caller this arm exists for, and "not in the set" would tell it that
+      // its content is wrong rather than that its content has a home.
+      if (RETIRED_GROUND_TYPES.has(g.type)) {
+        return { error: `${at}: ground type ${JSON.stringify(g.type)} is no longer a ground — a ground is one claim derived from a Strand, and nothing else (the grounding rule). What this ground carried is ${RETIRED_GROUND_TYPES.get(g.type)}` };
+      }
       if (!GROUND_TYPES.has(g.type)) {
-        return { error: `${at}: ground type ${JSON.stringify(g.type)} — the grounding rule's list is closed: strand | step_effect | reader_assumption` };
+        return { error: `${at}: ground type ${JSON.stringify(g.type)} — the grounding rule's list is closed: strand` };
       }
       if (typeof g.proposition !== "string" || g.proposition === "") {
         return { error: `${at}: a ground is a specific PROPOSITION, stated (the grounding rule) — an untyped pointer is not a ground` };
       }
-      if (g.type === "step_effect" && (typeof g.step !== "string" || !seen.has(g.step))) {
-        return { error: `${at}: a step_effect ground names WHICH effect of WHICH earlier step (the grounding rule) — "${g.step ?? ""}" is not an earlier step_id` };
-      }
-      if (g.type === "strand" && (typeof g.strand !== "string" || g.strand === "")) {
+      if (typeof g.strand !== "string" || g.strand === "") {
         return { error: `${at}: a strand ground names its Strand (L<n>)` };
       }
     }
@@ -1079,7 +1106,11 @@ export function renderStep(s) {
   L.push(`depends_on: ${s.depends_on.join(", ") || "(none)"}`);
   L.push(`rationale: ${s.rationale}`);
   for (const g of s.grounds) {
-    L.push(`ground (${g.type}${g.strand ? ` ${g.strand}` : ""}${g.step ? ` ${g.step}` : ""}): ${g.proposition}`);
+    // ONE FORM, and no other (kogaki#1095): `ground (strand L<n>): <proposition>`.
+    // The type is written out rather than dropped because `src/draft.mjs`'s
+    // `material --strand` reader and the figure `g<n>` addressing both read
+    // this line as it stands, and this issue moves neither.
+    L.push(`ground (strand ${g.strand}): ${g.proposition}`);
   }
   // the reader-knowledge ledger (kogaki#751): one LINE per entry, never a comma-joined list. A term
   // may legitimately contain a comma, and its anchor almost always does, so a
@@ -1222,7 +1253,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
       }
     }
     for (const g of s.grounds) {
-      if (g.type === "strand" && !strandIds.includes(g.strand)) {
+      if (!strandIds.includes(g.strand)) {
         return { error: `step ${s.step_id}: strand ground ${g.strand} is outside the closed set (${strandIds.join(", ")})` };
       }
     }

@@ -42,13 +42,17 @@ specification, no field-level prose contract, and no mechanism holding declared
 inputs in state while a field is generated.**
 
 The only mechanical control is `validateSteps` in `src/compose.mjs`, and it
-is SHAPE-ONLY: field presence and type, ground types in the closed set,
-`step_effect` grounds naming an earlier Step, `strand` grounds and materials
-inside the Brief's closed set, `entailed` requiring reasoning, and `bridges`
-naming two ids. **No content conformance is checked anywhere but here.**
+is SHAPE-ONLY: field presence and type, every ground naming its Strand, grounds
+and materials inside the Brief's closed set, `entailed` requiring reasoning, and
+`bridges` naming two ids. **No content conformance is checked anywhere but
+here.**
 
-Step-to-Step connection is deliberately weak too — only `depends_on`, optional
-`step_effect` grounds, and reader-state continuity that nothing verifies.
+Step-to-Step connection is deliberately weaker than it was — only `depends_on`
+and reader-state continuity that nothing verifies. A ground is one claim derived
+from a Strand and nothing else (kogaki#1095), so the `step_effect` ground that
+used to name an earlier Step's effect is gone: inherited state is carried by
+`reader_state_before` and by the computed `already knows` ledger, which are the
+two places to read it from.
 
 **So when a Draft comes out strange, inspect this absence FIRST** before
 attributing the defect to composition strategy, Move selection, or the

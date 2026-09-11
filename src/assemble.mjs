@@ -347,18 +347,22 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   //
   // A Bridge Step is an ordinary the Step's shape Step, so it is recognised by the
   // insertion contract rather than by a type: `bridges` names the pair it sits
-  // between. Its reasoning is whichever flag it already carries — entailment
-  // reasoning, or a declared reader ASSUMPTION — the grounding rule token is
-  // `reader_assumption`, and the grounding rule's list is closed, so no other spelling ever
-  // reaches here (kogaki#546 round 1 finding 1: `assumption` was dead code).
+  // between. Its reasoning is the entailment reasoning it carries.
+  //
+  // THE SECOND SOURCE IS GONE, and its content did not move here (kogaki#1095).
+  // A bridge used to fall back on a `reader_assumption` ground, but a ground is
+  // now one claim derived from a Strand and nothing else, so no Step can carry
+  // one. A reader premise belongs to the Brief's READER START, which this same
+  // payload already renders from `READER_FIELDS` below — the selection gate
+  // therefore still shows the premise the bridge stood on, at the field that
+  // owns it, and this line shows only what THIS bridge reasoned.
   const bridges = (c.steps || []).filter((st) => st && Array.isArray(st.bridges) && st.bridges.length > 0);
   const bridgeLine = bridges.length === 0
     ? "no gaps were bridged — the path's transitions stand on the material as composed"
     : bridges.map((st) => {
         const between = st.bridges.join(" → ");
         const why = st.entailment_reasoning
-          || (st.grounds || []).filter((g) => g && g.type === "reader_assumption").map((g) => g.proposition).join("; ")
-          || "NO REASONING CARRIED — abnormal: a bridge owes its entailment reasoning or a declared assumption";
+          || "NO REASONING CARRIED — abnormal: a bridge owes its entailment reasoning";
         return `between ${between}: ${why}`;
       }).join(" | ");
 
