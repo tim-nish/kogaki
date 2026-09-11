@@ -4977,10 +4977,10 @@ async function runSelfTest() {
   // would land in one and make the no-numbers-but-line-numbers case assert
   // against the fixture's own wording rather than against the format.
   const GROUNDS = {
-    a1: ["ground alpha — the harness renders the Reverse Outline input before any record is accepted.",
-      "ground beta — the reviewer never reads the packet that produced the prose."],
-    a2: ["ground gamma — an ordering owned by the harness cannot be got wrong by a session."],
-    a3: ["ground delta — a residue line is classified by the owner and never by the tool."],
+    a1: ["ground: alpha — the harness renders the Reverse Outline input before any record is accepted.",
+      "ground: beta — the reviewer never reads the packet that produced the prose."],
+    a2: ["ground: gamma — an ordering owned by the harness cannot be got wrong by a session."],
+    a3: ["ground: delta — a residue line is classified by the owner and never by the tool."],
   };
   const PACKET_FIELDS = {
     a1: { after: "The reader knows which act renders the input.", purpose: "To open the claim.",
@@ -5043,8 +5043,6 @@ async function runSelfTest() {
       purpose: f.purpose,
       reader_state_before: "PACKETONLYTOKEN the state before.",
       reader_state_after: f.after,
-      materials: "(none)",
-      rationale: "PACKETONLYTOKEN why this Step sits here.",
       // THE STATED ABSENCE THE RENDERER WRITES, verbatim (src/draft.mjs's
       // `grounds || "(none recorded)"`), so the groundless case exercises the
       // string a real Packet actually carries.
@@ -6667,7 +6665,7 @@ async function runSelfTest() {
       // a2 declares a second ground no read ground rests on, and it carries a
       // digit in its own text.
       writePacket(pd, id, id === "a2"
-        ? { grounds: [GROUNDS.a2[0], "the pinned survey at strand L97 settles the boundary"] }
+        ? { grounds: [GROUNDS.a2[0], "ground: the pinned survey at strand L97 settles the boundary"] }
         : {});
     }
     const d = buildDraft(join(root, "theses", "digit"), { packetDir: pd });
@@ -6729,7 +6727,7 @@ async function runSelfTest() {
     const pd = join(root, "packets-riding"); mkdirSync(pd, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) writePacket(pd, id,
       id === "a2" ? { grounds: [GROUNDS.a2[0],
-        "ground epsilon — a ground the prose never reaches for."] } : {});
+        "ground: epsilon — a ground the prose never reaches for."] } : {});
     // THE VEHICLE CHANGED AND THE RULE DID NOT (kogaki#1014). This case used to
     // ride `restates-earlier-step`, whose row left the table with the rest of
     // the hygiene items. `grounds-unused` is the surviving row the table calls

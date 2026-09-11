@@ -70,9 +70,9 @@ What this Step must accomplish, in this article, for this reader.
 - **purpose.** {{purpose}}
 - **reader_state_before.** {{reader_state_before}}
 - **reader_state_after.** {{reader_state_after}}
-- **materials.** {{materials}}
-- **rationale.** {{rationale}}
-- **grounds.** These are what this Step may assert. Assert nothing else.
+- **grounds.** Each line below is a claim the settled material carries. Your
+  prose must make every one of them recoverable, and must assert nothing beyond
+  them.
 
 {{grounds}}
 
