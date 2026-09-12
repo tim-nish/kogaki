@@ -1,7 +1,7 @@
 {
   "_origin": "the live run runs/terrain/terrain-2026-09-09T10-56-00-021Z of 2026-09-09, the first in which every transition was executed by the harness (kogaki#1031). Transitions copied verbatim; the survey path is dropped because it is machine-local.",
   "workflow": {
-    "path": "src/workflow.json",
+    "path": "src/terrain-workflow.json",
     "version": 15
   },
   "completed": [

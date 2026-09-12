@@ -1048,7 +1048,7 @@ absence must refuse rather than render.
 #### 4.14.1 The template is a runtime-read carrier, and it points at no spec
 
 `src/packet-template.md`, read at generation like `report-format.json` and
-`workflow.json`. **Template content is operational text only** — rules that
+`terrain-workflow.json`. **Template content is operational text only** — rules that
 change model behaviour at generation, kept minimal, a rule entering only with
 demonstrated runtime effect.
 

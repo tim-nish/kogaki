@@ -144,7 +144,7 @@ assert_admitted "two chained status reads" "node src/terrain.mjs run --status; n
 assert_admitted "an Issue's footprint cell" \
   "issue-sync admit-issue verdict 1062 --plan-cell 'act=implement-issue;files=src/terrain.mjs'"
 assert_admitted "a footprint cell of several paths" \
-  "issue-sync admit-issue verdict 1062 --plan-cell 'files=src/terrain.mjs,src/workflow.json'"
+  "issue-sync admit-issue verdict 1062 --plan-cell 'files=src/terrain.mjs,src/terrain-workflow.json'"
 assert_admitted "a grep pattern over the executor" 'grep -n "judgePrompt" src/terrain.mjs'
 assert_admitted "a comment mentioning the executor" "echo hi # src/terrain.mjs run is denied"
 assert_admitted "the file read as data" "wc -l src/terrain.mjs"
@@ -282,10 +282,10 @@ with open(decl_path, "w") as f: json.dump(decl, f)
 # this case red at the next bump with a message blaming the keying -- while (a)
 # and (c) keep passing vacuously, because they assert that nothing happened.
 # The digest two lines down is computed for the same reason, one line earlier.
-with open("src/workflow.json", encoding="utf-8") as f:
+with open("src/terrain-workflow.json", encoding="utf-8") as f:
     table_version = json.load(f)["version"]
 with open(os.path.join(d, "run-record.json"), "w") as f:
-    json.dump({"workflow": {"path": "src/workflow.json", "version": table_version},
+    json.dump({"workflow": {"path": "src/terrain-workflow.json", "version": table_version},
                # `survey` IS ALREADY COMPLETE, AND THE RECORD IT MINTS IS
                # SUPPLIED (kogaki#1079). A record staged with `completed: []`
                # resumes at the table's FIRST state, which is `survey` -- and

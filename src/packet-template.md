@@ -2,7 +2,7 @@
 The Step Packet template (kogaki#749; owner rulings 2026-09-01; renamed at
 kogaki#825).
 
-Runtime-read, like src/report-format.json and src/workflow.json — `draft.mjs
+Runtime-read, like src/report-format.json and src/terrain-workflow.json — `draft.mjs
 packet` fills the {{...}} slots and prints the result, and the printed result is
 the model's ENTIRE input for realizing one STEP. Nothing outside it is read.
 

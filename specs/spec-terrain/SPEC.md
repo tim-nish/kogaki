@@ -7,7 +7,7 @@ session could pass one on argv; kogaki#1027 deleted that route and the states
 became unreachable — a hook-driven run met `J1_claims`, was told it needed a
 `--claims` file, and stopped, so `reports/CoTagGroups.md` did not exist when the
 ID question was asked. §15.6.6 gives the states a producer: the executor invokes
-the model `src/workflow.json`'s `judge` block PINS, never one inherited from the
+the model `src/terrain-workflow.json`'s `judge` block PINS, never one inherited from the
 session, validates the response through the state's own existing refusals, and
 re-asks up to the count that state declares before failing with the refusal text.
 §15.6.1 is REVERSED with its ground named rather than quietly dropped.
@@ -70,7 +70,7 @@ hold, and the operational content of that claim is the Removal Test at §15.9.
 | axis | carrier | this file |
 |---|---|---|
 | rendered form: surfaces, line classes, tokens, limits | `src/report-format.json` | §14.1 states the precedence; the grammar states the form |
-| sequencing, waits, write bindings, judgment-point placement, entry-point accounting | `src/workflow.json` | §15.1 states the precedence; the table states the plan |
+| sequencing, waits, write bindings, judgment-point placement, entry-point accounting | `src/terrain-workflow.json` | §15.1 states the precedence; the table states the plan |
 | the survey record's shape: candidate model, claims, subdivision | `src/survey-schema.json` | §5, §7, §8 state what the shapes *mean* |
 
 Where a carrier speaks, this file stops being the contract. Prose restating a
@@ -403,7 +403,7 @@ CoTagGroups display.
 elsewhere in the flow is governed elsewhere.
 
 **What this does not claim.** The clause is advisory at the model's composition
-layer; the runtime half is `workflow.json`'s wait placement.
+layer; the runtime half is `terrain-workflow.json`'s wait placement.
 
 `necessity:` §6 is where the surface's *meaning* lives — what the CoTagGroups
 display is, why the channel is the owner's terminal, what it is judged against, and why a
@@ -805,7 +805,7 @@ grammar's; three properties of it are not.
 **An unjudged candidate is not a state.** J3 refuses a judgment record leaving
 any mechanical candidate uncovered, and `full_report` refuses to render an
 unjudged neighborhood. **Both the enumerating compute state and the
-judgment point are unconditional** in `workflow.json`.
+judgment point are unconditional** in `terrain-workflow.json`.
 
 **J3 refuses seven ways** (v38, kogaki#925 propagating kogaki#861): a judgment
 key naming no mechanical candidate; a mechanical candidate no key covers; a
@@ -814,7 +814,7 @@ no target; a target that is not a Thesis-candidate id; and a target naming a
 Thesis candidate the `thesis_candidates` state did not compose. The last three
 arrived with kogaki#861, which gave every judgment a target and made
 `thesis_candidates` the state that fixes the ids a target may name — so the
-count is stated against the declared refusal in `src/workflow.json`'s
+count is stated against the declared refusal in `src/terrain-workflow.json`'s
 `J3_neighborhood` row rather than against the ordinal in any one code comment.
 
 **The typed record's own shape refusals are the same reader's and are not
@@ -867,7 +867,7 @@ claim. The workflow table holds the states; the grammar holds the rows.
 read.**
 
 **The coverage figure is DERIVED and is not stated in prose, here or anywhere.**
-Its rule lives at `workflow.json`'s `owner_surface_coverage` and is **not
+Its rule lives at `terrain-workflow.json`'s `owner_surface_coverage` and is **not
 restated here**. A restatement beside the prohibition would be the drift surface
 this clause exists to close.
 
@@ -950,12 +950,12 @@ conformant or not whether or not this file is present — which is the property
 §15.9 tests.
 
 `necessity:` ownership is the one thing the carriers cannot say about
-themselves. `workflow.json` states the order of Acts and `terrain.mjs` performs
+themselves. `terrain-workflow.json` states the order of Acts and `terrain.mjs` performs
 them; neither can state that the set of Acts is closed under the Harness, which
 is exactly the claim every prior implementation satisfied in words and broke in
 fact.
 
-### 15.1 The workflow table is DATA, and its carrier is `src/workflow.json`
+### 15.1 The workflow table is DATA, and its carrier is `src/terrain-workflow.json`
 
 **EVOLVABILITY IS THE CONTRACT.** Moving a handoff, adding a wait, or adding an
 entry point is a **data** change, licensed by an issue and settled by a dated
@@ -990,7 +990,7 @@ committed.
 **§6.3's ruling binds the table.** Nothing runs unattended between the display
 and the owner's answer.
 
-Which waits render a gate declaration is `workflow.json`'s
+Which waits render a gate declaration is `terrain-workflow.json`'s
 `renders_gate_declaration`, per state — a statement about which states the
 executor composes a declaration for, and about which hook chain carries that
 declaration to the owner and the answer back. It is never an obligation on a
@@ -1055,7 +1055,7 @@ longer override a subset claim's wording mid-run, and the recourse is re-running
 Terrain.
 
 **DELETED, and leaving no stub**, per §15.6.3: the state is gone from
-`src/workflow.json`, `terrain-claim-reoffer` is gone from `src/gate-registry.json`,
+`src/terrain-workflow.json`, `terrain-claim-reoffer` is gone from `src/gate-registry.json`,
 and the option composer is gone with them. `counted_baseline` moves with it —
 `waits` 5 to 4, `conditional_states` 2 to 1 — which is what keeps the table's own
 counts a reader of the state set rather than a second copy of it.
@@ -1149,7 +1149,7 @@ wait admits one answering path — none of which a typed row can carry.
 ### 15.6.6 A JUDGMENT POINT IS A CALL THE EXECUTOR MAKES, AND THE MODEL IS PINNED
 
 **The executor invokes the judge.** At every state of kind `judgment` it runs the
-command `src/workflow.json`'s `judge` block names, with the model that block
+command `src/terrain-workflow.json`'s `judge` block names, with the model that block
 **pins**, hands it the state's own declaration — its judgment point, its input
 shape, its refusal text — and the composed input the preceding state wrote, and
 parses one typed record out of the response.
@@ -1277,7 +1277,7 @@ material is that offer, asked inside the contract.
 `consulted: product-lab@2fe5bebfbab55ffd0c7c0950a6071c95271583ba GLOSSARY.md:242`
 
 **DELETED, and leaving no stub**, per §15.6.3 and in the shape §15.6.1's deletion
-took: the state is gone from `src/workflow.json`, `terrain-strand-selection` is
+took: the state is gone from `src/terrain-workflow.json`, `terrain-strand-selection` is
 gone from `src/gate-registry.json`, the option composer is gone with them, and
 `counted_baseline.waits` moves 4 to 3. Nothing is left as a conditional and
 nothing is left as a refusing case. `full_report` is the last state before the

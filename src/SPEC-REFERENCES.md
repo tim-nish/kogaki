@@ -44,7 +44,7 @@ out: an owner reading a rendered surface cannot check a number that has moved.
 ## The section-number half is MECHANICAL (kogaki#991)
 
 The rule above was carried by reading alone, and two `src/` sites named a
-section number anyway — `src/workflow.json` and `src/terrain.mjs`, both writing
+section number anyway — `src/terrain-workflow.json` and `src/terrain.mjs`, both writing
 `SPEC-terrain v36 \u00a715.6.3` beside the very heading the number pointed at
 — the specimen is written **escaped** here, on the convention
 `src/assemble.mjs` set at its own, because a file quoting the defect verbatim
