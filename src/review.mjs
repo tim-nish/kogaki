@@ -336,7 +336,11 @@ function parseArgs(argv) {
   return args;
 }
 
-function cmdAttach(args) {
+// EXPORTED AT kogaki#1108 for the Brief workflow table's `attach_review` state,
+// on `cmdAssemble`'s own ground one file over: the state binds the CASE, so the
+// ledger write and the round count reached from a table are the ones reached
+// from a command line.
+export function cmdAttach(args) {
   const candidates = JSON.parse(readFileSync(argString(args, "candidates",
     "attach needs --candidates <json> — the assembled Candidates (machine-local run state)"), "utf8"));
   const review = JSON.parse(readFileSync(argString(args, "review",

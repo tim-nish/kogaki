@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "spec_references": [
+    "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
+    "The rule these entries are written under -- what a copy is, what the two",
+    "markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing",
+    "names a section number or a line range -- lives in ONE place:",
+    "`src/SPEC-REFERENCES.md`. It is not restated here.",
+    "",
+    "THE NAMES THIS FILE USES, and the spec each one names:",
+    "  the durable home and the entry point",
+    "      SPEC-draft-pipeline",
+    "  the Candidate gate",
+    "      SPEC-draft-pipeline",
+    "  the Step's shape",
+    "      SPEC-draft-pipeline",
+    "  the grounding rule",
+    "      SPEC-draft-pipeline",
+    "  the judgment rule",
+    "      SPEC-draft-pipeline \"Every MUST is judgment, and nothing becomes a lint\"",
+    "  the revise pass",
+    "      SPEC-draft-pipeline \"The Bridge Step and the revise pass\"",
+    "  the Step-Move instantiation contract",
+    "      SPEC-draft-pipeline",
+    "  the settled structure section",
+    "      SPEC-draft-pipeline",
+    "  the control plane",
+    "      SPEC-terrain",
+    "  the wait rule",
+    "      SPEC-terrain",
+    "  the re-entrant executor",
+    "      SPEC-terrain",
+    "  the typed judgment points",
+    "      SPEC-terrain",
+    "  the workflow table",
+    "      SPEC-terrain",
+    "  write authority",
+    "      SPEC-terrain",
+    "  A removed entry point is DELETED, and leaves no stub",
+    "      SPEC-terrain"
+  ],
+  "governing_text": "SPEC-draft-pipeline, the durable home and the entry point; the control plane is the pattern this table is an instance of",
+  "licensed_by": "kogaki#1108 -- owner decision 2026-09-12: the Brief runs on a Harness-owned workflow table on the Terrain pattern, and the Model's freedom is the FIELD VALUES of schemas the Harness declares. This carrier holds the CURRENT Brief control plane only. It is not a version ledger: superseded states and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
+  "the_executor_is_not_a_second_one": "THIS TABLE IS EXECUTED BY `src/terrain.mjs`'s OWN LOOP (kogaki#1108). `runWorkflow(binding, ...)` takes a flow binding -- a lane, a label, a start line, this table's path, a run-workspace opener, and the two maps a state id is looked up in -- and runs the SAME `cmdRun` the Terrain flow runs. A second executor would be a second implementation of `the re-entrant executor`, and two implementations of one contract drift in exactly the clauses nobody reads twice. So `src/brief.mjs` composes the binding and calls that entry; it reimplements no loop, no wait, no capture read and no judge invocation.",
+  "state_kinds": {
+    "compute": "Runs, writes no owner artifact, does not stop.",
+    "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (write authority).",
+    "judgment": "Reaches a declared judgment point. THE EXECUTOR INVOKES THE JUDGE ITSELF: it calls the model named in this table's `judge` block, validates the returned record through this state's own refusals, and retries up to the state's `retries` before failing with the refusal text. The model is a CALLED FUNCTION and never the driver (the typed judgment points).",
+    "wait": "The executor stops. Nothing further runs until the owner answers the gate this state declares and the harness's own hook re-enters the executor (the wait rule, the re-entrant executor).",
+    "terminal": "The run is over."
+  },
+  "field_semantics": {
+    "renders_gate_declaration": "Required on every state. `true` only where the state declares a gate, and `true` is what SCHEDULES the executor's composition of that state's declaration. It NAMES THE HOOK CHAIN THAT EXECUTES THE GATE and places no obligation on a session: the executor composes the declaration and stops, the harness renders the question the declaration carries, `.claude/hooks/write-gate-capture.py` records the answer at the moment the owner gives it, and `.claude/hooks/advance-brief.py` invokes the executor again.",
+    "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states. EVERY STATE OF THIS TABLE IS UNCONDITIONAL, and that is a property of the flow rather than an omission: a Brief that entered is minted, composed, reviewed, assembled and adopted, or it refuses at a named state.",
+    "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
+    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. The two conditions are one biconditional over the states array and NOT a count.",
+    "retries": "Required on every state whose `kind` is `judgment`, and absent otherwise. The number of times the executor RE-ASKS the judge after a response its own refusals rejected; 0 means the first refusal is final. Declared PER STATE because the states differ in how much a re-ask can plausibly repair.",
+    "schema_file": "Optional on a state whose `kind` is `judgment`, and absent otherwise. Names a file in this repository carrying the SHAPE of the elements the state's record is built from; the executor renders it into the judge's prompt VERBATIM, above the input marker. A state that names a file which does not exist REFUSES by name -- a declared shape the judge is never shown is the prose-only prompt wearing a declaration. THE SECOND READER IS WHAT MAKES IT WORTH DECLARING: `src/step-schema.json` is read here and by `validateSteps` in src/compose.mjs, so the text the Model composes against and the text the refusal enforces are one file and cannot disagree (kogaki#1108).",
+    "grammar_surface": "NOT A FIELD OF THIS TABLE, and the absence is declared rather than left to read as an omission. In `src/workflow.json` it names the `report-format.json` surface whose line_class allowlist governs a writing state's render, because every Terrain owner artifact is a rendering under that grammar. The Brief is not: `theses/<slug>/brief.md` is composed by `composeBrief` and filled by `fillBrief` against TYPED SLOTS, and its refusals are slot refusals rather than line-class ones. Declaring an inapplicable surface here would be coverage in name only, so `counted_baseline.grammared_writing_states` is 0 and the derivation agrees with it.",
+    "judgment_point": "Required on every state whose `kind` is `judgment`. The one sentence the judge is told its judgment is FOR, rendered at the head of its prompt.",
+    "input_shape": "Required on every state whose `kind` is `judgment`. One sentence naming the shape of the RECORD the judge must return. It describes; `schema_file` and the state's own validator bind.",
+    "refusal": "Required on every state whose `kind` is `judgment`. What this state refuses, in the judge's own reading. The validator is the authority; this is what the judge is told before it answers.",
+    "owner_supplies": "Required on every state whose `kind` is `wait`. What the owner's answer at that gate supplies to the run.",
+    "does": "Required on every state whose `kind` is `compute`, `write` or `terminal`. What the state does, and the runtime case it binds."
+  },
+  "judge": {
+    "command": "claude",
+    "model": "claude-opus-5",
+    "effort": "high",
+    "output_format": "json",
+    "timeout_s": 180,
+    "concurrency": 1,
+    "note": "The executor invokes this for every `judgment` state: `<command> -p --model <model> --output-format <output_format>`, the state's prompt on stdin, the typed record parsed out of the response. A response the state's refusals reject is re-asked up to that state's `retries` and then the run FAILS with the refusal text. `effort` IS DECLARED RATHER THAN OBSERVED: the call carries no effort flag, so this names the tier the run declares it is asking at. `KOGAKI_JUDGE_CLI` replaces the resolved binary FOR FIXTURES ONLY and pins no model of its own. `timeout_s` IS 180 RATHER THAN TERRAIN'S 90, AND THE DIFFERENCE IS THE WORK RATHER THAN A PREFERENCE: this flow's largest ask is `compose_path`, which composes two to three whole Reader Paths -- each an ordered sequence of Steps, every Step carrying nine required fields and one ground per Strand -- in ONE call, against a schema this table renders into the prompt. Terrain's 90 was derived from a per-group claim judgment over one group's members. `concurrency` is 1 because no state of this table declares `per_group`: there is no group axis in a Brief, so the field would cap a fan-out that does not exist. THE ADVANCE BUDGET ABOVE IT is `.claude/hooks/advance-brief.py`'s `ADVANCE_TIMEOUT_S`, and the two are named apart on the ground `src/workflow.json` states at the same field: one bounds a call and the other bounds an advance. Three judgment states at 180s worst case is 540s of judge time in a single advance, and the advance that crosses all three is the one after the CANDIDATE_SELECTION gate -- which crosses ONE of them (`judge_specialization`). The two that could share an advance, `compose_path` and `review_path`, are crossed by the advance after THESIS_ADOPTION together with `mint`, `attach_review` and `assemble_candidates`: 360s of judge time, inside the 480s the hook declares and below the harness's own default with the relay margin Terrain's note derives."
+  },
+  "states": [
+    {
+      "id": "enter",
+      "kind": "compute",
+      "does": "Resolves the settled Strand set against the survey record that assigned its ids, composes the Thesis candidates from that set and from nothing else, and writes the machine-local run state carrying the thesis-determination gate's option set. Binds `src/brief.mjs`'s `enter` case. NOTHING IS WRITTEN UNDER `theses/` HERE: the owner artifact begins exactly when the first piece of substantive owner judgment -- the Thesis -- exists (the durable home and the entry point).",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the durable home and the entry point"
+    },
+    {
+      "id": "THESIS_ADOPTION",
+      "kind": "wait",
+      "owner_supplies": "which Thesis the Brief adopts, and the name it gives the Brief -- one answer with two halves, or the owner's own words, or the premise's negation",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": true,
+      "gate_id": "brief-thesis-adoption",
+      "governing": "SPEC-draft-pipeline, the durable home and the entry point; the wait rule"
+    },
+    {
+      "id": "adopt_thesis",
+      "kind": "compute",
+      "does": "Reads the owner's captured answer at the thesis-determination gate, validates it against the option set it was offered, refuses the premise negation by name, and settles the adopted (Thesis, name) pair onto the run state. Binds `src/brief.mjs`'s `adopt` case. THE ANSWER IS READ AND NEVER RECEIVED AS AN ARGUMENT (kogaki#891): the capture is the harness's own row, written by `.claude/hooks/write-gate-capture.py` at the moment of the click.",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the durable home and the entry point"
+    },
+    {
+      "id": "mint",
+      "kind": "write",
+      "does": "Consumes the adopted pair and creates the Brief's durable home -- `theses/<slug>/brief.md`, thesis filled by construction, every downstream composition field a typed unfilled slot. Binds `src/brief.mjs`'s `mint` case. Idempotence is by slug and a collision REFUSES: a Brief is owner state from the moment it exists, and this runtime is a creator, never an editor.",
+      "writes": "brief",
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the durable home and the entry point"
+    },
+    {
+      "id": "compose_path",
+      "kind": "judgment",
+      "judgment_point": "compose two to three CANDIDATE READER PATHS for this Brief -- each an ordered sequence of Steps taking the reader from the Brief's Reader start to the adopted Thesis, the Candidates differing in READER EXPERIENCE rather than in decoration",
+      "input_shape": "an object `{ candidates: [...] }` whose entries each carry `candidate_id`, `reader_experience`, `steps` (the ordered Step array), `reasoning` (with `step_validity`, `transition_continuity`, `thesis_closure`), `coverage`, `obligations`, `unused`, and the three reader fields the settled structure section names",
+      "schema_file": "src/step-schema.json",
+      "refusal": "a Step missing any required field the schema declares; a ground whose type is outside the schema's closed set; TWO GROUNDS OF ONE STEP NAMING ONE STRAND, which the schema's `ground.one_per_strand` forbids and `validateSteps` refuses naming the Step and the Strand; a material outside the Brief's closed Strand set; a `depends_on` naming a later Step; fewer than two or more than three Candidates; two Candidates stating the same reader experience",
+      "retries": 2,
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the Step's shape and the grounding rule"
+    },
+    {
+      "id": "review_path",
+      "kind": "judgment",
+      "judgment_point": "review each composed Candidate against the five review areas, as JUDGMENT -- the grounding of each Step, the grounds test, semantic economy, journey integrity, and the judgment rule itself",
+      "input_shape": "an object keyed by `candidate_id`, each value an object carrying one prose entry per review area and NO verdict-shaped field",
+      "refusal": "a Candidate with no review entry; a verdict-shaped field -- `verdict`, `pass`, `score` and kin, or any non-string value -- because nothing here becomes a lint; a THIRD attach on one Candidate, which the revise pass bounds at one revise round",
+      "retries": 2,
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the judgment rule and the revise pass"
+    },
+    {
+      "id": "attach_review",
+      "kind": "compute",
+      "does": "Carries the reviewing judgment ONTO the Candidates so it rides into the Candidate-selection gate, and counts the revise round in the run workspace's ledger. Binds `src/review.mjs`'s `attach` case. Nothing here reads the reasoning's content: whether the grounds test was applied well is the owner's question, on the reasoning this state attaches.",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the revise pass"
+    },
+    {
+      "id": "assemble_candidates",
+      "kind": "compute",
+      "does": "Composes the Candidate-selection gate's payload from the reviewed Candidates and the Brief -- each option its candidate_id and its reader-experience label and nothing else, plus the premise's negation as a first-class option -- and refuses the internal vocabulary the owner must never be asked to read. Binds `src/assemble.mjs`'s `assemble` case.",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the Candidate gate"
+    },
+    {
+      "id": "CANDIDATE_SELECTION",
+      "kind": "wait",
+      "owner_supplies": "which composed Reader Path the Brief follows, or the premise's negation -- that the Thesis or the settled set is what should change",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": true,
+      "gate_id": "brief-candidate-selection",
+      "governing": "SPEC-draft-pipeline, the Candidate gate; the wait rule"
+    },
+    {
+      "id": "judge_specialization",
+      "kind": "judgment",
+      "judgment_point": "judge, per Step of the SELECTED Candidate, whether its reader_state_before and reader_state_after are consistent SPECIALIZATIONS of the requires and effect its bound Move declares",
+      "input_shape": "a record carrying one verdict per Step of the selected Candidate, each naming the step_id, the verdict from the schema's closed set, and the reasoning the verdict rests on",
+      "schema_file": "src/specialization-schema.json",
+      "refusal": "a verdict outside the closed set; a Step of the selected Candidate carrying no verdict; a verdict naming a step_id the Candidate does not carry; a `contradicts` or `cannot-determine` verdict, which refuses in path order and writes nothing",
+      "retries": 2,
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the Step-Move instantiation contract"
+    },
+    {
+      "id": "adopt_candidate",
+      "kind": "write",
+      "does": "Writes the owner-selected Candidate's Reader Path into the Brief's sequence and fills its closing sections from that Candidate's reasoning. Binds `src/assemble.mjs`'s `adopt-candidate` case. THE SPECIALIZATION RECORD IS DISCLOSURE, NEVER A WRITE UNLOCK (kogaki#1108): it is validated here and rendered as ONE SENTENCE in the closing summary, naming its digest and the tally of verdicts by value. No owner ratification is asked for it and `brief-specialization-ratification` is gone from src/gate-registry.json.",
+      "writes": "brief",
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-draft-pipeline, the settled structure section and the Step-Move instantiation contract"
+    },
+    {
+      "id": "done",
+      "kind": "terminal",
+      "does": "The Brief is filled. The open-run pointer is cleared and the run is over.",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "SPEC-terrain, the workflow table"
+    }
+  ],
+  "counted_baseline": {
+    "waits": 2,
+    "conditional_states": 0,
+    "owner_artifact_writes": 2,
+    "judgment_points": 3,
+    "grammared_writing_states": 0
+  },
+  "owner_artifacts": {
+    "brief": {
+      "path": "theses/<slug>/brief.md",
+      "writer": "two private writers, each called by the writing state the table binds it to -- `composeBrief` at `mint`, `fillBrief` and `replaceSlot` at `adopt_candidate`",
+      "rule": "CREATED at `mint` and never overwritten there -- a slug collision refuses; FILLED at `adopt_candidate`, which is the one surviving write that lands blocks in an existing Brief. The path is per run and is resolved from the adopted name, which is why this entry carries a shape rather than a literal."
+    }
+  },
+  "owner_surface_coverage": {
+    "rule": "DENOMINATOR = the states in this file whose `writes` is non-null. NUMERATOR = those of them whose `grammar_surface` names a surface present in report-format.json's `surfaces`.",
+    "at_this_version": "0 of 2",
+    "recomputed_never_transcribed": "`at_this_version` is a convenience for a human reader and carries no authority. THE NUMERATOR IS ZERO BY CONSTRUCTION AND NOT BY NEGLECT -- see `field_semantics.grammar_surface`: the Brief is composed against typed slots and not against a line-class allowlist, so there is no surface for either writing state to name. A later issue that grammars the Brief moves this figure; nothing here is owed until one does."
+  },
+  "bound_to_a_state": {
+    "enter": "the enter state",
+    "adopt": "the adopt_thesis state",
+    "mint": "the mint state",
+    "run": "THE CONTROL PLANE, bound to the table AS A WHOLE rather than to one state: it reads the run record, executes the states this file declares until the next declared WAIT or the TERMINAL, writes that state's artifact, and stops. It is `src/terrain.mjs`'s `runWorkflow` entered with this flow's binding, never a second loop.",
+    "start": "the same states `run` executes, entered by the harness's SKILL EXPANSION rather than by a hook event. It opens the run, advances to its first wait and stops; it refuses an existing run record, so it never resumes one. It is in THIS map and not in `owner_executed_entry_points` for the reason `src/workflow.json` gives at the same key: the owner types no command here either -- the brief skill file's one `!` line is executed by the harness at invocation, before the model sees anything.",
+    "review.mjs:attach": "the attach_review state. A CASE OF A SIBLING RUNTIME, recorded here because acceptance item 1 of kogaki#1108 is stated over every dispatcher case THE FLOW USES, across the three runtimes, while the computed totality below is over `src/brief.mjs`'s own dispatcher alone. The key carries its file so the two populations are never confused for one.",
+    "assemble.mjs:assemble": "the assemble_candidates state. Same siting as the row above.",
+    "assemble.mjs:adopt-candidate": "the adopt_candidate state. Same siting as the row above."
+  },
+  "removed_entry_points": {
+    "gate-thesis": "DELETED at kogaki#1108, and it leaves no stub (A removed entry point is DELETED, and leaves no stub). It was the thesis-determination gate's one-act-two-modes executor: `--declare` wrote the run declaration from the gate `enter` composed, `--capture` recorded the owner's answer against it. Under this table the EXECUTOR composes the declaration at the THESIS_ADOPTION wait and the harness's own `write-gate-capture.py` records the click, so both modes have nothing left to do. Its option set survives as this flow's GATE_WORK composer, which reads the same `state.gate` `enter` writes -- so the thing the owner is shown and the thing the answer is judged against still cannot disagree. A leftover invocation fails as an unknown subcommand.",
+    "assemble.mjs:gate-candidate": "DELETED at kogaki#1108 on the same ground and by the same replacement. Its option set survives as `selectionOptionIds`, which is EXPORTED and unchanged: the gate composer and adoption both call it, so the digest the capture binds to is computed once by both writers and the reader."
+  },
+  "retired_entry_points": {},
+  "non_flow_entry_points": {},
+  "owner_executed_entry_points": {},
+  "entry_point_accounting": "EVERY case in src/brief.mjs's dispatcher appears in exactly one of the 5 maps above (bound_to_a_state, removed_entry_points, retired_entry_points, non_flow_entry_points, owner_executed_entry_points), and THAT TOTALITY is the property rather than the count: the next entry point is covered by the totality rather than by having been remembered. A case in none of them, or in two, is a defect against this file. THREE MAPS ARE EMPTY AT THIS HEAD AND ALL THREE KEYS STAY -- an empty map states the set is empty, where a deleted key would leave a reader unable to tell an empty set from a map somebody dropped. `owner_executed_entry_points` is empty because the owner types no command in this flow: the brief skill's one `!` line is run by the harness, and every advance after it runs inside a PostToolUse hook. The totality holds over 5 cases: enter, adopt, mint, run and start, all in bound_to_a_state. `default:` is the unknown-command banner and is not a case. THE THREE SIBLING-RUNTIME ROWS in bound_to_a_state -- `review.mjs:attach`, `assemble.mjs:assemble`, `assemble.mjs:adopt-candidate` -- are NOT in this totality's population and are keyed with their file so that is visible: the computed reader scans one runtime per table, and those cases are accounted for by name rather than by computation. THE TOTALITY IS COMPUTED, and by `checks/check-entry-point-accounting.sh` (kogaki#986, widened to both (runtime, declaration) pairs at kogaki#1108) -- an editor of these maps is told here that a reader exists, because a reader nothing points at is one the next editor works around. The sentence STAYS: the check reads it and refuses if it goes, so the declaration and its instrument retire together or not at all."
+}

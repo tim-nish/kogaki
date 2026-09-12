@@ -128,7 +128,7 @@
 //
 import { spawnSync, spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync, statSync } from "node:fs";
 import { basename, delimiter, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -179,7 +179,11 @@ export function setRunPersist(dir, rec) {
 // swallowed deliberately: the operator is being told why the act refused, and
 // a second failure reported in its place would replace a diagnosis with an
 // accident of the tracing.
-function persistPendingRun() {
+// EXPORTED AT kogaki#1108. `src/brief.mjs`'s own `fail` calls it, so a refusal
+// raised inside a Brief state persists the transitions that act completed before
+// it — the property kogaki#808 established for this file, reaching the second
+// runtime through the one implementation rather than a copy of it.
+export function persistPendingRun() {
   if (!RUN_PERSIST) return;
   const { dir, rec } = RUN_PERSIST;
   RUN_PERSIST = null;
@@ -263,13 +267,38 @@ function parseArgs(argv) {
 // named it because they hold it. `enterRun` prunes before it creates, so the
 // bound is enforced as the run's first act rather than after the write it was
 // supposed to bound.
+// ---- WHICH FLOW THIS ACT IS AN ACT OF (kogaki#1108) -----------------------
+//
+// THE EXECUTOR WAS ALWAYS GENERIC AND ITS BINDINGS WERE ALWAYS TERRAIN'S. The
+// loop below reads order, kind, conditionality and stopping from the table and
+// names no state -- that property is kogaki#625's and is unchanged. What was
+// hard-coded around it was everything a SECOND flow would need to differ in:
+// which table is loaded, which lane directory the run workspace and the
+// open-run pointer live in, which prefix the capture file carries, and which
+// two maps supply the renderers and the option composers.
+//
+// A PROCESS-WIDE VARIABLE, AND THAT IS THE SCOPE OF THE FACT -- the same shape
+// and the same argument as `OPENED_BY` and `WRITING_STATE` above it. One
+// invocation of a runtime is one act of one flow: `runWorkflow` receives the
+// binding from its caller and everything under that call belongs to it.
+// Threading it through `emitGateDeclaration`'s callers -- option composers,
+// several frames down -- would carry one value along a longer path and give it
+// a second place to disagree with itself.
+//
+// THE DEFAULT IS TERRAIN'S, so every existing caller and the whole fixture
+// pass are unchanged: a reader that never enters `runWorkflow` reads the flow
+// this file has always been.
+let FLOW = null;
+function flow() { return FLOW || TERRAIN_FLOW; }
+
 function runDir(args) {
-  if (args["run-dir"] || process.env.KOGAKI_RUN_DIR) {
-    const dir = args["run-dir"] || process.env.KOGAKI_RUN_DIR;
+  const f = flow();
+  if (args["run-dir"] || process.env[f.runDirEnv]) {
+    const dir = args["run-dir"] || process.env[f.runDirEnv];
     mkdirSync(dir, { recursive: true });
     return dir;
   }
-  return enterRun("terrain", terrainRunEntry());
+  return f.newRunDir();
 }
 
 // ---- WHICH RUN THE ADVANCE IS AN ADVANCE OF (PR #1034 round 1, blocking) ----
@@ -304,7 +333,8 @@ const OPEN_RUN_POINTER = "open-run";
 // this repository's real terrain lane, so a fixture pass would evict an owner's
 // runs to check a path.
 function openRunPointerPath() {
-  return process.env.KOGAKI_OPEN_RUN || join(laneDir("terrain"), OPEN_RUN_POINTER);
+  const f = flow();
+  return process.env[f.openRunEnv] || join(laneDir(f.lane), OPEN_RUN_POINTER);
 }
 
 export function readOpenRunPointer() {
@@ -2366,7 +2396,7 @@ function sentQuestion(declaration, callPath) {
 export function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callUnavailable = null) {
   const gd = openGateDir();
   mkdirSync(gd, { recursive: true });
-  const capPath = join(dir, `terrain${GATE_SCHEMA.capture.suffix}`);
+  const capPath = join(dir, `${flow().lane}${GATE_SCHEMA.capture.suffix}`);
   // A RE-RAISING SUPERSEDES ITS OWN PREVIOUS POINTER (PR #917 round 1, finding
   // 3). Re-rendering a gate after a refusal is the ordinary recovery this file
   // tells the owner to perform, and each raising mints a fresh instance id —
@@ -2965,6 +2995,94 @@ function resolveReportTargets(record, tag, enteredIds, args) {
     subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
   const resolved = resolveEnteredIds(enteredIds, groups, subOf);
   return { members, groups, resolved, subOf, targets: resolved.targets };
+}
+
+// --------------------------------------------------------------------------
+// THE HANDOFF TERRAIN OWES THE BRIEF FLOW (kogaki#1108).
+//
+// WHAT PROBLEM THIS IS. `src/brief.mjs`'s `enter` needs two facts — the survey
+// record that assigned the `L<n>` ids, and the settled Strand set as those ids.
+// Until this issue both arrived on a Bash command line the MODEL composed after
+// reading a Full Report, which is precisely the class of input the Brief table
+// removes: an id list the model retypes is an id list the model can retype
+// wrong, and no carrier downstream could tell.
+//
+// BOTH FACTS ALREADY EXIST, ON TERRAIN'S OWN RUN RECORD. `survey_record` names
+// the record; `owner_input.ID_SELECTION` holds what the OWNER answered at the
+// `terrain-id-selection` gate, written from the harness's payload by
+// `.claude/hooks/write-gate-capture.py`. So the handoff is a READ of an owner
+// act, not a recomposition of one.
+//
+// IT RESOLVES THE IDS THE WAY THE STATE THAT PRINTED THEM RESOLVES THEM, and
+// that is the whole of why it lives HERE rather than in the Brief runtime. G and
+// SG ids are per-report-identity tokens whose meaning is the composed grouping
+// plus this run's subdivision judgment; a second resolver in another file would
+// be a second answer to "which members did the owner select", and the two would
+// agree until a pin advance renumbered something. `thesis_candidates` and
+// `neighborhood_input` already read it this way; this is the same three lines,
+// exported.
+//
+// IT REFUSES BY NAME AND SUBSTITUTES NOTHING. A record with no survey, no tag or
+// no ID answer is a Terrain run that has not reached the handoff — the Brief
+// flow is told which fact is missing, and composes no set of its own.
+// The Terrain run whose answers the handoff above reads: the lane's OPEN run
+// where one is open, and otherwise the most recently modified workspace in the
+// lane that holds a run record. Named for the LANE rather than resolved through
+// `flow()`, deliberately — this is called from inside the Brief flow's own
+// binding, where `flow()` answers "brief", and a reader that followed the
+// ambient binding would hand the Brief flow its own record back.
+export function terrainRunRecord() {
+  const pointer = process.env.KOGAKI_OPEN_RUN || join(laneDir("terrain"), OPEN_RUN_POINTER);
+  try {
+    const named = readFileSync(pointer, "utf8").trim();
+    if (named && existsSync(join(named, RUN_RECORD_FILE))) {
+      return { dir: named, record: readJson(join(named, RUN_RECORD_FILE)) };
+    }
+  } catch { /* no pointer is not a failure here; the scan below is the fallback */ }
+  let best = null;
+  try {
+    for (const name of readdirSync(laneDir("terrain"))) {
+      const d = join(laneDir("terrain"), name);
+      const p = join(d, RUN_RECORD_FILE);
+      if (!existsSync(p)) continue;
+      const at = statSync(p).mtimeMs;
+      if (!best || at > best.at) best = { dir: d, at };
+    }
+  } catch { /* an absent lane is an absent run, and the caller's refusal names it */ }
+  return best ? { dir: best.dir, record: readJson(join(best.dir, RUN_RECORD_FILE)) } : null;
+}
+
+export function settledStrandHandoff(trec) {
+  if (!trec || typeof trec !== "object") {
+    return { error: "no Terrain run record was readable, so there is no settled Strand set to hand over" };
+  }
+  const survey = trec.survey_record ? resolve(REPO, String(trec.survey_record)) : null;
+  if (!survey || !existsSync(survey)) {
+    return { error: `the Terrain run record names ${survey ? `a survey record at ${survey} that does not exist` : "no survey record"} — the survey is what assigned the L<n> ids, so without it the settled set has no resolver` };
+  }
+  const oi = trec.owner_input || {};
+  const tag = oi.TAG_SELECTION;
+  if (typeof tag !== "string" || tag === "") {
+    return { error: "the Terrain run record carries no answer at TAG_SELECTION, so the run never reached the grouping the ids are read off" };
+  }
+  const ids = oi.ID_SELECTION;
+  if (ids === undefined || ids === null || String(ids).trim() === "") {
+    return { error: "the Terrain run record carries no answer at ID_SELECTION — the settled Strand set is the OWNER's answer at that gate, and a Brief never composes one of its own (SPEC-terrain: Terrain ends at Strand exploration)" };
+  }
+  const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
+  const record = readJson(survey);
+  const j = trec.judgments || {};
+  const joins = {};
+  if (j.J2_subdivision) joins.subdivisions = resolve(REPO, j.J2_subdivision);
+  const { targets } = resolveReportTargets(record, tag, enteredIds, joins);
+  const displayIds = [...new Set(
+    targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
+    .map((mid) => displayIdOf(mid, record.candidates))
+    .filter((d) => d && d !== NO_DISPLAY_ID);
+  if (!displayIds.length) {
+    return { error: `the Terrain run's answer at ID_SELECTION (${enteredIds.join(", ")}) resolves to no member carrying a display id — an id list that resolves to nothing is not a settled set` };
+  }
+  return { survey, tag, displayIds, entered: enteredIds };
 }
 
 // --------------------------------------------------------------------------
@@ -3590,11 +3708,41 @@ export function judgeRecordExample(st, input) {
 // ask.
 function judgePrompt(st, inputText, input, lastRefusal) {
   const L = [];
-  L.push(`You are the judge at the Terrain workflow's \`${st.id}\` judgment point.`);
+  L.push(`You are the judge at the ${flow().label} workflow's \`${st.id}\` judgment point.`);
   L.push("");
   L.push(`JUDGMENT POINT: ${st.judgment_point || st.id}`);
   L.push(`REQUIRED RECORD SHAPE: ${st.input_shape || "the typed record this state declares"}`);
   if (st.refusal) L.push(`WHAT IS REFUSED: ${st.refusal}`);
+  // THE DECLARED SCHEMA, RENDERED VERBATIM (kogaki#1108). A state may name a
+  // file carrying the shape of the elements its record is built from, and the
+  // executor puts that file in front of the judge.
+  //
+  // WHY VERBATIM AND WHY A FILE. `input_shape` is one sentence about the
+  // RECORD; a Step has fifteen fields, each with a meaning, and a sentence
+  // cannot carry them. Before this the composing party inferred those fields
+  // from skill prose and the validator checked them afterwards, so the only
+  // Harness text saying what a field MEANS was a refusal string seen after
+  // shape had already failed. The validator reads its field set from this same
+  // file, which is what makes "the prompt and the refusal cannot disagree" a
+  // property of there being one file rather than a promise.
+  //
+  // NOT A SECOND INPUT. It is the SHAPE the record is filled against, and it
+  // stands above the input marker -- everything past that marker is still the
+  // composed input verbatim, by the marker's own contract.
+  if (st.schema_file) {
+    const sp = join(REPO, String(st.schema_file));
+    if (!existsSync(sp)) {
+      fail(`${st.id}: the table declares \`schema_file\` ${JSON.stringify(st.schema_file)} and no such file `
+        + `exists. A judgment state that names a shape the judge is never shown is the prose-only prompt `
+        + `wearing a declaration (kogaki#1108).`);
+    }
+    L.push("");
+    L.push(`THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- ${st.schema_file}, verbatim.`);
+    L.push("Every field it declares, and what each one means. The refusals that judge your answer read");
+    L.push("their field set from this same file, so what you are asked for and what is checked are one");
+    L.push("text. Read it before composing.");
+    L.push(readFileSync(sp, "utf8"));
+  }
   const example = judgeRecordExample(st, input);
   if (example) {
     L.push("");
@@ -3825,7 +3973,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   if (st.per_group === true) {
     return await invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits);
   }
-  const out = join(dir, `terrain-judge-${st.id}.json`);
+  const out = join(dir, `${flow().lane}-judge-${st.id}.json`);
   const r = await judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label: "" });
   if (r.ok) {
     recordJudgeInvocation(st.id, {
@@ -3977,8 +4125,8 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
     const scopedText = JSON.stringify(scoped, null, 2);
     // WRITTEN BESIDE THE RUN'S OWN INPUT, so a reader can see exactly what each
     // call was handed rather than reconstructing the narrowing from the whole.
-    writeFileSync(join(dir, `terrain-judge-input-${st.id}-${slug}.json`), scopedText + "\n");
-    const out = join(dir, `terrain-judge-${st.id}-${slug}.json`);
+    writeFileSync(join(dir, `${flow().lane}-judge-input-${st.id}-${slug}.json`), scopedText + "\n");
+    const out = join(dir, `${flow().lane}-judge-${st.id}-${slug}.json`);
     // THE STATE'S OWN VALIDATOR, OVER A ONE-KEY RECORD. `validate` iterates the
     // record's keys, so a one-key record validates exactly this group's entry
     // through the shipped reader; what is added here is that the key must be THE
@@ -4097,7 +4245,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
     assembled[name] = readJson(r.out)[name];
     judged.push(name);
   }
-  const out = join(dir, `terrain-judge-${st.id}.json`);
+  const out = join(dir, `${flow().lane}-judge-${st.id}.json`);
   writeFileSync(out, JSON.stringify(assembled, null, 2) + "\n");
   // AND THE WHOLE RECORD'S REFUSALS RUN OVER THE ASSEMBLY. The per-group calls
   // validated their own entries; this is the record the rest of the run reads,
@@ -4165,7 +4313,11 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
 // the one it ASKS FOR. An explicit `--<flag>` still wins — that is the fixture
 // path, the second-repository path and the owner's own, and it is unchanged —
 // and its absence is no longer a refusal but a call.
-async function judgedRecordPath(rec, st, table, args, flag, composeInput, validate) {
+// EXPORTED AT kogaki#1108, for the second flow's judgment states. It is the one
+// place a judgment record can come from — an explicit flag, or the executor's
+// own call to the pinned judge — so a flow that composed its own would be the
+// second producer `the typed judgment points` forbids.
+export async function judgedRecordPath(rec, st, table, args, flag, composeInput, validate) {
   if (args[flag] !== undefined) {
     const p = String(args[flag]);
     validate(p);
@@ -6310,7 +6462,10 @@ export function composeTrimProposal(args, dir) {
 // complaint about a shape: the wait stays outstanding, so the recovery is
 // always to render the gate again.
 export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
-  const capPath = join(dir, `terrain${GATE_SCHEMA.capture.suffix}`);
+  // THE CAPTURE FILE IS THE FLOW'S (kogaki#1108). It was `terrain<suffix>`
+  // literally; the prefix is the lane, and the writer below reads it from the
+  // same place, so the two cannot name different files.
+  const capPath = join(dir, `${flow().lane}${GATE_SCHEMA.capture.suffix}`);
   const instance = decl.gate_instance_id;
   if (!instance) {
     fail(`the declaration for gate ${decl.id} carries no gate_instance_id, so no captured answer can be joined to it. `
@@ -7469,7 +7624,12 @@ const EXECUTOR_KINDS = ["hook", "skill-expansion"];
 
 // The start act's attribution. It carries no hook fields, deliberately -- see
 // above.
-const SKILL_EXPANSION_EXECUTOR = { executor: "skill-expansion" };
+// EXPORTED FOR THE SECOND FLOW BINDING (kogaki#1108). `src/brief.mjs`'s own
+// `start` case enters `runWorkflow` with this attribution, exactly as the
+// dispatcher below enters `cmdRun` with it — the attribution is a property of
+// WHICH ACT opened the run, not of which flow it opened, so a second flow that
+// minted its own constant would be a second answer to one question.
+export const SKILL_EXPANSION_EXECUTOR = { executor: "skill-expansion" };
 
 // WHO OPENED THE POINTER THIS ACT WRITES (kogaki#1051).
 //
@@ -8047,7 +8207,7 @@ const STATE_WORK = {
     // strand refusals are stated over `memberDisplayIds`, so handing the judge
     // anything else would be asking for a record this state must then refuse.
     const composeInputFor = () => {
-      const p = join(rec._dir, `terrain-judge-input-${st.id}.json`);
+      const p = join(rec._dir, `${flow().lane}-judge-input-${st.id}.json`);
       writeFileSync(p, JSON.stringify({
         state: st.id,
         strands_you_may_use: memberDisplayIds,
@@ -8180,7 +8340,7 @@ const STATE_WORK = {
         ? readJson(rec.neighborhood_candidates)
         : fail(`${st.id} has no candidate enumeration to judge against — neighborhood_input writes it and it precedes this state in the table.`);
       const tc = rec.thesis_candidates ? readJson(rec.thesis_candidates) : [];
-      const p = join(rec._dir, `terrain-judge-input-${st.id}.json`);
+      const p = join(rec._dir, `${flow().lane}-judge-input-${st.id}.json`);
       writeFileSync(p, JSON.stringify({
         state: st.id,
         candidates_you_must_judge: emitted.candidates || [],
@@ -8464,6 +8624,59 @@ const GATE_WORK = {
 // WRITE" ordering true by construction: by the time this function runs, the
 // attribution already exists or the caller already refused.
 //
+// ---- THE TWO FLOW BINDINGS (kogaki#1108) ----------------------------------
+//
+// A FLOW IS A TABLE PLUS TWO MAPS PLUS A LANE, and nothing else. Everything a
+// second flow needs to differ in is here; everything below `runWorkflow` is
+// shared. The shape is the workflow table's own contract one level up: a new
+// STATE is a table row plus a renderer, and a new FLOW is a table plus the two
+// maps those rows are looked up in.
+//
+//   lane         the `runs/` lane. It sites the run workspace, the open-run
+//                pointer, and the capture file's own filename prefix -- which
+//                is what keeps two concurrent runs of two flows from reading
+//                each other's answers.
+//   label        the flow's name in a refusal addressed to a person.
+//   startLine    the `!` line of the flow's skill file, named in the refusal a
+//                reader meets when no run is open. Named rather than
+//                described, because the reader's next act is to run it.
+//   tablePath    the workflow table this flow's states come from.
+//   newRunDir    how a START act opens a workspace in this lane.
+//   stateWork    the renderer half, keyed by state id.
+//   gateWork     the option-composer half, keyed by state id.
+//   runDirEnv    the environment variable pinning a run workspace, per flow so
+//   openRunEnv   that a fixture pinning one lane does not redirect the other.
+//
+// THE DEFAULT REMAINS TERRAIN'S. `flow()` falls back to this binding, so every
+// caller outside `runWorkflow` -- the exported readers, the whole fixture pass
+// -- reads exactly what it read before this change.
+const TERRAIN_FLOW = {
+  lane: "terrain",
+  label: "Terrain",
+  startLine: "the terrain skill's own `!` line (`node src/terrain.mjs start`)",
+  tablePath: WORKFLOW_TABLE,
+  newRunDir: () => enterRun("terrain", terrainRunEntry()),
+  stateWork: STATE_WORK,
+  gateWork: GATE_WORK,
+  runDirEnv: "KOGAKI_RUN_DIR",
+  openRunEnv: "KOGAKI_OPEN_RUN",
+};
+
+// THE ONE ENTRY A SECOND RUNTIME USES. `src/brief.mjs` composes its own
+// binding and calls this; it never reimplements the loop, which is what makes
+// "the executor advances from hook payloads" one implementation rather than
+// two that can drift.
+export async function runWorkflow(binding, args, advancedBy, opts = {}) {
+  const held = FLOW;
+  FLOW = binding;
+  // SCOPED BY try/finally rather than by setting and clearing around the call,
+  // on `WRITING_STATE`'s own argument one screen up: a refusal inside the loop
+  // would otherwise leave one flow's binding standing for whatever ran next in
+  // the same process.
+  try { return await cmdRun(args, advancedBy, opts); }
+  finally { FLOW = held; }
+}
+
 // `stopAtFirstWait` bounds the start act to what the owner licensed it to
 // produce -- `survey` and the stop at TAG_SELECTION -- so a start invocation
 // cannot walk a whole run under one skill-expansion attribution.
@@ -8483,18 +8696,18 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // the one read-only route.
   if (stopAtFirstWait && args.status) {
     fail("`start --status` is refused: `start` opens a run and `--status` reads one, and the two are not one act. "
-      + "The read-only route is `node src/terrain.mjs run --status` (kogaki#1038).");
+      + `The read-only route is this runtime's own \`run --status\` (kogaki#1038).`);
   }
   if (stopAtFirstWait || args["run-dir"] || process.env.KOGAKI_RUN_DIR) {
     dir = runDir(args);
     if (stopAtFirstWait && !args["run-dir"] && !process.env.KOGAKI_RUN_DIR) writeOpenRunPointer(dir);
   } else {
     dir = readOpenRunPointer()
-      || fail(`no Terrain run is open: ${openRunPointerPath()} names none, and an advance is an advance OF a run. `
-        + `A run is opened by the terrain skill's own \`!\` line (\`node src/terrain.mjs start\`), which writes that pointer; `
+      || fail(`no ${flow().label} run is open: ${openRunPointerPath()} names none, and an advance is an advance OF a run. `
+        + `A run is opened by ${flow().startLine}, which writes that pointer; `
         + `the pointer is removed when the run reaches its terminal. Nothing was written (kogaki#1027).`);
   }
-  const tablePath = args.workflow ? String(args.workflow) : WORKFLOW_TABLE;
+  const tablePath = args.workflow ? String(args.workflow) : flow().tablePath;
   const table = loadWorkflowTable(tablePath);
 
   if (args.status) return reportRunStatus(dir, tablePath, table);
@@ -8554,8 +8767,8 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // getting a different act than it asked for.
   for (const dead of ["input", "at", "enter"]) {
     if (args[dead] !== undefined) {
-      fail(`--${dead} is DELETED (kogaki#1027). The Terrain executor is invoked by hooks only: `
-        + `it is started by the terrain skill's own \`!\` line and advanced inside the PostToolUse hook for the `
+      fail(`--${dead} is DELETED (kogaki#1027). The ${flow().label} executor is invoked by hooks only: `
+        + `it is started by ${flow().startLine} and advanced inside the PostToolUse hook for the `
         + `AskUserQuestion that answered a gate, and every transition names the hook that executed it. `
         + `There is no stub and no replacement flag -- a wait is answered by the owner's click, which `
         + `.claude/hooks/write-gate-capture.py records and the executor reads.`);
@@ -8739,7 +8952,7 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
         // declaration is a table owing a composer; it is not an escape hatch,
         // because there is no longer any surface through which one could be
         // written by hand.
-        const compose = GATE_WORK[st.id];
+        const compose = flow().gateWork[st.id];
         if (!compose) {
           rec.gate_declarations_owed.push({ state: st.id, gate_id: st.gate_id || null, declaration: null,
             unwritten: `this runtime has no option composer bound to ${JSON.stringify(st.id)} — the workflow table: a GATE state is a table row PLUS an option composer, and the executor invents neither options nor a judgment` });
@@ -8778,7 +8991,7 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       break;
     }
 
-    const work = STATE_WORK[st.id];
+    const work = flow().stateWork[st.id];
     if (!work && kind.needsRenderer) {
       fail(`workflow state ${JSON.stringify(st.id)} is kind ${JSON.stringify(st.kind)} and this runtime has no renderer bound to it. The workflow table: a new state is a table row PLUS a renderer — the executor interprets the table and invents neither a renderer nor a judgment.`);
     }

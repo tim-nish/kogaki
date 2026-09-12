@@ -83,7 +83,6 @@ import { fillBrief, replaceSlot, selectedStrands, placements,
          journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
-import { laneDir } from "./runs.mjs";
 
 function fail(msg) {
   process.stderr.write(`assemble: ${msg}\n`);
@@ -962,7 +961,11 @@ function parseArgs(argv) {
   return args;
 }
 
-function cmdAssemble(args) {
+// EXPORTED AT kogaki#1108 so the Brief workflow table's `assemble_candidates`
+// state binds THIS case rather than a second caller of `assembleSelection`. The
+// state is the table's row; the case is the work; one function is what keeps the
+// two from drifting.
+export function cmdAssemble(args) {
   const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
     "assemble needs --reviewed <json> — src/review.mjs attach's output"), "utf8"));
   const doc = readFileSync(argString(args, "brief",
@@ -976,7 +979,11 @@ function cmdAssemble(args) {
   console.log(`selection payload: ${r.payload.options.length - 1} Candidate(s) plus the first-class negation, each option carrying its id and its reader-experience label and nothing else — never a verdict, and the composition-time reasoning stays in the reviewed Candidates it was composed from rather than being copied here (the Candidate gate, kogaki#859). Written: ${out}`);
 }
 
-function cmdAdopt(args) {
+// EXPORTED AT kogaki#1108 under the name its dispatcher case carries, for the
+// `adopt_candidate` state. `cmdAdopt` locally, `cmdAdoptCandidate` to an
+// importer: the bare name is ambiguous across the two runtimes that both have
+// an adopt, and a state binding reads better naming the subcommand.
+export function cmdAdoptCandidate(args) {
   const briefPath = argString(args, "brief", "adopt-candidate needs --brief <theses/<slug>/brief.md>");
   const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
     "adopt-candidate needs --reviewed <json> — the reviewed Candidates the gate offered"), "utf8"));
@@ -1057,108 +1064,52 @@ function cmdAdopt(args) {
 // A leftover invocation fails as an unknown subcommand, which is the shape a
 // removed entry point takes here.
 //
-// The workspace helper it owned SURVIVES under a name that describes what it
-// is: the Candidate-selection gate writes its declaration and capture into the
-// same per-Brief run directory, which was always the only thing the helper
-// computed.
-function briefGateDir(briefPath) {
-  return join(laneDir("brief"), basename(dirname(resolve(briefPath))));
-}
+// The workspace helper it owned WENT WITH IT at kogaki#1108, one deletion later.
+// It computed `runs/brief/<slug>/`, and its last caller was the
+// Candidate-selection gate's own executor, deleted below on the same ground: the
+// gate's declaration and capture now live in the executor's run workspace, which
+// the Harness sites.
 
 // ---------------------------------------------------------------------------
-// THE CANDIDATE-SELECTION GATE'S EXECUTOR (kogaki#891).
+// `gate-candidate` IS DELETED, AND IT LEAVES NO STUB (kogaki#1108).
 //
-// The same one-act-two-modes shape the owner gate over a passing specialization record's executor established, and for the
-// same reason: an answer is admitted only at the wait that declared it. Both
-// modes recompose the option set through `selectionOptionIds` — the same
-// composer adoption reads — so a capture cannot be written for a set that
-// would not itself be offered, and the digest the capture binds to is
-// computed once, in one place, by both writers and the reader.
-function cmdGateCandidate(args) {
-  const briefPath = argString(args, "brief", "gate-candidate needs --brief <theses/<slug>/brief.md>");
-  const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
-    "gate-candidate needs --reviewed <json> — the reviewed Candidates the gate offers"), "utf8"));
-  const doc = readFileSync(briefPath, "utf8");
-  const offered = selectionOptionIds(reviewed, doc);
-  if (offered.error) fail(`${offered.error}\n\nNo gate is raised: the Candidates cannot be presented, so there is nothing to choose between. Repair the Candidates, not the gate.`);
-  const gateId = "brief-candidate-selection";
-  const digest = ownerGateDigest(gateId, offered.ids);
-  const dir = briefGateDir(briefPath);
-  mkdirSync(dir, { recursive: true });
-  const declPath = join(dir, `${gateId}${gateSchema().capture.run_declaration_suffix}`);
-  const capPath = join(dir, `${gateId}${gateSchema().capture.suffix}`);
-
-  if (args.capture) {
-    let decl;
-    try { decl = JSON.parse(readFileSync(declPath, "utf8")); }
-    catch { fail(`no declaration at ${declPath} — an answer is admitted at the wait that declared it, so run --declare and raise the gate first (the Candidate gate; kogaki#891).`); }
-    if (decl.answers_over?.option_set_digest !== digest) {
-      fail(`the declaration at ${declPath} was raised over an option set digesting ${JSON.stringify(decl.answers_over?.option_set_digest)}, `
-        + `but the Candidates now offer one digesting ${JSON.stringify(digest)} — the Candidates changed after the gate was raised, `
-        + `so this answer would adopt a Reader Path the owner was never shown. Re-run --declare and re-raise the gate.`);
-    }
-    const toolUseId = argString(args, "tool-use-id",
-      "--capture needs --tool-use-id <id> — the AskUserQuestion tool_use_id, the one field tying the row to a question the harness actually asked");
-    const option = typeof args.option === "string" && args.option !== "" ? args.option : undefined;
-    const freeText = typeof args["free-text"] === "string" && args["free-text"].trim() !== "" ? args["free-text"] : undefined;
-    if (option === undefined && freeText === undefined) {
-      fail(`--capture needs --option <id> or --free-text <the owner's own words>. Options offered: ${offered.ids.join(", ")}.`);
-    }
-    if (option !== undefined && !offered.ids.includes(option)) {
-      fail(`answer option ${JSON.stringify(option)} was not offered by the declaration — offered: ${offered.ids.join(", ")}.`);
-    }
-    const answer = {};
-    if (option !== undefined) answer.option = option;
-    if (freeText !== undefined) answer.free_text = freeText;
-    const row = {
-      stop_id: `stop-${Date.now()}`,
-      gate_id: gateId,
-      evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
-      payload: { options_offered: offered.ids, free_text_offered: true, answer },
-      [gateSchema().capture.owner_answer_binding_key]: { option_set_digest: digest },
-    };
-    const capture = existsSync(capPath) ? JSON.parse(readFileSync(capPath, "utf8")) : { rows: [] };
-    capture.rows.push(row);
-    writeFileSync(capPath, JSON.stringify(capture, null, 2) + "\n");
-    console.log(`captured at ${gateId}: ${JSON.stringify(answer)}`);
-    console.log(option === "none-of-these" || option === undefined
-      ? `no Reader Path is adopted on this answer — adoption will refuse, naming it, and nothing is written to the Brief. Written: ${capPath}`
-      : `pass --selection ${capPath} --candidate ${option} to adopt-candidate. Written: ${capPath}`);
-    return;
-  }
-
-  const registered = (gateRegistry().gates || []).find((g) => g.id === gateId);
-  if (!registered) fail(`${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
-  const declaration = {
-    ...registered,
-    declared_at: new Date().toISOString(),
-    run_declaration: true,
-    // THE OPTIONS AS OFFERED, from the payload the gate is raised from — the
-    // options-equality comparison target SPEC-gate-carrier, the Step's shape names.
-    options: offered.options,
-    question: registered.question,
-    label: offered.payload.label,
-    where: offered.payload.where,
-    why: offered.payload.why,
-    free_text: offered.payload.free_text,
-    answers_over: { option_set_digest: digest },
-  };
-  delete declaration.dynamic_options;
-  writeFileSync(declPath, JSON.stringify(declaration, null, 2) + "\n");
-  console.log(`${gateId} — ${offered.ids.length - 1} Candidate(s) plus the first-class negation, digest ${digest}.`);
-  console.log(`Render every option below on screen, then ask the declaration's question through AskUserQuestion.\n`);
-  for (const o of offered.options) console.log(`  ${o.id}\n      ${o.label}`);
-  console.log(`\n  (free text) ${offered.payload.free_text?.prompt || ""}`);
-  console.log(`\nThen: assemble.mjs gate-candidate --capture --brief ${briefPath} --reviewed <json> --tool-use-id <id> [--option <id>] [--free-text <words>]`);
-  console.log(`declaration: ${declPath}`);
-}
+// It was the Candidate-selection gate's one-act-two-modes executor: `--declare`
+// composed the run declaration over the payload `assemble` had written, and
+// `--capture` recorded the owner's answer against THAT declaration. Both modes
+// existed because a SESSION stood between the composed Candidates and the owner
+// — it ran the declare, rendered the options, asked the question, and ran the
+// capture.
+//
+// Under the Brief workflow table (`src/brief-workflow.json`) nothing stands
+// there. The executor composes the declaration at the `CANDIDATE_SELECTION`
+// wait and stops; the harness renders the byte-fixed call the executor wrote
+// beside it; `.claude/hooks/write-gate-capture.py` records the click at the
+// moment it happens; `.claude/hooks/advance-brief.py` re-enters the executor,
+// which reads the row. Every act this command performed is now performed by a
+// component that is not the model, which is the whole of what kogaki#1108
+// closes. A deprecated entry point is an entry point (SPEC-terrain, "A removed
+// entry point is DELETED, and leaves no stub"), so this is a deletion.
+//
+// A leftover invocation fails as an unknown subcommand, which is the shape a
+// removed entry point takes here.
+//
+// WHAT SURVIVES, AND WHY IT HAD TO. `selectionOptionIds` is unchanged and still
+// exported: the gate's option composer and adoption both call it, so the option
+// set the capture binds to is computed once by both writers and the reader. The
+// Brief flow's GATE_WORK composer calls it too — so the set the owner is shown,
+// the set the digest is taken over, and the set adoption re-derives are one
+// computation rather than three that agree by luck.
+//
+// `briefGateDir` went with it. It computed `runs/brief/<slug>/`, the per-Brief
+// workspace this command wrote its declaration and capture into; under the table
+// both live in the executor's own run workspace, and `src/review.mjs`'s attach
+// ledger is now that directory's only writer.
 
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
     case "assemble": cmdAssemble(args); break;
-    case "adopt-candidate": cmdAdopt(args); break;
-    case "gate-candidate": cmdGateCandidate(args); break;
-    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | gate-candidate [--capture --tool-use-id <id> [--option <id>] [--free-text <words>]] --brief <path> --reviewed <json>\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> --selection <capture> [--moves-dir <dir>]");
+    case "adopt-candidate": cmdAdoptCandidate(args); break;
+    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> --selection <capture> [--moves-dir <dir>]");
   }
 }
