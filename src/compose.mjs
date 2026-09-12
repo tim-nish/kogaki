@@ -151,37 +151,113 @@ export function snapshotBrief(briefPath, stage, phase, content, seq = null) {
   }
 }
 
-const GROUND_TYPES = new Set(["strand"]);
-// The two types that LEFT the set (kogaki#1095), each with where its content
-// now belongs — the refusal names them rather than reporting them as unknown,
-// because a Brief composed under the old grammar meets this message and needs
-// to be told where to put what it was carrying.
-const RETIRED_GROUND_TYPES = new Map([
-  ["step_effect", "inherited reader state, which is already carried by this Step's `reader_state_before` and by the computed `already knows` ledger"],
-  ["reader_assumption", "a presupposed premise, which belongs to the Brief's Reader start"],
-]);
+// ---- THE STEP SCHEMA IS A FILE, AND THIS IS ITS READER (kogaki#1108). ------
+//
+// `src/step-schema.json` carries every Step field with its description, and it
+// is read TWICE: the Brief workflow table's path-composition state renders it
+// into the judge's prompt, and this file reads its field set to validate what
+// comes back. That is the whole of the change — before it, the only Harness
+// text carrying what a field MEANS was a refusal string, seen only when shape
+// had already failed, and the shape the Model composed against was prose in
+// `.claude/skills/brief/SKILL.md`.
+//
+// THE FIELD SET IS READ; THE PREDICATES ARE NOT. A description in that file is
+// text for the Model and is never matched against a value — which is the
+// judgment rule holding, one layer down: the schema declares that `rationale`
+// is required and what it is for, and whether a given rationale is any good
+// stays judged at path review. So what this reader takes from the file is
+// exactly the REQUIRED/OPTIONAL partition and the ground rules, and the
+// type-shaped assertions below stay written here, beside the refusal text they
+// produce.
+//
+// WHY READ IT AT ALL RATHER THAN KEEPING THE LIST HERE. Two carriers of one
+// field set drift, and the drift is invisible: a field added to the prompt and
+// not to the validator is composed and silently ignored, and a field added to
+// the validator and not to the prompt is refused after the Model was never
+// told about it. The prompt and the refusal cannot disagree when there is one
+// file.
+let STEP_SCHEMA = null;
+export function stepSchema() {
+  if (STEP_SCHEMA) return STEP_SCHEMA;
+  const p = join(dirname(fileURLToPath(import.meta.url)), "step-schema.json");
+  STEP_SCHEMA = JSON.parse(readFileSync(p, "utf8"));
+  return STEP_SCHEMA;
+}
+
+// The required field set, read from the schema. A field whose `required` is
+// true is one a Step record without it is not a Step record.
+export function requiredStepFields() {
+  return Object.entries(stepSchema().fields)
+    .filter(([, d]) => d && d.required === true)
+    .map(([name]) => name);
+}
+
+// The ground type vocabulary and the retired types, read from the same file
+// rather than held as two constants here (kogaki#1095 put them in this module;
+// kogaki#1108 moves the CARRIER to the schema and leaves the refusals here).
+function groundTypes() {
+  return new Set(stepSchema().ground.types);
+}
+function retiredGroundTypes() {
+  return new Map(Object.entries(stepSchema().ground.retired_types || {}));
+}
 const SLOT = "*(awaiting composition)*";
 
+// The two required fields whose refusal is written out below rather than
+// generated from the schema's declared type. Both say something the generic
+// "is required" sentence cannot: `move` names WHY a Move-less Step is not a
+// Step, and `grounds` names what a ground is. They are still required fields
+// of the schema and still enumerated from it — this set only routes which
+// refusal speaks.
+const BESPOKE_STEP_REFUSALS = new Set(["move", "grounds"]);
+
+// The generic presence predicate for a required field, selected by the type
+// the schema declares. An unknown type is a LOUD failure rather than a silent
+// pass: a field added to the schema with a type nothing here understands would
+// otherwise be rendered into the judge's prompt and validated by nobody, which
+// is the two-carrier drift this whole arrangement removes — arriving from the
+// inside.
+function stepFieldPresent(decl, v) {
+  switch (decl.type) {
+    case "string":
+      return typeof v === "string" && v !== "";
+    case "array of string":
+      return Array.isArray(v) && v.length >= (decl.min_length || 0);
+    case "array of ground":
+      return Array.isArray(v) && v.length >= (decl.min_length || 0);
+    default:
+      return null;
+  }
+}
+
 // ---- shape validation (the Step's shape — the fields, not the markup) ----
-// Returns { error } or { steps }. Pure; exported for the check.
+// THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
+// Returns { error } or { steps }. Pure over its argument; exported for the check.
 export function validateSteps(steps) {
   if (!Array.isArray(steps) || steps.length === 0) {
     return { error: "a composed path is a non-empty array of Step records (the Step's shape)" };
   }
+  const schema = stepSchema();
   const seen = new Set();
   for (const [i, s] of steps.entries()) {
     const at = `step ${i + 1}${s && s.step_id ? ` (${s.step_id})` : ""}`;
-    const need = (field, ok) => ok ? null
-      : `${at}: ${field} is required by the Step's shape — a Step record without it is not a Step record`;
-    const errs = [
-      need("step_id", typeof s.step_id === "string" && s.step_id !== ""),
-      need("materials (non-empty array)", Array.isArray(s.materials) && s.materials.length > 0),
-      need("purpose", typeof s.purpose === "string" && s.purpose !== ""),
-      need("reader_state_before", typeof s.reader_state_before === "string" && s.reader_state_before !== ""),
-      need("reader_state_after", typeof s.reader_state_after === "string" && s.reader_state_after !== ""),
-      need("depends_on (array)", Array.isArray(s.depends_on)),
-      need("rationale", typeof s.rationale === "string" && s.rationale !== ""),
-    ].filter(Boolean);
+    const errs = [];
+    for (const name of requiredStepFields()) {
+      if (BESPOKE_STEP_REFUSALS.has(name)) continue;
+      const decl = schema.fields[name];
+      const ok = stepFieldPresent(decl, s[name]);
+      if (ok === null) {
+        return { error: `${at}: src/step-schema.json declares the required field ${JSON.stringify(name)} `
+          + `with type ${JSON.stringify(decl.type)}, which this validator has no presence predicate for. `
+          + `The schema is rendered into the composition prompt and read back here, so a field the prompt `
+          + `asks for and the validator cannot check is exactly the drift one carrier exists to prevent — `
+          + `add the predicate in src/compose.mjs beside this refusal` };
+      }
+      if (!ok) {
+        errs.push(`${at}: ${name}${decl.min_length ? ` (non-empty ${decl.type})` : ""} is required by the Step's shape `
+          + `— a Step record without it is not a Step record. ${decl.description}`);
+      }
+    }
     if (errs.length) return { error: errs[0] };
     if (seen.has(s.step_id)) return { error: `${at}: duplicate step_id` };
     // the Step's shape v18 (kogaki#642) — `Step = Input + State`, and the Move IS the
@@ -224,22 +300,47 @@ export function validateSteps(steps) {
     if (!Array.isArray(s.grounds) || s.grounds.length === 0) {
       return { error: `${at}: grounds are required — specific propositions, each one claim derived from a Strand (the grounding rule)` };
     }
-    for (const g of s.grounds) {
-      // The retired types are refused BY NAME and ahead of the closed-set
-      // message (kogaki#1095): a Brief written under the old grammar is the
-      // caller this arm exists for, and "not in the set" would tell it that
-      // its content is wrong rather than that its content has a home.
-      if (RETIRED_GROUND_TYPES.has(g.type)) {
-        return { error: `${at}: ground type ${JSON.stringify(g.type)} is no longer a ground — a ground is one claim derived from a Strand, and nothing else (the grounding rule). What this ground carried is ${RETIRED_GROUND_TYPES.get(g.type)}` };
-      }
-      if (!GROUND_TYPES.has(g.type)) {
-        return { error: `${at}: ground type ${JSON.stringify(g.type)} — the grounding rule's list is closed: strand` };
-      }
-      if (typeof g.proposition !== "string" || g.proposition === "") {
-        return { error: `${at}: a ground is a specific PROPOSITION, stated (the grounding rule) — an untyped pointer is not a ground` };
-      }
-      if (typeof g.strand !== "string" || g.strand === "") {
-        return { error: `${at}: a strand ground names its Strand (L<n>)` };
+    {
+      const types = groundTypes();
+      const retired = retiredGroundTypes();
+      // ONE GROUND PER STRAND, PER STEP (kogaki#1108). The rule and its ground
+      // are the schema's (`ground.one_per_strand`, and the paragraph above it);
+      // this is the refusal that makes a second ground for one Strand
+      // UNWRITABLE rather than discouraged. It names the Step and the Strand,
+      // because those are the two facts the composer needs to repair it: which
+      // Step to look at, and which of its materials is carrying two claims
+      // where the path admits one.
+      //
+      // KEYED PER STEP AND RESET AT EACH ONE. A Strand serving several Steps
+      // carries a DIFFERENT ground in each — that is the sequence, not a
+      // duplication — so the scope of this set is one Step and never the path.
+      const byStrand = new Map();
+      for (const g of s.grounds) {
+        // The retired types are refused BY NAME and ahead of the closed-set
+        // message (kogaki#1095): a Brief written under the old grammar is the
+        // caller this arm exists for, and "not in the set" would tell it that
+        // its content is wrong rather than that its content has a home.
+        if (retired.has(g.type)) {
+          return { error: `${at}: ground type ${JSON.stringify(g.type)} is no longer a ground — a ground is one claim derived from a Strand, and nothing else (the grounding rule). What this ground carried is ${retired.get(g.type)}` };
+        }
+        if (!types.has(g.type)) {
+          return { error: `${at}: ground type ${JSON.stringify(g.type)} — the grounding rule's list is closed: ${[...types].join(", ")}` };
+        }
+        if (typeof g.proposition !== "string" || g.proposition === "") {
+          return { error: `${at}: a ground is a specific PROPOSITION, stated (the grounding rule) — an untyped pointer is not a ground` };
+        }
+        if (typeof g.strand !== "string" || g.strand === "") {
+          return { error: `${at}: a strand ground names its Strand (L<n>)` };
+        }
+        if (schema.ground.one_per_strand === true && byStrand.has(g.strand)) {
+          return { error: `${at}: two grounds name strand ${JSON.stringify(g.strand)} — a ground is the ONE proposition this Step `
+            + `asserts on behalf of one Strand, for this reader at this point in the path (src/step-schema.json, `
+            + `\`ground.one_per_strand\`). The first reads ${JSON.stringify(byStrand.get(g.strand))}; the second reads `
+            + `${JSON.stringify(g.proposition)}. A Strand that serves several Steps carries a DIFFERENT ground in each, `
+            + `so the repair is to move one of these to the Step where the reader needs it, or to drop it — never to `
+            + `merge the two into a longer proposition` };
+        }
+        byStrand.set(g.strand, g.proposition);
       }
     }
     // the figure decision's `figure:`/`figure_roles` (kogaki#877) — OPTIONAL, and validated

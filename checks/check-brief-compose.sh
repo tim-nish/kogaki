@@ -169,9 +169,14 @@ for (const id of ["state-claim-in-working-form", "worked-example", "generalize-f
 // §4.16 (kogaki#877): ONE fixture Move carrying a `visual_form`, so the
 // adoption seat's figure half can be exercised against this library. The three
 // above deliberately carry none — a figure on any of them is the formless case.
-writeFileSync(join(MOVES, "axis-form-move.md"),
-  "id: axis-form-move\nstatus: observed\nvisual_form:\n  kind: axis\n"
-  + "  endpoint_a: the first endpoint\n  endpoint_b: the opposing endpoint\n  criterion: the axis both clarify\n");
+// A TWO-ROLE KIND, and the count is load-bearing since kogaki#1108: a Step
+// carries one ground per Strand and every role of the form binds to one of
+// this Step's grounds, so an N-role form costs N Strands. The Brief this
+// library is exercised against closes over two, which is what selects `chain`
+// here. See the note at `figStepOf` in (x).
+writeFileSync(join(MOVES, "chain-form-move.md"),
+  "id: chain-form-move\nstatus: observed\nvisual_form:\n  kind: chain\n"
+  + "  stages: the ordered stages\n  bottlenecks: where each stage held\n");
 // A CONFORMING specialization record for a Candidate — composed HERE, by the
 // check, standing in for the judging sitting. The runtime under test composes
 // none, which is the property (c) below asserts by removing this.
@@ -259,8 +264,13 @@ const step2 = {
     // carried a `step_effect` ground; what it was standing for — that s1 left
     // the claim stated — is `reader_state_before`'s and the ledger's, and
     // composition now refuses it here.
-    { type: "strand", strand: "L1", proposition: "the bravo lesson records what the case turned on" },
-    { type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" },
+    //
+    // AND IT CARRIES EXACTLY ONE (kogaki#1108). It carried two, both on L1 —
+    // which is the drift the one-ground-per-Strand rule removes, and this
+    // fixture was one of the places it had already reached. A ground is the ONE
+    // proposition this Step asserts on behalf of one Strand; the second was the
+    // same claim said again at a different grain.
+    { type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case the claim turned on" },
   ],
   entailed: true,
   entailment_reasoning: "the case's link to the claim is not stated in the material; it follows from the shared subject, and the gate judges that reading",
@@ -314,7 +324,15 @@ try {
     const cell = mkdtempSync(join(tmpdir(), "kogaki-ground-removal-"));
     try {
       mkdirSync(join(cell, "src"));
-      for (const f of ["compose.mjs", "runs.mjs"]) {
+      // `step-schema.json` JOINS THE CELL (kogaki#1108) and that is not a
+      // weakening of the removal test. The cell carries the RUNTIME and
+      // withholds the PROSE: what it proves is that the two documents are not
+      // load-bearing, and a schema file the validator reads its field set and
+      // its ground rules from is runtime by the same standard `runs.mjs` is.
+      // The distinction is which component executes the rule — the schema is
+      // read by `validateSteps`, while SKILL.md and the pipeline spec are read
+      // by a session.
+      for (const f of ["compose.mjs", "runs.mjs", "step-schema.json"]) {
         writeFileSync(join(cell, "src", f), readFileSync(join(REPO_ROOT, "src", f), "utf8"));
       }
       for (const doc of [".claude/skills/brief/SKILL.md", "specs/spec-draft-pipeline/SPEC.md"]) {
@@ -328,6 +346,23 @@ try {
       // warns about, found by driving the arm out and watching nothing fire.
       if (!r.error || !r.error.includes("step_effect") || !/reader_state_before/.test(r.error)) {
         fails.push(`(a) with the brief skill and the pipeline spec absent, a step_effect ground was not refused by name with where its content now belongs — the refusal is a document's rather than the validator's: ${r.error || "ACCEPTED"}`);
+      }
+      // ITEM 6'S REFUSAL STANDS IN THE CELL TOO (kogaki#1108 acceptance 8).
+      // The one-ground-per-Strand rule is the ground definition's mechanical
+      // half, and the Issue requires it to survive the removal of both
+      // documents — so it is driven HERE rather than only in (a) above, where
+      // the whole repository is present and a prose carrier could not be told
+      // apart from the validator.
+      {
+        const twice = alone.validateSteps([step1, { ...step2,
+          grounds: [{ type: "strand", proposition: "first", strand: "L2" },
+                    { type: "strand", proposition: "second", strand: "L2" }] }]);
+        if (!twice.error || !/L2/.test(twice.error) || !/one_per_strand|ONE proposition/.test(twice.error)) {
+          fails.push(`(a) with the brief skill and the pipeline spec absent, two grounds naming one Strand were not refused naming that Strand — the one-per-Strand rule is a document's rather than the validator's: ${twice.error || "ACCEPTED"}`);
+        }
+        if (twice.error && !twice.error.includes(step2.step_id)) {
+          fails.push(`(a) the one-ground-per-Strand refusal does not name the Step: ${twice.error}`);
+        }
       }
       const ok = alone.validateSteps([step1, step2]);
       if (ok.error) fails.push(`(a) the removal cell refuses a CONFORMING path, so its refusal above proves nothing: ${ok.error}`);
@@ -1027,15 +1062,29 @@ try {
     // the library open is decided here, and only here can it be made
     // unskippable.
     ranCase("x");
+    // AN N-ROLE FORM NOW COSTS N STRANDS (kogaki#1108), and that is a
+    // consequence of the ground rule rather than a fixture convenience. Every
+    // role of a Move's `visual_form` binds to one of THIS Step's grounds, and a
+    // Step carries at most one ground per Strand — so a figure is composable
+    // only by a Step drawing on as many Strands as its kind declares roles.
+    //
+    // WHICH IS WHY THIS FIXTURE'S FORM IS A `chain` AND NOT AN `axis`. The
+    // Brief under test closes over two Strands, and an `axis` declares three
+    // roles: the three-ground Step this block used to compose is now
+    // uncomposable HERE, and the refusal it meets is the closed-Strand-set one
+    // rather than anything this case is about. The kind is incidental to what
+    // (x) asserts — form resolution at the adoption seat, an unbound role, and
+    // a formless Move — so the fixture takes a two-role kind and the
+    // assertions below name that kind's roles. The three-role case is asserted
+    // in (v), where `validateSteps` is pure and no Brief bounds the Strands.
     const figStepOf = (st, over = {}) => ({
-      ...st, move: "axis-form-move",
+      ...st, move: "chain-form-move", materials: ["L1", "L2"],
       grounds: [
-        { type: "strand", strand: "L1", proposition: "the first endpoint" },
-        { type: "strand", strand: "L1", proposition: "the opposing endpoint" },
-        { type: "strand", strand: "L1", proposition: "the axis both clarify" },
+        { type: "strand", strand: "L1", proposition: "the ordered stages the case ran through" },
+        { type: "strand", strand: "L2", proposition: "the bottleneck that held at each stage" },
       ],
-      figure: "the two endpoints on one axis",
-      figure_roles: { endpoint_a: "g1", endpoint_b: "g2", criterion: "g3" },
+      figure: "the stages and where each one held",
+      figure_roles: { stages: "g1", bottlenecks: "g2" },
       ...over,
     });
     const figCand = (over) => {
@@ -1050,12 +1099,12 @@ try {
       inst(okFig, {}, { candidates: [candA, okFig] }));
     if (adOk.error) fails.push(`(x) a fully bound figure was REFUSED at adoption: ${adOk.error}`);
     // An unbound role refuses AT ADOPTION, naming the role, and writes nothing.
-    const missingRole = figCand({ figure_roles: { endpoint_a: "g1", endpoint_b: "g2" } });
+    const missingRole = figCand({ figure_roles: { stages: "g1" } });
     const adMiss = adoptCandidate(doc0, { candidates: [candA, missingRole] }, "cand-2",
       inst(missingRole, {}, { candidates: [candA, missingRole] }));
     if (!adMiss.error) fails.push("(x) adoption ACCEPTED a figure leaving a role of its Move's form unbound — the record rides the Brief to kogaki#878 with an element nothing binds");
     else {
-      if (!/criterion/.test(adMiss.error)) fails.push(`(x) the unbound-role refusal does not name the ROLE: ${adMiss.error}`);
+      if (!/bottlenecks/.test(adMiss.error)) fails.push(`(x) the unbound-role refusal does not name the ROLE: ${adMiss.error}`);
       if (adMiss.doc) fails.push("(x) the unbound-role refusal still produced a document");
     }
     // A figure on a Move with NO form refuses AT ADOPTION, naming the Move.
@@ -2497,13 +2546,17 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 ranCase("v");
 {
   const F = (id, extra = {}) => ({
-    step_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1"], purpose: "p",
+    // THREE ROLES, THREE STRANDS (kogaki#1108) — see the note at `figStepOf`
+    // in (x). The addressing this block asserts is `g<n>` over the Step's own
+    // grounds and is unchanged; what changed is that three grounds now require
+    // three Strands to hang on.
+    step_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1", "L2", "L3"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
     rationale: "r",
     grounds: [
       { type: "strand", strand: "L1", proposition: "the defensive wall is the first endpoint" },
-      { type: "strand", strand: "L1", proposition: "the offensive artillery is the other" },
-      { type: "strand", strand: "L1", proposition: "the material names function as what the two are read against" },
+      { type: "strand", strand: "L2", proposition: "the offensive artillery is the other" },
+      { type: "strand", strand: "L3", proposition: "the material names function as what the two are read against" },
     ],
     ...extra,
   });
