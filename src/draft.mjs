@@ -221,6 +221,25 @@ export function parseStepBlockBody(body, path) {
   // `[ \t]*` and not `\s*`, for the reason `opens_section` states: `\s`
   // spans a newline, so a blank `figure:` would capture the NEXT field's line
   // as the figure's reason instead of refusing.
+  const figM = body.match(/^figure:[ \t]*(.*)$/m);
+  const rolesM = body.match(/^figure_roles:[ \t]*(.*)$/m);
+  let figure, figure_roles;
+  if (figM || rolesM) {
+    let parsedRoles;
+    if (rolesM) {
+      const r = parseFigureRoles(rolesM[1]);
+      if (r.error) return { refusal: `the Brief at ${path}, step ${idM[1]}: figure_roles — ${r.error} (the figure decision)` };
+      parsedRoles = r.roles;
+    }
+    // THE GRAMMAR IS THE COMPOSITION SIDE'S, not a second expression of it.
+    // A blank `figure:` reaches here as the empty string, which is what the
+    // shared refusal already calls a half-declaration.
+    const bad = figureRefusal(figM ? figM[1].trim() : undefined, parsedRoles,
+      `the Brief at ${path}, step ${idM[1]}`);
+    if (bad) return { refusal: bad };
+    figure = figM[1].trim();
+    figure_roles = parsedRoles;
+  }
   // the Journey a Step draws on (kogaki#1111), read back from the serialized form
   // `renderStep` writes: `journey: <L-id> — <use>`, ONE LINE PER ENTRY. THE
   // PARSE-BACK IS WHAT MAKES THE DECLARATION REACH THE PACKET — the same
@@ -245,25 +264,6 @@ export function parseStepBlockBody(body, path) {
       .split(",").map((x) => x.trim()).filter(Boolean);
     const bad = journeysRefusal(journeys, materials, `the Brief at ${path}, step ${idM[1]}`);
     if (bad) return { refusal: bad };
-  }
-  const figM = body.match(/^figure:[ \t]*(.*)$/m);
-  const rolesM = body.match(/^figure_roles:[ \t]*(.*)$/m);
-  let figure, figure_roles;
-  if (figM || rolesM) {
-    let parsedRoles;
-    if (rolesM) {
-      const r = parseFigureRoles(rolesM[1]);
-      if (r.error) return { refusal: `the Brief at ${path}, step ${idM[1]}: figure_roles — ${r.error} (the figure decision)` };
-      parsedRoles = r.roles;
-    }
-    // THE GRAMMAR IS THE COMPOSITION SIDE'S, not a second expression of it.
-    // A blank `figure:` reaches here as the empty string, which is what the
-    // shared refusal already calls a half-declaration.
-    const bad = figureRefusal(figM ? figM[1].trim() : undefined, parsedRoles,
-      `the Brief at ${path}, step ${idM[1]}`);
-    if (bad) return { refusal: bad };
-    figure = figM[1].trim();
-    figure_roles = parsedRoles;
   }
   return { step: { step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, journeys, figure, figure_roles, body } };
 }
