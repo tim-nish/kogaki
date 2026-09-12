@@ -1696,7 +1696,18 @@ try {
         CLAUDE_PROJECT_DIR: rt,
         KOGAKI_BRIEF_OPEN_RUN: openRun,
       };
-      delete baseEnv.KOGAKI_RUN_DIR;
+      // TERRAIN'S OWN PIN IS LEFT STANDING, AND THAT IS AN ASSERTION (PR #1109
+      // round 1). This read `delete baseEnv.KOGAKI_RUN_DIR`, which is the
+      // workaround that stood where this arm belongs: `cmdRun` read
+      // `KOGAKI_RUN_DIR` literally while `runDir` read
+      // `process.env[flow().runDirEnv]`, so a Brief advance under an inherited
+      // Terrain pin took the pinned arm, found no `KOGAKI_BRIEF_RUN_DIR`, and
+      // minted a fresh Brief workspace per advance — abandoning the open run.
+      // Pointing the variable at a directory that is NOT this run's is what
+      // makes the span fail if the pin is ever read by name again.
+      const decoy = join(rt, "not-this-runs-workspace");
+      mkdirSync(decoy, { recursive: true });
+      baseEnv.KOGAKI_RUN_DIR = decoy;
       delete baseEnv.KOGAKI_OPEN_RUN;
       const inTree = (argv, env = {}, input = undefined) =>
         spawnSync(process.execPath, argv, { cwd: rt, encoding: "utf8", input, env: { ...baseEnv, ...env } });
@@ -1720,6 +1731,51 @@ try {
         }
         return decl.question;
       };
+      // SCREEN PROSE IS A TABLE ROW, AND THIS IS WHAT MAKES THE ROW LOAD-BEARING
+      // (owner decision 2026-09-12; PR #1109 round 1). Each `wait` declares
+      // `renders_above_question` — the `GATE_CALL_READING_KEYS` key whose value
+      // `composeGateCall` puts inside the question text, or the empty string
+      // for a gate that renders nothing. Bound here against the call the
+      // executor ACTUALLY composed, in both directions: a row naming a reading
+      // the declaration does not carry is red, and so is a call that carries
+      // one where the row declares none. Without this the declaration would be
+      // decoration and the emptiness would hold only because the session has no
+      // prose channel left, which is the reading the decision rules out.
+      const assertRendering = (stateId) => {
+        const table = JSON.parse(readFileSync(join(rt, "src", "brief-workflow.json"), "utf8"));
+        const st = (table.states || []).find((x) => x.id === stateId);
+        if (!st || typeof st.renders_above_question !== "string") {
+          fails.push(`(n) ${stateId} declares no \`renders_above_question\` — the owner decision rules that screen prose is a table row, and an undeclared rendering is the skill sentence it replaces`);
+          return;
+        }
+        const rec = JSON.parse(readFileSync(join(D, "run-record.json"), "utf8"));
+        const owed = (rec.gate_declarations_owed || []).find((g) => g.state === stateId && g.declaration);
+        if (!owed) return;
+        const dp = resolvePath(rt, owed.declaration);
+        const decl = JSON.parse(readFileSync(dp, "utf8"));
+        const callPath = join(dirnameOf(dp), `${decl.id}.gate-call.json`);
+        if (!existsSync(callPath)) {
+          fails.push(`(n) ${stateId} composed no gate call beside its declaration — there is no payload to compare the declared rendering against`);
+          return;
+        }
+        const asked = JSON.parse(readFileSync(callPath, "utf8")).questions[0].question;
+        const key = st.renders_above_question;
+        if (key === "") {
+          if (asked !== decl.question) {
+            fails.push(`(n) ${stateId} declares that NOTHING renders above its question and the composed call carries a reading anyway — the table row and the bytes the owner is shown disagree`);
+          }
+          return;
+        }
+        const reading = decl[key];
+        if (typeof reading !== "string" || reading === "") {
+          fails.push(`(n) ${stateId} declares that \`${key}\` renders above its question and the declaration carries no such reading — the row names a carrier that is not there`);
+          return;
+        }
+        if (!asked.startsWith(reading)) {
+          fails.push(`(n) ${stateId}'s composed gate call does not open with its declared reading — screen prose is a table row only while the row and the rendering agree`);
+        }
+      };
+
       const payloadFor = (toolUseId, question, answer) => JSON.stringify({
         hook_event_name: "PostToolUse",
         session_id: "fixture-session",
@@ -1742,6 +1798,7 @@ try {
         if (!q1) {
           fails.push("(n) the start act raised no THESIS_ADOPTION declaration — the run stopped before the first owner question, so there is nothing to answer and no span to drive");
         } else {
+          assertRendering("THESIS_ADOPTION");
           const p1 = payloadFor("toolu_removal_thesis", q1, "thesis-1");
           const c1 = hook("write-gate-capture.py", p1, { KOGAKI_RUN_DIR: D });
           const a1 = hook("advance-brief.py", p1);
@@ -1753,6 +1810,7 @@ try {
             // THE ANSWER IS THE FIRST OFFERED CANDIDATE, read from the
             // declaration rather than guessed, because the ids are the composing
             // judge's and this case does not get to know them in advance.
+            assertRendering("CANDIDATE_SELECTION");
             const decl2 = JSON.parse(readFileSync(
               resolvePath(rt, JSON.parse(readFileSync(join(D, "run-record.json"), "utf8"))
                 .gate_declarations_owed.find((g) => g.state === "CANDIDATE_SELECTION").declaration), "utf8"));
@@ -3566,7 +3624,16 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "The Brief's path is read from the run record's own `artifacts_written` rather than guessed, the terminal state is asserted "
   + "beside it, and all three judgment records are asserted present, because a filled Brief with a missing judgment record means "
   + "that state was satisfied by something other than a judged one. The absence of `specs/` and the one-line skill are ASSERTED and "
-  + "not assumed: a tree that quietly regained either would make every assertion above pass for the wrong reason; (o) THE ROUND-TRIP CONCESSION refused when absent (kogaki#752) — RESTORED after kogaki#770 removed its "
+  + "not assumed: a tree that quietly regained either would make every assertion above pass for the wrong reason. "
+  + "TWO ARMS WERE ADDED AT PR #1109 ROUND 1. Terrain's own `KOGAKI_RUN_DIR` is left STANDING in the span's environment, "
+  + "pointed at a directory that is not this run's, where a `delete` had stood as the workaround: `cmdRun` read that "
+  + "variable by name while `runDir` read `process.env[flow().runDirEnv]`, so a Brief advance under an inherited Terrain "
+  + "pin minted a fresh workspace per advance and abandoned the open run \u2014 the mutation is caught here. And each `wait` "
+  + "state's `renders_above_question` row is bound to the gate call the executor actually composed, in both directions: "
+  + "a row naming a reading the declaration does not carry is red, and so is a call carrying one where the row declares "
+  + "none \u2014 which is what makes the owner decision's \"screen prose is a table row\" a carrier rather than decoration, "
+  + "and what keeps CANDIDATE_SELECTION's emptiness a RULING rather than the accident of a session with no prose channel; "
+  + "(o) THE ROUND-TRIP CONCESSION refused when absent (kogaki#752) — RESTORED after kogaki#770 removed its "
   + "only carrier with the arc table alone: the composer emits a concession per Thesis candidate and the gate "
   + "registry requires each option to state one, so the rule was live and carried by nothing in between. "
   + "Carrier-less BY OMISSION is the defect. Its normative home is the design record, and this is the "

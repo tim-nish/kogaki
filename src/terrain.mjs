@@ -2218,7 +2218,12 @@ const ASK_MAX_OPTIONS = 4;
 // the ID gate stopped carrying a pointer and started carrying its grouping; a
 // second `||` branch beside the first is how two carriers of one rule begin, so
 // the keys are enumerated here and the composer reads the enumeration.
-const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing"];
+// A THIRD MEMBER AT PR #1109 round 1, which is the enumeration doing its job:
+// the Brief's thesis gate is answered over a settled Strand set the owner
+// settled in ANOTHER run, and where that set came from was recorded on the run
+// record and read by nothing. A provenance the owner cannot see is a provenance
+// that cannot be checked at the one moment it matters.
+const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance"];
 
 // THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
 // rather than written here: the number has a measured ground, the ground is
@@ -8698,9 +8703,19 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     fail("`start --status` is refused: `start` opens a run and `--status` reads one, and the two are not one act. "
       + `The read-only route is this runtime's own \`run --status\` (kogaki#1038).`);
   }
-  if (stopAtFirstWait || args["run-dir"] || process.env.KOGAKI_RUN_DIR) {
+  // THE PIN IS READ THROUGH THE BINDING, NOT BY NAME (PR #1109 round 1).
+  // `runDir` one screen up reads `process.env[flow().runDirEnv]`, and these two
+  // conditions read `KOGAKI_RUN_DIR` literally -- so with two flows the readers
+  // disagreed in BOTH directions. `KOGAKI_BRIEF_RUN_DIR=/w node src/brief.mjs
+  // run` took the `else` arm and refused "no Brief run is open" over a pinned
+  // workspace; worse, with Terrain's `KOGAKI_RUN_DIR` standing in an inherited
+  // environment a Brief advance took the pinned arm, `runDir` found no
+  // `KOGAKI_BRIEF_RUN_DIR`, and every advance minted a fresh Brief workspace
+  // and abandoned the open run. One reader of the pin, named by the binding.
+  const pinned = process.env[flow().runDirEnv];
+  if (stopAtFirstWait || args["run-dir"] || pinned) {
     dir = runDir(args);
-    if (stopAtFirstWait && !args["run-dir"] && !process.env.KOGAKI_RUN_DIR) writeOpenRunPointer(dir);
+    if (stopAtFirstWait && !args["run-dir"] && !pinned) writeOpenRunPointer(dir);
   } else {
     dir = readOpenRunPointer()
       || fail(`no ${flow().label} run is open: ${openRunPointerPath()} names none, and an advance is an advance OF a run. `

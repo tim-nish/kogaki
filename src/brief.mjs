@@ -1087,6 +1087,13 @@ const STATE_WORK = {
     const inputs = entryInputs(args);
     cmdEnter({ ...args, survey: inputs.survey, ids: inputs.ids, "run-state": runState });
     rec.brief_run_state = runState;
+    // THE WHOLE PROVENANCE, NOT ONLY THE ROUTE (PR #1109 round 1). `via` alone
+    // was written here and read by nothing, so the owner answered the thesis
+    // gate over a Strand set whose source was never rendered — and where the
+    // route is a Terrain run resolved by scan rather than by pointer, WHICH run
+    // is exactly the thing that can be wrong. The gate composer below renders
+    // this above the question.
+    rec.settled_set = { survey: inputs.survey, ids: inputs.ids, via: inputs.via };
     rec.settled_set_via = inputs.via;
     return null;
   },
@@ -1373,11 +1380,21 @@ const GATE_WORK = {
       fail("the run state carries no thesis-determination gate declaration — `enter` composes it, and an "
         + "answer is admitted only at the wait that declared it.");
     }
+    // THE SETTLED SET IS SHOWN ABOVE THE QUESTION (PR #1109 round 1).
+    // `settled_set_provenance` is one of `GATE_CALL_READING_KEYS`, so
+    // `composeGateCall` puts it in the question text itself — inside the bytes
+    // the open-gate hook compares — rather than leaving it for a session to
+    // relay. The Theses below were composed over this set and no other, and
+    // where it came from is the one fact the owner cannot recover from the
+    // options.
+    const set = rec.settled_set;
     return {
       options: gate.options
         .filter((o) => o.id !== "back-to-terrain")
         .map((o) => ({ id: o.id, label: o.label })),
-      extra: {},
+      extra: set
+        ? { settled_set_provenance: `Composed over the settled Strand set ${set.ids}, from ${set.survey}, entered ${set.via}.` }
+        : {},
     };
   },
 

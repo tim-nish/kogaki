@@ -61,7 +61,8 @@
     "input_shape": "Required on every state whose `kind` is `judgment`. One sentence naming the shape of the RECORD the judge must return. It describes; `schema_file` and the state's own validator bind.",
     "refusal": "Required on every state whose `kind` is `judgment`. What this state refuses, in the judge's own reading. The validator is the authority; this is what the judge is told before it answers.",
     "owner_supplies": "Required on every state whose `kind` is `wait`. What the owner's answer at that gate supplies to the run.",
-    "does": "Required on every state whose `kind` is `compute`, `write` or `terminal`. What the state does, and the runtime case it binds."
+    "does": "Required on every state whose `kind` is `compute`, `write` or `terminal`. What the state does, and the runtime case it binds.",
+    "renders_above_question": "WHAT RENDERS ABOVE THIS WAIT'S QUESTION, declared here rather than left to a sentence in a skill file (owner decision 2026-09-12, \"screen prose is a table row\"; built at PR #1109 round 1). The value is the key under which the gate composer carries the reading -- one of `GATE_CALL_READING_KEYS` in src/terrain.mjs, which `composeGateCall` puts INSIDE the question text and therefore inside the bytes the open-gate hook compares. THE EMPTY STRING IS A DECLARATION AND NOT AN ABSENCE: CANDIDATE_SELECTION renders nothing above its question because the Candidates ARE the options and a summary above them would be a second reading of the same thing. Without this row the emptiness held only because the session has no prose channel left, which a later reader cannot tell from an oversight. `checks/check-brief-compose.sh` case (n) binds each row to the gate call the executor actually composed, so a declaration that stops matching the rendering is red rather than decorative."
   },
   "judge": {
     "command": "claude",
@@ -90,7 +91,8 @@
       "conditional": false,
       "renders_gate_declaration": true,
       "gate_id": "brief-thesis-adoption",
-      "governing": "SPEC-draft-pipeline, the durable home and the entry point; the wait rule"
+      "governing": "SPEC-draft-pipeline, the durable home and the entry point; the wait rule",
+      "renders_above_question": "settled_set_provenance"
     },
     {
       "id": "adopt_thesis",
@@ -126,7 +128,7 @@
     {
       "id": "review_path",
       "kind": "judgment",
-      "judgment_point": "review each composed Candidate against the five review areas, as JUDGMENT -- the grounding of each Step, the grounds test, semantic economy, journey integrity, and the judgment rule itself",
+      "judgment_point": "review each composed Candidate against the six review areas `src/review.mjs` declares in REVIEW_AREAS, as JUDGMENT and never as a verdict -- grounds_test, entailment, prohibitions, semantic_economy, arc_integrity and evaluation_levels. The areas ride in the input below under `review_areas`, read from that same constant; this sentence names them because it is rendered at the head of the prompt and a head that named a different set than the input would tell the judge two things (PR #1109 round 1).",
       "input_shape": "an object keyed by `candidate_id`, each value an object carrying one prose entry per review area and NO verdict-shaped field",
       "refusal": "a Candidate with no review entry; a verdict-shaped field -- `verdict`, `pass`, `score` and kin, or any non-string value -- because nothing here becomes a lint; a THIRD attach on one Candidate, which the revise pass bounds at one revise round",
       "retries": 2,
@@ -161,7 +163,8 @@
       "conditional": false,
       "renders_gate_declaration": true,
       "gate_id": "brief-candidate-selection",
-      "governing": "SPEC-draft-pipeline, the Candidate gate; the wait rule"
+      "governing": "SPEC-draft-pipeline, the Candidate gate; the wait rule",
+      "renders_above_question": ""
     },
     {
       "id": "judge_specialization",
