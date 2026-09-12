@@ -201,6 +201,13 @@ function claimTypes() {
 function retiredClaimTypes() {
   return new Map(Object.entries(stepSchema().claim.retired_types || {}));
 }
+// The Journey use vocabulary, read from the schema for the reason the claim
+// types are (kogaki#1111): the schema is rendered into the composition prompt
+// and read back here, so the set the composer is shown and the set the refusal
+// enforces are one file and cannot disagree.
+function journeyUses() {
+  return new Map(Object.entries(stepSchema().journey.uses));
+}
 const SLOT = "*(awaiting composition)*";
 
 // The two required fields whose refusal is written out below rather than
@@ -225,9 +232,67 @@ function stepFieldPresent(decl, v) {
       return Array.isArray(v) && v.length >= (decl.min_length || 0);
     case "array of claim":
       return Array.isArray(v) && v.length >= (decl.min_length || 0);
+    case "array of journey":
+      return Array.isArray(v) && v.length >= (decl.min_length || 0);
     default:
       return null;
   }
+}
+
+// ---- the Journey a Step draws on (kogaki#1111) ----
+//
+// A Journey is MATERIAL, not an assertion: it carries an ADDRESS and a USE,
+// and no text. The shape is validated here and the parse-back in
+// `src/draft.mjs` imports THIS function rather than re-expressing it — the
+// arrangement `introduces`, `opens_section` and `figure_roles` already have,
+// for the reason those three state: a writer and a reader disagreeing about
+// what a value is fails silently at exactly the field whose value reaches the
+// model's entire input.
+//
+// TWO HALVES, SPLIT WHERE THE BRIEF DOCUMENT DOES. What is checkable from the
+// Step alone lives here: the shape, the closed use set, and that the Journey's
+// Strand is one this Step actually carries in `materials`. Whether that
+// Strand's SERVED RECORD carries Journey material needs the Brief's own
+// Strands section and so is checked in `fillBrief`, beside the existing
+// `<L-id>.journey` check that reads the same `journeyBearingStrands` list.
+// The same split `figureRefusal` and `resolveFigureForms` already run under.
+//
+// PURE, and exported for that second reader.
+export function journeysRefusal(journeys, materials, at) {
+  if (journeys === undefined) return null;
+  if (!Array.isArray(journeys)) {
+    return `${at}: journeys, when present, is an array of Journey references — each naming the Strand whose Journey this Step draws on and what it uses it for (src/step-schema.json, \`journey\`)`;
+  }
+  const uses = journeyUses();
+  // The Strand ids this Step carries, with a `.journey` suffix stripped: a
+  // composer may name the Strand bare, or as the `<L-id>.journey` form the
+  // coverage accounting counts, and both are the Step carrying that Strand.
+  const carried = new Set((Array.isArray(materials) ? materials : [])
+    .map((m) => String(m).replace(/\.journey$/, "")));
+  for (const [i, j] of journeys.entries()) {
+    const nth = `journey ${i + 1}`;
+    if (!j || typeof j !== "object" || Array.isArray(j)) {
+      return `${at}: ${nth} is not a Journey reference — each entry names a \`strand\` and a \`use\` (src/step-schema.json, \`journey\`)`;
+    }
+    if (typeof j.strand !== "string" || j.strand === "") {
+      return `${at}: ${nth} names no strand — a Journey reference addresses the Strand whose Journey this Step draws on, as a LessonDisplayID (L<n>)`;
+    }
+    if (typeof j.use !== "string" || j.use === "") {
+      return `${at}: ${nth} (strand ${j.strand}) names no use — a Journey is material the Step EDITS, and the use is what the Step edits it for: ${[...uses.keys()].join(", ")}`;
+    }
+    if (!uses.has(j.use)) {
+      // NAMES THE SET AND WHAT EACH MEMBER MEANS, not just the set. The use
+      // is the composer's one decision on this field, and a bare list of
+      // three words is the refusal that sends them back to the schema to
+      // find out which one they wanted.
+      return `${at}: ${nth} (strand ${j.strand}) declares use ${JSON.stringify(j.use)} — the set is closed (src/step-schema.json, \`journey.uses\`): `
+        + [...uses.entries()].map(([k, v]) => `${k} — ${v}`).join("; ");
+    }
+    if (!carried.has(j.strand)) {
+      return `${at}: ${nth} draws on ${j.strand}'s Journey, but this Step does not carry ${j.strand} in \`materials\` (${(materials || []).join(", ") || "none"}) — a Step edits material it stands on, so the Journey's Strand is one of the Step's own materials`;
+    }
+  }
+  return null;
 }
 
 // ---- shape validation (the Step's shape — the fields, not the markup) ----
@@ -354,6 +419,16 @@ export function validateSteps(steps) {
       if (bad) return { error: bad };
       const badClaim = figureClaimRefusal(s.figure_roles, s.claims.length, at);
       if (badClaim) return { error: badClaim };
+    }
+    // the Journey a Step draws on (kogaki#1111) — OPTIONAL, and validated here for the
+    // reason `bridges`, `introduces` and `figure` are: the declaration reaches
+    // the Step Packet, which is the model's ENTIRE input, so an unvalidated
+    // entry renders a use the realizer reads as instruction. Placed after the
+    // claims loop because its refusal quotes `materials`, and a Step whose
+    // earlier fields are malformed should report that first.
+    {
+      const bad = journeysRefusal(s.journeys, s.materials, at);
+      if (bad) return { error: bad };
     }
     // A proposition not explicit in the material is flagged `entailed` WITH
     // its reasoning, exposed at the human gate (the claims rule). The flag is the
@@ -1162,6 +1237,11 @@ export function renderStep(s) {
     // this line as it stands, and this issue moves neither.
     L.push(`claim (strand ${g.strand}): ${g.proposition}`);
   }
+  // the Journey a Step draws on (kogaki#1111): ONE LINE PER ENTRY, `journey: <L-id> — <use>`.
+  // One line rather than a joined field for the reason `introduces` states,
+  // and written only when declared, so a Brief composed before this field is
+  // byte-identical.
+  for (const j of s.journeys || []) L.push(`journey: ${j.strand} — ${j.use}`);
   // the reader-knowledge ledger (kogaki#751): one LINE per entry, never a comma-joined list. A term
   // may legitimately contain a comma, and its anchor almost always does, so a
   // joined field could not be parsed back — the serialization and
@@ -1300,6 +1380,19 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
             + `record carries none (the Brief renders no journey cite for it) — a Journey the material does not `
             + `have is unsupported completion (the claims rule), never a composition choice` };
         }
+      }
+    }
+    // THE SERVED-RECORD HALF OF the Journey a Step draws on (kogaki#1111). `journeysRefusal`
+    // checks the shape, the closed use set and that the Step carries the
+    // Strand; whether that Strand's SERVED record carries Journey material is
+    // a fact about the Brief, and this is the one place holding both. Same
+    // ground as the `<L-id>.journey` check above: a Journey the material does
+    // not have is unsupported completion, never a composition choice.
+    for (const j of s.journeys || []) {
+      if (!journeyIds.includes(j.strand)) {
+        return { error: `step ${s.step_id}: journey draws on ${j.strand}'s Journey, whose served record carries none `
+          + `(the Brief renders no journey cite for it) — a Journey the material does not have is unsupported `
+          + `completion (the claims rule), never a composition choice` };
       }
     }
     for (const g of s.claims) {
