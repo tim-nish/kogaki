@@ -119,7 +119,7 @@ answers "by what".** A row the Harness decided alone carries **no `model` key at
 all** — no call was made, and writing one would claim a call that never
 happened. A row with any judged pair carries the key, and its value is the
 **chosen** pair's, which is `null` where a Harness-decided pair won the
-selection: a hybrid item like `grounds` can render a mechanical `widened` fail
+selection: a hybrid item like `claims` can render a mechanical `widened` fail
 out of a row whose other pairs a model answered. The truth per pair is always in
 `pairs`.
 
@@ -213,7 +213,7 @@ declared line, the outlined line, the quoted prose and **one** question. The
 second takes the answers on standard input and emits the comparison.
 
 **A judged item whose DECLARED side is empty is decided by the Harness too, and
-costs no call.** Where the Packet renders a stated absence — no grounds, no
+costs no call.** Where the Packet renders a stated absence — no claims, no
 `introduces` — the item's own table row declares the answer and its sentence, so
 nothing is rendered and no model is asked a question quantifying over nothing.
 The answer is a fact about the declared side rather than a reading of the prose,
@@ -280,18 +280,18 @@ description of a section the reader meets.
 **A Step whose trace carries a figure gains five rows** — the record's elements
 against the ones the reader could name, its caption against what the reader
 holds and the Step's `reader_state_after`, each element's wording against the
-ground its `g<n>` address points at, the figure's reading against the passage's
+claim its `g<n>` address points at, the figure's reading against the passage's
 prose, and the position the record declares against where the reader met the
 block. Three are preserved and two best-effort, same three verdicts, same
 consequence rule. **A Step with no figure runs none of them** — not as a vacuous
 `holds` but not at all, so a figureless Draft's log carries no figure item
 anywhere, and a figure block filed for such a Step is refused as an invention.
 
-**The element-to-ground row is the Harness's alone.** Containment against the
-ground the record's address names, above a declared floor: no model call and no
+**The element-to-claim row is the Harness's alone.** Containment against the
+claim the record's address names, above a declared floor: no model call and no
 join Packet, and a fail is what sends the Step to `correct --figure`. It does
 **not** re-check the binding — §4.17 already refuses a record that moves a role
-to a ground the Brief did not bind it to — it asks whether the wording the
+to a claim the Brief did not bind it to — it asks whether the wording the
 element finally got is carried by the material it was licensed from, which is
 the one question nothing before the Round Trip can ask.
 
@@ -336,7 +336,7 @@ by name; the act that ends it is the same `correct` with the prose piped in.
 
 **Drift is reported and never gated.** Per corrected Step the Harness states the
 share of sentences changed against the previous realization and the verbatim
-overlap with the Packet's ground and state lines, and both reach `review.md`. A
+overlap with the Packet's claim and state lines, and both reach `review.md`. A
 high change share is what the owner reads as the Step becoming self-contained; it
 is information, not a refusal.
 
@@ -355,7 +355,7 @@ passage, then that passage, and writes the **Reverse Outline** — the outline
 entry it believes the passage was written from, in the Brief's own Step form. An
 outline that agrees with the Brief because it guessed at the Brief measures
 nothing, which is why the Harness renders prose alone — it carries no thesis, no
-grounds, no Move, no reader states and no term list — and refuses an outline for
+claims, no Move, no reader states and no term list — and refuses an outline for
 a Step whose input it did not render.
 
 **The input is fixed, and it is fixed by what a reader can have (kogaki#1099).**
@@ -371,17 +371,17 @@ works without the announcement.
 the Reverse Outline input quotes the rendered block — the fence and the caption,
 sliced from the Draft at the range the trace records, with its own line numbers,
 on the side of the passage the reader met it on — and nothing from the figure
-record: no role binding, no ground address, no relation list.
+record: no role binding, no claim address, no relation list.
 
 **There is no template file and no second schema.** The input is composed from
 the Brief's own field declaration, because there is no second artifact to
 describe: the reader fills a fenced `step` block. It is asked for `purpose`,
-`reader_state_before`, `reader_state_after`, the `ground ` lines, `introduces`,
+`reader_state_before`, `reader_state_after`, the `claim ` lines, `introduces`,
 `opens_section` and `concession` — the Brief's fields with the Brief's
 definitions — and the count in its instruction is computed from that declaration
 rather than spelled, so a field joining it cannot leave the sentence saying the
 old number. `introduces`, `opens_section` and `concession` are each legitimately
-absent; `grounds` is not, because a passage that asserts nothing is not a
+absent; `claims` is not, because a passage that asserts nothing is not a
 passage.
 
 `concession` is the one field that is not a Brief field, and it is declared as

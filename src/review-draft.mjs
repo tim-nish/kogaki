@@ -643,9 +643,9 @@ function numberedRange(text, lines) {
 // range the renderer records, numbered in the same coordinate the prose is, and
 // NOTHING from the record. Two facts reach the blind reviewer from this and
 // they are both facts about the article: what the block says, and where in the
-// Draft it sits relative to the passage. The record's roles, ground addresses,
+// Draft it sits relative to the passage. The record's roles, claim addresses,
 // relations, kind and position word reach it nowhere, which is what makes the
-// element-to-ground join downstream a comparison rather than a restatement.
+// element-to-claim join downstream a comparison rather than a restatement.
 function numberedFigure(step) {
   return numberedRange(step.figure.rendered, step.figure.lines);
 }
@@ -797,7 +797,7 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     ...fieldLines,
     "",
     "`introduces`, `opens_section` and `concession` are each legitimately absent — a passage that",
-    "introduces nothing, continues a section, or concedes nothing carries no such line. `grounds`",
+    "introduces nothing, continues a section, or concedes nothing carries no such line. `claims`",
     "is not: every passage asserts something.",
     "",
     "## The form",
@@ -810,8 +810,8 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "purpose: …",
     "reader_state_before: …",
     "reader_state_after: …",
-    "ground …",
-    "ground …",
+    "claim …",
+    "claim …",
     "introduces: <term>",
     "introduces: <term> — <where the passage anchors it, only if it does>",
     "opens_section: <section title, only if this passage opens one>",
@@ -961,8 +961,8 @@ function renderColdReaderInput(ws, run, draft, items) {
 // answer is not in the passage, and asking would get an invention back that the
 // Round Trip would then dutifully compare.
 //
-// `grounds` IS THE `ground ` LINES, not a `grounds:` field — the Brief's own
-// grammar, read by the same `groundLines` the realization side reads, because
+// `claims` IS THE `claim ` LINES, not a `claims:` field — the Brief's own
+// grammar, read by the same `claimLines` the realization side reads, because
 // "in the Brief's form" is the whole claim.
 //
 // `concession` IS THE ONE FIELD THAT IS NOT A BRIEF FIELD, and it is declared
@@ -976,8 +976,8 @@ export const RECONSTRUCTIBLE_FIELDS = [
     definition: "what a reader knows and believes as they arrive at this passage." },
   { name: "reader_state_after", kind: "line",
     definition: "what a reader knows and believes once they have read it." },
-  { name: "grounds", kind: "ground-lines",
-    definition: "one `ground ` line per thing the passage ASSERTS — what it asks the reader to accept." },
+  { name: "claims", kind: "claim-lines",
+    definition: "one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept." },
   // BOTH ARMS, and the bare one first (PR #1022 round 1, finding 3). This read
   // `introduces: <term> — <anchor>`, which is only half of what
   // `parseIntroducesEntry` accepts: a term may be written BARE, and only a
@@ -1153,9 +1153,9 @@ function validateFigureOutline(text, step, file) {
 
 const RECONSTRUCTIBLE_NAMES = new Set(RECONSTRUCTIBLE_FIELDS.map((f) => f.name));
 
-// The Reverse Outline's own ground lines, read with the Brief's grammar.
-function outlineGrounds(body) {
-  return String(body).split("\n").filter((l) => l.startsWith("ground "));
+// The Reverse Outline's own claim lines, read with the Brief's grammar.
+function outlineClaims(body) {
+  return String(body).split("\n").filter((l) => l.startsWith("claim "));
 }
 
 function repeatedLines(body, field) {
@@ -1189,13 +1189,13 @@ function validateReverseOutline(text, step, file) {
       else if (v === "") problems.push(`\`${f.name}:\` is blank — ${f.definition}`);
       continue;
     }
-    if (f.kind === "ground-lines") {
+    if (f.kind === "claim-lines") {
       // AN EMPTY ANSWER IS AN ANSWER AND AN ABSENT ONE IS NOT — but a passage
-      // that asserts nothing is not a passage, so `grounds` is the one
+      // that asserts nothing is not a passage, so `claims` is the one
       // reconstructible field with a floor. `introduces`, `opens_section` and
       // `concession` are each legitimately absent.
-      if (outlineGrounds(body).length === 0) {
-        problems.push("carries no `ground ` line — every passage asserts something, and the grounds are "
+      if (outlineClaims(body).length === 0) {
+        problems.push("carries no `claim ` line — every passage asserts something, and the claims are "
           + "what the Round Trip judges against what the Forward Artifact licenses");
       }
       continue;
@@ -1225,7 +1225,7 @@ function validateReverseOutline(text, step, file) {
   // admit-by-default is how that arrives with no trace.
   const declared = new Set([...RECONSTRUCTIBLE_NAMES, ...NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
   for (const ln of body.split("\n")) {
-    if (ln.startsWith("ground ") || ln.trim() === "") continue;
+    if (ln.startsWith("claim ") || ln.trim() === "") continue;
     const m = /^([a-z_][a-z0-9_]*):/.exec(ln);
     if (m && !declared.has(m[1])) {
       problems.push(`carries \`${m[1]}:\`, which is not a Brief Step field — a field in the Reverse Outline `
@@ -1247,7 +1247,7 @@ function validateReverseOutline(text, step, file) {
     purpose: stepField(body, "purpose"),
     reader_state_before: stepField(body, "reader_state_before"),
     reader_state_after: stepField(body, "reader_state_after"),
-    grounds: outlineGrounds(body).map((l) => ({ text: l.replace(/^ground[ \t]+/, "").trim() })),
+    claims: outlineClaims(body).map((l) => ({ text: l.replace(/^claim[ \t]+/, "").trim() })),
     introduces: repeatedLines(body, "introduces").map((t) => ({ text: t })),
     concession: repeatedLines(body, "concession").map((t) => ({ text: t })),
     opens_section: outline.opens_section === undefined ? "" : outline.opens_section,
@@ -1713,20 +1713,20 @@ function packetBlock(text, heading, { after = null } = {}) {
 // ONE READER PER BLOCK KIND, and every label, heading and fixed sentence it
 // keys on comes from `packet_blocks` in the item table. The runtime therefore
 // carries no literal that happens to equal a field name somewhere else —
-// `grounds`, `purpose` and `reader_state_after` are each a Packet label AND an
+// `claims`, `purpose` and `reader_state_after` are each a Packet label AND an
 // item id AND (for two of them) a Reverse Outline field, and a runtime
 // spelling them out cannot be told apart from one restating the table or the
 // schema.
 const PACKET_READERS = {
-  // THE GROUNDS ARE A BLOCK BELOW THEIR BULLET, NOT THE BULLET'S VALUE (PR #895
-  // round 1, finding 2). The template's `- **grounds.** ...` line is fixed
+  // THE CLAIMS ARE A BLOCK BELOW THEIR BULLET, NOT THE BULLET'S VALUE (PR #895
+  // round 1, finding 2). The template's `- **claims.** ...` line is fixed
   // INSTRUCTION prose — "These are what this Step may assert" — and the rendered
   // value, `(none recorded)` included, goes into the separate block under it. A
   // reader testing the bullet's text for a stated absence could never match, so
-  // a Step whose Brief declares no grounds refused the WHOLE run as a false
+  // a Step whose Brief declares no claims refused the WHOLE run as a false
   // Packet gap and sent the reviewer to file against a template that was not
   // broken. The bullet locates the region; the region carries the value.
-  ground_lines: (t, spec) => {
+  claim_lines: (t, spec) => {
     const lines = t.split("\n");
     const at = lines.findIndex((l) => new RegExp(`^- \\*\\*${spec.bullet_label}\\.\\*\\*`).test(l));
     if (at === -1) return null;
@@ -1844,12 +1844,12 @@ function wordsOf(s) { return (String(s).toLowerCase().match(/[a-z0-9']+/g) || []
 function contentWords(s) { return wordsOf(s).filter((w) => !STOPWORDS.has(w)); }
 
 // CONTAINMENT, not similarity: the question is whether the CLAIM is covered by
-// a ground, so the denominator is the claim's own content words. A symmetric
-// score would let a long ground pair with anything and a short one with
+// a claim, so the denominator is the claim's own content words. A symmetric
+// score would let a long claim pair with anything and a short one with
 // nothing, which is the wrong question form for "may this passage assert this".
-function pairClaims(grounds, claims, textKey, floor) {
-  const gsets = grounds.map((g) => new Set(contentWords(g)));
-  return claims.map((c, i) => {
+function pairClaims(declaredClaims, outlined, textKey, floor) {
+  const gsets = declaredClaims.map((g) => new Set(contentWords(g)));
+  return outlined.map((c, i) => {
     const cw = contentWords(c && c[textKey]);
     let best = -1; let score = 0;
     if (cw.length) {
@@ -1858,7 +1858,7 @@ function pairClaims(grounds, claims, textKey, floor) {
         if (hit > score) { score = hit; best = j; }
       });
     }
-    return { claim_index: i, ground_index: score >= floor ? best : -1 };
+    return { outlined_index: i, declared_index: score >= floor ? best : -1 };
   });
 }
 
@@ -1893,21 +1893,21 @@ const MECHANICAL = {
   // same act, and the binding check below is what makes a row with no
   // implementation refuse rather than silently skip — so the two cannot drift.
 
-  "grounds-unused": ({ declared, pairs, step, item }) => {
-    const grounds = declared[item.declared_block];
-    const used = new Set(pairs.filter((p) => p.ground_index !== -1).map((p) => p.ground_index));
-    const unused = grounds.map((g, i) => [g, i]).filter(([, i]) => !used.has(i));
+  "claims-unused": ({ declared, pairs, step, item }) => {
+    const claims = declared[item.declared_block];
+    const used = new Set(pairs.filter((p) => p.declared_index !== -1).map((p) => p.declared_index));
+    const unused = claims.map((g, i) => [g, i]).filter(([, i]) => !used.has(i));
     if (!unused.length) {
       return {
         verdict: "holds",
-        reason: grounds.length ? "every ground is carried by an outlined claim"
-          : "this Step declares no grounds",
+        reason: claims.length ? "every claim is carried by an outlined claim"
+          : "this Step declares no claims",
         span: step.lines,
       };
     }
     return {
       verdict: "fails",
-      reason: "a ground no outlined claim rests on",
+      reason: "a claim no outlined claim rests on",
       evidence: unused.map(([g]) => g),
       span: step.lines,
     };
@@ -1920,7 +1920,7 @@ const MECHANICAL = {
 // ---------------------------------------------------------------------------
 // THE FIGURE'S DECLARED SIDE (kogaki#880). Read from the validated record the
 // trace pins, never from the Packet: the record IS the declaration for a figure
-// — the Brief bound each role to a ground and the record worded it — and the
+// — the Brief bound each role to a claim and the record worded it — and the
 // Packet carries no figure block at all (the figure record keeps the figure input behind
 // its own marker, outside the Packet the reviewer's items read).
 //
@@ -1945,7 +1945,7 @@ function figureDeclared(step, item) {
 }
 
 // The record's elements as a reader-facing list: the role and the wording, and
-// NEVER the ground address. The ground is what the element is judged against
+// NEVER the claim address. The claim is what the element is judged against
 // and appears on its own side of the mechanical check below; rendering it here
 // would put the answer into the question.
 function renderElements(elements) {
@@ -1954,13 +1954,13 @@ function renderElements(elements) {
 }
 
 // The one figure row the Harness decides alone. EVERY ELEMENT'S TEXT IS
-// ENTAILED BY ITS BOUND GROUND, and the instrument is containment against the
-// ground the record's address POINTS AT — the same containment `grounds` uses
+// ENTAILED BY ITS BOUND CLAIM, and the instrument is containment against the
+// claim the record's address POINTS AT — the same containment `claims` uses
 // on the prose side, with its own declared floor, so the two halves of the
 // round trip measure entailment the same way.
 //
 // THE BINDING ITSELF IS NOT WHAT THIS CHECKS, and saying so is the point.
-// The figure record already refuses a record that moves a role to a ground the Brief did
+// The figure record already refuses a record that moves a role to a claim the Brief did
 // not bind it to, at the act that validates the record — so re-deciding it here
 // would be a second validator agreeing with the first until one is edited. What
 // no act before this one can ask is whether the WORDING the element finally got
@@ -1973,62 +1973,62 @@ function renderElements(elements) {
 // mechanical fail cheap enough to run on every Step of every pass. The judgment
 // comes second and elsewhere: a fail on this preserved row is what sends the
 // Step to `correct --figure`, where a reader is shown the element beside the
-// ground it was worded from.
+// claim it was worded from.
 //
-// THE ADDRESS IS `g<n>` OVER THE STEP'S OWN GROUNDS, 1-based, which is the
+// THE ADDRESS IS `g<n>` OVER THE STEP'S OWN CLAIMS, 1-based, which is the
 // figure decision's
-// grammar. An address outside the Step's ground count is refused by name rather
+// grammar. An address outside the Step's claim count is refused by name rather
 // than scored against whatever happens to sit at that index — the figure
 // decision's own
 // grammar refuses one at composition, so a record carrying one now was written
 // against a Brief this Draft was not emitted from.
-function groundAt(address, grounds) {
+function claimAt(address, claims) {
   const m = /^g(\d+)$/.exec(String(address ?? ""));
-  if (!m) return { error: `is bound to ${renderSide(address ?? null)}, which is not a ground `
-    + "address — a role binds to `g<n>` over the Step's own grounds" };
+  if (!m) return { error: `is bound to ${renderSide(address ?? null)}, which is not a claim `
+    + "address — a role binds to `g<n>` over the Step's own claims" };
   const i = Number(m[1]);
-  if (i < 1 || i > grounds.length) {
+  if (i < 1 || i > claims.length) {
     return { error: `is bound to ${address} and this Step declares `
-      + `${grounds.length} ground${grounds.length === 1 ? "" : "s"} — the address points past them` };
+      + `${claims.length} claim${claims.length === 1 ? "" : "s"} — the address points past them` };
   }
-  return { ground: grounds[i - 1] };
+  return { claim: claims[i - 1] };
 }
 
 const MECHANICAL_FIGURE = {
-  "figure-element-ground": ({ step, declared, items, item }) => {
-    const floor = items.thresholds.figure_element_ground_containment;
+  "figure-element-claim": ({ step, declared, items, item }) => {
+    const floor = items.thresholds.figure_element_claim_containment;
     if (typeof floor !== "number") {
-      fail("the item table declares no `thresholds.figure_element_ground_containment`, and the "
-        + "element-to-ground check is containment against a floor. With none every element would "
+      fail("the item table declares no `thresholds.figure_element_claim_containment`, and the "
+        + "element-to-claim check is containment against a floor. With none every element would "
         + "pass, which is the silent `holds` this comparison exists to refuse");
     }
-    const grounds = declared.grounds || [];
+    const claims = declared.claims || [];
     const elements = figureDeclared(step, item);
     for (const [role, el] of Object.entries(elements)) {
-      const r = groundAt(el && el.ground, grounds);
+      const r = claimAt(el && el.claim, claims);
       if (r.error) {
         return {
           verdict: "fails",
-          reason: "an element's ground address does not resolve against this Step's grounds",
+          reason: "an element's claim address does not resolve against this Step's claims",
           evidence: [`${role} ${r.error}`],
           span: step.figure.lines,
         };
       }
       const cw = contentWords(el && el.text);
-      const gs = new Set(contentWords(r.ground));
+      const gs = new Set(contentWords(r.claim));
       const share = cw.length ? cw.filter((w) => gs.has(w)).length / cw.length : 0;
       if (share < floor) {
         return {
           verdict: "fails",
-          reason: "an element is worded in terms its bound ground does not carry",
-          evidence: [`${role} — ${renderSide(el && el.text)}`, `its ground — ${r.ground}`],
+          reason: "an element is worded in terms its bound claim does not carry",
+          evidence: [`${role} — ${renderSide(el && el.text)}`, `its claim — ${r.claim}`],
           span: step.figure.lines,
         };
       }
     }
     return {
       verdict: "holds",
-      reason: "every element is worded in the terms of the ground it is bound to",
+      reason: "every element is worded in the terms of the claim it is bound to",
       span: step.figure.lines,
     };
   },
@@ -2106,7 +2106,7 @@ const judgedByLine = (...callSets) => {
 // A DIGIT IN THE REASON IS REFUSED, which is the one rule here that looks like
 // fussiness and is not. The item table holds no severity and the verdict set has
 // no order; a number in the sentence is where a score comes back in — "three of
-// five grounds", "eighty percent" — and once one is written a later reader
+// five claims", "eighty percent" — and once one is written a later reader
 // compares them. Line numbers are the Harness's and are already rendered in the
 // span; every other number in a review is a score by another name.
 // THE VERDICTS ARRIVE AS TEXT, not as a path (kogaki#1100). The caller has
@@ -2249,8 +2249,8 @@ function reverseSide(item, rec, figRec) {
 // The declared side of one judged row, rendered. THREE CARRIERS, and the row
 // says which — the Packet block, the figure record's field, or the passage
 // itself. `elements` is rendered by its own function because a bare object
-// dump would carry each element's ground address into the question, and the
-// ground is what the mechanical row already answers.
+// dump would carry each element's claim address into the question, and the
+// claim is what the mechanical row already answers.
 function declaredSide(step, item, declared, items) {
   if (item.record_field) {
     const v = figureDeclared(step, item);
@@ -2270,7 +2270,7 @@ function declaredSide(step, item, declared, items) {
 }
 
 // AN ENTRY OF A REVERSE OUTLINE LIST IS AN OBJECT CARRYING ITS OWN WORDS.
-// `grounds`, `introduces` and `concession` each read back as `{ text }` — the
+// `claims`, `introduces` and `concession` each read back as `{ text }` — the
 // Brief's own line, verbatim. There is no span: a span was the outlined
 // record's coordinate, and a Brief Step field does not carry one, so an entry
 // renders as what it says. `renderEntry` below still honours a `text`/`span`
@@ -2331,7 +2331,7 @@ function renderSide(v) {
 function buildJoin(draft, run, items, ws, opts = {}) {
   const pass = requirePass(opts.pass, "buildJoin");
   const { steps } = resolveInputs(draft);
-  const floor = items.thresholds.claim_ground_containment;
+  const floor = items.thresholds.outlined_claim_containment;
   const bound = typeof opts.bound === "function" ? opts.bound : null;
   const carry = opts.carry || [];
   const results = [];
@@ -2362,9 +2362,9 @@ function buildJoin(draft, run, items, ws, opts = {}) {
     const earlier = steps.slice(0, si);
 
     // THE PAIRING IS COMPUTED ONCE, AND SINCE kogaki#996 ONE ITEM READS IT.
-    // `grounds-unused` asks what no claim rests on, and the assignment is how
-    // it knows. `grounds` no longer reads `ground_index` for its verdict — it
-    // is judged against the whole declared ground list — so the pairing decides
+    // `claims-unused` asks what no claim rests on, and the assignment is how
+    // it knows. `claims` no longer reads `declared_index` for its verdict — it
+    // is judged against the whole declared claim list — so the pairing decides
     // coverage only, never whether a claim is admissible.
     const pairedItem = items.items.find((it) => it.mode === "paired");
     const pairs = pairedItem
@@ -2432,7 +2432,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       // A declared side the Packet renders as a stated absence can leave an
       // item with nothing to ask about: a negative item goes vacuous (there is
       // no exemplar, so nothing of one can leak) and a positive one quantifies
-      // over an empty list (`grounds`, and since kogaki#1016 `introduces`).
+      // over an empty list (`claims`, and since kogaki#1016 `introduces`).
       // Either way the answer is a FACT about the declared side, so the table
       // says so per item and NO Packet is rendered — the runtime never decides
       // it, and never pays a judge for a question about nothing.
@@ -2453,12 +2453,12 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         // what it does with a claim it does NOT match is the load-bearing half.
         // Left implicit it was `fail`, and that fallback decided the item: on
         // the 2026-09-07 run, 87 of 93 failing claims were this branch firing
-        // and only 6 were a model reading the prose, so `grounds` failed every
+        // and only 6 were a model reading the prose, so `claims` failed every
         // Step regardless of what the prose said. An item now says which
         // fallback it takes, and omitting it is refused rather than defaulted.
         if (item.unpaired !== "judge" && item.unpaired !== "fail") {
           fail(`the paired item \`${item.id}\` declares no \`unpaired\` disposition. A claim that `
-            + "pairs with no declared ground is either judged against the whole ground list "
+            + "pairs with no declared claim is either judged against the whole claim list "
             + "(`judge`) or failed by the Harness (`fail`), and the choice is the item's to make "
             + "rather than the matcher's to supply.");
         }
@@ -2475,7 +2475,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         const entries = rec[item.field] || [];
         entries.forEach((entry, i) => {
           const p = pairs[i];
-          if (item.unpaired === "fail" && (!p || p.ground_index === -1)) {
+          if (item.unpaired === "fail" && (!p || p.declared_index === -1)) {
             // DECIDED HERE, BY NAME, WITH NO MODEL CALL. An entry that pairs
             // with nothing has no counterpart to put a question about, and
             // `widened` is a fact about the pairing rather than a reading of it.
@@ -2485,15 +2485,15 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             return;
           }
           const key = verdictKey(step.step_id, item.id, i);
-          // UNDER `judge` THE DECLARED SIDE IS THE WHOLE GROUND LIST, not the
-          // one ground the matcher picked. The question is whether the claim
-          // goes beyond ANY declared ground, so a judge shown a single ground
+          // UNDER `judge` THE DECLARED SIDE IS THE WHOLE CLAIM LIST, not the
+          // one claim the matcher picked. The question is whether the claim
+          // goes beyond ANY declared claim, so a judge shown a single claim
           // would be asked a narrower question than the item states — and an
           // unpaired claim would have no side to be shown at all.
           const file = renderJoinPacket(ws, run, pass, draft, step, item, i,
             item.unpaired === "judge"
               ? renderSide(declared[item.declared_block])
-              : declared[item.declared_block][p.ground_index],
+              : declared[item.declared_block][p.declared_index],
             renderSide(entry[item.pair_text_key]));
           // THE VERDICT IS READ BEFORE THE CALL IS LOGGED, so the log can name
           // the model that answered it. An unanswered call carries `model:
@@ -2558,7 +2558,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         //
         // The two facts come apart on a HYBRID item. `decided_by` is a fact
         // about the row's pairs — any one judged makes it `model` — while every
-        // other field here is the CHOSEN pair's, and `grounds` can choose a
+        // other field here is the CHOSEN pair's, and `claims` can choose a
         // Harness-decided `widened` fail out of a row whose other pairs a model
         // answered. Keying presence on the chosen pair, as this first did, then
         // produced a row saying `decided_by: "model"` and carrying no `model` —
@@ -2798,7 +2798,7 @@ function buildSectionJoin(draft, run, items, ws, joinPass) {
 // on the localizing item into route 1 and handed a correction target to a
 // reviewer who had declined to decide — contradicting the property the Step
 // half states and fixtures, that `cannot-decide` sends no Step to correction.
-// Narrowing to `fails` alone would have been the other error: route 2's ground
+// Narrowing to `fails` alone would have been the other error: route 2's claim
 // is that EVERY STEP HOLDS, and a Section with an undecided Step would then
 // have been reported as a Brief defect on a premise that is false.
 //
@@ -2876,8 +2876,8 @@ function sectionLine(r) {
 //
 // THE RULE IS ENFORCED BECAUSE THE FIRST LIVE DRIVE BROKE IT. Quoting the
 // offending material into the reason read as helpful and was the leak: the live
-// Draft's grounds are labelled by the Strands they came from, so
-// `grounds-unused` rendered `ground (strand L97)` into a comparison line and put
+// Draft's claims are labelled by the Strands they came from, so
+// `claims-unused` rendered `claim (strand L97)` into a comparison line and put
 // a number in front of a reader that was not a line number and could be
 // compared. So quoted material is EVIDENCE — it goes to the join record and to
 // the owner record, where a reader can see it in full — and never into the line
@@ -2961,7 +2961,7 @@ function sectionConsequenceOf(r, routes) {
 }
 
 // WHO DECIDED THE LINE — the CHOSEN pair's decider and never the row's. The two
-// come apart on a hybrid item: `grounds` can render a Harness-decided `widened`
+// come apart on a hybrid item: `claims` can render a Harness-decided `widened`
 // fail out of a row whose other pairs a model answered, so the row says
 // `decided_by: "model"` while the line a reader is looking at was nobody's
 // answer. `chosenJudged` is the same read the owner record's pointers are
@@ -3438,7 +3438,7 @@ function readJoin(ws) {
 // act whose input depends on which item failed, and a session would have
 // to know which before it could answer.
 //
-// PROSE FIRST WHERE A STEP OWES BOTH. The figure record's whole ground for filling the
+// PROSE FIRST WHERE A STEP OWES BOTH. The figure record's whole claim for filling the
 // record after the text is that the caption is stated in what the reader holds
 // after reading THIS passage — so a record corrected against prose that is
 // about to change is a record corrected against nothing.
@@ -3529,7 +3529,7 @@ function renderFigureCorrectionBlock(step, evidence, packet) {
     "the first one. The passage itself is not yours to change here.", "");
   out.push("## The Step this figure belongs to", "",
     "The Packet below is this Step's, re-rendered as it now stands. The record's",
-    "elements are worded from the grounds it declares, and its caption is stated",
+    "elements are worded from the claims it declares, and its caption is stated",
     "in what the Step says its reader holds afterwards.", "", packet.trim(), "");
   out.push("## The passage, as it now stands", "",
     ...numberedProse(step).split("\n").map((l) => `    ${l}`), "");
@@ -3572,7 +3572,7 @@ function renderFigureCorrectionBlock(step, evidence, packet) {
   out.push("## The instruction", "",
     "Change what the findings above name and nothing else. Keep the record's",
     "`kind` — it is the Move form's and not a choice made here — and keep every",
-    "role the form declares. An element's `ground` names the ground the Brief",
+    "role the form declares. An element's `claim` names the claim the Brief",
     "bound its role to; reword the element, never the binding, unless a finding",
     "says the binding itself is wrong.", "");
   return out.join("\n");
@@ -3659,7 +3659,7 @@ function driftOf(before, after, packetLines, n) {
   const hits = lines.filter((l) => verbatimWindow(l, packetLines, n)).length;
   return {
     change_share: `${changed} of ${now.length} sentence(s) differ from the previous realization`,
-    packet_overlap: `${hits} of ${lines.length} line(s) repeat a run of the Packet's ground or state wording`,
+    packet_overlap: `${hits} of ${lines.length} line(s) repeat a run of the Packet's claim or state wording`,
   };
 }
 
@@ -3667,7 +3667,7 @@ function driftBlocks(declared, items) {
   const names = (items.pass_two || {}).drift_blocks;
   if (!Array.isArray(names) || !names.length) {
     fail("the item table declares no `pass_two.drift_blocks`, and the drift measure reports "
-      + "verbatim overlap against the Packet's ground and state lines. A measure with no blocks "
+      + "verbatim overlap against the Packet's claim and state lines. A measure with no blocks "
       + "to read would report zero overlap for every correction, which is a clean number about "
       + "nothing.");
   }
@@ -3701,7 +3701,7 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   // --- phase A: render the correction input ------------------------------
   if (reply.trim() === "") {
     // THE PACKET IS RE-RENDERED FOR THE SAME REASON THE PROSE CORRECTION
-    // RE-RENDERS IT: the record's elements are worded from the Step's grounds
+    // RE-RENDERS IT: the record's elements are worded from the Step's claims
     // and its caption from the state the Step leaves its reader in, and both
     // are the Packet's. A record corrected against the Packet that produced the
     // failing figure would be corrected against the input already found wanting.
@@ -4825,7 +4825,7 @@ including Steps corrected earlier in the same pass, with one Correction block
 appended holding the previous realization, what failed, and what held and must
 go on holding. With the corrected prose piped in it records it through the
 realization lane and reports the drift: the share of sentences changed and the
-verbatim overlap with the Packet's ground and state lines. Both are REPORTED and
+verbatim overlap with the Packet's claim and state lines. Both are REPORTED and
 neither gates. Corrections run in path order, and a Step out of order refuses.
 
 \`--figure\` corrects the Step's FIGURE RECORD instead of its passage, and it is
@@ -5064,14 +5064,14 @@ async function runSelfTest() {
   //
   // Packets carry text that appears NOWHERE in the prose, so the blindness case
   // below can assert on a string only the Packet has. They carry NO DIGIT
-  // either — the comparison lines quote Packet material, and a digit in a ground
+  // either — the comparison lines quote Packet material, and a digit in a claim
   // would land in one and make the no-numbers-but-line-numbers case assert
   // against the fixture's own wording rather than against the format.
-  const GROUNDS = {
-    a1: ["ground: alpha — the harness renders the Reverse Outline input before any record is accepted.",
-      "ground: beta — the reviewer never reads the packet that produced the prose."],
-    a2: ["ground: gamma — an ordering owned by the harness cannot be got wrong by a session."],
-    a3: ["ground: delta — a residue line is classified by the owner and never by the tool."],
+  const CLAIMS = {
+    a1: ["claim: alpha — the harness renders the Reverse Outline input before any record is accepted.",
+      "claim: beta — the reviewer never reads the packet that produced the prose."],
+    a2: ["claim: gamma — an ordering owned by the harness cannot be got wrong by a session."],
+    a3: ["claim: delta — a residue line is classified by the owner and never by the tool."],
   };
   const PACKET_FIELDS = {
     a1: { after: "The reader knows which act renders the input.", purpose: "To open the claim.",
@@ -5084,7 +5084,7 @@ async function runSelfTest() {
   // THE FIXTURE PACKET IS THE REAL TEMPLATE WITH ITS SLOTS FILLED (PR #895
   // round 1, findings 2 and 3). It used to be written out by hand in the form
   // the author believed the template had, and BOTH of those findings are that
-  // belief being wrong: the grounds reader tested a bullet whose value lives in
+  // belief being wrong: the claims reader tested a bullet whose value lives in
   // a block below it, and the Section anchor stopped a sentence short of its
   // paragraph's end. Neither was visible to a fixture whose Packets ended
   // exactly where the reader expected them to.
@@ -5111,11 +5111,11 @@ async function runSelfTest() {
   }
   const TEMPLATE = TEMPLATE_FILE.slice(0, TEMPLATE_FILE.indexOf(TEMPLATE_MARKER))
     .replace(/^<!--[\s\S]*?-->\n*/, "").trimEnd() + "\n";
-  // `introduces` is overridable for the same reason `grounds` is: a Step whose
+  // `introduces` is overridable for the same reason `claims` is: a Step whose
   // Brief declares none is an ORDINARY Step, and the only way to exercise the
   // stated absence the renderer writes into that slot is to render a Packet
   // that carries it.
-  function writePacket(dir, id, { grounds = GROUNDS[id], introduces = PACKET_FIELDS[id].introduces } = {}) {
+  function writePacket(dir, id, { claims = CLAIMS[id], introduces = PACKET_FIELDS[id].introduces } = {}) {
     const f = PACKET_FIELDS[id];
     const bullets = (xs, empty) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : empty);
     const slots = {
@@ -5135,9 +5135,9 @@ async function runSelfTest() {
       reader_state_before: "PACKETONLYTOKEN the state before.",
       reader_state_after: f.after,
       // THE STATED ABSENCE THE RENDERER WRITES, verbatim (src/draft.mjs's
-      // `grounds || "(none recorded)"`), so the groundless case exercises the
+      // `claims || "(none recorded)"`), so the claimless case exercises the
       // string a real Packet actually carries.
-      grounds: grounds.length ? grounds.join("\n") : "(none recorded)",
+      claims: claims.length ? claims.join("\n") : "(none recorded)",
       section_placement: f.opens
         ? "- **This Step OPENS a Section.** Its heading is **\"A heading\"**, rendered by the Harness immediately above your prose.\n"
           + "- **Your prose is what the heading promises.** This Step is the whole Section."
@@ -5179,9 +5179,9 @@ async function runSelfTest() {
   // stand-in is refused by the Brief parser, and the ordering cases below must
   // fail on the ORDERING rather than on the block's form.
   //
-  // THE GROUNDS PAIR WITH THE FIXTURE PACKETS' GROUNDS (kogaki#872). The Round
-  // Trip assigns each read ground to the declared ground it rests on by
-  // containment, so an outline whose grounds share no words with any declared
+  // THE CLAIMS PAIR WITH THE FIXTURE PACKETS' CLAIMS (kogaki#872). The Round
+  // Trip assigns each read claim to the declared claim it rests on by
+  // containment, so an outline whose claims share no words with any declared
   // one would make EVERY Step fail `widened` and the join cases would assert
   // against the fixture rather than against the pairing. And no field carries a
   // digit: the comparison lines quote what was read, and the
@@ -5201,13 +5201,13 @@ async function runSelfTest() {
       after: "The reader knows who classifies residue.", purpose: "To open the second question." },
   };
   // The block itself. `mutate` takes the field object so a case can widen a
-  // ground, blank a field or add one the dispositions refuse.
+  // claim, blank a field or add one the dispositions refuse.
   const outlineFor = (id) => ({
     step_id: id,
     purpose: OUTLINE[id].purpose,
     reader_state_before: "The reader arrives holding what came before.",
     reader_state_after: OUTLINE[id].after,
-    grounds: OUTLINE[id].claims.slice(),
+    claims: OUTLINE[id].claims.slice(),
     introduces: [],
     concession: [],
     opens_section: null,
@@ -5217,7 +5217,7 @@ async function runSelfTest() {
     if (o.purpose !== null) L.push(`purpose: ${o.purpose}`);
     if (o.reader_state_before !== null) L.push(`reader_state_before: ${o.reader_state_before}`);
     if (o.reader_state_after !== null) L.push(`reader_state_after: ${o.reader_state_after}`);
-    for (const g of o.grounds) L.push(`ground ${g}`);
+    for (const g of o.claims) L.push(`claim ${g}`);
     for (const x of o.introduces) L.push(`introduces: ${x}`);
     for (const c of o.concession) L.push(`concession: ${c}`);
     if (o.opens_section !== null) L.push(`opens_section: ${o.opens_section}`);
@@ -5232,7 +5232,7 @@ async function runSelfTest() {
   };
 
   // The same outline, against ANY fixture Draft — the kogaki#872 cases build
-  // their own Drafts (a Packet with a ground removed, a Draft using a term
+  // their own Drafts (a Packet with a claim removed, a Draft using a term
   // before the Step that introduces it). With no spans to place, the outline no
   // longer depends on the Draft's ranges; the parameter stays so the call sites
   // and their reasons read unchanged.
@@ -5264,7 +5264,7 @@ async function runSelfTest() {
   // exactly which pairs it is asking about, so a transcribed list would pass
   // while the Harness asked for something else.
   // `override` lets ONE pair carry a different answer from the rest (kogaki#996).
-  // Since `grounds` became a judged item, a case that needs a preserved fail has
+  // Since `claims` became a judged item, a case that needs a preserved fail has
   // to SAY the judge failed it — there is no longer a Packet mutation that
   // produces one mechanically, which is the whole point of the change.
   const answerOwed = (jsonPath, tag, verdict = "holds",
@@ -5748,7 +5748,7 @@ async function runSelfTest() {
       ok(name, r.status === 1 && hit);
     };
     bad("a verdict for a MECHANICAL item is refused, saying it would replace a computed fact",
-      [{ step_id: "a1", item: "grounds-unused", verdict: "holds", reason: "it reads fine" }],
+      [{ step_id: "a1", item: "claims-unused", verdict: "holds", reason: "it reads fine" }],
       "which is a MECHANICAL item");
     bad("a verdict for a pair this run never asked about is refused, naming the pairs it owes",
       [{ step_id: "a1", item: "purpose", pair: 4, verdict: "holds", reason: "it reads fine" }],
@@ -5763,7 +5763,7 @@ async function runSelfTest() {
     // no severity and the verdict set has no order; once one number is written
     // into a review a later reader compares them.
     bad("a reason carrying a digit is refused, because that is where a score comes back in",
-      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "3 of the grounds are carried" }],
+      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "3 of the claims are carried" }],
       "every other number in a review is a score by another name");
     bad("a verdicts file that is not one object carrying `verdicts` is refused",
       undefined, "carries no `verdicts` array");
@@ -6206,11 +6206,11 @@ async function runSelfTest() {
       ok("while an outline with no introduces, opens_section or concession is accepted", r.status === 0);
     }
 
-    // `grounds` IS THE ONE RECONSTRUCTIBLE FIELD WITH A FLOOR, because a
+    // `claims` IS THE ONE RECONSTRUCTIBLE FIELD WITH A FLOOR, because a
     // passage that asserts nothing is not a passage.
-    bad("an outline carrying no ground line is refused, with its own reason",
-      (o) => { o.grounds = []; return o; },
-      /carries no `ground ` line/);
+    bad("an outline carrying no claim line is refused, with its own reason",
+      (o) => { o.claims = []; return o; },
+      /carries no `claim ` line/);
 
     // THE NOT-RECONSTRUCTIBLE FIELDS ARE REFUSED, NOT DROPPED. A field the
     // reader could not have read off the passage is an inference, and dropping
@@ -6329,7 +6329,7 @@ async function runSelfTest() {
       const briefNames = new Set([...RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
       const foreign = Object.keys(rec).filter((k) => !briefNames.has(k));
       ok("and the reading carries the BRIEF's field names and no other schema's",
-        Object.prototype.hasOwnProperty.call(rec, "grounds")
+        Object.prototype.hasOwnProperty.call(rec, "claims")
         && Object.prototype.hasOwnProperty.call(rec, "introduces")
         && foreign.length === 0);
     }
@@ -6337,36 +6337,36 @@ async function runSelfTest() {
 
 
   // ---- kogaki#872 -------------------------------------------------------
-  // ACCEPTANCE 2: removing ONE ground from a Packet copy yields exactly one new
+  // ACCEPTANCE 2: removing ONE claim from a Packet copy yields exactly one new
   // `widened` fail on that Step, and no change elsewhere.
   //
   // DRIVEN AS TWO WHOLE RUNS OVER TWO WHOLE DRAFTS, because the Packet's sha is
   // in the trace: editing a Packet under a live Draft is refused by `open`, by
   // design, so "a Packet copy" is a second Draft emitted against it. The two
-  // Drafts differ in exactly one ground, and every line range is identical
+  // Drafts differ in exactly one claim, and every line range is identical
   // because `buildDraft` computes them from the same body.
   {
     const full = join(root, "packets-full"); mkdirSync(full, { recursive: true });
     const short = join(root, "packets-short"); mkdirSync(short, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) {
       writePacket(full, id);
-      // a1 keeps only its FIRST ground; the second outlined claim now rests on
+      // a1 keeps only its FIRST claim; the second outlined claim now rests on
       // nothing the Packet declares.
-      writePacket(short, id, id === "a1" ? { grounds: [GROUNDS.a1[0]] } : {});
+      writePacket(short, id, id === "a1" ? { claims: [CLAIMS.a1[0]] } : {});
     }
     const dFull = buildDraft(join(root, "theses", "full"), { packetDir: full });
     const dShort = buildDraft(join(root, "theses", "short"), { packetDir: short });
     const rFull = driveToCompletedJoin(dFull, join(root, "ws-full"), "full");
     // THE ORPHANED CLAIM IS FAILED BY THE JUDGE, NOT BY THE MATCHER (kogaki#996).
     // Before the ruling of 2026-09-07 this case needed no override: removing the
-    // ground made claim 1 pair with nothing and the Harness failed it as
-    // `widened`. `grounds` is now judged against the whole remaining ground list,
+    // claim made claim 1 pair with nothing and the Harness failed it as
+    // `widened`. `claims` is now judged against the whole remaining claim list,
     // so the fail is a READING, and a case that wants one has to say the judge
     // gave it. What the case still measures is unchanged — that ONE pair failing
     // moves exactly one line and sends exactly that Step to correction.
     const rShort = driveToCompletedJoin(dShort, join(root, "ws-short"), "short",
-      (o) => (o.step_id === "a1" && o.item === "grounds" && o.pair === 1
-        ? { verdict: "fails", reason: "the claim rests on no ground this Packet declares" }
+      (o) => (o.step_id === "a1" && o.item === "claims" && o.pair === 1
+        ? { verdict: "fails", reason: "the claim rests on no claim this Packet declares" }
         : null));
     ok("both runs reach a completed join", rFull.second.status === 0 && rShort.second.status === 0);
 
@@ -6375,14 +6375,14 @@ async function runSelfTest() {
     const failing = (m) => [...m.entries()].filter(([, l]) => /\sfails\s/.test(l)).map(([k]) => k);
     ok("the unmutated run has no failing item", failing(L1).length === 0);
     ok("one failed pair yields EXACTLY ONE failing item", failing(L2).length === 1);
-    ok("and it is on the Step whose Packet lost the ground, on the grounds item",
-      failing(L2)[0] === "a1/grounds");
+    ok("and it is on the Step whose Packet lost the claim, on the claims item",
+      failing(L2)[0] === "a1/claims");
     ok("and the line carries the judge's own reason rather than a pairing fact",
-      /rests on no ground this Packet declares/.test(L2.get("a1/grounds")));
+      /rests on no claim this Packet declares/.test(L2.get("a1/claims")));
     // NO CHANGE ELSEWHERE, asserted as line-for-line identity over every OTHER
     // pair rather than as a count: a count would pass while two items swapped
     // verdicts.
-    const changed = [...L1.keys()].filter((k) => k !== "a1/grounds" && L1.get(k) !== L2.get(k));
+    const changed = [...L1.keys()].filter((k) => k !== "a1/claims" && L1.get(k) !== L2.get(k));
     ok("and nothing else changes — every other (Step, item) line is identical",
       L1.size === L2.size && changed.length === 0, changed.join(", "));
     // THE ORPHANED PAIR IS ASKED ABOUT RATHER THAN DECIDED. This is the inverse
@@ -6391,24 +6391,24 @@ async function runSelfTest() {
     // need of a reading, and it used to be the one that never got one.
     const recShort = JSON.parse(readFileSync(rShort.jsonPath, "utf8"));
     ok("the claim that pairs with nothing is asked about, not decided by the Harness",
-      recShort.model_calls.some((c) => c.step_id === "a1" && c.item === "grounds" && c.pair === 1)
-      && !recShort.mechanical.some((c) => c.item === "grounds"));
-    // The other half of the same pairing: the ground the claim used to rest on
-    // is gone, so `grounds-unused` still holds — the two items read ONE
+      recShort.model_calls.some((c) => c.step_id === "a1" && c.item === "claims" && c.pair === 1)
+      && !recShort.mechanical.some((c) => c.item === "claims"));
+    // The other half of the same pairing: the claim the claim used to rest on
+    // is gone, so `claims-unused` still holds — the two items read ONE
     // assignment and cannot disagree about the same Step.
-    ok("and the unused-grounds item, which reads the same pairing, still holds",
-      /\sholds\s/.test(L2.get("a1/grounds-unused")));
+    ok("and the unused-claims item, which reads the same pairing, still holds",
+      /\sholds\s/.test(L2.get("a1/claims-unused")));
     // kogaki#997, PR #1001 round 1 — THE ROW-LEVEL `model` KEY, AND THE VEHICLE
     // THIS CASE LOST TO kogaki#996.
     //
-    // #997's defect was the HYBRID ROW: `grounds` used to carry a Harness-decided
+    // #997's defect was the HYBRID ROW: `claims` used to carry a Harness-decided
     // `widened` fail beside pairs a model answered, `fails` won the selection,
     // and the row read `decided_by: "model"` while the line it rendered came
     // from the Harness — a row claiming a judge and naming none. The fix keys
     // the key's PRESENCE on the row and its VALUE on the chosen pair, and that
     // fix is untouched here (the selection at `rowDecidedBy`).
     //
-    // WHAT CHANGED IS THAT THE SHIPPED TABLE CAN NO LONGER BUILD ONE. `grounds`
+    // WHAT CHANGED IS THAT THE SHIPPED TABLE CAN NO LONGER BUILD ONE. `claims`
     // was the only `paired` item and it now takes `unpaired: "judge"`, so every
     // one of its pairs is answered by a model and no row mixes the two. The
     // `"fail"` branch that produces a hybrid is still in the Harness and still
@@ -6421,7 +6421,7 @@ async function runSelfTest() {
     // stated over EVERY row the run produced rather than over one built row.
     {
       const row = (recShort.results || [])
-        .find((r) => r.step_id === "a1" && r.item === "grounds");
+        .find((r) => r.step_id === "a1" && r.item === "claims");
       ok("#997: the judged row is decided_by model — some pair was judged",
         row && row.decided_by === "model" && row.verdict === "fails");
       ok("#997: and it CARRIES the model key, because presence answers `was a model asked here`",
@@ -6485,48 +6485,48 @@ async function runSelfTest() {
         .every((i) => rec.model_calls.some((c) => c.item === i.id)));
   }
 
-  // ROUND 1, FINDING 2: a Step whose Brief declares NO grounds is an ordinary
+  // ROUND 1, FINDING 2: a Step whose Brief declares NO claims is an ordinary
   // Step, not a Packet gap. The renderer writes `(none recorded)` into the
-  // grounds BLOCK, below a bullet whose own text is fixed instruction prose, so
+  // claims BLOCK, below a bullet whose own text is fixed instruction prose, so
   // a reader testing the bullet could never match and refused the whole run.
   {
-    const pd = join(root, "packets-groundless"); mkdirSync(pd, { recursive: true });
-    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id, id === "a2" ? { grounds: [] } : {});
-    ok("the fixture's groundless Packet carries the stated absence the renderer writes",
+    const pd = join(root, "packets-claimless"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id, id === "a2" ? { claims: [] } : {});
+    ok("the fixture's claimless Packet carries the stated absence the renderer writes",
       /\(none recorded\)/.test(readFileSync(join(pd, "a2.md"), "utf8")));
-    const d = buildDraft(join(root, "theses", "groundless"), { packetDir: pd });
-    const r = driveToCompletedJoin(d, join(root, "ws-groundless"), "groundless");
-    ok("a Step declaring no grounds does not refuse the run as a Packet gap",
-      r.second.status === 0 && !/carries no `grounds` block/.test(r.first.stderr + r.second.stderr));
+    const d = buildDraft(join(root, "theses", "claimless"), { packetDir: pd });
+    const r = driveToCompletedJoin(d, join(root, "ws-claimless"), "claimless");
+    ok("a Step declaring no claims does not refuse the run as a Packet gap",
+      r.second.status === 0 && !/carries no `claims` block/.test(r.first.stderr + r.second.stderr));
     const L = linesOf(r.second.stdout);
-    ok("and the unused-grounds item says so in its own words",
-      /this Step declares no grounds/.test(L.get("a2/grounds-unused")));
-    // AND `grounds` ITSELF IS DECIDED BY THE TABLE, NOT ASKED OVER AN EMPTY
-    // LIST (PR #1003 successor). Under `unpaired: "judge"` a groundless Step
+    ok("and the unused-claims item says so in its own words",
+      /this Step declares no claims/.test(L.get("a2/claims-unused")));
+    // AND `claims` ITSELF IS DECIDED BY THE TABLE, NOT ASKED OVER AN EMPTY
+    // LIST (PR #1003 successor). Under `unpaired: "judge"` a claimless Step
     // put one Packet per claim to a judge whose declared side read `(none)`
     // against a question quantifying over it — a coin flip on a preserved
     // item. The item declares its answer for a stated absence, as
     // `exemplar-leak` does, so no Packet is rendered and no model is asked.
     {
       const grec = JSON.parse(readOrEmpty(r.jsonPath) || "{}");
-      const row = (grec.results || []).find((x) => x.step_id === "a2" && x.item === "grounds");
-      ok("a Step declaring no grounds has `grounds` decided by the item's declared-absence arm",
+      const row = (grec.results || []).find((x) => x.step_id === "a2" && x.item === "claims");
+      ok("a Step declaring no claims has `claims` decided by the item's declared-absence arm",
         !!row && row.decided_by === "harness" && row.verdict === "holds"
-        && /declares no grounds/.test(row.reason || ""), row ? JSON.stringify(row).slice(0, 200) : "no row");
+        && /declares no claims/.test(row.reason || ""), row ? JSON.stringify(row).slice(0, 200) : "no row");
       ok("and no join Packet is rendered for it",
-        !(grec.model_calls || []).some((c) => c.step_id === "a2" && c.item === "grounds")
-        && (grec.mechanical || []).some((m) => m.step_id === "a2" && m.item === "grounds"));
+        !(grec.model_calls || []).some((c) => c.step_id === "a2" && c.item === "claims")
+        && (grec.mechanical || []).some((m) => m.step_id === "a2" && m.item === "claims"));
     }
     // The other Steps are untouched: the absence is this Step's, not the run's.
-    ok("while a Step that does declare grounds still carries them",
-      /every ground is carried by an outlined claim/.test(L.get("a1/grounds-unused")));
+    ok("while a Step that does declare claims still carries them",
+      /every claim is carried by an outlined claim/.test(L.get("a1/claims-unused")));
   }
 
   // kogaki#1016 — A STEP WHOSE PACKET DECLARES NO `introduces` IS DECIDED BY THE
   // HARNESS, and this case COUNTS the calls rather than reading a line. The
   // 2026-09-08 run spent ten model calls asking whether every term in an EMPTY
   // list was introduced — a question quantifying over nothing, answered `holds`
-  // ten times at a judge's price. The short circuit is the arm `grounds` already
+  // ten times at a judge's price. The short circuit is the arm `claims` already
   // declares (`when_declared_absent`), reached through the same runtime branch,
   // so this is one table entry and no second mechanism.
   //
@@ -6592,7 +6592,7 @@ async function runSelfTest() {
     // CASE 4'S ORIGINAL VEHICLE LEFT THE TABLE (kogaki#1016 wrote it against
     // `term-before-introduction`; kogaki#1014 removed that row with the rest of
     // the hygiene items). The property it asserts is about the SHORT-CIRCUIT's
-    // reach, not about that row, so it rides `grounds-unused` — the surviving
+    // reach, not about that row, so it rides `claims-unused` — the surviving
     // mechanical row that answers on every Step — and says the same thing.
     ok("1: a Step that DOES declare a term still costs one model call for it",
       (baseRecord.model_calls || [])
@@ -6610,7 +6610,7 @@ async function runSelfTest() {
         .some((c) => c.item === "introduces" && c.step_id !== "a1"));
     ok("4: and the mechanical sibling still answers on every Step either way",
       ["a1", "a2", "a3"].every((s) => (baseRecord.mechanical || [])
-        .some((m) => m.step_id === s && m.item === "grounds-unused")));
+        .some((m) => m.step_id === s && m.item === "claims-unused")));
   }
 
   // kogaki#1098 — `register-tests` LEFT THE ITEM TABLE, and the id is UNKNOWN
@@ -6655,7 +6655,7 @@ async function runSelfTest() {
   // asked whether the passage re-introduced a term the reader already knew,
   // over a list of no terms, and on the first full run it answered `fails` with
   // a reason stating the opposite — that the passage introduces both terms for
-  // the first time. The arm is the one `grounds` and `introduces` already
+  // the first time. The arm is the one `claims` and `introduces` already
   // declare, reached through the same runtime branch, so this is one table
   // entry and no second mechanism.
   //
@@ -6804,7 +6804,7 @@ async function runSelfTest() {
     const D = (...a) => selfRun(
       [self, ...a, "--draft", d.path, "--workspace", wsBase]);
     D("open");
-    const CONCEDED = "the passage carries the ground more weakly than the packet declares it";
+    const CONCEDED = "the passage carries the claim more weakly than the packet declares it";
     // ONE STEP CARRIES A CONCESSION AND THE OTHERS DO NOT, so the case witnesses
     // the rendering rather than a constant: an absence still renders `(none)`
     // beside it.
@@ -6830,7 +6830,7 @@ async function runSelfTest() {
     ok("#995: and never the stringified object the entry used to render as",
       conceded !== "" && !conceded.includes("[object Object]"));
     ok("#995: and the entry is rendered as a list entry rather than run together",
-      /^\s*[-*] .*the passage carries the ground more weakly/m.test(conceded), conceded.slice(0, 400));
+      /^\s*[-*] .*the passage carries the claim more weakly/m.test(conceded), conceded.slice(0, 400));
     // The Step that conceded nothing still renders the stated absence, so the
     // case above is bound to the entry and not to the field being present.
     const nothingConceded = readOrEmpty(join(wsBase, "entries", "pass-1", "join", "a1.concessions.md"));
@@ -6839,7 +6839,7 @@ async function runSelfTest() {
   }
 
   // A TERM CARRYING A DIGIT STILL YIELDS A DIGIT-FREE COMPARISON LINE. This is
-  // the case the first live drive earned: the live Draft's grounds are labelled
+  // the case the first live drive earned: the live Draft's claims are labelled
   // by the Strands they came from, so quoting the offending material into the
   // reason put a number in front of a reader that was not a line number. The
   // line refuses to carry a quote; the evidence holds it in full.
@@ -6848,22 +6848,22 @@ async function runSelfTest() {
   // ride `term-before-introduction`, whose row left the table with the rest of
   // the hygiene items; the rule it binds — a comparison line quotes nothing,
   // and the evidence holds the quoted material whole — is unchanged, so the
-  // case is retargeted rather than deleted. `grounds-unused` is the surviving
-  // mechanical row that carries evidence, and the fixture's ground names a
+  // case is retargeted rather than deleted. `claims-unused` is the surviving
+  // mechanical row that carries evidence, and the fixture's claim names a
   // Strand, which is exactly the case that put a non-line-number digit in
   // front of a reader on the first live drive.
   {
     const pd = join(root, "packets-digit"); mkdirSync(pd, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) {
-      // a2 declares a second ground no read ground rests on, and it carries a
+      // a2 declares a second claim no read claim rests on, and it carries a
       // digit in its own text.
       writePacket(pd, id, id === "a2"
-        ? { grounds: [GROUNDS.a2[0], "ground: the pinned survey at strand L97 settles the boundary"] }
+        ? { claims: [CLAIMS.a2[0], "claim: the pinned survey at strand L97 settles the boundary"] }
         : {});
     }
     const d = buildDraft(join(root, "theses", "digit"), { packetDir: pd });
     const r = driveToCompletedJoin(d, join(root, "ws-digit"), "digit");
-    ok("a run whose Packet declares a ground carrying a digit still completes", r.second.status === 0);
+    ok("a run whose Packet declares a claim carrying a digit still completes", r.second.status === 0);
     // EVERY comparison line, not one chosen line: the rule is a property of the
     // format, so asserting it over the whole run is what a chosen vehicle was
     // only ever standing in for.
@@ -6919,19 +6919,19 @@ async function runSelfTest() {
   {
     const pd = join(root, "packets-riding"); mkdirSync(pd, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) writePacket(pd, id,
-      id === "a2" ? { grounds: [GROUNDS.a2[0],
-        "ground: epsilon — a ground the prose never reaches for."] } : {});
+      id === "a2" ? { claims: [CLAIMS.a2[0],
+        "claim: epsilon — a claim the prose never reaches for."] } : {});
     // THE VEHICLE CHANGED AND THE RULE DID NOT (kogaki#1014). This case used to
     // ride `restates-earlier-step`, whose row left the table with the rest of
-    // the hygiene items. `grounds-unused` is the surviving row the table calls
+    // the hygiene items. `claims-unused` is the surviving row the table calls
     // best-effort AND mechanical, so it fails the same way with no judge to
-    // stub: a2's Packet declares a ground no read ground rests on.
+    // stub: a2's Packet declares a claim no read claim rests on.
     const d = buildDraft(join(root, "theses", "riding"), { packetDir: pd });
     const wsb = join(root, "ws-riding");
     const r = driveToCompletedJoin(d, wsb, "riding");
     ok("the run completes", r.second.status === 0);
     const L = linesOf(r.second.stdout);
-    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/grounds-unused")));
+    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/claims-unused")));
     ok("and no Step is sent to correction, because no PRESERVED item failed",
       /no Step is sent to correction/.test(r.second.stdout));
     const D = (...a) => selfRun(
@@ -6940,7 +6940,7 @@ async function runSelfTest() {
     ok("close is reachable with a best-effort fail outstanding", c.status === 0);
     const rev = readOrEmpty(join(root, "theses", "riding", "review.md"));
     ok("and the owner record carries the finding with its class",
-      /a2 \/ grounds-unused\*\* — fails \(best-effort\)/.test(rev));
+      /a2 \/ claims-unused\*\* — fails \(best-effort\)/.test(rev));
     // THE EVIDENCE IS WHERE THE QUOTED MATERIAL LIVES, and this is the other
     // half of the comparison line's no-numbers rule: the line refuses to carry a
     // quote, so the record is where a finding becomes actionable rather than
@@ -6950,14 +6950,14 @@ async function runSelfTest() {
 
     // A PRESERVED fail still withholds it, and the refusal says which kind.
     const short = join(root, "packets-riding-short"); mkdirSync(short, { recursive: true });
-    for (const id of ["a1", "a2", "a3"]) writePacket(short, id, id === "a1" ? { grounds: [GROUNDS.a1[0]] } : {});
+    for (const id of ["a1", "a2", "a3"]) writePacket(short, id, id === "a1" ? { claims: [CLAIMS.a1[0]] } : {});
     const d2 = buildDraft(join(root, "theses", "riding-short"), { packetDir: short });
     const wsb2 = join(root, "ws-riding-short");
     // The PRESERVED fail is the judge's, for the reason kogaki#996 gives at the
-    // sibling case above: removing the ground no longer fails the item by itself.
+    // sibling case above: removing the claim no longer fails the item by itself.
     driveToCompletedJoin(d2, wsb2, "ridingshort",
-      (o) => (o.step_id === "a1" && o.item === "grounds" && o.pair === 1
-        ? { verdict: "fails", reason: "the claim rests on no ground this Packet declares" }
+      (o) => (o.step_id === "a1" && o.item === "claims" && o.pair === 1
+        ? { verdict: "fails", reason: "the claim rests on no claim this Packet declares" }
         : null));
     const c2 = selfRun(
       [self, "close", "--draft", d2.path, "--workspace", wsb2]);
@@ -7024,7 +7024,7 @@ async function runSelfTest() {
     const code = readFileSync(self, "utf8");
     const prod = code.slice(0, code.indexOf("async function runSelfTest"));
     // THE PROPERTY IS RE-CUT RATHER THAN RELAXED (kogaki#1014). One row per
-    // Brief Step field means three item ids — `grounds`, `introduces`,
+    // Brief Step field means three item ids — `claims`, `introduces`,
     // `purpose` — are now spelled exactly like the Brief FIELDS they read, and
     // the runtime declares those fields because it renders them to the Blind
     // Reader. So the string occurring proves nothing about those three, and the
@@ -7039,7 +7039,7 @@ async function runSelfTest() {
       judgedNotFields.length > 0 && !judgedNotFields.some((id) => prod.includes(`"${id}"`)),
       judgedNotFields.filter((id) => prod.includes(`"${id}"`)).join(", "));
     // AND THE THREE THAT SHARE A FIELD'S SPELLING ARE NEVER COMPARED AGAINST AS
-    // ITEMS. A `item === "grounds"` anywhere in the runtime would be the table
+    // ITEMS. A `item === "claims"` anywhere in the runtime would be the table
     // bypass this case exists to catch, wearing a field name as cover.
     const asItem = judged.filter((id) => fieldNames.has(id))
       .filter((id) => new RegExp(`item(?:\\.id)?\\s*===\\s*"${id}"`).test(prod)
@@ -7059,7 +7059,7 @@ async function runSelfTest() {
     ok("and every threshold is an INPUT: no emitted line renders one",
       Object.keys(table.thresholds).filter((k) => k !== "note").length > 0
       && [...baseLines.values()].every((l) =>
-        !String(table.thresholds.claim_ground_containment).includes(".") || !l.includes("0.")));
+        !String(table.thresholds.outlined_claim_containment).includes(".") || !l.includes("0.")));
   }
 
   // AN ABSENT JOIN TEMPLATE IS A HOLE THE MODEL FILLS BY INVENTION, so the
@@ -7219,7 +7219,7 @@ async function runSelfTest() {
         `reader_state_after: the reader leaves ${s.id} able to say what it settled.`,
         "materials: L1",
         `rationale: ${s.id} sits here because the path put it here.`,
-        `ground (strand L1): the material supports what ${s.id} asserts.`, "```", ""]),
+        `claim (strand L1): the material supports what ${s.id} asserts.`, "```", ""]),
     ].join("\n");
     writeFileSync(join(cBrief, "brief.md"), briefText);
 
@@ -7275,7 +7275,7 @@ async function runSelfTest() {
         `purpose: the job ${id} does`,
         `reader_state_before: the reader arrives at ${id} holding what came before`,
         `reader_state_after: the reader leaves ${id} able to say what it settled`,
-        `ground the material supports what ${id} asserts, as the passage has it`,
+        `claim the material supports what ${id} asserts, as the passage has it`,
         "```",
       ].join("\n") + "\n");
       return f;
@@ -7359,9 +7359,9 @@ async function runSelfTest() {
         /^- purpose \| best-effort \| judged \| fails \|/.test(purpose)
         && purpose.includes("| reported only |"), purpose);
 
-      const mech = lineFor(readOrEmpty(join(cmpDir, "s1.md")), "grounds-unused");
+      const mech = lineFor(readOrEmpty(join(cmpDir, "s1.md")), "claims-unused");
       ok("#1097 AC2: a MECHANICAL line says it cost no model call",
-        /^- grounds-unused \| best-effort \| mechanical \|/.test(mech)
+        /^- claims-unused \| best-effort \| mechanical \|/.test(mech)
         && mech.includes("| decided without a model call |"), mech);
       ok("#1097 AC3: and says no Packet was rendered for it, naming where the decision is recorded",
         mech.includes("packet: none — no Packet was rendered")
@@ -7467,7 +7467,7 @@ async function runSelfTest() {
     ok("correct records the corrected Step through the realization lane", rB.status === 0);
     ok("and reports drift as a change share and a Packet overlap",
       /sentence\(s\) differ from the previous realization/.test(rB.stdout)
-      && /repeat a run of the Packet's ground or state wording/.test(rB.stdout));
+      && /repeat a run of the Packet's claim or state wording/.test(rB.stdout));
     ok("and says the drift is reported rather than gated",
       /reported, never gated/.test(rB.stdout));
     ok("the corrected prose is in the Draft and the previous realization is not",
@@ -7657,7 +7657,7 @@ async function runSelfTest() {
       // 2 deliberately: pass one's range for section 2 happens to still contain
       // its Steps after the corrections, so a case driven from it would pass on
       // the stale coordinates and witness nothing.
-      const s2span = spanOf(readOrEmpty(join(cmp2, "s2.md")), "- grounds");
+      const s2span = spanOf(readOrEmpty(join(cmp2, "s2.md")), "- claims");
       ok("#1102 PREMISE: the corrections moved the first Section's range between the passes",
         Boolean(p1sec1 && p2sec1) && String(p1sec1) !== String(p2sec1),
         `pass one ${p1sec1} pass two ${p2sec1}`);
@@ -7778,7 +7778,7 @@ async function runSelfTest() {
           + (rr.residue || []).filter((r) => !chosenJudged(r)).length;
         // This fixture's findings are all judged, so the equality is the
         // whole of what it can express here; the arm with a Harness-decided
-        // row is asserted on the #996 fixture, whose `grounds-unused` fail is
+        // row is asserted on the #996 fixture, whose `claims-unused` fail is
         // decided by the Harness by construction.
         ok("#1004/5: a Harness-decided line renders no Packet pointer, and only such a line does",
           none === harnessRows
@@ -8433,7 +8433,7 @@ async function runSelfTest() {
 
   // ---- kogaki#880, RESTATED AGAINST THE RECORD'S OWN FIELDS (kogaki#1018) ----
   // THE FIGURE'S ROUND TRIP: the blind reading of the block, the element-to-
-  // ground join, the caption against the declared reader state, and the seat a
+  // claim join, the caption against the declared reader state, and the seat a
   // figure fail routes to. Driven on its OWN Draft rather than by adding a
   // figure to the fixture above — every case above asserts a count or an absence
   // over that Draft, and a figure appearing in it would move those numbers for a
@@ -8451,19 +8451,19 @@ async function runSelfTest() {
     mkdirSync(fPacketDir, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) writePacket(fPacketDir, id);
 
-    // The record is an INSTANCE of the `axis` form. Each element's `ground` is
-    // the figure decision's ADDRESS over this Step's own grounds, 1-based — `g1`
-    // and `g2` are the two `GROUNDS.a1` lines. The binding itself is the figure
-    // record's to refuse; what `figure-element-ground` asks is whether each
+    // The record is an INSTANCE of the `axis` form. Each element's `claim` is
+    // the figure decision's ADDRESS over this Step's own claims, 1-based — `g1`
+    // and `g2` are the two `CLAIMS.a1` lines. The binding itself is the figure
+    // record's to refuse; what `figure-element-claim` asks is whether each
     // element's WORDING is carried by the line its address points at.
     const FIG_RECORD = {
       kind: "axis",
       elements: {
-        endpoint_a: { text: "the harness renders the reverse outline input", ground: "g1" },
+        endpoint_a: { text: "the harness renders the reverse outline input", claim: "g1" },
         endpoint_b: { text: "the reviewer never reads the packet that produced the prose",
-          ground: "g2" },
+          claim: "g2" },
         criterion: { text: "the reverse outline input is rendered before any outline is accepted",
-          ground: "g1" },
+          claim: "g1" },
       },
       relations: ["the two endpoints sit on the criterion"],
       emphasis: "endpoint_a",
@@ -8492,23 +8492,23 @@ async function runSelfTest() {
       new RegExp(`^\\s*${fdraft.figureRanges.a1[0] + fdraft.bodyOffset} \\| \`\`\`mermaid$`, "m").test(input));
 
     // AC1 — AND NO STRING THAT OCCURS ONLY IN THE RECORD FILE. The element→
-    // ground BINDING is that string: it is the whole of what the record adds
+    // claim BINDING is that string: it is the whole of what the record adds
     // over the rendering, and a reviewer shown it would name the elements the
-    // record names — which would make `figure-element-ground` a check of the
+    // record names — which would make `figure-element-claim` a check of the
     // record against itself.
     //
     // THE POSITION WORD IS DELIBERATELY NOT ASSERTED ABSENT, and saying so is
     // the point: `before`/`after` are the record's own field vocabulary and the
     // reader is now ASKED for it, so an absence case on them would assert the
     // opposite of the design. What the reader may not see is the BINDING.
-    ok("#880 AC1: and no element's ground binding reaches the Blind Reader",
-      !/ground: g\d/.test(input) && !/"ground"/.test(input));
+    ok("#880 AC1: and no element's claim binding reaches the Blind Reader",
+      !/claim: g\d/.test(input) && !/"claim"/.test(input));
     // THE RELATIONS ARE NOT AMONG THEM, and that is the renderer rather than an
     // oversight: every relation reaches the output as an edge label, so a
     // relation string is the ARTICLE'S and not the record's. What the record
     // has and the rendering does not is the JSON itself.
     ok("#880 AC1: nor does the record's own JSON reach it",
-      !input.includes('"ground"') && !input.includes('"elements"')
+      !input.includes('"claim"') && !input.includes('"elements"')
       && !input.includes('"relations"') && !input.includes('"emphasis"'));
 
     // THE ASK IS CONDITIONAL IN BOTH DIRECTIONS (kogaki#1018). A figure Step is
@@ -8623,9 +8623,9 @@ async function runSelfTest() {
 
     // The mechanical row costs no model call and the judged ones do — the same
     // property the prose half asserts, over the figure's own rows.
-    ok("#880: the element-to-ground row is decided by the Harness alone",
-      (frec.mechanical || []).some((m) => m.step_id === "a1" && m.item === "figure-element-ground")
-      && !(frec.model_calls || []).some((m) => m.item === "figure-element-ground"));
+    ok("#880: the element-to-claim row is decided by the Harness alone",
+      (frec.mechanical || []).some((m) => m.step_id === "a1" && m.item === "figure-element-claim")
+      && !(frec.model_calls || []).some((m) => m.item === "figure-element-claim"));
     ok("#880: and every judged figure row renders one join Packet",
       ITEMS_ALL.items.filter((i) => i.figure_only && i.mode === "judged")
         .every((i) => (frec.model_calls || []).some((m) => m.step_id === "a1" && m.item === i.id)));
@@ -8641,8 +8641,8 @@ async function runSelfTest() {
     ok("#1018: and its reverse side is the reader's own figure block, not the passage's outline",
       fpText.includes("the criterion they sit on"));
 
-    ok("#880: the element-to-ground row holds when every element is worded from its ground",
-      (figRows.find((r) => r.item === "figure-element-ground") || {}).verdict === "holds");
+    ok("#880: the element-to-claim row holds when every element is worded from its claim",
+      (figRows.find((r) => r.item === "figure-element-claim") || {}).verdict === "holds");
 
     // THE EVIDENCE POINTER FOLLOWS THE ROW'S OWN SIDE (PR #1024 round 1). A
     // figure finding's reverse side is the FIGURE's Reverse Outline, and the
@@ -8687,7 +8687,7 @@ async function runSelfTest() {
   // drives above turn on which preserved item fails, and adding a second
   // failing seat to one of them would move cases that measure something else.
   // This one is built so that f1 owes BOTH seats — a mechanical
-  // `figure-element-ground` fail from a record worded off its bound ground, and
+  // `figure-element-claim` fail from a record worded off its bound claim, and
   // a `reader-state-after` fail supplied as a verdict — which is the form the
   // report could not see.
   {
@@ -8739,9 +8739,9 @@ async function runSelfTest() {
       "rationale: f1 sits here because the path put it here.",
       "figure: it lets the reader hold both harbours against the one tide that separates them",
       "figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3",
-      "ground (strand L1): the first harbour keeps its own hours.",
-      "ground (strand L1): the second harbour keeps different hours.",
-      "ground (strand L1): the tide is the one measure both harbours are read against.",
+      "claim (strand L1): the first harbour keeps its own hours.",
+      "claim (strand L1): the second harbour keeps different hours.",
+      "claim (strand L1): the tide is the one measure both harbours are read against.",
       "```", "",
       "```step", "step_id: f2", "move: plain_move",
       "purpose: the job f2 does.",
@@ -8749,7 +8749,7 @@ async function runSelfTest() {
       "reader_state_after: the reader leaves f2 able to say who did the measuring.",
       "materials: L1",
       "rationale: f2 sits here because the path put it here.",
-      "ground (strand L1): a table records what somebody measured on days somebody chose.",
+      "claim (strand L1): a table records what somebody measured on days somebody chose.",
       "```", "",
     ].join("\n"));
 
@@ -8766,9 +8766,9 @@ async function runSelfTest() {
     const S_RECORD = {
       kind: "axis",
       elements: {
-        endpoint_a: { text: "the first harbour keeps its own hours", ground: "g1" },
-        endpoint_b: { text: "a table records what somebody measured on chosen days", ground: "g2" },
-        criterion: { text: "the tide both harbours are read against", ground: "g3" },
+        endpoint_a: { text: "the first harbour keeps its own hours", claim: "g1" },
+        endpoint_b: { text: "a table records what somebody measured on chosen days", claim: "g2" },
+        criterion: { text: "the tide both harbours are read against", claim: "g3" },
       },
       relations: ["the two harbours sit on the tide"],
       caption: "The reader knows what separates the two harbours.",
@@ -8817,8 +8817,8 @@ async function runSelfTest() {
       iFig !== -1 && !/passage below/.test(sInput) && !/below\.\s*$/m.test(sInput.slice(iFig, iFig + 400)),
       sInput.slice(iFig, iFig + 260).replace(/\n/g, " / "));
     ok("#945: while leaking nothing the record alone holds",
-      !/"ground"/.test(sInput) && !/"elements"/.test(sInput)
-      && !/"position"/.test(sInput) && !/ground: g\d/.test(sInput));
+      !/"claim"/.test(sInput) && !/"elements"/.test(sInput)
+      && !/"position"/.test(sInput) && !/claim: g\d/.test(sInput));
 
     // The control: the same record placed BEFORE renders above the passage, so
     // the case above is bound to the placement and not to a constant.
@@ -8859,29 +8859,29 @@ async function runSelfTest() {
   }
 
   // ---- kogaki#996 -------------------------------------------------------
-  // A STEP WHOSE PROSE FAITHFULLY REALIZES A TWO-GROUND PACKET, ASSERTING THAT
-  // `grounds` HOLDS. `GROUNDS.a1` is the two-ground Packet; the claims below
+  // A STEP WHOSE PROSE FAITHFULLY REALIZES A TWO-CLAIM PACKET, ASSERTING THAT
+  // `claims` HOLDS. `CLAIMS.a1` is the two-claim Packet; the claims below
   // are faithful realizations of its two lines in wholly different vocabulary,
-  // so `pairClaims` assigns neither of them a ground.
+  // so `pairClaims` assigns neither of them a claim.
   //
   // UNDER THE OLD FALLBACK THIS STEP FAILED BY CONSTRUCTION: an unpaired claim
-  // was failed by the Harness as `widened` with no model call, so `grounds`
+  // was failed by the Harness as `widened` with no model call, so `claims`
   // failed however faithful the prose was. That is what made the item's verdict
   // evidence about the matcher rather than about the Draft. Driven on its own
   // Draft — the cases above assert counts over the shared fixture, and a record
   // whose claims pair with nothing would move them.
   {
-    const gdir = join(root, "grounds996");
+    const gdir = join(root, "claims996");
     const gPacketDir = join(gdir, "packets");
     mkdirSync(gPacketDir, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) writePacket(gPacketDir, id);
     const gdraft = buildDraft(gdir, { packetDir: gPacketDir });
     const GWS_BASE = join(root, "gws996");
-    const GWS = join(GWS_BASE, "grounds996");
+    const GWS = join(GWS_BASE, "claims996");
     const gdrive = (...a) => selfRun(
       [self, a[0], "--draft", gdraft.path, "--workspace", GWS_BASE, ...a.slice(1)]);
 
-    // Neither claim shares enough content words with either ground to reach the
+    // Neither claim shares enough content words with either claim to reach the
     // 0.34 containment floor, and each is a faithful reading of one of them.
     const UNPAIRED = {
       a1: ["no submission is admitted until the tool has already drawn up its blind questionnaire",
@@ -8889,13 +8889,13 @@ async function runSelfTest() {
       a2: ["a sequence the machinery owns cannot be mistaken by whoever sits at it"],
       a3: ["leftover text is sorted by the person in charge and never by the program"],
     };
-    // THE READ GROUNDS ARE THE UNPAIRED ONES, and nothing else about the outline
+    // THE READ CLAIMS ARE THE UNPAIRED ONES, and nothing else about the outline
     // is special: `outlineFor` supplies the fields every Step owes so this
     // fixture says only what it is for.
     gdrive("open");
     for (const id of ["a1", "a2", "a3"]) {
       const f = join(gdir, `rec-${id}.md`);
-      writeFileSync(f, renderOutline({ ...outlineFor(id), grounds: UNPAIRED[id].slice() }));
+      writeFileSync(f, renderOutline({ ...outlineFor(id), claims: UNPAIRED[id].slice() }));
       gdrive("outline", "--step", id, "--file", f);
     }
     const gled = join(gdir, "led.json");
@@ -8907,7 +8907,7 @@ async function runSelfTest() {
     gdrive("read", "--claim", "--file", gclm);
 
     const gc = gdrive("compare");
-    ok("#996: the comparison runs over a Draft whose claims pair with no ground", gc.status === 0,
+    ok("#996: the comparison runs over a Draft whose claims pair with no claim", gc.status === 0,
       `status ${gc.status}: ${(gc.stderr || "").split("\n")[0]}`);
     const grec = JSON.parse(readOrEmpty(join(GWS, "pass-1", "join.json")) || "{}");
 
@@ -8917,35 +8917,36 @@ async function runSelfTest() {
     // THE PREMISE IS ASSERTED, NOT ONLY STATED (PR #1003 round 1). Every
     // assertion below passes whether or not the claims pair, so without this the
     // case would stay green while silently ceasing to exercise the unpaired path
-    // it exists for. `grounds-unused` reads the same assignment from the other
-    // side: if neither a1 claim reaches the floor, BOTH of a1's grounds are
+    // it exists for. `claims-unused` reads the same assignment from the other
+    // side: if neither a1 claim reaches the floor, BOTH of a1's claims are
     // carried by nothing and the item fails naming them.
-    const gUnused = (grec.results || []).find((r) => r.step_id === "a1" && r.item === "grounds-unused");
-    ok("#996 PREMISE: neither claim on a1 pairs with a ground, so both grounds go unused",
+    const gUnused = (grec.results || []).find((r) => r.step_id === "a1" && r.item === "claims-unused");
+    ok("#996 PREMISE: neither claim on a1 pairs with a claim, so both claims go unused",
       !!gUnused && gUnused.verdict === "fails"
-      && GROUNDS.a1.every((g) => (gUnused.evidence || []).includes(g)),
+      && CLAIMS.a1.every((g) => (gUnused.evidence || []).includes(g)),
       gUnused ? `verdict ${gUnused.verdict}, evidence ${(gUnused.evidence || []).length}` : "no row");
 
-    ok("#996: no `grounds` pair is decided by the Harness, however it pairs",
-      !(grec.mechanical || []).some((m) => m.item === "grounds"));
+    ok("#996: no `claims` pair is decided by the Harness, however it pairs",
+      !(grec.mechanical || []).some((m) => m.item === "claims"));
     // AND EVERY CLAIM IS ASKED ABOUT. The count is the outlined claims', not
     // the paired ones' — which is what the old branch made unequal.
-    ok("#996: every outlined claim on the two-ground Step renders one join Packet",
-      (grec.model_calls || []).filter((m) => m.step_id === "a1" && m.item === "grounds").length
+    ok("#996: every outlined claim on the two-claim Step renders one join Packet",
+      (grec.model_calls || []).filter((m) => m.step_id === "a1" && m.item === "claims").length
         === UNPAIRED.a1.length);
 
-    // THE JUDGE SEES THE WHOLE GROUND LIST. Shown one ground it would be asked
+    // THE JUDGE SEES THE WHOLE CLAIM LIST. Shown one claim it would be asked
     // a narrower question than the item states, and an unpaired claim would
     // have no declared side to be shown at all.
-    const gowed = (grec.owed || []).find((o) => o.step_id === "a1" && o.item === "grounds");
+    const gowed = (grec.owed || []).find((o) => o.step_id === "a1" && o.item === "claims");
     const gpk = gowed ? readOrEmpty(gowed.packet) : "";
-    ok("#996: and its declared side carries EVERY ground the Step declares",
-      GROUNDS.a1.every((g) => gpk.includes(g)), `packet ${gowed ? gowed.packet : "(none)"}`);
-    // THE QUANTIFIER IS THE UNION, NOT EACH GROUND ALONE (PR #1003 successor). A
-    // claim resting on two grounds at once goes beyond either of them singly,
-    // and "beyond ALL of them" read literally instructed the judge to fail it.
-    ok("#996: while the question asks whether the claim goes beyond the grounds taken together",
-      /goes beyond what those grounds, taken together, license/.test(gpk)
+    ok("#996: and its declared side carries EVERY claim the Step declares",
+      CLAIMS.a1.every((g) => gpk.includes(g)), `packet ${gowed ? gowed.packet : "(none)"}`);
+    // THE QUANTIFIER IS THE UNION, NOT EACH CLAIM ALONE (PR #1003 successor). An
+    // outlined claim resting on two declared claims at once goes beyond either of
+    // them singly, and "beyond ALL of them" read literally instructed the judge
+    // to fail it.
+    ok("#996: while the question asks whether the outlined claim goes beyond the declared claims taken together",
+      /goes beyond what those declared claims, taken together, license/.test(gpk)
       && !/goes beyond ALL of them/.test(gpk));
 
     // THE ACCEPTANCE ITSELF: with the prose judged faithful, the item HOLDS.
@@ -8954,7 +8955,7 @@ async function runSelfTest() {
       verdicts: [...(grec.owed || []), ...((grec.sections || {}).owed || [])].map((o) => ({
         step_id: o.step_id, item: o.item,
         ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
-        verdict: "holds", reason: "the claim rests within the grounds the Step declares",
+        verdict: "holds", reason: "the claim rests within the claims the Step declares",
         model: JUDGE_MODEL,
       })),
     }, null, 2) + "\n");
@@ -8962,9 +8963,9 @@ async function runSelfTest() {
     ok("#996: the filled join completes", gc2.status === 0,
       `status ${gc2.status}: ${(gc2.stderr || "").split("\n")[0]}`);
     const grec2 = JSON.parse(readOrEmpty(join(GWS, "pass-1", "join.json")) || "{}");
-    const grow = (grec2.results || []).find((r) => r.step_id === "a1" && r.item === "grounds");
-    ok("#996 ACCEPTANCE: `grounds` HOLDS on a Step that faithfully realizes a two-ground Packet",
-      !!grow && grow.verdict === "holds", grow ? `verdict ${grow.verdict}` : "no grounds row");
+    const grow = (grec2.results || []).find((r) => r.step_id === "a1" && r.item === "claims");
+    ok("#996 ACCEPTANCE: `claims` HOLDS on a Step that faithfully realizes a two-claim Packet",
+      !!grow && grow.verdict === "holds", grow ? `verdict ${grow.verdict}` : "no claims row");
     ok("#996: and every one of its pairs was decided by the model",
       !!grow && (grow.pairs || []).every((x) => x.decided_by === "model"));
 
@@ -8977,7 +8978,7 @@ async function runSelfTest() {
         .every((i) => i.unpaired === "judge" || i.unpaired === "fail"));
 
     // THE OWNER RECORD'S "NONE" ARM, EXPRESSED (PR #1004 successor, #1006). This
-    // fixture's `a1/grounds-unused` fail is Harness-decided by construction —
+    // fixture's `a1/claims-unused` fail is Harness-decided by construction —
     // the PREMISE case above depends on it — so its finding line must render
     // no Packet pointer and point at the join record instead, while every
     // pointer the record does compose resolves. `close` is reachable here: the
@@ -8987,7 +8988,7 @@ async function runSelfTest() {
       const grv = readOrEmpty(join(gdir, "review.md"));
       ok("#1006: close writes the owner record over a run whose one fail the Harness decided",
         gcl.status === 0 && grv.length > 0, `status ${gcl.status}: ${(gcl.stderr || "").split("\n")[0]}`);
-      const gline = grv.slice(grv.indexOf("**a1 / grounds-unused**"));
+      const gline = grv.slice(grv.indexOf("**a1 / claims-unused**"));
       const gblock = gline.slice(0, gline.indexOf("\n- **") > 0 ? gline.indexOf("\n- **") : undefined);
       ok("#1006: a Harness-decided finding renders no Packet pointer and names the join record",
         /the pair the judge saw: none — [^\n]*pass-1\/join\.json/.test(gblock)

@@ -36,7 +36,7 @@
     "anyway: the model was asked whether the passage re-introduced a term the",
     "reader already knew, over a list of no terms, and returned `fails` with a",
     "reason stating the opposite -- that the passage introduces both terms for",
-    "the first time. `grounds` and `introduces` already carry such an arm and",
+    "the first time. `claims` and `introduces` already carry such an arm and",
     "reach the same runtime branch, so this is one table entry and no second",
     "mechanism.",
     "",
@@ -116,7 +116,7 @@
     "removed.",
     "",
     "NOW COMPARED, and enumerated so a reader can tell a boundary from a hole:",
-    "the figure's elements, its caption, its element-to-ground binding, its reading",
+    "the figure's elements, its caption, its element-to-claim binding, its reading",
     "against the prose, and its position -- five rows, three preserved and two best-effort, on the same three verdicts and the same consequence rule."
   ],
   "version": "1",
@@ -144,7 +144,7 @@
       "  - amending src/packet-template.md is one edit here and never a hunt",
       "    through the comparison for a string that used to match;",
       "  - the runtime carries no literal that HAPPENS to equal a field name",
-      "    somewhere else. `grounds`, `purpose` and `reader_state_after` are",
+      "    somewhere else. `claims`, `purpose` and `reader_state_after` are",
       "    each a Packet label AND an item id AND (for two of them) an outlined",
       "    record field, and a runtime spelling them out cannot be told apart",
       "    from one restating the table or the schema. A synonym in a join key",
@@ -154,10 +154,10 @@
       "as a WORD SEQUENCE so a rewrap — which changes nothing — does not silently",
       "hand the instruction back as the block's value."
     ],
-    "grounds": {
-      "kind": "ground_lines",
-      "prefix": "ground:",
-      "bullet_label": "grounds"
+    "claims": {
+      "kind": "claim_lines",
+      "prefix": "claim:",
+      "bullet_label": "claims"
     },
     "reader_state_after": {
       "kind": "bullet",
@@ -239,7 +239,7 @@
       "the table.",
       "",
       "`drift_blocks` are the Packet blocks the drift measure reports",
-      "verbatim overlap against -- the ground and state lines. Same",
+      "verbatim overlap against -- the claim and state lines. Same",
       "arrangement, same reason.",
       "",
       "THE FIGURE ROWS ARE BACK IN THE TABLE (kogaki#1018) AND STILL ADD NO ARM",
@@ -247,7 +247,7 @@
       "leaving, and they add none returning: the second pass's arms are the",
       "corrected Steps' own items, the successor's continuity item and every",
       "mechanical item, and a figure row is reached by whichever of those its",
-      "Step is in. `figure-element-ground` is mechanical, so it is in the third",
+      "Step is in. `figure-element-claim` is mechanical, so it is in the third",
       "arm over the whole Draft; the judged figure rows are in the first on a",
       "corrected Step exactly as that Step's other rows are. NO FIGURE ROW IS A",
       "SUCCESSOR ITEM: a correction moves the prose the NEXT Step continues",
@@ -257,7 +257,7 @@
       "already-knows"
     ],
     "drift_blocks": [
-      "grounds",
+      "claims",
       "reader_state_after"
     ]
   },
@@ -267,8 +267,8 @@
       "carries one — a comparison line renders line numbers and nothing else",
       "numeric, so a reader cannot mistake a tuning constant for evidence."
     ],
-    "claim_ground_containment": 0.34,
-    "figure_element_ground_containment": 0.34,
+    "outlined_claim_containment": 0.34,
+    "figure_element_claim_containment": 0.34,
     "verbatim_overlap_words": 8
   },
   "sections": {
@@ -424,18 +424,18 @@
   },
   "items": [
     {
-      "id": "grounds",
+      "id": "claims",
       "class": "preserved",
       "mode": "paired",
-      "declared_block": "grounds",
-      "field": "grounds",
+      "declared_block": "claims",
+      "field": "claims",
       "pair_text_key": "text",
       "unpaired": "judge",
       "when_declared_absent": {
         "verdict": "holds",
-        "sentence": "this Step declares no grounds, so there is no declared ground for a claim to go beyond; what its claims assert is judged by the Step's other items, and `grounds-unused` names the absence"
+        "sentence": "this Step declares no claims, so there is nothing declared for an outlined claim to go beyond; what the passage asserts is judged by the Step's other items, and `claims-unused` names the absence"
       },
-      "question": "Does this outlined claim assert no more than the grounds this Step declares? Every declared ground is listed above; the claim need not correspond to any one of them in wording, and a claim may rest on several of them at once. Answer `fails` if the claim goes beyond what those grounds, taken together, license — in scope, in certainty, or in subject."
+      "question": "Does this outlined claim assert no more than the claims this Step declares? Every declared claim is listed above; the outlined claim need not correspond to any one of them in wording, and it may rest on several of them at once. Answer `fails` if it goes beyond what those declared claims, taken together, license — in scope, in certainty, or in subject."
     },
     {
       "id": "reader-state-before",
@@ -469,9 +469,9 @@
       "id": "concessions",
       "class": "preserved",
       "mode": "judged",
-      "declared_block": "grounds",
+      "declared_block": "claims",
       "field": "concession",
-      "question": "Is any ground carried more weakly in the prose than the Packet declares it, with no concession outlined for it? Answer `fails` if a ground was softened silently."
+      "question": "Is any claim carried more weakly in the prose than the Packet declares it, with no concession outlined for it? Answer `fails` if a claim was softened silently."
     },
     {
       "id": "purpose",
@@ -482,11 +482,11 @@
       "question": "Do the declared purpose and the outlined one name the same job for this Step? Answer `fails` if the passage is doing a different job."
     },
     {
-      "id": "grounds-unused",
+      "id": "claims-unused",
       "class": "best-effort",
       "mode": "mechanical",
-      "declared_block": "grounds",
-      "field": "grounds"
+      "declared_block": "claims",
+      "field": "claims"
     },
     {
       "id": "already-knows",
@@ -532,14 +532,14 @@
       "question": "The declared side carries the record's caption and the state the Step says its reader is left in. Does what the reader holds after looking at the figure agree with both? Answer `fails` if it agrees with neither, or if it agrees with the caption while the caption and the Step's state pull apart."
     },
     {
-      "id": "figure-element-ground",
+      "id": "figure-element-claim",
       "class": "preserved",
       "mode": "mechanical",
       "figure_only": true,
       "declared_source": "figure record",
       "record_field": "elements",
       "also_declared_blocks": [
-        "grounds"
+        "claims"
       ]
     },
     {

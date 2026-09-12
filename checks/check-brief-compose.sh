@@ -39,7 +39,7 @@ import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock,
-         figureRefusal, figureGroundRefusal, resolveFigureForms, visualFormOf,
+         figureRefusal, figureClaimRefusal, resolveFigureForms, visualFormOf,
          figureClause, figureSteps, renderFigureRoles, parseFigureRoles, figureKinds } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
 import { NO_HEADLINE, NO_SHARD_NAME } from "./src/terrain.mjs";
@@ -161,7 +161,7 @@ const JUDGE_STUB = [
   'const at = prompt.indexOf(MARKER);',
   'if (at < 0) { process.stderr.write("no input marker in the prompt\\n"); process.exit(3); }',
   'const input = JSON.parse(prompt.slice(at + MARKER.length));',
-  'const AREAS = ["grounds_test", "entailment", "prohibitions", "semantic_economy", "arc_integrity", "evaluation_levels"];',
+  'const AREAS = ["rationale_stands", "entailment", "prohibitions", "semantic_economy", "arc_integrity", "evaluation_levels"];',
   'const MOVES = ["narrow_unbounded_question", "instantiate_abstract_mechanism_in_concrete_case"];',
   'let record;',
   'if (input.state === "compose_path") {',
@@ -177,7 +177,7 @@ const JUDGE_STUB = [
   '      : "the reader has seen the claim discriminate a real case",',
   '    depends_on: i === 0 ? [] : ["x" + i],',
   '    rationale: "this step sits here because the state it needs is the one the step before it leaves",',
-  '    grounds: [{ type: "strand", strand: m, proposition: "the strand " + m + " supports exactly this claim at this point" }],',
+  '    claims: [{ type: "strand", strand: m, proposition: "the strand " + m + " supports exactly this claim at this point" }],',
   '  }, i === 0 ? { opens_section: "The claim, in working form" } : {}));',
   '  const mk = (id, exp, order) => {',
   '    const steps = stepsFor(order);',
@@ -189,7 +189,7 @@ const JUDGE_STUB = [
   '      opening_question: id + ": why did the same repair land twice?",',
   '      steps: steps,',
   '      reasoning: {',
-  '        step_validity: id + ": each step\'s grounds were traced to the strand they name",',
+  '        step_validity: id + ": each step\'s claims were traced to the strand they name",',
   '        transition_continuity: id + ": each after-state is the next step\'s before-state",',
   '        thesis_closure: id + ": the final step establishes the adopted claim",',
   '      },',
@@ -295,8 +295,8 @@ for (const id of ["state-claim-in-working-form", "worked-example", "generalize-f
 // adoption seat's figure half can be exercised against this library. The three
 // above deliberately carry none — a figure on any of them is the formless case.
 // A TWO-ROLE KIND, and the count is load-bearing since kogaki#1108: a Step
-// carries one ground per Strand and every role of the form binds to one of
-// this Step's grounds, so an N-role form costs N Strands. The Brief this
+// carries one claim per Strand and every role of the form binds to one of
+// this Step's claims, so an N-role form costs N Strands. The Brief this
 // library is exercised against closes over two, which is what selects `chain`
 // here. See the note at `figStepOf` in (x).
 writeFileSync(join(MOVES, "chain-form-move.md"),
@@ -363,7 +363,7 @@ const step1 = {
   reader_state_after: "the reader can state the claim and its cost",
   depends_on: [],
   rationale: "the settled material states the claim directly, so the article opens on it",
-  grounds: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim in its own words" }],
+  claims: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim in its own words" }],
 };
 const step2 = {
   step_id: "s2", move: "worked-example", materials: ["L1"],
@@ -372,15 +372,15 @@ const step2 = {
   reader_state_after: "the reader has seen the claim discriminate a real case",
   depends_on: ["s1"],
   rationale: "the bravo material carries the concrete case, and the case only reads after the claim is stated",
-  grounds: [
-    // A ground is one claim derived from a Strand (kogaki#1095). This slot
-    // carried a `step_effect` ground; what it was standing for — that s1 left
+  claims: [
+    // A claim is one claim derived from a Strand (kogaki#1095). This slot
+    // carried a `step_effect` claim; what it was standing for — that s1 left
     // the claim stated — is `reader_state_before`'s and the ledger's, and
     // composition now refuses it here.
     //
     // AND IT CARRIES EXACTLY ONE (kogaki#1108). It carried two, both on L1 —
-    // which is the drift the one-ground-per-Strand rule removes, and this
-    // fixture was one of the places it had already reached. A ground is the ONE
+    // which is the drift the one-claim-per-Strand rule removes, and this
+    // fixture was one of the places it had already reached. A claim is the ONE
     // proposition this Step asserts on behalf of one Strand; the second was the
     // same claim said again at a different grain.
     { type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case the claim turned on" },
@@ -395,7 +395,7 @@ try {
   ranCase("a");
   if (validateSteps([step1, step2]).error) fails.push(`(a) a conforming path was refused: ${validateSteps([step1, step2]).error}`);
   const drop = (s, k) => { const c = JSON.parse(JSON.stringify(s)); delete c[k]; return c; };
-  for (const k of ["step_id", "materials", "purpose", "reader_state_before", "reader_state_after", "depends_on", "rationale", "grounds"]) {
+  for (const k of ["step_id", "materials", "purpose", "reader_state_before", "reader_state_after", "depends_on", "rationale", "claims"]) {
     const r = validateSteps([drop(step1, k)]);
     if (!r.error || !r.error.includes(k)) fails.push(`(a) dropping ${k} was not refused naming the field`);
   }
@@ -404,9 +404,9 @@ try {
   if (!rE.error || !/entailment_reasoning/.test(rE.error)) fails.push("(a) entailed:true with no reasoning was not refused — entailment is judged, never silently trusted (§4.4)");
   const badDep = validateSteps([{ ...step1, depends_on: ["s9"] }]);
   if (!badDep.error || !/EARLIER/.test(badDep.error)) fails.push("(a) a depends_on naming a non-earlier step was accepted");
-  const badGround = validateSteps([{ ...step1, grounds: [{ type: "vibes", proposition: "x" }] }]);
-  if (!badGround.error || !/closed/.test(badGround.error)) fails.push("(a) a ground type outside §4.4's closed list was accepted");
-  // A GROUND IS ONE CLAIM DERIVED FROM A STRAND (kogaki#1095). The two retired
+  const badClaim = validateSteps([{ ...step1, claims: [{ type: "vibes", proposition: "x" }] }]);
+  if (!badClaim.error || !/closed/.test(badClaim.error)) fails.push("(a) a claim type outside §4.4's closed list was accepted");
+  // A CLAIM IS ONE CLAIM DERIVED FROM A STRAND (kogaki#1095). The two retired
   // types are asserted BY NAME and separately from the closed-set case above:
   // a Brief written under the old grammar is the caller this arm exists for,
   // and the refusal owes it WHERE the content it was carrying now belongs.
@@ -417,11 +417,11 @@ try {
     ["step_effect", { step: "s1" }, /reader_state_before/],
     ["reader_assumption", {}, /Reader start/],
   ]) {
-    const r = validateSteps([step1, { ...step2, grounds: [{ type, proposition: "p", ...extra }] }]);
+    const r = validateSteps([step1, { ...step2, claims: [{ type, proposition: "p", ...extra }] }]);
     if (!r.error) {
-      fails.push(`(a) a ${type} ground was ACCEPTED — a ground is one claim derived from a Strand (kogaki#1095), and this file is the seat that makes the other kinds unwritable`);
+      fails.push(`(a) a ${type} claim was ACCEPTED — a claim is one claim derived from a Strand (kogaki#1095), and this file is the seat that makes the other kinds unwritable`);
     } else if (!r.error.includes(type) || !where.test(r.error)) {
-      fails.push(`(a) a ${type} ground was refused without naming the type and where its content now belongs: ${r.error}`);
+      fails.push(`(a) a ${type} claim was refused without naming the type and where its content now belongs: ${r.error}`);
     }
   }
   // THE REFUSAL IS THE VALIDATOR'S, NOT A DOCUMENT'S (kogaki#1095 acceptance 6).
@@ -434,7 +434,7 @@ try {
   // reaches — and the whole point of moving the type set into the validator is
   // that deleting the prose changes nothing.
   {
-    const cell = mkdtempSync(join(tmpdir(), "kogaki-ground-removal-"));
+    const cell = mkdtempSync(join(tmpdir(), "kogaki-claim-removal-"));
     try {
       mkdirSync(join(cell, "src"));
       // `step-schema.json` JOINS THE CELL (kogaki#1108) and that is not a
@@ -452,29 +452,29 @@ try {
         if (existsSync(join(cell, doc))) fails.push(`(a) the removal cell carries ${doc} — the test would prove nothing`);
       }
       const alone = await import(`file://${join(cell, "src", "compose.mjs")}`);
-      const r = alone.validateSteps([step1, { ...step2, grounds: [{ type: "step_effect", step: "s1", proposition: "p" }] }]);
+      const r = alone.validateSteps([step1, { ...step2, claims: [{ type: "step_effect", step: "s1", proposition: "p" }] }]);
       // BOUND TO THE RETIRED-TYPE MESSAGE, not to the type NAME: the closed-set
       // refusal quotes the offending type too, so `includes("step_effect")`
       // goes green against the wrong arm — the proxy this case's own comment
       // warns about, found by driving the arm out and watching nothing fire.
       if (!r.error || !r.error.includes("step_effect") || !/reader_state_before/.test(r.error)) {
-        fails.push(`(a) with the brief skill and the pipeline spec absent, a step_effect ground was not refused by name with where its content now belongs — the refusal is a document's rather than the validator's: ${r.error || "ACCEPTED"}`);
+        fails.push(`(a) with the brief skill and the pipeline spec absent, a step_effect claim was not refused by name with where its content now belongs — the refusal is a document's rather than the validator's: ${r.error || "ACCEPTED"}`);
       }
       // ITEM 6'S REFUSAL STANDS IN THE CELL TOO (kogaki#1108 acceptance 8).
-      // The one-ground-per-Strand rule is the ground definition's mechanical
+      // The one-claim-per-Strand rule is the claim definition's mechanical
       // half, and the Issue requires it to survive the removal of both
       // documents — so it is driven HERE rather than only in (a) above, where
       // the whole repository is present and a prose carrier could not be told
       // apart from the validator.
       {
         const twice = alone.validateSteps([step1, { ...step2,
-          grounds: [{ type: "strand", proposition: "first", strand: "L2" },
+          claims: [{ type: "strand", proposition: "first", strand: "L2" },
                     { type: "strand", proposition: "second", strand: "L2" }] }]);
         if (!twice.error || !/L2/.test(twice.error) || !/one_per_strand|ONE proposition/.test(twice.error)) {
-          fails.push(`(a) with the brief skill and the pipeline spec absent, two grounds naming one Strand were not refused naming that Strand — the one-per-Strand rule is a document's rather than the validator's: ${twice.error || "ACCEPTED"}`);
+          fails.push(`(a) with the brief skill and the pipeline spec absent, two claims naming one Strand were not refused naming that Strand — the one-per-Strand rule is a document's rather than the validator's: ${twice.error || "ACCEPTED"}`);
         }
         if (twice.error && !twice.error.includes(step2.step_id)) {
-          fails.push(`(a) the one-ground-per-Strand refusal does not name the Step: ${twice.error}`);
+          fails.push(`(a) the one-claim-per-Strand refusal does not name the Step: ${twice.error}`);
         }
       }
       const ok = alone.validateSteps([step1, step2]);
@@ -483,14 +483,14 @@ try {
       rmSync(cell, { recursive: true, force: true });
     }
   }
-  // AND THE SERIALIZATION CARRIES ONE FORM (kogaki#1095): `ground (strand
+  // AND THE SERIALIZATION CARRIES ONE FORM (kogaki#1095): `claim (strand
   // L<n>): <proposition>`, which is what `src/draft.mjs material --strand` and
   // the figure `g<n>` addressing read. Asserted at the writer rather than
   // inferred from a round trip, because the writer is the half this issue moved.
   {
-    const line = renderStep(step1).split("\n").filter((l) => l.startsWith("ground "));
-    if (line.length !== 1 || line[0] !== "ground (strand L2): the alpha lesson states the claim in its own words") {
-      fails.push(`(a) the ground line is not serialized as \`ground (strand L<n>): <proposition>\`: ${JSON.stringify(line)}`);
+    const line = renderStep(step1).split("\n").filter((l) => l.startsWith("claim "));
+    if (line.length !== 1 || line[0] !== "claim (strand L2): the alpha lesson states the claim in its own words") {
+      fails.push(`(a) the claim line is not serialized as \`claim (strand L<n>): <proposition>\`: ${JSON.stringify(line)}`);
     }
   }
   // move is REQUIRED on every Step — §4.1 v18 (kogaki#642), which supersedes
@@ -620,7 +620,7 @@ try {
     opening_question: `${id}: why did the same fix land twice?`,
     review: mkReview(),
     reasoning: {
-      step_validity: `${id}: each step's grounds were traced`,
+      step_validity: `${id}: each step's claims were traced`,
       transition_continuity: `${id}: each after-state feeds the next before-state`,
       thesis_closure: `${id}: the claim is established by the final step`,
     },
@@ -629,9 +629,9 @@ try {
   });
   const candA = mkCand("cand-1", "claim first, then the case", [step1, step2]);
   const candB = mkCand("cand-2", "the case first, claim emerging from it", [
-    { ...step1, step_id: "t1", materials: ["L1"], grounds: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" }] },
+    { ...step1, step_id: "t1", materials: ["L1"], claims: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" }] },
     { ...step2, step_id: "t2", move: "generalize-from-the-seen-case", materials: ["L2"], depends_on: ["t1"],
-      grounds: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim the case generalizes to" }], entailed: undefined, entailment_reasoning: undefined },
+      claims: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim the case generalizes to" }], entailed: undefined, entailment_reasoning: undefined },
   ]);
   candB.obligations = [{ text: "the claim's scope beyond the case", introduced_by: "t2" }];
 
@@ -661,7 +661,7 @@ try {
   const noReas = JSON.parse(JSON.stringify(candB)); delete noReas.reasoning.thesis_closure;
   const nr = assembleSelection({ candidates: [candA, noReas] }, doc0);
   if (!nr.error || !/thesis_closure/.test(nr.error)) fails.push("(e) a Candidate without its composition-time reasoning was presentable — the evidence is the contract (§6)");
-  const noRev = JSON.parse(JSON.stringify(candB)); delete noRev.review.grounds_test;
+  const noRev = JSON.parse(JSON.stringify(candB)); delete noRev.review.rationale_stands;
   const nv = assembleSelection({ candidates: [candA, noRev] }, doc0);
   if (!nv.error || !/unreviewed/.test(nv.error)) fails.push("(e) an unreviewed Candidate was presentable at the selection gate");
   const ok = assembleSelection({ candidates: [candA, candB] }, doc0);
@@ -727,7 +727,7 @@ try {
         figure: "what the opening figure lets the reader hold",
         figure_roles: { endpoint_a: "g1" } },
       { ...step2, step_id: "close_the_case", depends_on: ["open_the_claim"],
-        grounds: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the case that closes the claim" }] },
+        claims: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the case that closes the claim" }] },
     ];
     const snakeCand = { ...candA, candidate_id: "cand-snake", steps: snakeSteps,
       obligations: [{ text: "the case's generality is asserted", introduced_by: "close_the_case" }] };
@@ -1198,20 +1198,20 @@ try {
     // ACT, for the reason (w1) records: a mutation that skipped the figure
     // check inside `adoptCandidate` survived every direct call to
     // `resolveFigureForms`, because those assert the FUNCTION and this asserts
-    // that adoption runs it. The grammar and the ground addressing are
+    // that adoption runs it. The grammar and the claim addressing are
     // `validateSteps`'s and are asserted in (v); what can only be decided with
     // the library open is decided here, and only here can it be made
     // unskippable.
     ranCase("x");
     // AN N-ROLE FORM NOW COSTS N STRANDS (kogaki#1108), and that is a
-    // consequence of the ground rule rather than a fixture convenience. Every
-    // role of a Move's `visual_form` binds to one of THIS Step's grounds, and a
-    // Step carries at most one ground per Strand — so a figure is composable
+    // consequence of the claim rule rather than a fixture convenience. Every
+    // role of a Move's `visual_form` binds to one of THIS Step's claims, and a
+    // Step carries at most one claim per Strand — so a figure is composable
     // only by a Step drawing on as many Strands as its kind declares roles.
     //
     // WHICH IS WHY THIS FIXTURE'S FORM IS A `chain` AND NOT AN `axis`. The
     // Brief under test closes over two Strands, and an `axis` declares three
-    // roles: the three-ground Step this block used to compose is now
+    // roles: the three-claim Step this block used to compose is now
     // uncomposable HERE, and the refusal it meets is the closed-Strand-set one
     // rather than anything this case is about. The kind is incidental to what
     // (x) asserts — form resolution at the adoption seat, an unbound role, and
@@ -1220,7 +1220,7 @@ try {
     // in (v), where `validateSteps` is pure and no Brief bounds the Strands.
     const figStepOf = (st, over = {}) => ({
       ...st, move: "chain-form-move", materials: ["L1", "L2"],
-      grounds: [
+      claims: [
         { type: "strand", strand: "L1", proposition: "the ordered stages the case ran through" },
         { type: "strand", strand: "L2", proposition: "the bottleneck that held at each stage" },
       ],
@@ -2411,7 +2411,7 @@ try {
     if (leaked.payload) fails.push("(j) the tripwire produced a payload anyway — a deny, never a rewrite layer");
   }
   const secCand = JSON.parse(JSON.stringify(candB));
-  secCand.reader_experience = "Opens on the industry default, then traces each step's grounds as §4.4 requires";
+  secCand.reader_experience = "Opens on the industry default, then traces each step's claims as §4.4 requires";
   const secLeak = assembleSelection({ candidates: [candA, secCand] }, doc0);
   if (!secLeak.error || !/section reference/.test(secLeak.error)) fails.push("(j) a section reference reached the owner-facing label — the tripwire did not fire");
   // THE DENY READS THE OWNER SURFACE, NOT THE RECORD, and the reduction makes
@@ -2623,7 +2623,7 @@ ranCase("l-bridge");
   const S = (id, extra = {}) => ({
     step_id: id, move: "m", materials: ["L1"], purpose: "p", reader_state_before: "b",
     reader_state_after: "a", depends_on: [], rationale: "r",
-    grounds: [{ type: "strand", strand: "L1", proposition: "the strand says so" }],
+    claims: [{ type: "strand", strand: "L1", proposition: "the strand says so" }],
     ...extra,
   });
   // §4.15 rule 3 (kogaki#822): every path's first Step opens a Section. Applied
@@ -2643,7 +2643,7 @@ ranCase("l-bridge");
       /between s1 → s2: the case generalises/],
     // THE SECOND SOURCE IS GONE (kogaki#1095), and the case that exercised it
     // is REMOVED rather than reworded. It drove a bridge whose only reasoning
-    // was a `reader_assumption` ground; a ground is now one claim derived from
+    // was a `reader_assumption` claim; a claim is now one claim derived from
     // a Strand, so no such Step composes at all — the arm is unreachable, not
     // renamed, and the refusal that makes it unreachable is asserted in (a).
     // The premise itself did not vanish from the gate: it belongs to the
@@ -2706,7 +2706,7 @@ ranCase("q");
   const Q = (id, extra = {}) => ({
     step_id: id, move: "m1", materials: ["L1"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
-    rationale: "r", grounds: [{ type: "strand", strand: "L1", proposition: "q" }],
+    rationale: "r", claims: [{ type: "strand", strand: "L1", proposition: "q" }],
     ...extra,
   });
   const err = (steps) => validateSteps(steps).error || "";
@@ -2845,7 +2845,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // issue carries none, and a required field would fail all of them.
 //
 // THE TWO MECHANICAL CONDITIONS ARE ASSERTED WHERE EACH ONE LIVES. The grammar
-// and the ground addressing are pure and refuse at `validateSteps`; whether the
+// and the claim addressing are pure and refuse at `validateSteps`; whether the
 // Move declares a form at all needs the library and refuses at
 // `resolveFigureForms`. Asserting both against the REAL Move library is
 // deliberate — `introduce_paired_conceptual_axis` is the shipped record
@@ -2861,12 +2861,12 @@ ranCase("v");
   const F = (id, extra = {}) => ({
     // THREE ROLES, THREE STRANDS (kogaki#1108) — see the note at `figStepOf`
     // in (x). The addressing this block asserts is `g<n>` over the Step's own
-    // grounds and is unchanged; what changed is that three grounds now require
+    // claims and is unchanged; what changed is that three claims now require
     // three Strands to hang on.
     step_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1", "L2", "L3"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
     rationale: "r",
-    grounds: [
+    claims: [
       { type: "strand", strand: "L1", proposition: "the defensive wall is the first endpoint" },
       { type: "strand", strand: "L2", proposition: "the offensive artillery is the other" },
       { type: "strand", strand: "L3", proposition: "the material names function as what the two are read against" },
@@ -2946,19 +2946,19 @@ ranCase("v");
     ["roles with no figure", { figure_roles: { endpoint_a: "g1" } }, /figure:/],
     ["blank figure", { figure: "   ", figure_roles: { endpoint_a: "g1" } }, /one line/],
     ["a role bound to the selector", { figure: "x", figure_roles: { kind: "g1" } }, /selector/],
-    ["a non-address binding", { figure: "x", figure_roles: { endpoint_a: "the first ground" } }, /g<n>/],
+    ["a non-address binding", { figure: "x", figure_roles: { endpoint_a: "the first claim" } }, /g<n>/],
   ];
   for (const [what, extra, want] of halves) {
     const e = err([open(F("s1", extra))]);
     if (!want.test(e)) fails.push(`(v) ${what} is admitted or refused by the wrong rule: ${e || "(admitted)"}`);
   }
-  // THE GROUND ADDRESS IS THIS STEP'S. An address past the end names a ground
-  // that is not there — which is what makes "a role bound to a ground of
+  // THE CLAIM ADDRESS IS THIS STEP'S. An address past the end names a claim
+  // that is not there — which is what makes "a role bound to a claim of
   // another Step" unreachable rather than separately refused: the address
-  // space is this Step's grounds and has no syntax for anyone else's.
+  // space is this Step's claims and has no syntax for anyone else's.
   const pastEnd = err([open(F("s1", { ...AXIS, figure_roles: { ...AXIS.figure_roles, criterion: "g9" } }))]);
-  if (!/g9/.test(pastEnd) || !/3 ground/.test(pastEnd)) {
-    fails.push(`(v) a binding past this Step's ground count is admitted or refused without naming both the address and the count: ${pastEnd || "(admitted)"}`);
+  if (!/g9/.test(pastEnd) || !/3 claim/.test(pastEnd)) {
+    fails.push(`(v) a binding past this Step's claim count is admitted or refused without naming both the address and the count: ${pastEnd || "(admitted)"}`);
   }
   // IT SURVIVES SERIALIZATION, and a Step WITHOUT one writes no line — which
   // is acceptance 4's mechanism: a Brief composed before this field renders
@@ -3003,7 +3003,7 @@ ranCase("w");
   const G = (id, extra = {}) => ({
     step_id: id, move: "m", materials: ["L1"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
-    rationale: "r", grounds: [{ type: "strand", strand: "L1", proposition: "g" }],
+    rationale: "r", claims: [{ type: "strand", strand: "L1", proposition: "g" }],
     ...extra,
   });
   const FIG = { figure: "what the figure holds", figure_roles: { endpoint_a: "g1" } };
@@ -3220,7 +3220,7 @@ ranCase("y");
     // "nothing derived" — one regex edit and it is vacuous forever.
     const synth41 = (body) => `### 4.1 The Step\n${body}### 4.2 The next section\n`;
     const synthSpec = synth41("- **`frobnicate`** — optional; §4.99.\n");
-    if (uncovered(synthSpec, ["step_id", "grounds"]).length !== 1) {
+    if (uncovered(synthSpec, ["step_id", "claims"]).length !== 1) {
       fails.push("(y) a §4.1 optional field absent from the authoring carrier was NOT reported — the coverage test is vacuous");
     }
     if (uncovered(synthSpec, ["step_id", "frobnicate"]).length !== 0) {
@@ -3532,8 +3532,8 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "same run — with no sibling declaration a capture falls back to the registry (SPEC-gate-carrier \u00a74.1), so for this "
   + "`dynamic_options` gate a removed file leaves that member red while adoption is green. The two ask different "
   + "questions and neither is this member's to reconcile; \u00a75.3 v36 states why; "
-  + "(y) THE AUTHORING CARRIER ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD WITH ITS OWN SUBSECTION (kogaki#935; the carrier MOVED to `src/step-schema.json` at kogaki#1108, and the comparator got STRICTER by moving — the skill was prose, so coverage was a word-bounded regex over a step-7 slice; the schema is a field TABLE, so coverage is membership in `fields` and a name occurring only in the schema's own notes is NOT covered, which is the scoping the slice was approximating): §4.16 landed with no authoring carrier — the field was validated, resolved, serialized and disclosed at the gate while nothing ever told the composing party to write it, and every check stayed green because the default is none and none is legitimate. §4.15's `opens_section` had the same gap and case (n) records it for `introduces`, which is what makes three instances a carrier rather than an edit. The enumeration is DERIVED from §4.1's own bullets, never transcribed, so field N+1 is covered the day it is written there; the derivation refuses its own empty result, because a list that silently empties reports every field as covered. What it does NOT prove, stated rather than implied: that the skill says the RIGHT thing about a field — a mention is mechanically checkable and adequacy is not, so this refuses the silence and never grades the prose (§4.6). THE OPTIONAL-SHAPED PREDICATE READS A THIRD SIGNAL (kogaki#966): it admitted a bullet on EITHER tell, so a REQUIRED §4.1 bullet that gains a §4.NN cross-reference was named as one the derivation stopped matching — live one line up as `move`, which survives today only because its pointer is §7. The spec's own `**Required.**` marker overrides both tells, so a bullet the spec MARKS required is not optional-shaped while a bullet that merely LOST `optional` carries no marker and is still named. The marker is read ANCHORED AT THE END OF THE LINE (PR #968 round 1): matched anywhere it would exempt a CONDITIONALLY-required optional bullet, whose `**Required.**` is followed by the condition it holds under, and that bullet losing `optional` would then go unnamed — the kogaki#942 drop one shape in, minted by the narrowing built around it. An unconditional marker is the LAST thing the bullet says, which is what the anchor reads; requiring both tells instead was refused because it re-admits exactly the silent drop kogaki#942 finding 2 exists to refuse. The marker guards that predicate and NOT the name collector, deliberately: guarding both would let a live optional bullet leave the coverage list unobserved by gaining the marker, a fresh drop minted by the repair for the drop; (v)(w)(w1)(w2)(x) §4.16's FIGURE DECISION (kogaki#877, kogaki#934): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the ground addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's ground count — which is what makes a binding to ANOTHER Step\'s ground unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names. (w2) THE CLAUSE'S STEP IDS ARE ADMISSIBLE AND ONLY THEY ARE (kogaki#934): the label the clause writes is walked by the spec-internal-vocabulary tripwire, whose identifier pattern matches ANY snake_case token, so a figure on a Step whose id is snake_case made the gate return NO PAYLOAD AT ALL — every option refused because of one Step's name, and every fixture in (w) and (w1) uses `s1`/`f1`-style ids, which is exactly the id shape that cannot trip the wire. The repair is an admissible-override set computed from `figureSteps`, the clause's OWN selector, so the exempted tokens cannot drift from the rendered ones by being derived twice; it is asserted in BOTH directions and in BOTH scopings — the mandated caller assembles with the whole option set present and its id in the label, a genuine term of art in that SAME label still refuses, one Candidate's ids are NOT exempt in another Candidate's label, and no surface but the option label consults the override, because nothing here is exempt by spelling and everything by provenance; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
-  + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
+  + "(y) THE AUTHORING CARRIER ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD WITH ITS OWN SUBSECTION (kogaki#935; the carrier MOVED to `src/step-schema.json` at kogaki#1108, and the comparator got STRICTER by moving — the skill was prose, so coverage was a word-bounded regex over a step-7 slice; the schema is a field TABLE, so coverage is membership in `fields` and a name occurring only in the schema's own notes is NOT covered, which is the scoping the slice was approximating): §4.16 landed with no authoring carrier — the field was validated, resolved, serialized and disclosed at the gate while nothing ever told the composing party to write it, and every check stayed green because the default is none and none is legitimate. §4.15's `opens_section` had the same gap and case (n) records it for `introduces`, which is what makes three instances a carrier rather than an edit. The enumeration is DERIVED from §4.1's own bullets, never transcribed, so field N+1 is covered the day it is written there; the derivation refuses its own empty result, because a list that silently empties reports every field as covered. What it does NOT prove, stated rather than implied: that the skill says the RIGHT thing about a field — a mention is mechanically checkable and adequacy is not, so this refuses the silence and never grades the prose (§4.6). THE OPTIONAL-SHAPED PREDICATE READS A THIRD SIGNAL (kogaki#966): it admitted a bullet on EITHER tell, so a REQUIRED §4.1 bullet that gains a §4.NN cross-reference was named as one the derivation stopped matching — live one line up as `move`, which survives today only because its pointer is §7. The spec's own `**Required.**` marker overrides both tells, so a bullet the spec MARKS required is not optional-shaped while a bullet that merely LOST `optional` carries no marker and is still named. The marker is read ANCHORED AT THE END OF THE LINE (PR #968 round 1): matched anywhere it would exempt a CONDITIONALLY-required optional bullet, whose `**Required.**` is followed by the condition it holds under, and that bullet losing `optional` would then go unnamed — the kogaki#942 drop one shape in, minted by the narrowing built around it. An unconditional marker is the LAST thing the bullet says, which is what the anchor reads; requiring both tells instead was refused because it re-admits exactly the silent drop kogaki#942 finding 2 exists to refuse. The marker guards that predicate and NOT the name collector, deliberately: guarding both would let a live optional bullet leave the coverage list unobserved by gaining the marker, a fresh drop minted by the repair for the drop; (v)(w)(w1)(w2)(x) §4.16's FIGURE DECISION (kogaki#877, kogaki#934): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the claim addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's claim count — which is what makes a binding to ANOTHER Step\'s claim unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names. (w2) THE CLAUSE'S STEP IDS ARE ADMISSIBLE AND ONLY THEY ARE (kogaki#934): the label the clause writes is walked by the spec-internal-vocabulary tripwire, whose identifier pattern matches ANY snake_case token, so a figure on a Step whose id is snake_case made the gate return NO PAYLOAD AT ALL — every option refused because of one Step's name, and every fixture in (w) and (w1) uses `s1`/`f1`-style ids, which is exactly the id shape that cannot trip the wire. The repair is an admissible-override set computed from `figureSteps`, the clause's OWN selector, so the exempted tokens cannot drift from the rendered ones by being derived twice; it is asserted in BOTH directions and in BOTH scopings — the mandated caller assembles with the whole option set present and its id in the label, a genuine term of art in that SAME label still refuses, one Candidate's ids are NOT exempt in another Candidate's label, and no surface but the option label consults the override, because nothing here is exempt by spelling and everything by provenance; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
+  + "closed §4.4 claim types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
   + "discharged_by, an undischarged entry rendering as UNDISCHARGED, the structure section rendering "

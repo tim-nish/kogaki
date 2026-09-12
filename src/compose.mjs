@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // compose — the Step-record runtime over the Brief's settled materials
-// (SPEC-draft-pipeline, the Step's shape, the grounding rule, the settled
+// (SPEC-draft-pipeline, the Step's shape, the claims rule, the settled
 // structure section and the obligations ledger;
 // kogaki#489, story 1.73).
 //
@@ -18,26 +18,26 @@
 // story 1.74) — nothing here is a lint over a judgment: a missing field is
 // refused, a weak rationale is not.
 //
-// THE GROUNDS ARE RECORDED FOR REVIEW, NOT VERDICT-ED (story 1.73 SQ2): a
-// Step carries typed grounds (the grounding rule) and, where a proposition is
+// THE CLAIMS ARE RECORDED FOR REVIEW, NOT VERDICT-ED (story 1.73 SQ2): a
+// Step carries typed claims (the claims rule) and, where a proposition is
 // not explicit in the material, the `entailed` flag WITH its entailment
 // reasoning — recorded here so path review and the human gate can judge
 // them. No grounds-test verdict is produced anywhere in this file.
 //
-// A GROUND IS ONE CLAIM DERIVED FROM A STRAND, AND NOTHING ELSE (kogaki#1095).
+// A CLAIM IS ONE PROPOSITION DERIVED FROM A STRAND, AND NOTHING ELSE (kogaki#1095).
 // The type set was three — `strand`, `step_effect`, `reader_assumption` — and
-// the Step Packet renders every ground under one instruction: these are what
-// this Step may ASSERT. A `step_effect` ground is inherited reader state and a
-// `reader_assumption` ground is a presupposed premise; neither is an
+// the Step Packet renders every claim under one instruction: these are what
+// this Step may ASSERT. A `step_effect` claim is inherited reader state and a
+// `reader_assumption` claim is a presupposed premise; neither is an
 // assertion, so a passage that realizes its Step correctly never states them
-// and the Blind Reader never recovers them. `grounds-unused` failed on 8 of 8
-// Steps of the first full review run against premise-type grounds alone — a
+// and the Blind Reader never recovers them. `claims-unused` failed on 8 of 8
+// Steps of the first full review run against premise-type claims alone — a
 // comparison whose declared side carries a category its reverse side cannot
 // produce measures nothing. Inherited state was already carried twice, by
 // `reader_state_before` and by the computed `already knows` ledger; the
-// premise grounds were a third copy. THIS FILE IS THE CARRIER: the type set
-// and the ground line serialization both live here, which is what makes a
-// non-Strand ground UNWRITABLE rather than discouraged. Removing the brief
+// premise claims were a third copy. THIS FILE IS THE CARRIER: the type set
+// and the claim line serialization both live here, which is what makes a
+// non-Strand claim UNWRITABLE rather than discouraged. Removing the brief
 // skill and the pipeline spec from the tree leaves the refusal standing.
 //
 // MOVE BINDING CHANGES THE TYPE OF NOTHING (the Step and the Move it binds): `move` is REQUIRED on every
@@ -78,7 +78,7 @@
 //       SPEC-draft-pipeline
 //   the Reader Path artifact's five
 //       SPEC-draft-pipeline
-//   the grounding rule
+//   the claims rule
 //       SPEC-draft-pipeline
 //   the grounds test
 //       SPEC-draft-pipeline
@@ -166,7 +166,7 @@ export function snapshotBrief(briefPath, stage, phase, content, seq = null) {
 // judgment rule holding, one layer down: the schema declares that `rationale`
 // is required and what it is for, and whether a given rationale is any good
 // stays judged at path review. So what this reader takes from the file is
-// exactly the REQUIRED/OPTIONAL partition and the ground rules, and the
+// exactly the REQUIRED/OPTIONAL partition and the claim rules, and the
 // type-shaped assertions below stay written here, beside the refusal text they
 // produce.
 //
@@ -192,24 +192,24 @@ export function requiredStepFields() {
     .map(([name]) => name);
 }
 
-// The ground type vocabulary and the retired types, read from the same file
+// The claim type vocabulary and the retired types, read from the same file
 // rather than held as two constants here (kogaki#1095 put them in this module;
 // kogaki#1108 moves the CARRIER to the schema and leaves the refusals here).
-function groundTypes() {
-  return new Set(stepSchema().ground.types);
+function claimTypes() {
+  return new Set(stepSchema().claim.types);
 }
-function retiredGroundTypes() {
-  return new Map(Object.entries(stepSchema().ground.retired_types || {}));
+function retiredClaimTypes() {
+  return new Map(Object.entries(stepSchema().claim.retired_types || {}));
 }
 const SLOT = "*(awaiting composition)*";
 
 // The two required fields whose refusal is written out below rather than
 // generated from the schema's declared type. Both say something the generic
 // "is required" sentence cannot: `move` names WHY a Move-less Step is not a
-// Step, and `grounds` names what a ground is. They are still required fields
+// Step, and `claims` names what a claim is. They are still required fields
 // of the schema and still enumerated from it — this set only routes which
 // refusal speaks.
-const BESPOKE_STEP_REFUSALS = new Set(["move", "grounds"]);
+const BESPOKE_STEP_REFUSALS = new Set(["move", "claims"]);
 
 // The generic presence predicate for a required field, selected by the type
 // the schema declares. An unknown type is a LOUD failure rather than a silent
@@ -223,7 +223,7 @@ function stepFieldPresent(decl, v) {
       return typeof v === "string" && v !== "";
     case "array of string":
       return Array.isArray(v) && v.length >= (decl.min_length || 0);
-    case "array of ground":
+    case "array of claim":
       return Array.isArray(v) && v.length >= (decl.min_length || 0);
     default:
       return null;
@@ -285,7 +285,7 @@ export function validateSteps(steps) {
     // it is rendered at an owner-facing surface, so an unvalidated entry
     // renders as a blank term or as `undefined` in a reader-knowledge ledger.
     // SHAPE ONLY. Whether a term is genuinely introduced HERE, whether the
-    // anchor explains it, and whether the Step's grounds already carry it are
+    // anchor explains it, and whether the Step's claims already carry it are
     // judgments — the judgment rule clause 3 stands and nothing below reads meaning.
     if (s.introduces !== undefined) {
       const bad = introducesRefusal(s.introduces, at);
@@ -297,46 +297,46 @@ export function validateSteps(steps) {
       const bad = opensSectionRefusal(s.opens_section, at);
       if (bad) return { error: bad };
     }
-    if (!Array.isArray(s.grounds) || s.grounds.length === 0) {
-      return { error: `${at}: grounds are required — specific propositions, each one claim derived from a Strand (the grounding rule)` };
+    if (!Array.isArray(s.claims) || s.claims.length === 0) {
+      return { error: `${at}: claims are required — specific propositions, each one proposition derived from a Strand (the claims rule)` };
     }
     {
-      const types = groundTypes();
-      const retired = retiredGroundTypes();
-      // ONE GROUND PER STRAND, PER STEP (kogaki#1108). The rule and its ground
-      // are the schema's (`ground.one_per_strand`, and the paragraph above it);
-      // this is the refusal that makes a second ground for one Strand
+      const types = claimTypes();
+      const retired = retiredClaimTypes();
+      // ONE CLAIM PER STRAND, PER STEP (kogaki#1108). The rule and its ground
+      // are the schema's (`claim.one_per_strand`, and the paragraph above it);
+      // this is the refusal that makes a second claim for one Strand
       // UNWRITABLE rather than discouraged. It names the Step and the Strand,
       // because those are the two facts the composer needs to repair it: which
       // Step to look at, and which of its materials is carrying two claims
       // where the path admits one.
       //
       // KEYED PER STEP AND RESET AT EACH ONE. A Strand serving several Steps
-      // carries a DIFFERENT ground in each — that is the sequence, not a
+      // carries a DIFFERENT claim in each — that is the sequence, not a
       // duplication — so the scope of this set is one Step and never the path.
       const byStrand = new Map();
-      for (const g of s.grounds) {
+      for (const g of s.claims) {
         // The retired types are refused BY NAME and ahead of the closed-set
         // message (kogaki#1095): a Brief written under the old grammar is the
         // caller this arm exists for, and "not in the set" would tell it that
         // its content is wrong rather than that its content has a home.
         if (retired.has(g.type)) {
-          return { error: `${at}: ground type ${JSON.stringify(g.type)} is no longer a ground — a ground is one claim derived from a Strand, and nothing else (the grounding rule). What this ground carried is ${retired.get(g.type)}` };
+          return { error: `${at}: claim type ${JSON.stringify(g.type)} is no longer a claim — a claim is one proposition derived from a Strand, and nothing else (the claims rule). What this claim carried is ${retired.get(g.type)}` };
         }
         if (!types.has(g.type)) {
-          return { error: `${at}: ground type ${JSON.stringify(g.type)} — the grounding rule's list is closed: ${[...types].join(", ")}` };
+          return { error: `${at}: claim type ${JSON.stringify(g.type)} — the claims rule's list is closed: ${[...types].join(", ")}` };
         }
         if (typeof g.proposition !== "string" || g.proposition === "") {
-          return { error: `${at}: a ground is a specific PROPOSITION, stated (the grounding rule) — an untyped pointer is not a ground` };
+          return { error: `${at}: a claim is a specific PROPOSITION, stated (the claims rule) — an untyped pointer is not a claim` };
         }
         if (typeof g.strand !== "string" || g.strand === "") {
-          return { error: `${at}: a strand ground names its Strand (L<n>)` };
+          return { error: `${at}: a strand claim names its Strand (L<n>)` };
         }
-        if (schema.ground.one_per_strand === true && byStrand.has(g.strand)) {
-          return { error: `${at}: two grounds name strand ${JSON.stringify(g.strand)} — a ground is the ONE proposition this Step `
+        if (schema.claim.one_per_strand === true && byStrand.has(g.strand)) {
+          return { error: `${at}: two claims name strand ${JSON.stringify(g.strand)} — a claim is the ONE proposition this Step `
             + `asserts on behalf of one Strand, for this reader at this point in the path (src/step-schema.json, `
-            + `\`ground.one_per_strand\`). The first reads ${JSON.stringify(byStrand.get(g.strand))}; the second reads `
-            + `${JSON.stringify(g.proposition)}. A Strand that serves several Steps carries a DIFFERENT ground in each, `
+            + `\`claim.one_per_strand\`). The first reads ${JSON.stringify(byStrand.get(g.strand))}; the second reads `
+            + `${JSON.stringify(g.proposition)}. A Strand that serves several Steps carries a DIFFERENT claim in each, `
             + `so the repair is to move one of these to the Step where the reader needs it, or to drop it — never to `
             + `merge the two into a longer proposition` };
         }
@@ -346,22 +346,22 @@ export function validateSteps(steps) {
     // the figure decision's `figure:`/`figure_roles` (kogaki#877) — OPTIONAL, and validated
     // here for the reason `bridges` and `introduces` are: the count and the
     // Step ids reach the SELECTION GATE's label, so an unvalidated declaration
-    // renders a binding an owner reads as decided. Placed AFTER the grounds
-    // loop on purpose — a role binds to one of this Step's grounds, so the
+    // renders a binding an owner reads as decided. Placed AFTER the claims
+    // loop on purpose — a role binds to one of this Step's claims, so the
     // address space does not exist until they are known to be well formed.
     {
       const bad = figureRefusal(s.figure, s.figure_roles, at);
       if (bad) return { error: bad };
-      const badGround = figureGroundRefusal(s.figure_roles, s.grounds.length, at);
-      if (badGround) return { error: badGround };
+      const badClaim = figureClaimRefusal(s.figure_roles, s.claims.length, at);
+      if (badClaim) return { error: badClaim };
     }
     // A proposition not explicit in the material is flagged `entailed` WITH
-    // its reasoning, exposed at the human gate (the grounding rule). The flag is the
+    // its reasoning, exposed at the human gate (the claims rule). The flag is the
     // composer's judgment; the runtime refuses only a flag with no reasoning
     // to expose — an entailed step whose reasoning is absent has nothing for
     // the gate to judge.
     if (s.entailed === true && (typeof s.entailment_reasoning !== "string" || s.entailment_reasoning === "")) {
-      return { error: `${at}: flagged entailed with no entailment_reasoning — entailment is interpretation, judged rather than silently trusted (the grounding rule)` };
+      return { error: `${at}: flagged entailed with no entailment_reasoning — entailment is interpretation, judged rather than silently trusted (the claims rule)` };
     }
     seen.add(s.step_id);
   }
@@ -383,23 +383,23 @@ export function validateSteps(steps) {
 //
 // THREE CONDITIONS, AND ONLY TWO OF THEM ARE MECHANICAL. The Step's Move must
 // carry a `visual_form`; every role of that form must bind to one of THIS
-// Step's grounds. The third — that the figure carries something — is the
+// Step's claims. The third — that the figure carries something — is the
 // composer's one judgment and is stated in the `figure:` line itself. Nothing
 // here reads that line for meaning, on the judgment rule's rule: a missing field is
 // refused, a weak one is not.
 //
 // THE HALVES SPLIT WHERE THE MOVE LIBRARY DOES, which is the split `move`
-// itself already has. `figureRefusal` and the ground-binding check below are
+// itself already has. `figureRefusal` and the claim-binding check below are
 // PURE and run inside `validateSteps`; whether the Move carries a form at all
 // needs the library and runs in `resolveFigureForms`, beside `resolveMoveIds`
 // at adoption. Both are "at composition" in the sense the Section grouping means — the Brief
 // is being authored and the refusal can still be fixed.
 
-// `g<n>` addresses the Step's own ground lines IN ORDER, 1-based. A role bound
-// to a ground of another Step is unreachable by construction rather than
-// refused by a rule: the address space is this Step's grounds and has no
+// `g<n>` addresses the Step's own claim lines IN ORDER, 1-based. A role bound
+// to a claim of another Step is unreachable by construction rather than
+// refused by a rule: the address space is this Step's claims and has no
 // syntax for anyone else's.
-const GROUND_ADDRESS = /^g([1-9][0-9]*)$/;
+const CLAIM_ADDRESS = /^g([1-9][0-9]*)$/;
 
 let FIGURE_KINDS = null;
 export function figureKinds() {
@@ -455,7 +455,7 @@ export function figureRefusal(figure, figure_roles, at) {
   // alone is a half-declaration, and a half-declaration reaching #878 would be
   // a record with no form or a form with no reason.
   if (has && !hasRoles) {
-    return `${at}: figure: is declared with no figure_roles — every role of the Move's visual_form binds to one of this Step's grounds (the figure decision), and a figure with no bindings names nothing to render`;
+    return `${at}: figure: is declared with no figure_roles — every role of the Move's visual_form binds to one of this Step's claims (the figure decision), and a figure with no bindings names nothing to render`;
   }
   if (!has && hasRoles) {
     return `${at}: figure_roles are declared with no figure: — the figure: line is the composer's statement of what the figure lets the reader hold, and bindings without it record a form nobody said carries anything (the figure decision)`;
@@ -464,11 +464,11 @@ export function figureRefusal(figure, figure_roles, at) {
     return `${at}: figure:, when present, is one line — what the figure lets the reader hold that the prose alone leaves hard to hold (the figure decision)`;
   }
   if (typeof figure_roles !== "object" || Array.isArray(figure_roles)) {
-    return `${at}: figure_roles is a flat mapping of the Move visual_form's roles to this Step's grounds, role=g<n> (the figure decision)`;
+    return `${at}: figure_roles is a flat mapping of the Move visual_form's roles to this Step's claims, role=g<n> (the figure decision)`;
   }
   const entries = Object.entries(figure_roles);
   if (entries.length === 0) {
-    return `${at}: figure_roles is empty — every role of the Move's visual_form binds to one of this Step's grounds (the figure decision)`;
+    return `${at}: figure_roles is empty — every role of the Move's visual_form binds to one of this Step's claims (the figure decision)`;
   }
   for (const [role, addr] of entries) {
     if (role === "kind") {
@@ -477,23 +477,23 @@ export function figureRefusal(figure, figure_roles, at) {
       // vocabularies from disagreeing about what a role name may be.
       return `${at}: figure_roles binds "kind", which is the form's selector and never a role (src/figure-kinds.json)`;
     }
-    if (typeof addr !== "string" || !GROUND_ADDRESS.test(addr)) {
-      return `${at}: figure_roles binds role "${role}" to ${JSON.stringify(addr)} — a binding addresses one of this Step's own grounds as g<n>, numbered from 1 in the order they are declared (the figure decision)`;
+    if (typeof addr !== "string" || !CLAIM_ADDRESS.test(addr)) {
+      return `${at}: figure_roles binds role "${role}" to ${JSON.stringify(addr)} — a binding addresses one of this Step's own claims as g<n>, numbered from 1 in the order they are declared (the figure decision)`;
     }
   }
   return null;
 }
 
-// THE GROUND-BINDING HALF, separated because it needs the Step's grounds and
+// THE CLAIM-BINDING HALF, separated because it needs the Step's claims and
 // the read-back side has only the serialized block.
-export function figureGroundRefusal(figure_roles, groundCount, at) {
+export function figureClaimRefusal(figure_roles, claimCount, at) {
   if (figure_roles === undefined || figure_roles === null) return null;
   for (const [role, addr] of Object.entries(figure_roles)) {
-    const m = GROUND_ADDRESS.exec(String(addr));
+    const m = CLAIM_ADDRESS.exec(String(addr));
     if (!m) continue; // grammar is figureRefusal's; this half assumes it passed
     const n = Number(m[1]);
-    if (n > groundCount) {
-      return `${at}: figure_roles binds role "${role}" to ${addr}, and this Step declares ${groundCount} ground(s) — a role binds to a ground of THIS Step (the figure decision), so an address past the end names a ground that is not there`;
+    if (n > claimCount) {
+      return `${at}: figure_roles binds role "${role}" to ${addr}, and this Step declares ${claimCount} claim(s) — a role binds to a claim of THIS Step (the figure decision), so an address past the end names a claim that is not there`;
     }
   }
   return null;
@@ -552,7 +552,7 @@ export function resolveFigureForms(steps, movesDir = "moves") {
     const missing = [...want].filter((x) => !have.has(x)).sort();
     const extra = [...have].filter((x) => !want.has(x)).sort();
     if (missing.length) {
-      return { error: `${at}: figure_roles leaves ${missing.map((x) => `"${x}"`).join(", ")} unbound — every role of move "${s.move}"'s ${kind} form binds to one of this Step's grounds (the figure decision). The form's roles are ${[...want].sort().join(", ")}` };
+      return { error: `${at}: figure_roles leaves ${missing.map((x) => `"${x}"`).join(", ")} unbound — every role of move "${s.move}"'s ${kind} form binds to one of this Step's claims (the figure decision). The form's roles are ${[...want].sort().join(", ")}` };
     }
     if (extra.length) {
       return { error: `${at}: figure_roles binds ${extra.map((x) => `"${x}"`).join(", ")}, which is not a role of move "${s.move}"'s ${kind} form — the form's roles are ${[...want].sort().join(", ")} (src/figure-kinds.json)` };
@@ -979,7 +979,7 @@ export function renderExcerptBlock(moveId, excerptText) {
 //
 // A Step may declare `introduces` — the terms or concepts it puts in front of
 // the reader for the first time, each bare or carrying a one-line meaning
-// anchor where the Step's own grounds do not supply it. The harness then
+// anchor where the Step's own claims do not supply it. The harness then
 // DERIVES what a reader already knows at Step N as the union of Steps 1..N-1's
 // entries.
 //
@@ -1155,12 +1155,12 @@ export function renderStep(s) {
   L.push(`reader_state_after: ${s.reader_state_after}`);
   L.push(`depends_on: ${s.depends_on.join(", ") || "(none)"}`);
   L.push(`rationale: ${s.rationale}`);
-  for (const g of s.grounds) {
-    // ONE FORM, and no other (kogaki#1095): `ground (strand L<n>): <proposition>`.
+  for (const g of s.claims) {
+    // ONE FORM, and no other (kogaki#1095): `claim (strand L<n>): <proposition>`.
     // The type is written out rather than dropped because `src/draft.mjs`'s
     // `material --strand` reader and the figure `g<n>` addressing both read
     // this line as it stands, and this issue moves neither.
-    L.push(`ground (strand ${g.strand}): ${g.proposition}`);
+    L.push(`claim (strand ${g.strand}): ${g.proposition}`);
   }
   // the reader-knowledge ledger (kogaki#751): one LINE per entry, never a comma-joined list. A term
   // may legitimately contain a comma, and its anchor almost always does, so a
@@ -1287,7 +1287,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
       // A Journey material (the Step's shape) is checkable twice: against the closed set,
       // and against that Strand ACTUALLY carrying Journey material. The second
       // check is what stops a composer inventing journey material for a Strand
-      // whose served record has none — unsupported completion (the grounding rule), in the
+      // whose served record has none — unsupported completion (the claims rule), in the
       // one place the bare-L<n> check cannot see.
       const j = /^(L[0-9]+)\.journey$/.exec(m);
       if (j) {
@@ -1298,13 +1298,13 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
         if (!journeyIds.includes(j[1])) {
           return { error: `step ${s.step_id}: material ${m} claims Journey material for ${j[1]}, whose served `
             + `record carries none (the Brief renders no journey cite for it) — a Journey the material does not `
-            + `have is unsupported completion (the grounding rule), never a composition choice` };
+            + `have is unsupported completion (the claims rule), never a composition choice` };
         }
       }
     }
-    for (const g of s.grounds) {
+    for (const g of s.claims) {
       if (!strandIds.includes(g.strand)) {
-        return { error: `step ${s.step_id}: strand ground ${g.strand} is outside the closed set (${strandIds.join(", ")})` };
+        return { error: `step ${s.step_id}: strand claim ${g.strand} is outside the closed set (${strandIds.join(", ")})` };
       }
     }
   }
@@ -1327,7 +1327,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
     if (uses.length > 0) {
       covL.push(`- **${id}** — used_by_steps: ${uses.join(", ")}; role_in_thesis: ${coverage[id]?.role_in_thesis ?? "(not stated by the composer)"}`);
     } else {
-      covL.push(`- **${id}** — **UNPLACED, disclosed**: ${unused[id] ?? "left unused (the grounding rule's third move — omit the Step, revise the path, or leave the Strand unused; never invention)"}`);
+      covL.push(`- **${id}** — **UNPLACED, disclosed**: ${unused[id] ?? "left unused (the claims rule's third move — omit the Step, revise the path, or leave the Strand unused; never invention)"}`);
     }
   }
   covL.push("");
@@ -1348,7 +1348,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
       if (uses.length > 0) {
         covL.push(`- **${id}** journey — placed by: ${uses.join(", ")}`);
       } else {
-        covL.push(`- **${id}** journey — **OMITTED, disclosed**: ${unused[`${id}.journey`] ?? "the Journey material is left unplaced (the grounding rule's third move — omit the Step, revise the path, or leave the material unused; never invention)"}`);
+        covL.push(`- **${id}** journey — **OMITTED, disclosed**: ${unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Step, revise the path, or leave the material unused; never invention)"}`);
       }
     }
     covL.push(`*Journey placement count, taken AFTER composition: ${jplaced.length} of ${journeyIds.length} Journey-bearing Strand(s) placed.*`);

@@ -32,8 +32,8 @@
 //   figure   — accept one Step's figure record: the INSTANCE of its Move's
 //              visual_form, filled after that Step's prose is recorded
 //              (kogaki#878). Validated against src/figure-schema.json, the
-//              kind's role set, and the BRIEF's own role→ground binding; a
-//              record that moved a role to another ground refuses by role.
+//              kind's role set, and the BRIEF's own role→claim binding; a
+//              record that moved a role to another claim refuses by role.
 //   emit     — assemble the CanonicalDraft: body = the sections in the
 //              Reader Path's recorded order, prose only; frontmatter = the
 //              record half. Repo-visible under a fixed human name
@@ -616,10 +616,10 @@ function cmdMaterial(args) {
   if (!strand) fail(foreignStrandRefusal(id, brief.strands));
   process.stdout.write(`${strand.id} — ${strand.slug}\n`);
   for (const c of strand.cites) process.stdout.write(`${c.kind}: ${c.cite}\n`);
-  // The Brief's own text is the material: every ground line naming this
+  // The Brief's own text is the material: every claim line naming this
   // Strand, quoted as the Brief carries it.
-  const grounds = [...brief.text.matchAll(new RegExp(`^ground \\(strand ${id}\\): (.+)$`, "gm"))];
-  for (const g of grounds) process.stdout.write(`ground: ${g[1]}\n`);
+  const claims = [...brief.text.matchAll(new RegExp(`^claim \\(strand ${id}\\): (.+)$`, "gm"))];
+  for (const g of claims) process.stdout.write(`claim: ${g[1]}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -708,21 +708,21 @@ export function splitPacketTemplate(text) {
   return { packet: text.slice(0, at).trimEnd() + "\n", figure: text.slice(at + FIGURE_INPUT_MARKER.length) };
 }
 
-// The Step's ground lines, in the order they are declared. `g<n>` addresses
-// this list 1-based (the figure decision), and the address space is THIS Step's grounds —
-// which is what makes a role bound to another Step's ground unreachable rather
+// The Step's claim lines, in the order they are declared. `g<n>` addresses
+// this list 1-based (the figure decision), and the address space is THIS Step's claims —
+// which is what makes a role bound to another Step's claim unreachable rather
 // than refused by a rule.
-export function groundLines(step) {
-  return step.body.split("\n").filter((l) => l.startsWith("ground "));
+export function claimLines(step) {
+  return step.body.split("\n").filter((l) => l.startsWith("claim "));
 }
 // VERBATIM, THE WHOLE LINE. The binding block quotes what the Brief recorded,
-// including which Strand or Step effect licensed it: an element is that ground
+// including which Strand or Step effect licensed it: an element is that claim
 // worded for the reader, and a reader of the record who cannot see the licence
 // cannot tell a wording from an invention.
-export function groundAt(step, addr) {
+export function claimAt(step, addr) {
   const m = /^g([1-9][0-9]*)$/.exec(String(addr));
   if (!m) return null;
-  return groundLines(step)[Number(m[1]) - 1] ?? null;
+  return claimLines(step)[Number(m[1]) - 1] ?? null;
 }
 
 // The Move's form for one figure-carrying Step, with its roles in the CLOSED
@@ -756,9 +756,9 @@ export function renderFigureInput({ figureTemplate, packetText, step, form, pros
   const binding = [];
   for (const role of form.roles) {
     const addr = (step.figure_roles || {})[role];
-    const g = groundAt(step, addr);
+    const g = claimAt(step, addr);
     if (g === null) {
-      return { error: `step ${step.step_id}: figure_roles binds "${role}" to ${JSON.stringify(addr ?? null)} and this Step has no such ground — composition refuses this (the figure decision), so the Brief has been edited since it was adopted` };
+      return { error: `step ${step.step_id}: figure_roles binds "${role}" to ${JSON.stringify(addr ?? null)} and this Step has no such claim — composition refuses this (the figure decision), so the Brief has been edited since it was adopted` };
     }
     binding.push(`- **${role}** — bound to \`${addr}\`:\n\n  ${g}`);
   }
@@ -778,9 +778,9 @@ export function renderFigureInput({ figureTemplate, packetText, step, form, pros
 
 // THE RECORD'S VALIDATION, and it is the MECHANICAL half only (the figure record). Every
 // role present, no extra role, the kind equal to the form's, each element bound
-// to the ground THE BRIEF bound that role to, a position from the closed pair,
+// to the claim THE BRIEF bound that role to, a position from the closed pair,
 // a non-empty caption and at least one relation. Whether an element's wording
-// is fair to its ground, and whether the relations instantiate the kind's
+// is fair to its claim, and whether the relations instantiate the kind's
 // relation line, are judgments — the judgment rule's rule that a missing field is refused
 // and a weak one is not, which is also why kogaki#880 reviews the figure by a
 // round trip rather than by a lint here.
@@ -820,18 +820,18 @@ export function figureRecordRefusal(record, step, form, schema) {
   for (const role of form.roles) {
     const el = record.elements[role];
     if (el === null || typeof el !== "object" || Array.isArray(el)) {
-      return `${at}: element "${role}" is an object carrying text and ground (src/figure-schema.json)`;
+      return `${at}: element "${role}" is an object carrying text and claim (src/figure-schema.json)`;
     }
     if (typeof el.text !== "string" || el.text.trim() === "") {
-      return `${at}: element "${role}" carries no text — an element is its bound ground WORDED FOR THE READER, and an empty one is the position left open rather than filled`;
+      return `${at}: element "${role}" carries no text — an element is its bound claim WORDED FOR THE READER, and an empty one is the position left open rather than filled`;
     }
     const want = (step.figure_roles || {})[role];
-    if (el.ground !== want) {
+    if (el.claim !== want) {
       // AC2. The Brief bound the role; the record may not move it. A swapped
-      // ground is an element licensed by material the composer did not put
+      // claim is an element licensed by material the composer did not put
       // under that position, which is exactly the join kogaki#880 checks and
       // exactly the one nothing downstream could re-derive.
-      return `${at}: element "${role}" is bound to ${JSON.stringify(el.ground ?? null)} and the Brief bound "${role}" to ${JSON.stringify(want ?? null)} — the binding is the Brief's decision (the figure decision), and a record that moves a role to another ground words it from material the composer did not put under that position`;
+      return `${at}: element "${role}" is bound to ${JSON.stringify(el.claim ?? null)} and the Brief bound "${role}" to ${JSON.stringify(want ?? null)} — the binding is the Brief's decision (the figure decision), and a record that moves a role to another claim words it from material the composer did not put under that position`;
     }
   }
   if (!Array.isArray(record.relations) || record.relations.length === 0
@@ -954,14 +954,14 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
 
   // THE STRAND ID IS THE BRIEF'S, NOT THE PACKET'S (kogaki#1094). The Brief
-  // serializes one form, `ground (strand L<n>): <proposition>` (kogaki#1095),
+  // serializes one form, `claim (strand L<n>): <proposition>` (kogaki#1095),
   // and the id in it addresses material the realizer cannot open. The Packet
-  // renders the proposition alone, so every ground line it carries is a claim
+  // renders the proposition alone, so every claim line it carries is a claim
   // and nothing else — which is also what keeps a Strand id's digits out of a
   // review comparison line.
-  const grounds = step.body.split("\n")
-    .filter((l) => l.startsWith("ground "))
-    .map((l) => l.replace(/^ground\s*\([^)]*\)\s*:\s*/, "ground: "))
+  const claims = step.body.split("\n")
+    .filter((l) => l.startsWith("claim "))
+    .map((l) => l.replace(/^claim\s*\([^)]*\)\s*:\s*/, "claim: "))
     .join("\n");
   const intro = (step.introduces || []);
   const known = (ledgerRow?.reader_already_knows || []);
@@ -988,7 +988,7 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
     purpose: need(`step ${step.step_id}'s purpose`, stepField(step.body, "purpose")),
     reader_state_before: need(`step ${step.step_id}'s reader_state_before`, stepField(step.body, "reader_state_before")),
     reader_state_after: need(`step ${step.step_id}'s reader_state_after`, stepField(step.body, "reader_state_after")),
-    grounds: grounds || "(none recorded)",
+    claims: claims || "(none recorded)",
     reader_already_knows: known.length
       ? known.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
       // "Step", not "Section" (PR #844 round 1, finding 2). A slot VALUE reaches
@@ -1553,14 +1553,14 @@ async function runSelfTest() {
     "reader_state_before: the reader has not met the claim.",
     "reader_state_after: the reader can state the claim.",
     "materials: L1", "rationale: the claim opens the article.",
-    "ground (strand L1): the material states the claim.", "```", "",
+    "claim (strand L1): the material states the claim.", "```", "",
     "```step", "step_id: s2", "move: close_the_claim", "purpose: close",
     "reader_state_before: the reader can state the claim.",
     "reader_state_after: the reader can say why it holds.",
     "materials: L1", "rationale: the close is what the opening owes.",
-    // A ground is one claim derived from a Strand (kogaki#1095) — this fixture
-    // carried a `step_effect` ground, which composition now refuses.
-    "ground (strand L1): the material states why the claim holds.", "```", "",
+    // A claim is one proposition derived from a Strand (kogaki#1095) — this fixture
+    // carried a `step_effect` claim, which composition now refuses.
+    "claim (strand L1): the material states why the claim holds.", "```", "",
   ].join("\n");
   writeFileSync(join(briefDir, "brief.md"), goodBrief);
 
@@ -1753,20 +1753,20 @@ async function runSelfTest() {
     ok("the packet carries neither the rationale's value nor a rationale or materials bullet",
       !p1.stdout.includes(rationaleText)
       && !/^- \*\*(rationale|materials)\.\*\*/m.test(p1.stdout));
-    // AND THE GROUND LINES CARRY NO STRAND ID. The Brief serializes one form,
-    // `ground (strand L<n>): <proposition>`; the id addresses material the
+    // AND THE CLAIM LINES CARRY NO STRAND ID. The Brief serializes one form,
+    // `claim (strand L<n>): <proposition>`; the id addresses material the
     // realizer cannot open, and its digits once reached a review comparison
     // line. The Packet renders the proposition alone.
-    ok("the fixture Brief's ground line carries a Strand id, so the strip is not vacuous",
-      /^ground \(strand L1\): the material states the claim\.$/m.test(briefText));
-    ok("the packet renders each ground as its content alone, with no Strand id",
-      /^ground: the material states the claim\.$/m.test(p1.stdout)
+    ok("the fixture Brief's claim line carries a Strand id, so the strip is not vacuous",
+      /^claim \(strand L1\): the material states the claim\.$/m.test(briefText));
+    ok("the packet renders each claim as its content alone, with no Strand id",
+      /^claim: the material states the claim\.$/m.test(p1.stdout)
       && !/\(strand /.test(p1.stdout));
-    // THE GROUNDS SENTENCE STATES THE OBLIGATION the review's `grounds-unused`
-    // item enforces: a ground no outlined claim rests on is a fail there, so a
+    // THE CLAIMS SENTENCE STATES THE OBLIGATION the review's `claims-unused`
+    // item enforces: a claim no outlined claim rests on is a fail there, so a
     // Packet saying only "assert nothing else" asked for less than it is judged
     // against.
-    ok("the grounds block states that every ground must be recoverable from the prose",
+    ok("the claims block states that every claim must be recoverable from the prose",
       /prose must make every one of them recoverable/.test(p1.stdout)
       && /assert nothing beyond/.test(p1.stdout));
     // A STEP CARRYING NEITHER FIELD RENDERS. They were required inputs; a Brief
@@ -1862,7 +1862,7 @@ async function runSelfTest() {
       writeFileSync(join(secs, "c.md"), "CCC-section.");
       const mk = (id) => ["```step", `step_id: ${id}`, "move: open_the_claim", `purpose: p${id}`,
         `reader_state_before: before ${id}.`, `reader_state_after: after ${id}.`,
-        "materials: L1", `rationale: r${id}.`, "ground (strand L1): g.", "```", ""].join("\n");
+        "materials: L1", `rationale: r${id}.`, "claim (strand L1): g.", "```", ""].join("\n");
       const head = goodBrief.split("## Sequence")[0];
       const b3 = head + "## Sequence\n\n" + mk("c") + mk("a") + mk("b");
       const od = join(root, "theses", "ordered"); mkdirSync(od, { recursive: true });
@@ -2039,7 +2039,7 @@ async function runSelfTest() {
     `purpose: purpose of ${id}`,
     `reader_state_before: before ${id}.`, `reader_state_after: after ${id}.`,
     "materials: L1", `rationale: rationale for ${id}.`,
-    "ground (strand L1): the material states the claim.",
+    "claim (strand L1): the material states the claim.",
     ...extra, "```", "",
   ];
   const secBrief = (blocks) => [
@@ -2442,9 +2442,9 @@ async function runSelfTest() {
     const figDir = join(root, "theses", "figure-brief");
     mkdirSync(figDir, { recursive: true });
     const G = [
-      "ground (strand L1): the material states the reader starts unconvinced.",
-      "ground (strand L1): the material states the reader ends convinced.",
-      "ground (strand L1): the material states conviction is the criterion.",
+      "claim (strand L1): the material states the reader starts unconvinced.",
+      "claim (strand L1): the material states the reader ends convinced.",
+      "claim (strand L1): the material states conviction is the criterion.",
     ];
     const figBrief = (steps) => [
       "# Brief — figure-brief", "",
@@ -2496,10 +2496,10 @@ async function runSelfTest() {
     writeFileSync(proseA1, "The realized prose for a1, which the figure is designed from.");
     const secA1 = driveFig("section", "--step", "a1", "--file", proseA1);
     const figInput = secA1.stdout || "";
-    // ACCEPTANCE 1 — the figure input carries the three bound grounds VERBATIM
+    // ACCEPTANCE 1 — the figure input carries the three bound claims VERBATIM
     // and this Step's own prose. Asserted on the printed input, which is what
     // the model reads, and not on the template.
-    ok("acceptance 1: section prints the figure input carrying every bound ground verbatim",
+    ok("acceptance 1: section prints the figure input carrying every bound claim verbatim",
       G.every((g) => figInput.includes(g)) && figInput.includes("The realized prose for a1, which the figure is designed from."),
       figInput.slice(-400));
     ok("acceptance 1: the figure input names the form's kind and its roles, and the Brief's reason",
@@ -2522,15 +2522,15 @@ async function runSelfTest() {
     ok("acceptance 3: no CanonicalDraft is written while a figure record is owed",
       !existsSync(join(figDir, "draft.md")));
 
-    // ACCEPTANCE 2 — a record that MOVES a role to another ground is refused by
-    // role. The binding is the Brief's decision, and a swapped ground words the
+    // ACCEPTANCE 2 — a record that MOVES a role to another claim is refused by
+    // role. The binding is the Brief's decision, and a swapped claim words the
     // element from material the composer did not put under that position.
     const recordOf = (over) => ({
       kind: "axis",
       elements: {
-        endpoint_a: { text: "the reader, unconvinced", ground: "g1" },
-        endpoint_b: { text: "the reader, convinced", ground: "g2" },
-        criterion: { text: "conviction", ground: "g3" },
+        endpoint_a: { text: "the reader, unconvinced", claim: "g1" },
+        endpoint_b: { text: "the reader, convinced", claim: "g2" },
+        criterion: { text: "conviction", claim: "g3" },
       },
       relations: ["the two endpoints sit on conviction"],
       caption: "what the reader holds after looking.",
@@ -2539,7 +2539,7 @@ async function runSelfTest() {
     });
     const writeRec = (name, rec) => { const f = join(root, name); writeFileSync(f, JSON.stringify(rec, null, 2)); return f; };
     const swapped = writeRec("fig-swapped.json", recordOf({
-      elements: { ...recordOf({}).elements, endpoint_a: { text: "the reader, unconvinced", ground: "g2" } },
+      elements: { ...recordOf({}).elements, endpoint_a: { text: "the reader, unconvinced", claim: "g2" } },
     }));
     const rSwap = driveFig("figure", "--step", "a1", "--file", swapped);
     ok("acceptance 2: a record binding endpoint_a to g2 where the Brief bound g1 refuses naming the role",
@@ -2652,7 +2652,7 @@ async function runSelfTest() {
     const kindFailures = [];
     for (const k of kindNames) {
       const els = {};
-      allKinds[k].roles.forEach((role, i) => { els[role] = { text: `text for ${role}`, ground: `g${i + 1}` }; });
+      allKinds[k].roles.forEach((role, i) => { els[role] = { text: `text for ${role}`, claim: `g${i + 1}` }; });
       const r = renderFigure({ kind: k, elements: els, relations: [`the ${k} relation`], caption: `caption for ${k}`, position: "after" });
       if (r.error) { kindFailures.push(`${k}: ${r.error}`); continue; }
       kindsRendered++;
@@ -2830,7 +2830,7 @@ async function runSelfTest() {
     // first form of this case did exactly that, and it is recorded here rather
     // than quietly corrected.
     const bracketed = renderFigure(recordOf({
-      elements: { ...recordOf({}).elements, criterion: { text: "cost per unit (amortised", ground: "g3" } },
+      elements: { ...recordOf({}).elements, criterion: { text: "cost per unit (amortised", claim: "g3" } },
     }));
     ok("an UNBALANCED bracket inside an element's wording renders rather than failing the balance check",
       !bracketed.error && bracketed.markup.includes("cost per unit (amortised"),

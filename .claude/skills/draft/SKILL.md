@@ -30,7 +30,7 @@ is advisory; what binds is in the Harness.
 
 `resolve` opens the run and renders the first UNREALIZED Step's Packet — not the
 path's first Step, which differ once a run is resumed mid-way. `material` prints
-one Strand's citations and every `ground (strand <L-id>)` line the Brief carries
+one Strand's citations and every `claim (strand <L-id>)` line the Brief carries
 for it; it takes no Step. `packet` re-renders a Packet on demand. `section`
 records a Step's realized prose and renders the next unrealized Step's Packet —
 except for a Step carrying `figure:`, where it renders that Step's figure input
