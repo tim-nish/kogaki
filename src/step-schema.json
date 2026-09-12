@@ -111,6 +111,12 @@
       "description": "What this Step ASSERTS, one entry per Strand it names in `materials`. A claim is a PROPOSITION ABOUT THE WORLD and names no reader; a claim that mentions the reader belongs in `purpose` or in a state field. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below -- the cardinality rule is the part most likely to be got wrong.",
       "see": "claim"
     },
+    "journeys": {
+      "required": false,
+      "type": "array of journey",
+      "description": "The Journeys this Step draws on, each naming the Strand whose Journey it takes and what the Step uses it for. A Journey is MATERIAL THE STEP EDITS, never an assertion the Step must recover -- it carries no claim, Reverse Outlining checks no fragment of it, and the Step Packet renders it as prose to edit for the Move's purpose. Nothing here bounds how many a Step declares: a Step telling two cases for one claim is a path-review judgment, the way the number of claims is bounded by the Step's materials rather than by a number. See `journey` below.",
+      "see": "journey"
+    },
     "entailed": {
       "required": false,
       "type": "boolean",
@@ -219,6 +225,57 @@
         "required": true,
         "type": "string",
         "description": "The Strand this claim is asserted on behalf of, as a LessonDisplayID (`L<n>`). It is one of this Step's `materials`, it is where the pinned Lesson that grounds the claim is addressed, and no other claim of this Step names it."
+      }
+    }
+  },
+  "journey": {
+    "definition": [
+      "A JOURNEY IS MATERIAL THE STEP DRAWS ON, NEVER AN ASSERTION THE STEP",
+      "MUST RECOVER. A Lesson's Claim is a proposition, and the planning",
+      "decision is what transformation of it this Step asserts -- so it is",
+      "carried in the Brief as the Step's claim. A Journey is a narrative, and",
+      "how it is told depends on the Move being performed and on the prose",
+      "already on the page -- so it is ADDRESSED at planning and EDITED at",
+      "realization. That asymmetry is the whole of why this field carries an",
+      "address and a use rather than any text.",
+      "",
+      "THE BRIEF CARRIES NO JOURNEY TEXT. The entry names a Strand and what",
+      "this Step uses that Strand's Journey for; the prose lives at the",
+      "Strand's served journey cite, which the Brief already renders in its",
+      "Strands section. No decomposition of a Journey happens at planning",
+      "time.",
+      "",
+      "IT ASSERTS NOTHING, AND THE CONSEQUENCES ARE MECHANICAL. A Journey",
+      "generates no claim, so `claims-unused` never asks for it back and the",
+      "Reverse Outline the Blind Reader hands over carries no Journey field",
+      "to compare. What this Step may ASSERT is its `claims` list, and a",
+      "Journey placed here does not widen it.",
+      "",
+      "THE USE IS FROM A CLOSED SET, in plain words, read from `uses` below.",
+      "It is what the Step does with the material, not a claim about the",
+      "world: a use outside the set is refused by `validateSteps`, and",
+      "whether the use chosen serves the Move is path review's judgment.",
+      "",
+      "COVERAGE ACCOUNTING IS UNCHANGED BY THIS FIELD. Journey placement is",
+      "counted from `materials` as `<L-id>.journey`, where it was counted",
+      "before, and this field neither feeds that count nor substitutes for",
+      "it."
+    ],
+    "uses": {
+      "illustrate": "to illustrate this Step's claim with the concrete case the Journey tells",
+      "motivate": "to motivate the question this Step opens, with the event that raised it",
+      "contrast": "to contrast, showing the expectation the event broke"
+    },
+    "fields": {
+      "strand": {
+        "required": true,
+        "type": "string",
+        "description": "The Strand whose Journey this Step draws on, as a LessonDisplayID (`L<n>`). It is one of this Step's `materials` -- named bare or as `<L-id>.journey` -- and its served record must carry Journey material, which is what the Brief's `- journey cite:` line records."
+      },
+      "use": {
+        "required": true,
+        "type": "string",
+        "description": "What this Step uses the Journey for, from the closed set in `uses` above. A use outside that set is refused."
       }
     }
   },

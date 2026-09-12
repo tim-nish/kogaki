@@ -105,7 +105,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // that can disagree about what a dangling move id is, and the refusal a
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
-  figureRefusal, parseFigureRoles, figureKinds, visualFormOf, figureSteps } from "./compose.mjs";
+  figureRefusal, parseFigureRoles, figureKinds, visualFormOf, figureSteps,
+  journeysRefusal, stepSchema } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 
@@ -239,7 +240,32 @@ export function parseStepBlockBody(body, path) {
     figure = figM[1].trim();
     figure_roles = parsedRoles;
   }
-  return { step: { step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, figure, figure_roles, body } };
+  // the Journey a Step draws on (kogaki#1111), read back from the serialized form
+  // `renderStep` writes: `journey: <L-id> — <use>`, ONE LINE PER ENTRY. THE
+  // PARSE-BACK IS WHAT MAKES THE DECLARATION REACH THE PACKET — the same
+  // arrangement `introduces`, `opens_section` and `figure` have, through the
+  // SAME shared grammar imported from the composition side, because a writer
+  // and a reader disagreeing about what a value is fails silently at exactly
+  // the field whose value reaches the model's entire input.
+  //
+  // `[ \t]*` and not `\s*`, for the reason `opens_section` states: `\s` spans
+  // a newline, so a blank `journey:` would capture the NEXT field's line.
+  const journeyLines = [...body.matchAll(/^journey:[ \t]*(.*)$/gm)].map((x) => x[1].trim());
+  let journeys;
+  if (journeyLines.length) {
+    // The em dash is the writer's separator. A line carrying none is a
+    // half-declaration and reaches the shared refusal as an entry with no
+    // use, which is what that refusal already names.
+    journeys = journeyLines.map((ln) => {
+      const m = /^(\S+)\s+—\s+(.*)$/.exec(ln);
+      return m ? { strand: m[1], use: m[2].trim() } : { strand: ln, use: "" };
+    });
+    const materials = (body.match(/^materials:[ \t]*(.*)$/m)?.[1] || "")
+      .split(",").map((x) => x.trim()).filter(Boolean);
+    const bad = journeysRefusal(journeys, materials, `the Brief at ${path}, step ${idM[1]}`);
+    if (bad) return { refusal: bad };
+  }
+  return { step: { step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, journeys, figure, figure_roles, body } };
 }
 
 // The fenced form. A Reverse Outline is ONE `step` block and this is what
@@ -684,6 +710,16 @@ export function stepField(body, field) {
   return m ? m[1].trim() : null;
 }
 
+// The schema's own words for one Journey use (kogaki#1111), appended to the
+// Packet's use line. The Packet is the model's entire input, so a bare token
+// like `contrast` is a word the realizer interprets; the schema's sentence is
+// what the composer chose from, and rendering it keeps the two readers of the
+// closed set reading one text.
+function journeyUseGloss(use) {
+  const uses = stepSchema().journey.uses;
+  return uses && uses[use] ? ` (${uses[use]})` : "";
+}
+
 // ---------------------------------------------------------------------------
 // the figure record — its realization-side machinery (kogaki#878).
 //
@@ -996,6 +1032,25 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
       // one-word-one-unit rule binds it too.
       : "(nothing — this is the first Step to introduce anything, or the path introduces no terms)",
     introduces: intro.length ? intro.map((e) => `- ${e}`).join("\n") : "(nothing new)",
+    // the Journey a Step draws on (kogaki#1111). THE PACKET RENDERS THE ADDRESS AND THE
+    // USE, and says where the prose is. The Brief carries no Journey text by
+    // design — a Journey is addressed at planning and edited at realization —
+    // and this renderer is DETERMINISTIC and offline, so it reaches no served
+    // record. What it hands the realizer is the Strand's own served journey
+    // cite, which the Brief's Strands section already holds, beside the
+    // declared use in the schema's own words.
+    //
+    // THE ABSENCE RENDERS ITS OWN LINE rather than an empty slot, on the
+    // ground the Move exemplar states: a hole in the model's ENTIRE input is
+    // a hole the model fills by invention.
+    journeys: (step.journeys || []).length
+      ? step.journeys.map((j) => {
+          const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
+            .find((c) => c.kind === "journey cite");
+          return `- **${j.strand}'s Journey** — use: ${j.use}${journeyUseGloss(j.use)}\n`
+            + `  Its prose is the served record at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`.`;
+        }).join("\n")
+      : "(none — this Step draws on no Journey material, and nothing here asks for any.)",
     section_placement: sectionPlacement(section),
     // BOUNDED BY THE SECTION, not merely ordered (kogaki#825). Falls back to the
     // flat form only when no grouping is derivable, so a Brief that declares no
@@ -2438,6 +2493,79 @@ async function runSelfTest() {
       "  endpoint_b: the state the reader ends in",
       "  criterion: what the two are being compared on",
     ].join("\n") + "\n");
+
+    // ---- the Journey a Step draws on: THE PACKET'S JOURNEY BLOCK (kogaki#1111) ----
+    //
+    // A Journey is MATERIAL THE STEP EDITS. The Brief carries an address and a
+    // use and no Journey text, so what the Packet owes the realizer is that
+    // address, that use in the schema's own words, and the block header saying
+    // the material is to be EDITED rather than recovered. Driven through the
+    // real `packet` entry point over a Brief built here, because the Packet is
+    // the model's ENTIRE input and an assertion over `renderPacket`'s return
+    // value would not see the template.
+    {
+      const jDir = join(root, "theses", "journey-brief");
+      mkdirSync(jDir, { recursive: true });
+      const jBrief = (stepExtra) => [
+        "# Brief — journey-brief", "",
+        "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+        "## Strands", "", "### L1 — first-strand", "",
+        "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`",
+        "- journey cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=journey @0000000000000000000000000000000000000000`", "",
+        "## Thesis", "", "The fixture claim.", "",
+        "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+        "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
+        "## Opening question", "", "What makes the fixture claim worth stating?", "",
+        "## Sequence", "",
+        "```step", "step_id: j1", "move: open_the_claim", "purpose: open",
+        "reader_state_before: the reader has not met the claim.",
+        "reader_state_after: the reader can state the claim.",
+        "materials: L1", "rationale: the claim opens the article.",
+        "claim (strand L1): the material states the claim.",
+        ...stepExtra, "```", "",
+      ].join("\n");
+      writeFileSync(join(jDir, "brief.md"), jBrief(["journey: L1 — illustrate"]));
+      const jWs = join(root, "ws-journey");
+      const driveJ = (cmd, ...extra) => spawnSync(process.execPath,
+        [self, cmd, "--brief", join(jDir, "brief.md"), "--workspace", jWs, "--moves-dir", movesDir, ...extra],
+        { encoding: "utf8" });
+      driveJ("resolve");
+      const jp = driveJ("packet", "--step", "j1");
+      ok("acceptance 2: the Packet renders the declared Journey, naming the Strand, the use and the served cite",
+        jp.status === 0 && /L1's Journey/.test(jp.stdout) && /use: illustrate/.test(jp.stdout)
+        && jp.stdout.includes("kind=journey @0000000000000000000000000000000000000000"),
+        (jp.stdout || "").slice(0, 300) + (jp.stderr || "").slice(0, 300));
+      // WORDED AS MATERIAL TO EDIT AND NEVER AS A CLAIM TO RECOVER. The whole
+      // asymmetry this field rests on is that a Journey asserts nothing, and
+      // the Packet is where the realizer is told so.
+      ok("the Packet's Journey block says the material is edited, not recovered",
+        /NOT a claim to recover/.test(jp.stdout) && /Edit it for the Move's purpose/.test(jp.stdout),
+        (jp.stdout || "").slice(0, 300));
+      // THE SCHEMA'S OWN SENTENCE RIDES THE USE, so the closed set has one
+      // text and the realizer is not left to interpret a bare token.
+      ok("the use line carries the schema's own words for that use",
+        jp.stdout.includes(stepSchema().journey.uses.illustrate));
+      // THE ABSENCE RENDERS ITS OWN LINE. A hole in the model's entire input
+      // is a hole the model fills by invention, which is the ground the Move
+      // exemplar's stated absence already stands on.
+      writeFileSync(join(jDir, "brief.md"), jBrief([]));
+      const jWs2 = join(root, "ws-journey-none");
+      const jp2 = spawnSync(process.execPath,
+        [self, "packet", "--step", "j1", "--brief", join(jDir, "brief.md"), "--workspace", jWs2, "--moves-dir", movesDir],
+        { encoding: "utf8" });
+      ok("a Step declaring no Journey renders a stated absence rather than an empty slot",
+        jp2.status === 0 && /draws on no Journey material/.test(jp2.stdout) && !/\{\{/.test(jp2.stdout),
+        (jp2.stdout || "").slice(0, 300) + (jp2.stderr || "").slice(0, 300));
+      // AND THE DECLARATION IS REFUSED AT THE BRIEF PARSER through the SHARED
+      // grammar, so the writer and the reader cannot drift apart.
+      writeFileSync(join(jDir, "brief.md"), jBrief(["journey: L1 — decorate"]));
+      const jp3 = spawnSync(process.execPath,
+        [self, "resolve", "--brief", join(jDir, "brief.md"), "--workspace", join(root, "ws-journey-bad"), "--moves-dir", movesDir],
+        { encoding: "utf8" });
+      ok("a Journey use outside the closed set refuses at the Brief parser, quoting the use",
+        jp3.status !== 0 && (jp3.stderr || "").includes("decorate"),
+        (jp3.stderr || "").slice(0, 300));
+    }
 
     const figDir = join(root, "theses", "figure-brief");
     mkdirSync(figDir, { recursive: true });

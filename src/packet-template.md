@@ -25,8 +25,8 @@ bans becomes the first hit of any check grepping for it, which is the
 use-versus-mention defect this repository has recorded repeatedly. The check
 asserts the absence; this comment says why the absence is deliberate.
 
-Block order is fixed: anchors, Move contract, Step, the Step's Section, ledger,
-the article so far, instruction. Heavy prose late, instruction last. Every block opens with a fixed
+Block order is fixed: anchors, Move contract, Step, the Journey material, the
+Step's Section, ledger, the article so far, instruction. Heavy prose late, instruction last. Every block opens with a fixed
 usage header saying what the block is FOR, because a block whose use is not
 stated gets used for whatever it resembles.
 -->
@@ -76,6 +76,20 @@ What this Step must accomplish, in this article, for this reader.
   here: these lines are the whole of what this Step may assert.
 
 {{claims}}
+
+## The Journey material this Step edits — NOT a claim to recover
+
+Material, not assertion. Each entry below names a Journey this Step draws on
+and what you are using it for. **Edit it for the Move's purpose**: cut it,
+compress it, retell it in this article's voice — the telling is yours, and the
+`use` line says what the telling is for.
+
+Nothing here is a claim. The claims above are the whole of what this Step
+asserts, and the round trip asks for those back and never for a fragment of a
+Journey. A Journey you use well may leave almost none of its original wording
+on the page.
+
+{{journeys}}
 
 ## The Section this Step sits in
 

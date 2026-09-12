@@ -5146,6 +5146,13 @@ async function runSelfTest() {
       reader_already_knows: bullets(f.knows,
         "(nothing — this is the first Step to introduce anything, or the path introduces no terms)"),
       introduces: bullets(introduces, "(nothing new)"),
+      // the Journey a Step draws on (kogaki#1111). THE FIXTURE FILLS IT WITH THE STATED
+      // ABSENCE, which is what the renderer writes for a Step declaring no
+      // Journey — these cases are about the Reverse Outline, and a Journey
+      // asserts nothing, so the Reverse Outline carries no Journey field and
+      // the block's presence here is the template's rather than a case's
+      // subject.
+      journeys: "(none — this Step draws on no Journey material, and nothing here asks for any.)",
       prior_sections: "PACKETONLYTOKEN the article so far.",
     };
     let out = TEMPLATE;

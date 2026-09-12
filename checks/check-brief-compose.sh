@@ -36,6 +36,11 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest } from "./src/compose.mjs";
+// THE ROUND TRIP'S OTHER END (kogaki#1111). `parseStepBlockBody` is the Brief
+// parser's one reader of a step block, and the Journey line's writer is
+// `renderStep` above — asserting the pair here is what keeps a writer and a
+// reader from disagreeing about a value that reaches the Step Packet.
+import { parseStepBlockBody } from "./src/draft.mjs";
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock,
@@ -477,6 +482,32 @@ try {
           fails.push(`(a) the one-claim-per-Strand refusal does not name the Step: ${twice.error}`);
         }
       }
+      // THE JOURNEY REFUSALS STAND IN THE CELL TOO (kogaki#1111 acceptance 5).
+      // The use set and the materials rule are the schema's and the
+      // validator's; the Issue requires them to survive the removal of the
+      // brief skill and the pipeline spec, so they are driven HERE rather than
+      // only where the whole repository is present and a prose carrier could
+      // not be told apart from the validator.
+      {
+        const badUse = alone.validateSteps([{ ...step1,
+          journeys: [{ strand: "L2", use: "decorate" }] }, step2]);
+        if (!badUse.error || !/decorate/.test(badUse.error) || !/illustrate/.test(badUse.error)) {
+          fails.push(`(a) with the brief skill and the pipeline spec absent, a Journey use outside the closed set was not refused quoting the use and naming the set — the use set is a document's rather than the schema's: ${badUse.error || "ACCEPTED"}`);
+        }
+        const notCarried = alone.validateSteps([{ ...step1,
+          journeys: [{ strand: "L1", use: "illustrate" }] }, step2]);
+        if (!notCarried.error || !/L1/.test(notCarried.error) || !/materials/.test(notCarried.error)) {
+          fails.push(`(a) with the two documents absent, a Journey drawing on a Strand the Step does not carry was not refused naming that Strand and \`materials\`: ${notCarried.error || "ACCEPTED"}`);
+        }
+        // THE CONTROL: a conforming Journey rides through the cell, so the two
+        // refusals above are the arms firing rather than the field being
+        // rejected outright.
+        const good = alone.validateSteps([{ ...step1,
+          journeys: [{ strand: "L2", use: "illustrate" }] }, step2]);
+        if (good.error) {
+          fails.push(`(a) the removal cell refuses a CONFORMING Journey reference, so its Journey refusals above prove nothing: ${good.error}`);
+        }
+      }
       const ok = alone.validateSteps([step1, step2]);
       if (ok.error) fails.push(`(a) the removal cell refuses a CONFORMING path, so its refusal above proves nothing: ${ok.error}`);
     } finally {
@@ -493,6 +524,103 @@ try {
       fails.push(`(a) the claim line is not serialized as \`claim (strand L<n>): <proposition>\`: ${JSON.stringify(line)}`);
     }
   }
+  // ---- (a) THE JOURNEY A STEP DRAWS ON (kogaki#1111) ----
+  //
+  // A Journey is MATERIAL THE STEP EDITS, never an assertion it must recover.
+  // The field carries an ADDRESS and a USE and no text, and these cases bind
+  // the three facts that makes checkable: the use set is the SCHEMA's and is
+  // closed, the Journey's Strand is one the Step carries, and a Journey
+  // claimed for a Strand whose served record has none is refused at the fill
+  // where the Brief's own Strands section is in hand.
+  {
+    const schema = JSON.parse(readFileSync(join(REPO_ROOT, "src", "step-schema.json"), "utf8"));
+    // ACCEPTANCE 1's SCHEMA HALF. Asserted against the file rather than
+    // against a constant here, because the whole arrangement is that the
+    // composer's prompt and the validator's refusal read ONE file.
+    if (!schema.fields.journeys) {
+      fails.push("(a) src/step-schema.json declares no `journeys` field — the composer is rendered this file verbatim, so a field it does not carry is a field nobody is asked for");
+    }
+    const uses = Object.keys(schema.journey?.uses || {});
+    if (JSON.stringify(uses) !== JSON.stringify(["illustrate", "motivate", "contrast"])) {
+      fails.push(`(a) the schema's closed Journey use set is ${JSON.stringify(uses)}, not the three the Issue settles`);
+    }
+    // THE VALIDATOR READS THE SET FROM THE SCHEMA, and that is asserted by
+    // MOVING the schema rather than by reading the source: a validator holding
+    // its own copy would pass every case above and still drift.
+    {
+      const cell = mkdtempSync(join(tmpdir(), "kogaki-journey-uses-"));
+      try {
+        mkdirSync(join(cell, "src"));
+        for (const f of ["compose.mjs", "runs.mjs"]) {
+          writeFileSync(join(cell, "src", f), readFileSync(join(REPO_ROOT, "src", f), "utf8"));
+        }
+        const moved = JSON.parse(readFileSync(join(REPO_ROOT, "src", "step-schema.json"), "utf8"));
+        moved.journey.uses = { transcribe: "to transcribe the case verbatim" };
+        writeFileSync(join(cell, "src", "step-schema.json"), JSON.stringify(moved, null, 2));
+        const alone = await import(`file://${join(cell, "src", "compose.mjs")}`);
+        const r = alone.validateSteps([{ ...step1, journeys: [{ strand: "L2", use: "illustrate" }] }, step2]);
+        if (!r.error || !/transcribe/.test(r.error)) {
+          fails.push(`(a) the validator does not read the Journey use set from src/step-schema.json — a use the moved schema retired was accepted, or refused without naming the moved set: ${r.error || "ACCEPTED"}`);
+        }
+        const ok2 = alone.validateSteps([{ ...step1, journeys: [{ strand: "L2", use: "transcribe" }] }, step2]);
+        if (ok2.error) fails.push(`(a) the moved schema's own use was refused, so the case above proves nothing: ${ok2.error}`);
+      } finally {
+        rmSync(cell, { recursive: true, force: true });
+      }
+    }
+    // THE SHAPE REFUSALS, each asserted by WHICH refusal landed.
+    for (const [journeys, where, what] of [
+      [[{ strand: "L2" }], /names no use/, "a Journey with no use"],
+      [[{ use: "illustrate" }], /names no strand/, "a Journey with no strand"],
+      [[{ strand: "L2", use: "gesture" }], /gesture/, "a use outside the closed set"],
+      [[{ strand: "L1", use: "illustrate" }], /materials/, "a Journey whose Strand the Step does not carry"],
+      ["L2", /array of Journey references/, "a journeys value that is not an array"],
+    ]) {
+      const r = validateSteps([{ ...step1, journeys }, step2]);
+      if (!r.error) fails.push(`(a) ${what} was ACCEPTED`);
+      else if (!where.test(r.error)) fails.push(`(a) ${what} was refused for another reason: ${r.error}`);
+    }
+    // A STEP MAY NAME ITS STRAND IN EITHER FORM. `<L-id>.journey` is what the
+    // coverage accounting counts, and this Issue changes that accounting not
+    // at all — so a Step carrying the suffixed form carries the Strand.
+    for (const materials of [["L2", "thesis"], ["L2.journey", "thesis"], ["L2", "L2.journey"]]) {
+      const r = validateSteps([{ ...step1, materials, journeys: [{ strand: "L2", use: "contrast" }] }, step2]);
+      if (r.error) fails.push(`(a) a conforming Journey was refused against materials ${JSON.stringify(materials)}: ${r.error}`);
+    }
+    // NOTHING BOUNDS THE COUNT (kogaki#1111's 2026-09-13 amendment): two
+    // Journeys with the same use is a path-review judgment, never a shape
+    // refusal, and this asserts the schema grew no number.
+    {
+      const r = validateSteps([{ ...step1, materials: ["L2", "L3", "thesis"],
+        journeys: [{ strand: "L2", use: "illustrate" }, { strand: "L3", use: "illustrate" }] }, step2]);
+      if (r.error) fails.push(`(a) two Journeys of one Step were refused — no clause of this Issue bounds the count: ${r.error}`);
+    }
+    // THE SERIALIZATION IS ONE LINE PER ENTRY, and a Step declaring none is
+    // BYTE-IDENTICAL to what it was before this field existed.
+    {
+      const lines = renderStep({ ...step1, journeys: [{ strand: "L2", use: "motivate" }] })
+        .split("\n").filter((l) => l.startsWith("journey:"));
+      if (lines.length !== 1 || lines[0] !== "journey: L2 — motivate") {
+        fails.push(`(a) the journey line is not serialized as \`journey: <L-id> — <use>\`: ${JSON.stringify(lines)}`);
+      }
+      if (renderStep(step1).includes("journey:")) {
+        fails.push("(a) a Step declaring no Journey serializes a journey line — a Brief composed before this field is not byte-identical");
+      }
+    }
+    // AND THE ROUND TRIP HOLDS, through the Brief parser's own reader rather
+    // than a second one: the writer is `renderStep` and the reader is
+    // `src/draft.mjs`'s `parseStepBlockBody`, sharing ONE grammar.
+    {
+      const body = renderStep({ ...step1, journeys: [{ strand: "L2", use: "contrast" }] })
+        .replace(/^```step\n/, "").replace(/\n```$/, "");
+      const back = parseStepBlockBody(body, "round-trip.md");
+      if (back.refusal) fails.push(`(a) the serialized Journey line does not parse back: ${back.refusal}`);
+      else if (JSON.stringify(back.step.journeys) !== JSON.stringify([{ strand: "L2", use: "contrast" }])) {
+        fails.push(`(a) the Journey round trip lost or changed the declaration: ${JSON.stringify(back.step.journeys)}`);
+      }
+    }
+  }
+
   // move is REQUIRED on every Step — §4.1 v18 (kogaki#642), which supersedes
   // §7.5's no-mandatory-Moves rider by name. The assertion is INVERTED rather
   // than removed: the case it covers is the same one, and deleting it would
@@ -561,6 +689,51 @@ try {
   // closed set: a foreign L-id in materials is a Brief fetch (§5.3).
   const foreign = fillBrief(doc0, { steps: [{ ...step1, materials: ["L7"] }] });
   if (!foreign.error || !/closed Strand set/.test(foreign.error)) fails.push("(c) a material outside the closed set was accepted — growing the set routes through Terrain, never a Brief fetch");
+
+  // THE JOURNEY'S SERVED-RECORD HALF (kogaki#1111 acceptance 1), which lives
+  // at the FILL because it is a fact about the Brief rather than about the
+  // Step: L2 carries a journey cite in the minted fixture and L1 does not, so
+  // a Journey claimed for L1 is a Journey the material does not have.
+  {
+    const noServed = fillBrief(doc0, { steps: [step1,
+      { ...step2, journeys: [{ strand: "L1", use: "illustrate" }] }] });
+    if (!noServed.error) {
+      fails.push("(c) a Journey claimed for a Strand whose served record carries none was ACCEPTED — inventing Journey material for a Strand that has none is unsupported completion, in the one place the shape check cannot see it");
+    } else if (!/L1/.test(noServed.error) || !/journey cite/.test(noServed.error)) {
+      fails.push(`(c) the no-served-Journey refusal does not name the Strand and what the Brief renders for it: ${noServed.error}`);
+    }
+    // THE CONTROL: L2 DOES carry one, so the refusal above is the served-record
+    // arm firing rather than the field being rejected at the fill outright.
+    const served = fillBrief(doc0, { steps: [{ ...step1, journeys: [{ strand: "L2", use: "illustrate" }] }, step2] });
+    if (served.error) fails.push(`(c) a Journey on the Strand that DOES carry served Journey material was refused, so the case above proves nothing: ${served.error}`);
+    // AND THE COVERAGE ACCOUNTING IS UNTOUCHED (the Issue's "Not in scope").
+    // The Journey placement count is read from `materials`, where it was read
+    // before; declaring the field moves it not at all.
+    const before = fillBrief(doc0, { steps: [step1, step2] });
+    if (!before.error && !served.error) {
+      const line = (t) => (t.match(/^\*Journey placement count[^\n]*$/m) || [""])[0];
+      if (line(before.doc) !== line(served.doc)) {
+        fails.push(`(c) declaring a Journey changed the Journey placement count — the coverage accounting is counted from \`materials\` and this Issue does not move it: ${line(before.doc)} vs ${line(served.doc)}`);
+      }
+    }
+  }
+
+  // ACCEPTANCE 3: THE REVERSE OUTLINE COMPARES NO JOURNEY FIELD. A Journey is
+  // material the Step EDITS, so a reader cannot recover it and must not be
+  // asked to — the Round Trip table gains no row, and `claims-unused` is
+  // unchanged. Asserted as an ABSENCE over the table's own data, which is the
+  // only form this property has: there is no refusal to drive.
+  {
+    const items = JSON.parse(readFileSync(join(REPO_ROOT, "src", "review-items.json"), "utf8")).items;
+    const jrows = items.filter((it) => /journey/i.test(JSON.stringify(it)));
+    if (jrows.length) {
+      fails.push(`(c) src/review-items.json carries ${jrows.length} row(s) mentioning a Journey (${jrows.map((r) => r.id).join(", ")}) — a Journey asserts nothing, so the Reverse Outline has no Journey field to compare and the Blind Reader would be asked to recover material rather than a claim`);
+    }
+    const unused = items.find((it) => it.id === "claims-unused");
+    if (!unused || unused.field !== "claims" || unused.declared_block !== "claims") {
+      fails.push(`(c) the claims-unused row moved — kogaki#1111 leaves it unchanged: ${JSON.stringify(unused)}`);
+    }
+  }
 
   // Boundary 1 (Check/CI infrastructure) — both prescribed shards surveyed
   // this sitting before (d) was rewritten:
