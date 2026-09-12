@@ -58,8 +58,6 @@
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   the read-not-invented rule
 //       SPEC-draft-pipeline
-//   the owner gate over a passing specialization record
-//       SPEC-draft-pipeline
 //   the settled structure section
 //       SPEC-draft-pipeline
 //   the prose-at-the-surface rule
@@ -83,13 +81,38 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 // that names a marker here — which is the point of delegating the choice to it.
 // The name survives in the comments below as the marker they discuss.
 import { resolveHeadlines, glossFor } from "./terrain.mjs";
-import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
-import { snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry } from "./compose.mjs";
-import { enterSubRun, BRIEF_ENTRIES } from "./runs.mjs";
+// ---- THE EXECUTOR, IMPORTED RATHER THAN REIMPLEMENTED (kogaki#1108).
+// `runWorkflow` is `src/terrain.mjs`'s own advance loop entered with a FLOW
+// BINDING; `judgedRecordPath` is the one route a judgment record reaches a state
+// by; `persistPendingRun` is what makes a refusal raised in a Brief state persist
+// the transitions the act completed before it. None of the three is copied here.
+import {
+  runWorkflow, judgedRecordPath, persistPendingRun, SKILL_EXPANSION_EXECUTOR,
+  readHookPayload, advancedByFromPayload, relFromRepo, JudgmentRefusal,
+  terrainRunRecord, settledStrandHandoff,
+} from "./terrain.mjs";
+import {
+  SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
+  cmdAssemble, cmdAdoptCandidate,
+} from "./assemble.mjs";
+import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
+import {
+  snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
+  validateSteps, validateSpecialization, selectedStrands,
+} from "./compose.mjs";
+import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 function fail(msg) {
+  // THE PENDING RUN RECORD IS PERSISTED FIRST (kogaki#1108, carrying kogaki#808).
+  // Every state of the Brief table runs inside the shared executor, which arms a
+  // pending record at the top of an act and releases it at the loop's own write.
+  // A refusal raised in this file exits the process, so without this the
+  // transitions that act had already completed would sit on disk unnamed by the
+  // record — the exact loss #808 closed one runtime over. It is a no-op outside
+  // an advance, which is every standalone invocation.
+  persistPendingRun();
   process.stderr.write(`brief: ${msg}\n`);
   process.exit(1);
 }
@@ -697,116 +720,34 @@ function cmdEnter(args) {
   console.log(`# entry resolved ${r.strands.length} member(s); nothing written under theses/ — pre-Thesis state is machine-local (the durable home and the entry point v9).`);
 }
 
-// ---- THE THESIS-DETERMINATION GATE'S EXECUTOR (the durable home and the entry point; kogaki#891). ----
+// ---------------------------------------------------------------------------
+// `gate-thesis` IS DELETED, AND IT LEAVES NO STUB (kogaki#1108).
 //
-// ONE ACT, TWO MODES, AND NO ENTRY POINT THAT CAN MINT STATE OUT OF BAND —
-// the shape the owner gate over a passing specialization record's ratification gate established (kogaki#893) and the
-// property kogaki#625 item 1 established on the Terrain side: an answer is
-// admitted only at the wait that declared it. `--declare` writes the run
-// declaration from the gate `enter` already composed and renders the options;
-// `--capture` records the owner's answer against THAT declaration.
+// It was the thesis-determination gate's one-act-two-modes executor: `--declare`
+// wrote the run declaration from the gate `enter` had composed and printed every
+// option; `--capture` recorded the owner's answer against THAT declaration. Both
+// modes existed because a SESSION stood between the composed candidates and the
+// owner — it ran the declare, rendered the options, asked the question, and ran
+// the capture.
 //
-// THE DECLARATION IS NOT COMPOSED HERE. `enter` writes `state.gate` — the
-// options, the premise negation, the free-text prompt — and this act carries
-// it over rather than recomposing it, so the thing the owner is shown and the
-// thing the answer is judged against cannot disagree.
-// THE DECLARATION AND THE CAPTURE ARE KEYED ON THE RUN STATE, not on the
-// directory holding it. Two run states can sit side by side in one workspace,
-// and a directory-keyed name gives them ONE declaration and ONE capture
-// between them — so an answer given at run state A's gate is admitted at run
-// state B's adoption. The option-set digest does not catch it: two entries
-// over the same settled Strand set compose the same candidates and therefore
-// the same digest, which is exactly when the two runs are least
-// distinguishable. Found by the fixture that drove two entries into one
-// directory (kogaki#891).
-function thesisGatePaths(runPath, gateId) {
-  const stem = basename(runPath).replace(/\.json$/, "");
-  const dir = dirname(resolve(runPath));
-  return {
-    dir,
-    decl: join(dir, `${stem}.${gateId}${gateSchema().capture.run_declaration_suffix}`),
-    cap: join(dir, `${stem}.${gateId}${gateSchema().capture.suffix}`),
-  };
-}
-
-function cmdGateThesis(args) {
-  const { path: runPath, state } = readRunState(args);
-  // ACCEPTANCE ITEM 2 (kogaki#891), and it is checked HERE as well as at
-  // adoption: a run state carrying no gate was never rendered to an owner,
-  // so there is no question for an answer to be an answer TO.
-  if (!state.gate || !Array.isArray(state.gate.options) || state.gate.options.length === 0) {
-    fail("this run state carries no thesis-determination gate declaration — `enter` composes it (the durable home and the entry point), "
-      + "and an answer is admitted only at the wait that declared it. Re-run `enter`. Nothing was written.");
-  }
-  const gateId = state.gate.gate_id;
-  const optionIds = state.gate.options.map((o) => o.id);
-  const digest = ownerGateDigest(gateId, optionIds);
-  const paths = thesisGatePaths(runPath, gateId);
-  mkdirSync(paths.dir, { recursive: true });
-  const declPath = paths.decl;
-  const capPath = paths.cap;
-
-  if (args.capture) {
-    let decl;
-    try { decl = JSON.parse(readFileSync(declPath, "utf8")); }
-    catch { fail(`no declaration at ${declPath} — an answer is admitted at the wait that declared it, so run --declare and raise the gate first (the durable home and the entry point; kogaki#891).`); }
-    if (decl.answers_over?.option_set_digest !== digest) {
-      fail(`the declaration at ${declPath} was raised over an option set digesting ${JSON.stringify(decl.answers_over?.option_set_digest)}, `
-        + `but this run state now offers one digesting ${JSON.stringify(digest)} — the candidates changed after the gate was raised, `
-        + `so this answer would adopt a Thesis the owner was never shown. Re-run --declare and re-raise the gate.`);
-    }
-    const toolUseId = argString(args, "tool-use-id",
-      "--capture needs --tool-use-id <id> — the AskUserQuestion tool_use_id, the one field tying the row to a question the harness actually asked");
-    const option = typeof args.option === "string" && args.option !== "" ? args.option : undefined;
-    const freeText = typeof args["free-text"] === "string" && args["free-text"].trim() !== "" ? args["free-text"] : undefined;
-    if (option === undefined && freeText === undefined) {
-      fail("--capture needs --option <id> or --free-text <the owner's own words> — an empty answer is not an answer. "
-        + `Options offered: ${optionIds.join(", ")}.`);
-    }
-    if (option !== undefined && !optionIds.includes(option)) {
-      fail(`answer option ${JSON.stringify(option)} was not offered by the declaration — offered: ${optionIds.join(", ")}.`);
-    }
-    const answer = {};
-    if (option !== undefined) answer.option = option;
-    // ACCEPTANCE ITEM 3 (kogaki#891): the owner's own words reach the run
-    // state through this field and through nothing else. `adopt --thesis` is
-    // gone, so there is no argument channel left for a free-form Thesis.
-    if (freeText !== undefined) answer.free_text = freeText;
-    if (typeof args.slug === "string" && args.slug !== "") answer.slug = args.slug;
-    const row = {
-      stop_id: `stop-${Date.now()}`,
-      gate_id: gateId,
-      evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
-      payload: { options_offered: optionIds, free_text_offered: true, answer },
-      [gateSchema().capture.owner_answer_binding_key]: { option_set_digest: digest },
-    };
-    const capture = existsSync(capPath) ? JSON.parse(readFileSync(capPath, "utf8")) : { rows: [] };
-    capture.rows.push(row);
-    writeFileSync(capPath, JSON.stringify(capture, null, 2) + "\n");
-    console.log(`captured at ${gateId}: ${JSON.stringify(answer)}`);
-    console.log(`pass --capture ${capPath} to \`brief.mjs adopt\`. Written: ${capPath}`);
-    return;
-  }
-
-  const registered = (gateRegistry().gates || []).find((g) => g.id === gateId);
-  if (!registered) fail(`${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
-  const declaration = {
-    ...registered,
-    ...state.gate,
-    declared_at: new Date().toISOString(),
-    run_declaration: true,
-    options: state.gate.options,
-    answers_over: { option_set_digest: digest },
-  };
-  delete declaration.dynamic_options;
-  writeFileSync(declPath, JSON.stringify(declaration, null, 2) + "\n");
-  console.log(`${gateId} — ${state.strands.length} settled Strand(s), ${optionIds.length} option(s), digest ${digest}.`);
-  console.log(`Render every option below on screen, then ask the declaration's question through AskUserQuestion.\n`);
-  for (const o of state.gate.options) console.log(`  ${o.id}\n      ${o.label}`);
-  console.log(`\n  (free text) ${state.gate.free_text?.prompt || ""}`);
-  console.log(`\nThen: brief.mjs gate-thesis --capture --run-state ${runPath} --tool-use-id <id> [--option <id>] [--free-text <words>] [--slug <name>]`);
-  console.log(`declaration: ${declPath}`);
-}
+// Under the Brief workflow table (`src/brief-workflow.json`) nothing stands
+// there. The executor composes the declaration at the `THESIS_ADOPTION` wait and
+// stops; the harness renders the byte-fixed call written beside it;
+// `.claude/hooks/write-gate-capture.py` records the click at the moment it
+// happens; `.claude/hooks/advance-brief.py` re-enters the executor, which reads
+// the row. A deprecated entry point is an entry point (SPEC-terrain, "A removed
+// entry point is DELETED, and leaves no stub"), so this is a deletion and a
+// leftover invocation fails as an unknown subcommand.
+//
+// WHAT SURVIVES IS THE OPTION SET, AND IT SURVIVES WHERE IT ALWAYS WAS. This
+// command never composed the declaration: `enter` writes `state.gate`, and both
+// modes carried it over rather than recomposing it, so that the thing the owner
+// is shown and the thing the answer is judged against could not disagree. The
+// GATE_WORK composer below reads that same `state.gate`, and `adopt` still
+// digests over the same option ids. `thesisGatePaths` went with the command —
+// it named a declaration and a capture BESIDE THE RUN STATE, and both now live
+// in the executor's own run workspace, which is per run by construction and so
+// needs no run-state-stem key to keep two entries apart.
 
 // ---- adopt: CONSUME the owner's captured answer at THE ONE GATE. ----
 //
@@ -843,13 +784,16 @@ function cmdAdopt(args) {
     // caller believed it had passed the answer, which is the same class of
     // failure one layer along.
     fail("`--thesis` and `--slug` are gone (kogaki#891). The owner's answer at the thesis-determination gate "
-      + "is READ from the captured question-UI answer, never passed as an argument: raise the gate with "
-      + "`brief.mjs gate-thesis --declare`, record the click with `gate-thesis --capture --tool-use-id <id>`, "
-      + "then `adopt --capture <path>`. A free-form Thesis rides `--free-text` at the capture.");
+      + "is READ from the captured question-UI answer, never passed as an argument. Under the Brief workflow "
+      + "table the executor composes the declaration at its `THESIS_ADOPTION` wait and stops, the harness "
+      + "renders the question, `.claude/hooks/write-gate-capture.py` records the click, and this act reads "
+      + "the row (kogaki#1108). A free-form Thesis is the owner's own words in that row, verbatim.");
   }
   const capPath = argString(args, "capture",
-    "adopt needs --capture <path to the gate capture> — the owner's recorded answer at the thesis-determination gate "
-    + "(brief.mjs gate-thesis). With no owner answer the gate blocks and nothing is written (story 1.72 AC6; kogaki#891).");
+    "adopt needs --capture <path to the gate capture> — the owner's recorded answer at the thesis-determination gate, "
+    + "written by `.claude/hooks/write-gate-capture.py` at the moment of the click and named for this run's "
+    + "workspace by the executor (kogaki#1108). With no owner answer the gate blocks and nothing is written "
+    + "(story 1.72 AC6; kogaki#891).");
   let capture;
   try { capture = JSON.parse(readFileSync(capPath, "utf8")); }
   catch (e) { fail(`the gate capture at ${capPath} cannot be read (${e.message}) — the owner's answer is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
@@ -990,20 +934,542 @@ function cmdMint(args) {
   console.log(`Strands: ${state.strands.map((s) => s.display_id).join(", ")} `
     + `(${state.strands.length} member(s), set closed at mint)`);
   console.log("The thesis field is FILLED at mint by construction (the durable home and the entry point v9); every downstream composition field is a typed unfilled slot — the next sitting resumes from the document.");
+  // THE PATH IS RETURNED, NOT ASSERTED BY THE CALLER (kogaki#1108). The `mint`
+  // state is kind `write`, and the executor's write guard reads the artifact the
+  // renderer NAMES — a state that wrote and did not say where is the one case
+  // that guard exists for. Every sibling renderer in `src/terrain.mjs` returns
+  // its path for the same reason.
+  return out;
 }
+
+// ===========================================================================
+// THE BRIEF FLOW (kogaki#1108, owner decision 2026-09-12).
+//
+// WHAT CHANGED, in one sentence: the Brief is a HARNESS-OWNED WORKFLOW TABLE on
+// the Terrain pattern, and the Model's freedom is the FIELD VALUES of schemas
+// the Harness declares.
+//
+// WHAT IT REPLACES. Before this, `.claude/skills/brief/SKILL.md` was 200-odd
+// lines of conduct: it told the session which command to run, what to render,
+// what to compose, when to ask, and what never to do. Every Act that mattered —
+// composing the Reader Paths, reviewing them, raising two owner gates, judging
+// the specialization record — was performed BY A SESSION READING PROSE. That is
+// the defect `checks/check-terrain-skill-is-one-line.sh` was admitted over one
+// lane across, measured rather than feared, and the same measurement holds here:
+// prose is advisory to a system whose job is to satisfy instructions.
+//
+// WHAT A FLOW IS, and it is the whole of what this block adds: a TABLE
+// (`src/brief-workflow.json`), a LANE, and the TWO MAPS a state id is looked up
+// in. `runWorkflow` is `src/terrain.mjs`'s own advance loop — the one that reads
+// the run record, executes states until the next declared wait or the terminal,
+// composes the gate declaration and its byte-fixed call, reads the harness's
+// capture, invokes the pinned judge and validates what comes back. None of it is
+// reimplemented here, and the reason is stated rather than assumed: two
+// implementations of `the re-entrant executor` drift in exactly the clauses
+// nobody reads twice, and this file would be the copy that fell behind.
+//
+// WHERE THE MODEL STILL ACTS, stated plainly so the bound is checkable. At three
+// states, as the JUDGE the executor CALLS — `compose_path`, `review_path`,
+// `judge_specialization` — and nowhere else. Each of the three declares its
+// judgment point, its record shape, its refusals and its re-ask count in the
+// table; two of them declare a `schema_file` the executor renders into the
+// prompt VERBATIM and the validator reads its field set back out of. The Model
+// fills declared fields; it never decides what the fields are, when the state
+// runs, whether the run advances, or what the owner is asked.
+const BRIEF_HERE = dirname(fileURLToPath(import.meta.url));
+const BRIEF_REPO = resolve(BRIEF_HERE, "..");
+const BRIEF_TABLE = join(BRIEF_HERE, "brief-workflow.json");
+
+function readJson(p) {
+  return JSON.parse(readFileSync(p, "utf8"));
+}
+
+// The lane entry name a START act opens a workspace under. Its shape is
+// `terrainRunEntry`'s — the lane name, the ISO instant, path-safe — and it is
+// composed here rather than imported because that helper names its own lane.
+function briefRunEntry(now = new Date()) {
+  return `brief-${now.toISOString().replace(/[:.]/g, "-")}`;
+}
+
+// The capture file the harness writes this run's answers into. ONE FILE PER RUN
+// WORKSPACE, holding a row per raising of either gate: `readCapturedAnswer` in
+// the executor composes exactly this path from the flow's lane and the gate
+// schema's suffix, and `validateOwnerAnswer` filters it by `gate_id`, so the two
+// gates share a file and never an answer.
+function captureFile(rec) {
+  return join(rec._dir, `brief${gateSchema().capture.suffix}`);
+}
+
+function needRunState(rec, st) {
+  return rec.brief_run_state
+    || fail(`${st.id} has no run state — the \`enter\` state writes it and precedes this state in `
+      + "src/brief-workflow.json. Nothing was written.");
+}
+
+function needBrief(rec, st) {
+  const written = (rec.artifacts_written || []).find((a) => a.state === "mint");
+  return written
+    ? resolve(BRIEF_REPO, written.path)
+    : fail(`${st.id} has no minted Brief — the \`mint\` state creates it and precedes this state in `
+      + "src/brief-workflow.json. Nothing was written.");
+}
+
+// A refusal a JUDGMENT state raises. Inside the executor's re-ask window this is
+// what makes the judge try again with this exact text; outside it — the explicit
+// `--candidates`/`--review`/`--specialization` path, which the fixture and the
+// second-repository paths use — it is caught by `judged` below and becomes an
+// ordinary refusal. ONE REFUSAL BODY FOR BOTH, which is `judgedRecordPath`'s own
+// rule one file over: two copies of a refusal is two readings of one rule.
+function refuseJudgment(msg) {
+  throw new JudgmentRefusal(msg);
+}
+
+async function judged(rec, st, table, args, flag, composeInput, validate) {
+  try {
+    return await judgedRecordPath(rec, st, table, args, flag, composeInput, validate);
+  } catch (e) {
+    if (e instanceof JudgmentRefusal) fail(`${st.id}: ${e.message}`);
+    throw e;
+  }
+}
+
+function writeJudgeInput(rec, st, body) {
+  const p = join(rec._dir, `brief-judge-input-${st.id}.json`);
+  writeFileSync(p, JSON.stringify(body, null, 2) + "\n");
+  return p;
+}
+
+// ---- THE TWO FACTS `enter` NEEDS, AND WHERE THEY COME FROM (kogaki#1108).
+//
+// `--survey` and `--ids` still win, and that is the fixture path and the
+// second-repository path, unchanged. With neither, they are READ FROM TERRAIN'S
+// OWN RUN RECORD: `survey_record` names the record that assigned the `L<n>` ids,
+// and `owner_input.ID_SELECTION` holds what the OWNER answered at the
+// `terrain-id-selection` gate. `settledStrandHandoff` resolves the second
+// against the first the way the Terrain state that PRINTED those ids resolves
+// them, which is why it lives in that runtime and not here.
+//
+// WHY THIS EXISTS AT ALL. The skill file is one `!` line now, and a line the
+// harness runs carries no arguments — so a Brief started by the owner has no
+// argv to put a settled set on. Before this the set reached the runtime as a
+// comma-separated list the MODEL retyped off a Full Report it had read, which is
+// exactly the class of input this issue removes: an id list a model retypes is
+// an id list a model can retype wrong, and nothing downstream could tell.
+function entryInputs(args) {
+  const survey = typeof args.survey === "string" && args.survey !== "" ? args.survey : null;
+  const ids = typeof args.ids === "string" && args.ids !== "" ? args.ids : null;
+  if (survey && ids) return { survey, ids, via: "argv" };
+  const t = terrainRunRecord();
+  if (!t) {
+    fail("`enter` has no settled Strand set: neither --survey/--ids were given nor is there a Terrain "
+      + "run record to read one from. A Brief starts from a set the owner ALREADY settled at Terrain's "
+      + "id-selection gate and never composes one of its own (SPEC-terrain: Terrain ends at Strand "
+      + "exploration). Run Terrain first. Nothing was written.");
+  }
+  const h = settledStrandHandoff(t.record);
+  if (h.error) {
+    fail(`\`enter\` cannot read the settled Strand set from the Terrain run at ${t.dir}: ${h.error}. `
+      + "Nothing was written.");
+  }
+  return {
+    survey: survey || h.survey,
+    ids: ids || h.displayIds.join(","),
+    via: `the Terrain run at ${t.dir}`,
+  };
+}
+
+// ---- THE RENDERER HALF. One entry per state the table declares, keyed by state
+// id, exactly as `src/terrain.mjs`'s own STATE_WORK is: a new state is a table
+// row PLUS a renderer, and the executor invents neither.
+const STATE_WORK = {
+  enter: (rec, st, args) => {
+    const runState = join(rec._dir, "run.json");
+    const inputs = entryInputs(args);
+    cmdEnter({ ...args, survey: inputs.survey, ids: inputs.ids, "run-state": runState });
+    rec.brief_run_state = runState;
+    // THE WHOLE PROVENANCE, NOT ONLY THE ROUTE (PR #1109 round 1). `via` alone
+    // was written here and read by nothing, so the owner answered the thesis
+    // gate over a Strand set whose source was never rendered — and where the
+    // route is a Terrain run resolved by scan rather than by pointer, WHICH run
+    // is exactly the thing that can be wrong. The gate composer below renders
+    // this above the question.
+    rec.settled_set = { survey: inputs.survey, ids: inputs.ids, via: inputs.via };
+    rec.settled_set_via = inputs.via;
+    return null;
+  },
+
+  adopt_thesis: (rec, st, args) => {
+    // THE ANSWER IS THE HARNESS'S ROW, AND `--capture` NAMES THE FILE IT IS IN.
+    // `cmdAdopt` re-derives the option-set digest from the gate `enter`
+    // composed and refuses a row that answers a different one — the same check
+    // the deleted `gate-thesis --capture` performed, now performed once, at the
+    // one act that consumes the answer.
+    cmdAdopt({ ...args, "run-state": needRunState(rec, st), capture: captureFile(rec) });
+    return null;
+  },
+
+  mint: (rec, st, args) => ({
+    artifact: cmdMint({ ...args, "run-state": needRunState(rec, st) }),
+  }),
+
+  // ---- JUDGMENT POINT 1. The composition itself.
+  //
+  // THE SCHEMA IS RENDERED INTO THE PROMPT BY THE EXECUTOR, from this state's
+  // `schema_file` row. What is validated here is the same file's field set, read
+  // by `validateSteps` — so the text the Model composes against and the text the
+  // refusal enforces are ONE FILE and cannot disagree. That property is the
+  // reason `src/step-schema.json` exists; this state is its second reader.
+  compose_path: async (rec, st, args, table) => {
+    const briefPath = needBrief(rec, st);
+    const doc = readFileSync(briefPath, "utf8");
+    const strandIds = selectedStrands(doc);
+    let composed = null;
+    const validate = (p) => {
+      let raw;
+      try { raw = readJson(p); }
+      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      const cands = raw && raw.candidates;
+      if (!Array.isArray(cands)) {
+        refuseJudgment(`the record carries no \`candidates\` array; ${st.input_shape}`);
+      }
+      // THE COUNT IS `assembleSelection`'s AND IS STATED HERE TOO, deliberately.
+      // Two to three per article is the Candidate gate's own bound, and a
+      // composition that breaks it is repairable by a re-ask — where the same
+      // breach reaching `assemble_candidates` would fail the run after the
+      // review state had already spent a judge call on every Candidate.
+      if (cands.length < 2 || cands.length > 3) {
+        refuseJudgment(`${cands.length} Candidate(s) — the Candidate gate presents two to three per `
+          + "article, differing in reader experience; a single Candidate is a default in disguise "
+          + "and four overruns the selector");
+      }
+      const seenId = new Set();
+      const seenExp = new Set();
+      for (const c of cands) {
+        if (!c || typeof c.candidate_id !== "string" || c.candidate_id === "") {
+          refuseJudgment("every Candidate carries a non-empty `candidate_id`");
+        }
+        if (seenId.has(c.candidate_id)) {
+          refuseJudgment(`two Candidates carry the candidate_id ${JSON.stringify(c.candidate_id)} — `
+            + "the id is what the owner's answer at the selection gate resolves through");
+        }
+        seenId.add(c.candidate_id);
+        if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
+          refuseJudgment(`candidate ${c.candidate_id}: \`reader_experience\` is required and cannot be `
+            + "blank — Candidates differ in READER EXPERIENCE, the difference must be stated to be "
+            + "selectable, and the option label IS this prose");
+        }
+        const expKey = c.reader_experience.trim().toLowerCase();
+        if (seenExp.has(expKey)) {
+          refuseJudgment(`candidate ${c.candidate_id} states a reader experience another Candidate `
+            + "already states — Candidates differ in reader experience, or they are one Candidate "
+            + "presented twice");
+        }
+        seenExp.add(expKey);
+        // THE STEP REFUSALS ARE `validateSteps`' OWN, re-implemented nowhere.
+        // One-ground-per-Strand, the closed ground type set, every required
+        // field and its description all come from `src/step-schema.json`
+        // through that function.
+        const v = validateSteps(c.steps);
+        if (v.error) refuseJudgment(`candidate ${c.candidate_id}: ${v.error}`);
+        // THE CLOSED STRAND SET, refused HERE rather than only at adoption. A
+        // material outside the Brief's settled set is refused by `fillBrief`
+        // at `adopt_candidate` — after the owner has chosen the path — so
+        // raising it inside the re-ask window is what makes it repairable
+        // instead of terminal. A Brief never fetches: the set closed at mint.
+        for (const s of c.steps) {
+          for (const m of s.materials) {
+            if (!strandIds.includes(m)) {
+              refuseJudgment(`candidate ${c.candidate_id}, step ${s.step_id}: material ${m} is outside `
+                + `the Brief's closed Strand set (${strandIds.join(", ")}). The set closed at mint and a `
+                + "Brief never fetches — compose from the settled Strands and from nothing else");
+            }
+          }
+        }
+        const reasoning = c.reasoning || {};
+        for (const key of ["step_validity", "transition_continuity", "thesis_closure"]) {
+          if (typeof reasoning[key] !== "string" || reasoning[key].trim() === "") {
+            refuseJudgment(`candidate ${c.candidate_id}: \`reasoning.${key}\` is required — the Brief's `
+              + "closing sections are filled from it at adoption, and adoption fills no default");
+          }
+        }
+        for (const [key, heading] of READER_FIELDS) {
+          if (typeof c[key] !== "string" || c[key] === "") {
+            refuseJudgment(`candidate ${c.candidate_id}: ${heading} is unauthored — path composition `
+              + "writes it per Candidate, and adoption fills no default");
+          }
+        }
+      }
+      composed = cands;
+    };
+    const composeInputFor = () => writeJudgeInput(rec, st, {
+      state: st.id,
+      brief: relFromRepo(briefPath),
+      // THE BRIEF ITSELF, VERBATIM. It carries the adopted Thesis, the Reader
+      // start, and the settled Strands with their served renderings — which is
+      // the whole of what a path may be composed from (the read-not-invented
+      // rule). Handing a summary instead would be this file deciding what the
+      // composition stands on.
+      brief_document: doc,
+      strands_you_may_use: strandIds,
+      candidates_required: "two or three, differing in reader experience",
+    });
+    const path = await judged(rec, st, table, args, "candidates", composeInputFor, validate);
+    // THE BARE ARRAY, WRITTEN BESIDE THE RECORD. `src/review.mjs attach` reads
+    // its `--candidates` as the Candidate array, and the judge's record is an
+    // object wrapping it; writing the projection here is what keeps the two
+    // readers from each unwrapping it their own way.
+    const out = join(rec._dir, "brief-candidates.json");
+    writeFileSync(out, JSON.stringify(composed, null, 2) + "\n");
+    rec.brief_candidates = out;
+    rec.judgments[st.id] = relFromRepo(resolve(path));
+    return null;
+  },
+
+  // ---- JUDGMENT POINT 2. Path review, which is REASONING and never a verdict.
+  //
+  // `attachReview` is the validator and it is the same function the next state
+  // writes through: a review record that would be unattachable is refused here,
+  // inside the re-ask window, rather than at the attach where the round would
+  // already be spent.
+  review_path: async (rec, st, args, table) => {
+    const cands = readJson(rec.brief_candidates
+      || fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`));
+    const validate = (p) => {
+      let review;
+      try { review = readJson(p); }
+      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      // AGAINST AN EMPTY LEDGER, DELIBERATELY. This is a SHAPE check — every
+      // Candidate reviewed, no verdict-shaped field anywhere — and the round
+      // count is the ledger's, spent once, by the state that actually attaches.
+      // Passing the live ledger here would let a refused judge response consume
+      // the revise round the Candidate has not yet had.
+      const r = attachReview(cands, review, {});
+      if (r.error) refuseJudgment(r.error);
+    };
+    const composeInputFor = () => writeJudgeInput(rec, st, {
+      state: st.id,
+      review_areas: REVIEW_AREAS,
+      candidates_you_must_review: cands,
+    });
+    const path = await judged(rec, st, table, args, "review", composeInputFor, validate);
+    rec.brief_review = relFromRepo(resolve(path));
+    rec.judgments[st.id] = relFromRepo(resolve(path));
+    return null;
+  },
+
+  attach_review: (rec, st, args) => {
+    const out = join(rec._dir, "brief-reviewed.json");
+    cmdAttach({
+      ...args,
+      candidates: rec.brief_candidates,
+      review: resolve(BRIEF_REPO, rec.brief_review
+        || fail(`${st.id} has no review record — \`review_path\` writes it and precedes this state.`)),
+      brief: needBrief(rec, st),
+      out,
+    });
+    rec.brief_reviewed = out;
+    return null;
+  },
+
+  assemble_candidates: (rec, st, args) => {
+    const out = join(rec._dir, "brief-selection.json");
+    cmdAssemble({
+      ...args,
+      reviewed: rec.brief_reviewed
+        || fail(`${st.id} has no reviewed Candidates — \`attach_review\` writes them and precedes this state.`),
+      brief: needBrief(rec, st),
+      out,
+    });
+    rec.brief_selection = out;
+    return null;
+  },
+
+  // ---- JUDGMENT POINT 3. The Step-Move instantiation contract's judged half,
+  // over the SELECTED Candidate alone.
+  //
+  // SCOPED TO THE SELECTION, and the scoping is the point rather than an
+  // economy: judging a record about a path nobody chose is wasted work ending in
+  // a refusal that names the wrong thing, which is `adoptCandidate`'s own stated
+  // ordering rule applied one state earlier.
+  //
+  // THE RECORD IS DISCLOSURE (kogaki#1108). A passing record no longer unlocks a
+  // write by way of an owner's ratification; it is validated here, and
+  // `adopt_candidate` renders it as one sentence in the closing summary. A
+  // `contradicts` or `cannot-determine` verdict still refuses, in path order,
+  // with the same message it always carried.
+  judge_specialization: async (rec, st, args, table) => {
+    const reviewed = readJson(rec.brief_reviewed
+      || fail(`${st.id} has no reviewed Candidates — \`attach_review\` writes them and precedes this state.`));
+    const chosen = selectedCandidateId(rec, st);
+    const c = (reviewed.candidates || []).find((x) => x.candidate_id === chosen)
+      || fail(`${st.id}: the owner selected ${JSON.stringify(chosen)} at the Candidate gate and no `
+        + `Candidate carries that id (${(reviewed.candidates || []).map((x) => x.candidate_id).join(", ") || "empty"}). `
+        + "Nothing was written.");
+    const validate = (p) => {
+      let record;
+      try { record = readJson(p); }
+      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      const v = validateSpecialization(record, c.steps, chosen);
+      if (v.error) refuseJudgment(v.error);
+    };
+    const composeInputFor = () => writeJudgeInput(rec, st, {
+      state: st.id,
+      candidate_id: chosen,
+      steps_you_must_judge: c.steps,
+    });
+    const path = await judged(rec, st, table, args, "specialization", composeInputFor, validate);
+    rec.brief_specialization = relFromRepo(resolve(path));
+    rec.judgments[st.id] = relFromRepo(resolve(path));
+    return null;
+  },
+
+  adopt_candidate: (rec, st, args) => {
+    const briefPath = needBrief(rec, st);
+    cmdAdoptCandidate({
+      ...args,
+      brief: briefPath,
+      reviewed: rec.brief_reviewed,
+      candidate: selectedCandidateId(rec, st),
+      specialization: resolve(BRIEF_REPO, rec.brief_specialization
+        || fail(`${st.id} has no specialization record — \`judge_specialization\` writes it and precedes this state.`)),
+      // THE SELECTION IS THE HARNESS'S OWN CAPTURE FILE, passed whole.
+      // `validateOwnerAnswer` filters it by gate id and binds the answer to the
+      // option set it was offered against, so the file holding both gates'
+      // rows is read as this gate's answer and no other.
+      selection: captureFile(rec),
+    });
+    return { artifact: briefPath };
+  },
+
+  done: () => null,
+};
+
+// The owner's answer at the Candidate gate, read from the run record the
+// executor wrote it onto. A free-text answer carries no option and reaches
+// `adoptCandidate`'s own refusal — free text at this gate is a COMMENT, not a
+// selection — so it is passed through rather than reinterpreted here.
+function selectedCandidateId(rec, st) {
+  const chosen = (rec.owner_input || {}).CANDIDATE_SELECTION;
+  if (typeof chosen !== "string" || chosen === "") {
+    fail(`${st.id} has no answer at the Candidate-selection gate — the CANDIDATE_SELECTION wait `
+      + "precedes this state in src/brief-workflow.json, and the answer is the OWNER's. Nothing was written.");
+  }
+  if (chosen === "none-of-these") {
+    fail("the owner answered \"none-of-these\" at the Candidate-selection gate — the Thesis or the "
+      + "selected set is what should change, and NO Reader Path lands in the Brief. Nothing was written.");
+  }
+  return chosen;
+}
+
+// ---- THE OPTION-COMPOSER HALF. A GATE state is a table row PLUS an option
+// composer, and the executor invents neither options nor a judgment. Both
+// composers below return only the RUN's options: the registry's standing
+// premise-negation is merged in by `emitGateDeclaration` from
+// `src/gate-registry.json`, after them and in that order — which is the order
+// both digests are taken over.
+const GATE_WORK = {
+  // THE OPTIONS ARE `enter`'S, CARRIED OVER AND NOT RECOMPOSED. `enter` writes
+  // `state.gate` — the 2-3 (Thesis, name) pairs, the premise negation, the
+  // free-text prompt — and `adopt` digests over that same list. Recomposing here
+  // would be a second answer to what the owner was shown.
+  THESIS_ADOPTION: (rec) => {
+    const state = readJson(rec.brief_run_state
+      || fail("THESIS_ADOPTION has no run state to raise a gate from — `enter` writes it and precedes this wait."));
+    const gate = state.gate;
+    if (!gate || !Array.isArray(gate.options) || gate.options.length === 0) {
+      fail("the run state carries no thesis-determination gate declaration — `enter` composes it, and an "
+        + "answer is admitted only at the wait that declared it.");
+    }
+    // THE SETTLED SET IS SHOWN ABOVE THE QUESTION (PR #1109 round 1).
+    // `settled_set_provenance` is one of `GATE_CALL_READING_KEYS`, so
+    // `composeGateCall` puts it in the question text itself — inside the bytes
+    // the open-gate hook compares — rather than leaving it for a session to
+    // relay. The Theses below were composed over this set and no other, and
+    // where it came from is the one fact the owner cannot recover from the
+    // options.
+    const set = rec.settled_set;
+    return {
+      options: gate.options
+        .filter((o) => o.id !== "back-to-terrain")
+        .map((o) => ({ id: o.id, label: o.label })),
+      extra: set
+        ? { settled_set_provenance: `Composed over the settled Strand set ${set.ids}, from ${set.survey}, entered ${set.via}.` }
+        : {},
+    };
+  },
+
+  // ONE COMPOSER FOR THE OPTION SET, CALLED BY THE GATE AND BY ADOPTION.
+  // `selectionOptionIds` is what the deleted `gate-candidate` called and what
+  // `adoptCandidate` still calls, so the set the owner is shown, the set the
+  // digest is taken over, and the set adoption re-derives are one computation.
+  CANDIDATE_SELECTION: (rec) => {
+    const reviewed = readJson(rec.brief_reviewed
+      || fail("CANDIDATE_SELECTION has no reviewed Candidates to offer — `attach_review` writes them and precedes this wait."));
+    const doc = readFileSync(needBrief(rec, { id: "CANDIDATE_SELECTION" }), "utf8");
+    const offered = selectionOptionIds(reviewed, doc);
+    if (offered.error) {
+      fail(`${offered.error}\n\nNo gate is raised: the Candidates cannot be presented, so there is nothing `
+        + "to choose between. Repair the Candidates, not the gate.");
+    }
+    return {
+      options: offered.options
+        .filter((o) => o.id !== "none-of-these")
+        .map((o) => ({ id: o.id, label: o.label })),
+      extra: {},
+    };
+  },
+};
+
+// THE FLOW BINDING. Everything a second flow differs in, and nothing else —
+// the shape `src/terrain.mjs` declares at `TERRAIN_FLOW` beside its own.
+const BRIEF_FLOW = {
+  lane: "brief",
+  label: "Brief",
+  startLine: "the brief skill's own `!` line (`node src/brief.mjs start`)",
+  tablePath: BRIEF_TABLE,
+  newRunDir: () => enterRun("brief", briefRunEntry()),
+  stateWork: STATE_WORK,
+  gateWork: GATE_WORK,
+  // PER FLOW, so a fixture pinning one lane's workspace does not redirect the
+  // other's. `KOGAKI_RUN_DIR` and `KOGAKI_OPEN_RUN` stay Terrain's.
+  runDirEnv: "KOGAKI_BRIEF_RUN_DIR",
+  openRunEnv: "KOGAKI_BRIEF_OPEN_RUN",
+};
 
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
     case "enter": cmdEnter(args); break;
-    case "gate-thesis": cmdGateThesis(args); break;
     case "adopt": cmdAdopt(args); break;
     case "mint": cmdMint(args); break;
-    case "start":
-      fail("`start` no longer exists — the durable home and the entry point was "
-        + "re-sequenced at v9 (kogaki#494): entry → thesis-determination "
-        + "gate → mint. Run `enter`, then `adopt`, then `mint`.");
+    // ---- THE CONTROL PLANE'S ONE ADVANCE (kogaki#1108), entered once per act.
+    //
+    // THE PAYLOAD GATE, BEFORE ANY WRITE, is `src/terrain.mjs`'s own and is
+    // reproduced here rather than shared for the reason it sits in that
+    // dispatcher rather than inside `cmdRun`: it must refuse BEFORE a run
+    // directory is opened, and the dispatcher is the only place before it.
+    // `--status` is read-only and is exempt.
+    case "run": {
+      if (args.status) { runWorkflow(BRIEF_FLOW, args, null); break; }
+      const advancedBy = advancedByFromPayload(readHookPayload());
+      if (!advancedBy) {
+        fail("the executor advances only inside a harness hook event, and no hook payload carrying "
+          + "hook_event_name, session_id and tool_use_id was readable on stdin. Nothing was written. "
+          + "A Brief run is STARTED by the brief skill's own `!` line (`node src/brief.mjs start`) and "
+          + "ADVANCED inside the PostToolUse hook for the AskUserQuestion that answered its gate "
+          + "(.claude/hooks/advance-brief.py); `run --status` is the only verb reachable from a Bash "
+          + "command, and it is read-only.");
+      }
+      runWorkflow(BRIEF_FLOW, args, advancedBy);
       break;
-    default: fail("usage: brief.mjs enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | gate-thesis --run-state <path> [--declare | --capture --tool-use-id <id> [--option <id>] [--free-text <words>] [--slug <name>]] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
+    }
+    // ---- THE START ACT. Executed by the harness's SKILL EXPANSION — the brief
+    // skill file's one `!` line runs this before the model sees anything. It
+    // opens the run, advances to its first wait, and stops; it refuses an
+    // existing run record, so it never resumes one. Its transitions carry the
+    // `skill-expansion` executor kind and no hook fields, because no hook event
+    // produced them and inventing one would be a fabricated attribution.
+    case "start": runWorkflow(BRIEF_FLOW, args, SKILL_EXPANSION_EXECUTOR, { stopAtFirstWait: true }); break;
+    default: fail("usage: brief.mjs start | run [--status] | enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
   }
 }

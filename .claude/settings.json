@@ -19,7 +19,7 @@
       {
         "matcher": "AskUserQuestion",
         "hooks": [
-          { "type": "command", "command": "sh -c 'p=$(cat); printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/write-gate-capture.py\"; printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/advance-terrain.py\"'", "timeout": 540 }
+          { "type": "command", "command": "sh -c 'p=$(cat); printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/write-gate-capture.py\"; printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/advance-terrain.py\"; printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/advance-brief.py\"'", "timeout": 540 }
         ]
       }
     ],

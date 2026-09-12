@@ -218,6 +218,16 @@ policy/shape.md
 # nothing enforces looks exactly like a gate nobody reached -- so it is
 # registered in the committed `.claude/settings.json` and asserted there.
 !.claude/hooks/gate-open-terrain-gate.py
+# THE BRIEF LANE'S ADVANCE HOOK (kogaki#1108), re-included on the same
+# criterion: `checks/check-brief-compose.sh` case (n) copies the whole hooks
+# directory into a reduced tree and drives the Brief span through this file, so
+# it has a named reader and is repository material. Its REGISTRATION follows
+# `advance-terrain.py`'s split rather than `gate-open-terrain-gate.py`'s -- the
+# absence of an advance IS observable from inside a session, since the run
+# simply does not move -- except that the committed `.claude/settings.json`
+# already carries the PostToolUse chain this hook is appended to, and
+# `check-terrain-hook-invocation.sh` reads that registration from HEAD.
+!.claude/hooks/advance-brief.py
 
 # check-terrain-workflow.sh mints ONE run workspace at the repository root, on
 # purpose: it is the only place an in-repo `--run-dir` can be driven from a

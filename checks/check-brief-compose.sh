@@ -29,13 +29,14 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
-import { join, sep, resolve as resolvePath } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, readdirSync,
+         cpSync, copyFileSync } from "node:fs";
+import { join, sep, resolve as resolvePath, dirname as dirnameOf } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest } from "./src/compose.mjs";
-import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, validateRatification, specializationSchema,
+import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock,
          figureRefusal, figureGroundRefusal, resolveFigureForms, visualFormOf,
@@ -87,6 +88,48 @@ const DECLARATION_SUFFIX = GATE_SCHEMA.capture.run_declaration_suffix;
 const capturePath = (d, stem) => join(d, `${stem}${CAPTURE_SUFFIX}`);
 const declarationPath = (d, stem) => join(d, `${stem}${DECLARATION_SUFFIX}`);
 
+// THE CAPTURE'S WRITER IS THE HARNESS (kogaki#1108), so this fixture writes the
+// row the harness writes rather than driving a command that used to.
+//
+// WHY THIS IS NOW THE HONEST SHAPE, and it reverses a note this file used to
+// carry. Until this issue the Brief's two gates were raised by `brief.mjs
+// gate-thesis` and `assemble.mjs gate-candidate`, each a declare-then-capture
+// executor a SESSION drove — so a hand-written capture here would have tested
+// `validateOwnerAnswer` twice and the executor never, which is what the old
+// note said. Both commands are DELETED: the executor composes the declaration
+// at its wait and `.claude/hooks/write-gate-capture.py` writes the row from the
+// harness's own payload. There is no command left to drive, and a fixture that
+// invented one would be exercising a route the runtime does not have.
+//
+// THE ROW'S SHAPE IS `src/gate-schema.json`'s, and the digest is computed by
+// the same `ownerGateDigest` the hook and the readers call — a second
+// implementation here would let the fixture agree with itself while disagreeing
+// with the runtime.
+//
+// AND THE END-TO-END PATH IS ASSERTED ELSEWHERE, not dropped: case (n) drives a
+// whole run through the real hooks, with this fixture's hand-written row nowhere
+// in it.
+const writeCapture = (path, gateId, optionIds, answer, toolUseId) => {
+  const doc = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : { rows: [] };
+  doc.rows.push({
+    stop_id: `stop-${toolUseId}`,
+    gate_id: gateId,
+    gate_instance_id: toolUseId,
+    evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
+    payload: { options_offered: optionIds, free_text_offered: true, answer },
+    [GATE_SCHEMA.capture.owner_answer_binding_key]: {
+      option_set_digest: ownerGateDigest(gateId, optionIds),
+    },
+  });
+  writeFileSync(path, JSON.stringify(doc, null, 2) + "\n");
+  return path;
+};
+
+// The option ids `enter` composed onto a run state, in the order the gate
+// offers them — which is the order the digest is taken over.
+const thesisOptionIds = (runStatePath) =>
+  JSON.parse(readFileSync(runStatePath, "utf8")).gate.options.map((o) => o.id);
+
 // RE-HOMED at kogaki#770. This survey record is the input the Brief mint reads
 // through the real §5.3 flow, and it lived under checks/fixtures/terrain/
 // because Terrain's own members were its other readers. Those members are gone,
@@ -95,6 +138,89 @@ const declarationPath = (d, stem) => join(d, `${stem}${DECLARATION_SUFFIX}`);
 // grep)", which was FALSE of exactly this line. Kept, moved, and named for what
 // it is: a survey record, read here.
 const SURVEY = "checks/fixtures/survey/lone-tag-member.json";
+
+// ---- THE REMOVAL TEST'S JUDGE (case (n), kogaki#1108). It answers the three
+// `judgment` states of `src/brief-workflow.json` and nothing else, through the
+// CLI's `--output-format json` envelope the shipped parse reads.
+//
+// IT COMPOSES OVER ITS INPUT AND NEVER OVER A FIXED NAME. The Strand ids, the
+// Candidate ids and the Step ids all come from the input the executor handed
+// it, so a record here cannot pass a validation it only satisfies because both
+// sides were written by the same hand. A hard-coded Strand would be refused by
+// the closed-set check `compose_path` runs, which is the check that would then
+// be testing the stub.
+const JUDGE_STUB = [
+  "#!/usr/bin/env node",
+  // The `--version` probe the start act runs to resolve its binary. It answers
+  // FIRST, before any stdin read: the probe closes stdin, and a stub that
+  // blocked for a prompt would hang the start act.
+  'if (process.argv.includes("--version")) { process.stdout.write("fixture-judge 0.0.0\\n"); process.exit(0); }',
+  'const fs = require("node:fs");',
+  'const MARKER = "----- INPUT (JSON) -----";',
+  'const prompt = fs.readFileSync(0, "utf8");',
+  'const at = prompt.indexOf(MARKER);',
+  'if (at < 0) { process.stderr.write("no input marker in the prompt\\n"); process.exit(3); }',
+  'const input = JSON.parse(prompt.slice(at + MARKER.length));',
+  'const AREAS = ["grounds_test", "entailment", "prohibitions", "semantic_economy", "arc_integrity", "evaluation_levels"];',
+  'const MOVES = ["narrow_unbounded_question", "instantiate_abstract_mechanism_in_concrete_case"];',
+  'let record;',
+  'if (input.state === "compose_path") {',
+  '  const S = input.strands_you_may_use;',
+  '  const stepsFor = (order) => order.map((m, i) => Object.assign({',
+  '    step_id: "x" + (i + 1),',
+  '    move: MOVES[i % MOVES.length],',
+  '    materials: [m],',
+  '    purpose: "carry the reader one move further on the strength of " + m,',
+  '    reader_state_before: i === 0 ? "the reader has no stake in the claim"',
+  '      : "the reader can state the claim in working form",',
+  '    reader_state_after: i === 0 ? "the reader can state the claim in working form"',
+  '      : "the reader has seen the claim discriminate a real case",',
+  '    depends_on: i === 0 ? [] : ["x" + i],',
+  '    rationale: "this step sits here because the state it needs is the one the step before it leaves",',
+  '    grounds: [{ type: "strand", strand: m, proposition: "the strand " + m + " supports exactly this claim at this point" }],',
+  '  }, i === 0 ? { opens_section: "The claim, in working form" } : {}));',
+  '  const mk = (id, exp, order) => {',
+  '    const steps = stepsFor(order);',
+  '    return {',
+  '      candidate_id: id,',
+  '      reader_experience: exp,',
+  '      reader_start: id + ": the reader treats the case as one team\'s habit",',
+  '      reader_target: id + ": the reader treats it as a property of the shape",',
+  '      opening_question: id + ": why did the same repair land twice?",',
+  '      steps: steps,',
+  '      reasoning: {',
+  '        step_validity: id + ": each step\'s grounds were traced to the strand they name",',
+  '        transition_continuity: id + ": each after-state is the next step\'s before-state",',
+  '        thesis_closure: id + ": the final step establishes the adopted claim",',
+  '      },',
+  '      coverage: Object.fromEntries(S.map((m) => [m, { role_in_thesis: "carries one claim of the path" }])),',
+  '      obligations: [{ text: "the case\'s generality is asserted", introduced_by: steps[steps.length - 1].step_id }],',
+  '    };',
+  '  };',
+  '  record = { candidates: [',
+  '    mk("cand-a", "claim first, then the case", S),',
+  '    mk("cand-b", "the case first, claim emerging from it", S.slice().reverse()),',
+  '  ] };',
+  '} else if (input.state === "review_path") {',
+  '  record = Object.fromEntries(input.candidates_you_must_review.map((c) => [c.candidate_id,',
+  '    Object.fromEntries(AREAS.map((a) => [a, "reasoning for the " + a.replace(/_/g, " ") + " area of " + c.candidate_id]))]));',
+  '} else if (input.state === "judge_specialization") {',
+  '  record = {',
+  '    version: "1",',
+  '    candidate_id: input.candidate_id,',
+  '    verdicts: input.steps_you_must_judge.map((st) => ({',
+  '      step_id: st.step_id, move: st.move, verdict: "consistent",',
+  '      why: "the before-state and after-state read as instance forms of the move contract",',
+  '    })),',
+  '  };',
+  '} else {',
+  '  process.stderr.write("the stub does not know state " + input.state + "\\n");',
+  '  process.exit(4);',
+  '}',
+  'process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\\n");',
+  "",
+].join("\n");
+
 const fails = [];
 
 // THE CASE COUNT IS THE SET OF CASES THAT RAN, never a constant beside them
@@ -139,13 +265,12 @@ const run = (argv) => spawnSync(process.execPath, argv, { encoding: "utf8" });
 // Mint a real Brief through the v9 flow (L2 has a journey; L1 does not).
 const rs = join(dir, "run.json");
 run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", rs]);
-// THE OWNER'S ANSWER IS CAPTURED, NEVER PASSED (kogaki#891): the gate is
-// declared over the run state `enter` composed, the click is recorded against
-// that declaration, and `adopt` reads it. `--thesis` no longer exists.
-run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rs]);
-run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rs,
-  "--tool-use-id", "toolu_fixture_thesis", "--option", "thesis-1"]);
-const thesisCap = capturePath(dir, "run.brief-thesis-adoption");
+// THE OWNER'S ANSWER IS CAPTURED, NEVER PASSED (kogaki#891, kogaki#1108): the
+// executor composes the declaration at its `THESIS_ADOPTION` wait, the harness
+// writes the row, and `adopt` reads it. `--thesis` no longer exists, and
+// neither does the `gate-thesis` command that used to write this row.
+const thesisCap = writeCapture(join(dir, "thesis-capture.json"), "brief-thesis-adoption",
+  thesisOptionIds(rs), { option: "thesis-1" }, "toolu_fixture_thesis");
 run(["src/brief.mjs", "adopt", "--run-state", rs, "--capture", thesisCap]);
 run(["src/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--theses-dir", theses]);
 const briefPath = join(theses, "compose-case", "brief.md");
@@ -169,9 +294,14 @@ for (const id of ["state-claim-in-working-form", "worked-example", "generalize-f
 // §4.16 (kogaki#877): ONE fixture Move carrying a `visual_form`, so the
 // adoption seat's figure half can be exercised against this library. The three
 // above deliberately carry none — a figure on any of them is the formless case.
-writeFileSync(join(MOVES, "axis-form-move.md"),
-  "id: axis-form-move\nstatus: observed\nvisual_form:\n  kind: axis\n"
-  + "  endpoint_a: the first endpoint\n  endpoint_b: the opposing endpoint\n  criterion: the axis both clarify\n");
+// A TWO-ROLE KIND, and the count is load-bearing since kogaki#1108: a Step
+// carries one ground per Strand and every role of the form binds to one of
+// this Step's grounds, so an N-role form costs N Strands. The Brief this
+// library is exercised against closes over two, which is what selects `chain`
+// here. See the note at `figStepOf` in (x).
+writeFileSync(join(MOVES, "chain-form-move.md"),
+  "id: chain-form-move\nstatus: observed\nvisual_form:\n  kind: chain\n"
+  + "  stages: the ordered stages\n  bottlenecks: where each stage held\n");
 // A CONFORMING specialization record for a Candidate — composed HERE, by the
 // check, standing in for the judging sitting. The runtime under test composes
 // none, which is the property (c) below asserts by removing this.
@@ -184,28 +314,16 @@ const spec = (cand, over = {}) => ({
   })),
   ...over,
 });
-// A CONFORMING RATIFICATION CAPTURE — composed HERE, by the check, standing
-// in for the OWNER exactly as `spec` above stands in for the judging sitting.
-// The runtime composes neither, which is the property (n) below asserts by
-// removing this: every block outside (n) supplies one so that it is testing
-// what it is named for rather than re-testing the gate.
+// THE RATIFICATION CAPTURE FIXTURE IS GONE (kogaki#1108), with the gate it was
+// for. `brief-specialization-ratification` is out of src/gate-registry.json and
+// the specialization record is DISCLOSURE rather than a write unlock, so there
+// is no capture to compose here and nothing for one to bind to. Case (s) below
+// asserts the removal in both directions rather than merely not exercising it.
 //
-// The digest is READ FROM THE RUNTIME rather than recomputed here. A second
-// implementation of the digest in the check would pass while disagreeing with
-// the one adoption uses, which is the failure a binding key can have that is
-// worse than having none: both sides confident, neither agreeing.
-const RATIF = specializationSchema().ratification;
-const ratif = (cand, record, over = {}) => ({
-  rows: [{
-    stop_id: "stop-fixture",
-    gate_id: RATIF.gate_id,
-    evidence: { tool: "AskUserQuestion", tool_use_id: "toolu_fixture" },
-    payload: { options_offered: [RATIF.affirmative_option, RATIF.declining_option], free_text_offered: true,
-      answer: { option: RATIF.affirmative_option } },
-    [RATIF.capture_binding_key]: { candidate_id: cand.candidate_id, record_digest: specializationDigest(record, cand.steps) },
-    ...over,
-  }],
-});
+// The digest survives and is still READ FROM THE RUNTIME rather than recomputed
+// here — a second implementation of it in the check would pass while disagreeing
+// with the one adoption uses — but what it now names is the record in adoption's
+// closing summary.
 // §6's SELECTION CAPTURE (kogaki#891) — the owner's own answer at the
 // Candidate-selection gate, bound to the option set it was offered against.
 // Composed the way the runtime composes it, from `selectionOptionIds`, so a
@@ -228,7 +346,7 @@ const inst = (cand, over = {}, reviewed = null, doc = null) => {
   if (!reviewed) throw new Error("inst() needs the reviewed set the §6 gate offered — the selection capture binds to it (kogaki#891)");
   const rv = reviewed;
   const dc = doc || readFileSync(briefPath, "utf8");
-  return { movesDir: MOVES, specialization: record, ratification: ratif(cand, record),
+  return { movesDir: MOVES, specialization: record,
     selection: sel(cand.candidate_id, rv, dc) };
 };
 
@@ -259,8 +377,13 @@ const step2 = {
     // carried a `step_effect` ground; what it was standing for — that s1 left
     // the claim stated — is `reader_state_before`'s and the ledger's, and
     // composition now refuses it here.
-    { type: "strand", strand: "L1", proposition: "the bravo lesson records what the case turned on" },
-    { type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" },
+    //
+    // AND IT CARRIES EXACTLY ONE (kogaki#1108). It carried two, both on L1 —
+    // which is the drift the one-ground-per-Strand rule removes, and this
+    // fixture was one of the places it had already reached. A ground is the ONE
+    // proposition this Step asserts on behalf of one Strand; the second was the
+    // same claim said again at a different grain.
+    { type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case the claim turned on" },
   ],
   entailed: true,
   entailment_reasoning: "the case's link to the claim is not stated in the material; it follows from the shared subject, and the gate judges that reading",
@@ -314,7 +437,15 @@ try {
     const cell = mkdtempSync(join(tmpdir(), "kogaki-ground-removal-"));
     try {
       mkdirSync(join(cell, "src"));
-      for (const f of ["compose.mjs", "runs.mjs"]) {
+      // `step-schema.json` JOINS THE CELL (kogaki#1108) and that is not a
+      // weakening of the removal test. The cell carries the RUNTIME and
+      // withholds the PROSE: what it proves is that the two documents are not
+      // load-bearing, and a schema file the validator reads its field set and
+      // its ground rules from is runtime by the same standard `runs.mjs` is.
+      // The distinction is which component executes the rule — the schema is
+      // read by `validateSteps`, while SKILL.md and the pipeline spec are read
+      // by a session.
+      for (const f of ["compose.mjs", "runs.mjs", "step-schema.json"]) {
         writeFileSync(join(cell, "src", f), readFileSync(join(REPO_ROOT, "src", f), "utf8"));
       }
       for (const doc of [".claude/skills/brief/SKILL.md", "specs/spec-draft-pipeline/SPEC.md"]) {
@@ -328,6 +459,23 @@ try {
       // warns about, found by driving the arm out and watching nothing fire.
       if (!r.error || !r.error.includes("step_effect") || !/reader_state_before/.test(r.error)) {
         fails.push(`(a) with the brief skill and the pipeline spec absent, a step_effect ground was not refused by name with where its content now belongs — the refusal is a document's rather than the validator's: ${r.error || "ACCEPTED"}`);
+      }
+      // ITEM 6'S REFUSAL STANDS IN THE CELL TOO (kogaki#1108 acceptance 8).
+      // The one-ground-per-Strand rule is the ground definition's mechanical
+      // half, and the Issue requires it to survive the removal of both
+      // documents — so it is driven HERE rather than only in (a) above, where
+      // the whole repository is present and a prose carrier could not be told
+      // apart from the validator.
+      {
+        const twice = alone.validateSteps([step1, { ...step2,
+          grounds: [{ type: "strand", proposition: "first", strand: "L2" },
+                    { type: "strand", proposition: "second", strand: "L2" }] }]);
+        if (!twice.error || !/L2/.test(twice.error) || !/one_per_strand|ONE proposition/.test(twice.error)) {
+          fails.push(`(a) with the brief skill and the pipeline spec absent, two grounds naming one Strand were not refused naming that Strand — the one-per-Strand rule is a document's rather than the validator's: ${twice.error || "ACCEPTED"}`);
+        }
+        if (twice.error && !twice.error.includes(step2.step_id)) {
+          fails.push(`(a) the one-ground-per-Strand refusal does not name the Step: ${twice.error}`);
+        }
       }
       const ok = alone.validateSteps([step1, step2]);
       if (ok.error) fails.push(`(a) the removal cell refuses a CONFORMING path, so its refusal above proves nothing: ${ok.error}`);
@@ -821,21 +969,42 @@ try {
   // command path so the executor is exercised rather than a hand-written
   // capture testing `validateOwnerAnswer` twice and the executor never.
   ranCase("g6");
-  const selArgv = ["--brief", bp2, "--reviewed", rvf];
-  const gDecl = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--declare", ...selArgv], { encoding: "utf8" });
-  if (gDecl.status !== 0) fails.push(`(g6) gate-candidate --declare exited ${gDecl.status}: ${(gDecl.stderr || "").trim()}`);
-  // THE CANDIDATES REACH THE SCREEN, for the reason §4.12.3's own arm gives:
-  // a gate that renders no options is a gate over nothing.
-  for (const id of ["cand-1", "cand-2", "none-of-these"]) {
-    if (!new RegExp(id).test(gDecl.stdout || "")) fails.push(`(g6) the declaration output does not render option ${id} — the owner would choose among options they were never shown`);
+  // §6's GATE, AS THE TABLE RAISES IT (kogaki#1108). `assemble.mjs
+  // gate-candidate` is DELETED: under `src/brief-workflow.json` the executor
+  // composes this gate's declaration at its `CANDIDATE_SELECTION` wait from
+  // `selectionOptionIds`, and `.claude/hooks/write-gate-capture.py` writes the
+  // row. So the OPTION SET and the FREE-TEXT PROMPT are asserted on the payload
+  // the composer produces — which is the object the executor's GATE_WORK reads
+  // and the harness renders from — and the ANSWERS are written in the harness's
+  // own row shape.
+  //
+  // WHAT MOVED AND WHAT DID NOT. The assertions below are the ones this case
+  // has always made; only their SOURCE moved, from a command's stdout to the
+  // composed payload. That is not a weakening: the declaration the executor
+  // emits is `{...registered, options: [...dynamic, ...standing]}`, so the
+  // payload's options ARE the rendered options, and a paraphrase between the
+  // two is impossible rather than merely refused.
+  const selOffered = selectionOptionIds({ candidates: [candA, candB] }, doc0);
+  if (selOffered.error) fails.push(`(g6) the selection option set could not be composed: ${selOffered.error}`);
+  else {
+    // THE CANDIDATES REACH THE SCREEN, for the reason §4.12.3's own arm gives:
+    // a gate that renders no options is a gate over nothing.
+    for (const id of ["cand-1", "cand-2", "none-of-these"]) {
+      if (!selOffered.ids.includes(id)) fails.push(`(g6) the composed option set does not carry option ${id} — the owner would choose among options they were never shown`);
+    }
+    // THE STANDING NEGATION IS LAST, which is what makes the digest the gate
+    // composer takes and the digest adoption re-derives one number: the
+    // executor merges the registry's standing option AFTER the run's own, and
+    // this composer emits them in that same order.
+    if (selOffered.ids[selOffered.ids.length - 1] !== "none-of-these") {
+      fails.push("(g6) the premise negation is not the last option — the executor appends the registry's standing option after the run's own, so a different order here digests differently from what the harness captures against");
+    }
   }
   // THE PROMPT THE OWNER READS BEFORE ANSWERING CARRIES WHAT THE RUNTIME DOES
   // (kogaki#950). The free-text refusal below is bound at length, and it is
   // read AFTER the answer; this prompt is read BEFORE it, so a prompt promising
   // adoption delivers the repaired refusal to an owner who was told it would
-  // not happen. The property is asserted on the RENDERED declaration output —
-  // the surface the owner actually sees — rather than on the payload object,
-  // because a prompt correct in the payload and unrendered is the same silence.
+  // not happen.
   //
   // POSITIVE, NOT ONLY NEGATIVE, for the reason this file states once for
   // itself: asserting only the absence of "recorded as your ruling" passes on a
@@ -843,8 +1012,8 @@ try {
   // reading at all. So the three properties v35 rules are each anchored — free
   // text adopts nothing, the two arms that DO decide are named, and the owner
   // is told they come back here — and the false promise is refused beside them.
-  const freePrompt = (/\(free text\)(.*)/.exec(gDecl.stdout || "") || [, ""])[1].trim();
-  if (!freePrompt) fails.push("(g6) the declaration output renders no free-text prompt — the channel is offered with nothing said about what it does");
+  const freePrompt = ((selOffered.payload || {}).free_text || {}).prompt || "";
+  if (!freePrompt) fails.push("(g6) the composed payload carries no free-text prompt — the channel is offered with nothing said about what it does");
   else {
     if (/recorded as your ruling|as your ruling|is your ruling/i.test(freePrompt)) {
       fails.push(`(g6) the \u00a76 free-text prompt still tells the owner their words are recorded as a ruling, which SPEC-draft-pipeline v35 rules they are not — adoption refuses free text and writes no Reader Path: ${JSON.stringify(freePrompt)}`);
@@ -859,29 +1028,30 @@ try {
       fails.push(`(g6) the \u00a76 free-text prompt does not say a comment on its own returns the owner to this gate: ${JSON.stringify(freePrompt)}`);
     }
   }
-  const selDir = join(laneDir("brief"), dir.split(sep).filter(Boolean).pop());
-  const selDeclPath = declarationPath(selDir, "brief-candidate-selection");
-  if (!existsSync(selDeclPath)) fails.push(`(g6) --declare wrote no run declaration at ${selDeclPath} — a capture is judged against the declaration beside it (SPEC-gate-carrier §4.1)`);
-  const gCapNo = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
-    "--tool-use-id", "toolu_sel_no", "--option", "none-of-these"], { encoding: "utf8" });
-  if (gCapNo.status !== 0) fails.push(`(g6) --capture of the negation exited ${gCapNo.status}: ${(gCapNo.stderr || "").trim()}`);
-  const selCapPath = capturePath(selDir, "brief-candidate-selection");
+  // AND THE DELETED SUBCOMMAND IS GONE RATHER THAN DEPRECATED. A leftover
+  // invocation fails as an unknown subcommand; a stub that accepted it would be
+  // the route by which the session-driven gate comes back one caller at a time.
+  const gcGone = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--declare", "--brief", bp2, "--reviewed", rvf], { encoding: "utf8" });
+  if (gcGone.status === 0) fails.push("(g6) `gate-candidate` still runs — the session-driven gate has a live executor (kogaki#1108)");
+  else if (!/usage/.test(gcGone.stderr || "")) fails.push("(g6) `gate-candidate` refuses with something other than the unknown-subcommand usage line — a stub rather than a deletion");
+
+  const selIds = (selOffered.ids || []);
+  const selCapPath = join(dir, "selection-capture.json");
   // THE NEGATION REFUSES, and adoption names the answer rather than a shape.
+  writeCapture(selCapPath, "brief-candidate-selection", selIds, { option: "none-of-these" }, "toolu_sel_no");
   const declined = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
     "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
     "--selection", selCapPath], { encoding: "utf8" });
   if (declined.status === 0) fails.push("(g6) adoption proceeded after the owner answered none-of-these at the §6 gate");
   else if (!/none-of-these/.test(declined.stderr || "")) fails.push("(g6) the none-of-these refusal does not name the answer the owner gave");
-  // FREE TEXT IS NOT A SELECTION (kogaki#914). The capture act ACCEPTS a
-  // free-text answer here — that is the channel §6's payload clause offers —
-  // so this is a reachable answer and not a synthetic one, which is why it is
-  // driven through the command path rather than hand-written. Before #914
-  // adoption had no branch for it: the answer fell through to the id match,
-  // where the absent option interpolated as the bare word `undefined` and the
-  // refusal named a state the owner never produced.
-  const gCapFree = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
-    "--tool-use-id", "toolu_sel_free", "--free-text", "the second one but start with the objection"], { encoding: "utf8" });
-  if (gCapFree.status !== 0) fails.push(`(g6) --capture refused a free-text answer: ${(gCapFree.stderr || "").trim()}`);
+  // FREE TEXT IS NOT A SELECTION (kogaki#914). The gate offers a free-text
+  // channel and the harness records what the owner typed, so this is a
+  // REACHABLE answer and not a synthetic one. Before #914 adoption had no
+  // branch for it: the answer fell through to the id match, where the absent
+  // option interpolated as the bare word `undefined` and the refusal named a
+  // state the owner never produced.
+  writeCapture(selCapPath, "brief-candidate-selection", selIds,
+    { free_text: "the second one but start with the objection" }, "toolu_sel_free");
   const freeAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
     "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
     "--selection", selCapPath], { encoding: "utf8" });
@@ -891,7 +1061,7 @@ try {
     // THE REFUSAL NAMES WHAT THE OWNER DID. This is the whole defect: an owner
     // who typed their own words is told what they actually did, not that they
     // selected a candidate named `undefined`.
-    if (/candidate undefined/.test(err)) fails.push("(g6) the free-text refusal still interpolates `undefined` for the answer the capture act accepted");
+    if (/candidate undefined/.test(err)) fails.push("(g6) the free-text refusal still interpolates `undefined` for the answer the capture carried");
     if (!/in their own words/.test(err)) fails.push("(g6) the free-text refusal does not say the owner answered in their own words");
     if (!err.includes("the second one but start with the objection")) fails.push("(g6) the free-text refusal does not quote the owner's own words back");
     // AND IT ROUTES. A refusal that names the answer but no way forward leaves
@@ -907,88 +1077,94 @@ try {
   // channel, so an arm rewritten as `chose.free_text !== undefined` would
   // have passed the whole block. This case is what makes the refusal's SCOPE
   // checkable, not only its existence.
-  const gCapBoth = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
-    "--tool-use-id", "toolu_sel_both", "--option", "cand-2", "--free-text", "this one, though the second beat still drags"], { encoding: "utf8" });
-  if (gCapBoth.status !== 0) fails.push(`(g6) --capture refused an answer carrying an option AND a comment: ${(gCapBoth.stderr || "").trim()}`);
-  const bothAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
+  writeCapture(selCapPath, "brief-candidate-selection", selIds,
+    { option: "cand-2", free_text: "this one, though the second beat still drags" }, "toolu_sel_both");
+  // ITS OWN COPY OF THE BRIEF (kogaki#1108). This call now SUCCEEDS — see the
+  // anchor note below — and adoption fills the Brief's slots, so running it
+  // against `bp2` would leave the (g) adoption downstream with nothing to fill
+  // and refuse for a reason that has nothing to do with what either case
+  // asserts. A separate copy is what keeps the two independent; before #1108
+  // the call stopped at the ratification barrier and wrote nothing, which is
+  // why one file served both.
+  const bpBoth = join(dir, "brief-adopt-both.md"); writeFileSync(bpBoth, doc0);
+  const bothAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bpBoth,
     "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
     "--selection", selCapPath], { encoding: "utf8" });
-  // It gets PAST the selection clause and stops at the RATIFICATION barrier —
-  // this call passes no --ratification — so the assertion ANCHORS POSITIVELY
-  // on that refusal and reads the exit status beside it. Bound negatively, on
-  // the free-text message's absence alone (kogaki#951), any clause refusing
-  // ABOVE the free-text arm would satisfy this case while the arm itself went
-  // unreached: the stderr would carry that other refusal, `in their own words`
-  // would be absent, and the case would report the arm as admitting an
-  // option-plus-comment selection it never evaluated. That is the
-  // ASSERTION-BINDS-A-PROXY shape stated at the head of this file and recorded
-  // against itself by the AC4/AC5 notes of (r) THE POST-HOC DISCLOSURE SLOT
-  // above — named rather than lettered, because a second (r) case exists.
+  // IT GETS PAST THE SELECTION CLAUSE AND ADOPTS (kogaki#1108). This case used
+  // to anchor POSITIVELY on the ratification barrier — the call passes no
+  // ratification, and before #1108 that was the next refusal — which is what
+  // made the free-text arm's SCOPE checkable rather than only its existence.
+  // With `brief-specialization-ratification` removed there is no barrier left
+  // to anchor on, so the anchor moves to the OTHER side of the same fact: the
+  // adoption SUCCEEDS.
+  //
+  // THAT IS A STRONGER ANCHOR, NOT A WEAKER ONE, and the reason is worth
+  // stating because the case's own comment warns about exactly this shape. The
+  // old anchor was "some refusal below the selection clause fired"; any clause
+  // between the two would have satisfied it. A success satisfies nothing but
+  // the selection clause having ADMITTED the answer, which is the property
+  // under test.
   const bothErr = bothAdopt.stderr || "";
-  if (bothAdopt.status === 0) {
-    fails.push("(g6) adoption of an option-plus-comment selection SUCCEEDED with no --ratification — it no longer stops at the ratification barrier, so this case's anchor is gone and what it exercises is unknown");
-  } else if (!/PASSING RECORD IS NOT THE SOLE UNLOCK/.test(bothErr)) {
-    fails.push(`(g6) an option-plus-comment selection refused somewhere other than the ratification barrier, so the §6 selection arm was never reached and this case exercises nothing: ${bothErr.trim().split("\n")[0]}`);
+  if (bothAdopt.status !== 0) {
+    fails.push(`(g6) adoption of an option-plus-comment selection was REFUSED, so the §6 selection arm read the free text's presence rather than the option's absence, or something below it refused: ${bothErr.trim().split("\n")[0]}`);
   }
   if (/in their own words/.test(bothErr)) fails.push("(g6) a selection carrying a comment beside it was refused as free text — the arm reads the free text's presence rather than the option's absence");
 
-  const gCapYes = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
-    "--tool-use-id", "toolu_sel_yes", "--option", "cand-2"], { encoding: "utf8" });
-  if (gCapYes.status !== 0) fails.push(`(g6) --capture of a Candidate exited ${gCapYes.status}: ${(gCapYes.stderr || "").trim()}`);
+  writeCapture(selCapPath, "brief-candidate-selection", selIds, { option: "cand-2" }, "toolu_sel_yes");
   // THE ARGUMENT IS CHECKED AGAINST THE ANSWER — acceptance item 1 of #891.
   const mismatch = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
     "--reviewed", rvf, "--candidate", "cand-1", "--specialization", spf, "--moves-dir", MOVES,
     "--selection", selCapPath], { encoding: "utf8" });
   if (mismatch.status === 0) fails.push("(g6) adopting a Candidate the owner did not select was accepted — --candidate stood in for the answer");
   else if (!/did not choose another/.test(mismatch.stderr || "")) fails.push("(g6) the mismatch refusal does not say the owner chose a different Candidate");
-  const adoptArgv = ["--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES, "--selection", selCapPath];
-  // §4.12.3's GATE, THROUGH THE REAL TWO-STEP FLOW (kogaki#893). The command
-  // path is where the executor is actually exercised: `--declare` composes
-  // the run declaration over a record that has already passed, `--capture`
-  // admits an answer against THAT declaration, and only then does adoption
-  // write. Driving it here rather than hand-writing a capture file is what
-  // makes the flow's own refusals reachable — a hand-written capture would
-  // test `validateRatification` twice and the executor never.
-  const pDecl = spawnSync(process.execPath, ["src/assemble.mjs", "ratify-specialization", ...adoptArgv], { encoding: "utf8" });
-  if (pDecl.status !== 0) fails.push(`(g) ratify-specialization --declare exited ${pDecl.status}: ${(pDecl.stderr || "").trim()}`);
-  // THE RECORD REACHES THE SCREEN. A gate that renders no evidence is a gate
-  // over nothing, and the whole of this arm is that the owner READS the
-  // verdicts before ratifying — so the sentence the judging sitting wrote is
-  // asserted present in the executor's own output, not merely in a file.
-  for (const v of spec(candB).verdicts) {
-    if (!(pDecl.stdout || "").includes(v.why)) fails.push(`(g) the declaration output does not render step ${v.step_id}'s why — the owner would ratify a record they were never shown`);
-    if (!(pDecl.stdout || "").includes(v.move)) fails.push(`(g) the declaration output does not name the Move step ${v.step_id} instantiates`);
+  // AND A CAPTURE BOUND TO A DIFFERENT OPTION SET IS REFUSED. The same
+  // candidate id offered beside different alternatives is a different
+  // question, and this is the axis that says so.
+  {
+    const stalePath = join(dir, "selection-capture-stale.json");
+    const staleDoc = JSON.parse(readFileSync(selCapPath, "utf8"));
+    staleDoc.rows[staleDoc.rows.length - 1].answers_over.option_set_digest = "0".repeat(64);
+    writeFileSync(stalePath, JSON.stringify(staleDoc));
+    const staleAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
+      "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
+      "--selection", stalePath], { encoding: "utf8" });
+    if (staleAdopt.status === 0) fails.push("(g6) a selection capture bound to a different option set adopted anyway — the owner chose among alternatives other than these");
   }
-  // The run workspace keys on the Brief's PARENT DIRECTORY name — the slug —
-  // which for this fixture is the temp directory itself. Derived rather than
-  // written out, so a change to where the executor sites its workspace fails
-  // here as a missing declaration instead of passing against a stale guess.
-  const ratifDir = join(laneDir("brief"), dir.split(sep).filter(Boolean).pop());
-  const capf = capturePath(ratifDir, RATIF.gate_id);
-  const declf = declarationPath(ratifDir, RATIF.gate_id);
-  if (!existsSync(declf)) fails.push(`(g) --declare wrote no run declaration at ${declf} — a capture is judged against the declaration beside it (SPEC-gate-carrier §4.1)`);
-  rmSync(capf, { force: true });
-  // THE DECLINE IS RECORDED AND REFUSES. `not-ratified` is a first-class
-  // answer, not a missing one: the row is written (the gate carrier owes it),
-  // and adoption then refuses NAMING the answer rather than reporting an
-  // absent capture — an owner who said no and an owner who was never asked
-  // are different facts and must read differently.
-  const pNo = spawnSync(process.execPath, ["src/assemble.mjs", "ratify-specialization", "--capture",
-    "--tool-use-id", "toolu_cli_no", "--option", RATIF.declining_option, ...adoptArgv], { encoding: "utf8" });
-  if (pNo.status !== 0) fails.push(`(g) --capture of the declining option exited ${pNo.status}: ${(pNo.stderr || "").trim()}`);
-  const pDeclined = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", ...adoptArgv, "--ratification", capf], { encoding: "utf8" });
-  if (pDeclined.status === 0) fails.push("(g) adoption proceeded on a DECLINED ratification — the owner's no is not binding");
-  else if (!new RegExp(RATIF.declining_option).test(pDeclined.stderr || "")) fails.push("(g) the declined-ratification refusal does not name the answer the owner gave");
-  if (readFileSync(bp2, "utf8") === doc3) fails.push("(g) the declined ratification still wrote the Brief");
-  // AND THE AFFIRMATIVE, appended to the same capture: `validateRatification`
-  // reads the LAST row, so an owner who declined and then ratified has
-  // changed their mind rather than been overwritten.
-  const pYes = spawnSync(process.execPath, ["src/assemble.mjs", "ratify-specialization", "--capture",
-    "--tool-use-id", "toolu_cli_yes", "--option", RATIF.affirmative_option, ...adoptArgv], { encoding: "utf8" });
-  if (pYes.status !== 0) fails.push(`(g) --capture of the affirmative option exited ${pYes.status}: ${(pYes.stderr || "").trim()}`);
-  const p2 = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", ...adoptArgv, "--ratification", capf], { encoding: "utf8" });
+  const adoptArgv = ["--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES, "--selection", selCapPath];
+  // ADOPTION WRITES WITH NO THIRD GATE (kogaki#1108). This block drove the
+  // `ratify-specialization` executor's two modes — `--declare` composing the
+  // run declaration over a record that had already passed, `--capture`
+  // admitting an answer against THAT declaration — and only then adopted.
+  // The gate is gone from src/gate-registry.json, the subcommand is deleted,
+  // and what remains is the command path this case was always anchoring: the
+  // Candidate the owner selected adopts, and the command's document equals the
+  // exported function's.
+  const p2 = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", ...adoptArgv], { encoding: "utf8" });
   if (p2.status !== 0) fails.push(`(g) adopt-candidate exited ${p2.status}: ${(p2.stderr || "").trim()}`);
   else if (readFileSync(bp2, "utf8") !== doc3) fails.push("(g) the command's adopted document differs from the exported function's — two producers");
+  // THE DISCLOSURE SENTENCE REACHES THE SCREEN. It is what replaced the gate,
+  // so a silent adoption would mean the record went from being ratified to
+  // being invisible — which is the outcome this Issue's decision does not
+  // license. Bound to the digest the runtime computed, never to a recomputed
+  // one, and to the claim it must carry.
+  if (p2.status === 0) {
+    const out = p2.stdout || "";
+    const digest = specializationDigest(spec(candB), candB.steps);
+    if (!out.includes(digest)) fails.push("(g) the closing summary does not name the specialization record's digest — the record adopted unnamed");
+    if (!/never a write unlock/.test(out)) fails.push("(g) the closing summary does not say the record is disclosure rather than a write unlock (kogaki#1108)");
+    if (!/consistent/.test(out)) fails.push("(g) the closing summary carries no verdict tally — a disclosure that says a record exists and not what it judged");
+  }
+  // AND THE DELETED SUBCOMMAND IS GONE RATHER THAN DEPRECATED. A leftover
+  // invocation fails as an unknown subcommand; a stub that accepted it would be
+  // the route by which the removed gate comes back one caller at a time.
+  const pGone = spawnSync(process.execPath, ["src/assemble.mjs", "ratify-specialization", ...adoptArgv], { encoding: "utf8" });
+  if (pGone.status === 0) fails.push("(g) `ratify-specialization` still runs — the removed gate has a live executor (kogaki#1108)");
+  else if (!/usage/.test(pGone.stderr || "")) fails.push("(g) `ratify-specialization` refuses with something other than the unknown-subcommand usage line — a stub rather than a deletion");
+  // AND `--ratification` IS REFUSED BY NAME at adoption rather than ignored: a
+  // silently accepted flag lets a caller believe an owner act is still read.
+  const pFlag = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", ...adoptArgv, "--ratification", "/dev/null"], { encoding: "utf8" });
+  if (pFlag.status === 0) fails.push("(g) adopt-candidate ACCEPTED --ratification — a removed input that is silently taken is a caller getting a different act than it asked for");
+  else if (!/REMOVED/.test(pFlag.stderr || "")) fails.push("(g) --ratification is refused without naming it as removed");
 
 
   // (k) THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747), both halves
@@ -1027,15 +1203,29 @@ try {
     // the library open is decided here, and only here can it be made
     // unskippable.
     ranCase("x");
+    // AN N-ROLE FORM NOW COSTS N STRANDS (kogaki#1108), and that is a
+    // consequence of the ground rule rather than a fixture convenience. Every
+    // role of a Move's `visual_form` binds to one of THIS Step's grounds, and a
+    // Step carries at most one ground per Strand — so a figure is composable
+    // only by a Step drawing on as many Strands as its kind declares roles.
+    //
+    // WHICH IS WHY THIS FIXTURE'S FORM IS A `chain` AND NOT AN `axis`. The
+    // Brief under test closes over two Strands, and an `axis` declares three
+    // roles: the three-ground Step this block used to compose is now
+    // uncomposable HERE, and the refusal it meets is the closed-Strand-set one
+    // rather than anything this case is about. The kind is incidental to what
+    // (x) asserts — form resolution at the adoption seat, an unbound role, and
+    // a formless Move — so the fixture takes a two-role kind and the
+    // assertions below name that kind's roles. The three-role case is asserted
+    // in (v), where `validateSteps` is pure and no Brief bounds the Strands.
     const figStepOf = (st, over = {}) => ({
-      ...st, move: "axis-form-move",
+      ...st, move: "chain-form-move", materials: ["L1", "L2"],
       grounds: [
-        { type: "strand", strand: "L1", proposition: "the first endpoint" },
-        { type: "strand", strand: "L1", proposition: "the opposing endpoint" },
-        { type: "strand", strand: "L1", proposition: "the axis both clarify" },
+        { type: "strand", strand: "L1", proposition: "the ordered stages the case ran through" },
+        { type: "strand", strand: "L2", proposition: "the bottleneck that held at each stage" },
       ],
-      figure: "the two endpoints on one axis",
-      figure_roles: { endpoint_a: "g1", endpoint_b: "g2", criterion: "g3" },
+      figure: "the stages and where each one held",
+      figure_roles: { stages: "g1", bottlenecks: "g2" },
       ...over,
     });
     const figCand = (over) => {
@@ -1050,12 +1240,12 @@ try {
       inst(okFig, {}, { candidates: [candA, okFig] }));
     if (adOk.error) fails.push(`(x) a fully bound figure was REFUSED at adoption: ${adOk.error}`);
     // An unbound role refuses AT ADOPTION, naming the role, and writes nothing.
-    const missingRole = figCand({ figure_roles: { endpoint_a: "g1", endpoint_b: "g2" } });
+    const missingRole = figCand({ figure_roles: { stages: "g1" } });
     const adMiss = adoptCandidate(doc0, { candidates: [candA, missingRole] }, "cand-2",
       inst(missingRole, {}, { candidates: [candA, missingRole] }));
     if (!adMiss.error) fails.push("(x) adoption ACCEPTED a figure leaving a role of its Move's form unbound — the record rides the Brief to kogaki#878 with an element nothing binds");
     else {
-      if (!/criterion/.test(adMiss.error)) fails.push(`(x) the unbound-role refusal does not name the ROLE: ${adMiss.error}`);
+      if (!/bottlenecks/.test(adMiss.error)) fails.push(`(x) the unbound-role refusal does not name the ROLE: ${adMiss.error}`);
       if (adMiss.doc) fails.push("(x) the unbound-role refusal still produced a document");
     }
     // A figure on a Move with NO form refuses AT ADOPTION, naming the Move.
@@ -1100,15 +1290,16 @@ try {
     for (const v of sch.vocabulary.values) {
       const rec = spec(candB);
       rec.verdicts[0].verdict = v;
-      // A CONFORMING RATIFICATION IS SUPPLIED FOR EVERY VALUE, passing and
-      // not. That is the ordering assertion of acceptance item 2 (kogaki#893)
-      // carried inside this loop rather than beside it: a non-passing record
-      // must refuse on its VERDICT even with the owner's ratification in
-      // hand, because the refusing arms sit above the gate and are unchanged
-      // by it. Were the gate sited first, these refusals would still fire —
-      // but on the wrong clause, and the messages asserted below would change.
+      // THE REFUSING ARMS ARE THE RECORD'S OWN, and that survives the gate's
+      // removal unchanged (kogaki#1108). This loop used to supply a conforming
+      // ratification for every value, passing and not, to assert that a
+      // non-passing record refuses on its VERDICT rather than on the missing
+      // owner act. With the gate gone there is nothing above these arms at all,
+      // so the assertion is the same and the fixture is smaller: a passing
+      // record adopts, and every other value refuses naming its Step, its
+      // sentence and its verdict.
       const r = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
-        { movesDir: MOVES, specialization: rec, ratification: ratif(candB, rec), selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
+        { movesDir: MOVES, specialization: rec, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
       const shouldPass = sch.vocabulary.passing.includes(v);
       if (shouldPass && r.error) fails.push(`(k) the passing verdict ${v} was refused: ${r.error}`);
       if (!shouldPass) {
@@ -1163,110 +1354,103 @@ try {
   }
 
 
-  // (s) §4.12.3 — THE OWNER RATIFICATION GATE (kogaki#893). Everything in (k)
-  // is the record's SHAPE and the refusal, and none of it reaches the thing
-  // that actually unlocks the write: a record whose every verdict reads
-  // `consistent`. That verdict is the composing sitting's own. THE FIXTURE
-  // THIS CASE OPENS ON IS THE ISSUE'S OWN TEST — shape-valid, judgment-free
-  // `consistent` verdicts — and it must be REFUSED.
+  // (s) THE SPECIALIZATION RECORD IS DISCLOSURE, AND ITS GATE IS GONE
+  // (kogaki#1108, owner decision 2026-09-12). This case was the owner
+  // ratification gate's (kogaki#893): a shape-valid, judgment-free record of
+  // all-`consistent` verdicts had to be REFUSED until the owner ratified it.
   //
-  // Nothing here judges a specialization, reads a Move's requires/effect, or
-  // compares anything to anything: §4.6 clause 3 and §7.5 stand, and the
-  // declined arm of acceptance item 1 was the one that owed them an
-  // amendment.
+  // WHY IT IS INVERTED RATHER THAN DELETED. The gate's ground was real — every
+  // verdict in the record is the composing sitting's own — so its removal is a
+  // decision with a cost, and a case that simply stopped existing would leave
+  // nothing asserting that the removal is the state the tree is in. A deleted
+  // case and a silently re-added gate read identically. So the same fixture
+  // runs and the assertions point the other way: the record still gates on its
+  // VERDICTS, the gate is absent from the registry, and the write is disclosed
+  // rather than approved.
+  //
+  // WHAT THE REMOVAL RESTS ON, stated because it is not "the gate was
+  // unnecessary": it was a human gate over a MODEL verdict, and it existed
+  // because a passing model verdict was otherwise the only unlock. kogaki#1108
+  // moves the composition onto a Harness-owned table whose judgment states
+  // render declared schemas and validate what comes back, which is what
+  // removes the condition the gate was covering for.
   ranCase("s");
   {
-    // THE FIXTURE THE ISSUE NAMES. `spec()` composes exactly this — every
-    // verdict `consistent`, every `why` a shape-valid sentence with no
-    // judgment behind it. Before #893 this adopted with no refusal, which is
-    // the right act with the guard silently disabled.
+    // THE SAME FIXTURE THE GATE WAS FOUND BY — every verdict `consistent`,
+    // every `why` a shape-valid sentence. It now ADOPTS, which is the state
+    // this Issue decided for, and the case says so in the direction that a
+    // re-added gate would fail.
     const judgmentFree = spec(candB);
     const shapeOnly = validateSpecialization(judgmentFree, candB.steps, "cand-2");
-    if (shapeOnly.error) fails.push("(s) the judgment-free fixture does not even pass §4.12's shape clauses — it would be refused for the wrong reason, and this case would assert nothing about the gate");
-    const unratified = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!unratified.error) fails.push("(s) a shape-valid, JUDGMENT-FREE all-consistent record ADOPTED the Candidate — a passing record is the sole unlock, which is the defect kogaki#893 exists to close");
-    else {
-      // DISCRIMINATED, because the refusal must say the record PASSED. A
-      // refusal reading as a record fault would send the sitting to repair
-      // verdicts that are fine, and would keep passing a mutation that
-      // deleted the gate and broke the record instead.
-      if (!/PASSING RECORD IS NOT THE SOLE UNLOCK/.test(unratified.error)) fails.push("(s) the unratified refusal does not say the record PASSES — it reads as a record fault, and the sitting is sent to repair verdicts that are correct");
-      if (!new RegExp(RATIF.gate_id).test(unratified.error)) fails.push("(s) the unratified refusal does not name the gate that discharges it");
-      if (!/--ratification/.test(unratified.error)) fails.push("(s) the unratified refusal does not name the input that discharges it");
-      if (unratified.doc) fails.push("(s) the unratified refusal still produced a document");
-      // THE DIGEST RIDES THE REFUSAL. `ratify-specialization --declare`
-      // reaches this same branch to compose the gate, so a refusal that
-      // dropped the digest would leave the executor recomputing it — a second
-      // reader that can disagree with this one about what passed.
-      if (unratified.digest !== specializationDigest(judgmentFree, candB.steps)) fails.push("(s) the refusal does not carry the digest of the record it refused — the gate's executor would have to recompute it");
-      if (!Array.isArray(unratified.rendering) || unratified.rendering.length !== candB.steps.length) fails.push("(s) the refusal does not carry one rendering row per Step — the gate would render fewer verdicts than the record holds");
-    }
-    // THE GATE IS DECLARED. An unregistered gate is the uncovered-by-default
-    // shape, and the registry is the enumeration a coverage claim is a
-    // fraction OF (SPEC-gate-carrier §2).
-    const reg = JSON.parse(readFileSync("src/gate-registry.json", "utf8")).gates.find((g) => g.id === RATIF.gate_id);
-    if (!reg) fails.push(`(s) ${RATIF.gate_id} is not declared in src/gate-registry.json`);
-    else {
-      for (const opt of [RATIF.affirmative_option, RATIF.declining_option]) {
-        if (!reg.options.some((o) => o.id === opt)) fails.push(`(s) the declared gate offers no ${opt} option — the schema names it and the registry does not, which is the two-copy divergence the single-carrier arrangement exists to prevent`);
+    if (shapeOnly.error) fails.push("(s) the judgment-free fixture does not even pass the record's shape clauses — it would be refused for the wrong reason, and this case would assert nothing");
+    const adopted = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
+      { movesDir: MOVES, specialization: judgmentFree, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
+    if (adopted.error) {
+      fails.push(`(s) a shape-valid all-consistent record with no ratification was REFUSED — a passing record is the unlock again since kogaki#1108, and this refusal is the removed gate or something standing where it stood: ${adopted.error}`);
+    } else {
+      if (!adopted.doc) fails.push("(s) the adoption produced no document");
+      // THE DISCLOSURE IS ON THE RETURN, not only in a console line, because
+      // the sentence the command prints is composed FROM these and a reader of
+      // the exported function must be able to compose it too.
+      if (adopted.record_digest !== specializationDigest(judgmentFree, candB.steps)) {
+        fails.push("(s) adoption does not return the digest of the record it validated — the disclosure sentence would name a record other than the one that passed");
       }
-      // THE PREMISE NEGATION. Every option here is generated on the premise
-      // that the record's `consistent` verdicts hold — and that premise is
-      // EXACTLY what is being asked about, so a gate with no first-class way
-      // to say it does not hold is unfalsifiable at the one moment a human is
-      // present to falsify it.
-      if (!reg.options.some((o) => o.negates_premise === true)) fails.push("(s) the declared gate carries no first-class premise negation — the one question it exists to ask cannot be answered no");
+      const tally = adopted.specialization_tally;
+      if (!tally || tally.consistent !== candB.steps.length || Object.keys(tally).length !== 1) {
+        fails.push(`(s) adoption does not return a verdict tally over the record it validated: ${JSON.stringify(tally)}`);
+      }
     }
-    // EVERY AXIS THAT COULD LET A CAPTURE CERTIFY SOMETHING IT DID NOT JUDGE.
-    const good = ratif(candB, judgmentFree);
-    const ok = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree, ratification: good, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (ok.error) fails.push(`(s) a conforming ratification was refused: ${ok.error}`);
-    const bad = (mutate) => {
-      const cap = JSON.parse(JSON.stringify(good));
-      mutate(cap.rows[0]);
-      return adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree, ratification: cap, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    };
-    // THE MEDIUM. SPEC-gate-carrier binds this repository's gate medium to
-    // AskUserQuestion, so a row naming any other tool records a session's own
-    // act rather than an owner's.
-    const notOwner = bad((r) => { r.evidence.tool = "Bash"; });
-    if (!notOwner.error || !/AskUserQuestion/.test(notOwner.error)) fails.push("(s) a capture whose evidence names a tool other than the question UI ratified the record — a session's own act would unlock the write");
-    const noId = bad((r) => { delete r.evidence.tool_use_id; });
-    if (!noId.error || !/tool_use_id/.test(noId.error)) fails.push("(s) a capture with no tool_use_id ratified the record — the one field tying the row to a question the harness actually asked");
-    // FREE TEXT IS NOT A RATIFICATION. The gate offers free text (the carrier
-    // requires it) and an answer given there is a comment, never the
-    // affirmative option — a write unlocked by arbitrary prose is unlocked by
-    // anything.
-    const freeText = bad((r) => { r.payload.answer = { free_text: "looks right to me" }; });
-    if (!freeText.error || !/free-text/.test(freeText.error)) fails.push("(s) a free-text answer ratified the record — the write would be unlocked by arbitrary prose");
-    // THE DECLINE. First-class, and it must refuse NAMING the answer: an
-    // owner who said no and an owner who was never asked are different facts.
-    const declined = bad((r) => { r.payload.answer = { option: RATIF.declining_option }; });
-    if (!declined.error) fails.push("(s) a DECLINED ratification adopted the Candidate — the owner's no is not binding");
-    else if (!new RegExp(RATIF.declining_option).test(declined.error)) fails.push("(s) the declined refusal does not name the answer the owner gave — it is indistinguishable from never having asked");
-    // THE TWO-AXIS BINDING, both directions.
-    const otherCand = bad((r) => { r[RATIF.capture_binding_key].candidate_id = "cand-1"; });
-    if (!otherCand.error || !/cand-1/.test(otherCand.error)) fails.push("(s) a capture ratifying ANOTHER Candidate certified this one — an owner ratifies one path and a sitting adopts another");
-    const noBinding = bad((r) => { delete r[RATIF.capture_binding_key]; });
-    if (!noBinding.error || !new RegExp(RATIF.capture_binding_key).test(noBinding.error)) fails.push("(s) a capture naming WHAT it ratifies nowhere certified this record — it would certify whatever it is presented beside");
-    // THE RECORD EDITED AFTER RATIFICATION. This is the axis the candidate
-    // binding cannot cover: same Candidate, same shape, a verdict's own
-    // sentence changed — so the owner approved verdicts other than these.
-    const edited = JSON.parse(JSON.stringify(judgmentFree));
-    edited.verdicts[0].why = "a different sentence entirely, written after the owner had already read the record";
-    const stale = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: edited, ratification: good, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!stale.error) fails.push("(s) a record EDITED after ratification adopted under the old capture — the ratification is replayable across a rewritten judgment");
-    else if (!/CHANGED after it was ratified/.test(stale.error)) fails.push("(s) the stale-digest refusal does not say the record changed — it reads as a binding fault rather than as the edit it is");
-    // THE DIGEST'S OWN SHAPE, both directions, because a binding key that is
-    // wrong in either is worse than none. It is taken in the ADOPTED PATH's
-    // order, so a merely reordered record digests the same and a rejudged one
-    // does not.
+    // THE REFUSING ARMS ARE UNTOUCHED, and this is the half that must not have
+    // moved with the gate. A `contradicts` verdict refused ABOVE the gate
+    // before and refuses with nothing above it now — same message, same path
+    // order. Without this the case would say only that a guard was deleted.
+    const contra = JSON.parse(JSON.stringify(judgmentFree));
+    contra.verdicts[0].verdict = "contradicts";
+    const cr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
+      { movesDir: MOVES, specialization: contra, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
+    if (!cr.error) fails.push("(s) a `contradicts` verdict ADOPTED — removing the ratification gate removed the record's own refusals with it");
+    else {
+      if (!/t1/.test(cr.error)) fails.push("(s) the contradicts refusal no longer names the failing Step");
+      if (cr.doc) fails.push("(s) the contradicts refusal still produced a document");
+    }
+    // AND A MISSING RECORD IS STILL A REFUSAL. The occasion stays mandatory;
+    // what stopped being mandatory is the owner act ON a passing record.
+    const noRec = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
+      { movesDir: MOVES, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
+    if (!noRec.error || !/specialization record/.test(noRec.error)) fails.push("(s) adoption with NO specialization record was accepted — the judgment occasion is no longer mandatory");
+    // THE GATE IS ABSENT FROM THE REGISTRY, asserted rather than assumed. The
+    // registry is the enumeration a gate-coverage claim is a fraction OF, so a
+    // gate nothing raises but the registry still declares would be counted as
+    // covered by a question that is never asked.
+    const gates = JSON.parse(readFileSync("src/gate-registry.json", "utf8")).gates;
+    if (gates.some((g) => g.id === "brief-specialization-ratification")) {
+      fails.push("(s) brief-specialization-ratification is still declared in src/gate-registry.json — the registry would report a gate nothing raises as covered");
+    }
+    // EXACTLY TWO BRIEF GATES REMAIN, and they are named. A bound stated as a
+    // count alone would be satisfied by any two.
+    const briefGates = gates.filter((g) => g.id.startsWith("brief-")).map((g) => g.id).sort();
+    if (briefGates.join(",") !== "brief-candidate-selection,brief-thesis-adoption") {
+      fails.push(`(s) the Brief's declared gates are ${JSON.stringify(briefGates)} — kogaki#1108 declares exactly two, thesis adoption and Candidate selection`);
+    }
+    // AND THE SCHEMA CARRIES NO RATIFICATION BLOCK. It is the other carrier of
+    // the gate: `gate_id`, the two option ids and the capture binding key all
+    // lived there, and a block left behind is a second place the gate can be
+    // read as live from.
+    const sch2 = specializationSchema();
+    if (sch2.ratification !== undefined) fails.push("(s) src/specialization-schema.json still carries a `ratification` block — the removed gate has a second carrier");
+    if (!sch2.disclosure || sch2.disclosure.summary.is_a_write_unlock !== false) {
+      fails.push("(s) the schema does not declare the record as disclosure that is not a write unlock");
+    }
+    // THE DIGEST'S OWN SHAPE, both directions. It binds no capture any more,
+    // but it names the record in the disclosure sentence — so a digest that
+    // moved on a reorder would name two records for one judgment, and one that
+    // held across a re-judgment would name one record for two.
     const reordered = JSON.parse(JSON.stringify(judgmentFree));
     reordered.verdicts.reverse();
-    if (specializationDigest(reordered, candB.steps) !== specializationDigest(judgmentFree, candB.steps)) fails.push("(s) reordering the record's verdicts changed the digest — a record the runtime reads identically would refuse a ratification of itself");
+    if (specializationDigest(reordered, candB.steps) !== specializationDigest(judgmentFree, candB.steps)) fails.push("(s) reordering the record's verdicts changed the digest — the disclosure would name two records for one judgment");
     const rejudged = JSON.parse(JSON.stringify(judgmentFree));
     rejudged.verdicts[0].verdict = "cannot-determine";
-    if (specializationDigest(rejudged, candB.steps) === specializationDigest(judgmentFree, candB.steps)) fails.push("(s) changing a VERDICT left the digest unchanged — the binding does not bind the judgment it is for");
+    if (specializationDigest(rejudged, candB.steps) === specializationDigest(judgmentFree, candB.steps)) fails.push("(s) changing a VERDICT left the digest unchanged — the disclosure would name one record for two judgments");
   }
 
   // (m) §4.13 — THE READER-KNOWLEDGE LEDGER, and §4.13.1's exemplar predicate
@@ -1417,99 +1601,279 @@ try {
     }
   }
 
-  // (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v19, kogaki#522).
-  // The rule "/brief completes the Brief" has exactly one carrier — the skill
-  // file — and a rule whose only carrier is prose is advisory. The 2026-08-18
-  // dogfood run is the specimen: the flow stopped at the mint, every composition
-  // field an unfilled slot, and nothing but the owner noticed. Terrain's skill is
-  // asserted the same way — WAS, until kogaki#770 removed that member too; the
-  // terrain skill's conduct assertions went with it and this one did not.
+  // (n) THE REMOVAL TEST — A HOOK-DRIVEN BRIEF RUN REACHES A FILLED BRIEF WITH
+  // NEITHER PROSE CARRIER IN THE TREE (kogaki#1108, acceptance 7 and 8).
   //
-  // RE-HOMED HERE FROM check-brief-entry.sh AT kogaki#770. That member was
-  // removed under the 2026-09-02 retention rule (0 catches in 120 exercised
-  // runs, 4.2 s local), and it was the SOLE reader of the brief skill — so
-  // deleting it whole would have taken this table with it. The table is not
-  // what made that member heavy: its 4.2 s was seven subprocess mints, and
-  // everything below is a file read and a regex loop. Moving it costs no
-  // measurable time and keeps the properties #747 and #751 landed hours
-  // before the removal was proposed.
+  // WHAT THIS REPLACES, AND WHY THE REPLACEMENT IS NOT A LOSS. What stood here
+  // was the arc table: thirteen regexes over `.claude/skills/brief/SKILL.md`,
+  // asserting that its prose named every stage of the flow. That case existed
+  // because the rule "/brief completes the Brief" had exactly ONE carrier and
+  // it was prose — the 2026-08-18 dogfood run stopped at the mint with every
+  // composition field an unfilled slot, and nothing but the owner noticed. The
+  // skill is one `!` line now and the arc is `src/brief-workflow.json`: the
+  // executor advances it from hook payloads, and a stage cannot be skipped by a
+  // sitting that did not read about it, because no sitting reads anything. So
+  // the property the arc table approximated — the flow RUNS to a filled Brief —
+  // is asserted here by running it, which is the assertion the table was a
+  // proxy for.
   //
-  // THE ARGUMENT FOR KEEPING IT IS THE RULE'S OWN, not an exemption from it:
-  // zero fires is ambiguous, since a working deterrent and an extinct defect
-  // class are indistinguishable in the count, and removal stays a judgment
-  // (consulted: product-lab@f8794c6454cb475b4f835dc7c9db0eab3525441c
-  // topics/claude-code-ops.md:202). The owner made that judgment at the gate.
+  // AND THE PROXY COULD NOT HAVE BEEN KEPT. Every row of it named a file that
+  // no longer carries the arc; kept, it would have failed for the reason the
+  // issue exists. Kept and REWRITTEN against the table it would have been a
+  // second transcription of `src/brief-workflow.json`, green whenever the table
+  // said what the table said. `checks/check-entry-point-accounting.sh` already
+  // binds the table to the dispatcher; this case binds it to a finished Brief.
+  //
+  // THE TREE IS REDUCED, AND THE REDUCTION IS THE TEST (acceptance 7). The
+  // scratch repository holds the runtime, the hooks, the Move library and a
+  // skill file that is ONE `!` line — and no `specs/` at all. A run that
+  // completes there completes without the spec draft pipeline document and
+  // without any prose instruction, which is the whole claim.
+  //
+  // THE JUDGE IS STUBBED, ON `check-terrain-judge-invocation.sh`'s OWN RECIPE.
+  // `KOGAKI_JUDGE_CLI` replaces the BINARY and nothing else, so the argv, the
+  // prompt composition, the parse, the retry bound and every refusal below are
+  // the shipped ones. What the stub supplies is the Model's field values, which
+  // is exactly the freedom this issue confines it to.
+  //
+  // THE OWNER'S TWO ANSWERS GO THROUGH THE REAL HOOKS. `write-gate-capture.py`
+  // writes the row from a synthesized PostToolUse payload, and
+  // `advance-brief.py` delivers the same payload to the executor. Neither is
+  // reimplemented here: a fixture that wrote its own capture row would be
+  // asserting `writeCapture` — which the rest of this file already does, at the
+  // seats where the row is CONSUMED — and would never exercise the narrowing
+  // the advance hook performs before it spawns anything.
   ranCase("n");
   {
-    const SKILL = readFileSync(".claude/skills/brief/SKILL.md", "utf8");
-  
-    // Each stage names the runtime act that performs it, so a stage cannot be
-    // satisfied by a passing mention in prose.
-    // PATH COMPOSITION IS FIRST IN THE TABLE BECAUSE IT IS THE STAGE THE
-    // SPECIMEN FAILED AT (PR #547 round 1). The 2026-08-18 dogfood run stopped
-    // after the mint and never composed a path; a table that omitted step 7
-    // would go green on the exact regression it exists to catch. It has no CLI
-    // act of its own — the composer authors the Step records — so it is asserted
-    // through the §4.1 fields it must produce, which prose about "composition"
-    // does not contain.
-    const ARC = [
-      ["path composition", /Compose 2.3 Reader Paths/],
-      ["the §4.1 Step record composition must author", /depends_on[\s\S]{0,80}rationale|rationale[\s\S]{0,80}depends_on/],
-      ["entry", /brief\.mjs enter /],
-      // ANCHORED, not an alternation: `a|b` binds looser than the surrounding
-      // context, so the earlier two-branch form reduced to a bare
-      // `brief-thesis-adoption` and any prose mention satisfied it (round 1).
-      ["thesis gate", /src\/gate-registry\.json:\s*\n?\s*brief-thesis-adoption/],
-      ["adopt", /brief\.mjs adopt /],
-      ["mint", /brief\.mjs mint /],
-      ["path review", /review\.mjs attach /],
-      ["assembly", /assemble\.mjs assemble /],
-      // §4.12's judgment occasion (kogaki#747) is an ARC STAGE, so it is
-      // asserted here rather than left to the runtime alone. The runtime makes
-      // it unskippable — adoption refuses without the record — but a skill that
-      // never mentions it sends a sitting into a refusal it has no instruction
-      // for, and the arc table exists exactly so a stage cannot vanish from the
-      // prose while the flow still needs it. Two rows: the JUDGMENT the sitting
-      // performs, and the INPUT that carries it to the runtime, because a skill
-      // could name the flag while dropping the instruction to judge.
-      // §4.13's authored field (kogaki#751). The runtime accepts a Step without
-      // it — the field is optional by design — so nothing REFUSES a skill that
-      // stops mentioning it, and the prose is the only carrier the composer
-      // reads. That asymmetry is exactly why this row exists: an optional field
-      // dropped from the instructions is simply never authored again, silently.
-      ["§4.13 introduces authoring", /introduces[\s\S]{0,300}meaning anchor/],
-      ["§4.12 specialization judgment", /reader_state_before[\s\S]{0,200}(specialization|consistent)|specialization[\s\S]{0,200}reader_state_before/],
-      ["§4.12 verdict vocabulary", /cannot-determine/],
-      ["adoption", /assemble\.mjs adopt-candidate /],
-      ["specialization record reaching adoption", /adopt-candidate[^\n]*--specialization/],
-    ];
-    for (const [stage, re] of ARC) {
-      if (!re.test(SKILL)) fails.push(`(n) the skill does not drive the ${stage} stage — the arc §5.3 v19 requires ends before the Brief is filled`);
-    }
-  
-    // The abolished default stop. The old text ended the flow at the mint with
-    // "Hand over the artifact and stop"; that exact shape must not return.
-    if (/\*\*Hand over the artifact\*\* and stop/.test(SKILL)) {
-      fails.push("(n) the skill still ends at the mint — the default mid-workflow stop §5.3 v19 abolished");
-    }
-    if (!/ENDS AT A FILLED BRIEF/.test(SKILL)) {
-      fails.push("(n) the skill does not state that the invocation ends at a FILLED Brief — the rule has no carrier");
-    }
-    // A stop is legitimate only NAMED, on an inspection-need. The skill must
-    // record which it is: this flow has none, and saying so is what stops the
-    // finding being re-derived every sitting.
-    if (!/inspection-need/.test(SKILL)) {
-      fails.push("(n) the skill does not name the inspection-need rule — the only legitimate mid-workflow stop is unstated, so any stop reads as licensed");
-    }
-  
-    // The pre-mint bound. v11's "exactly one owner question" is TRUE of the
-    // pre-mint segment and FALSE of the arc — the completed flow raises two
-    // gates. An unqualified claim here would forbid §6's selection gate.
-    if (/\*\*the only owner\s*\n?\s*question in this flow\*\*/.test(SKILL)) {
-      fails.push("(n) the skill claims the thesis gate is the only owner question IN THIS FLOW — false once the arc runs through §6's selection gate");
-    }
-    if (!/ONE OWNER QUESTION BEFORE THE MINT/.test(SKILL)) {
-      fails.push("(n) the skill dropped v11's pre-mint bound — kogaki#518's ruling has no carrier");
+    const REPO = process.cwd();
+    const rt = mkdtempSync(join(tmpdir(), "brief-removal-"));
+    try {
+      cpSync(join(REPO, "src"), join(rt, "src"), { recursive: true });
+      cpSync(join(REPO, "moves"), join(rt, "moves"), { recursive: true });
+      mkdirSync(join(rt, ".claude", "hooks"), { recursive: true });
+      for (const f of readdirSync(join(REPO, ".claude", "hooks"))) {
+        if (f.endsWith(".py")) copyFileSync(join(REPO, ".claude", "hooks", f), join(rt, ".claude", "hooks", f));
+      }
+      mkdirSync(join(rt, ".claude", "skills", "brief"), { recursive: true });
+      writeFileSync(join(rt, ".claude", "skills", "brief", "SKILL.md"), "!`node src/brief.mjs start`\n");
+      mkdirSync(join(rt, "fixtures"), { recursive: true });
+      copyFileSync(SURVEY, join(rt, "fixtures", "survey.json"));
+
+      // THE ABSENCE IS ASSERTED, NOT ASSUMED. A tree that quietly gained a
+      // `specs/` — through a copy widened later, or through a runtime that
+      // writes one — would make every assertion below pass for the wrong
+      // reason, and the Removal Test would be a plain smoke test wearing its
+      // name.
+      if (existsSync(join(rt, "specs"))) {
+        fails.push("(n) the reduced tree carries a `specs/` directory — the Removal Test is about a run with the spec OUT of the tree, and a tree that has one tests nothing about its absence");
+      }
+      const skillText = readFileSync(join(rt, ".claude", "skills", "brief", "SKILL.md"), "utf8");
+      if (skillText.split("\n").filter((l) => l.trim() !== "").length !== 1) {
+        fails.push("(n) the reduced tree's skill file is not one line — the Removal Test runs against the skill at its start line and nothing else");
+      }
+
+      const judge = join(rt, "judge-conformant");
+      writeFileSync(judge, JUDGE_STUB, { mode: 0o755 });
+
+      const D = join(rt, "run");
+      const gates = join(rt, "open-gates");
+      const openRun = join(rt, "open-run");
+      mkdirSync(D, { recursive: true });
+      mkdirSync(gates, { recursive: true });
+      // THE POINTER ROUTE, WHICH IS THE LIVE ONE. `advance-brief.py` resolves
+      // the run the way the executor does — the lane's open-run pointer — and
+      // `KOGAKI_BRIEF_OPEN_RUN` relocates that pointer per tree so two fixtures
+      // never contend for one. Pinning the run DIRECTORY by environment instead
+      // would satisfy the hook and leave the executor resolving nothing, which
+      // is the disagreement between two readers of run identity that this
+      // variable exists to prevent.
+      writeFileSync(openRun, D + "\n");
+      const baseEnv = {
+        ...process.env,
+        KOGAKI_OPEN_GATES: gates,
+        CLAUDE_CODE_SESSION_ID: "fixture-session",
+        KOGAKI_JUDGE_CLI: judge,
+        CLAUDE_PROJECT_DIR: rt,
+        KOGAKI_BRIEF_OPEN_RUN: openRun,
+      };
+      // TERRAIN'S OWN PIN IS LEFT STANDING, AND THAT IS AN ASSERTION (PR #1109
+      // round 1). This read `delete baseEnv.KOGAKI_RUN_DIR`, which is the
+      // workaround that stood where this arm belongs: `cmdRun` read
+      // `KOGAKI_RUN_DIR` literally while `runDir` read
+      // `process.env[flow().runDirEnv]`, so a Brief advance under an inherited
+      // Terrain pin took the pinned arm, found no `KOGAKI_BRIEF_RUN_DIR`, and
+      // minted a fresh Brief workspace per advance — abandoning the open run.
+      // Pointing the variable at a directory that is NOT this run's is what
+      // makes the span fail if the pin is ever read by name again.
+      const decoy = join(rt, "not-this-runs-workspace");
+      mkdirSync(decoy, { recursive: true });
+      baseEnv.KOGAKI_RUN_DIR = decoy;
+      delete baseEnv.KOGAKI_OPEN_RUN;
+      const inTree = (argv, env = {}, input = undefined) =>
+        spawnSync(process.execPath, argv, { cwd: rt, encoding: "utf8", input, env: { ...baseEnv, ...env } });
+      const hook = (name, body, env = {}) =>
+        spawnSync("python3", [join(rt, ".claude", "hooks", name)],
+          { cwd: rt, encoding: "utf8", input: body, env: { ...baseEnv, ...env } });
+
+      // The question the declaration carries, read from the declaration the
+      // executor wrote — never retyped, because the capture hook keys on it.
+      const declaredQuestion = (stateId) => {
+        let rec;
+        try { rec = JSON.parse(readFileSync(join(D, "run-record.json"), "utf8")); } catch { return null; }
+        const owed = (rec.gate_declarations_owed || []).find((g) => g.state === stateId && g.declaration);
+        if (!owed) return null;
+        const dp = resolvePath(rt, owed.declaration);
+        let decl;
+        try { decl = JSON.parse(readFileSync(dp, "utf8")); } catch { return null; }
+        const callPath = join(dirnameOf(dp), `${decl.id}.gate-call.json`);
+        if (existsSync(callPath)) {
+          try { return JSON.parse(readFileSync(callPath, "utf8")).questions[0].question; } catch { /* fall through */ }
+        }
+        return decl.question;
+      };
+      // SCREEN PROSE IS A TABLE ROW, AND THIS IS WHAT MAKES THE ROW LOAD-BEARING
+      // (owner decision 2026-09-12; PR #1109 round 1). Each `wait` declares
+      // `renders_above_question` — the `GATE_CALL_READING_KEYS` key whose value
+      // `composeGateCall` puts inside the question text, or the empty string
+      // for a gate that renders nothing. Bound here against the call the
+      // executor ACTUALLY composed, in both directions: a row naming a reading
+      // the declaration does not carry is red, and so is a call that carries
+      // one where the row declares none. Without this the declaration would be
+      // decoration and the emptiness would hold only because the session has no
+      // prose channel left, which is the reading the decision rules out.
+      const assertRendering = (stateId) => {
+        const table = JSON.parse(readFileSync(join(rt, "src", "brief-workflow.json"), "utf8"));
+        const st = (table.states || []).find((x) => x.id === stateId);
+        if (!st || typeof st.renders_above_question !== "string") {
+          fails.push(`(n) ${stateId} declares no \`renders_above_question\` — the owner decision rules that screen prose is a table row, and an undeclared rendering is the skill sentence it replaces`);
+          return;
+        }
+        const rec = JSON.parse(readFileSync(join(D, "run-record.json"), "utf8"));
+        const owed = (rec.gate_declarations_owed || []).find((g) => g.state === stateId && g.declaration);
+        if (!owed) return;
+        const dp = resolvePath(rt, owed.declaration);
+        const decl = JSON.parse(readFileSync(dp, "utf8"));
+        const callPath = join(dirnameOf(dp), `${decl.id}.gate-call.json`);
+        if (!existsSync(callPath)) {
+          fails.push(`(n) ${stateId} composed no gate call beside its declaration — there is no payload to compare the declared rendering against`);
+          return;
+        }
+        const asked = JSON.parse(readFileSync(callPath, "utf8")).questions[0].question;
+        const key = st.renders_above_question;
+        if (key === "") {
+          if (asked !== decl.question) {
+            fails.push(`(n) ${stateId} declares that NOTHING renders above its question and the composed call carries a reading anyway — the table row and the bytes the owner is shown disagree`);
+          }
+          return;
+        }
+        const reading = decl[key];
+        if (typeof reading !== "string" || reading === "") {
+          fails.push(`(n) ${stateId} declares that \`${key}\` renders above its question and the declaration carries no such reading — the row names a carrier that is not there`);
+          return;
+        }
+        if (!asked.startsWith(reading)) {
+          fails.push(`(n) ${stateId}'s composed gate call does not open with its declared reading — screen prose is a table row only while the row and the rendering agree`);
+        }
+      };
+
+      const payloadFor = (toolUseId, question, answer) => JSON.stringify({
+        hook_event_name: "PostToolUse",
+        session_id: "fixture-session",
+        tool_name: "AskUserQuestion",
+        tool_use_id: toolUseId,
+        tool_input: { questions: [{ question, options: [{ label: answer }] }] },
+        tool_response: { answers: { [question]: answer } },
+      });
+
+      // ---- THE START ACT. The skill's one line, with the two entry facts on
+      // argv: the fixture path, unchanged since kogaki#1108 gave `enter` its
+      // Terrain handoff and left `--survey`/`--ids` winning where they are given.
+      const start = inTree(["src/brief.mjs", "start", "--run-dir", D,
+        "--survey", "fixtures/survey.json", "--ids", "L2,L1",
+        "--slug", "removal-test", "--moves-dir", "moves"]);
+      if (start.status !== 0) {
+        fails.push(`(n) the start act failed in the reduced tree: ${(start.stderr || start.stdout || "").trim().slice(0, 400)}`);
+      } else {
+        const q1 = declaredQuestion("THESIS_ADOPTION");
+        if (!q1) {
+          fails.push("(n) the start act raised no THESIS_ADOPTION declaration — the run stopped before the first owner question, so there is nothing to answer and no span to drive");
+        } else {
+          assertRendering("THESIS_ADOPTION");
+          const p1 = payloadFor("toolu_removal_thesis", q1, "thesis-1");
+          const c1 = hook("write-gate-capture.py", p1, { KOGAKI_RUN_DIR: D });
+          const a1 = hook("advance-brief.py", p1);
+          const q2 = declaredQuestion("CANDIDATE_SELECTION");
+          if (!q2) {
+            fails.push("(n) one payload for the thesis answer did not carry the run to the Candidate-selection gate — the span from `adopt_thesis` through the mint, path composition, path review and assembly is what ONE hook event must execute (kogaki#1108 acceptance 2). "
+              + `capture: ${(c1.stderr || "").trim().slice(0, 200)} advance: ${(a1.stderr || "").trim().slice(0, 400)}`);
+          } else {
+            // THE ANSWER IS THE FIRST OFFERED CANDIDATE, read from the
+            // declaration rather than guessed, because the ids are the composing
+            // judge's and this case does not get to know them in advance.
+            assertRendering("CANDIDATE_SELECTION");
+            const decl2 = JSON.parse(readFileSync(
+              resolvePath(rt, JSON.parse(readFileSync(join(D, "run-record.json"), "utf8"))
+                .gate_declarations_owed.find((g) => g.state === "CANDIDATE_SELECTION").declaration), "utf8"));
+            const chosen = (decl2.options.find((o) => o.id !== "none-of-these") || {}).id;
+            if (!chosen) {
+              fails.push("(n) the Candidate-selection declaration offers nothing but the negation — there is no Candidate to adopt, so the span cannot finish");
+            } else {
+              const p2 = payloadFor("toolu_removal_selection", q2, chosen);
+              const c2 = hook("write-gate-capture.py", p2, { KOGAKI_RUN_DIR: D });
+              const a2 = hook("advance-brief.py", p2);
+              // THE PATH IS THE RUN RECORD'S, NOT THIS CASE'S GUESS. A
+              // `write` state records what it wrote; reading the record is how
+              // a later act finds the artifact, and a hard-coded path here
+              // would pass or fail on where the mint happens to put things
+              // rather than on whether the span produced a Brief.
+              const recNow = JSON.parse(readFileSync(join(D, "run-record.json"), "utf8"));
+              const minted = (recNow.artifacts_written || []).find((w) => w.state === "mint");
+              const brief = minted ? resolvePath(rt, minted.path) : join(rt, "theses", "removal-test", "brief.md");
+              if (!minted) {
+                fails.push(`(n) the run record names no artifact written by the \`mint\` state — the Brief the span was supposed to fill was never recorded as written. advance: ${(a2.stderr || "").trim().slice(0, 400)}`);
+              }
+              if (!existsSync(brief)) {
+                fails.push(`(n) no Brief exists at ${brief} after both answers — the run did not reach the mint. capture: ${(c2.stderr || "").trim().slice(0, 200)} advance: ${(a2.stderr || "").trim().slice(0, 400)}`);
+              } else {
+                const filled = readFileSync(brief, "utf8");
+                // FILLED, NOT MERELY PRESENT. The 2026-08-18 specimen the retired
+                // arc table was written for produced a Brief file with every
+                // composition field an unfilled slot, so the file's existence is
+                // exactly the evidence that specimen would also have supplied.
+                if (/_TBD_|_unfilled_|<!-- unfilled/.test(filled)) {
+                  fails.push("(n) the Brief the span produced still carries unfilled slots — the mint writes a shell and adoption fills it, and a shell is the 2026-08-18 specimen this case exists to refuse");
+                }
+                if (!filled.includes(chosen)) {
+                  fails.push(`(n) the Brief does not name the Candidate the owner selected (${chosen}) — the adopted path is what adoption writes, and a Brief that does not carry it was filled from something else`);
+                }
+                for (const [heading, why] of [
+                  ["## Reader Path", "the adopted path itself"],
+                  ["Reader start", "a per-Candidate reader field, authored at path composition"],
+                ]) {
+                  if (!filled.includes(heading)) {
+                    fails.push(`(n) the filled Brief carries no ${JSON.stringify(heading)} — ${why} is missing from a Brief the run reported as complete`);
+                  }
+                }
+                const rec = JSON.parse(readFileSync(join(D, "run-record.json"), "utf8"));
+                if (rec.done !== true || rec.awaiting) {
+                  fails.push(`(n) the run record is not at its terminal (done=${JSON.stringify(rec.done)}, awaiting=${JSON.stringify(rec.awaiting)}) — the span reached a filled Brief without reaching the table's terminal state, so one of the two is lying`);
+                }
+                // AND EVERY JUDGMENT WAS THE EXECUTOR'S OWN (acceptance 2). Three
+                // judgment states, three records on the run record. A span that
+                // filled the Brief with fewer would have had one of them supplied
+                // from outside the run, which is the act this issue removes.
+                for (const st of ["compose_path", "review_path", "judge_specialization"]) {
+                  if (!(rec.judgments || {})[st]) {
+                    fails.push(`(n) the run record carries no judgment for ${st} — the executor invokes the judge itself at every \`judgment\` state, and a filled Brief with a missing record means that state was satisfied by something other than a judged one`);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      rmSync(rt, { recursive: true, force: true });
     }
   }
 
@@ -2081,15 +2445,24 @@ try {
     };
     // ITEM 1 — the removed channel refuses LOUDLY rather than being ignored.
     const rsA = mk("t-a.json");
-    run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rsA]);
     const viaArg = run(["src/brief.mjs", "adopt", "--run-state", rsA, "--thesis", "thesis-1"]);
     if (viaArg.status === 0) fails.push("(t) `adopt --thesis` still adopts — the owner's answer is still a model-composed argument (kogaki#891)");
     else if (!/kogaki#891/.test(viaArg.stderr || "")) fails.push("(t) the `--thesis` refusal does not name why the channel is gone");
-    // ITEM 1 — with a declaration rendered and no capture, adoption refuses
-    // and names the act that produces one.
+    // ITEM 1 — with no capture at all, adoption refuses and names the act that
+    // produces one. The act it names moved at kogaki#1108: it is the harness's
+    // own capture hook, not a `gate-thesis` a session runs.
     const noCap = run(["src/brief.mjs", "adopt", "--run-state", rsA]);
     if (noCap.status === 0) fails.push("(t) adoption proceeded with no captured answer at all");
-    else if (!/gate-thesis/.test(noCap.stderr || "")) fails.push("(t) the no-capture refusal does not name the act that records the owner's answer");
+    else if (!/write-gate-capture\.py/.test(noCap.stderr || "")) fails.push("(t) the no-capture refusal does not name the act that records the owner's answer");
+    // AND IT NAMES NO DELETED COMMAND. A refusal routing the reader to
+    // `gate-thesis` sends them to an unknown subcommand, which is worse than
+    // saying nothing: the reader concludes the runtime is broken rather than
+    // that the route changed.
+    if (/gate-thesis/.test(noCap.stderr || "")) fails.push("(t) the no-capture refusal still routes to `gate-thesis`, which is DELETED (kogaki#1108)");
+    // THE DELETED COMMAND IS GONE RATHER THAN DEPRECATED.
+    const gtGone = run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rsA]);
+    if (gtGone.status === 0) fails.push("(t) `gate-thesis` still runs — the session-driven thesis gate has a live executor (kogaki#1108)");
+    else if (!/usage/.test(gtGone.stderr || "")) fails.push("(t) `gate-thesis` refuses with something other than the unknown-subcommand usage line — a stub rather than a deletion");
     // ITEM 2 — no declaration for this run state, no adoption. The gate is
     // stripped from a freshly entered run state, which is the only way to
     // reach a state that was never rendered.
@@ -2099,23 +2472,12 @@ try {
     const noDecl = run(["src/brief.mjs", "adopt", "--run-state", rsB, "--capture", join(dir, "nothing.json")]);
     if (noDecl.status === 0) fails.push("(t) adoption proceeded over a run state carrying no gate declaration (acceptance item 2)");
     else if (!/no thesis-determination gate declaration/.test(noDecl.stderr || "")) fails.push("(t) the no-declaration refusal does not say the gate was never rendered");
-    // AND THE CAPTURE ACT REFUSES THE SAME STATE, so the two entry points
-    // agree rather than one of them minting a declaration out of band.
-    const capNoDecl = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsB, "--tool-use-id", "x", "--option", "thesis-1"]);
-    if (capNoDecl.status === 0) fails.push("(t) gate-thesis --capture wrote an answer for a run state carrying no gate");
-    // AN ANSWER IS ADMITTED ONLY AT THE WAIT THAT DECLARED IT.
-    const rsC = mk("t-c.json");
-    const capNoWait = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsC, "--tool-use-id", "x", "--option", "thesis-1"]);
-    if (capNoWait.status === 0) fails.push("(t) --capture admitted an answer with no declaration beside it (SPEC-gate-carrier §4.1)");
     // ITEM 3 — free-form Thesis text reaches the run state through the
     // captured answer and through nothing else.
     const rsD = mk("t-d.json");
-    run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rsD]);
     const OWN = "the owner's own sentence, typed at the gate";
-    const capFree = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsD,
-      "--tool-use-id", "toolu_free", "--free-text", OWN]);
-    if (capFree.status !== 0) fails.push(`(t) --capture refused a free-text answer: ${(capFree.stderr || "").trim()}`);
-    const capD = capturePath(dir, "t-d.brief-thesis-adoption");
+    const capD = writeCapture(join(dir, "t-d-capture.json"), "brief-thesis-adoption",
+      thesisOptionIds(rsD), { free_text: OWN }, "toolu_free");
     const adFree = run(["src/brief.mjs", "adopt", "--run-state", rsD, "--capture", capD]);
     if (adFree.status !== 0) fails.push(`(t) adopting a free-form Thesis from the capture was refused: ${(adFree.stderr || "").trim()}`);
     else {
@@ -2127,9 +2489,9 @@ try {
     // THE CAPTURE BINDS TO THE OPTION SET IT ANSWERED. A capture taken at one
     // rendering must not certify a choice at another.
     const rsE = mk("t-e.json");
-    run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rsE]);
-    run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsE, "--tool-use-id", "toolu_e", "--option", "thesis-1"]);
-    const capE = JSON.parse(readFileSync(capturePath(dir, "t-e.brief-thesis-adoption"), "utf8"));
+    const capEGood = writeCapture(join(dir, "t-e-capture-good.json"), "brief-thesis-adoption",
+      thesisOptionIds(rsE), { option: "thesis-1" }, "toolu_e");
+    const capE = JSON.parse(readFileSync(capEGood, "utf8"));
     capE.rows[capE.rows.length - 1].answers_over.option_set_digest = "0".repeat(64);
     const capEPath = join(dir, "t-e-capture.json");
     writeFileSync(capEPath, JSON.stringify(capE));
@@ -2137,7 +2499,7 @@ try {
     if (stale.status === 0) fails.push("(t) a capture bound to a different option set adopted anyway — the owner chose among alternatives other than these");
     // AND THE EVIDENCE AXES ARE REFUSED. A row recording a session's own act
     // is not an owner answer.
-    const capF = JSON.parse(readFileSync(capturePath(dir, "t-e.brief-thesis-adoption"), "utf8"));
+    const capF = JSON.parse(readFileSync(capEGood, "utf8"));
     capF.rows[capF.rows.length - 1].evidence = { tool: "Bash", tool_use_id: "t" };
     const capFPath = join(dir, "t-f-capture.json");
     writeFileSync(capFPath, JSON.stringify(capF));
@@ -2497,13 +2859,17 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 ranCase("v");
 {
   const F = (id, extra = {}) => ({
-    step_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1"], purpose: "p",
+    // THREE ROLES, THREE STRANDS (kogaki#1108) — see the note at `figStepOf`
+    // in (x). The addressing this block asserts is `g<n>` over the Step's own
+    // grounds and is unchanged; what changed is that three grounds now require
+    // three Strands to hang on.
+    step_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1", "L2", "L3"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
     rationale: "r",
     grounds: [
       { type: "strand", strand: "L1", proposition: "the defensive wall is the first endpoint" },
-      { type: "strand", strand: "L1", proposition: "the offensive artillery is the other" },
-      { type: "strand", strand: "L1", proposition: "the material names function as what the two are read against" },
+      { type: "strand", strand: "L2", proposition: "the offensive artillery is the other" },
+      { type: "strand", strand: "L3", proposition: "the material names function as what the two are read against" },
     ],
     ...extra,
   });
@@ -2678,8 +3044,24 @@ ranCase("w");
   }
 }
 
-// (y) THE AUTHORING SKILL ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD THAT HAS
-// ITS OWN SUBSECTION (kogaki#935). §4.16 landed with no authoring carrier at
+// (y) THE AUTHORING CARRIER ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD THAT HAS
+// ITS OWN SUBSECTION (kogaki#935; the carrier MOVED at kogaki#1108).
+//
+// THE CARRIER IS `src/step-schema.json`, NOT THE SKILL. Until kogaki#1108 the
+// one act that authored Steps was a sitting reading step 7 of
+// `.claude/skills/brief/SKILL.md`, and this case read that step. The skill is
+// one `!` line now; the act that authors Steps is the executor's `compose_path`
+// judgment state, and the text it puts in front of the composing Model is
+// `src/step-schema.json` rendered verbatim into the prompt. So the carrier this
+// case reads moved with the act — the defect is unchanged (a field validated,
+// serialized and disclosed while nothing ever tells the composer to write it),
+// and what changed is which file is the one place the composer is told.
+//
+// AND THE COMPARATOR GOT STRICTER BY MOVING, not weaker. The skill was prose,
+// so coverage was a word-bounded regex over a slice; the schema is a field
+// TABLE, so coverage is membership in `fields`, and a field named only in the
+// schema's own prose is NOT covered. That is the scoping the step-7 slice was
+// approximating, now exact. §4.16 landed with no authoring carrier at
 // all: the field could be validated by `validateSteps`, resolved by
 // `resolveFigureForms`, serialized by `renderStep` and disclosed at the
 // Candidate gate while NEVER BEING AUTHORED by the one act that authors Steps,
@@ -2713,11 +3095,11 @@ ranCase("w");
 ranCase("y");
 {
   const specPath = "specs/spec-draft-pipeline/SPEC.md";
-  const skillPath = ".claude/skills/brief/SKILL.md";
-  let spec = "", skill = "";
+  const schemaPath = "src/step-schema.json";
+  let spec = "", schema = null;
   try { spec = readFileSync(specPath, "utf8"); } catch { fails.push(`(y) ${specPath} is unreadable — the field list cannot be derived, and an underivable list is not a pass`); }
-  try { skill = readFileSync(skillPath, "utf8"); } catch { fails.push(`(y) ${skillPath} is unreadable — the authoring carrier cannot be read, and an unreadable carrier is not a pass`); }
-  if (spec && skill) {
+  try { schema = JSON.parse(readFileSync(schemaPath, "utf8")); } catch (e) { fails.push(`(y) ${schemaPath} is unreadable or is not JSON (${e.message}) — the authoring carrier cannot be read, and an unreadable carrier is not a pass`); }
+  if (spec && schema) {
     // §4.1 ONLY, AND THE SLICE IS THE CARRIER (kogaki#942, from PR #941 round 2).
     // The bullets are read from a heading-to-next-heading slice of §4.1, taken
     // the way `step7Of` slices the skill and refused the same way when the
@@ -2805,16 +3187,20 @@ ranCase("y");
     };
     // ONE COMPARATOR, run over the real pair AND over synthetic input below, so
     // the negative direction exercises the code the positive one runs and not a
-    // restatement of it.
-    const uncovered = (specText, skillText) =>
-      (optionalFields(specText) || []).filter((f) => !new RegExp(`\\b${f}\\b`).test(skillText));
-    // STEP 7 ONLY. The block runs from the `7. **Compose` item to the next
-    // numbered item; a skill whose step 7 cannot be found is refused rather than
-    // read whole, because "read the whole file" is exactly the weakening this
-    // scoping exists to refuse.
-    const step7Of = (skillText) => {
-      const m = /^7\. \*\*Compose[\s\S]*?(?=^8\. \*\*)/m.exec(skillText);
-      return m ? m[0] : null;
+    // restatement of it. The carrier side is a SET OF FIELD KEYS, so coverage is
+    // membership rather than a regex over prose: `figure` cannot be covered by
+    // `figure_roles`, and a name occurring only in the schema's notes is not
+    // covered at all.
+    const uncovered = (specText, keys) =>
+      (optionalFields(specText) || []).filter((f) => !(keys || []).includes(f));
+    // THE `fields` TABLE ONLY. A schema carrying no `fields` object is refused
+    // rather than read whole, because "read the whole file" is exactly the
+    // weakening the step-7 slice existed to refuse and the reason this carrier
+    // is a table rather than prose.
+    const schemaFieldKeys = (doc) => {
+      const f = doc && doc.fields;
+      if (!f || typeof f !== "object" || Array.isArray(f)) return null;
+      return Object.keys(f);
     };
 
     const optional = optionalFields(spec);
@@ -2824,34 +3210,39 @@ ranCase("y");
     for (const line of unmatchedOptionalBullets(spec) || []) {
       fails.push(`(y) a §4.1 bullet declares an optional Step field and the derivation did not match it: ${line.trim()} — a RETIRED bullet is a spec edit and may move the count, but a bullet that silently stops matching drops its field out of the coverage list with this member green`);
     }
-    const step7 = step7Of(skill);
-    if (step7 === null) fails.push(`(y) step 7 of ${skillPath} was not found — the coverage test is scoped to the step that authors Steps, and an unlocatable step is not a pass`);
-    for (const field of uncovered(spec, step7 || "")) {
-      fails.push(`(y) §4.1 declares \`${field}\` as an optional Step field with its own subsection, and step 7 of ${skillPath} never names it — the field can be validated, serialized and disclosed while the one act that authors Steps is never told to write it, with every check green because the default is none (kogaki#935)`);
+    const fieldKeys = schemaFieldKeys(schema);
+    if (fieldKeys === null) fails.push(`(y) ${schemaPath} carries no \`fields\` object — the coverage test is scoped to the table the composer is shown, and an unlocatable table is not a pass`);
+    for (const field of uncovered(spec, fieldKeys || [])) {
+      fails.push(`(y) §4.1 declares \`${field}\` as an optional Step field with its own subsection, and ${schemaPath} declares no such field — the field can be validated, serialized and disclosed while the text the composing Model is shown never mentions it, with every check green because the default is none (kogaki#935)`);
     }
     // THE NEGATIVE DIRECTION, run through the SAME comparator. A test that only
     // ever looks for fields that are present cannot tell "all covered" from
     // "nothing derived" — one regex edit and it is vacuous forever.
     const synth41 = (body) => `### 4.1 The Step\n${body}### 4.2 The next section\n`;
     const synthSpec = synth41("- **`frobnicate`** — optional; §4.99.\n");
-    if (uncovered(synthSpec, "a skill that names no such field").length !== 1) {
-      fails.push("(y) a §4.1 optional field absent from the authoring skill was NOT reported — the coverage test is vacuous");
+    if (uncovered(synthSpec, ["step_id", "grounds"]).length !== 1) {
+      fails.push("(y) a §4.1 optional field absent from the authoring carrier was NOT reported — the coverage test is vacuous");
     }
-    if (uncovered(synthSpec, "the composer writes frobnicate on the Step").length !== 0) {
-      fails.push("(y) a field the skill DOES name was reported uncovered — the comparator refuses the covered case");
+    if (uncovered(synthSpec, ["step_id", "frobnicate"]).length !== 0) {
+      fails.push("(y) a field the carrier DOES declare was reported uncovered — the comparator refuses the covered case");
     }
-    // WORD-BOUND: a name that is a prefix of another name is not covered by the
-    // longer one — `figure` by `figure_roles` is the live instance.
-    if (uncovered(synth41("- **`figure`** — optional; §4.16.\n"), "only figure_roles is written here").length !== 1) {
-      fails.push("(y) `figure` was reported covered by `figure_roles` alone — the comparator is a substring match, and the field kogaki#935 was filed for can vanish from step 7 with the case green");
+    // EXACT, NOT PREFIX: a name that is a prefix of another name is not covered
+    // by the longer one — `figure` by `figure_roles` is the live instance, and
+    // the reason the old prose comparator had to be word-bound by hand.
+    if (uncovered(synth41("- **`figure`** — optional; §4.16.\n"), ["figure_roles"]).length !== 1) {
+      fails.push("(y) `figure` was reported covered by `figure_roles` alone — the comparator matches a key by prefix, and the field kogaki#935 was filed for can vanish from the table with the case green");
     }
-    // SCOPED: a mention outside step 7 does not count, and a mention inside does.
-    const synthSkill = (inside, outside) => `6. **Name**\n7. **Compose** ${inside}\n8. **Review** ${outside}\n`;
-    if (uncovered(synthSpec, step7Of(synthSkill("nothing", "frobnicate")) || "").length !== 1) {
-      fails.push("(y) a field named only OUTSIDE step 7 was reported covered — the scoping to the step that authors Steps is not applied");
+    // SCOPED TO `fields`: a name occurring in the schema's own prose is not a
+    // declared field, and a schema with no `fields` object is refused.
+    const synthSchema = (field, note) => ({ note: [`prose mentioning ${note}`], fields: { [field]: { required: false } } });
+    if (uncovered(synthSpec, schemaFieldKeys(synthSchema("step_id", "frobnicate")) || []).length !== 1) {
+      fails.push("(y) a field named only in the schema's PROSE was reported covered — the scoping to the `fields` table is not applied, and prose is exactly the carrier kogaki#1108 moved away from");
     }
-    if (uncovered(synthSpec, step7Of(synthSkill("frobnicate", "nothing")) || "").length !== 0) {
-      fails.push("(y) a field named INSIDE step 7 was reported uncovered — the step-7 slice does not reach its own text");
+    if (uncovered(synthSpec, schemaFieldKeys(synthSchema("frobnicate", "nothing")) || []).length !== 0) {
+      fails.push("(y) a field declared IN the `fields` table was reported uncovered — the table reader does not reach its own keys");
+    }
+    if (schemaFieldKeys({ note: ["no fields object at all"] }) !== null) {
+      fails.push("(y) a schema carrying no `fields` object was not refused — an unlocatable table reads as an empty key set, which reports every field as uncovered rather than naming the real fault");
     }
     // AND THE DERIVATION IS SELECTIVE. A REQUIRED §4.1 bullet carries no
     // `optional` and no subsection pointer, so it must not enter the list:
@@ -2944,37 +3335,32 @@ ranCase("z");
   try {
     const zrs = join(zdir, "run.json");
     run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs]);
-    const zdecl = run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", zrs]);
-    // THE DECLARATION'S SUFFIX IS DERIVED, not written out (kogaki#956, moved
-    // to the module-scope helper at kogaki#959). A literal here fails as "no
-    // run declaration was written at ..." when the suffix moves, which names
-    // the wrong cause — the join-key-as-a-literal class kogaki#837 records.
+    // THE DECLARATION FILE IS THE EXECUTOR'S NOW (kogaki#1108), and this case
+    // is about what happens when it is GONE. `gate-thesis --declare` used to
+    // write it beside the run state; the executor writes it into its own run
+    // workspace at the `THESIS_ADOPTION` wait. Either way the file is a DERIVED
+    // artifact and the barrier adoption actually reads is `state.gate` plus the
+    // capture — which is what §5.3 v36 rules, and what this case exercises by
+    // performing the removal rather than by asserting an absence.
+    //
+    // THE FILE IS PLANTED AND REMOVED HERE rather than produced by a command,
+    // because no command produces it any more and a case that drove one would
+    // be exercising a route the runtime does not have. What is under test is
+    // adoption's own reading, and adoption never opens this file at all — which
+    // is precisely the claim.
     const zdeclPath = declarationPath(zdir, "run.brief-thesis-adoption");
-    // THE PRECONDITION IS ASSERTED, not assumed. If `--declare` stopped writing
-    // the file at this name, the removal below would remove nothing and the case
-    // would pass while exercising the empty set.
-    if (zdecl.status !== 0) {
-      fails.push(`(z) \`gate-thesis --declare\` failed, so the case exercises nothing: ${(zdecl.stderr || zdecl.stdout || "").trim().slice(0, 160)}`);
-    } else if (!existsSync(zdeclPath)) {
-      fails.push(`(z) no run declaration was written at ${zdeclPath} — the file whose removal this case is about does not exist, so the removal below is vacuous`);
+    writeFileSync(zdeclPath, JSON.stringify({
+      id: "brief-thesis-adoption", run_declaration: true,
+      note: "planted by (z): the derived artifact whose removal this case is about",
+    }, null, 2) + "\n");
+    const zcapPath = writeCapture(join(zdir, "z-capture.json"), "brief-thesis-adoption",
+      thesisOptionIds(zrs), { option: "thesis-1" }, "toolu_fixture_decl_removed");
+    // THE PRECONDITION IS ASSERTED, not assumed. If the plant above stopped
+    // landing, the removal below would remove nothing and the case would pass
+    // while exercising the empty set.
+    if (!existsSync(zdeclPath)) {
+      fails.push(`(z) no run declaration exists at ${zdeclPath} — the file whose removal this case is about does not exist, so the removal below is vacuous`);
     } else {
-      const zcap = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", zrs,
-        "--tool-use-id", "toolu_fixture_decl_removed", "--option", "thesis-1"]);
-      if (zcap.status !== 0) {
-        fails.push(`(z) capturing against a present declaration was refused: ${(zcap.stderr || zcap.stdout || "").trim().slice(0, 160)}`);
-      }
-      const zcapPath = capturePath(zdir, "run.brief-thesis-adoption");
-      // THE CAPTURE ACT IS WHERE THE FILE IS READ, and that is asserted in the
-      // NEGATIVE direction too — otherwise "the barrier holds transitively" is a
-      // claim this member never tests. A second run state, so the first one's
-      // capture is not consumed by the probe.
-      const zrs2 = join(zdir, "run2.json");
-      run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs2]);
-      const zcapNoDecl = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", zrs2,
-        "--tool-use-id", "toolu_fixture_no_decl", "--option", "thesis-1"]);
-      if (zcapNoDecl.status === 0) {
-        fails.push("(z) `gate-thesis --capture` accepted an answer with no declaration ever written — the barrier §5.3 says holds TRANSITIVELY does not hold at the wait, so adoption rests on nothing");
-      }
       // NOW REMOVE THE DECLARATION and adopt. This is the case the acceptance
       // item names, and under the owner's arm it SUCCEEDS.
       rmSync(zdeclPath);
@@ -3146,7 +3532,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "same run — with no sibling declaration a capture falls back to the registry (SPEC-gate-carrier \u00a74.1), so for this "
   + "`dynamic_options` gate a removed file leaves that member red while adoption is green. The two ask different "
   + "questions and neither is this member's to reconcile; \u00a75.3 v36 states why; "
-  + "(y) THE AUTHORING SKILL ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD WITH ITS OWN SUBSECTION (kogaki#935): §4.16 landed with no authoring carrier — the field was validated, resolved, serialized and disclosed at the gate while `.claude/skills/brief/SKILL.md` never told the composing sitting to write it, and every check stayed green because the default is none and none is legitimate. §4.15's `opens_section` had the same gap and case (n) records it for `introduces`, which is what makes three instances a carrier rather than an edit. The enumeration is DERIVED from §4.1's own bullets, never transcribed, so field N+1 is covered the day it is written there; the derivation refuses its own empty result, because a list that silently empties reports every field as covered. What it does NOT prove, stated rather than implied: that the skill says the RIGHT thing about a field — a mention is mechanically checkable and adequacy is not, so this refuses the silence and never grades the prose (§4.6). THE OPTIONAL-SHAPED PREDICATE READS A THIRD SIGNAL (kogaki#966): it admitted a bullet on EITHER tell, so a REQUIRED §4.1 bullet that gains a §4.NN cross-reference was named as one the derivation stopped matching — live one line up as `move`, which survives today only because its pointer is §7. The spec's own `**Required.**` marker overrides both tells, so a bullet the spec MARKS required is not optional-shaped while a bullet that merely LOST `optional` carries no marker and is still named. The marker is read ANCHORED AT THE END OF THE LINE (PR #968 round 1): matched anywhere it would exempt a CONDITIONALLY-required optional bullet, whose `**Required.**` is followed by the condition it holds under, and that bullet losing `optional` would then go unnamed — the kogaki#942 drop one shape in, minted by the narrowing built around it. An unconditional marker is the LAST thing the bullet says, which is what the anchor reads; requiring both tells instead was refused because it re-admits exactly the silent drop kogaki#942 finding 2 exists to refuse. The marker guards that predicate and NOT the name collector, deliberately: guarding both would let a live optional bullet leave the coverage list unobserved by gaining the marker, a fresh drop minted by the repair for the drop; (v)(w)(w1)(w2)(x) §4.16's FIGURE DECISION (kogaki#877, kogaki#934): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the ground addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's ground count — which is what makes a binding to ANOTHER Step\'s ground unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names. (w2) THE CLAUSE'S STEP IDS ARE ADMISSIBLE AND ONLY THEY ARE (kogaki#934): the label the clause writes is walked by the spec-internal-vocabulary tripwire, whose identifier pattern matches ANY snake_case token, so a figure on a Step whose id is snake_case made the gate return NO PAYLOAD AT ALL — every option refused because of one Step's name, and every fixture in (w) and (w1) uses `s1`/`f1`-style ids, which is exactly the id shape that cannot trip the wire. The repair is an admissible-override set computed from `figureSteps`, the clause's OWN selector, so the exempted tokens cannot drift from the rendered ones by being derived twice; it is asserted in BOTH directions and in BOTH scopings — the mandated caller assembles with the whole option set present and its id in the label, a genuine term of art in that SAME label still refuses, one Candidate's ids are NOT exempt in another Candidate's label, and no surface but the option label consults the override, because nothing here is exempt by spelling and everything by provenance; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
+  + "(y) THE AUTHORING CARRIER ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD WITH ITS OWN SUBSECTION (kogaki#935; the carrier MOVED to `src/step-schema.json` at kogaki#1108, and the comparator got STRICTER by moving — the skill was prose, so coverage was a word-bounded regex over a step-7 slice; the schema is a field TABLE, so coverage is membership in `fields` and a name occurring only in the schema's own notes is NOT covered, which is the scoping the slice was approximating): §4.16 landed with no authoring carrier — the field was validated, resolved, serialized and disclosed at the gate while nothing ever told the composing party to write it, and every check stayed green because the default is none and none is legitimate. §4.15's `opens_section` had the same gap and case (n) records it for `introduces`, which is what makes three instances a carrier rather than an edit. The enumeration is DERIVED from §4.1's own bullets, never transcribed, so field N+1 is covered the day it is written there; the derivation refuses its own empty result, because a list that silently empties reports every field as covered. What it does NOT prove, stated rather than implied: that the skill says the RIGHT thing about a field — a mention is mechanically checkable and adequacy is not, so this refuses the silence and never grades the prose (§4.6). THE OPTIONAL-SHAPED PREDICATE READS A THIRD SIGNAL (kogaki#966): it admitted a bullet on EITHER tell, so a REQUIRED §4.1 bullet that gains a §4.NN cross-reference was named as one the derivation stopped matching — live one line up as `move`, which survives today only because its pointer is §7. The spec's own `**Required.**` marker overrides both tells, so a bullet the spec MARKS required is not optional-shaped while a bullet that merely LOST `optional` carries no marker and is still named. The marker is read ANCHORED AT THE END OF THE LINE (PR #968 round 1): matched anywhere it would exempt a CONDITIONALLY-required optional bullet, whose `**Required.**` is followed by the condition it holds under, and that bullet losing `optional` would then go unnamed — the kogaki#942 drop one shape in, minted by the narrowing built around it. An unconditional marker is the LAST thing the bullet says, which is what the anchor reads; requiring both tells instead was refused because it re-admits exactly the silent drop kogaki#942 finding 2 exists to refuse. The marker guards that predicate and NOT the name collector, deliberately: guarding both would let a live optional bullet leave the coverage list unobserved by gaining the marker, a fresh drop minted by the repair for the drop; (v)(w)(w1)(w2)(x) §4.16's FIGURE DECISION (kogaki#877, kogaki#934): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the ground addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's ground count — which is what makes a binding to ANOTHER Step\'s ground unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names. (w2) THE CLAUSE'S STEP IDS ARE ADMISSIBLE AND ONLY THEY ARE (kogaki#934): the label the clause writes is walked by the spec-internal-vocabulary tripwire, whose identifier pattern matches ANY snake_case token, so a figure on a Step whose id is snake_case made the gate return NO PAYLOAD AT ALL — every option refused because of one Step's name, and every fixture in (w) and (w1) uses `s1`/`f1`-style ids, which is exactly the id shape that cannot trip the wire. The repair is an admissible-override set computed from `figureSteps`, the clause's OWN selector, so the exempted tokens cannot drift from the rendered ones by being derived twice; it is asserted in BOTH directions and in BOTH scopings — the mandated caller assembles with the whole option set present and its id in the label, a genuine term of art in that SAME label still refuses, one Candidate's ids are NOT exempt in another Candidate's label, and no surface but the option label consults the override, because nothing here is exempt by spelling and everything by provenance; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -3222,15 +3608,32 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "Step declaring a term and to the BRIEF (null) when none does, a re-declaration moving nothing; the "
   + "render/parse round trip is asserted at both ends. §4.13.1 (as amended 2026-09-02 — the field is `excerpt` and holds the author's account of the reader movement, never a verbatim quotation): a record carrying an account is an exemplar, the retired `Excerpt:` marker is read as plain text and confers nothing, an EMPTY excerpt is the one absence and is reported as such rather than as a short exemplar, the Packet's block STATES the absence naming the Move and the repairing act while SUBSTITUTING nothing, and a `sources` field surviving in any library record FAILS this member by name. Accumulation is computed and never stored. The "
   + "library's own exemplar count is DISCLOSED and never asserted — a count that failed when it moved would go "
-  + "red exactly when the re-extraction is performed; (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v19), RE-HOMED HERE from the retired "
-  + "brief-entry member at kogaki#770 — the arc table naming, per stage, the runtime act that performs it "
-  + "(path composition and the §4.1 fields it authors, entry, the thesis gate's registry row, adopt, mint, "
-  + "path review, assembly, §4.13's `introduces` authoring and its three-valued vocabulary, §4.12's specialization "
-  + "judgment, adoption, and the `--specialization` input that carries the record to it), plus the abolished default "
-  + "stop, the ends-at-a-FILLED-Brief carrier, the named-inspection-need rule and v11's pre-mint bound. The §4.13 "
-  + "row is the one with NO RUNTIME FALLBACK: the field is optional by design, so nothing refuses a skill that "
-  + "stops mentioning it. Moved rather than deleted because brief-entry was its SOLE reader and the table is not "
-  + "what made that member heavy; (o) THE ROUND-TRIP CONCESSION refused when absent (kogaki#752) — RESTORED after kogaki#770 removed its "
+  + "red exactly when the re-extraction is performed; (n) THE REMOVAL TEST — A HOOK-DRIVEN BRIEF RUN REACHES A FILLED BRIEF "
+  + "WITH NEITHER PROSE CARRIER IN THE TREE (kogaki#1108 acceptance 7 and 8). This case WAS the arc table: thirteen regexes over "
+  + "`.claude/skills/brief/SKILL.md`, re-homed here from the retired brief-entry member at kogaki#770, asserting that the skill's "
+  + "prose named every stage of the flow. The skill is one `!` line now and the arc is `src/brief-workflow.json`, so every row of "
+  + "that table named a file that no longer carries the arc — kept it would fail for the reason the issue exists, and rewritten "
+  + "against the table it would be a second transcription of the table, green whenever the table agreed with itself. What the table "
+  + "was a proxy for is asserted here by RUNNING the flow: a scratch repository holding the runtime, the hooks, the Move library and "
+  + "a one-line skill, with NO `specs/` at all; the judge stubbed at the BINARY through `KOGAKI_JUDGE_CLI` so the argv, the prompt "
+  + "composition, the parse and every refusal are the shipped ones; and the owner's two answers driven through the REAL "
+  + "`write-gate-capture.py` and `advance-brief.py` from synthesized PostToolUse payloads, so the advance hook's own narrowing is "
+  + "exercised rather than bypassed. ONE payload carries the run from the thesis answer through the mint, path composition, path "
+  + "review and assembly to the Candidate-selection gate, and a second carries it to a FILLED Brief — filled, not merely present, "
+  + "since the 2026-08-18 specimen the arc table was written for produced a Brief whose every composition field was an unfilled slot. "
+  + "The Brief's path is read from the run record's own `artifacts_written` rather than guessed, the terminal state is asserted "
+  + "beside it, and all three judgment records are asserted present, because a filled Brief with a missing judgment record means "
+  + "that state was satisfied by something other than a judged one. The absence of `specs/` and the one-line skill are ASSERTED and "
+  + "not assumed: a tree that quietly regained either would make every assertion above pass for the wrong reason. "
+  + "TWO ARMS WERE ADDED AT PR #1109 ROUND 1. Terrain's own `KOGAKI_RUN_DIR` is left STANDING in the span's environment, "
+  + "pointed at a directory that is not this run's, where a `delete` had stood as the workaround: `cmdRun` read that "
+  + "variable by name while `runDir` read `process.env[flow().runDirEnv]`, so a Brief advance under an inherited Terrain "
+  + "pin minted a fresh workspace per advance and abandoned the open run \u2014 the mutation is caught here. And each `wait` "
+  + "state's `renders_above_question` row is bound to the gate call the executor actually composed, in both directions: "
+  + "a row naming a reading the declaration does not carry is red, and so is a call carrying one where the row declares "
+  + "none \u2014 which is what makes the owner decision's \"screen prose is a table row\" a carrier rather than decoration, "
+  + "and what keeps CANDIDATE_SELECTION's emptiness a RULING rather than the accident of a session with no prose channel; "
+  + "(o) THE ROUND-TRIP CONCESSION refused when absent (kogaki#752) — RESTORED after kogaki#770 removed its "
   + "only carrier with the arc table alone: the composer emits a concession per Thesis candidate and the gate "
   + "registry requires each option to state one, so the rule was live and carried by nothing in between. "
   + "Carrier-less BY OMISSION is the defect. Its normative home is the design record, and this is the "
