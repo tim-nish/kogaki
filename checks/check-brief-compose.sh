@@ -35,7 +35,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest } from "./src/compose.mjs";
-import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, validateRatification, specializationSchema,
+import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock,
          figureRefusal, figureGroundRefusal, resolveFigureForms, visualFormOf,
@@ -189,28 +189,16 @@ const spec = (cand, over = {}) => ({
   })),
   ...over,
 });
-// A CONFORMING RATIFICATION CAPTURE — composed HERE, by the check, standing
-// in for the OWNER exactly as `spec` above stands in for the judging sitting.
-// The runtime composes neither, which is the property (n) below asserts by
-// removing this: every block outside (n) supplies one so that it is testing
-// what it is named for rather than re-testing the gate.
+// THE RATIFICATION CAPTURE FIXTURE IS GONE (kogaki#1108), with the gate it was
+// for. `brief-specialization-ratification` is out of src/gate-registry.json and
+// the specialization record is DISCLOSURE rather than a write unlock, so there
+// is no capture to compose here and nothing for one to bind to. Case (s) below
+// asserts the removal in both directions rather than merely not exercising it.
 //
-// The digest is READ FROM THE RUNTIME rather than recomputed here. A second
-// implementation of the digest in the check would pass while disagreeing with
-// the one adoption uses, which is the failure a binding key can have that is
-// worse than having none: both sides confident, neither agreeing.
-const RATIF = specializationSchema().ratification;
-const ratif = (cand, record, over = {}) => ({
-  rows: [{
-    stop_id: "stop-fixture",
-    gate_id: RATIF.gate_id,
-    evidence: { tool: "AskUserQuestion", tool_use_id: "toolu_fixture" },
-    payload: { options_offered: [RATIF.affirmative_option, RATIF.declining_option], free_text_offered: true,
-      answer: { option: RATIF.affirmative_option } },
-    [RATIF.capture_binding_key]: { candidate_id: cand.candidate_id, record_digest: specializationDigest(record, cand.steps) },
-    ...over,
-  }],
-});
+// The digest survives and is still READ FROM THE RUNTIME rather than recomputed
+// here — a second implementation of it in the check would pass while disagreeing
+// with the one adoption uses — but what it now names is the record in adoption's
+// closing summary.
 // §6's SELECTION CAPTURE (kogaki#891) — the owner's own answer at the
 // Candidate-selection gate, bound to the option set it was offered against.
 // Composed the way the runtime composes it, from `selectionOptionIds`, so a
@@ -233,7 +221,7 @@ const inst = (cand, over = {}, reviewed = null, doc = null) => {
   if (!reviewed) throw new Error("inst() needs the reviewed set the §6 gate offered — the selection capture binds to it (kogaki#891)");
   const rv = reviewed;
   const dc = doc || readFileSync(briefPath, "utf8");
-  return { movesDir: MOVES, specialization: record, ratification: ratif(cand, record),
+  return { movesDir: MOVES, specialization: record,
     selection: sel(cand.candidate_id, rv, dc) };
 };
 
@@ -945,25 +933,34 @@ try {
   const gCapBoth = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
     "--tool-use-id", "toolu_sel_both", "--option", "cand-2", "--free-text", "this one, though the second beat still drags"], { encoding: "utf8" });
   if (gCapBoth.status !== 0) fails.push(`(g6) --capture refused an answer carrying an option AND a comment: ${(gCapBoth.stderr || "").trim()}`);
-  const bothAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
+  // ITS OWN COPY OF THE BRIEF (kogaki#1108). This call now SUCCEEDS — see the
+  // anchor note below — and adoption fills the Brief's slots, so running it
+  // against `bp2` would leave the (g) adoption downstream with nothing to fill
+  // and refuse for a reason that has nothing to do with what either case
+  // asserts. A separate copy is what keeps the two independent; before #1108
+  // the call stopped at the ratification barrier and wrote nothing, which is
+  // why one file served both.
+  const bpBoth = join(dir, "brief-adopt-both.md"); writeFileSync(bpBoth, doc0);
+  const bothAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bpBoth,
     "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
     "--selection", selCapPath], { encoding: "utf8" });
-  // It gets PAST the selection clause and stops at the RATIFICATION barrier —
-  // this call passes no --ratification — so the assertion ANCHORS POSITIVELY
-  // on that refusal and reads the exit status beside it. Bound negatively, on
-  // the free-text message's absence alone (kogaki#951), any clause refusing
-  // ABOVE the free-text arm would satisfy this case while the arm itself went
-  // unreached: the stderr would carry that other refusal, `in their own words`
-  // would be absent, and the case would report the arm as admitting an
-  // option-plus-comment selection it never evaluated. That is the
-  // ASSERTION-BINDS-A-PROXY shape stated at the head of this file and recorded
-  // against itself by the AC4/AC5 notes of (r) THE POST-HOC DISCLOSURE SLOT
-  // above — named rather than lettered, because a second (r) case exists.
+  // IT GETS PAST THE SELECTION CLAUSE AND ADOPTS (kogaki#1108). This case used
+  // to anchor POSITIVELY on the ratification barrier — the call passes no
+  // ratification, and before #1108 that was the next refusal — which is what
+  // made the free-text arm's SCOPE checkable rather than only its existence.
+  // With `brief-specialization-ratification` removed there is no barrier left
+  // to anchor on, so the anchor moves to the OTHER side of the same fact: the
+  // adoption SUCCEEDS.
+  //
+  // THAT IS A STRONGER ANCHOR, NOT A WEAKER ONE, and the reason is worth
+  // stating because the case's own comment warns about exactly this shape. The
+  // old anchor was "some refusal below the selection clause fired"; any clause
+  // between the two would have satisfied it. A success satisfies nothing but
+  // the selection clause having ADMITTED the answer, which is the property
+  // under test.
   const bothErr = bothAdopt.stderr || "";
-  if (bothAdopt.status === 0) {
-    fails.push("(g6) adoption of an option-plus-comment selection SUCCEEDED with no --ratification — it no longer stops at the ratification barrier, so this case's anchor is gone and what it exercises is unknown");
-  } else if (!/PASSING RECORD IS NOT THE SOLE UNLOCK/.test(bothErr)) {
-    fails.push(`(g6) an option-plus-comment selection refused somewhere other than the ratification barrier, so the §6 selection arm was never reached and this case exercises nothing: ${bothErr.trim().split("\n")[0]}`);
+  if (bothAdopt.status !== 0) {
+    fails.push(`(g6) adoption of an option-plus-comment selection was REFUSED, so the §6 selection arm read the free text's presence rather than the option's absence, or something below it refused: ${bothErr.trim().split("\n")[0]}`);
   }
   if (/in their own words/.test(bothErr)) fails.push("(g6) a selection carrying a comment beside it was refused as free text — the arm reads the free text's presence rather than the option's absence");
 
@@ -977,53 +974,40 @@ try {
   if (mismatch.status === 0) fails.push("(g6) adopting a Candidate the owner did not select was accepted — --candidate stood in for the answer");
   else if (!/did not choose another/.test(mismatch.stderr || "")) fails.push("(g6) the mismatch refusal does not say the owner chose a different Candidate");
   const adoptArgv = ["--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES, "--selection", selCapPath];
-  // §4.12.3's GATE, THROUGH THE REAL TWO-STEP FLOW (kogaki#893). The command
-  // path is where the executor is actually exercised: `--declare` composes
-  // the run declaration over a record that has already passed, `--capture`
-  // admits an answer against THAT declaration, and only then does adoption
-  // write. Driving it here rather than hand-writing a capture file is what
-  // makes the flow's own refusals reachable — a hand-written capture would
-  // test `validateRatification` twice and the executor never.
-  const pDecl = spawnSync(process.execPath, ["src/assemble.mjs", "ratify-specialization", ...adoptArgv], { encoding: "utf8" });
-  if (pDecl.status !== 0) fails.push(`(g) ratify-specialization --declare exited ${pDecl.status}: ${(pDecl.stderr || "").trim()}`);
-  // THE RECORD REACHES THE SCREEN. A gate that renders no evidence is a gate
-  // over nothing, and the whole of this arm is that the owner READS the
-  // verdicts before ratifying — so the sentence the judging sitting wrote is
-  // asserted present in the executor's own output, not merely in a file.
-  for (const v of spec(candB).verdicts) {
-    if (!(pDecl.stdout || "").includes(v.why)) fails.push(`(g) the declaration output does not render step ${v.step_id}'s why — the owner would ratify a record they were never shown`);
-    if (!(pDecl.stdout || "").includes(v.move)) fails.push(`(g) the declaration output does not name the Move step ${v.step_id} instantiates`);
-  }
-  // The run workspace keys on the Brief's PARENT DIRECTORY name — the slug —
-  // which for this fixture is the temp directory itself. Derived rather than
-  // written out, so a change to where the executor sites its workspace fails
-  // here as a missing declaration instead of passing against a stale guess.
-  const ratifDir = join(laneDir("brief"), dir.split(sep).filter(Boolean).pop());
-  const capf = capturePath(ratifDir, RATIF.gate_id);
-  const declf = declarationPath(ratifDir, RATIF.gate_id);
-  if (!existsSync(declf)) fails.push(`(g) --declare wrote no run declaration at ${declf} — a capture is judged against the declaration beside it (SPEC-gate-carrier §4.1)`);
-  rmSync(capf, { force: true });
-  // THE DECLINE IS RECORDED AND REFUSES. `not-ratified` is a first-class
-  // answer, not a missing one: the row is written (the gate carrier owes it),
-  // and adoption then refuses NAMING the answer rather than reporting an
-  // absent capture — an owner who said no and an owner who was never asked
-  // are different facts and must read differently.
-  const pNo = spawnSync(process.execPath, ["src/assemble.mjs", "ratify-specialization", "--capture",
-    "--tool-use-id", "toolu_cli_no", "--option", RATIF.declining_option, ...adoptArgv], { encoding: "utf8" });
-  if (pNo.status !== 0) fails.push(`(g) --capture of the declining option exited ${pNo.status}: ${(pNo.stderr || "").trim()}`);
-  const pDeclined = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", ...adoptArgv, "--ratification", capf], { encoding: "utf8" });
-  if (pDeclined.status === 0) fails.push("(g) adoption proceeded on a DECLINED ratification — the owner's no is not binding");
-  else if (!new RegExp(RATIF.declining_option).test(pDeclined.stderr || "")) fails.push("(g) the declined-ratification refusal does not name the answer the owner gave");
-  if (readFileSync(bp2, "utf8") === doc3) fails.push("(g) the declined ratification still wrote the Brief");
-  // AND THE AFFIRMATIVE, appended to the same capture: `validateRatification`
-  // reads the LAST row, so an owner who declined and then ratified has
-  // changed their mind rather than been overwritten.
-  const pYes = spawnSync(process.execPath, ["src/assemble.mjs", "ratify-specialization", "--capture",
-    "--tool-use-id", "toolu_cli_yes", "--option", RATIF.affirmative_option, ...adoptArgv], { encoding: "utf8" });
-  if (pYes.status !== 0) fails.push(`(g) --capture of the affirmative option exited ${pYes.status}: ${(pYes.stderr || "").trim()}`);
-  const p2 = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", ...adoptArgv, "--ratification", capf], { encoding: "utf8" });
+  // ADOPTION WRITES WITH NO THIRD GATE (kogaki#1108). This block drove the
+  // `ratify-specialization` executor's two modes — `--declare` composing the
+  // run declaration over a record that had already passed, `--capture`
+  // admitting an answer against THAT declaration — and only then adopted.
+  // The gate is gone from src/gate-registry.json, the subcommand is deleted,
+  // and what remains is the command path this case was always anchoring: the
+  // Candidate the owner selected adopts, and the command's document equals the
+  // exported function's.
+  const p2 = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", ...adoptArgv], { encoding: "utf8" });
   if (p2.status !== 0) fails.push(`(g) adopt-candidate exited ${p2.status}: ${(p2.stderr || "").trim()}`);
   else if (readFileSync(bp2, "utf8") !== doc3) fails.push("(g) the command's adopted document differs from the exported function's — two producers");
+  // THE DISCLOSURE SENTENCE REACHES THE SCREEN. It is what replaced the gate,
+  // so a silent adoption would mean the record went from being ratified to
+  // being invisible — which is the outcome this Issue's decision does not
+  // license. Bound to the digest the runtime computed, never to a recomputed
+  // one, and to the claim it must carry.
+  if (p2.status === 0) {
+    const out = p2.stdout || "";
+    const digest = specializationDigest(spec(candB), candB.steps);
+    if (!out.includes(digest)) fails.push("(g) the closing summary does not name the specialization record's digest — the record adopted unnamed");
+    if (!/never a write unlock/.test(out)) fails.push("(g) the closing summary does not say the record is disclosure rather than a write unlock (kogaki#1108)");
+    if (!/consistent/.test(out)) fails.push("(g) the closing summary carries no verdict tally — a disclosure that says a record exists and not what it judged");
+  }
+  // AND THE DELETED SUBCOMMAND IS GONE RATHER THAN DEPRECATED. A leftover
+  // invocation fails as an unknown subcommand; a stub that accepted it would be
+  // the route by which the removed gate comes back one caller at a time.
+  const pGone = spawnSync(process.execPath, ["src/assemble.mjs", "ratify-specialization", ...adoptArgv], { encoding: "utf8" });
+  if (pGone.status === 0) fails.push("(g) `ratify-specialization` still runs — the removed gate has a live executor (kogaki#1108)");
+  else if (!/usage/.test(pGone.stderr || "")) fails.push("(g) `ratify-specialization` refuses with something other than the unknown-subcommand usage line — a stub rather than a deletion");
+  // AND `--ratification` IS REFUSED BY NAME at adoption rather than ignored: a
+  // silently accepted flag lets a caller believe an owner act is still read.
+  const pFlag = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", ...adoptArgv, "--ratification", "/dev/null"], { encoding: "utf8" });
+  if (pFlag.status === 0) fails.push("(g) adopt-candidate ACCEPTED --ratification — a removed input that is silently taken is a caller getting a different act than it asked for");
+  else if (!/REMOVED/.test(pFlag.stderr || "")) fails.push("(g) --ratification is refused without naming it as removed");
 
 
   // (k) THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747), both halves
@@ -1149,15 +1133,16 @@ try {
     for (const v of sch.vocabulary.values) {
       const rec = spec(candB);
       rec.verdicts[0].verdict = v;
-      // A CONFORMING RATIFICATION IS SUPPLIED FOR EVERY VALUE, passing and
-      // not. That is the ordering assertion of acceptance item 2 (kogaki#893)
-      // carried inside this loop rather than beside it: a non-passing record
-      // must refuse on its VERDICT even with the owner's ratification in
-      // hand, because the refusing arms sit above the gate and are unchanged
-      // by it. Were the gate sited first, these refusals would still fire —
-      // but on the wrong clause, and the messages asserted below would change.
+      // THE REFUSING ARMS ARE THE RECORD'S OWN, and that survives the gate's
+      // removal unchanged (kogaki#1108). This loop used to supply a conforming
+      // ratification for every value, passing and not, to assert that a
+      // non-passing record refuses on its VERDICT rather than on the missing
+      // owner act. With the gate gone there is nothing above these arms at all,
+      // so the assertion is the same and the fixture is smaller: a passing
+      // record adopts, and every other value refuses naming its Step, its
+      // sentence and its verdict.
       const r = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
-        { movesDir: MOVES, specialization: rec, ratification: ratif(candB, rec), selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
+        { movesDir: MOVES, specialization: rec, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
       const shouldPass = sch.vocabulary.passing.includes(v);
       if (shouldPass && r.error) fails.push(`(k) the passing verdict ${v} was refused: ${r.error}`);
       if (!shouldPass) {
@@ -1212,110 +1197,103 @@ try {
   }
 
 
-  // (s) §4.12.3 — THE OWNER RATIFICATION GATE (kogaki#893). Everything in (k)
-  // is the record's SHAPE and the refusal, and none of it reaches the thing
-  // that actually unlocks the write: a record whose every verdict reads
-  // `consistent`. That verdict is the composing sitting's own. THE FIXTURE
-  // THIS CASE OPENS ON IS THE ISSUE'S OWN TEST — shape-valid, judgment-free
-  // `consistent` verdicts — and it must be REFUSED.
+  // (s) THE SPECIALIZATION RECORD IS DISCLOSURE, AND ITS GATE IS GONE
+  // (kogaki#1108, owner decision 2026-09-12). This case was the owner
+  // ratification gate's (kogaki#893): a shape-valid, judgment-free record of
+  // all-`consistent` verdicts had to be REFUSED until the owner ratified it.
   //
-  // Nothing here judges a specialization, reads a Move's requires/effect, or
-  // compares anything to anything: §4.6 clause 3 and §7.5 stand, and the
-  // declined arm of acceptance item 1 was the one that owed them an
-  // amendment.
+  // WHY IT IS INVERTED RATHER THAN DELETED. The gate's ground was real — every
+  // verdict in the record is the composing sitting's own — so its removal is a
+  // decision with a cost, and a case that simply stopped existing would leave
+  // nothing asserting that the removal is the state the tree is in. A deleted
+  // case and a silently re-added gate read identically. So the same fixture
+  // runs and the assertions point the other way: the record still gates on its
+  // VERDICTS, the gate is absent from the registry, and the write is disclosed
+  // rather than approved.
+  //
+  // WHAT THE REMOVAL RESTS ON, stated because it is not "the gate was
+  // unnecessary": it was a human gate over a MODEL verdict, and it existed
+  // because a passing model verdict was otherwise the only unlock. kogaki#1108
+  // moves the composition onto a Harness-owned table whose judgment states
+  // render declared schemas and validate what comes back, which is what
+  // removes the condition the gate was covering for.
   ranCase("s");
   {
-    // THE FIXTURE THE ISSUE NAMES. `spec()` composes exactly this — every
-    // verdict `consistent`, every `why` a shape-valid sentence with no
-    // judgment behind it. Before #893 this adopted with no refusal, which is
-    // the right act with the guard silently disabled.
+    // THE SAME FIXTURE THE GATE WAS FOUND BY — every verdict `consistent`,
+    // every `why` a shape-valid sentence. It now ADOPTS, which is the state
+    // this Issue decided for, and the case says so in the direction that a
+    // re-added gate would fail.
     const judgmentFree = spec(candB);
     const shapeOnly = validateSpecialization(judgmentFree, candB.steps, "cand-2");
-    if (shapeOnly.error) fails.push("(s) the judgment-free fixture does not even pass §4.12's shape clauses — it would be refused for the wrong reason, and this case would assert nothing about the gate");
-    const unratified = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!unratified.error) fails.push("(s) a shape-valid, JUDGMENT-FREE all-consistent record ADOPTED the Candidate — a passing record is the sole unlock, which is the defect kogaki#893 exists to close");
-    else {
-      // DISCRIMINATED, because the refusal must say the record PASSED. A
-      // refusal reading as a record fault would send the sitting to repair
-      // verdicts that are fine, and would keep passing a mutation that
-      // deleted the gate and broke the record instead.
-      if (!/PASSING RECORD IS NOT THE SOLE UNLOCK/.test(unratified.error)) fails.push("(s) the unratified refusal does not say the record PASSES — it reads as a record fault, and the sitting is sent to repair verdicts that are correct");
-      if (!new RegExp(RATIF.gate_id).test(unratified.error)) fails.push("(s) the unratified refusal does not name the gate that discharges it");
-      if (!/--ratification/.test(unratified.error)) fails.push("(s) the unratified refusal does not name the input that discharges it");
-      if (unratified.doc) fails.push("(s) the unratified refusal still produced a document");
-      // THE DIGEST RIDES THE REFUSAL. `ratify-specialization --declare`
-      // reaches this same branch to compose the gate, so a refusal that
-      // dropped the digest would leave the executor recomputing it — a second
-      // reader that can disagree with this one about what passed.
-      if (unratified.digest !== specializationDigest(judgmentFree, candB.steps)) fails.push("(s) the refusal does not carry the digest of the record it refused — the gate's executor would have to recompute it");
-      if (!Array.isArray(unratified.rendering) || unratified.rendering.length !== candB.steps.length) fails.push("(s) the refusal does not carry one rendering row per Step — the gate would render fewer verdicts than the record holds");
-    }
-    // THE GATE IS DECLARED. An unregistered gate is the uncovered-by-default
-    // shape, and the registry is the enumeration a coverage claim is a
-    // fraction OF (SPEC-gate-carrier §2).
-    const reg = JSON.parse(readFileSync("src/gate-registry.json", "utf8")).gates.find((g) => g.id === RATIF.gate_id);
-    if (!reg) fails.push(`(s) ${RATIF.gate_id} is not declared in src/gate-registry.json`);
-    else {
-      for (const opt of [RATIF.affirmative_option, RATIF.declining_option]) {
-        if (!reg.options.some((o) => o.id === opt)) fails.push(`(s) the declared gate offers no ${opt} option — the schema names it and the registry does not, which is the two-copy divergence the single-carrier arrangement exists to prevent`);
+    if (shapeOnly.error) fails.push("(s) the judgment-free fixture does not even pass the record's shape clauses — it would be refused for the wrong reason, and this case would assert nothing");
+    const adopted = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
+      { movesDir: MOVES, specialization: judgmentFree, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
+    if (adopted.error) {
+      fails.push(`(s) a shape-valid all-consistent record with no ratification was REFUSED — a passing record is the unlock again since kogaki#1108, and this refusal is the removed gate or something standing where it stood: ${adopted.error}`);
+    } else {
+      if (!adopted.doc) fails.push("(s) the adoption produced no document");
+      // THE DISCLOSURE IS ON THE RETURN, not only in a console line, because
+      // the sentence the command prints is composed FROM these and a reader of
+      // the exported function must be able to compose it too.
+      if (adopted.record_digest !== specializationDigest(judgmentFree, candB.steps)) {
+        fails.push("(s) adoption does not return the digest of the record it validated — the disclosure sentence would name a record other than the one that passed");
       }
-      // THE PREMISE NEGATION. Every option here is generated on the premise
-      // that the record's `consistent` verdicts hold — and that premise is
-      // EXACTLY what is being asked about, so a gate with no first-class way
-      // to say it does not hold is unfalsifiable at the one moment a human is
-      // present to falsify it.
-      if (!reg.options.some((o) => o.negates_premise === true)) fails.push("(s) the declared gate carries no first-class premise negation — the one question it exists to ask cannot be answered no");
+      const tally = adopted.specialization_tally;
+      if (!tally || tally.consistent !== candB.steps.length || Object.keys(tally).length !== 1) {
+        fails.push(`(s) adoption does not return a verdict tally over the record it validated: ${JSON.stringify(tally)}`);
+      }
     }
-    // EVERY AXIS THAT COULD LET A CAPTURE CERTIFY SOMETHING IT DID NOT JUDGE.
-    const good = ratif(candB, judgmentFree);
-    const ok = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree, ratification: good, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (ok.error) fails.push(`(s) a conforming ratification was refused: ${ok.error}`);
-    const bad = (mutate) => {
-      const cap = JSON.parse(JSON.stringify(good));
-      mutate(cap.rows[0]);
-      return adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree, ratification: cap, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    };
-    // THE MEDIUM. SPEC-gate-carrier binds this repository's gate medium to
-    // AskUserQuestion, so a row naming any other tool records a session's own
-    // act rather than an owner's.
-    const notOwner = bad((r) => { r.evidence.tool = "Bash"; });
-    if (!notOwner.error || !/AskUserQuestion/.test(notOwner.error)) fails.push("(s) a capture whose evidence names a tool other than the question UI ratified the record — a session's own act would unlock the write");
-    const noId = bad((r) => { delete r.evidence.tool_use_id; });
-    if (!noId.error || !/tool_use_id/.test(noId.error)) fails.push("(s) a capture with no tool_use_id ratified the record — the one field tying the row to a question the harness actually asked");
-    // FREE TEXT IS NOT A RATIFICATION. The gate offers free text (the carrier
-    // requires it) and an answer given there is a comment, never the
-    // affirmative option — a write unlocked by arbitrary prose is unlocked by
-    // anything.
-    const freeText = bad((r) => { r.payload.answer = { free_text: "looks right to me" }; });
-    if (!freeText.error || !/free-text/.test(freeText.error)) fails.push("(s) a free-text answer ratified the record — the write would be unlocked by arbitrary prose");
-    // THE DECLINE. First-class, and it must refuse NAMING the answer: an
-    // owner who said no and an owner who was never asked are different facts.
-    const declined = bad((r) => { r.payload.answer = { option: RATIF.declining_option }; });
-    if (!declined.error) fails.push("(s) a DECLINED ratification adopted the Candidate — the owner's no is not binding");
-    else if (!new RegExp(RATIF.declining_option).test(declined.error)) fails.push("(s) the declined refusal does not name the answer the owner gave — it is indistinguishable from never having asked");
-    // THE TWO-AXIS BINDING, both directions.
-    const otherCand = bad((r) => { r[RATIF.capture_binding_key].candidate_id = "cand-1"; });
-    if (!otherCand.error || !/cand-1/.test(otherCand.error)) fails.push("(s) a capture ratifying ANOTHER Candidate certified this one — an owner ratifies one path and a sitting adopts another");
-    const noBinding = bad((r) => { delete r[RATIF.capture_binding_key]; });
-    if (!noBinding.error || !new RegExp(RATIF.capture_binding_key).test(noBinding.error)) fails.push("(s) a capture naming WHAT it ratifies nowhere certified this record — it would certify whatever it is presented beside");
-    // THE RECORD EDITED AFTER RATIFICATION. This is the axis the candidate
-    // binding cannot cover: same Candidate, same shape, a verdict's own
-    // sentence changed — so the owner approved verdicts other than these.
-    const edited = JSON.parse(JSON.stringify(judgmentFree));
-    edited.verdicts[0].why = "a different sentence entirely, written after the owner had already read the record";
-    const stale = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: edited, ratification: good, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!stale.error) fails.push("(s) a record EDITED after ratification adopted under the old capture — the ratification is replayable across a rewritten judgment");
-    else if (!/CHANGED after it was ratified/.test(stale.error)) fails.push("(s) the stale-digest refusal does not say the record changed — it reads as a binding fault rather than as the edit it is");
-    // THE DIGEST'S OWN SHAPE, both directions, because a binding key that is
-    // wrong in either is worse than none. It is taken in the ADOPTED PATH's
-    // order, so a merely reordered record digests the same and a rejudged one
-    // does not.
+    // THE REFUSING ARMS ARE UNTOUCHED, and this is the half that must not have
+    // moved with the gate. A `contradicts` verdict refused ABOVE the gate
+    // before and refuses with nothing above it now — same message, same path
+    // order. Without this the case would say only that a guard was deleted.
+    const contra = JSON.parse(JSON.stringify(judgmentFree));
+    contra.verdicts[0].verdict = "contradicts";
+    const cr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
+      { movesDir: MOVES, specialization: contra, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
+    if (!cr.error) fails.push("(s) a `contradicts` verdict ADOPTED — removing the ratification gate removed the record's own refusals with it");
+    else {
+      if (!/t1/.test(cr.error)) fails.push("(s) the contradicts refusal no longer names the failing Step");
+      if (cr.doc) fails.push("(s) the contradicts refusal still produced a document");
+    }
+    // AND A MISSING RECORD IS STILL A REFUSAL. The occasion stays mandatory;
+    // what stopped being mandatory is the owner act ON a passing record.
+    const noRec = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
+      { movesDir: MOVES, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
+    if (!noRec.error || !/specialization record/.test(noRec.error)) fails.push("(s) adoption with NO specialization record was accepted — the judgment occasion is no longer mandatory");
+    // THE GATE IS ABSENT FROM THE REGISTRY, asserted rather than assumed. The
+    // registry is the enumeration a gate-coverage claim is a fraction OF, so a
+    // gate nothing raises but the registry still declares would be counted as
+    // covered by a question that is never asked.
+    const gates = JSON.parse(readFileSync("src/gate-registry.json", "utf8")).gates;
+    if (gates.some((g) => g.id === "brief-specialization-ratification")) {
+      fails.push("(s) brief-specialization-ratification is still declared in src/gate-registry.json — the registry would report a gate nothing raises as covered");
+    }
+    // EXACTLY TWO BRIEF GATES REMAIN, and they are named. A bound stated as a
+    // count alone would be satisfied by any two.
+    const briefGates = gates.filter((g) => g.id.startsWith("brief-")).map((g) => g.id).sort();
+    if (briefGates.join(",") !== "brief-candidate-selection,brief-thesis-adoption") {
+      fails.push(`(s) the Brief's declared gates are ${JSON.stringify(briefGates)} — kogaki#1108 declares exactly two, thesis adoption and Candidate selection`);
+    }
+    // AND THE SCHEMA CARRIES NO RATIFICATION BLOCK. It is the other carrier of
+    // the gate: `gate_id`, the two option ids and the capture binding key all
+    // lived there, and a block left behind is a second place the gate can be
+    // read as live from.
+    const sch2 = specializationSchema();
+    if (sch2.ratification !== undefined) fails.push("(s) src/specialization-schema.json still carries a `ratification` block — the removed gate has a second carrier");
+    if (!sch2.disclosure || sch2.disclosure.summary.is_a_write_unlock !== false) {
+      fails.push("(s) the schema does not declare the record as disclosure that is not a write unlock");
+    }
+    // THE DIGEST'S OWN SHAPE, both directions. It binds no capture any more,
+    // but it names the record in the disclosure sentence — so a digest that
+    // moved on a reorder would name two records for one judgment, and one that
+    // held across a re-judgment would name one record for two.
     const reordered = JSON.parse(JSON.stringify(judgmentFree));
     reordered.verdicts.reverse();
-    if (specializationDigest(reordered, candB.steps) !== specializationDigest(judgmentFree, candB.steps)) fails.push("(s) reordering the record's verdicts changed the digest — a record the runtime reads identically would refuse a ratification of itself");
+    if (specializationDigest(reordered, candB.steps) !== specializationDigest(judgmentFree, candB.steps)) fails.push("(s) reordering the record's verdicts changed the digest — the disclosure would name two records for one judgment");
     const rejudged = JSON.parse(JSON.stringify(judgmentFree));
     rejudged.verdicts[0].verdict = "cannot-determine";
-    if (specializationDigest(rejudged, candB.steps) === specializationDigest(judgmentFree, candB.steps)) fails.push("(s) changing a VERDICT left the digest unchanged — the binding does not bind the judgment it is for");
+    if (specializationDigest(rejudged, candB.steps) === specializationDigest(judgmentFree, candB.steps)) fails.push("(s) changing a VERDICT left the digest unchanged — the disclosure would name one record for two judgments");
   }
 
   // (m) §4.13 — THE READER-KNOWLEDGE LEDGER, and §4.13.1's exemplar predicate

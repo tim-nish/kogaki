@@ -53,15 +53,15 @@
     "      SPEC-draft-pipeline"
   ],
   "version": "1",
-
   "what_a_step_is": [
     "A Step is one move of the Reader Path: the smallest unit that takes the",
     "reader from one state to another. `Step = Input + State` -- the Input is",
     "the material it stands on (its Strands), and the State is the Move it",
     "binds, which is what names the kind of reader-state transition it makes.",
-    "A Step with no Move has no defined transition type and is not a Step."
+    "A Step with no Move has no defined transition type and is not a Step.",
+    "",
+    "The Step's shape is the field table below; The Step and the Move it binds is why `move` sits among its required fields."
   ],
-
   "fields": {
     "step_id": {
       "required": true,
@@ -125,22 +125,22 @@
     "bridges": {
       "required": false,
       "type": "array of exactly two string",
-      "description": "Present only on a Step inserted between two adjacent Steps during the revise pass; names that adjacent pair by `step_id`. It is disclosed at the Candidate-selection gate, so an unvalidated marking would render at an owner surface."
+      "description": "Present only on a Step inserted between two adjacent Steps during the revise pass; names that adjacent pair by `step_id`. It is disclosed at the Candidate-selection gate, so an unvalidated marking would render at an owner surface. The Bridge Step and the revise pass is where that insertion is defined."
     },
     "introduces": {
       "required": false,
       "type": "array of string",
-      "description": "Terms this Step introduces to the reader for the first time. The accumulated ledger the Step Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked."
+      "description": "Terms this Step introduces to the reader for the first time. The accumulated ledger the Step Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds."
     },
     "opens_section": {
       "required": false,
       "type": "string",
-      "description": "Present on a Step that opens a Section of the finished article; carries that Section's name. The four grouping rules are a property of the whole path and run after every Step is known to be well formed."
+      "description": "Present on a Step that opens a Section of the finished article; carries that Section's name. The four grouping rules are a property of the whole path and run after every Step is known to be well formed. The Section grouping carries the four rules."
     },
     "figure": {
       "required": false,
       "type": "string",
-      "description": "The composer's statement of what a figure lets the reader hold here that the prose leaves hard to hold. The default is NO figure: a Step without this field has none and nothing asks about it."
+      "description": "The composer's statement of what a figure lets the reader hold here that the prose leaves hard to hold. The default is NO figure: a Step without this field has none and nothing asks about it. The figure decision is where the field is defined."
     },
     "figure_roles": {
       "required": false,
@@ -149,7 +149,6 @@
       "description": "Binds every role of the Move's `visual_form` to one of THIS Step's own grounds, addressed `g<n>` and numbered from 1 in the order the grounds are declared. A role bound to another Step's ground is unreachable by construction: the address space is this Step's grounds and has no syntax for anyone else's."
     }
   },
-
   "ground": {
     "definition": [
       "A GROUND IS THE ONE PROPOSITION THIS STEP ASSERTS ON BEHALF OF ONE",
@@ -177,9 +176,13 @@
       "`reader_state_before` and to the computed `already knows` ledger; a",
       "presupposed premise belongs to the Brief's Reader start. Neither is an",
       "assertion, so a passage that realizes its Step correctly never states",
-      "one and the Blind Reader never recovers it."
+      "one and the Blind Reader never recovers it.",
+      "",
+      "The grounding rule is the spec half of this definition; the mechanical half -- the closed type set and the one-per-Strand refusal -- is carried here and enforced by `validateSteps`."
     ],
-    "types": ["strand"],
+    "types": [
+      "strand"
+    ],
     "retired_types": {
       "step_effect": "inherited reader state, which is already carried by this Step's `reader_state_before` and by the computed `already knows` ledger",
       "reader_assumption": "a presupposed premise, which belongs to the Brief's Reader start"
@@ -203,13 +206,14 @@
       }
     }
   },
-
   "what_is_judged_elsewhere": [
     "Nothing here is a lint over a judgment. Whether a rationale is good,",
     "whether a ground is genuinely supported by its Strand, whether a term is",
     "really introduced here, and whether the before/after states are faithful",
     "specializations of the Move are all judgment-class: they are judged at",
     "path review and at the specialization occasion, and a refusal from this",
-    "file always names a SHAPE."
+    "file always names a SHAPE.",
+    "",
+    "Every MUST is judgment, and nothing becomes a lint -- which is the rule this paragraph is an instance of."
   ]
 }

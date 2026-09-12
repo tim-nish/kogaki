@@ -803,11 +803,19 @@ export function validateSpecialization(record, steps, candidateId) {
 // the human gate. The declined arm — a string-match anchor over the Move
 // contract — is the one that owed those sections an amendment.
 
-// THE DIGEST the capture binds to. Over the verdicts AS JUDGED, in the adopted
-// path's order rather than the record's, so a record whose verdicts are merely
-// reordered digests identically and a record whose judgment changed does not.
-// Any edit to any verdict — including the `why`, which is the sentence the
-// owner ratified — invalidates every capture taken against it.
+// THE DIGEST THE DISCLOSURE SENTENCE NAMES. Over the verdicts AS JUDGED, in
+// the adopted path's order rather than the record's, so a record whose
+// verdicts are merely reordered digests identically and a record whose
+// judgment changed does not.
+//
+// IT BINDS NO CAPTURE ANY MORE (kogaki#1108). It was the key a ratification
+// capture was bound to, on the two-axis rule `src/specialization-schema.json`
+// stated: the owner ratified THIS Candidate and THIS record, and any edit to
+// any verdict invalidated the capture. With the ratification gate removed
+// there is no capture to bind, and what the digest is for is naming the record
+// in adoption's closing summary — so two adoptions of the same path under
+// different judgments are still distinguishable in the record of what was
+// disclosed.
 export function specializationDigest(record, steps) {
   const byStep = new Map((record.verdicts || []).map((v) => [v.step_id, v]));
   const rows = steps.map((s) => {
@@ -815,76 +823,17 @@ export function specializationDigest(record, steps) {
     return [v.step_id, v.move, v.verdict, typeof v.why === "string" ? v.why.trim() : v.why];
   });
   const canonical = JSON.stringify([String(record.version), record.candidate_id, rows]);
-  return createHash(specializationSchema().ratification.digest.algorithm).update(canonical).digest("hex");
+  return createHash(specializationSchema().disclosure.digest.algorithm).update(canonical).digest("hex");
 }
 
-// THE VALIDATION. A capture is a `*.gate-capture.json` document in the shape
-// SPEC-gate-carrier binds (`rows`, each with `stop_id`, `gate_id`, `evidence`
-// and `payload`); this reads the one row for THIS gate and refuses on every
-// axis that could let a capture certify something it did not judge.
+// `validateRatification` IS DELETED, NOT DEPRECATED (kogaki#1108). It read a
+// ratification capture and refused on every axis that could let one certify
+// something it did not judge. With `brief-specialization-ratification` gone
+// from the gate registry there is no such capture and no gate to take one at,
+// so a surviving validator would be a reader for a document nothing writes --
+// and, kept "for compatibility", the route by which the removed gate comes
+// back one caller at a time. A leftover import fails at load.
 //
-// ABSENCE IS REFUSED BY THE CALLER, for the same reason the record's absence
-// is: "no ratification" is a fact about an act that did not happen, not about
-// a capture's shape.
-export function validateRatification(capture, candidateId, digest) {
-  const sch = specializationSchema().ratification;
-  const at = "the ratification capture";
-  const rows = capture?.rows;
-  if (!Array.isArray(rows)) {
-    return { error: `${at}: rows is an array of captured gate answers (SPEC-gate-carrier, payload and answer capture) — this document carries none, so it records no owner act` };
-  }
-  const mine = rows.filter((r) => r?.gate_id === sch.gate_id);
-  if (mine.length === 0) {
-    return { error: `${at}: no row for gate ${sch.gate_id} — the document carries `
-      + `${rows.length} row(s) and none of them is this gate's, so nothing here ratifies the specialization record (the owner gate over a passing specialization record)` };
-  }
-  // THE LAST ROW, and stated rather than left to a reader: a gate can be
-  // re-raised after a declined answer, and the answer that governs is the one
-  // the owner gave last. An earlier `not-ratified` beside a later `ratify` is
-  // an owner who changed their mind, which is what re-raising a gate is for.
-  const row = mine[mine.length - 1];
-  const ev = row.evidence;
-  if (ev?.tool !== "AskUserQuestion") {
-    return { error: `${at}: evidence.tool is ${JSON.stringify(ev?.tool)} — a ratification is an OWNER act at the question UI, `
-      + `and SPEC-gate-carrier binds this repository's gate medium to AskUserQuestion. A row recording any other tool records a session's own act (the owner gate over a passing specialization record)` };
-  }
-  if (typeof ev.tool_use_id !== "string" || ev.tool_use_id === "") {
-    return { error: `${at}: evidence.tool_use_id is missing — it is the one field tying this row to a question the harness actually asked, `
-      + `and without it the row is indistinguishable from one a session composed (the owner gate over a passing specialization record)` };
-  }
-  const answer = row.payload?.answer;
-  const chosen = answer?.option;
-  if (chosen === undefined) {
-    return { error: `${at}: the answer carries no option — a free-text answer is not a ratification. `
-      + `The gate offers ${JSON.stringify(sch.affirmative_option)} and ${JSON.stringify(sch.declining_option)}, and the write is unlocked by the first of those and by nothing else (the owner gate over a passing specialization record)` };
-  }
-  if (chosen !== sch.affirmative_option) {
-    return { error: `${at}: the owner answered ${JSON.stringify(chosen)} — the specialization record was rendered and NOT ratified, `
-      + `so the path is not adopted into the Brief (the owner gate over a passing specialization record). Nothing was written. Re-judge the Steps the owner disagreed with, or adopt another Candidate.` };
-  }
-  // THE TWO-AXIS BINDING, and both axes are the record's own. Without the
-  // candidate axis an owner ratifies one Candidate and a sitting adopts
-  // another; without the digest axis the record is editable after
-  // ratification and adopts under a capture that judged different verdicts.
-  const bound = row[sch.capture_binding_key];
-  for (const k of sch.binding_required) {
-    if (bound?.[k] === undefined) {
-      return { error: `${at}: ${sch.capture_binding_key}.${k} is required — a capture that does not name WHAT it ratifies `
-        + `certifies whatever it is presented beside (the owner gate over a passing specialization record)` };
-    }
-  }
-  if (bound.candidate_id !== candidateId) {
-    return { error: `${at}: ratifies candidate ${JSON.stringify(bound.candidate_id)} but ${JSON.stringify(candidateId)} is being adopted — `
-      + `an owner who ratified one Candidate did not ratify another (the owner gate over a passing specialization record)` };
-  }
-  if (bound.record_digest !== digest) {
-    return { error: `${at}: ratifies a specialization record digesting ${JSON.stringify(bound.record_digest)}, `
-      + `but the record being adopted digests ${JSON.stringify(digest)} — the record CHANGED after it was ratified, so the owner `
-      + `approved verdicts other than these. Re-render the record and re-raise the gate (the owner gate over a passing specialization record). Nothing was written.` };
-  }
-  return { ok: true, tool_use_id: ev.tool_use_id, stop_id: row.stop_id };
-}
-
 // ---------------------------------------------------------------------------
 // THE OWNER-ANSWER CAPTURE (kogaki#891, owner selection 2026-09-05).
 //
