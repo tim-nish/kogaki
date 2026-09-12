@@ -201,7 +201,7 @@ export function persistPendingRun() {
 // refuses is the run stopping. With the executor invoking the judge itself, the
 // same refusal is now also the thing a RETRY reads: "the response passes through
 // the existing refusals; a refused response is retried at most the count
-// `workflow.json` declares for the state, then the run fails with the refusal
+// `terrain-workflow.json` declares for the state, then the run fails with the refusal
 // text" (kogaki#1030 item 1).
 //
 // SO THE REFUSALS ARE NOT DUPLICATED, THE EXIT IS DEFERRED. A second copy of
@@ -1363,7 +1363,7 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"], unaddres
 // `emitter_today`: "tagRow(), rendered at :506"). The state used to be wired
 // to the untagged half of `view` — a CANDIDATE-row listing, a different
 // surface — and the wiring was correct-looking because nothing enforced the
-// grammar on the write path. The stale `workflow.json` note that directed an
+// grammar on the write path. The stale `terrain-workflow.json` note that directed an
 // implementer there is criterion 5's second amendment and is corrected under
 // #666, which owns the table.
 //
@@ -2091,7 +2091,7 @@ function validateClaimRecord(rec, block) {
 // set ANNOUNCES ITSELF, a duty on the rendering rather than a wait.
 //
 // DELETED RATHER THAN DEPRECATED, per SPEC-terrain "A removed entry point is
-// DELETED, and leaves no stub": the state is gone from `src/workflow.json`, its
+// DELETED, and leaves no stub": the state is gone from `src/terrain-workflow.json`, its
 // gate is gone from `src/gate-registry.json`, and this composer is gone with
 // them. Nothing refuses by name here because nothing can reach it -- a table row
 // naming a gate this runtime has no composer for is already a declared,
@@ -2552,7 +2552,7 @@ export function subgroupPlacement(parent, classification, block) {
   const placedIds = new Set();
   for (const sg of classification) {
     // THE KEYS ARE THE RECORD EXAMPLE'S, AND THE EXAMPLE IS THE BINDING
-    // (kogaki#1067). `src/workflow.json`'s `J2_subdivision.record_example` — the
+    // (kogaki#1067). `src/terrain-workflow.json`'s `J2_subdivision.record_example` — the
     // literal shape kogaki#1062 item 5 put in front of the judge — writes each
     // SubGroup as `{name, claim, members, verdicts: {coherence, …}}`, and the
     // live 2026-09-10 judge conformed to it. This reader read a `subgroup` key and
@@ -3350,7 +3350,7 @@ export function harnessJudgeInvocation(stateId = "J2_subdivision") {
 // runs the pinned model, and parses ONE typed record out. Every decision about
 // what happens next stays here.
 //
-// THE MODEL IS PINNED IN `workflow.json` AND NEVER INHERITED FROM THE SESSION.
+// THE MODEL IS PINNED IN `terrain-workflow.json` AND NEVER INHERITED FROM THE SESSION.
 // A judgment carried out by whatever model happened to be driving is not
 // reproducible and the run record could not say what judged it.
 //
@@ -3849,7 +3849,7 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
       // and ended the run on the first occurrence. Those are the arms a re-ask is
       // LIKELIEST to repair, and the licence does not distinguish them -- #1030
       // item 1 says "the response passes through the existing refusals; a refused
-      // response is retried at most the count `workflow.json` declares".
+      // response is retried at most the count `terrain-workflow.json` declares".
       //
       // `res.error` STAYS OUTSIDE IT, and that is the one deliberate exception: a
       // command that could not be SPAWNED will not spawn on the next attempt
@@ -7588,7 +7588,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 // The kind vocabulary this executor interprets. The table's `state_kinds`
 // object is the prose for these; `stops` is the only CONTROL property a kind
 // carries, and it is why `terminal` had to be its own kind rather than a
-// `compute` at the end of the array (workflow.json v2, PR #626 round 1).
+// `compute` at the end of the array (terrain-workflow.json v2, PR #626 round 1).
 const KIND_SEMANTICS = {
   compute: { stops: false, needsRenderer: false },
   write: { stops: false, needsRenderer: true },
@@ -7597,7 +7597,7 @@ const KIND_SEMANTICS = {
   terminal: { stops: true, needsRenderer: false },
 };
 
-const WORKFLOW_TABLE = join(REPO, "src/workflow.json");
+const TERRAIN_WORKFLOW_TABLE = join(REPO, "src/terrain-workflow.json");
 const RUN_RECORD_FILE = "run-record.json";
 
 // ---- WHO EXECUTED THIS TRANSITION (kogaki#1027) ------------------------------
@@ -7794,7 +7794,7 @@ export function derivedBaseline(table) {
   // set of call sites reaching the private writer — is a fact about the CODE
   // and not about the table, and `derivedBaseline` derives from the table
   // alone. So the key leaves both sides: the derivation here and the
-  // declaration in `workflow.json`'s `counted_baseline`, together, because a
+  // declaration in `terrain-workflow.json`'s `counted_baseline`, together, because a
   // declared key with no derived counterpart is the omission hole in the other
   // direction. What replaces it is not a better count: write authority's one-writer
   // property is made true BY CONSTRUCTION at this issue — one private
@@ -7919,7 +7919,7 @@ function needSurvey(rec) {
 // THE FIXTURE-ONLY STATE PREFIX (kogaki#824). A state id beginning with this
 // string is admitted to `STATE_WORK` for the self-test's own throwaway tables
 // and is refused a place in the shipped carrier. The workflow table puts the state set in
-// `src/workflow.json`, so an id that never enters that file alters no contract
+// `src/terrain-workflow.json`, so an id that never enters that file alters no contract
 // — and the bound is asserted rather than promised: the pass drives the shipped
 // table against this prefix.
 // THE SYNTHESIZED HOOK PAYLOAD every fixture spawn feeds the executor
@@ -8443,7 +8443,7 @@ const STATE_WORK = {
   //
   // ADMITTED FOR THE FIXTURE PATH ONLY, and that bound is a CASE rather than
   // this comment: the id carries `FIXTURE_STATE_PREFIX`, and the pass asserts
-  // the shipped `src/workflow.json` names no state carrying it. A comment
+  // the shipped `src/terrain-workflow.json` names no state carrying it. A comment
   // saying "fixture-only" is the shape kogaki#824 exists to stop trusting.
   [`${FIXTURE_STATE_PREFIX}sets_record_key`]: (rec) => {
     rec.fixture_record_key = FIXTURE_RECORD_KEY_VALUE;
@@ -8659,7 +8659,7 @@ const TERRAIN_FLOW = {
   lane: "terrain",
   label: "Terrain",
   startLine: "the terrain skill's own `!` line (`node src/terrain.mjs start`)",
-  tablePath: WORKFLOW_TABLE,
+  tablePath: TERRAIN_WORKFLOW_TABLE,
   newRunDir: () => enterRun("terrain", terrainRunEntry()),
   stateWork: STATE_WORK,
   gateWork: GATE_WORK,
@@ -9400,7 +9400,7 @@ switch (cmd) {
     // reads the shipped table or constructs a synthetic one, and no case
     // reaches the gateway. AC8: this pass needs no run record and emits no
     // owner surface.
-    const shipped = loadWorkflowTable(WORKFLOW_TABLE);
+    const shipped = loadWorkflowTable(TERRAIN_WORKFLOW_TABLE);
     // The write-outcome classifier's three directions (PR #667 round 1 finding
     // 2). The executor's guard reads this, so these are the cases that separate
     // "wrote nothing deliberately" from "wrote and did not say where".
@@ -9454,7 +9454,7 @@ switch (cmd) {
         mkdirSync(rd, { recursive: true });
         if (table !== null) writeFileSync(tp, JSON.stringify(table));
         const r = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rd, "--workflow", table === null ? WORKFLOW_TABLE : tp, ...extra],
+          [selfPath, "run", "--run-dir", rd, "--workflow", table === null ? TERRAIN_WORKFLOW_TABLE : tp, ...extra],
           { input: FIXTURE_PAYLOAD, encoding: "utf8" });
         return r.status !== 0;
       };
@@ -9541,13 +9541,13 @@ switch (cmd) {
         // THE FIXTURE-ONLY ADMISSION IS BOUNDED BY THIS CASE, never by the
         // comment in `STATE_WORK`. The workflow table puts the state set in the carrier, so
         // what makes the renderer above harmless is that its id never reaches
-        // `src/workflow.json` — asserted here rather than trusted, because an
+        // `src/terrain-workflow.json` — asserted here rather than trusted, because an
         // admission whose whole guarantee is a comment is the class kogaki#824
         // is a member of.
         {
           // THE UNREADABLE-CARRIER GUARD IS DECLINED, AND THE DECLINE IS
           // MEASURED (PR #852 round 1, out-of-dimension). The observation — that
-          // an unreadable `src/workflow.json` would abort here with a parse
+          // an unreadable `src/terrain-workflow.json` would abort here with a parse
           // error rather than failing this case by name — is correct in
           // principle and UNREACHABLE at this head: the module reads the same
           // carrier at evaluation time, so a malformed table kills the process
@@ -9555,7 +9555,7 @@ switch (cmd) {
           // into the carrier: the pass dies in ModuleJob.run and prints no case
           // at all. A try/catch here would be dead code, which is the shape this
           // PR exists to argue against.
-          const shipped = readJson(WORKFLOW_TABLE);
+          const shipped = readJson(TERRAIN_WORKFLOW_TABLE);
           const leaked = (shipped.states || []).map((x) => String(x.id))
             .filter((id) => id.startsWith(FIXTURE_STATE_PREFIX));
           ok("the shipped workflow table names no fixture-only state — the STATE_WORK admission is bounded by a case, not by a comment",
@@ -9649,7 +9649,7 @@ switch (cmd) {
     // redesign dissolved does not become a lenient check; it stops being one.
     // consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:133
     {
-      const wf = readJson(join(REPO, "src", "workflow.json"));
+      const wf = readJson(join(REPO, "src", "terrain-workflow.json"));
       const states = wf.states || [];
       const ts = states.find((st) => st && st.id === "TAG_SELECTION");
 
@@ -11143,13 +11143,13 @@ switch (cmd) {
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F] [--thesis-candidates F]
       [--judge-model M] [--judge-effort E] [--judge-binary-version V]
       (the five record flags are OPTIONAL since kogaki#1030: a judgment state whose
-       flag is absent INVOKES THE JUDGE ITSELF, using the model src/workflow.json's
+       flag is absent INVOKES THE JUDGE ITSELF, using the model src/terrain-workflow.json's
        \`judge\` block pins -- never one inherited from the session -- and retries a
        refused response the number of times that state declares before failing with
        the refusal text. A flag that IS supplied still wins, unchanged.)
                                             THE CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
-                                            src/workflow.json declares until the
+                                            src/terrain-workflow.json declares until the
                                             next declared WAIT or the TERMINAL, writes that
                                             state's artifact, and stops. It never asks — a wait is
                                             the executor stopping and the owner speaking, so

@@ -190,7 +190,7 @@ JUDGE
   # live run stalled before `cotag_groups`.
   #
   # THE RECORD IS DERIVED FROM THE EXAMPLE, NEVER HAND-WRITTEN. It reads
-  # `src/workflow.json`'s own `J2_subdivision.record_example` — the same object
+  # `src/terrain-workflow.json`'s own `J2_subdivision.record_example` — the same object
   # the executor puts in front of the live judge — and fills its placeholders.
   # A hand-written record here would be a THIRD carrier of the shape, free to
   # drift from the example exactly as the reader did; filled from the example,
@@ -262,7 +262,7 @@ if (input.kind === "composition-input" && /J1_claims/.test(prompt)) {
     claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
   };
 } else if (input.kind === "composition-input") {
-  const table = JSON.parse(fs.readFileSync(path.join(__dirname, "src", "workflow.json"), "utf8"));
+  const table = JSON.parse(fs.readFileSync(path.join(__dirname, "src", "terrain-workflow.json"), "utf8"));
   const row = table.states.find((s) => s.id === "J2_subdivision");
   const template = ((row || {}).record_example || {})["$per-group"];
   if (!template) {
@@ -536,14 +536,14 @@ JUDGE
   # a record can actually breach; every other tree in this file composes groups
   # of two, under which no cap can fire.
   cat > "$root/judge-subgroup-lib.js" <<'LIB'
-// The SubGroup shape, FILLED FROM `src/workflow.json`'s own record example and
+// The SubGroup shape, FILLED FROM `src/terrain-workflow.json`'s own record example and
 // never written out here. `members` is the one field the fixture supplies: the
 // example's entry is a placeholder naming where the ids come from, and which ids
 // go in which SubGroup is exactly what these cases vary.
 const fs = require("node:fs");
 const path = require("node:path");
 function template(root) {
-  const table = JSON.parse(fs.readFileSync(path.join(root, "src", "workflow.json"), "utf8"));
+  const table = JSON.parse(fs.readFileSync(path.join(root, "src", "terrain-workflow.json"), "utf8"));
   const row = table.states.find((s) => s.id === "J2_subdivision");
   const t = ((row || {}).record_example || {})["$per-group"];
   if (!t) {
@@ -1196,14 +1196,14 @@ BOUNDPY
   local declared declared_j2
   declared=$(python3 -c "
 import json,sys
-t=json.load(open('$root/src/workflow.json'))
+t=json.load(open('$root/src/terrain-workflow.json'))
 print([s for s in t['states'] if s['id']=='J1_claims'][0]['retries'])")
   # J2's OWN bound, read separately. `retries` is declared PER STATE precisely
   # because the states differ in what a re-ask can repair, so a per-group
   # assertion reading J1's count would be green on a table that moved J2's.
   declared_j2=$(python3 -c "
 import json,sys
-t=json.load(open('$root/src/workflow.json'))
+t=json.load(open('$root/src/terrain-workflow.json'))
 print([s for s in t['states'] if s['id']=='J2_subdivision'][0]['retries'])")
   if grep -q "on all $((declared + 1)) attempt(s)" "$root/advbad.out"; then pass; else
     bad "$label: the run did not fail after the $declared re-ask(s) the table declares for J1_claims. It said: $(tail -4 "$root/advbad.out" | tr '\n' ' ')"
@@ -1648,7 +1648,7 @@ drive_limits() {                     # drive_limits <label> <tree>
   local declared_j2
   declared_j2=$(python3 -c "
 import json
-t = json.load(open('src/workflow.json'))
+t = json.load(open('src/terrain-workflow.json'))
 print([s for s in t['states'] if s['id'] == 'J2_subdivision'][0]['retries'])")
 
   # --- ACCEPTANCE 1. A record over the `tight` cap is refused INSIDE the re-ask
@@ -1792,10 +1792,10 @@ except Exception: sys.exit(1)" 2>/dev/null || echo "")
 # add its own bound to the suite's runtime to prove that a bound exists.
 if python3 -c "
 import json, sys
-t = json.load(open('src/workflow.json'))
+t = json.load(open('src/terrain-workflow.json'))
 b = (t.get('judge') or {}).get('timeout_s')
 sys.exit(0 if isinstance(b, (int, float)) and b > 0 else 1)"; then pass; else
-  bad "src/workflow.json's judge block declares no positive numeric timeout_s — the per-call bound is a property of the workflow and a table that can omit it silently does not have one"
+  bad "src/terrain-workflow.json's judge block declares no positive numeric timeout_s — the per-call bound is a property of the workflow and a table that can omit it silently does not have one"
 fi
 
 # ---- THE RECORD EXAMPLE'S LABEL ENUMERATION IS A COPY, SO IT OWES A MISMATCH
@@ -1820,7 +1820,7 @@ if not labels:
     print("src/terrain.mjs declares no COHERENCE_LABELS — the set this checks against is gone",
           file=sys.stderr); sys.exit(1)
 declared = re.findall(r'"([a-z]+)"', labels.group(1))
-table = json.load(open("src/workflow.json"))
+table = json.load(open("src/terrain-workflow.json"))
 row = [s for s in table["states"] if s["id"] == "J2_subdivision"][0]
 ex = row.get("record_example")
 if not ex:
@@ -1872,7 +1872,7 @@ if not m:
 known = re.findall(r'^  ([a-z_]+):', m.group(1), re.M)
 if not known:
     print("JUDGE_LIMIT_BLOCKS names no block", file=sys.stderr); sys.exit(1)
-table = json.load(open("src/workflow.json"))
+table = json.load(open("src/terrain-workflow.json"))
 for row in table["states"]:
     if row.get("limits") is None:
         continue
@@ -2299,7 +2299,7 @@ PY
   local cap
   cap=$(python3 -c "
 import json
-print((json.load(open('src/workflow.json')).get('judge') or {}).get('concurrency'))")
+print((json.load(open('src/terrain-workflow.json')).get('judge') or {}).get('concurrency'))")
   if [ "$cap" = "4" ]; then pass; else
     bad "$label: the workflow table declares concurrency=$cap; this case is written against the declared 4 and would assert nothing at another width"
   fi

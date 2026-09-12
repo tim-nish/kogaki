@@ -123,7 +123,7 @@ def segments(command):
 # A PATH TOKEN is a token that IS a path ending in the executor's filename --
 # not a token that merely contains it. `src/terrain.mjs`, `./src/terrain.mjs`,
 # `/abs/wt1063/src/terrain.mjs` are path tokens; `files=src/terrain.mjs`,
-# `files=src/terrain.mjs,src/workflow.json` and `"terrain.mjs"` inside a longer
+# `files=src/terrain.mjs,src/terrain-workflow.json` and `"terrain.mjs"` inside a longer
 # `--plan-cell` value are not, because a token carrying `=` or `,` is a data
 # cell rather than a command. That exclusion is what makes an Issue whose work
 # is in the executor admissible at all.

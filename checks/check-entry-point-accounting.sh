@@ -2,7 +2,7 @@
 # check-entry-point-accounting — the reader for `entry_point_accounting`.
 #
 # THE CONTRACT WAS PROSE AND ITS ONLY READER WAS A PERSON WHO LOOKED
-# (kogaki#986). `src/workflow.json`'s `entry_point_accounting` states an
+# (kogaki#986). `src/terrain-workflow.json`'s `entry_point_accounting` states an
 # invariant over the runtime: EVERY case in `src/terrain.mjs`'s dispatcher
 # appears in exactly one of the five maps beside it (`bound_to_a_state`,
 # `removed_entry_points`, `retired_entry_points`, `non_flow_entry_points`,
@@ -123,7 +123,7 @@ MAPS = ("bound_to_a_state", "removed_entry_points", "retired_entry_points",
 # text that identifies THE dispatcher switch among the file's switches; see L6
 # and the widening note in the header.
 PAIRS = (
-    (pathlib.Path("src/terrain.mjs"), pathlib.Path("src/workflow.json"), "(cmd)"),
+    (pathlib.Path("src/terrain.mjs"), pathlib.Path("src/terrain-workflow.json"), "(cmd)"),
     (pathlib.Path("src/brief.mjs"), pathlib.Path("src/brief-workflow.json"), "(args._cmd)"),
 )
 
@@ -193,7 +193,7 @@ def totality(text, decl, discriminator):
         if not homes:
             out.append(f"the dispatcher case {c!r} appears in NONE of the five "
                        f"maps — by `entry_point_accounting`'s own sentence, "
-                       f"a defect against src/workflow.json. Add it to the map "
+                       f"a defect against src/terrain-workflow.json. Add it to the map "
                        f"that describes it; the declaration states which map "
                        f"means what.")
         elif len(homes) > 1:
