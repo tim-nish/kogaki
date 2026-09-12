@@ -54,7 +54,7 @@
 //       SPEC-draft-pipeline
 //   the Reader Path artifact and its five blocks
 //       SPEC-draft-pipeline
-//   the grounding rule
+//   the claims rule
 //       SPEC-draft-pipeline
 //   the judgment rule
 //       SPEC-draft-pipeline
@@ -145,7 +145,7 @@ export const EVIDENCE_LABELS = [
 // src/review.mjs's REVIEW_AREAS; the labels are theirs here because this
 // file owns the gate's rendering.
 export const REVIEW_LABELS = {
-  grounds_test: "Does each step's reason survive without its Move name?",
+  rationale_stands: "Does each step's reason survive without its Move name?",
   entailment: "What does the path claim follows from what, and does it?",
   prohibitions: "Does anything here go beyond what the material says?",
   semantic_economy: "Is the wording the composer's own, or mechanized?",
@@ -349,8 +349,8 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // between. Its reasoning is the entailment reasoning it carries.
   //
   // THE SECOND SOURCE IS GONE, and its content did not move here (kogaki#1095).
-  // A bridge used to fall back on a `reader_assumption` ground, but a ground is
-  // now one claim derived from a Strand and nothing else, so no Step can carry
+  // A bridge used to fall back on a `reader_assumption` claim, but a claim is
+  // now one proposition derived from a Strand and nothing else, so no Step can carry
   // one. A reader premise belongs to the Brief's READER START, which this same
   // payload already renders from `READER_FIELDS` below — the selection gate
   // therefore still shows the premise the bridge stood on, at the field that
@@ -713,7 +713,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   }
   // the settled structure section v12: an adopted Candidate carrying no value for one of the three
   // reader fields REFUSES, naming the field, BEFORE anything is written.
-  // This is not the grounding rule's `unsupported completion` and does not borrow that
+  // This is not the claims rule's `unsupported completion` and does not borrow that
   // term: nothing here was invented from outside the material — the value is
   // absent because the composing act did not run. The refusal is named
   // distinctly from the not-in-the-reviewed-set refusal above so a caller is
@@ -835,7 +835,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // immediately after it: whether each figure-carrying Step's Move declares a
   // form, and whether the bindings are exactly that form's roles, is decidable
   // only with the library open — which is what this occasion already has. The
-  // grammar and the ground addressing were refused at `validateSteps`.
+  // grammar and the claim addressing were refused at `validateSteps`.
   const figured = resolveFigureForms(c.steps, instantiation.movesDir);
   if (figured.error) {
     return { error: `candidate ${candidateId}: ${figured.error} Nothing was written to the Brief.` };

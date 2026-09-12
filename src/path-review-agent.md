@@ -36,20 +36,20 @@ than merely discouraged.
 
 **Every Step field reaching you is LLM-authored with no harness** (kogaki#549,
 verified 2026-08-19). `purpose`, `rationale`, `reader_state_before/after`, the
-grounds, `entailed` and its reasoning are all written wholesale by the
+claims, `entailed` and its reasoning are all written wholesale by the
 composing sitting under the spec's policy prose. There is **no per-field input
 specification, no field-level prose contract, and no mechanism holding declared
 inputs in state while a field is generated.**
 
 The only mechanical control is `validateSteps` in `src/compose.mjs`, and it
-is SHAPE-ONLY: field presence and type, every ground naming its Strand, grounds
+is SHAPE-ONLY: field presence and type, every claim naming its Strand, claims
 and materials inside the Brief's closed set, `entailed` requiring reasoning, and
 `bridges` naming two ids. **No content conformance is checked anywhere but
 here.**
 
 Step-to-Step connection is deliberately weaker than it was — only `depends_on`
-and reader-state continuity that nothing verifies. A ground is one claim derived
-from a Strand and nothing else (kogaki#1095), so the `step_effect` ground that
+and reader-state continuity that nothing verifies. A claim is one proposition derived
+from a Strand and nothing else (kogaki#1095), so the `step_effect` claim that
 used to name an earlier Step's effect is gone: inherited state is carried by
 `reader_state_before` and by the computed `already knows` ledger, which are the
 two places to read it from.
@@ -63,10 +63,11 @@ dogfood failure (kogaki#549, owner ruling).
 
 ## The MUSTs you apply, per Candidate — each as judgment
 
-1. **The grounds test.** For each Step: delete the Move name from
-   the rationale. Does what remains stand on its grounds — each of them one
-   claim derived from a Strand, and nothing else (kogaki#1095)? A named
-   earlier Step's effect and a declared reader assumption were grounds and
+1. **The grounds test**, output key `rationale_stands`. For each Step: delete the Move
+   name from the rationale. Does what remains stand on the Step's claims — each
+   of them one proposition derived from a Strand, and nothing else
+   (kogaki#1095)? A named
+   earlier Step's effect and a declared reader assumption were claims and
    are not: inherited state is `reader_state_before`'s and the computed
    already-knows ledger's, and a reader premise is the Brief's Reader
    start's. Write what you find: which Steps stand, which read
@@ -131,7 +132,7 @@ One entry per Candidate, every field non-empty prose:
 ```json
 {
   "<candidate_id>": {
-    "grounds_test": "…per-Step reasoning…",
+    "rationale_stands": "…per-Step reasoning…",
     "entailment": "…or 'no Step is flagged entailed' — an observation, not a default…",
     "prohibitions": "…what you looked for and what you found…",
     "semantic_economy": "…or 'no Move is edited in place in this Candidate'…",
@@ -163,7 +164,7 @@ of what this agent was implemented against, not a live read of the spec: they
 stay binding for this agent even if the spec is rewritten or deleted, and
 propagating a later spec change into this file is a separate, explicit act.
 `[implemented-against: SPEC-draft-pipeline "Every MUST is judgment, and nothing
-becomes a lint", "The Step's grounding, and the `entailed` flag", "The grounds
+becomes a lint", "What a Step claims, and the `entailed` flag", "The grounds
 test — the observable form of describe-never-generate", "Semantic economy — what
 binds Move AUTHORING", "Journey integrity — the arc, not the layout", "Reader
 Path is the ARTIFACT; the five blocks are the workflow" and "Journey register is

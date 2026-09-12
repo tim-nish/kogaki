@@ -14,7 +14,7 @@
     "      SPEC-draft-pipeline",
     "  the Step's shape",
     "      SPEC-draft-pipeline",
-    "  the grounding rule",
+    "  the claims rule",
     "      SPEC-draft-pipeline",
     "  the judgment rule",
     "      SPEC-draft-pipeline \"Every MUST is judgment, and nothing becomes a lint\"",
@@ -71,7 +71,7 @@
     "output_format": "json",
     "timeout_s": 180,
     "concurrency": 1,
-    "note": "The executor invokes this for every `judgment` state: `<command> -p --model <model> --output-format <output_format>`, the state's prompt on stdin, the typed record parsed out of the response. A response the state's refusals reject is re-asked up to that state's `retries` and then the run FAILS with the refusal text. `effort` IS DECLARED RATHER THAN OBSERVED: the call carries no effort flag, so this names the tier the run declares it is asking at. `KOGAKI_JUDGE_CLI` replaces the resolved binary FOR FIXTURES ONLY and pins no model of its own. `timeout_s` IS 180 RATHER THAN TERRAIN'S 90, AND THE DIFFERENCE IS THE WORK RATHER THAN A PREFERENCE: this flow's largest ask is `compose_path`, which composes two to three whole Reader Paths -- each an ordered sequence of Steps, every Step carrying nine required fields and one ground per Strand -- in ONE call, against a schema this table renders into the prompt. Terrain's 90 was derived from a per-group claim judgment over one group's members. `concurrency` is 1 because no state of this table declares `per_group`: there is no group axis in a Brief, so the field would cap a fan-out that does not exist. THE ADVANCE BUDGET ABOVE IT is `.claude/hooks/advance-brief.py`'s `ADVANCE_TIMEOUT_S`, and the two are named apart on the ground `src/terrain-workflow.json` states at the same field: one bounds a call and the other bounds an advance. Three judgment states at 180s worst case is 540s of judge time in a single advance, and the advance that crosses all three is the one after the CANDIDATE_SELECTION gate -- which crosses ONE of them (`judge_specialization`). The two that could share an advance, `compose_path` and `review_path`, are crossed by the advance after THESIS_ADOPTION together with `mint`, `attach_review` and `assemble_candidates`: 360s of judge time, inside the 480s the hook declares and below the harness's own default with the relay margin Terrain's note derives."
+    "note": "The executor invokes this for every `judgment` state: `<command> -p --model <model> --output-format <output_format>`, the state's prompt on stdin, the typed record parsed out of the response. A response the state's refusals reject is re-asked up to that state's `retries` and then the run FAILS with the refusal text. `effort` IS DECLARED RATHER THAN OBSERVED: the call carries no effort flag, so this names the tier the run declares it is asking at. `KOGAKI_JUDGE_CLI` replaces the resolved binary FOR FIXTURES ONLY and pins no model of its own. `timeout_s` IS 180 RATHER THAN TERRAIN'S 90, AND THE DIFFERENCE IS THE WORK RATHER THAN A PREFERENCE: this flow's largest ask is `compose_path`, which composes two to three whole Reader Paths -- each an ordered sequence of Steps, every Step carrying nine required fields and one claim per Strand -- in ONE call, against a schema this table renders into the prompt. Terrain's 90 was derived from a per-group claim judgment over one group's members. `concurrency` is 1 because no state of this table declares `per_group`: there is no group axis in a Brief, so the field would cap a fan-out that does not exist. THE ADVANCE BUDGET ABOVE IT is `.claude/hooks/advance-brief.py`'s `ADVANCE_TIMEOUT_S`, and the two are named apart on the ground `src/terrain-workflow.json` states at the same field: one bounds a call and the other bounds an advance. Three judgment states at 180s worst case is 540s of judge time in a single advance, and the advance that crosses all three is the one after the CANDIDATE_SELECTION gate -- which crosses ONE of them (`judge_specialization`). The two that could share an advance, `compose_path` and `review_path`, are crossed by the advance after THESIS_ADOPTION together with `mint`, `attach_review` and `assemble_candidates`: 360s of judge time, inside the 480s the hook declares and below the harness's own default with the relay margin Terrain's note derives."
   },
   "states": [
     {
@@ -118,17 +118,17 @@
       "judgment_point": "compose two to three CANDIDATE READER PATHS for this Brief -- each an ordered sequence of Steps taking the reader from the Brief's Reader start to the adopted Thesis, the Candidates differing in READER EXPERIENCE rather than in decoration",
       "input_shape": "an object `{ candidates: [...] }` whose entries each carry `candidate_id`, `reader_experience`, `steps` (the ordered Step array), `reasoning` (with `step_validity`, `transition_continuity`, `thesis_closure`), `coverage`, `obligations`, `unused`, and the three reader fields the settled structure section names",
       "schema_file": "src/step-schema.json",
-      "refusal": "a Step missing any required field the schema declares; a ground whose type is outside the schema's closed set; TWO GROUNDS OF ONE STEP NAMING ONE STRAND, which the schema's `ground.one_per_strand` forbids and `validateSteps` refuses naming the Step and the Strand; a material outside the Brief's closed Strand set; a `depends_on` naming a later Step; fewer than two or more than three Candidates; two Candidates stating the same reader experience",
+      "refusal": "a Step missing any required field the schema declares; a claim whose type is outside the schema's closed set; TWO CLAIMS OF ONE STEP NAMING ONE STRAND, which the schema's `claim.one_per_strand` forbids and `validateSteps` refuses naming the Step and the Strand; a material outside the Brief's closed Strand set; a `depends_on` naming a later Step; fewer than two or more than three Candidates; two Candidates stating the same reader experience",
       "retries": 2,
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "SPEC-draft-pipeline, the Step's shape and the grounding rule"
+      "governing": "SPEC-draft-pipeline, the Step's shape and the claims rule"
     },
     {
       "id": "review_path",
       "kind": "judgment",
-      "judgment_point": "review each composed Candidate against the six review areas `src/review.mjs` declares in REVIEW_AREAS, as JUDGMENT and never as a verdict -- grounds_test, entailment, prohibitions, semantic_economy, arc_integrity and evaluation_levels. The areas ride in the input below under `review_areas`, read from that same constant; this sentence names them because it is rendered at the head of the prompt and a head that named a different set than the input would tell the judge two things (PR #1109 round 1).",
+      "judgment_point": "review each composed Candidate against the six review areas `src/review.mjs` declares in REVIEW_AREAS, as JUDGMENT and never as a verdict -- rationale_stands, entailment, prohibitions, semantic_economy, arc_integrity and evaluation_levels. The areas ride in the input below under `review_areas`, read from that same constant; this sentence names them because it is rendered at the head of the prompt and a head that named a different set than the input would tell the judge two things (PR #1109 round 1).",
       "input_shape": "an object keyed by `candidate_id`, each value an object carrying one prose entry per review area and NO verdict-shaped field",
       "refusal": "a Candidate with no review entry; a verdict-shaped field -- `verdict`, `pass`, `score` and kin, or any non-string value -- because nothing here becomes a lint; a THIRD attach on one Candidate, which the revise pass bounds at one revise round",
       "retries": 2,

@@ -387,7 +387,7 @@ for name, spec in blocks.items():
     if "opens_with" in spec and spec["opens_with"] not in tpl:
         bad.append(f"block `{name}` opens on \"{spec['opens_with']}\", which the template does not carry")
     if "prefix" in spec and not re.search(r"^" + re.escape(spec["prefix"]) + r"\s", tpl, re.M) and "{{" not in tpl:
-        pass  # the ground lines are a rendered VALUE, not template text
+        pass  # the claim lines are a rendered VALUE, not template text
 
 for b in bad:
     print("FAIL: " + b)

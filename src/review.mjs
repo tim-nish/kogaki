@@ -17,7 +17,7 @@
 //   the revise pass
 //       SPEC-draft-pipeline "The Bridge Step and the revise pass"
 //   the five review areas
-//       SPEC-draft-pipeline "The Step's grounding, and the `entailed` flag",
+//       SPEC-draft-pipeline "What a Step claims, and the `entailed` flag",
 //       "The grounds test — the observable form of describe-never-generate",
 //       "Semantic economy — what binds Move AUTHORING", "Journey integrity —
 //       the arc, not the layout", and the judgment rule
@@ -68,7 +68,7 @@ function fail(msg) {
 // non-empty prose field. The list is the agent contract's output shape —
 // one carrier (path-review-agent.md documents it; this file enforces it).
 export const REVIEW_AREAS = [
-  "grounds_test",      // the Move name deleted, the rationale stands
+  "rationale_stands",  // the Move name deleted, the rationale stands
   "entailment",        // entailed flags judged, reasoning exposed
   "prohibitions",      // the closed unsupported-completion list
   "semantic_economy",  // in-place Move edits only, never mechanized

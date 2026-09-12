@@ -18,8 +18,8 @@
 # Every Act that mattered — composing the Reader Paths, reviewing them, raising
 # the gates, judging the specialization record — was performed by a session
 # reading that prose. The two live Briefs in the tree at kogaki#1108 were composed
-# that way, and their ground cardinality drifted from 1-3 per Step to 4-6 with up
-# to six grounds from one Strand, against a rule no Harness text carried.
+# that way, and their claim cardinality drifted from 1-3 per Step to 4-6 with up
+# to six claims from one Strand, against a rule no Harness text carried.
 #
 #   "A rule is enforced only at the layer where it can be broken — a
 #   prohibition needs a mechanical gate at the tool boundary because prose is

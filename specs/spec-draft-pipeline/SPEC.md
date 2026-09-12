@@ -52,7 +52,7 @@ the Brief's figure decision and its grammar, and nothing on the realization side
 read it — a Brief could declare a figure perfectly and the Draft would render
 none, with every check green. The record is filled from the Step's Packet plus
 one appended block and from nothing else, its kind is the form's, and each
-element is bound to the ground **the Brief** bound that role to; `emit` refuses
+element is bound to the claim **the Brief** bound that role to; `emit` refuses
 while a figure-carrying Step owes its record, exactly as it refuses a Step that
 owes its prose. The mechanical half is validated and the wording is judged
 nowhere, per §4.6. **deferred slots minted by this amendment: none.**
@@ -235,7 +235,7 @@ records forces it, and the collapse is a convenience that reads as tidiness.
   premise, or `constructed_material` it works on. **Many-to-many** with Steps.
   The reader premise is the Brief's **Reader start**, named here in words
   rather than by the retired `reader_assumption` token: that token was a
-  GROUND type, it left the grammar at §4.4, and leaving it standing as this
+  CLAIM type, it left the grammar at §4.4, and leaving it standing as this
   field's one surviving use would hand a reader a term with nothing left
   defining it (kogaki#1095).
 - **`purpose`** — what the Step does to the reader.
@@ -329,31 +329,67 @@ A Strand may support multiple Steps and is never consumed by first use.
 executes "every MUST names its judge", and this spec has already failed it
 against itself once (§5.1.1), which is the argument for keeping it stated.
 
-### 4.4 The Step's grounding, and the `entailed` flag
+### 4.4 What a Step claims, and the `entailed` flag
 
-**A ground is one claim derived from a Strand, and nothing else** (owner
-ruling, 2026-09-11; kogaki#1095). A Step's grounds are **specific
-propositions**, each a **Strand proposition** traceable to sentences in the
-material and each naming its Strand.
+**A claim is the one proposition a Step asserts on behalf of one Strand, for
+this reader at this point in the path** (owner ruling, 2026-09-13; kogaki#1113).
+A Step's `claims` are **specific propositions**, each traceable to sentences in
+the material and each naming the Strand it is asserted on behalf of.
+
+**The claim is what is asserted; its ground is the pinned Lesson.** In Toulmin's
+layout the *claim* is what is asserted and the *ground* is the data it rests on,
+and the field carried claims under the name of their evidence until 2026-09-13 —
+which is why it read two ways across its life, sometimes as the Lesson's own
+Claim sentence and sometimes as prose already transformed for the Step. The
+ground is held as an **address** in the Brief's Strands section and is **never
+copied**: the Step Packet renders the Step's claims and no Lesson text, which is
+what keeps *assert nothing beyond* checkable, and the Lesson's original Claim
+sentence stays at the pin.
+
+**The field belongs to the Brief because Document Planning is content
+determination.** Three mechanisms read the Brief's decision about what each Step
+says as their declared side: path review's entailment and arc checks over the
+sequence of assertions, the grounds test of §4.5, and Reverse Outlining's
+comparison of what the passage asserts against what the Brief declared. A Brief
+holding only addresses and purposes would defer content to Draft, which has the
+least context in the pipeline, and would leave all three without a declared
+side.
+
+**The boundary against the Step's other fields is one of grammatical kind.**
+`purpose` is a verb about the reader and contains no proposition from the
+material; a **claim is a proposition about the world and names no reader**;
+`reader_state_after` is the reader's condition afterwards; `rationale` is the
+order argument. A claim that mentions the reader, or a purpose that could be
+true or false of the world, is in the wrong field.
+
+**A Lesson and a Journey are not treated alike, and the asymmetry is the
+principle.** A Lesson's Claim is a proposition, its transformation into this
+Step's claim is the planning decision, and the Brief carries the result; a
+Journey is a narrative, its telling depends on the Move and the prior prose, and
+the Brief carries only its address and its use (kogaki#1111).
 
 **The set was three, and the two that left are named with where their content
-belongs.** A `step_effect` ground was inherited reader state and a
-`reader_assumption` ground was a presupposed premise; the Step Packet renders
-every ground under one instruction — *these are what this Step may assert* — and
+belongs.** A `step_effect` entry was inherited reader state and a
+`reader_assumption` entry was a presupposed premise; the Step Packet renders
+every claim under one instruction — *these are what this Step may assert* — and
 neither of those is an assertion, so a passage that realizes its Step correctly
 never states them and the Blind Reader, asked for one line per thing the passage
-asserts, never recovers them. The first full review run failed `grounds-unused`
-on 8 of 8 Steps against premise-type grounds alone: a comparison whose declared
+asserts, never recovers them. The first full review run failed `claims-unused`
+on 8 of 8 Steps against premise-type entries alone: a comparison whose declared
 side carries a category its reverse side cannot produce measures nothing.
 **Inherited state stays where it already lives** — `reader_state_before` and the
 computed `already knows` ledger, which were already carrying it twice over — and
 **a reader premise belongs to the Brief's Reader start**.
 
+**One claim per Strand named in `materials`**, and a Strand that serves several
+Steps carries a **different** claim in each — that is what makes the path a
+sequence rather than a restatement.
+
 **The carrier is `validateSteps` in `src/compose.mjs`**, which holds the type
-set and the `ground (strand L<n>): <proposition>` serialization together. That
-is what makes a non-Strand ground **unwritable** rather than discouraged:
-removing this spec and the brief skill from the tree leaves the refusal
-standing.
+set, the one-per-Strand refusal and the `claim (strand L<n>): <proposition>`
+serialization together. That is what makes a non-Strand claim **unwritable**
+rather than discouraged: removing this spec and the brief skill from the tree
+leaves the refusal standing.
 
 **A proposition not explicit in the material is flagged `entailed`, with its
 entailment reasoning exposed at the human gate** — entailment is
@@ -955,7 +991,7 @@ requirement would have refused the whole existing corpus rather than adding
 anything to it.
 
 **Shape only.** Whether a term is genuinely new here, whether its anchor
-explains it, and whether the Step's grounds already carry it are judgments.
+explains it, and whether the Step's claims already carry it are judgments.
 Nothing in this section reads meaning.
 
 `necessity:` that an unintroduced term is ADDRESSABLE — a fact about the path
@@ -1201,7 +1237,7 @@ point 2) the composer may declare on a Step
     figure: <one line — what the figure lets the reader hold that the prose alone leaves hard to hold>
     figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3
 
-where `g<n>` addresses the Step's **own** ground lines in order, from 1.
+where `g<n>` addresses the Step's **own** claim lines in order, from 1.
 
 **The default is NONE.** A Step without `figure:` has no figure and nothing asks
 about it — the hub's 2026-08-01 D8 disclosure-never-slot ruling carried as a
@@ -1212,8 +1248,8 @@ line for a Step that declares none, so the bytes do not move.
 **Three conditions, and only two of them are mechanical.**
 
 1. the Step's Move carries a `visual_form`;
-2. every role of that form binds to one of **this Step's** grounds — a role
-   bound to a ground of another Step is refused;
+2. every role of that form binds to one of **this Step's** claims — a role
+   bound to a claim of another Step is refused;
 3. the figure carries something.
 
 The third is the composer's one judgment and is stated in the `figure:` line
@@ -1223,14 +1259,14 @@ missing field is refused, a weak one is not.
 **The two mechanical halves refuse at different seats, and the split is the one
 `move` already has.** The grammar — the two fields travelling together, a
 non-empty line, a binding of the form `role=g<n>`, an address inside this Step's
-ground count — is decidable from the Step record alone and refuses at
+claim count — is decidable from the Step record alone and refuses at
 `validateSteps`. Whether the Move declares a form at all, and whether the
 bindings are exactly that form's roles, needs the Move library open and refuses
 at adoption, beside §4.12.1's move-id resolution. Both are "at composition" in
 §4.15's sense: the Brief is being authored and the refusal can still be fixed.
 
-**A binding to another Step's ground is unreachable rather than separately
-refused.** The address space is this Step's grounds and has no syntax for anyone
+**A binding to another Step's claim is unreachable rather than separately
+refused.** The address space is this Step's claims and has no syntax for anyone
 else's, which removes the possibility instead of enumerating what to catch.
 
 **An unreadable Move record is not a formless one.** §4.12.1's distinction
@@ -1281,13 +1317,13 @@ served, plus a block carrying
 
 - **the form** — its kind, and each role with the line the Move's `visual_form`
   maps it to;
-- **the binding** — each role with the ground text the Brief bound it to,
+- **the binding** — each role with the claim text the Brief bound it to,
   quoted verbatim, licence included;
 - **the `figure:` reason line** from the Brief;
 - **the Step's realized prose**, verbatim;
-- **the instruction** — every element is one of the bound grounds worded for the
+- **the instruction** — every element is one of the bound claims worded for the
   reader; the caption says what the reader holds after looking, in the terms of
-  `reader_state_after`; no element the grounds do not carry.
+  `reader_state_after`; no element the claims do not carry.
 
 **The block lives in `src/packet-template.md` behind a marker the Packet render
 splits away.** One model-facing template file, two consumers: a second file
@@ -1305,7 +1341,7 @@ is the owner's 2026-09-04 rule applied to figures.
 is the instance of a Move:
 
     { "kind": "axis",
-      "elements": { "endpoint_a": {"text": "…", "ground": "g1"}, … },
+      "elements": { "endpoint_a": {"text": "…", "claim": "g1"}, … },
       "relations": [ … ],
       "emphasis": "endpoint_b",
       "caption": "…",
@@ -1323,18 +1359,18 @@ without its content moving is a pin that answers for nothing.
 1. every role of the kind is present, and no role that is not;
 2. `kind` equals the **form's** kind — the record is the instance, so its kind
    is the Move library's and the Brief's, never a choice made at realization;
-3. every element's `ground` is the address **the Brief** bound that role to — a
-   record that moves a role to another ground words it from material the
+3. every element's `claim` is the address **the Brief** bound that role to — a
+   record that moves a role to another claim words it from material the
    composer did not put under that position;
 4. `position` is one of the closed pair `before` / `after`;
 5. `emphasis`, where present, names a role of the kind;
 6. `relations` is non-empty and `caption` is non-empty.
 
 **Nothing here judges wording.** Whether an element's text is a fair wording of
-its ground, and whether the relations instantiate the kind's `relation` line,
+its claim, and whether the relations instantiate the kind's `relation` line,
 are judgments — §4.6's rule that a missing field is refused and a weak one is
 not. That is also why kogaki#880 reviews the figure by a **Round Trip** rather
-than by a lint here: the check that an element is entailed by its ground is
+than by a lint here: the check that an element is entailed by its claim is
 owed against the *rendered* figure a reader meets, not against the record the
 renderer was given.
 

@@ -19,8 +19,8 @@
     ".claude/skills/brief/SKILL.md's prose, wrote a Candidates JSON, and",
     "`validateSteps` checked it afterwards -- so the only Harness text carrying",
     "what a field means was a refusal string, seen only when shape had already",
-    "failed. Ground cardinality drifted accordingly: the first Brief carried 1",
-    "to 3 grounds per Step, the second 4 to 6, with up to six grounds from one",
+    "failed. Claim cardinality drifted accordingly: the first Brief carried 1",
+    "to 3 claims per Step, the second 4 to 6, with up to six claims from one",
     "Strand in a single Step.",
     "",
     "IT DECLARES SHAPE AND MEANING, AND JUDGES NEITHER. Every MUST of the",
@@ -37,7 +37,7 @@
     "THE NAMES THIS FILE USES, and the spec each one names:",
     "  The Step's shape",
     "      SPEC-draft-pipeline",
-    "  The grounding rule",
+    "  The claims rule",
     "      SPEC-draft-pipeline",
     "  The Step and the Move it binds",
     "      SPEC-draft-pipeline",
@@ -77,7 +77,7 @@
     "purpose": {
       "required": true,
       "type": "string",
-      "description": "What this Step is for in the path -- the work it does toward the adopted Thesis, in one or two sentences."
+      "description": "What this Step is for in the path -- the work it does toward the adopted Thesis, in one or two sentences. A VERB ABOUT THE READER, carrying no proposition from the material: a purpose that could be true or false of the world is a claim in the wrong field."
     },
     "reader_state_before": {
       "required": true,
@@ -87,7 +87,7 @@
     "reader_state_after": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Step ends. Judged against the Move's `effect` the same way. The two state fields are the Step's transition, written as the reader's condition rather than as the writer's intent."
+      "description": "What the reader holds when this Step ends. Judged against the Move's `effect` the same way. The two state fields are the Step's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
     },
     "depends_on": {
       "required": true,
@@ -97,19 +97,19 @@
     "rationale": {
       "required": true,
       "type": "string",
-      "description": "Why this Step sits HERE, at this position, rather than earlier or later. The order argument, not a restatement of the purpose."
+      "description": "Why this Step sits HERE, at this position, rather than earlier or later. The ORDER ARGUMENT, not a restatement of the purpose and not a claim the Step asserts."
     },
     "move": {
       "required": true,
       "type": "string",
       "description": "The Move library entry this Step binds, by id. The Move IS the State component of a Step, so the binding is required rather than encouraged, and the id is resolved against the Move library at adoption."
     },
-    "grounds": {
+    "claims": {
       "required": true,
-      "type": "array of ground",
+      "type": "array of claim",
       "min_length": 1,
-      "description": "What this Step asserts, one entry per Strand it names in `materials`. See `ground` below -- the cardinality rule is the part most likely to be got wrong.",
-      "see": "ground"
+      "description": "What this Step ASSERTS, one entry per Strand it names in `materials`. A claim is a PROPOSITION ABOUT THE WORLD and names no reader; a claim that mentions the reader belongs in `purpose` or in a state field. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below -- the cardinality rule is the part most likely to be got wrong.",
+      "see": "claim"
     },
     "entailed": {
       "required": false,
@@ -146,39 +146,55 @@
       "required": false,
       "type": "object mapping role -> g<n>",
       "required_when": "figure is present",
-      "description": "Binds every role of the Move's `visual_form` to one of THIS Step's own grounds, addressed `g<n>` and numbered from 1 in the order the grounds are declared. A role bound to another Step's ground is unreachable by construction: the address space is this Step's grounds and has no syntax for anyone else's."
+      "description": "Binds every role of the Move's `visual_form` to one of THIS Step's own claims, addressed `g<n>` and numbered from 1 in the order the claims are declared. A role bound to another Step's claim is unreachable by construction: the address space is this Step's claims and has no syntax for anyone else's."
     }
   },
-  "ground": {
+  "claim": {
     "definition": [
-      "A GROUND IS THE ONE PROPOSITION THIS STEP ASSERTS ON BEHALF OF ONE",
+      "A CLAIM IS THE ONE PROPOSITION THIS STEP ASSERTS ON BEHALF OF ONE",
       "STRAND, FOR THIS READER AT THIS POINT IN THE PATH.",
       "",
-      "ONE GROUND PER STRAND NAMED IN `materials`. Two grounds in one Step",
+      "ITS GROUND IS THE PINNED LESSON, HELD AS AN ADDRESS AND NEVER COPIED.",
+      "In Toulmin's layout the claim is what is asserted and the ground is the",
+      "data it rests on; this field carries the assertion, and the Lesson it",
+      "rests on stays at its pin in the Brief's Strands section. The Lesson's",
+      "own Claim sentence is at that pin and is never rendered here or in the",
+      "Step Packet, which is what keeps `assert nothing beyond` checkable:",
+      "what the Step may assert is this list, and nothing arrives beside it.",
+      "",
+      "A CLAIM IS A PROPOSITION ABOUT THE WORLD AND NAMES NO READER. The",
+      "boundary against the Step's other fields is one of grammatical kind:",
+      "`purpose` is a verb about the reader and carries no proposition from",
+      "the material, `reader_state_after` is the reader's condition",
+      "afterwards, and `rationale` is the order argument. A claim that",
+      "mentions the reader, or a purpose that could be true or false of the",
+      "world, is in the wrong field.",
+      "",
+      "ONE CLAIM PER STRAND NAMED IN `materials`. Two claims in one Step",
       "naming the same Strand is REFUSED, naming the Step and the Strand. A",
-      "Strand that serves several Steps carries a DIFFERENT ground in each --",
+      "Strand that serves several Steps carries a DIFFERENT claim in each --",
       "that is what makes the path a sequence rather than a restatement, and it",
       "is why the rule is per Step rather than per path.",
       "",
       "WHY THE CARDINALITY IS BOUNDED AT ALL, measured rather than argued",
-      "(kogaki#1108). The Step Packet requires every declared ground to be",
-      "recoverable from the realized passage, and `grounds-unused` fails the",
-      "Step otherwise. With cardinality unbounded, ground generation drifted",
+      "(kogaki#1108). The Step Packet requires every declared claim to be",
+      "recoverable from the realized passage, and `claims-unused` fails the",
+      "Step otherwise. With cardinality unbounded, claim generation drifted",
       "into composing the article's decisive lines wholesale and calling them",
-      "grounds -- so the comparison the Packet performs stopped measuring",
+      "claims -- so the comparison the Packet performs stopped measuring",
       "grounding and started measuring how much of the passage had been written",
-      "in advance. One proposition per Strand is what keeps a ground a claim",
+      "in advance. One proposition per Strand is what keeps a claim a claim",
       "the Strand supports rather than a draft of the sentence that will carry",
       "it.",
       "",
-      "A GROUND IS ONE CLAIM DERIVED FROM A STRAND, AND NOTHING ELSE. The type",
-      "set is closed at `strand`. Inherited reader state belongs to",
+      "A CLAIM IS ONE PROPOSITION DERIVED FROM A STRAND, AND NOTHING ELSE. The",
+      "type set is closed at `strand`. Inherited reader state belongs to",
       "`reader_state_before` and to the computed `already knows` ledger; a",
       "presupposed premise belongs to the Brief's Reader start. Neither is an",
       "assertion, so a passage that realizes its Step correctly never states",
       "one and the Blind Reader never recovers it.",
       "",
-      "The grounding rule is the spec half of this definition; the mechanical half -- the closed type set and the one-per-Strand refusal -- is carried here and enforced by `validateSteps`."
+      "The claims rule is the spec half of this definition; the mechanical half -- the closed type set and the one-per-Strand refusal -- is carried here and enforced by `validateSteps`."
     ],
     "types": [
       "strand"
@@ -197,18 +213,18 @@
       "proposition": {
         "required": true,
         "type": "string",
-        "description": "The claim itself, STATED -- a specific proposition this Step asserts, not a pointer at where one could be found. An untyped pointer is not a ground."
+        "description": "The claim itself, STATED -- a specific proposition this Step asserts, not a pointer at where one could be found. An untyped pointer is not a claim."
       },
       "strand": {
         "required": true,
         "type": "string",
-        "description": "The Strand this ground derives from, as a LessonDisplayID (`L<n>`). It is one of this Step's `materials`, and no other ground of this Step names it."
+        "description": "The Strand this claim is asserted on behalf of, as a LessonDisplayID (`L<n>`). It is one of this Step's `materials`, it is where the pinned Lesson that grounds the claim is addressed, and no other claim of this Step names it."
       }
     }
   },
   "what_is_judged_elsewhere": [
     "Nothing here is a lint over a judgment. Whether a rationale is good,",
-    "whether a ground is genuinely supported by its Strand, whether a term is",
+    "whether a claim is genuinely supported by its Strand, whether a term is",
     "really introduced here, and whether the before/after states are faithful",
     "specializations of the Move are all judgment-class: they are judged at",
     "path review and at the specialization occasion, and a refusal from this",

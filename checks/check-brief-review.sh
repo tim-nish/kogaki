@@ -67,7 +67,7 @@ try {
   // non-string values refused as verdicts wearing a type.
   const rv = attachReview(cands, { "cand-1": { ...entry(), verdict: "pass" }, "cand-2": entry() });
   if (!rv.error || !/verdict/.test(rv.error) || !/never a verdict/.test(rv.error)) fails.push("(c) a verdict field was attachable — output is reasoning surfaced, never a verdict (§4.6)");
-  const rb = attachReview(cands, { "cand-1": { ...entry(), grounds_test: true }, "cand-2": entry() });
+  const rb = attachReview(cands, { "cand-1": { ...entry(), rationale_stands: true }, "cand-2": entry() });
   if (!rb.error || !/wearing a type/.test(rb.error)) fails.push("(c) a boolean review value was attachable — a boolean is a verdict wearing a type");
   const rs = attachReview(cands, { "cand-1": { ...entry(), score: "9/10" }, "cand-2": entry() });
   if (!rs.error) fails.push("(c) a score field was attachable");

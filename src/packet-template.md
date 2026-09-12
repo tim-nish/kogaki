@@ -70,11 +70,12 @@ What this Step must accomplish, in this article, for this reader.
 - **purpose.** {{purpose}}
 - **reader_state_before.** {{reader_state_before}}
 - **reader_state_after.** {{reader_state_after}}
-- **grounds.** Each line below is a claim the settled material carries. Your
+- **claims.** Each line below is a claim this Step asserts. Your
   prose must make every one of them recoverable, and must assert nothing beyond
-  them.
+  them. The Lesson each claim rests on is at its pin and is not reproduced
+  here: these lines are the whole of what this Step may assert.
 
-{{grounds}}
+{{claims}}
 
 ## The Section this Step sits in
 
@@ -91,7 +92,7 @@ claim, and do not open a new subject.
 `already knows` was established by earlier Steps — do not re-introduce it.
 `introduce here` is this Step's obligation: each term must be usable by the
 reader after this Step, and a term with an anchor is anchored because its
-meaning is not carried by the grounds above.
+meaning is not carried by the claims above.
 
 - **already knows.** {{reader_already_knows}}
 - **introduce here.** {{introduces}}
@@ -148,7 +149,7 @@ sees.
 {{figure_form_roles}}
 
 The **binding** is the Brief's. Each role above is bound to one of this Step's
-grounds, quoted verbatim. An element is that ground worded for the reader — not
+claims, quoted verbatim. An element is that claim worded for the reader — not
 a new claim, and not a claim from anywhere else on the page.
 
 {{figure_binding}}
@@ -164,9 +165,9 @@ a new claim, and not a claim from anywhere else on the page.
 Return one JSON object and nothing else:
 
 - `kind` — exactly the kind named above.
-- `elements` — one entry per role above, `{"text": ..., "ground": "g<n>"}`.
-  `text` is the bound ground worded for the reader. `ground` is the address the
-  binding gives that role: do not move a role to a different ground.
+- `elements` — one entry per role above, `{"text": ..., "claim": "g<n>"}`.
+  `text` is the bound claim worded for the reader. `claim` is the address the
+  binding gives that role: do not move a role to a different claim.
 - `relations` — what holds between the elements, one entry per relation the
   figure asserts. The kind's own relation line is what these instantiate.
 - `emphasis` — optional; the role the figure leans on, if one does.
@@ -175,5 +176,5 @@ Return one JSON object and nothing else:
 - `position` — `before` or `after`: whether the reader meets the figure before
   this Step's prose or after it.
 
-Assert nothing the grounds above do not carry. You are not writing diagram
+Assert nothing the claims above do not carry. You are not writing diagram
 syntax: the markup is the Harness's, rendered from this record.

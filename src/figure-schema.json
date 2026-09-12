@@ -5,8 +5,8 @@
     "A figure record is the INSTANCE of a Move's `visual_form` in the sense a",
     "Step is the instance of a Move: the form names roles and says nothing a",
     "reader sees (src/figure-kinds.json), the Brief binds each role to one of",
-    "the Step's grounds (the figure decision), and this record is where",
-    "each bound ground is finally worded for the reader.",
+    "the Step's claims (the figure decision), and this record is where",
+    "each bound claim is finally worded for the reader.",
     "",
     "src/draft.mjs READS these lists rather than restating them, the same",
     "arrangement src/review-items.json has with src/review-draft.mjs: the",
@@ -25,10 +25,10 @@
     "after looking, which is only answerable once what they have read exists.",
     "",
     "NOTHING HERE JUDGES WORDING. Whether an element's text is a fair wording",
-    "of its ground, and whether the relations instantiate the kind's `relation`",
+    "of its claim, and whether the relations instantiate the kind's `relation`",
     "line, are judgments -- the judgment rule: a missing field is refused and a",
     "weak one is not. The mechanical half is: every role present, no extra",
-    "role, every element bound to the ground the BRIEF bound that role to, the",
+    "role, every element bound to the claim the BRIEF bound that role to, the",
     "kind equal to the form's, and a position from the closed pair.",
     "",
     "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
@@ -56,10 +56,10 @@
     "elements": {
       "type": "object",
       "keyed_by": "the roles of this record's kind",
-      "item_required": ["text", "ground"],
+      "item_required": ["text", "claim"],
       "text_key": "text",
-      "ground_key": "ground",
-      "why": "one element per role, each carrying the reader-facing wording and the ground address it was worded from -- the address is what lets a later reader, and kogaki#880's review, join an element back to what licensed it"
+      "claim_key": "claim",
+      "why": "one element per role, each carrying the reader-facing wording and the claim address it was worded from -- the address is what lets a later reader, and kogaki#880's review, join an element back to what licensed it"
     },
     "relations": {
       "type": "array",
