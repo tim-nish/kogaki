@@ -1166,7 +1166,7 @@ const STATE_WORK = {
         }
         seenExp.add(expKey);
         // THE STEP REFUSALS ARE `validateSteps`' OWN, re-implemented nowhere.
-        // One-ground-per-Strand, the closed ground type set, every required
+        // One-claim-per-Strand, the closed claim type set, every required
         // field and its description all come from `src/step-schema.json`
         // through that function.
         const v = validateSteps(c.steps);
