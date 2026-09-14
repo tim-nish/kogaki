@@ -89,7 +89,7 @@ import { resolveHeadlines, glossFor } from "./terrain.mjs";
 import {
   runWorkflow, judgedRecordPath, persistPendingRun, SKILL_EXPANSION_EXECUTOR,
   readHookPayload, advancedByFromPayload, relFromRepo, JudgmentRefusal,
-  terrainRunRecord, settledStrandHandoff,
+  resolveStrandAddresses,
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
@@ -130,7 +130,7 @@ function argString(args, key, usage) {
 }
 
 function parseArgs(argv) {
-  const args = {};
+  const args = { _rest: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a.startsWith("--")) {
@@ -139,6 +139,12 @@ function parseArgs(argv) {
       if (next === undefined || next.startsWith("--")) args[key] = true;
       else { args[key] = next; i++; }
     } else if (!args._cmd) args._cmd = a;
+    // EVERY POSITIONAL AFTER THE VERB IS KEPT (kogaki#1116). The settled Strand
+    // set arrives on the command line as served addresses, so a parser that read
+    // the verb and discarded the rest silently dropped the whole input — which
+    // is the shape of the 2026-09-13 failure this issue closes, arriving one
+    // layer down.
+    else args._rest.push(a);
   }
   return args;
 }
@@ -163,7 +169,7 @@ const fields = () => [...SLOT_CAPTIONS.entries()];
 // Exported and pure over its inputs, so the check exercises the composed
 // document without a filesystem. `thesis` is required: at v9 no document
 // exists without one.
-export function composeBrief({ slug, pin, strands, thesis }) {
+export function composeBrief({ slug, strands, thesis }) {
   if (typeof thesis !== "string" || thesis === "") {
     throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)");
   }
@@ -208,7 +214,12 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   say("> composition proceeds. It is the durable document a drafting");
   say("> sitting resumes from.");
   say();
-  material(`*Survey pin:* \`${pin}\``);
+  // NO SURVEY PIN LINE (kogaki#1116, acceptance item 6). The commit pin is
+  // deprecated: it dated a whole gateway response, so it said the same thing
+  // about every member of the set and nothing about whether any ONE Strand's
+  // material had moved. Each Strand's `cite` below carries the served address at
+  // its own content hash, which answers that per member — and no Brief output
+  // carries `@<commit>` any more.
   say("*Strand set: CLOSED at mint. Adding a Strand is your act, taken by going back through Terrain — a Brief never reaches for material on its own.*");
   say();
   say("## Strands");
@@ -298,50 +309,14 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   return L.join("\n") + "\n";
 }
 
-// Resolve the entered ids against the survey record. Refusals are the
-// contract's own (the durable home and the entry point): an unknown id names BOTH sides, never a silent
-// drop; a Group/SubGroup id is refused BY NAME as a per-report-identity
-// token. Exported for the check's refusal cases. UNCHANGED at v9 — the
-// re-sequencing moved the mint, not the entry refusals.
-export function resolveStrandIds(record, entered) {
-  const gids = entered.filter((x) => /^G[0-9]+(-[0-9]+)?$/.test(x));
-  if (gids.length) {
-    return { error:
-      `${gids.join(", ")}: Group/SubGroup ids are per-REPORT-IDENTITY tokens `
-      + "— they name a grouping, not the settled set, and "
-      + "a pin advance renumbers them. Enter the LessonDisplayIDs (L<n>) that "
-      + "stand in the report's member headings beside the grouping you "
-      + "navigated by." };
-  }
-  const bad = entered.filter((x) => !/^L[0-9]+$/.test(x));
-  if (bad.length) {
-    return { error:
-      `${bad.join(", ")}: not a LessonDisplayID. The input unit is L<n> and `
-      + "nothing else." };
-  }
-  const byDid = new Map((record.candidates || [])
-    .filter((c) => c.display_id).map((c) => [c.display_id, c]));
-  const missing = entered.filter((x) => !byDid.has(x));
-  if (missing.length) {
-    const held = [...byDid.keys()].sort(
-      (a, b) => Number(a.slice(1)) - Number(b.slice(1)));
-    return { error:
-      `${missing.join(", ")}: the survey record carries no such display id. `
-      + `Entered: ${entered.join(", ")}. The record holds: `
-      + `${held.join(", ") || "no display ids (the record predates the display-ID rule)"}. `
-      + "Nothing was dropped silently — every entered id is placed or named." };
-  }
-  // Dedup preserving the entered order — the set is the unit, and a repeat
-  // is not an error the owner should be stopped for.
-  const seen = new Set();
-  const strands = [];
-  for (const id of entered) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    strands.push(byDid.get(id));
-  }
-  return { strands };
-}
+// THE SURVEY-RECORD RESOLVER IS DELETED, NOT KEPT AS A FALLBACK (kogaki#1116).
+// It resolved `L<n>` display ids against a Terrain survey record, which is the
+// one reading of a Terrain artifact this lane had. The addresses a run is
+// started with are resolved by `resolveStrandAddresses` against the served
+// enumeration instead, and the human-facing tokens this function refused by
+// name — G, and now L and D — are refused there, by the same discipline, at the
+// one place a set now enters. Keeping this beside it would be a second answer
+// to what a Strand is, reachable whenever the first refused.
 
 // Compose 2–3 Thesis candidates FROM THE SETTLED STRAND SET ONLY (the read-not-invented rule,
 // story 1.72 AC2), and from that set's SERVED GLOSS RENDERINGS rather than
@@ -618,15 +593,21 @@ function readRunState(args) {
 // run state is machine-local by default and the command has no theses-dir
 // concept at all.
 function cmdEnter(args) {
-  const record = JSON.parse(readFileSync(
-    argString(args, "survey", "enter needs --survey <survey record> — the machine-local run-workspace JSON the terrain survey wrote (a value is required; a bare --survey flag is the omitted-value defect)"), "utf8"));
-  const entered = argString(args, "ids",
-    "enter needs --ids <L1,L2,...> — the settled Strand set as "
-    + "LessonDisplayIDs")
-    .split(",").map((s) => s.trim()).filter(Boolean);
-  if (!entered.length) fail("--ids was empty. A Brief needs at least one settled Strand.");
+  // THE SET IS THE ARGUMENT LIST (kogaki#1116). `--addresses` is the executor's
+  // own hand-off from `entryInputs`; the string form is the standalone and
+  // fixture path, and both land in the same resolver, so there is no second
+  // reading of what an address is.
+  const entered = Array.isArray(args.addresses)
+    ? args.addresses
+    : String(args.addresses === true ? "" : (args.addresses ?? ""))
+      .split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+  if (!entered.length) {
+    fail("enter needs the settled Strand set as served Lesson addresses — "
+      + "`enter coding::lesson/<local-name> ...` or `--addresses <a> <b>`. A Brief needs at least "
+      + "one settled Strand, and it never composes a set of its own.");
+  }
 
-  const r = resolveStrandIds(record, entered);
+  const r = resolveStrandAddresses(entered);
   if (r.error) fail(r.error);
 
   // Terrain resolves the settled members' served renderings — bounded by
@@ -667,7 +648,19 @@ function cmdEnter(args) {
   // instruction: moving it to the label needs no amendment (the durable home and the entry point v11).
   const gate = {
     gate_id: "brief-thesis-adoption",
-    where: `the settled Strand set: ${r.strands.map((s) => s.display_id).join(", ")} at pin ${record.pin}`,
+    // THE PROVENANCE BLOCK (kogaki#1116, acceptance item 4). What the owner is
+    // shown here is the SERVED ADDRESSES THE RUN WAS STARTED WITH, marked as
+    // supplied on the command line and paired with the within-document id each
+    // one took. That pairing is the catch point for a Model mis-resolution: the
+    // owner reads the addresses before answering, and nothing under `theses/`
+    // exists until they do.
+    //
+    // NO PIN (the commit pin is deprecated, hub decision staged 2026-09-14). The
+    // set is identified by address, and each member's cite carries its own
+    // content hash on the Brief's Strands section — a single response-wide
+    // commit said less than the per-member hashes already say.
+    where: "the settled Strand set, supplied on the command line and resolved against the "
+      + `served enumeration: ${r.strands.map((s) => `${s.display_id} = ${s.address}`).join(", ")}`,
     why: "the machine's premise, rendered: this settled set supports a Thesis — the candidates below are composed from the set's own members and from nothing else (the read-not-invented rule), and each carries the name it would give the Brief",
     label: "Adopting a Thesis starts the Brief: the mint runs next and the Brief's durable home is created under the adopted name, carrying the adopted Thesis",
     options: [
@@ -702,7 +695,8 @@ function cmdEnter(args) {
 
   const state = {
     stage: "entered",
-    pin: record.pin,
+    entered_addresses: entered,
+    settled_set_via: "supplied on the command line",
     strands: r.strands,
     // WHAT WAS RESOLVED, AND FROM WHERE (kogaki#528). Recorded because the
     // candidates are composed FROM this and a later reader cannot otherwise
@@ -923,7 +917,7 @@ function cmdMint(args) {
   mkdirSync(home, { recursive: true });
   const out = join(home, "brief.md");
   const doc = composeBrief({
-    slug, pin: state.pin, strands: state.strands, thesis: state.adopted_thesis,
+    slug, strands: state.strands, thesis: state.adopted_thesis,
   });
   writeFileSync(out, doc);
   // Per-block snapshot (kogaki#523): the mint's before-state is NO FILE —
@@ -1039,43 +1033,43 @@ function writeJudgeInput(rec, st, body) {
   return p;
 }
 
-// ---- THE TWO FACTS `enter` NEEDS, AND WHERE THEY COME FROM (kogaki#1108).
+// ---- THE ONE FACT `enter` NEEDS, AND WHERE IT COMES FROM (kogaki#1116).
 //
-// `--survey` and `--ids` still win, and that is the fixture path and the
-// second-repository path, unchanged. With neither, they are READ FROM TERRAIN'S
-// OWN RUN RECORD: `survey_record` names the record that assigned the `L<n>` ids,
-// and `owner_input.ID_SELECTION` holds what the OWNER answered at the
-// `terrain-id-selection` gate. `settledStrandHandoff` resolves the second
-// against the first the way the Terrain state that PRINTED those ids resolves
-// them, which is why it lives in that runtime and not here.
+// THE STRAND SET ARRIVES ON THE COMMAND LINE, AND NOWHERE ELSE. The brief
+// skill's `!` line carries `$ARGUMENTS`, so what the owner typed after `/brief`
+// reaches this runtime verbatim; each argument is a SERVED LESSON ADDRESS,
+// resolved against the Package's own enumeration by
+// `resolveStrandAddresses`.
 //
-// WHY THIS EXISTS AT ALL. The skill file is one `!` line now, and a line the
-// harness runs carries no arguments — so a Brief started by the owner has no
-// argv to put a settled set on. Before this the set reached the runtime as a
-// comma-separated list the MODEL retyped off a Full Report it had read, which is
-// exactly the class of input this issue removes: an id list a model retypes is
-// an id list a model can retype wrong, and nothing downstream could tell.
+// WHAT THIS REVERSES, AND WHY THE REVERSAL IS RECORDED RATHER THAN ASSUMED.
+// kogaki#1108 deleted the argv and had this function read the settled set off
+// Terrain's run record instead, on the ground that an id list the Model retypes
+// is an id list the Model can retype wrong. That ground was real and the cost
+// was larger: it coupled Brief to a Terrain run's INTERNAL PROGRESS, so a
+// Terrain run wedged before its ID gate — kogaki#1090, on 2026-09-11 — made
+// every Brief start refuse, which is what it did from 2026-09-12 until this
+// issue. The owner ruled on 2026-09-13/14 that the two lanes are INDEPENDENT
+// and that opportunistic Model resolution is accepted, because the resolved set
+// is rendered to the owner at the thesis gate BEFORE anything under `theses/`
+// is written — which is the mis-resolution's catch point, and the reason the
+// accepted risk is bounded rather than silent.
+//
+// NOTHING HERE READS A TERRAIN RUN. `terrainRunRecord`, `settledStrandHandoff`
+// and the `survey_record` field are gone from this path rather than kept as a
+// fallback: a fallback is a second way to reach the same state, and the defect
+// this issue closes is exactly that Brief had a reading of Terrain's progress at
+// all.
 function entryInputs(args) {
-  const survey = typeof args.survey === "string" && args.survey !== "" ? args.survey : null;
-  const ids = typeof args.ids === "string" && args.ids !== "" ? args.ids : null;
-  if (survey && ids) return { survey, ids, via: "argv" };
-  const t = terrainRunRecord();
-  if (!t) {
-    fail("`enter` has no settled Strand set: neither --survey/--ids were given nor is there a Terrain "
-      + "run record to read one from. A Brief starts from a set the owner ALREADY settled at Terrain's "
-      + "id-selection gate and never composes one of its own (SPEC-terrain: Terrain ends at Strand "
-      + "exploration). Run Terrain first. Nothing was written.");
+  const entered = Array.isArray(args._rest) ? args._rest : [];
+  if (!entered.length) {
+    fail("`start` was given no Strand address. A Brief is started with the served Lesson addresses "
+      + "it composes from, space-separated: `/brief coding::lesson/<local-name> "
+      + "coding::lesson/<local-name>` (a bare local name resolves against the Lesson kind). A "
+      + "human-facing reference — a Full Report coordinate like `G1` or `L101`, or a description in "
+      + "prose — is resolved into served addresses from the Full Report BEFORE the skill is invoked, "
+      + "and this runtime refuses such a token by name. Nothing was written.");
   }
-  const h = settledStrandHandoff(t.record);
-  if (h.error) {
-    fail(`\`enter\` cannot read the settled Strand set from the Terrain run at ${t.dir}: ${h.error}. `
-      + "Nothing was written.");
-  }
-  return {
-    survey: survey || h.survey,
-    ids: ids || h.displayIds.join(","),
-    via: `the Terrain run at ${t.dir}`,
-  };
+  return { entered, via: "supplied on the command line" };
 }
 
 // ---- THE RENDERER HALF. One entry per state the table declares, keyed by state
@@ -1085,15 +1079,18 @@ const STATE_WORK = {
   enter: (rec, st, args) => {
     const runState = join(rec._dir, "run.json");
     const inputs = entryInputs(args);
-    cmdEnter({ ...args, survey: inputs.survey, ids: inputs.ids, "run-state": runState });
+    cmdEnter({ ...args, addresses: inputs.entered, "run-state": runState });
     rec.brief_run_state = runState;
     // THE WHOLE PROVENANCE, NOT ONLY THE ROUTE (PR #1109 round 1). `via` alone
     // was written here and read by nothing, so the owner answered the thesis
-    // gate over a Strand set whose source was never rendered — and where the
-    // route is a Terrain run resolved by scan rather than by pointer, WHICH run
-    // is exactly the thing that can be wrong. The gate composer below renders
-    // this above the question.
-    rec.settled_set = { survey: inputs.survey, ids: inputs.ids, via: inputs.via };
+    // gate over a Strand set whose source was never rendered. At kogaki#1116
+    // the thing that can be wrong is the MODEL's resolution of a report
+    // coordinate into addresses, so what is recorded — and rendered above the
+    // question — is the ADDRESSES THE RUN WAS STARTED WITH, marked as supplied
+    // on the command line. That rendering is the whole reason opportunistic
+    // resolution is acceptable: the owner reads the resolved set before
+    // anything under `theses/` exists.
+    rec.settled_set = { addresses: inputs.entered, via: inputs.via };
     rec.settled_set_via = inputs.via;
     return null;
   },
@@ -1439,7 +1436,10 @@ const BRIEF_FLOW = {
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
-    case "enter": cmdEnter(args); break;
+    // The standalone `enter` takes its addresses POSITIONALLY, exactly as
+    // `start` does, so the fixture path and the started path spell the set the
+    // same way (kogaki#1116).
+    case "enter": cmdEnter({ ...args, addresses: args.addresses ?? args._rest }); break;
     case "adopt": cmdAdopt(args); break;
     case "mint": cmdMint(args); break;
     // ---- THE CONTROL PLANE'S ONE ADVANCE (kogaki#1108), entered once per act.
@@ -1470,6 +1470,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // `skill-expansion` executor kind and no hook fields, because no hook event
     // produced them and inventing one would be a fabricated attribution.
     case "start": runWorkflow(BRIEF_FLOW, args, SKILL_EXPANSION_EXECUTOR, { stopAtFirstWait: true }); break;
-    default: fail("usage: brief.mjs start | run [--status] | enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
+    default: fail("usage: brief.mjs start <served Lesson address> ... | run [--status] | enter <served Lesson address> ... [--run-state <path>] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
   }
 }

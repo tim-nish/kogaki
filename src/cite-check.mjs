@@ -29,18 +29,35 @@
 // is valid, or whether a scope was widened: those are the author's judgment,
 // attributed as such, and Gukan's facts are Gukan's.
 //
-// WHAT IT RESOLVES. A CanonicalDraft's frontmatter cites are
-// `gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha>` entries
-// (SPEC-draft-command §"Schema — the record half", v2, kogaki#600): the
-// (slug, kind) pair is the join key, resolved against the served survey at
-// its current HEAD; the `@<sha>` substrate pin is PROVENANCE, never the
-// resolution target. The prior positional form
+// WHAT IT RESOLVES. A CanonicalDraft's frontmatter carries cites in TWO live
+// forms, and the join key is the same in both: `(kind, slug)`, resolved against
+// the served survey at its current HEAD.
+//
+//   the ADDRESS form, `<package>::<kind>/<local-name>@<content_hash>`
+//   (kogaki#1116) — what a Brief minted since that issue cites. The hash is the
+//   RECORD's own, so the provenance question it answers is whether THIS
+//   Strand's material has moved since the Draft cited it.
+//
+//   the IDENTITY form, `gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey>
+//   @<sha>` (SPEC-draft-command §"Schema — the record half", v2, kogaki#600) —
+//   what every Draft in the tree carries. The `@<sha>` substrate pin is
+//   PROVENANCE, never the resolution target, and it dates the whole response,
+//   so the only question it answers is whether time has passed.
+//
+// BOTH ARE ADMITTED, and the older one is not deprecated here: a reader that
+// took only the new spelling would refuse every artifact that exists. What the
+// address form buys is the sharper provenance question, which is why the commit
+// pin was deprecated at the producing end rather than the reading end.
+//
+// The prior positional form
 // `gloss/ELEMENTS.jsonl:<line>@<sha>` is retired as a scheduled defect —
 // the hub regenerates the manifest wholesale at every distill close, so
 // every positional cite broke at the first close after authoring while
 // every cited identity survived (kogaki#600). Refusal shapes:
 //   malformed          — including every positional cite, refused with the
-//                        identity form named as the migration;
+//                        ADDRESS form named as the migration (kogaki#1116):
+//                        naming the identity form would send an author to a
+//                        spelling this repository no longer produces;
 //   resolves nowhere   — the served survey holds no record with the
 //                        declared (slug, kind) identity;
 //   pin drift          — the served surface is at a different sha than the
@@ -104,9 +121,37 @@ export function parseDraftCites(text) {
 const IDENTITY_RE = /^gloss\/ELEMENTS\.jsonl slug=([A-Za-z0-9._-]+) kind=(lesson|journey) @([0-9a-f]{7,40})$/;
 const POSITIONAL_RE = /^gloss\/ELEMENTS\.jsonl:\d+@[0-9a-f]{7,40}$/;
 
+// THE ADDRESS FORM (kogaki#1116). A Brief minted since that issue cites a Strand
+// as the SERVED ADDRESS AT ITS CONTENT HASH — `<package>::<kind>/<local-name>@
+// <content_hash>` — and `src/draft.mjs` copies those verbatim into the
+// CanonicalDraft's frontmatter, so this reader is the party the change reaches
+// next. It is added BESIDE the identity form rather than replacing it: every
+// Draft in the tree predates the change and cites the identity form, and a
+// reader that admitted only the new spelling would refuse every artifact that
+// exists.
+//
+// THE JOIN KEY IS UNCHANGED, AND THAT IS THE POINT. `<kind>/<local-name>` is
+// (kind, slug) written the way the Package writes it, so an address cite
+// resolves through `identityKey` exactly as an identity cite does — no second
+// lookup, no second served map, and no way for the two forms to disagree about
+// what a cite resolves to.
+//
+// WHAT DIFFERS IS THE PROVENANCE HALF, and it is strictly better. The identity
+// form's `@<sha>` is a SUBSTRATE PIN: it dates the whole response, so it said
+// the same thing about every cite in a Draft and nothing about whether any one
+// Strand's material had moved — which is why the only check available was
+// "does this pin match the pin the seam is serving now", and a mismatch meant
+// only that time had passed. A content hash is per record, so the same
+// comparison becomes the question worth asking: has THIS Strand's material
+// changed since the Draft cited it. The verdict vocabulary is unchanged, and
+// `verified-at-current-pin` carries the sharper reading for the new form.
+const ADDRESS_RE = /^([A-Za-z0-9._-]+)::(lesson|journey)\/([A-Za-z0-9._-]+)@([0-9a-f]{7,64})$/;
+
 export function parseCiteRef(cite) {
   const m = (cite ?? "").match(IDENTITY_RE);
-  return m ? { slug: m[1], kind: m[2], sha: m[3] } : null;
+  if (m) return { slug: m[1], kind: m[2], sha: m[3], form: "identity" };
+  const a = (cite ?? "").match(ADDRESS_RE);
+  return a ? { pkg: a[1], kind: a[2], slug: a[3], hash: a[4], form: "address" } : null;
 }
 
 // The served lookup's key: identity, never position — kind is in the key so
@@ -134,19 +179,30 @@ export function judgeCites(cites, served, servedPin) {
       const positional = POSITIONAL_RE.test(c.cite ?? "");
       results.push({ ...c, verdict: "malformed",
         detail: positional
-          ? `the positional form gloss/ELEMENTS.jsonl:<line>@<sha> is retired (SPEC-draft-command v2, kogaki#600) — migrate to the identity form gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha>: ${c.cite}`
-          : `the cite is not in the resolvable identity form gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha>: ${c.cite}` });
+          ? `the positional form gloss/ELEMENTS.jsonl:<line>@<sha> is retired (SPEC-draft-command v2, kogaki#600) — migrate to the address form <package>::<kind>/<local-name>@<content_hash> (kogaki#1116): ${c.cite}`
+          : `the cite is in neither resolvable form — the address form <package>::<kind>/<local-name>@<content_hash> (kogaki#1116) nor the identity form gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha> it succeeds: ${c.cite}` });
       continue;
     }
-    const pinMatch = servedSha ? servedSha.startsWith(ref.sha) || ref.sha.startsWith(servedSha) : false;
     const el = served.get(identityKey(ref.slug, ref.kind));
+    // THE PROVENANCE CHECK IS PER FORM, and the two are different questions
+    // (kogaki#1116). An identity cite carries a SUBSTRATE PIN, so the only
+    // answerable question is whether time has passed since it was written. An
+    // address cite carries the record's OWN content hash, so the question is
+    // whether THIS Strand's material has moved — which is what the cite was
+    // changed to make askable, and reading it as a pin would throw that away.
+    const pinMatch = ref.form === "address"
+      ? Boolean(el) && el.content_hash === ref.hash
+      : servedSha ? servedSha.startsWith(ref.sha) || ref.sha.startsWith(servedSha) : false;
     if (!el) {
       results.push({ ...c, verdict: "resolves-nowhere", pinMatch,
         detail: `resolves nowhere — the served survey (${served.size} record(s) at ${servedPin}) holds no record slug=${ref.slug} kind=${ref.kind}` });
       continue;
     }
     results.push({ ...c, verdict: pinMatch ? "verified" : "verified-at-current-pin", pinMatch,
-      detail: pinMatch ? "" : `the cite names ${ref.sha} and the seam serves ${servedPin} — no history is served, so the trial ran at the current pin` });
+      detail: pinMatch ? ""
+        : ref.form === "address"
+          ? `the cite names content hash ${ref.hash} and the seam serves ${el.content_hash ?? "a record carrying none"} — this Strand's material has changed since the Draft cited it, and no history is served, so the trial ran against the current content`
+          : `the cite names ${ref.sha} and the seam serves ${servedPin} — no history is served, so the trial ran at the current pin` });
   }
   return results;
 }
@@ -259,10 +315,15 @@ function runLive(draftPath) {
 function selfTest() {
   let passed = 0; const failures = [];
   const ok = (name, cond) => { if (cond) passed++; else failures.push(name); };
+  // THE SERVED RECORDS CARRY THEIR CONTENT HASH (kogaki#1116), because the
+  // address form's provenance check reads it. Only `alpha` and `charlie` carry
+  // one, deliberately: a record served WITHOUT a content hash is a state the
+  // address arm must render rather than crash on, and `bravo` is the case that
+  // reaches it.
   const served = new Map([
-    [identityKey("alpha", "lesson"), { slug: "alpha", kind: "lesson" }],
+    [identityKey("alpha", "lesson"), { slug: "alpha", kind: "lesson", content_hash: "a".repeat(64) }],
     [identityKey("bravo", "lesson"), { slug: "bravo", kind: "lesson" }],
-    [identityKey("charlie", "journey"), { slug: "charlie", kind: "journey" }],
+    [identityKey("charlie", "journey"), { slug: "charlie", kind: "journey", content_hash: "c".repeat(64) }],
   ]);
   const pin = "product-lab@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const mk = (slug, kind = "lesson", sha = "aaaaaaa") =>
@@ -283,9 +344,14 @@ function selfTest() {
   // AC1 — the retired positional form is malformed, migration named.
   r = judgeCites([{ strand: "L1", slug: "alpha", kind: "cite",
     cite: "gloss/ELEMENTS.jsonl:1@aaaaaaa" }], served, pin);
-  ok("a positional cite is malformed and the refusal names the identity form as the migration",
+  // THE MIGRATION NAMED IS THE CURRENT FORM, not the one that superseded the
+  // positional (kogaki#1116). A refusal that pointed at the identity form would
+  // send an author to a spelling this repository no longer produces — the
+  // positional cite's whole defect was being told to migrate to something, so
+  // naming a second stale target is the same failure one generation on.
+  ok("a positional cite is malformed and the refusal names the ADDRESS form as the migration",
     r[0].verdict === "malformed" && r[0].detail.includes("retired")
-    && r[0].detail.includes("slug=<slug> kind=<lesson|journey>"));
+    && r[0].detail.includes("<package>::<kind>/<local-name>@<content_hash>"));
 
   // AC2 — absent identity resolves nowhere.
   r = judgeCites([mk("zulu")], served, pin);
@@ -302,6 +368,69 @@ function selfTest() {
   r = judgeCites([mk("alpha", "lesson", "bbbbbbb")], served, pin);
   ok("pin drift is disclosed, never silently passed — and the identity still resolved",
     r[0].verdict === "verified-at-current-pin" && r[0].detail.includes("current pin"));
+
+  // ---- THE ADDRESS FORM (kogaki#1116). A Brief minted since that issue cites
+  // the served address at its content hash, and `src/draft.mjs` copies those
+  // verbatim into the frontmatter this reader judges — so without these arms
+  // every cite of every post-#1116 Draft reads `malformed` and the member goes
+  // red the first time such a Brief is realized. The suite could not see that:
+  // no Draft in the tree carries the new form, so the arms below are what stands
+  // in for an artifact that does not exist yet.
+  const addr = (slug, kind = "lesson", hash = "a".repeat(64)) =>
+    ({ strand: `L-${slug}`, slug, kind: "cite", cite: `coding::${kind}/${slug}@${hash}` });
+
+  const aref = parseCiteRef(`coding::lesson/alpha@${"a".repeat(64)}`);
+  ok("the address form parses to package, kind, slug and content hash",
+    aref !== null && aref.form === "address" && aref.pkg === "coding"
+    && aref.kind === "lesson" && aref.slug === "alpha" && aref.hash === "a".repeat(64));
+
+  r = judgeCites([addr("alpha")], served, pin);
+  ok("an address cite at the served content hash verifies", r[0].verdict === "verified");
+
+  r = judgeCites([addr("charlie", "journey", "c".repeat(64))], served, pin);
+  ok("an address journey cite resolves against the journey record", r[0].verdict === "verified");
+
+  // THE JOIN KEY IS THE SAME ONE. An address cite must not resolve across kinds
+  // any more than an identity cite does — asserted rather than inherited,
+  // because the two forms reach `identityKey` down different branches.
+  r = judgeCites([addr("alpha", "journey", "a".repeat(64))], served, pin);
+  ok("an address journey cite never resolves against the same slug's lesson record",
+    r[0].verdict === "resolves-nowhere" && r[0].detail.includes("kind=journey"));
+
+  r = judgeCites([addr("zulu")], served, pin);
+  ok("an absent address resolves nowhere, the declared identity named",
+    r[0].verdict === "resolves-nowhere" && r[0].detail.includes("slug=zulu kind=lesson"));
+
+  // THE PROVENANCE HALF IS THE POINT OF THE NEW FORM, and it asks a different
+  // question from the pin: not "has time passed" but "has THIS Strand's
+  // material changed". A moved hash is disclosed and the identity still
+  // resolves, exactly as pin drift is.
+  r = judgeCites([addr("alpha", "lesson", "b".repeat(64))], served, pin);
+  ok("a moved content hash is disclosed, never silently passed — and the identity still resolved",
+    r[0].verdict === "verified-at-current-pin" && r[0].detail.includes("material has changed"));
+
+  // ...AND THE PIN IS NOT CONSULTED FOR AN ADDRESS CITE. Judging the same cite
+  // against a seam serving a different PIN must not move the verdict: reading
+  // the content hash as a pin is the mistake this arm exists to refuse, and it
+  // would pass every one of the arms above.
+  r = judgeCites([addr("alpha")], served, "product-lab@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+  ok("an address cite's verdict does not move with the substrate pin",
+    r[0].verdict === "verified");
+
+  // A SERVED RECORD CARRYING NO CONTENT HASH is a fault to disclose rather than
+  // a cite to pass: the comparison cannot be made, so the cite cannot be
+  // verified, and the refusal says the seam served none.
+  r = judgeCites([addr("bravo")], served, pin);
+  ok("an address cite against a record serving no content hash is disclosed rather than verified",
+    r[0].verdict === "verified-at-current-pin" && r[0].detail.includes("carrying none"));
+
+  // BOTH FORMS STILL LIVE. Every Draft in the tree cites the identity form, so
+  // an implementation that admitted only the new spelling would refuse every
+  // artifact that exists — asserted here rather than left to the arms above,
+  // which pass under exactly that implementation if read one at a time.
+  r = judgeCites([mk("alpha"), addr("alpha")], served, pin);
+  ok("the two forms are judged side by side in one Draft",
+    r[0].verdict === "verified" && r[1].verdict === "verified");
 
   r = judgeCites([{ strand: "L1", slug: "alpha", cite: "ELEMENTS:one" }], served, pin);
   ok("a malformed cite is refused as unresolvable form", r[0].verdict === "malformed");

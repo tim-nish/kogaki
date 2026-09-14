@@ -142,6 +142,13 @@ function parseArgs(argv) {
 // what makes "template" decidable by field rather than by judgment.
 const SLOT = "*(awaiting composition)*";
 
+// A Brief minted since kogaki#1116 carries no survey pin, because the commit pin
+// is deprecated and each Strand's cite carries the served address at its own
+// content hash. The absence is STATED in the Draft's frontmatter rather than
+// rendered as an empty value: a blank `survey_pin:` would read as a pin the
+// Draft failed to carry, which is the one thing that is not true of it.
+export const NO_SURVEY_PIN = "none — the commit pin is deprecated (kogaki#1116); each Strand's cite carries its own content hash";
+
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 // ---------------------------------------------------------------------------
@@ -305,9 +312,16 @@ export function parseBrief(text, path = "<brief>") {
   const slugM = text.match(/^# Brief — (.+?)\s*$/m);
   const slug = slugM ? slugM[1] : basename(dirname(resolve(path)));
 
+  // THE SURVEY PIN IS NO LONGER REQUIRED, AND ITS ABSENCE IS TYPED RATHER THAN
+  // REFUSED (kogaki#1116). The commit pin is deprecated: a Brief minted since
+  // that issue carries no `*Survey pin:*` line at all, because each Strand's
+  // cite carries the served address at its OWN content hash — which is the fact
+  // the response-wide commit was standing in for, stated per member. A Brief
+  // minted before it still carries the line and is still read here, so the two
+  // generations are both realizable; what changed is that the absence is a
+  // recorded absence rather than a refusal, and the frontmatter says which.
   const pinM = text.match(/\*Survey pin:\*\s*`([^`]+)`/);
-  const surveyPin = pinM ? pinM[1] : null;
-  if (!surveyPin) refusals.push(`the Brief at ${path} carries no survey pin line — the closed set has no pin to be read at`);
+  const surveyPin = pinM ? pinM[1] : NO_SURVEY_PIN;
 
   // Strands: "### L<n> — <slug>" with their cite lines.
   const strands = [];

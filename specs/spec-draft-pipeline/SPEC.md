@@ -1,5 +1,20 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v38, amended 2026-09-14 (kogaki#1116) — **§5.3: BRIEF TAKES ITS
+STRAND SET ON THE COMMAND LINE AND READS NO TERRAIN RUN.** The arguments are
+served Lesson addresses resolved against the Package's own enumeration; a Full
+Report coordinate (`G<n>`, `L<n>`, `D<n>`) is refused by name, because the Model
+resolves one into addresses from the Full Report before the skill is invoked.
+This REVERSES v36's ground rather than drifting from it: kogaki#1108 removed the
+argv because an id list a Model retypes is one a Model can retype wrong, and the
+unstated cost was that reading the set off Terrain's run record coupled Brief to
+that run's internal progress — a Terrain run wedged before its ID gate made every
+Brief start refuse for six days from 2026-09-12. The owner accepts opportunistic
+Model resolution (2026-09-13/14) on the condition this flow already meets: the
+resolved set is rendered at the thesis gate before anything under `theses/` is
+written. Carried with it: the commit pin is deprecated, and a Strand's cite is
+the served address at its own content hash.
+
 **Status:** v37, amended 2026-09-07 (kogaki#904) — **§1: the scope limit is
 carried by the general rule, and the defence citing a removed clause is
 DELETED.** The sentence defended the limit by pointing at
@@ -1649,8 +1664,53 @@ code expresses.
 
 ### 5.3 The durable home and the entry point
 
-**The flow.** Entry resolves the settled Strand set (LessonDisplayIDs against
-the survey record) → the **thesis-determination gate** → the **mint**.
+**The flow.** Entry resolves the settled Strand set (served Lesson **addresses**
+supplied on the command line, against the Package's own enumeration) → the
+**thesis-determination gate** → the **mint**.
+
+**THE STRAND SET ARRIVES ON THE COMMAND LINE, AND BRIEF READS NO TERRAIN RUN
+(v38, kogaki#1116; owner ruling 2026-09-13/14).** Brief and Terrain are
+**independent**. The brief skill's one `!` line carries `$ARGUMENTS`, each
+argument is a **served Lesson address** — `<package>::<kind>/<local-name>`, or a
+bare local name resolved against the Lesson kind — and `enter` resolves every
+one of them through the gateway's enumeration, refusing by name an address the
+Package does not serve. **A start with no argument refuses and names the
+argument form.** Nothing in this lane reads a Terrain run record, a survey
+record, or anything under `runs/terrain`.
+
+**A human-facing reference is resolved BEFORE the skill is invoked.** `G<n>`,
+`L<n>` and `D<n>` are Full Report coordinates — Terrain mints them by **position
+in the served enumeration at survey time**, so the same token names a different
+Lesson after a pin advance, and the identity the Package serves is the address
+(product-lab#263 R1, which declined a per-kind number). The **Model** translates
+a report coordinate into addresses from the Full Report; the runtime **refuses
+such a token by name** and says so.
+
+**This reverses v36's ground rather than drifting from it.** kogaki#1108 removed
+the argv because an id list a Model retypes is one a Model can retype wrong. The
+cost was unstated and immediate: reading the set off Terrain's run record coupled
+Brief to that run's **internal progress**, so a Terrain run wedged before its ID
+gate made every Brief start refuse — which it did, for six days from 2026-09-12.
+The owner **accepts opportunistic Model resolution** on one condition this flow
+already meets: **the resolved set is rendered to the owner at the thesis gate**,
+marked as supplied on the command line, before anything under `theses/` is
+written. That rendering is the mis-resolution's catch point, which is what makes
+the accepted risk bounded rather than silent.
+
+**The display id is minted from the argument order, and it is a within-document
+token rather than an identity.** The first address takes `L1`. The Brief's
+Strands section carries `### L<n> — <slug>` beside that Strand's served cite, so
+the mapping travels with the document that uses it and no second carrier can
+drift from it — which is what lets the Step grammar, the Packets and the Draft
+keep addressing material as `L<n>` while the identity everywhere else is the
+served address.
+
+**The Strand cite is the served address at its content hash, and the commit pin
+is deprecated** (hub decision staged 2026-09-14). A response-wide commit said the
+same thing about every member of a set and nothing about whether any one
+Strand's material had moved; the content hash the gateway returns per line
+answers exactly that, per member. **No Brief output carries `@<commit>`**, and
+the minted Brief carries no survey-pin line at all.
 
 **One gate, carrying a pair.** The gate presents each option as a **(Thesis,
 slug) pair**: `enter` derives one slug per candidate and carries it in the gate

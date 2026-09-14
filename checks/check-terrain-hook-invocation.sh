@@ -193,6 +193,53 @@ assert_denied "an xargs-wrapped direct run"  "xargs ./src/terrain.mjs start"
 assert_denied "a setsid-wrapped direct run"  "setsid ./src/terrain.mjs run"
 assert_denied "a stdbuf-wrapped direct run"  "stdbuf -o0 ./src/terrain.mjs start"
 
+# THE SECOND EXECUTOR (kogaki#1116, acceptance item 5). `src/brief.mjs` is a
+# lane executor on the same terms: a Brief run is STARTED by the brief skill's
+# own `!` line and ADVANCED inside `advance-brief.py`, and it runs Terrain's own
+# advance loop under a flow binding. A model-typed `node src/brief.mjs start`
+# mints a skill-expansion-attributed record from Bash, which is exactly the
+# route the self-declared executor kind is only trustworthy because it is
+# closed — so the prohibition reaches it, through the same hook rather than a
+# second copy of the rule.
+assert_denied "the Brief start verb"      "node src/brief.mjs start coding::lesson/alpha"
+assert_denied "the Brief run verb"        "node src/brief.mjs run"
+assert_denied "a bare Brief invocation"   "node src/brief.mjs"
+assert_denied "a Brief enter"             "node src/brief.mjs enter coding::lesson/alpha"
+assert_denied "a Brief start behind sudo" "sudo node src/brief.mjs start"
+assert_denied "a direct Brief execution"  "./src/brief.mjs start"
+# The admitted verb is the same one, and it is the same narrowing: an inspection
+# route that was denied would leave a stuck Brief run unreadable by the one
+# party able to unstick it.
+assert_admitted "the Brief status verb"   "node src/brief.mjs run --status"
+assert_denied "a status flag on the Brief start verb" "node src/brief.mjs start --status"
+# NAMING IS STILL NOT RUNNING, asserted for the second executor rather than
+# inherited: the command-position anchor is what lets an Issue whose work is in
+# this runtime declare its own footprint, and that property is per-path.
+assert_admitted "a Brief footprint cell" \
+  "issue-sync admit-issue verdict 1116 --plan-cell 'act=implement-issue;files=src/brief.mjs'"
+assert_admitted "a grep over the Brief runtime" 'grep -n "entryInputs" src/brief.mjs'
+# ...and a third runtime that is NOT an executor still rides through, so the
+# widening above is a widening to a NAMED second file and not to `*.mjs`.
+assert_admitted "a non-executor runtime" "node src/draft.mjs run"
+assert_admitted "a second non-executor runtime" "node src/review-draft.mjs attach"
+
+# THE REASON NAMES THE LANE THE MATCHED FILE BELONGS TO. One hook now covers two
+# executors, and the two differ in exactly the facts the refusal sends the
+# reader to: which skill starts the run and which PostToolUse hook advances it.
+# A reason that named Terrain for a Brief command would point at the wrong file
+# in the one message a reader gets, which is worse than no message.
+for probe in "terrain:advance-terrain.py:node src/terrain.mjs start" \
+             "brief:advance-brief.py:node src/brief.mjs start"; do
+  lane=${probe%%:*}; rest=${probe#*:}; hookname=${rest%%:*}; cmd=${rest#*:}
+  out=$(deny_verdict "$cmd")
+  if printf '%s' "$out" | grep -q "$hookname"; then pass; else
+    bad "the deny on \`$cmd\` does not name $hookname — one hook covers two lanes, and the advance hook is a per-lane fact the reader is sent to"
+  fi
+  if printf '%s' "$out" | grep -qi "the $lane skill"; then pass; else
+    bad "the deny on \`$cmd\` does not name the $lane skill as the route that starts a run — a refusal naming the other lane's skill sends the reader to the wrong file"
+  fi
+done
+
 # THE ADMISSION READS THE ANCHOR'S OWN ARGUMENTS (PR #1064 round 1). The verb
 # read searched the raw segment for the filename, so a data mention standing
 # EARLIER in the segment supplied the verb for a LATER invocation: the deny

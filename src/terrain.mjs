@@ -128,7 +128,7 @@
 //
 import { spawnSync, spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
 import { basename, delimiter, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -3003,91 +3003,175 @@ function resolveReportTargets(record, tag, enteredIds, args) {
 }
 
 // --------------------------------------------------------------------------
-// THE HANDOFF TERRAIN OWES THE BRIEF FLOW (kogaki#1108).
+// THE STRAND SET BRIEF IS STARTED WITH, RESOLVED AGAINST THE SERVED
+// ENUMERATION (kogaki#1116).
 //
-// WHAT PROBLEM THIS IS. `src/brief.mjs`'s `enter` needs two facts — the survey
-// record that assigned the `L<n>` ids, and the settled Strand set as those ids.
-// Until this issue both arrived on a Bash command line the MODEL composed after
-// reading a Full Report, which is precisely the class of input the Brief table
-// removes: an id list the model retypes is an id list the model can retype
-// wrong, and no carrier downstream could tell.
+// WHAT THIS REPLACES, AND WHY THE REPLACEMENT IS A REVERSAL RATHER THAN DRIFT.
+// kogaki#1108 removed the argv from the Brief skill's `!` line and had `enter`
+// read the settled set off TERRAIN's own run record instead — `survey_record`
+// plus the owner's answer at `ID_SELECTION`. The ground it gave was that an id
+// list the Model retypes is an id list the Model can retype wrong. The cost was
+// not stated and was paid immediately: Brief became unrunnable whenever the
+// Terrain lane's open run had not reached its ID gate, which is what happened on
+// 2026-09-11 (kogaki#1090) and left every `/brief` start refusing from
+// 2026-09-12 on. The owner ruled on 2026-09-13/14 that Brief and Terrain are
+// INDEPENDENT: Brief takes its Strand set on its own command line, never reads a
+// Terrain run, and the Model's opportunistic resolution of a report coordinate
+// is accepted — because the resolved set is shown to the owner at the first
+// gate, which is where a mis-resolution is catchable.
 //
-// BOTH FACTS ALREADY EXIST, ON TERRAIN'S OWN RUN RECORD. `survey_record` names
-// the record; `owner_input.ID_SELECTION` holds what the OWNER answered at the
-// `terrain-id-selection` gate, written from the harness's payload by
-// `.claude/hooks/write-gate-capture.py`. So the handoff is a READ of an owner
-// act, not a recomposition of one.
+// THE ARGUMENT FORM IS THE SERVED ADDRESS, AND THAT IS NOT A PREFERENCE.
+// An `L<n>` is not a Strand identity: Terrain mints it by POSITION in the served
+// enumeration at survey time, so the same token names a different Lesson after a
+// pin advance. The identity the Package serves is the address
+// `<package>::<kind>/<local-name>` (product-lab#263 R1, which declined a
+// per-kind number), so that is what an argument is, and a human-facing token is
+// refused BY NAME rather than guessed at.
 //
-// IT RESOLVES THE IDS THE WAY THE STATE THAT PRINTED THEM RESOLVES THEM, and
-// that is the whole of why it lives HERE rather than in the Brief runtime. G and
-// SG ids are per-report-identity tokens whose meaning is the composed grouping
-// plus this run's subdivision judgment; a second resolver in another file would
-// be a second answer to "which members did the owner select", and the two would
-// agree until a pin advance renumbered something. `thesis_candidates` and
-// `neighborhood_input` already read it this way; this is the same three lines,
-// exported.
-//
-// IT REFUSES BY NAME AND SUBSTITUTES NOTHING. A record with no survey, no tag or
-// no ID answer is a Terrain run that has not reached the handoff — the Brief
-// flow is told which fact is missing, and composes no set of its own.
-// The Terrain run whose answers the handoff above reads: the lane's OPEN run
-// where one is open, and otherwise the most recently modified workspace in the
-// lane that holds a run record. Named for the LANE rather than resolved through
-// `flow()`, deliberately — this is called from inside the Brief flow's own
-// binding, where `flow()` answers "brief", and a reader that followed the
-// ambient binding would hand the Brief flow its own record back.
-export function terrainRunRecord() {
-  const pointer = process.env.KOGAKI_OPEN_RUN || join(laneDir("terrain"), OPEN_RUN_POINTER);
-  try {
-    const named = readFileSync(pointer, "utf8").trim();
-    if (named && existsSync(join(named, RUN_RECORD_FILE))) {
-      return { dir: named, record: readJson(join(named, RUN_RECORD_FILE)) };
-    }
-  } catch { /* no pointer is not a failure here; the scan below is the fallback */ }
-  let best = null;
-  try {
-    for (const name of readdirSync(laneDir("terrain"))) {
-      const d = join(laneDir("terrain"), name);
-      const p = join(d, RUN_RECORD_FILE);
-      if (!existsSync(p)) continue;
-      const at = statSync(p).mtimeMs;
-      if (!best || at > best.at) best = { dir: d, at };
-    }
-  } catch { /* an absent lane is an absent run, and the caller's refusal names it */ }
-  return best ? { dir: best.dir, record: readJson(join(best.dir, RUN_RECORD_FILE)) } : null;
+// IT LIVES HERE, NOT IN THE BRIEF RUNTIME, for the reason every other served
+// read does: `src/terrain.mjs` is the one component that reads served
+// renderings (SPEC-terrain, the served-renderings input rule), and a second
+// reader in the Brief lane would be a second answer to "what does the Package
+// serve".
+export const TERRAIN_TOKEN = /^(?:G[0-9]+(?:-[0-9]+)?|L[0-9]+|D[0-9]+)$/;
+
+// The refusal every human-facing token takes, stated once so the three token
+// families cannot drift into three readings of one rule.
+export function terrainTokenRefusal(tokens) {
+  return `${tokens.join(", ")}: a Full Report coordinate, not a Strand address. `
+    + "Terrain mints G/L/D tokens by position in the served enumeration at survey "
+    + "time, so they name a row of one report rather than a Strand, and a pin "
+    + "advance renumbers them. The MODEL resolves a report coordinate into served "
+    + "addresses from the Full Report BEFORE invoking the brief skill, and the "
+    + "skill is invoked with those addresses. Nothing was written.";
 }
 
-export function settledStrandHandoff(trec) {
-  if (!trec || typeof trec !== "object") {
-    return { error: "no Terrain run record was readable, so there is no settled Strand set to hand over" };
+// The served address at its content hash — the cite every Brief output carries
+// (kogaki#1116, acceptance item 6). THE COMMIT PIN IS DEPRECATED (hub decision
+// staged 2026-09-14): the substrate pin dated a whole response, so two Strands
+// cited at one pin were indistinguishable from two Strands that had both moved,
+// and a reader holding the cite could not tell whether the material under it had
+// changed. A content hash answers exactly that, per line, and the gateway
+// already returns one — so the cite is the address the Package serves joined to
+// the hash it serves beside it, and no kogaki artifact carries `@<commit>`.
+export function composeAddressCite(unitId, contentHash) {
+  if (typeof unitId !== "string" || unitId === "") return null;
+  if (typeof contentHash !== "string" || contentHash === "") return null;
+  return `${unitId}@${contentHash}`;
+}
+
+// Resolve the addresses a Brief run was started with against the served
+// enumeration. Returns `{ strands }` or `{ error }` — the same shape the
+// deleted survey-record resolver returned, so the caller's refusal handling is
+// unchanged.
+//
+// REFUSES BY NAME AND SUBSTITUTES NOTHING, which is the deleted resolver's own
+// rule kept: an address the Package does not serve names ITSELF in the refusal,
+// and no near-miss is silently accepted. The served enumeration is ~1700 rows,
+// so the refusal states the COUNT it searched rather than listing it — a
+// listing nobody can read is not a disclosure.
+//
+// THE DISPLAY ID IS MINTED HERE, BY THE OWNER'S OWN ARGUMENT ORDER, and it is a
+// WITHIN-DOCUMENT token rather than an identity: the Brief's Strands section
+// carries `### L<n> — <slug>` beside that Strand's served cite, so the mapping
+// travels with the document that uses it and no second carrier can drift from
+// it. That is what lets the Step grammar, the Packets and the Draft keep
+// addressing material as `L<n>` while the IDENTITY on the command line and in
+// every cite is the served address.
+export function resolveStrandAddresses(entered) {
+  const list = (Array.isArray(entered) ? entered : []).map((x) => String(x).trim()).filter(Boolean);
+  if (!list.length) {
+    return { error: "no Strand address was given. A Brief is started with the served "
+      + "Lesson addresses it composes from: `coding::lesson/<local-name>`, space-separated "
+      + "(a bare local name resolves against the Lesson kind). Nothing was written." };
   }
-  const survey = trec.survey_record ? resolve(REPO, String(trec.survey_record)) : null;
-  if (!survey || !existsSync(survey)) {
-    return { error: `the Terrain run record names ${survey ? `a survey record at ${survey} that does not exist` : "no survey record"} — the survey is what assigned the L<n> ids, so without it the settled set has no resolver` };
+  const terrainTokens = list.filter((x) => TERRAIN_TOKEN.test(x));
+  if (terrainTokens.length) return { error: terrainTokenRefusal(terrainTokens) };
+
+  // THE TRANSPORT AND THE RESOLUTION ARE SEPARABLE, which is what keeps the
+  // Brief fixture pass SEAM-FREE (kogaki#1116). `KOGAKI_ELEMENTS_PAYLOAD` names
+  // a RECORDED `element_survey` response — the same discipline
+  // `src/cite-check.mjs` states one seam over, where the judge is pure over the
+  // transport's text so a fixture can drive it with a recording. It is a fixture
+  // route and not a second corpus: an unreadable recording REFUSES rather than
+  // falling through to the live seam, because a fixture that silently reached
+  // the network would be asserting against whatever the substrate served that
+  // day.
+  const recorded = process.env.KOGAKI_ELEMENTS_PAYLOAD;
+  let resp;
+  if (recorded) {
+    try {
+      resp = JSON.parse(readFileSync(recorded, "utf8"));
+    } catch (e) {
+      return { error: `KOGAKI_ELEMENTS_PAYLOAD names ${recorded}, which is not a readable `
+        + `element_survey recording (${e.message}). A recorded enumeration that cannot be read is `
+        + "not an empty enumeration, and falling through to the live seam would make this run's "
+        + "answer depend on a substrate the caller asked it not to read." };
+    }
+  } else {
+    resp = gatewayQuery("element_survey", {});
   }
-  const oi = trec.owner_input || {};
-  const tag = oi.TAG_SELECTION;
-  if (typeof tag !== "string" || tag === "") {
-    return { error: "the Terrain run record carries no answer at TAG_SELECTION, so the run never reached the grouping the ids are read off" };
+  const byUnit = new Map();
+  const lessonBySlug = new Map();
+  const journeyBySlug = new Map();
+  let served = 0;
+  for (const line of resp.lines || []) {
+    let rec;
+    try {
+      rec = JSON.parse(line.text);
+    } catch {
+      return { error: `unparseable served record at ${line.cite} — surfaced, not skipped: a silently `
+        + "dropped record makes an address look unserved when it is the read that failed" };
+    }
+    served++;
+    if (rec.unit_id) byUnit.set(rec.unit_id, rec);
+    if (rec.kind === "lesson" && !lessonBySlug.has(rec.slug)) lessonBySlug.set(rec.slug, rec);
+    if (rec.kind === "journey" && !journeyBySlug.has(rec.slug)) journeyBySlug.set(rec.slug, rec);
   }
-  const ids = oi.ID_SELECTION;
-  if (ids === undefined || ids === null || String(ids).trim() === "") {
-    return { error: "the Terrain run record carries no answer at ID_SELECTION — the settled Strand set is the OWNER's answer at that gate, and a Brief never composes one of its own (SPEC-terrain: Terrain ends at Strand exploration)" };
+
+  const strands = [];
+  const seen = new Set();
+  const missing = [];
+  const wrongKind = [];
+  for (const addr of list) {
+    const rec = byUnit.get(addr) || (addr.includes("::") ? null : lessonBySlug.get(addr));
+    if (!rec) { missing.push(addr); continue; }
+    if (rec.kind !== "lesson") { wrongKind.push(`${addr} (kind ${rec.kind})`); continue; }
+    // Dedup preserving the entered order — the set is the unit, and a repeat is
+    // not an error the owner should be stopped for (the deleted resolver's rule,
+    // kept).
+    if (seen.has(rec.unit_id)) continue;
+    seen.add(rec.unit_id);
+    const cite = composeAddressCite(rec.unit_id, rec.content_hash);
+    if (!cite) {
+      return { error: `the served record for ${addr} carries no ${rec.unit_id ? "content hash" : "address"} — `
+        + "a Strand whose cite cannot be composed is a fault to clear, never material to compose from" };
+    }
+    const j = journeyBySlug.get(rec.slug);
+    strands.push({
+      id: `lesson:${rec.slug}`,
+      display_id: `L${strands.length + 1}`,
+      slug: rec.slug,
+      family: "lesson",
+      address: rec.unit_id,
+      tags: rec.tags || [],
+      cite,
+      journey: j ? { slug: j.slug, cite: composeAddressCite(j.unit_id, j.content_hash) } : null,
+    });
   }
-  const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
-  const record = readJson(survey);
-  const j = trec.judgments || {};
-  const joins = {};
-  if (j.J2_subdivision) joins.subdivisions = resolve(REPO, j.J2_subdivision);
-  const { targets } = resolveReportTargets(record, tag, enteredIds, joins);
-  const displayIds = [...new Set(
-    targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
-    .map((mid) => displayIdOf(mid, record.candidates))
-    .filter((d) => d && d !== NO_DISPLAY_ID);
-  if (!displayIds.length) {
-    return { error: `the Terrain run's answer at ID_SELECTION (${enteredIds.join(", ")}) resolves to no member carrying a display id — an id list that resolves to nothing is not a settled set` };
+  if (wrongKind.length) {
+    return { error: `${wrongKind.join(", ")}: served, but not a Lesson. A Brief composes from Lessons; `
+      + "a Journey is a Lesson's own material and rides its Strand, and a Decision is not article "
+      + "material at all. Nothing was written." };
   }
-  return { survey, tag, displayIds, entered: enteredIds };
+  if (missing.length) {
+    return { error: `${missing.join(", ")}: the Package serves no such address. Searched ${served} served `
+      + `record(s) at ${resp.pin ?? "an unnamed pin"}. An address is `
+      + "`<package>::<kind>/<local-name>` as the Package serves it, or a bare local name resolved "
+      + "against the Lesson kind. Nothing was dropped silently — every entered address is placed or "
+      + "named. Nothing was written." };
+  }
+  return { strands };
 }
 
 // --------------------------------------------------------------------------
