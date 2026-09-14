@@ -144,6 +144,28 @@ const thesisOptionIds = (runStatePath) =>
 // it is: a survey record, read here.
 const SURVEY = "checks/fixtures/survey/lone-tag-member.json";
 
+// THE SERVED ENUMERATION THE MINT RESOLVES AGAINST (kogaki#1116). Since that
+// issue a Brief is started with SERVED LESSON ADDRESSES on its command line and
+// resolves them against the Package's own enumeration, so the fixture the mint
+// needs is a recorded `element_survey` response rather than a survey record.
+// It is handed over through `KOGAKI_ELEMENTS_PAYLOAD`, which is what keeps this
+// member SEAM-FREE — the resolver refuses an unreadable recording rather than
+// falling through to the live seam, so a case here can never silently become an
+// assertion about whatever the substrate served today.
+//
+// SURVEY IS NOT DELETED BESIDE IT: the reduced-tree case (n) still copies it, and
+// the two files carry the same five members deliberately, so the Brief minted
+// here is the Brief that was minted before the argument form changed.
+const ELEMENTS = "checks/fixtures/elements/brief-compose.json";
+const ELEMENTS_ENV = { ...process.env, KOGAKI_ELEMENTS_PAYLOAD: resolvePath(ELEMENTS) };
+// The two settled Strands, in the order the cases below expect them. THE ORDER
+// IS NOW THE ARGUMENT ORDER, and it is what mints the within-document ids: the
+// first address takes L1. `bravo` leads and `alpha` — the member carrying a
+// Journey — follows, so alpha is L2 exactly as it was when the ids were read off
+// a survey record, and every case downstream that names L2's Journey is
+// exercised against the same member it always was.
+const SETTLED = ["coding::lesson/bravo", "coding::lesson/alpha"];
+
 // ---- THE REMOVAL TEST'S JUDGE (case (n), kogaki#1108). It answers the three
 // `judgment` states of `src/brief-workflow.json` and nothing else, through the
 // CLI's `--output-format json` envelope the shipped parse reads.
@@ -265,11 +287,11 @@ const ranCase = (id) => CASES.ran(id);
 let exemplarLine = "the Move library was not read";
 const dir = mkdtempSync(join(tmpdir(), "brief-compose-"));
 const theses = join(dir, "theses");
-const run = (argv) => spawnSync(process.execPath, argv, { encoding: "utf8" });
+const run = (argv, env = ELEMENTS_ENV) => spawnSync(process.execPath, argv, { encoding: "utf8", env });
 
 // Mint a real Brief through the v9 flow (L2 has a journey; L1 does not).
 const rs = join(dir, "run.json");
-run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", rs]);
+run(["src/brief.mjs", "enter", ...SETTLED, "--run-state", rs]);
 // THE OWNER'S ANSWER IS CAPTURED, NEVER PASSED (kogaki#891, kogaki#1108): the
 // executor composes the declaration at its `THESIS_ADOPTION` wait, the harness
 // writes the row, and `adopt` reads it. `--thesis` no longer exists, and
@@ -1831,6 +1853,12 @@ try {
       writeFileSync(join(rt, ".claude", "skills", "brief", "SKILL.md"), "!`node src/brief.mjs start`\n");
       mkdirSync(join(rt, "fixtures"), { recursive: true });
       copyFileSync(SURVEY, join(rt, "fixtures", "survey.json"));
+      // THE RECORDED ENUMERATION TRAVELS INTO THE REDUCED TREE TOO (kogaki#1116).
+      // Case (n) asserts the start act runs with neither the skill file, the
+      // Spec, nor a repository around it; a start that reached the live seam
+      // would be asserting about a substrate instead, and would fail in CI where
+      // the gateway is absent.
+      copyFileSync(ELEMENTS, join(rt, "fixtures", "elements.json"));
 
       // THE ABSENCE IS ASSERTED, NOT ASSUMED. A tree that quietly gained a
       // `specs/` — through a copy widened later, or through a runtime that
@@ -1962,8 +1990,9 @@ try {
       // argv: the fixture path, unchanged since kogaki#1108 gave `enter` its
       // Terrain handoff and left `--survey`/`--ids` winning where they are given.
       const start = inTree(["src/brief.mjs", "start", "--run-dir", D,
-        "--survey", "fixtures/survey.json", "--ids", "L2,L1",
-        "--slug", "removal-test", "--moves-dir", "moves"]);
+        ...SETTLED,
+        "--slug", "removal-test", "--moves-dir", "moves"],
+        { KOGAKI_ELEMENTS_PAYLOAD: join(rt, "fixtures", "elements.json") });
       if (start.status !== 0) {
         fails.push(`(n) the start act failed in the reduced tree: ${(start.stderr || start.stdout || "").trim().slice(0, 400)}`);
       } else {
@@ -2613,7 +2642,7 @@ try {
   {
     const mk = (name) => {
       const rsx = join(dir, name);
-      run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", rsx]);
+      run(["src/brief.mjs", "enter", ...SETTLED, "--run-state", rsx]);
       return rsx;
     };
     // ITEM 1 — the removed channel refuses LOUDLY rather than being ignored.
@@ -3507,7 +3536,7 @@ ranCase("z");
   // the accumulating-run-state defect kogaki#750 removed, at a new site.
   try {
     const zrs = join(zdir, "run.json");
-    run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs]);
+    run(["src/brief.mjs", "enter", ...SETTLED, "--run-state", zrs]);
     // THE DECLARATION FILE IS THE EXECUTOR'S NOW (kogaki#1108), and this case
     // is about what happens when it is GONE. `gate-thesis --declare` used to
     // write it beside the run state; the executor writes it into its own run
@@ -3608,6 +3637,144 @@ ranCase("aa");
   }
   if (faulted.some((c) => c.claim.includes(NO_HEADLINE))) {
     fails.push("(aa) an address fault still rendered NO_HEADLINE somewhere in the candidate set — the marker asserts a read that never happened");
+  }
+}
+
+
+// ---- (ab) THE START ACT TAKES ITS STRAND SET ON THE COMMAND LINE, AND READS
+// NO TERRAIN RUN (kogaki#1116, acceptance item 7).
+//
+// WHAT THIS EXISTS TO REFUSE. Between kogaki#1108 and this issue, `enter` read
+// the settled set off the TERRAIN lane's open run record. Nothing in this
+// member noticed, because every case here drove `enter` with explicit flags and
+// the Terrain read was the fallback beneath them — so the lane coupling was
+// exercised by nothing, and the day Terrain's own run wedged before its ID gate
+// every Brief start refused and no check went red. The pair below binds the two
+// halves of the replacement AT THE START ACT, which is the surface the owner
+// reaches.
+//
+// THE ABSENCE IS STAGED, NEVER ASSUMED. Both cases run with the Terrain lane
+// pointed at an EMPTY directory of their own through `KOGAKI_RUN_DIR` and
+// `KOGAKI_OPEN_RUN`, so "no Terrain lane present" is a fact about this case's
+// environment rather than about whatever the developer's machine happens to
+// hold. A case that merely ran on a clean machine would pass for the wrong
+// reason and would go red on a machine mid-Terrain-run.
+ranCase("ab");
+{
+  const adir = mkdtempSync(join(tmpdir(), "brief-entry-"));
+  try {
+    const noTerrain = join(adir, "no-terrain-lane");
+    mkdirSync(noTerrain, { recursive: true });
+    // THE OPEN-GATE STORE IS ISOLATED, AND THAT IS A PRECONDITION RATHER THAN
+    // TIDINESS. The start act OPENS a gate, and the open-gate pointer is what
+    // `gate-open-terrain-gate.py` reads to refuse every act of the session
+    // holding it. A case that started the executor against the live store
+    // therefore wedges whatever session runs the suite — every tool denied
+    // until the pointer is answered — and this case then deletes the payload
+    // the refusal demands be echoed back, so the wedge has no exit at all. It
+    // happened once, on the run that wrote this case.
+    const gates = join(adir, "open-gates");
+    mkdirSync(gates, { recursive: true });
+    const env = {
+      ...ELEMENTS_ENV,
+      KOGAKI_BRIEF_RUN_DIR: join(adir, "brief-run"),
+      KOGAKI_RUN_DIR: noTerrain,
+      KOGAKI_OPEN_RUN: join(noTerrain, "no-such-pointer"),
+      KOGAKI_OPEN_GATES: gates,
+    };
+    delete env.KOGAKI_BRIEF_OPEN_RUN;
+
+    // (ab1) TWO SERVED ADDRESSES REACH THE THESIS GATE.
+    const started = run(["src/brief.mjs", "start", ...SETTLED], env);
+    const rec = (() => {
+      try { return JSON.parse(readFileSync(join(env.KOGAKI_BRIEF_RUN_DIR, "run-record.json"), "utf8")); }
+      catch { return null; }
+    })();
+    if (started.status !== 0 || !rec) {
+      fails.push(`(ab) a start with two served addresses and NO Terrain lane did not reach a run record — the two lanes are independent since kogaki#1116, so a Terrain lane that does not exist must not reach this act at all: ${(started.stderr || started.stdout || "").trim().slice(0, 400)}`);
+    } else {
+      const owed = (rec.gate_declarations_owed || []).map((g) => g.state);
+      if (!owed.includes("THESIS_ADOPTION")) {
+        fails.push(`(ab) the start act stopped before the thesis gate with no Terrain lane present — states declared: ${owed.join(", ") || "none"}. Reaching the first owner question is what makes the set command-line-supplied rather than Terrain-supplied`);
+      }
+      // THE PROVENANCE BLOCK IS PART OF THE CASE (acceptance item 4), because
+      // it is the whole reason opportunistic resolution is acceptable: the
+      // owner reads the ADDRESSES before answering, so a mis-resolution is
+      // catchable at the one moment nothing is written yet.
+      const settled = rec.settled_set || {};
+      if (!Array.isArray(settled.addresses) || settled.addresses.join(",") !== SETTLED.join(",")) {
+        fails.push(`(ab) the run record does not carry the addresses the run was started with: ${JSON.stringify(settled.addresses)} — the provenance the gate renders is read from here`);
+      }
+      if (!String(settled.via || "").includes("command line")) {
+        fails.push(`(ab) the settled set is not marked as supplied on the command line (via: ${JSON.stringify(settled.via)}) — an unmarked set reads as one some other lane settled`);
+      }
+      const state = (() => {
+        try { return JSON.parse(readFileSync(rec.brief_run_state, "utf8")); } catch { return null; }
+      })();
+      if (!state) {
+        fails.push("(ab) the start act wrote no Brief run state, so the resolved set cannot be read");
+      } else {
+        if (!state.gate.where.includes(SETTLED[0]) || !state.gate.where.includes(SETTLED[1])) {
+          fails.push(`(ab) the thesis gate's provenance line does not render the addresses: ${state.gate.where}`);
+        }
+        // THE CITE IS THE SERVED ADDRESS AT ITS CONTENT HASH, AND CARRIES NO
+        // COMMIT (acceptance item 6). Asserted in BOTH directions: the positive
+        // alone would pass on a cite that carried the address AND a commit pin
+        // beside it, which is exactly the shape a half-migration leaves.
+        for (const s of state.strands) {
+          if (!s.cite.startsWith(`${s.address}@`)) {
+            fails.push(`(ab) ${s.display_id}'s cite is not the served address at its content hash: ${s.cite}`);
+          }
+          if (/@[0-9a-f]{7,40}$/.test(s.cite) && !/@[0-9a-f]{64}$/.test(s.cite)) {
+            fails.push(`(ab) ${s.display_id}'s cite carries something other than a content hash: ${s.cite} — the commit pin is deprecated (kogaki#1116)`);
+          }
+        }
+        if (state.pin !== undefined) {
+          fails.push("(ab) the Brief run state still carries a `pin` — nothing in Brief reads the response pin since kogaki#1116, and a field nothing reads is a field a later reader will");
+        }
+      }
+    }
+
+    // (ab2) A FULL REPORT COORDINATE IS REFUSED BY NAME, and the refusal names
+    // the MODEL's resolution. Bound to the refusal's own sentence rather than
+    // to the token, because the token appears in every other refusal this path
+    // can raise — an assertion on `L15` alone goes green against the
+    // address-not-served arm, which is the proxy shape this file refuses.
+    const l15 = run(["src/brief.mjs", "start", "L15"], {
+      ...env, KOGAKI_BRIEF_RUN_DIR: join(adir, "brief-run-l15"),
+    });
+    const said = `${l15.stderr || ""}${l15.stdout || ""}`;
+    if (l15.status === 0) {
+      fails.push("(ab) a start with `L15` was ACCEPTED — an L id is not a Strand identity: Terrain mints it by position at survey time, so the same token names a different Lesson after a pin advance");
+    }
+    if (!said.includes("L15")) {
+      fails.push(`(ab) the refusal does not name the token it refused: ${said.trim().slice(0, 300)}`);
+    }
+    if (!/MODEL resolves|Model resolves/.test(said)) {
+      fails.push(`(ab) the refusal does not say that the MODEL resolves a report coordinate into served addresses before the skill is invoked — a refusal that names no repair sends the owner back to Terrain, which is the coupling this issue removes: ${said.trim().slice(0, 300)}`);
+    }
+    // THE DISCRIMINATION: a served address is admitted by the same act, so the
+    // refusal above is a refusal of the TOKEN and not of everything.
+    if (run(["src/brief.mjs", "start", SETTLED[0]], {
+      ...env, KOGAKI_BRIEF_RUN_DIR: join(adir, "brief-run-one"),
+    }).status !== 0) {
+      fails.push("(ab) the same act refused a SERVED address too, so the L-token refusal above proves nothing about which inputs are admitted");
+    }
+    // AND A START WITH NO ARGUMENT AT ALL REFUSES (acceptance item 1), which is
+    // the state every `/brief` invocation was in before this issue: the skill
+    // line carried no `$ARGUMENTS`, so nothing the owner typed reached here.
+    const bare = run(["src/brief.mjs", "start"], {
+      ...env, KOGAKI_BRIEF_RUN_DIR: join(adir, "brief-run-bare"),
+    });
+    const bareSaid = `${bare.stderr || ""}${bare.stdout || ""}`;
+    if (bare.status === 0) {
+      fails.push("(ab) a start with NO argument was accepted — with no Strand set there is nothing to compose from, and the run must say so rather than reach for one");
+    }
+    if (!bareSaid.includes("coding::lesson/")) {
+      fails.push(`(ab) the no-argument refusal does not name the argument form: ${bareSaid.trim().slice(0, 300)}`);
+    }
+  } finally {
+    rmSync(adir, { recursive: true, force: true });
   }
 }
 

@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
-"""PreToolUse deny: the Terrain executor is not reachable from a Bash command.
+"""PreToolUse deny: a lane executor is not reachable from a Bash command.
 
-Design and licence: kogaki#1027, item 2. Contract: specs/spec-terrain/SPEC.md
-§16. Read them there -- this file restates neither.
+Design and licence: kogaki#1027, item 2; widened to the Brief runtime by
+kogaki#1116, acceptance item 5. Contract: specs/spec-terrain/SPEC.md §16. Read
+them there -- this file restates neither.
 
-WHAT THIS REFUSES. Any `Bash` command naming `terrain.mjs` with any verb other
-than `--status`. That is the whole rule, and the allowance is deliberately a
-FLAG rather than a subcommand list: `run --status` is read-only, it is the one
-route by which a person can inspect a stuck run, and an inspection route that
-was denied would leave the run unreadable by the one party able to unstick it.
+WHAT THIS REFUSES. Any `Bash` command naming `terrain.mjs` OR `brief.mjs` with
+any verb other than `--status`. That is the whole rule, and the allowance is
+deliberately a FLAG rather than a subcommand list: `run --status` is read-only,
+it is the one route by which a person can inspect a stuck run, and an inspection
+route that was denied would leave the run unreadable by the one party able to
+unstick it.
+
+WHY THE SECOND EXECUTOR JOINS THIS ONE RATHER THAN GETTING ITS OWN HOOK. The
+rule is identical in every part -- the same command-position anchor, the same
+one admitted verb, the same fail-closed posture -- and the two runtimes now
+share the executor itself: `src/brief.mjs` runs `src/terrain.mjs`'s own advance
+loop under a flow binding. Two files carrying one rule drift; what is per-lane
+is the skill file and the advance hook the reason names, and those are read off
+the matched executor rather than written twice.
 
 WHY IT IS A DENY AND NOT A LINT. Every Terrain run since kogaki#17 started when
 the model typed `node src/terrain.mjs run` into Bash and advanced when the model
@@ -62,17 +72,24 @@ import json
 import re
 import sys
 
-# The executor's file, and the one verb admitted from a Bash command.
-EXECUTOR = "terrain.mjs"
+# The executors this hook covers, and the one verb admitted from a Bash command.
+# Keyed by filename so the reason can name the LANE the matched file belongs to:
+# the skill that starts it and the PostToolUse hook that advances it are per-lane
+# facts, and a reason naming the wrong one sends the reader to the wrong file.
+EXECUTORS = {
+    "terrain.mjs": ("Terrain", "terrain", ".claude/hooks/advance-terrain.py"),
+    "brief.mjs": ("Brief", "brief", ".claude/hooks/advance-brief.py"),
+}
 ADMITTED = "--status"
 
 REASON = (
     "`{cmd}` RUNS {executor} -- the path stands in command position -- and the "
-    "Terrain executor is invoked by hooks only (kogaki#1027).\n\n"
-    "A run is STARTED by the terrain skill's own `!` line, which the harness "
+    "{lane} executor is invoked by hooks only (kogaki#1027, widened to the Brief "
+    "runtime by kogaki#1116).\n\n"
+    "A run is STARTED by the {skill} skill's own `!` line, which the harness "
     "executes at invocation before you see anything, and ADVANCED inside the "
     "PostToolUse hook for the AskUserQuestion that answered its gate "
-    "(.claude/hooks/advance-terrain.py). There is no model-typed route to either, "
+    "({advance}). There is no model-typed route to either, "
     "and there is no stub: `--input`, `--at` and `--enter` are deleted and the "
     "executor refuses them by name.\n\n"
     "The one verb admitted from a Bash command is `run {admitted}`, which is "
@@ -127,7 +144,7 @@ def segments(command):
 # `--plan-cell` value are not, because a token carrying `=` or `,` is a data
 # cell rather than a command. That exclusion is what makes an Issue whose work
 # is in the executor admissible at all.
-PATH_TOKEN = re.compile(r"^[^\s=,]*(?:^|/)terrain\.mjs$")
+PATH_TOKEN = re.compile(r"^[^\s=,]*(?:^|/)(?:terrain|brief)\.mjs$")
 
 # INTERPRETERS. The tokens after which a path is being RUN. Node's own spellings
 # plus the runners that reach it; the version-suffixed forms (`node20`) are
@@ -245,12 +262,16 @@ def admitted(tokens, index):
 
 
 def offending(command):
-    """The first segment that RUNS the executor without admitting itself."""
+    """The first segment that RUNS an executor without admitting itself.
+
+    Returns `(segment, executor filename)` so the reason can name the lane the
+    matched file belongs to, rather than naming one lane for both.
+    """
     for seg in segments(command):
         tokens = _tokens(seg)
         index = command_index(tokens)
         if index is not None and not admitted(tokens, index):
-            return seg.strip()
+            return seg.strip(), tokens[index].rsplit("/", 1)[-1]
     return None
 
 
@@ -267,10 +288,13 @@ def main():
     if payload.get("tool_name") != "Bash":
         return 0
     command = (payload.get("tool_input") or {}).get("command") or ""
-    seg = offending(command)
-    if seg is None:
+    hit = offending(command)
+    if hit is None:
         return 0
-    deny(REASON.format(cmd=seg[:200], executor=EXECUTOR, admitted=ADMITTED))
+    seg, executor = hit
+    lane, skill, advance = EXECUTORS.get(executor, EXECUTORS["terrain.mjs"])
+    deny(REASON.format(cmd=seg[:200], executor=executor, lane=lane, skill=skill,
+                       advance=advance, admitted=ADMITTED))
     return 0
 
 
