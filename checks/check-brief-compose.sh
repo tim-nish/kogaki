@@ -3684,8 +3684,32 @@ ranCase("ab");
     // happened once, on the run that wrote this case.
     const gates = join(adir, "open-gates");
     mkdirSync(gates, { recursive: true });
+    // THE JUDGE BINARY IS STUBBED, ON CASE (n)'S OWN RECIPE, AND IT IS NOT
+    // OPTIONAL HERE. The start act resolves the table's `judge.command` over
+    // PATH and REFUSES where no candidate answers `--version` (kogaki#1076) —
+    // before any state runs, so it refuses ahead of the entry these cases are
+    // about. On a developer machine `claude` is on PATH and the act rides
+    // through; in CI it is not, and every arm below then reads the SAME
+    // judge-resolution refusal: the run-record arm fails honestly, and the three
+    // refusal arms fail while APPEARING to be about their own subject, since
+    // each greps a refusal that is simply the wrong one. That is the shape
+    // kogaki#1116's own findings warn about, arriving in the case written for
+    // them, and it went red in CI at the first push.
+    //
+    // NOTHING HERE REACHES A JUDGMENT STATE — these cases stop at the first
+    // wait — so the stub only has to answer the `--version` probe. It replaces
+    // the BINARY and nothing else, so the argv, the resolution and every
+    // refusal are the shipped ones.
+    // ONE EXECUTABLE FILE, NEVER AN INTERPRETER PLUS A SCRIPT. `KOGAKI_JUDGE_CLI`
+    // replaces the BINARY, and the resolver resolves it as one command — a
+    // two-token value resolves to nothing and refuses with the same message an
+    // absent `claude` gives, which is the first thing tried here and is worth
+    // the line it costs a later reader.
+    const judge = join(adir, "judge-stub");
+    writeFileSync(judge, JUDGE_STUB, { mode: 0o755 });
     const env = {
       ...ELEMENTS_ENV,
+      KOGAKI_JUDGE_CLI: judge,
       KOGAKI_BRIEF_RUN_DIR: join(adir, "brief-run"),
       KOGAKI_RUN_DIR: noTerrain,
       KOGAKI_OPEN_RUN: join(noTerrain, "no-such-pointer"),
