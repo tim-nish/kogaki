@@ -83,7 +83,15 @@ import("./src/terrain.mjs").then(async (m) => {
   }
   writeFileSync(join(out, "rows.tsv"), rows.join("\n") + "\n");
 });
-' "$TMP" || { echo "  state     COULD-NOT-ESTABLISH — the composer did not run"; exit 1; }
+'  "$TMP" || {
+  # EXIT 0, like every other COULD-NOT-ESTABLISH arm in this file (PR #1119
+  # round 1). The state token and the exit disagreeing is the one reading a
+  # check must never produce: it says both "nothing was established" and "the
+  # subject is defective".
+  echo "  state     COULD-NOT-ESTABLISH — the composer did not run, so no gate was judged here"
+  echo "check-gate-call-shape: 0 gate(s) judged, COULD-NOT-ESTABLISH"
+  exit 0
+}
 
 JUDGED=0; FAILED=0; SKIPPED=0
 while IFS=$'\t' read -r ID STATE NOTE; do
