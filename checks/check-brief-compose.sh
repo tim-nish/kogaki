@@ -148,10 +148,19 @@ const SURVEY = "checks/fixtures/survey/lone-tag-member.json";
 // issue a Brief is started with SERVED LESSON ADDRESSES on its command line and
 // resolves them against the Package's own enumeration, so the fixture the mint
 // needs is a recorded `element_survey` response rather than a survey record.
-// It is handed over through `KOGAKI_ELEMENTS_PAYLOAD`, which is what keeps this
-// member SEAM-FREE — the resolver refuses an unreadable recording rather than
-// falling through to the live seam, so a case here can never silently become an
-// assertion about whatever the substrate served today.
+// It is handed over through `KOGAKI_ELEMENTS_PAYLOAD`, and the resolver REFUSES
+// an unreadable recording rather than falling through to the live seam, so the
+// RESOLUTION a case asserts over can never silently become an assertion about
+// whatever the substrate served today.
+//
+// WHAT THAT DOES NOT COVER, stated rather than left to read as total (PR #1117
+// round 1, nit). It stages `resolveStrandAddresses` and that function only.
+// `cmdEnter` then calls `resolveHeadlines`, which fans out to the live gateway
+// over the tag union of whatever members the recording named — so the start act
+// these cases drive DOES touch the seam, and the member's seam-freedom is a
+// property of what it ASSERTS rather than of what it executes. No case here
+// reads a headline, which is why an unreachable gateway degrades them rather
+// than flaking them; a case that did read one would owe its own recording.
 //
 // SURVEY IS NOT DELETED BESIDE IT: the reduced-tree case (n) still copies it, and
 // the two files carry the same five members deliberately, so the Brief minted

@@ -1,5 +1,20 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v38, amended 2026-09-14 (kogaki#1116) — **§5.3: BRIEF TAKES ITS
+STRAND SET ON THE COMMAND LINE AND READS NO TERRAIN RUN.** The arguments are
+served Lesson addresses resolved against the Package's own enumeration; a Full
+Report coordinate (`G<n>`, `L<n>`, `D<n>`) is refused by name, because the Model
+resolves one into addresses from the Full Report before the skill is invoked.
+This REVERSES v36's ground rather than drifting from it: kogaki#1108 removed the
+argv because an id list a Model retypes is one a Model can retype wrong, and the
+unstated cost was that reading the set off Terrain's run record coupled Brief to
+that run's internal progress — a Terrain run wedged before its ID gate made every
+Brief start refuse for six days from 2026-09-12. The owner accepts opportunistic
+Model resolution (2026-09-13/14) on the condition this flow already meets: the
+resolved set is rendered at the thesis gate before anything under `theses/` is
+written. Carried with it: the commit pin is deprecated, and a Strand's cite is
+the served address at its own content hash.
+
 **Status:** v37, amended 2026-09-07 (kogaki#904) — **§1: the scope limit is
 carried by the general rule, and the defence citing a removed clause is
 DELETED.** The sentence defended the limit by pointing at
@@ -1654,7 +1669,7 @@ supplied on the command line, against the Package's own enumeration) → the
 **thesis-determination gate** → the **mint**.
 
 **THE STRAND SET ARRIVES ON THE COMMAND LINE, AND BRIEF READS NO TERRAIN RUN
-(v37, kogaki#1116; owner ruling 2026-09-13/14).** Brief and Terrain are
+(v38, kogaki#1116; owner ruling 2026-09-13/14).** Brief and Terrain are
 **independent**. The brief skill's one `!` line carries `$ARGUMENTS`, each
 argument is a **served Lesson address** — `<package>::<kind>/<local-name>`, or a
 bare local name resolved against the Lesson kind — and `enter` resolves every
