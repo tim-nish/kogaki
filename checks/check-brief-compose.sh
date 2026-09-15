@@ -3717,6 +3717,35 @@ ranCase("ab");
     };
     delete env.KOGAKI_BRIEF_OPEN_RUN;
 
+    // ---- (ac) THE THESIS GATE'S PROVENANCE SENTENCE NAMES THE ENTERED
+    // ADDRESSES, AND NAMES NOTHING UNDEFINED (kogaki#1121).
+    //
+    // WHAT THIS EXISTS TO REFUSE. kogaki#1116 changed the settled set's record
+    // form to `{ addresses, via }`; the thesis gate's composer went on reading
+    // `set.ids` and `set.survey`, the two fields that rename removed, and the
+    // sentence the owner is shown read "Composed over the settled Strand set
+    // undefined, from undefined, entered supplied on the command line." It is
+    // on disk at `runs/brief/brief-2026-09-15T20-40-49-205Z`. Every case in
+    // this member stayed green, because the only assertion on the provenance
+    // was (ab)'s against `state.gate.where` — the Brief run STATE's own line,
+    // composed elsewhere — and nothing read the bytes the gate call carries.
+    //
+    // IT RIDES (ab1)'S START rather than paying for a second one: the act
+    // below is exactly "the thesis gate composed over two served addresses",
+    // and a case of its own driving its own start would buy a second copy of
+    // the same twelve seconds. It registers separately because what it asserts
+    // is separately deletable.
+    //
+    // THE ASSERTION IS ON THE COMPOSED CALL, not on the declaration. The
+    // sentence is a `GATE_CALL_READING_KEYS` reading, so it exists as owner-
+    // visible bytes only after `composeGateCall` folds it into the question
+    // text — which is the surface the open-gate hook compares and the one the
+    // defect was visible on. Bound in BOTH directions: the addresses must be
+    // named, and `undefined` must appear nowhere, because a composer reading
+    // one live field and one dead one renders half a sentence correctly and
+    // would pass a positive-only assertion.
+    ranCase("ac");
+
     // (ab1) TWO SERVED ADDRESSES REACH THE THESIS GATE.
     const started = run(["src/brief.mjs", "start", ...SETTLED], env);
     const rec = (() => {
@@ -3764,6 +3793,31 @@ ranCase("ab");
         }
         if (state.pin !== undefined) {
           fails.push("(ab) the Brief run state still carries a `pin` — nothing in Brief reads the response pin since kogaki#1116, and a field nothing reads is a field a later reader will");
+        }
+      }
+      // (ac) THE BYTES THE OWNER IS SHOWN.
+      const asked = (() => {
+        const owedGate = (rec.gate_declarations_owed || [])
+          .find((g) => g.state === "THESIS_ADOPTION" && g.declaration);
+        if (!owedGate) return null;
+        const dp = resolvePath(process.cwd(), owedGate.declaration);
+        let decl;
+        try { decl = JSON.parse(readFileSync(dp, "utf8")); } catch { return null; }
+        const callPath = join(dirnameOf(dp), `${decl.id}.gate-call.json`);
+        if (!existsSync(callPath)) return null;
+        try { return JSON.parse(readFileSync(callPath, "utf8")).questions[0].question; }
+        catch { return null; }
+      })();
+      if (!asked) {
+        fails.push("(ac) the start act composed no thesis gate CALL — the provenance sentence exists as owner-visible bytes only inside the composed question, so there is nothing to read");
+      } else {
+        for (const a of SETTLED) {
+          if (!asked.includes(a)) {
+            fails.push(`(ac) the composed thesis-gate question does not name ${a} — the owner is asked to adopt a Thesis composed over a set the question does not state: ${asked.slice(0, 300)}`);
+          }
+        }
+        if (asked.includes("undefined")) {
+          fails.push(`(ac) the composed thesis-gate question renders \`undefined\` — the provenance sentence is reading a field the settled-set record does not carry (kogaki#1116 renamed it to \`{ addresses, via }\`): ${asked.slice(0, 300)}`);
         }
       }
     }
@@ -4060,10 +4114,11 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "is full of internal keys passes, which is the assertion that catches the evidence "
   + "returning by a side door. The tripwire reads REGISTER, never a composition MUST (§4.6 "
   + "clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934 + kogaki#935 + kogaki#942 + kogaki#966 + PR #968 round 1 + kogaki#972): FIFTY-SEVEN "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934 + kogaki#935 + kogaki#942 + kogaki#966 + PR #968 round 1 + kogaki#972 + kogaki#1121): FIFTY-EIGHT "
   + "mutations. RE-DERIVED, not incremented — this paragraph's own standing rule, and the one it has twice failed: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
-  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three, plus kogaki#942's five, plus kogaki#966's three, plus PR #968 round 1's one, plus kogaki#972's two = 57. "
+  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three, plus kogaki#942's five, plus kogaki#966's three, plus PR #968 round 1's one, plus kogaki#972's two, plus kogaki#1121's one = 58. "
   + "THE UNIT OF THE COUNT IS A TRIAL TAKEN, NEVER A DISTINCT PHYSICAL MUTATION (kogaki#889), and it is declared because leaving it implicit has now produced a finding: two heads may apply the SAME EDIT against DIFFERENT assertions, and that is two trials rather than one counted twice — kogaki#520 deleted the per-option `rendering` against (j)'s LABEL assertions and kogaki#859 deleted it against (j)'s KEY-PRESENT one, at two heads, and both runs happened. Read as physical mutations the enumeration double-counts; read as trials it does not, and the second reading is the one kogaki#568's own ground already commits this paragraph to — \u0022the tally counts both, because the historical evidence was real when it was taken\u0022. A SUPERSEDED ENTRY THEREFORE STAYS COUNTED, and what it owes is the past-tense marking below rather than removal, since a deleted mutation and a superseded one read identically to a later reader. Owner decision at the kogaki#889 gate, recorded rather than re-derived per sitting. "
+  + "KOGAKI#1121'S ONE, against case (ac), and it is the PRE-REPAIR CODE RESTORED VERBATIM rather than an invented break — the thesis gate's provenance sentence reading `set.ids` and `set.survey`, the two fields kogaki#1116's rename removed. It fails (ac) THREE TIMES IN ONE RUN, once per address not named and once on the rendered `undefined`, which is the direct evidence that the both-directions binding is doing work: the sentence still read correctly from `set.via`, so a case asserting only that the provenance line exists, or only that it mentions the entry route, would have been green against the exact bytes the owner was shown on 2026-09-15. The trial is cheap to re-run and worth naming as such: the mutant is in the repository's history, not in this paragraph's imagination. "
   + "KOGAKI#972'S TWO, the first trials this paragraph has recorded against the COUNT ITSELF rather than against a case's assertions. Deleting `ranCase(\"z\")` while leaving case (z)'s body intact fails (floor) at 34 against a declared 35, naming cases LOST — and the same edit under the `const CASE_COUNT = 28` this replaces went GREEN, which is the whole of kogaki#972: a case removed from the file moved no number, because no number was reading the file. Changing `ranCase(\"l-bridge\")` to `ranCase(\"l-reader-fields\")`, so two cases share one registration id, fails (count) BY NAME on the duplicate and (floor) beside it at 34 — the pairing is the point, since a collapse reported only as a count one lower would send a reader looking for a deleted case that is still there. THE TRIALS ARE THE INSTRUMENT'S, NOT A CASE'S, and that is why they are counted here: what they break is the arithmetic every other case's deletion would be read through. "
   + "KOGAKI#942'S FIVE, all against case (y) again, and all five are about the DERIVATION rather than the comparator kogaki#935's three attacked — which is the split the issue found: the skill side was scoped at PR #941 round 1 and the spec side was not. "
   + "Returning the whole spec from the section reader, rather than a §4.1 heading-to-next-heading slice, is the load-bearing one: it fails (y) by NAMING §9's own bullets, which is the false red the finding predicted arriving as evidence rather than as argument — a §9 open-trigger bullet reported as a §4.1 optional Step field. "
