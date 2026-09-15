@@ -1390,7 +1390,14 @@ const GATE_WORK = {
         .filter((o) => o.id !== "back-to-terrain")
         .map((o) => ({ id: o.id, label: o.label })),
       extra: set
-        ? { settled_set_provenance: `Composed over the settled Strand set ${set.ids}, from ${set.survey}, entered ${set.via}.` }
+        // NO SURVEY IS NAMED (kogaki#1121). This read `set.ids` and
+        // `set.survey`, the two fields of the Terrain-run form that #1116
+        // removed when the set became `{ addresses, via }` — so the sentence
+        // named the set as `undefined` in the very bytes the open-gate hook
+        // compares. Since #1116 the set is entered on the command line and
+        // there is no survey behind it, so what is rendered is the addresses
+        // and how they were entered, and nothing else.
+        ? { settled_set_provenance: `Composed over the settled Strand set ${(set.addresses || []).join(", ")}, entered ${set.via}.` }
         : {},
     };
   },
