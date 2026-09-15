@@ -156,7 +156,7 @@
       "options": [
         {
           "id": "back-to-terrain",
-          "label": "The settled set is what should change — go back through Terrain and re-settle; no Brief is started and nothing is written (a Brief never fetches)",
+          "label": "The settled set is what should change — go back through Terrain and re-settle; no Brief is started and nothing is written",
           "negates_premise": true
         }
       ],

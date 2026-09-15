@@ -128,7 +128,7 @@
 //
 import { spawnSync, spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
 import { basename, delimiter, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -2109,6 +2109,15 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
     ...registered,
     ...extra,
     options: [...dynamicOptions, ...registered.options.filter((o) => !seen.has(o.id))],
+    // WHICH OPTIONS THIS RUN COMPOSED, RECORDED RATHER THAN INFERRED (PR #1119
+    // round 1). A dynamic option WINS over a standing one of the same id — that
+    // is what the `seen` filter above does — so a repair that merged the
+    // registry back over the declaration would invert this precedence at exactly
+    // the id collision this line anticipates, and rewrite a re-entered run to an
+    // option label the run never composed. The refresh reads this list and skips
+    // what it names; a declaration written before this field existed carries
+    // none, and the refresh says so rather than guessing.
+    run_composed_option_ids: dynamicOptions.map((o) => o.id),
     declared_at: new Date().toISOString(),
     run_declaration: true,
     // THE INSTANCE KEY, AND IT IS A NONCE RATHER THAN A DIGEST (kogaki#890).
@@ -2139,6 +2148,10 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   // "no gate opens" a property of where this call stands.
   const call = composeGateCall(declaration);
   if (call.over_bound) fail(call.over_bound);
+  // BESIDE THE BYTE BOUND, AND FOR ITS REASON (kogaki#1118): both are refusals
+  // by the CHANNEL the call is delivered on, and both have to be able to leave
+  // no artifact behind, so both stand above every write in this function.
+  if (call.refused) fail(call.refused);
   writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
   let callPath = null;
   if (call.tool_input) {
@@ -2268,6 +2281,107 @@ export function gateCallHeader(declaration) {
   return (segments[segments.length - 1] || "gate").slice(0, 12);
 }
 
+// --------------------------------------------------------------------------
+// THE SHARED QUESTION-SHAPE CHECK, APPLIED AT COMPOSE (kogaki#1118).
+//
+// The rule deciding whether a question CAN BE SHOWN lives in the installed
+// Claude Code hook and was applied only at the moment of showing. A program
+// that composes a question could not apply it, and learned of a refusal as a
+// DEADLOCK: on 2026-09-14 the thesis gate's `back-to-terrain` label ended in a
+// bracketed clause, the hook admits only `(Recommended)` as a trailing marker,
+// and the session could render no admissible question and call no admissible
+// tool while the gate stayed open. Nothing was written and nothing could be.
+//
+// SO THE CHECK MOVES TO THE COMPOSE SITE, AND NO COPY OF THE RULE IS WRITTEN
+// HERE. claude-toolkit#1077 made the rule ONE NAMED COMMAND -- `issue-sync
+// lint-question`, reading an AskUserQuestion payload on stdin -- which the hook
+// calls at delivery and this composer calls at composition. Two carriers of one
+// rule that cannot see each other drift silently, and the divergence surfaces
+// only when some act needs both to agree; a second copy in this file is exactly
+// that shape, so the command is invoked rather than its rule restated.
+// consulted: product-lab@3b3802d245287f568fd93a574c8d422b277e69c8 LESSONS.md:68
+//
+// ONLY EXIT 1 REFUSES, and that asymmetry is the whole of the degradation
+// policy. The command is an EXTERNAL DEPENDENCY -- machine-local, installed by
+// `issue-sync install-hooks`, outside this repository and uninstallable from it
+// (`src/deps-registry.json`, and SPEC-external-deps' "Report, never gate"). An
+// absent command, an unreadable payload (exit 2) and a tool one commit behind
+// all ADMIT: a fail-closed arm here would wedge every gate in this repository
+// on a machine where the toolkit is merely missing, which is the failure this
+// issue is about reintroduced from the other side. The hook still guards
+// delivery on a machine that has one, so admitting here loses the EARLY
+// refusal and never the refusal.
+const QUESTION_SHAPE_VERB = "lint-question";
+
+// The command's location is MACHINE-LOCAL and the env var is the seam a fixture
+// drives; the default is the install path `issue-sync install-hooks` writes,
+// named the same way `src/deps-registry.json` already names `~/.claude/hooks/
+// lint-pr-merge.py` -- a committed name for a machine-local artifact, which is
+// what an external-dependency declaration is.
+export function questionShapeCommand() {
+  return process.env.KOGAKI_QUESTION_SHAPE_CMD
+    || join(homedir(), ".claude", "tools", "issue-sync");
+}
+
+// null when the payload is admissible OR when the rule could not be applied;
+// the refusal text VERBATIM when it was applied and refused. The command's own
+// words are carried rather than paraphrased -- a paraphrase is the second copy
+// this whole arrangement exists to refuse.
+// THE WAIT IS BOUNDED (PR #1119 round 1). This call now stands on the path of
+// every gate composition in both programs, so a command that HANGS rather than
+// exiting takes the whole run with it — a wedge in the class this issue closes,
+// reached through the dependency instead of through the label. An exit-code
+// policy careful about every answer the command can give and silent about its
+// giving none is not a policy. A timeout admits, like every other
+// could-not-apply arm.
+const QUESTION_SHAPE_TIMEOUT_MS = 5000;
+
+function runQuestionShape(cmd, payload) {
+  try {
+    return spawnSync(cmd, [QUESTION_SHAPE_VERB], {
+      input: JSON.stringify(payload),
+      encoding: "utf8",
+      timeout: QUESTION_SHAPE_TIMEOUT_MS,
+    });
+  } catch {
+    return null;
+  }
+}
+
+// WHETHER THE COMMAND SUPPORTS THE VERB, ASKED BEFORE ITS EXIT 1 IS BELIEVED
+// (PR #1119 round 1). `exit 1` is the refusal in claude-toolkit#1077's contract,
+// and it is also what an older `issue-sync` may print for an unknown
+// subcommand — so reading exit 1 as authoritative without establishing that the
+// verb exists would make a toolkit one commit behind refuse EVERY gate in this
+// repository with a usage banner quoted as the channel's refusal. That is the
+// fail-closed wedge the comment above says a fail-closed arm would reintroduce,
+// arriving through the exit code rather than through the policy.
+//
+// THE PROBE IS THE ONE `checks/check-gate-call-shape.sh` ALREADY PERFORMS, and
+// asking it here is what makes the two sites agree: an empty question set is a
+// payload the verb admits, so exit 0 on it establishes support, and anything
+// else leaves the rule inapplicable. One probe per process, because the command
+// does not change under a run.
+let questionShapeSupported = null;
+function questionShapeVerbSupported(cmd) {
+  if (questionShapeSupported && questionShapeSupported.cmd === cmd) {
+    return questionShapeSupported.ok;
+  }
+  const probe = runQuestionShape(cmd, { questions: [] });
+  const ok = !!probe && !probe.error && probe.status === 0;
+  questionShapeSupported = { cmd, ok };
+  return ok;
+}
+
+export function questionShapeRefusal(toolInput) {
+  const cmd = questionShapeCommand();
+  if (!questionShapeVerbSupported(cmd)) return null;
+  const res = runQuestionShape(cmd, toolInput);
+  if (!res || res.error || res.status !== 1) return null;
+  const text = `${res.stderr || ""}${res.stdout || ""}`.trim();
+  return text || `${cmd} ${QUESTION_SHAPE_VERB} refused this gate call and printed nothing`;
+}
+
 export function composeGateCall(declaration) {
   const declared = Array.isArray(declaration.options) ? declaration.options : [];
   const options = declared.map((o) => ({
@@ -2328,6 +2442,26 @@ export function composeGateCall(declaration) {
         + "artifact, which the question names, rather than inside the question text.",
     };
   }
+  // THE SHAPE CHECK IS THE LAST THING COMPOSE DOES, and it is checked over the
+  // WHOLE composed call rather than over the declaration's labels: the composer
+  // adds the free-text row and folds the reading into the question text, so a
+  // check over the declaration would judge a payload that is not the one sent.
+  // A REFUSAL IS ITS OWN ARM, beside `over_bound` and never folded into
+  // `unavailable`: `unavailable` writes a pointer and leaves the gate
+  // renderable from the declaration's options, which for a label the channel
+  // refuses would hand the session the very rendering that deadlocked it.
+  const refused = questionShapeRefusal(tool_input);
+  if (refused) {
+    return {
+      bytes,
+      refused: `${declaration.id} composes a gate call the shared question-shape check refuses, `
+        + `and ${QUESTION_SHAPE_VERB} is the one home of that rule (claude-toolkit#1077, kogaki#1118). `
+        + "No declaration, no gate-call.json and no open-gate pointer were written, and no gate is open — "
+        + "the refusal arrives here rather than as a session with an unshowable question open and no "
+        + "admissible tool. The command's own refusal follows verbatim:\n\n"
+        + refused,
+    };
+  }
   return { tool_input, bytes };
 }
 
@@ -2348,6 +2482,78 @@ export function composeGateCall(declaration) {
 // That is what keeps this file off the trust surface: nothing downstream
 // believes a pointer, and a forged one can only cause a row to be written
 // where no gate is outstanding, which the instance-id check then refuses.
+// --------------------------------------------------------------------------
+// A GATE CALL WRITTEN BEFORE A LABEL WAS REPAIRED (kogaki#1118 acceptance 4).
+//
+// THE COMPOSE-TIME CHECK DOES NOT REACH A RUN THAT ALREADY STOPPED. Re-entry
+// does not recompose: it reads the `*.gate-call.json` the earlier stop wrote and
+// prints its bytes, which is what makes the PreToolUse equality check possible.
+// So a run that stalled on an unshowable label stays stalled across the repair
+// -- the 2026-09-14 Brief run is exactly that, its call file carrying the label
+// the channel refuses -- and the fix would reach every future run and none of
+// the runs it was filed for.
+//
+// SO THE WRITTEN CALL IS RE-CHECKED AT RE-ENTRY, AND REFRESHED WHERE IT FAILS.
+// Only the STANDING options are refreshed, matched by option id against
+// `src/gate-registry.json` -- the ones an owner edits by hand, which is the
+// class the incident came from. A run-time option is composed from material
+// this re-entry does not hold and is carried through untouched; where the
+// refusal is on one of those, nothing here can repair it and the act refuses
+// with the command's own text rather than printing a payload no session can
+// send.
+//
+// THE DECLARATION IS REWRITTEN WITH THE CALL, never one without the other. The
+// capture's `options_offered` is judged against the declaration
+// (check-gate-carrier.sh), so refreshing the payload alone would trade an
+// unshowable gate for an answer that joins to nothing. `gate_instance_id` is
+// NOT reminted: this is the same raising of the same gate, and a new nonce
+// would orphan the pointer the earlier stop already wrote.
+export function refreshWrittenGateCall(dir, gateId) {
+  const declPath = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
+  const callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
+  if (!existsSync(declPath) || !existsSync(callPath)) return null;
+  const written = JSON.parse(readFileSync(callPath, "utf8"));
+  const refused = questionShapeRefusal(written);
+  if (!refused) return null;
+
+  const declaration = JSON.parse(readFileSync(declPath, "utf8"));
+  const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
+  const standing = new Map((registered ? registered.options : []).map((o) => [o.id, o]));
+  // THE RUN'S OWN OPTIONS ARE NOT REFRESHED, and the list is read rather than
+  // inferred (PR #1119 round 1). A declaration predating the field carries none,
+  // which is the pre-repair case this function exists for and where no collision
+  // can have been recorded either way; the note below states which reading was
+  // used rather than leaving it to be assumed.
+  const runComposed = new Set(declaration.run_composed_option_ids || []);
+  const legacy = !Array.isArray(declaration.run_composed_option_ids);
+  const refreshed = {
+    ...declaration,
+    options: (declaration.options || []).map((o) => (
+      standing.has(o.id) && !runComposed.has(o.id) ? { ...o, ...standing.get(o.id) } : o)),
+  };
+  const recomposed = composeGateCall(refreshed);
+  if (!recomposed.tool_input) {
+    // THE DIAGNOSIS IS THE ARM THAT WAS TAKEN, NOT A GUESS ABOUT IT (PR #1119
+    // round 1). This branch is reached on three different states and the run-time
+    // option is only one of them; naming that one unconditionally printed the
+    // ORIGINAL refusal under a cause it had not established.
+    const why = recomposed.refused
+      ? "the refusal survives the refresh, so the refused label is a run-time option composed from "
+        + "material a re-entry does not hold and there is nothing here to repair"
+      : recomposed.over_bound
+        ? "the refreshed call is over the declared byte bound"
+        : "the refreshed declaration composes no call at all";
+    fail(`${gateId} has a written gate call the shared question-shape check refuses, and refreshing its `
+      + `standing options from src/gate-registry.json does not clear it: ${why}. No payload is printed. `
+      + "Start the run again rather than re-entering this one (kogaki#1118). What the refresh met "
+      + "follows verbatim:\n\n"
+      + (recomposed.refused || recomposed.over_bound || recomposed.unavailable || refused));
+  }
+  writeFileSync(declPath, JSON.stringify(refreshed, null, 2) + "\n");
+  writeFileSync(callPath, JSON.stringify(recomposed.tool_input, null, 2) + "\n");
+  return { refused, declPath, callPath, legacy };
+}
+
 export function openGateDir() {
   return process.env.KOGAKI_OPEN_GATES || join(homedir(), ".claude", "kogaki-open-gates");
 }
@@ -9172,6 +9378,11 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       // open is sending it byte-for-byte, and `.claude/hooks/gate-open-terrain-
       // gate.py` is what makes that true rather than this sentence.
       const callHere = join(dir, `${stopped.gate_id}${GATE_CALL_SUFFIX}`);
+      // BEFORE THE BYTES ARE PRINTED, NOT AFTER (kogaki#1118 acceptance 4). A
+      // call written before a label repair is a payload the channel refuses, and
+      // printing it hands the session its one admissible act in a form that
+      // cannot be performed.
+      const refreshedHere = refreshWrittenGateCall(dir, stopped.gate_id);
       if (existsSync(callHere)) {
         console.log(`The AskUserQuestion call is WRITTEN: ${callHere}`);
         console.log(`Send that file's contents as the tool_input, byte-for-byte — it already carries the reading (\`tag_listing\`) above the question. Nothing is retyped, summarized, reformatted or pre-selected, and the executor renders no question UI of its own (the post-tag-selection window).`);
@@ -9197,6 +9408,9 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
         console.log("```json");
         console.log(readFileSync(callHere, "utf8").replace(/\n+$/, ""));
         console.log("```");
+        if (refreshedHere) {
+          console.log(`NOTE: the call written by the earlier stop carried a label the shared question-shape check refuses, so it was recomposed from the declaration's standing options before being printed (kogaki#1118). The bytes above are the refreshed payload and the file on disk matches them; the gate, its instance and its answer join are unchanged. The refusal it cleared: ${refreshedHere.refused.split("\n").filter(Boolean)[0]}${refreshedHere.legacy ? " — the declaration predates `run_composed_option_ids`, so every registered id was refreshed; a run-time option sharing an id with a registered one would have been overwritten, and none was recorded either way." : ""}`);
+        }
         console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028).`);
       } else {
         console.log(`No AskUserQuestion call could be composed for this gate, and the reason is on the open-gate pointer (\`gate_call_unavailable\`). Render the declaration's options verbatim, nothing pre-selected, free text on.`);
@@ -9958,6 +10172,173 @@ switch (cmd) {
           ok("a gate declaring one option and NO free text composes no call at all, and the reason is stated rather than an arm being invented",
             !composeGateCall({ id: "fixture-mute", question: "?", options: [{ id: "a", label: "A" }], free_text_offered: false }).tool_input,
             composeGateCall({ id: "fixture-mute", question: "?", options: [{ id: "a", label: "A" }], free_text_offered: false }).unavailable);
+        }
+        // THE SHARED QUESTION-SHAPE CHECK, AT COMPOSE (kogaki#1118).
+        //
+        // TWO CASES AND TWO COMMANDS, deliberately. The REAL command answers
+        // acceptance 1 -- the payload this repository sends is one the channel
+        // admits -- and can only be asked on a machine that has it, the command
+        // being machine-local and outside this repository. The STUB answers the
+        // refusal half, and is not a convenience: it exercises what the PROGRAM
+        // does when the rule refuses, which is the behaviour this issue is
+        // about, on every machine including the one where the real command is
+        // absent. A fixture resting on the real command alone would be silent
+        // in CI, which is exactly where a wedge would next be introduced.
+        {
+          const shapeDir = mkdtempSync(join(tmpdir(), "terrain-selftest-shape-"));
+          const realCmd = questionShapeCommand();
+          const probe = spawnSync(realCmd, ["lint-question"], { input: '{"questions":[]}', encoding: "utf8" });
+          const realAnswers = !probe.error && (probe.status === 0 || probe.status === 1);
+
+          // The thesis gate, composed as a run composes it -- two served
+          // addresses in the settled set, the registry's own standing options
+          // merged in beneath them by `emitGateDeclaration`'s own rule.
+          const thesisGate = JSON.parse(JSON.stringify(
+            (GATES_REGISTRY.gates || []).find((g) => g.id === "brief-thesis-adoption")));
+          thesisGate.options = [
+            { id: "adopt", label: "Adopt the Thesis as named above" },
+            ...thesisGate.options,
+          ];
+          const thesisCall = composeGateCall(thesisGate);
+          ok("the Brief's thesis gate composes a call at all, over a settled set of two served addresses",
+            !!thesisCall.tool_input,
+            JSON.stringify(thesisCall.refused || thesisCall.unavailable || thesisCall.over_bound || "composed"));
+          if (realAnswers) {
+            const verdict = spawnSync(realCmd, ["lint-question"],
+              { input: JSON.stringify(thesisCall.tool_input), encoding: "utf8" });
+            ok("that composed payload passes the toolkit's own question-shape command with exit 0 (kogaki#1118 acceptance 1)",
+              verdict.status === 0,
+              `exit=${verdict.status} ${(verdict.stderr || "").trim().slice(0, 200)}`);
+          } else {
+            ok("the toolkit's question-shape command does not answer on this machine, so acceptance 1 is typed CANNOT-ESTABLISH rather than reported clean — it is machine-local, outside this repository, and its absence degrades HOW the rule is applied and never WHETHER the gate composes",
+              !thesisCall.refused, `${realCmd}: ${probe.error ? probe.error.code : `exit=${probe.status}`}`);
+          }
+
+          // THE REFUSING COMMAND, AND THE START ACT UNDER IT (acceptance 2).
+          // Driven as a subprocess because the refusal is `fail()`, which exits
+          // -- the same reason the survey-grammar guard above is driven that way.
+          const stub = join(shapeDir, "refusing-issue-sync");
+          // THE STUB DISCRIMINATES, because the real command does and because
+          // the composer now asks whether the verb is supported before believing
+          // an exit 1 (PR #1119 round 1). A stub refusing every payload fails
+          // that probe and is read as a command that does not carry the verb —
+          // which is the guard working, and which would leave this case
+          // asserting nothing.
+          writeFileSync(stub,
+            "#!/usr/bin/env bash\n"
+            + "payload=$(cat)\n"
+            + "case \"$payload\" in\n"
+            + "  *'(a note)'*)\n"
+            + "    echo \"question 1: option label carries the marker \\\"(a note)\\\", which is not an accepted marker class.\" >&2\n"
+            + "    exit 1 ;;\n"
+            + "esac\n"
+            + "exit 0\n");
+          chmodSync(stub, 0o755);
+          const emitDir = join(shapeDir, "emit");
+          mkdirSync(emitDir, { recursive: true });
+          const gatesDir = join(shapeDir, "open-gates");
+          const driver = join(shapeDir, "driver.mjs");
+          writeFileSync(driver,
+            `import { emitGateDeclaration } from ${JSON.stringify(resolve("src/terrain.mjs"))};\n`
+            + `emitGateDeclaration(${JSON.stringify(emitDir)}, "brief-thesis-adoption",\n`
+            + `  [{ id: "adopt", label: "Adopt the Thesis as named above (a note)" }], {});\n`);
+          const run = spawnSync(process.execPath, [driver], {
+            encoding: "utf8",
+            env: { ...process.env, KOGAKI_QUESTION_SHAPE_CMD: stub, KOGAKI_OPEN_GATES: gatesDir },
+          });
+          const emitted = existsSync(emitDir) ? readdirSync(emitDir) : [];
+          const pointers = existsSync(gatesDir) ? readdirSync(gatesDir) : [];
+          ok("the start act REFUSES a composed gate the shared check refuses, and carries the command's own text rather than a paraphrase of it (kogaki#1118 acceptance 2)",
+            run.status !== 0 && /not an accepted marker class/.test(`${run.stderr || ""}${run.stdout || ""}`),
+            `exit=${run.status} ${(run.stderr || "").trim().split("\\n").slice(-1)[0].slice(0, 200)}`);
+          ok("and it writes NO gate-call.json and no run declaration — the refusal stands above every write in `emitGateDeclaration`, so there is no artifact to unwrite",
+            emitted.length === 0, JSON.stringify(emitted));
+          ok("and leaves NO open-gate pointer under the isolated `KOGAKI_OPEN_GATES` directory, so no session is held at a question that cannot be shown",
+            pointers.length === 0, JSON.stringify(pointers));
+
+          // AND THE ABSENT COMMAND ADMITS, which is the other half of the
+          // degradation policy and is asserted rather than assumed: a
+          // fail-closed arm here would wedge every gate on a machine that
+          // merely lacks the toolkit, reintroducing this issue from the far side.
+          const absent = spawnSync(process.execPath, [driver], {
+            encoding: "utf8",
+            env: {
+              ...process.env,
+              KOGAKI_QUESTION_SHAPE_CMD: join(shapeDir, "no-such-command"),
+              KOGAKI_OPEN_GATES: join(shapeDir, "open-gates-absent"),
+            },
+          });
+          ok("a machine with NO question-shape command renders the gate rather than refusing it — the early refusal is lost, the refusal is not, because the installed hook still guards delivery",
+            absent.status === 0, `exit=${absent.status} ${(absent.stderr || "").trim().slice(0, 160)}`);
+
+          // THE RUN THAT STALLED BEFORE THE REPAIR (acceptance 4). Re-entry
+          // prints the call file the earlier stop WROTE, so a label repair that
+          // reached only `composeGateCall` would reach every future run and none
+          // of the runs this issue was filed for. Driven over a synthetic stop
+          // rather than the 2026-09-14 directory itself: that run lives in the
+          // ignored runs lane, which a fixture pass on another machine does not
+          // have, and a case that silently skips where the artifact is absent is
+          // the reading this repository refuses.
+          {
+            const stalled = join(shapeDir, "stalled-run");
+            mkdirSync(stalled, { recursive: true });
+            const decl = {
+              ...thesisGate,
+              options: thesisGate.options.map((o) => (
+                o.id === "back-to-terrain"
+                  ? { ...o, label: `${o.label} (a Brief never fetches)` }
+                  : o)),
+              declared_at: new Date().toISOString(),
+              run_declaration: true,
+              gate_instance_id: "fixture-instance-1118",
+            };
+            // STAGED BY THE REAL COMPOSER UNDER AN ADMITTING COMMAND, not by a
+            // literal written here (PR #1119 round 1). What is being staged is a
+            // file an OLDER runtime wrote — one with no compose-time check at
+            // all — and the way to get those bytes is to mute the check, never
+            // to hand-build the payload beside it: a second composer here would
+            // omit the free-text row and the folded reading, so the refresh
+            // would be driven over bytes no runtime ever wrote and the case
+            // would be green either way.
+            const admitting = join(shapeDir, "admitting-issue-sync");
+            writeFileSync(admitting, "#!/usr/bin/env bash\ncat >/dev/null\nexit 0\n");
+            chmodSync(admitting, 0o755);
+            const savedCmd = process.env.KOGAKI_QUESTION_SHAPE_CMD;
+            process.env.KOGAKI_QUESTION_SHAPE_CMD = admitting;
+            questionShapeSupported = null;
+            const stale = composeGateCall(decl);
+            if (savedCmd === undefined) delete process.env.KOGAKI_QUESTION_SHAPE_CMD;
+            else process.env.KOGAKI_QUESTION_SHAPE_CMD = savedCmd;
+            questionShapeSupported = null;
+            ok("the pre-repair payload is staged by the real composer, so the refresh is driven over the bytes a runtime actually wrote — free-text row and folded reading included",
+              !!stale.tool_input, JSON.stringify(stale.refused || stale.unavailable || "composed"));
+            writeFileSync(join(stalled, `brief-thesis-adoption${GATE_SCHEMA.capture.run_declaration_suffix}`),
+              JSON.stringify(decl, null, 2) + "\n");
+            writeFileSync(join(stalled, `brief-thesis-adoption${GATE_CALL_SUFFIX}`),
+              JSON.stringify(stale.tool_input, null, 2) + "\n");
+            const before = questionShapeRefusal(readJson(join(stalled, `brief-thesis-adoption${GATE_CALL_SUFFIX}`)));
+            const did = refreshWrittenGateCall(stalled, "brief-thesis-adoption");
+            const after = questionShapeRefusal(readJson(join(stalled, `brief-thesis-adoption${GATE_CALL_SUFFIX}`)));
+            if (realAnswers) {
+              ok("a gate call WRITTEN before the label repair is refused, refreshed from the registry's standing options at re-entry, and admissible afterwards — so the run that stalled on 2026-09-14 shows its gate rather than staying stalled across the fix (kogaki#1118 acceptance 4)",
+                !!before && !!did && !after,
+                `before=${!!before} refreshed=${!!did} after=${!!after}`);
+              ok("and the refresh is a no-op on a call the check admits, so re-entry does not rewrite a payload nothing objected to",
+                refreshWrittenGateCall(stalled, "brief-thesis-adoption") === null,
+                "second call");
+            } else {
+              ok("the question-shape command does not answer here, so the re-entry refresh has nothing to judge and rewrites nothing — acceptance 4's assertion is typed CANNOT-ESTABLISH on this machine rather than reported clean",
+                !before && did === null, `before=${!!before} refreshed=${!!did}`);
+              ok("and the written call is left exactly as the earlier stop wrote it, which is what an unapplied rule owes",
+                !after, "unchanged");
+            }
+            const declAfter = readJson(join(stalled, `brief-thesis-adoption${GATE_SCHEMA.capture.run_declaration_suffix}`));
+            ok("the declaration is refreshed WITH the call and keeps its instance id — the answer's join key is the same raising of the same gate, and the capture's `options_offered` is judged against a declaration that matches what was shown",
+              declAfter.gate_instance_id === "fixture-instance-1118"
+                && declAfter.options.length === decl.options.length,
+              `instance=${declAfter.gate_instance_id} options=${declAfter.options.length}`);
+          }
+          rmSync(shapeDir, { recursive: true, force: true });
         }
         ok("the stop prints no invocation for the owner to run — no READ FIRST block, and no `terrain.mjs tags` hand-over",
           !/READ FIRST/.test(out) && !/terrain\.mjs tags/.test(out),
