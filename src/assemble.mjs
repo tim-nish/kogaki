@@ -110,6 +110,32 @@ export const REASONING_FIELDS = ["step_validity", "transition_continuity", "thes
 // the join to them. ONE declaration: the evidence, the rendering, the
 // adoption fill and the adoption refusal all read this list, so a fourth
 // reader field is added here and nowhere else.
+// THE CHARACTERISTIC'S BOUND, ONE DECLARATION (kogaki#1126). It is stated in
+// `src/candidate-schema.json`, which the composing judge is shown, and read
+// from there rather than typed twice: a bound the prompt states and the
+// refusal enforces at a different number is the two-carriers shape the schema
+// file exists to remove. The refusal below names the file and the number it
+// read, so a reader can tell a changed bound from a changed check.
+export const CANDIDATE_SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), "candidate-schema.json");
+let CANDIDATE_SCHEMA = null;
+export function candidateSchema() {
+  if (!CANDIDATE_SCHEMA) CANDIDATE_SCHEMA = JSON.parse(readFileSync(CANDIDATE_SCHEMA_PATH, "utf8"));
+  return CANDIDATE_SCHEMA;
+}
+export function characteristicMaxLength() {
+  const n = candidateSchema()?.fields?.characteristic?.max_length;
+  if (typeof n !== "number" || !Number.isInteger(n) || n <= 0) {
+    // A SCHEMA THAT DECLARES NO BOUND IS A FAULT, NEVER AN UNBOUNDED FIELD. The
+    // permissive reading would leave the guard unfed by exactly the input it
+    // exists to read, and every over-long characteristic would pass as cleanly
+    // as a short one.
+    throw new Error(`src/candidate-schema.json declares no integer \`fields.characteristic.max_length\` `
+      + `(read: ${JSON.stringify(n)}). The bound is the schema's, read here rather than typed twice, and `
+      + `an absent one is a malformed schema rather than an unbounded field (kogaki#1126).`);
+  }
+  return n;
+}
+
 export const READER_FIELDS = [
   ["reader_start", "Reader start"],
   ["reader_target", "Reader target"],
@@ -283,6 +309,16 @@ export function denyInternalVocabulary(payload, exemptByOption) {
   ];
   for (const o of payload.options || []) {
     surfaces.push([`option ${o.id}'s label`, o.label, overrides?.get(o.id)]);
+    // THE DESCRIPTION IS WALKED, AND THE OVERRIDE TRAVELS WITH THE CLAUSE THAT
+    // NEEDED IT (kogaki#1126). The figure clause renders this Candidate's own
+    // step ids, and kogaki#934 exempted them where they were: the label. They
+    // are now in the description, so the exemption is here — the same
+    // per-option Set, at the seat the producer actually writes to. Widening it
+    // to both surfaces at once would license a token in a field nothing put it
+    // in, which is the allowlist-shaped failure kogaki#934's own comment
+    // refuses; and leaving the description unwalked would be the other half of
+    // that failure, a leak escaping into a field the predicate stopped reading.
+    surfaces.push([`option ${o.id}'s description`, o.description, overrides?.get(o.id)]);
     // THE PREDICATE WALKS WHATEVER THE OWNER READS (kogaki#568). The rendering
     // was a list of {label, text} pairs and is now a list of prose paragraphs;
     // this loop follows the shape rather than assuming one, because a leak that
@@ -440,6 +476,15 @@ export function assembleSelection(reviewed, doc) {
     return { error: `${cands.length} Candidate(s) — the Candidate gate presents two to three per article, differing in reader experience; a single Candidate is a default in disguise and four overruns the selector` };
   }
   const seenExp = new Map();
+  // THE CHARACTERISTIC'S OWN DEDUP MAP (kogaki#1126). Separate from the
+  // experience's rather than folded into one key: the two fields are two seats
+  // on the option -- the label and the description -- and a collision in either
+  // one leaves the owner two options they cannot tell apart at that seat. A
+  // single combined key would admit two options whose LABELS read identically
+  // on the ground that their descriptions differ, which is the whole of what
+  // the label is for.
+  const seenChar = new Map();
+  const charMax = characteristicMaxLength();
   for (const c of cands) {
     if (typeof c.candidate_id !== "string" || c.candidate_id === "") return { error: "every Candidate carries a candidate_id" };
     // FOLDED BEFORE THE TEST, the same way the dedup key three lines down folds
@@ -469,6 +514,36 @@ export function assembleSelection(reviewed, doc) {
       return { error: `candidates ${seenExp.get(expKey)} and ${c.candidate_id} state the SAME reader experience — Candidates differ in reader experience (the Candidate gate), or they are one Candidate presented twice` };
     }
     seenExp.set(expKey, c.candidate_id);
+    // THE CHARACTERISTIC IS A SCHEMA FIELD, AND ITS THREE REFUSALS ARE THE
+    // SCHEMA'S (kogaki#1126). Before this the option label was one free-prose
+    // string, and whether it opened with a short name or ran as an unbroken
+    // paragraph was the composing Model's habit on the day. The label is now
+    // composed by this file FROM this field, so the field has to be there, has
+    // to be readable, and has to fit the seat it is rendered into.
+    if (typeof c.characteristic !== "string" || c.characteristic.trim() === "") {
+      return { error: `candidate ${c.candidate_id}: characteristic is required and cannot be blank — `
+        + `the option LABEL is composed from it as \`<n>. <characteristic>\`, so a Candidate without one `
+        + `renders as a numbered option with no name (src/candidate-schema.json, \`characteristic\`)` };
+    }
+    // FOLDED BEFORE THE BOUND, the same way the experience's key folds one
+    // clause up: a characteristic that fits only once its surrounding
+    // whitespace is counted is not a characteristic that fits, because the
+    // rendered label carries the trimmed value.
+    const charValue = c.characteristic.trim();
+    if (charValue.length > charMax) {
+      return { error: `candidate ${c.candidate_id}: characteristic is ${charValue.length} characters and `
+        + `src/candidate-schema.json bounds it at ${charMax} — it is the option's LABEL, which names the `
+        + `path in a few words; an explanation belongs in reader_experience, which renders as the `
+        + `description beside it. Received: ${JSON.stringify(charValue)}` };
+    }
+    const charKey = charValue.toLowerCase();
+    if (seenChar.has(charKey)) {
+      return { error: `candidates ${seenChar.get(charKey)} and ${c.candidate_id} state the SAME `
+        + `characteristic — Candidates differ in reader experience (the Candidate gate), and the `
+        + `characteristic is the name the owner reads that difference by, so two that fold to one value `
+        + `are two options the owner cannot tell apart at the label` };
+    }
+    seenChar.set(charKey, c.candidate_id);
     if (!Array.isArray(c.steps) || c.steps.length === 0) return { error: `candidate ${c.candidate_id}: no steps — a Candidate is an ordered sequence of Steps (the Reader Path artifact and its five blocks)` };
     // The attach guaranteed the review areas; assembly re-checks presence
     // because an unreviewed Candidate is unpresentable at this gate.
@@ -496,7 +571,7 @@ export function assembleSelection(reviewed, doc) {
   // behaviours whose display this ruling removed and whose future is an open
   // decision — deleting the derivation would settle that decision by making
   // one arm unbuildable, which is not this issue's to do.
-  const options = cands.map((c) => ({
+  const options = cands.map((c, i) => ({
     id: c.candidate_id,
     // THE EFFECT STATES ONCE, AT QUESTION LEVEL (kogaki#568). Every option's
     // label used to open `Adopt <id> — its Reader Path becomes the Brief's
@@ -538,7 +613,39 @@ export function assembleSelection(reviewed, doc) {
     // gate. The label IS that surface. The grade and the seat agree; only the
     // rendering mechanism differs, because the evidence is per-Step and the
     // table's is per-Candidate (kogaki#909, kogaki#877 acceptance 3).
-    label: `${c.reader_experience} — ${figureClause(c.steps)}`,
+    // THE OPTION IS COMPOSED FROM DECLARED FIELDS, NOT FROM ONE PROSE STRING
+    // (kogaki#1126, owner decision 2026-09-09: the Model chooses values inside a
+    // Harness-enforced format).
+    //
+    // WHAT WAS MEASURED, at the Candidate gate of
+    // runs/brief/brief-2026-09-15T22-53-48-359Z. The whole reader experience
+    // plus the figure clause rode the LABEL, and the description column showed
+    // `A`, `B`, `C` — the record ids, because `composeGateCall` falls back to an
+    // option's id where it carries no description. Two things about that
+    // rendering were right and are kept: each option opened with a short
+    // characteristic and then explained it, and the effect of answering states
+    // once at question level (kogaki#568). Both were the composing Model's
+    // habit inside one free-prose field, guaranteed by nothing.
+    //
+    // SO THE TWO HALVES ARE TWO FIELDS AND THIS FILE COMPOSES THE SEATS.
+    // `characteristic` names the path and is the label; `reader_experience`
+    // explains it and is the description, with the figure clause appended. A
+    // Candidate cannot change the shape by writing its prose differently,
+    // which is the whole of what a format the Harness owns buys.
+    //
+    // `<n>` IS THE POSITION, NEVER THE ID. It numbers the rendered set from 1
+    // so the owner has something to say back ("the third one") without the
+    // record id becoming content — the id stays the join key the answer
+    // resolves through at `adoptCandidate`, exactly where kogaki#568 left it.
+    label: `${i + 1}. ${c.characteristic.trim()}`,
+    // THE FIGURE CLAUSE MOVED WITH THE PROSE IT QUALIFIES (kogaki#877,
+    // kogaki#1126). It is one clause about how many Steps carry a figure, and
+    // it qualifies the reader experience rather than the path's name; appending
+    // it to a three-word label would put the longest sentence on the option
+    // beside the shortest. The surface it is owed at is unchanged — the
+    // selection gate, where the owner is choosing — and both fields of an
+    // option are that surface.
+    description: `${c.reader_experience.trim()} — ${figureClause(c.steps)}`,
     // NO EVIDENCE FIELD (kogaki#859, owner ruling 2026-09-04). The option is its
     // id and its label; the gate's whole option set is those, the negation and
     // free text. The first half of this ruling emptied the RENDERING and kept
@@ -644,7 +751,14 @@ export function assembleSelection(reviewed, doc) {
     // the composing premise is that the Thesis and the selected set support
     // a structure; its negation is its own option, and the free-text
     // channel does not discharge it.
-    label: "None of these — the Thesis or the selected set is what should change; no Reader Path lands in the Brief",
+    label: "None of these",
+    // THE NEGATION CARRIES ITS OWN DESCRIPTION (kogaki#1126). It is an option of
+    // this gate like any other, so the same rule reaches it: its id is a join
+    // key and never content. Split at the same seam as the Candidates — the
+    // label names the answer, the description says what answering it does — so
+    // the owner reads one shape down the column rather than three short labels
+    // and one long one.
+    description: "The Thesis or the selected set is what should change; no Reader Path lands in the Brief.",
     negates_premise: true,
   });
   const payload = {
