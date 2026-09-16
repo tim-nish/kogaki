@@ -33,6 +33,19 @@
     "field set -- so the text the Model composes against and the text the",
     "refusal enforces are one text and cannot disagree.",
     "",
+    "THE LEDGER FIELDS ARE HERE FOR THE SAME REASON THE TWO RENDERING",
+    "FIELDS ARE (kogaki#1129). `obligations`, `coverage` and `unused` were named",
+    "in one prose sentence -- `compose_path`'s `input_shape` -- and in no",
+    "declaration, so the composing Model chose their key names and the code that",
+    "reads them bound different ones: `raised_at`/`owed`/`settled_at` against",
+    "`text`/`introduced_by`/`discharged_by`, `role` against `role_in_thesis`, an",
+    "array against an object. Two of the three misreadings were SILENT -- the",
+    "Candidate gate rendered every entry as undischarged, and the coverage",
+    "section would have said `(not stated by the composer)` of a role the",
+    "composer stated -- and the third refused at the Brief's final write, after",
+    "two gates and three judge calls, outside every re-ask window. A sentence",
+    "describes; a declaration binds, and these three are now declared.",
+    "",
     "IT DECLARES SHAPE AND MEANING, AND JUDGES NEITHER. A missing field, a blank",
     "one, an over-long characteristic and two Candidates stating the same",
     "characteristic are refused here. Whether the characteristic NAMES the path",
@@ -132,6 +145,24 @@
       "required": true,
       "type": "string",
       "description": "The question the article opens on, on this path. The third of the three reader fields, written per Candidate on the same terms."
+    },
+    "coverage": {
+      "required": false,
+      "type": "object keyed by selected Strand id",
+      "value_required_keys": ["role_in_thesis"],
+      "description": "WHAT EACH SELECTED STRAND DOES IN THE THESIS, on this path. An OBJECT whose KEYS are the Strand ids of the Brief's closed set -- `L1`, `L2` -- and whose value carries `role_in_thesis`, one non-blank string. The Brief's Strand coverage section renders that string beside the Strand's derived placement, so a value under any other key renders as `(not stated by the composer)` beside a Strand the path in fact placed. An absent `coverage` is the empty object and every placed Strand renders unstated; a key naming a Strand outside the closed set is ignored by the render and refused here, because the set closed at mint and a Brief never fetches."
+    },
+    "obligations": {
+      "required": false,
+      "type": "array of object",
+      "entry_required_keys": ["text", "introduced_by"],
+      "entry_optional_keys": ["discharged_by"],
+      "description": "THE OBLIGATIONS LEDGER: what each Step still owes the reader, entered with the Step that settles it. Every entry is an object carrying `text` (the obligation in the composer's own words, non-blank), `introduced_by` (the `step_id` of the Step that raises it) and OPTIONALLY `discharged_by` (the `step_id` of the Step that settles it). Both id fields name a Step OF THIS CANDIDATE and are refused otherwise. AN ENTRY WITH NO `discharged_by` IS UNDISCHARGED, which is a DISCLOSURE and never a refusal -- it renders as `UNDISCHARGED` in the Brief and is counted at the Candidate gate. That is exactly why the key names bind: a ledger the runtime cannot read is scored as wholly undischarged and the owner is shown a confident number over a record nothing understood (kogaki#1129). An absent `obligations` is the empty ledger, which is a statement and not an omission."
+    },
+    "unused": {
+      "required": false,
+      "type": "object keyed by `L<n>` or `L<n>.journey`",
+      "description": "THE DISCLOSURE FOR MATERIAL THIS PATH LEAVES UNPLACED. An OBJECT -- never an array -- whose KEYS are either a selected Strand id (`L2`) or that Strand's Journey material (`L2.journey`), and whose VALUE is the disclosure text: why the path leaves it unused. The claims rule's third move is omit the Step, revise the path, or leave the Strand unused, never invention, and this field is where the third move is said out loud. An array carries no key to look the disclosure up under, so every unplaced Strand renders the Harness's default sentence and the composer's reason is lost; it is refused here rather than silently dropped. An absent `unused` is the empty object, and an unplaced Strand then discloses in the Harness's own words."
     }
   },
   "what_is_judged_elsewhere": [
