@@ -89,7 +89,7 @@ import { resolveHeadlines, glossFor } from "./terrain.mjs";
 import {
   runWorkflow, judgedRecordPath, persistPendingRun, SKILL_EXPANSION_EXECUTOR,
   readHookPayload, advancedByFromPayload, relFromRepo, JudgmentRefusal,
-  resolveStrandAddresses,
+  TerminalJudgmentRefusal, resolveStrandAddresses,
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
@@ -99,6 +99,7 @@ import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
 import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
   validateSteps, validateSpecialization, selectedStrands,
+  resolveMoveIds, loadMoveContracts, moveContractsForSteps,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -1018,13 +1019,38 @@ function refuseJudgment(msg) {
   throw new JudgmentRefusal(msg);
 }
 
+// THE REFUSAL THE RE-ASK WINDOW MUST NOT ABSORB (kogaki#1125). Its carrier is
+// `TerminalJudgmentRefusal`, declared beside `JudgmentRefusal` in the executor
+// with the reason the two are separate classes; this is the one site in this
+// flow that raises it. Use it where the record is refused for a fact about the
+// ASK rather than about the answer — a second attempt meets the same input, so
+// the bound would be spent buying a better-formed answer to a question that
+// was not answerable.
+function refuseTerminally(msg) {
+  throw new TerminalJudgmentRefusal(msg);
+}
+
 async function judged(rec, st, table, args, flag, composeInput, validate) {
   try {
     return await judgedRecordPath(rec, st, table, args, flag, composeInput, validate);
   } catch (e) {
+    // TERMINAL FIRST. Both arms end at the same `fail()` — the difference is
+    // upstream, where `judgeAttempts` catches one class and re-throws the
+    // other, so only the re-askable one is ever pushed onto `refusals_repaired`.
+    if (e instanceof TerminalJudgmentRefusal) fail(`${st.id}: ${e.message}`);
     if (e instanceof JudgmentRefusal) fail(`${st.id}: ${e.message}`);
     throw e;
   }
+}
+
+// The Move library's path, resolved the one way every other reader of it
+// resolves it — `--moves-dir` when given and non-empty, the default otherwise.
+// `src/assemble.mjs` and `src/draft.mjs` each spell this inline; it is written
+// once here rather than a third time, because a flow whose composing state and
+// whose adopting state read two different libraries would compose against one
+// set and resolve against another.
+function briefMovesDir(args) {
+  return typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
 }
 
 function writeJudgeInput(rec, st, body) {
@@ -1120,6 +1146,15 @@ const STATE_WORK = {
     const briefPath = needBrief(rec, st);
     const doc = readFileSync(briefPath, "utf8");
     const strandIds = selectedStrands(doc);
+    const movesDir = briefMovesDir(args);
+    // THE ADMITTED SET, READ ONCE AND BEFORE THE ASK (kogaki#1125). A store
+    // fault refuses the STATE rather than the composition: the library being
+    // unreadable is not something a judge can compose its way out of, so it
+    // never reaches the re-ask window.
+    const library = loadMoveContracts(movesDir);
+    if (library.error) {
+      fail(`${st.id}: ${library.error}`);
+    }
     let composed = null;
     const validate = (p) => {
       let raw;
@@ -1168,6 +1203,16 @@ const STATE_WORK = {
         // through that function.
         const v = validateSteps(c.steps);
         if (v.error) refuseJudgment(`candidate ${c.candidate_id}: ${v.error}`);
+        // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
+        // `resolveMoveIds` was first called by `adopt-candidate`, five states
+        // downstream: a Step binding an id that is in no Move record survived
+        // this state's re-ask window, `review_path`, `assemble_candidates`, the
+        // owner's Candidate gate and `judge_specialization` before the write
+        // refused it. Raising it inside the window is what makes it repairable
+        // — and repairable IN FACT rather than in principle, because the ask
+        // this state composes now carries the admitted set.
+        const mv = resolveMoveIds(c.steps, movesDir);
+        if (mv.error) refuseJudgment(`candidate ${c.candidate_id}: ${mv.error}`);
         // THE CLOSED STRAND SET, refused HERE rather than only at adoption. A
         // material outside the Brief's settled set is refused by `fillBrief`
         // at `adopt_candidate` — after the owner has chosen the path — so
@@ -1208,6 +1253,21 @@ const STATE_WORK = {
       // composition stands on.
       brief_document: doc,
       strands_you_may_use: strandIds,
+      // THE MOVE LIBRARY, AS THE CLOSED SET `move` IS COMPOSED FROM
+      // (kogaki#1125). Before this the input carried the Brief, the Strand set
+      // and the required Candidate count, and nothing about Moves — so the
+      // composer met a required `move` field with the field's NAME, a schema
+      // sentence saying the id "is resolved against the Move library at
+      // adoption", and no library. It composed six ids that read like Moves
+      // and were in no record.
+      //
+      // EACH ENTRY CARRIES ITS CONTRACT, not only its id, and that is the
+      // difference between a legal value and a choosable one: a Step BINDS the
+      // Move whose requires and effect its reader states specialize, so an id
+      // list alone would make the field fillable without making it decidable.
+      // The same two fields reach `judge_specialization`, which is the state
+      // that judges the binding — one reading of the library, two states.
+      moves_you_may_bind: library.moves,
       candidates_required: "two or three, differing in reader experience",
     });
     const path = await judged(rec, st, table, args, "candidates", composeInputFor, validate);
@@ -1302,10 +1362,42 @@ const STATE_WORK = {
       || fail(`${st.id}: the owner selected ${JSON.stringify(chosen)} at the Candidate gate and no `
         + `Candidate carries that id (${(reviewed.candidates || []).map((x) => x.candidate_id).join(", ") || "empty"}). `
         + "Nothing was written.");
+    const movesDir = briefMovesDir(args);
+    // THE CONTRACTS THE VERDICT IS A COMPARISON AGAINST (kogaki#1125). Read
+    // before the ask, because a Move record this state cannot read is a store
+    // fault and not something a judge can answer around.
+    const bound = moveContractsForSteps(c.steps, movesDir);
+    if (bound.error) {
+      fail(`${st.id}: ${bound.error}`);
+    }
     const validate = (p) => {
       let record;
       try { record = readJson(p); }
       catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      // `cannot-determine` IS TERMINAL, AND IT IS DECIDED BEFORE THE SHAPE
+      // REFUSALS (kogaki#1125). `validateSpecialization` refuses it in path
+      // order like `contradicts`, and through `refuseJudgment` that refusal
+      // reached the repair window — where a second ask over the SAME input
+      // returned `consistent` for every Step, each `why` describing a contract
+      // that did not exist, and the run record counted it as a repair.
+      //
+      // The two verdicts are not alike in this one respect, whatever else they
+      // share: `contradicts` is a judgment REACHED, and re-asking it is at
+      // least asking the judge to reconsider something it decided.
+      // `cannot-determine` is a judgment NOT reached, and the input it was not
+      // reachable from is the input the next attempt gets. So it exits here,
+      // naming the Step and its own sentence, and `refusals_repaired` never
+      // counts it.
+      const undecided = (record && Array.isArray(record.verdicts) ? record.verdicts : [])
+        .find((v) => v && v.verdict === "cannot-determine");
+      if (undecided) {
+        refuseTerminally(`step ${undecided.step_id}: cannot-determine — the judge did not reach a verdict, `
+          + `and the judging sitting wrote: "${String(undecided.why || "").trim()}". `
+          + `A verdict that was not reachable from this input is not reachable from the same input on a second ask, `
+          + `so this refuses the state rather than spending a re-ask on it (the Step-Move instantiation contract). `
+          + `The input carried ${bound.contracts.length} Move contract(s): `
+          + `${bound.contracts.map((x) => `${x.step_id}=${x.move}`).join(", ")}. Nothing was written.`);
+      }
       const v = validateSpecialization(record, c.steps, chosen);
       if (v.error) refuseJudgment(v.error);
     };
@@ -1313,6 +1405,14 @@ const STATE_WORK = {
       state: st.id,
       candidate_id: chosen,
       steps_you_must_judge: c.steps,
+      // THE RECORD THE COMPARISON IS AGAINST, PER STEP (kogaki#1125). This
+      // state's judgment_point asks whether each Step's reader states are
+      // specializations of "the requires and effect its bound Move declares",
+      // and its input carried neither — so the judge was asked about a record
+      // it was never given. The fields are verbatim from `moves/<id>.md`;
+      // nothing here compares them to anything, which is the whole of what
+      // keeps the specialization judgment judgment-class.
+      move_contracts: bound.contracts,
     });
     const path = await judged(rec, st, table, args, "specialization", composeInputFor, validate);
     rec.brief_specialization = relFromRepo(resolve(path));

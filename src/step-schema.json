@@ -102,7 +102,7 @@
     "move": {
       "required": true,
       "type": "string",
-      "description": "The Move library entry this Step binds, by id. The Move IS the State component of a Step, so the binding is required rather than encouraged, and the id is resolved against the Move library at adoption."
+      "description": "The Move library entry this Step binds, by id. The Move IS the State component of a Step, so the binding is required rather than encouraged. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `requires` and `effect`, and an id outside it resolves to no record and is refused at composition, naming the Step and the id. The library grows by an admission act, never by a path naming an id (kogaki#1125)."
     },
     "claims": {
       "required": true,
