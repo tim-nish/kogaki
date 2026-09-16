@@ -308,7 +308,15 @@ export function denyInternalVocabulary(payload, exemptByOption) {
     ["the free-text prompt", payload.free_text?.prompt],
   ];
   for (const o of payload.options || []) {
-    surfaces.push([`option ${o.id}'s label`, o.label, overrides?.get(o.id)]);
+    // NO OVERRIDE ON THE LABEL (kogaki#1126). The exemption exists for the step
+    // ids the FIGURE CLAUSE renders, and kogaki#934 put it on the label because
+    // that is where the clause was. The clause is now in the description, so a
+    // label override licenses a token in a field nothing puts one in — the
+    // widening kogaki#934's own comment refuses, left behind by the move rather
+    // than introduced deliberately. The label is `<n>. <characteristic>`, which
+    // the composing party writes and which no Harness clause injects ids into,
+    // so it is walked with no exemption at all.
+    surfaces.push([`option ${o.id}'s label`, o.label]);
     // THE DESCRIPTION IS WALKED, AND THE OVERRIDE TRAVELS WITH THE CLAUSE THAT
     // NEEDED IT (kogaki#1126). The figure clause renders this Candidate's own
     // step ids, and kogaki#934 exempted them where they were: the label. They
@@ -499,7 +507,7 @@ export function assembleSelection(reviewed, doc) {
     // removing it moved that property onto these two. PR #576 round 1 normalised
     // one of them and left the other, which is the same defect one field over.
     if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
-      return { error: `candidate ${c.candidate_id}: reader_experience is required and cannot be blank — Candidates DIFFER IN READER EXPERIENCE (the Candidate gate), the difference must be stated to be selectable, and since the label IS this prose a whitespace-only value renders as an option the owner cannot see` };
+      return { error: `candidate ${c.candidate_id}: reader_experience is required and cannot be blank — Candidates DIFFER IN READER EXPERIENCE (the Candidate gate), the difference must be stated to be selectable, and since the option's DESCRIPTION is composed from this prose a whitespace-only value leaves the owner an option whose explanation is the figure clause alone (kogaki#1126)` };
     }
     // NORMALISED, because this refusal is now what keeps two OPTION LABELS
     // distinguishable (kogaki#568 made the label the reader experience, and

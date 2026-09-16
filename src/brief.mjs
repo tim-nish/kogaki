@@ -1197,7 +1197,7 @@ const STATE_WORK = {
         if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
           refuseJudgment(`candidate ${c.candidate_id}: \`reader_experience\` is required and cannot be `
             + "blank — Candidates differ in READER EXPERIENCE, the difference must be stated to be "
-            + "selectable, and the option label IS this prose");
+            + "selectable, and the option's DESCRIPTION is composed from this prose (kogaki#1126)");
         }
         const expKey = c.reader_experience.trim().toLowerCase();
         if (seenExp.has(expKey)) {
