@@ -355,6 +355,131 @@ export function denyInternalVocabulary(payload, exemptByOption) {
   return {};
 }
 
+// ---- THE THREE LEDGER FIELDS, READ FROM ONE DECLARATION (kogaki#1129).
+//
+// `obligations`, `coverage` and `unused` were named in `compose_path`'s
+// `input_shape` sentence and in no declaration, so the composing Model chose
+// their key names and the three readers below bound different ones. The fields
+// are now declared in `src/candidate-schema.json` -- the same file the judge is
+// shown -- and this is the function that enforces the declaration, called from
+// `compose_path`'s validator INSIDE the re-ask window. It lives here rather
+// than in `src/compose.mjs` beside `fillBrief`'s own refusals for the reason
+// `characteristicMaxLength` does: one function, two readers, no second
+// transcription of a field set.
+//
+// IT REFUSES A SHAPE AND NEVER A JUDGMENT. Whether an obligation is worth
+// entering, whether a role names the Strand's work well and whether leaving a
+// Strand unused was the right third move are all judged at path review. An
+// UNDISCHARGED obligation stays a disclosure and is refused by nothing here:
+// only the KEY NAMES became a declared format.
+//
+// Pure; returns a refusal string or null. `strandIds` is the Brief's closed
+// set where the caller holds it, and the key checks that need it are skipped
+// where it is empty rather than refusing every key against an empty world.
+export function candidateLedgerRefusal(c, strandIds = []) {
+  const where = `candidate ${c?.candidate_id}`;
+  const stepIds = new Set((Array.isArray(c?.steps) ? c.steps : []).map((s) => s && s.step_id));
+  if (c?.obligations !== undefined) {
+    if (!Array.isArray(c.obligations)) {
+      return `${where}: \`obligations\` is the obligations ledger and is an ARRAY of entries, each `
+        + `\`{ text, introduced_by, discharged_by? }\` (src/candidate-schema.json, \`obligations\`). `
+        + `Received ${JSON.stringify(typeof c.obligations)}`;
+    }
+    for (const [i, o] of c.obligations.entries()) {
+      const at = `${where}, obligation ${i + 1}`;
+      if (!o || typeof o !== "object" || Array.isArray(o)) {
+        return `${at}: each ledger entry is an object \`{ text, introduced_by, discharged_by? }\``;
+      }
+      if (typeof o.text !== "string" || o.text.trim() === "") {
+        return `${at}: \`text\` is required and cannot be blank — it is the obligation in the `
+          + `composer's own words and it is what the Brief's ledger renders. The entry carries `
+          + `${JSON.stringify(Object.keys(o))} (src/candidate-schema.json, \`obligations\`)`;
+      }
+      if (typeof o.introduced_by !== "string" || o.introduced_by.trim() === "") {
+        return `${at}: \`introduced_by\` is required and names the \`step_id\` of the Step that raises `
+          + `the obligation. The entry carries ${JSON.stringify(Object.keys(o))} `
+          + `(src/candidate-schema.json, \`obligations\`)`;
+      }
+      if (!stepIds.has(o.introduced_by)) {
+        return `${at}: \`introduced_by\` ${JSON.stringify(o.introduced_by)} names no Step of this `
+          + `Candidate (${[...stepIds].join(", ")})`;
+      }
+      if (o.discharged_by !== undefined) {
+        if (typeof o.discharged_by !== "string" || !stepIds.has(o.discharged_by)) {
+          return `${at}: \`discharged_by\` ${JSON.stringify(o.discharged_by)} names no Step of this `
+            + `Candidate (${[...stepIds].join(", ")}) — an obligation is settled BY A STEP, and an entry `
+            + `left out of the ledger's key set is read as undischarged rather than as unreadable`;
+        }
+      }
+    }
+  }
+  if (c?.coverage !== undefined) {
+    if (!c.coverage || typeof c.coverage !== "object" || Array.isArray(c.coverage)) {
+      return `${where}: \`coverage\` is an OBJECT keyed by selected Strand id, each value carrying `
+        + `\`role_in_thesis\` (src/candidate-schema.json, \`coverage\`). Received `
+        + `${Array.isArray(c.coverage) ? "an array" : JSON.stringify(typeof c.coverage)}`;
+    }
+    for (const [id, v] of Object.entries(c.coverage)) {
+      if (strandIds.length > 0 && !strandIds.includes(id)) {
+        return `${where}: \`coverage\` carries the key ${JSON.stringify(id)}, which is outside the `
+          + `Brief's closed Strand set (${strandIds.join(", ")}) — the set closed at mint and a Brief `
+          + `never fetches`;
+      }
+      if (!v || typeof v !== "object" || Array.isArray(v) || typeof v.role_in_thesis !== "string"
+          || v.role_in_thesis.trim() === "") {
+        return `${where}: \`coverage.${id}\` carries no non-blank \`role_in_thesis\` — that key is what `
+          + `the Brief's Strand coverage section renders beside the Strand's derived placement, so a `
+          + `role stated under any other key renders as "(not stated by the composer)". The value `
+          + `carries ${JSON.stringify(v && typeof v === "object" ? Object.keys(v) : v)} `
+          + `(src/candidate-schema.json, \`coverage\`)`;
+      }
+    }
+  }
+  if (c?.unused !== undefined) {
+    if (!c.unused || typeof c.unused !== "object" || Array.isArray(c.unused)) {
+      return `${where}: \`unused\` is an OBJECT keyed by \`L<n>\` or \`L<n>.journey\`, each value the `
+        + `disclosure text for material this path leaves unplaced — an array carries no key to look a `
+        + `disclosure up under, so every unplaced Strand would render the Harness's default sentence `
+        + `and the composer's reason would be lost (src/candidate-schema.json, \`unused\`). Received `
+        + `${Array.isArray(c.unused) ? "an array" : JSON.stringify(typeof c.unused)}`;
+    }
+    for (const [key, text] of Object.entries(c.unused)) {
+      const strand = /^(L[0-9]+)(\.journey)?$/.exec(key);
+      if (!strand) {
+        return `${where}: \`unused\` carries the key ${JSON.stringify(key)} — the keys are a selected `
+          + `Strand id (\`L2\`) or that Strand's Journey material (\`L2.journey\`), and a key in neither `
+          + `form is looked up by nothing`;
+      }
+      if (strandIds.length > 0 && !strandIds.includes(strand[1])) {
+        return `${where}: \`unused\` carries the key ${JSON.stringify(key)}, which names a Strand `
+          + `outside the Brief's closed set (${strandIds.join(", ")})`;
+      }
+      if (typeof text !== "string" || text.trim() === "") {
+        return `${where}: \`unused.${key}\` carries no disclosure text — the value is why this path `
+          + `leaves the material unplaced, which is the claims rule's third move said out loud`;
+      }
+    }
+  }
+  return null;
+}
+
+// THE READABILITY HALF, SPLIT OUT FOR THE SCORER (kogaki#1129). `candidateEvidence`
+// below counts undischarged entries, and a count is only honest over entries
+// whose key set the runtime can read: an entry written as
+// `raised_at`/`owed`/`settled_at` carries no `discharged_by`, so the scorer read
+// every one of four settled obligations as UNDISCHARGED and showed the owner a
+// confident number over a record it did not understand. This predicate is what
+// the scorer refuses on — narrower than the validator above, because the gate's
+// question is not "is the ledger well formed" but "can this entry's discharge
+// state be read at all".
+function unreadableObligation(o) {
+  if (!o || typeof o !== "object" || Array.isArray(o)) return "it is not an object";
+  if (typeof o.text !== "string" || o.text.trim() === "") return "it carries no `text`";
+  if (typeof o.introduced_by !== "string" || o.introduced_by.trim() === "") return "it carries no `introduced_by`";
+  if (o.discharged_by !== undefined && typeof o.discharged_by !== "string") return "its `discharged_by` is not a step id";
+  return null;
+}
+
 // The obligations ledger's state and the placement count are PER-CANDIDATE
 // composition-time values: at assembly the Brief is pre-adoption (its
 // sequence and ledger are still typed unfilled slots — only the adopted
@@ -373,6 +498,30 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   const jplace = journeyPlacements(c.steps, journeyIds);
   const jplaced = journeyIds.filter((id) => jplace.get(id).length > 0);
   const obligations = c.obligations || [];
+  // NOTHING IS SCORED THAT CANNOT BE READ (kogaki#1129). The filter below reads
+  // ONE declared key, and an entry that does not carry the declared key set
+  // answers it the same way a genuinely undischarged entry does — which is how
+  // a Candidate whose every obligation named its settling Step rendered "4
+  // entries, 4 UNDISCHARGED — disclosed here, never a refusal" at the gate the
+  // owner answered. A guard that scores a record it cannot read reports a
+  // confident number, so an unreadable entry REFUSES here, naming the entry.
+  // The undischarged COUNT itself stays a disclosure and never a refusal: what
+  // is refused is the unreadability, not the owing.
+  if (!Array.isArray(obligations)) {
+    return { error: `candidate ${c.candidate_id}: \`obligations\` is not an array — the ledger's `
+      + "state cannot be read, and an unreadable ledger is not an empty one "
+      + "(src/candidate-schema.json, `obligations`)" };
+  }
+  for (const [i, o] of obligations.entries()) {
+    const why = unreadableObligation(o);
+    if (why) {
+      return { error: `candidate ${c.candidate_id}, obligation ${i + 1}: ${why}, so whether it is `
+        + "discharged cannot be read — the entry would be counted UNDISCHARGED at the Candidate gate "
+        + `on the strength of a key it was never written with. The entry carries `
+        + `${JSON.stringify(o && typeof o === "object" ? Object.keys(o) : o)}; the declared shape is `
+        + "`{ text, introduced_by, discharged_by? }` (src/candidate-schema.json, `obligations`)" };
+    }
+  }
   const undischarged = obligations.filter((o) => o.discharged_by === undefined).length;
   // The three reader fields are authored at PATH COMPOSITION, per Candidate
   // (the settled structure section v12), so they are this Candidate's own and ride its evidence — two
@@ -1041,6 +1190,10 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // and re-minting is the route.
   {
     const ev = candidateEvidence(c, selectedStrands(doc), journeyBearingStrands(doc));
+    // THE EVIDENCE CAN REFUSE (kogaki#1129), and the refusal travels rather than
+    // being read past: `ev.bridges` on a refusal object is `undefined`, which
+    // would fill the disclosure slot with the word "undefined".
+    if (ev.error) return { error: ev.error };
     r = replaceSlot(out, "What this path bridged", `${ev.bridges}\n\n${ev.journey_coverage}`);
     if (r.error) return r;
     out = r.doc;

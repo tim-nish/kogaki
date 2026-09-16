@@ -93,7 +93,7 @@ import {
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
-  cmdAssemble, cmdAdoptCandidate, characteristicMaxLength,
+  cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal,
 } from "./assemble.mjs";
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
 import {
@@ -1271,6 +1271,19 @@ const STATE_WORK = {
               + "writes it per Candidate, and adoption fills no default");
           }
         }
+        // THE THREE LEDGER FIELDS, REFUSED HERE BY NAME (kogaki#1129). Their
+        // key names were carried by this state's `input_shape` sentence and by
+        // no declaration, so a composition chose its own — `raised_at` /
+        // `owed` / `settled_at` for an obligation, `role` for a Strand's role,
+        // an array for `unused` — and the three readers bound different ones.
+        // Two of those misreadings were SILENT, one refused at the Brief's
+        // final write after two owner gates and three judge calls, and none of
+        // the three was repairable by then. `candidateLedgerRefusal` reads the
+        // declaration in `src/candidate-schema.json`, which the executor
+        // renders into this state's own prompt — the same two-readers property
+        // `validateSteps` has, one field set over.
+        const ledger = candidateLedgerRefusal(c, strandIds);
+        if (ledger) refuseJudgment(ledger);
       }
       composed = cands;
     };

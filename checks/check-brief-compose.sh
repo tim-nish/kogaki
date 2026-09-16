@@ -49,7 +49,7 @@ import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDige
          figureClause, figureSteps, renderFigureRoles, parseFigureRoles, figureKinds } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
 import { NO_HEADLINE, NO_SHARD_NAME, composeGateCall } from "./src/terrain.mjs";
-import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS, decisionGradeRendering, characteristicMaxLength, CANDIDATE_SCHEMA_PATH } from "./src/assemble.mjs";
+import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, candidateLedgerRefusal, findInternalVocabulary, SLOT_CAPTIONS, decisionGradeRendering, characteristicMaxLength, CANDIDATE_SCHEMA_PATH } from "./src/assemble.mjs";
 import { validateDisclosureTable, disclosureSurface, disclosureFieldsPresent } from "./src/disclosure.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 import { snapshotBrief } from "./src/compose.mjs";
@@ -199,7 +199,7 @@ const SETTLED = ["coding::lesson/bravo", "coding::lesson/alpha"];
 // that is otherwise the conformant one. Two hand-written stubs would differ in
 // more than the property under test, and a case would pass or fail on the
 // difference nobody meant.
-const judgeStub = ({ danglingMove = null, specVerdict = null } = {}) => [
+const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger = false } = {}) => [
   "#!/usr/bin/env node",
   // The `--version` probe the start act runs to resolve its binary. It answers
   // FIRST, before any stdin read: the probe closes stdin, and a stub that
@@ -265,7 +265,15 @@ const judgeStub = ({ danglingMove = null, specVerdict = null } = {}) => [
   '        thesis_closure: id + ": the final step establishes the adopted claim",',
   '      },',
   '      coverage: Object.fromEntries(S.map((m) => [m, { role_in_thesis: "carries one claim of the path" }])),',
-  '      obligations: [{ text: "the case\'s generality is asserted", introduced_by: steps[steps.length - 1].step_id }],',
+  // THE LEDGER, CONFORMANT OR UNDER THE KEY NAMES THE OBSERVED RUN CHOSE
+  // (kogaki#1129). `raised_at` / `owed` / `settled_at` is what a composition
+  // wrote when the three fields were named in one prose sentence and declared
+  // nowhere — read by nothing, scored as wholly undischarged at the owner's
+  // gate, and refused at the Brief's final write. Varied through the factory so
+  // case (ai) differs from the conformant span in this one answer.
+  '      obligations: ' + (undeclaredLedger
+    ? '[{ raised_at: steps[0].step_id, owed: "the case\'s generality is asserted", settled_at: steps[steps.length - 1].step_id }]'
+    : '[{ text: "the case\'s generality is asserted", introduced_by: steps[steps.length - 1].step_id }]') + ',',
   '    };',
   '  };',
   '  record = { candidates: [',
@@ -2604,6 +2612,66 @@ try {
           }
         }
       }
+
+      // ---- (ai) THE THREE LEDGER FIELDS ARE REFUSED AT `compose_path`, BY
+      // FIELD NAME (kogaki#1129). `obligations`, `coverage` and `unused` were
+      // named in this state's `input_shape` sentence and declared nowhere, so
+      // the composing Model chose their key names: the observed run wrote
+      // `raised_at` / `owed` / `settled_at`, which `src/compose.mjs` refused at
+      // the Brief's FINAL WRITE — after two owner gates and three judge calls,
+      // outside every re-ask window — and which `candidateEvidence` had already
+      // scored as four undischarged obligations at the gate the owner answered.
+      //
+      // DRIVEN THROUGH THE SPAN, for the reason (ad) is: a direct call to
+      // `candidateLedgerRefusal` survives a mutation that deletes the call from
+      // `compose_path`'s validator, and the property under test is that the
+      // STATE runs it.
+      ranCase("ai-compose-ledger-keys");
+      {
+        const sp = spanIn("ledger", judgeStub({ undeclaredLedger: true }));
+        if (sp.started.status !== 0) {
+          fails.push(`(ai) the start act failed before the span could compose: ${(sp.started.stderr || "").trim().slice(0, 300)}`);
+        } else {
+          const a = sp.answer("toolu_1129_ledger", "THESIS_ADOPTION", () => "thesis-1");
+          if (!a) {
+            fails.push("(ai) the start act raised no THESIS_ADOPTION declaration — the span never reached path composition");
+          } else {
+            const said = `${a.stderr || ""}${a.stdout || ""}`;
+            // BY FIELD NAME, which is the whole of what a declaration buys the
+            // composer: told an obligation entry is wrong and not WHICH KEY it
+            // owes, a re-ask is a guess at the same sentence.
+            if (!/introduced_by|\btext\b/.test(said)) {
+              fails.push(`(ai) an obligations ledger written as raised_at/owed/settled_at was NOT refused at compose_path naming the field it owes — it rides the composition through review, assembly and the owner's gate to the write that refuses it. advance said: ${said.trim().slice(0, 400)}`);
+            }
+            if (!/obligation 1\b/.test(said)) {
+              fails.push(`(ai) the compose_path ledger refusal does not name the ENTRY — a ledger with several entries leaves the composer re-reading all of them. advance said: ${said.trim().slice(0, 400)}`);
+            }
+            // THE GATE WAS NEVER REACHED. A refusal that fired after the owner
+            // had chosen a path is the state of affairs this case exists to
+            // end, and it is the state of affairs the observed run was in.
+            if (sp.declOf("CANDIDATE_SELECTION")) {
+              fails.push("(ai) the run reached the Candidate-selection gate with an unreadable obligations ledger in every Candidate — the owner is shown an undischarged count over entries nothing could read, and the adoption write then refuses");
+            }
+            // AND THE WINDOW WAS SPENT. A ledger under the wrong key names is
+            // repairable from THIS input — the ask carries the declaration the
+            // schema file states — so the table's own `retries` is what the
+            // refusal is worth, the same contrast (ad) is read against.
+            const table1129 = JSON.parse(readFileSync(join(rt, "src", "brief-workflow.json"), "utf8"));
+            const composeSt1129 = (table1129.states || []).find((x) => x.id === "compose_path");
+            const licensed1129 = Number.isInteger(composeSt1129 && composeSt1129.retries) ? composeSt1129.retries + 1 : null;
+            const spent1129 = sp.asks("compose_path");
+            if (licensed1129 === null) {
+              fails.push("(ai) compose_path declares no integer `retries` in the workflow table — the window this case is about has no declared size");
+            } else if (spent1129 !== licensed1129) {
+              fails.push(`(ai) compose_path was asked ${spent1129} time(s) for a ledger under undeclared key names and the table licenses ${licensed1129} — the declaration rides in the ask, so this is exactly the class the window is for`);
+            }
+            const rec = sp.record();
+            if (rec.done === true) {
+              fails.push("(ai) the run record reports done after an unreadable obligations ledger — the composition was accepted");
+            }
+          }
+        }
+      }
     } finally {
       rmSync(rt, { recursive: true, force: true });
     }
@@ -3423,6 +3491,115 @@ ranCase("l-bridge");
   ranCase("l3");
   if (!/^bridges: a, c$/m.test(renderStep(S("b", { bridges: ["a", "c"] })))) {
     fails.push("(l3) renderStep drops `bridges` — a Brief re-read from its recorded form discloses no bridge at all");
+  }
+}
+
+// (aj) THE UNDISCHARGED COUNT IS SCORED ONLY OVER ENTRIES THAT CAN BE READ,
+// and the ledger's declared key set is refused by field name (kogaki#1129).
+//
+// TWO HALVES, AND THE SECOND IS WHY THE FIRST IS NOT VACUOUS. `candidateEvidence`
+// counted `o.discharged_by === undefined`, and an entry written under other key
+// names answers that test exactly as a genuinely undischarged entry does — so a
+// Candidate whose every obligation named the Step that settles it rendered "4
+// entries, 4 UNDISCHARGED — disclosed here, never a refusal" at the gate the
+// owner answered. The disclosure was wrong and nothing marked it: a guard that
+// scores a record it cannot read reports a confident number.
+//
+// THE OWING IS STILL NEVER A REFUSAL. What refuses is UNREADABILITY; the
+// undischarged count itself stays a disclosure, which is why the contrast arm
+// below asserts a non-zero count renders rather than refusing.
+//
+// THE COVERAGE AND `unused` ARMS ARE ASSERTED AGAINST `candidateLedgerRefusal`
+// DIRECTLY, and that is honest only because (ai) above binds the STATE to that
+// function through the span: a direct call alone would survive a mutation that
+// deletes the call site, which is the shape this file records at (x).
+ranCase("aj-ledger-shape");
+{
+  const OS = [{ step_id: "s1", materials: [], claims: [] }, { step_id: "s2", materials: [], claims: [] }];
+  const cand = (obligations, extra = {}) => ({ candidate_id: "cand-o", steps: OS, obligations, ...extra });
+
+  // ARM 1 — every entry discharged renders `0 UNDISCHARGED` at the gate.
+  const allSettled = candidateEvidence(cand([
+    { text: "the generality is asserted", introduced_by: "s1", discharged_by: "s2" },
+    { text: "the counter-case is owed", introduced_by: "s1", discharged_by: "s2" },
+  ]), [], []);
+  if (allSettled.error) {
+    fails.push(`(aj) a conformant ledger with every entry discharged was refused: ${allSettled.error}`);
+  } else if (!/2 entries, 0 UNDISCHARGED/.test(allSettled.obligations_ledger || "")) {
+    fails.push(`(aj) a ledger whose every entry names the Step that settles it does not render 0 UNDISCHARGED at the gate: ${JSON.stringify(allSettled.obligations_ledger)}`);
+  }
+
+  // ARM 2 — THE CONTRAST. An undischarged entry still DISCLOSES and never
+  // refuses; without this arm, a scorer that refused every ledger would pass
+  // arm 1 by never reaching a count at all.
+  const oneOwing = candidateEvidence(cand([
+    { text: "the generality is asserted", introduced_by: "s1", discharged_by: "s2" },
+    { text: "the counter-case is owed", introduced_by: "s1" },
+  ]), [], []);
+  if (oneOwing.error) {
+    fails.push(`(aj) an UNDISCHARGED obligation was refused: ${oneOwing.error} — an undischarged obligation is a disclosure and never a refusal; only the key names became a declared format`);
+  } else if (!/2 entries, 1 UNDISCHARGED/.test(oneOwing.obligations_ledger || "")) {
+    fails.push(`(aj) an undischarged entry is not counted at the gate: ${JSON.stringify(oneOwing.obligations_ledger)}`);
+  }
+
+  // ARM 3 — the observed run's own record: the entry cannot be read, so it is
+  // REFUSED naming the entry rather than scored.
+  const unreadable = candidateEvidence(cand([
+    { raised_at: "s1", owed: "the generality is asserted", settled_at: "s2" },
+  ]), [], []);
+  if (!unreadable.error) {
+    fails.push(`(aj) an obligation entry carrying raised_at/owed/settled_at was SCORED rather than refused: ${JSON.stringify(unreadable.obligations_ledger)} — every entry named the Step that settles it and the gate told the owner all of them were undischarged`);
+  } else {
+    if (!/obligation 1\b/.test(unreadable.error)) {
+      fails.push(`(aj) the unreadable-entry refusal does not name the ENTRY: ${unreadable.error}`);
+    }
+    if (!/introduced_by|\btext\b/.test(unreadable.error)) {
+      fails.push(`(aj) the unreadable-entry refusal does not name the field the entry owes: ${unreadable.error}`);
+    }
+  }
+
+  // ARM 4 — the two remaining declared fields, by name. `coverage` keyed by
+  // selected Strand id with `role_in_thesis` per value; `unused` an OBJECT and
+  // never an array, because an array carries no key to look a disclosure up
+  // under and every unplaced Strand then renders the Harness's default sentence.
+  const okLedger = [{ text: "the generality is asserted", introduced_by: "s1", discharged_by: "s2" }];
+  const conformant = candidateLedgerRefusal(cand(okLedger, {
+    coverage: { L1: { role_in_thesis: "carries the opening claim" } },
+    unused: { "L2.journey": "the journey material sits outside this path's arc" },
+  }), ["L1", "L2"]);
+  if (conformant !== null) {
+    fails.push(`(aj) a conformant Candidate was refused by the ledger validator: ${conformant} — the validator would refuse every composition, and the refusals below would prove nothing`);
+  }
+  const roleKey = candidateLedgerRefusal(cand(okLedger, { coverage: { L1: { role: "carries the opening claim" } } }), ["L1", "L2"]);
+  if (!/role_in_thesis/.test(roleKey || "")) {
+    fails.push(`(aj) a coverage value carrying \`role\` rather than \`role_in_thesis\` was admitted — the Brief's Strand coverage section then renders "(not stated by the composer)" of a role the composer stated: ${roleKey}`);
+  }
+  const unusedArray = candidateLedgerRefusal(cand(okLedger, { unused: [] }), ["L1", "L2"]);
+  if (!/\bunused\b/.test(unusedArray || "")) {
+    fails.push(`(aj) an \`unused\` written as an array was admitted — the disclosures read as if nothing was left unplaced: ${unusedArray}`);
+  }
+  const danglingStep = candidateLedgerRefusal(cand([{ text: "owed", introduced_by: "s1", discharged_by: "s9" }]), ["L1", "L2"]);
+  if (!/s9/.test(danglingStep || "")) {
+    fails.push(`(aj) a \`discharged_by\` naming no Step of the Candidate was admitted — the ledger renders a settlement by a Step the path does not carry: ${danglingStep}`);
+  }
+
+  // ARM 5 — THE DECLARATION AND THE VALIDATOR ARE ONE TEXT, which is the
+  // property `src/candidate-schema.json` exists for: the judge is shown that
+  // file and the refusal enforces its field set, so a field the validator binds
+  // and the schema never declares would be enforced against a composer that was
+  // never told (kogaki#1126's own ground, one field set over).
+  const schema1129 = JSON.parse(readFileSync(CANDIDATE_SCHEMA_PATH, "utf8"));
+  for (const f of ["obligations", "coverage", "unused"]) {
+    if (!schema1129.fields || !schema1129.fields[f]) {
+      fails.push(`(aj) src/candidate-schema.json declares no \`${f}\` — the validator refuses a shape the composing Model is never shown, which is the prose-only sentence wearing a declaration`);
+    }
+  }
+  const shapeSentence = ((JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).states || [])
+    .find((x) => x.id === "compose_path") || {}).input_shape || "";
+  for (const f of ["obligations", "coverage", "unused"]) {
+    if (shapeSentence.includes("`" + f + "`")) {
+      fails.push(`(aj) \`compose_path\`'s input_shape still names \`${f}\` — the sentence DESCRIBES and the schema BINDS, so a key carried by both is the two-carriers shape the schema file exists to remove: they agree until one is edited, and the edit that matters is the one that adds a field`);
+    }
   }
 }
 
