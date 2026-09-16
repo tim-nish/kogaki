@@ -48,8 +48,8 @@ import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDige
          figureRefusal, figureClaimRefusal, resolveFigureForms, visualFormOf,
          figureClause, figureSteps, renderFigureRoles, parseFigureRoles, figureKinds } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
-import { NO_HEADLINE, NO_SHARD_NAME } from "./src/terrain.mjs";
-import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS, decisionGradeRendering } from "./src/assemble.mjs";
+import { NO_HEADLINE, NO_SHARD_NAME, composeGateCall } from "./src/terrain.mjs";
+import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS, decisionGradeRendering, characteristicMaxLength, CANDIDATE_SCHEMA_PATH } from "./src/assemble.mjs";
 import { validateDisclosureTable, disclosureSurface, disclosureFieldsPresent } from "./src/disclosure.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 import { snapshotBrief } from "./src/compose.mjs";
@@ -253,6 +253,7 @@ const judgeStub = ({ danglingMove = null, specVerdict = null } = {}) => [
   '    const steps = stepsFor(order);',
   '    return {',
   '      candidate_id: id,',
+  '      characteristic: "Path " + id,',
   '      reader_experience: exp,',
   '      reader_start: id + ": the reader treats the case as one team\'s habit",',
   '      reader_target: id + ": the reader treats it as a property of the shape",',
@@ -855,7 +856,12 @@ try {
   // survives to the gate, which is what makes them a real axis rather than a
   // constant repeated twice.
   const mkCand = (id, exp, steps) => ({
-    candidate_id: id, reader_experience: exp, steps,
+    // `characteristic` IS DERIVED FROM THE ID, which keeps every fixture set
+    // distinct at the label without a second argument to thread through every
+    // call site (kogaki#1126). Cases that need a SPECIFIC characteristic --
+    // the bound, the fold, the rendered shape -- override it on the built
+    // object, where what is being asserted is visible beside the assertion.
+    candidate_id: id, characteristic: `Path ${id}`, reader_experience: exp, steps,
     reader_start: `${id}: the reader treats the case as one team's habit`,
     reader_target: `${id}: the reader treats it as a property of the shape`,
     opening_question: `${id}: why did the same fix land twice?`,
@@ -920,8 +926,14 @@ try {
   {
     const figStep = (st, n) => ({ ...st, figure: `what figure ${n} lets the reader hold`,
                                   figure_roles: { endpoint_a: "g1" } });
+    // THE CLAUSE IS READ WHERE IT IS NOW RENDERED (kogaki#1126): the option's
+    // DESCRIPTION. The property this case asserts is unchanged -- the figure
+    // count, the set and the soft warning reach the owner at the selection gate
+    // -- and only the seat moved, because the label now carries the path's
+    // short name. Reading the label would make every assertion below vacuous,
+    // which is the shape the case's own comment above warns about.
     const label = (cand) => ((assembleSelection({ candidates: [cand, candB] }, doc0).payload || {}).options || [])
-      .find((o) => o.id === cand.candidate_id)?.label || "";
+      .find((o) => o.id === cand.candidate_id)?.description || "";
     const none = label(candA);
     if (!/no Step carries a figure/.test(none)) {
       fails.push(`(w1) a Candidate declaring no figure does not disclose that at the gate — an absent clause and a clause reading none are the same silence to a reader: ${none}`);
@@ -929,7 +941,7 @@ try {
     const twoFig = label({ ...candA, candidate_id: "cand-fig2",
       steps: candA.steps.map((st, i) => figStep(st, i + 1)) });
     if (!/2 Step\(s\) carry a figure/.test(twoFig)) {
-      fails.push(`(w1) the figure count does not reach the option label (acceptance 3): ${twoFig}`);
+      fails.push(`(w1) the figure count does not reach the option description (acceptance 3, kogaki#1126): ${twoFig}`);
     }
     if (/second look/.test(twoFig)) {
       fails.push(`(w1) two figures warn at the gate — the soft warning is ABOVE three: ${twoFig}`);
@@ -944,9 +956,9 @@ try {
     if (fourAsm.error) {
       fails.push(`(w1) a Candidate with four figures was REFUSED — the warning has no target and refuses nothing (D11): ${fourAsm.error}`);
     } else {
-      const l4 = (fourAsm.payload.options || []).find((o) => o.id === "cand-fig4")?.label || "";
+      const l4 = (fourAsm.payload.options || []).find((o) => o.id === "cand-fig4")?.description || "";
       if (!/4 Step\(s\) carry a figure/.test(l4) || !/second look/.test(l4)) {
-        fails.push(`(w1) four figure-carrying Steps do not show the warning IN THE LABEL (acceptance 3): ${l4}`);
+        fails.push(`(w1) four figure-carrying Steps do not show the warning IN THE DESCRIPTION (acceptance 3, kogaki#1126): ${l4}`);
       }
     }
   }
@@ -983,9 +995,9 @@ try {
       for (const want of ["cand-snake", "cand-2", "none-of-these"]) {
         if (!ids.includes(want)) fails.push(`(w2) option ${want} is missing from the gate a snake_case step_id assembled — the refusal took the whole option set, not one label`);
       }
-      const ls = (snakeAsm.payload.options || []).find((o) => o.id === "cand-snake")?.label || "";
+      const ls = (snakeAsm.payload.options || []).find((o) => o.id === "cand-snake")?.description || "";
       if (!/open_the_claim/.test(ls)) {
-        fails.push(`(w2) the figure-carrying Step's id does not reach the label — the repair is an override on the wire, not a removal of the disclosure §4.16 sites here: ${ls}`);
+        fails.push(`(w2) the figure-carrying Step's id does not reach the description — the repair is an override on the wire, not a removal of the disclosure §4.16 sites here, and kogaki#1126 moved the clause to the seat the override must now cover: ${ls}`);
       }
     }
     // DIRECTION 2 — THE WIRE IS STILL ARMED IN THAT SAME LABEL. A term of art
@@ -1018,9 +1030,128 @@ try {
       fails.push("(w2) an exempted token was skipped in a surface OTHER than the option label — the override reaches the label its producer writes and nothing else");
     }
   }
+  // (ao) THE CANDIDATE OPTION'S FORMAT IS THE HARNESS'S, AND THE ID IS NEVER
+  // CONTENT (kogaki#1126, acceptance items 2 and 4).
+  //
+  // WHAT WAS MEASURED, at the Candidate gate of
+  // runs/brief/brief-2026-09-15T22-53-48-359Z: three options whose label held
+  // the whole reader experience plus the figure clause, and whose DESCRIPTION
+  // column read `A`, `B`, `C` — the record ids, shown because `composeGateCall`
+  // falls back to an option's id where it carries no description. Two halves of
+  // that rendering were right — a short characteristic, then its explanation —
+  // and both were the composing Model's habit inside one free-prose field.
+  //
+  // SO WHAT IS PINNED HERE IS THE SHAPE, NOT THE PROSE. The label is
+  // `<position>. <characteristic>` composed by `assembleSelection` from a
+  // declared field; the description is the explanation with the Harness's own
+  // figure clause; and no option's description is its id. A Model that writes
+  // its characteristic as a paragraph changes the CONTENT of the label and
+  // cannot change its shape, which is the whole of what a Harness-enforced
+  // format buys — so a mutation that put the two back in one field, or that
+  // restored the id fallback, is red here rather than on the owner's screen.
+  ranCase("ao-candidate-option-format");
+  {
+    const fmt = assembleSelection({ candidates: [candA, candB] }, doc0);
+    if (fmt.error) fails.push(`(ao) the two-Candidate fixture is unpresentable: ${fmt.error}`);
+    else {
+      const opts = (fmt.payload.options || []).filter((o) => !o.negates_premise);
+      // THE POSITION IS THE POSITION, checked against the rendered ORDER rather
+      // than against a candidate id or an index this assertion computes its own
+      // way. `<n>` numbering from 1 is what lets an owner say "the third one".
+      opts.forEach((o, i) => {
+        const cand = [candA, candB].find((c) => c.candidate_id === o.id);
+        const want = `${i + 1}. ${cand.characteristic}`;
+        if (o.label !== want) {
+          fails.push(`(ao) option ${o.id}'s label is ${JSON.stringify(o.label)} and the declared format is `
+            + `\`<n>. <characteristic>\` — wanted ${JSON.stringify(want)} (kogaki#1126)`);
+        }
+        if (!String(o.description || "").startsWith(cand.reader_experience)) {
+          fails.push(`(ao) option ${o.id}'s description does not open with its reader_experience — the `
+            + `explanation is the description's own field and the Harness appends only the figure `
+            + `clause: ${JSON.stringify(String(o.description || "").slice(0, 80))}`);
+        }
+      });
+      // THE ID IS NOT CONTENT, ON EVERY OPTION INCLUDING THE NEGATION. Asserted
+      // over the whole set rather than over the Candidates alone: the defect is
+      // a FALLBACK, so the option that is easiest to leave without a description
+      // is exactly the one a repair scoped to Candidates would miss.
+      for (const o of (fmt.payload.options || [])) {
+        if (typeof o.description !== "string" || o.description.trim() === "") {
+          fails.push(`(ao) option ${o.id} carries no description — an option without one renders its id, `
+            + "which is the join key the owner's answer resolves through and never content");
+        } else if (o.description.trim() === o.id) {
+          fails.push(`(ao) option ${o.id}'s description IS its id — the A/B/C column kogaki#1126 closes`);
+        }
+        if (o.label.trim() === o.id) fails.push(`(ao) option ${o.id}'s label IS its id`);
+      }
+    }
+    // THE THREE REFUSALS THE SCHEMA DECLARES. Each is asserted on its own
+    // mutation of a fixture that otherwise passes, so a refusal that stopped
+    // firing cannot hide behind one that still does.
+    const blankChar = assembleSelection(
+      { candidates: [candA, { ...JSON.parse(JSON.stringify(candB)), characteristic: "  \t " }] }, doc0);
+    if (!blankChar.error || !/characteristic is required and cannot be blank/.test(blankChar.error)) {
+      fails.push("(ao) a whitespace-only characteristic was accepted — the label is composed from it, so the option renders as a bare number");
+    }
+    const bound = characteristicMaxLength();
+    const overLong = assembleSelection(
+      { candidates: [candA, { ...JSON.parse(JSON.stringify(candB)), characteristic: "x".repeat(bound + 1) }] }, doc0);
+    if (!overLong.error || !new RegExp(`bounds it at ${bound}`).test(overLong.error)) {
+      fails.push(`(ao) a characteristic of ${bound + 1} characters was accepted against a declared bound of ${bound}`);
+    }
+    // AND THE BOUND IS THE SCHEMA'S, READ RATHER THAN TYPED TWICE. This is the
+    // property the schema file exists for — the text the judge composes against
+    // and the text the refusal enforces are one file — and without this line
+    // the pair could drift to two numbers with every assertion above still
+    // green, because each of them reads the same side.
+    const declaredBound = JSON.parse(readFileSync(CANDIDATE_SCHEMA_PATH, "utf8"))?.fields?.characteristic?.max_length;
+    if (declaredBound !== bound) {
+      fails.push(`(ao) the refusal binds at ${bound} and src/candidate-schema.json declares ${JSON.stringify(declaredBound)} — the prompt and the refusal are two numbers`);
+    }
+    const sameChar = assembleSelection(
+      { candidates: [candA, { ...JSON.parse(JSON.stringify(candB)), characteristic: candA.characteristic }] }, doc0);
+    if (!sameChar.error || !/SAME characteristic/.test(sameChar.error)) {
+      fails.push("(ao) two Candidates with one characteristic were presented as two — they render as two options the owner cannot tell apart at the label");
+    }
+    // THE OBLIGATION IS DECLARED AT THE GATE AND ENFORCED BY THE COMPOSER. The
+    // registry row is what makes an undescribed option `unavailable` rather than
+    // a silent id, and a row nothing reads is a declaration wearing a check.
+    const reg = JSON.parse(readFileSync("src/gate-registry.json", "utf8"));
+    const gate = (reg.gates || []).find((g) => g.id === "brief-candidate-selection");
+    if (gate?.option_descriptions_required !== true) {
+      fails.push("(ao) brief-candidate-selection does not declare `option_descriptions_required` — without the row the composer falls back to the id and nothing goes red");
+    } else {
+      const stripped = JSON.parse(JSON.stringify(gate));
+      for (const o of stripped.options) delete o.description;
+      const refused = composeGateCall(stripped);
+      if (!refused.unavailable || !/carry no description/.test(refused.unavailable)) {
+        fails.push(`(ao) the composer admitted a declared-descriptions gate whose option carries none — the id fallback is still reachable: ${JSON.stringify(refused.unavailable || "admitted")}`);
+      }
+      const live = composeGateCall(gate);
+      if (!live.tool_input) {
+        fails.push(`(ao) the live registry row composes no call: ${live.unavailable || live.over_bound || live.refused}`);
+      } else {
+        const ids = new Set((gate.options || []).map((o) => o.id));
+        for (const o of live.tool_input.questions[0].options) {
+          if (ids.has(String(o.description).trim())) {
+            fails.push(`(ao) the composed call shows an option id in the description column: ${JSON.stringify(o.description)}`);
+          }
+        }
+      }
+    }
+  }
   const negOpt = (pay.options || []).find((o) => o.negates_premise === true);
   if (!negOpt) fails.push("(e) no option flagged negates_premise — the premise's negation is first-class (§6)");
-  else if (!/Thesis or the selected set/.test(negOpt.label)) fails.push("(e) the negation option does not state the premise it negates");
+  // READ OVER BOTH SEATS (kogaki#1126). The negation's label is now the answer
+  // ("None of these") and its description is what answering it does, split at
+  // the same seam as every Candidate option so the owner reads one shape down
+  // the column. The PROPERTY is untouched -- the premise it negates is stated
+  // where the owner reads it -- so the assertion reads the option rather than
+  // one of its fields, which is also what keeps it from going red the next time
+  // the split moves.
+  else if (!/Thesis or the selected set/.test(`${negOpt.label} ${negOpt.description || ""}`)) {
+    fails.push("(e) the negation option does not state the premise it negates");
+  }
   // THE SHARED EFFECT IS CARRIED, not merely absent from the labels. Dropping
   // the prefix without stating the effect anywhere would satisfy every
   // no-repetition assertion below and leave the owner not knowing what
@@ -1053,8 +1184,16 @@ try {
   // computation keeps its evidence while the payload stops copying it out.
   for (const o of (pay.options || []).filter((x) => !x.negates_premise)) {
     if ("evidence" in o) fails.push(`(e) option ${o.id} carries an evidence object — the payload copies no reasoning out of the reviewed Candidates (§6, kogaki#859)`);
-    const extra = Object.keys(o).filter((k) => !["id", "label", "rendering"].includes(k));
-    if (extra.length) fails.push(`(e) option ${o.id} carries ${JSON.stringify(extra)} — the option is its id and its reader-experience label, with the bounded rendering key and nothing else (kogaki#859)`);
+    // `description` JOINS THE ALLOWED SET, AND THE SET IS STILL CLOSED
+    // (kogaki#1126). kogaki#859's ruling is about the payload copying REASONING
+    // out of the reviewed Candidates, and it is untouched: the evidence object
+    // stays refused one line up. What this admits is the second half of the
+    // option the owner reads -- the explanation beside the path's name -- which
+    // is composed by `assembleSelection` from a declared field rather than
+    // copied from anything. The list stays an allowlist, so key N+1 is refused
+    // by default exactly as before.
+    const extra = Object.keys(o).filter((k) => !["id", "label", "description", "rendering"].includes(k));
+    if (extra.length) fails.push(`(e) option ${o.id} carries ${JSON.stringify(extra)} — the option is its id, its label and its description, with the bounded rendering key and nothing else (kogaki#859, kogaki#1126)`);
     // THE EFFECT STATES ONCE, AND NO OPTION REPEATS IT (kogaki#568). This line
     // used to require every option label to match `Adopt … becomes the Brief's
     // sequence` — a string match on a clause IDENTICAL on every option, so what
@@ -1173,6 +1312,10 @@ try {
     // adopted. A set-derived fill now yields the SAME segment twice and fails.
     const b2 = JSON.parse(JSON.stringify(candB));
     b2.candidate_id = "cand-3";
+    // The clone takes candB's characteristic too, and the set below presents
+    // all three at once, so the label-distinctness refusal (kogaki#1126) applies
+    // exactly as the experience one already did.
+    b2.characteristic = "The gap, named where it is met";
     b2.reader_experience = "the case first, with the gap named where the reader meets it";
     b2.steps[1].bridges = ["t1", "t2"];
     const oneSet = { candidates: [candA, candB, b2] };

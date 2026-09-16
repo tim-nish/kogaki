@@ -93,7 +93,7 @@ import {
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
-  cmdAssemble, cmdAdoptCandidate,
+  cmdAssemble, cmdAdoptCandidate, characteristicMaxLength,
 } from "./assemble.mjs";
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
 import {
@@ -1176,6 +1176,15 @@ const STATE_WORK = {
       }
       const seenId = new Set();
       const seenExp = new Set();
+      // THE CHARACTERISTIC'S REFUSALS ARE `assembleSelection`'s, RAISED INSIDE
+      // THE RE-ASK WINDOW (kogaki#1126). Stated here as well as there for the
+      // reason the Candidate count already is: the same breach reaching
+      // `assemble_candidates` fails the run after the review state has spent a
+      // judge call on every Candidate, where here it is one re-ask. The BOUND is
+      // read from src/candidate-schema.json through the same exported reader, so
+      // the number in the prompt and the number in the refusal are one value.
+      const charMax = characteristicMaxLength();
+      const seenChar = new Set();
       for (const c of cands) {
         if (!c || typeof c.candidate_id !== "string" || c.candidate_id === "") {
           refuseJudgment("every Candidate carries a non-empty `candidate_id`");
@@ -1188,7 +1197,7 @@ const STATE_WORK = {
         if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
           refuseJudgment(`candidate ${c.candidate_id}: \`reader_experience\` is required and cannot be `
             + "blank — Candidates differ in READER EXPERIENCE, the difference must be stated to be "
-            + "selectable, and the option label IS this prose");
+            + "selectable, and the option's DESCRIPTION is composed from this prose (kogaki#1126)");
         }
         const expKey = c.reader_experience.trim().toLowerCase();
         if (seenExp.has(expKey)) {
@@ -1197,6 +1206,28 @@ const STATE_WORK = {
             + "presented twice");
         }
         seenExp.add(expKey);
+        if (typeof c.characteristic !== "string" || c.characteristic.trim() === "") {
+          refuseJudgment(`candidate ${c.candidate_id}: \`characteristic\` is required and cannot be `
+            + "blank — the option LABEL at the Candidate gate is composed from it as `<n>. "
+            + "<characteristic>`, and the Harness composes that label rather than the Candidate's prose "
+            + "(src/candidate-schema.json, `characteristic`)");
+        }
+        const charValue = c.characteristic.trim();
+        if (charValue.length > charMax) {
+          refuseJudgment(`candidate ${c.candidate_id}: \`characteristic\` is ${charValue.length} `
+            + `characters and src/candidate-schema.json bounds it at ${charMax} — it names the path in a `
+            + "few words and renders as the option's label; the explanation belongs in "
+            + `\`reader_experience\`, which renders as the description beside it. Received: `
+            + `${JSON.stringify(charValue)}`);
+        }
+        const charKey = charValue.toLowerCase();
+        if (seenChar.has(charKey)) {
+          refuseJudgment(`candidate ${c.candidate_id} states a characteristic another Candidate already `
+            + "states — Candidates differ in reader experience, and the characteristic is the name the "
+            + "owner reads that difference by, so two that fold to one value are two options they cannot "
+            + "tell apart at the label");
+        }
+        seenChar.add(charKey);
         // THE STEP REFUSALS ARE `validateSteps`' OWN, re-implemented nowhere.
         // One-claim-per-Strand, the closed claim type set, every required
         // field and its description all come from `src/step-schema.json`
@@ -1516,9 +1547,16 @@ const GATE_WORK = {
         + "to choose between. Repair the Candidates, not the gate.");
     }
     return {
+      // THE DESCRIPTION TRAVELS WITH THE OPTION (kogaki#1126). This mapping used
+      // to keep `id` and `label` and drop everything else, so the description
+      // `assembleSelection` composed never reached the declaration and
+      // `composeGateCall` fell back to showing the id — the `A`/`B`/`C` column
+      // measured at the 2026-09-15 gate. A projection that silently narrows the
+      // composer's own output is a second composer, which is the shape the one
+      // named composer above exists to prevent.
       options: offered.options
         .filter((o) => o.id !== "none-of-these")
-        .map((o) => ({ id: o.id, label: o.label })),
+        .map((o) => ({ id: o.id, label: o.label, description: o.description })),
       extra: {},
     };
   },

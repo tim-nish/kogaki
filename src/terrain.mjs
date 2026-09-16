@@ -2384,10 +2384,42 @@ export function questionShapeRefusal(toolInput) {
 
 export function composeGateCall(declaration) {
   const declared = Array.isArray(declaration.options) ? declaration.options : [];
+  // THE ID IS A JOIN KEY AND NEVER CONTENT, WHERE THE GATE SAYS SO (kogaki#1126).
+  //
+  // WHAT WAS MEASURED. The description fell back to the option's id, so the
+  // Candidate gate of runs/brief/brief-2026-09-15T22-53-48-359Z rendered three
+  // options whose description column read `A`, `B` and `C`. The id is what the
+  // owner's answer resolves through at adoption; it carries nothing a reader
+  // can act on, and a column of record ids is the internal-vocabulary defect
+  // arriving through a default rather than through a prose leak.
+  //
+  // WHY A DECLARED ROW RATHER THAN A BLANKET REFUSAL. Four of the five
+  // registered gates compose their options at run time from served material,
+  // and several carry no per-option description at all; refusing every one of
+  // them here would wedge gates this issue is not about, on a rendering
+  // decision each of them owes its own answer to. So the obligation is
+  // `option_descriptions_required` in src/gate-registry.json -- a gate declares
+  // that its options carry their own descriptions, and an option arriving
+  // without one is `unavailable` by name instead of quietly showing its id. A
+  // gate that has not made that declaration renders exactly as before, and the
+  // absence is visible in the registry rather than inferable only from output.
+  const owed = declaration.option_descriptions_required === true;
+  const undescribed = owed
+    ? declared.filter((o) => typeof o.description !== "string" || o.description.trim() === "")
+    : [];
+  if (undescribed.length) {
+    return { unavailable: `${declaration.id} declares \`option_descriptions_required\`, and `
+      + `${undescribed.length} of its option(s) carry no description: `
+      + `${undescribed.map((o) => JSON.stringify(o.id)).join(", ")}. An option's id is the join key the `
+      + `owner's answer resolves through and is never shown as content, so no payload is written and `
+      + `nothing here invents a sentence about an option (kogaki#1126). Compose the description where the `
+      + `option is composed, or give the standing option one in src/gate-registry.json.` };
+  }
   const options = declared.map((o) => ({
     label: String(o.label),
-    // The description is the option's OWN, and where it carries none the id is
-    // shown rather than a sentence invented about it.
+    // The description is the option's OWN. Where the gate declares none is owed
+    // and an option carries none, the id is shown -- the pre-#1126 default,
+    // narrowed to the gates that have not declared the obligation above.
     description: String(o.description || o.id || ""),
   }));
   if (options.length === 0) {
@@ -4024,15 +4056,23 @@ function judgePrompt(st, inputText, input, lastRefusal) {
   // NOT A SECOND INPUT. It is the SHAPE the record is filled against, and it
   // stands above the input marker -- everything past that marker is still the
   // composed input verbatim, by the marker's own contract.
-  if (st.schema_file) {
-    const sp = join(REPO, String(st.schema_file));
+  // ONE ROW, ONE OR MANY FILES (kogaki#1126). A record has as many element
+  // kinds as it has, and `compose_path` has two: a Candidate, whose shape
+  // `src/candidate-schema.json` declares and this state's own refusals enforce,
+  // and a Step, whose shape `src/step-schema.json` declares and `validateSteps`
+  // enforces. Folding the two into one file would hand one validator a text it
+  // does not enforce, which is the disagreement the row exists to prevent; so
+  // the row takes a LIST and the prompt carries each file whole, in order. A
+  // bare string is the one-element list and every pre-#1126 row reads unchanged.
+  for (const declared of (Array.isArray(st.schema_file) ? st.schema_file : (st.schema_file ? [st.schema_file] : []))) {
+    const sp = join(REPO, String(declared));
     if (!existsSync(sp)) {
-      fail(`${st.id}: the table declares \`schema_file\` ${JSON.stringify(st.schema_file)} and no such file `
+      fail(`${st.id}: the table declares \`schema_file\` ${JSON.stringify(declared)} and no such file `
         + `exists. A judgment state that names a shape the judge is never shown is the prose-only prompt `
         + `wearing a declaration (kogaki#1108).`);
     }
     L.push("");
-    L.push(`THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- ${st.schema_file}, verbatim.`);
+    L.push(`THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- ${declared}, verbatim.`);
     L.push("Every field it declares, and what each one means. The refusals that judge your answer read");
     L.push("their field set from this same file, so what you are asked for and what is checked are one");
     L.push("text. Read it before composing.");

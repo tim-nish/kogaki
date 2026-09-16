@@ -1,0 +1,149 @@
+{
+  "note": [
+    "THE CANDIDATE RECORD'S SHAPE, AND THE TEXT THE MODEL IS SHOWN BEFORE IT",
+    "COMPOSES ONE (kogaki#1126).",
+    "",
+    "WHAT THIS FILE IS FOR. `src/step-schema.json` declares the shape of ONE",
+    "STEP; nothing declared the shape of the CANDIDATE the Steps hang from. So",
+    "the Candidate's own fields were carried by `input_shape` -- one sentence",
+    "naming keys -- and the one field that reaches the OWNER, the option the",
+    "Candidate gate renders, was a single free-prose string. Whether an option",
+    "read `Adversarial: the reader is handed ...` or as an unbroken paragraph",
+    "was the composing Model's habit on the day, and the Harness guaranteed",
+    "neither half.",
+    "",
+    "THE MEASURED SHAPE, at the Candidate gate of",
+    "runs/brief/brief-2026-09-15T22-53-48-359Z. Three options rendered with the",
+    "whole of the reader experience plus the figure clause in the LABEL and the",
+    "bare record id -- `A`, `B`, `C` -- in the description column, because",
+    "`composeGateCall` shows an option's id where it carries no description of",
+    "its own. The id is a join key between the gate and adoption; it is not",
+    "content, and it told the owner nothing.",
+    "",
+    "SO THE MODEL CHOOSES VALUES INSIDE A HARNESS-ENFORCED FORMAT (owner",
+    "decision 2026-09-09). The two halves the rendering wanted are two FIELDS --",
+    "`characteristic` and `reader_experience` -- and `assembleSelection` renders",
+    "them into the option's label and description. A format the Harness composes",
+    "from declared fields cannot be a habit that lapses.",
+    "",
+    "IT IS READ TWICE, which is the property `src/step-schema.json` exists for",
+    "and the reason this is a file rather than a longer sentence. The",
+    "path-composition state of the Brief workflow table renders it into the",
+    "judge's prompt, and `compose_path`'s own validator refuses against the same",
+    "field set -- so the text the Model composes against and the text the",
+    "refusal enforces are one text and cannot disagree.",
+    "",
+    "IT DECLARES SHAPE AND MEANING, AND JUDGES NEITHER. A missing field, a blank",
+    "one, an over-long characteristic and two Candidates stating the same",
+    "characteristic are refused here. Whether the characteristic NAMES the path",
+    "well is judgment, and it is judged at path review like every other MUST of",
+    "the composition design.",
+    "",
+    "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982). The",
+    "rule these entries are written under lives in ONE place:",
+    "`src/SPEC-REFERENCES.md`. It is not restated here.",
+    "",
+    "THE NAMES THIS FILE USES, and the spec each one names:",
+    "  The Candidate gate",
+    "      SPEC-draft-pipeline",
+    "  The settled structure section",
+    "      SPEC-draft-pipeline",
+    "  Every MUST is judgment, and nothing becomes a lint",
+    "      SPEC-draft-pipeline"
+  ],
+  "version": "1",
+  "what_a_candidate_is": [
+    "A Candidate is ONE COMPOSED READER PATH: an ordered sequence of Steps",
+    "taking the reader from the Brief's Reader start to the adopted Thesis,",
+    "plus the reasoning it was composed with. Two or three are composed per",
+    "article and they DIFFER IN READER EXPERIENCE -- not in decoration, not in",
+    "wording, and not in which Strands they happen to name first.",
+    "",
+    "THE OWNER CHOOSES BETWEEN THEM AT THE CANDIDATE GATE, and that is the one",
+    "surface a Candidate has. Two fields below are that surface:",
+    "`characteristic` names the path in a few words and `reader_experience`",
+    "explains it. Everything else a Candidate carries is read by the runtime.",
+    "",
+    "The Candidate gate is where the count, the difference-in-experience rule",
+    "and the premise negation are defined."
+  ],
+  "the_option_format": [
+    "THE HARNESS COMPOSES THE OPTION; THE MODEL FILLS ITS FIELDS. Neither half",
+    "of the rendering below is composed by the party that writes this record,",
+    "and a Candidate cannot change the shape by writing its prose differently.",
+    "",
+    "  label        `<n>. <characteristic>`   e.g. `3. Adversarial`",
+    "  description  `<reader_experience> -- <the figure clause>`",
+    "",
+    "`<n>` is the option's POSITION in the rendered set, numbered from 1. It is",
+    "not the `candidate_id`: the id is the join key the owner's answer resolves",
+    "through and it is never shown as content, which is the defect kogaki#1126",
+    "closes. The figure clause is the Harness's own sentence about how many",
+    "Steps carry a figure; nothing here writes it.",
+    "",
+    "SO THE TWO FIELDS ARE WRITTEN FOR THEIR SEATS. A `characteristic` that is",
+    "a sentence does not fit a label, and a `reader_experience` that repeats the",
+    "characteristic wastes the only line the owner gets to read."
+  ],
+  "fields": {
+    "candidate_id": {
+      "required": true,
+      "type": "string",
+      "description": "This Candidate's own id, unique within the composed set. It is the JOIN KEY the owner's answer at the Candidate gate resolves through, and it is never rendered to the owner as content -- not as a label, not as a description. Short and mechanical is right here (`A`, `B`, `C`); a value composed to be read is a value in the wrong field."
+    },
+    "characteristic": {
+      "required": true,
+      "type": "string",
+      "max_length": 48,
+      "description": "A SHORT NAME FOR THIS PATH, in a few words -- `Adversarial`, `Disillusionment first`, `Construction from the substrate up`. It is what the owner scans, so it names the path's character rather than describing its content: no sentence, no trailing clause, no colon introducing an explanation, because the explanation is the next field and rendering both here would leave the description restating the label. Bounded at 48 characters, refused above it -- the bound is the label's seat in the selector rather than a style preference, and a characteristic that needs more than 48 characters is an explanation that has drifted up a field."
+    },
+    "reader_experience": {
+      "required": true,
+      "type": "string",
+      "description": "WHAT THE READER GOES THROUGH on this path, stated so the difference from the sibling Candidates is legible -- this is the axis Candidates differ on, and the difference must be stated to be selectable. It renders as the option's DESCRIPTION, with the figure clause appended by the Harness, so it is written as the explanation of the characteristic above and never as a repeat of it. Two Candidates stating the same reader experience are refused, folded, as are two stating the same characteristic: either the paths do not differ or they are one path presented twice."
+    },
+    "steps": {
+      "required": true,
+      "type": "array of Step",
+      "min_length": 1,
+      "description": "The ordered Reader Path itself. Every entry is a Step, whose fields, their meanings and their refusals are declared in `src/step-schema.json` -- rendered into this same prompt and enforced by `validateSteps`. Nothing about a Step is restated here."
+    },
+    "reasoning": {
+      "required": true,
+      "type": "object",
+      "required_keys": [
+        "step_validity",
+        "transition_continuity",
+        "thesis_closure"
+      ],
+      "description": "The composition-time reasoning this Candidate was composed with, one non-blank string per key. It is the Candidate's gate evidence and the Brief's closing sections are filled from `thesis_closure` and from the tradeoffs at adoption -- adoption fills no default, so a blank value is refused here, inside the re-ask window, rather than at the write."
+    },
+    "reader_start": {
+      "required": true,
+      "type": "string",
+      "description": "Where the reader stands when the path begins. One of the three reader fields the settled structure section names; path composition writes it PER CANDIDATE and adoption fills no default."
+    },
+    "reader_target": {
+      "required": true,
+      "type": "string",
+      "description": "Where the path leaves the reader. The second of the three reader fields, written per Candidate on the same terms."
+    },
+    "opening_question": {
+      "required": true,
+      "type": "string",
+      "description": "The question the article opens on, on this path. The third of the three reader fields, written per Candidate on the same terms."
+    }
+  },
+  "what_is_judged_elsewhere": [
+    "Nothing here is a lint over a judgment. Whether the characteristic names",
+    "the path WELL, whether the reader experience is the one the Steps actually",
+    "produce, and whether the three Candidates differ in a way worth choosing",
+    "between are judged at path review. A refusal from this file always names a",
+    "SHAPE: a field absent, a field blank, a characteristic over its bound, or",
+    "two Candidates whose characteristic or reader experience fold to the same",
+    "value.",
+    "",
+    "Every MUST is judgment, and nothing becomes a lint -- which is the rule",
+    "this paragraph is an instance of."
+  ]
+}
