@@ -1413,6 +1413,49 @@ try {
   // write that lands a sequence in an existing Brief.
   //
   // THE MECHANICAL HALF — the move id resolves, or the adoption refuses.
+  // (ah) A MOVE CONTRACT IS PRESENT OR ABSENT, IN EVERY AUTHORING FORM
+  // (PR #1127 round 1). `moveContract` reads two flat scalars, and a Move record
+  // may write either as a folded block or inline. The block arm reported an
+  // empty block as absent from the start; the inline arm did not, so
+  // `requires: ""` was the one spelling that produced a present-but-BLANK
+  // contract and sent the judge a blank to compare against — the shape
+  // kogaki#1125 exists to end, arriving one authoring form over.
+  //
+  // EXERCISED AGAINST RECORDS THIS CASE WRITES, not against `moves/`. No record
+  // in the library is authored this way today, which is exactly why the suite
+  // was green about it: a latent asymmetry is only reachable from a store that
+  // has one.
+  ranCase("ah-empty-contract-is-absent");
+  {
+    const EMPTY = join(dir, "moves-empty-forms");
+    mkdirSync(EMPTY, { recursive: true });
+    // The control, FIRST: without it every refusal below could be a reader that
+    // refuses everything.
+    writeFileSync(join(EMPTY, "inline-filled.md"),
+      "id: inline-filled\nstatus: observed\nrequires: the reader holds the claim loosely\n"
+      + "effect: the reader holds the claim in working form\n");
+    const okInline = moveContract("inline-filled", EMPTY);
+    if (okInline.error) {
+      fails.push(`(ah) an inline-scalar Move contract was REFUSED: ${okInline.error}`);
+    } else if (okInline.requires !== "the reader holds the claim loosely") {
+      fails.push(`(ah) an inline-scalar requires was read as ${JSON.stringify(okInline.requires)} — the contract reaches the judge as something other than what the record says`);
+    }
+    for (const [name, body, why] of [
+      ["inline-empty", 'id: inline-empty\nstatus: observed\nrequires: ""\neffect: the reader is further on\n',
+        "an inline empty string"],
+      ["block-empty", "id: block-empty\nstatus: observed\nrequires: >-\neffect: the reader is further on\n",
+        "an empty folded block"],
+    ]) {
+      writeFileSync(join(EMPTY, `${name}.md`), body);
+      const r = moveContract(name, EMPTY);
+      if (!r.error) {
+        fails.push(`(ah) a Move whose requires is ${why} was read as CARRYING a contract (${JSON.stringify(r.requires)}) — the judge is handed a blank to compare its verdict against, which is indistinguishable at the ask from a contract that says nothing`);
+      } else if (!/declares no requires/.test(r.error)) {
+        fails.push(`(ah) the ${why} refusal does not name the missing field: ${r.error}`);
+      }
+    }
+  }
+
   ranCase("k-instantiation");
   {
     const dangler = { ...candB, steps: [{ ...candB.steps[0], move: "no_such_move" }, candB.steps[1]] };
@@ -2116,7 +2159,7 @@ try {
                   }
                 }
 
-                // ---- (ab) THE COMPOSING ASK CARRIES THE MOVE LIBRARY
+                // ---- (af) THE COMPOSING ASK CARRIES THE MOVE LIBRARY
                 // (kogaki#1125). Read at the ARTIFACT the executor wrote, not
                 // at the function that composed it: the defect was a field
                 // missing from the input on disk, and `compose_path`'s input
@@ -2125,22 +2168,22 @@ try {
                 // The set is bound to `loadMoveIds`' reading of the same
                 // library rather than to a count: a case asserting "at least
                 // one Move" would stay green on a runtime that sent one.
-                ranCase("ab-compose-library");
+                ranCase("af-compose-library");
                 {
                   const ip = join(D, "brief-judge-input-compose_path.json");
                   if (!existsSync(ip)) {
-                    fails.push("(ab) the run wrote no compose_path judge input — there is no ask to read the library out of");
+                    fails.push("(af) the run wrote no compose_path judge input — there is no ask to read the library out of");
                   } else {
                     const input = JSON.parse(readFileSync(ip, "utf8"));
                     const lib = input.moves_you_may_bind;
                     if (!Array.isArray(lib) || lib.length === 0) {
-                      fails.push("(ab) the compose_path ask carries no `moves_you_may_bind` — the composer meets a required `move` field with the field's NAME and no set of legal values, which is what produced six invented ids");
+                      fails.push("(af) the compose_path ask carries no `moves_you_may_bind` — the composer meets a required `move` field with the field's NAME and no set of legal values, which is what produced six invented ids");
                     } else {
                       const store = loadMoveIds(join(rt, "moves"));
                       const want = store.error ? null : [...store.ids].sort().join(",");
                       const got = lib.map((m) => m.id).sort().join(",");
                       if (want !== null && want !== got) {
-                        fails.push(`(ab) the compose_path ask carries a Move set that is not the library's (${got}) — the composer is told the ids it may bind, so a set that is not the admitted set is a different closed world from the one adoption resolves against`);
+                        fails.push(`(af) the compose_path ask carries a Move set that is not the library's (${got}) — the composer is told the ids it may bind, so a set that is not the admitted set is a different closed world from the one adoption resolves against`);
                       }
                       // THE CONTRACT, NOT ONLY THE ID. An id list makes the
                       // field fillable; the requires/effect pair is what makes
@@ -2149,7 +2192,7 @@ try {
                       for (const m of lib) {
                         if (typeof m.requires !== "string" || m.requires.trim() === ""
                           || typeof m.effect !== "string" || m.effect.trim() === "") {
-                          fails.push(`(ab) the Move ${JSON.stringify(m.id)} reaches the composer without its requires/effect — a Step BINDS the Move whose contract its reader states specialize, so an id alone leaves the binding undecidable`);
+                          fails.push(`(af) the Move ${JSON.stringify(m.id)} reaches the composer without its requires/effect — a Step BINDS the Move whose contract its reader states specialize, so an id alone leaves the binding undecidable`);
                           break;
                         }
                       }
@@ -2162,14 +2205,14 @@ try {
                       for (const [field, value] of [["requires", one.requires], ["effect", one.effect]]) {
                         const head = value.split(" ").slice(0, 4).join(" ");
                         if (head && !text.replace(/\s+/g, " ").includes(head)) {
-                          fails.push(`(ab) ${one.id}'s ${field} in the ask does not appear in moves/${one.id}.md — the contract reaches the judge as a paraphrase rather than as the record`);
+                          fails.push(`(af) ${one.id}'s ${field} in the ask does not appear in moves/${one.id}.md — the contract reaches the judge as a paraphrase rather than as the record`);
                         }
                       }
                     }
                   }
                 }
 
-                // ---- (ac) THE SPECIALIZATION ASK CARRIES THE CONTRACT IT
+                // ---- (ag) THE SPECIALIZATION ASK CARRIES THE CONTRACT IT
                 // JUDGES AGAINST (kogaki#1125). The state's judgment_point asks
                 // whether each Step's states are specializations of "the
                 // requires and effect its bound Move declares", and its input
@@ -2181,37 +2224,37 @@ try {
                 // ONE ENTRY PER STEP, bound to the Steps the ask itself
                 // carries. A case counting against a constant would go green
                 // the day the path length changed.
-                ranCase("ac-specialization-contracts");
+                ranCase("ag-specialization-contracts");
                 {
                   const ip = join(D, "brief-judge-input-judge_specialization.json");
                   if (!existsSync(ip)) {
-                    fails.push("(ac) the run wrote no judge_specialization input — there is no ask to read the Move contracts out of");
+                    fails.push("(ag) the run wrote no judge_specialization input — there is no ask to read the Move contracts out of");
                   } else {
                     const input = JSON.parse(readFileSync(ip, "utf8"));
                     const steps = input.steps_you_must_judge || [];
                     const contracts = input.move_contracts;
                     if (!Array.isArray(contracts)) {
-                      fails.push("(ac) the judge_specialization ask carries no `move_contracts` — the verdict is a comparison against a Move's requires and effect, and the judge is handed neither");
+                      fails.push("(ag) the judge_specialization ask carries no `move_contracts` — the verdict is a comparison against a Move's requires and effect, and the judge is handed neither");
                     } else if (contracts.length !== steps.length) {
-                      fails.push(`(ac) the ask carries ${contracts.length} Move contract(s) for ${steps.length} Step(s) — the judgment is per Step, so a Step whose contract is absent is a verdict with nothing behind it`);
+                      fails.push(`(ag) the ask carries ${contracts.length} Move contract(s) for ${steps.length} Step(s) — the judgment is per Step, so a Step whose contract is absent is a verdict with nothing behind it`);
                     } else {
                       for (const st of steps) {
                         const c = contracts.find((x) => x.step_id === st.step_id);
                         if (!c) {
-                          fails.push(`(ac) step ${st.step_id} is judged with no Move contract in the ask`);
+                          fails.push(`(ag) step ${st.step_id} is judged with no Move contract in the ask`);
                           break;
                         }
                         if (c.move !== st.move) {
-                          fails.push(`(ac) step ${st.step_id} binds ${JSON.stringify(st.move)} and the ask carries the contract of ${JSON.stringify(c.move)} — a judgment against another Move's contract certifies nothing`);
+                          fails.push(`(ag) step ${st.step_id} binds ${JSON.stringify(st.move)} and the ask carries the contract of ${JSON.stringify(c.move)} — a judgment against another Move's contract certifies nothing`);
                           break;
                         }
                         const want = moveContract(c.move, join(rt, "moves"));
                         if (want.error) {
-                          fails.push(`(ac) the fixture cannot read ${c.move}'s record to bind the ask against: ${want.error}`);
+                          fails.push(`(ag) the fixture cannot read ${c.move}'s record to bind the ask against: ${want.error}`);
                           break;
                         }
                         if (c.requires !== want.requires || c.effect !== want.effect) {
-                          fails.push(`(ac) ${c.move}'s contract in the ask is not the record's — the judge compares against what it is handed, so a reworded contract moves the verdict without moving the Move`);
+                          fails.push(`(ag) ${c.move}'s contract in the ask is not the record's — the judge compares against what it is handed, so a reworded contract moves the verdict without moving the Move`);
                           break;
                         }
                       }
@@ -2338,9 +2381,21 @@ try {
             // verdict is not repairable from its input and buys one. Without
             // this assertion the pair would be two cases about refusing, and
             // the distinction the two classes exist for would be untested.
+            // THE COUNT IS DERIVED FROM THE TABLE, NEVER TRANSCRIBED (PR #1127
+            // round 1). `retries` is a property of the workflow and is held in
+            // `src/brief-workflow.json` — src/terrain.mjs says so at the field
+            // it reads there — so a literal here would fail this case naming
+            // the table's OLD value as if it were current the day the row
+            // changes. (ae)'s `1` is not the same shape: ONE ask is the
+            // property under test, not a copy of a declared number.
+            const table1125 = JSON.parse(readFileSync(join(rt, "src", "brief-workflow.json"), "utf8"));
+            const composeSt = (table1125.states || []).find((x) => x.id === "compose_path");
+            const licensed = Number.isInteger(composeSt && composeSt.retries) ? composeSt.retries + 1 : null;
             const spent = sp.asks("compose_path");
-            if (spent !== 3) {
-              fails.push(`(ad) compose_path was asked ${spent} time(s) for a dangling Move id — the table declares \`retries: 2\`, and a repairable refusal is exactly what that window is for; one ask here would mean the refusal is being treated as terminal`);
+            if (licensed === null) {
+              fails.push("(ad) compose_path declares no integer `retries` in the workflow table — the window this case is about has no declared size, so the count below would be asserted against nothing");
+            } else if (spent !== licensed) {
+              fails.push(`(ad) compose_path was asked ${spent} time(s) for a dangling Move id and the table licenses ${licensed} — a dangling id is repairable from an ask that carries the admitted set, which is exactly what that window is for; one ask here would mean the refusal is being treated as terminal`);
             }
             const rec = sp.record();
             if (rec.done === true) {
@@ -4437,9 +4492,9 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "is full of internal keys passes, which is the assertion that catches the evidence "
   + "returning by a side door. The tripwire reads REGISTER, never a composition MUST (§4.6 "
   + "clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934 + kogaki#935 + kogaki#942 + kogaki#966 + PR #968 round 1 + kogaki#972 + kogaki#1121 + kogaki#1125): SIXTY-THREE "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934 + kogaki#935 + kogaki#942 + kogaki#966 + PR #968 round 1 + kogaki#972 + kogaki#1121 + kogaki#1125 + PR #1127 round 1): SIXTY-FIVE "
   + "mutations. RE-DERIVED, not incremented — this paragraph's own standing rule, and the one it has twice failed: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
-  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three, plus kogaki#942's five, plus kogaki#966's three, plus PR #968 round 1's one, plus kogaki#972's two, plus kogaki#1121's one, plus kogaki#1125's five = 63. "
+  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three, plus kogaki#942's five, plus kogaki#966's three, plus PR #968 round 1's one, plus kogaki#972's two, plus kogaki#1121's one, plus kogaki#1125's five, plus PR #1127 round 1's two = 65. "
   + "THE UNIT OF THE COUNT IS A TRIAL TAKEN, NEVER A DISTINCT PHYSICAL MUTATION (kogaki#889), and it is declared because leaving it implicit has now produced a finding: two heads may apply the SAME EDIT against DIFFERENT assertions, and that is two trials rather than one counted twice — kogaki#520 deleted the per-option `rendering` against (j)'s LABEL assertions and kogaki#859 deleted it against (j)'s KEY-PRESENT one, at two heads, and both runs happened. Read as physical mutations the enumeration double-counts; read as trials it does not, and the second reading is the one kogaki#568's own ground already commits this paragraph to — \u0022the tally counts both, because the historical evidence was real when it was taken\u0022. A SUPERSEDED ENTRY THEREFORE STAYS COUNTED, and what it owes is the past-tense marking below rather than removal, since a deleted mutation and a superseded one read identically to a later reader. Owner decision at the kogaki#889 gate, recorded rather than re-derived per sitting. "
   + "KOGAKI#1121'S ONE, against case (ac), and it is the PRE-REPAIR CODE RESTORED VERBATIM rather than an invented break — the thesis gate's provenance sentence reading `set.ids` and `set.survey`, the two fields kogaki#1116's rename removed. It fails (ac) THREE TIMES IN ONE RUN, once per address not named and once on the rendered `undefined`, which is the direct evidence that the both-directions binding is doing work: the sentence still read correctly from `set.via`, so a case asserting only that the provenance line exists, or only that it mentions the entry route, would have been green against the exact bytes the owner was shown on 2026-09-15. The trial is cheap to re-run and worth naming as such: the mutant is in the repository's history, not in this paragraph's imagination. "
   + "KOGAKI#972'S TWO, the first trials this paragraph has recorded against the COUNT ITSELF rather than against a case's assertions. Deleting `ranCase(\"z\")` while leaving case (z)'s body intact fails (floor) at 34 against a declared 35, naming cases LOST — and the same edit under the `const CASE_COUNT = 28` this replaces went GREEN, which is the whole of kogaki#972: a case removed from the file moved no number, because no number was reading the file. Changing `ranCase(\"l-bridge\")` to `ranCase(\"l-reader-fields\")`, so two cases share one registration id, fails (count) BY NAME on the duplicate and (floor) beside it at 34 — the pairing is the point, since a collapse reported only as a count one lower would send a reader looking for a deleted case that is still there. THE TRIALS ARE THE INSTRUMENT'S, NOT A CASE'S, and that is why they are counted here: what they break is the arithmetic every other case's deletion would be read through. "
@@ -4625,17 +4680,24 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "kogaki#1125's FIVE, against the Move material in the two judge asks and the two refusals it makes "
   + "reachable. ENUMERATED AS OBSERVED, and two of the five did NOT land on the case they were written for, "
   + "which is recorded rather than tidied: deleting `moves_you_may_bind` from the compose ask failed (n), (ad), "
-  + "(ae) and the case-floor arm and NOT (ab) — the stub refuses an ask it cannot compose from, so the span dies "
-  + "before (ab) runs and the case never registers — so a second, narrower mutation was run for (ab) alone, "
+  + "(ae) and the case-floor arm and NOT (af) — the stub refuses an ask it cannot compose from, so the span dies "
+  + "before (af) runs and the case never registers — so a second, narrower mutation was run for (af) alone, "
   + "sending a TRUNCATED library that is well-shaped and non-empty, which passed the stub and failed (ab)'s "
-  + "set-equality assertion by itself; that pair is why (ab) binds the SET against `loadMoveIds`' own reading "
+  + "set-equality assertion by itself; that pair is why (af) binds the SET against `loadMoveIds`' own reading "
   + "rather than asserting the field is present. Deleting `move_contracts` from the specialization ask failed "
-  + "(ac) alone. Removing the `resolveMoveIds` call from `compose_path`'s validator failed all four of (ad)'s "
+  + "(ag) alone. Removing the `resolveMoveIds` call from `compose_path`'s validator failed all four of (ad)'s "
   + "assertions including the reached-the-Candidate-gate one — the pre-kogaki#1125 shape, reproduced, and the "
   + "direct evidence that asserting `resolveMoveIds` as a FUNCTION would not have caught it. Routing "
   + "`cannot-determine` through `refuseJudgment` instead of `refuseTerminally` failed (ae)'s ONE-ASK assertion "
   + "at three asks and LEFT ITS STOPS-THE-RUN ASSERTIONS GREEN, which is the direct evidence that \"the run "
   + "stopped\" is not the property and that a case asserting only the stop would have passed on the defect. "
+  + "PR #1127 round 1's TWO, against the two arms that round's findings added. Reporting an inline empty scalar "
+  + "as PRESENT — the pre-#1127 shape, where `requires: \"\"` yielded a blank contract while an empty BLOCK "
+  + "read as absent — failed (ah)'s inline branch by name, with its block branch and its filled control green "
+  + "beside it, so the case binds the asymmetry rather than the reader. And transcribing (ad)'s derived ask "
+  + "count back to a literal `3` while the table declared `retries: 1` failed (ad) at a head where the runtime "
+  + "was CORRECT — the false red finding 3 named, reproduced; the derived form under the same table edit passes, "
+  + "which is the control that makes the pair evidence rather than one observation. "
   + "NOT COVERED, stated rather than implied: every composition "
   + "MUST is judgment-class (§4.6) — grounds-test soundness, entailment quality, "
   + "Move-binding order, and whether the surfaced evidence is ADEQUATE evidence — judged at "

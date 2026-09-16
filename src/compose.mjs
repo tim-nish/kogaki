@@ -782,8 +782,14 @@ function moveScalarField(text, name) {
     if (!m) continue;
     const marker = m[1].trim();
     if (marker !== "" && !/^[>|][-+]?$/.test(marker)) {
-      // An inline scalar, quoted or bare.
-      return marker.replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
+      // An inline scalar, quoted or bare. EMPTY IS ABSENT ON THIS ARM TOO, and
+      // the symmetry is the point rather than tidiness (PR #1127 round 1): the
+      // block arm below reports an empty block as absent, so `requires: ""` on
+      // this arm would be the one authoring form that yields a present-but-blank
+      // contract — and a judge handed a blank to compare against is the shape
+      // this whole reader exists to end, arriving one spelling over.
+      const inline = marker.replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
+      return inline === "" ? null : inline;
     }
     // A block scalar: every following INDENTED line, to the first that is not.
     // Folded (`>`) joins on a space, literal (`|`) keeps the newlines — the
