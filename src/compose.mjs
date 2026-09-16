@@ -740,6 +740,134 @@ export function resolveMoveIds(steps, movesDir = "moves") {
   return { ok: true, checked: steps.length, store_size: store.ids.size };
 }
 
+// ---------------------------------------------------------------------------
+// THE MOVE CONTRACT READER (kogaki#1125).
+//
+// `loadMoveIds` above states why IT reads ids alone, and that statement bounds
+// this reader rather than being contradicted by it. The clause it names is
+// "one edit away from COMPARING them" — and comparing is exactly what nothing
+// here does. This reader RENDERS `requires` and `effect` into a judge's input
+// and returns them to its caller verbatim; it matches no string against any
+// other, computes no verdict, and is never consulted by a validator that
+// decides whether a Step's reader states hold. The specialization judgment
+// stays where the judgment rule sites it: with the judge, at
+// `judge_specialization`, over a record whose SHAPE this file owns.
+//
+// WHAT IT IS FOR, and the defect it closes (kogaki#1125). Two states were
+// asked about Move contracts they were never handed. `compose_path` composed
+// the `move` field with the field's NAME and no set of legal values, and
+// invented six ids that read like Moves; `judge_specialization` was asked to
+// judge each Step's states as specializations of "the requires and effect its
+// bound Move declares" with no Move record in its input at all. A judge asked
+// about a record it was never given answers from nothing — which is what the
+// honest first attempt said, and what the re-ask then pressured into a
+// well-formed pass.
+//
+// THE PRIMARY REMEDY IS GENERATIONAL, and the ordering is deliberate: the
+// composer is handed the admitted set so a dangling id is not composable,
+// rather than only being caught afterwards by one more check.
+//
+// consulted: coding::lesson/constrain-generation-not-post-hoc-detection@b31d159e45b64065d0deb0944d975ac9a472c1f8c22c872784c66325740e9fe9
+
+// One top-level scalar of a Move record. The record is a flat mapping whose
+// values are folded (`>-`) or literal (`|`) blocks, or plain inline scalars;
+// `visualFormOf` above reads the one NESTED block by the same dedent rule, and
+// this reads the flat ones. Returns null where the field is absent, which the
+// callers refuse by name rather than papering over with an empty string.
+function moveScalarField(text, name) {
+  const lines = text.split("\n");
+  const head = new RegExp(`^${name}:[ \\t]*(.*)$`);
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(head);
+    if (!m) continue;
+    const marker = m[1].trim();
+    if (marker !== "" && !/^[>|][-+]?$/.test(marker)) {
+      // An inline scalar, quoted or bare. EMPTY IS ABSENT ON THIS ARM TOO, and
+      // the symmetry is the point rather than tidiness (PR #1127 round 1): the
+      // block arm below reports an empty block as absent, so `requires: ""` on
+      // this arm would be the one authoring form that yields a present-but-blank
+      // contract — and a judge handed a blank to compare against is the shape
+      // this whole reader exists to end, arriving one spelling over.
+      const inline = marker.replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
+      return inline === "" ? null : inline;
+    }
+    // A block scalar: every following INDENTED line, to the first that is not.
+    // Folded (`>`) joins on a space, literal (`|`) keeps the newlines — the
+    // distinction is the block marker's, read rather than assumed, so a Move
+    // written either way renders as its author wrote it.
+    const folded = marker === "" || marker.startsWith(">");
+    const body = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j];
+      if (l.trim() === "") { body.push(""); continue; }
+      if (!/^[ \t]/.test(l)) break;
+      body.push(l.trim());
+    }
+    while (body.length && body[body.length - 1] === "") body.pop();
+    const joined = folded ? body.join(" ").replace(/\s+/g, " ") : body.join("\n");
+    return joined.trim() === "" ? null : joined.trim();
+  }
+  return null;
+}
+
+// ONE Move's contract, by id. The two fields are the ones the specialization
+// judgment is a comparison AGAINST — `src/brief-workflow.json`'s
+// `judge_specialization` names them in its own judgment_point — so the pair is
+// named here rather than the whole record being handed over: a reader given
+// `constraints` and `failure_modes` too would be a reader that had quietly
+// widened what the verdict is about.
+export function moveContract(moveId, movesDir = "moves") {
+  let text;
+  try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
+  catch (e) {
+    return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
+  }
+  const requires = moveScalarField(text, "requires");
+  const effect = moveScalarField(text, "effect");
+  const missing = [requires === null ? "requires" : null, effect === null ? "effect" : null].filter(Boolean);
+  if (missing.length) {
+    // A STORE FAULT, NAMED AS ONE. A Move whose contract is half-written
+    // cannot be judged against, and reporting it as a composition problem
+    // would send the reader to the Brief rather than to the library.
+    return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${movesDir}/${moveId}.md) — `
+      + `the specialization judgment is a comparison against a Move's requires and effect (the Step-Move instantiation contract), `
+      + `so a record missing one leaves the judgment nothing to be a comparison against. Repair the Move record under its own issue.` };
+  }
+  return { id: moveId, requires, effect };
+}
+
+// THE WHOLE ADMITTED SET, for the composing state's input. Ordered by id so
+// two runs over one library render byte-identical inputs — a judge input that
+// reordered with the filesystem would make two asks look different when
+// nothing about the library had changed.
+export function loadMoveContracts(movesDir = "moves") {
+  const store = loadMoveIds(movesDir);
+  if (store.error) return store;
+  const moves = [];
+  for (const id of [...store.ids].sort()) {
+    const c = moveContract(id, movesDir);
+    if (c.error) return { error: c.error };
+    moves.push(c);
+  }
+  return { moves };
+}
+
+// THE CONTRACTS OF THE MOVES A PATH ACTUALLY BINDS, one per Step and in the
+// path's own order. `resolveMoveIds` is called FIRST and its refusal is
+// returned unchanged: a dangling id is a resolution fault with a refusal of
+// its own, and discovering it here would give it a second, worse wording.
+export function moveContractsForSteps(steps, movesDir = "moves") {
+  const resolved = resolveMoveIds(steps, movesDir);
+  if (resolved.error) return resolved;
+  const out = [];
+  for (const s of steps) {
+    const c = moveContract(s.move, movesDir);
+    if (c.error) return { error: `step ${s.step_id}: ${c.error}` };
+    out.push({ step_id: s.step_id, move: s.move, requires: c.requires, effect: c.effect });
+  }
+  return { contracts: out };
+}
+
 // THE JUDGED HALF's carrier contract, read from the schema rather than
 // restated here — the same single-carrier arrangement record-schema.json and
 // gate-schema.json use, so the vocabulary is amended in one place.

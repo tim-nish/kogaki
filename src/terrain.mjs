@@ -7296,6 +7296,32 @@ export function settledSlugs(candidates, memberIds) {
 // moved is who exits.
 export class JudgmentRefusal extends Error {}
 
+// A REFUSAL THE RE-ASK WINDOW MUST NOT ABSORB (kogaki#1125).
+//
+// `JudgmentRefusal` says "this record is wrong, and a better one could be
+// composed from the same input" — which is the whole warrant for re-asking.
+// Some refusals carry the opposite fact: the ask itself was malformed, so the
+// input a second attempt would be composed against is the same input that
+// produced the refusal, and re-asking can only pressure the judge into a
+// well-formed answer it has no grounds for.
+//
+// THE OBSERVED CASE, and the one this class exists for. A
+// `judge_specialization` verdict of `cannot-determine` grounded in a missing
+// input was routed through the refusal-repair window; attempt 1 said the Move
+// library carried no such id, attempt 2 returned `consistent` for all six
+// Steps with `why` describing contracts that do not exist, and the run record
+// counted that as a repair. A bounded process needs at least one exit that
+// does not start another round — this is that exit, and it is terminal by
+// construction rather than by a count.
+//
+// `judgeAttempts` does not catch it (it catches `JudgmentRefusal` alone), so
+// it propagates past the window; the flow's `judged` wrapper turns it into the
+// ordinary `fail()` every other terminal refusal exits through, and
+// `refusals_repaired` never counts it because nothing pushes it onto that list.
+//
+// consulted: coding::lesson/a-bounded-process-needs-one-exit-that-does-not-reproduce-it@206c657ee8da71ffbb1f4e41bf673d60401aaf49b87508be5b996058a5b8ea82
+export class TerminalJudgmentRefusal extends Error {}
+
 // The one converter, so the two readers of a throwing validator cannot drift in
 // WHEN they exit — the reason `emitOrRefuse` exists for the format guard.
 function orFail(fn) {

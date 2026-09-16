@@ -41,6 +41,7 @@ import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
 // `renderStep` above — asserting the pair here is what keeps a writer and a
 // reader from disagreeing about a value that reaches the Step Packet.
 import { parseStepBlockBody } from "./src/draft.mjs";
+import { moveContract, loadMoveContracts, moveContractsForSteps } from "./src/compose.mjs";
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock,
@@ -185,7 +186,20 @@ const SETTLED = ["coding::lesson/bravo", "coding::lesson/alpha"];
 // sides were written by the same hand. A hard-coded Strand would be refused by
 // the closed-set check `compose_path` runs, which is the check that would then
 // be testing the stub.
-const JUDGE_STUB = [
+//
+// IT COMPOSES `move` FROM THE INPUT'S OWN LIBRARY (kogaki#1125), which is the
+// same rule one field over and was the one field breaking it: the stub carried
+// a hard-coded pair of real library ids, because before #1125 the ask carried
+// no Move library to compose from. Reading `moves_you_may_bind` makes the
+// field LOAD-BEARING for the whole (n) span — a runtime that stops sending it
+// fails the stub at exit 5 and the span never reaches a Brief — which is what
+// case (ab) below then reads at the artifact.
+//
+// A FACTORY, so the two refusal cases can vary ONE answer each against a stub
+// that is otherwise the conformant one. Two hand-written stubs would differ in
+// more than the property under test, and a case would pass or fail on the
+// difference nobody meant.
+const judgeStub = ({ danglingMove = null, specVerdict = null } = {}) => [
   "#!/usr/bin/env node",
   // The `--version` probe the start act runs to resolve its binary. It answers
   // FIRST, before any stdin read: the probe closes stdin, and a stub that
@@ -197,11 +211,31 @@ const JUDGE_STUB = [
   'const at = prompt.indexOf(MARKER);',
   'if (at < 0) { process.stderr.write("no input marker in the prompt\\n"); process.exit(3); }',
   'const input = JSON.parse(prompt.slice(at + MARKER.length));',
+  // ONE LINE PER ASK, WHERE A CASE ASKS FOR IT. The count of attempts a state
+  // spent is not on the run record when the state REFUSES — `judge_calls` is
+  // written on the passing arm alone — so a case about a bound that was NOT
+  // spent has to count at the party that was asked. Off unless the variable is
+  // set, so no existing case pays for it.
+  'if (process.env.KOGAKI_FIXTURE_CALL_LOG) { fs.appendFileSync(process.env.KOGAKI_FIXTURE_CALL_LOG, input.state + "\\n"); }',
   'const AREAS = ["rationale_stands", "entailment", "prohibitions", "semantic_economy", "arc_integrity", "evaluation_levels"];',
-  'const MOVES = ["narrow_unbounded_question", "instantiate_abstract_mechanism_in_concrete_case"];',
   'let record;',
   'if (input.state === "compose_path") {',
   '  const S = input.strands_you_may_use;',
+  // THE LIBRARY, READ OR REFUSED. An absent or empty `moves_you_may_bind` exits
+  // non-zero rather than falling back to an id this stub knows: a fallback is
+  // exactly what makes a missing input invisible, which is the defect #1125 is.
+  '  const LIB = input.moves_you_may_bind;',
+  '  if (!Array.isArray(LIB) || LIB.length === 0) {',
+  '    process.stderr.write("compose_path carried no moves_you_may_bind\\n"); process.exit(5);',
+  '  }',
+  '  for (const m of LIB) {',
+  '    if (!m || typeof m.id !== "string" || typeof m.requires !== "string" || typeof m.effect !== "string") {',
+  '      process.stderr.write("a moves_you_may_bind entry carries no id/requires/effect\\n"); process.exit(6);',
+  '    }',
+  '  }',
+  '  const MOVES = ' + (danglingMove === null
+    ? 'LIB.map((m) => m.id).slice(0, 2)'
+    : JSON.stringify([danglingMove])) + ';',
   '  const stepsFor = (order) => order.map((m, i) => Object.assign({',
   '    step_id: "x" + (i + 1),',
   '    move: MOVES[i % MOVES.length],',
@@ -245,7 +279,7 @@ const JUDGE_STUB = [
   '    version: "1",',
   '    candidate_id: input.candidate_id,',
   '    verdicts: input.steps_you_must_judge.map((st) => ({',
-  '      step_id: st.step_id, move: st.move, verdict: "consistent",',
+  '      step_id: st.step_id, move: st.move, verdict: ' + JSON.stringify(specVerdict || "consistent") + ',',
   '      why: "the before-state and after-state read as instance forms of the move contract",',
   '    })),',
   '  };',
@@ -256,6 +290,9 @@ const JUDGE_STUB = [
   'process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\\n");',
   "",
 ].join("\n");
+
+// The conformant stub, named as the constant every existing case already uses.
+const JUDGE_STUB = judgeStub();
 
 const fails = [];
 
@@ -1376,6 +1413,49 @@ try {
   // write that lands a sequence in an existing Brief.
   //
   // THE MECHANICAL HALF — the move id resolves, or the adoption refuses.
+  // (ah) A MOVE CONTRACT IS PRESENT OR ABSENT, IN EVERY AUTHORING FORM
+  // (PR #1127 round 1). `moveContract` reads two flat scalars, and a Move record
+  // may write either as a folded block or inline. The block arm reported an
+  // empty block as absent from the start; the inline arm did not, so
+  // `requires: ""` was the one spelling that produced a present-but-BLANK
+  // contract and sent the judge a blank to compare against — the shape
+  // kogaki#1125 exists to end, arriving one authoring form over.
+  //
+  // EXERCISED AGAINST RECORDS THIS CASE WRITES, not against `moves/`. No record
+  // in the library is authored this way today, which is exactly why the suite
+  // was green about it: a latent asymmetry is only reachable from a store that
+  // has one.
+  ranCase("ah-empty-contract-is-absent");
+  {
+    const EMPTY = join(dir, "moves-empty-forms");
+    mkdirSync(EMPTY, { recursive: true });
+    // The control, FIRST: without it every refusal below could be a reader that
+    // refuses everything.
+    writeFileSync(join(EMPTY, "inline-filled.md"),
+      "id: inline-filled\nstatus: observed\nrequires: the reader holds the claim loosely\n"
+      + "effect: the reader holds the claim in working form\n");
+    const okInline = moveContract("inline-filled", EMPTY);
+    if (okInline.error) {
+      fails.push(`(ah) an inline-scalar Move contract was REFUSED: ${okInline.error}`);
+    } else if (okInline.requires !== "the reader holds the claim loosely") {
+      fails.push(`(ah) an inline-scalar requires was read as ${JSON.stringify(okInline.requires)} — the contract reaches the judge as something other than what the record says`);
+    }
+    for (const [name, body, why] of [
+      ["inline-empty", 'id: inline-empty\nstatus: observed\nrequires: ""\neffect: the reader is further on\n',
+        "an inline empty string"],
+      ["block-empty", "id: block-empty\nstatus: observed\nrequires: >-\neffect: the reader is further on\n",
+        "an empty folded block"],
+    ]) {
+      writeFileSync(join(EMPTY, `${name}.md`), body);
+      const r = moveContract(name, EMPTY);
+      if (!r.error) {
+        fails.push(`(ah) a Move whose requires is ${why} was read as CARRYING a contract (${JSON.stringify(r.requires)}) — the judge is handed a blank to compare its verdict against, which is indistinguishable at the ask from a contract that says nothing`);
+      } else if (!/declares no requires/.test(r.error)) {
+        fails.push(`(ah) the ${why} refusal does not name the missing field: ${r.error}`);
+      }
+    }
+  }
+
   ranCase("k-instantiation");
   {
     const dangler = { ...candB, steps: [{ ...candB.steps[0], move: "no_such_move" }, candB.steps[1]] };
@@ -2078,6 +2158,304 @@ try {
                     fails.push(`(n) the run record carries no judgment for ${st} — the executor invokes the judge itself at every \`judgment\` state, and a filled Brief with a missing record means that state was satisfied by something other than a judged one`);
                   }
                 }
+
+                // ---- (af) THE COMPOSING ASK CARRIES THE MOVE LIBRARY
+                // (kogaki#1125). Read at the ARTIFACT the executor wrote, not
+                // at the function that composed it: the defect was a field
+                // missing from the input on disk, and `compose_path`'s input
+                // object is what the judge actually met.
+                //
+                // The set is bound to `loadMoveIds`' reading of the same
+                // library rather than to a count: a case asserting "at least
+                // one Move" would stay green on a runtime that sent one.
+                ranCase("af-compose-library");
+                {
+                  const ip = join(D, "brief-judge-input-compose_path.json");
+                  if (!existsSync(ip)) {
+                    fails.push("(af) the run wrote no compose_path judge input — there is no ask to read the library out of");
+                  } else {
+                    const input = JSON.parse(readFileSync(ip, "utf8"));
+                    const lib = input.moves_you_may_bind;
+                    if (!Array.isArray(lib) || lib.length === 0) {
+                      fails.push("(af) the compose_path ask carries no `moves_you_may_bind` — the composer meets a required `move` field with the field's NAME and no set of legal values, which is what produced six invented ids");
+                    } else {
+                      const store = loadMoveIds(join(rt, "moves"));
+                      const want = store.error ? null : [...store.ids].sort().join(",");
+                      const got = lib.map((m) => m.id).sort().join(",");
+                      if (want !== null && want !== got) {
+                        fails.push(`(af) the compose_path ask carries a Move set that is not the library's (${got}) — the composer is told the ids it may bind, so a set that is not the admitted set is a different closed world from the one adoption resolves against`);
+                      }
+                      // THE CONTRACT, NOT ONLY THE ID. An id list makes the
+                      // field fillable; the requires/effect pair is what makes
+                      // it decidable, and it is the same pair the
+                      // specialization judgment is a comparison against.
+                      for (const m of lib) {
+                        if (typeof m.requires !== "string" || m.requires.trim() === ""
+                          || typeof m.effect !== "string" || m.effect.trim() === "") {
+                          fails.push(`(af) the Move ${JSON.stringify(m.id)} reaches the composer without its requires/effect — a Step BINDS the Move whose contract its reader states specialize, so an id alone leaves the binding undecidable`);
+                          break;
+                        }
+                      }
+                      // VERBATIM FROM THE RECORD, asserted against the file
+                      // rather than against a shape: a reader that reformatted
+                      // the prose would be handing the judge a paraphrase of
+                      // the contract it is judging against.
+                      const one = lib[0];
+                      const text = readFileSync(join(rt, "moves", `${one.id}.md`), "utf8");
+                      for (const [field, value] of [["requires", one.requires], ["effect", one.effect]]) {
+                        const head = value.split(" ").slice(0, 4).join(" ");
+                        if (head && !text.replace(/\s+/g, " ").includes(head)) {
+                          fails.push(`(af) ${one.id}'s ${field} in the ask does not appear in moves/${one.id}.md — the contract reaches the judge as a paraphrase rather than as the record`);
+                        }
+                      }
+                    }
+                  }
+                }
+
+                // ---- (ag) THE SPECIALIZATION ASK CARRIES THE CONTRACT IT
+                // JUDGES AGAINST (kogaki#1125). The state's judgment_point asks
+                // whether each Step's states are specializations of "the
+                // requires and effect its bound Move declares", and its input
+                // carried `{ state, candidate_id, steps_you_must_judge }` and
+                // nothing else — so the judge was asked about a record it was
+                // never given, answered `cannot-determine`, and was re-asked
+                // into a well-formed pass.
+                //
+                // ONE ENTRY PER STEP, bound to the Steps the ask itself
+                // carries. A case counting against a constant would go green
+                // the day the path length changed.
+                ranCase("ag-specialization-contracts");
+                {
+                  const ip = join(D, "brief-judge-input-judge_specialization.json");
+                  if (!existsSync(ip)) {
+                    fails.push("(ag) the run wrote no judge_specialization input — there is no ask to read the Move contracts out of");
+                  } else {
+                    const input = JSON.parse(readFileSync(ip, "utf8"));
+                    const steps = input.steps_you_must_judge || [];
+                    const contracts = input.move_contracts;
+                    if (!Array.isArray(contracts)) {
+                      fails.push("(ag) the judge_specialization ask carries no `move_contracts` — the verdict is a comparison against a Move's requires and effect, and the judge is handed neither");
+                    } else if (contracts.length !== steps.length) {
+                      fails.push(`(ag) the ask carries ${contracts.length} Move contract(s) for ${steps.length} Step(s) — the judgment is per Step, so a Step whose contract is absent is a verdict with nothing behind it`);
+                    } else {
+                      for (const st of steps) {
+                        const c = contracts.find((x) => x.step_id === st.step_id);
+                        if (!c) {
+                          fails.push(`(ag) step ${st.step_id} is judged with no Move contract in the ask`);
+                          break;
+                        }
+                        if (c.move !== st.move) {
+                          fails.push(`(ag) step ${st.step_id} binds ${JSON.stringify(st.move)} and the ask carries the contract of ${JSON.stringify(c.move)} — a judgment against another Move's contract certifies nothing`);
+                          break;
+                        }
+                        const want = moveContract(c.move, join(rt, "moves"));
+                        if (want.error) {
+                          fails.push(`(ag) the fixture cannot read ${c.move}'s record to bind the ask against: ${want.error}`);
+                          break;
+                        }
+                        if (c.requires !== want.requires || c.effect !== want.effect) {
+                          fails.push(`(ag) ${c.move}'s contract in the ask is not the record's — the judge compares against what it is handed, so a reworded contract moves the verdict without moving the Move`);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // ---- A SECOND SPAN IN THE SAME TREE, for the two refusals kogaki#1125
+      // adds. The tree, the hooks and the fixtures are (n)'s; only the run
+      // workspace, the open-run pointer and ONE judge answer differ, so a case
+      // that goes red is red about that answer and not about the scaffolding.
+      const spanIn = (name, stub) => {
+        const D2 = join(rt, `run-${name}`);
+        const openRun2 = join(rt, `open-run-${name}`);
+        const judge2 = join(rt, `judge-${name}`);
+        // ITS OWN OPEN-GATES DIRECTORY, AND THAT IS LOAD-BEARING RATHER THAN
+        // TIDY. `write-gate-capture.py` resolves a click by the QUESTION TEXT,
+        // and these spans raise the same gates over the same fixture as (n)
+        // above — so a shared directory leaves two pointers carrying one
+        // question, the capture refuses to choose between them and writes
+        // nothing, and the advance then finds no answer and exits 0 in silence.
+        // A case reading that silence would report the refusal it was looking
+        // for as absent, which is a false finding rather than a flake.
+        const gates2 = join(rt, `open-gates-${name}`);
+        mkdirSync(D2, { recursive: true });
+        mkdirSync(gates2, { recursive: true });
+        // THE SLUG IS THE ADOPTED THESIS'S, NOT THIS CALL'S `--slug`, so every
+        // span over one fixture mints at the same path and `mint` refuses the
+        // second — it creates and never overwrites. The spans here are
+        // sequential and each is the only reader of what it minted, so the
+        // previous one's output is cleared rather than the fixture being given
+        // three theses that differ only in a name nothing reads.
+        rmSync(join(rt, "theses"), { recursive: true, force: true });
+        writeFileSync(openRun2, D2 + "\n");
+        writeFileSync(judge2, stub, { mode: 0o755 });
+        const calls2 = join(rt, `judge-calls-${name}.log`);
+        writeFileSync(calls2, "");
+        const env2 = { KOGAKI_JUDGE_CLI: judge2, KOGAKI_BRIEF_OPEN_RUN: openRun2, KOGAKI_OPEN_GATES: gates2,
+          KOGAKI_FIXTURE_CALL_LOG: calls2 };
+        // Asks of one state, counted at the party that was asked.
+        const asks = (stateId) => readFileSync(calls2, "utf8").split("\n").filter((l) => l === stateId).length;
+        const started = inTree(["src/brief.mjs", "start", "--run-dir", D2,
+          ...SETTLED, "--slug", `refusal-${name}`, "--moves-dir", "moves"],
+          { ...env2, KOGAKI_ELEMENTS_PAYLOAD: join(rt, "fixtures", "elements.json") });
+        // THE QUESTION IS THE COMPOSED CALL'S, NEVER THE DECLARATION'S.
+        // `composeGateCall` renders the state's declared reading ABOVE the
+        // question, so the bytes the owner is shown — and the bytes
+        // `write-gate-capture.py` matches a pointer on — are the call's. Keying
+        // on `declaration.question` writes no capture row, the advance then
+        // finds none and exits 0 in silence, and a case reading that silence
+        // reports a refusal as absent. This is `declaredQuestion` above,
+        // narrowed to this span's own run directory.
+        const declOf = (stateId) => {
+          let rec;
+          try { rec = JSON.parse(readFileSync(join(D2, "run-record.json"), "utf8")); } catch { return null; }
+          const owed = (rec.gate_declarations_owed || []).find((g) => g.state === stateId && g.declaration);
+          if (!owed) return null;
+          const dp = resolvePath(rt, owed.declaration);
+          const decl = JSON.parse(readFileSync(dp, "utf8"));
+          const callPath = join(dirnameOf(dp), `${decl.id}.gate-call.json`);
+          if (existsSync(callPath)) {
+            try { decl.question = JSON.parse(readFileSync(callPath, "utf8")).questions[0].question; }
+            catch { /* the declaration's own question is the fallback */ }
+          }
+          return decl;
+        };
+        const answer = (id, stateId, pick) => {
+          const decl = declOf(stateId);
+          if (!decl) return null;
+          const body = payloadFor(id, decl.question, pick(decl));
+          hook("write-gate-capture.py", body, { ...env2, KOGAKI_RUN_DIR: D2 });
+          return hook("advance-brief.py", body, env2);
+        };
+        const record = () => {
+          try { return JSON.parse(readFileSync(join(D2, "run-record.json"), "utf8")); } catch { return {}; }
+        };
+        return { D2, started, declOf, answer, record, env2, asks };
+      };
+
+      // ---- (ad) A DANGLING MOVE ID IS REFUSED AT `compose_path`, BY NAME
+      // (kogaki#1125). Case (k) above asserts the same resolution at ADOPTION,
+      // which is where it used to happen first — five states and an owner gate
+      // downstream. Both are kept: (k) is the write's own guard and (ad) is the
+      // guard inside the re-ask window, and a runtime that resolved at only one
+      // of the two would leave the other case red.
+      //
+      // ASSERTED AT THE SPAN, not against `resolveMoveIds`. A mutation deleting
+      // the call from `compose_path`'s validator survives every direct call to
+      // that function — the shape (x) above records one case over — so what is
+      // asserted here is that the STATE runs it.
+      ranCase("ad-compose-dangling");
+      {
+        const sp = spanIn("dangling", judgeStub({ danglingMove: "no_such_move_kogaki_1125" }));
+        if (sp.started.status !== 0) {
+          fails.push(`(ad) the start act failed before the span could compose: ${(sp.started.stderr || "").trim().slice(0, 300)}`);
+        } else {
+          const a = sp.answer("toolu_1125_dangling", "THESIS_ADOPTION", () => "thesis-1");
+          if (!a) {
+            fails.push("(ad) the start act raised no THESIS_ADOPTION declaration — the span never reached path composition");
+          } else {
+            const said = `${a.stderr || ""}${a.stdout || ""}`;
+            if (!/no_such_move_kogaki_1125/.test(said)) {
+              fails.push(`(ad) a Step binding an id absent from the Move library was NOT refused at compose_path naming the id — it rides the composition through review, assembly and the owner's gate to the adoption write. advance said: ${said.trim().slice(0, 400)}`);
+            }
+            if (!/\bx1\b/.test(said)) {
+              fails.push("(ad) the compose_path dangling-move refusal does not name the STEP — the composer is told an id is wrong and not which Step binds it");
+            }
+            // THE GATE WAS NEVER REACHED, which is the whole of what raising
+            // the refusal EARLIER buys. A refusal that fired after the owner
+            // had already chosen a path would be the state of affairs this
+            // case exists to end.
+            if (sp.declOf("CANDIDATE_SELECTION")) {
+              fails.push("(ad) the run reached the Candidate-selection gate with a dangling Move id in every Candidate — the owner is asked to choose between paths none of which can be adopted");
+            }
+            // AND THE WINDOW WAS SPENT, which is the CONTRAST (ae) is read
+            // against. A dangling id is repairable from this input — the ask
+            // carries the admitted set — so the table's `retries: 2` buys
+            // three asks and the refusal is a `JudgmentRefusal`. (ae)'s
+            // verdict is not repairable from its input and buys one. Without
+            // this assertion the pair would be two cases about refusing, and
+            // the distinction the two classes exist for would be untested.
+            // THE COUNT IS DERIVED FROM THE TABLE, NEVER TRANSCRIBED (PR #1127
+            // round 1). `retries` is a property of the workflow and is held in
+            // `src/brief-workflow.json` — src/terrain.mjs says so at the field
+            // it reads there — so a literal here would fail this case naming
+            // the table's OLD value as if it were current the day the row
+            // changes. (ae)'s `1` is not the same shape: ONE ask is the
+            // property under test, not a copy of a declared number.
+            const table1125 = JSON.parse(readFileSync(join(rt, "src", "brief-workflow.json"), "utf8"));
+            const composeSt = (table1125.states || []).find((x) => x.id === "compose_path");
+            const licensed = Number.isInteger(composeSt && composeSt.retries) ? composeSt.retries + 1 : null;
+            const spent = sp.asks("compose_path");
+            if (licensed === null) {
+              fails.push("(ad) compose_path declares no integer `retries` in the workflow table — the window this case is about has no declared size, so the count below would be asserted against nothing");
+            } else if (spent !== licensed) {
+              fails.push(`(ad) compose_path was asked ${spent} time(s) for a dangling Move id and the table licenses ${licensed} — a dangling id is repairable from an ask that carries the admitted set, which is exactly what that window is for; one ask here would mean the refusal is being treated as terminal`);
+            }
+            const rec = sp.record();
+            if (rec.done === true) {
+              fails.push("(ad) the run record reports done after a dangling Move id — the composition was accepted");
+            }
+          }
+        }
+      }
+
+      // ---- (ae) `cannot-determine` IS TERMINAL, NOT RE-ASKABLE (kogaki#1125).
+      //
+      // The observed run: attempt 1 answered `cannot-determine` on B1 saying
+      // the Moves library carried no such id, `validateSpecialization` refused
+      // it, the refusal-repair window re-asked, and attempt 2 returned
+      // `consistent` for all six Steps with each `why` describing a contract
+      // that does not exist. The run record called that a repair.
+      //
+      // TWO ASSERTIONS, AND THE SECOND IS THE ONE THAT BINDS THE PROPERTY. That
+      // the run stops is necessary but not sufficient: it also stopped before,
+      // three attempts later, on whatever the third answer was. What is new is
+      // that ONE attempt was spent and `refusals_repaired` counts none — a
+      // verdict not reached from this input is not reached from the same input
+      // on a second ask, so the bound is not spent pressuring the judge.
+      ranCase("ae-cannot-determine-terminal");
+      {
+        const sp = spanIn("undecided", judgeStub({ specVerdict: "cannot-determine" }));
+        if (sp.started.status !== 0) {
+          fails.push(`(ae) the start act failed before the span could judge: ${(sp.started.stderr || "").trim().slice(0, 300)}`);
+        } else {
+          const a1 = sp.answer("toolu_1125_undecided_thesis", "THESIS_ADOPTION", () => "thesis-1");
+          if (!a1) {
+            fails.push("(ae) the start act raised no THESIS_ADOPTION declaration");
+          } else {
+            const a2 = sp.answer("toolu_1125_undecided_select", "CANDIDATE_SELECTION",
+              (d) => (d.options.find((o) => o.id !== "none-of-these") || {}).id);
+            if (!a2) {
+              fails.push("(ae) the span did not reach the Candidate-selection gate, so `judge_specialization` never ran");
+            } else {
+              const said = `${a2.stderr || ""}${a2.stdout || ""}`;
+              if (!/cannot-determine/.test(said)) {
+                fails.push(`(ae) a cannot-determine verdict did not stop the run naming the verdict. advance said: ${said.trim().slice(0, 400)}`);
+              }
+              if (!/\bx1\b/.test(said)) {
+                fails.push("(ae) the cannot-determine refusal does not name the STEP whose judgment was not reached");
+              }
+              // THE BOUND WAS NOT SPENT, COUNTED AT THE JUDGE. `judge_calls`
+              // is written on the PASSING arm alone, so a refusing state
+              // records no attempt count and the run record cannot answer
+              // this; the stub's own log can. ONE ask, against the table's
+              // `retries: 2` — three is what the window would have spent.
+              const spent = sp.asks("judge_specialization");
+              if (spent !== 1) {
+                fails.push(`(ae) judge_specialization was asked ${spent} time(s) for a cannot-determine verdict — the re-ask meets the same input, so every ask past the first buys a better-formed answer to a question that was not answerable, which is how attempt 2 came to return six consistent verdicts over contracts that do not exist`);
+              }
+              const rec = sp.record();
+              if ((rec.judge_calls || {}).judge_specialization) {
+                fails.push("(ae) the run record carries a judge_specialization call record for a state that refused — `judge_calls` is the passing arm's own record, and a refusal that writes one would report a spent-and-repaired round where none was");
+              }
+              if (rec.done === true) {
+                fails.push("(ae) the run record reports done after a cannot-determine verdict — the Candidate was adopted on a judgment that was not reached");
               }
             }
           }
@@ -4114,9 +4492,9 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "is full of internal keys passes, which is the assertion that catches the evidence "
   + "returning by a side door. The tripwire reads REGISTER, never a composition MUST (§4.6 "
   + "clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934 + kogaki#935 + kogaki#942 + kogaki#966 + PR #968 round 1 + kogaki#972 + kogaki#1121): FIFTY-EIGHT "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877 + kogaki#934 + kogaki#935 + kogaki#942 + kogaki#966 + PR #968 round 1 + kogaki#972 + kogaki#1121 + kogaki#1125 + PR #1127 round 1): SIXTY-FIVE "
   + "mutations. RE-DERIVED, not incremented — this paragraph's own standing rule, and the one it has twice failed: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
-  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three, plus kogaki#942's five, plus kogaki#966's three, plus PR #968 round 1's one, plus kogaki#972's two, plus kogaki#1121's one = 58. "
+  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three, plus kogaki#942's five, plus kogaki#966's three, plus PR #968 round 1's one, plus kogaki#972's two, plus kogaki#1121's one, plus kogaki#1125's five, plus PR #1127 round 1's two = 65. "
   + "THE UNIT OF THE COUNT IS A TRIAL TAKEN, NEVER A DISTINCT PHYSICAL MUTATION (kogaki#889), and it is declared because leaving it implicit has now produced a finding: two heads may apply the SAME EDIT against DIFFERENT assertions, and that is two trials rather than one counted twice — kogaki#520 deleted the per-option `rendering` against (j)'s LABEL assertions and kogaki#859 deleted it against (j)'s KEY-PRESENT one, at two heads, and both runs happened. Read as physical mutations the enumeration double-counts; read as trials it does not, and the second reading is the one kogaki#568's own ground already commits this paragraph to — \u0022the tally counts both, because the historical evidence was real when it was taken\u0022. A SUPERSEDED ENTRY THEREFORE STAYS COUNTED, and what it owes is the past-tense marking below rather than removal, since a deleted mutation and a superseded one read identically to a later reader. Owner decision at the kogaki#889 gate, recorded rather than re-derived per sitting. "
   + "KOGAKI#1121'S ONE, against case (ac), and it is the PRE-REPAIR CODE RESTORED VERBATIM rather than an invented break — the thesis gate's provenance sentence reading `set.ids` and `set.survey`, the two fields kogaki#1116's rename removed. It fails (ac) THREE TIMES IN ONE RUN, once per address not named and once on the rendered `undefined`, which is the direct evidence that the both-directions binding is doing work: the sentence still read correctly from `set.via`, so a case asserting only that the provenance line exists, or only that it mentions the entry route, would have been green against the exact bytes the owner was shown on 2026-09-15. The trial is cheap to re-run and worth naming as such: the mutant is in the repository's history, not in this paragraph's imagination. "
   + "KOGAKI#972'S TWO, the first trials this paragraph has recorded against the COUNT ITSELF rather than against a case's assertions. Deleting `ranCase(\"z\")` while leaving case (z)'s body intact fails (floor) at 34 against a declared 35, naming cases LOST — and the same edit under the `const CASE_COUNT = 28` this replaces went GREEN, which is the whole of kogaki#972: a case removed from the file moved no number, because no number was reading the file. Changing `ranCase(\"l-bridge\")` to `ranCase(\"l-reader-fields\")`, so two cases share one registration id, fails (count) BY NAME on the duplicate and (floor) beside it at 34 — the pairing is the point, since a collapse reported only as a count one lower would send a reader looking for a deleted case that is still there. THE TRIALS ARE THE INSTRUMENT'S, NOT A CASE'S, and that is why they are counted here: what they break is the arithmetic every other case's deletion would be read through. "
@@ -4298,7 +4676,29 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "failed (l)'s ACCEPTED assertion; refusing without naming the field failed (l)'s "
   + "by-name assertion, which is what keeps a caller from being sent to re-answer a gate "
   + "that is not the problem; and treating an empty string as authored failed (l)'s "
-  + "empty-value assertion. NOT COVERED, stated rather than implied: every composition "
+  + "empty-value assertion. "
+  + "kogaki#1125's FIVE, against the Move material in the two judge asks and the two refusals it makes "
+  + "reachable. ENUMERATED AS OBSERVED, and two of the five did NOT land on the case they were written for, "
+  + "which is recorded rather than tidied: deleting `moves_you_may_bind` from the compose ask failed (n), (ad), "
+  + "(ae) and the case-floor arm and NOT (af) — the stub refuses an ask it cannot compose from, so the span dies "
+  + "before (af) runs and the case never registers — so a second, narrower mutation was run for (af) alone, "
+  + "sending a TRUNCATED library that is well-shaped and non-empty, which passed the stub and failed (ab)'s "
+  + "set-equality assertion by itself; that pair is why (af) binds the SET against `loadMoveIds`' own reading "
+  + "rather than asserting the field is present. Deleting `move_contracts` from the specialization ask failed "
+  + "(ag) alone. Removing the `resolveMoveIds` call from `compose_path`'s validator failed all four of (ad)'s "
+  + "assertions including the reached-the-Candidate-gate one — the pre-kogaki#1125 shape, reproduced, and the "
+  + "direct evidence that asserting `resolveMoveIds` as a FUNCTION would not have caught it. Routing "
+  + "`cannot-determine` through `refuseJudgment` instead of `refuseTerminally` failed (ae)'s ONE-ASK assertion "
+  + "at three asks and LEFT ITS STOPS-THE-RUN ASSERTIONS GREEN, which is the direct evidence that \"the run "
+  + "stopped\" is not the property and that a case asserting only the stop would have passed on the defect. "
+  + "PR #1127 round 1's TWO, against the two arms that round's findings added. Reporting an inline empty scalar "
+  + "as PRESENT — the pre-#1127 shape, where `requires: \"\"` yielded a blank contract while an empty BLOCK "
+  + "read as absent — failed (ah)'s inline branch by name, with its block branch and its filled control green "
+  + "beside it, so the case binds the asymmetry rather than the reader. And transcribing (ad)'s derived ask "
+  + "count back to a literal `3` while the table declared `retries: 1` failed (ad) at a head where the runtime "
+  + "was CORRECT — the false red finding 3 named, reproduced; the derived form under the same table edit passes, "
+  + "which is the control that makes the pair evidence rather than one observation. "
+  + "NOT COVERED, stated rather than implied: every composition "
   + "MUST is judgment-class (§4.6) — grounds-test soundness, entailment quality, "
   + "Move-binding order, and whether the surfaced evidence is ADEQUATE evidence — judged at "
   + "path review (story 1.74) and the human gate, never here; this member exercises record "
