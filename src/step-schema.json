@@ -256,10 +256,14 @@
       "world: a use outside the set is refused by `validateSteps`, and",
       "whether the use chosen serves the Move is path review's judgment.",
       "",
-      "COVERAGE ACCOUNTING IS UNCHANGED BY THIS FIELD. Journey placement is",
-      "counted from `materials` as `<L-id>.journey`, where it was counted",
-      "before, and this field neither feeds that count nor substitutes for",
-      "it."
+      "COVERAGE ACCOUNTING IS TAKEN FROM THIS FIELD. Journey placement is",
+      "counted from `journeys`: a Strand's Journey is placed by a Step when",
+      "that Step declares an entry naming it here. It was once counted from a",
+      "`<L-id>.journey` token in `materials` instead, and that made two",
+      "readers of one fact -- a Step that named its Strand bare and drew on",
+      "its Journey here rendered its `journey:` line and was disclosed as",
+      "OMITTED in the same Brief. A `<L-id>.journey` token stays legal, and",
+      "still names the Strand; it no longer places anything on its own."
     ],
     "uses": {
       "illustrate": "to illustrate this Step's claim with the concrete case the Journey tells",

@@ -265,8 +265,9 @@ export function journeysRefusal(journeys, materials, at) {
   }
   const uses = journeyUses();
   // The Strand ids this Step carries, with a `.journey` suffix stripped: a
-  // composer may name the Strand bare, or as the `<L-id>.journey` form the
-  // coverage accounting counts, and both are the Step carrying that Strand.
+  // composer may name the Strand bare, or as the `<L-id>.journey` form, and
+  // both are the Step carrying that Strand. Neither spelling decides
+  // placement — since kogaki#1131 the coverage count reads THIS field.
   const carried = new Set((Array.isArray(materials) ? materials : [])
     .map((m) => String(m).replace(/\.journey$/, "")));
   for (const [i, j] of journeys.entries()) {
@@ -1430,18 +1431,36 @@ export function journeyBearingStrands(doc) {
 }
 
 // Journey placement — journey register as a Candidate axis, MUST 1, the completeness rider's half: a
-// Journey is a DISTINCT material (the Step's shape — "which Strands, which Journeys"),
-// carried in a step's materials as `<L-id>.journey`. Derived from the
-// composed steps for the same reason placements() is, and the reason is
-// load-bearing here rather than inherited: a Strand can be placed while the
-// journey material it carries is dropped, so a per-Strand count cannot see
-// this omission at all and a declared cover would hide it by construction.
+// Journey is a DISTINCT material (the Step's shape — "which Strands, which Journeys").
+// Derived from the composed steps for the same reason placements() is, and the
+// reason is load-bearing here rather than inherited: a Strand can be placed
+// while the journey material it carries is dropped, so a per-Strand count
+// cannot see this omission at all and a declared cover would hide it by
+// construction.
+//
+// COUNTED FROM `journeys`, AND THIS REVERSES kogaki#1111 (kogaki#1131). That
+// Issue moved a Step's Journey use into the `journeys` field and left this
+// count reading a `<L-id>.journey` token in `materials`, on the stated ground
+// that "coverage accounting is unchanged by this field". Two readers of one
+// fact, and they disagreed on the first Brief written to `done`: every Step of
+// the adopted Candidate carried a `journeys` entry and named its Strand bare,
+// so the Brief rendered a `journey:` line for four of five Steps and disclosed
+// all five as OMITTED in the same document. A disclosure that reports omission
+// over material the path placed is a FALSE disclosure, and the Brief carrying
+// it is handed to /draft as a settled input.
+//
+// So the field `journeysRefusal` validates and `renderStep` renders is the
+// record of Journey use, and the count is taken from it. A spelling convention
+// beside that field is a second source that can disagree with the first, which
+// is the defect rather than a redundancy. `<L-id>.journey` in `materials` stays
+// LEGAL and stays CHECKED in `fillBrief` — it names the Strand, and the schema
+// admits either spelling — but it no longer places anything on its own: a Step
+// places a Journey by declaring what it uses it FOR.
 export function journeyPlacements(steps, journeyIds) {
   const used = new Map(journeyIds.map((id) => [id, []]));
   for (const s of steps) {
-    for (const m of s.materials) {
-      const j = /^(L[0-9]+)\.journey$/.exec(m);
-      if (j && used.has(j[1])) used.get(j[1]).push(s.step_id);
+    for (const j of s.journeys || []) {
+      if (j && used.has(j.strand)) used.get(j.strand).push(s.step_id);
     }
   }
   return used;
