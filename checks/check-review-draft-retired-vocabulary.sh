@@ -5,7 +5,10 @@
 # rebuilt ReviewDraft around Reverse Outlining and CLOSED its vocabulary to four
 # terms — Reverse Outlining, Reverse Outline, Forward Artifact, Round Trip —
 # retiring `Recovery`/`recovered`, `Regenerate` and `shape` by name in that
-# issue's own body. The acceptance that removed them was written as a grep, and a
+# issue's own body. ONE OF THE THREE HAS SINCE BEEN RE-ADMITTED by a later
+# ruling and the list below says so at the term; the member is the mechanism
+# rather than the list, and the list moves when the design does.
+# The acceptance that removed them was written as a grep, and a
 # grep run once in a sitting is a census re-made by hand: it says the tree was
 # clean on the day, and says nothing about the day after. This member is the
 # same list as DATA, which is the instrument checks/check-terrain-retired-
@@ -29,9 +32,9 @@
 # reads as coverage. What this member does NOT cover, stated rather than left to
 # be discovered:
 #
-#   L1. A FOURTH TERM IS ADMITTED UNTIL SOMEONE ADDS IT. The class is open and no
+#   L1. A FURTHER TERM IS ADMITTED UNTIL SOMEONE ADDS IT. The class is open and no
 #       closed-list grep is complete against it. What changes is the COST — one
-#       line here, versus a hand census — and that the three known terms cannot
+#       line here, versus a hand census — and that the terms on the list cannot
 #       come back silently.
 #   L2. THE ROOTS ARE THE ACCEPTANCE'S THREE AND NO MORE. `checks/`, `specs/` and
 #       `src/packet-template.md` each still carry the English words legitimately,
@@ -50,9 +53,10 @@
 # must-not-appear tripwire — carries `retired-vocab-ok` leading its block: on the
 # hit's own line, or on one of the ten lines above it. Sniffing for words like
 # "replaces" would make the check re-judge English, and a survivor in a paragraph
-# that happens to contain "replaced" would pass. NO SITE CARRIES ONE at this
-# admission, and that is the intended steady state: the vocabulary left whole
-# rather than being quoted back as provenance.
+# that happens to contain "replaced" would pass. The one site carrying a marker
+# is the TERM LIST itself, where a dated re-admission is recorded (kogaki#1132);
+# no site in the roots carries one, and that is the intended steady state: the
+# vocabulary left whole rather than being quoted back as provenance.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -61,8 +65,18 @@ fails=()
 # THE LIST IS THE DATA. One term per line; a fourth term is one line.
 # Case-insensitive, matched as fixed strings. `regenerat` is a stem so that
 # `regenerate`, `regenerated` and `regeneration` are one entry rather than three.
+#
+# retired-vocab-ok — `recover` LEFT THIS LIST ON 2026-09-17 (kogaki#1132), and
+# that is a RE-ADMISSION rather than a lapse. kogaki#1013 retired it because
+# `Recovery` was the name of a deleted artifact and a deleted act; the owner's
+# ruling of 2026-09-17 makes recovery the question the `claims` item ASKS — can
+# the reader recover the Step's declared claims — so the word is now load-bearing
+# in the item's own question, in the table's note and in the correction it
+# produces. A check that went on refusing it would be refusing the design it is
+# meant to guard. The other two stand: nothing has re-admitted `regenerat` or
+# `shape`, and a term leaves this list only by a dated ruling written at the site,
+# exactly as this paragraph is.
 TERMS=(
-  "recover"
   "regenerat"
   "shape"
 )
@@ -108,7 +122,7 @@ scan() {
 survivors="$(scan "$root" | sort -u || true)"
 if [ -n "$survivors" ]; then
   while IFS= read -r s; do
-    fails+=("(a) ReviewDraft's retired vocabulary is stated at $s — kogaki#1013 closed the vocabulary to Reverse Outlining, Reverse Outline, Forward Artifact and Round Trip, and \`recover\`, \`regenerat\` and \`shape\` left it. If this occurrence is dated provenance, an explicit replacement statement, or a must-not-appear tripwire, mark it \`retired-vocab-ok\` at the site.")
+    fails+=("(a) ReviewDraft's retired vocabulary is stated at $s — kogaki#1013 closed the vocabulary to Reverse Outlining, Reverse Outline, Forward Artifact and Round Trip, and the terms this member carries left it. If this occurrence is dated provenance, an explicit replacement statement, or a must-not-appear tripwire, mark it \`retired-vocab-ok\` at the site.")
   done <<< "$survivors"
 fi
 
