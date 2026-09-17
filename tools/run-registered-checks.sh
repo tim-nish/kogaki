@@ -117,6 +117,11 @@ import concurrent.futures, json, os, pathlib, subprocess, sys, time
 
 WORKFLOW = "checks.yml"
 
+# The kit's ratified degrade exit (policy/kit/, kogaki#1141). Named here
+# rather than spelled inline at the grading site, so the one number this
+# file borrows from the kit's contract has one site.
+KIT_DEGRADE_EXIT = 11
+
 registry = json.loads(pathlib.Path("checks/registry.json").read_text())
 entries = registry["checks"]
 if not entries:
@@ -302,6 +307,10 @@ if pool_entries:
 wall_ms = round((time.monotonic() - wall_started) * 1000)
 
 failed = []
+# Members that could not answer because their seam was absent — the kit's
+# ratified exit 11. Reported, never counted as failures; see the grading
+# block below for why the two are not the same thing.
+degraded = []
 serial_sum_ms = 0
 # REGISTRY ORDER, always — the printed log is what CI, a reviewer and
 # `tools/digest-check-catches.sh` all read, and it must not vary with timing.
@@ -342,12 +351,44 @@ for entry in entries:
     # `catch:` lines to stay byte-identical to a serial run, and that grammar is
     # a shared contract rather than this file's to widen. Named as a follow-on,
     # not left to be discovered from a step in a graph.
-    print(f"catch: {entry['id']} outcome="
-          f"{'pass' if result['returncode'] == 0 else 'fail'} "
+    #
+    # THE THIRD GRADE IS `degrade`, AND IT IS NOT A THIRD OUTCOME OF THE
+    # CHECK (kogaki#1141). A kit-vendored member whose seam is MACHINE-LOCAL
+    # cannot answer at all where that seam is absent, and the kit's ratified
+    # shape for saying so is exit 11 with a `policy_source unavailable:` line
+    # — declared in `policy/kit/` and used by every seam-touching member it
+    # ships. Graded as `fail` it says the member found what it guards
+    # against, which is false; graded as `pass` it says the guarded property
+    # holds, which is also false and is the silent-green arm those members
+    # decline by name. So the log carries the distinction the two existing
+    # tokens cannot: the check DID NOT RUN, and the suite does not fail for
+    # it.
+    #
+    # WHAT THIS IS NOT: it is not a general "non-zero exits the runner
+    # tolerates" list, and 11 is not this file's number to widen. The code
+    # belongs to the kit's degrade contract, so a consumer suite that reads
+    # it here and a kit member that writes it there are one agreement with
+    # one site on each side. A member of this repository's OWN that exits 11
+    # for its own reasons is graded `degrade` too, and that is the cost of
+    # keeping one number rather than two.
+    #
+    # AND IT IS VISIBLE RATHER THAN ABSORBED: the `degraded:` line below
+    # names every member that took this path, so a suite that answered
+    # nothing is distinguishable from one that answered everything, and a
+    # reader is never told `ok:` over a member that did not execute.
+    if result["returncode"] == 0:
+        outcome = "pass"
+    elif result["returncode"] == KIT_DEGRADE_EXIT:
+        outcome = "degrade"
+    else:
+        outcome = "fail"
+    print(f"catch: {entry['id']} outcome={outcome} "
           f"ms={result['elapsed_ms']}",
           flush=True)
-    if result["returncode"] != 0:
+    if outcome == "fail":
         failed.append(entry["id"])
+    elif outcome == "degrade":
+        degraded.append(entry["id"])
 
 # Wall BESIDE the summed member cost (kogaki#789 acceptance 1). No target is
 # asserted and none is checked: this is a cap that REPORTS, never a target that
@@ -367,12 +408,28 @@ print(f"suite: wall {wall_ms/1000:.2f}s; member sum {serial_sum_ms/1000:.2f}s"
       f"{inflated} over {len(entries)} member(s); {mode}"
       + (f", {len(serial_entries)} declared serial" if serial_entries and pool_entries else ""))
 
+# BEFORE the failure verdict, so a run that both failed and degraded says both
+# — a degrade hidden behind a FAIL is how the second one gets rediscovered.
+if degraded:
+    print(f"degraded: {len(degraded)} of {len(entries)} registered check(s) "
+          f"could not answer (seam absent, exit {KIT_DEGRADE_EXIT}): "
+          + ", ".join(degraded)
+          + " -- not a failure and not a pass: the check did not run")
+
 if failed:
     print(f"FAIL: {len(failed)} of {len(entries)} registered check(s) failed: "
           + ", ".join(failed))
     sys.exit(1)
 
-if sha:
+# A DEGRADED RUN RECORDS NO VERDICT, and this is the one place the third
+# grade is not merely cosmetic (kogaki#1141). The once-per-head store exists
+# so a later run at the same SHA may SKIP execution; a run where some member
+# never executed has not established what that record would claim, and
+# storing it would make the degrade permanent for that head instead of
+# transient. So the verdict is written on a FULL pass — every member green —
+# and a degraded run leaves the next one to execute again, which is exactly
+# what a machine that does have the seam should do.
+if sha and not degraded:
     # Written only on a full pass, only for a clean head, only outside the
     # tree (kogaki#769). A write failure is reported and is not a suite
     # failure: the verdict is true whether or not it was stored.
@@ -386,5 +443,8 @@ if sha:
         print(f"recorded: full-pass verdict for head {sha} at {d}")
     except OSError as e:
         print(f"note: verdict not recorded ({e}); the next run executes again")
-print(f"ok: {len(entries)} registered check(s) pass")
+if degraded:
+    print(f"ok: {len(entries) - len(degraded)} of {len(entries)} registered check(s) pass; {len(degraded)} could not run")
+else:
+    print(f"ok: {len(entries)} registered check(s) pass")
 PY

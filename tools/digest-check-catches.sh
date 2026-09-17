@@ -10,7 +10,8 @@
 # THE PRIMARY CAPTURE IS THE RUN LOG, NEVER A STORED SECOND LEDGER (owner
 # decision 2026-08-06, kogaki#113 scope 3). So this digest ASSEMBLES on
 # demand from the `checks` workflow's Actions logs — the `catch: <id>
-# outcome=<pass|fail> [ms=<n>]` lines the runner prints — and stores nothing.
+# outcome=<pass|fail|degrade> [ms=<n>]` lines the runner prints — and stores
+# nothing.
 # Disclosed limits, restated in the rendered header so no figure travels
 # without its denominator:
 #   - the window is bounded by Actions log retention and by --runs;
@@ -19,7 +20,10 @@
 #     guarded surface was touched in that revision — the finer denominator
 #     kogaki#20 names is not captured by the current runner, and saying so
 #     beats implying it;
-#   - runs predating the `ms=` field count toward exercise but not cost.
+#   - runs predating the `ms=` field count toward exercise but not cost;
+#   - a `degrade` outcome is NOT an exercised run (kogaki#1141) — the suite
+#     reached the member and its seam was absent, so it is counted and
+#     reported on its own line rather than in the executed denominator.
 #
 # ZERO FIRES IS RENDERED AS AMBIGUOUS: a working deterrent and an extinct
 # defect class are indistinguishable in the count, so the digest states the
@@ -54,8 +58,16 @@ completed = [r for r in listing if r["status"] == "completed"]
 
 # One fetch per run, grepped for catch lines. Actions prefixes every line
 # with job/step/timestamp; match the catch grammar anywhere in the line.
+# `degrade` JOINS THE GRAMMAR RATHER THAN BEING TOLERATED BY IT
+# (kogaki#1141). The runner grades a member that could not reach its seam as
+# `degrade`, and a regex matching only `pass|fail` would not fail on such a
+# line -- it would simply not match it, dropping the run from the denominator
+# with nothing saying so. A digest whose window silently shrinks is worse
+# than one that reports a smaller window, so the token is matched and counted
+# in its own bucket: a degrade is NOT an exercised run, because the check did
+# not execute.
 catch_re = re.compile(
-    r"catch: (?P<id>[a-z0-9-]+) outcome=(?P<outcome>pass|fail)"
+    r"catch: (?P<id>[a-z0-9-]+) outcome=(?P<outcome>pass|fail|degrade)"
     r"(?: ms=(?P<ms>\d+))?")
 stats = {}  # id -> dict(executed, fires, timed, total_ms)
 runs_with_catches = 0
@@ -68,8 +80,15 @@ for run in completed:
     seen = False
     for m in catch_re.finditer(log.stdout):
         seen = True
-        s = stats.setdefault(m["id"], dict(executed=0, fires=0,
+        s = stats.setdefault(m["id"], dict(executed=0, fires=0, degraded=0,
                                            timed=0, total_ms=0))
+        if m["outcome"] == "degrade":
+            # Counted, and counted APART: the suite reached the member and the
+            # member declined to answer. Folding it into `executed` would
+            # inflate the denominator every retention reading divides by, and
+            # dropping it would hide that the member has never actually run.
+            s["degraded"] += 1
+            continue
         s["executed"] += 1
         if m["outcome"] == "fail":
             s["fires"] += 1
@@ -90,7 +109,8 @@ print()
 
 for entry in entries:
     a = entry["admission"]
-    s = stats.get(entry["id"], dict(executed=0, fires=0, timed=0, total_ms=0))
+    s = stats.get(entry["id"], dict(executed=0, fires=0, degraded=0,
+                                    timed=0, total_ms=0))
     inst_kind = str(a.get("removal_instrument", "")).split(":", 1)[0] or "?"
     line = (f"{entry['id']}: executed {s['executed']}, fired {s['fires']}")
     if s["timed"]:
@@ -108,6 +128,16 @@ for entry in entries:
     if s["executed"] == 0:
         print("  no executed runs in the readable window — no retention "
               "evidence either way; the denominator is absent, not zero.")
+    if s["degraded"]:
+        # Said on its own line rather than mixed into the counts above,
+        # because the two readings differ: a member with executions AND
+        # degrades has partial evidence, while one with only degrades has
+        # none at all and its absent denominator has a NAMED cause.
+        print(f"  {s['degraded']} degraded run(s) in the window — the seam "
+              f"was absent and the check did not execute; excluded from the "
+              f"executed denominator above"
+              + (", which is therefore absent for a reason rather than by "
+                 "retention" if s["executed"] == 0 else ""))
 print()
 print("supersession status is the conformance check's removal-candidate / "
       "removal-instruments rows (checks/check-registry-conformance.sh), "
