@@ -444,9 +444,8 @@ function writeRun(ws, run) {
 // existed. A rule saying "do not overwrite" would be prose where a refusal
 // belongs, so the layout is the Harness's:
 //
-//   runs/review/<slug>/pass-1/{outline-input,outline,join,comparison,
-//                              corrections,join.json}
-//   runs/review/<slug>/pass-2/{outline-input,outline,join,comparison,check.json}
+//   runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
+//   runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
 //   runs/review/<slug>/snapshots/     — before/after per corrected Step
 //   runs/review/<slug>/run.json
 //
@@ -2157,7 +2156,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         }
         const r = impl(ctx);
         results.push({ step_id: step.step_id, item: item.id, class: item.class,
-          decided_by: "harness", ...r });
+          judged: false, ...r });
         mechanicalLog.push({ step_id: step.step_id, item: item.id });
         continue;
       }
@@ -2173,7 +2172,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       if (item.when_declared_absent
           && (dv === "" || (Array.isArray(dv) && dv.length === 0))) {
         results.push({ step_id: step.step_id, item: item.id, class: item.class,
-          decided_by: "harness", verdict: item.when_declared_absent.verdict,
+          judged: false, verdict: item.when_declared_absent.verdict,
           reason: item.when_declared_absent.sentence, span: step.lines });
         mechanicalLog.push({ step_id: step.step_id, item: item.id });
         continue;
@@ -2208,8 +2207,15 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             model: v ? v.model ?? null : null });
           subs.push(v
             ? { pair: i, declared: declaredText, verdict: v.verdict, reason: v.reason,
-                model: v.model ?? null, span: step.lines, decided_by: "model" }
-            : { pair: i, declared: declaredText, owed: true, key, packet: file, span: step.lines });
+                model: v.model ?? null, span: step.lines, judged: true }
+            // AN UNANSWERED PAIR IS `judged: false` AND CARRIES NO `model`: a
+            // Packet was rendered for it, and nothing has come back. `judged`
+            // says a Judge ANSWERED, never that one was owed a question — an
+            // owed pair that read `true` would be a claim about a call that has
+            // not happened, which is the claim the missing `model` key already
+            // refuses one field over.
+            : { pair: i, declared: declaredText, owed: true, judged: false,
+                key, packet: file, span: step.lines });
           if (!v) owed.push({ key, step_id: step.step_id, item: item.id, pair: i, packet: file });
         });
       } else {
@@ -2222,13 +2228,13 @@ function buildJoin(draft, run, items, ws, opts = {}) {
           model: v ? v.model ?? null : null });
         subs.push(v
           ? { pair: null, verdict: v.verdict, reason: v.reason, model: v.model ?? null,
-              span: step.lines, decided_by: "model" }
-          : { pair: null, owed: true, key, packet: file, span: step.lines });
+              span: step.lines, judged: true }
+          : { pair: null, owed: true, judged: false, key, packet: file, span: step.lines });
         if (!v) owed.push({ key, step_id: step.step_id, item: item.id, pair: null, packet: file });
       }
 
       if (!subs.length) {
-        results.push({ step_id: step.step_id, item: item.id, class: item.class, decided_by: "harness",
+        results.push({ step_id: step.step_id, item: item.id, class: item.class, judged: false,
           verdict: "holds", reason: "the reverse side carries nothing for this item to disagree with",
           span: step.lines });
         mechanicalLog.push({ step_id: step.step_id, item: item.id });
@@ -2236,7 +2242,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       }
       if (subs.some((s) => s.owed)) {
         results.push({ step_id: step.step_id, item: item.id, class: item.class, owed: true,
-          span: step.lines });
+          judged: false, span: step.lines });
         continue;
       }
       // THE ITEM'S LINE RENDERS THE STRONGEST NON-`holds` ANSWER AMONG ITS
@@ -2247,7 +2253,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       // rounded into `holds`.
       const chosen = subs.find((s) => s.verdict === "fails")
         || subs.find((s) => s.verdict === "cannot-decide") || subs[0];
-      const rowDecidedBy = subs.every((s) => s.decided_by === "harness") ? "harness" : "model";
+      const rowJudged = subs.some((s) => s.judged);
       // THE ROW'S EVIDENCE IS THE DECLARED TEXT OF EVERY ENTRY THAT DID NOT HOLD
       // (kogaki#1132). The comparison line carries one pair's reason and no
       // quoted material — that is the no-numbers rule, and a declared claim can
@@ -2259,7 +2265,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       const lost = subs.filter((s) => s.declared !== undefined && s.verdict && s.verdict !== "holds")
         .map((s) => s.declared);
       results.push({ step_id: step.step_id, item: item.id, class: item.class,
-        decided_by: rowDecidedBy,
+        judged: rowJudged,
         // THE CHOSEN PAIR IS NAMED ON THE ROW (PR #1004 round 2, finding 5). The
         // row's verdict, reason and span are one pair's, and the owner record's
         // pointer to the Packet that pair was judged on cannot be composed from a
@@ -2267,27 +2273,33 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         // selection is what this line is.
         pair: chosen.pair,
         verdict: chosen.verdict, reason: chosen.reason,
-        // THE KEY IS PRESENT EXACTLY WHERE `decided_by` IS `model`, and its
-        // VALUE is the chosen pair's — the pair whose verdict, reason and span
-        // this row renders (PR #1001 round 1).
+        // THE KEY IS PRESENT EXACTLY WHERE `judged` IS TRUE, and its VALUE is
+        // the chosen pair's — the pair whose verdict, reason and span this row
+        // renders (PR #1001 round 1).
+        //
+        // `judged` REPLACED `decided_by` AT kogaki#1134, and the two keys said
+        // one thing twice: `decided_by: "model"` beside `model: <id>` read as
+        // the same fact spelled two ways. The boolean says whether a Judge was
+        // asked at all and `model` says which, which is the split that was
+        // there all along.
         //
         // The two facts come apart on a HYBRID item — a row some of whose pairs
-        // the Harness decides and some of whose pairs a model answers.
-        // `decided_by` is a fact about the row's pairs — any one judged makes it
-        // `model` — while every other field here is the CHOSEN pair's, so the
-        // chosen one can be the Harness's out of a row a model also answered.
-        // Keying presence on the chosen pair, as this first did, then produced a
-        // row saying `decided_by: "model"` and carrying no `model` — the one
-        // case the absence was supposed to rule out. NO ROW IN THE SHIPPED TABLE
-        // IS HYBRID SINCE kogaki#1132 removed the one hybrid mode; the rule is
+        // the Harness decides and some of whose pairs a model answers. `judged`
+        // is a fact about the row's pairs — any one judged makes it true —
+        // while every other field here is the CHOSEN pair's, so the chosen one
+        // can be the Harness's out of a row a model also answered. Keying
+        // presence on the chosen pair, as this first did, then produced a row
+        // saying it was judged and carrying no `model` — the one case the
+        // absence was supposed to rule out. NO ROW IN THE SHIPPED TABLE IS
+        // HYBRID SINCE kogaki#1132 removed the one hybrid mode; the rule is
         // live code with no current specimen, kept rather than retired.
         //
         // So presence answers "was a model asked here at all", which is exactly
-        // what `decided_by` says, and `null` answers "not for the line you are
+        // what `judged` says, and `null` answers "not for the line you are
         // reading" — a Harness-decided pair won the selection. A row with no
         // key is a row where nothing was asked; the truth per pair is in
         // `pairs`, and it always was.
-        ...(rowDecidedBy === "model" ? { model: chosen.model ?? null } : {}),
+        ...(rowJudged ? { model: chosen.model ?? null } : {}),
         ...(lost.length ? { evidence: lost } : {}),
         span: chosen.span, pairs: subs });
     }
@@ -2296,11 +2308,12 @@ function buildJoin(draft, run, items, ws, opts = {}) {
   return { results, owed, modelCalls, mechanicalLog, steps };
 }
 
-// THE NO-NUMBERS RULE, IN ONE PLACE (kogaki#1097). Two renderings hold it now
-// — the emitted comparison line and the written comparison file — and a rule
-// carried by two copies of a regex is a rule that holds in one of them after
-// the first repair. The guard is scoped to the REASON, as it
-// always was: the span is a coordinate, and a pinned model id or a pair index is
+// THE NO-NUMBERS RULE, IN ONE PLACE (kogaki#1097). One rendering holds it since
+// kogaki#1134 took the written comparison file away, and it stays a named
+// function rather than an inline regex: a rule carried by copies of a regex is a
+// rule that holds in one of them after the first repair, and the second
+// rendering is one issue away at any time. The guard is scoped to the REASON, as
+// it always was: the span is a coordinate, and a pinned model id or a pair index is
 // the name of a thing rather than a reading that could be compared.
 function refuseNumericReason(r, where) {
   if (/[0-9]/.test(r.reason)) {
@@ -2332,174 +2345,23 @@ function comparisonLine(r) {
 }
 
 // ---------------------------------------------------------------------------
-// THE PER-STEP COMPARISON FILES (kogaki#1097). The readable comparison is
-// WRITTEN, not only emitted.
+// THE PER-STEP COMPARISON FILES ARE GONE (kogaki#1134, owner 2026-09-17), AND
+// THIS REVERSES kogaki#1097 BY NAME.
 //
-// What was missing is not a verdict — `join.json` and `check.json` hold every
-// one — but what a verdict MEANS. The surface a person debugs from mid-run was
-// the verdicts file they handed in, which carries the model's answer and
-// nothing about its consequence: not the item's class, and not whether the fail
-// sends the Step to correction, rides along, or is reported only. Reading
-// `pass-1/verdicts/s1.json` alone it was impossible to tell why a Step with
-// three fails was never corrected — all three were best-effort, and nothing on
-// the surface said so.
+// #1097 wrote `comparison/<step>.md` because the surface a person debugged from
+// mid-run was then the verdicts file the session had handed in, which carried
+// the model's answer and nothing about what the answer meant — not the item's
+// class, not whether the fail sent the Step to correction. kogaki#1100 removed
+// those session-written files the same day, and `join.json` now carries
+// `class`, `verdict`, `reason`, `model` and `span` on every row. Read against
+// that record the comparison files were a legend plus one line per pair
+// restating it, and harder to read than the record they rendered. Their one
+// addition — the consequence word — is derivable from the row's class and
+// verdict by the same rule `consequenceOf` held, so nothing is lost with them.
 //
-// So each pass writes one file per Step, at the moment the pass completes, and
-// every line carries the answer AND what it cost.
-const CONSEQUENCE = {
-  correction: "sent to correction",
-  reported: "reported only",
-  carried: "carried from pass one",
-  mechanical: "decided without a model call",
-};
-
-// THE CONSEQUENCE IS A CLOSED FOUR-WORD SET AND ITS ORDER IS THE POINT.
-//
-//   1. `carried from pass one` outranks everything, because it is the one word
-//      that is about PROVENANCE rather than routing: nothing in this pass read
-//      the row, so no claim this pass could make about what it costs would be
-//      one this pass earned. It is the same rule the residue lines already hold.
-//   2. A FAIL answers the routing question, which is the question the surface
-//      was missing: a preserved fail is what sends a Step to correction, and a
-//      best-effort fail is the one that rides along. A mechanical preserved fail
-//      is still a correction target — the class decides the route and the mode
-//      never did — so the mode is not consulted here.
-//   3. Only then does the mode speak, and it speaks about a row with no
-//      consequence to route: a `holds` or a `cannot-decide` the Harness settled
-//      alone cost no model call, and saying so is what distinguishes it from one
-//      a judge was paid to answer.
-//   4. Everything else is recorded and does nothing, which is what `reported
-//      only` says.
-function consequenceOf(r) {
-  if (r.carried) return CONSEQUENCE.carried;
-  if (r.verdict === "fails") {
-    return r.class === "preserved" ? CONSEQUENCE.correction : CONSEQUENCE.reported;
-  }
-  // THE MODE IS READ THROUGH `chosenJudged`, THE SAME READ `deciderOf` MAKES
-  // (PR #1102 round 1, finding 2). `decided_by` is a fact about the ROW — any
-  // one pair judged makes it `model` — while every other field on the line is
-  // the CHOSEN pair's, so a hybrid item can render a Harness-decided pair out of
-  // a row whose other pairs a model answered. Keyed on the row, this line said
-  // `decided by the Harness | reported only`: it named the Harness as the
-  // decider and withheld the word that says so.
-  if (!chosenJudged(r)) return CONSEQUENCE.mechanical;
-  return CONSEQUENCE.reported;
-}
-
-// WHO DECIDED THE LINE — the CHOSEN pair's decider and never the row's. The two
-// come apart on a hybrid item, a row some of whose pairs the Harness decides
-// while a model answers the others: the row says `decided_by: "model"` while the
-// line a reader is looking at was nobody's answer. The shipped table has carried
-// no such row since kogaki#1132, and the read stays because the row's decider and
-// the line's are different facts whether or not one specimen exists.
-// `chosenJudged` is the same read the owner record's pointers are composed from,
-// shared rather than re-derived.
-function deciderOf(r) {
-  if (!chosenJudged(r)) return "the Harness";
-  return r.model || "the Harness";
-}
-
-// THE PACKET POINTER IS READ FROM THE PASS'S OWN CALL LOG, never recomposed
-// from the row. The log is written by the act that rendered the file, so a
-// pointer taken from it lands on the Packet the judge was actually handed; a
-// name composed here would be this writer's belief about the renderer's naming
-// rule, which is the second-writer defect the join template's slot check exists
-// to refuse one layer down. A carried row's Packet belongs to the pass that
-// rendered it, which is why the prior pass's log is searched after this one's.
-// THE POINTER IS WORKSPACE-RELATIVE, because the file carrying it is. A reader
-// has `pass-1/comparison/s2.md` open; what they want beside a line is
-// `pass-1/join/s2.reader-state-after.md`, not a path computed against whatever
-// directory the run happened to be invoked from — which resolves for that
-// process and for nobody who reads the file afterwards. `passKey` is the same
-// composition the pass ledger records its paths under, shared rather than
-// re-spelled.
-function packetFor(r, ws, calls) {
-  if (!chosenJudged(r)) return null;
-  const mine = (c) => c.step_id === r.step_id
-    && c.item === r.item && (c.pair ?? null) === (r.pair ?? null);
-  const c = (calls || []).find(mine);
-  return c ? passKey(ws, c.packet) : null;
-}
-
-const COMPARISON_FIELDS = "item | class | mode | verdict | lines <first>-<last> | "
-  + "decided by <model id, or the Harness> | consequence | packet | reason";
-
-const COMPARISON_LEGEND = [
-  `Every line below is one pair, its fields separated by \` | \` in this order:`,
-  "",
-  `    ${COMPARISON_FIELDS}`,
-  "",
-  // THE FOUR WORDS SIT ON ONE LINE DELIBERATELY. Split across two source lines
-  // the first ended on `carried from` — and the allowlist scan that keeps this
-  // Harness's readers closed matches `from` followed by a quote, so a legend
-  // wrapped for width read as an import of the empty string. A prose line is not
-  // worth arming that scan against.
-  "`consequence` is one of `sent to correction`, `reported only`, "
-    + "`carried from pass one`, `decided without a model call`.",
-  "A line the Harness decided alone says so where the Packet pointer goes: no",
-  "Packet was rendered for it, and the pass's own",
-  "join record says how it was decided instead.",
-  "Every path below is relative to the run's workspace.",
-  "",
-];
-
-// ONE LINE PER PAIR, AND THE NO-NUMBERS RULE IS THE EMITTED LINE'S, SHARED.
-// `refuseNumericReason` is the same guard `comparisonLine` calls, so the
-// written file cannot carry a score the emitted line refuses —
-// which is the whole of what "as the emitted line already holds" buys. The
-// guard is scoped to the REASON, as it always was: the span is a coordinate,
-// and a pinned model id and a pair index are names of things rather than
-// readings that could be compared.
-function comparisonFileLine(r, { label, consequence, packet }) {
-  refuseNumericReason(r, label);
-  return `- ${label} | ${r.class} | ${r.mode} | ${r.verdict} | `
-    + `lines ${r.span[0]}-${r.span[1]} | decided by ${deciderOf(r)} | ${consequence} | `
-    + (packet ? `packet: ${packet}` : "packet: none — no Packet was rendered")
-    + ` | ${r.reason}`;
-}
-
-function relPath(p) { return relative(process.cwd(), p) || p; }
-
-// THE COMPARISON FILES FOR ONE PASS, written at the moment that pass completes.
-// A Step with no rows writes no file: the item table decides which rows a Step
-// has, and inventing an empty file for a Step nobody compared would report a
-// comparison that never happened.
-//
-// ONE FILE PER STEP AND NO OTHER FILE (kogaki#1133). `comparison/sections.md`
-// was written here beside them, carrying the Section pairs and the route each
-// Section fail took; with the cold reader gone there is no Section row to write
-// and the file is not written empty — a file saying nothing was compared reads
-// as a comparison that held.
-function writeComparison(ws, run, pass, { results, calls, items }) {
-  const modeOf = new Map(items.items.map((i) => [i.id, i.mode]));
-  const order = run.steps.map((s) => s.step_id);
-  const byStep = new Map();
-  for (const r of results) {
-    if (!byStep.has(r.step_id)) byStep.set(r.step_id, []);
-    byStep.get(r.step_id).push(r);
-  }
-  const written = [];
-  for (const stepId of order) {
-    const rows = byStep.get(stepId);
-    if (!rows || !rows.length) continue;
-    const dest = passPathAt(ws, run, pass, "comparison", `${stepId}.md`);
-    const body = [
-      `# ${stepId} — the comparison, pass ${numberWord(pass)}`,
-      "",
-      `draft ${run.draft}`,
-      `body sha ${run.body_sha}`,
-      "",
-      ...COMPARISON_LEGEND,
-      ...rows.map((r) => comparisonFileLine(
-        { ...r, mode: modeOf.get(r.item) || "judged" },
-        { label: r.item, consequence: consequenceOf(r), packet: packetFor(r, ws, calls) })),
-      "",
-    ].join("\n");
-    writeFileSync(dest, body);
-    written.push(dest);
-  }
-  return written;
-}
+// The EMITTED comparison line stays: it is the pass's own report to the person
+// running it, not a file in the run directory, and `comparisonLine` above is
+// the whole of it.
 
 function cmdCompare(args) {
   const draftPath = argString(args, "draft", "usage: review-draft compare --draft <draft.md>   (verdicts on standard input record them)");
@@ -2600,17 +2462,11 @@ function cmdCompare(args) {
     return;
   }
 
-  // THE PASS'S COMPARISON FILES, WRITTEN AT THE MOMENT IT COMPLETES (kogaki#1097).
-  // Not before: an unfilled join has owed rows, and a row with no verdict has no
-  // consequence to state — writing one would put an absence where a routing
-  // answer belongs, which is the rounding the three-valued verdict refuses one
-  // layer down.
-  const comparisonFiles = writeComparison(ws, run, 1, { results, calls: modelCalls, items });
-  // AND THE PASS LEDGER IS PERSISTED AFTER THEM. `passPathAt` registers each
-  // path it composes in `run.pass_files`, and that register is what makes a
-  // second pass writing over this one refuse by name; a run that composed the
-  // paths and never wrote the record back would leave the refusal unarmed for
-  // exactly the files this issue adds.
+  // THE PASS LEDGER IS PERSISTED AFTER THE RECORD IS WRITTEN. `passPathAt`
+  // registers each path it composes in `run.pass_files`, and that register is
+  // what makes a second pass writing over this one refuse by name; a run that
+  // composed `join.json`'s path and never wrote the record back would leave the
+  // refusal unarmed for the one file this pass ends on.
   writeRun(ws, run);
 
   const fails = results.filter((r) => r.verdict === "fails");
@@ -2629,9 +2485,6 @@ function cmdCompare(args) {
         + undecided.map((r) => `${r.step_id}/${r.item}`).join(", ") + "\n"
       : "")
     + `join record: ${joinPath}\n`
-    + `comparison — one file per Step, each line carrying its `
-    + `class, its consequence and the Packet it was judged on:\n`
-    + comparisonFiles.map((f) => `  ${relPath(f)}`).join("\n") + "\n"
     + (fails.length
       ? "`check --draft <draft.md>` is pass two.\n"
       : "`close --draft <draft.md>` writes the owner record.\n"));
@@ -3603,13 +3456,6 @@ function cmdCheck(args) {
     }));
   run.checked_at = new Date().toISOString();
 
-  // PASS TWO'S COMPARISON FILES (kogaki#1097), written at the moment this pass
-  // completes, under `pass-2/` like every other artifact of this pass.
-  const comparisonFiles = writeComparison(ws, run, currentPass(run), {
-    results,
-    calls: [...modelCalls, ...(priorJoin.model_calls || [])],
-    items,
-  });
   writeRun(ws, run);
 
   const judged = modelCalls.length;
@@ -3644,9 +3490,6 @@ function cmdCheck(args) {
         + `${run.residue.map((r) => `${r.step_id}/${r.item}`).join(", ")}\n`
       : "no preserved item fails after pass two, so the residue is empty.\n")
     + `check record: ${joinPath}\n`
-    + `comparison — one file per Step, each line carrying its `
-    + `class, its consequence and the Packet it was judged on:\n`
-    + comparisonFiles.map((f) => `  ${relPath(f)}`).join("\n") + "\n"
     + "`close --draft <draft.md>` writes the owner record.\n");
 }
 
@@ -3675,7 +3518,7 @@ function cmdCheck(args) {
 // line — a mechanical item, a stated absence, an empty reverse side, or a
 // row whose chosen pair the Harness decided — never had a join Packet
 // rendered, so no pointer to one is composed; the pass's join record says how
-// it was decided. Composing `pass-2/` for a carried row, or a Packet name for a
+// it was decided, on the row's own `judged` key. Composing `pass-2/` for a carried row, or a Packet name for a
 // mechanical row, pointed the owner at files nothing ever wrote.
 //
 // THE OUTLINE RECORD IS THE ONE THE RUN READ, taken from the run record's
@@ -3686,13 +3529,20 @@ function cmdCheck(args) {
 function evidencePass(run, f) {
   return f.carried ? 1 : (run.checked_at ? 2 : 1);
 }
+// THE CHOSEN PAIR'S `judged` IS READ BEFORE THE ROW'S, and the order is the
+// whole of this function (kogaki#1134). Since `decided_by` became `judged` a
+// join row carries the key too, and the row's is a fact about ALL its pairs —
+// any one judged makes it true — while this read is about the ONE pair the row
+// renders. On a hybrid row the two disagree, so a row-first read would report a
+// Packet pointer for a line the Harness decided. A residue row has no `pairs`
+// and its own `judged` IS the chosen pair's, written by `check` from this very
+// read, so it falls through correctly.
 function chosenJudged(f) {
-  if (typeof f.judged === "boolean") return f.judged;
   if (Array.isArray(f.pairs)) {
     const sub = f.pairs.find((p) => p.pair === f.pair);
-    return sub ? sub.decided_by === "model" : false;
+    return sub ? sub.judged === true : false;
   }
-  return f.decided_by === "model";
+  return f.judged === true;
 }
 // THE POINTER FOLLOWS THE ROW'S OWN SIDE, NEVER THE STEP ALONE (PR #1024 round
 // 1). A figure row's reverse side is the FIGURE's Reverse Outline —
@@ -3733,23 +3583,19 @@ function evidenceLines(ws, run) {
     `  - \`outline-input/<step>.md\` — what the blind reviewer was handed`,
     `  - \`outline/<step>.json\` — what they wrote back`,
     `  - \`join/<step>.<item>[.<pair>].md\` — the pair each verdict was given on`,
-    // THE READABLE COMPARISON, NAMED BESIDE THE RECORDS IT SUMMARIZES
-    // (kogaki#1097). `join.json` holds every verdict and `comparison/` holds what
-    // each one COST — the item's class, who decided it, and whether the fail sent
-    // the Step to correction or was reported only. A reader debugging mid-run
-    // reaches for the second, so the record names it.
-    `  - \`comparison/<step>.md\` — one line per pair,`,
-    `    carrying its class, its consequence in words, and the Packet it was judged on`,
     `  - \`corrections/<step>.md\` — the input each correction was written from`,
-    `  - \`join.json\` — pass one's verdicts, and which pairs were decided mechanically`,
+    // THE ONE RECORD A READER DEBUGGING MID-RUN REACHES FOR (kogaki#1134). The
+    // `comparison/<step>.md` files that stood beside it until kogaki#1134 were a
+    // legend plus one line per pair restating this record; the class, the
+    // verdict, the reason, the model and the span are all on the row here.
+    `  - \`join.json\` — pass one's verdicts with each row's class, model and span,`,
+    `    and which pairs were decided mechanically`,
   ];
   if (run.checked_at || currentPass(run) > 1) {
     out.push(
       `- **Pass 2 — \`check\`.** \`${rel("pass-2")}/\``,
       `  - \`outline-input/<step>.md\` and \`outline/<step>.json\` — the corrected Steps, re-read blind`,
       `  - \`join/<step>.<item>[.<pair>].md\` — the pairs inside the second pass's bound`,
-      `  - \`comparison/<step>.md\` — the same lines for this`,
-      `    pass; a pair it carried rather than re-judged says \`carried from pass one\``,
       `  - \`check.json\` — pass two's verdicts, the bound it applied, and what it carried`,
       "",
       "A pair pass two carried rather than re-judged has its verdict in `pass-1/join.json`",
@@ -4003,9 +3849,8 @@ zero fails or from \`check\` in every state.
 THE WORKSPACE IS SPLIT BY PASS, and the layout is this command's contract rather
 than a convention:
 
-  runs/review/<slug>/pass-1/{outline-input,outline,join,comparison,
-                             corrections,join.json}
-  runs/review/<slug>/pass-2/{outline-input,outline,join,comparison,check.json}
+  runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
+  runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
   runs/review/<slug>/snapshots/    before/after per corrected Step
   runs/review/<slug>/run.json
 
@@ -4017,14 +3862,14 @@ one file every pass writes. \`corrections/\` is PASS ONE'S ONLY — \`correct\`
 discharges a verdict pass one recorded, and pass two turns a still-failing item
 into residue rather than into another correction — so pass two has none.
 
-\`comparison/\` is the READABLE half of \`join.json\`, written at the moment a pass
-completes: one file per Step, one line per pair, carrying the
-item, its class, its mode, the verdict, the span, who decided it, the Packet the
-verdict was given on, and the CONSEQUENCE in words — \`sent to correction\`,
-\`reported only\`, \`carried from pass one\`, \`decided without a model call\`. The
-verdicts file a reviewer hands in carries the answer and nothing about what the
-answer means, so a Step with three fails and no correction was unreadable until
-the class and the consequence sat beside them.
+\`join.json\` and \`check.json\` are the pass's whole reading and the surface to
+debug a run from: every row carries the item, its class, the verdict, the reason,
+the span, \`judged\` — whether a Judge was asked at all — and the model that
+answered where one was. A \`comparison/\` directory rendering those rows as prose
+stood beside them until kogaki#1134 and was harder to read than the record it
+rendered; the consequence word it added is the class and the verdict together —
+a \`preserved\` fail is what sends its Step to correction and a \`best-effort\` one
+rides along.
 
 EVERY REPLY REACHES THIS HARNESS ON STANDARD INPUT, and no act takes a path to
 one. \`runs/\` holds what the Harness wrote and nothing else: the Reverse
@@ -4947,14 +4792,14 @@ async function runSelfTest() {
       // different models is what a slipped pin looks like, and the per-pair
       // record is the only place that is visible.
       const pairs = (rec.results || []).flatMap((r) => r.pairs || [])
-        .filter((sub) => sub.decided_by === "model");
+        .filter((sub) => sub.judged === true);
       ok("#997: every model-decided PAIR carries the model beside its verdict",
         pairs.length > 0 && pairs.every((sub) => sub.model === JUDGE_MODEL));
       // THE ABSENCE IS THE RECORD ON A HARNESS ROW. A mechanical item was
       // decided from string facts and no model was asked, so writing one there
       // would be a claim about a call that never happened — and a reader could
       // no longer tell a judged row from a decided one by its own fields.
-      const harnessRows = (rec.results || []).filter((x) => x.decided_by === "harness");
+      const harnessRows = (rec.results || []).filter((x) => x.judged === false);
       ok("#997: a harness-decided row carries NO model key — no call was made to name",
         harnessRows.length > 0 && harnessRows.every((x) => !("model" in x)));
       // AND THE RUN SAYS IT OUT LOUD, as a DECLARATION rather than as an
@@ -5544,7 +5389,7 @@ async function runSelfTest() {
     //
     // #997's defect was the HYBRID ROW: `claims` used to carry a Harness-decided
     // `widened` fail beside pairs a model answered, `fails` won the selection,
-    // and the row read `decided_by: "model"` while the line it rendered came
+    // and the row read `judged: true` while the line it rendered came
     // from the Harness — a row claiming a judge and naming none. The fix keys
     // the key's PRESENCE on the row and its VALUE on the chosen pair, and that
     // fix is untouched here (the selection at `rowDecidedBy`).
@@ -5564,27 +5409,27 @@ async function runSelfTest() {
     {
       const row = (recShort.results || [])
         .find((r) => r.step_id === "a1" && r.item === "claims");
-      ok("#997: the judged row is decided_by model — some pair was judged",
-        row && row.decided_by === "model" && row.verdict === "fails");
+      ok("#997: the judged row reads `judged: true` — some pair was judged",
+        row && row.judged === true && row.verdict === "fails");
       ok("#997: and it CARRIES the model key, because presence answers `was a model asked here`",
         row && "model" in row);
       // AND THE TRUTH PER PAIR IS STILL THERE, which is what makes a null at the
       // row safe to render rather than a loss.
       ok("#997: while the judged pairs inside it still name what answered them",
-        row && (row.pairs || []).some((sub) => sub.decided_by === "model" && sub.model === JUDGE_MODEL));
+        row && (row.pairs || []).some((sub) => sub.judged === true && sub.model === JUDGE_MODEL));
       // THE INVARIANT THE HYBRID CASE WAS PROTECTING, over every row in the run:
       // presence tracks `was a model asked`, and nothing names a model it did
       // not consult. A hybrid row would satisfy both of these too — which is
       // why these hold whether or not the table can build one.
       const allRows = recShort.results || [];
       ok("#997: every model-decided row carries the model key, across the whole run",
-        allRows.filter((r) => r.decided_by === "model").every((r) => "model" in r),
-        `${allRows.filter((r) => r.decided_by === "model" && !("model" in r)).length} without it`);
+        allRows.filter((r) => r.judged === true).every((r) => "model" in r),
+        `${allRows.filter((r) => r.judged === true && !("model" in r)).length} without it`);
       ok("#997: and no Harness-decided row names a model it never consulted",
-        allRows.filter((r) => r.decided_by === "harness").every((r) => !("model" in r)));
+        allRows.filter((r) => r.judged === false).every((r) => !("model" in r)));
       ok("#997: while every pair naming a model was answered by one",
         allRows.flatMap((r) => r.pairs || [])
-          .every((sub) => (sub.model == null) || sub.decided_by === "model"));
+          .every((sub) => (sub.model == null) || sub.judged === true));
     }
     // A PRESERVED item failing is what sends a Step to correction, and the run
     // says which — the class is the consequence, never a severity.
@@ -5650,7 +5495,7 @@ async function runSelfTest() {
       const grec = JSON.parse(readOrEmpty(r.jsonPath) || "{}");
       const row = (grec.results || []).find((x) => x.step_id === "a2" && x.item === "claims");
       ok("a Step declaring no claims has `claims` decided by the item's declared-absence arm",
-        !!row && row.decided_by === "harness" && row.verdict === "holds"
+        !!row && row.judged === false && row.verdict === "holds"
         && /declares no claim/.test(row.reason || ""), row ? JSON.stringify(row).slice(0, 200) : "no row");
       ok("and no join Packet is rendered for it",
         !(grec.model_calls || []).some((c) => c.step_id === "a2" && c.item === "claims")
@@ -5713,7 +5558,7 @@ async function runSelfTest() {
     const arm = armItems.items.find((i) => i.id === "introduces").when_declared_absent;
     const row = (rec.results || []).find((x) => x.step_id === "a2" && x.item === "introduces");
     ok("the row is the item's declared-absence arm, verdict and sentence both",
-      !!row && row.decided_by === "harness" && row.verdict === arm.verdict
+      !!row && row.judged === false && row.verdict === arm.verdict
       && row.reason === arm.sentence, row ? JSON.stringify(row).slice(0, 220) : "no row");
     ok("and it still renders a comparison line like any other row",
       /\sholds\s/.test(linesOf(r.second.stdout).get("a2/introduces") || ""));
@@ -5837,7 +5682,7 @@ async function runSelfTest() {
     const aRow = (baseRecord.results || [])
       .find((x) => x.step_id === "a1" && x.item === "already-knows");
     ok("#1098: and a1's row is the declared-absence arm, verdict and sentence both",
-      !!aRow && aRow.decided_by === "harness" && aRow.verdict === arm.verdict
+      !!aRow && aRow.judged === false && aRow.verdict === arm.verdict
       && aRow.reason === arm.sentence, aRow ? JSON.stringify(aRow).slice(0, 220) : "no row");
     ok("#1098: it still renders a comparison line like any other row",
       /\sholds\s/.test(baseLines.get("a1/already-knows") || ""),
@@ -6199,7 +6044,7 @@ async function runSelfTest() {
         && i.when_declared_absent.sentence));
     const rec = JSON.parse(readFileSync(join(WS, "pass-1", "join.json"), "utf8"));
     ok("and no run asks a model about an item the table decided",
-      rec.results.filter((x) => x.decided_by === "harness")
+      rec.results.filter((x) => x.judged === false)
         .every((x) => !rec.model_calls.some((c) => c.step_id === x.step_id && c.item === x.item)));
   }
 
@@ -6527,65 +6372,62 @@ async function runSelfTest() {
     ok("pass one completes and sends the two preserved-failing Steps to correction",
       p1.status === 0 && /Steps sent to correction[^\n]*s2, s3/.test(p1.stdout));
 
-    // --- kogaki#1097: THE COMPARISON FILES, pass one ------------------------
-    // AC1 and AC2: the file per Step, written at the moment the pass completed,
-    // every line carrying the item, its class, its mode, the verdict, the
-    // reason, who decided it and the consequence in words. The Section file
-    // that stood beside them left with the cold reader (kogaki#1133), and its
-    // ABSENCE is asserted rather than merely unasserted.
+    // --- kogaki#1134 AC1: THE COMPARISON FILES ARE GONE, pass one ----------
+    // ASSERTED OVER A PRODUCED RUN DIRECTORY rather than over the source: this
+    // drive is the one that reaches every corner of the layout, and the whole
+    // claim is that nothing under it is named `comparison`. A grep of the
+    // Harness would prove only that this file stopped saying the word.
+    //
+    // THE ABSENCE IS READ AT EVERY DEPTH, because `comparison/` was a DIRECTORY
+    // and a top-level read of `pass-1/` would pass on a stray file one level
+    // down — the same descent kogaki#1100's own layout guard had to learn.
     {
-      const cmpDir = join(cWsRun, "pass-1", "comparison");
-      ok("#1097 AC1: `compare` writes one comparison file per Step",
-        ["s1", "s2", "s3"].every((id) => existsSync(join(cmpDir, `${id}.md`))),
-        `present: ${["s1", "s2", "s3"].filter((id) => existsSync(join(cmpDir, `${id}.md`))).join(", ") || "(none)"}`);
-      ok("#1133: and NO file for the Sections", !existsSync(join(cmpDir, "sections.md")));
-      ok("#1097 AC5: and names them in its own output, so a reader finds them without the layout",
-        /comparison — one file per Step/.test(p1.stdout)
-        && /comparison\/s2\.md/.test(p1.stdout) && !/sections\.md/.test(p1.stdout));
+      const under = (d) => (existsSync(d) ? readdirSync(d, { withFileTypes: true })
+        .flatMap((e) => [join(d, e.name)].concat(e.isDirectory() ? under(join(d, e.name)) : [])) : []);
+      const named = under(cWsRun).filter((e) => /comparison/.test(basename(e)));
+      ok("#1134 AC1: `compare` writes no `comparison/` anywhere in the run directory",
+        named.length === 0, named.join(", "));
+      ok("#1134 AC1: and its own output names no comparison file for a reader to open",
+        !/comparison — one file per Step/.test(p1.stdout) && !/comparison\//.test(p1.stdout),
+        p1.stdout.split("\n").filter((l) => /comparison/.test(l)).join(" | ") || "(none)");
+      // DISCRIMINATION: the record the comparison files rendered IS there, and
+      // carries the two fields their lines added — the class, from which the
+      // consequence follows, and the model that answered where one was asked.
+      // An absence beside a missing record would be a broken run passing.
+      const rec1 = JSON.parse(readOrEmpty(joinPath) || "{}");
+      const rsa = (rec1.results || []).find((r) => r.step_id === "s2" && r.item === "reader-state-after");
+      ok("#1134 AC1 DISCRIMINATION: the join record still carries the whole of what a line said",
+        !!rsa && rsa.class === "preserved" && rsa.verdict === "fails"
+        && rsa.model === JUDGE_MODEL && Array.isArray(rsa.span)
+        && rsa.reason === "the outlined reader would not be the declared one",
+        JSON.stringify(rsa || null));
 
-      const s2cmp = readOrEmpty(join(cmpDir, "s2.md"));
-      const lineFor = (text, item) => (text.split("\n").find((l) => l.startsWith(`- ${item} |`)) || "");
-      const rsa = lineFor(s2cmp, "reader-state-after");
-      ok("#1097 AC2: a preserved judged FAIL carries its class, mode and verdict on one line",
-        /^- reader-state-after \| preserved \| judged \| fails \|/.test(rsa), rsa);
-      ok("#1097 AC2: with its span, the model that decided it, and the reason verbatim",
-        /\| lines \d+-\d+ \|/.test(rsa) && rsa.includes(`decided by ${JUDGE_MODEL}`)
-        && rsa.endsWith("the outlined reader would not be the declared one"), rsa);
-      ok("#1097 AC2: and the consequence IN WORDS — this is the fail that sends a Step to correction",
-        rsa.includes("| sent to correction |"), rsa);
-      ok("#1097 AC3: a judged line points at the join Packet the verdict was given on",
-        /\| packet: [^|]*pass-1\/join\/s2\.reader-state-after\.md \|/.test(rsa)
-        && existsSync(join(cWsRun, "pass-1", "join", "s2.reader-state-after.md")), rsa);
-
-      const purpose = lineFor(readOrEmpty(join(cmpDir, "s1.md")), "purpose");
-      ok("#1097 AC2: a BEST-EFFORT fail reads `reported only`, which is the answer the verdicts file never carried",
-        /^- purpose \| best-effort \| judged \| fails \|/.test(purpose)
-        && purpose.includes("| reported only |"), purpose);
-
-      // THE VEHICLE CHANGED AND THE RULE DID NOT (kogaki#1132). This line was
-      // read off `claims-unused`, the last mechanical row on a prose Step, and
-      // that row left the table. What the line asserts is about a row the
-      // HARNESS decided rather than about a mode: `already-knows` on s1, whose
-      // `already knows` list is empty because s1 is the Step that introduces
-      // the term, is decided by the item's own declared-absence arm and costs
-      // no call.
-      const mech = lineFor(readOrEmpty(join(cmpDir, "s1.md")), "already-knows");
-      ok("#1097 AC2: a line the HARNESS decided says it cost no model call",
-        /^- already-knows \| best-effort \| judged \|/.test(mech)
-        && mech.includes("| decided without a model call |"), mech);
-      ok("#1097 AC3: and says no Packet was rendered for it, naming where the decision is recorded",
-        mech.includes("packet: none — no Packet was rendered")
-        && /join record says how it was decided/.test(readOrEmpty(join(cmpDir, "s1.md"))), mech);
-
-      ok("#1097 AC4: no comparison line carries a digit outside its span",
-        ["s1", "s2", "s3"].every((id) => readOrEmpty(join(cmpDir, `${id}.md`)).split("\n")
-          .filter((l) => l.startsWith("- ")).every((l) =>
-            !/[0-9]/.test(l.replace(/\| lines \d+-\d+ \|/, "").replace(/\| packet: [^|]*\|/, "")
-              .replace(new RegExp(JUDGE_MODEL, "g"), "")))));
-
-      ok("#1133: and no comparison file anywhere names a Section route",
-        readdirSync(cmpDir).every((n) =>
-          !/Where each Section fail was routed/.test(readOrEmpty(join(cmpDir, n)))));
+      // --- kogaki#1134 AC2: `judged`, AND NO `decided_by` ANYWHERE ----------
+      // OVER EVERY ROW AND EVERY PAIR, not one built row: the rename is a
+      // property of the record, and a case that read one row would pass on a
+      // pass that renamed the key it happened to look at.
+      const rows1 = rec1.results || [];
+      const pairs1 = rows1.flatMap((r) => r.pairs || []);
+      ok("#1134 AC2: every row carries `judged` as a boolean",
+        rows1.length > 0 && rows1.every((r) => typeof r.judged === "boolean"),
+        `${rows1.filter((r) => typeof r.judged !== "boolean").length} without it, of ${rows1.length}`);
+      ok("#1134 AC2: and every entry of `pairs` carries it too",
+        pairs1.length > 0 && pairs1.every((x) => typeof x.judged === "boolean"),
+        `${pairs1.filter((x) => typeof x.judged !== "boolean").length} without it, of ${pairs1.length}`);
+      ok("#1134 AC2: and NOTHING in the record carries `decided_by`",
+        !/"decided_by"/.test(readOrEmpty(joinPath)));
+      // THE TWO KEYS THE RENAME SEPARATES, still separated: `judged` says a
+      // Judge was asked and `model` says which, so a row that was not judged
+      // names no model at all.
+      ok("#1134 AC2: a row with `judged: false` carries no `model` key",
+        rows1.filter((r) => r.judged === false).length > 0
+        && rows1.filter((r) => r.judged === false).every((r) => !("model" in r)),
+        rows1.filter((r) => r.judged === false && "model" in r).map((r) => `${r.step_id}/${r.item}`).join(", "));
+      ok("#1134 AC2: while a judged row names the model that answered it",
+        rows1.filter((r) => r.judged === true).length > 0
+        && rows1.filter((r) => r.judged === true).every((r) => "model" in r));
+      ok("#1134 AC2: and the same holds per pair — no unjudged pair names a model",
+        pairs1.filter((x) => x.judged === false).every((x) => x.model == null));
     }
 
     // --- FINDING 1 (PR #906 round 1): `check` with NOTHING corrected --------
@@ -6817,48 +6659,66 @@ async function runSelfTest() {
     ok("and reports an empty residue where nothing preserved still fails",
       /no preserved item fails after pass two/.test(rG.stdout));
 
-    // --- kogaki#1097: THE COMPARISON FILES, pass two ------------------------
-    // AC1: the same files under `pass-2/`, written when this pass completed.
-    // The word the second pass adds is `carried from pass one`, and it is the
-    // one a reader cannot get from `check.json` at a glance: a carried row's
-    // verdict is pass one's, and nothing in this pass re-read it.
+    // --- kogaki#1134 AC1: AND NONE UNDER PASS TWO EITHER --------------------
+    // The word pass two's files added was `carried from pass one`, and it is on
+    // the row: `check.json` marks a carried row `carried: true`, which is where
+    // the consequence line read it from in the first place.
     {
-      const cmp2 = join(cWsRun, "pass-2", "comparison");
-      ok("#1097 AC1: `check` writes the comparison under pass TWO's directory",
-        ["s1", "s2", "s3"].every((id) => existsSync(join(cmp2, `${id}.md`))));
-      ok("#1133: and no Section file, in either pass",
-        !existsSync(join(cmp2, "sections.md"))
-        && !existsSync(join(cWsRun, "pass-1", "comparison", "sections.md")));
-      ok("#1097: and pass one's copy is untouched beside it — each pass keeps its own reading",
-        existsSync(join(cWsRun, "pass-1", "comparison", "s2.md")));
-      const lineFor = (text, item) => (text.split("\n").find((l) => l.startsWith(`- ${item} |`)) || "");
+      const under = (d) => (existsSync(d) ? readdirSync(d, { withFileTypes: true })
+        .flatMap((e) => [join(d, e.name)].concat(e.isDirectory() ? under(join(d, e.name)) : [])) : []);
+      const named = under(cWsRun).filter((e) => /comparison/.test(basename(e)));
+      ok("#1134 AC1: `check` writes no `comparison/` under pass two, and pass one's is still absent",
+        named.length === 0, named.join(", "));
+      ok("#1134 AC1: and `check` names no comparison file in its own output",
+        !/comparison — one file per Step/.test(rG.stdout) && !/comparison\//.test(rG.stdout),
+        rG.stdout.split("\n").filter((l) => /comparison/.test(l)).join(" | ") || "(none)");
+
+      const chkRec = JSON.parse(readOrEmpty(checkPath) || "{}");
+      const rowOf = (step, item) => (chkRec.results || [])
+        .find((r) => r.step_id === step && r.item === item);
       // s1 was corrected by nothing and is no corrected Step's successor, so
       // every judged row on it is out of pass two's bound and carried.
-      const carried = lineFor(readOrEmpty(join(cmp2, "s1.md")), "reader-state-after");
-      ok("#1097 AC2: a row pass two did NOT re-judge says `carried from pass one`",
-        carried.includes("| carried from pass one |"), carried);
-      const rejudged = lineFor(readOrEmpty(join(cmp2, "s2.md")), "reader-state-after");
-      ok("#1097 AC2: while a row inside the bound carries this pass's own consequence",
-        rejudged.length > 0 && !rejudged.includes("carried from pass one"), rejudged);
-      ok("#1097 AC5: and `check` names the files it wrote",
-        /comparison — one file per Step/.test(rG.stdout));
+      ok("#1134 AC1 DISCRIMINATION: a row pass two did not re-judge says so on the row itself",
+        rowOf("s1", "reader-state-after")?.carried === true);
+      ok("#1134 AC1 DISCRIMINATION: while a row inside the bound is not marked carried",
+        rowOf("s2", "reader-state-after")
+        && !rowOf("s2", "reader-state-after").carried);
 
-      // --- PR #1102 round 1, finding 2: ONE READ OF WHO DECIDED THE LINE ------
-      // `consequenceOf` and `deciderOf` must not read different facts: a row
-      // naming the Harness as its decider and withholding `decided without a
-      // model call` is the pair coming apart. WHAT THIS WITNESSES IS THE
-      // INVARIANT, NOT THE DEFECT: the shipped item table declares no
-      // `unpaired: "fail"`, so no hybrid row exists to construct the
-      // disagreement with, and the case holds over the rows this drive does
-      // produce. It fires the moment such an item is admitted.
-      const everyLine = ["s1", "s2", "s3"].flatMap((id) =>
-        [readOrEmpty(join(cmp2, `${id}.md`)), readOrEmpty(join(cWsRun, "pass-1", "comparison", `${id}.md`))])
-        .flatMap((t) => t.split("\n")).filter((l) => l.startsWith("- "));
-      ok("#1102: no line names the Harness as its decider while withholding the word that says so",
-        everyLine.every((l) => !(l.includes("| decided by the Harness |")
-          && !l.includes("| decided without a model call |") && !l.includes("| carried from pass one |"))),
-        everyLine.find((l) => l.includes("| decided by the Harness |")
-          && !l.includes("| decided without a model call |") && !l.includes("| carried from pass one |")) || "");
+      // --- kogaki#1134 AC2: THE SECOND PASS'S RECORD CARRIES THE SAME KEY ----
+      // Including the rows it CARRIED: a carried row is copied forward whole,
+      // so a rename that touched only the writing path would leave pass two's
+      // record half in the old vocabulary.
+      const rows2 = chkRec.results || [];
+      ok("#1134 AC2: every row of check.json carries `judged` as a boolean",
+        rows2.length > 0 && rows2.every((r) => typeof r.judged === "boolean"),
+        `${rows2.filter((r) => typeof r.judged !== "boolean").length} without it, of ${rows2.length}`);
+      ok("#1134 AC2: including the carried rows, which are copied forward whole",
+        rows2.filter((r) => r.carried).length > 0
+        && rows2.filter((r) => r.carried).every((r) => typeof r.judged === "boolean"));
+      ok("#1134 AC2: and every entry of `pairs` under check.json carries it",
+        rows2.flatMap((r) => r.pairs || []).every((x) => typeof x.judged === "boolean"));
+      ok("#1134 AC2: and nothing in check.json carries `decided_by`",
+        !/"decided_by"/.test(readOrEmpty(checkPath)));
+
+      // --- PR #1102 round 1, finding 2: ONE READ OF WHO ANSWERED THE LINE ----
+      // A row's `judged` is a fact about ALL its pairs — any one judged makes it
+      // true — while its `model`, verdict, reason and span are the CHOSEN pair's.
+      // The two come apart on a hybrid row, and the defect the finding named was
+      // a row claiming a judge for a line the Harness in fact decided. WHAT THIS
+      // WITNESSES IS THE INVARIANT, NOT THE DEFECT: the shipped table declares no
+      // hybrid item since kogaki#1132, so no row here can construct the
+      // disagreement, and the case holds over the rows this drive does produce.
+      // It fires the moment such an item is admitted.
+      //
+      // Carried over from the comparison-file line it used to be read off
+      // (kogaki#1134): the files are gone and the record is where the pair of
+      // facts now sits side by side.
+      const allRows = [...rows2, ...(JSON.parse(readOrEmpty(joinPath) || "{}").results || [])];
+      const claimsAJudgeItNeverHad = allRows.filter((r) =>
+        r.model != null && !(r.pairs || []).some((x) => x.pair === (r.pair ?? null) && x.judged));
+      ok("#1102: no row names a model for a line no model answered",
+        allRows.length > 0 && claimsAJudgeItNeverHad.length === 0,
+        claimsAJudgeItNeverHad.map((r) => `${r.step_id}/${r.item}`).join(", "));
     }
 
     // RESIDUE: a PRESERVED item still failing after pass two, and only a
@@ -7004,17 +6864,16 @@ async function runSelfTest() {
     ok("AC4: and names each corrected Step with the pass it was corrected in",
       /- \*\*s2\*\* \(pass 1\)/.test(rev) && /- \*\*s3\*\* \(pass 1\)/.test(rev));
 
-    // --- kogaki#1097 AC5: the owner record POINTS AT the comparison files ----
-    // Beside the other pass artefacts and never instead of them: `join.json`
-    // holds the verdicts and `comparison/` holds what each one cost, and a
-    // reader who opens the record should reach the second without knowing the
-    // layout by heart.
-    ok("#1097 AC5: the owner record names pass one's comparison files beside its other artefacts",
-      /`comparison\/<step>\.md`/.test(rev) && !/sections\.md/.test(rev));
-    ok("#1097 AC5: and says what a line carries — its class, its consequence, the Packet it was judged on",
-      /carrying its class, its consequence in words, and the Packet it was judged on/.test(rev));
-    ok("#1097 AC5: pass two's entry names its own copy and the word it adds",
-      /the same lines for this[\s\S]{0,80}carried from pass one/.test(rev));
+    // --- kogaki#1134 AC1: THE OWNER RECORD'S LAYOUT LEGEND NAMES NO ----------
+    //     `comparison/`, and names the record that replaced it.
+    // The legend in `review.md` is a reader's map of the run directory, so a
+    // line pointing at a directory nothing writes sends the owner to an absence
+    // — the same defect kogaki#994 repaired for `pass-2/` on a run that never
+    // reached `check`.
+    ok("#1134 AC1: the owner record's layout names no comparison file",
+      !/comparison/.test(rev), (rev.split("\n").find((l) => /comparison/.test(l)) || ""));
+    ok("#1134 AC1: and names `join.json` as the record a reader debugging the run opens",
+      /`join\.json` — pass one's verdicts with each row's class, model and span/.test(rev));
 
     // --- kogaki#994: THE WORKSPACE IS SPLIT BY PASS AND EVERY PASS'S EVIDENCE
     //     SURVIVES. This run corrected two Steps and ran `check`, so pass two
@@ -7029,8 +6888,8 @@ async function runSelfTest() {
       !existsSync(P1("ledger")) && !existsSync(P1("cold-reader.md")));
     ok("#994: and pass two's holds its own, in its own directory",
       existsSync(P2("check.json")) && existsSync(P2("outline-input")) && existsSync(P2("outline")));
-    ok("#1097: and the comparison is a directory of each pass's own, like every other artefact",
-      existsSync(P1("comparison")) && existsSync(P2("comparison")));
+    ok("#1134 AC1: and neither pass has a `comparison/` directory",
+      !existsSync(P1("comparison")) && !existsSync(P2("comparison")));
     ok("#994: the run record and the snapshots stay at the workspace root",
       existsSync(join(cWsRun, "run.json")) && existsSync(join(cWsRun, "snapshots"))
       && !existsSync(P1("run.json")) && !existsSync(P2("run.json")));
@@ -7275,12 +7134,19 @@ async function runSelfTest() {
     const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) =>
       (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]).concat(e.isDirectory() ? [join(d, e.name)] : []));
     const entries = walk(WS);
-    ok("#1133 AC2: the run directory carries no cold-reader.md, no ledger/ and no comparison/sections.md",
-      entries.every((e) => !/cold-reader\.md$/.test(e) && !/[\\/]ledger$/.test(e)
-        && !/comparison[\\/]sections\.md$/.test(e)),
-      entries.filter((e) => /cold-reader|ledger|sections\.md/.test(e)).join(", "));
+    ok("#1133 AC2: the run directory carries no cold-reader.md and no ledger/",
+      entries.every((e) => !/cold-reader\.md$/.test(e) && !/[\\/]ledger$/.test(e)),
+      entries.filter((e) => /cold-reader|ledger/.test(e)).join(", "));
+    // AND NO `comparison/` AT ALL (kogaki#1134). #1133 asserted the absence of
+    // `comparison/sections.md` alone, the one file the cold reader's departure
+    // took with it; the directory it stood in went at kogaki#1134, so the
+    // absence is stated over the whole name rather than over that one entry.
+    ok("#1134 AC1: and nothing named comparison, in this run directory either",
+      entries.every((e) => !/comparison/.test(basename(e))),
+      entries.filter((e) => /comparison/.test(basename(e))).join(", "));
     ok("#1133 AC2 DISCRIMINATION: while the pass's own evidence IS there, so the absence is not vacuous",
-      entries.some((e) => /join\.json$/.test(e)) && entries.some((e) => /comparison[\\/]a1\.md$/.test(e)));
+      entries.some((e) => /join\.json$/.test(e))
+      && entries.some((e) => /outline[\\/]a1\.json$/.test(e)));
 
     // ACCEPTANCE 3 — the join record and the owner record.
     const jrec = JSON.parse(readFileSync(join(WS, "pass-1", "join.json"), "utf8"));
@@ -7979,7 +7845,7 @@ async function runSelfTest() {
     ok("#996 ACCEPTANCE: `claims` HOLDS on a Step that faithfully realizes a two-claim Packet",
       !!grow && grow.verdict === "holds", grow ? `verdict ${grow.verdict}` : "no claims row");
     ok("#996: and every one of its pairs was decided by the model",
-      !!grow && (grow.pairs || []).every((x) => x.decided_by === "model"));
+      !!grow && (grow.pairs || []).every((x) => x.judged === true));
 
     // #1132 ACCEPTANCE 1: the table carries ONE `claims` row, class `preserved`,
     // and the three rows the ruling removed are UNKNOWN rather than merely
