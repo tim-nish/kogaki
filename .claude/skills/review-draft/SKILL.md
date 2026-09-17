@@ -107,8 +107,12 @@ corrections on the stronger model reads as two ids, which is the intended split;
 a **third** id, or the interactive default, is a pin that slipped, and the line
 is where that becomes visible.
 
-**The row-level key answers "was a model asked here", and the per-pair one
-answers "by what".** A row the Harness decided alone carries **no `model` key at
+**`judged` answers "was a model asked here", and `model` answers "by what".**
+Every row and every entry of `pairs` carries `judged`, a boolean: **true** where
+a Judge was asked, **false** where the Harness decided the row alone. It replaced
+`decided_by` at kogaki#1134, where `decided_by: "model"` sitting beside `model:
+<id>` was one fact spelled two ways. A row the Harness decided alone carries **no
+`model` key at
 all** — no call was made, and writing one would claim a call that never
 happened. A row with any judged pair carries the key, and its value is the
 **chosen** pair's, which is `null` where a Harness-decided pair won the
@@ -120,9 +124,8 @@ code with no current specimen, and the truth per pair is always in `pairs`.
 
 The layout is the Harness's contract, not a convention:
 
-    runs/review/<slug>/pass-1/{outline-input,outline,join,comparison,
-                               corrections,join.json}
-    runs/review/<slug>/pass-2/{outline-input,outline,join,comparison,check.json}
+    runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
+    runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
     runs/review/<slug>/snapshots/     before/after per corrected Step
     runs/review/<slug>/run.json
 
@@ -140,28 +143,22 @@ is gitignored, so nothing else held a copy. The surviving verdicts pointed at
 readings that no longer existed. A rule saying "do not overwrite" would be prose
 where a refusal belongs.
 
-**`comparison/` is the readable half of `join.json`, and the Harness writes it.**
-One file per Step, written at the moment each pass completes. Every line is one pair and carries the item, its class, its mode, the
-verdict, the span, who decided it — a model id, or the Harness — the join Packet
-the verdict was given on, and the **consequence in words**:
+**`join.json` and `check.json` are the surface a person debugs a run from**, and
+each pass writes one. Every row carries the item, its class, the verdict, the
+reason, the span, `judged` and — where a Judge was asked — the model that
+answered, with every pair's own answer under `pairs`.
 
-    - reader-state-after | preserved | judged | fails | lines 12-18 |
-      decided by <model id> | sent to correction |
-      packet: pass-1/join/s2.reader-state-after.md | <the reason, verbatim>
-
-The four consequence words are a closed set — `sent to correction`, `reported
-only`, `carried from pass one`, `decided without a model call` — and a
-Harness-decided line says so where the Packet pointer goes, naming the pass's
-join record as the place that says how it was decided instead.
-
-**Why it exists.** The surface a person debugs from mid-run was the verdicts file
-they handed in, which carries the model's answer and nothing about what the
-answer means: not the item's class, and not whether the fail sends the Step to
-correction, rides along, or is reported only. Reading back the verdicts reply
-alone it was impossible to tell why a Step with three fails was never corrected —
-all three were best-effort, and no surface said so. While the best-effort class
-exists, a file recording both the answer and its consequence is mandatory, and it
-is the Harness that writes it.
+**There is no `comparison/` directory, and its removal reverses kogaki#1097 by
+name.** #1097 wrote one file per Step rendering those rows as prose, because the
+surface a person then debugged from was the verdicts file the session had handed
+in, which carried the model's answer and nothing about what it meant — not the
+item's class, not whether the fail sent the Step to correction. kogaki#1100
+removed those session-written files the same day and the row grew the missing
+fields, so the comparison files became a legend plus one line per pair restating
+the record beside them, and were harder to read than it. Their one addition — the
+consequence word — follows from the class and the verdict: a **preserved** fail
+is what sends its Step to correction, a **best-effort** one rides along, and a
+row pass two carried says `carried: true` on the row itself.
 
 `snapshots/` and `run.json` stay at the root: a snapshot pair spans the
 correction that separates two passes, and the run record is the one file every
