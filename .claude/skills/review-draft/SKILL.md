@@ -23,7 +23,7 @@ Four terms, and the whole of this instrument is said in them:
 lives in the Harness (`src/review-draft.mjs`), the same ruling
 `.claude/skills/draft/SKILL.md` records for /draft: `outline` refuses a Step
 whose Reverse Outline input it did not render, `compare` refuses while any Step
-outline, Section entry or the cold reader's final claim is missing, `check`
+outline is missing, `check`
 refuses before `compare`, `compare` refuses once a correction has landed (pass
 one is over, and re-rendering its join inputs from the corrected article would
 lose the reading its verdicts were given on), and `close` is reachable from
@@ -45,8 +45,6 @@ else is evidence the **Packet** is missing information. File that against
 
                             node src/review-draft.mjs open    --draft <draft.md>
     <reverse outline>     | node src/review-draft.mjs outline --draft <draft.md> --step <id>
-    <section entry>       | node src/review-draft.mjs read    --draft <draft.md> --section <n>
-    <final claim>         | node src/review-draft.mjs read    --draft <draft.md> --claim
     [<verdicts>]          | node src/review-draft.mjs compare --draft <draft.md>
     [<corrected prose>]   | node src/review-draft.mjs correct --draft <draft.md> --step <id>
     [<corrected record>]  | node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure
@@ -58,22 +56,19 @@ one.** Pipe the spawn's output straight into the recording act — you name no
 file, and `--file` and `--verdicts` are gone and are refused by name if passed.
 Where an act has two phases, the stream is what selects one: with nothing piped
 in `compare`, `check` and `correct` render what they owe, and with a reply piped
-in they record it. `outline` and `read` record a reply and nothing else, so an
-empty stream is a refusal there rather than a phase.
+in they record it. `outline` records a reply and nothing else, so an empty
+stream is a refusal there rather than a phase.
 
 **`runs/` holds what the Harness wrote and nothing else.** After each act the
 Harness already holds the reply verbatim under its own name — `outline/<step>.md`,
-`ledger/`, `join.json`, `check.json`, the Draft itself with its before-and-after
+`join.json`, `check.json`, the Draft itself with its before-and-after
 pair under `snapshots/` — so a reply file of your own would be a second copy of
 those bytes, written into machine state with no owner. Do not write one, inside
 the run directory or beside it.
 
-`open` verifies the inputs, opens `runs/review/<slug>/` and renders both the
-first Reverse Outline input and the cold reader's whole input. `outline` records
-one Reverse Outline and renders the next. `read` records the cold reader's entry
-for one Section, or with `--claim` the one final claim for the whole Draft, and
-validates each against what `src/review-items.json` declares. `compare` runs the
-Round Trip. `correct` renders a correction input and records the re-realized
+`open` verifies the inputs, opens `runs/review/<slug>/` and renders the first
+Reverse Outline input. `outline` records one Reverse Outline and renders the
+next. `compare` runs the Round Trip. `correct` renders a correction input and records the re-realized
 Step; with `--figure` the seat it corrects is the Step's figure RECORD rather
 than its prose. `check` runs the bounded second pass. `close` writes the owner
 record.
@@ -89,15 +84,13 @@ role:
 | role | model | why this one |
 |---|---|---|
 | pair judgments — one join Packet each, `compare` and `check` | `claude-haiku-4-5-20251001` | one pair, one fixed question from `src/review-items.json`, an answer from a closed three plus one sentence. Fixed form, no prose, no evidence written |
-| Section judgments — the cold reader's ledger against the trace | `claude-haiku-4-5-20251001` | the same form one level up: one declared side, one reverse side, the same three tokens |
 | Reverse Outlining — `outline` | `claude-opus-5` | it writes the artifact the whole Round Trip is then run against; a weak Reverse Outline makes every pair downstream of it measure the outline instead of the Draft |
-| the cold read — `read` | `claude-opus-5` | it reads the article as a reader and writes what it believes, which is prose about prose |
 | corrections — `correct`, passage and `--figure` alike | `claude-opus-5` | it re-realizes a Step, or re-designs a figure record, against everything that must go on holding |
 
 **The split is by what the call produces, not by how hard it looks.** The
-judgments answer a fixed question and write a token; the Reverse Outlines, the
-cold read and the corrections write the evidence and the prose the rest of the
-run is judged against. The first kind is the bulk of the calls and the cheap
+judgments answer a fixed question and write a token; the Reverse Outlines and
+the corrections write the evidence and the prose the rest of the run is judged
+against. The first kind is the bulk of the calls and the cheap
 half; the second is where a weaker model costs the run its meaning.
 
 **The Harness names no model of its own, and verifies none.** It invokes no
@@ -127,8 +120,8 @@ code with no current specimen, and the truth per pair is always in `pairs`.
 
 The layout is the Harness's contract, not a convention:
 
-    runs/review/<slug>/pass-1/{outline-input,outline,join,comparison,ledger,
-                               corrections,cold-reader.md,join.json}
+    runs/review/<slug>/pass-1/{outline-input,outline,join,comparison,
+                               corrections,join.json}
     runs/review/<slug>/pass-2/{outline-input,outline,join,comparison,check.json}
     runs/review/<slug>/snapshots/     before/after per corrected Step
     runs/review/<slug>/run.json
@@ -148,8 +141,7 @@ readings that no longer existed. A rule saying "do not overwrite" would be prose
 where a refusal belongs.
 
 **`comparison/` is the readable half of `join.json`, and the Harness writes it.**
-One file per Step plus `comparison/sections.md`, written at the moment each pass
-completes. Every line is one pair and carries the item, its class, its mode, the
+One file per Step, written at the moment each pass completes. Every line is one pair and carries the item, its class, its mode, the
 verdict, the span, who decided it — a model id, or the Harness — the join Packet
 the verdict was given on, and the **consequence in words**:
 
@@ -170,13 +162,6 @@ alone it was impossible to tell why a Step with three fails was never corrected 
 all three were best-effort, and no surface said so. While the best-effort class
 exists, a file recording both the answer and its consequence is mandatory, and it
 is the Harness that writes it.
-
-A Section line's consequence is its **route's**, never its class's: ReviewDraft
-corrects at Step granularity only, so a preserved Section fail sends nothing to
-correction by itself — it localizes onto a Step, or it reaches the owner with no
-target at all, and `comparison/sections.md` ends with where each fail was routed
-and why. Pass two re-judges no Section pair, so its `sections.md` is pass one's,
-carried, and every line of it says so.
 
 `snapshots/` and `run.json` stay at the root: a snapshot pair spans the
 correction that separates two passes, and the run record is the one file every
@@ -315,7 +300,7 @@ A corrected Step is realized from a **freshly rendered Packet**, never from the
 Packet that produced the failing prose. `correct` re-renders it against the
 Draft **as it now stands**, so the "article so far" block carries the current
 preceding prose — including Steps corrected earlier in the same pass — and the
-reader-knowledge ledger and Section block come with it. That block is the
+reader-knowledge list and Section block come with it. That block is the
 continuity mechanism, and rendering fresh is what keeps a corrected Step
 continuous with the article rather than drifting toward being self-contained.
 
@@ -362,7 +347,7 @@ carried, at no model call. The bound is recorded in `check.json` rather than onl
 applied. Pass two answers its own owed pairs by piping them into `check`, never
 into `compare`. A preserved item still failing after it is **residue**.
 
-## The two readers, and why each is blind to something
+## The Blind Reader, and what it is blind to
 
 **The Blind Reader has never seen the Brief.** It reads the article before one
 passage, then that passage, and writes the **Reverse Outline** — the outline
@@ -420,39 +405,24 @@ list and **nothing renders it** — the input does not tell the reader which
 fields it would refuse, because a reader who has not heard of them cannot supply
 one.
 
-**The cold reader reads the body only** — no frontmatter, no trace, no Packet,
-and no Step boundary marked — and writes, after each Section, the question it
-answered and what they now believe, then one final claim for the whole article.
-Its input is `src/cold-reader-template.md`, rendered whole at `open`.
+## The cold reader is gone (owner, 2026-09-17)
 
-**It answers in the Brief's own top-level field names** — `opening_question` and
-`reader_target` per Section, and `thesis` once at the end. They were `question`,
-`belief` and `claim`: a third vocabulary for what the plan already names, which
-is the same drift one carrier over as the deleted second schema. The reader is
-not shown the plan and does not need it — each name says in plain words what to
-write — and sharing the names is what lets the answer be laid beside the plan's
-without a third vocabulary in between.
+A second reader of the whole body, a Section ledger recorded through `read`, and
+five Section pairs per Section stood here. **Reverse Outlining reconstructs the
+elements of a Step, and the thesis is not a Step element.** Of the five pairs the
+heading was preserved trivially — the Harness renders it from the trace — and
+three duplicated the reader-state items one level up. The thesis pair was the one
+check no Step item makes, and it had no act: corrections are Step-granular, so a
+thesis fail could only ever become residue saying the Packets lack something,
+which is a **Brief-time** finding. So there is no Section ledger, no Section pair
+and no thesis check in ReviewDraft.
 
-The Harness pairs those entries with what the trace and the Packets declare: the
-heading against the reader's question, the `reader_target` at a Section's end
-against its last Step's `reader_state_after`, the one it arrived with against the
-first Step's `reader_state_before`, the `thesis` against the declared thesis, and
-what the first Section did with the opening question. The pairs and their classes
-are `sections` in `src/review-items.json`.
-
-**A Section fail is routed, never corrected.** ReviewDraft corrects at Step
-granularity only, so a Section finding goes one of three ways. It **localizes**
-to a Step — one in the Section already fails a preserved item, or its outlined
-reader state is the first to fail — and that Step becomes the correction target.
-Or every Step in the Section holds and the Section still fails, in which case the
-**grouping** is what is wrong: the heading promises what the Steps it groups do
-not deliver, which is a **Brief** defect, reaching the owner record as residue
-marked `upstream: brief` with **no correction run**. Or a Step carries a
-`cannot-decide`, which satisfies neither — no Step fails, and not every Step
-holds — and the Section routes **`undecided`**, naming the unsettled Steps. That
-is residue too, with no correction and no claim that the Brief is at fault:
-settle those pairs and re-run. `cannot-decide` is not rounded into either
-neighbour here, for the reason it is not rounded at a pair.
+**The reopen trigger**, named so a later reader can tell a ruling from an
+omission: a Draft whose every Step holds the round trip and whose **thesis the
+owner cannot find on reading it**. If that happens, the check is designed at
+**Brief composition**, where the chain of `reader_state_after` values should
+reach the thesis — an operation outside the Reverse Outlining item set, and never
+a sixth row in `src/review-items.json`.
 
 ## The owner record
 

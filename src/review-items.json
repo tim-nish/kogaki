@@ -114,7 +114,27 @@
     "",
     "NOT COMPARED, enumerated so a reader can tell a boundary from a hole:",
     "rationale, materials, reader_state_before, and the thesis and reader target",
-    "per Step. The article level is the cold reader's (kogaki#873).",
+    "per Step.",
+    "",
+    "THE ARTICLE LEVEL IS NOBODY'S HERE (owner, 2026-09-17; kogaki#1133). It was",
+    "the cold reader's: kogaki#873 added a Section ledger and five Section pairs",
+    "to this table, and they are gone with the reader that answered them. Reverse",
+    "Outlining reconstructs the elements of a STEP, and the thesis is not a Step",
+    "element -- of those five pairs the heading was preserved trivially by the",
+    "Harness that renders it, three duplicated the reader-state items one level",
+    "up, and the thesis pair, the one check no Step item made, had no act in",
+    "ReviewDraft at all, because corrections are Step-level and a thesis fail",
+    "could only ever become residue saying the Packets lack something. That is a",
+    "Brief-time finding. So `sections`, `ledger_fields` and `final_claim_field`",
+    "left this file, and `thesis` and `opening_question` left `packet_blocks`",
+    "with their only reader, as `section_placement` did at kogaki#1098.",
+    "",
+    "THE REOPEN TRIGGER, NAMED so a later reader can tell a ruling from an",
+    "omission: a Draft whose every Step holds the round trip and whose thesis the",
+    "owner cannot find on reading it. If that happens the check is designed at",
+    "BRIEF COMPOSITION, where the chain of `reader_state_after` values should",
+    "reach the thesis, as an operation outside the Reverse Outlining item set --",
+    "and never as a sixth row here.",
     "",
     "THE FIGURE HALF IS BACK, RESTATED AGAINST THE RECORD'S OWN FIELDS",
     "(kogaki#1018). It left this table at kogaki#1014 under a recorded decline: its",
@@ -222,14 +242,6 @@
       "heading": "An exemplar of this Move — FORM ONLY",
       "after_words": "Read it for the form of the movement and nothing else."
     },
-    "thesis": {
-      "kind": "bullet",
-      "label": "Thesis"
-    },
-    "opening_question": {
-      "kind": "bullet",
-      "label": "Opening question"
-    },
     "reader_state_before": {
       "kind": "bullet",
       "label": "reader_state_before"
@@ -259,13 +271,13 @@
       "question that removal left open.",
       "",
       "",
-      "NARROWED AT kogaki#873, which declares a reader for that block. This",
-      "clause read `this table declares NO reader for it`, flatly, and the",
-      "Section pair `section-belief-before` now reads exactly it. The",
-      "argument above is untouched -- it was always about which STEP item",
-      "carries incoming-state continuity -- and the sentence is narrowed to",
-      "what it was arguing rather than left standing as a false fact about",
-      "the table.",
+      "NARROWED AT kogaki#873 AND UN-NARROWED AT kogaki#1133. The clause read",
+      "`this table declares NO reader for it`, flatly; the Section pair",
+      "`section-belief-before` read exactly that block, so the sentence was",
+      "narrowed to the STEP items it had always been arguing about. That pair",
+      "left with the cold reader, and the flat reading is true again --",
+      "recorded here rather than silently restored, because a reader who",
+      "remembers the narrowing should be able to see what removed it.",
       "",
       "`drift_blocks` are the Packet blocks the drift measure reports",
       "verbatim overlap against -- the claim and state lines. Same",
@@ -298,157 +310,6 @@
     ],
     "figure_element_claim_containment": 0.34,
     "verbatim_overlap_words": 8
-  },
-  "sections": {
-    "note": [
-      "THE COLD READER'S PAIRING TABLE, fixed in the Harness (kogaki#873).",
-      "",
-      "A Section declares exactly ONE thing in the Brief: its heading, the",
-      "promise that the question changes here (DESIGN.md 2.1). Its reader path",
-      "is derivable from the trace and the Packets -- the first Step's",
-      "`reader_state_before` and the last Step's `reader_state_after` -- so NO",
-      "SECTION-LEVEL STEP IS MINTED. One would be a second authoring seat on",
-      "structure, and this table exists so that none is needed.",
-      "",
-      "The cold reader reads the BODY ONLY: frontmatter stripped, no Packet",
-      "content. After each Section it records the question that Section put to",
-      "it and where the Section left it; at the end it records the article's",
-      "thesis. The pairs below are what the Harness lays those entries against,",
-      "and `class` is the CONSEQUENCE exactly as it is for the Step items. The",
-      "verdict vocabulary is the same three tokens, shared rather than",
-      "re-declared: `cannot-decide` is not rounded here either.",
-      "",
-      "THE ENTRY'S FIELD NAMES ARE THE BRIEF'S OWN (kogaki#1014). They were",
-      "`question`, `belief` and `claim` -- a third vocabulary for what the Brief",
-      "already names `Opening question`, `Reader target` and the thesis, and a",
-      "name nobody else uses is the same drift one carrier over as the deleted",
-      "Reverse Outline was. So the cold reader answers in `opening_question`,",
-      "`reader_target` and `thesis`, and the Harness lays them against the",
-      "declared sides it already read. WHAT EACH PAIR COMPARES IS UNCHANGED:",
-      "this is a renaming of the reader's own answer sheet, not a new item, not",
-      "a new declared side and not a new consequence.",
-      "",
-      "THE NAMES APPLY PER SECTION AND ONCE AT THE END, which is what the Brief",
-      "does with them too: `Opening question` is the question put to a reader",
-      "standing somewhere, and a Section is exactly the unit where that question",
-      "changes; `Reader target` is where they are left, and a Section leaves",
-      "them somewhere on the way to where the article does.",
-      "",
-      "",
-      "WHAT DIFFERS IS WHERE A FAIL GOES. ReviewDraft corrects at Step",
-      "granularity only, so a Section fail either LOCALIZES to a Step or routes",
-      "UPSTREAM to the Brief as residue. Which pairs exist and what each costs",
-      "are this table's; the routing rules are the runtime's.",
-      "",
-      "`declared.from` names WHERE the declared side is read: `section_title`",
-      "from the trace, `first_step`/`last_step` from that Step's own Packet,",
-      "`any_packet` for a block every Packet carries identically because it is",
-      "a fixed point of the whole article. `reverse.from` names which ledger",
-      "entry answers: this Section's, the previous Section's, or the final",
-      "claim.",
-      "",
-      "`vacuous_when` is how an item that asks about ONE Section says so, rather",
-      "than the runtime knowing which items are special. It is the ONLY key that",
-      "decides it: a companion `binds` was declared here at first and read",
-      "nowhere, so a later row whose two keys disagreed would have bound by one",
-      "and read as binding by the other -- the two-copy divergence the",
-      "packet_blocks note argues against, grown inside the table that argues it",
-      "(PR #930 round 1). Which Section an item binds on is readable from its",
-      "`vacuous_when` and is stated again in its `vacuous_sentence`, for the",
-      "reader rather than for the runtime.",
-      "",
-      "A vacuous pair is decided by the Harness with the table's own sentence and",
-      "costs no model call -- it is not skipped, because a skipped pair and a",
-      "pair that held are the same silence to a reader.",
-      "",
-      "`localizing_item` is the STEP item a Section fail localizes on when no",
-      "Step in the Section has failed a preserved item outright: the first Step",
-      "whose outlined reader state does not hold is where the Section's own",
-      "reader path came apart. It is named here rather than in the runtime for",
-      "the reason the packet_blocks note gives -- an item id spelled out in the",
-      "runtime cannot be told from one restating this table."
-    ],
-    "ledger_fields": {
-      "opening_question": {
-        "prompt": "the question this Section put to you, in one line"
-      },
-      "reader_target": {
-        "prompt": "where this Section left you — what you now believe, in one or two sentences"
-      }
-    },
-    "final_claim_field": "thesis",
-    "localizing_item": "reader-state-after",
-    "items": [
-      {
-        "id": "section-question",
-        "class": "preserved",
-        "declared": {
-          "from": "section_title"
-        },
-        "reverse": {
-          "from": "entry",
-          "field": "opening_question"
-        },
-        "question": "Does the question this reader says the Section answered match what its heading promises? Answer `fails` if the heading promises a different question, or promises one the reader did not find answered."
-      },
-      {
-        "id": "section-belief-after",
-        "class": "preserved",
-        "declared": {
-          "from": "last_step",
-          "block": "reader_state_after"
-        },
-        "reverse": {
-          "from": "entry",
-          "field": "reader_target"
-        },
-        "question": "Do the declared reader state at the Section's end and what this reader now believes describe the same reader? Answer `fails` if a reader holding the outlined belief would not be in the declared state."
-      },
-      {
-        "id": "section-belief-before",
-        "class": "best-effort",
-        "declared": {
-          "from": "first_step",
-          "block": "reader_state_before"
-        },
-        "reverse": {
-          "from": "previous_entry",
-          "field": "reader_target"
-        },
-        "vacuous_when": "no_previous_entry",
-        "vacuous_sentence": "this is the article's first Section, so no previous entry declares what the reader arrived believing",
-        "question": "The reader arrives at this Section holding what the previous Section left them with. Does that match the state the Section's first Step declares it starts from? Answer `fails` if the Section starts from a reader who does not exist yet."
-      },
-      {
-        "id": "final-claim",
-        "class": "preserved",
-        "declared": {
-          "from": "any_packet",
-          "block": "thesis"
-        },
-        "reverse": {
-          "from": "final_claim"
-        },
-        "vacuous_when": "not_last_section",
-        "vacuous_sentence": "the final claim is recorded once for the whole Draft and is paired at its last Section",
-        "question": "Is what this reader says the article claimed the article's thesis? Answer `fails` if the outlined claim is a different claim, or a weaker or a wider one."
-      },
-      {
-        "id": "opening-question",
-        "class": "best-effort",
-        "declared": {
-          "from": "any_packet",
-          "block": "opening_question"
-        },
-        "reverse": {
-          "from": "entry",
-          "field": "reader_target"
-        },
-        "vacuous_when": "not_first_section",
-        "vacuous_sentence": "this item asks what the first Section did with the opening question, and binds there only",
-        "question": "After this first Section, is the article's opening question answered, or deliberately held open? Answer `fails` if the reader's belief neither answers it nor leaves it open -- if the question has simply been dropped."
-      }
-    ]
   },
   "items": [
     {
