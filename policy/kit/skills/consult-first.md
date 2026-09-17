@@ -144,9 +144,11 @@ costs you the three rules above; say so in the PR if you do.
   (`the consultation map's Miss-postmortem field`) — and until this argument existed the
   transport had to derive it: `policy_lookup`'s question came off its own
   arguments, and every other tool had its `--args` JSON recorded instead. A
-  `gloss_index` consult therefore emitted `query: {"tag":"lessons/testing"}`
-  and passed every check, which is a well-formed receipt that records nothing
-  anyone can reuse. **The question binds to a CALL, not to the invocation:**
+  `gloss_index` consult therefore emitted a `query:` line holding its own
+  arguments JSON and passed every check, which is a well-formed receipt that
+  records nothing anyone can reuse. (The address that receipt carried is one the
+  hub retired on 2026-09-12, and it is not reproduced here: a retired example is
+  how the wrong form kept being copied — kogaki#1141.) **The question binds to a CALL, not to the invocation:**
   framing *i*'s `--question` is the question asked of framing *i*'s gateway
   call, and the receipt's `request_id` is the LAST framing's — so the last
   `query:` line and the `request_id` are the same call's, and every earlier
@@ -154,17 +156,34 @@ costs you the three rules above; say so in the PR if you do.
   framing the transport refuses (exit 2) before the wire; a `--question`
   disagreeing with a `policy_lookup` framing's own `question` argument is
   refused too, because one of the two is not what ran.
-- **A prescription whose tool is not `policy_lookup` now goes through the entry
-  point.** `consult.mjs` takes `--args '<json>'` positionally against
-  `--claim`, sending the tool its arguments and the claim as the call's
-  question — so the consultation map's entry-1 prescription (`gloss_index`)
-  is mediated rather than requiring a bare transport call:
+- **A GLOSS READ IS COMPOSED FROM A CELL NAME, never from an argument key you
+  type.** Resolve the addresses from `surface_names(kind: "gloss")` as the map's
+  addressing rule prescribes, then hand the name over verbatim — `--cell` is
+  positional against `--claim`, one per framing, and the kit builds the call
+  from the gateway's own tool schema:
 
 ```
-policy/kit/bin/consult.mjs --consumer <name> --tool gloss_index \
-  --claim '<the question this read is for>' --args '{"tag":"lessons/testing"}' \
+policy/kit/bin/consult.mjs --consumer <name> \
+  --claim '<the question this read is for>' --cell '<the name surface_names returned>' \
   --outcome <token>
 ```
+
+  **Nothing here names the argument key, and that is the rule rather than
+  brevity.** The key is the hub's fact; it has moved once already, and a copy of
+  it in this file would be a second carrier with no way to notice the next move.
+  On 2026-09-17 a run enumerated the cells correctly, read one under a key the
+  tool does not declare, and got the uniform miss back — exit 0, a real pin, a
+  real `request_id`, and a well-formed answer to a call that never ran. The run
+  concluded the surface was empty. It held 325 lines. If you type a key anyway,
+  through `--args` below, the kit refuses it before the wire and prints the keys
+  the tool does declare.
+
+- **A prescription whose tool is neither `policy_lookup` nor a gloss read still
+  goes through the entry point.** `consult.mjs` takes `--args '<json>'`
+  positionally against `--claim`, sending the tool its arguments and the claim
+  as the call's question. Its keys are checked against the served schema before
+  anything is sent, and `--args` and `--cell` are never given together — a
+  framing takes its address from one carrier or the other.
 
 - **`--outcome` is required and no tool here ever guesses it.** The token is a
   *reading* of whether the answer discriminated, and **the operator supplies

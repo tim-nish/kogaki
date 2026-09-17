@@ -317,6 +317,29 @@ matches and whose cell carries it, and there is usually more than one. The
 namespaces are `lessons`, `journeys` and `decisions` — the last sharded by
 `thread` rather than by `tag`, so no tag addresses it.
 
+**AND THE READ IS COMPOSED FROM THAT NAME, never from an argument key a session
+types** (kogaki#1141). Resolving the address and SENDING it are two steps, and
+until this rule the second was prose: the map said which names to enumerate and
+said nothing about how to pass one, so the key was composed from memory. On
+2026-09-17 a run enumerated correctly and then read its cell under a key the
+tool does not declare; the gateway answered with the uniform miss, and the run
+concluded — at exit 0, holding a real pin and a real `request_id` — that the
+surface was empty. It held 325 lines. So a gloss read goes through the kit:
+
+```
+policy/kit/bin/consult.mjs --consumer <name> \
+  --claim '<the question this read is for>' --cell '<the name surface_names returned>' \
+  --outcome <token>
+```
+
+`--cell` takes the served name VERBATIM and builds the call from the gateway's
+own tool schema, read at call time. **This file names no argument key and
+neither does the skill** — that fact is the hub's, it has moved once already,
+and a copy of it here would be a second carrier with no way to notice the next
+move. A key typed anyway, through `--args`, is refused before the wire with the
+declared set beside it; `policy/kit/checks/check-addressability.sh` proves the
+whole path against the live gateway on every suite run.
+
 **A `Served line (pinned)` pin must RESOLVE ON THE SERVED SURFACE** (kogaki#176).
 The pin's own enumeration is `surface_names`, and it returns
 `topics/…`, `gloss/lessons/…`, `gloss/journeys/…`, `gloss/decisions/…` and

@@ -4,8 +4,19 @@
 //
 // Usage: consult.mjs --consumer <name> --claim '<claim>' [--claim '<claim 2>']
 //        --outcome <token> [--restate '<claim>' …] [--tool <tool>]
+//        [--cell <name> …]     one per --claim, in order; the SERVED CELL NAME
+//                              a gloss read addresses, exactly as
+//                              `surface_names(kind: "gloss")` returned it. The
+//                              kit builds the call from it — the caller never
+//                              types an argument key (kogaki#1141)
 //        [--args '<json>' …]   one per --claim, in order; for a prescription
-//                              whose tool is not `policy_lookup`
+//                              whose tool is not `policy_lookup` and is not a
+//                              gloss read
+//        [--cell-args <name>]  print the arguments the kit WOULD send for that
+//                              cell, and exit. Consults nothing, emits no
+//                              receipt; it exists so the addressability check
+//                              composes an address through this same file
+//                              rather than carrying a second copy of the rule
 //        [--disposition <auto-resolved-FYI | escalated>]
 //                              this consult was raised at a FORK GATE and this
 //                              is what the gate did with it. Omit for every
@@ -93,6 +104,61 @@
 // the change is which of these two paths the SKILL recommends, not this file's
 // shape.
 //
+// --- THE ADDRESS IS BUILT HERE, NEVER TYPED BY THE SESSION (kogaki#1141) ----
+//
+// THE DEFECT, and it is the composing half of one contract. On 2026-09-17 a
+// `/ship-cycle` run enumerated the served cells through
+// `surface_names(kind: "gloss")` exactly as `policy/consultation-map.md` entry
+// 1 prescribes, then read the cell it wanted as
+// `gloss_index {"name":"lessons/tag=claude-code-ops"}`. `name` is not a key
+// that tool declares; the gateway answered the undeclared key with the uniform
+// miss, and the run concluded the surface held nothing. The same cell under
+// the declared key hits with 325 served lines. Nothing in the kit carried the
+// address FORM: this file forwarded `--args` to the wire unchecked, the map
+// says which names to enumerate and not which key to pass them under, and the
+// only worked example of a gloss read anywhere in the kit was this file's own
+// fixture — `{"tag":"lessons/testing"}`, a form the hub retired on 2026-09-12.
+// So the one fact the hub owns, how a cell is addressed, reached the session
+// as prose it composed from.
+//
+// THE REPAIR, in two halves that are one rule:
+//
+//   * `--cell <name>` takes the served cell name and BUILDS the call. The
+//     argument key comes from the gateway's own `tools/list` schema at call
+//     time, so the kit holds no copy of it to go stale: a tool declaring
+//     exactly one argument declares its address key, and one declaring none or
+//     several is refused rather than guessed at. The session types a NAME it
+//     read off the served enumeration, which is the one half it can hold.
+//   * an `--args` object carrying a key the named tool does not declare is
+//     refused HERE, before the wire, printing the declared keys. The transport
+//     refuses the same thing at the same point (kogaki#368, its exit 13) and
+//     that is not duplication to be removed: the transport is reachable
+//     directly and this entry point is what most callers reach, so the rule is
+//     carried at both layers and BOTH say so. The code is adopted from the
+//     transport rather than coined, so one defect has one number.
+//
+// The refusal is a KIT EXIT in both halves — the caller never sees a gateway
+// response for it, because the defect is the caller's and a uniform miss is
+// exactly the answer that hid it for six days.
+//
+// WHY THE SCHEMA READ IS NOT A CONSULTATION. It sends `tools/list` and no
+// `tools/call`: nothing is asked of the served surface, nothing is returned to
+// quote, and no receipt is composed from it. It is the same standing
+// `policy/kit/bin/shape.mjs` records for the shape read — awareness of the
+// seam's own shape, never substitution for asking it.
+//
+// AND WHY THE WIRE IS OPENED HERE, stated as a cost rather than hidden. This
+// file's own contract is that it is a SIBLING of `gateway-query.mjs` and never
+// a rewrite of it, because a second wire is a second place the machine-local
+// gateway location has to be resolved. `tools/list` is not a tool call, so the
+// transport — whose whole surface is `--tool`/`--args` — has no shape that
+// returns it, and kogaki#1141 licenses this file and not that one. The
+// resolution ORDER below is therefore a SECOND SITE for one rule, and the
+// single-carrier repair is named rather than left to be discovered: export the
+// resolver and the catalogue read from `gateway-query.mjs` and call them here.
+// That is a change to the transport's own surface and belongs on its own
+// Issue.
+//
 // Exit codes:
 //   0  the consult ran and the receipt was emitted (the transport's block)
 //   2  malformed invocation — no consumer, no claim, no --outcome, a framing
@@ -104,11 +170,20 @@
 //   4  the two-framings floor — exactly one re-framing along a different axis
 //      is owed. Its own code for the same reason.
 //   11 the gateway was unreachable — the transport's one line, plus the
-//      DEGRADED PATH stated rather than left silent (AC 5)
+//      DEGRADED PATH stated rather than left silent (AC 5). A schema read that
+//      could not be made degrades the same way and for the same reason: an
+//      address this kit cannot establish is not one it will send.
 //   12 the consult happened and the wire did not carry what a receipt asserts
 //      (the transport's refusal, passed through unchanged)
+//   13 an ADDRESS this kit refuses to send — an `--args` key the served tool
+//      does not declare, or a `--cell` whose tool declares no single address
+//      key. ADOPTED from the transport (kogaki#368), never coined here: one
+//      defect, one number, whichever layer catches it.
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // The transport is this file's SIBLING IN THE KIT, which is a different thing
@@ -181,6 +256,15 @@ const LEXICAL_TACTICS = new Set(["VARY"]);
 // does not have is this entry point's discipline claiming to cover it.
 const MAX_FRAMINGS = 2;
 
+// THE TOOL A CELL NAME IS READ THROUGH (kogaki#1141). `policy/CAPABILITIES.md`
+// and the consultation map's addressing rule both name `gloss_index` as the
+// gloss read, and a cell address is what that tool takes. Fixed here rather
+// than taken from `--tool` because `--cell` means *this is a gloss read*: a
+// cell name sent to another tool is a different call wearing the same word,
+// and refusing it beats composing it. The ARGUMENT KEY is still never fixed —
+// it is read off the served schema at call time, which is the whole point.
+const CELL_TOOL = "gloss_index";
+
 // The ONE fixed correction, quoted at its point of use. Fixed rather than
 // generated: a correction that varies is one a reader learns to skim.
 const CORRECTION =
@@ -224,7 +308,8 @@ export function verdictShaped(text) {
 // without a gateway, a child process, or a temp directory: every property this
 // entry point adds is a property of the invocation, not of the wire.
 export function discipline({ framings, restatements = [], outcome, disposition, argsList = [],
-                             axisList = [], facetList = [], hitList = [], tacticList = [] }) {
+                             axisList = [], facetList = [], hitList = [], tacticList = [],
+                             cellList = [], tool }) {
   const refuse = (code, ...lines) => ({ ok: false, code, message: lines.join("\n") });
 
   if (!framings.length)
@@ -247,6 +332,47 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
       return refuse(2, `--args ${i + 1} is not valid JSON: ${a}`);
     }
   }
+
+  // --- `--cell`, the composed address (kogaki#1141) --------------------------
+  //
+  // Positional against `--claim` exactly as `--args` is, refused partial for
+  // exactly its reason: a prefix would silently send some framings as a gloss
+  // read and the rest as something else without anyone having chosen that.
+  if (cellList.length && cellList.length !== framings.length)
+    return refuse(
+      2,
+      `--cell given ${cellList.length} time(s) for ${framings.length} framing(s); ` +
+        "`--cell` is positional against `--claim` — one per framing, in order, " +
+        "or none at all.",
+    );
+  for (const [i, c] of cellList.entries()) {
+    if (typeof c !== "string" || !c.trim())
+      return refuse(2, `--cell ${i + 1} is empty; a cell name is the served name, verbatim`);
+    if (c.includes("\n"))
+      return refuse(2, `--cell ${i + 1} spans several lines; a cell name is one line`);
+  }
+  // THE TWO ADDRESS CARRIERS ARE EXCLUSIVE, and the refusal is the whole point
+  // of the pair rather than tidiness. `--cell` exists so the argument key is
+  // never typed; `--args` is the caller typing one. An invocation carrying both
+  // has two answers to "what does this call address", and choosing between them
+  // silently is the class of quiet mismatch this issue closes.
+  if (cellList.length && argsList.length)
+    return refuse(
+      2,
+      "both --cell and --args were given: a framing's address comes from one " +
+        "carrier or the other, never both. `--cell` is the gloss read — the kit " +
+        "builds the call from the served cell name — and `--args` is for a " +
+        "prescription whose tool takes something else.",
+    );
+  // `--cell` NAMES THE TOOL, so a disagreeing `--tool` is refused rather than
+  // honoured: a cell address sent to another tool is a different call.
+  if (cellList.length && tool !== undefined && tool !== CELL_TOOL)
+    return refuse(
+      2,
+      `--cell was given with --tool ${tool}: a cell name is the address ` +
+        `\`${CELL_TOOL}\` takes, and this entry point will not send one to ` +
+        "another tool. Drop --tool, or address that tool with --args.",
+    );
 
   // `--axis` is positional against `--claim`, exactly as `--args` is (kogaki
   // #601). A partial list would silently cover a prefix of the framings and
@@ -623,7 +749,83 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
   }
 
   return { ok: true, framings: applied, disposition, axes: axisList,
-           facets: facetList, hits: hitList, tactics: tacticList };
+           facets: facetList, hits: hitList, tactics: tacticList, cells: cellList };
+}
+
+// --- the served address form (kogaki#1141) ----------------------------------
+//
+// Both functions below are PURE over the served catalogue — the same `Map<tool,
+// Set<key>|null>` shape `gateway-query.mjs` builds from `tools/list`, carried
+// here in the same three states and read the same way, so the fixture pass can
+// fire every branch with no gateway, no child process and no temp directory.
+// `null` means SERVED BUT NOT ENUMERABLE and is never an empty Set: an absent
+// `properties` is not a declaration that a tool takes no arguments (kogaki#373
+// finding 1), and an explicit `properties: {}` is — the two are different facts
+// and only one of them makes an argued call refusable.
+
+// The ADDRESS KEY a tool declares, or the reason this kit will not guess one.
+//
+// EXACTLY ONE declared argument is the whole rule. A tool declaring one has
+// said what its address key is; a tool declaring several has not said which of
+// them an address goes under, and picking by name (`tag`, `name`, `id`) would
+// be the kit holding a copy of the hub's grammar — the carrier this issue
+// exists to remove, reinstalled one layer in. So several is refused with the
+// set, and the caller addresses that tool through `--args`, where the key is
+// theirs and is checked against this same catalogue.
+export function addressKeyFor(toolName, catalogue) {
+  if (!(catalogue instanceof Map))
+    return { refuse: `the gateway served no readable tool catalogue, so \`${toolName}\`'s address key cannot be established` };
+  if (!catalogue.has(toolName))
+    return {
+      refuse:
+        `the gateway's served catalogue does not carry \`${toolName}\` ` +
+        `(it serves ${[...catalogue.keys()].map((k) => `\`${k}\``).join(", ") || "nothing"})`,
+    };
+  const declared = catalogue.get(toolName);
+  if (!(declared instanceof Set))
+    return {
+      refuse:
+        `\`${toolName}\` is served but its schema does not enumerate its ` +
+        "arguments, so the address key it takes is not established",
+    };
+  const keys = [...declared];
+  if (keys.length !== 1)
+    return {
+      refuse:
+        `\`${toolName}\` declares ${keys.length} argument(s) ` +
+        `(${keys.map((k) => `\`${k}\``).join(", ") || "none"}), so which one an ` +
+        "address goes under is not declared. This kit will not choose: address " +
+        "that tool with --args, whose key is checked against this same schema.",
+    };
+  return { key: keys[0] };
+}
+
+// AC 1's refusal, as a pure function of the address and the catalogue. Returns
+// the message to print, or null when the form is one the kit will stand behind.
+//
+// THE POLARITY IS THE RECEIPT PATH'S, not the query path's, and that is decided
+// rather than inherited by accident: every consult through this file is a
+// receipt-mode consult, and `gateway-query.mjs` degrades the receipt path on an
+// unreadable or non-enumerable catalogue instead of proceeding unchecked. A
+// receipt asserts an address form; one that cannot be established cannot be
+// stood behind. The unchecked-but-announced arm stays where it belongs, on the
+// path that asserts nothing.
+export function undeclaredKeys({ tool, args, catalogue }) {
+  if (!(catalogue instanceof Map)) return null;   // degraded upstream; not a refusal
+  const declared = catalogue.get(tool);
+  if (!catalogue.has(tool))
+    return (
+      `\`${tool}\` is not in the gateway's served catalogue ` +
+      `(it serves ${[...catalogue.keys()].map((k) => `\`${k}\``).join(", ") || "nothing"}), ` +
+      "so this call was never going to reach it"
+    );
+  if (!(declared instanceof Set)) return null;    // served, not enumerable; degraded upstream
+  const undeclared = Object.keys(args ?? {}).filter((k) => !declared.has(k));
+  if (!undeclared.length) return null;
+  return (
+    `${undeclared.map((k) => `\`${k}\``).join(", ")} — which \`${tool}\` does ` +
+    `not declare. It declares ${[...declared].map((k) => `\`${k}\``).join(", ") || "no arguments"}`
+  );
 }
 
 // One `--args` per framing, in order — the transport's own contract, and the
@@ -644,10 +846,15 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
 // consult states the shard it read AND the question it was reading for, and
 // the receipt records the second.
 export function transportArgv({ consumer, framings, outcome, disposition, act, tool, gateway, argsList = [],
-                                axisList = [], facetList = [], hitList = [], tacticList = [], ownerRender = false }) {
+                                axisList = [], facetList = [], hitList = [], tacticList = [],
+                                toolList = [], ownerRender = false }) {
   const argv = ["--consumer", consumer];
   for (const [i, f] of framings.entries()) {
-    argv.push("--tool", tool ?? "policy_lookup");
+    // `toolList` is the PER-FRAMING tool, which today only a `--cell` framing
+    // sets (kogaki#1141) — it rides in the framing's own group like every other
+    // per-framing key, and an invocation supplying none produces the argv it
+    // always produced, so every existing fixture keeps its exact string.
+    argv.push("--tool", toolList[i] ?? tool ?? "policy_lookup");
     argv.push("--args", argsList[i] ?? JSON.stringify({ question: f }));
     argv.push("--question", f);
     // The axis rides WITH its framing, in the same per-framing group as
@@ -716,13 +923,181 @@ export function degradedStatement(why) {
   ].join("\n");
 }
 
+// --- the schema read (kogaki#1141) ------------------------------------------
+//
+// THE RESOLUTION ORDER IS THE TRANSPORT'S, and this is a SECOND SITE for it.
+// The cost is named at the head of this file with the single-carrier repair;
+// what matters here is that the order is IDENTICAL, because a schema read that
+// resolved a different gateway from the consult it guards would check one
+// server's catalogue and call another's. Never throws: an exhausted source is
+// a degradation, not a crash.
+function resolveGateway(explicit) {
+  if (explicit) return explicit;
+  if (process.env.TSUREZURE_GATEWAY_JS) return process.env.TSUREZURE_GATEWAY_JS;
+  try {
+    const config = JSON.parse(readFileSync(join(homedir(), ".claude.json"), "utf8"));
+    const scopes = [
+      config.projects?.[process.cwd()]?.mcpServers,
+      ...Object.values(config.projects ?? {}).map((p) => p?.mcpServers),
+      config.mcpServers,
+    ];
+    for (const servers of scopes) {
+      const args = servers?.tsurezure?.args;
+      const found = args?.find?.((a) => typeof a === "string" && a.endsWith(".js"));
+      if (found) return found;
+    }
+  } catch {
+    // fall through — an unreadable registration is an exhausted source
+  }
+  return undefined;
+}
+
+// ONE RPC OVER ONE SESSION, and its two readers below are its only callers.
+// Returns `{ result }` or `{ unavailable }` — NEVER a partial answer dressed
+// as a whole one: an unreachable server, a gateway that dies before answering
+// and an rpc error are all the same fact to this file (the thing asked for was
+// not established), so they arrive as one shape carrying their own reason.
+function rpcOnce({ gateway, consumer, method, params, timeoutMs = 20000 }) {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(process.execPath, [gateway, "--consumer", consumer],
+                    { stdio: ["pipe", "pipe", "ignore"] });
+    } catch (e) {
+      resolve({ unavailable: `the schema read could not start the gateway: ${e.message}` });
+      return;
+    }
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { child.kill(); } catch { /* already gone */ }
+      resolve(value);
+    };
+    const timer = setTimeout(
+      () => finish({ unavailable: `the schema read timed out after ${timeoutMs}ms` }),
+      timeoutMs,
+    );
+    child.on("error", (e) => finish({ unavailable: `the schema read could not reach the gateway: ${e.message}` }));
+    child.on("exit", () => finish({ unavailable: "the gateway exited before serving its tool catalogue" }));
+    const send = (o) => { try { child.stdin.write(`${JSON.stringify(o)}\n`); } catch { /* the exit handler answers */ } };
+    let buf = "";
+    child.stdout.on("data", (d) => {
+      buf += d;
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
+        if (!line.trim()) continue;
+        let msg;
+        try { msg = JSON.parse(line); } catch { continue; }   // startup notes are not rpc
+        if (msg.id === 1) {
+          send({ jsonrpc: "2.0", id: 2, method, params });
+        } else if (msg.id === 2) {
+          if (msg.error) finish({ unavailable: `\`${method}\` returned an rpc error (${msg.error.message ?? "unknown"})` });
+          else finish({ result: msg.result });
+        }
+      }
+    });
+    send({
+      jsonrpc: "2.0", id: 1, method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05", capabilities: {},
+        clientInfo: { name: "kogaki-consult-schema-read", version: "1" },
+      },
+    });
+  });
+}
+
+// The served `tools/list`, in the catalogue shape every reader in this kit
+// uses. `null` for a tool whose schema does not enumerate its arguments, never
+// an empty Set — the distinction `gateway-query.mjs` records at kogaki#373
+// finding 1, carried here because both files read the same three states.
+//
+// NOTHING IS ASKED OF THE SERVED SURFACE on this path: `initialize` and
+// `tools/list`, then the child is killed. No `tools/call` is sent, so no
+// consultation occurs, no `request_id` exists, and no receipt could be
+// composed from it even if something tried.
+async function servedCatalogue({ gateway, consumer }) {
+  const r = await rpcOnce({ gateway, consumer, method: "tools/list", params: {} });
+  if (r.unavailable) return r;
+  if (!Array.isArray(r.result?.tools)) return { unavailable: "the gateway served no readable tool catalogue" };
+  return {
+    catalogue: new Map(r.result.tools.map((t) => {
+      const props = t.inputSchema?.properties;
+      return [t.name, props && typeof props === "object" ? new Set(Object.keys(props)) : null];
+    })),
+  };
+}
+
+// THE SERVED CELL NAMES, read for the fixture pass alone (AC 2). This one DOES
+// call a tool, and it is the enumeration the consultation map's addressing rule
+// already prescribes — identifiers only, never bodies. It composes no receipt
+// and is never on the consult path.
+async function servedCellNames({ gateway, consumer }) {
+  const r = await rpcOnce({
+    gateway, consumer, method: "tools/call",
+    params: { name: "surface_names", arguments: { kind: "gloss" } },
+  });
+  if (r.unavailable) return r;
+  const text = (r.result?.content ?? []).map((c) => c.text ?? "").join("");
+  if (r.result?.isError) return { unavailable: `surface_names refused the enumeration: ${text.slice(0, 200)}` };
+  let d;
+  try { d = JSON.parse(text); } catch { return { unavailable: "surface_names returned a body this file could not parse" }; }
+  const names = (d.lines ?? []).map((l) => l?.text).filter((t) => typeof t === "string" && t.trim());
+  if (!names.length) return { unavailable: `surface_names(kind: "gloss") returned no name (miss: ${d.miss === true})` };
+  return { names };
+}
+
 // --- fixture pass -----------------------------------------------------------
 // Discrimination evidence for everything above, over the invocation alone —
 // same standard and same siting as the transport's own `--self-test`. What it
 // deliberately does NOT cover: the wire (the transport owns it and carries its
 // own fixtures) and the receipt block (this file composes none).
-function selfTest() {
+async function selfTest() {
   const run = (inv) => discipline({ framings: [], ...inv });
+  // --- AC 2: the worked example is SERVED, never written down here ----------
+  //
+  // The example this pass used to carry was `{"tag":"lessons/testing"}`, and it
+  // was the kit's only worked example of a gloss read. The hub retired that
+  // address form on 2026-09-12 when a shard became a cell of `axis=value`
+  // pairs; the fixture went on passing, because it asserts a composed argv and
+  // an argv is composable from any string at all. A fixture whose example can
+  // retire without the fixture noticing is a fixture that certifies its own
+  // staleness, which is how the one carrier of this fact became a wrong one.
+  //
+  // So the example is OBTAINED, in this same pass, from the served enumeration
+  // the addressing rule already prescribes — and the argument key is obtained
+  // from the served schema by the same composer the consult path uses. The
+  // assertion is unchanged in kind; what changed is that both halves of the
+  // address now come from the surface that owns them, so a retirement is a
+  // failing case rather than a silent pass.
+  //
+  // WITHOUT A REACHABLE SEAM IT IS ANNOUNCED, NEVER ASSUMED. The rest of this
+  // pass is a pure function of the invocation and runs anywhere; this one case
+  // needs the surface. A degraded run says WHICH case did not run and why,
+  // because "the example could not be checked" and "the example is fine" are
+  // exactly the two states the old fixture confused.
+  const gateway = resolveGateway(opt("gateway"));
+  const consumer = opt("consumer") ?? "kit-self-test";
+  let servedExample = null;
+  let servedWhy = gateway
+    ? null
+    : "gateway location not configured (--gateway, $TSUREZURE_GATEWAY_JS, or an MCP registration named tsurezure)";
+  if (gateway) {
+    const [names, cat] = await Promise.all([
+      servedCellNames({ gateway, consumer }),
+      servedCatalogue({ gateway, consumer }),
+    ]);
+    if (names.unavailable) servedWhy = names.unavailable;
+    else if (cat.unavailable) servedWhy = cat.unavailable;
+    else {
+      const address = addressKeyFor(CELL_TOOL, cat.catalogue);
+      if (address.refuse) servedWhy = address.refuse;
+      else servedExample = { cell: names.names[0], key: address.key };
+    }
+  }
   const cases = [
     // AC 2 — the correction, at the point of use.
     ["a verdict-shaped question is refused with code 3, not forwarded",
@@ -798,11 +1173,103 @@ function selfTest() {
     // The seam gap named: entry 1's prescription is `gloss_index`, which takes
     // a shard address and no question, so before this the entry point could not
     // mediate it and the transport recorded the address in the question field.
-    ["a non-policy_lookup prescription sends the tool's args AND the claim as the question",
-     () => transportArgv({ consumer: "kogaki", framings: ["does a served line discriminate check admission?"],
-             argsList: ['{"tag":"lessons/testing"}'], tool: "gloss_index", outcome: "discriminating" })
-             .join(" ") === '--consumer kogaki --tool gloss_index --args {"tag":"lessons/testing"} ' +
-             '--question does a served line discriminate check admission? --receipt --outcome discriminating'],
+    // THE EXAMPLE IS THE SERVED ONE (AC 2). Runs only where the surface
+    // answered; the degraded arm is announced below the pass rather than
+    // folded into it.
+    ...(servedExample === null ? [] : [[
+      `a non-policy_lookup prescription sends the tool's args AND the claim as the question (served cell ${servedExample.cell})`,
+      () => transportArgv({ consumer: "kogaki", framings: ["does a served line discriminate check admission?"],
+              argsList: [JSON.stringify({ [servedExample.key]: servedExample.cell })],
+              tool: CELL_TOOL, outcome: "discriminating" })
+              .join(" ") === `--consumer kogaki --tool ${CELL_TOOL} ` +
+              `--args ${JSON.stringify({ [servedExample.key]: servedExample.cell })} ` +
+              "--question does a served line discriminate check admission? --receipt --outcome discriminating",
+    ], [
+      // The retired form, named so the regression has a case rather than a
+      // comment. It is not a spelling rule: the assertion is that what the kit
+      // composes came from the surface, and the surface stopped serving this
+      // address on 2026-09-12.
+      "the retired `lessons/testing` address is not what the kit composes",
+      () => JSON.stringify({ [servedExample.key]: servedExample.cell }) !== '{"tag":"lessons/testing"}',
+    ]]),
+    // --- kogaki#1141: the address is BUILT from a cell name -----------------
+    //
+    // The catalogue fixtures carry the three states a served schema has, in the
+    // shape `tools/list` produces: enumerable (a Set), served-but-not-
+    // enumerable (null), and absent (no entry). They are written here rather
+    // than fetched because these cases are about the RULE over a catalogue, not
+    // about what the hub happens to serve today — which is exactly the split
+    // the served example above is on the other side of.
+    ...(() => {
+      const CAT = new Map([["gloss_index", new Set(["tag"])],
+                           ["element_survey", new Set(["kind", "tag"])],
+                           ["policy_lookup", new Set(["question", "topic_hints"])],
+                           ["opaque_tool", null]]);
+      return [
+        ["the address key is read off the served schema, never written down",
+         () => addressKeyFor("gloss_index", CAT).key === "tag"],
+        ["a tool declaring several arguments is refused — this kit will not choose the address key",
+         () => { const r = addressKeyFor("element_survey", CAT);
+                 return r.key === undefined && r.refuse.includes("declares 2 argument(s)")
+                        && r.refuse.includes("will not choose"); }],
+        ["a tool absent from the served catalogue is refused naming what IS served",
+         () => addressKeyFor("no_such_tool", CAT).refuse.includes("does not carry `no_such_tool`")],
+        ["a served tool whose schema does not enumerate is refused, and never read as taking no arguments",
+         () => addressKeyFor("opaque_tool", CAT).refuse.includes("does not enumerate")],
+        ["no catalogue at all is refused rather than assumed",
+         () => addressKeyFor("gloss_index", null).refuse.includes("no readable tool catalogue")],
+        // AC 1 — the undeclared key, refused before the wire with the declared
+        // set. The shipped defect is the first case, verbatim.
+        ["the shipped defect: `name` against gloss_index is refused, naming the key and the declared set",
+         () => { const m = undeclaredKeys({ tool: "gloss_index", args: { name: "lessons/tag=claude-code-ops" }, catalogue: CAT });
+                 return m.includes("`name`") && m.includes("does not declare") && m.includes("It declares `tag`"); }],
+        ["a declared key passes — the check refuses a form, never a value",
+         () => undeclaredKeys({ tool: "gloss_index", args: { tag: "lessons/tag=claude-code-ops" }, catalogue: CAT }) === null],
+        ["every undeclared key is named, not just the first",
+         () => { const m = undeclaredKeys({ tool: "gloss_index", args: { name: "x", kind: "y" }, catalogue: CAT });
+                 return m.includes("`name`") && m.includes("`kind`"); }],
+        ["a tool the catalogue does not carry is refused on the args path too",
+         () => undeclaredKeys({ tool: "nope", args: {}, catalogue: CAT }).includes("never going to reach it")],
+        ["a non-enumerable schema is not a refusal — it is the degrade, decided upstream",
+         () => undeclaredKeys({ tool: "opaque_tool", args: { anything: 1 }, catalogue: CAT }) === null],
+        ["no catalogue is not a refusal here either — one shape for one fact",
+         () => undeclaredKeys({ tool: "gloss_index", args: { name: "x" }, catalogue: null }) === null],
+      ];
+    })(),
+    ["--cell is positional against --claim: a partial list is refused with the count delta",
+     () => { const r = run({ framings: ["a", "b"], cellList: ["lessons/tag=testing"], outcome: "covered-after-reframing" });
+             return r.code === 2 && r.message.includes("--cell given 1 time(s) for 2 framing(s)"); }],
+    ["an empty --cell is refused before anything is sent",
+     () => run({ framings: ["a"], cellList: ["  "], outcome: "discriminating" }).code === 2],
+    ["a multi-line --cell is refused: a cell name is one line",
+     () => run({ framings: ["a"], cellList: ["one\ntwo"], outcome: "discriminating" }).code === 2],
+    ["--cell and --args together are refused — one framing, one address carrier",
+     () => { const r = run({ framings: ["a"], cellList: ["lessons/tag=testing"], argsList: ['{"tag":"x"}'],
+                             outcome: "discriminating" });
+             return r.code === 2 && r.message.includes("never both"); }],
+    ["--cell with another tool is refused rather than sent to it",
+     () => { const r = run({ framings: ["a"], cellList: ["lessons/tag=testing"], tool: "policy_lookup",
+                             outcome: "discriminating" });
+             return r.code === 2 && r.message.includes("will not send one to another tool"); }],
+    ["--cell with its own tool named explicitly is accepted",
+     () => run({ framings: ["a"], cellList: ["lessons/tag=testing"], tool: CELL_TOOL,
+                 outcome: "discriminating" }).ok === true],
+    ["a well-formed --cell rides back to the caller, one per framing",
+     () => { const r = run({ framings: ["a", "b"], cellList: ["lessons/tag=one", "lessons/tag=two"],
+                             axisList: ["subject", "conduct"], outcome: "covered-after-reframing" });
+             return r.ok === true && r.cells.join("|") === "lessons/tag=one|lessons/tag=two"; }],
+    ["no --cell at all leaves the invocation exactly as it was",
+     () => { const r = run({ framings: ["a"], outcome: "discriminating" });
+             return r.ok === true && r.cells.length === 0; }],
+    ["the built address rides in its framing's own group, with the tool it names",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating",
+             argsList: ['{"tag":"lessons/tag=claude-code-ops"}'], toolList: [CELL_TOOL] })
+             .join(" ") === '--consumer k --tool gloss_index --args {"tag":"lessons/tag=claude-code-ops"} ' +
+             "--question q --receipt --outcome discriminating"],
+    ["a per-framing tool does not leak into a framing that named none",
+     () => transportArgv({ consumer: "k", framings: ["one", "two"], outcome: "covered-after-reframing",
+             argsList: ['{"tag":"c"}', '{"question":"two"}'], toolList: [CELL_TOOL] })
+             .join(" ").includes("--tool gloss_index --args {\"tag\":\"c\"} --question one --tool policy_lookup")],
     ["--args positional against --claim: a partial list is refused, never half-applied",
      () => { const r = run({ framings: ["a", "b"], argsList: ['{"tag":"x"}'], outcome: "covered-after-reframing" });
              return r.code === 2 && r.message.includes("positional against `--claim`"); }],
@@ -1036,6 +1503,20 @@ function selfTest() {
     for (const f of failures) console.log(`  ${f}`);
     process.exit(1);
   }
+  // AC 2's degraded arm, printed ABOVE the pass line so it cannot be read as
+  // part of it. The pass still exits 0 — every other case is a pure function of
+  // the invocation and did run — and the one case that needs the surface says
+  // it did not, which is the whole repair: the previous fixture's failure was
+  // that it said nothing at all.
+  if (servedExample === null)
+    console.log(
+      `policy_source unavailable: ${servedWhy} (asked as consumer \`${consumer}\`; ` +
+        "`--consumer <name>` names the one this gateway grants)\n" +
+        "  the SERVED-EXAMPLE case did not run: the worked gloss address is " +
+        "obtained from `surface_names(kind: \"gloss\")` and the argument key " +
+        "from the served schema, and neither was reachable here. Nothing below " +
+        "asserts that the kit's gloss address is one the hub still serves.",
+    );
   console.log(`fixture pass: ${cases.length}/${cases.length} entry-point cases ` +
     "(the verdict correction and its --restate affordance; six real framings " +
     "that must still reach the seam; the two-framings floor; the token refused " +
@@ -1045,7 +1526,12 @@ function selfTest() {
     "set on its own axis, omittable, with consult-miss and degraded refused by " +
     "reason rather than by set; the per-query axis paired positionally with " +
     "its claim, partial lists refused, tokens held to the ratified set, and " +
-    "same-token pairs refused at the floor with the judgment half left human)");
+    "same-token pairs refused at the floor with the judgment half left human; " +
+    "and the address built from a served cell name — the key read off the " +
+    "served schema, several-argument and non-enumerable tools refused rather " +
+    "than guessed at, an undeclared `--args` key refused before the wire with " +
+    "the declared set, and the worked gloss example obtained from " +
+    "`surface_names` so it cannot retire silently)");
   process.exit(0);
 }
 
@@ -1065,13 +1551,70 @@ function opts(name) {
   return out;
 }
 
-if (argv.includes("--self-test")) selfTest();
+// AWAITED: the pass obtains its one served example from the surface (AC 2), so
+// it is async. It exits the process itself on both arms, so nothing below runs.
+if (argv.includes("--self-test")) await selfTest();
 
 const consumer = opt("consumer");
 if (!consumer) {
   console.error("usage: consult.mjs --consumer <name> --claim '<claim>' --outcome <token>");
   process.exit(2);
 }
+
+// THE ONE DEGRADE, used by the schema read on every path that needs it. Same
+// shape as the transport's — one `policy_source unavailable:` line — plus this
+// entry point's own route statement, which is what AC 5 added and what a bare
+// degrade line leaves a session without.
+function degrade(reason, why) {
+  console.log(`policy_source unavailable: ${reason}`);
+  console.log(degradedStatement(why));
+  process.exit(11);
+}
+
+// THE ADDRESS COMPOSER, and the ONLY one in this kit (kogaki#1141). Both
+// callers below reach it — the consult path and the `--cell-args` mode the
+// addressability check uses — so the check cannot prove an address form this
+// file would not have sent, and neither carries a copy of the rule.
+async function catalogueOrDegrade() {
+  const gateway = resolveGateway(opt("gateway"));
+  if (!gateway)
+    degrade(
+      "gateway location not configured (--gateway, $TSUREZURE_GATEWAY_JS, or " +
+        "an MCP registration named tsurezure)",
+      "the address could not be built: the gateway location is not configured",
+    );
+  const read = await servedCatalogue({ gateway, consumer });
+  if (read.unavailable)
+    degrade(read.unavailable, "the served tool schema could not be read, so the address form could not be established");
+  return read.catalogue;
+}
+
+// `--cell-args <name>`: print what the kit WOULD send, and exit. It consults
+// nothing and emits no receipt — see the head of this file — and it exists so
+// that `policy/kit/checks/check-addressability.sh` composes its reads through
+// this composer rather than typing an argument key of its own, which is the
+// very thing the check is there to prove nobody has to do.
+const cellArgsName = opt("cell-args");
+if (cellArgsName !== undefined) {
+  if (!String(cellArgsName).trim()) {
+    console.error("--cell-args takes a served cell name, verbatim");
+    process.exit(2);
+  }
+  const catalogue = await catalogueOrDegrade();
+  const address = addressKeyFor(CELL_TOOL, catalogue);
+  if (address.refuse) {
+    console.error(`address refused: ${address.refuse}`);
+    process.exit(13);
+  }
+  // stdout is the machine-readable half and carries the arguments ALONE, so a
+  // caller can pass it straight to `--args`; the tool name goes to stderr with
+  // the rest of the narration. A tool result and a diagnostic on one stream is
+  // the defect `gateway-query.mjs` records at its own refusal.
+  process.stderr.write(`cell address built for \`${CELL_TOOL}\`\n`);
+  console.log(JSON.stringify({ [address.key]: cellArgsName }));
+  process.exit(0);
+}
+
 const outcome = opt("outcome");
 const disposition = opt("disposition");
 const verdict = discipline({
@@ -1084,10 +1627,71 @@ const verdict = discipline({
   facetList: opts("facet"),
   hitList: opts("hit"),
   tacticList: opts("tactic"),
+  cellList: opts("cell"),
+  tool: opt("tool"),
 });
 if (!verdict.ok) {
   console.error(verdict.message);
   process.exit(verdict.code);
+}
+
+// --- the address, built and checked BEFORE the wire (kogaki#1141) -----------
+//
+// THE SCHEMA READ IS SPENT ONLY WHERE THERE IS AN ADDRESS TO ESTABLISH, and
+// that narrowing is reasoned rather than thrifty. A consult carrying neither
+// `--cell` nor `--args` sends `policy_lookup` the arguments THIS FILE builds
+// from the claim — there is no key the caller typed, and nothing for a
+// catalogue to adjudicate — so asking for one would spend a round trip per
+// consult and, worse, would newly degrade consults that work today the moment
+// a gateway served no catalogue. That is the enhancer-becomes-dependency
+// polarity this kit refuses. The transport still checks the form on the wire
+// for every path, so the narrowing removes no coverage.
+let addressedArgs = opts("args");
+const addressedTools = [];
+if (verdict.cells.length || addressedArgs.length) {
+  const catalogue = await catalogueOrDegrade();
+  if (verdict.cells.length) {
+    const address = addressKeyFor(CELL_TOOL, catalogue);
+    if (address.refuse) {
+      console.error(
+        `address refused: ${address.refuse}.\n` +
+          "The cell name was not sent: this kit refuses an address it cannot " +
+          "establish rather than composing one, because a misaddressed read " +
+          "comes back as the uniform miss and reads exactly like an empty cell.",
+      );
+      process.exit(13);
+    }
+    addressedArgs = verdict.cells.map((c) => JSON.stringify({ [address.key]: c }));
+    for (const _ of verdict.cells) addressedTools.push(CELL_TOOL);
+  } else {
+    // AC 1's refusal — the caller's own key, against the served schema, before
+    // the wire. Every framing is named, not just the first: a caller who typed
+    // one wrong key has probably typed two, and one refusal per run is one
+    // round trip per repair.
+    const refusals = [];
+    for (const [i, raw] of addressedArgs.entries()) {
+      const why = undeclaredKeys({
+        tool: opt("tool") ?? "policy_lookup",
+        args: JSON.parse(raw),
+        catalogue,
+      });
+      if (why) refusals.push(`framing ${i + 1} addressed ${why}`);
+    }
+    if (refusals.length) {
+      console.error(
+        [
+          ...refusals,
+          "",
+          "Refused here rather than sent: the served tool answers an undeclared " +
+            "key with the uniform miss, which is a well-formed response to a " +
+            "call that never ran — exit 0, a real pin, and nothing to tell it " +
+            "from an empty surface.",
+          `A gloss read needs no key at all: pass the served cell name to --cell and the kit builds the call from \`${CELL_TOOL}\`'s own schema.`,
+        ].join("\n"),
+      );
+      process.exit(13);
+    }
+  }
 }
 
 // The framing COUNT is a transport fact and is emitted as one, on its own
@@ -1104,6 +1708,29 @@ console.log(
       : ` — disposition: ${disposition} (supplied by the caller)`),
 );
 
+// AC 4 — THE CELL THIS CONSULT ADDRESSED, recorded with the receipt.
+//
+// WHAT IT BUYS. A gloss read that comes back empty has two causes that look
+// identical in a receipt: the cell was empty, or the call never reached it. The
+// second is the defect this issue closes, and for six days the only evidence
+// telling them apart lived in a transcript nobody kept. The name is an observed
+// transport fact, exactly like the framing count beside it, and is emitted on
+// the same terms.
+//
+// WHY IT IS NOT A CONTINUATION KEY, stated rather than left looking like an
+// oversight. The v2 receipt's grammar is the hub's (`specs/SPEC.md` §4) and its
+// reader is `checks/check-consult-receipts.sh`, whose continuation scan STOPS
+// at the first indented line whose key it does not recognise — so an indented
+// `cell:` would not merely go unread, it would truncate every field below it
+// and the receipt would pass as a field-less v1 line. Minting the key means
+// changing the grammar and the checker together, in one act, and neither is
+// this issue's to change. So the fact is recorded UNINDENTED and ABOVE the
+// block, where it is greppable, cannot end anyone's scan, and leaves the
+// receipt byte-for-byte what it was. Moving it inside is a hub-shaped decision
+// with a named shape, not a silent upgrade.
+for (const [i, cell] of verdict.cells.entries())
+  console.log(`cell-addressed: framing ${i + 1} read the served cell \`${cell}\` through \`${CELL_TOOL}\``);
+
 // stdio is INHERITED rather than captured: the transport's own output is the
 // caller's, and re-printing a captured copy would put this file back in the
 // business of composing what the transport emitted (and would reintroduce the
@@ -1118,7 +1745,12 @@ const child = spawnSync(
     act: opt("act"),
     tool: opt("tool"),
     gateway: opt("gateway"),
-    argsList: opts("args"),
+    // The arguments the KIT composed — identical to `opts("args")` on every
+    // path that supplied one, and the built cell address on the path that did
+    // not. The transport re-checks the form on the wire against the same
+    // catalogue, so this is a second guard on one rule and not a substitute.
+    argsList: addressedArgs,
+    toolList: addressedTools,
     axisList: verdict.axes,
     facetList: verdict.facets,
     hitList: verdict.hits,
