@@ -805,18 +805,28 @@ try {
 
   // ACCEPTANCE 3: THE REVERSE OUTLINE COMPARES NO JOURNEY FIELD. A Journey is
   // material the Step EDITS, so a reader cannot recover it and must not be
-  // asked to — the Round Trip table gains no row, and `claims-unused` is
-  // unchanged. Asserted as an ABSENCE over the table's own data, which is the
+  // asked to — the Round Trip table gains no row, and the `claims` accounting
+  // is unchanged. Asserted as an ABSENCE over the table's own data, which is the
   // only form this property has: there is no refusal to drive.
+  //
+  // THE SECOND HALF READS `claims` RATHER THAN `claims-unused` (kogaki#1132).
+  // The row this clause named was the best-effort mechanical one, and it was
+  // folded into the preserved `claims` row when that item became a per-declared
+  // recovery question. What kogaki#1111 leaves unchanged is the same property
+  // it always was: the claims accounting reads the Packet's claims block against
+  // the Reverse Outline's claim lines, and a Journey enters neither side.
   {
     const items = JSON.parse(readFileSync(join(REPO_ROOT, "src", "review-items.json"), "utf8")).items;
     const jrows = items.filter((it) => /journey/i.test(JSON.stringify(it)));
     if (jrows.length) {
       fails.push(`(c) src/review-items.json carries ${jrows.length} row(s) mentioning a Journey (${jrows.map((r) => r.id).join(", ")}) — a Journey asserts nothing, so the Reverse Outline has no Journey field to compare and the Blind Reader would be asked to recover material rather than a claim`);
     }
-    const unused = items.find((it) => it.id === "claims-unused");
-    if (!unused || unused.field !== "claims" || unused.declared_block !== "claims") {
-      fails.push(`(c) the claims-unused row moved — kogaki#1111 leaves it unchanged: ${JSON.stringify(unused)}`);
+    const claimsRow = items.find((it) => it.id === "claims");
+    if (!claimsRow || claimsRow.field !== "claims" || claimsRow.declared_block !== "claims") {
+      fails.push(`(c) the claims row moved — kogaki#1111 leaves the claims accounting unchanged: ${JSON.stringify(claimsRow)}`);
+    }
+    if (items.some((it) => it.id === "claims-unused")) {
+      fails.push("(c) a `claims-unused` row is back in src/review-items.json — kogaki#1132 folded it into the preserved `claims` row, and a second row reading the same two sides is the split that let a lost claim go unnamed to the correction");
     }
   }
 

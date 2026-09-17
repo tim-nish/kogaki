@@ -119,9 +119,9 @@ answers "by what".** A row the Harness decided alone carries **no `model` key at
 all** — no call was made, and writing one would claim a call that never
 happened. A row with any judged pair carries the key, and its value is the
 **chosen** pair's, which is `null` where a Harness-decided pair won the
-selection: a hybrid item like `claims` can render a mechanical `widened` fail
-out of a row whose other pairs a model answered. The truth per pair is always in
-`pairs`.
+selection — a hybrid row, some of whose pairs the Harness settles while a model
+answers the others. No row in the table is hybrid at this head; the rule is live
+code with no current specimen, and the truth per pair is always in `pairs`.
 
 ## The workspace is split by pass, and every pass's evidence survives
 
@@ -211,6 +211,20 @@ again would copy the restored original back over the reviewed Draft.
 call — and renders **one join Packet per judged pair**, each carrying the
 declared line, the outlined line, the quoted prose and **one** question. The
 second takes the answers on standard input and emits the comparison.
+
+**`claims` asks one thing, once per DECLARED claim: did the reader recover it.**
+The Blind Reader is told no count and writes as many claims as the passage puts
+in front of them. The Harness then renders one join Packet per claim the Step
+DECLARES — `join/<step>.claims.<k>.md`, carrying that claim's own words, every
+claim the reader wrote, the passage, and the question "is this declared claim
+among them" — so a Step declaring N claims costs N calls for this item. Whether
+a paraphrase counts as recovered is the judge's answer in words and never a
+shared-word count. **Surplus is not judged at all**: the Packet renders Journey
+material under "NOT a claim to recover" and tells the writer to retell it, so a
+correctly realized passage asserts more than its declared claim by design. The
+row fails when any declared claim fails, and **the correction is told which
+one** — the entry carries the declared claim's text, so `What failed` names the
+claim that went missing rather than only the item that did.
 
 **A judged item whose DECLARED side is empty is decided by the Harness too, and
 costs no call.** Where the Packet renders a stated absence — no claims, no
@@ -359,7 +373,7 @@ claims, no Move, no reader states and no term list — and refuses an outline fo
 a Step whose input it did not render.
 
 **The input is fixed, and it is fixed by what a reader can have (kogaki#1099).**
-It carries the passage, the article before it, the seven fields with their
+It carries the passage, the article before it, the five fields with their
 definitions, the reader's role and constraints, and the answer form — and
 nothing else. In particular it names none of the fields the parser refuses, and
 it carries no filing command: naming a field a reader has never heard of creates
@@ -376,24 +390,30 @@ record: no role binding, no claim address, no relation list.
 **There is no template file and no second schema.** The input is composed from
 the Brief's own field declaration, because there is no second artifact to
 describe: the reader fills a fenced `step` block. It is asked for `purpose`,
-`reader_state_before`, `reader_state_after`, the `claim ` lines, `introduces`,
-`opens_section` and `concession` — the Brief's fields with the Brief's
-definitions — and the count in its instruction is computed from that declaration
-rather than spelled, so a field joining it cannot leave the sentence saying the
-old number. `introduces`, `opens_section` and `concession` are each legitimately
-absent; `claims` is not, because a passage that asserts nothing is not a
-passage.
+`reader_state_before`, `reader_state_after`, the `claim ` lines and `introduces`
+— the Brief's fields with the Brief's definitions — and the count in its
+instruction is computed from that declaration rather than spelled, so a field
+joining it cannot leave the sentence saying the old number. `introduces` is
+legitimately absent; `claims` is not, because a passage that asserts nothing is
+not a passage.
 
-`concession` is the one field that is not a Brief field, and it is declared as
-such rather than smuggled in: the Packet's write instruction requires a loss to
-be conceded in the prose, so a conceded softening is told from a silent one.
+**Two fields left in one act** (owner 2026-09-17). `concession` was the one
+field here that was never a Brief field at all, and `opens_section` is a Brief
+field whose Round Trip row asked whether a continuing passage restates its
+heading — a realization lint, and the heading is rendered by the Harness out of
+the trace, so it is never something the prose has to carry. Both rows left the
+item table, so neither field had a reader left; a field asked for and compared by
+nothing is a reading the Blind Reader is charged for and nobody looks at. A block
+carrying either is refused by name, and the two refusals read differently:
+`opens_section` is refused as declared **not reconstructible**, and `concession`
+by the closed line set, which says it is not a Brief Step field.
 
 **The block is validated by the Brief's own parser**, `parseStepBlock` — the
 function `parseBrief` calls per fenced block — so a Reverse Outline the Brief
 could not carry is refused by the code that would refuse it inside a Brief, and
 every refusal names what it saw. `move`, `materials`, `rationale`, `depends_on`,
-`bridges` and `figure` are declared **not reconstructible** and are **refused
-rather than dropped**: a field the reader could not have read off the passage is
+`bridges`, `figure` and `opens_section` are declared **not reconstructible** and
+are **refused rather than dropped**: a field the reader could not have read off the passage is
 an inference, and dropping it silently would leave the inference having steered
 the rest of the outline with no trace. The declaration is the parser's refusal
 list and **nothing renders it** — the input does not tell the reader which
