@@ -783,14 +783,22 @@ try {
     // arm firing rather than the field being rejected at the fill outright.
     const served = fillBrief(doc0, { steps: [{ ...step1, journeys: [{ strand: "L2", use: "illustrate" }] }, step2] });
     if (served.error) fails.push(`(c) a Journey on the Strand that DOES carry served Journey material was refused, so the case above proves nothing: ${served.error}`);
-    // AND THE COVERAGE ACCOUNTING IS UNTOUCHED (the Issue's "Not in scope").
-    // The Journey placement count is read from `materials`, where it was read
-    // before; declaring the field moves it not at all.
+    // AND THE COVERAGE ACCOUNTING MOVES WITH THE FIELD — THIS ASSERTION IS
+    // REVERSED (kogaki#1131). It read the other way: kogaki#1111 declared
+    // `journeys` and left the count on a `<L-id>.journey` token in `materials`,
+    // and this case asserted that declaring the field moved the count NOT AT
+    // ALL. That is exactly the two-reader split the first completed Brief was
+    // caught in — four `journey:` lines rendered and five Strands disclosed as
+    // OMITTED in one document — so the clause is reversed rather than deleted,
+    // and the reversal is asserted here beside the retention it replaces.
     const before = fillBrief(doc0, { steps: [step1, step2] });
     if (!before.error && !served.error) {
       const line = (t) => (t.match(/^\*Journey placement count[^\n]*$/m) || [""])[0];
-      if (line(before.doc) !== line(served.doc)) {
-        fails.push(`(c) declaring a Journey changed the Journey placement count — the coverage accounting is counted from \`materials\` and this Issue does not move it: ${line(before.doc)} vs ${line(served.doc)}`);
+      if (!/0 of 1/.test(line(before.doc))) {
+        fails.push(`(c) the path declaring no Journey does not read 0 of 1, so the comparison below proves nothing: ${line(before.doc)}`);
+      }
+      if (!/1 of 1/.test(line(served.doc))) {
+        fails.push(`(c) declaring a Journey did NOT move the placement count — the count still reads a spelling in \`materials\` beside the field \`journeysRefusal\` validates and \`renderStep\` renders, which is the second source that disagreed with the first (kogaki#1131): ${line(served.doc)}`);
       }
     }
   }
@@ -2772,24 +2780,55 @@ try {
   }
 
   // (h) JOURNEY COVERAGE (§6.1 MUST 1, kogaki#501): journey material is a
-  // DISTINCT material (§4.1's "which Journeys"), carried as `<L-id>.journey`,
-  // PLACED OR ITS OMISSION DISCLOSED — derived from the composed steps, never
-  // declared. The fixture's L2 carries a Journey and L1 does not, which is
-  // what makes the two refusals below separable.
+  // DISTINCT material (§4.1's "which Journeys"), PLACED OR ITS OMISSION
+  // DISCLOSED — derived from the composed steps, never declared. The fixture's
+  // L2 carries a Journey and L1 does not, which is what makes the two refusals
+  // below separable.
+  //
+  // PLACEMENT IS COUNTED FROM `journeys`, AND THAT REVERSES kogaki#1111
+  // (kogaki#1131). It was counted from a `<L-id>.journey` token in
+  // `materials`, beside a `journeys` field that rendered the Step's own
+  // `journey:` line — two readers of one fact, which disagreed on the first
+  // Brief written to `done`: every Step of the adopted Candidate named its
+  // Strand bare and declared `journeys`, so the Brief rendered four `journey:`
+  // lines and disclosed all five Strands as OMITTED in the same document. The
+  // fixtures below therefore place through `journeys` and name the Strand
+  // BARE, which is the shape that read as omitted.
   ranCase("h");
   if (JSON.stringify(journeyBearingStrands(doc0)) !== JSON.stringify(["L2"]))
     fails.push(`(h) journey-bearing members misread: got ${JSON.stringify(journeyBearingStrands(doc0))}, expected ["L2"] (L2 carries a journey cite, L1 does not)`);
 
-  // placed: a step carrying L2.journey
-  const jstep = { ...JSON.parse(JSON.stringify(step1)), materials: ["L2", "L2.journey", "thesis"] };
+  // placed: a step declaring a `journeys` entry on L2, naming L2 BARE
+  const jstep = { ...JSON.parse(JSON.stringify(step1)), materials: ["L2", "thesis"],
+    journeys: [{ strand: "L2", use: "illustrate" }] };
   const jfill = fillBrief(doc0, { steps: [jstep, step2] });
   if (jfill.error) fails.push(`(h) a path placing journey material was refused: ${jfill.error}`);
   else {
     if (!/\*\*L2\*\* journey — placed by: s1/.test(jfill.doc)) fails.push("(h) placed journey material is not disclosed as placed");
     if (!/Journey placement count[^\n]*1 of 1/.test(jfill.doc)) fails.push("(h) the journey placement count is not 1 of 1 when the only Journey-bearing Strand is placed");
+    // THE TWO READERS OF ONE FACT AGREE, asserted on ONE document (kogaki#1131
+    // AC2): the Step rendered a `journey:` line and the coverage section must
+    // not disclose the same Strand as omitted. This is the contradiction the
+    // Issue was filed on, stated as an assertion over the rendered Brief.
+    if (/journey: L2/.test(jfill.doc) && /\*\*L2\*\* journey — \*\*OMITTED/.test(jfill.doc)) {
+      fails.push("(h) one Brief renders a `journey: L2` line and discloses L2's Journey as OMITTED — the placement count and the Steps' own journey lines read different fields, which is a FALSE disclosure handed to /draft (kogaki#1131)");
+    }
   }
 
-  // omitted: no step carries L2.journey — DISCLOSES, never refuses
+  // THE REVERSED HALF, asserted by name (kogaki#1131): a `<L-id>.journey` token
+  // with NO `journeys` entry no longer places. The token stays LEGAL — it names
+  // the Strand, and it is still checked against the closed set and the served
+  // record by the two refusals below — but a Step places a Journey by declaring
+  // what it uses it FOR, and nothing else. Asserted rather than left implied:
+  // the count moving field is the whole change, and an untested reversal reads
+  // exactly like an untested retention.
+  const tokfill = fillBrief(doc0, { steps: [{ ...JSON.parse(JSON.stringify(step1)), materials: ["L2", "L2.journey", "thesis"] }, step2] });
+  if (tokfill.error) fails.push(`(h) a path naming L2.journey in materials was refused: ${tokfill.error} — the token stays legal, only its counting was withdrawn`);
+  else if (!/Journey placement count[^\n]*0 of 1/.test(tokfill.doc)) {
+    fails.push("(h) a bare `L2.journey` token in materials still places the Journey — the count did not move to `journeys`, so the second source kogaki#1131 removed is back and can disagree with the Step's own journey line");
+  }
+
+  // omitted: no step declares a journey — DISCLOSES, never refuses
   const ofill = fillBrief(doc0, { steps: [step1, step2] });
   if (ofill.error) fails.push(`(h) a path omitting journey material was REFUSED — §6.1 is place-or-disclose, never place-or-fail: ${ofill.error}`);
   else {
@@ -2806,6 +2845,68 @@ try {
 
   // VACUOUS, never violated: journeyPlacements over an empty Journey set
   if (journeyPlacements([step1, step2], []).size !== 0) fails.push("(h) journeyPlacements over no Journey-bearing member is not empty");
+
+  // (h2) THE COUNT IS PER-STRAND OVER A SET LARGER THAN ONE (kogaki#1131 AC3).
+  // (h) runs over a Brief with exactly ONE Journey-bearing Strand, where `N of
+  // N` and `1 of 1` are the same string and a counter that returned the size of
+  // its own key set would pass. The defect this Issue was filed on was `0 of 5`,
+  // so the fixture that closes it needs a set it can be wrong about: a Brief
+  // carrying TWO Journey-bearing Strands, one Candidate placing both through
+  // `journeys` and one placing neither.
+  //
+  // THE SECOND CITE IS INSERTED INTO THE MINTED DOCUMENT rather than minted
+  // from a second fixture Strand, because `journeyBearingStrands` reads the
+  // document and nothing else — the insert is the whole of what the fixture
+  // needs, and it is proved to have landed before anything is asserted over it.
+  ranCase("h2");
+  {
+    const docJ2 = doc0.replace(/^(### L1 — [^\n]*\n)/m,
+      "$1- journey cite: `gloss/ELEMENTS.jsonl slug=bravo kind=journey @0000000000000000000000000000000000000000`\n");
+    const j2 = journeyBearingStrands(docJ2);
+    if (JSON.stringify(j2) !== JSON.stringify(["L1", "L2"])) {
+      fails.push(`(h2) the two-Journey fixture did not land: journey-bearing members read ${JSON.stringify(j2)}, expected ["L1", "L2"] — every assertion below would be vacuous`);
+    } else {
+      const bothSteps = [
+        { ...JSON.parse(JSON.stringify(step1)), materials: ["L2", "thesis"], journeys: [{ strand: "L2", use: "contrast" }] },
+        { ...JSON.parse(JSON.stringify(step2)), journeys: [{ strand: "L1", use: "illustrate" }] },
+      ];
+      const both = fillBrief(docJ2, { steps: bothSteps });
+      if (both.error) fails.push(`(h2) a path placing every Journey-bearing Strand was refused: ${both.error}`);
+      else {
+        if (!/Journey placement count[^\n]*2 of 2/.test(both.doc)) fails.push("(h2) a Candidate placing both Journey-bearing Strands does not render 2 of 2");
+        if (/journey — \*\*OMITTED/.test(both.doc)) fails.push("(h2) a Candidate placing every Journey-bearing Strand still discloses an OMISSION — the disclosure reports omission over material the path placed, which is the false disclosure kogaki#1131 was filed on");
+        if (!/\*\*L1\*\* journey — placed by: s2/.test(both.doc) || !/\*\*L2\*\* journey — placed by: s1/.test(both.doc)) {
+          fails.push("(h2) the per-Strand placed-by lines do not name the Steps that placed each Journey — the count and the lines read different fields");
+        }
+      }
+      const none = fillBrief(docJ2, { steps: [step1, step2] });
+      if (none.error) fails.push(`(h2) a path placing NO journey material was REFUSED — §6.1 is place-or-disclose: ${none.error}`);
+      else {
+        if (!/Journey placement count[^\n]*0 of 2/.test(none.doc)) fails.push("(h2) a Candidate placing no Journey material does not render 0 of 2");
+        for (const id of ["L1", "L2"]) {
+          if (!new RegExp(`\\*\\*${id}\\*\\* journey — \\*\\*OMITTED, disclosed\\*\\*`).test(none.doc)) {
+            fails.push(`(h2) ${id}'s unplaced Journey is not disclosed — it dropped silently, which is the defect §6.1 MUST 1 names`);
+          }
+        }
+      }
+      // AC2: the THIRD rendering — the gate's journey axis — reads the same
+      // field as the two above. Two Candidates placing different Journey
+      // material must not read identically here; that is the property the
+      // figure exists to expose, and it was flat across every Candidate on the
+      // Brief kogaki#1131 was filed on.
+      const sids = selectedStrands(docJ2);
+      const eBoth = candidateEvidence({ ...JSON.parse(JSON.stringify(candA)), steps: bothSteps }, sids, j2);
+      const eNone = candidateEvidence({ ...JSON.parse(JSON.stringify(candA)), steps: [step1, step2] }, sids, j2);
+      if (!/2 of 2 Journey-bearing/.test(eBoth.journey_coverage || "")) fails.push(`(h2) the gate's journey axis disagrees with the Brief's own count for the placing Candidate: ${eBoth.journey_coverage}`);
+      if (/OMITTED/.test(eBoth.journey_coverage || "")) fails.push(`(h2) the gate's journey axis discloses an omission the path did not make: ${eBoth.journey_coverage}`);
+      if (!/0 of 2 Journey-bearing/.test(eNone.journey_coverage || "") || !/OMITTED and disclosed: L1, L2/.test(eNone.journey_coverage || "")) {
+        fails.push(`(h2) the omitting Candidate's journey axis does not disclose both Strands: ${eNone.journey_coverage}`);
+      }
+      if (eBoth.journey_coverage === eNone.journey_coverage) {
+        fails.push("(h2) two Candidates placing different Journey material read IDENTICALLY at the gate — the journey axis of Candidate differentiation carries no difference, which is what kogaki#1131 observed across every Candidate of the first completed Brief");
+      }
+    }
+  }
 
   // (i) PER-CANDIDATE journey coverage (§6.1: register is an axis Candidates
   // differ on, so the figure is per Candidate and never averaged across the
@@ -4777,11 +4878,30 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "leave behind — nothing prunes those, since pruning is a lane's first act and this member "
   + "never takes it, so an uncleaned member would re-create the unbounded accumulation it "
   + "asserts is over. (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
-  + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "
+  + "material is a distinct material, its placement DERIVED from "
   + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "
   + "NAME as unsupported completion, a Journey outside the closed set refused as a Brief fetch, "
-  + "and the no-Journey case vacuous rather than violated; (i) per-Candidate journey_coverage, "
+  + "and the no-Journey case vacuous rather than violated. THE COUNT MOVED FIELD AT kogaki#1131, "
+  + "REVERSING kogaki#1111: it is taken from the Step's `journeys` entries and no longer from a "
+  + "`<L-id>.journey` token in `materials`. #1111 declared `journeys`, had `journeysRefusal` validate "
+  + "it and `renderStep` render it, and left the count on the token — two readers of one fact, which "
+  + "disagreed on the first Brief written to `done`: four `journey:` lines rendered and all five Strands "
+  + "disclosed as OMITTED in the same document, a FALSE disclosure handed to /draft as a settled input. "
+  + "The fixtures place through `journeys` naming the Strand BARE, which is the shape that read as "
+  + "omitted; the two readers of ONE document are asserted to agree; and the reversed half is asserted "
+  + "by name — a `<L-id>.journey` token alone no longer places, while staying legal and still checked "
+  + "against the closed set and the served record, since an untested reversal reads exactly like an "
+  + "untested retention. (h2) THE COUNT IS PER-STRAND OVER A SET LARGER THAN ONE (kogaki#1131) — (h) "
+  + "runs over a Brief with exactly ONE Journey-bearing Strand, where `N of N` and `1 of 1` are the same "
+  + "string and a counter returning the size of its own key set would pass; the defect was `0 of 5`. A "
+  + "second journey cite is inserted into the minted document and PROVED to have landed before anything "
+  + "is asserted over it, then a Candidate placing both renders 2 of 2 with no OMITTED line and per-Strand "
+  + "placed-by lines naming the right Steps, a Candidate placing neither renders 0 of 2 with both disclosed, "
+  + "and the THIRD rendering — `journey_coverage` at the Candidate gate — agrees with both and DIFFERS "
+  + "between the two, which is the differentiation property that figure exists to carry and which was flat "
+  + "across every Candidate of the Brief this was filed on. NOT COVERED, stated rather than implied: whether "
+  + "a declared `use` serves the Move is judgment (§4.6) and nothing here grades it; (i) per-Candidate journey_coverage, "
   + "RE-POINTED FROM THE PAYLOAD TO THE DERIVATION at kogaki#859 — the amended ruling removed the evidence "
   + "object this case used to read, and display and computation are different questions with only the first "
   + "ruled on, so the per-Candidate property is asserted where it is now COMPUTED while the assembly call is "
@@ -4976,12 +5096,19 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "dropping the 2-3 count guard failed (e)'s single-Candidate refusal; dropping the "
   + "negation option failed (e)'s negates_premise assertion; skipping the thesis_closure "
   + "fill at adoption failed (f). kogaki#501's four: dropping the OMITTED-disclosed branch "
-  + "failed (h)'s disclosure assertion; matching a BARE L-id instead of `<L-id>.journey` — "
+  + "failed (h)'s disclosure assertion; matching a BARE L-id instead of the declared Journey — "
   + "the declined \"placing the Strand places its Journey\" option — failed (h)'s 0-of-1 "
   + "assertion, which is the direct evidence that option would have made MUST 1 "
   + "unfalsifiable; dropping the carries-none refusal failed (h)'s unsupported-completion "
   + "case; and computing journey coverage from something other than THIS Candidate's steps "
-  + "failed (i). kogaki#520's three: dropping the per-option `rendering` "
+  + "failed (i). THE FIRST OF THOSE FOUR WAS RE-RUN AT kogaki#1131 against the moved counter, "
+  + "because its wording named the field the count no longer reads and a mutation record that "
+  + "describes retired code is not evidence about the head: counting a bare `materials` L-id "
+  + "fails (c)'s 0-of-1 precondition, (h)'s token assertion and disclosure, and (h2)'s 0-of-2; "
+  + "and REVERTING the counter to the `<L-id>.journey` token — the state kogaki#1111 left, and "
+  + "the one this Issue reverses — fails (h)'s one-Brief contradiction assertion by name. "
+  + "kogaki#1131's two mutations are those, and they are recorded here rather than as a fifth "
+  + "bullet above because they re-run #501's own. kogaki#520's three: dropping the per-option `rendering` "
   + "failed (j)'s label assertions; neutering the deny to return clean failed (j)'s two "
   + "tripwire cases; and rendering each item under its KEY instead of its plain label was "
   + "refused BY THE TRIPWIRE ITSELF, failing (e) — the direct evidence that the generator fix "
