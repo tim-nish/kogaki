@@ -126,7 +126,8 @@ The layout is the Harness's contract, not a convention:
 
     runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
     runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
-    runs/review/<slug>/snapshots/     before/after per corrected Step
+    runs/review/<slug>/snapshots/     before/after per corrected Step, and per restore
+    runs/review/<slug>/passes.json    both passes side by side, one row per pair
     runs/review/<slug>/run.json
 
 `outline-input/<step>.md` is what the Blind Reader was handed;
@@ -160,9 +161,9 @@ consequence word — follows from the class and the verdict: a **preserved** fai
 is what sends its Step to correction, a **best-effort** one rides along, and a
 row pass two carried says `carried: true` on the row itself.
 
-`snapshots/` and `run.json` stay at the root: a snapshot pair spans the
-correction that separates two passes, and the run record is the one file every
-pass writes. **The correction inputs are pass one's** — `correct` only ever
+`snapshots/`, `passes.json` and `run.json` stay at the root: a snapshot pair
+spans the correction that separates two passes, `passes.json` is the one record
+*about* both passes, and the run record is the one file every pass writes. **The correction inputs are pass one's** — `correct` only ever
 discharges a verdict pass one recorded, and pass two turns a still-failing item
 into residue rather than into another correction. A later third pass is
 `pass-3/` and nothing else moves.
@@ -343,6 +344,47 @@ over the whole Draft. Every other pair is **carried** from pass one, marked as
 carried, at no model call. The bound is recorded in `check.json` rather than only
 applied. Pass two answers its own owed pairs by piping them into `check`, never
 into `compare`. A preserved item still failing after it is **residue**.
+
+## `check` refuses a regression (owner, 2026-09-17)
+
+**A corrected Step that FAILS in pass two a preserved item it HELD in pass one is
+RESTORED to its pass-one prose**, through the realization lane that wrote it, and
+the item the correction was made for returns to residue as still failing. In the
+first full review run this happened and nothing caught it: the regression was
+recorded as residue, indistinguishable from an item that failed in both passes,
+and the regressed prose stayed in the article — so the run's product was an
+article the review had made worse on a dimension the review itself measured.
+
+**Only the regressed Step is restored.** A later corrected Step keeps its
+corrected prose and carries no continuity mark. Continuity between Steps was
+settled at Reader Path design and holds while a Step is unchanged; ReviewDraft is
+not responsible for Step-to-Step continuity, so a restore reaching forward would
+be this Harness answering a question the Reader Path owns.
+
+**The correction input is unchanged.** The owner weighed an explicit
+edit-instruction stage and withdrew it: it would make some role responsible for
+repair advice whose quality nothing guarantees. A failure reason from the round
+trip is external feedback and stays what the corrector is handed. The remedy for
+a correction that breaks something is to undo it, not to coach it.
+
+The restore is recorded in `run.json`, in `check.json`, and in `review.md` under
+the Step it undid, with a snapshot pair of its own. A restored Step's rows carry
+**pass one's** verdicts, because the prose those verdicts were given on is the
+prose the Draft carries again.
+
+## `passes.json` — both passes side by side
+
+A completed `check` writes **`passes.json` at the run root**: one row per Step,
+item and pair, carrying pass one's verdict, pass two's, and one outcome word —
+**held**, **fixed**, **still-failing**, **regressed**, **carried**. JSON, not
+Markdown: it is a derived record read against the two it is derived from, and the
+prose surface a person reads is `review.md`.
+
+Comparing the passes meant reading `pass-1/join.json` and `pass-2/check.json`
+side by side by hand, and `regressed` is the word neither of them carries. A
+restored Step's `pass_2` is **the answer pass two gave**, not the pass-one answer
+the restore put back — showing `holds`/`holds` there would erase the event the
+guard fired on.
 
 ## The Blind Reader, and what it is blind to
 
