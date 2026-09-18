@@ -190,6 +190,36 @@ done < <(grep -oE 'review-draft\.mjs [a-z-]+' <<<"$USAGE" | awk '{print $2}' | s
 if (( BAD )); then exit 1; fi
 echo "ok: $SKILL names only paths and subcommands the Harness has, and names all of them"
 
+# --- AND BOTH CARRIERS NAME THE RESTORE AND `passes.json` (kogaki#1135).
+#
+# The Harness's usage and the skill are two carriers of one layout, and the
+# fixture pass asserts the usage's half from inside the runtime. The skill's half
+# is here for the reason the block above states about itself: the fixture reads
+# nothing of this repository outside `src/`, so `.claude/` is this member's to
+# read.
+#
+# WHAT THE FAILURE LOOKS LIKE WITHOUT IT: `check` writes a record at the run root
+# that neither surface names, and a run's two passes go on being compared by hand
+# against the file that was written to end that — a record a reader cannot find is
+# a record that was not written.
+BAD=0
+for needle in "passes.json" "restore"; do
+  if ! grep -qi -- "$needle" "$SKILL"; then
+    echo "FAIL: $SKILL does not name \`$needle\` — pass two writes one and undoes corrections with the other, and a reader of the skill would meet neither"
+    BAD=1
+  fi
+done
+if ! grep -q "passes.json" <<<"$USAGE"; then
+  echo "FAIL: the Harness's own usage does not name \`passes.json\`, which a completed \`check\` writes at the run root"
+  BAD=1
+fi
+if ! grep -q "REFUSES A REGRESSION" <<<"$USAGE"; then
+  echo "FAIL: the Harness's own usage does not state that \`check\` refuses a regression, which is the act that can undo a correction a session just recorded"
+  BAD=1
+fi
+if (( BAD )); then exit 1; fi
+echo "ok: the skill and the Harness's usage both name the regression restore and passes.json"
+
 # --- THE REVIEW LANE IS REGISTERED WHEREVER A LANE MUST BE (kogaki#750).
 #
 # `runs.mjs` refuses a lane outside its closed set and `keepLast` refuses when

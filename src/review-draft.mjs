@@ -2893,6 +2893,13 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
     run.correction_inputs[`${stepId}#figure`] = {
       path: dest, packet: freshPath, packet_sha: sha256(fresh),
       record: step.figure.record_path, record_sha: step.figure.record_sha,
+      // THE RECORD'S OWN BYTES, NOT ONLY ITS PATH AND SHA (kogaki#1135). The
+      // file at that path is overwritten by `draft.mjs figure` when the
+      // correction is recorded, so the sha afterwards names a document nothing
+      // holds — and a Step whose figure regressed in pass two is restored to
+      // the record the reader met, which is these bytes. The prose seat keeps
+      // its previous realization for the same reason, one field over.
+      record_text: readFileSync(step.figure.record_path, "utf8"),
       rendered: step.figure.rendered, rendered_at: new Date().toISOString(),
     };
     run.correcting = { step_id: stepId, seat: "figure", input: dest, since: new Date().toISOString() };
@@ -3286,12 +3293,274 @@ function passTwoBound(run, items) {
   return { inBound, corrected, successors, mechanical, successorItems: declaredSuccessor };
 }
 
+// ---------------------------------------------------------------------------
+// THE REGRESSION GUARD, AND THE TWO PASSES SIDE BY SIDE (kogaki#1135).
+//
+// WHAT WAS OBSERVED. In the first full review run, a corrected Step FAILED in
+// pass two an item it had HELD in pass one. The Harness recorded that as
+// residue, indistinguishable from an item that failed in both passes, and
+// nothing put the Step's pass-one prose back — so the run's product was an
+// article the review had made worse on a dimension the review itself measured,
+// reported as an item for the owner to classify.
+//
+// THE OWNER'S RULING (2026-09-17): `check` REFUSES A REGRESSION. The Step is
+// restored to the prose it carried in pass one, through the realization lane
+// that wrote it, and the item the correction was made for returns to residue as
+// still failing — which is the true report: the correction was attempted, it
+// broke something that held, and the state the run ends in is the state it
+// started from with the original finding intact.
+//
+// ONLY THE REGRESSED STEP IS RESTORED, and later corrected Steps are neither
+// restored nor marked. Continuity between Steps was settled at Reader Path
+// design and holds while a Step is unchanged; ReviewDraft is not responsible for
+// Step-to-Step continuity, so a restore that reached forward would be this
+// Harness answering a question the Reader Path owns.
+//
+// THE CORRECTION INPUT IS UNCHANGED. The owner weighed an explicit
+// edit-instruction stage and withdrew it: it would make some role responsible
+// for repair advice whose quality nothing guarantees. A failure reason from the
+// round trip is external feedback and stays what the corrector is handed.
+
+// PASS ONE'S ANSWER PER (Step, item, pair), read off the pass-one join record
+// rather than recomputed. A row with `pairs` answers per pair; a row the
+// Harness decided carries its answer on the row itself and has none.
+function passOneVerdicts(priorJoin) {
+  const m = new Map();
+  for (const r of priorJoin.results || []) {
+    if (Array.isArray(r.pairs) && r.pairs.length) {
+      for (const p of r.pairs) {
+        m.set(verdictKey(r.step_id, r.item, p.pair), { ...p, class: r.class, item: r.item, step_id: r.step_id });
+      }
+    } else {
+      m.set(verdictKey(r.step_id, r.item, r.pair === undefined ? null : r.pair), r);
+    }
+  }
+  return m;
+}
+
+// THE PAIRS A CORRECTED STEP LOST. Computed from the two records rather than
+// from the correction's own `held_preserved` list, which names ITEMS and is
+// per seat: the unit the restore turns on is the pair, and the two records are
+// where a pair's two readings sit. The class rule is the one that decides every
+// other consequence in this Harness — a PRESERVED item's fail is what sends a
+// Step to correction and what becomes residue, so it is what a regression is
+// measured on. A best-effort item that stops holding rides along exactly as its
+// fail does.
+function regressedPairs(run, priorJoin, results) {
+  const corrected = new Set((run.corrections || []).map((c) => c.step_id));
+  const one = passOneVerdicts(priorJoin);
+  const out = [];
+  for (const r of results) {
+    if (r.carried || r.owed || !corrected.has(r.step_id) || r.class !== "preserved") continue;
+    const pairs = Array.isArray(r.pairs) && r.pairs.length
+      ? r.pairs
+      : [{ pair: r.pair === undefined ? null : r.pair, verdict: r.verdict, reason: r.reason }];
+    for (const p of pairs) {
+      const key = verdictKey(r.step_id, r.item, p.pair);
+      const before = one.get(key);
+      if (!before || before.verdict !== "holds" || p.verdict !== "fails") continue;
+      out.push({ key, step_id: r.step_id, item: r.item, pair: p.pair === undefined ? null : p.pair,
+        pass_1: "holds", pass_2: "fails", reason: p.reason });
+    }
+  }
+  return out;
+}
+
+// RESTORE ONE STEP, THROUGH THE REALIZATION LANE. The same door `correct` used
+// to move the prose is the door that moves it back — a restore that wrote the
+// Draft here would be a second writer of the trace, which is the reason
+// `correct` enters the lane as a subprocess in the first place.
+//
+// EVERY SEAT THE STEP WAS CORRECTED IN GOES BACK, prose before figure, in the
+// order `correct` itself enforces and for its reason: the record's caption is
+// stated in what the reader holds after reading the passage. A Step corrected
+// in one seat restores one.
+//
+// PASS ONE'S READING COMES BACK WITH THE PROSE. The Reverse Outline pointer
+// returns to pass one's file and pass one's judged answers are written back
+// into the run's verdicts, because the prose those answers were given on is the
+// prose the Draft now carries again. Leaving pass two's answers beside restored
+// prose would be the defect this Harness exists to refuse — a recorded reading
+// about text that is gone — with the two halves swapped.
+function restoreRegressedStep(args, { draft, draftPath, ws, run, stepId, regressed, passTwoRows, priorJoin }) {
+  const inputs = run.correction_inputs || {};
+  const seats = (run.corrections || []).filter((c) => c.step_id === stepId)
+    .map((c) => c.seat || "prose");
+  const ordered = [...new Set(["prose", "figure"].filter((s) => seats.includes(s)))];
+  const snapDir = join(ws, "snapshots");
+  mkdirSync(snapDir, { recursive: true });
+  const seq = String((run.restores || []).length + 1).padStart(2, "0");
+  const before = join(snapDir, `r${seq}-before-restore-${stepId}.md`);
+  writeFileSync(before, draft.text);
+
+  for (const seat of ordered) {
+    if (seat === "prose") {
+      const rec = inputs[stepId];
+      // A REFUSAL, NEVER A SILENT SKIP. `correct` phase A reads the previous
+      // prose out while the Draft is still consistent and records it; a run
+      // whose record does not carry it cannot be put back, and continuing
+      // would leave the regressed prose in the article under a record saying
+      // it was restored.
+      if (!rec || typeof rec.prose !== "string") {
+        fail(`step ${stepId} failed in pass two an item it held in pass one, and this run's record `
+          + "carries no copy of the prose it held that item on, so there is nothing to restore it "
+          + "to. `correct` records the previous realization when it renders the correction input; a "
+          + "run whose record predates that cannot be restored, and re-opening the review on the "
+          + "current article is what starts one that can.");
+      }
+      withReplyFile(rec.prose.endsWith("\n") ? rec.prose : rec.prose + "\n", `${stepId}.prose.md`,
+        (p) => draftLane("section", draft, args, ["--step", stepId, "--file", p]));
+    } else {
+      const rec = inputs[`${stepId}#figure`];
+      if (!rec || typeof rec.record_text !== "string") {
+        fail(`step ${stepId}'s FIGURE was corrected and regressed in pass two, and this run's `
+          + "record carries no copy of the figure record the reader met, so there is nothing to "
+          + "restore it to. Re-open the review on the current article.");
+      }
+      withReplyFile(rec.record_text, `${stepId}.figure.json`,
+        (p) => draftLane("figure", draft, args, ["--step", stepId, "--file", p]));
+    }
+  }
+  draftLane("emit", draft, args, []);
+
+  const after = readDraft(draftPath);
+  const afterSteps = resolveInputs(after).steps;
+  const restored = afterSteps.find((s) => s.step_id === stepId);
+  if (!restored) fail(`step ${stepId} is absent from the re-emitted Draft's trace after its restore`);
+  // THE RESTORE IS CHECKED RATHER THAN CLAIMED. The lane re-assembles the body,
+  // and prose that came back different from the prose handed in would leave the
+  // run reporting a restore it did not make — the one failure this act cannot
+  // be allowed to make quietly, since everything downstream now reads pass
+  // one's verdicts against it.
+  if (ordered.includes("prose") && restored.prose.trim() !== String(inputs[stepId].prose).trim()) {
+    fail(`step ${stepId} was handed its pass-one prose and the re-emitted Draft carries something `
+      + "else, so the restore did not land. Nothing further is recorded: pass one's verdicts would "
+      + "otherwise be read against prose they were not given on.");
+  }
+  writeFileSync(join(snapDir, `r${seq}-after-restore-${stepId}.md`), after.text);
+
+  run.body_sha = after.body_sha;
+  run.steps = afterSteps.map((s) => ({
+    step_id: s.step_id, section: s.section, section_title: s.section_title,
+    lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
+  }));
+  run.outlineFields[stepId] = passReadPath(ws, 1, "outline", `${stepId}.json`);
+  if ((run.figureOutlineFields || {})[stepId]) {
+    run.figureOutlineFields[stepId] = passReadPath(ws, 1, "outline", `${stepId}.figure.json`);
+  }
+  const one = passOneVerdicts(priorJoin);
+  run.verdicts = run.verdicts || {};
+  let reinstated = 0;
+  for (const [key, v] of one) {
+    if (v.step_id !== undefined && v.step_id !== stepId) continue;
+    if (!key.startsWith(`${stepId}/`)) continue;
+    // ONLY A JUDGED ANSWER IS WRITTEN BACK. A mechanical item, a stated absence
+    // and an empty reverse side are COMPUTED from the Draft on every build, so
+    // recording one as a verdict would replace a fact with a copy of itself
+    // taken at another time — which `recordVerdicts` refuses by name when a
+    // session tries it.
+    if (v.judged !== true) continue;
+    run.verdicts[key] = { key, step_id: stepId, item: v.item, pair: v.pair === undefined ? null : v.pair,
+      verdict: v.verdict, reason: v.reason, model: v.model ?? null };
+    reinstated++;
+  }
+
+  run.restores = run.restores || [];
+  run.restores.push({
+    step_id: stepId,
+    seats: ordered,
+    pass: 2,
+    what: `restored to the prose this Step carried in pass one, through the realization lane, `
+      + `because pass two failed ${regressed.length} item pair(s) it had held`,
+    regressed: regressed.map((r) => ({ item: r.item, pair: r.pair, pass_1: r.pass_1,
+      pass_2: r.pass_2, reason: r.reason })),
+    // PASS TWO'S OWN ANSWERS FOR THIS STEP, KEPT. They are not the run's
+    // reading any more — the prose they were given on is gone — and they are
+    // the evidence that the restore happened at all, which is what `passes.json`
+    // renders in its `pass_2` column for these rows.
+    pass_two_rows: passTwoRows,
+    verdicts_reinstated: reinstated,
+    snapshot_before: before,
+    snapshot_after: join(snapDir, `r${seq}-after-restore-${stepId}.md`),
+    restored_at: new Date().toISOString(),
+  });
+  return after;
+}
+
+// THE TWO PASSES SIDE BY SIDE, ONE ROW PER (Step, item, pair) — `passes.json`
+// at the run root (kogaki#1135). Comparing the passes meant reading
+// `pass-1/join.json` and `pass-2/check.json` side by side by hand, and the
+// question a reader actually has of them — what did this pass DO to this pair —
+// is one word that neither record carries.
+//
+// JSON, NOT MARKDOWN, by the owner's ruling: it is a derived record for reading
+// against the two it is derived from, and the prose surface a person reads is
+// `review.md`.
+//
+// THE ROWS ARE PASS ONE'S KEYS. Pass one is the unbounded join over every Step,
+// item and pair, so it is the complete index; a key pass two produced that pass
+// one never answered is reported in `pass_two_only` rather than given an
+// outcome word, because none of the five is true of a pair with one reading.
+const PASS_OUTCOMES = ["held", "fixed", "still-failing", "regressed", "carried"];
+function buildPasses(run, priorJoin, results) {
+  const one = passOneVerdicts(priorJoin);
+  const two = new Map();
+  const carried = new Set();
+  const rowsOf = (rs) => {
+    const out = [];
+    for (const r of rs) {
+      if (Array.isArray(r.pairs) && r.pairs.length) {
+        for (const p of r.pairs) out.push([verdictKey(r.step_id, r.item, p.pair), p, r]);
+      } else {
+        out.push([verdictKey(r.step_id, r.item, r.pair === undefined ? null : r.pair), r, r]);
+      }
+    }
+    return out;
+  };
+  for (const [key, p, r] of rowsOf(results)) {
+    two.set(key, p);
+    if (r.carried) carried.add(key);
+  }
+  // A RESTORED STEP'S `pass_2` IS THE ANSWER PASS TWO GAVE, not the pass-one
+  // answer the restore put back in its place. The restore is what this file has
+  // to be able to show, and showing `holds`/`holds` for a pair that regressed
+  // would erase the very event the guard fired on.
+  for (const rec of run.restores || []) {
+    for (const [key, p] of rowsOf(rec.pass_two_rows || [])) { two.set(key, p); carried.delete(key); }
+  }
+
+  const rows = [];
+  const counts = Object.fromEntries(PASS_OUTCOMES.map((w) => [w, 0]));
+  for (const [key, before] of one) {
+    const after = two.get(key);
+    const p1 = before.verdict ?? null;
+    const reJudged = after !== undefined && !carried.has(key) && after.verdict !== undefined;
+    const p2 = reJudged ? after.verdict : null;
+    const outcome = !reJudged
+      ? "carried"
+      : (p1 === "holds"
+        ? (p2 === "holds" ? "held" : "regressed")
+        : (p2 === "holds" ? "fixed" : "still-failing"));
+    counts[outcome]++;
+    rows.push({ step_id: before.step_id ?? key.split("/")[0], item: before.item,
+      pair: before.pair === undefined ? null : before.pair,
+      class: before.class ?? null, pass_1: p1, pass_2: p2, outcome });
+  }
+  const passTwoOnly = [...two.keys()].filter((k) => !one.has(k));
+  return { rows, counts, pass_two_only: passTwoOnly };
+}
+
 function cmdCheck(args) {
   const draftPath = argString(args, "draft", "usage: review-draft check --draft <draft.md>   (verdicts on standard input record them)");
   // The same two-phase selection `compare` makes, and read at the same point
   // and for the same reason (kogaki#1100).
   const reply = readReply();
-  const draft = readDraft(draftPath);
+  // `let`, BECAUSE THE RESTORE RE-READS IT (kogaki#1135). A regressed Step is
+  // put back through the realization lane, which re-emits the article — so from
+  // that point on the Draft this act holds is a different document, and the
+  // join is rebuilt against the one on disk rather than against the one this
+  // line read.
+  let draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
   requireCurrent(run, draft);
@@ -3380,6 +3649,51 @@ function cmdCheck(args) {
     pass = buildJoin(draft, run, items, ws,
       { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
   }
+  // --- THE REGRESSION GUARD (kogaki#1135) ---------------------------------
+  // It fires only on a COMPLETE pass: a pair still owed has no pass-two answer,
+  // and a Step restored on a partial reading would be put back for a regression
+  // the rest of the pass might not have found — and the restore is not an act
+  // that can be taken twice.
+  //
+  // A STEP ALREADY RESTORED IS NOT RESTORED AGAIN. Verdicts are revisable by
+  // design, so a later answer can fail the same pair a second time; the prose
+  // is already pass one's by then, and a second restore would write a second
+  // record of one event.
+  const restoredAlready = new Set((run.restores || []).map((r) => r.step_id));
+  let restoredNow = [];
+  if (pass.owed.length === 0) {
+    const regressed = regressedPairs(run, priorJoin, pass.results)
+      .filter((r) => !restoredAlready.has(r.step_id));
+    // IN PATH ORDER, the order every act that moves prose runs in.
+    const order = run.steps.map((s) => s.step_id);
+    const steps = [...new Set(regressed.map((r) => r.step_id))]
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    for (const stepId of steps) {
+      draft = restoreRegressedStep(args, {
+        draft, draftPath, ws, run, stepId, priorJoin,
+        regressed: regressed.filter((r) => r.step_id === stepId),
+        passTwoRows: pass.results.filter((r) => r.step_id === stepId),
+      });
+      restoredNow.push(stepId);
+    }
+    if (restoredNow.length) {
+      writeRun(ws, run);
+      // THE JOIN IS REBUILT AGAINST THE RESTORED ARTICLE, and this is what
+      // makes the rest of this command true rather than a report about a Draft
+      // that no longer exists: the pair inputs are re-rendered from the prose
+      // the reader now meets, and the verdicts they carry are the ones pass one
+      // gave on exactly that prose.
+      pass = buildJoin(draft, run, items, ws,
+        { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
+    }
+  }
+  const restoredSteps = new Set((run.restores || []).map((r) => r.step_id));
+  // A ROW ON A RESTORED STEP SAYS SO. Its verdict is pass one's and its prose
+  // is pass one's, and a reader who could not tell it from a pair pass two
+  // re-judged and found holding would read the regression as never having
+  // happened.
+  for (const r of pass.results) if (restoredSteps.has(r.step_id)) r.restored = true;
+
   const { results, owed, modelCalls, mechanicalLog } = pass;
   const complete = owed.length === 0;
   const cleared = run.pass_cleared || 0;
@@ -3402,6 +3716,15 @@ function cmdCheck(args) {
       mechanical_items: [...bound.mechanical],
       verdicts_cleared: cleared,
     },
+    // WHAT PASS TWO PUT BACK (kogaki#1135), on the pass's own record rather
+    // than only in `run.json`: a reader of this file sees rows carrying pass
+    // one's verdicts on a corrected Step, and without this line the only
+    // reading of that is a second pass that agreed with the first.
+    restores: (run.restores || []).map((r) => ({
+      step_id: r.step_id, seats: r.seats, regressed: r.regressed,
+      snapshot_before: r.snapshot_before, snapshot_after: r.snapshot_after,
+      restored_at: r.restored_at,
+    })),
     results,
     owed,
     model_calls: modelCalls,
@@ -3417,7 +3740,9 @@ function cmdCheck(args) {
       + owed.map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
       + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
       + `  <verdicts.json> | node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path}\n`
-      + `check record: ${joinPath}\n`);
+      + `check record: ${joinPath}\n`
+      + "The regression guard and `passes.json` land when the pass is complete: a pair with no\n"
+      + "answer yet has no pass-two verdict to compare against pass one's.\n");
     // THE RUN RECORD IS WRITTEN ON THIS EXIT TOO (PR #1004 round 1, finding 3).
     // `buildJoin` registered pass two's join inputs in `run.pass_files` and
     // `recordVerdicts` may have taken answers into `run.verdicts`; a return
@@ -3449,12 +3774,47 @@ function cmdCheck(args) {
       // pass that read it (a carried row is pass one's whatever pass the run
       // reached) and whether a judge was handed a Packet for the chosen pair.
       pair: f.pair, carried: Boolean(f.carried), judged: chosenJudged(f),
+      // A RESTORED STEP'S RESIDUE SAYS WHICH PROSE IT IS ABOUT (kogaki#1135).
+      // Its Step was corrected and the correction was UNDONE, so "still failing
+      // after pass two" is true of the item and silent about the article: the
+      // prose the owner will open is pass one's, and the correction that was
+      // meant to fix this item is not in it.
+      ...(f.restored ? { restored: true } : {}),
       why: f.carried
         ? `${f.reason} — carried from pass one and NOT re-judged: this Step was not corrected, `
           + "so nothing in pass two read it again"
-        : `${f.reason} — still failing after pass two`,
+        : (f.restored
+          ? `${f.reason} — still failing, and the correction made for it was UNDONE: pass two `
+            + "failed an item this Step had held, so the Step was restored to its pass-one prose "
+            + "and this is that prose's own finding, unchanged"
+          : `${f.reason} — still failing after pass two`),
     }));
   run.checked_at = new Date().toISOString();
+
+  // `passes.json` AT THE RUN ROOT (kogaki#1135). Written once the pass is
+  // COMPLETE and not before: a row whose `pass_2` is "not answered yet" would
+  // need a sixth outcome word for a state that is not an outcome, and the two
+  // records this one is derived from are already on disk for anyone reading a
+  // pass mid-flight.
+  //
+  // AT THE ROOT rather than under a pass, and that is the layout's own rule
+  // rather than an exception to it: it is the one record that is about BOTH
+  // passes, like `run.json` and `snapshots/`, so it belongs where they are. A
+  // copy under `pass-2/` would be pass two writing a claim about pass one's
+  // reading in pass one's own vocabulary.
+  const passesPath = join(ws, "passes.json");
+  const passes = buildPasses(run, priorJoin, results);
+  writeFileSync(passesPath, JSON.stringify({
+    draft: run.draft, body_sha: run.body_sha, written_at: run.checked_at,
+    outcomes: passes.counts,
+    // A key pass two produced that pass one never answered. Empty on every run
+    // this Harness can currently produce, and named rather than dropped: the
+    // five outcome words are all about a pair with two readings, and a pair
+    // with one is a disagreement between the passes about what exists.
+    pass_two_only: passes.pass_two_only,
+    rows: passes.rows,
+  }, null, 2) + "\n");
+  run.passes_file = passesPath;
 
   writeRun(ws, run);
 
@@ -3485,11 +3845,27 @@ function cmdCheck(args) {
         + "  Their preserved fails are residue CARRIED from pass one, not re-judged by this pass;\n"
         + "  the owner record says so per line. `correct --step <id> [--figure]` is the act that changes that.\n"
       : "")
+    + (restoredNow.length
+      ? `RESTORED — pass two failed an item these Steps had HELD in pass one, so each is back at `
+        + `its pass-one prose: ${restoredNow.join(", ")}.\n`
+        + "  The correction was undone, not adjusted, and the item it was made for is residue\n"
+        + "  again. Only the regressed Step moved: a later corrected Step keeps its corrected\n"
+        + "  prose and carries no mark, because Step-to-Step continuity is the Reader Path's and\n"
+        + "  not this Harness's.\n"
+        + (run.restores || []).filter((r) => restoredNow.includes(r.step_id))
+          .map((r) => `  ${r.step_id}  held then failed: `
+            + `${r.regressed.map((x) => x.item).join(", ")}\n`
+            + `          snapshots ${r.snapshot_before}\n`
+            + `                    ${r.snapshot_after}\n`).join("")
+      : "")
     + (run.residue.length
       ? `residue — preserved item(s) reaching the owner to classify: `
         + `${run.residue.map((r) => `${r.step_id}/${r.item}`).join(", ")}\n`
       : "no preserved item fails after pass two, so the residue is empty.\n")
     + `check record: ${joinPath}\n`
+    + `both passes:  ${passesPath} — one row per Step, item and pair, with each pass's\n`
+    + "              verdict and one outcome word: "
+    + `${PASS_OUTCOMES.join(", ")}.\n`
     + "`close --draft <draft.md>` writes the owner record.\n");
 }
 
@@ -3604,8 +3980,19 @@ function evidenceLines(ws, run) {
     out.push("- **Pass 2 — `check`.** Did not run, so there is no `pass-2/`.");
   }
   out.push("",
-    `- **Snapshots.** \`${rel("snapshots")}/\` — the article before and after each correction.`,
+    `- **Snapshots.** \`${rel("snapshots")}/\` — the article before and after each correction,`,
+    "  and, where pass two undid one, before and after each **restore**.",
     `- **Run record.** \`${rel("run.json")}\` — every path above, per Step, as it was written.`);
+  // THE ONE RECORD ABOUT BOTH PASSES (kogaki#1135). Named only where `check`
+  // ran, by the same rule the `pass-2/` block above follows: a legend line
+  // pointing at a file nothing wrote sends the owner to an absence.
+  if (run.checked_at) {
+    out.push(
+      `- **Both passes.** \`${rel("passes.json")}\` — one row per Step, item and pair, carrying`,
+      `  pass one's verdict, pass two's, and one outcome word: ${PASS_OUTCOMES.join(", ")}.`,
+      "  Comparing the passes meant reading the two join records side by side by hand;",
+      "  `regressed` is the word neither of them carries.");
+  }
   return out;
 }
 
@@ -3706,7 +4093,14 @@ function cmdClose(args) {
       + " — restored to the article this run read, byte for byte.",
     `- **Reviewed Draft.** \`${relative(dirname(out), reviewedPath) || REVIEWED_BASENAME}\``
       + (firstSnapshot
-        ? ` — the article with this run's ${run.corrections.length} correction(s) in it.`
+        ? ` — the article with this run's ${run.corrections.length} correction(s) in it`
+          // A RESTORED STEP'S CORRECTION IS NOT IN IT (kogaki#1135), and the
+          // count above is of corrections MADE. Saying only the count would
+          // describe a document that does not exist.
+          + ((run.restores || []).length
+            ? `, less the ${run.restores.length} undone by pass two `
+              + `(${run.restores.map((r) => r.step_id).join(", ")}).`
+            : ".")
         : " — no correction was made, so it is byte-identical to the Draft above."),
     `- **Body sha.** \`${run.body_sha}\``,
     `- **Opened.** ${run.opened_at}`,
@@ -3774,6 +4168,20 @@ function cmdClose(args) {
       lines.push(`- **${c.step_id}** (pass ${c.pass}) — ${c.what}`);
       if (c.change_share !== undefined) lines.push(`  - change share: ${c.change_share}`);
       if (c.packet_overlap !== undefined) lines.push(`  - packet overlap: ${c.packet_overlap}`);
+      // THE RESTORE IS RECORDED UNDER THE STEP IT UNDID (kogaki#1135), beside
+      // the correction rather than in a list of its own: what the owner is
+      // reading here is what happened to this Step, and a correction whose
+      // effect was removed is not a correction the article carries.
+      for (const r of (run.restores || []).filter((x) => x.step_id === c.step_id)) {
+        lines.push(`  - **RESTORED in pass two.** ${r.what}. The corrected prose is not in the `
+          + "article; this Step carries the prose it carried in pass one.");
+        for (const g of r.regressed) {
+          lines.push(`    - \`${g.item}\`${g.pair === null || g.pair === undefined ? "" : ` pair ${g.pair}`}`
+            + ` — held in pass one, failed in pass two: ${g.reason}`);
+        }
+        lines.push(`    - before: \`${relative(dirname(out), r.snapshot_before) || r.snapshot_before}\``,
+          `    - after: \`${relative(dirname(out), r.snapshot_after) || r.snapshot_after}\``);
+      }
     }
     lines.push("");
   }
@@ -3851,13 +4259,15 @@ than a convention:
 
   runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
   runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
-  runs/review/<slug>/snapshots/    before/after per corrected Step
+  runs/review/<slug>/snapshots/    before/after per corrected Step, and per restore
+  runs/review/<slug>/passes.json   both passes side by side, one row per pair
   runs/review/<slug>/run.json
 
 Every pass writes only under its own directory, and a write that would land on a
 file another pass wrote is REFUSED BY NAME. A later third pass is \`pass-3/\` and
-nothing else moves. \`snapshots/\` and \`run.json\` stay at the root: a snapshot
-pair spans the correction that separates two passes, and the run record is the
+nothing else moves. \`snapshots/\`, \`passes.json\` and \`run.json\` stay at the
+root: a snapshot pair spans the correction that separates two passes,
+\`passes.json\` is the one record ABOUT both passes, and the run record is the
 one file every pass writes. \`corrections/\` is PASS ONE'S ONLY — \`correct\`
 discharges a verdict pass one recorded, and pass two turns a still-failing item
 into residue rather than into another correction — so pass two has none.
@@ -3911,6 +4321,21 @@ continuity item on each corrected Step's successor, and every mechanical
 item over the whole Draft. Every other pair is CARRIED from pass one, marked as
 carried, at no model call. A preserved item still failing after pass two is
 residue, and \`close\` hands it to the owner with an empty \`classified:\` field.
+
+\`check\` REFUSES A REGRESSION. A corrected Step that FAILS in pass two a
+preserved item it HELD in pass one is RESTORED to its pass-one prose, through
+the realization lane that wrote it, and the item the correction was made for
+returns to residue as still failing. Only the regressed Step moves: a later
+corrected Step keeps its corrected prose and carries no mark, because
+Step-to-Step continuity was settled at Reader Path design and is not this
+Harness's. The restore is recorded in \`run.json\`, in \`check.json\`, and in
+\`review.md\` under the Step it undid, with a snapshot pair of its own.
+
+A completed \`check\` also writes \`passes.json\` at the run root: one row per
+Step, item and pair, carrying pass one's verdict, pass two's, and one outcome
+word — held, fixed, still-failing, regressed, carried. Comparing the two passes
+meant reading \`pass-1/join.json\` and \`pass-2/check.json\` side by side by hand,
+and \`regressed\` is the word neither of them carries.
 
 \`compare\` decides the mechanical items itself and renders one join Packet per
 judged pair; a verdicts reply piped in records the answers. It emits one line per (Step,
@@ -7916,6 +8341,332 @@ async function runSelfTest() {
       ok("#1006: and every pointer the record composes resolves",
         gptrs.length > 0 && gptrs.every((f) => existsSync(resolve(process.cwd(), f))),
         gptrs.filter((f) => !existsSync(resolve(process.cwd(), f))).join(", "));
+    }
+  }
+
+  // ---- kogaki#1135 ------------------------------------------------------
+  // A CORRECTION THAT BREAKS WHAT HELD IS UNDONE, AND THE TWO PASSES ARE LAID
+  // SIDE BY SIDE.
+  //
+  // WHAT WAS OBSERVED, in the first full review run: a corrected Step failed in
+  // pass two an item it had HELD in pass one, and the Harness recorded that as
+  // residue — indistinguishable from an item that failed in both passes — while
+  // leaving the regressed prose in the article. The run's product was an article
+  // the review had made worse on a dimension the review itself measured.
+  //
+  // ITS OWN BRIEF, for the reason the #880, #945 and #1132 drives state about
+  // theirs: the correction drive above turns on which preserved item fails on
+  // which Step, and a regression added to it would move cases that measure
+  // something else. This one is built for one arrangement — c1 regresses and
+  // c2's correction holds — because that is what acceptance 2 names, and it is
+  // also what produces one row of every outcome word for acceptance 3.
+  {
+    const draftCli = join(dirname(self), "draft.mjs");
+    const gRoot = join(root, "regression");
+    const gBrief = join(gRoot, "theses", "regression-fixture");
+    const gMoves = join(gRoot, "moves");
+    const gWs = join(gRoot, "ws-draft");
+    mkdirSync(gBrief, { recursive: true });
+    mkdirSync(gMoves, { recursive: true });
+    writeFileSync(join(gMoves, "plain_move.md"), [
+      "id: plain_move", "status: observed",
+      "intent: >-", "  carry the claim one step further.",
+      "requires: >-", "  the reader holds what the previous passage settled.",
+      "effect: >-", "  the reader holds one more consequence.",
+      "constraints: >-", "  never re-open what the earlier passage settled.",
+      "failure_modes: >-", "  restating the previous passage in new words.",
+      "excerpt: >-", "  the author's account of the movement they observed.",
+    ].join("\n") + "\n");
+    // c1 INTRODUCES A TERM, for the reason the correction drive's Brief does:
+    // `already-knows` is the successor arm's one item and carries a
+    // `when_declared_absent` arm, so a Brief introducing nothing would leave
+    // every `already knows` list empty, the Harness would decide all three rows
+    // with no model call, and the `carried` outcome this fixture asserts would
+    // have no judged pair to ride on.
+    writeFileSync(join(gBrief, "brief.md"), [
+      "# Brief — regression-fixture", "",
+      "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+      "## Strands", "",
+      "### L1 — first-strand", "",
+      "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+      "## Thesis", "", "The fixture claim.", "",
+      "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+      "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
+      "## Opening question", "", "What makes the fixture claim worth stating?", "",
+      "## Sequence", "",
+      "```step", "step_id: c1", "move: plain_move", "opens_section: The only heading",
+      "purpose: the job c1 does.",
+      "reader_state_before: the reader arrives at c1 holding nothing in particular.",
+      "reader_state_after: the reader leaves c1 able to say what separates the two harbours.",
+      "materials: L1",
+      "introduces: harbour",
+      "rationale: c1 sits here because the path put it here.",
+      "claim (strand L1): the first harbour keeps its own hours.",
+      "```", "",
+      "```step", "step_id: c2", "move: plain_move",
+      "purpose: the job c2 does.",
+      "reader_state_before: the reader arrives at c2 holding what c1 settled.",
+      "reader_state_after: the reader leaves c2 able to say who did the measuring.",
+      "materials: L1",
+      "rationale: c2 sits here because the path put it here.",
+      "claim (strand L1): a table records what somebody measured on days somebody chose.",
+      "```", "",
+      "```step", "step_id: c3", "move: plain_move",
+      "purpose: the job c3 does.",
+      "reader_state_before: the reader arrives at c3 holding what c2 settled.",
+      "reader_state_after: the reader leaves c3 able to say what the measurement is worth.",
+      "materials: L1",
+      "rationale: c3 sits here because the path put it here.",
+      "claim (strand L1): a skipper reading the table is reading a person's chosen days.",
+      "```", "",
+    ].join("\n"));
+
+    const gdl = (cmd, ...extra) => spawnSync(process.execPath,
+      [draftCli, cmd, "--brief", join(gBrief, "brief.md"), "--workspace", gWs, "--moves-dir", gMoves, ...extra],
+      { encoding: "utf8" });
+    const gFile = (name, text) => { const f = join(gRoot, name); writeFileSync(f, text + "\n"); return f; };
+    const ORIGINAL = {
+      c1: "One harbour keeps its own hours and the next keeps others, and the water they are both read against is the same water.",
+      c2: "The hours are written down each spring, and the writing is what makes them argue rather than what settles them.",
+      c3: "A skipper reading either set of hours is reading a measurement, and the question worth asking is who was standing there.",
+    };
+    let gBuilt = gdl("resolve").status === 0;
+    for (const id of ["c1", "c2", "c3"]) {
+      gBuilt = gBuilt && gdl("section", "--step", id, "--file", gFile(`g-${id}.md`, ORIGINAL[id])).status === 0;
+    }
+    gBuilt = gBuilt && gdl("emit").status === 0;
+    const gDraft = join(gBrief, "draft.md");
+    ok("#1135: the realization lane produces a real Draft for the regression drive",
+      gBuilt && existsSync(gDraft));
+
+    const gwsBase = join(gRoot, "ws-review");
+    const gWsRun = join(gwsBase, "regression-fixture");
+    const GD = (...a) => selfRun(
+      [self, ...a, "--draft", gDraft, "--workspace", gwsBase,
+        "--draft-workspace", gWs, "--moves-dir", gMoves]);
+    const gRec = (id, tag) => {
+      const f = join(gRoot, `rec-${tag}-${id}.md`);
+      writeFileSync(f, [
+        "```step", `step_id: ${id}`,
+        `purpose: the job ${id} does`,
+        `reader_state_before: the reader arrives at ${id} holding what came before`,
+        `reader_state_after: the reader leaves ${id} able to say what it settled`,
+        `claim the material supports what ${id} asserts, as the passage has it`,
+        "```",
+      ].join("\n") + "\n");
+      return f;
+    };
+    // Answer every pair the record says was asked, failing exactly the named
+    // (Step, item)s. Driven off the record's OWN list rather than a transcribed
+    // one, for the reason `answerOwed` gives: a transcript would pass while the
+    // Harness asked about something else.
+    const gAnswer = (recordPath, tag, failKeys, from = "owed") => {
+      const rec0 = existsSync(recordPath) ? JSON.parse(readFileSync(recordPath, "utf8")) : {};
+      const asked = from === "owed" ? (rec0.owed || []) : (rec0.model_calls || []);
+      const f = join(gRoot, `verdicts-${tag}.json`);
+      writeFileSync(f, JSON.stringify({
+        verdicts: asked.map((o) => {
+          const failing = failKeys.includes(`${o.step_id}/${o.item}`);
+          return {
+            step_id: o.step_id, item: o.item,
+            ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
+            verdict: failing ? "fails" : "holds",
+            reason: failing
+              ? "the outlined reader would not be the declared one"
+              : "the declared line and the outlined one agree",
+            model: JUDGE_MODEL,
+          };
+        }),
+      }, null, 2) + "\n");
+      return f;
+    };
+
+    GD("open");
+    for (const id of ["c1", "c2", "c3"]) GD("outline", "--step", id, "--file", gRec(id, "p1"));
+    GD("compare");
+    const gJoin = join(gWsRun, "pass-1", "join.json");
+    // PASS ONE: c1 fails one preserved item, c2 fails two. Both go to
+    // correction; c3 is corrected by nothing and is c2's successor.
+    const gP1 = GD("compare", "--verdicts", gAnswer(gJoin, "p1",
+      ["c1/reader-state-after", "c2/reader-state-before", "c2/claims"]));
+    ok("#1135: pass one sends both failing Steps to correction",
+      gP1.status === 0 && /Steps sent to correction[^\n]*c1, c2/.test(gP1.stdout),
+      (gP1.stderr || "").slice(0, 200));
+
+    const CORRECTED = {
+      c1: "One harbour keeps hours of its own and the next keeps hours of its own, and the tide beneath them is one tide.\n\nThat is what the reader is asked to hold, and holding it is the whole of what this passage is for.",
+      c2: "The hours are set down each spring by a person, and a skipper who trusts the setting-down has trusted that person rather than the water.",
+    };
+    GD("correct", "--step", "c1");
+    const gC1 = GD("correct", "--step", "c1", "--file", gFile("g-c1-corrected.md", CORRECTED.c1));
+    GD("correct", "--step", "c2");
+    const gC2 = GD("correct", "--step", "c2", "--file", gFile("g-c2-corrected.md", CORRECTED.c2));
+    ok("#1135: both corrections record through the realization lane",
+      gC1.status === 0 && gC2.status === 0,
+      `${(gC1.stderr || "").slice(0, 120)} | ${(gC2.stderr || "").slice(0, 120)}`);
+    ok("#1135: and the corrected prose is what the article carries going into pass two",
+      readOrEmpty(gDraft).includes(CORRECTED.c1) && readOrEmpty(gDraft).includes(CORRECTED.c2)
+      && !readOrEmpty(gDraft).includes(ORIGINAL.c1));
+
+    GD("check");
+    for (const id of ["c1", "c2"]) GD("outline", "--step", id, "--file", gRec(id, "p2"));
+    const gCheckPath = join(gWsRun, "pass-2", "check.json");
+    GD("check");
+    // PASS TWO. c1 FAILS `reader-state-before`, which it HELD in pass one — the
+    // regression. c2's own failed `reader-state-before` now holds and its
+    // `claims` still fails, so c2 carries a `fixed` and a `still-failing` and is
+    // not restored.
+    const gP2 = GD("check", "--verdicts", gAnswer(gCheckPath, "p2",
+      ["c1/reader-state-before", "c2/claims"]));
+    ok("#1135 AC1: `check` completes over the regressed pass and does not refuse it",
+      gP2.status === 0, `status ${gP2.status}: ${(gP2.stderr || "").split("\n")[0]}`);
+
+    // --- ACCEPTANCE 1: the Step is restored, the restore is recorded, and the
+    //     correction's own failed item is residue.
+    ok("#1135 AC1: the regressed Step is RESTORED to the prose it carried in pass one",
+      readOrEmpty(gDraft).includes(ORIGINAL.c1) && !readOrEmpty(gDraft).includes(CORRECTED.c1),
+      readOrEmpty(gDraft).includes(CORRECTED.c1) ? "the corrected prose is still there" : "c1's pass-one prose is absent");
+    ok("#1135 AC1: and `check` says so, naming the Step and what it held then failed",
+      /RESTORED — pass two failed an item these Steps had HELD/.test(gP2.stdout)
+      && /c1 {2}held then failed: reader-state-before/.test(gP2.stdout),
+      gP2.stdout.split("\n").filter((l) => /RESTORED|held then failed/.test(l)).join(" | ") || "(no line)");
+    const gRun = JSON.parse(readOrEmpty(join(gWsRun, "run.json")) || "{}");
+    ok("#1135 AC1: the restore is recorded in run.json, on the Step it undid",
+      (gRun.restores || []).length === 1 && gRun.restores[0].step_id === "c1"
+      && (gRun.restores[0].regressed || []).some((x) => x.item === "reader-state-before"
+        && x.pass_1 === "holds" && x.pass_2 === "fails"),
+      JSON.stringify((gRun.restores || []).map((r) => r.step_id)));
+    ok("#1135 AC1: with a snapshot pair of its own, before and after",
+      (gRun.restores || []).length === 1
+      && existsSync(gRun.restores[0].snapshot_before) && existsSync(gRun.restores[0].snapshot_after)
+      && readOrEmpty(gRun.restores[0].snapshot_before).includes(CORRECTED.c1)
+      && readOrEmpty(gRun.restores[0].snapshot_after).includes(ORIGINAL.c1));
+    ok("#1135 AC1: the correction's own failed item is residue again, as still failing",
+      (gRun.residue || []).some((r) => r.step_id === "c1" && r.item === "reader-state-after"),
+      (gRun.residue || []).map((r) => `${r.step_id}/${r.item}`).join(", ") || "(empty)");
+    ok("#1135 AC1: and its line says the correction made for it was UNDONE",
+      (gRun.residue || []).some((r) => r.step_id === "c1" && r.item === "reader-state-after"
+        && /UNDONE/.test(r.why) && /restored to its pass-one prose/.test(r.why)),
+      ((gRun.residue || []).find((r) => r.step_id === "c1") || {}).why || "(no line)");
+    // DISCRIMINATION: a residue line on a Step that was NOT restored still reads
+    // as it always did. Without this the case above would pass on a run that
+    // wrote the restore sentence onto every residue line.
+    ok("#1135 AC1 DISCRIMINATION: a residue line on an unrestored Step reads unchanged",
+      (gRun.residue || []).some((r) => r.step_id === "c2" && r.item === "claims"
+        && /still failing after pass two/.test(r.why) && !/UNDONE/.test(r.why)),
+      ((gRun.residue || []).find((r) => r.step_id === "c2") || {}).why || "(no line)");
+    // AND PASS ONE'S READING CAME BACK WITH THE PROSE. The rows for a restored
+    // Step carry pass one's verdicts, because the prose they were given on is
+    // the prose the Draft carries again — a pass-two verdict left standing
+    // beside restored prose would be a recorded reading about text that is gone,
+    // which is the defect this whole Harness is about.
+    {
+      const gChk = JSON.parse(readOrEmpty(gCheckPath) || "{}");
+      const rowOf = (s, i) => (gChk.results || []).find((r) => r.step_id === s && r.item === i);
+      ok("#1135 AC1: a restored Step's rows carry pass one's verdict and say they are restored",
+        rowOf("c1", "reader-state-before")?.verdict === "holds"
+        && rowOf("c1", "reader-state-before")?.restored === true
+        && rowOf("c1", "reader-state-after")?.verdict === "fails",
+        JSON.stringify((gChk.results || []).filter((r) => r.step_id === "c1")
+          .map((r) => `${r.item}:${r.verdict}`)));
+      ok("#1135 AC1: and the pass's own record names the restore",
+        (gChk.restores || []).length === 1 && gChk.restores[0].step_id === "c1");
+    }
+
+    // --- ACCEPTANCE 2: restoring a Step touches no other Step --------------
+    ok("#1135 AC2: the later corrected Step keeps its corrected prose",
+      readOrEmpty(gDraft).includes(CORRECTED.c2) && !readOrEmpty(gDraft).includes(ORIGINAL.c2));
+    ok("#1135 AC2: and carries no continuity mark — no restore record, no marked row",
+      !(gRun.restores || []).some((r) => r.step_id === "c2")
+      && !(JSON.parse(readOrEmpty(gCheckPath) || "{}").results || [])
+        .some((r) => r.step_id !== "c1" && r.restored));
+    ok("#1135 AC2: and the Step neither corrected nor restored is untouched too",
+      readOrEmpty(gDraft).includes(ORIGINAL.c3));
+
+    // --- ACCEPTANCE 3: `passes.json`, one row per outcome word -------------
+    const gPasses = JSON.parse(readOrEmpty(join(gWsRun, "passes.json")) || "{}");
+    ok("#1135 AC3: `passes.json` is written at the RUN ROOT, beside run.json",
+      existsSync(join(gWsRun, "passes.json"))
+      && !existsSync(join(gWsRun, "pass-2", "passes.json")));
+    ok("#1135 AC3: every row is keyed by Step, item and pair and carries both passes",
+      (gPasses.rows || []).length > 0
+      && gPasses.rows.every((r) => typeof r.step_id === "string" && typeof r.item === "string"
+        && "pair" in r && "pass_1" in r && "pass_2" in r && "outcome" in r),
+      `${(gPasses.rows || []).length} row(s)`);
+    // THE ACCEPTANCE ITSELF: one row per outcome word, on this fixture. Each
+    // word is asserted with the pair it is true of, not merely counted — a
+    // count alone would pass on five rows all labelled the same way if the
+    // labelling were wrong in a compensating direction.
+    const gRow = (s, i) => (gPasses.rows || []).find((r) => r.step_id === s && r.item === i);
+    for (const w of ["held", "fixed", "still-failing", "regressed", "carried"]) {
+      ok(`#1135 AC3: at least one row carries the outcome \`${w}\``,
+        (gPasses.rows || []).some((r) => r.outcome === w),
+        JSON.stringify(gPasses.outcomes || {}));
+    }
+    ok("#1135 AC3: `regressed` is the pair that held in pass one and failed in pass two",
+      gRow("c1", "reader-state-before")?.outcome === "regressed"
+      && gRow("c1", "reader-state-before")?.pass_1 === "holds"
+      && gRow("c1", "reader-state-before")?.pass_2 === "fails",
+      JSON.stringify(gRow("c1", "reader-state-before") || null));
+    ok("#1135 AC3: and the restore does not erase it — pass_2 is the answer pass two gave",
+      gRow("c1", "reader-state-before")?.pass_2 === "fails");
+    ok("#1135 AC3: `fixed` is the pair that failed in pass one and holds in pass two",
+      gRow("c2", "reader-state-before")?.outcome === "fixed",
+      JSON.stringify(gRow("c2", "reader-state-before") || null));
+    ok("#1135 AC3: `still-failing` is the pair that failed in both",
+      gRow("c2", "claims")?.outcome === "still-failing",
+      JSON.stringify(gRow("c2", "claims") || null));
+    ok("#1135 AC3: `held` is a re-judged pair that held in both",
+      gRow("c2", "reader-state-after")?.outcome === "held",
+      JSON.stringify(gRow("c2", "reader-state-after") || null));
+    ok("#1135 AC3: `carried` is a pair pass two never re-judged, and its pass_2 is empty",
+      gRow("c3", "reader-state-after")?.outcome === "carried"
+      && gRow("c3", "reader-state-after")?.pass_2 === null,
+      JSON.stringify(gRow("c3", "reader-state-after") || null));
+    ok("#1135 AC3: and the counts render the same reading as the rows",
+      ["held", "fixed", "still-failing", "regressed", "carried"]
+        .every((w) => (gPasses.outcomes || {})[w] === gPasses.rows.filter((r) => r.outcome === w).length),
+      JSON.stringify(gPasses.outcomes || {}));
+    ok("#1135 AC3: and no pair of pass two is missing from pass one's index",
+      Array.isArray(gPasses.pass_two_only) && gPasses.pass_two_only.length === 0,
+      (gPasses.pass_two_only || []).join(", "));
+
+    // --- ACCEPTANCE 4: the owner record names the restore and passes.json ---
+    const gCl = GD("close");
+    const gRev = readOrEmpty(join(gBrief, "review.md"));
+    ok("#1135 AC4: close writes the owner record over a run that restored",
+      gCl.status === 0 && gRev.length > 0, (gCl.stderr || "").split("\n")[0]);
+    ok("#1135 AC4: and records the restore UNDER the Step it undid",
+      /- \*\*c1\*\* \(pass 1\)[^]*?- \*\*RESTORED in pass two\.\*\*/.test(gRev),
+      (gRev.split("\n").filter((l) => /RESTORED/.test(l)).join(" | ") || "(no line)"));
+    ok("#1135 AC4: naming the item that held then failed, with the reason",
+      /held in pass one, failed in pass two: /.test(gRev));
+    ok("#1135 AC4 DISCRIMINATION: and writes no such line under the Step that was not restored",
+      !/- \*\*c2\*\*[^]*?RESTORED in pass two/.test(gRev.slice(gRev.indexOf("## Corrections"),
+        gRev.indexOf("## Residue"))));
+    ok("#1135 AC4: the layout legend names `passes.json` and what its rows carry",
+      /\*\*Both passes\.\*\* `[^`]*passes\.json`/.test(gRev)
+      && /held, fixed, still-failing, regressed, carried/.test(gRev),
+      (gRev.split("\n").find((l) => /passes\.json/.test(l)) || "(no line)"));
+    ok("#1135 AC4: and the reviewed Draft's line says which corrections pass two undid",
+      /less the one undone by pass two \(c1\)|less the 1 undone by pass two \(c1\)/.test(gRev),
+      (gRev.split("\n").find((l) => /Reviewed Draft/.test(l)) || "(no line)"));
+    ok("#1135 AC4: every pointer the record composes still resolves over a restored run",
+      (() => {
+        const p = [...gRev.matchAll(/^ {2,4}- (?:Reverse Outline|the pair the judge saw|before|after): `([^`]+)`/gm)]
+          .map((m) => m[1]);
+        return p.length > 0 && p.every((f) => existsSync(resolve(dirname(join(gBrief, "review.md")), f)));
+      })());
+
+    // THE HARNESS'S OWN USAGE NAMES IT (acceptance 4's other half). The skill's
+    // half is asserted in checks/check-review-draft-runtime.sh, where the
+    // skill's other text-level properties already are: this pass reads nothing
+    // of this repository outside `src/`, and a fixture reaching up the tree for
+    // `.claude/` would be the first read that does.
+    {
+      const gu = selfRun([self]);
+      ok("#1135 AC4: the Harness's usage names `passes.json` and the regression refusal",
+        /passes\.json/.test(gu.stdout) && /REFUSES A REGRESSION/.test(gu.stdout));
     }
   }
 
