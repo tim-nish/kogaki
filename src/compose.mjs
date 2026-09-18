@@ -210,6 +210,51 @@ function journeyUses() {
 }
 const SLOT = "*(awaiting composition)*";
 
+// ---- THE RULES OVER THE WHOLE PATH, READ FROM THE SCHEMA (kogaki#1147) ----
+//
+// The field descriptions above are rendered into the composition prompt and
+// the field SET is read back here. The rules over the whole path had neither
+// half: `validateSteps` and `sectionGroupingRefusal` enforced the Section
+// grouping, the `depends_on` ordering, the uniqueness of an id and the claim
+// cardinality, and no text a composer reads before composing stated any of
+// them. Two /brief runs on 2026-09-18 died at `compose_path` on the Section
+// grouping's rule 4 having satisfied every field-level rule they were shown:
+// the rule can be met by chance on a first attempt, and otherwise is learned
+// from a refusal that has already spent one of three attempts.
+//
+// SO THE REFUSAL TEXT IS THE SCHEMA'S. `path_rules` in src/step-schema.json
+// carries each rule with the `name` the refusal says first and the `rule` as
+// the validator checks it; every refusal below embeds that text verbatim and
+// adds only what is specific to the path in hand — which Step, which Strand,
+// which Section. The prompt and the refusal are one text for the reason the
+// field set already is: two carriers agree until one is edited.
+//
+// A MISSING ENTRY THROWS, and loudly, on the shape `stepFieldPresent` already
+// uses one field over: a rule the validator raises and the schema does not
+// carry is exactly the drift this arrangement removes, arriving from the
+// inside, and a silent fallback to hardcoded wording is what would hide it.
+export function pathRules() {
+  return stepSchema().path_rules || {};
+}
+export function pathRule(key) {
+  const r = pathRules()[key];
+  if (!r || typeof r.name !== "string" || r.name === "" || typeof r.rule !== "string" || r.rule === "") {
+    throw new Error(`src/step-schema.json carries no \`path_rules.${key}\` with a name and a rule, and `
+      + "src/compose.mjs raises a refusal under that key. The schema is rendered into the composition "
+      + "prompt and the refusals read their text back from it, so a rule enforced here and absent there "
+      + "is a rule the composing party is never shown (kogaki#1147).");
+  }
+  return r;
+}
+// The one composer of a path-level refusal: the rule's name, then the rule as
+// the schema states it, then what this path did. Nothing here rewords the
+// rule — a refusal that paraphrased would be the second carrier again.
+function pathRefusal(key, at, specific) {
+  const r = pathRule(key);
+  return `${at ? `${at}: ` : ""}${r.name} — ${r.rule}${specific ? ` ${specific}` : ""}`;
+}
+
+
 // The two required fields whose refusal is written out below rather than
 // generated from the schema's declared type. Both say something the generic
 // "is required" sentence cannot: `move` names WHY a Move-less Step is not a
@@ -301,7 +346,7 @@ export function journeysRefusal(journeys, materials, at) {
 // Returns { error } or { steps }. Pure over its argument; exported for the check.
 export function validateSteps(steps) {
   if (!Array.isArray(steps) || steps.length === 0) {
-    return { error: "a composed path is a non-empty array of Step records (the Step's shape)" };
+    return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Step at all.") };
   }
   const schema = stepSchema();
   const seen = new Set();
@@ -325,7 +370,9 @@ export function validateSteps(steps) {
       }
     }
     if (errs.length) return { error: errs[0] };
-    if (seen.has(s.step_id)) return { error: `${at}: duplicate step_id` };
+    if (seen.has(s.step_id)) {
+      return { error: pathRefusal("step_id_unique", at, `An earlier Step already carries the id ${JSON.stringify(s.step_id)} — this is a duplicate step_id, and the repair is to rename one of the two, never to merge them.`) };
+    }
     // the Step's shape v18 (kogaki#642) — `Step = Input + State`, and the Move IS the
     // State, so a Move-less Step is not a Step. This is the seat the spec
     // names as the carrier: the requirement binds at composition, which is
@@ -335,7 +382,9 @@ export function validateSteps(steps) {
       return { error: `${at}: move is required by the Step's shape — a Step binds a Move library entry by id (the Move library), because the Move is the State component of a Step and a Step without one has no defined reader-state transition type` };
     }
     for (const d of s.depends_on) {
-      if (!seen.has(d)) return { error: `${at}: depends_on names "${d}", which is not an EARLIER step — the Step's shape's depends_on is the earlier steps whose conclusions this step stands on` };
+      if (!seen.has(d)) {
+        return { error: pathRefusal("depends_on_ordering", at, `Its depends_on names "${d}", which is not an EARLIER Step of this path: either move the Step that carries that id ahead of this one, or drop the dependency.`) };
+      }
     }
     // the Bridge Step and the revise pass's `bridges` — optional, and when present it names the ADJACENT
     // PAIR this Step was inserted between. Validated here because the
@@ -399,12 +448,9 @@ export function validateSteps(steps) {
           return { error: `${at}: a strand claim names its Strand (L<n>)` };
         }
         if (schema.claim.one_per_strand === true && byStrand.has(g.strand)) {
-          return { error: `${at}: two claims name strand ${JSON.stringify(g.strand)} — a claim is the ONE proposition this Step `
-            + `asserts on behalf of one Strand, for this reader at this point in the path (src/step-schema.json, `
-            + `\`claim.one_per_strand\`). The first reads ${JSON.stringify(byStrand.get(g.strand))}; the second reads `
-            + `${JSON.stringify(g.proposition)}. A Strand that serves several Steps carries a DIFFERENT claim in each, `
-            + `so the repair is to move one of these to the Step where the reader needs it, or to drop it — never to `
-            + `merge the two into a longer proposition` };
+          return { error: pathRefusal("one_claim_per_strand", at,
+            `Two claims here name strand ${JSON.stringify(g.strand)} (src/step-schema.json, \`claim.one_per_strand\`): `
+            + `the first reads ${JSON.stringify(byStrand.get(g.strand))}; the second reads ${JSON.stringify(g.proposition)}.`) };
         }
         byStrand.set(g.strand, g.proposition);
       }
@@ -1229,6 +1275,13 @@ export function opensSectionRefusal(value, at) {
 // Step, because every one of them is a statement about a Step's relation to its
 // NEIGHBOURS. Returns the first refusal or null.
 //
+// THE RULE TEXT IS THE SCHEMA'S (kogaki#1147). Each refusal below is composed
+// by `pathRefusal` from `path_rules` in src/step-schema.json — the same file
+// the executor renders into the composition prompt — so the composing party
+// is shown these rules before it composes rather than meeting one in a refusal
+// that has already spent an attempt. Rule 1 is stated there too, marked
+// `judgment`, beside the three that are checked.
+//
 // WHICH RULES ARE MECHANICAL, stated because the answer is not uniform and a
 // reader owes an account of the ones that are not:
 //
@@ -1249,7 +1302,7 @@ export function sectionGroupingRefusal(steps) {
 
   // rule 3 — the first Step always opens.
   if (steps[0].opens_section === undefined) {
-    return `${at(0)}: the Section grouping rule 3 — the FIRST Step always opens a Section, and this path opens none. A Brief whose Reader Path declares no opens_section anywhere renders as one unbroken run of prose, which is the second of the two drafts the 2026-09-03 ruling rejected`;
+    return pathRefusal("section_rule_3", at(0), "This path opens none: give the first Step an opens_section carrying that Section's title.");
   }
 
   // rule 2 — a Step that develops its predecessor continues, so it may not open.
@@ -1259,7 +1312,8 @@ export function sectionGroupingRefusal(steps) {
     const dependsOnlyOnPrev = s.depends_on.length === 1 && s.depends_on[0] === prev.step_id;
     const overlaps = s.materials.some((m) => prev.materials.includes(m));
     if (dependsOnlyOnPrev && overlaps) {
-      return `${at(i)}: the Section grouping rule 2 — this Step DEVELOPS ${prev.step_id} (its depends_on is exactly that Step, and its materials overlap it), so it continues that Section and may not open a new one. Remove its opens_section, or change what the Step stands on if the reader's question really does change here`;
+      return pathRefusal("section_rule_2", at(i),
+        `This Step DEVELOPS ${prev.step_id} — its depends_on is exactly that Step, and its materials overlap it — so it continues that Section. Remove its opens_section, or change what the Step stands on if the reader's question really does change here.`);
     }
   }
 
@@ -1270,7 +1324,8 @@ export function sectionGroupingRefusal(steps) {
     const next = k + 1 < opens.length ? opens[k + 1] : steps.length;
     const after = k + 2 < opens.length ? opens[k + 2] : steps.length;
     if (next - start === 1 && after - next === 1) {
-      return `${at(start)}: the Section grouping rule 4 — this Section and the one opening at ${steps[next].step_id} each hold exactly one Step. Two consecutive one-Step Sections are refused with a request to MERGE them, because a heading every Step is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason`;
+      return pathRefusal("section_rule_4", at(start),
+        `The Section this Step opens and the one opening at ${steps[next].step_id} each hold exactly one Step: merge the two, or give one of them a second Step.`);
     }
   }
   return null;

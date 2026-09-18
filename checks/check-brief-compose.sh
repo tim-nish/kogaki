@@ -199,7 +199,7 @@ const SETTLED = ["coding::lesson/bravo", "coding::lesson/alpha"];
 // that is otherwise the conformant one. Two hand-written stubs would differ in
 // more than the property under test, and a case would pass or fail on the
 // difference nobody meant.
-const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger = false } = {}) => [
+const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger = false, sectionOnEveryStep = false } = {}) => [
   "#!/usr/bin/env node",
   // The `--version` probe the start act runs to resolve its binary. It answers
   // FIRST, before any stdin read: the probe closes stdin, and a stub that
@@ -211,6 +211,13 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   'const at = prompt.indexOf(MARKER);',
   'if (at < 0) { process.stderr.write("no input marker in the prompt\\n"); process.exit(3); }',
   'const input = JSON.parse(prompt.slice(at + MARKER.length));',
+  // THE PROMPT ITSELF, WHERE A CASE ASKS FOR IT (kogaki#1147). A case about
+  // what the composing party was SHOWN cannot read the shipped prompt from
+  // anywhere else: `judgePrompt` is internal to the executor, and the only
+  // party the bytes reach is the judge. Written per state, so a case names
+  // the ask it means. Off unless the variable is set, so no existing case
+  // pays for it.
+  'if (process.env.KOGAKI_FIXTURE_PROMPT_LOG) { fs.writeFileSync(process.env.KOGAKI_FIXTURE_PROMPT_LOG + "." + input.state, prompt); }',
   // ONE LINE PER ASK, WHERE A CASE ASKS FOR IT. The count of attempts a state
   // spent is not on the run record when the state REFUSES — `judge_calls` is
   // written on the passing arm alone — so a case about a bound that was NOT
@@ -236,6 +243,7 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '  const MOVES = ' + (danglingMove === null
     ? 'LIB.map((m) => m.id).slice(0, 2)'
     : JSON.stringify([danglingMove])) + ';',
+  '  const SECTION_ON_EVERY_STEP = ' + JSON.stringify(sectionOnEveryStep) + ';',
   '  const stepsFor = (order) => order.map((m, i) => Object.assign({',
   '    step_id: "x" + (i + 1),',
   '    move: MOVES[i % MOVES.length],',
@@ -248,7 +256,7 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '    depends_on: i === 0 ? [] : ["x" + i],',
   '    rationale: "this step sits here because the state it needs is the one the step before it leaves",',
   '    claims: [{ type: "strand", strand: m, proposition: "the strand " + m + " supports exactly this claim at this point" }],',
-  '  }, i === 0 ? { opens_section: "The claim, in working form" } : {}));',
+  '  }, (i === 0 || SECTION_ON_EVERY_STEP) ? { opens_section: "The claim, in working form " + (i + 1) } : {}));',
   '  const mk = (id, exp, order) => {',
   '    const steps = stepsFor(order);',
   '    return {',
@@ -2440,7 +2448,7 @@ try {
       // adds. The tree, the hooks and the fixtures are (n)'s; only the run
       // workspace, the open-run pointer and ONE judge answer differ, so a case
       // that goes red is red about that answer and not about the scaffolding.
-      const spanIn = (name, stub) => {
+      const spanIn = (name, stub, extraEnv = {}) => {
         const D2 = join(rt, `run-${name}`);
         const openRun2 = join(rt, `open-run-${name}`);
         const judge2 = join(rt, `judge-${name}`);
@@ -2467,7 +2475,7 @@ try {
         const calls2 = join(rt, `judge-calls-${name}.log`);
         writeFileSync(calls2, "");
         const env2 = { KOGAKI_JUDGE_CLI: judge2, KOGAKI_BRIEF_OPEN_RUN: openRun2, KOGAKI_OPEN_GATES: gates2,
-          KOGAKI_FIXTURE_CALL_LOG: calls2 };
+          KOGAKI_FIXTURE_CALL_LOG: calls2, ...extraEnv };
         // Asks of one state, counted at the party that was asked.
         const asks = (stateId) => readFileSync(calls2, "utf8").split("\n").filter((l) => l === stateId).length;
         const started = inTree(["src/brief.mjs", "start", "--run-dir", D2,
@@ -2626,6 +2634,80 @@ try {
               if (rec.done === true) {
                 fails.push("(ae) the run record reports done after a cannot-determine verdict — the Candidate was adopted on a judgment that was not reached");
               }
+            }
+          }
+        }
+      }
+
+      // ---- (al) A CANDIDATE OPENING A SECTION ON TWO ADJACENT SINGLE STEPS IS
+      // REFUSED AT `compose_path`, AND THE PROMPT CARRIED THE RULE (kogaki#1147).
+      //
+      // THE OBSERVED RUN. Two /brief runs on 2026-09-18 over the six-Lesson
+      // `some-safety-properties-cannot-checked` set died here: the one attempt
+      // of each that finished inside the per-call bound was refused by rule 4 —
+      // two adjacent Sections holding exactly one Step each — and the other
+      // attempts timed out, so the licensed re-asks were spent before the
+      // repair could land. The composing party had never been shown the rule.
+      //
+      // TWO ASSERTIONS, AND THE SECOND IS THE ONE THIS ISSUE ADDS. That the
+      // refusal fires and names both Steps is case (q)'s property, driven here
+      // through the STATE rather than through a direct call — the shape (ad)
+      // records, one rule over. That the PROMPT the judge was handed contains
+      // the rule text is the defect itself: the refusal was already there, and
+      // what was missing was the text in front of the party composing against
+      // it. The prompt is read from the stub, because the executor's own
+      // composer is internal and the judge is the only party those bytes reach.
+      ranCase("al-compose-section-rule-4");
+      {
+        const promptLog = join(rt, "prompt-rule4");
+        const sp = spanIn("rule4", judgeStub({ sectionOnEveryStep: true }),
+          { KOGAKI_FIXTURE_PROMPT_LOG: promptLog });
+        if (sp.started.status !== 0) {
+          fails.push(`(al) the start act failed before the span could compose: ${(sp.started.stderr || "").trim().slice(0, 300)}`);
+        } else {
+          const a = sp.answer("toolu_1147_rule4", "THESIS_ADOPTION", () => "thesis-1");
+          if (!a) {
+            fails.push("(al) the start act raised no THESIS_ADOPTION declaration — the span never reached path composition");
+          } else {
+            const said = `${a.stderr || ""}${a.stdout || ""}`;
+            const rule4 = (JSON.parse(readFileSync(join(rt, "src", "step-schema.json"), "utf8")).path_rules || {}).section_rule_4;
+            if (!rule4) {
+              fails.push("(al) the tree's src/step-schema.json declares no `path_rules.section_rule_4` — there is no rule text for either half of this case to be about");
+            } else {
+              if (!said.includes(rule4.name)) {
+                fails.push(`(al) a Candidate opening a Section on two adjacent single Steps was not refused at compose_path naming the rule — it rides the composition to the owner's gate. advance said: ${said.trim().slice(0, 400)}`);
+              }
+              // BOTH STEPS, because the repair is a MERGE and a merge needs two
+              // names: told only where the first Section opens, a composer
+              // cannot tell which pair it is being asked to join.
+              if (!/\bx1\b/.test(said) || !/\bx2\b/.test(said)) {
+                fails.push(`(al) the rule 4 refusal does not name BOTH Steps — the request is to merge two Sections, and one name leaves the other end of the merge to be guessed. advance said: ${said.trim().slice(0, 400)}`);
+              }
+              // THE PROMPT CARRIED THE RULE. This is the whole of kogaki#1147:
+              // the refusal was already correct, and the party it was raised
+              // against had never been shown the rule it broke.
+              const promptPath = `${promptLog}.compose_path`;
+              if (!existsSync(promptPath)) {
+                fails.push("(al) the judge recorded no `compose_path` prompt — the state was never asked, so the span refused before the ask and this case's second half is about nothing");
+              } else {
+                const shown = readFileSync(promptPath, "utf8");
+                if (!shown.includes(rule4.rule)) {
+                  fails.push("(al) the rendered `compose_path` prompt does not contain rule 4's text — the validator refuses a rule the composing party was never told, which it can then satisfy only by chance on a first attempt and learn only from a refusal that has already cost an attempt");
+                }
+                if (!shown.includes(rule4.name)) {
+                  fails.push("(al) the rendered `compose_path` prompt does not name rule 4 — a refused composer searching the prompt for the words the refusal handed it finds nothing");
+                }
+              }
+            }
+            // THE GATE WAS NEVER REACHED, the property (ad) and (ai) assert one
+            // refusal over: a grouping refusal that fired after the owner had
+            // chosen is a path adopted and then refused at the write.
+            if (sp.declOf("CANDIDATE_SELECTION")) {
+              fails.push("(al) the run reached the Candidate-selection gate with a rule-4 grouping in every Candidate — the owner is asked to choose between paths none of which can be adopted");
+            }
+            const rec = sp.record();
+            if (rec.done === true) {
+              fails.push("(al) the run record reports done after a rule-4 grouping — the composition was accepted");
             }
           }
         }
@@ -3773,6 +3855,144 @@ ranCase("q");
   // still declare its Sections, or the renderer (kogaki#823) has nothing to read.
   if (!/^opens_section: A Section Title$/m.test(renderStep(Q("s1", { opens_section: "A Section Title" })))) {
     fails.push("(q) renderStep drops `opens_section` — a Brief re-read from its recorded form declares no Section at all");
+  }
+}
+
+// (ak) EVERY WHOLE-PATH REFUSAL NAMES A RULE THE SCHEMA CARRIES (kogaki#1147).
+//
+// THE DEFECT. `src/step-schema.json` is rendered into `compose_path`'s prompt
+// verbatim and the validator reads its field set back, so a FIELD rule cannot
+// be enforced against a composer that was never shown it. The rules over the
+// WHOLE PATH had no such carrier: `validateSteps` and `sectionGroupingRefusal`
+// raised the Section grouping, the `depends_on` ordering, the uniqueness of an
+// id and the claim cardinality out of wording written in the validator alone.
+// Two /brief runs on 2026-09-18 died at `compose_path` on rule 4 having
+// satisfied every rule they were shown — the rule was satisfiable by chance on
+// a first attempt and learnable only from a refusal that had already spent one
+// of three attempts.
+//
+// THE PREDICATE IS DERIVED FROM THE VALIDATOR'S OWN SOURCE, never from a list
+// here. The refusal keys are read out of `sectionGroupingRefusal`'s body and
+// out of `validateSteps`'s, so a fourth path rule added to either function is
+// covered the day it is written: it must declare an entry in `path_rules`, and
+// it must be exercised by a fixture below. A literal key list would be a second
+// transcription, green whenever it said what it said.
+//
+// AND THE REFUSAL MUST EMBED THE SCHEMA'S OWN TEXT, which is the half that
+// makes "the prompt and the refusal read one text" a property rather than a
+// promise: each fixture's refusal is searched for the `rule` string verbatim,
+// and for the `name` the entry declares. A refusal that reworded the rule would
+// be the two-carrier drift this file exists to remove, arriving as a paraphrase
+// nobody could see.
+ranCase("ak-path-rules-carried");
+{
+  const schemaText = readFileSync(join(REPO_ROOT, "src", "step-schema.json"), "utf8");
+  const schema1147 = JSON.parse(schemaText);
+  const rules = schema1147.path_rules;
+  const composeSrc = readFileSync(join(REPO_ROOT, "src", "compose.mjs"), "utf8");
+
+  const P = (id, extra = {}) => ({
+    step_id: id, move: "m1", materials: ["L1"], purpose: "p",
+    reader_state_before: "a", reader_state_after: "b", depends_on: [],
+    rationale: "r", claims: [{ type: "strand", strand: "L1", proposition: "q" }],
+    ...extra,
+  });
+  // One fixture per CHECKED rule: the path that raises it, and nothing else
+  // about it. `validateSteps` returns the FIRST refusal, so each fixture is
+  // well formed in every respect but the one it is about.
+  const FIXTURES = {
+    path_is_non_empty: [],
+    step_id_unique: [P("s1", { opens_section: "A" }), P("s1", { materials: ["L2"], depends_on: [] })],
+    depends_on_ordering: [P("s1", { opens_section: "A" }), P("s2", { depends_on: ["s3"], materials: ["L2"] })],
+    one_claim_per_strand: [P("s1", { opens_section: "A", claims: [
+      { type: "strand", strand: "L1", proposition: "the first" },
+      { type: "strand", strand: "L1", proposition: "the second" }] })],
+    section_rule_2: [P("s1", { opens_section: "A" }), P("s2", { opens_section: "B", depends_on: ["s1"] })],
+    section_rule_3: [P("s1"), P("s2", { depends_on: ["s1"] })],
+    section_rule_4: [P("s1", { opens_section: "A" }), P("s2", { opens_section: "B", materials: ["L2"] }),
+      P("s3", { opens_section: "C", materials: ["L3"] })],
+  };
+
+  if (!rules || typeof rules !== "object") {
+    fails.push("(ak) src/step-schema.json declares no `path_rules` — the rules over the whole path are enforced in src/compose.mjs and stated nowhere the composing Model reads, which is exactly the field-level defect kogaki#1108 closed, one scope out");
+  } else {
+    // RULE 1 IS STATED AS THE JUDGMENT IT IS. It is the positive case rule 2's
+    // refusal covers; nothing checks it, and a composer shown three of four
+    // rules is left to infer that the fourth does not exist.
+    const r1 = rules.section_rule_1;
+    if (!r1 || r1.class !== "judgment" || typeof r1.rule !== "string" || r1.rule === "") {
+      fails.push("(ak) the Section grouping's rule 1 is absent from `path_rules` or is not marked `judgment` — it is the rule that says WHEN a Step opens, and a composer shown only the three that refuse is being told what not to do and never what to do");
+    }
+
+    // THE KEYS ARE THE VALIDATOR'S OWN. Read from the two functions' bodies, so
+    // a rule added to either is covered here the day it is raised.
+    const bodyOf = (name) => {
+      const at = composeSrc.indexOf(`export function ${name}(`);
+      if (at < 0) return null;
+      const end = composeSrc.indexOf("\nexport function ", at + 1);
+      return composeSrc.slice(at, end < 0 ? composeSrc.length : end);
+    };
+    const raisedIn = (name) => {
+      const body = bodyOf(name);
+      if (body === null) return null;
+      return [...body.matchAll(/pathRefusal\(\s*"([a-z0-9_]+)"/g)].map((m) => m[1]);
+    };
+    const grouping = raisedIn("sectionGroupingRefusal");
+    const wholePath = raisedIn("validateSteps");
+    if (grouping === null || wholePath === null) {
+      fails.push("(ak) `sectionGroupingRefusal` or `validateSteps` is not an exported function of src/compose.mjs under that name — the derivation reads their bodies, and a renamed function silently empties it");
+    } else {
+      // THE DERIVATION REFUSES ITS OWN EMPTY RESULT. A list that silently
+      // empties reports every rule as carried, which is the shape case (y)
+      // records one carrier over.
+      if (grouping.length === 0) {
+        fails.push("(ak) no `pathRefusal(...)` call was found in `sectionGroupingRefusal` — either the Section rules are composed from wording written in the validator again, or the derivation has stopped matching and is reporting silence as coverage");
+      }
+      // NO REFUSAL IS COMPOSED IN THE VALIDATOR. Every path-level refusal the
+      // grouping function raises goes through `pathRefusal`, so its text is the
+      // schema's; a bare template literal here would be text the prompt does
+      // not carry, which is the defect in its original form.
+      const groupingBody = bodyOf("sectionGroupingRefusal") || "";
+      if (/return\s+`/.test(groupingBody)) {
+        fails.push("(ak) `sectionGroupingRefusal` returns a refusal composed in place — a rule worded in the validator is a rule the prompt does not carry, and the composer meets it only after it has cost an attempt");
+      }
+      for (const key of [...new Set([...grouping, ...wholePath])]) {
+        const entry = rules[key];
+        if (!entry || typeof entry.name !== "string" || typeof entry.rule !== "string") {
+          fails.push(`(ak) src/compose.mjs raises \`${key}\` and src/step-schema.json declares no such \`path_rules\` entry with a name and a rule — the refusal enforces a rule the composing Model is never shown`);
+          continue;
+        }
+        if (!schemaText.includes(entry.rule) || !schemaText.includes(entry.name)) {
+          fails.push(`(ak) the schema FILE does not contain \`${key}\`'s own name or rule text — the entry is assembled at read time rather than written in the file the executor renders verbatim`);
+        }
+        const fixture = FIXTURES[key];
+        if (fixture === undefined) {
+          fails.push(`(ak) \`${key}\` is raised by src/compose.mjs and no fixture here exercises it — the rule's text is asserted against nothing, so a refusal that stopped naming it would go unobserved`);
+          continue;
+        }
+        const got = validateSteps(fixture).error || "";
+        if (!got) {
+          fails.push(`(ak) the fixture for \`${key}\` is ACCEPTED — the case would assert the rule's text against a refusal that never fires`);
+          continue;
+        }
+        if (!got.includes(entry.name)) {
+          fails.push(`(ak) the refusal for \`${key}\` does not name the rule the schema declares (${entry.name}) — a refused composer cannot find in the prompt the rule it was just told it broke: ${got}`);
+        }
+        if (!got.includes(entry.rule)) {
+          fails.push(`(ak) the refusal for \`${key}\` does not carry the schema's own rule text — the prompt and the refusal are two wordings of one rule, which agree until one is edited: ${got}`);
+        }
+      }
+      // EVERY CHECKED ENTRY IS RAISED, the other direction. A rule declared in
+      // the schema that nothing enforces tells a composer it is bound by
+      // something no refusal will ever mention.
+      const raised = new Set([...grouping, ...wholePath]);
+      for (const [key, entry] of Object.entries(rules)) {
+        if (key === "note" || !entry || entry.class !== "checked") continue;
+        if (!raised.has(key)) {
+          fails.push(`(ak) \`path_rules.${key}\` is declared \`checked\` and no refusal in src/compose.mjs raises it — a rule the prompt states and nothing enforces is the inverse drift, and a composer has no way to tell the two apart`);
+        }
+      }
+    }
   }
 }
 
