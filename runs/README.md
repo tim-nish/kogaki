@@ -15,10 +15,19 @@ was measured, in directory families no contributor knew existed.
     runs/brief/entries/<timestamp>/     pre-Thesis run records, bounded separately
     runs/draft/<slug>/                  one workspace per Draft, overwritten in place
     runs/review/<slug>/                 one workspace per reviewed Draft, overwritten in place
+    runs/project/<slug>/                one workspace per projected Article, overwritten in place
 
 Terrain mints a new directory per run because a survey has no identity to
-overwrite; Brief, Draft and Review key on the slug, so a re-run over the same
-Draft replaces its own workspace rather than adding one.
+overwrite; Brief, Draft, Review and Project key on the slug, so a re-run over
+the same Draft replaces its own workspace rather than adding one.
+
+`runs/project/<slug>/run.json` is Projection's own run record (`src/project.mjs`,
+kogaki#1149): the reviewed Draft's path, the profile, the Article it wrote,
+the source body sha, every converter that fired and its count, and whether
+that run's own recoverability check passed. It is the machine-local twin of
+`theses/<slug>/projection.md`'s `## Record` section, which is the owner-facing
+half — this workspace exists for the same reason `runs/review/<slug>/` does:
+so a re-run's evidence has a home that is not the artifact itself.
 
 `runs/brief/entries/` is the exception, and it exists because the Brief lane
 holds two kinds of thing with two lifetimes. Before a Thesis is adopted there is
