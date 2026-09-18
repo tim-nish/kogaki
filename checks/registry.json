@@ -669,6 +669,20 @@
         "efficacy": "case: policy/kit/checks/check-map-pins.sh::ok: the fixture discriminated one resolved, one moved and one stale pin",
         "efficacy_note": "The counterfactual is `policy/kit/checks/fixtures/map-pins/map-one-of-each.md`, resolved against the SAME live manifest the real pass reads, and it runs FIRST on every invocation — a member whose discrimination is unproven has nothing to say about the real file. It constructs all three verdicts: a real unit at its real hash (resolved), THE SAME real unit at sixty-four zeroes (moved), and a well-formed address for a unit the surface does not serve (stale). The `moved` arm is the one a checker is likeliest to get wrong, because the address resolves and only the hash says the content moved underneath the quote. The member asserts the fixture pass exits NON-ZERO and reports exactly `1 1 1`; an exact tally rather than a floor, because the fixture is a fixed three-case file rather than a growing table, and the same assertion doubles as the counterfactual for both EXCLUSIONS — the fixture also carries a `frozen:` line and a legacy `gloss_sha=` cite in indented prose, either of which, if read, breaks the tally. The resolved arm's unit is deliberately the same one `policy/consultation-map.md` entry 1 cites, so a hub re-render takes the fixture and entry 1 red together and the repair is one act."
       }
+    },
+    {
+      "id": "project-runtime",
+      "file": "check-project-runtime.sh",
+      "admission": {
+        "contract": "kogaki#1149's Harness half of Projection: on a valid fixture, `run` writes theses/<slug>/article.<profile>.md whose frontmatter carries exactly the profile's declared keys plus `published: false`, body unchanged except for a converter that fired; `run` refuses a `draft.md` by name, refuses a reviewed Draft with no `review.md` beside it, and refuses a `projection.md` missing a required field, over the tag count or tag shape, or over a cap, naming the field and inventing no value; `verify` strips the Article's frontmatter, reverses the profile's converters, and passes on a fresh Article while refusing after any one-byte edit to it; one profile (`dev.to`) carries a reversible converter (`image-absolute-url`), proven forward and backward on its own fixture; a re-run over a moved Draft overwrites the Article and reports the move rather than marking staleness silently; and `propose` — the one act that needs a model — renders its schema and the reviewed Draft's body with nothing piped in, records a valid JSON reply's title and description into `projection.md`, and refuses a reply missing either field or exceeding its cap, naming the field. A thin invoker: the cases live in `src/project.mjs --self-test`, seam-free, temp-dir only, driven through `--workspace` so the pass never touches this repository's own `runs/project/`.",
+        "license": "kogaki#1149",
+        "tier": "pre-push",
+        "case_floor": 44,
+        "runtime_ms": 400,
+        "removal_signal": "a suite runner that drives every Harness's own `--self-test` as its sole fixture-pass entry point, making a per-runtime shell invoker like this one redundant — constrain-generation subsumes this detection the same way check-draft-runtime.sh's own removal_signal states for its runtime",
+        "removal_instrument": "act: the PR that moves discovery of a runtime's fixture pass into the suite runner itself, on the same ground check-draft-runtime.sh's own removal_instrument states — today's runner iterates registered entries but does not discover a runtime's `--self-test` on its own, so the signal's condition is a judgment over what the runner does, not a tree fact",
+        "efficacy": "none: this member is a thin invoker of src/project.mjs --self-test, on the same ground check-draft-runtime.sh and check-review-draft-runtime.sh both carry — the counterfactual cases (each refusal constructed and asserted) live in that self-test and are its own subject rather than this shell wrapper's"
+      }
     }
   ]
 }

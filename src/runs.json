@@ -18,6 +18,7 @@
     "terrain": { "keep_last": 10 },
     "brief": { "keep_last": 10 },
     "draft": { "keep_last": 10 },
-    "review": { "keep_last": 10 }
+    "review": { "keep_last": 10 },
+    "project": { "keep_last": 10 }
   }
 }

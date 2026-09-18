@@ -124,20 +124,28 @@ policy/shape.md
 # the skill names, which is the assertion that does not exist without its file.
 # Untracked also meant the file never reached a worktree, since `git worktree
 # add` does not populate ignored paths.
+#
+# PROJECT JOINS THEM (kogaki#1149), on the identical criterion:
+# `check-project-runtime.sh` asserts every Harness path and subcommand
+# `.claude/skills/project/SKILL.md` names, so the file is repository material
+# rather than a private one.
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/brief/
 !.claude/skills/terrain/
 !.claude/skills/draft/
 !.claude/skills/review-draft/
+!.claude/skills/project/
 .claude/skills/brief/*
 .claude/skills/terrain/*
 .claude/skills/draft/*
 .claude/skills/review-draft/*
+.claude/skills/project/*
 !.claude/skills/brief/SKILL.md
 !.claude/skills/terrain/SKILL.md
 !.claude/skills/draft/SKILL.md
 !.claude/skills/review-draft/SKILL.md
+!.claude/skills/project/SKILL.md
 
 # THE CONSULT-FIRST SKILL'S RE-INCLUDE IS GONE (kogaki#725), and the argument
 # it stood on is answered rather than deleted. That argument, from kogaki#621,
