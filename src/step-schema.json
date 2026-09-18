@@ -23,6 +23,15 @@
     "to 3 claims per Step, the second 4 to 6, with up to six claims from one",
     "Strand in a single Step.",
     "",
+    "IT CARRIES THE RULES OVER THE WHOLE PATH TOO (kogaki#1147). The field",
+    "table below is about one Step; `path_rules` is about the sequence -- the",
+    "Section grouping, the order `depends_on` may name, the uniqueness of an id,",
+    "the claim cardinality. Those were enforced in src/compose.mjs and stated",
+    "nowhere a composer reads, so a path satisfied them by chance or learned",
+    "them from a refusal that had already spent an attempt. The refusals now",
+    "read their text from that section, for the reason the field set is read",
+    "from this one.",
+    "",
     "IT DECLARES SHAPE AND MEANING, AND JUDGES NEITHER. Every MUST of the",
     "composition design stays judgment-class and is judged at path review. A",
     "missing field is refused here; a weak rationale is not, and no description",
@@ -92,7 +101,8 @@
     "depends_on": {
       "required": true,
       "type": "array of string",
-      "description": "The EARLIER Steps whose conclusions this Step stands on, by `step_id`. May be empty. An id that is not an earlier Step is refused -- a dependency on a later Step is a path that cannot be read in order."
+      "description": "The EARLIER Steps whose conclusions this Step stands on, by `step_id`. May be empty. An id that is not an earlier Step is refused -- a dependency on a later Step is a path that cannot be read in order. The ordering rule is a property of the whole path and is stated in `path_rules` below.",
+      "see": "path_rules"
     },
     "rationale": {
       "required": true,
@@ -141,7 +151,8 @@
     "opens_section": {
       "required": false,
       "type": "string",
-      "description": "Present on a Step that opens a Section of the finished article; carries that Section's name. The four grouping rules are a property of the whole path and run after every Step is known to be well formed. The Section grouping carries the four rules."
+      "description": "Present on a Step that opens a Section of the finished article; carries that Section's name. The four grouping rules are a property of the WHOLE PATH and run after every Step is known to be well formed -- they are stated in `path_rules` below, as the validator checks them, and three of the four refuse. The Section grouping carries the four rules.",
+      "see": "path_rules"
     },
     "figure": {
       "required": false,
@@ -153,6 +164,84 @@
       "type": "object mapping role -> g<n>",
       "required_when": "figure is present",
       "description": "Binds every role of the Move's `visual_form` to one of THIS Step's own claims, addressed `g<n>` and numbered from 1 in the order the claims are declared. A role bound to another Step's claim is unreachable by construction: the address space is this Step's claims and has no syntax for anyone else's."
+    }
+  },
+  "path_rules": {
+    "note": [
+      "THE RULES OVER THE WHOLE PATH, AND WHY THEY ARE DECLARED HERE",
+      "(kogaki#1147). Everything above is a rule about ONE Step, and a composer",
+      "was already shown it. The rules below are about the PATH -- a Step's",
+      "relation to its neighbours, and the sequence taken as a whole -- and until",
+      "this issue they lived in code alone: `validateSteps` and",
+      "`sectionGroupingRefusal` in src/compose.mjs raised them, and the composing",
+      "party met one for the first time in a refusal that had already cost one of",
+      "its three attempts. Two runs on 2026-09-18 died at path composition on the",
+      "Section grouping's rule 4, each having satisfied every field-level rule it",
+      "was shown. A rule enforced over a record and never stated to the party",
+      "that composes it can be satisfied only by chance.",
+      "",
+      "THE REFUSALS READ THEIR TEXT FROM THE ENTRIES BELOW, which is the same",
+      "arrangement the field table above already has: the prompt and the refusal",
+      "cannot disagree when there is one file. A rule stated here with no refusal",
+      "reading it, or a refusal composing its own wording, is the two-carrier",
+      "drift this file exists to remove -- and `checks/check-brief-compose.sh`",
+      "reads every refusal these two functions raise back against this section.",
+      "",
+      "EACH ENTRY CARRIES `name` AND `rule`. The `name` is what the refusal says",
+      "first, so a refused composer can find the rule it broke by searching this",
+      "file for the words it was just handed; the `rule` is the rule as the",
+      "validator checks it. `class` is `checked` where a refusal enforces it and",
+      "`judgment` where it is yours to make -- a judgment-class rule is stated",
+      "HERE, beside the checked ones, because the two read alike to whoever",
+      "composes against them and only one of them will ever refuse. Nothing",
+      "below is matched against a value: a rule marked `judgment` is judged at",
+      "path review, and Every MUST is judgment, and nothing becomes a lint is the",
+      "rule that keeps it there.",
+      "",
+      "The Section grouping is where the four Section rules are ratified; the",
+      "Step's shape carries the path's own order and the uniqueness of an id; the",
+      "claims rule carries the cardinality."
+    ],
+    "path_is_non_empty": {
+      "class": "checked",
+      "name": "the Step's shape -- a path is an ordered sequence of Steps",
+      "rule": "A composed path is a NON-EMPTY, ORDERED array of Step records, read in the order it is written."
+    },
+    "step_id_unique": {
+      "class": "checked",
+      "name": "the Step's shape -- one id per Step",
+      "rule": "Each `step_id` is unique within the path. Two Steps sharing an id leave every `depends_on` naming it ambiguous, and the specialization record carries one verdict per id, so it would address both at once."
+    },
+    "depends_on_ordering": {
+      "class": "checked",
+      "name": "the Step's shape -- depends_on names an EARLIER Step",
+      "rule": "Every id in a Step's `depends_on` names a Step EARLIER in the path. An id that is not an earlier Step -- a later one, or one no Step carries -- is a path that cannot be read in order."
+    },
+    "one_claim_per_strand": {
+      "class": "checked",
+      "name": "the claims rule -- one claim per Strand, per Step",
+      "rule": "A Step asserts ONE claim on behalf of each Strand it names in `materials`. A Strand that serves several Steps carries a DIFFERENT claim in each -- that is what makes the path a sequence rather than a restatement -- so the repair for a second claim is to move it to the Step where the reader needs it, or to drop it, never to merge the two into a longer proposition."
+    },
+    "section_rule_1": {
+      "class": "judgment",
+      "name": "the Section grouping rule 1",
+      "rule": "A Step OPENS a Section when it changes the reader's question -- its `purpose` answers a question the previous Step did not pose, or its `introduces` names a term later Steps use. This is the positive case and it is YOURS TO JUDGE: nothing checks it, and its violation is exactly rule 2's refusal."
+    },
+    "section_rule_2": {
+      "class": "checked",
+      "name": "the Section grouping rule 2",
+      "rule": "A Step CONTINUES the current Section when it develops the previous one -- when its `depends_on` is exactly the immediately preceding Step AND its `materials` overlap that Step's. A Step that develops its predecessor may not open a new Section."
+    },
+    "section_rule_3": {
+      "class": "checked",
+      "name": "the Section grouping rule 3",
+      "rule": "The FIRST Step of the path always opens a Section. A path that declares `opens_section` nowhere renders as one unbroken run of prose, which is the second of the two drafts the 2026-09-03 ruling rejected."
+    },
+    "section_rule_4": {
+      "class": "checked",
+      "name": "the Section grouping rule 4",
+      "rule": "TWO ADJACENT SECTIONS HOLDING EXACTLY ONE STEP EACH are refused with a request to MERGE them, because a heading on every Step is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason.",
+      "the_other_clause": "Rule 4's other clause -- a Section running past roughly a display and a half of prose without a heading -- measures REALIZED PROSE, which no Brief contains. It is a named deferred slot in the Section grouping: it binds your judgment while you group the Steps, and no refusal reads it."
     }
   },
   "claim": {
