@@ -1232,7 +1232,7 @@ const STATE_WORK = {
         // One-claim-per-Strand, the closed claim type set, every required
         // field and its description all come from `src/step-schema.json`
         // through that function.
-        const v = validateSteps(c.steps);
+        const v = validateSteps(c.steps, c.reader_start);
         if (v.error) refuseJudgment(`candidate ${c.candidate_id}: ${v.error}`);
         // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
         // `resolveMoveIds` was first called by `adopt-candidate`, five states

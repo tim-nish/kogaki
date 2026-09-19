@@ -92,6 +92,61 @@ const VERDICT_KEYS = new Set(["verdict", "pass", "fail", "passed", "failed",
 export const REVISE_BOUND = 1;
 export const MAX_ATTACHES = REVISE_BOUND + 1;
 
+// ---------------------------------------------------------------------------
+// CLOSURE'S REVISE ARMS (kogaki#1151). [see: SPEC-draft-pipeline "The Bridge
+// Step and the revise pass"] When a Candidate is sent back to path
+// composition once, the Arms are declared explicitly by the Harness, one
+// chosen per open Closure row — so that ownership of what a revise CAN DO is
+// never handed to the Model. The Model is free to choose which Arm applies to
+// a given row; it may not define the Arms themselves, which is the property
+// this closed set exists to hold.
+export const REVISE_ARMS = {
+  "insert-step": "insert a Step that discharges the row (the Bridge Step insertion contract)",
+  "amend-step": "amend an existing Step so it discharges the row",
+  "concede": "concede the row at a named Step",
+  "amend-introduction": "amend the introducing Step so the promise is not made and the row is not raised",
+};
+
+// Pure; exported for the check. `openRows` is the snapshot of open Closure
+// rows taken at the FIRST attach (the ledger's own `open_rows`, never a
+// caller-recomputed value — the round this validates is the one the ledger
+// counted); `arms` is the reply's own `revise_arms`, one entry per open row:
+// `{ text, introduced_by, arm, steps }`. Returns a refusal string or null.
+export function reviseArmRefusal(openRows, arms) {
+  if (!Array.isArray(openRows) || openRows.length === 0) return null;
+  if (!Array.isArray(arms)) {
+    return `this revise round carries ${openRows.length} open Closure row(s) and no \`revise_arms\` `
+      + `declaring which of the four declared Arms was applied to each (${Object.keys(REVISE_ARMS).join(", ")}) `
+      + `— the Harness declares the Arms and the Model chooses among them, never defines its own`;
+  }
+  for (const row of openRows) {
+    const applied = arms.find((a) => a && a.text === row.text && a.introduced_by === row.introduced_by);
+    if (!applied) {
+      return `open Closure row ${JSON.stringify(row.text)} (introduced_by ${row.introduced_by}) carries no `
+        + `entry in \`revise_arms\` — every open row owes one of the four declared Arms`;
+    }
+    if (!Object.prototype.hasOwnProperty.call(REVISE_ARMS, applied.arm)) {
+      return `open Closure row ${JSON.stringify(row.text)}: \`arm\` ${JSON.stringify(applied.arm)} is not `
+        + `one of the four declared Arms (${Object.keys(REVISE_ARMS).join(", ")}) — the Harness declares `
+        + `the Arms and the Model chooses among them, never defines its own`;
+    }
+    if (!Array.isArray(applied.steps) || applied.steps.length === 0
+        || applied.steps.some((s) => typeof s !== "string" || s === "")) {
+      return `open Closure row ${JSON.stringify(row.text)}: its Arm ${JSON.stringify(applied.arm)} names no `
+        + `Steps — each Arm names the Steps it touches`;
+    }
+  }
+  return null;
+}
+
+// The row shape `attachReview` snapshots at the first attach and withdrawal
+// reports at the bound — pure, exported for the check.
+export function openClosureRows(c) {
+  return (Array.isArray(c?.obligations) ? c.obligations : [])
+    .filter((o) => o && o.discharged_by === undefined && o.conceded_by === undefined)
+    .map((o) => ({ text: o.text, introduced_by: o.introduced_by }));
+}
+
 // The ledger's home is HARNESS-RESOLVED, from the Brief's own identity, never
 // from a path a caller hands in. `--out` is a caller-chosen file and would let
 // a second attach land beside the first with a fresh count; the slug is what
@@ -272,7 +327,18 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
           + `and rides to the selection gate; it is never re-looped. The residue entry this `
           + `Candidate already carries is that disclosure.` };
       }
-      rounds = [...prior, { round: prior.length + 1, sha, at: stamp }];
+      // THE REVISE ROUND'S ARMS (Closure, kogaki#1151). The second attach on a
+      // Candidate IS the revise: every row still open after the first carries
+      // one of the four Harness-declared Arms in this reply's `revise_arms`,
+      // checked against the snapshot the FIRST attach took — never against a
+      // value recomputed here, which a caller could shape to agree with itself.
+      if (prior.length === 1) {
+        const armErr = reviseArmRefusal(prior[0].open_rows, c.revise_arms);
+        if (armErr) return { error: `candidate ${c.candidate_id}: ${armErr}` };
+      }
+      const round = { round: prior.length + 1, sha, at: stamp };
+      if (prior.length === 0) round.open_rows = openClosureRows(c);
+      rounds = [...prior, round];
       nextAttaches[c.candidate_id] = rounds;
     }
     const attached = { ...c, review: r };
@@ -295,21 +361,27 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
           + `never sees does not discharge a disclosure; declare the field and its grade `
           + `there, under its own issue` };
       }
-      attached.revise_residue = {
-        attaches: rounds.length,
-        bound: `${REVISE_BOUND} revise round per Candidate`,
-        first_attached_at: rounds[0].at,
-        revise_attached_at: rounds[rounds.length - 1].at,
-        // PRECISE ABOUT ITS OWN BOUND (PR #908 round 1). "cannot be re-reviewed
-        // again" was false for the case the design deliberately allows:
-        // re-attaching the SAME reasoning is accepted and spends nothing. This
-        // sentence rides to the gate as the Harness's words about its own
-        // arithmetic, so it says what the arithmetic actually does.
-        statement: "this Candidate has spent its one revise round; anything the revise did not "
-          + "repair rides to the selection gate as disclosed residue, and this Candidate cannot "
-          + "be re-reviewed with DIFFERENT reasoning (re-attaching the same reasoning is "
-          + "accepted and spends nothing)",
-      };
+      // EXITS AT THE BOUND (Closure item 7). A Candidate with every Closure row
+      // terminal proceeds to assembly with no residue at all — the revise round
+      // finished the job. A Candidate that STILL carries an open row is
+      // WITHDRAWN here: it is never offered at selection and never re-looped,
+      // and no replacement is generated for it — "the failure indicates that
+      // the particular combination of Strands used by that Candidate was not
+      // good enough" (the owner's own words, 2026-09-19).
+      const openNow = openClosureRows(c);
+      if (openNow.length > 0) {
+        attached.withdrawn = true;
+        attached.revise_residue = {
+          attaches: rounds.length,
+          bound: `${REVISE_BOUND} revise round per Candidate`,
+          first_attached_at: rounds[0].at,
+          revise_attached_at: rounds[rounds.length - 1].at,
+          open_rows: openNow,
+          statement: "this Candidate has spent its one revise round and still carries an open Closure "
+            + "row; it is withdrawn rather than offered with a caveat, and no replacement is generated "
+            + "for it (re-attaching the same reasoning is accepted and spends nothing)",
+        };
+      }
     }
     out.push(attached);
   }
@@ -376,14 +448,14 @@ export function cmdAttach(args) {
   writeAttachLedger(lp.path, { brief, attaches: r.attaches });
   mkdirSync(dirname(resolve(out)), { recursive: true });
   writeFileSync(out, JSON.stringify({ candidates: r.candidates }, null, 2) + "\n");
-  const spent = r.candidates.filter((c) => c.revise_residue).map((c) => c.candidate_id);
+  const withdrawn = r.candidates.filter((c) => c.withdrawn).map((c) => c.candidate_id);
   console.log(`reviewed: ${r.candidates.length} candidate(s), each carrying its per-Candidate `
     + `reasoning for the selection gate — no verdict anywhere. Written: ${out}`);
   console.log(`revise rounds (bound ${REVISE_BOUND} per Candidate), counted in ${lp.path}: `
     + r.candidates.map((c) => `${c.candidate_id}=${(r.attaches[c.candidate_id] || []).length}`).join(", ")
-    + (spent.length
-      ? ` — at the bound and carrying a Harness-written residue entry: ${spent.join(", ")}`
-      : " — none at the bound"));
+    + (withdrawn.length
+      ? ` — withdrawn at the bound with an open Closure row: ${withdrawn.join(", ")}`
+      : " — none withdrawn"));
 }
 
 const args = parseArgs(process.argv.slice(2));

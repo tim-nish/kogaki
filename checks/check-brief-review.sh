@@ -30,9 +30,13 @@ import { attachReview, attachLedgerPath, readAttachLedger, reviewEntrySha,
 const fails = [];
 const dir = mkdtempSync(join(tmpdir(), "brief-review-"));
 
+// CLOSURE (kogaki#1151): each Candidate carries one open row (neither
+// discharged_by nor conceded_by) so the revise bound's withdrawal-and-residue
+// arm actually fires — a Candidate with no open row reaches the bound clean,
+// carrying no residue at all, which case (f) below no longer holds true of.
 const cands = [
-  { candidate_id: "cand-1", steps: ["s1", "s2"] },
-  { candidate_id: "cand-2", steps: ["s2", "s1"] },
+  { candidate_id: "cand-1", steps: ["s1", "s2"], obligations: [{ text: "the case's generality is open", introduced_by: "s1" }] },
+  { candidate_id: "cand-2", steps: ["s2", "s1"], obligations: [{ text: "the case's generality is open", introduced_by: "s2" }] },
 ];
 const entry = (tag = "") => Object.fromEntries(REVIEW_AREAS.map((a) => [a,
   `${tag}reasoning for ${a}: what was looked for and what was found, in prose the owner can weigh`]));
@@ -126,7 +130,13 @@ try {
   if (lp.error) fails.push(`(e) the ledger path did not resolve: ${lp.error}`);
   const a1 = attachReview(cands, both("first "), {});
   if (a1.error) fails.push(`(e) the first attach was refused: ${a1.error}`);
-  const a2 = attachReview(cands, both("revised "), a1.attaches);
+  // THE REVISE ARMS (kogaki#1151): the second attach on a Candidate carrying
+  // an open Closure row owes one of the four declared Arms per row, checked
+  // against the FIRST attach's own snapshot — so the fixture's revise round
+  // carries `revise_arms` naming the row it concedes.
+  const withArms = cands.map((c) => ({ ...c,
+    revise_arms: (c.obligations || []).map((o) => ({ text: o.text, introduced_by: o.introduced_by, arm: "concede", steps: [o.introduced_by] })) }));
+  const a2 = attachReview(withArms, both("revised "), a1.attaches);
   if (a2.error) fails.push(`(e) the ONE revise round was refused: ${a2.error}`);
   else if ((a2.attaches["cand-1"] || []).length !== 2) fails.push("(e) the revise round was not counted");
   const a3 = a2.error ? null : attachReview(cands, both("third "), a2.attaches);
@@ -151,6 +161,13 @@ try {
       if (c.revise_residue.attaches !== 2 || typeof c.revise_residue.statement !== "string"
           || !/revise round per Candidate/.test(c.revise_residue.bound)) {
         fails.push(`(f) ${c.candidate_id}'s residue does not state the bound it was written against`);
+      }
+      // WITHDRAWN, NOT MERELY DISCLOSED (kogaki#1151): a Candidate at the
+      // bound still carrying an open Closure row is withdrawn from the
+      // Candidate set, and its open rows are named in the residue.
+      if (c.withdrawn !== true) fails.push(`(f) ${c.candidate_id} reached the bound with an open Closure row and was not withdrawn`);
+      if (!Array.isArray(c.revise_residue.open_rows) || c.revise_residue.open_rows.length !== 1) {
+        fails.push(`(f) ${c.candidate_id}'s residue does not carry its open Closure row(s): ${JSON.stringify(c.revise_residue.open_rows)}`);
       }
     }
   }
@@ -215,7 +232,10 @@ try {
     fails.push(`(h) attachReview COERCED a damaged ledger entry instead of refusing: ${JSON.stringify(coerced.error || "accepted")}`);
   }
 
-  // The command path writes the ledger the exported arithmetic reads.
+  // The command path writes the ledger the exported arithmetic reads. The
+  // revise round owes `revise_arms` the same way the in-process (e)/(f) cases
+  // do (kogaki#1151) — `cf` is overwritten with the Arms-carrying Candidates.
+  writeFileSync(cf, JSON.stringify(withArms));
   const p2 = attach((() => { const f = join(dir, "review2.json"); writeFileSync(f, JSON.stringify(both("revised "))); return f; })());
   if (p2.status !== 0) fails.push(`(g) the second command attach exited ${p2.status}: ${(p2.stderr || "").trim()}`);
   const led = lp.error ? { error: lp.error } : readAttachLedger(lp.path);

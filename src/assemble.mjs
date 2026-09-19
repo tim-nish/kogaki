@@ -263,8 +263,12 @@ export const SLOT_CAPTIONS = new Map([
   // and nothing machine-facing moves. The two halves are exactly the prose-at-the-surface rule's split.
   ["Reader Path", "The ordered steps the article walks."],
   ["Strand coverage", "Per settled Strand: which steps use it, and the part it plays in the claim. The count is taken after composition, never declared ahead of it."],
-  ["Unresolved obligations", "What each step still owes the reader, entered with the step that settles it."],
-  ["Thesis closure", "How the path closes the claim, and which steps establish it."],
+  // CLOSURE (kogaki#1151), REPLACING TWO SLOTS WITH ONE. "Unresolved
+  // obligations" and "Thesis closure" used to fill separately — the Thesis
+  // row and the Step rows are now one ledger, named Closure, and every row
+  // ends `discharged_by` or `conceded_by`: "unresolved" is no longer a state
+  // the ledger can hold.
+  ["Closure", "The obligation definition, the Thesis row and each Step row — every row ending kept or conceded, by the Step that closes it."],
   ["Tradeoffs", "What adopting this path gave up."],
   // THE POST-HOC DISCLOSURE SURFACE (kogaki#866, ratified at the Bridge Step and the revise pass/journey register as a Candidate axis by
   // kogaki#864). the Bridge Step and the revise pass approves a Bridge Step by disclosing it after the fact
@@ -411,6 +415,23 @@ export function candidateLedgerRefusal(c, strandIds = []) {
             + `left out of the ledger's key set is read as undischarged rather than as unreadable`;
         }
       }
+      if (o.conceded_by !== undefined) {
+        if (typeof o.conceded_by !== "string" || !stepIds.has(o.conceded_by)) {
+          return `${at}: \`conceded_by\` ${JSON.stringify(o.conceded_by)} names no Step of this `
+            + `Candidate (${[...stepIds].join(", ")}) — a row is conceded BY A STEP, named the same way `
+            + `it would be discharged`;
+        }
+      }
+      // CLOSURE'S TWO TERMINAL STATES, EXACTLY ONE (kogaki#1151). "Unresolved"
+      // is no longer a state the ledger can hold: every row ends `discharged_by`
+      // (the promise is kept there) or `conceded_by` (the prose there tells the
+      // reader it is left open), and a row naming neither or both is refused by
+      // name rather than read as a disclosure.
+      if ((o.discharged_by !== undefined) === (o.conceded_by !== undefined)) {
+        return `${at}: every Closure row ends \`discharged_by\` or \`conceded_by\`, naming the Step — `
+          + `this row carries ${o.discharged_by !== undefined ? "BOTH" : "NEITHER"} `
+          + `(src/candidate-schema.json, \`obligations\`)`;
+      }
     }
   }
   if (c?.coverage !== undefined) {
@@ -477,6 +498,7 @@ function unreadableObligation(o) {
   if (typeof o.text !== "string" || o.text.trim() === "") return "it carries no `text`";
   if (typeof o.introduced_by !== "string" || o.introduced_by.trim() === "") return "it carries no `introduced_by`";
   if (o.discharged_by !== undefined && typeof o.discharged_by !== "string") return "its `discharged_by` is not a step id";
+  if (o.conceded_by !== undefined && typeof o.conceded_by !== "string") return "its `conceded_by` is not a step id";
   return null;
 }
 
@@ -522,7 +544,7 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
         + "`{ text, introduced_by, discharged_by? }` (src/candidate-schema.json, `obligations`)" };
     }
   }
-  const undischarged = obligations.filter((o) => o.discharged_by === undefined).length;
+  const undischarged = obligations.filter((o) => o.discharged_by === undefined && o.conceded_by === undefined).length;
   // The three reader fields are authored at PATH COMPOSITION, per Candidate
   // (the settled structure section v12), so they are this Candidate's own and ride its evidence — two
   // Candidates differing on the reader axis must not read identically at the
@@ -624,8 +646,25 @@ export function assembleSelection(reviewed, doc) {
   // different door.
   const table = validateDisclosureTable();
   if (table.error) return { error: `the disclosure table is malformed: ${table.error}` };
-  const cands = reviewed?.candidates;
-  if (!Array.isArray(cands)) return { error: "input is the attach output: { candidates: [...] } (src/review.mjs)" };
+  const all = reviewed?.candidates;
+  if (!Array.isArray(all)) return { error: "input is the attach output: { candidates: [...] } (src/review.mjs)" };
+  // A WITHDRAWN CANDIDATE NEVER REACHES THIS GATE (Closure, exits at the
+  // bound, kogaki#1151). `src/review.mjs` withdraws a Candidate that spent its
+  // one revise round and still carries an open Closure row: its rows are
+  // recorded in `revise_residue` for exactly this refusal, and no replacement
+  // is generated for it. If EVERY Candidate withdrew, the Thesis or the
+  // settled set is what should change, and this refuses naming the open rows
+  // — the same disposition the "none-of-these" negation reaches by the
+  // owner's own choice, reached here because no choice is offerable at all.
+  const withdrawn = all.filter((c) => c.withdrawn === true);
+  const cands = all.filter((c) => c.withdrawn !== true);
+  if (cands.length === 0) {
+    const rows = withdrawn.flatMap((c) => (c.revise_residue?.open_rows || [])
+      .map((o) => `${c.candidate_id}: ${o.text} (introduced_by ${o.introduced_by})`));
+    return { error: `every Candidate was withdrawn at the revise bound carrying an open Closure row — `
+      + `${rows.join("; ") || "no row detail carried"}. The Thesis or the selected set is what should `
+      + `change; no Candidate is offered.` };
+  }
   // 2-3 CANDIDATES PER ARTICLE (the Candidate gate): the count is the contract, refused
   // naming what arrived — one Candidate is a default in disguise, four is
   // the selector affordance overrun.
@@ -1148,20 +1187,21 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // The digest survives to name the record in the closing summary.
   const digest = specializationDigest(instantiation.specialization, c.steps);
 
+  // CLOSURE (kogaki#1151): the Thesis row and the Step rows fill in the SAME
+  // write, because `replaceSlot` refuses a slot filled twice and both levels
+  // now share one slot. `established_by_steps` stays every Step of the
+  // adopted path — unchanged from the prior Thesis-closure fill, only moved.
   const filled = fillBrief(doc, {
     steps: c.steps,
     coverage: c.coverage || {},
     obligations: c.obligations || [],
     unused: c.unused || {},
+    readerStart: c.reader_start,
+    thesisClosure: { explanation: c.reasoning.thesis_closure, established_by_steps: c.steps.map((s) => s.step_id) },
   });
   if (filled.error) return filled;
   let out = filled.doc;
-  const established = c.steps.map((s) => s.step_id).join(", ");
-  let r = replaceSlot(out, "Thesis closure",
-    `${c.reasoning.thesis_closure}\n\n*established_by_steps: ${established}*`);
-  if (r.error) return r;
-  out = r.doc;
-  r = replaceSlot(out, "Tradeoffs",
+  let r = replaceSlot(out, "Tradeoffs",
     typeof c.tradeoffs === "string" && c.tradeoffs !== ""
       ? c.tradeoffs
       : `adopted over its siblings on reader experience: ${c.reader_experience}. The declined Candidates' experiences are recorded in the run's gate payload.`);

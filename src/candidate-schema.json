@@ -156,8 +156,8 @@
       "required": false,
       "type": "array of object",
       "entry_required_keys": ["text", "introduced_by"],
-      "entry_optional_keys": ["discharged_by"],
-      "description": "THE OBLIGATIONS LEDGER: what each Step still owes the reader, entered with the Step that settles it. Every entry is an object carrying `text` (the obligation in the composer's own words, non-blank), `introduced_by` (the `step_id` of the Step that raises it) and OPTIONALLY `discharged_by` (the `step_id` of the Step that settles it). Both id fields name a Step OF THIS CANDIDATE and are refused otherwise. AN ENTRY WITH NO `discharged_by` IS UNDISCHARGED, which is a DISCLOSURE and never a refusal -- it renders as `UNDISCHARGED` in the Brief and is counted at the Candidate gate. That is exactly why the key names bind: a ledger the runtime cannot read is scored as wholly undischarged and the owner is shown a confident number over a record nothing understood (kogaki#1129). An absent `obligations` is the empty ledger, which is a statement and not an omission."
+      "entry_optional_keys": ["discharged_by", "conceded_by"],
+      "description": "THE STEP HALF OF CLOSURE (kogaki#1151): what each Step still owes the reader, entered with the Step that settles it. Every entry is an object carrying `text` (the obligation in the composer's own words, non-blank), `introduced_by` (the `step_id` of the Step that raises it) and EXACTLY ONE of `discharged_by` (the `step_id` of the Step that keeps the promise) or `conceded_by` (the `step_id` of the Step whose prose tells the reader it is left open). All three id fields name a Step OF THIS CANDIDATE and are refused otherwise. AN ENTRY CARRYING NEITHER, OR BOTH, IS REFUSED, naming the row -- \"unresolved\" is not a state this ledger can hold. That is exactly why the key names bind: a ledger the runtime cannot read is scored as wholly open and the owner is shown a confident number over a record nothing understood (kogaki#1129). An absent `obligations` is the empty ledger, which is a statement and not an omission."
     },
     "unused": {
       "required": false,

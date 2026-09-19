@@ -242,6 +242,11 @@
       "name": "the Section grouping rule 4",
       "rule": "TWO ADJACENT SECTIONS HOLDING EXACTLY ONE STEP EACH are refused with a request to MERGE them, because a heading on every Step is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason.",
       "the_other_clause": "Rule 4's other clause -- a Section running past roughly a display and a half of prose without a heading -- measures REALIZED PROSE, which no Brief contains. It is a named deferred slot in the Section grouping: it binds your judgment while you group the Steps, and no refusal reads it."
+    },
+    "reader_start_binds_first_step": {
+      "class": "checked",
+      "name": "Reader start binds the first Step",
+      "rule": "The FIRST Step's `reader_state_before` is the Brief's Reader start, verbatim. Reader start is the direction for the initial reader pull; a first Step that begins somewhere else has the reader arriving at a Brief the article never opens from (kogaki#1151)."
     }
   },
   "claim": {

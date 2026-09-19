@@ -1,4 +1,4 @@
-# The path-review agent — every composition MUST applied as judgment
+# The Path Review agent — every composition MUST applied as judgment
 
 <!--
 SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
@@ -18,7 +18,7 @@ THE NAMES THIS FILE USES, and the spec each one names:
 SPEC-draft-pipeline "Every MUST is judgment, and nothing becomes a lint" (kogaki#490,
 story 1.74). This file IS the agent:
 a prompt block the composition flow runs once per Candidate, machine-side,
-before Candidate assembly (block 4 of the Reader Path workflow). Whether it runs as a harness
+before Candidate assembly — **Path Review**, block 4 of the Reader Path workflow. Whether it runs as a harness
 subagent or an inline prompt block is the orchestrating sitting's cut
 (SQ1); what may not vary is the contract below.
 

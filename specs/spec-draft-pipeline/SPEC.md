@@ -329,9 +329,16 @@ is exactly why §4.5 has to make it observable.
 **Reader Path names the artifact only** — the ordered sequence of Steps inside
 one Candidate. The workflow blocks have their own fixed names:
 
-    path composition → Move binding → Candidate assembly → path review → Candidate selection
+    path composition → Move binding → Candidate assembly → Path Review → Candidate selection
 
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:20`
+
+**Block 4 is named Path Review**, one term (kogaki#1151, owner decision
+2026-09-19: "the Candidate review mechanism gets a specific name; leaving it as
+'Review' will cause naming collisions"). It names the artifact reviewed and the
+mechanism — `src/path-review-agent.md`, the agent that applies it — and is used
+everywhere the block is named, superseding the bare word "review" as this
+block's name.
 
 **Every MUST below names the block that judges it.** A MUST with no named judge
 is a rule with no occasion, and the occasion is the scarce resource. **Where
@@ -363,7 +370,7 @@ sentence stays at the pin.
 
 **The field belongs to the Brief because Document Planning is content
 determination.** Three mechanisms read the Brief's decision about what each Step
-says as their declared side: path review's entailment and arc checks over the
+says as their declared side: Path Review's entailment and arc checks over the
 sequence of assertions, the grounds test of §4.5, and Reverse Outlining's
 comparison of what the passage asserts against what the Brief declared. A Brief
 holding only addresses and purposes would defer content to Draft, which has the
@@ -421,7 +428,7 @@ reaches for under pressure.
 
 **When information is unavailable there are exactly three moves — omit the
 Step, revise the path, or leave the Strand unused** — and inventing material is
-not among them. Judged at **path review**.
+not among them. Judged at **Path Review**.
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:17`
 
 `necessity:` a closed list of prohibited inferences, each of which produces
@@ -493,7 +500,7 @@ own before/after states is a global vocabulary growing quietly.
 admitting a Move as `validated` mints a judgment nobody made.
 
 Judged at **Move ingestion's agent review** (§6.9) for a Move entering the
-library, and at **path review** for a Move edited in place. **The removal test
+library, and at **Path Review** for a Move edited in place. **The removal test
 is applied as judgment and is never mechanized** — §4.6 clause 3 exists for
 this sentence specifically.
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:14`
@@ -566,7 +573,7 @@ destination does not exist is a prohibition waiting to be worked around.
 carried was retracted by owner ruling; the obligations it held moved to §6.1,
 where the four frozen composition requirements bind every composed Candidate.
 The register choice is made by **selecting a Candidate** at the
-Candidate-selection gate, and conformance is judged at **path review**.
+Candidate-selection gate, and conformance is judged at **Path Review**.
 
 **Journey register is contingent**: a Brief whose selected Strands carry no
 Journey material has no register to differentiate on, and §6.1's MUSTs are
@@ -613,12 +620,43 @@ Brief from the **existing** library and the selected Strands; minting is not
 this workflow's act. A transition typing against no entry raises §4.1's reopen
 trigger rather than composing anyway.
 
-**The revise pass.** After path review, per Candidate: a gap found in
-transition continuity routes that Candidate **back to path composition**, where
-the composer inserts a Bridge Step or discloses the gap as a §5.2 ledger entry.
-The revised Candidate is **re-reviewed before assembly**. **The loop is bounded
-at one revise round per Candidate**; a gap surviving it is disclosed and rides
-to the gate, never re-looped.
+**The revise pass.** After Path Review, per Candidate: a gap found in
+transition continuity, or an open row in §5.2's Closure ledger, routes that
+Candidate **back to path composition**. The revised Candidate is **re-reviewed
+before assembly**. **The loop is bounded at one revise round per Candidate**;
+no mechanical retries — "there is no guarantee that another round will produce
+a better result" (owner, 2026-09-19) — so a gap or an open row surviving the one
+revise is never re-looped.
+
+**The Arms are declared by the Harness, one chosen per open Closure row**
+(kogaki#1151, owner decision 2026-09-19). When a Candidate is sent back to path
+composition once, ownership of what a revise CAN DO is never handed to the
+Model — it is fine for the Model to choose which Arm applies to a row, but the
+Model must not be allowed to define the Arms themselves. The four, each naming
+the Steps it touches:
+
+- **(a) insert a Step that discharges the row** — the Bridge Step insertion
+  contract above;
+- **(b) amend an existing Step so it discharges the row**;
+- **(c) concede the row at a named Step**;
+- **(d) amend the introducing Step so the promise is not made and the row is
+  not raised.**
+
+A reply naming anything else is refused. `src/review.mjs` checks a reply
+against this closed set (`REVISE_ARMS`) rather than against a rule the Model
+could satisfy by inventing its own vocabulary.
+
+**Exits at the bound.** After the second Path Review, a Candidate with every
+Closure row terminal proceeds to assembly. A Candidate with an open row is
+**withdrawn** from the Candidate set — its rows are written into
+`revise_residue` by the runtime, it is never offered at Candidate selection,
+and it is never re-looped: "the failure indicates that the particular
+combination of Strands used by that Candidate was not good enough" (owner,
+2026-09-19), and no replacement is generated for it. **If every Candidate
+withdraws**, selection refuses naming the open rows and the run returns to the
+composer through §6's existing route — every Candidate adoptable again once the
+Thesis or the settled set changes. **No revert to the pre-revise Candidate**:
+it held the same open row.
 
 **THE HARNESS COUNTS THE ROUND, and until kogaki#894 nothing did.** The clause
 above was a bound in prose with its count outside the Harness: nothing in
@@ -659,10 +697,12 @@ count honest rather than merely present:
   the ledger is written only on success, so a malformed entry never consumes a
   revise the Candidate has not had.
 - **The residue entry is written by the runtime, from the ledger.** A Candidate
-  at the bound carries `revise_residue` into the reviewed set — how many
-  attaches, the bound it was written against, and that anything the revise did
-  not repair is disclosed rather than re-looped. A Candidate arriving with its
-  own is **refused**: a model-declared residue is a model-supplied control input
+  at the bound with every Closure row terminal carries none — the revise did its
+  job. A Candidate that STILL carries an open row carries `revise_residue` into
+  the reviewed set — how many attaches, the bound it was written against, and
+  the open rows themselves — and is marked `withdrawn`, per the Arms and exits
+  bullet above. A Candidate arriving with its own `revise_residue` is
+  **refused**: a model-declared residue is a model-supplied control input
   wearing the Harness's field name, which is `bridges`'s own shape one field
   over. **The Harness counts the round and never judges the repair** — a
   residue entry says a round was spent, never that a gap survived it.
@@ -732,7 +772,7 @@ count honest rather than merely present:
 The assertion is `checks/check-brief-review.sh` cases (e)–(h).
 
 **Routing a finding does not make an evaluation level a check.** Transition
-continuity is observed inside path review's `evaluation_levels` area
+continuity is observed inside Path Review's `evaluation_levels` area
 (`src/review.mjs`) — there is no area by that name. The revise pass registers
 no check member, computes no score and produces no verdict.
 
@@ -863,7 +903,7 @@ states.
    order, **quoting the sentence the judging sitting wrote** rather than
    paraphrasing a judgment the runtime did not make.
 
-**Why not path review.** Path review's output is reasoning surfaced for a human
+**Why not Path Review.** Path Review's output is reasoning surfaced for a human
 gate — never a verdict, never a score — and `src/review.mjs` refuses any
 verdict-shaped field by key. A specialization verdict recorded there would be
 **unattachable by construction**. The judgment is sited where a verdict is a
@@ -891,7 +931,7 @@ realization.** `resolve` re-runs the mechanical half only; re-deriving the
 verdict would be the runtime composing one, which clause 2 forbids.
 
 **deferred slot: `specialization-judgment-and-path-review-ordering`** — where
-the judgment point sits relative to path review's own pass. Not answered by
+the judgment point sits relative to Path Review's own pass. Not answered by
 inference from this section; owed on its own licensing issue.
 
 `necessity:` the split between what a runtime may decide and what only a
@@ -1071,8 +1111,16 @@ article another article's subject matter — so its header says so in the
 imperative.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
-anchors → the Move's contract → the Step's fields → the §4.13 ledger → every
-previously realized Step's prose in recorded order → the write instruction.
+anchors → the Move's contract → the Step's fields → the §4.13 ledger → **this
+Step's own §5.2 Closure rows** → every previously realized Step's prose in
+recorded order → the write instruction.
+
+**The Closure block renders in the §4.13 shape** (kogaki#1151): only the rows
+where this Step is `introduced_by`, `discharged_by` or `conceded_by`, as their
+prose text — the Thesis row on its establishing Steps — never a copy of the
+whole ledger. A Step party to no row renders the block **empty rather than
+absent**, on the same one-word-one-unit ground the reader-knowledge ledger's
+own empty case states.
 
 **`requires`/`effect` are EXCLUDED**, and the exclusion is the ruling rather
 than an omission: §4.12 makes the Step's `reader_state_before`/`after` the
@@ -1539,7 +1587,7 @@ the Step's line range must exclude it. What no carrier holds: why the
 transcription is a fixed function rather than a judgment, and why the figure's
 lines are recorded beside the prose's rather than inside them.
 
-## 5. The Brief's centre, and the obligations ledger inside it
+## 5. The Brief's centre, and Closure inside it
 
 `necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's
 centre readable as one thing rather than three fields and a file path.
@@ -1552,8 +1600,10 @@ centre readable as one thing rather than three fields and a file path.
 - **`sequence`** — the ordered Steps of §4.1.
 - **`strand_coverage`** — per selected Strand: `used_by_steps`,
   `role_in_thesis`.
-- **`unresolved_obligations`** — the ledger of §5.2.
-- **`thesis_closure`** — `explanation`, `established_by_steps`.
+- **`obligations`** and **`thesis_closure`** — the two levels of **Closure**,
+  §5.2: `thesis_closure` carries `explanation` and `established_by_steps`, and
+  `obligations` is the Step-level ledger. Both fill in the same write, into one
+  rendered section named **Closure**.
 - **`tradeoffs`**
 
 `necessity:` the field list is carried by `src/compose.mjs`, `src/brief.mjs`
@@ -1631,16 +1681,27 @@ carrier holds: which block authors which field and why, why a refusal rather
 than a default, whose text the vocabulary guard reaches, and what shape an
 owner surface takes — four judgments about authorship and audience.
 
-### 5.2 The obligations ledger
+### 5.2 Closure
 
-The Brief carries **`unresolved_obligations`** so Thesis closure is readable at
-the gate rather than reconstructed there. Every question a Step opens, every
-analogy it introduces and every limitation it concedes is entered with the Step
-that discharges it, each carrying **`introduced_by`** and **`discharged_by`**.
+**The term is Closure** (owner decision, 2026-09-19, superseding "Landing" and
+the rendered heading "Unresolved obligations"). **An obligation** is a promise
+the prose makes to the reader that a later passage must keep: a question
+raised, an analogy introduced, a limitation conceded — this is the definition,
+stated where the Brief's Closure section renders it, above the ledger, so a
+reader of the document meets it before the rows that instantiate it.
 
-- **An undischarged obligation renders as undischarged.** It is a
-  **disclosure**, never a refusal: nothing here blocks, and no machinery judges
-  whether the discharge is good.
+**One ledger at two levels.** The **Thesis row** is the promise the Opening
+question makes: `thesis_closure`'s `explanation`, with `established_by_steps`.
+The **Step rows** are the obligations ledger — the owner's proposed name is
+*Steps closure* — each carrying `text` and `introduced_by`.
+
+**Every row ends in one of two terminal states, written by the composer:**
+`discharged_by: <step>` (the promise is kept there) or `conceded_by: <step>`
+(the prose there tells the reader it is left open). **"Unresolved" is no
+longer a state the ledger can hold** — `validateSteps` (`src/compose.mjs`)
+refuses a Brief carrying a row with neither, naming the row, and a row carrying
+both (an ambiguous close) is refused the same way.
+
 - **The Strand cover is counted in placements, after composition**, and an
   unplaced selected Strand discloses.
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:75`
@@ -1653,9 +1714,17 @@ and a sidecar cannot drift from it. The entries are **authored judgments** —
 already kept, so they need a record and the record belongs where its consumer
 reads it.
 
-**There is no mechanical judge of any of this.** Composition quality is judged
-at the human gate; Kogaki guarantees citations and the substrate guarantees
-facts.
+**Reader start binds the first Step.** `validateSteps` also refuses a path
+whose first Step's `reader_state_before` is not the Brief's own Reader start,
+naming both — Reader start is the direction for the initial reader pull, and a
+first Step beginning somewhere else has the reader arriving at a Brief the
+article never opens from.
+
+**There is no mechanical judge of the CONTENT of any of this.** Whether an
+obligation is worth entering, and whether a discharge or a concession is the
+right call, is judged at Path Review (§4.3); Kogaki guarantees citations and
+the substrate guarantees facts. What the runtime enforces is SHAPE alone: every
+row terminal, and the first Step's Reader start bound.
 
 `necessity:` the field is in the record shape and the fill is carried by
 `src/compose.mjs`; the siting argument is not. "Why not a sidecar" is the
@@ -1831,7 +1900,7 @@ may not shed, and why declining a slug may not cost the Thesis.
 
 **A command is named for the artifact it completes, and it runs until that
 artifact is complete.** One invocation drives the whole arc — entry, the thesis
-gate, the mint, path composition, path review with §4.11's revise routing,
+gate, the mint, path composition, Path Review with §4.11's revise routing,
 Candidate assembly, the Candidate-selection gate, §4.12.3's ratification gate,
 adoption — and ends only at a
 **filled** Brief, or at an owner answer that ends it.
@@ -2081,7 +2150,7 @@ one:**
 
 **Vacuous, never violated, on a Brief with no Journey material.**
 
-**Judged as judgment, never as a lint.** Conformance is read at **path review**
+**Judged as judgment, never as a lint.** Conformance is read at **Path Review**
 (§4.8's arc clauses, per Candidate, as `src/review.mjs` runs them). It was
 surfaced to the owner as reasoning per §6's evidence rule; kogaki#859 reduced
 that gate to its labels and stopped the payload copying the reasoning, so for
@@ -2094,7 +2163,7 @@ the adopted Candidate.
 **THE MECHANISM IS SHARED AND THE GROUND IS NOT, which is why this clause states
 its own.** §4.11's disclosure is an **approval**: remove it and an approval step
 is gone with nothing standing in for it. This one is a **report** on a judgment
-that path review makes and records either way, so its absence cost visibility
+that Path Review makes and records either way, so its absence cost visibility
 rather than a control — and the owner ruled the two are different questions
 before ruling that both land in the Brief. Two clauses, distinct grounds, one
 carrier. **A later sitting may move one without moving the other**; that is the
@@ -2505,7 +2574,7 @@ evidence of a decision, and each of these has been proposed at least once.
   post-hoc disclosure surface — carrier kogaki#866, still owed — and did not
   touch this trigger.
 - **`specialization-judgment-and-path-review-ordering`** (§4.12) — where the
-  judgment point sits relative to path review's own pass.
+  judgment point sits relative to Path Review's own pass.
 - **`move-sources-derivation-vehicle`** (§6.9.4) — REOPENED; the successor
   position is recorded there.
 - **§4.1's reopen trigger** — the first genuine transition that cannot be typed
