@@ -237,6 +237,17 @@ policy/shape.md
 # `check-terrain-hook-invocation.sh` reads that registration from HEAD.
 !.claude/hooks/advance-brief.py
 
+# THE SELF-GATING DISPATCH DENY (kogaki#1154), re-included on the same
+# criterion: `checks/check-skill-dispatch-under-run.sh` is its named reader,
+# so it is repository material. Its REGISTRATION follows
+# `gate-open-terrain-gate.py`'s split rather than `advance-terrain.py`'s -- a
+# session it fails to guard does not stall visibly, it deadlocks at the next
+# self-gating dispatch with no admissible act at all, which is the same
+# unobservable-from-inside-a-session absence that hook's own re-include names.
+# So it is registered in the committed `.claude/settings.json` and asserted
+# there, not left to a machine-local wiring nothing here checks.
+!.claude/hooks/gate-skill-dispatch-under-run.py
+
 # check-terrain-workflow.sh mints ONE run workspace at the repository root, on
 # purpose: it is the only place an in-repo `--run-dir` can be driven from a
 # subdirectory, which is the sole combination where the gate declaration's
