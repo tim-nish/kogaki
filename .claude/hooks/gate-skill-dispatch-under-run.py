@@ -58,6 +58,7 @@ out safe.
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -71,7 +72,17 @@ SELF_GATING_SKILLS = {
     "brief": "Brief",
 }
 
-RUN_MARK_DIR = Path.home() / ".claude" / "ship-cycle-runs"
+# THE ROOT IS ENV-OVERRIDABLE, on this repository's existing convention for a
+# guard whose store sits outside the tree (`GATE_DECLARATION_SIDECAR_DIR`,
+# `KOGAKI_QUESTION_SHAPE_CMD`). Without it the only member that can exercise
+# this hook has to write into the owner's live run store and `mkdir -p` it,
+# which is a suite leaving artifacts in a directory a real run reads. The
+# override buys the member its own scratch root; it is not a licence surface,
+# because a session that can set it can equally not run the skill at all.
+RUN_MARK_DIR = Path(
+    os.environ.get("KOGAKI_RUN_MARK_DIR")
+    or (Path.home() / ".claude" / "ship-cycle-runs")
+)
 
 REASON = (
     "Dispatching the `{skill}` skill is refused: this session is inside a "
@@ -112,11 +123,21 @@ def _session_slug(value):
 
 
 def run_mark(payload):
-    """The preflight's run marker for this call's session, or None.
+    """`(path, state)` for this call's session, `state` in `mark | unreadable`.
 
     Tries the harness `session_id` and the transcript path's own stem, the
     same two keys `lint-gate-declaration.py` tries and for the same reason:
     the marker's key spelling is not guaranteed to be one or the other.
+
+    EXISTENCE IS THE PROPERTY, AND A PARSE FAILURE IS NOT ABSENCE. The marker
+    says a run is in force; nothing in its body is read here, only its path is
+    quoted back. So a file that exists and does not parse -- truncated, or
+    caught half-written -- is a run this hook cannot rule out, and it takes the
+    deny side with the unreadable payload rather than reading as `no run`.
+    That is the polarity the docstring commits to; returning `None` there
+    admitted exactly the dispatch that deadlocked session 54a9804a (PR #1157
+    round 1). An ENOENT is still absence, which is what keeps acceptance item
+    3 -- a session with no run -- unaffected.
     """
     keys = []
     sid = payload.get("session_id")
@@ -127,13 +148,14 @@ def run_mark(payload):
         keys.append(Path(str(tpath)).stem)
     for key in keys:
         path = RUN_MARK_DIR / f"runmark__{_session_slug(key)}.json"
+        if not path.exists():
+            continue
         try:
             with open(path, encoding="utf-8") as fh:
-                rec = json.load(fh)
+                json.load(fh)
         except (OSError, ValueError):
-            continue
-        if isinstance(rec, dict):
-            return path, rec
+            return path, "unreadable"
+        return path, "mark"
     return None, None
 
 
@@ -155,10 +177,19 @@ def main():
     lane = SELF_GATING_SKILLS.get(skill)
     if lane is None:
         return 0
-    mark_path, mark = run_mark(payload)
-    if mark is None:
+    mark_path, state = run_mark(payload)
+    if state is None:
         # No run in force for this session -- acceptance item 3. A standalone
         # dispatch of a self-gating skill is exactly as unaffected as before.
+        return 0
+    if state == "unreadable":
+        deny(f"Dispatching the `{skill}` skill is refused: this session's "
+             f"ship-cycle run marker ({mark_path}) exists and could not be "
+             f"read, and this hook fails CLOSED on unreadable run state "
+             f"(kogaki#1154). {lane} opens its own gate interval that no "
+             f"ship-cycle command declares, and a half-written marker is a "
+             f"run this hook cannot rule out. Run `/{skill}` in its own "
+             f"session instead.")
         return 0
     deny(REASON.format(skill=skill, lane=lane, run_mark=mark_path))
     return 0

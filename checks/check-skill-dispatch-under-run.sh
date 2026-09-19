@@ -12,18 +12,21 @@
 # tool, so no runtime self-test can drive it and this is the only place its
 # decisions are exercised.
 #
-# THE RUN MARKER IS SYNTHESIZED, NEVER READ FROM THE REAL DIRECTORY. The hook
-# reads `~/.claude/ship-cycle-runs/runmark__<session>.json`, which is
-# machine-local and outside this repository -- a case that wrote there would
-# either collide with a live run on the machine this suite happens to run on,
-# or read a stale one. Every case below points the hook at the real slug
-# derivation over a SESSION ID this case mints, so what is asserted is the
-# hook's own read, keyed to a marker file this case controls end to end.
+# THE RUN MARKER IS SYNTHESIZED AND SO IS ITS DIRECTORY. The hook's default
+# store is machine-local and outside this repository; a member that wrote there
+# would leave artifacts in a directory live runs read, and a `SIGKILL`ed suite
+# would leave them for good. So the hook reads `KOGAKI_RUN_MARK_DIR` and every
+# case below points it at a scratch root this member mints and removes -- the
+# sibling convention `GATE_DECLARATION_SIDECAR_DIR` and
+# `KOGAKI_QUESTION_SHAPE_CMD` already carry here (PR #1157 round 1). What is
+# asserted is still the hook's own slug derivation, over a session id this
+# member controls end to end.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
 HOOK=.claude/hooks/gate-skill-dispatch-under-run.py
-MARK_DIR="$HOME/.claude/ship-cycle-runs"
+MARK_DIR="$(mktemp -d)"
+export KOGAKI_RUN_MARK_DIR="$MARK_DIR"
 
 fail=0
 cases=0
@@ -37,21 +40,22 @@ if [[ ! -f "$HOOK" ]]; then
 fi
 
 started=$(date +%s%N)
-mkdir -p "$MARK_DIR"
 
 SESSION="kogaki-1154-check-$$-$RANDOM"
 MARK_FILE="$MARK_DIR/runmark__${SESSION}.json"
-cleanup() { rm -f "$MARK_FILE"; }
+cleanup() { rm -rf "$MARK_DIR"; }
 trap cleanup EXIT
 
-verdict() {  # <tool_name> <skill> <session-or-empty> -> stdout+stderr
-  local tool="$1" skill="$2" sid="$3"
-  python3 - "$tool" "$skill" "$sid" <<'PY' 2>&1
+verdict() {  # <tool_name> <skill> <session-or-empty> [transcript] -> payload
+  local tool="$1" skill="$2" sid="$3" tpath="${4:-}"
+  python3 - "$tool" "$skill" "$sid" "$tpath" <<'PY' 2>&1
 import json, sys
-tool, skill, sid = sys.argv[1], sys.argv[2], sys.argv[3]
+tool, skill, sid, tpath = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 payload = {"tool_name": tool, "tool_input": {"skill": skill}}
 if sid:
     payload["session_id"] = sid
+if tpath:
+    payload["transcript_path"] = tpath
 print(json.dumps(payload))
 PY
 }
@@ -126,10 +130,37 @@ if [[ -z "$out" ]]; then pass; else
   bad "a Skill call with no skill field was denied: $out"
 fi
 
-elapsed_ms=$(( ($(date +%s%N) - started) / 1000000 ))
-if [ "$elapsed_ms" -lt 2000 ]; then pass; else
-  bad "the check took ${elapsed_ms}ms against its bound of 2000ms"
+# ---- 9. THE TRANSCRIPT-PATH KEY IS THE FALLBACK SPELLING, and it is the arm
+# that fires exactly when the `session_id` key does not match the marker's --
+# the case the redundancy exists for. Without a reader it was a fallback
+# nobody had run (PR #1157 round 1).
+TSESSION="kogaki-1154-transcript-$$-$RANDOM"
+TMARK="$MARK_DIR/runmark__${TSESSION}.json"
+echo '{"root": "/tmp/nonexistent-kogaki-check"}' > "$TMARK"
+out=$(verdict "Skill" "terrain" "" "/tmp/transcripts/${TSESSION}.jsonl" | run_hook)
+if denied "$out"; then pass; else
+  bad "a run marker keyed to the TRANSCRIPT stem did not gate the dispatch: ${out:-<empty>}"
 fi
+rm -f "$TMARK"
+
+# ---- 10. A MARKER THAT EXISTS AND DOES NOT PARSE FAILS CLOSED. Existence is
+# the property the hook reads -- nothing in the body is used -- so a truncated
+# or half-written marker is a run it cannot rule out, and reading it as
+# absence admitted exactly the dispatch this hook exists to refuse (PR #1157
+# round 1).
+printf '{"root": "/tmp/nonexist' > "$MARK_FILE"
+out=$(verdict "Skill" "terrain" "$SESSION" | run_hook)
+if denied "$out"; then pass; else
+  bad "an UNREADABLE run marker was read as no-run and the dispatch was admitted: ${out:-<empty>}"
+fi
+if grep -q 'could not be read' <<<"$out"; then pass; else
+  bad "the unreadable-marker deny does not name the unreadable run state: $out"
+fi
+
+# THE ELAPSED TIME IS REPORTED, NEVER ASSERTED. A wall-clock bound inside a
+# contended suite reds intermittently and reads as a real defect, which is a
+# finding about this member rather than about the hook (PR #1157 round 1).
+elapsed_ms=$(( ($(date +%s%N) - started) / 1000000 ))
 
 if [ "$fail" -eq 0 ]; then
   echo "ok: $cases case(s) pass in ${elapsed_ms}ms — a self-gating skill is denied under a run marker naming the fresh-session route, rides through with none, a foreign session's marker does not gate this one, and an unreadable payload fails closed (kogaki#1154)"
