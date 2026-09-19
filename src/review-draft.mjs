@@ -1185,10 +1185,54 @@ function nextOutlineOwed(run) {
 }
 
 // ---------------------------------------------------------------------------
+// THE JAPANESE-DRAFT PRECONDITION (kogaki#1158, the Terminology List
+// Decision, the versioning rule). A Japanese Draft — a Draft named
+// `theses/<slug>/draft.ja.md`, on the reserved-name reconciliation
+// src/draft.mjs `emit --lang ja` produces — must pass `node src/lint-ja.mjs
+// lint` before ReviewDraft may run against it: Lint runs BEFORE the Round
+// Trip, so a term-list deviation is caught by the cheap deterministic pass
+// rather than spending a Round Trip judgment on it. Conformance is decided
+// by the Lint against the CURRENT term list, never by what constrained
+// generation (the versioning rule) — so this reads `terms_sha_at_lint`
+// (never `terms_sha_at_generation`) against sha256(terms/prh.yml) as it
+// stands NOW, and refuses naming BOTH hashes when they disagree or when the
+// field is absent.
+//
+// READ AS A RAW LINE SCAN, before `readDraft` — the same convention
+// `readDraft`'s own frontmatter reads use, and it runs first so a Draft
+// that is ALSO short a trace or frontmatter is told about the term-list
+// precondition rather than an unrelated refusal about the Draft's own well-formedness.
+//
+// SCOPED TO `.ja.md` ONLY: an English CanonicalDraft carries no
+// `terms_sha_at_lint` field and none is owed — this precondition changes
+// nothing about `theses/<slug>/draft.md`.
+const TERMS_PATH = "terms/prh.yml";
+
+function checkJaTermsFreshness(draftPath) {
+  if (!draftPath.endsWith(".ja.md")) return;
+  let text;
+  try { text = readFileSync(draftPath, "utf8"); }
+  catch { return; } // the ordinary "no Draft" refusal is readDraft's, next
+  let currentSha;
+  try { currentSha = sha256(readFileSync(TERMS_PATH, "utf8")); }
+  catch (e) {
+    fail(`the term list at ${TERMS_PATH} cannot be read (${e.message}) — a Japanese Draft's terms_sha_at_lint cannot be checked for staleness without it`);
+  }
+  const m = text.match(/^terms_sha_at_lint:\s*(\S+)\s*$/m);
+  const recorded = m ? m[1] : "(absent)";
+  if (!m || m[1] !== currentSha) {
+    fail(`${draftPath} refuses to start: terms_sha_at_lint is ${recorded} and the current term list's hash is ${currentSha} (${TERMS_PATH}) — `
+      + `Lint runs before the Round Trip on a Japanese Draft (the Terminology List Decision), so run \`node src/lint-ja.mjs lint --draft ${draftPath}\` first. `
+      + `A term-list change is a correction, never a whole-Draft re-derivation: only the Steps Lint names are corrected, and ReviewDraft is re-entered from there`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // The commands.
 
 function cmdOpen(args) {
   const draftPath = argString(args, "draft", "usage: review-draft open --draft <draft.md>");
+  checkJaTermsFreshness(draftPath);
   const draft = readDraft(draftPath);
   const { steps, sections } = resolveInputs(draft);
   const slug = slugOf(draftPath);

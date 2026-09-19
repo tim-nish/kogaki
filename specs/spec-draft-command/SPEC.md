@@ -84,6 +84,18 @@ it, and `/draft` never re-opens it.
 **Reserving a name before it collides is cheap and reserving it after is not** —
 a stable key collides at the naming event, which is where refusal belongs.
 
+**RECONCILED WITH A SECOND-LANGUAGE REALIZATION, RATHER THAN VIOLATED IN
+SILENCE (kogaki#1158).** A Japanese realization of the same Brief is a second
+instance of the CanonicalDraft concept, in a second language — realizing the
+same Reader Path from the same Packet, per §5's three-layer boundary,
+unchanged. It is not a new kind and does not enter the name a second time:
+`theses/<slug>/draft.md` stays the reserved English CanonicalDraft, and
+`theses/<slug>/draft.<lang>.md` is a **sibling filename for the same concept
+realized in `<lang>`**, never a second artifact class competing for the bare
+name. `src/draft.mjs emit --lang <lang>` writes exactly this sibling and
+touches `draft.md` not at all — the reservation binds the bare name, and a
+sibling filename is not a collision with it.
+
 `necessity:` a prohibition on naming. Its violation is a word appearing
 somewhere, and the narrowing that makes it honest is a judgment about which
 existing uses are exempt.

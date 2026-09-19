@@ -109,6 +109,11 @@ import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionR
   journeysRefusal, stepSchema, closureRowsForStep } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
+// the Terminology List Decision's ONE carrier: parseTermsYaml and
+// renderLanguageBlock live in lint-ja.mjs, which also runs the Lint that
+// reads terms/prh.yml the same way — one parser, imported rather than a
+// second copy that could disagree with the Lint about what the list says.
+import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms } from "./lint-ja.mjs";
 
 function fail(msg) {
   process.stderr.write(`draft: ${msg}\n`);
@@ -417,6 +422,35 @@ function enterWorkspace(args, slug) {
   return enterRun("draft", slug);
 }
 
+// ---------------------------------------------------------------------------
+// THE JAPANESE REALIZATION (kogaki#1158). A second realization of the SAME
+// Brief Steps, from the SAME Packet, with one added language block — never a
+// translation of the reviewed English Draft (the owner's 2026-09-19/20
+// ruling: translating from the reviewed Draft would make the later Reverse
+// Outlining target implicitly cover two transformations, the English
+// generation and the translation, at once). `--lang` defaults to `en`, and
+// AT `en` EVERY PATH BELOW RESOLVES TO EXACTLY THE STRING IT ALWAYS DID —
+// `sections`, `packets`, and the `packets` key in run.json — so the English
+// path's behaviour is unchanged, which is what acceptance item 1 requires
+// ("do not change the English path's behavior").
+function langOf(args) {
+  const v = args.lang;
+  return typeof v === "string" && v !== "" ? v : "en";
+}
+
+// A SECOND LANGUAGE GETS ITS OWN SUBDIRECTORY, never a second filename
+// scheme in the same one: `sections/<id>.md` and `packets/<id>.md` are the
+// English track's own paths, untouched, and a Japanese Step's realized prose
+// and Packet live at `sections/ja/<id>.md` / `packets/ja/<id>.md` instead of
+// colliding with the English Step of the same id.
+function sectionsDir(ws, lang) { return lang === "en" ? join(ws, "sections") : join(ws, "sections", lang); }
+function packetsDir(ws, lang) { return lang === "en" ? join(ws, "packets") : join(ws, "packets", lang); }
+// run.json's packet-record key, for the SAME reason: `packets` is the
+// English track's own key, untouched, and a non-English track's records live
+// under `packets_<lang>` instead of overwriting the English Step's record of
+// the same id.
+function packetsRecordKey(lang) { return lang === "en" ? "packets" : `packets_${lang}`; }
+
 // Per-block snapshot (kogaki#523 shape): the FULL assembled state, into
 // the run workspace, before-and-after per section landing. A snapshot failure
 // WARNS AND CONTINUES — the trace never gates the write it traces.
@@ -537,7 +571,7 @@ function figureBlocks(ws) {
 // the pair the owner rejected. Deriving them from the Brief's declaration is
 // what makes a heading-per-Step draft UNPRODUCIBLE rather than detected: there
 // is no input to this function from which one could come.
-function assembleBody(brief, ws) {
+function assembleBody(brief, ws, lang = "en") {
   const parts = [];
   const missing = [];
   // THE RANGE RIDES THE WALK THAT PRODUCES THE PROSE (kogaki#868). Line
@@ -570,7 +604,7 @@ function assembleBody(brief, ws) {
   const { blocks: figures, errors: figureErrors } = figureBlocks(ws);
   const figureRanges = new Map();
   for (const step of brief.steps) {
-    const f = join(ws, "sections", `${step.step_id}.md`);
+    const f = join(sectionsDir(ws, lang), `${step.step_id}.md`);
     if (!existsSync(f)) { missing.push(step.step_id); continue; }
     const sec = opensAt.get(step.step_id);
     // An untitled Section renders no heading rather than an empty one. It is
@@ -1113,6 +1147,7 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
 // One implementation, so the on-demand and the driven renders cannot diverge
 // in what they write or what they record.
 function renderAndStorePacket(brief, id, args, ws) {
+  const lang = langOf(args);
   const step = brief.steps.find((s) => s.step_id === id);
   if (!step) return { error: `no step "${id}" in this Brief's Reader Path (${brief.steps.map((s) => s.step_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it` };
   const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
@@ -1139,7 +1174,7 @@ function renderAndStorePacket(brief, id, args, ws) {
   const prior = [];
   for (const s of brief.steps) {
     if (s.step_id === id) break;
-    const f = join(ws, "sections", `${s.step_id}.md`);
+    const f = join(sectionsDir(ws, lang), `${s.step_id}.md`);
     if (existsSync(f)) prior.push({ step_id: s.step_id, text: readFileSync(f, "utf8").trim() });
   }
   const ledger = readerKnowledgeLedger(brief.steps);
@@ -1154,6 +1189,36 @@ function renderAndStorePacket(brief, id, args, ws) {
   const r = renderPacket({ template, brief, step, moveText, priorSections: prior, ledgerRow: row, section, sections });
   if (r.error) return { error: r.error };
 
+  // THE LANGUAGE BLOCK (kogaki#1158): rendered into every Packet when
+  // realizing at a non-English `--lang`, and nothing else added — the
+  // owner's 2026-09-19 ruling is "the term list and the register, and
+  // nothing else until a Round Trip failure names what is missing." The term
+  // list is terms/prh.yml, the ONE repository-wide carrier (the Terminology
+  // List Decision), parsed by the SAME reader lint-ja.mjs's Lint uses.
+  let packetText = r.packet;
+  if (lang !== "en") {
+    const termsPath = typeof args["terms-path"] === "string" && args["terms-path"] !== "" ? args["terms-path"] : "terms/prh.yml";
+    let termsText;
+    try { termsText = readFileSync(termsPath, "utf8"); }
+    catch (e) { return { error: `step ${id}'s Japanese Packet needs the term list at ${termsPath} and it cannot be read (${e.message})` }; }
+    const parsedTerms = parseTermsYaml(termsText);
+    if (parsedTerms.error) return { error: `the term list at ${termsPath} is not readable as the prh.yml shape: ${parsedTerms.error}` };
+    const termsSha = sha256Terms(termsText);
+    let block = renderLanguageBlock(parsedTerms.rules, termsSha, lang);
+    // FLUENCY NOTES (acceptance item 5): read, if present, into every
+    // Japanese realization as a READ-ONLY REFERENCE NOTE. Nothing evaluates
+    // it — it is appended to the model's input and never graded by any
+    // automated pass, here or in lint-ja.mjs.
+    const fluencyPath = join(dirname(brief.path), "fluency-notes.md");
+    if (existsSync(fluencyPath)) {
+      const notes = readFileSync(fluencyPath, "utf8").trim();
+      if (notes) {
+        block += `\n\n## Fluency notes (read-only reference — theses/${brief.slug}/fluency-notes.md; never graded by any automated pass)\n\n${notes}`;
+      }
+    }
+    packetText = packetText.trimEnd() + "\n\n" + block.trimEnd() + "\n";
+  }
+
   // RETENTION: stored EXACTLY AS SERVED, overwritten on re-render, with the
   // path and sha announced beside the Section it will produce.
   //
@@ -1166,11 +1231,11 @@ function renderAndStorePacket(brief, id, args, ws) {
   // discharged by the lane's default resolving there, not by a second path
   // expression here — a relocation that also re-routes its consumers changes
   // two things and can only be half-verified.
-  const dir = join(ws, "packets");
+  const dir = packetsDir(ws, lang);
   mkdirSync(dir, { recursive: true });
   const out = join(dir, `${id}.md`);
-  writeFileSync(out, r.packet);
-  const sha = sha256(r.packet);
+  writeFileSync(out, packetText);
+  const sha = sha256(packetText);
 
   // RECORDED IN THE RUN RECORD, not only printed (PR #780 round 1). #749 rules
   // "path+sha recorded in the run record beside the Section it produced", and
@@ -1189,13 +1254,14 @@ function renderAndStorePacket(brief, id, args, ws) {
   try {
     let rec = {};
     if (existsSync(runFile)) rec = JSON.parse(readFileSync(runFile, "utf8"));
-    rec.packets = { ...(rec.packets || {}), [id]: { path: out, sha256: sha } };
+    const key = packetsRecordKey(lang);
+    rec[key] = { ...(rec[key] || {}), [id]: { path: out, sha256: sha } };
     writeFileSync(runFile, JSON.stringify(rec, null, 2) + "\n");
   } catch (e) {
     process.stderr.write(`draft: the packet's path and sha were not recorded in ${runFile} (${e.message}) — the Packet itself is written and printed; the record is the trace, and the trace never gates the write it traces\n`);
   }
 
-  return { packet: r.packet, out, sha };
+  return { packet: packetText, out, sha };
 }
 
 function cmdPacket(args) {
@@ -1228,7 +1294,8 @@ function cmdPacket(args) {
 // backstop that catches the absence at the moment it matters — and a driver
 // that could fail `resolve` would make a template read gate the run's start.
 function driveNextPacket(brief, args, ws) {
-  const next = brief.steps.find((s) => !existsSync(join(ws, "sections", `${s.step_id}.md`)));
+  const lang = langOf(args);
+  const next = brief.steps.find((s) => !existsSync(join(sectionsDir(ws, lang), `${s.step_id}.md`)));
   if (!next) return null;
   const r = renderAndStorePacket(brief, next.step_id, args, ws);
   if (r.error) {
@@ -1253,6 +1320,7 @@ function cmdSection(args) {
   // refusal depends on this path, so a second binding for the same value is a
   // divergence hazard in exactly the function that must not drift.
   const ws = workspaceFor(args, brief.slug);
+  const lang = langOf(args);
   // THE BACKSTOP (kogaki#811, the Packet architecture). Render-within supplies the Packet;
   // this catches what render-within structurally cannot see — a Packet deleted
   // or gone stale between the render and the realization. Checked BEFORE the
@@ -1264,13 +1332,13 @@ function cmdSection(args) {
   // its own record. A Packet whose record is missing is the SAME refusal —
   // "rendered" means recorded, and an unrecorded file cannot be shown to be
   // the one this Step was realized from.
-  const packetPath = join(ws, "packets", `${id}.md`);
+  const packetPath = join(packetsDir(ws, lang), `${id}.md`);
   if (!existsSync(packetPath)) {
     fail(`step ${id} has no rendered Packet at ${packetPath} — the Packet is a Step's ENTIRE input, so realizing one without it means the prose was written from something else. `
       + `The Harness renders it at \`resolve\` and after each \`section\`; if it was deleted, \`packet --step ${id}\` restores it`);
   }
   let recordedSha = null;
-  try { recordedSha = (JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).packets || {})[id]?.sha256 || null; }
+  try { recordedSha = (JSON.parse(readFileSync(join(ws, "run.json"), "utf8"))[packetsRecordKey(lang)] || {})[id]?.sha256 || null; }
   catch { /* no run record — handled as unrecorded below */ }
   const packetText = readFileSync(packetPath, "utf8");
   const onDiskSha = sha256(packetText);
@@ -1361,12 +1429,12 @@ function cmdSection(args) {
     fail(`the section for ${id} carries its own heading (${heading[0].trim()}) — after the Section grouping the heading is the Harness's, rendered once per Section at the Step that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. `
       + `Remove it: the Packet's write instruction says "No heading" for this reason`);
   }
-  mkdirSync(join(ws, "sections"), { recursive: true });
+  mkdirSync(sectionsDir(ws, lang), { recursive: true });
   let seq = 0;
   try { seq = readdirSync(join(ws, "snapshots")).length; } catch { /* first snapshot */ }
-  snapshotDraft(ws, `before-${id}`, seq, assembleBody(brief, ws).body);
-  writeFileSync(join(ws, "sections", `${id}.md`), content);
-  snapshotDraft(ws, `after-${id}`, seq + 1, assembleBody(brief, ws).body);
+  snapshotDraft(ws, `before-${id}`, seq, assembleBody(brief, ws, lang).body);
+  writeFileSync(join(sectionsDir(ws, lang), `${id}.md`), content);
+  snapshotDraft(ws, `after-${id}`, seq + 1, assembleBody(brief, ws, lang).body);
   process.stdout.write(`section ${id} recorded (${brief.steps.findIndex((s) => s.step_id === id) + 1} of ${brief.steps.length} steps)\n`);
   // THE FIGURE IS DESIGNED FROM THE TEXT (the figure record, kogaki#878). A Step carrying
   // `figure:` gets its figure input here — after its prose is recorded and
@@ -1408,11 +1476,12 @@ function cmdFigure(args) {
       + `A figure enters at composition, on the Brief, and never here`);
   }
   const ws = workspaceFor(args, brief.slug);
+  const lang = langOf(args);
   // THE PROSE FIRST, AND THE REFUSAL SAYS WHY. The record's caption is stated
   // in what the reader holds after reading this Step, and its elements are
   // worded against prose that must already exist — the hub's third moment.
   // A record filled before the text is a figure the text then has to match.
-  const sectionFile = join(ws, "sections", `${id}.md`);
+  const sectionFile = join(sectionsDir(ws, lang), `${id}.md`);
   if (!existsSync(sectionFile)) {
     fail(`step ${id} has no realized prose at ${sectionFile} — the figure is designed FROM the text (the figure record), so the record cannot be filled before \`section --step ${id} --file <prose>\` records it`);
   }
@@ -1470,9 +1539,10 @@ function cmdFigure(args) {
 function cmdEmit(args) {
   const brief = loadBrief(args);
   const ws = workspaceFor(args, brief.slug);
-  const { body, missing, ranges, figureRanges, figures, figureErrors } = assembleBody(brief, ws);
+  const lang = langOf(args);
+  const { body, missing, ranges, figureRanges, figures, figureErrors } = assembleBody(brief, ws, lang);
   if (missing.length) {
-    fail(`the run is not at completion: step(s) ${missing.join(", ")} have no realized section — a /draft run ends when the CanonicalDraft exists, and these are what it still owes (SPEC-draft-command, the read-not-invented rule)`);
+    fail(`the run is not at completion: step(s) ${missing.join(", ")} have no realized section${lang !== "en" ? ` in lang ${lang}` : ""} — a /draft run ends when the CanonicalDraft exists, and these are what it still owes (SPEC-draft-command, the read-not-invented rule)`);
   }
   // A FIGURE-CARRYING STEP OWES ITS RECORD, exactly as every Step owes its
   // prose (the figure record, kogaki#878). The Brief declared the figure; a Draft emitted
@@ -1498,7 +1568,12 @@ function cmdEmit(args) {
   if (figureErrors.length) {
     fail(`the figure(s) this run recorded do not render: ${figureErrors.join("; ")} — the markup is the Harness's (the renderer and the anchor), so this is a renderer or a record defect and never prose to be written around`);
   }
-  const outPath = join(dirname(brief.path), "draft.md");
+  // THE RESERVED-NAME RECONCILIATION (SPEC-draft-command "The name is reserved,
+  // and the reservation precedes the collision", kogaki#1158): a
+  // non-English realization writes `draft.<lang>.md`, sibling to the reserved
+  // `draft.md` and never colliding with it — `draft.md` is reserved for the
+  // English CanonicalDraft alone, unchanged.
+  const outPath = lang === "en" ? join(dirname(brief.path), "draft.md") : join(dirname(brief.path), `draft.${lang}.md`);
   // `generated_by` is an immutable birth record: an overwrite keeps the
   // artifact's original one, and this run's identity goes to the workspace.
   let generatedBy = {
@@ -1527,18 +1602,33 @@ function cmdEmit(args) {
   // for the file as it stands rather than for the input that produced the
   // prose, which is the whole of what the trace is for.
   let packets = {};
-  try { packets = JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).packets || {}; }
+  try { packets = JSON.parse(readFileSync(join(ws, "run.json"), "utf8"))[packetsRecordKey(lang)] || {}; }
   catch { /* no run record, or unreadable — every Step reports its absence below */ }
   // The artifact is owner-visible and machine-independent (round 1 finding 3):
   // the Brief is named relative to the draft that realizes it — always its
   // sibling — so two machines emit identical bytes. The absolute path is
   // machine identity and stays in run.json / last-emit.json.
+  // terms_sha_at_generation (acceptance item 1; the Terminology List
+  // Decision): sha256 of terms/prh.yml as it stood when this run's Packets
+  // were rendered — read fresh here rather than threaded through run.json,
+  // because a `--lang` run renders every Packet against the same file in one
+  // sitting and `emit` is its last act. WRITES NOTHING ELSE NEW: this is the
+  // one field acceptance item 1 names, plus `lang:` so a reader (and this
+  // Draft's own reconciliation with the reserved-name clause) can tell which
+  // realization produced it without parsing the filename.
+  let termsShaAtGeneration = null;
+  if (lang !== "en") {
+    const termsPath = typeof args["terms-path"] === "string" && args["terms-path"] !== "" ? args["terms-path"] : "terms/prh.yml";
+    try { termsShaAtGeneration = sha256Terms(readFileSync(termsPath, "utf8")); }
+    catch (e) { fail(`the term list at ${termsPath} cannot be read (${e.message}) — terms_sha_at_generation cannot be recorded without it`); }
+  }
   const head = [
     "---",
     `brief: ${relative(dirname(outPath), brief.path)}`,
     `brief_pin: sha256:${sha256(brief.text)}`,
     `survey_pin: ${brief.surveyPin}`,
     `generated_by: ${JSON.stringify(generatedBy)}`,
+    ...(lang !== "en" ? [`lang: ${lang}`, `terms_sha_at_generation: ${termsShaAtGeneration}`] : []),
     "cites:",
     ...cites.map((c) => `  - ${JSON.stringify(c)}`),
     "trace:",
