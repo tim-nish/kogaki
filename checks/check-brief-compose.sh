@@ -35,12 +35,14 @@ import { join, sep, resolve as resolvePath, dirname as dirnameOf } from "node:pa
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
-         journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest } from "./src/compose.mjs";
+         journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest,
+         closureRowsForStep } from "./src/compose.mjs";
 // THE ROUND TRIP'S OTHER END (kogaki#1111). `parseStepBlockBody` is the Brief
 // parser's one reader of a step block, and the Journey line's writer is
 // `renderStep` above — asserting the pair here is what keeps a writer and a
 // reader from disagreeing about a value that reaches the Step Packet.
-import { parseStepBlockBody } from "./src/draft.mjs";
+import { parseStepBlockBody, renderPacket, splitPacketTemplate, parseBrief,
+         sectionsOf, sectionOfStep } from "./src/draft.mjs";
 import { moveContract, loadMoveContracts, moveContractsForSteps } from "./src/compose.mjs";
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
@@ -763,6 +765,121 @@ try {
   const wrongStart = fillBrief(doc0, { ...input, readerStart: "the reader stands somewhere this path never starts" });
   if (!wrongStart.error || !/Reader start/.test(wrongStart.error)) fails.push(`(b) a first Step disagreeing with the Brief's Reader start was accepted: ${JSON.stringify(wrongStart)}`);
   if (validateSteps([step1, step2], step1.reader_state_before).error) fails.push("(b) validateSteps refused a first Step that DOES agree with the given Reader start");
+  // ACCEPTANCE 7's COMPOSITION HALF (kogaki#1151; PR #1152 round 1, finding 2).
+  // The refusal half above is the easy half. This is the other one: a Brief
+  // whose rows are ALL TERMINAL composes and PACKETS identically on two runs.
+  //
+  // WHY IT IS HERE AND NOT IN THE ReviewDraft PASS. `closureRowsForStep` is the
+  // one reader between `fillBrief`'s writer and the Step Packet, and every
+  // other fixture in the tree hands it a Step that is party to nothing — so the
+  // rows-present branch of its Brief-section regex, its Thesis-row split on
+  // `established_by_steps` and its row regex had never been executed by
+  // anything, while the suite was green. Asserted over the SAME `doc1` the
+  // refusals above are asserted over, so the writer and this reader cannot
+  // drift apart with both halves still passing.
+  {
+    // THE ROWS-PRESENT BRANCH, per Step and as PROSE. The Thesis row reaches
+    // its establishing Steps stripped of its `established_by_steps:` tail; a
+    // Step row reaches the Step that introduced it and the Step that closed it.
+    const s1 = closureRowsForStep(doc1, "s1");
+    const s2 = closureRowsForStep(doc1, "s2");
+    const THESIS = "the working-form claim is discriminated by the case";
+    const R1 = "the cost conceded in s1 must be weighed";
+    const R2 = "the case's generality is asserted, not shown";
+    if (!s1.includes(THESIS)) fails.push(`(b) the Thesis row did not reach s1, one of its established_by_steps: ${JSON.stringify(s1)}`);
+    if (!s2.includes(THESIS)) fails.push(`(b) the Thesis row did not reach s2, one of its established_by_steps: ${JSON.stringify(s2)}`);
+    if (s1.some((r) => /established_by_steps/.test(r))) fails.push(`(b) the Thesis row reached a Step carrying its established_by_steps tail rather than its prose alone: ${JSON.stringify(s1)}`);
+    // introduced_by: s1, discharged_by: s2 — a party to it at BOTH ends.
+    if (!s1.includes(R1)) fails.push(`(b) the row s1 introduces did not reach s1: ${JSON.stringify(s1)}`);
+    if (!s2.includes(R1)) fails.push(`(b) the row s2 discharges did not reach s2: ${JSON.stringify(s2)}`);
+    // introduced_by: s2, conceded_by: s2 — a party to it at neither end is s1.
+    if (!s2.includes(R2)) fails.push(`(b) the row s2 introduces and concedes did not reach s2: ${JSON.stringify(s2)}`);
+    if (s1.includes(R2)) fails.push(`(b) a row s1 is party to NEITHER end of reached s1 — the reader is handing a Step rows that are not its own: ${JSON.stringify(s1)}`);
+    // AND THE EMPTY BRANCH IS STILL THE EMPTY BRANCH, asserted beside the
+    // rows-present one rather than trusted: a reader that returned every row
+    // would pass every assertion above.
+    const none = closureRowsForStep(doc1, "s-not-in-this-path");
+    if (none.length !== 0) fails.push(`(b) a Step party to no Closure row was handed rows: ${JSON.stringify(none)}`);
+    // A DOCUMENT WITH NO CLOSURE SECTION AT ALL renders empty rather than
+    // throwing — the pre-Closure Brief generation is still readable.
+    if (closureRowsForStep(doc0, "s1").length !== 0) fails.push("(b) closureRowsForStep invented rows for a document carrying no Closure section");
+
+    // IDENTICAL ON TWO RUNS, at BOTH layers acceptance 7 names — the composed
+    // document and the Packet. Run two composes the SAME input again from the
+    // SAME pristine doc0, so a non-determinism in `fillBrief` (an iteration
+    // order, a clock, a Set) fails here rather than downstream in a Draft
+    // nobody can diff.
+    const f2 = fillBrief(doc0, input);
+    if (f2.error) fails.push(`(b) the second compose of a conforming input was refused: ${f2.error}`);
+    const doc2 = f2.doc || "";
+    if (doc2 !== doc1) fails.push("(b) two composes of one input did not produce byte-identical Briefs (acceptance 7)");
+    if (JSON.stringify(closureRowsForStep(doc2, "s1")) !== JSON.stringify(s1)) fails.push("(b) the Closure rows read from the second compose differ from the first");
+
+    // THE PACKET, through `renderPacket` rather than a second filler. The
+    // ReviewDraft pass fills the template itself by design (its closed-input
+    // allowlist forbids importing `src/draft.mjs`), which is exactly why the
+    // rows-present render has no home there and belongs here.
+    const packetOf = (doc, stepId) => {
+      // THE THREE ARTICLE-LEVEL SLOTS A PACKET READS are filled here rather
+      // than left as the mint wrote them: `fillBrief`'s subject is the path,
+      // so a Brief it has filled still carries `Reader start`, `Reader target`
+      // and `Opening question` as typed unfilled slots, and `renderPacket`
+      // refuses on any of them. Filling them is fixture setup for THIS case's
+      // subject, which is the Closure block; nothing below asserts over them.
+      // `parseBrief` refuses a document carrying ANY typed unfilled slot, and
+      // `fillBrief`'s subject is the PATH — so a Brief it has filled still
+      // carries the article-level sections the mint wrote as slots. They are
+      // filled here with a stated fixture value, per heading, because this
+      // case's subject is the Closure block and nothing below asserts over
+      // them; a blanket string replace would also rewrite prose that merely
+      // quoted the slot token.
+      let d = doc;
+      for (const h of [...d.matchAll(/^## (.+)\n\n\*\(awaiting composition\)\*/gm)].map((m) => m[1])) {
+        const r = replaceSlot(d, h, `fixture value for ${h} — not this case's subject`);
+        if (r.doc) d = r.doc; else return { error: `the fixture could not fill "${h}": ${r.error}` };
+      }
+      const brief = parseBrief(d, briefPath);
+      if (brief.refusals.length) return { error: brief.refusals[0] };
+      const step = brief.steps.find((s) => s.step_id === stepId);
+      if (!step) return { error: `the composed Brief carries no step ${stepId}` };
+      const split = splitPacketTemplate(readFileSync(join("src", "packet-template.md"), "utf8"));
+      if (split.error) return { error: split.error };
+      // THE MOVE RECORD IS SYNTHESIZED, not read from the fixture library.
+      // That library holds ONLY an `id` line by design (§4.12's mechanical half
+      // is a membership test), and `renderPacket` refuses by NAME on a Move
+      // missing any rendered field — so reading it would make this case fail on
+      // the Move contract rather than on its own subject. The record below
+      // carries exactly the fields `MOVE_FIELDS_RENDERED` names, and nothing
+      // asserted here reads any of them.
+      const moveText = [`id: ${step.move}`, "status: observed",
+        "intent: a fixture intent, not this case's subject",
+        "requires: a fixture precondition, not this case's subject",
+        "effect: a fixture effect, not this case's subject",
+        "constraints: a fixture constraint, not this case's subject",
+        "failure_modes: a fixture failure mode, not this case's subject",
+        "excerpt: a fixture excerpt, not this case's subject", ""].join("\n");
+      const row = readerKnowledgeLedger(brief.steps).find((r) => r.step_id === stepId);
+      return renderPacket({ template: split.packet, brief, step, moveText, priorSections: [],
+        ledgerRow: row, section: sectionOfStep(brief.steps).get(stepId), sections: sectionsOf(brief.steps) });
+    };
+    const p1 = packetOf(doc1, "s2");
+    if (p1.error) fails.push(`(b) a Packet could not be rendered from the composed Brief: ${p1.error}`);
+    else {
+      const text = p1.packet || p1.text || String(p1.out || "");
+      // THE BLOCK IS PRESENT AND CARRIES THE ROWS AS PROSE — the property
+      // acceptance 3 names, observed on a Step that HAS rows.
+      if (!/## This Step's Closure/.test(text)) fails.push("(b) the rendered Packet carries no Closure block");
+      if (!text.includes(`- ${R1}`)) fails.push(`(b) the Packet for s2 does not carry the row it discharges as prose`);
+      if (!text.includes(`- ${R2}`)) fails.push(`(b) the Packet for s2 does not carry the row it concedes as prose`);
+      if (!text.includes(`- ${THESIS}`)) fails.push("(b) the Packet for an establishing Step does not carry the Thesis row");
+      if (/This Step carries no Closure row/.test(text)) fails.push("(b) a Step WITH Closure rows rendered the stated absence — the empty branch is being taken where rows exist");
+      // IDENTICAL ON TWO RUNS at the Packet layer too.
+      const p2 = packetOf(doc2, "s2");
+      const text2 = p2.error ? `error: ${p2.error}` : (p2.packet || p2.text || String(p2.out || ""));
+      if (text2 !== text) fails.push("(b) two Packet renders of one composed Brief are not byte-identical (acceptance 7)");
+    }
+  }
+
   const startMismatch = validateSteps([step1, step2], "a value step1 never states");
   if (!startMismatch.error || !/reader_state_before/.test(startMismatch.error) || !/Reader start/.test(startMismatch.error)) {
     fails.push(`(b) validateSteps did not refuse naming both the Step's reader_state_before and the Brief's Reader start: ${JSON.stringify(startMismatch)}`);
@@ -3771,6 +3888,21 @@ ranCase("aj-ledger-shape");
     fails.push(`(aj) an UNDISCHARGED obligation was refused: ${oneOwing.error} — an undischarged obligation is a disclosure and never a refusal; only the key names became a declared format`);
   } else if (!/2 entries, 1 UNDISCHARGED/.test(oneOwing.obligations_ledger || "")) {
     fails.push(`(aj) an undischarged entry is not counted at the gate: ${JSON.stringify(oneOwing.obligations_ledger)}`);
+  }
+
+  // ARM 2b — THE SPLIT (kogaki#1151; PR #1152 round 1, finding 4). The
+  // UNDISCHARGED count is zero for every Candidate that came through
+  // composition, so the line owes the owner how the rows END. Asserted on a
+  // ledger carrying one of each, so a renderer that printed the same number
+  // twice fails here.
+  const bothEnds = candidateEvidence(cand([
+    { text: "the generality is asserted", introduced_by: "s1", discharged_by: "s2" },
+    { text: "the counter-case is left open", introduced_by: "s1", conceded_by: "s2" },
+  ]), [], []);
+  if (bothEnds.error) {
+    fails.push(`(aj) a ledger carrying one discharged and one conceded row was refused: ${bothEnds.error}`);
+  } else if (!/2 entries, 0 UNDISCHARGED \(1 discharged, 1 conceded\)/.test(bothEnds.obligations_ledger || "")) {
+    fails.push(`(aj) the gate line does not render how the rows END, discharged apart from conceded: ${JSON.stringify(bothEnds.obligations_ledger)}`);
   }
 
   // ARM 3 — the observed run's own record: the entry cannot be read, so it is

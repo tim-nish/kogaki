@@ -1505,8 +1505,19 @@ export function journeyBearingStrands(doc) {
 // with it.
 export function closureRowsForStep(doc, stepId) {
   const rows = [];
-  const m = /^## Closure\n\n([\s\S]*?)(?:\n## |$)/m.exec(doc);
-  const section = m ? m[1] : "";
+  // THE SECTION IS SLICED, NEVER MATCHED BY ONE `m`-FLAGGED REGEX (PR #1152
+  // round 1, finding 2). The first cut read
+  // `/^## Closure\n\n([\s\S]*?)(?:\n## |$)/m`, where `m` makes `$` match at
+  // every LINE end — so the lazy group stopped at the first one and the capture
+  // was ALWAYS empty. The function therefore returned `[]` for every Step and
+  // every Packet rendered the stated absence, with nothing in the tree reading
+  // the rows-present branch to notice. A slice has no such ambiguity: one
+  // heading in, the next `## ` heading or end of document out.
+  const at = doc.indexOf("## Closure\n\n");
+  if (at === -1) return rows;
+  const body = doc.slice(at + "## Closure\n\n".length);
+  const end = body.indexOf("\n## ");
+  const section = end === -1 ? body : body.slice(0, end);
   const thesisM = /### Thesis\n\n([\s\S]*?)\n\n### Steps/m.exec(section);
   if (thesisM) {
     const t = thesisM[1].trim();

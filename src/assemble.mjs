@@ -386,13 +386,13 @@ export function candidateLedgerRefusal(c, strandIds = []) {
   if (c?.obligations !== undefined) {
     if (!Array.isArray(c.obligations)) {
       return `${where}: \`obligations\` is the obligations ledger and is an ARRAY of entries, each `
-        + `\`{ text, introduced_by, discharged_by? }\` (src/candidate-schema.json, \`obligations\`). `
+        + `\`{ text, introduced_by, discharged_by | conceded_by }\` (src/candidate-schema.json, \`obligations\`). `
         + `Received ${JSON.stringify(typeof c.obligations)}`;
     }
     for (const [i, o] of c.obligations.entries()) {
       const at = `${where}, obligation ${i + 1}`;
       if (!o || typeof o !== "object" || Array.isArray(o)) {
-        return `${at}: each ledger entry is an object \`{ text, introduced_by, discharged_by? }\``;
+        return `${at}: each ledger entry is an object \`{ text, introduced_by, discharged_by | conceded_by }\``;
       }
       if (typeof o.text !== "string" || o.text.trim() === "") {
         return `${at}: \`text\` is required and cannot be blank — it is the obligation in the `
@@ -541,10 +541,22 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
         + "discharged cannot be read — the entry would be counted UNDISCHARGED at the Candidate gate "
         + `on the strength of a key it was never written with. The entry carries `
         + `${JSON.stringify(o && typeof o === "object" ? Object.keys(o) : o)}; the declared shape is `
-        + "`{ text, introduced_by, discharged_by? }` (src/candidate-schema.json, `obligations`)" };
+        + "`{ text, introduced_by, discharged_by | conceded_by }` (src/candidate-schema.json, `obligations`)" };
     }
   }
   const undischarged = obligations.filter((o) => o.discharged_by === undefined && o.conceded_by === undefined).length;
+  // THE SPLIT IS RENDERED BESIDE THE COUNT (kogaki#1151; PR #1152 round 1,
+  // finding 4). Since `candidateLedgerRefusal` refuses a row carrying neither
+  // terminal state, a Candidate that came through composition can only ever
+  // render `0 UNDISCHARGED` — a number that is always zero tells the owner
+  // nothing about the ledger in front of them. What they do need to see is how
+  // the rows END: a path that CONCEDES six promises and a path that DISCHARGES
+  // six are different paths and read identically under a count of what is
+  // left. The UNDISCHARGED count is KEPT rather than replaced, because
+  // `candidateEvidence` is reachable by a caller that skipped composition and
+  // the count is the only thing that would say so at the gate.
+  const discharged = obligations.filter((o) => o.discharged_by !== undefined).length;
+  const conceded = obligations.filter((o) => o.conceded_by !== undefined).length;
   // The three reader fields are authored at PATH COMPOSITION, per Candidate
   // (the settled structure section v12), so they are this Candidate's own and ride its evidence — two
   // Candidates differing on the reader axis must not read identically at the
@@ -594,7 +606,8 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
       : `${bridges.length} bridge(s) inserted — ${bridgeLine}`,
     obligations_ledger: obligations.length === 0
       ? "the ledger is empty — a statement, not an omission"
-      : `${obligations.length} entr${obligations.length === 1 ? "y" : "ies"}, ${undischarged} UNDISCHARGED — disclosed here, never a refusal`,
+      : `${obligations.length} entr${obligations.length === 1 ? "y" : "ies"}, ${undischarged} UNDISCHARGED `
+        + `(${discharged} discharged, ${conceded} conceded) — disclosed here, never a refusal`,
     placement_count: `${placed.length} of ${strandIds.length} selected Strand(s) placed, counted in placements after this Candidate's composition${placed.length < strandIds.length ? " — the unplaced disclose at adoption" : ""}`,
     journey_coverage: journeyIds.length === 0
       ? "no selected Strand carries Journey material — nothing to place for this Brief, and nothing missing"
