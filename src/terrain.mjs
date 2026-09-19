@@ -2158,6 +2158,12 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
     callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
     writeFileSync(callPath, JSON.stringify(call.tool_input, null, 2) + "\n");
   }
+  // THE SIDECAR IS WRITTEN HERE, BESIDE THE CALL (kogaki#1153). This is the
+  // moment `gate-call.json` exists and the moment the session id this raising
+  // belongs to is known (`sessionId()`, read the same way `writeOpenGatePointer`
+  // reads it below) -- and it is BEFORE `writeOpenGatePointer` opens the gate,
+  // so the write lands before the interval that would deny it starts.
+  writeGateDeclarationSidecar(sessionId());
   writeOpenGatePointer(dir, declaration, out, callPath, call.unavailable || null);
   return out;
 }
@@ -2588,6 +2594,57 @@ export function refreshWrittenGateCall(dir, gateId) {
 
 export function openGateDir() {
   return process.env.KOGAKI_OPEN_GATES || join(homedir(), ".claude", "kogaki-open-gates");
+}
+
+// THE GATE-DECLARATION SIDECAR (kogaki#1153). `lint-gate-declaration.py`
+// reads `~/.claude/gate-declarations/<session_id>.json` BEFORE the transcript
+// scan, and since v68 (claude-toolkit#774) it is the PRIMARY carrier, not the
+// fallback -- because the transcript read waits at most a few hundred
+// milliseconds for the harness to flush the assistant text, and a composed
+// gate has no assistant turn to flush: the question is the Harness's own,
+// with no session text preceding it inside the open-gate interval where the
+// sidecar write itself is also denied. So the write has to happen HERE, at
+// the one act that composes the call, before the open-gate pointer ever
+// exists to deny anything.
+//
+// `GATE_DECLARATION_SIDECAR_DIR` mirrors the hook's own override (its
+// `SIDECAR_DIR_ENV`), copied rather than imported for the reason every other
+// constant in this file is copied across the process boundary: a Python hook
+// and a Node executor share no module.
+function gateDeclarationSidecarDir() {
+  return process.env.GATE_DECLARATION_SIDECAR_DIR
+    || join(homedir(), ".claude", "gate-declarations");
+}
+
+// EVERY GATE THIS FILE COMPOSES CARRIES EXACTLY ONE QUESTION (see
+// `composeGateCall`'s `questions: [{ ... }]`), so the sidecar this writes
+// always keys question index 1 -- there is no second question to leave
+// unanswered.
+//
+// THE DECLARATION IS `mechanical`, ALWAYS, and that is the true declaration
+// rather than a placeholder one: a Harness-composed question leans on no
+// served position of its own, so there is nothing for `recommendation` or
+// `no-recommendation` to carry here. A gate whose OPTIONS were composed from
+// a consulted reading still declares `mechanical` at this seam -- the
+// declaration is about who is answering the question the Harness renders,
+// not about how the Harness came to compose its options.
+//
+// A WRITE FAILURE HERE IS NOT FATAL TO THE GATE (kogaki#1153, following
+// kogaki#1090's `over_bound`/`refused` split at the SAME call site): the
+// declaration and the call are the artifacts this function's callers commit
+// to writing, and the sidecar is a second carrier for a check outside this
+// process. Where the directory cannot be created or the file cannot be
+// written, the gate still opens exactly as it did before this carrier
+// existed, and the transcript scan is what is left to answer for it -- the
+// pre-#1153 race, not a new failure this write introduces.
+export function writeGateDeclarationSidecar(sessionId) {
+  if (!sessionId) return;
+  const dir = gateDeclarationSidecarDir();
+  const path = join(dir, `${sessionId}.json`);
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path, JSON.stringify({ 1: "gate-declaration (question 1):\ngate: mechanical" }, null, 2) + "\n");
+  } catch { /* the transcript scan is the fallback carrier this write is racing to make unnecessary, not the only one */ }
 }
 
 // THE POINTER NAMES ITS SESSION (kogaki#1028 item 5).
@@ -10073,7 +10130,26 @@ switch (cmd) {
       {
         const gd = join(tmpdir(), `terrain-selftest-gate-${process.pid}`);
         mkdirSync(gd, { recursive: true });
-        const declPath = emitGateDeclaration(gd, "terrain-tag-selection", composed.options, composed.extra);
+        // ISOLATED FROM THE MACHINE'S OWN SIDECAR DIRECTORY (kogaki#1153): this
+        // in-process call runs inside whatever session invoked the self-test, and
+        // `emitGateDeclaration` now writes a sidecar keyed by that session's id —
+        // so without an override this case would write into the real
+        // `~/.claude/gate-declarations/<session_id>.json` the invoking session
+        // may itself depend on.
+        const sidecarDir = join(tmpdir(), `terrain-selftest-sidecar-${process.pid}`);
+        const savedSidecarDir = process.env.GATE_DECLARATION_SIDECAR_DIR;
+        const savedSessionId = process.env.CLAUDE_CODE_SESSION_ID;
+        process.env.GATE_DECLARATION_SIDECAR_DIR = sidecarDir;
+        process.env.CLAUDE_CODE_SESSION_ID = "terrain-selftest-sidecar-session";
+        let declPath;
+        try {
+          declPath = emitGateDeclaration(gd, "terrain-tag-selection", composed.options, composed.extra);
+        } finally {
+          if (savedSidecarDir === undefined) delete process.env.GATE_DECLARATION_SIDECAR_DIR;
+          else process.env.GATE_DECLARATION_SIDECAR_DIR = savedSidecarDir;
+          if (savedSessionId === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
+          else process.env.CLAUDE_CODE_SESSION_ID = savedSessionId;
+        }
         const decl = readJson(declPath);
         ok("the WRITTEN declaration carries the listing — the bytes reach the file the session renders, not only the composer's return",
           decl.tag_listing === renderTagDisplay(surveyRec));
@@ -10083,7 +10159,20 @@ switch (cmd) {
             && decl.options.slice(0, -1).every((o, i) => o.id === rankedNames[i])
             && decl.free_text_offered === true,
           JSON.stringify(decl.options.map((o) => o.id)));
+
+        // THE SIDECAR IS THE FIX (kogaki#1153): `emitGateDeclaration` writes
+        // `~/.claude/gate-declarations/<session_id>.json` at the same moment it
+        // writes `gate-call.json`, so `lint-gate-declaration.py`'s primary
+        // carrier is populated before the open-gate interval ever denies a
+        // write to it — no tool call, no assistant-text race.
+        const sidecarPath = join(sidecarDir, "terrain-selftest-sidecar-session.json");
+        const sidecar = readJson(sidecarPath);
+        ok("emitGateDeclaration writes the gate-declaration sidecar keyed by the session id, at the same moment as gate-call.json",
+          sidecar["1"] === "gate-declaration (question 1):\ngate: mechanical",
+          JSON.stringify(sidecar));
+
         rmSync(gd, { recursive: true, force: true });
+        rmSync(sidecarDir, { recursive: true, force: true });
       }
 
       // ACCEPTANCE ITEM 2's FIRST CLAUSE, AT THE SIZE IT NAMES (kogaki#1029;
@@ -10149,7 +10238,20 @@ switch (cmd) {
         // the owner's live directory, where the capture hook's refuse-when-
         // ambiguous rule then drops the next real answer -- which is what
         // happened on 2026-09-09, three pointers per self-test run.
-        const execEnv = { ...process.env, KOGAKI_OPEN_GATES: join(gs, "open-gates", "exec") };
+        //
+        // AND THE SIDECAR IS THE SECOND SUCH DIRECTORY (kogaki#1153). The same
+        // act now also writes `~/.claude/gate-declarations/<session_id>.json`,
+        // which `lint-gate-declaration.py` reads as its PRIMARY carrier — so a
+        // spawn isolating only the pointer would have this case declare a gate
+        // on behalf of whatever session ran the suite. Isolated here on exactly
+        // the terms the pointer is, and ASSERTED below rather than assumed.
+        const execSidecar = join(gs, "gate-declarations", "exec");
+        const execEnv = {
+          ...process.env,
+          KOGAKI_OPEN_GATES: join(gs, "open-gates", "exec"),
+          GATE_DECLARATION_SIDECAR_DIR: execSidecar,
+          CLAUDE_CODE_SESSION_ID: "terrain-selftest-tagstop-session",
+        };
         const tp = join(gs, "table.json");
         writeFileSync(tp, JSON.stringify({ version: 1, states: [
           { id: "TAG_SELECTION", kind: "wait", owner_supplies: "one tag name, or the standing option",
@@ -10202,6 +10304,21 @@ switch (cmd) {
               && canon(printed) === canon(readJson(callPath)),
             fenced ? `parsed=${printed !== null}` : "(no fenced block on the stop's stdout)");
         }
+        // THE ISOLATION IS PROVEN ACROSS THE PROCESS BOUNDARY, NOT ASSUMED
+        // (kogaki#1153). `tools/run-registered-checks.sh` supplies one sidecar
+        // directory for the whole suite and `tools/open-gates-guard.sh`
+        // refuses when none is set — both of which rest on the executor, in a
+        // CHILD process, honouring the variable. This case is the replay of
+        // the failure they exist to prevent: the spawn above carries a pinned
+        // session id and a scratch directory, so the sidecar must land there
+        // and the owner's live `~/.claude/gate-declarations/` must be
+        // untouched. Asserting the FILE is what distinguishes a variable that
+        // is read from one that is merely exported.
+        ok("the executor writes its gate-declaration sidecar into GATE_DECLARATION_SIDECAR_DIR, in the spawned process — the isolation the suite runner and the guard both rest on",
+          existsSync(join(execSidecar, "terrain-selftest-tagstop-session.json"))
+            && readJson(join(execSidecar, "terrain-selftest-tagstop-session.json"))["1"]
+              === "gate-declaration (question 1):\ngate: mechanical",
+          existsSync(execSidecar) ? readdirSync(execSidecar).join(",") : "(no sidecar directory written)");
         {
           const callPath = join(rd, `terrain-tag-selection${GATE_CALL_SUFFIX}`);
           const call = existsSync(callPath) ? readJson(callPath) : null;
@@ -10478,7 +10595,19 @@ switch (cmd) {
         // reporting the join rather than what it means to cover. Pinned here so
         // the pass is the same inside a session and outside one.
         const SELF_TEST_SESSION = "terrain-self-test-session";
-        const envFor = (name) => ({ ...process.env, KOGAKI_OPEN_GATES: gatesFor(name), CLAUDE_CODE_SESSION_ID: SELF_TEST_SESSION });
+        // AND ITS OWN SIDECAR DIRECTORY, PER NAME (kogaki#1153), on the same
+        // terms as the pointer directory beside it: these spawns reach
+        // `emitGateDeclaration`, which now writes a gate-declaration sidecar
+        // keyed by `CLAUDE_CODE_SESSION_ID` — pinned here to the fixture
+        // session, so without a scratch directory every one of these cases
+        // would write a `mechanical` declaration into the live carrier under
+        // a session id no session owns.
+        const envFor = (name) => ({
+          ...process.env,
+          KOGAKI_OPEN_GATES: gatesFor(name),
+          GATE_DECLARATION_SIDECAR_DIR: join(gs, "gate-declarations", name),
+          CLAUDE_CODE_SESSION_ID: SELF_TEST_SESSION,
+        });
         // THE ADVANCE CARRIES THE PAYLOAD THAT PRODUCED THE ROW (kogaki#1075).
         // In an installation the capture hook and this hook read ONE harness
         // event, so the row's `evidence.tool_use_id` and the advancing

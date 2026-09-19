@@ -70,14 +70,43 @@ cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 #
 # A CALLER'S OWN SETTING IS NEVER OVERRIDDEN. A member being debugged against a
 # prepared directory keeps it.
+#
+# THE TRAP REMOVES ONLY WHAT THIS RUN MADE (kogaki#1153). There are now two
+# such directories, so the cleanup is a list rather than a literal: a trap
+# naming both variables would delete a caller-supplied directory the moment
+# the OTHER one was defaulted, which is the read this block already forbids.
+SUITE_OWNED_TMPDIRS=()
+trap 'if ((${#SUITE_OWNED_TMPDIRS[@]})); then rm -rf "${SUITE_OWNED_TMPDIRS[@]}"; fi' EXIT
+
 if [[ -z "${KOGAKI_OPEN_GATES:-}" ]]; then
   KOGAKI_OPEN_GATES="$(mktemp -d "${TMPDIR:-/tmp}/kogaki-open-gates-suite.XXXXXX")"
   export KOGAKI_OPEN_GATES
-  trap 'rm -rf "${KOGAKI_OPEN_GATES}"' EXIT
+  SUITE_OWNED_TMPDIRS+=("${KOGAKI_OPEN_GATES}")
   echo "open-gates: this run writes its gate pointers to ${KOGAKI_OPEN_GATES} (kogaki#1028)"
 else
   export KOGAKI_OPEN_GATES
   echo "open-gates: using the caller's KOGAKI_OPEN_GATES=${KOGAKI_OPEN_GATES}"
+fi
+
+# THE SUITE GETS ITS OWN GATE-DECLARATION SIDECAR DIRECTORY (kogaki#1153).
+#
+# The same act that mints the open-gate pointer above now also writes
+# `~/.claude/gate-declarations/<session_id>.json`, which
+# `.claude/hooks/lint-gate-declaration.py` reads as its PRIMARY carrier. A
+# suite run inside a live session would therefore write a `mechanical`
+# declaration the session never made, and the next question would pass a gate
+# whose whole subject is that the session declares. Supplied here for the same
+# reason and on the same terms as the pointer directory: the guard refuses when
+# it is unset, the runner is the one place that can answer for the whole suite,
+# and A CALLER'S OWN SETTING IS NEVER OVERRIDDEN.
+if [[ -z "${GATE_DECLARATION_SIDECAR_DIR:-}" ]]; then
+  GATE_DECLARATION_SIDECAR_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kogaki-gate-declarations-suite.XXXXXX")"
+  export GATE_DECLARATION_SIDECAR_DIR
+  SUITE_OWNED_TMPDIRS+=("${GATE_DECLARATION_SIDECAR_DIR}")
+  echo "gate-declarations: this run writes its sidecars to ${GATE_DECLARATION_SIDECAR_DIR} (kogaki#1153)"
+else
+  export GATE_DECLARATION_SIDECAR_DIR
+  echo "gate-declarations: using the caller's GATE_DECLARATION_SIDECAR_DIR=${GATE_DECLARATION_SIDECAR_DIR}"
 fi
 
 # MEMBERS RUN CONCURRENTLY AND THE LOG IS PRINTED IN REGISTRY ORDER (kogaki#789).
