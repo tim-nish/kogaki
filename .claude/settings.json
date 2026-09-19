@@ -13,6 +13,12 @@
         "hooks": [
           { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-terrain-executor.py\"", "timeout": 30 }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-skill-dispatch-under-run.py\"", "timeout": 30 }
+        ]
       }
     ],
     "PostToolUse": [
