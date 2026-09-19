@@ -1,0 +1,56 @@
+# terms/prh.yml — the repository-wide Japanese term list (kogaki#1158).
+#
+# ONE CARRIER, USED TWICE: rendered into the Packet's language block at
+# generation (src/draft.mjs, `--lang ja`) and run as Lint after
+# (src/lint-ja.mjs). The shape follows textlint-rule-prh's documented
+# convention — a top-level `rules:` array, each entry an `expected` form and
+# the `patterns:` it forbids — cited here as the model this file conforms to.
+# This repository depends on none of the textlint packages: lint-ja.mjs
+# implements the pattern match directly against this file's parsed rules.
+#
+# A term-list change is a correction, never a regeneration (the owner's
+# 2026-09-19/20 ruling): edit this file, run `node src/lint-ja.mjs lint`
+# against the affected Japanese Draft, and correct only the Steps the Lint
+# names. Nothing in src/draft.mjs offers a shortcut around that path.
+#
+# Each rule's `expected` is the prescribed Japanese form. `patterns` lists
+# forbidden variants: leaked English, a katakana variant, or a notation
+# variant. `note` is a short reason, read by a human correcting a Step —
+# never evaluated by the Lint.
+
+rules:
+  - expected: "ウェブサイト"
+    patterns:
+      - "Webサイト"
+      - "ウェッブサイト"
+    note: "leaked-English and katakana-variant forms of 'website'; ウェブサイト is the prescribed form"
+
+  - expected: "サーバー"
+    patterns:
+      - "サーバ"
+      - "server"
+    note: "the prescribed long-vowel katakana form, and English left unconverted"
+
+  - expected: "リポジトリ"
+    patterns:
+      - "レポジトリ"
+      - "repository"
+    note: "レポジトリ is a common katakana-variant mishearing; repository is a leaked-English form"
+
+  - expected: "アプリケーション"
+    patterns:
+      - "アプリ"
+      - "application"
+    note: "アプリ is a colloquial abbreviation out of register for technical writing; application is leaked English"
+
+  - expected: "設定"
+    patterns:
+      - "コンフィグ"
+      - "config"
+    note: "prefer the Japanese term over the katakana loanword or the bare English abbreviation"
+
+  - expected: "実装"
+    patterns:
+      - "インプリメント"
+      - "implement"
+    note: "prefer the Japanese term over the katakana loanword or leaked English"

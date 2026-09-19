@@ -2558,7 +2558,92 @@ one form the owner declined.
 records. Nothing in a Move's bytes says which of the two a pin-shaped excerpt
 would be, and the issue that discharges it currently says the wrong one.
 
-## 8. Non-goals
+## 8. The Japanese realization — evaluation classes, the Terminology List
+   Decision, and versioning
+
+**A Japanese realization is a second realization of the SAME Brief Steps,
+from the SAME Packet plus one added language block — never a translation of
+the reviewed English CanonicalDraft** (the owner's ruling, 2026-09-19 and
+2026-09-20, kogaki#1158). The owner's stated ground: translating from the
+*reviewed* English Draft would make the later Reverse Outlining evaluation
+target expand implicitly to cover two transformations at once — the original
+English Draft's own generation and the translation — and the owner wanted to
+avoid that coupling. `src/draft.mjs`'s `--lang` renders the language block
+into every Step's Packet and realizes each Step exactly as the English track
+does (§4's Step-Move instantiation contract, §5's Brief's centre — both
+unchanged), writing `theses/<slug>/draft.<lang>.md` (SPEC-draft-command §1's
+reconciliation).
+
+### 8.1 Three evaluation classes, each with its own judge
+
+**Round Trip.** `src/review-draft.mjs`, entirely unchanged machinery,
+`src/review-items.json` untouched: the same Reverse Outline / Round Trip
+comparison the English track runs, over the Japanese Packet and the Japanese
+prose it produced.
+
+**Lint.** `src/lint-ja.mjs`, deterministic, no model invoked: prh-style
+term/register conformance against `terms/prh.yml`, structure identity against
+the Brief (realized in practice as identity against the sibling English
+CanonicalDraft's Section-heading, code-fence and link counts — both realize
+the same Brief structure), a language-confusion detector, and staleness.
+Every deviation is named with its Step.
+
+**Fluency read.** `theses/<slug>/fluency-notes.md`, read into every Japanese
+realization and every bounded correction as a read-only reference note.
+**No model evaluator exists for it, and none is added by this issue: nothing
+anywhere in this pipeline scores naturalness.** The owner's ground: fluency
+"clearly departs from Reverse Outlining in the same way the original Cold
+Reading did" (§0's Cold Reading precedent, retired from Round Trip at
+kogaki#1133) — a criterion that measures something Reverse Outlining's
+reconstruction cannot see is a *different* evaluation act, not a weaker
+version of the same one, and the three classes are kept explicit and
+separate rather than folded together.
+
+### 8.2 The Terminology List Decision
+
+**`terms/prh.yml` is the ONE repository-wide term carrier.** For each
+concept: the prescribed Japanese form, its forbidden variants (leaked
+English, a katakana variant, a notation variant), and a note. It is used
+TWICE — rendered into the language block at generation, and run as the Lint
+after — and **nowhere else**: no second term list, no per-Brief or
+per-Section override.
+
+**THE GROUND FOR LINT BEFORE ROUND TRIP.** A term-list deviation is a
+surface-form defect a deterministic pass names for free; spending a Round
+Trip's model judgment on prose the Lint would have refused anyway is a
+judgment call paid for a defect that needed none. So Lint runs first, and
+`src/review-draft.mjs` refuses to start on a Japanese Draft whose
+`terms_sha_at_lint` does not match the current list's hash — the mechanical
+enforcement of the ordering, not merely an instruction about it.
+
+**A term-list change is a CORRECTION, never a regeneration.** The owner does
+not require the Draft to be uniquely reproducible ("I do not require the
+Draft to be uniquely reproducible"), so a moved list does not obligate
+re-deriving the whole Draft from it: only the Steps the Lint names, by Step
+id, are corrected, on the ordinary Step re-realization path. `src/draft.mjs`
+offers no distinct "regenerate this Step because of a term change" shortcut —
+there is exactly one path from a Packet to a realized Step, used for every
+reason a Step is (re-)realized.
+
+### 8.3 The versioning rule
+
+**Conformance is decided by the Lint against the CURRENT term list, never by
+what constrained generation.** `terms_sha_at_generation` is a birth record
+only — the sha the language block was rendered against — and carries no
+authority over whether the Draft conforms now. `terms_sha_at_lint` is what
+`src/review-draft.mjs`'s precondition reads, and the Lint always recomputes
+it against `terms/prh.yml` as it stands at lint time, regardless of the
+generation-time value. This is what collapses versioning to one question:
+not "was this Draft generated against a current list" but "does the Lint,
+run now, pass now."
+
+`necessity:` an evaluation model and a versioning rule that no code carries as
+a stated design: the code enforces the Lint-before-Round-Trip ordering and the
+current-list comparison, but nothing in the tree states the ground for either
+choice, and a reader meeting the refusal without this section has no way to
+tell a deliberate ordering from an arbitrary one.
+
+## 9. Non-goals
 
 Not in this pipeline: a Probe successor; mechanical evidence resolution;
 automatic `requires`/`effect` judgment; a closed structure vocabulary or
@@ -2567,7 +2652,7 @@ framework menu; adjacency data in any form; a second style artifact.
 `necessity:` an enumeration of what was decided against. Absence of code is not
 evidence of a decision, and each of these has been proposed at least once.
 
-## 9. Open, with triggers
+## 10. Open, with triggers
 
 - **`bridge-approval-shape`** (§4.11) — per-Bridge approval, if dogfooding
   shows bridges misbehaving. **Still open after kogaki#864**, which RATIFIED a
