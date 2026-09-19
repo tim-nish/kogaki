@@ -4628,6 +4628,10 @@ async function runSelfTest() {
       reader_already_knows: bullets(f.knows,
         "(nothing — this is the first Step to introduce anything, or the path introduces no terms)"),
       introduces: bullets(introduces, "(nothing new)"),
+      // CLOSURE (kogaki#1151). These fixture Steps carry no Closure row — the
+      // Round Trip's subject is unaffected by it — so every Packet renders the
+      // stated absence `src/draft.mjs renderPacket` writes for a Step with none.
+      closure_rows: "(nothing — this Step carries no Closure row)",
       // the Journey a Step draws on (kogaki#1111). THE FIXTURE FILLS IT WITH THE STATED
       // ABSENCE, which is what the renderer writes for a Step declaring no
       // Journey — these cases are about the Reverse Outline, and a Journey

@@ -35,12 +35,14 @@ import { join, sep, resolve as resolvePath, dirname as dirnameOf } from "node:pa
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
-         journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest } from "./src/compose.mjs";
+         journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest,
+         closureRowsForStep } from "./src/compose.mjs";
 // THE ROUND TRIP'S OTHER END (kogaki#1111). `parseStepBlockBody` is the Brief
 // parser's one reader of a step block, and the Journey line's writer is
 // `renderStep` above — asserting the pair here is what keeps a writer and a
 // reader from disagreeing about a value that reaches the Step Packet.
-import { parseStepBlockBody } from "./src/draft.mjs";
+import { parseStepBlockBody, renderPacket, splitPacketTemplate, parseBrief,
+         sectionsOf, sectionOfStep } from "./src/draft.mjs";
 import { moveContract, loadMoveContracts, moveContractsForSteps } from "./src/compose.mjs";
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
@@ -258,12 +260,17 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '    claims: [{ type: "strand", strand: m, proposition: "the strand " + m + " supports exactly this claim at this point" }],',
   '  }, (i === 0 || SECTION_ON_EVERY_STEP) ? { opens_section: "The claim, in working form " + (i + 1) } : {}));',
   '  const mk = (id, exp, order) => {',
-  '    const steps = stepsFor(order);',
+  '    const READER_START = id + ": the reader treats the case as one team\'s habit";',
+  // Reader start binds the first Step (kogaki#1151): the fixture's first Step
+  // must arrive from the SAME reader_state_before as this Candidate's own
+  // reader_start, or `validateSteps` refuses every candidate this factory
+  // produces.
+  '    const steps = stepsFor(order).map((s, i) => i === 0 ? { ...s, reader_state_before: READER_START } : s);',
   '    return {',
   '      candidate_id: id,',
   '      characteristic: "Path " + id,',
   '      reader_experience: exp,',
-  '      reader_start: id + ": the reader treats the case as one team\'s habit",',
+  '      reader_start: READER_START,',
   '      reader_target: id + ": the reader treats it as a property of the shape",',
   '      opening_question: id + ": why did the same repair land twice?",',
   '      steps: steps,',
@@ -281,7 +288,10 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   // case (ai) differs from the conformant span in this one answer.
   '      obligations: ' + (undeclaredLedger
     ? '[{ raised_at: steps[0].step_id, owed: "the case\'s generality is asserted", settled_at: steps[steps.length - 1].step_id }]'
-    : '[{ text: "the case\'s generality is asserted", introduced_by: steps[steps.length - 1].step_id }]') + ',',
+    // CLOSURE (kogaki#1151): every row ends discharged_by or conceded_by, so
+    // the conformant stub's one obligation discharges at the same Step it is
+    // introduced_by — there is no later Step to discharge it at.
+    : '[{ text: "the case\'s generality is asserted", introduced_by: steps[steps.length - 1].step_id, discharged_by: steps[steps.length - 1].step_id }]') + ',',
   '    };',
   '  };',
   '  record = { candidates: [',
@@ -716,9 +726,10 @@ try {
   const emptyMove = validateSteps([{ ...step1, move: "" }]);
   if (!emptyMove.error || !/move/.test(emptyMove.error)) fails.push("(a) an empty-string Move was accepted — a binding is to a library entry by id, never the empty id");
 
-  // (b) FILL (§5.1/§5.2): sequence, strand_coverage and the ledger land in
-  // the minted document; the ledger entries carry introduced_by /
-  // discharged_by and an undischarged entry RENDERS as undischarged.
+  // (b) FILL (§5.1/§5.2): sequence, strand_coverage and Closure land in
+  // the minted document; every Closure row carries introduced_by AND EXACTLY
+  // ONE of discharged_by/conceded_by — "unresolved" is no longer a state the
+  // ledger can hold (kogaki#1151).
   ranCase("b");
   const doc0 = readFileSync(briefPath, "utf8");
   const input = {
@@ -726,8 +737,10 @@ try {
     coverage: { L2: { role_in_thesis: "states the claim" }, L1: { role_in_thesis: "carries the case" } },
     obligations: [
       { text: "the cost conceded in s1 must be weighed", introduced_by: "s1", discharged_by: "s2" },
-      { text: "the case's generality is asserted, not shown", introduced_by: "s2" },
+      { text: "the case's generality is asserted, not shown", introduced_by: "s2", conceded_by: "s2" },
     ],
+    readerStart: step1.reader_state_before,
+    thesisClosure: { explanation: "the working-form claim is discriminated by the case", established_by_steps: ["s1", "s2"] },
   };
   const f1 = fillBrief(doc0, input);
   if (f1.error) fails.push(`(b) a conforming fill was refused: ${f1.error}`);
@@ -737,8 +750,140 @@ try {
   if (!/entailment_reasoning: /.test(doc1)) fails.push("(b) the entailed Step's reasoning is not exposed on the record for the gate (§4.4)");
   if (!/\*\*L2\*\* — used_by_steps: s1;/.test(doc1)) fails.push("(b) strand_coverage does not carry used_by_steps derived from the composed steps");
   if (!/role_in_thesis: states the claim/.test(doc1)) fails.push("(b) strand_coverage does not carry role_in_thesis");
-  if (!/introduced_by: s1; discharged_by: s2/.test(doc1)) fails.push("(b) a ledger entry does not carry introduced_by/discharged_by (§5.2)");
-  if (!/\*\*UNDISCHARGED\*\*/.test(doc1)) fails.push("(b) an undischarged obligation does not render as undischarged — the disclosure is the contract (§5.2)");
+  if (!/introduced_by: s1; discharged_by: s2/.test(doc1)) fails.push("(b) a Closure row does not carry introduced_by/discharged_by (§5.2)");
+  if (!/introduced_by: s2; conceded_by: s2/.test(doc1)) fails.push("(b) a Closure row does not carry introduced_by/conceded_by (§5.2)");
+  if (!/### Thesis\n\nthe working-form claim is discriminated by the case — established_by_steps: s1, s2/.test(doc1)) fails.push("(b) the Thesis row does not render its explanation and established_by_steps");
+  if (!/^## Closure$/m.test(doc1)) fails.push("(b) the filled Brief does not render Closure as one section (kogaki#1151)");
+  if (/Unresolved obligations/.test(doc1)) fails.push("(b) the retired \"Unresolved obligations\" heading still reaches the owner (kogaki#1151)");
+  // NEITHER TERMINAL STATE IS REFUSED, NAMING THE ROW.
+  const neitherObl = fillBrief(doc0, { ...input, obligations: [{ text: "x", introduced_by: "s1" }] });
+  if (!neitherObl.error || !/NEITHER/.test(neitherObl.error)) fails.push(`(b) a Closure row carrying neither discharged_by nor conceded_by was accepted: ${JSON.stringify(neitherObl)}`);
+  // BOTH TERMINAL STATES IS REFUSED, NAMING THE ROW — an ambiguous close.
+  const bothObl = fillBrief(doc0, { ...input, obligations: [{ text: "x", introduced_by: "s1", discharged_by: "s2", conceded_by: "s2" }] });
+  if (!bothObl.error || !/BOTH/.test(bothObl.error)) fails.push(`(b) a Closure row carrying BOTH discharged_by and conceded_by was accepted: ${JSON.stringify(bothObl)}`);
+  // READER START BINDS THE FIRST STEP, refused NAMING BOTH values.
+  const wrongStart = fillBrief(doc0, { ...input, readerStart: "the reader stands somewhere this path never starts" });
+  if (!wrongStart.error || !/Reader start/.test(wrongStart.error)) fails.push(`(b) a first Step disagreeing with the Brief's Reader start was accepted: ${JSON.stringify(wrongStart)}`);
+  if (validateSteps([step1, step2], step1.reader_state_before).error) fails.push("(b) validateSteps refused a first Step that DOES agree with the given Reader start");
+  // ACCEPTANCE 7's COMPOSITION HALF (kogaki#1151; PR #1152 round 1, finding 2).
+  // The refusal half above is the easy half. This is the other one: a Brief
+  // whose rows are ALL TERMINAL composes and PACKETS identically on two runs.
+  //
+  // WHY IT IS HERE AND NOT IN THE ReviewDraft PASS. `closureRowsForStep` is the
+  // one reader between `fillBrief`'s writer and the Step Packet, and every
+  // other fixture in the tree hands it a Step that is party to nothing — so the
+  // rows-present branch of its Brief-section regex, its Thesis-row split on
+  // `established_by_steps` and its row regex had never been executed by
+  // anything, while the suite was green. Asserted over the SAME `doc1` the
+  // refusals above are asserted over, so the writer and this reader cannot
+  // drift apart with both halves still passing.
+  {
+    // THE ROWS-PRESENT BRANCH, per Step and as PROSE. The Thesis row reaches
+    // its establishing Steps stripped of its `established_by_steps:` tail; a
+    // Step row reaches the Step that introduced it and the Step that closed it.
+    const s1 = closureRowsForStep(doc1, "s1");
+    const s2 = closureRowsForStep(doc1, "s2");
+    const THESIS = "the working-form claim is discriminated by the case";
+    const R1 = "the cost conceded in s1 must be weighed";
+    const R2 = "the case's generality is asserted, not shown";
+    if (!s1.includes(THESIS)) fails.push(`(b) the Thesis row did not reach s1, one of its established_by_steps: ${JSON.stringify(s1)}`);
+    if (!s2.includes(THESIS)) fails.push(`(b) the Thesis row did not reach s2, one of its established_by_steps: ${JSON.stringify(s2)}`);
+    if (s1.some((r) => /established_by_steps/.test(r))) fails.push(`(b) the Thesis row reached a Step carrying its established_by_steps tail rather than its prose alone: ${JSON.stringify(s1)}`);
+    // introduced_by: s1, discharged_by: s2 — a party to it at BOTH ends.
+    if (!s1.includes(R1)) fails.push(`(b) the row s1 introduces did not reach s1: ${JSON.stringify(s1)}`);
+    if (!s2.includes(R1)) fails.push(`(b) the row s2 discharges did not reach s2: ${JSON.stringify(s2)}`);
+    // introduced_by: s2, conceded_by: s2 — a party to it at neither end is s1.
+    if (!s2.includes(R2)) fails.push(`(b) the row s2 introduces and concedes did not reach s2: ${JSON.stringify(s2)}`);
+    if (s1.includes(R2)) fails.push(`(b) a row s1 is party to NEITHER end of reached s1 — the reader is handing a Step rows that are not its own: ${JSON.stringify(s1)}`);
+    // AND THE EMPTY BRANCH IS STILL THE EMPTY BRANCH, asserted beside the
+    // rows-present one rather than trusted: a reader that returned every row
+    // would pass every assertion above.
+    const none = closureRowsForStep(doc1, "s-not-in-this-path");
+    if (none.length !== 0) fails.push(`(b) a Step party to no Closure row was handed rows: ${JSON.stringify(none)}`);
+    // A DOCUMENT WITH NO CLOSURE SECTION AT ALL renders empty rather than
+    // throwing — the pre-Closure Brief generation is still readable.
+    if (closureRowsForStep(doc0, "s1").length !== 0) fails.push("(b) closureRowsForStep invented rows for a document carrying no Closure section");
+
+    // IDENTICAL ON TWO RUNS, at BOTH layers acceptance 7 names — the composed
+    // document and the Packet. Run two composes the SAME input again from the
+    // SAME pristine doc0, so a non-determinism in `fillBrief` (an iteration
+    // order, a clock, a Set) fails here rather than downstream in a Draft
+    // nobody can diff.
+    const f2 = fillBrief(doc0, input);
+    if (f2.error) fails.push(`(b) the second compose of a conforming input was refused: ${f2.error}`);
+    const doc2 = f2.doc || "";
+    if (doc2 !== doc1) fails.push("(b) two composes of one input did not produce byte-identical Briefs (acceptance 7)");
+    if (JSON.stringify(closureRowsForStep(doc2, "s1")) !== JSON.stringify(s1)) fails.push("(b) the Closure rows read from the second compose differ from the first");
+
+    // THE PACKET, through `renderPacket` rather than a second filler. The
+    // ReviewDraft pass fills the template itself by design (its closed-input
+    // allowlist forbids importing `src/draft.mjs`), which is exactly why the
+    // rows-present render has no home there and belongs here.
+    const packetOf = (doc, stepId) => {
+      // THE THREE ARTICLE-LEVEL SLOTS A PACKET READS are filled here rather
+      // than left as the mint wrote them: `fillBrief`'s subject is the path,
+      // so a Brief it has filled still carries `Reader start`, `Reader target`
+      // and `Opening question` as typed unfilled slots, and `renderPacket`
+      // refuses on any of them. Filling them is fixture setup for THIS case's
+      // subject, which is the Closure block; nothing below asserts over them.
+      // `parseBrief` refuses a document carrying ANY typed unfilled slot, and
+      // `fillBrief`'s subject is the PATH — so a Brief it has filled still
+      // carries the article-level sections the mint wrote as slots. They are
+      // filled here with a stated fixture value, per heading, because this
+      // case's subject is the Closure block and nothing below asserts over
+      // them; a blanket string replace would also rewrite prose that merely
+      // quoted the slot token.
+      let d = doc;
+      for (const h of [...d.matchAll(/^## (.+)\n\n\*\(awaiting composition\)\*/gm)].map((m) => m[1])) {
+        const r = replaceSlot(d, h, `fixture value for ${h} — not this case's subject`);
+        if (r.doc) d = r.doc; else return { error: `the fixture could not fill "${h}": ${r.error}` };
+      }
+      const brief = parseBrief(d, briefPath);
+      if (brief.refusals.length) return { error: brief.refusals[0] };
+      const step = brief.steps.find((s) => s.step_id === stepId);
+      if (!step) return { error: `the composed Brief carries no step ${stepId}` };
+      const split = splitPacketTemplate(readFileSync(join("src", "packet-template.md"), "utf8"));
+      if (split.error) return { error: split.error };
+      // THE MOVE RECORD IS SYNTHESIZED, not read from the fixture library.
+      // That library holds ONLY an `id` line by design (§4.12's mechanical half
+      // is a membership test), and `renderPacket` refuses by NAME on a Move
+      // missing any rendered field — so reading it would make this case fail on
+      // the Move contract rather than on its own subject. The record below
+      // carries exactly the fields `MOVE_FIELDS_RENDERED` names, and nothing
+      // asserted here reads any of them.
+      const moveText = [`id: ${step.move}`, "status: observed",
+        "intent: a fixture intent, not this case's subject",
+        "requires: a fixture precondition, not this case's subject",
+        "effect: a fixture effect, not this case's subject",
+        "constraints: a fixture constraint, not this case's subject",
+        "failure_modes: a fixture failure mode, not this case's subject",
+        "excerpt: a fixture excerpt, not this case's subject", ""].join("\n");
+      const row = readerKnowledgeLedger(brief.steps).find((r) => r.step_id === stepId);
+      return renderPacket({ template: split.packet, brief, step, moveText, priorSections: [],
+        ledgerRow: row, section: sectionOfStep(brief.steps).get(stepId), sections: sectionsOf(brief.steps) });
+    };
+    const p1 = packetOf(doc1, "s2");
+    if (p1.error) fails.push(`(b) a Packet could not be rendered from the composed Brief: ${p1.error}`);
+    else {
+      const text = p1.packet || p1.text || String(p1.out || "");
+      // THE BLOCK IS PRESENT AND CARRIES THE ROWS AS PROSE — the property
+      // acceptance 3 names, observed on a Step that HAS rows.
+      if (!/## This Step's Closure/.test(text)) fails.push("(b) the rendered Packet carries no Closure block");
+      if (!text.includes(`- ${R1}`)) fails.push(`(b) the Packet for s2 does not carry the row it discharges as prose`);
+      if (!text.includes(`- ${R2}`)) fails.push(`(b) the Packet for s2 does not carry the row it concedes as prose`);
+      if (!text.includes(`- ${THESIS}`)) fails.push("(b) the Packet for an establishing Step does not carry the Thesis row");
+      if (/This Step carries no Closure row/.test(text)) fails.push("(b) a Step WITH Closure rows rendered the stated absence — the empty branch is being taken where rows exist");
+      // IDENTICAL ON TWO RUNS at the Packet layer too.
+      const p2 = packetOf(doc2, "s2");
+      const text2 = p2.error ? `error: ${p2.error}` : (p2.packet || p2.text || String(p2.out || ""));
+      if (text2 !== text) fails.push("(b) two Packet renders of one composed Brief are not byte-identical (acceptance 7)");
+    }
+  }
+
+  const startMismatch = validateSteps([step1, step2], "a value step1 never states");
+  if (!startMismatch.error || !/reader_state_before/.test(startMismatch.error) || !/Reader start/.test(startMismatch.error)) {
+    fails.push(`(b) validateSteps did not refuse naming both the Step's reader_state_before and the Brief's Reader start: ${JSON.stringify(startMismatch)}`);
+  }
   // THE RATIFIED HEADING, AND THE ASSERTION FOLLOWS IT (kogaki#574). This read
   // `## Sequence`, the heading kogaki#574 retires — so after the rename it tested
   // for a string the composer can no longer emit and could never fail. RE-POINTED
@@ -889,32 +1034,41 @@ try {
   // they DIFFER between cand-1 and cand-2 — (l) asserts that difference
   // survives to the gate, which is what makes them a real axis rather than a
   // constant repeated twice.
-  const mkCand = (id, exp, steps) => ({
-    // `characteristic` IS DERIVED FROM THE ID, which keeps every fixture set
-    // distinct at the label without a second argument to thread through every
-    // call site (kogaki#1126). Cases that need a SPECIFIC characteristic --
-    // the bound, the fold, the rendered shape -- override it on the built
-    // object, where what is being asserted is visible beside the assertion.
-    candidate_id: id, characteristic: `Path ${id}`, reader_experience: exp, steps,
-    reader_start: `${id}: the reader treats the case as one team's habit`,
-    reader_target: `${id}: the reader treats it as a property of the shape`,
-    opening_question: `${id}: why did the same fix land twice?`,
-    review: mkReview(),
-    reasoning: {
-      step_validity: `${id}: each step's claims were traced`,
-      transition_continuity: `${id}: each after-state feeds the next before-state`,
-      thesis_closure: `${id}: the claim is established by the final step`,
-    },
-    coverage: { L2: { role_in_thesis: "states the claim" }, L1: { role_in_thesis: "carries the case" } },
-    obligations: [{ text: "the case's generality is asserted", introduced_by: steps[steps.length - 1].step_id }],
-  });
+  const mkCand = (id, exp, rawSteps) => {
+    const readerStart = `${id}: the reader treats the case as one team's habit`;
+    // READER START BINDS THE FIRST STEP (kogaki#1151): candA and candB must
+    // still differ on `reader_start` (case l-reader-fields' whole point), so
+    // the override lands on THIS Candidate's own first Step rather than
+    // sharing one literal across every mkCand() caller.
+    const steps = rawSteps.map((s, i) => i === 0 ? { ...s, reader_state_before: readerStart } : s);
+    return {
+      // `characteristic` IS DERIVED FROM THE ID, which keeps every fixture set
+      // distinct at the label without a second argument to thread through every
+      // call site (kogaki#1126). Cases that need a SPECIFIC characteristic --
+      // the bound, the fold, the rendered shape -- override it on the built
+      // object, where what is being asserted is visible beside the assertion.
+      candidate_id: id, characteristic: `Path ${id}`, reader_experience: exp, steps,
+      reader_start: readerStart,
+      reader_target: `${id}: the reader treats it as a property of the shape`,
+      opening_question: `${id}: why did the same fix land twice?`,
+      review: mkReview(),
+      reasoning: {
+        step_validity: `${id}: each step's claims were traced`,
+        transition_continuity: `${id}: each after-state feeds the next before-state`,
+        thesis_closure: `${id}: the claim is established by the final step`,
+      },
+      coverage: { L2: { role_in_thesis: "states the claim" }, L1: { role_in_thesis: "carries the case" } },
+      // CLOSURE (kogaki#1151): every row ends discharged_by or conceded_by.
+      obligations: [{ text: "the case's generality is asserted", introduced_by: steps[steps.length - 1].step_id, discharged_by: steps[steps.length - 1].step_id }],
+    };
+  };
   const candA = mkCand("cand-1", "claim first, then the case", [step1, step2]);
   const candB = mkCand("cand-2", "the case first, claim emerging from it", [
     { ...step1, step_id: "t1", materials: ["L1"], claims: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" }] },
     { ...step2, step_id: "t2", move: "generalize-from-the-seen-case", materials: ["L2"], depends_on: ["t1"],
       claims: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim the case generalizes to" }], entailed: undefined, entailment_reasoning: undefined },
   ]);
-  candB.obligations = [{ text: "the claim's scope beyond the case", introduced_by: "t2" }];
+  candB.obligations = [{ text: "the claim's scope beyond the case", introduced_by: "t2", discharged_by: "t2" }];
 
   // (e) ASSEMBLY: 2-3 Candidates differing in reader experience; the count
   // and the difference are the contract; the payload rides the record shape
@@ -1262,15 +1416,16 @@ try {
   if (!/1 of 2/.test(ev5.placement_count || "")) fails.push("(e) a Candidate placing one of two Strands does not derive '1 of 2' — the count is per Candidate, from its own steps");
 
   // (f) ADOPTION: the adopted Candidate's Reader Path lands in the Brief's
-  // sequence; thesis_closure and tradeoffs fill from its reasoning (§5.1).
+  // sequence; Closure's Thesis row and tradeoffs fill from its reasoning (§5.1/§5.2).
   ranCase("f");
   const ad = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB, {}, { candidates: [candA, candB] }));
   if (ad.error) fails.push(`(f) adopting a reviewed Candidate was refused: ${ad.error}`);
   const doc3 = ad.doc || "";
   if (!/```step\nstep_id: t1/.test(doc3)) fails.push("(f) the adopted Candidate's Reader Path did not land in the Brief's sequence");
   if (/```step\nstep_id: s1/.test(doc3)) fails.push("(f) a DECLINED Candidate's steps landed in the Brief");
-  if (!/## Thesis closure\n\ncand-2: the claim is established by the final step/.test(doc3)) fails.push("(f) thesis_closure did not fill from the adopted Candidate's reasoning");
-  if (!/established_by_steps: t1, t2/.test(doc3)) fails.push("(f) thesis_closure does not carry established_by_steps");
+  if (!/### Thesis\n\ncand-2: the claim is established by the final step/.test(doc3)) fails.push("(f) the Closure Thesis row did not fill from the adopted Candidate's reasoning");
+  if (!/established_by_steps: t1, t2/.test(doc3)) fails.push("(f) the Closure Thesis row does not carry established_by_steps");
+  if (!/introduced_by: t2; discharged_by: t2/.test(doc3)) fails.push("(f) the Closure Step row does not carry the adopted Candidate's obligations");
   if (/## Tradeoffs\n\n\*\(awaiting composition\)\*/.test(doc3)) fails.push("(f) tradeoffs is still an unfilled slot after adoption");
   const noSuch = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-9");
   if (!noSuch.error || !/not in the reviewed set/.test(noSuch.error)) fails.push("(f) adopting a Candidate the gate never offered was accepted");
@@ -3735,6 +3890,21 @@ ranCase("aj-ledger-shape");
     fails.push(`(aj) an undischarged entry is not counted at the gate: ${JSON.stringify(oneOwing.obligations_ledger)}`);
   }
 
+  // ARM 2b — THE SPLIT (kogaki#1151; PR #1152 round 1, finding 4). The
+  // UNDISCHARGED count is zero for every Candidate that came through
+  // composition, so the line owes the owner how the rows END. Asserted on a
+  // ledger carrying one of each, so a renderer that printed the same number
+  // twice fails here.
+  const bothEnds = candidateEvidence(cand([
+    { text: "the generality is asserted", introduced_by: "s1", discharged_by: "s2" },
+    { text: "the counter-case is left open", introduced_by: "s1", conceded_by: "s2" },
+  ]), [], []);
+  if (bothEnds.error) {
+    fails.push(`(aj) a ledger carrying one discharged and one conceded row was refused: ${bothEnds.error}`);
+  } else if (!/2 entries, 0 UNDISCHARGED \(1 discharged, 1 conceded\)/.test(bothEnds.obligations_ledger || "")) {
+    fails.push(`(aj) the gate line does not render how the rows END, discharged apart from conceded: ${JSON.stringify(bothEnds.obligations_ledger)}`);
+  }
+
   // ARM 3 — the observed run's own record: the entry cannot be read, so it is
   // REFUSED naming the entry rather than scored.
   const unreadable = candidateEvidence(cand([
@@ -3911,6 +4081,10 @@ ranCase("ak-path-rules-carried");
     section_rule_3: [P("s1"), P("s2", { depends_on: ["s1"] })],
     section_rule_4: [P("s1", { opens_section: "A" }), P("s2", { opens_section: "B", materials: ["L2"] }),
       P("s3", { opens_section: "C", materials: ["L3"] })],
+    // A SECOND ARGUMENT, not a steps array (kogaki#1151): this rule only
+    // fires against a `readerStart`, which `validateSteps(fixture)` alone
+    // never supplies — so this one entry is read specially below.
+    reader_start_binds_first_step: { steps: [P("s1", { opens_section: "A" })], readerStart: "a value this Step's reader_state_before never states" },
   };
 
   if (!rules || typeof rules !== "object") {
@@ -3970,7 +4144,9 @@ ranCase("ak-path-rules-carried");
           fails.push(`(ak) \`${key}\` is raised by src/compose.mjs and no fixture here exercises it — the rule's text is asserted against nothing, so a refusal that stopped naming it would go unobserved`);
           continue;
         }
-        const got = validateSteps(fixture).error || "";
+        const got = key === "reader_start_binds_first_step"
+          ? validateSteps(fixture.steps, fixture.readerStart).error || ""
+          : validateSteps(fixture).error || "";
         if (!got) {
           fails.push(`(ak) the fixture for \`${key}\` is ACCEPTED — the case would assert the rule's text against a refusal that never fires`);
           continue;

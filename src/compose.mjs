@@ -344,9 +344,19 @@ export function journeysRefusal(journeys, materials, at) {
 // ---- shape validation (the Step's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
 // Returns { error } or { steps }. Pure over its argument; exported for the check.
-export function validateSteps(steps) {
+export function validateSteps(steps, readerStart) {
   if (!Array.isArray(steps) || steps.length === 0) {
     return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Step at all.") };
+  }
+  // Reader start binds the first Step (Closure, kogaki#1151): `readerStart` is
+  // OPTIONAL because the two call sites hold it at different points (the
+  // Candidate's own `reader_start` at compose_path, the same value again at
+  // fillBrief), and a caller with none to hand — a bare shape check — is not
+  // asked to invent one.
+  if (typeof readerStart === "string" && readerStart !== "" && steps[0].reader_state_before !== readerStart) {
+    return { error: pathRefusal("reader_start_binds_first_step", `step 1 (${steps[0].step_id ?? "?"})`,
+      `Its reader_state_before reads ${JSON.stringify(steps[0].reader_state_before)}; `
+      + `the Brief's Reader start reads ${JSON.stringify(readerStart)}.`) };
   }
   const schema = stepSchema();
   const seen = new Set();
@@ -1485,6 +1495,47 @@ export function journeyBearingStrands(doc) {
   return out;
 }
 
+// THE STEP PACKET'S OWN CLOSURE ROWS (Closure, kogaki#1151). A Step is handed
+// only the rows it is a party to — where it is `introduced_by`, `discharged_by`
+// or `conceded_by` — as their PROSE TEXT, in the same "already knows / introduce
+// here" shape the reader-knowledge ledger already renders; the Thesis row is handed to its
+// `established_by_steps`. Read from the Brief's OWN rendered "## Closure"
+// section rather than recomputed from a Candidate record — fillBrief already
+// wrote the one true rendering, and a second derivation here could disagree
+// with it.
+export function closureRowsForStep(doc, stepId) {
+  const rows = [];
+  // THE SECTION IS SLICED, NEVER MATCHED BY ONE `m`-FLAGGED REGEX (PR #1152
+  // round 1, finding 2). The first cut read
+  // `/^## Closure\n\n([\s\S]*?)(?:\n## |$)/m`, where `m` makes `$` match at
+  // every LINE end — so the lazy group stopped at the first one and the capture
+  // was ALWAYS empty. The function therefore returned `[]` for every Step and
+  // every Packet rendered the stated absence, with nothing in the tree reading
+  // the rows-present branch to notice. A slice has no such ambiguity: one
+  // heading in, the next `## ` heading or end of document out.
+  const at = doc.indexOf("## Closure\n\n");
+  if (at === -1) return rows;
+  const body = doc.slice(at + "## Closure\n\n".length);
+  const end = body.indexOf("\n## ");
+  const section = end === -1 ? body : body.slice(0, end);
+  const thesisM = /### Thesis\n\n([\s\S]*?)\n\n### Steps/m.exec(section);
+  if (thesisM) {
+    const t = thesisM[1].trim();
+    const em = /^([\s\S]*?)\s+—\s+established_by_steps:\s*(.*)$/m.exec(t);
+    if (em) {
+      const steps = em[2].split(",").map((s) => s.trim()).filter(Boolean);
+      if (steps.includes(stepId)) rows.push(em[1].trim());
+    }
+  }
+  for (const line of section.split("\n")) {
+    const rm = /^- (.*) — introduced_by: (\S+?);\s*(?:discharged_by|conceded_by):\s*(\S+)$/.exec(line);
+    if (!rm) continue;
+    const [, text, introducedBy, closingStep] = rm;
+    if (stepId === introducedBy || stepId === closingStep) rows.push(text);
+  }
+  return rows;
+}
+
 // Journey placement — journey register as a Candidate axis, MUST 1, the completeness rider's half: a
 // Journey is a DISTINCT material (the Step's shape — "which Strands, which Journeys").
 // Derived from the composed steps for the same reason placements() is, and the
@@ -1548,10 +1599,10 @@ export function replaceSlot(doc, heading, body) {
   return { doc: doc.replace(re, () => `## ${heading}\n\n${body}`) };
 }
 
-// ---- the fill: sequence, strand_coverage, obligations ledger ----
+// ---- the fill: sequence, strand_coverage, Closure ----
 // Pure over strings; exported for the check.
-export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused = {} }) {
-  const v = validateSteps(steps);
+export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused = {}, readerStart, thesisClosure = null }) {
+  const v = validateSteps(steps, readerStart);
   if (v.error) return { error: v.error };
   const strandIds = selectedStrands(doc);
   if (strandIds.length === 0) return { error: "the Brief carries no Strands section — not a minted Brief" };
@@ -1652,14 +1703,19 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
   if (r.error) return r;
   out = r.doc;
 
-  // The obligations ledger: authored judgments, each entry carrying
-  // introduced_by / discharged_by; an undischarged obligation RENDERS AS
-  // UNDISCHARGED — a disclosure, never a refusal.
+  // CLOSURE (kogaki#1151, superseding the obligations ledger's own "Unresolved
+  // obligations" rendering). An obligation is a promise the prose makes to the
+  // reader that a later passage must keep: a question raised, an analogy
+  // introduced, a limitation conceded. EVERY ROW NOW ENDS IN ONE OF TWO
+  // TERMINAL STATES — `discharged_by` (the promise is kept there) or
+  // `conceded_by` (the prose there tells the reader it is left open) —
+  // "unresolved" is no longer a state the ledger can hold, and a row carrying
+  // neither, or both, is refused by name.
   const stepIds = new Set(steps.map((s) => s.step_id));
   const oblL = [];
   for (const [i, o] of obligations.entries()) {
     if (typeof o.text !== "string" || o.text === "" || typeof o.introduced_by !== "string") {
-      return { error: `obligation ${i + 1}: each ledger entry carries its text and introduced_by (the obligations ledger)` };
+      return { error: `obligation ${i + 1}: each Closure row carries its text and introduced_by (the obligation definition)` };
     }
     if (!stepIds.has(o.introduced_by)) {
       return { error: `obligation ${i + 1}: introduced_by "${o.introduced_by}" is not a step in this sequence` };
@@ -1667,12 +1723,44 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
     if (o.discharged_by !== undefined && !stepIds.has(o.discharged_by)) {
       return { error: `obligation ${i + 1}: discharged_by "${o.discharged_by}" is not a step in this sequence` };
     }
-    oblL.push(o.discharged_by
+    if (o.conceded_by !== undefined && !stepIds.has(o.conceded_by)) {
+      return { error: `obligation ${i + 1}: conceded_by "${o.conceded_by}" is not a step in this sequence` };
+    }
+    const hasDischarged = o.discharged_by !== undefined;
+    const hasConceded = o.conceded_by !== undefined;
+    if (hasDischarged === hasConceded) {
+      return { error: `obligation ${i + 1} (${JSON.stringify(o.text)}, introduced_by ${o.introduced_by}): `
+        + `every Closure row ends discharged_by or conceded_by, naming the Step — this row carries `
+        + `${hasDischarged ? "BOTH" : "NEITHER"}` };
+    }
+    oblL.push(hasDischarged
       ? `- ${o.text} — introduced_by: ${o.introduced_by}; discharged_by: ${o.discharged_by}`
-      : `- ${o.text} — introduced_by: ${o.introduced_by}; **UNDISCHARGED** (a disclosure, never a refusal — the obligations ledger)`);
+      : `- ${o.text} — introduced_by: ${o.introduced_by}; conceded_by: ${o.conceded_by}`);
   }
   if (oblL.length === 0) oblL.push("*(no obligations entered by the composer — an empty ledger is a statement, not an omission)*");
-  r = replaceSlot(out, "Unresolved obligations", oblL.join("\n"));
+  // THE THESIS ROW, at the same slot and the same write, because both levels
+  // of Closure fill from the same act — the adopted Candidate — and a Brief
+  // slot filled twice is refused by `replaceSlot`. `thesisClosure` is optional
+  // so a caller exercising the fill's plumbing alone (the check) is not made
+  // to invent a Thesis; production has exactly one caller, `adoptCandidate`,
+  // which always carries it.
+  const thesisLine = thesisClosure
+    ? `${thesisClosure.explanation} — established_by_steps: ${(thesisClosure.established_by_steps || []).join(", ")}`
+    : "*(awaiting adoption)*";
+  const closureL = [
+    "An obligation is a promise the prose makes to the reader that a later "
+    + "passage must keep: a question raised, an analogy introduced, a "
+    + "limitation conceded.",
+    "",
+    "### Thesis",
+    "",
+    thesisLine,
+    "",
+    "### Steps",
+    "",
+    ...oblL,
+  ];
+  r = replaceSlot(out, "Closure", closureL.join("\n"));
   if (r.error) return r;
   return { doc: r.doc, placed: placed.length, total: strandIds.length };
 }

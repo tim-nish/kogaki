@@ -111,6 +111,16 @@ meaning is not carried by the claims above.
 - **already knows.** {{reader_already_knows}}
 - **introduce here.** {{introduces}}
 
+## This Step's Closure
+
+The Brief's Closure ledger carries the promises the article makes to the
+reader — the Thesis's, and each Step's own. The rows below are the ones THIS
+STEP is a party to: where it introduces a promise, discharges one (keeps it),
+or concedes one (tells the reader it is left open). Honor them in the prose
+rather than restating them as fields.
+
+{{closure_rows}}
+
 ## The article so far — verbatim
 
 Everything already written, in order, grouped under the Section headings it was

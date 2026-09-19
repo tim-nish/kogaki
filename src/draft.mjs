@@ -106,7 +106,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, visualFormOf, figureSteps,
-  journeysRefusal, stepSchema } from "./compose.mjs";
+  journeysRefusal, stepSchema, closureRowsForStep } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 
@@ -1046,6 +1046,15 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
       // one-word-one-unit rule binds it too.
       : "(nothing — this is the first Step to introduce anything, or the path introduces no terms)",
     introduces: intro.length ? intro.map((e) => `- ${e}`).join("\n") : "(nothing new)",
+    // CLOSURE (kogaki#1151): the rows this Step is a party to, read from the
+    // Brief's own rendered "## Closure" section (`closureRowsForStep`) rather
+    // than recomputed here — fillBrief already wrote the one true rendering.
+    // EMPTY RENDERS EMPTY, NEVER ABSENT (acceptance item 3): a Step that
+    // introduces, discharges and concedes nothing still gets the block, saying
+    // so, on the same one-word-one-unit ground `reader_already_knows` states.
+    closure_rows: closureRowsForStep(brief.text, step.step_id).length
+      ? closureRowsForStep(brief.text, step.step_id).map((t) => `- ${t}`).join("\n")
+      : "(nothing — this Step carries no Closure row)",
     // the Journey a Step draws on (kogaki#1111). THE PACKET RENDERS THE ADDRESS AND THE
     // USE, and says where the prose is. The Brief carries no Journey text by
     // design — a Journey is addressed at planning and edited at realization —
