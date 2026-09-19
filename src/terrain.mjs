@@ -10238,7 +10238,20 @@ switch (cmd) {
         // the owner's live directory, where the capture hook's refuse-when-
         // ambiguous rule then drops the next real answer -- which is what
         // happened on 2026-09-09, three pointers per self-test run.
-        const execEnv = { ...process.env, KOGAKI_OPEN_GATES: join(gs, "open-gates", "exec") };
+        //
+        // AND THE SIDECAR IS THE SECOND SUCH DIRECTORY (kogaki#1153). The same
+        // act now also writes `~/.claude/gate-declarations/<session_id>.json`,
+        // which `lint-gate-declaration.py` reads as its PRIMARY carrier — so a
+        // spawn isolating only the pointer would have this case declare a gate
+        // on behalf of whatever session ran the suite. Isolated here on exactly
+        // the terms the pointer is, and ASSERTED below rather than assumed.
+        const execSidecar = join(gs, "gate-declarations", "exec");
+        const execEnv = {
+          ...process.env,
+          KOGAKI_OPEN_GATES: join(gs, "open-gates", "exec"),
+          GATE_DECLARATION_SIDECAR_DIR: execSidecar,
+          CLAUDE_CODE_SESSION_ID: "terrain-selftest-tagstop-session",
+        };
         const tp = join(gs, "table.json");
         writeFileSync(tp, JSON.stringify({ version: 1, states: [
           { id: "TAG_SELECTION", kind: "wait", owner_supplies: "one tag name, or the standing option",
@@ -10291,6 +10304,21 @@ switch (cmd) {
               && canon(printed) === canon(readJson(callPath)),
             fenced ? `parsed=${printed !== null}` : "(no fenced block on the stop's stdout)");
         }
+        // THE ISOLATION IS PROVEN ACROSS THE PROCESS BOUNDARY, NOT ASSUMED
+        // (kogaki#1153). `tools/run-registered-checks.sh` supplies one sidecar
+        // directory for the whole suite and `tools/open-gates-guard.sh`
+        // refuses when none is set — both of which rest on the executor, in a
+        // CHILD process, honouring the variable. This case is the replay of
+        // the failure they exist to prevent: the spawn above carries a pinned
+        // session id and a scratch directory, so the sidecar must land there
+        // and the owner's live `~/.claude/gate-declarations/` must be
+        // untouched. Asserting the FILE is what distinguishes a variable that
+        // is read from one that is merely exported.
+        ok("the executor writes its gate-declaration sidecar into GATE_DECLARATION_SIDECAR_DIR, in the spawned process — the isolation the suite runner and the guard both rest on",
+          existsSync(join(execSidecar, "terrain-selftest-tagstop-session.json"))
+            && readJson(join(execSidecar, "terrain-selftest-tagstop-session.json"))["1"]
+              === "gate-declaration (question 1):\ngate: mechanical",
+          existsSync(execSidecar) ? readdirSync(execSidecar).join(",") : "(no sidecar directory written)");
         {
           const callPath = join(rd, `terrain-tag-selection${GATE_CALL_SUFFIX}`);
           const call = existsSync(callPath) ? readJson(callPath) : null;
@@ -10567,7 +10595,19 @@ switch (cmd) {
         // reporting the join rather than what it means to cover. Pinned here so
         // the pass is the same inside a session and outside one.
         const SELF_TEST_SESSION = "terrain-self-test-session";
-        const envFor = (name) => ({ ...process.env, KOGAKI_OPEN_GATES: gatesFor(name), CLAUDE_CODE_SESSION_ID: SELF_TEST_SESSION });
+        // AND ITS OWN SIDECAR DIRECTORY, PER NAME (kogaki#1153), on the same
+        // terms as the pointer directory beside it: these spawns reach
+        // `emitGateDeclaration`, which now writes a gate-declaration sidecar
+        // keyed by `CLAUDE_CODE_SESSION_ID` — pinned here to the fixture
+        // session, so without a scratch directory every one of these cases
+        // would write a `mechanical` declaration into the live carrier under
+        // a session id no session owns.
+        const envFor = (name) => ({
+          ...process.env,
+          KOGAKI_OPEN_GATES: gatesFor(name),
+          GATE_DECLARATION_SIDECAR_DIR: join(gs, "gate-declarations", name),
+          CLAUDE_CODE_SESSION_ID: SELF_TEST_SESSION,
+        });
         // THE ADVANCE CARRIES THE PAYLOAD THAT PRODUCED THE ROW (kogaki#1075).
         // In an installation the capture hook and this hook read ONE harness
         // event, so the row's `evidence.tool_use_id` and the advancing
