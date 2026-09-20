@@ -113,7 +113,7 @@ import { enterRun, laneDir } from "./runs.mjs";
 // renderLanguageBlock live in lint-ja.mjs, which also runs the Lint that
 // reads terms/prh.yml the same way — one parser, imported rather than a
 // second copy that could disagree with the Lint about what the list says.
-import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms } from "./lint-ja.mjs";
+import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "./lint-ja.mjs";
 
 function fail(msg) {
   process.stderr.write(`draft: ${msg}\n`);
@@ -1197,7 +1197,7 @@ function renderAndStorePacket(brief, id, args, ws) {
   // List Decision), parsed by the SAME reader lint-ja.mjs's Lint uses.
   let packetText = r.packet;
   if (lang !== "en") {
-    const termsPath = typeof args["terms-path"] === "string" && args["terms-path"] !== "" ? args["terms-path"] : "terms/prh.yml";
+    const termsPath = typeof args["terms-path"] === "string" && args["terms-path"] !== "" ? args["terms-path"] : DEFAULT_TERMS_PATH;
     let termsText;
     try { termsText = readFileSync(termsPath, "utf8"); }
     catch (e) { return { error: `step ${id}'s Japanese Packet needs the term list at ${termsPath} and it cannot be read (${e.message})` }; }
@@ -1618,7 +1618,7 @@ function cmdEmit(args) {
   // realization produced it without parsing the filename.
   let termsShaAtGeneration = null;
   if (lang !== "en") {
-    const termsPath = typeof args["terms-path"] === "string" && args["terms-path"] !== "" ? args["terms-path"] : "terms/prh.yml";
+    const termsPath = typeof args["terms-path"] === "string" && args["terms-path"] !== "" ? args["terms-path"] : DEFAULT_TERMS_PATH;
     try { termsShaAtGeneration = sha256Terms(readFileSync(termsPath, "utf8")); }
     catch (e) { fail(`the term list at ${termsPath} cannot be read (${e.message}) — terms_sha_at_generation cannot be recorded without it`); }
   }
