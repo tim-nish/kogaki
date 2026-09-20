@@ -9140,25 +9140,47 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     fail("`start --status` is refused: `start` opens a run and `--status` reads one, and the two are not one act. "
       + `The read-only route is this runtime's own \`run --status\` (kogaki#1038).`);
   }
-  // `start` READS NO ARGUMENTS (kogaki#1163). The skill's `!` line forwards
-  // `$ARGUMENTS` so a session's resumption attempt is visible here rather than
-  // silently dropped by an expansion line that never named them; `start`
-  // itself takes no run identity, mints a fresh workspace on every call, and
-  // has nowhere to put a positional token. Refused before `runDir` is called,
-  // exactly where `--status` is refused above, so a refused start opens no
-  // workspace and prunes no lane.
+  // `start` READS NO ARGUMENTS FROM THE SESSION (kogaki#1163). The skill's `!`
+  // line forwards `$ARGUMENTS` so a session's resumption attempt is visible
+  // here rather than silently dropped by an expansion line that never named
+  // them; `start` itself takes no run identity, mints a fresh workspace on
+  // every call, and has nowhere to put what the session typed. Refused before
+  // `runDir` is called, exactly where `--status` is refused above, so a refused
+  // start opens no workspace and prunes no lane.
   //
-  // `_` IS READ DEFENSIVELY BECAUSE NOT EVERY CALLER IS THE CLI. `cmdRun` is
-  // also reached from `runWorkflow`, which composes its own options object and
-  // carries no parsed positional list at all; a bare `args._.length` there is a
-  // TypeError on an object that names nothing, which is the opposite of what
-  // this guard is for.
-  const positionals = Array.isArray(args._) ? args._ : [];
-  if (stopAtFirstWait && positionals.length) {
-    fail(`\`start\` reads no arguments (kogaki#1163) — it opens a fresh ${flow().label} workspace on every `
-      + `invocation and takes no run identity from the session, so ${JSON.stringify(positionals)} names nothing this `
-      + `act can act on. A run already open is read with this runtime's own \`run --status\`, which is the `
-      + `read-only route to an existing run's position; there is no argument that resumes one.`);
+  // THE GUARD IS AN ALLOWLIST, NOT A POSITIONAL TEST (PR #1168 round 1). The
+  // forwarding that makes a resumption attempt visible also opens every flag
+  // route to it, and two of them act: `--run-dir <fresh path>` mints a run and
+  // writes NO open-run pointer, which no later advance can resolve, and
+  // `--workflow <path>` chooses the table the run drives. Both are the
+  // fixture's and the second repository's route — a caller who names a
+  // directory or a table holds it — so they stay, and everything else the
+  // session could type is refused rather than acted on.
+  //
+  // AND IT READS THIS RUNTIME'S OWN CLI SHAPE, NOT EVERY CALLER'S. `cmdRun` is
+  // reached from three places and only one of them is `parseArgs` above:
+  // `runWorkflow` composes an options object, and `src/brief.mjs` has a parser
+  // of its own producing `_cmd`/`_rest` and its own read arguments (`--slug`,
+  // `--moves-dir`). A guard that judged those objects by THIS parser's
+  // allowlist refuses the Brief start act on the arguments it exists to take —
+  // which is what it did, and what `brief-compose` caught. `_` is the array
+  // `parseArgs` always sets and neither other caller has, so its presence is
+  // the one honest test for "these arguments came from this runtime's CLI".
+  const START_READS = new Set(["run-dir", "workflow"]);
+  if (stopAtFirstWait && Array.isArray(args._)) {
+    const positionals = args._;
+    const unread = Object.keys(args)
+      .filter((k) => k !== "_" && !START_READS.has(k))
+      .map((k) => `--${k}`)
+      .concat(positionals);
+    if (unread.length) {
+      fail(`\`start\` reads no arguments from the session (kogaki#1163) — it opens a fresh ${flow().label} `
+        + `workspace on every invocation and takes no run identity, so ${JSON.stringify(unread)} names nothing `
+        + `this act can act on. A run already open is read with this runtime's own \`run --status\`, which is `
+        + `the read-only route to an existing run's position; there is no argument that resumes one. `
+        + `(\`--run-dir\` and \`--workflow\` are read, and are the fixture's route: a caller who names a `
+        + `directory or a table holds it.)`);
+    }
   }
   // THE PIN IS READ THROUGH THE BINDING, NOT BY NAME (PR #1109 round 1).
   // `runDir` one screen up reads `process.env[flow().runDirEnv]`, and these two
@@ -9529,7 +9551,15 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // that just re-entered the skill is exactly the one that needs told, before
   // it re-asks a question the finished run already answered.
   if (priorDoneRun) {
-    const artifacts = (priorDoneRun.rec.artifacts_written || [])
+    // THE RELAY IS GUARDED THE WAY ITS PYTHON TWIN IS (PR #1168 round 1).
+    // `done_context` in the advance hook reads `artifacts_written` through
+    // `isinstance` on the list and on each entry, because a record this reader
+    // cannot trust is not evidence either way; the same relay here threw on a
+    // record carrying that field as anything but an array, and it threw inside
+    // `start`, AFTER the new run's record had been written.
+    const raw = priorDoneRun.rec.artifacts_written;
+    const artifacts = (Array.isArray(raw) ? raw : [])
+      .filter((a) => a && typeof a === "object")
       .map((a) => `  - ${a.state}: ${a.path}`).join("\n") || "  (none written)";
     console.log(`A previous run in this lane already reached done: ${priorDoneRun.dir}`);
     console.log(`Its artifacts:\n${artifacts}`);

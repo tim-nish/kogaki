@@ -629,9 +629,16 @@ PY
   # hook that emitted a block unconditionally would pass (d) — and a block on
   # every AskUserQuestion in the session is the noise the two narrowings above
   # exist to keep off the common path.
+  # THE STUB IS NOT A `done` ADVANCE, AND SAYING SO IS NOW LOAD-BEARING
+  # (kogaki#1163). This stub used to be described as "a non-gate wait, or
+  # `done`", and `done` is exactly what the hook must now SPEAK about — so the
+  # description named the one shape that would turn this assertion on its head.
+  # What keeps the case true is that `$stub_repo/rundir` carries no
+  # `run-record.json` at all, so the hook's `done` branch reads no record and
+  # cannot fire. A genuinely `done` record is (e2), immediately below.
   cat > "$stub_repo/src/terrain.mjs" <<'JS'
-// An advance that reached a non-gate wait, or `done`: no call written, no
-// pointer, nothing outstanding.
+// An advance that reached a non-gate wait: no call written, no pointer,
+// nothing outstanding, and no run record claiming a terminal.
 JS
   rm -rf "$hooktmp/stub-gates"
   e_out=$(fire_stub)
@@ -639,17 +646,42 @@ JS
     bad "the advance hook emitted additionalContext for an advance that opened no gate: $e_out"
   fi
 
+  # (e2) AND AN ADVANCE THAT REACHED `done` SAYS SO (kogaki#1163 acceptance 1).
+  # The complement of (e), and the case the whole Issue is about: the terminal
+  # raises no gate and no refusal, so before this it took the (e) arm and the
+  # session was told nothing — while the terminal ALSO clears the open-run
+  # pointer, leaving no second surface to read either. The record's own `done`
+  # field is what tells the two apart, and `artifacts_written` is the run's own
+  # ledger of what it wrote, relayed rather than recomputed from a path.
+  python3 - "$stub_repo/rundir" <<'PY'
+import json, os, sys
+d = sys.argv[1]
+with open(os.path.join(d, "run-record.json"), "w") as f:
+    json.dump({"done": True, "completed": ["survey", "full_report"],
+               "artifacts_written": [{"state": "full_report",
+                                      "path": "runs/terrain/reports/FullReport.md"}]}, f)
+PY
+  e2_out=$(fire_stub)
+  rm -f "$stub_repo/rundir/run-record.json"
+  if printf '%s' "$e2_out" | grep -q 'additionalContext' \
+     && printf '%s' "$e2_out" | grep -q 'runs/terrain/reports/FullReport.md' \
+     && printf '%s' "$e2_out" | grep -q "$stub_repo/rundir"; then pass; else
+    bad "an advance whose run record carries \`done: true\` reached the session on no channel, or reached it without the run directory and the report path — the run's end is then a fact the session must infer from silence, which is kogaki#1163's whole shape: ${e2_out:-(nothing on stdout)}"
+  fi
+
   # (f) A POINTER THE HARNESS HAS ALREADY ANSWERED IS NOT A GATE (PR #1082 round
   # 1). `write-gate-capture.py` normally unlinks the pointer the moment it writes
   # the row, but it has a named arm where the write succeeds and the unlink
-  # fails. After such a miss an advance reaching `done` leaves the ANSWERED
+  # fails. After such a miss an advance that opens nothing leaves the ANSWERED
   # pointer as the only match, and a reader with no `has_capture` filter would
   # announce a gate for a question already answered -- while
   # `gate-open-terrain-gate.py`, which applies that filter, denies nothing and
   # lets the re-ask through. Three readers, one rule.
   cat > "$stub_repo/src/terrain.mjs" <<'JS'
-// An advance that reached `done`: it opens nothing. The only pointer left is
-// the one the capture hook wrote a row for and could not unlink.
+// An advance that opens nothing. The only pointer left is the one the capture
+// hook wrote a row for and could not unlink. NOT a `done` advance -- the run
+// dir carries no record claiming a terminal, so the `done` block (e2) asserts
+// is not what this case is reading the absence of (kogaki#1163).
 JS
   rm -rf "$hooktmp/stub-gates"; mkdir -p "$hooktmp/stub-gates"
   python3 - "$hooktmp/stub-gates/fixture-answered.json" "$stub_repo/rundir" "$CAPSUF" <<'PY'
@@ -1014,8 +1046,46 @@ else
   bad "a staged timestamp in this file is written as an absolute date. The reader under test parses opened_at with datetime.fromisoformat and drops anything older than POINTER_TTL, so a literal — in any of the forms that parser takes — passes on the day it is written and fails every day after: derive it from the TTL the way the sites above do: $absolute_instants"
 fi
 
+# ---- kogaki#1163 ACCEPTANCE 2. THE START ACT REFUSES WHAT IT DOES NOT READ.
+# The `!` line now forwards `$ARGUMENTS`, which is what makes a resumption
+# attempt visible instead of silently dropped -- and the same forwarding puts
+# every flag route within reach of whatever the session typed. So the guard is
+# an allowlist over the two arguments `start` genuinely reads, and both halves
+# are asserted: the refusal fires on what it does not read, and does NOT fire on
+# the fixture's own route, which every other member in this repository depends
+# on.
+#
+# THE REFUSAL IS BEFORE `runDir`, so these cases open no workspace and prune no
+# lane -- which is also why they can run the real executor here with no run
+# directory, no seam and no judge binary. A case that got as far as minting
+# would need all three.
+start_refuses() {
+  local label=$1; shift
+  local out
+  out=$( (cd "$REPO" && node src/terrain.mjs start "$@") 2>&1 )
+  if [ $? -ne 0 ] && printf '%s' "$out" | grep -q 'reads no arguments from the session'; then pass; else
+    bad "the start act did not refuse $label — the skill's expansion forwards \`\$ARGUMENTS\`, so an argument this act does not read is one a session typed and the act acted on anyway (kogaki#1163): ${out:-(no output)}"
+  fi
+}
+start_refuses "a positional token"        "run"
+start_refuses "a run-dir-shaped resumption" "run" "--run-dir" "runs/terrain/terrain-2026"
+start_refuses "an unread flag"            "--resume"
+
+# AND THE FIXTURE'S ROUTE STILL SERVES. `--run-dir` and `--workflow` are read by
+# the start act -- a caller who names a directory or a table holds it -- so a
+# guard that refused them would redden every fixture in this repository that
+# opens a run. Asserted on the refusal's own text rather than on the exit code:
+# the invocation below goes on to fail for its own reasons (there is no such
+# table), and what this case is about is WHICH refusal it takes.
+fixture_route_out=$( (cd "$REPO" && node src/terrain.mjs start --run-dir "$hooktmp/no-such-run" --workflow "$hooktmp/no-such-table.json") 2>&1 )
+if ! printf '%s' "$fixture_route_out" | grep -q 'reads no arguments from the session'; then pass; else
+  bad "the start act's argument guard refused \`--run-dir\`/\`--workflow\`, which it reads and which every fixture that opens a run passes: $fixture_route_out"
+fi
+
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — the executor's Bash route denied with --status admitted, the skill file's single start line, and the removal test's byte-equal artifacts with the spec absent and the deny still firing (kogaki#1027)"
+  note "also asserted (kogaki#1163): that an advance whose run record carries \`done: true\` reaches the session on the same additionalContext channel the gate payloads use, carrying the run directory and the artifacts the record itself lists — and that the cases asserting SILENCE are silent because no record claims a terminal, not because the hook has nothing to say about one; and that the start act refuses a positional token, a run-dir-shaped resumption and an unread flag, while still reading the \`--run-dir\`/\`--workflow\` route every fixture here opens a run through."
+  note "NOT asserted here (kogaki#1163 acceptance 3): the print naming the lane's most recent \`done\` run beside the new one. It fires only where the start act MINTS into the default lane — \`--run-dir\` and the env pin both take the other arm — and a mint runs the survey, which reads the policy seam, and resolves the judge binary. This file's members are seam-free and judge-free by construction, so covering it here would make every case in the file conditional on a machine. The behaviour is a print and never a refusal, which is what keeps the gap reportable rather than blocking."
   note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081); and that an executor REFUSAL rides that same channel, alone where no gate is open and beside the gate payload where one is, so an advance that ends a run no longer ends it silently (kogaki#1085); and that a pointer past POINTER_TTL is delivered on no channel, which is the one arm these cases had come to depend on without asserting (kogaki#1092)."
   note "also asserted: that no line this file executes or stages carries an absolute instant. Every staged opened_at is computed from this run's clock at an offset derived from POINTER_TTL, read from .claude/hooks/advance-terrain.py — so the cases above assert the hook's expiry arm rather than the date the fixture was written on, and a reintroduced literal reddens here instead of twelve hours later in CI (kogaki#1092)."
   note "not asserted here: that either hook is LOADED on this machine. That wiring is machine-local and never committed, so asserting it would fail on every fresh clone and would be a claim about a machine rather than about this repository — which is why the order above is read from the tracked file rather than from a live registration."
