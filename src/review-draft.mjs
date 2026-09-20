@@ -4100,10 +4100,10 @@ function chosenJudged(f) {
 // for every `figure_only` row, which is the class PR #1004 round 2 repaired for
 // the other rows. `figureIds` is read from the item table rather than spelled
 // here, for the reason `figureItemIds` already states about itself.
-function findingEvidencePaths(ws, run, f, figureIds = new Set()) {
+function findingEvidencePaths(ws, run, f, figureIds = new Set(), recordDir) {
   if (!f.step_id) return [];
   const pass = evidencePass(run, f);
-  const rel = (...a) => relative(process.cwd(), join(ws, `pass-${pass}`, ...a))
+  const rel = (...a) => relative(recordDir, join(ws, `pass-${pass}`, ...a))
     || join(ws, `pass-${pass}`, ...a);
   const isFigure = figureIds.has(f.item);
   const base = isFigure ? `${f.step_id}.figure.json` : `${f.step_id}.json`;
@@ -4112,7 +4112,7 @@ function findingEvidencePaths(ws, run, f, figureIds = new Set()) {
     ? join(ws, "pass-1", "outline", base)
     : (recorded[f.step_id] || join(ws, `pass-${pass}`, "outline", base));
   const label = isFigure ? "the figure's Reverse Outline" : "Reverse Outline";
-  const out = [`  - ${label}: \`${relative(process.cwd(), outlineFile) || outlineFile}\``];
+  const out = [`  - ${label}: \`${relative(recordDir, outlineFile) || outlineFile}\``];
   if (chosenJudged(f)) {
     const name = f.pair === null || f.pair === undefined
       ? `${f.step_id}.${f.item}.md` : `${f.step_id}.${f.item}.${f.pair}.md`;
@@ -4124,8 +4124,8 @@ function findingEvidencePaths(ws, run, f, figureIds = new Set()) {
   return out;
 }
 
-function evidenceLines(ws, run) {
-  const rel = (...a) => relative(process.cwd(), join(ws, ...a)) || join(ws, ...a);
+function evidenceLines(ws, run, recordDir) {
+  const rel = (...a) => relative(recordDir, join(ws, ...a)) || join(ws, ...a);
   const out = [
     `- **Pass 1 — \`compare\`.** \`${rel("pass-1")}/\``,
     `  - \`outline-input/<step>.md\` — what the blind reviewer was handed`,
@@ -4295,7 +4295,7 @@ function cmdClose(args) {
     `The workspace is \`${ws}\` — machine state, gitignored and pruned to the last few`,
     "runs. Each pass wrote only under its own directory:",
     "",
-    ...evidenceLines(ws, run),
+    ...evidenceLines(ws, run, dirname(out)),
     "",
     "## Findings",
     "",
@@ -4325,7 +4325,7 @@ function cmdClose(args) {
       // is pass two's once `check` has run and pass one's before, and a carried
       // row is pass one's either way — the row says which, and the pointer
       // follows the row.
-      for (const l of findingEvidencePaths(ws, run, f, figureIds)) lines.push(l);
+      for (const l of findingEvidencePaths(ws, run, f, figureIds, dirname(out))) lines.push(l);
     }
     lines.push("");
   }
@@ -4369,7 +4369,7 @@ function cmdClose(args) {
       // A RESIDUE LINE PASS TWO RE-JUDGED POINTS AT PASS TWO; ONE IT CARRIED
       // POINTS AT PASS ONE, which is the only pass that read it. The row carries
       // the distinction its own `why` was written from.
-      for (const l of findingEvidencePaths(ws, run, r, figureIds)) lines.push(l);
+      for (const l of findingEvidencePaths(ws, run, r, figureIds, dirname(out))) lines.push(l);
       lines.push("  classified:");
     }
     lines.push("");
@@ -7152,6 +7152,47 @@ async function runSelfTest() {
         && !/^ {2}classified:[^\n]*\S/m.test(res));
     }
 
+    // --- kogaki#1170: EVERY POINTER review.md COMPOSES IS RECORD-RELATIVE,
+    // NOT CWD-RELATIVE (Acceptance 1 and 2). `close` used to compose the
+    // Reverse Outline and "the pair the judge saw" pointers against
+    // `process.cwd()` while every other pointer in the same record was
+    // composed against the record's own directory — so whether a pointer
+    // resolved depended on how deep the invoking shell happened to be, not on
+    // anything about the run. Asserted by running THIS SAME `close` from two
+    // working directories of different depth: a shallow one and one many
+    // components deep, deep enough that a saturating climb from a `/tmp`-depth
+    // base would land at the filesystem root rather than at the real base —
+    // exactly the failure the Issue traces. `close` is still re-runnable here
+    // because nothing has been corrected yet, so `restored_from` is unset.
+    {
+      const shallowCwd = tmpdir();
+      const deepCwd = join(cRoot, "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10");
+      mkdirSync(deepCwd, { recursive: true });
+      // The same scope kogaki#1135's own AC4 pointer case reads: the per-finding
+      // Reverse Outline and "the pair the judge saw" pointers, and (for a
+      // restored run) the before/after snapshot pointers — the fields that
+      // were composed against `process.cwd()` before this fix.
+      const pointersOf = (text) => [...text.matchAll(
+        /^ {2,4}- (?:Reverse Outline|the pair the judge saw|before|after): `([^`]+)`/gm)]
+        .map((m) => m[1]);
+      for (const cwd of [shallowCwd, deepCwd]) {
+        const r = spawnSync(process.execPath,
+          [self, "close", "--draft", cDraft, "--workspace", cwsBase,
+            "--draft-workspace", cWs, "--moves-dir", cMoves],
+          { encoding: "utf8", cwd });
+        ok(`#1170: close succeeds when run from a cwd ${cwd.split(sep).length} component(s) deep`,
+          r.status === 0, (r.stderr || "").split("\n")[0]);
+        const text = readOrEmpty(join(cBrief, "review.md"));
+        const pointers = pointersOf(text);
+        const base = dirname(join(cBrief, "review.md"));
+        const unresolved = pointers.filter((p) => !existsSync(resolve(base, p)));
+        ok(`#1170: every pointer review.md composes resolves from the record's own `
+          + `directory, invoked from a cwd ${cwd.split(sep).length} component(s) deep`,
+          pointers.length > 0 && unresolved.length === 0,
+          unresolved.join(", "));
+      }
+    }
+
     // --- ORDER: a later Step refuses while an earlier one is owed -----------
     {
       const r = RD("correct", "--step", "s3");
@@ -7489,7 +7530,9 @@ async function runSelfTest() {
         const none = (revR.match(/^ {2}- the pair the judge saw: none — /gm) || []).length;
         ok("#1004/5: the record composes pointers for its findings and residue",
           pointers.length > 0, `pointers: ${pointers.length}`);
-        const dead = pointers.filter((f) => !existsSync(resolve(process.cwd(), f)));
+        // kogaki#1170: resolved from the RECORD'S OWN DIRECTORY — every
+        // pointer `close` composes is record-relative, not cwd-relative.
+        const dead = pointers.filter((f) => !existsSync(resolve(dirname(join(cBrief, "review.md")), f)));
         ok("#1004/5: and every pointer names a file this run wrote",
           dead.length === 0, dead.join(", "));
         // A ROW THE HARNESS DECIDED SAYS SO, AND POINTS AT THE RECORD THAT
@@ -8605,9 +8648,11 @@ async function runSelfTest() {
         gnone === gfind.filter((f) => !chosenJudged(f)).length,
         `none-lines ${gnone}, harness-decided findings ${gfind.filter((f) => !chosenJudged(f)).length}`);
       const gptrs = [...grv.matchAll(/^ {2}- (?:Reverse Outline|the pair the judge saw): `([^`]+)`/gm)].map((m) => m[1]);
+      // kogaki#1170: resolved from the RECORD'S OWN DIRECTORY, not process.cwd().
+      const gRecordDir = dirname(join(gdir, "review.md"));
       ok("#1006: and every pointer the record composes resolves",
-        gptrs.length > 0 && gptrs.every((f) => existsSync(resolve(process.cwd(), f))),
-        gptrs.filter((f) => !existsSync(resolve(process.cwd(), f))).join(", "));
+        gptrs.length > 0 && gptrs.every((f) => existsSync(resolve(gRecordDir, f))),
+        gptrs.filter((f) => !existsSync(resolve(gRecordDir, f))).join(", "));
     }
   }
 
