@@ -72,12 +72,19 @@ fi
 # started by whatever the model typed.
 # The Bash pattern is pre-allowed in the frontmatter, because an un-allowed
 # pattern aborts the invocation instead of prompting; the line is load-bearing
-# for the start act and is asserted with it.
-if grep -q '^allowed-tools: Bash(node src/terrain.mjs start)$' "$SKILL" 2>/dev/null; then pass; else
-  bad "$SKILL does not pre-allow \`Bash(node src/terrain.mjs start)\` in its frontmatter — without it the harness aborts the skill invocation instead of running the start act"
+# for the start act and is asserted with it. THE WILDCARD IS OWED (kogaki#1163):
+# the line now forwards `$ARGUMENTS`, so the allowed pattern must admit whatever
+# trails `start` rather than the bare verb, on the same shape `brief`'s own
+# frontmatter already carries for the same reason.
+if grep -q '^allowed-tools: Bash(node src/terrain.mjs start:\*)$' "$SKILL" 2>/dev/null; then pass; else
+  bad "$SKILL does not pre-allow \`Bash(node src/terrain.mjs start:*)\` in its frontmatter — without it the harness aborts the skill invocation instead of running the start act"
 fi
-if grep -q '^!`node src/terrain.mjs start`$' "$SKILL" 2>/dev/null; then pass; else
-  bad "$SKILL's '!' line is not \`!\\\`node src/terrain.mjs start\\\`\` (backtick-quoted, no space) — any other form is plain text the harness never executes"
+# `$ARGUMENTS` IS FORWARDED, NOT DROPPED (kogaki#1163). A resumption attempt
+# invoked with words the skill never read used to vanish silently at this exact
+# line; the start act refuses on any positional token it receives (`cmdRun`,
+# before `runDir`), and it can only see one if the expansion hands it along.
+if grep -q '^!`node src/terrain.mjs start \$ARGUMENTS`$' "$SKILL" 2>/dev/null; then pass; else
+  bad "$SKILL's '!' line is not \`!\\\`node src/terrain.mjs start \\\$ARGUMENTS\\\`\` (backtick-quoted, no space) — any other form is plain text the harness never executes, or drops the words a resumption attempt carried (kogaki#1163)"
 fi
 
 # ---- ACCEPTANCE 3. THE DENY FIRES, AND ADMITS `--status`.

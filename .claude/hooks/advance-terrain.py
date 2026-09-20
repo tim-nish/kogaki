@@ -394,6 +394,56 @@ def gate_context(pointer):
             "on.")
 
 
+def read_run_record(run_dir):
+    """The run record, or None -- read the way `terrain.mjs` itself does.
+
+    THE ONE FILE, copied here for `capture_names`'s own reason: a hook has no
+    module to share a reader from. An unreadable or absent record is None
+    rather than a stop -- the caller's question is only ever "did THIS advance
+    reach `done`", and a record this reader cannot see is not evidence either
+    way.
+    """
+    p = run_dir / "run-record.json"
+    if not p.is_file():
+        return None
+    try:
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:                                              # noqa: BLE001
+        return None
+
+
+def done_context(run_dir, rec):
+    """The `additionalContext` block for a run that just reached its terminal.
+
+    THE ONE OUTCOME THE SESSION WAS NEVER SHOWN (kogaki#1163). `gate_context`
+    speaks for an outstanding wait and `refusal_context` speaks for a stop the
+    executor refused; an advance that reached `done` raises neither, so it was
+    the one case `main`'s `finally` said nothing about -- and the terminal ALSO
+    clears the open-run pointer, so the session's next act had no pointer left
+    to read either. This is the third block beside the other two, read from the
+    run record's own `done` field rather than from the executor's stdout, which
+    a PostToolUse hook's caller never sees.
+
+    THE ARTIFACTS ARE THE RECORD'S, NOT A GUESS AT A PATH. `artifacts_written`
+    is the run's own ledger of what it wrote and where (`terrain.mjs`'s
+    `newRunRecord`); relaying it here is the same discipline `refusal_context`
+    already keeps -- relayed, never interpreted.
+    """
+    artifacts = rec.get("artifacts_written")
+    lines = []
+    if isinstance(artifacts, list):
+        for a in artifacts:
+            if isinstance(a, dict):
+                lines.append(f"  - {a.get('state')}: {a.get('path')}")
+    body = "\n".join(lines) if lines else "  (none written)"
+    return ("The Terrain run reached its terminal and is over; nothing further "
+            "was advanced. Re-entering the `terrain` skill now would open a new "
+            "run, not resume this one -- the run is over rather than waiting.\n"
+            f"Run directory: {run_dir}\n"
+            f"Artifacts written:\n{body}")
+
+
 def refusal_context(text):
     """The executor's refusal, on the one channel that reaches the session.
 
@@ -559,6 +609,15 @@ def main():
             blocks.append(refusal_context(refusal))
         if pointer is not None:
             blocks.append(gate_context(pointer))
+        elif refusal is None:
+            # THE THIRD CASE (kogaki#1163). No refusal and no outstanding gate
+            # is the shape a `done` advance leaves as much as one that never got
+            # far enough to raise anything -- the two are told apart by the run
+            # record's own `done` field, which is the one place this hook has
+            # not already looked.
+            rec = read_run_record(run_dir)
+            if isinstance(rec, dict) and rec.get("done") is True:
+                blocks.append(done_context(run_dir, rec))
         if blocks:
             emit_context("\n\n".join(blocks))
 

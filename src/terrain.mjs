@@ -8248,6 +8248,30 @@ function writeRunRecord(dir, rec) {
   return runRecordPath(dir);
 }
 
+// THE LANE'S MOST RECENT FINISHED RUN, OR NONE (kogaki#1163 acceptance 3). A
+// `start` that mints a fresh workspace over one that reached `done` seconds
+// earlier is a legitimate act — the terminal clears the open-run pointer by
+// design — but it was, until this, an act the session had no way to notice
+// from the new run's own output. Sorted on the entry name rather than mtime:
+// `terrainRunEntry` names are ISO instants with the colons stripped, so
+// lexicographic order over the directory names IS chronological order, with no
+// filesystem timestamp to disagree with it.
+function mostRecentDoneRun(lane) {
+  const dir = laneDir(lane);
+  if (!existsSync(dir)) return null;
+  const names = readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .sort()
+    .reverse();
+  for (const name of names) {
+    const rd = join(dir, name);
+    const rec = readRunRecord(rd);
+    if (rec && rec.done === true) return { dir: rd, rec };
+  }
+  return null;
+}
+
 // ---- THE RECORD AS IT STANDS, WRITTEN MID-ADVANCE (kogaki#1073 item 3).
 //
 // The loop's own write at the end of the advance is unchanged and is still the
@@ -9116,6 +9140,19 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     fail("`start --status` is refused: `start` opens a run and `--status` reads one, and the two are not one act. "
       + `The read-only route is this runtime's own \`run --status\` (kogaki#1038).`);
   }
+  // `start` READS NO ARGUMENTS (kogaki#1163). The skill's `!` line forwards
+  // `$ARGUMENTS` so a session's resumption attempt is visible here rather than
+  // silently dropped by an expansion line that never named them; `start`
+  // itself takes no run identity, mints a fresh workspace on every call, and
+  // has nowhere to put a positional token. Refused before `runDir` is called,
+  // exactly where `--status` is refused above, so a refused start opens no
+  // workspace and prunes no lane.
+  if (stopAtFirstWait && args._.length) {
+    fail(`\`start\` reads no arguments (kogaki#1163) — it opens a fresh ${flow().label} workspace on every `
+      + `invocation and takes no run identity from the session, so ${JSON.stringify(args._)} names nothing this `
+      + `act can act on. A run already open is read with this runtime's own \`run --status\`, which is the `
+      + `read-only route to an existing run's position; there is no argument that resumes one.`);
+  }
   // THE PIN IS READ THROUGH THE BINDING, NOT BY NAME (PR #1109 round 1).
   // `runDir` one screen up reads `process.env[flow().runDirEnv]`, and these two
   // conditions read `KOGAKI_RUN_DIR` literally -- so with two flows the readers
@@ -9126,6 +9163,13 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // `KOGAKI_BRIEF_RUN_DIR`, and every advance minted a fresh Brief workspace
   // and abandoned the open run. One reader of the pin, named by the binding.
   const pinned = process.env[flow().runDirEnv];
+  // THE PRIOR RUN IS READ BEFORE THE NEW ONE IS MINTED (kogaki#1163 acceptance
+  // 3). `runDir`'s default branch prunes the lane and creates this run's own
+  // directory, so a read taken after it would already be looking at a lane
+  // holding this run alongside whatever it did not prune. Read here, while the
+  // lane still holds only what the LAST run left behind.
+  const mintingFresh = stopAtFirstWait && !args["run-dir"] && !pinned;
+  const priorDoneRun = mintingFresh ? mostRecentDoneRun(flow().lane) : null;
   if (stopAtFirstWait || args["run-dir"] || pinned) {
     dir = runDir(args);
     if (stopAtFirstWait && !args["run-dir"] && !pinned) writeOpenRunPointer(dir);
@@ -9472,6 +9516,18 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   const recPath = writeRunRecord(dir, rec);
 
   console.log("");
+  // NAMED BESIDE THE NEW RUN, AT THE MOMENT IT HAPPENS (kogaki#1163 acceptance
+  // 3). A second `start` over a run that already reached `done` is legitimate
+  // — the pointer clears on the way to a terminal by design — but the session
+  // that just re-entered the skill is exactly the one that needs told, before
+  // it re-asks a question the finished run already answered.
+  if (priorDoneRun) {
+    const artifacts = (priorDoneRun.rec.artifacts_written || [])
+      .map((a) => `  - ${a.state}: ${a.path}`).join("\n") || "  (none written)";
+    console.log(`A previous run in this lane already reached done: ${priorDoneRun.dir}`);
+    console.log(`Its artifacts:\n${artifacts}`);
+    console.log("");
+  }
   if (stopped && stopped.kind === "wait") {
     console.log(`Executor STOPPED at ${stopped.id} — a wait (the wait rule). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
     // NO INVOCATION IS PRINTED HERE (kogaki#856). A wait whose owner must READ
