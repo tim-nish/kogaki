@@ -241,10 +241,34 @@ function readDraft(draftPath) {
   // Draft this reader refuses. Read by the same line scan as `brief:`, for the
   // same reason: `emit` writes it as one line and a general YAML parser would
   // be a second grammar that can disagree with the writer.
+  //
+  // THE VALUE IS FORM-CHECKED AT THE READ, and that is what the field's own
+  // comment above would otherwise only promise (PR #1164 round 1). Before this
+  // field existed the language reached `draft.mjs` from a `--lang` flag a
+  // person typed; it now arrives from FILE CONTENT, and it lands there as a
+  // path segment (`sectionsDir`, `packetsDir`), as a run.json key
+  // (`packetsRecordKey`) and inside the `draft.<lang>.md` emit name. So a
+  // Draft whose frontmatter carried a separator or a `..` would write outside
+  // the track it names. The form checked is the BCP-47-ish one `emit` writes —
+  // a primary subtag and an optional subtag — and it is a REFUSAL rather than
+  // a fallback to `en`, because silently reading an unreadable language as
+  // English is the cross-track write this issue exists to stop.
+  const LANG_FORM = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
   let lang = "en";
   for (let i = 1; i < end; i++) {
     const m = lines[i].match(/^lang: (.+?)\s*$/);
-    if (m) { lang = m[1]; break; }
+    if (m) {
+      if (!LANG_FORM.test(m[1])) {
+        fail(`${draftPath} carries \`lang: ${m[1]}\`, which is not a language tag — the value is `
+          + "threaded to the realization lane as `--lang`, where it becomes a directory segment, a "
+          + "run-record key and part of the emitted Draft's filename, so a value outside "
+          + "`aa`/`aaa` with optional `-subtag` parts would write outside the track it names. "
+          + "Re-emit the Draft (`node src/draft.mjs emit --brief <brief.md> --lang <tag>`), which "
+          + "writes the field.");
+      }
+      lang = m[1];
+      break;
+    }
   }
   for (let i = 1; i < end; i++) {
     const l = lines[i];
@@ -8762,6 +8786,39 @@ async function runSelfTest() {
       readDraft(jaPath).lang === "ja");
     ok("#1160 Removal Test: and a Draft with no `lang:` field is treated as English",
       readDraft(enPath).lang === "en");
+
+    // AND THE VALUE IS FORM-CHECKED (PR #1164 round 1). The field arrives
+    // from file content and lands as a directory segment, a run-record key
+    // and part of the emit filename, so the two ways it can be malformed —
+    // a separator and a traversal — are asserted against the real entry
+    // point rather than against the reader in process, because the refusal
+    // is an exit and a case that called `readDraft` here would take the
+    // whole pass down with it.
+    const badCase = (name, value, dirName) => {
+      const bd = join(root, dirName); mkdirSync(bd, { recursive: true });
+      // NAMED `draft.md`, deliberately: `.ja.md` would meet the Lint
+      // precondition first and refuse for a different reason, and the
+      // `lang:` field is what this case is about rather than the filename.
+      const p = join(bd, "draft.md");
+      writeFileSync(p, fm([`lang: ${value}`, "terms_sha_at_generation: 0000"]));
+      const r = spawnSync(process.execPath,
+        [self, "open", "--draft", p, "--workspace", join(root, `ws-${dirName}`)], { encoding: "utf8" });
+      ok(name, r.status === 1 && /is not a language tag/.test(r.stderr),
+        `status ${r.status}, stderr ${(r.stderr || "").trim().slice(0, 200)}`);
+    };
+    badCase("#1160: a `lang:` value carrying a path separator refuses, naming what the value becomes",
+      "ja/../../etc", "lang-sep");
+    badCase("#1160: and a `lang:` value that is a traversal refuses the same way", "..", "lang-dots");
+
+    // The discrimination half: a well-formed regional tag is NOT refused, so
+    // the check reads a form rather than a hardcoded `ja`.
+    {
+      const gd = join(root, "lang-regional"); mkdirSync(gd, { recursive: true });
+      const p = join(gd, "draft.md");
+      writeFileSync(p, fm(["lang: pt-BR", "terms_sha_at_generation: 0000"]));
+      ok("#1160: a well-formed regional tag still reads, so the check reads a form and not a literal",
+        readDraft(p).lang === "pt-BR");
+    }
   }
 
   // ACCEPTANCE 1-3: a real correction, driven through the real realization
