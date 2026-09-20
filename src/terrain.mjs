@@ -9147,9 +9147,16 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // has nowhere to put a positional token. Refused before `runDir` is called,
   // exactly where `--status` is refused above, so a refused start opens no
   // workspace and prunes no lane.
-  if (stopAtFirstWait && args._.length) {
+  //
+  // `_` IS READ DEFENSIVELY BECAUSE NOT EVERY CALLER IS THE CLI. `cmdRun` is
+  // also reached from `runWorkflow`, which composes its own options object and
+  // carries no parsed positional list at all; a bare `args._.length` there is a
+  // TypeError on an object that names nothing, which is the opposite of what
+  // this guard is for.
+  const positionals = Array.isArray(args._) ? args._ : [];
+  if (stopAtFirstWait && positionals.length) {
     fail(`\`start\` reads no arguments (kogaki#1163) — it opens a fresh ${flow().label} workspace on every `
-      + `invocation and takes no run identity from the session, so ${JSON.stringify(args._)} names nothing this `
+      + `invocation and takes no run identity from the session, so ${JSON.stringify(positionals)} names nothing this `
       + `act can act on. A run already open is read with this runtime's own \`run --status\`, which is the `
       + `read-only route to an existing run's position; there is no argument that resumes one.`);
   }
