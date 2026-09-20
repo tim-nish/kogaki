@@ -9,20 +9,27 @@
 # temp directory. Seam-free by construction: no gateway, no network, no
 # model invocation anywhere in the pass.
 #
-# WHAT THE PASS ASSERTS (the Removal Test, acceptance item 7, kogaki#1158):
-# (a) an unmodified Japanese Draft fixture lints IDENTICALLY on two runs,
-# with no model invoked — the determinism every check in lint-ja.mjs is
-# built to have; (b) a fixture carrying a forbidden term (against
-# terms/prh.yml) is named WITH ITS STEP, never a bare line number; (c)
-# src/review-draft.mjs run on a fixture whose terms_sha_at_lint is stale is
-# REFUSED, naming BOTH the recorded hash and the current term list's hash.
+# WHAT THE PASS ASSERTS (the Removal Test, acceptance item 5, kogaki#1161,
+# carrying kogaki#1158's original a/b/c cases forward as d/e):
+# (a) a fixture carrying a forbidden term lints IDENTICALLY on two runs, with
+# no model invoked, and its finding is attributed to the Step whose trace
+# span covers the body line it sits on; (b) a fixture with a three-line code
+# fence followed by a forbidden Latin-script run attributes that run to the
+# Step whose trace covers the line AFTER the fence — the line-attribution-
+# after-a-fence defect kogaki#1161 fixed; (c) a Japanese Draft with no
+# English sibling is REFUSED, naming the missing sibling, with no
+# terms_sha_at_lint written — a skipped structure check is not a clean pass;
+# (d) src/review-draft.mjs `open`, run from a directory other than the
+# repository root, still reads the term list — the cwd-relative default
+# kogaki#1161 fixed; (e) src/review-draft.mjs run on a fixture whose
+# terms_sha_at_lint is stale is REFUSED, naming BOTH the recorded hash and
+# the current term list's hash; (f) the CONTROL ARM — a clean Draft PASSES,
+# is written terms_sha_at_lint, and rewrites identical bytes on two runs.
 #
-# NOT CARRIED HERE: the structure-identity check's cross-Draft comparison
-# and the Latin-script language-confusion detector are exercised as pure
-# functions inside the same self-test module but are not separately
-# re-asserted by this invoker — this member's contract is "the self-test ran
-# clean at its declared floor", on the same convention the delegating
-# members already use.
+# WHY (f) IS NOT OPTIONAL: (a) to (e) each drive a REFUSAL path, so without
+# it every refusal could be correct while the clean pass — the behaviour
+# src/review-draft.mjs's precondition depends on — was broken, and the pass
+# would still read green (PR #1166 round 1).
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 

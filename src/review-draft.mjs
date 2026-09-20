@@ -1242,7 +1242,16 @@ function nextOutlineOwed(run) {
 // SCOPED TO `.ja.md` ONLY: an English CanonicalDraft carries no
 // `terms_sha_at_lint` field and none is owed — this precondition changes
 // nothing about `theses/<slug>/draft.md`.
-const TERMS_PATH = "terms/prh.yml";
+//
+// RESOLVED BESIDE THE RUNTIME, NEVER AGAINST THE WORKING DIRECTORY: the same
+// `terms/prh.yml`, one level up from this file's own directory, that
+// src/lint-ja.mjs's DEFAULT_TERMS_PATH and src/draft.mjs's `--terms-path`
+// default resolve — so `open` finds the term list whatever directory it is
+// invoked from. Computed locally (never imported from ./lint-ja.mjs) because
+// this Harness's own closed-input allowlist (below) forbids importing a
+// reader the Round Trip is not licensed to see; the path constant is not a
+// reader and duplicating a two-line join is what keeps it that way.
+const TERMS_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "terms", "prh.yml");
 
 function checkJaTermsFreshness(draftPath) {
   if (!draftPath.endsWith(".ja.md")) return;

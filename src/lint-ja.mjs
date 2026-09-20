@@ -64,6 +64,15 @@ function fail(msg) {
 
 export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
+// The term list is resolved BESIDE THE RUNTIME (this file's own directory,
+// which is `src/`), never against the working directory a command happens to
+// be invoked from — `terms/prh.yml` sits at the repository root, one level
+// up from `src/`, and every caller (this file, src/draft.mjs,
+// src/review-draft.mjs) reads the same constant rather than each hand-rolling
+// its own cwd-relative default.
+export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+export const DEFAULT_TERMS_PATH = join(REPO_ROOT, "terms", "prh.yml");
+
 function argString(args, key, usage) {
   const v = args[key];
   if (typeof v !== "string" || v === "") fail(usage);
@@ -234,8 +243,11 @@ export function checkPrh(body, trace, rules, bodyLineOffset) {
 // 2. Structure identity against the Brief. Compared to the sibling English
 // CanonicalDraft (theses/<slug>/draft.md), which is itself the rendering of
 // the Brief's declared Section structure (SPEC-draft-pipeline, the Section
-// grouping): Section headings, code-fence count, link count, and the set of
-// frontmatter keys the Japanese Draft is expected to carry.
+// grouping): Section heading count (and position-wise emptiness), code-fence
+// count, and link count. RUNS ONLY WHEN THE SIBLING IS PRESENT — its absence
+// is itself named as a finding by the caller (lintDraftJa), never a silent
+// skip, so a Japanese Draft with no English sibling cannot pass this Lint by
+// having nothing to compare against.
 function headingsOf(body) {
   const unfenced = body.replace(/^```[\s\S]*?^```[ \t]*$/gm, "");
   return [...unfenced.matchAll(/^(#{1,6})\s+(.+?)\s*$/gm)].map((m) => m[2].trim());
@@ -285,11 +297,18 @@ const LATIN_RUN = /[A-Za-z][A-Za-z0-9 ,.'"!?;:()-]{7,}[A-Za-z0-9)"'.]/g;
 export function checkLanguageConfusion(body, trace, bodyLineOffset) {
   const findings = [];
   // Strip fenced code blocks, inline code, and bare/markdown URLs before the
-  // scan — none of those are prose Japanese is expected in.
-  let scan = body.replace(/^```[\s\S]*?^```[ \t]*$/gm, (m) => " ".repeat(m.length));
-  scan = scan.replace(/`[^`]*`/g, (m) => " ".repeat(m.length));
-  scan = scan.replace(/https?:\/\/\S+/g, (m) => " ".repeat(m.length));
-  scan = scan.replace(/\[[^\]]*\]\([^)]*\)/g, (m) => " ".repeat(m.length));
+  // scan — none of those are prose Japanese is expected in. BLANKING
+  // PRESERVES NEWLINES: replacing a whole multi-line match with a single run
+  // of spaces (its total length) collapses every line the match spans into
+  // one line once the scan is split on "\n", which drifts every later line's
+  // attribution. Replacing character-by-character (newlines kept as
+  // newlines, everything else turned to a space) keeps the line count, and
+  // so the line-index-based Step attribution below, intact.
+  const blank = (m) => m.replace(/[^\n]/g, " ");
+  let scan = body.replace(/^```[\s\S]*?^```[ \t]*$/gm, blank);
+  scan = scan.replace(/`[^`]*`/g, blank);
+  scan = scan.replace(/https?:\/\/\S+/g, blank);
+  scan = scan.replace(/\[[^\]]*\]\([^)]*\)/g, blank);
   const bodyLines = scan.split("\n");
   let offset = 0;
   for (let ln = 0; ln < bodyLines.length; ln++) {
@@ -308,8 +327,15 @@ export function checkLanguageConfusion(body, trace, bodyLineOffset) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Staleness: terms_sha_at_generation / terms_sha_at_lint against the
-// current sha256(terms/prh.yml).
+// 4. Staleness: names the ABSENCE of terms_sha_at_generation only, never a
+// mismatch. The versioning rule (top of file) is why: conformance is decided
+// by term/prh conformance against the CURRENT list directly (checkPrh,
+// above), never by comparing a birth-record hash to the current one — a
+// Draft corrected after the term list moved must be able to pass without its
+// fixed-at-generation terms_sha_at_generation ever catching up, and
+// terms_sha_at_lint is this same Lint's own output, recomputed fresh below on
+// every run rather than read back and compared. What this check reports is
+// narrower: that the Draft carries a birth record at all.
 export function checkStaleness(draft, currentSha) {
   const findings = [];
   if (!draft.terms_sha_at_generation) {
@@ -324,7 +350,7 @@ export function checkStaleness(draft, currentSha) {
 // identity) the sibling English Draft. On a clean pass, writes
 // terms_sha_at_lint into the frontmatter — ON A CLEAN PASS ONLY, so a
 // stale/failing Draft never reads as freshly linted.
-export function lintDraftJa({ jaText, jaPath, enBody, termsText }) {
+export function lintDraftJa({ jaText, jaPath, enBody, enPath, termsText }) {
   const draft = readJaDraft(jaText, jaPath);
   if (draft.error) return { error: draft.error };
   const parsed = parseTermsYaml(termsText);
@@ -332,9 +358,17 @@ export function lintDraftJa({ jaText, jaPath, enBody, termsText }) {
   const currentSha = sha256(termsText);
   const bodyLineOffset = draft.frontmatterEnd + 2; // 1-based file line of body line 1, minus 1
 
+  // AN ABSENT ENGLISH SIBLING IS A NAMED FINDING, NEVER A SILENT SKIP: a
+  // Japanese Draft with no sibling to check structure identity against has
+  // had that check SKIPPED, not PASSED, and reading a skip as a pass is
+  // exactly the fail-open this repository refuses elsewhere. So the absence
+  // itself is reported, and (since findings.length is then nonzero) no
+  // terms_sha_at_lint is written for it.
   const findings = [
     ...checkPrh(draft.body, draft.trace, parsed.rules, bodyLineOffset),
-    ...(enBody !== null ? checkStructureIdentity(draft.body, enBody, draft.trace) : []),
+    ...(enBody !== null
+      ? checkStructureIdentity(draft.body, enBody, draft.trace)
+      : [{ step_id: null, message: `structure identity: no sibling English Draft found at ${enPath ?? "(unspecified)"} — the Japanese Draft's Section, fence and link structure cannot be checked against the Brief's declared structure without it` }]),
     ...checkLanguageConfusion(draft.body, draft.trace, bodyLineOffset),
     ...checkStaleness(draft, currentSha),
   ];
@@ -362,7 +396,7 @@ export function lintDraftJa({ jaText, jaPath, enBody, termsText }) {
 // ---------------------------------------------------------------------------
 function cmdLint(args) {
   const jaPath = argString(args, "draft", "usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]");
-  const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : "terms/prh.yml";
+  const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : DEFAULT_TERMS_PATH;
   let jaText, termsText;
   try { jaText = readFileSync(jaPath, "utf8"); } catch (e) { fail(`the Draft at ${jaPath} cannot be read (${e.message})`); }
   try { termsText = readFileSync(termsPath, "utf8"); } catch (e) { fail(`the term list at ${termsPath} cannot be read (${e.message})`); }
@@ -381,7 +415,7 @@ function cmdLint(args) {
       enBody = bodyLines.join("\n");
     }
   }
-  const r = lintDraftJa({ jaText, jaPath, enBody, termsText });
+  const r = lintDraftJa({ jaText, jaPath, enBody, enPath, termsText });
   if (r.error) fail(r.error);
   if (!r.clean) {
     process.stderr.write(`lint-ja: ${r.findings.length} deviation(s) — the Draft is NOT marked lint-clean (no terms_sha_at_lint written):\n`);
@@ -393,11 +427,13 @@ function cmdLint(args) {
 }
 
 // ---------------------------------------------------------------------------
-// The Removal Test's self-test (acceptance item 7). Three cases, each
-// constructing its defect and asserting this file (or, for case c, the
-// review-draft.mjs precondition) refuses or produces by name. NO MODEL IS
-// INVOKED — every case drives pure functions or a subprocess of another
-// runtime's own deterministic refusal.
+// The Removal Test's self-test (acceptance item 5). Six cases: five construct
+// a defect and assert this file (or, for cases d and e, the review-draft.mjs
+// precondition) refuses or produces by name, and case (f) is the CONTROL ARM —
+// the clean pass those five never reach, without which every refusal could be
+// correct while the pass itself was broken. NO MODEL IS INVOKED — every case
+// drives pure functions or a subprocess of another runtime's own
+// deterministic refusal.
 async function runSelfTest() {
   const { mkdtempSync, mkdirSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
@@ -405,14 +441,94 @@ async function runSelfTest() {
   let passed = 0; const failures = [];
   const ok = (name, cond) => { if (cond) passed++; else failures.push(name); };
 
-  const termsText = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "terms", "prh.yml"), "utf8");
+  const termsText = readFileSync(DEFAULT_TERMS_PATH, "utf8");
   const termsSha = sha256(termsText);
 
-  // (a) — an unmodified fixture lints identically on two runs, no model
-  // invoked. Uses a CLEAN body (no forbidden term, no Latin-script run, ASCII
-  // heading count matches "no English sibling" case — enBody null).
+  // (a) — idempotency AND Step attribution in one case: a fixture carrying a
+  // forbidden term lints identically on two runs (no model invoked), and its
+  // one finding is attributed to the Step whose trace span covers the body
+  // line it sits on. The span is [8, 8] — the fixture's frontmatter is 6
+  // lines (```` --- ```` through the closing ```` --- ````) plus one blank
+  // line, so the body's first (and only) line is file line 8; a span of
+  // [7, 7] (the prior shape of this fixture) covers the blank line instead
+  // and asserts nothing about attribution.
   {
     const draft1 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "このWebサイトはクリーンです。",
+    ].join("\n");
+    const enBody1 = "This site is clean.";
+    const r1 = lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: enBody1, termsText });
+    const r2 = lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: enBody1, termsText });
+    ok("case (a): a fixture lints identically on two runs, and its finding is attributed to the Step whose trace span covers the body line",
+      r1.clean === false && r2.clean === false
+      && r1.findings.length === r2.findings.length && r1.findings.length > 0
+      && r1.findings.every((f) => f.step_id === "s1") && r2.findings.every((f) => f.step_id === "s1")
+      && r1.findings.some((f) => f.message.includes("Webサイト")));
+  }
+
+  // (b) — acceptance item 2: a three-line code fence, then a forbidden
+  // Latin-script run, reports that run with the Step whose trace covers the
+  // line AFTER the fence — the line-attribution-after-a-fence defect (blanking
+  // that collapsed the fence's newlines before checkLanguageConfusion split
+  // on them).
+  {
+    const draft2 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [9, 11]}`,
+      `  - {"step_id": "s2", "lines": [12, 12]}`,
+      "---",
+      "",
+      "```",
+      "code",
+      "```",
+      "This is a long English sentence for testing purposes.",
+    ].join("\n");
+    const r = lintDraftJa({ jaText: draft2, jaPath: "fixture.ja.md", enBody: null, enPath: "theses/fixture/draft.md", termsText });
+    ok("case (b): a Latin-script run after a three-line code fence is attributed to the Step whose trace covers the line after the fence",
+      r.findings.some((f) => f.step_id === "s2" && f.message.includes("English sentence")));
+  }
+
+  // (c) — acceptance item 1: a Japanese Draft with no English sibling is
+  // refused with a finding naming the missing sibling, and no
+  // terms_sha_at_lint is written (a skipped structure check is not a clean
+  // pass).
+  {
+    const draft3 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "これはクリーンな日本語の一文です。",
+    ].join("\n");
+    const enPath = "theses/fixture/draft.md";
+    const r = lintDraftJa({ jaText: draft3, jaPath: "fixture.ja.md", enBody: null, enPath, termsText });
+    ok("case (c): a Japanese Draft with no English sibling is refused, naming the missing sibling, with no terms_sha_at_lint written",
+      r.clean === false && r.terms_sha_at_lint === undefined
+      && r.findings.some((f) => f.message.includes(enPath)));
+  }
+
+  // (d) — acceptance item 4: src/review-draft.mjs `open`, run from a
+  // directory other than the repository root, still reads the term list —
+  // the freshness check's refusal names the CORRECTLY COMPUTED current hash
+  // (proving the list was read) rather than "cannot be read" (which is what
+  // a cwd-relative default produces once the invoking directory moves).
+  {
+    const dir = join(root, "case-d");
+    mkdirSync(dir, { recursive: true });
+    const draft4 = [
       "---",
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
@@ -421,65 +537,84 @@ async function runSelfTest() {
       "---",
       "",
       "これはクリーンな日本語の一文です。",
-      "",
     ].join("\n");
-    const r1 = lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: null, termsText });
-    const r2 = lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: null, termsText });
-    ok("case (a): an unmodified fixture lints identically on two runs, no model invoked",
-      r1.clean === true && r2.clean === true && r1.findings.length === 0 && r2.findings.length === 0
-      && r1.terms_sha_at_lint === r2.terms_sha_at_lint && r1.newText === r2.newText);
+    const jaPath = join(dir, "draft.ja.md");
+    writeFileSync(jaPath, draft4);
+    const runtime = join(dirname(fileURLToPath(import.meta.url)), "review-draft.mjs");
+    let out = "", code = 0;
+    try {
+      execFileSync(process.execPath, [runtime, "open", "--draft", jaPath], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) {
+      out = (e.stderr || "") + (e.stdout || "");
+      code = e.status ?? 1;
+    }
+    ok("case (d): review-draft.mjs open reads the term list when run from a directory other than the repository root",
+      code !== 0 && out.includes(termsSha) && !out.includes("cannot be read"));
   }
 
-  // (b) — a fixture carrying a forbidden term is named with its Step.
-  {
-    const draft2 = [
-      "---",
-      "brief: brief.md",
-      `terms_sha_at_generation: ${termsSha}`,
-      "trace:",
-      `  - {"step_id": "s7", "lines": [8, 8]}`,
-      "---",
-      "",
-      "このWebサイトはクリーンです。",
-      "",
-    ].join("\n");
-    const r = lintDraftJa({ jaText: draft2, jaPath: "fixture.ja.md", enBody: null, termsText });
-    ok("case (b): a forbidden term is named with its Step",
-      r.clean === false && r.findings.some((f) => f.step_id === "s7" && f.message.includes("Webサイト")));
-  }
-
-  // (c) — review-draft.mjs run on a fixture with a stale terms_sha_at_lint is
+  // (e) — review-draft.mjs run on a fixture with a stale terms_sha_at_lint is
   // refused, naming both hashes. Drives the REAL runtime as a subprocess (the
   // precondition lives in src/review-draft.mjs, not here), asserting only its
   // observable refusal — no model is invoked by either side.
   {
-    const dir = join(root, "case-c");
+    const dir = join(root, "case-e");
     mkdirSync(dir, { recursive: true });
     const stale = "0".repeat(64);
-    const draft3 = [
+    const draft5 = [
       "---",
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       `terms_sha_at_lint: ${stale}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"step_id": "s1", "lines": [9, 9]}`,
       "---",
       "",
       "これはクリーンな日本語の一文です。",
-      "",
     ].join("\n");
     const jaPath = join(dir, "draft.ja.md");
-    writeFileSync(jaPath, draft3);
+    writeFileSync(jaPath, draft5);
     const runtime = join(dirname(fileURLToPath(import.meta.url)), "review-draft.mjs");
     let stderrOut = "", code = 0;
     try {
-      execFileSync(process.execPath, [runtime, "open", "--draft", jaPath], { cwd: dirname(fileURLToPath(import.meta.url)) + "/..", encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      execFileSync(process.execPath, [runtime, "open", "--draft", jaPath], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     } catch (e) {
       stderrOut = (e.stderr || "") + (e.stdout || "");
       code = e.status ?? 1;
     }
-    ok("case (c): review-draft.mjs refuses a stale terms_sha_at_lint, naming both hashes",
-      code !== 0 && stderrOut.includes(stale) && stderrOut.includes(sha256(termsText)));
+    ok("case (e): review-draft.mjs refuses a stale terms_sha_at_lint, naming both hashes",
+      code !== 0 && stderrOut.includes(stale) && stderrOut.includes(termsSha));
+  }
+
+  // (f) — THE CLEAN PASS ITSELF, which is the behaviour src/review-draft.mjs
+  // trusts: a Draft with no deviation lints clean, is WRITTEN
+  // terms_sha_at_lint, and produces byte-identical output on two runs. Cases
+  // (a) to (e) all drive a REFUSAL path, so without this one a Lint that
+  // stopped writing the field, or wrote it non-deterministically, would pass
+  // every other case here while review-draft's precondition quietly stopped
+  // being satisfiable (PR #1166 round 1). The two-run comparison is on
+  // `newText` and not only on the field, because a clean pass rewrites the
+  // Draft and the Removal Test's "lints identically on two runs" is a claim
+  // about those bytes.
+  {
+    const draft6 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "これはクリーンな日本語の一文です。",
+    ].join("\n");
+    const enBody6 = "This is a clean Japanese sentence.";
+    const r1 = lintDraftJa({ jaText: draft6, jaPath: "fixture.ja.md", enBody: enBody6, termsText });
+    const r2 = lintDraftJa({ jaText: draft6, jaPath: "fixture.ja.md", enBody: enBody6, termsText });
+    ok("case (f): a clean Draft passes, is written terms_sha_at_lint, and rewrites identical bytes on two runs",
+      r1.clean === true && r2.clean === true
+      && (r1.findings || []).length === 0 && (r2.findings || []).length === 0
+      && r1.terms_sha_at_lint === termsSha && r2.terms_sha_at_lint === termsSha
+      && typeof r1.newText === "string" && r1.newText === r2.newText
+      && r1.newText.includes(`terms_sha_at_lint: ${termsSha}`));
   }
 
   rmSync(root, { recursive: true, force: true });
