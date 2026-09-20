@@ -38,13 +38,19 @@
 //
 // NO MODEL IS EVER INVOKED HERE. Every check in this file is a deterministic
 // function of its inputs: the same Draft and the same term list produce the
-// same output on every run (Removal Test, acceptance item 7). textlint and
-// textlint-rule-prh are NOT dependencies of this repository (no package.json,
-// no node_modules) — this file implements the prh pattern match, a structure-
-// identity check, a Latin-script language-confusion detector, and the
-// staleness check natively in Node, citing textlint-rule-prh's documented
-// rule shape (an `expected` form and the `patterns` it forbids) as the model
-// this file's terms/prh.yml conforms to, without depending on the package.
+// same output on every run (Removal Test, acceptance item 6). textlint,
+// textlint-rule-preset-ja-technical-writing and textlint-rule-prh ARE
+// dependencies of this repository (kogaki#1162, discharging kogaki#1158
+// acceptance item 2): term/prh conformance and the technical-writing
+// preset's register rules both run through textlint, over `.textlintrc.json`
+// at the repository root, against the Draft body text — textlint's Markdown
+// parser checks text nodes only, so code fences, inline code and link
+// targets are outside the term scan BY CONSTRUCTION rather than by a scope
+// this file has to carve out itself (kogaki#1161's ja-lint-scan-scope
+// finding, on PR #1159's native matcher, cannot recur). The structure-
+// identity check and the Latin-script language-confusion detector are still
+// implemented natively here — neither is a textlint rule's job, and no
+// package covers them.
 //
 // EVERY DEVIATION IS NAMED WITH ITS STEP, never a line number alone: a
 // deviation's Step id is read off the Draft's own frontmatter trace (the
@@ -56,6 +62,40 @@ import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
+
+// textlint, its kernel and the markdown/prh packages are LOADED LAZILY, by
+// dynamic import inside the functions that need them, rather than statically
+// at module top: src/draft.mjs imports THIS module for parseTermsYaml/
+// renderLanguageBlock/sha256/DEFAULT_TERMS_PATH alone, and src/review-draft.mjs
+// imports src/draft.mjs in turn — so a static top-level import here would put
+// three npm packages on the load path of every review-draft.mjs invocation,
+// including the `soloWithout` self-test fixtures that run a COPY of `src/`
+// from a temp directory with no `node_modules` beside it (kogaki#1162 PR
+// round 1: those fixtures never call the Lint, but a static import fails at
+// module load regardless of whether the function is ever called).
+let textlintModulesPromise = null;
+function loadTextlintModules() {
+  if (!textlintModulesPromise) {
+    textlintModulesPromise = Promise.all([
+      import("textlint"),
+      import("@textlint/kernel"),
+      import("@textlint/textlint-plugin-markdown"),
+      import("textlint-rule-prh"),
+    ]).then(([textlint, kernel, markdownPluginModule, prhRuleModule]) => ({
+      createLinter: textlint.createLinter,
+      loadTextlintrc: textlint.loadTextlintrc,
+      TextlintKernel: kernel.TextlintKernel,
+      // Both packages ship as CJS with an `__esModule`-less `module.exports`,
+      // so a dynamic ESM import lands the WHOLE exports object (carrying a
+      // `default` key) rather than unwrapping it — `.default` recovers the
+      // actual plugin/rule module textlint's kernel expects (a
+      // `{ linter, fixer }` shape), verified against this exact package pair.
+      markdownPlugin: markdownPluginModule.default?.default ?? markdownPluginModule.default ?? markdownPluginModule,
+      prhRule: prhRuleModule.default?.default ?? prhRuleModule.default ?? prhRuleModule,
+    }));
+  }
+  return textlintModulesPromise;
+}
 
 function fail(msg) {
   process.stderr.write(`lint-ja: ${msg}\n`);
@@ -211,32 +251,59 @@ export function stepAtLine(trace, fileLine) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Term/prh conformance (textlint-rule-prh's documented shape: an
-// `expected` form and the `patterns` it forbids). A hit on any forbidden
-// variant is named with its Step.
-export function checkPrh(body, trace, rules, bodyLineOffset) {
-  const findings = [];
-  const bodyLines = body.split("\n");
-  for (const rule of rules) {
-    for (const pat of rule.patterns) {
-      if (!pat) continue;
-      let idx = 0;
-      while (true) {
-        const at = body.indexOf(pat, idx);
-        if (at === -1) break;
-        idx = at + pat.length;
-        const upto = body.slice(0, at).split("\n").length; // 1-based line within body
-        const fileLine = upto + bodyLineOffset;
-        const step = stepAtLine(trace, fileLine);
-        findings.push({
-          step_id: step,
-          message: `${step ? `step ${step}` : "an unattributed line"}: forbidden term "${pat}" — the prescribed form is "${rule.expected}"`
-            + (rule.note ? ` (${rule.note})` : ""),
-        });
-      }
-    }
+// 1. textlint: term/prh conformance against terms/prh.yml AND the
+// technical-writing preset's register rules, both run in one pass over
+// `.textlintrc.json` at the repository root (kogaki#1162). A single linter
+// is loaded once per process and reused — textlint's own config load is not
+// a function of the Draft, and re-loading it per call would make every
+// finding pay a fixed cost the Removal Test's identical-bytes claim does not
+// need paid twice.
+let cachedLinter = null;
+function getTextlintLinter() {
+  if (!cachedLinter) {
+    cachedLinter = loadTextlintModules()
+      .then(({ createLinter, loadTextlintrc }) => loadTextlintrc({ configFilePath: join(REPO_ROOT, ".textlintrc.json") })
+        .then((descriptor) => createLinter({ descriptor })));
   }
-  return findings;
+  return cachedLinter;
+}
+
+// Every textlint finding — prh's and the preset's alike — is named with its
+// Step AND its rule id (acceptance item 4), read the same way every other
+// check here reads a Step: off the trace, by the file line the finding's
+// own (1-based, body-relative) line number resolves to.
+export async function checkTextlint(body, trace, bodyLineOffset) {
+  const linter = await getTextlintLinter();
+  const result = await linter.lintText(body, "draft.ja.md");
+  return result.messages.map((m) => {
+    const fileLine = m.line + bodyLineOffset;
+    const step = stepAtLine(trace, fileLine);
+    const message = m.message.replace(/\s*\n\s*/g, " ").trim();
+    return {
+      step_id: step,
+      message: `${step ? `step ${step}` : "an unattributed line"}: [${m.ruleId}] ${message}`,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The fix mode (acceptance item 5): `textlint --fix` with ONLY the prh rule
+// wired in — never the preset, whose findings a mechanical fix cannot safely
+// apply. Built directly against @textlint/kernel rather than a second
+// `.textlintrc*` file, because the ONLY config this repository owns
+// (`.textlintrc.json`, kogaki#1162's licensed file) is the full preset+prh
+// pairing the Lint reads, and a second committed config carrying a narrowed
+// rule set would be a second, undeclared contract to keep in sync with it.
+export async function fixPrhOnly(body, termsPath) {
+  const { TextlintKernel, markdownPlugin, prhRule } = await loadTextlintModules();
+  const kernel = new TextlintKernel();
+  const result = await kernel.fixText(body, {
+    ext: ".md",
+    filePath: "draft.ja.md",
+    plugins: [{ pluginId: "markdown", plugin: markdownPlugin }],
+    rules: [{ ruleId: "prh", rule: prhRule, options: { rulePaths: [termsPath] } }],
+  });
+  return result.output;
 }
 
 // ---------------------------------------------------------------------------
@@ -350,7 +417,7 @@ export function checkStaleness(draft, currentSha) {
 // identity) the sibling English Draft. On a clean pass, writes
 // terms_sha_at_lint into the frontmatter — ON A CLEAN PASS ONLY, so a
 // stale/failing Draft never reads as freshly linted.
-export function lintDraftJa({ jaText, jaPath, enBody, enPath, termsText }) {
+export async function lintDraftJa({ jaText, jaPath, enBody, enPath, termsText }) {
   const draft = readJaDraft(jaText, jaPath);
   if (draft.error) return { error: draft.error };
   const parsed = parseTermsYaml(termsText);
@@ -365,7 +432,7 @@ export function lintDraftJa({ jaText, jaPath, enBody, enPath, termsText }) {
   // itself is reported, and (since findings.length is then nonzero) no
   // terms_sha_at_lint is written for it.
   const findings = [
-    ...checkPrh(draft.body, draft.trace, parsed.rules, bodyLineOffset),
+    ...await checkTextlint(draft.body, draft.trace, bodyLineOffset),
     ...(enBody !== null
       ? checkStructureIdentity(draft.body, enBody, draft.trace)
       : [{ step_id: null, message: `structure identity: no sibling English Draft found at ${enPath ?? "(unspecified)"} — the Japanese Draft's Section, fence and link structure cannot be checked against the Brief's declared structure without it` }]),
@@ -394,7 +461,7 @@ export function lintDraftJa({ jaText, jaPath, enBody, enPath, termsText }) {
 }
 
 // ---------------------------------------------------------------------------
-function cmdLint(args) {
+async function cmdLint(args) {
   const jaPath = argString(args, "draft", "usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]");
   const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : DEFAULT_TERMS_PATH;
   let jaText, termsText;
@@ -415,7 +482,7 @@ function cmdLint(args) {
       enBody = bodyLines.join("\n");
     }
   }
-  const r = lintDraftJa({ jaText, jaPath, enBody, enPath, termsText });
+  const r = await lintDraftJa({ jaText, jaPath, enBody, enPath, termsText });
   if (r.error) fail(r.error);
   if (!r.clean) {
     process.stderr.write(`lint-ja: ${r.findings.length} deviation(s) — the Draft is NOT marked lint-clean (no terms_sha_at_lint written):\n`);
@@ -424,6 +491,39 @@ function cmdLint(args) {
   }
   writeFileSync(jaPath, r.newText);
   process.stdout.write(`lint-ja: clean pass — terms_sha_at_lint: ${r.terms_sha_at_lint} written to ${jaPath}\n`);
+}
+
+// Rebuilds the full Draft file from its own frontmatter (lines 0..frontmatterEnd+1,
+// the closing `---` plus the blank line after it, UNTOUCHED) and a new body —
+// the same line-array reconstruction readJaDraft's own split performed in
+// reverse, so a fix that changes no body byte changes no file byte either.
+function withBody(draft, newBody) {
+  const head = draft.lines.slice(0, draft.frontmatterEnd + 2);
+  const newBodyLines = newBody.split("\n");
+  const hadTrailingNewline = draft.text.endsWith("\n");
+  const allLines = [...head, ...newBodyLines, ...(hadTrailingNewline ? [""] : [])];
+  return allLines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// The fix subcommand (acceptance item 5): runs textlint's fixer with ONLY
+// the prh rule against the Draft's body, and writes back the file only when
+// a byte changed — a no-op fix (nothing prh-fixable found) is not itself an
+// error, so it prints and exits clean rather than failing.
+async function cmdFix(args) {
+  const jaPath = argString(args, "draft", "usage: lint-ja.mjs fix --draft <draft.ja.md> [--terms <terms/prh.yml>]");
+  const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : DEFAULT_TERMS_PATH;
+  let jaText;
+  try { jaText = readFileSync(jaPath, "utf8"); } catch (e) { fail(`the Draft at ${jaPath} cannot be read (${e.message})`); }
+  const draft = readJaDraft(jaText, jaPath);
+  if (draft.error) fail(draft.error);
+  const fixedBody = await fixPrhOnly(draft.body, termsPath);
+  if (fixedBody === draft.body) {
+    process.stdout.write(`lint-ja: fix — no prh replacement applied to ${jaPath}\n`);
+    return;
+  }
+  writeFileSync(jaPath, withBody(draft, fixedBody));
+  process.stdout.write(`lint-ja: fix — prh replacement(s) applied to ${jaPath}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -464,8 +564,8 @@ async function runSelfTest() {
       "このWebサイトはクリーンです。",
     ].join("\n");
     const enBody1 = "This site is clean.";
-    const r1 = lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: enBody1, termsText });
-    const r2 = lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: enBody1, termsText });
+    const r1 = await lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: enBody1, termsText });
+    const r2 = await lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: enBody1, termsText });
     ok("case (a): a fixture lints identically on two runs, and its finding is attributed to the Step whose trace span covers the body line",
       r1.clean === false && r2.clean === false
       && r1.findings.length === r2.findings.length && r1.findings.length > 0
@@ -493,7 +593,7 @@ async function runSelfTest() {
       "```",
       "This is a long English sentence for testing purposes.",
     ].join("\n");
-    const r = lintDraftJa({ jaText: draft2, jaPath: "fixture.ja.md", enBody: null, enPath: "theses/fixture/draft.md", termsText });
+    const r = await lintDraftJa({ jaText: draft2, jaPath: "fixture.ja.md", enBody: null, enPath: "theses/fixture/draft.md", termsText });
     ok("case (b): a Latin-script run after a three-line code fence is attributed to the Step whose trace covers the line after the fence",
       r.findings.some((f) => f.step_id === "s2" && f.message.includes("English sentence")));
   }
@@ -514,7 +614,7 @@ async function runSelfTest() {
       "これはクリーンな日本語の一文です。",
     ].join("\n");
     const enPath = "theses/fixture/draft.md";
-    const r = lintDraftJa({ jaText: draft3, jaPath: "fixture.ja.md", enBody: null, enPath, termsText });
+    const r = await lintDraftJa({ jaText: draft3, jaPath: "fixture.ja.md", enBody: null, enPath, termsText });
     ok("case (c): a Japanese Draft with no English sibling is refused, naming the missing sibling, with no terms_sha_at_lint written",
       r.clean === false && r.terms_sha_at_lint === undefined
       && r.findings.some((f) => f.message.includes(enPath)));
@@ -607,14 +707,201 @@ async function runSelfTest() {
       "これはクリーンな日本語の一文です。",
     ].join("\n");
     const enBody6 = "This is a clean Japanese sentence.";
-    const r1 = lintDraftJa({ jaText: draft6, jaPath: "fixture.ja.md", enBody: enBody6, termsText });
-    const r2 = lintDraftJa({ jaText: draft6, jaPath: "fixture.ja.md", enBody: enBody6, termsText });
+    const r1 = await lintDraftJa({ jaText: draft6, jaPath: "fixture.ja.md", enBody: enBody6, termsText });
+    const r2 = await lintDraftJa({ jaText: draft6, jaPath: "fixture.ja.md", enBody: enBody6, termsText });
     ok("case (f): a clean Draft passes, is written terms_sha_at_lint, and rewrites identical bytes on two runs",
       r1.clean === true && r2.clean === true
       && (r1.findings || []).length === 0 && (r2.findings || []).length === 0
       && r1.terms_sha_at_lint === termsSha && r2.terms_sha_at_lint === termsSha
       && typeof r1.newText === "string" && r1.newText === r2.newText
       && r1.newText.includes(`terms_sha_at_lint: ${termsSha}`));
+  }
+
+  // (g) — acceptance item 3: a fixture written entirely in the prescribed
+  // forms, including "サーバー" and "アプリケーション", lints clean — the
+  // boundary-pattern fix (kogaki#1162, ja-term-list-substring) for exactly
+  // the two forms whose forbidden short variant is a prefix of the
+  // prescribed one. Regression form: the pre-fix plain-substring patterns
+  // ("サーバ", "アプリ") would each fire on their own prescribed long form.
+  {
+    const draft7 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "サーバーとアプリケーションを設定し、リポジトリへ実装した。",
+    ].join("\n");
+    const enBody7 = "Configured the server and application, and implemented it into the repository.";
+    const r = await lintDraftJa({ jaText: draft7, jaPath: "fixture.ja.md", enBody: enBody7, termsText });
+    ok("case (g): a fixture written entirely in the prescribed forms (including サーバー and アプリケーション) lints clean",
+      r.clean === true && (r.findings || []).length === 0);
+  }
+
+  // (h) — acceptance item 4: a sentence over the preset's length bound (100
+  // characters) is named with its Step AND its rule id
+  // (ja-technical-writing/sentence-length) — proof that the technical-
+  // writing preset, and not only prh, is wired into the Lint.
+  {
+    const longSentence = "これは長い日本語の一文です".repeat(8) + "。"; // 105 characters
+    const draft8 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      longSentence,
+    ].join("\n");
+    const enBody8 = "This is a long Japanese sentence, repeated past the preset's length bound.";
+    const r = await lintDraftJa({ jaText: draft8, jaPath: "fixture.ja.md", enBody: enBody8, termsText });
+    ok("case (h): a sentence over the preset's length bound is named with its Step and its rule id",
+      r.clean === false
+      && r.findings.some((f) => f.step_id === "s1" && f.message.includes("ja-technical-writing/sentence-length")));
+  }
+
+  // (i) — acceptance item 5: `fix` runs textlint's fixer with ONLY the prh
+  // rule wired in. A fixture carrying "レポジトリ" (prh-fixable) alongside a
+  // preset finding (the same over-length sentence as case (h), which prh's
+  // fixer cannot touch) is fixed once: the prh term is rewritten, every
+  // other byte — including the untouched preset finding — is unchanged.
+  {
+    const prhLine = "レポジトリの操作について説明します。";
+    const longSentence = "これは長い日本語の一文です".repeat(8) + "。";
+    const body9 = `${prhLine}\n${longSentence}`;
+    const fixedBody = await fixPrhOnly(body9, DEFAULT_TERMS_PATH);
+    const expectedBody = `リポジトリの操作について説明します。\n${longSentence}`;
+    const findingsAfter = await checkTextlint(fixedBody, [{ step_id: "s1", lines: [1, 2] }], 0);
+    ok("case (i): fix rewrites the prh-fixable term and changes no other byte; the preset finding in the same fixture is untouched",
+      fixedBody === expectedBody
+      && findingsAfter.some((f) => f.message.includes("ja-technical-writing/sentence-length"))
+      && !findingsAfter.some((f) => f.message.includes("prh")));
+  }
+
+  // (j) — acceptance item 2: a fixture whose only forbidden term sits inside
+  // a code fence lints clean (textlint's Markdown parser checks text nodes
+  // only, so a CodeBlock is outside the term scan by construction); the same
+  // term in prose, in a sibling fixture, is named with its Step. Regression
+  // form: PR #1159's native matcher scanned raw body text and could never
+  // clear a fixture whose code sample happened to carry a forbidden term
+  // (ja-lint-scan-scope).
+  {
+    const draft10a = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [9, 11]}`,
+      "---",
+      "",
+      "```",
+      "server",
+      "```",
+    ].join("\n");
+    const enBody10a = ["```", "server", "```"].join("\n");
+    const r10a = await lintDraftJa({ jaText: draft10a, jaPath: "fixture.ja.md", enBody: enBody10a, termsText });
+
+    const draft10b = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "serverを設定した。",
+    ].join("\n");
+    const enBody10b = "Configured the server.";
+    const r10b = await lintDraftJa({ jaText: draft10b, jaPath: "fixture.ja.md", enBody: enBody10b, termsText });
+
+    ok("case (j): a forbidden term inside a code fence lints clean, and the same term in prose is named with its Step",
+      r10a.clean === true && (r10a.findings || []).length === 0
+      && r10b.clean === false
+      && r10b.findings.some((f) => f.step_id === "s1" && f.message.includes("server")));
+  }
+
+  // (k) — THE `fix` SUBCOMMAND'S OWN FILE PATH (PR #1167 round 1). Case (i)
+  // stops at `fixPrhOnly` on an in-memory body, so `cmdFix` and `withBody` —
+  // the frontmatter head slice at `frontmatterEnd + 2`, the trailing-newline
+  // restoration, and the write-back — were reached by no case. This is the
+  // one new surface that rewrites a tracked file's bytes, and the
+  // reconstruction it does is exactly the off-by-one the Removal Test exists
+  // to hold. Driven as a real subprocess so the CLI's own argument handling
+  // is in the path too. Regression form: dropping or adding a line in the
+  // head slice, or losing the trailing newline, changes bytes this case
+  // compares whole.
+  {
+    const dir = join(root, "case-k");
+    mkdirSync(dir, { recursive: true });
+    const head11 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+    ];
+    const before11 = [...head11, "レポジトリの操作について説明します。", ""].join("\n");
+    const expected11 = [...head11, "リポジトリの操作について説明します。", ""].join("\n");
+    const jaPath11 = join(dir, "draft.ja.md");
+    writeFileSync(jaPath11, before11);
+    const self11 = fileURLToPath(import.meta.url);
+    let out11 = "", code11 = 0;
+    try {
+      out11 = execFileSync(process.execPath, [self11, "fix", "--draft", jaPath11], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { out11 = (e.stdout || "") + (e.stderr || ""); code11 = e.status ?? 1; }
+    const after11 = readFileSync(jaPath11, "utf8");
+    // The SECOND run is the no-op arm: nothing prh-fixable remains, so the
+    // subcommand must leave the file byte-identical and still exit clean.
+    let code11b = 0;
+    try {
+      execFileSync(process.execPath, [self11, "fix", "--draft", jaPath11], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { code11b = e.status ?? 1; }
+    ok("case (k): the `fix` subcommand rewrites the file, preserves frontmatter and the trailing newline byte for byte, and its second run is a clean no-op",
+      code11 === 0 && code11b === 0
+      && after11 === expected11
+      && readFileSync(jaPath11, "utf8") === expected11
+      && out11.includes("prh replacement"));
+  }
+
+  // (l) — THE cwd-RELATIVE TERM-LIST CLASS, held open across the migration
+  // (PR #1167 round 1). kogaki#1161 fixed exactly this defect once: a term
+  // list resolved against the process's working directory rather than the
+  // repository. The Lint now reads its term list through `.textlintrc.json`'s
+  // `"rulePaths": ["./terms/prh.yml"]` instead of through
+  // `DEFAULT_TERMS_PATH`, which is a NEW resolution path for the same class,
+  // and case (d) covers src/review-draft.mjs's hash read rather than this
+  // one. So: drive `lint` as a subprocess from a directory that is not the
+  // repository root and assert the prh rule still fires. Regression form:
+  // passing `.textlintrc.json` by a relative path, or dropping the absolute
+  // `configFilePath`, leaves every other case green and fails this one.
+  {
+    const dir = join(root, "case-l");
+    mkdirSync(dir, { recursive: true });
+    const draft12 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "レポジトリを設定した。",
+    ].join("\n");
+    const jaPath12 = join(dir, "draft.ja.md");
+    writeFileSync(jaPath12, draft12);
+    writeFileSync(join(dir, "draft.md"), "Configured the repository.\n");
+    const self12 = fileURLToPath(import.meta.url);
+    let out12 = "", code12 = 0;
+    try {
+      out12 = execFileSync(process.execPath, [self12, "lint", "--draft", jaPath12], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { out12 = (e.stdout || "") + (e.stderr || ""); code12 = e.status ?? 1; }
+    ok("case (l): `lint` run from a directory other than the repository root still resolves the term list and names the prh finding with its Step",
+      code12 !== 0 && out12.includes("レポジトリ") && out12.includes("s1"));
   }
 
   rmSync(root, { recursive: true, force: true });
@@ -628,8 +915,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     await runSelfTest();
   } else {
     switch (args._cmd) {
-      case "lint": cmdLint(args); break;
-      default: fail("usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>] | self-test");
+      case "lint": await cmdLint(args); break;
+      case "fix": await cmdFix(args); break;
+      default: fail("usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>] | fix --draft <draft.ja.md> [--terms <terms/prh.yml>] | self-test");
     }
   }
 }

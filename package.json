@@ -1,0 +1,10 @@
+{
+  "name": "kogaki",
+  "private": true,
+  "description": "The Japanese-realization Lint (kogaki#1158, kogaki#1162) depends on textlint, its technical-writing preset, and textlint-rule-prh; nothing else in this repository carries an npm dependency.",
+  "devDependencies": {
+    "textlint": "15.8.0",
+    "textlint-rule-preset-ja-technical-writing": "12.0.2",
+    "textlint-rule-prh": "6.1.0"
+  }
+}

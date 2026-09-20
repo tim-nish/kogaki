@@ -109,6 +109,54 @@ else
   echo "gate-declarations: using the caller's GATE_DECLARATION_SIDECAR_DIR=${GATE_DECLARATION_SIDECAR_DIR}"
 fi
 
+# THE SUITE ESTABLISHES ITS OWN npm PRECONDITION (kogaki#1162, PR #1167 round 1
+# finding 1).
+#
+# kogaki#1162 made `textlint`, its technical-writing preset and
+# `textlint-rule-prh` real dependencies of this repository, and added `npm ci`
+# to `.github/workflows/checks.yml` so CI has them. That left the repository's
+# OWN definition of "run the suite" — this file — with a precondition nothing
+# it runs makes true. `node_modules/` is gitignored, so a fresh clone and every
+# `git worktree add` (which does not populate ignored paths) started red on
+# `ja-lint` AND on `review-draft-runtime`, whose fixtures import the Lint. Two
+# members failing on an absent install is not a signal about the diff.
+#
+# ONE DEFINITION OF "RUN THE SUITE" means one definition of its preconditions
+# too. CI supplies this through a workflow step because a workflow is the only
+# place it can; here the runner supplies it, and the two now agree.
+#
+# IT REPORTS AND NEVER GATES, and the distinction is load-bearing rather than
+# stylistic. `ja-lint`'s fail-by-name on an absent install is kogaki#1162
+# acceptance item 1 — a REQUIRED behaviour, exercised by that member — so this
+# block must never become the thing that guarantees the packages are there. It
+# tries, says what happened, and leaves the verdict to the member: an offline
+# machine, an npm that is not installed, or a failing install each print their
+# reason here and then reach `ja-lint`, which fails by name exactly as item 1
+# asks. A silent install would make that acceptance item unobservable.
+#
+# THE READ IS THE PACKAGES, NEVER THE DIRECTORY. `node_modules/` existing says
+# nothing about whether the three packages are in it — a partial or interrupted
+# install leaves the directory behind — so the condition is the three resolved
+# package roots, which is also exactly what `checks/check-ja-lint.sh` asserts.
+if [[ -f package.json ]]; then
+  npm_deps_present=1
+  for p in textlint textlint-rule-preset-ja-technical-writing textlint-rule-prh; do
+    [[ -d "node_modules/$p" ]] || npm_deps_present=0
+  done
+  if (( npm_deps_present )); then
+    echo "npm: the three declared packages are present — no install run"
+  elif ! command -v npm >/dev/null 2>&1; then
+    echo "npm: NOT INSTALLED on this machine — the declared packages cannot be installed here; ja-lint will fail by name (kogaki#1162 acceptance item 1)"
+  else
+    echo "npm: installing the declared packages from package-lock.json (npm ci) — the suite's own precondition, supplied here as checks.yml supplies it in CI"
+    if npm ci --no-audit --no-fund >/dev/null 2>&1; then
+      echo "npm: npm ci completed"
+    else
+      echo "npm: npm ci FAILED (offline, or a lockfile the registry cannot satisfy) — reported, never gated here; ja-lint will fail by name (kogaki#1162 acceptance item 1)"
+    fi
+  fi
+fi
+
 # MEMBERS RUN CONCURRENTLY AND THE LOG IS PRINTED IN REGISTRY ORDER (kogaki#789).
 # The work is unchanged and so is every observation: the same members run, each
 # still gets its `== ` header, its own output and its own `catch:` line, in the

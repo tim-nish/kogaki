@@ -2581,12 +2581,24 @@ reconciliation).
 comparison the English track runs, over the Japanese Packet and the Japanese
 prose it produced.
 
-**Lint.** `src/lint-ja.mjs`, deterministic, no model invoked: prh-style
-term/register conformance against `terms/prh.yml`, structure identity against
+**Lint.** `src/lint-ja.mjs`, deterministic, no model invoked. Term/prh
+conformance and the technical-writing preset's register rules run through
+**textlint** (kogaki#1162 — `textlint`, `textlint-rule-preset-ja-technical-writing`
+and `textlint-rule-prh` are dependencies of this repository, declared in
+`package.json` and installed from the committed `package-lock.json`, with
+`.textlintrc.json` at the repository root enabling the preset and pointing
+`prh` at `terms/prh.yml`), replacing the native pattern match kogaki#1159
+shipped in the same file's place. textlint's Markdown parser checks text
+nodes only, so code fences, inline code and link targets are outside the
+term and register scan by construction. `src/lint-ja.mjs fix` runs
+textlint's fixer wired to ONLY the `prh` rule, so a mechanical correction
+replaces exact surface forms and never auto-fixes a preset finding. Also
+run, natively (neither is a textlint rule's job): structure identity against
 the Brief (realized in practice as identity against the sibling English
 CanonicalDraft's Section-heading, code-fence and link counts — both realize
 the same Brief structure), a language-confusion detector, and staleness.
-Every deviation is named with its Step.
+Every deviation is named with its Step, and every textlint-sourced deviation
+is also named with its rule id.
 
 **Fluency read.** `theses/<slug>/fluency-notes.md`, read into every Japanese
 realization and every bounded correction as a read-only reference note.
