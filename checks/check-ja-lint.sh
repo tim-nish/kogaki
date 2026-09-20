@@ -9,31 +9,58 @@
 # temp directory. Seam-free by construction: no gateway, no network, no
 # model invocation anywhere in the pass.
 #
-# WHAT THE PASS ASSERTS (the Removal Test, acceptance item 5, kogaki#1161,
-# carrying kogaki#1158's original a/b/c cases forward as d/e):
-# (a) a fixture carrying a forbidden term lints IDENTICALLY on two runs, with
-# no model invoked, and its finding is attributed to the Step whose trace
-# span covers the body line it sits on; (b) a fixture with a three-line code
-# fence followed by a forbidden Latin-script run attributes that run to the
-# Step whose trace covers the line AFTER the fence — the line-attribution-
-# after-a-fence defect kogaki#1161 fixed; (c) a Japanese Draft with no
-# English sibling is REFUSED, naming the missing sibling, with no
-# terms_sha_at_lint written — a skipped structure check is not a clean pass;
-# (d) src/review-draft.mjs `open`, run from a directory other than the
-# repository root, still reads the term list — the cwd-relative default
-# kogaki#1161 fixed; (e) src/review-draft.mjs run on a fixture whose
-# terms_sha_at_lint is stale is REFUSED, naming BOTH the recorded hash and
-# the current term list's hash; (f) the CONTROL ARM — a clean Draft PASSES,
-# is written terms_sha_at_lint, and rewrites identical bytes on two runs.
+# WHAT THE PASS ASSERTS (the Removal Test, acceptance item 6, kogaki#1162,
+# carrying kogaki#1158's original a/b/c cases and kogaki#1161's d/e forward):
+# (a) a fixture carrying a forbidden term (via the real textlint-rule-prh)
+# lints IDENTICALLY on two runs, with no model invoked, and its finding is
+# attributed to the Step whose trace span covers the body line it sits on;
+# (b) a fixture with a three-line code fence followed by a forbidden
+# Latin-script run attributes that run to the Step whose trace covers the
+# line AFTER the fence — the line-attribution-after-a-fence defect kogaki#1161
+# fixed; (c) a Japanese Draft with no English sibling is REFUSED, naming the
+# missing sibling, with no terms_sha_at_lint written; (d) src/review-draft.mjs
+# `open`, run from a directory other than the repository root, still reads
+# the term list; (e) src/review-draft.mjs run on a fixture whose
+# terms_sha_at_lint is stale is REFUSED, naming BOTH hashes; (f) the CONTROL
+# ARM — a clean Draft PASSES, is written terms_sha_at_lint, and rewrites
+# identical bytes on two runs; (g) a fixture written entirely in the
+# prescribed forms, including "サーバー" and "アプリケーション", lints clean
+# — the boundary-pattern fix (kogaki#1162, ja-term-list-substring) for the two
+# forbidden short forms that are prefixes of their own prescribed form; (h) a
+# sentence over the technical-writing preset's length bound is named with its
+# Step AND its rule id — proof the preset, not only prh, is wired in; (i) the
+# `fix` subcommand rewrites a prh-fixable term and changes no other byte,
+# leaving a preset finding in the same fixture untouched; (j) a forbidden
+# term inside a code fence lints clean (textlint's Markdown parser checks
+# text nodes only) while the same term in prose is named with its Step — the
+# ja-lint-scan-scope defect kogaki#1162 discharges.
 #
-# WHY (f) IS NOT OPTIONAL: (a) to (e) each drive a REFUSAL path, so without
-# it every refusal could be correct while the clean pass — the behaviour
-# src/review-draft.mjs's precondition depends on — was broken, and the pass
-# would still read green (PR #1166 round 1).
+# WHY (f) IS NOT OPTIONAL: (a), (b), (c), (d), (e), (g), (h) and (j) each
+# drive a REFUSAL (or clean-but-unrelated) path that does not by itself prove
+# a clean Draft can still pass, so without (f) a Lint that stopped writing
+# terms_sha_at_lint, or wrote it non-deterministically, could ship while
+# review-draft's precondition quietly stopped being satisfiable (PR #1166
+# round 1).
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-echo "== ja-lint fixture pass (kogaki#1158)"
+echo "== ja-lint fixture pass (kogaki#1158, kogaki#1162)"
+
+# THE DEPENDENCY ITSELF (kogaki#1162 acceptance item 1). This member fails BY
+# NAME when textlint, the technical-writing preset or textlint-rule-prh are
+# absent, rather than letting the self-test below fail on an opaque
+# `Cannot find module` — `npm ci` from the committed lockfile is what a fresh
+# clone and CI both run to produce node_modules; this check only asserts the
+# result, since installing is `checks.yml`'s job, not a registered check's.
+MISSING=()
+for pkg in textlint textlint-rule-preset-ja-technical-writing textlint-rule-prh; do
+  [[ -d "node_modules/$pkg" ]] || MISSING+=("$pkg")
+done
+if (( ${#MISSING[@]} > 0 )); then
+  echo "FAIL: node_modules is missing ${MISSING[*]} — run \`npm ci\` from the committed package-lock.json before the Lint can run (kogaki#1162 acceptance item 1)"
+  exit 1
+fi
+echo "ok: node_modules carries textlint, textlint-rule-preset-ja-technical-writing and textlint-rule-prh"
 
 OUT=$(node src/lint-ja.mjs self-test 2>&1); RC=$?
 printf '%s\n' "$OUT"

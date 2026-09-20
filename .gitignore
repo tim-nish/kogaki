@@ -4,6 +4,12 @@
 __pycache__/
 *.pyc
 
+# npm's own install output (kogaki#1162). package.json and package-lock.json
+# are the committed declaration; `npm ci` from the lockfile is what a fresh
+# clone and CI both run to produce this directory, so it carries no material
+# the tree does not already have a source for.
+node_modules/
+
 # HARNESS MACHINERY, never commit material (kogaki#299). Agent worktrees are
 # created and removed by the harness, and each one is a checkout of some other
 # session's branch — a run that swept them into a commit would be committing

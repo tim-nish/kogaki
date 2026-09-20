@@ -1,12 +1,13 @@
-# terms/prh.yml — the repository-wide Japanese term list (kogaki#1158).
+# terms/prh.yml — the repository-wide Japanese term list (kogaki#1158,
+# kogaki#1162).
 #
 # ONE CARRIER, USED TWICE: rendered into the Packet's language block at
 # generation (src/draft.mjs, `--lang ja`) and run as Lint after
-# (src/lint-ja.mjs). The shape follows textlint-rule-prh's documented
-# convention — a top-level `rules:` array, each entry an `expected` form and
-# the `patterns:` it forbids — cited here as the model this file conforms to.
-# This repository depends on none of the textlint packages: lint-ja.mjs
-# implements the pattern match directly against this file's parsed rules.
+# (src/lint-ja.mjs, via textlint-rule-prh — kogaki#1162 added textlint as a
+# dependency and removed the native pattern match kogaki#1159 shipped in its
+# place). The shape is textlint-rule-prh's own documented `prh.yml` format: a
+# `version: 1` header, a top-level `rules:` array, each entry an `expected`
+# form and the `patterns` it forbids.
 #
 # A term-list change is a correction, never a regeneration (the owner's
 # 2026-09-19/20 ruling): edit this file, run `node src/lint-ja.mjs lint`
@@ -17,7 +18,18 @@
 # forbidden variants: leaked English, a katakana variant, or a notation
 # variant. `note` is a short reason, read by a human correcting a Step —
 # never evaluated by the Lint.
+#
+# THE BOUNDARY RULE (kogaki#1162, ja-term-list-substring): a forbidden short
+# form is written as a `/regex/` pattern with a negative lookahead so it
+# never fires INSIDE the prescribed long form it is the truncation of —
+# `/サーバ(?!ー)/` matches the bare "サーバ" but not the "サーバ" that opens
+# "サーバー", and `/アプリ(?!ケーション)/` matches the bare "アプリ" but not
+# the "アプリ" that opens "アプリケーション". This is textlint-rule-prh's own
+# documented shape for exactly this case (its README's "ベンダー"/"ベンダ"
+# example). Every other rule below has no forbidden variant that is a prefix
+# of its own `expected` form, so a plain literal pattern is unambiguous there.
 
+version: 1
 rules:
   - expected: "ウェブサイト"
     patterns:
@@ -27,9 +39,9 @@ rules:
 
   - expected: "サーバー"
     patterns:
-      - "サーバ"
+      - "/サーバ(?!ー)/"
       - "server"
-    note: "the prescribed long-vowel katakana form, and English left unconverted"
+    note: "the prescribed long-vowel katakana form, and English left unconverted; the regex pattern is the boundary fix (kogaki#1162) so 'サーバ' does not fire inside the prescribed 'サーバー'"
 
   - expected: "リポジトリ"
     patterns:
@@ -39,9 +51,9 @@ rules:
 
   - expected: "アプリケーション"
     patterns:
-      - "アプリ"
+      - "/アプリ(?!ケーション)/"
       - "application"
-    note: "アプリ is a colloquial abbreviation out of register for technical writing; application is leaked English"
+    note: "アプリ is a colloquial abbreviation out of register for technical writing; application is leaked English; the regex pattern is the boundary fix (kogaki#1162) so 'アプリ' does not fire inside the prescribed 'アプリケーション'"
 
   - expected: "設定"
     patterns:
