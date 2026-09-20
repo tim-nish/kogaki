@@ -234,6 +234,42 @@ function readDraft(draftPath) {
     const m = lines[i].match(/^brief: (.+?)\s*$/);
     if (m) { brief = m[1]; break; }
   }
+  // THE LANGUAGE THE DRAFT WAS REALIZED AT (kogaki#1160). `draft.mjs emit`
+  // writes `lang: <lang>` only for a non-English realization (`langOf`'s own
+  // "at `en` every path resolves to exactly the string it always did"
+  // convention) — so a Draft carrying no `lang:` field is English, never a
+  // Draft this reader refuses. Read by the same line scan as `brief:`, for the
+  // same reason: `emit` writes it as one line and a general YAML parser would
+  // be a second grammar that can disagree with the writer.
+  //
+  // THE VALUE IS FORM-CHECKED AT THE READ, and that is what the field's own
+  // comment above would otherwise only promise (PR #1164 round 1). Before this
+  // field existed the language reached `draft.mjs` from a `--lang` flag a
+  // person typed; it now arrives from FILE CONTENT, and it lands there as a
+  // path segment (`sectionsDir`, `packetsDir`), as a run.json key
+  // (`packetsRecordKey`) and inside the `draft.<lang>.md` emit name. So a
+  // Draft whose frontmatter carried a separator or a `..` would write outside
+  // the track it names. The form checked is the BCP-47-ish one `emit` writes —
+  // a primary subtag and an optional subtag — and it is a REFUSAL rather than
+  // a fallback to `en`, because silently reading an unreadable language as
+  // English is the cross-track write this issue exists to stop.
+  const LANG_FORM = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+  let lang = "en";
+  for (let i = 1; i < end; i++) {
+    const m = lines[i].match(/^lang: (.+?)\s*$/);
+    if (m) {
+      if (!LANG_FORM.test(m[1])) {
+        fail(`${draftPath} carries \`lang: ${m[1]}\`, which is not a language tag — the value is `
+          + "threaded to the realization lane as `--lang`, where it becomes a directory segment, a "
+          + "run-record key and part of the emitted Draft's filename, so a value outside "
+          + "`aa`/`aaa` with optional `-subtag` parts would write outside the track it names. "
+          + "Re-emit the Draft (`node src/draft.mjs emit --brief <brief.md> --lang <tag>`), which "
+          + "writes the field.");
+      }
+      lang = m[1];
+      break;
+    }
+  }
   for (let i = 1; i < end; i++) {
     const l = lines[i];
     if (l === "trace:") { inTrace = true; continue; }
@@ -271,7 +307,7 @@ function readDraft(draftPath) {
   const bodyLines = lines.slice(end + 2);
   if (bodyLines.length && bodyLines[bodyLines.length - 1] === "") bodyLines.pop();
   const body = bodyLines.join("\n");
-  return { path: draftPath, text, lines, frontmatterEnd: end, body, body_sha: sha256(body), trace, brief };
+  return { path: draftPath, text, lines, frontmatterEnd: end, body, body_sha: sha256(body), trace, brief, lang };
 }
 
 // Verify the trace's inputs and hand back the Steps and Sections. Three
@@ -2586,7 +2622,14 @@ function withReplyFile(text, name, fn) {
 
 function draftLane(sub, draft, args, extra) {
   const cli = join(dirname(fileURLToPath(import.meta.url)), "draft.mjs");
-  const argv = [cli, sub, "--brief", briefOf(draft), ...extra];
+  // THE LANE IS RE-ENTERED AT THE DRAFT'S OWN LANGUAGE (kogaki#1160), never at
+  // the lane's default. `draft.mjs` defaults `--lang` to `en`, and a Japanese
+  // Draft handed to it with no `--lang` re-enters the English track: `packet`
+  // and `section` overwrite the English Packets and Sections, and `emit`
+  // targets `draft.md` rather than `draft.ja.md`. Passing `draft.lang`
+  // explicitly on every sub-invocation is what keeps a correction on
+  // `draft.ja.md` inside the Japanese track it was opened on.
+  const argv = [cli, sub, "--brief", briefOf(draft), "--lang", draft.lang, ...extra];
   // BOTH PASSTHROUGHS ARE OPTIONAL AND NEITHER IS DEFAULTED HERE. `draft.mjs`
   // already defaults its workspace (by slug, so it resolves to the one the
   // Draft was emitted from) and its Move store; defaulting them again here
@@ -8716,6 +8759,256 @@ async function runSelfTest() {
       ok("#1135 AC4: the Harness's usage names `passes.json` and the regression refusal",
         /passes\.json/.test(gu.stdout) && /REFUSES A REGRESSION/.test(gu.stdout));
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // kogaki#1160: the correction lane threads `--lang`, so a correction on a
+  // Japanese Draft stays inside the Japanese track.
+  //
+  // ACCEPTANCE 4 FIRST, AND IT NEEDS NO SUBPROCESS AT ALL — the Removal Test.
+  // `draftLane` derives the language it passes through from `readDraft`'s own
+  // `lang` field, so the defect and its fix both live entirely in that one
+  // read; a case that drove the whole correction lane to exercise it would be
+  // asserting a pure line-scan through a spawn.
+  {
+    const uDir = join(root, "lang-unit");
+    mkdirSync(uDir, { recursive: true });
+    const fm = (extra) => [
+      "---", "brief: brief.md", "brief_pin: sha256:0000", ...extra, "trace:",
+      `  - {"step_id":"u1","lines":[99,99],"packet":"packet.md","packet_sha":"${sha256("x")}"}`,
+      "---", "", "x", "",
+    ].join("\n");
+    const jaPath = join(uDir, "draft.ja.md");
+    writeFileSync(jaPath, fm(["lang: ja", "terms_sha_at_generation: 0000"]));
+    const enPath = join(uDir, "draft.md");
+    writeFileSync(enPath, fm([]));
+    ok("#1160 Removal Test: readDraft reads `lang: ja` off a Japanese Draft's frontmatter",
+      readDraft(jaPath).lang === "ja");
+    ok("#1160 Removal Test: and a Draft with no `lang:` field is treated as English",
+      readDraft(enPath).lang === "en");
+
+    // AND THE VALUE IS FORM-CHECKED (PR #1164 round 1). The field arrives
+    // from file content and lands as a directory segment, a run-record key
+    // and part of the emit filename, so the two ways it can be malformed —
+    // a separator and a traversal — are asserted against the real entry
+    // point rather than against the reader in process, because the refusal
+    // is an exit and a case that called `readDraft` here would take the
+    // whole pass down with it.
+    const badCase = (name, value, dirName) => {
+      const bd = join(root, dirName); mkdirSync(bd, { recursive: true });
+      // NAMED `draft.md`, deliberately: `.ja.md` would meet the Lint
+      // precondition first and refuse for a different reason, and the
+      // `lang:` field is what this case is about rather than the filename.
+      const p = join(bd, "draft.md");
+      writeFileSync(p, fm([`lang: ${value}`, "terms_sha_at_generation: 0000"]));
+      const r = spawnSync(process.execPath,
+        [self, "open", "--draft", p, "--workspace", join(root, `ws-${dirName}`)], { encoding: "utf8" });
+      ok(name, r.status === 1 && /is not a language tag/.test(r.stderr),
+        `status ${r.status}, stderr ${(r.stderr || "").trim().slice(0, 200)}`);
+    };
+    badCase("#1160: a `lang:` value carrying a path separator refuses, naming what the value becomes",
+      "ja/../../etc", "lang-sep");
+    badCase("#1160: and a `lang:` value that is a traversal refuses the same way", "..", "lang-dots");
+
+    // The discrimination half: a well-formed regional tag is NOT refused, so
+    // the check reads a form rather than a hardcoded `ja`.
+    {
+      const gd = join(root, "lang-regional"); mkdirSync(gd, { recursive: true });
+      const p = join(gd, "draft.md");
+      writeFileSync(p, fm(["lang: pt-BR", "terms_sha_at_generation: 0000"]));
+      ok("#1160: a well-formed regional tag still reads, so the check reads a form and not a literal",
+        readDraft(p).lang === "pt-BR");
+    }
+  }
+
+  // ACCEPTANCE 1-3: a real correction, driven through the real realization
+  // lane exactly as `draftLane` reaches it (SPAWNED, never imported — the
+  // same closed-input reason the English correction fixture above is
+  // spawned), on a Japanese Draft built the same way `/draft --lang ja`
+  // builds one. NO MODEL IS INVOKED on the compare side either — the
+  // Reverse Outline record below is written to match the Packet's own
+  // (Brief-authored, English) declared fields directly, the same convention
+  // the English correction fixture uses, because the Round Trip's join
+  // compares the Packet's declared fields against a reverse-outlined record
+  // and never reads the realized prose to build either side of that pair.
+  {
+    const draftCli = join(dirname(self), "draft.mjs");
+    const lintCli = join(dirname(self), "lint-ja.mjs");
+    const lRoot = join(root, "lang-correction");
+    const lBrief = join(lRoot, "theses", "lang-fixture");
+    const lMoves = join(lRoot, "moves");
+    const lWs = join(lRoot, "ws-draft");
+    // `draft.mjs` JOINS THE SLUG ONTO THE `--workspace` BASE ITSELF
+    // (`workspaceFor`), so the run's real workspace is one level under `lWs`.
+    const dws = join(lWs, "lang-fixture");
+    mkdirSync(lBrief, { recursive: true });
+    mkdirSync(lMoves, { recursive: true });
+    for (const id of ["open_the_claim", "carry_the_claim"]) {
+      writeFileSync(join(lMoves, `${id}.md`), [
+        `id: ${id}`, "status: observed",
+        "intent: >-", `  what ${id} does to the reader.`,
+        "requires: >-", "  the state this move depends on.",
+        "effect: >-", "  the state this move produces.",
+        "constraints: >-", "  what a correct performance must not do.",
+        "failure_modes: >-", "  how it goes wrong when imitated badly.",
+        "excerpt: >-", "  the author's account of the movement they observed.",
+      ].join("\n") + "\n");
+    }
+    const STEPS = [
+      { id: "l1", move: "open_the_claim", opens: "はじめに" },
+      { id: "l2", move: "carry_the_claim", opens: null },
+    ];
+    const briefText = [
+      "# Brief — lang-fixture", "",
+      "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+      "## Strands", "",
+      "### L1 — first-strand", "",
+      "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+      "## Thesis", "", "The fixture claim.", "",
+      "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+      "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
+      "## Opening question", "", "What makes the fixture claim worth stating?", "",
+      "## Sequence", "",
+      ...STEPS.flatMap((s) => ["```step", `step_id: ${s.id}`, `move: ${s.move}`,
+        ...(s.opens ? [`opens_section: ${s.opens}`] : []),
+        `purpose: the job ${s.id} does.`,
+        `reader_state_before: the reader arrives at ${s.id} holding what came before.`,
+        `reader_state_after: the reader leaves ${s.id} able to say what it settled.`,
+        "materials: L1",
+        `rationale: ${s.id} sits here because the path put it here.`,
+        `claim (strand L1): the material supports what ${s.id} asserts.`, "```", ""]),
+    ].join("\n");
+    writeFileSync(join(lBrief, "brief.md"), briefText);
+    // THE FLUENCY NOTES (acceptance item 2): present before any Japanese
+    // Packet is rendered, so both the first render and the correction's
+    // fresh re-render pick it up the same way.
+    writeFileSync(join(lBrief, "fluency-notes.md"),
+      "常体で統一し、体言止めは避ける。読み手に語りかける調子にしない。\n");
+
+    const dl = (lang, cmd, ...extra) => spawnSync(process.execPath,
+      [draftCli, cmd, "--brief", join(lBrief, "brief.md"), "--workspace", lWs,
+        "--moves-dir", lMoves, ...(lang ? ["--lang", lang] : []), ...extra],
+      { encoding: "utf8" });
+    const proseFile = (tag, id, text) => {
+      const f = join(lRoot, `prose-${tag}-${id}.md`);
+      writeFileSync(f, text + "\n");
+      return f;
+    };
+
+    // The English track, built first — this run's own "before" snapshot.
+    const EN = {
+      l1: "The tide keeps its own hours, and a boat that ignores them arrives on the wrong one.",
+      l2: "So the table on the harbour wall is a record of what someone measured, not a promise.",
+    };
+    let built = dl(null, "resolve").status === 0;
+    for (const s of STEPS) built = dl(null, "section", "--step", s.id, "--file", proseFile("en", s.id, EN[s.id])).status === 0 && built;
+    built = dl(null, "emit").status === 0 && built;
+    const enDraftPath = join(lBrief, "draft.md");
+    ok("#1160: the English track builds first, from the same Brief the Japanese track will realize",
+      built && existsSync(enDraftPath));
+    const enBefore = {
+      draft: readOrEmpty(enDraftPath),
+      packets: Object.fromEntries(STEPS.map((s) => [s.id, readOrEmpty(join(dws, "packets", `${s.id}.md`))])),
+      sections: Object.fromEntries(STEPS.map((s) => [s.id, readOrEmpty(join(dws, "sections", `${s.id}.md`))])),
+    };
+
+    // The Japanese track, over the SAME Brief and the SAME draft.mjs
+    // workspace — `packetsDir`/`sectionsDir`'s own `ja` subdirectory is what
+    // is supposed to keep the two tracks apart.
+    const JA = {
+      l1: "潮には潮自身の時刻があり、それを無視した船は違う時刻に着く。",
+      l2: "だから岸壁の表は誰かが測った記録であり、約束ではない。",
+    };
+    let builtJa = dl("ja", "resolve").status === 0;
+    for (const s of STEPS) builtJa = dl("ja", "section", "--step", s.id, "--file", proseFile("ja", s.id, JA[s.id])).status === 0 && builtJa;
+    builtJa = dl("ja", "emit").status === 0 && builtJa;
+    const jaDraftPath = join(lBrief, "draft.ja.md");
+    ok("#1160: the Japanese track realizes to `draft.ja.md`, sibling to (never over) `draft.md`",
+      builtJa && existsSync(jaDraftPath) && readOrEmpty(enDraftPath) === enBefore.draft);
+
+    const lintR = spawnSync(process.execPath, [lintCli, "lint", "--draft", jaDraftPath], { encoding: "utf8" });
+    ok("#1160: the fixture's Japanese Draft passes Lint clean, so ReviewDraft's precondition is met",
+      lintR.status === 0, (lintR.stderr || lintR.stdout || "").trim());
+
+    const lwsBase = join(lRoot, "ws-review");
+    const lWsRun = join(lwsBase, "lang-fixture");
+    const RD = (...a) => selfRun(
+      [self, ...a, "--draft", jaDraftPath, "--workspace", lwsBase,
+        "--draft-workspace", lWs, "--moves-dir", lMoves]);
+    const recFor = (id) => {
+      const f = join(lRoot, `rec-${id}.md`);
+      writeFileSync(f, [
+        "```step",
+        `step_id: ${id}`,
+        `purpose: the job ${id} does`,
+        `reader_state_before: the reader arrives at ${id} holding what came before`,
+        `reader_state_after: the reader leaves ${id} able to say what it settled`,
+        `claim the material supports what ${id} asserts, as the passage has it`,
+        "```",
+      ].join("\n") + "\n");
+      return f;
+    };
+    const answer = (recordPath, failKeys) => {
+      const rec0 = existsSync(recordPath) ? JSON.parse(readFileSync(recordPath, "utf8")) : {};
+      const owed = rec0.owed || [];
+      const f = join(lRoot, "verdicts.json");
+      writeFileSync(f, JSON.stringify({
+        verdicts: owed.map((o) => {
+          const failing = failKeys.includes(`${o.step_id}/${o.item}`);
+          return {
+            step_id: o.step_id, item: o.item,
+            ...(o.pair === null ? {} : { pair: o.pair }),
+            verdict: failing ? "fails" : "holds",
+            reason: failing
+              ? "the outlined reader would not be the declared one"
+              : "the declared line and the outlined one agree",
+            model: JUDGE_MODEL,
+          };
+        }),
+      }, null, 2) + "\n");
+      return f;
+    };
+
+    const rOpen = RD("open");
+    ok("#1160: `open` accepts the Japanese Draft — Lint already ran and its `terms_sha_at_lint` is current",
+      rOpen.status === 0, (rOpen.stderr || "").split("\n")[0]);
+    for (const s of STEPS) RD("outline", "--step", s.id, "--file", recFor(s.id));
+    RD("compare");
+    const joinPath = join(lWsRun, "pass-1", "join.json");
+    const p1 = RD("compare", "--verdicts", answer(joinPath, ["l1/reader-state-after"]));
+    ok("#1160: pass one sends the Japanese Draft's failing Step to correction",
+      p1.status === 0 && /Steps sent to correction[^\n]*l1/.test(p1.stdout), p1.stdout);
+
+    // --- ACCEPTANCE 2: the fresh Packet carries the language block and the
+    //     fluency notes, on the correction path exactly as at generation.
+    const rA = RD("correct", "--step", "l1");
+    const inputPath = join(lWsRun, "pass-1", "corrections", "l1.md");
+    ok("#1160 AC2: correct's phase A renders a correction input for the Japanese Step",
+      rA.status === 0 && existsSync(inputPath), (rA.stderr || "").split("\n")[0]);
+    const inA = readOrEmpty(inputPath);
+    ok("#1160 AC2: the fresh Packet in the correction input carries the language block",
+      /## Language block \(lang: ja\)/.test(inA));
+    ok("#1160 AC2: and the fluency notes, read in exactly as at generation",
+      /Fluency notes \(read-only reference/.test(inA) && inA.includes("体言止めは避ける"));
+
+    // --- ACCEPTANCE 1: phase B writes only the Japanese track. The English
+    //     Packets, Sections and Draft this run built first are untouched.
+    const rB = RD("correct", "--step", "l1", "--file", proseFile("ja-corrected", "l1",
+      "潮の時刻は港ごとに違い、それを見誤った船だけが違う時刻に着く。"));
+    ok("#1160 AC1: correct's phase B records the corrected Japanese realization",
+      rB.status === 0, (rB.stderr || "").split("\n")[0]);
+    ok("#1160 AC1: `draft.md` (English) is byte-identical to before the correction",
+      readOrEmpty(enDraftPath) === enBefore.draft);
+    ok("#1160 AC1: every English Packet is byte-identical to before the correction",
+      STEPS.every((s) => readOrEmpty(join(dws, "packets", `${s.id}.md`)) === enBefore.packets[s.id]));
+    ok("#1160 AC1: every English Section is byte-identical to before the correction",
+      STEPS.every((s) => readOrEmpty(join(dws, "sections", `${s.id}.md`)) === enBefore.sections[s.id]));
+    ok("#1160 AC1 DISCRIMINATION: the Japanese Draft DID move — the correction landed somewhere",
+      readOrEmpty(jaDraftPath) !== "" && /潮の時刻は港ごとに違い/.test(readOrEmpty(jaDraftPath)));
+    ok("#1160: the corrected Step's Section is written under `sections/ja/`, never `sections/`",
+      /潮の時刻は港ごとに違い/.test(readOrEmpty(join(dws, "sections", "ja", "l1.md"))));
+    ok("#1160: and its re-rendered Packet is written under `packets/ja/`, never `packets/`",
+      existsSync(join(dws, "packets", "ja", "l1.md")));
   }
 
   rmSync(root, { recursive: true, force: true });
