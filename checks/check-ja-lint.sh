@@ -23,7 +23,13 @@
 # repository root, still reads the term list — the cwd-relative default
 # kogaki#1161 fixed; (e) src/review-draft.mjs run on a fixture whose
 # terms_sha_at_lint is stale is REFUSED, naming BOTH the recorded hash and
-# the current term list's hash.
+# the current term list's hash; (f) the CONTROL ARM — a clean Draft PASSES,
+# is written terms_sha_at_lint, and rewrites identical bytes on two runs.
+#
+# WHY (f) IS NOT OPTIONAL: (a) to (e) each drive a REFUSAL path, so without
+# it every refusal could be correct while the clean pass — the behaviour
+# src/review-draft.mjs's precondition depends on — was broken, and the pass
+# would still read green (PR #1166 round 1).
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 

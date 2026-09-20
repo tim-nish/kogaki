@@ -427,11 +427,13 @@ function cmdLint(args) {
 }
 
 // ---------------------------------------------------------------------------
-// The Removal Test's self-test (acceptance item 5). Five cases, each
-// constructing its defect and asserting this file (or, for cases d and e, the
-// review-draft.mjs precondition) refuses or produces by name. NO MODEL IS
-// INVOKED — every case drives pure functions or a subprocess of another
-// runtime's own deterministic refusal.
+// The Removal Test's self-test (acceptance item 5). Six cases: five construct
+// a defect and assert this file (or, for cases d and e, the review-draft.mjs
+// precondition) refuses or produces by name, and case (f) is the CONTROL ARM —
+// the clean pass those five never reach, without which every refusal could be
+// correct while the pass itself was broken. NO MODEL IS INVOKED — every case
+// drives pure functions or a subprocess of another runtime's own
+// deterministic refusal.
 async function runSelfTest() {
   const { mkdtempSync, mkdirSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
@@ -581,6 +583,38 @@ async function runSelfTest() {
     }
     ok("case (e): review-draft.mjs refuses a stale terms_sha_at_lint, naming both hashes",
       code !== 0 && stderrOut.includes(stale) && stderrOut.includes(termsSha));
+  }
+
+  // (f) — THE CLEAN PASS ITSELF, which is the behaviour src/review-draft.mjs
+  // trusts: a Draft with no deviation lints clean, is WRITTEN
+  // terms_sha_at_lint, and produces byte-identical output on two runs. Cases
+  // (a) to (e) all drive a REFUSAL path, so without this one a Lint that
+  // stopped writing the field, or wrote it non-deterministically, would pass
+  // every other case here while review-draft's precondition quietly stopped
+  // being satisfiable (PR #1166 round 1). The two-run comparison is on
+  // `newText` and not only on the field, because a clean pass rewrites the
+  // Draft and the Removal Test's "lints identically on two runs" is a claim
+  // about those bytes.
+  {
+    const draft6 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "これはクリーンな日本語の一文です。",
+    ].join("\n");
+    const enBody6 = "This is a clean Japanese sentence.";
+    const r1 = lintDraftJa({ jaText: draft6, jaPath: "fixture.ja.md", enBody: enBody6, termsText });
+    const r2 = lintDraftJa({ jaText: draft6, jaPath: "fixture.ja.md", enBody: enBody6, termsText });
+    ok("case (f): a clean Draft passes, is written terms_sha_at_lint, and rewrites identical bytes on two runs",
+      r1.clean === true && r2.clean === true
+      && (r1.findings || []).length === 0 && (r2.findings || []).length === 0
+      && r1.terms_sha_at_lint === termsSha && r2.terms_sha_at_lint === termsSha
+      && typeof r1.newText === "string" && r1.newText === r2.newText
+      && r1.newText.includes(`terms_sha_at_lint: ${termsSha}`));
   }
 
   rmSync(root, { recursive: true, force: true });
