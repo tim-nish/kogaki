@@ -823,6 +823,87 @@ async function runSelfTest() {
       && r10b.findings.some((f) => f.step_id === "s1" && f.message.includes("server")));
   }
 
+  // (k) — THE `fix` SUBCOMMAND'S OWN FILE PATH (PR #1167 round 1). Case (i)
+  // stops at `fixPrhOnly` on an in-memory body, so `cmdFix` and `withBody` —
+  // the frontmatter head slice at `frontmatterEnd + 2`, the trailing-newline
+  // restoration, and the write-back — were reached by no case. This is the
+  // one new surface that rewrites a tracked file's bytes, and the
+  // reconstruction it does is exactly the off-by-one the Removal Test exists
+  // to hold. Driven as a real subprocess so the CLI's own argument handling
+  // is in the path too. Regression form: dropping or adding a line in the
+  // head slice, or losing the trailing newline, changes bytes this case
+  // compares whole.
+  {
+    const dir = join(root, "case-k");
+    mkdirSync(dir, { recursive: true });
+    const head11 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+    ];
+    const before11 = [...head11, "レポジトリの操作について説明します。", ""].join("\n");
+    const expected11 = [...head11, "リポジトリの操作について説明します。", ""].join("\n");
+    const jaPath11 = join(dir, "draft.ja.md");
+    writeFileSync(jaPath11, before11);
+    const self11 = fileURLToPath(import.meta.url);
+    let out11 = "", code11 = 0;
+    try {
+      out11 = execFileSync(process.execPath, [self11, "fix", "--draft", jaPath11], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { out11 = (e.stdout || "") + (e.stderr || ""); code11 = e.status ?? 1; }
+    const after11 = readFileSync(jaPath11, "utf8");
+    // The SECOND run is the no-op arm: nothing prh-fixable remains, so the
+    // subcommand must leave the file byte-identical and still exit clean.
+    let code11b = 0;
+    try {
+      execFileSync(process.execPath, [self11, "fix", "--draft", jaPath11], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { code11b = e.status ?? 1; }
+    ok("case (k): the `fix` subcommand rewrites the file, preserves frontmatter and the trailing newline byte for byte, and its second run is a clean no-op",
+      code11 === 0 && code11b === 0
+      && after11 === expected11
+      && readFileSync(jaPath11, "utf8") === expected11
+      && out11.includes("prh replacement"));
+  }
+
+  // (l) — THE cwd-RELATIVE TERM-LIST CLASS, held open across the migration
+  // (PR #1167 round 1). kogaki#1161 fixed exactly this defect once: a term
+  // list resolved against the process's working directory rather than the
+  // repository. The Lint now reads its term list through `.textlintrc.json`'s
+  // `"rulePaths": ["./terms/prh.yml"]` instead of through
+  // `DEFAULT_TERMS_PATH`, which is a NEW resolution path for the same class,
+  // and case (d) covers src/review-draft.mjs's hash read rather than this
+  // one. So: drive `lint` as a subprocess from a directory that is not the
+  // repository root and assert the prh rule still fires. Regression form:
+  // passing `.textlintrc.json` by a relative path, or dropping the absolute
+  // `configFilePath`, leaves every other case green and fails this one.
+  {
+    const dir = join(root, "case-l");
+    mkdirSync(dir, { recursive: true });
+    const draft12 = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "レポジトリを設定した。",
+    ].join("\n");
+    const jaPath12 = join(dir, "draft.ja.md");
+    writeFileSync(jaPath12, draft12);
+    writeFileSync(join(dir, "draft.md"), "Configured the repository.\n");
+    const self12 = fileURLToPath(import.meta.url);
+    let out12 = "", code12 = 0;
+    try {
+      out12 = execFileSync(process.execPath, [self12, "lint", "--draft", jaPath12], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { out12 = (e.stdout || "") + (e.stderr || ""); code12 = e.status ?? 1; }
+    ok("case (l): `lint` run from a directory other than the repository root still resolves the term list and names the prh finding with its Step",
+      code12 !== 0 && out12.includes("レポジトリ") && out12.includes("s1"));
+  }
+
   rmSync(root, { recursive: true, force: true });
   process.stdout.write(`lint-ja self-test: ${passed} case(s) pass${failures.length ? `, FAILURES: ${failures.join(" | ")}` : ""}\n`);
   if (failures.length) process.exit(1);
