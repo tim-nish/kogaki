@@ -2637,6 +2637,57 @@ offers no distinct "regenerate this Step because of a term change" shortcut —
 there is exactly one path from a Packet to a realized Step, used for every
 reason a Step is (re-)realized.
 
+### 8.2.1 The term-list change path (kogaki#1165)
+
+**`src/lint-ja.mjs correct-terms --draft <draft.ja.md>`** is the act 8.2's
+decision names and that carried no act until this issue (kogaki#1160
+acceptance item 3). It runs in two ordered steps:
+
+1. **The mechanical fix runs first** (kogaki#1162's `fixPrhOnly`, wired to
+   the `prh` rule alone). A deviation textlint's fixer can rewrite is gone
+   before the next step ever names a Step for it, so it is never spent on a
+   model correction.
+2. **The Lint runs over the fixed Draft**, and every Step its findings still
+   name — unique, sorted, excluding an unattributed finding such as a
+   structure-identity or missing-sibling defect, which names no Step to
+   correct — is reported. **Nothing else in this pass names them.**
+
+If Lint names no Step after the mechanical fix, `correct-terms` reports it
+had nothing to correct and stops: **no model is invoked**, and a Draft that
+needed no correction is left byte-identical.
+
+If Lint names one or more Steps, `correct-terms` reports them and hands off
+to **`src/review-draft.mjs open --draft <draft.ja.md> --only-steps
+<id[,id...]>`** — the Round Trip's own entry point, scoped. `--only-steps`
+filters `run.steps` (and the `sections` derived from it) to exactly the
+named Steps at `open`, and every later act — `outline`, `compare`, `correct`,
+`check`, `close` — decides which Steps it reviews from `run.steps` alone, so
+this one filter is the whole of the scoping: **a Step not named is never
+re-outlined, never re-compared, and never re-realized.** `open`'s ordinary
+freshness precondition (§8.3) is skipped for a scoped `open` — the whole
+reason the path exists is to correct a Draft `terms_sha_at_lint` calls stale,
+and the ordinary gate would refuse to let that correction start. The
+correction itself runs on the Round Trip's own correction path (the ordinary
+Step re-realization path 8.2 names), unchanged.
+
+**WHAT THE SCOPE DOES NOT NARROW: the article the Blind Reader is shown.**
+`run.steps` answers *which Steps this run reviews*; the "article before this
+passage" block answers *what the reader has read by the time they meet it*,
+and that is a property of the **Draft**, not of this run's scope. So it is
+built from the whole trace even under `--only-steps`, exactly as `outline` and
+pass two's re-render already build it. A scoped run whose first named Step is
+not the Draft's first Step would otherwise hand the reader an article that
+begins there — false, and withholding the prose the passage was written to
+follow. The distinction is why the two are read from different places rather
+than from one convenient array (PR #1169 round 1).
+
+**No flag on this path offers a whole-Draft re-derivation.** `--regenerate`
+exists on both `correct-terms` and `open` as a NAMED refusal: it fails,
+citing this Terminology List Decision by name, rather than reading as an
+ordinary unknown flag. This is 8.2's own "no distinct regenerate shortcut"
+restated as an enforced refusal rather than an absence a session could
+mistake for an oversight.
+
 ### 8.3 The versioning rule
 
 **Conformance is decided by the Lint against the CURRENT term list, never by

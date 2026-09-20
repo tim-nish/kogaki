@@ -526,6 +526,108 @@ async function cmdFix(args) {
   process.stdout.write(`lint-ja: fix — prh replacement(s) applied to ${jaPath}\n`);
 }
 
+// The sibling English CanonicalDraft's body, read the same way `cmdLint`
+// reads it — a raw line scan for the frontmatter close, never a general
+// parser. Shared here because `correct-terms` runs the same Lint `cmdLint`
+// does and needs the same sibling to check structure identity against.
+function readEnBody(enPath) {
+  if (!existsSync(enPath)) return null;
+  const enText = readFileSync(enPath, "utf8");
+  const lines = enText.split("\n");
+  let end = -1;
+  for (let i = 1; i < lines.length; i++) { if (lines[i] === "---") { end = i; break; } }
+  if (end === -1) return null;
+  const bodyLines = lines.slice(end + 2);
+  if (bodyLines.length && bodyLines[bodyLines.length - 1] === "") bodyLines.pop();
+  return bodyLines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// THE TERM-LIST CHANGE PATH (kogaki#1165, discharging kogaki#1160 acceptance
+// item 3). THE TERMINOLOGY LIST DECISION (top of this file) states it and
+// this is the act that keeps the statement true: a term-list change is a
+// CORRECTION, never a whole-Draft re-derivation.
+//
+// THE ORDER IS THE MECHANICAL FIX FIRST (acceptance item 4, kogaki#1162 item
+// 4): `fixPrhOnly` runs before this function ever asks the Lint which Steps
+// still carry a deviation, so a deviation textlint's fixer can rewrite is
+// never spent on a model correction — it is simply gone by the time the
+// Steps are named.
+//
+// WHAT THIS FUNCTION DOES NOT DO: it never invokes a model, and it never
+// touches a Step this pass did not name. Once the mechanical fix has run, the
+// Steps a subsequent Lint pass still names are exactly the Steps a model
+// correction is owed for, and correcting THOSE is `src/review-draft.mjs
+// open --only-steps`'s job — a separate act, over the Round Trip's own
+// closed inputs, that this function only reports the way into.
+export async function correctTerms({ jaText, jaPath, enBody, enPath, termsText, termsPath }) {
+  const before = readJaDraft(jaText, jaPath);
+  if (before.error) return { error: before.error };
+  const fixedBody = await fixPrhOnly(before.body, termsPath);
+  const fixApplied = fixedBody !== before.body;
+  const afterFixText = fixApplied ? withBody(before, fixedBody) : jaText;
+  const lintResult = await lintDraftJa({ jaText: afterFixText, jaPath, enBody, enPath, termsText });
+  if (lintResult.error) return { error: lintResult.error };
+  // UNIQUE, SORTED, NON-NULL — a Step named twice (once per deviation) is
+  // corrected once, an unattributed finding (structure identity, a missing
+  // sibling) names no Step and corrects nothing, and the order is stable so
+  // two runs over the same fixture report the same Steps in the same order.
+  const namedSteps = [...new Set(
+    (lintResult.findings || []).map((f) => f.step_id).filter((id) => id !== null),
+  )].sort();
+  return {
+    fixApplied,
+    newText: afterFixText,
+    clean: lintResult.clean,
+    findings: lintResult.findings || [],
+    namedSteps,
+  };
+}
+
+async function cmdCorrectTerms(args) {
+  const usage = "usage: lint-ja.mjs correct-terms --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]";
+  // ACCEPTANCE ITEM 3, THE REFUSAL ITSELF: no flag on this path offers a
+  // whole-Draft re-derivation, and `--regenerate` is kept as a NAMED refusal
+  // rather than left as an ordinary unknown flag, so a session that reaches
+  // for the obvious wrong tool is told why rather than left to guess.
+  if (args.regenerate) {
+    fail("correct-terms refuses --regenerate: the Terminology List Decision (top of this file) states a "
+      + "term-list change is a CORRECTION, never a whole-Draft re-derivation — the owner does not require "
+      + "the Draft to be uniquely reproducible, so re-deriving it from a moved term list is not owed. "
+      + "Only the Steps this pass names below are corrected.");
+  }
+  const jaPath = argString(args, "draft", usage);
+  const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : DEFAULT_TERMS_PATH;
+  let jaText, termsText;
+  try { jaText = readFileSync(jaPath, "utf8"); } catch (e) { fail(`the Draft at ${jaPath} cannot be read (${e.message})`); }
+  try { termsText = readFileSync(termsPath, "utf8"); } catch (e) { fail(`the term list at ${termsPath} cannot be read (${e.message})`); }
+  const enPath = typeof args["en-draft"] === "string" && args["en-draft"] !== ""
+    ? args["en-draft"]
+    : jaPath.replace(/\.ja\.md$/, ".md");
+  const enBody = readEnBody(enPath);
+
+  const r = await correctTerms({ jaText, jaPath, enBody, enPath, termsText, termsPath });
+  if (r.error) fail(r.error);
+
+  if (r.fixApplied) {
+    writeFileSync(jaPath, r.newText);
+    process.stdout.write(`lint-ja: correct-terms — the mechanical fix (kogaki#1162) rewrote ${jaPath} first, before the bounded correction\n`);
+  }
+
+  if (r.namedSteps.length === 0) {
+    process.stdout.write(`lint-ja: correct-terms — nothing to correct: after the mechanical fix, Lint names no Step`
+      + `${r.clean ? " (a clean pass)" : " (every remaining finding is unattributed)"}. `
+      + "No model is invoked and the Round Trip is not re-entered.\n");
+    for (const f of r.findings) process.stdout.write(`  - ${f.message}\n`);
+    return;
+  }
+
+  process.stdout.write(`lint-ja: correct-terms — Lint names ${r.namedSteps.length} Step(s) after the mechanical fix: ${r.namedSteps.join(", ")}.\n`
+    + "Re-enter the Round Trip scoped to exactly those Steps — no other Step is re-outlined, re-compared or re-realized, "
+    + "and no whole-Draft regeneration is offered on this path (the Terminology List Decision):\n"
+    + `  node src/review-draft.mjs open --draft ${jaPath} --only-steps ${r.namedSteps.join(",")}\n`);
+}
+
 // ---------------------------------------------------------------------------
 // The Removal Test's self-test (acceptance item 5). Six cases: five construct
 // a defect and assert this file (or, for cases d and e, the review-draft.mjs
@@ -904,6 +1006,134 @@ async function runSelfTest() {
       code12 !== 0 && out12.includes("レポジトリ") && out12.includes("s1"));
   }
 
+  // (m) — kogaki#1165 acceptance item 4 (the Removal Test): a fixture whose
+  // Lint names ZERO Steps — here, a clean Draft with nothing prh-fixable
+  // either — leaves the Draft BYTE-IDENTICAL and `correctTerms` reports it had
+  // nothing to correct. NO MODEL IS INVOKED: `correctTerms` is a pure function
+  // of its inputs, the same as `lintDraftJa` and `fixPrhOnly` it composes.
+  {
+    const draftM = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "これはクリーンな日本語の一文です。",
+    ].join("\n");
+    const enBodyM = "This is a clean Japanese sentence.";
+    const r = await correctTerms({ jaText: draftM, jaPath: "fixture.ja.md", enBody: enBodyM, enPath: "theses/fixture/draft.md", termsText, termsPath: DEFAULT_TERMS_PATH });
+    ok("case (m): a fixture whose Lint names zero Steps leaves the Draft byte-identical, with nothing to correct and no model invoked",
+      r.fixApplied === false && r.namedSteps.length === 0 && r.newText === draftM);
+
+    // AND THE SAME THING THROUGH THE CLI (PR #1169 round 1). The assertion
+    // above reads `correctTerms`'s RETURN VALUE, so `cmdCorrectTerms`'s own
+    // `if (r.fixApplied) writeFileSync(jaPath, r.newText)` branch is not in its
+    // path — "leaves the Draft byte-identical" was checked on a string and
+    // never on the file. Case (p) already drives the CLI as a subprocess and
+    // asserts on-disk identity, so this is that pattern applied to the
+    // Removal Test rather than a new one. The pure-function case above is kept
+    // beside it: it is what carries "no model is invoked".
+    const dirM = join(root, "case-m-cli");
+    mkdirSync(dirM, { recursive: true });
+    const jaPathM = join(dirM, "draft.ja.md");
+    writeFileSync(jaPathM, draftM);
+    writeFileSync(join(dirM, "draft.md"), enBodyM + "\n");
+    let outM = "", codeM = 0;
+    try {
+      outM = execFileSync(process.execPath, [fileURLToPath(import.meta.url), "correct-terms", "--draft", jaPathM],
+        { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { outM = (e.stdout || "") + (e.stderr || ""); codeM = e.status ?? 1; }
+    ok("case (m) THROUGH THE CLI: the file on disk is byte-identical after the run",
+      codeM === 0 && readFileSync(jaPathM, "utf8") === draftM);
+    ok("case (m) THROUGH THE CLI: and the path reports it had nothing to correct",
+      /nothing to correct/.test(outM));
+  }
+
+  // (n) — kogaki#1165 acceptance items 1 and 2: a three-Step fixture whose
+  // Lint names exactly two Steps (a Latin-script run on s1 and s2, neither
+  // prh-fixable) corrects those two and no other — `correctTerms` names s1
+  // and s2 and nothing about s3. The Round Trip half of item 2 (that a Step
+  // NOT named is never re-outlined or re-compared) is asserted where the
+  // Round Trip lives, at src/review-draft.mjs `open --only-steps`.
+  {
+    const draftN = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [10, 10]}`,
+      `  - {"step_id": "s2", "lines": [11, 11]}`,
+      `  - {"step_id": "s3", "lines": [12, 12]}`,
+      "---",
+      "",
+      "This is a long English sentence for testing purposes.",
+      "Another long English sentence sits here for testing too.",
+      "これはクリーンな日本語の一文です。",
+    ].join("\n");
+    const enBodyN = ["English sentence one.", "English sentence two.", "English sentence three."].join("\n");
+    const r = await correctTerms({ jaText: draftN, jaPath: "fixture.ja.md", enBody: enBodyN, enPath: "theses/fixture/draft.md", termsText, termsPath: DEFAULT_TERMS_PATH });
+    ok("case (n): a fixture whose Lint names two Steps corrects those two Steps and no other",
+      r.fixApplied === false && r.namedSteps.join(",") === "s1,s2");
+  }
+
+  // (o) — kogaki#1165 acceptance item 4 (the ordering): the mechanical fix
+  // (kogaki#1162) runs BEFORE the bounded correction, so a deviation textlint
+  // can rewrite is never spent on it. s1 carries a prh-fixable deviation
+  // (「レポジトリ」) and s2 carries a Latin-script run the fixer cannot touch —
+  // after `correctTerms`, s1 has been rewritten mechanically and is not named;
+  // only s2, which the mechanical fix could not clear, is.
+  {
+    const draftO = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [9, 9]}`,
+      `  - {"step_id": "s2", "lines": [10, 10]}`,
+      "---",
+      "",
+      "レポジトリの操作について説明します。",
+      "This is a long English sentence for testing purposes.",
+    ].join("\n");
+    const enBodyO = ["A sentence about repository operations.", "English sentence two."].join("\n");
+    const r = await correctTerms({ jaText: draftO, jaPath: "fixture.ja.md", enBody: enBodyO, enPath: "theses/fixture/draft.md", termsText, termsPath: DEFAULT_TERMS_PATH });
+    ok("case (o): the mechanical fix rewrites the prh-fixable Step first, so only the Step it could not clear is named",
+      r.fixApplied === true && r.newText.includes("リポジトリの操作について説明します。")
+      && !r.newText.includes("レポジトリの操作について説明します。")
+      && r.namedSteps.join(",") === "s2");
+  }
+
+  // (p) — kogaki#1165 acceptance item 3: `correct-terms --regenerate` refuses
+  // BY NAME, naming the Terminology List Decision as its ground, rather than
+  // offering a whole-Draft re-derivation. Driven as a real subprocess so the
+  // CLI's own flag handling is in the path, the same way case (k) drives `fix`.
+  {
+    const dir = join(root, "case-p");
+    mkdirSync(dir, { recursive: true });
+    const draftP = [
+      "---",
+      "brief: brief.md",
+      `terms_sha_at_generation: ${termsSha}`,
+      "trace:",
+      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      "---",
+      "",
+      "これはクリーンな日本語の一文です。",
+    ].join("\n");
+    const jaPathP = join(dir, "draft.ja.md");
+    writeFileSync(jaPathP, draftP);
+    const selfP = fileURLToPath(import.meta.url);
+    let outP = "", codeP = 0;
+    try {
+      outP = execFileSync(process.execPath, [selfP, "correct-terms", "--draft", jaPathP, "--regenerate"], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { outP = (e.stdout || "") + (e.stderr || ""); codeP = e.status ?? 1; }
+    ok("case (p): `correct-terms --regenerate` refuses, naming the Terminology List Decision, and touches no file",
+      codeP !== 0 && outP.includes("Terminology List Decision") && outP.includes("never a whole-Draft re-derivation")
+      && readFileSync(jaPathP, "utf8") === draftP);
+  }
+
   rmSync(root, { recursive: true, force: true });
   process.stdout.write(`lint-ja self-test: ${passed} case(s) pass${failures.length ? `, FAILURES: ${failures.join(" | ")}` : ""}\n`);
   if (failures.length) process.exit(1);
@@ -917,7 +1147,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     switch (args._cmd) {
       case "lint": await cmdLint(args); break;
       case "fix": await cmdFix(args); break;
-      default: fail("usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>] | fix --draft <draft.ja.md> [--terms <terms/prh.yml>] | self-test");
+      case "correct-terms": await cmdCorrectTerms(args); break;
+      default: fail("usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>] | fix --draft <draft.ja.md> [--terms <terms/prh.yml>] | correct-terms --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>] | self-test");
     }
   }
 }

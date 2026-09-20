@@ -41,6 +41,23 @@
 # terms_sha_at_lint, or wrote it non-deterministically, could ship while
 # review-draft's precondition quietly stopped being satisfiable (PR #1166
 # round 1).
+#
+# (m) THROUGH (p) ARE kogaki#1165's TERM-LIST CHANGE PATH, discharging
+# kogaki#1160 acceptance item 3: `correct-terms` runs the mechanical fix
+# FIRST and Lints the result to find which Steps, if any, still carry a
+# deviation. (m) a fixture whose Lint names zero Steps leaves the Draft
+# byte-identical, with nothing to correct and no model invoked -- asserted
+# twice, once on the pure function (which is what carries "no model is
+# invoked") and once THROUGH THE CLI on the file on disk, because the
+# return-value form alone leaves `cmdCorrectTerms`'s own write branch out of
+# the case's path (PR #1169 round 1); (n) a
+# three-Step fixture whose Lint names exactly two Steps is corrected on
+# those two and no other; (o) the mechanical fix runs BEFORE the bounded
+# correction, so a Step it clears is never named; (p) `--regenerate` refuses
+# BY NAME, naming the Terminology List Decision, and touches no file. The
+# Round Trip half of item 2 -- that a Step NOT named is never re-outlined or
+# re-compared -- is asserted where the Round Trip lives, at
+# src/review-draft.mjs `open --only-steps` (checks/check-review-draft-runtime.sh).
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 

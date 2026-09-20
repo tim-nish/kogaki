@@ -1268,18 +1268,84 @@ function checkJaTermsFreshness(draftPath) {
   if (!m || m[1] !== currentSha) {
     fail(`${draftPath} refuses to start: terms_sha_at_lint is ${recorded} and the current term list's hash is ${currentSha} (${TERMS_PATH}) — `
       + `Lint runs before the Round Trip on a Japanese Draft (the Terminology List Decision), so run \`node src/lint-ja.mjs lint --draft ${draftPath}\` first. `
-      + `A term-list change is a correction, never a whole-Draft re-derivation: only the Steps Lint names are corrected, and ReviewDraft is re-entered from there`);
+      + "A term-list change is a correction, never a whole-Draft re-derivation: run "
+      + `\`node src/lint-ja.mjs correct-terms --draft ${draftPath}\` to name the Steps still owed after the `
+      + `mechanical fix, then re-enter ReviewDraft with \`open --draft ${draftPath} --only-steps <those Steps>\``);
   }
 }
 
 // ---------------------------------------------------------------------------
 // The commands.
 
+// THE TERM-LIST CHANGE PATH'S RE-ENTRY (kogaki#1165, discharging kogaki#1160
+// acceptance item 3): `--only-steps` scopes the WHOLE run — outline, compare,
+// correct, check and close all read `run.steps` and nothing else to decide
+// which Steps this run reviews, so filtering it here is the whole of the
+// scoping and no other command needs to know a scoped run exists. A Step
+// left out is never re-outlined and never re-compared, because there is no
+// code path here that reaches a Step `run.steps` does not name.
+//
+// `checkJaTermsFreshness` IS SKIPPED FOR A SCOPED OPEN, on purpose: the whole
+// reason this path exists is that a term-list change leaves
+// `terms_sha_at_lint` stale until the named Steps are corrected and the Draft
+// is Linted again, and the ordinary freshness gate would refuse to let that
+// correction start. `src/lint-ja.mjs correct-terms` is what names the Steps
+// this flag takes.
+function scopeToOnlySteps(steps, sections, onlyStepsArg) {
+  const onlySteps = onlyStepsArg.split(",").map((s) => s.trim()).filter(Boolean);
+  const known = new Set(steps.map((s) => s.step_id));
+  const unknown = onlySteps.filter((id) => !known.has(id));
+  if (unknown.length) {
+    fail(`--only-steps names step id(s) not in this Draft's trace: ${unknown.join(", ")} — known Steps are ${[...known].join(", ")}`);
+  }
+  if (!onlySteps.length) {
+    fail("--only-steps names no Step — a term-list change path with nothing to correct has nothing to "
+      + "open. Run `node src/lint-ja.mjs correct-terms --draft <draft.ja.md>` to see which Steps (if any) "
+      + "Lint still names after the mechanical fix.");
+  }
+  const onlySet = new Set(onlySteps);
+  const scopedSteps = steps.filter((s) => onlySet.has(s.step_id));
+  const scopedSections = sections
+    .map((sec) => ({ ...sec, steps: sec.steps.filter((id) => onlySet.has(id)) }))
+    .filter((sec) => sec.steps.length > 0);
+  return { steps: scopedSteps, sections: scopedSections, onlySteps };
+}
+
 function cmdOpen(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft open --draft <draft.md>");
-  checkJaTermsFreshness(draftPath);
+  const draftPath = argString(args, "draft",
+    "usage: review-draft open --draft <draft.md> [--only-steps <id[,id...]>]");
+  // retired-vocab-ok — `regenerat` is on checks/check-review-draft-retired-
+  // vocabulary.sh's list (kogaki#1013 retired it with the deleted act it
+  // named), and every use in this block is a MUST-NOT-APPEAR TRIPWIRE rather
+  // than a lapse: `--regenerate` exists so a session reaching for a
+  // whole-Draft re-derivation is told BY NAME that ReviewDraft does not do
+  // that, citing src/lint-ja.mjs's Terminology List Decision. It names the
+  // retired act to refuse it, never to perform it.
+  if (args.regenerate) {
+    fail("open refuses --regenerate: the Terminology List Decision (src/lint-ja.mjs) states a term-list "
+      + "change is a CORRECTION, never a whole-Draft re-derivation — the owner does not require the Draft "
+      + "to be uniquely reproducible, so re-deriving it from a moved term list is not owed. Only the Steps "
+      + "`node src/lint-ja.mjs correct-terms` names are corrected; open with `--only-steps` naming them.");
+  }
+  const onlyStepsArg = typeof args["only-steps"] === "string" && args["only-steps"] !== "" ? args["only-steps"] : null;
+  if (!onlyStepsArg) checkJaTermsFreshness(draftPath);
   const draft = readDraft(draftPath);
-  const { steps, sections } = resolveInputs(draft);
+  // THE FULL TRACE IS KEPT BESIDE THE SCOPED SET, and the two are not
+  // interchangeable (PR #1169 round 1). `run.steps` answers *which Steps this
+  // run reviews* and is scoped; the article a Blind Reader is shown before a
+  // passage answers *what the reader has read by then* and is NEVER scoped —
+  // it is a property of the Draft, not of this run's scope. Handing the scoped
+  // array to the renderer made the first named Step read as the article's
+  // first passage and withheld the prose actually preceding it, and it
+  // disagreed with `cmdOutline` and pass two's re-render, which both build the
+  // same block from the full trace.
+  const resolved = resolveInputs(draft);
+  const allSteps = resolved.steps;
+  let { steps, sections } = resolved;
+  let onlySteps = null;
+  if (onlyStepsArg) {
+    ({ steps, sections, onlySteps } = scopeToOnlySteps(steps, sections, onlyStepsArg));
+  }
   const slug = slugOf(draftPath);
   const ws = workspaceFor(args, slug);
 
@@ -1288,6 +1354,7 @@ function cmdOpen(args) {
     slug,
     body_sha: draft.body_sha,
     opened_at: new Date().toISOString(),
+    only_steps: onlySteps,
     steps: steps.map((s) => ({
       step_id: s.step_id, section: s.section, section_title: s.section_title,
       lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
@@ -1314,12 +1381,13 @@ function cmdOpen(args) {
   };
 
   const first = steps[0];
-  const input = renderReverseOutlineInput(ws, run, draft, first, steps);
+  const input = renderReverseOutlineInput(ws, run, draft, first, allSteps);
   run.rendered[first.step_id] = input;
   writeRun(ws, run);
 
   process.stdout.write(
     `ReviewDraft opened: ${slug}\n`
+    + (onlySteps ? `  scope     term-list change path — only ${onlySteps.join(", ")} (no other Step is re-outlined, re-compared or re-realized)\n` : "")
     + `  draft     ${resolve(draftPath)} (body sha ${draft.body_sha.slice(0, 16)})\n`
     + `  steps     ${steps.length} — ${steps.map((s) => s.step_id).join(", ")}\n`
     + `  sections  ${sections.length} — ${sections.map((s) => `${s.index}. ${s.title ?? "(untitled)"}`).join(" | ")}\n`
@@ -2163,7 +2231,15 @@ function renderSide(v) {
 // exactly the defect this parameter exists to close.
 function buildJoin(draft, run, items, ws, opts = {}) {
   const pass = requirePass(opts.pass, "buildJoin");
-  const { steps } = resolveInputs(draft);
+  // SCOPED TO `run.steps`, NEVER TO THE WHOLE TRACE (kogaki#1165). An
+  // ordinary run's `run.steps` already names every Step `open` found, so this
+  // filter is a no-op there; a term-list change path's run names only the
+  // Steps Lint named, and this is the one site that used to re-derive the
+  // whole Draft's Step set straight from the trace and silently widen a
+  // scoped run back out to every Step at the join.
+  const { steps: allSteps } = resolveInputs(draft);
+  const scopedIds = new Set(run.steps.map((s) => s.step_id));
+  const steps = allSteps.filter((s) => scopedIds.has(s.step_id));
   const bound = typeof opts.bound === "function" ? opts.bound : null;
   const carry = opts.carry || [];
   const results = [];
@@ -4980,6 +5056,97 @@ async function runSelfTest() {
   ok("open reports the Packets as verified against the trace", /packets\s+3 verified/.test(rOpen.stdout));
   ok("open renders the FIRST Reverse Outline input", /first Reverse Outline input: .*outline-input[\/\\]a1\.md/.test(rOpen.stdout));
   ok("open writes a run record", existsSync(join(WS, "run.json")));
+
+  // retired-vocab-ok — see cmdOpen's own marker: this drives the
+  // must-not-appear tripwire as a real subprocess, so the word appears in the
+  // fixture's own argv and assertions too.
+  //
+  // 7a — kogaki#1165 acceptance item 3: `open --regenerate` refuses BY NAME,
+  // and the refusal names the Terminology List Decision as its ground rather
+  // than reading as an ordinary "unknown flag". No workspace is touched.
+  // retired-vocab-ok — same tripwire, continued: the assertions below name
+  // the flag they drove above.
+  {
+    const wsRegen = join(root, "ws-regen");
+    const r = spawnSync(process.execPath,
+      [self, "open", "--draft", draft.path, "--workspace", wsRegen, "--regenerate"], { encoding: "utf8" });
+    ok("open --regenerate refuses, naming the Terminology List Decision as its ground",
+      r.status === 1 && /Terminology List Decision/.test(r.stderr) && /never a whole-Draft re-derivation/.test(r.stderr));
+    ok("and no run record is written for a refused --regenerate", !existsSync(join(wsRegen, "fixture", "run.json")));
+  }
+
+  // 7b — kogaki#1165 acceptance items 1 and 2: `open --only-steps` scopes the
+  // WHOLE run to exactly the named Steps. a3 is dropped from both `steps` and
+  // `sections`, and the printed report never names it — the same fixture case
+  // 7 opened unscoped and found three Steps in two Sections.
+  {
+    const wsScoped = join(root, "ws-onlysteps");
+    const r = spawnSync(process.execPath,
+      [self, "open", "--draft", draft.path, "--workspace", wsScoped, "--only-steps", "a1,a2"], { encoding: "utf8" });
+    ok("open --only-steps succeeds and never names the excluded Step in its report",
+      r.status === 0 && !/\ba3\b/.test(r.stdout));
+    ok("open --only-steps names the scope in its report", /scope\s+term-list change path — only a1, a2/.test(r.stdout));
+    const run = JSON.parse(readFileSync(join(wsScoped, "fixture", "run.json"), "utf8"));
+    ok("the run record's own `steps` carries only the named Steps, in the Draft's order",
+      run.steps.map((s) => s.step_id).join(",") === "a1,a2");
+    ok("the run record's `sections` drop the Section that held only the excluded Step",
+      run.sections.length === 1 && run.sections[0].steps.join(",") === "a1,a2");
+    ok("the run record carries the scope itself", Array.isArray(run.only_steps) && run.only_steps.join(",") === "a1,a2");
+
+    // outline never re-outlines the excluded Step: an explicit attempt is
+    // refused as unknown, naming only the scoped Steps.
+    const D = (...a) => selfRun([self, ...a, "--draft", draft.path, "--workspace", wsScoped]);
+    const badOutline = D("outline", "--step", "a3", "--file", writeRecordFor(draft, "a3", "scoped"));
+    ok("outlining the excluded Step is refused as unknown, naming only the scoped Steps",
+      badOutline.status === 1 && /unknown step `a3`/.test(badOutline.stderr) && /Steps are a1, a2/.test(badOutline.stderr));
+
+    // the scoped Round Trip completes over a1 and a2 alone and compare never
+    // asks about a3 — the third Step is never re-compared either.
+    D("outline", "--step", "a1", "--file", writeRecordFor(draft, "a1", "scoped"));
+    const lastOutline = D("outline", "--step", "a2", "--file", writeRecordFor(draft, "a2", "scoped"));
+    ok("the scoped Round Trip finishes outlining at the named Steps and hands off to compare",
+      lastOutline.status === 0 && /every Step is outlined/.test(lastOutline.stdout));
+    const cmp = D("compare");
+    ok("compare over a scoped run renders a join with no mention of the excluded Step",
+      cmp.status === 0 && !/\ba3\b/.test(cmp.stdout));
+  }
+
+  // 7c — kogaki#1165: `--only-steps` naming an id outside the Draft's trace,
+  // or naming none at all, is refused rather than silently opening every Step
+  // or none.
+  {
+    const r1 = spawnSync(process.execPath,
+      [self, "open", "--draft", draft.path, "--workspace", join(root, "ws-onlysteps-bad"), "--only-steps", "a1,nope"], { encoding: "utf8" });
+    ok("--only-steps naming an unknown Step id refuses BY NAME",
+      r1.status === 1 && /--only-steps names step id\(s\) not in this Draft's trace: nope/.test(r1.stderr));
+    const r2 = spawnSync(process.execPath,
+      [self, "open", "--draft", draft.path, "--workspace", join(root, "ws-onlysteps-empty"), "--only-steps", ","], { encoding: "utf8" });
+    ok("--only-steps naming no Step refuses rather than opening the whole Draft",
+      r2.status === 1);
+  }
+
+  // 7d — PR #1169 round 1: A SCOPED RUN WHOSE FIRST NAMED STEP IS NOT THE
+  // DRAFT'S FIRST STEP still shows the Blind Reader the article that precedes
+  // it. 7b cannot express this — it scopes `a1,a2`, a PREFIX whose first
+  // element genuinely IS the article's first passage, so the scoped and the
+  // full array agree there and a renderer reading either passes. Scoping `a2`
+  // alone is what separates them: a1's prose precedes a2 in the Draft and must
+  // appear, and the "nothing yet" line must NOT, because it would be false.
+  // The same block is built from the full trace by `outline` and by pass two's
+  // re-render, so this also holds the three to one answer.
+  {
+    const wsMid = join(root, "ws-onlysteps-midway");
+    const r = spawnSync(process.execPath,
+      [self, "open", "--draft", draft.path, "--workspace", wsMid, "--only-steps", "a2"], { encoding: "utf8" });
+    ok("a scoped run starting midway opens", r.status === 0);
+    const run = JSON.parse(readFileSync(join(wsMid, "fixture", "run.json"), "utf8"));
+    ok("and reviews a2 alone", run.steps.map((s) => s.step_id).join(",") === "a2");
+    const rendered = readFileSync(run.rendered.a2, "utf8");
+    ok("the article before a midway scoped Step carries the prose that precedes it",
+      rendered.includes(PROSE.a1[0]) && rendered.includes(PROSE.a1[3]));
+    ok("and does NOT claim the scoped Step is the article's first passage",
+      !/this is the article's first passage/.test(rendered));
+  }
 
   // THE PLAN'S VOCABULARY IS A DATA LIST, NOT A HAND SWEEP (kogaki#1099 acceptance 1).
   // The Blind Reader is handed the passage, the article before it, the seven
