@@ -2670,6 +2670,17 @@ and the ordinary gate would refuse to let that correction start. The
 correction itself runs on the Round Trip's own correction path (the ordinary
 Step re-realization path 8.2 names), unchanged.
 
+**WHAT THE SCOPE DOES NOT NARROW: the article the Blind Reader is shown.**
+`run.steps` answers *which Steps this run reviews*; the "article before this
+passage" block answers *what the reader has read by the time they meet it*,
+and that is a property of the **Draft**, not of this run's scope. So it is
+built from the whole trace even under `--only-steps`, exactly as `outline` and
+pass two's re-render already build it. A scoped run whose first named Step is
+not the Draft's first Step would otherwise hand the reader an article that
+begins there — false, and withholding the prose the passage was written to
+follow. The distinction is why the two are read from different places rather
+than from one convenient array (PR #1169 round 1).
+
 **No flag on this path offers a whole-Draft re-derivation.** `--regenerate`
 exists on both `correct-terms` and `open` as a NAMED refusal: it fails,
 citing this Terminology List Decision by name, rather than reading as an

@@ -1330,7 +1330,18 @@ function cmdOpen(args) {
   const onlyStepsArg = typeof args["only-steps"] === "string" && args["only-steps"] !== "" ? args["only-steps"] : null;
   if (!onlyStepsArg) checkJaTermsFreshness(draftPath);
   const draft = readDraft(draftPath);
-  let { steps, sections } = resolveInputs(draft);
+  // THE FULL TRACE IS KEPT BESIDE THE SCOPED SET, and the two are not
+  // interchangeable (PR #1169 round 1). `run.steps` answers *which Steps this
+  // run reviews* and is scoped; the article a Blind Reader is shown before a
+  // passage answers *what the reader has read by then* and is NEVER scoped —
+  // it is a property of the Draft, not of this run's scope. Handing the scoped
+  // array to the renderer made the first named Step read as the article's
+  // first passage and withheld the prose actually preceding it, and it
+  // disagreed with `cmdOutline` and pass two's re-render, which both build the
+  // same block from the full trace.
+  const resolved = resolveInputs(draft);
+  const allSteps = resolved.steps;
+  let { steps, sections } = resolved;
   let onlySteps = null;
   if (onlyStepsArg) {
     ({ steps, sections, onlySteps } = scopeToOnlySteps(steps, sections, onlyStepsArg));
@@ -1370,7 +1381,7 @@ function cmdOpen(args) {
   };
 
   const first = steps[0];
-  const input = renderReverseOutlineInput(ws, run, draft, first, steps);
+  const input = renderReverseOutlineInput(ws, run, draft, first, allSteps);
   run.rendered[first.step_id] = input;
   writeRun(ws, run);
 
@@ -5112,6 +5123,29 @@ async function runSelfTest() {
       [self, "open", "--draft", draft.path, "--workspace", join(root, "ws-onlysteps-empty"), "--only-steps", ","], { encoding: "utf8" });
     ok("--only-steps naming no Step refuses rather than opening the whole Draft",
       r2.status === 1);
+  }
+
+  // 7d — PR #1169 round 1: A SCOPED RUN WHOSE FIRST NAMED STEP IS NOT THE
+  // DRAFT'S FIRST STEP still shows the Blind Reader the article that precedes
+  // it. 7b cannot express this — it scopes `a1,a2`, a PREFIX whose first
+  // element genuinely IS the article's first passage, so the scoped and the
+  // full array agree there and a renderer reading either passes. Scoping `a2`
+  // alone is what separates them: a1's prose precedes a2 in the Draft and must
+  // appear, and the "nothing yet" line must NOT, because it would be false.
+  // The same block is built from the full trace by `outline` and by pass two's
+  // re-render, so this also holds the three to one answer.
+  {
+    const wsMid = join(root, "ws-onlysteps-midway");
+    const r = spawnSync(process.execPath,
+      [self, "open", "--draft", draft.path, "--workspace", wsMid, "--only-steps", "a2"], { encoding: "utf8" });
+    ok("a scoped run starting midway opens", r.status === 0);
+    const run = JSON.parse(readFileSync(join(wsMid, "fixture", "run.json"), "utf8"));
+    ok("and reviews a2 alone", run.steps.map((s) => s.step_id).join(",") === "a2");
+    const rendered = readFileSync(run.rendered.a2, "utf8");
+    ok("the article before a midway scoped Step carries the prose that precedes it",
+      rendered.includes(PROSE.a1[0]) && rendered.includes(PROSE.a1[3]));
+    ok("and does NOT claim the scoped Step is the article's first passage",
+      !/this is the article's first passage/.test(rendered));
   }
 
   // THE PLAN'S VOCABULARY IS A DATA LIST, NOT A HAND SWEEP (kogaki#1099 acceptance 1).

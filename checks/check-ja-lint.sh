@@ -46,7 +46,11 @@
 # kogaki#1160 acceptance item 3: `correct-terms` runs the mechanical fix
 # FIRST and Lints the result to find which Steps, if any, still carry a
 # deviation. (m) a fixture whose Lint names zero Steps leaves the Draft
-# byte-identical, with nothing to correct and no model invoked; (n) a
+# byte-identical, with nothing to correct and no model invoked -- asserted
+# twice, once on the pure function (which is what carries "no model is
+# invoked") and once THROUGH THE CLI on the file on disk, because the
+# return-value form alone leaves `cmdCorrectTerms`'s own write branch out of
+# the case's path (PR #1169 round 1); (n) a
 # three-Step fixture whose Lint names exactly two Steps is corrected on
 # those two and no other; (o) the mechanical fix runs BEFORE the bounded
 # correction, so a Step it clears is never named; (p) `--regenerate` refuses

@@ -1026,6 +1026,29 @@ async function runSelfTest() {
     const r = await correctTerms({ jaText: draftM, jaPath: "fixture.ja.md", enBody: enBodyM, enPath: "theses/fixture/draft.md", termsText, termsPath: DEFAULT_TERMS_PATH });
     ok("case (m): a fixture whose Lint names zero Steps leaves the Draft byte-identical, with nothing to correct and no model invoked",
       r.fixApplied === false && r.namedSteps.length === 0 && r.newText === draftM);
+
+    // AND THE SAME THING THROUGH THE CLI (PR #1169 round 1). The assertion
+    // above reads `correctTerms`'s RETURN VALUE, so `cmdCorrectTerms`'s own
+    // `if (r.fixApplied) writeFileSync(jaPath, r.newText)` branch is not in its
+    // path — "leaves the Draft byte-identical" was checked on a string and
+    // never on the file. Case (p) already drives the CLI as a subprocess and
+    // asserts on-disk identity, so this is that pattern applied to the
+    // Removal Test rather than a new one. The pure-function case above is kept
+    // beside it: it is what carries "no model is invoked".
+    const dirM = join(root, "case-m-cli");
+    mkdirSync(dirM, { recursive: true });
+    const jaPathM = join(dirM, "draft.ja.md");
+    writeFileSync(jaPathM, draftM);
+    writeFileSync(join(dirM, "draft.md"), enBodyM + "\n");
+    let outM = "", codeM = 0;
+    try {
+      outM = execFileSync(process.execPath, [fileURLToPath(import.meta.url), "correct-terms", "--draft", jaPathM],
+        { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { outM = (e.stdout || "") + (e.stderr || ""); codeM = e.status ?? 1; }
+    ok("case (m) THROUGH THE CLI: the file on disk is byte-identical after the run",
+      codeM === 0 && readFileSync(jaPathM, "utf8") === draftM);
+    ok("case (m) THROUGH THE CLI: and the path reports it had nothing to correct",
+      /nothing to correct/.test(outM));
   }
 
   // (n) — kogaki#1165 acceptance items 1 and 2: a three-Step fixture whose
