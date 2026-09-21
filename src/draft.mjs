@@ -1524,7 +1524,7 @@ function cmdSection(args) {
   // THE FIGURE IS DESIGNED FROM THE TEXT (the figure record, kogaki#878). A Leg carrying
   // `figure:` gets its figure input here — after its prose is recorded and
   // before the next Leg's Packet — so the ordering the hub ruled is the
-  // HARNESS'S, not a leg a session may remember to take. The next Packet is
+  // HARNESS'S, not a step a session may remember to take. The next Packet is
   // driven by `figure`, not here: two inputs printed at once would leave the
   // realizer choosing which to answer.
   if (leg.figure !== undefined && leg.figure !== null) {

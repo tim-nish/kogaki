@@ -1068,7 +1068,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // gate, so a failing record never reaches an owner. That ordering is
   // between the judged and ratified halves and is untouched: this clause
   // sits above BOTH, and a run whose selection is absent never reaches either,
-  // which is the same discipline one leg earlier.
+  // which is the same discipline one step earlier.
   //
   // The absence is refused HERE rather than inside the validator, for the
   // reason the owner gate over a passing specialization record already states: "not selected" is a fact about an act that

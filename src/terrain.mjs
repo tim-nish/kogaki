@@ -103,7 +103,7 @@
 //       SPEC-terrain
 //   what would falsify the candidate model
 //       SPEC-terrain
-//   the co-tag navigation leg
+//   the co-tag navigation step
 //       SPEC-terrain
 //   the pre-selection listing
 //       SPEC-terrain
@@ -848,7 +848,7 @@ function cmdSurvey(args) {
   // one channel over; extracting rather than copying is what criterion 2 asks
   // for. The navigation line went with it: it named `view`, which the non-flow utilities
   // removes.
-  // The bounded-input pointer, sited at the leg BEFORE the one that needs it.
+  // The bounded-input pointer, sited at the step BEFORE the one that needs it.
   // A composer reaching for material per group has already spent the reads by
   // the time `cotags` runs, so a pointer only on the CoTagGroups display would arrive
   // after the cost (kogaki#163 lever 3).
@@ -1398,7 +1398,7 @@ function renderTagDisplay(record) {
 }
 
 // --------------------------------------------------------------------------
-// cotags — the second navigation leg (SPEC.md, the co-tag navigation leg). Selecting a tag displays
+// cotags — the second navigation step (SPEC.md, the co-tag navigation step). Selecting a tag displays
 // the other tags its members carry, grouped by co-tag with counts.
 //
 // It is NAVIGATION in the full sense the second-proposer boundary gives — it is that section's `enumerate`
@@ -1522,7 +1522,7 @@ function cmdCotags(args) {
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`);
   const groups = cotagGroups(members, tag);
 
-  // Machine-composed connective prose at render time is ADMISSIBLE (the co-tag navigation leg), and
+  // Machine-composed connective prose at render time is ADMISSIBLE (the co-tag navigation step), and
   // it arrives with the invariants binding HARDER. The composer may attach
   // text to a group and may do nothing else: membership is re-derived here and
   // never taken from the composer, and the cover is counted AFTER composition —
@@ -1532,7 +1532,7 @@ function cmdCotags(args) {
     prose = readJson(String(args.connective));
     for (const k of Object.keys(prose)) {
       if (!groups.some((g) => g.name === k)) {
-        fail(`connective prose names ${JSON.stringify(k)}, which is no composed group — prose carries no selection authority and may not invent, merge or rename a group (SPEC.md, the co-tag navigation leg)`);
+        fail(`connective prose names ${JSON.stringify(k)}, which is no composed group — prose carries no selection authority and may not invent, merge or rename a group (SPEC.md, the co-tag navigation step)`);
       }
     }
   }
@@ -1843,10 +1843,10 @@ function cmdCotags(args) {
   // denominator or the numerator of the figure below.
   const { covered, uncovered, invented } = cotagCover(members, groups);
   if (uncovered.length) {
-    fail(`COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md, the placement cover, the co-tag navigation leg).`);
+    fail(`COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md, the placement cover, the co-tag navigation step).`);
   }
   if (invented.length) {
-    fail(`COTAG_COVER_INVENTED — ${invented.length} id(s) appear in a co-tag group without carrying ${JSON.stringify(tag)}: ${invented.join(", ")}. Composition may group the members and may not add one; a cover counted without checking its numerator's provenance would pass a group list that dropped a member and gained a stranger (SPEC.md, the placement cover, the co-tag navigation leg).`);
+    fail(`COTAG_COVER_INVENTED — ${invented.length} id(s) appear in a co-tag group without carrying ${JSON.stringify(tag)}: ${invented.join(", ")}. Composition may group the members and may not add one; a cover counted without checking its numerator's provenance would pass a group list that dropped a member and gained a stranger (SPEC.md, the placement cover, the co-tag navigation step).`);
   }
   const split = familySplit(members.map((c) => c.id), record.candidates);
   say(`\nCover: ${covered.size} of ${members.length} member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: ${strandFigure(split)}; ${denominator(members.length, record.candidates.length)}.`);
@@ -2204,7 +2204,7 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 // answer exist ... the standing option above, or free-form entry of a tag
 // name") -- so the composer TRANSCRIBES that flag into the row the harness
 // requires rather than the session inventing one at render time. It is the
-// deterministic half extended by one leg, not a new arm: the ground is that an
+// deterministic half extended by one step, not a new arm: the ground is that an
 // automated lane which stops at one ruled outcome and says nothing about what
 // follows hands the following act to judgment, where a new design decision
 // enters disguised as a mechanical continuation.
@@ -2860,7 +2860,7 @@ export function subgroupPlacement(parent, classification, block) {
     // file — the coherence checks, the display and report renderers,
     // `resolveEnteredIds` — already read `name`, and `judgeSubgroup` and the
     // residual filter already read `.verdicts.coherence`, so the two spellings
-    // here were the only ones out of leg.
+    // here were the only ones out of step.
     //
     // NO SECOND SPELLING IS ACCEPTED. A reader tolerating both keys re-opens
     // exactly the drift this closes: the example would stop being the one
@@ -4838,7 +4838,7 @@ export function judgePinLine(pin, prov) {
 // THREE ARMS, and the third is what #918 adds. A `none` pin is the ABSENCE of
 // a pin, not a declared one, so a provenance clause reading `pin DECLARED`
 // against it asserts a declaration nobody made — the same class kogaki#892
-// closed one leg over (a declaration rendered as an observation), arriving in
+// closed one step over (a declaration rendered as an observation), arriving in
 // the change that closed it.
 //
 // AND THE CLAUSE NAMES THE RECORD, never the run. It used to open `observed:`,
@@ -7614,7 +7614,7 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // recommended relations the owner may see is the shape the served record names
 // as failing the second-proposer test
 // (product-lab@b20d85ea topics/articles.md:125). Silent truncation is refused
-// one leg earlier by the same record's rule that a surface which must not drop
+// one step earlier by the same record's rule that a surface which must not drop
 // its tail reports rather than truncates
 // (topics/archive/knowledge-architecture.md:67).
 // A PARAMETER A FUNCTION DOES NOT READ IS A CLAIM ON ITS CALLER IT CANNOT
@@ -8722,7 +8722,7 @@ const STATE_WORK = {
     // refusal that already ships is how two readings of one rule appear.
     const judgments = readNeighborhoodJudgments(path);
     // THE THIRD REFUSAL NEEDS THE EMITTER'S OUTPUT, which is why the emitter is
-    // a state rather than a leg inside this one: a key naming no mechanical
+    // a state rather than a step inside this one: a key naming no mechanical
     // candidate is only detectable against the enumeration, and the enumeration
     // is what `neighborhood_input` wrote.
     const emitted = rec.neighborhood_candidates
@@ -8896,17 +8896,17 @@ const STATE_WORK = {
 //
 //   "Workflow orchestration (start, supervise, land, record, expose state) is
 //    deterministic infrastructure and belongs in engine code, while a session
-//    holds only the legs whose next action turns on an open question ... a
-//    judgment leg is engine-scheduled but model-decided."
+//    holds only the steps whose next action turns on an open question ... a
+//    judgment step is engine-scheduled but model-decided."
 //
 // consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:32
 //   outcome: covered-after-reframing
 //   query: "Removing a command that a session invokes: when engine code absorbs
-//          a leg a session used to perform by hand, which part must stay with
+//          a step a session used to perform by hand, which part must stay with
 //          the session and which becomes deterministic infrastructure?"
 //
 // COMPOSING a declaration and RECORDING a capture are `record`, and record is
-// engine code; RENDERING the question is the judgment leg and stays the
+// engine code; RENDERING the question is the judgment step and stays the
 // session's. This is the split the claim re-offer wait was the first case of,
 // generalised to every wait the table marks `renders_gate_declaration: true` --
 // and it outlived that wait, which kogaki#1030 deleted.
@@ -11062,7 +11062,7 @@ switch (cmd) {
 
         // TWO OUTSTANDING RAISINGS OF ONE QUESTION: the hook writes NOTHING
         // and says so, rather than choosing. Choosing would be the silent
-        // misattribution the nonce exists to prevent, arriving one leg earlier
+        // misattribution the nonce exists to prevent, arriving one step earlier
         // through the narrowing that finds the pointer.
         const rdTwin2 = join(gs, "rd-twin-2");
         mkdirSync(rdTwin2, { recursive: true });
@@ -11404,7 +11404,7 @@ switch (cmd) {
       // ---- kogaki#918. The provenance clause was composed against EVERY pin,
       // including the typed literal `none` — so the absence of a pin rendered
       // as `pin DECLARED`, an absence asserted as a declaration, which is #892's
-      // own class one leg over and arrived in the change that closed it.
+      // own class one step over and arrived in the change that closed it.
       ok("a `none` pin renders no declaration: the report's judge line asserts nothing was declared and never says DECLARED",
         reportJudgeLine({ judge_pin: NO_JUDGE }, declared).startsWith("*Judge:* `none` —")
         && !/declared/i.test(reportJudgeLine({ judge_pin: NO_JUDGE }, declared))
@@ -11933,7 +11933,7 @@ switch (cmd) {
                                             the placements. Run it BEFORE composing --claims.
   cotags --survey F --tag T [--group G] [--claims F]
          [--subdivisions F --judge-model M --judge-effort E [--judge-binary-version V]] [--connective F]
-                                            the second navigation leg (the co-tag navigation leg) — narrows nothing.
+                                            the second navigation step (the co-tag navigation step) — narrows nothing.
                                             The heading carries the GroupID, Lesson count and
                                             member IDs, claim beneath (the display's serve rule v5); SubGroups
                                             where semantic subdivision's conditions bind (the SubGroup threshold). --claims and

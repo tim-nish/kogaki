@@ -8174,7 +8174,7 @@ async function runSelfTest() {
     ].join("\n") + "\n");
     writeFileSync(join(sMoves, "plain_move.md"), [
       "id: plain_move", "status: observed",
-      "intent: >-", "  carry the claim one leg further.",
+      "intent: >-", "  carry the claim one step further.",
       "requires: >-", "  the reader holds what the previous passage settled.",
       "effect: >-", "  the reader holds one more consequence.",
       "constraints: >-", "  never re-open what the earlier passage settled.",
@@ -8685,7 +8685,7 @@ async function runSelfTest() {
     mkdirSync(gMoves, { recursive: true });
     writeFileSync(join(gMoves, "plain_move.md"), [
       "id: plain_move", "status: observed",
-      "intent: >-", "  carry the claim one leg further.",
+      "intent: >-", "  carry the claim one step further.",
       "requires: >-", "  the reader holds what the previous passage settled.",
       "effect: >-", "  the reader holds one more consequence.",
       "constraints: >-", "  never re-open what the earlier passage settled.",

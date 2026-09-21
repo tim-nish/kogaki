@@ -257,9 +257,21 @@ prose name, `step_id` (now `leg_id`), the Step Packet (§4.14, now the Leg
 Packet), the `packet --step` argument (now `--leg`), and every heading and
 template that named it. **`draft.mjs section`'s subcommand name is untouched
 by this rename**, exactly as kogaki#825 left it standing through the Packet
-rename above — that decision is not reopened here. No stored Brief or Packet
-in this repository carries the retired keys, so no reader was written to
-accept both; this is a one-time rename with nothing left to migrate.
+rename above — that decision is not reopened here.
+
+**THE DISPOSITION FOR STORED BRIEFS AND PACKETS IS A ONE-TIME REWRITE, AND NO
+READER ACCEPTS BOTH KEYS.** Acceptance item 1 of kogaki#1177 is that no field
+carries the retired name, and a reader holding `step_id` open for one release
+is exactly such a field — so the two candidate dispositions were not equally
+available, and the rewrite is the only one consistent with the Issue that
+licensed the rename. The stored artifacts it applies to are **machine-local**:
+`theses/` is untracked and `runs/*` is gitignored (`runs/README.md` excepted),
+so the population is per checkout and no repository-wide claim about it is
+verifiable from a clone. **That is why the disposition is stated as an act
+rather than as an absence** — a run that found nothing to migrate and a run
+that never looked are indistinguishable from here, and the first draft of this
+note asserted the absence from a worktree `git worktree add` had not populated
+those paths into.
 
 - **`leg_id`** — the Leg's identity within this Brief.
 - **`move`** — a binding to a Move library entry (§7). **Required.**
@@ -2241,10 +2253,10 @@ which condition 4 names and bounds rather than claiming away:**
    naming the line. This is the condition that catches an out-of-order *first*
    record, which no per-record check can see.
 2. **Duplicate keys within a record are refused rather than resolved.**
-3. **After the strip leg, a record carries exactly §4.2's eight keys, plus at
+3. **After the strip step, a record carries exactly §4.2's eight keys, plus at
    most the optional `visual_form` — no more and no fewer.** The ordering
    matters: the excluded draft fields are stripped **first**, so their presence
-   routes to the strip leg rather than to a refusal. A record that absorbed its
+   routes to the strip step rather than to a refusal. A record that absorbed its
    neighbour's `status` leaves that neighbour with seven, and this condition
    catches it. **The widening is by NAME and by one (kogaki#876)**: a ninth key
    that is not `visual_form` is refused exactly as before, and so is a seventh —

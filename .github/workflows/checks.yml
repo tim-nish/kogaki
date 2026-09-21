@@ -19,7 +19,7 @@ jobs:
       # `pull-requests: read` was granted for check-review-report.sh's comment
       # read and went with it (kogaki#630, swept at kogaki#632). No registered
       # check reads a PR any more.
-    legs:
+    steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -29,7 +29,7 @@ jobs:
       # THE JA-LINT CHECK'S OWN PRECONDITION (kogaki#1162 acceptance item 1):
       # `checks/check-ja-lint.sh` asserts textlint, the technical-writing
       # preset and textlint-rule-prh are present and fails by name when they
-      # are not — this leg is what makes that assertion true on a fresh
+      # are not — this step is what makes that assertion true on a fresh
       # clone, from the committed lockfile, rather than the check installing
       # its own dependency.
       - name: Install npm dependencies (npm ci)
@@ -84,13 +84,13 @@ jobs:
   license-assertion:
     name: Change licensed by a named issue (deny-never-warn)
     runs-on: ubuntu-latest
-    legs:
+    steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       # The predicate lives in tools/assert-licensed.sh so it can be exercised
       # by cases (checks/check-license-assertion.sh) rather than only by
-      # pushing and reading the result — kogaki#905 acceptance 2. This leg
+      # pushing and reading the result — kogaki#905 acceptance 2. This step
       # gathers the event's facts and calls it; it decides nothing itself.
       - name: Assert a licensing issue is named
         env:
