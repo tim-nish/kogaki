@@ -2,7 +2,7 @@
 // lint-ja — the Japanese-realization Lint (kogaki#1158).
 //
 // THE OWNER'S MODEL (2026-09-19/20, kogaki#1158): a Japanese Draft is a
-// second realization of the same Brief Steps, generated from the Packet with
+// second realization of the same Brief Legs, generated from the Packet with
 // one added language block, never a translation of the reviewed English
 // Draft — translating from the reviewed Draft would make the later Reverse
 // Outlining evaluation target expand implicitly to cover two transformations
@@ -27,7 +27,7 @@
 // generation (src/draft.mjs `--lang ja`), and run as this Lint after. A
 // term-list change is a CORRECTION, never a regeneration — the owner does
 // not require the Draft to be uniquely reproducible, so re-deriving a Draft
-// from a moved list is not owed; only the Steps the Lint names are corrected.
+// from a moved list is not owed; only the Legs the Lint names are corrected.
 //
 // THE VERSIONING RULE: conformance is decided by the Lint against the
 // CURRENT list, never by what constrained generation. `terms_sha_at_lint`
@@ -52,10 +52,10 @@
 // implemented natively here — neither is a textlint rule's job, and no
 // package covers them.
 //
-// EVERY DEVIATION IS NAMED WITH ITS STEP, never a line number alone: a
-// deviation's Step id is read off the Draft's own frontmatter trace (the
-// same `step_id`/`lines` shape src/draft.mjs `emit` writes), so a correction
-// pass can act on named Steps without re-deriving which one a line belongs
+// EVERY DEVIATION IS NAMED WITH ITS LEG, never a line number alone: a
+// deviation's Leg id is read off the Draft's own frontmatter trace (the
+// same `leg_id`/`lines` shape src/draft.mjs `emit` writes), so a correction
+// pass can act on named Legs without re-deriving which one a line belongs
 // to.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -193,7 +193,7 @@ export function renderLanguageBlock(rules, terms_sha, lang) {
   const lines = [
     `## Language block (lang: ${lang})`,
     "",
-    "This Step is realized in Japanese. The term list below is the ONLY term carrier (terms/prh.yml) — ",
+    "This Leg is realized in Japanese. The term list below is the ONLY term carrier (terms/prh.yml) — ",
     "for each concept, the prescribed Japanese form and the variants that are forbidden in this Draft.",
     "",
     `_terms_sha: ${terms_sha}_`,
@@ -210,7 +210,7 @@ export function renderLanguageBlock(rules, terms_sha, lang) {
 // ---------------------------------------------------------------------------
 // Reading a Japanese Draft — the SAME frontmatter shape src/draft.mjs `emit`
 // writes (a `---`-delimited head, a `trace:` array of one-JSON-object-per-line
-// entries carrying `step_id` and `lines`), read the same way
+// entries carrying `leg_id` and `lines`), read the same way
 // src/review-draft.mjs's `readDraft` reads it: a line scan matching the
 // writer, never a general YAML parser.
 export function readJaDraft(text, path) {
@@ -239,13 +239,13 @@ export function readJaDraft(text, path) {
   return { path, text, lines, frontmatterEnd: end, fmText, body, trace, terms_sha_at_generation: genM ? genM[1] : null, terms_sha_at_lint: lintM ? lintM[1] : null };
 }
 
-// The Step a body line belongs to, from the trace's recorded `lines` spans
+// The Leg a body line belongs to, from the trace's recorded `lines` spans
 // (1-based, over the whole file, frontmatter included — the same convention
 // `emit` writes). A line outside every span names none, and the caller
 // states that rather than guessing.
-export function stepAtLine(trace, fileLine) {
+export function legAtLine(trace, fileLine) {
   for (const t of trace) {
-    if (Array.isArray(t.lines) && fileLine >= t.lines[0] && fileLine <= t.lines[1]) return t.step_id;
+    if (Array.isArray(t.lines) && fileLine >= t.lines[0] && fileLine <= t.lines[1]) return t.leg_id;
   }
   return null;
 }
@@ -269,19 +269,19 @@ function getTextlintLinter() {
 }
 
 // Every textlint finding — prh's and the preset's alike — is named with its
-// Step AND its rule id (acceptance item 4), read the same way every other
-// check here reads a Step: off the trace, by the file line the finding's
+// Leg AND its rule id (acceptance item 4), read the same way every other
+// check here reads a Leg: off the trace, by the file line the finding's
 // own (1-based, body-relative) line number resolves to.
 export async function checkTextlint(body, trace, bodyLineOffset) {
   const linter = await getTextlintLinter();
   const result = await linter.lintText(body, "draft.ja.md");
   return result.messages.map((m) => {
     const fileLine = m.line + bodyLineOffset;
-    const step = stepAtLine(trace, fileLine);
+    const leg = legAtLine(trace, fileLine);
     const message = m.message.replace(/\s*\n\s*/g, " ").trim();
     return {
-      step_id: step,
-      message: `${step ? `step ${step}` : "an unattributed line"}: [${m.ruleId}] ${message}`,
+      leg_id: leg,
+      message: `${leg ? `leg ${leg}` : "an unattributed line"}: [${m.ruleId}] ${message}`,
     };
   });
 }
@@ -331,24 +331,24 @@ export function checkStructureIdentity(jaBody, enBody, trace) {
   const findings = [];
   const jaH = headingsOf(jaBody), enH = headingsOf(enBody);
   if (jaH.length !== enH.length) {
-    findings.push({ step_id: null, message: `structure identity: the Japanese Draft renders ${jaH.length} Section heading(s) against the English Draft's ${enH.length} — both realize the same Brief Steps and the same Section grouping, so the counts must match` });
+    findings.push({ leg_id: null, message: `structure identity: the Japanese Draft renders ${jaH.length} Section heading(s) against the English Draft's ${enH.length} — both realize the same Brief Legs and the same Section grouping, so the counts must match` });
   } else {
     for (let i = 0; i < jaH.length; i++) {
       // A heading is compared by POSITION only, never by text — the two are
       // different languages by design. A missing heading (empty string) at a
       // position the English side carries one is what is named.
       if (jaH[i].trim() === "") {
-        findings.push({ step_id: null, message: `structure identity: Section heading ${i + 1} is empty in the Japanese Draft where the English Draft carries "${enH[i]}"` });
+        findings.push({ leg_id: null, message: `structure identity: Section heading ${i + 1} is empty in the Japanese Draft where the English Draft carries "${enH[i]}"` });
       }
     }
   }
   const jaFences = fencesOf(jaBody), enFences = fencesOf(enBody);
   if (jaFences !== enFences) {
-    findings.push({ step_id: null, message: `structure identity: the Japanese Draft carries ${jaFences} code fence(s) against the English Draft's ${enFences}` });
+    findings.push({ leg_id: null, message: `structure identity: the Japanese Draft carries ${jaFences} code fence(s) against the English Draft's ${enFences}` });
   }
   const jaLinks = linksOf(jaBody), enLinks = linksOf(enBody);
   if (jaLinks !== enLinks) {
-    findings.push({ step_id: null, message: `structure identity: the Japanese Draft carries ${jaLinks} link(s) against the English Draft's ${enLinks}` });
+    findings.push({ leg_id: null, message: `structure identity: the Japanese Draft carries ${jaLinks} link(s) against the English Draft's ${enLinks}` });
   }
   return findings;
 }
@@ -370,7 +370,7 @@ export function checkLanguageConfusion(body, trace, bodyLineOffset) {
   // one line once the scan is split on "\n", which drifts every later line's
   // attribution. Replacing character-by-character (newlines kept as
   // newlines, everything else turned to a space) keeps the line count, and
-  // so the line-index-based Step attribution below, intact.
+  // so the line-index-based Leg attribution below, intact.
   const blank = (m) => m.replace(/[^\n]/g, " ");
   let scan = body.replace(/^```[\s\S]*?^```[ \t]*$/gm, blank);
   scan = scan.replace(/`[^`]*`/g, blank);
@@ -382,10 +382,10 @@ export function checkLanguageConfusion(body, trace, bodyLineOffset) {
     const line = bodyLines[ln];
     for (const m of line.matchAll(LATIN_RUN)) {
       const fileLine = ln + 1 + bodyLineOffset;
-      const step = stepAtLine(trace, fileLine);
+      const leg = legAtLine(trace, fileLine);
       findings.push({
-        step_id: step,
-        message: `${step ? `step ${step}` : "an unattributed line"}: a Latin-script run outside code/inline-code/URLs — "${m[0].trim()}" — where Japanese prose is expected`,
+        leg_id: leg,
+        message: `${leg ? `leg ${leg}` : "an unattributed line"}: a Latin-script run outside code/inline-code/URLs — "${m[0].trim()}" — where Japanese prose is expected`,
       });
     }
     offset += line.length + 1;
@@ -406,7 +406,7 @@ export function checkLanguageConfusion(body, trace, bodyLineOffset) {
 export function checkStaleness(draft, currentSha) {
   const findings = [];
   if (!draft.terms_sha_at_generation) {
-    findings.push({ step_id: null, message: "staleness: the Draft carries no terms_sha_at_generation — it was not generated by src/draft.mjs --lang ja against a recorded term list" });
+    findings.push({ leg_id: null, message: "staleness: the Draft carries no terms_sha_at_generation — it was not generated by src/draft.mjs --lang ja against a recorded term list" });
   }
   return findings;
 }
@@ -435,7 +435,7 @@ export async function lintDraftJa({ jaText, jaPath, enBody, enPath, termsText })
     ...await checkTextlint(draft.body, draft.trace, bodyLineOffset),
     ...(enBody !== null
       ? checkStructureIdentity(draft.body, enBody, draft.trace)
-      : [{ step_id: null, message: `structure identity: no sibling English Draft found at ${enPath ?? "(unspecified)"} — the Japanese Draft's Section, fence and link structure cannot be checked against the Brief's declared structure without it` }]),
+      : [{ leg_id: null, message: `structure identity: no sibling English Draft found at ${enPath ?? "(unspecified)"} — the Japanese Draft's Section, fence and link structure cannot be checked against the Brief's declared structure without it` }]),
     ...checkLanguageConfusion(draft.body, draft.trace, bodyLineOffset),
     ...checkStaleness(draft, currentSha),
   ];
@@ -549,16 +549,16 @@ function readEnBody(enPath) {
 // CORRECTION, never a whole-Draft re-derivation.
 //
 // THE ORDER IS THE MECHANICAL FIX FIRST (acceptance item 4, kogaki#1162 item
-// 4): `fixPrhOnly` runs before this function ever asks the Lint which Steps
+// 4): `fixPrhOnly` runs before this function ever asks the Lint which Legs
 // still carry a deviation, so a deviation textlint's fixer can rewrite is
 // never spent on a model correction — it is simply gone by the time the
-// Steps are named.
+// Legs are named.
 //
 // WHAT THIS FUNCTION DOES NOT DO: it never invokes a model, and it never
-// touches a Step this pass did not name. Once the mechanical fix has run, the
-// Steps a subsequent Lint pass still names are exactly the Steps a model
+// touches a Leg this pass did not name. Once the mechanical fix has run, the
+// Legs a subsequent Lint pass still names are exactly the Legs a model
 // correction is owed for, and correcting THOSE is `src/review-draft.mjs
-// open --only-steps`'s job — a separate act, over the Round Trip's own
+// open --only-legs`'s job — a separate act, over the Round Trip's own
 // closed inputs, that this function only reports the way into.
 export async function correctTerms({ jaText, jaPath, enBody, enPath, termsText, termsPath }) {
   const before = readJaDraft(jaText, jaPath);
@@ -568,19 +568,19 @@ export async function correctTerms({ jaText, jaPath, enBody, enPath, termsText, 
   const afterFixText = fixApplied ? withBody(before, fixedBody) : jaText;
   const lintResult = await lintDraftJa({ jaText: afterFixText, jaPath, enBody, enPath, termsText });
   if (lintResult.error) return { error: lintResult.error };
-  // UNIQUE, SORTED, NON-NULL — a Step named twice (once per deviation) is
+  // UNIQUE, SORTED, NON-NULL — a Leg named twice (once per deviation) is
   // corrected once, an unattributed finding (structure identity, a missing
-  // sibling) names no Step and corrects nothing, and the order is stable so
-  // two runs over the same fixture report the same Steps in the same order.
-  const namedSteps = [...new Set(
-    (lintResult.findings || []).map((f) => f.step_id).filter((id) => id !== null),
+  // sibling) names no Leg and corrects nothing, and the order is stable so
+  // two runs over the same fixture report the same Legs in the same order.
+  const namedLegs = [...new Set(
+    (lintResult.findings || []).map((f) => f.leg_id).filter((id) => id !== null),
   )].sort();
   return {
     fixApplied,
     newText: afterFixText,
     clean: lintResult.clean,
     findings: lintResult.findings || [],
-    namedSteps,
+    namedLegs,
   };
 }
 
@@ -594,7 +594,7 @@ async function cmdCorrectTerms(args) {
     fail("correct-terms refuses --regenerate: the Terminology List Decision (top of this file) states a "
       + "term-list change is a CORRECTION, never a whole-Draft re-derivation — the owner does not require "
       + "the Draft to be uniquely reproducible, so re-deriving it from a moved term list is not owed. "
-      + "Only the Steps this pass names below are corrected.");
+      + "Only the Legs this pass names below are corrected.");
   }
   const jaPath = argString(args, "draft", usage);
   const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : DEFAULT_TERMS_PATH;
@@ -614,18 +614,18 @@ async function cmdCorrectTerms(args) {
     process.stdout.write(`lint-ja: correct-terms — the mechanical fix (kogaki#1162) rewrote ${jaPath} first, before the bounded correction\n`);
   }
 
-  if (r.namedSteps.length === 0) {
-    process.stdout.write(`lint-ja: correct-terms — nothing to correct: after the mechanical fix, Lint names no Step`
+  if (r.namedLegs.length === 0) {
+    process.stdout.write(`lint-ja: correct-terms — nothing to correct: after the mechanical fix, Lint names no Leg`
       + `${r.clean ? " (a clean pass)" : " (every remaining finding is unattributed)"}. `
       + "No model is invoked and the Round Trip is not re-entered.\n");
     for (const f of r.findings) process.stdout.write(`  - ${f.message}\n`);
     return;
   }
 
-  process.stdout.write(`lint-ja: correct-terms — Lint names ${r.namedSteps.length} Step(s) after the mechanical fix: ${r.namedSteps.join(", ")}.\n`
-    + "Re-enter the Round Trip scoped to exactly those Steps — no other Step is re-outlined, re-compared or re-realized, "
+  process.stdout.write(`lint-ja: correct-terms — Lint names ${r.namedLegs.length} Leg(s) after the mechanical fix: ${r.namedLegs.join(", ")}.\n`
+    + "Re-enter the Round Trip scoped to exactly those Legs — no other Leg is re-outlined, re-compared or re-realized, "
     + "and no whole-Draft regeneration is offered on this path (the Terminology List Decision):\n"
-    + `  node src/review-draft.mjs open --draft ${jaPath} --only-steps ${r.namedSteps.join(",")}\n`);
+    + `  node src/review-draft.mjs open --draft ${jaPath} --only-legs ${r.namedLegs.join(",")}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -646,9 +646,9 @@ async function runSelfTest() {
   const termsText = readFileSync(DEFAULT_TERMS_PATH, "utf8");
   const termsSha = sha256(termsText);
 
-  // (a) — idempotency AND Step attribution in one case: a fixture carrying a
+  // (a) — idempotency AND Leg attribution in one case: a fixture carrying a
   // forbidden term lints identically on two runs (no model invoked), and its
-  // one finding is attributed to the Step whose trace span covers the body
+  // one finding is attributed to the Leg whose trace span covers the body
   // line it sits on. The span is [8, 8] — the fixture's frontmatter is 6
   // lines (```` --- ```` through the closing ```` --- ````) plus one blank
   // line, so the body's first (and only) line is file line 8; a span of
@@ -660,7 +660,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       "このWebサイトはクリーンです。",
@@ -668,15 +668,15 @@ async function runSelfTest() {
     const enBody1 = "This site is clean.";
     const r1 = await lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: enBody1, termsText });
     const r2 = await lintDraftJa({ jaText: draft1, jaPath: "fixture.ja.md", enBody: enBody1, termsText });
-    ok("case (a): a fixture lints identically on two runs, and its finding is attributed to the Step whose trace span covers the body line",
+    ok("case (a): a fixture lints identically on two runs, and its finding is attributed to the Leg whose trace span covers the body line",
       r1.clean === false && r2.clean === false
       && r1.findings.length === r2.findings.length && r1.findings.length > 0
-      && r1.findings.every((f) => f.step_id === "s1") && r2.findings.every((f) => f.step_id === "s1")
+      && r1.findings.every((f) => f.leg_id === "s1") && r2.findings.every((f) => f.leg_id === "s1")
       && r1.findings.some((f) => f.message.includes("Webサイト")));
   }
 
   // (b) — acceptance item 2: a three-line code fence, then a forbidden
-  // Latin-script run, reports that run with the Step whose trace covers the
+  // Latin-script run, reports that run with the Leg whose trace covers the
   // line AFTER the fence — the line-attribution-after-a-fence defect (blanking
   // that collapsed the fence's newlines before checkLanguageConfusion split
   // on them).
@@ -686,8 +686,8 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [9, 11]}`,
-      `  - {"step_id": "s2", "lines": [12, 12]}`,
+      `  - {"leg_id": "s1", "lines": [9, 11]}`,
+      `  - {"leg_id": "s2", "lines": [12, 12]}`,
       "---",
       "",
       "```",
@@ -696,8 +696,8 @@ async function runSelfTest() {
       "This is a long English sentence for testing purposes.",
     ].join("\n");
     const r = await lintDraftJa({ jaText: draft2, jaPath: "fixture.ja.md", enBody: null, enPath: "theses/fixture/draft.md", termsText });
-    ok("case (b): a Latin-script run after a three-line code fence is attributed to the Step whose trace covers the line after the fence",
-      r.findings.some((f) => f.step_id === "s2" && f.message.includes("English sentence")));
+    ok("case (b): a Latin-script run after a three-line code fence is attributed to the Leg whose trace covers the line after the fence",
+      r.findings.some((f) => f.leg_id === "s2" && f.message.includes("English sentence")));
   }
 
   // (c) — acceptance item 1: a Japanese Draft with no English sibling is
@@ -710,7 +710,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       "これはクリーンな日本語の一文です。",
@@ -735,7 +735,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [7, 7]}`,
+      `  - {"leg_id": "s1", "lines": [7, 7]}`,
       "---",
       "",
       "これはクリーンな日本語の一文です。",
@@ -768,7 +768,7 @@ async function runSelfTest() {
       `terms_sha_at_generation: ${termsSha}`,
       `terms_sha_at_lint: ${stale}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [9, 9]}`,
+      `  - {"leg_id": "s1", "lines": [9, 9]}`,
       "---",
       "",
       "これはクリーンな日本語の一文です。",
@@ -803,7 +803,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       "これはクリーンな日本語の一文です。",
@@ -831,7 +831,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       "サーバーとアプリケーションを設定し、リポジトリへ実装した。",
@@ -843,7 +843,7 @@ async function runSelfTest() {
   }
 
   // (h) — acceptance item 4: a sentence over the preset's length bound (100
-  // characters) is named with its Step AND its rule id
+  // characters) is named with its Leg AND its rule id
   // (ja-technical-writing/sentence-length) — proof that the technical-
   // writing preset, and not only prh, is wired into the Lint.
   {
@@ -853,16 +853,16 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       longSentence,
     ].join("\n");
     const enBody8 = "This is a long Japanese sentence, repeated past the preset's length bound.";
     const r = await lintDraftJa({ jaText: draft8, jaPath: "fixture.ja.md", enBody: enBody8, termsText });
-    ok("case (h): a sentence over the preset's length bound is named with its Step and its rule id",
+    ok("case (h): a sentence over the preset's length bound is named with its Leg and its rule id",
       r.clean === false
-      && r.findings.some((f) => f.step_id === "s1" && f.message.includes("ja-technical-writing/sentence-length")));
+      && r.findings.some((f) => f.leg_id === "s1" && f.message.includes("ja-technical-writing/sentence-length")));
   }
 
   // (i) — acceptance item 5: `fix` runs textlint's fixer with ONLY the prh
@@ -876,7 +876,7 @@ async function runSelfTest() {
     const body9 = `${prhLine}\n${longSentence}`;
     const fixedBody = await fixPrhOnly(body9, DEFAULT_TERMS_PATH);
     const expectedBody = `リポジトリの操作について説明します。\n${longSentence}`;
-    const findingsAfter = await checkTextlint(fixedBody, [{ step_id: "s1", lines: [1, 2] }], 0);
+    const findingsAfter = await checkTextlint(fixedBody, [{ leg_id: "s1", lines: [1, 2] }], 0);
     ok("case (i): fix rewrites the prh-fixable term and changes no other byte; the preset finding in the same fixture is untouched",
       fixedBody === expectedBody
       && findingsAfter.some((f) => f.message.includes("ja-technical-writing/sentence-length"))
@@ -886,7 +886,7 @@ async function runSelfTest() {
   // (j) — acceptance item 2: a fixture whose only forbidden term sits inside
   // a code fence lints clean (textlint's Markdown parser checks text nodes
   // only, so a CodeBlock is outside the term scan by construction); the same
-  // term in prose, in a sibling fixture, is named with its Step. Regression
+  // term in prose, in a sibling fixture, is named with its Leg. Regression
   // form: PR #1159's native matcher scanned raw body text and could never
   // clear a fixture whose code sample happened to carry a forbidden term
   // (ja-lint-scan-scope).
@@ -896,7 +896,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [9, 11]}`,
+      `  - {"leg_id": "s1", "lines": [9, 11]}`,
       "---",
       "",
       "```",
@@ -911,7 +911,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       "serverを設定した。",
@@ -919,10 +919,10 @@ async function runSelfTest() {
     const enBody10b = "Configured the server.";
     const r10b = await lintDraftJa({ jaText: draft10b, jaPath: "fixture.ja.md", enBody: enBody10b, termsText });
 
-    ok("case (j): a forbidden term inside a code fence lints clean, and the same term in prose is named with its Step",
+    ok("case (j): a forbidden term inside a code fence lints clean, and the same term in prose is named with its Leg",
       r10a.clean === true && (r10a.findings || []).length === 0
       && r10b.clean === false
-      && r10b.findings.some((f) => f.step_id === "s1" && f.message.includes("server")));
+      && r10b.findings.some((f) => f.leg_id === "s1" && f.message.includes("server")));
   }
 
   // (k) — THE `fix` SUBCOMMAND'S OWN FILE PATH (PR #1167 round 1). Case (i)
@@ -943,7 +943,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
     ];
@@ -989,7 +989,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       "レポジトリを設定した。",
@@ -1002,12 +1002,12 @@ async function runSelfTest() {
     try {
       out12 = execFileSync(process.execPath, [self12, "lint", "--draft", jaPath12], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     } catch (e) { out12 = (e.stdout || "") + (e.stderr || ""); code12 = e.status ?? 1; }
-    ok("case (l): `lint` run from a directory other than the repository root still resolves the term list and names the prh finding with its Step",
+    ok("case (l): `lint` run from a directory other than the repository root still resolves the term list and names the prh finding with its Leg",
       code12 !== 0 && out12.includes("レポジトリ") && out12.includes("s1"));
   }
 
   // (m) — kogaki#1165 acceptance item 4 (the Removal Test): a fixture whose
-  // Lint names ZERO Steps — here, a clean Draft with nothing prh-fixable
+  // Lint names ZERO Legs — here, a clean Draft with nothing prh-fixable
   // either — leaves the Draft BYTE-IDENTICAL and `correctTerms` reports it had
   // nothing to correct. NO MODEL IS INVOKED: `correctTerms` is a pure function
   // of its inputs, the same as `lintDraftJa` and `fixPrhOnly` it composes.
@@ -1017,15 +1017,15 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       "これはクリーンな日本語の一文です。",
     ].join("\n");
     const enBodyM = "This is a clean Japanese sentence.";
     const r = await correctTerms({ jaText: draftM, jaPath: "fixture.ja.md", enBody: enBodyM, enPath: "theses/fixture/draft.md", termsText, termsPath: DEFAULT_TERMS_PATH });
-    ok("case (m): a fixture whose Lint names zero Steps leaves the Draft byte-identical, with nothing to correct and no model invoked",
-      r.fixApplied === false && r.namedSteps.length === 0 && r.newText === draftM);
+    ok("case (m): a fixture whose Lint names zero Legs leaves the Draft byte-identical, with nothing to correct and no model invoked",
+      r.fixApplied === false && r.namedLegs.length === 0 && r.newText === draftM);
 
     // AND THE SAME THING THROUGH THE CLI (PR #1169 round 1). The assertion
     // above reads `correctTerms`'s RETURN VALUE, so `cmdCorrectTerms`'s own
@@ -1051,21 +1051,21 @@ async function runSelfTest() {
       /nothing to correct/.test(outM));
   }
 
-  // (n) — kogaki#1165 acceptance items 1 and 2: a three-Step fixture whose
-  // Lint names exactly two Steps (a Latin-script run on s1 and s2, neither
+  // (n) — kogaki#1165 acceptance items 1 and 2: a three-Leg fixture whose
+  // Lint names exactly two Legs (a Latin-script run on s1 and s2, neither
   // prh-fixable) corrects those two and no other — `correctTerms` names s1
-  // and s2 and nothing about s3. The Round Trip half of item 2 (that a Step
+  // and s2 and nothing about s3. The Round Trip half of item 2 (that a Leg
   // NOT named is never re-outlined or re-compared) is asserted where the
-  // Round Trip lives, at src/review-draft.mjs `open --only-steps`.
+  // Round Trip lives, at src/review-draft.mjs `open --only-legs`.
   {
     const draftN = [
       "---",
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [10, 10]}`,
-      `  - {"step_id": "s2", "lines": [11, 11]}`,
-      `  - {"step_id": "s3", "lines": [12, 12]}`,
+      `  - {"leg_id": "s1", "lines": [10, 10]}`,
+      `  - {"leg_id": "s2", "lines": [11, 11]}`,
+      `  - {"leg_id": "s3", "lines": [12, 12]}`,
       "---",
       "",
       "This is a long English sentence for testing purposes.",
@@ -1074,8 +1074,8 @@ async function runSelfTest() {
     ].join("\n");
     const enBodyN = ["English sentence one.", "English sentence two.", "English sentence three."].join("\n");
     const r = await correctTerms({ jaText: draftN, jaPath: "fixture.ja.md", enBody: enBodyN, enPath: "theses/fixture/draft.md", termsText, termsPath: DEFAULT_TERMS_PATH });
-    ok("case (n): a fixture whose Lint names two Steps corrects those two Steps and no other",
-      r.fixApplied === false && r.namedSteps.join(",") === "s1,s2");
+    ok("case (n): a fixture whose Lint names two Legs corrects those two Legs and no other",
+      r.fixApplied === false && r.namedLegs.join(",") === "s1,s2");
   }
 
   // (o) — kogaki#1165 acceptance item 4 (the ordering): the mechanical fix
@@ -1090,8 +1090,8 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [9, 9]}`,
-      `  - {"step_id": "s2", "lines": [10, 10]}`,
+      `  - {"leg_id": "s1", "lines": [9, 9]}`,
+      `  - {"leg_id": "s2", "lines": [10, 10]}`,
       "---",
       "",
       "レポジトリの操作について説明します。",
@@ -1099,10 +1099,10 @@ async function runSelfTest() {
     ].join("\n");
     const enBodyO = ["A sentence about repository operations.", "English sentence two."].join("\n");
     const r = await correctTerms({ jaText: draftO, jaPath: "fixture.ja.md", enBody: enBodyO, enPath: "theses/fixture/draft.md", termsText, termsPath: DEFAULT_TERMS_PATH });
-    ok("case (o): the mechanical fix rewrites the prh-fixable Step first, so only the Step it could not clear is named",
+    ok("case (o): the mechanical fix rewrites the prh-fixable Leg first, so only the Leg it could not clear is named",
       r.fixApplied === true && r.newText.includes("リポジトリの操作について説明します。")
       && !r.newText.includes("レポジトリの操作について説明します。")
-      && r.namedSteps.join(",") === "s2");
+      && r.namedLegs.join(",") === "s2");
   }
 
   // (p) — kogaki#1165 acceptance item 3: `correct-terms --regenerate` refuses
@@ -1117,7 +1117,7 @@ async function runSelfTest() {
       "brief: brief.md",
       `terms_sha_at_generation: ${termsSha}`,
       "trace:",
-      `  - {"step_id": "s1", "lines": [8, 8]}`,
+      `  - {"leg_id": "s1", "lines": [8, 8]}`,
       "---",
       "",
       "これはクリーンな日本語の一文です。",

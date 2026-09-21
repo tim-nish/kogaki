@@ -15,9 +15,9 @@
 //   the judgment rule
 //       SPEC-draft-pipeline "Every MUST is judgment, and nothing becomes a lint"
 //   the revise pass
-//       SPEC-draft-pipeline "The Bridge Step and the revise pass"
+//       SPEC-draft-pipeline "The Bridge Leg and the revise pass"
 //   the five review areas
-//       SPEC-draft-pipeline "What a Step claims, and the `entailed` flag",
+//       SPEC-draft-pipeline "What a Leg claims, and the `entailed` flag",
 //       "The grounds test — the observable form of describe-never-generate",
 //       "Semantic economy — what binds Move AUTHORING", "Journey integrity —
 //       the arc, not the layout", and the judgment rule
@@ -82,7 +82,7 @@ const VERDICT_KEYS = new Set(["verdict", "pass", "fail", "passed", "failed",
 
 // ---------------------------------------------------------------------------
 // The revise-round ledger (kogaki#894). [see: SPEC-draft-pipeline "The Bridge
-// Step and the revise pass"]
+// Leg and the revise pass"]
 //
 // The revise pass, copied: "The loop is bounded at one revise round per
 // Candidate; a gap
@@ -94,24 +94,24 @@ export const MAX_ATTACHES = REVISE_BOUND + 1;
 
 // ---------------------------------------------------------------------------
 // CLOSURE'S REVISE ARMS (kogaki#1151). [see: SPEC-draft-pipeline "The Bridge
-// Step and the revise pass"] When a Candidate is sent back to path
+// Leg and the revise pass"] When a Candidate is sent back to path
 // composition once, the Arms are declared explicitly by the Harness, one
 // chosen per open Closure row — so that ownership of what a revise CAN DO is
 // never handed to the Model. The Model is free to choose which Arm applies to
 // a given row; it may not define the Arms themselves, which is the property
 // this closed set exists to hold.
 export const REVISE_ARMS = {
-  "insert-step": "insert a Step that discharges the row (the Bridge Step insertion contract)",
-  "amend-step": "amend an existing Step so it discharges the row",
-  "concede": "concede the row at a named Step",
-  "amend-introduction": "amend the introducing Step so the promise is not made and the row is not raised",
+  "insert-leg": "insert a Leg that discharges the row (the Bridge Leg insertion contract)",
+  "amend-leg": "amend an existing Leg so it discharges the row",
+  "concede": "concede the row at a named Leg",
+  "amend-introduction": "amend the introducing Leg so the promise is not made and the row is not raised",
 };
 
 // Pure; exported for the check. `openRows` is the snapshot of open Closure
 // rows taken at the FIRST attach (the ledger's own `open_rows`, never a
 // caller-recomputed value — the round this validates is the one the ledger
 // counted); `arms` is the reply's own `revise_arms`, one entry per open row:
-// `{ text, introduced_by, arm, steps }`. Returns a refusal string or null.
+// `{ text, introduced_by, arm, legs }`. Returns a refusal string or null.
 export function reviseArmRefusal(openRows, arms) {
   if (!Array.isArray(openRows) || openRows.length === 0) return null;
   if (!Array.isArray(arms)) {
@@ -130,10 +130,10 @@ export function reviseArmRefusal(openRows, arms) {
         + `one of the four declared Arms (${Object.keys(REVISE_ARMS).join(", ")}) — the Harness declares `
         + `the Arms and the Model chooses among them, never defines its own`;
     }
-    if (!Array.isArray(applied.steps) || applied.steps.length === 0
-        || applied.steps.some((s) => typeof s !== "string" || s === "")) {
+    if (!Array.isArray(applied.legs) || applied.legs.length === 0
+        || applied.legs.some((s) => typeof s !== "string" || s === "")) {
       return `open Closure row ${JSON.stringify(row.text)}: its Arm ${JSON.stringify(applied.arm)} names no `
-        + `Steps — each Arm names the Steps it touches`;
+        + `Legs — each Arm names the Legs it touches`;
     }
   }
   return null;

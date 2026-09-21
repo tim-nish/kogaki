@@ -13,7 +13,7 @@
 # a template Brief refuses by field name; a foreign Strand refuses by name
 # with the closed set quoted, at material and in section prose alike; the
 # Reader Path is realized in its recorded order however sections arrive;
-# emit refuses short of completion naming the owed steps; the CanonicalDraft
+# emit refuses short of completion naming the owed legs; the CanonicalDraft
 # lands under its fixed human name with the record half in frontmatter,
 # `generated_by` immutable across overwrites; the trace renders no visible
 # structure in the body; and the owner tree gains exactly the artifact while
@@ -22,7 +22,7 @@
 # NOT CARRIED HERE, stated rather than implied: cite RESOLUTION — that is the
 # citation resolve check (story 1.81), the sole mechanical instrument on
 # grounding (§6) — and every judgment about the prose itself, which §6 puts
-# on the Step or the judgment realizing it, never on this harness.
+# on the Leg or the judgment realizing it, never on this harness.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 

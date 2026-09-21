@@ -34,23 +34,23 @@ than merely discouraged.
 
 ## What you are the only control over — read this before diagnosing a defect
 
-**Every Step field reaching you is LLM-authored with no harness** (kogaki#549,
+**Every Leg field reaching you is LLM-authored with no harness** (kogaki#549,
 verified 2026-08-19). `purpose`, `rationale`, `reader_state_before/after`, the
 claims, `entailed` and its reasoning are all written wholesale by the
 composing sitting under the spec's policy prose. There is **no per-field input
 specification, no field-level prose contract, and no mechanism holding declared
 inputs in state while a field is generated.**
 
-The only mechanical control is `validateSteps` in `src/compose.mjs`, and it
+The only mechanical control is `validateLegs` in `src/compose.mjs`, and it
 is SHAPE-ONLY: field presence and type, every claim naming its Strand, claims
 and materials inside the Brief's closed set, `entailed` requiring reasoning, and
 `bridges` naming two ids. **No content conformance is checked anywhere but
 here.**
 
-Step-to-Step connection is deliberately weaker than it was — only `depends_on`
+Leg-to-Leg connection is deliberately weaker than it was — only `depends_on`
 and reader-state continuity that nothing verifies. A claim is one proposition derived
-from a Strand and nothing else (kogaki#1095), so the `step_effect` claim that
-used to name an earlier Step's effect is gone: inherited state is carried by
+from a Strand and nothing else (kogaki#1095), so the `leg_effect` claim that
+used to name an earlier Leg's effect is gone: inherited state is carried by
 `reader_state_before` and by the computed `already knows` ledger, which are the
 two places to read it from.
 
@@ -63,17 +63,17 @@ dogfood failure (kogaki#549, owner ruling).
 
 ## The MUSTs you apply, per Candidate — each as judgment
 
-1. **The grounds test**, output key `rationale_stands`. For each Step: delete the Move
-   name from the rationale. Does what remains stand on the Step's claims — each
+1. **The grounds test**, output key `rationale_stands`. For each Leg: delete the Move
+   name from the rationale. Does what remains stand on the Leg's claims — each
    of them one proposition derived from a Strand, and nothing else
    (kogaki#1095)? A named
-   earlier Step's effect and a declared reader assumption were claims and
+   earlier Leg's effect and a declared reader assumption were claims and
    are not: inherited state is `reader_state_before`'s and the computed
    already-knows ledger's, and a reader premise is the Brief's Reader
-   start's. Write what you find: which Steps stand, which read
+   start's. Write what you find: which Legs stand, which read
    Move-first, and why. The observable defect is a rationale that cannot
    be stated without naming the Move.
-2. **Entailment.** For each Step flagged `entailed`: read its
+2. **Entailment.** For each Leg flagged `entailed`: read its
    entailment reasoning and say whether the reading is semantic
    reconstruction (allowed — the absence of a rhetorical label in the
    source does not block a reading) or unsupported completion (prohibited).
@@ -83,14 +83,14 @@ dogfood failure (kogaki#549, owner ruling).
    pre-selected Move; no general-knowledge bridging; and **a Move never
    creates or broadens the premise for its own applicability** — the
    self-justifying case, the one a composer reaches for under pressure.
-   Name any Step where you judge one of these present, and say which.
+   Name any Leg where you judge one of these present, and say which.
 4. **Semantic economy for in-place Move edits.** Only where the
    Candidate edits a Move in place: apply the five-warrant sentence test
    as judgment. The removal test is never mechanized — nothing becomes a lint, and that
    exists for that sentence specifically.
 5. **Journey arc integrity.** The three permissive clauses are as
    load-bearing as the constraint: claims project freely into multiple
-   Steps; a Journey need not stay contiguous; Strand boundaries are
+   Legs; a Journey need not stay contiguous; Strand boundaries are
    provenance, never layout. What must survive rearrangement is the arc's
    causality — initial understanding → turning point → outcome, never
    reversed or severed. Say whether each Journey's arc survives this
@@ -111,7 +111,7 @@ dogfood failure (kogaki#549, owner ruling).
    a judgment about faithfulness that no field can hold.
 
    **What is NOT yours here:** whether the journey material was placed at
-   all. That is mechanical and already derived from the composed steps —
+   all. That is mechanical and already derived from the composed legs —
    it rides each Candidate as `journey_coverage` evidence. Read it; do not
    recompute it, and do not treat a disclosed omission as a defect: the journey-register rule
    makes place-or-disclose the requirement, and a Candidate that places
@@ -132,8 +132,8 @@ One entry per Candidate, every field non-empty prose:
 ```json
 {
   "<candidate_id>": {
-    "rationale_stands": "…per-Step reasoning…",
-    "entailment": "…or 'no Step is flagged entailed' — an observation, not a default…",
+    "rationale_stands": "…per-Leg reasoning…",
+    "entailment": "…or 'no Leg is flagged entailed' — an observation, not a default…",
     "prohibitions": "…what you looked for and what you found…",
     "semantic_economy": "…or 'no Move is edited in place in this Candidate'…",
     "arc_integrity": "…per-Journey reasoning…",
@@ -164,7 +164,7 @@ of what this agent was implemented against, not a live read of the spec: they
 stay binding for this agent even if the spec is rewritten or deleted, and
 propagating a later spec change into this file is a separate, explicit act.
 `[implemented-against: SPEC-draft-pipeline "Every MUST is judgment, and nothing
-becomes a lint", "What a Step claims, and the `entailed` flag", "The grounds
+becomes a lint", "What a Leg claims, and the `entailed` flag", "The grounds
 test — the observable form of describe-never-generate", "Semantic economy — what
 binds Move AUTHORING", "Journey integrity — the arc, not the layout", "Reader
 Path is the ARTIFACT; the five blocks are the workflow" and "Journey register is

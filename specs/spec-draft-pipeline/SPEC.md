@@ -1,4 +1,4 @@
-# SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
+# SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
 **Status:** v38, amended 2026-09-14 (kogaki#1116) — **§5.3: BRIEF TAKES ITS
 STRAND SET ON THE COMMAND LINE AND READS NO TERRAIN RUN.** The arguments are
@@ -54,7 +54,7 @@ gate offers a free-text channel and the capture act accepts one, so the answer
 was reachable while adoption had no branch for it — it fell through to the id
 match and told an owner who typed their own words that they had selected a
 candidate named `undefined`. The disposition is now chosen rather than
-inherited from the matcher: a Candidate is a composed sequence of Steps with
+inherited from the matcher: a Candidate is a composed sequence of Legs with
 Move bindings, so there is no Reader Path in prose to adopt and the runtime
 composes none. The refusal quotes the owner's words back and routes to
 `none-of-these` or to a re-raised gate. A CASE in `check-brief-compose`, never
@@ -62,13 +62,13 @@ a member, so no admission record is owed. **deferred slots minted by this
 amendment: none.**
 
 **Status:** v34, amended 2026-09-06 (kogaki#878) — **§4.17: the figure record,
-the instance of the Move's form, filled AFTER the Step's prose.** §4.16 landed
+the instance of the Move's form, filled AFTER the Leg's prose.** §4.16 landed
 the Brief's figure decision and its grammar, and nothing on the realization side
 read it — a Brief could declare a figure perfectly and the Draft would render
-none, with every check green. The record is filled from the Step's Packet plus
+none, with every check green. The record is filled from the Leg's Packet plus
 one appended block and from nothing else, its kind is the form's, and each
 element is bound to the claim **the Brief** bound that role to; `emit` refuses
-while a figure-carrying Step owes its record, exactly as it refuses a Step that
+while a figure-carrying Leg owes its record, exactly as it refuses a Leg that
 owes its prose. The mechanical half is validated and the wording is judged
 nowhere, per §4.6. **deferred slots minted by this amendment: none.**
 
@@ -199,7 +199,7 @@ a later sitting widens by convenience if nothing states it.
 | gate | state |
 | --- | --- |
 | thesis | **bound** — §3 |
-| journey incorporation | **bound** — Journeys are admissible step materials (§4), §4.8 binds arc integrity, and the register choice rides Candidate differentiation (§6.1). **No incorporation gate is registered, and none is owed.** |
+| journey incorporation | **bound** — Journeys are admissible leg materials (§4), §4.8 binds arc integrity, and the register choice rides Candidate differentiation (§6.1). **No incorporation gate is registered, and none is owed.** |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6 |
 | plain register with round-trip concessions | **bound** — `src/packet-template.md` carries the operational instruction the model reads at generation; `specs/spec-brief-draft-design/DESIGN.md` §4 carries its ground. The surface-shape half is §5.1.3. |
 
@@ -229,51 +229,68 @@ in principle can still omit in fact.
 distinguishes a Thesis read from Terrain from one the composer wrote, so the
 rule cannot be a validation and has to be a stated prohibition.
 
-## 4. A Step, the Move it binds, and what neither may be
+## 4. A Leg, the Move it binds, and what neither may be
 
-**Two shapes, not one.** The Brief's structure section is a sequence of Steps;
-a Step **binds** a Move from the library (§7). A Step and a Move are separate
-types and **binding changes the type of neither**. A Step is *this article's*
+**Two shapes, not one.** The Brief's structure section is a sequence of Legs;
+a Leg **binds** a Move from the library (§7). A Leg and a Move are separate
+types and **binding changes the type of neither**. A Leg is *this article's*
 sequence element, authored per article and discarded with it; a Move is a
 durable, source-specific precedent that outlives any one article. Collapsing
-them makes every Move an article's private property and every Step a library
+them makes every Move an article's private property and every Leg a library
 entry, which is neither.
 
 `necessity:` a type distinction with no runtime representation — nothing in the
 records forces it, and the collapse is a convenience that reads as tidiness.
 
-### 4.1 The Step — the Brief's sequence element
+### 4.1 The Leg — the Brief's sequence element
 
-- **`step_id`** — the Step's identity within this Brief.
+**RENAMED FROM "THE STEP" (kogaki#1177), and the rename is recorded rather
+than left to a reader who remembers the old name.** The Move concept is
+recorded as following Swales' move analysis, where a Move is **realized by**
+one or more Steps; kogaki's binding ran the other way, one Step binding one
+Move, so the two usages were inverted and a reader who knew the source read
+the hierarchy backwards. Leg carries no meaning in Swales, in the knowledge
+hub, or elsewhere in kogaki, and is one segment of the route a traveler
+covers — which is what this element is on the Reader Path. The owner chose
+it over Beat and Turn. The rename lands at every carrier in one act: the
+prose name, `step_id` (now `leg_id`), the Step Packet (§4.14, now the Leg
+Packet), the `packet --step` argument (now `--leg`), and every heading and
+template that named it. **`draft.mjs section`'s subcommand name is untouched
+by this rename**, exactly as kogaki#825 left it standing through the Packet
+rename above — that decision is not reopened here. No stored Brief or Packet
+in this repository carries the retired keys, so no reader was written to
+accept both; this is a one-time rename with nothing left to migrate.
+
+- **`leg_id`** — the Leg's identity within this Brief.
 - **`move`** — a binding to a Move library entry (§7). **Required.**
 - **`materials`** — which Strands, which Journeys, the Thesis, a reader
-  premise, or `constructed_material` it works on. **Many-to-many** with Steps.
+  premise, or `constructed_material` it works on. **Many-to-many** with Legs.
   The reader premise is the Brief's **Reader start**, named here in words
   rather than by the retired `reader_assumption` token: that token was a
   CLAIM type, it left the grammar at §4.4, and leaving it standing as this
   field's one surviving use would hand a reader a term with nothing left
   defining it (kogaki#1095).
-- **`purpose`** — what the Step does to the reader.
+- **`purpose`** — what the Leg does to the reader.
 - **`reader_state_before`** / **`reader_state_after`**.
-- **`depends_on`** — the earlier Steps whose conclusions this Step stands on.
-- **`rationale`** — why *this article's* materials make this the next Step.
+- **`depends_on`** — the earlier Legs whose conclusions this Leg stands on.
+- **`rationale`** — why *this article's* materials make this the next Leg.
 - **`introduces`** — optional; §4.13.
 - **`bridges`** — optional; §4.11.
 - **`opens_section`** — optional; §4.15.
 - **`figure`** and **`figure_roles`** — optional, and they travel together; §4.16.
   The record the pair eventually produces is §4.17's.
 
-**Why `move` is required.** `Step = Input + State`. The inputs are the Strands,
-the Thesis and previous Step output; **the Move is the State**, and
+**Why `move` is required.** `Leg = Input + State`. The inputs are the Strands,
+the Thesis and previous Leg output; **the Move is the State**, and
 `reader_state_before`/`after` are that framework's result. So `move` is not a
 candidate carrier for some property that could be delivered another way — it is
-what a Step is made of, and a Step without one has no defined reader-state
+what a Leg is made of, and a Leg without one has no defined reader-state
 transition type rather than an undertested one.
 
-The shape is enforced by `validateSteps` in `src/compose.mjs`, so a Move-less
-Step is unwritable rather than discouraged.
+The shape is enforced by `validateLegs` in `src/compose.mjs`, so a Move-less
+Leg is unwritable rather than discouraged.
 
-**Reopen trigger.** The declined `move: none` arm — every Step declaring either
+**Reopen trigger.** The declined `move: none` arm — every Leg declaring either
 a library entry or a typed absence with a reason — costs nothing while no
 untypeable transition has been observed. **The first genuine transition that
 cannot be typed against the library, forcing a filler entry minted only to
@@ -281,7 +298,7 @@ satisfy the validator, re-costs that arm**, as its own fork, one instance,
 never a silent skip.
 
 `necessity:` the field list is enforced by a carrier; what is not is *why* the
-Move is mandatory, which is a claim about what a Step is. Deleting the reason
+Move is mandatory, which is a claim about what a Leg is. Deleting the reason
 leaves the requirement looking like an arbitrary strictness, which is how it
 gets relaxed.
 
@@ -302,10 +319,10 @@ clause under its own issue, and condition 3 refuses every key this clause does
 not name.
 
 **Moves ↔ Strands are many-to-many.** A Move may bind no Strand, several, a
-Journey, the Thesis, or an earlier Step's conclusion.
+Journey, the Thesis, or an earlier Leg's conclusion.
 
-**Names describe, never generate.** A Step may carry a descriptive name,
-written **after** the Step is composed: admissible in a Candidate's
+**Names describe, never generate.** A Leg may carry a descriptive name,
+written **after** the Leg is composed: admissible in a Candidate's
 *rendering*, inadmissible in the material that *produces* it. A `move` binding
 is not a name read before a rationale — the rationale is authored from this
 article's materials, and the binding records which durable precedent that
@@ -314,8 +331,8 @@ then wrote a rationale to fit it has generated from a name.** The order is the
 invariant, not the vocabulary's absence.
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:13`
 
-**Deliberately absent from the Step's shape**, each because it would be the
-generating half in another costume: any **adjacency table** of which Step may
+**Deliberately absent from the Leg's shape**, each because it would be the
+generating half in another costume: any **adjacency table** of which Leg may
 follow which, any **fit rule** proposing a shape from the material, and any
 `material_roles` typing of what a material is *for*. A stored flowchart is the
 declined article-framework menu one level down.
@@ -326,7 +343,7 @@ is exactly why §4.5 has to make it observable.
 
 ### 4.3 Reader Path is the ARTIFACT; the five blocks are the workflow
 
-**Reader Path names the artifact only** — the ordered sequence of Steps inside
+**Reader Path names the artifact only** — the ordered sequence of Legs inside
 one Candidate. The workflow blocks have their own fixed names:
 
     path composition → Move binding → Candidate assembly → Path Review → Candidate selection
@@ -345,31 +362,31 @@ is a rule with no occasion, and the occasion is the scarce resource. **Where
 this spec states an obligation without naming its block, the obligation is
 defective, not merely unhomed.**
 
-A Strand may support multiple Steps and is never consumed by first use.
+A Strand may support multiple Legs and is never consumed by first use.
 
 `necessity:` a vocabulary rule plus a self-binding completeness test. Nothing
 executes "every MUST names its judge", and this spec has already failed it
 against itself once (§5.1.1), which is the argument for keeping it stated.
 
-### 4.4 What a Step claims, and the `entailed` flag
+### 4.4 What a Leg claims, and the `entailed` flag
 
-**A claim is the one proposition a Step asserts on behalf of one Strand, for
+**A claim is the one proposition a Leg asserts on behalf of one Strand, for
 this reader at this point in the path** (owner ruling, 2026-09-13; kogaki#1113).
-A Step's `claims` are **specific propositions**, each traceable to sentences in
+A Leg's `claims` are **specific propositions**, each traceable to sentences in
 the material and each naming the Strand it is asserted on behalf of.
 
 **The claim is what is asserted; its ground is the pinned Lesson.** In Toulmin's
 layout the *claim* is what is asserted and the *ground* is the data it rests on,
 and the field carried claims under the name of their evidence until 2026-09-13 —
 which is why it read two ways across its life, sometimes as the Lesson's own
-Claim sentence and sometimes as prose already transformed for the Step. The
+Claim sentence and sometimes as prose already transformed for the Leg. The
 ground is held as an **address** in the Brief's Strands section and is **never
-copied**: the Step Packet renders the Step's claims and no Lesson text, which is
+copied**: the Leg Packet renders the Leg's claims and no Lesson text, which is
 what keeps *assert nothing beyond* checkable, and the Lesson's original Claim
 sentence stays at the pin.
 
 **The field belongs to the Brief because Document Planning is content
-determination.** Three mechanisms read the Brief's decision about what each Step
+determination.** Three mechanisms read the Brief's decision about what each Leg
 says as their declared side: Path Review's entailment and arc checks over the
 sequence of assertions, the grounds test of §4.5, and Reverse Outlining's
 comparison of what the passage asserts against what the Brief declared. A Brief
@@ -377,7 +394,7 @@ holding only addresses and purposes would defer content to Draft, which has the
 least context in the pipeline, and would leave all three without a declared
 side.
 
-**The boundary against the Step's other fields is one of grammatical kind.**
+**The boundary against the Leg's other fields is one of grammatical kind.**
 `purpose` is a verb about the reader and contains no proposition from the
 material; a **claim is a proposition about the world and names no reader**;
 `reader_state_after` is the reader's condition afterwards; `rationale` is the
@@ -386,28 +403,28 @@ true or false of the world, is in the wrong field.
 
 **A Lesson and a Journey are not treated alike, and the asymmetry is the
 principle.** A Lesson's Claim is a proposition, its transformation into this
-Step's claim is the planning decision, and the Brief carries the result; a
+Leg's claim is the planning decision, and the Brief carries the result; a
 Journey is a narrative, its telling depends on the Move and the prior prose, and
 the Brief carries only its address and its use (kogaki#1111).
 
 **The set was three, and the two that left are named with where their content
-belongs.** A `step_effect` entry was inherited reader state and a
-`reader_assumption` entry was a presupposed premise; the Step Packet renders
-every claim under one instruction — *these are what this Step may assert* — and
-neither of those is an assertion, so a passage that realizes its Step correctly
+belongs.** A `leg_effect` entry was inherited reader state and a
+`reader_assumption` entry was a presupposed premise; the Leg Packet renders
+every claim under one instruction — *these are what this Leg may assert* — and
+neither of those is an assertion, so a passage that realizes its Leg correctly
 never states them and the Blind Reader, asked for one line per thing the passage
 asserts, never recovers them. The first full review run failed `claims-unused`
-on 8 of 8 Steps against premise-type entries alone: a comparison whose declared
+on 8 of 8 Legs against premise-type entries alone: a comparison whose declared
 side carries a category its reverse side cannot produce measures nothing.
 **Inherited state stays where it already lives** — `reader_state_before` and the
 computed `already knows` ledger, which were already carrying it twice over — and
 **a reader premise belongs to the Brief's Reader start**.
 
 **One claim per Strand named in `materials`**, and a Strand that serves several
-Steps carries a **different** claim in each — that is what makes the path a
+Legs carries a **different** claim in each — that is what makes the path a
 sequence rather than a restatement.
 
-**The carrier is `validateSteps` in `src/compose.mjs`**, which holds the type
+**The carrier is `validateLegs` in `src/compose.mjs`**, which holds the type
 set, the one-per-Strand refusal and the `claim (strand L<n>): <proposition>`
 serialization together. That is what makes a non-Strand claim **unwritable**
 rather than discouraged: removing this spec and the brief skill from the tree
@@ -427,7 +444,7 @@ its own applicability** — the self-justifying case, which is the one a compose
 reaches for under pressure.
 
 **When information is unavailable there are exactly three moves — omit the
-Step, revise the path, or leave the Strand unused** — and inventing material is
+Leg, revise the path, or leave the Strand unused** — and inventing material is
 not among them. Judged at **Path Review**.
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:17`
 
@@ -437,13 +454,13 @@ one; only a reader holding the material can.
 
 ### 4.5 The grounds test — the observable form of describe-never-generate
 
-The composition order is **Strand information → concrete Step reasoning → Move
+The composition order is **Strand information → concrete Leg reasoning → Move
 binding**, and the order is **invisible in the finished Brief**: a Move-first
 and a grounds-first composition can produce identical text. So the invariant is
 carried by a test on the artifact rather than by a claim about how it was made.
 
-**Delete the Move name from the Step's rationale. If what remains does not
-stand on its grounds, the Step was composed Move-first.** Judged at **path
+**Delete the Move name from the Leg's rationale. If what remains does not
+stand on its grounds, the Leg was composed Move-first.** Judged at **path
 review**.
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:16`
 
@@ -492,7 +509,7 @@ one — and the pressure to add it arrives precisely when a rule looks decidable
   materials an article must supply.
 
 **Reader states are article-specific propositions, never a global list**, and
-the concrete before/after states live **only on the Step**. A Move carrying its
+the concrete before/after states live **only on the Leg**. A Move carrying its
 own before/after states is a global vocabulary growing quietly.
 
 **Literature-derived Moves enter as `observed` or `generalized`, never
@@ -512,9 +529,9 @@ would otherwise be the obvious carrier.
 
 ### 4.8 Journey integrity — the arc, not the layout
 
-- **A Lesson's claims and evidence project freely into multiple Steps.** No
+- **A Lesson's claims and evidence project freely into multiple Legs.** No
   budget, no once-per-Strand rule.
-- **A Journey may support multiple Steps and NEED NOT STAY CONTIGUOUS.**
+- **A Journey may support multiple Legs and NEED NOT STAY CONTIGUOUS.**
   Adjacency is not what its integrity is made of.
 - **The Strand's boundaries remain PROVENANCE.** They record where material
   came from and never dictate where it lands; one section per Strand is the
@@ -523,8 +540,8 @@ would otherwise be the obvious carrier.
   outcome — are never reversed or severed.**
 
 So the constraint is on the **arc**, not the layout: a Journey scattered across
-four non-adjacent Steps in its own causal order is conformant; two adjacent
-Steps that put the outcome before the turning point are not. Judged at **path
+four non-adjacent Legs in its own causal order is conformant; two adjacent
+Legs that put the outcome before the turning point are not. Judged at **path
 review**.
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:18`
 
@@ -591,25 +608,25 @@ themselves Brief-stage acts. The hub refresh is **owed, not done**.
 requires be declared in the artifact. The section number survives because other
 carriers cite it.
 
-### 4.11 The Bridge Step and the revise pass
+### 4.11 The Bridge Leg and the revise pass
 
-Once the Thesis is decided and the Step sequence is being composed, a causal
-gap between adjacent Steps is repaired by inserting a **Bridge Step**.
+Once the Thesis is decided and the Leg sequence is being composed, a causal
+gap between adjacent Legs is repaired by inserting a **Bridge Leg**.
 
-**An insertion contract, not a type.** A Bridge Step is an ordinary §4.1 Step
+**An insertion contract, not a type.** A Bridge Leg is an ordinary §4.1 Leg
 whose placement is constrained by its neighbours: its `reader_state_before` is
 the predecessor's `reader_state_after`; its `reader_state_after` supplies what
 the successor's `reader_state_before` requires; `depends_on` is updated across
 the splice. It may use Strands or not, and bind a Move or not; where its
 connecting claim is not traceable to Strand material it carries the flags every
-Step already has (§4.4).
+Leg already has (§4.4).
 
 **`bridges` marks; it never constrains.** The placement constraints above make a
-Step *well-placed*, and an ordinary Step is equally well-placed — so nothing in
-them distinguishes an **inserted** Step from one composed in the first pass.
+Leg *well-placed*, and an ordinary Leg is equally well-placed — so nothing in
+them distinguishes an **inserted** Leg from one composed in the first pass.
 Insertion is a fact about the Brief's history, not about its shape, and a
 disclosure computed from an unrecoverable fact must read it from a record. So
-`bridges` is an optional array of exactly two Step ids, validated on
+`bridges` is an optional array of exactly two Leg ids, validated on
 composition and carried through the recorded serialization. It mints no Move.
 
 **No special Move class exists for a bridge.** A bridge-shaped Move enters the
@@ -633,13 +650,13 @@ revise is never re-looped.
 composition once, ownership of what a revise CAN DO is never handed to the
 Model — it is fine for the Model to choose which Arm applies to a row, but the
 Model must not be allowed to define the Arms themselves. The four, each naming
-the Steps it touches:
+the Legs it touches:
 
-- **(a) insert a Step that discharges the row** — the Bridge Step insertion
+- **(a) insert a Leg that discharges the row** — the Bridge Leg insertion
   contract above;
-- **(b) amend an existing Step so it discharges the row**;
-- **(c) concede the row at a named Step**;
-- **(d) amend the introducing Step so the promise is not made and the row is
+- **(b) amend an existing Leg so it discharges the row**;
+- **(c) concede the row at a named Leg**;
+- **(d) amend the introducing Leg so the promise is not made and the row is
   not raised.**
 
 A reply naming anything else is refused. `src/review.mjs` checks a reply
@@ -661,11 +678,11 @@ it held the same open row.
 **THE HARNESS COUNTS THE ROUND, and until kogaki#894 nothing did.** The clause
 above was a bound in prose with its count outside the Harness: nothing in
 `src/review.mjs` or `src/assemble.mjs` counted an attach, `attachReview` took a
-reviewed set with no notion of which pass it was, and `bridges` on a Step is a
+reviewed set with no notion of which pass it was, and `bridges` on a Leg is a
 model-declared array. The count lived in the composing sitting's memory, so a
 Candidate re-reviewed three times reached assembly with no refusal and no
 disclosure, and nothing in the run record showed it. **A bound the Harness
-cannot count is not a bound** — the review-lane shape of 2026-09-04 one step
+cannot count is not a bound** — the review-lane shape of 2026-09-04 one leg
 earlier, where the Harness at least owned the arithmetic over model-supplied
 evidence and here owned neither.
 
@@ -777,7 +794,7 @@ continuity is observed inside Path Review's `evaluation_levels` area
 no check member, computes no score and produces no verdict.
 
 **Approval is post-hoc disclosure.** No per-Bridge question: each Candidate's
-evidence carries its inserted bridges — how many, between which Steps, and each
+evidence carries its inserted bridges — how many, between which Legs, and each
 bridge's reasoning. Three grounds: per-Candidate machine-side work must never
 multiply owner questions; the flags already expose every bridge's reasoning at
 the one gate that exists; and a per-Bridge stop would be a default mid-workflow
@@ -793,7 +810,7 @@ with no disclosure surface is not post-hoc approval; it is no approval.
 
 **THE DISCLOSURE SURFACE IS THE MINTED BRIEF, and the second ground is restated
 against it:** the adopted Candidate's bridges are written into the Brief at
-adoption — how many, between which Steps, and each bridge's reasoning — in a
+adoption — how many, between which Legs, and each bridge's reasoning — in a
 slot of its own, and the Brief is a tracked document the owner reads directly.
 The three grounds now read: per-Candidate machine-side work must never multiply
 owner questions; **the adopted path's bridges reach the owner in the Brief they
@@ -849,10 +866,10 @@ carrier, and whose *reason* — insertion is history, not shape — is what stop
 the field being deleted as redundant with the placement constraints. The
 bounded loop and the disclosure shape are conduct at a judgment point.
 
-### 4.12 The Step↔Move instantiation contract
+### 4.12 The Leg↔Move instantiation contract
 
-A Step **instantiates** a Move: `move` names a record in the library (§7), and
-the Step's `reader_state_before`/`after` are the **instance forms** of that
+A Leg **instantiates** a Move: `move` names a record in the library (§7), and
+the Leg's `reader_state_before`/`after` are the **instance forms** of that
 Move's `requires`/`effect`, specialized to this reader and these Strands. §4.1
 makes the binding required; this section governs **the relationship the binding
 asserts**.
@@ -879,7 +896,7 @@ no way to tell an addition from a re-division.
 
 Every `move:` resolves to a record in the library. A path **cannot be adopted**
 and `resolve` **refuses an existing Brief** with a dangling id; the refusal
-names **the Step and the id**.
+names **the Leg and the id**.
 
 **Two seats, and neither subsumes the other.** Adoption stops a dangling id
 entering a Brief. `resolve` stops a Brief whose **library moved underneath it**
@@ -897,9 +914,9 @@ states.
    path into a Brief.
 2. **A typed record the harness VALIDATES AND NEVER COMPOSES.** The carrier is
    `src/specialization-schema.json`. No default verdict exists, none is
-   inferred from a Step's fields, and a missing record is a refusal rather than
+   inferred from a Leg's fields, and a missing record is a refusal rather than
    a blank to fill.
-3. **A deterministic refusal naming the failing Step**, in the path's own
+3. **A deterministic refusal naming the failing Leg**, in the path's own
    order, **quoting the sentence the judging sitting wrote** rather than
    paraphrasing a judgment the runtime did not make.
 
@@ -910,12 +927,12 @@ verdict-shaped field by key. A specialization verdict recorded there would be
 legitimate output.
 
 **The record is bound on both axes** — the **Candidate** it was composed
-against, and per verdict the **Move** the Step binds. Without the first a
+against, and per verdict the **Move** the Leg binds. Without the first a
 sitting judges the Candidate it likes and adopts the one it wants; without the
-second a verdict certifies a relationship that is not the one in the Step.
+second a verdict certifies a relationship that is not the one in the Leg.
 
-**One verdict per Step, exactly, in both directions.** A short record is the
-skip this occasion exists to prevent, arriving one Step at a time; a long one
+**One verdict per Leg, exactly, in both directions.** A short record is the
+skip this occasion exists to prevent, arriving one Leg at a time; a long one
 means the record was composed against a different path than the one adopted.
 
 **The vocabulary is closed and three-valued** — `consistent` | `contradicts` |
@@ -941,7 +958,7 @@ say why the verdict may not be composed by the thing that validates it.
 #### 4.12.3 The ratified half — the owner gate over a passing record
 
 **A passing record is not the sole unlock.** §4.12.2's every clause is about
-the record's SHAPE — its version, its binding, one verdict per Step, a closed
+the record's SHAPE — its version, its binding, one verdict per Leg, a closed
 vocabulary, a `why` long enough to quote back — and a record satisfying all of
 them, every verdict reading `consistent`, wrote the path into the Brief with
 nothing beside it. That verdict is composed by the same sitting that wants the
@@ -950,7 +967,7 @@ path adopted, so the test is exact and was run: **a record of shape-valid
 refusal** — the right act with the guard silently disabled.
 
 **So adoption additionally requires an owner ratification of that record**,
-recorded at a declared gate. The record is rendered — every Step, the Move it
+recorded at a declared gate. The record is rendered — every Leg, the Move it
 instantiates, the verdict, and the sentence the judging sitting wrote — and the
 owner ratifies it or does not. Without a ratification, nothing is written.
 
@@ -971,7 +988,7 @@ sections already licensed.**
 
 **The declined arm, recorded so it is not re-proposed blind.** The alternative
 was a mechanical check anchoring each `consistent` verdict's `why` in the
-Move's `requires`/`effect` and the Step's reader states by string match. It
+Move's `requires`/`effect` and the Leg's reader states by string match. It
 would have owed this spec an amendment: the runtime reads the library as a set
 of ids **and nothing else**, precisely so that nothing is one edit away from
 comparing `requires`/`effect`, and §7.5 holds that matching judgment-class and
@@ -1016,20 +1033,20 @@ holds the capture's shape and the registry holds the gate's declaration;
 nothing but prose can say why the unlock may not rest on the judgment alone,
 or why the check that would look decidable here is the arm that was declined.
 
-### 4.13 The reader-knowledge ledger — `introduces` on a Step
+### 4.13 The reader-knowledge ledger — `introduces` on a Leg
 
-A Step may carry **`introduces`**: the terms it puts in front of the reader for
+A Leg may carry **`introduces`**: the terms it puts in front of the reader for
 the first time, each bare or with a one-line meaning anchor. Authored at Brief
-composition, by the composer, like every other Step field.
+composition, by the composer, like every other Leg field.
 
-The harness **derives** what a reader arriving at Step N already knows: the
-union of Steps 1..N−1's entries. **Always computed, never stored** — a stored
+The harness **derives** what a reader arriving at Leg N already knows: the
+union of Legs 1..N−1's entries. **Always computed, never stored** — a stored
 copy would be a second answer to a question the path already answers, and would
-be wrong the moment a Step moved.
+be wrong the moment a Leg moved.
 
 **What the field buys.** An unintroduced term becomes **addressable**:
-responsibility traces to the first Step carrying it, or to the Brief when no
-Step does. That is a fact about the path, not a judgment about the prose, which
+responsibility traces to the first Leg carrying it, or to the Brief when no
+Leg does. That is a fact about the path, not a judgment about the prose, which
 is what lets it be mechanical at all.
 
 **First introducer wins, and that IS the addressability rather than a
@@ -1039,14 +1056,14 @@ moves nothing.
 **One line per entry.** A term may contain a comma and its anchor almost always
 does, so a comma-joined field cannot be parsed back. Write and read are one
 round trip, asserted at both ends; a malformed entry refuses **naming the
-Step**, on both sides, through one shared grammar.
+Leg**, on both sides, through one shared grammar.
 
 **An empty ledger is a reading, never a failure.** The field is optional, and a
 requirement would have refused the whole existing corpus rather than adding
 anything to it.
 
 **Shape only.** Whether a term is genuinely new here, whether its anchor
-explains it, and whether the Step's claims already carry it are judgments.
+explains it, and whether the Leg's claims already carry it are judgments.
 Nothing in this section reads meaning.
 
 `necessity:` that an unintroduced term is ADDRESSABLE — a fact about the path
@@ -1074,16 +1091,16 @@ the registered checks; what no carrier holds is why accumulation may not be
 stored, why the first introducer is the answer rather than a tie-break, and
 what an excerpt is *for* — which is what stops it drifting back to a quotation.
 
-### 4.14 The Step Packet
+### 4.14 The Leg Packet
 
-The **harness-assembled input from which the model realizes one Step's prose** —
-the one LLM judgment of the Draft lane. `draft.mjs packet --step <id>` renders
+The **harness-assembled input from which the model realizes one Leg's prose** —
+the one LLM judgment of the Draft lane. `draft.mjs packet --leg <id>` renders
 it; the session realizes the prose; `section` validates it.
 
 **RENAMED FROM "THE SECTION PACKET" (kogaki#825), and the rename is recorded
 rather than left to a reader who remembers the old heading.** §4.15 makes
-*Section* a **grouping of Steps**, so an artifact rendering exactly one Step was
-a per-Step packet named for a grouping — in a served spec heading, in a
+*Section* a **grouping of Legs**, so an artifact rendering exactly one Leg was
+a per-Leg packet named for a grouping — in a served spec heading, in a
 registered member's admission record, and at the top of the template the model
 reads. The rename lands at **every** site carrying the proper noun in one act:
 this heading, `specs/spec-brief-draft-design/DESIGN.md` §2.1 and §3,
@@ -1093,7 +1110,7 @@ without the registry contract that quotes it would put two names on one artifact
 which is the defect one level worse than the one being fixed.
 
 **THE `section` SUBCOMMAND KEEPS ITS NAME, and that is a decision rather than an
-oversight.** `draft.mjs section` accepts one Step's realized prose, so after
+oversight.** `draft.mjs section` accepts one Leg's realized prose, so after
 §4.15 its name reads as the grouping it does not handle. It is retained because
 it is an **entry point**, not prose: `checks/registry.json`'s kogaki#815 clause
 couples the Harness's entry-point set to `.claude/skills/draft/SKILL.md` **in
@@ -1111,25 +1128,25 @@ article another article's subject matter — so its header says so in the
 imperative.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
-anchors → the Move's contract → the Step's fields → the §4.13 ledger → **this
-Step's own §5.2 Closure rows** → every previously realized Step's prose in
+anchors → the Move's contract → the Leg's fields → the §4.13 ledger → **this
+Leg's own §5.2 Closure rows** → every previously realized Leg's prose in
 recorded order → the write instruction.
 
 **The Closure block renders in the §4.13 shape** (kogaki#1151): only the rows
-where this Step is `introduced_by`, `discharged_by` or `conceded_by`, as their
-prose text — the Thesis row on its establishing Steps — never a copy of the
-whole ledger. A Step party to no row renders the block **empty rather than
+where this Leg is `introduced_by`, `discharged_by` or `conceded_by`, as their
+prose text — the Thesis row on its establishing Legs — never a copy of the
+whole ledger. A Leg party to no row renders the block **empty rather than
 absent**, on the same one-word-one-unit ground the reader-knowledge ledger's
 own empty case states.
 
 **`requires`/`effect` are EXCLUDED**, and the exclusion is the ruling rather
-than an omission: §4.12 makes the Step's `reader_state_before`/`after` the
+than an omission: §4.12 makes the Leg's `reader_state_before`/`after` the
 instance forms of exactly those two fields, so rendering both would put the
 general and the specialized statement of one thing side by side and leave the
-model to choose. The Step's instantiated states win.
+model to choose. The Leg's instantiated states win.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
-run id, and prior Steps' prose in the **Brief's recorded order** rather than from
+run id, and prior Legs' prose in the **Brief's recorded order** rather than from
 a directory read.
 
 **A missing input refuses BY NAME rather than rendering an empty slot.** In an
@@ -1166,50 +1183,50 @@ refuse rather than render, and why the template may not cite a spec — each a
 claim about what the model will do with a surface, which only a reader can
 judge.
 
-### 4.15 The Section — a grouping of Steps, declared on `opens_section`
+### 4.15 The Section — a grouping of Legs, declared on `opens_section`
 
-**A Step is one unit of realization; a Section is one promise to the reader that
+**A Leg is one unit of realization; a Section is one promise to the reader that
 the question changes here.** They are different units, and binding the heading to
-the Step produced both drafts the owner rejected on 2026-09-03 — one heading per
-Step read as fragmented, none read as unscannable. A **Section is a grouping of
-Steps declared in the Brief**: the Harness renders one heading per Section and
+the Leg produced both drafts the owner rejected on 2026-09-03 — one heading per
+Leg read as fragmented, none read as unscannable. A **Section is a grouping of
+Legs declared in the Brief**: the Harness renders one heading per Section and
 none inside it.
 
-**The carrier is `opens_section: <title>`** on the Step that opens a Section,
-absent on a Step that continues one. One key, not two: its **presence** marks the
+**The carrier is `opens_section: <title>`** on the Leg that opens a Section,
+absent on a Leg that continues one. One key, not two: its **presence** marks the
 opening and its **value** carries the title. A separate `section_title` key was
-declined at kogaki#822 because two keys can disagree — a Step opening with no
-title, a title on a continuing Step — and neither state has a meaning.
+declined at kogaki#822 because two keys can disagree — a Leg opening with no
+title, a title on a continuing Leg — and neither state has a meaning.
 
-**Filled at composition, validated at composition.** Judging which Steps open is
-composition-time judgment and belongs where the Steps are already judged: the
+**Filled at composition, validated at composition.** Judging which Legs open is
+composition-time judgment and belongs where the Legs are already judged: the
 Brief. The four rules below are the Harness's **validation of that judgment**,
-not a second judge — so a Brief that opens a Section on every Step, or on none,
-is refused **naming the rule it broke and the Step**.
+not a second judge — so a Brief that opens a Section on every Leg, or on none,
+is refused **naming the rule it broke and the Leg**.
 
 **THE SITE IS COMPOSITION, NOT `mint`, AND THE CORRECTION IS RECORDED RATHER
 THAN MADE SILENTLY (kogaki#822).** The 2026-09-03 owner ruling and kogaki#822's
 acceptance both say *validated at `brief.mjs mint`*. That is not reachable:
 `mint` consumes the adopted (Thesis, name) pair and writes a Brief **shell** —
 its own output states that the Reader Path, coverage and obligations are filled
-in later — so **no Step exists at mint for any rule to read**. The Steps arrive
-at composition, where `validateSteps` (`src/compose.mjs`) already refuses every
+in later — so **no Leg exists at mint for any rule to read**. The Legs arrive
+at composition, where `validateLegs` (`src/compose.mjs`) already refuses every
 other §4.1 and §4.13 shape, and that is where these rules run. Same class as the
 rule-4 split below, one level up: a rule stated at a stage its subject does not
 reach. The ruling's intent — refuse before the Brief is adopted, naming the rule
-and the Step — is unchanged and is satisfied here; only the named act moves.
+and the Leg — is unchanged and is satisfied here; only the named act moves.
 
-1. **A Step opens a Section when it changes the reader's question** — its
-   `purpose` answers a question the previous Step did not pose, or its
-   `introduces` (§4.13) names a term later Steps use.
-2. **A Step continues the current Section when it develops the previous one** —
-   its `depends_on` is the immediately preceding Step and its `materials`
-   overlap that Step's.
-3. **The first Step always opens.** A Section never closes on a Step that only
+1. **A Leg opens a Section when it changes the reader's question** — its
+   `purpose` answers a question the previous Leg did not pose, or its
+   `introduces` (§4.13) names a term later Legs use.
+2. **A Leg continues the current Section when it develops the previous one** —
+   its `depends_on` is the immediately preceding Leg and its `materials`
+   overlap that Leg's.
+3. **The first Leg always opens.** A Section never closes on a Leg that only
    sets up the next one, so a heading never lands on a transition paragraph.
 4. **Length is a check, not the rule.** A Section running past roughly a display
    and a half of prose without a heading is refused with a request to split; two
-   consecutive Sections that are each one short Step are refused with a request
+   consecutive Sections that are each one short Leg are refused with a request
    to merge. **Article length enters as a bound on the grouping, never as its
    reason** — the ordering is load-bearing, because a length rule promoted to the
    reason is a heading budget, which is the fragmented draft again with a number
@@ -1219,10 +1236,10 @@ and the Step — is unchanged and is satisfied here; only the named act moves.
 the half it can compute (kogaki#822).** The rule as ratified carries two clauses and they
 measure different things:
 
-- *"two consecutive Sections that are each one short Step"* — the **Step count**
-  is a fact about the Brief, present as soon as the Steps are.
-  **`validateSteps` refuses it**: two adjacent Sections holding exactly one Step
-  each refuse with the request-to-merge, naming rule 4 and both Steps. The word
+- *"two consecutive Sections that are each one short Leg"* — the **Leg count**
+  is a fact about the Brief, present as soon as the Legs are.
+  **`validateLegs` refuses it**: two adjacent Sections holding exactly one Leg
+  each refuse with the request-to-merge, naming rule 4 and both Legs. The word
   *short* is dropped from the composition-time form deliberately — it qualifies
   prose that does not exist yet, and a check that guessed at it would be
   refusing on an estimate.
@@ -1231,7 +1248,7 @@ measure different things:
   evaluate it and does not pretend to.
 
 **A composition-time proxy was the declined alternative**, and the ground is this
-section's own: a Step's `purpose` length predicts its realized prose length
+section's own: a Leg's `purpose` length predicts its realized prose length
 weakly at best, so the refusal would fire on the estimate rather than on the
 thing — which is the heading budget rule 4's last sentence exists to refuse,
 arriving through the back door. The split is by **property type**, the shape
@@ -1263,19 +1280,19 @@ what it should say. Packet timing and location stay §3's and kogaki#809's.
 
 **BUILT AT THIS HEAD, and the halves are still named separately because they
 landed at different times.** The DECLARATION half landed at kogaki#822: the
-field is admitted by `validateSteps`, the grouping rules above refuse at
-composition, and `renderStep` serializes it. The RENDERING half landed at
+field is admitted by `validateLegs`, the grouping rules above refuse at
+composition, and `renderLeg` serializes it. The RENDERING half landed at
 **kogaki#823** — `parseBrief` reads `opens_section` back through the same
 refusal the composition side applies, `emit` writes one `## <title>` per Section
-at its opening Step, and the frontmatter trace carries the Step→Section mapping.
+at its opening Leg, and the frontmatter trace carries the Leg→Section mapping.
 The round trip is whole.
 
 **THE RENDERING HALF NEEDED A SECOND ACT, which the unbuilt note did not
 anticipate and which is recorded because the note's own reading of the head was
-wrong.** That note said `emit` "still writes one heading per Step". It wrote
+wrong.** That note said `emit` "still writes one heading per Leg". It wrote
 **none**: `assembleBody` joined the realized prose, and the headings in the
 2026-09-03 specimen were written **by the model into the prose**. So heading
-authorship was **unowned** rather than misplaced, and *one per Step* described
+authorship was **unowned** rather than misplaced, and *one per Leg* described
 one draft rather than a rule anything held. Writing the headings from
 `opens_section` is therefore only half the repair; `section` must also **refuse
 realized prose that carries a heading of its own**, or the count of headings
@@ -1289,30 +1306,30 @@ none. What no carrier holds: why a heading is a promise to the reader rather tha
 an artifact of how the text was produced, and why length is subordinated to the
 grouping rather than standing in for it.
 
-### 4.16 The figure decision — `figure:` and `figure_roles` on a Step
+### 4.16 The figure decision — `figure:` and `figure_roles` on a Leg
 
-**The Brief decides whether a Step carries a figure, and the decision is the
+**The Brief decides whether a Leg carries a figure, and the decision is the
 composer's.** §6.9.3 admitted the closed kind set and the Move's optional
-`visual_form`; that field names a **schema of roles** and obliges no Step to use
-it. This section is where a Step *takes it up*: at path composition (judgment
-point 2) the composer may declare on a Step
+`visual_form`; that field names a **schema of roles** and obliges no Leg to use
+it. This section is where a Leg *takes it up*: at path composition (judgment
+point 2) the composer may declare on a Leg
 
     figure: <one line — what the figure lets the reader hold that the prose alone leaves hard to hold>
     figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3
 
-where `g<n>` addresses the Step's **own** claim lines in order, from 1.
+where `g<n>` addresses the Leg's **own** claim lines in order, from 1.
 
-**The default is NONE.** A Step without `figure:` has no figure and nothing asks
+**The default is NONE.** A Leg without `figure:` has no figure and nothing asks
 about it — the hub's 2026-08-01 D8 disclosure-never-slot ruling carried as a
 field that may simply be absent. This is also the mechanism by which every Brief
 composed before this section composes unchanged: the serializer writes neither
-line for a Step that declares none, so the bytes do not move.
+line for a Leg that declares none, so the bytes do not move.
 
 **Three conditions, and only two of them are mechanical.**
 
-1. the Step's Move carries a `visual_form`;
-2. every role of that form binds to one of **this Step's** claims — a role
-   bound to a claim of another Step is refused;
+1. the Leg's Move carries a `visual_form`;
+2. every role of that form binds to one of **this Leg's** claims — a role
+   bound to a claim of another Leg is refused;
 3. the figure carries something.
 
 The third is the composer's one judgment and is stated in the `figure:` line
@@ -1321,15 +1338,15 @@ missing field is refused, a weak one is not.
 
 **The two mechanical halves refuse at different seats, and the split is the one
 `move` already has.** The grammar — the two fields travelling together, a
-non-empty line, a binding of the form `role=g<n>`, an address inside this Step's
-claim count — is decidable from the Step record alone and refuses at
-`validateSteps`. Whether the Move declares a form at all, and whether the
+non-empty line, a binding of the form `role=g<n>`, an address inside this Leg's
+claim count — is decidable from the Leg record alone and refuses at
+`validateLegs`. Whether the Move declares a form at all, and whether the
 bindings are exactly that form's roles, needs the Move library open and refuses
 at adoption, beside §4.12.1's move-id resolution. Both are "at composition" in
 §4.15's sense: the Brief is being authored and the refusal can still be fixed.
 
-**A binding to another Step's claim is unreachable rather than separately
-refused.** The address space is this Step's claims and has no syntax for anyone
+**A binding to another Leg's claim is unreachable rather than separately
+refused.** The address space is this Leg's claims and has no syntax for anyone
 else's, which removes the possibility instead of enumerating what to catch.
 
 **An unreadable Move record is not a formless one.** §4.12.1's distinction
@@ -1338,7 +1355,7 @@ record, and never as a composition the composer must go and re-bind.
 
 #### 4.16.1 Disclosure at the Candidate gate
 
-**Each Candidate's option label gains one clause: how many Steps carry a figure,
+**Each Candidate's option label gains one clause: how many Legs carry a figure,
 and which.** Above three the clause carries the hub's soft warning
 (topics/articles.md 2026-08-01 D11) — **a warning with no target, which refuses
 nothing and leaves the Candidate selectable**. An empty set renders an explicit
@@ -1347,25 +1364,25 @@ same silence to a reader and different silences to a check.
 
 **Why the label and not the disclosure table.** kogaki#909's
 `src/disclosure-fields.json` grades **Candidate-level** fields the Harness writes
-onto a Candidate and reads `c[field]`. `figure` is a **Step** field, so an entry
+onto a Candidate and reads `c[field]`. `figure` is a **Leg** field, so an entry
 there would be permanently absent and its obligation permanently vacuous — the
 degrades-to-zero shape that table itself refuses. The table's grading **test** is
 which surface the evidence is owed at, and applied here it grades `decision`: the
 figure set is a property of the Candidate the owner is choosing between, so it is
 owed **before** the choice. The label **is** that surface. The grade and the seat
-agree; only the rendering mechanism differs, because this evidence is per-Step
+agree; only the rendering mechanism differs, because this evidence is per-Leg
 and the table's is per-Candidate.
 
 `necessity:` §6.9.3 admitted the vocabulary and explicitly declared that nothing
 in the draft pipeline reads it to decide anything — so the field that makes a
-form load-bearing needs its own site, and §4.1 names every other optional Step
+form load-bearing needs its own site, and §4.1 names every other optional Leg
 field's subsection. What no carrier holds: why the figure decision belongs to the
 Brief rather than to realization, and why the count reaches the owner before
 adoption rather than after it.
 
 ### 4.17 The figure record — the form's instance, filled after the prose
 
-**§4.16 decides WHETHER a Step carries a figure; this decides what the figure
+**§4.16 decides WHETHER a Leg carries a figure; this decides what the figure
 IS, and it is a different moment on purpose.** The hub's 2026-07-31 and
 2026-08-01 rulings sort figures into three moments — direction at the Brief as a
 disclosure, placement anchored to structure, **concrete design after the prose**
@@ -1374,8 +1391,8 @@ is a figure the text then has to match, which inverts the whole arrangement: the
 prose is the article and the figure carries what the prose leaves hard to hold.
 
 **The input is the Packet plus one block, and the block arrives only after
-`section`.** `section --step <id>` for a Step carrying `figure:` records the
-prose and then renders the **figure input**: the Step's Packet exactly as it was
+`section`.** `section --leg <id>` for a Leg carrying `figure:` records the
+prose and then renders the **figure input**: the Leg's Packet exactly as it was
 served, plus a block carrying
 
 - **the form** — its kind, and each role with the line the Move's `visual_form`
@@ -1383,7 +1400,7 @@ served, plus a block carrying
 - **the binding** — each role with the claim text the Brief bound it to,
   quoted verbatim, licence included;
 - **the `figure:` reason line** from the Brief;
-- **the Step's realized prose**, verbatim;
+- **the Leg's realized prose**, verbatim;
 - **the instruction** — every element is one of the bound claims worded for the
   reader; the caption says what the reader holds after looking, in the terms of
   `reader_state_after`; no element the claims do not carry.
@@ -1400,7 +1417,7 @@ outside it: the form and the binding travel in the appended block, which the
 Harness composes from the Move record it already read to render the Packet. This
 is the owner's 2026-09-04 rule applied to figures.
 
-**The record is one JSON object, the instance of the form** in the sense a Step
+**The record is one JSON object, the instance of the form** in the sense a Leg
 is the instance of a Move:
 
     { "kind": "axis",
@@ -1410,7 +1427,7 @@ is the instance of a Move:
       "caption": "…",
       "position": "after" }
 
-`draft.mjs figure --step <id> --file <record.json>` validates it against
+`draft.mjs figure --leg <id> --file <record.json>` validates it against
 `src/figure-schema.json` and the kind, stores it at
 `runs/draft/<slug>/figures/<id>.json`, and records its path and sha in
 `run.json`. The stored bytes are serialized in the **schema's** field order and
@@ -1438,7 +1455,7 @@ owed against the *rendered* figure a reader meets, not against the record the
 renderer was given.
 
 **The form that Round Trip takes is this record's own fields (kogaki#1018).** A
-passage is written from a Brief Step, so its Reverse Outline is a Brief Step
+passage is written from a Brief Leg, so its Reverse Outline is a Brief Leg
 block; a figure is written from the record above, so its Reverse Outline is a
 block in the fields declared here — the same rule, one artifact down, and no
 second schema at either level. `element`, `caption` and `position` are declared
@@ -1448,18 +1465,18 @@ reconstructible** and are REFUSED rather than merely unasked: the kind is the
 Move form's and the relations are the form's, and a reader cannot infer the form
 a structure was produced from — which is the same ruling that keeps `move` out of
 a passage's Reverse Outline. It is filed as its own fenced block and its own
-file, because `figure` IS a Brief Step field and is refused inside the passage's
+file, because `figure` IS a Brief Leg field and is refused inside the passage's
 outline; one file per vocabulary is what keeps either reading from acquiring a
 key belonging to the other.
 
-**`emit` refuses while a figure-carrying Step owes its record**, naming the
-Step, exactly as it refuses a Step that owes its prose. A Draft emitted without
+**`emit` refuses while a figure-carrying Leg owes its record**, naming the
+Leg, exactly as it refuses a Leg that owes its prose. A Draft emitted without
 it would silently drop a decision the owner made at the Candidate gate, and
 nothing downstream would report the drop.
 
 **A Brief that declares no figure is untouched by every clause above** — the
 default is NONE (§4.16), the appended block is never rendered, and `figure` on
-such a Step refuses by that fact rather than by a missing file.
+such a Leg refuses by that fact rather than by a missing file.
 
 `necessity:` §4.16 carries the decision and its grammar and stops at the Brief;
 `src/figure-kinds.json` carries the closed kind set and explicitly declares that
@@ -1470,7 +1487,7 @@ What no carrier holds: why the record is filled after the prose rather than
 beside it, and why the binding is the Brief's to make and the record's to
 honour rather than to re-open.
 
-### 4.18 The renderer and the anchor — markup from the record, at the Step
+### 4.18 The renderer and the anchor — markup from the record, at the Leg
 
 **§4.17 makes the record; this makes the markup, and they are separate acts on
 purpose.** The record is a *design* — the owner's decision about what the figure
@@ -1514,17 +1531,17 @@ not two lists that agree until one is edited.
 
 #### The anchor
 
-**`emit` places the rendered figure at its Step, inside the Section that Step
-belongs to**, before the Step's prose or after it per the record's `position`.
+**`emit` places the rendered figure at its Leg, inside the Section that Leg
+belongs to**, before the Leg's prose or after it per the record's `position`.
 The Section heading is pushed first either way: a figure never precedes the
 heading of the Section it sits in.
 
-**No Step structure becomes visible.** The block is a rendered element the Brief
+**No Leg structure becomes visible.** The block is a rendered element the Brief
 declared, in the same standing as a heading — it carries no id, no key line and
 no marker a reader could read the trace off, so §5's guard against record
 rendered as structure is untouched by it.
 
-**The trace entry for that Step gains**
+**The trace entry for that Leg gains**
 
     "figure": {"position": "after",
                "record": "../../runs/draft/<slug>/figures/a1.json",
@@ -1535,12 +1552,12 @@ rendered as structure is untouched by it.
 use, so two machines emit identical bytes; `record_sha` is the sha `figure`
 recorded **at validation**, read and never recomputed, for the reason the Packet
 record already states — recomputing answers for the file as it stands rather
-than for the record the figure was validated as. A Step declaring no figure
+than for the record the figure was validated as. A Leg declaring no figure
 carries **no `figure` key at all**, an absent field rather than a null one.
 
-**The Step's own `lines` span the prose alone (kogaki#868), and the figure's own
+**The Leg's own `lines` span the prose alone (kogaki#868), and the figure's own
 lines are `figure.lines`.** This is the load-bearing half of the entry rather
-than a formatting choice: kogaki#870's Reverse Outlining quotes a Step at exactly
+than a formatting choice: kogaki#870's Reverse Outlining quotes a Leg at exactly
 its `lines`, and a range that swallowed the block would hand the Blind Reader
 markup to re-derive prose from. One range carrying both would answer for neither.
 
@@ -1554,15 +1571,15 @@ shape §4.17 refuses, so it is refused here for the same reason.
 #### What is refused at `section`
 
 **A body carrying a figure fence the renderer did not produce is refused,
-naming the Step** — beside the heading refusal (§4.15) and for the same reason
+naming the Leg** — beside the heading refusal (§4.15) and for the same reason
 one element over: the figure seat is the Brief's, and a second author on it is
 the same defect as a second heading author. Prose that draws its own diagram is
 a figure the Brief never declared, rendered by nobody, pinned by no record, and
 invisible to kogaki#880's Round Trip.
 
-**Refused on every Step, not only on figure-carrying ones.** A Step that
+**Refused on every Leg, not only on figure-carrying ones.** A Leg that
 declares none has the strongest claim of all to draw none — the default is NONE
-(§4.16) — and a Step that declares one already has its block coming from the
+(§4.16) — and a Leg that declares one already has its block coming from the
 record. Neither seat is the prose's.
 
 **Keyed on the fence language the renderer emits**, read from the renderer
@@ -1583,7 +1600,7 @@ is refused about it — and stops at the stored JSON. `src/figure-kinds.json`
 carries the closed kind set and declares that nothing in the draft pipeline
 reads it to decide anything. Neither says what markup a record becomes, that the
 markup is the Harness's and not the model's, where in the body it lands, or that
-the Step's line range must exclude it. What no carrier holds: why the
+the Leg's line range must exclude it. What no carrier holds: why the
 transcription is a fixed function rather than a judgment, and why the figure's
 lines are recorded beside the prose's rather than inside them.
 
@@ -1597,12 +1614,12 @@ centre readable as one thing rather than three fields and a file path.
 - **`reader_start`**, **`reader_target`**, **`opening_question`** — authored at
   **path composition**, per Candidate; land at **Candidate selection**.
 - **`thesis`** — read from Terrain (§3), never invented here.
-- **`sequence`** — the ordered Steps of §4.1.
-- **`strand_coverage`** — per selected Strand: `used_by_steps`,
+- **`sequence`** — the ordered Legs of §4.1.
+- **`strand_coverage`** — per selected Strand: `used_by_legs`,
   `role_in_thesis`.
 - **`obligations`** and **`thesis_closure`** — the two levels of **Closure**,
-  §5.2: `thesis_closure` carries `explanation` and `established_by_steps`, and
-  `obligations` is the Step-level ledger. Both fill in the same write, into one
+  §5.2: `thesis_closure` carries `explanation` and `established_by_legs`, and
+  `obligations` is the Leg-level ledger. Both fill in the same write, into one
   rendered section named **Closure**.
 - **`tradeoffs`**
 
@@ -1614,7 +1631,7 @@ field, which the subsections below state one at a time.
 
 **The block is PATH COMPOSITION, per Candidate.** The three fields describe a
 reader's movement, and a Candidate's Reader Path *is* that movement in ordered
-Steps. So they are composed where the movement is composed, carried per
+Legs. So they are composed where the movement is composed, carried per
 Candidate, and land at adoption beside `thesis_closure` and `tradeoffs`.
 
 - **No new gate and no new check.** They ride the Candidate-selection gate §6
@@ -1623,7 +1640,7 @@ Candidate, and land at adoption beside `thesis_closure` and `tradeoffs`.
   composition information rather than noise: a Candidate that starts the reader
   somewhere else is a different article.
 - **The fill pass is NOT the site**, and declining it was a decision. Filling
-  from the composed Steps is simpler, and it lands the values *before*
+  from the composed Legs is simpler, and it lands the values *before*
   Candidates exist — so every Candidate would carry identical reader fields and
   the gate could not differentiate on them. **The mint was declined on a
   different ground:** a Thesis states a claim, not a reader's starting state, so
@@ -1691,14 +1708,14 @@ stated where the Brief's Closure section renders it, above the ledger, so a
 reader of the document meets it before the rows that instantiate it.
 
 **One ledger at two levels.** The **Thesis row** is the promise the Opening
-question makes: `thesis_closure`'s `explanation`, with `established_by_steps`.
-The **Step rows** are the obligations ledger — the owner's proposed name is
-*Steps closure* — each carrying `text` and `introduced_by`.
+question makes: `thesis_closure`'s `explanation`, with `established_by_legs`.
+The **Leg rows** are the obligations ledger — the owner's proposed name is
+*Legs closure* — each carrying `text` and `introduced_by`.
 
 **Every row ends in one of two terminal states, written by the composer:**
-`discharged_by: <step>` (the promise is kept there) or `conceded_by: <step>`
+`discharged_by: <leg>` (the promise is kept there) or `conceded_by: <leg>`
 (the prose there tells the reader it is left open). **"Unresolved" is no
-longer a state the ledger can hold** — `validateSteps` (`src/compose.mjs`)
+longer a state the ledger can hold** — `validateLegs` (`src/compose.mjs`)
 refuses a Brief carrying a row with neither, naming the row, and a row carrying
 both (an ambiguous close) is refused the same way.
 
@@ -1710,21 +1727,21 @@ both (an ambiguous close) is refused the same way.
 projection assembled at gate time. The same document carries the obligations and
 the `thesis_closure` that must discharge them, so the gate reads one artifact
 and a sidecar cannot drift from it. The entries are **authored judgments** —
-"this Step opens this question" — not something a computation reveals from data
+"this Leg opens this question" — not something a computation reveals from data
 already kept, so they need a record and the record belongs where its consumer
 reads it.
 
-**Reader start binds the first Step.** `validateSteps` also refuses a path
-whose first Step's `reader_state_before` is not the Brief's own Reader start,
+**Reader start binds the first Leg.** `validateLegs` also refuses a path
+whose first Leg's `reader_state_before` is not the Brief's own Reader start,
 naming both — Reader start is the direction for the initial reader pull, and a
-first Step beginning somewhere else has the reader arriving at a Brief the
+first Leg beginning somewhere else has the reader arriving at a Brief the
 article never opens from.
 
 **There is no mechanical judge of the CONTENT of any of this.** Whether an
 obligation is worth entering, and whether a discharge or a concession is the
 right call, is judged at Path Review (§4.3); Kogaki guarantees citations and
 the substrate guarantees facts. What the runtime enforces is SHAPE alone: every
-row terminal, and the first Step's Reader start bound.
+row terminal, and the first Leg's Reader start bound.
 
 `necessity:` the field is in the record shape and the fill is carried by
 `src/compose.mjs`; the siting argument is not. "Why not a sidecar" is the
@@ -1770,7 +1787,7 @@ the accepted risk bounded rather than silent.
 token rather than an identity.** The first address takes `L1`. The Brief's
 Strands section carries `### L<n> — <slug>` beside that Strand's served cite, so
 the mapping travels with the document that uses it and no second carrier can
-drift from it — which is what lets the Step grammar, the Packets and the Draft
+drift from it — which is what lets the Leg grammar, the Packets and the Draft
 keep addressing material as `L<n>` while the identity everywhere else is the
 served address.
 
@@ -2016,7 +2033,7 @@ why it is stated here.** The old behaviour was not a decision — it was what
 the id comparison happened to do with an answer nobody had considered, and an
 enumeration's load-bearing half is what happens to what it does not name. The
 ground for choosing refusal over adoption: a Candidate is a **composed**
-object — an ordered sequence of Steps, each binding a Move library record,
+object — an ordered sequence of Legs, each binding a Move library record,
 plus the reasoning that fills `thesis_closure` and tradeoffs — so there is no
 Reader Path in free text to adopt, and admitting one would put the runtime in
 the business of resolving prose into a sequence. That is the judgment layer
@@ -2039,7 +2056,7 @@ record and no removal signal is owed.
 
 **The selection payload carries, per Candidate, its id and its
 reader-experience label; the premise's negation; free text. Nothing else.**
-The composition-time reasoning — Step validity, transition continuity, Thesis
+The composition-time reasoning — Leg validity, transition continuity, Thesis
 closure, the obligations ledger's state, the Strand placement count — is
 composed where it is composed and stays there: in the reviewed Candidates
 (`reviewed.json`, the Candidates file), which this clause does not touch.
@@ -2161,7 +2178,7 @@ owner ruling 2026-09-04) — the same slot, the same act, filled at adoption fro
 the adopted Candidate.
 
 **THE MECHANISM IS SHARED AND THE GROUND IS NOT, which is why this clause states
-its own.** §4.11's disclosure is an **approval**: remove it and an approval step
+its own.** §4.11's disclosure is an **approval**: remove it and an approval leg
 is gone with nothing standing in for it. This one is a **report** on a judgment
 that Path Review makes and records either way, so its absence cost visibility
 rather than a control — and the owner ruled the two are different questions
@@ -2224,10 +2241,10 @@ which condition 4 names and bounds rather than claiming away:**
    naming the line. This is the condition that catches an out-of-order *first*
    record, which no per-record check can see.
 2. **Duplicate keys within a record are refused rather than resolved.**
-3. **After the strip step, a record carries exactly §4.2's eight keys, plus at
+3. **After the strip leg, a record carries exactly §4.2's eight keys, plus at
    most the optional `visual_form` — no more and no fewer.** The ordering
    matters: the excluded draft fields are stripped **first**, so their presence
-   routes to the strip step rather than to a refusal. A record that absorbed its
+   routes to the strip leg rather than to a refusal. A record that absorbed its
    neighbour's `status` leaves that neighbour with seven, and this condition
    catches it. **The widening is by NAME and by one (kogaki#876)**: a ninth key
    that is not `visual_form` is refused exactly as before, and so is a seventh —
@@ -2267,7 +2284,7 @@ choice where a block leaves a hole.
 **The selected arm's own cost is stated rather than discovered:** long fields
 read poorly as block scalars in a library a human is expected to *read*, and a
 structured body invites the reflex to treat it as machine-authoritative — one
-step from the verdict machinery §7.5 excludes. **Nothing here makes the block a
+leg from the verdict machinery §7.5 excludes. **Nothing here makes the block a
 verdict surface.**
 
 `necessity:` a form selection with both arms' costs stated. Neither cost is
@@ -2383,7 +2400,7 @@ record for it would name the wrong party. For `introduce_paired_conceptual_axis`
 **Absent by default.** A form is added only when the Move's transformation has
 a relational shape, and that is the **admission act's judgment** (§6.9's agent
 review judges it as it judges the other fields), never a rule here. **A form on
-a Move obliges no Step to use it**, and nothing in the pipeline reads
+a Move obliges no Leg to use it**, and nothing in the pipeline reads
 `src/figure-kinds.json` to decide anything.
 
 **What ingestion validates is exactly three things, and each is refused by
@@ -2504,7 +2521,7 @@ it is written.
 ### 7.3 What would have to exist
 
 A **cross-run signature ledger**: an act recording, per composed Brief, which of
-the article's own materials each Step's rationale tied to, read **across** runs —
+the article's own materials each Leg's rationale tied to, read **across** runs —
 so that "rationale untied to the article's own materials" becomes a quantity
 something measures rather than an impression someone forms. It cannot be built
 while the corpus is empty.
@@ -2527,7 +2544,7 @@ stops the next sitting reaching for the plausible-and-wrong one.
 - **The describe-never-generate boundary of §4 is untouched** by the library's
   admission.
 
-**Mechanical kills are enumerated rather than capped at one.** A Move-less Step
+**Mechanical kills are enumerated rather than capped at one.** A Move-less Leg
 is unwritable (§4.1); a dangling move id refuses at adoption and at `resolve`
 (§4.12.1); a specialization record that is absent, mis-shaped or non-passing
 refuses at adoption (§4.12.2). Pin resolution remains the sole mechanical
@@ -2561,7 +2578,7 @@ would be, and the issue that discharges it currently says the wrong one.
 ## 8. The Japanese realization — evaluation classes, the Terminology List
    Decision, and versioning
 
-**A Japanese realization is a second realization of the SAME Brief Steps,
+**A Japanese realization is a second realization of the SAME Brief Legs,
 from the SAME Packet plus one added language block — never a translation of
 the reviewed English CanonicalDraft** (the owner's ruling, 2026-09-19 and
 2026-09-20, kogaki#1158). The owner's stated ground: translating from the
@@ -2569,8 +2586,8 @@ the reviewed English CanonicalDraft** (the owner's ruling, 2026-09-19 and
 target expand implicitly to cover two transformations at once — the original
 English Draft's own generation and the translation — and the owner wanted to
 avoid that coupling. `src/draft.mjs`'s `--lang` renders the language block
-into every Step's Packet and realizes each Step exactly as the English track
-does (§4's Step-Move instantiation contract, §5's Brief's centre — both
+into every Leg's Packet and realizes each Leg exactly as the English track
+does (§4's Leg-Move instantiation contract, §5's Brief's centre — both
 unchanged), writing `theses/<slug>/draft.<lang>.md` (SPEC-draft-command §1's
 reconciliation).
 
@@ -2597,7 +2614,7 @@ run, natively (neither is a textlint rule's job): structure identity against
 the Brief (realized in practice as identity against the sibling English
 CanonicalDraft's Section-heading, code-fence and link counts — both realize
 the same Brief structure), a language-confusion detector, and staleness.
-Every deviation is named with its Step, and every textlint-sourced deviation
+Every deviation is named with its Leg, and every textlint-sourced deviation
 is also named with its rule id.
 
 **Fluency read.** `theses/<slug>/fluency-notes.md`, read into every Japanese
@@ -2631,11 +2648,11 @@ enforcement of the ordering, not merely an instruction about it.
 **A term-list change is a CORRECTION, never a regeneration.** The owner does
 not require the Draft to be uniquely reproducible ("I do not require the
 Draft to be uniquely reproducible"), so a moved list does not obligate
-re-deriving the whole Draft from it: only the Steps the Lint names, by Step
-id, are corrected, on the ordinary Step re-realization path. `src/draft.mjs`
-offers no distinct "regenerate this Step because of a term change" shortcut —
-there is exactly one path from a Packet to a realized Step, used for every
-reason a Step is (re-)realized.
+re-deriving the whole Draft from it: only the Legs the Lint names, by Leg
+id, are corrected, on the ordinary Leg re-realization path. `src/draft.mjs`
+offers no distinct "regenerate this Leg because of a term change" shortcut —
+there is exactly one path from a Packet to a realized Leg, used for every
+reason a Leg is (re-)realized.
 
 ### 8.2.1 The term-list change path (kogaki#1165)
 
@@ -2645,38 +2662,38 @@ acceptance item 3). It runs in two ordered steps:
 
 1. **The mechanical fix runs first** (kogaki#1162's `fixPrhOnly`, wired to
    the `prh` rule alone). A deviation textlint's fixer can rewrite is gone
-   before the next step ever names a Step for it, so it is never spent on a
+   before the next step ever names a Leg for it, so it is never spent on a
    model correction.
-2. **The Lint runs over the fixed Draft**, and every Step its findings still
+2. **The Lint runs over the fixed Draft**, and every Leg its findings still
    name — unique, sorted, excluding an unattributed finding such as a
-   structure-identity or missing-sibling defect, which names no Step to
+   structure-identity or missing-sibling defect, which names no Leg to
    correct — is reported. **Nothing else in this pass names them.**
 
-If Lint names no Step after the mechanical fix, `correct-terms` reports it
+If Lint names no Leg after the mechanical fix, `correct-terms` reports it
 had nothing to correct and stops: **no model is invoked**, and a Draft that
 needed no correction is left byte-identical.
 
-If Lint names one or more Steps, `correct-terms` reports them and hands off
-to **`src/review-draft.mjs open --draft <draft.ja.md> --only-steps
-<id[,id...]>`** — the Round Trip's own entry point, scoped. `--only-steps`
-filters `run.steps` (and the `sections` derived from it) to exactly the
-named Steps at `open`, and every later act — `outline`, `compare`, `correct`,
-`check`, `close` — decides which Steps it reviews from `run.steps` alone, so
-this one filter is the whole of the scoping: **a Step not named is never
+If Lint names one or more Legs, `correct-terms` reports them and hands off
+to **`src/review-draft.mjs open --draft <draft.ja.md> --only-legs
+<id[,id...]>`** — the Round Trip's own entry point, scoped. `--only-legs`
+filters `run.legs` (and the `sections` derived from it) to exactly the
+named Legs at `open`, and every later act — `outline`, `compare`, `correct`,
+`check`, `close` — decides which Legs it reviews from `run.legs` alone, so
+this one filter is the whole of the scoping: **a Leg not named is never
 re-outlined, never re-compared, and never re-realized.** `open`'s ordinary
 freshness precondition (§8.3) is skipped for a scoped `open` — the whole
 reason the path exists is to correct a Draft `terms_sha_at_lint` calls stale,
 and the ordinary gate would refuse to let that correction start. The
 correction itself runs on the Round Trip's own correction path (the ordinary
-Step re-realization path 8.2 names), unchanged.
+Leg re-realization path 8.2 names), unchanged.
 
 **WHAT THE SCOPE DOES NOT NARROW: the article the Blind Reader is shown.**
-`run.steps` answers *which Steps this run reviews*; the "article before this
+`run.legs` answers *which Legs this run reviews*; the "article before this
 passage" block answers *what the reader has read by the time they meet it*,
 and that is a property of the **Draft**, not of this run's scope. So it is
-built from the whole trace even under `--only-steps`, exactly as `outline` and
-pass two's re-render already build it. A scoped run whose first named Step is
-not the Draft's first Step would otherwise hand the reader an article that
+built from the whole trace even under `--only-legs`, exactly as `outline` and
+pass two's re-render already build it. A scoped run whose first named Leg is
+not the Draft's first Leg would otherwise hand the reader an article that
 begins there — false, and withholding the prose the passage was written to
 follow. The distinction is why the two are read from different places rather
 than from one convenient array (PR #1169 round 1).

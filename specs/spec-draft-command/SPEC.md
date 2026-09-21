@@ -154,7 +154,7 @@ draft".
 
 **Harness — mechanical, runtime-owned.** Resolve the adopted Brief and refuse
 one whose composition fields are unfilled, because a template is not an input.
-Establish the closed set of §4. Iterate the Reader Path's Steps in order. Keep
+Establish the closed set of §4. Iterate the Reader Path's Legs in order. Keep
 per-block snapshots machine-local in the run workspace — **no per-block commit
 and no tracked diff artifact**. Run the citation resolve check. Drive to
 completion under §3.
@@ -180,37 +180,37 @@ check, which names the identity form as the migration in its refusal. Content
 drift behind a resolving identity remains the quote check's to catch.
 `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/knowledge-architecture.md:126`
 
-A **per-Step trace** — which prose block realizes which `step_id`, **and which
-Section that Step belongs to** — is machine-readable record, persisted because
+A **per-Leg trace** — which prose block realizes which `leg_id`, **and which
+Section that Leg belongs to** — is machine-readable record, persisted because
 review's fidelity dimension reads it. **The trace never renders as visible
 structure in the article body.**
 
 **THE SECTION HALF IS kogaki#823's, and the word was corrected in the same act.**
-This sentence read "which sections realize which `step_id`", using *Section* for
-the per-Step unit — a site of the collision `specs/spec-draft-pipeline/SPEC.md`
+This sentence read "which sections realize which `leg_id`", using *Section* for
+the per-Leg unit — a site of the collision `specs/spec-draft-pipeline/SPEC.md`
 §4.15 creates and one that neither kogaki#825's site table nor
-`specs/spec-brief-draft-design/DESIGN.md` enumerated. A Step is one unit of
-realization; a **Section** is a grouping of Steps declared on `opens_section`
-(§4.15). The trace maps **each Step to exactly one Section**, which is what lets
+`specs/spec-brief-draft-design/DESIGN.md` enumerated. A Leg is one unit of
+realization; a **Section** is a grouping of Legs declared on `opens_section`
+(§4.15). The trace maps **each Leg to exactly one Section**, which is what lets
 a reviewer check the grouping the Brief declared against the article that was
 produced from it.
 
-**VISIBLE STRUCTURE IS THE SECTION'S, NEVER THE STEP'S.** `emit` writes one
-`## <title>` per Section, at its opening Step, and **no heading inside a
+**VISIBLE STRUCTURE IS THE SECTION'S, NEVER THE LEG'S.** `emit` writes one
+`## <title>` per Section, at its opening Leg, and **no heading inside a
 Section** — so the count of body headings equals the count of Sections and is
-strictly less than the count of Steps in any Brief that groups at all. This is
+strictly less than the count of Legs in any Brief that groups at all. This is
 the rendering half of §4.15 and does not weaken the refusal above: a Section
-heading is a **title the Brief declared**, never a step id, so a heading that is
-a bare step id stays refused exactly as it is today.
+heading is a **title the Brief declared**, never a leg id, so a heading that is
+a bare leg id stays refused exactly as it is today.
 
 **BUILT AT kogaki#823, AND THE UNBUILT NOTE'S OWN READING OF THE HEAD WAS
-WRONG.** That note said `emit` "renders one heading per Step". It rendered
+WRONG.** That note said `emit` "renders one heading per Leg". It rendered
 **none**: `assembleBody` joined the realized prose and wrote no heading at all,
-and the five headings over five Steps in
+and the five headings over five Legs in
 `theses/safety-check-refuses-last-moment/draft.md` were written **by the model
 into the prose**. The correction matters because it names the actual defect —
 heading authorship was **unowned**, so the count of headings was whatever each
-realization happened to produce, and *one per Step* was a description of one
+realization happened to produce, and *one per Leg* was a description of one
 draft rather than a rule anything held.
 
 **So the rendering half is two acts, not one, and the second is what makes the
@@ -222,12 +222,12 @@ other**: the trace guard refuses *record* rendered as structure and names AC6,
 while this one refuses a heading of any text — including a good title — because
 `opens_section` is where a title is declared and a second authoring seat would
 put two writers on one article's structure. The trace guard is evaluated
-**first**, so a heading that is a bare step id is still refused as record, with
+**first**, so a heading that is a bare leg id is still refused as record, with
 the reason it was always given.
 
 **LLM — judgment, contract-bound, unharnessed.** The prose: realizing each
-Step's declared `reader_state_before → reader_state_after` transition, written
-from that Step's stated grounds. Register per `src/packet-template.md`, grounded
+Leg's declared `reader_state_before → reader_state_after` transition, written
+from that Leg's stated grounds. Register per `src/packet-template.md`, grounded
 at `specs/spec-brief-draft-design/DESIGN.md` §4. **A claim widened beyond its
 quoted scope is the author's judgment and is attributed as such.**
 
@@ -244,9 +244,9 @@ The **citation resolve check** over the draft's own cites is the whole of it, an
 the repository's guarantee split is what makes that sufficient rather than thin:
 `specs/SPEC.md::Kogaki guarantees citation integrity`.
 
-**No content conformance is checked mechanically beyond it.** Every Step field
+**No content conformance is checked mechanically beyond it.** Every Leg field
 is LLM-authored with no harness (`src/path-review-agent.md`). A defect in the
-prose is a defect in the Step it realized, or in the judgment realizing it, and
+prose is a defect in the Leg it realized, or in the judgment realizing it, and
 neither is reachable by a check over cites.
 
 `necessity:` a statement of what is NOT mechanized and why one instrument

@@ -11,12 +11,12 @@
 #
 # A term-list change is a correction, never a regeneration (the owner's
 # 2026-09-19/20 ruling): edit this file, run `node src/lint-ja.mjs lint`
-# against the affected Japanese Draft, and correct only the Steps the Lint
+# against the affected Japanese Draft, and correct only the Legs the Lint
 # names. Nothing in src/draft.mjs offers a shortcut around that path.
 #
 # Each rule's `expected` is the prescribed Japanese form. `patterns` lists
 # forbidden variants: leaked English, a katakana variant, or a notation
-# variant. `note` is a short reason, read by a human correcting a Step —
+# variant. `note` is a short reason, read by a human correcting a Leg —
 # never evaluated by the Lint.
 #
 # THE BOUNDARY RULE (kogaki#1162, ja-term-list-substring): a forbidden short

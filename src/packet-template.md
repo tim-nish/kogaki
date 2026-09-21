@@ -1,17 +1,17 @@
 <!--
-The Step Packet template (kogaki#749; owner rulings 2026-09-01; renamed at
+The Leg Packet template (kogaki#749; owner rulings 2026-09-01; renamed at
 kogaki#825).
 
 Runtime-read, like src/report-format.json and src/terrain-workflow.json — `draft.mjs
 packet` fills the {{...}} slots and prints the result, and the printed result is
-the model's ENTIRE input for realizing one STEP. Nothing outside it is read.
+the model's ENTIRE input for realizing one LEG. Nothing outside it is read.
 
-ONE WORD, ONE UNIT (kogaki#825). A STEP is one unit of realization —
-what this file asks for. A SECTION is a GROUPING of Steps that share one
+ONE WORD, ONE UNIT (kogaki#825). A LEG is one unit of realization —
+what this file asks for. A SECTION is a GROUPING of Legs that share one
 heading, declared in the Brief on `opens_section`. Before kogaki#825 this
-template used "Section" for both, which made `This Section's Step` a category
+template used "Section" for both, which made `This Section's Leg` a category
 error and told the realizer to write a whole grouping when it must write one
-Step. The Packet is the realizer's entire input, so a word meaning two things
+Leg. The Packet is the realizer's entire input, so a word meaning two things
 inside it is a defect in the one artifact whose job is to be unambiguous.
 
 TEMPLATE CONTENT IS OPERATIONAL TEXT ONLY: rules that change model behaviour at
@@ -25,8 +25,8 @@ bans becomes the first hit of any check grepping for it, which is the
 use-versus-mention defect this repository has recorded repeatedly. The check
 asserts the absence; this comment says why the absence is deliberate.
 
-Block order is fixed: anchors, Move contract, Step, the Journey material, the
-Step's Section, ledger, the article so far, instruction. Heavy prose late, instruction last. Every block opens with a fixed
+Block order is fixed: anchors, Move contract, Leg, the Journey material, the
+Leg's Section, ledger, the article so far, instruction. Heavy prose late, instruction last. Every block opens with a fixed
 usage header saying what the block is FOR, because a block whose use is not
 stated gets used for whatever it resembles.
 
@@ -37,7 +37,7 @@ An item with no such marking is a nucleus. The glossary below is the whole
 of what a writer needs to read the tree — no outside reference is required.
 -->
 
-# Write one Step
+# Write one Leg
 
 ## Relation types
 
@@ -65,7 +65,7 @@ with them; they are settled.
 - **Reader target.** {{reader_target}}
 - **Opening question.** {{opening_question}}
 
-## The Move this Step performs — its contract
+## The Move this Leg performs — its contract
 
 This is the transformation you are performing. `intent` says what it does;
 `constraints` are what a correct performance must and must not do;
@@ -84,41 +84,41 @@ form of the movement and nothing else.
 
 {{move_excerpt}}
 
-## This Step
+## This Leg
 
-What this Step must accomplish, in this article, for this reader.
+What this Leg must accomplish, in this article, for this reader.
 
-- **Step.** {{step_id}}
+- **Leg.** {{leg_id}}
 - **purpose.** {{purpose}}
 - **reader_state_before.** {{reader_state_before}}
 - **reader_state_after.** {{reader_state_after}}
-- **claims.** Each entry below is a claim this Step asserts, as a tree — see
+- **claims.** Each entry below is a claim this Leg asserts, as a tree — see
   "Relation types" above for how to read an indented one. Your
   prose must make every one of them recoverable, and must assert nothing beyond
   them. A satellite claim is realized fused into its nucleus's sentence, not as
   a sentence of its own. The Lesson each claim rests on is at its pin and is not
-  reproduced here: these lines are the whole of what this Step may assert.
+  reproduced here: these lines are the whole of what this Leg may assert.
 
 {{claims}}
 
-## The Journey material this Step edits — NOT a claim to recover
+## The Journey material this Leg edits — NOT a claim to recover
 
-Material, not assertion. Each entry below names a Journey this Step draws on
+Material, not assertion. Each entry below names a Journey this Leg draws on
 and what you are using it for. **Edit it for the Move's purpose**: cut it,
 compress it, retell it in this article's voice — the telling is yours, and the
 `use` line says what the telling is for.
 
-Nothing here is a claim. The claims above are the whole of what this Step
+Nothing here is a claim. The claims above are the whole of what this Leg
 asserts, and the round trip asks for those back and never for a fragment of a
 Journey. A Journey you use well may leave almost none of its original wording
 on the page.
 
 {{journeys}}
 
-## The Section this Step sits in
+## The Section this Leg sits in
 
-A Section is a grouping of Steps under one heading — one promise to the reader
-that the question changes here. This Step either opens a Section or continues
+A Section is a grouping of Legs under one heading — one promise to the reader
+that the question changes here. This Leg either opens a Section or continues
 one, and the line below says which. Where it continues, the heading is already
 on the page and you are writing further into it: do not restate the heading's
 claim, and do not open a new subject.
@@ -127,9 +127,9 @@ claim, and do not open a new subject.
 
 ## What the reader already knows, and what you introduce here
 
-`already knows` was established by earlier Steps — do not re-introduce it.
-`introduce here` is this Step's obligation, also a tree (see "Relation types"
-above): each term must be usable by the reader after this Step, and a term
+`already knows` was established by earlier Legs — do not re-introduce it.
+`introduce here` is this Leg's obligation, also a tree (see "Relation types"
+above): each term must be usable by the reader after this Leg, and a term
 with an anchor is anchored because its meaning is not carried by the claims
 above. A satellite term is realized folded into the sentence that introduces
 its nucleus, not given a sentence of its own.
@@ -137,11 +137,11 @@ its nucleus, not given a sentence of its own.
 - **already knows.** {{reader_already_knows}}
 - **introduce here.** {{introduces}}
 
-## This Step's Closure
+## This Leg's Closure
 
 The Brief's Closure ledger carries the promises the article makes to the
-reader — the Thesis's, and each Step's own. The rows below are the ones THIS
-STEP is a party to: where it introduces a promise, discharges one (keeps it),
+reader — the Thesis's, and each Leg's own. The rows below are the ones THIS
+LEG is a party to: where it introduces a promise, discharges one (keeps it),
 or concedes one (tells the reader it is left open). Honor them in the prose
 rather than restating them as fields.
 
@@ -150,7 +150,7 @@ rather than restating them as fields.
 ## The article so far — verbatim
 
 Everything already written, in order, grouped under the Section headings it was
-written into. The block ends with **this Step's own Section so far** — the prose
+written into. The block ends with **this Leg's own Section so far** — the prose
 immediately above where you are about to write. Continue from it: do not repeat
 what it says, do not contradict it, and match the voice it establishes.
 
@@ -158,14 +158,14 @@ what it says, do not contradict it, and match the voice it establishes.
 
 ## Write
 
-Write the prose for this Step and nothing else. No heading, no step id, no
+Write the prose for this Leg and nothing else. No heading, no leg id, no
 label, no commentary about what you are doing.
 
 **Budget.** {{budget}}
 
 **The heading is not yours.** One heading is rendered per Section, by the
-Harness, from the title the Brief declared — never per Step and never by you.
-Prose that writes its own heading is refused when the Step is recorded.
+Harness, from the title the Brief declared — never per Leg and never by you.
+Prose that writes its own heading is refused when the Leg is recorded.
 
 **Plain register, operationally:** no unexplained term of art; one relation per
 sentence; a concrete subject acting. Never write for an imagined audience —
@@ -179,16 +179,16 @@ omission is not a simplification, it is a loss.
 
 <!-- FIGURE-INPUT -->
 
-The block below is NOT part of a Step Packet. It is appended, filled, to the
-Packet of a Step that carries `figure:` — and only after that Step's prose is
+The block below is NOT part of a Leg Packet. It is appended, filled, to the
+Packet of a Leg that carries `figure:` — and only after that Leg's prose is
 recorded, which is the whole reason it is separated here rather than rendered
 inline: the figure is designed from the text, never before it. `draft.mjs`
 splits this file at the marker above; the Packet render never sees what
 follows.
 
-## The figure this Step carries
+## The figure this Leg carries
 
-The Step's prose is written and recorded. Design its figure now, from the text
+The Leg's prose is written and recorded. Design its figure now, from the text
 above and the material below, and from nothing else.
 
 The **form** is the Move's, not yours. It names the positions a figure of this
@@ -200,7 +200,7 @@ sees.
 
 {{figure_form_roles}}
 
-The **binding** is the Brief's. Each role above is bound to one of this Step's
+The **binding** is the Brief's. Each role above is bound to one of this Leg's
 claims, quoted verbatim. An element is that claim worded for the reader — not
 a new claim, and not a claim from anywhere else on the page.
 
@@ -208,7 +208,7 @@ a new claim, and not a claim from anywhere else on the page.
 
 **What the figure is for**, as the Brief stated it: {{figure_reason}}
 
-### This Step's prose, as recorded — verbatim
+### This Leg's prose, as recorded — verbatim
 
 {{figure_prose}}
 
@@ -223,10 +223,10 @@ Return one JSON object and nothing else:
 - `relations` — what holds between the elements, one entry per relation the
   figure asserts. The kind's own relation line is what these instantiate.
 - `emphasis` — optional; the role the figure leans on, if one does.
-- `caption` — one line, in the terms of this Step's `reader_state_after`: what
+- `caption` — one line, in the terms of this Leg's `reader_state_after`: what
   the reader holds after looking at the figure.
 - `position` — `before` or `after`: whether the reader meets the figure before
-  this Step's prose or after it.
+  this Leg's prose or after it.
 
 Assert nothing the claims above do not carry. You are not writing diagram
 syntax: the markup is the Harness's, rendered from this record.

@@ -70,7 +70,7 @@ fails=()
 # that is a RE-ADMISSION rather than a lapse. kogaki#1013 retired it because
 # `Recovery` was the name of a deleted artifact and a deleted act; the owner's
 # ruling of 2026-09-17 makes recovery the question the `claims` item ASKS — can
-# the reader recover the Step's declared claims — so the word is now load-bearing
+# the reader recover the Leg's declared claims — so the word is now load-bearing
 # in the item's own question, in the table's note and in the correction it
 # produces. A check that went on refusing it would be refusing the design it is
 # meant to guard. The other two stand: nothing has re-admitted `regenerat` or

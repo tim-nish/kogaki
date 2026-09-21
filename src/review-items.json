@@ -1,8 +1,8 @@
 {
   "note": [
-    "The Round Trip table: ONE ROW PER BRIEF STEP FIELD (kogaki#1013/#1014).",
+    "The Round Trip table: ONE ROW PER BRIEF LEG FIELD (kogaki#1013/#1014).",
     "",
-    "`field` names the Brief Step field the Reverse Outline side is read from, under",
+    "`field` names the Brief Leg field the Reverse Outline side is read from, under",
     "the Brief's own name and definition. It replaces the translation column, which was a",
     "TRANSLATION COLUMN between the Brief and a second schema for the same",
     "information — that schema is deleted, so what the column translated between no",
@@ -13,7 +13,7 @@
     "a trim (owner, 2026-09-09). Prose hygiene is not part of Reverse Outlining: a",
     "reader cannot infer the source a structure was produced from, and being able to",
     "would be abnormal. So exemplar-leak, packet-wording, term-before-introduction",
-    "and restates-earlier-step left the table. move-contract left with them because",
+    "and restates-earlier-leg left the table. move-contract left with them because",
     "the Move is not in the Reverse Outline at all — supplying the candidates would",
     "make the outcome ride on supplied information, and the Move's effect is carried",
     "by the reader states, which ARE compared. Whether any of the five survives as a",
@@ -23,16 +23,16 @@
     "(owner, 2026-09-11). It was the last prose lint standing: its declared side",
     "was the Packet's write-instruction paragraph and its reverse side was the",
     "passage itself, so no Reverse Outline field was involved at all. In the",
-    "first full run it failed on seven of eight Steps, every time on \"one",
+    "first full run it failed on seven of eight Legs, every time on \"one",
     "relation per sentence\", and sent nothing to correction -- a best-effort row",
-    "that fires on almost every Step reports the register of the prose, not a",
+    "that fires on almost every Leg reports the register of the prose, not a",
     "reconstruction gap. Whether register lints return at realization time inside",
     "`draft` stays the open question the paragraph above already records; it is",
     "the same question for this row.",
     "",
     "AND `already-knows` GAINS A `when_declared_absent` ARM in the same act. Its",
     "declared side is the Packet's `already knows` list, which is EMPTY for the",
-    "first Step of every article by construction, and the pair was rendered",
+    "first Leg of every article by construction, and the pair was rendered",
     "anyway: the model was asked whether the passage re-introduced a term the",
     "reader already knew, over a list of no terms, and returned `fails` with a",
     "reason stating the opposite -- that the passage introduces both terms for",
@@ -49,9 +49,9 @@
     "the declared ones license. The Packet renders Journey material under \"NOT a",
     "claim to recover\" and tells the writer to retell it, so a correctly realized",
     "passage asserts more than its declared claim BY DESIGN — and on the first full",
-    "run the item failed on five of five Steps in both passes, five of the six",
+    "run the item failed on five of five Legs in both passes, five of the six",
     "residue lines in one article. Reverse Outlining asks one thing here: can the",
-    "reader recover what the Step declared. So the Judge is asked once per DECLARED",
+    "reader recover what the Leg declared. So the Judge is asked once per DECLARED",
     "claim whether that claim is present among what the reader wrote, surplus is",
     "ignored, and whether a paraphrase counts is the Judge's answer in words and",
     "never a shared-word count — which is why `outlined_claim_containment` left the",
@@ -59,7 +59,7 @@
     "",
     "`claims-unused` IS THE SAME ITEM AND IS NOW INSIDE IT. It was the best-effort",
     "mechanical row reporting a declared claim no outlined claim matched, and it",
-    "held on every Step of that run: the item with a consequence detected surplus,",
+    "held on every Leg of that run: the item with a consequence detected surplus,",
     "and the item that detected a lost claim had none. With declared A and B and",
     "outlined A' and A'', both matching A, `claims` held twice, `claims-unused`",
     "failed, and B's loss was never named to the correction. ONE preserved item now",
@@ -70,7 +70,7 @@
     "design-table row and no later approval. `section-continues` asked whether a",
     "continuing passage restates its heading — a realization lint of the class",
     "removed on 2026-09-09, and the heading is rendered by the Harness from the",
-    "trace, so whether a Step opens a Section is never information the prose has to",
+    "trace, so whether a Leg opens a Section is never information the prose has to",
     "carry. `concession` and `opens_section` leave the Blind Reader's fields with",
     "them, which become five: `purpose`, `reader_state_before`,",
     "`reader_state_after`, `claims`, `introduces`. The `section_placement` Packet",
@@ -85,9 +85,9 @@
     "READS this file rather than restating it, the same arrangement",
     "one edit and never a two-copy divergence.",
     "",
-    "`class` IS THE CONSEQUENCE, not a severity. A Step is sent to correction only",
+    "`class` IS THE CONSEQUENCE, not a severity. A Leg is sent to correction only",
     "on a `fails` in a PRESERVED item; a best-effort fail rides along when that",
-    "Step is re-realized anyway. There is no score, no ranking and no aggregate —",
+    "Leg is re-realized anyway. There is no score, no ranking and no aggregate —",
     "the three tokens are the whole vocabulary, and `cannot-decide` is never",
     "rounded to either neighbour.",
     "",
@@ -114,23 +114,23 @@
     "",
     "NOT COMPARED, enumerated so a reader can tell a boundary from a hole:",
     "rationale, materials, reader_state_before, and the thesis and reader target",
-    "per Step.",
+    "per Leg.",
     "",
     "THE ARTICLE LEVEL IS NOBODY'S HERE (owner, 2026-09-17; kogaki#1133). It was",
     "the cold reader's: kogaki#873 added a Section ledger and five Section pairs",
     "to this table, and they are gone with the reader that answered them. Reverse",
-    "Outlining reconstructs the elements of a STEP, and the thesis is not a Step",
+    "Outlining reconstructs the elements of a LEG, and the thesis is not a Leg",
     "element -- of those five pairs the heading was preserved trivially by the",
     "Harness that renders it, three duplicated the reader-state items one level",
-    "up, and the thesis pair, the one check no Step item made, had no act in",
-    "ReviewDraft at all, because corrections are Step-level and a thesis fail",
+    "up, and the thesis pair, the one check no Leg item made, had no act in",
+    "ReviewDraft at all, because corrections are Leg-level and a thesis fail",
     "could only ever become residue saying the Packets lack something. That is a",
     "Brief-time finding. So `sections`, `ledger_fields` and `final_claim_field`",
     "left this file, and `thesis` and `opening_question` left `packet_blocks`",
     "with their only reader, as `section_placement` did at kogaki#1098.",
     "",
     "THE REOPEN TRIGGER, NAMED so a later reader can tell a ruling from an",
-    "omission: a Draft whose every Step holds the round trip and whose thesis the",
+    "omission: a Draft whose every Leg holds the round trip and whose thesis the",
     "owner cannot find on reading it. If that happens the check is designed at",
     "BRIEF COMPOSITION, where the chain of `reader_state_after` values should",
     "reach the thesis, as an operation outside the Reverse Outlining item set --",
@@ -139,10 +139,10 @@
     "THE FIGURE HALF IS BACK, RESTATED AGAINST THE RECORD'S OWN FIELDS",
     "(kogaki#1018). It left this table at kogaki#1014 under a recorded decline: its",
     "five rows read a reverse side out of the second schema that act deleted, and",
-    "the Blind Reader returns a Brief Step block, which carries no such field.",
+    "the Blind Reader returns a Brief Leg block, which carries no such field.",
     "",
     "WHAT REPLACED IT IS THE PASSAGE'S OWN RULE, ONE ARTIFACT DOWN. A passage is",
-    "written from a Brief Step, so its Reverse Outline is a Brief Step block; a",
+    "written from a Brief Leg, so its Reverse Outline is a Brief Leg block; a",
     "figure is written from its RECORD, so its Reverse Outline is a block in the",
     "fields src/figure-schema.json declares. There is no second schema at either",
     "level, which is the property kogaki#1014 landed and this is that property for",
@@ -154,14 +154,14 @@
     "are REFUSED rather than merely unasked: the kind and the relations are the",
     "Move form's, and a reader cannot infer the form a structure was produced from.",
     "",
-    "IT IS ITS OWN FENCE AND ITS OWN FILE. `figure` IS a Brief Step field and is",
+    "IT IS ITS OWN FENCE AND ITS OWN FILE. `figure` IS a Brief Leg field and is",
     "declared not reconstructible, so a `figure:` line inside the passage's outline",
     "stays refused; one file per vocabulary is what keeps either reading from",
     "acquiring a key belonging to the other.",
     "",
-    "`figure_only: true` marks a row that exists only for a Step whose trace entry",
-    "carries a figure. On a Step without one the row is not evaluated, not rendered",
-    "and NOT LOGGED -- a vacuous `holds` for every figureless Step would put a",
+    "`figure_only: true` marks a row that exists only for a Leg whose trace entry",
+    "carries a figure. On a Leg without one the row is not evaluated, not rendered",
+    "and NOT LOGGED -- a vacuous `holds` for every figureless Leg would put a",
     "figure line in a Draft that has no figure. `record_field` is to the figure",
     "record what `declared_block` is to the Packet, and `figure_field` names the",
     "line read back out of the figure's own Reverse Outline. A row naming both",
@@ -258,7 +258,7 @@
     "note": [
       "THE SECOND PASS'S BOUND IS DATA, for the reason the packet_blocks",
       "note gives one block down (kogaki#874). `check` re-judges the",
-      "corrected Steps' own items, the CONTINUITY items on the Step",
+      "corrected Legs' own items, the CONTINUITY items on the Leg",
       "immediately after each correction, and every mechanical item over",
       "the whole Draft -- and the runtime names none of those ids, because",
       "an item id spelled out in the runtime cannot be told from one",
@@ -266,10 +266,10 @@
       "",
       "`successor_items` IS ONE id, and it was two (kogaki#1014). The issue",
       "named two properties the successor carries -- `reader_state_before`",
-      "continuity and `restates`. The first is `already-knows`: no STEP item",
+      "continuity and `restates`. The first is `already-knows`: no LEG item",
       "reads the Packet's `reader_state_before` slot, and the block carrying",
-      "the reader's INCOMING state on the Step side is `already_knows`. The",
-      "second was `restates-earlier-step`, and that row left the table with",
+      "the reader's INCOMING state on the Leg side is `already_knows`. The",
+      "second was `restates-earlier-leg`, and that row left the table with",
       "the hygiene rows -- a reader cannot infer the source a structure was",
       "produced from -- so the property has no item to be re-checked on. It is",
       "recorded here rather than dropped silently: the successor arm now",
@@ -281,7 +281,7 @@
       "NARROWED AT kogaki#873 AND UN-NARROWED AT kogaki#1133. The clause read",
       "`this table declares NO reader for it`, flatly; the Section pair",
       "`section-belief-before` read exactly that block, so the sentence was",
-      "narrowed to the STEP items it had always been arguing about. That pair",
+      "narrowed to the LEG items it had always been arguing about. That pair",
       "left with the cold reader, and the flat reading is true again --",
       "recorded here rather than silently restored, because a reader who",
       "remembers the narrowing should be able to see what removed it.",
@@ -293,12 +293,12 @@
       "THE FIGURE ROWS ARE BACK IN THE TABLE (kogaki#1018) AND STILL ADD NO ARM",
       "HERE. They added none while they were here before, they removed none by",
       "leaving, and they add none returning: the second pass's arms are the",
-      "corrected Steps' own items, the successor's continuity item and every",
+      "corrected Legs' own items, the successor's continuity item and every",
       "mechanical item, and a figure row is reached by whichever of those its",
-      "Step is in. `figure-element-claim` is mechanical, so it is in the third",
+      "Leg is in. `figure-element-claim` is mechanical, so it is in the third",
       "arm over the whole Draft; the judged figure rows are in the first on a",
-      "corrected Step exactly as that Step's other rows are. NO FIGURE ROW IS A",
-      "SUCCESSOR ITEM: a correction moves the prose the NEXT Step continues",
+      "corrected Leg exactly as that Leg's other rows are. NO FIGURE ROW IS A",
+      "SUCCESSOR ITEM: a correction moves the prose the NEXT Leg continues",
       "from, and it moves no figure."
     ],
     "successor_items": [
@@ -327,16 +327,16 @@
       "field": "claims",
       "when_declared_absent": {
         "verdict": "holds",
-        "sentence": "this Step declares no claim, so there is nothing for the reader to have recovered and the question below quantifies over nothing; what the passage asserts is judged by the Step's other items"
+        "sentence": "this Leg declares no claim, so there is nothing for the reader to have recovered and the question below quantifies over nothing; what the passage asserts is judged by the Leg's other items"
       },
-      "question": "The declared claim is above, in the words the Step declares it in, and below it is every claim this reader wrote down after reading the passage blind. Is that declared claim among them? Answer `holds` where one of the claims the reader wrote says it — a paraphrase counts, and the wording need not match; answer `fails` where no claim they wrote carries it, which means the passage did not put it in front of the reader. What the reader wrote BEYOND the declared claim is not yours to judge here: the Step is told to retell material it asserts nothing about, so surplus is expected and this question is about recovery alone."
+      "question": "The declared claim is above, in the words the Leg declares it in, and below it is every claim this reader wrote down after reading the passage blind. Is that declared claim among them? Answer `holds` where one of the claims the reader wrote says it — a paraphrase counts, and the wording need not match; answer `fails` where no claim they wrote carries it, which means the passage did not put it in front of the reader. What the reader wrote BEYOND the declared claim is not yours to judge here: the Leg is told to retell material it asserts nothing about, so surplus is expected and this question is about recovery alone."
     },
     {
       "id": "satellite-fusion",
       "class": "preserved",
       "mode": "judged",
       "declared_block": "claims",
-      "question": "The declared side above renders this Step's claims as a TREE (the relations layer, kogaki#1174): a claim indented under another, marked `— satellite (<relation>)`, is a satellite of the claim directly above it at the shallower indent. Read the passage below. For every satellite the tree above declares, is it realized FUSED into a clause or phrase of the sentence carrying its nucleus — never as a sentence or paragraph standing on its own? Answer `holds` where every satellite is fused this way, or where the tree above declares no satellite at all — there is nothing to check. Answer `fails` where a satellite is realized as its own paragraph, apart from its nucleus, naming which one."
+      "question": "The declared side above renders this Leg's claims as a TREE (the relations layer, kogaki#1174): a claim indented under another, marked `— satellite (<relation>)`, is a satellite of the claim directly above it at the shallower indent. Read the passage below. For every satellite the tree above declares, is it realized FUSED into a clause or phrase of the sentence carrying its nucleus — never as a sentence or paragraph standing on its own? Answer `holds` where every satellite is fused this way, or where the tree above declares no satellite at all — there is nothing to check. Answer `fails` where a satellite is realized as its own paragraph, apart from its nucleus, naming which one."
     },
     {
       "id": "reader-state-before",
@@ -362,7 +362,7 @@
       "field": "introduces",
       "when_declared_absent": {
         "verdict": "holds",
-        "sentence": "this Step's Packet says to introduce no term, so the question below quantifies over nothing, and a passage that introduces nothing carries no `introduces:` line to read against it"
+        "sentence": "this Leg's Packet says to introduce no term, so the question below quantifies over nothing, and a passage that introduces nothing carries no `introduces:` line to read against it"
       },
       "question": "Is every term the Packet says to introduce here actually introduced in this passage — usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
     },
@@ -372,7 +372,7 @@
       "mode": "judged",
       "declared_block": "purpose",
       "field": "purpose",
-      "question": "Do the declared purpose and the outlined one name the same job for this Step? Answer `fails` if the passage is doing a different job."
+      "question": "Do the declared purpose and the outlined one name the same job for this Leg? Answer `fails` if the passage is doing a different job."
     },
     {
       "id": "already-knows",
@@ -382,9 +382,9 @@
       "field": "introduces",
       "when_declared_absent": {
         "verdict": "holds",
-        "sentence": "this Step's Packet lists no term the reader already knows, so there is nothing for the passage to re-introduce and the question below quantifies over nothing"
+        "sentence": "this Leg's Packet lists no term the reader already knows, so there is nothing for the passage to re-introduce and the question below quantifies over nothing"
       },
-      "question": "Does the passage re-introduce a term the reader already knows — explaining again what an earlier Step established? Answer `fails` if it does."
+      "question": "Does the passage re-introduce a term the reader already knows — explaining again what an earlier Leg established? Answer `fails` if it does."
     },
     {
       "id": "figure-elements",
@@ -407,7 +407,7 @@
         "reader_state_after"
       ],
       "figure_field": "caption",
-      "question": "The declared side carries the record's caption and the state the Step says its reader is left in. Does what the reader holds after looking at the figure agree with both? Answer `fails` if it agrees with neither, or if it agrees with the caption while the caption and the Step's state pull apart."
+      "question": "The declared side carries the record's caption and the state the Leg says its reader is left in. Does what the reader holds after looking at the figure agree with both? Answer `fails` if it agrees with neither, or if it agrees with the caption while the caption and the Leg's state pull apart."
     },
     {
       "id": "figure-element-claim",
@@ -427,7 +427,7 @@
       "figure_only": true,
       "declared_source": "passage",
       "figure_field": "element",
-      "question": "Both sides here were read blind, from the passage and the figure the reader met beside it. Do the figure and the prose of this Step say the same thing? Answer `fails` if the figure asserts something the passage does not, or the other way about."
+      "question": "Both sides here were read blind, from the passage and the figure the reader met beside it. Do the figure and the prose of this Leg say the same thing? Answer `fails` if the figure asserts something the passage does not, or the other way about."
     },
     {
       "id": "figure-position",

@@ -38,7 +38,7 @@
     "already drifted into eight variants, which is what kogaki#982 collapsed.",
     "",
     "THE NAMES THIS FILE USES, and the spec each one names:",
-    "  The Bridge Step and the revise pass",
+    "  The Bridge Leg and the revise pass",
     "      SPEC-draft-pipeline"
   ],
   "grades": {
@@ -48,7 +48,7 @@
   "fields": {
     "bridges": {
       "grade": "post-hoc",
-      "why": "A Bridge Step is approved by disclosing it after the fact [implemented-against: SPEC-draft-pipeline \"The Bridge Step and the revise pass\", copied 2026-09-06]. The approval is about what was ADOPTED, so a per-Candidate disclosure was always wider than the thing approved (kogaki#864, built at kogaki#866)."
+      "why": "A Bridge Leg is approved by disclosing it after the fact [implemented-against: SPEC-draft-pipeline \"The Bridge Leg and the revise pass\", copied 2026-09-06]. The approval is about what was ADOPTED, so a per-Candidate disclosure was always wider than the thing approved (kogaki#864, built at kogaki#866)."
     },
     "revise_residue": {
       "grade": "decision",

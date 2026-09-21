@@ -1,6 +1,6 @@
 <!--
 The JOIN PACKET template (kogaki#872) — the judging model's ENTIRE input for
-ONE (Step, item) pair.
+ONE (Leg, item) pair.
 
 Runtime-read, like src/packet-template.md:
 `review-draft compare` fills the {{...}} slots and writes the result into the
@@ -22,7 +22,7 @@ to the Packet by design (kogaki#871) and this reader is not: it sees the
 declared line, the outlined line and the quoted prose together, because
 judging whether they agree is the whole act. The blindness that matters here is
 of a different kind — this reader sees ONE pair and never the others, so it
-cannot rank, weigh or aggregate across a Step.
+cannot rank, weigh or aggregate across a Leg.
 
 NO NUMBERS BUT LINE NUMBERS. The reason sentence is refused when it carries a
 digit: line numbers belong in the span the Harness already renders, and every
@@ -37,7 +37,7 @@ problems, do not rank this against anything, and do not weigh how bad it is.
 
 ## The pair
 
-- **Step.** {{step_id}}
+- **Leg.** {{leg_id}}
 - **Item.** {{item}} ({{item_class}})
 
 ### What the {{declared_source}} DECLARED

@@ -13,9 +13,9 @@
 # carrying kogaki#1158's original a/b/c cases and kogaki#1161's d/e forward):
 # (a) a fixture carrying a forbidden term (via the real textlint-rule-prh)
 # lints IDENTICALLY on two runs, with no model invoked, and its finding is
-# attributed to the Step whose trace span covers the body line it sits on;
+# attributed to the Leg whose trace span covers the body line it sits on;
 # (b) a fixture with a three-line code fence followed by a forbidden
-# Latin-script run attributes that run to the Step whose trace covers the
+# Latin-script run attributes that run to the Leg whose trace covers the
 # line AFTER the fence — the line-attribution-after-a-fence defect kogaki#1161
 # fixed; (c) a Japanese Draft with no English sibling is REFUSED, naming the
 # missing sibling, with no terms_sha_at_lint written; (d) src/review-draft.mjs
@@ -28,11 +28,11 @@
 # — the boundary-pattern fix (kogaki#1162, ja-term-list-substring) for the two
 # forbidden short forms that are prefixes of their own prescribed form; (h) a
 # sentence over the technical-writing preset's length bound is named with its
-# Step AND its rule id — proof the preset, not only prh, is wired in; (i) the
+# Leg AND its rule id — proof the preset, not only prh, is wired in; (i) the
 # `fix` subcommand rewrites a prh-fixable term and changes no other byte,
 # leaving a preset finding in the same fixture untouched; (j) a forbidden
 # term inside a code fence lints clean (textlint's Markdown parser checks
-# text nodes only) while the same term in prose is named with its Step — the
+# text nodes only) while the same term in prose is named with its Leg — the
 # ja-lint-scan-scope defect kogaki#1162 discharges.
 #
 # WHY (f) IS NOT OPTIONAL: (a), (b), (c), (d), (e), (g), (h) and (j) each
@@ -44,20 +44,20 @@
 #
 # (m) THROUGH (p) ARE kogaki#1165's TERM-LIST CHANGE PATH, discharging
 # kogaki#1160 acceptance item 3: `correct-terms` runs the mechanical fix
-# FIRST and Lints the result to find which Steps, if any, still carry a
-# deviation. (m) a fixture whose Lint names zero Steps leaves the Draft
+# FIRST and Lints the result to find which Legs, if any, still carry a
+# deviation. (m) a fixture whose Lint names zero Legs leaves the Draft
 # byte-identical, with nothing to correct and no model invoked -- asserted
 # twice, once on the pure function (which is what carries "no model is
 # invoked") and once THROUGH THE CLI on the file on disk, because the
 # return-value form alone leaves `cmdCorrectTerms`'s own write branch out of
 # the case's path (PR #1169 round 1); (n) a
-# three-Step fixture whose Lint names exactly two Steps is corrected on
+# three-Leg fixture whose Lint names exactly two Legs is corrected on
 # those two and no other; (o) the mechanical fix runs BEFORE the bounded
-# correction, so a Step it clears is never named; (p) `--regenerate` refuses
+# correction, so a Leg it clears is never named; (p) `--regenerate` refuses
 # BY NAME, naming the Terminology List Decision, and touches no file. The
-# Round Trip half of item 2 -- that a Step NOT named is never re-outlined or
+# Round Trip half of item 2 -- that a Leg NOT named is never re-outlined or
 # re-compared -- is asserted where the Round Trip lives, at
-# src/review-draft.mjs `open --only-steps` (checks/check-review-draft-runtime.sh).
+# src/review-draft.mjs `open --only-legs` (checks/check-review-draft-runtime.sh).
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 

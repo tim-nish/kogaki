@@ -38,9 +38,9 @@ enumeration is deliberate:
 
 1. **Thesis candidate composition** — `composeThesisCandidates` renders
    candidates from the settled Strand set; the owner selects.
-2. **Path composition** — the composing sitting authors Step records toward the
+2. **Path composition** — the composing sitting authors Leg records toward the
    adopted Thesis. The harness validates their shape and never their content.
-3. **The Step↔Move specialization judgment** — whether a Step's instantiated
+3. **The Leg↔Move specialization judgment** — whether a Leg's instantiated
    reader states are consistent specializations of its Move's contract
    (`src/specialization-schema.json`).
 4. **Section realization** — the model writes one Section's prose from one
@@ -57,13 +57,13 @@ The invariant that makes them worth having is uniform — **the harness
 validates the record's shape and the sitting supplies its content**, so a
 missing record is a refusal rather than a blank the harness fills.
 
-## 2. The Move–Step–Strand model, and the Section above it
+## 2. The Move–Leg–Strand model, and the Section above it
 
 necessity: *the distinction is what makes the vocabulary usable, and each term's
-carrier holds only its own half — `moves/` holds a Move, a Brief holds a Step,
+carrier holds only its own half — `moves/` holds a Move, a Brief holds a Leg,
 a survey holds a Strand, and nothing holds the relation between them. The
 Section is here for a sharper reason: it was for a time not a unit at all, and
-what filled the gap was a heading emitted per Step.*
+what filled the gap was a heading emitted per Leg.*
 
 Three distinct things, routinely conflated by anyone meeting them for the first
 time:
@@ -72,12 +72,12 @@ time:
 |---|---|---|
 | **Strand** | **material** — a served lesson or journey the article may draw on | the survey, settled at Brief mint |
 | **Move** | a **transformation contract** — a reusable technique, with `requires`/`effect` as reader states | `moves/<id>.md` |
-| **Step** | an **instantiated application** — this Move, on this material, for this reader | a Brief's Reader Path |
+| **Leg** | an **instantiated application** — this Move, on this material, for this reader | a Brief's Reader Path |
 
-**A Step instantiates a Move.** Its `reader_state_before`/`after` are the
+**A Leg instantiates a Move.** Its `reader_state_before`/`after` are the
 instance forms of the Move's `requires`/`effect`. Two halves follow, and they
 are carried by different machinery on purpose: **id resolution is mechanical**
-(a Step's `move` must name a record that exists) and **specialization is
+(a Leg's `move` must name a record that exists) and **specialization is
 judged** (whether the instantiated states are consistent specializations).
 
 **The Move library grows by an admission act, never by a Brief naming an id.**
@@ -85,33 +85,33 @@ A composer that needs a Move the library lacks raises that rather than minting
 one, because a Move admitted as a side effect of needing it is a technique
 nobody observed.
 
-### 2.1 Section — a grouping of Steps, declared in the Brief (kogaki#816)
+### 2.1 Section — a grouping of Legs, declared in the Brief (kogaki#816)
 
-**Owner ruling, 2026-09-03.** One Step is one unit of **realization**, and that
+**Owner ruling, 2026-09-03.** One Leg is one unit of **realization**, and that
 is unchanged. A heading is a different unit: **a promise to the reader that the
-question changes here.** A Section is a **grouping of Steps declared in the
+question changes here.** A Section is a **grouping of Legs declared in the
 Brief**; the Harness renders one heading per Section and none inside it.
 
 | | what it is | where it lives |
 |---|---|---|
-| **Section** | a **grouping of Steps** — one promise to the reader that the question changes | a Brief's Reader Path, as `opens_section` on the Step that opens it |
+| **Section** | a **grouping of Legs** — one promise to the reader that the question changes | a Brief's Reader Path, as `opens_section` on the Leg that opens it |
 
-**WHY A FOURTH UNIT RATHER THAN A SETTING.** Binding the heading to the Step
+**WHY A FOURTH UNIT RATHER THAN A SETTING.** Binding the heading to the Leg
 produced both failures observed on 2026-09-03, and they are the two ends of one
 axis rather than a bug and its overcorrection: the draft with a heading on every
-Step read as **fragmented** (`theses/safety-check-refuses-last-moment/draft.md`,
-five headings for five Steps), and the drafts with none were **hard to scan**
+Leg read as **fragmented** (`theses/safety-check-refuses-last-moment/draft.md`,
+five headings for five Legs), and the drafts with none were **hard to scan**
 (the two drafts written that day under the pre-rename workspace path, which
 kogaki#766 has since retired). The owner rejected the binary and asked for a
 structural rule. A knob choosing between the two would have made
 both reachable and neither correct; a unit makes the grouping something the
 Brief **states** and the Harness **checks**.
 
-**WHERE THE JUDGMENT SITS, and it is not new judgment.** Which Steps open a
-Section is composition-time judgment, and it belongs where the Steps are already
+**WHERE THE JUDGMENT SITS, and it is not new judgment.** Which Legs open a
+Section is composition-time judgment, and it belongs where the Legs are already
 judged: **the Brief**. The four rules below are the Harness's *validation* of
-that judgment, not a second judge — a Brief that opens a Section on every Step,
-or on none, is refused **at composition** with the rule it broke and the Step
+that judgment, not a second judge — a Brief that opens a Section on every Leg,
+or on none, is refused **at composition** with the rule it broke and the Leg
 named. Which act validates, and why it cannot be `mint`, are recorded
 normatively at `specs/spec-draft-pipeline/SPEC.md` §4.15 (kogaki#842).
 
@@ -126,9 +126,9 @@ the grouping. A copy with no declared precedence and no mismatch check is a
 defect this repository has already paid for, which is why the reduction is part
 of the act that created the second copy rather than a later tidy-up.
 
-**In one line, so this section is readable alone:** a Step **opens** a Section
+**In one line, so this section is readable alone:** a Leg **opens** a Section
 when it changes the reader's question, **continues** when it develops the
-previous one, the **first Step always opens**, and **length is a check on the
+previous one, the **first Leg always opens**, and **length is a check on the
 grouping and never its reason** — a length rule promoted to the reason is a
 heading budget, which is the fragmented draft again with a number attached.
 §4.15 is the text that binds.
@@ -144,20 +144,20 @@ its own carrier, not the block's aggregate:
 
 - **BUILT, #822** — the field is admitted and the four rules refuse. **Not in
   `src/brief.mjs`, which is where this note predicted it.** `cmdMint` writes a
-  Brief *shell* and no Step exists there for a rule to read, so the site is
-  `validateSteps` in **`src/compose.mjs`** — the one act Steps reach. The
+  Brief *shell* and no Leg exists there for a rule to read, so the site is
+  `validateLegs` in **`src/compose.mjs`** — the one act Legs reach. The
   ruling's intent is unchanged and only the named act moved.
 - **BUILT, #823** — `emit` writes one `## <title>` per Section at its opening
-  Step, `parseBrief` reads the field back, and the frontmatter trace maps each
-  Step to exactly one Section. **This note's own reading of the head was wrong
+  Leg, `parseBrief` reads the field back, and the frontmatter trace maps each
+  Leg to exactly one Section. **This note's own reading of the head was wrong
   and the correction is kept**: `emit` rendered **no** heading, not one per
-  Step, and the specimen's five headings were the model's, written into the
+  Leg, and the specimen's five headings were the model's, written into the
   prose. Heading authorship was *unowned*, which is why the repair needed a
   second act — `section` refuses realized prose carrying a heading of its own.
 - **BUILT, #825** — the vocabulary collision this ruling creates inside the
   Packet is reconciled. `src/packet-template.md`'s block headers are rewritten
-  to the Step (`# Write one Step`, `## The Move this Step performs — its
-  contract`, `## This Step`), and it gains `## The Section this Step sits in`,
+  to the Leg (`# Write one Leg`, `## The Move this Leg performs — its
+  contract`, `## This Leg`), and it gains `## The Section this Leg sits in`,
   so the two words name two units inside the realizer's entire input.
   `src/draft.mjs` carries `sectionPlacement` and `priorProseBySection` — every
   Packet names its Section and the article-so-far block is Section-bounded —
@@ -171,10 +171,10 @@ its own carrier, not the block's aggregate:
 **THE VOCABULARY COLLISION IS DISCLOSED HERE RATHER THAN LEFT TO ITS CARRIER,**
 because this record is what creates it, **and it was wider than the Packet
 template.** `src/packet-template.md` shipped block headers reading `# Write one
-Section`, `## The Move this Section performs` and `## This Section's Step` — all
-using *Section* for what this section calls a **Step**. After this ruling
-`This Section's Step` was a category error and `Write one Section` instructed the
-realizer to write a whole grouping when it must write one Step. That was not
+Section`, `## The Move this Section performs` and `## This Section's Leg` — all
+using *Section* for what this section calls a **Leg**. After this ruling
+`This Section's Leg` was a category error and `Write one Section` instructed the
+realizer to write a whole grouping when it must write one Leg. That was not
 cosmetic: §3 makes the Packet the realizer's **entire** input, so a word meaning
 two things inside it is a defect in the one artifact whose job is to be
 unambiguous. **Reconciled at kogaki#825** (PR #847), per the BUILT clause above;
@@ -182,18 +182,18 @@ the disclosure is kept in the past tense rather than deleted, because the
 collision is what this ruling created and a reader of §2.1's reconciliation
 needs the defect it answers.
 
-**THE PER-STEP ARTIFACT IS ITSELF CALLED THE "SECTION PACKET", and that is the
+**THE PER-LEG ARTIFACT IS ITSELF CALLED THE "SECTION PACKET", and that is the
 larger half** (PR #826 round 1, finding 2 — the first drafting of this paragraph
 named only the template's three headers and was narrower than the collision it
-was disclosing). The name appears in **this file** at §3 ("One Step's realization
+was disclosing). The name appears in **this file** at §3 ("One Leg's realization
 takes exactly one input: the **Section Packet**"), as the heading of a ratified
 spec section — `specs/spec-draft-pipeline/SPEC.md` §4.14, then *The Section
-Packet* and now *The Step Packet* —
+Packet* and now *The Leg Packet* —
 in `src/draft.mjs`'s own subcommand gloss, at the top of the template, and inside
 `checks/registry.json`'s `draft-runtime` contract, which states §4.14 in the same
-words. So after this ruling the Section Packet was a **per-Step packet named for
+words. So after this ruling the Section Packet was a **per-Leg packet named for
 a grouping**, in a served spec heading and in a registered member's admission
-record. It is **the Step Packet** as of the reconciliation recorded below.
+record. It is **the Leg Packet** as of the reconciliation recorded below.
 
 **Nothing here renames it, and the reason is stated rather than left as an
 omission.** A ratified spec section heading and a registry contract are not this
@@ -205,15 +205,15 @@ is widened to every site named above**, the template included.
 
 **THE RECONCILIATION IS DECIDED (owner selection 2026-09-03, kogaki#825), AND
 THE SITE LIST ABOVE WAS INCOMPLETE.** Two sites carrying *Section* for the
-per-Step unit appear in neither the enumeration above nor #825's own table:
+per-Leg unit appear in neither the enumeration above nor #825's own table:
 `specs/spec-draft-command/SPEC.md`'s trace sentence ("which sections realize
-which `step_id`"), and **the `section` subcommand of `src/draft.mjs`**, named
+which `leg_id`"), and **the `section` subcommand of `src/draft.mjs`**, named
 four times in `.claude/skills/draft/SKILL.md`. The second is the expensive one —
 `checks/registry.json`'s kogaki#815 clause couples the Harness's entry-point set
 to that skill file **in both directions** — and it is why the decision separates
 two names rather than treating the collision as one:
 
-- **The proper noun renames completely.** *Section Packet* → **Step Packet**, at
+- **The proper noun renames completely.** *Section Packet* → **Leg Packet**, at
   every site carrying it in one act: `specs/spec-draft-pipeline/SPEC.md` §4.14,
   this file's §2.1 and §3, `checks/registry.json`'s `draft-runtime` contract,
   `src/draft.mjs`, and `src/packet-template.md`. No subset.
@@ -230,7 +230,7 @@ once per name: one name renamed everywhere, one retained with its retention
 recorded at its sites.
 
 **WHAT THIS SECTION DOES NOT DECIDE.** Packet timing and location stay §3's and
-#809's. The Step-to-Move contract stays #747's. The `intent`-style question of
+#809's. The Leg-to-Move contract stays #747's. The `intent`-style question of
 how a Section title is *worded* is composition judgment and no rule here binds
 it — this record says a title exists and where it is declared, never what it
 should say.
@@ -263,24 +263,24 @@ necessity: *the Packet's design is a claim about what a model does with an
 input, and the template can state the rules but not the reasoning for the block
 ORDER, the exclusions, or which failure each header is defending against.*
 
-One Step's realization takes exactly one input: the **Step Packet** — renamed
+One Leg's realization takes exactly one input: the **Leg Packet** — renamed
 from *the Section Packet* at kogaki#825, see §2.1 — rendered by `draft.mjs
 packet` from a fixed template. Nothing outside it is read.
 
-**AND THE HARNESS RENDERS IT, as the step immediately before realization
+**AND THE HARNESS RENDERS IT, as the leg immediately before realization
 (kogaki#809, owner ruling 2026-09-03).** The sentence above was true of the
 design and false of the running system: `draft.mjs` had no ordering between
-`packet` and `section`, so a Step could be realized with no Packet ever
+`packet` and `section`, so a Leg could be realized with no Packet ever
 rendered — and after a full Draft run there were none. The clause did not fail
 because it was wrong; it failed because nothing was obliged to make it true.
 
 The Packet is a **render from a fixed template**, not an owner judgment, so
 moving it inside the Harness takes no decision away from anyone. It makes "one
-Step, one input" true **by construction** rather than by a session remembering
+Leg, one input" true **by construction** rather than by a session remembering
 to run a command.
 
 **The refusal is KEPT AS THE BACKSTOP — and neither half exists yet.**
-`section` SHALL refuse to realize a Step whose Packet is absent; the case
+`section` SHALL refuse to realize a Leg whose Packet is absent; the case
 render-within cannot see is a Packet deleted or stale between the render and the
 realization. Both clauses are **normative and unbuilt at the head that records
 them**: `draft.mjs` has no ordering and no refusal between `packet` and
@@ -299,7 +299,7 @@ This is the gate-plus-backstop split rather than a belt-and-braces habit:
 `consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b topics/claude-code-ops.md:284`
   request_id: 5f4b00ad-ddb2-4280-874b-e7739828f869
   outcome: discriminating
-  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding step? Which is constraining generation rather than post-hoc detection?
+  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding leg? Which is constraining generation rather than post-hoc detection?
 
 and it is the constrain-generation arm rather than the detection arm:
 
@@ -310,11 +310,11 @@ and it is the constrain-generation arm rather than the detection arm:
 `consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b LESSONS.md:161`
   request_id: 5f4b00ad-ddb2-4280-874b-e7739828f869
   outcome: discriminating
-  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding step? Which is constraining generation rather than post-hoc detection?
+  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding leg? Which is constraining generation rather than post-hoc detection?
 
 **AN INSPECTION PAUSE IS A DISTINCT FACT, and this clause does not decide it
 (owner correction at the ruling gate).** It is tempting to read render-within as
-trading away the owner's chance to read a Packet before its Step. It does not.
+trading away the owner's chance to read a Packet before its Leg. It does not.
 If the design wants that pause, it belongs **after the render** and is its own
 clause — never a reason to keep rendering manual. Recorded because the gate that
 produced this ruling stated the cost as "the Packet becomes an artifact the
@@ -362,12 +362,12 @@ not stated gets used for whatever it resembles. The exemplar block is the one
 that fails worst — read as content rather than as form, it hands the article
 another article's subject matter — which is why its header is imperative.
 
-**Block order is fixed**: anchors, the Move's contract, the Step, the
+**Block order is fixed**: anchors, the Move's contract, the Leg, the
 reader-knowledge ledger, prior Sections verbatim, the write instruction. Heavy
 prose late; instruction last.
 
 **`requires`/`effect` are excluded**, and this is the design's sharpest
-exclusion. The Step's instantiated states are the instance forms of exactly
+exclusion. The Leg's instantiated states are the instance forms of exactly
 those two fields, so rendering both would put the general and the specialized
 statement of one thing side by side and leave the model to choose between them.
 
@@ -376,10 +376,10 @@ input that is the model's entire world, a hole is not a gap the model notices �
 it is a hole the model fills by invention.
 
 **The reader-knowledge ledger is always computed and never stored.** What a
-reader knows at Step N is the union of Steps 1..N−1's `introduces` entries,
+reader knows at Leg N is the union of Legs 1..N−1's `introduces` entries,
 recomputed wherever it is needed. A stored copy would be a second answer to a
-question the path already answers, wrong the moment a Step moved. What it buys
-is that an unintroduced term becomes **addressable** — to the first Step
+question the path already answers, wrong the moment a Leg moved. What it buys
+is that an unintroduced term becomes **addressable** — to the first Leg
 carrying it, or to the Brief when none does.
 
 ## 4. Plain register, and the round trip

@@ -15,14 +15,14 @@ Four terms, and the whole of this instrument is said in them:
 | term | what it names |
 |---|---|
 | **Reverse Outlining** | the method: read the finished prose, write the outline it would have been written from |
-| **Reverse Outline** | the artifact that reading produces — a Brief Step block, in the Brief's own field names |
-| **Forward Artifact** | the original Brief Step, which is what the article was actually written from |
+| **Reverse Outline** | the artifact that reading produces — a Brief Leg block, in the Brief's own field names |
+| **Forward Artifact** | the original Brief Leg, which is what the article was actually written from |
 | **Round Trip** | the comparison of the Forward Artifact with the Reverse Outline, entry by entry |
 
 **This file names entry points and carries no flow ordering.** The ordering
 lives in the Harness (`src/review-draft.mjs`), the same ruling
-`.claude/skills/draft/SKILL.md` records for /draft: `outline` refuses a Step
-whose Reverse Outline input it did not render, `compare` refuses while any Step
+`.claude/skills/draft/SKILL.md` records for /draft: `outline` refuses a Leg
+whose Reverse Outline input it did not render, `compare` refuses while any Leg
 outline is missing, `check`
 refuses before `compare`, `compare` refuses once a correction has landed (pass
 one is over, and re-rendering its join inputs from the corrected article would
@@ -33,21 +33,21 @@ sequence those acts and cannot get the sequence wrong.
 ## The closed input set
 
 The Harness reads `theses/<slug>/draft.md`, its frontmatter trace — which
-carries each Step's line range and its Packet's path and sha, and for a Step
+carries each Leg's line range and its Packet's path and sha, and for a Leg
 carrying a figure its record's path, sha and own line range — and the files that
 trace names: the Packets, and each figure record. **It reads no Brief, no Move
 file and no Strand**, by the owner's 2026-09-04 ruling: the Packet was designed
-to be the only source a Step needs, so a check that turns out to need anything
+to be the only source a Leg needs, so a check that turns out to need anything
 else is evidence the **Packet** is missing information. File that against
 `src/packet-template.md`; never satisfy it with a side read here.
 
 ## Entry points
 
                             node src/review-draft.mjs open    --draft <draft.md>
-    <reverse outline>     | node src/review-draft.mjs outline --draft <draft.md> --step <id>
+    <reverse outline>     | node src/review-draft.mjs outline --draft <draft.md> --leg <id>
     [<verdicts>]          | node src/review-draft.mjs compare --draft <draft.md>
-    [<corrected prose>]   | node src/review-draft.mjs correct --draft <draft.md> --step <id>
-    [<corrected record>]  | node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure
+    [<corrected prose>]   | node src/review-draft.mjs correct --draft <draft.md> --leg <id>
+    [<corrected record>]  | node src/review-draft.mjs correct --draft <draft.md> --leg <id> --figure
     [<verdicts>]          | node src/review-draft.mjs check   --draft <draft.md>
                             node src/review-draft.mjs close   --draft <draft.md>
 
@@ -60,7 +60,7 @@ in they record it. `outline` records a reply and nothing else, so an empty
 stream is a refusal there rather than a phase.
 
 **`runs/` holds what the Harness wrote and nothing else.** After each act the
-Harness already holds the reply verbatim under its own name — `outline/<step>.md`,
+Harness already holds the reply verbatim under its own name — `outline/<leg>.md`,
 `join.json`, `check.json`, the Draft itself with its before-and-after
 pair under `snapshots/` — so a reply file of your own would be a second copy of
 those bytes, written into machine state with no owner. Do not write one, inside
@@ -69,7 +69,7 @@ the run directory or beside it.
 `open` verifies the inputs, opens `runs/review/<slug>/` and renders the first
 Reverse Outline input. `outline` records one Reverse Outline and renders the
 next. `compare` runs the Round Trip. `correct` renders a correction input and records the re-realized
-Step; with `--figure` the seat it corrects is the Step's figure RECORD rather
+Leg; with `--figure` the seat it corrects is the Leg's figure RECORD rather
 than its prose. `check` runs the bounded second pass. `close` writes the owner
 record.
 
@@ -85,7 +85,7 @@ role:
 |---|---|---|
 | pair judgments — one join Packet each, `compare` and `check` | `claude-haiku-4-5-20251001` | one pair, one fixed question from `src/review-items.json`, an answer from a closed three plus one sentence. Fixed form, no prose, no evidence written |
 | Reverse Outlining — `outline` | `claude-opus-5` | it writes the artifact the whole Round Trip is then run against; a weak Reverse Outline makes every pair downstream of it measure the outline instead of the Draft |
-| corrections — `correct`, passage and `--figure` alike | `claude-opus-5` | it re-realizes a Step, or re-designs a figure record, against everything that must go on holding |
+| corrections — `correct`, passage and `--figure` alike | `claude-opus-5` | it re-realizes a Leg, or re-designs a figure record, against everything that must go on holding |
 
 **The split is by what the call produces, not by how hard it looks.** The
 judgments answer a fixed question and write a token; the Reverse Outlines and
@@ -96,7 +96,7 @@ half; the second is where a weaker model costs the run its meaning.
 **The Harness names no model of its own, and verifies none.** It invokes no
 judge, so a pin is something you DECLARE — the same reading terrain's judge pin
 carries. What the Harness does is **record what served**: every verdict is
-`{step_id, item, pair?, verdict, reason, model}` and one with no `model` is
+`{leg_id, item, pair?, verdict, reason, model}` and one with no `model` is
 **refused by name**, the id rides both the verdict and the `model_calls` log in
 `join.json` and `check.json`, and each pass emits
 
@@ -126,19 +126,19 @@ The layout is the Harness's contract, not a convention:
 
     runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
     runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
-    runs/review/<slug>/snapshots/     before/after per corrected Step, and per restore
+    runs/review/<slug>/snapshots/     before/after per corrected Leg, and per restore
     runs/review/<slug>/passes.json    both passes side by side, one row per pair
     runs/review/<slug>/run.json
 
-`outline-input/<step>.md` is what the Blind Reader was handed;
-`outline/<step>.md` is the Reverse Outline exactly as it was written, and
-`outline/<step>.json` the same reading under the Brief's field names, which is
-what the Round Trip compares. A Step whose reader met a figure also has
-`outline/<step>.figure.json`.
+`outline-input/<leg>.md` is what the Blind Reader was handed;
+`outline/<leg>.md` is the Reverse Outline exactly as it was written, and
+`outline/<leg>.json` the same reading under the Brief's field names, which is
+what the Round Trip compares. A Leg whose reader met a figure also has
+`outline/<leg>.figure.json`.
 
 **A pass writes only under its own directory, and a write that would land on a
 file another pass wrote is refused by name.** Until this, pass two re-read the
-corrected Steps blind and wrote its inputs and outlines at pass one's paths, so
+corrected Legs blind and wrote its inputs and outlines at pass one's paths, so
 pass one's reading of the ORIGINAL Draft was overwritten in place — and `runs/`
 is gitignored, so nothing else held a copy. The surviving verdicts pointed at
 readings that no longer existed. A rule saying "do not overwrite" would be prose
@@ -150,15 +150,15 @@ reason, the span, `judged` and — where a Judge was asked — the model that
 answered, with every pair's own answer under `pairs`.
 
 **There is no `comparison/` directory, and its removal reverses kogaki#1097 by
-name.** #1097 wrote one file per Step rendering those rows as prose, because the
+name.** #1097 wrote one file per Leg rendering those rows as prose, because the
 surface a person then debugged from was the verdicts file the session had handed
 in, which carried the model's answer and nothing about what it meant — not the
-item's class, not whether the fail sent the Step to correction. kogaki#1100
+item's class, not whether the fail sent the Leg to correction. kogaki#1100
 removed those session-written files the same day and the row grew the missing
 fields, so the comparison files became a legend plus one line per pair restating
 the record beside them, and were harder to read than it. Their one addition — the
 consequence word — follows from the class and the verdict: a **preserved** fail
-is what sends its Step to correction, a **best-effort** one rides along, and a
+is what sends its Leg to correction, a **best-effort** one rides along, and a
 row pass two carried says `carried: true` on the row itself.
 
 `snapshots/`, `passes.json` and `run.json` stay at the root: a snapshot pair
@@ -170,8 +170,8 @@ into residue rather than into another correction. A later third pass is
 
 `review.md` points at both pass directories, and every finding and residue line
 carries the artefacts behind it: the Reverse Outline the run actually read for
-that line (pass one's for a carried line, and for a successor Step's continuity
-item judged in pass two, since pass two re-reads only corrected Steps), and the
+that line (pass one's for a carried line, and for a successor Leg's continuity
+item judged in pass two, since pass two re-reads only corrected Legs), and the
 pair input the judge was handed — or, for a line the Harness decided, a
 statement that no Packet was rendered and a pointer at the pass's join record
 instead. Every pointer names a file the run wrote.
@@ -197,10 +197,10 @@ second takes the answers on standard input and emits the comparison.
 
 **`claims` asks one thing, once per DECLARED claim: did the reader recover it.**
 The Blind Reader is told no count and writes as many claims as the passage puts
-in front of them. The Harness then renders one join Packet per claim the Step
-DECLARES — `join/<step>.claims.<k>.md`, carrying that claim's own words, every
+in front of them. The Harness then renders one join Packet per claim the Leg
+DECLARES — `join/<leg>.claims.<k>.md`, carrying that claim's own words, every
 claim the reader wrote, the passage, and the question "is this declared claim
-among them" — so a Step declaring N claims costs N calls for this item. Whether
+among them" — so a Leg declaring N claims costs N calls for this item. Whether
 a paraphrase counts as recovered is the judge's answer in words and never a
 shared-word count. **Surplus is not judged at all**: the Packet renders Journey
 material under "NOT a claim to recover" and tells the writer to retell it, so a
@@ -221,7 +221,7 @@ absence settles the question is per item.
 **The item table is `src/review-items.json` and it is fixed in the Harness.**
 Which Packet information must be reconstructible is decided there, per item
 class, and so is what a `fails` costs: a **preserved** item failing sends its
-Step to correction, a **best-effort** one rides along if that Step is
+Leg to correction, a **best-effort** one rides along if that Leg is
 re-realized anyway. **The model never assigns severity** — it sees one pair,
 answers one question, and returns one of `holds`, `fails`, `cannot-decide` plus
 one sentence. It never sees two pairs at once, so it cannot rank them.
@@ -233,7 +233,7 @@ and nothing else numeric**, so quoted material is carried as the finding's
 *evidence* in the join record and the owner record rather than in the line. A
 recorded reason carrying a digit is refused.
 
-`compare` emits one line per (Step, item) **only once every pair is answered**.
+`compare` emits one line per (Leg, item) **only once every pair is answered**.
 There is no fourth token for "not asked yet", and an unfilled join says it is
 unfilled rather than rendering an empty findings list; `close` refuses over one.
 
@@ -245,11 +245,11 @@ satisfied by a side read.
 
 **A figure is written from its RECORD, so it gets its own Reverse Outline in the
 record's own field names.** That is the same rule the passage half runs under,
-one artifact down: a passage is written from a Brief Step and its Reverse
-Outline is a Brief Step block, so a figure's is a block in the fields
+one artifact down: a passage is written from a Brief Leg and its Reverse
+Outline is a Brief Leg block, so a figure's is a block in the fields
 `src/figure-schema.json` declares. There is no second schema at either level.
 
-**It is its own fence and its own file.** `figure` IS a Brief Step field, and it
+**It is its own fence and its own file.** `figure` IS a Brief Leg field, and it
 is declared not reconstructible — a reader cannot read the Brief's figure
 decision off a rendered block — so a `figure:` line inside the Reverse Outline
 stays refused. What the reader CAN do is say what they met, and that is an
@@ -274,32 +274,32 @@ that reaches the comparison. The refusal lives in the parser and **is not
 rendered into the input** — this table is the record of the disposition, not a
 description of a section the reader meets.
 
-**A Step whose trace carries a figure gains five rows** — the record's elements
+**A Leg whose trace carries a figure gains five rows** — the record's elements
 against the ones the reader could name, its caption against what the reader
-holds and the Step's `reader_state_after`, each element's wording against the
+holds and the Leg's `reader_state_after`, each element's wording against the
 claim its `g<n>` address points at, the figure's reading against the passage's
 prose, and the position the record declares against where the reader met the
 block. Three are preserved and two best-effort, same three verdicts, same
-consequence rule. **A Step with no figure runs none of them** — not as a vacuous
+consequence rule. **A Leg with no figure runs none of them** — not as a vacuous
 `holds` but not at all, so a figureless Draft's log carries no figure item
-anywhere, and a figure block filed for such a Step is refused as an invention.
+anywhere, and a figure block filed for such a Leg is refused as an invention.
 
 **The element-to-claim row is the Harness's alone.** Containment against the
 claim the record's address names, above a declared floor: no model call and no
-join Packet, and a fail is what sends the Step to `correct --figure`. It does
+join Packet, and a fail is what sends the Leg to `correct --figure`. It does
 **not** re-check the binding — §4.17 already refuses a record that moves a role
 to a claim the Brief did not bind it to — it asks whether the wording the
 element finally got is carried by the material it was licensed from, which is
 the one question nothing before the Round Trip can ask.
 
-## The correction path, and what a corrected Step receives
+## The correction path, and what a corrected Leg receives
 
-A corrected Step is realized from a **freshly rendered Packet**, never from the
+A corrected Leg is realized from a **freshly rendered Packet**, never from the
 Packet that produced the failing prose. `correct` re-renders it against the
 Draft **as it now stands**, so the "article so far" block carries the current
-preceding prose — including Steps corrected earlier in the same pass — and the
+preceding prose — including Legs corrected earlier in the same pass — and the
 reader-knowledge list and Section block come with it. That block is the
-continuity mechanism, and rendering fresh is what keeps a corrected Step
+continuity mechanism, and rendering fresh is what keeps a corrected Leg
 continuous with the article rather than drifting toward being self-contained.
 
 `correct` runs in two phases, like `compare`, and standard input selects the
@@ -310,36 +310,36 @@ must not break, and the instruction to change what the findings name and nothing
 else. With the corrected prose piped in it records it through the realization lane, so the
 Draft is re-assembled by the same code that wrote it, and snapshots land in the
 review workspace. Its input is filed under `pass-1/corrections/`, beside the
-verdicts that sent the Step there.
+verdicts that sent the Leg there.
 
 **A figure fail routes to `correct --figure`, and that is a different act.** What
-comes back is a JSON record, not prose: the input carries the Step's Packet as it
+comes back is a JSON record, not prose: the input carries the Leg's Packet as it
 now stands, the passage, the block as the reader currently meets it, the previous
 record verbatim, what failed and what must go on holding. Recording it hands the
 record to `draft.mjs figure`, which re-validates it against
 `src/figure-schema.json` and the Move's own form, and to `emit`, which renders
 the block from it — **you write no markup**, so a syntax defect in a corrected
 figure stays a defect of `src/render-figure.mjs` rather than of the sitting that
-corrected it. A Step owing both corrections takes the **passage first**: the
+corrected it. A Leg owing both corrections takes the **passage first**: the
 record's caption is stated in what the reader holds after reading that passage,
 so a record corrected against prose about to change is corrected against nothing.
-`correct` on a Step whose only preserved fails are the figure's refuses by naming
+`correct` on a Leg whose only preserved fails are the figure's refuses by naming
 the other seat.
 
-**Corrections run in path order** and a Step out of order refuses — each later one
+**Corrections run in path order** and a Leg out of order refuses — each later one
 must see the earlier ones in its own "article so far". Between the render and the
-recording the run is **mid-correction** on that Step and every other act refuses
+recording the run is **mid-correction** on that Leg and every other act refuses
 by name; the act that ends it is the same `correct` with the prose piped in.
 
-**Drift is reported and never gated.** Per corrected Step the Harness states the
+**Drift is reported and never gated.** Per corrected Leg the Harness states the
 share of sentences changed against the previous realization and the verbatim
 overlap with the Packet's claim and state lines, and both reach `review.md`. A
-high change share is what the owner reads as the Step becoming self-contained; it
+high change share is what the owner reads as the Leg becoming self-contained; it
 is information, not a refusal.
 
 `check` is pass two and is **bounded**: it re-runs Reverse Outlining for the
-corrected Steps, then re-judges their own failed and held preserved items, the
-continuity item on each corrected Step's successor, and every mechanical item
+corrected Legs, then re-judges their own failed and held preserved items, the
+continuity item on each corrected Leg's successor, and every mechanical item
 over the whole Draft. Every other pair is **carried** from pass one, marked as
 carried, at no model call. The bound is recorded in `check.json` rather than only
 applied. Pass two answers its own owed pairs by piping them into `check`, never
@@ -347,7 +347,7 @@ into `compare`. A preserved item still failing after it is **residue**.
 
 ## `check` refuses a regression (owner, 2026-09-17)
 
-**A corrected Step that FAILS in pass two a preserved item it HELD in pass one is
+**A corrected Leg that FAILS in pass two a preserved item it HELD in pass one is
 RESTORED to its pass-one prose**, through the realization lane that wrote it, and
 the item the correction was made for returns to residue as still failing. In the
 first full review run this happened and nothing caught it: the regression was
@@ -355,10 +355,10 @@ recorded as residue, indistinguishable from an item that failed in both passes,
 and the regressed prose stayed in the article — so the run's product was an
 article the review had made worse on a dimension the review itself measured.
 
-**Only the regressed Step is restored.** A later corrected Step keeps its
-corrected prose and carries no continuity mark. Continuity between Steps was
-settled at Reader Path design and holds while a Step is unchanged; ReviewDraft is
-not responsible for Step-to-Step continuity, so a restore reaching forward would
+**Only the regressed Leg is restored.** A later corrected Leg keeps its
+corrected prose and carries no continuity mark. Continuity between Legs was
+settled at Reader Path design and holds while a Leg is unchanged; ReviewDraft is
+not responsible for Leg-to-Leg continuity, so a restore reaching forward would
 be this Harness answering a question the Reader Path owns.
 
 **The correction input is unchanged.** The owner weighed an explicit
@@ -368,13 +368,13 @@ trip is external feedback and stays what the corrector is handed. The remedy for
 a correction that breaks something is to undo it, not to coach it.
 
 The restore is recorded in `run.json`, in `check.json`, and in `review.md` under
-the Step it undid, with a snapshot pair of its own. A restored Step's rows carry
+the Leg it undid, with a snapshot pair of its own. A restored Leg's rows carry
 **pass one's** verdicts, because the prose those verdicts were given on is the
 prose the Draft carries again.
 
 ## `passes.json` — both passes side by side
 
-A completed `check` writes **`passes.json` at the run root**: one row per Step,
+A completed `check` writes **`passes.json` at the run root**: one row per Leg,
 item and pair, carrying pass one's verdict, pass two's, and one outcome word —
 **held**, **fixed**, **still-failing**, **regressed**, **carried**. JSON, not
 Markdown: it is a derived record read against the two it is derived from, and the
@@ -382,7 +382,7 @@ prose surface a person reads is `review.md`.
 
 Comparing the passes meant reading `pass-1/join.json` and `pass-2/check.json`
 side by side by hand, and `regressed` is the word neither of them carries. A
-restored Step's `pass_2` is **the answer pass two gave**, not the pass-one answer
+restored Leg's `pass_2` is **the answer pass two gave**, not the pass-one answer
 the restore put back — showing `holds`/`holds` there would erase the event the
 guard fired on.
 
@@ -390,11 +390,11 @@ guard fired on.
 
 **The Blind Reader has never seen the Brief.** It reads the article before one
 passage, then that passage, and writes the **Reverse Outline** — the outline
-entry it believes the passage was written from, in the Brief's own Step form. An
+entry it believes the passage was written from, in the Brief's own Leg form. An
 outline that agrees with the Brief because it guessed at the Brief measures
 nothing, which is why the Harness renders prose alone — it carries no thesis, no
 claims, no Move, no reader states and no term list — and refuses an outline for
-a Step whose input it did not render.
+a Leg whose input it did not render.
 
 **The input is fixed, and it is fixed by what a reader can have (kogaki#1099).**
 It carries the passage, the article before it, the five fields with their
@@ -405,7 +405,7 @@ the knowledge it withholds, and the command is an instruction to the session
 rather than to the reader. The refusal it used to announce is the parser's and
 works without the announcement.
 
-**And it sees the figure the reader saw.** For a Step whose trace carries one,
+**And it sees the figure the reader saw.** For a Leg whose trace carries one,
 the Reverse Outline input quotes the rendered block — the fence and the caption,
 sliced from the Draft at the range the trace records, with its own line numbers,
 on the side of the passage the reader met it on — and nothing from the figure
@@ -413,7 +413,7 @@ record: no role binding, no claim address, no relation list.
 
 **There is no template file and no second schema.** The input is composed from
 the Brief's own field declaration, because there is no second artifact to
-describe: the reader fills a fenced `step` block. It is asked for `purpose`,
+describe: the reader fills a fenced `leg` block. It is asked for `purpose`,
 `reader_state_before`, `reader_state_after`, the `claim ` lines and `introduces`
 — the Brief's fields with the Brief's definitions — and the count in its
 instruction is computed from that declaration rather than spelled, so a field
@@ -430,9 +430,9 @@ item table, so neither field had a reader left; a field asked for and compared b
 nothing is a reading the Blind Reader is charged for and nobody looks at. A block
 carrying either is refused by name, and the two refusals read differently:
 `opens_section` is refused as declared **not reconstructible**, and `concession`
-by the closed line set, which says it is not a Brief Step field.
+by the closed line set, which says it is not a Brief Leg field.
 
-**The block is validated by the Brief's own parser**, `parseStepBlock` — the
+**The block is validated by the Brief's own parser**, `parseLegBlock` — the
 function `parseBrief` calls per fenced block — so a Reverse Outline the Brief
 could not carry is refused by the code that would refuse it inside a Brief, and
 every refusal names what it saw. `move`, `materials`, `rationale`, `depends_on`,
@@ -448,16 +448,16 @@ one.
 
 A second reader of the whole body, a Section ledger recorded through `read`, and
 five Section pairs per Section stood here. **Reverse Outlining reconstructs the
-elements of a Step, and the thesis is not a Step element.** Of the five pairs the
+elements of a Leg, and the thesis is not a Leg element.** Of the five pairs the
 heading was preserved trivially — the Harness renders it from the trace — and
 three duplicated the reader-state items one level up. The thesis pair was the one
-check no Step item makes, and it had no act: corrections are Step-granular, so a
+check no Leg item makes, and it had no act: corrections are Leg-granular, so a
 thesis fail could only ever become residue saying the Packets lack something,
 which is a **Brief-time** finding. So there is no Section ledger, no Section pair
 and no thesis check in ReviewDraft.
 
 **The reopen trigger**, named so a later reader can tell a ruling from an
-omission: a Draft whose every Step holds the round trip and whose **thesis the
+omission: a Draft whose every Leg holds the round trip and whose **thesis the
 owner cannot find on reading it**. If that happens, the check is designed at
 **Brief composition**, where the chain of `reader_state_after` values should
 reach the thesis — an operation outside the Reverse Outlining item set, and never

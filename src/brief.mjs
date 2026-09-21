@@ -98,8 +98,8 @@ import {
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
 import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
-  validateSteps, validateSpecialization, selectedStrands,
-  resolveMoveIds, loadMoveContracts, moveContractsForSteps,
+  validateLegs, validateSpecialization, selectedStrands,
+  resolveMoveIds, loadMoveContracts, moveContractsForLegs,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -158,8 +158,8 @@ function parseArgs(argv) {
 const SLOT = "*(awaiting composition)*";
 // THE CAPTIONS ARE READ FROM ONE TABLE, NOT WRITTEN HERE (kogaki#526). Every
 // caption used to carry its own field key and, in three cases, a section
-// reference — `thesis_closure — explanation and established_by_steps.`,
-// `sequence — the ordered steps of \u00a74.1.` (the caption's own words, quoted
+// reference — `thesis_closure — explanation and established_by_legs.`,
+// `sequence — the ordered legs of \u00a74.1.` (the caption's own words, quoted
 // as the SPECIMEN it is and escaped so the kogaki#902 sweep does not read it
 // as a reference) — on a TRACKED document the owner
 // reads directly. kogaki#520 removed that vocabulary from the gate payload and
@@ -328,7 +328,7 @@ export function composeBrief({ slug, strands, thesis }) {
 // its join key"). With four members the three options shared everything except
 // which member led, so they read ~80% identical and in machine language. The
 // cause was mechanical rather than model drift: a slug is an identifier, and no
-// amount of care at the composing step turns an identifier into prose.
+// amount of care at the composing leg turns an identifier into prose.
 //
 // NEVER WIDENED, AND STILL NEVER FETCHED BY THIS LANE. The set is closed at
 // entry and this composes from its members and nothing else — the durable home and the entry point
@@ -1139,9 +1139,9 @@ const STATE_WORK = {
   //
   // THE SCHEMA IS RENDERED INTO THE PROMPT BY THE EXECUTOR, from this state's
   // `schema_file` row. What is validated here is the same file's field set, read
-  // by `validateSteps` — so the text the Model composes against and the text the
+  // by `validateLegs` — so the text the Model composes against and the text the
   // refusal enforces are ONE FILE and cannot disagree. That property is the
-  // reason `src/step-schema.json` exists; this state is its second reader.
+  // reason `src/leg-schema.json` exists; this state is its second reader.
   compose_path: async (rec, st, args, table) => {
     const briefPath = needBrief(rec, st);
     const doc = readFileSync(briefPath, "utf8");
@@ -1228,38 +1228,38 @@ const STATE_WORK = {
             + "tell apart at the label");
         }
         seenChar.add(charKey);
-        // THE STEP REFUSALS ARE `validateSteps`' OWN, re-implemented nowhere.
+        // THE LEG REFUSALS ARE `validateLegs`' OWN, re-implemented nowhere.
         // One-claim-per-Strand, the closed claim type set, every required
-        // field and its description all come from `src/step-schema.json`
+        // field and its description all come from `src/leg-schema.json`
         // through that function.
-        const v = validateSteps(c.steps, c.reader_start);
+        const v = validateLegs(c.legs, c.reader_start);
         if (v.error) refuseJudgment(`candidate ${c.candidate_id}: ${v.error}`);
         // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
         // `resolveMoveIds` was first called by `adopt-candidate`, five states
-        // downstream: a Step binding an id that is in no Move record survived
+        // downstream: a Leg binding an id that is in no Move record survived
         // this state's re-ask window, `review_path`, `assemble_candidates`, the
         // owner's Candidate gate and `judge_specialization` before the write
         // refused it. Raising it inside the window is what makes it repairable
         // — and repairable IN FACT rather than in principle, because the ask
         // this state composes now carries the admitted set.
-        const mv = resolveMoveIds(c.steps, movesDir);
+        const mv = resolveMoveIds(c.legs, movesDir);
         if (mv.error) refuseJudgment(`candidate ${c.candidate_id}: ${mv.error}`);
         // THE CLOSED STRAND SET, refused HERE rather than only at adoption. A
         // material outside the Brief's settled set is refused by `fillBrief`
         // at `adopt_candidate` — after the owner has chosen the path — so
         // raising it inside the re-ask window is what makes it repairable
         // instead of terminal. A Brief never fetches: the set closed at mint.
-        for (const s of c.steps) {
+        for (const s of c.legs) {
           for (const m of s.materials) {
             if (!strandIds.includes(m)) {
-              refuseJudgment(`candidate ${c.candidate_id}, step ${s.step_id}: material ${m} is outside `
+              refuseJudgment(`candidate ${c.candidate_id}, leg ${s.leg_id}: material ${m} is outside `
                 + `the Brief's closed Strand set (${strandIds.join(", ")}). The set closed at mint and a `
                 + "Brief never fetches — compose from the settled Strands and from nothing else");
             }
           }
         }
         const reasoning = c.reasoning || {};
-        for (const key of ["step_validity", "transition_continuity", "thesis_closure"]) {
+        for (const key of ["leg_validity", "transition_continuity", "thesis_closure"]) {
           if (typeof reasoning[key] !== "string" || reasoning[key].trim() === "") {
             refuseJudgment(`candidate ${c.candidate_id}: \`reasoning.${key}\` is required — the Brief's `
               + "closing sections are filled from it at adoption, and adoption fills no default");
@@ -1281,7 +1281,7 @@ const STATE_WORK = {
         // the three was repairable by then. `candidateLedgerRefusal` reads the
         // declaration in `src/candidate-schema.json`, which the executor
         // renders into this state's own prompt — the same two-readers property
-        // `validateSteps` has, one field set over.
+        // `validateLegs` has, one field set over.
         const ledger = candidateLedgerRefusal(c, strandIds);
         if (ledger) refuseJudgment(ledger);
       }
@@ -1306,7 +1306,7 @@ const STATE_WORK = {
       // and were in no record.
       //
       // EACH ENTRY CARRIES ITS CONTRACT, not only its id, and that is the
-      // difference between a legal value and a choosable one: a Step BINDS the
+      // difference between a legal value and a choosable one: a Leg BINDS the
       // Move whose requires and effect its reader states specialize, so an id
       // list alone would make the field fillable without making it decidable.
       // The same two fields reach `judge_specialization`, which is the state
@@ -1385,7 +1385,7 @@ const STATE_WORK = {
     return null;
   },
 
-  // ---- JUDGMENT POINT 3. The Step-Move instantiation contract's judged half,
+  // ---- JUDGMENT POINT 3. The Leg-Move instantiation contract's judged half,
   // over the SELECTED Candidate alone.
   //
   // SCOPED TO THE SELECTION, and the scoping is the point rather than an
@@ -1410,7 +1410,7 @@ const STATE_WORK = {
     // THE CONTRACTS THE VERDICT IS A COMPARISON AGAINST (kogaki#1125). Read
     // before the ask, because a Move record this state cannot read is a store
     // fault and not something a judge can answer around.
-    const bound = moveContractsForSteps(c.steps, movesDir);
+    const bound = moveContractsForLegs(c.legs, movesDir);
     if (bound.error) {
       fail(`${st.id}: ${bound.error}`);
     }
@@ -1422,7 +1422,7 @@ const STATE_WORK = {
       // REFUSALS (kogaki#1125). `validateSpecialization` refuses it in path
       // order like `contradicts`, and through `refuseJudgment` that refusal
       // reached the repair window — where a second ask over the SAME input
-      // returned `consistent` for every Step, each `why` describing a contract
+      // returned `consistent` for every Leg, each `why` describing a contract
       // that did not exist, and the run record counted it as a repair.
       //
       // The two verdicts are not alike in this one respect, whatever else they
@@ -1430,27 +1430,27 @@ const STATE_WORK = {
       // least asking the judge to reconsider something it decided.
       // `cannot-determine` is a judgment NOT reached, and the input it was not
       // reachable from is the input the next attempt gets. So it exits here,
-      // naming the Step and its own sentence, and `refusals_repaired` never
+      // naming the Leg and its own sentence, and `refusals_repaired` never
       // counts it.
       const undecided = (record && Array.isArray(record.verdicts) ? record.verdicts : [])
         .find((v) => v && v.verdict === "cannot-determine");
       if (undecided) {
-        refuseTerminally(`step ${undecided.step_id}: cannot-determine — the judge did not reach a verdict, `
+        refuseTerminally(`leg ${undecided.leg_id}: cannot-determine — the judge did not reach a verdict, `
           + `and the judging sitting wrote: "${String(undecided.why || "").trim()}". `
           + `A verdict that was not reachable from this input is not reachable from the same input on a second ask, `
-          + `so this refuses the state rather than spending a re-ask on it (the Step-Move instantiation contract). `
+          + `so this refuses the state rather than spending a re-ask on it (the Leg-Move instantiation contract). `
           + `The input carried ${bound.contracts.length} Move contract(s): `
-          + `${bound.contracts.map((x) => `${x.step_id}=${x.move}`).join(", ")}. Nothing was written.`);
+          + `${bound.contracts.map((x) => `${x.leg_id}=${x.move}`).join(", ")}. Nothing was written.`);
       }
-      const v = validateSpecialization(record, c.steps, chosen);
+      const v = validateSpecialization(record, c.legs, chosen);
       if (v.error) refuseJudgment(v.error);
     };
     const composeInputFor = () => writeJudgeInput(rec, st, {
       state: st.id,
       candidate_id: chosen,
-      steps_you_must_judge: c.steps,
-      // THE RECORD THE COMPARISON IS AGAINST, PER STEP (kogaki#1125). This
-      // state's judgment_point asks whether each Step's reader states are
+      legs_you_must_judge: c.legs,
+      // THE RECORD THE COMPARISON IS AGAINST, PER LEG (kogaki#1125). This
+      // state's judgment_point asks whether each Leg's reader states are
       // specializations of "the requires and effect its bound Move declares",
       // and its input carried neither — so the judge was asked about a record
       // it was never given. The fields are verbatim from `moves/<id>.md`;

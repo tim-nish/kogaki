@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// compose — the Step-record runtime over the Brief's settled materials
-// (SPEC-draft-pipeline, the Step's shape, the claims rule, the settled
+// compose — the Leg-record runtime over the Brief's settled materials
+// (SPEC-draft-pipeline, the Leg's shape, the claims rule, the settled
 // structure section and the obligations ledger;
 // kogaki#489, story 1.73).
 //
 // Machine-side blocks 1-2 of the Reader Path artifact's five: path
 // composition → Move binding.
 // THIS RUNTIME RECORDS; IT NEVER JUDGES AND NEVER COMPOSES. The composing
-// producer is the sitting that authors the Step records toward the adopted
-// Thesis; this runtime validates their SHAPE (the Step's shape's fields — a schema
+// producer is the sitting that authors the Leg records toward the adopted
+// Thesis; this runtime validates their SHAPE (the Leg's shape's fields — a schema
 // question), fills the Brief's typed unfilled slots (the settled structure section sequence,
 // strand_coverage; the obligations ledger), and takes the Strand placement count AFTER
 // composition, in placements, disclosing an unplaced selected Strand rather
@@ -19,19 +19,19 @@
 // refused, a weak rationale is not.
 //
 // THE CLAIMS ARE RECORDED FOR REVIEW, NOT VERDICT-ED (story 1.73 SQ2): a
-// Step carries typed claims (the claims rule) and, where a proposition is
+// Leg carries typed claims (the claims rule) and, where a proposition is
 // not explicit in the material, the `entailed` flag WITH its entailment
 // reasoning — recorded here so path review and the human gate can judge
 // them. No grounds-test verdict is produced anywhere in this file.
 //
 // A CLAIM IS ONE PROPOSITION DERIVED FROM A STRAND, AND NOTHING ELSE (kogaki#1095).
-// The type set was three — `strand`, `step_effect`, `reader_assumption` — and
-// the Step Packet renders every claim under one instruction: these are what
-// this Step may ASSERT. A `step_effect` claim is inherited reader state and a
+// The type set was three — `strand`, `leg_effect`, `reader_assumption` — and
+// the Leg Packet renders every claim under one instruction: these are what
+// this Leg may ASSERT. A `leg_effect` claim is inherited reader state and a
 // `reader_assumption` claim is a presupposed premise; neither is an
-// assertion, so a passage that realizes its Step correctly never states them
+// assertion, so a passage that realizes its Leg correctly never states them
 // and the Blind Reader never recovers them. `claims-unused` failed on 8 of 8
-// Steps of the first full review run against premise-type claims alone — a
+// Legs of the first full review run against premise-type claims alone — a
 // comparison whose declared side carries a category its reverse side cannot
 // produce measures nothing. Inherited state was already carried twice, by
 // `reader_state_before` and by the computed `already knows` ledger; the
@@ -40,8 +40,8 @@
 // non-Strand claim UNWRITABLE rather than discouraged. Removing the brief
 // skill and the pipeline spec from the tree leaves the refusal standing.
 //
-// MOVE BINDING CHANGES THE TYPE OF NOTHING (the Step and the Move it binds): `move` is REQUIRED on every
-// Step (the Step's shape v18, kogaki#642 — the Move is a Step's State component, and this
+// MOVE BINDING CHANGES THE TYPE OF NOTHING (the Leg and the Move it binds): `move` is REQUIRED on every
+// Leg (the Leg's shape v18, kogaki#642 — the Move is a Leg's State component, and this
 // file is the carrier the spec names for it), and the binding is still a
 // recorded field, never a generator: this runtime reads the rationale
 // before it reads the move name only in the trivial sense that it validates
@@ -58,13 +58,13 @@
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   the read-not-invented rule
 //       SPEC-draft-pipeline
-//   the Step and the Move it binds
+//   the Leg and the Move it binds
 //       SPEC-draft-pipeline
-//   the Step's shape
+//   the Leg's shape
 //       SPEC-draft-pipeline
-//   the Bridge Step and the revise pass
+//   the Bridge Leg and the revise pass
 //       SPEC-draft-pipeline
-//   the Step-Move instantiation contract
+//   the Leg-Move instantiation contract
 //       SPEC-draft-pipeline
 //   the owner gate over a passing specialization record
 //       SPEC-draft-pipeline
@@ -151,9 +151,9 @@ export function snapshotBrief(briefPath, stage, phase, content, seq = null) {
   }
 }
 
-// ---- THE STEP SCHEMA IS A FILE, AND THIS IS ITS READER (kogaki#1108). ------
+// ---- THE LEG SCHEMA IS A FILE, AND THIS IS ITS READER (kogaki#1108). ------
 //
-// `src/step-schema.json` carries every Step field with its description, and it
+// `src/leg-schema.json` carries every Leg field with its description, and it
 // is read TWICE: the Brief workflow table's path-composition state renders it
 // into the judge's prompt, and this file reads its field set to validate what
 // comes back. That is the whole of the change — before it, the only Harness
@@ -176,18 +176,18 @@ export function snapshotBrief(briefPath, stage, phase, content, seq = null) {
 // the validator and not to the prompt is refused after the Model was never
 // told about it. The prompt and the refusal cannot disagree when there is one
 // file.
-let STEP_SCHEMA = null;
-export function stepSchema() {
-  if (STEP_SCHEMA) return STEP_SCHEMA;
-  const p = join(dirname(fileURLToPath(import.meta.url)), "step-schema.json");
-  STEP_SCHEMA = JSON.parse(readFileSync(p, "utf8"));
-  return STEP_SCHEMA;
+let LEG_SCHEMA = null;
+export function legschema() {
+  if (LEG_SCHEMA) return LEG_SCHEMA;
+  const p = join(dirname(fileURLToPath(import.meta.url)), "leg-schema.json");
+  LEG_SCHEMA = JSON.parse(readFileSync(p, "utf8"));
+  return LEG_SCHEMA;
 }
 
 // The required field set, read from the schema. A field whose `required` is
-// true is one a Step record without it is not a Step record.
-export function requiredStepFields() {
-  return Object.entries(stepSchema().fields)
+// true is one a Leg record without it is not a Leg record.
+export function requiredLegFields() {
+  return Object.entries(legschema().fields)
     .filter(([, d]) => d && d.required === true)
     .map(([name]) => name);
 }
@@ -196,24 +196,24 @@ export function requiredStepFields() {
 // rather than held as two constants here (kogaki#1095 put them in this module;
 // kogaki#1108 moves the CARRIER to the schema and leaves the refusals here).
 function claimTypes() {
-  return new Set(stepSchema().claim.types);
+  return new Set(legschema().claim.types);
 }
 function retiredClaimTypes() {
-  return new Map(Object.entries(stepSchema().claim.retired_types || {}));
+  return new Map(Object.entries(legschema().claim.retired_types || {}));
 }
 // The Journey use vocabulary, read from the schema for the reason the claim
 // types are (kogaki#1111): the schema is rendered into the composition prompt
 // and read back here, so the set the composer is shown and the set the refusal
 // enforces are one file and cannot disagree.
 function journeyUses() {
-  return new Map(Object.entries(stepSchema().journey.uses));
+  return new Map(Object.entries(legschema().journey.uses));
 }
 // the relations layer's closed set (kogaki#1174), read from the schema for the same reason
 // the claim types and Journey uses are: the schema is rendered into the
 // composition prompt and read back here, so the set the composer is shown and
 // the set the refusal enforces are one file and cannot disagree.
 function relationTypes() {
-  return new Map(Object.entries(stepSchema().relation.types));
+  return new Map(Object.entries(legschema().relation.types));
 }
 const SLOT = "*(awaiting composition)*";
 
@@ -221,7 +221,7 @@ const SLOT = "*(awaiting composition)*";
 //
 // The field descriptions above are rendered into the composition prompt and
 // the field SET is read back here. The rules over the whole path had neither
-// half: `validateSteps` and `sectionGroupingRefusal` enforced the Section
+// half: `validateLegs` and `sectionGroupingRefusal` enforced the Section
 // grouping, the `depends_on` ordering, the uniqueness of an id and the claim
 // cardinality, and no text a composer reads before composing stated any of
 // them. Two /brief runs on 2026-09-18 died at `compose_path` on the Section
@@ -229,24 +229,24 @@ const SLOT = "*(awaiting composition)*";
 // the rule can be met by chance on a first attempt, and otherwise is learned
 // from a refusal that has already spent one of three attempts.
 //
-// SO THE REFUSAL TEXT IS THE SCHEMA'S. `path_rules` in src/step-schema.json
+// SO THE REFUSAL TEXT IS THE SCHEMA'S. `path_rules` in src/leg-schema.json
 // carries each rule with the `name` the refusal says first and the `rule` as
 // the validator checks it; every refusal below embeds that text verbatim and
-// adds only what is specific to the path in hand — which Step, which Strand,
+// adds only what is specific to the path in hand — which Leg, which Strand,
 // which Section. The prompt and the refusal are one text for the reason the
 // field set already is: two carriers agree until one is edited.
 //
-// A MISSING ENTRY THROWS, and loudly, on the shape `stepFieldPresent` already
+// A MISSING ENTRY THROWS, and loudly, on the shape `legFieldPresent` already
 // uses one field over: a rule the validator raises and the schema does not
 // carry is exactly the drift this arrangement removes, arriving from the
 // inside, and a silent fallback to hardcoded wording is what would hide it.
 export function pathRules() {
-  return stepSchema().path_rules || {};
+  return legschema().path_rules || {};
 }
 export function pathRule(key) {
   const r = pathRules()[key];
   if (!r || typeof r.name !== "string" || r.name === "" || typeof r.rule !== "string" || r.rule === "") {
-    throw new Error(`src/step-schema.json carries no \`path_rules.${key}\` with a name and a rule, and `
+    throw new Error(`src/leg-schema.json carries no \`path_rules.${key}\` with a name and a rule, and `
       + "src/compose.mjs raises a refusal under that key. The schema is rendered into the composition "
       + "prompt and the refusals read their text back from it, so a rule enforced here and absent there "
       + "is a rule the composing party is never shown (kogaki#1147).");
@@ -264,11 +264,11 @@ function pathRefusal(key, at, specific) {
 
 // The two required fields whose refusal is written out below rather than
 // generated from the schema's declared type. Both say something the generic
-// "is required" sentence cannot: `move` names WHY a Move-less Step is not a
-// Step, and `claims` names what a claim is. They are still required fields
+// "is required" sentence cannot: `move` names WHY a Move-less Leg is not a
+// Leg, and `claims` names what a claim is. They are still required fields
 // of the schema and still enumerated from it — this set only routes which
 // refusal speaks.
-const BESPOKE_STEP_REFUSALS = new Set(["move", "claims"]);
+const BESPOKE_LEG_REFUSALS = new Set(["move", "claims"]);
 
 // The generic presence predicate for a required field, selected by the type
 // the schema declares. An unknown type is a LOUD failure rather than a silent
@@ -276,7 +276,7 @@ const BESPOKE_STEP_REFUSALS = new Set(["move", "claims"]);
 // otherwise be rendered into the judge's prompt and validated by nobody, which
 // is the two-carrier drift this whole arrangement removes — arriving from the
 // inside.
-function stepFieldPresent(decl, v) {
+function legFieldPresent(decl, v) {
   switch (decl.type) {
     case "string":
       return typeof v === "string" && v !== "";
@@ -291,7 +291,7 @@ function stepFieldPresent(decl, v) {
   }
 }
 
-// ---- the Journey a Step draws on (kogaki#1111) ----
+// ---- the Journey a Leg draws on (kogaki#1111) ----
 //
 // A Journey is MATERIAL, not an assertion: it carries an ADDRESS and a USE,
 // and no text. The shape is validated here and the parse-back in
@@ -302,8 +302,8 @@ function stepFieldPresent(decl, v) {
 // model's entire input.
 //
 // TWO HALVES, SPLIT WHERE THE BRIEF DOCUMENT DOES. What is checkable from the
-// Step alone lives here: the shape, the closed use set, and that the Journey's
-// Strand is one this Step actually carries in `materials`. Whether that
+// Leg alone lives here: the shape, the closed use set, and that the Journey's
+// Strand is one this Leg actually carries in `materials`. Whether that
 // Strand's SERVED RECORD carries Journey material needs the Brief's own
 // Strands section and so is checked in `fillBrief`, beside the existing
 // `<L-id>.journey` check that reads the same `journeyBearingStrands` list.
@@ -313,36 +313,36 @@ function stepFieldPresent(decl, v) {
 export function journeysRefusal(journeys, materials, at) {
   if (journeys === undefined) return null;
   if (!Array.isArray(journeys)) {
-    return `${at}: journeys, when present, is an array of Journey references — each naming the Strand whose Journey this Step draws on and what it uses it for (src/step-schema.json, \`journey\`)`;
+    return `${at}: journeys, when present, is an array of Journey references — each naming the Strand whose Journey this Leg draws on and what it uses it for (src/leg-schema.json, \`journey\`)`;
   }
   const uses = journeyUses();
-  // The Strand ids this Step carries, with a `.journey` suffix stripped: a
+  // The Strand ids this Leg carries, with a `.journey` suffix stripped: a
   // composer may name the Strand bare, or as the `<L-id>.journey` form, and
-  // both are the Step carrying that Strand. Neither spelling decides
+  // both are the Leg carrying that Strand. Neither spelling decides
   // placement — since kogaki#1131 the coverage count reads THIS field.
   const carried = new Set((Array.isArray(materials) ? materials : [])
     .map((m) => String(m).replace(/\.journey$/, "")));
   for (const [i, j] of journeys.entries()) {
     const nth = `journey ${i + 1}`;
     if (!j || typeof j !== "object" || Array.isArray(j)) {
-      return `${at}: ${nth} is not a Journey reference — each entry names a \`strand\` and a \`use\` (src/step-schema.json, \`journey\`)`;
+      return `${at}: ${nth} is not a Journey reference — each entry names a \`strand\` and a \`use\` (src/leg-schema.json, \`journey\`)`;
     }
     if (typeof j.strand !== "string" || j.strand === "") {
-      return `${at}: ${nth} names no strand — a Journey reference addresses the Strand whose Journey this Step draws on, as a LessonDisplayID (L<n>)`;
+      return `${at}: ${nth} names no strand — a Journey reference addresses the Strand whose Journey this Leg draws on, as a LessonDisplayID (L<n>)`;
     }
     if (typeof j.use !== "string" || j.use === "") {
-      return `${at}: ${nth} (strand ${j.strand}) names no use — a Journey is material the Step EDITS, and the use is what the Step edits it for: ${[...uses.keys()].join(", ")}`;
+      return `${at}: ${nth} (strand ${j.strand}) names no use — a Journey is material the Leg EDITS, and the use is what the Leg edits it for: ${[...uses.keys()].join(", ")}`;
     }
     if (!uses.has(j.use)) {
       // NAMES THE SET AND WHAT EACH MEMBER MEANS, not just the set. The use
       // is the composer's one decision on this field, and a bare list of
       // three words is the refusal that sends them back to the schema to
       // find out which one they wanted.
-      return `${at}: ${nth} (strand ${j.strand}) declares use ${JSON.stringify(j.use)} — the set is closed (src/step-schema.json, \`journey.uses\`): `
+      return `${at}: ${nth} (strand ${j.strand}) declares use ${JSON.stringify(j.use)} — the set is closed (src/leg-schema.json, \`journey.uses\`): `
         + [...uses.entries()].map(([k, v]) => `${k} — ${v}`).join("; ");
     }
     if (!carried.has(j.strand)) {
-      return `${at}: ${nth} draws on ${j.strand}'s Journey, but this Step does not carry ${j.strand} in \`materials\` (${(materials || []).join(", ") || "none"}) — a Step edits material it stands on, so the Journey's Strand is one of the Step's own materials`;
+      return `${at}: ${nth} draws on ${j.strand}'s Journey, but this Leg does not carry ${j.strand} in \`materials\` (${(materials || []).join(", ") || "none"}) — a Leg edits material it stands on, so the Journey's Strand is one of the Leg's own materials`;
     }
   }
   return null;
@@ -350,25 +350,25 @@ export function journeysRefusal(journeys, materials, at) {
 
 // ---- the relations layer (kogaki#1174) ----
 //
-// A Step MAY declare `relations`: which of its own claims and `introduces`
+// A Leg MAY declare `relations`: which of its own claims and `introduces`
 // entries are SATELLITES, and of which NUCLEUS. Every item this field does
 // not name is a nucleus by default — the field marks subordination and
-// nothing else, so a Step declaring none renders exactly as it did before
+// nothing else, so a Leg declaring none renders exactly as it did before
 // this field existed.
 //
-// THE ADDRESS GRAMMAR IS TYPED BY KIND. `g<n>` addresses this Step's nth
+// THE ADDRESS GRAMMAR IS TYPED BY KIND. `g<n>` addresses this Leg's nth
 // declared claim (the address `figure_roles` already uses); `i<n>` addresses
 // its nth declared `introduces` entry, both 1-based in declaration order.
 const RELATION_ADDRESS = /^([gi])([1-9][0-9]*)$/;
 
 // The address's kind ("g" or "i") and 1-based index, or `null` for a string
-// that is not one of this Step's own addresses.
+// that is not one of this Leg's own addresses.
 function parseRelationAddress(addr) {
   const m = RELATION_ADDRESS.exec(String(addr ?? ""));
   return m ? { kind: m[1], index: Number(m[2]) } : null;
 }
 
-// PURE over one Step's own claims and introduces, and exported for the second
+// PURE over one Leg's own claims and introduces, and exported for the second
 // reader — `src/draft.mjs`'s parse-back — the same arrangement `journeysRefusal`
 // and `introducesRefusal` already have: a writer and a reader disagreeing about
 // what a relation is fails silently at exactly the field that decides how the
@@ -399,17 +399,17 @@ export function relationsRefusal(relations, claims, introduces, at) {
     }
     const item = parseRelationAddress(r.item);
     if (!item) {
-      return `${at}: ${nth} names no nucleus for a satellite that resolves — \`item\` must address one of this Step's own claims or introduces entries, \`g<n>\` or \`i<n>\` (the relations layer)`;
+      return `${at}: ${nth} names no nucleus for a satellite that resolves — \`item\` must address one of this Leg's own claims or introduces entries, \`g<n>\` or \`i<n>\` (the relations layer)`;
     }
     const nucleus = parseRelationAddress(r.nucleus);
     if (!nucleus) {
-      return `${at}: ${nth} (item ${r.item}) names no nucleus — a satellite that names no nucleus is refused: \`nucleus\` must address one of this Step's own claims or introduces entries, \`g<n>\` or \`i<n>\` (the relations layer)`;
+      return `${at}: ${nth} (item ${r.item}) names no nucleus — a satellite that names no nucleus is refused: \`nucleus\` must address one of this Leg's own claims or introduces entries, \`g<n>\` or \`i<n>\` (the relations layer)`;
     }
     if (item.index > bound(item.kind)) {
-      return `${at}: ${nth} names item ${r.item}, and this Step declares only ${bound(item.kind)} ${kindName(item.kind)}${bound(item.kind) === 1 ? "" : "s"} — the address points past them`;
+      return `${at}: ${nth} names item ${r.item}, and this Leg declares only ${bound(item.kind)} ${kindName(item.kind)}${bound(item.kind) === 1 ? "" : "s"} — the address points past them`;
     }
     if (nucleus.index > bound(nucleus.kind)) {
-      return `${at}: ${nth} (item ${r.item}) names nucleus ${r.nucleus}, and this Step declares only ${bound(nucleus.kind)} ${kindName(nucleus.kind)}${bound(nucleus.kind) === 1 ? "" : "s"} — the address points past them`;
+      return `${at}: ${nth} (item ${r.item}) names nucleus ${r.nucleus}, and this Leg declares only ${bound(nucleus.kind)} ${kindName(nucleus.kind)}${bound(nucleus.kind) === 1 ? "" : "s"} — the address points past them`;
     }
     if (item.kind !== nucleus.kind) {
       return `${at}: ${nth} makes ${r.item} a satellite of ${r.nucleus} — a satellite and its nucleus are items of the SAME KIND (both claims or both introduces entries), because the two render in separate Packet blocks`;
@@ -434,7 +434,7 @@ export function relationsRefusal(relations, claims, introduces, at) {
   return null;
 }
 
-// the relations layer's `budget` — OPTIONAL, the word bound this Step's realized
+// the relations layer's `budget` — OPTIONAL, the word bound this Leg's realized
 // prose may spend. Shape only: a limit the writer sees, never a target the
 // runtime judges the passage against.
 export function budgetRefusal(budget, at) {
@@ -445,68 +445,68 @@ export function budgetRefusal(budget, at) {
   return null;
 }
 
-// ---- shape validation (the Step's shape — the fields, not the markup) ----
+// ---- shape validation (the Leg's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
-// Returns { error } or { steps }. Pure over its argument; exported for the check.
-export function validateSteps(steps, readerStart) {
-  if (!Array.isArray(steps) || steps.length === 0) {
-    return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Step at all.") };
+// Returns { error } or { legs }. Pure over its argument; exported for the check.
+export function validateLegs(legs, readerStart) {
+  if (!Array.isArray(legs) || legs.length === 0) {
+    return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Leg at all.") };
   }
-  // Reader start binds the first Step (Closure, kogaki#1151): `readerStart` is
+  // Reader start binds the first Leg (Closure, kogaki#1151): `readerStart` is
   // OPTIONAL because the two call sites hold it at different points (the
   // Candidate's own `reader_start` at compose_path, the same value again at
   // fillBrief), and a caller with none to hand — a bare shape check — is not
   // asked to invent one.
-  if (typeof readerStart === "string" && readerStart !== "" && steps[0].reader_state_before !== readerStart) {
-    return { error: pathRefusal("reader_start_binds_first_step", `step 1 (${steps[0].step_id ?? "?"})`,
-      `Its reader_state_before reads ${JSON.stringify(steps[0].reader_state_before)}; `
+  if (typeof readerStart === "string" && readerStart !== "" && legs[0].reader_state_before !== readerStart) {
+    return { error: pathRefusal("reader_start_binds_first_leg", `leg 1 (${legs[0].leg_id ?? "?"})`,
+      `Its reader_state_before reads ${JSON.stringify(legs[0].reader_state_before)}; `
       + `the Brief's Reader start reads ${JSON.stringify(readerStart)}.`) };
   }
-  const schema = stepSchema();
+  const schema = legschema();
   const seen = new Set();
-  for (const [i, s] of steps.entries()) {
-    const at = `step ${i + 1}${s && s.step_id ? ` (${s.step_id})` : ""}`;
+  for (const [i, s] of legs.entries()) {
+    const at = `leg ${i + 1}${s && s.leg_id ? ` (${s.leg_id})` : ""}`;
     const errs = [];
-    for (const name of requiredStepFields()) {
-      if (BESPOKE_STEP_REFUSALS.has(name)) continue;
+    for (const name of requiredLegFields()) {
+      if (BESPOKE_LEG_REFUSALS.has(name)) continue;
       const decl = schema.fields[name];
-      const ok = stepFieldPresent(decl, s[name]);
+      const ok = legFieldPresent(decl, s[name]);
       if (ok === null) {
-        return { error: `${at}: src/step-schema.json declares the required field ${JSON.stringify(name)} `
+        return { error: `${at}: src/leg-schema.json declares the required field ${JSON.stringify(name)} `
           + `with type ${JSON.stringify(decl.type)}, which this validator has no presence predicate for. `
           + `The schema is rendered into the composition prompt and read back here, so a field the prompt `
           + `asks for and the validator cannot check is exactly the drift one carrier exists to prevent — `
           + `add the predicate in src/compose.mjs beside this refusal` };
       }
       if (!ok) {
-        errs.push(`${at}: ${name}${decl.min_length ? ` (non-empty ${decl.type})` : ""} is required by the Step's shape `
-          + `— a Step record without it is not a Step record. ${decl.description}`);
+        errs.push(`${at}: ${name}${decl.min_length ? ` (non-empty ${decl.type})` : ""} is required by the Leg's shape `
+          + `— a Leg record without it is not a Leg record. ${decl.description}`);
       }
     }
     if (errs.length) return { error: errs[0] };
-    if (seen.has(s.step_id)) {
-      return { error: pathRefusal("step_id_unique", at, `An earlier Step already carries the id ${JSON.stringify(s.step_id)} — this is a duplicate step_id, and the repair is to rename one of the two, never to merge them.`) };
+    if (seen.has(s.leg_id)) {
+      return { error: pathRefusal("leg_id_unique", at, `An earlier Leg already carries the id ${JSON.stringify(s.leg_id)} — this is a duplicate leg_id, and the repair is to rename one of the two, never to merge them.`) };
     }
-    // the Step's shape v18 (kogaki#642) — `Step = Input + State`, and the Move IS the
-    // State, so a Move-less Step is not a Step. This is the seat the spec
+    // the Leg's shape v18 (kogaki#642) — `Leg = Input + State`, and the Move IS the
+    // State, so a Move-less Leg is not a Leg. This is the seat the spec
     // names as the carrier: the requirement binds at composition, which is
-    // what makes such a Step unwritable rather than discouraged. the constraints that survive's
+    // what makes such a Leg unwritable rather than discouraged. the constraints that survive's
     // no-mandatory-Moves rider is superseded there by name.
     if (typeof s.move !== "string" || s.move === "") {
-      return { error: `${at}: move is required by the Step's shape — a Step binds a Move library entry by id (the Move library), because the Move is the State component of a Step and a Step without one has no defined reader-state transition type` };
+      return { error: `${at}: move is required by the Leg's shape — a Leg binds a Move library entry by id (the Move library), because the Move is the State component of a Leg and a Leg without one has no defined reader-state transition type` };
     }
     for (const d of s.depends_on) {
       if (!seen.has(d)) {
-        return { error: pathRefusal("depends_on_ordering", at, `Its depends_on names "${d}", which is not an EARLIER Step of this path: either move the Step that carries that id ahead of this one, or drop the dependency.`) };
+        return { error: pathRefusal("depends_on_ordering", at, `Its depends_on names "${d}", which is not an EARLIER Leg of this path: either move the Leg that carries that id ahead of this one, or drop the dependency.`) };
       }
     }
-    // the Bridge Step and the revise pass's `bridges` — optional, and when present it names the ADJACENT
-    // PAIR this Step was inserted between. Validated here because the
+    // the Bridge Leg and the revise pass's `bridges` — optional, and when present it names the ADJACENT
+    // PAIR this Leg was inserted between. Validated here because the
     // selection gate's disclosure is computed from it: an unvalidated marking
     // renders `between :` or `between true:` at an owner surface.
     if (s.bridges !== undefined) {
       if (!Array.isArray(s.bridges) || s.bridges.length !== 2 || s.bridges.some((b) => typeof b !== "string" || b === "")) {
-        return { error: `${at}: bridges, when present, names the two adjacent steps this Step was inserted between (the Bridge Step and the revise pass) — an array of exactly two step ids` };
+        return { error: `${at}: bridges, when present, names the two adjacent legs this Leg was inserted between (the Bridge Leg and the revise pass) — an array of exactly two leg ids` };
       }
     }
     // the reader-knowledge ledger's `introduces` (kogaki#751) — OPTIONAL, and validated here for
@@ -514,7 +514,7 @@ export function validateSteps(steps, readerStart) {
     // it is rendered at an owner-facing surface, so an unvalidated entry
     // renders as a blank term or as `undefined` in a reader-knowledge ledger.
     // SHAPE ONLY. Whether a term is genuinely introduced HERE, whether the
-    // anchor explains it, and whether the Step's claims already carry it are
+    // anchor explains it, and whether the Leg's claims already carry it are
     // judgments — the judgment rule clause 3 stands and nothing below reads meaning.
     if (s.introduces !== undefined) {
       const bad = introducesRefusal(s.introduces, at);
@@ -532,17 +532,17 @@ export function validateSteps(steps, readerStart) {
     {
       const types = claimTypes();
       const retired = retiredClaimTypes();
-      // ONE CLAIM PER STRAND, PER STEP (kogaki#1108). The rule and its ground
+      // ONE CLAIM PER STRAND, PER LEG (kogaki#1108). The rule and its ground
       // are the schema's (`claim.one_per_strand`, and the paragraph above it);
       // this is the refusal that makes a second claim for one Strand
-      // UNWRITABLE rather than discouraged. It names the Step and the Strand,
+      // UNWRITABLE rather than discouraged. It names the Leg and the Strand,
       // because those are the two facts the composer needs to repair it: which
-      // Step to look at, and which of its materials is carrying two claims
+      // Leg to look at, and which of its materials is carrying two claims
       // where the path admits one.
       //
-      // KEYED PER STEP AND RESET AT EACH ONE. A Strand serving several Steps
+      // KEYED PER LEG AND RESET AT EACH ONE. A Strand serving several Legs
       // carries a DIFFERENT claim in each — that is the sequence, not a
-      // duplication — so the scope of this set is one Step and never the path.
+      // duplication — so the scope of this set is one Leg and never the path.
       const byStrand = new Map();
       for (const g of s.claims) {
         // The retired types are refused BY NAME and ahead of the closed-set
@@ -563,7 +563,7 @@ export function validateSteps(steps, readerStart) {
         }
         if (schema.claim.one_per_strand === true && byStrand.has(g.strand)) {
           return { error: pathRefusal("one_claim_per_strand", at,
-            `Two claims here name strand ${JSON.stringify(g.strand)} (src/step-schema.json, \`claim.one_per_strand\`): `
+            `Two claims here name strand ${JSON.stringify(g.strand)} (src/leg-schema.json, \`claim.one_per_strand\`): `
             + `the first reads ${JSON.stringify(byStrand.get(g.strand))}; the second reads ${JSON.stringify(g.proposition)}.`) };
         }
         byStrand.set(g.strand, g.proposition);
@@ -571,9 +571,9 @@ export function validateSteps(steps, readerStart) {
     }
     // the figure decision's `figure:`/`figure_roles` (kogaki#877) — OPTIONAL, and validated
     // here for the reason `bridges` and `introduces` are: the count and the
-    // Step ids reach the SELECTION GATE's label, so an unvalidated declaration
+    // Leg ids reach the SELECTION GATE's label, so an unvalidated declaration
     // renders a binding an owner reads as decided. Placed AFTER the claims
-    // loop on purpose — a role binds to one of this Step's claims, so the
+    // loop on purpose — a role binds to one of this Leg's claims, so the
     // address space does not exist until they are known to be well formed.
     {
       const bad = figureRefusal(s.figure, s.figure_roles, at);
@@ -581,11 +581,11 @@ export function validateSteps(steps, readerStart) {
       const badClaim = figureClaimRefusal(s.figure_roles, s.claims.length, at);
       if (badClaim) return { error: badClaim };
     }
-    // the Journey a Step draws on (kogaki#1111) — OPTIONAL, and validated here for the
+    // the Journey a Leg draws on (kogaki#1111) — OPTIONAL, and validated here for the
     // reason `bridges`, `introduces` and `figure` are: the declaration reaches
-    // the Step Packet, which is the model's ENTIRE input, so an unvalidated
+    // the Leg Packet, which is the model's ENTIRE input, so an unvalidated
     // entry renders a use the realizer reads as instruction. Placed after the
-    // claims loop because its refusal quotes `materials`, and a Step whose
+    // claims loop because its refusal quotes `materials`, and a Leg whose
     // earlier fields are malformed should report that first.
     {
       const bad = journeysRefusal(s.journeys, s.materials, at);
@@ -593,10 +593,10 @@ export function validateSteps(steps, readerStart) {
     }
     // the relations layer's `relations`/`budget` (kogaki#1174) — OPTIONAL, validated here for the
     // reason `bridges`, `introduces`, `figure` and `journeys` are: both reach
-    // the Step Packet, the model's ENTIRE input, so an unvalidated satellite or
+    // the Leg Packet, the model's ENTIRE input, so an unvalidated satellite or
     // budget renders as a tree the model cannot resolve or a limit it cannot
     // read. Placed after the claims loop because a relation's address space is
-    // this Step's own claims and introduces entries, so it does not exist until
+    // this Leg's own claims and introduces entries, so it does not exist until
     // both are known to be well formed.
     {
       const bad = relationsRefusal(s.relations, s.claims, s.introduces, at);
@@ -609,46 +609,46 @@ export function validateSteps(steps, readerStart) {
     // A proposition not explicit in the material is flagged `entailed` WITH
     // its reasoning, exposed at the human gate (the claims rule). The flag is the
     // composer's judgment; the runtime refuses only a flag with no reasoning
-    // to expose — an entailed step whose reasoning is absent has nothing for
+    // to expose — an entailed leg whose reasoning is absent has nothing for
     // the gate to judge.
     if (s.entailed === true && (typeof s.entailment_reasoning !== "string" || s.entailment_reasoning === "")) {
       return { error: `${at}: flagged entailed with no entailment_reasoning — entailment is interpretation, judged rather than silently trusted (the claims rule)` };
     }
-    seen.add(s.step_id);
+    seen.add(s.leg_id);
   }
   // the Section grouping's grouping rules (kogaki#822) run over the WHOLE path, after every
-  // Step is known to be well formed — each rule is a statement about a Step's
+  // Leg is known to be well formed — each rule is a statement about a Leg's
   // relation to its neighbours, so none of them is decidable inside the loop.
-  const grouping = sectionGroupingRefusal(steps);
+  const grouping = sectionGroupingRefusal(legs);
   if (grouping) return { error: grouping };
-  return { steps };
+  return { legs };
 }
 
 // ---- the figure decision's `figure:` — the Brief's figure decision (kogaki#877) ----
 //
-// A Step MAY declare that a figure carries something its prose leaves hard to
-// hold. THE DEFAULT IS NONE: a Step without `figure:` has no figure and
+// A Leg MAY declare that a figure carries something its prose leaves hard to
+// hold. THE DEFAULT IS NONE: a Leg without `figure:` has no figure and
 // nothing asks about it — the hub's 2026-08-01 D8 disclosure-never-slot
 // ruling carried as a field that may simply be absent, which is also what
 // makes every Brief composed before this field compose unchanged.
 //
-// THREE CONDITIONS, AND ONLY TWO OF THEM ARE MECHANICAL. The Step's Move must
+// THREE CONDITIONS, AND ONLY TWO OF THEM ARE MECHANICAL. The Leg's Move must
 // carry a `visual_form`; every role of that form must bind to one of THIS
-// Step's claims. The third — that the figure carries something — is the
+// Leg's claims. The third — that the figure carries something — is the
 // composer's one judgment and is stated in the `figure:` line itself. Nothing
 // here reads that line for meaning, on the judgment rule's rule: a missing field is
 // refused, a weak one is not.
 //
 // THE HALVES SPLIT WHERE THE MOVE LIBRARY DOES, which is the split `move`
 // itself already has. `figureRefusal` and the claim-binding check below are
-// PURE and run inside `validateSteps`; whether the Move carries a form at all
+// PURE and run inside `validateLegs`; whether the Move carries a form at all
 // needs the library and runs in `resolveFigureForms`, beside `resolveMoveIds`
 // at adoption. Both are "at composition" in the sense the Section grouping means — the Brief
 // is being authored and the refusal can still be fixed.
 
-// `g<n>` addresses the Step's own claim lines IN ORDER, 1-based. A role bound
-// to a claim of another Step is unreachable by construction rather than
-// refused by a rule: the address space is this Step's claims and has no
+// `g<n>` addresses the Leg's own claim lines IN ORDER, 1-based. A role bound
+// to a claim of another Leg is unreachable by construction rather than
+// refused by a rule: the address space is this Leg's claims and has no
 // syntax for anyone else's.
 const CLAIM_ADDRESS = /^g([1-9][0-9]*)$/;
 
@@ -706,7 +706,7 @@ export function figureRefusal(figure, figure_roles, at) {
   // alone is a half-declaration, and a half-declaration reaching #878 would be
   // a record with no form or a form with no reason.
   if (has && !hasRoles) {
-    return `${at}: figure: is declared with no figure_roles — every role of the Move's visual_form binds to one of this Step's claims (the figure decision), and a figure with no bindings names nothing to render`;
+    return `${at}: figure: is declared with no figure_roles — every role of the Move's visual_form binds to one of this Leg's claims (the figure decision), and a figure with no bindings names nothing to render`;
   }
   if (!has && hasRoles) {
     return `${at}: figure_roles are declared with no figure: — the figure: line is the composer's statement of what the figure lets the reader hold, and bindings without it record a form nobody said carries anything (the figure decision)`;
@@ -715,11 +715,11 @@ export function figureRefusal(figure, figure_roles, at) {
     return `${at}: figure:, when present, is one line — what the figure lets the reader hold that the prose alone leaves hard to hold (the figure decision)`;
   }
   if (typeof figure_roles !== "object" || Array.isArray(figure_roles)) {
-    return `${at}: figure_roles is a flat mapping of the Move visual_form's roles to this Step's claims, role=g<n> (the figure decision)`;
+    return `${at}: figure_roles is a flat mapping of the Move visual_form's roles to this Leg's claims, role=g<n> (the figure decision)`;
   }
   const entries = Object.entries(figure_roles);
   if (entries.length === 0) {
-    return `${at}: figure_roles is empty — every role of the Move's visual_form binds to one of this Step's claims (the figure decision)`;
+    return `${at}: figure_roles is empty — every role of the Move's visual_form binds to one of this Leg's claims (the figure decision)`;
   }
   for (const [role, addr] of entries) {
     if (role === "kind") {
@@ -729,13 +729,13 @@ export function figureRefusal(figure, figure_roles, at) {
       return `${at}: figure_roles binds "kind", which is the form's selector and never a role (src/figure-kinds.json)`;
     }
     if (typeof addr !== "string" || !CLAIM_ADDRESS.test(addr)) {
-      return `${at}: figure_roles binds role "${role}" to ${JSON.stringify(addr)} — a binding addresses one of this Step's own claims as g<n>, numbered from 1 in the order they are declared (the figure decision)`;
+      return `${at}: figure_roles binds role "${role}" to ${JSON.stringify(addr)} — a binding addresses one of this Leg's own claims as g<n>, numbered from 1 in the order they are declared (the figure decision)`;
     }
   }
   return null;
 }
 
-// THE CLAIM-BINDING HALF, separated because it needs the Step's claims and
+// THE CLAIM-BINDING HALF, separated because it needs the Leg's claims and
 // the read-back side has only the serialized block.
 export function figureClaimRefusal(figure_roles, claimCount, at) {
   if (figure_roles === undefined || figure_roles === null) return null;
@@ -744,7 +744,7 @@ export function figureClaimRefusal(figure_roles, claimCount, at) {
     if (!m) continue; // grammar is figureRefusal's; this half assumes it passed
     const n = Number(m[1]);
     if (n > claimCount) {
-      return `${at}: figure_roles binds role "${role}" to ${addr}, and this Step declares ${claimCount} claim(s) — a role binds to a claim of THIS Step (the figure decision), so an address past the end names a claim that is not there`;
+      return `${at}: figure_roles binds role "${role}" to ${addr}, and this Leg declares ${claimCount} claim(s) — a role binds to a claim of THIS Leg (the figure decision), so an address past the end names a claim that is not there`;
     }
   }
   return null;
@@ -780,19 +780,19 @@ export function visualFormOf(moveId, movesDir = "moves") {
   return { form };
 }
 
-// THE MOVE-DEPENDENT HALF. Refuse the FIRST figure-carrying Step whose Move
+// THE MOVE-DEPENDENT HALF. Refuse the FIRST figure-carrying Leg whose Move
 // declares no form, or whose bindings are not exactly that form's roles —
-// naming the Step, the Move and the role, which is the refusal shape this
+// naming the Leg, the Move and the role, which is the refusal shape this
 // runtime uses everywhere.
-export function resolveFigureForms(steps, movesDir = "moves") {
+export function resolveFigureForms(legs, movesDir = "moves") {
   const kinds = figureKinds().kinds || {};
-  for (const s of steps) {
+  for (const s of legs) {
     if (s.figure === undefined || s.figure === null) continue;
-    const at = `step ${s.step_id}`;
+    const at = `leg ${s.leg_id}`;
     const r = visualFormOf(s.move, movesDir);
     if (r.error) return { error: `${at}: ${r.error}` };
     if (!r.form) {
-      return { error: `${at}: figure: is declared, and move "${s.move}" carries no visual_form — a figure is the INSTANCE of its Move's form (the figure decision), so a Move with no form leaves the declaration with nothing to be an instance of. Give the Move a form under its own issue (src/figure-kinds.json names the closed kind set), or drop the figure: from this Step` };
+      return { error: `${at}: figure: is declared, and move "${s.move}" carries no visual_form — a figure is the INSTANCE of its Move's form (the figure decision), so a Move with no form leaves the declaration with nothing to be an instance of. Give the Move a form under its own issue (src/figure-kinds.json names the closed kind set), or drop the figure: from this Leg` };
     }
     const kind = r.form.kind;
     if (!kind || !Object.prototype.hasOwnProperty.call(kinds, kind)) {
@@ -803,19 +803,19 @@ export function resolveFigureForms(steps, movesDir = "moves") {
     const missing = [...want].filter((x) => !have.has(x)).sort();
     const extra = [...have].filter((x) => !want.has(x)).sort();
     if (missing.length) {
-      return { error: `${at}: figure_roles leaves ${missing.map((x) => `"${x}"`).join(", ")} unbound — every role of move "${s.move}"'s ${kind} form binds to one of this Step's claims (the figure decision). The form's roles are ${[...want].sort().join(", ")}` };
+      return { error: `${at}: figure_roles leaves ${missing.map((x) => `"${x}"`).join(", ")} unbound — every role of move "${s.move}"'s ${kind} form binds to one of this Leg's claims (the figure decision). The form's roles are ${[...want].sort().join(", ")}` };
     }
     if (extra.length) {
       return { error: `${at}: figure_roles binds ${extra.map((x) => `"${x}"`).join(", ")}, which is not a role of move "${s.move}"'s ${kind} form — the form's roles are ${[...want].sort().join(", ")} (src/figure-kinds.json)` };
     }
   }
-  return { ok: true, figures: steps.filter((s) => s.figure !== undefined && s.figure !== null).length };
+  return { ok: true, figures: legs.filter((s) => s.figure !== undefined && s.figure !== null).length };
 }
 
-// The figure-carrying Steps of a path, in path order. ONE derivation, so the
+// The figure-carrying Legs of a path, in path order. ONE derivation, so the
 // Candidate label's count and the set it names cannot disagree.
-export function figureSteps(steps) {
-  return (steps || []).filter((s) => s && s.figure !== undefined && s.figure !== null);
+export function figureLegs(legs) {
+  return (legs || []).filter((s) => s && s.figure !== undefined && s.figure !== null);
 }
 
 // The gate's disclosure clause (the Candidate gate). THE SOFT WARNING HAS NO TARGET AND
@@ -825,23 +825,23 @@ export function figureSteps(steps) {
 // that was never composed are the same silence to a reader and different
 // silences to a check.
 export const FIGURE_SOFT_WARNING_AT = 3;
-export function figureClause(steps) {
-  const figs = figureSteps(steps);
-  if (figs.length === 0) return "no Step carries a figure";
-  const which = figs.map((s) => s.step_id).join(", ");
-  const head = `${figs.length} Step(s) carry a figure — ${which}`;
+export function figureClause(legs) {
+  const figs = figureLegs(legs);
+  if (figs.length === 0) return "no Leg carries a figure";
+  const which = figs.map((s) => s.leg_id).join(", ");
+  const head = `${figs.length} Leg(s) carry a figure — ${which}`;
   return figs.length > FIGURE_SOFT_WARNING_AT
     ? `${head}; above ${FIGURE_SOFT_WARNING_AT} figures a reader is being asked to hold more diagrams than prose, which is worth a second look — nothing here refuses it`
     : head;
 }
 
-// ---- rendering (SQ1: fenced blocks; the Step's shape fixes the fields, not the markup;
+// ---- rendering (SQ1: fenced blocks; the Leg's shape fixes the fields, not the markup;
 // this function IS the recorded serialization, exercised by the check's
 // fixture) ----
 // ---------------------------------------------------------------------------
-// THE STEP↔MOVE INSTANTIATION CONTRACT (the Step-Move instantiation contract, kogaki#747; owner rulings
-// 2026-09-01). A Step INSTANTIATES a Move: `move` names a record in the Move
-// library, and the Step's reader_state_before/after are the instance forms of
+// THE LEG↔MOVE INSTANTIATION CONTRACT (the Leg-Move instantiation contract, kogaki#747; owner rulings
+// 2026-09-01). A Leg INSTANTIATES a Move: `move` names a record in the Move
+// library, and the Leg's reader_state_before/after are the instance forms of
 // that Move's `requires`/`effect`, specialized to this reader and these
 // Strands. The relationship has two halves and they are carried by DIFFERENT
 // machinery on purpose:
@@ -868,10 +868,10 @@ export function loadMoveIds(movesDir = "moves") {
   catch (e) {
     // A STORE THAT CANNOT BE READ IS NOT AN EMPTY STORE. Returning an empty
     // set here would turn an unreadable directory into "every move id is
-    // dangling", and a caller would render a refusal naming the Steps rather
+    // dangling", and a caller would render a refusal naming the Legs rather
     // than the missing store — a true refusal for a false reason.
     return { error: `the Move library at ${movesDir} cannot be read (${e.message}) — `
-      + `a Step binds a Move by id (the Step's shape v18) and the ids resolve against this store (the Step-Move instantiation contract); `
+      + `a Leg binds a Move by id (the Leg's shape v18) and the ids resolve against this store (the Leg-Move instantiation contract); `
       + `pass --moves-dir if the library is not at the default path` };
   }
   const ids = new Set();
@@ -883,37 +883,37 @@ export function loadMoveIds(movesDir = "moves") {
   }
   if (ids.size === 0) {
     return { error: `the Move library at ${movesDir} holds no Move records — `
-      + `every Step's move id would dangle, which is a store problem and not a composition one (the Step-Move instantiation contract)` };
+      + `every Leg's move id would dangle, which is a store problem and not a composition one (the Leg-Move instantiation contract)` };
   }
   return { ids };
 }
 
-// THE MECHANICAL HALF. Refuse the FIRST Step whose move id resolves to no
-// record, naming the Step and the id — the refusal shape ruling 1 names.
-// `steps` here are Step RECORDS (composition side) or the parsed step blocks
-// of an existing Brief (draft side); both carry `step_id` and `move`, which
+// THE MECHANICAL HALF. Refuse the FIRST Leg whose move id resolves to no
+// record, naming the Leg and the id — the refusal shape ruling 1 names.
+// `legs` here are Leg RECORDS (composition side) or the parsed leg blocks
+// of an existing Brief (draft side); both carry `leg_id` and `move`, which
 // is the whole of what this reads, so one function serves both occasions
 // rather than two that can disagree about what dangling means.
-export function resolveMoveIds(steps, movesDir = "moves") {
+export function resolveMoveIds(legs, movesDir = "moves") {
   const store = loadMoveIds(movesDir);
   if (store.error) return store;
-  for (const s of steps) {
+  for (const s of legs) {
     const id = s.move;
     if (typeof id !== "string" || id === "") {
-      // Shape, not resolution — validateSteps owns this on the composition
+      // Shape, not resolution — validateLegs owns this on the composition
       // side. Reached on the draft side, where the input is a parsed document.
-      return { error: `step ${s.step_id}: no move is bound — a Step binds a Move library entry by id (the Step's shape v18), `
-        + `because the Move is the State component of a Step` };
+      return { error: `leg ${s.leg_id}: no move is bound — a Leg binds a Move library entry by id (the Leg's shape v18), `
+        + `because the Move is the State component of a Leg` };
     }
     if (!store.ids.has(id)) {
-      return { error: `step ${s.step_id}: move "${id}" resolves to no record in the Move library `
-        + `(${movesDir}/${id}.md does not exist) — a Step INSTANTIATES a Move, so a Move that is not there `
-        + `leaves the Step with no reader-state transition type to be the instance of (the Step-Move instantiation contract). `
+      return { error: `leg ${s.leg_id}: move "${id}" resolves to no record in the Move library `
+        + `(${movesDir}/${id}.md does not exist) — a Leg INSTANTIATES a Move, so a Move that is not there `
+        + `leaves the Leg with no reader-state transition type to be the instance of (the Leg-Move instantiation contract). `
         + `Bind an admitted Move, or admit this one to the library first — the library grows by an `
         + `admission act, never by a Brief naming an id (the Move library)` };
     }
   }
-  return { ok: true, checked: steps.length, store_size: store.ids.size };
+  return { ok: true, checked: legs.length, store_size: store.ids.size };
 }
 
 // ---------------------------------------------------------------------------
@@ -925,7 +925,7 @@ export function resolveMoveIds(steps, movesDir = "moves") {
 // here does. This reader RENDERS `requires` and `effect` into a judge's input
 // and returns them to its caller verbatim; it matches no string against any
 // other, computes no verdict, and is never consulted by a validator that
-// decides whether a Step's reader states hold. The specialization judgment
+// decides whether a Leg's reader states hold. The specialization judgment
 // stays where the judgment rule sites it: with the judge, at
 // `judge_specialization`, over a record whose SHAPE this file owns.
 //
@@ -933,7 +933,7 @@ export function resolveMoveIds(steps, movesDir = "moves") {
 // asked about Move contracts they were never handed. `compose_path` composed
 // the `move` field with the field's NAME and no set of legal values, and
 // invented six ids that read like Moves; `judge_specialization` was asked to
-// judge each Step's states as specializations of "the requires and effect its
+// judge each Leg's states as specializations of "the requires and effect its
 // bound Move declares" with no Move record in its input at all. A judge asked
 // about a record it was never given answers from nothing — which is what the
 // honest first attempt said, and what the re-ask then pressured into a
@@ -1006,7 +1006,7 @@ export function moveContract(moveId, movesDir = "moves") {
     // cannot be judged against, and reporting it as a composition problem
     // would send the reader to the Brief rather than to the library.
     return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${movesDir}/${moveId}.md) — `
-      + `the specialization judgment is a comparison against a Move's requires and effect (the Step-Move instantiation contract), `
+      + `the specialization judgment is a comparison against a Move's requires and effect (the Leg-Move instantiation contract), `
       + `so a record missing one leaves the judgment nothing to be a comparison against. Repair the Move record under its own issue.` };
   }
   return { id: moveId, requires, effect };
@@ -1028,18 +1028,18 @@ export function loadMoveContracts(movesDir = "moves") {
   return { moves };
 }
 
-// THE CONTRACTS OF THE MOVES A PATH ACTUALLY BINDS, one per Step and in the
+// THE CONTRACTS OF THE MOVES A PATH ACTUALLY BINDS, one per Leg and in the
 // path's own order. `resolveMoveIds` is called FIRST and its refusal is
 // returned unchanged: a dangling id is a resolution fault with a refusal of
 // its own, and discovering it here would give it a second, worse wording.
-export function moveContractsForSteps(steps, movesDir = "moves") {
-  const resolved = resolveMoveIds(steps, movesDir);
+export function moveContractsForLegs(legs, movesDir = "moves") {
+  const resolved = resolveMoveIds(legs, movesDir);
   if (resolved.error) return resolved;
   const out = [];
-  for (const s of steps) {
+  for (const s of legs) {
     const c = moveContract(s.move, movesDir);
-    if (c.error) return { error: `step ${s.step_id}: ${c.error}` };
-    out.push({ step_id: s.step_id, move: s.move, requires: c.requires, effect: c.effect });
+    if (c.error) return { error: `leg ${s.leg_id}: ${c.error}` };
+    out.push({ leg_id: s.leg_id, move: s.move, requires: c.requires, effect: c.effect });
   }
   return { contracts: out };
 }
@@ -1076,16 +1076,16 @@ export function gateRegistry() {
 }
 
 // VALIDATE, NEVER COMPOSE. Every branch below is a refusal or a pass; none
-// writes a verdict, fills a default, or infers one from a Step's fields. A
+// writes a verdict, fills a default, or infers one from a Leg's fields. A
 // record that is absent is refused by the CALLER (the occasion is mandatory,
-// the Step-Move instantiation contract), because "no record" is a fact about the act rather than about the
+// the Leg-Move instantiation contract), because "no record" is a fact about the act rather than about the
 // record's shape.
-export function validateSpecialization(record, steps, candidateId) {
+export function validateSpecialization(record, legs, candidateId) {
   const sch = specializationSchema();
   const at = "the specialization record";
   for (const k of sch.record.required) {
     if (record?.[k] === undefined) {
-      return { error: `${at}: ${k} is required (the Step-Move instantiation contract) — the record is the judgment's carrier, and a carrier missing a required field records nothing` };
+      return { error: `${at}: ${k} is required (the Leg-Move instantiation contract) — the record is the judgment's carrier, and a carrier missing a required field records nothing` };
     }
   }
   if (String(record.version) !== sch.record.version_must_be) {
@@ -1093,74 +1093,74 @@ export function validateSpecialization(record, steps, candidateId) {
   }
   if (record.candidate_id !== candidateId) {
     return { error: `${at}: judges candidate ${JSON.stringify(record.candidate_id)} but ${JSON.stringify(candidateId)} is being adopted — `
-      + `a record composed against one Candidate cannot certify another (the Step-Move instantiation contract). Judge the Candidate you are adopting.` };
+      + `a record composed against one Candidate cannot certify another (the Leg-Move instantiation contract). Judge the Candidate you are adopting.` };
   }
   if (!Array.isArray(record.verdicts)) {
-    return { error: `${at}: verdicts is an array, one entry per Step of the adopted path (the Step-Move instantiation contract)` };
+    return { error: `${at}: verdicts is an array, one entry per Leg of the adopted path (the Leg-Move instantiation contract)` };
   }
   const vocab = new Set(sch.vocabulary.values);
   const passing = new Set(sch.vocabulary.passing);
-  const byStep = new Map();
+  const byLeg = new Map();
   for (const v of record.verdicts) {
     for (const k of sch.verdict.required) {
       if (typeof v?.[k] !== "string" || v[k] === "") {
-        return { error: `${at}: a verdict is missing ${k} — the Step-Move instantiation contract's verdict names the Step, the Move it instantiates, the verdict, and one sentence of why` };
+        return { error: `${at}: a verdict is missing ${k} — the Leg-Move instantiation contract's verdict names the Leg, the Move it instantiates, the verdict, and one sentence of why` };
       }
     }
-    if (byStep.has(v.step_id)) {
-      return { error: `${at}: two verdicts for step ${v.step_id} — one per Step, exactly (the Step-Move instantiation contract)` };
+    if (byLeg.has(v.leg_id)) {
+      return { error: `${at}: two verdicts for leg ${v.leg_id} — one per Leg, exactly (the Leg-Move instantiation contract)` };
     }
-    byStep.set(v.step_id, v);
+    byLeg.set(v.leg_id, v);
   }
-  // A verdict for a Step outside the adopted path means the record was
+  // A verdict for a Leg outside the adopted path means the record was
   // composed against a different path than the one being adopted.
   for (const v of record.verdicts) {
-    if (!steps.some((s) => s.step_id === v.step_id)) {
-      return { error: `${at}: verdict for step ${v.step_id}, which is not in the adopted path `
-        + `(${steps.map((s) => s.step_id).join(", ")}) — the record judges the path being adopted and no other (the Step-Move instantiation contract)` };
+    if (!legs.some((s) => s.leg_id === v.leg_id)) {
+      return { error: `${at}: verdict for leg ${v.leg_id}, which is not in the adopted path `
+        + `(${legs.map((s) => s.leg_id).join(", ")}) — the record judges the path being adopted and no other (the Leg-Move instantiation contract)` };
     }
   }
-  // ONE PER STEP, EXACTLY — the other direction, and it is the FIRST branch of
+  // ONE PER LEG, EXACTLY — the other direction, and it is the FIRST branch of
   // the loop below rather than a pass of its own. That siting is deliberate:
-  // as a separate preceding loop it was a completeness check that the per-Step
+  // as a separate preceding loop it was a completeness check that the per-Leg
   // loop then silently DEPENDED on, so removing it did not make this function
   // refuse — it made it throw on `v.move` several lines later. One guard, in
   // the loop that needs the value, keeps the function total: every path out of
   // it is a refusal or a pass, and there is no ordering between two guards for
   // a later edit to break.
-  for (const s of steps) {
-    const v = byStep.get(s.step_id);
+  for (const s of legs) {
+    const v = byLeg.get(s.leg_id);
     if (v === undefined) {
-      return { error: `${at}: step ${s.step_id} carries no verdict — the specialization judgment is per Step and cannot be skipped for one (the Step-Move instantiation contract)` };
+      return { error: `${at}: leg ${s.leg_id} carries no verdict — the specialization judgment is per Leg and cannot be skipped for one (the Leg-Move instantiation contract)` };
     }
     if (v.move !== s.move) {
-      return { error: `${at}: step ${s.step_id}'s verdict judges move "${v.move}" but the Step binds "${s.move}" — `
-        + `the judgment is about THIS Step instantiating THIS Move, so a record naming another one certifies nothing (the Step-Move instantiation contract)` };
+      return { error: `${at}: leg ${s.leg_id}'s verdict judges move "${v.move}" but the Leg binds "${s.move}" — `
+        + `the judgment is about THIS Leg instantiating THIS Move, so a record naming another one certifies nothing (the Leg-Move instantiation contract)` };
     }
     if (!vocab.has(v.verdict)) {
-      return { error: `${at}: step ${s.step_id}: verdict ${JSON.stringify(v.verdict)} — the Step-Move instantiation contract's vocabulary is closed: `
+      return { error: `${at}: leg ${s.leg_id}: verdict ${JSON.stringify(v.verdict)} — the Leg-Move instantiation contract's vocabulary is closed: `
         + `${sch.vocabulary.values.join(" | ")}` };
     }
     if (v.why.trim().split(/\s+/).length < sch.verdict.why_min_words) {
-      return { error: `${at}: step ${s.step_id}: why is ${v.why.trim().split(/\s+/).length} word(s) — `
-        + `the record carries one sentence of why, which is what a reader of a refusal is handed (the Step-Move instantiation contract)` };
+      return { error: `${at}: leg ${s.leg_id}: why is ${v.why.trim().split(/\s+/).length} word(s) — `
+        + `the record carries one sentence of why, which is what a reader of a refusal is handed (the Leg-Move instantiation contract)` };
     }
   }
-  // THE REFUSAL, deterministic and in the path's own order: the FIRST Step
+  // THE REFUSAL, deterministic and in the path's own order: the FIRST Leg
   // that does not pass, named, with its own sentence quoted back rather than
   // paraphrased.
-  for (const s of steps) {
-    const v = byStep.get(s.step_id);
+  for (const s of legs) {
+    const v = byLeg.get(s.leg_id);
     if (!passing.has(v.verdict)) {
       const why = v.verdict === "cannot-determine"
         ? `the judgment could not be reached against that Move's contract`
         : `the instantiated reader states contradict that Move's requires/effect`;
-      return { error: `step ${s.step_id}: ${v.verdict} — ${why}. The judging sitting wrote: `
-        + `"${v.why.trim()}" — a Step whose instantiation does not hold is not adopted into a Brief (the Step-Move instantiation contract). `
+      return { error: `leg ${s.leg_id}: ${v.verdict} — ${why}. The judging sitting wrote: `
+        + `"${v.why.trim()}" — a Leg whose instantiation does not hold is not adopted into a Brief (the Leg-Move instantiation contract). `
         + `Nothing was written.` };
     }
   }
-  return { ok: true, judged: steps.length };
+  return { ok: true, judged: legs.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -1195,11 +1195,11 @@ export function validateSpecialization(record, steps, candidateId) {
 // in adoption's closing summary — so two adoptions of the same path under
 // different judgments are still distinguishable in the record of what was
 // disclosed.
-export function specializationDigest(record, steps) {
-  const byStep = new Map((record.verdicts || []).map((v) => [v.step_id, v]));
-  const rows = steps.map((s) => {
-    const v = byStep.get(s.step_id) || {};
-    return [v.step_id, v.move, v.verdict, typeof v.why === "string" ? v.why.trim() : v.why];
+export function specializationDigest(record, legs) {
+  const byLeg = new Map((record.verdicts || []).map((v) => [v.leg_id, v]));
+  const rows = legs.map((s) => {
+    const v = byLeg.get(s.leg_id) || {};
+    return [v.leg_id, v.move, v.verdict, typeof v.why === "string" ? v.why.trim() : v.why];
   });
   const canonical = JSON.stringify([String(record.version), record.candidate_id, rows]);
   return createHash(specializationSchema().disclosure.digest.algorithm).update(canonical).digest("hex");
@@ -1356,21 +1356,21 @@ export function renderExcerptBlock(moveId, excerptText) {
 // ---------------------------------------------------------------------------
 // THE READER-KNOWLEDGE LEDGER (the reader-knowledge ledger, kogaki#751; owner ruling 2026-09-01).
 //
-// A Step may declare `introduces` — the terms or concepts it puts in front of
+// A Leg may declare `introduces` — the terms or concepts it puts in front of
 // the reader for the first time, each bare or carrying a one-line meaning
-// anchor where the Step's own claims do not supply it. The harness then
-// DERIVES what a reader already knows at Step N as the union of Steps 1..N-1's
+// anchor where the Leg's own claims do not supply it. The harness then
+// DERIVES what a reader already knows at Leg N as the union of Legs 1..N-1's
 // entries.
 //
 // ACCUMULATION IS ALWAYS COMPUTED, NEVER STORED. `reader_already_knows` is not
 // a field, is not written into a Brief, and is not carried in a run record —
 // it is a function of the path, recomputed wherever it is needed. A stored
 // copy would be a second answer to a question the path already answers, and it
-// would go stale the moment a Step moved.
+// would go stale the moment a Leg moved.
 //
 // What the field buys, stated because it is the whole point: an unintroduced
-// term becomes ADDRESSABLE. Responsibility traces to the first Step carrying
-// the term, or to the Brief when no Step does — which is a fact about the path
+// term becomes ADDRESSABLE. Responsibility traces to the first Leg carrying
+// the term, or to the Brief when no Leg does — which is a fact about the path
 // rather than a judgment about the prose.
 
 // The entry grammar, in one place because two readers consume it: the
@@ -1401,11 +1401,11 @@ export function opensSectionRefusal(value, at) {
 }
 
 // the Section grouping's four grouping rules, validated over the WHOLE path rather than per
-// Step, because every one of them is a statement about a Step's relation to its
+// Leg, because every one of them is a statement about a Leg's relation to its
 // NEIGHBOURS. Returns the first refusal or null.
 //
 // THE RULE TEXT IS THE SCHEMA'S (kogaki#1147). Each refusal below is composed
-// by `pathRefusal` from `path_rules` in src/step-schema.json — the same file
+// by `pathRefusal` from `path_rules` in src/leg-schema.json — the same file
 // the executor renders into the composition prompt — so the composing party
 // is shown these rules before it composes rather than meeting one in a refusal
 // that has already spent an attempt. Rule 1 is stated there too, marked
@@ -1414,59 +1414,59 @@ export function opensSectionRefusal(value, at) {
 // WHICH RULES ARE MECHANICAL, stated because the answer is not uniform and a
 // reader owes an account of the ones that are not:
 //
-//   rule 1  the POSITIVE case (a Step opens when it changes the reader's
+//   rule 1  the POSITIVE case (a Leg opens when it changes the reader's
 //           question). Its `purpose` half is judgment — the judgment rule clause 3 keeps
 //           every MUST un-linted — and its violation is exactly rule 2's
 //           refusal, so nothing separate is checked here.
-//   rule 2  MECHANICAL and checked: a Step whose `depends_on` is exactly the
-//           immediately preceding Step AND whose `materials` overlap that
-//           Step's is DEVELOPING it, so it continues and may not open.
-//   rule 3  MECHANICAL and checked: the first Step always opens.
-//   rule 4  SPLIT (the Section grouping). The Step-count clause is checked here — two
-//           consecutive Sections holding exactly one Step each refuse with the
+//   rule 2  MECHANICAL and checked: a Leg whose `depends_on` is exactly the
+//           immediately preceding Leg AND whose `materials` overlap that
+//           Leg's is DEVELOPING it, so it continues and may not open.
+//   rule 3  MECHANICAL and checked: the first Leg always opens.
+//   rule 4  SPLIT (the Section grouping). The Leg-count clause is checked here — two
+//           consecutive Sections holding exactly one Leg each refuse with the
 //           request-to-merge. The prose-length clause measures realized prose,
 //           which no Brief contains, and is a named deferred slot in the Section grouping.
-export function sectionGroupingRefusal(steps) {
-  const at = (i) => `step ${i + 1} (${steps[i].step_id})`;
+export function sectionGroupingRefusal(legs) {
+  const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
 
-  // rule 3 — the first Step always opens.
-  if (steps[0].opens_section === undefined) {
-    return pathRefusal("section_rule_3", at(0), "This path opens none: give the first Step an opens_section carrying that Section's title.");
+  // rule 3 — the first Leg always opens.
+  if (legs[0].opens_section === undefined) {
+    return pathRefusal("section_rule_3", at(0), "This path opens none: give the first Leg an opens_section carrying that Section's title.");
   }
 
-  // rule 2 — a Step that develops its predecessor continues, so it may not open.
-  for (let i = 1; i < steps.length; i++) {
-    const s = steps[i], prev = steps[i - 1];
+  // rule 2 — a Leg that develops its predecessor continues, so it may not open.
+  for (let i = 1; i < legs.length; i++) {
+    const s = legs[i], prev = legs[i - 1];
     if (s.opens_section === undefined) continue;
-    const dependsOnlyOnPrev = s.depends_on.length === 1 && s.depends_on[0] === prev.step_id;
+    const dependsOnlyOnPrev = s.depends_on.length === 1 && s.depends_on[0] === prev.leg_id;
     const overlaps = s.materials.some((m) => prev.materials.includes(m));
     if (dependsOnlyOnPrev && overlaps) {
       return pathRefusal("section_rule_2", at(i),
-        `This Step DEVELOPS ${prev.step_id} — its depends_on is exactly that Step, and its materials overlap it — so it continues that Section. Remove its opens_section, or change what the Step stands on if the reader's question really does change here.`);
+        `This Leg DEVELOPS ${prev.leg_id} — its depends_on is exactly that Leg, and its materials overlap it — so it continues that Section. Remove its opens_section, or change what the Leg stands on if the reader's question really does change here.`);
     }
   }
 
-  // rule 4, Step-count clause — two consecutive one-Step Sections.
-  const opens = steps.map((s, i) => (s.opens_section === undefined ? -1 : i)).filter((i) => i >= 0);
+  // rule 4, Leg-count clause — two consecutive one-Leg Sections.
+  const opens = legs.map((s, i) => (s.opens_section === undefined ? -1 : i)).filter((i) => i >= 0);
   for (let k = 0; k + 2 < opens.length + 1; k++) {
     const start = opens[k];
-    const next = k + 1 < opens.length ? opens[k + 1] : steps.length;
-    const after = k + 2 < opens.length ? opens[k + 2] : steps.length;
+    const next = k + 1 < opens.length ? opens[k + 1] : legs.length;
+    const after = k + 2 < opens.length ? opens[k + 2] : legs.length;
     if (next - start === 1 && after - next === 1) {
       return pathRefusal("section_rule_4", at(start),
-        `The Section this Step opens and the one opening at ${steps[next].step_id} each hold exactly one Step: merge the two, or give one of them a second Step.`);
+        `The Section this Leg opens and the one opening at ${legs[next].leg_id} each hold exactly one Leg: merge the two, or give one of them a second Leg.`);
     }
   }
   return null;
 }
 
 // Shape refusal over a whole `introduces` value. Returns a string to refuse
-// with, or null. `at` is the caller's own way of naming the Step, so one
+// with, or null. `at` is the caller's own way of naming the Leg, so one
 // grammar serves the record side and the document side without either
 // inventing wording the other does not use.
 export function introducesRefusal(value, at) {
   if (!Array.isArray(value)) {
-    return `${at}: introduces, when present, is an array of entries — a term the Step puts in front of the reader for the first time, bare or with a one-line meaning anchor (the reader-knowledge ledger)`;
+    return `${at}: introduces, when present, is an array of entries — a term the Leg puts in front of the reader for the first time, bare or with a one-line meaning anchor (the reader-knowledge ledger)`;
   }
   const seen = new Set();
   for (const raw of value) {
@@ -1477,31 +1477,31 @@ export function introducesRefusal(value, at) {
     if (e.error) return `${at}: introduces carries ${e.error} (the reader-knowledge ledger)`;
     const key = e.term.toLowerCase();
     if (seen.has(key)) {
-      return `${at}: introduces names "${e.term}" twice — a term is introduced once, and a Step claiming it twice makes the ledger's own count wrong (the reader-knowledge ledger)`;
+      return `${at}: introduces names "${e.term}" twice — a term is introduced once, and a Leg claiming it twice makes the ledger's own count wrong (the reader-knowledge ledger)`;
     }
     seen.add(key);
   }
   return null;
 }
 
-// THE DERIVATION. For each Step in path order, what the reader already knows
-// arriving at it: the union of every EARLIER Step's entries, first-introducer
+// THE DERIVATION. For each Leg in path order, what the reader already knows
+// arriving at it: the union of every EARLIER Leg's entries, first-introducer
 // kept. Pure over the path — no store, no file, no I/O.
 //
 // FIRST INTRODUCER WINS, and that is the addressability property rather than a
-// tie-break: where two Steps declare the same term, the reader met it at the
-// earlier one, so that is the Step a later question about the term resolves
+// tie-break: where two Legs declare the same term, the reader met it at the
+// earlier one, so that is the Leg a later question about the term resolves
 // to. The second declaration is not an error — a composer may legitimately
 // re-state a term — and it is not silently dropped either: it simply does not
 // move the responsibility.
-export function readerKnowledgeLedger(steps) {
+export function readerKnowledgeLedger(legs) {
   const known = new Map(); // term (lowercased) -> { term, anchor, introduced_by }
   const rows = [];
-  for (const s of steps) {
-    // The snapshot is taken BEFORE this Step's own entries are folded in: a
-    // Step does not already know what it is itself introducing.
+  for (const s of legs) {
+    // The snapshot is taken BEFORE this Leg's own entries are folded in: a
+    // Leg does not already know what it is itself introducing.
     rows.push({
-      step_id: s.step_id,
+      leg_id: s.leg_id,
       reader_already_knows: [...known.values()].map((v) => ({ ...v })),
     });
     for (const raw of s.introduces || []) {
@@ -1509,33 +1509,33 @@ export function readerKnowledgeLedger(steps) {
       if (e.error) continue; // validated upstream; a bad entry never reaches here
       const key = e.term.toLowerCase();
       if (!known.has(key)) {
-        known.set(key, { term: e.term, anchor: e.anchor, introduced_by: s.step_id });
+        known.set(key, { term: e.term, anchor: e.anchor, introduced_by: s.leg_id });
       }
     }
   }
   return rows;
 }
 
-// Where responsibility for a term lies: the FIRST Step that introduces it, or
-// `null` — meaning the Brief itself — when no Step does. The null case is the
+// Where responsibility for a term lies: the FIRST Leg that introduces it, or
+// `null` — meaning the Brief itself — when no Leg does. The null case is the
 // point of the function and not an error path: an article may legitimately
 // rely on a term its path never introduces, and the ledger's job is to say
 // SO, addressably, rather than to refuse.
-export function introducerOf(term, steps) {
+export function introducerOf(term, legs) {
   const key = String(term).trim().toLowerCase();
-  for (const s of steps) {
+  for (const s of legs) {
     for (const raw of s.introduces || []) {
       const e = parseIntroducesEntry(raw);
-      if (!e.error && e.term.toLowerCase() === key) return s.step_id;
+      if (!e.error && e.term.toLowerCase() === key) return s.leg_id;
     }
   }
   return null;
 }
 
-export function renderStep(s) {
+export function renderLeg(s) {
   const L = [];
-  L.push("```step");
-  L.push(`step_id: ${s.step_id}`);
+  L.push("```leg");
+  L.push(`leg_id: ${s.leg_id}`);
   if (s.move) L.push(`move: ${s.move}`);
   L.push(`materials: ${s.materials.join(", ")}`);
   L.push(`purpose: ${s.purpose}`);
@@ -1550,7 +1550,7 @@ export function renderStep(s) {
     // this line as it stands, and this issue moves neither.
     L.push(`claim (strand ${g.strand}): ${g.proposition}`);
   }
-  // the Journey a Step draws on (kogaki#1111): ONE LINE PER ENTRY, `journey: <L-id> — <use>`.
+  // the Journey a Leg draws on (kogaki#1111): ONE LINE PER ENTRY, `journey: <L-id> — <use>`.
   // One line rather than a joined field for the reason `introduces` states,
   // and written only when declared, so a Brief composed before this field is
   // byte-identical.
@@ -1592,15 +1592,15 @@ export function selectedStrands(doc) {
 
 // The placement count, taken AFTER composition and COUNTED IN PLACEMENTS
 // (the obligations ledger; the read-not-invented
-// rule's completeness rider): a placement is a step whose materials
-// carry the Strand. Derived from the composed steps themselves, never from
+// rule's completeness rider): a placement is a leg whose materials
+// carry the Strand. Derived from the composed legs themselves, never from
 // a declaration — a composer that cannot omit in principle can still omit
 // in fact, and a declared cover would hide exactly that.
-export function placements(steps, strandIds) {
+export function placements(legs, strandIds) {
   const used = new Map(strandIds.map((id) => [id, []]));
-  for (const s of steps) {
+  for (const s of legs) {
     for (const m of s.materials) {
-      if (used.has(m)) used.get(m).push(s.step_id);
+      if (used.has(m)) used.get(m).push(s.leg_id);
     }
   }
   return used;
@@ -1620,21 +1620,21 @@ export function journeyBearingStrands(doc) {
   return out;
 }
 
-// THE STEP PACKET'S OWN CLOSURE ROWS (Closure, kogaki#1151). A Step is handed
+// THE LEG PACKET'S OWN CLOSURE ROWS (Closure, kogaki#1151). A Leg is handed
 // only the rows it is a party to — where it is `introduced_by`, `discharged_by`
 // or `conceded_by` — as their PROSE TEXT, in the same "already knows / introduce
 // here" shape the reader-knowledge ledger already renders; the Thesis row is handed to its
-// `established_by_steps`. Read from the Brief's OWN rendered "## Closure"
+// `established_by_legs`. Read from the Brief's OWN rendered "## Closure"
 // section rather than recomputed from a Candidate record — fillBrief already
 // wrote the one true rendering, and a second derivation here could disagree
 // with it.
-export function closureRowsForStep(doc, stepId) {
+export function closureRowsForLeg(doc, legId) {
   const rows = [];
   // THE SECTION IS SLICED, NEVER MATCHED BY ONE `m`-FLAGGED REGEX (PR #1152
   // round 1, finding 2). The first cut read
   // `/^## Closure\n\n([\s\S]*?)(?:\n## |$)/m`, where `m` makes `$` match at
   // every LINE end — so the lazy group stopped at the first one and the capture
-  // was ALWAYS empty. The function therefore returned `[]` for every Step and
+  // was ALWAYS empty. The function therefore returned `[]` for every Leg and
   // every Packet rendered the stated absence, with nothing in the tree reading
   // the rows-present branch to notice. A slice has no such ambiguity: one
   // heading in, the next `## ` heading or end of document out.
@@ -1643,55 +1643,55 @@ export function closureRowsForStep(doc, stepId) {
   const body = doc.slice(at + "## Closure\n\n".length);
   const end = body.indexOf("\n## ");
   const section = end === -1 ? body : body.slice(0, end);
-  const thesisM = /### Thesis\n\n([\s\S]*?)\n\n### Steps/m.exec(section);
+  const thesisM = /### Thesis\n\n([\s\S]*?)\n\n### Legs/m.exec(section);
   if (thesisM) {
     const t = thesisM[1].trim();
-    const em = /^([\s\S]*?)\s+—\s+established_by_steps:\s*(.*)$/m.exec(t);
+    const em = /^([\s\S]*?)\s+—\s+established_by_legs:\s*(.*)$/m.exec(t);
     if (em) {
-      const steps = em[2].split(",").map((s) => s.trim()).filter(Boolean);
-      if (steps.includes(stepId)) rows.push(em[1].trim());
+      const legs = em[2].split(",").map((s) => s.trim()).filter(Boolean);
+      if (legs.includes(legId)) rows.push(em[1].trim());
     }
   }
   for (const line of section.split("\n")) {
     const rm = /^- (.*) — introduced_by: (\S+?);\s*(?:discharged_by|conceded_by):\s*(\S+)$/.exec(line);
     if (!rm) continue;
-    const [, text, introducedBy, closingStep] = rm;
-    if (stepId === introducedBy || stepId === closingStep) rows.push(text);
+    const [, text, introducedBy, closingLeg] = rm;
+    if (legId === introducedBy || legId === closingLeg) rows.push(text);
   }
   return rows;
 }
 
 // Journey placement — journey register as a Candidate axis, MUST 1, the completeness rider's half: a
-// Journey is a DISTINCT material (the Step's shape — "which Strands, which Journeys").
-// Derived from the composed steps for the same reason placements() is, and the
+// Journey is a DISTINCT material (the Leg's shape — "which Strands, which Journeys").
+// Derived from the composed legs for the same reason placements() is, and the
 // reason is load-bearing here rather than inherited: a Strand can be placed
 // while the journey material it carries is dropped, so a per-Strand count
 // cannot see this omission at all and a declared cover would hide it by
 // construction.
 //
 // COUNTED FROM `journeys`, AND THIS REVERSES kogaki#1111 (kogaki#1131). That
-// Issue moved a Step's Journey use into the `journeys` field and left this
+// Issue moved a Leg's Journey use into the `journeys` field and left this
 // count reading a `<L-id>.journey` token in `materials`, on the stated ground
 // that "coverage accounting is unchanged by this field". Two readers of one
-// fact, and they disagreed on the first Brief written to `done`: every Step of
+// fact, and they disagreed on the first Brief written to `done`: every Leg of
 // the adopted Candidate carried a `journeys` entry and named its Strand bare,
-// so the Brief rendered a `journey:` line for four of five Steps and disclosed
+// so the Brief rendered a `journey:` line for four of five Legs and disclosed
 // all five as OMITTED in the same document. A disclosure that reports omission
 // over material the path placed is a FALSE disclosure, and the Brief carrying
 // it is handed to /draft as a settled input.
 //
-// So the field `journeysRefusal` validates and `renderStep` renders is the
+// So the field `journeysRefusal` validates and `renderLeg` renders is the
 // record of Journey use, and the count is taken from it. A spelling convention
 // beside that field is a second source that can disagree with the first, which
 // is the defect rather than a redundancy. `<L-id>.journey` in `materials` stays
 // LEGAL and stays CHECKED in `fillBrief` — it names the Strand, and the schema
-// admits either spelling — but it no longer places anything on its own: a Step
+// admits either spelling — but it no longer places anything on its own: a Leg
 // places a Journey by declaring what it uses it FOR.
-export function journeyPlacements(steps, journeyIds) {
+export function journeyPlacements(legs, journeyIds) {
   const used = new Map(journeyIds.map((id) => [id, []]));
-  for (const s of steps) {
+  for (const s of legs) {
     for (const j of s.journeys || []) {
-      if (j && used.has(j.strand)) used.get(j.strand).push(s.step_id);
+      if (j && used.has(j.strand)) used.get(j.strand).push(s.leg_id);
     }
   }
   return used;
@@ -1726,23 +1726,23 @@ export function replaceSlot(doc, heading, body) {
 
 // ---- the fill: sequence, strand_coverage, Closure ----
 // Pure over strings; exported for the check.
-export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused = {}, readerStart, thesisClosure = null }) {
-  const v = validateSteps(steps, readerStart);
+export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused = {}, readerStart, thesisClosure = null }) {
+  const v = validateLegs(legs, readerStart);
   if (v.error) return { error: v.error };
   const strandIds = selectedStrands(doc);
   if (strandIds.length === 0) return { error: "the Brief carries no Strands section — not a minted Brief" };
   // materials may reference only the closed set's Strands (plus the Thesis,
-  // reader assumptions, earlier steps' conclusions, constructed material —
-  // the Step's shape's many-to-many list; only L<n> tokens are checkable against the
+  // reader assumptions, earlier legs' conclusions, constructed material —
+  // the Leg's shape's many-to-many list; only L<n> tokens are checkable against the
   // closed set, and a foreign L<n> is a Brief fetch by the durable home and the entry point invariant).
   const journeyIds = journeyBearingStrands(doc);
-  for (const s of steps) {
+  for (const s of legs) {
     for (const m of s.materials) {
       if (/^L[0-9]+$/.test(m) && !strandIds.includes(m)) {
-        return { error: `step ${s.step_id}: material ${m} is outside the Brief's closed Strand set `
+        return { error: `leg ${s.leg_id}: material ${m} is outside the Brief's closed Strand set `
           + `(${strandIds.join(", ")}) — growing the set routes back through Terrain, never a Brief fetch (the durable home and the entry point)` };
       }
-      // A Journey material (the Step's shape) is checkable twice: against the closed set,
+      // A Journey material (the Leg's shape) is checkable twice: against the closed set,
       // and against that Strand ACTUALLY carrying Journey material. The second
       // check is what stops a composer inventing journey material for a Strand
       // whose served record has none — unsupported completion (the claims rule), in the
@@ -1750,55 +1750,55 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
       const j = /^(L[0-9]+)\.journey$/.exec(m);
       if (j) {
         if (!strandIds.includes(j[1])) {
-          return { error: `step ${s.step_id}: material ${m} names a Strand outside the Brief's closed set `
+          return { error: `leg ${s.leg_id}: material ${m} names a Strand outside the Brief's closed set `
             + `(${strandIds.join(", ")}) — never a Brief fetch (the durable home and the entry point)` };
         }
         if (!journeyIds.includes(j[1])) {
-          return { error: `step ${s.step_id}: material ${m} claims Journey material for ${j[1]}, whose served `
+          return { error: `leg ${s.leg_id}: material ${m} claims Journey material for ${j[1]}, whose served `
             + `record carries none (the Brief renders no journey cite for it) — a Journey the material does not `
             + `have is unsupported completion (the claims rule), never a composition choice` };
         }
       }
     }
-    // THE SERVED-RECORD HALF OF the Journey a Step draws on (kogaki#1111). `journeysRefusal`
-    // checks the shape, the closed use set and that the Step carries the
+    // THE SERVED-RECORD HALF OF the Journey a Leg draws on (kogaki#1111). `journeysRefusal`
+    // checks the shape, the closed use set and that the Leg carries the
     // Strand; whether that Strand's SERVED record carries Journey material is
     // a fact about the Brief, and this is the one place holding both. Same
     // ground as the `<L-id>.journey` check above: a Journey the material does
     // not have is unsupported completion, never a composition choice.
     for (const j of s.journeys || []) {
       if (!journeyIds.includes(j.strand)) {
-        return { error: `step ${s.step_id}: journey draws on ${j.strand}'s Journey, whose served record carries none `
+        return { error: `leg ${s.leg_id}: journey draws on ${j.strand}'s Journey, whose served record carries none `
           + `(the Brief renders no journey cite for it) — a Journey the material does not have is unsupported `
           + `completion (the claims rule), never a composition choice` };
       }
     }
     for (const g of s.claims) {
       if (!strandIds.includes(g.strand)) {
-        return { error: `step ${s.step_id}: strand claim ${g.strand} is outside the closed set (${strandIds.join(", ")})` };
+        return { error: `leg ${s.leg_id}: strand claim ${g.strand} is outside the closed set (${strandIds.join(", ")})` };
       }
     }
   }
 
   let out = doc;
-  const seq = steps.map(renderStep).join("\n\n");
+  const seq = legs.map(renderLeg).join("\n\n");
   // The owner-facing heading is the ratified name (kogaki#574); the settled structure section record
   // field this fills is still `sequence`, and only the rendering moved.
   let r = replaceSlot(out, "Reader Path", seq);
   if (r.error) return r;
   out = r.doc;
 
-  // Strand coverage: used_by_steps DERIVED from the composed steps; an
+  // Strand coverage: used_by_legs DERIVED from the composed legs; an
   // unplaced selected Strand DISCLOSES rather than silently drops (the obligations ledger).
-  const place = placements(steps, strandIds);
+  const place = placements(legs, strandIds);
   const placed = strandIds.filter((id) => place.get(id).length > 0);
   const covL = [];
   for (const id of strandIds) {
     const uses = place.get(id);
     if (uses.length > 0) {
-      covL.push(`- **${id}** — used_by_steps: ${uses.join(", ")}; role_in_thesis: ${coverage[id]?.role_in_thesis ?? "(not stated by the composer)"}`);
+      covL.push(`- **${id}** — used_by_legs: ${uses.join(", ")}; role_in_thesis: ${coverage[id]?.role_in_thesis ?? "(not stated by the composer)"}`);
     } else {
-      covL.push(`- **${id}** — **UNPLACED, disclosed**: ${unused[id] ?? "left unused (the claims rule's third move — omit the Step, revise the path, or leave the Strand unused; never invention)"}`);
+      covL.push(`- **${id}** — **UNPLACED, disclosed**: ${unused[id] ?? "left unused (the claims rule's third move — omit the Leg, revise the path, or leave the Strand unused; never invention)"}`);
     }
   }
   covL.push("");
@@ -1811,7 +1811,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
   if (journeyIds.length === 0) {
     covL.push("*Journey coverage: no selected Strand carries Journey material — journey register as a Candidate axis's MUSTs are vacuous here, not unmet.*");
   } else {
-    const jplace = journeyPlacements(steps, journeyIds);
+    const jplace = journeyPlacements(legs, journeyIds);
     const jplaced = journeyIds.filter((id) => jplace.get(id).length > 0);
     covL.push("*Journey coverage (journey register as a Candidate axis MUST 1 — placed, or the omission disclosed):*");
     for (const id of journeyIds) {
@@ -1819,7 +1819,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
       if (uses.length > 0) {
         covL.push(`- **${id}** journey — placed by: ${uses.join(", ")}`);
       } else {
-        covL.push(`- **${id}** journey — **OMITTED, disclosed**: ${unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Step, revise the path, or leave the material unused; never invention)"}`);
+        covL.push(`- **${id}** journey — **OMITTED, disclosed**: ${unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Leg, revise the path, or leave the material unused; never invention)"}`);
       }
     }
     covL.push(`*Journey placement count, taken AFTER composition: ${jplaced.length} of ${journeyIds.length} Journey-bearing Strand(s) placed.*`);
@@ -1836,26 +1836,26 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
   // `conceded_by` (the prose there tells the reader it is left open) —
   // "unresolved" is no longer a state the ledger can hold, and a row carrying
   // neither, or both, is refused by name.
-  const stepIds = new Set(steps.map((s) => s.step_id));
+  const legIds = new Set(legs.map((s) => s.leg_id));
   const oblL = [];
   for (const [i, o] of obligations.entries()) {
     if (typeof o.text !== "string" || o.text === "" || typeof o.introduced_by !== "string") {
       return { error: `obligation ${i + 1}: each Closure row carries its text and introduced_by (the obligation definition)` };
     }
-    if (!stepIds.has(o.introduced_by)) {
-      return { error: `obligation ${i + 1}: introduced_by "${o.introduced_by}" is not a step in this sequence` };
+    if (!legIds.has(o.introduced_by)) {
+      return { error: `obligation ${i + 1}: introduced_by "${o.introduced_by}" is not a leg in this sequence` };
     }
-    if (o.discharged_by !== undefined && !stepIds.has(o.discharged_by)) {
-      return { error: `obligation ${i + 1}: discharged_by "${o.discharged_by}" is not a step in this sequence` };
+    if (o.discharged_by !== undefined && !legIds.has(o.discharged_by)) {
+      return { error: `obligation ${i + 1}: discharged_by "${o.discharged_by}" is not a leg in this sequence` };
     }
-    if (o.conceded_by !== undefined && !stepIds.has(o.conceded_by)) {
-      return { error: `obligation ${i + 1}: conceded_by "${o.conceded_by}" is not a step in this sequence` };
+    if (o.conceded_by !== undefined && !legIds.has(o.conceded_by)) {
+      return { error: `obligation ${i + 1}: conceded_by "${o.conceded_by}" is not a leg in this sequence` };
     }
     const hasDischarged = o.discharged_by !== undefined;
     const hasConceded = o.conceded_by !== undefined;
     if (hasDischarged === hasConceded) {
       return { error: `obligation ${i + 1} (${JSON.stringify(o.text)}, introduced_by ${o.introduced_by}): `
-        + `every Closure row ends discharged_by or conceded_by, naming the Step — this row carries `
+        + `every Closure row ends discharged_by or conceded_by, naming the Leg — this row carries `
         + `${hasDischarged ? "BOTH" : "NEITHER"}` };
     }
     oblL.push(hasDischarged
@@ -1870,7 +1870,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
   // to invent a Thesis; production has exactly one caller, `adoptCandidate`,
   // which always carries it.
   const thesisLine = thesisClosure
-    ? `${thesisClosure.explanation} — established_by_steps: ${(thesisClosure.established_by_steps || []).join(", ")}`
+    ? `${thesisClosure.explanation} — established_by_legs: ${(thesisClosure.established_by_legs || []).join(", ")}`
     : "*(awaiting adoption)*";
   const closureL = [
     "An obligation is a promise the prose makes to the reader that a later "
@@ -1881,7 +1881,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
     "",
     thesisLine,
     "",
-    "### Steps",
+    "### Legs",
     "",
     ...oblL,
   ];

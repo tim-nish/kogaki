@@ -3,9 +3,9 @@
     "The figure record's contract, machine-readable (kogaki#878).",
     "",
     "A figure record is the INSTANCE of a Move's `visual_form` in the sense a",
-    "Step is the instance of a Move: the form names roles and says nothing a",
+    "Leg is the instance of a Move: the form names roles and says nothing a",
     "reader sees (src/figure-kinds.json), the Brief binds each role to one of",
-    "the Step's claims (the figure decision), and this record is where",
+    "the Leg's claims (the figure decision), and this record is where",
     "each bound claim is finally worded for the reader.",
     "",
     "src/draft.mjs READS these lists rather than restating them, the same",
@@ -21,7 +21,7 @@
     "",
     "THE RECORD IS FILLED AFTER THE PROSE. That is the hub's third moment --",
     "concrete design after the text -- and it is why `caption` is stated in the",
-    "Step's `reader_state_after` terms: the caption says what the reader holds",
+    "Leg's `reader_state_after` terms: the caption says what the reader holds",
     "after looking, which is only answerable once what they have read exists.",
     "",
     "NOTHING HERE JUDGES WORDING. Whether an element's text is a fair wording",
@@ -74,12 +74,12 @@
     },
     "caption": {
       "type": "string",
-      "why": "the line rendered under the block, in the Step's `reader_state_after` terms -- what the reader holds after looking"
+      "why": "the line rendered under the block, in the Leg's `reader_state_after` terms -- what the reader holds after looking"
     },
     "position": {
       "type": "string",
       "one_of": ["before", "after"],
-      "why": "the anchor is the Step, and within the Step a figure either sets the prose up or discharges it; a third value would be a placement the body assembly has no seat for"
+      "why": "the anchor is the Leg, and within the Leg a figure either sets the prose up or discharges it; a third value would be a placement the body assembly has no seat for"
     }
   }
 }

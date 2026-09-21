@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# check-brief-compose — the Step-record runtime's shape, fill, and
+# check-brief-compose — the Leg-record runtime's shape, fill, and
 # count-after-composition properties (SPEC-draft-pipeline §§4.1, 4.4,
 # 5.1-5.2; kogaki#489, story 1.73).
 #
 # Seam-free: the Brief under test is MINTED through the real §5.3 v9 flow
 # (enter → adopt → mint) against the committed terrain survey fixture, in a
 # temporary directory; the composed path is authored inline below — the
-# check IS the fixture that records the Step serialization (story 1.73 SQ1).
+# check IS the fixture that records the Leg serialization (story 1.73 SQ1).
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: every
 # MUST of the composition design is JUDGMENT-CLASS (§4.6) — whether a
@@ -34,21 +34,21 @@ import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync
 import { join, sep, resolve as resolvePath, dirname as dirnameOf } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
+import { validateLegs, fillBrief, selectedStrands, placements, renderLeg,
          journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest,
-         closureRowsForStep } from "./src/compose.mjs";
-// THE ROUND TRIP'S OTHER END (kogaki#1111). `parseStepBlockBody` is the Brief
-// parser's one reader of a step block, and the Journey line's writer is
-// `renderStep` above — asserting the pair here is what keeps a writer and a
-// reader from disagreeing about a value that reaches the Step Packet.
-import { parseStepBlockBody, renderPacket, splitPacketTemplate, parseBrief,
-         sectionsOf, sectionOfStep } from "./src/draft.mjs";
-import { moveContract, loadMoveContracts, moveContractsForSteps } from "./src/compose.mjs";
+         closureRowsForLeg } from "./src/compose.mjs";
+// THE ROUND TRIP'S OTHER END (kogaki#1111). `parseLegBlockBody` is the Brief
+// parser's one reader of a leg block, and the Journey line's writer is
+// `renderLeg` above — asserting the pair here is what keeps a writer and a
+// reader from disagreeing about a value that reaches the Leg Packet.
+import { parseLegBlockBody, renderPacket, splitPacketTemplate, parseBrief,
+         sectionsOf, sectionOfLeg } from "./src/draft.mjs";
+import { moveContract, loadMoveContracts, moveContractsForLegs } from "./src/compose.mjs";
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock,
          figureRefusal, figureClaimRefusal, resolveFigureForms, visualFormOf,
-         figureClause, figureSteps, renderFigureRoles, parseFigureRoles, figureKinds } from "./src/compose.mjs";
+         figureClause, figureLegs, renderFigureRoles, parseFigureRoles, figureKinds } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
 import { NO_HEADLINE, NO_SHARD_NAME, composeGateCall } from "./src/terrain.mjs";
 import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, candidateLedgerRefusal, findInternalVocabulary, SLOT_CAPTIONS, decisionGradeRendering, characteristicMaxLength, CANDIDATE_SCHEMA_PATH } from "./src/assemble.mjs";
@@ -183,7 +183,7 @@ const SETTLED = ["coding::lesson/bravo", "coding::lesson/alpha"];
 // CLI's `--output-format json` envelope the shipped parse reads.
 //
 // IT COMPOSES OVER ITS INPUT AND NEVER OVER A FIXED NAME. The Strand ids, the
-// Candidate ids and the Step ids all come from the input the executor handed
+// Candidate ids and the Leg ids all come from the input the executor handed
 // it, so a record here cannot pass a validation it only satisfies because both
 // sides were written by the same hand. A hard-coded Strand would be refused by
 // the closed-set check `compose_path` runs, which is the check that would then
@@ -201,7 +201,7 @@ const SETTLED = ["coding::lesson/bravo", "coding::lesson/alpha"];
 // that is otherwise the conformant one. Two hand-written stubs would differ in
 // more than the property under test, and a case would pass or fail on the
 // difference nobody meant.
-const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger = false, sectionOnEveryStep = false } = {}) => [
+const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger = false, sectionOnEveryLeg = false } = {}) => [
   "#!/usr/bin/env node",
   // The `--version` probe the start act runs to resolve its binary. It answers
   // FIRST, before any stdin read: the probe closes stdin, and a stub that
@@ -245,9 +245,9 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '  const MOVES = ' + (danglingMove === null
     ? 'LIB.map((m) => m.id).slice(0, 2)'
     : JSON.stringify([danglingMove])) + ';',
-  '  const SECTION_ON_EVERY_STEP = ' + JSON.stringify(sectionOnEveryStep) + ';',
-  '  const stepsFor = (order) => order.map((m, i) => Object.assign({',
-  '    step_id: "x" + (i + 1),',
+  '  const SECTION_ON_EVERY_LEG = ' + JSON.stringify(sectionOnEveryLeg) + ';',
+  '  const legsFor = (order) => order.map((m, i) => Object.assign({',
+  '    leg_id: "x" + (i + 1),',
   '    move: MOVES[i % MOVES.length],',
   '    materials: [m],',
   '    purpose: "carry the reader one move further on the strength of " + m,',
@@ -256,16 +256,16 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '    reader_state_after: i === 0 ? "the reader can state the claim in working form"',
   '      : "the reader has seen the claim discriminate a real case",',
   '    depends_on: i === 0 ? [] : ["x" + i],',
-  '    rationale: "this step sits here because the state it needs is the one the step before it leaves",',
+  '    rationale: "this leg sits here because the state it needs is the one the leg before it leaves",',
   '    claims: [{ type: "strand", strand: m, proposition: "the strand " + m + " supports exactly this claim at this point" }],',
-  '  }, (i === 0 || SECTION_ON_EVERY_STEP) ? { opens_section: "The claim, in working form " + (i + 1) } : {}));',
+  '  }, (i === 0 || SECTION_ON_EVERY_LEG) ? { opens_section: "The claim, in working form " + (i + 1) } : {}));',
   '  const mk = (id, exp, order) => {',
   '    const READER_START = id + ": the reader treats the case as one team\'s habit";',
-  // Reader start binds the first Step (kogaki#1151): the fixture's first Step
+  // Reader start binds the first Leg (kogaki#1151): the fixture's first Leg
   // must arrive from the SAME reader_state_before as this Candidate's own
-  // reader_start, or `validateSteps` refuses every candidate this factory
+  // reader_start, or `validateLegs` refuses every candidate this factory
   // produces.
-  '    const steps = stepsFor(order).map((s, i) => i === 0 ? { ...s, reader_state_before: READER_START } : s);',
+  '    const legs = legsFor(order).map((s, i) => i === 0 ? { ...s, reader_state_before: READER_START } : s);',
   '    return {',
   '      candidate_id: id,',
   '      characteristic: "Path " + id,',
@@ -273,11 +273,11 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '      reader_start: READER_START,',
   '      reader_target: id + ": the reader treats it as a property of the shape",',
   '      opening_question: id + ": why did the same repair land twice?",',
-  '      steps: steps,',
+  '      legs: legs,',
   '      reasoning: {',
-  '        step_validity: id + ": each step\'s claims were traced to the strand they name",',
-  '        transition_continuity: id + ": each after-state is the next step\'s before-state",',
-  '        thesis_closure: id + ": the final step establishes the adopted claim",',
+  '        leg_validity: id + ": each leg\'s claims were traced to the strand they name",',
+  '        transition_continuity: id + ": each after-state is the next leg\'s before-state",',
+  '        thesis_closure: id + ": the final leg establishes the adopted claim",',
   '      },',
   '      coverage: Object.fromEntries(S.map((m) => [m, { role_in_thesis: "carries one claim of the path" }])),',
   // THE LEDGER, CONFORMANT OR UNDER THE KEY NAMES THE OBSERVED RUN CHOSE
@@ -287,11 +287,11 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   // gate, and refused at the Brief's final write. Varied through the factory so
   // case (ai) differs from the conformant span in this one answer.
   '      obligations: ' + (undeclaredLedger
-    ? '[{ raised_at: steps[0].step_id, owed: "the case\'s generality is asserted", settled_at: steps[steps.length - 1].step_id }]'
+    ? '[{ raised_at: legs[0].leg_id, owed: "the case\'s generality is asserted", settled_at: legs[legs.length - 1].leg_id }]'
     // CLOSURE (kogaki#1151): every row ends discharged_by or conceded_by, so
-    // the conformant stub's one obligation discharges at the same Step it is
-    // introduced_by — there is no later Step to discharge it at.
-    : '[{ text: "the case\'s generality is asserted", introduced_by: steps[steps.length - 1].step_id, discharged_by: steps[steps.length - 1].step_id }]') + ',',
+    // the conformant stub's one obligation discharges at the same Leg it is
+    // introduced_by — there is no later Leg to discharge it at.
+    : '[{ text: "the case\'s generality is asserted", introduced_by: legs[legs.length - 1].leg_id, discharged_by: legs[legs.length - 1].leg_id }]') + ',',
   '    };',
   '  };',
   '  record = { candidates: [',
@@ -305,8 +305,8 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '  record = {',
   '    version: "1",',
   '    candidate_id: input.candidate_id,',
-  '    verdicts: input.steps_you_must_judge.map((st) => ({',
-  '      step_id: st.step_id, move: st.move, verdict: ' + JSON.stringify(specVerdict || "consistent") + ',',
+  '    verdicts: input.legs_you_must_judge.map((st) => ({',
+  '      leg_id: st.leg_id, move: st.move, verdict: ' + JSON.stringify(specVerdict || "consistent") + ',',
   '      why: "the before-state and after-state read as instance forms of the move contract",',
   '    })),',
   '  };',
@@ -394,11 +394,11 @@ for (const id of ["state-claim-in-working-form", "worked-example", "generalize-f
 // §4.16 (kogaki#877): ONE fixture Move carrying a `visual_form`, so the
 // adoption seat's figure half can be exercised against this library. The three
 // above deliberately carry none — a figure on any of them is the formless case.
-// A TWO-ROLE KIND, and the count is load-bearing since kogaki#1108: a Step
+// A TWO-ROLE KIND, and the count is load-bearing since kogaki#1108: a Leg
 // carries one claim per Strand and every role of the form binds to one of
-// this Step's claims, so an N-role form costs N Strands. The Brief this
+// this Leg's claims, so an N-role form costs N Strands. The Brief this
 // library is exercised against closes over two, which is what selects `chain`
-// here. See the note at `figStepOf` in (x).
+// here. See the note at `figLegOf` in (x).
 writeFileSync(join(MOVES, "chain-form-move.md"),
   "id: chain-form-move\nstatus: observed\nvisual_form:\n  kind: chain\n"
   + "  stages: the ordered stages\n  bottlenecks: where each stage held\n");
@@ -408,8 +408,8 @@ writeFileSync(join(MOVES, "chain-form-move.md"),
 const spec = (cand, over = {}) => ({
   version: "1",
   candidate_id: cand.candidate_id,
-  verdicts: cand.steps.map((st) => ({
-    step_id: st.step_id, move: st.move, verdict: "consistent",
+  verdicts: cand.legs.map((st) => ({
+    leg_id: st.leg_id, move: st.move, verdict: "consistent",
     why: `the before-state and after-state read as instance forms of ${st.move}'s contract`,
   })),
   ...over,
@@ -450,13 +450,13 @@ const inst = (cand, over = {}, reviewed = null, doc = null) => {
     selection: sel(cand.candidate_id, rv, dc) };
 };
 
-const step1 = {
-  // §4.1 v18 (kogaki#642): every Step binds a Move — the State component.
-  // §4.15 rule 3 (kogaki#822): the FIRST Step always opens a Section, so every
-  // path fixture in this member starts from a Step that declares one. Added at
+const leg1 = {
+  // §4.1 v18 (kogaki#642): every Leg binds a Move — the State component.
+  // §4.15 rule 3 (kogaki#822): the FIRST Leg always opens a Section, so every
+  // path fixture in this member starts from a Leg that declares one. Added at
   // the shared record rather than per block, because rule 3 binds every path
   // and a per-block copy would drift the moment one block gains a case.
-  step_id: "s1", move: "state-claim-in-working-form", materials: ["L2", "thesis"],
+  leg_id: "s1", move: "state-claim-in-working-form", materials: ["L2", "thesis"],
   opens_section: "The claim, in working form",
   purpose: "give the reader the claim in working form",
   reader_state_before: "the reader has no stake in the claim",
@@ -465,8 +465,8 @@ const step1 = {
   rationale: "the settled material states the claim directly, so the article opens on it",
   claims: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim in its own words" }],
 };
-const step2 = {
-  step_id: "s2", move: "worked-example", materials: ["L1"],
+const leg2 = {
+  leg_id: "s2", move: "worked-example", materials: ["L1"],
   purpose: "show the claim doing work on a concrete case",
   reader_state_before: "the reader can state the claim and its cost",
   reader_state_after: "the reader has seen the claim discriminate a real case",
@@ -474,14 +474,14 @@ const step2 = {
   rationale: "the bravo material carries the concrete case, and the case only reads after the claim is stated",
   claims: [
     // A claim is one claim derived from a Strand (kogaki#1095). This slot
-    // carried a `step_effect` claim; what it was standing for — that s1 left
+    // carried a `leg_effect` claim; what it was standing for — that s1 left
     // the claim stated — is `reader_state_before`'s and the ledger's, and
     // composition now refuses it here.
     //
     // AND IT CARRIES EXACTLY ONE (kogaki#1108). It carried two, both on L1 —
     // which is the drift the one-claim-per-Strand rule removes, and this
     // fixture was one of the places it had already reached. A claim is the ONE
-    // proposition this Step asserts on behalf of one Strand; the second was the
+    // proposition this Leg asserts on behalf of one Strand; the second was the
     // same claim said again at a different grain.
     { type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case the claim turned on" },
   ],
@@ -493,18 +493,18 @@ try {
   // (a) SHAPE (§4.1/§4.4): a conforming path validates; each broken record
   // is refused NAMING the missing field — a schema refusal, never a judgment.
   ranCase("a");
-  if (validateSteps([step1, step2]).error) fails.push(`(a) a conforming path was refused: ${validateSteps([step1, step2]).error}`);
+  if (validateLegs([leg1, leg2]).error) fails.push(`(a) a conforming path was refused: ${validateLegs([leg1, leg2]).error}`);
   const drop = (s, k) => { const c = JSON.parse(JSON.stringify(s)); delete c[k]; return c; };
-  for (const k of ["step_id", "materials", "purpose", "reader_state_before", "reader_state_after", "depends_on", "rationale", "claims"]) {
-    const r = validateSteps([drop(step1, k)]);
+  for (const k of ["leg_id", "materials", "purpose", "reader_state_before", "reader_state_after", "depends_on", "rationale", "claims"]) {
+    const r = validateLegs([drop(leg1, k)]);
     if (!r.error || !r.error.includes(k)) fails.push(`(a) dropping ${k} was not refused naming the field`);
   }
-  const noReason = JSON.parse(JSON.stringify(step2)); delete noReason.entailment_reasoning;
-  const rE = validateSteps([step1, noReason]);
+  const noReason = JSON.parse(JSON.stringify(leg2)); delete noReason.entailment_reasoning;
+  const rE = validateLegs([leg1, noReason]);
   if (!rE.error || !/entailment_reasoning/.test(rE.error)) fails.push("(a) entailed:true with no reasoning was not refused — entailment is judged, never silently trusted (§4.4)");
-  const badDep = validateSteps([{ ...step1, depends_on: ["s9"] }]);
-  if (!badDep.error || !/EARLIER/.test(badDep.error)) fails.push("(a) a depends_on naming a non-earlier step was accepted");
-  const badClaim = validateSteps([{ ...step1, claims: [{ type: "vibes", proposition: "x" }] }]);
+  const badDep = validateLegs([{ ...leg1, depends_on: ["s9"] }]);
+  if (!badDep.error || !/EARLIER/.test(badDep.error)) fails.push("(a) a depends_on naming a non-earlier leg was accepted");
+  const badClaim = validateLegs([{ ...leg1, claims: [{ type: "vibes", proposition: "x" }] }]);
   if (!badClaim.error || !/closed/.test(badClaim.error)) fails.push("(a) a claim type outside §4.4's closed list was accepted");
   // A CLAIM IS ONE CLAIM DERIVED FROM A STRAND (kogaki#1095). The two retired
   // types are asserted BY NAME and separately from the closed-set case above:
@@ -514,10 +514,10 @@ try {
   // message already refuses them, and this file's stated shape is that a case
   // asserts WHICH refusal landed.
   for (const [type, extra, where] of [
-    ["step_effect", { step: "s1" }, /reader_state_before/],
+    ["leg_effect", { leg: "s1" }, /reader_state_before/],
     ["reader_assumption", {}, /Reader start/],
   ]) {
-    const r = validateSteps([step1, { ...step2, claims: [{ type, proposition: "p", ...extra }] }]);
+    const r = validateLegs([leg1, { ...leg2, claims: [{ type, proposition: "p", ...extra }] }]);
     if (!r.error) {
       fails.push(`(a) a ${type} claim was ACCEPTED — a claim is one claim derived from a Strand (kogaki#1095), and this file is the seat that makes the other kinds unwritable`);
     } else if (!r.error.includes(type) || !where.test(r.error)) {
@@ -537,28 +537,28 @@ try {
     const cell = mkdtempSync(join(tmpdir(), "kogaki-claim-removal-"));
     try {
       mkdirSync(join(cell, "src"));
-      // `step-schema.json` JOINS THE CELL (kogaki#1108) and that is not a
+      // `leg-schema.json` JOINS THE CELL (kogaki#1108) and that is not a
       // weakening of the removal test. The cell carries the RUNTIME and
       // withholds the PROSE: what it proves is that the two documents are not
       // load-bearing, and a schema file the validator reads its field set and
       // its ground rules from is runtime by the same standard `runs.mjs` is.
       // The distinction is which component executes the rule — the schema is
-      // read by `validateSteps`, while SKILL.md and the pipeline spec are read
+      // read by `validateLegs`, while SKILL.md and the pipeline spec are read
       // by a session.
-      for (const f of ["compose.mjs", "runs.mjs", "step-schema.json"]) {
+      for (const f of ["compose.mjs", "runs.mjs", "leg-schema.json"]) {
         writeFileSync(join(cell, "src", f), readFileSync(join(REPO_ROOT, "src", f), "utf8"));
       }
       for (const doc of [".claude/skills/brief/SKILL.md", "specs/spec-draft-pipeline/SPEC.md"]) {
         if (existsSync(join(cell, doc))) fails.push(`(a) the removal cell carries ${doc} — the test would prove nothing`);
       }
       const alone = await import(`file://${join(cell, "src", "compose.mjs")}`);
-      const r = alone.validateSteps([step1, { ...step2, claims: [{ type: "step_effect", step: "s1", proposition: "p" }] }]);
+      const r = alone.validateLegs([leg1, { ...leg2, claims: [{ type: "leg_effect", leg: "s1", proposition: "p" }] }]);
       // BOUND TO THE RETIRED-TYPE MESSAGE, not to the type NAME: the closed-set
-      // refusal quotes the offending type too, so `includes("step_effect")`
+      // refusal quotes the offending type too, so `includes("leg_effect")`
       // goes green against the wrong arm — the proxy this case's own comment
       // warns about, found by driving the arm out and watching nothing fire.
-      if (!r.error || !r.error.includes("step_effect") || !/reader_state_before/.test(r.error)) {
-        fails.push(`(a) with the brief skill and the pipeline spec absent, a step_effect claim was not refused by name with where its content now belongs — the refusal is a document's rather than the validator's: ${r.error || "ACCEPTED"}`);
+      if (!r.error || !r.error.includes("leg_effect") || !/reader_state_before/.test(r.error)) {
+        fails.push(`(a) with the brief skill and the pipeline spec absent, a leg_effect claim was not refused by name with where its content now belongs — the refusal is a document's rather than the validator's: ${r.error || "ACCEPTED"}`);
       }
       // ITEM 6'S REFUSAL STANDS IN THE CELL TOO (kogaki#1108 acceptance 8).
       // The one-claim-per-Strand rule is the claim definition's mechanical
@@ -567,14 +567,14 @@ try {
       // the whole repository is present and a prose carrier could not be told
       // apart from the validator.
       {
-        const twice = alone.validateSteps([step1, { ...step2,
+        const twice = alone.validateLegs([leg1, { ...leg2,
           claims: [{ type: "strand", proposition: "first", strand: "L2" },
                     { type: "strand", proposition: "second", strand: "L2" }] }]);
         if (!twice.error || !/L2/.test(twice.error) || !/one_per_strand|ONE proposition/.test(twice.error)) {
           fails.push(`(a) with the brief skill and the pipeline spec absent, two claims naming one Strand were not refused naming that Strand — the one-per-Strand rule is a document's rather than the validator's: ${twice.error || "ACCEPTED"}`);
         }
-        if (twice.error && !twice.error.includes(step2.step_id)) {
-          fails.push(`(a) the one-claim-per-Strand refusal does not name the Step: ${twice.error}`);
+        if (twice.error && !twice.error.includes(leg2.leg_id)) {
+          fails.push(`(a) the one-claim-per-Strand refusal does not name the Leg: ${twice.error}`);
         }
       }
       // THE JOURNEY REFUSALS STAND IN THE CELL TOO (kogaki#1111 acceptance 5).
@@ -584,26 +584,26 @@ try {
       // only where the whole repository is present and a prose carrier could
       // not be told apart from the validator.
       {
-        const badUse = alone.validateSteps([{ ...step1,
-          journeys: [{ strand: "L2", use: "decorate" }] }, step2]);
+        const badUse = alone.validateLegs([{ ...leg1,
+          journeys: [{ strand: "L2", use: "decorate" }] }, leg2]);
         if (!badUse.error || !/decorate/.test(badUse.error) || !/illustrate/.test(badUse.error)) {
           fails.push(`(a) with the brief skill and the pipeline spec absent, a Journey use outside the closed set was not refused quoting the use and naming the set — the use set is a document's rather than the schema's: ${badUse.error || "ACCEPTED"}`);
         }
-        const notCarried = alone.validateSteps([{ ...step1,
-          journeys: [{ strand: "L1", use: "illustrate" }] }, step2]);
+        const notCarried = alone.validateLegs([{ ...leg1,
+          journeys: [{ strand: "L1", use: "illustrate" }] }, leg2]);
         if (!notCarried.error || !/L1/.test(notCarried.error) || !/materials/.test(notCarried.error)) {
-          fails.push(`(a) with the two documents absent, a Journey drawing on a Strand the Step does not carry was not refused naming that Strand and \`materials\`: ${notCarried.error || "ACCEPTED"}`);
+          fails.push(`(a) with the two documents absent, a Journey drawing on a Strand the Leg does not carry was not refused naming that Strand and \`materials\`: ${notCarried.error || "ACCEPTED"}`);
         }
         // THE CONTROL: a conforming Journey rides through the cell, so the two
         // refusals above are the arms firing rather than the field being
         // rejected outright.
-        const good = alone.validateSteps([{ ...step1,
-          journeys: [{ strand: "L2", use: "illustrate" }] }, step2]);
+        const good = alone.validateLegs([{ ...leg1,
+          journeys: [{ strand: "L2", use: "illustrate" }] }, leg2]);
         if (good.error) {
           fails.push(`(a) the removal cell refuses a CONFORMING Journey reference, so its Journey refusals above prove nothing: ${good.error}`);
         }
       }
-      const ok = alone.validateSteps([step1, step2]);
+      const ok = alone.validateLegs([leg1, leg2]);
       if (ok.error) fails.push(`(a) the removal cell refuses a CONFORMING path, so its refusal above proves nothing: ${ok.error}`);
     } finally {
       rmSync(cell, { recursive: true, force: true });
@@ -614,26 +614,26 @@ try {
   // the figure `g<n>` addressing read. Asserted at the writer rather than
   // inferred from a round trip, because the writer is the half this issue moved.
   {
-    const line = renderStep(step1).split("\n").filter((l) => l.startsWith("claim "));
+    const line = renderLeg(leg1).split("\n").filter((l) => l.startsWith("claim "));
     if (line.length !== 1 || line[0] !== "claim (strand L2): the alpha lesson states the claim in its own words") {
       fails.push(`(a) the claim line is not serialized as \`claim (strand L<n>): <proposition>\`: ${JSON.stringify(line)}`);
     }
   }
-  // ---- (a) THE JOURNEY A STEP DRAWS ON (kogaki#1111) ----
+  // ---- (a) THE JOURNEY A LEG DRAWS ON (kogaki#1111) ----
   //
-  // A Journey is MATERIAL THE STEP EDITS, never an assertion it must recover.
+  // A Journey is MATERIAL THE LEG EDITS, never an assertion it must recover.
   // The field carries an ADDRESS and a USE and no text, and these cases bind
   // the three facts that makes checkable: the use set is the SCHEMA's and is
-  // closed, the Journey's Strand is one the Step carries, and a Journey
+  // closed, the Journey's Strand is one the Leg carries, and a Journey
   // claimed for a Strand whose served record has none is refused at the fill
   // where the Brief's own Strands section is in hand.
   {
-    const schema = JSON.parse(readFileSync(join(REPO_ROOT, "src", "step-schema.json"), "utf8"));
+    const schema = JSON.parse(readFileSync(join(REPO_ROOT, "src", "leg-schema.json"), "utf8"));
     // ACCEPTANCE 1's SCHEMA HALF. Asserted against the file rather than
     // against a constant here, because the whole arrangement is that the
     // composer's prompt and the validator's refusal read ONE file.
     if (!schema.fields.journeys) {
-      fails.push("(a) src/step-schema.json declares no `journeys` field — the composer is rendered this file verbatim, so a field it does not carry is a field nobody is asked for");
+      fails.push("(a) src/leg-schema.json declares no `journeys` field — the composer is rendered this file verbatim, so a field it does not carry is a field nobody is asked for");
     }
     const uses = Object.keys(schema.journey?.uses || {});
     if (JSON.stringify(uses) !== JSON.stringify(["illustrate", "motivate", "contrast"])) {
@@ -649,15 +649,15 @@ try {
         for (const f of ["compose.mjs", "runs.mjs"]) {
           writeFileSync(join(cell, "src", f), readFileSync(join(REPO_ROOT, "src", f), "utf8"));
         }
-        const moved = JSON.parse(readFileSync(join(REPO_ROOT, "src", "step-schema.json"), "utf8"));
+        const moved = JSON.parse(readFileSync(join(REPO_ROOT, "src", "leg-schema.json"), "utf8"));
         moved.journey.uses = { transcribe: "to transcribe the case verbatim" };
-        writeFileSync(join(cell, "src", "step-schema.json"), JSON.stringify(moved, null, 2));
+        writeFileSync(join(cell, "src", "leg-schema.json"), JSON.stringify(moved, null, 2));
         const alone = await import(`file://${join(cell, "src", "compose.mjs")}`);
-        const r = alone.validateSteps([{ ...step1, journeys: [{ strand: "L2", use: "illustrate" }] }, step2]);
+        const r = alone.validateLegs([{ ...leg1, journeys: [{ strand: "L2", use: "illustrate" }] }, leg2]);
         if (!r.error || !/transcribe/.test(r.error)) {
-          fails.push(`(a) the validator does not read the Journey use set from src/step-schema.json — a use the moved schema retired was accepted, or refused without naming the moved set: ${r.error || "ACCEPTED"}`);
+          fails.push(`(a) the validator does not read the Journey use set from src/leg-schema.json — a use the moved schema retired was accepted, or refused without naming the moved set: ${r.error || "ACCEPTED"}`);
         }
-        const ok2 = alone.validateSteps([{ ...step1, journeys: [{ strand: "L2", use: "transcribe" }] }, step2]);
+        const ok2 = alone.validateLegs([{ ...leg1, journeys: [{ strand: "L2", use: "transcribe" }] }, leg2]);
         if (ok2.error) fails.push(`(a) the moved schema's own use was refused, so the case above proves nothing: ${ok2.error}`);
       } finally {
         rmSync(cell, { recursive: true, force: true });
@@ -668,62 +668,62 @@ try {
       [[{ strand: "L2" }], /names no use/, "a Journey with no use"],
       [[{ use: "illustrate" }], /names no strand/, "a Journey with no strand"],
       [[{ strand: "L2", use: "gesture" }], /gesture/, "a use outside the closed set"],
-      [[{ strand: "L1", use: "illustrate" }], /materials/, "a Journey whose Strand the Step does not carry"],
+      [[{ strand: "L1", use: "illustrate" }], /materials/, "a Journey whose Strand the Leg does not carry"],
       ["L2", /array of Journey references/, "a journeys value that is not an array"],
     ]) {
-      const r = validateSteps([{ ...step1, journeys }, step2]);
+      const r = validateLegs([{ ...leg1, journeys }, leg2]);
       if (!r.error) fails.push(`(a) ${what} was ACCEPTED`);
       else if (!where.test(r.error)) fails.push(`(a) ${what} was refused for another reason: ${r.error}`);
     }
-    // A STEP MAY NAME ITS STRAND IN EITHER FORM. `<L-id>.journey` is what the
+    // A LEG MAY NAME ITS STRAND IN EITHER FORM. `<L-id>.journey` is what the
     // coverage accounting counts, and this Issue changes that accounting not
-    // at all — so a Step carrying the suffixed form carries the Strand.
+    // at all — so a Leg carrying the suffixed form carries the Strand.
     for (const materials of [["L2", "thesis"], ["L2.journey", "thesis"], ["L2", "L2.journey"]]) {
-      const r = validateSteps([{ ...step1, materials, journeys: [{ strand: "L2", use: "contrast" }] }, step2]);
+      const r = validateLegs([{ ...leg1, materials, journeys: [{ strand: "L2", use: "contrast" }] }, leg2]);
       if (r.error) fails.push(`(a) a conforming Journey was refused against materials ${JSON.stringify(materials)}: ${r.error}`);
     }
     // NOTHING BOUNDS THE COUNT (kogaki#1111's 2026-09-13 amendment): two
     // Journeys with the same use is a path-review judgment, never a shape
     // refusal, and this asserts the schema grew no number.
     {
-      const r = validateSteps([{ ...step1, materials: ["L2", "L3", "thesis"],
-        journeys: [{ strand: "L2", use: "illustrate" }, { strand: "L3", use: "illustrate" }] }, step2]);
-      if (r.error) fails.push(`(a) two Journeys of one Step were refused — no clause of this Issue bounds the count: ${r.error}`);
+      const r = validateLegs([{ ...leg1, materials: ["L2", "L3", "thesis"],
+        journeys: [{ strand: "L2", use: "illustrate" }, { strand: "L3", use: "illustrate" }] }, leg2]);
+      if (r.error) fails.push(`(a) two Journeys of one Leg were refused — no clause of this Issue bounds the count: ${r.error}`);
     }
-    // THE SERIALIZATION IS ONE LINE PER ENTRY, and a Step declaring none is
+    // THE SERIALIZATION IS ONE LINE PER ENTRY, and a Leg declaring none is
     // BYTE-IDENTICAL to what it was before this field existed.
     {
-      const lines = renderStep({ ...step1, journeys: [{ strand: "L2", use: "motivate" }] })
+      const lines = renderLeg({ ...leg1, journeys: [{ strand: "L2", use: "motivate" }] })
         .split("\n").filter((l) => l.startsWith("journey:"));
       if (lines.length !== 1 || lines[0] !== "journey: L2 — motivate") {
         fails.push(`(a) the journey line is not serialized as \`journey: <L-id> — <use>\`: ${JSON.stringify(lines)}`);
       }
-      if (renderStep(step1).includes("journey:")) {
-        fails.push("(a) a Step declaring no Journey serializes a journey line — a Brief composed before this field is not byte-identical");
+      if (renderLeg(leg1).includes("journey:")) {
+        fails.push("(a) a Leg declaring no Journey serializes a journey line — a Brief composed before this field is not byte-identical");
       }
     }
     // AND THE ROUND TRIP HOLDS, through the Brief parser's own reader rather
-    // than a second one: the writer is `renderStep` and the reader is
-    // `src/draft.mjs`'s `parseStepBlockBody`, sharing ONE grammar.
+    // than a second one: the writer is `renderLeg` and the reader is
+    // `src/draft.mjs`'s `parseLegBlockBody`, sharing ONE grammar.
     {
-      const body = renderStep({ ...step1, journeys: [{ strand: "L2", use: "contrast" }] })
-        .replace(/^```step\n/, "").replace(/\n```$/, "");
-      const back = parseStepBlockBody(body, "round-trip.md");
+      const body = renderLeg({ ...leg1, journeys: [{ strand: "L2", use: "contrast" }] })
+        .replace(/^```leg\n/, "").replace(/\n```$/, "");
+      const back = parseLegBlockBody(body, "round-trip.md");
       if (back.refusal) fails.push(`(a) the serialized Journey line does not parse back: ${back.refusal}`);
-      else if (JSON.stringify(back.step.journeys) !== JSON.stringify([{ strand: "L2", use: "contrast" }])) {
-        fails.push(`(a) the Journey round trip lost or changed the declaration: ${JSON.stringify(back.step.journeys)}`);
+      else if (JSON.stringify(back.leg.journeys) !== JSON.stringify([{ strand: "L2", use: "contrast" }])) {
+        fails.push(`(a) the Journey round trip lost or changed the declaration: ${JSON.stringify(back.leg.journeys)}`);
       }
     }
   }
 
-  // move is REQUIRED on every Step — §4.1 v18 (kogaki#642), which supersedes
+  // move is REQUIRED on every Leg — §4.1 v18 (kogaki#642), which supersedes
   // §7.5's no-mandatory-Moves rider by name. The assertion is INVERTED rather
   // than removed: the case it covers is the same one, and deleting it would
   // leave the new requirement with no exercised trial. The refusal must name
   // the field, so a later loosening cannot pass by refusing for another reason.
-  const noMove = validateSteps([step1, { ...step2, move: undefined }]);
-  if (!noMove.error || !/move/.test(noMove.error)) fails.push("(a) a step without a Move was accepted — the Move is a Step's State component and §4.1 v18 requires one");
-  const emptyMove = validateSteps([{ ...step1, move: "" }]);
+  const noMove = validateLegs([leg1, { ...leg2, move: undefined }]);
+  if (!noMove.error || !/move/.test(noMove.error)) fails.push("(a) a leg without a Move was accepted — the Move is a Leg's State component and §4.1 v18 requires one");
+  const emptyMove = validateLegs([{ ...leg1, move: "" }]);
   if (!emptyMove.error || !/move/.test(emptyMove.error)) fails.push("(a) an empty-string Move was accepted — a binding is to a library entry by id, never the empty id");
 
   // (b) FILL (§5.1/§5.2): sequence, strand_coverage and Closure land in
@@ -733,26 +733,26 @@ try {
   ranCase("b");
   const doc0 = readFileSync(briefPath, "utf8");
   const input = {
-    steps: [step1, step2],
+    legs: [leg1, leg2],
     coverage: { L2: { role_in_thesis: "states the claim" }, L1: { role_in_thesis: "carries the case" } },
     obligations: [
       { text: "the cost conceded in s1 must be weighed", introduced_by: "s1", discharged_by: "s2" },
       { text: "the case's generality is asserted, not shown", introduced_by: "s2", conceded_by: "s2" },
     ],
-    readerStart: step1.reader_state_before,
-    thesisClosure: { explanation: "the working-form claim is discriminated by the case", established_by_steps: ["s1", "s2"] },
+    readerStart: leg1.reader_state_before,
+    thesisClosure: { explanation: "the working-form claim is discriminated by the case", established_by_legs: ["s1", "s2"] },
   };
   const f1 = fillBrief(doc0, input);
   if (f1.error) fails.push(`(b) a conforming fill was refused: ${f1.error}`);
   const doc1 = f1.doc || "";
-  if (!/```step\nstep_id: s1/.test(doc1)) fails.push("(b) the sequence slot does not carry the serialized Step records");
-  if (!/move: worked-example/.test(doc1)) fails.push("(b) the Move binding is absent from the serialized Step");
-  if (!/entailment_reasoning: /.test(doc1)) fails.push("(b) the entailed Step's reasoning is not exposed on the record for the gate (§4.4)");
-  if (!/\*\*L2\*\* — used_by_steps: s1;/.test(doc1)) fails.push("(b) strand_coverage does not carry used_by_steps derived from the composed steps");
+  if (!/```leg\nleg_id: s1/.test(doc1)) fails.push("(b) the sequence slot does not carry the serialized Leg records");
+  if (!/move: worked-example/.test(doc1)) fails.push("(b) the Move binding is absent from the serialized Leg");
+  if (!/entailment_reasoning: /.test(doc1)) fails.push("(b) the entailed Leg's reasoning is not exposed on the record for the gate (§4.4)");
+  if (!/\*\*L2\*\* — used_by_legs: s1;/.test(doc1)) fails.push("(b) strand_coverage does not carry used_by_legs derived from the composed legs");
   if (!/role_in_thesis: states the claim/.test(doc1)) fails.push("(b) strand_coverage does not carry role_in_thesis");
   if (!/introduced_by: s1; discharged_by: s2/.test(doc1)) fails.push("(b) a Closure row does not carry introduced_by/discharged_by (§5.2)");
   if (!/introduced_by: s2; conceded_by: s2/.test(doc1)) fails.push("(b) a Closure row does not carry introduced_by/conceded_by (§5.2)");
-  if (!/### Thesis\n\nthe working-form claim is discriminated by the case — established_by_steps: s1, s2/.test(doc1)) fails.push("(b) the Thesis row does not render its explanation and established_by_steps");
+  if (!/### Thesis\n\nthe working-form claim is discriminated by the case — established_by_legs: s1, s2/.test(doc1)) fails.push("(b) the Thesis row does not render its explanation and established_by_legs");
   if (!/^## Closure$/m.test(doc1)) fails.push("(b) the filled Brief does not render Closure as one section (kogaki#1151)");
   if (/Unresolved obligations/.test(doc1)) fails.push("(b) the retired \"Unresolved obligations\" heading still reaches the owner (kogaki#1151)");
   // NEITHER TERMINAL STATE IS REFUSED, NAMING THE ROW.
@@ -761,48 +761,48 @@ try {
   // BOTH TERMINAL STATES IS REFUSED, NAMING THE ROW — an ambiguous close.
   const bothObl = fillBrief(doc0, { ...input, obligations: [{ text: "x", introduced_by: "s1", discharged_by: "s2", conceded_by: "s2" }] });
   if (!bothObl.error || !/BOTH/.test(bothObl.error)) fails.push(`(b) a Closure row carrying BOTH discharged_by and conceded_by was accepted: ${JSON.stringify(bothObl)}`);
-  // READER START BINDS THE FIRST STEP, refused NAMING BOTH values.
+  // READER START BINDS THE FIRST LEG, refused NAMING BOTH values.
   const wrongStart = fillBrief(doc0, { ...input, readerStart: "the reader stands somewhere this path never starts" });
-  if (!wrongStart.error || !/Reader start/.test(wrongStart.error)) fails.push(`(b) a first Step disagreeing with the Brief's Reader start was accepted: ${JSON.stringify(wrongStart)}`);
-  if (validateSteps([step1, step2], step1.reader_state_before).error) fails.push("(b) validateSteps refused a first Step that DOES agree with the given Reader start");
+  if (!wrongStart.error || !/Reader start/.test(wrongStart.error)) fails.push(`(b) a first Leg disagreeing with the Brief's Reader start was accepted: ${JSON.stringify(wrongStart)}`);
+  if (validateLegs([leg1, leg2], leg1.reader_state_before).error) fails.push("(b) validateLegs refused a first Leg that DOES agree with the given Reader start");
   // ACCEPTANCE 7's COMPOSITION HALF (kogaki#1151; PR #1152 round 1, finding 2).
   // The refusal half above is the easy half. This is the other one: a Brief
   // whose rows are ALL TERMINAL composes and PACKETS identically on two runs.
   //
-  // WHY IT IS HERE AND NOT IN THE ReviewDraft PASS. `closureRowsForStep` is the
-  // one reader between `fillBrief`'s writer and the Step Packet, and every
-  // other fixture in the tree hands it a Step that is party to nothing — so the
+  // WHY IT IS HERE AND NOT IN THE ReviewDraft PASS. `closureRowsForLeg` is the
+  // one reader between `fillBrief`'s writer and the Leg Packet, and every
+  // other fixture in the tree hands it a Leg that is party to nothing — so the
   // rows-present branch of its Brief-section regex, its Thesis-row split on
-  // `established_by_steps` and its row regex had never been executed by
+  // `established_by_legs` and its row regex had never been executed by
   // anything, while the suite was green. Asserted over the SAME `doc1` the
   // refusals above are asserted over, so the writer and this reader cannot
   // drift apart with both halves still passing.
   {
-    // THE ROWS-PRESENT BRANCH, per Step and as PROSE. The Thesis row reaches
-    // its establishing Steps stripped of its `established_by_steps:` tail; a
-    // Step row reaches the Step that introduced it and the Step that closed it.
-    const s1 = closureRowsForStep(doc1, "s1");
-    const s2 = closureRowsForStep(doc1, "s2");
+    // THE ROWS-PRESENT BRANCH, per Leg and as PROSE. The Thesis row reaches
+    // its establishing Legs stripped of its `established_by_legs:` tail; a
+    // Leg row reaches the Leg that introduced it and the Leg that closed it.
+    const s1 = closureRowsForLeg(doc1, "s1");
+    const s2 = closureRowsForLeg(doc1, "s2");
     const THESIS = "the working-form claim is discriminated by the case";
     const R1 = "the cost conceded in s1 must be weighed";
     const R2 = "the case's generality is asserted, not shown";
-    if (!s1.includes(THESIS)) fails.push(`(b) the Thesis row did not reach s1, one of its established_by_steps: ${JSON.stringify(s1)}`);
-    if (!s2.includes(THESIS)) fails.push(`(b) the Thesis row did not reach s2, one of its established_by_steps: ${JSON.stringify(s2)}`);
-    if (s1.some((r) => /established_by_steps/.test(r))) fails.push(`(b) the Thesis row reached a Step carrying its established_by_steps tail rather than its prose alone: ${JSON.stringify(s1)}`);
+    if (!s1.includes(THESIS)) fails.push(`(b) the Thesis row did not reach s1, one of its established_by_legs: ${JSON.stringify(s1)}`);
+    if (!s2.includes(THESIS)) fails.push(`(b) the Thesis row did not reach s2, one of its established_by_legs: ${JSON.stringify(s2)}`);
+    if (s1.some((r) => /established_by_legs/.test(r))) fails.push(`(b) the Thesis row reached a Leg carrying its established_by_legs tail rather than its prose alone: ${JSON.stringify(s1)}`);
     // introduced_by: s1, discharged_by: s2 — a party to it at BOTH ends.
     if (!s1.includes(R1)) fails.push(`(b) the row s1 introduces did not reach s1: ${JSON.stringify(s1)}`);
     if (!s2.includes(R1)) fails.push(`(b) the row s2 discharges did not reach s2: ${JSON.stringify(s2)}`);
     // introduced_by: s2, conceded_by: s2 — a party to it at neither end is s1.
     if (!s2.includes(R2)) fails.push(`(b) the row s2 introduces and concedes did not reach s2: ${JSON.stringify(s2)}`);
-    if (s1.includes(R2)) fails.push(`(b) a row s1 is party to NEITHER end of reached s1 — the reader is handing a Step rows that are not its own: ${JSON.stringify(s1)}`);
+    if (s1.includes(R2)) fails.push(`(b) a row s1 is party to NEITHER end of reached s1 — the reader is handing a Leg rows that are not its own: ${JSON.stringify(s1)}`);
     // AND THE EMPTY BRANCH IS STILL THE EMPTY BRANCH, asserted beside the
     // rows-present one rather than trusted: a reader that returned every row
     // would pass every assertion above.
-    const none = closureRowsForStep(doc1, "s-not-in-this-path");
-    if (none.length !== 0) fails.push(`(b) a Step party to no Closure row was handed rows: ${JSON.stringify(none)}`);
+    const none = closureRowsForLeg(doc1, "s-not-in-this-path");
+    if (none.length !== 0) fails.push(`(b) a Leg party to no Closure row was handed rows: ${JSON.stringify(none)}`);
     // A DOCUMENT WITH NO CLOSURE SECTION AT ALL renders empty rather than
     // throwing — the pre-Closure Brief generation is still readable.
-    if (closureRowsForStep(doc0, "s1").length !== 0) fails.push("(b) closureRowsForStep invented rows for a document carrying no Closure section");
+    if (closureRowsForLeg(doc0, "s1").length !== 0) fails.push("(b) closureRowsForLeg invented rows for a document carrying no Closure section");
 
     // IDENTICAL ON TWO RUNS, at BOTH layers acceptance 7 names — the composed
     // document and the Packet. Run two composes the SAME input again from the
@@ -813,13 +813,13 @@ try {
     if (f2.error) fails.push(`(b) the second compose of a conforming input was refused: ${f2.error}`);
     const doc2 = f2.doc || "";
     if (doc2 !== doc1) fails.push("(b) two composes of one input did not produce byte-identical Briefs (acceptance 7)");
-    if (JSON.stringify(closureRowsForStep(doc2, "s1")) !== JSON.stringify(s1)) fails.push("(b) the Closure rows read from the second compose differ from the first");
+    if (JSON.stringify(closureRowsForLeg(doc2, "s1")) !== JSON.stringify(s1)) fails.push("(b) the Closure rows read from the second compose differ from the first");
 
     // THE PACKET, through `renderPacket` rather than a second filler. The
     // ReviewDraft pass fills the template itself by design (its closed-input
     // allowlist forbids importing `src/draft.mjs`), which is exactly why the
     // rows-present render has no home there and belongs here.
-    const packetOf = (doc, stepId) => {
+    const packetOf = (doc, legId) => {
       // THE THREE ARTICLE-LEVEL SLOTS A PACKET READS are filled here rather
       // than left as the mint wrote them: `fillBrief`'s subject is the path,
       // so a Brief it has filled still carries `Reader start`, `Reader target`
@@ -840,8 +840,8 @@ try {
       }
       const brief = parseBrief(d, briefPath);
       if (brief.refusals.length) return { error: brief.refusals[0] };
-      const step = brief.steps.find((s) => s.step_id === stepId);
-      if (!step) return { error: `the composed Brief carries no step ${stepId}` };
+      const leg = brief.legs.find((s) => s.leg_id === legId);
+      if (!leg) return { error: `the composed Brief carries no leg ${legId}` };
       const split = splitPacketTemplate(readFileSync(join("src", "packet-template.md"), "utf8"));
       if (split.error) return { error: split.error };
       // THE MOVE RECORD IS SYNTHESIZED, not read from the fixture library.
@@ -851,28 +851,28 @@ try {
       // the Move contract rather than on its own subject. The record below
       // carries exactly the fields `MOVE_FIELDS_RENDERED` names, and nothing
       // asserted here reads any of them.
-      const moveText = [`id: ${step.move}`, "status: observed",
+      const moveText = [`id: ${leg.move}`, "status: observed",
         "intent: a fixture intent, not this case's subject",
         "requires: a fixture precondition, not this case's subject",
         "effect: a fixture effect, not this case's subject",
         "constraints: a fixture constraint, not this case's subject",
         "failure_modes: a fixture failure mode, not this case's subject",
         "excerpt: a fixture excerpt, not this case's subject", ""].join("\n");
-      const row = readerKnowledgeLedger(brief.steps).find((r) => r.step_id === stepId);
-      return renderPacket({ template: split.packet, brief, step, moveText, priorSections: [],
-        ledgerRow: row, section: sectionOfStep(brief.steps).get(stepId), sections: sectionsOf(brief.steps) });
+      const row = readerKnowledgeLedger(brief.legs).find((r) => r.leg_id === legId);
+      return renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
+        ledgerRow: row, section: sectionOfLeg(brief.legs).get(legId), sections: sectionsOf(brief.legs) });
     };
     const p1 = packetOf(doc1, "s2");
     if (p1.error) fails.push(`(b) a Packet could not be rendered from the composed Brief: ${p1.error}`);
     else {
       const text = p1.packet || p1.text || String(p1.out || "");
       // THE BLOCK IS PRESENT AND CARRIES THE ROWS AS PROSE — the property
-      // acceptance 3 names, observed on a Step that HAS rows.
-      if (!/## This Step's Closure/.test(text)) fails.push("(b) the rendered Packet carries no Closure block");
+      // acceptance 3 names, observed on a Leg that HAS rows.
+      if (!/## This Leg's Closure/.test(text)) fails.push("(b) the rendered Packet carries no Closure block");
       if (!text.includes(`- ${R1}`)) fails.push(`(b) the Packet for s2 does not carry the row it discharges as prose`);
       if (!text.includes(`- ${R2}`)) fails.push(`(b) the Packet for s2 does not carry the row it concedes as prose`);
-      if (!text.includes(`- ${THESIS}`)) fails.push("(b) the Packet for an establishing Step does not carry the Thesis row");
-      if (/This Step carries no Closure row/.test(text)) fails.push("(b) a Step WITH Closure rows rendered the stated absence — the empty branch is being taken where rows exist");
+      if (!text.includes(`- ${THESIS}`)) fails.push("(b) the Packet for an establishing Leg does not carry the Thesis row");
+      if (/This Leg carries no Closure row/.test(text)) fails.push("(b) a Leg WITH Closure rows rendered the stated absence — the empty branch is being taken where rows exist");
       // IDENTICAL ON TWO RUNS at the Packet layer too.
       const p2 = packetOf(doc2, "s2");
       const text2 = p2.error ? `error: ${p2.error}` : (p2.packet || p2.text || String(p2.out || ""));
@@ -880,9 +880,9 @@ try {
     }
   }
 
-  const startMismatch = validateSteps([step1, step2], "a value step1 never states");
+  const startMismatch = validateLegs([leg1, leg2], "a value leg1 never states");
   if (!startMismatch.error || !/reader_state_before/.test(startMismatch.error) || !/Reader start/.test(startMismatch.error)) {
-    fails.push(`(b) validateSteps did not refuse naming both the Step's reader_state_before and the Brief's Reader start: ${JSON.stringify(startMismatch)}`);
+    fails.push(`(b) validateLegs did not refuse naming both the Leg's reader_state_before and the Brief's Reader start: ${JSON.stringify(startMismatch)}`);
   }
   // THE RATIFIED HEADING, AND THE ASSERTION FOLLOWS IT (kogaki#574). This read
   // `## Sequence`, the heading kogaki#574 retires — so after the rename it tested
@@ -898,15 +898,15 @@ try {
   const refill = fillBrief(doc1, input);
   if (!refill.error) fails.push("(b) an already-filled Reader Path was overwritten — composition resumes by judgment, not by overwrite");
   const badObl = fillBrief(doc0, { ...input, obligations: [{ text: "x", introduced_by: "s9" }] });
-  if (!badObl.error) fails.push("(b) a ledger entry introduced_by a non-step was accepted");
+  if (!badObl.error) fails.push("(b) a ledger entry introduced_by a non-leg was accepted");
 
   // (c) COUNT AFTER COMPOSITION (§5.2; §3's completeness rider): the count
-  // is taken from the composed steps' PLACEMENTS, never from a declaration;
+  // is taken from the composed legs' PLACEMENTS, never from a declaration;
   // an unplaced selected Strand DISCLOSES and the fill still succeeds — a
   // disclosure, never a refusal.
   ranCase("c");
   const only2 = {
-    steps: [step1],
+    legs: [leg1],
     // the declaration CLAIMS L1 is covered; the count must not believe it
     coverage: { L1: { role_in_thesis: "claimed but never placed" }, L2: { role_in_thesis: "states the claim" } },
   };
@@ -914,19 +914,19 @@ try {
   if (f2.error) fails.push(`(c) a path leaving a Strand unused was refused — the three §4.4 moves include leaving it unused: ${f2.error}`);
   const doc2 = f2.doc || "";
   if (!/\*\*L1\*\* — \*\*UNPLACED, disclosed\*\*/.test(doc2)) fails.push("(c) the unplaced selected Strand does not disclose — a composer that cannot omit in principle can still omit in fact");
-  if (!/placement count, taken AFTER composition, counted in placements: 1 of 2/.test(doc2)) fails.push("(c) the placement count is not 1 of 2 counted in placements from the steps themselves");
+  if (!/placement count, taken AFTER composition, counted in placements: 1 of 2/.test(doc2)) fails.push("(c) the placement count is not 1 of 2 counted in placements from the legs themselves");
   if (f2.placed !== 1 || f2.total !== 2) fails.push(`(c) fill reported ${f2.placed}/${f2.total}, not 1/2`);
   // closed set: a foreign L-id in materials is a Brief fetch (§5.3).
-  const foreign = fillBrief(doc0, { steps: [{ ...step1, materials: ["L7"] }] });
+  const foreign = fillBrief(doc0, { legs: [{ ...leg1, materials: ["L7"] }] });
   if (!foreign.error || !/closed Strand set/.test(foreign.error)) fails.push("(c) a material outside the closed set was accepted — growing the set routes through Terrain, never a Brief fetch");
 
   // THE JOURNEY'S SERVED-RECORD HALF (kogaki#1111 acceptance 1), which lives
   // at the FILL because it is a fact about the Brief rather than about the
-  // Step: L2 carries a journey cite in the minted fixture and L1 does not, so
+  // Leg: L2 carries a journey cite in the minted fixture and L1 does not, so
   // a Journey claimed for L1 is a Journey the material does not have.
   {
-    const noServed = fillBrief(doc0, { steps: [step1,
-      { ...step2, journeys: [{ strand: "L1", use: "illustrate" }] }] });
+    const noServed = fillBrief(doc0, { legs: [leg1,
+      { ...leg2, journeys: [{ strand: "L1", use: "illustrate" }] }] });
     if (!noServed.error) {
       fails.push("(c) a Journey claimed for a Strand whose served record carries none was ACCEPTED — inventing Journey material for a Strand that has none is unsupported completion, in the one place the shape check cannot see it");
     } else if (!/L1/.test(noServed.error) || !/journey cite/.test(noServed.error)) {
@@ -934,7 +934,7 @@ try {
     }
     // THE CONTROL: L2 DOES carry one, so the refusal above is the served-record
     // arm firing rather than the field being rejected at the fill outright.
-    const served = fillBrief(doc0, { steps: [{ ...step1, journeys: [{ strand: "L2", use: "illustrate" }] }, step2] });
+    const served = fillBrief(doc0, { legs: [{ ...leg1, journeys: [{ strand: "L2", use: "illustrate" }] }, leg2] });
     if (served.error) fails.push(`(c) a Journey on the Strand that DOES carry served Journey material was refused, so the case above proves nothing: ${served.error}`);
     // AND THE COVERAGE ACCOUNTING MOVES WITH THE FIELD — THIS ASSERTION IS
     // REVERSED (kogaki#1131). It read the other way: kogaki#1111 declared
@@ -944,20 +944,20 @@ try {
     // caught in — four `journey:` lines rendered and five Strands disclosed as
     // OMITTED in one document — so the clause is reversed rather than deleted,
     // and the reversal is asserted here beside the retention it replaces.
-    const before = fillBrief(doc0, { steps: [step1, step2] });
+    const before = fillBrief(doc0, { legs: [leg1, leg2] });
     if (!before.error && !served.error) {
       const line = (t) => (t.match(/^\*Journey placement count[^\n]*$/m) || [""])[0];
       if (!/0 of 1/.test(line(before.doc))) {
         fails.push(`(c) the path declaring no Journey does not read 0 of 1, so the comparison below proves nothing: ${line(before.doc)}`);
       }
       if (!/1 of 1/.test(line(served.doc))) {
-        fails.push(`(c) declaring a Journey did NOT move the placement count — the count still reads a spelling in \`materials\` beside the field \`journeysRefusal\` validates and \`renderStep\` renders, which is the second source that disagreed with the first (kogaki#1131): ${line(served.doc)}`);
+        fails.push(`(c) declaring a Journey did NOT move the placement count — the count still reads a spelling in \`materials\` beside the field \`journeysRefusal\` validates and \`renderLeg\` renders, which is the second source that disagreed with the first (kogaki#1131): ${line(served.doc)}`);
       }
     }
   }
 
   // ACCEPTANCE 3: THE REVERSE OUTLINE COMPARES NO JOURNEY FIELD. A Journey is
-  // material the Step EDITS, so a reader cannot recover it and must not be
+  // material the Leg EDITS, so a reader cannot recover it and must not be
   // asked to — the Round Trip table gains no row, and the `claims` accounting
   // is unchanged. Asserted as an ABSENCE over the table's own data, which is the
   // only form this property has: there is no refusal to drive.
@@ -1034,38 +1034,38 @@ try {
   // they DIFFER between cand-1 and cand-2 — (l) asserts that difference
   // survives to the gate, which is what makes them a real axis rather than a
   // constant repeated twice.
-  const mkCand = (id, exp, rawSteps) => {
+  const mkCand = (id, exp, rawLegs) => {
     const readerStart = `${id}: the reader treats the case as one team's habit`;
-    // READER START BINDS THE FIRST STEP (kogaki#1151): candA and candB must
+    // READER START BINDS THE FIRST LEG (kogaki#1151): candA and candB must
     // still differ on `reader_start` (case l-reader-fields' whole point), so
-    // the override lands on THIS Candidate's own first Step rather than
+    // the override lands on THIS Candidate's own first Leg rather than
     // sharing one literal across every mkCand() caller.
-    const steps = rawSteps.map((s, i) => i === 0 ? { ...s, reader_state_before: readerStart } : s);
+    const legs = rawLegs.map((s, i) => i === 0 ? { ...s, reader_state_before: readerStart } : s);
     return {
       // `characteristic` IS DERIVED FROM THE ID, which keeps every fixture set
       // distinct at the label without a second argument to thread through every
       // call site (kogaki#1126). Cases that need a SPECIFIC characteristic --
       // the bound, the fold, the rendered shape -- override it on the built
       // object, where what is being asserted is visible beside the assertion.
-      candidate_id: id, characteristic: `Path ${id}`, reader_experience: exp, steps,
+      candidate_id: id, characteristic: `Path ${id}`, reader_experience: exp, legs,
       reader_start: readerStart,
       reader_target: `${id}: the reader treats it as a property of the shape`,
       opening_question: `${id}: why did the same fix land twice?`,
       review: mkReview(),
       reasoning: {
-        step_validity: `${id}: each step's claims were traced`,
+        leg_validity: `${id}: each leg's claims were traced`,
         transition_continuity: `${id}: each after-state feeds the next before-state`,
-        thesis_closure: `${id}: the claim is established by the final step`,
+        thesis_closure: `${id}: the claim is established by the final leg`,
       },
       coverage: { L2: { role_in_thesis: "states the claim" }, L1: { role_in_thesis: "carries the case" } },
       // CLOSURE (kogaki#1151): every row ends discharged_by or conceded_by.
-      obligations: [{ text: "the case's generality is asserted", introduced_by: steps[steps.length - 1].step_id, discharged_by: steps[steps.length - 1].step_id }],
+      obligations: [{ text: "the case's generality is asserted", introduced_by: legs[legs.length - 1].leg_id, discharged_by: legs[legs.length - 1].leg_id }],
     };
   };
-  const candA = mkCand("cand-1", "claim first, then the case", [step1, step2]);
+  const candA = mkCand("cand-1", "claim first, then the case", [leg1, leg2]);
   const candB = mkCand("cand-2", "the case first, claim emerging from it", [
-    { ...step1, step_id: "t1", materials: ["L1"], claims: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" }] },
-    { ...step2, step_id: "t2", move: "generalize-from-the-seen-case", materials: ["L2"], depends_on: ["t1"],
+    { ...leg1, leg_id: "t1", materials: ["L1"], claims: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" }] },
+    { ...leg2, leg_id: "t2", move: "generalize-from-the-seen-case", materials: ["L2"], depends_on: ["t1"],
       claims: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim the case generalizes to" }], entailed: undefined, entailment_reasoning: undefined },
   ]);
   candB.obligations = [{ text: "the claim's scope beyond the case", introduced_by: "t2", discharged_by: "t2" }];
@@ -1076,7 +1076,7 @@ try {
   ranCase("e");
   const one = assembleSelection({ candidates: [candA] }, doc0);
   if (!one.error || !/1 Candidate/.test(one.error)) fails.push("(e) a single Candidate was presented — a default in disguise (§6: two to three)");
-  const four = assembleSelection({ candidates: [candA, candB, mkCand("cand-3", "x3", [step1]), mkCand("cand-4", "x4", [step1])] }, doc0);
+  const four = assembleSelection({ candidates: [candA, candB, mkCand("cand-3", "x3", [leg1]), mkCand("cand-4", "x4", [leg1])] }, doc0);
   if (!four.error || !/4 Candidate/.test(four.error)) fails.push("(e) four Candidates were presented — the selector overruns");
   const same = assembleSelection({ candidates: [candA, { ...candB, reader_experience: candA.reader_experience }] }, doc0);
   if (!same.error || !/SAME reader experience/.test(same.error)) fails.push("(e) two Candidates with one reader experience were presented as two (§6: differing in reader experience)");
@@ -1112,7 +1112,7 @@ try {
   // the label is the act.
   ranCase("w1");
   {
-    const figStep = (st, n) => ({ ...st, figure: `what figure ${n} lets the reader hold`,
+    const figLeg = (st, n) => ({ ...st, figure: `what figure ${n} lets the reader hold`,
                                   figure_roles: { endpoint_a: "g1" } });
     // THE CLAUSE IS READ WHERE IT IS NOW RENDERED (kogaki#1126): the option's
     // DESCRIPTION. The property this case asserts is unchanged -- the figure
@@ -1123,69 +1123,69 @@ try {
     const label = (cand) => ((assembleSelection({ candidates: [cand, candB] }, doc0).payload || {}).options || [])
       .find((o) => o.id === cand.candidate_id)?.description || "";
     const none = label(candA);
-    if (!/no Step carries a figure/.test(none)) {
+    if (!/no Leg carries a figure/.test(none)) {
       fails.push(`(w1) a Candidate declaring no figure does not disclose that at the gate — an absent clause and a clause reading none are the same silence to a reader: ${none}`);
     }
     const twoFig = label({ ...candA, candidate_id: "cand-fig2",
-      steps: candA.steps.map((st, i) => figStep(st, i + 1)) });
-    if (!/2 Step\(s\) carry a figure/.test(twoFig)) {
+      legs: candA.legs.map((st, i) => figLeg(st, i + 1)) });
+    if (!/2 Leg\(s\) carry a figure/.test(twoFig)) {
       fails.push(`(w1) the figure count does not reach the option description (acceptance 3, kogaki#1126): ${twoFig}`);
     }
     if (/second look/.test(twoFig)) {
       fails.push(`(w1) two figures warn at the gate — the soft warning is ABOVE three: ${twoFig}`);
     }
-    // FOUR figure-carrying Steps WARN IN THE LABEL, and the Candidate stays
+    // FOUR figure-carrying Legs WARN IN THE LABEL, and the Candidate stays
     // SELECTABLE — the warning has no target and refuses nothing (D11).
-    const fourSteps = ["f1", "f2", "f3", "f4"].map((id, i) =>
-      figStep({ ...candA.steps[0], step_id: id, depends_on: [], opens_section: i === 0 ? "Opening" : undefined }, i + 1));
-    const fourCand = { ...candA, candidate_id: "cand-fig4", steps: fourSteps,
+    const fourLegs = ["f1", "f2", "f3", "f4"].map((id, i) =>
+      figLeg({ ...candA.legs[0], leg_id: id, depends_on: [], opens_section: i === 0 ? "Opening" : undefined }, i + 1));
+    const fourCand = { ...candA, candidate_id: "cand-fig4", legs: fourLegs,
       obligations: [{ text: "the case's generality is asserted", introduced_by: "f4" }] };
     const fourAsm = assembleSelection({ candidates: [fourCand, candB] }, doc0);
     if (fourAsm.error) {
       fails.push(`(w1) a Candidate with four figures was REFUSED — the warning has no target and refuses nothing (D11): ${fourAsm.error}`);
     } else {
       const l4 = (fourAsm.payload.options || []).find((o) => o.id === "cand-fig4")?.description || "";
-      if (!/4 Step\(s\) carry a figure/.test(l4) || !/second look/.test(l4)) {
-        fails.push(`(w1) four figure-carrying Steps do not show the warning IN THE DESCRIPTION (acceptance 3, kogaki#1126): ${l4}`);
+      if (!/4 Leg\(s\) carry a figure/.test(l4) || !/second look/.test(l4)) {
+        fails.push(`(w1) four figure-carrying Legs do not show the warning IN THE DESCRIPTION (acceptance 3, kogaki#1126): ${l4}`);
       }
     }
   }
-  // (w2) THE FIGURE CLAUSE'S STEP IDS ARE ADMISSIBLE, AND ONLY THEY ARE
-  // (kogaki#934). §4.16 mandates rendering step ids into the option label and
+  // (w2) THE FIGURE CLAUSE'S LEG IDS ARE ADMISSIBLE, AND ONLY THEY ARE
+  // (kogaki#934). §4.16 mandates rendering leg ids into the option label and
   // the label is walked by the spec-internal-vocabulary tripwire, whose
-  // identifier pattern matches ANY snake_case token — so a figure on a Step
+  // identifier pattern matches ANY snake_case token — so a figure on a Leg
   // whose id is snake_case made `assembleSelection` return the leak error and
   // produce NO PAYLOAD AT ALL: the whole gate refused, on every option, because
-  // of one Step's name. Every fixture in (w) and (w1) uses `s1`/`f1`-style ids,
+  // of one Leg's name. Every fixture in (w) and (w1) uses `s1`/`f1`-style ids,
   // which is exactly the id shape that cannot trip the wire, so the case was
   // green over the only shape that was safe. Asserted in BOTH directions, per
   // acceptance items 2 and 3: the mandated caller passes, and the wire stays
   // armed over everything the caller did not produce.
   ranCase("w2");
   {
-    const snakeSteps = [
-      { ...step1, step_id: "open_the_claim",
+    const snakeLegs = [
+      { ...leg1, leg_id: "open_the_claim",
         figure: "what the opening figure lets the reader hold",
         figure_roles: { endpoint_a: "g1" } },
-      { ...step2, step_id: "close_the_case", depends_on: ["open_the_claim"],
+      { ...leg2, leg_id: "close_the_case", depends_on: ["open_the_claim"],
         claims: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the case that closes the claim" }] },
     ];
-    const snakeCand = { ...candA, candidate_id: "cand-snake", steps: snakeSteps,
+    const snakeCand = { ...candA, candidate_id: "cand-snake", legs: snakeLegs,
       obligations: [{ text: "the case's generality is asserted", introduced_by: "close_the_case" }] };
     // DIRECTION 1 — the mandated caller assembles, and the whole option set is
     // present. Asserting only that the label renders would miss the defect's
     // actual shape: the refusal returned no payload, so EVERY option vanished.
     const snakeAsm = assembleSelection({ candidates: [snakeCand, candB] }, doc0);
     if (snakeAsm.error) {
-      fails.push(`(w2) a Candidate carrying a figure on a snake_case step_id was REFUSED — §4.16 mandates rendering the id into the label, so the tripwire is refusing its own mandated caller: ${snakeAsm.error}`);
+      fails.push(`(w2) a Candidate carrying a figure on a snake_case leg_id was REFUSED — §4.16 mandates rendering the id into the label, so the tripwire is refusing its own mandated caller: ${snakeAsm.error}`);
     } else {
       const ids = (snakeAsm.payload.options || []).map((o) => o.id);
       for (const want of ["cand-snake", "cand-2", "none-of-these"]) {
-        if (!ids.includes(want)) fails.push(`(w2) option ${want} is missing from the gate a snake_case step_id assembled — the refusal took the whole option set, not one label`);
+        if (!ids.includes(want)) fails.push(`(w2) option ${want} is missing from the gate a snake_case leg_id assembled — the refusal took the whole option set, not one label`);
       }
       const ls = (snakeAsm.payload.options || []).find((o) => o.id === "cand-snake")?.description || "";
       if (!/open_the_claim/.test(ls)) {
-        fails.push(`(w2) the figure-carrying Step's id does not reach the description — the repair is an override on the wire, not a removal of the disclosure §4.16 sites here, and kogaki#1126 moved the clause to the seat the override must now cover: ${ls}`);
+        fails.push(`(w2) the figure-carrying Leg's id does not reach the description — the repair is an override on the wire, not a removal of the disclosure §4.16 sites here, and kogaki#1126 moved the clause to the seat the override must now cover: ${ls}`);
       }
     }
     // DIRECTION 2 — THE WIRE IS STILL ARMED IN THAT SAME LABEL. A term of art
@@ -1195,7 +1195,7 @@ try {
       reader_experience: "claim first, and the thesis_closure is what carries it" };
     const leakAsm = assembleSelection({ candidates: [leaky, candB] }, doc0);
     if (!leakAsm.error || !/thesis_closure/.test(leakAsm.error || "")) {
-      fails.push("(w2) a genuine spec-internal term in the SAME label a step id was exempted from was NOT caught — the override disarmed the wire instead of narrowing it");
+      fails.push("(w2) a genuine spec-internal term in the SAME label a leg id was exempted from was NOT caught — the override disarmed the wire instead of narrowing it");
     }
     // THE OVERRIDE IS PER-OPTION. cand-snake's ids license nothing in another
     // Candidate's label, where nothing produced them — an override scoped to the
@@ -1204,7 +1204,7 @@ try {
       reader_experience: "the case first, reached by open_the_claim" };
     const borrowAsm = assembleSelection({ candidates: [snakeCand, borrower] }, doc0);
     if (!borrowAsm.error || !/open_the_claim/.test(borrowAsm.error || "")) {
-      fails.push("(w2) one Candidate's step id was exempt in ANOTHER Candidate's label — the override is scoped to the option whose own data produced the token");
+      fails.push("(w2) one Candidate's leg id was exempt in ANOTHER Candidate's label — the override is scoped to the option whose own data produced the token");
     }
     // AND IT REACHES ONE SURFACE. `o.rendering` and the ask's own fields are
     // composed by the code, not by the author, so no token there is ever exempt:
@@ -1402,18 +1402,18 @@ try {
       fails.push(`(e) option ${o.id}'s label opens with the record id — the id resolves the answer and is not what distinguishes an option (kogaki#568)`);
     }
   }
-  // candB places only L1+L2 across two steps; candA the same — per-candidate
-  // placement counts must come from each Candidate's OWN steps.
-  const oneStrand = assembleSelection({ candidates: [mkCand("cand-5", "only the claim, no case", [step1]), candB] }, doc0);
+  // candB places only L1+L2 across two legs; candA the same — per-candidate
+  // placement counts must come from each Candidate's OWN legs.
+  const oneStrand = assembleSelection({ candidates: [mkCand("cand-5", "only the claim, no case", [leg1]), candB] }, doc0);
   // RE-POINTED AT THE DERIVATION (kogaki#859): the count no longer rides the
   // payload, so it is read where it is computed. The property is unchanged and
-  // is the one that mattered — per Candidate, from its OWN steps — and the
+  // is the one that mattered — per Candidate, from its OWN legs — and the
   // assembly call is kept beside it so a Candidate placing one of two Strands
   // is still driven through the payload path rather than only through the
   // function.
   if (!(oneStrand.payload?.options || []).some((o) => o.id === "cand-5")) fails.push("(e) a one-Strand Candidate did not reach the gate at all");
-  const ev5 = candidateEvidence(mkCand("cand-5", "only the claim, no case", [step1]), ["L1", "L2"], []);
-  if (!/1 of 2/.test(ev5.placement_count || "")) fails.push("(e) a Candidate placing one of two Strands does not derive '1 of 2' — the count is per Candidate, from its own steps");
+  const ev5 = candidateEvidence(mkCand("cand-5", "only the claim, no case", [leg1]), ["L1", "L2"], []);
+  if (!/1 of 2/.test(ev5.placement_count || "")) fails.push("(e) a Candidate placing one of two Strands does not derive '1 of 2' — the count is per Candidate, from its own legs");
 
   // (f) ADOPTION: the adopted Candidate's Reader Path lands in the Brief's
   // sequence; Closure's Thesis row and tradeoffs fill from its reasoning (§5.1/§5.2).
@@ -1421,11 +1421,11 @@ try {
   const ad = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB, {}, { candidates: [candA, candB] }));
   if (ad.error) fails.push(`(f) adopting a reviewed Candidate was refused: ${ad.error}`);
   const doc3 = ad.doc || "";
-  if (!/```step\nstep_id: t1/.test(doc3)) fails.push("(f) the adopted Candidate's Reader Path did not land in the Brief's sequence");
-  if (/```step\nstep_id: s1/.test(doc3)) fails.push("(f) a DECLINED Candidate's steps landed in the Brief");
-  if (!/### Thesis\n\ncand-2: the claim is established by the final step/.test(doc3)) fails.push("(f) the Closure Thesis row did not fill from the adopted Candidate's reasoning");
-  if (!/established_by_steps: t1, t2/.test(doc3)) fails.push("(f) the Closure Thesis row does not carry established_by_steps");
-  if (!/introduced_by: t2; discharged_by: t2/.test(doc3)) fails.push("(f) the Closure Step row does not carry the adopted Candidate's obligations");
+  if (!/```leg\nleg_id: t1/.test(doc3)) fails.push("(f) the adopted Candidate's Reader Path did not land in the Brief's sequence");
+  if (/```leg\nleg_id: s1/.test(doc3)) fails.push("(f) a DECLINED Candidate's legs landed in the Brief");
+  if (!/### Thesis\n\ncand-2: the claim is established by the final leg/.test(doc3)) fails.push("(f) the Closure Thesis row did not fill from the adopted Candidate's reasoning");
+  if (!/established_by_legs: t1, t2/.test(doc3)) fails.push("(f) the Closure Thesis row does not carry established_by_legs");
+  if (!/introduced_by: t2; discharged_by: t2/.test(doc3)) fails.push("(f) the Closure Leg row does not carry the adopted Candidate's obligations");
   if (/## Tradeoffs\n\n\*\(awaiting composition\)\*/.test(doc3)) fails.push("(f) tradeoffs is still an unfilled slot after adoption");
   const noSuch = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-9");
   if (!noSuch.error || !/not in the reviewed set/.test(noSuch.error)) fails.push("(f) adopting a Candidate the gate never offered was accepted");
@@ -1448,12 +1448,12 @@ try {
       fails.push("(r) the disclosure slot is not an unfilled slot at mint — every composition field is typed-unfilled until its act (§5.3)");
     }
     // AC2 — adoption fills it, and with the BRIDGE half of a path that bridged.
-    // Built from candB's OWN steps rather than re-composed: the fixture under
-    // test is the disclosure, not step validity, and re-composing a path here
+    // Built from candB's OWN legs rather than re-composed: the fixture under
+    // test is the disclosure, not leg validity, and re-composing a path here
     // put a `depends_on` out of order and failed for a reason unrelated to
     // anything (r) asserts.
     const bcand = JSON.parse(JSON.stringify(candB));
-    bcand.steps[1].bridges = ["t1", "t2"];
+    bcand.legs[1].bridges = ["t1", "t2"];
     const bad = adoptCandidate(doc0, { candidates: [candA, bcand] }, "cand-2", inst(bcand, {}, { candidates: [candA, bcand] }));
     if (bad.error) fails.push(`(r) adopting a Candidate that bridged was refused: ${bad.error}`);
     else {
@@ -1506,7 +1506,7 @@ try {
     // exactly as the experience one already did.
     b2.characteristic = "The gap, named where it is met";
     b2.reader_experience = "the case first, with the gap named where the reader meets it";
-    b2.steps[1].bridges = ["t1", "t2"];
+    b2.legs[1].bridges = ["t1", "t2"];
     const oneSet = { candidates: [candA, candB, b2] };
     const segOf = (d) => ((d || "").split("## What this path bridged")[1] || "").split("\n## ")[0];
     const plainAd = adoptCandidate(doc0, oneSet, "cand-2", inst(candB, {}, oneSet));
@@ -1537,7 +1537,7 @@ try {
   if (!/never a verdict/.test(p1.stdout || "")) fails.push("(g) assemble does not state the no-verdict property in its own output");
   const spf = join(dir, "specialization.json");
   writeFileSync(spf, JSON.stringify(spec(candB)));
-  // §6's GATE, THROUGH THE REAL TWO-STEP FLOW (kogaki#891) — the same
+  // §6's GATE, THROUGH THE REAL TWO-LEG FLOW (kogaki#891) — the same
   // declare-then-capture discipline §4.12.3 established, driven through the
   // command path so the executor is exercised rather than a hand-written
   // capture testing `validateOwnerAnswer` twice and the executor never.
@@ -1722,7 +1722,7 @@ try {
   // one, and to the claim it must carry.
   if (p2.status === 0) {
     const out = p2.stdout || "";
-    const digest = specializationDigest(spec(candB), candB.steps);
+    const digest = specializationDigest(spec(candB), candB.legs);
     if (!out.includes(digest)) fails.push("(g) the closing summary does not name the specialization record's digest — the record adopted unnamed");
     if (!/never a write unlock/.test(out)) fails.push("(g) the closing summary does not say the record is disclosure rather than a write unlock (kogaki#1108)");
     if (!/consistent/.test(out)) fails.push("(g) the closing summary carries no verdict tally — a disclosure that says a record exists and not what it judged");
@@ -1740,7 +1740,7 @@ try {
   else if (!/REMOVED/.test(pFlag.stderr || "")) fails.push("(g) --ratification is refused without naming it as removed");
 
 
-  // (k) THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747), both halves
+  // (k) THE LEG↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747), both halves
   // at the one occasion that can make them unskippable — adoption is the only
   // write that lands a sequence in an existing Brief.
   //
@@ -1790,16 +1790,16 @@ try {
 
   ranCase("k-instantiation");
   {
-    const dangler = { ...candB, steps: [{ ...candB.steps[0], move: "no_such_move" }, candB.steps[1]] };
+    const dangler = { ...candB, legs: [{ ...candB.legs[0], move: "no_such_move" }, candB.legs[1]] };
     const d = adoptCandidate(doc0, { candidates: [candA, dangler] }, "cand-2", inst(dangler, {}, { candidates: [candA, dangler] }));
-    if (!d.error) fails.push("(k) a Step binding a move id that resolves to no record was ADOPTED — the dangling id rides the Brief to Packet time");
+    if (!d.error) fails.push("(k) a Leg binding a move id that resolves to no record was ADOPTED — the dangling id rides the Brief to Packet time");
     else {
-      if (!/t1/.test(d.error)) fails.push("(k) the dangling-move refusal does not name the STEP (ruling 1: the refusal names the Step and the id)");
+      if (!/t1/.test(d.error)) fails.push("(k) the dangling-move refusal does not name the LEG (ruling 1: the refusal names the Leg and the id)");
       if (!/no_such_move/.test(d.error)) fails.push("(k) the dangling-move refusal does not name the ID");
       if (d.doc) fails.push("(k) the dangling-move refusal still produced a document");
     }
     // AN UNREADABLE STORE IS NOT AN EMPTY STORE. Without this branch every id
-    // reads as dangling and the refusal names the Steps for a fault that is
+    // reads as dangling and the refusal names the Legs for a fault that is
     // the store's — a true refusal for a false reason, and the composer is
     // sent to re-bind Moves that were never wrong.
     const noStore = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
@@ -1808,33 +1808,33 @@ try {
     if (!noStore.error) fails.push("(k) an unreadable Move library was treated as a library");
     else {
       if (!/cannot be read/.test(noStore.error)) fails.push("(k) an unreadable Move library refuses as if the ids dangled — the refusal blames the composition for a store fault");
-      if (/t1/.test(noStore.error)) fails.push("(k) the unreadable-store refusal names a Step, sending the composer to re-bind Moves that are not the problem");
+      if (/t1/.test(noStore.error)) fails.push("(k) the unreadable-store refusal names a Leg, sending the composer to re-bind Moves that are not the problem");
     }
     // (x) §4.16's FIGURE HALF AT THE SAME SEAT (kogaki#877). ASSERTED AT THE
     // ACT, for the reason (w1) records: a mutation that skipped the figure
     // check inside `adoptCandidate` survived every direct call to
     // `resolveFigureForms`, because those assert the FUNCTION and this asserts
     // that adoption runs it. The grammar and the claim addressing are
-    // `validateSteps`'s and are asserted in (v); what can only be decided with
+    // `validateLegs`'s and are asserted in (v); what can only be decided with
     // the library open is decided here, and only here can it be made
     // unskippable.
     ranCase("x");
     // AN N-ROLE FORM NOW COSTS N STRANDS (kogaki#1108), and that is a
     // consequence of the claim rule rather than a fixture convenience. Every
-    // role of a Move's `visual_form` binds to one of THIS Step's claims, and a
-    // Step carries at most one claim per Strand — so a figure is composable
-    // only by a Step drawing on as many Strands as its kind declares roles.
+    // role of a Move's `visual_form` binds to one of THIS Leg's claims, and a
+    // Leg carries at most one claim per Strand — so a figure is composable
+    // only by a Leg drawing on as many Strands as its kind declares roles.
     //
     // WHICH IS WHY THIS FIXTURE'S FORM IS A `chain` AND NOT AN `axis`. The
     // Brief under test closes over two Strands, and an `axis` declares three
-    // roles: the three-claim Step this block used to compose is now
+    // roles: the three-claim Leg this block used to compose is now
     // uncomposable HERE, and the refusal it meets is the closed-Strand-set one
     // rather than anything this case is about. The kind is incidental to what
     // (x) asserts — form resolution at the adoption seat, an unbound role, and
     // a formless Move — so the fixture takes a two-role kind and the
     // assertions below name that kind's roles. The three-role case is asserted
-    // in (v), where `validateSteps` is pure and no Brief bounds the Strands.
-    const figStepOf = (st, over = {}) => ({
+    // in (v), where `validateLegs` is pure and no Brief bounds the Strands.
+    const figLegOf = (st, over = {}) => ({
       ...st, move: "chain-form-move", materials: ["L1", "L2"],
       claims: [
         { type: "strand", strand: "L1", proposition: "the ordered stages the case ran through" },
@@ -1846,7 +1846,7 @@ try {
     });
     const figCand = (over) => {
       const c = { ...candB, candidate_id: "cand-2",
-        steps: [figStepOf(candB.steps[0], over), candB.steps[1]] };
+        legs: [figLegOf(candB.legs[0], over), candB.legs[1]] };
       return c;
     };
     // A fully bound figure ADOPTS — the control, without which every refusal
@@ -1912,7 +1912,7 @@ try {
       // non-passing record refuses on its VERDICT rather than on the missing
       // owner act. With the gate gone there is nothing above these arms at all,
       // so the assertion is the same and the fixture is smaller: a passing
-      // record adopts, and every other value refuses naming its Step, its
+      // record adopts, and every other value refuses naming its Leg, its
       // sentence and its verdict.
       const r = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
         { movesDir: MOVES, specialization: rec, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
@@ -1921,7 +1921,7 @@ try {
       if (!shouldPass) {
         if (!r.error) fails.push(`(k) the verdict ${v} was ADOPTED — only ${sch.vocabulary.passing.join(", ")} passes`);
         else {
-          if (!r.error.includes("t1")) fails.push(`(k) the ${v} refusal does not NAME the failing Step`);
+          if (!r.error.includes("t1")) fails.push(`(k) the ${v} refusal does not NAME the failing Leg`);
           if (!r.error.includes(rec.verdicts[0].why)) fails.push(`(k) the ${v} refusal does not QUOTE the sentence the judging sitting wrote — it paraphrases a judgment it did not make`);
           if (!r.error.includes(v)) fails.push(`(k) the ${v} refusal does not say WHICH verdict it refuses on — contradicts and cannot-determine need different repairs`);
           if (r.doc) fails.push(`(k) the ${v} refusal still produced a document`);
@@ -1931,28 +1931,28 @@ try {
     const outside = spec(candB); outside.verdicts[0].verdict = "probably-fine";
     const o = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: outside , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!o.error || !/closed/.test(o.error)) fails.push("(k) a verdict outside the closed vocabulary was accepted");
-    // ONE PER STEP, EXACTLY, IN BOTH DIRECTIONS — a short list is the skip
-    // this occasion exists to prevent, one Step at a time; a long one means
+    // ONE PER LEG, EXACTLY, IN BOTH DIRECTIONS — a short list is the skip
+    // this occasion exists to prevent, one Leg at a time; a long one means
     // the record judges a path other than the one being adopted.
     const short = spec(candB); short.verdicts = [short.verdicts[0]];
     const sh = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: short , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!sh.error || !/t2/.test(sh.error)) fails.push("(k) a record judging only some Steps was accepted — the occasion is skippable one Step at a time");
-    const long = spec(candB); long.verdicts.push({ step_id: "t9", move: "worked-example", verdict: "consistent", why: "a step that is not in this path at all" });
+    if (!sh.error || !/t2/.test(sh.error)) fails.push("(k) a record judging only some Legs was accepted — the occasion is skippable one Leg at a time");
+    const long = spec(candB); long.verdicts.push({ leg_id: "t9", move: "worked-example", verdict: "consistent", why: "a leg that is not in this path at all" });
     const lo = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: long , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!lo.error || !/t9/.test(lo.error)) fails.push("(k) a record carrying a verdict for a Step outside the adopted path was accepted");
+    if (!lo.error || !/t9/.test(lo.error)) fails.push("(k) a record carrying a verdict for a Leg outside the adopted path was accepted");
     const dup = spec(candB); dup.verdicts.push({ ...dup.verdicts[0] });
     const du = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: dup , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!du.error || !/two verdicts/.test(du.error)) fails.push("(k) two verdicts for one Step were accepted — the second can disagree with the first");
+    if (!du.error || !/two verdicts/.test(du.error)) fails.push("(k) two verdicts for one Leg were accepted — the second can disagree with the first");
     // THE RECORD IS BOUND TO WHAT IT JUDGES, on both axes. Without the
     // candidate binding a sitting judges the Candidate it likes and adopts the
     // one it wants; without the move binding the verdict certifies a
-    // relationship that is not the one in the Step.
+    // relationship that is not the one in the Leg.
     const wrongCand = spec(candB); wrongCand.candidate_id = "cand-1";
     const wc = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: wrongCand , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!wc.error || !/cand-1/.test(wc.error)) fails.push("(k) a record judging ANOTHER Candidate certified this one");
     const wrongMove = spec(candB); wrongMove.verdicts[0].move = "worked-example";
     const wm = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: wrongMove , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!wm.error || !/worked-example/.test(wm.error)) fails.push("(k) a verdict naming a Move the Step does not bind certified the Step");
+    if (!wm.error || !/worked-example/.test(wm.error)) fails.push("(k) a verdict naming a Move the Leg does not bind certified the Leg");
     // A one-word `why` is not the sentence a refusal hands back.
     const thin = spec(candB); thin.verdicts[0].why = "fine";
     const th = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: thin , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
@@ -1960,13 +1960,13 @@ try {
     const ver = spec(candB); ver.version = "2";
     const vr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: ver , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!vr.error || !/version/.test(vr.error)) fails.push("(k) a record written to another version of the carrier was read anyway");
-    // DETERMINISTIC, AND IN THE PATH'S OWN ORDER: with both Steps failing, the
+    // DETERMINISTIC, AND IN THE PATH'S OWN ORDER: with both Legs failing, the
     // refusal names the FIRST. A refusal that named an arbitrary one would
     // send two sittings to two different repairs for one record.
     const both = spec(candB);
     both.verdicts[0].verdict = "contradicts"; both.verdicts[1].verdict = "contradicts";
     const bo = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: both , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
-    if (!bo.error || !/step t1:/.test(bo.error)) fails.push("(k) with two failing Steps the refusal does not name the FIRST in path order");
+    if (!bo.error || !/leg t1:/.test(bo.error)) fails.push("(k) with two failing Legs the refusal does not name the FIRST in path order");
   }
 
 
@@ -1997,7 +1997,7 @@ try {
     // this Issue decided for, and the case says so in the direction that a
     // re-added gate would fail.
     const judgmentFree = spec(candB);
-    const shapeOnly = validateSpecialization(judgmentFree, candB.steps, "cand-2");
+    const shapeOnly = validateSpecialization(judgmentFree, candB.legs, "cand-2");
     if (shapeOnly.error) fails.push("(s) the judgment-free fixture does not even pass the record's shape clauses — it would be refused for the wrong reason, and this case would assert nothing");
     const adopted = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
       { movesDir: MOVES, specialization: judgmentFree, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
@@ -2008,11 +2008,11 @@ try {
       // THE DISCLOSURE IS ON THE RETURN, not only in a console line, because
       // the sentence the command prints is composed FROM these and a reader of
       // the exported function must be able to compose it too.
-      if (adopted.record_digest !== specializationDigest(judgmentFree, candB.steps)) {
+      if (adopted.record_digest !== specializationDigest(judgmentFree, candB.legs)) {
         fails.push("(s) adoption does not return the digest of the record it validated — the disclosure sentence would name a record other than the one that passed");
       }
       const tally = adopted.specialization_tally;
-      if (!tally || tally.consistent !== candB.steps.length || Object.keys(tally).length !== 1) {
+      if (!tally || tally.consistent !== candB.legs.length || Object.keys(tally).length !== 1) {
         fails.push(`(s) adoption does not return a verdict tally over the record it validated: ${JSON.stringify(tally)}`);
       }
     }
@@ -2026,7 +2026,7 @@ try {
       { movesDir: MOVES, specialization: contra, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!cr.error) fails.push("(s) a `contradicts` verdict ADOPTED — removing the ratification gate removed the record's own refusals with it");
     else {
-      if (!/t1/.test(cr.error)) fails.push("(s) the contradicts refusal no longer names the failing Step");
+      if (!/t1/.test(cr.error)) fails.push("(s) the contradicts refusal no longer names the failing Leg");
       if (cr.doc) fails.push("(s) the contradicts refusal still produced a document");
     }
     // AND A MISSING RECORD IS STILL A REFUSAL. The occasion stays mandatory;
@@ -2063,10 +2063,10 @@ try {
     // held across a re-judgment would name one record for two.
     const reordered = JSON.parse(JSON.stringify(judgmentFree));
     reordered.verdicts.reverse();
-    if (specializationDigest(reordered, candB.steps) !== specializationDigest(judgmentFree, candB.steps)) fails.push("(s) reordering the record's verdicts changed the digest — the disclosure would name two records for one judgment");
+    if (specializationDigest(reordered, candB.legs) !== specializationDigest(judgmentFree, candB.legs)) fails.push("(s) reordering the record's verdicts changed the digest — the disclosure would name two records for one judgment");
     const rejudged = JSON.parse(JSON.stringify(judgmentFree));
     rejudged.verdicts[0].verdict = "cannot-determine";
-    if (specializationDigest(rejudged, candB.steps) === specializationDigest(judgmentFree, candB.steps)) fails.push("(s) changing a VERDICT left the digest unchanged — the disclosure would name one record for two judgments");
+    if (specializationDigest(rejudged, candB.legs) === specializationDigest(judgmentFree, candB.legs)) fails.push("(s) changing a VERDICT left the digest unchanged — the disclosure would name one record for two judgments");
   }
 
   // (m) §4.13 — THE READER-KNOWLEDGE LEDGER, and §4.13.1's exemplar predicate
@@ -2076,14 +2076,14 @@ try {
   // meaning.
   ranCase("m");
   {
-    // THE FIELD IS OPTIONAL, and that is asserted first: every existing Step
+    // THE FIELD IS OPTIONAL, and that is asserted first: every existing Leg
     // carries no `introduces`, so a requirement would have refused the whole
     // suite above rather than adding a field to it.
-    if (validateSteps([step1, step2]).error) fails.push("(m) introduces was made REQUIRED — every Step composed before §4.13 carries none");
-    const ok = validateSteps([{ ...step1, introduces: ["opacity — what a state conceals about its capabilities", "deterrence"] }]);
+    if (validateLegs([leg1, leg2]).error) fails.push("(m) introduces was made REQUIRED — every Leg composed before §4.13 carries none");
+    const ok = validateLegs([{ ...leg1, introduces: ["opacity — what a state conceals about its capabilities", "deterrence"] }]);
     if (ok.error) fails.push(`(m) a conforming introduces was refused: ${ok.error}`);
 
-    // THE ENTRY GRAMMAR, both forms, and each refusal naming the STEP.
+    // THE ENTRY GRAMMAR, both forms, and each refusal naming the LEG.
     const bare = parseIntroducesEntry("deterrence");
     if (bare.term !== "deterrence" || bare.anchor !== null) fails.push("(m) a bare term did not parse as a term with no anchor");
     const anchored = parseIntroducesEntry("opacity — what a state conceals");
@@ -2102,56 +2102,56 @@ try {
       ["an anchor with no term", ["— what a state conceals"], "no term"],
       ["a duplicate term", ["opacity", "Opacity"], "twice"],
     ]) {
-      const r = validateSteps([{ ...step1, introduces: value }]);
+      const r = validateLegs([{ ...leg1, introduces: value }]);
       if (!r.error) fails.push(`(m) ${label} was accepted as an introduces value`);
       else {
         if (!r.error.includes(needle)) fails.push(`(m) the refusal for ${label} does not say why — expected it to name ${JSON.stringify(needle)}`);
-        if (!/s1/.test(r.error)) fails.push(`(m) the refusal for ${label} does not NAME the Step (acceptance: a malformed entry refuses naming the Step)`);
+        if (!/s1/.test(r.error)) fails.push(`(m) the refusal for ${label} does not NAME the Leg (acceptance: a malformed entry refuses naming the Leg)`);
       }
     }
 
-    // THE DERIVATION — the union of 1..N-1, snapshot taken BEFORE the Step's
-    // own entries, so a Step never already knows what it introduces.
+    // THE DERIVATION — the union of 1..N-1, snapshot taken BEFORE the Leg's
+    // own entries, so a Leg never already knows what it introduces.
     const path = [
-      { step_id: "p1", introduces: ["opacity — what a state conceals"] },
-      { step_id: "p2", introduces: ["deterrence"] },
-      { step_id: "p3" },
+      { leg_id: "p1", introduces: ["opacity — what a state conceals"] },
+      { leg_id: "p2", introduces: ["deterrence"] },
+      { leg_id: "p3" },
     ];
     const led = readerKnowledgeLedger(path);
-    if (led.length !== 3) fails.push("(m) the ledger does not carry one row per Step");
-    if (led[0].reader_already_knows.length !== 0) fails.push("(m) the first Step arrives already knowing something — the snapshot is taken after its own entries");
-    if (led[1].reader_already_knows.map((k) => k.term).join() !== "opacity") fails.push("(m) step 2 does not know exactly what step 1 introduced");
-    if (led[2].reader_already_knows.map((k) => k.term).sort().join() !== "deterrence,opacity") fails.push("(m) the accumulation is not the UNION of every earlier Step");
+    if (led.length !== 3) fails.push("(m) the ledger does not carry one row per Leg");
+    if (led[0].reader_already_knows.length !== 0) fails.push("(m) the first Leg arrives already knowing something — the snapshot is taken after its own entries");
+    if (led[1].reader_already_knows.map((k) => k.term).join() !== "opacity") fails.push("(m) leg 2 does not know exactly what leg 1 introduced");
+    if (led[2].reader_already_knows.map((k) => k.term).sort().join() !== "deterrence,opacity") fails.push("(m) the accumulation is not the UNION of every earlier Leg");
     if (led[1].reader_already_knows[0].anchor !== "what a state conceals") fails.push("(m) the anchor does not travel with the term into the ledger");
-    if (led[1].reader_already_knows[0].introduced_by !== "p1") fails.push("(m) the ledger does not carry WHICH Step introduced the term — the addressability the field exists for");
+    if (led[1].reader_already_knows[0].introduced_by !== "p1") fails.push("(m) the ledger does not carry WHICH Leg introduced the term — the addressability the field exists for");
 
     // A PATH THAT INTRODUCES NOTHING RENDERS AN EMPTY LEDGER, NOT AN ERROR
     // (acceptance). This is the case every Brief in the tree is in today.
-    const none = readerKnowledgeLedger([{ step_id: "n1" }, { step_id: "n2" }]);
+    const none = readerKnowledgeLedger([{ leg_id: "n1" }, { leg_id: "n2" }]);
     if (none.length !== 2) fails.push("(m) a path with no introduces produced no ledger rows");
     if (none.some((r) => r.reader_already_knows.length !== 0)) fails.push("(m) a path introducing nothing derived a non-empty ledger");
 
     // FIRST INTRODUCER WINS, and responsibility for an UNINTRODUCED term is
     // the Brief's — a null that is the point of the function, not an error.
-    // THREE Steps, not two, and the third is what makes the assertion below
+    // THREE Legs, not two, and the third is what makes the assertion below
     // possible: a re-declaration folds in AFTER its own row's snapshot, so on
-    // a two-Step path the only row that could show the difference does not
+    // a two-Leg path the only row that could show the difference does not
     // exist and a last-introducer-wins mutation passes silently. Found by
     // running exactly that mutation.
-    const twice = [{ step_id: "t1", introduces: ["x"] }, { step_id: "t2", introduces: ["x"] }, { step_id: "t3" }];
-    if (introducerOf("x", twice) !== "t1") fails.push("(m) responsibility for a twice-declared term does not trace to the FIRST Step");
+    const twice = [{ leg_id: "t1", introduces: ["x"] }, { leg_id: "t2", introduces: ["x"] }, { leg_id: "t3" }];
+    if (introducerOf("x", twice) !== "t1") fails.push("(m) responsibility for a twice-declared term does not trace to the FIRST Leg");
     if (introducerOf("X", twice) !== "t1") fails.push("(m) introducer lookup is case-sensitive — the same term in two casings is one term everywhere else");
     if (introducerOf("unheard-of", twice) !== null) fails.push("(m) an unintroduced term does not trace to the Brief — the null case is the ledger's answer, never an error");
     const twiceLed = readerKnowledgeLedger(twice);
-    if (twiceLed[2].reader_already_knows.length !== 1) fails.push("(m) a term declared by two Steps appears twice in the ledger — it is one term the reader met once");
-    if (twiceLed[2].reader_already_knows[0].introduced_by !== "t1") fails.push("(m) a re-declaration MOVED responsibility instead of leaving it at the first Step — a later question about the term would resolve to the wrong Step");
+    if (twiceLed[2].reader_already_knows.length !== 1) fails.push("(m) a term declared by two Legs appears twice in the ledger — it is one term the reader met once");
+    if (twiceLed[2].reader_already_knows[0].introduced_by !== "t1") fails.push("(m) a re-declaration MOVED responsibility instead of leaving it at the first Leg — a later question about the term would resolve to the wrong Leg");
 
-    // THE ROUND TRIP. renderStep writes one line per entry and parseBrief
+    // THE ROUND TRIP. renderLeg writes one line per entry and parseBrief
     // reads them back; the two are asserted TOGETHER because a writer and a
     // reader that disagree fail silently at exactly this field.
-    const rendered = renderStep({ ...step1, introduces: ["opacity — what a state conceals, in practice", "deterrence"] });
+    const rendered = renderLeg({ ...leg1, introduces: ["opacity — what a state conceals, in practice", "deterrence"] });
     const lines = rendered.split("\n").filter((l) => l.startsWith("introduces:"));
-    if (lines.length !== 2) fails.push(`(m) renderStep wrote ${lines.length} introduces line(s) for two entries — a joined field cannot be parsed back`);
+    if (lines.length !== 2) fails.push(`(m) renderLeg wrote ${lines.length} introduces line(s) for two entries — a joined field cannot be parsed back`);
     if (!lines[0].includes("opacity — what a state conceals, in practice")) fails.push("(m) the entry did not survive serialization intact");
 
     // §4.13.1 — THE EXEMPLAR PREDICATE, over the `excerpt` field (owner ruling
@@ -2524,7 +2524,7 @@ try {
                       for (const m of lib) {
                         if (typeof m.requires !== "string" || m.requires.trim() === ""
                           || typeof m.effect !== "string" || m.effect.trim() === "") {
-                          fails.push(`(af) the Move ${JSON.stringify(m.id)} reaches the composer without its requires/effect — a Step BINDS the Move whose contract its reader states specialize, so an id alone leaves the binding undecidable`);
+                          fails.push(`(af) the Move ${JSON.stringify(m.id)} reaches the composer without its requires/effect — a Leg BINDS the Move whose contract its reader states specialize, so an id alone leaves the binding undecidable`);
                           break;
                         }
                       }
@@ -2546,14 +2546,14 @@ try {
 
                 // ---- (ag) THE SPECIALIZATION ASK CARRIES THE CONTRACT IT
                 // JUDGES AGAINST (kogaki#1125). The state's judgment_point asks
-                // whether each Step's states are specializations of "the
+                // whether each Leg's states are specializations of "the
                 // requires and effect its bound Move declares", and its input
-                // carried `{ state, candidate_id, steps_you_must_judge }` and
+                // carried `{ state, candidate_id, legs_you_must_judge }` and
                 // nothing else — so the judge was asked about a record it was
                 // never given, answered `cannot-determine`, and was re-asked
                 // into a well-formed pass.
                 //
-                // ONE ENTRY PER STEP, bound to the Steps the ask itself
+                // ONE ENTRY PER LEG, bound to the Legs the ask itself
                 // carries. A case counting against a constant would go green
                 // the day the path length changed.
                 ranCase("ag-specialization-contracts");
@@ -2563,21 +2563,21 @@ try {
                     fails.push("(ag) the run wrote no judge_specialization input — there is no ask to read the Move contracts out of");
                   } else {
                     const input = JSON.parse(readFileSync(ip, "utf8"));
-                    const steps = input.steps_you_must_judge || [];
+                    const legs = input.legs_you_must_judge || [];
                     const contracts = input.move_contracts;
                     if (!Array.isArray(contracts)) {
                       fails.push("(ag) the judge_specialization ask carries no `move_contracts` — the verdict is a comparison against a Move's requires and effect, and the judge is handed neither");
-                    } else if (contracts.length !== steps.length) {
-                      fails.push(`(ag) the ask carries ${contracts.length} Move contract(s) for ${steps.length} Step(s) — the judgment is per Step, so a Step whose contract is absent is a verdict with nothing behind it`);
+                    } else if (contracts.length !== legs.length) {
+                      fails.push(`(ag) the ask carries ${contracts.length} Move contract(s) for ${legs.length} Leg(s) — the judgment is per Leg, so a Leg whose contract is absent is a verdict with nothing behind it`);
                     } else {
-                      for (const st of steps) {
-                        const c = contracts.find((x) => x.step_id === st.step_id);
+                      for (const st of legs) {
+                        const c = contracts.find((x) => x.leg_id === st.leg_id);
                         if (!c) {
-                          fails.push(`(ag) step ${st.step_id} is judged with no Move contract in the ask`);
+                          fails.push(`(ag) leg ${st.leg_id} is judged with no Move contract in the ask`);
                           break;
                         }
                         if (c.move !== st.move) {
-                          fails.push(`(ag) step ${st.step_id} binds ${JSON.stringify(st.move)} and the ask carries the contract of ${JSON.stringify(c.move)} — a judgment against another Move's contract certifies nothing`);
+                          fails.push(`(ag) leg ${st.leg_id} binds ${JSON.stringify(st.move)} and the ask carries the contract of ${JSON.stringify(c.move)} — a judgment against another Move's contract certifies nothing`);
                           break;
                         }
                         const want = moveContract(c.move, join(rt, "moves"));
@@ -2694,10 +2694,10 @@ try {
           } else {
             const said = `${a.stderr || ""}${a.stdout || ""}`;
             if (!/no_such_move_kogaki_1125/.test(said)) {
-              fails.push(`(ad) a Step binding an id absent from the Move library was NOT refused at compose_path naming the id — it rides the composition through review, assembly and the owner's gate to the adoption write. advance said: ${said.trim().slice(0, 400)}`);
+              fails.push(`(ad) a Leg binding an id absent from the Move library was NOT refused at compose_path naming the id — it rides the composition through review, assembly and the owner's gate to the adoption write. advance said: ${said.trim().slice(0, 400)}`);
             }
             if (!/\bx1\b/.test(said)) {
-              fails.push("(ad) the compose_path dangling-move refusal does not name the STEP — the composer is told an id is wrong and not which Step binds it");
+              fails.push("(ad) the compose_path dangling-move refusal does not name the LEG — the composer is told an id is wrong and not which Leg binds it");
             }
             // THE GATE WAS NEVER REACHED, which is the whole of what raising
             // the refusal EARLIER buys. A refusal that fired after the owner
@@ -2742,7 +2742,7 @@ try {
       // The observed run: attempt 1 answered `cannot-determine` on B1 saying
       // the Moves library carried no such id, `validateSpecialization` refused
       // it, the refusal-repair window re-asked, and attempt 2 returned
-      // `consistent` for all six Steps with each `why` describing a contract
+      // `consistent` for all six Legs with each `why` describing a contract
       // that does not exist. The run record called that a repair.
       //
       // TWO ASSERTIONS, AND THE SECOND IS THE ONE THAT BINDS THE PROPERTY. That
@@ -2771,7 +2771,7 @@ try {
                 fails.push(`(ae) a cannot-determine verdict did not stop the run naming the verdict. advance said: ${said.trim().slice(0, 400)}`);
               }
               if (!/\bx1\b/.test(said)) {
-                fails.push("(ae) the cannot-determine refusal does not name the STEP whose judgment was not reached");
+                fails.push("(ae) the cannot-determine refusal does not name the LEG whose judgment was not reached");
               }
               // THE BOUND WAS NOT SPENT, COUNTED AT THE JUDGE. `judge_calls`
               // is written on the PASSING arm alone, so a refusing state
@@ -2794,18 +2794,18 @@ try {
         }
       }
 
-      // ---- (al) A CANDIDATE OPENING A SECTION ON TWO ADJACENT SINGLE STEPS IS
+      // ---- (al) A CANDIDATE OPENING A SECTION ON TWO ADJACENT SINGLE LEGS IS
       // REFUSED AT `compose_path`, AND THE PROMPT CARRIED THE RULE (kogaki#1147).
       //
       // THE OBSERVED RUN. Two /brief runs on 2026-09-18 over the six-Lesson
       // `some-safety-properties-cannot-checked` set died here: the one attempt
       // of each that finished inside the per-call bound was refused by rule 4 —
-      // two adjacent Sections holding exactly one Step each — and the other
+      // two adjacent Sections holding exactly one Leg each — and the other
       // attempts timed out, so the licensed re-asks were spent before the
       // repair could land. The composing party had never been shown the rule.
       //
       // TWO ASSERTIONS, AND THE SECOND IS THE ONE THIS ISSUE ADDS. That the
-      // refusal fires and names both Steps is case (q)'s property, driven here
+      // refusal fires and names both Legs is case (q)'s property, driven here
       // through the STATE rather than through a direct call — the shape (ad)
       // records, one rule over. That the PROMPT the judge was handed contains
       // the rule text is the defect itself: the refusal was already there, and
@@ -2815,7 +2815,7 @@ try {
       ranCase("al-compose-section-rule-4");
       {
         const promptLog = join(rt, "prompt-rule4");
-        const sp = spanIn("rule4", judgeStub({ sectionOnEveryStep: true }),
+        const sp = spanIn("rule4", judgeStub({ sectionOnEveryLeg: true }),
           { KOGAKI_FIXTURE_PROMPT_LOG: promptLog });
         if (sp.started.status !== 0) {
           fails.push(`(al) the start act failed before the span could compose: ${(sp.started.stderr || "").trim().slice(0, 300)}`);
@@ -2825,18 +2825,18 @@ try {
             fails.push("(al) the start act raised no THESIS_ADOPTION declaration — the span never reached path composition");
           } else {
             const said = `${a.stderr || ""}${a.stdout || ""}`;
-            const rule4 = (JSON.parse(readFileSync(join(rt, "src", "step-schema.json"), "utf8")).path_rules || {}).section_rule_4;
+            const rule4 = (JSON.parse(readFileSync(join(rt, "src", "leg-schema.json"), "utf8")).path_rules || {}).section_rule_4;
             if (!rule4) {
-              fails.push("(al) the tree's src/step-schema.json declares no `path_rules.section_rule_4` — there is no rule text for either half of this case to be about");
+              fails.push("(al) the tree's src/leg-schema.json declares no `path_rules.section_rule_4` — there is no rule text for either half of this case to be about");
             } else {
               if (!said.includes(rule4.name)) {
-                fails.push(`(al) a Candidate opening a Section on two adjacent single Steps was not refused at compose_path naming the rule — it rides the composition to the owner's gate. advance said: ${said.trim().slice(0, 400)}`);
+                fails.push(`(al) a Candidate opening a Section on two adjacent single Legs was not refused at compose_path naming the rule — it rides the composition to the owner's gate. advance said: ${said.trim().slice(0, 400)}`);
               }
-              // BOTH STEPS, because the repair is a MERGE and a merge needs two
+              // BOTH LEGS, because the repair is a MERGE and a merge needs two
               // names: told only where the first Section opens, a composer
               // cannot tell which pair it is being asked to join.
               if (!/\bx1\b/.test(said) || !/\bx2\b/.test(said)) {
-                fails.push(`(al) the rule 4 refusal does not name BOTH Steps — the request is to merge two Sections, and one name leaves the other end of the merge to be guessed. advance said: ${said.trim().slice(0, 400)}`);
+                fails.push(`(al) the rule 4 refusal does not name BOTH Legs — the request is to merge two Sections, and one name leaves the other end of the merge to be guessed. advance said: ${said.trim().slice(0, 400)}`);
               }
               // THE PROMPT CARRIED THE RULE. This is the whole of kogaki#1147:
               // the refusal was already correct, and the party it was raised
@@ -3028,15 +3028,15 @@ try {
 
   // (h) JOURNEY COVERAGE (§6.1 MUST 1, kogaki#501): journey material is a
   // DISTINCT material (§4.1's "which Journeys"), PLACED OR ITS OMISSION
-  // DISCLOSED — derived from the composed steps, never declared. The fixture's
+  // DISCLOSED — derived from the composed legs, never declared. The fixture's
   // L2 carries a Journey and L1 does not, which is what makes the two refusals
   // below separable.
   //
   // PLACEMENT IS COUNTED FROM `journeys`, AND THAT REVERSES kogaki#1111
   // (kogaki#1131). It was counted from a `<L-id>.journey` token in
-  // `materials`, beside a `journeys` field that rendered the Step's own
+  // `materials`, beside a `journeys` field that rendered the Leg's own
   // `journey:` line — two readers of one fact, which disagreed on the first
-  // Brief written to `done`: every Step of the adopted Candidate named its
+  // Brief written to `done`: every Leg of the adopted Candidate named its
   // Strand bare and declared `journeys`, so the Brief rendered four `journey:`
   // lines and disclosed all five Strands as OMITTED in the same document. The
   // fixtures below therefore place through `journeys` and name the Strand
@@ -3045,38 +3045,38 @@ try {
   if (JSON.stringify(journeyBearingStrands(doc0)) !== JSON.stringify(["L2"]))
     fails.push(`(h) journey-bearing members misread: got ${JSON.stringify(journeyBearingStrands(doc0))}, expected ["L2"] (L2 carries a journey cite, L1 does not)`);
 
-  // placed: a step declaring a `journeys` entry on L2, naming L2 BARE
-  const jstep = { ...JSON.parse(JSON.stringify(step1)), materials: ["L2", "thesis"],
+  // placed: a leg declaring a `journeys` entry on L2, naming L2 BARE
+  const jleg = { ...JSON.parse(JSON.stringify(leg1)), materials: ["L2", "thesis"],
     journeys: [{ strand: "L2", use: "illustrate" }] };
-  const jfill = fillBrief(doc0, { steps: [jstep, step2] });
+  const jfill = fillBrief(doc0, { legs: [jleg, leg2] });
   if (jfill.error) fails.push(`(h) a path placing journey material was refused: ${jfill.error}`);
   else {
     if (!/\*\*L2\*\* journey — placed by: s1/.test(jfill.doc)) fails.push("(h) placed journey material is not disclosed as placed");
     if (!/Journey placement count[^\n]*1 of 1/.test(jfill.doc)) fails.push("(h) the journey placement count is not 1 of 1 when the only Journey-bearing Strand is placed");
     // THE TWO READERS OF ONE FACT AGREE, asserted on ONE document (kogaki#1131
-    // AC2): the Step rendered a `journey:` line and the coverage section must
+    // AC2): the Leg rendered a `journey:` line and the coverage section must
     // not disclose the same Strand as omitted. This is the contradiction the
     // Issue was filed on, stated as an assertion over the rendered Brief.
     if (/journey: L2/.test(jfill.doc) && /\*\*L2\*\* journey — \*\*OMITTED/.test(jfill.doc)) {
-      fails.push("(h) one Brief renders a `journey: L2` line and discloses L2's Journey as OMITTED — the placement count and the Steps' own journey lines read different fields, which is a FALSE disclosure handed to /draft (kogaki#1131)");
+      fails.push("(h) one Brief renders a `journey: L2` line and discloses L2's Journey as OMITTED — the placement count and the Legs' own journey lines read different fields, which is a FALSE disclosure handed to /draft (kogaki#1131)");
     }
   }
 
   // THE REVERSED HALF, asserted by name (kogaki#1131): a `<L-id>.journey` token
   // with NO `journeys` entry no longer places. The token stays LEGAL — it names
   // the Strand, and it is still checked against the closed set and the served
-  // record by the two refusals below — but a Step places a Journey by declaring
+  // record by the two refusals below — but a Leg places a Journey by declaring
   // what it uses it FOR, and nothing else. Asserted rather than left implied:
   // the count moving field is the whole change, and an untested reversal reads
   // exactly like an untested retention.
-  const tokfill = fillBrief(doc0, { steps: [{ ...JSON.parse(JSON.stringify(step1)), materials: ["L2", "L2.journey", "thesis"] }, step2] });
+  const tokfill = fillBrief(doc0, { legs: [{ ...JSON.parse(JSON.stringify(leg1)), materials: ["L2", "L2.journey", "thesis"] }, leg2] });
   if (tokfill.error) fails.push(`(h) a path naming L2.journey in materials was refused: ${tokfill.error} — the token stays legal, only its counting was withdrawn`);
   else if (!/Journey placement count[^\n]*0 of 1/.test(tokfill.doc)) {
-    fails.push("(h) a bare `L2.journey` token in materials still places the Journey — the count did not move to `journeys`, so the second source kogaki#1131 removed is back and can disagree with the Step's own journey line");
+    fails.push("(h) a bare `L2.journey` token in materials still places the Journey — the count did not move to `journeys`, so the second source kogaki#1131 removed is back and can disagree with the Leg's own journey line");
   }
 
-  // omitted: no step declares a journey — DISCLOSES, never refuses
-  const ofill = fillBrief(doc0, { steps: [step1, step2] });
+  // omitted: no leg declares a journey — DISCLOSES, never refuses
+  const ofill = fillBrief(doc0, { legs: [leg1, leg2] });
   if (ofill.error) fails.push(`(h) a path omitting journey material was REFUSED — §6.1 is place-or-disclose, never place-or-fail: ${ofill.error}`);
   else {
     if (!/\*\*L2\*\* journey — \*\*OMITTED, disclosed\*\*/.test(ofill.doc)) fails.push("(h) omitted journey material is not disclosed — it dropped silently, which is the defect §6.1 MUST 1 names");
@@ -3084,14 +3084,14 @@ try {
   }
 
   // a Strand whose served record carries NO journey refuses BY NAME
-  const bad1 = fillBrief(doc0, { steps: [{ ...JSON.parse(JSON.stringify(step1)), materials: ["L1.journey"] }, step2] });
+  const bad1 = fillBrief(doc0, { legs: [{ ...JSON.parse(JSON.stringify(leg1)), materials: ["L1.journey"] }, leg2] });
   if (!bad1.error || !/carries none/.test(bad1.error)) fails.push("(h) claiming Journey material for a Strand that has none was accepted — unsupported completion (§4.4)");
   // a Journey outside the closed set refuses as a Brief fetch
-  const bad2 = fillBrief(doc0, { steps: [{ ...JSON.parse(JSON.stringify(step1)), materials: ["L9.journey"] }, step2] });
+  const bad2 = fillBrief(doc0, { legs: [{ ...JSON.parse(JSON.stringify(leg1)), materials: ["L9.journey"] }, leg2] });
   if (!bad2.error || !/closed set/.test(bad2.error)) fails.push("(h) a Journey naming a Strand outside the closed set was accepted — a Brief fetch (§5.3)");
 
   // VACUOUS, never violated: journeyPlacements over an empty Journey set
-  if (journeyPlacements([step1, step2], []).size !== 0) fails.push("(h) journeyPlacements over no Journey-bearing member is not empty");
+  if (journeyPlacements([leg1, leg2], []).size !== 0) fails.push("(h) journeyPlacements over no Journey-bearing member is not empty");
 
   // (h2) THE COUNT IS PER-STRAND OVER A SET LARGER THAN ONE (kogaki#1131 AC3).
   // (h) runs over a Brief with exactly ONE Journey-bearing Strand, where `N of
@@ -3113,20 +3113,20 @@ try {
     if (JSON.stringify(j2) !== JSON.stringify(["L1", "L2"])) {
       fails.push(`(h2) the two-Journey fixture did not land: journey-bearing members read ${JSON.stringify(j2)}, expected ["L1", "L2"] — every assertion below would be vacuous`);
     } else {
-      const bothSteps = [
-        { ...JSON.parse(JSON.stringify(step1)), materials: ["L2", "thesis"], journeys: [{ strand: "L2", use: "contrast" }] },
-        { ...JSON.parse(JSON.stringify(step2)), journeys: [{ strand: "L1", use: "illustrate" }] },
+      const bothLegs = [
+        { ...JSON.parse(JSON.stringify(leg1)), materials: ["L2", "thesis"], journeys: [{ strand: "L2", use: "contrast" }] },
+        { ...JSON.parse(JSON.stringify(leg2)), journeys: [{ strand: "L1", use: "illustrate" }] },
       ];
-      const both = fillBrief(docJ2, { steps: bothSteps });
+      const both = fillBrief(docJ2, { legs: bothLegs });
       if (both.error) fails.push(`(h2) a path placing every Journey-bearing Strand was refused: ${both.error}`);
       else {
         if (!/Journey placement count[^\n]*2 of 2/.test(both.doc)) fails.push("(h2) a Candidate placing both Journey-bearing Strands does not render 2 of 2");
         if (/journey — \*\*OMITTED/.test(both.doc)) fails.push("(h2) a Candidate placing every Journey-bearing Strand still discloses an OMISSION — the disclosure reports omission over material the path placed, which is the false disclosure kogaki#1131 was filed on");
         if (!/\*\*L1\*\* journey — placed by: s2/.test(both.doc) || !/\*\*L2\*\* journey — placed by: s1/.test(both.doc)) {
-          fails.push("(h2) the per-Strand placed-by lines do not name the Steps that placed each Journey — the count and the lines read different fields");
+          fails.push("(h2) the per-Strand placed-by lines do not name the Legs that placed each Journey — the count and the lines read different fields");
         }
       }
-      const none = fillBrief(docJ2, { steps: [step1, step2] });
+      const none = fillBrief(docJ2, { legs: [leg1, leg2] });
       if (none.error) fails.push(`(h2) a path placing NO journey material was REFUSED — §6.1 is place-or-disclose: ${none.error}`);
       else {
         if (!/Journey placement count[^\n]*0 of 2/.test(none.doc)) fails.push("(h2) a Candidate placing no Journey material does not render 0 of 2");
@@ -3142,8 +3142,8 @@ try {
       // figure exists to expose, and it was flat across every Candidate on the
       // Brief kogaki#1131 was filed on.
       const sids = selectedStrands(docJ2);
-      const eBoth = candidateEvidence({ ...JSON.parse(JSON.stringify(candA)), steps: bothSteps }, sids, j2);
-      const eNone = candidateEvidence({ ...JSON.parse(JSON.stringify(candA)), steps: [step1, step2] }, sids, j2);
+      const eBoth = candidateEvidence({ ...JSON.parse(JSON.stringify(candA)), legs: bothLegs }, sids, j2);
+      const eNone = candidateEvidence({ ...JSON.parse(JSON.stringify(candA)), legs: [leg1, leg2] }, sids, j2);
       if (!/2 of 2 Journey-bearing/.test(eBoth.journey_coverage || "")) fails.push(`(h2) the gate's journey axis disagrees with the Brief's own count for the placing Candidate: ${eBoth.journey_coverage}`);
       if (/OMITTED/.test(eBoth.journey_coverage || "")) fails.push(`(h2) the gate's journey axis discloses an omission the path did not make: ${eBoth.journey_coverage}`);
       if (!/0 of 2 Journey-bearing/.test(eNone.journey_coverage || "") || !/OMITTED and disclosed: L1, L2/.test(eNone.journey_coverage || "")) {
@@ -3169,7 +3169,7 @@ try {
   // KEPT beside it as the control that a journey-placing Candidate still
   // reaches the gate at all.
   ranCase("i");
-  const jcandA = { ...JSON.parse(JSON.stringify(candA)), steps: [jstep] };
+  const jcandA = { ...JSON.parse(JSON.stringify(candA)), legs: [jleg] };
   const jpay = assembleSelection({ candidates: [jcandA, candB] }, doc0);
   if (jpay.error) fails.push(`(i) assembly refused a Candidate placing journey material: ${jpay.error}`);
   else if (!jpay.payload.options.some((x) => x.id === jcandA.candidate_id)) {
@@ -3539,7 +3539,7 @@ try {
   //
   // RE-POINTED AT THE LABEL (kogaki#859), and this is a repair rather than a
   // relocation of convenience. These two cases injected their leak into
-  // `reasoning.thesis_closure` and `reasoning.step_validity`, which reached the
+  // `reasoning.thesis_closure` and `reasoning.leg_validity`, which reached the
   // owner only by way of the rendering. With the rendering empty that injection
   // reaches no owner surface at all, so the tripwire correctly would NOT fire
   // and both assertions would have started failing — or, worse, been deleted as
@@ -3559,7 +3559,7 @@ try {
     if (leaked.payload) fails.push("(j) the tripwire produced a payload anyway — a deny, never a rewrite layer");
   }
   const secCand = JSON.parse(JSON.stringify(candB));
-  secCand.reader_experience = "Opens on the industry default, then traces each step's claims as §4.4 requires";
+  secCand.reader_experience = "Opens on the industry default, then traces each leg's claims as §4.4 requires";
   const secLeak = assembleSelection({ candidates: [candA, secCand] }, doc0);
   if (!secLeak.error || !/section reference/.test(secLeak.error)) fails.push("(j) a section reference reached the owner-facing label — the tripwire did not fire");
   // THE DENY READS THE OWNER SURFACE, NOT THE RECORD, and the reduction makes
@@ -3575,7 +3575,7 @@ try {
   // the reasoning would fail here even if it skipped the `rendering` key.
   {
     const recCand = JSON.parse(JSON.stringify(candB));
-    recCand.reasoning.thesis_closure = "the final step discharges thesis_closure for the reader";
+    recCand.reasoning.thesis_closure = "the final leg discharges thesis_closure for the reader";
     const rec = assembleSelection({ candidates: [candA, recCand] }, doc0);
     if (rec.error) fails.push(`(j) an internal key in the RECORD was refused — the deny reads the owner surface, and the record is not one (kogaki#859): ${rec.error}`);
   }
@@ -3760,29 +3760,29 @@ ranCase("k-composed-body");
 // Approval is POST-HOC — no per-Bridge question — so the one gate that exists
 // must carry what was inserted and why, per Candidate.
 //
-// EVERY fixture here is admitted by validateSteps FIRST. Round 1 of PR #546
+// EVERY fixture here is admitted by validateLegs FIRST. Round 1 of PR #546
 // found why: the declared-assumption case was built with `type: "assumption"`,
-// which §4.4's closed list refuses, so the assertion passed over a Step shape
+// which §4.4's closed list refuses, so the assertion passed over a Leg shape
 // the runtime cannot admit and the branch it claimed to cover was dead
 // (kogaki#209 — a fixture whose only demonstrated failure mode is the code's
 // total absence).
 ranCase("l-bridge");
 {
   const S = (id, extra = {}) => ({
-    step_id: id, move: "m", materials: ["L1"], purpose: "p", reader_state_before: "b",
+    leg_id: id, move: "m", materials: ["L1"], purpose: "p", reader_state_before: "b",
     reader_state_after: "a", depends_on: [], rationale: "r",
     claims: [{ type: "strand", strand: "L1", proposition: "the strand says so" }],
     ...extra,
   });
-  // §4.15 rule 3 (kogaki#822): every path's first Step opens a Section. Applied
+  // §4.15 rule 3 (kogaki#822): every path's first Leg opens a Section. Applied
   // HERE rather than at each fixture's first element, so a case added later
   // inherits it — this block's cases differ in their bridges, never in their
   // grouping, and a per-case copy is what drifts.
-  const admit = (steps, what) => {
-    if (steps[0].opens_section === undefined) steps[0] = { ...steps[0], opens_section: "Opening" };
-    const v = validateSteps(steps);
+  const admit = (legs, what) => {
+    if (legs[0].opens_section === undefined) legs[0] = { ...legs[0], opens_section: "Opening" };
+    const v = validateLegs(legs);
     if (v.error) fails.push(`(l) the ${what} fixture is not an admissible path — it would assert over a shape the runtime refuses: ${v.error}`);
-    return steps;
+    return legs;
   };
   const cases = [
     ["none", [S("s1")], /no gaps were bridged/],
@@ -3792,7 +3792,7 @@ ranCase("l-bridge");
     // THE SECOND SOURCE IS GONE (kogaki#1095), and the case that exercised it
     // is REMOVED rather than reworded. It drove a bridge whose only reasoning
     // was a `reader_assumption` claim; a claim is now one claim derived from
-    // a Strand, so no such Step composes at all — the arm is unreachable, not
+    // a Strand, so no such Leg composes at all — the arm is unreachable, not
     // renamed, and the refusal that makes it unreachable is asserted in (a).
     // The premise itself did not vanish from the gate: it belongs to the
     // Brief's Reader start, which this same payload renders from READER_FIELDS.
@@ -3801,17 +3801,17 @@ ranCase("l-bridge");
     // composition fault the gate is owed, and it is now the ONLY other arm.
     ["no reasoning", [S("a"), S("c"), S("b", { bridges: ["a", "c"] })], /NO REASONING CARRIED/],
   ];
-  for (const [what, steps, want] of cases) {
-    admit(steps, what);
-    const ev = candidateEvidence({ steps, obligations: [] }, [], []);
+  for (const [what, legs, want] of cases) {
+    admit(legs, what);
+    const ev = candidateEvidence({ legs, obligations: [] }, [], []);
     if (typeof ev.bridges !== "string" || !want.test(ev.bridges)) {
       fails.push(`(l) the ${what} case does not render its bridge disclosure: ${JSON.stringify(ev.bridges)}`);
     }
   }
   // PER CANDIDATE, not per Brief: two Candidates bridging differently must not
   // read identically, the same property journey_coverage already has.
-  const a = candidateEvidence({ steps: cases[1][1], obligations: [] }, [], []).bridges;
-  const b = candidateEvidence({ steps: cases[0][1], obligations: [] }, [], []).bridges;
+  const a = candidateEvidence({ legs: cases[1][1], obligations: [] }, [], []).bridges;
+  const b = candidateEvidence({ legs: cases[0][1], obligations: [] }, [], []).bridges;
   if (a === b) fails.push("(l) a bridged Candidate and an unbridged one read identically — the disclosure is not per-Candidate");
   // It rides the EXISTING gate: a plain label, no new gate row. The SHARED
   // predicate (kogaki#526), not a re-derived regex: one definition, every
@@ -3825,11 +3825,11 @@ ranCase("l-bridge");
   else if (findInternalVocabulary(lbl[1])) fails.push(`(l) the bridge label reads an internal key: ${lbl[1]}`);
 
   // (l2) THE FIELD IS ADMITTED AND BOUNDED (#546 round 1, finding 3). §4.11
-  // recognises a Bridge Step by this field, so §4.1 admits it and validateSteps
+  // recognises a Bridge Leg by this field, so §4.1 admits it and validateLegs
   // bounds it — an unvalidated marking renders `between :` at an owner surface.
   ranCase("l2");
   for (const [bad, what] of [[[], "empty"], [["only-one"], "single"], [true, "non-array"], [["a", "c", "d"], "three-id"]]) {
-    if (!validateSteps([S("a"), S("c"), S("b", { bridges: bad })]).error) {
+    if (!validateLegs([S("a"), S("c"), S("b", { bridges: bad })]).error) {
       fails.push(`(l2) a ${what} bridges value is admitted — the gate would disclose a pair that was never named`);
     }
   }
@@ -3837,8 +3837,8 @@ ranCase("l-bridge");
   // disclosure is the WHOLE approval shape, so a Brief re-read from its
   // recorded form must still say what was bridged.
   ranCase("l3");
-  if (!/^bridges: a, c$/m.test(renderStep(S("b", { bridges: ["a", "c"] })))) {
-    fails.push("(l3) renderStep drops `bridges` — a Brief re-read from its recorded form discloses no bridge at all");
+  if (!/^bridges: a, c$/m.test(renderLeg(S("b", { bridges: ["a", "c"] })))) {
+    fails.push("(l3) renderLeg drops `bridges` — a Brief re-read from its recorded form discloses no bridge at all");
   }
 }
 
@@ -3848,7 +3848,7 @@ ranCase("l-bridge");
 // TWO HALVES, AND THE SECOND IS WHY THE FIRST IS NOT VACUOUS. `candidateEvidence`
 // counted `o.discharged_by === undefined`, and an entry written under other key
 // names answers that test exactly as a genuinely undischarged entry does — so a
-// Candidate whose every obligation named the Step that settles it rendered "4
+// Candidate whose every obligation named the Leg that settles it rendered "4
 // entries, 4 UNDISCHARGED — disclosed here, never a refusal" at the gate the
 // owner answered. The disclosure was wrong and nothing marked it: a guard that
 // scores a record it cannot read reports a confident number.
@@ -3863,8 +3863,8 @@ ranCase("l-bridge");
 // deletes the call site, which is the shape this file records at (x).
 ranCase("aj-ledger-shape");
 {
-  const OS = [{ step_id: "s1", materials: [], claims: [] }, { step_id: "s2", materials: [], claims: [] }];
-  const cand = (obligations, extra = {}) => ({ candidate_id: "cand-o", steps: OS, obligations, ...extra });
+  const OS = [{ leg_id: "s1", materials: [], claims: [] }, { leg_id: "s2", materials: [], claims: [] }];
+  const cand = (obligations, extra = {}) => ({ candidate_id: "cand-o", legs: OS, obligations, ...extra });
 
   // ARM 1 — every entry discharged renders `0 UNDISCHARGED` at the gate.
   const allSettled = candidateEvidence(cand([
@@ -3874,7 +3874,7 @@ ranCase("aj-ledger-shape");
   if (allSettled.error) {
     fails.push(`(aj) a conformant ledger with every entry discharged was refused: ${allSettled.error}`);
   } else if (!/2 entries, 0 UNDISCHARGED/.test(allSettled.obligations_ledger || "")) {
-    fails.push(`(aj) a ledger whose every entry names the Step that settles it does not render 0 UNDISCHARGED at the gate: ${JSON.stringify(allSettled.obligations_ledger)}`);
+    fails.push(`(aj) a ledger whose every entry names the Leg that settles it does not render 0 UNDISCHARGED at the gate: ${JSON.stringify(allSettled.obligations_ledger)}`);
   }
 
   // ARM 2 — THE CONTRAST. An undischarged entry still DISCLOSES and never
@@ -3911,7 +3911,7 @@ ranCase("aj-ledger-shape");
     { raised_at: "s1", owed: "the generality is asserted", settled_at: "s2" },
   ]), [], []);
   if (!unreadable.error) {
-    fails.push(`(aj) an obligation entry carrying raised_at/owed/settled_at was SCORED rather than refused: ${JSON.stringify(unreadable.obligations_ledger)} — every entry named the Step that settles it and the gate told the owner all of them were undischarged`);
+    fails.push(`(aj) an obligation entry carrying raised_at/owed/settled_at was SCORED rather than refused: ${JSON.stringify(unreadable.obligations_ledger)} — every entry named the Leg that settles it and the gate told the owner all of them were undischarged`);
   } else {
     if (!/obligation 1\b/.test(unreadable.error)) {
       fails.push(`(aj) the unreadable-entry refusal does not name the ENTRY: ${unreadable.error}`);
@@ -3941,9 +3941,9 @@ ranCase("aj-ledger-shape");
   if (!/\bunused\b/.test(unusedArray || "")) {
     fails.push(`(aj) an \`unused\` written as an array was admitted — the disclosures read as if nothing was left unplaced: ${unusedArray}`);
   }
-  const danglingStep = candidateLedgerRefusal(cand([{ text: "owed", introduced_by: "s1", discharged_by: "s9" }]), ["L1", "L2"]);
-  if (!/s9/.test(danglingStep || "")) {
-    fails.push(`(aj) a \`discharged_by\` naming no Step of the Candidate was admitted — the ledger renders a settlement by a Step the path does not carry: ${danglingStep}`);
+  const danglingLeg = candidateLedgerRefusal(cand([{ text: "owed", introduced_by: "s1", discharged_by: "s9" }]), ["L1", "L2"]);
+  if (!/s9/.test(danglingLeg || "")) {
+    fails.push(`(aj) a \`discharged_by\` naming no Leg of the Candidate was admitted — the ledger renders a settlement by a Leg the path does not carry: ${danglingLeg}`);
   }
 
   // ARM 5 — THE DECLARATION AND THE VALIDATOR ARE ONE TEXT, which is the
@@ -3968,42 +3968,42 @@ ranCase("aj-ledger-shape");
 
 // (q) §4.15 THE SECTION — `opens_section` AND THE GROUPING RULES (kogaki#822).
 // The four rules are validated at COMPOSITION and not at `brief.mjs mint`,
-// because mint writes a Brief shell and no Step exists there for a rule to
+// because mint writes a Brief shell and no Leg exists there for a rule to
 // read — §4.15 records that correction and this block is its exercised half.
-// Rules 2, 3 and rule 4's Step-count clause are mechanical; rule 1 is the
+// Rules 2, 3 and rule 4's Leg-count clause are mechanical; rule 1 is the
 // POSITIVE case whose negation rule 2 refuses, and rule 4's prose-length
 // clause is §4.15's named deferred slot, so neither is asserted here.
 ranCase("q");
 {
   const Q = (id, extra = {}) => ({
-    step_id: id, move: "m1", materials: ["L1"], purpose: "p",
+    leg_id: id, move: "m1", materials: ["L1"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
     rationale: "r", claims: [{ type: "strand", strand: "L1", proposition: "q" }],
     ...extra,
   });
-  const err = (steps) => validateSteps(steps).error || "";
+  const err = (legs) => validateLegs(legs).error || "";
 
   // The field is OPTIONAL — asserted FIRST, because every case composed before
   // this issue carries none and a required field would fail all of them.
   const noneAnywhere = err([Q("s1"), Q("s2")]);
   if (!/rule 3/.test(noneAnywhere)) {
-    fails.push(`(q) a path opening NO Section is admitted or refused by the wrong rule — §4.15 rule 3 says the first Step always opens: ${noneAnywhere}`);
+    fails.push(`(q) a path opening NO Section is admitted or refused by the wrong rule — §4.15 rule 3 says the first Leg always opens: ${noneAnywhere}`);
   }
-  // ACCEPTANCE 4 both ways: the refusal names the RULE and the STEP.
+  // ACCEPTANCE 4 both ways: the refusal names the RULE and the LEG.
   if (!/the Section grouping rule 3/.test(noneAnywhere) || !/\(s1\)/.test(noneAnywhere)) {
-    fails.push(`(q) rule 3's refusal does not name both the rule and the Step — a refusal naming neither sends a composer to re-read the whole path: ${noneAnywhere}`);
+    fails.push(`(q) rule 3's refusal does not name both the rule and the Leg — a refusal naming neither sends a composer to re-read the whole path: ${noneAnywhere}`);
   }
 
-  // Rule 2 — a Step DEVELOPING its predecessor continues, so it may not open.
-  const everyStepOpens = err([Q("s1", { opens_section: "A" }), Q("s2", { opens_section: "B", depends_on: ["s1"] })]);
-  if (!/the Section grouping rule 2/.test(everyStepOpens) || !/\(s2\)/.test(everyStepOpens)) {
-    fails.push(`(q) a Step that develops its predecessor may still open a Section — the Section grouping rule 2's refusal is what stops a heading on every Step: ${everyStepOpens}`);
+  // Rule 2 — a Leg DEVELOPING its predecessor continues, so it may not open.
+  const everyLegOpens = err([Q("s1", { opens_section: "A" }), Q("s2", { opens_section: "B", depends_on: ["s1"] })]);
+  if (!/the Section grouping rule 2/.test(everyLegOpens) || !/\(s2\)/.test(everyLegOpens)) {
+    fails.push(`(q) a Leg that develops its predecessor may still open a Section — the Section grouping rule 2's refusal is what stops a heading on every Leg: ${everyLegOpens}`);
   }
 
-  // Rule 4's Step-count clause — two consecutive one-Step Sections MERGE.
+  // Rule 4's Leg-count clause — two consecutive one-Leg Sections MERGE.
   const threeSingles = err([Q("s1", { opens_section: "A" }), Q("s2", { opens_section: "B", materials: ["L2"] }), Q("s3", { opens_section: "C", materials: ["L3"] })]);
   if (!/the Section grouping rule 4/.test(threeSingles)) {
-    fails.push(`(q) three independent Steps each opening their own Section are admitted — rule 4's Step-count clause refuses two consecutive one-Step Sections: ${threeSingles}`);
+    fails.push(`(q) three independent Legs each opening their own Section are admitted — rule 4's Leg-count clause refuses two consecutive one-Leg Sections: ${threeSingles}`);
   }
 
   // A CORRECTLY GROUPED path mints clean — the control. Without it every
@@ -4023,17 +4023,17 @@ ranCase("q");
 
   // IT SURVIVES SERIALIZATION. A Brief re-read from its recorded form must
   // still declare its Sections, or the renderer (kogaki#823) has nothing to read.
-  if (!/^opens_section: A Section Title$/m.test(renderStep(Q("s1", { opens_section: "A Section Title" })))) {
-    fails.push("(q) renderStep drops `opens_section` — a Brief re-read from its recorded form declares no Section at all");
+  if (!/^opens_section: A Section Title$/m.test(renderLeg(Q("s1", { opens_section: "A Section Title" })))) {
+    fails.push("(q) renderLeg drops `opens_section` — a Brief re-read from its recorded form declares no Section at all");
   }
 }
 
 // (ak) EVERY WHOLE-PATH REFUSAL NAMES A RULE THE SCHEMA CARRIES (kogaki#1147).
 //
-// THE DEFECT. `src/step-schema.json` is rendered into `compose_path`'s prompt
+// THE DEFECT. `src/leg-schema.json` is rendered into `compose_path`'s prompt
 // verbatim and the validator reads its field set back, so a FIELD rule cannot
 // be enforced against a composer that was never shown it. The rules over the
-// WHOLE PATH had no such carrier: `validateSteps` and `sectionGroupingRefusal`
+// WHOLE PATH had no such carrier: `validateLegs` and `sectionGroupingRefusal`
 // raised the Section grouping, the `depends_on` ordering, the uniqueness of an
 // id and the claim cardinality out of wording written in the validator alone.
 // Two /brief runs on 2026-09-18 died at `compose_path` on rule 4 having
@@ -4043,7 +4043,7 @@ ranCase("q");
 //
 // THE PREDICATE IS DERIVED FROM THE VALIDATOR'S OWN SOURCE, never from a list
 // here. The refusal keys are read out of `sectionGroupingRefusal`'s body and
-// out of `validateSteps`'s, so a fourth path rule added to either function is
+// out of `validateLegs`'s, so a fourth path rule added to either function is
 // covered the day it is written: it must declare an entry in `path_rules`, and
 // it must be exercised by a fixture below. A literal key list would be a second
 // transcription, green whenever it said what it said.
@@ -4056,23 +4056,23 @@ ranCase("q");
 // nobody could see.
 ranCase("ak-path-rules-carried");
 {
-  const schemaText = readFileSync(join(REPO_ROOT, "src", "step-schema.json"), "utf8");
+  const schemaText = readFileSync(join(REPO_ROOT, "src", "leg-schema.json"), "utf8");
   const schema1147 = JSON.parse(schemaText);
   const rules = schema1147.path_rules;
   const composeSrc = readFileSync(join(REPO_ROOT, "src", "compose.mjs"), "utf8");
 
   const P = (id, extra = {}) => ({
-    step_id: id, move: "m1", materials: ["L1"], purpose: "p",
+    leg_id: id, move: "m1", materials: ["L1"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
     rationale: "r", claims: [{ type: "strand", strand: "L1", proposition: "q" }],
     ...extra,
   });
   // One fixture per CHECKED rule: the path that raises it, and nothing else
-  // about it. `validateSteps` returns the FIRST refusal, so each fixture is
+  // about it. `validateLegs` returns the FIRST refusal, so each fixture is
   // well formed in every respect but the one it is about.
   const FIXTURES = {
     path_is_non_empty: [],
-    step_id_unique: [P("s1", { opens_section: "A" }), P("s1", { materials: ["L2"], depends_on: [] })],
+    leg_id_unique: [P("s1", { opens_section: "A" }), P("s1", { materials: ["L2"], depends_on: [] })],
     depends_on_ordering: [P("s1", { opens_section: "A" }), P("s2", { depends_on: ["s3"], materials: ["L2"] })],
     one_claim_per_strand: [P("s1", { opens_section: "A", claims: [
       { type: "strand", strand: "L1", proposition: "the first" },
@@ -4081,21 +4081,21 @@ ranCase("ak-path-rules-carried");
     section_rule_3: [P("s1"), P("s2", { depends_on: ["s1"] })],
     section_rule_4: [P("s1", { opens_section: "A" }), P("s2", { opens_section: "B", materials: ["L2"] }),
       P("s3", { opens_section: "C", materials: ["L3"] })],
-    // A SECOND ARGUMENT, not a steps array (kogaki#1151): this rule only
-    // fires against a `readerStart`, which `validateSteps(fixture)` alone
+    // A SECOND ARGUMENT, not a legs array (kogaki#1151): this rule only
+    // fires against a `readerStart`, which `validateLegs(fixture)` alone
     // never supplies — so this one entry is read specially below.
-    reader_start_binds_first_step: { steps: [P("s1", { opens_section: "A" })], readerStart: "a value this Step's reader_state_before never states" },
+    reader_start_binds_first_leg: { legs: [P("s1", { opens_section: "A" })], readerStart: "a value this Leg's reader_state_before never states" },
   };
 
   if (!rules || typeof rules !== "object") {
-    fails.push("(ak) src/step-schema.json declares no `path_rules` — the rules over the whole path are enforced in src/compose.mjs and stated nowhere the composing Model reads, which is exactly the field-level defect kogaki#1108 closed, one scope out");
+    fails.push("(ak) src/leg-schema.json declares no `path_rules` — the rules over the whole path are enforced in src/compose.mjs and stated nowhere the composing Model reads, which is exactly the field-level defect kogaki#1108 closed, one scope out");
   } else {
     // RULE 1 IS STATED AS THE JUDGMENT IT IS. It is the positive case rule 2's
     // refusal covers; nothing checks it, and a composer shown three of four
     // rules is left to infer that the fourth does not exist.
     const r1 = rules.section_rule_1;
     if (!r1 || r1.class !== "judgment" || typeof r1.rule !== "string" || r1.rule === "") {
-      fails.push("(ak) the Section grouping's rule 1 is absent from `path_rules` or is not marked `judgment` — it is the rule that says WHEN a Step opens, and a composer shown only the three that refuse is being told what not to do and never what to do");
+      fails.push("(ak) the Section grouping's rule 1 is absent from `path_rules` or is not marked `judgment` — it is the rule that says WHEN a Leg opens, and a composer shown only the three that refuse is being told what not to do and never what to do");
     }
 
     // THE KEYS ARE THE VALIDATOR'S OWN. Read from the two functions' bodies, so
@@ -4112,9 +4112,9 @@ ranCase("ak-path-rules-carried");
       return [...body.matchAll(/pathRefusal\(\s*"([a-z0-9_]+)"/g)].map((m) => m[1]);
     };
     const grouping = raisedIn("sectionGroupingRefusal");
-    const wholePath = raisedIn("validateSteps");
+    const wholePath = raisedIn("validateLegs");
     if (grouping === null || wholePath === null) {
-      fails.push("(ak) `sectionGroupingRefusal` or `validateSteps` is not an exported function of src/compose.mjs under that name — the derivation reads their bodies, and a renamed function silently empties it");
+      fails.push("(ak) `sectionGroupingRefusal` or `validateLegs` is not an exported function of src/compose.mjs under that name — the derivation reads their bodies, and a renamed function silently empties it");
     } else {
       // THE DERIVATION REFUSES ITS OWN EMPTY RESULT. A list that silently
       // empties reports every rule as carried, which is the shape case (y)
@@ -4133,7 +4133,7 @@ ranCase("ak-path-rules-carried");
       for (const key of [...new Set([...grouping, ...wholePath])]) {
         const entry = rules[key];
         if (!entry || typeof entry.name !== "string" || typeof entry.rule !== "string") {
-          fails.push(`(ak) src/compose.mjs raises \`${key}\` and src/step-schema.json declares no such \`path_rules\` entry with a name and a rule — the refusal enforces a rule the composing Model is never shown`);
+          fails.push(`(ak) src/compose.mjs raises \`${key}\` and src/leg-schema.json declares no such \`path_rules\` entry with a name and a rule — the refusal enforces a rule the composing Model is never shown`);
           continue;
         }
         if (!schemaText.includes(entry.rule) || !schemaText.includes(entry.name)) {
@@ -4144,9 +4144,9 @@ ranCase("ak-path-rules-carried");
           fails.push(`(ak) \`${key}\` is raised by src/compose.mjs and no fixture here exercises it — the rule's text is asserted against nothing, so a refusal that stopped naming it would go unobserved`);
           continue;
         }
-        const got = key === "reader_start_binds_first_step"
-          ? validateSteps(fixture.steps, fixture.readerStart).error || ""
-          : validateSteps(fixture).error || "";
+        const got = key === "reader_start_binds_first_leg"
+          ? validateLegs(fixture.legs, fixture.readerStart).error || ""
+          : validateLegs(fixture).error || "";
         if (!got) {
           fails.push(`(ak) the fixture for \`${key}\` is ACCEPTED — the case would assert the rule's text against a refusal that never fires`);
           continue;
@@ -4197,7 +4197,7 @@ ranCase("r-plain-labels");
   // The KEY SET is what is under test and it does not vary with the path's
   // content, so an empty path is the honest input: it derives every key the
   // function can produce without a fixture whose shape could supply the answer.
-  const ev = candidateEvidence({ steps: [], obligations: [] }, [], []);
+  const ev = candidateEvidence({ legs: [], obligations: [] }, [], []);
   const expected = new Set([...REASONING_FIELDS, ...Object.keys(ev)]);
   const labelled = new Map(EVIDENCE_LABELS);
 
@@ -4257,11 +4257,11 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // lowering the floor to match is itself caught by check-registry-conformance.
 // (v) §4.16 THE BRIEF'S FIGURE DECISION — `figure:` AND `figure_roles`
 // (kogaki#877). The field is OPTIONAL and its default is NONE, which is
-// asserted FIRST for the reason (q) states: every Step composed before this
+// asserted FIRST for the reason (q) states: every Leg composed before this
 // issue carries none, and a required field would fail all of them.
 //
 // THE TWO MECHANICAL CONDITIONS ARE ASSERTED WHERE EACH ONE LIVES. The grammar
-// and the claim addressing are pure and refuse at `validateSteps`; whether the
+// and the claim addressing are pure and refuse at `validateLegs`; whether the
 // Move declares a form at all needs the library and refuses at
 // `resolveFigureForms`. Asserting both against the REAL Move library is
 // deliberate — `introduce_paired_conceptual_axis` is the shipped record
@@ -4275,11 +4275,11 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 ranCase("v");
 {
   const F = (id, extra = {}) => ({
-    // THREE ROLES, THREE STRANDS (kogaki#1108) — see the note at `figStepOf`
-    // in (x). The addressing this block asserts is `g<n>` over the Step's own
+    // THREE ROLES, THREE STRANDS (kogaki#1108) — see the note at `figLegOf`
+    // in (x). The addressing this block asserts is `g<n>` over the Leg's own
     // claims and is unchanged; what changed is that three claims now require
     // three Strands to hang on.
-    step_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1", "L2", "L3"], purpose: "p",
+    leg_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1", "L2", "L3"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
     rationale: "r",
     claims: [
@@ -4291,7 +4291,7 @@ ranCase("v");
   });
   const AXIS = { figure: "the two endpoints on the one axis, which the prose leaves the reader assembling",
                  figure_roles: { endpoint_a: "g1", endpoint_b: "g2", criterion: "g3" } };
-  const err = (steps) => validateSteps(steps).error || "";
+  const err = (legs) => validateLegs(legs).error || "";
   const open = (s) => ({ ...s, opens_section: "Opening" });
 
   // OPTIONAL, asserted first.
@@ -4303,13 +4303,13 @@ ranCase("v");
   // library.
   const goodPath = [open(F("s1", AXIS))];
   if (err(goodPath)) {
-    fails.push(`(v) a fully bound axis figure is refused at validateSteps: ${err(goodPath)}`);
+    fails.push(`(v) a fully bound axis figure is refused at validateLegs: ${err(goodPath)}`);
   }
   const goodForm = resolveFigureForms(goodPath, "moves");
   if (goodForm.error) {
     fails.push(`(v) a fully bound axis figure is refused against the real Move library: ${goodForm.error}`);
   } else if (goodForm.figures !== 1) {
-    fails.push(`(v) the form resolution counted ${goodForm.figures} figure-carrying Step(s), not 1`);
+    fails.push(`(v) the form resolution counted ${goodForm.figures} figure-carrying Leg(s), not 1`);
   }
   // ACCEPTANCE 1, negative half: `criterion` unbound is REFUSED NAMING THE
   // ROLE. This is the Move-dependent half — the grammar cannot know a role is
@@ -4356,7 +4356,7 @@ ranCase("v");
   if (!missing.error || !/cannot be read/.test(missing.error)) {
     fails.push(`(v) a figure on a Move whose record is missing does not refuse as a store fault — a true refusal for a false reason: ${JSON.stringify(missing)}`);
   }
-  // THE GRAMMAR HALF, refused at validateSteps and never reaching the library.
+  // THE GRAMMAR HALF, refused at validateLegs and never reaching the library.
   const halves = [
     ["figure with no roles", { figure: "x" }, /figure_roles/],
     ["roles with no figure", { figure_roles: { endpoint_a: "g1" } }, /figure:/],
@@ -4368,23 +4368,23 @@ ranCase("v");
     const e = err([open(F("s1", extra))]);
     if (!want.test(e)) fails.push(`(v) ${what} is admitted or refused by the wrong rule: ${e || "(admitted)"}`);
   }
-  // THE CLAIM ADDRESS IS THIS STEP'S. An address past the end names a claim
+  // THE CLAIM ADDRESS IS THIS LEG'S. An address past the end names a claim
   // that is not there — which is what makes "a role bound to a claim of
-  // another Step" unreachable rather than separately refused: the address
-  // space is this Step's claims and has no syntax for anyone else's.
+  // another Leg" unreachable rather than separately refused: the address
+  // space is this Leg's claims and has no syntax for anyone else's.
   const pastEnd = err([open(F("s1", { ...AXIS, figure_roles: { ...AXIS.figure_roles, criterion: "g9" } }))]);
   if (!/g9/.test(pastEnd) || !/3 claim/.test(pastEnd)) {
-    fails.push(`(v) a binding past this Step's claim count is admitted or refused without naming both the address and the count: ${pastEnd || "(admitted)"}`);
+    fails.push(`(v) a binding past this Leg's claim count is admitted or refused without naming both the address and the count: ${pastEnd || "(admitted)"}`);
   }
-  // IT SURVIVES SERIALIZATION, and a Step WITHOUT one writes no line — which
+  // IT SURVIVES SERIALIZATION, and a Leg WITHOUT one writes no line — which
   // is acceptance 4's mechanism: a Brief composed before this field renders
   // byte-identically.
-  const rendered = renderStep(F("s1", AXIS));
+  const rendered = renderLeg(F("s1", AXIS));
   if (!/^figure: /m.test(rendered) || !/^figure_roles: /m.test(rendered)) {
-    fails.push("(v) renderStep drops `figure` — a Brief re-read from its recorded form declares no figure at all, and kogaki#878 would have nothing to realize");
+    fails.push("(v) renderLeg drops `figure` — a Brief re-read from its recorded form declares no figure at all, and kogaki#878 would have nothing to realize");
   }
-  if (/figure/.test(renderStep(F("s1")))) {
-    fails.push("(v) renderStep writes a figure line for a Step that declares none — every Brief composed before §4.16 would change bytes");
+  if (/figure/.test(renderLeg(F("s1")))) {
+    fails.push("(v) renderLeg writes a figure line for a Leg that declares none — every Brief composed before §4.16 would change bytes");
   }
   // THE ROUND TRIP IS ONE GRAMMAR, asserted at both ends. A writer and a
   // reader disagreeing about a value fails silently at exactly the field
@@ -4409,7 +4409,7 @@ ranCase("v");
 // is the surface `src/disclosure-fields.json` grades decision-class evidence
 // to. That table is not extended here and the reason is asserted, not asserted
 // away: it grades CANDIDATE-level fields and reads `c[field]`, and `figure` is
-// a STEP field — an entry there would be permanently absent and its obligation
+// a LEG field — an entry there would be permanently absent and its obligation
 // permanently vacuous, which is the degrades-to-zero shape (u) already refuses.
 //
 // THE WARNING HAS NO TARGET AND REFUSES NOTHING (topics/articles.md 2026-08-01
@@ -4417,7 +4417,7 @@ ranCase("v");
 ranCase("w");
 {
   const G = (id, extra = {}) => ({
-    step_id: id, move: "m", materials: ["L1"], purpose: "p",
+    leg_id: id, move: "m", materials: ["L1"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
     rationale: "r", claims: [{ type: "strand", strand: "L1", proposition: "g" }],
     ...extra,
@@ -4429,21 +4429,21 @@ ranCase("w");
   // reading none are the same silence to a reader and different silences to a
   // check, and only the second lets a later run tell "no figure" from "nothing
   // composes the clause".
-  if (!/no Step carries a figure/.test(clause(0))) {
+  if (!/no Leg carries a figure/.test(clause(0))) {
     fails.push(`(w) a Candidate with no figure renders no explicit none: ${clause(0)}`);
   }
   // TWO: the count and WHICH, and NO warning.
   const two = clause(2);
-  if (!/2 Step\(s\) carry a figure/.test(two) || !/s1, s2/.test(two)) {
-    fails.push(`(w) the clause does not disclose the count and the Steps it names: ${two}`);
+  if (!/2 Leg\(s\) carry a figure/.test(two) || !/s1, s2/.test(two)) {
+    fails.push(`(w) the clause does not disclose the count and the Legs it names: ${two}`);
   }
   if (/second look/.test(two)) {
     fails.push(`(w) two figures warn — the soft warning is ABOVE three (acceptance 3): ${two}`);
   }
   // FOUR: warns.
   const four = clause(4);
-  if (!/4 Step\(s\) carry a figure/.test(four) || !/second look/.test(four)) {
-    fails.push(`(w) four figure-carrying Steps do not show the warning in the clause (acceptance 3): ${four}`);
+  if (!/4 Leg\(s\) carry a figure/.test(four) || !/second look/.test(four)) {
+    fails.push(`(w) four figure-carrying Legs do not show the warning in the clause (acceptance 3): ${four}`);
   }
   if (!/nothing here refuses it/.test(four)) {
     fails.push(`(w) the warning does not state that it refuses nothing — D11's warning has no target: ${four}`);
@@ -4452,23 +4452,23 @@ ranCase("w");
   // Candidate stays SELECTABLE above three: warning, never refusal.
   const four2 = clause(3 + 1);
   if (four2 !== four) fails.push("(w) figureClause is not a function of the path alone");
-  // ONE DERIVATION for the count and the set — `figureSteps` — so the label's
-  // number and the Steps it names cannot disagree.
+  // ONE DERIVATION for the count and the set — `figureLegs` — so the label's
+  // number and the Legs it names cannot disagree.
   const path = [G("s1", FIG), G("s2"), G("s3", FIG)];
-  if (figureSteps(path).map((s) => s.step_id).join(",") !== "s1,s3") {
-    fails.push("(w) figureSteps does not return the figure-carrying Steps in path order");
+  if (figureLegs(path).map((s) => s.leg_id).join(",") !== "s1,s3") {
+    fails.push("(w) figureLegs does not return the figure-carrying Legs in path order");
   }
 }
 
-// (y) THE AUTHORING CARRIER ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD THAT HAS
+// (y) THE AUTHORING CARRIER ENUMERATES EVERY §4.1 OPTIONAL LEG FIELD THAT HAS
 // ITS OWN SUBSECTION (kogaki#935; the carrier MOVED at kogaki#1108).
 //
-// THE CARRIER IS `src/step-schema.json`, NOT THE SKILL. Until kogaki#1108 the
-// one act that authored Steps was a sitting reading step 7 of
-// `.claude/skills/brief/SKILL.md`, and this case read that step. The skill is
-// one `!` line now; the act that authors Steps is the executor's `compose_path`
+// THE CARRIER IS `src/leg-schema.json`, NOT THE SKILL. Until kogaki#1108 the
+// one act that authored Legs was a sitting reading leg 7 of
+// `.claude/skills/brief/SKILL.md`, and this case read that leg. The skill is
+// one `!` line now; the act that authors Legs is the executor's `compose_path`
 // judgment state, and the text it puts in front of the composing Model is
-// `src/step-schema.json` rendered verbatim into the prompt. So the carrier this
+// `src/leg-schema.json` rendered verbatim into the prompt. So the carrier this
 // case reads moved with the act — the defect is unchanged (a field validated,
 // serialized and disclosed while nothing ever tells the composer to write it),
 // and what changed is which file is the one place the composer is told.
@@ -4476,11 +4476,11 @@ ranCase("w");
 // AND THE COMPARATOR GOT STRICTER BY MOVING, not weaker. The skill was prose,
 // so coverage was a word-bounded regex over a slice; the schema is a field
 // TABLE, so coverage is membership in `fields`, and a field named only in the
-// schema's own prose is NOT covered. That is the scoping the step-7 slice was
+// schema's own prose is NOT covered. That is the scoping the leg-7 slice was
 // approximating, now exact. §4.16 landed with no authoring carrier at
-// all: the field could be validated by `validateSteps`, resolved by
-// `resolveFigureForms`, serialized by `renderStep` and disclosed at the
-// Candidate gate while NEVER BEING AUTHORED by the one act that authors Steps,
+// all: the field could be validated by `validateLegs`, resolved by
+// `resolveFigureForms`, serialized by `renderLeg` and disclosed at the
+// Candidate gate while NEVER BEING AUTHORED by the one act that authors Legs,
 // and every check stayed green in that state because the default is none and
 // none is legitimate. §4.15's `opens_section` had the same gap, and case (n)
 // already records the shape for `introduces` — "the field simply stops being
@@ -4493,8 +4493,8 @@ ranCase("w");
 // fourth instance and filing it. A hard-coded list here would be a fifth copy of
 // the very enumeration that drifted.
 //
-// THE COMPARATOR IS SCOPED AND WORD-BOUND (PR #941 round 1). It reads step 7
-// of the skill — the one step that authors Steps — and not the whole file, so a
+// THE COMPARATOR IS SCOPED AND WORD-BOUND (PR #941 round 1). It reads leg 7
+// of the skill — the one leg that authors Legs — and not the whole file, so a
 // field named only in the revise-pass prose 140 lines below is NOT covered; and
 // it matches a field name at word boundaries, so `figure` is not covered by
 // `figure_roles` standing alone. Both are asserted below through the same
@@ -4511,21 +4511,21 @@ ranCase("w");
 ranCase("y");
 {
   const specPath = "specs/spec-draft-pipeline/SPEC.md";
-  const schemaPath = "src/step-schema.json";
+  const schemaPath = "src/leg-schema.json";
   let spec = "", schema = null;
   try { spec = readFileSync(specPath, "utf8"); } catch { fails.push(`(y) ${specPath} is unreadable — the field list cannot be derived, and an underivable list is not a pass`); }
   try { schema = JSON.parse(readFileSync(schemaPath, "utf8")); } catch (e) { fails.push(`(y) ${schemaPath} is unreadable or is not JSON (${e.message}) — the authoring carrier cannot be read, and an unreadable carrier is not a pass`); }
   if (spec && schema) {
     // §4.1 ONLY, AND THE SLICE IS THE CARRIER (kogaki#942, from PR #941 round 2).
     // The bullets are read from a heading-to-next-heading slice of §4.1, taken
-    // the way `step7Of` slices the skill and refused the same way when the
+    // the way `leg7Of` slices the skill and refused the same way when the
     // heading cannot be found. The form this replaces read EVERY line of the
     // spec: §9's open-trigger bullets are the same shape and already carry a
     // subsection pointer (`- **\`bridge-approval-shape\`** (§4.11)`), so a
     // wording that added `optional` to one of them entered it in the list and the
     // member went red saying "§4.1 declares `bridge-approval-shape` as an
-    // optional Step field" — a false statement about §4.1 diagnosing an
-    // unrelated §9 edit as step-7 drift.
+    // optional Leg field" — a false statement about §4.1 diagnosing an
+    // unrelated §9 edit as leg-7 drift.
     const section41Of = (specText) => {
       const m = /^### 4\.1 [\s\S]*?(?=^#{1,4} )/m.exec(specText);
       return m ? m[0] : null;
@@ -4549,7 +4549,7 @@ ranCase("y");
     // THE REQUIRED MARKER IS A THIRD SIGNAL, AND IT OVERRIDES BOTH TELLS
     // (kogaki#966, from PR #965 round 1). `looksOptional` admits a bullet on
     // EITHER tell, so a REQUIRED §4.1 bullet that gains a `§4.NN` cross-
-    // reference is named as one that "declares an optional Step field and the
+    // reference is named as one that "declares an optional Leg field and the
     // derivation did not match it" — a false statement about that bullet, and
     // structurally the §9 false red kogaki#942 removed. The form is already
     // live one line up (`- **\`move\`** — a binding to a Move library entry
@@ -4611,7 +4611,7 @@ ranCase("y");
       (optionalFields(specText) || []).filter((f) => !(keys || []).includes(f));
     // THE `fields` TABLE ONLY. A schema carrying no `fields` object is refused
     // rather than read whole, because "read the whole file" is exactly the
-    // weakening the step-7 slice existed to refuse and the reason this carrier
+    // weakening the leg-7 slice existed to refuse and the reason this carrier
     // is a table rather than prose.
     const schemaFieldKeys = (doc) => {
       const f = doc && doc.fields;
@@ -4624,22 +4624,22 @@ ranCase("y");
       fails.push(`(y) §4.1's heading was not found in ${specPath} — the optional-field list is read from a §4.1 slice, and an unlocatable section is not a pass`);
     }
     for (const line of unmatchedOptionalBullets(spec) || []) {
-      fails.push(`(y) a §4.1 bullet declares an optional Step field and the derivation did not match it: ${line.trim()} — a RETIRED bullet is a spec edit and may move the count, but a bullet that silently stops matching drops its field out of the coverage list with this member green`);
+      fails.push(`(y) a §4.1 bullet declares an optional Leg field and the derivation did not match it: ${line.trim()} — a RETIRED bullet is a spec edit and may move the count, but a bullet that silently stops matching drops its field out of the coverage list with this member green`);
     }
     const fieldKeys = schemaFieldKeys(schema);
     if (fieldKeys === null) fails.push(`(y) ${schemaPath} carries no \`fields\` object — the coverage test is scoped to the table the composer is shown, and an unlocatable table is not a pass`);
     for (const field of uncovered(spec, fieldKeys || [])) {
-      fails.push(`(y) §4.1 declares \`${field}\` as an optional Step field with its own subsection, and ${schemaPath} declares no such field — the field can be validated, serialized and disclosed while the text the composing Model is shown never mentions it, with every check green because the default is none (kogaki#935)`);
+      fails.push(`(y) §4.1 declares \`${field}\` as an optional Leg field with its own subsection, and ${schemaPath} declares no such field — the field can be validated, serialized and disclosed while the text the composing Model is shown never mentions it, with every check green because the default is none (kogaki#935)`);
     }
     // THE NEGATIVE DIRECTION, run through the SAME comparator. A test that only
     // ever looks for fields that are present cannot tell "all covered" from
     // "nothing derived" — one regex edit and it is vacuous forever.
-    const synth41 = (body) => `### 4.1 The Step\n${body}### 4.2 The next section\n`;
+    const synth41 = (body) => `### 4.1 The Leg\n${body}### 4.2 The next section\n`;
     const synthSpec = synth41("- **`frobnicate`** — optional; §4.99.\n");
-    if (uncovered(synthSpec, ["step_id", "claims"]).length !== 1) {
+    if (uncovered(synthSpec, ["leg_id", "claims"]).length !== 1) {
       fails.push("(y) a §4.1 optional field absent from the authoring carrier was NOT reported — the coverage test is vacuous");
     }
-    if (uncovered(synthSpec, ["step_id", "frobnicate"]).length !== 0) {
+    if (uncovered(synthSpec, ["leg_id", "frobnicate"]).length !== 0) {
       fails.push("(y) a field the carrier DOES declare was reported uncovered — the comparator refuses the covered case");
     }
     // EXACT, NOT PREFIX: a name that is a prefix of another name is not covered
@@ -4651,7 +4651,7 @@ ranCase("y");
     // SCOPED TO `fields`: a name occurring in the schema's own prose is not a
     // declared field, and a schema with no `fields` object is refused.
     const synthSchema = (field, note) => ({ note: [`prose mentioning ${note}`], fields: { [field]: { required: false } } });
-    if (uncovered(synthSpec, schemaFieldKeys(synthSchema("step_id", "frobnicate")) || []).length !== 1) {
+    if (uncovered(synthSpec, schemaFieldKeys(synthSchema("leg_id", "frobnicate")) || []).length !== 1) {
       fails.push("(y) a field named only in the schema's PROSE was reported covered — the scoping to the `fields` table is not applied, and prose is exactly the carrier kogaki#1108 moved away from");
     }
     if (uncovered(synthSpec, schemaFieldKeys(synthSchema("frobnicate", "nothing")) || []).length !== 0) {
@@ -4664,14 +4664,14 @@ ranCase("y");
     // `optional` and no subsection pointer, so it must not enter the list:
     // sweeping every bullet in would make the assertion pass or fail for
     // reasons that have nothing to do with the drift it names.
-    if (optionalFields(synth41("- **`purpose`** — what the Step does to the reader.\n")).length !== 0) {
+    if (optionalFields(synth41("- **`purpose`** — what the Leg does to the reader.\n")).length !== 0) {
       fails.push("(y) a REQUIRED §4.1 field entered the optional list — the derivation reads the bullet's form, not merely its backticks");
     }
     // SLICED, both directions. A matching bullet OUTSIDE §4.1 yields nothing —
     // this is the §9 false-red the whole-spec read produced — and one inside it
     // still yields its field.
-    if (optionalFields("### 4.1 The Step\n\n### 9. Open triggers\n- **`frobnicate`** — optional; §4.11.\n").length !== 0) {
-      fails.push("(y) a bullet OUTSIDE §4.1 entered the optional-field list — the derivation reads past §4.1's own section, so a §9 open-trigger bullet reworded to carry `optional` is reported as a §4.1 Step field");
+    if (optionalFields("### 4.1 The Leg\n\n### 9. Open triggers\n- **`frobnicate`** — optional; §4.11.\n").length !== 0) {
+      fails.push("(y) a bullet OUTSIDE §4.1 entered the optional-field list — the derivation reads past §4.1's own section, so a §9 open-trigger bullet reworded to carry `optional` is reported as a §4.1 Leg field");
     }
     if (optionalFields(synthSpec).length !== 1) {
       fails.push("(y) a bullet INSIDE §4.1 was not derived — the §4.1 slice does not reach its own bullets");
@@ -4688,7 +4688,7 @@ ranCase("y");
     if (unmatchedOptionalBullets(synthSpec).length !== 0) {
       fails.push("(y) a fully-matched §4.1 optional bullet was reported unmatched — the presence assertion refuses the covered case");
     }
-    if (unmatchedOptionalBullets(synth41("- **`purpose`** — what the Step does to the reader.\n")).length !== 0) {
+    if (unmatchedOptionalBullets(synth41("- **`purpose`** — what the Leg does to the reader.\n")).length !== 0) {
       fails.push("(y) a REQUIRED §4.1 bullet was named as an unmatched optional one — the presence assertion reads the bullet's form, not merely its bullet marker");
     }
     // THE ONE-TELL-PRESENT-ON-A-REQUIRED-BULLET DIRECTION (kogaki#966). The
@@ -5164,10 +5164,10 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "same run — with no sibling declaration a capture falls back to the registry (SPEC-gate-carrier \u00a74.1), so for this "
   + "`dynamic_options` gate a removed file leaves that member red while adoption is green. The two ask different "
   + "questions and neither is this member's to reconcile; \u00a75.3 v36 states why; "
-  + "(y) THE AUTHORING CARRIER ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD WITH ITS OWN SUBSECTION (kogaki#935; the carrier MOVED to `src/step-schema.json` at kogaki#1108, and the comparator got STRICTER by moving — the skill was prose, so coverage was a word-bounded regex over a step-7 slice; the schema is a field TABLE, so coverage is membership in `fields` and a name occurring only in the schema's own notes is NOT covered, which is the scoping the slice was approximating): §4.16 landed with no authoring carrier — the field was validated, resolved, serialized and disclosed at the gate while nothing ever told the composing party to write it, and every check stayed green because the default is none and none is legitimate. §4.15's `opens_section` had the same gap and case (n) records it for `introduces`, which is what makes three instances a carrier rather than an edit. The enumeration is DERIVED from §4.1's own bullets, never transcribed, so field N+1 is covered the day it is written there; the derivation refuses its own empty result, because a list that silently empties reports every field as covered. What it does NOT prove, stated rather than implied: that the skill says the RIGHT thing about a field — a mention is mechanically checkable and adequacy is not, so this refuses the silence and never grades the prose (§4.6). THE OPTIONAL-SHAPED PREDICATE READS A THIRD SIGNAL (kogaki#966): it admitted a bullet on EITHER tell, so a REQUIRED §4.1 bullet that gains a §4.NN cross-reference was named as one the derivation stopped matching — live one line up as `move`, which survives today only because its pointer is §7. The spec's own `**Required.**` marker overrides both tells, so a bullet the spec MARKS required is not optional-shaped while a bullet that merely LOST `optional` carries no marker and is still named. The marker is read ANCHORED AT THE END OF THE LINE (PR #968 round 1): matched anywhere it would exempt a CONDITIONALLY-required optional bullet, whose `**Required.**` is followed by the condition it holds under, and that bullet losing `optional` would then go unnamed — the kogaki#942 drop one shape in, minted by the narrowing built around it. An unconditional marker is the LAST thing the bullet says, which is what the anchor reads; requiring both tells instead was refused because it re-admits exactly the silent drop kogaki#942 finding 2 exists to refuse. The marker guards that predicate and NOT the name collector, deliberately: guarding both would let a live optional bullet leave the coverage list unobserved by gaining the marker, a fresh drop minted by the repair for the drop; (v)(w)(w1)(w2)(x) §4.16's FIGURE DECISION (kogaki#877, kogaki#934): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the claim addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's claim count — which is what makes a binding to ANOTHER Step\'s claim unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names. (w2) THE CLAUSE'S STEP IDS ARE ADMISSIBLE AND ONLY THEY ARE (kogaki#934): the label the clause writes is walked by the spec-internal-vocabulary tripwire, whose identifier pattern matches ANY snake_case token, so a figure on a Step whose id is snake_case made the gate return NO PAYLOAD AT ALL — every option refused because of one Step's name, and every fixture in (w) and (w1) uses `s1`/`f1`-style ids, which is exactly the id shape that cannot trip the wire. The repair is an admissible-override set computed from `figureSteps`, the clause's OWN selector, so the exempted tokens cannot drift from the rendered ones by being derived twice; it is asserted in BOTH directions and in BOTH scopings — the mandated caller assembles with the whole option set present and its id in the label, a genuine term of art in that SAME label still refuses, one Candidate's ids are NOT exempt in another Candidate's label, and no surface but the option label consults the override, because nothing here is exempt by spelling and everything by provenance; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
+  + "(y) THE AUTHORING CARRIER ENUMERATES EVERY §4.1 OPTIONAL LEG FIELD WITH ITS OWN SUBSECTION (kogaki#935; the carrier MOVED to `src/leg-schema.json` at kogaki#1108, and the comparator got STRICTER by moving — the skill was prose, so coverage was a word-bounded regex over a leg-7 slice; the schema is a field TABLE, so coverage is membership in `fields` and a name occurring only in the schema's own notes is NOT covered, which is the scoping the slice was approximating): §4.16 landed with no authoring carrier — the field was validated, resolved, serialized and disclosed at the gate while nothing ever told the composing party to write it, and every check stayed green because the default is none and none is legitimate. §4.15's `opens_section` had the same gap and case (n) records it for `introduces`, which is what makes three instances a carrier rather than an edit. The enumeration is DERIVED from §4.1's own bullets, never transcribed, so field N+1 is covered the day it is written there; the derivation refuses its own empty result, because a list that silently empties reports every field as covered. What it does NOT prove, stated rather than implied: that the skill says the RIGHT thing about a field — a mention is mechanically checkable and adequacy is not, so this refuses the silence and never grades the prose (§4.6). THE OPTIONAL-SHAPED PREDICATE READS A THIRD SIGNAL (kogaki#966): it admitted a bullet on EITHER tell, so a REQUIRED §4.1 bullet that gains a §4.NN cross-reference was named as one the derivation stopped matching — live one line up as `move`, which survives today only because its pointer is §7. The spec's own `**Required.**` marker overrides both tells, so a bullet the spec MARKS required is not optional-shaped while a bullet that merely LOST `optional` carries no marker and is still named. The marker is read ANCHORED AT THE END OF THE LINE (PR #968 round 1): matched anywhere it would exempt a CONDITIONALLY-required optional bullet, whose `**Required.**` is followed by the condition it holds under, and that bullet losing `optional` would then go unnamed — the kogaki#942 drop one shape in, minted by the narrowing built around it. An unconditional marker is the LAST thing the bullet says, which is what the anchor reads; requiring both tells instead was refused because it re-admits exactly the silent drop kogaki#942 finding 2 exists to refuse. The marker guards that predicate and NOT the name collector, deliberately: guarding both would let a live optional bullet leave the coverage list unobserved by gaining the marker, a fresh drop minted by the repair for the drop; (v)(w)(w1)(w2)(x) §4.16's FIGURE DECISION (kogaki#877, kogaki#934): `figure:` plus `figure_roles` is an OPTIONAL Leg field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderLeg` writes neither line for a Leg that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the claim addressing refuse at `validateLegs` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Leg's claim count — which is what makes a binding to ANOTHER Leg\'s claim unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Legs it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a LEG field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names. (w2) THE CLAUSE'S LEG IDS ARE ADMISSIBLE AND ONLY THEY ARE (kogaki#934): the label the clause writes is walked by the spec-internal-vocabulary tripwire, whose identifier pattern matches ANY snake_case token, so a figure on a Leg whose id is snake_case made the gate return NO PAYLOAD AT ALL — every option refused because of one Leg's name, and every fixture in (w) and (w1) uses `s1`/`f1`-style ids, which is exactly the id shape that cannot trip the wire. The repair is an admissible-override set computed from `figureLegs`, the clause's OWN selector, so the exempted tokens cannot drift from the rendered ones by being derived twice; it is asserted in BOTH directions and in BOTH scopings — the mandated caller assembles with the whole option set present and its id in the label, a genuine term of art in that SAME label still refuses, one Candidate's ids are NOT exempt in another Candidate's label, and no surface but the option label consults the override, because nothing here is exempt by spelling and everything by provenance; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Leg that develops its predecessor from opening, rule 4's LEG-COUNT clause refuses two consecutive one-Leg Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderLeg. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Leg exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Leg shape refused per missing field, the "
   + "closed §4.4 claim types, entailed-without-reasoning refused, depends_on earlier-only, "
-  + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
-  + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
+  + "a Move REQUIRED on every Leg (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_legs "
+  + "derived from the legs, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
   + "discharged_by, an undischarged entry rendering as UNDISCHARGED, the structure section rendering "
   + "under its RATIFIED name Reader Path while the \u00a75.1 record field stays `sequence` (kogaki#574), "
   + "and a filled Reader Path "
@@ -5189,8 +5189,8 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "has been repaired for twice, and the reason the repair rides the same diff. And NO "
   + "EVIDENCE OBJECT — the option carries its id, its label and the bounded rendering and nothing "
   + "else, which is what (e) now asserts rather than the retention it once did. THIS CLAUSE READ "
-  + "`and per-Candidate evidence carrying step validity, transition continuity, Thesis closure, the "
-  + "ledger's state and the placement count from each Candidate's OWN steps` — the exact shape "
+  + "`and per-Candidate evidence carrying leg validity, transition continuity, Thesis closure, the "
+  + "ledger's state and the placement count from each Candidate's OWN legs` — the exact shape "
   + "kogaki#859's amendment REMOVED, left standing in the same string literal whose (i) and (j) halves "
   + "were rewritten and beside the registry contract that was rewritten on precisely this ground. It is "
   + "the FOURTH surface of carried finding 1's own class and was found by PR #887 round 1, inside the "
@@ -5201,19 +5201,19 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "adopted Candidate's Reader Path lands in the Brief's sequence with thesis_closure and "
   + "tradeoffs filled from its reasoning, a declined Candidate lands nowhere, and an "
   + "unoffered Candidate refuses; (g) both assemble and adopt-candidate command paths are "
-  + "byte-equal to the exported functions, AND §4.12.3's gate driven THROUGH ITS REAL TWO-STEP FLOW (kogaki#893) — "
+  + "byte-equal to the exported functions, AND §4.12.3's gate driven THROUGH ITS REAL TWO-LEG FLOW (kogaki#893) — "
   + "`ratify-specialization` composing the run declaration over a record that has already passed and RENDERING every verdict's Move and judging sentence to the screen the owner reads, "
   + "then `--capture` admitting an answer against THAT declaration: the declining answer is recorded and refuses NAMING itself while writing nothing, and the affirmative one appended after it adopts, "
   + "since the last row is the answer that governs and an owner may change their mind. Hand-writing a capture file here would have tested validateRatification twice and the executor never; "
-  + "(k) THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747) at adoption, the "
+  + "(k) THE LEG↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747) at adoption, the "
   + "one write that lands a sequence in an existing Brief — MECHANICALLY, a move id resolving to no "
-  + "Move library record refuses NAMING the Step and the id and writes nothing, an unreadable library "
+  + "Move library record refuses NAMING the Leg and the id and writes nothing, an unreadable library "
   + "refuses as a STORE fault rather than blaming the composition, and a readable directory holding no "
   + "records is not a library; AS JUDGMENT, the specialization record is REQUIRED (its absence refuses at "
-  + "the act, which is the same assertion that proves no verdict is composed here), one verdict per Step "
-  + "exactly in both directions, bound to the adopted Candidate AND to the Move each Step binds, its "
+  + "the act, which is the same assertion that proves no verdict is composed here), one verdict per Leg "
+  + "exactly in both directions, bound to the adopted Candidate AND to the Move each Leg binds, its "
   + "vocabulary READ FROM src/specialization-schema.json rather than restated, every non-passing value "
-  + "refusing with the Step named and the judging sitting's own sentence QUOTED, and the refusal "
+  + "refusing with the Leg named and the judging sitting's own sentence QUOTED, and the refusal "
   + "deterministic in path order. Whether a specialization HOLDS is judged by the composing sitting and "
   + "never here: this member asserts the record's shape, its binding and the refusal, and composes no "
   + "verdict of its own — §4.6 clause 3 stands. "
@@ -5221,7 +5221,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "a non-passing record refuses on its VERDICT even when the owner has ratified, because the refusing arms sit ABOVE the gate and are unchanged by it; "
   + "(s) §4.12.3 THE OWNER RATIFICATION GATE (kogaki#893) — the case opens on THE ISSUE'S OWN TEST, a shape-valid JUDGMENT-FREE all-`consistent` record, asserted first to pass every §4.12 clause "
   + "so that its refusal is about the gate and not about its shape, then refused at adoption. Before this head it adopted with no refusal: the right act with the guard silently disabled. "
-  + "The refusal is DISCRIMINATED — it must say the record PASSES, name the gate and name the input, or a sitting is sent to repair verdicts that are correct — and it carries the digest and one rendering row per Step, "
+  + "The refusal is DISCRIMINATED — it must say the record PASSES, name the gate and name the input, or a sitting is sent to repair verdicts that are correct — and it carries the digest and one rendering row per Leg, "
   + "because `ratify-specialization --declare` reaches that same branch to compose the gate and a refusal that dropped them would leave the executor recomputing what passed. "
   + "The gate is DECLARED in src/gate-registry.json with both options and a first-class premise negation: every option is generated on the premise that the `consistent` verdicts hold, which is EXACTLY what is being asked about. "
   + "Then every axis by which a capture could certify something it did not judge — a medium other than the question UI, a missing tool_use_id, a free-text answer (a write unlocked by arbitrary prose is unlocked by anything), "
@@ -5231,13 +5231,13 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "NOTHING HERE JUDGES A SPECIALIZATION, reads a Move's requires/effect, or compares anything to anything: the record is carried to the owner as GATE EVIDENCE, which is what §7.5 already says happens to requires/effect matching, "
   + "and the owner approves a result, where §4.6 clause 2 already sites the human gate. The declined arm of the issue's acceptance item 1 — a string-match anchor over the Move contract — is the one that owed those sections an amendment; "
   + "(m) §4.13 THE READER-KNOWLEDGE LEDGER and §4.13.1's exemplar predicate "
-  + "(kogaki#751) — `introduces` is OPTIONAL (asserted first: every Step composed before it carries none), "
+  + "(kogaki#751) — `introduces` is OPTIONAL (asserted first: every Leg composed before it carries none), "
   + "its entry grammar takes a bare term or `term — anchor` with an anchor free to contain commas (which is "
   + "why serialization is one LINE per entry and could not be a joined field), and six malformed shapes each "
-  + "refuse NAMING the Step; the ledger DERIVES reader_already_knows as the union of Steps 1..N-1 with the "
-  + "snapshot taken before a Step's own entries, carrying each term's anchor and its introducing Step, and a "
+  + "refuse NAMING the Leg; the ledger DERIVES reader_already_knows as the union of Legs 1..N-1 with the "
+  + "snapshot taken before a Leg's own entries, carrying each term's anchor and its introducing Leg, and a "
   + "path introducing nothing renders an EMPTY ledger rather than an error; responsibility traces to the FIRST "
-  + "Step declaring a term and to the BRIEF (null) when none does, a re-declaration moving nothing; the "
+  + "Leg declaring a term and to the BRIEF (null) when none does, a re-declaration moving nothing; the "
   + "render/parse round trip is asserted at both ends. §4.13.1 (as amended 2026-09-02 — the field is `excerpt` and holds the author's account of the reader movement, never a verbatim quotation): a record carrying an account is an exemplar, the retired `Excerpt:` marker is read as plain text and confers nothing, an EMPTY excerpt is the one absence and is reported as such rather than as a short exemplar, the Packet's block STATES the absence naming the Move and the repairing act while SUBSTITUTING nothing, and a `sources` field surviving in any library record FAILS this member by name. Accumulation is computed and never stored. The "
   + "library's own exemplar count is DISCLOSED and never asserted — a count that failed when it moved would go "
   + "red exactly when the re-extraction is performed; (n) THE REMOVAL TEST — A HOOK-DRIVEN BRIEF RUN REACHES A FILLED BRIEF "
@@ -5285,13 +5285,13 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "never takes it, so an uncleaned member would re-create the unbounded accumulation it "
   + "asserts is over. (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
   + "material is a distinct material, its placement DERIVED from "
-  + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
+  + "the composed legs, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "
   + "NAME as unsupported completion, a Journey outside the closed set refused as a Brief fetch, "
   + "and the no-Journey case vacuous rather than violated. THE COUNT MOVED FIELD AT kogaki#1131, "
-  + "REVERSING kogaki#1111: it is taken from the Step's `journeys` entries and no longer from a "
+  + "REVERSING kogaki#1111: it is taken from the Leg's `journeys` entries and no longer from a "
   + "`<L-id>.journey` token in `materials`. #1111 declared `journeys`, had `journeysRefusal` validate "
-  + "it and `renderStep` render it, and left the count on the token — two readers of one fact, which "
+  + "it and `renderLeg` render it, and left the count on the token — two readers of one fact, which "
   + "disagreed on the first Brief written to `done`: four `journey:` lines rendered and all five Strands "
   + "disclosed as OMITTED in the same document, a FALSE disclosure handed to /draft as a settled input. "
   + "The fixtures place through `journeys` naming the Strand BARE, which is the shape that read as "
@@ -5303,7 +5303,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "string and a counter returning the size of its own key set would pass; the defect was `0 of 5`. A "
   + "second journey cite is inserted into the minted document and PROVED to have landed before anything "
   + "is asserted over it, then a Candidate placing both renders 2 of 2 with no OMITTED line and per-Strand "
-  + "placed-by lines naming the right Steps, a Candidate placing neither renders 0 of 2 with both disclosed, "
+  + "placed-by lines naming the right Legs, a Candidate placing neither renders 0 of 2 with both disclosed, "
   + "and the THIRD rendering — `journey_coverage` at the Candidate gate — agrees with both and DIFFERS "
   + "between the two, which is the differentiation property that figure exists to carry and which was flat "
   + "across every Candidate of the Brief this was filed on. NOT COVERED, stated rather than implied: whether "
@@ -5345,7 +5345,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "KOGAKI#1121'S ONE, against case (ac), and it is the PRE-REPAIR CODE RESTORED VERBATIM rather than an invented break — the thesis gate's provenance sentence reading `set.ids` and `set.survey`, the two fields kogaki#1116's rename removed. It fails (ac) THREE TIMES IN ONE RUN, once per address not named and once on the rendered `undefined`, which is the direct evidence that the both-directions binding is doing work: the sentence still read correctly from `set.via`, so a case asserting only that the provenance line exists, or only that it mentions the entry route, would have been green against the exact bytes the owner was shown on 2026-09-15. The trial is cheap to re-run and worth naming as such: the mutant is in the repository's history, not in this paragraph's imagination. "
   + "KOGAKI#972'S TWO, the first trials this paragraph has recorded against the COUNT ITSELF rather than against a case's assertions. Deleting `ranCase(\"z\")` while leaving case (z)'s body intact fails (floor) at 34 against a declared 35, naming cases LOST — and the same edit under the `const CASE_COUNT = 28` this replaces went GREEN, which is the whole of kogaki#972: a case removed from the file moved no number, because no number was reading the file. Changing `ranCase(\"l-bridge\")` to `ranCase(\"l-reader-fields\")`, so two cases share one registration id, fails (count) BY NAME on the duplicate and (floor) beside it at 34 — the pairing is the point, since a collapse reported only as a count one lower would send a reader looking for a deleted case that is still there. THE TRIALS ARE THE INSTRUMENT'S, NOT A CASE'S, and that is why they are counted here: what they break is the arithmetic every other case's deletion would be read through. "
   + "KOGAKI#942'S FIVE, all against case (y) again, and all five are about the DERIVATION rather than the comparator kogaki#935's three attacked — which is the split the issue found: the skill side was scoped at PR #941 round 1 and the spec side was not. "
-  + "Returning the whole spec from the section reader, rather than a §4.1 heading-to-next-heading slice, is the load-bearing one: it fails (y) by NAMING §9's own bullets, which is the false red the finding predicted arriving as evidence rather than as argument — a §9 open-trigger bullet reported as a §4.1 optional Step field. "
+  + "Returning the whole spec from the section reader, rather than a §4.1 heading-to-next-heading slice, is the load-bearing one: it fails (y) by NAMING §9's own bullets, which is the false red the finding predicted arriving as evidence rather than as argument — a §9 open-trigger bullet reported as a §4.1 optional Leg field. "
   + "Returning the empty string instead of null for an unfound §4.1 fails (y)'s refusal assertion, the direct evidence that an unlocatable section is refused rather than read as an empty field list — an empty list reports every field covered, which is the vacuity the whole case exists to refuse. "
   + "Forcing the optional-shaped predicate false fails (y)'s per-bullet presence assertion, and dropping the `optional` guard from the name collector fails the same one from the other side: the two predicates over a bullet are kept apart precisely so a bullet the derivation stopped matching can be named, and each mutation disarms one of them. "
   + "Rewording §4.1's live `opens_section` bullet so it stops matching fails (y) BY NAME against the real spec, which is kogaki#942's second finding exactly — under the retired length floor of 4 the derivation dropped from five names to four, cleared the floor, and reported the field covered in silence. "
@@ -5357,7 +5357,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "Unanchoring the marker — the round-1 form restored verbatim — fails (y)'s conditional-marker assertion and nothing else, which is the direct evidence that the end-of-line anchor is what separates an unconditional marker from a condition's antecedent, and not an incidental property of the fixture. NO SUCH BULLET IS LIVE in §4.1 today, so this is asserted against a synthetic shape rather than demonstrated by the real spec, stated rather than implied. "
   + "Control: unmutated, the member exits 0. AND A SECOND, MUTATED CONTROL, counted as a control rather than as a trial because its passing condition is silence: RETIRING §4.1's `bridges` bullet outright produces zero findings, which is the direct evidence that the presence assertion did not buy the false red a floor at the derived count would have — a bullet that disappears is a spec edit and may move the count, a bullet that silently stops matching may not. "
   + "KOGAKI#935'S THREE, all against case (y), and all three are about the case being ABLE TO FAIL rather than about the repair — which is the point: the defect (y) names is a check that stayed green while a field went unauthored, so a vacuous (y) would reproduce it one layer up. "
-  + "Restoring the pre-#935 authoring skill is the load-bearing one: it fails (y) four times over, once each for `bridges`, `opens_section`, `figure` and `figure_roles` (`bridges` joined at PR #941 round 1, when the comparator was scoped to step 7 and the field's only mention was the revise-pass prose below it), which is the direct evidence that the case reads the real carrier and not a fixture. "
+  + "Restoring the pre-#935 authoring skill is the load-bearing one: it fails (y) four times over, once each for `bridges`, `opens_section`, `figure` and `figure_roles` (`bridges` joined at PR #941 round 1, when the comparator was scoped to leg 7 and the field's only mention was the revise-pass prose below it), which is the direct evidence that the case reads the real carrier and not a fixture. "
   + "Neutering the comparator to report every field covered fails (y)'s synthetic-absent assertion and nothing else — the direct evidence that the negative direction runs through the SAME comparator the positive one does, since a restated negative would have passed this. "
   + "Sweeping every backticked §4.1 bullet into the list, rather than only the bullets carrying `optional` and a subsection pointer, fails (y)'s required-field assertion AND six of its coverage assertions, which shows the derivation reads the bullet's FORM and is not a grep for backticks. "
   + "Control: unmutated, the member exits 0, so the refusals discriminate rather than refusing everything. "
@@ -5396,10 +5396,10 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "RETENTION in three new places, then under the amendment asserts its ABSENCE. A reader who cannot see "
   + "that the direction changed twice cannot tell a considered inversion from a mistake, and the second "
   + "change was made only because a review round read the issue's comments and this head had not. "
-  + "kogaki#642's one, against the requirement that a Move is a Step's State component: restoring the optional test in "
-  + "validateSteps — the v17 shape, `move` checked only when present — fails (a)'s a-step-without-a-Move assertion. The "
+  + "kogaki#642's one, against the requirement that a Move is a Leg's State component: restoring the optional test in "
+  + "validateLegs — the v17 shape, `move` checked only when present — fails (a)'s a-leg-without-a-Move assertion. The "
   + "assertion it fails is the INVERSION of the one that stood here, not a new sibling beside it: v17's (a) asserted that a "
-  + "Move-less Step is ACCEPTED, so leaving it would have contradicted the amendment and deleting it would have left the "
+  + "Move-less Leg is ACCEPTED, so leaving it would have contradicted the amendment and deleting it would have left the "
   + "new requirement with no exercised trial. Recorded because an inverted assertion and a deleted one read identically at "
   + "a later head; and the re-derivation is written HERE, in the file, which is the correction the two preceding heads' "
   + "drift already earned. "
@@ -5459,7 +5459,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "restating it \u2014 off a paragraph instead of a pair; the label-distinctness test is re-pointed as one "
   + "paragraph per plain question, because two items collapsing into one is a loss the count alone would miss. "
   + "kogaki#859 RE-POINTS THAT RE-POINTING, and one of its moves is a NARROWING stated rather than hidden. "
-  + "(j)'s two tripwire cases injected their leak into `reasoning.thesis_closure` and `reasoning.step_validity`, "
+  + "(j)'s two tripwire cases injected their leak into `reasoning.thesis_closure` and `reasoning.leg_validity`, "
   + "which reached the owner only by way of the rendering; with the rendering empty that injection reaches no "
   + "owner surface, so both cases would have gone RED against correct code. The property is live and the PROXY "
   + "died, so the leak is now injected into the option label, which is the owner surface that remains \u2014 and "
@@ -5496,8 +5496,8 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "identically. Then the earlier "
   + "mutations, each "
   + "run once and restored surgically — story 1.73's three: dropping the rationale "
-  + "requirement from validateSteps failed (a)'s field refusal; counting placements from the "
-  + "DECLARED coverage instead of the steps failed (c)'s 1-of-2 assertion; dropping the "
+  + "requirement from validateLegs failed (a)'s field refusal; counting placements from the "
+  + "DECLARED coverage instead of the legs failed (c)'s 1-of-2 assertion; dropping the "
   + "UNPLACED disclosure branch failed (c)'s disclosure assertion. Story 1.75's three: "
   + "dropping the 2-3 count guard failed (e)'s single-Candidate refusal; dropping the "
   + "negation option failed (e)'s negates_premise assertion; skipping the thesis_closure "
@@ -5506,7 +5506,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "the declined \"placing the Strand places its Journey\" option — failed (h)'s 0-of-1 "
   + "assertion, which is the direct evidence that option would have made MUST 1 "
   + "unfalsifiable; dropping the carries-none refusal failed (h)'s unsupported-completion "
-  + "case; and computing journey coverage from something other than THIS Candidate's steps "
+  + "case; and computing journey coverage from something other than THIS Candidate's legs "
   + "failed (i). THE FIRST OF THOSE FOUR WAS RE-RUN AT kogaki#1131 against the moved counter, "
   + "because its wording named the field the count no longer reads and a mutation record that "
   + "describes retired code is not evidence about the head: counting a bare `materials` L-id "
