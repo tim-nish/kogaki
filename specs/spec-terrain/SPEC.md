@@ -1162,28 +1162,11 @@ refusals, unchanged and not duplicated, and every decision stays in the executor
 judgment performed by whatever model happened to be driving is not reproducible,
 and the run record could not say what judged it.
 
-**A refused response is RE-ASKED, up to the count the STATE declares.** `retries`
-is a per-state field, required of exactly the judgment states, because the states
-differ in how much a re-ask can plausibly repair. When they are spent the run
-FAILS, carrying the state's own refusal text — so an operator reads why the
-record was rejected rather than that the judge failed. **The count reported in
-that failure is the attempts MADE, never the attempts licensed**: a message
+**A refused response is RE-ASKED, up to the count the STATE declares** — with
+one exception, §15.6.10's timeout. When the retries are spent the STATE stops
+and asks (§15.6.10); it no longer fails the run outright. **The count carried
+in that stop is the attempts MADE, never the attempts licensed**: a message
 composed from the bound would say a call had been retried when it had not.
-
-**Two spans, and each completes in one hook event.** After the tag answer:
-`compose_input`, `J1_claims`, `J2_subdivision`, the `cotag_groups` write, and the
-`ID_SELECTION` declaration. After the ID answer: `thesis_candidates`,
-`neighborhood_input`, `J3_neighborhood`, and the `full_report` write — which is
-where the second span now ENDS, §15.6.8 having deleted the `STRAND_SELECTION`
-declaration that used to close it. **No state of either span leaves the hook chain**,
-which is what makes "the co-tag file is complete before the ID question" a
-property of the table rather than a hope about ordering.
-
-**The judged records travel on the RUN RECORD, not on argv.** `J1_claims` and
-`J2_subdivision` validated them, so the writing states read back what those
-states wrote — the rule §12 already states for the neighborhood judgment,
-applied to the states beside it. Before this, a hook-driven run reached
-`cotag_groups` holding judgments it had just made invisible to itself.
 
 **The judgment provenance state `observed` now has a producer** (§13's split
 between what the Harness OBSERVED and what a record DECLARES). The invocation
@@ -1291,6 +1274,77 @@ exactly the evidence a state with a responsibility could not have offered.
 `necessity:` a state deleted for having no responsibility must have that absence
 written down, or the next reader of the entry-point accounting that produced it
 re-adds it for the same reason.
+
+### 15.6.9 `J1_claims` IS DELETED, AND ITS COST FOLDS INTO `J2_subdivision`
+
+**The concrete event that licensed this** (kogaki#1172, owner ruling
+2026-09-20, on the `method` tag: 138 Lessons, 14 co-tag groups, 274 KB composed
+input): "approve, file issue." On the design fork: "Fold into the per-group
+call — `J1_claims` is deleted; the per-group `J2_subdivision` call returns the
+group's claim and its SubGroups in one record."
+
+**`J1_claims` was the one judgment point still asked over the WHOLE composed
+input.** Every other judgment point is per-group or per-candidate; `J1_claims`'s
+cost grew with the TAG the owner picked — from 3 to 138 Lessons — and no
+`per_group` bound ever covered it. On the `method` tag its single call measured
+107s, over the 90s per-call bound `src/terrain-workflow.json`'s `judge` block
+declares, on all three licensed attempts.
+
+**`J2_subdivision` now returns the GroupClaim beside the SubGroups, in the SAME
+per-group call.** Its `record_example` carries a `claim` field beside `subgroups`
+in every per-group entry; `src/terrain.mjs` derives the legacy
+`{composition_pin, claims}` shape `cotags` and `report` already render from that
+per-group record — the pin comes from `compose_input`'s own artifact, which the
+executor already holds, rather than from a second judge call. No owner surface
+changes: a group's claim renders exactly where it always has.
+
+**Two spans, and each completes in one hook event.** After the tag answer:
+`compose_input`, `J2_subdivision`, the `cotag_groups` write, and the
+`ID_SELECTION` declaration. After the ID answer: `thesis_candidates`,
+`neighborhood_input`, `J3_neighborhood`, and the `full_report` write — which is
+where the second span now ENDS, §15.6.8 having deleted the `STRAND_SELECTION`
+declaration that used to close it. **No state of either span leaves the hook chain**,
+which is what makes "the co-tag file is complete before the ID question" a
+property of the table rather than a hope about ordering.
+
+**The judged records travel on the RUN RECORD, not on argv.** `J2_subdivision`
+validated it, so the writing states read back what that state wrote — the rule
+§12 already states for the neighborhood judgment, applied to the state beside
+it. Before this, a hook-driven run reached `cotag_groups` holding a judgment it
+had just made invisible to itself.
+
+### 15.6.10 A JUDGMENT WHOSE BOUND IS SPENT STOPS AND ASKS, RATHER THAN FAILING THE RUN
+
+**The concrete event that licensed this** (kogaki#1172, same 2026-09-20
+sitting). On the design fork: "Render a retry question — the failure renders a
+question (retry / abandon); the owner's click re-fires the advance through the
+existing hook."
+
+**A timeout is not re-asked.** `judgeAttempts` fails the attempt loop on the
+FIRST occurrence of the judge's child process exceeding the table's declared
+`timeout_s`, rather than looping to the state's declared `retries`: a re-ask
+changes nothing about a call's wall-clock cost, so re-asking spends the bound on
+a fact a re-ask cannot repair. The run record's attempt count is `1` on a
+timeout, never the licensed bound.
+
+**A judgment state that exhausts its bound — by timeout or by repeated
+refusal — raises `terrain-judgment-retry` (`src/gate-registry.json`) rather than
+failing the run.** The gate offers exactly two options: `retry`, which
+re-fires the advance into the SAME state (it is not marked complete, so the
+ordinary table loop re-enters it — any per-group record already validated on
+disk from before the exhaustion is reused rather than re-asked, on the same
+per-group reuse rule kogaki#1073 gave a killed advance), and `abandon`, which
+clears the open-run pointer and marks the run `done` without writing any
+further owner artifact. The `judgment_refusals` run-record entry this state
+already wrote carries the raised gate's id beside the refusal text.
+
+**This replaces a dead advance with a recoverable one.** Before this, a spent
+bound called `fail()` — the process exited, the advance's own hook relayed the
+stderr text, and no gate was outstanding: the run was open with nothing that
+could resume it, which was the concrete event this issue was filed from. The
+gate this raises is answered exactly like any other Terrain gate — through
+`.claude/hooks/write-gate-capture.py` and `.claude/hooks/advance-terrain.py` —
+so no new relay machinery is owed to either hook.
 
 ### 15.7 `self-test` and `validate` are NON-FLOW utilities
 

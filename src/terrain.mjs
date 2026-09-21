@@ -2222,6 +2222,13 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 // consulted: product-lab@0f31c3bebdd65a126dd5c2928b86c2a212bba5c2 LESSONS.md:44
 export const GATE_CALL_SUFFIX = ".gate-call.json";
 
+// THE JUDGMENT-RETRY GATE'S ID (kogaki#1172 item 3), registered in
+// `src/gate-registry.json`. It is raised from the state loop rather than from
+// a `wait` state's own option composer, because it can be raised at ANY
+// judgment state, naming itself in `extra.judgment_state`, so there is no one
+// table row to bind an option composer to.
+export const JUDGMENT_RETRY_GATE_ID = "terrain-judgment-retry";
+
 // The harness's own bound on an AskUserQuestion payload. Read from its schema,
 // restated here because there is no module to import it from across the seam --
 // the same two-implementations-of-one-constant trade `option_set_digest` makes,
@@ -2245,7 +2252,15 @@ const ASK_MAX_OPTIONS = 4;
 // settled in ANOTHER run, and where that set came from was recorded on the run
 // record and read by nothing. A provenance the owner cannot see is a provenance
 // that cannot be checked at the one moment it matters.
-const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance"];
+// `judgment_refusal` JOINS THIS LIST FOR terrain-judgment-retry (kogaki#1172).
+// The gate's own `dynamic_options` note says the reading varies per raising
+// and rides in `extra` rather than in the options — this is the mechanism
+// that note refers to: `emitGateDeclaration`'s `extra` is spread onto the
+// declaration, and this list is what promotes a declaration field into the
+// text rendered above the question. Without this entry the exhausted
+// judgment's own refusal text — the one property that tells an operator WHICH
+// judgment failed and why — never left the run record.
+const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal"];
 
 // THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
 // rather than written here: the number has a measured ground, the ground is
@@ -4265,13 +4280,32 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
         // CALL and the other bounds an ADVANCE.
         timeoutMs: cfg.timeoutMs,
       });
+      // A TIMEOUT IS NOT RE-ASKED (kogaki#1172 item 2). Every other refusal in
+      // this window is fed back to the judge on the next attempt because the
+      // NEXT ask is a different ask -- it carries the refusal text and asks the
+      // judge to repair exactly it. A timeout repairs nothing by being re-asked:
+      // the same prompt over the same input takes the same wall-clock time, so a
+      // re-ask spends the retry bound on a fact a re-ask cannot change, which is
+      // what the `method` tag's three exhausted 107s attempts (2026-09-20) spent
+      // 270s doing. So this is decided BEFORE the soft window, on the same
+      // exception `r.error` already gets one arm down, and it returns rather
+      // than looping: `attempts` stays at what this call actually made (1, on
+      // the first occurrence), and the caller's exhaustion message is built
+      // from the return value exactly as it is on a bound genuinely spent.
+      if (raw.error && raw.error.code === "ETIMEDOUT") {
+        const msg = `${st.id}${at}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
+          + "`judge` block declares. This attempt is NOT re-asked (kogaki#1172): a timeout is not repaired by "
+          + "asking the same question again, so the bound is not spent re-running a call that will time out the "
+          + "same way. The bound exists so that several calls in one span cannot exhaust the PostToolUse advance's "
+          + "own timeout and leave a half-finished record (kogaki#1030).";
+        refusals.push(msg);
+        return { ok: false, out, attempts, refusals, lastRefusal: msg };
+      }
       const res = softRefusals(() => {
         const r = raw;
-        if (r.error && r.error.code === "ETIMEDOUT") {
-          fail(`${st.id}${at}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
-            + "`judge` block declares. The bound exists so that several calls in one span cannot exhaust the "
-            + "PostToolUse advance's own timeout and leave a half-finished record (kogaki#1030).");
-        }
+        // ETIMEDOUT IS HANDLED ABOVE, before this window opens (kogaki#1172):
+        // reaching here means `r.error` is either absent or some other spawn
+        // fault, never a timeout.
         if (r.error) {
           // OUTSIDE THE RETRY, by the exception above: re-thrown past the window
           // so a spawn failure exits on the first occurrence.
@@ -4433,9 +4467,13 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
       refusals: r.refusals, repaired: false,
     };
   }
-  fail(`${st.id}: the judge's record was refused on all ${r.attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
+  // A SPENT BOUND STOPS THE STATE, NOT THE RUN (kogaki#1172 item 3). This used
+  // to be `fail()`, which exits the process; the state loop now catches this
+  // instead and raises `terrain-judgment-retry` in its place, leaving the run
+  // open rather than dead.
+  throw new JudgmentExhausted(st.id,
+    `${st.id}: the judge's record was refused on all ${r.attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
     + `the workflow table declares for this state). The last refusal, verbatim: ${r.lastRefusal}`);
-  return null;
 }
 
 // THE COMPOSED INPUT, NARROWED TO ONE GROUP (kogaki#1062). The whole point of
@@ -4632,7 +4670,13 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
           refusals: allRefusals, repaired: false, groups: perGroup, judged_before: [...judged],
         };
       }
-      fail(`${st.id}: the judge's record for group ${JSON.stringify(name)} was refused on all ${r.attempts} `
+      // A SPENT BOUND STOPS THE STATE, NOT THE RUN (kogaki#1172 item 3), on the
+      // same ground the whole-input arm above takes: the groups already judged
+      // are validated records on disk, and the reuse logic at the top of this
+      // function picks them back up on the retry the owner's click re-fires,
+      // so the state re-enters costing only the groups that had not judged yet.
+      throw new JudgmentExhausted(st.id,
+        `${st.id}: the judge's record for group ${JSON.stringify(name)} was refused on all ${r.attempts} `
         + `attempt(s) (${retries} re-ask(s) licensed, the count the workflow table declares for this state). `
         + `${judged.length} of ${groups.length} group(s) were judged before it`
         + `${judged.length ? `: ${judged.join(", ")}` : ""}. The last refusal, verbatim: ${r.lastRefusal}`);
@@ -7422,6 +7466,31 @@ export class JudgmentRefusal extends Error {}
 // consulted: coding::lesson/a-bounded-process-needs-one-exit-that-does-not-reproduce-it@206c657ee8da71ffbb1f4e41bf673d60401aaf49b87508be5b996058a5b8ea82
 export class TerminalJudgmentRefusal extends Error {}
 
+// A JUDGMENT STATE'S BOUND, SPENT (kogaki#1172, item 3 — owner ruling
+// 2026-09-20: "a judgment that fails inside an advance renders a retry
+// question"). Before this, a judgment state that exhausted its declared
+// `retries` called `fail()` — `process.exit(1)` — which ends the RUN, not just
+// the state: the advance stopped with no gate outstanding and no run
+// declaration written, so the owner had a stderr line and no way to make the
+// hook re-enter the run. `terrain-judgment-retry` is the recovery: the state
+// loop catches this instead of letting the process exit, writes that gate's
+// declaration, and stops exactly as a `wait` state stops — the failed
+// judgment state is NOT marked complete, so the owner's "retry" click re-fires
+// the advance into the SAME state through the ordinary table loop, and
+// "abandon" clears the open-run pointer instead.
+//
+// THROWN, NEVER PASSED AS A RETURN VALUE, on the same ground `JudgmentRefusal`
+// is: the throw site is deep inside `invokeJudge`/`invokeJudgePerGroup`, many
+// frames below the state loop that must catch it, and a return value would
+// have to be threaded and checked at every frame between them rather than
+// caught once where it is handled.
+export class JudgmentExhausted extends Error {
+  constructor(stateId, message) {
+    super(message);
+    this.stateId = stateId;
+  }
+}
+
 // The one converter, so the two readers of a throwing validator cannot drift in
 // WHEN they exit — the reason `emitOrRefuse` exists for the format guard.
 function orFail(fn) {
@@ -8419,10 +8488,17 @@ function needCompositionInput(rec, st) {
 // run already held.
 //
 // AN EXPLICIT FLAG STILL WINS, for the fixture and second-repository paths.
+//
+// `claims` NO LONGER JOINS FROM `rec.judgments` (kogaki#1172). There is no
+// `J1_claims` judgment any more, and `J2_subdivision`'s own judgments entry is
+// its per-group subdivision record, not the `{composition_pin, claims}` shape
+// this join has always supplied. `rec.claims_derived` is the executor's own
+// re-shaping of that per-group record's `claim` fields, written beside it —
+// see `J2_subdivision`'s own state work.
 function judgmentJoins(rec, args) {
   const j = (rec && rec.judgments) || {};
   const join = {};
-  if (j.J1_claims && args.claims === undefined) join.claims = resolve(REPO, j.J1_claims);
+  if (rec && rec.claims_derived && args.claims === undefined) join.claims = resolve(REPO, rec.claims_derived);
   if (j.J2_subdivision && args.subdivisions === undefined) join.subdivisions = resolve(REPO, j.J2_subdivision);
   return join;
 }
@@ -8494,33 +8570,27 @@ const STATE_WORK = {
   // WHAT kogaki#1030 CHANGES IS WHO PRODUCES THE RECORD, and nothing else. The
   // typed record used to arrive only as a file on argv, and with `--input`,
   // `--at` and `--enter` deleted (kogaki#1027) nothing in a hook-driven run
-  // could put one there — so a run reached `J1_claims` and stopped at a refusal
-  // asking for a flag no route could supply. The executor now ASKS THE PINNED
-  // MODEL for the record itself, writes it, and runs these same refusals over
-  // it; an explicit flag still wins and is unchanged.
+  // could put one there — so a run reached the whole-input claims judgment and
+  // stopped at a refusal asking for a flag no route could supply. The executor
+  // now ASKS THE PINNED MODEL for the record itself, writes it, and runs these
+  // same refusals over it; an explicit flag still wins and is unchanged.
   //
   // THE VALIDATION BODY IS THE SAME FUNCTION ON BOTH PATHS, which is why it is
   // written once as `validate` and handed to `judgedRecordPath`. Two copies —
   // one for the owner's record, one for the judge's — is two readings of one
-  // rule, and it is the shape the two states below this one already refuse.
-  J1_claims: async (rec, st, args, table) => {
-    const survey = readJson(needSurvey(rec));
-    const tag = ownerInput(rec, "TAG_SELECTION")
-      || fail("J1_claims needs a tag, and no wait has supplied one yet.");
-    const validate = (p) => {
-      const { claims, pin } = readClaimsRecord(readJson(p), survey);
-      const members = survey.candidates.filter((c) => (c.tags || []).includes(tag));
-      const outside = claimsOutsideBound(claims, pin, cotagGroups(members, tag));
-      if (outside.length) {
-        fail(`${st.id} refuses: ${outside.map((o) => `${o.group} (${o.reason}${o.members.length ? `: ${o.members.join(", ")}` : ""})`).join("; ")}`);
-      }
-    };
-    const path = await judgedRecordPath(rec, st, table, args, "claims",
-      () => needCompositionInput(rec, st), validate);
-    rec.judgments[st.id] = relFromRepo(resolve(path));
-    return null;
-  },
-
+  // rule, and it is the shape the state below this one already refuses.
+  //
+  // `J1_claims` IS DELETED, NO STUB (kogaki#1172, owner ruling 2026-09-20). It
+  // was the one judgment point still asked over the WHOLE composed input, and
+  // its cost was a function of the tag the owner picked — from 3 to 138
+  // Lessons — with no `per_group` term bounding it the way `J2_subdivision`'s
+  // already was. The `method` tag (138 Lessons, 14 groups, 274 KB composed
+  // input) measured its single call at 107s, over the 90s per-call bound on
+  // all three licensed attempts, while `J2_subdivision`'s eleven per-group
+  // calls on a smaller tag stayed inside it. GroupClaim composition is folded
+  // into `J2_subdivision` below: the per-group ask now returns the group's
+  // claim beside its SubGroups, in one call, over that group's own material
+  // alone.
   J2_subdivision: async (rec, st, args, table) => {
     // THE COMPOSED PARENTS, READ ONCE (kogaki#1068). The SubGroup rules are
     // statements about a group's own membership -- the cover, the caps, the
@@ -8553,12 +8623,42 @@ const STATE_WORK = {
         subdivisionRules(name, readSubdivisionEntry(name, raw[name]), parents.get(name));
       }
     };
-    // THE SAME COMPOSED ARTIFACT `J1_claims` JUDGED OVER, which is this state's
-    // own standing note: semantic subdivision "is composed from the SAME
-    // artifact and spends no further read".
+    // THE SAME COMPOSED ARTIFACT the retired `J1_claims` judged over, which is
+    // this state's own standing note: semantic subdivision "is composed from
+    // the SAME artifact and spends no further read".
     const path = await judgedRecordPath(rec, st, table, args, "subdivisions",
       () => needCompositionInput(rec, st), validate);
     rec.judgments[st.id] = relFromRepo(resolve(path));
+
+    // THE GroupClaim, DERIVED FROM THE FOLDED RECORD (kogaki#1172). Every
+    // downstream reader of a claim — `cotags`' subset-bound display and
+    // `report`'s rendering — reads the pre-existing typed CLAIMS RECORD shape
+    // `{composition_pin, claims}` through `readClaimsRecord`, unchanged: that
+    // shape is not this state's own record any more (it is per-group, and its
+    // record IS the per-group map), so it is derived here rather than asked
+    // for a second time. `entry.claim` rides beside `subgroups` in the SAME
+    // per-group call this state already makes — no second judge call, no
+    // second artifact composed by the model, only a re-shaping of what this
+    // one call already returned, over the pin the executor already holds from
+    // `compose_input`. A group whose entry carries no `claim` is simply absent
+    // from the derived map, which `cotags` and `report` already render as
+    // `NO_CLAIM` — the same graceful degrade a run supplying no `--claims` at
+    // all has always rendered.
+    if (args.claims === undefined) {
+      const assembled = readJson(path);
+      const claimsMap = {};
+      if (assembled && typeof assembled === "object" && !Array.isArray(assembled)) {
+        for (const [name, entry] of Object.entries(assembled)) {
+          if (entry && typeof entry === "object" && typeof entry.claim === "string" && entry.claim.trim() !== "") {
+            claimsMap[name] = entry.claim;
+          }
+        }
+      }
+      const composedPin = composed && composed.composition_pin ? composed.composition_pin : null;
+      const claimsPath = join(rec._dir, `${flow().lane}-judge-claims-derived.json`);
+      writeFileSync(claimsPath, JSON.stringify({ composition_pin: composedPin, claims: claimsMap }, null, 2) + "\n");
+      rec.claims_derived = relFromRepo(resolve(claimsPath));
+    }
 
     // AND THE COMPOSITION, WHICH THE RETIRED `subdivide` OWNED (subdivide's composition fold,
     // kogaki#625 item 1). Validation alone was never the whole of that command:
@@ -9331,45 +9431,76 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       const capFree = captured.freeText;
       const capPath = captured.path;
       const row = captured.row;
-      // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
-      // (PR #898 round 1). A gate may legitimately offer an answer with no
-      // downstream — `terrain-tag-selection`'s standing option stands for a
-      // method that does not exist yet — and the answer is still evidence, so the
-      // capture is written first and the refusal comes after it. What must NOT
-      // happen is the advance: the option id would land where the wait's value
-      // goes, and a later state would refuse it as if it were a malformed value
-      // of that kind rather than a deliberate answer to this question.
-      //
-      // DATA, NOT DRIVER CODE, like every other field the executor reads here: the
-      // routing is declared per gate in `src/gate-registry.json` and rides into
-      // the run declaration, so a second gate with an unrouted option needs no
-      // change to this file and no state is named below.
-      //
-      // THE WAIT STAYS OUTSTANDING, which is what makes the refusal recoverable:
-      // `rec.awaiting` is untouched, nothing is pushed onto `completed`, and since
-      // kogaki#808 a refusal persists the record — so the capture row is on disk,
-      // the declaration is still owed, and re-entering re-offers the same gate.
-      const unrouted = (decl.unrouted_options || {})[capOption];
-      if (unrouted) {
-        fail(`${JSON.stringify(capOption)} is an option gate ${owed.gate_id} declares as ROUTED NOWHERE, so the run does not advance past ${rec.awaiting}. `
-          + `The answer was recorded (${capPath}) and the wait is still outstanding — the gate is re-offered at its next raising, and a different answer is captured there. `
-          + `The declaration's own reason: ${unrouted}`);
+      // THE JUDGMENT-RETRY GATE ANSWERS ITSELF, RATHER THAN THROUGH THE
+      // GENERIC WAIT-ANSWER APPLICATION BELOW (kogaki#1172 item 3). The
+      // generic path calls `completeState`, which would mark the JUDGMENT
+      // STATE complete on a "retry" click — the one thing that must NOT
+      // happen, because the whole point of "retry" is that the state is
+      // re-entered by the ordinary table loop on the next advance. "abandon"
+      // has no state to complete at all: it ends the run.
+      if (owed.gate_id === JUDGMENT_RETRY_GATE_ID) {
+        const retryState = rec.awaiting;
+        rec.owner_input[retryState] = capOption !== null ? capOption : capFree;
+        rec.awaiting = null;
+        try { rmSync(join(openGateDir(), `${decl.gate_instance_id}.json`), { force: true }); } catch { /* a stale pointer costs a re-render, never an answer */ }
+        if (capOption === "abandon") {
+          // THE OPEN-RUN POINTER IS CLEARED, AND `done` IS SET (kogaki#1172
+          // item 3's acceptance 4). `done: true` is reused rather than a new
+          // field invented beside it: `mostRecentDoneRun` already reads it to
+          // tell an owner starting a fresh run that a prior one is over, and
+          // that reading is exactly true of an abandoned run too — it will
+          // not be resumed by anything, `start` included.
+          rec.done = true;
+          rec.judgment_abandoned = { state: retryState, at: new Date().toISOString() };
+          clearOpenRunPointer();
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the run is ABANDONED at ${retryState}; the open-run pointer is cleared and nothing further is asked.`);
+        } else {
+          // "retry", or any free-text answer -- retried by default, since
+          // abandon is the one way to stop and is named as its own option
+          // rather than left to a wording guess over free text.
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the judgment at ${retryState} is RE-ASKED; the state was never marked complete, so the advance below re-enters it (kogaki#1172).`);
+        }
+      } else {
+        // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
+        // (PR #898 round 1). A gate may legitimately offer an answer with no
+        // downstream — `terrain-tag-selection`'s standing option stands for a
+        // method that does not exist yet — and the answer is still evidence, so the
+        // capture is written first and the refusal comes after it. What must NOT
+        // happen is the advance: the option id would land where the wait's value
+        // goes, and a later state would refuse it as if it were a malformed value
+        // of that kind rather than a deliberate answer to this question.
+        //
+        // DATA, NOT DRIVER CODE, like every other field the executor reads here: the
+        // routing is declared per gate in `src/gate-registry.json` and rides into
+        // the run declaration, so a second gate with an unrouted option needs no
+        // change to this file and no state is named below.
+        //
+        // THE WAIT STAYS OUTSTANDING, which is what makes the refusal recoverable:
+        // `rec.awaiting` is untouched, nothing is pushed onto `completed`, and since
+        // kogaki#808 a refusal persists the record — so the capture row is on disk,
+        // the declaration is still owed, and re-entering re-offers the same gate.
+        const unrouted = (decl.unrouted_options || {})[capOption];
+        if (unrouted) {
+          fail(`${JSON.stringify(capOption)} is an option gate ${owed.gate_id} declares as ROUTED NOWHERE, so the run does not advance past ${rec.awaiting}. `
+            + `The answer was recorded (${capPath}) and the wait is still outstanding — the gate is re-offered at its next raising, and a different answer is captured there. `
+            + `The declaration's own reason: ${unrouted}`);
+        }
+        // The answer IS the owner input for this wait. Adoption, ratification and
+        // strand selection are all this one act (the claim re-offer wait: adoption is applying the
+        // captured answer), which is why no second command remains to apply it.
+        rec.owner_input[rec.awaiting] = capOption !== null ? capOption : capFree;
+        completeState(rec, rec.awaiting, advancedBy);
+        rec.awaiting = null;
+        // THE POINTER IS RETIRED AT THE ADVANCE, not only by the hook. The hook
+        // removes it after writing, and this is the second remover rather than a
+        // duplicate one: a pointer left behind by a hook that wrote its row and
+        // then failed to unlink makes the NEXT question with the same text read
+        // as ambiguous, and the hook's own stderr note says exactly that. The
+        // advance is the moment the gate stops being outstanding, so it is the
+        // moment the forwarding address stops being true.
+        try { rmSync(join(openGateDir(), `${decl.gate_instance_id}.json`), { force: true }); } catch { /* a stale pointer costs a re-render, never an answer */ }
+        console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — written by the harness at the question, never argued.`);
       }
-      // The answer IS the owner input for this wait. Adoption, ratification and
-      // strand selection are all this one act (the claim re-offer wait: adoption is applying the
-      // captured answer), which is why no second command remains to apply it.
-      rec.owner_input[rec.awaiting] = capOption !== null ? capOption : capFree;
-      completeState(rec, rec.awaiting, advancedBy);
-      rec.awaiting = null;
-      // THE POINTER IS RETIRED AT THE ADVANCE, not only by the hook. The hook
-      // removes it after writing, and this is the second remover rather than a
-      // duplicate one: a pointer left behind by a hook that wrote its row and
-      // then failed to unlink makes the NEXT question with the same text read
-      // as ambiguous, and the hook's own stderr note says exactly that. The
-      // advance is the moment the gate stops being outstanding, so it is the
-      // moment the forwarding address stops being true.
-      try { rmSync(join(openGateDir(), `${decl.gate_instance_id}.json`), { force: true }); } catch { /* a stale pointer costs a re-render, never an answer */ }
-      console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — written by the harness at the question, never argued.`);
     }
   }
 
@@ -9396,7 +9527,12 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // from a state that quietly stopped being listed.
   const entered = new Set();
   let stopped = null;
-  for (const st of table.states) {
+  // AN ABANDONED RUN ENTERS NO FURTHER STATE (kogaki#1172 item 3). The
+  // pre-loop block above already applied the owner's "abandon" answer — set
+  // `rec.done`, recorded `rec.judgment_abandoned` and cleared the open-run
+  // pointer — and this is what stops the loop from immediately re-entering
+  // the very judgment state that answer was about.
+  for (const st of (rec.judgment_abandoned ? [] : table.states)) {
     if (rec.completed.includes(st.id)) continue;
     if (st.conditional && !entered.has(st.id)) {
       if (!rec.conditional_skipped.includes(st.id)) rec.conditional_skipped.push(st.id);
@@ -9504,11 +9640,44 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     // and clearing around the call: a renderer that `fail`s would otherwise
     // leave the authority standing for whatever ran next in the same process.
     let outcome = null;
+    let judgmentExhausted = null;
     if (work) {
       const held = WRITING_STATE;
       if (st.kind === "write") WRITING_STATE = st.id;
       try { outcome = await work(rec, st, args, table); }
+      catch (e) {
+        // A JUDGMENT STATE'S SPENT BOUND STOPS HERE, NOT THE PROCESS (kogaki#1172
+        // item 3). Caught in this same frame rather than at `invokeJudge`'s own
+        // level: the gate this raises names the STATE, and the state loop is
+        // the one frame that already has `st`, `dir` and `rec` together without
+        // threading them through the judge machinery.
+        if (e instanceof JudgmentExhausted) { judgmentExhausted = e; }
+        else { throw e; }
+      }
       finally { WRITING_STATE = held; }
+    }
+    if (judgmentExhausted) {
+      if (rec) {
+        rec.judgment_refusals = rec.judgment_refusals || {};
+        // OVERWRITES THE ENTRY `invokeJudge`/`invokeJudgePerGroup` ALREADY WROTE
+        // for this state with the SAME shape plus the gate's own note — the
+        // refusal text is unchanged, and a reader of `judgment_refusals` sees
+        // one entry rather than two disagreeing carriers of one fact.
+        rec.judgment_refusals[st.id] = {
+          ...(rec.judgment_refusals[st.id] || {}),
+          refusal: judgmentExhausted.message,
+          gate_raised: JUDGMENT_RETRY_GATE_ID,
+        };
+      }
+      const declPath = emitGateDeclaration(dir, JUDGMENT_RETRY_GATE_ID, [], {
+        judgment_state: st.id,
+        judgment_refusal: judgmentExhausted.message,
+      });
+      rec.awaiting = st.id;
+      rec.gate_declarations_owed.push({ state: st.id, gate_id: JUDGMENT_RETRY_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
+      stopped = st;
+      checkpointRun(rec);
+      break;
     }
     if (st.kind === "write") {
       // A WRITE STATE THAT LEGITIMATELY WROTE NOTHING IS NOT A RENDERER THAT
@@ -9642,6 +9811,22 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     }
   } else if (stopped && stopped.kind === "terminal") {
     console.log(`Executor reached ${stopped.id} — terminal (the workflow table). The run is over.`);
+  } else if (stopped && rec.awaiting === stopped.id) {
+    // THE JUDGMENT-RETRY STOP (kogaki#1172 item 3). `stopped` is a `judgment`
+    // state that exhausted its retries and raised `terrain-judgment-retry`
+    // rather than completing — the same shape a `wait` leaves, minus the
+    // owner_supplies line, because a judgment state declares none.
+    console.log(`Executor STOPPED at ${stopped.id} — a judgment exhausted its declared retries (kogaki#1172). It raised the terrain-judgment-retry gate rather than failing the run; the state is NOT complete, so answering "retry" re-enters it.`);
+    const owedHere = rec.gate_declarations_owed.find((g) => g.state === stopped.id && g.gate_id === JUDGMENT_RETRY_GATE_ID);
+    if (owedHere && owedHere.declaration) {
+      console.log(`This stop declares a gate. Its run declaration is WRITTEN: ${owedHere.declaration}`);
+      console.log(`Then re-enter with a bare  run --run-dir ${dir}  — the answer is read from the harness's own capture, exactly as at any other gate wait (kogaki#890).`);
+    }
+  } else if (rec.judgment_abandoned) {
+    // THE ABANDON STOP (kogaki#1172 item 3, acceptance 4). The loop above ran
+    // zero iterations -- `stopped` is null -- because the owner's "abandon"
+    // answer was applied in the pre-loop block before the loop even started.
+    console.log(`Run ABANDONED at ${rec.judgment_abandoned.state}, on the owner's answer to terrain-judgment-retry (kogaki#1172). The open-run pointer is cleared; nothing further is asked.`);
   } else {
     console.log("Executor advanced to the end of the table without reaching a stop, which a conformant table cannot do.");
   }
