@@ -3,8 +3,8 @@
     "THE CANDIDATE RECORD'S SHAPE, AND THE TEXT THE MODEL IS SHOWN BEFORE IT",
     "COMPOSES ONE (kogaki#1126).",
     "",
-    "WHAT THIS FILE IS FOR. `src/step-schema.json` declares the shape of ONE",
-    "STEP; nothing declared the shape of the CANDIDATE the Steps hang from. So",
+    "WHAT THIS FILE IS FOR. `src/leg-schema.json` declares the shape of ONE",
+    "LEG; nothing declared the shape of the CANDIDATE the Legs hang from. So",
     "the Candidate's own fields were carried by `input_shape` -- one sentence",
     "naming keys -- and the one field that reaches the OWNER, the option the",
     "Candidate gate renders, was a single free-prose string. Whether an option",
@@ -26,7 +26,7 @@
     "them into the option's label and description. A format the Harness composes",
     "from declared fields cannot be a habit that lapses.",
     "",
-    "IT IS READ TWICE, which is the property `src/step-schema.json` exists for",
+    "IT IS READ TWICE, which is the property `src/leg-schema.json` exists for",
     "and the reason this is a file rather than a longer sentence. The",
     "path-composition state of the Brief workflow table renders it into the",
     "judge's prompt, and `compose_path`'s own validator refuses against the same",
@@ -66,7 +66,7 @@
   ],
   "version": "1",
   "what_a_candidate_is": [
-    "A Candidate is ONE COMPOSED READER PATH: an ordered sequence of Steps",
+    "A Candidate is ONE COMPOSED READER PATH: an ordered sequence of Legs",
     "taking the reader from the Brief's Reader start to the adopted Thesis,",
     "plus the reasoning it was composed with. Two or three are composed per",
     "article and they DIFFER IN READER EXPERIENCE -- not in decoration, not in",
@@ -92,7 +92,7 @@
     "not the `candidate_id`: the id is the join key the owner's answer resolves",
     "through and it is never shown as content, which is the defect kogaki#1126",
     "closes. The figure clause is the Harness's own sentence about how many",
-    "Steps carry a figure; nothing here writes it.",
+    "Legs carry a figure; nothing here writes it.",
     "",
     "SO THE TWO FIELDS ARE WRITTEN FOR THEIR SEATS. A `characteristic` that is",
     "a sentence does not fit a label, and a `reader_experience` that repeats the",
@@ -115,17 +115,17 @@
       "type": "string",
       "description": "WHAT THE READER GOES THROUGH on this path, stated so the difference from the sibling Candidates is legible -- this is the axis Candidates differ on, and the difference must be stated to be selectable. It renders as the option's DESCRIPTION, with the figure clause appended by the Harness, so it is written as the explanation of the characteristic above and never as a repeat of it. Two Candidates stating the same reader experience are refused, folded, as are two stating the same characteristic: either the paths do not differ or they are one path presented twice."
     },
-    "steps": {
+    "legs": {
       "required": true,
-      "type": "array of Step",
+      "type": "array of Leg",
       "min_length": 1,
-      "description": "The ordered Reader Path itself. Every entry is a Step, whose fields, their meanings and their refusals are declared in `src/step-schema.json` -- rendered into this same prompt and enforced by `validateSteps`. Nothing about a Step is restated here."
+      "description": "The ordered Reader Path itself. Every entry is a Leg, whose fields, their meanings and their refusals are declared in `src/leg-schema.json` -- rendered into this same prompt and enforced by `validateLegs`. Nothing about a Leg is restated here."
     },
     "reasoning": {
       "required": true,
       "type": "object",
       "required_keys": [
-        "step_validity",
+        "leg_validity",
         "transition_continuity",
         "thesis_closure"
       ],
@@ -157,17 +157,17 @@
       "type": "array of object",
       "entry_required_keys": ["text", "introduced_by"],
       "entry_optional_keys": ["discharged_by", "conceded_by"],
-      "description": "THE STEP HALF OF CLOSURE (kogaki#1151): what each Step still owes the reader, entered with the Step that settles it. Every entry is an object carrying `text` (the obligation in the composer's own words, non-blank), `introduced_by` (the `step_id` of the Step that raises it) and EXACTLY ONE of `discharged_by` (the `step_id` of the Step that keeps the promise) or `conceded_by` (the `step_id` of the Step whose prose tells the reader it is left open). All three id fields name a Step OF THIS CANDIDATE and are refused otherwise. AN ENTRY CARRYING NEITHER, OR BOTH, IS REFUSED, naming the row -- \"unresolved\" is not a state this ledger can hold. That is exactly why the key names bind: a ledger the runtime cannot read is scored as wholly open and the owner is shown a confident number over a record nothing understood (kogaki#1129). An absent `obligations` is the empty ledger, which is a statement and not an omission."
+      "description": "THE LEG HALF OF CLOSURE (kogaki#1151): what each Leg still owes the reader, entered with the Leg that settles it. Every entry is an object carrying `text` (the obligation in the composer's own words, non-blank), `introduced_by` (the `leg_id` of the Leg that raises it) and EXACTLY ONE of `discharged_by` (the `leg_id` of the Leg that keeps the promise) or `conceded_by` (the `leg_id` of the Leg whose prose tells the reader it is left open). All three id fields name a Leg OF THIS CANDIDATE and are refused otherwise. AN ENTRY CARRYING NEITHER, OR BOTH, IS REFUSED, naming the row -- \"unresolved\" is not a state this ledger can hold. That is exactly why the key names bind: a ledger the runtime cannot read is scored as wholly open and the owner is shown a confident number over a record nothing understood (kogaki#1129). An absent `obligations` is the empty ledger, which is a statement and not an omission."
     },
     "unused": {
       "required": false,
       "type": "object keyed by `L<n>` or `L<n>.journey`",
-      "description": "THE DISCLOSURE FOR MATERIAL THIS PATH LEAVES UNPLACED. An OBJECT -- never an array -- whose KEYS are either a selected Strand id (`L2`) or that Strand's Journey material (`L2.journey`), and whose VALUE is the disclosure text: why the path leaves it unused. The claims rule's third move is omit the Step, revise the path, or leave the Strand unused, never invention, and this field is where the third move is said out loud. An array carries no key to look the disclosure up under, so every unplaced Strand renders the Harness's default sentence and the composer's reason is lost; it is refused here rather than silently dropped. An absent `unused` is the empty object, and an unplaced Strand then discloses in the Harness's own words."
+      "description": "THE DISCLOSURE FOR MATERIAL THIS PATH LEAVES UNPLACED. An OBJECT -- never an array -- whose KEYS are either a selected Strand id (`L2`) or that Strand's Journey material (`L2.journey`), and whose VALUE is the disclosure text: why the path leaves it unused. The claims rule's third move is omit the Leg, revise the path, or leave the Strand unused, never invention, and this field is where the third move is said out loud. An array carries no key to look the disclosure up under, so every unplaced Strand renders the Harness's default sentence and the composer's reason is lost; it is refused here rather than silently dropped. An absent `unused` is the empty object, and an unplaced Strand then discloses in the Harness's own words."
     }
   },
   "what_is_judged_elsewhere": [
     "Nothing here is a lint over a judgment. Whether the characteristic names",
-    "the path WELL, whether the reader experience is the one the Steps actually",
+    "the path WELL, whether the reader experience is the one the Legs actually",
     "produce, and whether the three Candidates differ in a way worth choosing",
     "between are judged at path review. A refusal from this file always names a",
     "SHAPE: a field absent, a field blank, a characteristic over its bound, or",

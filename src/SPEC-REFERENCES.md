@@ -241,8 +241,8 @@ measured on, and is not a claim about the tree today.
 The same convention as the label's, with the opposite trade, so it is written
 down rather than discovered: a row's name is the wording **its file** uses, so
 one spec name can appear in two forms across two carriers.
-`src/specialization-schema.json` writes "The Step↔Move instantiation contract"
-and `src/gate-registry.json` writes "the Step-Move instantiation contract",
+`src/specialization-schema.json` writes "The Leg↔Move instantiation contract"
+and `src/gate-registry.json` writes "the Leg-Move instantiation contract",
 because that is what each file says.
 
 **Normalising the name across carriers was declined**, and the ground is the

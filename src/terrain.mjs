@@ -1613,6 +1613,9 @@ function cmdCotags(args) {
   const shown = selected ? groups.filter((g) => g.name === selected || g.cotag === selected) : groups;
   if (selected && shown.length === 0) fail(`no co-tag group ${JSON.stringify(selected)} in ${tag}`);
 
+  // literal form pinned by src/report-format.json's cotag_groups grammar (unlicensed to
+  // this rename; kogaki#1177 leaves this one rendered string as "step" until that
+  // grammar is renamed on its own issue).
   say(`${tag} — the second navigation step. Grouped by co-tag; sort: ${COTAG_SORT}.`);
   let claimless = 0;
   let suppressedSplits = 0;
@@ -3370,7 +3373,7 @@ export function composeAddressCite(unitId, contentHash) {
 // WITHIN-DOCUMENT token rather than an identity: the Brief's Strands section
 // carries `### L<n> — <slug>` beside that Strand's served cite, so the mapping
 // travels with the document that uses it and no second carrier can drift from
-// it. That is what lets the Step grammar, the Packets and the Draft keep
+// it. That is what lets the Leg grammar, the Packets and the Draft keep
 // addressing material as `L<n>` while the IDENTITY on the command line and in
 // every cite is the served address.
 export function resolveStrandAddresses(entered) {
@@ -3760,7 +3763,7 @@ export function harnessJudgeInvocation(stateId = "J2_subdivision") {
 // fails only when it is run. So each candidate is RUN, with `--version`, and the
 // first that exits 0 is the run's binary -- a walk that stopped at the first
 // existing file would have chosen the shim, which is the defect with an extra
-// step.
+// leg.
 const JUDGE_VERSION_PROBE_MS = 20000;
 
 // THE ORDER `PATH` DECLARES, DE-DUPLICATED. A command carrying a separator is
@@ -4102,7 +4105,7 @@ function judgePrompt(st, inputText, input, lastRefusal) {
   // executor puts that file in front of the judge.
   //
   // WHY VERBATIM AND WHY A FILE. `input_shape` is one sentence about the
-  // RECORD; a Step has fifteen fields, each with a meaning, and a sentence
+  // RECORD; a Leg has fifteen fields, each with a meaning, and a sentence
   // cannot carry them. Before this the composing party inferred those fields
   // from skill prose and the validator checked them afterwards, so the only
   // Harness text saying what a field MEANS was a refusal string seen after
@@ -4116,7 +4119,7 @@ function judgePrompt(st, inputText, input, lastRefusal) {
   // ONE ROW, ONE OR MANY FILES (kogaki#1126). A record has as many element
   // kinds as it has, and `compose_path` has two: a Candidate, whose shape
   // `src/candidate-schema.json` declares and this state's own refusals enforce,
-  // and a Step, whose shape `src/step-schema.json` declares and `validateSteps`
+  // and a Leg, whose shape `src/leg-schema.json` declares and `validateLegs`
   // enforces. Folding the two into one file would hand one validator a text it
   // does not enforce, which is the disagreement the row exists to prevent; so
   // the row takes a LIST and the prompt carries each file whole, in order. A
@@ -7406,7 +7409,7 @@ export class JudgmentRefusal extends Error {}
 // `judge_specialization` verdict of `cannot-determine` grounded in a missing
 // input was routed through the refusal-repair window; attempt 1 said the Move
 // library carried no such id, attempt 2 returned `consistent` for all six
-// Steps with `why` describing contracts that do not exist, and the run record
+// Legs with `why` describing contracts that do not exist, and the run record
 // counted that as a repair. A bounded process needs at least one exit that
 // does not start another round — this is that exit, and it is terminal by
 // construction rather than by a count.
@@ -7532,7 +7535,7 @@ function neighborhoodForTargets(record, targets) {
   // matches nothing and yields a clean zero — which is AC4's defect one layer
   // out: an empty standing in for "nothing found". Found by running the
   // command, not by a fixture, which is why the mapping is its own exported
-  // step with its own case.
+  // leg with its own case.
   const { slugs: seedSlugs, unmapped } = settledSlugs(record.candidates, memberIds);
 
   // THE SEAM CALL TAKES NO KIND FILTER, DELIBERATELY, and this is not the

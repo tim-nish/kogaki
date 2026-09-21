@@ -5,12 +5,12 @@
 //
 // THE INPUTS ARE CLOSED, AND THAT IS THE WHOLE OF THE DESIGN. This command
 // reads three things: `theses/<slug>/draft.md`; its frontmatter trace, which
-// after kogaki#868 carries each Step's line range and its Packet's path and
+// after kogaki#868 carries each Leg's line range and its Packet's path and
 // sha; and the Packet files those entries name. It reads no Brief, no Move
 // file, no Strand. The owner's 2026-09-04 ruling is why:
 //
 //   "The Packet was specifically designed to be the only source required to
-//    generate the Draft without reading the Step or Move files separately.
+//    generate the Draft without reading the Leg or Move files separately.
 //    Therefore, ReviewDraft should compare the Draft against the Packet. If
 //    ReviewDraft later turns out to require Move information or any other
 //    separate file, that should be treated as evidence that the Packet is
@@ -24,8 +24,8 @@
 // is a stronger statement than a rule saying not to.
 //
 // THE HARNESS OWNS THE ORDERING (the same ruling `.claude/skills/draft/SKILL.md`
-// records for /draft): `outline` refuses a Step whose Reverse Outline input it did not
-// render, `compare` refuses while any Step is still unoutlined, `check`
+// records for /draft): `outline` refuses a Leg whose Reverse Outline input it did not
+// render, `compare` refuses while any Leg is still unoutlined, `check`
 // refuses before `compare`, and `close` is reachable from `compare` with zero
 // fails or from `check` in every state. A session does not sequence these acts
 // and cannot get the sequence wrong.
@@ -55,24 +55,24 @@
 // THE COLD READER IS GONE, AND ITS ABSENCE IS A RULING RATHER THAN A TRIM
 // (owner, 2026-09-17; kogaki#1133). kogaki#873 added a second reader of the
 // whole body, a Section ledger and five Section pairs. Reverse Outlining
-// reconstructs the elements of a STEP, and the thesis is not a Step element: of
+// reconstructs the elements of a LEG, and the thesis is not a Leg element: of
 // those five pairs the heading was preserved trivially by the Harness that
 // renders it, the three belief pairs duplicated the reader-state items one level
-// up, and the thesis pair -- the one check no Step item makes -- had no act here
-// at all, because corrections are Step-level and a thesis fail could only ever
+// up, and the thesis pair -- the one check no Leg item makes -- had no act here
+// at all, because corrections are Leg-level and a thesis fail could only ever
 // become residue saying the Packets lack something. That is a Brief-time
 // finding. So there is no Section ledger, no Section pair and no thesis check in
 // this file.
 //
 // THE REOPEN TRIGGER IS NAMED, so a later reader can tell a ruling from an
-// omission: a Draft whose every Step holds the round trip and whose thesis the
+// omission: a Draft whose every Leg holds the round trip and whose thesis the
 // owner cannot find on reading it. If that happens the check is designed at
 // BRIEF COMPOSITION, where the chain of `reader_state_after` values should reach
 // the thesis, as an operation outside the Reverse Outlining item set -- and
 // never as a sixth pair here.
 //
 // FIGURES REMAIN OUT OF SCOPE for this batch (kogaki#869) — they change the
-// Step schema and the Packet, so they are a later batch and not a hole here.
+// Leg schema and the Packet, so they are a later batch and not a hole here.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
@@ -88,11 +88,11 @@
 // The quoted heading beside a name is the spec content that name stands for.
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   the figure decision
-//       SPEC-draft-pipeline "The figure decision — `figure:` and `figure_roles` on a Step"
+//       SPEC-draft-pipeline "The figure decision — `figure:` and `figure_roles` on a Leg"
 //   the figure record
 //       SPEC-draft-pipeline "The figure record — the form's instance, filled after the prose"
 //   the renderer
-//       SPEC-draft-pipeline "The renderer and the anchor — markup from the record, at the Step"
+//       SPEC-draft-pipeline "The renderer and the anchor — markup from the record, at the Leg"
 //   the lifetimes rule
 //       specs/spec-brief-draft-design/DESIGN.md "Lifetimes: what is owner state and what is machine state"
 //   the frontmatter trace
@@ -105,17 +105,17 @@ import { createHash } from "node:crypto";
 // A NODE BUILTIN, so the closed-input allowlist below is satisfied as it is
 // WORDED ("only node builtins and ./runs.mjs") rather than widened past its
 // own property. It is here for exactly one act: `correct` re-enters the
-// realization lane as a subprocess, because a corrected Step must be realized
+// realization lane as a subprocess, because a corrected Leg must be realized
 // by the same renderer that wrote the Packets. Nothing here reads a Brief, a
 // Move or a Strand — the reviewer's blindness is a property of what this
 // module READS, and it reads none of them.
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { enterRun } from "./runs.mjs";
-// ONE PARSER FOR A `step` BLOCK, and it is the Brief's (kogaki#1014). The
-// Reverse Outline is a Brief Step block, so it is read by the function
+// ONE PARSER FOR A `leg` BLOCK, and it is the Brief's (kogaki#1014). The
+// Reverse Outline is a Brief Leg block, so it is read by the function
 // `parseBrief` calls per fenced block rather than by a second reader here.
-import { parseStepBlock, stepField } from "./draft.mjs";
+import { parseLegBlock, legField } from "./draft.mjs";
 
 function fail(msg) {
   process.stderr.write(`review-draft: ${msg}\n`);
@@ -192,8 +192,8 @@ function parseArgs(argv) {
 
 // ---------------------------------------------------------------------------
 // Reading the Draft. The trace is the join key between prose and Packet, and
-// every refusal below names the Step rather than the file: a reviewer holding
-// a Step id can act, and one holding "the trace is malformed" cannot.
+// every refusal below names the Leg rather than the file: a reviewer holding
+// a Leg id can act, and one holding "the trace is malformed" cannot.
 
 // THE FRONTMATTER IS READ, NEVER PARSED AS GENERAL YAML. `emit` writes each
 // trace entry as exactly one `  - {json}` line (src/draft.mjs cmdEmit), so the
@@ -310,36 +310,36 @@ function readDraft(draftPath) {
   return { path: draftPath, text, lines, frontmatterEnd: end, body, body_sha: sha256(body), trace, brief, lang };
 }
 
-// Verify the trace's inputs and hand back the Steps and Sections. Three
-// refusals, each naming its Step: no line range, a Packet that is absent, and
+// Verify the trace's inputs and hand back the Legs and Sections. Three
+// refusals, each naming its Leg: no line range, a Packet that is absent, and
 // a Packet whose sha differs from the trace's — the last one meaning the Draft
 // was not produced from this Packet, which is the condition that makes every
 // later comparison meaningless rather than merely wrong.
 function resolveInputs(draft) {
   const dir = dirname(draft.path);
-  const steps = [];
+  const legs = [];
   for (const t of draft.trace) {
-    const id = typeof t.step_id === "string" ? t.step_id : "(unnamed)";
+    const id = typeof t.leg_id === "string" ? t.leg_id : "(unnamed)";
     if (!Array.isArray(t.lines) || t.lines.length !== 2
         || !Number.isInteger(t.lines[0]) || !Number.isInteger(t.lines[1])) {
-      fail(`step ${id} carries no line range in the trace — ReviewDraft locates each Step's prose `
+      fail(`leg ${id} carries no line range in the trace — ReviewDraft locates each Leg's prose `
         + "by the range kogaki#868 writes, and a Draft emitted before that lands must be re-emitted "
         + "(node src/draft.mjs emit --brief <brief.md>)");
     }
     if (typeof t.packet !== "string" || typeof t.packet_sha !== "string") {
-      fail(`step ${id} names no Packet in the trace — the Packet is the only source ReviewDraft `
-        + "compares against, so a Step without one cannot be reviewed; re-emit the Draft after "
+      fail(`leg ${id} names no Packet in the trace — the Packet is the only source ReviewDraft `
+        + "compares against, so a Leg without one cannot be reviewed; re-emit the Draft after "
         + "rendering its Packets");
     }
     const packetPath = resolve(dir, t.packet);
     if (!existsSync(packetPath)) {
-      fail(`step ${id}: the Packet the trace names is absent — ${packetPath}. The run workspace is `
+      fail(`leg ${id}: the Packet the trace names is absent — ${packetPath}. The run workspace is `
         + "machine state and is pruned; re-render it with "
-        + "`node src/draft.mjs packet --brief <brief.md> --step " + id + "`");
+        + "`node src/draft.mjs packet --brief <brief.md> --leg " + id + "`");
     }
     const actual = sha256(readFileSync(packetPath, "utf8"));
     if (actual !== t.packet_sha) {
-      fail(`step ${id}: the Packet's sha differs from the trace's — the Draft was not produced from `
+      fail(`leg ${id}: the Packet's sha differs from the trace's — the Draft was not produced from `
         + `this Packet.\n  trace  ${t.packet_sha}\n  file   ${actual}\n  at     ${packetPath}\n`
         + "Reviewing prose against an input that did not produce it compares two unrelated things, "
         + "so this refuses rather than reporting findings nobody can act on.");
@@ -347,8 +347,8 @@ function resolveInputs(draft) {
     // The range is 1-based over the file; slice is 0-based and end-exclusive.
     const prose = draft.lines.slice(t.lines[0] - 1, t.lines[1]).join("\n");
     // THE FIGURE IS RESOLVED ON THE SAME TERMS THE PACKET IS (kogaki#880).
-    // The renderer rule gives a figure-carrying Step a `figure` entry naming the validated
-    // record, its sha and its own line range, and a Step declaring none carries
+    // The renderer rule gives a figure-carrying Leg a `figure` entry naming the validated
+    // record, its sha and its own line range, and a Leg declaring none carries
     // NO `figure` KEY AT ALL — an absent field rather than a null one — so the
     // presence test below is the same fact the spec writes.
     //
@@ -362,24 +362,24 @@ function resolveInputs(draft) {
       const f = t.figure;
       if (!Array.isArray(f.lines) || f.lines.length !== 2
           || !Number.isInteger(f.lines[0]) || !Number.isInteger(f.lines[1])) {
-        fail(`step ${id}: its trace entry carries a figure with no line range — the renderer records the `
-          + "figure's own range beside the Step's prose range, and without it Reverse Outlining "
+        fail(`leg ${id}: its trace entry carries a figure with no line range — the renderer records the `
+          + "figure's own range beside the Leg's prose range, and without it Reverse Outlining "
           + "has no block to quote; re-emit the Draft (node src/draft.mjs emit --brief <brief.md>)");
       }
       if (typeof f.record !== "string" || typeof f.record_sha !== "string") {
-        fail(`step ${id}: its trace entry carries a figure naming no record — the record is the `
+        fail(`leg ${id}: its trace entry carries a figure naming no record — the record is the `
           + "declared side of every figure item, so a figure without one cannot be reviewed");
       }
       const recordPath = resolve(dir, f.record);
       if (!existsSync(recordPath)) {
-        fail(`step ${id}: the figure record the trace names is absent — ${recordPath}. The run `
+        fail(`leg ${id}: the figure record the trace names is absent — ${recordPath}. The run `
           + "workspace is machine state and is pruned; re-record it with "
-          + `\`node src/draft.mjs figure --brief <brief.md> --step ${id} --file <record.json>\``);
+          + `\`node src/draft.mjs figure --brief <brief.md> --leg ${id} --file <record.json>\``);
       }
       const recordText = readFileSync(recordPath, "utf8");
       const recordActual = sha256(recordText);
       if (recordActual !== f.record_sha) {
-        fail(`step ${id}: the figure record's sha differs from the trace's — the Draft was not `
+        fail(`leg ${id}: the figure record's sha differs from the trace's — the Draft was not `
           + `emitted from this record.\n  trace  ${f.record_sha}\n  file   ${recordActual}\n`
           + `  at     ${recordPath}\n`
           + "The rendered block the reader met came from the record as it stood at emit; comparing "
@@ -388,7 +388,7 @@ function resolveInputs(draft) {
       let record;
       try { record = JSON.parse(recordText); }
       catch (e) {
-        fail(`step ${id}: the figure record at ${recordPath} is not readable JSON (${e.message}) `
+        fail(`leg ${id}: the figure record at ${recordPath} is not readable JSON (${e.message}) `
           + "— it was written by `draft.mjs figure` and validated then, so a record unreadable now "
           + "was edited outside the Harness");
       }
@@ -402,8 +402,8 @@ function resolveInputs(draft) {
         record_json: record,
       };
     }
-    steps.push({
-      step_id: id,
+    legs.push({
+      leg_id: id,
       section: t.section,
       section_title: t.section_title,
       lines: t.lines,
@@ -415,16 +415,16 @@ function resolveInputs(draft) {
     });
   }
   // Sections come from the trace's own grouping, never from a heading scan of
-  // the body: `emit` maps each Step to its Section (kogaki#823), and re-deriving
+  // the body: `emit` maps each Leg to its Section (kogaki#823), and re-deriving
   // it here would be a second answer to a question the trace already answers.
   const sections = [];
-  for (const s of steps) {
+  for (const s of legs) {
     let sec = sections.find((x) => x.index === s.section);
-    if (!sec) { sec = { index: s.section, title: s.section_title, steps: [] }; sections.push(sec); }
-    sec.steps.push(s.step_id);
+    if (!sec) { sec = { index: s.section, title: s.section_title, legs: [] }; sections.push(sec); }
+    sec.legs.push(s.leg_id);
   }
   sections.sort((a, b) => a.index - b.index);
-  return { steps, sections };
+  return { legs, sections };
 }
 
 // ---------------------------------------------------------------------------
@@ -471,9 +471,9 @@ function writeRun(ws, run) {
 // ---------------------------------------------------------------------------
 // THE WORKSPACE IS SPLIT BY PASS, AND THE SPLIT IS THE CONTRACT (kogaki#994).
 //
-// Until this, pass two wrote `outline-input/<step>.md`, `outline/<step>.json` and
-// `join/<step>.<item>.md` at the paths pass one had used, so the corrected
-// Steps' first-pass evidence was overwritten in place. `runs/` is gitignored,
+// Until this, pass two wrote `outline-input/<leg>.md`, `outline/<leg>.json` and
+// `join/<leg>.<item>.md` at the paths pass one had used, so the corrected
+// Legs' first-pass evidence was overwritten in place. `runs/` is gitignored,
 // so nothing else held a copy: pass one's blind reading of the ORIGINAL Draft,
 // and every pair input judged against it, were gone — and the surviving
 // verdicts in `join.json` indexed into Reverse Outlines that no longer
@@ -482,7 +482,7 @@ function writeRun(ws, run) {
 //
 //   runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
 //   runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
-//   runs/review/<slug>/snapshots/     — before/after per corrected Step
+//   runs/review/<slug>/snapshots/     — before/after per corrected Leg
 //   runs/review/<slug>/run.json
 //
 // A later third pass is `pass-3/` and NOTHING ELSE MOVES: the pass number is a
@@ -528,7 +528,7 @@ function requirePass(pass, site) {
 }
 
 // THE REVIEWED DRAFT HAS ITS OWN FILENAME, AND `draft.md` STAYS THE DRAFT THAT
-// WAS REVIEWED (kogaki#994). `correct` re-realizes a Step through the draft
+// WAS REVIEWED (kogaki#994). `correct` re-realizes a Leg through the draft
 // lane, and that lane emits to `theses/<slug>/draft.md` — so during a run the
 // article at that path IS the correction in progress, which is what makes each
 // later correction's "article so far" block current. What was wrong was leaving
@@ -606,7 +606,7 @@ function requireCurrent(run, draft, allowCorrecting = null) {
       + "rendered from prose that is no longer there.");
   }
   // THE MID-CORRECTION STATE IS NAMED RATHER THAN MET AS A SHA MISMATCH
-  // (kogaki#874). Rendering a correction input re-renders that Step's Packet —
+  // (kogaki#874). Rendering a correction input re-renders that Leg's Packet —
   // it must, since the whole point is a Packet carrying the article as it NOW
   // stands — so between the render and the recording the trace names a Packet
   // the prose was not produced from, which is TRUE and is exactly what
@@ -615,12 +615,12 @@ function requireCurrent(run, draft, allowCorrecting = null) {
   // correction they are in the middle of. So the state is recorded when it
   // opens and reported by name while it is open.
   const c = run.correcting;
-  if (c && c.step_id !== allowCorrecting) {
-    fail(`this run is mid-correction on step ${c.step_id} — its Packet has been re-rendered against `
+  if (c && c.leg_id !== allowCorrecting) {
+    fail(`this run is mid-correction on leg ${c.leg_id} — its Packet has been re-rendered against `
       + "the current article and its prose has not been re-realized yet, so the Draft's trace names "
       + `a Packet that did not produce the prose beside it.\n  input  ${c.input}\n`
-      + "Realize the Step from that input and record it with\n"
-      + `  <the corrected prose> | node src/review-draft.mjs correct --draft <draft.md> --step ${c.step_id}\n`
+      + "Realize the Leg from that input and record it with\n"
+      + `  <the corrected prose> | node src/review-draft.mjs correct --draft <draft.md> --leg ${c.leg_id}\n`
       + "Re-emitting the Draft would discard the correction instead of completing it.");
   }
 }
@@ -637,23 +637,23 @@ function requireCurrent(run, draft, allowCorrecting = null) {
 // THE ARTICLE BEFORE THIS PASSAGE, re-derived from the CURRENT Draft rather
 // than read from the Packet that produced the prose (kogaki#871). Two reasons,
 // and only the second is about blindness: the Packet's own "article so far"
-// block was true when the Step was written and a later correction may have
+// block was true when the Leg was written and a later correction may have
 // moved it, so the current Draft is the article the reader actually meets; and
 // reading the Packet for it would put Packet bytes into a reviewer whose
 // ignorance is the instrument.
 //
 // Grouped under the Section headings the trace declares, never by scanning the
-// body for `##` lines — the trace already maps each Step to its Section
+// body for `##` lines — the trace already maps each Leg to its Section
 // (kogaki#823), and a heading scan would be a second answer to a question the
 // trace answers.
-function articleBefore(steps, stepId) {
-  const idx = steps.findIndex((s) => s.step_id === stepId);
+function articleBefore(legs, legId) {
+  const idx = legs.findIndex((s) => s.leg_id === legId);
   if (idx <= 0) {
     return "(nothing yet — this is the article's first passage, so nothing precedes it.)";
   }
   const out = [];
   let openSection = null;
-  for (const s of steps.slice(0, idx)) {
+  for (const s of legs.slice(0, idx)) {
     if (s.section !== openSection) {
       if (out.length) out.push("");
       out.push(`## ${s.section_title ?? `Section ${s.section}`}`, "");
@@ -668,14 +668,14 @@ function articleBefore(steps, stepId) {
 // The passage, one line per line, each carrying its DRAFT line number so the
 // reviewer's spans and the trace's ranges are in one coordinate system. A
 // reviewer counting lines itself would be inventing the join key.
-function numberedProse(step) {
-  return numberedRange(step.prose, step.lines);
+function numberedProse(leg) {
+  return numberedRange(leg.prose, leg.lines);
 }
 
 // The same rendering for any contiguous draft range, so the figure block and
 // the prose are numbered by ONE function rather than by two that agree until
 // one is edited. The width comes from the range's own last line, which is what
-// keeps a Step's own listing aligned with itself.
+// keeps a Leg's own listing aligned with itself.
 function numberedRange(text, lines) {
   const width = String(lines[1]).length;
   return text.split("\n")
@@ -699,8 +699,8 @@ function numberedRange(text, lines) {
 // Draft it sits relative to the passage. The record's roles, claim addresses,
 // relations, kind and position word reach it nowhere, which is what makes the
 // element-to-claim join downstream a comparison rather than a restatement.
-function numberedFigure(step) {
-  return numberedRange(step.figure.rendered, step.figure.lines);
+function numberedFigure(leg) {
+  return numberedRange(leg.figure.rendered, leg.figure.lines);
 }
 
 // WHERE THE READER MET THE FIGURE, read from the DRAFT'S OWN LINE NUMBERS and
@@ -711,20 +711,20 @@ function numberedFigure(step) {
 // reviewer the very value the `figure-position` item exists to join against
 // their independent reading. Line numbers are already on the reviewer's page,
 // so ordering by them discloses nothing they were not given.
-function figureBeforePassage(step) {
-  return step.figure.lines[0] < step.lines[0];
+function figureBeforePassage(leg) {
+  return leg.figure.lines[0] < leg.lines[0];
 }
 
 // The passage a JUDGING reader is shown: the prose, with the figure quoted
-// beside it in draft-line order where the Step has one. The judging reader is
+// beside it in draft-line order where the Leg has one. The judging reader is
 // not blind — it already sees the declared side — so withholding the block from
 // it would leave three of the five figure items asking about something they
 // cannot see.
-function quotedPassage(step) {
-  if (!step.figure) return numberedProse(step);
-  const parts = figureBeforePassage(step)
-    ? [numberedFigure(step), numberedProse(step)]
-    : [numberedProse(step), numberedFigure(step)];
+function quotedPassage(leg) {
+  if (!leg.figure) return numberedProse(leg);
+  const parts = figureBeforePassage(leg)
+    ? [numberedFigure(leg), numberedProse(leg)]
+    : [numberedProse(leg), numberedFigure(leg)];
   return parts.join("\n\n");
 }
 
@@ -733,10 +733,10 @@ function quotedPassage(step) {
 // gaining a field cannot leave the sentence the reader reads saying the old
 // count.
 //
-// IT TAKES NO STEP (PR #1022 round 1, finding 5). It took one while the count
-// was per Step — a Step carrying a figure owed an eighth field — and the figure
+// IT TAKES NO LEG (PR #1022 round 1, finding 5). It took one while the count
+// was per Leg — a Leg carrying a figure owed an eighth field — and the figure
 // half left under the decline recorded in `src/review-items.json`. A parameter
-// nothing reads says the count still varies by Step, which is the form a
+// nothing reads says the count still varies by Leg, which is the form a
 // reader would trust and a later edit would build on.
 function reverseOutlineFieldCount() {
   return RECONSTRUCTIBLE_FIELDS.length;
@@ -759,25 +759,25 @@ function numberWord(n) {
 // block and on the passage below already carry the placement, and they are the
 // article's own facts rather than the record's declaration of intent — which is
 // exactly the pair `figure-position` exists to lay against each other.
-function renderFigurePassage(step) {
+function renderFigurePassage(leg) {
   return ["## The figure the reader met with this passage",
     "",
     "It is rendered in the Draft, not written by the passage's author. Read it as",
     "the reader does — the numbers are its lines in the Draft, and this section",
     "sits on the side of the passage the reader met it on.",
     "",
-    numberedFigure(step),
+    numberedFigure(leg),
     "",
     ""].join("\n");
 }
 
-// THE BLIND READER'S INPUT IS THE BRIEF STEP SCHEMA AND THE PROSE (kogaki#1014).
+// THE BLIND READER'S INPUT IS THE BRIEF LEG SCHEMA AND THE PROSE (kogaki#1014).
 //
 // Reverse Outlining: read the passage, then write the outline entry the passage
 // would have been written from — in the SAME FORM as the forward outline. So
 // the input carries the Brief's own field list with the Brief's own
 // definitions, and nothing else. There is no template file, because there is no
-// second artifact to describe: the reader fills a `step` block.
+// second artifact to describe: the reader fills a `leg` block.
 //
 // WHAT IS WITHHELD IS WITHHELD DELIBERATELY. The Forward Artifact is not shown —
 // that is what makes the comparison worth making — and neither is the Move, its
@@ -785,23 +785,23 @@ function renderFigurePassage(step) {
 // would make the outcome ride on supplied information; its effect is carried by
 // the reader states, which ARE compared.
 //
-// THE ARTICLE'S OWN TEXT GOES IN LAST. `article_so_far`, `step_prose` and the
+// THE ARTICLE'S OWN TEXT GOES IN LAST. `article_so_far`, `leg_prose` and the
 // figure passage are the Draft's own bytes, and an article about this pipeline
 // can quote a field name or a fenced block as its own subject matter — so
 // nothing below substitutes into them.
-function renderReverseOutlineInput(ws, run, draft, step, steps) {
-  const figureBlock = step.figure ? renderFigurePassage(step) : "";
-  const figureFirst = step.figure ? figureBeforePassage(step) : false;
+function renderReverseOutlineInput(ws, run, draft, leg, legs) {
+  const figureBlock = leg.figure ? renderFigurePassage(leg) : "";
+  const figureFirst = leg.figure ? figureBeforePassage(leg) : false;
   const fieldLines = RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`);
 
   // THE FIGURE'S ASK RIDES THE SAME INPUT AND IS OWED ONLY WHERE THE READER MET
-  // ONE. A figureless Step is not asked for a figure block and is refused one:
+  // ONE. A figureless Leg is not asked for a figure block and is refused one:
   // a reader inventing a reading of a block that was never rendered is not
   // annotating harmlessly, it is a reading of nothing reaching the comparison.
-  const figureFieldLines = step.figure
+  const figureFieldLines = leg.figure
     ? FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`)
     : [];
-  const figureAsk = step.figure
+  const figureAsk = leg.figure
     ? ["## The figure you met, in its own terms",
       "",
       "This passage was rendered with a block beside it, and that block was written from a record",
@@ -810,7 +810,7 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
       "",
       ...figureFieldLines,
       "",
-      "Reply with a SECOND fenced block, after the `step` block:",
+      "Reply with a SECOND fenced block, after the `leg` block:",
       "",
       "````",
       "```figure",
@@ -827,7 +827,7 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     : "";
 
   const head = [
-    `# Reverse Outline — ${step.step_id}`,
+    `# Reverse Outline — ${leg.leg_id}`,
     "",
     "You are reading one passage of an article, and the article that came before it. You have",
     "not seen the outline the article was written from, and you must not go looking for it:",
@@ -854,11 +854,11 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
     "",
     "## The form",
     "",
-    "Reply with ONE fenced `step` block and nothing else:",
+    "Reply with ONE fenced `leg` block and nothing else:",
     "",
     "````",
-    "```step",
-    `step_id: ${step.step_id}`,
+    "```leg",
+    `leg_id: ${leg.leg_id}`,
     "purpose: …",
     "reader_state_before: …",
     "reader_state_after: …",
@@ -888,17 +888,17 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
   // than under it: a block the reader met first, rendered below the heading
   // that announces the passage, is the inverted arrangement kogaki#945 removed,
   // one line further down the page.
-  const parts = [head, articleBefore(steps, step.step_id), ""];
+  const parts = [head, articleBefore(legs, leg.leg_id), ""];
   if (figureFirst && figureBlock) parts.push(figureBlock, "");
   parts.push(
-    `## The passage — ${step.step_id}, draft lines ${step.lines[0]}–${step.lines[1]}`,
+    `## The passage — ${leg.leg_id}, draft lines ${leg.lines[0]}–${leg.lines[1]}`,
     "",
     "Every line is numbered with its line number in the Draft.",
     "",
-    numberedProse(step), "");
+    numberedProse(leg), "");
   if (!figureFirst && figureBlock) parts.push(figureBlock, "");
 
-  const dest = passPath(ws, run, "outline-input", `${step.step_id}.md`);
+  const dest = passPath(ws, run, "outline-input", `${leg.leg_id}.md`);
   const out = parts.join("\n");
   writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
   return dest;
@@ -909,12 +909,12 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
 //
 // Reverse Outlining is the method: after drafting, write an outline of what the
 // prose actually says, in the same form as the forward outline, and compare
-// entry by entry. So the Reverse Outline is a BRIEF STEP BLOCK — every field is
+// entry by entry. So the Reverse Outline is a BRIEF LEG BLOCK — every field is
 // a Brief field under the Brief's own name and definition — and there is no
 // second schema for the same information. `src/outlined-schema.json` and
 // `src/outline-template.md` were that second schema and are deleted with this.
 //
-// THE DISPOSITIONS ARE DECLARED ONCE, HERE, PER BRIEF STEP FIELD, and the table
+// THE DISPOSITIONS ARE DECLARED ONCE, HERE, PER BRIEF LEG FIELD, and the table
 // below is that declaration. A field the Blind Reader is asked for is one a
 // reader of the prose alone can write; a field they are refused is one whose
 // answer is not in the passage, and asking would get an invention back that the
@@ -931,9 +931,9 @@ function renderReverseOutlineInput(ws, run, draft, step, steps) {
 // lint of the class removed on 2026-09-09. Both rows left the item table, so
 // neither field has a reader; a field asked for and compared by nothing is a
 // reading the Blind Reader is charged for and nobody looks at. `opens_section`
-// moves to the refused list below, because it IS a Brief Step field and the
+// moves to the refused list below, because it IS a Brief Leg field and the
 // closed line set would otherwise admit it silently; `concession` is refused by
-// that closed set itself, which names it and says it is not a Brief Step field.
+// that closed set itself, which names it and says it is not a Brief Leg field.
 export const RECONSTRUCTIBLE_FIELDS = [
   { name: "purpose", kind: "line",
     definition: "what this passage is for — what it does for the reader, in your words." },
@@ -966,11 +966,11 @@ export const NOT_RECONSTRUCTIBLE_FIELDS = [
   { name: "move", why: "the Move is the Brief's name for the reader-state transition type, and a reader cannot "
       + "infer which library entry produced a passage; the Move's effect is carried by the reader states, which ARE compared" },
   { name: "materials", why: "which Strands licensed the passage is a fact about the Brief, not about the prose" },
-  { name: "rationale", why: "why the Step was placed where it was is the composer's reasoning, not the reader's" },
-  { name: "depends_on", why: "which earlier Steps this one stands on is the path's structure, not the passage's content" },
-  { name: "bridges", why: "whether this Step was inserted between two others is a fact about how the Brief was revised" },
+  { name: "rationale", why: "why the Leg was placed where it was is the composer's reasoning, not the reader's" },
+  { name: "depends_on", why: "which earlier Legs this one stands on is the path's structure, not the passage's content" },
+  { name: "bridges", why: "whether this Leg was inserted between two others is a fact about how the Brief was revised" },
   { name: "figure", why: "the figure's own round trip is a separate comparison against the figure record's own fields" },
-  { name: "opens_section", why: "whether a Step opens its Section or continues one is rendered by the Harness out "
+  { name: "opens_section", why: "whether a Leg opens its Section or continues one is rendered by the Harness out "
       + "of the trace, so it is never information the prose has to carry; the row that compared it left the item table "
       + "at kogaki#1132 and a line nothing reads is a reading the Blind Reader is charged for and nobody looks at" },
 ];
@@ -979,21 +979,21 @@ export const NOT_RECONSTRUCTIBLE_FIELDS = [
 // THE FIGURE'S OWN ROUND TRIP (kogaki#880, restated against the record's own
 // fields at kogaki#1018).
 //
-// ONE LEVEL DOWN, UNDER THE SAME RULE. A passage is written from a Brief Step,
-// so its Reverse Outline is a Brief Step block. A figure is written from its
+// ONE LEVEL DOWN, UNDER THE SAME RULE. A passage is written from a Brief Leg,
+// so its Reverse Outline is a Brief Leg block. A figure is written from its
 // RECORD, so the figure's Reverse Outline is a block in the FIGURE RECORD's own
 // field names — `src/figure-schema.json`'s, which is where they are declared and
 // where they stay. There is no second schema at either level, which is the
 // property kogaki#1014 landed for the passage and this is the same property for
 // the figure.
 //
-// WHY IT IS ITS OWN BLOCK RATHER THAN A FIELD OF THE STEP'S. `figure` IS a Brief
-// Step field and it is declared NOT reconstructible above — a reader cannot read
+// WHY IT IS ITS OWN BLOCK RATHER THAN A FIELD OF THE LEG'S. `figure` IS a Brief
+// Leg field and it is declared NOT reconstructible above — a reader cannot read
 // the Brief's figure decision off a rendered block — so a `figure:` line inside
 // the Reverse Outline is refused there and stays refused. What a reader CAN do
 // is say what they met, and that answer is about a different artifact with a
 // different field list. Filing it as its own fence and its own file is what
-// keeps the Step reading's key set closed against the Brief's names.
+// keeps the Leg reading's key set closed against the Brief's names.
 //
 // THE DISPOSITION RULE IS THE SAME RULE. Reconstructible is "a reader who met
 // the rendered block could say this"; everything else is REFUSED rather than
@@ -1041,15 +1041,15 @@ function figurePositions() {
   return one;
 }
 
-// The fenced form, the Step block's grammar one artifact over.
+// The fenced form, the Leg block's grammar one artifact over.
 function parseFigureBlock(text, path) {
   const m = /^```figure\n([\s\S]*?)\n```/m.exec(text);
   if (!m) {
-    return { refusal: `${path} carries no fenced \`figure\` block — this Step's reader met a figure, so `
+    return { refusal: `${path} carries no fenced \`figure\` block — this Leg's reader met a figure, so `
       + "the Round Trip owes a reading of it in the figure record's own field names" };
   }
   if (/^```figure\n/m.test(text.slice(m.index + m[0].length))) {
-    return { refusal: `${path} carries more than one fenced \`figure\` block — a Step renders one figure, `
+    return { refusal: `${path} carries more than one fenced \`figure\` block — a Leg renders one figure, `
       + "and two blocks leave the Harness to pick which one the reader meant" };
   }
   return { body: m[1] };
@@ -1058,17 +1058,17 @@ function parseFigureBlock(text, path) {
 // The figure's Reverse Outline, validated and projected into the record's own
 // field names. EVERY REFUSAL NAMES WHAT IT SAW, for the reason the passage half
 // gives: this is the one artifact in the flow a person wrote by hand.
-function validateFigureOutline(text, step, file) {
+function validateFigureOutline(text, leg, file) {
   const parsed = parseFigureBlock(text, file);
   if (parsed.refusal) fail(parsed.refusal);
   const body = parsed.body;
   const problems = [];
 
-  const caption = stepField(body, "caption");
+  const caption = legField(body, "caption");
   if (caption === null) problems.push("carries no `caption:` line — " + FIGURE_RECONSTRUCTIBLE_FIELDS[1].definition);
   else if (caption === "") problems.push("`caption:` is blank — " + FIGURE_RECONSTRUCTIBLE_FIELDS[1].definition);
 
-  const position = stepField(body, "position");
+  const position = legField(body, "position");
   const positions = figurePositions();
   if (position === null) problems.push("carries no `position:` line — " + FIGURE_RECONSTRUCTIBLE_FIELDS[2].definition);
   else if (!positions.includes(position)) {
@@ -1082,7 +1082,7 @@ function validateFigureOutline(text, step, file) {
       + "that showed them nothing, and that is the finding rather than a blank side");
   }
 
-  // THE LINE SET IS CLOSED, exactly as the Step block's is: a name nobody
+  // THE LINE SET IS CLOSED, exactly as the Leg block's is: a name nobody
   // declared carries a judgment the Harness never reads, and admit-by-default is
   // how that arrives with no trace.
   const declared = new Set([...FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => f.name),
@@ -1102,12 +1102,12 @@ function validateFigureOutline(text, step, file) {
   }
 
   if (problems.length) {
-    fail(`the figure's Reverse Outline for ${step.step_id} (${file}) is not a block this Round Trip can read:\n  - `
+    fail(`the figure's Reverse Outline for ${leg.leg_id} (${file}) is not a block this Round Trip can read:\n  - `
       + problems.join("\n  - "));
   }
 
   return {
-    step_id: step.step_id,
+    leg_id: leg.leg_id,
     element: elements.map((t) => ({ text: t })),
     caption,
     position,
@@ -1126,28 +1126,28 @@ function repeatedLines(body, field) {
 }
 
 // VALIDATED BY THE BRIEF PARSER, which is the acceptance rather than a way of
-// meeting it: `parseStepBlock` is the function `parseBrief` calls per fenced
+// meeting it: `parseLegBlock` is the function `parseBrief` calls per fenced
 // block, so a Reverse Outline the Brief could not carry is refused by the same
 // code that would refuse it inside a Brief.
 //
 // EVERY REFUSAL NAMES WHAT IT SAW. A Reverse Outline is the one artifact in
 // this flow a person wrote by hand, so "invalid" without the field is a refusal
 // that costs another read to act on.
-function validateReverseOutline(text, step, file) {
-  const parsed = parseStepBlock(text, file);
+function validateReverseOutline(text, leg, file) {
+  const parsed = parseLegBlock(text, file);
   if (parsed.refusal) fail(parsed.refusal);
-  const outline = parsed.step;
+  const outline = parsed.leg;
   const body = outline.body;
   const problems = [];
 
-  if (outline.step_id !== step.step_id) {
-    problems.push(`its \`step_id\` is \`${outline.step_id}\` and this pass is reading ${step.step_id} — `
+  if (outline.leg_id !== leg.leg_id) {
+    problems.push(`its \`leg_id\` is \`${outline.leg_id}\` and this pass is reading ${leg.leg_id} — `
       + "a Reverse Outline is the reading of ONE passage and is filed against it");
   }
 
   for (const f of RECONSTRUCTIBLE_FIELDS) {
     if (f.kind === "line") {
-      const v = stepField(body, f.name);
+      const v = legField(body, f.name);
       if (v === null) problems.push(`carries no \`${f.name}:\` line — ${f.definition}`);
       else if (v === "") problems.push(`\`${f.name}:\` is blank — ${f.definition}`);
       continue;
@@ -1176,7 +1176,7 @@ function validateReverseOutline(text, step, file) {
   // discarding the key would keep exactly the contamination the blind half
   // exists to prevent.
   for (const f of NOT_RECONSTRUCTIBLE_FIELDS) {
-    if (stepField(body, f.name) !== null) {
+    if (legField(body, f.name) !== null) {
       problems.push(`carries \`${f.name}:\`, which is declared NOT reconstructible — ${f.why}`);
     }
   }
@@ -1184,40 +1184,40 @@ function validateReverseOutline(text, step, file) {
   // The top-level line set is closed for the same reason the record's key set
   // was: a name nobody declared carries a judgment the Harness never reads, and
   // admit-by-default is how that arrives with no trace.
-  const declared = new Set([...RECONSTRUCTIBLE_NAMES, ...NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
+  const declared = new Set([...RECONSTRUCTIBLE_NAMES, ...NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "leg_id"]);
   for (const ln of body.split("\n")) {
     if (ln.startsWith("claim ") || ln.trim() === "") continue;
     const m = /^([a-z_][a-z0-9_]*):/.exec(ln);
     if (m && !declared.has(m[1])) {
-      problems.push(`carries \`${m[1]}:\`, which is not a Brief Step field — a field in the Reverse Outline `
-        + "that is not a Brief Step field needs its own ruling, so it is refused rather than read");
+      problems.push(`carries \`${m[1]}:\`, which is not a Brief Leg field — a field in the Reverse Outline `
+        + "that is not a Brief Leg field needs its own ruling, so it is refused rather than read");
     }
   }
 
   if (problems.length) {
-    fail(`the Reverse Outline for ${step.step_id} (${file}) is not a Brief Step block this Round Trip can read:\n  - `
+    fail(`the Reverse Outline for ${leg.leg_id} (${file}) is not a Brief Leg block this Round Trip can read:\n  - `
       + problems.join("\n  - "));
   }
 
   // THE READING, UNDER THE BRIEF'S OWN NAMES. There is no translation left to
-  // do: `field` in the Round Trip table names a Brief Step field, and this
+  // do: `field` in the Round Trip table names a Brief Leg field, and this
   // returns that field. What used to sit here was a projection into a second
   // schema's key names, and the column that read it is gone with the schema.
   return {
-    step_id: outline.step_id,
-    purpose: stepField(body, "purpose"),
-    reader_state_before: stepField(body, "reader_state_before"),
-    reader_state_after: stepField(body, "reader_state_after"),
+    leg_id: outline.leg_id,
+    purpose: legField(body, "purpose"),
+    reader_state_before: legField(body, "reader_state_before"),
+    reader_state_after: legField(body, "reader_state_after"),
     claims: outlineClaims(body).map((l) => ({ text: l.replace(/^claim[ \t]+/, "").trim() })),
     introduces: repeatedLines(body, "introduces").map((t) => ({ text: t })),
   };
 }
 
-// The next Step with no outline yet, in the path's recorded order. `open`
+// The next Leg with no outline yet, in the path's recorded order. `open`
 // renders the first; `outline` renders the next, which is what makes the flow
 // self-driving rather than a sequence a session has to remember.
 function nextOutlineOwed(run) {
-  return run.steps.find((s) => !run.outlineFields[s.step_id]);
+  return run.legs.find((s) => !run.outlineFields[s.leg_id]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1269,8 +1269,8 @@ function checkJaTermsFreshness(draftPath) {
     fail(`${draftPath} refuses to start: terms_sha_at_lint is ${recorded} and the current term list's hash is ${currentSha} (${TERMS_PATH}) — `
       + `Lint runs before the Round Trip on a Japanese Draft (the Terminology List Decision), so run \`node src/lint-ja.mjs lint --draft ${draftPath}\` first. `
       + "A term-list change is a correction, never a whole-Draft re-derivation: run "
-      + `\`node src/lint-ja.mjs correct-terms --draft ${draftPath}\` to name the Steps still owed after the `
-      + `mechanical fix, then re-enter ReviewDraft with \`open --draft ${draftPath} --only-steps <those Steps>\``);
+      + `\`node src/lint-ja.mjs correct-terms --draft ${draftPath}\` to name the Legs still owed after the `
+      + `mechanical fix, then re-enter ReviewDraft with \`open --draft ${draftPath} --only-legs <those Legs>\``);
   }
 }
 
@@ -1278,42 +1278,42 @@ function checkJaTermsFreshness(draftPath) {
 // The commands.
 
 // THE TERM-LIST CHANGE PATH'S RE-ENTRY (kogaki#1165, discharging kogaki#1160
-// acceptance item 3): `--only-steps` scopes the WHOLE run — outline, compare,
-// correct, check and close all read `run.steps` and nothing else to decide
-// which Steps this run reviews, so filtering it here is the whole of the
-// scoping and no other command needs to know a scoped run exists. A Step
+// acceptance item 3): `--only-legs` scopes the WHOLE run — outline, compare,
+// correct, check and close all read `run.legs` and nothing else to decide
+// which Legs this run reviews, so filtering it here is the whole of the
+// scoping and no other command needs to know a scoped run exists. A Leg
 // left out is never re-outlined and never re-compared, because there is no
-// code path here that reaches a Step `run.steps` does not name.
+// code path here that reaches a Leg `run.legs` does not name.
 //
 // `checkJaTermsFreshness` IS SKIPPED FOR A SCOPED OPEN, on purpose: the whole
 // reason this path exists is that a term-list change leaves
-// `terms_sha_at_lint` stale until the named Steps are corrected and the Draft
+// `terms_sha_at_lint` stale until the named Legs are corrected and the Draft
 // is Linted again, and the ordinary freshness gate would refuse to let that
-// correction start. `src/lint-ja.mjs correct-terms` is what names the Steps
+// correction start. `src/lint-ja.mjs correct-terms` is what names the Legs
 // this flag takes.
-function scopeToOnlySteps(steps, sections, onlyStepsArg) {
-  const onlySteps = onlyStepsArg.split(",").map((s) => s.trim()).filter(Boolean);
-  const known = new Set(steps.map((s) => s.step_id));
-  const unknown = onlySteps.filter((id) => !known.has(id));
+function scopeToOnlyLegs(legs, sections, onlyLegsArg) {
+  const onlyLegs = onlyLegsArg.split(",").map((s) => s.trim()).filter(Boolean);
+  const known = new Set(legs.map((s) => s.leg_id));
+  const unknown = onlyLegs.filter((id) => !known.has(id));
   if (unknown.length) {
-    fail(`--only-steps names step id(s) not in this Draft's trace: ${unknown.join(", ")} — known Steps are ${[...known].join(", ")}`);
+    fail(`--only-legs names leg id(s) not in this Draft's trace: ${unknown.join(", ")} — known Legs are ${[...known].join(", ")}`);
   }
-  if (!onlySteps.length) {
-    fail("--only-steps names no Step — a term-list change path with nothing to correct has nothing to "
-      + "open. Run `node src/lint-ja.mjs correct-terms --draft <draft.ja.md>` to see which Steps (if any) "
+  if (!onlyLegs.length) {
+    fail("--only-legs names no Leg — a term-list change path with nothing to correct has nothing to "
+      + "open. Run `node src/lint-ja.mjs correct-terms --draft <draft.ja.md>` to see which Legs (if any) "
       + "Lint still names after the mechanical fix.");
   }
-  const onlySet = new Set(onlySteps);
-  const scopedSteps = steps.filter((s) => onlySet.has(s.step_id));
+  const onlySet = new Set(onlyLegs);
+  const scopedLegs = legs.filter((s) => onlySet.has(s.leg_id));
   const scopedSections = sections
-    .map((sec) => ({ ...sec, steps: sec.steps.filter((id) => onlySet.has(id)) }))
-    .filter((sec) => sec.steps.length > 0);
-  return { steps: scopedSteps, sections: scopedSections, onlySteps };
+    .map((sec) => ({ ...sec, legs: sec.legs.filter((id) => onlySet.has(id)) }))
+    .filter((sec) => sec.legs.length > 0);
+  return { legs: scopedLegs, sections: scopedSections, onlyLegs };
 }
 
 function cmdOpen(args) {
   const draftPath = argString(args, "draft",
-    "usage: review-draft open --draft <draft.md> [--only-steps <id[,id...]>]");
+    "usage: review-draft open --draft <draft.md> [--only-legs <id[,id...]>]");
   // retired-vocab-ok — `regenerat` is on checks/check-review-draft-retired-
   // vocabulary.sh's list (kogaki#1013 retired it with the deleted act it
   // named), and every use in this block is a MUST-NOT-APPEAR TRIPWIRE rather
@@ -1324,27 +1324,27 @@ function cmdOpen(args) {
   if (args.regenerate) {
     fail("open refuses --regenerate: the Terminology List Decision (src/lint-ja.mjs) states a term-list "
       + "change is a CORRECTION, never a whole-Draft re-derivation — the owner does not require the Draft "
-      + "to be uniquely reproducible, so re-deriving it from a moved term list is not owed. Only the Steps "
-      + "`node src/lint-ja.mjs correct-terms` names are corrected; open with `--only-steps` naming them.");
+      + "to be uniquely reproducible, so re-deriving it from a moved term list is not owed. Only the Legs "
+      + "`node src/lint-ja.mjs correct-terms` names are corrected; open with `--only-legs` naming them.");
   }
-  const onlyStepsArg = typeof args["only-steps"] === "string" && args["only-steps"] !== "" ? args["only-steps"] : null;
-  if (!onlyStepsArg) checkJaTermsFreshness(draftPath);
+  const onlyLegsArg = typeof args["only-legs"] === "string" && args["only-legs"] !== "" ? args["only-legs"] : null;
+  if (!onlyLegsArg) checkJaTermsFreshness(draftPath);
   const draft = readDraft(draftPath);
   // THE FULL TRACE IS KEPT BESIDE THE SCOPED SET, and the two are not
-  // interchangeable (PR #1169 round 1). `run.steps` answers *which Steps this
+  // interchangeable (PR #1169 round 1). `run.legs` answers *which Legs this
   // run reviews* and is scoped; the article a Blind Reader is shown before a
   // passage answers *what the reader has read by then* and is NEVER scoped —
   // it is a property of the Draft, not of this run's scope. Handing the scoped
-  // array to the renderer made the first named Step read as the article's
+  // array to the renderer made the first named Leg read as the article's
   // first passage and withheld the prose actually preceding it, and it
   // disagreed with `cmdOutline` and pass two's re-render, which both build the
   // same block from the full trace.
   const resolved = resolveInputs(draft);
-  const allSteps = resolved.steps;
-  let { steps, sections } = resolved;
-  let onlySteps = null;
-  if (onlyStepsArg) {
-    ({ steps, sections, onlySteps } = scopeToOnlySteps(steps, sections, onlyStepsArg));
+  const allLegs = resolved.legs;
+  let { legs, sections } = resolved;
+  let onlyLegs = null;
+  if (onlyLegsArg) {
+    ({ legs, sections, onlyLegs } = scopeToOnlyLegs(legs, sections, onlyLegsArg));
   }
   const slug = slugOf(draftPath);
   const ws = workspaceFor(args, slug);
@@ -1354,12 +1354,12 @@ function cmdOpen(args) {
     slug,
     body_sha: draft.body_sha,
     opened_at: new Date().toISOString(),
-    only_steps: onlySteps,
-    steps: steps.map((s) => ({
-      step_id: s.step_id, section: s.section, section_title: s.section_title,
+    only_legs: onlyLegs,
+    legs: legs.map((s) => ({
+      leg_id: s.leg_id, section: s.section, section_title: s.section_title,
       lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
     })),
-    sections: sections.map((s) => ({ index: s.index, title: s.title, steps: s.steps })),
+    sections: sections.map((s) => ({ index: s.index, title: s.title, legs: s.legs })),
     // THE PASS THE RUN IS ON, AND THE LEDGER OF WHAT EACH PASS WROTE
     // (kogaki#994). `pass_files` maps a workspace-relative path to the pass
     // that wrote it, and `passPath` refuses a write that would land on another
@@ -1380,76 +1380,76 @@ function cmdOpen(args) {
     closed_at: null,
   };
 
-  const first = steps[0];
-  const input = renderReverseOutlineInput(ws, run, draft, first, allSteps);
-  run.rendered[first.step_id] = input;
+  const first = legs[0];
+  const input = renderReverseOutlineInput(ws, run, draft, first, allLegs);
+  run.rendered[first.leg_id] = input;
   writeRun(ws, run);
 
   process.stdout.write(
     `ReviewDraft opened: ${slug}\n`
-    + (onlySteps ? `  scope     term-list change path — only ${onlySteps.join(", ")} (no other Step is re-outlined, re-compared or re-realized)\n` : "")
+    + (onlyLegs ? `  scope     term-list change path — only ${onlyLegs.join(", ")} (no other Leg is re-outlined, re-compared or re-realized)\n` : "")
     + `  draft     ${resolve(draftPath)} (body sha ${draft.body_sha.slice(0, 16)})\n`
-    + `  steps     ${steps.length} — ${steps.map((s) => s.step_id).join(", ")}\n`
+    + `  legs     ${legs.length} — ${legs.map((s) => s.leg_id).join(", ")}\n`
     + `  sections  ${sections.length} — ${sections.map((s) => `${s.index}. ${s.title ?? "(untitled)"}`).join(" | ")}\n`
-    + `  packets   ${steps.length} verified against the trace's shas\n`
+    + `  packets   ${legs.length} verified against the trace's shas\n`
     + `  workspace ${ws}\n`
     + `\nfirst Reverse Outline input: ${input}\n`);
 }
 
 function cmdOutline(args) {
-  const usage = "usage: <reverse outline> | review-draft outline --draft <draft.md> --step <id>";
+  const usage = "usage: <reverse outline> | review-draft outline --draft <draft.md> --leg <id>";
   const draftPath = argString(args, "draft", usage);
-  const stepId = argString(args, "step", usage);
+  const legId = argString(args, "leg", usage);
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
   requireCurrent(run, draft);
 
-  const known = run.steps.map((s) => s.step_id);
-  if (!known.includes(stepId)) {
-    fail(`unknown step \`${stepId}\` — this Draft's Steps are ${known.join(", ")}`);
+  const known = run.legs.map((s) => s.leg_id);
+  if (!known.includes(legId)) {
+    fail(`unknown leg \`${legId}\` — this Draft's Legs are ${known.join(", ")}`);
   }
   // THE RENDERED-INPUT GUARD IS WHAT MAKES REVERSE OUTLINING BLIND. A record handed
-  // back for a Step whose input was never rendered was written against
+  // back for a Leg whose input was never rendered was written against
   // something else — the Packet, the Brief, or the reviewer's memory of the
   // article — and there is no way to tell which afterwards. So the refusal is
   // here, at the only moment the distinction is still observable.
-  if (!run.rendered[stepId]) {
-    fail(`step ${stepId} has no rendered Reverse Outline input, so this record was not written against one.\n`
+  if (!run.rendered[legId]) {
+    fail(`leg ${legId} has no rendered Reverse Outline input, so this record was not written against one.\n`
       + "The Harness renders inputs in the path's recorded order — `open` renders the first and each "
-      + `\`outline\` renders the next. The Step now owed is ${nextOutlineOwed(run)?.step_id ?? "(none)"}.`);
+      + `\`outline\` renders the next. The Leg now owed is ${nextOutlineOwed(run)?.leg_id ?? "(none)"}.`);
   }
   // READ AFTER THE GUARDS, not before them. The reply arrives on standard input
-  // and the refusals above are about the Step rather than about the reading, so
-  // consuming the stream first would make an unknown Step's refusal depend on a
+  // and the refusals above are about the Leg rather than about the reading, so
+  // consuming the stream first would make an unknown Leg's refusal depend on a
   // reply nobody needed to write.
   //
   // VALIDATED BEFORE IT IS RECORDED (kogaki#871). A record written to the
   // workspace and validated later would leave `compare` to discover the defect,
   // by which point the reviewer who could fix it has finished reading.
   const content = requireReply(usage);
-  // THE STEP COMES FROM THE DRAFT, NOT FROM THE RUN RECORD (kogaki#880). The
-  // run record carries the Step's identity and its ranges; whether the Step has
+  // THE LEG COMES FROM THE DRAFT, NOT FROM THE RUN RECORD (kogaki#880). The
+  // run record carries the Leg's identity and its ranges; whether the Leg has
   // a figure — and where its block sits — is resolved from the trace, which is
   // the same read the Reverse Outline input was rendered from. Validating against the
   // run record's copy would let the conditional eighth field be owed at render
   // and unowed at validation, which is the two-answers-to-one-question pattern
   // this Harness refuses everywhere else.
-  const { steps } = resolveInputs(draft);
-  const step = steps.find((x) => x.step_id === stepId);
-  const projected = validateReverseOutline(content, step, STDIN_LABEL);
+  const { legs } = resolveInputs(draft);
+  const leg = legs.find((x) => x.leg_id === legId);
+  const projected = validateReverseOutline(content, leg, STDIN_LABEL);
 
   // THE FIGURE'S HALF, VALIDATED IN THE SAME ACT (kogaki#1018). Owed where the
   // trace says the reader met a block, and REFUSED where it says they did not —
-  // the two refusals are the figure's counterpart of the Step block's own, and
-  // they are here rather than at `compare` for the reason the Step's are: the
+  // the two refusals are the figure's counterpart of the Leg block's own, and
+  // they are here rather than at `compare` for the reason the Leg's are: the
   // reviewer who could fix it has finished reading by then.
   let figureProjected = null;
   const hasFigureBlock = /^```figure\n/m.test(content);
-  if (step.figure) {
-    figureProjected = validateFigureOutline(content, step, STDIN_LABEL);
+  if (leg.figure) {
+    figureProjected = validateFigureOutline(content, leg, STDIN_LABEL);
   } else if (hasFigureBlock) {
-    fail(`the Reverse Outline for ${stepId} (${STDIN_LABEL}) carries a fenced \`figure\` block, and this Step `
+    fail(`the Reverse Outline for ${legId} (${STDIN_LABEL}) carries a fenced \`figure\` block, and this Leg `
       + "renders no figure. A reading of a block the reader never met is an invention, and the "
       + "comparison downstream would treat it as evidence, so it is refused rather than dropped.");
   }
@@ -1459,51 +1459,51 @@ function cmdOutline(args) {
   // Round Trip against — and the `.json` is the reading the Harness compares,
   // under the Brief's own field names. Writing only the second would leave the
   // run's own record unable to show what the Blind Reader actually said.
-  const outlinePath = passPath(ws, run, "outline", `${stepId}.md`);
+  const outlinePath = passPath(ws, run, "outline", `${legId}.md`);
   writeFileSync(outlinePath, content.endsWith("\n") ? content : content + "\n");
-  const out = passPath(ws, run, "outline", `${stepId}.json`);
+  const out = passPath(ws, run, "outline", `${legId}.json`);
   writeFileSync(out, JSON.stringify(projected, null, 2) + "\n");
-  run.outlineFields[stepId] = out;
+  run.outlineFields[legId] = out;
   run.outlines = run.outlines || {};
-  run.outlines[stepId] = outlinePath;
+  run.outlines[legId] = outlinePath;
 
   // THE FIGURE'S READING IS ITS OWN FILE, for the reason it is its own fence:
-  // it is written in the FIGURE RECORD's field names, and the Step's reading is
+  // it is written in the FIGURE RECORD's field names, and the Leg's reading is
   // written in the BRIEF's. One file per vocabulary is what keeps either from
   // acquiring a key belonging to the other.
   run.figureOutlineFields = run.figureOutlineFields || {};
   if (figureProjected) {
-    const fout = passPath(ws, run, "outline", `${stepId}.figure.json`);
+    const fout = passPath(ws, run, "outline", `${legId}.figure.json`);
     writeFileSync(fout, JSON.stringify(figureProjected, null, 2) + "\n");
-    run.figureOutlineFields[stepId] = fout;
+    run.figureOutlineFields[legId] = fout;
   }
 
   const next = nextOutlineOwed(run);
   let nextInput = null;
   if (next) {
-    const full = steps.find((s) => s.step_id === next.step_id);
-    nextInput = renderReverseOutlineInput(ws, run, draft, full, steps);
-    run.rendered[next.step_id] = nextInput;
+    const full = legs.find((s) => s.leg_id === next.leg_id);
+    nextInput = renderReverseOutlineInput(ws, run, draft, full, legs);
+    run.rendered[next.leg_id] = nextInput;
   }
   writeRun(ws, run);
 
-  process.stdout.write(`recorded: ${stepId} -> ${out}\n`);
+  process.stdout.write(`recorded: ${legId} -> ${out}\n`);
   if (nextInput) process.stdout.write(`next Reverse Outline input: ${nextInput}\n`);
-  else process.stdout.write("every Step is outlined. `compare --draft <draft.md>` is the join.\n");
+  else process.stdout.write("every Leg is outlined. `compare --draft <draft.md>` is the join.\n");
 }
 
 // What `compare` is missing, computed once and rendered as the refusal's whole
 // content: a reviewer told "something is missing" has to go looking, and the
 // looking is the part the Harness can do.
 //
-// THE STEP OUTLINES ARE THE WHOLE OF WHAT IT CAN BE MISSING (kogaki#1133). The
+// THE LEG OUTLINES ARE THE WHOLE OF WHAT IT CAN BE MISSING (kogaki#1133). The
 // Section ledger and the cold reader's final claim were two further kinds of
 // missing until that issue removed the reader that wrote them. The return stays
-// a record rather than becoming a bare array, because a caller reading `.steps`
+// a record rather than becoming a bare array, because a caller reading `.legs`
 // says what it is asking about.
 function missingFor(run) {
-  const steps = run.steps.map((s) => s.step_id).filter((id) => !run.outlineFields[id]);
-  return { steps };
+  const legs = run.legs.map((s) => s.leg_id).filter((id) => !run.outlineFields[id]);
+  return { legs };
 }
 
 // ---------------------------------------------------------------------------
@@ -1520,8 +1520,8 @@ function missingFor(run) {
 // here rather than in a prompt. A judging model sees ONE pair, answers ONE
 // question, and returns one of three tokens with one sentence. It cannot rank,
 // weigh or aggregate, because it is never shown two pairs at once. What a
-// `fails` COSTS is the table's: a preserved item's fail sends the Step to
-// correction, a best-effort item's rides along if that Step is re-realized
+// `fails` COSTS is the table's: a preserved item's fail sends the Leg to
+// correction, a best-effort item's rides along if that Leg is re-realized
 // anyway.
 //
 // `cannot-decide` IS NEVER ROUNDED. It is a third answer, not a weak `holds`,
@@ -1581,7 +1581,7 @@ function packetBullet(text, label) {
 
 // A `- item` list read out of a bullet value, with the stated-absence forms
 // answering as the empty list. `already knows` renders each entry as
-// `term — anchor (introduced at <step>)`; only the term is the join key, and the
+// `term — anchor (introduced at <leg>)`; only the term is the join key, and the
 // anchor is what the Packet carries FOR THE WRITER rather than for this reader.
 function bulletList(value, { termOnly = false } = {}) {
   if (value === null) return null;
@@ -1638,10 +1638,10 @@ function packetBlock(text, heading, { after = null } = {}) {
 const PACKET_READERS = {
   // THE CLAIMS ARE A BLOCK BELOW THEIR BULLET, NOT THE BULLET'S VALUE (PR #895
   // round 1, finding 2). The template's `- **claims.** ...` line is fixed
-  // INSTRUCTION prose — "These are what this Step may assert" — and the rendered
+  // INSTRUCTION prose — "These are what this Leg may assert" — and the rendered
   // value, `(none recorded)` included, goes into the separate block under it. A
   // reader testing the bullet's text for a stated absence could never match, so
-  // a Step whose Brief declares no claims refused the WHOLE run as a false
+  // a Leg whose Brief declares no claims refused the WHOLE run as a false
   // Packet gap and sent the reviewer to file against a template that was not
   // broken. The bullet locates the region; the region carries the value.
   claim_lines: (t, spec) => {
@@ -1654,7 +1654,7 @@ const PACKET_READERS = {
     const re = new RegExp(`^${spec.prefix}\\s`);
     const g = region.filter((l) => re.test(l)).map((l) => l.trim());
     if (g.length) return g;
-    // A stated absence in the region is an ANSWER — this Step declares none. It
+    // A stated absence in the region is an ANSWER — this Leg declares none. It
     // is only a hole when the bullet, and so the region, is absent altogether.
     if (region.some((l) => PACKET_ABSENCE.test(l.trim()))) return [];
     return null;
@@ -1696,7 +1696,7 @@ function wordSequence(s) {
 // carry. Every item reads its declared side through here, so a Packet gap is one
 // refusal with one wording however it was reached, and a second reader cannot
 // grow beside this one and disagree with it about what the Packet's layout is.
-function readPacketBlock(text, name, items, step, wantedBy) {
+function readPacketBlock(text, name, items, leg, wantedBy) {
   const spec = (items.packet_blocks || {})[name];
   const reader = spec && PACKET_READERS[spec.kind];
   if (!reader) {
@@ -1706,8 +1706,8 @@ function readPacketBlock(text, name, items, step, wantedBy) {
   }
   const v = reader(text, spec);
   if (v === null) {
-    fail(`step ${step.step_id}: its Packet carries no \`${name}\` block, which the item(s) `
-      + `${wantedBy.join(", ")} compare against.\n  packet  ${step.packet_path}\n`
+    fail(`leg ${leg.leg_id}: its Packet carries no \`${name}\` block, which the item(s) `
+      + `${wantedBy.join(", ")} compare against.\n  packet  ${leg.packet_path}\n`
       + "A block the comparison needs and the Packet does not carry is a PACKET GAP: file it "
       + "against src/packet-template.md. It is never satisfied by reading the Brief, the Move "
       + "or the Strand — the owner's 2026-09-04 ruling is that a need for those is evidence "
@@ -1716,17 +1716,17 @@ function readPacketBlock(text, name, items, step, wantedBy) {
   return v;
 }
 
-// The declared side for one Step, read once and refusing BY NAME on the first
+// The declared side for one Leg, read once and refusing BY NAME on the first
 // block an item needs and the Packet does not carry.
-function declaredFor(step, items) {
-  const text = readFileSync(step.packet_path, "utf8");
+function declaredFor(leg, items) {
+  const text = readFileSync(leg.packet_path, "utf8");
   const need = new Set();
   for (const it of items.items) {
-    // A ROW THIS STEP DOES NOT RUN ASKS FOR NO BLOCK (kogaki#880). Collecting a
-    // figure row's Packet blocks on a figureless Step would refuse that Step as
+    // A ROW THIS LEG DOES NOT RUN ASKS FOR NO BLOCK (kogaki#880). Collecting a
+    // figure row's Packet blocks on a figureless Leg would refuse that Leg as
     // a Packet gap for a block no item on it ever reads — a refusal naming a
     // repair nobody owes.
-    if (it.figure_only && !step.figure) continue;
+    if (it.figure_only && !leg.figure) continue;
     if (it.declared_block) need.add(it.declared_block);
     for (const b of it.also_declared_blocks || []) need.add(b);
   }
@@ -1734,7 +1734,7 @@ function declaredFor(step, items) {
   for (const name of need) {
     const wanted = items.items.filter((i) => i.declared_block === name
       || (i.also_declared_blocks || []).includes(name)).map((i) => i.id);
-    out[name] = readPacketBlock(text, name, items, step, wanted);
+    out[name] = readPacketBlock(text, name, items, leg, wanted);
   }
   return out;
 }
@@ -1792,7 +1792,7 @@ function verbatimWindow(line, haystacks, n) {
 const MECHANICAL = {
   // THE HYGIENE ITEMS ARE GONE, AND THEIR ABSENCE IS A RULING RATHER THAN A
   // TRIM (owner 2026-09-09; kogaki#1013 item 3). `term-before-introduction`,
-  // `restates-earlier-step` and `packet-wording` each asked whether the prose
+  // `restates-earlier-leg` and `packet-wording` each asked whether the prose
   // betrayed the material it was produced from. Prose hygiene is not part of
   // Reverse Outlining: a reader cannot infer the source a structure was
   // produced from, and being able to would be abnormal. Whether any of them
@@ -1803,13 +1803,13 @@ const MECHANICAL = {
 
   // AND `claims-unused` LEFT WITH THE MATCHER IT READ (kogaki#1132). It was the
   // best-effort row reporting a declared claim no outlined claim matched, and it
-  // held on every Step of the first full run while the preserved row failed on
-  // every Step: the item with a consequence detected surplus, and the item that
+  // held on every Leg of the first full run while the preserved row failed on
+  // every Leg: the item with a consequence detected surplus, and the item that
   // detected a lost claim had none. Both halves are now the one preserved
   // `claims` row, asked once per DECLARED claim, so a lost claim is named to the
   // correction with its own text instead of being reported beside it.
   //
-  // THE MAP IS EMPTY AT THIS HEAD AND THE KEY STAYS. A prose Step's rows are
+  // THE MAP IS EMPTY AT THIS HEAD AND THE KEY STAYS. A prose Leg's rows are
   // all judged now; the figure's element-to-claim row is mechanical and lives
   // in `MECHANICAL_FIGURE`. The dispatch below reads both, and a table row with
   // no implementation still refuses by name rather than silently skipping.
@@ -1828,17 +1828,17 @@ const MECHANICAL = {
 // A ROW NAMING BOTH SIDES IS REFUSED. Two declared carriers on one row is two
 // questions, and this table holds one per row; a runtime that picked one
 // silently would make which carrier answered a fact about the reading order.
-function figureDeclared(step, item) {
+function figureDeclared(leg, item) {
   if (item.declared_block && item.record_field) {
     fail(`the item table declares \`${item.id}\` with both a Packet block and a figure record `
       + "field. One row asks one question of one declared side; a row with two would be answered "
       + "against whichever the runtime happened to read first");
   }
-  const rec = step.figure.record_json;
+  const rec = leg.figure.record_json;
   const v = rec[item.record_field];
   if (v === undefined) {
-    fail(`step ${step.step_id}: item \`${item.id}\` reads the figure record's `
-      + `\`${item.record_field}\`, and the record at ${step.figure.record_path} carries no such `
+    fail(`leg ${leg.leg_id}: item \`${item.id}\` reads the figure record's `
+      + `\`${item.record_field}\`, and the record at ${leg.figure.record_path} carries no such `
       + "field. The record was validated against src/figure-schema.json when it was written, so a "
       + "field absent now means the schema and the item table disagree about the record's field list");
   }
@@ -1871,14 +1871,14 @@ function renderElements(elements) {
 // STRING CONTAINMENT FIRST, JUDGED SECOND. What is mechanical here is the
 // verdict: containment above the floor holds, below it fails, and no model is
 // asked either way — which is what the mode declares and what makes a
-// mechanical fail cheap enough to run on every Step of every pass. The judgment
+// mechanical fail cheap enough to run on every Leg of every pass. The judgment
 // comes second and elsewhere: a fail on this preserved row is what sends the
-// Step to `correct --figure`, where a reader is shown the element beside the
+// Leg to `correct --figure`, where a reader is shown the element beside the
 // claim it was worded from.
 //
-// THE ADDRESS IS `g<n>` OVER THE STEP'S OWN CLAIMS, 1-based, which is the
+// THE ADDRESS IS `g<n>` OVER THE LEG'S OWN CLAIMS, 1-based, which is the
 // figure decision's
-// grammar. An address outside the Step's claim count is refused by name rather
+// grammar. An address outside the Leg's claim count is refused by name rather
 // than scored against whatever happens to sit at that index — the figure
 // decision's own
 // grammar refuses one at composition, so a record carrying one now was written
@@ -1886,17 +1886,17 @@ function renderElements(elements) {
 function claimAt(address, claims) {
   const m = /^g(\d+)$/.exec(String(address ?? ""));
   if (!m) return { error: `is bound to ${renderSide(address ?? null)}, which is not a claim `
-    + "address — a role binds to `g<n>` over the Step's own claims" };
+    + "address — a role binds to `g<n>` over the Leg's own claims" };
   const i = Number(m[1]);
   if (i < 1 || i > claims.length) {
-    return { error: `is bound to ${address} and this Step declares `
+    return { error: `is bound to ${address} and this Leg declares `
       + `${claims.length} claim${claims.length === 1 ? "" : "s"} — the address points past them` };
   }
   return { claim: claims[i - 1] };
 }
 
 const MECHANICAL_FIGURE = {
-  "figure-element-claim": ({ step, declared, items, item }) => {
+  "figure-element-claim": ({ leg, declared, items, item }) => {
     const floor = items.thresholds.figure_element_claim_containment;
     if (typeof floor !== "number") {
       fail("the item table declares no `thresholds.figure_element_claim_containment`, and the "
@@ -1904,15 +1904,15 @@ const MECHANICAL_FIGURE = {
         + "pass, which is the silent `holds` this comparison exists to refuse");
     }
     const claims = declared.claims || [];
-    const elements = figureDeclared(step, item);
+    const elements = figureDeclared(leg, item);
     for (const [role, el] of Object.entries(elements)) {
       const r = claimAt(el && el.claim, claims);
       if (r.error) {
         return {
           verdict: "fails",
-          reason: "an element's claim address does not resolve against this Step's claims",
+          reason: "an element's claim address does not resolve against this Leg's claims",
           evidence: [`${role} ${r.error}`],
-          span: step.figure.lines,
+          span: leg.figure.lines,
         };
       }
       const cw = contentWords(el && el.text);
@@ -1923,14 +1923,14 @@ const MECHANICAL_FIGURE = {
           verdict: "fails",
           reason: "an element is worded in terms its bound claim does not carry",
           evidence: [`${role} — ${renderSide(el && el.text)}`, `its claim — ${r.claim}`],
-          span: step.figure.lines,
+          span: leg.figure.lines,
         };
       }
     }
     return {
       verdict: "holds",
       reason: "every element is worded in the terms of the claim it is bound to",
-      span: step.figure.lines,
+      span: leg.figure.lines,
     };
   },
 };
@@ -1942,7 +1942,7 @@ const MECHANICAL_FIGURE = {
 // record here put a `compare` run made after `check` into `pass-2/join/`, over
 // the inputs pass two was judging, and the ledger could not refuse it because
 // the writing pass read as the owning one.
-function renderJoinPacket(ws, run, pass, draft, step, item, pair, declaredText, outlineText) {
+function renderJoinPacket(ws, run, pass, draft, leg, item, pair, declaredText, outlineText) {
   const tplPath = join(dirname(fileURLToPath(import.meta.url)), "join-template.md");
   if (!existsSync(tplPath)) {
     fail(`the join template is absent — ${tplPath}. It is the judging model's entire input, so a `
@@ -1951,18 +1951,18 @@ function renderJoinPacket(ws, run, pass, draft, step, item, pair, declaredText, 
   }
   let out = readFileSync(tplPath, "utf8").replace(/^<!--[\s\S]*?-->\n*/, "");
   const fields = {
-    step_id: step.step_id,
+    leg_id: leg.leg_id,
     item: item.id,
     item_class: item.class,
     declared: declaredText,
     reverse: outlineText,
-    span: `${step.lines[0]}–${step.lines[1]}`,
+    span: `${leg.lines[0]}–${leg.lines[1]}`,
     // THE JUDGING READER IS TOLD WHICH CARRIER DECLARED THE LINE. It is not the
     // blind reader — it sees both sides by design — and a figure record's line
     // rendered under a heading saying `Packet` would name the wrong artifact in
     // every finding a reader of the join record goes on to repair.
     declared_source: item.declared_source ?? "Packet",
-    quoted: quotedPassage(step),
+    quoted: quotedPassage(leg),
     question: item.question,
     record_command: `<verdicts.json> | node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path}`,
   };
@@ -1972,14 +1972,14 @@ function renderJoinPacket(ws, run, pass, draft, step, item, pair, declaredText, 
     fail(`the join template's slot {{${left[1]}}} was not filled — the renderer and the template `
       + "disagree about the slot set, which is the round trip failing silently");
   }
-  const name = pair === null ? `${step.step_id}.${item.id}.md` : `${step.step_id}.${item.id}.${pair}.md`;
+  const name = pair === null ? `${leg.leg_id}.${item.id}.md` : `${leg.leg_id}.${item.id}.${pair}.md`;
   const dest = passPathAt(ws, run, pass, "join", name);
   writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
   return dest;
 }
 
-const verdictKey = (step_id, item, pair) => (pair === null || pair === undefined
-  ? `${step_id}/${item}` : `${step_id}/${item}#${pair}`);
+const verdictKey = (leg_id, item, pair) => (pair === null || pair === undefined
+  ? `${leg_id}/${item}` : `${leg_id}/${item}#${pair}`);
 
 // WHAT JUDGED THIS PASS, READ BACK FROM THE RECORDED VERDICTS (kogaki#997).
 // ReviewDraft pins a different model per role, and the Harness invokes none of
@@ -2018,12 +2018,12 @@ function recordVerdicts(run, text, owed, items) {
   try { doc = JSON.parse(text); }
   catch (e) {
     fail(`the verdicts on ${STDIN_LABEL} are not readable JSON (${e.message}) — a verdicts reply is `
-      + `one JSON object carrying \`verdicts\`: [{step_id, item, pair?, verdict, reason, model}]`);
+      + `one JSON object carrying \`verdicts\`: [{leg_id, item, pair?, verdict, reason, model}]`);
   }
   const list = doc && !Array.isArray(doc) && Array.isArray(doc.verdicts) ? doc.verdicts : null;
   if (!list) {
     fail(`the reply on ${STDIN_LABEL} carries no \`verdicts\` array — it is one JSON object of the form `
-      + `{"verdicts": [{"step_id": ..., "item": ..., "verdict": ..., "reason": ..., "model": ...}]}`);
+      + `{"verdicts": [{"leg_id": ..., "item": ..., "verdict": ..., "reason": ..., "model": ...}]}`);
   }
   // A PAIR ALREADY ANSWERED IS STILL ANSWERABLE (PR #895 round 1, finding 5).
   // `owed` shrinks as verdicts land, so validating against it alone refused a
@@ -2039,7 +2039,7 @@ function recordVerdicts(run, text, owed, items) {
   list.forEach((v, i) => {
     const at = `\`verdicts\`[${i}]`;
     if (v === null || typeof v !== "object" || Array.isArray(v)) { problems.push(`${at} must be an object`); return; }
-    const key = verdictKey(v.step_id, v.item, v.pair === undefined ? null : v.pair);
+    const key = verdictKey(v.leg_id, v.item, v.pair === undefined ? null : v.pair);
     if (!owedBy.has(key)) {
       const mech = items.items.find((it) => it.id === v.item && it.mode === "mechanical");
       problems.push(mech
@@ -2085,7 +2085,7 @@ function recordVerdicts(run, text, owed, items) {
         + `took, and \`${v.model.trim()}\` is not one`);
       return;
     }
-    accepted.push({ key, step_id: v.step_id, item: v.item, pair: v.pair === undefined ? null : v.pair,
+    accepted.push({ key, leg_id: v.leg_id, item: v.item, pair: v.pair === undefined ? null : v.pair,
       verdict: v.verdict, reason: v.reason.trim(), model: v.model.trim() });
   });
   if (problems.length) {
@@ -2104,9 +2104,9 @@ function recordVerdicts(run, text, owed, items) {
 // field means the reverse side IS THE PROSE — the negative items, which ask
 // whether something is absent from the passage rather than whether two lines
 // agree.
-// A REVERSE SIDE IS ONE BRIEF STEP FIELD, AND THE PATH IS FLAT (kogaki#1014).
+// A REVERSE SIDE IS ONE BRIEF LEG FIELD, AND THE PATH IS FLAT (kogaki#1014).
 // The dotted one-level reach this function used to allow existed for
-// `figure_reading`, the deleted record's one object field; a Brief Step field
+// `figure_reading`, the deleted record's one object field; a Brief Leg field
 // is a line, so there is nothing left to reach into. A dotted path is refused
 // by name rather than resolved to `undefined`, which is how a table naming a
 // field nobody computes would otherwise read as a side that simply was not
@@ -2114,7 +2114,7 @@ function recordVerdicts(run, text, owed, items) {
 function outlineField(rec, path) {
   if (String(path).includes(".")) {
     fail(`the item table names the reverse field \`${path}\`, and a reverse side is ONE `
-      + "Brief Step field, which is a line rather than an object. A dotted path would be a query "
+      + "Brief Leg field, which is a line rather than an object. A dotted path would be a query "
       + "over a second schema beside the Brief's, which is what src/review-items.json's own note "
       + "records as declined");
   }
@@ -2138,8 +2138,8 @@ function reverseSide(item, rec, figRec) {
   }
   if (item.figure_field) {
     if (!figRec) {
-      fail(`the item table declares \`${item.id}\` against the figure's reading, and this Step has none `
-        + "— a figure row is evaluated only on a Step whose trace carries a figure");
+      fail(`the item table declares \`${item.id}\` against the figure's reading, and this Leg has none `
+        + "— a figure row is evaluated only on a Leg whose trace carries a figure");
     }
     return renderSide(outlineField(figRec, item.figure_field));
   }
@@ -2152,12 +2152,12 @@ function reverseSide(item, rec, figRec) {
 // itself. `elements` is rendered by its own function because a bare object
 // dump would carry each element's claim address into the question, and the
 // claim is what the mechanical row already answers.
-function declaredSide(step, item, declared, items) {
+function declaredSide(leg, item, declared, items) {
   if (item.record_field) {
-    const v = figureDeclared(step, item);
+    const v = figureDeclared(leg, item);
     if (item.record_field === "elements") return renderElements(v);
     const also = (item.also_declared_blocks || [])
-      .map((b) => `- **the Step's ${b}.** ${renderSide(declared[b])}`);
+      .map((b) => `- **the Leg's ${b}.** ${renderSide(declared[b])}`);
     return also.length
       ? [`- **the record's ${item.record_field}.** ${renderSide(v)}`, ...also].join("\n")
       : renderSide(v);
@@ -2173,7 +2173,7 @@ function declaredSide(step, item, declared, items) {
 // AN ENTRY OF A REVERSE OUTLINE LIST IS AN OBJECT CARRYING ITS OWN WORDS.
 // `claims`, `introduces` and `concession` each read back as `{ text }` — the
 // Brief's own line, verbatim. There is no span: a span was the outlined
-// record's coordinate, and a Brief Step field does not carry one, so an entry
+// record's coordinate, and a Brief Leg field does not carry one, so an entry
 // renders as what it says. `renderEntry` below still honours a `text`/`span`
 // pair where one exists, because the figure half still writes them.
 const ENTRY_KEY_PAIRS = [["text", "span"], ["claim", "span"], ["of", "span"]];
@@ -2195,7 +2195,7 @@ function renderEntry(x) {
       return `${x[textKey]} (lines ${span[0]}\u2013${span[1]})`;
     }
     // NO SPAN IS THE ORDINARY CASE NOW (kogaki#1014). A Reverse Outline is a
-    // Brief Step block and a Brief field carries no draft coordinate, so the
+    // Brief Leg block and a Brief field carries no draft coordinate, so the
     // entry renders as its own words rather than falling through to the
     // key-by-key dump, which is what put `[object Object]` noise in
     // front of the judging model before.
@@ -2215,7 +2215,7 @@ function renderSide(v) {
   return String(v);
 }
 
-// EVERY (Step, item) PAIR, computed fresh. Mechanical items are decided here;
+// EVERY (Leg, item) PAIR, computed fresh. Mechanical items are decided here;
 // judged items are rendered as join Packets and answered from the run record.
 // Nothing is cached across a call, because a recorded verdict is exactly what
 // changes the answer.
@@ -2231,15 +2231,15 @@ function renderSide(v) {
 // exactly the defect this parameter exists to close.
 function buildJoin(draft, run, items, ws, opts = {}) {
   const pass = requirePass(opts.pass, "buildJoin");
-  // SCOPED TO `run.steps`, NEVER TO THE WHOLE TRACE (kogaki#1165). An
-  // ordinary run's `run.steps` already names every Step `open` found, so this
+  // SCOPED TO `run.legs`, NEVER TO THE WHOLE TRACE (kogaki#1165). An
+  // ordinary run's `run.legs` already names every Leg `open` found, so this
   // filter is a no-op there; a term-list change path's run names only the
-  // Steps Lint named, and this is the one site that used to re-derive the
-  // whole Draft's Step set straight from the trace and silently widen a
-  // scoped run back out to every Step at the join.
-  const { steps: allSteps } = resolveInputs(draft);
-  const scopedIds = new Set(run.steps.map((s) => s.step_id));
-  const steps = allSteps.filter((s) => scopedIds.has(s.step_id));
+  // Legs Lint named, and this is the one site that used to re-derive the
+  // whole Draft's Leg set straight from the trace and silently widen a
+  // scoped run back out to every Leg at the join.
+  const { legs: allLegs } = resolveInputs(draft);
+  const scopedIds = new Set(run.legs.map((s) => s.leg_id));
+  const legs = allLegs.filter((s) => scopedIds.has(s.leg_id));
   const bound = typeof opts.bound === "function" ? opts.bound : null;
   const carry = opts.carry || [];
   const results = [];
@@ -2248,69 +2248,69 @@ function buildJoin(draft, run, items, ws, opts = {}) {
   const mechanicalLog = [];
   const verdicts = run.verdicts || {};
 
-  steps.forEach((step, si) => {
-    const declared = declaredFor(step, items);
+  legs.forEach((leg, si) => {
+    const declared = declaredFor(leg, items);
     let rec;
-    try { rec = JSON.parse(readFileSync(run.outlineFields[step.step_id], "utf8")); }
-    catch (e) { fail(`the Reverse Outline for ${step.step_id} is not readable (${e.message})`); }
+    try { rec = JSON.parse(readFileSync(run.outlineFields[leg.leg_id], "utf8")); }
+    catch (e) { fail(`the Reverse Outline for ${leg.leg_id} is not readable (${e.message})`); }
     // THE FIGURE'S READING, WHERE THE READER MET ONE. Absent on a figureless
-    // Step, and the figure rows are not evaluated there at all — never as a
+    // Leg, and the figure rows are not evaluated there at all — never as a
     // vacuous `holds`, which would put a figure line in a figureless Draft's log.
     let figRec = null;
-    if (step.figure) {
-      const fp = (run.figureOutlineFields || {})[step.step_id];
+    if (leg.figure) {
+      const fp = (run.figureOutlineFields || {})[leg.leg_id];
       if (!fp || !existsSync(fp)) {
-        fail(`step ${step.step_id} renders a figure and its Reverse Outline carries no reading of it — `
-          + "re-file the Step's outline with its `figure` block, which `outline` validates and records "
+        fail(`leg ${leg.leg_id} renders a figure and its Reverse Outline carries no reading of it — `
+          + "re-file the Leg's outline with its `figure` block, which `outline` validates and records "
           + "in the same act");
       }
       try { figRec = JSON.parse(readFileSync(fp, "utf8")); }
-      catch (e) { fail(`the figure's Reverse Outline for ${step.step_id} is not readable (${e.message})`); }
+      catch (e) { fail(`the figure's Reverse Outline for ${leg.leg_id} is not readable (${e.message})`); }
     }
-    const earlier = steps.slice(0, si);
+    const earlier = legs.slice(0, si);
 
     for (const item of items.items) {
-      // A FIGURE ROW ON A FIGURELESS STEP IS NOT EVALUATED, NOT RENDERED AND
+      // A FIGURE ROW ON A FIGURELESS LEG IS NOT EVALUATED, NOT RENDERED AND
       // NOT LOGGED (kogaki#880), and the skip is FIRST — before the bound, so
       // pass two neither carries it nor demands a pass-one answer for it. A
       // vacuous `holds` would be the cheaper implementation and the wrong one:
       // it puts an answer about nothing beside answers about something, and it
       // makes the mechanical arm of the second pass's bound report coverage of
-      // Steps that have no figure to cover.
-      if (item.figure_only && !step.figure) continue;
+      // Legs that have no figure to cover.
+      if (item.figure_only && !leg.figure) continue;
       // OUT OF BOUND: CARRIED, AND THE CHECK IS FIRST. Placed before the
       // mechanical dispatch and before any join Packet is rendered, so an
       // out-of-bound pair costs no model call and appears in neither log. A
       // carried row keeps pass one's verdict, class, reason and span and is
       // marked `carried` — a reader of the pass-two record can tell a re-judged
       // answer from a preserved one, which an unmarked copy would not allow.
-      if (bound && !bound(step.step_id, item.id)) {
-        const prev = carry.find((r) => r.step_id === step.step_id && r.item === item.id);
+      if (bound && !bound(leg.leg_id, item.id)) {
+        const prev = carry.find((r) => r.leg_id === leg.leg_id && r.item === item.id);
         if (!prev) {
-          fail(`the bounded second pass carries ${step.step_id}/${item.id} from pass one and pass `
+          fail(`the bounded second pass carries ${leg.leg_id}/${item.id} from pass one and pass `
             + "one recorded no answer for it. A carried pair with nothing to carry would render as "
             + "a verdict this run never reached; re-run `compare --draft <draft.md>` so the pair is "
             + "answered before it is carried.");
         }
-        // THE SPAN IS RE-ANCHORED TO THE STEP'S CURRENT RANGE (PR #906 round 1,
+        // THE SPAN IS RE-ANCHORED TO THE LEG'S CURRENT RANGE (PR #906 round 1,
         // finding 2). A carried row keeps pass one's verdict, class and reason
         // — those are readings of prose that has not moved — but NOT its
         // coordinates: a correction changes the Draft's line count, so a
         // pre-correction range rendered under the post-correction body sha
         // names whatever now sits at those numbers. That is the drifting-range
         // defect this Harness's own outline cases are built to catch, one
-        // layer out. A step-level range is coarser than the pair-level one it
+        // layer out. A leg-level range is coarser than the pair-level one it
         // replaces and it is TRUE, which is the trade: a true coarse
         // coordinate beats a false precise one. Pass one's own is kept beside
         // it, named as pass one's, so nothing is lost — only re-labelled.
-        const reanchored = { ...prev, span: step.lines, pass_one_span: prev.span, carried: true };
+        const reanchored = { ...prev, span: leg.lines, pass_one_span: prev.span, carried: true };
         if (Array.isArray(prev.pairs)) {
-          reanchored.pairs = prev.pairs.map((x) => ({ ...x, span: step.lines, pass_one_span: x.span }));
+          reanchored.pairs = prev.pairs.map((x) => ({ ...x, span: leg.lines, pass_one_span: x.span }));
         }
         results.push(reanchored);
         continue;
       }
-      const ctx = { declared, rec, step, draft, earlier, items, item };
+      const ctx = { declared, rec, leg, draft, earlier, items, item };
 
       if (item.mode === "mechanical") {
         const impl = MECHANICAL[item.id] || MECHANICAL_FIGURE[item.id];
@@ -2320,9 +2320,9 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             + "every Draft, which is the silent pass this whole comparison exists to refuse");
         }
         const r = impl(ctx);
-        results.push({ step_id: step.step_id, item: item.id, class: item.class,
+        results.push({ leg_id: leg.leg_id, item: item.id, class: item.class,
           judged: false, ...r });
-        mechanicalLog.push({ step_id: step.step_id, item: item.id });
+        mechanicalLog.push({ leg_id: leg.leg_id, item: item.id });
         continue;
       }
 
@@ -2336,10 +2336,10 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       const dv = item.declared_block ? declared[item.declared_block] : null;
       if (item.when_declared_absent
           && (dv === "" || (Array.isArray(dv) && dv.length === 0))) {
-        results.push({ step_id: step.step_id, item: item.id, class: item.class,
+        results.push({ leg_id: leg.leg_id, item: item.id, class: item.class,
           judged: false, verdict: item.when_declared_absent.verdict,
-          reason: item.when_declared_absent.sentence, span: step.lines });
-        mechanicalLog.push({ step_id: step.step_id, item: item.id });
+          reason: item.when_declared_absent.sentence, span: leg.lines });
+        mechanicalLog.push({ leg_id: leg.leg_id, item: item.id });
         continue;
       }
 
@@ -2347,12 +2347,12 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       if (item.mode === "per-declared") {
         // ONE PACKET PER DECLARED ENTRY, AND THE QUESTION IS RECOVERY
         // (kogaki#1132). The pair index is the DECLARED side's — `claims`'s kth
-        // pair is the Step's kth declared claim — and the reverse side is
+        // pair is the Leg's kth declared claim — and the reverse side is
         // everything the reader wrote for the field, whole. Surplus is not
         // judged: the Packet tells the writer to retell material it asserts
         // nothing about, so a correctly realized passage asserts MORE than its
         // declared claim by design, and the item that asked the other way round
-        // failed on every Step of the first full run.
+        // failed on every Leg of the first full run.
         //
         // EACH ENTRY CARRIES THE DECLARED TEXT IT WAS ASKED ABOUT. That is what
         // lets the correction name the claim that was lost, in its own words,
@@ -2361,18 +2361,18 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         const declaredEntries = declared[item.declared_block] || [];
         const reverseWhole = renderSide(rec[item.field] || []);
         declaredEntries.forEach((declaredText, i) => {
-          const key = verdictKey(step.step_id, item.id, i);
-          const file = renderJoinPacket(ws, run, pass, draft, step, item, i,
+          const key = verdictKey(leg.leg_id, item.id, i);
+          const file = renderJoinPacket(ws, run, pass, draft, leg, item, i,
             renderSide(declaredText), reverseWhole);
           // THE VERDICT IS READ BEFORE THE CALL IS LOGGED, so the log can name
           // the model that answered it. An unanswered call carries `model:
           // null` — owed, not judged by nobody.
           const v = verdicts[key];
-          modelCalls.push({ step_id: step.step_id, item: item.id, pair: i, packet: file,
+          modelCalls.push({ leg_id: leg.leg_id, item: item.id, pair: i, packet: file,
             model: v ? v.model ?? null : null });
           subs.push(v
             ? { pair: i, declared: declaredText, verdict: v.verdict, reason: v.reason,
-                model: v.model ?? null, span: step.lines, judged: true }
+                model: v.model ?? null, span: leg.lines, judged: true }
             // AN UNANSWERED PAIR IS `judged: false` AND CARRIES NO `model`: a
             // Packet was rendered for it, and nothing has come back. `judged`
             // says a Judge ANSWERED, never that one was owed a question — an
@@ -2380,34 +2380,34 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             // not happened, which is the claim the missing `model` key already
             // refuses one field over.
             : { pair: i, declared: declaredText, owed: true, judged: false,
-                key, packet: file, span: step.lines });
-          if (!v) owed.push({ key, step_id: step.step_id, item: item.id, pair: i, packet: file });
+                key, packet: file, span: leg.lines });
+          if (!v) owed.push({ key, leg_id: leg.leg_id, item: item.id, pair: i, packet: file });
         });
       } else {
-        const key = verdictKey(step.step_id, item.id, null);
-        const file = renderJoinPacket(ws, run, pass, draft, step, item, null,
-          declaredSide(step, item, declared, items),
+        const key = verdictKey(leg.leg_id, item.id, null);
+        const file = renderJoinPacket(ws, run, pass, draft, leg, item, null,
+          declaredSide(leg, item, declared, items),
           reverseSide(item, rec, figRec));
         const v = verdicts[key];
-        modelCalls.push({ step_id: step.step_id, item: item.id, pair: null, packet: file,
+        modelCalls.push({ leg_id: leg.leg_id, item: item.id, pair: null, packet: file,
           model: v ? v.model ?? null : null });
         subs.push(v
           ? { pair: null, verdict: v.verdict, reason: v.reason, model: v.model ?? null,
-              span: step.lines, judged: true }
-          : { pair: null, owed: true, judged: false, key, packet: file, span: step.lines });
-        if (!v) owed.push({ key, step_id: step.step_id, item: item.id, pair: null, packet: file });
+              span: leg.lines, judged: true }
+          : { pair: null, owed: true, judged: false, key, packet: file, span: leg.lines });
+        if (!v) owed.push({ key, leg_id: leg.leg_id, item: item.id, pair: null, packet: file });
       }
 
       if (!subs.length) {
-        results.push({ step_id: step.step_id, item: item.id, class: item.class, judged: false,
+        results.push({ leg_id: leg.leg_id, item: item.id, class: item.class, judged: false,
           verdict: "holds", reason: "the reverse side carries nothing for this item to disagree with",
-          span: step.lines });
-        mechanicalLog.push({ step_id: step.step_id, item: item.id });
+          span: leg.lines });
+        mechanicalLog.push({ leg_id: leg.leg_id, item: item.id });
         continue;
       }
       if (subs.some((s) => s.owed)) {
-        results.push({ step_id: step.step_id, item: item.id, class: item.class, owed: true,
-          judged: false, span: step.lines });
+        results.push({ leg_id: leg.leg_id, item: item.id, class: item.class, owed: true,
+          judged: false, span: leg.lines });
         continue;
       }
       // THE ITEM'S LINE RENDERS THE STRONGEST NON-`holds` ANSWER AMONG ITS
@@ -2429,7 +2429,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       // person is being asked to look at.
       const lost = subs.filter((s) => s.declared !== undefined && s.verdict && s.verdict !== "holds")
         .map((s) => s.declared);
-      results.push({ step_id: step.step_id, item: item.id, class: item.class,
+      results.push({ leg_id: leg.leg_id, item: item.id, class: item.class,
         judged: rowJudged,
         // THE CHOSEN PAIR IS NAMED ON THE ROW (PR #1004 round 2, finding 5). The
         // row's verdict, reason and span are one pair's, and the owner record's
@@ -2470,7 +2470,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
     }
   });
 
-  return { results, owed, modelCalls, mechanicalLog, steps };
+  return { results, owed, modelCalls, mechanicalLog, legs };
 }
 
 // THE NO-NUMBERS RULE, IN ONE PLACE (kogaki#1097). One rendering holds it since
@@ -2489,7 +2489,7 @@ function refuseNumericReason(r, where) {
   }
 }
 
-// ONE LINE PER (Step, item), AND NO NUMBER IN IT THAT IS NOT A LINE NUMBER —
+// ONE LINE PER (Leg, item), AND NO NUMBER IN IT THAT IS NOT A LINE NUMBER —
 // ENFORCED HERE RATHER THAN PROMISED. The span is the only numeric field the
 // line carries, and a reason carrying a digit refuses the whole emission by
 // name.
@@ -2503,20 +2503,20 @@ function refuseNumericReason(r, where) {
 // the owner record, where a reader can see it in full — and never into the line
 // whose whole claim is that the only numbers in it are coordinates.
 function comparisonLine(r) {
-  refuseNumericReason(r, `${r.step_id}/${r.item}`);
+  refuseNumericReason(r, `${r.leg_id}/${r.item}`);
   const w = (s, n) => String(s).padEnd(n, " ");
-  return `${w(r.step_id, 8)}${w(r.item, 26)}${w(r.verdict, 14)}`
+  return `${w(r.leg_id, 8)}${w(r.item, 26)}${w(r.verdict, 14)}`
     + `${w(`[${r.span[0]}-${r.span[1]}]`, 14)}${r.reason}`;
 }
 
 // ---------------------------------------------------------------------------
-// THE PER-STEP COMPARISON FILES ARE GONE (kogaki#1134, owner 2026-09-17), AND
+// THE PER-LEG COMPARISON FILES ARE GONE (kogaki#1134, owner 2026-09-17), AND
 // THIS REVERSES kogaki#1097 BY NAME.
 //
-// #1097 wrote `comparison/<step>.md` because the surface a person debugged from
+// #1097 wrote `comparison/<leg>.md` because the surface a person debugged from
 // mid-run was then the verdicts file the session had handed in, which carried
 // the model's answer and nothing about what the answer meant — not the item's
-// class, not whether the fail sent the Step to correction. kogaki#1100 removed
+// class, not whether the fail sent the Leg to correction. kogaki#1100 removed
 // those session-written files the same day, and `join.json` now carries
 // `class`, `verdict`, `reason`, `model` and `span` on every row. Read against
 // that record the comparison files were a legend plus one line per pair
@@ -2558,13 +2558,13 @@ function cmdCompare(args) {
       + `  node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path}`);
   }
 
-  // EVERY MISSING INPUT IS NAMED IN ONE REFUSAL, BY STEP. A reviewer sent back
+  // EVERY MISSING INPUT IS NAMED IN ONE REFUSAL, BY LEG. A reviewer sent back
   // for "a missing outline" has to work out which; the Harness already knows.
   const missing = missingFor(run);
-  if (missing.steps.length) {
+  if (missing.legs.length) {
     fail(`the join has inputs missing, so it would compare a partial review against a whole Draft `
-      + `and report the gaps as agreement.\n  step outline`
-      + `${missing.steps.length === 1 ? "" : "s"}: ${missing.steps.join(", ")}`);
+      + `and report the gaps as agreement.\n  leg outline`
+      + `${missing.legs.length === 1 ? "" : "s"}: ${missing.legs.join(", ")}`);
   }
 
   const items = readItems();
@@ -2603,7 +2603,7 @@ function cmdCompare(args) {
     // WHICH ITEMS COST A MODEL CALL AND WHICH DID NOT, per pair. This is the
     // record that makes "decided mechanically" checkable rather than claimed —
     // a mechanical item appears in `mechanical` and in no `model_calls` entry,
-    // for every Step.
+    // for every Leg.
     model_calls: modelCalls,
     mechanical: mechanicalLog,
   }, null, 2) + "\n");
@@ -2616,7 +2616,7 @@ function cmdCompare(args) {
     // round an absence into an answer — the one rounding the three-valued
     // verdict exists to refuse.
     process.stdout.write(
-      `compare: every input present — ${run.steps.length} outlined Step(s).\n`
+      `compare: every input present — ${run.legs.length} outlined Leg(s).\n`
       + `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n`
       + judgedByLine(modelCalls)
       + `${owed.length} pair(s) await a verdict — one join Packet each, under ${passReadPath(ws, 1, "join")}:\n`
@@ -2639,15 +2639,15 @@ function cmdCompare(args) {
   const undecided = results.filter((r) => r.verdict === "cannot-decide");
   process.stdout.write(
     results.map(comparisonLine).join("\n") + "\n\n"
-    + `compare: ${results.length} (Step, item) pair(s) joined, `
+    + `compare: ${results.length} (Leg, item) pair(s) joined, `
     + `${mechanicalLog.length} decided mechanically and ${modelCalls.length} judged.\n`
     + judgedByLine(modelCalls)
     + (preserved.length
-      ? `Steps sent to correction — a preserved item fails: ${[...new Set(preserved.map((r) => r.step_id))].join(", ")}\n`
-      : "No preserved item fails, so no Step is sent to correction.\n")
+      ? `Legs sent to correction — a preserved item fails: ${[...new Set(preserved.map((r) => r.leg_id))].join(", ")}\n`
+      : "No preserved item fails, so no Leg is sent to correction.\n")
     + (undecided.length
       ? "cannot-decide, listed with its pair and never rounded: "
-        + undecided.map((r) => `${r.step_id}/${r.item}`).join(", ") + "\n"
+        + undecided.map((r) => `${r.leg_id}/${r.item}`).join(", ") + "\n"
       : "")
     + `join record: ${joinPath}\n`
     + (fails.length
@@ -2656,22 +2656,22 @@ function cmdCompare(args) {
 }
 
 // ---------------------------------------------------------------------------
-// THE CORRECTION PATH (kogaki#874). What a corrected Step receives, the bounded
+// THE CORRECTION PATH (kogaki#874). What a corrected Leg receives, the bounded
 // second pass, and the drift measure.
 //
-// A CORRECTED STEP IS REALIZED FROM A FRESHLY RENDERED PACKET, never from the
+// A CORRECTED LEG IS REALIZED FROM A FRESHLY RENDERED PACKET, never from the
 // Packet that produced the failing prose. That is the whole answer to the
 // owner's 2026-09-04 concern: the Packet's "article so far" block is the
-// continuity mechanism, and a Step corrected against its ORIGINAL Packet would
+// continuity mechanism, and a Leg corrected against its ORIGINAL Packet would
 // be re-realized against prose that has since moved — so each correction would
-// carry the Step a little further from the article it actually sits in, which
+// carry the Leg a little further from the article it actually sits in, which
 // is exactly the drift the concern names. Rendering fresh makes the corrected
-// Step's input the current article, including Steps corrected earlier in the
+// Leg's input the current article, including Legs corrected earlier in the
 // same pass.
 //
 // THE REALIZATION LANE IS ENTERED AS A SUBPROCESS, never imported. `draft.mjs`
 // is the renderer that wrote the Packets this review compares against, so a
-// Step re-realized through it is realized by the same code path the original
+// Leg re-realized through it is realized by the same code path the original
 // was; re-implementing `packet`, `section` or `emit` here would be a second
 // writer of the Draft, and the two would disagree about the trace. The
 // closed-input allowlist is untouched — see the note at `readDraft`'s `brief:`
@@ -2748,24 +2748,24 @@ function readJoin(ws) {
 
 // THE SEAT-BLIND `correctionOwed` IS DELETED (kogaki#945), not left beside its
 // replacement. Its last reader was `check`'s UNCORRECTED line, which is now
-// per seat; keeping an unreferenced Step-granular owed-set would leave the next
+// per seat; keeping an unreferenced Leg-granular owed-set would leave the next
 // reader a choice between two answers to one question, and the seat-blind one
 // is the answer that was wrong.
 //
 // What it carried that still binds, restated where the computation now lives:
-// best-effort fails never send a Step to correction — they ride along when the
-// Step is re-realized anyway, which is what the item table's class means at
+// best-effort fails never send a Leg to correction — they ride along when the
+// Leg is re-realized anyway, which is what the item table's class means at
 // this act exactly as it means it at `close`. `failingSides` below is now the
 // sole computer of it.
 //
-// A LOCALIZED SECTION FAIL USED TO ADD ITS TARGET STEP HERE (kogaki#873), and
+// A LOCALIZED SECTION FAIL USED TO ADD ITS TARGET LEG HERE (kogaki#873), and
 // that arm is gone with the reader that produced it (kogaki#1133): the failing
-// preserved items of the Step itself are now the whole of what sends it to
+// preserved items of the Leg itself are now the whole of what sends it to
 // correction.
 
 // ---------------------------------------------------------------------------
 // THE FIGURE CORRECTION (kogaki#880). A failing PRESERVED figure item sends its
-// Step to correction exactly as a failing prose item does — same class rule,
+// Leg to correction exactly as a failing prose item does — same class rule,
 // same consequence — but what is re-realized is the RECORD, not the passage.
 //
 // TWO CORRECTIONS, NOT ONE WIDENED ONE, and the split is the design rather than
@@ -2776,7 +2776,7 @@ function readJoin(ws) {
 // act whose input depends on which item failed, and a session would have
 // to know which before it could answer.
 //
-// PROSE FIRST WHERE A STEP OWES BOTH. The figure record's whole claim for filling the
+// PROSE FIRST WHERE A LEG OWES BOTH. The figure record's whole claim for filling the
 // record after the text is that the caption is stated in what the reader holds
 // after reading THIS passage — so a record corrected against prose that is
 // about to change is a record corrected against nothing.
@@ -2788,41 +2788,41 @@ function figureItemIds(items) {
   return new Set(items.items.filter((i) => i.figure_only).map((i) => i.id));
 }
 
-// Which of a Step's failing preserved items are the figure's, and which are the
+// Which of a Leg's failing preserved items are the figure's, and which are the
 // passage's.
-function failingSides(run, items, stepId) {
+function failingSides(run, items, legId) {
   const fig = figureItemIds(items);
   const rows = (run.findings || [])
-    .filter((f) => f.step_id === stepId && f.verdict === "fails" && f.class === "preserved");
+    .filter((f) => f.leg_id === legId && f.verdict === "fails" && f.class === "preserved");
   return {
     prose: rows.filter((f) => !fig.has(f.item)).map((f) => f.item),
     figure: rows.filter((f) => fig.has(f.item)).map((f) => f.item),
   };
 }
 
-// The Steps owed a PASSAGE correction, in path order. A Step whose only failing
+// The Legs owed a PASSAGE correction, in path order. A Leg whose only failing
 // preserved items are the figure's is not here — its re-realization is the
 // record, and `correct` without `--figure` would hand it the wrong input.
 function correctionOwedProse(run, items) {
-  return run.steps.map((s) => s.step_id).filter((id) => failingSides(run, items, id).prose.length);
+  return run.legs.map((s) => s.leg_id).filter((id) => failingSides(run, items, id).prose.length);
 }
 
-// The Steps owed a figure correction, in path order — the same order and the
+// The Legs owed a figure correction, in path order — the same order and the
 // same enforcement the prose corrections run under.
 function figureCorrectionOwed(run, items) {
-  return run.steps.map((s) => s.step_id).filter((id) => failingSides(run, items, id).figure.length);
+  return run.legs.map((s) => s.leg_id).filter((id) => failingSides(run, items, id).figure.length);
 }
 
-// THE (Step, seat) PAIRS STILL OWED A CORRECTION, in path order, prose first
+// THE (Leg, seat) PAIRS STILL OWED A CORRECTION, in path order, prose first
 // and each figure entry marked with the flag that reaches it. ONE definition
 // for three readers (kogaki#945): the two `correct` reports and `check`'s
 // UNCORRECTED line.
 //
-// THE UNCORRECTED LINE KEYED ON THE STEP ALONE until this, and that is the
-// defect. `bound.corrected` is the set of Steps carrying ANY recorded
-// correction, so a Step that owed BOTH seats and received one was in it — and
+// THE UNCORRECTED LINE KEYED ON THE LEG ALONE until this, and that is the
+// defect. `bound.corrected` is the set of Legs carrying ANY recorded
+// correction, so a Leg that owed BOTH seats and received one was in it — and
 // `correctionOwed(run).filter((id) => !bound.corrected.has(id))` therefore
-// dropped it, reporting no UNCORRECTED line for a Step still owing its other
+// dropped it, reporting no UNCORRECTED line for a Leg still owing its other
 // seat. That is the same silence PR #906 round 1's finding 1 repaired at the
 // single-seat level, reappearing at the seat kogaki#880 introduced.
 //
@@ -2831,7 +2831,7 @@ function figureCorrectionOwed(run, items) {
 // missed by the others.
 function seatsStillOwed(run, items) {
   const done = (seat) => new Set((run.corrections || [])
-    .filter((c) => (c.seat || "prose") === seat).map((c) => c.step_id));
+    .filter((c) => (c.seat || "prose") === seat).map((c) => c.leg_id));
   const proseDone = done("prose");
   const figureDone = done("figure");
   return [
@@ -2840,14 +2840,14 @@ function seatsStillOwed(run, items) {
   ];
 }
 
-// The evidence a figure Correction block carries: this Step's rows, split the
+// The evidence a figure Correction block carries: this Leg's rows, split the
 // way the block renders them, restricted to the figure's own items. The held
 // side is restricted the same way — what a figure correction must not break is
 // the figure's other preserved items, and listing the passage's would ask the
 // author of a JSON record not to break prose they are not editing.
-function figureCorrectionEvidence(joinRec, items, stepId) {
+function figureCorrectionEvidence(joinRec, items, legId) {
   const fig = figureItemIds(items);
-  const rows = (joinRec.results || []).filter((r) => r.step_id === stepId && fig.has(r.item));
+  const rows = (joinRec.results || []).filter((r) => r.leg_id === legId && fig.has(r.item));
   return {
     failed: rows.filter((r) => r.verdict === "fails"),
     held: rows.filter((r) => r.verdict === "holds" && r.class === "preserved"),
@@ -2858,7 +2858,7 @@ function figureCorrectionEvidence(joinRec, items, stepId) {
 // ONE LINE PER NON-HOLDING PAIR, NAMING THE DECLARED THING RATHER THAN ITS
 // INDEX (kogaki#1132). A `per-declared` row's pairs are the DECLARED entries, so
 // the corrector is owed the entry's own text: "the claims item failed" does not
-// say which of a Step's claims went missing, and on a Step declaring two it is
+// say which of a Leg's claims went missing, and on a Leg declaring two it is
 // half the instruction. A row whose pairs carry no declared text — every judged
 // row, and the figure's — reads as it always did.
 function pairLines(f) {
@@ -2870,32 +2870,32 @@ function pairLines(f) {
       : `  - pair ${p.pair === null ? "(whole item)" : p.pair} — ${p.verdict}: ${p.reason}`));
 }
 
-function renderFigureCorrectionBlock(step, evidence, packet) {
+function renderFigureCorrectionBlock(leg, evidence, packet) {
   const out = [];
-  out.push("# Correct the figure record — " + step.step_id, "",
-    "This Step's figure has already been designed once. What you hand back is a",
-    "RECORD, not prose: one JSON object, the instance of this Step's Move form,",
+  out.push("# Correct the figure record — " + leg.leg_id, "",
+    "This Leg's figure has already been designed once. What you hand back is a",
+    "RECORD, not prose: one JSON object, the instance of this Leg's Move form,",
     "validated against `src/figure-schema.json` by the same act that validated",
     "the first one. The passage itself is not yours to change here.", "");
-  out.push("## The Step this figure belongs to", "",
-    "The Packet below is this Step's, re-rendered as it now stands. The record's",
+  out.push("## The Leg this figure belongs to", "",
+    "The Packet below is this Leg's, re-rendered as it now stands. The record's",
     "elements are worded from the claims it declares, and its caption is stated",
-    "in what the Step says its reader holds afterwards.", "", packet.trim(), "");
+    "in what the Leg says its reader holds afterwards.", "", packet.trim(), "");
   out.push("## The passage, as it now stands", "",
-    ...numberedProse(step).split("\n").map((l) => `    ${l}`), "");
+    ...numberedProse(leg).split("\n").map((l) => `    ${l}`), "");
   out.push("## The figure as the reader currently meets it", "",
-    ...numberedFigure(step).split("\n").map((l) => `    ${l}`), "",
+    ...numberedFigure(leg).split("\n").map((l) => `    ${l}`), "",
     "Rendered by the Harness from the record below. You do not write this markup",
     "and nothing you hand back may contain any: the renderer re-runs on the",
     "record you return, which is what makes the transcription the same function",
     "every time.", "");
   out.push("## The previous record, verbatim", "",
     "```json",
-    JSON.stringify(step.figure.record_json, null, 2),
+    JSON.stringify(leg.figure.record_json, null, 2),
     "```", "");
   out.push("## What failed", "");
   if (!evidence.failed.length) {
-    out.push("_No figure item failed on this Step._", "");
+    out.push("_No figure item failed on this Leg._", "");
   } else {
     for (const f of evidence.failed) {
       out.push(`- **${f.item}** (${f.class}) — ${f.reason}`);
@@ -2908,7 +2908,7 @@ function renderFigureCorrectionBlock(step, evidence, packet) {
   out.push("## What held, and must go on holding", "");
   out.push(evidence.held.length
     ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
-    : "_No preserved figure item holds on this Step, so this correction breaks nothing by leaving it._");
+    : "_No preserved figure item holds on this Leg, so this correction breaks nothing by leaving it._");
   out.push("");
   if (evidence.undecided.length) {
     out.push("## What the reader could not settle", "",
@@ -2925,7 +2925,7 @@ function renderFigureCorrectionBlock(step, evidence, packet) {
 }
 
 // The two sides of the Correction block's evidence, from the pass-one record:
-// what failed on this Step, and what HELD on it as a preserved item. The second
+// what failed on this Leg, and what HELD on it as a preserved item. The second
 // is not decoration — it is what the correction must not break, and a
 // correction instruction that named only the failures would be asking for a
 // rewrite rather than a repair.
@@ -2933,9 +2933,9 @@ function renderFigureCorrectionBlock(step, evidence, packet) {
 // record is repaired by editing the record, and listing it here would ask the
 // author of a passage to fix something the passage cannot reach — and put it
 // under a heading saying "change what the findings above name".
-function correctionEvidence(joinRec, stepId, items) {
+function correctionEvidence(joinRec, legId, items) {
   const fig = items ? figureItemIds(items) : new Set();
-  const rows = (joinRec.results || []).filter((r) => r.step_id === stepId && !fig.has(r.item));
+  const rows = (joinRec.results || []).filter((r) => r.leg_id === legId && !fig.has(r.item));
   return {
     failed: rows.filter((r) => r.verdict === "fails"),
     held: rows.filter((r) => r.verdict === "holds" && r.class === "preserved"),
@@ -2943,20 +2943,20 @@ function correctionEvidence(joinRec, stepId, items) {
   };
 }
 
-function renderCorrectionBlock(step, evidence) {
+function renderCorrectionBlock(leg, evidence) {
   const out = [];
   out.push("", "---", "",
-    "## The Correction — what this Step must change, and what it must not", "",
-    "This Step has already been realized once. Everything above is the CURRENT",
+    "## The Correction — what this Leg must change, and what it must not", "",
+    "This Leg has already been realized once. Everything above is the CURRENT",
     "Packet, re-rendered against the article as it now stands, so the \"article so",
-    "far\" block above holds the preceding prose including any Step corrected",
+    "far\" block above holds the preceding prose including any Leg corrected",
     "before this one in the same pass. Write from it, not from what you remember.",
     "");
   out.push("### The previous realization, verbatim", "",
-    ...step.prose.split("\n").map((l) => `> ${l}`), "");
+    ...leg.prose.split("\n").map((l) => `> ${l}`), "");
   out.push("### What failed", "");
   if (!evidence.failed.length) {
-    out.push("_Nothing failed on this Step._", "");
+    out.push("_Nothing failed on this Leg._", "");
   } else {
     for (const f of evidence.failed) {
       out.push(`- **${f.item}** (${f.class}) — ${f.reason}`);
@@ -2969,7 +2969,7 @@ function renderCorrectionBlock(step, evidence) {
   out.push("### What held, and must go on holding", "");
   out.push(evidence.held.length
     ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
-    : "_No preserved item holds on this Step, so this correction breaks nothing by leaving it._");
+    : "_No preserved item holds on this Leg, so this correction breaks nothing by leaving it._");
   out.push("");
   if (evidence.undecided.length) {
     out.push("### What the reader could not settle", "",
@@ -2985,9 +2985,9 @@ function renderCorrectionBlock(step, evidence) {
 }
 
 // DRIFT IS MEASURED AND REPORTED, NEVER GATED. Both figures answer the owner's
-// concern in the form it was raised — "the more a Step is corrected
+// concern in the form it was raised — "the more a Leg is corrected
 // independently, the farther it may drift" — and neither withholds anything: a
-// high change share is what the owner reads as the Step becoming self-contained,
+// high change share is what the owner reads as the Leg becoming self-contained,
 // and that reading is the owner's.
 function sentencesOf(text) {
   return String(text).split(/(?<=[.!?])[\s]+/).map((s) => s.trim()).filter(Boolean);
@@ -3018,37 +3018,37 @@ function driftBlocks(declared, items) {
 }
 
 // THE CORRECTION INPUTS BELONG TO THE PASS WHOSE VERDICTS PRODUCED THEM, and
-// that is always PASS ONE — `correct` refuses a Step that pass one's join did
+// that is always PASS ONE — `correct` refuses a Leg that pass one's join did
 // not send to correction, and pass two turns a still-failing item into residue
 // rather than into another correction. So the directory is `pass-1/corrections/`
 // even when a `check` has already run, which is what lets a reader go from a
 // pass-one finding to the input its corrector was handed. A pass number read
 // off the run record here would file the same act in two places depending on
 // whether `check` happened to have been run first.
-function correctionInputPath(ws, run, stepId) {
-  return passPathAt(ws, run, 1, "corrections", `${stepId}.md`);
+function correctionInputPath(ws, run, legId) {
+  return passPathAt(ws, run, 1, "corrections", `${legId}.md`);
 }
 
 // THE FIGURE CORRECTION'S TWO PHASES (kogaki#880), the same two phases the prose
 // correction has: render the input, then record what came back. Between them
-// the run is MID-CORRECTION on this Step and every other act refuses by name,
+// the run is MID-CORRECTION on this Leg and every other act refuses by name,
 // which is `requireCurrent`'s existing guard and is not re-implemented here.
-function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId, reply }) {
-  const step = resolveInputs(draft).steps.find((x) => x.step_id === stepId);
-  if (!step.figure) {
-    fail(`step ${stepId} carries no figure in the Draft's trace, so there is no record to `
+function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId, reply }) {
+  const leg = resolveInputs(draft).legs.find((x) => x.leg_id === legId);
+  if (!leg.figure) {
+    fail(`leg ${legId} carries no figure in the Draft's trace, so there is no record to `
       + "correct. A figure enters at composition, on the Brief, and never here");
   }
 
   // --- phase A: render the correction input ------------------------------
   if (reply.trim() === "") {
     // THE PACKET IS RE-RENDERED FOR THE SAME REASON THE PROSE CORRECTION
-    // RE-RENDERS IT: the record's elements are worded from the Step's claims
-    // and its caption from the state the Step leaves its reader in, and both
+    // RE-RENDERS IT: the record's elements are worded from the Leg's claims
+    // and its caption from the state the Leg leaves its reader in, and both
     // are the Packet's. A record corrected against the Packet that produced the
     // failing figure would be corrected against the input already found wanting.
-    const r = draftLane("packet", draft, args, ["--step", stepId]);
-    const prefix = `packet ${stepId}: `;
+    const r = draftLane("packet", draft, args, ["--leg", legId]);
+    const prefix = `packet ${legId}: `;
     const line = (r.stderr || "").split("\n").find((l) => l.startsWith(prefix));
     if (!line) {
       fail("the realization lane rendered a Packet and did not say where it stored it, so this "
@@ -3058,48 +3058,48 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
     const freshPath = line.slice(prefix.length).trim();
     if (!existsSync(freshPath)) fail(`the realization lane named a Packet at ${freshPath} and no file is there`);
     const fresh = readFileSync(freshPath, "utf8");
-    const dest = passPathAt(ws, run, 1, "corrections", `${stepId}.figure.md`);
+    const dest = passPathAt(ws, run, 1, "corrections", `${legId}.figure.md`);
     writeFileSync(dest, renderFigureCorrectionBlock(
-      step, figureCorrectionEvidence(joinRec, items, stepId), fresh) + "\n");
+      leg, figureCorrectionEvidence(joinRec, items, legId), fresh) + "\n");
     run.correction_inputs = run.correction_inputs || {};
-    run.correction_inputs[`${stepId}#figure`] = {
+    run.correction_inputs[`${legId}#figure`] = {
       path: dest, packet: freshPath, packet_sha: sha256(fresh),
-      record: step.figure.record_path, record_sha: step.figure.record_sha,
+      record: leg.figure.record_path, record_sha: leg.figure.record_sha,
       // THE RECORD'S OWN BYTES, NOT ONLY ITS PATH AND SHA (kogaki#1135). The
       // file at that path is overwritten by `draft.mjs figure` when the
       // correction is recorded, so the sha afterwards names a document nothing
-      // holds — and a Step whose figure regressed in pass two is restored to
+      // holds — and a Leg whose figure regressed in pass two is restored to
       // the record the reader met, which is these bytes. The prose seat keeps
       // its previous realization for the same reason, one field over.
-      record_text: readFileSync(step.figure.record_path, "utf8"),
-      rendered: step.figure.rendered, rendered_at: new Date().toISOString(),
+      record_text: readFileSync(leg.figure.record_path, "utf8"),
+      rendered: leg.figure.rendered, rendered_at: new Date().toISOString(),
     };
-    run.correcting = { step_id: stepId, seat: "figure", input: dest, since: new Date().toISOString() };
+    run.correcting = { leg_id: legId, seat: "figure", input: dest, since: new Date().toISOString() };
     writeRun(ws, run);
     process.stdout.write(
       `figure correction input: ${dest}\n`
-      + "  It carries this Step's Packet re-rendered as it now stands, the passage, the figure as\n"
+      + "  It carries this Leg's Packet re-rendered as it now stands, the passage, the figure as\n"
       + "  the reader currently meets it, the previous record verbatim, what failed and what must\n"
       + "  go on holding.\n"
       + "Design the record again from it, then record with\n"
-      + `  <record.json> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure\n`
+      + `  <record.json> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure\n`
       + "You write no markup: `draft.mjs figure` re-validates the record and `emit` re-renders the\n"
       + "block from it, so the transcription is the same function it was the first time.\n");
     return;
   }
 
   // --- phase B: record the corrected record ------------------------------
-  const input = (run.correction_inputs || {})[`${stepId}#figure`];
+  const input = (run.correction_inputs || {})[`${legId}#figure`];
   if (!input) {
-    fail(`step ${stepId} has no rendered FIGURE correction input, so this record was not written `
+    fail(`leg ${legId} has no rendered FIGURE correction input, so this record was not written `
       + `against one. Render it first:\n  node src/review-draft.mjs correct --draft `
-      + `${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure`);
+      + `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure`);
   }
 
   const snapDir = join(ws, "snapshots");
   mkdirSync(snapDir, { recursive: true });
   const seq = String((run.corrections || []).length + 1).padStart(2, "0");
-  writeFileSync(join(snapDir, `${seq}-before-${stepId}.figure.md`), draft.text);
+  writeFileSync(join(snapDir, `${seq}-before-${legId}.figure.md`), draft.text);
 
   // THE RENDERER RE-RUNS BY CONSTRUCTION. `figure` re-validates the record
   // against src/figure-schema.json and the Move's own form — every role
@@ -3107,24 +3107,24 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   // pair — and `emit` renders the block from it. Nothing here transcribes
   // anything, which is why a syntax defect in a corrected figure stays a defect
   // of src/render-figure.mjs rather than of the sitting that corrected it.
-  withReplyFile(reply, `${stepId}.figure.json`, (p) =>
-    draftLane("figure", draft, args, ["--step", stepId, "--file", p]));
+  withReplyFile(reply, `${legId}.figure.json`, (p) =>
+    draftLane("figure", draft, args, ["--leg", legId, "--file", p]));
   draftLane("emit", draft, args, []);
 
   const after = readDraft(draftPath);
-  const afterSteps = resolveInputs(after).steps;
-  const corrected = afterSteps.find((s) => s.step_id === stepId);
-  if (!corrected) fail(`step ${stepId} is absent from the re-emitted Draft's trace`);
+  const afterLegs = resolveInputs(after).legs;
+  const corrected = afterLegs.find((s) => s.leg_id === legId);
+  if (!corrected) fail(`leg ${legId} is absent from the re-emitted Draft's trace`);
   if (!corrected.figure) {
-    fail(`step ${stepId} carries no figure in the re-emitted Draft — the correction was recorded `
+    fail(`leg ${legId} carries no figure in the re-emitted Draft — the correction was recorded `
       + "and the block did not come back, which is the drop-with-no-report case the renderer refuses");
   }
-  writeFileSync(join(snapDir, `${seq}-after-${stepId}.figure.md`), after.text);
+  writeFileSync(join(snapDir, `${seq}-after-${legId}.figure.md`), after.text);
 
-  const ev = figureCorrectionEvidence(joinRec, items, stepId);
+  const ev = figureCorrectionEvidence(joinRec, items, legId);
   run.corrections = run.corrections || [];
   run.corrections.push({
-    step_id: stepId,
+    leg_id: legId,
     seat: "figure",
     pass: 1,
     what: "the figure record re-designed from a Packet re-rendered against the article as it "
@@ -3144,8 +3144,8 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
     block_changed: corrected.figure.rendered !== input.rendered
       ? "the rendered block differs from the one the reader met"
       : "the rendered block is byte-identical to the one the reader met",
-    snapshot_before: join(snapDir, `${seq}-before-${stepId}.figure.md`),
-    snapshot_after: join(snapDir, `${seq}-after-${stepId}.figure.md`),
+    snapshot_before: join(snapDir, `${seq}-before-${legId}.figure.md`),
+    snapshot_after: join(snapDir, `${seq}-after-${legId}.figure.md`),
     corrected_at: new Date().toISOString(),
   });
 
@@ -3153,41 +3153,41 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   delete run.correcting;
   delete run.pass_open_at;
   delete run.pass_cleared;
-  run.steps = afterSteps.map((s) => ({
-    step_id: s.step_id, section: s.section, section_title: s.section_title,
+  run.legs = afterLegs.map((s) => ({
+    leg_id: s.leg_id, section: s.section, section_title: s.section_title,
     lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
   }));
   // THE REVERSE OUTLINE IS DISCARDED for the same reason a prose correction discards
   // it: the blind reviewer read a figure that no longer exists, and keeping the
   // record would let pass two judge a new block against an old reading.
-  delete run.outlineFields[stepId];
-  delete run.rendered[stepId];
+  delete run.outlineFields[legId];
+  delete run.rendered[legId];
   writeRun(ws, run);
 
   const stillOwed = seatsStillOwed(run, items);
   process.stdout.write(
-    `corrected: ${stepId} (figure)\n`
+    `corrected: ${legId} (figure)\n`
     + `  record  ${input.record_sha}\n`
     + `       -> ${corrected.figure.record_sha}\n`
     + `  ${run.corrections[run.corrections.length - 1].block_changed}\n`
     + "  reported, never gated — what an unchanged block means is the owner's reading\n"
-    + `  snapshots ${join(snapDir, `${seq}-before-${stepId}.figure.md`)}\n`
-    + `            ${join(snapDir, `${seq}-after-${stepId}.figure.md`)}\n`
+    + `  snapshots ${join(snapDir, `${seq}-before-${legId}.figure.md`)}\n`
+    + `            ${join(snapDir, `${seq}-after-${legId}.figure.md`)}\n`
     + (stillOwed.length
       ? `still owed a correction, in path order: ${stillOwed.join(", ")}\n`
-      : "every Step pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"));
+      : "every Leg pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"));
 }
 
 function cmdCorrect(args) {
-  const usage = "usage: review-draft correct --draft <draft.md> --step <id> [--figure]\n"
+  const usage = "usage: review-draft correct --draft <draft.md> --leg <id> [--figure]\n"
     + "       (the corrected prose, or the corrected figure record, on standard input records it)";
   const draftPath = argString(args, "draft", usage);
-  const stepId = argString(args, "step", usage);
+  const legId = argString(args, "leg", usage);
   // THE STREAM SELECTS THE PHASE, as it does in `compare` and `check`
   // (kogaki#1100), and it is read once here so both seats see the same answer.
   const reply = readReply();
   // THE FLAG SAYS WHICH SEAT IS BEING CORRECTED, and it is a flag rather than a
-  // fact derived from what failed (kogaki#880). A Step can owe both a prose and
+  // fact derived from what failed (kogaki#880). A Leg can owe both a prose and
   // a figure correction, and the two take different inputs — prose in one and a
   // JSON record in the other — so a runtime that inferred the seat would decide
   // what form the session's file had to be in after the session wrote it.
@@ -3195,56 +3195,56 @@ function cmdCorrect(args) {
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
-  requireCurrent(run, draft, stepId);
+  requireCurrent(run, draft, legId);
 
   if (!run.compared_at) {
-    fail("`correct` is what pass one sends a Step to, and pass one has not completed — run "
+    fail("`correct` is what pass one sends a Leg to, and pass one has not completed — run "
       + "`compare --draft <draft.md>` first. A correction composed before the join has answered "
       + "would be a rewrite against findings nobody recorded.");
   }
-  const known = run.steps.map((s) => s.step_id);
-  if (!known.includes(stepId)) fail(`unknown step \`${stepId}\` — this Draft's Steps are ${known.join(", ")}`);
+  const known = run.legs.map((s) => s.leg_id);
+  if (!known.includes(legId)) fail(`unknown leg \`${legId}\` — this Draft's Legs are ${known.join(", ")}`);
 
   const items = readItems();
   const owed = figureMode ? figureCorrectionOwed(run, items) : correctionOwedProse(run, items);
-  if (!owed.includes(stepId)) {
-    const sides = failingSides(run, items, stepId);
-    // THE REFUSAL NAMES THE OTHER SEAT WHERE THAT IS WHY IT REFUSED. A Step
-    // owing a figure correction and asked for a prose one is not a Step with
+  if (!owed.includes(legId)) {
+    const sides = failingSides(run, items, legId);
+    // THE REFUSAL NAMES THE OTHER SEAT WHERE THAT IS WHY IT REFUSED. A Leg
+    // owing a figure correction and asked for a prose one is not a Leg with
     // nothing owed, and reporting it as one would send a session looking for a
     // finding that is recorded and readable.
     if (!figureMode && sides.figure.length) {
-      fail(`step ${stepId} carries no failing PRESERVED item of the PASSAGE, and it does carry one `
+      fail(`leg ${legId} carries no failing PRESERVED item of the PASSAGE, and it does carry one `
         + `of the FIGURE (${sides.figure.join(", ")}). What is re-realized there is the figure `
         + `record, not the prose:\n  node src/review-draft.mjs correct --draft `
-        + `${relative(process.cwd(), draft.path) || draft.path} --step ${stepId} --figure`);
+        + `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure`);
     }
     if (figureMode && sides.prose.length) {
-      fail(`step ${stepId} carries no failing PRESERVED FIGURE item, and it does carry one of the `
+      fail(`leg ${legId} carries no failing PRESERVED FIGURE item, and it does carry one of the `
         + `passage (${sides.prose.join(", ")}). Drop --figure to correct the prose.`);
     }
-    fail(`step ${stepId} carries no failing PRESERVED ${figureMode ? "figure " : ""}item, so pass `
-      + "one did not send it to correction. A best-effort fail rides along when its Step is "
-      + `re-realized anyway and never sends one here.\n  owed: ${owed.length ? owed.join(", ") : "(none — no Step is owed a correction)"}`);
+    fail(`leg ${legId} carries no failing PRESERVED ${figureMode ? "figure " : ""}item, so pass `
+      + "one did not send it to correction. A best-effort fail rides along when its Leg is "
+      + `re-realized anyway and never sends one here.\n  owed: ${owed.length ? owed.join(", ") : "(none — no Leg is owed a correction)"}`);
   }
   // PATH ORDER IS ENFORCED, not requested. Corrections run in path order so
   // each later one sees the earlier ones in its own "article so far" block —
   // which is the mechanism the whole correction path rests on, and a session
-  // correcting out of order would silently get the opposite: a Step realized
+  // correcting out of order would silently get the opposite: a Leg realized
   // against prose that is about to change under it.
   //
-  // ORDER IS TRACKED PER SEAT (kogaki#880): a Step's recorded figure correction
-  // does not discharge the prose correction owed on an earlier Step, and the
+  // ORDER IS TRACKED PER SEAT (kogaki#880): a Leg's recorded figure correction
+  // does not discharge the prose correction owed on an earlier Leg, and the
   // seat a record carries is what says which it discharged.
   const seat = figureMode ? "figure" : "prose";
   const already = new Set((run.corrections || [])
-    .filter((c) => (c.seat || "prose") === seat).map((c) => c.step_id));
-  const earlier = owed.slice(0, owed.indexOf(stepId)).filter((id) => !already.has(id));
+    .filter((c) => (c.seat || "prose") === seat).map((c) => c.leg_id));
+  const earlier = owed.slice(0, owed.indexOf(legId)).filter((id) => !already.has(id));
   if (earlier.length) {
-    fail(`corrections run in path order and step ${stepId} is not next — ${earlier.join(", ")} `
+    fail(`corrections run in path order and leg ${legId} is not next — ${earlier.join(", ")} `
       + `${earlier.length === 1 ? "is" : "are"} owed a ${seat} correction first. Each correction `
-      + "re-renders the next Step's Packet against the article as it then stands, so correcting out "
-      + "of order realizes a Step against prose that is about to move under it.");
+      + "re-renders the next Leg's Packet against the article as it then stands, so correcting out "
+      + "of order realizes a Leg against prose that is about to move under it.");
   }
   // THE PASSAGE IS CORRECTED BEFORE THE FIGURE IT CARRIES, and this is the
   // figure record's
@@ -3254,33 +3254,33 @@ function cmdCorrect(args) {
   // corrected against prose that is about to change is corrected against
   // nothing.
   if (figureMode) {
-    const proseOwed = correctionOwedProse(run, items).includes(stepId);
-    const proseDone = (run.corrections || []).some((c) => c.step_id === stepId && (c.seat || "prose") === "prose");
+    const proseOwed = correctionOwedProse(run, items).includes(legId);
+    const proseDone = (run.corrections || []).some((c) => c.leg_id === legId && (c.seat || "prose") === "prose");
     if (proseOwed && !proseDone) {
-      fail(`step ${stepId} owes a correction on its PASSAGE as well, and the passage is corrected `
+      fail(`leg ${legId} owes a correction on its PASSAGE as well, and the passage is corrected `
         + "first: the record's caption is stated in what the reader holds after reading this "
         + "passage, and its elements are worded from prose that must already exist.\n"
-        + `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId}`);
+        + `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}`);
     }
   }
 
   const joinRec = readJoin(ws);
-  if (figureMode) { correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId, reply }); return; }
+  if (figureMode) { correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId, reply }); return; }
 
   // --- phase A: render the correction input ------------------------------
   if (reply.trim() === "") {
     // RESOLVED BEFORE THE LANE IS ENTERED, and only here. Phase A still holds a
     // consistent Draft — the trace and every Packet agree — and re-rendering
-    // this Step's Packet is what ends that agreement, so the previous prose is
+    // this Leg's Packet is what ends that agreement, so the previous prose is
     // read out first and recorded. Phase B reads it back from that record
     // rather than resolving a Draft it knows is mid-correction.
-    const step = resolveInputs(draft).steps.find((x) => x.step_id === stepId);
-    const r = draftLane("packet", draft, args, ["--step", stepId]);
+    const leg = resolveInputs(draft).legs.find((x) => x.leg_id === legId);
+    const r = draftLane("packet", draft, args, ["--leg", legId]);
     // THE LANE IS ASKED WHERE IT STORED THE PACKET, never guessed at from the
     // workspace layout. A path composed here would be a second answer to a
     // question the renderer already answers, and the two would diverge the
     // moment the draft lane's workspace rule changed.
-    const prefix = `packet ${stepId}: `;
+    const prefix = `packet ${legId}: `;
     const line = (r.stderr || "").split("\n").find((l) => l.startsWith(prefix));
     if (!line) {
       fail("the realization lane rendered a Packet and did not say where it stored it, so this "
@@ -3290,15 +3290,15 @@ function cmdCorrect(args) {
     const freshPath = line.slice(prefix.length).trim();
     if (!existsSync(freshPath)) fail(`the realization lane named a Packet at ${freshPath} and no file is there`);
     const fresh = readFileSync(freshPath, "utf8");
-    const block = renderCorrectionBlock(step, correctionEvidence(joinRec, stepId, items));
-    const dest = correctionInputPath(ws, run, stepId);
+    const block = renderCorrectionBlock(leg, correctionEvidence(joinRec, legId, items));
+    const dest = correctionInputPath(ws, run, legId);
     writeFileSync(dest, (fresh.endsWith("\n") ? fresh : fresh + "\n") + block);
     run.correction_inputs = run.correction_inputs || {};
-    run.correction_inputs[stepId] = {
+    run.correction_inputs[legId] = {
       path: dest, packet: freshPath, packet_sha: sha256(fresh),
-      prose: step.prose, rendered_at: new Date().toISOString(),
+      prose: leg.prose, rendered_at: new Date().toISOString(),
     };
-    run.correcting = { step_id: stepId, input: dest, since: new Date().toISOString() };
+    run.correcting = { leg_id: legId, input: dest, since: new Date().toISOString() };
     writeRun(ws, run);
     process.stdout.write(
       `correction input: ${dest}\n`
@@ -3306,24 +3306,24 @@ function cmdCorrect(args) {
       + "  far\" block holds the current preceding prose, corrections included — with one\n"
       + "  Correction block appended carrying the previous realization, what failed, and what\n"
       + "  must go on holding.\n"
-      + `Realize the Step from it, then record with\n`
-      + `  <the corrected prose> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId}\n`
-      + "Until then this run is MID-CORRECTION on this Step: its Packet is the freshly rendered\n"
+      + `Realize the Leg from it, then record with\n`
+      + `  <the corrected prose> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}\n`
+      + "Until then this run is MID-CORRECTION on this Leg: its Packet is the freshly rendered\n"
       + "one and its prose is still the old realization, so every other act refuses by name\n"
       + "rather than reporting a comparison between prose and an input that did not produce it.\n");
     return;
   }
 
   // --- phase B: record the corrected realization -------------------------
-  const input = (run.correction_inputs || {})[stepId];
+  const input = (run.correction_inputs || {})[legId];
   // THE RENDERED-INPUT GUARD, the same one `outline` has and for the same
-  // reason. Prose handed back for a Step whose correction input was never
+  // reason. Prose handed back for a Leg whose correction input was never
   // rendered was written against something else — the old Packet, or the
   // finding text alone — and afterwards there is no way to tell which.
   if (!input) {
-    fail(`step ${stepId} has no rendered correction input, so this prose was not written against `
+    fail(`leg ${legId} has no rendered correction input, so this prose was not written against `
       + `one. Render it first:\n  node src/review-draft.mjs correct --draft `
-      + `${relative(process.cwd(), draft.path) || draft.path} --step ${stepId}`);
+      + `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}`);
   }
 
   // THE PREVIOUS PROSE AND THE FRESH PACKET COME FROM THE PHASE-A RECORD, not
@@ -3331,7 +3331,7 @@ function cmdCorrect(args) {
   // trace names the re-rendered Packet beside prose the old one produced — so
   // resolving it would refuse on a state this act exists to end.
   const before = input.prose;
-  const declared = declaredFor({ step_id: stepId, packet_path: input.packet }, items);
+  const declared = declaredFor({ leg_id: legId, packet_path: input.packet }, items);
   const packetLines = driftBlocks(declared, items);
 
   // SNAPSHOTS LAND IN THE REVIEW WORKSPACE, before and after each correction —
@@ -3341,28 +3341,28 @@ function cmdCorrect(args) {
   const snapDir = join(ws, "snapshots");
   mkdirSync(snapDir, { recursive: true });
   const seq = String((run.corrections || []).length + 1).padStart(2, "0");
-  writeFileSync(join(snapDir, `${seq}-before-${stepId}.md`), draft.text);
+  writeFileSync(join(snapDir, `${seq}-before-${legId}.md`), draft.text);
 
-  withReplyFile(reply, `${stepId}.prose.md`, (p) =>
-    draftLane("section", draft, args, ["--step", stepId, "--file", p]));
+  withReplyFile(reply, `${legId}.prose.md`, (p) =>
+    draftLane("section", draft, args, ["--leg", legId, "--file", p]));
   draftLane("emit", draft, args, []);
 
   // The Draft is a different document now: new prose, new line ranges, and a
   // new body sha. Re-read it rather than patching the record — the trace is the
   // join key and `emit` is what writes it.
   const after = readDraft(draftPath);
-  const afterSteps = resolveInputs(after).steps;
-  const corrected = afterSteps.find((s) => s.step_id === stepId);
-  if (!corrected) fail(`step ${stepId} is absent from the re-emitted Draft's trace`);
-  writeFileSync(join(snapDir, `${seq}-after-${stepId}.md`), after.text);
+  const afterLegs = resolveInputs(after).legs;
+  const corrected = afterLegs.find((s) => s.leg_id === legId);
+  if (!corrected) fail(`leg ${legId} is absent from the re-emitted Draft's trace`);
+  writeFileSync(join(snapDir, `${seq}-after-${legId}.md`), after.text);
 
   const drift = driftOf(before, corrected.prose, packetLines, items.thresholds.verbatim_overlap_words);
-  const ev = correctionEvidence(joinRec, stepId, items);
+  const ev = correctionEvidence(joinRec, legId, items);
   run.corrections = run.corrections || [];
   run.corrections.push({
-    step_id: stepId,
+    leg_id: legId,
     seat: "prose",
-    // PASS ONE, AND IT IS THE PASS WHOSE VERDICTS SENT THE STEP HERE rather
+    // PASS ONE, AND IT IS THE PASS WHOSE VERDICTS SENT THE LEG HERE rather
     // than whichever pass the run has reached — the same reading
     // `correctionInputPath` files the input under.
     pass: 1,
@@ -3372,50 +3372,50 @@ function cmdCorrect(args) {
     held_preserved: ev.held.map((h) => h.item),
     input: input.path,
     packet_sha: input.packet_sha,
-    snapshot_before: join(snapDir, `${seq}-before-${stepId}.md`),
-    snapshot_after: join(snapDir, `${seq}-after-${stepId}.md`),
+    snapshot_before: join(snapDir, `${seq}-before-${legId}.md`),
+    snapshot_after: join(snapDir, `${seq}-after-${legId}.md`),
     corrected_at: new Date().toISOString(),
     ...drift,
   });
 
-  // The run record follows the Draft. And the corrected Step's Reverse Outline is
+  // The run record follows the Draft. And the corrected Leg's Reverse Outline is
   // discarded: the blind reviewer read prose that no longer exists, so keeping
   // the record would let pass two re-judge new prose against an old reading —
   // which is the failure mode this whole Harness is about, one layer in.
   run.body_sha = after.body_sha;
   delete run.correcting;
-  // A CORRECTION RE-OPENS THE NEXT PASS. Its bound gains this Step and this
-  // Step's successor, and the answers already given for pairs the widened bound
+  // A CORRECTION RE-OPENS THE NEXT PASS. Its bound gains this Leg and this
+  // Leg's successor, and the answers already given for pairs the widened bound
   // now covers were given about prose that has since moved.
   delete run.pass_open_at;
   delete run.pass_cleared;
-  run.steps = afterSteps.map((s) => ({
-    step_id: s.step_id, section: s.section, section_title: s.section_title,
+  run.legs = afterLegs.map((s) => ({
+    leg_id: s.leg_id, section: s.section, section_title: s.section_title,
     lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
   }));
-  delete run.outlineFields[stepId];
-  delete run.rendered[stepId];
+  delete run.outlineFields[legId];
+  delete run.rendered[legId];
   writeRun(ws, run);
 
   const stillOwed = seatsStillOwed(run, items);
   process.stdout.write(
-    `corrected: ${stepId}\n`
+    `corrected: ${legId}\n`
     + `  drift   ${drift.change_share}\n`
     + `          ${drift.packet_overlap}\n`
     + `  reported, never gated — what a high share means is the owner's reading\n`
-    + `  snapshots ${join(snapDir, `${seq}-before-${stepId}.md`)}\n`
-    + `            ${join(snapDir, `${seq}-after-${stepId}.md`)}\n`
+    + `  snapshots ${join(snapDir, `${seq}-before-${legId}.md`)}\n`
+    + `            ${join(snapDir, `${seq}-after-${legId}.md`)}\n`
     + (stillOwed.length
       ? `still owed a correction, in path order: ${stillOwed.join(", ")}\n`
-      : "every Step pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"));
+      : "every Leg pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"));
 }
 
 // THE SECOND PASS'S BOUND. Three arms, and the item ids come from the table
 // rather than from this file (see `pass_two` there):
 //
-//   - a corrected Step, on its own failed items and its held preserved items;
-//   - the Step immediately AFTER each corrected Step, on the continuity items
-//     the table names — the correction moved the prose that Step continues
+//   - a corrected Leg, on its own failed items and its held preserved items;
+//   - the Leg immediately AFTER each corrected Leg, on the continuity items
+//     the table names — the correction moved the prose that Leg continues
 //     from;
 //   - every mechanical item, over the whole Draft.
 //
@@ -3426,7 +3426,7 @@ function cmdCorrect(args) {
 function passTwoBound(run, items) {
   // THE ARM MUST BE NON-EMPTY, AND ITS SIZE IS THE TABLE'S (kogaki#1014). This
   // read for a pair of exactly two, which was the runtime restating a layout the
-  // table owns: when `restates-earlier-step` left under the hygiene decline the
+  // table owns: when `restates-earlier-leg` left under the hygiene decline the
   // count went to one, and a run whose bound was correct refused on the number.
   // What the refusal is actually for is an EMPTY arm — pass two over the
   // corrections alone, reporting continuity it never looked at — so that is
@@ -3434,7 +3434,7 @@ function passTwoBound(run, items) {
   const declaredSuccessor = (items.pass_two || {}).successor_items;
   if (!Array.isArray(declaredSuccessor) || declaredSuccessor.length === 0) {
     fail("the item table declares no `pass_two.successor_items`, and the bounded second pass "
-      + "re-checks each corrected Step's successor on the continuity items it names. A bound with "
+      + "re-checks each corrected Leg's successor on the continuity items it names. A bound with "
       + "no successor arm would pass two over the corrections alone and report continuity it never "
       + "looked at.");
   }
@@ -3446,8 +3446,8 @@ function passTwoBound(run, items) {
       + "an item nobody computes re-checks nothing while reporting that it did.");
   }
   const mechanical = new Set(items.items.filter((i) => i.mode === "mechanical").map((i) => i.id));
-  const order = run.steps.map((s) => s.step_id);
-  const corrected = new Set((run.corrections || []).map((c) => c.step_id));
+  const order = run.legs.map((s) => s.leg_id);
+  const corrected = new Set((run.corrections || []).map((c) => c.leg_id));
   const successors = new Set();
   for (const id of corrected) {
     const i = order.indexOf(id);
@@ -3455,37 +3455,37 @@ function passTwoBound(run, items) {
   }
   const own = new Map();
   for (const c of run.corrections || []) {
-    const set = own.get(c.step_id) || new Set();
+    const set = own.get(c.leg_id) || new Set();
     for (const it of [...(c.failed_items || []), ...(c.held_preserved || [])]) set.add(it);
-    own.set(c.step_id, set);
+    own.set(c.leg_id, set);
   }
-  const inBound = (stepId, itemId) => mechanical.has(itemId)
-    || (own.has(stepId) && own.get(stepId).has(itemId))
-    || (successors.has(stepId) && declaredSuccessor.includes(itemId));
+  const inBound = (legId, itemId) => mechanical.has(itemId)
+    || (own.has(legId) && own.get(legId).has(itemId))
+    || (successors.has(legId) && declaredSuccessor.includes(itemId));
   return { inBound, corrected, successors, mechanical, successorItems: declaredSuccessor };
 }
 
 // ---------------------------------------------------------------------------
 // THE REGRESSION GUARD, AND THE TWO PASSES SIDE BY SIDE (kogaki#1135).
 //
-// WHAT WAS OBSERVED. In the first full review run, a corrected Step FAILED in
+// WHAT WAS OBSERVED. In the first full review run, a corrected Leg FAILED in
 // pass two an item it had HELD in pass one. The Harness recorded that as
 // residue, indistinguishable from an item that failed in both passes, and
-// nothing put the Step's pass-one prose back — so the run's product was an
+// nothing put the Leg's pass-one prose back — so the run's product was an
 // article the review had made worse on a dimension the review itself measured,
 // reported as an item for the owner to classify.
 //
-// THE OWNER'S RULING (2026-09-17): `check` REFUSES A REGRESSION. The Step is
+// THE OWNER'S RULING (2026-09-17): `check` REFUSES A REGRESSION. The Leg is
 // restored to the prose it carried in pass one, through the realization lane
 // that wrote it, and the item the correction was made for returns to residue as
 // still failing — which is the true report: the correction was attempted, it
 // broke something that held, and the state the run ends in is the state it
 // started from with the original finding intact.
 //
-// ONLY THE REGRESSED STEP IS RESTORED, and later corrected Steps are neither
-// restored nor marked. Continuity between Steps was settled at Reader Path
-// design and holds while a Step is unchanged; ReviewDraft is not responsible for
-// Step-to-Step continuity, so a restore that reached forward would be this
+// ONLY THE REGRESSED LEG IS RESTORED, and later corrected Legs are neither
+// restored nor marked. Continuity between Legs was settled at Reader Path
+// design and holds while a Leg is unchanged; ReviewDraft is not responsible for
+// Leg-to-Leg continuity, so a restore that reached forward would be this
 // Harness answering a question the Reader Path owns.
 //
 // THE CORRECTION INPUT IS UNCHANGED. The owner weighed an explicit
@@ -3493,7 +3493,7 @@ function passTwoBound(run, items) {
 // for repair advice whose quality nothing guarantees. A failure reason from the
 // round trip is external feedback and stays what the corrector is handed.
 
-// PASS ONE'S ANSWER PER (Step, item, pair), read off the pass-one join record
+// PASS ONE'S ANSWER PER (Leg, item, pair), read off the pass-one join record
 // rather than recomputed. A row with `pairs` answers per pair; a row the
 // Harness decided carries its answer on the row itself and has none.
 function passOneVerdicts(priorJoin) {
@@ -3501,51 +3501,51 @@ function passOneVerdicts(priorJoin) {
   for (const r of priorJoin.results || []) {
     if (Array.isArray(r.pairs) && r.pairs.length) {
       for (const p of r.pairs) {
-        m.set(verdictKey(r.step_id, r.item, p.pair), { ...p, class: r.class, item: r.item, step_id: r.step_id });
+        m.set(verdictKey(r.leg_id, r.item, p.pair), { ...p, class: r.class, item: r.item, leg_id: r.leg_id });
       }
     } else {
-      m.set(verdictKey(r.step_id, r.item, r.pair === undefined ? null : r.pair), r);
+      m.set(verdictKey(r.leg_id, r.item, r.pair === undefined ? null : r.pair), r);
     }
   }
   return m;
 }
 
-// THE PAIRS A CORRECTED STEP LOST. Computed from the two records rather than
+// THE PAIRS A CORRECTED LEG LOST. Computed from the two records rather than
 // from the correction's own `held_preserved` list, which names ITEMS and is
 // per seat: the unit the restore turns on is the pair, and the two records are
 // where a pair's two readings sit. The class rule is the one that decides every
 // other consequence in this Harness — a PRESERVED item's fail is what sends a
-// Step to correction and what becomes residue, so it is what a regression is
+// Leg to correction and what becomes residue, so it is what a regression is
 // measured on. A best-effort item that stops holding rides along exactly as its
 // fail does.
 function regressedPairs(run, priorJoin, results) {
-  const corrected = new Set((run.corrections || []).map((c) => c.step_id));
+  const corrected = new Set((run.corrections || []).map((c) => c.leg_id));
   const one = passOneVerdicts(priorJoin);
   const out = [];
   for (const r of results) {
-    if (r.carried || r.owed || !corrected.has(r.step_id) || r.class !== "preserved") continue;
+    if (r.carried || r.owed || !corrected.has(r.leg_id) || r.class !== "preserved") continue;
     const pairs = Array.isArray(r.pairs) && r.pairs.length
       ? r.pairs
       : [{ pair: r.pair === undefined ? null : r.pair, verdict: r.verdict, reason: r.reason }];
     for (const p of pairs) {
-      const key = verdictKey(r.step_id, r.item, p.pair);
+      const key = verdictKey(r.leg_id, r.item, p.pair);
       const before = one.get(key);
       if (!before || before.verdict !== "holds" || p.verdict !== "fails") continue;
-      out.push({ key, step_id: r.step_id, item: r.item, pair: p.pair === undefined ? null : p.pair,
+      out.push({ key, leg_id: r.leg_id, item: r.item, pair: p.pair === undefined ? null : p.pair,
         pass_1: "holds", pass_2: "fails", reason: p.reason });
     }
   }
   return out;
 }
 
-// RESTORE ONE STEP, THROUGH THE REALIZATION LANE. The same door `correct` used
+// RESTORE ONE LEG, THROUGH THE REALIZATION LANE. The same door `correct` used
 // to move the prose is the door that moves it back — a restore that wrote the
 // Draft here would be a second writer of the trace, which is the reason
 // `correct` enters the lane as a subprocess in the first place.
 //
-// EVERY SEAT THE STEP WAS CORRECTED IN GOES BACK, prose before figure, in the
+// EVERY SEAT THE LEG WAS CORRECTED IN GOES BACK, prose before figure, in the
 // order `correct` itself enforces and for its reason: the record's caption is
-// stated in what the reader holds after reading the passage. A Step corrected
+// stated in what the reader holds after reading the passage. A Leg corrected
 // in one seat restores one.
 //
 // PASS ONE'S READING COMES BACK WITH THE PROSE. The Reverse Outline pointer
@@ -3554,112 +3554,112 @@ function regressedPairs(run, priorJoin, results) {
 // prose the Draft now carries again. Leaving pass two's answers beside restored
 // prose would be the defect this Harness exists to refuse — a recorded reading
 // about text that is gone — with the two halves swapped.
-function restoreRegressedStep(args, { draft, draftPath, ws, run, stepId, regressed, passTwoRows, priorJoin }) {
+function restoreRegressedLeg(args, { draft, draftPath, ws, run, legId, regressed, passTwoRows, priorJoin }) {
   const inputs = run.correction_inputs || {};
-  const seats = (run.corrections || []).filter((c) => c.step_id === stepId)
+  const seats = (run.corrections || []).filter((c) => c.leg_id === legId)
     .map((c) => c.seat || "prose");
   const ordered = [...new Set(["prose", "figure"].filter((s) => seats.includes(s)))];
   const snapDir = join(ws, "snapshots");
   mkdirSync(snapDir, { recursive: true });
   const seq = String((run.restores || []).length + 1).padStart(2, "0");
-  const before = join(snapDir, `r${seq}-before-restore-${stepId}.md`);
+  const before = join(snapDir, `r${seq}-before-restore-${legId}.md`);
   writeFileSync(before, draft.text);
 
   for (const seat of ordered) {
     if (seat === "prose") {
-      const rec = inputs[stepId];
+      const rec = inputs[legId];
       // A REFUSAL, NEVER A SILENT SKIP. `correct` phase A reads the previous
       // prose out while the Draft is still consistent and records it; a run
       // whose record does not carry it cannot be put back, and continuing
       // would leave the regressed prose in the article under a record saying
       // it was restored.
       if (!rec || typeof rec.prose !== "string") {
-        fail(`step ${stepId} failed in pass two an item it held in pass one, and this run's record `
+        fail(`leg ${legId} failed in pass two an item it held in pass one, and this run's record `
           + "carries no copy of the prose it held that item on, so there is nothing to restore it "
           + "to. `correct` records the previous realization when it renders the correction input; a "
           + "run whose record predates that cannot be restored, and re-opening the review on the "
           + "current article is what starts one that can.");
       }
-      withReplyFile(rec.prose.endsWith("\n") ? rec.prose : rec.prose + "\n", `${stepId}.prose.md`,
-        (p) => draftLane("section", draft, args, ["--step", stepId, "--file", p]));
+      withReplyFile(rec.prose.endsWith("\n") ? rec.prose : rec.prose + "\n", `${legId}.prose.md`,
+        (p) => draftLane("section", draft, args, ["--leg", legId, "--file", p]));
     } else {
-      const rec = inputs[`${stepId}#figure`];
+      const rec = inputs[`${legId}#figure`];
       if (!rec || typeof rec.record_text !== "string") {
-        fail(`step ${stepId}'s FIGURE was corrected and regressed in pass two, and this run's `
+        fail(`leg ${legId}'s FIGURE was corrected and regressed in pass two, and this run's `
           + "record carries no copy of the figure record the reader met, so there is nothing to "
           + "restore it to. Re-open the review on the current article.");
       }
-      withReplyFile(rec.record_text, `${stepId}.figure.json`,
-        (p) => draftLane("figure", draft, args, ["--step", stepId, "--file", p]));
+      withReplyFile(rec.record_text, `${legId}.figure.json`,
+        (p) => draftLane("figure", draft, args, ["--leg", legId, "--file", p]));
     }
   }
   draftLane("emit", draft, args, []);
 
   const after = readDraft(draftPath);
-  const afterSteps = resolveInputs(after).steps;
-  const restored = afterSteps.find((s) => s.step_id === stepId);
-  if (!restored) fail(`step ${stepId} is absent from the re-emitted Draft's trace after its restore`);
+  const afterLegs = resolveInputs(after).legs;
+  const restored = afterLegs.find((s) => s.leg_id === legId);
+  if (!restored) fail(`leg ${legId} is absent from the re-emitted Draft's trace after its restore`);
   // THE RESTORE IS CHECKED RATHER THAN CLAIMED. The lane re-assembles the body,
   // and prose that came back different from the prose handed in would leave the
   // run reporting a restore it did not make — the one failure this act cannot
   // be allowed to make quietly, since everything downstream now reads pass
   // one's verdicts against it.
-  if (ordered.includes("prose") && restored.prose.trim() !== String(inputs[stepId].prose).trim()) {
-    fail(`step ${stepId} was handed its pass-one prose and the re-emitted Draft carries something `
+  if (ordered.includes("prose") && restored.prose.trim() !== String(inputs[legId].prose).trim()) {
+    fail(`leg ${legId} was handed its pass-one prose and the re-emitted Draft carries something `
       + "else, so the restore did not land. Nothing further is recorded: pass one's verdicts would "
       + "otherwise be read against prose they were not given on.");
   }
-  writeFileSync(join(snapDir, `r${seq}-after-restore-${stepId}.md`), after.text);
+  writeFileSync(join(snapDir, `r${seq}-after-restore-${legId}.md`), after.text);
 
   run.body_sha = after.body_sha;
-  run.steps = afterSteps.map((s) => ({
-    step_id: s.step_id, section: s.section, section_title: s.section_title,
+  run.legs = afterLegs.map((s) => ({
+    leg_id: s.leg_id, section: s.section, section_title: s.section_title,
     lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
   }));
-  run.outlineFields[stepId] = passReadPath(ws, 1, "outline", `${stepId}.json`);
-  if ((run.figureOutlineFields || {})[stepId]) {
-    run.figureOutlineFields[stepId] = passReadPath(ws, 1, "outline", `${stepId}.figure.json`);
+  run.outlineFields[legId] = passReadPath(ws, 1, "outline", `${legId}.json`);
+  if ((run.figureOutlineFields || {})[legId]) {
+    run.figureOutlineFields[legId] = passReadPath(ws, 1, "outline", `${legId}.figure.json`);
   }
   const one = passOneVerdicts(priorJoin);
   run.verdicts = run.verdicts || {};
   let reinstated = 0;
   for (const [key, v] of one) {
-    if (v.step_id !== undefined && v.step_id !== stepId) continue;
-    if (!key.startsWith(`${stepId}/`)) continue;
+    if (v.leg_id !== undefined && v.leg_id !== legId) continue;
+    if (!key.startsWith(`${legId}/`)) continue;
     // ONLY A JUDGED ANSWER IS WRITTEN BACK. A mechanical item, a stated absence
     // and an empty reverse side are COMPUTED from the Draft on every build, so
     // recording one as a verdict would replace a fact with a copy of itself
     // taken at another time — which `recordVerdicts` refuses by name when a
     // session tries it.
     if (v.judged !== true) continue;
-    run.verdicts[key] = { key, step_id: stepId, item: v.item, pair: v.pair === undefined ? null : v.pair,
+    run.verdicts[key] = { key, leg_id: legId, item: v.item, pair: v.pair === undefined ? null : v.pair,
       verdict: v.verdict, reason: v.reason, model: v.model ?? null };
     reinstated++;
   }
 
   run.restores = run.restores || [];
   run.restores.push({
-    step_id: stepId,
+    leg_id: legId,
     seats: ordered,
     pass: 2,
-    what: `restored to the prose this Step carried in pass one, through the realization lane, `
+    what: `restored to the prose this Leg carried in pass one, through the realization lane, `
       + `because pass two failed ${regressed.length} item pair(s) it had held`,
     regressed: regressed.map((r) => ({ item: r.item, pair: r.pair, pass_1: r.pass_1,
       pass_2: r.pass_2, reason: r.reason })),
-    // PASS TWO'S OWN ANSWERS FOR THIS STEP, KEPT. They are not the run's
+    // PASS TWO'S OWN ANSWERS FOR THIS LEG, KEPT. They are not the run's
     // reading any more — the prose they were given on is gone — and they are
     // the evidence that the restore happened at all, which is what `passes.json`
     // renders in its `pass_2` column for these rows.
     pass_two_rows: passTwoRows,
     verdicts_reinstated: reinstated,
     snapshot_before: before,
-    snapshot_after: join(snapDir, `r${seq}-after-restore-${stepId}.md`),
+    snapshot_after: join(snapDir, `r${seq}-after-restore-${legId}.md`),
     restored_at: new Date().toISOString(),
   });
   return after;
 }
 
-// THE TWO PASSES SIDE BY SIDE, ONE ROW PER (Step, item, pair) — `passes.json`
+// THE TWO PASSES SIDE BY SIDE, ONE ROW PER (Leg, item, pair) — `passes.json`
 // at the run root (kogaki#1135). Comparing the passes meant reading
 // `pass-1/join.json` and `pass-2/check.json` side by side by hand, and the
 // question a reader actually has of them — what did this pass DO to this pair —
@@ -3669,7 +3669,7 @@ function restoreRegressedStep(args, { draft, draftPath, ws, run, stepId, regress
 // against the two it is derived from, and the prose surface a person reads is
 // `review.md`.
 //
-// THE ROWS ARE PASS ONE'S KEYS. Pass one is the unbounded join over every Step,
+// THE ROWS ARE PASS ONE'S KEYS. Pass one is the unbounded join over every Leg,
 // item and pair, so it is the complete index; a key pass two produced that pass
 // one never answered is reported in `pass_two_only` rather than given an
 // outcome word, because none of the five is true of a pair with one reading.
@@ -3682,9 +3682,9 @@ function buildPasses(run, priorJoin, results) {
     const out = [];
     for (const r of rs) {
       if (Array.isArray(r.pairs) && r.pairs.length) {
-        for (const p of r.pairs) out.push([verdictKey(r.step_id, r.item, p.pair), p, r]);
+        for (const p of r.pairs) out.push([verdictKey(r.leg_id, r.item, p.pair), p, r]);
       } else {
-        out.push([verdictKey(r.step_id, r.item, r.pair === undefined ? null : r.pair), r, r]);
+        out.push([verdictKey(r.leg_id, r.item, r.pair === undefined ? null : r.pair), r, r]);
       }
     }
     return out;
@@ -3693,7 +3693,7 @@ function buildPasses(run, priorJoin, results) {
     two.set(key, p);
     if (r.carried) carried.add(key);
   }
-  // A RESTORED STEP'S `pass_2` IS THE ANSWER PASS TWO GAVE, not the pass-one
+  // A RESTORED LEG'S `pass_2` IS THE ANSWER PASS TWO GAVE, not the pass-one
   // answer the restore put back in its place. The restore is what this file has
   // to be able to show, and showing `holds`/`holds` for a pair that regressed
   // would erase the very event the guard fired on.
@@ -3714,7 +3714,7 @@ function buildPasses(run, priorJoin, results) {
         ? (p2 === "holds" ? "held" : "regressed")
         : (p2 === "holds" ? "fixed" : "still-failing"));
     counts[outcome]++;
-    rows.push({ step_id: before.step_id ?? key.split("/")[0], item: before.item,
+    rows.push({ leg_id: before.leg_id ?? key.split("/")[0], item: before.item,
       pair: before.pair === undefined ? null : before.pair,
       class: before.class ?? null, pass_1: p1, pass_2: p2, outcome });
   }
@@ -3727,7 +3727,7 @@ function cmdCheck(args) {
   // The same two-phase selection `compare` makes, and read at the same point
   // and for the same reason (kogaki#1100).
   const reply = readReply();
-  // `let`, BECAUSE THE RESTORE RE-READS IT (kogaki#1135). A regressed Step is
+  // `let`, BECAUSE THE RESTORE RE-READS IT (kogaki#1135). A regressed Leg is
   // put back through the realization lane, which re-emits the article — so from
   // that point on the Draft this act holds is a different document, and the
   // join is rebuilt against the one on disk rather than against the one this
@@ -3741,7 +3741,7 @@ function cmdCheck(args) {
   // what pass one found, and there is nothing to re-check before `compare`.
   if (!run.compared_at) {
     fail("`check` is pass two and there is no pass one — run `compare --draft <draft.md>` first. "
-      + "Pass two re-runs outline and the join only for the corrected Steps, their successors' "
+      + "Pass two re-runs outline and the join only for the corrected Legs, their successors' "
       + "continuity items and the mechanical items, so it has nothing to narrow to until the join has run.");
   }
 
@@ -3764,7 +3764,7 @@ function cmdCheck(args) {
   //
   // THE NUMBER IS THE PASS THIS COMMAND IS, NOT A COUNTER. `check` IS pass two,
   // and a correction landing after it re-OPENS pass two — a widened bound and
-  // cleared verdicts over the same corrected Steps — rather than starting a
+  // cleared verdicts over the same corrected Legs — rather than starting a
   // third. So a re-entry sets 2 again, and its re-rendered inputs land beside
   // the ones it is replacing, which is within-pass and is what `correct`
   // discarding the Reverse Outline already means. A genuine third pass would
@@ -3773,8 +3773,8 @@ function cmdCheck(args) {
     const verdicts = run.verdicts || {};
     let cleared = 0;
     for (const key of Object.keys(verdicts)) {
-      const call = (priorJoin.model_calls || []).find((c) => verdictKey(c.step_id, c.item, c.pair) === key);
-      if (call && bound.inBound(call.step_id, call.item)) { delete verdicts[key]; cleared++; }
+      const call = (priorJoin.model_calls || []).find((c) => verdictKey(c.leg_id, c.item, c.pair) === key);
+      if (call && bound.inBound(call.leg_id, call.item)) { delete verdicts[key]; cleared++; }
     }
     run.verdicts = verdicts;
     run.pass = 2;
@@ -3783,27 +3783,27 @@ function cmdCheck(args) {
     writeRun(ws, run);
   }
 
-  // REVERSE OUTLINING IS RE-RUN FOR THE CORRECTED STEPS AND FOR NO OTHERS. `correct`
-  // discarded each corrected Step's Reverse Outline because the reviewer read
+  // REVERSE OUTLINING IS RE-RUN FOR THE CORRECTED LEGS AND FOR NO OTHERS. `correct`
+  // discarded each corrected Leg's Reverse Outline because the reviewer read
   // prose that no longer exists; this renders the input again and refuses until
   // it comes back, which is the same blind round trip pass one made and not a
   // cheaper stand-in for it.
-  const steps = resolveInputs(draft).steps;
+  const legs = resolveInputs(draft).legs;
   const owedOutline = [...bound.corrected].filter((id) => !run.outlineFields[id]);
   if (owedOutline.length) {
-    const order = run.steps.map((s) => s.step_id);
+    const order = run.legs.map((s) => s.leg_id);
     owedOutline.sort((a, b) => order.indexOf(a) - order.indexOf(b));
     for (const id of owedOutline) {
       if (run.rendered[id]) continue;
-      run.rendered[id] = renderReverseOutlineInput(ws, run, draft, steps.find((s) => s.step_id === id), steps);
+      run.rendered[id] = renderReverseOutlineInput(ws, run, draft, legs.find((s) => s.leg_id === id), legs);
     }
     writeRun(ws, run);
-    fail(`pass two re-runs Reverse Outlining for every corrected Step, and `
+    fail(`pass two re-runs Reverse Outlining for every corrected Leg, and `
       + `${owedOutline.length} ${owedOutline.length === 1 ? "is" : "are"} outstanding. The prose `
-      + "these Steps carry now is not the prose the first Reverse Outline read, so the recorded reading is "
+      + "these Legs carry now is not the prose the first Reverse Outline read, so the recorded reading is "
       + `about text that is gone.\n`
       + owedOutline.map((id) => `  ${id}  ${run.rendered[id]}`).join("\n") + "\n"
-      + "Read each blind and record it with `<reverse outline> | outline --draft <draft.md> --step <id>`, "
+      + "Read each blind and record it with `<reverse outline> | outline --draft <draft.md> --leg <id>`, "
       + "then run `check` again.");
   }
 
@@ -3823,30 +3823,30 @@ function cmdCheck(args) {
   }
   // --- THE REGRESSION GUARD (kogaki#1135) ---------------------------------
   // It fires only on a COMPLETE pass: a pair still owed has no pass-two answer,
-  // and a Step restored on a partial reading would be put back for a regression
+  // and a Leg restored on a partial reading would be put back for a regression
   // the rest of the pass might not have found — and the restore is not an act
   // that can be taken twice.
   //
-  // A STEP ALREADY RESTORED IS NOT RESTORED AGAIN. Verdicts are revisable by
+  // A LEG ALREADY RESTORED IS NOT RESTORED AGAIN. Verdicts are revisable by
   // design, so a later answer can fail the same pair a second time; the prose
   // is already pass one's by then, and a second restore would write a second
   // record of one event.
-  const restoredAlready = new Set((run.restores || []).map((r) => r.step_id));
+  const restoredAlready = new Set((run.restores || []).map((r) => r.leg_id));
   let restoredNow = [];
   if (pass.owed.length === 0) {
     const regressed = regressedPairs(run, priorJoin, pass.results)
-      .filter((r) => !restoredAlready.has(r.step_id));
+      .filter((r) => !restoredAlready.has(r.leg_id));
     // IN PATH ORDER, the order every act that moves prose runs in.
-    const order = run.steps.map((s) => s.step_id);
-    const steps = [...new Set(regressed.map((r) => r.step_id))]
+    const order = run.legs.map((s) => s.leg_id);
+    const legs = [...new Set(regressed.map((r) => r.leg_id))]
       .sort((a, b) => order.indexOf(a) - order.indexOf(b));
-    for (const stepId of steps) {
-      draft = restoreRegressedStep(args, {
-        draft, draftPath, ws, run, stepId, priorJoin,
-        regressed: regressed.filter((r) => r.step_id === stepId),
-        passTwoRows: pass.results.filter((r) => r.step_id === stepId),
+    for (const legId of legs) {
+      draft = restoreRegressedLeg(args, {
+        draft, draftPath, ws, run, legId, priorJoin,
+        regressed: regressed.filter((r) => r.leg_id === legId),
+        passTwoRows: pass.results.filter((r) => r.leg_id === legId),
       });
-      restoredNow.push(stepId);
+      restoredNow.push(legId);
     }
     if (restoredNow.length) {
       writeRun(ws, run);
@@ -3859,12 +3859,12 @@ function cmdCheck(args) {
         { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
     }
   }
-  const restoredSteps = new Set((run.restores || []).map((r) => r.step_id));
-  // A ROW ON A RESTORED STEP SAYS SO. Its verdict is pass one's and its prose
+  const restoredLegs = new Set((run.restores || []).map((r) => r.leg_id));
+  // A ROW ON A RESTORED LEG SAYS SO. Its verdict is pass one's and its prose
   // is pass one's, and a reader who could not tell it from a pair pass two
   // re-judged and found holding would read the regression as never having
   // happened.
-  for (const r of pass.results) if (restoredSteps.has(r.step_id)) r.restored = true;
+  for (const r of pass.results) if (restoredLegs.has(r.leg_id)) r.restored = true;
 
   const { results, owed, modelCalls, mechanicalLog } = pass;
   const complete = owed.length === 0;
@@ -3878,7 +3878,7 @@ function cmdCheck(args) {
     item_table_version: items.version,
     complete,
     // THE BOUND IS RECORDED, not only applied. A reader of this file can see
-    // which Steps and items pass two actually re-judged, which is what makes
+    // which Legs and items pass two actually re-judged, which is what makes
     // "bounded" checkable rather than claimed — the same move the pass-one
     // record makes for "decided mechanically".
     bound: {
@@ -3890,10 +3890,10 @@ function cmdCheck(args) {
     },
     // WHAT PASS TWO PUT BACK (kogaki#1135), on the pass's own record rather
     // than only in `run.json`: a reader of this file sees rows carrying pass
-    // one's verdicts on a corrected Step, and without this line the only
+    // one's verdicts on a corrected Leg, and without this line the only
     // reading of that is a second pass that agreed with the first.
     restores: (run.restores || []).map((r) => ({
-      step_id: r.step_id, seats: r.seats, regressed: r.regressed,
+      leg_id: r.leg_id, seats: r.seats, regressed: r.regressed,
       snapshot_before: r.snapshot_before, snapshot_after: r.snapshot_after,
       restored_at: r.restored_at,
     })),
@@ -3905,7 +3905,7 @@ function cmdCheck(args) {
 
   if (!complete) {
     process.stdout.write(
-      `check: pass two, bounded — ${bound.corrected.size} corrected Step(s), `
+      `check: pass two, bounded — ${bound.corrected.size} corrected Leg(s), `
       + `${bound.successors.size} successor(s), ${bound.mechanical.size} mechanical item(s) over the whole Draft.\n`
       + `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n`
       + `${owed.length} pair(s) await a verdict — one join Packet each:\n`
@@ -3936,28 +3936,28 @@ function cmdCheck(args) {
   // is a provenance claim the run did not earn, handed to the owner as the
   // basis for classifying the item `packet` or `reviewdraft`. The route stays
   // open and the claim is now true either way: a re-judged fail says it
-  // survived, a carried one says its Step was never corrected so nothing
+  // survived, a carried one says its Leg was never corrected so nothing
   // re-read it.
   run.residue = run.findings
     .filter((f) => f.verdict === "fails" && f.class === "preserved")
     .map((f) => ({
-      step_id: f.step_id, item: f.item,
+      leg_id: f.leg_id, item: f.item,
       // WHAT THE OWNER RECORD'S POINTERS ARE COMPOSED FROM, kept on the row: the
       // pass that read it (a carried row is pass one's whatever pass the run
       // reached) and whether a judge was handed a Packet for the chosen pair.
       pair: f.pair, carried: Boolean(f.carried), judged: chosenJudged(f),
-      // A RESTORED STEP'S RESIDUE SAYS WHICH PROSE IT IS ABOUT (kogaki#1135).
-      // Its Step was corrected and the correction was UNDONE, so "still failing
+      // A RESTORED LEG'S RESIDUE SAYS WHICH PROSE IT IS ABOUT (kogaki#1135).
+      // Its Leg was corrected and the correction was UNDONE, so "still failing
       // after pass two" is true of the item and silent about the article: the
       // prose the owner will open is pass one's, and the correction that was
       // meant to fix this item is not in it.
       ...(f.restored ? { restored: true } : {}),
       why: f.carried
-        ? `${f.reason} — carried from pass one and NOT re-judged: this Step was not corrected, `
+        ? `${f.reason} — carried from pass one and NOT re-judged: this Leg was not corrected, `
           + "so nothing in pass two read it again"
         : (f.restored
           ? `${f.reason} — still failing, and the correction made for it was UNDONE: pass two `
-            + "failed an item this Step had held, so the Step was restored to its pass-one prose "
+            + "failed an item this Leg had held, so the Leg was restored to its pass-one prose "
             + "and this is that prose's own finding, unchanged"
           : `${f.reason} — still failing after pass two`),
     }));
@@ -3996,46 +3996,46 @@ function cmdCheck(args) {
   // because every correction was made produce the same exit, and telling them
   // apart is exactly what "stopping early and finishing produce the same
   // silence" warns about.
-  // PER SEAT, NOT PER STEP (kogaki#945). `bound.corrected` holds every Step
+  // PER SEAT, NOT PER LEG (kogaki#945). `bound.corrected` holds every Leg
   // carrying ANY correction, so keying this line on it reported nothing for a
-  // Step that owed both seats and received one — the seat still owed went
+  // Leg that owed both seats and received one — the seat still owed went
   // unnamed while its preserved fails were carried as residue.
   const uncorrected = seatsStillOwed(run, items);
   process.stdout.write(
     results.filter((r) => !r.carried).map(comparisonLine).join("\n") + "\n\n"
-    + `check: pass two over ${results.filter((r) => !r.carried).length} re-judged (Step, item) pair(s); `
+    + `check: pass two over ${results.filter((r) => !r.carried).length} re-judged (Leg, item) pair(s); `
     + `${results.filter((r) => r.carried).length} carried unchanged from pass one.\n`
-    + `  corrected Steps      ${[...bound.corrected].join(", ") || "(none)"}\n`
+    + `  corrected Legs      ${[...bound.corrected].join(", ") || "(none)"}\n`
     + `  successors re-checked ${[...bound.successors].join(", ") || "(none)"} on ${bound.successorItems.join(", ")}\n`
-    + `  mechanical items      re-run over every Step\n`
+    + `  mechanical items      re-run over every Leg\n`
     + `${mechanicalLog.length} pair(s) decided mechanically and ${judged} judged.\n`
     + judgedByLine(modelCalls)
     + (uncorrected.length
       ? `UNCORRECTED — pass one sent these to correction and they are still owed: ${uncorrected.join(", ")}.\n`
-        + "  An entry marked `(--figure)` is the figure seat; the rest are the passage. A Step can\n"
-        + "  appear on both, and a Step that received one seat still appears for the other.\n"
+        + "  An entry marked `(--figure)` is the figure seat; the rest are the passage. A Leg can\n"
+        + "  appear on both, and a Leg that received one seat still appears for the other.\n"
         + "  Their preserved fails are residue CARRIED from pass one, not re-judged by this pass;\n"
-        + "  the owner record says so per line. `correct --step <id> [--figure]` is the act that changes that.\n"
+        + "  the owner record says so per line. `correct --leg <id> [--figure]` is the act that changes that.\n"
       : "")
     + (restoredNow.length
-      ? `RESTORED — pass two failed an item these Steps had HELD in pass one, so each is back at `
+      ? `RESTORED — pass two failed an item these Legs had HELD in pass one, so each is back at `
         + `its pass-one prose: ${restoredNow.join(", ")}.\n`
         + "  The correction was undone, not adjusted, and the item it was made for is residue\n"
-        + "  again. Only the regressed Step moved: a later corrected Step keeps its corrected\n"
-        + "  prose and carries no mark, because Step-to-Step continuity is the Reader Path's and\n"
+        + "  again. Only the regressed Leg moved: a later corrected Leg keeps its corrected\n"
+        + "  prose and carries no mark, because Leg-to-Leg continuity is the Reader Path's and\n"
         + "  not this Harness's.\n"
-        + (run.restores || []).filter((r) => restoredNow.includes(r.step_id))
-          .map((r) => `  ${r.step_id}  held then failed: `
+        + (run.restores || []).filter((r) => restoredNow.includes(r.leg_id))
+          .map((r) => `  ${r.leg_id}  held then failed: `
             + `${r.regressed.map((x) => x.item).join(", ")}\n`
             + `          snapshots ${r.snapshot_before}\n`
             + `                    ${r.snapshot_after}\n`).join("")
       : "")
     + (run.residue.length
       ? `residue — preserved item(s) reaching the owner to classify: `
-        + `${run.residue.map((r) => `${r.step_id}/${r.item}`).join(", ")}\n`
+        + `${run.residue.map((r) => `${r.leg_id}/${r.item}`).join(", ")}\n`
       : "no preserved item fails after pass two, so the residue is empty.\n")
     + `check record: ${joinPath}\n`
-    + `both passes:  ${passesPath} — one row per Step, item and pair, with each pass's\n`
+    + `both passes:  ${passesPath} — one row per Leg, item and pair, with each pass's\n`
     + "              verdict and one outcome word: "
     + `${PASS_OUTCOMES.join(", ")}.\n`
     + "`close --draft <draft.md>` writes the owner record.\n");
@@ -4071,7 +4071,7 @@ function cmdCheck(args) {
 //
 // THE OUTLINE RECORD IS THE ONE THE RUN READ, taken from the run record's
 // own map rather than composed from the pass: pass two re-reads only the
-// corrected Steps, so a successor Step's continuity item is judged in pass two
+// corrected Legs, so a successor Leg's continuity item is judged in pass two
 // against pass ONE's Reverse Outline, and `run.outlineFields` is the map every
 // join reads from. A carried row's is pass one's by definition.
 function evidencePass(run, f) {
@@ -4092,30 +4092,30 @@ function chosenJudged(f) {
   }
   return f.judged === true;
 }
-// THE POINTER FOLLOWS THE ROW'S OWN SIDE, NEVER THE STEP ALONE (PR #1024 round
+// THE POINTER FOLLOWS THE ROW'S OWN SIDE, NEVER THE LEG ALONE (PR #1024 round
 // 1). A figure row's reverse side is the FIGURE's Reverse Outline —
-// `outline/<step>.figure.json`, written in the record's field names — and the
-// passage's `outline/<step>.json` carries none of the reading such a verdict was
-// given on. Composing one pointer per Step sent the owner to the wrong artifact
+// `outline/<leg>.figure.json`, written in the record's field names — and the
+// passage's `outline/<leg>.json` carries none of the reading such a verdict was
+// given on. Composing one pointer per Leg sent the owner to the wrong artifact
 // for every `figure_only` row, which is the class PR #1004 round 2 repaired for
 // the other rows. `figureIds` is read from the item table rather than spelled
 // here, for the reason `figureItemIds` already states about itself.
 function findingEvidencePaths(ws, run, f, figureIds = new Set(), recordDir) {
-  if (!f.step_id) return [];
+  if (!f.leg_id) return [];
   const pass = evidencePass(run, f);
   const rel = (...a) => relative(recordDir, join(ws, `pass-${pass}`, ...a))
     || join(ws, `pass-${pass}`, ...a);
   const isFigure = figureIds.has(f.item);
-  const base = isFigure ? `${f.step_id}.figure.json` : `${f.step_id}.json`;
+  const base = isFigure ? `${f.leg_id}.figure.json` : `${f.leg_id}.json`;
   const recorded = isFigure ? (run.figureOutlineFields || {}) : (run.outlineFields || {});
   const outlineFile = f.carried
     ? join(ws, "pass-1", "outline", base)
-    : (recorded[f.step_id] || join(ws, `pass-${pass}`, "outline", base));
+    : (recorded[f.leg_id] || join(ws, `pass-${pass}`, "outline", base));
   const label = isFigure ? "the figure's Reverse Outline" : "Reverse Outline";
   const out = [`  - ${label}: \`${relative(recordDir, outlineFile) || outlineFile}\``];
   if (chosenJudged(f)) {
     const name = f.pair === null || f.pair === undefined
-      ? `${f.step_id}.${f.item}.md` : `${f.step_id}.${f.item}.${f.pair}.md`;
+      ? `${f.leg_id}.${f.item}.md` : `${f.leg_id}.${f.item}.${f.pair}.md`;
     out.push(`  - the pair the judge saw: \`${rel("join", name)}\``);
   } else {
     out.push("  - the pair the judge saw: none — this line was not a judge's answer to a rendered "
@@ -4128,12 +4128,12 @@ function evidenceLines(ws, run, recordDir) {
   const rel = (...a) => relative(recordDir, join(ws, ...a)) || join(ws, ...a);
   const out = [
     `- **Pass 1 — \`compare\`.** \`${rel("pass-1")}/\``,
-    `  - \`outline-input/<step>.md\` — what the blind reviewer was handed`,
-    `  - \`outline/<step>.json\` — what they wrote back`,
-    `  - \`join/<step>.<item>[.<pair>].md\` — the pair each verdict was given on`,
-    `  - \`corrections/<step>.md\` — the input each correction was written from`,
+    `  - \`outline-input/<leg>.md\` — what the blind reviewer was handed`,
+    `  - \`outline/<leg>.json\` — what they wrote back`,
+    `  - \`join/<leg>.<item>[.<pair>].md\` — the pair each verdict was given on`,
+    `  - \`corrections/<leg>.md\` — the input each correction was written from`,
     // THE ONE RECORD A READER DEBUGGING MID-RUN REACHES FOR (kogaki#1134). The
-    // `comparison/<step>.md` files that stood beside it until kogaki#1134 were a
+    // `comparison/<leg>.md` files that stood beside it until kogaki#1134 were a
     // legend plus one line per pair restating this record; the class, the
     // verdict, the reason, the model and the span are all on the row here.
     `  - \`join.json\` — pass one's verdicts with each row's class, model and span,`,
@@ -4142,8 +4142,8 @@ function evidenceLines(ws, run, recordDir) {
   if (run.checked_at || currentPass(run) > 1) {
     out.push(
       `- **Pass 2 — \`check\`.** \`${rel("pass-2")}/\``,
-      `  - \`outline-input/<step>.md\` and \`outline/<step>.json\` — the corrected Steps, re-read blind`,
-      `  - \`join/<step>.<item>[.<pair>].md\` — the pairs inside the second pass's bound`,
+      `  - \`outline-input/<leg>.md\` and \`outline/<leg>.json\` — the corrected Legs, re-read blind`,
+      `  - \`join/<leg>.<item>[.<pair>].md\` — the pairs inside the second pass's bound`,
       `  - \`check.json\` — pass two's verdicts, the bound it applied, and what it carried`,
       "",
       "A pair pass two carried rather than re-judged has its verdict in `pass-1/join.json`",
@@ -4154,13 +4154,13 @@ function evidenceLines(ws, run, recordDir) {
   out.push("",
     `- **Snapshots.** \`${rel("snapshots")}/\` — the article before and after each correction,`,
     "  and, where pass two undid one, before and after each **restore**.",
-    `- **Run record.** \`${rel("run.json")}\` — every path above, per Step, as it was written.`);
+    `- **Run record.** \`${rel("run.json")}\` — every path above, per Leg, as it was written.`);
   // THE ONE RECORD ABOUT BOTH PASSES (kogaki#1135). Named only where `check`
   // ran, by the same rule the `pass-2/` block above follows: a legend line
   // pointing at a file nothing wrote sends the owner to an absence.
   if (run.checked_at) {
     out.push(
-      `- **Both passes.** \`${rel("passes.json")}\` — one row per Step, item and pair, carrying`,
+      `- **Both passes.** \`${rel("passes.json")}\` — one row per Leg, item and pair, carrying`,
       `  pass one's verdict, pass two's, and one outcome word: ${PASS_OUTCOMES.join(", ")}.`,
       "  Comparing the passes meant reading the two join records side by side by hand;",
       "  `regressed` is the word neither of them carries.");
@@ -4215,22 +4215,22 @@ function cmdClose(args) {
       + "and neither has run. Run `compare --draft <draft.md>` first.");
   }
   // ONLY A **PRESERVED** ITEM'S FAIL WITHHOLDS `close` (kogaki#872). The item
-  // table makes the class the CONSEQUENCE: a preserved fail sends its Step to
-  // correction, and a best-effort fail rides along only when that Step is
-  // re-realized anyway. A guard counting every fail would send a Step to pass
+  // table makes the class the CONSEQUENCE: a preserved fail sends its Leg to
+  // correction, and a best-effort fail rides along only when that Leg is
+  // re-realized anyway. A guard counting every fail would send a Leg to pass
   // two for a best-effort finding, which is the opposite of riding along — and
   // it would make `close` unreachable on a Draft whose only findings are ones
   // the design says to carry rather than to act on. Found on the first live
-  // drive, where a best-effort item fired on every Step.
+  // drive, where a best-effort item fired on every Leg.
   // A LOCALIZED SECTION FAIL WITHHELD IT THE SAME WAY (kogaki#873) UNTIL THE
   // READER THAT PRODUCED ONE WAS REMOVED (kogaki#1133). A failing preserved
-  // STEP item is now the whole of what withholds this record.
+  // LEG item is now the whole of what withholds this record.
   const fails = (run.findings || []).filter((f) => f.verdict === "fails" && f.class === "preserved");
   if (fails.length && !run.checked_at) {
     fail(`the join found ${fails.length} failing PRESERVED item(s), so \`close\` is reachable only `
       + "through `check` — pass two is what turns a failing preserved item into a correction or into "
       + `residue. A best-effort fail does not withhold the record; it rides along. Failing: `
-      + `${fails.map((f) => `${f.step_id}/${f.item}`).join(", ")}`);
+      + `${fails.map((f) => `${f.leg_id}/${f.item}`).join(", ")}`);
   }
 
   const out = join(dirname(resolve(draftPath)), "review.md");
@@ -4266,12 +4266,12 @@ function cmdClose(args) {
     `- **Reviewed Draft.** \`${relative(dirname(out), reviewedPath) || REVIEWED_BASENAME}\``
       + (firstSnapshot
         ? ` — the article with this run's ${run.corrections.length} correction(s) in it`
-          // A RESTORED STEP'S CORRECTION IS NOT IN IT (kogaki#1135), and the
+          // A RESTORED LEG'S CORRECTION IS NOT IN IT (kogaki#1135), and the
           // count above is of corrections MADE. Saying only the count would
           // describe a document that does not exist.
           + ((run.restores || []).length
             ? `, less the ${run.restores.length} undone by pass two `
-              + `(${run.restores.map((r) => r.step_id).join(", ")}).`
+              + `(${run.restores.map((r) => r.leg_id).join(", ")}).`
             : ".")
         : " — no correction was made, so it is byte-identical to the Draft above."),
     `- **Body sha.** \`${run.body_sha}\``,
@@ -4281,9 +4281,9 @@ function cmdClose(args) {
     "",
     "### The Packets it was reviewed against",
     "",
-    ...run.steps.map((s) => `- \`${s.step_id}\` — \`${s.packet}\` sha \`${s.packet_sha}\``),
+    ...run.legs.map((s) => `- \`${s.leg_id}\` — \`${s.packet}\` sha \`${s.packet_sha}\``),
     "",
-    // ITEM 4 OF kogaki#994. A finding names a Step and an item; the two
+    // ITEM 4 OF kogaki#994. A finding names a Leg and an item; the two
     // artefacts that make it checkable — the input the judge was handed and
     // the record the blind reviewer wrote — live in the pass directory, and
     // until this the record pointed at neither. `runs/` is machine state and is
@@ -4306,12 +4306,12 @@ function cmdClose(args) {
       : "_None._", "");
   } else {
     // EVERY FINDING CARRIES ITS CLASS, because the class is the consequence:
-    // a preserved item's `fails` sends the Step to correction and a
-    // best-effort one's rides along if that Step is re-realized anyway. A
+    // a preserved item's `fails` sends the Leg to correction and a
+    // best-effort one's rides along if that Leg is re-realized anyway. A
     // findings list that rendered the verdict alone would leave the owner to
     // look the consequence up.
     for (const f of run.findings) {
-      lines.push(`- **${f.step_id} / ${f.item}** — ${f.verdict} (${f.class ?? "unclassed"})`);
+      lines.push(`- **${f.leg_id} / ${f.item}** — ${f.verdict} (${f.class ?? "unclassed"})`);
       if (f.reason) lines.push(`  - ${f.reason}`);
       // THE QUOTED MATERIAL LIVES HERE, and this is the other half of the
       // comparison line's no-numbers rule: the line refuses to carry a quote,
@@ -4337,16 +4337,16 @@ function cmdClose(args) {
       : "_None — `correct` is the act that makes one, and it has not run._", "");
   } else {
     for (const c of run.corrections) {
-      lines.push(`- **${c.step_id}** (pass ${c.pass}) — ${c.what}`);
+      lines.push(`- **${c.leg_id}** (pass ${c.pass}) — ${c.what}`);
       if (c.change_share !== undefined) lines.push(`  - change share: ${c.change_share}`);
       if (c.packet_overlap !== undefined) lines.push(`  - packet overlap: ${c.packet_overlap}`);
-      // THE RESTORE IS RECORDED UNDER THE STEP IT UNDID (kogaki#1135), beside
+      // THE RESTORE IS RECORDED UNDER THE LEG IT UNDID (kogaki#1135), beside
       // the correction rather than in a list of its own: what the owner is
-      // reading here is what happened to this Step, and a correction whose
+      // reading here is what happened to this Leg, and a correction whose
       // effect was removed is not a correction the article carries.
-      for (const r of (run.restores || []).filter((x) => x.step_id === c.step_id)) {
+      for (const r of (run.restores || []).filter((x) => x.leg_id === c.leg_id)) {
         lines.push(`  - **RESTORED in pass two.** ${r.what}. The corrected prose is not in the `
-          + "article; this Step carries the prose it carried in pass one.");
+          + "article; this Leg carries the prose it carried in pass one.");
         for (const g of r.regressed) {
           lines.push(`    - \`${g.item}\`${g.pair === null || g.pair === undefined ? "" : ` pair ${g.pair}`}`
             + ` — held in pass one, failed in pass two: ${g.reason}`);
@@ -4365,7 +4365,7 @@ function cmdClose(args) {
     lines.push("_None._", "");
   } else {
     for (const r of run.residue) {
-      lines.push(`- **${r.step_id} / ${r.item}** — ${r.why}`);
+      lines.push(`- **${r.leg_id} / ${r.item}** — ${r.why}`);
       // A RESIDUE LINE PASS TWO RE-JUDGED POINTS AT PASS TWO; ONE IT CARRIED
       // POINTS AT PASS ONE, which is the only pass that read it. The row carries
       // the distinction its own `why` was written from.
@@ -4414,15 +4414,15 @@ const COMMANDS = {
 const USAGE = `review-draft — the round-trip review of a CanonicalDraft against its Packets
 
                         node src/review-draft.mjs open    --draft <draft.md>
-  <reverse outline>   | node src/review-draft.mjs outline --draft <draft.md> --step <id>
+  <reverse outline>   | node src/review-draft.mjs outline --draft <draft.md> --leg <id>
   [<verdicts.json>]   | node src/review-draft.mjs compare --draft <draft.md>
-  [<corrected prose>] | node src/review-draft.mjs correct --draft <draft.md> --step <id>
-  [<record.json>]     | node src/review-draft.mjs correct --draft <draft.md> --step <id> --figure
+  [<corrected prose>] | node src/review-draft.mjs correct --draft <draft.md> --leg <id>
+  [<record.json>]     | node src/review-draft.mjs correct --draft <draft.md> --leg <id> --figure
   [<verdicts.json>]   | node src/review-draft.mjs check   --draft <draft.md>
                         node src/review-draft.mjs close   --draft <draft.md>
 
-The Harness owns the ordering: \`outline\` refuses a Step whose Reverse Outline input it
-did not render, \`compare\` refuses while any Step outline is missing,
+The Harness owns the ordering: \`outline\` refuses a Leg whose Reverse Outline input it
+did not render, \`compare\` refuses while any Leg outline is missing,
 \`check\` refuses before \`compare\`, and \`close\` is reachable from \`compare\` with
 zero fails or from \`check\` in every state.
 
@@ -4431,7 +4431,7 @@ than a convention:
 
   runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
   runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
-  runs/review/<slug>/snapshots/    before/after per corrected Step, and per restore
+  runs/review/<slug>/snapshots/    before/after per corrected Leg, and per restore
   runs/review/<slug>/passes.json   both passes side by side, one row per pair
   runs/review/<slug>/run.json
 
@@ -4450,12 +4450,12 @@ the span, \`judged\` — whether a Judge was asked at all — and the model that
 answered where one was. A \`comparison/\` directory rendering those rows as prose
 stood beside them until kogaki#1134 and was harder to read than the record it
 rendered; the consequence word it added is the class and the verdict together —
-a \`preserved\` fail is what sends its Step to correction and a \`best-effort\` one
+a \`preserved\` fail is what sends its Leg to correction and a \`best-effort\` one
 rides along.
 
 EVERY REPLY REACHES THIS HARNESS ON STANDARD INPUT, and no act takes a path to
 one. \`runs/\` holds what the Harness wrote and nothing else: the Reverse
-Outline lands at \`outline/<step>.md\`, the verdicts in \`join.json\` and
+Outline lands at \`outline/<leg>.md\`, the verdicts in \`join.json\` and
 \`check.json\`, and a correction in
 the Draft itself with its before-and-after pair under \`snapshots/\` — one copy
 each, under the Harness's own name. A reply the session wrote to a file of its
@@ -4469,53 +4469,53 @@ review. \`review.md\` names both. A second \`close\` on a closed run refuses.
 
 \`correct\` runs in TWO PHASES like \`compare\`, and STANDARD INPUT selects the
 phase: with nothing piped in it renders the
-correction input — the Step's Packet RE-RENDERED against the article as it now
+correction input — the Leg's Packet RE-RENDERED against the article as it now
 stands, so the "article so far" block carries the current preceding prose
-including Steps corrected earlier in the same pass, with one Correction block
+including Legs corrected earlier in the same pass, with one Correction block
 appended holding the previous realization, what failed, and what held and must
 go on holding. With the corrected prose piped in it records it through the
 realization lane and reports the drift: the share of sentences changed and the
 verbatim overlap with the Packet's claim and state lines. Both are REPORTED and
-neither gates. Corrections run in path order, and a Step out of order refuses.
+neither gates. Corrections run in path order, and a Leg out of order refuses.
 
-\`--figure\` corrects the Step's FIGURE RECORD instead of its passage, and it is
-the seat a failing preserved figure item sends the Step to. Phase A renders the
+\`--figure\` corrects the Leg's FIGURE RECORD instead of its passage, and it is
+the seat a failing preserved figure item sends the Leg to. Phase A renders the
 Packet as it now stands, the passage, the block as the reader currently meets
 it, the previous record verbatim, and what failed and held; phase B takes the
 re-designed record and hands it to \`draft.mjs figure\`, which re-validates it,
-and \`emit\`, which re-renders the block from it. You write no markup. A Step
+and \`emit\`, which re-renders the block from it. You write no markup. A Leg
 owing both corrections takes the passage first: the record's caption is stated
 in what the reader holds after reading that passage.
 
 \`check\` is pass two and is BOUNDED: it re-runs Reverse Outlining for the
-corrected Steps, then re-judges their own failed and held preserved items, the
-continuity item on each corrected Step's successor, and every mechanical
+corrected Legs, then re-judges their own failed and held preserved items, the
+continuity item on each corrected Leg's successor, and every mechanical
 item over the whole Draft. Every other pair is CARRIED from pass one, marked as
 carried, at no model call. A preserved item still failing after pass two is
 residue, and \`close\` hands it to the owner with an empty \`classified:\` field.
 
-\`check\` REFUSES A REGRESSION. A corrected Step that FAILS in pass two a
+\`check\` REFUSES A REGRESSION. A corrected Leg that FAILS in pass two a
 preserved item it HELD in pass one is RESTORED to its pass-one prose, through
 the realization lane that wrote it, and the item the correction was made for
-returns to residue as still failing. Only the regressed Step moves: a later
-corrected Step keeps its corrected prose and carries no mark, because
-Step-to-Step continuity was settled at Reader Path design and is not this
+returns to residue as still failing. Only the regressed Leg moves: a later
+corrected Leg keeps its corrected prose and carries no mark, because
+Leg-to-Leg continuity was settled at Reader Path design and is not this
 Harness's. The restore is recorded in \`run.json\`, in \`check.json\`, and in
-\`review.md\` under the Step it undid, with a snapshot pair of its own.
+\`review.md\` under the Leg it undid, with a snapshot pair of its own.
 
 A completed \`check\` also writes \`passes.json\` at the run root: one row per
-Step, item and pair, carrying pass one's verdict, pass two's, and one outcome
+Leg, item and pair, carrying pass one's verdict, pass two's, and one outcome
 word — held, fixed, still-failing, regressed, carried. Comparing the two passes
 meant reading \`pass-1/join.json\` and \`pass-2/check.json\` side by side by hand,
 and \`regressed\` is the word neither of them carries.
 
 \`compare\` decides the mechanical items itself and renders one join Packet per
-judged pair; a verdicts reply piped in records the answers. It emits one line per (Step,
+judged pair; a verdicts reply piped in records the answers. It emits one line per (Leg,
 item) once every pair is answered, and never before: there is no fourth token
 for "not asked yet", and \`cannot-decide\` is a real answer rather than a place
 to round one.
 
-EVERY VERDICT NAMES THE MODEL THAT PRODUCED IT — \`{step_id, item, pair?,
+EVERY VERDICT NAMES THE MODEL THAT PRODUCED IT — \`{leg_id, item, pair?,
 verdict, reason, model}\`, and a verdict with no \`model\` is refused. The id
 rides the verdict, the \`model_calls\` log and the emitted \`judged by DECLARED
 model(s)\` line. It is a DECLARATION: the Harness invokes no judge, pins no
@@ -4538,7 +4538,7 @@ filed against src/packet-template.md.
 //
 // Each case CONSTRUCTS its defect and asserts the refusal BY NAME. A case that
 // only asserted a non-zero exit would pass on any refusal, including one about
-// a different Step.
+// a different Leg.
 async function runSelfTest() {
   const { mkdtempSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
@@ -4613,8 +4613,8 @@ async function runSelfTest() {
     a3: ["The third passage opens the second Section with a question of its own."],
   };
   const SECTIONS = [
-    { index: 1, title: "The first heading", steps: ["a1", "a2"] },
-    { index: 2, title: "The second heading", steps: ["a3"] },
+    { index: 1, title: "The first heading", legs: ["a1", "a2"] },
+    { index: 2, title: "The second heading", legs: ["a3"] },
   ];
 
   // THE FIGURE'S MARKUP COMES FROM THE REAL RENDERER (kogaki#880), reached by
@@ -4651,10 +4651,10 @@ async function runSelfTest() {
       figureFiles[id] = { path: fp, sha: sha256(readFileSync(fp, "utf8")),
         markup: renderFigureMarkup(f.record), position: f.record.position };
     }
-    // Body first, recording each Step's 1-based body range. The figure is
+    // Body first, recording each Leg's 1-based body range. The figure is
     // pushed before or after the prose per its record's `position`, which is
     // exactly what `src/draft.mjs assembleBody` does — and its range is
-    // recorded separately, because the renderer's whole point is that the Step's own
+    // recorded separately, because the renderer's whole point is that the Leg's own
     // range spans the prose alone.
     const body = []; const ranges = {}; const figureRanges = {};
     const pushBlock = (markup) => {
@@ -4666,7 +4666,7 @@ async function runSelfTest() {
     };
     for (const sec of SECTIONS) {
       body.push(`## ${sec.title}`, "");
-      for (const id of sec.steps) {
+      for (const id of sec.legs) {
         const f = figureFiles[id];
         if (f && f.position === "before") figureRanges[id] = pushBlock(f.markup);
         const start = body.length + 1;
@@ -4680,24 +4680,24 @@ async function runSelfTest() {
 
     const trace = [];
     for (const sec of SECTIONS) {
-      for (const id of sec.steps) {
-        const rec = { step_id: id, section: sec.index, section_title: sec.title };
+      for (const id of sec.legs) {
+        const rec = { leg_id: id, section: sec.index, section_title: sec.title };
         trace.push(rec);
       }
     }
     const head = ["---", "brief: brief.md", "brief_pin: sha256:0000", "trace:"];
     const bodyOffset = head.length + trace.length + 2;
     for (const t of trace) {
-      const r = ranges[t.step_id];
-      if (omitLines !== t.step_id) t.lines = [r[0] + bodyOffset, r[1] + bodyOffset];
-      if (omitPacket !== t.step_id) {
-        const p = join(packetDir, `${t.step_id}.md`);
+      const r = ranges[t.leg_id];
+      if (omitLines !== t.leg_id) t.lines = [r[0] + bodyOffset, r[1] + bodyOffset];
+      if (omitPacket !== t.leg_id) {
+        const p = join(packetDir, `${t.leg_id}.md`);
         t.packet = relative(dir, p);
         t.packet_sha = sha256(readFileSync(p, "utf8"));
       }
-      const f = figureFiles[t.step_id];
+      const f = figureFiles[t.leg_id];
       if (f) {
-        const fr = figureRanges[t.step_id];
+        const fr = figureRanges[t.leg_id];
         t.figure = { position: f.position, record: relative(dir, f.path), record_sha: f.sha,
           lines: [fr[0] + bodyOffset, fr[1] + bodyOffset] };
       }
@@ -4751,7 +4751,7 @@ async function runSelfTest() {
   // sliding past them.
   // THE FIGURE BLOCK IS NOT PART OF A PACKET (kogaki#878). The template file
   // carries the Packet and, behind a marker, the figure input block that
-  // `draft.mjs section` appends for a Step declaring `figure:` — so a fixture
+  // `draft.mjs section` appends for a Leg declaring `figure:` — so a fixture
   // reading the whole file would render a Packet these cases never receive.
   // The marker is spelled here rather than imported because this pass asserts
   // a closed input allowlist that forbids importing `src/draft.mjs`; the guard
@@ -4765,8 +4765,8 @@ async function runSelfTest() {
   }
   const TEMPLATE = TEMPLATE_FILE.slice(0, TEMPLATE_FILE.indexOf(TEMPLATE_MARKER))
     .replace(/^<!--[\s\S]*?-->\n*/, "").trimEnd() + "\n";
-  // `introduces` is overridable for the same reason `claims` is: a Step whose
-  // Brief declares none is an ORDINARY Step, and the only way to exercise the
+  // `introduces` is overridable for the same reason `claims` is: a Leg whose
+  // Brief declares none is an ORDINARY Leg, and the only way to exercise the
   // stated absence the renderer writes into that slot is to render a Packet
   // that carries it.
   function writePacket(dir, id, { claims = CLAIMS[id], introduces = PACKET_FIELDS[id].introduces } = {}) {
@@ -4784,36 +4784,36 @@ async function runSelfTest() {
       move_excerpt: f.excerpt === null
         ? "(none — this Move record carries no excerpt, so it cannot serve as an exemplar. Perform the Move from its contract above.)"
         : f.excerpt,
-      step_id: id,
+      leg_id: id,
       purpose: f.purpose,
       reader_state_before: "PACKETONLYTOKEN the state before.",
       reader_state_after: f.after,
-      // the relations layer's `budget` (kogaki#1174). These fixture Steps declare none, so every
+      // the relations layer's `budget` (kogaki#1174). These fixture Legs declare none, so every
       // Packet renders the stated absence `src/draft.mjs renderPacket` writes.
-      budget: "(none declared — no word bound applies to this Step.)",
+      budget: "(none declared — no word bound applies to this Leg.)",
       // THE STATED ABSENCE THE RENDERER WRITES, verbatim (src/draft.mjs's
       // `claims || "(none recorded)"`), so the claimless case exercises the
       // string a real Packet actually carries.
       claims: claims.length ? claims.join("\n") : "(none recorded)",
       section_placement: f.opens
-        ? "- **This Step OPENS a Section.** Its heading is **\"A heading\"**, rendered by the Harness immediately above your prose.\n"
-          + "- **Your prose is what the heading promises.** This Step is the whole Section."
-        : "- **This Step CONTINUES the Section headed \"A heading\".** That heading is already on the page, above prose you are writing further into.\n"
-          + "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Step that opens its own.",
+        ? "- **This Leg OPENS a Section.** Its heading is **\"A heading\"**, rendered by the Harness immediately above your prose.\n"
+          + "- **Your prose is what the heading promises.** This Leg is the whole Section."
+        : "- **This Leg CONTINUES the Section headed \"A heading\".** That heading is already on the page, above prose you are writing further into.\n"
+          + "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.",
       reader_already_knows: bullets(f.knows,
-        "(nothing — this is the first Step to introduce anything, or the path introduces no terms)"),
+        "(nothing — this is the first Leg to introduce anything, or the path introduces no terms)"),
       introduces: bullets(introduces, "(nothing new)"),
-      // CLOSURE (kogaki#1151). These fixture Steps carry no Closure row — the
+      // CLOSURE (kogaki#1151). These fixture Legs carry no Closure row — the
       // Round Trip's subject is unaffected by it — so every Packet renders the
-      // stated absence `src/draft.mjs renderPacket` writes for a Step with none.
-      closure_rows: "(nothing — this Step carries no Closure row)",
-      // the Journey a Step draws on (kogaki#1111). THE FIXTURE FILLS IT WITH THE STATED
-      // ABSENCE, which is what the renderer writes for a Step declaring no
+      // stated absence `src/draft.mjs renderPacket` writes for a Leg with none.
+      closure_rows: "(nothing — this Leg carries no Closure row)",
+      // the Journey a Leg draws on (kogaki#1111). THE FIXTURE FILLS IT WITH THE STATED
+      // ABSENCE, which is what the renderer writes for a Leg declaring no
       // Journey — these cases are about the Reverse Outline, and a Journey
       // asserts nothing, so the Reverse Outline carries no Journey field and
       // the block's presence here is the template's rather than a case's
       // subject.
-      journeys: "(none — this Step draws on no Journey material, and nothing here asks for any.)",
+      journeys: "(none — this Leg draws on no Journey material, and nothing here asks for any.)",
       prior_sections: "PACKETONLYTOKEN the article so far.",
     };
     let out = TEMPLATE;
@@ -4842,8 +4842,8 @@ async function runSelfTest() {
   const drive = (cmd, ...extra) => selfRun(
     [self, cmd, "--draft", draft.path, "--workspace", wsBase, ...extra]);
 
-  // A REVERSE OUTLINE for one Step, in the Brief's own Step form (kogaki#1014).
-  // The fixture's outlines are REAL `step` blocks from here on — a plain-text
+  // A REVERSE OUTLINE for one Leg, in the Brief's own Leg form (kogaki#1014).
+  // The fixture's outlines are REAL `leg` blocks from here on — a plain-text
   // stand-in is refused by the Brief parser, and the ordering cases below must
   // fail on the ORDERING rather than on the block's form.
   //
@@ -4856,7 +4856,7 @@ async function runSelfTest() {
   // what was read, and the no-numbers-but-line-numbers case must fail on the
   // FORMAT rather than on this outline's wording.
   //
-  // NO SPANS. A Reverse Outline is a Brief Step block and a Brief field carries
+  // NO SPANS. A Reverse Outline is a Brief Leg block and a Brief field carries
   // no draft coordinate — the span was the deleted record's own invention, and
   // the cases that asserted one lie inside the passage went with it.
   const OUTLINE = {
@@ -4871,7 +4871,7 @@ async function runSelfTest() {
   // The block itself. `mutate` takes the field object so a case can widen a
   // claim, blank a field or add one the dispositions refuse.
   const outlineFor = (id) => ({
-    step_id: id,
+    leg_id: id,
     purpose: OUTLINE[id].purpose,
     reader_state_before: "The reader arrives holding what came before.",
     reader_state_after: OUTLINE[id].after,
@@ -4879,7 +4879,7 @@ async function runSelfTest() {
     introduces: [],
   });
   const renderOutline = (o) => {
-    const L = ["```step", `step_id: ${o.step_id}`];
+    const L = ["```leg", `leg_id: ${o.leg_id}`];
     if (o.purpose !== null) L.push(`purpose: ${o.purpose}`);
     if (o.reader_state_before !== null) L.push(`reader_state_before: ${o.reader_state_before}`);
     if (o.reader_state_after !== null) L.push(`reader_state_after: ${o.reader_state_after}`);
@@ -4897,7 +4897,7 @@ async function runSelfTest() {
 
   // The same outline, against ANY fixture Draft — the kogaki#872 cases build
   // their own Drafts (a Packet with a claim removed, a Draft using a term
-  // before the Step that introduces it). With no spans to place, the outline no
+  // before the Leg that introduces it). With no spans to place, the outline no
   // longer depends on the Draft's ranges; the parameter stays so the call sites
   // and their reasons read unchanged.
   const writeRecordFor = (d, id, tag) => {
@@ -4927,7 +4927,7 @@ async function runSelfTest() {
     const f = join(root, `verdicts-${tag}.json`);
     writeFileSync(f, JSON.stringify({
       verdicts: owed.map((o) => ({
-        step_id: o.step_id, item: o.item,
+        leg_id: o.leg_id, item: o.item,
         ...(o.pair === null ? {} : { pair: o.pair }),
         // `override` is spread BEFORE `model`, so a case can restate the verdict
         // and its reason and CANNOT name the model — which is the run's, never a
@@ -4963,7 +4963,7 @@ async function runSelfTest() {
     const D = (...a) => selfRun(
       [self, ...a, "--draft", d.path, "--workspace", wsBase]);
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, tag));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--leg", id, "--file", writeRecordFor(d, id, tag));
     const first = D("compare");
     const jsonPath = join(wsBase, slug, "pass-1", "join.json");
     const second = D("compare", "--verdicts",
@@ -4971,7 +4971,7 @@ async function runSelfTest() {
     return { first, second, jsonPath, ws: join(wsBase, slug) };
   };
 
-  // The comparison lines, as a map from `<step>/<item>` to the whole line.
+  // The comparison lines, as a map from `<leg>/<item>` to the whole line.
   const linesOf = (stdout) => {
     const m = new Map();
     for (const l of stdout.split("\n")) {
@@ -4998,25 +4998,25 @@ async function runSelfTest() {
     ok("a Draft carrying no trace entries refuses", r.status === 1 && /carries no trace entries/.test(r.stderr));
   }
 
-  // 3 — the kogaki#868 precondition: a Step with no line range. The refusal
-  // names the Step AND the act that repairs it, because a Draft emitted before
+  // 3 — the kogaki#868 precondition: a Leg with no line range. The refusal
+  // names the Leg AND the act that repairs it, because a Draft emitted before
   // #868 landed is repaired by re-emitting rather than by editing.
   {
     const d = join(root, "theses", "norange");
     buildDraft(d, { packetDir, omitLines: "a2" });
     const r = spawnSync(process.execPath, [self, "open", "--draft", join(d, "draft.md"), "--workspace", join(root, "ws-norange")], { encoding: "utf8" });
-    ok("a Step with no line range refuses BY NAME",
-      r.status === 1 && /step a2 carries no line range/.test(r.stderr));
+    ok("a Leg with no line range refuses BY NAME",
+      r.status === 1 && /leg a2 carries no line range/.test(r.stderr));
     ok("and the refusal names re-emission as the repair", /draft\.mjs emit/.test(r.stderr));
   }
 
-  // 4 — a Step naming no Packet.
+  // 4 — a Leg naming no Packet.
   {
     const d = join(root, "theses", "nopacket");
     buildDraft(d, { packetDir, omitPacket: "a3" });
     const r = spawnSync(process.execPath, [self, "open", "--draft", join(d, "draft.md"), "--workspace", join(root, "ws-nopacket")], { encoding: "utf8" });
-    ok("a Step naming no Packet refuses BY NAME",
-      r.status === 1 && /step a3 names no Packet/.test(r.stderr));
+    ok("a Leg naming no Packet refuses BY NAME",
+      r.status === 1 && /leg a3 names no Packet/.test(r.stderr));
   }
 
   // 5 — the Packet the trace names is gone. The workspace is pruned by design
@@ -5029,8 +5029,8 @@ async function runSelfTest() {
     buildDraft(d, { packetDir: pd });
     rmSync(join(pd, "a2.md"));
     const r = spawnSync(process.execPath, [self, "open", "--draft", join(d, "draft.md"), "--workspace", join(root, "ws-gone")], { encoding: "utf8" });
-    ok("an absent Packet refuses BY NAME", r.status === 1 && /step a2: the Packet the trace names is absent/.test(r.stderr));
-    ok("and names the re-render that repairs it", /draft\.mjs packet .*--step a2/.test(r.stderr));
+    ok("an absent Packet refuses BY NAME", r.status === 1 && /leg a2: the Packet the trace names is absent/.test(r.stderr));
+    ok("and names the re-render that repairs it", /draft\.mjs packet .*--leg a2/.test(r.stderr));
   }
 
   // 6 — ACCEPTANCE 1's second half: a Packet whose sha differs from the
@@ -5044,7 +5044,7 @@ async function runSelfTest() {
     writeFileSync(join(pd, "a1.md"), "packet a1 — edited after the Draft was emitted\n");
     const r = spawnSync(process.execPath, [self, "open", "--draft", join(d, "draft.md"), "--workspace", join(root, "ws-drift")], { encoding: "utf8" });
     ok("a Packet sha differing from the trace's refuses BY NAME",
-      r.status === 1 && /step a1: the Packet's sha differs/.test(r.stderr));
+      r.status === 1 && /leg a1: the Packet's sha differs/.test(r.stderr));
     ok("and says what the difference MEANS, not only that it exists",
       /was not produced from this Packet/.test(r.stderr));
     ok("and renders both shas so the reader can tell which moved",
@@ -5054,7 +5054,7 @@ async function runSelfTest() {
   // 7 — ACCEPTANCE 1's first half: `open` succeeds on a well-formed Draft.
   const rOpen = drive("open");
   ok("open succeeds on a well-formed Draft", rOpen.status === 0);
-  ok("open names the Steps it found", rOpen.stdout.includes("a1, a2, a3"));
+  ok("open names the Legs it found", rOpen.stdout.includes("a1, a2, a3"));
   ok("open names the Sections it found", /sections\s+2 —/.test(rOpen.stdout));
   ok("open reports the Packets as verified against the trace", /packets\s+3 verified/.test(rOpen.stdout));
   ok("open renders the FIRST Reverse Outline input", /first Reverse Outline input: .*outline-input[\/\\]a1\.md/.test(rOpen.stdout));
@@ -5078,58 +5078,58 @@ async function runSelfTest() {
     ok("and no run record is written for a refused --regenerate", !existsSync(join(wsRegen, "fixture", "run.json")));
   }
 
-  // 7b — kogaki#1165 acceptance items 1 and 2: `open --only-steps` scopes the
-  // WHOLE run to exactly the named Steps. a3 is dropped from both `steps` and
+  // 7b — kogaki#1165 acceptance items 1 and 2: `open --only-legs` scopes the
+  // WHOLE run to exactly the named Legs. a3 is dropped from both `legs` and
   // `sections`, and the printed report never names it — the same fixture case
-  // 7 opened unscoped and found three Steps in two Sections.
+  // 7 opened unscoped and found three Legs in two Sections.
   {
-    const wsScoped = join(root, "ws-onlysteps");
+    const wsScoped = join(root, "ws-onlylegs");
     const r = spawnSync(process.execPath,
-      [self, "open", "--draft", draft.path, "--workspace", wsScoped, "--only-steps", "a1,a2"], { encoding: "utf8" });
-    ok("open --only-steps succeeds and never names the excluded Step in its report",
+      [self, "open", "--draft", draft.path, "--workspace", wsScoped, "--only-legs", "a1,a2"], { encoding: "utf8" });
+    ok("open --only-legs succeeds and never names the excluded Leg in its report",
       r.status === 0 && !/\ba3\b/.test(r.stdout));
-    ok("open --only-steps names the scope in its report", /scope\s+term-list change path — only a1, a2/.test(r.stdout));
+    ok("open --only-legs names the scope in its report", /scope\s+term-list change path — only a1, a2/.test(r.stdout));
     const run = JSON.parse(readFileSync(join(wsScoped, "fixture", "run.json"), "utf8"));
-    ok("the run record's own `steps` carries only the named Steps, in the Draft's order",
-      run.steps.map((s) => s.step_id).join(",") === "a1,a2");
-    ok("the run record's `sections` drop the Section that held only the excluded Step",
-      run.sections.length === 1 && run.sections[0].steps.join(",") === "a1,a2");
-    ok("the run record carries the scope itself", Array.isArray(run.only_steps) && run.only_steps.join(",") === "a1,a2");
+    ok("the run record's own `legs` carries only the named Legs, in the Draft's order",
+      run.legs.map((s) => s.leg_id).join(",") === "a1,a2");
+    ok("the run record's `sections` drop the Section that held only the excluded Leg",
+      run.sections.length === 1 && run.sections[0].legs.join(",") === "a1,a2");
+    ok("the run record carries the scope itself", Array.isArray(run.only_legs) && run.only_legs.join(",") === "a1,a2");
 
-    // outline never re-outlines the excluded Step: an explicit attempt is
-    // refused as unknown, naming only the scoped Steps.
+    // outline never re-outlines the excluded Leg: an explicit attempt is
+    // refused as unknown, naming only the scoped Legs.
     const D = (...a) => selfRun([self, ...a, "--draft", draft.path, "--workspace", wsScoped]);
-    const badOutline = D("outline", "--step", "a3", "--file", writeRecordFor(draft, "a3", "scoped"));
-    ok("outlining the excluded Step is refused as unknown, naming only the scoped Steps",
-      badOutline.status === 1 && /unknown step `a3`/.test(badOutline.stderr) && /Steps are a1, a2/.test(badOutline.stderr));
+    const badOutline = D("outline", "--leg", "a3", "--file", writeRecordFor(draft, "a3", "scoped"));
+    ok("outlining the excluded Leg is refused as unknown, naming only the scoped Legs",
+      badOutline.status === 1 && /unknown leg `a3`/.test(badOutline.stderr) && /Legs are a1, a2/.test(badOutline.stderr));
 
     // the scoped Round Trip completes over a1 and a2 alone and compare never
-    // asks about a3 — the third Step is never re-compared either.
-    D("outline", "--step", "a1", "--file", writeRecordFor(draft, "a1", "scoped"));
-    const lastOutline = D("outline", "--step", "a2", "--file", writeRecordFor(draft, "a2", "scoped"));
-    ok("the scoped Round Trip finishes outlining at the named Steps and hands off to compare",
-      lastOutline.status === 0 && /every Step is outlined/.test(lastOutline.stdout));
+    // asks about a3 — the third Leg is never re-compared either.
+    D("outline", "--leg", "a1", "--file", writeRecordFor(draft, "a1", "scoped"));
+    const lastOutline = D("outline", "--leg", "a2", "--file", writeRecordFor(draft, "a2", "scoped"));
+    ok("the scoped Round Trip finishes outlining at the named Legs and hands off to compare",
+      lastOutline.status === 0 && /every Leg is outlined/.test(lastOutline.stdout));
     const cmp = D("compare");
-    ok("compare over a scoped run renders a join with no mention of the excluded Step",
+    ok("compare over a scoped run renders a join with no mention of the excluded Leg",
       cmp.status === 0 && !/\ba3\b/.test(cmp.stdout));
   }
 
-  // 7c — kogaki#1165: `--only-steps` naming an id outside the Draft's trace,
-  // or naming none at all, is refused rather than silently opening every Step
+  // 7c — kogaki#1165: `--only-legs` naming an id outside the Draft's trace,
+  // or naming none at all, is refused rather than silently opening every Leg
   // or none.
   {
     const r1 = spawnSync(process.execPath,
-      [self, "open", "--draft", draft.path, "--workspace", join(root, "ws-onlysteps-bad"), "--only-steps", "a1,nope"], { encoding: "utf8" });
-    ok("--only-steps naming an unknown Step id refuses BY NAME",
-      r1.status === 1 && /--only-steps names step id\(s\) not in this Draft's trace: nope/.test(r1.stderr));
+      [self, "open", "--draft", draft.path, "--workspace", join(root, "ws-onlylegs-bad"), "--only-legs", "a1,nope"], { encoding: "utf8" });
+    ok("--only-legs naming an unknown Leg id refuses BY NAME",
+      r1.status === 1 && /--only-legs names leg id\(s\) not in this Draft's trace: nope/.test(r1.stderr));
     const r2 = spawnSync(process.execPath,
-      [self, "open", "--draft", draft.path, "--workspace", join(root, "ws-onlysteps-empty"), "--only-steps", ","], { encoding: "utf8" });
-    ok("--only-steps naming no Step refuses rather than opening the whole Draft",
+      [self, "open", "--draft", draft.path, "--workspace", join(root, "ws-onlylegs-empty"), "--only-legs", ","], { encoding: "utf8" });
+    ok("--only-legs naming no Leg refuses rather than opening the whole Draft",
       r2.status === 1);
   }
 
-  // 7d — PR #1169 round 1: A SCOPED RUN WHOSE FIRST NAMED STEP IS NOT THE
-  // DRAFT'S FIRST STEP still shows the Blind Reader the article that precedes
+  // 7d — PR #1169 round 1: A SCOPED RUN WHOSE FIRST NAMED LEG IS NOT THE
+  // DRAFT'S FIRST LEG still shows the Blind Reader the article that precedes
   // it. 7b cannot express this — it scopes `a1,a2`, a PREFIX whose first
   // element genuinely IS the article's first passage, so the scoped and the
   // full array agree there and a renderer reading either passes. Scoping `a2`
@@ -5138,16 +5138,16 @@ async function runSelfTest() {
   // The same block is built from the full trace by `outline` and by pass two's
   // re-render, so this also holds the three to one answer.
   {
-    const wsMid = join(root, "ws-onlysteps-midway");
+    const wsMid = join(root, "ws-onlylegs-midway");
     const r = spawnSync(process.execPath,
-      [self, "open", "--draft", draft.path, "--workspace", wsMid, "--only-steps", "a2"], { encoding: "utf8" });
+      [self, "open", "--draft", draft.path, "--workspace", wsMid, "--only-legs", "a2"], { encoding: "utf8" });
     ok("a scoped run starting midway opens", r.status === 0);
     const run = JSON.parse(readFileSync(join(wsMid, "fixture", "run.json"), "utf8"));
-    ok("and reviews a2 alone", run.steps.map((s) => s.step_id).join(",") === "a2");
+    ok("and reviews a2 alone", run.legs.map((s) => s.leg_id).join(",") === "a2");
     const rendered = readFileSync(run.rendered.a2, "utf8");
-    ok("the article before a midway scoped Step carries the prose that precedes it",
+    ok("the article before a midway scoped Leg carries the prose that precedes it",
       rendered.includes(PROSE.a1[0]) && rendered.includes(PROSE.a1[3]));
-    ok("and does NOT claim the scoped Step is the article's first passage",
+    ok("and does NOT claim the scoped Leg is the article's first passage",
       !/this is the article's first passage/.test(rendered));
   }
 
@@ -5202,7 +5202,7 @@ async function runSelfTest() {
   // must not appear.
   {
     const input = readFileSync(join(WS, "pass-1", "outline-input", "a1.md"), "utf8");
-    ok("the Reverse Outline input carries the Step's prose", input.includes("The first passage opens the claim"));
+    ok("the Reverse Outline input carries the Leg's prose", input.includes("The first passage opens the claim"));
     ok("the Reverse Outline input carries NOTHING from the Packet", !input.includes("PACKETONLYTOKEN"));
     // kogaki#1099 ACCEPTANCE 1 — three absences over the same rendered file.
     ok("#1099: the rendered input carries no withheld-field section",
@@ -5239,40 +5239,40 @@ async function runSelfTest() {
       numbers.length === e - s + 1 && numbers[0] === s && numbers[numbers.length - 1] === e);
   }
 
-  // 9 — an unknown Step names BOTH sides.
+  // 9 — an unknown Leg names BOTH sides.
   {
     const bad = writeRecord("a1");
-    const r = drive("outline", "--step", "zz", "--file", bad);
-    ok("an unknown step_id refuses naming both sides",
-      r.status === 1 && /unknown step `zz`/.test(r.stderr) && /a1, a2, a3/.test(r.stderr));
+    const r = drive("outline", "--leg", "zz", "--file", bad);
+    ok("an unknown leg_id refuses naming both sides",
+      r.status === 1 && /unknown leg `zz`/.test(r.stderr) && /a1, a2, a3/.test(r.stderr));
   }
 
-  // 10 — THE ORDERING GUARD. A record handed back for a Step whose input was
+  // 10 — THE ORDERING GUARD. A record handed back for a Leg whose input was
   // never rendered was written against something else, and afterwards there is
   // no way to tell what.
   {
     const rec = writeRecord("a3");
-    const r = drive("outline", "--step", "a3", "--file", rec);
-    ok("a Step whose Reverse Outline input was never rendered refuses",
-      r.status === 1 && /step a3 has no rendered Reverse Outline input/.test(r.stderr));
-    ok("and the refusal names the Step actually owed", /The Step now owed is a1/.test(r.stderr));
+    const r = drive("outline", "--leg", "a3", "--file", rec);
+    ok("a Leg whose Reverse Outline input was never rendered refuses",
+      r.status === 1 && /leg a3 has no rendered Reverse Outline input/.test(r.stderr));
+    ok("and the refusal names the Leg actually owed", /The Leg now owed is a1/.test(r.stderr));
   }
 
   // 11 — recording one outline renders the next.
   {
     const rec = writeRecord("a1");
-    const r = drive("outline", "--step", "a1", "--file", rec);
+    const r = drive("outline", "--leg", "a1", "--file", rec);
     ok("a Reverse Outline is recorded", r.status === 0 && /recorded: a1/.test(r.stdout));
     ok("and the NEXT Reverse Outline input is rendered", /next Reverse Outline input: .*a2\.md/.test(r.stdout));
     ok("the Reverse Outline lands in the workspace", existsSync(join(WS, "pass-1", "outline", "a1.json")));
   }
 
   // 12 — ACCEPTANCE 2: compare before every outline refuses, naming what is
-  // missing. EVERY unoutlined Step is named, not only the first one found.
+  // missing. EVERY unoutlined Leg is named, not only the first one found.
   {
     const r = drive("compare");
     ok("compare with outlines outstanding refuses", r.status === 1);
-    ok("and names the missing Steps", /step outlines: a2, a3/.test(r.stderr));
+    ok("and names the missing Legs", /leg outlines: a2, a3/.test(r.stderr));
     ok("#1133: and nothing else — the Section ledger it also named is gone with the cold reader",
       !/ledger|section|cold reader/i.test(r.stderr));
     ok("and says why a partial join is worse than none",
@@ -5285,13 +5285,13 @@ async function runSelfTest() {
   let lastOutline = null;
   for (const id of ["a2", "a3"]) {
     const rec = writeRecord(id);
-    lastOutline = drive("outline", "--step", id, "--file", rec);
+    lastOutline = drive("outline", "--leg", id, "--file", rec);
     ok(`Reverse Outline ${id} is recorded`, lastOutline.status === 0);
   }
   ok("the last Reverse Outline renders no next input",
     !/next Reverse Outline input/.test(lastOutline.stdout));
   ok("#1133: and hands over to `compare`, which is now what it owes",
-    /every Step is outlined/.test(lastOutline.stdout)
+    /every Leg is outlined/.test(lastOutline.stdout)
     && /compare --draft/.test(lastOutline.stdout)
     && !/ledger|Section entr/.test(lastOutline.stdout));
 
@@ -5315,7 +5315,7 @@ async function runSelfTest() {
   {
     const r = drive("compare");
     ok("compare succeeds once every input is present", r.status === 0);
-    ok("and reports the counts it joined over", /3 outlined Step\(s\)\./.test(r.stdout));
+    ok("and reports the counts it joined over", /3 outlined Leg\(s\)\./.test(r.stdout));
     ok("a join record lands in the workspace", existsSync(join(WS, "pass-1", "join.json")));
 
     const rec = JSON.parse(readFileSync(join(WS, "pass-1", "join.json"), "utf8"));
@@ -5366,7 +5366,7 @@ async function runSelfTest() {
     const raw = (...a) => spawnSync(process.execPath,
       [self, ...a, "--draft", draft.path, "--workspace", wsBase], { encoding: "utf8" });
 
-    const rFile = raw("outline", "--step", "a1", "--file", join(root, "rec-a1.md"));
+    const rFile = raw("outline", "--leg", "a1", "--file", join(root, "rec-a1.md"));
     ok("#1100: `--file` is refused BY NAME rather than ignored, and the refusal names the pipe",
       rFile.status === 1 && /`--file` is gone/.test(rFile.stderr)
       && /\| node src\/review-draft\.mjs outline/.test(rFile.stderr));
@@ -5381,7 +5381,7 @@ async function runSelfTest() {
     // with the cold reader (kogaki#1133); `outline` is now the only recording
     // act with no second phase, and the case is narrowed to it rather than left
     // naming two.
-    const rNoOutline = drive("outline", "--step", "a1");
+    const rNoOutline = drive("outline", "--leg", "a1");
     ok("#1100: an `outline` with nothing piped in refuses, naming standard input",
       rNoOutline.status === 1 && /nothing arrived on standard input/.test(rNoOutline.stderr)
       && /\| review-draft outline/.test(rNoOutline.stderr));
@@ -5398,26 +5398,26 @@ async function runSelfTest() {
       ok(name, r.status === 1 && hit);
     };
     // THE ONE MECHANICAL ROW LEFT IS THE FIGURE'S (kogaki#1132). The refusal is
-    // keyed on the item's MODE in the table and never on the Step, so naming it
-    // over a figureless Step is the same refusal the fixture used to drive
+    // keyed on the item's MODE in the table and never on the Leg, so naming it
+    // over a figureless Leg is the same refusal the fixture used to drive
     // through `claims-unused`.
     bad("a verdict for a MECHANICAL item is refused, saying it would replace a computed fact",
-      [{ step_id: "a1", item: "figure-element-claim", verdict: "holds", reason: "it reads fine" }],
+      [{ leg_id: "a1", item: "figure-element-claim", verdict: "holds", reason: "it reads fine" }],
       "which is a MECHANICAL item");
     bad("a verdict for a pair this run never asked about is refused, naming the pairs it owes",
-      [{ step_id: "a1", item: "purpose", pair: 4, verdict: "holds", reason: "it reads fine" }],
+      [{ leg_id: "a1", item: "purpose", pair: 4, verdict: "holds", reason: "it reads fine" }],
       "which this run did not ask about");
     bad("a fourth verdict token is refused, naming the closed three",
-      [{ step_id: "a1", item: "purpose", verdict: "mostly-holds", reason: "it reads fine" }],
+      [{ leg_id: "a1", item: "purpose", verdict: "mostly-holds", reason: "it reads fine" }],
       "there is no fourth answer");
     bad("a verdict with no reason is refused",
-      [{ step_id: "a1", item: "purpose", verdict: "holds" }],
+      [{ leg_id: "a1", item: "purpose", verdict: "holds" }],
       "carries no `reason`");
     // A DIGIT IN THE REASON IS WHERE A SCORE COMES BACK IN. The item table holds
     // no severity and the verdict set has no order; once one number is written
     // into a review a later reader compares them.
     bad("a reason carrying a digit is refused, because that is where a score comes back in",
-      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "3 of the claims are carried" }],
+      [{ leg_id: "a1", item: "purpose", verdict: "holds", reason: "3 of the claims are carried" }],
       "every other number in a review is a score by another name");
     bad("a verdicts file that is not one object carrying `verdicts` is refused",
       undefined, "carries no `verdicts` array");
@@ -5427,24 +5427,24 @@ async function runSelfTest() {
     // pins held. The refusal is what makes the omission unreachable rather
     // than merely discouraged.
     bad("a verdict carrying no `model` is refused, naming it as the id of what produced it",
-      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine" }],
+      [{ leg_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine" }],
       "carries no `model`");
     bad("and an empty `model` is refused by the same clause, not accepted as a value",
-      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine", model: "   " }],
+      [{ leg_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine", model: "   " }],
       "carries no `model`");
     // ONE ID, NOT A SENTENCE ABOUT ONE. `--model` takes a single token, and a
     // value with a space in it is a description of the spawn rather than the
     // thing the spawn was pinned to.
     bad("a `model` carrying whitespace is refused — it is the one id `--model` took",
-      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine",
+      [{ leg_id: "a1", item: "purpose", verdict: "holds", reason: "it reads fine",
         model: "haiku but the strong one for corrections" }],
       "carries whitespace");
     // EVERY problem in one refusal, never the first found.
     {
       const f = join(root, "bad-verdicts-many.json");
       writeFileSync(f, JSON.stringify({ verdicts: [
-        { step_id: "a1", item: "purpose", verdict: "nope", reason: "one" },
-        { step_id: "a2", item: "purpose", verdict: "holds", reason: "there are 2 of them" },
+        { leg_id: "a1", item: "purpose", verdict: "nope", reason: "one" },
+        { leg_id: "a2", item: "purpose", verdict: "holds", reason: "there are 2 of them" },
       ] }) + "\n");
       const r = drive("compare", "--verdicts", f);
       ok("every verdict problem is named in one refusal, never the first found",
@@ -5454,7 +5454,7 @@ async function runSelfTest() {
       JSON.parse(readFileSync(join(WS, "pass-1", "join.json"), "utf8")).complete === false);
   }
 
-  // 17c — ACCEPTANCE 1: the completed join emits ONE LINE PER (Step, item),
+  // 17c — ACCEPTANCE 1: the completed join emits ONE LINE PER (Leg, item),
   // each carrying a verdict from the closed three and a quoted span, and NO
   // NUMBER THAT IS NOT A LINE NUMBER.
   let baseLines = null;
@@ -5476,13 +5476,13 @@ async function runSelfTest() {
     // kogaki#997 — WHAT JUDGED EACH PAIR IS READABLE FROM THE RECORD.
     // Asserted over EVERY model-decided row and EVERY call in the log rather
     // than over a sample: the defect the Issue reports is that a hundred and
-    // more calls carried step, item, pair and packet and nothing else, and a
+    // more calls carried leg, item, pair and packet and nothing else, and a
     // case that checked one row would pass on a record that lost the rest.
     {
-      const stepCalls = rec.model_calls || [];
-      ok("#997: every model call in the Step log names the model that answered it",
-        stepCalls.length > 0 && stepCalls.every((c) => c.model === JUDGE_MODEL),
-        `${stepCalls.filter((c) => c.model !== JUDGE_MODEL).length} without it, of ${stepCalls.length}`);
+      const legCalls = rec.model_calls || [];
+      ok("#997: every model call in the Leg log names the model that answered it",
+        legCalls.length > 0 && legCalls.every((c) => c.model === JUDGE_MODEL),
+        `${legCalls.filter((c) => c.model !== JUDGE_MODEL).length} without it, of ${legCalls.length}`);
       // PER PAIR, not only per item: an item whose pairs were answered by
       // different models is what a slipped pin looks like, and the per-pair
       // record is the only place that is visible.
@@ -5509,19 +5509,19 @@ async function runSelfTest() {
     const ITEMS = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     baseLines = linesOf(r.stdout);
     // THE ROWS THAT APPLY TO THIS DRAFT, computed from the table rather than
-    // counted here (kogaki#880). This fixture's Steps carry no figure, so the
+    // counted here (kogaki#880). This fixture's Legs carry no figure, so the
     // figure rows are not evaluated on them — and the count is derived from
     // `figure_only` so a table gaining a sixth figure row moves this number
     // without anyone editing it, while a table gaining an ordinary row still
     // fails here if the runtime does not compute it.
     const PROSE_ITEMS = ITEMS.items.filter((i) => !i.figure_only);
-    ok("one comparison line per (Step, item), over the whole item table",
+    ok("one comparison line per (Leg, item), over the whole item table",
       baseLines.size === 3 * PROSE_ITEMS.length);
-    ok("every Step and every item the table declares has a line",
+    ok("every Leg and every item the table declares has a line",
       ["a1", "a2", "a3"].every((s) => PROSE_ITEMS.every((i) => baseLines.has(`${s}/${i.id}`))));
     // kogaki#880 AC3, RESTORED AT kogaki#1018: a figureless Draft carries no
     // figure item in its log. The rows are back in the table, so the property is
-    // conditional again and this is the figureless half of it — the Steps of
+    // conditional again and this is the figureless half of it — the Legs of
     // this fixture carry no figure, and a figure row appearing here would be the
     // vacuous `holds` the design refuses. The figure-carrying half is the
     // kogaki#880 block further down.
@@ -5534,7 +5534,7 @@ async function runSelfTest() {
       && !(rec.model_calls || []).some((c) => /^figure-/.test(c.item)));
 
     // THE NO-NUMBERS PROPERTY, asserted over what the HARNESS composes: the
-    // step id and the span are the line's only numeric fields, and stripping
+    // leg id and the span are the line's only numeric fields, and stripping
     // them must leave no digit. Quoted Draft and Packet material is rendered as
     // it stands — the fixture carries no digit in either, so a digit surviving
     // the strip is the FORMAT having invented a number rather than the corpus
@@ -5554,31 +5554,31 @@ async function runSelfTest() {
 
     ok("the run reports which pairs cost a model call and which did not",
       /decided mechanically and \d+ judged/.test(r.stdout));
-    ok("and says whether any Step is sent to correction — a PRESERVED item failing",
-      /no Step is sent to correction/.test(r.stdout));
+    ok("and says whether any Leg is sent to correction — a PRESERVED item failing",
+      /no Leg is sent to correction/.test(r.stdout));
   }
 
-  // 18 — kogaki#874: `correct` REFUSES A STEP PASS ONE DID NOT SEND IT, and the
+  // 18 — kogaki#874: `correct` REFUSES A LEG PASS ONE DID NOT SEND IT, and the
   // refusal carries the owed set. This run's join is clean, so nothing is owed
   // — which is the case that binds the CLASS rule at this act: a best-effort
-  // fail rides along and never sends a Step here, and a Harness that accepted
-  // any Step would let a reviewer re-realize prose no finding asked about.
+  // fail rides along and never sends a Leg here, and a Harness that accepted
+  // any Leg would let a reviewer re-realize prose no finding asked about.
   //
   // THIS BLOCK RUNS NO `check`, deliberately. Pass two would set `checked_at`
   // on this run and case 19 asserts the record says ONE pass — the clean base
   // run is what that assertion is about, and the two-pass drive has its own
   // Draft below rather than borrowing this one.
   {
-    const r = drive("correct", "--step", "a1");
-    ok("correct refuses a Step carrying no failing preserved item",
+    const r = drive("correct", "--leg", "a1");
+    ok("correct refuses a Leg carrying no failing preserved item",
       r.status === 1 && /carries no failing PRESERVED item/.test(r.stderr));
     ok("and names the owed set rather than leaving the reviewer to look",
       /owed: \(none/.test(r.stderr));
-    ok("and says a best-effort fail never sends a Step here",
+    ok("and says a best-effort fail never sends a Leg here",
       /rides along/.test(r.stderr));
-    const u = drive("correct", "--step", "zz");
-    ok("correct refuses an unknown Step naming this Draft's Steps",
-      u.status === 1 && /unknown step `zz`/.test(u.stderr) && /a1, a2, a3/.test(u.stderr));
+    const u = drive("correct", "--leg", "zz");
+    ok("correct refuses an unknown Leg naming this Draft's Legs",
+      u.status === 1 && /unknown leg `zz`/.test(u.stderr) && /a1, a2, a3/.test(u.stderr));
   }
 
   // 19 — ACCEPTANCE 3: close writes the owner record with its three lists.
@@ -5609,8 +5609,8 @@ async function runSelfTest() {
   {
     const run = JSON.parse(readFileSync(join(WS, "run.json"), "utf8"));
     run.residue = [
-      { step_id: "a1", item: "reader_state_after", why: "the outlined state still differs after pass two" },
-      { step_id: "a3", item: "restates", why: "the passage restates the Packet's wording" },
+      { leg_id: "a1", item: "reader_state_after", why: "the outlined state still differs after pass two" },
+      { leg_id: "a3", item: "restates", why: "the passage restates the Packet's wording" },
     ];
     writeFileSync(join(WS, "run.json"), JSON.stringify(run, null, 2) + "\n");
     const r = drive("close");
@@ -5662,13 +5662,13 @@ async function runSelfTest() {
     // UNCHANGED rather than widened: the clause this case mechanizes is "only
     // node builtins and ./runs.mjs", and a builtin is what it is. It is here
     // for one act — `correct` re-enters the realization lane as a subprocess,
-    // because a corrected Step must be realized by the renderer that wrote the
+    // because a corrected Leg must be realized by the renderer that wrote the
     // Packets rather than by a second one written here. The ruling it protects
     // is about what the REVIEWER reads, and the two store literals asserted
     // below are what would catch a Move or Strand read composed at runtime.
     // `./draft.mjs` joins the set at kogaki#1014, and it too is a NARROWING
     // read rather than a widening of what the reviewer may see: the Reverse
-    // Outline is a Brief Step block, so it is parsed by `parseStepBlock` —
+    // Outline is a Brief Leg block, so it is parsed by `parseLegBlock` —
     // the function `parseBrief` calls per fenced block — instead of by a
     // second reader written here. A second parser is the two-copy divergence
     // this whole act removes, and `draft.mjs` is already re-entered as a
@@ -5778,13 +5778,13 @@ async function runSelfTest() {
   }
 
   // ---- kogaki#871 -------------------------------------------------------
-  // AC1 — the Reverse Outline input for a CONTINUING Step carries the article before
+  // AC1 — the Reverse Outline input for a CONTINUING Leg carries the article before
   // it and none of its own Packet. The fixture's Packets hold PACKETONLYTOKEN,
   // and case 8 already asserts its absence for a1; a2 is the case that matters
   // for the article-so-far block, because a1's block is the empty one.
   {
     const input = readFileSync(join(WS, "pass-1", "outline-input", "a2.md"), "utf8");
-    ok("a continuing Step's Reverse Outline input carries the PRECEDING Step's prose",
+    ok("a continuing Leg's Reverse Outline input carries the PRECEDING Leg's prose",
       input.includes(PROSE.a1[0]));
     ok("and its own prose", input.includes(PROSE.a2[0]));
     ok("and none of the strings that appear only in its Packet",
@@ -5801,7 +5801,7 @@ async function runSelfTest() {
       /nothing yet — this is the article's first passage/.test(first));
     // a3 opens the SECOND Section, so its block carries both headings.
     const third = readFileSync(join(WS, "pass-1", "outline-input", "a3.md"), "utf8");
-    ok("a Step opening a later Section carries every earlier Section's heading",
+    ok("a Leg opening a later Section carries every earlier Section's heading",
       third.includes(`## ${SECTIONS[0].title}`) && !third.includes(`## ${SECTIONS[1].title}`));
   }
 
@@ -5824,7 +5824,7 @@ async function runSelfTest() {
     // escaped through two layers.
     const bad = (name, mutate, expect) => {
       const f = writeRecord("a1", mutate);
-      const r = D("outline", "--step", "a1", "--file", f);
+      const r = D("outline", "--leg", "a1", "--file", f);
       const hit = typeof expect === "string" ? r.stderr.includes(expect) : expect.test(r.stderr);
       ok(name, r.status === 1 && hit);
     };
@@ -5846,12 +5846,12 @@ async function runSelfTest() {
     // the case that makes the refusals above mean something.
     {
       const f = writeRecord("a1");
-      const r = D("outline", "--step", "a1", "--file", f);
+      const r = D("outline", "--leg", "a1", "--file", f);
       ok("while an outline with no introduces is accepted", r.status === 0);
     }
 
     // #1132 ACCEPTANCE 5: THE FIELDS ARE FIVE, AND THE TWO THAT LEFT ARE
-    // REFUSED BY NAME. `opens_section` is a Brief Step field, so it is refused
+    // REFUSED BY NAME. `opens_section` is a Brief Leg field, so it is refused
     // through the not-reconstructible list the loop above iterates;
     // `concession` was never a Brief field at all, so the closed line set is
     // what names it. The two refusals read differently on purpose — a reader
@@ -5863,7 +5863,7 @@ async function runSelfTest() {
       RECONSTRUCTIBLE_FIELDS.map((f) => f.name).join(","));
     bad("#1132 AC5: an outline carrying `concession` is refused, naming the field",
       (o) => { o.extra = { ...(o.extra || {}), concession: "a loss the passage owns" }; return o; },
-      "carries `concession:`, which is not a Brief Step field");
+      "carries `concession:`, which is not a Brief Leg field");
     {
       const inp = readOrEmpty(join(ws3, "fixture", "pass-1", "outline-input", "a1.md"));
       ok("#1132 AC5: and the rendered input asks for five fields, naming neither",
@@ -5884,8 +5884,8 @@ async function runSelfTest() {
     // outline with no trace. Iterated from the declaration for the same reason.
     //
     // `figure` IS REFUSED ONE READER EARLIER, and that is asserted rather than
-    // exempted (kogaki#1014): a bare `figure:` line is not a Brief Step field
-    // the Brief itself would accept, so `parseStepBlock` refuses it before the
+    // exempted (kogaki#1014): a bare `figure:` line is not a Brief Leg field
+    // the Brief itself would accept, so `parseLegBlock` refuses it before the
     // disposition list is consulted. Every field is still refused — which is
     // the property — and this one is refused by the Brief's own grammar, which
     // is the acceptance the single-parser change was for.
@@ -5908,48 +5908,48 @@ async function runSelfTest() {
     // have thought to forbid it.
     bad("an undeclared line is refused — the set is closed, not forbidden-list-only",
       (o) => { o.extra = { impression: "the passage reads well" }; return o; },
-      "carries `impression:`, which is not a Brief Step field");
+      "carries `impression:`, which is not a Brief Leg field");
     bad("and a verdict is refused by the same rule",
       (o) => { o.extra = { verdict: "holds" }; return o; },
-      "carries `verdict:`, which is not a Brief Step field");
+      "carries `verdict:`, which is not a Brief Leg field");
     bad("and so is advice",
       (o) => { o.extra = { advice: "tighten the second paragraph" }; return o; },
-      "carries `advice:`, which is not a Brief Step field");
+      "carries `advice:`, which is not a Brief Leg field");
 
-    // THE OUTLINE IS FILED AGAINST THE PASSAGE IT READ. A block whose step_id
-    // names another Step is a reading of something else.
-    bad("an outline whose step_id names a different Step is refused, naming both",
-      (o) => { o.step_id = "a2"; return o; },
+    // THE OUTLINE IS FILED AGAINST THE PASSAGE IT READ. A block whose leg_id
+    // names another Leg is a reading of something else.
+    bad("an outline whose leg_id names a different Leg is refused, naming both",
+      (o) => { o.leg_id = "a2"; return o; },
       "is `a2` and this pass is reading a1");
 
     // The refusal collects EVERY problem rather than the first, so a reader
     // repairing an outline does not discover them one run at a time.
     {
       const f = writeRecord("a1", (o) => { o.purpose = null; o.reader_state_after = null; o.extra = { score: "3" }; return o; });
-      const r = D("outline", "--step", "a1", "--file", f);
+      const r = D("outline", "--leg", "a1", "--file", f);
       ok("every problem is named in one refusal, never the first one found",
         r.status === 1 && /carries no `purpose:` line/.test(r.stderr)
         && /carries no `reader_state_after:` line/.test(r.stderr)
-        && /carries `score:`, which is not a Brief Step field/.test(r.stderr));
+        && /carries `score:`, which is not a Brief Leg field/.test(r.stderr));
     }
 
-    // NOT A STEP BLOCK AT ALL, and TWO of them, are separate refusals because
+    // NOT A LEG BLOCK AT ALL, and TWO of them, are separate refusals because
     // they are separate mistakes. Both come from the Brief's own fence grammar.
     {
       const f = join(root, "notblock.md"); writeFileSync(f, "outlined a1, in prose\n");
-      const r = D("outline", "--step", "a1", "--file", f);
-      ok("an outline that is not a fenced step block is refused, saying what one is",
-        r.status === 1 && /carries no fenced `step` block/.test(r.stderr));
+      const r = D("outline", "--leg", "a1", "--file", f);
+      ok("an outline that is not a fenced leg block is refused, saying what one is",
+        r.status === 1 && /carries no fenced `leg` block/.test(r.stderr));
       const g = join(root, "twoblocks.md");
       writeFileSync(g, readFileSync(writeRecord("a1"), "utf8") + "\n" + readFileSync(writeRecord("a2"), "utf8"));
-      const r2 = D("outline", "--step", "a1", "--file", g);
-      ok("two step blocks are refused — an outline is the reading of ONE passage",
-        r2.status === 1 && /carries more than one fenced `step` block/.test(r2.stderr));
+      const r2 = D("outline", "--leg", "a1", "--file", g);
+      ok("two leg blocks are refused — an outline is the reading of ONE passage",
+        r2.status === 1 && /carries more than one fenced `leg` block/.test(r2.stderr));
     }
 
     // A BLOCK THE BRIEF ITSELF COULD NOT CARRY IS REFUSED BY THE BRIEF'S OWN
     // REFUSAL, which is the acceptance rather than a way of meeting it: the
-    // grammar below is `introducesRefusal`'s, reached through `parseStepBlock`.
+    // grammar below is `introducesRefusal`'s, reached through `parseLegBlock`.
     // A BARE TERM IS VALID — the grammar is "term, or term — anchor" — so the
     // malformed entry is the SEPARATOR WITH NOTHING AFTER IT, which is the one
     // form `parseIntroducesEntry` names in its own words.
@@ -5968,7 +5968,7 @@ async function runSelfTest() {
       spawnSync(process.execPath, [self, "open", "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
       const f = writeRecord("a1", (o) => { o.purpose = null; return o; });
       const r = selfRun(
-        [self, "outline", "--step", "a1", "--file", f, "--draft", draft.path, "--workspace", ws4]);
+        [self, "outline", "--leg", "a1", "--file", f, "--draft", draft.path, "--workspace", ws4]);
       ok("a refused outline is not written to the workspace",
         r.status === 1 && !existsSync(join(ws4, "fixture", "pass-1", "outline", "a1.json"))
         && !existsSync(join(ws4, "fixture", "pass-1", "outline", "a1.md")));
@@ -5979,7 +5979,7 @@ async function runSelfTest() {
     // out of it.
     {
       const f = writeRecord("a2");
-      const r = D("outline", "--step", "a2", "--file", f);
+      const r = D("outline", "--leg", "a2", "--file", f);
       ok("an accepted outline lands as BOTH the block it was written as and the reading",
         r.status === 0
         && existsSync(join(ws3, "fixture", "pass-1", "outline", "a2.md"))
@@ -5992,7 +5992,7 @@ async function runSelfTest() {
       // exactly the one that would arrive. The reading's key set is closed
       // against the Brief's own field list instead, so ANY foreign key fails
       // here, listed or not.
-      const briefNames = new Set([...RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
+      const briefNames = new Set([...RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "leg_id"]);
       const foreign = Object.keys(rec).filter((k) => !briefNames.has(k));
       ok("and the reading carries the BRIEF's field names and no other schema's",
         Object.prototype.hasOwnProperty.call(rec, "claims")
@@ -6004,7 +6004,7 @@ async function runSelfTest() {
 
   // ---- kogaki#872 -------------------------------------------------------
   // ACCEPTANCE 2: one failing pair yields exactly one new failing item on that
-  // Step, and no change elsewhere.
+  // Leg, and no change elsewhere.
   //
   // DRIVEN AS TWO WHOLE RUNS OVER TWO WHOLE DRAFTS, because the Packet's sha is
   // in the trace: editing a Packet under a live Draft is refused by `open`, by
@@ -6017,7 +6017,7 @@ async function runSelfTest() {
     for (const id of ["a1", "a2", "a3"]) {
       writePacket(full, id);
       // a1 keeps only its FIRST claim, so the two runs put a different number
-      // of questions to the judge on that Step and the same number everywhere
+      // of questions to the judge on that Leg and the same number everywhere
       // else — which is what makes "no change elsewhere" worth asserting.
       writePacket(short, id, id === "a1" ? { claims: [CLAIMS.a1[0]] } : {});
     }
@@ -6031,9 +6031,9 @@ async function runSelfTest() {
     // declared claim, whether the reader recovered it — so a fail is a READING
     // and a case that wants one has to say the judge gave it. What the case
     // still measures is unchanged: ONE pair failing moves exactly one line and
-    // sends exactly that Step to correction.
+    // sends exactly that Leg to correction.
     const rShort = driveToCompletedJoin(dShort, join(root, "ws-short"), "short",
-      (o) => (o.step_id === "a1" && o.item === "claims" && o.pair === 0
+      (o) => (o.leg_id === "a1" && o.item === "claims" && o.pair === 0
         ? { verdict: "fails", reason: "no claim the reader wrote carries this declared claim" }
         : null));
     ok("both runs reach a completed join", rFull.second.status === 0 && rShort.second.status === 0);
@@ -6043,7 +6043,7 @@ async function runSelfTest() {
     const failing = (m) => [...m.entries()].filter(([, l]) => /\sfails\s/.test(l)).map(([k]) => k);
     ok("the unmutated run has no failing item", failing(L1).length === 0);
     ok("one failed pair yields EXACTLY ONE failing item", failing(L2).length === 1);
-    ok("and it is on the Step whose Packet lost the claim, on the claims item",
+    ok("and it is on the Leg whose Packet lost the claim, on the claims item",
       failing(L2)[0] === "a1/claims");
     ok("and the line carries the judge's own reason rather than a pairing fact",
       /no claim the reader wrote carries this declared claim/.test(L2.get("a1/claims")));
@@ -6051,27 +6051,27 @@ async function runSelfTest() {
     // pair rather than as a count: a count would pass while two items swapped
     // verdicts.
     const changed = [...L1.keys()].filter((k) => k !== "a1/claims" && L1.get(k) !== L2.get(k));
-    ok("and nothing else changes — every other (Step, item) line is identical",
+    ok("and nothing else changes — every other (Leg, item) line is identical",
       L1.size === L2.size && changed.length === 0, changed.join(", "));
     // EVERY DECLARED CLAIM IS ASKED ABOUT AND NONE IS DECIDED BY THE HARNESS.
     // This is the inverse of what the case asserted before kogaki#996, and
     // kogaki#1132 moved the unit it is counted in: the questions are the
-    // DECLARED claims', so the Step that kept one claim costs one call.
+    // DECLARED claims', so the Leg that kept one claim costs one call.
     const recShort = JSON.parse(readFileSync(rShort.jsonPath, "utf8"));
     ok("the declared claim is asked about, not decided by the Harness",
-      recShort.model_calls.some((c) => c.step_id === "a1" && c.item === "claims" && c.pair === 0)
+      recShort.model_calls.some((c) => c.leg_id === "a1" && c.item === "claims" && c.pair === 0)
       && !recShort.mechanical.some((c) => c.item === "claims"));
     // #1132 ACCEPTANCE 3: `join.json` records ONE entry in `pairs` per declared
     // claim, each carrying that claim's own text — which is what lets the
     // correction name the claim that was lost rather than the row that failed.
     {
       const recFull = JSON.parse(readFileSync(rFull.jsonPath, "utf8"));
-      const fRow = (recFull.results || []).find((r) => r.step_id === "a1" && r.item === "claims");
+      const fRow = (recFull.results || []).find((r) => r.leg_id === "a1" && r.item === "claims");
       ok("#1132 AC3: the claims row carries one pair per DECLARED claim, each with its text",
         !!fRow && (fRow.pairs || []).length === CLAIMS.a1.length
         && CLAIMS.a1.every((g, k) => fRow.pairs[k].declared === g),
         fRow ? JSON.stringify((fRow.pairs || []).map((x) => x.declared)) : "no row");
-      const sRow = (recShort.results || []).find((r) => r.step_id === "a1" && r.item === "claims");
+      const sRow = (recShort.results || []).find((r) => r.leg_id === "a1" && r.item === "claims");
       ok("#1132 AC3: and the row fails when any one of those entries fails",
         !!sRow && sRow.verdict === "fails" && (sRow.pairs || []).length === 1
         && sRow.pairs[0].declared === CLAIMS.a1[0]);
@@ -6103,7 +6103,7 @@ async function runSelfTest() {
     // stated over EVERY row the run produced rather than over one built row.
     {
       const row = (recShort.results || [])
-        .find((r) => r.step_id === "a1" && r.item === "claims");
+        .find((r) => r.leg_id === "a1" && r.item === "claims");
       ok("#997: the judged row reads `judged: true` — some pair was judged",
         row && row.judged === true && row.verdict === "fails");
       ok("#997: and it CARRIES the model key, because presence answers `was a model asked here`",
@@ -6126,15 +6126,15 @@ async function runSelfTest() {
         allRows.flatMap((r) => r.pairs || [])
           .every((sub) => (sub.model == null) || sub.judged === true));
     }
-    // A PRESERVED item failing is what sends a Step to correction, and the run
+    // A PRESERVED item failing is what sends a Leg to correction, and the run
     // says which — the class is the consequence, never a severity.
-    ok("a preserved item failing sends its Step to correction, and the run names it",
-      /Steps sent to correction[^\n]*a1/.test(rShort.second.stdout));
+    ok("a preserved item failing sends its Leg to correction, and the run names it",
+      /Legs sent to correction[^\n]*a1/.test(rShort.second.stdout));
   }
 
   // THE HYGIENE AND MOVE ROWS ARE GONE, AND THIS IS THE RECORDED DECLINE
   // (kogaki#1013 item 3, owner 2026-09-09). What stood here was ACCEPTANCE 3's
-  // `term-before-introduction` case — a term used one Step before the Step
+  // `term-before-introduction` case — a term used one Leg before the Leg
   // whose Packet says to introduce it, caught mechanically with the earlier
   // occurrence as its span. Prose hygiene is not part of Reverse Outlining: a
   // reader cannot infer the source a structure was produced from, and being
@@ -6149,26 +6149,26 @@ async function runSelfTest() {
   {
     const ITEMS = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     const ids = ITEMS.items.map((i) => i.id);
-    for (const gone of ["term-before-introduction", "restates-earlier-step", "packet-wording",
+    for (const gone of ["term-before-introduction", "restates-earlier-leg", "packet-wording",
       "exemplar-leak", "move-contract"]) {
       ok(`the Round Trip table carries no \`${gone}\` row`, !ids.includes(gone));
     }
-    ok("and no row keeps a translation column — every row names a Brief Step field",
+    ok("and no row keeps a translation column — every row names a Brief Leg field",
       ITEMS.items.every((i) => !Object.prototype.hasOwnProperty.call(i, "outlined_field")));
 
     const r = driveToCompletedJoin(draft, join(root, "ws-mech"), "mech");
     ok("a run still reaches a completed join with those rows gone", r.second.status === 0);
     const rec = JSON.parse(readFileSync(r.jsonPath, "utf8"));
     const mech = ITEMS.items.filter((i) => i.mode === "mechanical").map((i) => i.id);
-    ok("every item the table calls mechanical costs no model call on any Step",
+    ok("every item the table calls mechanical costs no model call on any Leg",
       mech.length > 0 && !rec.model_calls.some((c) => mech.includes(c.item)));
     ok("and every judged item DOES cost one",
       ITEMS.items.filter((i) => i.mode === "judged" && !i.figure_only)
         .every((i) => rec.model_calls.some((c) => c.item === i.id)));
   }
 
-  // ROUND 1, FINDING 2: a Step whose Brief declares NO claims is an ordinary
-  // Step, not a Packet gap. The renderer writes `(none recorded)` into the
+  // ROUND 1, FINDING 2: a Leg whose Brief declares NO claims is an ordinary
+  // Leg, not a Packet gap. The renderer writes `(none recorded)` into the
   // claims BLOCK, below a bullet whose own text is fixed instruction prose, so
   // a reader testing the bullet could never match and refused the whole run.
   {
@@ -6178,32 +6178,32 @@ async function runSelfTest() {
       /\(none recorded\)/.test(readFileSync(join(pd, "a2.md"), "utf8")));
     const d = buildDraft(join(root, "theses", "claimless"), { packetDir: pd });
     const r = driveToCompletedJoin(d, join(root, "ws-claimless"), "claimless");
-    ok("a Step declaring no claims does not refuse the run as a Packet gap",
+    ok("a Leg declaring no claims does not refuse the run as a Packet gap",
       r.second.status === 0 && !/carries no `claims` block/.test(r.first.stderr + r.second.stderr));
     const L = linesOf(r.second.stdout);
     // `claims` IS DECIDED BY THE TABLE, NOT ASKED OVER AN EMPTY LIST (PR #1003
     // successor). The item declares its answer for a stated absence, so no
     // Packet is rendered and no model is asked — and since kogaki#1132 the
-    // arithmetic is direct: the questions ARE the declared claims, so a Step
+    // arithmetic is direct: the questions ARE the declared claims, so a Leg
     // declaring none has none to ask.
     {
       const grec = JSON.parse(readOrEmpty(r.jsonPath) || "{}");
-      const row = (grec.results || []).find((x) => x.step_id === "a2" && x.item === "claims");
-      ok("a Step declaring no claims has `claims` decided by the item's declared-absence arm",
+      const row = (grec.results || []).find((x) => x.leg_id === "a2" && x.item === "claims");
+      ok("a Leg declaring no claims has `claims` decided by the item's declared-absence arm",
         !!row && row.judged === false && row.verdict === "holds"
         && /declares no claim/.test(row.reason || ""), row ? JSON.stringify(row).slice(0, 200) : "no row");
       ok("and no join Packet is rendered for it",
-        !(grec.model_calls || []).some((c) => c.step_id === "a2" && c.item === "claims")
-        && (grec.mechanical || []).some((m) => m.step_id === "a2" && m.item === "claims"));
+        !(grec.model_calls || []).some((c) => c.leg_id === "a2" && c.item === "claims")
+        && (grec.mechanical || []).some((m) => m.leg_id === "a2" && m.item === "claims"));
     }
-    // The other Steps are untouched: the absence is this Step's, not the run's.
-    ok("while a Step that DOES declare claims is still asked about every one of them",
+    // The other Legs are untouched: the absence is this Leg's, not the run's.
+    ok("while a Leg that DOES declare claims is still asked about every one of them",
       /\sholds\s/.test(L.get("a1/claims") || "")
       && (JSON.parse(readOrEmpty(r.jsonPath) || "{}").model_calls || [])
-        .filter((c) => c.step_id === "a1" && c.item === "claims").length === CLAIMS.a1.length);
+        .filter((c) => c.leg_id === "a1" && c.item === "claims").length === CLAIMS.a1.length);
   }
 
-  // kogaki#1016 — A STEP WHOSE PACKET DECLARES NO `introduces` IS DECIDED BY THE
+  // kogaki#1016 — A LEG WHOSE PACKET DECLARES NO `introduces` IS DECIDED BY THE
   // HARNESS, and this case COUNTS the calls rather than reading a line. The
   // 2026-09-08 run spent ten model calls asking whether every term in an EMPTY
   // list was introduced — a question quantifying over nothing, answered `holds`
@@ -6234,24 +6234,24 @@ async function runSelfTest() {
       /\(nothing new\)/.test(readFileSync(join(pd, "a1.md"), "utf8")));
     const d = buildDraft(join(root, "theses", "termless"), { packetDir: pd });
     const r = driveToCompletedJoin(d, join(root, "ws-termless"), "termless");
-    ok("a Brief whose Steps introduce no term reaches a completed join",
+    ok("a Brief whose Legs introduce no term reaches a completed join",
       r.second.status === 0, (r.second.stderr || "").slice(0, 200));
     const rec = JSON.parse(readOrEmpty(r.jsonPath) || "{}");
     // THE COUNT, AND IT IS ZERO. Asserted as a count over the WHOLE run rather
-    // than as one Step's row: a case reading a single row would pass on a run
-    // that still spent a call on the other two Steps.
+    // than as one Leg's row: a case reading a single row would pass on a run
+    // that still spent a call on the other two Legs.
     const calls = (rec.model_calls || []).filter((c) => c.item === "introduces");
     ok("a Brief with no `introduces` line costs ZERO model calls for that field",
-      calls.length === 0, `${calls.length} call(s) on ${calls.map((c) => c.step_id).join(", ")}`);
-    ok("and every Step records the field as decided by the Harness",
+      calls.length === 0, `${calls.length} call(s) on ${calls.map((c) => c.leg_id).join(", ")}`);
+    ok("and every Leg records the field as decided by the Harness",
       ["a1", "a2", "a3"].every((s) =>
-        (rec.mechanical || []).some((m) => m.step_id === s && m.item === "introduces")));
+        (rec.mechanical || []).some((m) => m.leg_id === s && m.item === "introduces")));
     // THE ANSWER IS THE TABLE'S, IN THE TABLE'S OWN WORDS — read from
     // review-items.json rather than transcribed here, so an amended sentence
     // reaches this case instead of sliding past it.
     const armItems = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     const arm = armItems.items.find((i) => i.id === "introduces").when_declared_absent;
-    const row = (rec.results || []).find((x) => x.step_id === "a2" && x.item === "introduces");
+    const row = (rec.results || []).find((x) => x.leg_id === "a2" && x.item === "introduces");
     ok("the row is the item's declared-absence arm, verdict and sentence both",
       !!row && row.judged === false && row.verdict === arm.verdict
       && row.reason === arm.sentence, row ? JSON.stringify(row).slice(0, 220) : "no row");
@@ -6265,43 +6265,43 @@ async function runSelfTest() {
     //   1. a declared term still costs exactly one model call;
     //   2. that call's declared side still carries the term rather than the
     //      stated absence;
-    //   3. the empty-declared Steps of the SAME run are still short-circuited,
-    //      so the branch is per Step and never per run;
-    //   4. the OTHER mechanical rows still answer on every Step, empty declared
-    //      side included — the short-circuit is per ITEM, never per Step.
+    //   3. the empty-declared Legs of the SAME run are still short-circuited,
+    //      so the branch is per Leg and never per run;
+    //   4. the OTHER mechanical rows still answer on every Leg, empty declared
+    //      side included — the short-circuit is per ITEM, never per Leg.
     //
     // CASE 4 HAS OUTLIVED TWO VEHICLES AND IS NOW STATED WITHOUT ONE.
     // kogaki#1016 wrote it against `term-before-introduction`; kogaki#1014
     // removed that row and it was retargeted at `claims-unused`; kogaki#1132
-    // removed that one too, and no mechanical row answers on a prose Step any
+    // removed that one too, and no mechanical row answers on a prose Leg any
     // more. The property was never about a particular row — it is that the
-    // short circuit is per ITEM and not per Step — so it is asserted directly:
-    // a Step the Harness settled `introduces` on still costs its other items
+    // short circuit is per ITEM and not per Leg — so it is asserted directly:
+    // a Leg the Harness settled `introduces` on still costs its other items
     // their calls.
-    ok("1: a Step that DOES declare a term still costs one model call for it",
+    ok("1: a Leg that DOES declare a term still costs one model call for it",
       (baseRecord.model_calls || [])
-        .filter((c) => c.item === "introduces" && c.step_id === "a1").length === 1);
+        .filter((c) => c.item === "introduces" && c.leg_id === "a1").length === 1);
     const dcall = (baseRecord.model_calls || [])
-      .find((c) => c.item === "introduces" && c.step_id === "a1");
+      .find((c) => c.item === "introduces" && c.leg_id === "a1");
     const djp = dcall && existsSync(dcall.packet) ? readFileSync(dcall.packet, "utf8") : "";
     const dside = (djp.split("### What the Packet DECLARED")[1] || "").split("###")[0];
     ok("2: and its declared side carries the term, not the stated absence",
       /harness/.test(dside) && !/nothing new/.test(dside), dside.trim().slice(0, 140));
-    ok("3: while the same run's term-less Steps are decided by the Harness",
+    ok("3: while the same run's term-less Legs are decided by the Harness",
       ["a2", "a3"].every((s) => (baseRecord.mechanical || [])
-        .some((m) => m.step_id === s && m.item === "introduces"))
+        .some((m) => m.leg_id === s && m.item === "introduces"))
       && !(baseRecord.model_calls || [])
-        .some((c) => c.item === "introduces" && c.step_id !== "a1"));
-    ok("4: while the short-circuited Steps still cost their OTHER items a call each",
+        .some((c) => c.item === "introduces" && c.leg_id !== "a1"));
+    ok("4: while the short-circuited Legs still cost their OTHER items a call each",
       ["a2", "a3"].every((s) => (baseRecord.model_calls || [])
-        .some((c) => c.step_id === s && c.item !== "introduces")));
+        .some((c) => c.leg_id === s && c.item !== "introduces")));
   }
 
   // kogaki#1098 — `register-tests` LEFT THE ITEM TABLE, and the id is UNKNOWN
   // rather than merely unlisted. It was the last prose lint standing: its
   // declared side was the Packet's write-instruction paragraph and its reverse
   // side the passage itself, so no Reverse Outline field was involved at all,
-  // and in the first full run it failed on seven of eight Steps — every time on
+  // and in the first full run it failed on seven of eight Legs — every time on
   // "one relation per sentence" — and sent nothing to correction. The table
   // entry was the whole carrier, so these assertions run against the surfaces a
   // CALLER meets: the rendered comparison, the run record, and `compare
@@ -6324,7 +6324,7 @@ async function runSelfTest() {
     // means to a caller, and is a stronger statement than an absence this case
     // could read out of a file either way.
     const f1098 = join(root, "verdicts-register-tests.json");
-    writeFileSync(f1098, JSON.stringify({ verdicts: [{ step_id: "a1", item: "register-tests",
+    writeFileSync(f1098, JSON.stringify({ verdicts: [{ leg_id: "a1", item: "register-tests",
       verdict: "holds", reason: "the passage reads plainly", model: JUDGE_MODEL }] }) + "\n");
     const r1098 = drive("compare", "--verdicts", f1098);
     ok("#1098: and a verdict naming it is refused as a pair the run never asked about",
@@ -6334,7 +6334,7 @@ async function runSelfTest() {
   }
 
   // kogaki#1098 — `already-knows` ON AN EMPTY DECLARED SIDE IS THE HARNESS'S.
-  // The Packet's `already knows` list is empty for the FIRST Step of every
+  // The Packet's `already knows` list is empty for the FIRST Leg of every
   // article by construction, and the pair was rendered anyway: the model was
   // asked whether the passage re-introduced a term the reader already knew,
   // over a list of no terms, and on the first full run it answered `fails` with
@@ -6352,7 +6352,7 @@ async function runSelfTest() {
   //   - REMOVAL SIGNAL: the `already-knows` row leaves the item table, or its
   //     declared side stops being able to be empty. It is NOT retired by a
   //     successor that merely renders fewer Packets: the property is that ZERO
-  //     calls are made for this field on such a Step, and a pass that never
+  //     calls are made for this field on such a Leg, and a pass that never
   //     counts them cannot witness it.
   {
     const armT = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
@@ -6361,21 +6361,21 @@ async function runSelfTest() {
       !!arm && arm.verdict === "holds"
       && typeof arm.sentence === "string" && /lists no term/.test(arm.sentence),
       JSON.stringify(arm || null));
-    // THE COUNT IS ZERO FOR THE STEP WHOSE LIST IS EMPTY AND ONE FOR EACH STEP
+    // THE COUNT IS ZERO FOR THE LEG WHOSE LIST IS EMPTY AND ONE FOR EACH LEG
     // WHOSE LIST IS NOT, asserted over the whole run: a case reading only a1's
     // row would pass on a run that had stopped asking about a2 and a3 as well,
     // which is a different defect wearing the same green.
     const aCalls = (baseRecord.model_calls || []).filter((c) => c.item === "already-knows");
-    ok("#1098: the first Step, whose `already knows` list is empty, costs ZERO model calls",
-      !aCalls.some((c) => c.step_id === "a1"), aCalls.map((c) => c.step_id).join(", "));
-    ok("#1098: while the Steps that DO declare a known term still cost one each",
-      ["a2", "a3"].every((s) => aCalls.filter((c) => c.step_id === s).length === 1),
-      aCalls.map((c) => c.step_id).join(", "));
+    ok("#1098: the first Leg, whose `already knows` list is empty, costs ZERO model calls",
+      !aCalls.some((c) => c.leg_id === "a1"), aCalls.map((c) => c.leg_id).join(", "));
+    ok("#1098: while the Legs that DO declare a known term still cost one each",
+      ["a2", "a3"].every((s) => aCalls.filter((c) => c.leg_id === s).length === 1),
+      aCalls.map((c) => c.leg_id).join(", "));
     // THE ANSWER IS THE TABLE'S, IN THE TABLE'S OWN WORDS — read from
     // review-items.json rather than transcribed here, so an amended sentence
     // reaches this case instead of sliding past it.
     const aRow = (baseRecord.results || [])
-      .find((x) => x.step_id === "a1" && x.item === "already-knows");
+      .find((x) => x.leg_id === "a1" && x.item === "already-knows");
     ok("#1098: and a1's row is the declared-absence arm, verdict and sentence both",
       !!aRow && aRow.judged === false && aRow.verdict === arm.verdict
       && aRow.reason === arm.sentence, aRow ? JSON.stringify(aRow).slice(0, 220) : "no row");
@@ -6384,7 +6384,7 @@ async function runSelfTest() {
       baseLines.get("a1/already-knows") || "(no line)");
     ok("#1098: and the run never asks a model about the row the table decided",
       !(baseRecord.model_calls || [])
-        .some((c) => c.step_id === "a1" && c.item === "already-knows"));
+        .some((c) => c.leg_id === "a1" && c.item === "already-knows"));
   }
 
   // ROUND 1, FINDING 3: a `block` reader's declared side is the RENDERED VALUE,
@@ -6434,7 +6434,7 @@ async function runSelfTest() {
   // is false, and named no repair.
   {
     const f = join(root, "revise.json");
-    writeFileSync(f, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
+    writeFileSync(f, JSON.stringify({ verdicts: [{ leg_id: "a1", item: "purpose",
       verdict: "fails", reason: "the passage is doing a different job from the declared one",
       model: JUDGE_MODEL }] }) + "\n");
     const r = drive("compare", "--verdicts", f);
@@ -6443,7 +6443,7 @@ async function runSelfTest() {
       /\sfails\s/.test(linesOf(r.stdout).get("a1/purpose")));
     // Put it back, so the cases after this one see the run they expect.
     const g = join(root, "revise-back.json");
-    writeFileSync(g, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
+    writeFileSync(g, JSON.stringify({ verdicts: [{ leg_id: "a1", item: "purpose",
       verdict: "holds", reason: "the declared line and the outlined one agree",
       model: JUDGE_MODEL }] }) + "\n");
     const back = drive("compare", "--verdicts", g);
@@ -6451,7 +6451,7 @@ async function runSelfTest() {
     // A pair the run never asked about is STILL refused, and the refusal now
     // names the answered set as revisable rather than claiming nothing is.
     const bad = join(root, "revise-bad.json");
-    writeFileSync(bad, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose", pair: 7,
+    writeFileSync(bad, JSON.stringify({ verdicts: [{ leg_id: "a1", item: "purpose", pair: 7,
       verdict: "holds", reason: "it reads fine" }] }) + "\n");
     const b = drive("compare", "--verdicts", bad);
     ok("while a pair nobody asked about is still refused, naming the revisable set",
@@ -6459,7 +6459,7 @@ async function runSelfTest() {
   }
 
   // A TERM THE FRONTMATTER HAPPENS TO CARRY IS NOT MET BY THE READER THERE. The
-  // record half holds the trace, the Brief pin and every cite, so a Step
+  // record half holds the trace, the Brief pin and every cite, so a Leg
   // introducing a word the trace contains would otherwise fail on a line no
   // reader ever sees, with the finding pointing at JSON as the place the reader
   // first met the term.
@@ -6487,7 +6487,7 @@ async function runSelfTest() {
     // whole file — and no surviving row scans anything, `introduces` being
     // judged from the passage. So what is asserted now is the property the
     // removal makes available: no row reaches outside the passage at all.
-    ok("no surviving row can fail a Step on a term the frontmatter alone carries",
+    ok("no surviving row can fail a Leg on a term the frontmatter alone carries",
       [...linesOf(r.second.stdout).keys()].every((k) => !/term-before-introduction/.test(k)));
   }
 
@@ -6509,7 +6509,7 @@ async function runSelfTest() {
   // would now land on, and `introduces` carries the stated-absence arm.
   {
     const pd = join(root, "packets-entries"); mkdirSync(pd, { recursive: true });
-    // Every Step declares a term, so `introduces` is judged on all three rather
+    // Every Leg declares a term, so `introduces` is judged on all three rather
     // than short-circuited by its declared-absence arm — the case needs the
     // Packet to exist before it can assert what is in it.
     for (const id of ["a1", "a2", "a3"]) writePacket(pd, id, { introduces: ["harness"] });
@@ -6519,12 +6519,12 @@ async function runSelfTest() {
       [self, ...a, "--draft", d.path, "--workspace", wsBase]);
     D("open");
     const INTRODUCED = "harness — the thing that renders the input and reads the answer back";
-    // ONE STEP INTRODUCES A TERM AND THE OTHERS DO NOT, so the case witnesses
+    // ONE LEG INTRODUCES A TERM AND THE OTHERS DO NOT, so the case witnesses
     // the rendering rather than a constant: an absence still renders `(none)`
     // beside it.
     //
     // THE SPAN HALF OF THIS CASE LEFT WITH THE RECORD (kogaki#1014). It used to
-    // assert the entry rendered as `<text> (lines lo–hi)`, and a Brief Step
+    // assert the entry rendered as `<text> (lines lo–hi)`, and a Brief Leg
     // field carries no draft coordinate — the span was the deleted record's own
     // invention. What the case was FOR survives whole: the entry must reach the
     // judging model as its own words.
@@ -6532,7 +6532,7 @@ async function runSelfTest() {
       const p2 = join(root, `rec-entries-${id}.md`);
       writeFileSync(p2, renderOutline({ ...outlineFor(id),
         introduces: id === "a3" ? [INTRODUCED] : [] }));
-      D("outline", "--step", id, "--file", p2);
+      D("outline", "--leg", id, "--file", p2);
     }
     const cmp = D("compare");
     ok("#995: the run reaches a join over a record carrying a list of entries", cmp.status === 0);
@@ -6543,10 +6543,10 @@ async function runSelfTest() {
       introduced !== "" && !introduced.includes("[object Object]"));
     ok("#995: and the entry is rendered as a list entry rather than run together",
       /^\s*[-*] .*the thing that renders the input/m.test(introduced), introduced.slice(0, 400));
-    // The Step that introduces nothing still renders the stated absence, so the
+    // The Leg that introduces nothing still renders the stated absence, so the
     // case above is bound to the entry and not to the field being present.
     const nothingIntroduced = readOrEmpty(join(wsBase, "entries", "pass-1", "join", "a1.introduces.md"));
-    ok("#995: while a Step introducing nothing renders the absence",
+    ok("#995: while a Leg introducing nothing renders the absence",
       /\(none\)/.test(nothingIntroduced) && !nothingIntroduced.includes("[object Object]"));
     // AND THE SIDE THIS DEFECT WOULD LAND ON NOW: every `per-declared` Packet
     // renders the reader's WHOLE outlined list on its reverse side, so each one
@@ -6583,7 +6583,7 @@ async function runSelfTest() {
     }
     const d = buildDraft(join(root, "theses", "digit"), { packetDir: pd });
     const r = driveToCompletedJoin(d, join(root, "ws-digit"), "digit",
-      (o) => (o.step_id === "a2" && o.item === "claims" && o.pair === 1
+      (o) => (o.leg_id === "a2" && o.item === "claims" && o.pair === 1
         ? { verdict: "fails", reason: "no claim the reader wrote carries this declared claim" }
         : null));
     ok("a run whose Packet declares a claim carrying a digit still completes", r.second.status === 0);
@@ -6606,7 +6606,7 @@ async function runSelfTest() {
   }
 
   // `cannot-decide` IS A THIRD ANSWER AND IS NEVER ROUNDED. It is listed with
-  // its pair, and it is not a fail — it sends no Step to correction.
+  // its pair, and it is not a fail — it sends no Leg to correction.
   {
     const pd = join(root, "packets-undecided"); mkdirSync(pd, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
@@ -6615,7 +6615,7 @@ async function runSelfTest() {
     const D = (...a) => selfRun(
       [self, ...a, "--draft", d.path, "--workspace", wsb]);
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "und"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--leg", id, "--file", writeRecordFor(d, id, "und"));
     D("compare");
     const jp = join(wsb, "undecided", "pass-1", "join.json");
     const f = answerOwed(jp, "und", "cannot-decide", "the passage does not say either way");
@@ -6625,8 +6625,8 @@ async function runSelfTest() {
     ok("every judged pair renders `cannot-decide` rather than being rounded",
       [...L.values()].some((l) => /\scannot-decide\s/.test(l)));
     ok("and it is listed with its pair", /cannot-decide, listed with its pair and never rounded/.test(r.stdout));
-    ok("and it sends no Step to correction — it is not a fail",
-      /no Step is sent to correction/.test(r.stdout));
+    ok("and it sends no Leg to correction — it is not a fail",
+      /no Leg is sent to correction/.test(r.stdout));
     // A cannot-decide is still a FINDING: it is what the owner record must
     // carry so a person can look at what the reader could not settle.
     const c = D("close");
@@ -6646,16 +6646,16 @@ async function runSelfTest() {
 
   // A BEST-EFFORT FAIL RIDES ALONG: it reaches the owner record with its class
   // and its EVIDENCE, and it does NOT withhold `close`. A guard counting every
-  // fail would send a Step to pass two for a finding the design says to carry
+  // fail would send a Leg to pass two for a finding the design says to carry
   // rather than to act on — and on the first live drive a best-effort item fired
-  // on every Step, so `close` would have been unreachable for that Draft.
+  // on every Leg, so `close` would have been unreachable for that Draft.
   {
     const pd = join(root, "packets-riding"); mkdirSync(pd, { recursive: true });
     for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
     // THE VEHICLE CHANGED TWICE AND THE RULE DID NOT (kogaki#1014,
-    // kogaki#1132). This case rode `restates-earlier-step`, then
+    // kogaki#1132). This case rode `restates-earlier-leg`, then
     // `claims-unused`, and both rows left the table. NO mechanical row answers
-    // on a prose Step any more, so the best-effort fail is now the judge's:
+    // on a prose Leg any more, so the best-effort fail is now the judge's:
     // `purpose` is the surviving best-effort row on the passage side, and the
     // override says the judge failed it. What the case measures is unchanged —
     // a best-effort fail reaches the owner record with its class and does not
@@ -6663,14 +6663,14 @@ async function runSelfTest() {
     const d = buildDraft(join(root, "theses", "riding"), { packetDir: pd });
     const wsb = join(root, "ws-riding");
     const r = driveToCompletedJoin(d, wsb, "riding",
-      (o) => (o.step_id === "a2" && o.item === "purpose"
+      (o) => (o.leg_id === "a2" && o.item === "purpose"
         ? { verdict: "fails", reason: "the passage is doing a different job from the declared one" }
         : null));
     ok("the run completes", r.second.status === 0);
     const L = linesOf(r.second.stdout);
     ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/purpose")));
-    ok("and no Step is sent to correction, because no PRESERVED item failed",
-      /no Step is sent to correction/.test(r.second.stdout));
+    ok("and no Leg is sent to correction, because no PRESERVED item failed",
+      /no Leg is sent to correction/.test(r.second.stdout));
     const D = (...a) => selfRun(
       [self, ...a, "--draft", d.path, "--workspace", wsb]);
     const c = D("close");
@@ -6687,7 +6687,7 @@ async function runSelfTest() {
     // The PRESERVED fail is the judge's, for the reason kogaki#996 gives at the
     // sibling case above: removing the claim no longer fails the item by itself.
     driveToCompletedJoin(d2, wsb2, "ridingshort",
-      (o) => (o.step_id === "a1" && o.item === "claims" && o.pair === 0
+      (o) => (o.leg_id === "a1" && o.item === "claims" && o.pair === 0
         ? { verdict: "fails", reason: "no claim the reader wrote carries this declared claim" }
         : null));
     const c2 = selfRun(
@@ -6711,10 +6711,10 @@ async function runSelfTest() {
     const D = (...a) => selfRun(
       [self, ...a, "--draft", d.path, "--workspace", wsb]);
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "gap"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--leg", id, "--file", writeRecordFor(d, id, "gap"));
     const r = D("compare");
-    ok("a Packet missing a block the comparison needs refuses BY NAME, naming the Step",
-      r.status === 1 && /step a2: its Packet carries no `purpose` block/.test(r.stderr));
+    ok("a Packet missing a block the comparison needs refuses BY NAME, naming the Leg",
+      r.status === 1 && /leg a2: its Packet carries no `purpose` block/.test(r.stderr));
     ok("and names the item that compares against it", /purpose/.test(r.stderr));
     ok("and files it as a PACKET GAP against the template, not as a side read",
       /PACKET GAP/.test(r.stderr) && /src\/packet-template\.md/.test(r.stderr));
@@ -6740,7 +6740,7 @@ async function runSelfTest() {
     const rec = JSON.parse(readFileSync(join(WS, "pass-1", "join.json"), "utf8"));
     ok("and no run asks a model about an item the table decided",
       rec.results.filter((x) => x.judged === false)
-        .every((x) => !rec.model_calls.some((c) => c.step_id === x.step_id && c.item === x.item)));
+        .every((x) => !rec.model_calls.some((c) => c.leg_id === x.leg_id && c.item === x.item)));
   }
 
   // THE ITEM TABLE IS READ, NEVER RESTATED — the same arrangement the outlined
@@ -6753,7 +6753,7 @@ async function runSelfTest() {
     const code = readFileSync(self, "utf8");
     const prod = code.slice(0, code.indexOf("async function runSelfTest"));
     // THE PROPERTY IS RE-CUT RATHER THAN RELAXED (kogaki#1014). One row per
-    // Brief Step field means three item ids — `claims`, `introduces`,
+    // Brief Leg field means three item ids — `claims`, `introduces`,
     // `purpose` — are now spelled exactly like the Brief FIELDS they read, and
     // the runtime declares those fields because it renders them to the Blind
     // Reader. So the string occurring proves nothing about those three, and the
@@ -6812,7 +6812,7 @@ async function runSelfTest() {
     const D = (...a) => selfRun(
       [soloCli, ...a, "--draft", d.path, "--workspace", wsb]);
     D("open");
-    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "njt"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--leg", id, "--file", writeRecordFor(d, id, "njt"));
     const r = D("compare");
     ok("an absent join template refuses rather than asking a question with no form",
       r.status === 1 && /join template is absent/.test(r.stderr));
@@ -6835,7 +6835,7 @@ async function runSelfTest() {
       [soloCli, ...a, "--draft", d.path, "--workspace", wsb]);
     ok("#1133: `open` no longer reads the item table, so a run without one opens",
       D("open").status === 0);
-    for (const id of ["a1", "a2", "a3"]) D("outline", "--step", id, "--file", writeRecordFor(d, id, "noitems"));
+    for (const id of ["a1", "a2", "a3"]) D("outline", "--leg", id, "--file", writeRecordFor(d, id, "noitems"));
     const r = D("compare");
     ok("an absent item table refuses rather than joining against a table it invented",
       r.status === 1 && /item table is absent/.test(r.stderr));
@@ -6858,12 +6858,12 @@ async function runSelfTest() {
     ok("and the count in the reader's instruction is computed from that declaration",
       /RECONSTRUCTIBLE_FIELDS\.length/.test(prod)
       && /numberWord\(reverseOutlineFieldCount\(\)\)/.test(prod));
-    // THE BLOCK IS PARSED BY THE BRIEF'S OWN FUNCTION. A `parseStepBlock`
+    // THE BLOCK IS PARSED BY THE BRIEF'S OWN FUNCTION. A `parseLegBlock`
     // DEFINED here rather than imported is the second parser this act removed,
     // and it would read exactly like the first until one of them was edited.
-    ok("and the step block is read by the Brief parser rather than by a second one here",
-      /import \{ parseStepBlock, stepField \} from "\.\/draft\.mjs";/.test(prod)
-      && !/function parseStepBlock\b/.test(prod));
+    ok("and the leg block is read by the Brief parser rather than by a second one here",
+      /import \{ parseLegBlock, legField \} from "\.\/draft\.mjs";/.test(prod)
+      && !/function parseLegBlock\b/.test(prod));
   }
 
   // 24 — usage with no command, and an unknown command.
@@ -6894,7 +6894,7 @@ async function runSelfTest() {
   // which is right for them: they assert what THIS Harness does with a trace, a
   // Packet and a record, and hand-assembly is what lets a case construct a
   // malformed one. `correct` is different in kind — it RE-ENTERS the
-  // realization lane, so the property under test is that a corrected Step is
+  // realization lane, so the property under test is that a corrected Leg is
   // realized from a Packet the renderer produced against the article as it now
   // stands. A hand-written stand-in for that Packet would be this pass checking
   // that it can read its own guess, and the "article so far" block — the whole
@@ -6923,20 +6923,20 @@ async function runSelfTest() {
         "excerpt: >-", "  the author's account of the movement they observed.",
       ].join("\n") + "\n");
     }
-    // FOUR STEPS AND TWO SECTIONS, so that correcting s2 and s3 leaves s4 as a
+    // FOUR LEGS AND TWO SECTIONS, so that correcting s2 and s3 leaves s4 as a
     // successor that is NOT itself corrected. That is what makes the successor
     // arm of the bound assertable on its own: a successor that had also been
     // corrected would be in the bound twice and the case could not tell which
     // arm put it there.
     //
-    // AND s1 INTRODUCES A TERM (kogaki#1098), so the Steps after it arrive
+    // AND s1 INTRODUCES A TERM (kogaki#1098), so the Legs after it arrive
     // KNOWING one. `already-knows` is the successor arm's one item and this
     // drive's best-effort vehicle, and it now declares a `when_declared_absent`
-    // arm: a Brief introducing nothing leaves every Step's `already knows` list
+    // arm: a Brief introducing nothing leaves every Leg's `already knows` list
     // empty, the Harness decides all four rows with no model call, and both
     // properties would go on reporting green over a pass that had stopped
-    // asking. The term is declared once, on the Step no correction touches.
-    const STEPS = [
+    // asking. The term is declared once, on the Leg no correction touches.
+    const LEGS = [
       { id: "s1", move: "open_the_claim", opens: "The first heading",
         introduces: "tide table — a record of measurements somebody took on days somebody chose" },
       { id: "s2", move: "carry_the_claim", opens: null },
@@ -6954,7 +6954,7 @@ async function runSelfTest() {
       "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
       "## Opening question", "", "What makes the fixture claim worth stating?", "",
       "## Sequence", "",
-      ...STEPS.flatMap((s) => ["```step", `step_id: ${s.id}`, `move: ${s.move}`,
+      ...LEGS.flatMap((s) => ["```leg", `leg_id: ${s.id}`, `move: ${s.move}`,
         ...(s.opens ? [`opens_section: ${s.opens}`] : []),
         ...(s.introduces ? [`introduces: ${s.introduces}`] : []),
         `purpose: the job ${s.id} does.`,
@@ -6989,8 +6989,8 @@ async function runSelfTest() {
 
     const r0 = dl("resolve");
     let built = r0.status === 0;
-    for (const s of STEPS) {
-      const r = dl("section", "--step", s.id, "--file", proseFile(s.id, REAL[s.id]));
+    for (const s of LEGS) {
+      const r = dl("section", "--leg", s.id, "--file", proseFile(s.id, REAL[s.id]));
       if (r.status !== 0) built = false;
     }
     const rEmit = dl("emit");
@@ -7006,15 +7006,15 @@ async function runSelfTest() {
       [self, ...a, "--draft", cDraft, "--workspace", cwsBase,
         "--draft-workspace", cWs, "--moves-dir", cMoves]);
 
-    // A REVERSE OUTLINE IN THE BRIEF'S OWN STEP FORM. It needs no line
-    // arithmetic at all now: a Brief Step field carries no draft coordinate, so
+    // A REVERSE OUTLINE IN THE BRIEF'S OWN LEG FORM. It needs no line
+    // arithmetic at all now: a Brief Leg field carries no draft coordinate, so
     // the drifting-range defect this fixture used to guard against has no site
     // left to occur at.
     const recFor = (id, tag) => {
       const f = join(cRoot, `rec-${tag}-${id}.md`);
       writeFileSync(f, [
-        "```step",
-        `step_id: ${id}`,
+        "```leg",
+        `leg_id: ${id}`,
         `purpose: the job ${id} does`,
         `reader_state_before: the reader arrives at ${id} holding what came before`,
         `reader_state_after: the reader leaves ${id} able to say what it settled`,
@@ -7024,11 +7024,11 @@ async function runSelfTest() {
       return f;
     };
     // Answer every owed pair, failing exactly the pairs named. A `fails` on a
-    // PRESERVED item is what sends a Step to correction, so this is where the
-    // drive decides which Steps the correction path will be exercised on.
+    // PRESERVED item is what sends a Leg to correction, so this is where the
+    // drive decides which Legs the correction path will be exercised on.
     const answer = (recordPath, tag, failKeys) => {
       // BOTH BRANCHES OF THE RECORD, for the reason `answerOwed` gives above:
-      // answering only the Step half leaves every Section pair owed and the
+      // answering only the Leg half leaves every Section pair owed and the
       // join never completes, so every case below would assert against an
       // unfilled join rather than against the correction path it names.
       const rec0 = existsSync(recordPath) ? JSON.parse(readFileSync(recordPath, "utf8")) : {};
@@ -7036,9 +7036,9 @@ async function runSelfTest() {
       const f = join(cRoot, `verdicts-${tag}.json`);
       writeFileSync(f, JSON.stringify({
         verdicts: owed.map((o) => {
-          const failing = failKeys.includes(`${o.step_id}/${o.item}`);
+          const failing = failKeys.includes(`${o.leg_id}/${o.item}`);
           return {
-            step_id: o.step_id, item: o.item,
+            leg_id: o.leg_id, item: o.item,
             ...(o.pair === null ? {} : { pair: o.pair }),
             verdict: failing ? "fails" : "holds",
             reason: failing
@@ -7052,20 +7052,20 @@ async function runSelfTest() {
     };
 
     RD("open");
-    for (const s of STEPS) RD("outline", "--step", s.id, "--file", recFor(s.id, "p1"));
+    for (const s of LEGS) RD("outline", "--leg", s.id, "--file", recFor(s.id, "p1"));
     RD("compare");
     const joinPath = join(cWsRun, "pass-1", "join.json");
     // A PRESERVED FAIL AND A BEST-EFFORT ONE, deliberately (kogaki#1097). The two
     // classes are the whole reason the comparison files exist: a preserved fail
-    // sends its Step to correction and a best-effort fail rides along, and the
+    // sends its Leg to correction and a best-effort fail rides along, and the
     // verdicts file a reviewer hands in says neither. `purpose` is best-effort
     // and judged, so failing it exercises the consequence word that was
-    // unreadable without changing which Steps this drive corrects — the
+    // unreadable without changing which Legs this drive corrects — the
     // correction targets are the preserved fails and they are unmoved.
     const FAILS = ["s2/reader-state-after", "s3/reader-state-after", "s1/purpose"];
     const p1 = RD("compare", "--verdicts", answer(joinPath, "p1", FAILS));
-    ok("pass one completes and sends the two preserved-failing Steps to correction",
-      p1.status === 0 && /Steps sent to correction[^\n]*s2, s3/.test(p1.stdout));
+    ok("pass one completes and sends the two preserved-failing Legs to correction",
+      p1.status === 0 && /Legs sent to correction[^\n]*s2, s3/.test(p1.stdout));
 
     // --- kogaki#1134 AC1: THE COMPARISON FILES ARE GONE, pass one ----------
     // ASSERTED OVER A PRODUCED RUN DIRECTORY rather than over the source: this
@@ -7083,14 +7083,14 @@ async function runSelfTest() {
       ok("#1134 AC1: `compare` writes no `comparison/` anywhere in the run directory",
         named.length === 0, named.join(", "));
       ok("#1134 AC1: and its own output names no comparison file for a reader to open",
-        !/comparison — one file per Step/.test(p1.stdout) && !/comparison\//.test(p1.stdout),
+        !/comparison — one file per Leg/.test(p1.stdout) && !/comparison\//.test(p1.stdout),
         p1.stdout.split("\n").filter((l) => /comparison/.test(l)).join(" | ") || "(none)");
       // DISCRIMINATION: the record the comparison files rendered IS there, and
       // carries the two fields their lines added — the class, from which the
       // consequence follows, and the model that answered where one was asked.
       // An absence beside a missing record would be a broken run passing.
       const rec1 = JSON.parse(readOrEmpty(joinPath) || "{}");
-      const rsa = (rec1.results || []).find((r) => r.step_id === "s2" && r.item === "reader-state-after");
+      const rsa = (rec1.results || []).find((r) => r.leg_id === "s2" && r.item === "reader-state-after");
       ok("#1134 AC1 DISCRIMINATION: the join record still carries the whole of what a line said",
         !!rsa && rsa.class === "preserved" && rsa.verdict === "fails"
         && rsa.model === JUDGE_MODEL && Array.isArray(rsa.span)
@@ -7117,7 +7117,7 @@ async function runSelfTest() {
       ok("#1134 AC2: a row with `judged: false` carries no `model` key",
         rows1.filter((r) => r.judged === false).length > 0
         && rows1.filter((r) => r.judged === false).every((r) => !("model" in r)),
-        rows1.filter((r) => r.judged === false && "model" in r).map((r) => `${r.step_id}/${r.item}`).join(", "));
+        rows1.filter((r) => r.judged === false && "model" in r).map((r) => `${r.leg_id}/${r.item}`).join(", "));
       ok("#1134 AC2: while a judged row names the model that answered it",
         rows1.filter((r) => r.judged === true).length > 0
         && rows1.filter((r) => r.judged === true).every((r) => "model" in r));
@@ -7135,11 +7135,11 @@ async function runSelfTest() {
     {
       const r = RD("check");
       // THE HEADLINE'S CLAIM CHANGED AT PR #946 round 1 AND THIS CASE'S DOES
-      // NOT: it asserts the Steps are NAMED, which is PR #906 round 1's finding
+      // NOT: it asserts the Legs are NAMED, which is PR #906 round 1's finding
       // and is untouched. What moved is the sentence around them — it read "and
-      // no correction was made", which the per-seat line made false for a Step
+      // no correction was made", which the per-seat line made false for a Leg
       // that received one seat and still owes the other.
-      ok("check with nothing corrected NAMES the Steps pass one sent to correction",
+      ok("check with nothing corrected NAMES the Legs pass one sent to correction",
         r.status === 0 && /UNCORRECTED — pass one sent these to correction and they are still owed: s2, s3/.test(r.stdout));
       ok("and says their fails are carried rather than re-judged",
         /not re-judged by this pass/.test(r.stdout));
@@ -7148,8 +7148,8 @@ async function runSelfTest() {
       const res = rv.slice(rv.indexOf("## Residue"));
       ok("the owner record does not claim a carried fail survived pass two",
         rc.status === 0 && !/still failing after pass two/.test(res));
-      ok("and says per line that the Step was not corrected, so nothing re-read it",
-        /NOT re-judged: this Step was not corrected/.test(res));
+      ok("and says per line that the Leg was not corrected, so nothing re-read it",
+        /NOT re-judged: this Leg was not corrected/.test(res));
       ok("while the residue line still carries its EMPTY classified: field",
         (res.match(/^ {2}classified:$/gm) || []).length === 2
         && !/^ {2}classified:[^\n]*\S/m.test(res));
@@ -7196,12 +7196,12 @@ async function runSelfTest() {
       }
     }
 
-    // --- ORDER: a later Step refuses while an earlier one is owed -----------
+    // --- ORDER: a later Leg refuses while an earlier one is owed -----------
     {
-      const r = RD("correct", "--step", "s3");
-      ok("correct refuses a Step out of path order, naming what is owed first",
+      const r = RD("correct", "--leg", "s3");
+      ok("correct refuses a Leg out of path order, naming what is owed first",
         r.status === 1 && /not next/.test(r.stderr) && /s2/.test(r.stderr));
-      ok("and says why the order matters — a Step realized against prose about to move",
+      ok("and says why the order matters — a Leg realized against prose about to move",
         /about to move under it/.test(r.stderr));
     }
 
@@ -7215,14 +7215,14 @@ async function runSelfTest() {
     //     block. The "article so far" holds s1 as it stands in the Draft at
     //     this moment; the Correction block holds s2's previous prose and the
     //     pair that failed.
-    const rA = RD("correct", "--step", "s2");
+    const rA = RD("correct", "--leg", "s2");
     const inputPath = join(cWsRun, "pass-1", "corrections", "s2.md");
-    ok("correct renders a correction input for the Step pass one sent it",
+    ok("correct renders a correction input for the Leg pass one sent it",
       rA.status === 0 && existsSync(inputPath));
     const inA = readOrEmpty(inputPath);
-    ok("AC1: the input's article-so-far carries the preceding Step's prose as the Draft has it",
+    ok("AC1: the input's article-so-far carries the preceding Leg's prose as the Draft has it",
       inA.includes("## The article so far") && inA.includes(REAL.s1));
-    ok("AC1: and one Correction block carrying the Step's PREVIOUS realization verbatim",
+    ok("AC1: and one Correction block carrying the Leg's PREVIOUS realization verbatim",
       inA.includes("## The Correction") && inA.includes(`> ${REAL.s2}`));
     ok("AC1: and the failed item with its pair and quoted span",
       /### What failed/.test(inA) && inA.includes("reader-state-after")
@@ -7233,24 +7233,24 @@ async function runSelfTest() {
       /Change what the findings above name and nothing else/.test(inA)
       && /Do not restate the/.test(inA) && /Packet's wording/.test(inA));
     // The blindness of the Reverse Outline input is not the blindness of the CORRECTION: a
-    // corrected Step is realized from its Packet by design, which is the whole
+    // corrected Leg is realized from its Packet by design, which is the whole
     // of what "a freshly rendered Packet" means. Asserted so the two are not
     // read as one property — this input SHOULD carry Packet material.
     ok("the correction input carries the Packet's own blocks, which the Reverse Outline input never does",
-      /## What this Step must do/.test(inA) || /## Write/.test(inA));
+      /## What this Leg must do/.test(inA) || /## Write/.test(inA));
 
     // --- record s2's correction ---------------------------------------------
     // THE FIRST CORRECTION IS TWO LINES WHERE THE PREVIOUS REALIZATION WAS ONE
     // (PR #906 round 1, finding 2). The Draft's line count has to MOVE for a
     // stale carried span to be observable at all; a same-length correction
-    // leaves every later Step at the numbers it already had, and the case would
+    // leaves every later Leg at the numbers it already had, and the case would
     // pass against a defect that was simply not expressed.
     const CORRECTED = {
       s2: "The harbourmaster writes the hours down each spring, and a skipper who trusts the writing has trusted a person.\n\nThat is a different kind of trust from the one a table seems to offer, and the difference is the whole point.",
       s3: "A tide table records what somebody measured, on days somebody chose, and it promises nothing about the water tomorrow.",
     };
-    const rB = RD("correct", "--step", "s2", "--file", proseFile("s2-corrected", CORRECTED.s2));
-    ok("correct records the corrected Step through the realization lane", rB.status === 0);
+    const rB = RD("correct", "--leg", "s2", "--file", proseFile("s2-corrected", CORRECTED.s2));
+    ok("correct records the corrected Leg through the realization lane", rB.status === 0);
     ok("and reports drift as a change share and a Packet overlap",
       /sentence\(s\) differ from the previous realization/.test(rB.stdout)
       && /repeat a run of the Packet's claim or state wording/.test(rB.stdout));
@@ -7271,36 +7271,36 @@ async function runSelfTest() {
     {
       const stray = join(cRoot, "stray.md");
       writeFileSync(stray, "prose written against nothing\n");
-      const r = RD("correct", "--step", "s3", "--file", stray);
-      ok("correct refuses prose for a Step whose correction input it did not render",
+      const r = RD("correct", "--leg", "s3", "--file", stray);
+      ok("correct refuses prose for a Leg whose correction input it did not render",
         r.status === 1 && /no rendered correction input/.test(r.stderr));
     }
 
     // --- ACCEPTANCE 2: correcting s2 then s3 in one pass — s3's Packet
     //     carries the CORRECTED s2.
-    const rC = RD("correct", "--step", "s3");
+    const rC = RD("correct", "--leg", "s3");
     const inputS3 = readOrEmpty(join(cWsRun, "pass-1", "corrections", "s3.md"));
     ok("AC2: the next correction's input renders against the article as it now stands",
       rC.status === 0 && inputS3.includes(CORRECTED.s2));
     ok("AC2: and does not carry the prose that correction replaced",
       !inputS3.includes(REAL.s2));
-    const rD = RD("correct", "--step", "s3", "--file", proseFile("s3-corrected", CORRECTED.s3));
+    const rD = RD("correct", "--leg", "s3", "--file", proseFile("s3-corrected", CORRECTED.s3));
     ok("the second correction records", rD.status === 0);
-    ok("and reports that every Step pass one sent to correction has been corrected",
-      /every Step pass one sent to correction has been corrected/.test(rD.stdout));
+    ok("and reports that every Leg pass one sent to correction has been corrected",
+      /every Leg pass one sent to correction has been corrected/.test(rD.stdout));
 
-    // --- pass two re-runs Reverse Outlining for the corrected Steps --------
+    // --- pass two re-runs Reverse Outlining for the corrected Legs --------
     const rE = RD("check");
-    ok("check re-runs Reverse Outlining for the corrected Steps and refuses until it comes back",
+    ok("check re-runs Reverse Outlining for the corrected Legs and refuses until it comes back",
       rE.status === 1 && /re-runs Reverse Outlining/.test(rE.stderr)
       && /s2/.test(rE.stderr) && /s3/.test(rE.stderr));
     ok("and says why — the recorded reading is about text that is gone",
       /about text that is gone/.test(rE.stderr));
-    ok("and it re-runs outline for the CORRECTED Steps only",
+    ok("and it re-runs outline for the CORRECTED Legs only",
       !/\ss1\s{2}/.test(rE.stderr) && !/\ss4\s{2}/.test(rE.stderr));
-    for (const id of ["s2", "s3"]) RD("outline", "--step", id, "--file", recFor(id, "p2"));
+    for (const id of ["s2", "s3"]) RD("outline", "--leg", id, "--file", recFor(id, "p2"));
 
-    // --- ACCEPTANCE 3: the bound. `check` judges ONLY the corrected Steps'
+    // --- ACCEPTANCE 3: the bound. `check` judges ONLY the corrected Legs'
     //     own items, the successors' continuity item, and the mechanical
     //     items over the whole Draft.
     const rF = RD("check");
@@ -7314,13 +7314,13 @@ async function runSelfTest() {
     const succItems = items.pass_two.successor_items;
     const p1rec = JSON.parse(readOrEmpty(joinPath) || "{}");
     const ownOf = (id) => {
-      const rows = (p1rec.results || []).filter((r) => r.step_id === id);
+      const rows = (p1rec.results || []).filter((r) => r.leg_id === id);
       return new Set([...rows.filter((r) => r.verdict === "fails").map((r) => r.item),
         ...rows.filter((r) => r.verdict === "holds" && r.class === "preserved").map((r) => r.item)]);
     };
-    const inBound = (stepId, item) => mech.has(item)
-      || (["s2", "s3"].includes(stepId) && ownOf(stepId).has(item))
-      || (["s3", "s4"].includes(stepId) && succItems.includes(item));
+    const inBound = (legId, item) => mech.has(item)
+      || (["s2", "s3"].includes(legId) && ownOf(legId).has(item))
+      || (["s3", "s4"].includes(legId) && succItems.includes(item));
     // THE UNIT IS THE SET OF JUDGED ITEMS ACROSS ONE RUN, never a single pair.
     // "re-judges only the named set" is a property no one output can display —
     // it is about what the run did NOT do — so the assertion reads the run's own
@@ -7330,23 +7330,23 @@ async function runSelfTest() {
     //   gloss/lessons/testing.md:267 (match-the-detectors-unit-to-the-propertys-unit)
     const calls = chk.model_calls || [];
     ok("AC3: every judged item in pass two is inside the bound",
-      calls.length > 0 && calls.every((c) => inBound(c.step_id, c.item)));
+      calls.length > 0 && calls.every((c) => inBound(c.leg_id, c.item)));
     ok("AC3: and no judged item is outside it — the count matches the bound exactly",
-      calls.filter((c) => !inBound(c.step_id, c.item)).length === 0);
-    // The mechanical arm covers every Step, and `mech` is narrowed to the rows
+      calls.filter((c) => !inBound(c.leg_id, c.item)).length === 0);
+    // The mechanical arm covers every Leg, and `mech` is narrowed to the rows
     // this Draft actually runs: a figure row is mechanical and applies to no
-    // Step here, so demanding it over every Step would assert coverage of a
+    // Leg here, so demanding it over every Leg would assert coverage of a
     // figure the fixture does not have.
     const proseMech = [...mech].filter((m) => !FIGURE_ITEM_IDS.has(m));
-    ok("AC3: every mechanical item is re-run over EVERY Step",
-      STEPS.every((s) => proseMech.every((m) =>
-        (chk.mechanical || []).some((x) => x.step_id === s.id && x.item === m))));
-    ok("AC3: the untouched Step's judged items are CARRIED, not re-judged",
-      !calls.some((c) => c.step_id === "s1" && !mech.has(c.item))
-      && (chk.results || []).some((r) => r.step_id === "s1" && r.carried));
+    ok("AC3: every mechanical item is re-run over EVERY Leg",
+      LEGS.every((s) => proseMech.every((m) =>
+        (chk.mechanical || []).some((x) => x.leg_id === s.id && x.item === m))));
+    ok("AC3: the untouched Leg's judged items are CARRIED, not re-judged",
+      !calls.some((c) => c.leg_id === "s1" && !mech.has(c.item))
+      && (chk.results || []).some((r) => r.leg_id === "s1" && r.carried));
     ok("AC3: and the successor that was not itself corrected is re-checked on the continuity item only",
-      succItems.every((i) => (chk.results || []).some((r) => r.step_id === "s4" && r.item === i && !r.carried))
-      && (chk.results || []).filter((r) => r.step_id === "s4" && !r.carried)
+      succItems.every((i) => (chk.results || []).some((r) => r.leg_id === "s4" && r.item === i && !r.carried))
+      && (chk.results || []).filter((r) => r.leg_id === "s4" && !r.carried)
         .every((r) => succItems.includes(r.item) || mech.has(r.item)));
     // A CASE MUST FAIL, NEVER THROW (the readOrEmpty rule above, applied to a
     // record rather than to a file): an absent `bound` is a failing case here,
@@ -7354,21 +7354,21 @@ async function runSelfTest() {
     // which reports no case count at all, the form the member reads as "the
     // pass did not run".
     const bnd = chk.bound || { corrected: [], successors: [], verdicts_cleared: 0 };
-    // FINDING 2 (PR #906 round 1): a carried row's span is the Step's CURRENT
+    // FINDING 2 (PR #906 round 1): a carried row's span is the Leg's CURRENT
     // range, never pass one's. The correction above added a line, so every
-    // later Step moved; a carried row keeping its old range would name the
+    // later Leg moved; a carried row keeping its old range would name the
     // neighbouring lines under a body sha that is no longer the one it was
     // computed against.
     {
       const now = JSON.parse(readOrEmpty(join(cWsRun, "run.json")) || "{}");
-      const cur = new Map((now.steps || []).map((x) => [x.step_id, x.lines]));
+      const cur = new Map((now.legs || []).map((x) => [x.leg_id, x.lines]));
       const carriedRows = (chk.results || []).filter((r) => r.carried);
-      ok("FINDING 2: every carried row's span is the Step's CURRENT line range",
+      ok("FINDING 2: every carried row's span is the Leg's CURRENT line range",
         carriedRows.length > 0 && carriedRows.every((r) =>
-          JSON.stringify(r.span) === JSON.stringify(cur.get(r.step_id))));
+          JSON.stringify(r.span) === JSON.stringify(cur.get(r.leg_id))));
       const moved = carriedRows.filter((r) =>
         JSON.stringify(r.pass_one_span) !== JSON.stringify(r.span));
-      ok("and the correction actually moved a Step, so the case is expressed rather than vacuous",
+      ok("and the correction actually moved a Leg, so the case is expressed rather than vacuous",
         moved.length > 0);
       ok("and pass one's own range is kept beside it, labelled as pass one's",
         carriedRows.every((r) => Array.isArray(r.pass_one_span)));
@@ -7406,13 +7406,13 @@ async function runSelfTest() {
       ok("#1134 AC1: `check` writes no `comparison/` under pass two, and pass one's is still absent",
         named.length === 0, named.join(", "));
       ok("#1134 AC1: and `check` names no comparison file in its own output",
-        !/comparison — one file per Step/.test(rG.stdout) && !/comparison\//.test(rG.stdout),
+        !/comparison — one file per Leg/.test(rG.stdout) && !/comparison\//.test(rG.stdout),
         rG.stdout.split("\n").filter((l) => /comparison/.test(l)).join(" | ") || "(none)");
 
       const chkRec = JSON.parse(readOrEmpty(checkPath) || "{}");
-      const rowOf = (step, item) => (chkRec.results || [])
-        .find((r) => r.step_id === step && r.item === item);
-      // s1 was corrected by nothing and is no corrected Step's successor, so
+      const rowOf = (leg, item) => (chkRec.results || [])
+        .find((r) => r.leg_id === leg && r.item === item);
+      // s1 was corrected by nothing and is no corrected Leg's successor, so
       // every judged row on it is out of pass two's bound and carried.
       ok("#1134 AC1 DISCRIMINATION: a row pass two did not re-judge says so on the row itself",
         rowOf("s1", "reader-state-after")?.carried === true);
@@ -7454,7 +7454,7 @@ async function runSelfTest() {
         r.model != null && !(r.pairs || []).some((x) => x.pair === (r.pair ?? null) && x.judged));
       ok("#1102: no row names a model for a line no model answered",
         allRows.length > 0 && claimsAJudgeItNeverHad.length === 0,
-        claimsAJudgeItNeverHad.map((r) => `${r.step_id}/${r.item}`).join(", "));
+        claimsAJudgeItNeverHad.map((r) => `${r.leg_id}/${r.item}`).join(", "));
     }
 
     // RESIDUE: a PRESERVED item still failing after pass two, and only a
@@ -7472,9 +7472,9 @@ async function runSelfTest() {
         const f = join(cRoot, `verdicts-${tag}.json`);
         writeFileSync(f, JSON.stringify({
           verdicts: (rec.model_calls || []).map((c) => {
-            const failing = failKeys.includes(`${c.step_id}/${c.item}`);
+            const failing = failKeys.includes(`${c.leg_id}/${c.item}`);
             return {
-              step_id: c.step_id, item: c.item,
+              leg_id: c.leg_id, item: c.item,
               ...(c.pair === null ? {} : { pair: c.pair }),
               verdict: failing ? "fails" : "holds",
               reason: failing
@@ -7503,7 +7503,7 @@ async function runSelfTest() {
       // ITS VEHICLE IS WHY THE FIXTURE'S BRIEF INTRODUCES A TERM (kogaki#1098).
       // The row is `already-knows`, which is also the successor arm's one item,
       // and that row now declares a `when_declared_absent` arm. The Brief used
-      // to declare no `introduces:` at all, so every Step's `already knows`
+      // to declare no `introduces:` at all, so every Leg's `already knows`
       // list was empty and the Harness would decide all four rows with no model
       // call — taking this case's vehicle AND the successor arm's only judged
       // pair with it, silently, while both cases went on reporting green
@@ -7524,8 +7524,8 @@ async function runSelfTest() {
       // EVERY POINTER THE RECORD RENDERS RESOLVES (PR #1004 round 2, finding 5).
       // The legend above asserts the template text; this asserts the paths
       // composed for the run's actual findings and residue — which used to
-      // name `<step>.<item>.md` for a paired item whose inputs are
-      // `<step>.<item>.<n>.md`, a Packet for a Harness-decided row that never
+      // name `<leg>.<item>.md` for a paired item whose inputs are
+      // `<leg>.<item>.<n>.md`, a Packet for a Harness-decided row that never
       // had one, and `pass-2/` for a row pass two never read.
       {
         const pointers = [...revR.matchAll(/^ {2}- (?:Reverse Outline|the pair the judge saw): `([^`]+)`/gm)]
@@ -7552,7 +7552,7 @@ async function runSelfTest() {
         // whole of what it can express here; the arm with a Harness-decided
         // row is asserted nowhere at this head, and the reason is recorded at
         // the #1132 fixture below: no row in the shipped table can produce a
-        // Harness-decided FAIL on a prose Step.
+        // Harness-decided FAIL on a prose Leg.
         ok("#1004/5: a Harness-decided line renders no Packet pointer, and only such a line does",
           none === harnessRows
           && (harnessRows === 0 || /the pair the judge saw: none — [^\n]*(join|check)\.json/.test(revR)),
@@ -7562,7 +7562,7 @@ async function runSelfTest() {
         const residueText = revR.slice(revR.indexOf("## Residue"));
         ok("#1004/5: a carried residue line points at pass one, the only pass that read it",
           carriedResidue.every((r) => new RegExp(
-            `\\*\\*${r.step_id} / ${r.item}\\*\\*[^]*?Reverse Outline: \`[^\`]*pass-1/outlined/${r.step_id}\\.json\``)
+            `\\*\\*${r.leg_id} / ${r.item}\\*\\*[^]*?Reverse Outline: \`[^\`]*pass-1/outlined/${r.leg_id}\\.json\``)
             .test(residueText)),
           `carried residue rows: ${carriedResidue.length}`);
       }
@@ -7590,16 +7590,16 @@ async function runSelfTest() {
       RD("check", "--verdicts", revise("p2-restore", []));
     }
 
-    // --- ACCEPTANCE 4: the owner record carries the drift, per corrected Step
+    // --- ACCEPTANCE 4: the owner record carries the drift, per corrected Leg
     const rH = RD("close");
     const rev = readOrEmpty(join(cBrief, "review.md"));
     ok("close is reachable from check and writes the owner record", rH.status === 0 && rev.length > 0);
     ok("the record states that two passes ran", /\*\*Passes\.\*\* two \(compare, check\)/.test(rev));
-    ok("AC4: the record carries a change share for every corrected Step",
+    ok("AC4: the record carries a change share for every corrected Leg",
       (rev.match(/^ {2}- change share: /gm) || []).length === 2);
-    ok("AC4: and a Packet overlap for every corrected Step",
+    ok("AC4: and a Packet overlap for every corrected Leg",
       (rev.match(/^ {2}- packet overlap: /gm) || []).length === 2);
-    ok("AC4: and names each corrected Step with the pass it was corrected in",
+    ok("AC4: and names each corrected Leg with the pass it was corrected in",
       /- \*\*s2\*\* \(pass 1\)/.test(rev) && /- \*\*s3\*\* \(pass 1\)/.test(rev));
 
     // --- kogaki#1134 AC1: THE OWNER RECORD'S LAYOUT LEGEND NAMES NO ----------
@@ -7614,8 +7614,8 @@ async function runSelfTest() {
       /`join\.json` — pass one's verdicts with each row's class, model and span/.test(rev));
 
     // --- kogaki#994: THE WORKSPACE IS SPLIT BY PASS AND EVERY PASS'S EVIDENCE
-    //     SURVIVES. This run corrected two Steps and ran `check`, so pass two
-    //     re-read exactly those Steps blind — which is the write that used to
+    //     SURVIVES. This run corrected two Legs and ran `check`, so pass two
+    //     re-read exactly those Legs blind — which is the write that used to
     //     land on pass one's file and destroy the reading it recorded.
     const P1 = (...a) => join(cWsRun, "pass-1", ...a);
     const P2 = (...a) => join(cWsRun, "pass-2", ...a);
@@ -7668,13 +7668,13 @@ async function runSelfTest() {
 
     // AND THE READ DESCENDS, because the class has an instance ONE LEVEL DOWN
     // (PR #1105 round 1, finding 1). The session's correction reply landed at
-    // `pass-1/corrections/<step>.prose.md` — inside a directory the legend
+    // `pass-1/corrections/<leg>.prose.md` — inside a directory the legend
     // names, where a top-level read never looks — so a guard that stopped at
     // the legend caught four of the five strays #1100 enumerates and missed
     // the fifth.
     //
     // BELOW A PASS DIRECTORY THE LEGEND HAS NOTHING TO SAY: the entries there
-    // are per Step and per Section, and enumerating them here would be the
+    // are per Leg and per Section, and enumerating them here would be the
     // restated second legend this case already refuses. The authority is the
     // run record's OWN register instead — `passPathAt` records every path it
     // composes under `run.pass_files` — so a file beneath a pass directory
@@ -7695,7 +7695,7 @@ async function runSelfTest() {
 
     // THE TWO READINGS BOTH EXIST, AND THEY DIFFER. Presence alone would pass
     // on a pass-two file that was a copy of pass one's; the point is that the
-    // corrected Step was read twice, against two different articles.
+    // corrected Leg was read twice, against two different articles.
     for (const id of ["s2", "s3"]) {
       const r1 = readOrEmpty(P1("outline-input", `${id}.md`));
       const r2 = readOrEmpty(P2("outline-input", `${id}.md`));
@@ -7796,7 +7796,7 @@ async function runSelfTest() {
         /\*\*Pass 1 — `compare`\.\*\*/.test(rv) && /\*\*Pass 2 — `check`\.\*\*/.test(rv)
         && rv.includes("pass-1") && rv.includes("pass-2"));
       ok("#1004/3: and the artefacts a reader goes from a finding to",
-        /outline\/<step>\.json/.test(rv) && /join\/<step>\.<item>/.test(rv));
+        /outline\/<leg>\.json/.test(rv) && /join\/<leg>\.<item>/.test(rv));
       ok("#1004/3: the snapshots and the run record are named at the root",
         /\*\*Snapshots\.\*\*/.test(rv) && /\*\*Run record\.\*\*/.test(rv));
       // Undo the close again — the pass-collision case below needs a live run.
@@ -7823,10 +7823,10 @@ async function runSelfTest() {
       delete rr.outlineFields.s2;
       writeFileSync(join(cWsRun, "run.json"), JSON.stringify(rr, null, 2) + "\n");
       // THE FILE HANDED BACK IS THE OUTLINE BLOCK, not the reading of it: since
-      // kogaki#1014 `outline` takes a Brief `step` block, and a JSON record is
+      // kogaki#1014 `outline` takes a Brief `leg` block, and a JSON record is
       // now refused on its form before the pass ledger is ever consulted —
       // which would make this case pass on the wrong refusal.
-      const r = RD("outline", "--step", "s2", "--file", P2("outline", "s2.md"));
+      const r = RD("outline", "--leg", "s2", "--file", P2("outline", "s2.md"));
       ok("#994: a pass writing over a file another pass wrote is refused by name",
         r.status === 1 && /would write over a file pass 2 wrote/.test(r.stderr));
       ok("#994: and the refusal says why the other pass's reading is not retrievable",
@@ -7844,7 +7844,7 @@ async function runSelfTest() {
   // cases cannot be told from a removal that half happened.
   //
   // THE REOPEN TRIGGER IS NOT A CASE HERE, deliberately. It is a Draft whose
-  // every Step holds the round trip and whose thesis the owner cannot find on
+  // every Leg holds the round trip and whose thesis the owner cannot find on
   // reading it, and the check it triggers is designed at BRIEF COMPOSITION --
   // outside this artifact, so there is nothing here to assert it against.
   {
@@ -7856,7 +7856,7 @@ async function runSelfTest() {
       !("sections" in TABLE) && !("ledger_fields" in TABLE) && !("final_claim_field" in TABLE));
     ok("#1133 AC1: and no item declares a Section's declared or reverse side",
       TABLE.items.every((i) => !("declared" in i) && !("reverse" in i) && !("vacuous_when" in i)));
-    // AND NO ITEM READS A DECLARED SIDE THAT IS NOT A STEP'S PACKET BLOCK, which
+    // AND NO ITEM READS A DECLARED SIDE THAT IS NOT A LEG'S PACKET BLOCK, which
     // is what took `thesis` and `opening_question` out of `packet_blocks`: they
     // were fixed points of the whole article, read by the Section pairs alone.
     ok("#1133 AC1: `packet_blocks` carries no article-level block, its only readers gone",
@@ -7916,7 +7916,7 @@ async function runSelfTest() {
     for (const id of ["a1", "a2", "a3"]) writePacket(fPacketDir, id);
 
     // The record is an INSTANCE of the `axis` form. Each element's `claim` is
-    // the figure decision's ADDRESS over this Step's own claims, 1-based — `g1`
+    // the figure decision's ADDRESS over this Leg's own claims, 1-based — `g1`
     // and `g2` are the two `CLAIMS.a1` lines. The binding itself is the figure
     // record's to refuse; what `figure-element-claim` asks is whether each
     // element's WORDING is carried by the line its address points at.
@@ -7975,8 +7975,8 @@ async function runSelfTest() {
       !input.includes('"claim"') && !input.includes('"elements"')
       && !input.includes('"relations"') && !input.includes('"emphasis"'));
 
-    // THE ASK IS CONDITIONAL IN BOTH DIRECTIONS (kogaki#1018). A figure Step is
-    // asked for the figure block in the RECORD's field names; a figureless Step
+    // THE ASK IS CONDITIONAL IN BOTH DIRECTIONS (kogaki#1018). A figure Leg is
+    // asked for the figure block in the RECORD's field names; a figureless Leg
     // is asked for nothing of the sort.
     ok("#1018: the input asks for the figure in the record's own fields",
       /```figure/.test(input) && /`element` —/.test(input)
@@ -7992,9 +7992,9 @@ async function runSelfTest() {
     ok("#1099: and names none of the record fields it refuses — the announcement created the knowledge it withheld",
       !/`kind` —/.test(input) && !/`relations` —/.test(input) && !/`emphasis` —/.test(input)
       && !/NOT asked for/.test(input));
-    ok("#1099: so a figure Step's input carries none of the plan's vocabulary either",
+    ok("#1099: so a figure Leg's input carries none of the plan's vocabulary either",
       planLeaks(input).length === 0, planLeaks(input).join(", "));
-    ok("#1018: while a figureless Step's input asks for no figure block at all",
+    ok("#1018: while a figureless Leg's input asks for no figure block at all",
       !readOrEmpty(join(WS, "pass-1", "outline-input", "a1.md")).includes("```figure"));
 
     // The figure's Reverse Outline, in the record's own field names.
@@ -8011,32 +8011,32 @@ async function runSelfTest() {
       return f;
     };
 
-    const rNo = fdrive("outline", "--step", "a1", "--file", outlineWith("a1"));
-    ok("#1018: a figure Step's outline with no `figure` block refuses, naming what is owed",
+    const rNo = fdrive("outline", "--leg", "a1", "--file", outlineWith("a1"));
+    ok("#1018: a figure Leg's outline with no `figure` block refuses, naming what is owed",
       rNo.status === 1 && /carries no fenced `figure` block/.test(rNo.stderr));
 
-    const rEmpty = fdrive("outline", "--step", "a1", "--file",
+    const rEmpty = fdrive("outline", "--leg", "a1", "--file",
       outlineWith("a1", ["```figure", "caption: c", "position: after", "```"].join("\n")));
     ok("#1018: a figure block naming no element refuses — a reader who named nothing did not look",
       rEmpty.status === 1 && /carries no `element:` line/.test(rEmpty.stderr));
 
-    const rWithheld = fdrive("outline", "--step", "a1", "--file",
+    const rWithheld = fdrive("outline", "--leg", "a1", "--file",
       outlineWith("a1", FIG_BLOCK.replace(/```$/, "kind: axis\n```")));
     ok("#1018: a field the record declares NOT reconstructible is refused, with its reason",
       rWithheld.status === 1 && /carries `kind:`, which is declared not reconstructible/.test(rWithheld.stderr));
 
-    const rUnknown = fdrive("outline", "--step", "a1", "--file",
+    const rUnknown = fdrive("outline", "--leg", "a1", "--file",
       outlineWith("a1", FIG_BLOCK.replace(/```$/, "confidence: high\n```")));
     ok("#1018: and a field the record does not declare at all is refused by name",
       rUnknown.status === 1 && /carries `confidence:`, which is not a figure record field/.test(rUnknown.stderr));
 
-    const rPos = fdrive("outline", "--step", "a1", "--file",
+    const rPos = fdrive("outline", "--leg", "a1", "--file",
       outlineWith("a1", FIG_BLOCK.replace("position: after", "position: beside")));
     ok("#1018: a position outside the record's closed pair refuses, naming the pair",
       rPos.status === 1 && /`position:` reads `beside`/.test(rPos.stderr)
       && /`before` or `after`/.test(rPos.stderr));
 
-    const rOk = fdrive("outline", "--step", "a1", "--file", outlineWith("a1", FIG_BLOCK));
+    const rOk = fdrive("outline", "--leg", "a1", "--file", outlineWith("a1", FIG_BLOCK));
     ok("#1018: and the outline carrying a reading of the figure is recorded", rOk.status === 0);
     ok("#1018: the figure's reading lands as its OWN file, beside the passage's",
       existsSync(join(FWS, "pass-1", "outline", "a1.figure.json"))
@@ -8045,27 +8045,27 @@ async function runSelfTest() {
       // NEITHER READING CARRIES A KEY OF THE OTHER'S ARTIFACT. That is the whole
       // reason the figure's reading is a second file rather than a field of the
       // first, so it is asserted rather than described.
-      const stepRec = JSON.parse(readOrEmpty(join(FWS, "pass-1", "outline", "a1.json")) || "{}");
+      const legRec = JSON.parse(readOrEmpty(join(FWS, "pass-1", "outline", "a1.json")) || "{}");
       const figRec = JSON.parse(readOrEmpty(join(FWS, "pass-1", "outline", "a1.figure.json")) || "{}");
-      const briefNames = new Set([...RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
-      const recordNames = new Set([...FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "step_id"]);
+      const briefNames = new Set([...RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "leg_id"]);
+      const recordNames = new Set([...FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "leg_id"]);
       ok("#1018: the passage's reading carries Brief field names only",
-        Object.keys(stepRec).every((k) => briefNames.has(k)));
+        Object.keys(legRec).every((k) => briefNames.has(k)));
       ok("#1018: and the figure's carries the RECORD's field names only",
         Object.keys(figRec).every((k) => recordNames.has(k))
         && Array.isArray(figRec.element) && figRec.element.length === 3);
     }
 
-    // A figure block on a Step that met no figure is refused, and the refusal
+    // A figure block on a Leg that met no figure is refused, and the refusal
     // says WHY rather than reporting it as an unnamed key: an invented reading
     // and a stray annotation are different mistakes.
-    const rUnowed = fdrive("outline", "--step", "a2", "--file", outlineWith("a2", FIG_BLOCK));
-    ok("#1018: a figure block on a Step that met no figure refuses, saying it is an invention",
-      rUnowed.status === 1 && /this Step renders no figure/.test(rUnowed.stderr)
+    const rUnowed = fdrive("outline", "--leg", "a2", "--file", outlineWith("a2", FIG_BLOCK));
+    ok("#1018: a figure block on a Leg that met no figure refuses, saying it is an invention",
+      rUnowed.status === 1 && /this Leg renders no figure/.test(rUnowed.stderr)
       && /is an invention/.test(rUnowed.stderr));
 
-    ok("#880: a2 outlines without one", fdrive("outline", "--step", "a2", "--file", outlineWith("a2")).status === 0);
-    ok("#880: a3 outlines without one", fdrive("outline", "--step", "a3", "--file", outlineWith("a3")).status === 0);
+    ok("#880: a2 outlines without one", fdrive("outline", "--leg", "a2", "--file", outlineWith("a2")).status === 0);
+    ok("#880: a3 outlines without one", fdrive("outline", "--leg", "a3", "--file", outlineWith("a3")).status === 0);
 
 
     const c = fdrive("compare");
@@ -8074,22 +8074,22 @@ async function runSelfTest() {
     const ITEMS_ALL = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
     const FIG_IDS = new Set(ITEMS_ALL.items.filter((i) => i.figure_only).map((i) => i.id));
 
-    // The figure rows exist on the Step that has a figure and NOWHERE ELSE —
+    // The figure rows exist on the Leg that has a figure and NOWHERE ELSE —
     // AC3 asserted from the other side, on a Draft that does have one.
     const figRows = (frec.results || []).filter((r) => FIG_IDS.has(r.item));
-    ok("#880: every figure item is computed on the Step that carries a figure",
-      [...FIG_IDS].every((id) => figRows.some((r) => r.step_id === "a1" && r.item === id)));
-    ok("#880 AC3: and on no other Step, even in a Draft that has one",
-      figRows.length > 0 && figRows.every((r) => r.step_id === "a1"));
+    ok("#880: every figure item is computed on the Leg that carries a figure",
+      [...FIG_IDS].every((id) => figRows.some((r) => r.leg_id === "a1" && r.item === id)));
+    ok("#880 AC3: and on no other Leg, even in a Draft that has one",
+      figRows.length > 0 && figRows.every((r) => r.leg_id === "a1"));
 
     // The mechanical row costs no model call and the judged ones do — the same
     // property the prose half asserts, over the figure's own rows.
     ok("#880: the element-to-claim row is decided by the Harness alone",
-      (frec.mechanical || []).some((m) => m.step_id === "a1" && m.item === "figure-element-claim")
+      (frec.mechanical || []).some((m) => m.leg_id === "a1" && m.item === "figure-element-claim")
       && !(frec.model_calls || []).some((m) => m.item === "figure-element-claim"));
     ok("#880: and every judged figure row renders one join Packet",
       ITEMS_ALL.items.filter((i) => i.figure_only && i.mode === "judged")
-        .every((i) => (frec.model_calls || []).some((m) => m.step_id === "a1" && m.item === i.id)));
+        .every((i) => (frec.model_calls || []).some((m) => m.leg_id === "a1" && m.item === i.id)));
 
     // The join Packet names the RECORD as the carrier the declared line came
     // from, never the Packet — the finding a reader repairs is in the record.
@@ -8108,14 +8108,14 @@ async function runSelfTest() {
     // THE EVIDENCE POINTER FOLLOWS THE ROW'S OWN SIDE (PR #1024 round 1). A
     // figure finding's reverse side is the FIGURE's Reverse Outline, and the
     // passage's carries none of the reading the verdict was given on — so a
-    // pointer composed from the Step alone sends the owner to the wrong file.
+    // pointer composed from the Leg alone sends the owner to the wrong file.
     // Driven end to end, because the pointer is only composed at `close`.
     {
       const vf = join(root, "fig-verdicts.json");
       const owed = frec.owed || [];
       writeFileSync(vf, JSON.stringify({
         verdicts: owed.map((o) => ({
-          step_id: o.step_id, item: o.item,
+          leg_id: o.leg_id, item: o.item,
           ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
           ...(o.section === undefined ? {} : { section: o.section }),
           // A BEST-EFFORT figure row, deliberately: a failing PRESERVED item
@@ -8192,7 +8192,7 @@ async function runSelfTest() {
       "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
       "## Opening question", "", "What makes the fixture claim worth stating?", "",
       "## Sequence", "",
-      "```step", "step_id: f1", "move: axis_move", "opens_section: The only heading",
+      "```leg", "leg_id: f1", "move: axis_move", "opens_section: The only heading",
       "purpose: the job f1 does.",
       "reader_state_before: the reader arrives at f1 holding nothing in particular.",
       "reader_state_after: the reader leaves f1 able to say what separates the two harbours.",
@@ -8204,7 +8204,7 @@ async function runSelfTest() {
       "claim (strand L1): the second harbour keeps different hours.",
       "claim (strand L1): the tide is the one measure both harbours are read against.",
       "```", "",
-      "```step", "step_id: f2", "move: plain_move",
+      "```leg", "leg_id: f2", "move: plain_move",
       "purpose: the job f2 does.",
       "reader_state_before: the reader arrives at f2 holding what f1 settled.",
       "reader_state_after: the reader leaves f2 able to say who did the measuring.",
@@ -8236,17 +8236,17 @@ async function runSelfTest() {
       position: "after",
     };
     let sReady = sdl("resolve").status === 0;
-    sReady = sReady && sdl("section", "--step", "f1", "--file", sFile("s-prose-f1.md",
+    sReady = sReady && sdl("section", "--leg", "f1", "--file", sFile("s-prose-f1.md",
       "One harbour keeps its own hours and the next keeps others, and the water they are both "
       + "read against is the same water.")).status === 0;
-    sReady = sReady && sdl("figure", "--step", "f1", "--file",
+    sReady = sReady && sdl("figure", "--leg", "f1", "--file",
       sFile("s-record-f1.json", JSON.stringify(S_RECORD, null, 2))).status === 0;
-    sReady = sReady && sdl("section", "--step", "f2", "--file", sFile("s-prose-f2.md",
+    sReady = sReady && sdl("section", "--leg", "f2", "--file", sFile("s-prose-f2.md",
       "A skipper reading either set of hours is reading a measurement, and the question worth "
       + "asking is who was standing there.")).status === 0;
     sReady = sReady && sdl("emit").status === 0;
     const sDraft = join(sBrief, "draft.md");
-    ok("#945: the fixture Draft realizes with a figure below its Step's prose", sReady && existsSync(sDraft));
+    ok("#945: the fixture Draft realizes with a figure below its Leg's prose", sReady && existsSync(sDraft));
 
     const swsBase = join(sRoot, "ws-review");
     const sWsRun = join(swsBase, "seat-fixture");
@@ -8295,12 +8295,12 @@ async function runSelfTest() {
       const bFile = (name, text) => { const f = join(bRoot, name); writeFileSync(f, text + "\n"); return f; };
       mkdirSync(bRoot, { recursive: true });
       let bReady = bdl("resolve").status === 0;
-      bReady = bReady && bdl("section", "--step", "f1", "--file", bFile("b-prose-f1.md",
+      bReady = bReady && bdl("section", "--leg", "f1", "--file", bFile("b-prose-f1.md",
         "One harbour keeps its own hours and the next keeps others, and the water they are both "
         + "read against is the same water.")).status === 0;
-      bReady = bReady && bdl("figure", "--step", "f1", "--file",
+      bReady = bReady && bdl("figure", "--leg", "f1", "--file",
         bFile("b-record-f1.json", JSON.stringify({ ...S_RECORD, position: "before" }, null, 2))).status === 0;
-      bReady = bReady && bdl("section", "--step", "f2", "--file", bFile("b-prose-f2.md",
+      bReady = bReady && bdl("section", "--leg", "f2", "--file", bFile("b-prose-f2.md",
         "A skipper reading either set of hours is reading a measurement, and the question worth "
         + "asking is who was standing there.")).status === 0;
       bReady = bReady && bdl("emit").status === 0;
@@ -8321,18 +8321,18 @@ async function runSelfTest() {
 
   // ---- kogaki#1132, ACCEPTANCE 4 ----------------------------------------
   // THE CORRECTION IS TOLD WHICH DECLARED CLAIM WAS LOST, IN ITS OWN WORDS.
-  // "`claims` failed" does not say which of a Step's claims went missing, and
-  // on a Step declaring two it is half the instruction — the corrector has to
+  // "`claims` failed" does not say which of a Leg's claims went missing, and
+  // on a Leg declaring two it is half the instruction — the corrector has to
   // guess, and the first full run's corrections were written against exactly
   // that gap.
   //
   // ITS OWN BRIEF, for the reason the #880 and #945 drives state about theirs:
   // the correction drive above turns on which preserved item fails on which
-  // Step, and adding a second failing item to one of its Steps would move cases
+  // Leg, and adding a second failing item to one of its Legs would move cases
   // that measure something else. This one is built for one property — x1
   // declares TWO claims, the reader recovers the first alone — so the
   // discrimination the acceptance names (B's text and reason are rendered, A's
-  // are not) is expressible on one Step of one Draft.
+  // are not) is expressible on one Leg of one Draft.
   {
     const draftCli = join(dirname(self), "draft.mjs");
     const xRoot = join(root, "lost-claim");
@@ -8367,14 +8367,14 @@ async function runSelfTest() {
       "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
       "## Opening question", "", "What makes the fixture claim worth stating?", "",
       "## Sequence", "",
-      "```step", "step_id: x1", "move: open_the_claim", "opens_section: The first heading",
+      "```leg", "leg_id: x1", "move: open_the_claim", "opens_section: The first heading",
       "purpose: the job x1 does.",
       "reader_state_before: the reader arrives at x1 holding nothing in particular.",
       "reader_state_after: the reader leaves x1 able to say what a table is.",
       "materials: L1",
       "rationale: x1 sits here because the path put it here.",
       CLAIM_A, CLAIM_B, "```", "",
-      "```step", "step_id: x2", "move: carry_the_claim", "opens_section: The second heading",
+      "```leg", "leg_id: x2", "move: carry_the_claim", "opens_section: The second heading",
       "purpose: the job x2 does.",
       "reader_state_before: the reader arrives at x2 holding what x1 settled.",
       "reader_state_after: the reader leaves x2 able to say who did the measuring.",
@@ -8396,10 +8396,10 @@ async function runSelfTest() {
       return f;
     };
     let xBuilt = xdl("resolve").status === 0;
-    for (const id of ["x1", "x2"]) xBuilt = xdl("section", "--step", id, "--file", xProseFile(id)).status === 0 && xBuilt;
+    for (const id of ["x1", "x2"]) xBuilt = xdl("section", "--leg", id, "--file", xProseFile(id)).status === 0 && xBuilt;
     xBuilt = xdl("emit").status === 0 && xBuilt;
     const xDraft = join(xBrief, "draft.md");
-    ok("#1132 AC4: the realization lane produces a Draft whose first Step declares two claims",
+    ok("#1132 AC4: the realization lane produces a Draft whose first Leg declares two claims",
       xBuilt && existsSync(xDraft), (xdl("emit").stderr || "").slice(0, 200));
 
     const xwsBase = join(xRoot, "ws-review");
@@ -8411,14 +8411,14 @@ async function runSelfTest() {
     for (const id of ["x1", "x2"]) {
       const f = join(xRoot, `rec-${id}.md`);
       writeFileSync(f, [
-        "```step", `step_id: ${id}`,
+        "```leg", `leg_id: ${id}`,
         `purpose: the job ${id} does`,
         `reader_state_before: the reader arrives at ${id} holding what came before`,
         `reader_state_after: the reader leaves ${id} able to say what it settled`,
         `claim the passage of ${id} says what it says, as this reader has it`,
         "```",
       ].join("\n") + "\n");
-      XD("outline", "--step", id, "--file", f);
+      XD("outline", "--leg", id, "--file", f);
     }
     XD("compare");
     const xJoin = join(xWsRun, "pass-1", "join.json");
@@ -8432,25 +8432,25 @@ async function runSelfTest() {
       const vf = join(xRoot, "verdicts.json");
       writeFileSync(vf, JSON.stringify({
         verdicts: owed.map((o) => {
-          const lost = o.step_id === "x1" && o.item === "claims" && o.pair === 1;
+          const lost = o.leg_id === "x1" && o.item === "claims" && o.pair === 1;
           return {
-            step_id: o.step_id, item: o.item,
+            leg_id: o.leg_id, item: o.item,
             ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
             verdict: lost ? "fails" : "holds",
-            reason: lost ? LOST_REASON : "the reader recovered what the Step declares",
+            reason: lost ? LOST_REASON : "the reader recovered what the Leg declares",
             model: JUDGE_MODEL,
           };
         }),
       }, null, 2) + "\n");
       const xc = XD("compare", "--verdicts", vf);
-      ok("#1132 AC4: one declared claim failing sends its Step to correction",
-        xc.status === 0 && /Steps sent to correction[^\n]*x1/.test(xc.stdout),
+      ok("#1132 AC4: one declared claim failing sends its Leg to correction",
+        xc.status === 0 && /Legs sent to correction[^\n]*x1/.test(xc.stdout),
         (xc.stderr || "").slice(0, 200));
     }
 
-    const xr = XD("correct", "--step", "x1");
+    const xr = XD("correct", "--leg", "x1");
     const xIn = readOrEmpty(join(xWsRun, "pass-1", "corrections", "x1.md"));
-    ok("#1132 AC4: correct renders the input for the Step the lost claim sent it",
+    ok("#1132 AC4: correct renders the input for the Leg the lost claim sent it",
       xr.status === 0 && xIn.length > 0, (xr.stderr || "").slice(0, 200));
     const xFailed = xIn.slice(xIn.indexOf("### What failed"));
     const xFailedBlock = xFailed.slice(0, xFailed.indexOf("### What held"));
@@ -8467,12 +8467,12 @@ async function runSelfTest() {
   }
 
   // ---- kogaki#996, carried to kogaki#1132 -------------------------------
-  // A STEP WHOSE PROSE FAITHFULLY REALIZES A TWO-CLAIM PACKET, ASSERTING THAT
+  // A LEG WHOSE PROSE FAITHFULLY REALIZES A TWO-CLAIM PACKET, ASSERTING THAT
   // `claims` HOLDS. `CLAIMS.a1` is the two-claim Packet; the claims below are
   // faithful realizations of its two lines in WHOLLY DIFFERENT VOCABULARY,
   // sharing no content word with either.
   //
-  // UNDER THE OLD FALLBACK THIS STEP FAILED BY CONSTRUCTION: an unpaired claim
+  // UNDER THE OLD FALLBACK THIS LEG FAILED BY CONSTRUCTION: an unpaired claim
   // was failed by the Harness as `widened` with no model call, so `claims`
   // failed however faithful the prose was. kogaki#996 made the reading the
   // judge's; kogaki#1132 removed the matcher entirely, and this fixture is
@@ -8500,13 +8500,13 @@ async function runSelfTest() {
       a3: ["leftover text is sorted by the person in charge and never by the program"],
     };
     // THE READ CLAIMS ARE THE UNPAIRED ONES, and nothing else about the outline
-    // is special: `outlineFor` supplies the fields every Step owes so this
+    // is special: `outlineFor` supplies the fields every Leg owes so this
     // fixture says only what it is for.
     gdrive("open");
     for (const id of ["a1", "a2", "a3"]) {
       const f = join(gdir, `rec-${id}.md`);
       writeFileSync(f, renderOutline({ ...outlineFor(id), claims: UNPAIRED[id].slice() }));
-      gdrive("outline", "--step", id, "--file", f);
+      gdrive("outline", "--leg", id, "--file", f);
     }
     const gled = join(gdir, "led.json");
     writeFileSync(gled, JSON.stringify({ opening_question: "which act renders the input", reader_target: "the harness does" }) + "\n");
@@ -8537,21 +8537,21 @@ async function runSelfTest() {
       !(grec.mechanical || []).some((m) => m.item === "claims"));
     // AND EVERY DECLARED CLAIM IS ASKED ABOUT — #1132 ACCEPTANCE 2. The count is
     // the DECLARED claims', which is the unit the question is now put in: a
-    // Step declaring N claims costs N Judge calls for this item.
-    ok("#1132 AC2: a Step declaring two claims renders exactly two join Packets for the item",
-      (grec.model_calls || []).filter((m) => m.step_id === "a1" && m.item === "claims").length
+    // Leg declaring N claims costs N Judge calls for this item.
+    ok("#1132 AC2: a Leg declaring two claims renders exactly two join Packets for the item",
+      (grec.model_calls || []).filter((m) => m.leg_id === "a1" && m.item === "claims").length
         === CLAIMS.a1.length);
-    ok("#1132 AC2: and one per declared claim on the Steps that declare one",
+    ok("#1132 AC2: and one per declared claim on the Legs that declare one",
       ["a2", "a3"].every((s) => (grec.model_calls || [])
-        .filter((m) => m.step_id === s && m.item === "claims").length === 1));
+        .filter((m) => m.leg_id === s && m.item === "claims").length === 1));
 
     // #1132 ACCEPTANCE 2: the Packet carries THAT declared claim, every claim
     // the reader outlined, the passage, and the one recovery question.
-    const gowed = (grec.owed || []).find((o) => o.step_id === "a1" && o.item === "claims" && o.pair === 0);
+    const gowed = (grec.owed || []).find((o) => o.leg_id === "a1" && o.item === "claims" && o.pair === 0);
     const gpk = gowed ? readOrEmpty(gowed.packet) : "";
     ok("#1132 AC2: the Packet is named for its declared claim's index",
       !!gowed && /a1\.claims\.0\.md$/.test(gowed.packet), gowed ? gowed.packet : "(none)");
-    ok("#1132 AC2: its declared side carries THAT claim and not the Step's other one",
+    ok("#1132 AC2: its declared side carries THAT claim and not the Leg's other one",
       gpk.includes(CLAIMS.a1[0]) && !gpk.includes(CLAIMS.a1[1]), gpk.slice(0, 300));
     ok("#1132 AC2: its reverse side carries every claim the reader outlined",
       UNPAIRED.a1.every((c) => gpk.includes(c)));
@@ -8563,15 +8563,15 @@ async function runSelfTest() {
     const gv = join(gdir, "verdicts.json");
     writeFileSync(gv, JSON.stringify({
       verdicts: (grec.owed || []).map((o) => ({
-        step_id: o.step_id, item: o.item,
+        leg_id: o.leg_id, item: o.item,
         ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
         // ONE BEST-EFFORT FAIL, so the record below has a finding to compose a
         // pointer for. It is `purpose` rather than `claims`: a preserved fail
         // withholds `close`, and the acceptance this fixture exists for is that
         // `claims` HOLDS here.
-        ...(o.step_id === "a1" && o.item === "purpose"
+        ...(o.leg_id === "a1" && o.item === "purpose"
           ? { verdict: "fails", reason: "the passage is doing a different job from the declared one" }
-          : { verdict: "holds", reason: "the reader recovered the claim the Step declares" }),
+          : { verdict: "holds", reason: "the reader recovered the claim the Leg declares" }),
         model: JUDGE_MODEL,
       })),
     }, null, 2) + "\n");
@@ -8579,8 +8579,8 @@ async function runSelfTest() {
     ok("#996: the filled join completes", gc2.status === 0,
       `status ${gc2.status}: ${(gc2.stderr || "").split("\n")[0]}`);
     const grec2 = JSON.parse(readOrEmpty(join(GWS, "pass-1", "join.json")) || "{}");
-    const grow = (grec2.results || []).find((r) => r.step_id === "a1" && r.item === "claims");
-    ok("#996 ACCEPTANCE: `claims` HOLDS on a Step that faithfully realizes a two-claim Packet",
+    const grow = (grec2.results || []).find((r) => r.leg_id === "a1" && r.item === "claims");
+    ok("#996 ACCEPTANCE: `claims` HOLDS on a Leg that faithfully realizes a two-claim Packet",
       !!grow && grow.verdict === "holds", grow ? `verdict ${grow.verdict}` : "no claims row");
     ok("#996: and every one of its pairs was decided by the model",
       !!grow && (grow.pairs || []).every((x) => x.judged === true));
@@ -8607,7 +8607,7 @@ async function runSelfTest() {
         && !(grec.results || []).some((x) => x.item === gone)
         && !(grec.mechanical || []).some((m) => m.item === gone));
       const gf = join(gdir, `verdicts-${gone}.json`);
-      writeFileSync(gf, JSON.stringify({ verdicts: [{ step_id: "a1", item: gone,
+      writeFileSync(gf, JSON.stringify({ verdicts: [{ leg_id: "a1", item: gone,
         verdict: "holds", reason: "it reads fine", model: JUDGE_MODEL }] }) + "\n");
       const gr = gdrive("compare", "--verdicts", gf);
       ok(`#1132 AC1: and a verdict naming \`${gone}\` is refused as a pair nobody asked about`,
@@ -8627,7 +8627,7 @@ async function runSelfTest() {
     //
     // NO ROW IN THE SHIPPED TABLE CAN BUILD ONE ANY MORE, and that is worth
     // writing down rather than discovering. Every Harness-decided row on a
-    // prose Step is now a `when_declared_absent` arm, and every such arm
+    // prose Leg is now a `when_declared_absent` arm, and every such arm
     // answers `holds` — so it is never a finding. The one mechanical row left
     // is the figure's element-to-claim row, which is PRESERVED, so a run that
     // fails it is withheld from `close` altogether. The else branch in
@@ -8663,7 +8663,7 @@ async function runSelfTest() {
   // A CORRECTION THAT BREAKS WHAT HELD IS UNDONE, AND THE TWO PASSES ARE LAID
   // SIDE BY SIDE.
   //
-  // WHAT WAS OBSERVED, in the first full review run: a corrected Step failed in
+  // WHAT WAS OBSERVED, in the first full review run: a corrected Leg failed in
   // pass two an item it had HELD in pass one, and the Harness recorded that as
   // residue — indistinguishable from an item that failed in both passes — while
   // leaving the regressed prose in the article. The run's product was an article
@@ -8671,7 +8671,7 @@ async function runSelfTest() {
   //
   // ITS OWN BRIEF, for the reason the #880, #945 and #1132 drives state about
   // theirs: the correction drive above turns on which preserved item fails on
-  // which Step, and a regression added to it would move cases that measure
+  // which Leg, and a regression added to it would move cases that measure
   // something else. This one is built for one arrangement — c1 regresses and
   // c2's correction holds — because that is what acceptance 2 names, and it is
   // also what produces one row of every outcome word for acceptance 3.
@@ -8709,7 +8709,7 @@ async function runSelfTest() {
       "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
       "## Opening question", "", "What makes the fixture claim worth stating?", "",
       "## Sequence", "",
-      "```step", "step_id: c1", "move: plain_move", "opens_section: The only heading",
+      "```leg", "leg_id: c1", "move: plain_move", "opens_section: The only heading",
       "purpose: the job c1 does.",
       "reader_state_before: the reader arrives at c1 holding nothing in particular.",
       "reader_state_after: the reader leaves c1 able to say what separates the two harbours.",
@@ -8718,7 +8718,7 @@ async function runSelfTest() {
       "rationale: c1 sits here because the path put it here.",
       "claim (strand L1): the first harbour keeps its own hours.",
       "```", "",
-      "```step", "step_id: c2", "move: plain_move",
+      "```leg", "leg_id: c2", "move: plain_move",
       "purpose: the job c2 does.",
       "reader_state_before: the reader arrives at c2 holding what c1 settled.",
       "reader_state_after: the reader leaves c2 able to say who did the measuring.",
@@ -8726,7 +8726,7 @@ async function runSelfTest() {
       "rationale: c2 sits here because the path put it here.",
       "claim (strand L1): a table records what somebody measured on days somebody chose.",
       "```", "",
-      "```step", "step_id: c3", "move: plain_move",
+      "```leg", "leg_id: c3", "move: plain_move",
       "purpose: the job c3 does.",
       "reader_state_before: the reader arrives at c3 holding what c2 settled.",
       "reader_state_after: the reader leaves c3 able to say what the measurement is worth.",
@@ -8747,7 +8747,7 @@ async function runSelfTest() {
     };
     let gBuilt = gdl("resolve").status === 0;
     for (const id of ["c1", "c2", "c3"]) {
-      gBuilt = gBuilt && gdl("section", "--step", id, "--file", gFile(`g-${id}.md`, ORIGINAL[id])).status === 0;
+      gBuilt = gBuilt && gdl("section", "--leg", id, "--file", gFile(`g-${id}.md`, ORIGINAL[id])).status === 0;
     }
     gBuilt = gBuilt && gdl("emit").status === 0;
     const gDraft = join(gBrief, "draft.md");
@@ -8762,7 +8762,7 @@ async function runSelfTest() {
     const gRec = (id, tag) => {
       const f = join(gRoot, `rec-${tag}-${id}.md`);
       writeFileSync(f, [
-        "```step", `step_id: ${id}`,
+        "```leg", `leg_id: ${id}`,
         `purpose: the job ${id} does`,
         `reader_state_before: the reader arrives at ${id} holding what came before`,
         `reader_state_after: the reader leaves ${id} able to say what it settled`,
@@ -8772,7 +8772,7 @@ async function runSelfTest() {
       return f;
     };
     // Answer every pair the record says was asked, failing exactly the named
-    // (Step, item)s. Driven off the record's OWN list rather than a transcribed
+    // (Leg, item)s. Driven off the record's OWN list rather than a transcribed
     // one, for the reason `answerOwed` gives: a transcript would pass while the
     // Harness asked about something else.
     const gAnswer = (recordPath, tag, failKeys, from = "owed") => {
@@ -8781,9 +8781,9 @@ async function runSelfTest() {
       const f = join(gRoot, `verdicts-${tag}.json`);
       writeFileSync(f, JSON.stringify({
         verdicts: asked.map((o) => {
-          const failing = failKeys.includes(`${o.step_id}/${o.item}`);
+          const failing = failKeys.includes(`${o.leg_id}/${o.item}`);
           return {
-            step_id: o.step_id, item: o.item,
+            leg_id: o.leg_id, item: o.item,
             ...(o.pair === null || o.pair === undefined ? {} : { pair: o.pair }),
             verdict: failing ? "fails" : "holds",
             reason: failing
@@ -8797,25 +8797,25 @@ async function runSelfTest() {
     };
 
     GD("open");
-    for (const id of ["c1", "c2", "c3"]) GD("outline", "--step", id, "--file", gRec(id, "p1"));
+    for (const id of ["c1", "c2", "c3"]) GD("outline", "--leg", id, "--file", gRec(id, "p1"));
     GD("compare");
     const gJoin = join(gWsRun, "pass-1", "join.json");
     // PASS ONE: c1 fails one preserved item, c2 fails two. Both go to
     // correction; c3 is corrected by nothing and is c2's successor.
     const gP1 = GD("compare", "--verdicts", gAnswer(gJoin, "p1",
       ["c1/reader-state-after", "c2/reader-state-before", "c2/claims"]));
-    ok("#1135: pass one sends both failing Steps to correction",
-      gP1.status === 0 && /Steps sent to correction[^\n]*c1, c2/.test(gP1.stdout),
+    ok("#1135: pass one sends both failing Legs to correction",
+      gP1.status === 0 && /Legs sent to correction[^\n]*c1, c2/.test(gP1.stdout),
       (gP1.stderr || "").slice(0, 200));
 
     const CORRECTED = {
       c1: "One harbour keeps hours of its own and the next keeps hours of its own, and the tide beneath them is one tide.\n\nThat is what the reader is asked to hold, and holding it is the whole of what this passage is for.",
       c2: "The hours are set down each spring by a person, and a skipper who trusts the setting-down has trusted that person rather than the water.",
     };
-    GD("correct", "--step", "c1");
-    const gC1 = GD("correct", "--step", "c1", "--file", gFile("g-c1-corrected.md", CORRECTED.c1));
-    GD("correct", "--step", "c2");
-    const gC2 = GD("correct", "--step", "c2", "--file", gFile("g-c2-corrected.md", CORRECTED.c2));
+    GD("correct", "--leg", "c1");
+    const gC1 = GD("correct", "--leg", "c1", "--file", gFile("g-c1-corrected.md", CORRECTED.c1));
+    GD("correct", "--leg", "c2");
+    const gC2 = GD("correct", "--leg", "c2", "--file", gFile("g-c2-corrected.md", CORRECTED.c2));
     ok("#1135: both corrections record through the realization lane",
       gC1.status === 0 && gC2.status === 0,
       `${(gC1.stderr || "").slice(0, 120)} | ${(gC2.stderr || "").slice(0, 120)}`);
@@ -8824,7 +8824,7 @@ async function runSelfTest() {
       && !readOrEmpty(gDraft).includes(ORIGINAL.c1));
 
     GD("check");
-    for (const id of ["c1", "c2"]) GD("outline", "--step", id, "--file", gRec(id, "p2"));
+    for (const id of ["c1", "c2"]) GD("outline", "--leg", id, "--file", gRec(id, "p2"));
     const gCheckPath = join(gWsRun, "pass-2", "check.json");
     GD("check");
     // PASS TWO. c1 FAILS `reader-state-before`, which it HELD in pass one — the
@@ -8836,66 +8836,66 @@ async function runSelfTest() {
     ok("#1135 AC1: `check` completes over the regressed pass and does not refuse it",
       gP2.status === 0, `status ${gP2.status}: ${(gP2.stderr || "").split("\n")[0]}`);
 
-    // --- ACCEPTANCE 1: the Step is restored, the restore is recorded, and the
+    // --- ACCEPTANCE 1: the Leg is restored, the restore is recorded, and the
     //     correction's own failed item is residue.
-    ok("#1135 AC1: the regressed Step is RESTORED to the prose it carried in pass one",
+    ok("#1135 AC1: the regressed Leg is RESTORED to the prose it carried in pass one",
       readOrEmpty(gDraft).includes(ORIGINAL.c1) && !readOrEmpty(gDraft).includes(CORRECTED.c1),
       readOrEmpty(gDraft).includes(CORRECTED.c1) ? "the corrected prose is still there" : "c1's pass-one prose is absent");
-    ok("#1135 AC1: and `check` says so, naming the Step and what it held then failed",
-      /RESTORED — pass two failed an item these Steps had HELD/.test(gP2.stdout)
+    ok("#1135 AC1: and `check` says so, naming the Leg and what it held then failed",
+      /RESTORED — pass two failed an item these Legs had HELD/.test(gP2.stdout)
       && /c1 {2}held then failed: reader-state-before/.test(gP2.stdout),
       gP2.stdout.split("\n").filter((l) => /RESTORED|held then failed/.test(l)).join(" | ") || "(no line)");
     const gRun = JSON.parse(readOrEmpty(join(gWsRun, "run.json")) || "{}");
-    ok("#1135 AC1: the restore is recorded in run.json, on the Step it undid",
-      (gRun.restores || []).length === 1 && gRun.restores[0].step_id === "c1"
+    ok("#1135 AC1: the restore is recorded in run.json, on the Leg it undid",
+      (gRun.restores || []).length === 1 && gRun.restores[0].leg_id === "c1"
       && (gRun.restores[0].regressed || []).some((x) => x.item === "reader-state-before"
         && x.pass_1 === "holds" && x.pass_2 === "fails"),
-      JSON.stringify((gRun.restores || []).map((r) => r.step_id)));
+      JSON.stringify((gRun.restores || []).map((r) => r.leg_id)));
     ok("#1135 AC1: with a snapshot pair of its own, before and after",
       (gRun.restores || []).length === 1
       && existsSync(gRun.restores[0].snapshot_before) && existsSync(gRun.restores[0].snapshot_after)
       && readOrEmpty(gRun.restores[0].snapshot_before).includes(CORRECTED.c1)
       && readOrEmpty(gRun.restores[0].snapshot_after).includes(ORIGINAL.c1));
     ok("#1135 AC1: the correction's own failed item is residue again, as still failing",
-      (gRun.residue || []).some((r) => r.step_id === "c1" && r.item === "reader-state-after"),
-      (gRun.residue || []).map((r) => `${r.step_id}/${r.item}`).join(", ") || "(empty)");
+      (gRun.residue || []).some((r) => r.leg_id === "c1" && r.item === "reader-state-after"),
+      (gRun.residue || []).map((r) => `${r.leg_id}/${r.item}`).join(", ") || "(empty)");
     ok("#1135 AC1: and its line says the correction made for it was UNDONE",
-      (gRun.residue || []).some((r) => r.step_id === "c1" && r.item === "reader-state-after"
+      (gRun.residue || []).some((r) => r.leg_id === "c1" && r.item === "reader-state-after"
         && /UNDONE/.test(r.why) && /restored to its pass-one prose/.test(r.why)),
-      ((gRun.residue || []).find((r) => r.step_id === "c1") || {}).why || "(no line)");
-    // DISCRIMINATION: a residue line on a Step that was NOT restored still reads
+      ((gRun.residue || []).find((r) => r.leg_id === "c1") || {}).why || "(no line)");
+    // DISCRIMINATION: a residue line on a Leg that was NOT restored still reads
     // as it always did. Without this the case above would pass on a run that
     // wrote the restore sentence onto every residue line.
-    ok("#1135 AC1 DISCRIMINATION: a residue line on an unrestored Step reads unchanged",
-      (gRun.residue || []).some((r) => r.step_id === "c2" && r.item === "claims"
+    ok("#1135 AC1 DISCRIMINATION: a residue line on an unrestored Leg reads unchanged",
+      (gRun.residue || []).some((r) => r.leg_id === "c2" && r.item === "claims"
         && /still failing after pass two/.test(r.why) && !/UNDONE/.test(r.why)),
-      ((gRun.residue || []).find((r) => r.step_id === "c2") || {}).why || "(no line)");
+      ((gRun.residue || []).find((r) => r.leg_id === "c2") || {}).why || "(no line)");
     // AND PASS ONE'S READING CAME BACK WITH THE PROSE. The rows for a restored
-    // Step carry pass one's verdicts, because the prose they were given on is
+    // Leg carry pass one's verdicts, because the prose they were given on is
     // the prose the Draft carries again — a pass-two verdict left standing
     // beside restored prose would be a recorded reading about text that is gone,
     // which is the defect this whole Harness is about.
     {
       const gChk = JSON.parse(readOrEmpty(gCheckPath) || "{}");
-      const rowOf = (s, i) => (gChk.results || []).find((r) => r.step_id === s && r.item === i);
-      ok("#1135 AC1: a restored Step's rows carry pass one's verdict and say they are restored",
+      const rowOf = (s, i) => (gChk.results || []).find((r) => r.leg_id === s && r.item === i);
+      ok("#1135 AC1: a restored Leg's rows carry pass one's verdict and say they are restored",
         rowOf("c1", "reader-state-before")?.verdict === "holds"
         && rowOf("c1", "reader-state-before")?.restored === true
         && rowOf("c1", "reader-state-after")?.verdict === "fails",
-        JSON.stringify((gChk.results || []).filter((r) => r.step_id === "c1")
+        JSON.stringify((gChk.results || []).filter((r) => r.leg_id === "c1")
           .map((r) => `${r.item}:${r.verdict}`)));
       ok("#1135 AC1: and the pass's own record names the restore",
-        (gChk.restores || []).length === 1 && gChk.restores[0].step_id === "c1");
+        (gChk.restores || []).length === 1 && gChk.restores[0].leg_id === "c1");
     }
 
-    // --- ACCEPTANCE 2: restoring a Step touches no other Step --------------
-    ok("#1135 AC2: the later corrected Step keeps its corrected prose",
+    // --- ACCEPTANCE 2: restoring a Leg touches no other Leg --------------
+    ok("#1135 AC2: the later corrected Leg keeps its corrected prose",
       readOrEmpty(gDraft).includes(CORRECTED.c2) && !readOrEmpty(gDraft).includes(ORIGINAL.c2));
     ok("#1135 AC2: and carries no continuity mark — no restore record, no marked row",
-      !(gRun.restores || []).some((r) => r.step_id === "c2")
+      !(gRun.restores || []).some((r) => r.leg_id === "c2")
       && !(JSON.parse(readOrEmpty(gCheckPath) || "{}").results || [])
-        .some((r) => r.step_id !== "c1" && r.restored));
-    ok("#1135 AC2: and the Step neither corrected nor restored is untouched too",
+        .some((r) => r.leg_id !== "c1" && r.restored));
+    ok("#1135 AC2: and the Leg neither corrected nor restored is untouched too",
       readOrEmpty(gDraft).includes(ORIGINAL.c3));
 
     // --- ACCEPTANCE 3: `passes.json`, one row per outcome word -------------
@@ -8903,16 +8903,16 @@ async function runSelfTest() {
     ok("#1135 AC3: `passes.json` is written at the RUN ROOT, beside run.json",
       existsSync(join(gWsRun, "passes.json"))
       && !existsSync(join(gWsRun, "pass-2", "passes.json")));
-    ok("#1135 AC3: every row is keyed by Step, item and pair and carries both passes",
+    ok("#1135 AC3: every row is keyed by Leg, item and pair and carries both passes",
       (gPasses.rows || []).length > 0
-      && gPasses.rows.every((r) => typeof r.step_id === "string" && typeof r.item === "string"
+      && gPasses.rows.every((r) => typeof r.leg_id === "string" && typeof r.item === "string"
         && "pair" in r && "pass_1" in r && "pass_2" in r && "outcome" in r),
       `${(gPasses.rows || []).length} row(s)`);
     // THE ACCEPTANCE ITSELF: one row per outcome word, on this fixture. Each
     // word is asserted with the pair it is true of, not merely counted — a
     // count alone would pass on five rows all labelled the same way if the
     // labelling were wrong in a compensating direction.
-    const gRow = (s, i) => (gPasses.rows || []).find((r) => r.step_id === s && r.item === i);
+    const gRow = (s, i) => (gPasses.rows || []).find((r) => r.leg_id === s && r.item === i);
     for (const w of ["held", "fixed", "still-failing", "regressed", "carried"]) {
       ok(`#1135 AC3: at least one row carries the outcome \`${w}\``,
         (gPasses.rows || []).some((r) => r.outcome === w),
@@ -8951,12 +8951,12 @@ async function runSelfTest() {
     const gRev = readOrEmpty(join(gBrief, "review.md"));
     ok("#1135 AC4: close writes the owner record over a run that restored",
       gCl.status === 0 && gRev.length > 0, (gCl.stderr || "").split("\n")[0]);
-    ok("#1135 AC4: and records the restore UNDER the Step it undid",
+    ok("#1135 AC4: and records the restore UNDER the Leg it undid",
       /- \*\*c1\*\* \(pass 1\)[^]*?- \*\*RESTORED in pass two\.\*\*/.test(gRev),
       (gRev.split("\n").filter((l) => /RESTORED/.test(l)).join(" | ") || "(no line)"));
     ok("#1135 AC4: naming the item that held then failed, with the reason",
       /held in pass one, failed in pass two: /.test(gRev));
-    ok("#1135 AC4 DISCRIMINATION: and writes no such line under the Step that was not restored",
+    ok("#1135 AC4 DISCRIMINATION: and writes no such line under the Leg that was not restored",
       !/- \*\*c2\*\*[^]*?RESTORED in pass two/.test(gRev.slice(gRev.indexOf("## Corrections"),
         gRev.indexOf("## Residue"))));
     ok("#1135 AC4: the layout legend names `passes.json` and what its rows carry",
@@ -8999,7 +8999,7 @@ async function runSelfTest() {
     mkdirSync(uDir, { recursive: true });
     const fm = (extra) => [
       "---", "brief: brief.md", "brief_pin: sha256:0000", ...extra, "trace:",
-      `  - {"step_id":"u1","lines":[99,99],"packet":"packet.md","packet_sha":"${sha256("x")}"}`,
+      `  - {"leg_id":"u1","lines":[99,99],"packet":"packet.md","packet_sha":"${sha256("x")}"}`,
       "---", "", "x", "",
     ].join("\n");
     const jaPath = join(uDir, "draft.ja.md");
@@ -9078,7 +9078,7 @@ async function runSelfTest() {
         "excerpt: >-", "  the author's account of the movement they observed.",
       ].join("\n") + "\n");
     }
-    const STEPS = [
+    const LEGS = [
       { id: "l1", move: "open_the_claim", opens: "はじめに" },
       { id: "l2", move: "carry_the_claim", opens: null },
     ];
@@ -9093,7 +9093,7 @@ async function runSelfTest() {
       "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
       "## Opening question", "", "What makes the fixture claim worth stating?", "",
       "## Sequence", "",
-      ...STEPS.flatMap((s) => ["```step", `step_id: ${s.id}`, `move: ${s.move}`,
+      ...LEGS.flatMap((s) => ["```leg", `leg_id: ${s.id}`, `move: ${s.move}`,
         ...(s.opens ? [`opens_section: ${s.opens}`] : []),
         `purpose: the job ${s.id} does.`,
         `reader_state_before: the reader arrives at ${s.id} holding what came before.`,
@@ -9125,15 +9125,15 @@ async function runSelfTest() {
       l2: "So the table on the harbour wall is a record of what someone measured, not a promise.",
     };
     let built = dl(null, "resolve").status === 0;
-    for (const s of STEPS) built = dl(null, "section", "--step", s.id, "--file", proseFile("en", s.id, EN[s.id])).status === 0 && built;
+    for (const s of LEGS) built = dl(null, "section", "--leg", s.id, "--file", proseFile("en", s.id, EN[s.id])).status === 0 && built;
     built = dl(null, "emit").status === 0 && built;
     const enDraftPath = join(lBrief, "draft.md");
     ok("#1160: the English track builds first, from the same Brief the Japanese track will realize",
       built && existsSync(enDraftPath));
     const enBefore = {
       draft: readOrEmpty(enDraftPath),
-      packets: Object.fromEntries(STEPS.map((s) => [s.id, readOrEmpty(join(dws, "packets", `${s.id}.md`))])),
-      sections: Object.fromEntries(STEPS.map((s) => [s.id, readOrEmpty(join(dws, "sections", `${s.id}.md`))])),
+      packets: Object.fromEntries(LEGS.map((s) => [s.id, readOrEmpty(join(dws, "packets", `${s.id}.md`))])),
+      sections: Object.fromEntries(LEGS.map((s) => [s.id, readOrEmpty(join(dws, "sections", `${s.id}.md`))])),
     };
 
     // The Japanese track, over the SAME Brief and the SAME draft.mjs
@@ -9144,7 +9144,7 @@ async function runSelfTest() {
       l2: "だから岸壁の表は誰かが測った記録であり、約束ではない。",
     };
     let builtJa = dl("ja", "resolve").status === 0;
-    for (const s of STEPS) builtJa = dl("ja", "section", "--step", s.id, "--file", proseFile("ja", s.id, JA[s.id])).status === 0 && builtJa;
+    for (const s of LEGS) builtJa = dl("ja", "section", "--leg", s.id, "--file", proseFile("ja", s.id, JA[s.id])).status === 0 && builtJa;
     builtJa = dl("ja", "emit").status === 0 && builtJa;
     const jaDraftPath = join(lBrief, "draft.ja.md");
     ok("#1160: the Japanese track realizes to `draft.ja.md`, sibling to (never over) `draft.md`",
@@ -9162,8 +9162,8 @@ async function runSelfTest() {
     const recFor = (id) => {
       const f = join(lRoot, `rec-${id}.md`);
       writeFileSync(f, [
-        "```step",
-        `step_id: ${id}`,
+        "```leg",
+        `leg_id: ${id}`,
         `purpose: the job ${id} does`,
         `reader_state_before: the reader arrives at ${id} holding what came before`,
         `reader_state_after: the reader leaves ${id} able to say what it settled`,
@@ -9178,9 +9178,9 @@ async function runSelfTest() {
       const f = join(lRoot, "verdicts.json");
       writeFileSync(f, JSON.stringify({
         verdicts: owed.map((o) => {
-          const failing = failKeys.includes(`${o.step_id}/${o.item}`);
+          const failing = failKeys.includes(`${o.leg_id}/${o.item}`);
           return {
-            step_id: o.step_id, item: o.item,
+            leg_id: o.leg_id, item: o.item,
             ...(o.pair === null ? {} : { pair: o.pair }),
             verdict: failing ? "fails" : "holds",
             reason: failing
@@ -9196,18 +9196,18 @@ async function runSelfTest() {
     const rOpen = RD("open");
     ok("#1160: `open` accepts the Japanese Draft — Lint already ran and its `terms_sha_at_lint` is current",
       rOpen.status === 0, (rOpen.stderr || "").split("\n")[0]);
-    for (const s of STEPS) RD("outline", "--step", s.id, "--file", recFor(s.id));
+    for (const s of LEGS) RD("outline", "--leg", s.id, "--file", recFor(s.id));
     RD("compare");
     const joinPath = join(lWsRun, "pass-1", "join.json");
     const p1 = RD("compare", "--verdicts", answer(joinPath, ["l1/reader-state-after"]));
-    ok("#1160: pass one sends the Japanese Draft's failing Step to correction",
-      p1.status === 0 && /Steps sent to correction[^\n]*l1/.test(p1.stdout), p1.stdout);
+    ok("#1160: pass one sends the Japanese Draft's failing Leg to correction",
+      p1.status === 0 && /Legs sent to correction[^\n]*l1/.test(p1.stdout), p1.stdout);
 
     // --- ACCEPTANCE 2: the fresh Packet carries the language block and the
     //     fluency notes, on the correction path exactly as at generation.
-    const rA = RD("correct", "--step", "l1");
+    const rA = RD("correct", "--leg", "l1");
     const inputPath = join(lWsRun, "pass-1", "corrections", "l1.md");
-    ok("#1160 AC2: correct's phase A renders a correction input for the Japanese Step",
+    ok("#1160 AC2: correct's phase A renders a correction input for the Japanese Leg",
       rA.status === 0 && existsSync(inputPath), (rA.stderr || "").split("\n")[0]);
     const inA = readOrEmpty(inputPath);
     ok("#1160 AC2: the fresh Packet in the correction input carries the language block",
@@ -9217,19 +9217,19 @@ async function runSelfTest() {
 
     // --- ACCEPTANCE 1: phase B writes only the Japanese track. The English
     //     Packets, Sections and Draft this run built first are untouched.
-    const rB = RD("correct", "--step", "l1", "--file", proseFile("ja-corrected", "l1",
+    const rB = RD("correct", "--leg", "l1", "--file", proseFile("ja-corrected", "l1",
       "潮の時刻は港ごとに違い、それを見誤った船だけが違う時刻に着く。"));
     ok("#1160 AC1: correct's phase B records the corrected Japanese realization",
       rB.status === 0, (rB.stderr || "").split("\n")[0]);
     ok("#1160 AC1: `draft.md` (English) is byte-identical to before the correction",
       readOrEmpty(enDraftPath) === enBefore.draft);
     ok("#1160 AC1: every English Packet is byte-identical to before the correction",
-      STEPS.every((s) => readOrEmpty(join(dws, "packets", `${s.id}.md`)) === enBefore.packets[s.id]));
+      LEGS.every((s) => readOrEmpty(join(dws, "packets", `${s.id}.md`)) === enBefore.packets[s.id]));
     ok("#1160 AC1: every English Section is byte-identical to before the correction",
-      STEPS.every((s) => readOrEmpty(join(dws, "sections", `${s.id}.md`)) === enBefore.sections[s.id]));
+      LEGS.every((s) => readOrEmpty(join(dws, "sections", `${s.id}.md`)) === enBefore.sections[s.id]));
     ok("#1160 AC1 DISCRIMINATION: the Japanese Draft DID move — the correction landed somewhere",
       readOrEmpty(jaDraftPath) !== "" && /潮の時刻は港ごとに違い/.test(readOrEmpty(jaDraftPath)));
-    ok("#1160: the corrected Step's Section is written under `sections/ja/`, never `sections/`",
+    ok("#1160: the corrected Leg's Section is written under `sections/ja/`, never `sections/`",
       /潮の時刻は港ごとに違い/.test(readOrEmpty(join(dws, "sections", "ja", "l1.md"))));
     ok("#1160: and its re-rendered Packet is written under `packets/ja/`, never `packets/`",
       existsSync(join(dws, "packets", "ja", "l1.md")));

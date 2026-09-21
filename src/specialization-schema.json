@@ -1,7 +1,7 @@
 {
   "note": [
-    "The Step-to-Move specialization verdict record, machine-readable",
-    "(SPEC-draft-pipeline \"The Step\u2194Move instantiation contract\" is the prose",
+    "The Leg-to-Move specialization verdict record, machine-readable",
+    "(SPEC-draft-pipeline \"The Leg\u2194Move instantiation contract\" is the prose",
     "half; kogaki#747, owner rulings",
     "2026-09-01). src/compose.mjs READS these lists rather than restating",
     "them, and checks/check-brief-compose.sh reads them too — this file is",
@@ -12,7 +12,7 @@
     "WHAT THE HARNESS DOES WITH THIS FILE, stated here because the",
     "distinction is the whole design: it VALIDATES a record against these",
     "lists and it NEVER COMPOSES one. No default verdict exists, no verdict",
-    "is inferred from a Step's fields, and a missing record is a refusal",
+    "is inferred from a Leg's fields, and a missing record is a refusal",
     "rather than a blank to fill. The judgment is the composing sitting's;",
     "the mechanism owns only the record's shape and the refusal.",
     "",
@@ -24,7 +24,7 @@
     "already drifted into eight variants, which is what kogaki#982 collapsed.",
     "",
     "THE NAMES THIS FILE USES, and the spec each one names:",
-    "  The Step\u2194Move instantiation contract",
+    "  The Leg\u2194Move instantiation contract",
     "      SPEC-draft-pipeline"
   ],
   "version": "1",
@@ -37,11 +37,11 @@
     }
   },
   "verdict": {
-    "required": ["step_id", "move", "verdict", "why"],
-    "move_must_equal_step_move": true,
+    "required": ["leg_id", "move", "verdict", "why"],
+    "move_must_equal_leg_move": true,
     "why_min_words": 4,
-    "one_per_step_exactly": true,
-    "one_per_step_rationale": "a missing verdict and an extra verdict are both refusals, because a per-Step obligation that tolerates a short list is skippable one Step at a time"
+    "one_per_leg_exactly": true,
+    "one_per_leg_rationale": "a missing verdict and an extra verdict are both refusals, because a per-Leg obligation that tolerates a short list is skippable one Leg at a time"
   },
   "disclosure": {
     "note": [
@@ -61,7 +61,7 @@
       "write -- so it was covering for the fact that the Model owned the whole",
       "composition, schema included. kogaki#1108 removes that: the Brief runs on a",
       "Harness-owned workflow table, the path-composition state renders",
-      "src/step-schema.json into the prompt, and the executor validates every",
+      "src/leg-schema.json into the prompt, and the executor validates every",
       "judgment record against the state's own refusals. With the Model's freedom",
       "confined to the field values of schemas the Harness declares, asking the",
       "owner to ratify one of those records is a third question buying nothing the",
@@ -85,7 +85,7 @@
     },
     "digest": {
       "algorithm": "sha256",
-      "over": "the canonical JSON [version, candidate_id, [[step_id, move, verdict, why], ...]] with verdicts in the ADOPTED PATH's order",
+      "over": "the canonical JSON [version, candidate_id, [[leg_id, move, verdict, why], ...]] with verdicts in the ADOPTED PATH's order",
       "rationale": "path order rather than record order, so a record whose verdicts are merely reordered digests identically and a record whose judgment changed does not. It names the record in the disclosure sentence; since kogaki#1108 it binds no capture, because no capture is taken"
     }
   },
@@ -110,8 +110,8 @@
   },
   "refusal": {
     "deterministic": true,
-    "names_first_failing_step": true,
+    "names_first_failing_leg": true,
     "quotes_the_why": true,
-    "rationale": "the record's `why` is the one sentence the composing sitting wrote about that Step, so the refusal hands it back rather than paraphrasing it"
+    "rationale": "the record's `why` is the one sentence the composing sitting wrote about that Leg, so the refusal hands it back rather than paraphrasing it"
   }
 }

@@ -58,16 +58,16 @@ Every file below, with who writes it, what it is the input to, and what reads it
 
 | File | Writer | Input to | Read by |
 |---|---|---|---|
-| `<pass>/outline-input/<step>.md` | `outline`, before the Step is read | the **Blind Reader** — the model that writes the Reverse Outline, which meets the Step's prose and nothing from the Packet that produced it | nobody else; `outline` refuses a Step whose input it did not render |
-| `<pass>/outline/<step>.md` | `outline`, recording the reply | — | kept as the Reverse Outline exactly as it was written, beside the parsed form |
-| `<pass>/outline/<step>.json` | `outline`, parsing that reply into the Brief's field names | `compare` and `check`, which join it against the Step's declared side | the owner record's evidence pointers |
-| `<pass>/outline/<step>.figure.json` | `outline`, on a Step whose reader met a figure | the figure's own Round Trip | the same pointers, for a `figure_only` row |
-| `<pass>/join/<step>.<item>[.<pair>].md` | `compare` (pass one) and `check` (pass two) | the **Judge** — one pair, one fixed question, one of `holds`/`fails`/`cannot-decide` plus a sentence | the owner record, which points a residue line at the Packet its verdict was given on |
-| `pass-1/corrections/<step>.md` | `correct`, rendering the input a correction is written from | the realization lane (`draft.mjs`), which re-realizes the Step | `correct` refuses a record not written against a rendered input |
-| `pass-1/corrections/<step>.figure.md` | `correct --figure`, the same for the figure seat | `draft.mjs figure`, which re-designs the figure record | the same refusal |
-| `pass-1/join.json` | `compare`, when every pair is answered | — | `check`, which carries pass one's rows for Steps it does not re-judge; `close`, which composes the owner record from it |
+| `<pass>/outline-input/<leg>.md` | `outline`, before the Leg is read | the **Blind Reader** — the model that writes the Reverse Outline, which meets the Leg's prose and nothing from the Packet that produced it | nobody else; `outline` refuses a Leg whose input it did not render |
+| `<pass>/outline/<leg>.md` | `outline`, recording the reply | — | kept as the Reverse Outline exactly as it was written, beside the parsed form |
+| `<pass>/outline/<leg>.json` | `outline`, parsing that reply into the Brief's field names | `compare` and `check`, which join it against the Leg's declared side | the owner record's evidence pointers |
+| `<pass>/outline/<leg>.figure.json` | `outline`, on a Leg whose reader met a figure | the figure's own Round Trip | the same pointers, for a `figure_only` row |
+| `<pass>/join/<leg>.<item>[.<pair>].md` | `compare` (pass one) and `check` (pass two) | the **Judge** — one pair, one fixed question, one of `holds`/`fails`/`cannot-decide` plus a sentence | the owner record, which points a residue line at the Packet its verdict was given on |
+| `pass-1/corrections/<leg>.md` | `correct`, rendering the input a correction is written from | the realization lane (`draft.mjs`), which re-realizes the Leg | `correct` refuses a record not written against a rendered input |
+| `pass-1/corrections/<leg>.figure.md` | `correct --figure`, the same for the figure seat | `draft.mjs figure`, which re-designs the figure record | the same refusal |
+| `pass-1/join.json` | `compare`, when every pair is answered | — | `check`, which carries pass one's rows for Legs it does not re-judge; `close`, which composes the owner record from it |
 | `pass-2/check.json` | `check`, when its own pairs are answered | — | `close` |
-| `snapshots/NN-{before,after}-<step>[.figure].md` | `correct`, around each correction | — | a reader asking what a correction moved; the Draft itself is the artifact |
+| `snapshots/NN-{before,after}-<leg>[.figure].md` | `correct`, around each correction | — | a reader asking what a correction moved; the Draft itself is the artifact |
 | `run.json` | every act | — | every act: it holds the Draft, the body sha, the pass, the bound, the findings, the residue and the register of every path the Harness wrote |
 
 **`join.json` and `check.json` are the surface to debug a run from.** Every row

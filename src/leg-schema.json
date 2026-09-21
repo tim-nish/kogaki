@@ -1,30 +1,30 @@
 {
   "note": [
-    "THE STEP RECORD'S SHAPE, AND THE TEXT THE MODEL IS SHOWN BEFORE IT",
+    "THE LEG RECORD'S SHAPE, AND THE TEXT THE MODEL IS SHOWN BEFORE IT",
     "COMPOSES ONE (kogaki#1108).",
     "",
     "WHAT THIS FILE IS FOR, stated first because it is what separates it from",
     "every other schema carrier in src/. The other schemas are read by a",
     "validator and by nothing else: they describe a record the composing party",
     "already knows the shape of. This one is read TWICE, and the second reader",
-    "is the point. `validateSteps` in src/compose.mjs reads the field set from",
+    "is the point. `validateLegs` in src/compose.mjs reads the field set from",
     "it, and the path-composition state of the Brief workflow table RENDERS it",
     "into the judge's prompt. So the text the Model composes against and the",
     "text the refusal enforces are one file and cannot disagree.",
     "",
     "THE DEFECT THIS CLOSES, measured on 2026-09-12 over the two live Briefs",
     "(theses/calling-saved-permission-durable-leaves and",
-    "theses/steps-real-quality-matter-degree). No file declared the Step's",
+    "theses/legs-real-quality-matter-degree). No file declared the Leg's",
     "fields or what they mean. The composer inferred the shape from",
     ".claude/skills/brief/SKILL.md's prose, wrote a Candidates JSON, and",
-    "`validateSteps` checked it afterwards -- so the only Harness text carrying",
+    "`validateLegs` checked it afterwards -- so the only Harness text carrying",
     "what a field means was a refusal string, seen only when shape had already",
     "failed. Claim cardinality drifted accordingly: the first Brief carried 1",
-    "to 3 claims per Step, the second 4 to 6, with up to six claims from one",
-    "Strand in a single Step.",
+    "to 3 claims per Leg, the second 4 to 6, with up to six claims from one",
+    "Strand in a single Leg.",
     "",
     "IT CARRIES THE RULES OVER THE WHOLE PATH TOO (kogaki#1147). The field",
-    "table below is about one Step; `path_rules` is about the sequence -- the",
+    "table below is about one Leg; `path_rules` is about the sequence -- the",
     "Section grouping, the order `depends_on` may name, the uniqueness of an id,",
     "the claim cardinality. Those were enforced in src/compose.mjs and stated",
     "nowhere a composer reads, so a path satisfied them by chance or learned",
@@ -44,13 +44,13 @@
     "`src/SPEC-REFERENCES.md`. It is not restated here.",
     "",
     "THE NAMES THIS FILE USES, and the spec each one names:",
-    "  The Step's shape",
+    "  The Leg's shape",
     "      SPEC-draft-pipeline",
     "  The claims rule",
     "      SPEC-draft-pipeline",
-    "  The Step and the Move it binds",
+    "  The Leg and the Move it binds",
     "      SPEC-draft-pipeline",
-    "  The Bridge Step and the revise pass",
+    "  The Bridge Leg and the revise pass",
     "      SPEC-draft-pipeline",
     "  The reader-knowledge ledger",
     "      SPEC-draft-pipeline",
@@ -62,75 +62,75 @@
     "      SPEC-draft-pipeline"
   ],
   "version": "1",
-  "what_a_step_is": [
-    "A Step is one move of the Reader Path: the smallest unit that takes the",
-    "reader from one state to another. `Step = Input + State` -- the Input is",
+  "what_a_leg_is": [
+    "A Leg is one move of the Reader Path: the smallest unit that takes the",
+    "reader from one state to another. `Leg = Input + State` -- the Input is",
     "the material it stands on (its Strands), and the State is the Move it",
     "binds, which is what names the kind of reader-state transition it makes.",
-    "A Step with no Move has no defined transition type and is not a Step.",
+    "A Leg with no Move has no defined transition type and is not a Leg.",
     "",
-    "The Step's shape is the field table below; The Step and the Move it binds is why `move` sits among its required fields."
+    "The Leg's shape is the field table below; The Leg and the Move it binds is why `move` sits among its required fields."
   ],
   "fields": {
-    "step_id": {
+    "leg_id": {
       "required": true,
       "type": "string",
-      "description": "This Step's own id, unique within the path. Other Steps address it through `depends_on`, and the specialization record carries one verdict per id."
+      "description": "This Leg's own id, unique within the path. Other Legs address it through `depends_on`, and the specialization record carries one verdict per id."
     },
     "materials": {
       "required": true,
       "type": "array of string",
       "min_length": 1,
-      "description": "The Strands this Step stands on, as LessonDisplayIDs (`L<n>`). A Step with no material asserts nothing on anyone's behalf."
+      "description": "The Strands this Leg stands on, as LessonDisplayIDs (`L<n>`). A Leg with no material asserts nothing on anyone's behalf."
     },
     "purpose": {
       "required": true,
       "type": "string",
-      "description": "What this Step is for in the path -- the work it does toward the adopted Thesis, in one or two sentences. A VERB ABOUT THE READER, carrying no proposition from the material: a purpose that could be true or false of the world is a claim in the wrong field."
+      "description": "What this Leg is for in the path -- the work it does toward the adopted Thesis, in one or two sentences. A VERB ABOUT THE READER, carrying no proposition from the material: a purpose that could be true or false of the world is a claim in the wrong field."
     },
     "reader_state_before": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Step begins. Judged at the specialization occasion against the Move's `requires`: a Step's before-state must be a consistent specialization of what its Move demands."
+      "description": "What the reader holds when this Leg begins. Judged at the specialization occasion against the Move's `requires`: a Leg's before-state must be a consistent specialization of what its Move demands."
     },
     "reader_state_after": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Step ends. Judged against the Move's `effect` the same way. The two state fields are the Step's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
+      "description": "What the reader holds when this Leg ends. Judged against the Move's `effect` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
     },
     "depends_on": {
       "required": true,
       "type": "array of string",
-      "description": "The EARLIER Steps whose conclusions this Step stands on, by `step_id`. May be empty. An id that is not an earlier Step is refused -- a dependency on a later Step is a path that cannot be read in order. The ordering rule is a property of the whole path and is stated in `path_rules` below.",
+      "description": "The EARLIER Legs whose conclusions this Leg stands on, by `leg_id`. May be empty. An id that is not an earlier Leg is refused -- a dependency on a later Leg is a path that cannot be read in order. The ordering rule is a property of the whole path and is stated in `path_rules` below.",
       "see": "path_rules"
     },
     "rationale": {
       "required": true,
       "type": "string",
-      "description": "Why this Step sits HERE, at this position, rather than earlier or later. The ORDER ARGUMENT, not a restatement of the purpose and not a claim the Step asserts."
+      "description": "Why this Leg sits HERE, at this position, rather than earlier or later. The ORDER ARGUMENT, not a restatement of the purpose and not a claim the Leg asserts."
     },
     "move": {
       "required": true,
       "type": "string",
-      "description": "The Move library entry this Step binds, by id. The Move IS the State component of a Step, so the binding is required rather than encouraged. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `requires` and `effect`, and an id outside it resolves to no record and is refused at composition, naming the Step and the id. The library grows by an admission act, never by a path naming an id (kogaki#1125)."
+      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg, so the binding is required rather than encouraged. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `requires` and `effect`, and an id outside it resolves to no record and is refused at composition, naming the Leg and the id. The library grows by an admission act, never by a path naming an id (kogaki#1125)."
     },
     "claims": {
       "required": true,
       "type": "array of claim",
       "min_length": 1,
-      "description": "What this Step ASSERTS, one entry per Strand it names in `materials`. A claim is a PROPOSITION ABOUT THE WORLD and names no reader; a claim that mentions the reader belongs in `purpose` or in a state field. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below -- the cardinality rule is the part most likely to be got wrong.",
+      "description": "What this Leg ASSERTS, one entry per Strand it names in `materials`. A claim is a PROPOSITION ABOUT THE WORLD and names no reader; a claim that mentions the reader belongs in `purpose` or in a state field. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below -- the cardinality rule is the part most likely to be got wrong.",
       "see": "claim"
     },
     "journeys": {
       "required": false,
       "type": "array of journey",
-      "description": "The Journeys this Step draws on, each naming the Strand whose Journey it takes and what the Step uses it for. A Journey is MATERIAL THE STEP EDITS, never an assertion the Step must recover -- it carries no claim, Reverse Outlining checks no fragment of it, and the Step Packet renders it as prose to edit for the Move's purpose. Nothing here bounds how many a Step declares: a Step telling two cases for one claim is a path-review judgment, the way the number of claims is bounded by the Step's materials rather than by a number. See `journey` below.",
+      "description": "The Journeys this Leg draws on, each naming the Strand whose Journey it takes and what the Leg uses it for. A Journey is MATERIAL THE LEG EDITS, never an assertion the Leg must recover -- it carries no claim, Reverse Outlining checks no fragment of it, and the Leg Packet renders it as prose to edit for the Move's purpose. Nothing here bounds how many a Leg declares: a Leg telling two cases for one claim is a path-review judgment, the way the number of claims is bounded by the Leg's materials rather than by a number. See `journey` below.",
       "see": "journey"
     },
     "entailed": {
       "required": false,
       "type": "boolean",
-      "description": "True where a proposition this Step asserts is not explicit in the material and is reached by inference. The flag is the composer's judgment; the Harness refuses only a flag with no reasoning beside it."
+      "description": "True where a proposition this Leg asserts is not explicit in the material and is reached by inference. The flag is the composer's judgment; the Harness refuses only a flag with no reasoning beside it."
     },
     "entailment_reasoning": {
       "required": false,
@@ -141,49 +141,49 @@
     "bridges": {
       "required": false,
       "type": "array of exactly two string",
-      "description": "Present only on a Step inserted between two adjacent Steps during the revise pass; names that adjacent pair by `step_id`. It is disclosed at the Candidate-selection gate, so an unvalidated marking would render at an owner surface. The Bridge Step and the revise pass is where that insertion is defined."
+      "description": "Present only on a Leg inserted between two adjacent Legs during the revise pass; names that adjacent pair by `leg_id`. It is disclosed at the Candidate-selection gate, so an unvalidated marking would render at an owner surface. The Bridge Leg and the revise pass is where that insertion is defined."
     },
     "introduces": {
       "required": false,
       "type": "array of string",
-      "description": "Terms this Step introduces to the reader for the first time. The accumulated ledger the Step Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds."
+      "description": "Terms this Leg introduces to the reader for the first time. The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds."
     },
     "opens_section": {
       "required": false,
       "type": "string",
-      "description": "Present on a Step that opens a Section of the finished article; carries that Section's name. The four grouping rules are a property of the WHOLE PATH and run after every Step is known to be well formed -- they are stated in `path_rules` below, as the validator checks them, and three of the four refuse. The Section grouping carries the four rules.",
+      "description": "Present on a Leg that opens a Section of the finished article; carries that Section's name. The four grouping rules are a property of the WHOLE PATH and run after every Leg is known to be well formed -- they are stated in `path_rules` below, as the validator checks them, and three of the four refuse. The Section grouping carries the four rules.",
       "see": "path_rules"
     },
     "figure": {
       "required": false,
       "type": "string",
-      "description": "The composer's statement of what a figure lets the reader hold here that the prose leaves hard to hold. The default is NO figure: a Step without this field has none and nothing asks about it. The figure decision is where the field is defined."
+      "description": "The composer's statement of what a figure lets the reader hold here that the prose leaves hard to hold. The default is NO figure: a Leg without this field has none and nothing asks about it. The figure decision is where the field is defined."
     },
     "figure_roles": {
       "required": false,
       "type": "object mapping role -> g<n>",
       "required_when": "figure is present",
-      "description": "Binds every role of the Move's `visual_form` to one of THIS Step's own claims, addressed `g<n>` and numbered from 1 in the order the claims are declared. A role bound to another Step's claim is unreachable by construction: the address space is this Step's claims and has no syntax for anyone else's."
+      "description": "Binds every role of the Move's `visual_form` to one of THIS Leg's own claims, addressed `g<n>` and numbered from 1 in the order the claims are declared. A role bound to another Leg's claim is unreachable by construction: the address space is this Leg's claims and has no syntax for anyone else's."
     },
     "relations": {
       "required": false,
       "type": "array of relation",
-      "description": "Which of this Step's `claims` and `introduces` entries are SATELLITES, and of which NUCLEUS -- the relations layer (kogaki#1174). Every item this field does not name is a nucleus BY DEFAULT: the field marks subordination and nothing else, so a Step composed before this field, or one carrying no satellite, renders exactly as it always did. See `relation` below for the address grammar and the closed relation set.",
+      "description": "Which of this Leg's `claims` and `introduces` entries are SATELLITES, and of which NUCLEUS -- the relations layer (kogaki#1174). Every item this field does not name is a nucleus BY DEFAULT: the field marks subordination and nothing else, so a Leg composed before this field, or one carrying no satellite, renders exactly as it always did. See `relation` below for the address grammar and the closed relation set.",
       "see": "relation"
     },
     "budget": {
       "required": false,
       "type": "integer",
-      "description": "The word bound this Step's realized prose may spend, rendered in the Packet's write instruction. A LIMIT THE WRITER SEES, never a target to reach -- its absence means no bound is declared, and nothing asks about it."
+      "description": "The word bound this Leg's realized prose may spend, rendered in the Packet's write instruction. A LIMIT THE WRITER SEES, never a target to reach -- its absence means no bound is declared, and nothing asks about it."
     }
   },
   "path_rules": {
     "note": [
       "THE RULES OVER THE WHOLE PATH, AND WHY THEY ARE DECLARED HERE",
-      "(kogaki#1147). Everything above is a rule about ONE Step, and a composer",
-      "was already shown it. The rules below are about the PATH -- a Step's",
+      "(kogaki#1147). Everything above is a rule about ONE Leg, and a composer",
+      "was already shown it. The rules below are about the PATH -- a Leg's",
       "relation to its neighbours, and the sequence taken as a whole -- and until",
-      "this issue they lived in code alone: `validateSteps` and",
+      "this issue they lived in code alone: `validateLegs` and",
       "`sectionGroupingRefusal` in src/compose.mjs raised them, and the composing",
       "party met one for the first time in a refusal that had already cost one of",
       "its three attempts. Two runs on 2026-09-18 died at path composition on the",
@@ -210,59 +210,59 @@
       "rule that keeps it there.",
       "",
       "The Section grouping is where the four Section rules are ratified; the",
-      "Step's shape carries the path's own order and the uniqueness of an id; the",
+      "Leg's shape carries the path's own order and the uniqueness of an id; the",
       "claims rule carries the cardinality."
     ],
     "path_is_non_empty": {
       "class": "checked",
-      "name": "the Step's shape -- a path is an ordered sequence of Steps",
-      "rule": "A composed path is a NON-EMPTY, ORDERED array of Step records, read in the order it is written."
+      "name": "the Leg's shape -- a path is an ordered sequence of Legs",
+      "rule": "A composed path is a NON-EMPTY, ORDERED array of Leg records, read in the order it is written."
     },
-    "step_id_unique": {
+    "leg_id_unique": {
       "class": "checked",
-      "name": "the Step's shape -- one id per Step",
-      "rule": "Each `step_id` is unique within the path. Two Steps sharing an id leave every `depends_on` naming it ambiguous, and the specialization record carries one verdict per id, so it would address both at once."
+      "name": "the Leg's shape -- one id per Leg",
+      "rule": "Each `leg_id` is unique within the path. Two Legs sharing an id leave every `depends_on` naming it ambiguous, and the specialization record carries one verdict per id, so it would address both at once."
     },
     "depends_on_ordering": {
       "class": "checked",
-      "name": "the Step's shape -- depends_on names an EARLIER Step",
-      "rule": "Every id in a Step's `depends_on` names a Step EARLIER in the path. An id that is not an earlier Step -- a later one, or one no Step carries -- is a path that cannot be read in order."
+      "name": "the Leg's shape -- depends_on names an EARLIER Leg",
+      "rule": "Every id in a Leg's `depends_on` names a Leg EARLIER in the path. An id that is not an earlier Leg -- a later one, or one no Leg carries -- is a path that cannot be read in order."
     },
     "one_claim_per_strand": {
       "class": "checked",
-      "name": "the claims rule -- one claim per Strand, per Step",
-      "rule": "A Step asserts ONE claim on behalf of each Strand it names in `materials`. A Strand that serves several Steps carries a DIFFERENT claim in each -- that is what makes the path a sequence rather than a restatement -- so the repair for a second claim is to move it to the Step where the reader needs it, or to drop it, never to merge the two into a longer proposition."
+      "name": "the claims rule -- one claim per Strand, per Leg",
+      "rule": "A Leg asserts ONE claim on behalf of each Strand it names in `materials`. A Strand that serves several Legs carries a DIFFERENT claim in each -- that is what makes the path a sequence rather than a restatement -- so the repair for a second claim is to move it to the Leg where the reader needs it, or to drop it, never to merge the two into a longer proposition."
     },
     "section_rule_1": {
       "class": "judgment",
       "name": "the Section grouping rule 1",
-      "rule": "A Step OPENS a Section when it changes the reader's question -- its `purpose` answers a question the previous Step did not pose, or its `introduces` names a term later Steps use. This is the positive case and it is YOURS TO JUDGE: nothing checks it, and its violation is exactly rule 2's refusal."
+      "rule": "A Leg OPENS a Section when it changes the reader's question -- its `purpose` answers a question the previous Leg did not pose, or its `introduces` names a term later Legs use. This is the positive case and it is YOURS TO JUDGE: nothing checks it, and its violation is exactly rule 2's refusal."
     },
     "section_rule_2": {
       "class": "checked",
       "name": "the Section grouping rule 2",
-      "rule": "A Step CONTINUES the current Section when it develops the previous one -- when its `depends_on` is exactly the immediately preceding Step AND its `materials` overlap that Step's. A Step that develops its predecessor may not open a new Section."
+      "rule": "A Leg CONTINUES the current Section when it develops the previous one -- when its `depends_on` is exactly the immediately preceding Leg AND its `materials` overlap that Leg's. A Leg that develops its predecessor may not open a new Section."
     },
     "section_rule_3": {
       "class": "checked",
       "name": "the Section grouping rule 3",
-      "rule": "The FIRST Step of the path always opens a Section. A path that declares `opens_section` nowhere renders as one unbroken run of prose, which is the second of the two drafts the 2026-09-03 ruling rejected."
+      "rule": "The FIRST Leg of the path always opens a Section. A path that declares `opens_section` nowhere renders as one unbroken run of prose, which is the second of the two drafts the 2026-09-03 ruling rejected."
     },
     "section_rule_4": {
       "class": "checked",
       "name": "the Section grouping rule 4",
-      "rule": "TWO ADJACENT SECTIONS HOLDING EXACTLY ONE STEP EACH are refused with a request to MERGE them, because a heading on every Step is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason.",
-      "the_other_clause": "Rule 4's other clause -- a Section running past roughly a display and a half of prose without a heading -- measures REALIZED PROSE, which no Brief contains. It is a named deferred slot in the Section grouping: it binds your judgment while you group the Steps, and no refusal reads it."
+      "rule": "TWO ADJACENT SECTIONS HOLDING EXACTLY ONE LEG EACH are refused with a request to MERGE them, because a heading on every Leg is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason.",
+      "the_other_clause": "Rule 4's other clause -- a Section running past roughly a display and a half of prose without a heading -- measures REALIZED PROSE, which no Brief contains. It is a named deferred slot in the Section grouping: it binds your judgment while you group the Legs, and no refusal reads it."
     },
-    "reader_start_binds_first_step": {
+    "reader_start_binds_first_leg": {
       "class": "checked",
-      "name": "Reader start binds the first Step",
-      "rule": "The FIRST Step's `reader_state_before` is the Brief's Reader start, verbatim. Reader start is the direction for the initial reader pull; a first Step that begins somewhere else has the reader arriving at a Brief the article never opens from (kogaki#1151)."
+      "name": "Reader start binds the first Leg",
+      "rule": "The FIRST Leg's `reader_state_before` is the Brief's Reader start, verbatim. Reader start is the direction for the initial reader pull; a first Leg that begins somewhere else has the reader arriving at a Brief the article never opens from (kogaki#1151)."
     }
   },
   "claim": {
     "definition": [
-      "A CLAIM IS THE ONE PROPOSITION THIS STEP ASSERTS ON BEHALF OF ONE",
+      "A CLAIM IS THE ONE PROPOSITION THIS LEG ASSERTS ON BEHALF OF ONE",
       "STRAND, FOR THIS READER AT THIS POINT IN THE PATH.",
       "",
       "ITS GROUND IS THE PINNED LESSON, HELD AS AN ADDRESS AND NEVER COPIED.",
@@ -270,27 +270,27 @@
       "data it rests on; this field carries the assertion, and the Lesson it",
       "rests on stays at its pin in the Brief's Strands section. The Lesson's",
       "own Claim sentence is at that pin and is never rendered here or in the",
-      "Step Packet, which is what keeps `assert nothing beyond` checkable:",
-      "what the Step may assert is this list, and nothing arrives beside it.",
+      "Leg Packet, which is what keeps `assert nothing beyond` checkable:",
+      "what the Leg may assert is this list, and nothing arrives beside it.",
       "",
       "A CLAIM IS A PROPOSITION ABOUT THE WORLD AND NAMES NO READER. The",
-      "boundary against the Step's other fields is one of grammatical kind:",
+      "boundary against the Leg's other fields is one of grammatical kind:",
       "`purpose` is a verb about the reader and carries no proposition from",
       "the material, `reader_state_after` is the reader's condition",
       "afterwards, and `rationale` is the order argument. A claim that",
       "mentions the reader, or a purpose that could be true or false of the",
       "world, is in the wrong field.",
       "",
-      "ONE CLAIM PER STRAND NAMED IN `materials`. Two claims in one Step",
-      "naming the same Strand is REFUSED, naming the Step and the Strand. A",
-      "Strand that serves several Steps carries a DIFFERENT claim in each --",
+      "ONE CLAIM PER STRAND NAMED IN `materials`. Two claims in one Leg",
+      "naming the same Strand is REFUSED, naming the Leg and the Strand. A",
+      "Strand that serves several Legs carries a DIFFERENT claim in each --",
       "that is what makes the path a sequence rather than a restatement, and it",
-      "is why the rule is per Step rather than per path.",
+      "is why the rule is per Leg rather than per path.",
       "",
       "WHY THE CARDINALITY IS BOUNDED AT ALL, measured rather than argued",
-      "(kogaki#1108). The Step Packet requires every declared claim to be",
+      "(kogaki#1108). The Leg Packet requires every declared claim to be",
       "recoverable from the realized passage, and `claims-unused` fails the",
-      "Step otherwise. With cardinality unbounded, claim generation drifted",
+      "Leg otherwise. With cardinality unbounded, claim generation drifted",
       "into composing the article's decisive lines wholesale and calling them",
       "claims -- so the comparison the Packet performs stopped measuring",
       "grounding and started measuring how much of the passage had been written",
@@ -302,16 +302,16 @@
       "type set is closed at `strand`. Inherited reader state belongs to",
       "`reader_state_before` and to the computed `already knows` ledger; a",
       "presupposed premise belongs to the Brief's Reader start. Neither is an",
-      "assertion, so a passage that realizes its Step correctly never states",
+      "assertion, so a passage that realizes its Leg correctly never states",
       "one and the Blind Reader never recovers it.",
       "",
-      "The claims rule is the spec half of this definition; the mechanical half -- the closed type set and the one-per-Strand refusal -- is carried here and enforced by `validateSteps`."
+      "The claims rule is the spec half of this definition; the mechanical half -- the closed type set and the one-per-Strand refusal -- is carried here and enforced by `validateLegs`."
     ],
     "types": [
       "strand"
     ],
     "retired_types": {
-      "step_effect": "inherited reader state, which is already carried by this Step's `reader_state_before` and by the computed `already knows` ledger",
+      "leg_effect": "inherited reader state, which is already carried by this Leg's `reader_state_before` and by the computed `already knows` ledger",
       "reader_assumption": "a presupposed premise, which belongs to the Brief's Reader start"
     },
     "one_per_strand": true,
@@ -324,28 +324,28 @@
       "proposition": {
         "required": true,
         "type": "string",
-        "description": "The claim itself, STATED -- a specific proposition this Step asserts, not a pointer at where one could be found. An untyped pointer is not a claim."
+        "description": "The claim itself, STATED -- a specific proposition this Leg asserts, not a pointer at where one could be found. An untyped pointer is not a claim."
       },
       "strand": {
         "required": true,
         "type": "string",
-        "description": "The Strand this claim is asserted on behalf of, as a LessonDisplayID (`L<n>`). It is one of this Step's `materials`, it is where the pinned Lesson that grounds the claim is addressed, and no other claim of this Step names it."
+        "description": "The Strand this claim is asserted on behalf of, as a LessonDisplayID (`L<n>`). It is one of this Leg's `materials`, it is where the pinned Lesson that grounds the claim is addressed, and no other claim of this Leg names it."
       }
     }
   },
   "journey": {
     "definition": [
-      "A JOURNEY IS MATERIAL THE STEP DRAWS ON, NEVER AN ASSERTION THE STEP",
+      "A JOURNEY IS MATERIAL THE LEG DRAWS ON, NEVER AN ASSERTION THE LEG",
       "MUST RECOVER. A Lesson's Claim is a proposition, and the planning",
-      "decision is what transformation of it this Step asserts -- so it is",
-      "carried in the Brief as the Step's claim. A Journey is a narrative, and",
+      "decision is what transformation of it this Leg asserts -- so it is",
+      "carried in the Brief as the Leg's claim. A Journey is a narrative, and",
       "how it is told depends on the Move being performed and on the prose",
       "already on the page -- so it is ADDRESSED at planning and EDITED at",
       "realization. That asymmetry is the whole of why this field carries an",
       "address and a use rather than any text.",
       "",
       "THE BRIEF CARRIES NO JOURNEY TEXT. The entry names a Strand and what",
-      "this Step uses that Strand's Journey for; the prose lives at the",
+      "this Leg uses that Strand's Journey for; the prose lives at the",
       "Strand's served journey cite, which the Brief already renders in its",
       "Strands section. No decomposition of a Journey happens at planning",
       "time.",
@@ -353,45 +353,45 @@
       "IT ASSERTS NOTHING, AND THE CONSEQUENCES ARE MECHANICAL. A Journey",
       "generates no claim, so `claims-unused` never asks for it back and the",
       "Reverse Outline the Blind Reader hands over carries no Journey field",
-      "to compare. What this Step may ASSERT is its `claims` list, and a",
+      "to compare. What this Leg may ASSERT is its `claims` list, and a",
       "Journey placed here does not widen it.",
       "",
       "THE USE IS FROM A CLOSED SET, in plain words, read from `uses` below.",
-      "It is what the Step does with the material, not a claim about the",
-      "world: a use outside the set is refused by `validateSteps`, and",
+      "It is what the Leg does with the material, not a claim about the",
+      "world: a use outside the set is refused by `validateLegs`, and",
       "whether the use chosen serves the Move is path review's judgment.",
       "",
       "COVERAGE ACCOUNTING IS TAKEN FROM THIS FIELD. Journey placement is",
-      "counted from `journeys`: a Strand's Journey is placed by a Step when",
-      "that Step declares an entry naming it here. It was once counted from a",
+      "counted from `journeys`: a Strand's Journey is placed by a Leg when",
+      "that Leg declares an entry naming it here. It was once counted from a",
       "`<L-id>.journey` token in `materials` instead, and that made two",
-      "readers of one fact -- a Step that named its Strand bare and drew on",
+      "readers of one fact -- a Leg that named its Strand bare and drew on",
       "its Journey here rendered its `journey:` line and was disclosed as",
       "OMITTED in the same Brief. A `<L-id>.journey` token stays legal, and",
       "still names the Strand; it no longer places anything on its own."
     ],
     "uses": {
-      "illustrate": "to illustrate this Step's claim with the concrete case the Journey tells",
-      "motivate": "to motivate the question this Step opens, with the event that raised it",
+      "illustrate": "to illustrate this Leg's claim with the concrete case the Journey tells",
+      "motivate": "to motivate the question this Leg opens, with the event that raised it",
       "contrast": "to contrast, showing the expectation the event broke"
     },
     "fields": {
       "strand": {
         "required": true,
         "type": "string",
-        "description": "The Strand whose Journey this Step draws on, as a LessonDisplayID (`L<n>`). It is one of this Step's `materials` -- named bare or as `<L-id>.journey` -- and its served record must carry Journey material, which is what the Brief's `- journey cite:` line records."
+        "description": "The Strand whose Journey this Leg draws on, as a LessonDisplayID (`L<n>`). It is one of this Leg's `materials` -- named bare or as `<L-id>.journey` -- and its served record must carry Journey material, which is what the Brief's `- journey cite:` line records."
       },
       "use": {
         "required": true,
         "type": "string",
-        "description": "What this Step uses the Journey for, from the closed set in `uses` above. A use outside that set is refused."
+        "description": "What this Leg uses the Journey for, from the closed set in `uses` above. A use outside that set is refused."
       }
     }
   },
   "relation": {
     "definition": [
       "THE RELATIONS LAYER (kogaki#1174; owner ruling 2026-09-21). Without it,",
-      "every content item a Step carries into the Packet -- its claims, its",
+      "every content item a Leg carries into the Packet -- its claims, its",
       "`introduces` entries -- is a peer of every other one, with no relation",
       "among them: the writer's only safe realization is one unit per item, in",
       "the order given, and two items can never fuse into one sentence because",
@@ -399,16 +399,16 @@
       "row a paragraph rather than a clause, and it is what this field removes.",
       "",
       "A RELATION MARKS ONE ITEM A SATELLITE OF ANOTHER, NAMED, NUCLEUS. Every",
-      "item this Step carries is a nucleus BY DEFAULT -- unmarked, a peer among",
+      "item this Leg carries is a nucleus BY DEFAULT -- unmarked, a peer among",
       "peers, exactly as before this field existed. Naming an item here as a",
       "satellite is what subordinates it, and the writer realizes a satellite as",
       "a clause or phrase attached to its nucleus, never as its own paragraph:",
       "Reverse Outlining reads a satellite realized as a standalone paragraph as",
       "a finding.",
       "",
-      "THE ADDRESS SPACE IS THIS STEP'S OWN ITEMS, and it is typed by kind: `g<n>`",
-      "addresses this Step's nth declared CLAIM (the same address `figure_roles`",
-      "already uses), and `i<n>` addresses this Step's nth declared `introduces`",
+      "THE ADDRESS SPACE IS THIS LEG'S OWN ITEMS, and it is typed by kind: `g<n>`",
+      "addresses this Leg's nth declared CLAIM (the same address `figure_roles`",
+      "already uses), and `i<n>` addresses this Leg's nth declared `introduces`",
       "entry, both 1-based in DECLARATION order. A satellite and its nucleus are",
       "items of the SAME KIND -- a claim subordinates to a claim, an `introduces`",
       "entry to an `introduces` entry -- because the two are rendered in separate",
@@ -419,7 +419,7 @@
       "THE CLOSURE LEDGER CARRIES NO RELATION MARKING HERE, and the omission is a",
       "scoping decision rather than an oversight. A Closure row lives in the",
       "Brief's OWN `obligations`/`thesis_closure` ledger (`fillBrief`), authored",
-      "at a different occasion than a Step's own fields and addressed by no `g<n>`",
+      "at a different occasion than a Leg's own fields and addressed by no `g<n>`",
       "or `i<n>` scheme -- folding it into this field would mean redesigning that",
       "ledger's own shape, which is a wider act than this one licenses. A Closure",
       "row renders exactly as it did before this field: a sibling, never a",
@@ -451,7 +451,7 @@
       "item": {
         "required": true,
         "type": "string",
-        "description": "The satellite: the address of the item being subordinated, `g<n>` or `i<n>` over this Step's own claims or `introduces` entries."
+        "description": "The satellite: the address of the item being subordinated, `g<n>` or `i<n>` over this Leg's own claims or `introduces` entries."
       },
       "nucleus": {
         "required": true,

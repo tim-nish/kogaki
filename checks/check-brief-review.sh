@@ -35,8 +35,8 @@ const dir = mkdtempSync(join(tmpdir(), "brief-review-"));
 // arm actually fires — a Candidate with no open row reaches the bound clean,
 // carrying no residue at all, which case (f) below no longer holds true of.
 const cands = [
-  { candidate_id: "cand-1", steps: ["s1", "s2"], obligations: [{ text: "the case's generality is open", introduced_by: "s1" }] },
-  { candidate_id: "cand-2", steps: ["s2", "s1"], obligations: [{ text: "the case's generality is open", introduced_by: "s2" }] },
+  { candidate_id: "cand-1", legs: ["s1", "s2"], obligations: [{ text: "the case's generality is open", introduced_by: "s1" }] },
+  { candidate_id: "cand-2", legs: ["s2", "s1"], obligations: [{ text: "the case's generality is open", introduced_by: "s2" }] },
 ];
 const entry = (tag = "") => Object.fromEntries(REVIEW_AREAS.map((a) => [a,
   `${tag}reasoning for ${a}: what was looked for and what was found, in prose the owner can weigh`]));
@@ -135,7 +135,7 @@ try {
   // against the FIRST attach's own snapshot — so the fixture's revise round
   // carries `revise_arms` naming the row it concedes.
   const withArms = cands.map((c) => ({ ...c,
-    revise_arms: (c.obligations || []).map((o) => ({ text: o.text, introduced_by: o.introduced_by, arm: "concede", steps: [o.introduced_by] })) }));
+    revise_arms: (c.obligations || []).map((o) => ({ text: o.text, introduced_by: o.introduced_by, arm: "concede", legs: [o.introduced_by] })) }));
   const a2 = attachReview(withArms, both("revised "), a1.attaches);
   if (a2.error) fails.push(`(e) the ONE revise round was refused: ${a2.error}`);
   else if ((a2.attaches["cand-1"] || []).length !== 2) fails.push("(e) the revise round was not counted");

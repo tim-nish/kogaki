@@ -15,9 +15,9 @@
 # four ways its inputs can be wrong — no line range (the kogaki#868
 # precondition), no Packet named, a Packet absent, and a Packet whose sha
 # differs from the trace's, which means the Draft was not produced from it;
-# the recovery input carries the Step's prose and nothing from the Packet;
-# `recover` refuses a Step whose input it did not render; `compare` refuses
-# while any Step or Section entry is missing and names BOTH kinds; `close`
+# the recovery input carries the Leg's prose and nothing from the Packet;
+# `recover` refuses a Leg whose input it did not render; `compare` refuses
+# while any Leg or Section entry is missing and names BOTH kinds; `close`
 # writes `theses/<slug>/review.md` with its three lists, one per Draft,
 # overwritten on re-run, and every residue line carries an EMPTY `classified:`
 # field the tool never fills.
@@ -33,7 +33,7 @@
 # kogaki#874 and the property is UNCHANGED rather than widened — the clause is
 # "only node builtins and ./runs.mjs", and a builtin is what it is. It is there
 # for one act: `correct` re-enters the realization lane as a subprocess,
-# because a corrected Step must be realized by the renderer that wrote the
+# because a corrected Leg must be realized by the renderer that wrote the
 # Packets rather than by a second one written in the review Harness. The
 # reviewer still reads no Brief, no Move and no Strand, and the two store
 # literals asserted beside the allowlist are what would catch such a read
@@ -42,7 +42,7 @@
 # AND kogaki#874's CORRECTION PATH, driven END TO END OVER A REAL DRAFT. This
 # is the one block in the pass that builds its Draft through `src/draft.mjs`
 # rather than by hand, and the reason is the property: `correct` re-renders the
-# Step's Packet against the article as it NOW stands, so a hand-written
+# Leg's Packet against the article as it NOW stands, so a hand-written
 # stand-in for that Packet would be the pass checking that it can read its own
 # guess — and the "article so far" block, which IS the continuity mechanism the
 # owner's concern is about, is exactly the part a stand-in would invent. It
@@ -69,14 +69,14 @@
 # by an empty file and the comparison would lay nothing against the heading and
 # report agreement. AND WHERE A SECTION FINDING GOES is asserted on ALL THREE
 # routes, because any one of them alone could be what the Harness answers for
-# every Section fail: a fixture where every Step holds and a heading is replaced
+# every Section fail: a fixture where every Leg holds and a heading is replaced
 # yields one `upstream: brief` residue line and zero correction targets; its
-# control — a Step already failing in the same Section — localizes there
-# instead; and a third, added at PR #930 round 1, drives a Step to
+# control — a Leg already failing in the same Section — localizes there
+# instead; and a third, added at PR #930 round 1, drives a Leg to
 # `cannot-decide` on the localizing item and asserts the Section routes
 # `undecided` — NOT localized, which would hand a correction target to a
 # reviewer who declined to decide, and NOT upstream, whose own premise is that
-# every Step holds.
+# every Leg holds.
 #
 # AND THE RENDERERS SUBSTITUTE THE ARTICLE LAST, asserted with a Draft that
 # quotes a template slot in its own prose. That is the ordinary case here rather
@@ -271,7 +271,7 @@ echo "ok: the review lane is registered in both LANES and src/runs.json, asked o
 # total coverage would be the overclaim this finding named.
 # THE RECOVERY INPUT HAS NO TEMPLATE FILE ANY MORE (kogaki#1014). It is composed
 # by `renderReverseOutlineInput` from the Brief's own field declaration, because
-# there is no second artifact left to describe -- the reader fills a `step`
+# there is no second artifact left to describe -- the reader fills a `leg`
 # block. So the leak guard below reads the RENDERER'S OWN HEADING LITERALS in
 # place of a template's headings; the property, and the derivation from the
 # Packet rather than a transcribed list, are unchanged.
@@ -315,7 +315,7 @@ while IFS= read -r h; do
   # substring match failed on correct text -- the guard-that-fires-on-correct-
   # behaviour shape, caught at authoring rather than in review.
   # `/^#/`, ONE `#` AND NOT TWO, because a leak at ANY heading level is a leak:
-  # the Packet's own `# Write one Step` is level 1, so `/^##/` -- the strongest
+  # the Packet's own `# Write one Leg` is level 1, so `/^##/` -- the strongest
   # wrong candidate here -- selects no line for it and the guard passes a
   # template carrying it. One `#` selects every heading level and the `sub()`
   # below strips the rest before the comparison, so the level never matters.
@@ -434,7 +434,7 @@ echo "ok: every Packet label, heading and fixed sentence the item table reads is
 # The fixture asserts this too, from the module's own text. It is repeated here
 # because the failure mode is a CLEAN PASS: a table row that gained
 # `mode: mechanical` with no implementation would report `holds` for every Draft
-# on every Step, which is the silent agreement the whole comparison exists to
+# on every Leg, which is the silent agreement the whole comparison exists to
 # refuse. Asked of the MODULE rather than matched as text.
 if ! node --input-type=module -e '
   import { readFileSync } from "node:fs";
@@ -458,7 +458,7 @@ if ! node --input-type=module -e '
 fi
 echo "ok: every mechanical item has an implementation, every judged item carries a question, and the verdict set is the closed three"
 
-# --- AND EVERY RECOVERED SIDE THE TABLE NAMES IS A BRIEF STEP FIELD THE BLIND
+# --- AND EVERY RECOVERED SIDE THE TABLE NAMES IS A BRIEF LEG FIELD THE BLIND
 #     READER IS ASKED FOR (kogaki#880, re-cut at kogaki#1014).
 #
 # THE FAILURE MODE IS A CLEAN PASS. `buildJoin` reads the recovered side by
@@ -468,7 +468,7 @@ echo "ok: every mechanical item has an implementation, every judged item carries
 #
 # THE SECOND CARRIER MOVED, AND THE JOIN DID NOT. It used to be
 # `src/recovered-schema.json`, a second schema for the Brief's own information;
-# that file is deleted and the recovered side is now a Brief Step field, so the
+# that file is deleted and the recovered side is now a Brief Leg field, so the
 # table is joined against `RECONSTRUCTIBLE_FIELDS` -- the one declaration the
 # Blind Reader's input is composed from. Two carriers that agree until one is
 # edited, exactly as before, one carrier over.
@@ -481,7 +481,7 @@ if ! node --input-type=module -e '
   for (const it of t.items) {
     if (!it.field) continue;
     if (String(it.field).includes(".")) {
-      bad.push(`${it.id} reads "${it.field}", and a recovered side is ONE Brief Step field`);
+      bad.push(`${it.id} reads "${it.field}", and a recovered side is ONE Brief Leg field`);
       continue;
     }
     if (!asked.has(it.field)) {
@@ -501,6 +501,6 @@ if ! node --input-type=module -e '
   echo "FAIL: src/review-items.json names a recovered side the Blind Reader is not asked for -- the join would read undefined, render it as (none) and ask a model whether nothing agrees with a declared line"
   exit 1
 fi
-echo "ok: every recovered side the item table names is a Brief Step field the Blind Reader is asked for"
+echo "ok: every recovered side the item table names is a Brief Leg field the Blind Reader is asked for"
 
 echo "PASS: ReviewDraft runtime"

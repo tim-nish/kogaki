@@ -1,6 +1,6 @@
 // The deterministic figure renderer (kogaki#879).
 // [see: SPEC-draft-pipeline "The renderer and the anchor — markup from the
-// record, at the Step"]//
+// record, at the Leg"]//
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
 // markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
@@ -23,7 +23,7 @@
 // THE MODEL NEVER WRITES MERMAID. That is the whole point of the seat: prose
 // that draws its own diagram is a second author on the figure, refused at
 // `section` exactly as a second heading author is (kogaki#823)
-// [see: SPEC-draft-pipeline "The Section — a grouping of Steps, declared on
+// [see: SPEC-draft-pipeline "The Section — a grouping of Legs, declared on
 // `opens_section`"]. What
 // makes the refusal fair is that this file exists — a seat is only closed to
 // one author if another actually fills it.
