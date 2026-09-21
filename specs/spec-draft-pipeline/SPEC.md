@@ -694,7 +694,7 @@ reviewed set with no notion of which pass it was, and `bridges` on a Leg is a
 model-declared array. The count lived in the composing sitting's memory, so a
 Candidate re-reviewed three times reached assembly with no refusal and no
 disclosure, and nothing in the run record showed it. **A bound the Harness
-cannot count is not a bound** — the review-lane shape of 2026-09-04 one leg
+cannot count is not a bound** — the review-lane shape of 2026-09-04 one step
 earlier, where the Harness at least owned the arithmetic over model-supplied
 evidence and here owned neither.
 
@@ -2190,7 +2190,7 @@ owner ruling 2026-09-04) — the same slot, the same act, filled at adoption fro
 the adopted Candidate.
 
 **THE MECHANISM IS SHARED AND THE GROUND IS NOT, which is why this clause states
-its own.** §4.11's disclosure is an **approval**: remove it and an approval leg
+its own.** §4.11's disclosure is an **approval**: remove it and an approval step
 is gone with nothing standing in for it. This one is a **report** on a judgment
 that Path Review makes and records either way, so its absence cost visibility
 rather than a control — and the owner ruled the two are different questions
@@ -2296,7 +2296,7 @@ choice where a block leaves a hole.
 **The selected arm's own cost is stated rather than discovered:** long fields
 read poorly as block scalars in a library a human is expected to *read*, and a
 structured body invites the reflex to treat it as machine-authoritative — one
-leg from the verdict machinery §7.5 excludes. **Nothing here makes the block a
+step from the verdict machinery §7.5 excludes. **Nothing here makes the block a
 verdict surface.**
 
 `necessity:` a form selection with both arms' costs stated. Neither cost is

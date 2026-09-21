@@ -4476,7 +4476,7 @@ ranCase("w");
 // AND THE COMPARATOR GOT STRICTER BY MOVING, not weaker. The skill was prose,
 // so coverage was a word-bounded regex over a slice; the schema is a field
 // TABLE, so coverage is membership in `fields`, and a field named only in the
-// schema's own prose is NOT covered. That is the scoping the leg-7 slice was
+// schema's own prose is NOT covered. That is the scoping the step-7 slice was
 // approximating, now exact. §4.16 landed with no authoring carrier at
 // all: the field could be validated by `validateLegs`, resolved by
 // `resolveFigureForms`, serialized by `renderLeg` and disclosed at the
@@ -4525,7 +4525,7 @@ ranCase("y");
     // wording that added `optional` to one of them entered it in the list and the
     // member went red saying "§4.1 declares `bridge-approval-shape` as an
     // optional Leg field" — a false statement about §4.1 diagnosing an
-    // unrelated §9 edit as leg-7 drift.
+    // unrelated §9 edit as step-7 drift.
     const section41Of = (specText) => {
       const m = /^### 4\.1 [\s\S]*?(?=^#{1,4} )/m.exec(specText);
       return m ? m[0] : null;
@@ -4611,7 +4611,7 @@ ranCase("y");
       (optionalFields(specText) || []).filter((f) => !(keys || []).includes(f));
     // THE `fields` TABLE ONLY. A schema carrying no `fields` object is refused
     // rather than read whole, because "read the whole file" is exactly the
-    // weakening the leg-7 slice existed to refuse and the reason this carrier
+    // weakening the step-7 slice existed to refuse and the reason this carrier
     // is a table rather than prose.
     const schemaFieldKeys = (doc) => {
       const f = doc && doc.fields;

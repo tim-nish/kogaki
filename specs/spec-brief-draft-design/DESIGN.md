@@ -267,7 +267,7 @@ One Leg's realization takes exactly one input: the **Leg Packet** — renamed
 from *the Section Packet* at kogaki#825, see §2.1 — rendered by `draft.mjs
 packet` from a fixed template. Nothing outside it is read.
 
-**AND THE HARNESS RENDERS IT, as the leg immediately before realization
+**AND THE HARNESS RENDERS IT, as the step immediately before realization
 (kogaki#809, owner ruling 2026-09-03).** The sentence above was true of the
 design and false of the running system: `draft.mjs` had no ordering between
 `packet` and `section`, so a Leg could be realized with no Packet ever
@@ -299,7 +299,7 @@ This is the gate-plus-backstop split rather than a belt-and-braces habit:
 `consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b topics/claude-code-ops.md:284`
   request_id: 5f4b00ad-ddb2-4280-874b-e7739828f869
   outcome: discriminating
-  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding leg? Which is constraining generation rather than post-hoc detection?
+  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding step? Which is constraining generation rather than post-hoc detection?
 
 and it is the constrain-generation arm rather than the detection arm:
 
@@ -310,7 +310,7 @@ and it is the constrain-generation arm rather than the detection arm:
 `consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b LESSONS.md:161`
   request_id: 5f4b00ad-ddb2-4280-874b-e7739828f869
   outcome: discriminating
-  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding leg? Which is constraining generation rather than post-hoc detection?
+  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding step? Which is constraining generation rather than post-hoc detection?
 
 **AN INSPECTION PAUSE IS A DISTINCT FACT, and this clause does not decide it
 (owner correction at the ruling gate).** It is tempting to read render-within as

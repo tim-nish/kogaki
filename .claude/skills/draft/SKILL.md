@@ -8,7 +8,7 @@ description: Realize an adopted Brief into its CanonicalDraft. Use when the owne
 **This file names entry points and carries no flow ordering.** The ordering
 lives in the Harness (`src/draft.mjs`), by the ruling at
 `specs/spec-brief-draft-design/DESIGN.md` §3: the Packet is rendered by the
-Harness as the leg immediately before realization, and `section` refuses a Leg
+Harness as the step immediately before realization, and `section` refuses a Leg
 whose Packet is absent or stale. A session does not sequence those acts and
 cannot get the sequence wrong.
 
