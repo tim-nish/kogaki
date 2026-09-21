@@ -32,6 +32,62 @@ note() { printf '%s\n' "$*"; }
 bad() { printf 'FAIL — %s\n' "$*"; fail=1; }
 pass() { cases=$((cases + 1)); }
 
+# A GROUP NAME IN A JUDGMENT REFUSAL SURVIVES TWO DIFFERENT RELAYS (kogaki#1172):
+# `fail()`'s raw stderr line prints it literally, and `terrain-judgment-retry`'s
+# gate declaration carries it through advance-terrain.py's own re-serialization
+# on the way into the outer `hookSpecificOutput` JSON, which quote-escapes the
+# name once more than the raw-stderr shape does and, on top of that, lets
+# Python's outer `json.dump` (default `ensure_ascii=True`) turn this
+# repository's own " × " group-name separator into a literal `×` escape --
+# so a hand-built pattern has to reproduce an escaping DEPTH that is an
+# implementation detail of the relay, not a property this check owes to know.
+# Decoding the captured output as JSON instead (one level: the line IS the
+# `hookSpecificOutput` object) reverses whatever depth of escaping the relay
+# applied and recovers the plain string a reader of the gate's own file sees,
+# so the needle only ever has to account for ONE quote-escaping layer -- the
+# one `JSON.stringify` still applies when the message text itself quotes the
+# group name -- regardless of how many more layers the surrounding channel adds.
+group_failure_seen() {                # group_failure_seen <out-file> <group-name> <n>
+  local outfile=$1 name=$2 n=$3
+  python3 - "$outfile" "$name" "$n" <<'PY'
+import json, sys
+
+outfile, name, n = sys.argv[1], sys.argv[2], sys.argv[3]
+text = open(outfile, encoding="utf-8", errors="replace").read()
+raw_needle = f'record for group "{name}" was refused on all {n} attempt(s)'
+quoted_needle = f'record for group \\"{name}\\" was refused on all {n} attempt(s)'
+
+def contains(s):
+    return raw_needle in s or quoted_needle in s
+
+if contains(text):
+    sys.exit(0)
+
+for line in text.splitlines():
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        obj = json.loads(line)
+    except Exception:
+        continue
+    found = []
+    def walk(x):
+        if isinstance(x, str):
+            found.append(x)
+        elif isinstance(x, dict):
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+    walk(obj)
+    if any(contains(s) for s in found):
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+
 SCRATCH=$(mktemp -d) || { echo "FAIL — no temp directory; CANNOT-DETERMINE, never a pass"; exit 1; }
 trap 'rm -rf "$SCRATCH"' EXIT
 
@@ -132,20 +188,17 @@ if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.e
 const input = JSON.parse(prompt.slice(at + MARKER.length));
 const state = /`([A-Za-z0-9_]+)` judgment point/.exec(prompt);
 let record;
-if (input.kind === "composition-input" && /J1_claims/.test(prompt)) {
-  record = {
-    composition_pin: input.composition_pin,
-    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
-  };
-} else if (input.kind === "composition-input") {
-  // J2_subdivision. Judged EMPTY: each of the fixture's groups is below the split
-  // threshold, so "no split" is the conformant answer rather than an evasion.
+if (input.kind === "composition-input") {
+  // J2_subdivision, the ONLY per-group judgment since kogaki#1172 folded the
+  // deleted J1_claims into it: each entry carries a `claim` beside `subgroups`,
+  // one call per composed group. Judged EMPTY on the subgroups half: each of
+  // the fixture's groups is below the split threshold, so "no split" is the
+  // conformant answer rather than an evasion.
   //
   // KEYED OFF `input.groups` AND NOT OFF A FIXED NAME, which is what makes this
   // stub answer the per-group ask (kogaki#1062) without being rewritten for it:
   // the scoped input carries exactly the one group the call is about, so the same
-  // expression yields the one-key record that ask demands and the whole map the
-  // whole-input ask demanded.
+  // expression yields the one-key record that ask demands.
   //
   // EVERY J2 CALL IS LOGGED, one line per call naming the group it was asked
   // about and how many groups its input carried. The call COUNT is the property
@@ -158,7 +211,11 @@ if (input.kind === "composition-input" && /J1_claims/.test(prompt)) {
     material: (input.material || []).map((m) => m.id),
     pin_groups: Object.keys((input.composition_pin || {}).groups || {}),
   }) + "\n");
-  record = Object.fromEntries(input.groups.map((g) => [g.name, { judged: true, subgroups: [] }]));
+  record = Object.fromEntries(input.groups.map((g) => [g.name, {
+    judged: true,
+    claim: `In common: a fixture claim over ${g.members.length} member(s).`,
+    subgroups: [],
+  }]));
 } else if (input.state === "thesis_candidates") {
   const strands = input.strands_you_may_use;
   const n = input.candidates_required;
@@ -256,12 +313,10 @@ function fill(node, g, key) {
 }
 
 let record;
-if (input.kind === "composition-input" && /J1_claims/.test(prompt)) {
-  record = {
-    composition_pin: input.composition_pin,
-    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
-  };
-} else if (input.kind === "composition-input") {
+if (input.kind === "composition-input") {
+  // The ONLY composed judgment since kogaki#1172 folded the deleted
+  // `J1_claims` into `J2_subdivision` — one per-group call, filled from that
+  // state's own `record_example`, `claim` included beside `subgroups`.
   const table = JSON.parse(fs.readFileSync(path.join(__dirname, "src", "terrain-workflow.json"), "utf8"));
   const row = table.states.find((s) => s.id === "J2_subdivision");
   const template = ((row || {}).record_example || {})["$per-group"];
@@ -328,12 +383,14 @@ const fs = require("node:fs");
 fs.readFileSync(0, "utf8");
 process.stdout.write("I think the answer is probably fine.\n");
 JUDGE
-  # ---- THE REPAIR STUB (kogaki#1059, fixture 1). Attempt one returns THE LIVE
-  # 2026-09-09 SHAPE -- the `composition_pin` as the pin STRING and `claims` as an
-  # array of `{group, claim}` -- which satisfies the state's `input_shape`
-  # SENTENCE and is refused by its validator. Attempt two returns the conformant
-  # record. Wrong-then-right rather than wrong-always is the whole point: it is
-  # the only stub that can show the bound REPAIRING rather than repeating.
+  # ---- THE REPAIR STUB (kogaki#1059, fixture 1; folded onto `J2_subdivision`
+  # by kogaki#1172, `J1_claims` having been the state this fixture originally
+  # drove). ONE group -- claimed exclusively, on the same reasoning
+  # `judge-group-repairs` states below (kogaki#1073) -- returns the withdrawn
+  # PRE-V9 BARE ARRAY on its first call and the conformant record on its
+  # second; every other group is conformant on its first call. Wrong-then-right
+  # rather than wrong-always is the whole point: it is the stub that shows the
+  # bound REPAIRING rather than repeating.
   cat > "$root/judge-repairs" <<'JUDGE'
 #!/usr/bin/env node
 // THE `--version` PROBE THE START ACT RUNS (kogaki#1076). The run's binary is
@@ -350,30 +407,43 @@ const prompt = fs.readFileSync(0, "utf8");
 const at = prompt.indexOf(MARKER);
 if (at < 0) { process.stderr.write("no input marker in the prompt\n"); process.exit(3); }
 const input = JSON.parse(prompt.slice(at + MARKER.length));
-const isJ1 = /`J1_claims` judgment point/.test(prompt);
-// THE PROMPTS ARE KEPT, because the property under test is a property OF THE
-// PROMPT: that attempt two is a different ask from attempt one. A stub that only
-// answered differently would leave that unasserted.
-let seen = 0;
-if (isJ1) {
+const g = input.groups[0];
+const targetFile = path.join(__dirname, "repair-target");
+// THE TARGET IS CLAIMED EXCLUSIVELY, NOT READ-THEN-WRITTEN (kogaki#1073). The
+// per-group calls now run CONCURRENTLY under the table's cap, so two stubs reach
+// this line at the same instant; a read-then-write would let both find the file
+// empty and both name themselves the target, and the case would then see two
+// groups refused where it asserts exactly one. `linkSync` fails when the name
+// already exists, so exactly one call wins and every other reads the winner's
+// fully written file rather than a file mid-write.
+function claimTarget(name) {
+  const tmp = `${targetFile}.${process.pid}`;
+  fs.writeFileSync(tmp, name);
+  try { fs.linkSync(tmp, targetFile); } catch { /* another call claimed it first */ }
+  fs.unlinkSync(tmp);
+  return fs.readFileSync(targetFile, "utf8").trim();
+}
+const target = claimTarget(g.name);
+let record;
+if (g.name === target) {
+  // THE PROMPTS ARE KEPT, because the property under test is a property OF THE
+  // PROMPT: that attempt two is a different ask from attempt one. A stub that
+  // only answered differently would leave that unasserted. Numbered against
+  // this ONE group's own calls, so `repair-prompt-1.txt`/`-2.txt` name its
+  // first and second ask without retyping the group the executor mints.
   const counter = path.join(__dirname, "repair-calls");
+  let seen = 0;
   try { seen = Number(fs.readFileSync(counter, "utf8").trim()) || 0; } catch { seen = 0; }
   fs.writeFileSync(counter, String(seen + 1));
   fs.writeFileSync(path.join(__dirname, `repair-prompt-${seen + 1}.txt`), prompt);
-}
-let record;
-if (isJ1 && seen === 0) {
-  record = {
-    composition_pin: input.composition_pin.pin,
-    claims: input.groups.map((g) => ({ group: g.name, claim: "A fixture claim in the array form." })),
-  };
-} else if (isJ1) {
-  record = {
-    composition_pin: input.composition_pin,
-    claims: Object.fromEntries(input.groups.map((g) => [g.name, `In common: a fixture claim over ${g.members.length} member(s).`])),
-  };
+  record = seen === 0
+    // THE WITHDRAWN PRE-V9 BARE ARRAY -- distinct from `judge-group-repairs`'s
+    // envelope mistake, so the two fixtures exercise different refusal clauses
+    // of the same reader.
+    ? { [g.name]: [] }
+    : { [g.name]: { judged: true, subgroups: [] } };
 } else {
-  record = Object.fromEntries(input.groups.map((g) => [g.name, { judged: true, subgroups: [] }]));
+  record = { [g.name]: { judged: true, subgroups: [] } };
 }
 process.stdout.write(JSON.stringify({ result: JSON.stringify(record) }) + "\n");
 JUDGE
@@ -910,7 +980,7 @@ PY
   if python3 - "$D" toolu_fixture_tag <<'PY'
 import json, sys, pathlib
 rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
-span = ["compose_input", "J1_claims", "J2_subdivision", "cotag_groups"]
+span = ["compose_input", "J2_subdivision", "cotag_groups"]
 by = {t["state"]: t for t in rec.get("transitions", [])}
 missing = [s for s in span if s not in by]
 if missing:
@@ -927,10 +997,10 @@ PY
 import json, sys, pathlib
 rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
 j = rec.get("judgments") or {}
-sys.exit(0 if "J1_claims" in j and "J2_subdivision" in j else 1)
+sys.exit(0 if "J2_subdivision" in j and rec.get("claims_derived") else 1)
 PY
   then pass; else
-    bad "$label: the run record names no J1_claims/J2_subdivision judgment — the executor did not invoke the judge, or did not record which record it validated"
+    bad "$label: the run record names no J2_subdivision judgment, or no derived claims file — the executor did not invoke the judge, or did not record which record it validated (kogaki#1172)"
   fi
 
   # --- kogaki#1062 ACCEPTANCE 1, FIRST HALF. ONE J2 CALL PER COMPOSED GROUP, and
@@ -1193,40 +1263,46 @@ BOUNDPY
       KOGAKI_JUDGE_CLI="$root/judge-nonconformant" \
       python3 .claude/hooks/advance-terrain.py >"$root/advbad.out" 2>&1)
 
-  local declared declared_j2
-  declared=$(python3 -c "
-import json,sys
-t=json.load(open('$root/src/terrain-workflow.json'))
-print([s for s in t['states'] if s['id']=='J1_claims'][0]['retries'])")
-  # J2's OWN bound, read separately. `retries` is declared PER STATE precisely
-  # because the states differ in what a re-ask can repair, so a per-group
-  # assertion reading J1's count would be green on a table that moved J2's.
+  # `J1_claims` IS DELETED (kogaki#1172): its cost folded into `J2_subdivision`,
+  # the only judgment point left over the composed input, so its own declared
+  # `retries` is what every assertion below reads.
+  local declared_j2
   declared_j2=$(python3 -c "
 import json,sys
 t=json.load(open('$root/src/terrain-workflow.json'))
 print([s for s in t['states'] if s['id']=='J2_subdivision'][0]['retries'])")
-  if grep -q "on all $((declared + 1)) attempt(s)" "$root/advbad.out"; then pass; else
-    bad "$label: the run did not fail after the $declared re-ask(s) the table declares for J1_claims. It said: $(tail -4 "$root/advbad.out" | tr '\n' ' ')"
+  if grep -q "on all $((declared_j2 + 1)) attempt(s)" "$root/advbad.out"; then pass; else
+    bad "$label: the run did not fail after the $declared_j2 re-ask(s) the table declares for J2_subdivision. It said: $(tail -4 "$root/advbad.out" | tr '\n' ' ')"
   fi
-  # THE REFUSAL TEXT RIDES THE FAILURE, which is the half that tells an operator
-  # why the judge's record was rejected rather than merely that it was.
-  if grep -q "the withdrawn pre-v10 form" "$root/advbad.out"; then pass; else
+  # THE REFUSAL TEXT RIDES THE GATE (kogaki#1172 item 3): a judgment that spends
+  # its bound raises `terrain-judgment-retry` rather than calling `fail()`, and
+  # its own refusal text is what `GATE_CALL_READING_KEYS` promotes into the
+  # rendered question — this is the half that tells an operator why the judge's
+  # record was rejected rather than merely that it was.
+  if grep -q "some-group" "$root/advbad.out"; then pass; else
     bad "$label: the failure does not carry the state's own refusal text — an operator is told the judge failed and never why"
   fi
   # AND THE RUN RECORD NAMES IT (PR #1044 round 1, D1's partial-discharge note).
   # Acceptance 2 reads "the run fails after the declared retry count and THE
-  # RECORD names the refusal"; stderr and the persisted record are different
-  # carriers, and only the second is still there when a reader comes back to the
-  # run. `fail()` persists the pending record (kogaki#808), so the entry is
-  # written before the refusal rather than after it.
-  if python3 - "$D2" J1_claims <<'PY'
+  # RECORD names the refusal"; the gate reading and the persisted record are
+  # different carriers, and only the second is still there when a reader comes
+  # back to the run. The state's own exhaustion writes the pending record before
+  # raising the gate (kogaki#1172 item 3, the same ordering `fail()` used to
+  # take at kogaki#808), so the entry is written before the gate is raised.
+  if python3 - "$D2" J2_subdivision <<'PY'
 import json, sys, pathlib
 rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
 r = (rec.get("judgment_refusals") or {}).get(sys.argv[2])
 sys.exit(0 if r and r.get("refusal") and r.get("attempts") else 1)
 PY
   then pass; else
-    bad "$label: the run record carries no judgment_refusals entry for J1_claims — the refusal reached stderr and not the record, and acceptance 2 names the record"
+    bad "$label: the run record carries no judgment_refusals entry for J2_subdivision — the refusal reached the gate and not the record, and acceptance 2 names the record"
+  fi
+  # AND THE GATE ITSELF IS OUTSTANDING (kogaki#1172 acceptance 4): a spent bound
+  # raises `terrain-judgment-retry` rather than ending the process, so the open
+  # gate is what a killed advance's own report reads back.
+  if [ -f "$D2/terrain-judgment-retry.gate-call.json" ]; then pass; else
+    bad "$label: the exhausted judgment raised no terrain-judgment-retry gate-call.json — the run is stranded exactly as kogaki#1172 was filed to fix"
   fi
 
   # AND IT LEFT NO CO-TAG FILE. A run that failed at J1 and still wrote the
@@ -1253,7 +1329,7 @@ PY
   printf '%s' "$pg" | (cd "$root" && KOGAKI_RUN_DIR="$D3" KOGAKI_OPEN_GATES="$root/open-gates" \
       KOGAKI_JUDGE_CLI="$root/judge-garbage" \
       python3 .claude/hooks/advance-terrain.py >"$root/advgarbage.out" 2>&1)
-  if grep -q "on all $((declared + 1)) attempt(s)" "$root/advgarbage.out"; then pass; else
+  if grep -q "on all $((declared_j2 + 1)) attempt(s)" "$root/advgarbage.out"; then pass; else
     bad "$label: an unparseable judge response was not re-asked to the table's bound — the retry window covers the conformance arm alone, which is narrower than the licence describes. It said: $(tail -3 "$root/advgarbage.out" | tr '\n' ' ')"
   fi
   if grep -q "is not JSON" "$root/advgarbage.out"; then pass; else
@@ -1280,41 +1356,40 @@ PY
       KOGAKI_JUDGE_CLI="$root/judge-repairs" \
       python3 .claude/hooks/advance-terrain.py >"$root/advrepair.out" 2>&1)
 
-  if python3 - "$D5" <<'PY'
+  if python3 - "$D5" "$root/repair-target" <<'PY'
 import json, sys, pathlib
 rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
-r = (rec.get("judgment_refusals") or {}).get("J1_claims")
-if not r:
-    print("the record carries no judgment_refusals entry for J1_claims", file=sys.stderr); sys.exit(1)
-if r.get("attempts") != 2 or not r.get("repaired") or len(r.get("refusals") or []) != 1:
-    print("expected attempts=2, repaired=true and one refusal; got", r, file=sys.stderr); sys.exit(1)
-if "composition_pin" not in (r["refusals"][0] or ""):
-    print("the recorded refusal is not the shape refusal:", r["refusals"][0], file=sys.stderr); sys.exit(1)
-if "J1_claims" not in (rec.get("judgments") or {}):
+target = pathlib.Path(sys.argv[2]).read_text().strip()
+if "J2_subdivision" not in (rec.get("judgments") or {}):
     print("the state did not advance", file=sys.stderr); sys.exit(1)
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision")
+if not r:
+    print("the record carries no judgment_refusals entry for J2_subdivision", file=sys.stderr); sys.exit(1)
+hit = (r.get("groups") or {}).get(target)
+if not hit or hit.get("attempts") != 2 or not hit.get("repaired") or len(hit.get("refusals") or []) != 1:
+    print("expected the refused group at attempts=2 with one refusal, repaired; got", hit,
+          file=sys.stderr); sys.exit(1)
+if "bare array" not in (hit["refusals"][0] or "") and "pre-v9" not in (hit["refusals"][0] or ""):
+    print("the recorded refusal is not the shape refusal:", hit["refusals"][0], file=sys.stderr); sys.exit(1)
 PY
   then pass; else
     bad "$label: a judge that returned the live wrong shape once and the conformant record next did not advance on attempt two with ONE refusal on the record (kogaki#1059). The advance said: $(tail -3 "$root/advrepair.out" | tr '\n' ' ')"
   fi
 
-  # THE FIRST ASK ALREADY CARRIED THE LITERAL SHAPE, filled from this run's own
-  # composed input: the pin OBJECT with its `groups` map, and the composed group
-  # names as the keys of `claims`. Asserted on prompt ONE, because an example that
-  # only appeared on the re-ask would leave the first attempt spent on prose.
-  if python3 - "$root/repair-prompt-1.txt" "$D5" "$root" <<'PY'
-import json, sys, pathlib
+  # THE FIRST ASK ALREADY CARRIED THE LITERAL RECORD SHAPE, keyed by this group
+  # and filled from the run's own composed input — the `record_example` this
+  # issue adds (item 5). Asserted on prompt ONE, because an example that only
+  # appeared on the re-ask would leave the first attempt spent on prose.
+  if python3 - "$root/repair-prompt-1.txt" "$root/repair-target" <<'PY'
+import sys, pathlib
 prompt = pathlib.Path(sys.argv[1]).read_text()
-rec = json.load(open(pathlib.Path(sys.argv[2], "run-record.json")))
-ci = pathlib.Path(rec["composition_input"])
-inp = json.load(open(ci if ci.is_absolute() else pathlib.Path(sys.argv[3]) / ci))
+target = pathlib.Path(sys.argv[2]).read_text().strip()
 head = prompt.split("----- INPUT (JSON) -----")[0]
-if '"composition_pin"' not in head or '"groups"' not in head:
-    print("the ask carries no filled composition_pin object", file=sys.stderr); sys.exit(1)
-for g in inp["groups"]:
-    if f'"{g["name"]}"' not in head:
-        print("the example does not name the composed group", g["name"], file=sys.stderr); sys.exit(1)
-if inp["composition_pin"]["pin"] not in head:
-    print("the example does not carry the run's own pin", file=sys.stderr); sys.exit(1)
+if f'"{target}"' not in head:
+    print("the first ask carries no filled example keyed by this group", file=sys.stderr); sys.exit(1)
+for token in ('"judged": true', '"subgroups"', '"claim"'):
+    if token not in head:
+        print("the filled example does not carry", token, file=sys.stderr); sys.exit(1)
 PY
   then pass; else
     bad "$label: the FIRST ask carried no filled record example built from this run's composed input — the judge is told its record shape in prose alone, which is the defect kogaki#1059 closes"
@@ -1324,7 +1399,7 @@ PY
   # once outside the retry loop, so attempt N+1 was byte-identical to attempt N:
   # the declared bound could not repair a shape mistake, it reproduced one
   # deterministic refusal three times.
-  if python3 - "$root/repair-prompt-1.txt" "$root/repair-prompt-2.txt" "$D5" <<'PY'
+  if python3 - "$root/repair-prompt-1.txt" "$root/repair-prompt-2.txt" "$D5" "$root/repair-target" <<'PY'
 import json, sys, pathlib
 p1 = pathlib.Path(sys.argv[1]).read_text()
 p2 = pathlib.Path(sys.argv[2]).read_text()
@@ -1333,7 +1408,8 @@ if p1 == p2:
 if "----- YOUR PREVIOUS ANSWER WAS REFUSED -----" not in p2:
     print("attempt two carries no refusal marker", file=sys.stderr); sys.exit(1)
 rec = json.load(open(pathlib.Path(sys.argv[3], "run-record.json")))
-refusal = rec["judgment_refusals"]["J1_claims"]["refusals"][0]
+target = pathlib.Path(sys.argv[4]).read_text().strip()
+refusal = rec["judgment_refusals"]["J2_subdivision"]["groups"][target]["refusals"][0]
 if refusal not in p2:
     print("attempt two does not carry attempt one's refusal VERBATIM", file=sys.stderr); sys.exit(1)
 # And the refusal rides BEFORE the input marker, whose own contract is that
@@ -1361,16 +1437,16 @@ PY
   printf '%s' "$pw" | (cd "$root" && KOGAKI_RUN_DIR="$D6" KOGAKI_OPEN_GATES="$root/open-gates" \
       KOGAKI_JUDGE_CLI="$root/judge-wrong-shape" \
       python3 .claude/hooks/advance-terrain.py >"$root/advwrong.out" 2>&1)
-  if grep -q "on all $((declared + 1)) attempt(s)" "$root/advwrong.out"; then pass; else
-    bad "$label: a judge returning the live wrong shape every time did not fail after the $declared re-ask(s) the table declares. It said: $(tail -3 "$root/advwrong.out" | tr '\n' ' ')"
+  if grep -q "on all $((declared_j2 + 1)) attempt(s)" "$root/advwrong.out"; then pass; else
+    bad "$label: a judge returning the live wrong shape every time did not fail after the $declared_j2 re-ask(s) the table declares. It said: $(tail -3 "$root/advwrong.out" | tr '\n' ' ')"
   fi
-  if grep -q "no usable .composition_pin. object" "$root/advwrong.out"; then pass; else
+  if grep -q 'composition_pin' "$root/advwrong.out"; then pass; else
     bad "$label: the exhausted failure does not name the shape refusal it spent its attempts on"
   fi
   if python3 - "$D6" <<'PY'
 import json, sys, pathlib
 rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
-r = (rec.get("judgment_refusals") or {}).get("J1_claims")
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision")
 if not r or r.get("repaired") is not False:
     print("expected an unrepaired judgment_refusals entry; got", r, file=sys.stderr); sys.exit(1)
 if len(r.get("refusals") or []) != r.get("attempts"):
@@ -1502,7 +1578,7 @@ PY
   wrong_target=$(cat "$root/group-wrong-target" 2>/dev/null || echo "")
   if [ -z "$wrong_target" ]; then
     bad "$label: the per-group wrong-shape stub was never reached at J2_subdivision"
-  elif grep -qF "group \"$wrong_target\" was refused on all $((declared_j2 + 1)) attempt(s)" "$root/advgroupwrong.out"; then
+  elif group_failure_seen "$root/advgroupwrong.out" "$wrong_target" "$((declared_j2 + 1))"; then
     pass
   else
     bad "$label: the failure does not name the group that spent its bound, nor the $declared_j2 re-ask(s) the table declares (kogaki#1062). It said: $(tail -4 "$root/advgroupwrong.out" | tr '\n' ' ')"
@@ -1768,7 +1844,7 @@ try: print(json.load(open('$root/unplaced-target'))['member'])
 except Exception: sys.exit(1)" 2>/dev/null || echo "")
   if [ -z "$unplaced_group" ]; then
     bad "$label: the unplaced stub was never reached at J2_subdivision"
-  elif grep -qF "group \"$unplaced_group\" was refused on all $((declared_j2 + 1)) attempt(s)" "$root/advunplaced.out"; then
+  elif group_failure_seen "$root/advunplaced.out" "$unplaced_group" "$((declared_j2 + 1))"; then
     pass
   else
     bad "$label: the failure does not name the group that spent its bound over the $declared_j2 re-ask(s) the table declares (kogaki#1068 acceptance 2). It said: $(tail -4 "$root/advunplaced.out" | tr '\n' ' ')"
@@ -2382,8 +2458,10 @@ if hung in named:
     print(f"the record names {hung!r}, the group that never answered", file=sys.stderr); sys.exit(1)
 # AND THE STATES THAT COMPLETED BEFORE THE JUDGMENT ARE NAMED TOO, which is the
 # other half of item 3: the killed advance of 2026-09-10 had completed
-# `compose_input` and `J1_claims` and its record named neither.
-for s in ("compose_input", "J1_claims"):
+# `compose_input` and its record named neither it nor the judgment (`J1_claims`
+# at the time; folded into `J2_subdivision` by kogaki#1172, which is the state
+# this same killed advance is now caught mid-way through).
+for s in ("compose_input",):
     if s not in rec.get("completed", []):
         print(f"the record does not name completed state {s!r}: {rec.get('completed')}",
               file=sys.stderr); sys.exit(1)
@@ -2686,7 +2764,7 @@ import json, sys, pathlib
 d = pathlib.Path(sys.argv[1])
 rec = json.load(open(d / "run-record.json"))
 j = rec.get("judgments") or {}
-for st in ("J1_claims", "J2_subdivision"):
+for st in ("J2_subdivision",):
     if st not in j:
         print(f"the advance did not judge {st}: {sorted(j)}", file=sys.stderr); sys.exit(1)
 # AND IT RAN THE RECORDED PATH, which is the property under test rather than the

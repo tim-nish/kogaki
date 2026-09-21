@@ -190,6 +190,29 @@
       },
       "option_descriptions_required": true,
       "option_format": "THE OPTION IS COMPOSED BY THE HARNESS FROM DECLARED FIELDS, and the Model fills the fields (kogaki#1126; owner decision 2026-09-09). label `<n>. <characteristic>` -- the option's POSITION in the rendered set numbered from 1, then the short Model-authored name of the path, bounded at the length `src/candidate-schema.json` declares. description `<reader_experience> -- <the figure clause>` -- the explanation, then the Harness's own sentence about how many Legs carry a figure. THE CANDIDATE_ID IS NEVER SHOWN AS CONTENT: it is the join key the owner's answer resolves through at `adoptCandidate`, and the defect this closes is that it rendered as the description column. `assembleSelection` composes both seats and `src/candidate-schema.json` declares the two fields with their bounds; neither is composed by the party that writes the Candidate."
+    },
+    {
+      "id": "terrain-judgment-retry",
+      "raised_by": "src/terrain.mjs — the executor raises this gate from INSIDE the state loop, at whichever `judgment` state's judge call exhausted the table's declared retries (kogaki#1172). It is not bound to one wait: any judgment state can raise it, naming itself in the declaration's `judgment_state` field and its last refusal in `judgment_refusal`, both carried by `extra` rather than declared per state.",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "A Terrain judgment exhausted its retries — retry it, or abandon the run?",
+      "options": [
+        {
+          "id": "retry",
+          "label": "Retry the judgment — the executor asks the judge again from the state that exhausted its bound; nothing already judged is re-asked"
+        },
+        {
+          "id": "abandon",
+          "label": "Abandon the run — the open-run pointer is cleared and nothing further is asked",
+          "negates_premise": true
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "requires_gate_instance_id": true,
+      "dynamic_options": "NONE. The two options above are fixed and carry no run-specific data; what varies per raising is the reading above the question — `judgment_state` and `judgment_refusal`, both riding in `extra` rather than composed as options (kogaki#1172, owner decision 2026-09-20 on issue #1172: 'a judgment that fails inside an advance renders a retry question'). A judgment state that raises this gate is NOT marked complete: `retry` clears `awaiting` and leaves the state off `completed`, so the advance the owner's click re-fires re-enters exactly that state through the ordinary table loop, and any per-group record already validated on disk is reused rather than re-asked (the same reuse `J2_subdivision`'s per-group ask already makes for a killed advance, kogaki#1073). `abandon` clears the open-run pointer and marks the run `done`, on the same reading `mostRecentDoneRun` already gives an abandoned run: over, and not resumed by the next `start`.",
+      "unrouted_options": {}
     }
   ]
 }
