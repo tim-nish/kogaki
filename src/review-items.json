@@ -206,11 +206,18 @@
       "",
       "`after_words` is the template's own fixed instruction paragraph, matched",
       "as a WORD SEQUENCE so a rewrap — which changes nothing — does not silently",
-      "hand the instruction back as the block's value."
+      "hand the instruction back as the block's value.",
+      "",
+      "`claims`'s prefix carries a LEADING `\\s*` (the relations layer, kogaki#1174).",
+      "A claim the Brief marks a satellite renders one level indented, under its",
+      "nucleus, and the prefix that locates a claim line must still match it there",
+      "— a bare `claim:` anchored at column zero would silently drop every",
+      "satellite claim from the comparison, which is a hole nothing here would",
+      "notice."
     ],
     "claims": {
       "kind": "claim_lines",
-      "prefix": "claim:",
+      "prefix": "\\s*claim:",
       "bullet_label": "claims"
     },
     "reader_state_after": {
@@ -323,6 +330,13 @@
         "sentence": "this Step declares no claim, so there is nothing for the reader to have recovered and the question below quantifies over nothing; what the passage asserts is judged by the Step's other items"
       },
       "question": "The declared claim is above, in the words the Step declares it in, and below it is every claim this reader wrote down after reading the passage blind. Is that declared claim among them? Answer `holds` where one of the claims the reader wrote says it — a paraphrase counts, and the wording need not match; answer `fails` where no claim they wrote carries it, which means the passage did not put it in front of the reader. What the reader wrote BEYOND the declared claim is not yours to judge here: the Step is told to retell material it asserts nothing about, so surplus is expected and this question is about recovery alone."
+    },
+    {
+      "id": "satellite-fusion",
+      "class": "preserved",
+      "mode": "judged",
+      "declared_block": "claims",
+      "question": "The declared side above renders this Step's claims as a TREE (the relations layer, kogaki#1174): a claim indented under another, marked `— satellite (<relation>)`, is a satellite of the claim directly above it at the shallower indent. Read the passage below. For every satellite the tree above declares, is it realized FUSED into a clause or phrase of the sentence carrying its nucleus — never as a sentence or paragraph standing on its own? Answer `holds` where every satellite is fused this way, or where the tree above declares no satellite at all — there is nothing to check. Answer `fails` where a satellite is realized as its own paragraph, apart from its nucleus, naming which one."
     },
     {
       "id": "reader-state-before",

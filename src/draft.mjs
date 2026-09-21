@@ -106,7 +106,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, visualFormOf, figureSteps,
-  journeysRefusal, stepSchema, closureRowsForStep } from "./compose.mjs";
+  journeysRefusal, stepSchema, closureRowsForStep, relationsRefusal, budgetRefusal } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
@@ -277,7 +277,37 @@ export function parseStepBlockBody(body, path) {
     const bad = journeysRefusal(journeys, materials, `the Brief at ${path}, step ${idM[1]}`);
     if (bad) return { refusal: bad };
   }
-  return { step: { step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, journeys, figure, figure_roles, body } };
+  // the relations layer's `relation:`/`budget:` (kogaki#1174), read back from the serialized form
+  // `renderStep` writes: `relation: <item> of <nucleus> (<type>)`, ONE LINE
+  // PER ENTRY, for the reason `journey` and `introduces` are. THE PARSE-BACK
+  // IS WHAT MAKES THE DECLARATION REACH THE PACKET — the same arrangement
+  // those fields have, through the SAME shared grammar imported from the
+  // composition side: a writer and a reader disagreeing about what a relation
+  // is fails silently at exactly the field that decides how the Packet's
+  // tree renders.
+  const relationLines = [...body.matchAll(/^relation:[ \t]*(.*)$/gm)].map((x) => x[1].trim());
+  let relations;
+  if (relationLines.length) {
+    relations = relationLines.map((ln) => {
+      const m = /^(\S+)\s+of\s+(\S+)\s+\(([^)]*)\)$/.exec(ln);
+      return m ? { item: m[1], nucleus: m[2], relation: m[3] } : { item: ln, nucleus: "", relation: "" };
+    });
+    // The address space is THIS Step's own claims and introduces entries
+    // (`claimLines` reads the same body this parser holds).
+    const claimCount = body.split("\n").filter((l) => l.startsWith("claim ")).length;
+    const bad = relationsRefusal(relations, new Array(claimCount), introduces,
+      `the Brief at ${path}, step ${idM[1]}`);
+    if (bad) return { refusal: bad };
+  }
+  const budgetM = body.match(/^budget:[ \t]*(\S*)\s*$/m);
+  let budget;
+  if (budgetM) {
+    budget = /^[0-9]+$/.test(budgetM[1]) ? Number(budgetM[1]) : budgetM[1];
+    const bad = budgetRefusal(budget, `the Brief at ${path}, step ${idM[1]}`);
+    if (bad) return { refusal: bad };
+  }
+  return { step: { step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, journeys,
+    figure, figure_roles, relations, budget, body } };
 }
 
 // The fenced form. A Reverse Outline is ONE `step` block and this is what
@@ -1033,6 +1063,40 @@ export function priorProseBySection(priorSections, sections, currentIndex, curre
   return out.length ? out.join("\n\n") : null;
 }
 
+// THE RELATIONS LAYER'S TREE RENDER (kogaki#1174). A nucleus renders first,
+// AT THE LINE'S OWN LEFT MARGIN; a satellite of it renders immediately below,
+// indented one level, its own relation type in parens. An item this Step's
+// `relations` never names is a nucleus by default and renders exactly as it
+// always did — so a Step composed before this field renders byte-identical.
+//
+// SCOPED TO ONE KIND (`g` for claims, `i` for introduces entries), the relations layer's
+// own rule that a satellite and its nucleus are items of the SAME KIND —
+// each kind renders in its own Packet block, and this function is called once
+// per block with that block's own item texts and its own address prefix.
+function relationTreeLines(itemTexts, relations, kind, renderLine) {
+  const bySatellite = new Map(); // nucleus address -> [{item, nucleus, relation}]
+  const isSatellite = new Set();
+  for (const r of relations || []) {
+    if (!r.item.startsWith(kind) || !r.nucleus.startsWith(kind)) continue;
+    if (!bySatellite.has(r.nucleus)) bySatellite.set(r.nucleus, []);
+    bySatellite.get(r.nucleus).push(r);
+    isSatellite.add(r.item);
+  }
+  const out = [];
+  itemTexts.forEach((text, i) => {
+    const addr = `${kind}${i + 1}`;
+    // A SATELLITE RENDERS ONLY UNDER ITS NUCLEUS, never again at the top
+    // level — that is what makes this a tree rather than an annotated list.
+    if (isSatellite.has(addr)) return;
+    out.push(renderLine(text, 0, null));
+    for (const r of bySatellite.get(addr) || []) {
+      const si = Number(r.item.slice(kind.length)) - 1;
+      out.push(renderLine(itemTexts[si], 1, r.relation));
+    }
+  });
+  return out;
+}
+
 export function renderPacket({ template, brief, step, moveText, priorSections, ledgerRow, section, sections }) {
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
@@ -1043,9 +1107,17 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
   // renders the proposition alone, so every claim line it carries is a claim
   // and nothing else — which is also what keeps a Strand id's digits out of a
   // review comparison line.
-  const claims = step.body.split("\n")
+  const claimTexts = step.body.split("\n")
     .filter((l) => l.startsWith("claim "))
-    .map((l) => l.replace(/^claim\s*\([^)]*\)\s*:\s*/, "claim: "))
+    .map((l) => l.replace(/^claim\s*\([^)]*\)\s*:\s*/, ""));
+  // NUCLEUS FIRST, SATELLITE INDENTED (the relations layer, kogaki#1174): a claim this
+  // Step's `relations` marks a satellite of another renders one level in,
+  // with its relation type — never as its own paragraph's worth of peer
+  // material. `\s*claim:` in src/review-items.json's `packet_blocks.claims`
+  // is what lets the Reverse Outline read a satellite's line at either
+  // indentation.
+  const claims = relationTreeLines(claimTexts, step.relations, "g",
+    (text, depth, relation) => `${depth ? "  " : ""}claim: ${text}${relation ? ` — satellite (${relation})` : ""}`)
     .join("\n");
   const intro = (step.introduces || []);
   const known = (ledgerRow?.reader_already_knows || []);
@@ -1072,6 +1144,12 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
     purpose: need(`step ${step.step_id}'s purpose`, stepField(step.body, "purpose")),
     reader_state_before: need(`step ${step.step_id}'s reader_state_before`, stepField(step.body, "reader_state_before")),
     reader_state_after: need(`step ${step.step_id}'s reader_state_after`, stepField(step.body, "reader_state_after")),
+    // the relations layer's `budget` (kogaki#1174) — a LIMIT the writer sees, never a
+    // target: rendered in the write instruction, and its absence states so
+    // rather than rendering a blank the writer could read as zero.
+    budget: step.budget !== undefined && step.budget !== null
+      ? `${step.budget} words. This is a ceiling, not a target — write what this Step needs, up to it.`
+      : "(none declared — no word bound applies to this Step.)",
     claims: claims || "(none recorded)",
     reader_already_knows: known.length
       ? known.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
@@ -1079,7 +1157,14 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
       // the model's entire input exactly as a block header does, so the
       // one-word-one-unit rule binds it too.
       : "(nothing — this is the first Step to introduce anything, or the path introduces no terms)",
-    introduces: intro.length ? intro.map((e) => `- ${e}`).join("\n") : "(nothing new)",
+    // NUCLEUS FIRST, SATELLITE INDENTED, the same tree the claims block renders
+    // (the relations layer, kogaki#1174) — over this Step's own `introduces`
+    // entries, the address space `i<n>` names.
+    introduces: intro.length
+      ? relationTreeLines(intro, step.relations, "i",
+          (text, depth, relation) => `${depth ? "  " : ""}- ${text}${relation ? ` — satellite (${relation})` : ""}`)
+          .join("\n")
+      : "(nothing new)",
     // CLOSURE (kogaki#1151): the rows this Step is a party to, read from the
     // Brief's own rendered "## Closure" section (`closureRowsForStep`) rather
     // than recomputed here — fillBrief already wrote the one true rendering.

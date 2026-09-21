@@ -4788,6 +4788,9 @@ async function runSelfTest() {
       purpose: f.purpose,
       reader_state_before: "PACKETONLYTOKEN the state before.",
       reader_state_after: f.after,
+      // the relations layer's `budget` (kogaki#1174). These fixture Steps declare none, so every
+      // Packet renders the stated absence `src/draft.mjs renderPacket` writes.
+      budget: "(none declared — no word bound applies to this Step.)",
       // THE STATED ABSENCE THE RENDERER WRITES, verbatim (src/draft.mjs's
       // `claims || "(none recorded)"`), so the claimless case exercises the
       // string a real Packet actually carries.

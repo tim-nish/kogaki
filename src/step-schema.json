@@ -164,6 +164,17 @@
       "type": "object mapping role -> g<n>",
       "required_when": "figure is present",
       "description": "Binds every role of the Move's `visual_form` to one of THIS Step's own claims, addressed `g<n>` and numbered from 1 in the order the claims are declared. A role bound to another Step's claim is unreachable by construction: the address space is this Step's claims and has no syntax for anyone else's."
+    },
+    "relations": {
+      "required": false,
+      "type": "array of relation",
+      "description": "Which of this Step's `claims` and `introduces` entries are SATELLITES, and of which NUCLEUS -- the relations layer (kogaki#1174). Every item this field does not name is a nucleus BY DEFAULT: the field marks subordination and nothing else, so a Step composed before this field, or one carrying no satellite, renders exactly as it always did. See `relation` below for the address grammar and the closed relation set.",
+      "see": "relation"
+    },
+    "budget": {
+      "required": false,
+      "type": "integer",
+      "description": "The word bound this Step's realized prose may spend, rendered in the Packet's write instruction. A LIMIT THE WRITER SEES, never a target to reach -- its absence means no bound is declared, and nothing asks about it."
     }
   },
   "path_rules": {
@@ -374,6 +385,83 @@
         "required": true,
         "type": "string",
         "description": "What this Step uses the Journey for, from the closed set in `uses` above. A use outside that set is refused."
+      }
+    }
+  },
+  "relation": {
+    "definition": [
+      "THE RELATIONS LAYER (kogaki#1174; owner ruling 2026-09-21). Without it,",
+      "every content item a Step carries into the Packet -- its claims, its",
+      "`introduces` entries -- is a peer of every other one, with no relation",
+      "among them: the writer's only safe realization is one unit per item, in",
+      "the order given, and two items can never fuse into one sentence because",
+      "nothing says which is subordinate to which. That is what made a Closure",
+      "row a paragraph rather than a clause, and it is what this field removes.",
+      "",
+      "A RELATION MARKS ONE ITEM A SATELLITE OF ANOTHER, NAMED, NUCLEUS. Every",
+      "item this Step carries is a nucleus BY DEFAULT -- unmarked, a peer among",
+      "peers, exactly as before this field existed. Naming an item here as a",
+      "satellite is what subordinates it, and the writer realizes a satellite as",
+      "a clause or phrase attached to its nucleus, never as its own paragraph:",
+      "Reverse Outlining reads a satellite realized as a standalone paragraph as",
+      "a finding.",
+      "",
+      "THE ADDRESS SPACE IS THIS STEP'S OWN ITEMS, and it is typed by kind: `g<n>`",
+      "addresses this Step's nth declared CLAIM (the same address `figure_roles`",
+      "already uses), and `i<n>` addresses this Step's nth declared `introduces`",
+      "entry, both 1-based in DECLARATION order. A satellite and its nucleus are",
+      "items of the SAME KIND -- a claim subordinates to a claim, an `introduces`",
+      "entry to an `introduces` entry -- because the two are rendered in separate",
+      "Packet blocks and a cross-kind tree would ask the renderer to move an item",
+      "out of the block its own heading promises it. Widening the address space",
+      "to reach across blocks is available later on its own licence.",
+      "",
+      "THE CLOSURE LEDGER CARRIES NO RELATION MARKING HERE, and the omission is a",
+      "scoping decision rather than an oversight. A Closure row lives in the",
+      "Brief's OWN `obligations`/`thesis_closure` ledger (`fillBrief`), authored",
+      "at a different occasion than a Step's own fields and addressed by no `g<n>`",
+      "or `i<n>` scheme -- folding it into this field would mean redesigning that",
+      "ledger's own shape, which is a wider act than this one licenses. A Closure",
+      "row renders exactly as it did before this field: a sibling, never a",
+      "satellite. Available later, on its own licence.",
+      "",
+      "A TREE IS TWO LEVELS, NEVER A CHAIN. The nucleus a relation names must",
+      "itself be unmarked -- naming an item BOTH a satellite of one item and the",
+      "nucleus of another is refused, because the Packet renders one level of",
+      "indentation and a chain would ask the writer to read a level the block",
+      "never shows. Every item is a nucleus, or a satellite of one; nothing is",
+      "both.",
+      "",
+      "ONE NUCLEUS PER SATELLITE, AND ONE ENTRY PER ITEM. An item named `item` in",
+      "two entries would leave the renderer choosing which relation to draw, so a",
+      "second entry naming the same item is refused rather than silently",
+      "overwriting the first."
+    ],
+    "types": {
+      "background": "the satellite supplies context the reader needs to place the nucleus, without which the nucleus is harder to locate",
+      "evidence": "the satellite is what makes the reader believe the nucleus",
+      "elaboration": "the satellite gives more detail of what the nucleus already asserts",
+      "concession": "the satellite grants a point that might tell against the nucleus, before or after it stands",
+      "contrast": "the satellite is juxtaposed against the nucleus to bring out a difference between them",
+      "cause": "the satellite is why the nucleus is so",
+      "condition": "the satellite states what must hold for the nucleus to hold",
+      "restatement": "the satellite says the nucleus again, in other words"
+    },
+    "fields": {
+      "item": {
+        "required": true,
+        "type": "string",
+        "description": "The satellite: the address of the item being subordinated, `g<n>` or `i<n>` over this Step's own claims or `introduces` entries."
+      },
+      "nucleus": {
+        "required": true,
+        "type": "string",
+        "description": "The item `item` is a satellite OF, addressed the same way and of the SAME KIND as `item`. Must itself be unmarked -- a nucleus is not itself a satellite of anything (a tree is two levels, never a chain)."
+      },
+      "relation": {
+        "required": true,
+        "type": "string",
+        "description": "The relation `item` bears to `nucleus`, from the closed set in `types` above. A relation type outside that set is refused."
       }
     }
   },
