@@ -29,9 +29,31 @@ Block order is fixed: anchors, Move contract, Step, the Journey material, the
 Step's Section, ledger, the article so far, instruction. Heavy prose late, instruction last. Every block opens with a fixed
 usage header saying what the block is FOR, because a block whose use is not
 stated gets used for whatever it resembles.
+
+THE RELATIONS LAYER (kogaki#1174). The claims block and the `introduce here`
+list below RENDER AS TREES, not lists: an item the Brief marks a SATELLITE of
+another renders indented under that NUCLEUS, with the relation between them.
+An item with no such marking is a nucleus. The glossary below is the whole
+of what a writer needs to read the tree — no outside reference is required.
 -->
 
 # Write one Step
+
+## Relation types
+
+An indented, satellite item names one of these. Realize it as a clause or
+phrase attached to its nucleus's sentence, never as its own paragraph — a
+paragraph that stands alone restates the tree as a list, which is the defect
+this layer exists to remove.
+
+- **background** — the satellite supplies context the reader needs to place the nucleus.
+- **evidence** — the satellite is what makes the reader believe the nucleus.
+- **elaboration** — the satellite gives more detail of what the nucleus already asserts.
+- **concession** — the satellite grants a point that might tell against the nucleus.
+- **contrast** — the satellite is juxtaposed against the nucleus to bring out a difference.
+- **cause** — the satellite is why the nucleus is so.
+- **condition** — the satellite states what must hold for the nucleus to hold.
+- **restatement** — the satellite says the nucleus again, in other words.
 
 ## What the article is doing — hold these fixed
 
@@ -70,10 +92,12 @@ What this Step must accomplish, in this article, for this reader.
 - **purpose.** {{purpose}}
 - **reader_state_before.** {{reader_state_before}}
 - **reader_state_after.** {{reader_state_after}}
-- **claims.** Each line below is a claim this Step asserts. Your
+- **claims.** Each entry below is a claim this Step asserts, as a tree — see
+  "Relation types" above for how to read an indented one. Your
   prose must make every one of them recoverable, and must assert nothing beyond
-  them. The Lesson each claim rests on is at its pin and is not reproduced
-  here: these lines are the whole of what this Step may assert.
+  them. A satellite claim is realized fused into its nucleus's sentence, not as
+  a sentence of its own. The Lesson each claim rests on is at its pin and is not
+  reproduced here: these lines are the whole of what this Step may assert.
 
 {{claims}}
 
@@ -104,9 +128,11 @@ claim, and do not open a new subject.
 ## What the reader already knows, and what you introduce here
 
 `already knows` was established by earlier Steps — do not re-introduce it.
-`introduce here` is this Step's obligation: each term must be usable by the
-reader after this Step, and a term with an anchor is anchored because its
-meaning is not carried by the claims above.
+`introduce here` is this Step's obligation, also a tree (see "Relation types"
+above): each term must be usable by the reader after this Step, and a term
+with an anchor is anchored because its meaning is not carried by the claims
+above. A satellite term is realized folded into the sentence that introduces
+its nucleus, not given a sentence of its own.
 
 - **already knows.** {{reader_already_knows}}
 - **introduce here.** {{introduces}}
@@ -134,6 +160,8 @@ what it says, do not contradict it, and match the voice it establishes.
 
 Write the prose for this Step and nothing else. No heading, no step id, no
 label, no commentary about what you are doing.
+
+**Budget.** {{budget}}
 
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Step and never by you.
