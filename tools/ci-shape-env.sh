@@ -27,6 +27,8 @@
 # `claude` on PATH by construction, and a check or fixture that leans on it
 # unguarded passes locally and would fail in CI, invisibly, until this shape
 # made that failure reachable outside CI.
+#
+# consulted: product-lab@9c07d0bd10ba39d2f0bf2a0bf48370373f48ace5 coding::lesson/a-guarantee-can-live-in-environment-conjuncts-not-code@54e8adf24e603afde73b106db13e215a1a320fa120447927545b363b8a764b7f
 CI_SHAPE_BINARIES=(
   # actions/setup-node
   node npm npx corepack
