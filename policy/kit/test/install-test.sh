@@ -28,6 +28,19 @@ mkdir -p "$HOME"
 # deletes, and nothing downstream would fail.
 [[ "$HOME" == "$TMP/home" ]] || fail "the install sandbox HOME is not set — installs would write to the operator's own ~/.claude.json (kogaki#638)"
 
+# EVERY INSTALL ALSO RUNS WITH NO AMBIENT GATEWAY (kogaki#1182). `install.sh`
+# falls back to `$TSUREZURE_GATEWAY_JS` when `--gateway` is absent, so a
+# caller whose OWN environment carries that variable — a developer with a
+# gateway configured, or `tools/run-registered-checks.sh --ci-shape`, which
+# sets it to a deliberately unreachable path for the whole suite run — makes
+# every "not configured" install in this file below take the "register"
+# branch instead, inflating `claude mcp add` calls past the one install
+# (§12b) that means to make one. Unset here, once, rather than trusting every
+# call site below to repeat it: the file already prefixes an explicit value
+# onto the few calls that need one (§7, §12, §12b), and an explicit prefix on
+# a command overrides an `unset` in the shell that runs it either way.
+unset TSUREZURE_GATEWAY_JS
+
 # THE CLAUDE CLI IS A TEST DOUBLE, exactly as the gateway transport already is
 # (kogaki#787). `install.sh` step 5 shells out to `claude mcp list` on every
 # run and to `claude mcp add` when a gateway is configured, and the real CLI

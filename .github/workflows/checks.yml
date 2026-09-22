@@ -23,6 +23,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # THE BINARIES THIS JOB PROVIDES, DECLARED ONCE (kogaki#1182). This step
+      # is what puts `node`, `npm`, `npx` and `corepack` on PATH; the base
+      # `ubuntu-latest` runner image supplies the rest. That full set is
+      # named exactly once, in `tools/ci-shape-env.sh`'s `CI_SHAPE_BINARIES`
+      # -- `tools/run-registered-checks.sh --ci-shape` reproduces it outside
+      # CI so a session never has to guess it by hand again. This comment is
+      # the citation, not a second copy of the list.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
