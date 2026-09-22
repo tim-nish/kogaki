@@ -87,7 +87,12 @@ for arg in "$@"; do
     REMAINING_ARGS+=("$arg")
   fi
 done
-set -- "${REMAINING_ARGS[@]}"
+# Guarded before expanding, as SUITE_OWNED_TMPDIRS already is below (PR #1183
+# round 1, finding 3): an empty array expands to an unbound variable under
+# `set -u` on bash before 4.4, which would abort the ORDINARY no-argument
+# invocation. Both runners here carry bash 5, so this is portability and the
+# file's own convention rather than a live failure.
+if ((${#REMAINING_ARGS[@]})); then set -- "${REMAINING_ARGS[@]}"; else set --; fi
 
 # THE SUITE GETS ITS OWN OPEN-GATE DIRECTORY (kogaki#1028 item 5).
 #

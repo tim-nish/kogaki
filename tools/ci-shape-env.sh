@@ -66,11 +66,26 @@ ci_shape_apply() {
   dir="$(mktemp -d "${TMPDIR:-/tmp}/kogaki-ci-shape.XXXXXX")"
   local name found
   for name in "${CI_SHAPE_BINARIES[@]}"; do
-    found="$(command -v "$name" 2>/dev/null || true)"
+    # `type -P`, NEVER `command -v` (PR #1183 round 1, finding 1). `command -v`
+    # answers "how would this shell run that word", so for a bash BUILTIN it
+    # prints the bare word rather than a path -- and several names above
+    # (`printf`, `true`, `false`, `test`, `kill`) are builtins here while being
+    # real files in the runner image. Linking `$dir/printf -> printf` produces a
+    # link that resolves to ITSELF, so a member reaching one as an external
+    # command (`env printf`, `xargs true`, `find -exec test`) gets ELOOP under
+    # this shape while real CI resolves `/usr/bin/printf` and passes -- a red
+    # suite caused by the shape rather than by the change, which is the exact
+    # class kogaki#1182 exists to retire. `type -P` searches PATH for an
+    # executable FILE and prints nothing for a builtin, which is the question
+    # actually being asked. `checks/check-ci-shape.sh` asserts every built link
+    # resolves, so the rule cannot quietly revert.
+    found="$(type -P "$name" 2>/dev/null || true)"
     # A DECLARED BINARY THIS MACHINE DOES NOT HAVE IS SIMPLY ABSENT FROM THE
     # SHAPE, not an error here: the same gap exists in real CI whenever a
     # runner image drops a tool, and the members that need it fail by name
-    # there too, which is the behaviour this mode exists to reproduce.
+    # there too, which is the behaviour this mode exists to reproduce. A name
+    # that is only a builtin here takes the same path: the shape carries no
+    # file for it, and every shell that has it as a builtin still has it.
     [[ -n "$found" ]] || continue
     ln -s "$found" "$dir/$name"
   done

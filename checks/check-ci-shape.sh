@@ -43,6 +43,24 @@ if (source tools/ci-shape-env.sh; printf '%s\n' "${CI_SHAPE_BINARIES[@]}") | gre
 fi
 echo "ok: which claude prints nothing under the declared --ci-shape PATH"
 
+# EVERY LINK IN THE SHAPE RESOLVES TO A REAL FILE (PR #1183 round 1, finding 1).
+# `command -v` answers for a bash BUILTIN with the bare word, so resolving the
+# list that way linked `$dir/printf -> printf` — a link to itself, ELOOP for any
+# member reaching it as an external command, while real CI resolves
+# `/usr/bin/printf` and passes. That is a red suite caused by the shape rather
+# than by the change, which is the class kogaki#1182 exists to retire, so the
+# resolution rule is asserted here rather than left to the next member that
+# happens to shell out to one of them.
+dangling=()
+for link in "$CI_SHAPE_DIR"/*; do
+  [[ -e "$link" ]] || dangling+=("$(basename "$link")")
+done
+if ((${#dangling[@]})); then
+  echo "FAIL: ${#dangling[@]} entr(y/ies) in the built --ci-shape directory do not resolve to a file: ${dangling[*]} — CI_SHAPE_BINARIES is being resolved with something that answers for shell builtins (use \`type -P\`); every one of these is ELOOP for a member that reaches it as an external command"
+  exit 1
+fi
+echo "ok: every entry in the built --ci-shape directory resolves to a real file (no builtin linked to itself)"
+
 # tools/run-registered-checks.sh calls `ci_shape_apply` DIRECTLY (never
 # through `$(...)`) so its exports land in the runner's own process — that
 # is the mechanism this case exercises, in a subshell so it still leaves
