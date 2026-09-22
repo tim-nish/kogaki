@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 # THE ONE DEFINITION OF "RUN THE SUITE" (kogaki#724).
 #
+# `--ci-shape` (kogaki#1182) IS A DECLARED MODE, not an ad hoc environment a
+# caller composes by hand. On 2026-09-22 a `/ship-cycle 1172` session wanted
+# to run this suite the way `.github/workflows/checks.yml` runs it -- no
+# `claude` on PATH, no policy gateway -- and had to guess the shape: a
+# hand-built symlink directory for the tools it assumed CI has, and a first
+# attempt that omitted `node`, so the suite failed for a reason unrelated to
+# the change under review. `--ci-shape` sources the one declaration of that
+# shape, `tools/ci-shape-env.sh`, restricts PATH to exactly the binaries
+# `.github/workflows/checks.yml`'s job provides, points `TSUREZURE_GATEWAY_JS`
+# at a nonexistent path, forces execution (`CHECKS_FORCE=1` semantics), and
+# records its verdict under its own key so it is never read as, or reused by,
+# a full-tool run at the same head.
+#
 # Two consumers need it — CI's registry-driven job and the review lane's
 # declared mechanism in `.claude/review-lane.json` — and until this file
 # existed they each carried their own. CI's was registry-driven; the lane's
@@ -57,7 +70,24 @@
 # and a runner is not a check. `tools/` is where this repository's
 # non-registered executables already live.
 set -euo pipefail
-cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+SUITE_SELF="$0"
+cd "$(git -C "$(dirname "$SUITE_SELF")" rev-parse --show-toplevel)"
+
+# --ci-shape (kogaki#1182): THE ONLY FLAG THIS RUNNER TAKES, checked here
+# rather than left for the python heredoc to notice, because the shape must be
+# built and exported before anything below -- the open-gate directory, the npm
+# precondition, the members themselves -- runs under it. Stripped from "$@" so
+# it is never mistaken downstream for a member argument that does not exist.
+CI_SHAPE=0
+REMAINING_ARGS=()
+for arg in "$@"; do
+  if [[ "$arg" == "--ci-shape" ]]; then
+    CI_SHAPE=1
+  else
+    REMAINING_ARGS+=("$arg")
+  fi
+done
+set -- "${REMAINING_ARGS[@]}"
 
 # THE SUITE GETS ITS OWN OPEN-GATE DIRECTORY (kogaki#1028 item 5).
 #
@@ -77,6 +107,21 @@ cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 # the OTHER one was defaulted, which is the read this block already forbids.
 SUITE_OWNED_TMPDIRS=()
 trap 'if ((${#SUITE_OWNED_TMPDIRS[@]})); then rm -rf "${SUITE_OWNED_TMPDIRS[@]}"; fi' EXIT
+
+# THE CI SHAPE ITSELF (kogaki#1182): applied here, before the open-gate
+# directory, the gate-declaration sidecar and the npm precondition, so every
+# one of them -- and every member that follows -- runs inside it rather than
+# under whatever PATH and gateway the caller's own shell happened to have.
+# The declaration lives in tools/ci-shape-env.sh, sourced rather than
+# inlined, because .github/workflows/checks.yml cites that same file by name
+# (see its header comment) and a citation needs one thing to point at.
+if (( CI_SHAPE )); then
+  # shellcheck source=tools/ci-shape-env.sh
+  source "$(dirname "$SUITE_SELF")/ci-shape-env.sh"
+  ci_shape_apply >/dev/null
+  SUITE_OWNED_TMPDIRS+=("${CI_SHAPE_DIR}")
+  echo "ci-shape: PATH restricted to ${CI_SHAPE_DIR} (${#CI_SHAPE_BINARIES[@]} declared binaries; kogaki#1182); TSUREZURE_GATEWAY_JS -> ${TSUREZURE_GATEWAY_JS}; CHECKS_FORCE=1"
+fi
 
 if [[ -z "${KOGAKI_OPEN_GATES:-}" ]]; then
   KOGAKI_OPEN_GATES="$(mktemp -d "${TMPDIR:-/tmp}/kogaki-open-gates-suite.XXXXXX")"
@@ -237,8 +282,22 @@ def store_dir():
     return pathlib.Path(base)
 
 
+def verdict_key(sha):
+    """The store filename stem for this run's shape.
+
+    THE SHAPE IS PART OF THE KEY (kogaki#1182 item 3, `--ci-shape`). A
+    full-tool run and a `--ci-shape` run at the same head answer different
+    questions -- one about this machine's own tools and gateway, one about
+    the restricted set `.github/workflows/checks.yml` actually provides -- so
+    a verdict recorded by one must never be read as covering the other. The
+    plain `{sha}.json` name is unchanged for a full-tool run so every verdict
+    ever recorded before this issue keeps resolving.
+    """
+    return f"{sha}-ci-shape" if os.environ.get("CI_SHAPE") == "1" else sha
+
+
 def local_verdict(sha):
-    path = store_dir() / f"{sha}.json"
+    path = store_dir() / f"{verdict_key(sha)}.json"
     if not path.exists():
         return None
     try:
@@ -513,11 +572,12 @@ if sha and not degraded:
     try:
         d = store_dir()
         d.mkdir(parents=True, exist_ok=True)
-        (d / f"{sha}.json").write_text(json.dumps({
+        key = verdict_key(sha)
+        (d / f"{key}.json").write_text(json.dumps({
             "head": sha, "outcome": "pass", "checks": len(entries),
             "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }, indent=2) + "\n")
-        print(f"recorded: full-pass verdict for head {sha} at {d}")
+        print(f"recorded: full-pass verdict for head {sha} at {d / f'{key}.json'}")
     except OSError as e:
         print(f"note: verdict not recorded ({e}); the next run executes again")
 if degraded:
