@@ -22,71 +22,49 @@
 # THE SEAM IS STUBBED TOO, on `check-terrain-runtime.sh`'s own recipe: a scratch
 # REPO with `src/` copied whole and a stub `policy/kit/bin/gateway-query.mjs`, so
 # nothing here reaches a gateway or a network.
+#
+# THIS SCRIPT'S OWN SHAPE IS DECLARED HERE (kogaki#1181), against the 2026-09-22
+# event that named it: kogaki#1172 changed the sentence Terrain prints on a spent
+# judgment bound, and thirty-one assertions here had been pinned to the OLD
+# sentence, so each had to be read, understood and rewritten by hand while two
+# workers between them ran this 60-75s script about eighteen times. Three
+# properties follow from that event, and hold from here on: (1) an assertion
+# about a failed or refused judgment reads the RECORDED OUTCOME — the
+# `terrain-judgment-retry` gate call's id, the group name, the `attempts` count
+# and the refusal `judgment_refusals` itself carry on `run-record.json` — never
+# the sentence Terrain prints, so a wording change with the gate id and group
+# name unchanged leaves every such assertion green. (2) `CHECK_SCENARIO=<name>`
+# selects ONE named scenario tree and skips the rest — every `# ----` section
+# below carries a name `scenario_selected` matches against — so a repair cycle
+# over one scenario costs seconds rather than the whole script's 60-75s; an
+# unset `CHECK_SCENARIO` (what `checks/registry.json` invokes) runs all of them.
+# (3) failures print as a count and the first one by default; `CHECK_VERBOSE=1`
+# prints every `FAIL` line, which is the whole of what this script printed
+# before.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 REPO=$PWD
 
+CHECK_SCENARIO="${CHECK_SCENARIO:-}"
+CHECK_VERBOSE="${CHECK_VERBOSE:-0}"
+
 fail=0
 cases=0
+fail_count=0
+first_fail=""
 note() { printf '%s\n' "$*"; }
-bad() { printf 'FAIL — %s\n' "$*"; fail=1; }
-pass() { cases=$((cases + 1)); }
-
-# A GROUP NAME IN A JUDGMENT REFUSAL SURVIVES TWO DIFFERENT RELAYS (kogaki#1172):
-# `fail()`'s raw stderr line prints it literally, and `terrain-judgment-retry`'s
-# gate declaration carries it through advance-terrain.py's own re-serialization
-# on the way into the outer `hookSpecificOutput` JSON, which quote-escapes the
-# name once more than the raw-stderr shape does and, on top of that, lets
-# Python's outer `json.dump` (default `ensure_ascii=True`) turn this
-# repository's own " × " group-name separator into a literal `×` escape --
-# so a hand-built pattern has to reproduce an escaping DEPTH that is an
-# implementation detail of the relay, not a property this check owes to know.
-# Decoding the captured output as JSON instead (one level: the line IS the
-# `hookSpecificOutput` object) reverses whatever depth of escaping the relay
-# applied and recovers the plain string a reader of the gate's own file sees,
-# so the needle only ever has to account for ONE quote-escaping layer -- the
-# one `JSON.stringify` still applies when the message text itself quotes the
-# group name -- regardless of how many more layers the surrounding channel adds.
-group_failure_seen() {                # group_failure_seen <out-file> <group-name> <n>
-  local outfile=$1 name=$2 n=$3
-  python3 - "$outfile" "$name" "$n" <<'PY'
-import json, sys
-
-outfile, name, n = sys.argv[1], sys.argv[2], sys.argv[3]
-text = open(outfile, encoding="utf-8", errors="replace").read()
-raw_needle = f'record for group "{name}" was refused on all {n} attempt(s)'
-quoted_needle = f'record for group \\"{name}\\" was refused on all {n} attempt(s)'
-
-def contains(s):
-    return raw_needle in s or quoted_needle in s
-
-if contains(text):
-    sys.exit(0)
-
-for line in text.splitlines():
-    line = line.strip()
-    if not line:
-        continue
-    try:
-        obj = json.loads(line)
-    except Exception:
-        continue
-    found = []
-    def walk(x):
-        if isinstance(x, str):
-            found.append(x)
-        elif isinstance(x, dict):
-            for v in x.values():
-                walk(v)
-        elif isinstance(x, list):
-            for v in x:
-                walk(v)
-    walk(obj)
-    if any(contains(s) for s in found):
-        sys.exit(0)
-sys.exit(1)
-PY
+bad() {
+  fail=1
+  fail_count=$((fail_count + 1))
+  if [ -z "$first_fail" ]; then first_fail=$*; fi
+  if [ "$CHECK_VERBOSE" = 1 ]; then printf 'FAIL — %s\n' "$*"; fi
 }
+pass() { cases=$((cases + 1)); }
+# scenario_selected <name> — an unset CHECK_SCENARIO selects every scenario
+# (the registry's own invocation); a set one narrows the run to the single
+# named `# ----` section carrying that name, and every other section's
+# `build_tree`/`drive*` calls are skipped.
+scenario_selected() { [ -z "$CHECK_SCENARIO" ] || [ "$CHECK_SCENARIO" = "$1" ]; }
 
 SCRATCH=$(mktemp -d) || { echo "FAIL — no temp directory; CANNOT-DETERMINE, never a pass"; exit 1; }
 trap 'rm -rf "$SCRATCH"' EXIT
@@ -1271,16 +1249,36 @@ BOUNDPY
 import json,sys
 t=json.load(open('$root/src/terrain-workflow.json'))
 print([s for s in t['states'] if s['id']=='J2_subdivision'][0]['retries'])")
-  if grep -q "on all $((declared_j2 + 1)) attempt(s)" "$root/advbad.out"; then pass; else
-    bad "$label: the run did not fail after the $declared_j2 re-ask(s) the table declares for J2_subdivision. It said: $(tail -4 "$root/advbad.out" | tr '\n' ' ')"
+  # ASSERTED ON THE RECORDED OUTCOME, NOT THE PRINTED SENTENCE (kogaki#1181):
+  # `attempts` on `judgment_refusals` is the count Terrain's own retry loop
+  # spent, and it says so independently of whatever prose the state's exhaustion
+  # message carries this build -- a wording change with the count unchanged
+  # leaves this green, where the old `grep -q "on all N attempt(s)"` did not.
+  if python3 - "$D2" "$declared_j2" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}
+want = int(sys.argv[2]) + 1
+sys.exit(0 if r.get("attempts") == want and r.get("repaired") is False else 1)
+PY
+  then pass; else
+    bad "$label: the run record's judgment_refusals entry for J2_subdivision does not read attempts=$((declared_j2 + 1)), unrepaired — the run did not fail after the $declared_j2 re-ask(s) the table declares"
   fi
   # THE REFUSAL TEXT RIDES THE GATE (kogaki#1172 item 3): a judgment that spends
   # its bound raises `terrain-judgment-retry` rather than calling `fail()`, and
   # its own refusal text is what `GATE_CALL_READING_KEYS` promotes into the
   # rendered question — this is the half that tells an operator why the judge's
-  # record was rejected rather than merely that it was.
-  if grep -q "some-group" "$root/advbad.out"; then pass; else
-    bad "$label: the failure does not carry the state's own refusal text — an operator is told the judge failed and never why"
+  # record was rejected rather than merely that it was. Read from THE RUN RECORD
+  # (kogaki#1181 item 1: "the group name in the run record"), never the gate's
+  # own rendered text, which is free to reword around it.
+  if python3 - "$D2" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}
+sys.exit(0 if "some-group" in (r.get("refusal") or "") else 1)
+PY
+  then pass; else
+    bad "$label: the run record's judgment_refusals refusal text for J2_subdivision does not carry the fixture's group name — an operator reading the record is told the judge failed and never why"
   fi
   # AND THE RUN RECORD NAMES IT (PR #1044 round 1, D1's partial-discharge note).
   # Acceptance 2 reads "the run fails after the declared retry count and THE
@@ -1329,11 +1327,24 @@ PY
   printf '%s' "$pg" | (cd "$root" && KOGAKI_RUN_DIR="$D3" KOGAKI_OPEN_GATES="$root/open-gates" \
       KOGAKI_JUDGE_CLI="$root/judge-garbage" \
       python3 .claude/hooks/advance-terrain.py >"$root/advgarbage.out" 2>&1)
-  if grep -q "on all $((declared_j2 + 1)) attempt(s)" "$root/advgarbage.out"; then pass; else
-    bad "$label: an unparseable judge response was not re-asked to the table's bound — the retry window covers the conformance arm alone, which is narrower than the licence describes. It said: $(tail -3 "$root/advgarbage.out" | tr '\n' ' ')"
+  if python3 - "$D3" "$declared_j2" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}
+want = int(sys.argv[2]) + 1
+sys.exit(0 if r.get("attempts") == want and r.get("repaired") is False else 1)
+PY
+  then pass; else
+    bad "$label: the run record's judgment_refusals entry for J2_subdivision does not read attempts=$((declared_j2 + 1)), unrepaired — an unparseable judge response was not re-asked to the table's bound"
   fi
-  if grep -q "is not JSON" "$root/advgarbage.out"; then pass; else
-    bad "$label: the failure does not name the parse refusal it exhausted its attempts on"
+  if python3 - "$D3" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}
+sys.exit(0 if "not JSON" in (r.get("refusal") or "") else 1)
+PY
+  then pass; else
+    bad "$label: the run record's judgment_refusals refusal text for J2_subdivision does not name the parse refusal it exhausted its attempts on"
   fi
 
   # --- kogaki#1059 FIXTURE 1. THE BOUND REPAIRS RATHER THAN REPEATS. The judge
@@ -1437,11 +1448,24 @@ PY
   printf '%s' "$pw" | (cd "$root" && KOGAKI_RUN_DIR="$D6" KOGAKI_OPEN_GATES="$root/open-gates" \
       KOGAKI_JUDGE_CLI="$root/judge-wrong-shape" \
       python3 .claude/hooks/advance-terrain.py >"$root/advwrong.out" 2>&1)
-  if grep -q "on all $((declared_j2 + 1)) attempt(s)" "$root/advwrong.out"; then pass; else
-    bad "$label: a judge returning the live wrong shape every time did not fail after the $declared_j2 re-ask(s) the table declares. It said: $(tail -3 "$root/advwrong.out" | tr '\n' ' ')"
+  if python3 - "$D6" "$declared_j2" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}
+want = int(sys.argv[2]) + 1
+sys.exit(0 if r.get("attempts") == want and r.get("repaired") is False else 1)
+PY
+  then pass; else
+    bad "$label: the run record's judgment_refusals entry for J2_subdivision does not read attempts=$((declared_j2 + 1)), unrepaired — a judge returning the live wrong shape every time did not fail after the $declared_j2 re-ask(s) the table declares"
   fi
-  if grep -q 'composition_pin' "$root/advwrong.out"; then pass; else
-    bad "$label: the exhausted failure does not name the shape refusal it spent its attempts on"
+  if python3 - "$D6" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+r = (rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}
+sys.exit(0 if "composition_pin" in (r.get("refusal") or "") else 1)
+PY
+  then pass; else
+    bad "$label: the run record's judgment_refusals refusal text for J2_subdivision does not name the shape refusal it spent its attempts on"
   fi
   if python3 - "$D6" <<'PY'
 import json, sys, pathlib
@@ -1578,13 +1602,29 @@ PY
   wrong_target=$(cat "$root/group-wrong-target" 2>/dev/null || echo "")
   if [ -z "$wrong_target" ]; then
     bad "$label: the per-group wrong-shape stub was never reached at J2_subdivision"
-  elif group_failure_seen "$root/advgroupwrong.out" "$wrong_target" "$((declared_j2 + 1))"; then
+  elif python3 - "$D8" "$wrong_target" "$((declared_j2 + 1))" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+target, want = sys.argv[2], int(sys.argv[3])
+groups = ((rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}).get("groups") or {}
+hit = groups.get(target)
+sys.exit(0 if hit and hit.get("attempts") == want and hit.get("repaired") is False else 1)
+PY
+  then
     pass
   else
-    bad "$label: the failure does not name the group that spent its bound, nor the $declared_j2 re-ask(s) the table declares (kogaki#1062). It said: $(tail -4 "$root/advgroupwrong.out" | tr '\n' ' ')"
+    bad "$label: the run record's per-group breakdown for J2_subdivision does not name $wrong_target at attempts=$((declared_j2 + 1)), unrepaired (kogaki#1062)"
   fi
-  if grep -q "withdrawn pre-v9 form" "$root/advgroupwrong.out"; then pass; else
-    bad "$label: the exhausted per-group failure does not carry the state's own refusal text — an operator is told a group failed and never why"
+  if python3 - "$D8" "$wrong_target" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+target = sys.argv[2]
+groups = ((rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}).get("groups") or {}
+hit = groups.get(target) or {}
+sys.exit(0 if any("withdrawn pre-v9 form" in r for r in (hit.get("refusals") or [])) else 1)
+PY
+  then pass; else
+    bad "$label: the run record's per-group refusal text for $wrong_target does not carry the state's own refusal text — an operator reading the record is told a group failed and never why"
   fi
   if python3 - "$D8" "$root/group-wrong-target" <<'PY'
 import json, sys, pathlib
@@ -1844,14 +1884,31 @@ try: print(json.load(open('$root/unplaced-target'))['member'])
 except Exception: sys.exit(1)" 2>/dev/null || echo "")
   if [ -z "$unplaced_group" ]; then
     bad "$label: the unplaced stub was never reached at J2_subdivision"
-  elif group_failure_seen "$root/advunplaced.out" "$unplaced_group" "$((declared_j2 + 1))"; then
+  elif python3 - "$D2" "$unplaced_group" "$((declared_j2 + 1))" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+target, want = sys.argv[2], int(sys.argv[3])
+groups = ((rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}).get("groups") or {}
+hit = groups.get(target)
+sys.exit(0 if hit and hit.get("attempts") == want and hit.get("repaired") is False else 1)
+PY
+  then
     pass
   else
-    bad "$label: the failure does not name the group that spent its bound over the $declared_j2 re-ask(s) the table declares (kogaki#1068 acceptance 2). It said: $(tail -4 "$root/advunplaced.out" | tr '\n' ' ')"
+    bad "$label: the run record's per-group breakdown for J2_subdivision does not name $unplaced_group at attempts=$((declared_j2 + 1)), unrepaired (kogaki#1068 acceptance 2)"
   fi
-  if grep -qF "$unplaced_member" "$root/advunplaced.out" \
-     && grep -q "SUBDIVISION_COVER_INCOMPLETE" "$root/advunplaced.out"; then pass; else
-    bad "$label: the exhausted failure does not carry the cover refusal naming the member left unplaced -- an operator is told a group failed and never which member it left"
+  if python3 - "$D2" "$unplaced_group" "$unplaced_member" <<'PY'
+import json, sys, pathlib
+rec = json.load(open(pathlib.Path(sys.argv[1], "run-record.json")))
+target, member = sys.argv[2], sys.argv[3]
+groups = ((rec.get("judgment_refusals") or {}).get("J2_subdivision") or {}).get("groups") or {}
+hit = groups.get(target) or {}
+refusals = hit.get("refusals") or []
+ok = any("SUBDIVISION_COVER_INCOMPLETE" in r and member in r for r in refusals)
+sys.exit(0 if ok else 1)
+PY
+  then pass; else
+    bad "$label: the run record's per-group refusal text for $unplaced_group does not carry the cover refusal naming the member left unplaced -- an operator reading the record is told a group failed and never which member it left"
   fi
   if [ ! -f "$D2/terrain-judge-J2_subdivision.json" ]; then pass; else
     bad "$label: the state failed on the cover rule and wrote an assembled subdivision record anyway (kogaki#1068 acceptance 2)"
@@ -1994,26 +2051,33 @@ then pass; else
   bad "the workflow table's \`limits\` key or the SUBGROUP_MEMBERS_DO_NOT_SUM refusal does not hold the carrier properties their own declarations claim (PR #1070 round 1)"
 fi
 
-build_tree "$SCRATCH/gold"
-drive "this tree" "$SCRATCH/gold"
+if scenario_selected "span"; then
+  build_tree "$SCRATCH/gold"
+  drive "this tree" "$SCRATCH/gold"
+fi
 
 # ---- ACCEPTANCE 4. THE REMOVAL TEST: the same three fixtures, in a tree holding
 # the runtime and the hooks with `specs/` absent and the skill file reduced to
 # its one `!` line. Its ground is the same as `check-terrain-hook-invocation.sh`'s
 # — the claim is that the behaviour is carried by the code and the hooks rather
 # than by the prose around them, and no pass running inside the full tree can
-# make it.
-build_tree "$SCRATCH/red" --reduced
-if [ -e "$SCRATCH/red/specs" ]; then
-  bad "the reduced tree carries specs/ — the removal test asserts the runtime works with the spec absent, so a copy of it defeats the test"
-else
-  pass
+# make it. Scenario "span", the same one the gold tree above runs under: both
+# drive the same `drive()` cases and are read together.
+if scenario_selected "span"; then
+  build_tree "$SCRATCH/red" --reduced
+  if [ -e "$SCRATCH/red/specs" ]; then
+    bad "the reduced tree carries specs/ — the removal test asserts the runtime works with the spec absent, so a copy of it defeats the test"
+  else
+    pass
+  fi
+  drive "the reduced tree" "$SCRATCH/red"
 fi
-drive "the reduced tree" "$SCRATCH/red"
 
 # ---- kogaki#1068. The SubGroup rules, over a survey wide enough for them to bind.
-build_tree "$SCRATCH/wide"
-drive_limits "the wide tree" "$SCRATCH/wide"
+if scenario_selected "subgroup-limits"; then
+  build_tree "$SCRATCH/wide"
+  drive_limits "the wide tree" "$SCRATCH/wide"
+fi
 
 # ---- kogaki#1085. A SubGroup ID THE DISPLAY PRINTED IS AN ID THE NEXT STATE
 # RESOLVES.
@@ -2146,8 +2210,10 @@ PY
   unset KOGAKI_FIXTURE_LESSONS
 }
 
-build_tree "$SCRATCH/subids"
-drive_subgroup_ids "the SubGroup-id tree" "$SCRATCH/subids"
+if scenario_selected "subgroup-ids"; then
+  build_tree "$SCRATCH/subids"
+  drive_subgroup_ids "the SubGroup-id tree" "$SCRATCH/subids"
+fi
 
 # ---- THE PER-GROUP RECORDS ON DISK ARE READ, AND THE CALLS RUN CONCURRENTLY
 # (kogaki#1073, acceptance 1).
@@ -2396,10 +2462,21 @@ print((json.load(open('src/terrain-workflow.json')).get('judge') or {}).get('con
     bad "$label: eleven judge calls of ${sleep_ms}ms each (${slow_calls:-0} logged) took ${elapsed_ms}ms, which is the sequential sum rather than about three call-lengths — the per-group calls do not run concurrently under the table's cap (kogaki#1073 defect 2). The advance said: $(tail -3 "$root/adv-slow.out" | tr '\n' ' ')"
   fi
 
-  # --- 4(d). A RUN RECORD WRITTEN AFTER THE SECOND OF THREE GROUPS NAMES THE
-  # TWO. The advance is KILLED, not failed: `ADVANCE_TIMEOUT_S` sends a signal
-  # and a signal runs no exit path, so `persistPendingRun` cannot be what wrote
-  # the record and the checkpoint is the only remaining writer.
+  unset KOGAKI_FIXTURE_LESSONS KOGAKI_FIXTURE_SLEEP_MS
+}
+
+# ---- 4(d), SPLIT OUT AS ITS OWN SCENARIO ("judge-hangs", kogaki#1181
+# acceptance 2). A RUN RECORD WRITTEN AFTER THE SECOND OF THREE GROUPS NAMES
+# THE TWO. The advance is KILLED, not failed: `ADVANCE_TIMEOUT_S` sends a
+# signal and a signal runs no exit path, so `persistPendingRun` cannot be what
+# wrote the record and the checkpoint is the only remaining writer. Standing
+# alone from `drive_reuse`'s gold/reuse/cap cases above -- which need eleven
+# judged groups and cost most of that function's runtime -- this one needs
+# only the tree's stubs and a fresh run directory, so it is the scenario this
+# script names for a fast repair loop.
+drive_hangs() {                      # drive_hangs <label> <tree>
+  local label=$1 root=$2
+  build_pool_stubs "$root"
   local THREE
   THREE=$(python3 - <<'PY'
 import json
@@ -2475,8 +2552,15 @@ PY
   unset KOGAKI_FIXTURE_LESSONS KOGAKI_FIXTURE_SLEEP_MS
 }
 
-build_tree "$SCRATCH/reuse"
-drive_reuse "the reuse tree" "$SCRATCH/reuse"
+if scenario_selected "reuse"; then
+  build_tree "$SCRATCH/reuse"
+  drive_reuse "the reuse tree" "$SCRATCH/reuse"
+fi
+
+if scenario_selected "judge-hangs"; then
+  build_tree "$SCRATCH/hangs"
+  drive_hangs "the killed-advance tree" "$SCRATCH/hangs"
+fi
 
 # ---- A GATE CALL OVER THE DECLARED BOUND REFUSES THE ADVANCE, AND OPENS NO
 # GATE (kogaki#1090 acceptance 2).
@@ -2648,10 +2732,18 @@ PROJEMPTYJS
   else pass; fi
 }
 
-check_projection "the projection" "$SCRATCH/gold"
+# "projection" builds its own tree rather than relying on "span" having built
+# $SCRATCH/gold first — build_tree is a file copy, cheap regardless, and this
+# scenario must be selectable alone.
+if scenario_selected "projection"; then
+  build_tree "$SCRATCH/gold"
+  check_projection "the projection" "$SCRATCH/gold"
+fi
 
-build_tree "$SCRATCH/bound"
-drive_bound "the bound tree" "$SCRATCH/bound"
+if scenario_selected "gate-bound"; then
+  build_tree "$SCRATCH/bound"
+  drive_bound "the bound tree" "$SCRATCH/bound"
+fi
 
 # ---- THE JUDGE BINARY IS THE RUN'S, NOT THE FIRING SESSION'S (kogaki#1076).
 #
@@ -2804,18 +2896,23 @@ PY
   fi
 }
 
-build_tree "$SCRATCH/binary"
-drive_binary "the binary-resolution tree" "$SCRATCH/binary"
+if scenario_selected "judge-binary"; then
+  build_tree "$SCRATCH/binary"
+  drive_binary "the binary-resolution tree" "$SCRATCH/binary"
 
-# AND THE SAME THREE WITH THE SPEC AND THE SKILL PROSE ABSENT (kogaki#1076
-# acceptance 3). The resolution is the runtime's, so a tree carrying only the
-# runtime and the hooks must reach the same three verdicts -- a fixture that
-# passed only where the prose stood would be asserting the prose.
-build_tree "$SCRATCH/binary-red" --reduced
-drive_binary "the reduced binary-resolution tree" "$SCRATCH/binary-red"
+  # AND THE SAME THREE WITH THE SPEC AND THE SKILL PROSE ABSENT (kogaki#1076
+  # acceptance 3). The resolution is the runtime's, so a tree carrying only the
+  # runtime and the hooks must reach the same three verdicts -- a fixture that
+  # passed only where the prose stood would be asserting the prose.
+  build_tree "$SCRATCH/binary-red" --reduced
+  drive_binary "the reduced binary-resolution tree" "$SCRATCH/binary-red"
+fi
 
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — one payload for the tag answer carries compose_input, both judgments and the CoTagGroups write in a single invocation and stops at ID_SELECTION; one payload for the ID answer reaches FullReport.md and the terminal with no third question owed, its record naming BOTH owner artifacts, and the ID gate's own call carrying the composed grouping above an owner-vocabulary question (kogaki#1087); a non-conformant judge record fails after the table's declared re-asks carrying the state's own refusal; a judge that returns the live wrong shape once repairs on attempt two, whose ask carries attempt one's refusal verbatim beside a record example filled from the run's own composed input, while one that never repairs still fails at the bound (kogaki#1059); and all of it holds with specs/ absent (kogaki#1030); a run directory holding eight valid per-group records and three missing ones makes exactly three calls, an invalid one is the only group re-asked, eleven calls under the table's cap of four cost about three call-lengths rather than eleven, and an advance KILLED mid-judgment leaves a record naming the groups and the states it finished (kogaki#1073); and the judge binary is resolved ONCE by the session that starts the run -- a failing shim ahead of a working install on PATH resolves to the working one, a PATH offering only the shim refuses before the survey and names it, and an advance fired from a session whose PATH resolves the shim first still judges through the recorded path and pins its version (kogaki#1076); and a hook-driven run that enters a SubGroup ID THE DISPLAY PRINTED reaches thesis_candidates composing over that SubGroup's members alone, rather than refusing an id it had just offered (kogaki#1085); and the ID gate's call is under the byte bound src/gate-registry.json declares, carrying one id/count/name row per Group and SubGroup with the full reading named rather than inlined, while a grouping whose listing exceeds that bound refuses the advance with a typed reason on additionalContext and writes no call, no declaration and no open-gate pointer (kogaki#1090)"
   note "not asserted here: that the PINNED MODEL is reachable. The judge binary is stubbed through KOGAKI_JUDGE_CLI, so these cases bind the executor's call, parse, retry and refusal — never the model's answer, which is not this repository's to assert."
+elif [ "$CHECK_VERBOSE" != 1 ]; then
+  note "FAIL: $fail_count case(s); first: $first_fail"
+  note "rerun with CHECK_VERBOSE=1 for every failure, or CHECK_SCENARIO=<name> naming a '# ----' section to isolate one"
 fi
 exit "$fail"
