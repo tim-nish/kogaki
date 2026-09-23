@@ -300,9 +300,15 @@ def spawn_model(command, model, prompt, timeout_s, cwd=None):
         raise Refusal("the model command %r could not be run: %s"
                        % (command, exc))
     if r.returncode != 0:
+        # `claude -p` reports an API-side refusal of the INPUT on stdout with
+        # an empty stderr, so both streams are named: an empty-stderr refusal
+        # otherwise reads as no reason at all.
         raise Refusal(
-            "the model exited %d. Its stderr, verbatim: %s"
-            % (r.returncode, (r.stderr or "").strip() or "(empty)"))
+            "the model exited %d. Its stderr, verbatim: %s. Its stdout, "
+            "verbatim: %s. A refusal of the input itself is model-specific; "
+            "another pinned model may accept the same prompt"
+            % (r.returncode, (r.stderr or "").strip() or "(empty)",
+               (r.stdout or "").strip()[:2000] or "(empty)"))
     return r.stdout
 
 
