@@ -45,6 +45,13 @@ QUESTIONS_MARKER = "=== QUESTIONS.MD ==="
 # A question begins at column 0; an option sits indented under it. That is
 # the one structural fact this module trusts to tell the two apart, since
 # both are rendered as numbered lines (`DERIVATION.md`'s worked example).
+# The owner's file names, on its first line, which ruled answers the Corpus
+# contradicted (`passages/DERIVATION.md`, "The ruled answers this run
+# confirms") — so the post itself carries any disagreement, not only the
+# working file no person reads.
+DISAGREEMENT_LINE = re.compile(
+    r"^Disagreements with the ruled answers: (none|\d+(, ?\d+)*)\s*$")
+
 QUESTION_START = re.compile(r"^\d+\.\s")
 OPTION_START = re.compile(r"^\s+\d+\.\s")
 
@@ -85,71 +92,68 @@ def refuse_below_minimum(paths):
 # Stripping the source text boundary (`passages/FORMAT.md`).
 # --------------------------------------------------------------------------
 
-def strip_analysis(text):
-    """Remove the `## Passage` section — the Passage itself and any embedded
-    `## Figure` spec, up to `## Answers` — and return the stripped text
-    together with every line removed, so a later check can assert none of
-    them reached the model's input or the model's output.
+def redact_position(line):
+    """A Figure spec `positions:` entry is `  - <role>: <label as printed>`
+    (`passages/FIGURE.md`). The role is structure and stays; the label is
+    content and goes. Returns the redacted line, or None when the entry
+    carries no label to remove."""
+    m = re.match(r"^(\s*-\s*)([^:]+?)\s*:\s*\S", line)
+    if not m:
+        return None
+    return "%s%s: (label removed)" % (m.group(1), m.group(2))
 
-    A blank Analysis with no `## Passage` heading is returned unchanged with
-    an empty stripped list: some Analyses may be handed in already stripped
-    (an Analysis that left the Corpus keeps no Passage, `FORMAT.md`'s source
-    text boundary), and that is not this module's business to flag.
-    """
-    lines = text.splitlines()
+
+def strip_analysis(text):
+    """Remove the Passage's prose and every Figure spec's printed labels,
+    and return the stripped text together with every line removed or
+    redacted, so a later check can assert none of them reached the model's
+    input or the model's output.
+
+    `passages/FORMAT.md` places the Figure spec INSIDE the `## Passage`
+    section, after the verbatim text and before `## Answers`. The prose is
+    source text and is removed whole. The Figure spec is not: its `kind`,
+    `positions` roles, `relations` and `encoding` are the structure the
+    ruled `figure` field carries (kogaki#1173, schema question 10), so the
+    block is kept and only each `positions:` entry's printed label — the
+    spec's `content`, in FIGURE.md's own vocabulary — is redacted. A
+    `## Figure` block outside the Passage section is redacted the same way.
+
+    An Analysis with no `## Passage` heading is returned with its prose
+    unchanged: an Analysis that left the Corpus keeps no Passage
+    (`FORMAT.md`'s source-text boundary)."""
     out = []
     stripped = []
     in_passage = False
-    for line in lines:
-        if line.strip() == PASSAGE_HEADING:
-            in_passage = True
+    in_figure = False
+    in_positions = False
+    for line in text.splitlines():
+        heading = line.strip()
+        if heading == PASSAGE_HEADING:
+            in_passage, in_figure, in_positions = True, False, False
             out.append(line)
             out.append("")
-            out.append("(passage and any figure spec removed before this "
-                        "reached the model)")
+            out.append("(passage text removed before this reached the model)")
             continue
-        if in_passage and line.strip() == ANSWERS_HEADING:
-            in_passage = False
+        if heading.startswith("## "):
+            if heading == ANSWERS_HEADING:
+                in_passage = False
+            in_figure = heading == FIGURE_HEADING
+            in_positions = False
+            out.append(line)
+            continue
+        if in_figure:
+            if re.match(r"^[a-z][a-z ]*:", line):
+                in_positions = line.startswith("positions:")
+            elif in_positions and re.match(r"^\s*-\s", line):
+                redacted = redact_position(line)
+                if redacted is not None:
+                    stripped.append(line)
+                    line = redacted
             out.append(line)
             continue
         if in_passage:
             stripped.append(line)
             continue
-        out.append(line)
-    return "\n".join(out), stripped
-
-
-def strip_figure_positions(text):
-    """Defense in depth for a `## Figure` block that sits OUTSIDE a `##
-    Passage` section (`strip_analysis` already removes one nested inside).
-    Keeps `kind`, `relations` and `encoding` — none of them subject matter,
-    `passages/FIGURE.md` — and redacts only the printed labels under
-    `positions:`, which are the block's `content` in `FIGURE.md`'s own three-
-    part vocabulary."""
-    lines = text.splitlines()
-    out = []
-    stripped = []
-    in_figure = False
-    in_positions = False
-    for line in lines:
-        stripped_line = line.strip()
-        if stripped_line == FIGURE_HEADING:
-            in_figure = True
-            in_positions = False
-            out.append(line)
-            continue
-        if in_figure and stripped_line.startswith("## "):
-            in_figure = False
-            in_positions = False
-        if in_figure and stripped_line == "positions:":
-            in_positions = True
-            out.append(line)
-            continue
-        if in_figure and in_positions:
-            if re.match(r"^\s*-\s", line):
-                stripped.append(line)
-                continue
-            in_positions = False
         out.append(line)
     return "\n".join(out), stripped
 
@@ -163,11 +167,9 @@ def load_and_strip(paths):
         slug = os.path.splitext(os.path.basename(path))[0]
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
-        text, stripped_passage = strip_analysis(text)
-        text, stripped_figure = strip_figure_positions(text)
+        text, stripped = strip_analysis(text)
         analyses.append((slug, text))
-        all_stripped.extend(stripped_passage)
-        all_stripped.extend(stripped_figure)
+        all_stripped.extend(stripped)
     return analyses, all_stripped
 
 
@@ -261,6 +263,13 @@ def split_questions(questions_text):
 
 
 def validate_questions(questions_text):
+    first = next((ln for ln in questions_text.splitlines() if ln.strip()), "")
+    if not DISAGREEMENT_LINE.match(first):
+        raise Refusal(
+            "questions.md does not open with the disagreement line "
+            "`Disagreements with the ruled answers: none | <numbers>` "
+            "`passages/DERIVATION.md` requires; its first line reads %r"
+            % (first,))
     blocks = split_questions(questions_text)
     if not blocks:
         raise Refusal(
@@ -438,7 +447,9 @@ def _write_corpus(dirpath, n, passage_line="THE SECRET SOURCE TEXT LINE"):
                 slug=slug, passage_line=passage_line))
 
 
-VALID_QUESTIONS = """1. Should `requires` be replaced by `question`?
+VALID_QUESTIONS = """Disagreements with the ruled answers: none
+
+1. Should `requires` be replaced by `question`?
 
    Every Analysis's Q2 answer names a question, never only knowledge.
 
@@ -453,6 +464,9 @@ VALID_QUESTIONS = """1. Should `requires` be replaced by `question`?
    2. No.
    3. Defer.
 """
+
+
+HEAD = "Disagreements with the ruled answers: none\n\n"
 
 
 def self_test():
@@ -511,18 +525,27 @@ def self_test():
     check("strip_analysis removes the ## Passage section and reports it",
           strip_analysis_removes_the_passage)
 
-    def strip_figure_positions_keeps_kind_drops_labels():
-        text = ("## Figure\n\nkind: pyramid\npositions:\n"
-                "  - top: THE PRINTED LABEL\n"
-                "relations:\n  - a relation\n## Answers\n")
-        stripped_text, stripped_lines = strip_figure_positions(text)
-        assert "kind: pyramid" in stripped_text
-        assert "relations:" in stripped_text
+    def a_figure_inside_the_passage_keeps_structure_drops_labels():
+        text = ("# Passage analysis: x\n\nsource: not given\n\n"
+                "## Passage\n\nTHE SECRET PROSE LINE\n\n"
+                "## Figure\n\nkind: pyramid\nreferred to as: not named\n\n"
+                "positions:\n  - top level: THE PRINTED LABEL\n\n"
+                "relations:\n  - the top level is joined against the middle\n\n"
+                "encoding:\n  - ranking \u2014 vertical position: higher is higher\n\n"
+                "## Answers\n\nQ1 Purpose\n")
+        stripped_text, stripped_lines = strip_analysis(text)
+        assert "THE SECRET PROSE LINE" not in stripped_text
         assert "THE PRINTED LABEL" not in stripped_text
+        assert "kind: pyramid" in stripped_text
+        assert "  - top level: (label removed)" in stripped_text
+        assert "  - the top level is joined against the middle" in stripped_text
+        assert "vertical position: higher is higher" in stripped_text
+        assert "THE SECRET PROSE LINE" in stripped_lines
         assert any("THE PRINTED LABEL" in ln for ln in stripped_lines)
 
-    check("strip_figure_positions keeps kind/relations, drops printed labels",
-          strip_figure_positions_keeps_kind_drops_labels)
+    check("a Figure spec inside the Passage keeps kind, roles, relations and "
+          "encoding and loses only its printed labels",
+          a_figure_inside_the_passage_keeps_structure_drops_labels)
 
     def assembled_prompt_carries_no_passage_line():
         with tempfile.TemporaryDirectory() as d:
@@ -550,13 +573,25 @@ def self_test():
     check("a blank stripped line is not checked (would false-positive on spacing)",
           a_blank_stripped_line_never_false_positives)
 
+    def a_missing_disagreement_line_refuses():
+        validate_questions(VALID_QUESTIONS.split("\n", 2)[2])
+
+    refuses(a_missing_disagreement_line_refuses, "disagreement line",
+            "a questions.md not opening with the disagreement line refuses")
+
+    def a_named_disagreement_validates():
+        validate_questions(VALID_QUESTIONS.replace(": none", ": 2, 10", 1))
+
+    check("a disagreement line naming ruled answers by number validates",
+          a_named_disagreement_validates)
+
     def valid_questions_pass():
         validate_questions(VALID_QUESTIONS)  # must not raise
 
     check("a conforming questions.md validates clean", valid_questions_pass)
 
     def too_many_questions_refuses():
-        blocks = "".join(
+        blocks = "Disagreements with the ruled answers: none\n\n" + "".join(
             "%d. Q?\n\n   1. Yes. (Recommended)\n   2. No.\n\n" % i
             for i in range(1, MAX_QUESTIONS + 2))
         validate_questions(blocks)
@@ -566,28 +601,29 @@ def self_test():
 
     def a_too_long_question_refuses():
         body = "\n".join("   line %d" % i for i in range(MAX_QUESTION_LINES + 2))
-        text = "1. Q?\n\n%s\n\n   1. Yes. (Recommended)\n   2. No.\n" % body
+        text = (HEAD + "1. Q?\n\n%s\n\n   1. Yes. (Recommended)\n   2. No.\n"
+                % body)
         validate_questions(text)
 
     refuses(a_too_long_question_refuses, "runs",
             "a question exceeding the twelve-line bound refuses")
 
     def a_question_missing_recommended_refuses():
-        text = "1. Q?\n\n   1. Yes.\n   2. No.\n"
+        text = HEAD + "1. Q?\n\n   1. Yes.\n   2. No.\n"
         validate_questions(text)
 
     refuses(a_question_missing_recommended_refuses, "Recommended",
             "a question with no option marked Recommended refuses")
 
     def a_question_with_two_recommended_refuses():
-        text = "1. Q?\n\n   1. Yes. (Recommended)\n   2. No. (Recommended)\n"
+        text = HEAD + "1. Q?\n\n   1. Yes. (Recommended)\n   2. No. (Recommended)\n"
         validate_questions(text)
 
     refuses(a_question_with_two_recommended_refuses, "Recommended",
             "a question with two options marked Recommended refuses")
 
     def a_question_with_one_option_refuses():
-        text = "1. Q?\n\n   1. Only option. (Recommended)\n"
+        text = HEAD + "1. Q?\n\n   1. Only option. (Recommended)\n"
         validate_questions(text)
 
     refuses(a_question_with_one_option_refuses, "option",

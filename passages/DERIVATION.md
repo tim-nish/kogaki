@@ -39,14 +39,16 @@ below ten.
 ## Input
 
 Every file handed to you is one Analysis written under `FORMAT.md`, with
-its `## Passage` section removed before it reached you: this format reads
-Analyses and never Passages (the source-text boundary, `FORMAT.md`). Any
-`## Figure` block's `positions:` labels are removed the same way — a
-Figure spec's `kind`, `relation` and `encoding` lines stay, its printed
-`content` does not. If any Analysis in front of you nonetheless contains
-what reads like source prose rather than an account of a reader's state,
-do not use it as evidence for any field and say so in the working file
-under "anomalies".
+the prose of its `## Passage` section removed before it reached you: this
+format reads Analyses and never Passages (the source-text boundary,
+`FORMAT.md`). Where a Passage carried a figure, its `## Figure` spec
+(`FIGURE.md`) is kept — `kind`, the role names under `positions:`,
+`relations` and `encoding` — and only each position's printed label is
+replaced by `(label removed)`, because the label is the figure's content
+and the rest is its structure. If any Analysis in front of you nonetheless
+contains what reads like source prose rather than an account of a reader's
+state, do not use it as evidence for any field and say so in the working
+file under "anomalies".
 
 Each Analysis carries: a header (`source`, `functions`, `prior text`,
 `length`, `language`); the four questions with their candidates and the
@@ -104,9 +106,51 @@ supports carrying it forward, changing it, or dropping it — as a finding,
 never as a carry-forward by default. Nothing is kept because it already
 exists.
 
+## The ruled answers this run confirms
+
+The owner has already ruled on the ten schema questions below (kogaki#1173,
+2026-09-23). Do not re-ask them. Test each against the Corpus: for each,
+state in `working.md` whether the Corpus confirms it, citing at least two
+Analyses by slug, or where it contradicts it and which Analyses show that.
+A contradiction is a **disagreement**: report it in `working.md` under
+"disagreements" and name it on the first line of `questions.md` (below).
+
+1. **Reader before and after.** `before` and `after` blocks, one line per
+   reader dimension the Move changes; unchanged dimensions omitted. The
+   dimension set (knowledge, question, expectation, orientation, trust) is
+   the hypothesis this run tests.
+2. **Question.** A `question` field recording the question the reader
+   arrives with and what happens to it, one line per verb that applies:
+   `holds: <A>` (the question the reader arrives with, or `none`);
+   `settles: <A>` (A is answered); `replaces: <A> with <B>` (A is set aside
+   and B is pursued in its stead as a way into A; A is not answered);
+   `raises: <B>` (B is opened, and A, if any, stays open beside it).
+   Replacing is neither settling nor adding.
+3. **Order.** The Segment function sequence (raises / advances / settles)
+   plus one subject-free sentence on why that order.
+4. **Footing.** `draws_on`: each foothold by kind (Q4's four sources) and
+   what the Move does with it.
+5. **Disposition.** No field. Attention is carried by the question and
+   expectation dimensions, ability to follow by knowledge and `draws_on`,
+   goodwill by trust.
+6. **`breaks`** replaces `constraints` and `failure_modes`: the three tests
+   (remove, reorder, extend), one line each.
+7. **`technique`** (section 6, subject-free) replaces `intent`; `evidence`
+   is an optional source line (work and where the Passage sits), never a
+   quotation. `excerpt` is removed.
+8. **One Move per Analysis**, with the function sequence inside it.
+9. **`status`** is retired; provenance, where wanted, is the `evidence`
+   line.
+10. **`figure`** replaces `visual_form`: an optional block carrying a Figure
+    spec's `kind`, `positions` (roles) and `relations`, never its content.
+    State how many Analyses in the Corpus carry a figure.
+
 ## The schema proposal
 
-For each field you propose, give:
+The ruled answers above fix most fields. Propose, in the same form, any
+field the Corpus shows a need for that they do not cover, and restate each
+ruled field in this form so its range is shown from the Corpus. For each
+field, give:
 
 - **name** — the field's key.
 - **what reader-facing fact it holds** — one sentence, about the reader,
@@ -123,28 +167,32 @@ and why, the fields-under-test findings, the sequence reading, anomalies,
 and the reasoning behind every proposed field. Internal terminology and
 long prose belong here and only here.
 
-**`questions.md`** — the owner's file. A numbered list of **at most ten**
-questions. Each question is at most **twelve lines**, in plain words, with
-**two or three options**, **exactly one** of them marked
-`(Recommended)`. Cite Analyses by slug only; no Passage text, and no line
-equal to any line the Corpus's `## Passage` or Figure `positions:` sections
-carried, appears in this file. Longer material a question needs to point
-at (a section 8's full notes, a longer list of slugs) goes in `working.md`
-and the question names where to look.
+**`questions.md`** — the owner's file. Its first line reads exactly
+`Disagreements with the ruled answers: none` or
+`Disagreements with the ruled answers: <the ruled answer numbers, comma-separated>`.
+Then a numbered list of **at most ten** questions, covering only what the
+Corpus leaves open: a Property value the Corpus does not settle, a field
+proposed beyond the ruled answers, and one question per disagreement. Each
+question is at most **twelve lines**, in plain words, with **two or three
+options**, **exactly one** of them marked `(Recommended)`. Cite Analyses by
+slug only; no Passage text and no printed figure label appears in this
+file. Longer material a question needs to point at goes in `working.md` and
+the question names where to look.
 
-## Worked example question
+## Worked example of `questions.md`
+
+An illustration of the shape only; the slug and the reading in it are not
+findings about any Corpus.
 
 ```
-3. Should `requires` be replaced by a `question` field recording the
-   reader's question rather than their knowledge?
+Disagreements with the ruled answers: none
 
-   Every Analysis's Q2 answer names a question the reader holds, settles,
-   or has replaced — never only a knowledge state. `enter_a_hard_subject`
-   and `derive_actor_taxonomy` fill this differently: one records a
-   question replaced, the other a question settled outright.
+1. Which reader change should a Move be filed under?
 
-   1. Yes — add `question`, keep `requires` for footing alone.
-      (Recommended)
-   2. Yes — replace `requires` with `question` entirely.
-   3. No — keep `requires` as it is.
+   Most Analyses name knowledge or question as the strongest change;
+   trust is strongest only in `frame_the_present_as_a_long_contest_then_authorize_the_lens`.
+   See working.md, "Property 1".
+
+   1. Knowledge, question, expectation, orientation, trust. (Recommended)
+   2. Knowledge and question only, until the Corpus shows more.
 ```
