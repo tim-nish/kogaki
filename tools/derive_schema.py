@@ -56,6 +56,9 @@ QUESTION_START = re.compile(r"^\d+\.\s")
 OPTION_START = re.compile(r"^\s+\d+\.\s")
 
 
+WORD = re.compile(r"\w")
+
+
 class Refusal(Exception):
     """Something this module was asked to do could not be done. The message
     names the bound that failed, never only that one did."""
@@ -135,6 +138,12 @@ def strip_analysis(text):
             out.append("(passage text removed before this reached the model)")
             continue
         if heading.startswith("## "):
+            # Inside the Passage only `## Figure` and `## Answers` are
+            # structure; any other `## ` line is the source's own heading and
+            # is stripped like the rest of its prose.
+            if in_passage and heading not in (FIGURE_HEADING, ANSWERS_HEADING):
+                stripped.append(line)
+                continue
             if heading == ANSWERS_HEADING:
                 in_passage = False
             in_figure = heading == FIGURE_HEADING
@@ -155,6 +164,11 @@ def strip_analysis(text):
             stripped.append(line)
             continue
         out.append(line)
+    if in_passage:
+        raise Refusal(
+            "an Analysis opens a `## Passage` section and never reaches `%s`, "
+            "so where its source text ends cannot be told — `FORMAT.md` "
+            "requires that heading after the Passage" % ANSWERS_HEADING)
     return "\n".join(out), stripped
 
 
@@ -167,7 +181,10 @@ def load_and_strip(paths):
         slug = os.path.splitext(os.path.basename(path))[0]
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
-        text, stripped = strip_analysis(text)
+        try:
+            text, stripped = strip_analysis(text)
+        except Refusal as refusal:
+            raise Refusal("%s: %s" % (os.path.basename(path), refusal))
         analyses.append((slug, text))
         all_stripped.extend(stripped)
     return analyses, all_stripped
@@ -198,9 +215,10 @@ def assemble_prompt(derivation_text, analyses):
 def check_no_leak(text, stripped_lines):
     """Refuses if any non-blank line the Corpus's Passage or Figure content
     carried appears verbatim anywhere in `text` — the assembled prompt, or
-    the model's output. A blank line is not checked: it carries no source
-    text and would false-positive on ordinary spacing."""
-    leaked = {ln for ln in stripped_lines if ln.strip()}
+    the model's output. A line with no word character (blank, `---`, a rule
+    of asterisks) is not checked: it carries no source text, and the prompt
+    and any markdown reply carry such lines of their own."""
+    leaked = {ln for ln in stripped_lines if WORD.search(ln)}
     if not leaked:
         return
     for line in text.splitlines():
@@ -214,12 +232,15 @@ def check_no_leak(text, stripped_lines):
 # Spawning the model once.
 # --------------------------------------------------------------------------
 
-def spawn_model(command, model, prompt, timeout_s):
+def spawn_model(command, model, prompt, timeout_s, cwd=None):
+    """`cwd` is the run directory, outside the repository, so the model is
+    not handed the repository's own CLAUDE.md, hooks or skills: its whole
+    context is the prompt, as `DERIVATION.md` requires."""
     argv = [command, "-p", "--model", model, "--output-format", "text"]
     try:
         r = subprocess.run(
             argv, input=prompt, capture_output=True, text=True,
-            timeout=timeout_s)
+            timeout=timeout_s, cwd=cwd)
     except subprocess.TimeoutExpired:
         raise Refusal(
             "the model exceeded the %ds per-call bound" % timeout_s)
@@ -238,7 +259,8 @@ def split_model_output(raw):
         raise Refusal(
             "the model's response carries neither or only one of the two "
             "required markers (%r, %r) — nothing to split into the two "
-            "files" % (WORKING_MARKER, QUESTIONS_MARKER))
+            "files; the response is kept as raw.txt in the run directory"
+            % (WORKING_MARKER, QUESTIONS_MARKER))
     before, rest = raw.split(WORKING_MARKER, 1)
     working, questions = rest.split(QUESTIONS_MARKER, 1)
     return working.strip("\n") + "\n", questions.strip("\n") + "\n"
@@ -334,23 +356,33 @@ def run(corpus_dir, derivation_path, command, model, out_dir, timeout_s,
     prompt = assemble_prompt(derivation_text, analyses)
     check_no_leak(prompt, stripped_lines)
 
-    raw = spawn_model(command, model, prompt, timeout_s)
+    # The run directory exists before the call and every output lands in it
+    # BEFORE any post-model check: a refusal keeps its refusal AND the
+    # evidence, since the model call is the expensive, one-shot step. The
+    # directory is outside git by the caller's choice; what lands in it is
+    # the model's reply, which the prompt check above already proved carries
+    # no stripped line in its input.
+    os.makedirs(out_dir, exist_ok=True)
+    out_dir = os.path.abspath(out_dir)
+    raw = spawn_model(command, model, prompt, timeout_s, cwd=out_dir)
+    raw_path = os.path.join(out_dir, "raw.txt")
+    with open(raw_path, "w", encoding="utf-8") as handle:
+        handle.write(raw)
     working_text, questions_text = split_model_output(raw)
 
     if not working_text.startswith(WORKING_HEADER):
         working_text = WORKING_HEADER + "\n\n" + working_text
 
-    check_no_leak(working_text, stripped_lines)
-    check_no_leak(questions_text, stripped_lines)
-    validate_questions(questions_text)
-
-    os.makedirs(out_dir, exist_ok=True)
     working_path = os.path.join(out_dir, "working.md")
     questions_path = os.path.join(out_dir, "questions.md")
     with open(working_path, "w", encoding="utf-8") as handle:
         handle.write(working_text)
     with open(questions_path, "w", encoding="utf-8") as handle:
         handle.write(questions_text)
+
+    check_no_leak(working_text, stripped_lines)
+    check_no_leak(questions_text, stripped_lines)
+    validate_questions(questions_text)
 
     if post_issue is not None:
         post_to_issue(questions_path, post_issue, repo=repo)
@@ -567,11 +599,29 @@ def self_test():
     refuses(a_leaked_passage_line_in_the_output_is_caught, "reached the output",
             "a stripped Passage line reaching the output is refused")
 
-    def a_blank_stripped_line_never_false_positives():
-        check_no_leak("\n\n\nsome text\n", ["", "   ", ""])  # must not raise
+    def a_wordless_stripped_line_never_false_positives():
+        check_no_leak("\n\n---\nsome text\n* * *\n",
+                      ["", "   ", "---", "* * *"])  # must not raise
 
-    check("a blank stripped line is not checked (would false-positive on spacing)",
-          a_blank_stripped_line_never_false_positives)
+    check("a blank or wordless stripped line (`---`) is not checked",
+          a_wordless_stripped_line_never_false_positives)
+
+    def a_heading_inside_the_passage_is_stripped():
+        text = ("## Passage\n\n## A SOURCE HEADING\nprose\n\n"
+                "## Answers\n\nQ1\n")
+        stripped_text, stripped_lines = strip_analysis(text)
+        assert "A SOURCE HEADING" not in stripped_text
+        assert "## A SOURCE HEADING" in stripped_lines
+        assert "## Answers" in stripped_text
+
+    check("a `## ` heading inside the Passage is stripped as source prose",
+          a_heading_inside_the_passage_is_stripped)
+
+    def an_unclosed_passage_refuses():
+        strip_analysis("## Passage\n\nprose\n\n## 1. What it does\n")
+
+    refuses(an_unclosed_passage_refuses, "never reaches",
+            "a Passage section with no `## Answers` after it refuses")
 
     def a_missing_disagreement_line_refuses():
         validate_questions(VALID_QUESTIONS.split("\n", 2)[2])
@@ -682,9 +732,36 @@ def self_test():
             assert "STUB SECRET LINE 2" not in questions
             working = open(result["working"], encoding="utf-8").read()
             assert working.startswith(WORKING_HEADER)
+            assert os.path.isfile(os.path.join(out, "raw.txt"))
 
     check("a full run over a stub model command produces two bound-conforming files",
           a_full_run_over_a_stub_model_produces_two_valid_files)
+
+    def a_post_model_refusal_keeps_the_reply_on_disk():
+        with tempfile.TemporaryDirectory() as d:
+            corpus_dir = os.path.join(d, "corpus")
+            os.makedirs(corpus_dir)
+            _write_corpus(corpus_dir, MIN_CORPUS)
+            derivation_path = os.path.join(d, "DERIVATION.md")
+            with open(derivation_path, "w", encoding="utf-8") as handle:
+                handle.write("DERIVATION INSTRUCTIONS\n")
+            stub = os.path.join(d, "stub_model")
+            with open(stub, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\ncat >/dev/null\n"
+                             "echo 'a reply with no markers'\n")
+            os.chmod(stub, 0o755)
+            out = os.path.join(d, "run")
+            try:
+                run(corpus_dir, derivation_path, stub, "n/a", out, 30)
+            except Refusal:
+                pass
+            else:
+                raise AssertionError("did not refuse")
+            raw = open(os.path.join(out, "raw.txt"), encoding="utf-8").read()
+            assert "a reply with no markers" in raw
+
+    check("a refusal after the model call keeps the reply as raw.txt",
+          a_post_model_refusal_keeps_the_reply_on_disk)
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)

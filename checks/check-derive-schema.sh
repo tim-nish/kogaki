@@ -66,6 +66,10 @@ if ! grep -q "at most ten" passages/DERIVATION.md; then
   echo "FAIL: passages/DERIVATION.md does not state the ten-question bound tools/derive_schema.py enforces"
   exit 1
 fi
+if ! grep -q "at most \*\*twelve lines\*\*" passages/DERIVATION.md; then
+  echo "FAIL: passages/DERIVATION.md does not state the twelve-line question bound tools/derive_schema.py enforces"
+  exit 1
+fi
 if ! grep -q "(Recommended)" passages/DERIVATION.md; then
   echo "FAIL: passages/DERIVATION.md does not carry the Recommended marker tools/derive_schema.py checks for"
   exit 1
