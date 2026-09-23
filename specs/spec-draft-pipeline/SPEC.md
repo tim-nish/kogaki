@@ -314,21 +314,150 @@ Move is mandatory, which is a claim about what a Leg is. Deleting the reason
 leaves the requirement looking like an arbitrary strictness, which is how it
 gets relaxed.
 
-### 4.2 The Move library entry — the adopted field subset
+### 4.2 The Move library entry — rebuilt from the Corpus (kogaki#1175)
 
-`id`, `status` (`observed` | `generalized` | `proposed` | `validated`),
-`intent`, `requires`, `effect`, `constraints`, `failure_modes`, `excerpt`.
-The schema authority is `specs/move-extraction-contract.md`.
+**This schema replaces the eight-field one in full.** The prior schema was
+decided without a corpus behind it (kogaki#1173): every one of the 22 Moves it
+produced began `requires` with "the reader understands X", so a change in the
+reader's question, expectation, orientation or trust had no place in it. This
+one is derived by running `passages/DERIVATION.md` over a Corpus of analyzed
+Passages and ruled on by the owner as a document (kogaki#1173) before anything
+was written. The schema authority remains
+`specs/move-extraction-contract.md`.
 
-**One optional ninth field, and it is the only one (kogaki#876).** `visual_form`
-— §6.9.3 — is **absent by default** and adds nothing to the eight: a Move
-without it is byte-identical, admitted identically, and indexed identically to
-what it has always been. "Nothing added" stood here as an absolute and is now
-the rule with exactly one named exception, because an absolute a shipped field
-contradicts is worse than a rule that names what it admits. **The exception is
-closed the same way the kind set is**: a tenth field enters by amending this
-clause under its own issue, and condition 3 refuses every key this clause does
-not name.
+**Origin.** The Move concept follows Swales' move analysis in genre studies: a
+text is coded as a sequence of communicative purposes, each a move. The
+reader's question, the central field of `question` below, follows Minto's
+Situation-Complication-Question-Answer pattern, read through
+question-under-discussion analysis (Roberts 1996): a text opens a question and
+either settles it, or replaces it with a narrower one taken up in its stead.
+
+**Eight fields are always present; four are optional.** `status` is retired —
+a Move enters observed and nothing here licenses a later generalization claim,
+so no field carries one.
+
+| field | present | what it holds |
+|---|---|---|
+| `id` | always | verb phrase naming the transformation, snake_case |
+| `before` | always | one line per reader dimension the Move starts from |
+| `after` | always | one line per reader dimension the Move leaves the reader in |
+| `question` | always | the question the reader arrives with and its fate |
+| `order` | always | the Segment function sequence and why it runs in that order |
+| `presupposes` | always | background the reader must already hold, beyond `before` |
+| `technique` | always | what the Move does, subject-free |
+| `breaks` | always | the three tests a correct performance must survive |
+| `draws_on` | optional | the footholds the Move's material comes from |
+| `continues_from` | optional | a prior Move's `id`, when this one picks up from it |
+| `evidence` | optional | the source work and where the Passage sits — no quotation |
+| `figure` | optional | a Figure spec's `kind`, `positions` and `relations`, never its content |
+
+**`before` / `after`.** One line per reader dimension the Move changes;
+unchanged dimensions are omitted. The dimension set — knowledge, question,
+expectation, orientation, trust — is the hypothesis the derivation tested
+against the Corpus (Property 1, below); all five survived (kogaki#1173,
+2026-09-23: trust is never the *strongest* change in the Corpus, but no
+disagreement was raised against dropping it, since a slower-moving dimension
+is still a dimension).
+
+**`question`.** One line per verb that applies: `holds: <A>` (the question the
+reader arrives with, or `none`); `settles: <A>` (A is answered);
+`replaces: <A> with <B>` (A is set aside and B is pursued in its stead, as a
+way into A — A is not answered); `raises: <B>` (B is opened, and A, if any,
+stays open beside it). Replacing is its own verb, neither settling nor adding:
+question-under-discussion analysis treats a sub-question taken up in place of
+a larger one as a strategy distinct from answering it.
+
+**`order`.** The Segment function sequence (`raises` / `advances` / `settles`,
+in order) plus one sentence stating why that order — subject-free, like
+`technique`, per the subject-independence rule below.
+
+**`presupposes`.** Background facts or references the reader must already
+hold that `before` does not capture — a school-taught poem, a generic
+narrative the Move assumes familiarity with. Distinct from `before`: `before`
+states the reader's position on the Move's own dimensions, `presupposes`
+states what the Move assumes without moving it.
+
+**`draws_on`.** Optional. Each foothold by kind — `subject`, `the reader's own
+world`, `other texts`, `author` (Property 2, below) — and what the Move does
+with it. Silent by default: a Move with no recorded foothold carries none.
+
+**`continues_from`.** Optional. A prior Move's `id`, when this Move picks up
+directly from it. About half the Corpus's Analyses name a specific antecedent
+in their own notes; the rest are true openings and carry no value.
+
+**`technique`.** What the Move does, written subject-free — replaces
+`intent`. Subject-free is the general rule (below); `technique` is where the
+Corpus already wrote it that way without being told to.
+
+**`breaks`.** The three tests a correct performance must survive — remove,
+reorder, extend — one line each, replacing `constraints` and `failure_modes`.
+Rendered in the Leg Packet as what the writer must not do (§4.14) and read at
+Reverse Outlining as what to check; not read by Path Review's specialization
+judgment, which compares the Leg's states to `before`/`after` only (§4.4).
+
+**`evidence`.** Optional, typically empty until source metadata is captured
+upstream. A source line naming the work and where the Passage sits — never a
+quotation. Replaces `excerpt`, which held the extractor's own account rather
+than an exemplar in the few-shot sense since the 2026-09-02 amendment
+(kogaki#751), and whose benefit as an exemplar was never verified. **The one
+field written with the text's subject as its grammatical subject** — see
+subject-independence, below.
+
+**`figure`.** Optional. Replaces `visual_form` — §6.9.3, amended in place to
+this name. Carries a Figure spec's `kind`, `positions` (roles) and
+`relations`, drawn from `passages/FIGURE.md`, never the spec's `content`.
+`src/figure-kinds.json` remains the closed set the mechanical validator
+checks against; a kind FIGURE.md's classification names that is not yet in
+that set is a widening owed to `src/figure-kinds.json` under its own
+amendment, never a silent admission. **Absent by default**, admitted the same
+way `visual_form` was: added only when the Move's transformation has a
+relational shape, which is the admission act's judgment, never a rule here.
+
+**Subject-independence is the default for every field (owner ruling,
+2026-09-23: "a fundamental principle of the design from the beginning").** No
+field is written with the text's own subject as its grammatical subject unless
+the field is *defined* as subject-bound — the sole exception is `evidence`,
+which is a claim about a specific work and cannot be written any other way.
+
+**The three Properties.** Decided over the whole Corpus by the derivation act,
+never per Move, and never re-asked per Move (`passages/DERIVATION.md`). A
+fourth candidate — position in the text (opening/body/closing) — was tried and
+dropped: it had no ground in Swales' method and collapsed with prior-text
+dependence in the first Corpus round. The three that remain are not
+themselves stored fields; each fixes the value set or the descriptive range of
+a field above:
+
+1. **The reader dimension most changed** fixes `before`/`after`'s dimension
+   set — read off which dimension recurs as the strongest change across the
+   Corpus.
+2. **The source of the material the Move draws on** fixes `draws_on`'s kind
+   set — read off the footholds that recur across the Corpus.
+3. **The length the Move typically occupies** is a corpus fact, carried from
+   each Analysis's `length` line, never an axis: the derivation reports the
+   range and the typical size, and proposes no field for it unless the Corpus
+   itself clusters into visibly distinct bands. None does yet, so no field
+   carries it.
+
+**Field roles — the pipeline reads roles, never field names (kogaki#1175,
+owner question 2026-09-23).** A schema declares, for every field, the role
+the pipeline reads it by; a second schema with different field names runs
+through the same Packet by declaring the same roles. The roles this pipeline
+reads today, from `src/draft.mjs` and `src/compose.mjs`:
+
+| role | fields | read by |
+|---|---|---|
+| `rendered-to-writer` | `technique`, `question`, `draws_on`, `breaks` | the Leg Packet's Move block (§4.14) |
+| `state-before` | `before` | Path Review's specialization judgment (§4.4) |
+| `state-after` | `after` | Path Review's specialization judgment (§4.4) |
+| `figure-roles` | `figure` | a Leg's `figure:` declaration (§4.16) |
+| `identity` | `id`, `continues_from` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
+| not read downstream | `order`, `presupposes`, `evidence` | nothing; kept for the record's own sake |
+
+A second schema declaring, say, a `claim` field under the `rendered-to-writer`
+role runs through the same Packet unmodified. The multi-schema manifest itself
+— one library, several declared schemas — is not built by this Issue; it is
+deferred, productization work, and this table is what a later reopen builds
+on.
 
 **Moves ↔ Strands are many-to-many.** A Move may bind no Strand, several, a
 Journey, the Thesis, or an earlier Leg's conclusion.
@@ -507,26 +636,33 @@ one — and the pressure to add it arrives precisely when a rule looks decidable
 ### 4.7 Semantic economy — what binds Move AUTHORING
 
 - **One local transition** per Move.
-- **The five-warrant sentence test.** Every sentence outside `excerpt` is
+- **The five-warrant sentence test.** Every sentence outside `evidence` is
   warranted by exactly one of: the operation, the required prior reader state,
   the produced reader state, a valid-vs-invalid application distinction, an
   observable failure form. **A sentence whose removal changes none of them is
   removed.**
 - **One proposition, one field.** A proposition appearing in two fields is a
   defect in both.
-- **`excerpt` carries the observed reader movement and the article's title, and
-  nothing else** (§4.13.1).
-- **A failure mode never paraphrases a constraint**, and a Move never describes
+- **`evidence` carries the source work and where the Passage sits, and nothing
+  else** — no quotation, no reader-movement account; that account lives in
+  `before`/`after` and `technique` (§4.2).
+- **A `breaks` line never paraphrases another**, and a Move never describes
   an article position, a sequence of Moves, a whole-article outcome, or the
   materials an article must supply.
 
-**Reader states are article-specific propositions, never a global list**, and
-the concrete before/after states live **only on the Leg**. A Move carrying its
-own before/after states is a global vocabulary growing quietly.
+**Reader states are article-specific propositions, never a global list.** A
+Move's own `before`/`after` (§4.2) are written at the dimension level — which
+of knowledge, question, expectation, orientation or trust moves, and how, in
+terms that generalize — and the **concrete, article-specific** before/after
+states live **only on the Leg**, as the instance forms §4.12 names. A Move
+whose `before`/`after` name this article's own facts rather than a reusable
+reader movement is a global vocabulary growing quietly, wearing the general
+field's shape.
 
-**Literature-derived Moves enter as `observed` or `generalized`, never
-`validated`.** Promotion is a later act with its own grounds; an importer
-admitting a Move as `validated` mints a judgment nobody made.
+**A Move enters the library carrying no generality claim** — `status` is
+retired (§4.2, §7) — so nothing here licenses importing a literature-derived
+Move as more validated than an observed one; a claim of that kind is a later
+act with its own grounds, not a field a record can set on entry.
 
 Judged at **Move ingestion's agent review** (§6.9) for a Move entering the
 library, and at **Path Review** for a Move edited in place. **The removal test
@@ -578,9 +714,9 @@ whole because every column is read off a file (§6.9.1a); an `analysis/INDEX.md`
 would compose its rows rather than derive them. A reader finds these files by
 name and by the pointers into them.
 
-**A Move's `excerpt` may point at an analysis document, and the prose contains
-the literal path.** Without the path the pointer leaves no trace, and a Move
-that points is byte-identical to one that does not.
+**A Move's `evidence` may point at an analysis document, and the prose
+contains the literal path.** Without the path the pointer leaves no trace, and
+a Move that points is byte-identical to one that does not.
 
 **Two shapes declined.** An appendix section inside each Move file — it puts
 sequence content inside the schema file, which §6.9.0 condition 3 refuses. A
@@ -882,7 +1018,7 @@ bounded loop and the disclosure shape are conduct at a judgment point.
 
 A Leg **instantiates** a Move: `move` names a record in the library (§7), and
 the Leg's `reader_state_before`/`after` are the **instance forms** of that
-Move's `requires`/`effect`, specialized to this reader and these Strands. §4.1
+Move's `before`/`after`, specialized to this reader and these Strands. §4.1
 makes the binding required; this section governs **the relationship the binding
 asserts**.
 
@@ -991,7 +1127,7 @@ else: carrying a failing record to a gate would ask them to approve a refusal.
 
 **WHAT THIS HALF DOES NOT DO, stated because the tempting alternative was
 declined here** (kogaki#893, owner selection 2026-09-05). It renders no verdict
-on a specialization, reads no Move's `requires`/`effect`, and compares nothing
+on a specialization, reads no Move's `before`/`after`, and compares nothing
 to anything. **§4.6 clause 3 and §7.5 are untouched** — and more than
 untouched, they are what this arm rests on: §7.5 already says `requires`/
 `effect` matching is *"surfaced as gate evidence (§6)"*, and §4.6 clause 2
@@ -1000,10 +1136,10 @@ sections already licensed.**
 
 **The declined arm, recorded so it is not re-proposed blind.** The alternative
 was a mechanical check anchoring each `consistent` verdict's `why` in the
-Move's `requires`/`effect` and the Leg's reader states by string match. It
+Move's `before`/`after` and the Leg's reader states by string match. It
 would have owed this spec an amendment: the runtime reads the library as a set
 of ids **and nothing else**, precisely so that nothing is one edit away from
-comparing `requires`/`effect`, and §7.5 holds that matching judgment-class and
+comparing `before`/`after`, and §7.5 holds that matching judgment-class and
 *"never type-checked"*. The served position discriminated toward it — an
 observer is warranted where the predicate is mechanically decidable at the act
 and the cost of not observing has been measured, and both conjuncts hold here —
@@ -1082,26 +1218,27 @@ Nothing in this section reads meaning.
 rather than a judgment about the prose, which is the property that lets any of
 this be mechanical. §4.13.1 states the exemplar predicate's own reason.
 
-#### 4.13.1 The Move exemplar predicate — the `excerpt` field
+#### 4.13.1 The Move exemplar predicate — RETIRED (kogaki#1175)
 
-A record's **`excerpt`** is **the author's own account, in a few lines, of the
-specific reader movement they focused on when they identified the Move** — what
-the passage establishes, what it then shows the reader, where the reader ends
-up. It is **not a verbatim quotation**: a Move derived at a meta level from a
-long article is not served by that text sitting in the record, and a verbatim
-requirement lowers the excerpt's value rather than raising it. What a later
-writer imitates is the **movement**.
+**This section used to make `excerpt` the Packet's exemplar: a record whose
+`excerpt` carried text served as what a later writer imitates, and an empty one
+rendered a stated absence.** `excerpt` is gone (§4.2), and `evidence` — the
+field a reader might reach for in its place — **does not inherit the role**.
+Ruling 7 (kogaki#1173, 2026-09-23) states why: since the 2026-09-02 amendment
+(kogaki#751) `excerpt` had held the extractor's own account rather than text of
+the target kind, so it had not served as a few-shot exemplar since then, and
+that benefit was never verified. `evidence` is typed accordingly — optional,
+typically empty, **read by nothing downstream** (§4.2's role table) — rather
+than reopening a predicate whose value this Issue found no ground for.
 
-**A record whose `excerpt` carries text IS an exemplar.** A record whose
-`excerpt` is empty cannot serve as a Packet exemplar, and the Packet renders a
-**stated absence** naming the Move and the repairing act while **substituting
-nothing**. A `sources` key surviving beside `excerpt` is a design error and the
-compose check fails it by name.
+**The Leg Packet's Move block is `technique`, `question`, `draws_on`, `breaks`
+(§4.14, §4.2's `rendered-to-writer` role).** None of the four is source text a
+writer imitates verbatim; a writer works from the technique's description, not
+from an exemplar passage.
 
-`necessity:` §4.13's derivation is carried by `src/compose.mjs` and asserted by
-the registered checks; what no carrier holds is why accumulation may not be
-stored, why the first introducer is the answer rather than a tie-break, and
-what an excerpt is *for* — which is what stops it drifting back to a quotation.
+`necessity:` a retirement recorded at the section that used to carry the
+mechanism, so a reader who remembers "exemplar" finds why it is gone rather
+than a silently vanished heading.
 
 ### 4.14 The Leg Packet
 
@@ -1151,11 +1288,13 @@ whole ledger. A Leg party to no row renders the block **empty rather than
 absent**, on the same one-word-one-unit ground the reader-knowledge ledger's
 own empty case states.
 
-**`requires`/`effect` are EXCLUDED**, and the exclusion is the ruling rather
-than an omission: §4.12 makes the Leg's `reader_state_before`/`after` the
-instance forms of exactly those two fields, so rendering both would put the
-general and the specialized statement of one thing side by side and leave the
-model to choose. The Leg's instantiated states win.
+**The Move's `before`/`after` are EXCLUDED**, and the exclusion is the ruling
+rather than an omission: §4.12 makes the Leg's own `reader_state_before`/
+`after` the instance forms of exactly those two fields, so rendering both
+would put the general and the specialized statement of one thing side by side
+and leave the model to choose. The Leg's instantiated states win, under their
+own names — the collision is in the two pairs' meaning, general vs.
+specialized, never in which one renders.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
 run id, and prior Legs' prose in the **Brief's recorded order** rather than from
@@ -1322,9 +1461,13 @@ grouping rather than standing in for it.
 
 **The Brief decides whether a Leg carries a figure, and the decision is the
 composer's.** §6.9.3 admitted the closed kind set and the Move's optional
-`visual_form`; that field names a **schema of roles** and obliges no Leg to use
-it. This section is where a Leg *takes it up*: at path composition (judgment
-point 2) the composer may declare on a Leg
+`figure` field (renamed from `visual_form`, kogaki#1175); that field names a
+**schema of roles** and obliges no Leg to use it. **Two fields share the name
+`figure` by the owner's own ruling, and context is what tells them apart**: the
+Move's `figure` (§4.2, §6.9.3) is the schema a Move offers; the Leg's `figure:`
+below is the one-line reason a composer takes it up. This section is where a
+Leg *takes it up*: at path composition (judgment point 2) the composer may
+declare on a Leg
 
     figure: <one line — what the figure lets the reader hold that the prose alone leaves hard to hold>
     figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3
@@ -1339,7 +1482,7 @@ line for a Leg that declares none, so the bytes do not move.
 
 **Three conditions, and only two of them are mechanical.**
 
-1. the Leg's Move carries a `visual_form`;
+1. the Leg's Move carries a `figure`;
 2. every role of that form binds to one of **this Leg's** claims — a role
    bound to a claim of another Leg is refused;
 3. the figure carries something.
@@ -1407,7 +1550,7 @@ prose is the article and the figure carries what the prose leaves hard to hold.
 prose and then renders the **figure input**: the Leg's Packet exactly as it was
 served, plus a block carrying
 
-- **the form** — its kind, and each role with the line the Move's `visual_form`
+- **the form** — its kind, and each role with the line the Move's `figure`
   maps it to;
 - **the binding** — each role with the claim text the Brief bound it to,
   quoted verbatim, licence included;
@@ -2215,16 +2358,17 @@ Input is a **free-form file the owner writes**, conventionally carrying a
 `.md` extension. **It is not markdown**, and §6.9.0's grammar refuses markdown
 constructs by name: the extension is the owner's filing convenience, not a
 promise about the interior. A command reads it and
-proposes each Move in exactly §4.2's eight-field schema, stripping the excluded
-draft fields. An **agent review** applies the authoring discipline as
-**judgment**: one transition not an arc, separable from content, an id naming
-the operation in established terms, effect differing from requires, statable
-invalidity, dedupe against existing ids (a near-duplicate proposes an amendment
-rather than a new entry), honest `status` (**`validated` is never assignable
-here**), and an excerpt naming real passages with no fabricated citations. Then
-**one accept/decline question**: per-Move accept / decline / free-form, the owner
-deciding. Accepted Moves land one file each in `moves/`, and the command
-regenerates `moves/INDEX.md`.
+proposes each Move in exactly §4.2's eight required fields, plus whichever of
+the four optional ones are present, stripping the excluded draft fields. An
+**agent review** applies the authoring discipline as **judgment**: one
+transition not an arc, separable from content, an id naming the operation in
+established terms, `after` differing from `before`, subject-independence
+(§4.2) honoured everywhere but `evidence`, dedupe against existing ids (a
+near-duplicate proposes an amendment rather than a new entry), and an
+`evidence` line, where present, naming real passages with no fabricated
+citations. Then **one accept/decline question**: per-Move accept / decline /
+free-form, the owner deciding. Accepted Moves land one file each in `moves/`,
+and the command regenerates `moves/INDEX.md`.
 
 **ADMISSION IS THE OWNER'S ACT AT THAT QUESTION, never the command's.** Review may
 split or rename, so the reviewed proposal is not the authored file — nothing
@@ -2242,9 +2386,9 @@ Markdown constructs are **not required** — the `.md` extension is the owner's
 filing convenience, not a promise about the interior — and they are **refused
 wherever a grammar can see them**.
 
-**`id` MUST be the record's first key.** A record written with `status:` above
+**`id` MUST be the record's first key.** A record written with `before:` above
 `id:` is not seen as a boundary at all: it is absorbed into the record above,
-which silently acquires the wrong `status` while the record below loses its own.
+which silently acquires the wrong `before` while the record below loses its own.
 
 **Four conditions admit a record. Together they leave exactly one quiet failure,
 which condition 4 names and bounds rather than claiming away:**
@@ -2253,15 +2397,19 @@ which condition 4 names and bounds rather than claiming away:**
    naming the line. This is the condition that catches an out-of-order *first*
    record, which no per-record check can see.
 2. **Duplicate keys within a record are refused rather than resolved.**
-3. **After the strip step, a record carries exactly §4.2's eight keys, plus at
-   most the optional `visual_form` — no more and no fewer.** The ordering
-   matters: the excluded draft fields are stripped **first**, so their presence
-   routes to the strip step rather than to a refusal. A record that absorbed its
-   neighbour's `status` leaves that neighbour with seven, and this condition
-   catches it. **The widening is by NAME and by one (kogaki#876)**: a ninth key
-   that is not `visual_form` is refused exactly as before, and so is a seventh —
-   a widening is the change that can quietly remove a condition's catch, so what
-   it admits is enumerated rather than loosened.
+3. **After the strip step, a record carries exactly §4.2's eight required keys,
+   plus at most the four optional ones (`draws_on`, `continues_from`,
+   `evidence`, `figure`) — no more, and none of the eight missing.** The
+   ordering matters: the excluded draft fields are stripped **first**, so
+   their presence routes to the strip step rather than to a refusal. A record
+   that absorbed its neighbour's `before` leaves that neighbour short a
+   required key, and this condition catches it. **The optional set is
+   enumerated rather than open (kogaki#876's rule, carried into the rebuilt
+   schema, kogaki#1175)**: a key outside the twelve named across §4.2 is
+   refused, whether it looks like a ninth key under the old count or a
+   thirteenth under this one — a widening is the change that can quietly
+   remove a condition's catch, so what it admits is enumerated rather than
+   loosened.
 4. **A markdown construct anywhere in the file is refused, naming the line.**
    The bounded blind spot: **a bullet among the items of a legal block sequence
    is indistinguishable from data**, and no grammar can see it.
@@ -2280,11 +2428,11 @@ in particular is invisible in every artifact it corrupts.
 
 ### 6.9.1 The file interior — the §4.2 block IS the file body
 
-The eight fields render as a **structured block as the file body**, and
-`moves/INDEX.md`'s row derives mechanically from those same fields. Where the
-record carries §6.9.3's optional `visual_form`, it renders **after** them, and
-the INDEX row is unaffected — its three columns are `id`, `status` and
-`intent`, so no form reaches a row.
+The eight required fields render as a **structured block as the file body**,
+and `moves/INDEX.md`'s row derives mechanically from two of them. Where the
+record carries any of the four optional fields, each renders **after** the
+eight, `figure` last of all (§6.9.3) — and the INDEX row is unaffected: its
+two columns are `id` and `technique`, so no optional field reaches a row.
 
 **The declined arm, with its real cost.** Headed prose sections per field are
 friendlier for fields that are genuinely paragraphs, and keep the artifact
@@ -2305,21 +2453,20 @@ reader proposes again.
 
 #### 6.9.1a What that entails
 
-**The file body.** The eight fields in §4.2's order as a YAML mapping,
-byte-identical in form to the block the owner authored — which is what makes
-normalize over a conforming input close to identity. No fence, no `---`
-delimiters: front-matter delimiters imply a document below the metadata, and
-here the block **is** the document.
+**The file body.** The eight required fields in §4.2's order as a YAML
+mapping, byte-identical in form to the block the owner authored — which is
+what makes normalize over a conforming input close to identity. No fence, no
+`---` delimiters: front-matter delimiters imply a document below the
+metadata, and here the block **is** the document.
 
-**And §6.9.3's `visual_form` last, when present** (kogaki#876). The identity
-property above is unchanged for it: the form is written back in the **kind's**
-role order, which is the order a conforming input already carries, and a
-record without a form renders byte-identically to what it always did. This
-clause is amended rather than left to be read as an absolute the shipped
-renderer contradicts — the correction §4.2 makes to its own "nothing added",
-applied at the clause that actually rules the rendered body. **The eight
-remain the eight**: `visual_form` is not in §4.2's order and is not counted
-into it, which is why it renders after the loop rather than inside it.
+**The optional fields render after the eight, each when present** (kogaki#876,
+carried into the rebuilt schema by kogaki#1175). `draws_on`, `continues_from`
+and `evidence` render in §4.2's table order; `figure` renders **last of all**,
+in the **kind's** role order, which is the order a conforming input already
+carries. A record carrying none of the four renders byte-identically to what
+a record under the eight-field schema always did. **The eight remain the
+eight**: no optional field is in §4.2's required order and none is counted
+into it, which is why each renders after the loop rather than inside it.
 
 **The filename.** `moves/<id>.md`, the `id` field as the whole stem —
 **derived, never composed.** A review that renames a Move renames its file, and
@@ -2328,8 +2475,8 @@ Moves cannot share an `id`; the collision surfaces at the accept/decline questio
 the dedupe judgment §6.9 already assigns to review, never as a silent
 overwrite.
 
-**The INDEX row.** One row per file sorted by `id`, carrying `id`, `status` and
-`intent` — **every column read off a file, none composed.** That is the
+**The INDEX row.** One row per file sorted by `id`, carrying `id` and
+`technique` — **every column read off a file, none composed.** That is the
 property the declined arm could not have, and it is why the regeneration
 contract binds **freshness only**: INDEX is rewritten whole at each ingestion
 run, and a stale INDEX is a run that did not happen rather than a derivation
@@ -2370,7 +2517,7 @@ re-derived, plus one clause the inheritance does not cover — the owed tense �
 which is what tells a reader which side of a spec-ahead-of-code interval they
 are standing on.
 
-### 6.9.3 The closed kind set and the Move's `visual_form`
+### 6.9.3 The closed kind set and the Move's `figure`
 
 `src/figure-kinds.json` holds the **closed** set of figure kinds. A kind is a
 **schema of roles and nothing else**: `roles` names the positions a figure of
@@ -2395,15 +2542,18 @@ that part in this Move's vocabulary, exactly as `criterion` does, and the
 arity stays where it belongs: in the figure a composer eventually draws, never
 in the schema.
 
-**The Move's block.** `visual_form` is an optional field in a Move record: one
-`kind` from the set, and **per role, one line** mapping it into the Move's own
-vocabulary — the terms its `requires`/`effect`/`intent` already use. The block
-is **flat**, so `kind` is reserved and no kind may declare a role by that name;
+**The Move's block.** `figure` is an optional field in a Move record — renamed
+from `visual_form` (kogaki#1175), reading `passages/FIGURE.md`'s structure
+rather than a form authored by hand, but unchanged in shape: one `kind` from
+the set, and **per role, one line** mapping it into the Move's own vocabulary
+— the terms its `before`/`after`/`technique` already use. The block is
+**flat**, so `kind` is reserved and no kind may declare a role by that name;
 `tools/move_ingest.py` refuses the *set* on that shape rather than refusing a
 Move, because the malformation is this repository's and naming the owner's
-record for it would name the wrong party. For `introduce_paired_conceptual_axis`:
+record for it would name the wrong party. For a Move whose Passage carries an
+axis figure:
 
-    visual_form:
+    figure:
       kind: axis
       endpoint_a: the first endpoint the Move presents
       endpoint_b: the opposing endpoint
@@ -2425,18 +2575,17 @@ excludes.
 
 **The value model gains one nesting, admitted BY NAME.** §6.9.0's model is
 deliberately small — plain scalars, `>-` folded scalars, column-0 sequences —
-and `visual_form` is the one key whose indented `key: value` lines are read as
-a mapping. Admitting the nesting by *shape* was declined: it would silently
-retype every field whose folded prose happens to begin a line with a word and a
-colon, which is a change to twenty-two shipped records made by a feature none of
-them uses.
+and `figure` is the one key whose indented `key: value` lines are read as a
+mapping. Admitting the nesting by *shape* was declined: it would silently
+retype every field whose folded prose happens to begin a line with a word and
+a colon.
 
 **The form renders LAST and only when present**, in the **kind's** role order
 rather than the order the owner typed. Both halves are load-bearing: rendering
 last is what makes a formless record byte-identical to what it has always been,
 and rendering in the kind's order is what stops two records of one kind
-differing only in typing order. **Nothing about INDEX changes** — its three
-columns are `id`, `status` and `intent`, so a form reaches no row.
+differing only in typing order. **Nothing about INDEX changes** — its two
+columns are `id` and `technique`, so a form reaches no row.
 
 `necessity:` a closed set whose closure is the whole of its value, one optional
 field stated as the single exception to §4.2's "nothing added", and a validation
@@ -2449,11 +2598,12 @@ both selections whose declined arm is recoverable from nothing else.
     deferred-slot: move-sources-derivation-vehicle
     status: REOPENED (kogaki#548, 2026-08-19)
 
-**The successor position.** A Move's `excerpt` holds **source text only** — what
-text this Move came from, the passage it locates, the derivation it explains.
-`git log moves/<id>.md` is the audit trail for when and from what batch a Move
-was ingested. **No Source/Provenance schema distinction is defined**, because
-nothing demands one.
+**The successor position.** A Move's `evidence` holds **source text only** —
+the work this Move came from and where the Passage sits, never a quotation
+(§4.2, kogaki#1175 — the field renamed from `excerpt`, its provenance role
+unchanged). `git log moves/<id>.md` is the audit trail for when and from what
+batch a Move was ingested. **No Source/Provenance schema distinction is
+defined**, because nothing demands one.
 
 **Three grounds, each independently sufficient**, for withdrawing the tool's
 appended derivation string:
@@ -2469,9 +2619,10 @@ appended derivation string:
    between the owner's acceptance and the write.**
 
 **What this does NOT touch.** §4.9's `analysis/<source-slug>.md` pointer is
-**authored** into a proposal's own excerpt and reaches disk through the owner's
-acceptance like every other field. What was retired is a tool writing into a
-record after acceptance; what remains is an author writing source text.
+**authored** into a proposal's own `evidence` and reaches disk through the
+owner's acceptance like every other field. What was retired is a tool writing
+into a record after acceptance; what remains is an author writing source
+text.
 
 **The carrier of ground 3 is mechanical:** `tools/move_ingest.py` asserts that
 `save_accepted` writes every §4.2 field exactly as the owner accepted it.
@@ -2483,12 +2634,14 @@ in the artifact, since the mutated record is well-formed.
 ## 7. The Move library
 
 `moves/` and `moves/INDEX.md` are admitted. Moves are **source-specific
-precedents** entering as `status: observed` — each records a move observed in a
-particular source, not a generalization licensed across sources. Promotion to
-`generalized`, `proposed` or `validated` is a later act with its own grounds.
+precedents**. `status` — and with it the `observed` → `generalized` →
+`proposed` → `validated` promotion chain — is retired (§4.2, kogaki#1175): a
+record carries no claim about its own generality, and none is inferred from
+its presence in the library.
 
-`necessity:` the entry status is an authoring rule about what a record claims,
-and "observed, not generalized" is a distinction no field validates.
+`necessity:` a field withdrawn because the Corpus gave no ground for the
+promotion it licensed — no Analysis in the derivation run made a generality
+claim distinct from what `before`/`after` already state.
 
 ### 7.1 Trigger
 
@@ -2549,9 +2702,9 @@ stops the next sitting reaching for the plausible-and-wrong one.
   and **no `material_roles`.** A stored flowchart is the declined menu one level
   down.
 - **Recipes cite-as-precedent, never retrieve-as-generator.**
-- **`requires`/`effect` matching is judgment-class.** It is surfaced as gate
+- **`before`/`after` matching is judgment-class.** It is surfaced as gate
   evidence (§6) and **never type-checked**. **No machinery renders a verdict on
-  whether a Move's requires are met** — §4.12.2's verdict is the composing
+  whether a Move's `before` is met** — §4.12.2's verdict is the composing
   sitting's, validated by the runtime and composed by it never.
 - **The describe-never-generate boundary of §4 is untouched** by the library's
   admission.
@@ -2567,25 +2720,22 @@ mechanical kill.
 what a runtime may kill on and what it may not judge. Every member's violation
 is the *existence* of machinery, which only prose can forbid.
 
-### 7.6 The ~20 derived Moves and their excerpts
+### 7.6 The ~20 derived Moves — retired (kogaki#1175)
 
-Roughly twenty Moves were derived in the 2026-08-06 consultation and entered as
-`status: observed`. **Their excerpts name the book passages and source material
-each Move was observed in, in prose.** A `path:line@sha` pin against the served
-surface is **permitted and is not the act ingestion performs**: the derivation
-pointer written at ingestion is prose provenance naming the passage, on the
-corpus's own survival measurement — unpinned `file:line` citations broke
-repeatedly where issue anchors survived every relocation.
+**Historical.** Roughly twenty Moves were derived in the 2026-08-06
+consultation and entered under the eight-field schema this section used to
+describe. **All 22 records that grew from them were retired in full on
+2026-09-23** (kogaki#1175, owner ruling): they were extracted from the same
+sections of the reference work the Corpus analyzes, so each is superseded by
+an Analysis of the same text under the rebuilt schema, and their existence was
+not a reason to keep them. They carry no schema-date marker because none is
+needed for a retired record — git history is the retention. kogaki#177's
+excerpt-backfill question is moot: there is no `excerpt` field to backfill
+(§4.2), and no retired record to backfill it on.
 
-**kogaki#177 is the carrier for backfilling those excerpts, and its own body
-names the wrong act** — "backfill each admitted Move's `sources` with its served
-pin". Under the ruled form the backfill writes prose, in the ingestion run that
-saves each Move; an implementer following that text literally would write the
-one form the owner declined.
-
-`necessity:` a permission and a declined form that read identically in the
-records. Nothing in a Move's bytes says which of the two a pin-shaped excerpt
-would be, and the issue that discharges it currently says the wrong one.
+`necessity:` a section kept as a pointer into history rather than deleted,
+because the commits it describes are still the library's only precedent for
+"~20 Moves entered together and were later retired in one act."
 
 ## 8. The Japanese realization — evaluation classes, the Terminology List
    Decision, and versioning
@@ -2738,7 +2888,7 @@ tell a deliberate ordering from an arbitrary one.
 ## 9. Non-goals
 
 Not in this pipeline: a Probe successor; mechanical evidence resolution;
-automatic `requires`/`effect` judgment; a closed structure vocabulary or
+automatic `before`/`after` judgment; a closed structure vocabulary or
 framework menu; adjacency data in any form; a second style artifact.
 
 `necessity:` an enumeration of what was decided against. Absence of code is not
