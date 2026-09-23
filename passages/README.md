@@ -9,6 +9,14 @@ Analysis carries copyrighted source text verbatim. This directory keeps only
 the contract and this note, so the exercise can be repeated if a later
 schema question needs it.
 
+`DERIVATION.md` is the counterpart format: handed to a model together with
+the whole Corpus (never the individual Passages) and returns a Move-schema
+proposal. It is run by `tools/derive_schema.py <corpus_dir> --model <id>
+--out <run_dir>`, which counts and strips the Corpus, spawns the model once,
+checks the two files it writes against the bounds `DERIVATION.md` states,
+and posts the owner-facing `questions.md` on the Issue that asked for the
+run.
+
 `FIGURE.md` is the companion prompt for a Passage that refers to a figure:
 it recovers the figure's structure and encoding as a Figure spec, from
 which a different figure of the same shape can be drawn, and stores no
