@@ -45,7 +45,10 @@ format reads Analyses and never Passages (the source-text boundary,
 (`FIGURE.md`) is kept — `kind`, the role names under `positions:`,
 `relations` and `encoding` — and only each position's printed label is
 replaced by `(label removed)`, because the label is the figure's content
-and the rest is its structure. If any Analysis in front of you nonetheless
+and the rest is its structure. The short quotations `FORMAT.md` lets an
+Analysis keep are removed too: each reads `(quote removed)` followed by its
+English gloss, and any other source-language wording reads `(source wording
+removed)`. Work from the glosses and the Analysis's own account. If any Analysis in front of you nonetheless
 contains what reads like source prose rather than an account of a reader's
 state, do not use it as evidence for any field and say so in the working
 file under "anomalies".

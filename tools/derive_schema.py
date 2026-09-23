@@ -172,11 +172,61 @@ def strip_analysis(text):
     return "\n".join(out), stripped
 
 
+# `passages/FORMAT.md` lets an Analysis keep short quotations of its source,
+# "a few words each with a gloss", in the evidence line and section 3. They
+# are Passage text all the same, and the derivation reads the account, never
+# the source (kogaki#1173: "No Passage text leaves the Corpus"). So a quoted
+# span followed by its `[gloss]` keeps the gloss and loses the quotation, and
+# any run of CJK script left anywhere else is removed as source wording.
+QUOTED_WITH_GLOSS = re.compile(
+    r"(?:\u201c[^\u201d]*\u201d|\"[^\"\n]*\"|\u300c[^\u300d]*\u300d|`[^`\n]*`)"
+    r"(\s*\[)")
+CJK_RUN = re.compile(
+    r"[\u3000-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]"
+    r"[\u3000-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef\w\u30fb\u2026・]*")
+QUOTE_REMOVED = "(quote removed)"
+SOURCE_REMOVED = "(source wording removed)"
+MIN_FRAGMENT = 3
+
+
+def strip_quotations(text):
+    """Returns the text with every glossed quotation and every CJK run
+    removed, and the list of removed fragments at least `MIN_FRAGMENT`
+    characters long, for the substring leak check."""
+    fragments = []
+
+    def glossed(m):
+        quoted = m.group(0)[:-len(m.group(1))]
+        if len(quoted) - 2 >= MIN_FRAGMENT:
+            fragments.append(quoted[1:-1])
+        return QUOTE_REMOVED + m.group(1)
+
+    def run(m):
+        if len(m.group(0)) >= MIN_FRAGMENT:
+            fragments.append(m.group(0))
+        return SOURCE_REMOVED
+
+    text = QUOTED_WITH_GLOSS.sub(glossed, text)
+    text = CJK_RUN.sub(run, text)
+    return text, fragments
+
+
+def check_no_fragment_leak(text, fragments):
+    """Refuses if any removed quotation or source-script run appears as a
+    substring of `text`."""
+    for fragment in fragments:
+        if fragment in text:
+            raise Refusal(
+                "a quotation the strip removed reached the output: %r"
+                % (fragment,))
+
+
 def load_and_strip(paths):
     """Returns `(slug, stripped_text)` pairs and the flat list of every
     stripped line, across the whole Corpus."""
     analyses = []
     all_stripped = []
+    all_fragments = []
     for path in paths:
         slug = os.path.splitext(os.path.basename(path))[0]
         with open(path, encoding="utf-8") as handle:
@@ -185,9 +235,11 @@ def load_and_strip(paths):
             text, stripped = strip_analysis(text)
         except Refusal as refusal:
             raise Refusal("%s: %s" % (os.path.basename(path), refusal))
+        text, fragments = strip_quotations(text)
         analyses.append((slug, text))
         all_stripped.extend(stripped)
-    return analyses, all_stripped
+        all_fragments.extend(fragments)
+    return analyses, all_stripped, all_fragments
 
 
 # --------------------------------------------------------------------------
@@ -351,10 +403,11 @@ def run(corpus_dir, derivation_path, command, model, out_dir, timeout_s,
 
     paths = list_corpus(corpus_dir)
     refuse_below_minimum(paths)
-    analyses, stripped_lines = load_and_strip(paths)
+    analyses, stripped_lines, fragments = load_and_strip(paths)
 
     prompt = assemble_prompt(derivation_text, analyses)
     check_no_leak(prompt, stripped_lines)
+    check_no_fragment_leak(prompt, fragments)
 
     # The run directory exists before the call and every output lands in it
     # BEFORE any post-model check: a refusal keeps its refusal AND the
@@ -382,6 +435,8 @@ def run(corpus_dir, derivation_path, command, model, out_dir, timeout_s,
 
     check_no_leak(working_text, stripped_lines)
     check_no_leak(questions_text, stripped_lines)
+    check_no_fragment_leak(working_text, fragments)
+    check_no_fragment_leak(questions_text, fragments)
     validate_questions(questions_text)
 
     if post_issue is not None:
@@ -583,7 +638,7 @@ def self_test():
         with tempfile.TemporaryDirectory() as d:
             _write_corpus(d, MIN_CORPUS, passage_line="ANOTHER SECRET LINE")
             paths = list_corpus(d)
-            analyses, stripped_lines = load_and_strip(paths)
+            analyses, stripped_lines, _ = load_and_strip(paths)
             derivation_text = "DERIVATION INSTRUCTIONS\n"
             prompt = assemble_prompt(derivation_text, analyses)
             assert "ANOTHER SECRET LINE" not in prompt
@@ -598,6 +653,26 @@ def self_test():
 
     refuses(a_leaked_passage_line_in_the_output_is_caught, "reached the output",
             "a stripped Passage line reaching the output is refused")
+
+    def a_glossed_quotation_keeps_its_gloss_only():
+        line = ('1. \u201c\u5730\u653f\u5b66\u306e\u672c\u201d [books on geopolitics] '
+                '\u2014 advances \u2014 places the author; and \u300c\u8ecd\u62e1\u7af6\u4e89\u300d')
+        out, fragments = strip_quotations(line)
+        assert "\u5730\u653f" not in out and "\u8ecd\u62e1" not in out, out
+        assert "(quote removed) [books on geopolitics]" in out, out
+        assert "advances" in out
+        assert "\u5730\u653f\u5b66\u306e\u672c" in fragments
+
+    check("a glossed quotation keeps its gloss and loses the source words; "
+          "a bare source-script run is removed",
+          a_glossed_quotation_keeps_its_gloss_only)
+
+    def a_removed_quotation_reaching_the_output_refuses():
+        check_no_fragment_leak("the reply quotes \u5730\u653f\u5b66\u306e\u672c here",
+                               ["\u5730\u653f\u5b66\u306e\u672c"])
+
+    refuses(a_removed_quotation_reaching_the_output_refuses, "reached the output",
+            "a removed quotation reaching the output as a substring refuses")
 
     def a_wordless_stripped_line_never_false_positives():
         check_no_leak("\n\n---\nsome text\n* * *\n",
