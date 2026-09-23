@@ -276,3 +276,6 @@ policy/shape.md
 # ignored has nowhere else to say what it is for.
 /runs/*
 !/runs/README.md
+
+# Move-design Corpus: temporary, private, carries copyrighted source text (kogaki#1173)
+corpus/
