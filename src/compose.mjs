@@ -459,7 +459,8 @@ export function validateLegs(legs, readerStart) {
   // asked to invent one.
   //
   // READER START IS A STANCE IN THE MOVE LIBRARY'S OWN DIMENSIONS, NOT A
-  // KNOWLEDGE STATE (SPEC-draft-pipeline §5.1.1, kogaki#1176): both sides of
+  // KNOWLEDGE STATE (SPEC-draft-pipeline §"The three reader fields, and the
+  // block that authors them", kogaki#1176): both sides of
   // this comparison are `dimension: value` lines in the same shape a Move's
   // `before` is written in, so a first Leg's Move may specialize any
   // dimension Reader start states — including a `question:` line reading
