@@ -73,20 +73,43 @@ set -euo pipefail
 SUITE_SELF="$0"
 cd "$(git -C "$(dirname "$SUITE_SELF")" rev-parse --show-toplevel)"
 
-# --ci-shape (kogaki#1182): THE ONLY FLAG THIS RUNNER TAKES, checked here
-# rather than left for the python heredoc to notice, because the shape must be
-# built and exported before anything below -- the open-gate directory, the npm
-# precondition, the members themselves -- runs under it. Stripped from "$@" so
-# it is never mistaken downstream for a member argument that does not exist.
+# --ci-shape (kogaki#1182) and --compare-base (kogaki#1188): THE ONLY TWO
+# FLAGS THIS RUNNER TAKES, checked here rather than left for the python
+# heredoc to notice, because the shape must be built and exported before
+# anything below -- the open-gate directory, the npm precondition, the
+# members themselves -- runs under it. Both stripped from "$@" so neither is
+# mistaken downstream for a member argument that does not exist. THE TWO
+# COMPOSE: a caller may pass both in either order.
 CI_SHAPE=0
+COMPARE_BASE=""
 REMAINING_ARGS=()
-for arg in "$@"; do
+i=0
+ARGS=("$@")
+while (( i < ${#ARGS[@]} )); do
+  arg="${ARGS[$i]}"
   if [[ "$arg" == "--ci-shape" ]]; then
     CI_SHAPE=1
+  elif [[ "$arg" == "--compare-base" ]]; then
+    (( i + 1 < ${#ARGS[@]} )) || { echo "run-registered-checks.sh: --compare-base needs a <ref>" >&2; exit 2; }
+    i=$(( i + 1 ))
+    COMPARE_BASE="${ARGS[$i]}"
+  elif [[ "$arg" == --compare-base=* ]]; then
+    COMPARE_BASE="${arg#--compare-base=}"
+  elif [[ "$arg" == -* ]]; then
+    # AN UNRECOGNISED FLAG IS REFUSED, NEVER SILENTLY DROPPED (PR #1192 round
+    # 1 finding 3). `--compare-base=<ref>` used to fall through to here and
+    # into REMAINING_ARGS, which nothing downstream reads, so a typo'd `=`
+    # spelling ran the suite with no comparison and no complaint. The header
+    # above calls these "the only two flags this runner takes" -- this is
+    # what makes that true rather than aspirational.
+    echo "run-registered-checks.sh: unrecognised flag: $arg" >&2
+    exit 2
   else
     REMAINING_ARGS+=("$arg")
   fi
+  i=$(( i + 1 ))
 done
+export COMPARE_BASE
 # Guarded before expanding, as SUITE_OWNED_TMPDIRS already is below (PR #1183
 # round 1, finding 3): an empty array expands to an unbound variable under
 # `set -u` on bash before 4.4, which would abort the ORDINARY no-argument
@@ -240,7 +263,7 @@ fi
 #                        `registry-conformance` are the only ones touching
 #                        shared paths and both only READ them.
 exec python3 - "$@" <<'PY'
-import concurrent.futures, json, os, pathlib, subprocess, sys, time
+import concurrent.futures, json, os, pathlib, subprocess, sys, tempfile, time
 
 WORKFLOW = "checks.yml"
 
@@ -254,6 +277,14 @@ entries = registry["checks"]
 if not entries:
     print("ok: no registered checks (registry empty)")
     sys.exit(0)
+
+# READ AND POPPED HERE, BEFORE ANY MEMBER RUNS (PR #1192 round 1 finding 2).
+# `checks/check-ci-shape.sh` runs this runner nested inside a sandbox, and an
+# inherited COMPARE_BASE would put that nested run into comparison mode the
+# caller never asked it for. Read into a local now, for the comparison block
+# far below to use, and removed from the environment before the first member
+# — pool or serial — executes, so no child process ever sees it.
+compare_base = os.environ.pop("COMPARE_BASE", "") or None
 
 def git(*args):
     return subprocess.run(["git", *args], capture_output=True, text=True)
@@ -528,6 +559,13 @@ for entry in entries:
           flush=True)
     if outcome == "fail":
         failed.append(entry["id"])
+        # THE SUPERVISOR READS THIS EXACT LINE, right after its `catch:` line
+        # (kogaki#1188): one `FAIL <member path> (exit N)` per failing
+        # member, so a reader of the log — human or the supervisor parsing
+        # it — finds the member and its exit code beside the catch that
+        # named it, rather than only in the summary line below.
+        print(f"FAIL {member_path(entry)} (exit {result['returncode']})",
+              flush=True)
     elif outcome == "degrade":
         degraded.append(entry["id"])
 
@@ -558,6 +596,105 @@ if degraded:
           + " -- not a failure and not a pass: the check did not run")
 
 if failed:
+    if compare_base:
+        # --compare-base <ref> (kogaki#1188): a failing member may be a
+        # PRE-EXISTING failure — already red at the comparison base, and
+        # therefore not this change's to fix — or a failure this change
+        # introduces. The distinction is made by RUNNING THE SAME FAILING
+        # MEMBERS AGAIN at the merge-base commit, in a throwaway detached
+        # worktree, rather than by inspecting git history: the tree at the
+        # base is what the member actually sees, and that is the only
+        # honest way to ask what it would have reported there.
+        merge_base = git("merge-base", compare_base, "HEAD").stdout.strip()
+        by_id = {e["id"]: e for e in entries}
+        pre_existing, new_failures = [], []
+        if not merge_base:
+            print(f"run-suite: cannot resolve a merge-base with "
+                  f"{compare_base}; treating every failure as new", flush=True)
+            new_failures = list(failed)
+        else:
+            print(f"run-suite: comparing against base {compare_base} "
+                  f"(merge base {merge_base})", flush=True)
+            with tempfile.TemporaryDirectory() as wt_parent:
+                wt_dir = pathlib.Path(wt_parent) / "compare-base"
+                added = git("worktree", "add", "--detach", str(wt_dir),
+                            merge_base)
+                if added.returncode != 0:
+                    print(f"run-suite: could not create a comparison "
+                          f"worktree at {merge_base} "
+                          f"({added.stderr.strip()}); treating every "
+                          f"failure as new", flush=True)
+                    new_failures = list(failed)
+                else:
+                    try:
+                        # THE HEAD'S node_modules, SYMLINKED IN — a fresh
+                        # worktree does not get one (git does not populate
+                        # ignored paths), and installing it again would
+                        # make the comparison measure npm's reachability
+                        # rather than the member's own verdict at the base.
+                        head_node_modules = pathlib.Path("node_modules")
+                        if head_node_modules.is_dir():
+                            os.symlink(head_node_modules.resolve(),
+                                       wt_dir / "node_modules")
+                        # A MEMBER ABSENT AT THE BASE IS A NEW FAILURE, NEVER
+                        # PRE-EXISTING (PR #1192 round 1 finding 1). Classifying
+                        # on the return code alone reads a member the change
+                        # ADDED — unregistered or missing on disk at the base,
+                        # where bash exits 127 for a missing file — as "also red
+                        # at base" and lets the runner exit 0 on a check the
+                        # change itself introduced and broke. So a member is
+                        # eligible for the base re-run only when the base's OWN
+                        # registry.json names it AND its file exists there;
+                        # otherwise it is new by name, no re-run needed.
+                        base_registry_path = wt_dir / "checks" / "registry.json"
+                        base_ids = set()
+                        if base_registry_path.exists():
+                            try:
+                                base_ids = {e["id"] for e in
+                                            json.loads(base_registry_path.read_text())["checks"]}
+                            except (OSError, ValueError, KeyError):
+                                base_ids = set()
+                        for check_id in failed:
+                            entry = by_id[check_id]
+                            base_path = wt_dir / member_path(entry)
+                            if check_id not in base_ids or not base_path.exists():
+                                new_failures.append(check_id)
+                                continue
+                            base_result = subprocess.run(
+                                ["bash", str(member_path(entry))],
+                                cwd=wt_dir, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT)
+                            # THE KIT'S DEGRADE EXIT AT THE BASE IS ALSO A NEW
+                            # FAILURE. A member that could not answer at the
+                            # base (seam absent, exit 11) did not already fail
+                            # there -- "pre-existing" would claim a failure
+                            # that was never observed.
+                            if base_result.returncode in (0, KIT_DEGRADE_EXIT):
+                                new_failures.append(check_id)
+                            else:
+                                pre_existing.append((check_id, base_result.returncode))
+                    finally:
+                        removed = git("worktree", "remove", "--force",
+                                      str(wt_dir))
+                        if removed.returncode != 0:
+                            git("worktree", "prune")
+        if pre_existing:
+            print(f"run-suite: pre-existing failure(s) also red at base "
+                  f"{compare_base}: "
+                  + ", ".join(f"{c} (exit {rc} at base)"
+                              for c, rc in sorted(pre_existing)))
+        if new_failures:
+            print("run-suite: new failure(s) vs base " + compare_base
+                  + ": " + ", ".join(member_path(by_id[c]).as_posix()
+                                      for c in sorted(new_failures)))
+            print(f"FAIL: {len(new_failures)} of {len(entries)} registered "
+                  f"check(s) fail on this change (vs base {compare_base}): "
+                  + ", ".join(sorted(new_failures)))
+            sys.exit(1)
+        print(f"ok: {len(failed)} of {len(entries)} registered check(s) "
+              f"fail, all pre-existing at base {compare_base} — no new "
+              f"failure(s); no verdict recorded (not a full pass at HEAD)")
+        sys.exit(0)
     print(f"FAIL: {len(failed)} of {len(entries)} registered check(s) failed: "
           + ", ".join(failed))
     sys.exit(1)

@@ -433,6 +433,51 @@ def validate_registered_cases_described(entries, file_reader=None):
     return failures
 
 
+def validate_implement_lane_declaration(read_declaration=None, path_exists=None):
+    """`.claude/implement-lane.json`'s `suite_runner` declaration (kogaki#1188).
+
+    The file is git-ignored (`.gitignore` line 79, `.claude/*`), so CI and
+    every `git worktree add` checkout run without one — that is expected, not
+    a defect, so absence is REPORTED and never FAILS: a typed
+    `implement-lane:` row, distinguishable from silence, is printed instead.
+
+    When the file IS present, its SHAPE is asserted: `suite_runner` must be a
+    non-empty string naming a file that exists in this tree. This check
+    cannot see whether the runner it names actually behaves as declared — the
+    runner's own registered check does that — only that the declaration
+    points somewhere real.
+
+    Returns (failures, report_lines).
+    """
+    if read_declaration is None:
+        def read_declaration():
+            return json.loads(
+                pathlib.Path(".claude/implement-lane.json").read_text())
+    if path_exists is None:
+        path_exists = lambda p: pathlib.Path(p).is_file()
+    try:
+        declared = read_declaration()
+    except FileNotFoundError:
+        return [], [
+            "implement-lane: no .claude/implement-lane.json in this "
+            "checkout (git-ignored; kogaki#1188) — suite_runner is a "
+            "machine-local declaration"]
+    except (OSError, ValueError) as exc:
+        return [f"FAIL .claude/implement-lane.json unreadable or not valid "
+                f"JSON: {exc.__class__.__name__}: {exc}"], []
+    runner = declared.get("suite_runner")
+    if not isinstance(runner, str) or not runner.strip():
+        return [
+            "FAIL .claude/implement-lane.json declares no suite_runner — "
+            "must be a non-empty string naming a file in the tree "
+            "(kogaki#1188)"], []
+    if not path_exists(runner):
+        return [
+            f"FAIL .claude/implement-lane.json's suite_runner names no file "
+            f"in the tree: {runner!r} (kogaki#1188)"], []
+    return [], [f"implement-lane: suite_runner={runner!r} declared and present"]
+
+
 def check_floor_decrements(entries, base_reader=None):
     """Lowering a `case_floor` takes the admission review path (kogaki#661).
 
@@ -1043,8 +1088,58 @@ def probe_precondition_fixture():
     return True
 
 
+def implement_lane_fixture():
+    """`validate_implement_lane_declaration`'s four arms, over synthetic reads.
+
+    Fixture, not the live tree (kogaki#1188): this checkout's own
+    `.claude/implement-lane.json` is git-ignored and machine-local, so a
+    fixture reading it would pass or fail for reasons this check does not
+    control — the same reasoning `fixture_pass`'s stand-in TREE states above.
+    """
+    def missing():
+        raise FileNotFoundError(".claude/implement-lane.json")
+
+    def bad_json():
+        raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+    def declares(runner):
+        return lambda: {"suite_runner": runner}
+
+    cases = []
+    f, r = validate_implement_lane_declaration(missing)
+    cases.append(("absent declaration reports, never fails",
+                  not f and any("implement-lane:" in x for x in r)))
+    f, r = validate_implement_lane_declaration(bad_json)
+    cases.append(("unreadable/malformed JSON fails",
+                  any("unreadable or not valid JSON" in x for x in f)))
+    f, r = validate_implement_lane_declaration(declares(""))
+    cases.append(("empty suite_runner fails",
+                  any("declares no suite_runner" in x for x in f)))
+    f, r = validate_implement_lane_declaration(declares(None))
+    cases.append(("non-string suite_runner fails",
+                  any("declares no suite_runner" in x for x in f)))
+    f, r = validate_implement_lane_declaration(declares("tools/nope"),
+                                                path_exists=lambda p: False)
+    cases.append(("suite_runner naming an absent file fails",
+                  any("names no file in the tree" in x for x in f)))
+    f, r = validate_implement_lane_declaration(declares("tools/run-suite"),
+                                                path_exists=lambda p: True)
+    cases.append(("suite_runner naming a present file is accepted, and reported",
+                  not f and any("declared and present" in x for x in r)))
+
+    failed = [name for name, ok in cases if not ok]
+    if failed:
+        for name in failed:
+            print(f"FAIL fixture: {name}")
+        return False
+    print(f"ok: implement-lane fixture ({len(cases)} case(s)) — absence "
+          f"reports, shape is asserted when present")
+    return True
+
+
 fixtures_ok = fixture_pass()
 fixtures_ok = probe_precondition_fixture() and fixtures_ok
+fixtures_ok = implement_lane_fixture() and fixtures_ok
 if not fixtures_ok:
     sys.exit(1)
 
@@ -1107,6 +1202,12 @@ failures += floor_failures
 rows, probe_failures = run_probes(entries)
 failures += probe_failures
 for row in floor_rows + rows:
+    print(row)
+
+# The implement-lane suite_runner declaration (kogaki#1188).
+lane_failures, lane_rows = validate_implement_lane_declaration()
+failures += lane_failures
+for row in lane_rows:
     print(row)
 
 for line in failures:
