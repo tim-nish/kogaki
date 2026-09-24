@@ -445,6 +445,39 @@ export function budgetRefusal(budget, at) {
   return null;
 }
 
+// THE FIVE DIMENSIONS A STANCE OR A STATE IS WRITTEN IN
+// (specs/move-extraction-contract.md; SPEC-draft-pipeline §"The three reader
+// fields, and the block that authors them", kogaki#1176). Nothing in src/
+// declares this set structurally — src/leg-schema.json and
+// src/candidate-schema.json both name it only in a field's `description`
+// prose — so it is read here, once, as the closed set the shape predicate
+// below checks against.
+export const READER_STATE_DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
+
+// `reader_start`, `reader_state_before` and `reader_state_after` are a
+// STANCE/STATE in the Move library's own dimensions, not a knowledge
+// sentence (kogaki#1176 repair): one or more `dimension: value` segments,
+// separated by `; `, each segment's dimension drawn from
+// READER_STATE_DIMENSIONS — the same shape moves/*.md's `before`/`after`
+// are written in. A dimension's own value may carry further colons (a
+// `question:` segment reading `holds: none`, for instance) — only the
+// segment's LEADING token is checked against the dimension set. Returns an
+// error string or null; presence is a different check's job, so an empty or
+// non-string value is not this function's refusal.
+export function readerStateShapeRefusal(value, at, fieldName) {
+  if (typeof value !== "string" || value === "") return null;
+  for (const seg of value.split("; ")) {
+    const m = /^([a-z]+):\s*\S/.exec(seg);
+    if (!m || !READER_STATE_DIMENSIONS.includes(m[1])) {
+      return `${at}: ${fieldName} is not written as \`dimension: value\` lines over the Move `
+        + `library's dimension set (${READER_STATE_DIMENSIONS.join(", ")}) — it is a STANCE/STATE in `
+        + "those dimensions, not a knowledge sentence (SPEC-draft-pipeline §\"The three reader fields, "
+        + `and the block that authors them\", kogaki#1176). Received: ${JSON.stringify(value)}`;
+    }
+  }
+  return null;
+}
+
 // ---- shape validation (the Leg's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
 // Returns { error } or { legs }. Pure over its argument; exported for the check.
@@ -468,6 +501,10 @@ export function validateLegs(legs, readerStart) {
   // as an in-subject understanding. The comparison below is unchanged by
   // that redefinition: both sides were already opaque strings, and the check
   // is a verbatim match, never a per-dimension one.
+  if (typeof readerStart === "string" && readerStart !== "") {
+    const shapeErr = readerStateShapeRefusal(readerStart, "reader_start", "reader_start");
+    if (shapeErr) return { error: shapeErr };
+  }
   if (typeof readerStart === "string" && readerStart !== "" && legs[0].reader_state_before !== readerStart) {
     return { error: pathRefusal("reader_start_binds_first_leg", `leg 1 (${legs[0].leg_id ?? "?"})`,
       `Its reader_state_before reads ${JSON.stringify(legs[0].reader_state_before)}; `
@@ -495,6 +532,15 @@ export function validateLegs(legs, readerStart) {
       }
     }
     if (errs.length) return { error: errs[0] };
+    // A KNOWLEDGE-ONLY reader_state_before/after IS THE DEFECT THIS ISSUE
+    // CLOSES (kogaki#1176 repair): presence is checked above by
+    // `requiredLegFields`; the SHAPE — `dimension: value` lines over the
+    // Move library's dimension set — is checked here, so a bare sentence is
+    // refused naming the rule rather than accepted as a non-empty string.
+    for (const field of ["reader_state_before", "reader_state_after"]) {
+      const shapeErr = readerStateShapeRefusal(s[field], at, field);
+      if (shapeErr) return { error: shapeErr };
+    }
     if (seen.has(s.leg_id)) {
       return { error: pathRefusal("leg_id_unique", at, `An earlier Leg already carries the id ${JSON.stringify(s.leg_id)} — this is a duplicate leg_id, and the repair is to rename one of the two, never to merge them.`) };
     }
