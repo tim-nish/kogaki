@@ -251,16 +251,16 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '    move: MOVES[i % MOVES.length],',
   '    materials: [m],',
   '    purpose: "carry the reader one move further on the strength of " + m,',
-  '    reader_state_before: i === 0 ? "the reader has no stake in the claim"',
-  '      : "the reader can state the claim in working form",',
-  '    reader_state_after: i === 0 ? "the reader can state the claim in working form"',
-  '      : "the reader has seen the claim discriminate a real case",',
+  '    reader_state_before: i === 0 ? "knowledge: the reader has no stake in the claim"',
+  '      : "knowledge: the reader can state the claim in working form",',
+  '    reader_state_after: i === 0 ? "knowledge: the reader can state the claim in working form"',
+  '      : "knowledge: the reader has seen the claim discriminate a real case",',
   '    depends_on: i === 0 ? [] : ["x" + i],',
   '    rationale: "this leg sits here because the state it needs is the one the leg before it leaves",',
   '    claims: [{ type: "strand", strand: m, proposition: "the strand " + m + " supports exactly this claim at this point" }],',
   '  }, (i === 0 || SECTION_ON_EVERY_LEG) ? { opens_section: "The claim, in working form " + (i + 1) } : {}));',
   '  const mk = (id, exp, order) => {',
-  '    const READER_START = id + ": the reader treats the case as one team\'s habit";',
+  '    const READER_START = "knowledge: " + id + " the reader treats the case as one team\'s habit";',
   // Reader start binds the first Leg (kogaki#1151): the fixture's first Leg
   // must arrive from the SAME reader_state_before as this Candidate's own
   // reader_start, or `validateLegs` refuses every candidate this factory
@@ -463,8 +463,8 @@ const leg1 = {
   leg_id: "s1", move: "state-claim-in-working-form", materials: ["L2", "thesis"],
   opens_section: "The claim, in working form",
   purpose: "give the reader the claim in working form",
-  reader_state_before: "the reader has no stake in the claim",
-  reader_state_after: "the reader can state the claim and its cost",
+  reader_state_before: "knowledge: the reader has no stake in the claim",
+  reader_state_after: "knowledge: the reader can state the claim and its cost",
   depends_on: [],
   rationale: "the settled material states the claim directly, so the article opens on it",
   claims: [{ type: "strand", strand: "L2", proposition: "the alpha lesson states the claim in its own words" }],
@@ -472,8 +472,8 @@ const leg1 = {
 const leg2 = {
   leg_id: "s2", move: "worked-example", materials: ["L1"],
   purpose: "show the claim doing work on a concrete case",
-  reader_state_before: "the reader can state the claim and its cost",
-  reader_state_after: "the reader has seen the claim discriminate a real case",
+  reader_state_before: "knowledge: the reader can state the claim and its cost",
+  reader_state_after: "knowledge: the reader has seen the claim discriminate a real case",
   depends_on: ["s1"],
   rationale: "the bravo material carries the concrete case, and the case only reads after the claim is stated",
   claims: [
@@ -766,7 +766,7 @@ try {
   const bothObl = fillBrief(doc0, { ...input, obligations: [{ text: "x", introduced_by: "s1", discharged_by: "s2", conceded_by: "s2" }] });
   if (!bothObl.error || !/BOTH/.test(bothObl.error)) fails.push(`(b) a Closure row carrying BOTH discharged_by and conceded_by was accepted: ${JSON.stringify(bothObl)}`);
   // READER START BINDS THE FIRST LEG, refused NAMING BOTH values.
-  const wrongStart = fillBrief(doc0, { ...input, readerStart: "the reader stands somewhere this path never starts" });
+  const wrongStart = fillBrief(doc0, { ...input, readerStart: "knowledge: the reader stands somewhere this path never starts" });
   if (!wrongStart.error || !/Reader start/.test(wrongStart.error)) fails.push(`(b) a first Leg disagreeing with the Brief's Reader start was accepted: ${JSON.stringify(wrongStart)}`);
   if (validateLegs([leg1, leg2], leg1.reader_state_before).error) fails.push("(b) validateLegs refused a first Leg that DOES agree with the given Reader start");
   // ACCEPTANCE 7's COMPOSITION HALF (kogaki#1151; PR #1152 round 1, finding 2).
@@ -882,7 +882,7 @@ try {
     }
   }
 
-  const startMismatch = validateLegs([leg1, leg2], "a value leg1 never states");
+  const startMismatch = validateLegs([leg1, leg2], "knowledge: a value leg1 never states");
   if (!startMismatch.error || !/reader_state_before/.test(startMismatch.error) || !/Reader start/.test(startMismatch.error)) {
     fails.push(`(b) validateLegs did not refuse naming both the Leg's reader_state_before and the Brief's Reader start: ${JSON.stringify(startMismatch)}`);
   }
@@ -1037,7 +1037,7 @@ try {
   // survives to the gate, which is what makes them a real axis rather than a
   // constant repeated twice.
   const mkCand = (id, exp, rawLegs) => {
-    const readerStart = `${id}: the reader treats the case as one team's habit`;
+    const readerStart = `knowledge: ${id} the reader treats the case as one team's habit`;
     // READER START BINDS THE FIRST LEG (kogaki#1151): candA and candB must
     // still differ on `reader_start` (case l-reader-fields' whole point), so
     // the override lands on THIS Candidate's own first Leg rather than
@@ -3739,8 +3739,8 @@ ranCase("k-composed-body");
 ranCase("l-bridge");
 {
   const S = (id, extra = {}) => ({
-    leg_id: id, move: "m", materials: ["L1"], purpose: "p", reader_state_before: "b",
-    reader_state_after: "a", depends_on: [], rationale: "r",
+    leg_id: id, move: "m", materials: ["L1"], purpose: "p", reader_state_before: "knowledge: b",
+    reader_state_after: "knowledge: a", depends_on: [], rationale: "r",
     claims: [{ type: "strand", strand: "L1", proposition: "the strand says so" }],
     ...extra,
   });
@@ -3947,7 +3947,7 @@ ranCase("q");
 {
   const Q = (id, extra = {}) => ({
     leg_id: id, move: "m1", materials: ["L1"], purpose: "p",
-    reader_state_before: "a", reader_state_after: "b", depends_on: [],
+    reader_state_before: "knowledge: a", reader_state_after: "knowledge: b", depends_on: [],
     rationale: "r", claims: [{ type: "strand", strand: "L1", proposition: "q" }],
     ...extra,
   });
@@ -4033,7 +4033,7 @@ ranCase("ak-path-rules-carried");
 
   const P = (id, extra = {}) => ({
     leg_id: id, move: "m1", materials: ["L1"], purpose: "p",
-    reader_state_before: "a", reader_state_after: "b", depends_on: [],
+    reader_state_before: "knowledge: a", reader_state_after: "knowledge: b", depends_on: [],
     rationale: "r", claims: [{ type: "strand", strand: "L1", proposition: "q" }],
     ...extra,
   });
@@ -4054,7 +4054,7 @@ ranCase("ak-path-rules-carried");
     // A SECOND ARGUMENT, not a legs array (kogaki#1151): this rule only
     // fires against a `readerStart`, which `validateLegs(fixture)` alone
     // never supplies — so this one entry is read specially below.
-    reader_start_binds_first_leg: { legs: [P("s1", { opens_section: "A" })], readerStart: "a value this Leg's reader_state_before never states" },
+    reader_start_binds_first_leg: { legs: [P("s1", { opens_section: "A" })], readerStart: "knowledge: a value this Leg's reader_state_before never states" },
   };
 
   if (!rules || typeof rules !== "object") {
@@ -4266,7 +4266,7 @@ ranCase("v");
     // claims and is unchanged; what changed is that three claims now require
     // three Strands to hang on.
     leg_id: id, move: "axis-form-move", materials: ["L1", "L2", "L3"], purpose: "p",
-    reader_state_before: "a", reader_state_after: "b", depends_on: [],
+    reader_state_before: "knowledge: a", reader_state_after: "knowledge: b", depends_on: [],
     rationale: "r",
     claims: [
       { type: "strand", strand: "L1", proposition: "the defensive wall is the first endpoint" },

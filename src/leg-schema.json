@@ -91,12 +91,12 @@
     "reader_state_before": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Leg begins. Judged at the specialization occasion against the Move's `before`: a Leg's before-state must be a consistent specialization of what its Move demands."
+      "description": "What the reader holds when this Leg begins, in the Move library's own dimensions (knowledge, question, expectation, orientation, trust -- the Move library entry) -- one `dimension: value` line per dimension the Leg's Move addresses, the same shape the bound Move's own `before` is written in. Judged at the specialization occasion against the Move's `before`: a Leg's before-state must be a consistent specialization of what its Move demands. On the FIRST Leg of a path this field is additionally checked verbatim against the Brief's own Reader start -- see `reader_start_binds_first_leg` below -- which is why the two are written in one shape rather than two (kogaki#1176)."
     },
     "reader_state_after": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Leg ends. Judged against the Move's `after` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
+      "description": "What the reader holds when this Leg ends, in the same dimensions and the same shape as `reader_state_before`. Judged against the Move's `after` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
     },
     "depends_on": {
       "required": true,
@@ -257,7 +257,7 @@
     "reader_start_binds_first_leg": {
       "class": "checked",
       "name": "Reader start binds the first Leg",
-      "rule": "The FIRST Leg's `reader_state_before` is the Brief's Reader start, verbatim. Reader start is the direction for the initial reader pull; a first Leg that begins somewhere else has the reader arriving at a Brief the article never opens from (kogaki#1151)."
+      "rule": "The FIRST Leg's `reader_state_before` is the Brief's Reader start, verbatim. Reader start is the direction for the initial reader pull; a first Leg that begins somewhere else has the reader arriving at a Brief the article never opens from (kogaki#1151). Reader start is a STANCE in the Move library's own dimensions, not a knowledge state (kogaki#1176) -- so the first Leg's Move may specialize ANY of those dimensions, including a `question:` line reading `holds: none`, and is no longer forced onto a Move whose `before` reads as an in-subject understanding. The check itself is unchanged: both sides are read as opaque strings and refused on anything but a verbatim match."
     }
   },
   "claim": {

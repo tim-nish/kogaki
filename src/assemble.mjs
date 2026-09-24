@@ -154,9 +154,9 @@ export const READER_FIELDS = [
 // make the cheap reversal an expensive one, to save nothing an execution pays
 // for. What is NOT retained is any claim that they reach the owner.
 export const EVIDENCE_LABELS = [
-  ["reader_start", "Where does this path assume the reader is standing?"],
-  ["reader_target", "Where does this path leave the reader?"],
-  ["opening_question", "What question does this path open with?"],
+  ["reader_start", "What stance does this path assume the reader arrives in?"],
+  ["reader_target", "What stance does this path leave the reader in?"],
+  ["opening_question", "What question does this path's first Leg hand the reader?"],
   ["leg_validity", "Does each leg stand on the material it cites?"],
   ["transition_continuity", "Does each leg leave the reader where the next one starts?"],
   ["thesis_closure", "Does the path close the claim?"],
