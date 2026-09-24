@@ -67,22 +67,16 @@ with them; they are settled.
 
 ## The Move this Leg performs — its contract
 
-This is the transformation you are performing. `intent` says what it does;
-`constraints` are what a correct performance must and must not do;
-`failure_modes` are how it goes wrong when imitated badly.
+This is the transformation you are performing. `technique` says what it
+does; `question` is the reader's question and its fate; `draws_on` is the
+footholds the Move's material comes from; `breaks` are the three tests a
+correct performance must survive.
 
 - **Move.** {{move_id}}
-- **intent.** {{move_intent}}
-- **constraints.** {{move_constraints}}
-- **failure_modes.** {{move_failure_modes}}
-
-### An exemplar of this Move — FORM ONLY
-
-The passage below demonstrates how this Move is realized. **Do not reuse its
-subject matter, facts, entities, terminology, or claims.** Read it for the
-form of the movement and nothing else.
-
-{{move_excerpt}}
+- **technique.** {{move_technique}}
+- **question.** {{move_question}}
+- **draws_on.** {{move_draws_on}}
+- **breaks.** {{move_breaks}}
 
 ## This Leg
 

@@ -20,33 +20,36 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 
-# §4.2's eight fields, in §4.2's order. §6.9.1a fixes the order; a saved file
-# renders in it, and condition 3 admits exactly this set.
+# §4.2's eight required fields, in §4.2's order (kogaki#1175 rebuilt this
+# schema from the eight-field one; the prior FIELDS tuple named id, status,
+# intent, requires, effect, constraints, failure_modes, excerpt). §6.9.1a
+# fixes the order; a saved file renders in it, and condition 3 admits exactly
+# this set plus at most OPTIONAL_FIELDS.
 FIELDS = (
     "id",
-    "status",
-    "intent",
-    "requires",
-    "effect",
-    "constraints",
-    "failure_modes",
-    "excerpt",
+    "before",
+    "after",
+    "question",
+    "order",
+    "presupposes",
+    "technique",
+    "breaks",
 )
 
-# §6.9.3: the ONE optional field. It is not part of §4.2's eight and never
-# becomes one — condition 3 admits the eight, plus this and nothing else.
-# Absent by default: a Move acquires a form only when its transformation has a
-# relational shape, which is the admission act's judgment and not a rule here.
-OPTIONAL_FIELDS = ("visual_form",)
+# §4.2's four optional fields. None is part of §4.2's eight and none becomes
+# one — condition 3 admits the eight, plus any of these four and nothing
+# else. Each is absent by default.
+OPTIONAL_FIELDS = ("draws_on", "continues_from", "evidence", "figure")
 
 # The only key whose value is a nested mapping. The value model stays
 # deliberately small (§6.9.0): scalars, `>-` folded scalars, column-0
 # sequences — and this one nesting, admitted by NAME rather than by shape, so
 # an accidentally-indented `key: value` under any other field is still the
 # scalar it has always been.
-NESTED_FIELDS = ("visual_form",)
+NESTED_FIELDS = ("figure",)
 
 # `kind` selects the schema; every other key in the block is a role. The block
 # is FLAT, so a kind declaring a role named `kind` would make the two
@@ -239,9 +242,9 @@ def parse_record(first_line_no, lines):
     quiet under this rule even where the parser would allow it.
 
     The value model is deliberately small — it is over the shape §6.9.0
-    MEASURED on the specimen (plain scalars for `id` and `status`, `>-` folded
-    block scalars for the other six, plus legal column-0 sequences) — and
-    anything outside it has already been refused by condition 4.
+    MEASURED on the specimen (plain scalars for `id` and `continues_from`,
+    `>-` folded block scalars for the rest, plus legal column-0 sequences) —
+    and anything outside it has already been refused by condition 4.
     """
     mapping = {}
     order = []
@@ -351,16 +354,17 @@ def check_field_set(mapping, first_line_no):
     The ordering matters and is not incidental: the excluded draft fields are
     stripped FIRST, so their presence routes to the strip step rather than to a
     refusal. What a short or long field set then means is a genuine defect —
-    a record that absorbed its neighbour's `status` leaves that neighbour with
+    a record that absorbed its neighbour's `before` leaves that neighbour with
     SEVEN, and this is the condition that catches it.
     """
     have = set(mapping)
     want = set(FIELDS)
     missing = sorted(want - have)
-    # §6.9.3: the optional field is admitted here and NOWHERE ELSE widens the
-    # set. A record carrying it has nine keys and is still exact; a record
-    # carrying anything else is still refused, so the condition keeps its
-    # catch — the seven-key absorbed neighbour is unaffected either way.
+    # §4.2: the four optional fields are admitted here and NOWHERE ELSE widens
+    # the set. A record carrying any of them still has exactly the eight
+    # required keys plus those; a record carrying anything else is still
+    # refused, so the condition keeps its catch — a short-of-eight absorbed
+    # neighbour is unaffected either way.
     extra = sorted(have - want - set(OPTIONAL_FIELDS))
     if missing or extra:
         parts = []
@@ -370,8 +374,9 @@ def check_field_set(mapping, first_line_no):
             parts.append("unexpected %s" % ", ".join("`%s`" % k for k in extra))
         raise Refusal(
             "3",
-            "record does not carry exactly §4.2's eight keys "
-            "(plus at most `visual_form`) — " + "; ".join(parts),
+            "record does not carry exactly §4.2's eight required keys "
+            "(plus at most %s) — " % ", ".join("`%s`" % f for f in OPTIONAL_FIELDS)
+            + "; ".join(parts),
             line_no=first_line_no,
         )
 
@@ -430,10 +435,11 @@ def load_figure_kinds(path=None):
     return kinds
 
 
-def check_visual_form(mapping, first_line_no, kinds=None):
-    """§6.9.3: validate the optional `visual_form` block, or do nothing.
+def check_figure(mapping, first_line_no, kinds=None):
+    """§6.9.3: validate the optional `figure` block, or do nothing.
 
-    Exactly three things, named in the refusal:
+    Renamed from `check_visual_form` (kogaki#1175); the mechanism is
+    unchanged. Exactly three things, named in the refusal:
 
       1. the block is a mapping naming one `kind` from the closed set;
       2. every role of that kind is mapped;
@@ -446,14 +452,14 @@ def check_visual_form(mapping, first_line_no, kinds=None):
     Absence is not a finding: a Move without the block is untouched, which is
     what makes every existing record pass unchanged.
     """
-    if "visual_form" not in mapping:
+    if "figure" not in mapping:
         return
 
-    form = mapping["visual_form"]
+    form = mapping["figure"]
     if not isinstance(form, dict):
         raise Refusal(
-            "visual-form",
-            "`visual_form` is not a block of `kind:` plus one line per role",
+            "figure",
+            "`figure` is not a block of `kind:` plus one line per role",
             line_no=first_line_no,
         )
 
@@ -462,15 +468,15 @@ def check_visual_form(mapping, first_line_no, kinds=None):
     kind = form.get(KIND_SELECTOR)
     if not kind:
         raise Refusal(
-            "visual-form",
-            "`visual_form` names no `kind`; the closed set is %s"
+            "figure",
+            "`figure` names no `kind`; the closed set is %s"
             % ", ".join("`%s`" % k for k in sorted(kinds)),
             line_no=first_line_no,
         )
     if kind not in kinds:
         raise Refusal(
-            "visual-form",
-            "`visual_form` names unknown kind `%s`; the closed set is %s"
+            "figure",
+            "`figure` names unknown kind `%s`; the closed set is %s"
             % (kind, ", ".join("`%s`" % k for k in sorted(kinds))),
             line_no=first_line_no,
         )
@@ -486,8 +492,8 @@ def check_visual_form(mapping, first_line_no, kinds=None):
         if extra:
             parts.append("not a role of `%s`: %s" % (kind, ", ".join("`%s`" % r for r in extra)))
         raise Refusal(
-            "visual-form",
-            "`visual_form` does not map exactly kind `%s`'s roles — " % kind
+            "figure",
+            "`figure` does not map exactly kind `%s`'s roles — " % kind
             + "; ".join(parts),
             line_no=first_line_no,
         )
@@ -495,8 +501,8 @@ def check_visual_form(mapping, first_line_no, kinds=None):
     blank = sorted(r for r in want if not str(form[r]).strip())
     if blank:
         raise Refusal(
-            "visual-form",
-            "`visual_form` maps %s to nothing; a role carries one line in the "
+            "figure",
+            "`figure` maps %s to nothing; a role carries one line in the "
             "Move's own vocabulary" % ", ".join("`%s`" % r for r in blank),
             line_no=first_line_no,
         )
@@ -511,9 +517,9 @@ def check_visual_form(mapping, first_line_no, kinds=None):
 # was found.
 #
 # What actually catches the failure is what §6.9.0 says catches it. A record
-# written with `status:` above `id:` is not seen as a boundary at all — it is
+# written with `before:` above `id:` is not seen as a boundary at all — it is
 # absorbed into the record above, and the absorption is caught twice over:
-# condition 2 sees the duplicate `status` in the absorbing record, and
+# condition 2 sees the duplicate `before` in the absorbing record, and
 # condition 3 sees the absorbed one left with SEVEN keys. Both are exercised.
 #
 # The precondition is therefore stated (here) and enforced (there), which is
@@ -557,7 +563,7 @@ def read_proposals(text):
             mapping, _order = parse_record(first_line_no, lines)
             stripped = strip_excluded(mapping)
             check_field_set(mapping, first_line_no)
-            check_visual_form(mapping, first_line_no)
+            check_figure(mapping, first_line_no)
         except Refusal as r:
             proposals.append(Proposal(first_line_no, refusal=r))
             continue
@@ -569,7 +575,12 @@ def read_proposals(text):
 # Rendering (§6.9.1a)
 # --------------------------------------------------------------------------
 
-PLAIN_FIELDS = ("id", "status")
+PLAIN_FIELDS = ("id", "continues_from")
+
+# §4.2's optional non-nested fields, rendered after the eight required ones
+# and before `figure` (which renders LAST, per §6.9.1a) — in this fixed order,
+# so two records differ only where their content differs.
+OPTIONAL_SCALAR_FIELDS = ("draws_on", "continues_from", "evidence")
 
 
 def render_move(mapping):
@@ -580,9 +591,7 @@ def render_move(mapping):
     is genuinely a paragraph is a `>-` folded scalar, as the specimen already
     writes them.
     """
-    out = []
-    for field in FIELDS:
-        value = mapping.get(field, "")
+    def render_field(field, value):
         if isinstance(value, list):
             out.append("%s:" % field)
             for item in value:
@@ -601,20 +610,30 @@ def render_move(mapping):
                 # authored". Rendering at column 0 is what makes that promise
                 # true rather than merely asserted.
                 out.append("- %s" % item)
-            continue
+            return
         if field in PLAIN_FIELDS:
             out.append("%s: %s" % (field, value))
-            continue
+            return
         out.append("%s: >-" % field)
         for chunk in _wrap(str(value), 74):
             out.append("  %s" % chunk)
 
-    # §6.9.3: the optional block renders LAST and only when present, so a Move
-    # without a form is byte-identical to what it has always been — the
-    # property that makes every existing record pass unchanged.
-    form = mapping.get("visual_form")
+    out = []
+    for field in FIELDS:
+        render_field(field, mapping.get(field, ""))
+
+    # §4.2: the optional scalar fields render after the eight, each only when
+    # present — a record carrying none of them renders byte-identically to
+    # what a record under the eight-field schema always did.
+    for field in OPTIONAL_SCALAR_FIELDS:
+        if field in mapping:
+            render_field(field, mapping[field])
+
+    # §6.9.3: `figure` renders LAST and only when present, so a Move without
+    # one is byte-identical to what it has always been.
+    form = mapping.get("figure")
     if isinstance(form, dict) and form:
-        out.append("visual_form:")
+        out.append("figure:")
         out.append("  %s: %s" % (KIND_SELECTOR, form.get(KIND_SELECTOR, "")))
         roles = load_figure_kinds().get(form.get(KIND_SELECTOR), [])
         # The kind's own role ORDER, never the mapping's insertion order: the
@@ -762,12 +781,38 @@ def read_saved(path):
     return mapping
 
 
+def merge_into(moves_dir, target_id, proposal):
+    """Merge `proposal`'s fields into the Move `target_id` already names,
+    validate the merged key set, rewrite that file in place and regenerate
+    the index.
+
+    The proposal's OWN id is discarded — this is a merge INTO the named Move,
+    not a new one, so the target's id is what survives. `save_accepted()` is
+    still the sole path that ever creates a new file; this is the other half
+    of the same save step, over a file that already exists.
+    """
+    path = move_path(moves_dir, target_id)
+    if not os.path.isfile(path):
+        raise Refusal(
+            "passage",
+            "merge target `%s` names no saved Move at %s" % (target_id, path),
+        )
+    merged = dict(read_saved(path))
+    merged.update(proposal.mapping)
+    merged["id"] = target_id
+    check_field_set(merged, 0)
+    with open(path, "w") as handle:
+        handle.write(render_move(merged))
+    write_index(moves_dir)
+    return path
+
+
 def write_index(moves_dir):
     """Rewrite moves/INDEX.md WHOLE from the files on disk, sorted by id.
 
-    Columns are `id | status | intent`, and EVERY COLUMN IS READ OFF A FILE —
-    none is composed. That is the property arm (b) could not have, and it is
-    why the regeneration contract binds FRESHNESS ONLY: a stale INDEX is a run
+    Columns are `id | technique`, and EVERY COLUMN IS READ OFF A FILE — none
+    is composed. That is the property arm (b) could not have, and it is why
+    the regeneration contract binds FRESHNESS ONLY: a stale INDEX is a run
     that did not happen rather than a derivation that drifted.
 
     Nothing reads INDEX to decide anything. It is a reader's table of contents.
@@ -780,8 +825,7 @@ def write_index(moves_dir):
         rows.append(
             (
                 str(mapping.get("id", "")),
-                str(mapping.get("status", "")),
-                str(mapping.get("intent", "")),
+                str(mapping.get("technique", "")),
             )
         )
     rows.sort(key=lambda row: row[0])
@@ -793,17 +837,212 @@ def write_index(moves_dir):
         "(SPEC-draft-pipeline §6.9.1a). Every column is read off a file; none is "
         "composed. Nothing reads this file to decide anything.",
         "",
-        "| id | status | intent |",
-        "| --- | --- | --- |",
+        "| id | technique |",
+        "| --- | --- |",
     ]
-    for move_id, status, intent in rows:
-        out.append("| %s | %s | %s |" % (move_id, status, intent.replace("|", "\\|")))
+    for move_id, technique in rows:
+        out.append("| %s | %s |" % (move_id, technique.replace("|", "\\|")))
     out.append("")
 
     path = os.path.join(moves_dir, "INDEX.md")
     with open(path, "w") as handle:
         handle.write("\n".join(out))
     return path
+
+
+# --------------------------------------------------------------------------
+# The Passage-to-Move path (kogaki#1175, thread comment "Passage-to-Move
+# path: approved 2026-09-23, with a condition"). One command: a Passage in,
+# `specs/move-extraction-contract.md` authors a proposal, the proposal is
+# checked against `moves/INDEX.md` for a near-duplicate, a selection screen
+# is written as an artifact, and the write happens on the owner's recorded
+# choice — never on any other act. This is the SAME division of labour the
+# rest of the module holds: nothing here admits a Move, `save_accepted()` is
+# still the only writer, and `--select accept` is the caller having already
+# obtained the owner's choice, exactly as the ingest CLI's `accepted` list is.
+# --------------------------------------------------------------------------
+
+def build_passage_prompt(contract_text, passage_text, index_text):
+    """The whole authorship input: the contract, the Passage, and the
+    existing library — nothing else, per the contract's own opening line
+    ("no other context is needed or permitted")."""
+    return (
+        contract_text.strip() + "\n\n"
+        "## The Passage\n\n" + passage_text.strip() + "\n\n"
+        "## The existing library (moves/INDEX.md)\n\n"
+        + (index_text.strip() or "(empty — no Move has been saved yet)") + "\n\n"
+        "Return exactly one record in the format the contract above states, "
+        "and nothing else — no prose before or after it, no fence.\n"
+    )
+
+
+def spawn_model(command, model, prompt, timeout_s, cwd=None):
+    """The pinned-model authorship step, the same argv shape
+    `src/terrain.mjs`'s `judgeAttempts` already runs `claude -p` with."""
+    argv = [command, "-p", "--model", model, "--output-format", "text"]
+    try:
+        r = subprocess.run(
+            argv, input=prompt, capture_output=True, text=True,
+            timeout=timeout_s, cwd=cwd)
+    except subprocess.TimeoutExpired:
+        raise Refusal("passage", "the model exceeded the %ds per-call bound" % timeout_s)
+    except OSError as exc:
+        raise Refusal("passage", "the model command %r could not be run: %s" % (command, exc))
+    if r.returncode != 0:
+        raise Refusal(
+            "passage",
+            "the model exited %d. Its stderr, verbatim: %s. Its stdout, verbatim: %s"
+            % (r.returncode, (r.stderr or "").strip() or "(empty)",
+               (r.stdout or "").strip()[:2000] or "(empty)"),
+        )
+    return r.stdout
+
+
+def read_index_rows(moves_dir):
+    """`(id, technique)` pairs read off `moves/INDEX.md`'s own two columns —
+    the same table `write_index` renders, read back rather than re-derived."""
+    path = os.path.join(moves_dir, "INDEX.md")
+    if not os.path.isfile(path):
+        return []
+    rows = []
+    with open(path) as handle:
+        for line in handle:
+            if not line.startswith("|"):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) != 2 or cells[0] in ("id", "---"):
+                continue
+            rows.append((cells[0], cells[1]))
+    return rows
+
+
+WORD = re.compile(r"[a-z]+")
+
+# A near-duplicate is NAMED, never decided, here (§6.9's own division): word
+# overlap on `technique` is a cheap, deterministic signal that puts a
+# candidate in front of the owner's one confirmation (thread comment
+# 2026-09-23, "one confirmation is asked of the owner per suspected
+# duplicate and none otherwise") — it is not a verdict, and a false positive
+# costs one extra line on the screen rather than a silently skipped check.
+DUPLICATE_THRESHOLD = 0.34
+
+
+def near_duplicates(proposed_technique, index_rows):
+    words = set(WORD.findall(str(proposed_technique).lower()))
+    hits = []
+    if not words:
+        return hits
+    for move_id, technique in index_rows:
+        other = set(WORD.findall(technique.lower()))
+        if not other:
+            continue
+        overlap = len(words & other) / len(words | other)
+        if overlap >= DUPLICATE_THRESHOLD:
+            hits.append((move_id, overlap))
+    hits.sort(key=lambda hit: -hit[1])
+    return hits
+
+
+def render_passage_screen(proposal, duplicates):
+    """The one screen the owner sees: accept as new / merge into the named
+    Move / decline. An artifact (kogaki#474's precedent), never retyped."""
+    if not proposal.admitted:
+        return "refused: %s\n" % proposal.refusal
+
+    lines = ["proposed Move: %s" % proposal.id, ""]
+    if duplicates:
+        lines.append("suspected near-duplicate(s) in moves/INDEX.md:")
+        for move_id, overlap in duplicates:
+            lines.append("  - %s (technique word overlap %.2f)" % (move_id, overlap))
+    else:
+        lines.append("no near-duplicate found in moves/INDEX.md")
+    lines.append("")
+    lines.append(render_move(proposal.mapping))
+    lines.append("")
+    lines.append("accept as new / merge into <id> / decline")
+    return "\n".join(lines) + "\n"
+
+
+def run_passage(passage_path, contract_path, moves_dir, command, model,
+                 out_dir, timeout_s, select=None):
+    """The whole path, minus the write, unless `select` carries the owner's
+    already-obtained choice.
+
+    The model is spawned AT MOST ONCE PER `out_dir`: a `raw.txt` already
+    there is read back rather than re-asked, so the two-call shape a
+    selection needs — one call to produce the screen, a second carrying
+    `--select` once the owner has chosen — never spends the authorship step
+    twice on one Passage.
+    """
+    with open(passage_path, encoding="utf-8") as handle:
+        passage_text = handle.read()
+    with open(contract_path, encoding="utf-8") as handle:
+        contract_text = handle.read()
+
+    os.makedirs(out_dir, exist_ok=True)
+    out_dir = os.path.abspath(out_dir)
+    raw_path = os.path.join(out_dir, "raw.txt")
+
+    if os.path.isfile(raw_path):
+        with open(raw_path, encoding="utf-8") as handle:
+            raw = handle.read()
+    else:
+        index_path = os.path.join(moves_dir, "INDEX.md")
+        index_text = ""
+        if os.path.isfile(index_path):
+            with open(index_path, encoding="utf-8") as handle:
+                index_text = handle.read()
+        prompt = build_passage_prompt(contract_text, passage_text, index_text)
+        raw = spawn_model(command, model, prompt, timeout_s, cwd=out_dir)
+        with open(raw_path, "w", encoding="utf-8") as handle:
+            handle.write(raw)
+
+    proposals = read_proposals(raw)
+    if len(proposals) != 1:
+        raise Refusal(
+            "passage",
+            "the model returned %d record(s); the Passage-to-Move path admits "
+            "exactly one" % len(proposals),
+        )
+    proposal = proposals[0]
+
+    duplicates = []
+    if proposal.admitted:
+        duplicates = near_duplicates(proposal.mapping.get("technique", ""),
+                                      read_index_rows(moves_dir))
+
+    screen_path = os.path.join(out_dir, "PassageScreen.md")
+    with open(screen_path, "w", encoding="utf-8") as handle:
+        handle.write(render_passage_screen(proposal, duplicates))
+
+    result = {
+        "raw": raw_path, "screen": screen_path, "proposal": proposal,
+        "duplicates": duplicates, "written": None,
+    }
+
+    if select is None:
+        return result
+
+    if not proposal.admitted:
+        raise Refusal(
+            "passage",
+            "the proposed record was refused (%s); nothing to select against"
+            % proposal.refusal,
+        )
+
+    if select == "accept":
+        result["written"] = save_accepted(moves_dir, [proposal])
+        return result
+    if select == "decline":
+        return result
+    if select.startswith("merge:"):
+        target_id = select[len("merge:"):]
+        result["written"] = [merge_into(moves_dir, target_id, proposal)]
+        return result
+    raise Refusal(
+        "passage",
+        "--select must be `accept`, `decline`, or `merge:<id>` — got %r" % select,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -883,6 +1122,64 @@ def render_proposals(proposals, readings=None):
 
 
 def main(argv=None):
+    """Dispatches to the `passage` subcommand, or to the owner-authored-file
+    ingestion path §6.9 has always run — `passage` is a sibling command, not
+    a replacement, so an existing invocation with no first-token `passage` is
+    unchanged."""
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] == "passage":
+        return main_passage(argv[1:])
+    return main_ingest(argv)
+
+
+def main_passage(argv):
+    parser = argparse.ArgumentParser(
+        prog="move_ingest.py passage",
+        description="The Passage-to-Move path (kogaki#1175): a Passage in, one "
+        "Move authored against specs/move-extraction-contract.md, checked "
+        "against moves/INDEX.md for a near-duplicate, offered at one selection "
+        "screen. Nothing is written to moves/ before --select accept.",
+    )
+    parser.add_argument("passage", nargs="?", help="the Passage text file")
+    parser.add_argument("--model", help="the pinned model id for the authorship step")
+    parser.add_argument("--command", default="claude",
+                         help="the model command (default: claude)")
+    parser.add_argument(
+        "--contract",
+        default=os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "specs", "move-extraction-contract.md",
+        ),
+        help="path to specs/move-extraction-contract.md",
+    )
+    parser.add_argument("--moves-dir", default="moves", help="the Move library directory")
+    parser.add_argument("--out", help="the run directory (raw.txt, PassageScreen.md)")
+    parser.add_argument("--timeout", type=int, default=600, help="per-call bound in seconds")
+    parser.add_argument("--select", help="the owner's recorded choice: accept, decline, or merge:<id>")
+    parser.add_argument("--self-test", action="store_true")
+    args = parser.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
+
+    if not args.passage or not args.model or not args.out:
+        parser.error("a Passage file, --model and --out are required (or --self-test)")
+
+    try:
+        result = run_passage(args.passage, args.contract, args.moves_dir,
+                              args.command, args.model, args.out, args.timeout,
+                              select=args.select)
+    except Refusal as refusal:
+        sys.stderr.write("refused: %s\n" % refusal)
+        return 1
+
+    print("proposal at %s -- see %s" % (result["raw"], result["screen"]))
+    if result["written"]:
+        print("accepted -- wrote %s" % ", ".join(result["written"]))
+    return 0
+
+
+def main_ingest(argv=None):
     parser = argparse.ArgumentParser(
         description="Move ingestion: split, admit, normalize. Saves nothing — "
         "admission is the owner's act at the accept/decline question."
@@ -933,23 +1230,25 @@ def main(argv=None):
 # --------------------------------------------------------------------------
 
 EIGHT = """id: {id}
-status: observed
-intent: >-
+before: >-
+  question: holds an unanswered question
+after: >-
+  question: the question is settled
+question: >-
+  holds: why does it happen
+  settles: why does it happen
+order: >-
+  raises, advances, settles, in that order
+presupposes: >-
+  the reader has read the prior Leg
+technique: >-
   does a thing
-requires: >-
-  a thing to do it to
-effect: >-
-  the thing is done
-constraints: >-
+breaks: >-
   not always
-failure_modes: >-
-  sometimes not
-excerpt: >-
-  a passage somewhere
 """
 
 
-AXIS_FORM = """visual_form:
+AXIS_FORM = """figure:
   kind: axis
   endpoint_a: the first endpoint the Move presents
   endpoint_b: the opposing endpoint
@@ -1032,7 +1331,7 @@ def self_test():
 
     # ---- AC1/AC3: the boundary is the column-0 `id:` ---------------------
     def blank_line_is_not_the_boundary():
-        text = _record("m0").replace("effect: >-\n", "effect: >-\n\n") + _record("m1")
+        text = _record("m0").replace("after: >-\n", "after: >-\n\n") + _record("m1")
         proposals = read_proposals(text)
         assert len(proposals) == 2, (
             "a blank line inside a record must not split it; got %d records" % len(proposals)
@@ -1053,14 +1352,14 @@ def self_test():
 
     # ---- condition 2 -----------------------------------------------------
     refuses(
-        _record().replace("excerpt: >-", "status: observed\nexcerpt: >-"),
+        _record().replace("breaks: >-", "before: >-\n  x\nbreaks: >-"),
         "2",
         "AC3 cond 2 duplicate key refused",
     )
 
     # ---- condition 3 -----------------------------------------------------
     refuses(
-        _record().replace("constraints: >-\n  not always\n", ""),
+        _record().replace("presupposes: >-\n  the reader has read the prior Leg\n", ""),
         "3",
         "AC3 cond 3 seven keys refused",
     )
@@ -1073,12 +1372,12 @@ def self_test():
     # note where one was removed as unreachable). What catches it is the
     # ABSORPTION, twice over, and both halves are exercised here.
     def id_not_first_is_caught_by_absorption():
-        text = _record("first") + "status: observed\nid: second\nintent: >-\n  x\n"
+        text = _record("first") + "before: >-\n  x\nid: second\ntechnique: >-\n  x\n"
         proposals = read_proposals(text)
         assert len(proposals) == 2, "expected 2 records, got %d" % len(proposals)
         assert not proposals[0].admitted, "the absorbing record was admitted"
         assert proposals[0].refusal.condition == "2", (
-            "the absorbing record should carry a duplicate `status`: %s" % proposals[0].refusal
+            "the absorbing record should carry a duplicate `before`: %s" % proposals[0].refusal
         )
         assert not proposals[1].admitted, "the absorbed record was admitted"
         assert proposals[1].refusal.condition == "3", (
@@ -1101,13 +1400,13 @@ def self_test():
     # ---- condition 4's `-` exemption: legal column-0 sequences ADMITTED ---
     def legal_sequence_admitted():
         text = _record().replace(
-            "constraints: >-\n  not always\n",
-            "constraints:\n- one\n- two\n- three\n",
+            "presupposes: >-\n  the reader has read the prior Leg\n",
+            "presupposes:\n- one\n- two\n- three\n",
         )
         proposals = read_proposals(text)
         assert proposals[0].admitted, "legal column-0 sequence refused: %s" % proposals[0].refusal
-        assert proposals[0].mapping["constraints"] == ["one", "two", "three"], (
-            proposals[0].mapping["constraints"]
+        assert proposals[0].mapping["presupposes"] == ["one", "two", "three"], (
+            proposals[0].mapping["presupposes"]
         )
 
     check("AC3 `-` exemption admits a legal column-0 sequence", legal_sequence_admitted)
@@ -1117,8 +1416,8 @@ def self_test():
         # bullet has nothing to belong to. This is the `no inline value` failure
         # §6.9.0 records, and it must NOT pass.
         text = _record().replace(
-            "constraints: >-\n  not always\n",
-            "constraints:\n  an indented scalar\n- stray\n",
+            "presupposes: >-\n  the reader has read the prior Leg\n",
+            "presupposes:\n  an indented scalar\n- stray\n",
         )
         proposals = read_proposals(text)
         assert not proposals[0].admitted, "a bullet after an indented value was admitted"
@@ -1130,8 +1429,8 @@ def self_test():
         # `---` starts with `-` but is NOT `- ` or bare `-`, so it is foreign to
         # a sequence rather than an item of it — the catch stays on the RULE.
         text = _record().replace(
-            "constraints: >-\n  not always\n",
-            "constraints:\n- one\n---\n- two\n",
+            "presupposes: >-\n  the reader has read the prior Leg\n",
+            "presupposes:\n- one\n---\n- two\n",
         )
         proposals = read_proposals(text)
         assert not proposals[0].admitted, "`---` was admitted as a sequence item"
@@ -1174,20 +1473,20 @@ def self_test():
         Nothing asserted it until a mutation joining with newlines survived.
         """
         text = _record().replace(
-            "intent: >-\n  does a thing\n",
-            "intent: >-\n  does a thing\n  across two lines\n",
+            "technique: >-\n  does a thing\n",
+            "technique: >-\n  does a thing\n  across two lines\n",
         )
         mapping = read_proposals(text)[0].mapping
-        assert mapping["intent"] == "does a thing across two lines", repr(mapping["intent"])
-        assert "\n" not in mapping["intent"], "a folded scalar kept its newlines"
+        assert mapping["technique"] == "does a thing across two lines", repr(mapping["technique"])
+        assert "\n" not in mapping["technique"], "a folded scalar kept its newlines"
         # And it survives the save/read round trip unchanged.
         with tempfile.TemporaryDirectory() as tmp:
             moves = os.path.join(tmp, "moves")
             save_accepted(moves, read_proposals(text))
             back = read_saved(move_path(moves, "a-move"))
-            assert back["intent"] == mapping["intent"], (
+            assert back["technique"] == mapping["technique"], (
                 "the folded value changed across the round trip: %r -> %r"
-                % (mapping["intent"], back["intent"])
+                % (mapping["technique"], back["technique"])
             )
 
     check("AC7 a `>-` folded scalar folds, and round-trips", folded_scalar_folds)
@@ -1206,11 +1505,11 @@ def self_test():
         a `>-` folded scalar; nothing crossed the two.
         """
         text = _record("seq").replace(
-            "constraints: >-\n  not always\n",
-            "constraints:\n- one\n- two\n",
+            "presupposes: >-\n  the reader has read the prior Leg\n",
+            "presupposes:\n- one\n- two\n",
         )
         proposal = read_proposals(text)[0]
-        assert proposal.mapping["constraints"] == ["one", "two"], proposal.mapping["constraints"]
+        assert proposal.mapping["presupposes"] == ["one", "two"], proposal.mapping["presupposes"]
 
         body = render_move(proposal.mapping)
         for item_line in ("- one", "- two"):
@@ -1223,8 +1522,8 @@ def self_test():
             moves = os.path.join(tmp, "moves")
             save_accepted(moves, [proposal])
             back = read_saved(move_path(moves, "seq"))
-            assert back["constraints"] == ["one", "two"], (
-                "a sequence did not survive the round trip: %r" % (back["constraints"],)
+            assert back["presupposes"] == ["one", "two"], (
+                "a sequence did not survive the round trip: %r" % (back["presupposes"],)
             )
             # And the saved file is re-admissible by the grammar that wrote it.
             reread = read_proposals(open(move_path(moves, "seq")).read())
@@ -1276,7 +1575,7 @@ def self_test():
             assert rows[0].startswith("| id |"), rows[0]
             assert rows[1].startswith("| a |"), "INDEX is not sorted by id: %s" % rows[1]
             assert rows[2].startswith("| a-b |"), rows[2]
-            assert "does a thing" in rows[1], "intent column not read off the file: %s" % rows[1]
+            assert "does a thing" in rows[1], "technique column not read off the file: %s" % rows[1]
 
     check("AC7 INDEX rows are derived and sorted by id", index_columns_are_read_off_files)
 
@@ -1534,7 +1833,7 @@ def self_test():
     def refusal_row_reaches_the_rendering():
         """A refused record's row carries its condition and line number
         verbatim."""
-        bad = _record("broken").replace("excerpt: >-\n  a passage somewhere\n", "")
+        bad = _record("broken").replace("breaks: >-\n  not always\n", "")
         proposals = read_proposals(_record("good") + bad)
         body = render_proposals(proposals)
         assert "REFUSED" in body, body
@@ -1595,7 +1894,7 @@ def self_test():
     check("1.70 AC5 a verdict token is unwritable on a row, both arms",
           verdict_token_is_unwritable)
 
-    # ---- #876: the closed kind set and the optional visual form ---------
+    # ---- #876/#1175: the closed kind set and the optional `figure` -------
     def the_set_is_closed_and_well_formed():
         """The FILE's own two properties, asserted rather than trusted: no kind
         may declare a role named `kind` (flat block — it would be the selector),
@@ -1637,9 +1936,9 @@ def self_test():
         proposals = read_proposals(_record("plain"))
         assert len(proposals) == 1 and proposals[0].admitted, "a plain record was refused"
         mapping = proposals[0].mapping
-        assert "visual_form" not in mapping, "a form appeared on a record that has none"
+        assert "figure" not in mapping, "a form appeared on a record that has none"
         rendered = render_move(mapping)
-        assert "visual_form" not in rendered, "the renderer wrote a form that does not exist"
+        assert "figure" not in rendered, "the renderer wrote a form that does not exist"
         back, _ = parse_record(1, rendered.split("\n"))
         assert back == mapping, "the plain round trip is no longer identity"
 
@@ -1650,13 +1949,13 @@ def self_test():
         proposals = read_proposals(_record("axied", AXIS_FORM))
         assert proposals[0].admitted, "a conforming form was refused: %s" % (
             proposals[0].refusal,)
-        form = proposals[0].mapping["visual_form"]
+        form = proposals[0].mapping["figure"]
         assert form["kind"] == "axis", form
         assert form["criterion"] == "the one axis both endpoints clarify", form
         rendered = render_move(proposals[0].mapping)
         back, _ = parse_record(1, rendered.split("\n"))
-        assert back["visual_form"] == form, (
-            "the form did not survive the round trip: %r vs %r" % (back.get("visual_form"), form))
+        assert back["figure"] == form, (
+            "the form did not survive the round trip: %r vs %r" % (back.get("figure"), form))
         # The kind's role ORDER, not the typing order.
         lines = [line.strip() for line in rendered.split("\n") if line.startswith("  ")]
         keys = [line.split(":", 1)[0] for line in lines if ":" in line]
@@ -1674,44 +1973,45 @@ def self_test():
             bad = [p for p in proposals if not p.admitted]
             assert bad, "expected a refusal, the record was admitted"
             refusal = bad[0].refusal
-            assert refusal.condition == "visual-form", (
-                "expected condition visual-form, got %s (%s)" % (refusal.condition, refusal))
+            assert refusal.condition == "figure", (
+                "expected condition figure, got %s (%s)" % (refusal.condition, refusal))
             assert fragment in str(refusal), (
                 "the refusal does not name %r: %s" % (fragment, refusal))
 
         check(label, run)
 
     refuses_form(
-        "visual_form:\n  kind: spiral\n  endpoint_a: x\n",
+        "figure:\n  kind: spiral\n  endpoint_a: x\n",
         "`spiral`",
         "#876 AC1 an unknown kind is refused, naming it")
     refuses_form(
-        "visual_form:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n",
+        "figure:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n",
         "`criterion`",
         "#876 AC1 a missing role is refused, naming it")
     refuses_form(
-        "visual_form:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n"
+        "figure:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n"
         "  criterion: z\n  midpoint: w\n",
         "`midpoint`",
         "#876 AC1 a role outside the kind is refused, naming it")
     refuses_form(
-        "visual_form:\n  endpoint_a: x\n",
+        "figure:\n  endpoint_a: x\n",
         "names no `kind`",
         "#876 AC1 a form with no kind is refused")
     refuses_form(
-        "visual_form:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n  criterion:\n",
+        "figure:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n  criterion:\n",
         "`criterion`",
         "#876 AC1 a role mapped to nothing is refused, naming it")
 
     def an_unknown_ninth_key_is_still_refused():
-        """The widening admits `visual_form` and NOTHING else — the catch
-        condition 3 exists for is unchanged, which a widening is exactly the
-        kind of change that can quietly remove."""
+        """The optional set admits `draws_on`, `continues_from`, `evidence`,
+        `figure` and NOTHING else — the catch condition 3 exists for is
+        unchanged, which a widening is exactly the kind of change that can
+        quietly remove."""
         proposals = read_proposals(_record("subject", "notes: >-\n  a ninth key\n"))
         bad = [p for p in proposals if not p.admitted]
-        assert bad, "a ninth key other than `visual_form` was admitted"
+        assert bad, "a key outside the optional set was admitted"
         assert bad[0].refusal.condition == "3", bad[0].refusal
-        seven = _record("subject").replace("excerpt: >-\n  a passage somewhere\n", "")
+        seven = _record("subject").replace("breaks: >-\n  not always\n", "")
         proposals = read_proposals(seven)
         assert not proposals[0].admitted, "a seven-key record was admitted"
         assert proposals[0].refusal.condition == "3", proposals[0].refusal
@@ -1724,12 +2024,12 @@ def self_test():
         always been. Admitting the nesting by shape would silently retype every
         record whose prose happens to contain a colon at the start of a line."""
         text = _record("colonist").replace(
-            "intent: >-\n  does a thing", "intent:\n  caveat: does a thing")
+            "technique: >-\n  does a thing", "technique:\n  caveat: does a thing")
         proposals = read_proposals(text)
         assert proposals[0].admitted, proposals[0].refusal
-        value = proposals[0].mapping["intent"]
+        value = proposals[0].mapping["technique"]
         assert isinstance(value, str) and "caveat: does a thing" in value, (
-            "an indented `key: value` under `intent` became a mapping: %r" % (value,))
+            "an indented `key: value` under `technique` became a mapping: %r" % (value,))
 
     check("#876 the nested block is admitted by NAME, never by shape",
           the_nesting_is_admitted_by_name_not_by_shape)
@@ -1742,29 +2042,260 @@ def self_test():
             proposals = read_proposals(_record("axied", AXIS_FORM))
             save_accepted(moves_dir, proposals)
             back = read_saved(os.path.join(moves_dir, "axied.md"))
-            assert back["visual_form"]["kind"] == "axis", back
+            assert back["figure"]["kind"] == "axis", back
             assert back == proposals[0].mapping, "the saved form did not read back"
             index = open(os.path.join(moves_dir, "INDEX.md")).read()
-            assert "| axied | observed |" in index, index
-            assert "visual_form" not in index, "a form reached the INDEX row"
+            assert "| axied |" in index, index
+            assert "figure" not in index, "a form reached the INDEX row"
 
     check("#876 a saved form survives save -> read -> INDEX regeneration",
           a_saved_form_survives_index_regeneration)
 
-    def the_shipped_record_carries_its_form():
-        """AC3 against the repository rather than against a fixture: the one
-        record the issue names is admitted at its shipped bytes."""
-        path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "moves", "introduce_paired_conceptual_axis.md")
-        if not os.path.exists(path):
-            return
-        mapping = read_saved(path)
-        assert mapping.get("visual_form", {}).get("kind") == "axis", mapping.get("visual_form")
-        check_visual_form(mapping, 1)
+    # ---- kogaki#1175: the Passage-to-Move path ----------------------------
+    # Every case here constructs a stub `claude -p ...` (the argv shape
+    # `spawn_model` builds) so the run touches no network and no real model,
+    # and runs identically wherever `claude` is or is not on PATH.
 
-    check("#876 AC3 the shipped axis record is admitted at its bytes",
-          the_shipped_record_carries_its_form)
+    def _write_passage_stub(path, record_text, counter_path=None):
+        lines = ["#!/usr/bin/env python3", "import sys", "sys.stdin.read()"]
+        if counter_path:
+            lines.append("open(%r, 'a').write('x')" % counter_path)
+        lines.append("sys.stdout.write(%r)" % record_text)
+        with open(path, "w") as handle:
+            handle.write("\n".join(lines) + "\n")
+        os.chmod(path, 0o755)
+
+    def a_missing_passage_model_command_refuses_by_name():
+        try:
+            spawn_model("/no/such/command/anywhere", "n/a", "prompt", 5)
+        except Refusal as refusal:
+            assert "could not be run" in str(refusal), str(refusal)
+            return
+        raise AssertionError("spawn_model did not refuse a command that cannot be spawned")
+
+    check("#1175 passage: a missing model command refuses by name",
+          a_missing_passage_model_command_refuses_by_name)
+
+    def a_full_run_writes_a_screen_and_saves_nothing_before_select():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            with open(passage_path, "w") as handle:
+                handle.write("A passage about persistent institutions.\n")
+            contract_path = os.path.join(d, "contract.md")
+            with open(contract_path, "w") as handle:
+                handle.write("EXTRACTION CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir,
+                                  stub, "n/a", out, 30)
+            assert os.path.isfile(result["screen"]), "no PassageScreen.md written"
+            screen = open(result["screen"]).read()
+            assert "accept as new / merge into <id> / decline" in screen, screen
+            assert result["written"] is None, "a run with no --select wrote something"
+            assert not os.path.isfile(os.path.join(moves_dir, "derive_a_thing.md")), (
+                "a Move landed on disk before the owner's selection")
+
+    check("#1175 passage: a full run writes the screen and saves nothing before --select",
+          a_full_run_writes_a_screen_and_saves_nothing_before_select)
+
+    def the_model_is_spawned_at_most_once_per_out_dir():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            counter = os.path.join(d, "spawn_count")
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"), counter_path=counter)
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                  out, 30, select="accept")
+            spawns = len(open(counter).read()) if os.path.isfile(counter) else 0
+            assert spawns == 1, "the model was spawned %d time(s) for one Passage" % spawns
+            assert result["written"] == [os.path.join(moves_dir, "derive_a_thing.md")]
+
+    check("#1175 passage: the model is spawned at most once per out_dir",
+          the_model_is_spawned_at_most_once_per_out_dir)
+
+    def select_accept_writes_and_regenerates_the_index():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                  out, 30, select="accept")
+            saved = os.path.join(moves_dir, "derive_a_thing.md")
+            assert result["written"] == [saved]
+            assert os.path.isfile(saved)
+            index = open(os.path.join(moves_dir, "INDEX.md")).read()
+            assert "| derive_a_thing |" in index, index
+
+    check("#1175 passage: --select accept validates keys, writes the file, regenerates INDEX",
+          select_accept_writes_and_regenerates_the_index)
+
+    def decline_writes_nothing():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                  out, 30, select="decline")
+            assert result["written"] is None, "decline wrote something"
+            assert os.listdir(moves_dir) == [], (
+                "decline left a file in moves/: %s" % os.listdir(moves_dir))
+
+    check("#1175 passage: --select decline writes nothing", decline_writes_nothing)
+
+    def select_merge_rewrites_the_named_move_and_regenerates_the_index():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            save_accepted(moves_dir, read_proposals(_record("existing_move")))
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("proposed_move").replace(
+                "technique: >-\n  does a thing\n",
+                "technique: >-\n  does a merged thing\n"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                  out, 30, select="merge:existing_move")
+            target = os.path.join(moves_dir, "existing_move.md")
+            assert result["written"] == [target]
+            assert not os.path.isfile(os.path.join(moves_dir, "proposed_move.md")), (
+                "merge also wrote the proposal's own id")
+            merged = read_saved(target)
+            assert merged["id"] == "existing_move"
+            assert merged["technique"] == "does a merged thing", merged["technique"]
+            index = open(os.path.join(moves_dir, "INDEX.md")).read()
+            assert "| existing_move | does a merged thing |" in index, index
+
+    check("#1175 passage: --select merge:<id> rewrites the named Move and regenerates INDEX",
+          select_merge_rewrites_the_named_move_and_regenerates_the_index)
+
+    def select_merge_refuses_an_unknown_target():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            try:
+                run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30,
+                             select="merge:no_such_move")
+            except Refusal as refusal:
+                assert "names no saved Move" in str(refusal), str(refusal)
+                return
+            raise AssertionError("merge into an unknown id was not refused")
+
+    check("#1175 passage: --select merge:<id> refuses an unknown target",
+          select_merge_refuses_an_unknown_target)
+
+    def a_near_duplicate_is_named_from_the_index():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            existing = _record("derive_mitigation_from_mechanism").replace(
+                "technique: >-\n  does a thing\n",
+                "technique: >-\n  derives a mitigation from an observed causal mechanism\n")
+            save_accepted(moves_dir, read_proposals(existing))
+            stub = os.path.join(d, "stub_model")
+            proposal_text = _record("propose_a_mitigation_from_mechanism").replace(
+                "technique: >-\n  does a thing\n",
+                "technique: >-\n  derives a mitigation from an observed causal mechanism\n")
+            _write_passage_stub(stub, proposal_text)
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            assert result["duplicates"], "an identical technique named no near-duplicate"
+            assert result["duplicates"][0][0] == "derive_mitigation_from_mechanism"
+            screen = open(result["screen"]).read()
+            assert "derive_mitigation_from_mechanism" in screen, screen
+
+    check("#1175 passage: a near-duplicate technique is named from moves/INDEX.md",
+          a_near_duplicate_is_named_from_the_index)
+
+    def a_refused_proposal_is_reported_and_never_selectable():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            malformed = _record("broken").replace(
+                "presupposes: >-\n  the reader has read the prior Leg\n", "")
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, malformed)
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            assert not result["proposal"].admitted, "a seven-key record was admitted"
+            screen = open(result["screen"]).read()
+            assert screen.startswith("refused:"), screen
+            try:
+                run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30,
+                             select="accept")
+            except Refusal as refusal:
+                assert "nothing to select against" in str(refusal), str(refusal)
+                return
+            raise AssertionError("--select accept did not refuse a refused proposal")
+
+    check("#1175 passage: a refused proposal is reported and never selectable",
+          a_refused_proposal_is_reported_and_never_selectable)
+
+    def select_rejects_an_unknown_token():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            try:
+                run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30,
+                             select="approve")
+            except Refusal as refusal:
+                assert refusal.condition == "passage", refusal
+                return
+            raise AssertionError("an unknown --select token was not refused")
+
+    check("#1175 passage: --select refuses an unrecognized token",
+          select_rejects_an_unknown_token)
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)

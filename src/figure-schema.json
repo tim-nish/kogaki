@@ -2,7 +2,7 @@
   "note": [
     "The figure record's contract, machine-readable (kogaki#878).",
     "",
-    "A figure record is the INSTANCE of a Move's `visual_form` in the sense a",
+    "A figure record is the INSTANCE of a Move's `figure` in the sense a",
     "Leg is the instance of a Move: the form names roles and says nothing a",
     "reader sees (src/figure-kinds.json), the Brief binds each role to one of",
     "the Leg's claims (the figure decision), and this record is where",
