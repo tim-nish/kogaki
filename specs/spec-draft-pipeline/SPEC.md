@@ -1,5 +1,32 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v39, amended 2026-09-24 (kogaki#1176) — **§5.1.1: READER START IS
+A STANCE IN THE MOVE LIBRARY'S OWN FIVE DIMENSIONS, NOT A KNOWLEDGE STATE.**
+Reader start was authored as what the reader *knows*, so the first Leg's
+`reader_state_before` — matched against it verbatim (§5.2) — was forced onto a
+Move whose `before` (§4.2) reads as an in-subject understanding, and a Reader
+start with no such Move to bind is inert data: this is the defect the owner
+named on 2026-09-21. The repair is not a new field but a narrower reading of
+the existing one: `reader_start` is written in the same five dimensions
+(knowledge, question, expectation, orientation, trust) and the same
+`dimension: value` line §4.2's `before`/`after` already use, so a Move whose
+`before` opens on a reader who holds no question — arrives indifferent — is a
+legal binding for the first Leg exactly as one whose `before` opens on an
+in-subject understanding is. The dimension set is not fixed by this amendment;
+it is read from whatever `src/leg-schema.json`/the Move library's schema
+carries, which kogaki#1175 derived from the Corpus and which the five named
+here are the tested hypothesis for (owner amendment, 2026-09-23). No `Position`
+field is added — the five dimensions carry the whole of a stance (owner
+ruling, 2026-09-23). `opening_question` is reviewed against the same
+redefinition: it is authored once, as what the first Leg hands the reader, and
+is never a restatement of `reader_start`'s own `question:` dimension, which
+states only what the reader arrives holding (`holds: none` for the opening the
+owner wants). The verbatim match at §5.2 and `reader_start_binds_first_leg` in
+`src/compose.mjs`/`src/leg-schema.json` is unchanged in mechanism — both sides
+were already opaque strings — and refuses on the same shape it always did; what
+changes is what a caller is expected to have put in that string.
+`consulted: kogaki@eac9ab381e5efaf97374a7773427eaee8f7f89cd specs/spec-draft-pipeline/SPEC.md:1717`
+
 **Status:** v38, amended 2026-09-14 (kogaki#1116) — **§5.3: BRIEF TAKES ITS
 STRAND SET ON THE COMMAND LINE AND READS NO TERRAIN RUN.** The arguments are
 served Lesson addresses resolved against the Package's own enumeration; a Full
@@ -281,7 +308,10 @@ those paths into.
   rather than by the retired `reader_assumption` token: that token was a
   CLAIM type, it left the grammar at §4.4, and leaving it standing as this
   field's one surviving use would hand a reader a term with nothing left
-  defining it (kogaki#1095).
+  defining it (kogaki#1095). Reader start is a **stance**, written in the same
+  five dimensions and the same `dimension: value` line as a Move's `before`/
+  `after` (§4.2, §5.1.1) — not the knowledge-only field it was before
+  kogaki#1176.
 - **`purpose`** — what the Leg does to the reader.
 - **`reader_state_before`** / **`reader_state_after`**.
 - **`depends_on`** — the earlier Legs whose conclusions this Leg stands on.
@@ -1768,6 +1798,7 @@ centre readable as one thing rather than three fields and a file path.
 
 - **`reader_start`**, **`reader_target`**, **`opening_question`** — authored at
   **path composition**, per Candidate; land at **Candidate selection**.
+  `reader_start` is a **stance**, not a knowledge state: §5.1.1 defines it.
 - **`thesis`** — read from Terrain (§3), never invented here.
 - **`sequence`** — the ordered Legs of §4.1.
 - **`strand_coverage`** — per selected Strand: `used_by_legs`,
@@ -1783,6 +1814,42 @@ and `src/assemble.mjs`. What no carrier holds is which block authors which
 field, which the subsections below state one at a time.
 
 #### 5.1.1 The three reader fields, and the block that authors them
+
+**`reader_start` is a stance in the Move library's own dimensions (owner
+ruling, 2026-09-21, kogaki#1176), not the knowledge state it was written as
+before.** A knowledge-only Reader start forced the first Leg onto a Move whose
+`before` (§4.2) reads as an in-subject understanding — the only kind a bare
+knowledge sentence can specialize — which is a Reader start with no Move able
+to act on it, and inert data. `reader_start` is written in the same
+`dimension: value` lines §4.2's `before`/`after` already use, over the same
+dimension set: knowledge is one of the five, not the whole of the field. The
+dimension set itself is not restated here — it is read from whatever the Move
+library's own schema carries (`src/leg-schema.json`, §4.2), which kogaki#1175
+derived from the Corpus; the five named at §4.2 (knowledge, question,
+expectation, orientation, trust) are the hypothesis that derivation tested, not
+a second, independent declaration (owner amendment, 2026-09-23). No `Position`
+value is added to a Move or to `reader_start` — the five dimensions are the
+whole of a stance (owner ruling, 2026-09-23).
+
+**A Move opens the article by binding a `before` that matches this shape.**
+Where `reader_start`'s `question:` line reads `holds: none`, a Move whose
+`before` opens the same way — a precondition that holds no open question — is
+a legal binding for the first Leg (kogaki#1176 amendment, 2026-09-23): the
+reader arrives indifferent, and the Move's `after` is what first hands them a
+question, which is what `opening_question` records (below). This is symmetric
+with the prior, knowledge-only reading: a Move whose `before` opens on an
+in-subject understanding was always a legal binding too, and stays one — the
+redefinition widens the dimensions a first Leg's Move may specialize, it does
+not narrow which Moves qualify.
+
+**`opening_question` is authored once, as what the first Leg hands the
+reader, and is never a restatement of `reader_start`'s own `question:`
+dimension.** The two answer different questions about different points in
+time: `reader_start`'s `question:` line is what the reader arrives holding,
+before the article starts (`holds: none` for the opening the owner wants);
+`opening_question` is the question the path's first Leg leaves the reader
+with. Composing the same sentence into both is composing one fact twice, not
+authoring two.
 
 **The block is PATH COMPOSITION, per Candidate.** The three fields describe a
 reader's movement, and a Candidate's Reader Path *is* that movement in ordered
@@ -1890,7 +1957,14 @@ reads it.
 whose first Leg's `reader_state_before` is not the Brief's own Reader start,
 naming both — Reader start is the direction for the initial reader pull, and a
 first Leg beginning somewhere else has the reader arriving at a Brief the
-article never opens from.
+article never opens from. The match is over the stance §5.1.1 defines: both
+sides are `dimension: value` lines in the Move library's own five dimensions,
+so the first Leg's Move may specialize any dimension Reader start states —
+including a `question:` line reading `holds: none` — and is no longer forced
+onto a Move whose `before` is an in-subject understanding (kogaki#1176). The
+comparison itself is unchanged: `validateLegs` reads both sides as opaque
+strings and refuses on anything but a verbatim match, before and after this
+redefinition.
 
 **There is no mechanical judge of the CONTENT of any of this.** Whether an
 obligation is worth entering, and whether a discharge or a concession is the

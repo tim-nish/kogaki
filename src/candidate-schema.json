@@ -134,17 +134,17 @@
     "reader_start": {
       "required": true,
       "type": "string",
-      "description": "Where the reader stands when the path begins. One of the three reader fields the settled structure section names; path composition writes it PER CANDIDATE and adoption fills no default."
+      "description": "The reader's STANCE when the path begins -- one `dimension: value` line per dimension of the Move library's own before/after shape (knowledge, question, expectation, orientation, trust -- the Move library entry), the same shape `moves_you_may_bind`'s `before` and `after` are written in, NOT a knowledge state alone (kogaki#1176). Checked verbatim against the first Leg's `reader_state_before` (`reader_start_binds_first_leg`, src/leg-schema.json) -- write it in the same shape a Move's `before` is written in so the first Leg's Move can specialize it. One of the three reader fields the settled structure section names; path composition writes it PER CANDIDATE and adoption fills no default."
     },
     "reader_target": {
       "required": true,
       "type": "string",
-      "description": "Where the path leaves the reader. The second of the three reader fields, written per Candidate on the same terms."
+      "description": "Where the path leaves the reader, in the same dimensions and the same shape as `reader_start`. The second of the three reader fields, written per Candidate on the same terms."
     },
     "opening_question": {
       "required": true,
       "type": "string",
-      "description": "The question the article opens on, on this path. The third of the three reader fields, written per Candidate on the same terms."
+      "description": "The question the path's FIRST Leg hands the reader -- authored once here, never restated as `reader_start`'s own `question:` line, which states only what the reader arrives holding before the article starts (kogaki#1176). The third of the three reader fields, written per Candidate on the same terms."
     },
     "coverage": {
       "required": false,

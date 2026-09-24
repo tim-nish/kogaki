@@ -457,6 +457,16 @@ export function validateLegs(legs, readerStart) {
   // Candidate's own `reader_start` at compose_path, the same value again at
   // fillBrief), and a caller with none to hand — a bare shape check — is not
   // asked to invent one.
+  //
+  // READER START IS A STANCE IN THE MOVE LIBRARY'S OWN DIMENSIONS, NOT A
+  // KNOWLEDGE STATE (SPEC-draft-pipeline §5.1.1, kogaki#1176): both sides of
+  // this comparison are `dimension: value` lines in the same shape a Move's
+  // `before` is written in, so a first Leg's Move may specialize any
+  // dimension Reader start states — including a `question:` line reading
+  // `holds: none` — and is no longer forced onto a Move whose `before` reads
+  // as an in-subject understanding. The comparison below is unchanged by
+  // that redefinition: both sides were already opaque strings, and the check
+  // is a verbatim match, never a per-dimension one.
   if (typeof readerStart === "string" && readerStart !== "" && legs[0].reader_state_before !== readerStart) {
     return { error: pathRefusal("reader_start_binds_first_leg", `leg 1 (${legs[0].leg_id ?? "?"})`,
       `Its reader_state_before reads ${JSON.stringify(legs[0].reader_state_before)}; `
