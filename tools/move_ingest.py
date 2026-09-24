@@ -781,6 +781,32 @@ def read_saved(path):
     return mapping
 
 
+def merge_into(moves_dir, target_id, proposal):
+    """Merge `proposal`'s fields into the Move `target_id` already names,
+    validate the merged key set, rewrite that file in place and regenerate
+    the index.
+
+    The proposal's OWN id is discarded — this is a merge INTO the named Move,
+    not a new one, so the target's id is what survives. `save_accepted()` is
+    still the sole path that ever creates a new file; this is the other half
+    of the same save step, over a file that already exists.
+    """
+    path = move_path(moves_dir, target_id)
+    if not os.path.isfile(path):
+        raise Refusal(
+            "passage",
+            "merge target `%s` names no saved Move at %s" % (target_id, path),
+        )
+    merged = dict(read_saved(path))
+    merged.update(proposal.mapping)
+    merged["id"] = target_id
+    check_field_set(merged, 0)
+    with open(path, "w") as handle:
+        handle.write(render_move(merged))
+    write_index(moves_dir)
+    return path
+
+
 def write_index(moves_dir):
     """Rewrite moves/INDEX.md WHOLE from the files on disk, sorted by id.
 
@@ -1007,14 +1033,11 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
     if select == "accept":
         result["written"] = save_accepted(moves_dir, [proposal])
         return result
-    if select == "decline" or select.startswith("merge:"):
-        # MECHANICALLY THE SAME NON-WRITE. §6.9's ruling that nothing is
-        # appended at save (kogaki#548) leaves "merge into the named Move" no
-        # mechanical act of its own — there is no field left to append a
-        # pointer into, so the owner's choice not to save a new record is the
-        # whole of it. The distinction between "declined" and "merged into
-        # <id>" is provenance the caller carries in its own report; this
-        # command's write-side effect is identical: none.
+    if select == "decline":
+        return result
+    if select.startswith("merge:"):
+        target_id = select[len("merge:"):]
+        result["written"] = [merge_into(moves_dir, target_id, proposal)]
         return result
     raise Refusal(
         "passage",
@@ -2123,27 +2146,78 @@ def self_test():
     check("#1175 passage: --select accept validates keys, writes the file, regenerates INDEX",
           select_accept_writes_and_regenerates_the_index)
 
-    def decline_and_merge_write_nothing():
-        for select in ("decline", "merge:some_other_move"):
-            with tempfile.TemporaryDirectory() as d:
-                passage_path = os.path.join(d, "passage.txt")
-                open(passage_path, "w").write("A passage.\n")
-                contract_path = os.path.join(d, "contract.md")
-                open(contract_path, "w").write("CONTRACT\n")
-                moves_dir = os.path.join(d, "moves")
-                os.makedirs(moves_dir)
-                stub = os.path.join(d, "stub_model")
-                _write_passage_stub(stub, _record("derive_a_thing"))
-                out = os.path.join(d, "run")
-                run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
-                result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
-                                      out, 30, select=select)
-                assert result["written"] is None, "select=%r wrote something" % select
-                assert os.listdir(moves_dir) == [], (
-                    "select=%r left a file in moves/: %s" % (select, os.listdir(moves_dir)))
+    def decline_writes_nothing():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                  out, 30, select="decline")
+            assert result["written"] is None, "decline wrote something"
+            assert os.listdir(moves_dir) == [], (
+                "decline left a file in moves/: %s" % os.listdir(moves_dir))
 
-    check("#1175 passage: decline and merge:<id> write nothing, mechanically alike",
-          decline_and_merge_write_nothing)
+    check("#1175 passage: --select decline writes nothing", decline_writes_nothing)
+
+    def select_merge_rewrites_the_named_move_and_regenerates_the_index():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            save_accepted(moves_dir, read_proposals(_record("existing_move")))
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("proposed_move").replace(
+                "technique: >-\n  does a thing\n",
+                "technique: >-\n  does a merged thing\n"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                  out, 30, select="merge:existing_move")
+            target = os.path.join(moves_dir, "existing_move.md")
+            assert result["written"] == [target]
+            assert not os.path.isfile(os.path.join(moves_dir, "proposed_move.md")), (
+                "merge also wrote the proposal's own id")
+            merged = read_saved(target)
+            assert merged["id"] == "existing_move"
+            assert merged["technique"] == "does a merged thing", merged["technique"]
+            index = open(os.path.join(moves_dir, "INDEX.md")).read()
+            assert "| existing_move | does a merged thing |" in index, index
+
+    check("#1175 passage: --select merge:<id> rewrites the named Move and regenerates INDEX",
+          select_merge_rewrites_the_named_move_and_regenerates_the_index)
+
+    def select_merge_refuses_an_unknown_target():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            try:
+                run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30,
+                             select="merge:no_such_move")
+            except Refusal as refusal:
+                assert "names no saved Move" in str(refusal), str(refusal)
+                return
+            raise AssertionError("merge into an unknown id was not refused")
+
+    check("#1175 passage: --select merge:<id> refuses an unknown target",
+          select_merge_refuses_an_unknown_target)
 
     def a_near_duplicate_is_named_from_the_index():
         with tempfile.TemporaryDirectory() as d:
