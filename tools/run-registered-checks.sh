@@ -73,20 +73,52 @@ set -euo pipefail
 SUITE_SELF="$0"
 cd "$(git -C "$(dirname "$SUITE_SELF")" rev-parse --show-toplevel)"
 
-# --ci-shape (kogaki#1182): THE ONLY FLAG THIS RUNNER TAKES, checked here
-# rather than left for the python heredoc to notice, because the shape must be
-# built and exported before anything below -- the open-gate directory, the npm
-# precondition, the members themselves -- runs under it. Stripped from "$@" so
-# it is never mistaken downstream for a member argument that does not exist.
+# THE TWO FLAGS THIS RUNNER TAKES, checked here rather than left for the
+# python heredoc to notice, because the shape must be built and exported
+# before anything below -- the open-gate directory, the npm precondition, the
+# members themselves -- runs under it. Both are stripped from "$@" so neither
+# is mistaken downstream for a member argument that does not exist.
+#
+#   --ci-shape (kogaki#1182): the declared CI mode, see the header.
+#
+#   --compare-base <ref> (kogaki#1188): after the suite runs, every member
+#   that FAILED at the head is run again at the merge base of <ref> and HEAD,
+#   in a throwaway worktree, and reported as `pre-existing` (red there too)
+#   or `fails on the change` (green there). The exit is non-zero only for a
+#   failure the change introduced. This is the flag claude-toolkit's
+#   implement-lane supervisor always passes to the runner
+#   `.claude/implement-lane.json` declares (claude-toolkit#1184, #1206), and
+#   the ground for it is the owner's own complaint there: a reviewer judged a
+#   change by failures it did not cause. The two flags compose. Without
+#   `--compare-base` every FAIL is the change's, exactly as before.
 CI_SHAPE=0
+COMPARE_BASE=""
+compare_base_seen=0
+expect_base=0
 REMAINING_ARGS=()
 for arg in "$@"; do
-  if [[ "$arg" == "--ci-shape" ]]; then
+  if (( expect_base )); then
+    COMPARE_BASE="$arg"
+    expect_base=0
+  elif [[ "$arg" == "--ci-shape" ]]; then
     CI_SHAPE=1
+  elif [[ "$arg" == "--compare-base" ]]; then
+    compare_base_seen=1
+    expect_base=1
+  elif [[ "$arg" == --compare-base=* ]]; then
+    compare_base_seen=1
+    COMPARE_BASE="${arg#--compare-base=}"
   else
     REMAINING_ARGS+=("$arg")
   fi
 done
+if (( compare_base_seen )) && [[ -z "$COMPARE_BASE" ]]; then
+  echo "run-registered-checks: --compare-base requires a ref" >&2
+  exit 2
+fi
+# Handed to the python heredoc through the environment, the same way
+# `--ci-shape` reaches it (`CI_SHAPE`), so the heredoc reads one channel.
+export CHECKS_COMPARE_BASE="$COMPARE_BASE"
 # Guarded before expanding, as SUITE_OWNED_TMPDIRS already is below (PR #1183
 # round 1, finding 3): an empty array expands to an unbound variable under
 # `set -u` on bash before 4.4, which would abort the ORDINARY no-argument
@@ -240,7 +272,7 @@ fi
 #                        `registry-conformance` are the only ones touching
 #                        shared paths and both only READ them.
 exec python3 - "$@" <<'PY'
-import concurrent.futures, json, os, pathlib, subprocess, sys, time
+import concurrent.futures, json, os, pathlib, shutil, subprocess, sys, tempfile, time
 
 WORKFLOW = "checks.yml"
 
@@ -393,6 +425,83 @@ def run_member(entry):
     }
 
 
+def classify_against_base(base_ref, failed_entries):
+    """Run each of `failed_entries` again at the merge base of `base_ref`
+    and HEAD, in a throwaway worktree (kogaki#1188).
+
+    Returns `(merge_base_sha, {id: "pre-existing" | "fails on the change"})`,
+    or `(None, None)` with the reason printed when the base cannot be
+    resolved or checked out -- a comparison that cannot run classifies
+    NOTHING rather than guessing, and the caller then reads every failure
+    as the change's, which is the older and stricter judgment.
+
+    A member is `pre-existing` only when it is registered at the base, its
+    file exists there, and it FAILS there (exit non-zero and not the kit's
+    degrade exit). A member the base does not register, cannot find, or
+    that answers `degrade` at the base has nothing it could already have
+    failed as, so it is the change's.
+
+    THE BASE WORKTREE BORROWS `node_modules/` from the head when it has none
+    of its own: `git worktree add` does not populate ignored paths, and a
+    member that fails at the base only because the packages are absent there
+    would read as `pre-existing` for a reason unrelated to either tree. The
+    link is a link, never a copy, and the worktree is removed whole below.
+    """
+    mb = git("merge-base", base_ref, "HEAD")
+    if mb.returncode != 0 or not mb.stdout.strip():
+        print(f"note: --compare-base could not resolve a merge base with "
+              f"{base_ref!r}: {mb.stderr.strip() or 'no output'}; every "
+              f"failure below is read as the change's", flush=True)
+        return None, None
+    base_sha = mb.stdout.strip()
+    worktree = tempfile.mkdtemp(prefix="kogaki-compare-base-")
+    try:
+        add = git("worktree", "add", "--detach", "--quiet", worktree, base_sha)
+        if add.returncode != 0:
+            print(f"note: --compare-base could not check out {base_sha[:12]}: "
+                  f"{add.stderr.strip() or 'no output'}; every failure below "
+                  f"is read as the change's", flush=True)
+            return None, None
+        head_modules = pathlib.Path("node_modules")
+        base_modules = pathlib.Path(worktree) / "node_modules"
+        if head_modules.is_dir() and not base_modules.exists():
+            try:
+                base_modules.symlink_to(head_modules.resolve())
+            except OSError:
+                pass
+        try:
+            base_registry = json.loads(
+                (pathlib.Path(worktree) / "checks" / "registry.json").read_text())
+            base_ids = {e["id"]: e for e in base_registry.get("checks", [])
+                        if isinstance(e, dict) and "id" in e}
+        except (OSError, ValueError):
+            base_ids = {}
+        verdicts = {}
+        for entry in failed_entries:
+            base_entry = base_ids.get(entry["id"])
+            if base_entry is None:
+                verdicts[entry["id"]] = "fails on the change"
+                continue
+            base_file = pathlib.Path(worktree) / member_path(base_entry)
+            if not base_file.exists():
+                verdicts[entry["id"]] = "fails on the change"
+                continue
+            try:
+                rc = subprocess.run(["bash", str(member_path(base_entry))],
+                                    cwd=worktree, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT).returncode
+            except OSError:
+                verdicts[entry["id"]] = "fails on the change"
+                continue
+            verdicts[entry["id"]] = ("pre-existing"
+                                     if rc != 0 and rc != KIT_DEGRADE_EXIT
+                                     else "fails on the change")
+        return base_sha, verdicts
+    finally:
+        git("worktree", "remove", "--force", worktree)
+        shutil.rmtree(worktree, ignore_errors=True)
+
+
 def resolve_jobs():
     """Pool size: CHECKS_JOBS if it names a positive integer, else CPUs capped.
 
@@ -528,6 +637,12 @@ for entry in entries:
           flush=True)
     if outcome == "fail":
         failed.append(entry["id"])
+        # `FAIL <file> (exit N)` is the per-member line claude-toolkit's
+        # supervisor reads (`_suite_failing_tests`, `^FAIL (\S+)`) when no
+        # base comparison ran; the `catch:` line above is the ledger's
+        # grammar and stays byte-identical (kogaki#789 acceptance 2).
+        print(f"FAIL {member_path(entry)} (exit {result['returncode']})",
+              flush=True)
     elif outcome == "degrade":
         degraded.append(entry["id"])
 
@@ -557,10 +672,49 @@ if degraded:
           + ", ".join(degraded)
           + " -- not a failure and not a pass: the check did not run")
 
-if failed:
-    print(f"FAIL: {len(failed)} of {len(entries)} registered check(s) failed: "
-          + ", ".join(failed))
+# THE BASE COMPARISON (kogaki#1188), only where something failed and a base
+# was named. The lines printed here are a GRAMMAR, not prose: claude-toolkit's
+# supervisor (`_run_suite`, tools/issue_sync_stores/worker.py) reads
+# `run-suite: comparing against base ` to know a comparison actually ran, and
+# `run-suite: new failure(s) vs base <ref>: a, b` to learn which failures are
+# the change's — the same two lines its own `tools/tests/run-suite` and
+# product-lab's `tests/run-suite` print. A comparison that could not run prints
+# neither, and the supervisor then reads the `FAIL <file>` lines above, which
+# is the older and stricter judgment rather than a silently widened one.
+compare_base = os.environ.get("CHECKS_COMPARE_BASE") or None
+by_id = {e["id"]: e for e in entries}
+new_failed = list(failed)
+pre_existing = []
+if failed and compare_base:
+    base_sha, verdicts = classify_against_base(
+        compare_base, [by_id[i] for i in failed])
+    if verdicts is not None:
+        print(f"run-suite: comparing against base {compare_base} "
+              f"(merge base {base_sha[:12]})", flush=True)
+        new_failed, pre_existing = [], []
+        for i in failed:
+            verdict = verdicts.get(i, "fails on the change")
+            print(f"compare-base: {verdict} -- {member_path(by_id[i])}")
+            (pre_existing if verdict == "pre-existing" else new_failed).append(i)
+        if new_failed:
+            print("run-suite: new failure(s) vs base " + compare_base + ": "
+                  + ", ".join(str(member_path(by_id[i])) for i in new_failed))
+
+if new_failed:
+    print(f"FAIL: {len(new_failed)} of {len(entries)} registered check(s) failed: "
+          + ", ".join(new_failed)
+          + (f" ({len(pre_existing)} more pre-existing at the base: "
+             + ", ".join(pre_existing) + ")" if pre_existing else ""))
     sys.exit(1)
+
+if failed:
+    # Red at the head, but on nothing the change introduced. Green for the
+    # change; NOT a full pass, so no verdict is recorded for this head — the
+    # once-per-head store may only ever say "every member passed".
+    print(f"ok: {len(entries) - len(failed)} of {len(entries)} registered "
+          f"check(s) pass; {len(failed)} pre-existing at base {compare_base}: "
+          + ", ".join(failed) + " -- not the change's; no verdict recorded")
+    sys.exit(0)
 
 # A DEGRADED RUN RECORDS NO VERDICT, and this is the one place the third
 # grade is not merely cosmetic (kogaki#1141). The once-per-head store exists

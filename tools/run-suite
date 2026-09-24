@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""The suite runner `.claude/implement-lane.json` declares (kogaki#1188).
+
+    tools/run-suite [<repo-root>] [--compare-base <ref>] [--ci-shape]
+
+THIS FILE DEFINES NOTHING ABOUT THE SUITE. The one definition of "run the
+suite" is `tools/run-registered-checks.sh` (kogaki#724), and every argument
+here is handed to it unchanged -- `--compare-base <ref>` and `--ci-shape`
+are ITS flags, parsed and documented there. This file exists for exactly one
+reason, stated so it can be removed when the reason goes:
+
+claude-toolkit's implement-lane supervisor launches the declared runner as
+`[sys.executable, <runner>, <worktree>, "--compare-base", <base>]` -- through
+the Python interpreter, never through the runner's own shebang
+(`_run_suite`, tools/issue_sync_stores/worker.py; recorded open in that
+repository's KNOWN-ISSUES.jsonl as `interpreter-assumed-over-shebang`,
+2026-09-19). Fed to Python, a bash runner is a SyntaxError and a non-zero
+exit, which the supervisor folds to `suite-failed` -- a manufactured red on
+a green commit. So the declaration names this Python file, which is valid
+under either launch, and it re-executes the bash runner. When that
+known-issue row closes, `suite_runner` can name the bash runner directly and
+this file goes.
+
+The optional positional is the repository root the supervisor passes. It is
+CHECKED, never used as a cwd: the bash runner changes directory to the
+top level of the checkout THIS FILE lives in, so a root naming a different
+checkout would be silently ignored, and a runner that runs somewhere other
+than where it was pointed is worse than one that refuses.
+"""
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+RUNNER = os.path.join(HERE, "run-registered-checks.sh")
+
+
+def toplevel(path):
+    out = subprocess.run(["git", "-C", path, "rev-parse", "--show-toplevel"],
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         text=True)
+    if out.returncode != 0:
+        return None
+    return os.path.realpath(out.stdout.strip())
+
+
+def main(argv):
+    passthrough = []
+    root = None
+    i = 1
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--compare-base":
+            if i + 1 >= len(argv):
+                print("run-suite: --compare-base requires a ref", file=sys.stderr)
+                return 2
+            passthrough += [arg, argv[i + 1]]
+            i += 2
+            continue
+        if arg.startswith("--compare-base=") or arg == "--ci-shape":
+            passthrough.append(arg)
+            i += 1
+            continue
+        if arg.startswith("-"):
+            print("run-suite: unknown flag %r -- the runner takes "
+                  "--compare-base <ref> and --ci-shape" % arg, file=sys.stderr)
+            return 2
+        if root is not None:
+            print("run-suite: at most one positional (the repository root)",
+                  file=sys.stderr)
+            return 2
+        root = arg
+        i += 1
+
+    if root is not None:
+        wanted = toplevel(root)
+        own = toplevel(HERE)
+        if wanted is None or own is None or wanted != own:
+            print("run-suite: %r is not the checkout this runner lives in (%s)"
+                  % (root, own), file=sys.stderr)
+            return 2
+
+    os.execvp("bash", ["bash", RUNNER] + passthrough)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

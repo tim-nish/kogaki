@@ -291,6 +291,70 @@ def validate_entries(entries, opener=None):
     return failures
 
 
+# THE SUITE-RUNNER DECLARATION (kogaki#1188). claude-toolkit's implement lane
+# judges a worker's commit only through the runner
+# `.claude/implement-lane.json` declares as `suite_runner`, and on 2026-09-24
+# a full worker dispatch (`/ship-cycle 1175`) reached the reap before anyone
+# learned no runner had been declared. Preflight fact 14 (claude-toolkit#1206)
+# now refuses the run at its start; this rule is the repository's own side of
+# it: WHEN the declaration is present, `suite_runner` is a non-empty string
+# naming a file that exists in this tree.
+#
+# ABSENCE IS REPORTED, NOT FAILED, and the reason is a tree fact rather than
+# leniency: `.gitignore` ignores `.claude/*` with named exceptions, and this
+# file is not one of them, so it is MACHINE-LOCAL — CI never has it, and
+# neither does a `git worktree add` checkout (ignored paths are not
+# populated), which is exactly where the implement lane and the base
+# comparison run this suite. A rule failing on its absence would be red in
+# every tree but the owner's main checkout, on a condition Preflight already
+# refuses at the one place it can be repaired. So the absent arm renders a
+# typed row naming the fact that DOES gate it, and the present arm asserts
+# the shape.
+IMPLEMENT_LANE_DECL = ".claude/implement-lane.json"
+
+
+def validate_suite_runner_declaration(reader=None, exists=None):
+    """`(rows, failures)` over the implement-lane declaration, kogaki#1188.
+
+    `reader()` returns the file's text or raises OSError (absent);
+    `exists(rel)` answers whether a repository-relative path is a file.
+    Both are injectable so the fixture pass exercises every arm on synthetic
+    inputs rather than on the live tree.
+    """
+    read = reader or (lambda: pathlib.Path(IMPLEMENT_LANE_DECL).read_text())
+    is_file = exists or (lambda rel: pathlib.Path(rel).is_file())
+    try:
+        raw = read()
+    except OSError:
+        return ([f"implement-lane: {IMPLEMENT_LANE_DECL} absent in this tree "
+                 f"(git-ignored, machine-local); the suite-runner declaration "
+                 f"is gated by Preflight fact 14 at the main checkout, not "
+                 f"here (kogaki#1188)"], [])
+    try:
+        decl = json.loads(raw)
+    except ValueError as e:
+        return ([], [f"FAIL {IMPLEMENT_LANE_DECL} does not parse as JSON: {e} "
+                     f"(kogaki#1188)"])
+    if not isinstance(decl, dict):
+        return ([], [f"FAIL {IMPLEMENT_LANE_DECL} is not a JSON object "
+                     f"(kogaki#1188)"])
+    runner = decl.get("suite_runner")
+    if runner is None:
+        return ([], [f"FAIL {IMPLEMENT_LANE_DECL} declares no `suite_runner` — "
+                     f"the implement lane cannot judge a commit without one; "
+                     f"declare the registered runner's path (kogaki#1188)"])
+    if not isinstance(runner, str) or not runner.strip():
+        return ([], [f"FAIL {IMPLEMENT_LANE_DECL} `suite_runner` is not a "
+                     f"non-empty string: {runner!r} (kogaki#1188)"])
+    runner = runner.strip()
+    if not is_file(runner):
+        return ([], [f"FAIL {IMPLEMENT_LANE_DECL} declares suite_runner "
+                     f"{runner!r}, which is not a file in this tree "
+                     f"(kogaki#1188)"])
+    return ([f"implement-lane: suite_runner {runner!r} declared and present"],
+            [])
+
+
 def validate_case_floor(entries, file_reader=None):
     """`case_floor` on every member that delegates to another artifact's pass.
 
@@ -971,6 +1035,45 @@ def fixture_pass():
                   "crash the check",
                   any("CANNOT-DETERMINE" in x for x in rows) and not f))
 
+    # THE SUITE-RUNNER DECLARATION (kogaki#1188), every arm on synthetic
+    # inputs. Mutants: dropping the `runner is None` branch fails the
+    # absent-key case; reading absence as a failure fails the absent-file
+    # case; skipping the existence check fails the missing-path case; and the
+    # conforming case is the control that keeps the rule from refusing
+    # everything.
+    def decl(text, present=("tools/run-suite",)):
+        def absent():
+            raise OSError("no such file")
+        reader = absent if text is None else (lambda: text)
+        return validate_suite_runner_declaration(
+            reader=reader, exists=lambda rel: rel in present)
+    rows, f = decl(None)
+    cases.append(("an ABSENT declaration renders a typed row and fails "
+                  "nothing — the file is git-ignored and Preflight gates it",
+                  not f and any("absent in this tree" in x for x in rows)))
+    rows, f = decl("{not json")
+    cases.append(("a declaration that does not parse FAILS",
+                  any("does not parse" in x for x in f)))
+    rows, f = decl("[1, 2]")
+    cases.append(("a declaration that is not an object FAILS",
+                  any("not a JSON object" in x for x in f)))
+    rows, f = decl('{"model": "claude-sonnet-5"}')
+    cases.append(("a declaration naming no suite_runner FAILS by name",
+                  any("declares no `suite_runner`" in x for x in f)))
+    rows, f = decl('{"suite_runner": 3}')
+    cases.append(("a non-string suite_runner FAILS",
+                  any("not a non-empty string" in x for x in f)))
+    rows, f = decl('{"suite_runner": "   "}')
+    cases.append(("a blank suite_runner FAILS on the same rule",
+                  any("not a non-empty string" in x for x in f)))
+    rows, f = decl('{"suite_runner": "tools/nowhere"}')
+    cases.append(("a suite_runner naming a MISSING file FAILS",
+                  any("not a file in this tree" in x for x in f)))
+    rows, f = decl('{"suite_runner": " tools/run-suite "}')
+    cases.append(("a declared runner that exists is accepted, whitespace "
+                  "trimmed — the control against refusing everything",
+                  not f and any("declared and present" in x for x in rows)))
+
     failed = [name for name, ok in cases if not ok]
     if failed:
         for name in failed:
@@ -1096,6 +1199,10 @@ for name in sorted(registered - present):
 # grammar added under kogaki#113): an empty record passed the filename
 # comparison above, which was the gap #6 names.
 failures += validate_entries(entries)
+# The suite-runner declaration (kogaki#1188): shape when present, a typed
+# row when absent — see the rule's own comment for why absence is not red.
+decl_rows, decl_failures = validate_suite_runner_declaration()
+failures += decl_failures
 # The delegating class and its floor (kogaki#661).
 failures += validate_case_floor(entries)
 failures += validate_floor_exceeds_arm(entries)
@@ -1106,7 +1213,7 @@ failures += floor_failures
 
 rows, probe_failures = run_probes(entries)
 failures += probe_failures
-for row in floor_rows + rows:
+for row in decl_rows + floor_rows + rows:
     print(row)
 
 for line in failures:
@@ -1139,7 +1246,8 @@ print(f"ok: registry and checks/ tree agree ({len(present)} check(s)); "
       "every efficacy case resolves to a label its cited file carries; "
       "every delegating member declares a case_floor, and every "
       "declared floor is compared in BOTH directions; "
-      "every registering member's contract describes every case it registers"
+      "every registering member's contract describes every case it registers; "
+      "the implement-lane suite_runner, where declared, names a file this tree carries"
       + ("; DECREMENTS NOT CHECKED — see the CANNOT-DETERMINE row above"
          if undetermined else
          "; no floor was lowered unpaired or against a stale note"))
