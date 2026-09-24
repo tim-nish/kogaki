@@ -103,23 +103,18 @@ if grep -qv '^COUNTED ' <<<"$LIVE"; then
   exit 1
 fi
 COUNT=$(sed -n 's/^COUNTED \([0-9][0-9]*\)$/\1/p' <<<"$LIVE")
-# THE EMPTY-SET REFUSAL IS SUSPENDED, NAMED RATHER THAN SILENTLY DROPPED
-# (kogaki#1175, 2026-09-23). `moves/` is legitimately empty: the owner retired
-# all 22 records the eight-field schema produced, in full, at this Issue's
-# execution — a deliberate state, not a run that never looked. The
-# Corpus-to-Moves conversion this Issue's thread also calls for did not run in
-# this worktree (the Corpus is outside its reach); the next admission act that
-# populates `moves/` restores this arm's original bite. A COUNT of zero is
-# therefore accepted here and MUST NOT be read as evidence the live arm ran —
-# it evidences only that the directory is empty, which the message below says
-# rather than lets a green line imply.
+# THE EMPTY-SET REFUSAL IS RESTORED (kogaki#1187). It was suspended by
+# kogaki#1175 only until moves/ was repopulated by the Corpus-to-Moves
+# conversion; that conversion has now run (kogaki#1187) and moves/ carries
+# the 21 Corpus-derived records, so a COUNT of zero is once again a FAIL
+# rather than a deliberately-tolerated empty state.
 if [[ -z "$COUNT" ]]; then
   echo "FAIL: the live read over moves/ produced no count line — the arm did not run"
   exit 1
 fi
 if [[ "$COUNT" -lt 1 ]]; then
-  echo "ok: ingestion fixture pass ran ${N} case(s) clean, exactly at its floor of ${FLOOR}; moves/ is empty (kogaki#1175 retirement) — the live-record arm has nothing to validate and is not evidence of anything beyond that"
-  exit 0
+  echo "FAIL: moves/ is empty — the live-record arm has nothing to validate (kogaki#1175's empty-set tolerance ended at kogaki#1187, which repopulated moves/)"
+  exit 1
 fi
 
 echo "ok: ingestion fixture pass ran ${N} case(s) clean, exactly at its floor of ${FLOOR}; ${COUNT} shipped record(s) validate against the live kind set"
