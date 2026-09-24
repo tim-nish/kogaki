@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 
 # §4.2's eight required fields, in §4.2's order (kogaki#1175 rebuilt this
@@ -824,6 +825,204 @@ def write_index(moves_dir):
 
 
 # --------------------------------------------------------------------------
+# The Passage-to-Move path (kogaki#1175, thread comment "Passage-to-Move
+# path: approved 2026-09-23, with a condition"). One command: a Passage in,
+# `specs/move-extraction-contract.md` authors a proposal, the proposal is
+# checked against `moves/INDEX.md` for a near-duplicate, a selection screen
+# is written as an artifact, and the write happens on the owner's recorded
+# choice — never on any other act. This is the SAME division of labour the
+# rest of the module holds: nothing here admits a Move, `save_accepted()` is
+# still the only writer, and `--select accept` is the caller having already
+# obtained the owner's choice, exactly as the ingest CLI's `accepted` list is.
+# --------------------------------------------------------------------------
+
+def build_passage_prompt(contract_text, passage_text, index_text):
+    """The whole authorship input: the contract, the Passage, and the
+    existing library — nothing else, per the contract's own opening line
+    ("no other context is needed or permitted")."""
+    return (
+        contract_text.strip() + "\n\n"
+        "## The Passage\n\n" + passage_text.strip() + "\n\n"
+        "## The existing library (moves/INDEX.md)\n\n"
+        + (index_text.strip() or "(empty — no Move has been saved yet)") + "\n\n"
+        "Return exactly one record in the format the contract above states, "
+        "and nothing else — no prose before or after it, no fence.\n"
+    )
+
+
+def spawn_model(command, model, prompt, timeout_s, cwd=None):
+    """The pinned-model authorship step, the same argv shape
+    `src/terrain.mjs`'s `judgeAttempts` already runs `claude -p` with."""
+    argv = [command, "-p", "--model", model, "--output-format", "text"]
+    try:
+        r = subprocess.run(
+            argv, input=prompt, capture_output=True, text=True,
+            timeout=timeout_s, cwd=cwd)
+    except subprocess.TimeoutExpired:
+        raise Refusal("passage", "the model exceeded the %ds per-call bound" % timeout_s)
+    except OSError as exc:
+        raise Refusal("passage", "the model command %r could not be run: %s" % (command, exc))
+    if r.returncode != 0:
+        raise Refusal(
+            "passage",
+            "the model exited %d. Its stderr, verbatim: %s. Its stdout, verbatim: %s"
+            % (r.returncode, (r.stderr or "").strip() or "(empty)",
+               (r.stdout or "").strip()[:2000] or "(empty)"),
+        )
+    return r.stdout
+
+
+def read_index_rows(moves_dir):
+    """`(id, technique)` pairs read off `moves/INDEX.md`'s own two columns —
+    the same table `write_index` renders, read back rather than re-derived."""
+    path = os.path.join(moves_dir, "INDEX.md")
+    if not os.path.isfile(path):
+        return []
+    rows = []
+    with open(path) as handle:
+        for line in handle:
+            if not line.startswith("|"):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) != 2 or cells[0] in ("id", "---"):
+                continue
+            rows.append((cells[0], cells[1]))
+    return rows
+
+
+WORD = re.compile(r"[a-z]+")
+
+# A near-duplicate is NAMED, never decided, here (§6.9's own division): word
+# overlap on `technique` is a cheap, deterministic signal that puts a
+# candidate in front of the owner's one confirmation (thread comment
+# 2026-09-23, "one confirmation is asked of the owner per suspected
+# duplicate and none otherwise") — it is not a verdict, and a false positive
+# costs one extra line on the screen rather than a silently skipped check.
+DUPLICATE_THRESHOLD = 0.34
+
+
+def near_duplicates(proposed_technique, index_rows):
+    words = set(WORD.findall(str(proposed_technique).lower()))
+    hits = []
+    if not words:
+        return hits
+    for move_id, technique in index_rows:
+        other = set(WORD.findall(technique.lower()))
+        if not other:
+            continue
+        overlap = len(words & other) / len(words | other)
+        if overlap >= DUPLICATE_THRESHOLD:
+            hits.append((move_id, overlap))
+    hits.sort(key=lambda hit: -hit[1])
+    return hits
+
+
+def render_passage_screen(proposal, duplicates):
+    """The one screen the owner sees: accept as new / merge into the named
+    Move / decline. An artifact (kogaki#474's precedent), never retyped."""
+    if not proposal.admitted:
+        return "refused: %s\n" % proposal.refusal
+
+    lines = ["proposed Move: %s" % proposal.id, ""]
+    if duplicates:
+        lines.append("suspected near-duplicate(s) in moves/INDEX.md:")
+        for move_id, overlap in duplicates:
+            lines.append("  - %s (technique word overlap %.2f)" % (move_id, overlap))
+    else:
+        lines.append("no near-duplicate found in moves/INDEX.md")
+    lines.append("")
+    lines.append(render_move(proposal.mapping))
+    lines.append("")
+    lines.append("accept as new / merge into <id> / decline")
+    return "\n".join(lines) + "\n"
+
+
+def run_passage(passage_path, contract_path, moves_dir, command, model,
+                 out_dir, timeout_s, select=None):
+    """The whole path, minus the write, unless `select` carries the owner's
+    already-obtained choice.
+
+    The model is spawned AT MOST ONCE PER `out_dir`: a `raw.txt` already
+    there is read back rather than re-asked, so the two-call shape a
+    selection needs — one call to produce the screen, a second carrying
+    `--select` once the owner has chosen — never spends the authorship step
+    twice on one Passage.
+    """
+    with open(passage_path, encoding="utf-8") as handle:
+        passage_text = handle.read()
+    with open(contract_path, encoding="utf-8") as handle:
+        contract_text = handle.read()
+
+    os.makedirs(out_dir, exist_ok=True)
+    out_dir = os.path.abspath(out_dir)
+    raw_path = os.path.join(out_dir, "raw.txt")
+
+    if os.path.isfile(raw_path):
+        with open(raw_path, encoding="utf-8") as handle:
+            raw = handle.read()
+    else:
+        index_path = os.path.join(moves_dir, "INDEX.md")
+        index_text = ""
+        if os.path.isfile(index_path):
+            with open(index_path, encoding="utf-8") as handle:
+                index_text = handle.read()
+        prompt = build_passage_prompt(contract_text, passage_text, index_text)
+        raw = spawn_model(command, model, prompt, timeout_s, cwd=out_dir)
+        with open(raw_path, "w", encoding="utf-8") as handle:
+            handle.write(raw)
+
+    proposals = read_proposals(raw)
+    if len(proposals) != 1:
+        raise Refusal(
+            "passage",
+            "the model returned %d record(s); the Passage-to-Move path admits "
+            "exactly one" % len(proposals),
+        )
+    proposal = proposals[0]
+
+    duplicates = []
+    if proposal.admitted:
+        duplicates = near_duplicates(proposal.mapping.get("technique", ""),
+                                      read_index_rows(moves_dir))
+
+    screen_path = os.path.join(out_dir, "PassageScreen.md")
+    with open(screen_path, "w", encoding="utf-8") as handle:
+        handle.write(render_passage_screen(proposal, duplicates))
+
+    result = {
+        "raw": raw_path, "screen": screen_path, "proposal": proposal,
+        "duplicates": duplicates, "written": None,
+    }
+
+    if select is None:
+        return result
+
+    if not proposal.admitted:
+        raise Refusal(
+            "passage",
+            "the proposed record was refused (%s); nothing to select against"
+            % proposal.refusal,
+        )
+
+    if select == "accept":
+        result["written"] = save_accepted(moves_dir, [proposal])
+        return result
+    if select == "decline" or select.startswith("merge:"):
+        # MECHANICALLY THE SAME NON-WRITE. §6.9's ruling that nothing is
+        # appended at save (kogaki#548) leaves "merge into the named Move" no
+        # mechanical act of its own — there is no field left to append a
+        # pointer into, so the owner's choice not to save a new record is the
+        # whole of it. The distinction between "declined" and "merged into
+        # <id>" is provenance the caller carries in its own report; this
+        # command's write-side effect is identical: none.
+        return result
+    raise Refusal(
+        "passage",
+        "--select must be `accept`, `decline`, or `merge:<id>` — got %r" % select,
+    )
+
+
+# --------------------------------------------------------------------------
 # CLI — proposals only. It never saves; saving needs the owner's selection.
 # --------------------------------------------------------------------------
 
@@ -900,6 +1099,64 @@ def render_proposals(proposals, readings=None):
 
 
 def main(argv=None):
+    """Dispatches to the `passage` subcommand, or to the owner-authored-file
+    ingestion path §6.9 has always run — `passage` is a sibling command, not
+    a replacement, so an existing invocation with no first-token `passage` is
+    unchanged."""
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] == "passage":
+        return main_passage(argv[1:])
+    return main_ingest(argv)
+
+
+def main_passage(argv):
+    parser = argparse.ArgumentParser(
+        prog="move_ingest.py passage",
+        description="The Passage-to-Move path (kogaki#1175): a Passage in, one "
+        "Move authored against specs/move-extraction-contract.md, checked "
+        "against moves/INDEX.md for a near-duplicate, offered at one selection "
+        "screen. Nothing is written to moves/ before --select accept.",
+    )
+    parser.add_argument("passage", nargs="?", help="the Passage text file")
+    parser.add_argument("--model", help="the pinned model id for the authorship step")
+    parser.add_argument("--command", default="claude",
+                         help="the model command (default: claude)")
+    parser.add_argument(
+        "--contract",
+        default=os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "specs", "move-extraction-contract.md",
+        ),
+        help="path to specs/move-extraction-contract.md",
+    )
+    parser.add_argument("--moves-dir", default="moves", help="the Move library directory")
+    parser.add_argument("--out", help="the run directory (raw.txt, PassageScreen.md)")
+    parser.add_argument("--timeout", type=int, default=600, help="per-call bound in seconds")
+    parser.add_argument("--select", help="the owner's recorded choice: accept, decline, or merge:<id>")
+    parser.add_argument("--self-test", action="store_true")
+    args = parser.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
+
+    if not args.passage or not args.model or not args.out:
+        parser.error("a Passage file, --model and --out are required (or --self-test)")
+
+    try:
+        result = run_passage(args.passage, args.contract, args.moves_dir,
+                              args.command, args.model, args.out, args.timeout,
+                              select=args.select)
+    except Refusal as refusal:
+        sys.stderr.write("refused: %s\n" % refusal)
+        return 1
+
+    print("proposal at %s -- see %s" % (result["raw"], result["screen"]))
+    if result["written"]:
+        print("accepted -- wrote %s" % ", ".join(result["written"]))
+    return 0
+
+
+def main_ingest(argv=None):
     parser = argparse.ArgumentParser(
         description="Move ingestion: split, admit, normalize. Saves nothing — "
         "admission is the owner's act at the accept/decline question."
@@ -1770,6 +2027,201 @@ def self_test():
 
     check("#876 a saved form survives save -> read -> INDEX regeneration",
           a_saved_form_survives_index_regeneration)
+
+    # ---- kogaki#1175: the Passage-to-Move path ----------------------------
+    # Every case here constructs a stub `claude -p ...` (the argv shape
+    # `spawn_model` builds) so the run touches no network and no real model,
+    # and runs identically wherever `claude` is or is not on PATH.
+
+    def _write_passage_stub(path, record_text, counter_path=None):
+        lines = ["#!/usr/bin/env python3", "import sys", "sys.stdin.read()"]
+        if counter_path:
+            lines.append("open(%r, 'a').write('x')" % counter_path)
+        lines.append("sys.stdout.write(%r)" % record_text)
+        with open(path, "w") as handle:
+            handle.write("\n".join(lines) + "\n")
+        os.chmod(path, 0o755)
+
+    def a_missing_passage_model_command_refuses_by_name():
+        try:
+            spawn_model("/no/such/command/anywhere", "n/a", "prompt", 5)
+        except Refusal as refusal:
+            assert "could not be run" in str(refusal), str(refusal)
+            return
+        raise AssertionError("spawn_model did not refuse a command that cannot be spawned")
+
+    check("#1175 passage: a missing model command refuses by name",
+          a_missing_passage_model_command_refuses_by_name)
+
+    def a_full_run_writes_a_screen_and_saves_nothing_before_select():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            with open(passage_path, "w") as handle:
+                handle.write("A passage about persistent institutions.\n")
+            contract_path = os.path.join(d, "contract.md")
+            with open(contract_path, "w") as handle:
+                handle.write("EXTRACTION CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir,
+                                  stub, "n/a", out, 30)
+            assert os.path.isfile(result["screen"]), "no PassageScreen.md written"
+            screen = open(result["screen"]).read()
+            assert "accept as new / merge into <id> / decline" in screen, screen
+            assert result["written"] is None, "a run with no --select wrote something"
+            assert not os.path.isfile(os.path.join(moves_dir, "derive_a_thing.md")), (
+                "a Move landed on disk before the owner's selection")
+
+    check("#1175 passage: a full run writes the screen and saves nothing before --select",
+          a_full_run_writes_a_screen_and_saves_nothing_before_select)
+
+    def the_model_is_spawned_at_most_once_per_out_dir():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            counter = os.path.join(d, "spawn_count")
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"), counter_path=counter)
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                  out, 30, select="accept")
+            spawns = len(open(counter).read()) if os.path.isfile(counter) else 0
+            assert spawns == 1, "the model was spawned %d time(s) for one Passage" % spawns
+            assert result["written"] == [os.path.join(moves_dir, "derive_a_thing.md")]
+
+    check("#1175 passage: the model is spawned at most once per out_dir",
+          the_model_is_spawned_at_most_once_per_out_dir)
+
+    def select_accept_writes_and_regenerates_the_index():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                  out, 30, select="accept")
+            saved = os.path.join(moves_dir, "derive_a_thing.md")
+            assert result["written"] == [saved]
+            assert os.path.isfile(saved)
+            index = open(os.path.join(moves_dir, "INDEX.md")).read()
+            assert "| derive_a_thing |" in index, index
+
+    check("#1175 passage: --select accept validates keys, writes the file, regenerates INDEX",
+          select_accept_writes_and_regenerates_the_index)
+
+    def decline_and_merge_write_nothing():
+        for select in ("decline", "merge:some_other_move"):
+            with tempfile.TemporaryDirectory() as d:
+                passage_path = os.path.join(d, "passage.txt")
+                open(passage_path, "w").write("A passage.\n")
+                contract_path = os.path.join(d, "contract.md")
+                open(contract_path, "w").write("CONTRACT\n")
+                moves_dir = os.path.join(d, "moves")
+                os.makedirs(moves_dir)
+                stub = os.path.join(d, "stub_model")
+                _write_passage_stub(stub, _record("derive_a_thing"))
+                out = os.path.join(d, "run")
+                run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+                result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
+                                      out, 30, select=select)
+                assert result["written"] is None, "select=%r wrote something" % select
+                assert os.listdir(moves_dir) == [], (
+                    "select=%r left a file in moves/: %s" % (select, os.listdir(moves_dir)))
+
+    check("#1175 passage: decline and merge:<id> write nothing, mechanically alike",
+          decline_and_merge_write_nothing)
+
+    def a_near_duplicate_is_named_from_the_index():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            existing = _record("derive_mitigation_from_mechanism").replace(
+                "technique: >-\n  does a thing\n",
+                "technique: >-\n  derives a mitigation from an observed causal mechanism\n")
+            save_accepted(moves_dir, read_proposals(existing))
+            stub = os.path.join(d, "stub_model")
+            proposal_text = _record("propose_a_mitigation_from_mechanism").replace(
+                "technique: >-\n  does a thing\n",
+                "technique: >-\n  derives a mitigation from an observed causal mechanism\n")
+            _write_passage_stub(stub, proposal_text)
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            assert result["duplicates"], "an identical technique named no near-duplicate"
+            assert result["duplicates"][0][0] == "derive_mitigation_from_mechanism"
+            screen = open(result["screen"]).read()
+            assert "derive_mitigation_from_mechanism" in screen, screen
+
+    check("#1175 passage: a near-duplicate technique is named from moves/INDEX.md",
+          a_near_duplicate_is_named_from_the_index)
+
+    def a_refused_proposal_is_reported_and_never_selectable():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            malformed = _record("broken").replace(
+                "presupposes: >-\n  the reader has read the prior Leg\n", "")
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, malformed)
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            assert not result["proposal"].admitted, "a seven-key record was admitted"
+            screen = open(result["screen"]).read()
+            assert screen.startswith("refused:"), screen
+            try:
+                run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30,
+                             select="accept")
+            except Refusal as refusal:
+                assert "nothing to select against" in str(refusal), str(refusal)
+                return
+            raise AssertionError("--select accept did not refuse a refused proposal")
+
+    check("#1175 passage: a refused proposal is reported and never selectable",
+          a_refused_proposal_is_reported_and_never_selectable)
+
+    def select_rejects_an_unknown_token():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            open(passage_path, "w").write("A passage.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("derive_a_thing"))
+            out = os.path.join(d, "run")
+            run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            try:
+                run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30,
+                             select="approve")
+            except Refusal as refusal:
+                assert refusal.condition == "passage", refusal
+                return
+            raise AssertionError("an unknown --select token was not refused")
+
+    check("#1175 passage: --select refuses an unrecognized token",
+          select_rejects_an_unknown_token)
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)
