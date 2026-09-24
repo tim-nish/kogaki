@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""The declared `suite_runner` for the implement lane (kogaki#1188).
+
+THE INTERPRETER, NOT THE SHEBANG (open in claude-toolkit `KNOWN-ISSUES.jsonl`
+as `interpreter-assumed-over-shebang`). claude-toolkit's supervisor launches
+`suite_runner` as `[sys.executable, <runner>, <worktree>, "--compare-base",
+<base>]` -- through the Python interpreter, never through the file's own
+shebang -- so a runner that IS `tools/run-registered-checks.sh` is fed to
+Python and is a SyntaxError there, reaping `suite-failed` on every run. This
+file exists so the declared runner is one Python can actually execute: it
+defines nothing about the suite itself, only re-dispatches to the real one
+through `bash`.
+
+`<repo-root>`, if given, must be the checkout this file lives in -- the
+supervisor passes the worktree it is judging, and a mismatch here means the
+declaration and the invocation disagree about which tree is under test.
+
+Everything else is passed straight through to
+`tools/run-registered-checks.sh` via `execvp`, unexamined: this file has no
+opinion about `--compare-base` or `--ci-shape` and never will, because the
+suite runner's shape is `tools/run-registered-checks.sh`'s own contract, not
+a second copy of it here.
+"""
+import os
+import pathlib
+import sys
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+def main(argv):
+    args = list(argv)
+    if args and not args[0].startswith("--"):
+        given_root = pathlib.Path(args[0]).resolve()
+        if given_root != REPO_ROOT:
+            print(f"tools/run-suite: <repo-root> {given_root} is not the "
+                  f"checkout this runner lives in ({REPO_ROOT})",
+                  file=sys.stderr)
+            return 2
+        args = args[1:]
+
+    runner = REPO_ROOT / "tools" / "run-registered-checks.sh"
+    os.chdir(REPO_ROOT)
+    os.execvp("bash", ["bash", str(runner), *args])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
