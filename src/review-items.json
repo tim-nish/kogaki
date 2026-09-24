@@ -171,7 +171,16 @@
     "",
     "NOW COMPARED, and enumerated so a reader can tell a boundary from a hole:",
     "the figure's elements, its caption, its element-to-claim binding, its reading",
-    "against the prose, and its position -- five rows, three preserved and two best-effort, on the same three verdicts and the same consequence rule."
+    "against the prose, and its position -- five rows, three preserved and two best-effort, on the same three verdicts and the same consequence rule.",
+    "",
+    "`move_excerpt` AND `move_contract` LEAVE `packet_blocks` (kogaki#1175). Both",
+    "were declared but never read by any item -- the Move exemplar predicate and",
+    "the constraints/failure_modes pair are retired from the schema (owner ruling",
+    "7, kogaki#1173, 2026-09-23), and neither `excerpt` nor the two-label",
+    "constraints/failure_modes pairing survives it: the Move contract's Packet",
+    "block is four single-value fields now (technique, question, draws_on,",
+    "breaks), none of them a standalone heading a `block` reader stands at or a",
+    "two-label `bullets` reader reads."
   ],
   "version": "1",
   "verdicts": [
@@ -236,18 +245,6 @@
       "kind": "bullet_list",
       "label": "already knows",
       "term_only": true
-    },
-    "move_contract": {
-      "kind": "bullets",
-      "labels": [
-        "constraints",
-        "failure_modes"
-      ]
-    },
-    "move_excerpt": {
-      "kind": "block",
-      "heading": "An exemplar of this Move — FORM ONLY",
-      "after_words": "Read it for the form of the movement and nothing else."
     },
     "reader_state_before": {
       "kind": "bullet",

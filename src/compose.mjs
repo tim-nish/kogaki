@@ -1292,7 +1292,7 @@ export function validateOwnerAnswer(capture, gateId, digest) {
 }
 
 // ---------------------------------------------------------------------------
-// THE MOVE EXEMPLAR PREDICATE — RETIRED (SPEC-draft-pipeline §4.13.1, kogaki#1175).
+// THE MOVE EXEMPLAR PREDICATE — RETIRED (SPEC-draft-pipeline, kogaki#1175).
 //
 // This section used to make a Move record's `excerpt` field the Packet's
 // exemplar: a record whose `excerpt` carried text served as what a later
@@ -1300,9 +1300,9 @@ export function validateOwnerAnswer(capture, gateId, digest) {
 // which stood here. `excerpt` is retired with the rest of the eight-field
 // schema; `evidence`, the field a reader might reach for in its place, does
 // NOT inherit the role (owner ruling 7, kogaki#1173, 2026-09-23) — it is
-// optional, typically empty, and read by nothing downstream (§4.2's role
-// table). The Leg Packet's Move block is `technique`, `question`, `draws_on`,
-// `breaks` (§4.14); none of the four is source text a writer imitates
+// optional, typically empty, and read by nothing downstream (the schema's
+// role table). The Leg Packet's Move block is `technique`, `question`,
+// `draws_on`, `breaks`; none of the four is source text a writer imitates
 // verbatim.
 
 // ---------------------------------------------------------------------------

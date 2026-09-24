@@ -71,8 +71,6 @@
 //       SPEC-draft-pipeline
 //   the reader-knowledge ledger
 //       SPEC-draft-pipeline
-//   the Move exemplar predicate — RETIRED
-//       SPEC-draft-pipeline
 //   the Leg Packet
 //       SPEC-draft-pipeline
 //   the runtime-read template
@@ -748,10 +746,10 @@ function cmdMaterial(args) {
 // `reader_state_before`/`after` are the instance forms of exactly those two
 // fields (the Leg-Move instantiation contract), so rendering both would put the general and the specialized
 // statement of one thing side by side and leave the model to pick. The Leg's
-// instantiated states win. The four that ARE rendered are §4.2's
+// instantiated states win. The four that ARE rendered are the schema's
 // `rendered-to-writer` role (kogaki#1175). `draws_on` is the one of the four
-// that §4.2 itself declares optional, so it is named separately from the
-// other three and rendered as a stated absence rather than refusing the
+// that the schema itself declares optional, so it is named separately from
+// the other three and rendered as a stated absence rather than refusing the
 // Packet — the same pattern the journeys block below uses.
 const MOVE_FIELDS_RENDERED_REQUIRED = ["technique", "question", "breaks"];
 const MOVE_FIELDS_RENDERED_OPTIONAL = ["draws_on"];

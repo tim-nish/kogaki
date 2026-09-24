@@ -4729,11 +4729,11 @@ async function runSelfTest() {
   };
   const PACKET_FIELDS = {
     a1: { after: "The reader knows which act renders the input.", purpose: "To open the claim.",
-      introduces: ["harness"], knows: [], opens: true, excerpt: "PACKETONLYTOKEN a passage about tides and harbours." },
+      introduces: ["harness"], knows: [], opens: true, draws_on: "PACKETONLYTOKEN a passage about tides and harbours." },
     a2: { after: "The reader knows an owned ordering cannot be got wrong.", purpose: "To carry the claim further.",
-      introduces: [], knows: ["harness"], opens: false, excerpt: "PACKETONLYTOKEN a second passage about weather." },
+      introduces: [], knows: ["harness"], opens: false, draws_on: "PACKETONLYTOKEN a second passage about weather." },
     a3: { after: "The reader knows who classifies residue.", purpose: "To open the second question.",
-      introduces: [], knows: ["harness"], opens: true, excerpt: null },
+      introduces: [], knows: ["harness"], opens: true, draws_on: null },
   };
   // THE FIXTURE PACKET IS THE REAL TEMPLATE WITH ITS SLOTS FILLED (PR #895
   // round 1, findings 2 and 3). It used to be written out by hand in the form
@@ -4778,12 +4778,12 @@ async function runSelfTest() {
       reader_target: "PACKETONLYTOKEN where the reader lands.",
       opening_question: "PACKETONLYTOKEN the opening question.",
       move_id: "name-the-mechanism",
-      move_intent: "Name the mechanism before naming its consequence.",
-      move_constraints: "Name the mechanism first; never announce the consequence before the reader can check it.",
-      move_failure_modes: "Announcing a conclusion the reader has no way to check yet.",
-      move_excerpt: f.excerpt === null
-        ? "(none — this Move record carries no excerpt, so it cannot serve as an exemplar. Perform the Move from its contract above.)"
-        : f.excerpt,
+      move_technique: "Name the mechanism before naming its consequence.",
+      move_question: "holds: none",
+      move_breaks: "Name the mechanism first; never announce the consequence before the reader can check it.",
+      move_draws_on: f.draws_on === null
+        ? "(none — name-the-mechanism records no draws_on.)"
+        : f.draws_on,
       leg_id: id,
       purpose: f.purpose,
       reader_state_before: "PACKETONLYTOKEN the state before.",
@@ -6387,47 +6387,6 @@ async function runSelfTest() {
         .some((c) => c.leg_id === "a1" && c.item === "already-knows"));
   }
 
-  // ROUND 1, FINDING 3: a `block` reader's declared side is the RENDERED VALUE,
-  // never the template's instruction prose. The anchor used to stop one sentence
-  // short of its paragraph, so the sentence after it was prepended to what the
-  // judging model reads — the exact failure the reader's own comment names,
-  // reached by an incomplete anchor rather than by a rewrap.
-  //
-  // THE VEHICLE CHANGED AND THE RULE DID NOT (kogaki#1132). The case was driven
-  // through the `section-continues` join Packet, and that row left the table
-  // with `section_placement`, its Packet block. `move_excerpt` is the `block`
-  // declaration that survives, so the reader is asked directly rather than
-  // through a join Packet no row renders any more — which is the whole of what
-  // the drive was standing in for: what `packetBlock` hands back.
-  {
-    const bt = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
-    const blocks = Object.entries(bt.packet_blocks)
-      .filter(([k, s]) => k !== "note" && s && s.kind === "block");
-    const pkt = readFileSync(join(packetDir, "a1.md"), "utf8");
-    ok("the item table still declares a `block` reader for this case to stand at",
-      blocks.length > 0, blocks.map(([k]) => k).join(", "));
-    const values = blocks.map(([, s]) =>
-      packetBlock(pkt, s.heading, { after: wordSequence(s.after_words) }));
-    ok("a `block` reader hands back the rendered value, not the instruction paragraph",
-      values.every((v) => v !== null && v !== "")
-      && values.some((v) => v.includes(PACKET_FIELDS.a1.excerpt)),
-      JSON.stringify(values).slice(0, 200));
-    // ASSERTED AGAINST THE TEMPLATE'S OWN SENTENCES rather than a transcribed
-    // pair, so a paragraph the template gains is covered by the derivation.
-    const bad = [];
-    for (const [name, s] of blocks) {
-      const v = (packetBlock(pkt, s.heading, { after: wordSequence(s.after_words) }) || "")
-        .replace(/\s+/g, " ");
-      const para = TEMPLATE.split(s.heading)[1].split("{{")[0];
-      for (const sent of para.split(/(?<=\.)\s+/).map((x) => x.replace(/\s+/g, " ").trim())
-        .filter((x) => x.length > 30)) {
-        if (v.includes(sent)) bad.push(`${name}: ${sent}`);
-      }
-    }
-    ok("and none of the template's instruction sentences survives into it",
-      bad.length === 0, bad.join(" | "));
-  }
-
   // ROUND 1, FINDING 5: a recorded verdict can be REVISED. `owed` shrinks as
   // answers land, so validating against it alone refused a re-submitted file and
   // told a reviewer correcting a wrong answer that the run never asked — which
@@ -6914,13 +6873,12 @@ async function runSelfTest() {
     mkdirSync(cMoves, { recursive: true });
     for (const id of ["open_the_claim", "carry_the_claim"]) {
       writeFileSync(join(cMoves, `${id}.md`), [
-        `id: ${id}`, "status: observed",
-        "intent: >-", `  what ${id} does to the reader.`,
-        "requires: >-", "  the state this move depends on.",
-        "effect: >-", "  the state this move produces.",
-        "constraints: >-", "  what a correct performance must not do.",
-        "failure_modes: >-", "  how it goes wrong when imitated badly.",
-        "excerpt: >-", "  the author's account of the movement they observed.",
+        `id: ${id}`,
+        "technique: >-", `  what ${id} does to the reader.`,
+        "question: >-", "  holds: none",
+        "before: >-", "  the state this move depends on.",
+        "after: >-", "  the state this move produces.",
+        "breaks: >-", "  what a correct performance must not do.",
       ].join("\n") + "\n");
     }
     // FOUR LEGS AND TWO SECTIONS, so that correcting s2 and s3 leaves s4 as a
@@ -8160,26 +8118,24 @@ async function runSelfTest() {
     mkdirSync(sBrief, { recursive: true });
     mkdirSync(sMoves, { recursive: true });
     writeFileSync(join(sMoves, "axis_move.md"), [
-      "id: axis_move", "status: observed",
-      "intent: >-", "  establish a distinction between two endpoints.",
-      "requires: >-", "  the reader has no stable distinction yet.",
-      "effect: >-", "  the reader can orient later cases on the axis.",
-      "constraints: >-", "  the endpoints must clarify the same axis.",
-      "failure_modes: >-", "  pairing cases that differ along unrelated dimensions.",
-      "excerpt: >-", "  the author's account of the movement they observed.",
-      "visual_form:", "  kind: axis",
+      "id: axis_move",
+      "technique: >-", "  establish a distinction between two endpoints.",
+      "before: >-", "  the reader has no stable distinction yet.",
+      "after: >-", "  the reader can orient later cases on the axis.",
+      "question: >-", "  holds: none",
+      "breaks: >-", "  pairing cases that differ along unrelated dimensions.",
+      "figure:", "  kind: axis",
       "  endpoint_a: the first endpoint the Move presents",
       "  endpoint_b: the opposing endpoint",
       "  criterion: the one axis both endpoints clarify",
     ].join("\n") + "\n");
     writeFileSync(join(sMoves, "plain_move.md"), [
-      "id: plain_move", "status: observed",
-      "intent: >-", "  carry the claim one step further.",
-      "requires: >-", "  the reader holds what the previous passage settled.",
-      "effect: >-", "  the reader holds one more consequence.",
-      "constraints: >-", "  never re-open what the earlier passage settled.",
-      "failure_modes: >-", "  restating the previous passage in new words.",
-      "excerpt: >-", "  the author's account of the movement they observed.",
+      "id: plain_move",
+      "technique: >-", "  carry the claim one step further.",
+      "before: >-", "  the reader holds what the previous passage settled.",
+      "after: >-", "  the reader holds one more consequence.",
+      "question: >-", "  holds: none",
+      "breaks: >-", "  restating the previous passage in new words.",
     ].join("\n") + "\n");
     writeFileSync(join(sBrief, "brief.md"), [
       "# Brief — seat-fixture", "",
@@ -8343,13 +8299,12 @@ async function runSelfTest() {
     mkdirSync(xMoves, { recursive: true });
     for (const id of ["open_the_claim", "carry_the_claim"]) {
       writeFileSync(join(xMoves, `${id}.md`), [
-        `id: ${id}`, "status: observed",
-        "intent: >-", `  what ${id} does to the reader.`,
-        "requires: >-", "  the state this move depends on.",
-        "effect: >-", "  the state this move produces.",
-        "constraints: >-", "  what a correct performance must not do.",
-        "failure_modes: >-", "  how it goes wrong when imitated badly.",
-        "excerpt: >-", "  the author's account of the movement they observed.",
+        `id: ${id}`,
+        "technique: >-", `  what ${id} does to the reader.`,
+        "question: >-", "  holds: none",
+        "before: >-", "  the state this move depends on.",
+        "after: >-", "  the state this move produces.",
+        "breaks: >-", "  what a correct performance must not do.",
       ].join("\n") + "\n");
     }
     // THE TWO DECLARED CLAIMS ARE WORDED WELL APART, so the assertion that one
@@ -8684,13 +8639,12 @@ async function runSelfTest() {
     mkdirSync(gBrief, { recursive: true });
     mkdirSync(gMoves, { recursive: true });
     writeFileSync(join(gMoves, "plain_move.md"), [
-      "id: plain_move", "status: observed",
-      "intent: >-", "  carry the claim one step further.",
-      "requires: >-", "  the reader holds what the previous passage settled.",
-      "effect: >-", "  the reader holds one more consequence.",
-      "constraints: >-", "  never re-open what the earlier passage settled.",
-      "failure_modes: >-", "  restating the previous passage in new words.",
-      "excerpt: >-", "  the author's account of the movement they observed.",
+      "id: plain_move",
+      "technique: >-", "  carry the claim one step further.",
+      "before: >-", "  the reader holds what the previous passage settled.",
+      "after: >-", "  the reader holds one more consequence.",
+      "question: >-", "  holds: none",
+      "breaks: >-", "  restating the previous passage in new words.",
     ].join("\n") + "\n");
     // c1 INTRODUCES A TERM, for the reason the correction drive's Brief does:
     // `already-knows` is the successor arm's one item and carries a
@@ -9069,13 +9023,12 @@ async function runSelfTest() {
     mkdirSync(lMoves, { recursive: true });
     for (const id of ["open_the_claim", "carry_the_claim"]) {
       writeFileSync(join(lMoves, `${id}.md`), [
-        `id: ${id}`, "status: observed",
-        "intent: >-", `  what ${id} does to the reader.`,
-        "requires: >-", "  the state this move depends on.",
-        "effect: >-", "  the state this move produces.",
-        "constraints: >-", "  what a correct performance must not do.",
-        "failure_modes: >-", "  how it goes wrong when imitated badly.",
-        "excerpt: >-", "  the author's account of the movement they observed.",
+        `id: ${id}`,
+        "technique: >-", `  what ${id} does to the reader.`,
+        "question: >-", "  holds: none",
+        "before: >-", "  the state this move depends on.",
+        "after: >-", "  the state this move produces.",
+        "breaks: >-", "  what a correct performance must not do.",
       ].join("\n") + "\n");
     }
     const LEGS = [
