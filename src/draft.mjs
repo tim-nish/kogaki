@@ -30,7 +30,7 @@
 //   packet   — render the Leg Packet: the model's ENTIRE input for one
 //              Leg (the Leg Packet, kogaki#749), deterministic and stored as served.
 //   figure   — accept one Leg's figure record: the INSTANCE of its Move's
-//              visual_form, filled after that Leg's prose is recorded
+//              figure, filled after that Leg's prose is recorded
 //              (kogaki#878). Validated against src/figure-schema.json, the
 //              kind's role set, and the BRIEF's own role→claim binding; a
 //              record that moved a role to another claim refuses by role.
@@ -71,7 +71,7 @@
 //       SPEC-draft-pipeline
 //   the reader-knowledge ledger
 //       SPEC-draft-pipeline
-//   the Move exemplar predicate
+//   the Move exemplar predicate — RETIRED
 //       SPEC-draft-pipeline
 //   the Leg Packet
 //       SPEC-draft-pipeline
@@ -91,7 +91,7 @@
 //       SPEC-draft-pipeline
 //   the durable home and the entry point
 //       SPEC-draft-pipeline
-//   the closed kind set and the Move's visual_form
+//   the closed kind set and the Move's figure
 //       SPEC-draft-pipeline
 //   the Move library
 //       SPEC-draft-pipeline
@@ -105,7 +105,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // that can disagree about what a dangling move id is, and the refusal a
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
-  figureRefusal, parseFigureRoles, figureKinds, visualFormOf, figureLegs,
+  figureRefusal, parseFigureRoles, figureKinds, figureOf, figureLegs,
   journeysRefusal, legschema, closureRowsForLeg, relationsRefusal, budgetRefusal } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
@@ -737,21 +737,24 @@ function cmdMaterial(args) {
 //
 // THE PACKET IS THE MODEL'S ENTIRE INPUT. Nothing outside it is read, which is
 // why every block opens with a fixed usage header saying what the block is FOR:
-// a block whose use is not stated gets used for whatever it resembles, and the
-// Move exemplar is the one that fails worst — read as content rather than as
-// form, it hands the article another article's subject matter.
+// a block whose use is not stated gets used for whatever it resembles.
 //
 // DETERMINISTIC means the same inputs render the same bytes. No timestamp, no
 // run id, no ordering that depends on a directory read: the Sections come in
 // the Brief's recorded order and the ledger is recomputed from the path.
 
-// `requires`/`effect` are EXCLUDED from the rendered Move contract, and the
+// `before`/`after` are EXCLUDED from the rendered Move contract, and the
 // exclusion is the ruling rather than an omission: the Leg's own
 // `reader_state_before`/`after` are the instance forms of exactly those two
 // fields (the Leg-Move instantiation contract), so rendering both would put the general and the specialized
 // statement of one thing side by side and leave the model to pick. The Leg's
-// instantiated states win.
-const MOVE_FIELDS_RENDERED = ["intent", "constraints", "failure_modes"];
+// instantiated states win. The four that ARE rendered are §4.2's
+// `rendered-to-writer` role (kogaki#1175). `draws_on` is the one of the four
+// that §4.2 itself declares optional, so it is named separately from the
+// other three and rendered as a stated absence rather than refusing the
+// Packet — the same pattern the journeys block below uses.
+const MOVE_FIELDS_RENDERED_REQUIRED = ["technique", "question", "breaks"];
+const MOVE_FIELDS_RENDERED_OPTIONAL = ["draws_on"];
 
 // Read one field out of a Move record's folded-scalar form. The store is the
 // same one the Leg-Move instantiation contract's resolver reads, and this reads VALUES where that one reads
@@ -762,7 +765,7 @@ function moveField(text, field) {
   const m = text.match(new RegExp(`^${field}:\\s*(>-)?[ \\t]*\\n((?:[ \\t]+.*\\n?)*)`, "m"));
   // SPLIT ON A NEWLINE, not on the two-character sequence backslash-n (PR #780
   // round 1). The first form never split at all, so every real Move record —
-  // which wraps intent/constraints/failure_modes/excerpt across lines — reached
+  // which wraps technique/question/draws_on/breaks across lines — reached
   // the model's ENTIRE INPUT carrying its source newlines and two-space
   // indents. The self-test could not see it: its fixture records write
   // single-line folded scalars, so the fold was never exercised. Same
@@ -844,15 +847,15 @@ export function claimAt(leg, addr) {
 // must render the same bytes, and object key order is an accident of how the
 // file was written.
 export function figureFormFor(leg, movesDir = "moves") {
-  const r = visualFormOf(leg.move, movesDir);
+  const r = figureOf(leg.move, movesDir);
   if (r.error) return { error: `leg ${leg.leg_id}: ${r.error}` };
   if (!r.form) {
-    return { error: `leg ${leg.leg_id} declares figure: and its move "${leg.move}" carries no visual_form — a figure is the INSTANCE of its Move's form (the figure decision). Composition refuses this, so a Brief reaching realization with it has had its Move edited since` };
+    return { error: `leg ${leg.leg_id} declares figure: and its move "${leg.move}" carries no figure — a figure is the INSTANCE of its Move's form (the figure decision). Composition refuses this, so a Brief reaching realization with it has had its Move edited since` };
   }
   const kinds = figureKinds().kinds || {};
   const kind = r.form.kind;
   if (!kind || !Object.prototype.hasOwnProperty.call(kinds, kind)) {
-    return { error: `leg ${leg.leg_id}: move "${leg.move}" declares visual_form kind ${JSON.stringify(kind ?? null)}, outside the closed set (${Object.keys(kinds).sort().join(", ")}) — src/figure-kinds.json is what admits a kind` };
+    return { error: `leg ${leg.leg_id}: move "${leg.move}" declares figure kind ${JSON.stringify(kind ?? null)}, outside the closed set (${Object.keys(kinds).sort().join(", ")}) — src/figure-kinds.json is what admits a kind` };
   }
   const roles = kinds[kind].roles || [];
   return { kind, roles, relation: kinds[kind].relation, lines: Object.fromEntries(roles.map((x) => [x, r.form[x] ?? null])) };
@@ -865,7 +868,7 @@ export function figureFormFor(leg, movesDir = "moves") {
 export function renderFigureInput({ figureTemplate, packetText, leg, form, prose }) {
   const missing = form.roles.filter((r) => !form.lines[r]);
   if (missing.length) {
-    return { error: `leg ${leg.leg_id}: move "${leg.move}"'s ${form.kind} form maps no vocabulary line for ${missing.map((x) => `"${x}"`).join(", ")} — ingestion refuses such a form (the closed kind set and the Move's visual_form), so the library record has been edited since` };
+    return { error: `leg ${leg.leg_id}: move "${leg.move}"'s ${form.kind} form maps no vocabulary line for ${missing.map((x) => `"${x}"`).join(", ")} — ingestion refuses such a form (the closed kind set and the Move's figure), so the library record has been edited since` };
   }
   const binding = [];
   for (const role of form.roles) {
@@ -917,7 +920,7 @@ export function figureRecordRefusal(record, leg, form, schema) {
     return `${at} carries ${extra.map((x) => `"${x}"`).join(", ")}, which src/figure-schema.json does not define — the record's fields are ${[...known].sort().join(", ")}`;
   }
   if (record.kind !== form.kind) {
-    return `${at} declares kind ${JSON.stringify(record.kind)} and move "${leg.move}"'s visual_form is ${JSON.stringify(form.kind)} — the record is the INSTANCE of that form (the figure decision), so its kind is the form's and never a choice made at realization`;
+    return `${at} declares kind ${JSON.stringify(record.kind)} and move "${leg.move}"'s figure is ${JSON.stringify(form.kind)} — the record is the INSTANCE of that form (the figure decision), so its kind is the form's and never a choice made at realization`;
   }
   if (record.elements === null || typeof record.elements !== "object" || Array.isArray(record.elements)) {
     return `${at}: elements is one entry per role of the ${form.kind} form (${form.roles.join(", ")}), keyed by role`;
@@ -1132,14 +1135,10 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     // round 1). The constant carried the exclusion's whole justification and
     // was read by nothing, so it was a second statement of the rendered field
     // set that could drift from the renderer with no check noticing.
-    ...Object.fromEntries(MOVE_FIELDS_RENDERED.map((f) =>
+    ...Object.fromEntries(MOVE_FIELDS_RENDERED_REQUIRED.map((f) =>
       [`move_${f}`, need(`${leg.move}'s ${f}`, moveField(moveText, f))])),
-    // The exemplar renders its own STATED ABSENCE rather than a substitute
-    // (the Move exemplar predicate) — an empty excerpt is not a missing input, it is a record that
-    // cannot serve as an exemplar, and the Packet says so where the passage
-    // would have gone.
-    move_excerpt: moveField(moveText, "excerpt")
-      || `(none — this Move record carries no excerpt, so it cannot serve as an exemplar. Perform the Move from its contract above.)`,
+    ...Object.fromEntries(MOVE_FIELDS_RENDERED_OPTIONAL.map((f) =>
+      [`move_${f}`, moveField(moveText, f) || `(none — ${leg.move} records no ${f}.)`])),
     leg_id: leg.leg_id,
     purpose: need(`leg ${leg.leg_id}'s purpose`, legField(leg.body, "purpose")),
     reader_state_before: need(`leg ${leg.leg_id}'s reader_state_before`, legField(leg.body, "reader_state_before")),
@@ -1182,9 +1181,8 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     // cite, which the Brief's Strands section already holds, beside the
     // declared use in the schema's own words.
     //
-    // THE ABSENCE RENDERS ITS OWN LINE rather than an empty slot, on the
-    // ground the Move exemplar states: a hole in the model's ENTIRE input is
-    // a hole the model fills by invention.
+    // THE ABSENCE RENDERS ITS OWN LINE rather than an empty slot: a hole in
+    // the model's ENTIRE input is a hole the model fills by invention.
     journeys: (leg.journeys || []).length
       ? leg.journeys.map((j) => {
           const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
@@ -1829,19 +1827,20 @@ async function runSelfTest() {
   const movesDir = join(root, "moves");
   mkdirSync(movesDir, { recursive: true });
   for (const id of ["open_the_claim", "close_the_claim"]) {
-    // the Leg Packet renders intent/constraints/failure_modes and the excerpt, so the
+    // the Leg Packet renders technique/question/draws_on/breaks, so the
     // fixture records carry them — a store holding ids alone was enough for
     // the Leg-Move instantiation contract's membership test and is not enough for a Packet.
     writeFileSync(join(movesDir, `${id}.md`), [
-      `id: ${id}`, "status: observed",
+      `id: ${id}`,
       // THE FIXTURE RECORDS WRAP (PR #780 round 1). Single-line folded scalars
       // never exercised the fold, which is why a fold that did nothing shipped.
-      "intent: >-", `  what ${id} does to the reader,`, "  stated across two lines.",
-      "requires: >-", "  the state this move depends on.",
-      "effect: >-", "  the state this move produces.",
-      "constraints: >-", "  what a correct performance must not do.",
-      "failure_modes: >-", "  how it goes wrong when imitated badly.",
-      "excerpt: >-", "  the author's account of the movement they observed.",
+      "technique: >-", `  what ${id} does to the reader,`, "  stated across two lines.",
+      "before: >-", "  the state this move depends on.",
+      "after: >-", "  the state this move produces.",
+      "question: >-", "  holds: none",
+      "order: >-", "  the segment sequence and why it runs that way.",
+      "presupposes: >-", "  background the reader must already hold.",
+      "breaks: >-", "  what a correct performance must not do.",
     ].join("\n") + "\n");
   }
 
@@ -1976,19 +1975,19 @@ async function runSelfTest() {
     // THE AUTHORING COMMENT IS NOT THE MODEL'S INPUT.
     ok("the template's authoring comment is stripped from the packet",
       tpl.startsWith("<!--") && !p1.stdout.includes("<!--"));
-    // requires/effect EXCLUDED: the Leg's instantiated states win, and
+    // before/after EXCLUDED: the Leg's instantiated states win, and
     // rendering both would put the general and the specialized statement of one
     // thing side by side for the model to choose between.
     // ASSERTED AGAINST THE MOVE RECORD'S OWN VALUES, not against a label. The
-    // first form tested for the strings `**requires.**` / `**effect.**`, which
+    // first form tested for the strings `**before.**` / `**after.**`, which
     // only a template edit could produce — so a renderer that leaked the values
-    // under any other label passed. The fixture's requires/effect texts are
+    // under any other label passed. The fixture's before/after texts are
     // distinctive, and their ABSENCE from the rendered bytes is the property.
     const reqText = "the state this move depends on";
     const effText = "the state this move produces";
-    ok("the Move's requires/effect values are excluded from the packet",
+    ok("the Move's before/after values are excluded from the packet",
       !p1.stdout.includes(reqText) && !p1.stdout.includes(effText));
-    ok("the fixture's requires/effect are non-empty, so the exclusion is not vacuous",
+    ok("the fixture's before/after are non-empty, so the exclusion is not vacuous",
       readFileSync(join(movesDir, "open_the_claim.md"), "utf8").includes(reqText));
     ok("the Leg's instantiated states ARE present",
       /reader_state_before/.test(p1.stdout) && /reader_state_after/.test(p1.stdout));
@@ -2051,15 +2050,11 @@ async function runSelfTest() {
       ok("a tree carrying no skill and no spec renders the same packet, byte for byte",
         iso.status === 0 && iso.stdout === p1.stdout, (iso.stderr || "").slice(0, 240));
     }
-    // The exemplar's FORM-ONLY header is what stops the passage being read as
-    // content — the block whose absence fails worst.
-    // THE FOLD ACTUALLY FOLDS. The fixture's intent wraps across two lines, so
+    // THE FOLD ACTUALLY FOLDS. The fixture's technique wraps across two lines, so
     // a fold that does nothing renders them as two — the defect PR #780 round 1
     // found, which no mutation could reach because there was no guard to break.
     ok("a multi-line Move field is folded to one line in the packet",
       /what open_the_claim does to the reader, stated across two lines\./.test(p1.stdout));
-    ok("the exemplar carries its form-only usage header",
-      /FORM ONLY/.test(p1.stdout) && /do not reuse its/i.test(p1.stdout));
     // A DANGLING INPUT REFUSES BY NAME rather than rendering an empty slot: a
     // hole in the model's entire input is a hole it fills by invention.
     const bad = pk("nope");
@@ -2678,14 +2673,15 @@ async function runSelfTest() {
     // with, and would force the fixture to adopt a real Move id it does not
     // mean.
     writeFileSync(join(movesDir, "place_on_the_axis.md"), [
-      "id: place_on_the_axis", "status: observed",
-      "intent: >-", "  what place_on_the_axis does to the reader.",
-      "requires: >-", "  the state this move depends on.",
-      "effect: >-", "  the state this move produces.",
-      "constraints: >-", "  what a correct performance must not do.",
-      "failure_modes: >-", "  how it goes wrong when imitated badly.",
-      "excerpt: >-", "  the author's account of the movement they observed.",
-      "visual_form:",
+      "id: place_on_the_axis",
+      "technique: >-", "  what place_on_the_axis does to the reader.",
+      "before: >-", "  the state this move depends on.",
+      "after: >-", "  the state this move produces.",
+      "question: >-", "  holds: none",
+      "order: >-", "  the segment sequence and why it runs that way.",
+      "presupposes: >-", "  background the reader must already hold.",
+      "breaks: >-", "  what a correct performance must not do.",
+      "figure:",
       "  kind: axis",
       "  endpoint_a: the state the reader starts in",
       "  endpoint_b: the state the reader ends in",
@@ -2744,8 +2740,7 @@ async function runSelfTest() {
       ok("the use line carries the schema's own words for that use",
         jp.stdout.includes(legschema().journey.uses.illustrate));
       // THE ABSENCE RENDERS ITS OWN LINE. A hole in the model's entire input
-      // is a hole the model fills by invention, which is the ground the Move
-      // exemplar's stated absence already stands on.
+      // is a hole the model fills by invention (the Leg Packet).
       writeFileSync(join(jDir, "brief.md"), jBrief([]));
       const jWs2 = join(root, "ws-journey-none");
       const jp2 = spawnSync(process.execPath,

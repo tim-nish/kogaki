@@ -70,7 +70,7 @@
 //       SPEC-draft-pipeline
 //   the reader-knowledge ledger
 //       SPEC-draft-pipeline
-//   the Move exemplar predicate
+//   the Move exemplar predicate — RETIRED
 //       SPEC-draft-pipeline
 //   the Section grouping
 //       SPEC-draft-pipeline
@@ -633,7 +633,7 @@ export function validateLegs(legs, readerStart) {
 // makes every Brief composed before this field compose unchanged.
 //
 // THREE CONDITIONS, AND ONLY TWO OF THEM ARE MECHANICAL. The Leg's Move must
-// carry a `visual_form`; every role of that form must bind to one of THIS
+// carry a `figure`; every role of that form must bind to one of THIS
 // Leg's claims. The third — that the figure carries something — is the
 // composer's one judgment and is stated in the `figure:` line itself. Nothing
 // here reads that line for meaning, on the judgment rule's rule: a missing field is
@@ -706,7 +706,7 @@ export function figureRefusal(figure, figure_roles, at) {
   // alone is a half-declaration, and a half-declaration reaching #878 would be
   // a record with no form or a form with no reason.
   if (has && !hasRoles) {
-    return `${at}: figure: is declared with no figure_roles — every role of the Move's visual_form binds to one of this Leg's claims (the figure decision), and a figure with no bindings names nothing to render`;
+    return `${at}: figure: is declared with no figure_roles — every role of the Move's figure binds to one of this Leg's claims (the figure decision), and a figure with no bindings names nothing to render`;
   }
   if (!has && hasRoles) {
     return `${at}: figure_roles are declared with no figure: — the figure: line is the composer's statement of what the figure lets the reader hold, and bindings without it record a form nobody said carries anything (the figure decision)`;
@@ -715,11 +715,11 @@ export function figureRefusal(figure, figure_roles, at) {
     return `${at}: figure:, when present, is one line — what the figure lets the reader hold that the prose alone leaves hard to hold (the figure decision)`;
   }
   if (typeof figure_roles !== "object" || Array.isArray(figure_roles)) {
-    return `${at}: figure_roles is a flat mapping of the Move visual_form's roles to this Leg's claims, role=g<n> (the figure decision)`;
+    return `${at}: figure_roles is a flat mapping of the Move figure's roles to this Leg's claims, role=g<n> (the figure decision)`;
   }
   const entries = Object.entries(figure_roles);
   if (entries.length === 0) {
-    return `${at}: figure_roles is empty — every role of the Move's visual_form binds to one of this Leg's claims (the figure decision)`;
+    return `${at}: figure_roles is empty — every role of the Move's figure binds to one of this Leg's claims (the figure decision)`;
   }
   for (const [role, addr] of entries) {
     if (role === "kind") {
@@ -750,21 +750,21 @@ export function figureClaimRefusal(figure_roles, claimCount, at) {
   return null;
 }
 
-// The Move's `visual_form` block, read from the record and NOTHING ELSE READ
+// The Move's `figure` block, read from the record and NOTHING ELSE READ
 // WITH IT. `loadMoveIds` states why the library is read as ids alone — a
-// reader that parsed `requires`/`effect` would be one edit away from comparing
+// reader that parsed `before`/`after` would be one edit away from comparing
 // them, which is the lint the judgment rule forbids. That reasoning bounds this reader
-// rather than licensing it: `visual_form` is a SCHEMA OF ROLES carrying no
+// rather than licensing it: `figure` is a SCHEMA OF ROLES carrying no
 // words a reader sees (src/figure-kinds.json), so reading it compares nothing
 // about the Move's prose, and this function extracts that block only.
-export function visualFormOf(moveId, movesDir = "moves") {
+export function figureOf(moveId, movesDir = "moves") {
   let text;
   try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
   catch (e) {
     return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
   }
   const lines = text.split("\n");
-  const start = lines.findIndex((l) => /^visual_form:[ \t]*$/.test(l));
+  const start = lines.findIndex((l) => /^figure:[ \t]*$/.test(l));
   if (start === -1) return { form: null };
   const form = {};
   for (let i = start + 1; i < lines.length; i++) {
@@ -789,14 +789,14 @@ export function resolveFigureForms(legs, movesDir = "moves") {
   for (const s of legs) {
     if (s.figure === undefined || s.figure === null) continue;
     const at = `leg ${s.leg_id}`;
-    const r = visualFormOf(s.move, movesDir);
+    const r = figureOf(s.move, movesDir);
     if (r.error) return { error: `${at}: ${r.error}` };
     if (!r.form) {
-      return { error: `${at}: figure: is declared, and move "${s.move}" carries no visual_form — a figure is the INSTANCE of its Move's form (the figure decision), so a Move with no form leaves the declaration with nothing to be an instance of. Give the Move a form under its own issue (src/figure-kinds.json names the closed kind set), or drop the figure: from this Leg` };
+      return { error: `${at}: figure: is declared, and move "${s.move}" carries no figure — a figure is the INSTANCE of its Move's form (the figure decision), so a Move with no form leaves the declaration with nothing to be an instance of. Give the Move a form under its own issue (src/figure-kinds.json names the closed kind set), or drop the figure: from this Leg` };
     }
     const kind = r.form.kind;
     if (!kind || !Object.prototype.hasOwnProperty.call(kinds, kind)) {
-      return { error: `${at}: move "${s.move}" declares visual_form kind ${JSON.stringify(kind ?? null)}, which is outside the closed set (${Object.keys(kinds).sort().join(", ")}) — the Move library is what admits a kind, and ingestion refuses this record` };
+      return { error: `${at}: move "${s.move}" declares figure kind ${JSON.stringify(kind ?? null)}, which is outside the closed set (${Object.keys(kinds).sort().join(", ")}) — the Move library is what admits a kind, and ingestion refuses this record` };
     }
     const want = new Set(kinds[kind].roles || []);
     const have = new Set(Object.keys(s.figure_roles || {}));
@@ -842,7 +842,7 @@ export function figureClause(legs) {
 // THE LEG↔MOVE INSTANTIATION CONTRACT (the Leg-Move instantiation contract, kogaki#747; owner rulings
 // 2026-09-01). A Leg INSTANTIATES a Move: `move` names a record in the Move
 // library, and the Leg's reader_state_before/after are the instance forms of
-// that Move's `requires`/`effect`, specialized to this reader and these
+// that Move's `before`/`after`, specialized to this reader and these
 // Strands. The relationship has two halves and they are carried by DIFFERENT
 // machinery on purpose:
 //
@@ -855,12 +855,12 @@ export function figureClause(legs) {
 // Why the second is not a lint, restated because the temptation is real:
 // the judgment rule clause 3 holds that no MUST of the composition design becomes a lint
 // "even where deterministic processing is possible", and the constraints that survive's rider keeps
-// requires/effect matching judgment-class. Nothing below renders a verdict on
+// before/after matching judgment-class. Nothing below renders a verdict on
 // a specialization; the mechanism owns the record's SHAPE and the refusal.
 
 // The Move library, read as a SET OF IDS and nothing more. Reading only the
 // ids is deliberate: resolving the id is this half's whole job, and a reader
-// that parsed `requires`/`effect` would be one edit away from comparing them,
+// that parsed `before`/`after` would be one edit away from comparing them,
 // which is the lint the judgment rule forbids.
 export function loadMoveIds(movesDir = "moves") {
   let names;
@@ -922,7 +922,7 @@ export function resolveMoveIds(legs, movesDir = "moves") {
 // `loadMoveIds` above states why IT reads ids alone, and that statement bounds
 // this reader rather than being contradicted by it. The clause it names is
 // "one edit away from COMPARING them" — and comparing is exactly what nothing
-// here does. This reader RENDERS `requires` and `effect` into a judge's input
+// here does. This reader RENDERS `before` and `after` into a judge's input
 // and returns them to its caller verbatim; it matches no string against any
 // other, computes no verdict, and is never consulted by a validator that
 // decides whether a Leg's reader states hold. The specialization judgment
@@ -933,7 +933,7 @@ export function resolveMoveIds(legs, movesDir = "moves") {
 // asked about Move contracts they were never handed. `compose_path` composed
 // the `move` field with the field's NAME and no set of legal values, and
 // invented six ids that read like Moves; `judge_specialization` was asked to
-// judge each Leg's states as specializations of "the requires and effect its
+// judge each Leg's states as specializations of "the before and after its
 // bound Move declares" with no Move record in its input at all. A judge asked
 // about a record it was never given answers from nothing — which is what the
 // honest first attempt said, and what the re-ask then pressured into a
@@ -947,7 +947,7 @@ export function resolveMoveIds(legs, movesDir = "moves") {
 
 // One top-level scalar of a Move record. The record is a flat mapping whose
 // values are folded (`>-`) or literal (`|`) blocks, or plain inline scalars;
-// `visualFormOf` above reads the one NESTED block by the same dedent rule, and
+// `figureOf` above reads the one NESTED block by the same dedent rule, and
 // this reads the flat ones. Returns null where the field is absent, which the
 // callers refuse by name rather than papering over with an empty string.
 function moveScalarField(text, name) {
@@ -960,7 +960,7 @@ function moveScalarField(text, name) {
     if (marker !== "" && !/^[>|][-+]?$/.test(marker)) {
       // An inline scalar, quoted or bare. EMPTY IS ABSENT ON THIS ARM TOO, and
       // the symmetry is the point rather than tidiness (PR #1127 round 1): the
-      // block arm below reports an empty block as absent, so `requires: ""` on
+      // block arm below reports an empty block as absent, so `before: ""` on
       // this arm would be the one authoring form that yields a present-but-blank
       // contract — and a judge handed a blank to compare against is the shape
       // this whole reader exists to end, arriving one spelling over.
@@ -990,26 +990,26 @@ function moveScalarField(text, name) {
 // judgment is a comparison AGAINST — `src/brief-workflow.json`'s
 // `judge_specialization` names them in its own judgment_point — so the pair is
 // named here rather than the whole record being handed over: a reader given
-// `constraints` and `failure_modes` too would be a reader that had quietly
-// widened what the verdict is about.
+// `breaks` too would be a reader that had quietly widened what the verdict
+// is about.
 export function moveContract(moveId, movesDir = "moves") {
   let text;
   try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
   catch (e) {
     return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
   }
-  const requires = moveScalarField(text, "requires");
-  const effect = moveScalarField(text, "effect");
-  const missing = [requires === null ? "requires" : null, effect === null ? "effect" : null].filter(Boolean);
+  const before = moveScalarField(text, "before");
+  const after = moveScalarField(text, "after");
+  const missing = [before === null ? "before" : null, after === null ? "after" : null].filter(Boolean);
   if (missing.length) {
     // A STORE FAULT, NAMED AS ONE. A Move whose contract is half-written
     // cannot be judged against, and reporting it as a composition problem
     // would send the reader to the Brief rather than to the library.
     return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${movesDir}/${moveId}.md) — `
-      + `the specialization judgment is a comparison against a Move's requires and effect (the Leg-Move instantiation contract), `
+      + `the specialization judgment is a comparison against a Move's before and after (the Leg-Move instantiation contract), `
       + `so a record missing one leaves the judgment nothing to be a comparison against. Repair the Move record under its own issue.` };
   }
-  return { id: moveId, requires, effect };
+  return { id: moveId, before, after };
 }
 
 // THE WHOLE ADMITTED SET, for the composing state's input. Ordered by id so
@@ -1039,7 +1039,7 @@ export function moveContractsForLegs(legs, movesDir = "moves") {
   for (const s of legs) {
     const c = moveContract(s.move, movesDir);
     if (c.error) return { error: `leg ${s.leg_id}: ${c.error}` };
-    out.push({ leg_id: s.leg_id, move: s.move, requires: c.requires, effect: c.effect });
+    out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after });
   }
   return { contracts: out };
 }
@@ -1154,7 +1154,7 @@ export function validateSpecialization(record, legs, candidateId) {
     if (!passing.has(v.verdict)) {
       const why = v.verdict === "cannot-determine"
         ? `the judgment could not be reached against that Move's contract`
-        : `the instantiated reader states contradict that Move's requires/effect`;
+        : `the instantiated reader states contradict that Move's before/after`;
       return { error: `leg ${s.leg_id}: ${v.verdict} — ${why}. The judging sitting wrote: `
         + `"${v.why.trim()}" — a Leg whose instantiation does not hold is not adopted into a Brief (the Leg-Move instantiation contract). `
         + `Nothing was written.` };
@@ -1175,9 +1175,9 @@ export function validateSpecialization(record, legs, candidateId) {
 // disabled.
 //
 // WHAT THIS IS NOT. It renders no verdict on a specialization, reads no
-// Move's `requires`/`effect`, and compares nothing to anything. the judgment rule clause 3
+// Move's `before`/`after`, and compares nothing to anything. the judgment rule clause 3
 // and the constraints that survive are untouched: the record is carried to the owner AS GATE EVIDENCE,
-// which is exactly what the constraints that survive already says happens to requires/effect matching,
+// which is exactly what the constraints that survive already says happens to before/after matching,
 // and the owner approves a result, which is where the judgment rule clause 2 already sites
 // the human gate. The declined arm — a string-match anchor over the Move
 // contract — is the one that owed those sections an amendment.
@@ -1292,66 +1292,18 @@ export function validateOwnerAnswer(capture, gateId, digest) {
 }
 
 // ---------------------------------------------------------------------------
-// THE MOVE EXEMPLAR PREDICATE (the Move exemplar predicate, kogaki#751; owner rulings 2026-09-01
-// and 2026-09-02).
+// THE MOVE EXEMPLAR PREDICATE — RETIRED (SPEC-draft-pipeline §4.13.1, kogaki#1175).
 //
-// `specs/move-extraction-contract.md` is the schema authority for Move
-// records: `excerpt` carries the author's own few-line account of the reader
-// movement they observed when they identified the Move — the passage or
-// transition they focused on, in their words. It is NOT a verbatim quotation
-// of the source (owner ruling 2026-09-02): a Move derived at a meta level from
-// a 10,000-character article is not served by 10,000 characters pasted into
-// the record, and a verbatim requirement would lower the excerpt's value
-// rather than raise it. What a later writer imitates is the movement, and the
-// author's account of it is the exemplar.
-//
-// THE FIELD WAS RENAMED, NOT REPLACED. The records' former `sources` text was
-// already this account — the cleanup at kogaki#548 stripped the ingestion
-// routing that had contaminated the field, and what it left was the excerpt
-// under the wrong name. No separate "source document" slot exists in a record;
-// the article's title inside the excerpt's prose is the whole of its
-// provenance, and git holds the rest.
-//
-// The predicate is therefore: a record whose `excerpt` carries text is an
-// exemplar; one whose `excerpt` is empty CANNOT SERVE AS A PACKET EXEMPLAR,
-// and the Packet renders a STATED ABSENCE rather than substituting anything.
-// Every one of this repository's 22 records carries an excerpt today.
-
-// Reads a Move record's `excerpt` text. Returns the excerpt, or the reason
-// there is none — never a substitute, and never an empty string standing in
-// for an account.
-export function moveExcerpt(excerptText) {
-  const t = typeof excerptText === "string" ? excerptText : "";
-  // Folded-scalar indentation is presentation, not content: the field is
-  // authored as `excerpt: >-` with its lines indented two spaces, and a reader
-  // comparing the excerpt to what the author wrote should see the author's
-  // words, not the file's margin.
-  const body = t.split("\n").map((l) => l.replace(/^[ \t]+/, "")).join("\n").trim();
-  if (body === "") {
-    return {
-      excerpt: null,
-      absence: `this record's excerpt is empty — it holds no account of the reader movement the author observed, so it cannot serve as an exemplar (the Move exemplar predicate). Author one through specs/move-extraction-contract.md: a few lines, in your own words, naming the movement that led you to the Move.`,
-    };
-  }
-  return { excerpt: body, absence: null };
-}
-
-// Can this record stand as the exemplar a writer imitates?
-export function isExemplar(excerptText) {
-  return moveExcerpt(excerptText).excerpt !== null;
-}
-
-// The Packet's excerpt block, rendered. A STATED ABSENCE is a rendering and
-// never an error: the assembler that meets an empty excerpt says so in the
-// block where the account would have gone, so a reader knows they are looking
-// at a gap rather than at a short exemplar.
-export function renderExcerptBlock(moveId, excerptText) {
-  const r = moveExcerpt(excerptText);
-  if (r.excerpt === null) {
-    return `exemplar (${moveId}): NONE — ${r.absence}`;
-  }
-  return `exemplar (${moveId}):\n${r.excerpt}`;
-}
+// This section used to make a Move record's `excerpt` field the Packet's
+// exemplar: a record whose `excerpt` carried text served as what a later
+// writer imitates, rendered by `moveExcerpt`/`isExemplar`/`renderExcerptBlock`,
+// which stood here. `excerpt` is retired with the rest of the eight-field
+// schema; `evidence`, the field a reader might reach for in its place, does
+// NOT inherit the role (owner ruling 7, kogaki#1173, 2026-09-23) — it is
+// optional, typically empty, and read by nothing downstream (§4.2's role
+// table). The Leg Packet's Move block is `technique`, `question`, `draws_on`,
+// `breaks` (§4.14); none of the four is source text a writer imitates
+// verbatim.
 
 // ---------------------------------------------------------------------------
 // THE READER-KNOWLEDGE LEDGER (the reader-knowledge ledger, kogaki#751; owner ruling 2026-09-01).

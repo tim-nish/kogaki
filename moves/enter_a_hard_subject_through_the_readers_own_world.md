@@ -12,10 +12,9 @@ after: >-
   and places itself inside it; trust: raised — the author has admitted
   something against their own interest
 question: >-
-  holds: none
-  raises: why is everyone reading about this subject now
-  settles: why is everyone reading about this subject now
-  raises: what is unstable now — left for the book
+  holds: none raises: why is everyone reading about this subject now
+  settles: why is everyone reading about this subject now raises: what is
+  unstable now — left for the book
 order: >-
   advances, advances, advances, raises, advances, raises, settles, settles.
   Every foothold lands before the first claim that needs the subject, and
@@ -32,9 +31,8 @@ technique: >-
   it in one sentence.
 breaks: >-
   remove: the author's opening admission — the genre survey reads as
-  promotion and trust does not rise.
-  reorder: put the question before the survey — no footing exists yet and
-  no reason to care about the answer.
+  promotion and trust does not rise. reorder: put the question before the
+  survey — no footing exists yet and no reason to care about the answer.
   extend: add explanatory paragraphs before the question — the first
   specialist claim arrives before the footholds are set and the reader is
   back to expecting a textbook.

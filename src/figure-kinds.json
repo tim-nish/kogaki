@@ -7,10 +7,10 @@
     "`relation` states in one line what holds between them. Neither is",
     "rendered to a reader, and nothing here is subject matter.",
     "",
-    "A Move's optional `visual_form` block names one `kind` from this set and",
+    "A Move's optional `figure` block names one `kind` from this set and",
     "maps EVERY role of that kind into the Move's own vocabulary - the terms",
-    "its `requires`/`effect`/`intent` already use. Ingestion validates exactly",
-    "three things (the closed kind set and the Move's visual_form): the kind",
+    "its `before`/`after`/`technique` already use. Ingestion validates exactly",
+    "three things (the closed kind set and the Move's figure): the kind",
     "exists, every role of that kind is mapped, and no extra role is mapped.",
     "It judges no wording.",
     "",
@@ -33,7 +33,7 @@
     "already drifted into eight variants, which is what kogaki#982 collapsed.",
     "",
     "THE NAMES THIS FILE USES, and the spec each one names:",
-    "  the closed kind set and the Move's visual_form",
+    "  the closed kind set and the Move's figure",
     "      SPEC-draft-pipeline"
   ],
   "kinds": {

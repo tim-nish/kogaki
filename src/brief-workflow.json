@@ -169,7 +169,7 @@
     {
       "id": "judge_specialization",
       "kind": "judgment",
-      "judgment_point": "judge, per Leg of the SELECTED Candidate, whether its reader_state_before and reader_state_after are consistent SPECIALIZATIONS of the requires and effect its bound Move declares, which this ask's input carries per Leg as `move_contracts`, verbatim from the Move record",
+      "judgment_point": "judge, per Leg of the SELECTED Candidate, whether its reader_state_before and reader_state_after are consistent SPECIALIZATIONS of the before and after its bound Move declares, which this ask's input carries per Leg as `move_contracts`, verbatim from the Move record",
       "input_shape": "a record carrying one verdict per Leg of the selected Candidate, each naming the leg_id, the verdict from the schema's closed set, and the reasoning the verdict rests on",
       "schema_file": "src/specialization-schema.json",
       "refusal": "a verdict outside the closed set; a Leg of the selected Candidate carrying no verdict; a verdict naming a leg_id the Candidate does not carry; a `contradicts` verdict, which refuses in path order and writes nothing; A `cannot-determine` VERDICT, WHICH IS TERMINAL RATHER THAN RE-ASKABLE -- the run stops naming the Leg and quoting the judge's own sentence, and `refusals_repaired` never counts it, because a verdict that was not reachable from this input is not reachable from the same input on a second ask (kogaki#1125)",

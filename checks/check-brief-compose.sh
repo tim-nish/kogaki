@@ -37,6 +37,7 @@ import { spawnSync } from "node:child_process";
 import { validateLegs, fillBrief, selectedStrands, placements, renderLeg,
          journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest,
          closureRowsForLeg } from "./src/compose.mjs";
+import * as compose from "./src/compose.mjs";
 // THE ROUND TRIP'S OTHER END (kogaki#1111). `parseLegBlockBody` is the Brief
 // parser's one reader of a leg block, and the Journey line's writer is
 // `renderLeg` above — asserting the pair here is what keeps a writer and a
@@ -46,8 +47,7 @@ import { parseLegBlockBody, renderPacket, splitPacketTemplate, parseBrief,
 import { moveContract, loadMoveContracts, moveContractsForLegs } from "./src/compose.mjs";
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
-         moveExcerpt, isExemplar, renderExcerptBlock,
-         figureRefusal, figureClaimRefusal, resolveFigureForms, visualFormOf,
+         figureRefusal, figureClaimRefusal, resolveFigureForms, figureOf,
          figureClause, figureLegs, renderFigureRoles, parseFigureRoles, figureKinds } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
 import { NO_HEADLINE, NO_SHARD_NAME, composeGateCall } from "./src/terrain.mjs";
@@ -238,8 +238,8 @@ const judgeStub = ({ danglingMove = null, specVerdict = null, undeclaredLedger =
   '    process.stderr.write("compose_path carried no moves_you_may_bind\\n"); process.exit(5);',
   '  }',
   '  for (const m of LIB) {',
-  '    if (!m || typeof m.id !== "string" || typeof m.requires !== "string" || typeof m.effect !== "string") {',
-  '      process.stderr.write("a moves_you_may_bind entry carries no id/requires/effect\\n"); process.exit(6);',
+  '    if (!m || typeof m.id !== "string" || typeof m.before !== "string" || typeof m.after !== "string") {',
+  '      process.stderr.write("a moves_you_may_bind entry carries no id/before/after\\n"); process.exit(6);',
   '    }',
   '  }',
   '  const MOVES = ' + (danglingMove === null
@@ -384,14 +384,14 @@ const briefPath = join(theses, "compose-case", "brief.md");
 //
 // The records hold ONLY an id line. That is not laziness: `loadMoveIds` reads
 // the store as a set of ids and nothing else (§4.12's mechanical half is a
-// membership test), so a fixture carrying `requires`/`effect` would suggest
+// membership test), so a fixture carrying `before`/`after` would suggest
 // the resolver reads them.
 const MOVES = join(dir, "moves");
 mkdirSync(MOVES, { recursive: true });
 for (const id of ["state-claim-in-working-form", "worked-example", "generalize-from-the-seen-case"]) {
-  writeFileSync(join(MOVES, `${id}.md`), `id: ${id}\nstatus: observed\n`);
+  writeFileSync(join(MOVES, `${id}.md`), `id: ${id}\n`);
 }
-// §4.16 (kogaki#877): ONE fixture Move carrying a `visual_form`, so the
+// §4.16 (kogaki#877): ONE fixture Move carrying a `figure`, so the
 // adoption seat's figure half can be exercised against this library. The three
 // above deliberately carry none — a figure on any of them is the formless case.
 // A TWO-ROLE KIND, and the count is load-bearing since kogaki#1108: a Leg
@@ -400,8 +400,12 @@ for (const id of ["state-claim-in-working-form", "worked-example", "generalize-f
 // library is exercised against closes over two, which is what selects `chain`
 // here. See the note at `figLegOf` in (x).
 writeFileSync(join(MOVES, "chain-form-move.md"),
-  "id: chain-form-move\nstatus: observed\nvisual_form:\n  kind: chain\n"
+  "id: chain-form-move\nfigure:\n  kind: chain\n"
   + "  stages: the ordered stages\n  bottlenecks: where each stage held\n");
+// (v)'s own `axis`-kind fixture, for kogaki#1175's figure-decision cases, is
+// minted in that case's own directory rather than here — this outer `MOVES`
+// dir is torn down by the try/finally above before (v) runs, and a fixture
+// written into it here would be read from a directory already gone.
 // A CONFORMING specialization record for a Candidate — composed HERE, by the
 // check, standing in for the judging sitting. The runtime under test composes
 // none, which is the property (c) below asserts by removing this.
@@ -851,13 +855,11 @@ try {
       // the Move contract rather than on its own subject. The record below
       // carries exactly the fields `MOVE_FIELDS_RENDERED` names, and nothing
       // asserted here reads any of them.
-      const moveText = [`id: ${leg.move}`, "status: observed",
-        "intent: a fixture intent, not this case's subject",
-        "requires: a fixture precondition, not this case's subject",
-        "effect: a fixture effect, not this case's subject",
-        "constraints: a fixture constraint, not this case's subject",
-        "failure_modes: a fixture failure mode, not this case's subject",
-        "excerpt: a fixture excerpt, not this case's subject", ""].join("\n");
+      const moveText = [`id: ${leg.move}`,
+        "technique: a fixture technique, not this case's subject",
+        "question: a fixture question, not this case's subject",
+        "draws_on: a fixture foothold, not this case's subject",
+        "breaks: a fixture break, not this case's subject", ""].join("\n");
       const row = readerKnowledgeLedger(brief.legs).find((r) => r.leg_id === legId);
       return renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
         ledgerRow: row, section: sectionOfLeg(brief.legs).get(legId), sections: sectionsOf(brief.legs) });
@@ -1749,7 +1751,7 @@ try {
   // (PR #1127 round 1). `moveContract` reads two flat scalars, and a Move record
   // may write either as a folded block or inline. The block arm reported an
   // empty block as absent from the start; the inline arm did not, so
-  // `requires: ""` was the one spelling that produced a present-but-BLANK
+  // `before: ""` was the one spelling that produced a present-but-BLANK
   // contract and sent the judge a blank to compare against — the shape
   // kogaki#1125 exists to end, arriving one authoring form over.
   //
@@ -1764,25 +1766,25 @@ try {
     // The control, FIRST: without it every refusal below could be a reader that
     // refuses everything.
     writeFileSync(join(EMPTY, "inline-filled.md"),
-      "id: inline-filled\nstatus: observed\nrequires: the reader holds the claim loosely\n"
-      + "effect: the reader holds the claim in working form\n");
+      "id: inline-filled\nbefore: the reader holds the claim loosely\n"
+      + "after: the reader holds the claim in working form\n");
     const okInline = moveContract("inline-filled", EMPTY);
     if (okInline.error) {
       fails.push(`(ah) an inline-scalar Move contract was REFUSED: ${okInline.error}`);
-    } else if (okInline.requires !== "the reader holds the claim loosely") {
-      fails.push(`(ah) an inline-scalar requires was read as ${JSON.stringify(okInline.requires)} — the contract reaches the judge as something other than what the record says`);
+    } else if (okInline.before !== "the reader holds the claim loosely") {
+      fails.push(`(ah) an inline-scalar before was read as ${JSON.stringify(okInline.before)} — the contract reaches the judge as something other than what the record says`);
     }
     for (const [name, body, why] of [
-      ["inline-empty", 'id: inline-empty\nstatus: observed\nrequires: ""\neffect: the reader is further on\n',
+      ["inline-empty", 'id: inline-empty\nbefore: ""\nafter: the reader is further on\n',
         "an inline empty string"],
-      ["block-empty", "id: block-empty\nstatus: observed\nrequires: >-\neffect: the reader is further on\n",
+      ["block-empty", "id: block-empty\nbefore: >-\nafter: the reader is further on\n",
         "an empty folded block"],
     ]) {
       writeFileSync(join(EMPTY, `${name}.md`), body);
       const r = moveContract(name, EMPTY);
       if (!r.error) {
-        fails.push(`(ah) a Move whose requires is ${why} was read as CARRYING a contract (${JSON.stringify(r.requires)}) — the judge is handed a blank to compare its verdict against, which is indistinguishable at the ask from a contract that says nothing`);
-      } else if (!/declares no requires/.test(r.error)) {
+        fails.push(`(ah) a Move whose before is ${why} was read as CARRYING a contract (${JSON.stringify(r.before)}) — the judge is handed a blank to compare its verdict against, which is indistinguishable at the ask from a contract that says nothing`);
+      } else if (!/declares no before/.test(r.error)) {
         fails.push(`(ah) the ${why} refusal does not name the missing field: ${r.error}`);
       }
     }
@@ -1821,7 +1823,7 @@ try {
     ranCase("x");
     // AN N-ROLE FORM NOW COSTS N STRANDS (kogaki#1108), and that is a
     // consequence of the claim rule rather than a fixture convenience. Every
-    // role of a Move's `visual_form` binds to one of THIS Leg's claims, and a
+    // role of a Move's `figure` binds to one of THIS Leg's claims, and a
     // Leg carries at most one claim per Strand — so a figure is composable
     // only by a Leg drawing on as many Strands as its kind declares roles.
     //
@@ -1869,7 +1871,7 @@ try {
     const adForm = adoptCandidate(doc0, { candidates: [candA, formlessCand] }, "cand-2",
       inst(formlessCand, {}, { candidates: [candA, formlessCand] }));
     if (!adForm.error || !/worked-example/.test(adForm.error)) {
-      fails.push(`(x) adoption ACCEPTED a figure on a Move with no visual_form, or refused without naming the Move: ${JSON.stringify(adForm.error || null)}`);
+      fails.push(`(x) adoption ACCEPTED a figure on a Move with no figure, or refused without naming the Move: ${JSON.stringify(adForm.error || null)}`);
     }
     const emptyStore = loadMoveIds(theses);
     if (!emptyStore.error || !/no Move records/.test(emptyStore.error)) fails.push("(k) a readable directory holding no Move records was accepted as a library");
@@ -2069,11 +2071,11 @@ try {
     if (specializationDigest(rejudged, candB.legs) === specializationDigest(judgmentFree, candB.legs)) fails.push("(s) changing a VERDICT left the digest unchanged — the disclosure would name one record for two judgments");
   }
 
-  // (m) §4.13 — THE READER-KNOWLEDGE LEDGER, and §4.13.1's exemplar predicate
-  // (kogaki#751). Both are SHAPE and DERIVATION only: whether a term is really
-  // introduced here, whether its anchor explains it, and whether an excerpt is
-  // the right passage are judgments (§4.6 clause 3), and nothing below reads
-  // meaning.
+  // (m) §4.13 — THE READER-KNOWLEDGE LEDGER, and §4.13.1's exemplar predicate,
+  // RETIRED (kogaki#1175). The ledger is SHAPE and DERIVATION only: whether a
+  // term is really introduced here and whether its anchor explains it are
+  // judgments (§4.6 clause 3), and nothing below reads meaning. The exemplar
+  // predicate that used to stand beside it is gone with `excerpt`.
   ranCase("m");
   {
     // THE FIELD IS OPTIONAL, and that is asserted first: every existing Leg
@@ -2154,66 +2156,34 @@ try {
     if (lines.length !== 2) fails.push(`(m) renderLeg wrote ${lines.length} introduces line(s) for two entries — a joined field cannot be parsed back`);
     if (!lines[0].includes("opacity — what a state conceals, in practice")) fails.push("(m) the entry did not survive serialization intact");
 
-    // §4.13.1 — THE EXEMPLAR PREDICATE, over the `excerpt` field (owner ruling
-    // 2026-09-02: the excerpt is the author's own account of the reader
-    // movement, never a verbatim quotation, and the field the records already
-    // carried under the name `sources` WAS that account). A record whose
-    // excerpt carries text is an exemplar; an empty one is not, and the block
-    // STATES the absence rather than substituting anything.
-    const acct = `Observed in "An Article." The passage first establishes X,\n  then shows the reader that Y follows.`;
-    if (!isExemplar(acct)) fails.push("(m) a record carrying an author's account of the reader movement was refused as an exemplar — the excerpt is that account, not a quotation");
-    if (moveExcerpt(acct).excerpt !== `Observed in "An Article." The passage first establishes X,\nthen shows the reader that Y follows.`) fails.push("(m) the excerpt did not read back as authored, with the folded scalar's margin removed and nothing else touched");
-    // A VERBATIM-LOOKING excerpt is neither required nor privileged: the old
-    // `Excerpt:` marker is plain text now, and a record carrying it is an
-    // exemplar because it carries an account, not because of the marker.
-    const marked = `Excerpt: "the passage, verbatim"`;
-    if (!isExemplar(marked)) fails.push("(m) a record whose excerpt happens to contain the retired marker was refused — the marker is text, and the predicate reads presence of an account only");
-    if (moveExcerpt(marked).excerpt !== marked) fails.push("(m) the retired marker was PARSED rather than read as text — a quotation is not a privileged form of excerpt");
-    // AN EMPTY EXCERPT is the one absence: it claims a field and supplies no
-    // account, so the block says so and names the repairing act.
-    for (const [label, empty] of [["an empty string", ""], ["whitespace only", "  \n  "], ["a non-string", undefined]]) {
-      const r = moveExcerpt(empty);
-      if (r.excerpt !== null) fails.push(`(m) ${label} was admitted as an exemplar`);
-      if (!/empty/.test(r.absence || "")) fails.push(`(m) the absence for ${label} does not say the excerpt is empty`);
+    // §4.13.1 — THE EXEMPLAR PREDICATE IS RETIRED (kogaki#1175). `excerpt` is
+    // gone with the rest of the eight-field schema, `moveExcerpt`/`isExemplar`/
+    // `renderExcerptBlock` stood here and are gone with it, and `evidence` —
+    // the field a reader might reach for in `excerpt`'s place — does NOT
+    // inherit the role (owner ruling 7, kogaki#1173, 2026-09-23): it is
+    // optional, typically empty, and read by nothing downstream. Asserted
+    // rather than left silent, on the same ground the retirement itself
+    // states: a reader who remembers "exemplar" should find why it is gone.
+    if (typeof compose.moveExcerpt === "function" || typeof compose.isExemplar === "function"
+      || typeof compose.renderExcerptBlock === "function") {
+      fails.push("(m) the retired Move exemplar predicate (moveExcerpt/isExemplar/renderExcerptBlock) is still exported from src/compose.mjs — §4.13.1 retires it in full");
     }
-    const block = renderExcerptBlock("some_move", "");
-    if (!/NONE/.test(block)) fails.push("(m) the Packet's excerpt block does not STATE the absence");
-    if (!/some_move/.test(block)) fails.push("(m) the stated absence does not name the Move it is about");
-    if (!/move-extraction-contract/.test(block)) fails.push("(m) the stated absence does not name the act that repairs it");
-    const full = renderExcerptBlock("some_move", acct);
-    if (!/^exemplar \(some_move\):\n/.test(full) || !/then shows the reader/.test(full)) fails.push("(m) the Packet's excerpt block does not render the author's account under the Move's name");
 
     // THE LIBRARY AS IT STANDS, read rather than asserted. Every record
-    // carries an excerpt today (the rename at kogaki#751 made the field's
-    // content what it always was), and the count is still DISCLOSED rather
-    // than asserted, for the reason below.
+    // carries the rebuilt §4.2 schema; none carries `excerpt`, `sources` or
+    // `status`, which the eight-field schema retired along with the field.
     const store = loadMoveIds("moves");
     if (store.error) fails.push(`(m) the repository's Move library could not be read: ${store.error}`);
     else {
-      let exemplars = 0;
       for (const id of store.ids) {
         const txt = readFileSync(`moves/${id}.md`, "utf8");
-        // BOTH AUTHORED FORMS (PR #777 round 1). The split matched only the
-        // folded-scalar HEADER (`excerpt: >-`), so a record authored inline
-        // (`excerpt: one line`) yielded the empty string, counted as a
-        // non-exemplar, and the disclosed "N of 22" under-reported with
-        // nothing saying why. It cannot go red — the line is disclosed, never
-        // asserted — which is exactly what makes an under-report here silent.
-        // Every record in the tree uses `>-` today; the read no longer
-        // depends on that staying true.
-        const src = (txt.split(/^excerpt:[ \t]*/m)[1] || "").replace(/^>-?[ \t]*\n/, "");
-        if (isExemplar(src)) exemplars++;
-        if (/^sources:/m.test(txt)) fails.push(`(m) moves/${id}.md carries a \`sources\` field — the field is \`excerpt\` (kogaki#751, 2026-09-02), and a surviving \`sources\` beside it is the design error the rename exists to remove`);
+        for (const retired of ["excerpt", "sources", "status", "requires", "effect", "constraints", "failure_modes", "intent", "visual_form"]) {
+          if (new RegExp(`^${retired}:`, "m").test(txt)) {
+            fails.push(`(m) moves/${id}.md carries a \`${retired}\` field — the eight-field schema retired it (kogaki#1175)`);
+          }
+        }
       }
-      // DISCLOSED, NEVER ASSERTED. The first form of this line failed when
-      // the count moved off zero — which is to say it went red exactly when
-      // the re-extraction this predicate exists to enable was performed. A
-      // check anti-correlated with its own need "is worse than no check,
-      // because its silence reads as a clean result"
-      // (product-lab topics/archive/claude-code-ops.md:24). The count is
-      // rendered instead, so a reader sees the library's state move without
-      // the suite obstructing the move.
-      exemplarLine = `${exemplars} of ${store.ids.size} Move record(s) carry an excerpt and can serve as exemplars`;
+      exemplarLine = `${store.ids.size} Move record(s) in the library, none carrying the retired exemplar field`;
     }
   }
 
@@ -2518,13 +2488,13 @@ try {
                         fails.push(`(af) the compose_path ask carries a Move set that is not the library's (${got}) — the composer is told the ids it may bind, so a set that is not the admitted set is a different closed world from the one adoption resolves against`);
                       }
                       // THE CONTRACT, NOT ONLY THE ID. An id list makes the
-                      // field fillable; the requires/effect pair is what makes
+                      // field fillable; the before/after pair is what makes
                       // it decidable, and it is the same pair the
                       // specialization judgment is a comparison against.
                       for (const m of lib) {
-                        if (typeof m.requires !== "string" || m.requires.trim() === ""
-                          || typeof m.effect !== "string" || m.effect.trim() === "") {
-                          fails.push(`(af) the Move ${JSON.stringify(m.id)} reaches the composer without its requires/effect — a Leg BINDS the Move whose contract its reader states specialize, so an id alone leaves the binding undecidable`);
+                        if (typeof m.before !== "string" || m.before.trim() === ""
+                          || typeof m.after !== "string" || m.after.trim() === "") {
+                          fails.push(`(af) the Move ${JSON.stringify(m.id)} reaches the composer without its before/after — a Leg BINDS the Move whose contract its reader states specialize, so an id alone leaves the binding undecidable`);
                           break;
                         }
                       }
@@ -2534,7 +2504,7 @@ try {
                       // the contract it is judging against.
                       const one = lib[0];
                       const text = readFileSync(join(rt, "moves", `${one.id}.md`), "utf8");
-                      for (const [field, value] of [["requires", one.requires], ["effect", one.effect]]) {
+                      for (const [field, value] of [["before", one.before], ["after", one.after]]) {
                         const head = value.split(" ").slice(0, 4).join(" ");
                         if (head && !text.replace(/\s+/g, " ").includes(head)) {
                           fails.push(`(af) ${one.id}'s ${field} in the ask does not appear in moves/${one.id}.md — the contract reaches the judge as a paraphrase rather than as the record`);
@@ -2547,7 +2517,7 @@ try {
                 // ---- (ag) THE SPECIALIZATION ASK CARRIES THE CONTRACT IT
                 // JUDGES AGAINST (kogaki#1125). The state's judgment_point asks
                 // whether each Leg's states are specializations of "the
-                // requires and effect its bound Move declares", and its input
+                // before and after its bound Move declares", and its input
                 // carried `{ state, candidate_id, legs_you_must_judge }` and
                 // nothing else — so the judge was asked about a record it was
                 // never given, answered `cannot-determine`, and was re-asked
@@ -2566,7 +2536,7 @@ try {
                     const legs = input.legs_you_must_judge || [];
                     const contracts = input.move_contracts;
                     if (!Array.isArray(contracts)) {
-                      fails.push("(ag) the judge_specialization ask carries no `move_contracts` — the verdict is a comparison against a Move's requires and effect, and the judge is handed neither");
+                      fails.push("(ag) the judge_specialization ask carries no `move_contracts` — the verdict is a comparison against a Move's before and after, and the judge is handed neither");
                     } else if (contracts.length !== legs.length) {
                       fails.push(`(ag) the ask carries ${contracts.length} Move contract(s) for ${legs.length} Leg(s) — the judgment is per Leg, so a Leg whose contract is absent is a verdict with nothing behind it`);
                     } else {
@@ -2585,7 +2555,7 @@ try {
                           fails.push(`(ag) the fixture cannot read ${c.move}'s record to bind the ask against: ${want.error}`);
                           break;
                         }
-                        if (c.requires !== want.requires || c.effect !== want.effect) {
+                        if (c.before !== want.before || c.after !== want.after) {
                           fails.push(`(ag) ${c.move}'s contract in the ask is not the record's — the judge compares against what it is handed, so a reworded contract moves the verdict without moving the Move`);
                           break;
                         }
@@ -4249,7 +4219,7 @@ ranCase("r-plain-labels");
   }
 }
 
-console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
+console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, the exemplar predicate is retired; the count is disclosed rather than compared against a stored expectation)`);
 // kogaki#822 acceptance 5, and kogaki#661's defect: the count below is a CLAIM,
 // and a claim compared against nothing reports a silently lost case as a green
 // pass. The floor lives in checks/registry.json and the count lives here, so
@@ -4263,10 +4233,13 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // THE TWO MECHANICAL CONDITIONS ARE ASSERTED WHERE EACH ONE LIVES. The grammar
 // and the claim addressing are pure and refuse at `validateLegs`; whether the
 // Move declares a form at all needs the library and refuses at
-// `resolveFigureForms`. Asserting both against the REAL Move library is
-// deliberate — `introduce_paired_conceptual_axis` is the shipped record
-// kogaki#876 admitted, so acceptance 1 is exercised against the store a
-// composer actually binds to rather than a fixture that could drift from it.
+// `resolveFigureForms`. Asserted against the FIXTURE library (the `MOVES`
+// dir this file already maintains, carrying `chain-form-move`) rather than
+// the real one: kogaki#1175 retired every one of the shipped 22 Moves,
+// `introduce_paired_conceptual_axis` among them, so a real-library assertion
+// would now be exercising a store this issue emptied rather than the one a
+// composer binds to. An `axis`-kind fixture stands beside `chain-form-move`
+// for this case alone.
 //
 // THE THIRD CONDITION IS NOT ASSERTED, and that is stated rather than left to
 // be read as an omission: whether the figure CARRIES something is the
@@ -4274,12 +4247,25 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // lint over a judgment — a missing field is refused, a weak one is not.
 ranCase("v");
 {
+  // A FIXTURE LIBRARY OF ITS OWN, MINTED HERE (kogaki#1175). This case's
+  // `MOVES` records used to live in the outer `MOVES` dir, which the
+  // try/finally above already tore down by the time this case runs — the
+  // outer dir's finally is the check's global cleanup, not a per-case scope,
+  // so a fixture written into it and read after it is read from a directory
+  // that no longer exists. A directory of its own, minted and removed only by
+  // this case, is what keeps that ordering from mattering here.
+  const MOVES_V = mkdtempSync(join(tmpdir(), "brief-compose-v-"));
+  writeFileSync(join(MOVES_V, "axis-form-move.md"),
+    "id: axis-form-move\nfigure:\n  kind: axis\n"
+    + "  endpoint_a: the state the reader starts in\n  endpoint_b: the state the reader ends in\n"
+    + "  criterion: what the two are being compared on\n");
+  writeFileSync(join(MOVES_V, "state-claim-in-working-form.md"), "id: state-claim-in-working-form\n");
   const F = (id, extra = {}) => ({
     // THREE ROLES, THREE STRANDS (kogaki#1108) — see the note at `figLegOf`
     // in (x). The addressing this block asserts is `g<n>` over the Leg's own
     // claims and is unchanged; what changed is that three claims now require
     // three Strands to hang on.
-    leg_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1", "L2", "L3"], purpose: "p",
+    leg_id: id, move: "axis-form-move", materials: ["L1", "L2", "L3"], purpose: "p",
     reader_state_before: "a", reader_state_after: "b", depends_on: [],
     rationale: "r",
     claims: [
@@ -4299,15 +4285,15 @@ ranCase("v");
     fails.push(`(v) a path declaring NO figure is refused — the field is optional and its default is none (§4.16): ${err([open(F("s1"))])}`);
   }
   // ACCEPTANCE 1, positive half: all three roles bound passes composition,
-  // BOTH halves — the pure one and the Move-dependent one against the real
-  // library.
+  // BOTH halves — the pure one and the Move-dependent one against the
+  // fixture library.
   const goodPath = [open(F("s1", AXIS))];
   if (err(goodPath)) {
     fails.push(`(v) a fully bound axis figure is refused at validateLegs: ${err(goodPath)}`);
   }
-  const goodForm = resolveFigureForms(goodPath, "moves");
+  const goodForm = resolveFigureForms(goodPath, MOVES_V);
   if (goodForm.error) {
-    fails.push(`(v) a fully bound axis figure is refused against the real Move library: ${goodForm.error}`);
+    fails.push(`(v) a fully bound axis figure is refused against the fixture Move library: ${goodForm.error}`);
   } else if (goodForm.figures !== 1) {
     fails.push(`(v) the form resolution counted ${goodForm.figures} figure-carrying Leg(s), not 1`);
   }
@@ -4315,7 +4301,7 @@ ranCase("v");
   // ROLE. This is the Move-dependent half — the grammar cannot know a role is
   // missing, only the form can.
   const noCriterion = resolveFigureForms(
-    [open(F("s1", { ...AXIS, figure_roles: { endpoint_a: "g1", endpoint_b: "g2" } }))], "moves");
+    [open(F("s1", { ...AXIS, figure_roles: { endpoint_a: "g1", endpoint_b: "g2" } }))], MOVES_V);
   if (!noCriterion.error || !/criterion/.test(noCriterion.error)) {
     fails.push(`(v) an unbound \`criterion\` is admitted or refused WITHOUT naming the role — a refusal that does not name it sends a composer to re-read the whole form: ${JSON.stringify(noCriterion)}`);
   }
@@ -4323,7 +4309,7 @@ ranCase("v");
   // the reason (r) asserts both directions of the label tables: a check
   // asserted one way is green about the half somebody happened to write.
   const extraRole = resolveFigureForms(
-    [open(F("s1", { ...AXIS, figure_roles: { ...AXIS.figure_roles, stages: "g1" } }))], "moves");
+    [open(F("s1", { ...AXIS, figure_roles: { ...AXIS.figure_roles, stages: "g1" } }))], MOVES_V);
   if (!extraRole.error || !/stages/.test(extraRole.error)) {
     fails.push(`(v) a role outside the form is admitted — the record would carry an element no kind declares: ${JSON.stringify(extraRole)}`);
   }
@@ -4338,21 +4324,21 @@ ranCase("v");
   // pass. A STORE THAT CANNOT BE READ IS NOT AN EMPTY STORE (`loadMoveIds`
   // states the same distinction one function over), so the two readings are
   // separated here rather than collapsed.
-  const formless = "delimit_explanatory_scope";
-  const formlessRead = visualFormOf(formless, "moves");
+  const formless = "state-claim-in-working-form";
+  const formlessRead = figureOf(formless, MOVES_V);
   if (formlessRead.error) {
     fails.push(`(v) the fixture's formless Move ${formless} cannot be READ (${formlessRead.error}) — the acceptance-2 case would assert over an unreadable store rather than over a Move with no form`);
   } else if (formlessRead.form) {
-    fails.push(`(v) the fixture's formless Move ${formless} now declares a visual_form — the acceptance-2 case asserts over a shape that no longer exists`);
+    fails.push(`(v) the fixture's formless Move ${formless} now declares a figure — the acceptance-2 case asserts over a shape that no longer exists`);
   }
-  const noForm = resolveFigureForms([open(F("s1", { ...AXIS, move: formless }))], "moves");
-  if (!noForm.error || !new RegExp(formless).test(noForm.error) || !/no visual_form/.test(noForm.error)) {
-    fails.push(`(v) a figure on a Move with no visual_form is admitted, or refused without naming the Move and the reason: ${JSON.stringify(noForm)}`);
+  const noForm = resolveFigureForms([open(F("s1", { ...AXIS, move: formless }))], MOVES_V);
+  if (!noForm.error || !new RegExp(formless).test(noForm.error) || !/no figure/.test(noForm.error)) {
+    fails.push(`(v) a figure on a Move with no figure is admitted, or refused without naming the Move and the reason: ${JSON.stringify(noForm)}`);
   }
   // AND AN UNREADABLE MOVE IS A DIFFERENT REFUSAL. This is the direct evidence
   // that the case above covers the formless branch: a missing record refuses
   // as a STORE fault, so the two cannot be satisfied by one code path.
-  const missing = resolveFigureForms([open(F("s1", { ...AXIS, move: "no-such-move-record" }))], "moves");
+  const missing = resolveFigureForms([open(F("s1", { ...AXIS, move: "no-such-move-record" }))], MOVES_V);
   if (!missing.error || !/cannot be read/.test(missing.error)) {
     fails.push(`(v) a figure on a Move whose record is missing does not refuse as a store fault — a true refusal for a false reason: ${JSON.stringify(missing)}`);
   }
@@ -4402,6 +4388,7 @@ ranCase("v");
   if (!Object.prototype.hasOwnProperty.call(figureKinds().kinds || {}, "axis")) {
     fails.push("(v) src/figure-kinds.json declares no `axis` kind — the acceptance-1 fixture asserts over a kind the closed set no longer holds");
   }
+  rmSync(MOVES_V, { recursive: true, force: true });
 }
 
 // (w) §4.16's DISCLOSURE AT THE CANDIDATE GATE (kogaki#877, acceptance 3).
@@ -5228,9 +5215,9 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "the decline refusing BY NAME (an owner who said no and an owner never asked are different facts), a capture bound to another Candidate, a capture naming what it ratifies nowhere, "
   + "and the record EDITED AFTER ratification, which is the axis the Candidate binding cannot cover: same Candidate, same shape, a verdict's own sentence rewritten. "
   + "The digest is asserted in BOTH directions, since a binding key wrong in either is worse than none — reordering the record's verdicts must NOT change it (the runtime reads them in path order) and rejudging one MUST. "
-  + "NOTHING HERE JUDGES A SPECIALIZATION, reads a Move's requires/effect, or compares anything to anything: the record is carried to the owner as GATE EVIDENCE, which is what §7.5 already says happens to requires/effect matching, "
+  + "NOTHING HERE JUDGES A SPECIALIZATION, reads a Move's before/after, or compares anything to anything: the record is carried to the owner as GATE EVIDENCE, which is what §7.5 already says happens to before/after matching, "
   + "and the owner approves a result, where §4.6 clause 2 already sites the human gate. The declined arm of the issue's acceptance item 1 — a string-match anchor over the Move contract — is the one that owed those sections an amendment; "
-  + "(m) §4.13 THE READER-KNOWLEDGE LEDGER and §4.13.1's exemplar predicate "
+  + "(m) §4.13 THE READER-KNOWLEDGE LEDGER and §4.13.1's exemplar predicate, RETIRED (kogaki#1175) "
   + "(kogaki#751) — `introduces` is OPTIONAL (asserted first: every Leg composed before it carries none), "
   + "its entry grammar takes a bare term or `term — anchor` with an anchor free to contain commas (which is "
   + "why serialization is one LINE per entry and could not be a joined field), and six malformed shapes each "
@@ -5238,9 +5225,12 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "snapshot taken before a Leg's own entries, carrying each term's anchor and its introducing Leg, and a "
   + "path introducing nothing renders an EMPTY ledger rather than an error; responsibility traces to the FIRST "
   + "Leg declaring a term and to the BRIEF (null) when none does, a re-declaration moving nothing; the "
-  + "render/parse round trip is asserted at both ends. §4.13.1 (as amended 2026-09-02 — the field is `excerpt` and holds the author's account of the reader movement, never a verbatim quotation): a record carrying an account is an exemplar, the retired `Excerpt:` marker is read as plain text and confers nothing, an EMPTY excerpt is the one absence and is reported as such rather than as a short exemplar, the Packet's block STATES the absence naming the Move and the repairing act while SUBSTITUTING nothing, and a `sources` field surviving in any library record FAILS this member by name. Accumulation is computed and never stored. The "
-  + "library's own exemplar count is DISCLOSED and never asserted — a count that failed when it moved would go "
-  + "red exactly when the re-extraction is performed; (n) THE REMOVAL TEST — A HOOK-DRIVEN BRIEF RUN REACHES A FILLED BRIEF "
+  + "render/parse round trip is asserted at both ends. §4.13.1: `excerpt` is retired with the rest of the eight-field "
+  + "schema, `evidence` does NOT inherit the exemplar role (owner ruling 7, kogaki#1173) — it is optional, typically "
+  + "empty and read by nothing downstream — and `moveExcerpt`/`isExemplar`/`renderExcerptBlock` are asserted GONE from "
+  + "src/compose.mjs's exports, never merely unused. No record under moves/ carries `excerpt`, `sources`, `status` or "
+  + "any other retired eight-field-schema key; the "
+  + "library's own record count is DISCLOSED, never a stored expectation compared against; (n) THE REMOVAL TEST — A HOOK-DRIVEN BRIEF RUN REACHES A FILLED BRIEF "
   + "WITH NEITHER PROSE CARRIER IN THE TREE (kogaki#1108 acceptance 7 and 8). This case WAS the arc table: thirteen regexes over "
   + "`.claude/skills/brief/SKILL.md`, re-homed here from the retired brief-entry member at kogaki#770, asserting that the skill's "
   + "prose named every stage of the flow. The skill is one `!` line now and the arc is `src/brief-workflow.json`, so every row of "
