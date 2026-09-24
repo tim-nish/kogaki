@@ -91,12 +91,12 @@
     "reader_state_before": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Leg begins. Judged at the specialization occasion against the Move's `requires`: a Leg's before-state must be a consistent specialization of what its Move demands."
+      "description": "What the reader holds when this Leg begins. Judged at the specialization occasion against the Move's `before`: a Leg's before-state must be a consistent specialization of what its Move demands."
     },
     "reader_state_after": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Leg ends. Judged against the Move's `effect` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
+      "description": "What the reader holds when this Leg ends. Judged against the Move's `after` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
     },
     "depends_on": {
       "required": true,
@@ -112,7 +112,7 @@
     "move": {
       "required": true,
       "type": "string",
-      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg, so the binding is required rather than encouraged. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `requires` and `effect`, and an id outside it resolves to no record and is refused at composition, naming the Leg and the id. The library grows by an admission act, never by a path naming an id (kogaki#1125)."
+      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg, so the binding is required rather than encouraged. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `before` and `after`, and an id outside it resolves to no record and is refused at composition, naming the Leg and the id. The library grows by an admission act, never by a path naming an id (kogaki#1125)."
     },
     "claims": {
       "required": true,
@@ -163,7 +163,7 @@
       "required": false,
       "type": "object mapping role -> g<n>",
       "required_when": "figure is present",
-      "description": "Binds every role of the Move's `visual_form` to one of THIS Leg's own claims, addressed `g<n>` and numbered from 1 in the order the claims are declared. A role bound to another Leg's claim is unreachable by construction: the address space is this Leg's claims and has no syntax for anyone else's."
+      "description": "Binds every role of the Move's `figure` to one of THIS Leg's own claims, addressed `g<n>` and numbered from 1 in the order the claims are declared. A role bound to another Leg's claim is unreachable by construction: the address space is this Leg's claims and has no syntax for anyone else's."
     },
     "relations": {
       "required": false,
