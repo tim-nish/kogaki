@@ -11,7 +11,9 @@ file exists so the declared runner is one Python can actually execute: it
 defines nothing about the suite itself, only re-dispatches to the real one
 through `bash`.
 
-`<repo-root>`, if given, must be the checkout this file lives in -- the
+`<repo-root>` is POSITIONAL-FIRST OR ABSENT (PR #1192 round 1 finding 4,
+matching what the guard below actually accepts): given at all, it must come
+before any flag and must be the checkout this file lives in -- the
 supervisor passes the worktree it is judging, and a mismatch here means the
 declaration and the invocation disagree about which tree is under test.
 
