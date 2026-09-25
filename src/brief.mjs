@@ -91,6 +91,20 @@ import {
   readHookPayload, advancedByFromPayload, relFromRepo, JudgmentRefusal,
   TerminalJudgmentRefusal, resolveStrandAddresses,
 } from "./terrain.mjs";
+// ---- THE DETACHED-JOB PRIMITIVES (kogaki#1193), imported rather than
+// reimplemented for the same reason as the block above: the record shape, the
+// checkpoint/ceiling constants and the classification of a unit and of the
+// job as a whole are `src/terrain.mjs`'s own, so `compose_path`'s job-aware
+// STATE_WORK and the `job status`/`job await` verbs below read one copy of
+// each.
+import {
+  detachedJobExecutor, DetachedJobStarted, READER_PATH_JOB_GATE_ID,
+  READER_PATH_JOB_FILE, READER_PATH_JOB_CHECKPOINT_S, READER_PATH_JOB_ABSOLUTE_LIMIT_S,
+  READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS, READER_PATH_JOB_STATES,
+  readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob, writeReaderPathJob,
+  spawnDetachedJobUnit, readerPathUnitRecord, classifyDetachedJobUnit, classifyDetachedJobState,
+  emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
+} from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
   cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal,
@@ -1575,11 +1589,112 @@ const GATE_WORK = {
   },
 };
 
+// ---- THE READER-PATH JOB'S TWO BASH-REACHABLE VERBS (kogaki#1193).
+//
+// FOUR VERBS EXIST — `start`, `status`, `await`, `stop` — and only two are
+// dispatched here. `start` runs in-process from `compose_path`'s own
+// STATE_WORK on the entry that finds no job record (it opens the job and
+// throws `DetachedJobStarted`, exactly as a judgment-retry state throws
+// `JudgmentExhausted`); `stop` runs in-process from the `READER_PATH_JOB_GATE_ID`
+// gate-answer branch `src/terrain.mjs`'s own wait-answer block already
+// carries. Neither is a read, and neither is reachable from a Bash command —
+// `run --status --job start` and `run --status --job stop` are refused below
+// by name, not by the hook (the hook admits any `run --status`, `--job`
+// included; the refusal is this function's own).
+function jobWork(dir, verb, table, tablePath, args) {
+  if (verb === "start" || verb === "stop") {
+    fail(`\`--job ${verb}\` is refused from a Bash-reachable call — it runs in-process only, from the `
+      + "hook-driven advance that starts or stops the reader-path job, never from a session-typed command "
+      + "(kogaki#1193). The two verbs reachable this way are `status` and `await`.");
+  }
+  if (verb !== "status" && verb !== "await") {
+    fail(`\`--job ${verb}\` is not one of the reader-path job's four verbs: `
+      + '`start`, `status`, `await`, `stop` (kogaki#1193).');
+  }
+  const job = readReaderPathJob(dir);
+  if (!job) {
+    console.log(`No reader-path job record exists at ${readerPathJobPath(dir)} — nothing is running.`);
+    return;
+  }
+  if (verb === "status") { printReaderPathJobStatus(dir, job); return; }
+  awaitReaderPathJob(dir, job, table, tablePath, args);
+}
+
+// A ONE-LINE HEARTBEAT, read straight off the record `job start`'s supervisor
+// updates every `READER_PATH_JOB_HEARTBEAT_MS` (kogaki#1193's own bound: the
+// elapsed seconds and the output bytes per unit, and nothing this call cannot
+// get from the file alone — `status` never blocks and never polls).
+function printReaderPathJobStatus(dir, job) {
+  const startedAt = Date.parse(job.started_at || job.updated_at || new Date().toISOString());
+  const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
+  console.log(`reader-path job at ${readerPathJobPath(dir)} — elapsed ${elapsedS}s of ${READER_PATH_JOB_ABSOLUTE_LIMIT_S}s absolute limit:`);
+  for (const u of job.units || []) {
+    console.log(`  unit ${u.id}: ${u.status}${u.checkpoint_hit ? " (checkpoint hit)" : ""} — ${u.bytes || 0} byte(s) so far`);
+  }
+}
+
+// THE BLOCKING POLL (kogaki#1193). Sleeps synchronously between reads with no
+// child process of its own — `Atomics.wait` on a throwaway buffer — because
+// `await` is a plain Bash tool call the session is waiting on, and spawning a
+// subprocess to sleep would be one more thing `gate-terrain-executor.py` has
+// an opinion about. Stops the moment the job's own classification leaves
+// "running", never before and never later.
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
+  let job = initialJob;
+  for (;;) {
+    const startedAt = Date.parse(job.started_at || job.updated_at || new Date().toISOString());
+    const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
+    const lastProgressAt = job.last_progress_at ? Date.parse(job.last_progress_at) : startedAt;
+    const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
+    const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
+    const state = classifyDetachedJobState(job.units || [], { stopRequested, elapsedS, stalledS });
+    if (state !== "running") { finishReaderPathJobAwait(dir, job, state, table, tablePath, args); return; }
+    console.log(`reader-path job still running at ${elapsedS}s — waiting for the next heartbeat.`);
+    sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
+    job = readReaderPathJob(dir) || job;
+  }
+}
+
+// THE TWO TERMINAL ARMS (kogaki#1193). `done` resumes the run in-process,
+// attributed to the `detached-job` executor kind and carrying the assembled
+// candidates so `compose_path`'s existing, unmodified `judged(...)` call
+// validates them exactly as it validates a live judge's record. Every other
+// state raises `brief-reader-path-job` and stops — no state here ever
+// auto-retries.
+function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
+  if (state === "done") {
+    const candidates = (job.units || []).map((u) => u.candidate).filter(Boolean);
+    const resultPath = join(dir, "reader-path-candidates.json");
+    writeFileSync(resultPath, `${JSON.stringify({ candidates }, null, 2)}\n`);
+    runWorkflow(BRIEF_FLOW, { ...args, job: undefined, candidates: resultPath, "run-dir": dir },
+      detachedJobExecutor(relFromRepo(resolve(readerPathJobPath(dir)))));
+    return;
+  }
+  const rec = readRunRecord(dir);
+  if (!rec) fail(`no run record at ${dir} — the job it names has nothing to resume.`);
+  rec._dir = dir;
+  const failureState = rec.awaiting;
+  const options = state === "limit-reached"
+    ? [{ id: "extend", label: "Extend (Recommended)" }, { id: "stop", label: "Stop" }]
+    : [{ id: "stop", label: "Stop" }];
+  const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
+    { reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))) });
+  rec.gate_declarations_owed = rec.gate_declarations_owed || [];
+  rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
+  checkpointRun(rec);
+  console.log(`reader-path job at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
+}
+
 // THE FLOW BINDING. Everything a second flow differs in, and nothing else —
 // the shape `src/terrain.mjs` declares at `TERRAIN_FLOW` beside its own.
 const BRIEF_FLOW = {
   lane: "brief",
   label: "Brief",
+  jobWork,
   startLine: "the brief skill's own `!` line (`node src/brief.mjs start`)",
   tablePath: BRIEF_TABLE,
   newRunDir: () => enterRun("brief", briefRunEntry()),

@@ -353,7 +353,10 @@ function writeOpenRunPointer(dir) {
   writeFileSync(p, `${resolve(dir)}\n`);
 }
 
-function clearOpenRunPointer() {
+// EXPORTED FOR THE JOB-VERB DISPATCH (kogaki#1193): `job await`'s "stop" and
+// "done" resumption arms clear or reopen the pointer from `brief.mjs`, which
+// has no writer of its own for it.
+export function clearOpenRunPointer() {
   try { rmSync(openRunPointerPath(), { force: true }); } catch { /* a stale pointer costs a refusal, never a run */ }
 }
 
@@ -8486,14 +8489,18 @@ export function runCounts(rec) {
   };
 }
 
-function runRecordPath(dir) { return join(dir, RUN_RECORD_FILE); }
+export function runRecordPath(dir) { return join(dir, RUN_RECORD_FILE); }
 
-function readRunRecord(dir) {
+// EXPORTED FOR THE JOB-VERB DISPATCH (kogaki#1193): `job await` runs as its
+// own `run --status --job await` invocation, outside the executor's own
+// read/write of the record, and needs the same reader/writer the loop uses so
+// a job-resumed run and a hook-resumed run persist the identical shape.
+export function readRunRecord(dir) {
   const p = runRecordPath(dir);
   return existsSync(p) ? readJson(p) : null;
 }
 
-function writeRunRecord(dir, rec) {
+export function writeRunRecord(dir, rec) {
   writeFileSync(runRecordPath(dir), JSON.stringify(rec, null, 2) + "\n");
   return runRecordPath(dir);
 }
@@ -8537,7 +8544,10 @@ function mostRecentDoneRun(lane) {
 // A failing write is NOT swallowed: the run directory is where every artifact of
 // this advance is going, and a checkpoint that could not be written is a fact
 // about the run rather than an inconvenience of the tracing.
-function checkpointRun(rec) {
+// EXPORTED FOR THE JOB-VERB DISPATCH (kogaki#1193), for the same reason as
+// `readRunRecord`/`writeRunRecord` above: `job await`'s gate-declaration and
+// resumption arms persist a `rec` carrying `_dir`, outside the executor loop.
+export function checkpointRun(rec) {
   if (!rec || !rec._dir) return null;
   const out = { ...rec };
   delete out._dir;
@@ -9492,6 +9502,21 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   const tablePath = args.workflow ? String(args.workflow) : flow().tablePath;
   const table = loadWorkflowTable(tablePath);
 
+  // THE DETACHED-JOB VERBS RIDE `run --status` (kogaki#1193), because that is
+  // the one shape `.claude/hooks/gate-terrain-executor.py` admits from a Bash
+  // command — the hook's own `admitted()` reads `args[0] === "run"` and
+  // `"--status"` present and nothing about `--job`. `status` and `await` are
+  // the two verbs a session can reach this way; `start` and `stop` are refused
+  // by the flow's own `jobWork`, because both run in-process from a
+  // hook-driven advance and neither is a read. A flow that declares no
+  // `jobWork` (Terrain's own) has no detached-job states and `--job` names
+  // nothing on it.
+  if (args.status && args.job) {
+    if (!flow().jobWork) {
+      fail(`${flow().label} declares no detached-job work, so \`--job ${args.job}\` names nothing here (kogaki#1193).`);
+    }
+    return flow().jobWork(dir, String(args.job), table, tablePath, args);
+  }
   if (args.status) return reportRunStatus(dir, tablePath, table);
 
   let rec = readRunRecord(dir);

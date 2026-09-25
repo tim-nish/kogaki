@@ -213,6 +213,25 @@
       "requires_gate_instance_id": true,
       "dynamic_options": "NONE. The two options above are fixed and carry no run-specific data; what varies per raising is the reading above the question — `judgment_state` and `judgment_refusal`, both riding in `extra` rather than composed as options (kogaki#1172, owner decision 2026-09-20 on issue #1172: 'a judgment that fails inside an advance renders a retry question'). A judgment state that raises this gate is NOT marked complete: `retry` clears `awaiting` and leaves the state off `completed`, so the advance the owner's click re-fires re-enters exactly that state through the ordinary table loop, and any per-group record already validated on disk is reused rather than re-asked (the same reuse `J2_subdivision`'s per-group ask already makes for a killed advance, kogaki#1073). `abandon` clears the open-run pointer and marks the run `done`, on the same reading `mostRecentDoneRun` already gives an abandoned run: over, and not resumed by the next `start`.",
       "unrouted_options": {}
+    },
+    {
+      "id": "brief-reader-path-job",
+      "raised_by": "src/brief.mjs — `job await`'s own terminal arm raises this gate the moment the detached reader-path job it polled classifies to anything other than `done` (kogaki#1193). It is bound to `compose_path` alone, scope held to that one judgment state's own detached job; `review_path`, `judge_specialization` and every Terrain judgment state are untouched by it.",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "The reader-path job at `compose_path` did not finish — extend it one more checkpoint, or stop here?",
+      "options": [
+        {
+          "id": "stop",
+          "label": "Stop — the job is not resumed and the run stays open at compose_path with nothing further asked",
+          "negates_premise": true
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "requires_gate_instance_id": true,
+      "dynamic_options": "`extend` IS COMPOSED PER RAISING, NEVER STANDING (kogaki#1193). `job await` offers `{id:\"extend\",label:\"Extend (Recommended)\"}` only when the job's classified state is `limit-reached` — a checkpoint hit with every unit still running — and omits it on every other one of the nine states (`refused`, `stopped`, `ceiling`, `stalled`, `died`, `other`), where `stop` is the only offered arm; `done` never reaches this gate at all, because `job await` resumes the run in-process on that state instead of raising anything. `extend` can never carry the run past `READER_PATH_JOB_ABSOLUTE_LIMIT_S` — the owner's stated personal maximum wait — so a job already at the ceiling never offers it, and a second `limit-reached` on the same unit is `ceiling` or `stopped`, not a second `extend`. `stop` clears nothing already written; every job record and every unit's partial output stands on disk regardless of which arm is taken (kogaki#1193 acceptance: nothing is ever deleted on any exit). `judgment_state`/`reader_path_job_state`/`reader_path_job` ride in `extra`, the same siting `terrain-judgment-retry` uses for its own per-raising reading.",
+      "unrouted_options": {}
     }
   ]
 }
