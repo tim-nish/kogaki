@@ -33,14 +33,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      # THE JA-LINT CHECK'S OWN PRECONDITION (kogaki#1162 acceptance item 1):
-      # `checks/check-ja-lint.sh` asserts textlint, the technical-writing
-      # preset and textlint-rule-prh are present and fails by name when they
-      # are not — this step is what makes that assertion true on a fresh
-      # clone, from the committed lockfile, rather than the check installing
-      # its own dependency.
-      - name: Install npm dependencies (npm ci)
-        run: npm ci
       - name: Run registered checks
         env:
           # Supplied for checks that read the branch's own git-resident text
