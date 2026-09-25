@@ -1362,6 +1362,22 @@ const STATE_WORK = {
     // prompt here, before the supervisor is spawned, so the detached process
     // resolves no schema and reads no table of its own.
     const cfg = judgeSettings(table, rec);
+    // THE SHARED BASE, DISCLOSED (kogaki#1193). Every unit's own prompt is
+    // written straight into `reader-path-job-units.json` by
+    // `startDetachedJobSupervisor` below and never lands under this state's
+    // ordinary `brief-judge-input-<id>.json` name — but the fields every unit
+    // shares (the Brief, the Strand set, the Move library) are the same
+    // record a reader of THIS state's input has always found there, so it is
+    // written here once, before the per-unit prompts are built, rather than
+    // leaving that path silently unwritten.
+    writeJudgeInput(rec, st, {
+      state: st.id,
+      brief: relFromRepo(briefPath),
+      brief_document: doc,
+      strands_you_may_use: strandIds,
+      moves_you_may_bind: library.moves,
+      units: 3,
+    });
     const units = [1, 2, 3].map((n) => {
       const input = {
         state: st.id,
@@ -1653,7 +1669,7 @@ const GATE_WORK = {
 // `run --status --job start` and `run --status --job stop` are refused below
 // by name, not by the hook (the hook admits any `run --status`, `--job`
 // included; the refusal is this function's own).
-function jobWork(dir, verb, table, tablePath, args) {
+async function jobWork(dir, verb, table, tablePath, args) {
   if (verb === "start" || verb === "stop") {
     fail(`\`--job ${verb}\` is refused from a Bash-reachable call — it runs in-process only, from the `
       + "hook-driven advance that starts or stops the reader-path job, never from a session-typed command "
@@ -1669,7 +1685,7 @@ function jobWork(dir, verb, table, tablePath, args) {
     return;
   }
   if (verb === "status") { printReaderPathJobStatus(dir, job); return; }
-  awaitReaderPathJob(dir, job, table, tablePath, args);
+  await awaitReaderPathJob(dir, job, table, tablePath, args);
 }
 
 // A ONE-LINE HEARTBEAT, read straight off the record `job start`'s supervisor
@@ -1695,7 +1711,7 @@ function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
+async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
   let job = initialJob;
   for (;;) {
     const startedAt = Date.parse(job.started_at || job.updated_at || new Date().toISOString());
@@ -1704,7 +1720,7 @@ function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
     const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
     const state = classifyDetachedJobState(job.units || [], { stopRequested, elapsedS, stalledS });
-    if (state !== "running") { finishReaderPathJobAwait(dir, job, state, table, tablePath, args); return; }
+    if (state !== "running") { await finishReaderPathJobAwait(dir, job, state, table, tablePath, args); return; }
     console.log(`reader-path job still running at ${elapsedS}s — waiting for the next heartbeat.`);
     sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
     job = readReaderPathJob(dir) || job;
@@ -1717,12 +1733,28 @@ function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
 // validates them exactly as it validates a live judge's record. Every other
 // state raises `brief-reader-path-job` and stops — no state here ever
 // auto-retries.
-function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
+async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
   if (state === "done") {
     const candidates = (job.units || []).map((u) => u.candidate).filter(Boolean);
     const resultPath = join(dir, "reader-path-candidates.json");
     writeFileSync(resultPath, `${JSON.stringify({ candidates }, null, 2)}\n`);
-    runWorkflow(BRIEF_FLOW, { ...args, job: undefined, candidates: resultPath, "run-dir": dir },
+    // `status` IS CLEARED, NOT ONLY `job` (kogaki#1193). `args` here is the
+    // `run --status --job await` call's own — `cmdRun` reads `args.status`
+    // BEFORE it reads a run record at all, so an `{ ...args }` spread that
+    // left it `true` would resume by reporting the position it is already at
+    // rather than by advancing past it, and the assembled Candidates above
+    // would never reach `compose_path`'s own validator.
+    //
+    // AWAITED, NOT FIRED-AND-FORGOTTEN (kogaki#1193). `runWorkflow` sets the
+    // module-level `FLOW` binding for its own duration and restores it in a
+    // `finally` on return — this call and the OUTER `run --status --job
+    // await` invocation that reached here are both mid-`runWorkflow`, so an
+    // unawaited call here let the outer call's `finally` reset `FLOW` while
+    // this one was still suspended at its own first `await work(...)`, and
+    // resumed reading `TERRAIN_FLOW` instead of `BRIEF_FLOW` for every state
+    // after that race — observed as CANDIDATE_SELECTION composing no option
+    // set ("this runtime has no option composer bound").
+    await runWorkflow(BRIEF_FLOW, { ...args, status: undefined, job: undefined, candidates: resultPath, "run-dir": dir },
       detachedJobExecutor(relFromRepo(resolve(readerPathJobPath(dir)))));
     return;
   }
