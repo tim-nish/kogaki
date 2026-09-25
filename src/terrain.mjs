@@ -9851,7 +9851,22 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           } catch { /* already gone, or never ours to signal */ }
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is STOPPED; the run is not resumed and the open-run pointer is cleared.`);
         } else {
-          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is EXTENDED; the state was never marked complete, so the advance below re-enters it and grants one more checkpoint window (kogaki#1193).`);
+          // "EXTEND IS GRANTED ONCE PER UNIT" (kogaki#1193, the owner's
+          // 2026-09-25 wording), RECORDED HERE — the one place an `extend`
+          // click is known to have happened. The units this raising offered
+          // `extend` FOR are exactly the ones `job status`/`job await`
+          // classified `checkpoint_hit` at the moment the gate was raised;
+          // recording them (rather than "the state was extended") is what
+          // lets `finishReaderPathJobAwait` in `src/brief.mjs` tell a unit's
+          // SECOND checkpoint hit from its first and offer `stop` alone then.
+          const job = readReaderPathJob(dir);
+          const hitUnits = (job && Array.isArray(job.units) ? job.units : [])
+            .filter((u) => u.checkpoint_hit).map((u) => u.id);
+          rec.reader_path_job_extended = rec.reader_path_job_extended || {};
+          rec.reader_path_job_extended[jobState] = Array.from(new Set(
+            [...(rec.reader_path_job_extended[jobState] || []), ...hitUnits],
+          ));
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is EXTENDED for unit(s) ${JSON.stringify(hitUnits)}; the state was never marked complete, so the advance below re-enters it (kogaki#1193).`);
         }
       } else {
         // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED

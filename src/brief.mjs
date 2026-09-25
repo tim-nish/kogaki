@@ -1730,7 +1730,21 @@ function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
   if (!rec) fail(`no run record at ${dir} — the job it names has nothing to resume.`);
   rec._dir = dir;
   const failureState = rec.awaiting;
-  const options = state === "limit-reached"
+  // "EXTEND IS GRANTED ONCE PER UNIT ... the same unit reaching the limit
+  // again renders stop only" (kogaki#1193 thread, 2026-09-25). The terrain
+  // executor's own `extend`-answer branch records, per state, which units'
+  // checkpoint hit it already granted an extension for; a raising here offers
+  // `extend` only when at least one checkpoint-hit unit is NOT already in
+  // that set — a unit that already spent its one extension and hit the
+  // checkpoint again offers `stop` alone, on the same "no state auto-retries"
+  // ground the rest of this gate stands on.
+  const alreadyExtended = new Set(
+    (rec.reader_path_job_extended && rec.reader_path_job_extended[failureState]) || [],
+  );
+  const checkpointHitUnits = (job.units || []).filter((u) => u.checkpoint_hit).map((u) => u.id);
+  const offerExtend = state === "limit-reached"
+    && checkpointHitUnits.some((id) => !alreadyExtended.has(id));
+  const options = offerExtend
     ? [{ id: "extend", label: "Extend (Recommended)" }, { id: "stop", label: "Stop" }]
     : [{ id: "stop", label: "Stop" }];
   const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,

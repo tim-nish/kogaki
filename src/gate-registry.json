@@ -219,11 +219,11 @@
       "raised_by": "src/brief.mjs — `job await`'s own terminal arm raises this gate the moment the detached reader-path job it polled classifies to anything other than `done` (kogaki#1193). It is bound to `compose_path` alone, scope held to that one judgment state's own detached job; `review_path`, `judge_specialization` and every Terrain judgment state are untouched by it.",
       "host": "claude-code",
       "medium": "selector",
-      "question": "The reader-path job at `compose_path` did not finish — extend it one more checkpoint, or stop here?",
+      "question": "A reader-path step did not finish — extend it one more checkpoint, or stop here?",
       "options": [
         {
           "id": "stop",
-          "label": "Stop — the job is not resumed and the run stays open at compose_path with nothing further asked",
+          "label": "Stop — the job is not resumed and the run stays open at the reader-path step with nothing further asked",
           "negates_premise": true
         }
       ],
