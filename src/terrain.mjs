@@ -7558,6 +7558,14 @@ export const READER_PATH_JOB_ABSOLUTE_LIMIT_S = 600;
 // declared heuristic, not a measurement, and narrower than the absolute limit
 // so a stalled run is reported before the ceiling spends the owner's whole
 // wait on a unit producing nothing.
+//
+// RECONCILING WITH THE ISSUE BODY (kogaki#1193 comment 3, 2026-09-25): the
+// body names two separate signals, "no heartbeat for 60 seconds" and "no new
+// output bytes for 120 seconds". The supervisor's own heartbeat is a fact
+// about the SUPERVISOR PROCESS (it stops only if that process dies, which
+// the `died`/`other` states already cover); the only per-unit progress
+// signal available to it is output-byte growth. This single, narrower bound
+// is what stands in for both.
 export const READER_PATH_JOB_STALL_S = 90;
 export const READER_PATH_JOB_HEARTBEAT_MS = 10000;
 
@@ -7652,7 +7660,11 @@ export function classifyDetachedJobUnit(out) {
 // "no state auto-retries" ground the Arm rule states. `stop_requested` and the
 // two time bounds are read AHEAD of the per-unit statuses, because they are
 // facts about the WHOLE job rather than about any one unit.
-export function classifyDetachedJobState(units, { stopRequested, elapsedS, stalledS }) {
+export function classifyDetachedJobState(units, {
+  stopRequested, elapsedS, stalledS,
+  absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S,
+  stallS = READER_PATH_JOB_STALL_S,
+} = {}) {
   if (stopRequested) return "stopped";
   const died = units.find((u) => u.status === "died");
   if (died) return "died";
@@ -7660,8 +7672,8 @@ export function classifyDetachedJobState(units, { stopRequested, elapsedS, stall
   if (refused) return "refused";
   const running = units.filter((u) => u.status === "running");
   if (running.length === 0) return "done";
-  if (elapsedS >= READER_PATH_JOB_ABSOLUTE_LIMIT_S) return "ceiling";
-  if (stalledS >= READER_PATH_JOB_STALL_S) return "stalled";
+  if (elapsedS >= absoluteLimitS) return "ceiling";
+  if (stalledS >= stallS) return "stalled";
   if (running.some((u) => u.checkpoint_hit)) return "limit-reached";
   return "running";
 }
@@ -7750,8 +7762,7 @@ export async function cmdJobSupervise(args) {
       if (bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
       const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
       const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
-      const state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS });
-      process.stderr.write(`DEBUG tick elapsedS=${elapsedS} stalledS=${stalledS} absoluteLimitS=${absoluteLimitS} stallS=${stallS} state=${state}\n`);
+      const state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS, absoluteLimitS, stallS });
       writeReaderPathJob(dir, {
         started_at: new Date(startedAt).toISOString(),
         last_progress_at: new Date(lastProgressAt).toISOString(),
