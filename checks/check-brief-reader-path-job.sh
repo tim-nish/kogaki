@@ -46,6 +46,7 @@ import { spawn, spawnSync } from "node:child_process";
 import {
   classifyDetachedJobUnit, classifyDetachedJobState, READER_PATH_JOB_STATES,
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, composeGateCall,
+  runRecordPath, GATE_CALL_SUFFIX,
 } from "./src/terrain.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";
 
@@ -409,6 +410,57 @@ function pollUntil(dir, pred, timeoutMs) {
   const statusFn = brief.slice(brief.indexOf("function printReaderPathJobStatus"), brief.indexOf("function sleepSync"));
   if (!statusFn.includes("u.failure.result")) {
     fails.push("(g) printReaderPathJobStatus no longer renders a dead unit's failure.result — the `job status` line would again say a unit died without saying why");
+  }
+}
+
+// (h) THE GATE-CALL BYTES ARE ON STDOUT, NOT ONLY THEIR ADDRESS (kogaki#1198's
+// own reproduction: `node src/brief.mjs run --status --job await` named
+// `brief-reader-path-job.gate-call.json` and printed none of it). A real
+// `job await` over a `died` job is run end to end through the CLI --
+// `run --status` is the one Bash-reachable verb this runtime admits, and it is
+// read-only -- against a hand-written run record standing in for the hook
+// loop's own write, on the same ground section (e) states for a bare
+// `emitGateDeclaration` call: the executor is invoked by hooks only, so a
+// fixture drives it through its one admitted, read-only door rather than
+// forging a hook payload for a write it is not this check's job to attempt.
+{
+  const dir = mkNewRun();
+  superviseSync(dir, [{ id: "c1", prompt: "FAIL_EXIT" }], {});
+  const rec = readRecord(dir);
+  if (!rec || rec.state !== "died") fails.push(`(h) fixture premise failed: the job did not end \`died\`: ${JSON.stringify(rec)}`);
+  writeFileSync(runRecordPath(dir), JSON.stringify({
+    workflow: { path: "src/brief-workflow.json", version: null },
+    judge_binary: null, survey_record: null, completed: [], waits_reached: [],
+    conditional_entered: [], conditional_skipped: [], awaiting: "compose_path",
+    owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
+    done: false,
+  }, null, 2) + "\n");
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir };
+  const awaitRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
+    { cwd: root, timeout: 15000, encoding: "utf8", env });
+  const callPath = join(dir, `${READER_PATH_JOB_GATE_ID}${GATE_CALL_SUFFIX}`);
+  if (!existsSync(callPath)) {
+    fails.push(`(h) \`job await\` over a died job wrote no gate-call file at ${callPath}: stdout=${awaitRun.stdout} stderr=${awaitRun.stderr}`);
+  } else {
+    const wantBytes = JSON.parse(readFileSync(callPath, "utf8"));
+    const fencedAwait = (awaitRun.stdout || "").match(/```json\n([\s\S]*?)\n```/);
+    if (!fencedAwait) {
+      fails.push(`(h) \`job await\`'s stdout carries no \`\`\`json fence -- the gate-call file is named but its bytes never reach the session: ${awaitRun.stdout}`);
+    } else if (JSON.stringify(JSON.parse(fencedAwait[1])) !== JSON.stringify(wantBytes)) {
+      fails.push(`(h) \`job await\`'s fenced block does not equal the gate-call file's own bytes: ${fencedAwait[1]} vs ${JSON.stringify(wantBytes)}`);
+    }
+    // (h2) `job status` ON THE SAME RUN PRINTS THE SAME BLOCK -- a session
+    // re-entering after the raising, with no live `job await` call left to
+    // print the bytes the first time, renders the question from a bare status
+    // read (design item 2's own acceptance).
+    const statusRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "status"],
+      { cwd: root, timeout: 15000, encoding: "utf8", env });
+    const fencedStatus = (statusRun.stdout || "").match(/```json\n([\s\S]*?)\n```/);
+    if (!fencedStatus) {
+      fails.push(`(h2) \`job status\` on a run with an owed, uncaptured gate carries no \`\`\`json fence: ${statusRun.stdout}`);
+    } else if (JSON.stringify(JSON.parse(fencedStatus[1])) !== JSON.stringify(wantBytes)) {
+      fails.push(`(h2) \`job status\`'s fenced block does not equal the gate-call file's own bytes: ${fencedStatus[1]} vs ${JSON.stringify(wantBytes)}`);
+    }
   }
 }
 
