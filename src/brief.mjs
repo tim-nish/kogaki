@@ -106,6 +106,7 @@ import {
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
   judgeSettings, judgePrompt, startDetachedJobSupervisor,
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
+  GATE_CALL_SUFFIX,
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
@@ -1689,10 +1690,39 @@ async function jobWork(dir, verb, table, tablePath, args) {
   await awaitReaderPathJob(dir, job, table, tablePath, args);
 }
 
+// THE BYTES, NOT ONLY THEIR ADDRESS (kogaki#1198). A path handed to a session
+// inside the open-gate interval is an instruction to read, and the interval
+// denies every tool that could carry it out — the same failure kogaki#1057
+// fixed for the terrain start act and kogaki#1081 fixed for the advance hook.
+// This is the third raising route, and it prints exactly what those two do:
+// one line naming the file, the file's own bytes in a fenced block, then the
+// line saying every other tool is denied until the answer is captured. THE
+// FILE STAYS THE REFERENCE — the PreToolUse equality check still compares
+// against it, so this is a second reader of one payload, not a second one.
+// Returns false (and prints nothing) when no call has been written yet, which
+// `printReaderPathJobStatus` uses to fall back to naming the unwritten reason.
+function printReaderPathJobGateCallBytes(dir, gateId, declPath) {
+  const callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
+  if (!existsSync(callPath)) return false;
+  console.log(`The AskUserQuestion call is WRITTEN: ${callPath}`);
+  console.log(`Its bytes are below — the payload itself, not a path to one. No tool is admissible inside the open-gate interval, the Read that would fetch this file included, so a call named and unprinted is one nothing can obtain (kogaki#1057, kogaki#1198).`);
+  console.log("```json");
+  console.log(readFileSync(callPath, "utf8").replace(/\n+$/, ""));
+  console.log("```");
+  console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028). The declaration that raised it: ${declPath}.`);
+  return true;
+}
+
 // A ONE-LINE HEARTBEAT, read straight off the record `job start`'s supervisor
 // updates every `READER_PATH_JOB_HEARTBEAT_MS` (kogaki#1193's own bound: the
 // elapsed seconds and the output bytes per unit, and nothing this call cannot
 // get from the file alone — `status` never blocks and never polls).
+//
+// A RUN WITH AN OWED, UNCAPTURED GATE PRINTS ITS BYTES TOO (kogaki#1198). A
+// session that re-enters after the raising — the one this issue's transcript
+// hit — has no live `job await` call left to print them the first time; this
+// is its second chance, gated on the same two facts the raising itself left
+// behind: the gate-call file exists, and no capture row has answered it yet.
 function printReaderPathJobStatus(dir, job) {
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date().toISOString());
   const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
@@ -1701,6 +1731,33 @@ function printReaderPathJobStatus(dir, job) {
     // kogaki#1197: a dead unit's own `is_error` result text says why it died.
     const why = u.failure && typeof u.failure.result === "string" ? ` — ${u.failure.result}` : "";
     console.log(`  unit ${u.id}: ${u.status}${u.checkpoint_hit ? " (checkpoint hit)" : ""} — ${u.bytes || 0} byte(s) so far${why}`);
+  }
+  const rec = readRunRecord(dir);
+  const owed = rec && Array.isArray(rec.gate_declarations_owed)
+    ? rec.gate_declarations_owed.filter((g) => g.gate_id === READER_PATH_JOB_GATE_ID && g.declaration).pop()
+    : null;
+  if (rec && rec.awaiting && owed) {
+    // BOTH ARTIFACTS ARE NAMED FROM `dir` AND THE GATE ID, NOT FROM
+    // `owed.declaration` (kogaki#1198). `emitGateDeclaration` writes the
+    // declaration and the call beside each other, `${gateId}<suffix>` in the
+    // run's own directory — the same reconstruction `printReaderPathJobGateCallBytes`
+    // does for the call, so this reads the run-relative path the writer used
+    // rather than re-deriving the repo root a session may not be standing in.
+    const declPath = join(dir, `${owed.gate_id}${gateSchema().capture.run_declaration_suffix}`);
+    const capPath = captureFile({ _dir: dir });
+    let captured = false;
+    if (existsSync(declPath) && existsSync(capPath)) {
+      try {
+        const decl = JSON.parse(readFileSync(declPath, "utf8"));
+        const doc = JSON.parse(readFileSync(capPath, "utf8"));
+        const rows = Array.isArray(doc.rows) ? doc.rows : [];
+        captured = rows.some((r) => r && r.gate_instance_id === decl.gate_instance_id);
+      } catch { /* an unreadable capture reads as not yet answered, not as an error status prints past */ }
+    }
+    if (!captured) {
+      console.log(`This run has an OWED, UNCAPTURED gate at state ${rec.awaiting} — the same one \`job await\` raised:`);
+      printReaderPathJobGateCallBytes(dir, owed.gate_id, declPath);
+    }
   }
 }
 
@@ -1788,6 +1845,7 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
   checkpointRun(rec);
   console.log(`reader-path job at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
+  printReaderPathJobGateCallBytes(dir, READER_PATH_JOB_GATE_ID, declPath);
 }
 
 // THE FLOW BINDING. Everything a second flow differs in, and nothing else —
