@@ -7751,6 +7751,7 @@ export async function cmdJobSupervise(args) {
       const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
       const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
       const state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS });
+      process.stderr.write(`DEBUG tick elapsedS=${elapsedS} stalledS=${stalledS} absoluteLimitS=${absoluteLimitS} stallS=${stallS} state=${state}\n`);
       writeReaderPathJob(dir, {
         started_at: new Date(startedAt).toISOString(),
         last_progress_at: new Date(lastProgressAt).toISOString(),

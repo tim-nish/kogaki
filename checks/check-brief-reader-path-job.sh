@@ -196,7 +196,9 @@ function readRecord(dir) {
 // (d5) ceiling — the absolute limit ends a job whose units never finish.
 {
   const dir = mkNewRun();
-  superviseSync(dir, [{ id: "c1", prompt: "SLEEP_FOREVER" }], { absoluteLimitS: 1, stallS: 30, checkpointS: 30, heartbeatMs: 250 });
+  const dbgStart = Date.now();
+  const r = superviseSync(dir, [{ id: "c1", prompt: "SLEEP_FOREVER" }], { absoluteLimitS: 1, stallS: 30, checkpointS: 30, heartbeatMs: 250 });
+  console.error("DEBUG d5", Date.now() - dbgStart, "status", r.status, "signal", r.signal, "stderr", r.stderr);
   const rec = readRecord(dir);
   if (!rec || rec.state !== "ceiling" || !rec.failure) fails.push(`(d5) the absolute limit did not end the job \`ceiling\`: ${JSON.stringify(rec)}`);
 }
