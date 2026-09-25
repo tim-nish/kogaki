@@ -80,11 +80,11 @@ const root = process.cwd();
   if (badJson.status !== "refused" || !badJson.failure.stderr_tail.includes("not JSON")) {
     fails.push(`(b2) an exit-0 non-JSON stdout did not classify as refused: ${JSON.stringify(badJson)}`);
   }
-  const noLegs = classifyDetachedJobUnit({ error: null, exitCode: 0, errChunks: [], chunks: [Buffer.from(JSON.stringify({ result: JSON.stringify({ no_legs: true }) }))], bytes: 8, endedAt: "t" });
+  const noLegs = classifyDetachedJobUnit({ error: null, exitCode: 0, errChunks: [], chunks: [Buffer.from(`${JSON.stringify({ type: "result", result: JSON.stringify({ no_legs: true }) })}\n`)], bytes: 8, endedAt: "t" });
   if (noLegs.status !== "refused" || !noLegs.failure.stderr_tail.includes("legs")) {
     fails.push(`(b3) a record with no \`legs\` array did not classify as refused: ${JSON.stringify(noLegs)}`);
   }
-  const good = classifyDetachedJobUnit({ error: null, exitCode: 0, errChunks: [], chunks: [Buffer.from(JSON.stringify({ result: JSON.stringify({ legs: [1, 2] }) }))], bytes: 8, endedAt: "t" });
+  const good = classifyDetachedJobUnit({ error: null, exitCode: 0, errChunks: [], chunks: [Buffer.from(`${JSON.stringify({ type: "system" })}\n${JSON.stringify({ type: "result", result: JSON.stringify({ legs: [1, 2] }) })}\n`)], bytes: 8, endedAt: "t" });
   if (good.status !== "done" || !good.candidate || !Array.isArray(good.candidate.legs)) {
     fails.push(`(b4) a well-shaped exit-0 record did not classify as done: ${JSON.stringify(good)}`);
   }
@@ -118,8 +118,13 @@ const root = process.cwd();
 // (d) END TO END: a real `job-supervise` child process, against a FAKE judge
 // binary whose behaviour is selected by the PROMPT it reads on stdin (never
 // by an argv flag, since the supervisor hands every unit the same argv) --
-// "OK\n" writes a valid Candidate, "FAIL_EXIT\n" exits 3, "FAIL_JSON\n"
-// writes unparseable stdout, "SLEEP_FOREVER\n" never exits on its own.
+// "OK\n" writes a valid stream-json transcript ending in a `type: "result"`
+// line, "FAIL_EXIT\n" exits 3, "FAIL_JSON\n" writes unparseable stdout,
+// "SLEEP_FOREVER\n" never exits on its own, "SLOW\n" writes a `type: "system"`
+// line every 300ms for 8 ticks (~2.4s) THEN its result line -- streamed,
+// incremental output past the fixture's own stall bound (kogaki#1193 PR #1195
+// review round 1, finding 1's own fixture: byte growth across several small
+// writes, never one buffered write at exit).
 const scratch = mkdtempSync(join(tmpdir(), "kogaki-rpjob-fakejudge-"));
 const fakeJudge = join(scratch, "fake-judge.mjs");
 writeFileSync(fakeJudge, `#!/usr/bin/env node
@@ -130,7 +135,21 @@ process.stdin.on("end", () => {
   if (prompt === "FAIL_EXIT") { process.stderr.write("fake judge refused on purpose\\n"); process.exit(3); }
   if (prompt === "FAIL_JSON") { process.stdout.write("not json at all"); process.exit(0); }
   if (prompt === "SLEEP_FOREVER") { setInterval(() => {}, 1 << 30); return; }
-  process.stdout.write(JSON.stringify({ result: JSON.stringify({ legs: [{ id: "s1" }] }) }));
+  if (prompt === "SLOW") {
+    let i = 0;
+    const iv = setInterval(() => {
+      i += 1;
+      process.stdout.write(JSON.stringify({ type: "system", subtype: "progress", i }) + "\\n");
+      if (i >= 8) {
+        clearInterval(iv);
+        process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "slow" }] }) }) + "\\n");
+        process.exit(0);
+      }
+    }, 300);
+    return;
+  }
+  process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "s1" }] }) }) + "\\n");
 });
 `);
 chmodSync(fakeJudge, 0o755);
@@ -210,6 +229,22 @@ function readRecord(dir) {
   if (!rec || rec.state !== "stalled" || !rec.failure) fails.push(`(d6) no output growth did not end the job \`stalled\` ahead of its ceiling: ${JSON.stringify(rec)}`);
 }
 
+// (d7.5) streamed output past the OLD stall bound does not stall (kogaki#1193
+// PR #1195 review round 1, finding 1's own fixture). The "SLOW" judge writes
+// eight small lines 300ms apart (~2.4s total) rather than one buffered write
+// at exit -- a stall bound smaller than any single gap (`stallS: 1`) would
+// catch a buffered writer instantly but must NOT catch one that keeps
+// producing bytes, which is exactly what `--output-format json` could never
+// prove and `stream-json` now does.
+{
+  const dir = mkNewRun();
+  superviseSync(dir, [{ id: "c1", prompt: "SLOW" }], { absoluteLimitS: 10, stallS: 1, checkpointS: 10, heartbeatMs: 200 });
+  const rec = readRecord(dir);
+  if (!rec || rec.state !== "done" || rec.failure) {
+    fails.push(`(d7.5) steady streamed output narrower than the stall gap still ended non-\`done\`: ${JSON.stringify(rec)}`);
+  }
+}
+
 // (d7) other — a units file the supervisor cannot even read is the
 // catch-all, and the record still lands rather than nothing being written.
 {
@@ -220,6 +255,61 @@ function readRecord(dir) {
   spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
   const rec = readRecord(dir);
   if (!rec || rec.state !== "other" || !rec.failure) fails.push(`(d7) an unreadable units file did not end the job \`other\` with a preserved record: ${JSON.stringify(rec)}`);
+}
+
+// (d8)/(d9) THE EXTEND GRANT REACHES THE SUPERVISOR (kogaki#1193 PR #1195
+// review round 1, finding 2's own fixture). Before this fix, `checkpoint_hit`
+// never changed once true, so a unit's SECOND poll after the owner's "extend"
+// click read the exact same `limit-reached` verdict the FIRST poll did — the
+// owner was granted no additional time before being asked again. `checkpointS
+// : 1` puts the "SLOW" unit's checkpoint well inside its own ~2.4s run, so
+// the sequence below observes: checkpoint hit -> (with no override) STILL
+// hit one heartbeat later -> (after writing the override this member itself
+// writes, the same file `cmdJobSupervise` polls) NOT hit -> eventually `done`,
+// which the unit was always going to reach on its own timeline once the
+// supervisor stopped re-declaring it blocked.
+function sleepSyncMs(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+function pollUntil(dir, pred, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let rec = readRecord(dir);
+  while (Date.now() < deadline) {
+    rec = readRecord(dir);
+    if (pred(rec)) return rec;
+    sleepSyncMs(50);
+  }
+  return rec;
+}
+{
+  const dir = mkNewRun();
+  const unitsPath = join(dir, "units.json");
+  writeFileSync(unitsPath, JSON.stringify([{ id: "c1", prompt: "SLOW" }], null, 2));
+  const child = spawn(process.execPath, ["src/terrain.mjs", "job-supervise",
+    "--run", dir, "--units", unitsPath, "--command", fakeJudge, "--model", "m",
+    "--output-format", "json", "--checkpoint-s", "1", "--absolute-limit-s", "30",
+    "--stall-s", "30", "--heartbeat-ms", "150"], { cwd: root });
+  try {
+    const hit1 = pollUntil(dir, (r) => r && r.state === "limit-reached", 5000);
+    if (!hit1 || hit1.state !== "limit-reached") {
+      fails.push(`(d8) a checkpoint-s smaller than the unit's own run time never reached \`limit-reached\` — the fixture's own premise did not hold: ${JSON.stringify(hit1)}`);
+    } else {
+      sleepSyncMs(200);
+      const stillHit = readRecord(dir);
+      if (!stillHit || stillHit.state !== "limit-reached") {
+        fails.push(`(d8) \`limit-reached\` cleared on its own with no extend override written — the fixture cannot show the grant taking effect: ${JSON.stringify(stillHit)}`);
+      }
+      writeFileSync(join(dir, "reader-path-job.extend"), `${JSON.stringify({ c1: 30 }, null, 2)}\n`);
+      const cleared = pollUntil(dir, (r) => r && r.state !== "limit-reached", 3000);
+      if (!cleared || cleared.state === "limit-reached") {
+        fails.push(`(d8) writing the extend override did not clear \`limit-reached\` on the next supervisor tick: ${JSON.stringify(cleared)}`);
+      }
+      const done = pollUntil(dir, (r) => r && r.state !== "running" && r.state !== "limit-reached", 8000);
+      if (!done || done.state !== "done") {
+        fails.push(`(d9) the extended unit did not go on to finish \`done\`: ${JSON.stringify(done)}`);
+      }
+    }
+  } finally {
+    try { child.kill("SIGKILL"); } catch { /* already exited on its own */ }
+  }
 }
 
 // (e) THE SCREEN LEAKS NEITHER A STATE NAME NOR A PATH (acceptance 8). A

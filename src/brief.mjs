@@ -99,12 +99,13 @@ import {
 // each.
 import {
   detachedJobExecutor, DetachedJobStarted, READER_PATH_JOB_GATE_ID,
-  READER_PATH_JOB_FILE, READER_PATH_JOB_CHECKPOINT_S, READER_PATH_JOB_ABSOLUTE_LIMIT_S,
-  READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS, READER_PATH_JOB_STATES,
-  readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob, writeReaderPathJob,
-  spawnDetachedJobUnit, readerPathUnitRecord, classifyDetachedJobUnit, classifyDetachedJobState,
+  READER_PATH_JOB_CHECKPOINT_S, READER_PATH_JOB_ABSOLUTE_LIMIT_S,
+  READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS,
+  readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
+  classifyDetachedJobState,
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
   judgeSettings, judgePrompt, startDetachedJobSupervisor,
+  READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
@@ -1349,8 +1350,8 @@ const STATE_WORK = {
     // job "extend" left running is polled again, never restarted.
     if (readReaderPathJob(dir)) {
       throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
-        `the reader-path job at ${readerPathJobPath(dir)} is already open -- poll it with the Brief `
-        + "skill's `job status`/`job await` commands (kogaki#1193).");
+        `the reader-path job at ${readerPathJobPath(dir)} is already open -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
+        + "to poll it (kogaki#1193).");
     }
 
     // START (kogaki#1193). The single whole-input ask this state used to make
@@ -1404,8 +1405,8 @@ const STATE_WORK = {
       heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
     });
     throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
-      `reader-path job started at ${readerPathJobPath(dir)} (kogaki#1193) -- poll it with the Brief `
-      + "skill's `job status`/`job await` commands.");
+      `reader-path job started at ${readerPathJobPath(dir)} (kogaki#1193) -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
+      + "to poll it.");
   },
 
   // ---- JUDGMENT POINT 2. Path review, which is REASONING and never a verdict.
