@@ -1699,18 +1699,22 @@ async function jobWork(dir, verb, table, tablePath, args) {
 // line saying every other tool is denied until the answer is captured. THE
 // FILE STAYS THE REFERENCE — the PreToolUse equality check still compares
 // against it, so this is a second reader of one payload, not a second one.
-// Returns false (and prints nothing) when no call has been written yet, which
-// `printReaderPathJobStatus` uses to fall back to naming the unwritten reason.
+// WHERE NO CALL WAS WRITTEN (`composeGateCall`'s `gate_call_unavailable`
+// arm) there are no bytes, so it names where the reason is instead — an owed
+// gate announced with neither a payload nor a reason is the failure this issue
+// names, on either caller.
 function printReaderPathJobGateCallBytes(dir, gateId, declPath) {
   const callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
-  if (!existsSync(callPath)) return false;
+  if (!existsSync(callPath)) {
+    console.log(`No AskUserQuestion call could be composed for this gate, and the reason is on the open-gate pointer (\`gate_call_unavailable\`). Render the declaration's options verbatim, nothing pre-selected, free text on: ${declPath}.`);
+    return;
+  }
   console.log(`The AskUserQuestion call is WRITTEN: ${callPath}`);
   console.log(`Its bytes are below — the payload itself, not a path to one. No tool is admissible inside the open-gate interval, the Read that would fetch this file included, so a call named and unprinted is one nothing can obtain (kogaki#1057, kogaki#1198).`);
   console.log("```json");
   console.log(readFileSync(callPath, "utf8").replace(/\n+$/, ""));
   console.log("```");
   console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028). The declaration that raised it: ${declPath}.`);
-  return true;
 }
 
 // A ONE-LINE HEARTBEAT, read straight off the record `job start`'s supervisor
