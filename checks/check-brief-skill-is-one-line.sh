@@ -49,8 +49,15 @@
 #       run is the runtime's own contract and the Removal Test's in
 #       `checks/check-brief-compose.sh`; this member asserts only that exactly
 #       one such line is present and that nothing else is.
-#   L2. IT DOES NOT READ THE FRONTMATTER'S CONTENT. `name` and `description` are
-#       the harness's schema, not this rule's.
+#   L2. IT DOES NOT READ THE FRONTMATTER'S CONTENT, WITH ONE NAMED EXCEPTION
+#       (kogaki#1193 PR #1195 review round 1, finding 3): `allowed-tools` is
+#       read, and read as a CLOSED SET — the two session-typeable reader-path
+#       job commands (`job status`/`job await`, spelled exactly as
+#       `src/brief.mjs` accepts them) sit beside the existing `start` entry,
+#       and a FOURTH entry is refused by name. `job start`/`job stop` are
+#       hook-only and must never become session-typeable, which is what a
+#       closed set (not a "at least these three") is for. `name` and
+#       `description` remain unread — the harness's schema, not this rule's.
 #   L3. NO BLANK LINE IS ADMITTED after the frontmatter, and that is chosen
 #       rather than inherited. A blank line is a line, and admitting blanks would
 #       need a rule about how many — the kind of tolerance a conduct paragraph
@@ -84,6 +91,29 @@ verdict() {
   done
   if [ "$closed" -eq 0 ]; then
     printf 'the frontmatter fence is never closed\n'; return 1
+  fi
+  # THE `allowed-tools` CLOSED SET (kogaki#1193 PR #1195 review round 1,
+  # finding 3, L2's named exception above). Exactly these three entries are
+  # admitted, comma-separated on one line — a fourth is refused by name, which
+  # is what keeps `job start`/`job stop` (hook-only) from ever becoming
+  # session-typeable through this file.
+  local allowed_line="" entry
+  for (( i=1; i<closed; i++ )); do
+    case "${L[$i]}" in
+      allowed-tools:*) allowed_line="${L[$i]#allowed-tools:}" ;;
+    esac
+  done
+  if [ -n "$allowed_line" ]; then
+    IFS=',' read -ra entries <<< "$allowed_line"
+    for entry in "${entries[@]}"; do
+      read -r entry <<< "$entry"
+      case "$entry" in
+        'Bash(node src/brief.mjs start:*)') ;;
+        'Bash(node src/brief.mjs run --status --job status:*)') ;;
+        'Bash(node src/brief.mjs run --status --job await:*)') ;;
+        *) printf 'the frontmatter admits a tool outside the closed set: %s\n' "$entry"; bad=1 ;;
+      esac
+    done
   fi
   # region 3: everything after the closing fence must be exactly the start line.
   rest=$(( n - closed - 1 ))
@@ -165,6 +195,21 @@ if verdict "$tmp" >/dev/null 2>&1; then
   fails+=("(b4) THE CHECK ADMITS A NON-START LINE: a line that does not begin \`!\` is not run by the harness at invocation, so the Act it names is nobody's.")
 fi
 
+# b6 — a fifth `allowed-tools` entry outside the closed set fails (kogaki#1193
+# PR #1195 review round 1, finding 3). `job start`/`job stop` are hook-only;
+# a session that could type either would run a verb this suite never
+# admitted as session-typeable.
+plant '---
+name: brief
+description: d
+allowed-tools: Bash(node src/brief.mjs start:*), Bash(node src/brief.mjs run --status --job status:*), Bash(node src/brief.mjs run --status --job await:*), Bash(node src/brief.mjs run --status --job start:*)
+---
+!node src/brief.mjs start
+'
+if verdict "$tmp" >/dev/null 2>&1; then
+  fails+=("(b6) THE CHECK ADMITS A FIFTH allowed-tools ENTRY: the closed set is refused past its declared three, and this file carried a fourth (a hook-only \`job start\` verb reachable from a session), which is the exact defect this arm exists to catch.")
+fi
+
 # b5 — an absent file fails rather than passing vacuously.
 rm -f "$tmp/$SKILL"
 if verdict "$tmp" >/dev/null 2>&1; then
@@ -176,4 +221,4 @@ if [ ${#fails[@]} -gt 0 ]; then
   printf '  - %s\n' "${fails[@]}"
   exit 1
 fi
-printf 'ok: check-brief-skill-is-one-line — %s is frontmatter plus one `!` start line; discrimination asserted in five directions\n' "$SKILL"
+printf 'ok: check-brief-skill-is-one-line — %s is frontmatter plus one `!` start line, `allowed-tools` closed to its declared set; discrimination asserted in six directions\n' "$SKILL"
