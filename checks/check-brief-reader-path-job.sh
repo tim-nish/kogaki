@@ -403,6 +403,13 @@ function pollUntil(dir, pred, timeoutMs) {
   if (!terrain.includes("CLAUDE_CODE_DISABLE_AUTO_MEMORY")) {
     fails.push("(g) src/terrain.mjs no longer sets CLAUDE_CODE_DISABLE_AUTO_MEMORY in a unit child's environment — dropping `--bare` re-admits auto-memory with nothing left to suppress it");
   }
+  // The `job status` line carries a dead unit's result text too (design item
+  // 2), asserted by string: the status verb is hook-run, not fixture-run.
+  const brief = readFileSync("src/brief.mjs", "utf8");
+  const statusFn = brief.slice(brief.indexOf("function printReaderPathJobStatus"), brief.indexOf("function sleepSync"));
+  if (!statusFn.includes("u.failure.result")) {
+    fails.push("(g) printReaderPathJobStatus no longer renders a dead unit's failure.result — the `job status` line would again say a unit died without saying why");
+  }
 }
 
 rmSync(scratch, { recursive: true, force: true });
