@@ -7628,11 +7628,11 @@ function readerPathBytes(str, n) {
 // `judgeSpawnAsync`'s shape (same stdio, same accounting) but resolves nothing
 // itself: the caller polls `out` at its own cadence, because a unit that
 // stalls must not keep the other two — or the heartbeat — from being read.
-export function spawnDetachedJobUnit(command, argv, input, onBytes) {
+export function spawnDetachedJobUnit(command, argv, input, onBytes, env) {
   const out = { bytes: 0, chunks: [], errChunks: [], done: false, exitCode: null, error: null, endedAt: null };
   let child;
   try {
-    child = spawn(command, argv, { stdio: ["pipe", "pipe", "pipe"] });
+    child = spawn(command, argv, { stdio: ["pipe", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env });
   } catch (e) {
     out.error = e; out.done = true; out.endedAt = new Date().toISOString();
     return { child: null, out };
@@ -7682,12 +7682,31 @@ export function readerPathUnitRecord(stdout) {
   return { candidate: record };
 }
 
+// THE DEAD UNIT'S LAST `result` LINE (kogaki#1197): even a unit that exits
+// non-zero streams `stream-json`, so its last `{"type":"result",...}` line
+// still carries the CLI's own `is_error: true` reading of what went wrong
+// (e.g. "Not logged in · Please run /login") -- read here rather than left to
+// `readerPathUnitRecord`, whose "not a JSON object" / "no `legs` array"
+// checks are shaped for a LIVE candidate, not a dead unit's error string.
+function readerPathDeadUnitResult(stdout) {
+  const lines = String(stdout == null ? "" : stdout).split("\n").filter((l) => l.trim() !== "");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let obj;
+    try { obj = JSON.parse(lines[i]); } catch { continue; }
+    if (obj && typeof obj === "object" && obj.type === "result" && obj.is_error === true && typeof obj.result === "string") {
+      return obj.result;
+    }
+  }
+  return null;
+}
+
 export function classifyDetachedJobUnit(out) {
   if (out.error) {
     return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(String(out.error.message || out.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
   }
   if (out.exitCode !== 0) {
-    return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(Buffer.concat(out.errChunks).toString("utf8"), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
+    const result = readerPathDeadUnitResult(Buffer.concat(out.chunks || []).toString("utf8"));
+    return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(Buffer.concat(out.errChunks).toString("utf8"), 4000), bytes_written: out.bytes, ended_at: out.endedAt, ...(result !== null ? { result } : {}) } };
   }
   const r = readerPathUnitRecord(Buffer.concat(out.chunks).toString("utf8"));
   if (r.error) {
@@ -7780,11 +7799,18 @@ export async function cmdJobSupervise(args) {
     const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
     const units = readJson(unitsPath);
 
-    // THE MINIMAL ENVIRONMENT (kogaki#1193, the owner's 2026-09-25 wording):
-    // no project instructions, skills, hooks or MCP servers -- only the prompt
-    // this process's spawner composed and handed it in `units[].prompt`. THE
-    // OUTPUT FORMAT IS HARDCODED, NEVER PARAMETERIZED (kogaki#1193 PR #1195
-    // review round 1, finding 1): `--output-format json` buffers every byte
+    // THE MINIMAL ENVIRONMENT (kogaki#1193, the owner's 2026-09-25 wording;
+    // narrowed by kogaki#1197): no project instructions, skills, hooks or MCP
+    // servers -- only the prompt this process's spawner composed and handed
+    // it in `units[].prompt`, and the SESSION'S OWN LOGIN. The bare-session
+    // flag this argv carried through kogaki#1193 is gone (kogaki#1197): in
+    // Claude Code 2.1.282 that flag reads auth strictly from
+    // `ANTHROPIC_API_KEY` or an `apiKeyHelper`, never the OAuth login this
+    // machine uses, so every unit died `Not logged in`. Dropping it also
+    // re-admits auto-memory, so `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` is set in
+    // the child's own environment to remove that again. THE OUTPUT
+    // FORMAT IS HARDCODED, NEVER PARAMETERIZED (kogaki#1193 PR #1195 review
+    // round 1, finding 1): `--output-format json` buffers every byte
     // until the child exits, so the stall bound's only progress signal --
     // output-byte growth -- never fires before the child is already done,
     // and every real unit hit `stalled` long before finishing. `stream-json`
@@ -7793,10 +7819,11 @@ export async function cmdJobSupervise(args) {
     // regression back in through `startDetachedJobSupervisor`'s own opts.
     const argv = ["-p", "--model", model,
       "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-      "--bare", "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
+      "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
       "--setting-sources", "", "--no-session-persistence"];
+    const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
     const startedAt = Date.now();
-    unitsRunning = new Map(units.map((u) => [u.id, spawnDetachedJobUnit(command, argv, u.prompt, () => {})]));
+    unitsRunning = new Map(units.map((u) => [u.id, spawnDetachedJobUnit(command, argv, u.prompt, () => {}, childEnv)]));
     let lastProgressAt = startedAt;
     let lastBytesTotal = 0;
 

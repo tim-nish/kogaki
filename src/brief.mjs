@@ -1698,7 +1698,9 @@ function printReaderPathJobStatus(dir, job) {
   const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
   console.log(`reader-path job at ${readerPathJobPath(dir)} — elapsed ${elapsedS}s of ${READER_PATH_JOB_ABSOLUTE_LIMIT_S}s absolute limit:`);
   for (const u of job.units || []) {
-    console.log(`  unit ${u.id}: ${u.status}${u.checkpoint_hit ? " (checkpoint hit)" : ""} — ${u.bytes || 0} byte(s) so far`);
+    // kogaki#1197: a dead unit's own `is_error` result text says why it died.
+    const why = u.failure && typeof u.failure.result === "string" ? ` — ${u.failure.result}` : "";
+    console.log(`  unit ${u.id}: ${u.status}${u.checkpoint_hit ? " (checkpoint hit)" : ""} — ${u.bytes || 0} byte(s) so far${why}`);
   }
 }
 

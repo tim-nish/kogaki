@@ -13,10 +13,11 @@
 # thread's 2026-09-25 "extend is granted once per unit" revision).
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: the
-# minimal-environment CLI flags (`--bare`, `--tools ""`, …) are asserted by
-# STRING, not by a real spawned session reading them — a live harness session
-# is not a fixture this suite can construct. `judgePrompt`'s own prose is
-# `check-brief-compose.sh`'s.
+# minimal-environment CLI flags (`--tools ""`, …) and the
+# `CLAUDE_CODE_DISABLE_AUTO_MEMORY` environment variable (kogaki#1197) are
+# asserted by STRING, not by a real spawned session reading them — a live
+# harness session is not a fixture this suite can construct. `judgePrompt`'s
+# own prose is `check-brief-compose.sh`'s.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -88,6 +89,18 @@ const root = process.cwd();
   if (good.status !== "done" || !good.candidate || !Array.isArray(good.candidate.legs)) {
     fails.push(`(b4) a well-shaped exit-0 record did not classify as done: ${JSON.stringify(good)}`);
   }
+  // (b5) kogaki#1197: a dead unit (non-zero exit) whose stdout still carries a
+  // `stream-json` `{"type":"result","is_error":true,...}` line -- the shape
+  // `--bare`'s "Not logged in" produced -- gets that line's `result` text
+  // carried onto the failure record, not silently dropped for the empty
+  // `stderr_tail` a dead-login unit actually writes.
+  const notLoggedIn = classifyDetachedJobUnit({
+    error: null, exitCode: 1, errChunks: [], bytes: 40, endedAt: "t",
+    chunks: [Buffer.from(`${JSON.stringify({ type: "system" })}\n${JSON.stringify({ type: "result", is_error: true, result: "Not logged in · Please run /login" })}\n`)],
+  });
+  if (notLoggedIn.status !== "died" || notLoggedIn.failure.result !== "Not logged in · Please run /login") {
+    fails.push(`(b5) a dead unit's is_error result line was not carried onto its failure record: ${JSON.stringify(notLoggedIn)}`);
+  }
 }
 
 // (c) THE JOB-LEVEL REDUCTION — died/refused dominate over a still-running
@@ -134,6 +147,11 @@ process.stdin.on("end", () => {
   const prompt = Buffer.concat(chunks).toString("utf8").trim();
   if (prompt === "FAIL_EXIT") { process.stderr.write("fake judge refused on purpose\\n"); process.exit(3); }
   if (prompt === "FAIL_JSON") { process.stdout.write("not json at all"); process.exit(0); }
+  if (prompt === "FAIL_LOGIN") {
+    process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
+    process.stdout.write(JSON.stringify({ type: "result", is_error: true, result: "Not logged in · Please run /login" }) + "\\n");
+    process.exit(1);
+  }
   if (prompt === "SLEEP_FOREVER") { setInterval(() => {}, 1 << 30); return; }
   if (prompt === "SLOW") {
     let i = 0;
@@ -200,6 +218,19 @@ function readRecord(dir) {
   const rec = readRecord(dir);
   if (!rec || rec.state !== "died" || !rec.failure || rec.failure.unit !== "c2" || !String(rec.failure.stderr_tail || "").includes("fake judge refused")) {
     fails.push(`(d3) a non-zero-exit unit did not end \`died\` with its own stderr preserved: ${JSON.stringify(rec)}`);
+  }
+}
+
+// (d3.5) died with a carried result — kogaki#1197 acceptance 1's own fixture:
+// a unit exits 1 after printing an `is_error` result line (the `--bare`
+// "Not logged in" shape), and the failure record carries that line's
+// `result` text.
+{
+  const dir = mkNewRun();
+  superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "FAIL_LOGIN" }], {});
+  const rec = readRecord(dir);
+  if (!rec || rec.state !== "died" || !rec.failure || rec.failure.unit !== "c2" || rec.failure.result !== "Not logged in · Please run /login") {
+    fails.push(`(d3.5) a dead unit's is_error result text was not carried onto the job's failure record: ${JSON.stringify(rec)}`);
   }
 }
 
@@ -356,6 +387,28 @@ function pollUntil(dir, pred, timeoutMs) {
   const terrain = readFileSync("src/terrain.mjs", "utf8");
   if (!terrain.includes("rec.reader_path_job_extended[jobState]")) {
     fails.push("(f) src/terrain.mjs's `extend` answer no longer records which unit(s) it granted — the ledger `finishReaderPathJobAwait` reads would stay permanently empty");
+  }
+}
+
+// (g) kogaki#1197: `cmdJobSupervise`'s own argv no longer carries `--bare`
+// (acceptance 3 of the issue, asserted here at the source rather than only
+// by `grep` at the repo root — this check IS what a full-suite run exercises)
+// and its child environment sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY` to keep
+// auto-memory off now that `--bare` no longer does.
+{
+  const terrain = readFileSync("src/terrain.mjs", "utf8");
+  if (terrain.includes(`"--bare"`)) {
+    fails.push("(g) src/terrain.mjs still passes `--bare` to a unit child — the flag that read auth strictly from ANTHROPIC_API_KEY/apiKeyHelper and never the OAuth login, killing every unit with \"Not logged in\"");
+  }
+  if (!terrain.includes("CLAUDE_CODE_DISABLE_AUTO_MEMORY")) {
+    fails.push("(g) src/terrain.mjs no longer sets CLAUDE_CODE_DISABLE_AUTO_MEMORY in a unit child's environment — dropping `--bare` re-admits auto-memory with nothing left to suppress it");
+  }
+  // The `job status` line carries a dead unit's result text too (design item
+  // 2), asserted by string: the status verb is hook-run, not fixture-run.
+  const brief = readFileSync("src/brief.mjs", "utf8");
+  const statusFn = brief.slice(brief.indexOf("function printReaderPathJobStatus"), brief.indexOf("function sleepSync"));
+  if (!statusFn.includes("u.failure.result")) {
+    fails.push("(g) printReaderPathJobStatus no longer renders a dead unit's failure.result — the `job status` line would again say a unit died without saying why");
   }
 }
 
