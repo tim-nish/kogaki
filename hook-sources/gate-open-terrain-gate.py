@@ -83,24 +83,25 @@ AND ONCE MORE, AT THE Stop ARM'S OWN BOUND (kogaki#1199). On 2026-09-25 between
 11:29:10 and 11:30:10 UTC, session `440fa07f-5d2a-486e-96f2-2d8a32891eef` could
 not render the open `brief-reader-path-job` gate -- the payload had no route
 into the session, its own separate Issue. The Stop arm blocked fourteen times
-in a row, each time citing a `STOP_BLOCK_BOUND` this file did not own: the
-comment claimed Claude Code stops honouring a Stop-hook block after eight
-consecutive blocks, and on the harness build actually running, that override
-does not exist. `stop_hook_active` was true from the second block on and the
-run record was written at 11:29:21, but the harness kept honouring every block
-after it -- there was no eighth block at which anything released. The owner's
-two typed prompts ("stop it", "stop the stopping hook loop") were dropped by
-the UserPromptSubmit arm, because the gate was still open by this file's own
-reading. The loop ended only when the owner pressed Esc, from outside the
-session, a fourth time this shape had to be recovered by hand (kogaki#1051,
-#1057, #1081). THE FIX IS TO STOP ASSUMING A BOUND THIS HOOK DOES NOT OWN: on a
-Stop with `stop_hook_active` true and the gate still unrendered, this file now
-performs the recovery itself -- writes the `gate-unrendered` failure, moves the
-pointer to `abandoned/`, and releases the turn -- rather than blocking again on
-the strength of a harness behaviour it cannot observe and, on this build, does
-not get. `STOP_BLOCK_BOUND` is gone; the bound is one continuation, counted by
-the harness's own `stop_hook_active` flag rather than by a count this file kept
-and a comment asserted a ceiling for.
+in a row, each time citing a per-run block-count ceiling this file did not own:
+a removed comment claimed Claude Code stops honouring a Stop-hook block after
+eight consecutive blocks, and on the harness build actually running, that
+override does not exist. `stop_hook_active` was true from the second block on
+and the run record was written at 11:29:21, but the harness kept honouring
+every block after it -- there was no eighth block at which anything released.
+The owner's two typed prompts ("stop it", "stop the stopping hook loop") were
+dropped by the UserPromptSubmit arm, because the gate was still open by this
+file's own reading. The loop ended only when the owner pressed Esc, from
+outside the session, a fourth time this shape had to be recovered by hand
+(kogaki#1051, #1057, #1081). THE FIX IS TO STOP ASSUMING A BOUND THIS HOOK
+DOES NOT OWN: on a Stop with `stop_hook_active` true and the gate still
+unrendered, this file now performs the recovery itself -- writes the
+`gate-unrendered` failure, moves the pointer to `abandoned/`, and releases the
+turn -- rather than blocking again on the strength of a harness behaviour it
+cannot observe and, on this build, does not get. The removed constant is gone;
+the bound is one continuation, counted by the harness's own `stop_hook_active`
+flag rather than by a count this file kept and a comment asserted a ceiling
+for.
 
 SCOPED TO THIS SESSION, ALWAYS. A pointer names the session that opened it. A
 machine runs several sessions, and a deny keyed on "some pointer exists" would
