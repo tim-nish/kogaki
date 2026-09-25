@@ -20,6 +20,23 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# FIXTURE ISOLATION. Section (e) calls `emitGateDeclaration`, which writes an
+# open-gate pointer and a gate-declaration sidecar keyed to the session id it
+# reads from the environment. Inherited, that opens a live gate in whichever
+# session runs this check and the gate-open hook then refuses every tool but
+# the gate's own question — which is what stopped two implement workers on
+# #1193. So the whole member runs under a fixture session id and scratch
+# directories, and fails if a pointer naming the fixture session reached the
+# live pointer directory (pointers are keyed by gate instance, so the match is
+# on the session id they carry — another session's gate is not this check's).
+live_gates="${KOGAKI_OPEN_GATES:-$HOME/.claude/kogaki-open-gates}"
+iso="$(mktemp -d "${TMPDIR:-/tmp}/kogaki-rpjob-iso-XXXXXX")"
+trap 'rm -rf "$iso"' EXIT
+export KOGAKI_OPEN_GATES="$iso/open-gates"
+export GATE_DECLARATION_SIDECAR_DIR="$iso/gate-declarations"
+export CLAUDE_CODE_SESSION_ID="check-brief-reader-path-job-fixture"
+mkdir -p "$KOGAKI_OPEN_GATES" "$GATE_DECLARATION_SIDECAR_DIR"
+
 node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync, chmodSync } from "node:fs";
 import { join } from "node:path";
@@ -261,3 +278,11 @@ if (fails.length) {
 }
 console.log("ok: check-brief-reader-path-job — the nine-state Detached Job classifies, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, and grants `extend` at most once per unit");
 JS
+status=$?
+
+if grep -lqs -- "$CLAUDE_CODE_SESSION_ID" "$live_gates"/*.json; then
+  echo "FAIL check-brief-reader-path-job"
+  echo "  - a pointer for the fixture session reached the live open-gate directory $live_gates — a fixture escaped its isolation and opened a real gate"
+  exit 1
+fi
+exit "$status"
