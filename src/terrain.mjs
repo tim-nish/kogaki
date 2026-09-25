@@ -3882,7 +3882,11 @@ function ensureJudgeBinary(rec, table) {
   return rec.judge_binary;
 }
 
-function judgeSettings(table, rec) {
+// EXPORTED FOR THE DETACHED JOB (kogaki#1193): `compose_path`'s own STATE_WORK
+// resolves the same command/model/timeout the synchronous judge path reads,
+// because the unit prompts it composes are handed to the SAME binary at the
+// SAME pin -- there is no second judge configuration for a detached call.
+export function judgeSettings(table, rec) {
   const j = (table && table.judge) || fail(
     "the workflow table declares no `judge` block, so a judgment state has no model to invoke. "
     + "field_semantics: the block names the command, THE PINNED MODEL and the output format, and the "
@@ -4115,7 +4119,12 @@ export function judgeRecordExample(st, input) {
 // on 2026-09-09 it reproduced one deterministic refusal three times at about
 // ninety seconds each. `lastRefusal` is what makes the second ask a different
 // ask.
-function judgePrompt(st, inputText, input, lastRefusal) {
+// EXPORTED FOR THE DETACHED JOB (kogaki#1193): each unit's prompt is composed
+// with this same renderer -- the schema files verbatim, the record example if
+// the state declares one, the input marker -- so the text a unit's child
+// process reads and the text the synchronous judge call would have read are
+// built by one function, never two copies one edit away from disagreeing.
+export function judgePrompt(st, inputText, input, lastRefusal) {
   const L = [];
   L.push(`You are the judge at the ${flow().label} workflow's \`${st.id}\` judgment point.`);
   L.push("");
@@ -7657,6 +7666,157 @@ export function classifyDetachedJobState(units, { stopRequested, elapsedS, stall
   return "running";
 }
 
+// THE `failure` BLOCK FOR A NON-`done` JOB RECORD (kogaki#1193 acceptance 2:
+// "every state but `done` carries `failure`"). A `died`/`refused` job's
+// failure is the offending unit's own -- already shaped by
+// `classifyDetachedJobUnit` -- carried up rather than re-described; the three
+// whole-job exits (`ceiling`, `stalled`, `stopped`) and the catch-all `other`
+// state each a fact ABOUT THE JOB, so they are described here.
+function readerPathJobFailure(state, unitRows, { elapsedS, stalledS, note } = {}) {
+  if (state === "died" || state === "refused") {
+    const u = unitRows.find((x) => x.status === state);
+    return { unit: u ? u.id : null, ...(u && u.failure ? u.failure : {}) };
+  }
+  if (state === "ceiling") {
+    return { elapsed_s: elapsedS, note: "the absolute limit was reached before every unit finished; nothing written so far is deleted." };
+  }
+  if (state === "stalled") {
+    return { stalled_s: stalledS, note: "no unit produced new output for the stall bound; nothing written so far is deleted." };
+  }
+  if (state === "stopped") {
+    return { note: "the owner's stop click ended the job; every unit's partial output stands." };
+  }
+  // `other` (kogaki#1193's catch-all): an exit the supervisor's own top-level
+  // catch reaches, naming what actually happened rather than folding it into
+  // one of the eight named exits it does not match.
+  return { note: note || `unclassified exit (${state})` };
+}
+
+// THE SUPERVISOR (kogaki#1193). Spawned DETACHED by `startDetachedJobSupervisor`
+// below and never awaited by its spawner -- this function's own process
+// outlives the hook that started it, which is the whole point of a Detached
+// Job. It owns the per-unit children, the heartbeat write and the terminal
+// classification; nothing else writes `reader-path-job.json` once this has
+// started.
+//
+// THE CONTINUATION RULE DELIBERATELY DIFFERS FROM `classifyDetachedJobState`'s
+// CALLER AT `job await`: a `limit-reached` classification is `job await`'s cue
+// to raise the extend/stop Arm, and it is NOT this process's cue to stop doing
+// the work -- "extend" (the owner's 2026-09-25 wording) means the SAME unit
+// keeps running rather than being restarted, so this loop only stops at a
+// state nothing can extend past.
+export async function cmdJobSupervise(args) {
+  const dir = String(args.run || fail("job-supervise needs --run <dir> (internal verb, kogaki#1193)."));
+  let unitsRunning = null;
+  try {
+    const unitsPath = String(args.units || fail("job-supervise needs --units <file>."));
+    const command = String(args.command || fail("job-supervise needs --command <path>."));
+    const model = String(args.model || fail("job-supervise needs --model <name>."));
+    const outputFormat = String(args["output-format"] || "json");
+    const checkpointS = Number(args["checkpoint-s"]) || READER_PATH_JOB_CHECKPOINT_S;
+    const absoluteLimitS = Number(args["absolute-limit-s"]) || READER_PATH_JOB_ABSOLUTE_LIMIT_S;
+    const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
+    const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
+    const units = readJson(unitsPath);
+
+    // THE MINIMAL ENVIRONMENT (kogaki#1193, the owner's 2026-09-25 wording):
+    // no project instructions, skills, hooks or MCP servers -- only the prompt
+    // this process's spawner composed and handed it in `units[].prompt`.
+    const argv = ["-p", "--model", model, "--output-format", outputFormat,
+      "--bare", "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
+      "--setting-sources", "", "--no-session-persistence"];
+    const startedAt = Date.now();
+    unitsRunning = new Map(units.map((u) => [u.id, spawnDetachedJobUnit(command, argv, u.prompt, () => {})]));
+    let lastProgressAt = startedAt;
+    let lastBytesTotal = 0;
+
+    for (;;) {
+      // eslint-disable-next-line no-await-in-loop -- one supervisor, one loop,
+      // ordinary sequential polling; `spawnDetachedJobUnit`'s children still
+      // service their own stdout/stderr/close events on this event loop
+      // between ticks, which is why this is `setTimeout` and never the
+      // synchronous `Atomics.wait` `job await` uses on the CLI side -- that one
+      // has no children of its own to starve.
+      await new Promise((r) => { setTimeout(r, heartbeatMs); });
+      const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
+      let bytesTotal = 0;
+      const unitRows = units.map((u) => {
+        const sp = unitsRunning.get(u.id);
+        bytesTotal += sp.out.bytes;
+        if (sp.out.done) return { id: u.id, bytes: sp.out.bytes, ...classifyDetachedJobUnit(sp.out) };
+        const elapsedUnitS = Math.floor((Date.now() - startedAt) / 1000);
+        return { id: u.id, status: "running", bytes: sp.out.bytes, checkpoint_hit: elapsedUnitS >= checkpointS };
+      });
+      if (bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
+      const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
+      const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
+      const state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS });
+      writeReaderPathJob(dir, {
+        started_at: new Date(startedAt).toISOString(),
+        last_progress_at: new Date(lastProgressAt).toISOString(),
+        supervisor_pid: process.pid,
+        state,
+        units: unitRows,
+        ...(state !== "done" && state !== "running"
+          ? { failure: readerPathJobFailure(state, unitRows, { elapsedS, stalledS }) } : {}),
+      });
+      if (state === "running" || state === "limit-reached") continue;
+      for (const u of units) {
+        const sp = unitsRunning.get(u.id);
+        if (!sp.out.done) { try { sp.child.kill("SIGKILL"); } catch { /* already gone */ } }
+      }
+      break;
+    }
+  } catch (e) {
+    // THE CATCH-ALL (kogaki#1193's `other`): an exit nothing above named --
+    // a bad units file, a spawn that threw synchronously, anything this
+    // function itself did not anticipate. Written best-effort: a record this
+    // process cannot even open is a record `job await` reads as `died` on its
+    // own staleness check, never as a silent nothing.
+    try {
+      for (const [, sp] of unitsRunning || []) {
+        if (sp.child && !sp.out.done) { try { sp.child.kill("SIGKILL"); } catch { /* already gone */ } }
+      }
+      const existing = readReaderPathJob(dir) || { started_at: new Date().toISOString(), units: [] };
+      writeReaderPathJob(dir, {
+        ...existing,
+        supervisor_pid: process.pid,
+        state: "other",
+        failure: readerPathJobFailure("other", existing.units || [], { note: `the supervisor process itself failed: ${e.message}` }),
+      });
+    } catch { /* the write itself failing leaves the prior record, which is still the truth as of its own timestamp */ }
+  }
+}
+
+// THE STARTER (kogaki#1193), called in-process from `compose_path`'s own
+// STATE_WORK -- never from a Bash command. Writes the units file the
+// supervisor reads (the ONE thing the Harness hands it, per the owner's
+// "strictly control what information is passed" ruling), spawns it DETACHED
+// and returns immediately without waiting on it: the whole reason a
+// `DetachedJobStarted` throw follows this call rather than a blocking wait.
+export function startDetachedJobSupervisor(dir, opts) {
+  const unitsPath = join(dir, "reader-path-job-units.json");
+  writeFileSync(unitsPath, `${JSON.stringify(opts.units, null, 2)}\n`);
+  const scriptPath = fileURLToPath(import.meta.url);
+  const child = spawn(process.execPath, [
+    scriptPath, "job-supervise",
+    "--run", dir, "--units", unitsPath,
+    "--command", opts.command, "--model", opts.model, "--output-format", opts.outputFormat,
+    "--checkpoint-s", String(opts.checkpointS), "--absolute-limit-s", String(opts.absoluteLimitS),
+    "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
+  ], { detached: true, stdio: "ignore", cwd: REPO });
+  child.unref();
+  const now = new Date().toISOString();
+  writeReaderPathJob(dir, {
+    started_at: now,
+    last_progress_at: now,
+    supervisor_pid: child.pid,
+    state: "running",
+    units: opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, checkpoint_hit: false })),
+  });
+  return { unitsPath, supervisorPid: child.pid };
+}
+
 // The one converter, so the two readers of a throwing validator cannot drift in
 // WHEN they exit — the reason `emitOrRefuse` exists for the format guard.
 function orFail(fn) {
@@ -9679,6 +9839,16 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           rec.done = true;
           rec.reader_path_job_stopped = { state: jobState, at: new Date().toISOString() };
           clearOpenRunPointer();
+          // THE STOP FLAG IS WHAT THE SUPERVISOR ITSELF POLLS (kogaki#1193):
+          // without it a still-running supervisor process would carry on to its
+          // own ceiling or stall rather than ending promptly on the owner's
+          // click. Best-effort kill of the recorded pid alongside it, since the
+          // flag alone still costs one heartbeat's delay.
+          try { writeFileSync(readerPathJobStopFlagPath(dir), `${new Date().toISOString()}\n`); } catch { /* the record is the truth; the flag is only a nudge */ }
+          try {
+            const job = readReaderPathJob(dir);
+            if (job && Number.isInteger(job.supervisor_pid)) process.kill(job.supervisor_pid, "SIGTERM");
+          } catch { /* already gone, or never ours to signal */ }
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is STOPPED; the run is not resumed and the open-run pointer is cleared.`);
         } else {
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is EXTENDED; the state was never marked complete, so the advance below re-enters it and grants one more checkpoint window (kogaki#1193).`);
@@ -10150,6 +10320,13 @@ switch (cmd) {
   // fields, because no hook event produced them and inventing one would be the
   // fabricated attribution this issue removes.
   case "start": cmdRun(args, SKILL_EXPANSION_EXECUTOR, { stopAtFirstWait: true }); break;
+  // ---- THE DETACHED JOB'S SUPERVISOR ENTRYPOINT (kogaki#1193). Reached only
+  // by `startDetachedJobSupervisor`'s own `spawn(process.execPath, [scriptPath,
+  // "job-supervise", ...])` -- never by a Bash command a session could type:
+  // `.claude/hooks/gate-terrain-executor.py`'s admitted shape is `run --status`,
+  // and `job-supervise` is a different `cmd` entirely, not a `--job` value under
+  // it.
+  case "job-supervise": cmdJobSupervise(args); break;
   case "self-test": {
     // The composed-form fixture pass (kogaki#612): pure, seam-free — every
     // case constructs its own inputs, so the trial runs with no gateway.

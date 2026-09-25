@@ -104,6 +104,7 @@ import {
   readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob, writeReaderPathJob,
   spawnDetachedJobUnit, readerPathUnitRecord, classifyDetachedJobUnit, classifyDetachedJobState,
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
+  judgeSettings, judgePrompt, startDetachedJobSupervisor,
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
@@ -1170,13 +1171,17 @@ const STATE_WORK = {
       fail(`${st.id}: ${library.error}`);
     }
     let composed = null;
-    const validate = (p) => {
-      let raw;
-      try { raw = readJson(p); }
-      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
-      const cands = raw && raw.candidates;
+    // TAKES THE ASSEMBLED SET DIRECTLY (kogaki#1193): this is the FULL-SET
+    // half of what a single whole-input ask used to check in one place --
+    // cross-candidate dedup, the ledger, the closed Strand set -- and it now
+    // runs once, over three units' Candidates rather than over one judge's
+    // `{candidates: [...]}` record. The per-unit STRUCTURAL half (does the
+    // record parse, does it carry a `legs` array) is the detached
+    // supervisor's own, in `readerPathUnitRecord`/`classifyDetachedJobUnit` --
+    // this function never re-parses a unit's raw output.
+    const validate = (cands) => {
       if (!Array.isArray(cands)) {
-        refuseJudgment(`the record carries no \`candidates\` array; ${st.input_shape}`);
+        refuseJudgment(`the assembled record carries no \`candidates\` array; ${st.input_shape}`);
       }
       // THE COUNT IS `assembleSelection`'s AND IS STATED HERE TOO, deliberately.
       // Two to three per article is the Candidate gate's own bound, and a
@@ -1301,43 +1306,90 @@ const STATE_WORK = {
       }
       composed = cands;
     };
-    const composeInputFor = () => writeJudgeInput(rec, st, {
-      state: st.id,
-      brief: relFromRepo(briefPath),
-      // THE BRIEF ITSELF, VERBATIM. It carries the adopted Thesis, the Reader
-      // start, and the settled Strands with their served renderings — which is
-      // the whole of what a path may be composed from (the read-not-invented
-      // rule). Handing a summary instead would be this file deciding what the
-      // composition stands on.
-      brief_document: doc,
-      strands_you_may_use: strandIds,
-      // THE MOVE LIBRARY, AS THE CLOSED SET `move` IS COMPOSED FROM
-      // (kogaki#1125). Before this the input carried the Brief, the Strand set
-      // and the required Candidate count, and nothing about Moves — so the
-      // composer met a required `move` field with the field's NAME, a schema
-      // sentence saying the id "is resolved against the Move library at
-      // adoption", and no library. It composed six ids that read like Moves
-      // and were in no record.
-      //
-      // EACH ENTRY CARRIES ITS CONTRACT, not only its id, and that is the
-      // difference between a legal value and a choosable one: a Leg BINDS the
-      // Move whose requires and effect its reader states specialize, so an id
-      // list alone would make the field fillable without making it decidable.
-      // The same two fields reach `judge_specialization`, which is the state
-      // that judges the binding — one reading of the library, two states.
-      moves_you_may_bind: library.moves,
-      candidates_required: "two or three, differing in reader experience",
+    const dir = rec._dir;
+    const finishWith = (cands, judgmentAttribution) => {
+      validate(cands);
+      // THE BARE ARRAY, WRITTEN BESIDE THE RECORD. `src/review.mjs attach` reads
+      // its `--candidates` as the Candidate array; writing the projection here
+      // is what keeps that reader from unwrapping a job record its own way.
+      const out = join(dir, "brief-candidates.json");
+      writeFileSync(out, JSON.stringify(composed, null, 2) + "\n");
+      rec.brief_candidates = out;
+      rec.judgments[st.id] = judgmentAttribution;
+      return null;
+    };
+
+    // RESUMPTION (kogaki#1193). `job await`'s "done" arm re-enters this state
+    // carrying `--candidates <file>` -- one Candidate per finished unit,
+    // already STRUCTURALLY validated by the supervisor
+    // (`readerPathUnitRecord`/`classifyDetachedJobUnit`). The FULL
+    // candidate-schema rules above -- cross-candidate dedup, the ledger, the
+    // closed Strand set -- can only be checked with every unit in hand, so
+    // they run here, once, over the assembled set; and a failure here is
+    // TERMINAL rather than re-asked, on the owner's 2026-09-25 "no automatic
+    // retries" ruling -- a detached job has already spent its one attempt per
+    // unit, and there is no round left to spend repairing the whole set.
+    if (args.candidates) {
+      try {
+        // THE WRAPPED SHAPE (`{candidates: [...]}`), NOT THE BARE ARRAY --
+        // `finishReaderPathJobAwait` writes it that way deliberately, the same
+        // envelope the whole-input judge's record used to carry, so a reader
+        // of `reader-path-candidates.json` (a fixture, an operator) meets the
+        // same top-level key either way.
+        const cands = readJson(String(args.candidates)).candidates;
+        return finishWith(cands, relFromRepo(resolve(readerPathJobPath(dir))));
+      } catch (e) {
+        if (e instanceof JudgmentRefusal) fail(`${st.id}: ${e.message}`);
+        throw e;
+      }
+    }
+
+    // ALREADY OPEN (kogaki#1193). The owner's "extend" answer left the loop
+    // free to re-enter this state before a fresh `job await` resumed it; the
+    // job "extend" left running is polled again, never restarted.
+    if (readReaderPathJob(dir)) {
+      throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
+        `the reader-path job at ${readerPathJobPath(dir)} is already open -- poll it with the Brief `
+        + "skill's `job status`/`job await` commands (kogaki#1193).");
+    }
+
+    // START (kogaki#1193). The single whole-input ask this state used to make
+    // -- "compose two to three Candidates in one call" -- is what outgrew the
+    // hook's own bound (311 measured seconds against a 180s per-call bound,
+    // 2026-09-24). It becomes three concurrent one-Candidate units, each
+    // handed the SAME Brief, Strand set and Move library the whole-input ask
+    // carried, and nothing else -- the Harness composes each unit's whole
+    // prompt here, before the supervisor is spawned, so the detached process
+    // resolves no schema and reads no table of its own.
+    const cfg = judgeSettings(table, rec);
+    const units = [1, 2, 3].map((n) => {
+      const input = {
+        state: st.id,
+        brief: relFromRepo(briefPath),
+        brief_document: doc,
+        strands_you_may_use: strandIds,
+        moves_you_may_bind: library.moves,
+        unit_number: n,
+        candidates_required: "exactly ONE Candidate, this unit's own — two sibling units are composing "
+          + "the other Candidates independently over the same Brief and will not see this one; choose a "
+          + "reader experience unlikely to be the one they choose",
+      };
+      const prompt = judgePrompt(st, JSON.stringify(input, null, 2), input, null);
+      return { id: `candidate-${n}`, prompt };
     });
-    const path = await judged(rec, st, table, args, "candidates", composeInputFor, validate);
-    // THE BARE ARRAY, WRITTEN BESIDE THE RECORD. `src/review.mjs attach` reads
-    // its `--candidates` as the Candidate array, and the judge's record is an
-    // object wrapping it; writing the projection here is what keeps the two
-    // readers from each unwrapping it their own way.
-    const out = join(rec._dir, "brief-candidates.json");
-    writeFileSync(out, JSON.stringify(composed, null, 2) + "\n");
-    rec.brief_candidates = out;
-    rec.judgments[st.id] = relFromRepo(resolve(path));
-    return null;
+    startDetachedJobSupervisor(dir, {
+      units,
+      command: cfg.command,
+      model: cfg.model,
+      outputFormat: cfg.outputFormat,
+      checkpointS: READER_PATH_JOB_CHECKPOINT_S,
+      absoluteLimitS: READER_PATH_JOB_ABSOLUTE_LIMIT_S,
+      stallS: READER_PATH_JOB_STALL_S,
+      heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
+    });
+    throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
+      `reader-path job started at ${readerPathJobPath(dir)} (kogaki#1193) -- poll it with the Brief `
+      + "skill's `job status`/`job await` commands.");
   },
 
   // ---- JUDGMENT POINT 2. Path review, which is REASONING and never a verdict.
