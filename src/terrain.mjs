@@ -2228,6 +2228,10 @@ export const GATE_CALL_SUFFIX = ".gate-call.json";
 // judgment state, naming itself in `extra.judgment_state`, so there is no one
 // table row to bind an option composer to.
 export const JUDGMENT_RETRY_GATE_ID = "terrain-judgment-retry";
+// THE READER-PATH JOB'S ARM (kogaki#1193), raised by `job await` -- never from
+// inside this loop, since nothing here ever finds this job in a non-`done`
+// terminal state without a `job await` having classified it first.
+export const READER_PATH_JOB_GATE_ID = "brief-reader-path-job";
 
 // The harness's own bound on an AskUserQuestion payload. Read from its schema,
 // restated here because there is no module to import it from across the seam --
@@ -9634,6 +9638,26 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           // rather than left to a wording guess over free text.
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the judgment at ${retryState} is RE-ASKED; the state was never marked complete, so the advance below re-enters it (kogaki#1172).`);
         }
+      } else if (owed.gate_id === READER_PATH_JOB_GATE_ID) {
+        // THE ARM ANSWERS ITSELF, ON THE SAME GROUND `JUDGMENT_RETRY_GATE_ID`
+        // DOES ONE ROW UP (kogaki#1193). `stop` ends the RUN — every non-`done`
+        // state's Arm is stop-only or extend-or-stop, and "stop" always means
+        // the open-run pointer clears, never that one judgment retries. "extend"
+        // leaves the state incomplete so the ordinary loop re-enters
+        // `compose_path`, which reads the job record itself and grants the
+        // extended unit one more checkpoint window (`src/brief.mjs`).
+        const jobState = rec.awaiting;
+        rec.owner_input[jobState] = capOption !== null ? capOption : capFree;
+        rec.awaiting = null;
+        try { rmSync(join(openGateDir(), `${decl.gate_instance_id}.json`), { force: true }); } catch { /* a stale pointer costs a re-render, never an answer */ }
+        if (capOption === "stop") {
+          rec.done = true;
+          rec.reader_path_job_stopped = { state: jobState, at: new Date().toISOString() };
+          clearOpenRunPointer();
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is STOPPED; the run is not resumed and the open-run pointer is cleared.`);
+        } else {
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is EXTENDED; the state was never marked complete, so the advance below re-enters it and grants one more checkpoint window (kogaki#1193).`);
+        }
       } else {
         // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
         // (PR #898 round 1). A gate may legitimately offer an answer with no
@@ -9815,6 +9839,7 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     // leave the authority standing for whatever ran next in the same process.
     let outcome = null;
     let judgmentExhausted = null;
+    let detachedJobStarted = null;
     if (work) {
       const held = WRITING_STATE;
       if (st.kind === "write") WRITING_STATE = st.id;
@@ -9826,9 +9851,28 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
         // the one frame that already has `st`, `dir` and `rec` together without
         // threading them through the judge machinery.
         if (e instanceof JudgmentExhausted) { judgmentExhausted = e; }
+        // A DETACHED JOB HAS STARTED OR IS STILL RUNNING (kogaki#1193). Caught
+        // in the same frame, on the same ground: the state that started or
+        // found the job is the one frame that already has `st` and `dir`
+        // together, and the stop below is deliberately gate-less — nothing is
+        // owed to the owner yet.
+        else if (e instanceof DetachedJobStarted) { detachedJobStarted = e; }
         else { throw e; }
       }
       finally { WRITING_STATE = held; }
+    }
+    if (detachedJobStarted) {
+      // NO GATE DECLARATION. This is the whole difference from
+      // `judgmentExhausted` below: a spent judgment bound is something the
+      // owner must decide, and a job that has merely started or is still
+      // running is not — `job await` is what turns a finished job into
+      // either a resumed state (silently, on `done`) or a raised
+      // `brief-reader-path-job` gate (on any other terminal state), and
+      // both of those happen OUTSIDE this loop, from `job await` itself.
+      rec.awaiting = st.id;
+      stopped = st;
+      checkpointRun(rec);
+      break;
     }
     if (judgmentExhausted) {
       if (rec) {
