@@ -651,7 +651,7 @@ export function decisionGradeRendering(c, table) {
 }
 
 // Pure; exported for the check. Returns { error } or { payload }.
-export function assembleSelection(reviewed, doc) {
+export function assembleSelection(reviewed, doc, differentiation) {
   // THE TABLE IS CHECKED BEFORE IT IS TRUSTED (kogaki#909). A malformed
   // disclosure table would make every surface obligation below vacuous while
   // reading exactly like a Candidate set that owed none — the degrades-to-zero
@@ -764,6 +764,22 @@ export function assembleSelection(reviewed, doc) {
     for (const f of REASONING_FIELDS) {
       if (typeof c.reasoning?.[f] !== "string" || c.reasoning[f] === "") {
         return { error: `candidate ${c.candidate_id}: composition-time reasoning ${JSON.stringify(f)} absent — each Candidate carries leg validity, transition continuity and Thesis closure as its gate evidence (the Candidate gate)` };
+      }
+    }
+    // DIFFERENTIATION ASSIGNED THIS UNIT'S OPENING MOVE BEFORE THE UNIT
+    // COMPOSED (kogaki#1206). `c.differentiation_unit` is a Harness-written tag,
+    // never a Model field — attached in `src/brief.mjs` at the reader-path
+    // job's own boundary, where the unit order is still known — so this reads
+    // an assignment made before composition rather than checking a Candidate
+    // against its own choice.
+    if (differentiation) {
+      const entry = (differentiation.entries || []).find((e) => e.unit_number === c.differentiation_unit);
+      const openingMove = c.legs?.[0]?.move;
+      if (entry && openingMove !== entry.opening_move) {
+        return { error: `candidate ${c.candidate_id} (unit ${entry.unit_number}): its first Leg binds `
+          + `move ${JSON.stringify(openingMove ?? null)}, not ${JSON.stringify(entry.opening_move)} — `
+          + `Differentiation assigned this unit's opening Move in advance (src/differentiation-schema.json), `
+          + `and a Candidate whose first Leg does not bind it is refused, naming the unit` };
       }
     }
   }
@@ -1300,7 +1316,14 @@ export function cmdAssemble(args) {
     "assemble needs --brief <theses/<slug>/brief.md> — the composed Brief whose ledger state and placement count are part of the evidence"), "utf8");
   const out = argString(args, "out",
     "assemble needs --out <path> — the machine-local file the selection payload rides in (never a tree *.proposal.json — the Candidate gate registers no new record class)");
-  const r = assembleSelection(reviewed, doc);
+  // OPTIONAL (kogaki#1206): a Brief run predating Differentiation, or a
+  // fixture exercising assembly on its own, carries no such file, and the
+  // opening-Move check is skipped rather than refused for its absence — the
+  // record's own count/dimension/move refusals live at the `differentiation`
+  // state, not here.
+  const diffPath = args.differentiation;
+  const differentiation = typeof diffPath === "string" ? JSON.parse(readFileSync(diffPath, "utf8")) : undefined;
+  const r = assembleSelection(reviewed, doc, differentiation);
   if (r.error) fail(r.error);
   mkdirSync(dirname(resolve(out)), { recursive: true });
   writeFileSync(out, JSON.stringify(r.payload, null, 2) + "\n");

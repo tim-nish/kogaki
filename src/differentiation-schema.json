@@ -1,0 +1,75 @@
+{
+  "note": [
+    "The Differentiation record, machine-readable (kogaki#1206, owner decision",
+    "2026-09-26). It replaces two things at once: the free-text hint each",
+    "reader-path unit's prompt used to carry ('choose a reader experience",
+    "unlikely to be the one they choose'), and the collision refusal that used",
+    "to be read only AFTER all three units had already composed a full",
+    "Candidate. This record is decided BEFORE any unit composes: one entry per",
+    "unit, assigning the reader-state dimension its path leads with, the",
+    "opening Move its first Leg binds, and (where the Brief carries Journey",
+    "material) where that material is placed. The three Candidates differ BY",
+    "ASSIGNMENT, not by chance.",
+    "",
+    "THIS RECORD IS THE BLOCK'S CURRENT OUTPUT, AND NOT ITS DEFINITION",
+    "(SPEC-draft-pipeline §\"Journey register is an axis of Candidate",
+    "differentiation\"). A later mechanism deciding differentiation a",
+    "different way keeps the same state name and the same boundary — before",
+    "the reader-path units start — and may reshape this record's fields",
+    "without that section itself moving.",
+    "",
+    "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
+    "The rule these entries are written under lives in ONE place:",
+    "`src/SPEC-REFERENCES.md`. It is not restated here.",
+    "",
+    "THE NAMES THIS FILE USES, and the spec each one names:",
+    "  Journey register is an axis of Candidate differentiation",
+    "      SPEC-draft-pipeline"
+  ],
+  "version": "1",
+  "record": {
+    "required": ["version", "entries"],
+    "version_must_be": "1",
+    "entries": {
+      "count_must_equal_units": true,
+      "count_rationale": "one entry per reader-path unit — a record with fewer entries leaves a unit with no assignment, and one with more names a unit that does not exist"
+    }
+  },
+  "entry": {
+    "required": ["unit_number", "dimension", "opening_move", "reader_experience"],
+    "unit_number": {
+      "type": "integer",
+      "must_be_unique": true,
+      "range": "1..units",
+      "rationale": "the join key the reader-path unit's own prompt and the assembled Candidate's tag both resolve through — never the unit's opening Move or dimension, because those are exactly the values being assigned"
+    },
+    "dimension": {
+      "type": "string",
+      "closed_set": ["knowledge", "question", "expectation", "orientation", "trust"],
+      "must_be_unique_across_entries": true,
+      "rationale": "the Move library's five reader-state dimensions (src/leg-schema.json, reader_state_before/reader_state_after); two units leading with the same dimension are not differentiated by assignment, they are differentiated by luck"
+    },
+    "opening_move": {
+      "type": "string",
+      "must_resolve_in": "moves_you_may_bind",
+      "rationale": "the id the unit's first Leg must bind — checked at composition by the unit's own retries and re-checked at assembly against the Candidate that resulted (src/assemble.mjs), naming the unit on a mismatch"
+    },
+    "journey_placement": {
+      "type": "string",
+      "optional": true,
+      "closed_set": ["opening", "turn", "close"],
+      "absent_when": "the Brief carries no Journey material at all (journeyBearingStrands over the Brief's Strand set returns no Strand)",
+      "rationale": "where this unit's path places the Journey register, decided in advance rather than left to whichever unit's Model happens to reach for it (SPEC-draft-pipeline §\"Journey register is an axis of Candidate differentiation\")"
+    },
+    "reader_experience": {
+      "type": "string",
+      "min_sentences": 1,
+      "rationale": "one sentence of intended reader experience — carried into the unit's own prompt so the unit composes toward it, not a description read back after the fact"
+    }
+  },
+  "refusal": {
+    "deterministic": true,
+    "names_the_entry": true,
+    "rationale": "a record with two entries sharing a leading dimension, or an opening Move outside moves_you_may_bind, is refused at the state with the entry named — never silently repaired and never deferred to the units that would compose against it"
+  }
+}
