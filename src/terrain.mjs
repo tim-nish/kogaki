@@ -7615,14 +7615,21 @@ export function readerPathUnitStdoutPath(dir, unitId) {
 
 // THE RETRIED UNIT'S PROMPT (kogaki#1203): the first prompt, verbatim, plus
 // the SAME refusal block a synchronous judge's re-ask gets from `judgePrompt`
-// -- the marker, the refusal verbatim, `JUDGE_REFUSAL_REPAIR_SENTENCE`. Built
-// as an APPEND rather than re-composed before the input marker, because the
-// supervisor process that calls this reads no table and no `st`: the whole of
+// -- the marker, the refusal verbatim, `JUDGE_REFUSAL_REPAIR_SENTENCE` --
+// SPLICED IN BEFORE `JUDGE_INPUT_MARKER`, exactly where `judgePrompt` puts it
+// (PR #1207 review round 1): everything after that marker is the input file,
+// so a block appended past it would be read as input, which is the defect
+// #1203 diagnosed. The supervisor reads no table and no `st` -- the whole of
 // what it has for a unit is the first prompt `startDetachedJobSupervisor`
-// wrote into `reader-path-job-units.json`, and the refusal text it computed
-// itself from the failed attempt's stdout.
+// wrote into `reader-path-job-units.json` -- so it splices at the marker
+// rather than re-rendering; the result is byte-identical to `judgePrompt`'s
+// own re-ask over the same row and input. A prompt carrying no marker carries
+// no input to misread, and the block is appended.
 export function readerPathUnitRetryPrompt(firstPrompt, refusal) {
-  return [firstPrompt, "", JUDGE_REFUSAL_MARKER, refusal, "", JUDGE_REFUSAL_REPAIR_SENTENCE].join("\n");
+  const block = ["", JUDGE_REFUSAL_MARKER, refusal, "", JUDGE_REFUSAL_REPAIR_SENTENCE].join("\n");
+  const at = firstPrompt.indexOf(`\n${JUDGE_INPUT_MARKER}\n`);
+  if (at < 0) return firstPrompt + "\n" + block;
+  return firstPrompt.slice(0, at) + block + "\n" + firstPrompt.slice(at);
 }
 
 export function readerPathJobPath(dir) { return join(dir, READER_PATH_JOB_FILE); }
@@ -7944,7 +7951,12 @@ export async function cmdJobSupervise(args) {
             cls.failure = { ...cls.failure, file: readerPathUnitStdoutPath(dir, u.id),
               ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}) };
           }
-          return { id: u.id, bytes: sp.out.bytes, ...cls };
+          // A UNIT REPAIRED ON ITS RE-ASK IS NOT A UNIT NEVER REFUSED (PR #1207
+          // review round 1, the synchronous judge's own position): its row
+          // carries the attempt count and the first refusal, so a `done` job
+          // still shows a judge drifting toward the bound.
+          const retryTrace = firstRefusal !== undefined ? { attempts: attempt, first_refusal: firstRefusal } : {};
+          return { id: u.id, bytes: sp.out.bytes, ...cls, ...retryTrace };
         }
         bytesTotal += sp.out.bytes;
         const elapsedUnitS = Math.floor((Date.now() - startedAt) / 1000);

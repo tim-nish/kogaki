@@ -46,7 +46,7 @@ import { spawn, spawnSync } from "node:child_process";
 import {
   classifyDetachedJobUnit, classifyDetachedJobState, READER_PATH_JOB_STATES,
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, composeGateCall,
-  runRecordPath, GATE_CALL_SUFFIX, judgePrompt, JUDGE_REFUSAL_MARKER,
+  runRecordPath, GATE_CALL_SUFFIX, judgePrompt, JUDGE_REFUSAL_MARKER, JUDGE_INPUT_MARKER,
   readerPathUnitRecord, readerPathUnitRetryPrompt, readerPathUnitStdoutPath,
 } from "./src/terrain.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";
@@ -530,6 +530,23 @@ function pollUntil(dir, pred, timeoutMs) {
   if (!retryPrompt.includes(refusal)) {
     fails.push("(k) readerPathUnitRetryPrompt does not carry the refusal verbatim");
   }
+  // THE BLOCK SITS BEFORE THE INPUT MARKER (PR #1207 review round 1): over a
+  // real unit prompt, the retry prompt is byte-identical to `judgePrompt`'s
+  // own re-ask of the same row and input -- a block spliced past the marker
+  // would be read as input, the #1203 defect in its second-attempt form.
+  const unitRow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_unit;
+  if (unitRow) {
+    const input = { state: "compose_path", unit_number: 1 };
+    const inputText = JSON.stringify(input, null, 2);
+    const realFirst = judgePrompt(unitRow, inputText, input, null);
+    const realRetry = readerPathUnitRetryPrompt(realFirst, refusal);
+    if (realRetry !== judgePrompt(unitRow, inputText, input, refusal)) {
+      fails.push("(k) the retried unit prompt differs from judgePrompt's own re-ask of the same row and input");
+    }
+    if (!realRetry.endsWith(`${JUDGE_INPUT_MARKER}\n${inputText}`)) {
+      fails.push("(k) the retried unit prompt carries text after its input");
+    }
+  }
 }
 
 // (l) ONE RE-ASK, THEN SUCCESS (kogaki#1203 acceptance 2 + 3): a unit refused
@@ -542,6 +559,10 @@ function pollUntil(dir, pred, timeoutMs) {
   const rec = readRecord(dir);
   if (!rec || rec.state !== "done" || rec.failure) {
     fails.push(`(l) a unit refused once then repaired did not end the job \`done\` with no failure: ${JSON.stringify(rec)}`);
+  }
+  const c2Row = ((rec && rec.units) || []).find((u) => u.id === "c2");
+  if (!c2Row || c2Row.attempts !== 2 || !c2Row.first_refusal) {
+    fails.push(`(l) the repaired unit's row does not record its two attempts and its first refusal: ${JSON.stringify(c2Row)}`);
   }
   const stdoutPath = readerPathUnitStdoutPath(dir, "c2");
   if (!existsSync(stdoutPath)) {
