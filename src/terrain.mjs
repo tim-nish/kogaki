@@ -128,7 +128,7 @@
 //
 import { spawnSync, spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, renameSync, readdirSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, appendFileSync, existsSync, openSync, closeSync, writeSync, rmSync, renameSync, readdirSync } from "node:fs";
 import { basename, delimiter, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -4025,6 +4025,17 @@ export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
 // reader keying on position, which is the one thing that marker promises.
 export const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
 
+// THE FIXED REPAIR SENTENCE, NAMED ONCE (kogaki#1203). `judgePrompt` below
+// puts it after a synchronous judge's own refusal; the reader-path unit's
+// retry prompt (`readerPathUnitRetryPrompt`) puts the SAME text after a
+// unit's structural refusal, from the supervisor process, which reads no
+// table. One exported string is what keeps the two ends of "the same refusal
+// block" — the synchronous judge's re-ask and a detached unit's re-ask — from
+// drifting into two different sentences one edit at a time.
+export const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly\n"
+  + "it. The input below is unchanged, so re-reading the material is not what is wanted -- the\n"
+  + "shape of your record is.";
+
 // THE FILLED RECORD EXAMPLE (kogaki#1059). A PROSE SHAPE DESCRIPTION CANNOT BIND
 // A VALIDATOR'S SHAPE. `input_shape` is one sentence — for `J1_claims`, "typed
 // claims record carrying composition_pin and one claim per group" — and on
@@ -4189,9 +4200,7 @@ export function judgePrompt(st, inputText, input, lastRefusal) {
     L.push(JUDGE_REFUSAL_MARKER);
     L.push(lastRefusal);
     L.push("");
-    L.push("That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly");
-    L.push("it. The input below is unchanged, so re-reading the material is not what is wanted -- the");
-    L.push("shape of your record is.");
+    L.push(JUDGE_REFUSAL_REPAIR_SENTENCE);
   }
   L.push("");
   // THE MARKER IS PART OF THE CONTRACT, not decoration. Everything after it is
