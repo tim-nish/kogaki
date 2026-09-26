@@ -146,8 +146,21 @@ let chunks = [];
 process.stdin.on("data", (d) => chunks.push(d));
 process.stdin.on("end", () => {
   const prompt = Buffer.concat(chunks).toString("utf8").trim();
+  const retried = prompt.includes("YOUR PREVIOUS ANSWER WAS REFUSED");
   if (prompt === "FAIL_EXIT") { process.stderr.write("fake judge refused on purpose\\n"); process.exit(3); }
-  if (prompt === "FAIL_JSON") { process.stdout.write("not json at all"); process.exit(0); }
+  // startsWith, not ===: a retried unit's prompt is this token plus the
+  // refusal block appended (kogaki#1203), so the SAME structural refusal
+  // must keep firing across both attempts.
+  if (prompt.startsWith("FAIL_JSON") || prompt.startsWith("FAIL_TWICE")) { process.stdout.write("not json at all"); process.exit(0); }
+  if (prompt.startsWith("FAIL_ONCE")) {
+    if (retried) {
+      process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
+      process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "retried-ok" }] }) }) + "\\n");
+    } else {
+      process.stdout.write("not json at all");
+    }
+    process.exit(0);
+  }
   if (prompt === "FAIL_LOGIN") {
     process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
     process.stdout.write(JSON.stringify({ type: "result", is_error: true, result: "Not logged in · Please run /login" }) + "\\n");

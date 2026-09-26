@@ -7599,6 +7599,32 @@ export const READER_PATH_JOB_STATES = [
   "done", "refused", "limit-reached", "stopped", "ceiling", "stalled", "died", "other",
 ];
 
+// ONE RE-ASK PER UNIT (kogaki#1203, the owner's 2026-09-26 "same policy as
+// before" ruling): 2 attempts total, so a unit refused on attempt 2 is
+// terminal exactly as the synchronous judge's exhausted `retries` was.
+export const READER_PATH_UNIT_MAX_ATTEMPTS = 2;
+
+// ONE FILE PER UNIT, NAMED BY ITS ID (kogaki#1203 acceptance 2). Both
+// attempts of a retried unit land in this same path -- the first attempt's
+// bytes, a divider line, then the second's -- so a unit that dies or is
+// refused is inspectable from one path rather than a reader having to guess
+// which attempt's file survived.
+export function readerPathUnitStdoutPath(dir, unitId) {
+  return join(dir, `reader-path-unit-${unitId}.stdout`);
+}
+
+// THE RETRIED UNIT'S PROMPT (kogaki#1203): the first prompt, verbatim, plus
+// the SAME refusal block a synchronous judge's re-ask gets from `judgePrompt`
+// -- the marker, the refusal verbatim, `JUDGE_REFUSAL_REPAIR_SENTENCE`. Built
+// as an APPEND rather than re-composed before the input marker, because the
+// supervisor process that calls this reads no table and no `st`: the whole of
+// what it has for a unit is the first prompt `startDetachedJobSupervisor`
+// wrote into `reader-path-job-units.json`, and the refusal text it computed
+// itself from the failed attempt's stdout.
+export function readerPathUnitRetryPrompt(firstPrompt, refusal) {
+  return [firstPrompt, "", JUDGE_REFUSAL_MARKER, refusal, "", JUDGE_REFUSAL_REPAIR_SENTENCE].join("\n");
+}
+
 export function readerPathJobPath(dir) { return join(dir, READER_PATH_JOB_FILE); }
 export function readerPathJobStopFlagPath(dir) { return join(dir, "reader-path-job.stop"); }
 // THE EXTEND OVERRIDE FILE (kogaki#1193 PR #1195 review round 1, finding 2).
@@ -7637,23 +7663,43 @@ function readerPathBytes(str, n) {
 // `judgeSpawnAsync`'s shape (same stdio, same accounting) but resolves nothing
 // itself: the caller polls `out` at its own cadence, because a unit that
 // stalls must not keep the other two — or the heartbeat — from being read.
-export function spawnDetachedJobUnit(command, argv, input, onBytes, env) {
+//
+// `stdoutFile`, WHEN GIVEN, IS WRITTEN AS THE CHILD STREAMS (kogaki#1203):
+// `{ path, flag }`, `flag` defaulting to `"w"` -- a fresh file for a unit's
+// first attempt, `"a"` for a retried attempt that appends past a divider its
+// caller already wrote. This is what puts a unit's raw output on disk BEFORE
+// the job ends, including a unit the ceiling or the stall bound kills mid-run:
+// the write happens as each chunk arrives rather than at `close`, where a
+// killed child never gets there.
+export function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutFile) {
   const out = { bytes: 0, chunks: [], errChunks: [], done: false, exitCode: null, error: null, endedAt: null };
   let child;
+  let fd = null;
+  if (stdoutFile && stdoutFile.path) {
+    try { fd = openSync(stdoutFile.path, stdoutFile.flag || "w"); } catch { fd = null; }
+  }
+  const closeFd = () => {
+    if (fd === null) return;
+    try { closeSync(fd); } catch { /* already gone */ }
+    fd = null;
+  };
   try {
     child = spawn(command, argv, { stdio: ["pipe", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env });
   } catch (e) {
+    closeFd();
     out.error = e; out.done = true; out.endedAt = new Date().toISOString();
     return { child: null, out };
   }
   child.stdout.on("data", (d) => {
     out.bytes += d.length; out.chunks.push(d);
+    if (fd !== null) { try { writeSync(fd, d); } catch { /* the disk copy is best-effort; `out.chunks` is still the truth */ } }
     if (onBytes) onBytes(out.bytes);
   });
   child.stderr.on("data", (d) => out.errChunks.push(d));
   child.on("error", (e) => { out.error = e; });
   child.on("close", (code) => {
     out.exitCode = code; out.done = true; out.endedAt = new Date().toISOString();
+    closeFd();
   });
   try { child.stdin.end(input); } catch { /* a child that exited before reading its prompt is the failure arm's */ }
   return { child, out };
@@ -7832,7 +7878,17 @@ export async function cmdJobSupervise(args) {
       "--setting-sources", "", "--no-session-persistence"];
     const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
     const startedAt = Date.now();
-    unitsRunning = new Map(units.map((u) => [u.id, spawnDetachedJobUnit(command, argv, u.prompt, () => {}, childEnv)]));
+    // THE PER-UNIT RETRY STATE (kogaki#1203). `attempts` starts at 1 for every
+    // unit and reaches `READER_PATH_UNIT_MAX_ATTEMPTS` at most once a
+    // structural refusal is re-asked; `firstRefusal` holds attempt 1's own
+    // refusal text so a unit refused twice reports BOTH, and the second
+    // attempt's own classification carries the second verbatim.
+    const unitAttempts = new Map(units.map((u) => [u.id, 1]));
+    const unitFirstRefusal = new Map();
+    unitsRunning = new Map(units.map((u) => {
+      const stdoutFile = { path: readerPathUnitStdoutPath(dir, u.id), flag: "w" };
+      return [u.id, spawnDetachedJobUnit(command, argv, u.prompt, () => {}, childEnv, stdoutFile)];
+    }));
     let lastProgressAt = startedAt;
     let lastBytesTotal = 0;
 
@@ -7853,15 +7909,49 @@ export async function cmdJobSupervise(args) {
       // next poll of an unchanged threshold.
       const extendOverrides = readReaderPathJobExtendFlag(dir);
       let bytesTotal = 0;
+      // A RETRY IS PROGRESS TOO (kogaki#1203): the respawned child's byte
+      // counter starts back at 0, so `bytesTotal` can fall even though real
+      // work just happened -- tracked separately so a retry can never be
+      // mistaken for a stall.
+      let retried = false;
       const unitRows = units.map((u) => {
         const sp = unitsRunning.get(u.id);
+        if (sp.out.done) {
+          const cls = classifyDetachedJobUnit(sp.out);
+          const attempt = unitAttempts.get(u.id) || 1;
+          // THE ONE RE-ASK (kogaki#1203 acceptance 3): a STRUCTURAL refusal on
+          // attempt 1 respawns the unit with the refusal appended, verbatim,
+          // rather than ending the job -- `died` (a non-zero exit) is never
+          // retried, on the same ground the synchronous judge never retried a
+          // spawn failure.
+          if (cls.status === "refused" && attempt < READER_PATH_UNIT_MAX_ATTEMPTS) {
+            const refusal = cls.failure.stderr_tail;
+            unitFirstRefusal.set(u.id, refusal);
+            const stdoutPath = readerPathUnitStdoutPath(dir, u.id);
+            try { appendFileSync(stdoutPath, `\n----- attempt ${attempt + 1} -----\n`); } catch { /* the disk copy is best-effort */ }
+            const retryPrompt = readerPathUnitRetryPrompt(u.prompt, refusal);
+            const respawned = spawnDetachedJobUnit(command, argv, retryPrompt, () => {}, childEnv,
+              { path: stdoutPath, flag: "a" });
+            unitsRunning.set(u.id, respawned);
+            unitAttempts.set(u.id, attempt + 1);
+            bytesTotal += respawned.out.bytes;
+            retried = true;
+            return { id: u.id, status: "running", bytes: respawned.out.bytes };
+          }
+          bytesTotal += sp.out.bytes;
+          const firstRefusal = unitFirstRefusal.get(u.id);
+          if (cls.status === "died" || cls.status === "refused") {
+            cls.failure = { ...cls.failure, file: readerPathUnitStdoutPath(dir, u.id),
+              ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}) };
+          }
+          return { id: u.id, bytes: sp.out.bytes, ...cls };
+        }
         bytesTotal += sp.out.bytes;
-        if (sp.out.done) return { id: u.id, bytes: sp.out.bytes, ...classifyDetachedJobUnit(sp.out) };
         const elapsedUnitS = Math.floor((Date.now() - startedAt) / 1000);
         const checkpointForUnit = Number(extendOverrides[u.id]) || checkpointS;
         return { id: u.id, status: "running", bytes: sp.out.bytes, checkpoint_hit: elapsedUnitS >= checkpointForUnit };
       });
-      if (bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
+      if (retried || bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
       const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
       const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
       const state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS, absoluteLimitS, stallS });
