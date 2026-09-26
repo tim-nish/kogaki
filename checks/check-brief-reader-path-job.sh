@@ -46,7 +46,8 @@ import { spawn, spawnSync } from "node:child_process";
 import {
   classifyDetachedJobUnit, classifyDetachedJobState, READER_PATH_JOB_STATES,
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, composeGateCall,
-  runRecordPath, GATE_CALL_SUFFIX,
+  runRecordPath, GATE_CALL_SUFFIX, judgePrompt, JUDGE_REFUSAL_MARKER,
+  readerPathUnitRecord, readerPathUnitRetryPrompt, readerPathUnitStdoutPath,
 } from "./src/terrain.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";
 
@@ -473,6 +474,104 @@ function pollUntil(dir, pred, timeoutMs) {
       fails.push(`(h2) \`job status\` on a run with an owed, uncaptured gate carries no \`\`\`json fence: ${statusRun.stdout}`);
     } else if (JSON.stringify(JSON.parse(fencedStatus[1])) !== JSON.stringify(wantBytes)) {
       fails.push(`(h2) \`job status\`'s fenced block does not equal the gate-call file's own bytes: ${fencedStatus[1]} vs ${JSON.stringify(wantBytes)}`);
+    }
+  }
+}
+
+// (j) THE REAL UNIT ROW RENDERS A PROMPT THE PARSER ACTUALLY ACCEPTS
+// (kogaki#1203 acceptance 4a). `src/brief-workflow.json`'s `reader_path_unit`
+// row is rendered through the SAME `judgePrompt` renderer the unit build uses,
+// and a fixture judge answering with the record shape THIS ROW STATES (a bare
+// Candidate at the record's own root, `legs` included) must classify `done` --
+// proving the row's stated shape and the parser's accepted shape are one
+// shape, never two that can drift apart the way the old `compose_path` row
+// and `readerPathUnitRecord` did.
+{
+  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const unitRow = table.reader_path_unit;
+  if (!unitRow) {
+    fails.push("(j) src/brief-workflow.json declares no top-level `reader_path_unit` row");
+  } else {
+    if (/\{\s*candidates\s*:/i.test(unitRow.input_shape || "")) {
+      fails.push(`(j) reader_path_unit.input_shape still describes a \`candidates\` wrapper array: ${unitRow.input_shape}`);
+    }
+    const input = { state: "compose_path", unit_number: 1 };
+    const prompt = judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null);
+    const bareCandidateAnswer = JSON.stringify({
+      candidate_id: "c1", characteristic: "x", reader_experience: "y",
+      legs: [{ id: "s1" }], reasoning: {}, coverage: {}, unused: {},
+    });
+    const stdout = JSON.stringify({ type: "system", subtype: "init" }) + "\n"
+      + JSON.stringify({ type: "result", result: bareCandidateAnswer }) + "\n";
+    const rec = readerPathUnitRecord(stdout);
+    if (!rec || rec.error || !rec.candidate || !Array.isArray(rec.candidate.legs)) {
+      fails.push(`(j) an answer of the shape reader_path_unit.input_shape states was refused by readerPathUnitRecord: ${JSON.stringify(rec)}`);
+    }
+    if (!prompt.includes(unitRow.judgment_point)) {
+      fails.push("(j) judgePrompt(unitRow, ...) did not render the unit row's own judgment_point");
+    }
+  }
+}
+
+// (k) THE RETRY PROMPT CARRIES THE FIRST REFUSAL VERBATIM (kogaki#1203
+// acceptance 4b / acceptance 3): the second attempt is the first prompt plus
+// the same refusal-repair block `judgePrompt` appends for the synchronous
+// judge, marker included.
+{
+  const firstPrompt = "THE FIRST PROMPT, UNCHANGED BELOW THIS LINE";
+  const refusal = "no `legs` array at the record's root";
+  const retryPrompt = readerPathUnitRetryPrompt(firstPrompt, refusal);
+  if (!retryPrompt.startsWith(firstPrompt)) {
+    fails.push("(k) readerPathUnitRetryPrompt does not begin with the first prompt, unchanged");
+  }
+  if (!retryPrompt.includes(JUDGE_REFUSAL_MARKER)) {
+    fails.push("(k) readerPathUnitRetryPrompt carries no JUDGE_REFUSAL_MARKER");
+  }
+  if (!retryPrompt.includes(refusal)) {
+    fails.push("(k) readerPathUnitRetryPrompt does not carry the refusal verbatim");
+  }
+}
+
+// (l) ONE RE-ASK, THEN SUCCESS (kogaki#1203 acceptance 2 + 3): a unit refused
+// structurally on attempt 1 is respawned with the refusal appended, and a
+// judge that repairs on the retried prompt ends the job `done` -- with the
+// unit's stdout on disk under the run directory naming both attempts.
+{
+  const dir = mkNewRun();
+  superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "FAIL_ONCE" }], {});
+  const rec = readRecord(dir);
+  if (!rec || rec.state !== "done" || rec.failure) {
+    fails.push(`(l) a unit refused once then repaired did not end the job \`done\` with no failure: ${JSON.stringify(rec)}`);
+  }
+  const stdoutPath = readerPathUnitStdoutPath(dir, "c2");
+  if (!existsSync(stdoutPath)) {
+    fails.push(`(l) no stdout file on disk for the retried unit at ${stdoutPath}`);
+  } else {
+    const onDisk = readFileSync(stdoutPath, "utf8");
+    if (!onDisk.includes("attempt 2")) {
+      fails.push("(l) the retried unit's stdout file does not mark the second attempt");
+    }
+  }
+}
+
+// (m) REFUSED TWICE IS TERMINAL (kogaki#1203 acceptance 3): a unit whose
+// retry is refused the same way ends the job `refused`, with BOTH refusals
+// recorded -- the second in `failure.stderr_tail`, the first in
+// `failure.first_refusal` -- and the unit's stdout file named by
+// `failure.file`.
+{
+  const dir = mkNewRun();
+  superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "FAIL_TWICE" }], {});
+  const rec = readRecord(dir);
+  if (!rec || rec.state !== "refused" || !rec.failure || rec.failure.unit !== "c2") {
+    fails.push(`(m) a unit refused on both attempts did not end the job \`refused\` naming its unit: ${JSON.stringify(rec)}`);
+  } else {
+    if (!rec.failure.stderr_tail) fails.push("(m) the terminal refusal carries no stderr_tail");
+    if (!rec.failure.first_refusal) fails.push(`(m) the terminal failure block carries no first_refusal: ${JSON.stringify(rec.failure)}`);
+    if (rec.failure.file !== readerPathUnitStdoutPath(dir, "c2")) {
+      fails.push(`(m) the terminal failure block's file does not name the unit's stdout path: ${JSON.stringify(rec.failure)}`);
+    } else if (!existsSync(rec.failure.file)) {
+      fails.push(`(m) the failure block names a stdout file that does not exist: ${rec.failure.file}`);
     }
   }
 }

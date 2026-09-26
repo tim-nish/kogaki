@@ -1380,6 +1380,14 @@ const STATE_WORK = {
       moves_you_may_bind: library.moves,
       units: 3,
     });
+    // THE UNIT'S OWN ROW (kogaki#1203), read fresh per unit build rather than
+    // reusing `st`: `st`'s own `input_shape`/`refusal` state the ASSEMBLED
+    // three-candidate shape (`{candidates:[...]}`) that `validate()` above
+    // checks, and a unit answering to that shape is refused by
+    // `readerPathUnitRecord`, which parses a bare Candidate at its own root.
+    const unitRow = table.reader_path_unit
+      || fail(`${st.id}: src/brief-workflow.json declares no reader_path_unit row for the Detached `
+        + "Job's per-unit prompt — nothing was started (kogaki#1203).");
     const units = [1, 2, 3].map((n) => {
       const input = {
         state: st.id,
@@ -1388,11 +1396,8 @@ const STATE_WORK = {
         strands_you_may_use: strandIds,
         moves_you_may_bind: library.moves,
         unit_number: n,
-        candidates_required: "exactly ONE Candidate, this unit's own — two sibling units are composing "
-          + "the other Candidates independently over the same Brief and will not see this one; choose a "
-          + "reader experience unlikely to be the one they choose",
       };
-      const prompt = judgePrompt(st, JSON.stringify(input, null, 2), input, null);
+      const prompt = judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null);
       return { id: `candidate-${n}`, prompt };
     });
     startDetachedJobSupervisor(dir, {
