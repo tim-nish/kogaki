@@ -12,10 +12,11 @@
     "ASSIGNMENT, not by chance.",
     "",
     "THIS RECORD IS THE BLOCK'S CURRENT OUTPUT, AND NOT ITS DEFINITION",
-    "(SPEC-draft-pipeline §6.1). A later mechanism deciding differentiation a",
+    "(SPEC-draft-pipeline §\"Journey register is an axis of Candidate",
+    "differentiation\"). A later mechanism deciding differentiation a",
     "different way keeps the same state name and the same boundary — before",
     "the reader-path units start — and may reshape this record's fields",
-    "without SPEC-draft-pipeline §6.1 itself moving.",
+    "without that section itself moving.",
     "",
     "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
     "The rule these entries are written under lives in ONE place:",
@@ -58,7 +59,7 @@
       "optional": true,
       "closed_set": ["opening", "turn", "close"],
       "absent_when": "the Brief carries no Journey material at all (journeyBearingStrands over the Brief's Strand set returns no Strand)",
-      "rationale": "where this unit's path places the Journey register, decided in advance rather than left to whichever unit's Model happens to reach for it (SPEC-draft-pipeline §6.1)"
+      "rationale": "where this unit's path places the Journey register, decided in advance rather than left to whichever unit's Model happens to reach for it (SPEC-draft-pipeline §\"Journey register is an axis of Candidate differentiation\")"
     },
     "reader_experience": {
       "type": "string",
