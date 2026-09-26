@@ -1831,6 +1831,31 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   if (!rec) fail(`no run record at ${dir} — the job it names has nothing to resume.`);
   rec._dir = dir;
   const failureState = rec.awaiting;
+  // THE REFUSED UNIT'S OWN ARM (kogaki#1204 acceptance 3), composed before the
+  // extend/stop logic below rather than folded into it: a refused unit never
+  // offers `extend` (there is no checkpoint left to raise), and its own
+  // reading names the unit and its refusal rather than the bare state token,
+  // so the owner sees WHICH unit failed and why without spec-internal
+  // vocabulary (`findInternalVocabulary`, checked at raising by
+  // `checks/check-brief-reader-path-job.sh` section (e)).
+  if (state === "refused") {
+    const refusedUnit = (job.units || []).find((u) => u.status === "refused");
+    const refusalText = (refusedUnit && refusedUnit.failure
+      && (refusedUnit.failure.stderr_tail || refusedUnit.failure.first_refusal))
+      || "no further detail was recorded for the failed step";
+    const reading = refusedUnit
+      ? `The step named ${JSON.stringify(refusedUnit.id)} did not complete: ${refusalText}`
+      : "A step did not complete, and its own record is missing.";
+    const options = [{ id: "rerun", label: "Re-run the failed step (Recommended)" }, { id: "stop", label: "Stop" }];
+    const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
+      { reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))), reader_path_unit_refusal: reading });
+    rec.gate_declarations_owed = rec.gate_declarations_owed || [];
+    rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
+    checkpointRun(rec);
+    console.log(`reader-path job at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
+    printReaderPathJobGateCallBytes(dir, READER_PATH_JOB_GATE_ID, declPath);
+    return;
+  }
   // "EXTEND IS GRANTED ONCE PER UNIT ... the same unit reaching the limit
   // again renders stop only" (kogaki#1193 thread, 2026-09-25). The terrain
   // executor's own `extend`-answer branch records, per state, which units'
