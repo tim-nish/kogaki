@@ -7668,7 +7668,10 @@ export function readReaderPathJob(dir) {
 
 export function writeReaderPathJob(dir, doc) {
   doc.updated_at = new Date().toISOString();
-  writeFileSync(readerPathJobPath(dir), JSON.stringify(doc, null, 2) + "\n");
+  const p = readerPathJobPath(dir);
+  const tmp = `${p}.tmp`;
+  writeFileSync(tmp, JSON.stringify(doc, null, 2) + "\n");
+  renameSync(tmp, p);
   return doc;
 }
 
