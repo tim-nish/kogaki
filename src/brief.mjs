@@ -106,7 +106,7 @@ import {
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
   judgeSettings, judgePrompt, startDetachedJobSupervisor,
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
-  GATE_CALL_SUFFIX,
+  GATE_CALL_SUFFIX, JUDGE_INPUT_MARKER,
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
@@ -115,7 +115,7 @@ import {
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
 import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
-  validateLegs, validateSpecialization, selectedStrands,
+  validateLegs, validateSpecialization, selectedStrands, journeyBearingStrands,
   resolveMoveIds, loadMoveContracts, moveContractsForLegs,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
@@ -1076,6 +1076,89 @@ function writeJudgeInput(rec, st, body) {
   return p;
 }
 
+const DIFFERENTIATION_DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
+const DIFFERENTIATION_PLACEMENTS = ["opening", "turn", "close"];
+
+// PURE, so `checks/check-brief-differentiation.sh` can import and test every
+// refusal directly, matching the codebase's other pure judgment validators
+// (attachReview, validateLegs, assembleSelection, candidateLedgerRefusal).
+// Returns `{ error }` naming the offending entry, or `{ entries }` on success
+// (kogaki#1206).
+export function validateDifferentiationRecord(record, { units, moves, journeyBearing }) {
+  if (!record || record.version !== "1") {
+    return { error: `\`version\` must be "1" (src/differentiation-schema.json); received `
+      + `${JSON.stringify(record && record.version)}` };
+  }
+  const entries = record.entries;
+  if (!Array.isArray(entries) || entries.length !== units) {
+    return { error: `\`entries\` must carry exactly ${units} entries, one per reader-path unit; `
+      + `received ${Array.isArray(entries) ? entries.length : "no array"} (src/differentiation-schema.json)` };
+  }
+  const seenUnit = new Set();
+  const seenDim = new Set();
+  for (const e of entries) {
+    if (!e || typeof e.unit_number !== "number" || !Number.isInteger(e.unit_number)
+      || e.unit_number < 1 || e.unit_number > units) {
+      return { error: `every entry carries an integer \`unit_number\` in 1..${units}; received `
+        + `${JSON.stringify(e && e.unit_number)}` };
+    }
+    if (seenUnit.has(e.unit_number)) {
+      return { error: `two entries carry \`unit_number\` ${e.unit_number} — it is the join key the `
+        + "unit's own prompt and the assembled Candidate's tag both resolve through" };
+    }
+    seenUnit.add(e.unit_number);
+    if (typeof e.dimension !== "string" || !DIFFERENTIATION_DIMENSIONS.includes(e.dimension)) {
+      return { error: `unit ${e.unit_number}: \`dimension\` must be one of `
+        + `${DIFFERENTIATION_DIMENSIONS.join(", ")} (src/differentiation-schema.json); received `
+        + `${JSON.stringify(e && e.dimension)}` };
+    }
+    if (seenDim.has(e.dimension)) {
+      return { error: `unit ${e.unit_number} leads with \`dimension\` ${JSON.stringify(e.dimension)}, `
+        + "already assigned to another unit — two units leading with the same dimension are not "
+        + "differentiated by assignment, they are differentiated by luck" };
+    }
+    seenDim.add(e.dimension);
+    if (typeof e.opening_move !== "string" || e.opening_move === ""
+      || !moves.some((m) => m.id === e.opening_move)) {
+      return { error: `unit ${e.unit_number}: \`opening_move\` must resolve in \`moves_you_may_bind\`; `
+        + `received ${JSON.stringify(e && e.opening_move)}` };
+    }
+    if (e.journey_placement !== undefined) {
+      if (!journeyBearing) {
+        return { error: `unit ${e.unit_number}: \`journey_placement\` is present and this Brief's `
+          + "selected Strands carry no Journey material at all (src/differentiation-schema.json, "
+          + "`absent_when`)" };
+      }
+      if (!DIFFERENTIATION_PLACEMENTS.includes(e.journey_placement)) {
+        return { error: `unit ${e.unit_number}: \`journey_placement\` must be one of `
+          + `${DIFFERENTIATION_PLACEMENTS.join(", ")} when present; received `
+          + `${JSON.stringify(e.journey_placement)}` };
+      }
+    }
+    if (typeof e.reader_experience !== "string" || e.reader_experience.trim() === "") {
+      return { error: `unit ${e.unit_number}: \`reader_experience\` is required and cannot be blank — `
+        + "it is carried into the unit's own prompt so it composes toward it" };
+    }
+  }
+  return { entries };
+}
+
+// ONE UNIT'S OWN ASSIGNMENT, rendered as instruction rather than as a second
+// input (kogaki#1206). `compose_path` splices this ABOVE the input marker
+// its per-unit prompt already carries — the same layer the rendered schema
+// and record example occupy — so the unit is told what it was assigned
+// before it ever reaches the input file it is judging over.
+function differentiationBlockFor(entry) {
+  return [
+    "YOUR ASSIGNED DIFFERENTIATION (kogaki#1206) — decided before any unit composed, so the three",
+    "Candidates differ BY ASSIGNMENT and not by chance (src/differentiation-schema.json):",
+    `  reader-state dimension you lead with: ${entry.dimension}`,
+    `  opening Move your first Leg MUST bind: ${entry.opening_move}`,
+    `  journey placement: ${entry.journey_placement || "(none assigned — carry no Journey material for this unit)"}`,
+    `  intended reader experience: ${entry.reader_experience}`,
+  ].join("\n");
+}
+
 // ---- THE ONE FACT `enter` NEEDS, AND WHERE IT COMES FROM (kogaki#1116).
 //
 // THE STRAND SET ARRIVES ON THE COMMAND LINE, AND NOWHERE ELSE. The brief
@@ -1151,6 +1234,47 @@ const STATE_WORK = {
   mint: (rec, st, args) => ({
     artifact: cmdMint({ ...args, "run-state": needRunState(rec, st) }),
   }),
+
+  // ---- JUDGMENT POINT 0. Differentiation (kogaki#1206): decided BEFORE any
+  // reader-path unit composes, one entry per unit, so the three Candidates
+  // differ BY ASSIGNMENT rather than by chance among units that cannot see
+  // each other. `compose_path` below reads this record to splice each unit's
+  // own entry above that unit's own input marker, and tags the resulting
+  // Candidate with its unit number so `src/assemble.mjs` can check the first
+  // Leg bound what was assigned.
+  differentiation: async (rec, st, args, table) => {
+    const briefPath = needBrief(rec, st);
+    const doc = readFileSync(briefPath, "utf8");
+    const strandIds = selectedStrands(doc);
+    const movesDir = briefMovesDir(args);
+    const library = loadMoveContracts(movesDir);
+    if (library.error) fail(`${st.id}: ${library.error}`);
+    const composePathState = (table.states || []).find((s) => s.id === "compose_path");
+    const units = (composePathState && composePathState.job && composePathState.job.units)
+      || fail(`${st.id}: src/brief-workflow.json's \`compose_path\` state declares no \`job.units\` — `
+        + "differentiation cannot assign a unit count it is not told. Nothing was asked.");
+    const journeyBearing = journeyBearingStrands(doc).length > 0;
+    const validate = (p) => {
+      let record;
+      try { record = readJson(p); }
+      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      const r = validateDifferentiationRecord(record, { units, moves: library.moves, journeyBearing });
+      if (r.error) refuseJudgment(r.error);
+    };
+    const composeInputFor = () => writeJudgeInput(rec, st, {
+      state: st.id,
+      brief: relFromRepo(briefPath),
+      brief_document: doc,
+      strands_you_may_use: strandIds,
+      moves_you_may_bind: library.moves,
+      units,
+      journey_bearing: journeyBearing,
+    });
+    const path = await judged(rec, st, table, args, "differentiation", composeInputFor, validate);
+    rec.brief_differentiation = path;
+    rec.judgments[st.id] = path;
+    return null;
+  },
 
   // ---- JUDGMENT POINT 1. The composition itself.
   //
@@ -1388,6 +1512,14 @@ const STATE_WORK = {
     const unitRow = table.reader_path_unit
       || fail(`${st.id}: src/brief-workflow.json declares no reader_path_unit row for the Detached `
         + "Job's per-unit prompt — nothing was started (kogaki#1203).");
+    // DIFFERENTIATION'S OWN RECORD (kogaki#1206), one entry per unit, read
+    // before any unit's prompt is built — `differentiation` precedes this
+    // state and its own count refusal already guarantees one entry per unit
+    // here, so a missing entry below is this state's own bug rather than a
+    // reachable input.
+    const differentiation = readJson(rec.brief_differentiation
+      || fail(`${st.id} has no differentiation record — \`differentiation\` writes it and precedes `
+        + "this state."));
     const units = [1, 2, 3].map((n) => {
       const input = {
         state: st.id,
@@ -1397,7 +1529,18 @@ const STATE_WORK = {
         moves_you_may_bind: library.moves,
         unit_number: n,
       };
-      const prompt = judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null);
+      const entry = (differentiation.entries || []).find((e) => e.unit_number === n)
+        || fail(`${st.id}: the differentiation record carries no entry for unit ${n} — its own count `
+          + "refusal should have caught this. Nothing was started.");
+      const basePrompt = judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null);
+      // SPLICED ABOVE THE INPUT MARKER, NEVER INSIDE THE INPUT (kogaki#1206
+      // acceptance 2): the marker's own contract is that everything past it is
+      // the composed input file verbatim, so the assignment rides as
+      // instruction ahead of it, the same layer the schema and the record
+      // example already occupy.
+      const markerAt = basePrompt.indexOf(JUDGE_INPUT_MARKER);
+      const prompt = markerAt === -1 ? basePrompt
+        : `${basePrompt.slice(0, markerAt)}${differentiationBlockFor(entry)}\n\n${basePrompt.slice(markerAt)}`;
       return { id: `candidate-${n}`, prompt };
     });
     startDetachedJobSupervisor(dir, {
@@ -1468,6 +1611,11 @@ const STATE_WORK = {
       reviewed: rec.brief_reviewed
         || fail(`${st.id} has no reviewed Candidates — \`attach_review\` writes them and precedes this state.`),
       brief: needBrief(rec, st),
+      // THE OPENING-MOVE CHECK'S OWN INPUT (kogaki#1206), carried through so
+      // `assembleSelection` can refuse a Candidate whose first Leg does not
+      // bind the Move `differentiation` assigned its unit, naming the unit.
+      differentiation: rec.brief_differentiation
+        || fail(`${st.id} has no differentiation record — \`differentiation\` writes it and precedes this state.`),
       out,
     });
     rec.brief_selection = out;
@@ -1804,7 +1952,19 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
 // auto-retries.
 async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
   if (state === "done") {
-    const candidates = (job.units || []).map((u) => u.candidate).filter(Boolean);
+    // TAGGED WITH THE UNIT NUMBER HERE, AND NOWHERE ELSE (kogaki#1206). `u.id`
+    // is `candidate-<n>`, the Harness's own name for the unit `compose_path`
+    // started — never the Model's — so the tag this reads back at assembly
+    // (`c.differentiation_unit`) is the Harness's own record of which unit
+    // produced which Candidate, not a field the Model could have written.
+    const candidates = (job.units || []).map((u) => {
+      const c = u.candidate;
+      if (c && typeof c === "object") {
+        const m = /^candidate-(\d+)$/.exec(String(u.id || ""));
+        if (m) c.differentiation_unit = Number(m[1]);
+      }
+      return c;
+    }).filter(Boolean);
     const resultPath = join(dir, "reader-path-candidates.json");
     writeFileSync(resultPath, `${JSON.stringify({ candidates }, null, 2)}\n`);
     // `status` IS CLEARED, NOT ONLY `job` (kogaki#1193). `args` here is the

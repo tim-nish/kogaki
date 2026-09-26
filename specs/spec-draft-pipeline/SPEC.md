@@ -2380,6 +2380,18 @@ by differentiation Candidates already carry, not by a gate of its own. **There
 is no register vocabulary and no standing menu**: Candidate composition
 inspects *this* Brief's state and composes what fits *this* article.
 
+**Differentiation is the named block that decides how the Candidates differ**
+(kogaki#1206) — a judgment state run before any reader-path unit composes,
+assigning each unit the reader-state dimension it leads with, the opening Move
+its first Leg must bind, and (where the Brief carries Journey material) where
+that unit places it. Three units composing independently cannot make their
+Candidates differ by seeing each other; Differentiation is what makes them
+differ BY ASSIGNMENT instead. **The record `src/differentiation-schema.json`
+declares today is this block's CURRENT OUTPUT, and not its definition**: a
+later mechanism that decides differentiation a different way keeps the name
+Differentiation and the same boundary — before the reader-path units start —
+and may reshape the record without this section moving.
+
 **The four frozen requirements bind every composed Candidate, not a favoured
 one:**
 
