@@ -475,9 +475,87 @@ console.log("ok: check-brief-reader-path-job — the nine-state Detached Job cla
 JS
 status=$?
 
+# (i) THE Stop ARM'S OWN BOUND (kogaki#1199 acceptance 1). The Stop hook
+# `.claude/hooks/gate-open-terrain-gate.py` (authored at
+# `hook-sources/gate-open-terrain-gate.py`, installed by the supervisor) is
+# run twice against a fixture pointer, standing in for the harness's own two
+# Stop events at one gate: the first call (`stop_hook_active: false`) blocks
+# and grants the turn its one continuation; the second (`stop_hook_active:
+# true`) finds the gate still unrendered and performs the recovery itself --
+# the pointer moves to `abandoned/`, the run record carries
+# `failure.cause = gate-unrendered`, and no block is returned, so the turn
+# and the owner's next typed prompt are both free.
+stop_status=0
+stop_fixture="$(mktemp -d "${TMPDIR:-/tmp}/kogaki-stopbound-XXXXXX")"
+stop_gates="$stop_fixture/open-gates"
+stop_decl="$stop_fixture/decl"
+mkdir -p "$stop_gates" "$stop_decl"
+stop_run_record="$stop_decl/run-record.json"
+printf '{}' > "$stop_run_record"
+stop_gate_call="$stop_decl/gate-call.json"
+printf '{"a":1}' > "$stop_gate_call"
+stop_pointer="$stop_gates/p1.json"
+python3 - "$stop_pointer" "$stop_decl" "$stop_gate_call" <<'PYEOF'
+import json, sys
+from datetime import datetime, timezone
+pointer_path, decl_dir, gate_call = sys.argv[1:4]
+pointer = {
+    "session_id": "sess1",
+    "gate_id": "g1",
+    "gate_instance_id": "inst1",
+    "opened_at": datetime.now(timezone.utc).isoformat(),
+    "declaration_path": f"{decl_dir}/decl.json",
+    "gate_call_path": gate_call,
+    "capture_path": f"{decl_dir}/capture.json",
+}
+with open(pointer_path, "w") as f:
+    json.dump(pointer, f)
+PYEOF
+
+stop_first="$(KOGAKI_OPEN_GATES="$stop_gates" python3 .claude/hooks/gate-open-terrain-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": false}')"
+if ! printf '%s' "$stop_first" | grep -q '"decision": *"block"'; then
+  echo "FAIL check-brief-reader-path-job"
+  echo "  - (i) the first Stop call (stop_hook_active=false) did not return decision:block: $stop_first"
+  stop_status=1
+fi
+if [ ! -f "$stop_pointer" ]; then
+  echo "FAIL check-brief-reader-path-job"
+  echo "  - (i) the pointer was moved after only the first Stop call, before the one granted continuation was spent"
+  stop_status=1
+fi
+
+stop_second="$(KOGAKI_OPEN_GATES="$stop_gates" python3 .claude/hooks/gate-open-terrain-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": true}')"
+if printf '%s' "$stop_second" | grep -q '"decision"'; then
+  echo "FAIL check-brief-reader-path-job"
+  echo "  - (i) the second Stop call (stop_hook_active=true) still returned a decision: $stop_second"
+  stop_status=1
+fi
+if [ -f "$stop_pointer" ]; then
+  echo "FAIL check-brief-reader-path-job"
+  echo "  - (i) the pointer was not moved out of the live open-gates directory on the second Stop"
+  stop_status=1
+fi
+if [ ! -f "$stop_gates/abandoned/p1.json" ]; then
+  echo "FAIL check-brief-reader-path-job"
+  echo "  - (i) the pointer did not land under abandoned/ after the second Stop"
+  stop_status=1
+fi
+if ! grep -q '"cause": *"gate-unrendered"' "$stop_run_record"; then
+  echo "FAIL check-brief-reader-path-job"
+  echo "  - (i) the run record does not carry failure.cause = gate-unrendered after the second Stop: $(cat "$stop_run_record")"
+  stop_status=1
+fi
+rm -rf "$stop_fixture"
+if [ "$stop_status" -eq 0 ]; then
+  echo "ok: check-brief-reader-path-job (i) — the Stop arm blocks once, then abandons the gate and records gate-unrendered on the second stop_hook_active"
+fi
+
 if grep -lqs -- "$CLAUDE_CODE_SESSION_ID" "$live_gates"/*.json; then
   echo "FAIL check-brief-reader-path-job"
   echo "  - a pointer for the fixture session reached the live open-gate directory $live_gates — a fixture escaped its isolation and opened a real gate"
   exit 1
 fi
-exit "$status"
+if [ "$status" -ne 0 ] || [ "$stop_status" -ne 0 ]; then
+  exit 1
+fi
+exit 0

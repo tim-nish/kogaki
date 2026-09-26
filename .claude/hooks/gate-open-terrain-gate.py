@@ -18,7 +18,8 @@ admissible: sending the `AskUserQuestion` payload the executor already composed
 into `gate-call.json`. This file makes that interval real at three events:
 
   PreToolUse        deny every tool call that is not that exact payload
-  Stop              refuse to end the turn until the capture row exists
+  Stop              block once to give the turn a chance to render the gate,
+                     then release it if the gate is still unrendered
   UserPromptSubmit  refuse a typed prompt, because typed text is never an answer
 
 WHY ALL THREE, AND WHY NONE ALONE. PreToolUse alone leaves the session free to
@@ -51,14 +52,14 @@ session called `Read` on that file and the PreToolUse arm refused it, correctly,
 because no tool is exempt; it then composed an `AskUserQuestion` without the
 bytes and the equality check refused that too, also correctly. The one
 admissible act needed bytes that no admissible act could obtain. The Stop arm
-blocked eight times, the harness overrode it, and the run recorded
-`gate-unrendered`. THE RECOVERY WAS AGAIN FROM OUTSIDE THE SESSION: the pointer
-was moved out of the live directory by hand. The fix is not a wider exemption
-here -- admitting a `Read` of exactly `gate_call_path` would make a second act
-admissible inside an interval whose whole property is that exactly one is. It is
-that the start act now PRINTS the payload on the stdout the skill expansion
-already delivers, before any tool exists to deny, and this file is unchanged:
-the written file stays the reference and a paraphrased payload is still refused.
+blocked repeatedly and the run recorded `gate-unrendered`. THE RECOVERY WAS
+AGAIN FROM OUTSIDE THE SESSION: the pointer was moved out of the live directory
+by hand. The fix is not a wider exemption here -- admitting a `Read` of exactly
+`gate_call_path` would make a second act admissible inside an interval whose
+whole property is that exactly one is. It is that the start act now PRINTS the
+payload on the stdout the skill expansion already delivers, before any tool
+exists to deny, and this file is unchanged: the written file stays the
+reference and a paraphrased payload is still refused.
 
 AND ONCE MORE, AT THE GATE THE START ACT DOES NOT OPEN (kogaki#1081). On
 2026-09-10 at 12:45:43Z the ID-selection gate opened with its `gate-call.json`
@@ -68,15 +69,39 @@ START act's stdout, and every later gate is opened by an advance that
 whose stdout goes nowhere. So the second gate's payload had no route into the
 session at all. The arms below each held and each was correct -- `Read`, `Bash`,
 `Agent` and `Skill` denied, a composed substitute refused at the equality check,
-Stop blocking nine times until the harness overrode it -- and the run recorded
-`gate-unrendered`. THE RECOVERY WAS AGAIN FROM OUTSIDE THE SESSION: the pointer
-was moved into `~/.claude/kogaki-open-gates/abandoned/` by hand. The channel is
-the fix and it is not here either: a PostToolUse hook reaches the model through
+Stop blocking repeatedly -- and the run recorded `gate-unrendered`. THE RECOVERY
+WAS AGAIN FROM OUTSIDE THE SESSION: the pointer was moved into
+`~/.claude/kogaki-open-gates/abandoned/` by hand. The channel is the fix and it
+is not here either: a PostToolUse hook reaches the model through
 `hookSpecificOutput.additionalContext` and through nothing else, so the advance
 hook now emits the written call's bytes on that field. This file is unchanged
 for the third time, and for the third time that is the point -- the interval
 still admits exactly one act, and the file on disk is still what it is compared
 against.
+
+AND ONCE MORE, AT THE Stop ARM'S OWN BOUND (kogaki#1199). On 2026-09-25 between
+11:29:10 and 11:30:10 UTC, session `440fa07f-5d2a-486e-96f2-2d8a32891eef` could
+not render the open `brief-reader-path-job` gate -- the payload had no route
+into the session, its own separate Issue. The Stop arm blocked fourteen times
+in a row, each time citing a per-run block-count ceiling this file did not own:
+a removed comment claimed Claude Code stops honouring a Stop-hook block after
+eight consecutive blocks, and on the harness build actually running, that
+override does not exist. `stop_hook_active` was true from the second block on
+and the run record was written at 11:29:21, but the harness kept honouring
+every block after it -- there was no eighth block at which anything released.
+The owner's two typed prompts ("stop it", "stop the stopping hook loop") were
+dropped by the UserPromptSubmit arm, because the gate was still open by this
+file's own reading. The loop ended only when the owner pressed Esc, from
+outside the session, a fourth time this shape had to be recovered by hand
+(kogaki#1051, #1057, #1081). THE FIX IS TO STOP ASSUMING A BOUND THIS HOOK
+DOES NOT OWN: on a Stop with `stop_hook_active` true and the gate still
+unrendered, this file now performs the recovery itself -- writes the
+`gate-unrendered` failure, moves the pointer to `abandoned/`, and releases the
+turn -- rather than blocking again on the strength of a harness behaviour it
+cannot observe and, on this build, does not get. The removed constant is gone;
+the bound is one continuation, counted by the harness's own `stop_hook_active`
+flag rather than by a count this file kept and a comment asserted a ceiling
+for.
 
 SCOPED TO THIS SESSION, ALWAYS. A pointer names the session that opened it. A
 machine runs several sessions, and a deny keyed on "some pointer exists" would
@@ -102,13 +127,6 @@ from pathlib import Path
 
 # The one tool that may run while a gate is open.
 GATE_TOOL = "AskUserQuestion"
-
-# THE HARNESS'S OWN BOUND ON Stop BLOCKING, STATED RATHER THAN HIDDEN. Claude
-# Code stops honouring a Stop-hook block after eight consecutive blocks and lets
-# the turn end. That is not a number this hook can change, so what it does
-# instead is write it onto the run record beside the failure -- a run that ended
-# with the gate unrendered says so, and says how it got past the block.
-STOP_BLOCK_BOUND = 8
 
 # THE SAME EXPIRY THE CAPTURE READS (PR #1043 round 3, finding 4). The two
 # readers of one pointer schema disagreed: `write-gate-capture.py` reaps a
@@ -368,15 +386,14 @@ def pre_tool_use(payload, pointers):
 # --------------------------------------------------------------------------
 # Stop
 
-def record_unrendered(pointer, blocks):
+def record_unrendered(pointer, abandoned_path):
     """Mark the run failed on its own record, at the moment the bound is spent.
 
     WRITTEN ONCE, AND BESIDE THE RUN rather than in a ledger of this hook's own:
     the run record is what a later pass reads, and a gate that went unrendered is
-    a property of the run and not of the hook that noticed. The bound is written
-    down with it, because a record saying "failed" without saying that the
-    harness stopped honouring the block reads as though something chose to
-    proceed.
+    a property of the run and not of the hook that noticed. `abandoned_path` is
+    written down with it so the record names where the pointer went, rather than
+    just that it is gone.
     """
     decl = pointer.get("declaration_path")
     if not decl:
@@ -397,10 +414,10 @@ def record_unrendered(pointer, blocks):
         "gate_id": pointer.get("gate_id"),
         "gate_instance_id": pointer.get("gate_instance_id"),
         "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "abandoned_pointer_path": str(abandoned_path) if abandoned_path else None,
         "note": (f"The turn ended with this gate open and no capture row. The Stop "
-                 f"hook blocked, and the harness stops honouring a Stop block after "
-                 f"{blocks} consecutive blocks — so the turn ended on the harness's "
-                 f"override, not on an answer."),
+                 f"hook released the turn after one continuation without a rendered "
+                 f"question (kogaki#1199)."),
     }
     try:
         with open(rec, "w", encoding="utf-8") as f:
@@ -408,6 +425,38 @@ def record_unrendered(pointer, blocks):
             f.write("\n")
     except Exception as exc:                                      # noqa: BLE001
         note(f"run record {rec} could not be written ({exc})")
+
+
+def abandon_pointer(pointer):
+    """Move the pointer out of the live directory, and return where it went.
+
+    THE RECOVERY THIS HOOK NOW PERFORMS ITSELF (kogaki#1199), on the same
+    destination a human did by hand three times before (kogaki#1051, #1057,
+    #1081): `~/.claude/kogaki-open-gates/abandoned/`. Once moved, the pointer
+    no longer matches anything `open_pointers` returns for this session, so
+    PreToolUse and UserPromptSubmit gate nothing further for it -- the owner's
+    next typed prompt is admitted without this file's involvement.
+
+    A failure to move is reported and returns None rather than raising: the
+    run record is still written by `record_unrendered` either way, and a
+    pointer that could not be moved keeps gating this session's tools, which
+    is the open direction this file holds throughout -- a session left gated
+    is recoverable by re-entry; one silently ungated is not.
+    """
+    path = pointer.get("_pointer_path")
+    if path is None:
+        return None
+    dest_dir = pointer_dir() / "abandoned"
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / path.name
+        path.rename(dest)
+        return dest
+    except Exception as exc:                                      # noqa: BLE001
+        note(f"pointer {getattr(path, 'name', path)} could not be moved to "
+             f"abandoned/ ({exc}); it stays in the live directory and keeps "
+             f"denying this session's tools")
+        return None
 
 
 def stop(payload, pointers):
@@ -429,7 +478,26 @@ def stop(payload, pointers):
             stamp_turn_seen(p)
     pointer = outstanding[0]
     if payload.get("stop_hook_active"):
-        record_unrendered(pointer, STOP_BLOCK_BOUND)
+        # THE ONE CONTINUATION IS SPENT (kogaki#1199). This is the second Stop
+        # for this gate -- the first already blocked once below, and the turn
+        # it bought did not render the question. There is no larger bound to
+        # wait for: the hook abandons the gate itself, on the same recovery a
+        # human performed by hand three times before, and lets the turn end.
+        moved = abandon_pointer(pointer)
+        record_unrendered(pointer, moved)
+        decl = pointer.get("declaration_path")
+        rec = str(Path(decl).parent / "run-record.json") if decl else "(no declaration_path on this pointer)"
+        print(json.dumps({
+            "systemMessage": (
+                f"The Terrain gate {gate_line(pointer)} could not be rendered in "
+                f"the one continuation the Stop hook grants (kogaki#1199). The run "
+                f"record at {rec} now carries failure.cause = gate-unrendered, and "
+                f"the pointer was moved to "
+                f"{moved if moved is not None else '(could not be moved — see stderr)'}. "
+                f"The gate is abandoned; the turn ends here."
+            ),
+        }))
+        return 0
     print(json.dumps({
         "decision": "block",
         "reason": (
@@ -438,9 +506,9 @@ def stop(payload, pointers):
             f"The turn does not end here. Send the payload at "
             f"{pointer.get('gate_call_path') or '(none composed — see the pointer)'} "
             f"as an {GATE_TOOL} tool_input, byte-for-byte, and let the owner answer. "
-            f"The harness stops honouring this block after {STOP_BLOCK_BOUND} "
-            f"consecutive blocks; the run is then recorded `gate-unrendered` and "
-            f"failed."
+            f"This is the one continuation the hook grants for rendering it: if the "
+            f"question still cannot be rendered by the next Stop, the hook abandons "
+            f"the gate itself and lets the turn end (kogaki#1199)."
         ),
     }))
     return 0
