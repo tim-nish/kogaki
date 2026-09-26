@@ -512,7 +512,7 @@ with open(pointer_path, "w") as f:
     json.dump(pointer, f)
 PYEOF
 
-stop_first="$(KOGAKI_OPEN_GATES="$stop_gates" python3 hook-sources/gate-open-terrain-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": false}')"
+stop_first="$(KOGAKI_OPEN_GATES="$stop_gates" python3 .claude/hooks/gate-open-terrain-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": false}')"
 if ! printf '%s' "$stop_first" | grep -q '"decision": *"block"'; then
   echo "FAIL check-brief-reader-path-job"
   echo "  - (i) the first Stop call (stop_hook_active=false) did not return decision:block: $stop_first"
@@ -524,7 +524,7 @@ if [ ! -f "$stop_pointer" ]; then
   stop_status=1
 fi
 
-stop_second="$(KOGAKI_OPEN_GATES="$stop_gates" python3 hook-sources/gate-open-terrain-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": true}')"
+stop_second="$(KOGAKI_OPEN_GATES="$stop_gates" python3 .claude/hooks/gate-open-terrain-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": true}')"
 if printf '%s' "$stop_second" | grep -q '"decision"'; then
   echo "FAIL check-brief-reader-path-job"
   echo "  - (i) the second Stop call (stop_hook_active=true) still returned a decision: $stop_second"
