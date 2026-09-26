@@ -105,17 +105,28 @@ const root = process.cwd();
   }
 }
 
-// (c) THE JOB-LEVEL REDUCTION — died/refused dominate over a still-running
-// sibling, `stopRequested` dominates over everything (the owner's stop click
-// is answered no matter what a unit is doing), and the three time bounds are
-// read in the declared order: ceiling before stalled before limit-reached.
+// (c) THE JOB-LEVEL REDUCTION (kogaki#1204 rewrite) — a refused or died unit
+// beside a STILL-RUNNING sibling no longer ends the whole job: the function
+// now checks for any running unit FIRST, and only once none remain does it
+// reduce over the finished set, died dominating refused dominating done.
+// `stopRequested` still dominates everything (the owner's stop click is
+// answered no matter what a unit is doing), and the three time bounds are
+// still read in the declared order: ceiling before stalled before
+// limit-reached, all of which only apply while a unit IS still running.
 {
   const running = [{ status: "running", checkpoint_hit: false }];
   const runningHit = [{ status: "running", checkpoint_hit: true }];
   const cases = [
-    [[{ status: "died" }, ...running], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "died"],
-    [[{ status: "refused" }, ...running], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "refused"],
+    // A refused/died unit beside a running sibling reads "running" — the
+    // sibling's own work is still in flight and must not be killed for it.
+    [[{ status: "died" }, ...running], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "running"],
+    [[{ status: "refused" }, ...running], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "running"],
+    // Once every unit has finished (no running left), died dominates refused.
     [[{ status: "died" }, { status: "refused" }], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "died"],
+    // A refused unit beside two FINISHED (done) siblings still reads
+    // "refused" — the reduction only withholds a terminal state while a
+    // sibling is still running, never once every unit has landed.
+    [[{ status: "refused" }, { status: "done" }, { status: "done" }], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "refused"],
     [running, { stopRequested: true, elapsedS: 1, stalledS: 0 }, "stopped"],
     [[{ status: "died" }], { stopRequested: true, elapsedS: 1, stalledS: 0 }, "stopped"],
     [running, { stopRequested: false, elapsedS: 600, stalledS: 0 }, "ceiling"],
@@ -352,6 +363,55 @@ function pollUntil(dir, pred, timeoutMs) {
       if (!done || done.state !== "done") {
         fails.push(`(d9) the extended unit did not go on to finish \`done\`: ${JSON.stringify(done)}`);
       }
+    }
+  } finally {
+    try { child.kill("SIGKILL"); } catch { /* already exited on its own */ }
+  }
+}
+
+// (d10) A REFUSAL BESIDE A RUNNING SIBLING NO LONGER KILLS IT (kogaki#1204
+// acceptances 1-2's own fixture). "c2" (FAIL_TWICE) exhausts both attempts
+// and lands terminally refused within a couple of fast, near-instant ticks;
+// "c1" (SLOW) is still running at that moment (~2.4s to finish) -- the OLD
+// reduction would have declared the whole job `refused` right there and
+// killed "c1" mid-run. The fix: the job keeps polling until "c1" also
+// finishes, "c1"'s own Candidate lands on disk the moment IT classifies
+// `done` (not deleted or withheld for the job's eventual `refused`), and the
+// job record names the file.
+{
+  const dir = mkNewRun();
+  const unitsPath = join(dir, "units.json");
+  writeFileSync(unitsPath, JSON.stringify([{ id: "c1", prompt: "SLOW" }, { id: "c2", prompt: "FAIL_TWICE" }], null, 2));
+  const child = spawn(process.execPath, ["src/terrain.mjs", "job-supervise",
+    "--run", dir, "--units", unitsPath, "--command", fakeJudge, "--model", "m",
+    "--output-format", "json", "--checkpoint-s", "30", "--absolute-limit-s", "30",
+    "--stall-s", "30", "--heartbeat-ms", "150"], { cwd: root });
+  try {
+    // "c2" refuses fast; if the OLD bug were still present the job would
+    // already read `refused` here, well before "c1" (SLOW, ~2.4s) is done.
+    const early = pollUntil(dir, (r) => r && (r.units || []).some((u) => u.id === "c2" && u.status === "refused"), 3000);
+    const c1Early = early && (early.units || []).find((u) => u.id === "c1");
+    if (!c1Early || c1Early.status !== "running" || early.state !== "running") {
+      fails.push(`(d10) once "c2" refused, "c1" was not still running and/or the job state was not "running": ${JSON.stringify(early)}`);
+    }
+    const done = pollUntil(dir, (r) => r && r.state !== "running" && r.state !== "limit-reached", 8000);
+    if (!done || done.state !== "refused") {
+      fails.push(`(d10) the job's own terminal state was not "refused" once every unit had finished: ${JSON.stringify(done)}`);
+    }
+    const c1Final = done && (done.units || []).find((u) => u.id === "c1");
+    if (!c1Final || c1Final.status !== "done") {
+      fails.push(`(d10) "c1" was not left \`done\` by the terminal record — a running sibling was killed for "c2"'s refusal: ${JSON.stringify(c1Final)}`);
+    }
+    if (!c1Final || !c1Final.candidate_file || !existsSync(c1Final.candidate_file)) {
+      fails.push(`(d10) "c1"'s finished Candidate was not written to disk / not named on its unit row: ${JSON.stringify(c1Final)}`);
+    } else {
+      const onDisk = JSON.parse(readFileSync(c1Final.candidate_file, "utf8"));
+      if (!onDisk || !Array.isArray(onDisk.legs)) {
+        fails.push(`(d10) "c1"'s written Candidate file did not carry the classified candidate: ${JSON.stringify(onDisk)}`);
+      }
+    }
+    if (!done.failure || !Array.isArray(done.failure.kept_candidates) || !done.failure.kept_candidates.some((k) => k.id === "c1")) {
+      fails.push(`(d10) the job's failure record did not name "c1"'s kept Candidate: ${JSON.stringify(done && done.failure)}`);
     }
   } finally {
     try { child.kill("SIGKILL"); } catch { /* already exited on its own */ }

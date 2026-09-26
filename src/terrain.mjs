@@ -2270,7 +2270,7 @@ const ASK_MAX_OPTIONS = 4;
 // text rendered above the question. Without this entry the exhausted
 // judgment's own refusal text — the one property that tells an operator WHICH
 // judgment failed and why — never left the run record.
-const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal"];
+const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "reader_path_unit_refusal"];
 
 // THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
 // rather than written here: the number has a measured ground, the ground is
@@ -7613,6 +7613,17 @@ export function readerPathUnitStdoutPath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.stdout`);
 }
 
+// ONE FILE PER FINISHED CANDIDATE, WRITTEN THE MOMENT ITS UNIT CLASSIFIES
+// `done` (kogaki#1204). The job record already carries the same object
+// embedded in the unit's own row, but that row lives inside one JSON file
+// rewritten every heartbeat -- this is a second, narrower write, made once
+// per unit and never touched again, so a finished Candidate is recoverable by
+// itself whatever the job's own terminal state turns out to be and whatever
+// else the record is rewritten to say next tick.
+export function readerPathUnitCandidatePath(dir, unitId) {
+  return join(dir, `reader-path-unit-${unitId}.candidate.json`);
+}
+
 // THE RETRIED UNIT'S PROMPT (kogaki#1203): the first prompt, verbatim, plus
 // the SAME refusal block a synchronous judge's re-ask gets from `judgePrompt`
 // -- the marker, the refusal verbatim, `JUDGE_REFUSAL_REPAIR_SENTENCE` --
@@ -7777,24 +7788,33 @@ export function classifyDetachedJobUnit(out) {
   return { status: "done", candidate: r.candidate };
 }
 
-// THE OVERALL JOB STATE, REDUCED FROM ITS UNITS (kogaki#1193). ANY unit `died`
-// or `refused` ends the job in that state — the job does not wait out the
-// other two once one of them cannot produce a usable Candidate, on the same
-// "no state auto-retries" ground the Arm rule states. `stop_requested` and the
-// two time bounds are read AHEAD of the per-unit statuses, because they are
-// facts about the WHOLE job rather than about any one unit.
+// THE OVERALL JOB STATE, REDUCED FROM ITS UNITS (kogaki#1193, revised
+// kogaki#1204). A unit `died` or `refused` no longer ends the job while a
+// sibling is still running — killing a running sibling on one unit's own
+// refusal is exactly the loss #1204 was filed over, two Candidates written to
+// disk and discarded because a third unit's record did not parse. The
+// supervisor keeps polling until every unit is finished, at its checkpoint,
+// or past a whole-job bound; ONLY THEN is the job's terminal state reduced
+// over the finished set, and `died` still dominates `refused` still dominates
+// `done` in that reduction — the owner is never shown a partial set as
+// complete. `stop_requested` and the two time bounds are read AHEAD of every
+// per-unit status, because they are facts about the WHOLE job rather than
+// about any one unit, and they apply whether or not a unit has already died
+// or been refused.
 export function classifyDetachedJobState(units, {
   stopRequested, elapsedS, stalledS,
   absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S,
   stallS = READER_PATH_JOB_STALL_S,
 } = {}) {
   if (stopRequested) return "stopped";
-  const died = units.find((u) => u.status === "died");
-  if (died) return "died";
-  const refused = units.find((u) => u.status === "refused");
-  if (refused) return "refused";
   const running = units.filter((u) => u.status === "running");
-  if (running.length === 0) return "done";
+  if (running.length === 0) {
+    const died = units.find((u) => u.status === "died");
+    if (died) return "died";
+    const refused = units.find((u) => u.status === "refused");
+    if (refused) return "refused";
+    return "done";
+  }
   if (elapsedS >= absoluteLimitS) return "ceiling";
   if (stalledS >= stallS) return "stalled";
   if (running.some((u) => u.checkpoint_hit)) return "limit-reached";
@@ -7810,7 +7830,16 @@ export function classifyDetachedJobState(units, {
 function readerPathJobFailure(state, unitRows, { elapsedS, stalledS, note } = {}) {
   if (state === "died" || state === "refused") {
     const u = unitRows.find((x) => x.status === state);
-    return { unit: u ? u.id : null, ...(u && u.failure ? u.failure : {}) };
+    // THE FINISHED SIBLINGS' CANDIDATES, NAMED (kogaki#1204 acceptance 2): a
+    // `died`/`refused` job's failure block used to name only the offending
+    // unit, leaving a reader of the record to notice by hand that its
+    // siblings finished. Every `done` row beside it is named here, by id and
+    // by the file `cmdJobSupervise` already wrote for it the moment it
+    // classified `done` — the record pointing at bytes that are still there.
+    const kept_candidates = unitRows
+      .filter((x) => x.status === "done" && x.candidate_file)
+      .map((x) => ({ id: x.id, file: x.candidate_file }));
+    return { unit: u ? u.id : null, ...(u && u.failure ? u.failure : {}), kept_candidates };
   }
   if (state === "ceiling") {
     return { elapsed_s: elapsedS, note: "the absolute limit was reached before every unit finished; nothing written so far is deleted." };
@@ -7892,6 +7921,11 @@ export async function cmdJobSupervise(args) {
     // attempt's own classification carries the second verbatim.
     const unitAttempts = new Map(units.map((u) => [u.id, 1]));
     const unitFirstRefusal = new Map();
+    // WRITTEN ONCE PER UNIT (kogaki#1204): a `done` unit's row is recomputed
+    // from the same finished `out` on every later tick until the whole job
+    // reaches a terminal state, and this set is what keeps that from
+    // rewriting the same Candidate file every heartbeat.
+    const unitCandidateWritten = new Set();
     unitsRunning = new Map(units.map((u) => {
       const stdoutFile = { path: readerPathUnitStdoutPath(dir, u.id), flag: "w" };
       return [u.id, spawnDetachedJobUnit(command, argv, u.prompt, () => {}, childEnv, stdoutFile)];
@@ -7956,7 +7990,19 @@ export async function cmdJobSupervise(args) {
           // carries the attempt count and the first refusal, so a `done` job
           // still shows a judge drifting toward the bound.
           const retryTrace = firstRefusal !== undefined ? { attempts: attempt, first_refusal: firstRefusal } : {};
-          return { id: u.id, bytes: sp.out.bytes, ...cls, ...retryTrace };
+          // THE CANDIDATE IS WRITTEN TO DISK THE MOMENT THIS UNIT CLASSIFIES
+          // `done` (kogaki#1204 acceptance 2), whatever the OTHER units are
+          // doing and whatever the job's own terminal state turns out to be --
+          // the write below runs regardless of any still-running sibling.
+          let candidateFile;
+          if (cls.status === "done") {
+            candidateFile = readerPathUnitCandidatePath(dir, u.id);
+            if (!unitCandidateWritten.has(u.id)) {
+              try { writeFileSync(candidateFile, `${JSON.stringify(cls.candidate, null, 2)}\n`); unitCandidateWritten.add(u.id); }
+              catch { /* the job record's own embedded `candidate` is still the truth */ }
+            }
+          }
+          return { id: u.id, bytes: sp.out.bytes, ...cls, ...retryTrace, ...(candidateFile ? { candidate_file: candidateFile } : {}) };
         }
         bytesTotal += sp.out.bytes;
         const elapsedUnitS = Math.floor((Date.now() - startedAt) / 1000);
@@ -8033,6 +8079,127 @@ export function startDetachedJobSupervisor(dir, opts) {
     units: opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, checkpoint_hit: false })),
   });
   return { unitsPath, supervisorPid: child.pid };
+}
+
+// THE REFUSED EXIT'S OWN ARM (kogaki#1204 acceptance 3): "re-run" resumes
+// exactly the one unit named at the raising, through the SAME second-attempt
+// route kogaki#1203 already gives a structurally-refused unit -- the original
+// prompt plus the refusal-repair block, never a restart of the finished
+// units, whose rows this process reads once at the top and then carries
+// through UNCHANGED on every tick.
+export async function cmdJobRerunUnit(args) {
+  const dir = String(args.run || fail("job-rerun-unit needs --run <dir> (internal verb, kogaki#1204)."));
+  try {
+    const unitId = String(args.unit || fail("job-rerun-unit needs --unit <id>."));
+    const command = String(args.command || fail("job-rerun-unit needs --command <path>."));
+    const model = String(args.model || fail("job-rerun-unit needs --model <name>."));
+    const checkpointS = Number(args["checkpoint-s"]) || READER_PATH_JOB_CHECKPOINT_S;
+    const absoluteLimitS = Number(args["absolute-limit-s"]) || READER_PATH_JOB_ABSOLUTE_LIMIT_S;
+    const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
+    const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
+    const argv = ["-p", "--model", model,
+      "--output-format", "stream-json", "--verbose", "--include-partial-messages",
+      "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
+      "--setting-sources", "", "--no-session-persistence"];
+    const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
+
+    const existing = readReaderPathJob(dir) || fail(`no reader-path job record at ${readerPathJobPath(dir)} to re-run a unit against.`);
+    const priorUnits = Array.isArray(existing.units) ? existing.units : [];
+    const target = priorUnits.find((u) => u.id === unitId)
+      || fail(`unit ${JSON.stringify(unitId)} is not in the reader-path job's own record — nothing to re-run.`);
+    const unitsPath = join(dir, "reader-path-job-units.json");
+    const originalUnits = existsSync(unitsPath) ? readJson(unitsPath) : [];
+    const originalUnit = originalUnits.find((u) => u.id === unitId)
+      || fail(`unit ${JSON.stringify(unitId)}'s original prompt is not on disk at ${unitsPath} — nothing to re-run from.`);
+    const refusal = (target.failure && (target.failure.stderr_tail || target.failure.first_refusal))
+      || "no further detail was recorded for the earlier attempt";
+    const retryPrompt = readerPathUnitRetryPrompt(originalUnit.prompt, refusal);
+    const stdoutPath = readerPathUnitStdoutPath(dir, unitId);
+    try { appendFileSync(stdoutPath, "\n----- re-run -----\n"); } catch { /* the disk copy is best-effort */ }
+
+    const startedAt = Date.now();
+    let sp = spawnDetachedJobUnit(command, argv, retryPrompt, () => {}, childEnv, { path: stdoutPath, flag: "a" });
+    let lastProgressAt = startedAt;
+    let lastBytes = 0;
+    let candidateWritten = false;
+
+    for (;;) {
+      // eslint-disable-next-line no-await-in-loop -- one process, one unit, the
+      // same ordinary sequential polling `cmdJobSupervise` itself uses.
+      await new Promise((r) => { setTimeout(r, heartbeatMs); });
+      const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
+      let row;
+      if (sp.out.done) {
+        const cls = classifyDetachedJobUnit(sp.out);
+        if (cls.status === "done" && !candidateWritten) {
+          const candPath = readerPathUnitCandidatePath(dir, unitId);
+          try { writeFileSync(candPath, `${JSON.stringify(cls.candidate, null, 2)}\n`); candidateWritten = true; }
+          catch { /* the job record's own embedded `candidate` is still the truth */ }
+        }
+        if (cls.status === "died" || cls.status === "refused") {
+          cls.failure = { ...cls.failure, file: stdoutPath };
+        }
+        row = {
+          id: unitId, bytes: sp.out.bytes, ...cls, rerun: true,
+          ...(candidateWritten ? { candidate_file: readerPathUnitCandidatePath(dir, unitId) } : {}),
+        };
+      } else {
+        row = { id: unitId, status: "running", bytes: sp.out.bytes };
+      }
+      if (sp.out.bytes > lastBytes) { lastBytes = sp.out.bytes; lastProgressAt = Date.now(); }
+      const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
+      const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
+      // THE FROZEN SIBLINGS RIDE THROUGH UNCHANGED. They already reached their
+      // own terminal row before this process ever started, and the whole point
+      // of a per-unit re-run is that nothing about them is touched again.
+      const mergedUnits = priorUnits.map((u) => (u.id === unitId ? row : u));
+      const state = classifyDetachedJobState(mergedUnits, { stopRequested, elapsedS, stalledS, absoluteLimitS, stallS });
+      writeReaderPathJob(dir, {
+        ...existing,
+        last_progress_at: new Date(lastProgressAt).toISOString(),
+        supervisor_pid: process.pid,
+        state,
+        units: mergedUnits,
+        ...(state !== "done" && state !== "running"
+          ? { failure: readerPathJobFailure(state, mergedUnits, { elapsedS, stalledS }) } : {}),
+      });
+      if (state === "running" || state === "limit-reached") continue;
+      if (sp.child && !sp.out.done) { try { sp.child.kill("SIGKILL"); } catch { /* already gone */ } }
+      break;
+    }
+  } catch (e) {
+    try {
+      const existing = readReaderPathJob(dir) || { started_at: new Date().toISOString(), units: [] };
+      writeReaderPathJob(dir, {
+        ...existing,
+        supervisor_pid: process.pid,
+        state: "other",
+        failure: readerPathJobFailure("other", existing.units || [], { note: `the re-run process itself failed: ${e.message}` }),
+      });
+    } catch { /* the write itself failing leaves the prior record, which is still the truth as of its own timestamp */ }
+  }
+}
+
+// THE RE-RUN'S OWN STARTER (kogaki#1204), the same shape as
+// `startDetachedJobSupervisor` above: spawns `job-rerun-unit` DETACHED and
+// writes the job record's named unit back to `running` before returning,
+// every other unit's row carried through untouched, so `job await`'s ordinary
+// polling picks the re-run up exactly as it would a fresh job.
+export function startReaderPathUnitRerun(dir, unitId, opts) {
+  const scriptPath = fileURLToPath(import.meta.url);
+  const child = spawn(process.execPath, [
+    scriptPath, "job-rerun-unit",
+    "--run", dir, "--unit", unitId,
+    "--command", opts.command, "--model", opts.model,
+    "--checkpoint-s", String(opts.checkpointS), "--absolute-limit-s", String(opts.absoluteLimitS),
+    "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
+  ], { detached: true, stdio: "ignore", cwd: REPO });
+  child.unref();
+  const existing = readReaderPathJob(dir) || { units: [] };
+  const units = (existing.units || []).map((u) => (u.id === unitId
+    ? { id: u.id, status: "running", bytes: 0, checkpoint_hit: false } : u));
+  writeReaderPathJob(dir, { ...existing, supervisor_pid: child.pid, state: "running", units, failure: undefined });
+  return { supervisorPid: child.pid };
 }
 
 // The one converter, so the two readers of a throwing validator cannot drift in
@@ -10068,6 +10235,26 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
             if (job && Number.isInteger(job.supervisor_pid)) process.kill(job.supervisor_pid, "SIGTERM");
           } catch { /* already gone, or never ours to signal */ }
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is STOPPED; the run is not resumed and the open-run pointer is cleared.`);
+        } else if (capOption === "rerun") {
+          // THE REFUSED UNIT'S OWN ARM (kogaki#1204 acceptance 3): "rerun"
+          // leaves the state incomplete, on the exact ground "extend" does
+          // above, so the ordinary advance loop re-enters `compose_path` --
+          // which finds the job record already `running` (the starter below
+          // writes that before this function returns) and re-raises the same
+          // `DetachedJobStarted`/"run `job await`" message the owner already
+          // knows, rather than needing a resume path of its own.
+          const job = readReaderPathJob(dir) || fail(`no reader-path job record at ${readerPathJobPath(dir)} to re-run a unit against.`);
+          const refusedUnit = (job.units || []).find((u) => u.status === "refused")
+            || fail(`the reader-path job at ${jobState} names no refused unit — nothing for "rerun" to act on.`);
+          const cfg = judgeSettings(table, rec);
+          startReaderPathUnitRerun(dir, refusedUnit.id, {
+            command: cfg.command, model: cfg.model,
+            checkpointS: Number(job.checkpoint_s) || READER_PATH_JOB_CHECKPOINT_S,
+            absoluteLimitS: Number(job.absolute_limit_s) || READER_PATH_JOB_ABSOLUTE_LIMIT_S,
+            stallS: READER_PATH_JOB_STALL_S,
+            heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
+          });
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} RE-RUNS unit ${JSON.stringify(refusedUnit.id)}; the finished siblings' rows are untouched, and the state was never marked complete, so the advance below re-enters it (kogaki#1204).`);
         } else {
           // "EXTEND IS GRANTED ONCE PER UNIT" (kogaki#1193, the owner's
           // 2026-09-25 wording), RECORDED HERE — the one place an `extend`
@@ -10598,6 +10785,7 @@ switch (cmd) {
   // and `job-supervise` is a different `cmd` entirely, not a `--job` value under
   // it.
   case "job-supervise": cmdJobSupervise(args); break;
+  case "job-rerun-unit": cmdJobRerunUnit(args); break;
   case "self-test": {
     // The composed-form fixture pass (kogaki#612): pure, seam-free — every
     // case constructs its own inputs, so the trial runs with no gateway.
