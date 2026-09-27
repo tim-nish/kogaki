@@ -193,11 +193,18 @@ const root = process.cwd();
 // raised bound too, classifies `limit-reached` again (a second checkpoint hit
 // is real, not a re-raise of the first) -- `finishReaderPathJobAwait`'s own
 // "extended once per unit" ledger is what turns this into `stop` alone.
+// The raised bound (450) and the elapsed time (480) both sit BELOW the
+// whole-job absolute ceiling (600, `READER_PATH_JOB_ABSOLUTE_LIMIT_S`)
+// deliberately: that ceiling is the #1193 rule the Issue's "Not in scope"
+// section leaves standing, and `classifyDetachedJobState` (test (c) above)
+// checks it ahead of `limit-reached` by design, so a fixture that let elapsed
+// time cross 600 would exercise `ceiling`, not the second-checkpoint case
+// this fixture is for.
 {
-  const job = { started_at: new Date(Date.now() - 650000).toISOString(),
+  const job = { started_at: new Date(Date.now() - 480000).toISOString(),
     updated_at: new Date(Date.now() - 4000).toISOString(),
     units: [{ id: "c3", status: "running", checkpoint_hit: true }] };
-  const step = readerPathAwaitStep(job, { c3: 600 }, Date.now() - 345000, { stopRequested: false, elapsedS: 650, stalledS: 0 });
+  const step = readerPathAwaitStep(job, { c3: 450 }, Date.now() - 175000, { stopRequested: false, elapsedS: 480, stalledS: 0 });
   if (!step.classify || step.state !== "limit-reached") {
     fails.push(`(p) a call past its OWN raised bound did not classify \`limit-reached\` on its second checkpoint hit: ${JSON.stringify(step)}`);
   }
