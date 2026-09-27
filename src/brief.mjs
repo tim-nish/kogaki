@@ -75,7 +75,7 @@
 //   the rendering rule
 //       SPEC-terrain
 //
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 // `NO_HEADLINE` IS NO LONGER IMPORTED AS A VALUE (PR #1107 round 1, nit). With
 // the dead `|| NO_RENDERING` disjunct removed, `glossFor` is the only thing
 // that names a marker here — which is the point of delegating the choice to it.
@@ -102,7 +102,8 @@ import {
   READER_PATH_JOB_CHECKPOINT_S, READER_PATH_JOB_ABSOLUTE_LIMIT_S,
   READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS,
   readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
-  classifyDetachedJobState,
+  readerPathJobExtendFlagPath, readReaderPathJobExtendFlag,
+  readerPathAwaitStep,
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
   judgeSettings, judgePrompt, startDetachedJobSupervisor,
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
@@ -1936,8 +1937,23 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     const lastProgressAt = job.last_progress_at ? Date.parse(job.last_progress_at) : startedAt;
     const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
     const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
-    const state = classifyDetachedJobState(job.units || [], { stopRequested, elapsedS, stalledS });
-    if (state !== "running") { await finishReaderPathJobAwait(dir, job, state, table, tablePath, args); return; }
+    // THE PER-POLL DECISION IS `src/terrain.mjs`'s OWN PURE FUNCTION
+    // (kogaki#1213): it applies the extend override against THIS poll's
+    // freshly-measured elapsed time (remedy 1, rather than trusting the
+    // record's own `checkpoint_hit` flag, which the supervisor refreshes at
+    // most once per heartbeat tick) and refuses to classify `limit-reached`
+    // from a record older than the newest extend write (remedy 2).
+    const extendPath = readerPathJobExtendFlagPath(dir);
+    const extendMtimeMs = existsSync(extendPath) ? statSync(extendPath).mtimeMs : null;
+    const step = readerPathAwaitStep(job, readReaderPathJobExtendFlag(dir), extendMtimeMs, { stopRequested, elapsedS, stalledS });
+    if (!step.classify) {
+      console.log("reader-path job record predates the newest extend write — waiting for the next heartbeat before classifying.");
+      sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
+      job = readReaderPathJob(dir) || job;
+      continue;
+    }
+    const { units, state } = step;
+    if (state !== "running") { await finishReaderPathJobAwait(dir, { ...job, units }, state, table, tablePath, args); return; }
     console.log(`reader-path job still running at ${elapsedS}s — waiting for the next heartbeat.`);
     sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
     job = readReaderPathJob(dir) || job;
@@ -2033,8 +2049,20 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   const options = offerExtend
     ? [{ id: "extend", label: "Extend (Recommended)" }, { id: "stop", label: "Stop" }]
     : [{ id: "stop", label: "Stop" }];
+  // THE STOP-ONLY QUESTION SAYS WHAT IS TRUE (kogaki#1213 remedy 3): the
+  // registered question reads "did not finish", which is false of a call that
+  // is still running with a checkpoint hit — the wording the owner read as a
+  // real completion problem while the call ran on and finished on its own 20
+  // seconds later. Composed only for the one case that phrasing misdescribes;
+  // every other state keeps the registered text.
+  const stopOnlyQuestion = (state === "limit-reached" && !offerExtend)
+    ? `A reader-path call is still running and has already used its one extension. Stopping now ends the job early and discards every candidate finished or still in progress — the alternative is to let it keep running.`
+    : undefined;
   const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
-    { reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))) });
+    {
+      reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))),
+      ...(stopOnlyQuestion ? { question: stopOnlyQuestion } : {}),
+    });
   rec.gate_declarations_owed = rec.gate_declarations_owed || [];
   rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
   checkpointRun(rec);

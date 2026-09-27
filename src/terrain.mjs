@@ -7824,6 +7824,46 @@ export function classifyDetachedJobState(units, {
   return "running";
 }
 
+// THE EXTEND OVERRIDE APPLIED AT THE READING SIDE, NOT ONLY AT THE SUPERVISOR
+// (kogaki#1213). The supervisor recomputes `checkpoint_hit` from the extend
+// file at most once per heartbeat tick, so a `job await` poll landing between
+// the owner's "extend" click and that tick reads the record's PRE-extend
+// flag. This is `job await`'s own reduction of the SAME raised bound the
+// extend file already carries, checked against the current elapsed time
+// rather than trusted from the disk flag, which is what a poll in that window
+// needs in order to see the extension take effect without waiting for a tick
+// that has not happened yet.
+export function applyReaderPathJobExtendOverrides(units, overrides, elapsedS) {
+  if (!overrides || !Object.keys(overrides).length) return units;
+  return units.map((u) => {
+    if (u.status !== "running" || !u.checkpoint_hit) return u;
+    const raised = Number(overrides[u.id]);
+    return Number.isFinite(raised) && elapsedS < raised ? { ...u, checkpoint_hit: false } : u;
+  });
+}
+
+// THE READER-PATH AWAIT'S OWN PER-POLL DECISION (kogaki#1213), pulled out of
+// `awaitReaderPathJob` in `src/brief.mjs` as a pure function precisely so a
+// fixture can drive its two races without a live, 10-second heartbeat wait:
+// `applyReaderPathJobExtendOverrides` above recomputes `checkpoint_hit`
+// against the CURRENT elapsed time (remedy 1), and this wraps that with the
+// residual guard (remedy 2) — a job record whose `updated_at` predates the
+// extend file's own mtime is never classified `limit-reached`, because even a
+// unit the override does not (yet) name may have had its `checkpoint_hit`
+// computed before the click. `extendMtimeMs` is `null` when no extend file
+// exists yet, in which case the guard cannot fire. Returns `{ classify:
+// false }` when the caller should wait one heartbeat and re-read rather than
+// act on `state`.
+export function readerPathAwaitStep(job, extendOverrides, extendMtimeMs, { stopRequested, elapsedS, stalledS } = {}) {
+  const units = applyReaderPathJobExtendOverrides(job.units || [], extendOverrides, elapsedS);
+  const state = classifyDetachedJobState(units, { stopRequested, elapsedS, stalledS });
+  if (state === "limit-reached" && extendMtimeMs != null) {
+    const jobUpdatedAtMs = job.updated_at ? Date.parse(job.updated_at) : 0;
+    if (jobUpdatedAtMs < extendMtimeMs) return { classify: false, units, state };
+  }
+  return { classify: true, units, state };
+}
+
 // THE `failure` BLOCK FOR A NON-`done` JOB RECORD (kogaki#1193 acceptance 2:
 // "every state but `done` carries `failure`"). A `died`/`refused` job's
 // failure is the offending unit's own -- already shaped by
