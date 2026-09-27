@@ -75,7 +75,7 @@
 //   the rendering rule
 //       SPEC-terrain
 //
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 // `NO_HEADLINE` IS NO LONGER IMPORTED AS A VALUE (PR #1107 round 1, nit). With
 // the dead `|| NO_RENDERING` disjunct removed, `glossFor` is the only thing
 // that names a marker here — which is the point of delegating the choice to it.
@@ -102,6 +102,8 @@ import {
   READER_PATH_JOB_CHECKPOINT_S, READER_PATH_JOB_ABSOLUTE_LIMIT_S,
   READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS,
   readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
+  readerPathJobExtendFlagPath, readReaderPathJobExtendFlag,
+  applyReaderPathJobExtendOverrides,
   classifyDetachedJobState,
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
   judgeSettings, judgePrompt, startDetachedJobSupervisor,
@@ -1936,8 +1938,38 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     const lastProgressAt = job.last_progress_at ? Date.parse(job.last_progress_at) : startedAt;
     const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
     const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
-    const state = classifyDetachedJobState(job.units || [], { stopRequested, elapsedS, stalledS });
-    if (state !== "running") { await finishReaderPathJobAwait(dir, job, state, table, tablePath, args); return; }
+    // THE OVERRIDE APPLIED HERE TOO, NOT ONLY AT THE SUPERVISOR (kogaki#1213
+    // remedy 1). Between the owner's "extend" click and the supervisor's next
+    // tick, `job.units[].checkpoint_hit` is still the PRE-extend flag; this
+    // recomputes it from the same extend file the click just wrote, against
+    // the elapsed time this poll itself just measured, so the raised bound
+    // takes effect on THIS read rather than waiting for a tick that may not
+    // have happened yet.
+    const units = applyReaderPathJobExtendOverrides(job.units || [], readReaderPathJobExtendFlag(dir), elapsedS);
+    const state = classifyDetachedJobState(units, { stopRequested, elapsedS, stalledS });
+    // A RECORD OLDER THAN THE NEWEST EXTEND WRITE IS NEVER CLASSIFIED
+    // `limit-reached` (kogaki#1213 remedy 2). The override above already
+    // covers a unit the extend file itself raises past its elapsed time; this
+    // is the residual case — a job record so stale that even ITS OWN
+    // `checkpoint_hit` flags predate the click, on units the override cannot
+    // yet name (`hitUnits` is read from the very poll that raised the extend
+    // Arm, on `src/terrain.mjs`'s own gate-answer branch). One heartbeat, a
+    // re-read, and back to the top of the loop, never a Stop-only Arm raised
+    // from a record the click had not yet reached.
+    if (state === "limit-reached") {
+      const extendPath = readerPathJobExtendFlagPath(dir);
+      if (existsSync(extendPath)) {
+        const extendMtimeMs = statSync(extendPath).mtimeMs;
+        const jobUpdatedAtMs = job.updated_at ? Date.parse(job.updated_at) : 0;
+        if (jobUpdatedAtMs < extendMtimeMs) {
+          console.log("reader-path job record predates the newest extend write — waiting for the next heartbeat before classifying.");
+          sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
+          job = readReaderPathJob(dir) || job;
+          continue;
+        }
+      }
+    }
+    if (state !== "running") { await finishReaderPathJobAwait(dir, { ...job, units }, state, table, tablePath, args); return; }
     console.log(`reader-path job still running at ${elapsedS}s — waiting for the next heartbeat.`);
     sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
     job = readReaderPathJob(dir) || job;
@@ -2033,8 +2065,20 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   const options = offerExtend
     ? [{ id: "extend", label: "Extend (Recommended)" }, { id: "stop", label: "Stop" }]
     : [{ id: "stop", label: "Stop" }];
+  // THE STOP-ONLY QUESTION SAYS WHAT IS TRUE (kogaki#1213 remedy 3): the
+  // registered question reads "did not finish", which is false of a call that
+  // is still running with a checkpoint hit — the wording the owner read as a
+  // real completion problem while the call ran on and finished on its own 20
+  // seconds later. Composed only for the one case that phrasing misdescribes;
+  // every other state keeps the registered text.
+  const stopOnlyQuestion = (state === "limit-reached" && !offerExtend)
+    ? `A reader-path call is still running and has already used its one extension. Stopping now ends the job early and discards every candidate finished or still in progress — the alternative is to let it keep running.`
+    : undefined;
   const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
-    { reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))) });
+    {
+      reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))),
+      ...(stopOnlyQuestion ? { question: stopOnlyQuestion } : {}),
+    });
   rec.gate_declarations_owed = rec.gate_declarations_owed || [];
   rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
   checkpointRun(rec);

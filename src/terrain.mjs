@@ -7824,6 +7824,24 @@ export function classifyDetachedJobState(units, {
   return "running";
 }
 
+// THE EXTEND OVERRIDE APPLIED AT THE READING SIDE, NOT ONLY AT THE SUPERVISOR
+// (kogaki#1213). The supervisor recomputes `checkpoint_hit` from the extend
+// file at most once per heartbeat tick, so a `job await` poll landing between
+// the owner's "extend" click and that tick reads the record's PRE-extend
+// flag. This is `job await`'s own reduction of the SAME raised bound the
+// extend file already carries, checked against the current elapsed time
+// rather than trusted from the disk flag, which is what a poll in that window
+// needs in order to see the extension take effect without waiting for a tick
+// that has not happened yet.
+export function applyReaderPathJobExtendOverrides(units, overrides, elapsedS) {
+  if (!overrides || !Object.keys(overrides).length) return units;
+  return units.map((u) => {
+    if (u.status !== "running" || !u.checkpoint_hit) return u;
+    const raised = Number(overrides[u.id]);
+    return Number.isFinite(raised) && elapsedS < raised ? { ...u, checkpoint_hit: false } : u;
+  });
+}
+
 // THE `failure` BLOCK FOR A NON-`done` JOB RECORD (kogaki#1193 acceptance 2:
 // "every state but `done` carries `failure`"). A `died`/`refused` job's
 // failure is the offending unit's own -- already shaped by
