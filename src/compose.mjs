@@ -456,18 +456,25 @@ export const READER_STATE_DIMENSIONS = ["knowledge", "question", "expectation", 
 
 // `reader_start`, `reader_state_before` and `reader_state_after` are a
 // STANCE/STATE in the Move library's own dimensions, not a knowledge
-// sentence (kogaki#1176 repair): one or more `dimension: value` segments,
-// separated by `; `, each segment's dimension drawn from
-// READER_STATE_DIMENSIONS — the same shape moves/*.md's `before`/`after`
-// are written in. A dimension's own value may carry further colons (a
-// `question:` segment reading `holds: none`, for instance) — only the
-// segment's LEADING token is checked against the dimension set. Returns an
-// error string or null; presence is a different check's job, so an empty or
-// non-string value is not this function's refusal.
+// sentence (kogaki#1176 repair): one `dimension: value` LINE per dimension,
+// each line's dimension drawn from READER_STATE_DIMENSIONS. This is NOT the
+// Move library's own `before`/`after` shape verbatim -- moves/*.md folds
+// its dimensions into one YAML paragraph, separated by `. `, and a value
+// there is free to carry a semicolon or any other punctuation mid-sentence
+// (kogaki#1211). The shape here is the one the composition prompt shows --
+// `src/candidate-schema.json` and `src/leg-schema.json`'s field
+// descriptions -- one line per dimension, so a semicolon inside a
+// dimension's own sentence is ordinary prose and never a segment split. A
+// dimension's own value may carry further colons (a `question:` line
+// reading `holds: none`, for instance) -- only the line's LEADING token is
+// checked against the dimension set. Returns an error string or null;
+// presence is a different check's job, so an empty or non-string value is
+// not this function's refusal.
 export function readerStateShapeRefusal(value, at, fieldName) {
   if (typeof value !== "string" || value === "") return null;
-  for (const seg of value.split("; ")) {
-    const m = /^([a-z]+):\s*\S/.exec(seg);
+  for (const line of value.split("\n")) {
+    if (line === "") continue;
+    const m = /^([a-z]+):\s*\S/.exec(line);
     if (!m || !READER_STATE_DIMENSIONS.includes(m[1])) {
       return `${at}: ${fieldName} is not written as \`dimension: value\` lines over the Move `
         + `library's dimension set (${READER_STATE_DIMENSIONS.join(", ")}) — it is a STANCE/STATE in `

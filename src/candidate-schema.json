@@ -134,7 +134,7 @@
     "reader_start": {
       "required": true,
       "type": "string",
-      "description": "The reader's STANCE when the path begins -- one `dimension: value` line per dimension of the Move library's own before/after shape (knowledge, question, expectation, orientation, trust -- the Move library entry), the same shape `moves_you_may_bind`'s `before` and `after` are written in, NOT a knowledge state alone (kogaki#1176). Checked verbatim against the first Leg's `reader_state_before` (`reader_start_binds_first_leg`, src/leg-schema.json) -- write it in the same shape a Move's `before` is written in so the first Leg's Move can specialize it. One of the three reader fields the settled structure section names; path composition writes it PER CANDIDATE and adoption fills no default."
+      "description": "The reader's STANCE when the path begins -- one `dimension: value` LINE per dimension, drawn from the Move library's own dimension set (knowledge, question, expectation, orientation, trust -- the Move library entry), NOT a knowledge state alone (kogaki#1176). This is a line-per-dimension shape, not `moves_you_may_bind`'s own `before`/`after` shape verbatim -- a Move's `before`/`after` folds its dimensions into one paragraph, and a dimension's value there is ordinary prose free to carry any punctuation (kogaki#1211). Checked verbatim against the first Leg's `reader_state_before` (`reader_start_binds_first_leg`, src/leg-schema.json) -- write it in the same one-line-per-dimension shape so the first Leg's Move can specialize it. One of the three reader fields the settled structure section names; path composition writes it PER CANDIDATE and adoption fills no default."
     },
     "reader_target": {
       "required": true,

@@ -91,12 +91,12 @@
     "reader_state_before": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Leg begins, in the Move library's own dimensions (knowledge, question, expectation, orientation, trust -- the Move library entry) -- one `dimension: value` line per dimension the Leg's Move addresses, the same shape the bound Move's own `before` is written in. Judged at the specialization occasion against the Move's `before`: a Leg's before-state must be a consistent specialization of what its Move demands. On the FIRST Leg of a path this field is additionally checked verbatim against the Brief's own Reader start -- see `reader_start_binds_first_leg` below -- which is why the two are written in one shape rather than two (kogaki#1176)."
+      "description": "What the reader holds when this Leg begins, in the Move library's own dimensions (knowledge, question, expectation, orientation, trust -- the Move library entry) -- one `dimension: value` LINE per dimension the Leg's Move addresses. This is a line-per-dimension shape, not the bound Move's own `before` shape verbatim -- a Move's `before` folds its dimensions into one paragraph, and a dimension's value there is ordinary prose free to carry any punctuation (kogaki#1211). Judged at the specialization occasion against the Move's `before`: a Leg's before-state must be a consistent specialization of what its Move demands. On the FIRST Leg of a path this field is additionally checked verbatim against the Brief's own Reader start -- see `reader_start_binds_first_leg` below -- which is why the two are written in one shape rather than two (kogaki#1176)."
     },
     "reader_state_after": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Leg ends, in the same dimensions and the same shape as `reader_state_before`. Judged against the Move's `after` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
+      "description": "What the reader holds when this Leg ends, in the same dimensions and the same line-per-dimension shape as `reader_state_before`. Judged against the Move's `after` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world."
     },
     "depends_on": {
       "required": true,

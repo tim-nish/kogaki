@@ -602,6 +602,20 @@
         "efficacy": "case: checks/check-brief-differentiation.sh::(k) a Candidate whose first Leg did not bind its assigned opening Move was not refused naming the unit:",
         "efficacy_note": "MUTATION EVIDENCE (assert-by-breaking-once, applied once and restored at this admission act). Changing `assembleSelection`'s differentiation clause from `if (differentiation)` to `if (false && differentiation)` in src/assemble.mjs turned case (k) red -- the mismatched-opening-Move Candidate that should have been refused naming its unit instead fell through to the Brief-document checks past it and returned an unrelated \"no Strands section\" error, since the fixture's `doc` argument is the empty string. Reverted, and the check returned to passing."
       }
+    },
+    {
+      "id": "reader-state-shape",
+      "file": "check-reader-state-shape.sh",
+      "admission": {
+        "contract": "`readerStateShapeRefusal` (src/compose.mjs) checks `reader_start`, `reader_state_before` and `reader_state_after` against a ONE-`dimension: value`-LINE-PER-DIMENSION shape, drawn from `READER_STATE_DIMENSIONS` (kogaki#1211). Three surfaces described this shape and disagreed: the check split each value on `\"; \"` and required every segment to begin with one of the five dimension names; the composition prompt (`src/candidate-schema.json`, `src/leg-schema.json`) told the model to write one `dimension: value` LINE per dimension; and the check's own error message already said \"lines\" while the code split on semicolons. A value whose dimension carries an ordinary sentence with a semicolon in it was cut mid-sentence by the old split, and the second half refused for not starting with a dimension name -- measured against `/brief` run brief-2026-09-27T06-40-12-204Z, whose three finished reader-path Candidates were refused in 2, 1 and 5 fields respectively, every one for this reason. This member exercises `readerStateShapeRefusal` directly: a value carrying a semicolon inside one dimension's own sentence, written one line per dimension, is NOT refused (the founding case); a line whose leading token is outside the five dimensions IS refused, naming the line form; and a multi-dimension newline-separated value is NOT refused. It also asserts, by absence, that `src/candidate-schema.json` and `src/leg-schema.json` no longer describe this shape as the Move library's own `before`/`after` shape verbatim -- `moves/*.md` folds its dimensions into one YAML paragraph, separated by `. `, which is a different shape and is where a semicolon inside a dimension's sentence was always legal prose.",
+        "license": "kogaki#1211, filed through the dictated path over a rendered title and body the owner clicked `File as drafted` on.",
+        "tier": "pre-push",
+        "runtime_ms": 250,
+        "removal_signal": "`readerStateShapeRefusal` being retired from `src/compose.mjs`, or the reader-state fields it validates no longer being written as free Model-composed prose at all -- either removes the surface this member exists to keep honest",
+        "removal_instrument": "act: the PR that removes `readerStateShapeRefusal` or the three reader-state fields it checks owes this member's removal row in the same act",
+        "efficacy": "case: checks/check-reader-state-shape.sh::a bad leading dimension is refused, naming lines",
+        "efficacy_note": "MUTATION EVIDENCE (assert-by-breaking-once, applied once and restored at this admission act). Reverting `readerStateShapeRefusal`'s split from `value.split(\"\\n\")` back to `value.split(\"; \")` turns case 1 (the semicolon-inside-a-sentence case) red: a value written one line per dimension, where one dimension's sentence contains a semicolon, is refused with the mid-sentence second half reported as an unrecognised leading token -- reproducing exactly the refusal the three candidates in brief-2026-09-27T06-40-12-204Z hit. Restoring the newline split returns the case to passing."
+      }
     }
   ]
 }
