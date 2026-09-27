@@ -48,6 +48,7 @@ import {
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, composeGateCall,
   runRecordPath, GATE_CALL_SUFFIX, judgePrompt, JUDGE_REFUSAL_MARKER, JUDGE_INPUT_MARKER,
   readerPathUnitRecord, readerPathUnitRetryPrompt, readerPathUnitStdoutPath,
+  applyReaderPathJobExtendOverrides, readerPathAwaitStep,
 } from "./src/terrain.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";
 
@@ -138,6 +139,147 @@ const root = process.cwd();
   for (const [units, ctx, want] of cases) {
     const got = classifyDetachedJobState(units, ctx);
     if (got !== want) fails.push(`(c) classifyDetachedJobState(${JSON.stringify(units)}, ${JSON.stringify(ctx)}) = ${got}, wanted ${want}`);
+  }
+}
+
+// (n) kogaki#1213 acceptance 1/2 — `applyReaderPathJobExtendOverrides` recomputes
+// `checkpoint_hit` against THIS poll's own elapsed time, not the disk flag: a
+// unit the extend file raises past the current elapsed time reads
+// `checkpoint_hit: false` however the record's own flag reads, and a unit
+// whose raised bound the call has ALREADY passed too keeps `checkpoint_hit:
+// true` — the extension is spent, not infinite.
+{
+  const hitUnit = { id: "c3", status: "running", checkpoint_hit: true };
+  const notCoveredByOverride = applyReaderPathJobExtendOverrides([hitUnit], {}, 305);
+  if (notCoveredByOverride[0].checkpoint_hit !== true) {
+    fails.push(`(n1) a unit with no override at all lost its checkpoint_hit flag: ${JSON.stringify(notCoveredByOverride)}`);
+  }
+  const stillWithinRaisedBound = applyReaderPathJobExtendOverrides([hitUnit], { c3: 600 }, 305);
+  if (stillWithinRaisedBound[0].checkpoint_hit !== false) {
+    fails.push(`(n2) a raised bound the elapsed time has not yet reached did not clear checkpoint_hit: ${JSON.stringify(stillWithinRaisedBound)}`);
+  }
+  const pastRaisedBoundToo = applyReaderPathJobExtendOverrides([hitUnit], { c3: 600 }, 650);
+  if (pastRaisedBoundToo[0].checkpoint_hit !== true) {
+    fails.push(`(n3) a call that already passed its OWN raised bound had checkpoint_hit cleared anyway: ${JSON.stringify(pastRaisedBoundToo)}`);
+  }
+  const notRunning = applyReaderPathJobExtendOverrides([{ id: "c3", status: "done", checkpoint_hit: true }], { c3: 600 }, 305);
+  if (notRunning[0].checkpoint_hit !== true) {
+    fails.push(`(n4) a finished unit's checkpoint_hit was rewritten by an override meant for a still-running call: ${JSON.stringify(notRunning)}`);
+  }
+}
+
+// (o) kogaki#1213 acceptance 1 — `readerPathAwaitStep` classifies `running`,
+// not `limit-reached`, the MOMENT the extend override is applied, with no
+// heartbeat wait: this is the exact race the Issue's transcript hit —
+// `job.units[].checkpoint_hit` is still the PRE-extend flag the supervisor
+// wrote before the owner's click, `job.updated_at` is from that same moment,
+// and the override file is what the click just wrote, with a NEWER mtime.
+{
+  const job = { started_at: new Date(Date.now() - 305000).toISOString(),
+    updated_at: new Date(Date.now() - 4000).toISOString(),
+    units: [{ id: "c1", status: "done" }, { id: "c2", status: "done" },
+      { id: "c3", status: "running", checkpoint_hit: true }] };
+  const extendMtimeMs = Date.now();
+  const step = readerPathAwaitStep(job, { c3: 600 }, extendMtimeMs, { stopRequested: false, elapsedS: 305, stalledS: 0 });
+  if (!step.classify || step.state !== "running") {
+    fails.push(`(o1) an extend override covering the current elapsed time still classified off the stale checkpoint_hit flag: ${JSON.stringify(step)}`);
+  }
+  if (step.units.find((u) => u.id === "c3").checkpoint_hit !== false) {
+    fails.push(`(o1) readerPathAwaitStep's own units array did not carry the override's cleared checkpoint_hit through`);
+  }
+}
+
+// (p) kogaki#1213 acceptance 2 — the SAME call, once it has passed its own
+// raised bound too, classifies `limit-reached` again (a second checkpoint hit
+// is real, not a re-raise of the first) -- `finishReaderPathJobAwait`'s own
+// "extended once per unit" ledger is what turns this into `stop` alone.
+{
+  const job = { started_at: new Date(Date.now() - 650000).toISOString(),
+    updated_at: new Date(Date.now() - 4000).toISOString(),
+    units: [{ id: "c3", status: "running", checkpoint_hit: true }] };
+  const step = readerPathAwaitStep(job, { c3: 600 }, Date.now() - 345000, { stopRequested: false, elapsedS: 650, stalledS: 0 });
+  if (!step.classify || step.state !== "limit-reached") {
+    fails.push(`(p) a call past its OWN raised bound did not classify \`limit-reached\` on its second checkpoint hit: ${JSON.stringify(step)}`);
+  }
+}
+
+// (q) kogaki#1213 acceptance 3 — a job record whose `updated_at` predates the
+// extend file's own mtime is NEVER classified `limit-reached`, whether or not
+// the override happens to name the checkpoint-hit unit: `readerPathAwaitStep`
+// returns `classify: false` instead, the caller's cue to wait one heartbeat
+// and re-read rather than raise a Stop-only Arm from a record the click had
+// not yet reached.
+{
+  const staleJob = { started_at: new Date(Date.now() - 305000).toISOString(),
+    updated_at: new Date(Date.now() - 5000).toISOString(),
+    units: [{ id: "c3", status: "running", checkpoint_hit: true }] };
+  const extendMtimeMs = Date.now();
+  // No override named for "c3" at all -- the residual case the override alone
+  // cannot cover, since `hitUnits` on the answering side is read from the
+  // very poll that raised the extend Arm, not from every unit that could ever
+  // hit one.
+  const step = readerPathAwaitStep(staleJob, {}, extendMtimeMs, { stopRequested: false, elapsedS: 305, stalledS: 0 });
+  if (step.classify !== false) {
+    fails.push(`(q) a record older than the newest extend write was classified anyway: ${JSON.stringify(step)}`);
+  }
+  if (step.state !== "limit-reached") {
+    fails.push(`(q) readerPathAwaitStep's own \`state\` (for logging) was not \`limit-reached\` on the un-classified poll: ${JSON.stringify(step)}`);
+  }
+  // A record at or after the extend write's mtime classifies normally, same
+  // units, same override (none) -- the guard is timing-triggered, not a
+  // standing refusal of `limit-reached` altogether.
+  const freshJob = { ...staleJob, updated_at: new Date(extendMtimeMs + 1000).toISOString() };
+  const freshStep = readerPathAwaitStep(freshJob, {}, extendMtimeMs, { stopRequested: false, elapsedS: 305, stalledS: 0 });
+  if (!freshStep.classify || freshStep.state !== "limit-reached") {
+    fails.push(`(q) a record no older than the extend write was still withheld from classifying \`limit-reached\`: ${JSON.stringify(freshStep)}`);
+  }
+  // No extend file at all (extendMtimeMs null) -- the guard cannot fire, and
+  // a genuinely stale-looking `updated_at` classifies as it always has.
+  const noExtendStep = readerPathAwaitStep(staleJob, {}, null, { stopRequested: false, elapsedS: 305, stalledS: 0 });
+  if (!noExtendStep.classify || noExtendStep.state !== "limit-reached") {
+    fails.push(`(q) with no extend file at all, a checkpoint-hit unit was not classified \`limit-reached\`: ${JSON.stringify(noExtendStep)}`);
+  }
+}
+
+// (r) kogaki#1213 acceptance 3 (source-side) — `awaitReaderPathJob` in
+// `src/brief.mjs` reads `readerPathAwaitStep` for its own classification
+// rather than calling `classifyDetachedJobState` directly on the raw
+// record, which is what would leave the two races above unfixed in the one
+// place they actually run every ten seconds.
+{
+  const brief = readFileSync("src/brief.mjs", "utf8");
+  if (!brief.includes("readerPathAwaitStep(job,")) {
+    fails.push("(r) src/brief.mjs's awaitReaderPathJob no longer calls readerPathAwaitStep -- the extend-override and stale-record fixes have no caller in the live poll loop");
+  }
+  if (!brief.includes("step.classify")) {
+    fails.push("(r) src/brief.mjs no longer branches on readerPathAwaitStep's `classify` flag -- a stale record would fall straight through to finishReaderPathJobAwait");
+  }
+}
+
+// (s) kogaki#1213 acceptance 3 (question text) — the Stop-only Arm raised for
+// a call that is still running and has already spent its one extension
+// renders text that says so, never the registered "did not finish" wording a
+// running call makes false.
+{
+  const dir = mkNewRun();
+  const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID,
+    [{ id: "stop", label: "Stop" }],
+    {
+      reader_path_job_state: "limit-reached", reader_path_job: join(dir, "reader-path-job.json"),
+      question: "A reader-path call is still running and has already used its one extension. Stopping now ends the job early and discards every candidate finished or still in progress — the alternative is to let it keep running.",
+    });
+  const declaration = JSON.parse(readFileSync(declPath, "utf8"));
+  if (/did not finish/i.test(declaration.question)) {
+    fails.push(`(s) the Stop-only declaration still carries the registered "did not finish" wording for a call that is still running: ${declaration.question}`);
+  }
+  if (!/still running/i.test(declaration.question) || !/extension/i.test(declaration.question) || !/discard/i.test(declaration.question)) {
+    fails.push(`(s) the Stop-only declaration does not say the call is running, its extension is spent, and what Stop discards: ${declaration.question}`);
+  }
+  const leak = findInternalVocabulary(String(declaration.question || ""));
+  if (leak) fails.push(`(s) the Stop-only question text carries spec-internal vocabulary: ${JSON.stringify(leak)}`);
+  const brief = readFileSync("src/brief.mjs", "utf8");
+  if (!brief.includes("stopOnlyQuestion")) {
+    fails.push("(s) src/brief.mjs no longer composes a dynamic Stop-only question for the limit-reached, extension-spent case");
   }
 }
 
