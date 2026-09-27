@@ -1076,3 +1076,41 @@ decision act** with its own consult and receipt, per the decide-or-name rule.
 differs from its stamp; it carries no way to declare a difference as intended.
 Named rather than left, because a manifest with no declaration channel makes an
 intentional local fix indistinguishable from drift.
+
+### 10.8 Boundary-values currency, a second reading beside the tree-manifest one (kogaki#1205)
+
+**§10.2's currency verdict is about the KIT'S FILES; this is about VALUES a
+consumer copies out of them.** `check-consult-receipts.sh` and
+`check-boundary-receipts.sh` validate several fields — `outcome`, `axis`,
+`facet`, `tactic`, `disposition`, and the receipt address form itself — whose
+**values** the boundary-field rule assigns to the hub, never to a consumer
+(product-lab@4cc496b `topics/knowledge-architecture.md:50`: "a consumer owns
+the SHAPE of its own record and NEVER the VALUES of a field that exists to
+join across the boundary"). Those six sets live in `policy/kit/boundary-values.json`,
+each entry carrying the `pin` it was copied from, and the two checks above load
+the file at run time rather than holding the sets as literals.
+
+**`check-kit-currency.sh` compares that file against the gateway.** Beside the
+§10.2 tree-manifest reading, it calls the gateway's `boundary_values` tool
+(tsurezure-gateway#123) through `policy/kit/bin/gateway-query.mjs`, and reports
+each of the six sets by name as agreeing with the served value or differing —
+naming BOTH values on a difference, so a reader is told what changed and not
+merely that it did. A transport failure and a served miss are reported AS
+SUCH, on the same disclosure discipline §4.5 and §10.2 already carry: neither
+is folded into `current`, because a `failed` or `found nothing` answer is not
+evidence that the copy agrees.
+
+**This reading is report-only, on the same posture as §10.2's.** Blocking this
+repository's suite on the gateway's answer would be the release-cadence
+coupling §10.2 already declines for the tree-manifest reading, and the reason
+carries over unchanged: the gating reading of this comparison belongs to
+claude-toolkit's Preflight, not to a member registered here.
+
+**Exercised against a stub, on the same ground as §10.5.** `boundary_values` is
+not yet served (tsurezure-gateway#123 is out of scope for kogaki#1205), so this
+reading is exercised in the check's fixture pass against a stub gateway process
+answering match, diff, and miss shapes — the same "no live second consumer, so
+exercise the reporting direction against a deliberately-built fixture" ground
+§10.5 already states, applied to a gateway tool rather than to a kit tree. The
+live invocation in this repository today reads `failed`, honestly, because the
+tool it asks for does not exist yet.

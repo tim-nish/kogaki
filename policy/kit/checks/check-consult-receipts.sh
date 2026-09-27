@@ -148,11 +148,33 @@ body="${CONSULT_PR_BODY:-}"
 
 CONSULT_SOURCE="$commits
 $body" CONSULT_RANGE="$range_desc" python3 <<'EOF'
-import json, os, re, sys
+import json, os, re, sys, tempfile
 
-# A receipt's line one: `consulted: <repo>@<sha> <file:line[,line][, file:line…]>`
+# A receipt's line one, in either of two admissible pin forms (kogaki#1205):
+#  * the FROZEN `<repo>@<sha> <file:line[,line][, file:line…]>` form, the only
+#    shape every receipt already merged was written in — admissible forever,
+#    per the hub's own note that history is never rewritten
+#    (product-lab PACKAGE-MANIFEST.json `addressing._note`, 2026-09-09,
+#    product-lab#263 R1);
+#  * the HUB's UnitID-at-content-hash address the gateway actually serves,
+#    `<package>::<kind>/<local-name>@<content-hash>`, one or more
+#    space-separated (CLAUDE.md's gate-declaration `receipt:` line names the
+#    same address as `repeatable`). Before this, every gateway-served
+#    `consulted:` line failed this check's own grammar (kogaki#1199).
 RECEIPT = re.compile(r'^\s*consulted:\s*(.+)$', re.MULTILINE)
-PIN = re.compile(r'^(\S+)@([0-9a-f]{7,40})\s+(\S.*)$')
+FROZEN_PIN = re.compile(r'^(\S+)@([0-9a-f]{7,40})\s+(\S.*)$')
+HUB_ADDRESS = re.compile(r'\S+::\S+/\S+@[0-9a-f]{6,64}')
+HUB_PIN = re.compile(r'^(?:' + HUB_ADDRESS.pattern + r')(?:\s+(?:' + HUB_ADDRESS.pattern + r'))*$')
+
+
+def pin_ok(pin):
+    return bool(FROZEN_PIN.match(pin)) or bool(HUB_PIN.match(pin))
+
+
+def pin_display(pin):
+    """The compact form used in this check's report — never re-validates."""
+    m = FROZEN_PIN.match(pin)
+    return f"{m.group(1)}@{m.group(2)[:7]}" if m else pin
 # A fenced code block is quotation (mention), never emission (use).
 # An unclosed fence strips to end of text.
 FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,}).*?(?:^[ \t]*\1[ \t]*$|\Z)',
@@ -160,7 +182,8 @@ FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,}).*?(?:^[ \t]*\1[ \t]*$|\Z)',
 # v2 continuation lines (kogaki#28, story 1.10): INDENTED `key: value` lines
 # belonging to the `consulted:` line above them. Line one is unchanged from
 # v1, which is why every receipt already in git history still parses and why
-# PIN needed no change — the parsing that is new is association, not matching.
+# the frozen pin form needed no change — the parsing that is new is
+# association, not matching.
 CONT = re.compile(r'^[ \t]+(request_id|outcome|disposition|query|axis|facet|hit|tactic):[ \t]*(.*)$')
 # THE THIRD AXIS: `axis:` (kogaki#336). Unlike every other continuation key,
 # this one is PER-QUERY and binds UPWARD to the nearest preceding `query:`
@@ -232,19 +255,45 @@ AXIS_KEY = 'axis'
 # at every rule site is that the two DID disagree for two weeks.
 PERQUERY_KEYS = ('axis', 'facet', 'hit', 'tactic')
 # COPIED from the hub, never minted here, under the boundary-field rule
-# specs/SPEC.md §4 quotes: a field read by both sides is the boundary's.
-RATIFIED_AXES = {'subject', 'conduct'}
-RATIFIED_FACETS = {'act', 'artifact', 'decision'}
-RATIFIED_TACTICS = {'SUPER', 'SUB', 'RELATE', 'NEIGHBOR', 'TRACE', 'VARY'}
+# specs/SPEC.md §4 quotes: a field read by both sides is the boundary's — and
+# per kogaki#1205, COPIED MEANS ONE SURFACE: the five sets below are no longer
+# literals in this file. They are read at run time from
+# `policy/kit/boundary-values.json`, which is also what `check-kit-currency.sh`
+# compares against the gateway's `boundary_values` tool, so a consumer edit
+# here (an out-of-band respelling, never a ratification this repository can
+# perform) shows up as currency drift rather than silently diverging.
+BOUNDARY_VALUES_PATH = os.environ.get(
+    'CONSULT_BOUNDARY_VALUES', 'policy/kit/boundary-values.json')
+
+
+def load_boundary_values(path):
+    with open(path, encoding='utf-8') as fh:
+        data = json.load(fh)
+    return {key: set(data[key]['value'])
+            for key in ('outcome', 'axis', 'facet', 'tactic', 'disposition')}
+
+
+try:
+    _boundary = load_boundary_values(BOUNDARY_VALUES_PATH)
+except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+    print(f"FAIL: cannot load {BOUNDARY_VALUES_PATH} — {exc}. The ratified "
+          "value sets are copied there, never minted in this checker, and a "
+          "checker that cannot read the copy cannot enforce it.")
+    sys.exit(1)
+RATIFIED_AXES = _boundary['axis']
+RATIFIED_FACETS = _boundary['facet']
+RATIFIED_TACTICS = _boundary['tactic']
 # `VARY` is the SOLE intersection of the adopted six and the lexical class §5.2
 # names (VARY/FIX/REARRANGE/RESPELL/RESPACE) — the other four are not writable
-# values at all. The value set and the refusal set are different sets.
+# values at all. The value set and the refusal set are different sets. This
+# one is NOT a hub-copied value: it is this repository's own reading of which
+# adopted tactic is lexical, so it stays a literal.
 LEXICAL_TACTICS = {'VARY'}
 # The hub's ratified triple. A bare `miss` is INADMISSIBLE: it collapses the
 # distill-bug and query-defect causes the 2026-08-02 correction separated, in
 # the one field meant to make them harvestable
 # (topics/knowledge-architecture.md:59@ed47fbd; specs/SPEC.md §4).
-OUTCOMES = {'discriminating', 'covered-after-reframing'}
+OUTCOMES = _boundary['outcome']
 UNCOVERED = re.compile(r'^uncovered-after-(\d+)-framings$')
 # A miss is not recordable as `uncovered` until it has been re-asked along at
 # least one ALTERNATIVE axis, so two framings is the floor and the token cannot
@@ -257,7 +306,7 @@ MIN_FRAMINGS = 2
 # fixes the KEY and copies the VALUES. A consumer-local extension of this set
 # is the shape `topics/knowledge-architecture.md:50@4cc496b` names as a defect,
 # and it is refused below rather than admitted.
-DISPOSITIONS = {'auto-resolved-FYI', 'escalated'}
+DISPOSITIONS = _boundary['disposition']
 # The predictable wrong values, told apart from an ordinary typo because they
 # route to a different answer: these are GATE CLASSIFICATIONS from
 # spec-triage-gh's taxonomy, not dispositions, and two of them name states that
@@ -397,8 +446,12 @@ def scan(source):
                     fields[key] = value
             i += 1
         receipts.append((pin, fields))
-        if not PIN.match(pin):
-            malformed.append((pin, 'pin is not `<repo>@<sha> <file:line…>` shaped'))
+        if not pin_ok(pin):
+            malformed.append(
+                (pin, 'pin is neither the hub UnitID address '
+                      '(`<package>::<kind>/<local-name>@<content-hash>`, one '
+                      'or more) nor the frozen `<repo>@<sha> <file:line…>` '
+                      'form admissible for history already merged'))
             continue
         got = fields.get('outcome')
         # PRESENCE IMPLIES COMPLETENESS. Continuations stay optional so that a
@@ -688,6 +741,13 @@ TEMPLATE_FENCED = ("Docs quoting the grammar:\n```\n"
                    "consulted: <repo>@<sha> <file:line[,line][, file:line…]>\n"
                    "```\nprose after.")
 BAD_REAL = "consulted: this is not a pin"
+# The hub's UnitID-at-content-hash address (kogaki#1205) — the form the
+# gateway actually serves and the one every gateway-emitted receipt failed
+# this check under before the pin grammar widened (kogaki#1199).
+GOOD_HUB = "consulted: coding::lesson/a-bounded-seam-does-lookup-not-exploration@0511b22120bd"
+GOOD_HUB_MULTI = ("consulted: coding::lesson/a-bounded-seam-does-lookup-not-exploration@0511b22120bd "
+                  "product-lab::topic/knowledge-architecture@8906f20752e2")
+BAD_NEITHER_FORM = "consulted: neither-hub-nor-frozen"
 # v2 fixtures (kogaki#28, story 1.10). Each fails a scanner that lacks the
 # clause it names, which is what makes it discrimination evidence.
 V2_FULL = (GOOD + "\n"
@@ -798,6 +858,14 @@ V2_DISPOSITION_EMPTY = (GOOD + "\n  request_id: r\n"
 # discrimination evidence rather than fixtures that look like it.
 FIXTURES = [
     ("real receipt counted", GOOD, 1, 0, 0, ()),
+    # --- kogaki#1205: the hub UnitID-at-content-hash address ---------------
+    ("a hub UnitID-at-content-hash pin passes", GOOD_HUB, 1, 0, 0, ()),
+    ("two hub addresses on one line, space-separated, both pass",
+     GOOD_HUB_MULTI, 1, 0, 0, ()),
+    ("the frozen `<repo>@<sha> <file:line>` form still passes — history is "
+     "never rewritten", GOOD, 1, 0, 0, ()),
+    ("a pin in neither the hub address nor the frozen form fails",
+     BAD_NEITHER_FORM, 1, 1, 0, ()),
     # --- cross-receipt reuse (kogaki#75) -----------------------------------
     # Both directions, because the honest case is the one a naive "same id
     # twice = fail" rule would break: a receipt quoted twice is not a lie.
@@ -1125,6 +1193,45 @@ print(f"per-query binding pass: {len(_axcases)}/{len(_axcases)} cases over the "
       "denominator is COUNTED from the case list, never asserted.")
 
 # ---------------------------------------------------------------------------
+# boundary-values.json IS THE SURFACE, not a literal compiled into this file
+# (kogaki#1205). The five ratified value sets above are loaded from
+# `policy/kit/boundary-values.json` rather than minted here; this fixture is
+# what proves the checker actually reads that file rather than a copy frozen
+# at edit time — edit a TEMPORARY copy, reload from it, and show the verdict
+# follows, in both directions (a value the copy drops now fails; a value the
+# copy keeps still passes).
+# ---------------------------------------------------------------------------
+_boundary_failures = []
+_orig_ratified_axes = RATIFIED_AXES
+with open(BOUNDARY_VALUES_PATH, encoding='utf-8') as _fh:
+    _bv_data = json.load(_fh)
+_bv_data['axis']['value'] = ['subject']  # 'conduct' dropped from the copy
+with tempfile.TemporaryDirectory() as _bv_dir:
+    _bv_tmp = os.path.join(_bv_dir, 'boundary-values.json')
+    with open(_bv_tmp, 'w', encoding='utf-8') as _fh:
+        json.dump(_bv_data, _fh)
+    RATIFIED_AXES = load_boundary_values(_bv_tmp)['axis']
+    _g_dropped, _bad_dropped = scan(_AXBASE + "  query: q1\n  axis: conduct\n")
+    _g_kept, _bad_kept = scan(_AXBASE + "  query: q1\n  axis: subject\n")
+RATIFIED_AXES = _orig_ratified_axes
+if not _bad_dropped:
+    _boundary_failures.append(
+        "'conduct' still passed after the reloaded copy dropped it — the "
+        "checker is not reading policy/kit/boundary-values.json at run time")
+if _bad_kept:
+    _boundary_failures.append(
+        "'subject', still present in the reloaded copy, was reported "
+        "malformed")
+if _boundary_failures:
+    print("FAIL boundary-values fixture — the verdict does not follow the file:")
+    for f in _boundary_failures:
+        print(f"  {f}")
+    sys.exit(1)
+print("boundary-values fixture: the checker's verdict follows an edited, "
+      "reloaded copy of policy/kit/boundary-values.json rather than a "
+      "literal compiled into this file (kogaki#1205)")
+
+# ---------------------------------------------------------------------------
 # The real scan.
 # ---------------------------------------------------------------------------
 source = os.environ["CONSULT_SOURCE"]
@@ -1136,8 +1243,7 @@ for pin, why in malformed:
 if malformed:
     sys.exit(1)
 
-pins = [f"{m.group(1)}@{m.group(2)[:7]}"
-        for m in (PIN.match(p) for p, _ in receipts) if m]
+pins = [pin_display(p) for p, _ in receipts]
 # Reported, never gated on: the count of receipts already carrying v2 fields.
 # This check reports and never gates on a COUNT (its admission record), so a
 # branch whose receipts are all v1 is not a failure — it is a measurement.

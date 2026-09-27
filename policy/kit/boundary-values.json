@@ -1,0 +1,27 @@
+{
+  "_read_this_first": "Six value sets a consumer copies from the hub's boundary rather than mints (kogaki#1205; the boundary-field rule, product-lab@4cc496b topics/knowledge-architecture.md:50: 'a consumer owns the SHAPE of its own record and NEVER the VALUES of a field that exists to join across the boundary'). check-consult-receipts.sh and check-boundary-receipts.sh read this file at run time rather than holding these as literals; check-kit-currency.sh compares each entry's `value` against the gateway's `boundary_values` tool (tsurezure-gateway#123) and reports agreement or drift by name. Each entry's `pin` is the hub citation the value was copied from — the provenance a kit edit here must carry, never invent.",
+  "address": {
+    "pin": "product-lab PACKAGE-MANIFEST.json addressing._note (2026-09-09, product-lab#263 R1)",
+    "value": "<package>::<kind>/<local-name>@<content-hash>"
+  },
+  "outcome": {
+    "pin": "product-lab@ed47fbd topics/knowledge-architecture.md:59",
+    "value": ["discriminating", "covered-after-reframing"]
+  },
+  "axis": {
+    "pin": "product-lab@4cc496b topics/knowledge-architecture.md:50",
+    "value": ["subject", "conduct"]
+  },
+  "facet": {
+    "pin": "kogaki#640, the search-facet scheme",
+    "value": ["act", "artifact", "decision"]
+  },
+  "tactic": {
+    "pin": "kogaki#669, the adopted six-tactic classifier",
+    "value": ["SUPER", "SUB", "RELATE", "NEIGHBOR", "TRACE", "VARY"]
+  },
+  "disposition": {
+    "pin": "spec-policy-fork-consultation/SPEC.md §Amended 2026-07-21 (triage, #519)",
+    "value": ["auto-resolved-FYI", "escalated"]
+  }
+}
