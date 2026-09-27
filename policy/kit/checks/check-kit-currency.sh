@@ -210,6 +210,82 @@ read_currency() {
 }
 
 # ---------------------------------------------------------------------------
+# BOUNDARY-VALUES CURRENCY (kogaki#1205; remedy item 3). A SECOND, INDEPENDENT
+# reading of currency from the tree-manifest one above: the six value sets
+# `policy/kit/boundary-values.json` copies from the hub (address form,
+# outcome, axis, facet, tactic, disposition) are compared against the
+# gateway's own `boundary_values` tool (tsurezure-gateway#123), through the
+# one transport the kit owns, `gateway-query.mjs`. REPORT-ONLY, exactly as
+# the tree-manifest reading above: this repository's suite gates on neither,
+# per specs/spec-client-kit/SPEC.md §10 — the gating reading is
+# claude-toolkit's, at Preflight.
+#
+# THREE OUTCOMES, ALL RENDERED, and named as such rather than folded into
+# `current`/`behind`: `failed` (the transport could not reach or converse
+# with the gateway — the one-line `policy_source unavailable: …` contract, or
+# a non-JSON answer this reading cannot use), `found nothing` (the gateway
+# answered but served a miss — no `boundary_values` result to compare
+# against), and the comparison itself, printed key by key so a differing set
+# is named rather than summarized away.
+read_boundary_currency() {
+  local bv_path="$1" gateway="$2" gwscript
+  gwscript="$(dirname "$0")/../bin/gateway-query.mjs"
+  local out rc
+  out="$(node "$gwscript" --consumer kogaki --tool boundary_values --args '{}' \
+        ${gateway:+--gateway "$gateway"} 2>&1)"
+  rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    echo "boundary-values currency: failed — $out"
+    return 0
+  fi
+  BV_SERVED="$out" BV_PATH="$bv_path" python3 <<'EOF'
+import json, os, sys
+
+served_raw = os.environ["BV_SERVED"]
+bv_path = os.environ["BV_PATH"]
+try:
+    served = json.loads(served_raw)
+except json.JSONDecodeError as exc:
+    print(f"boundary-values currency: failed — the gateway's answer is not "
+          f"JSON ({exc})")
+    sys.exit(0)
+
+if isinstance(served, dict) and served.get('miss'):
+    print("boundary-values currency: found nothing — the gateway served a "
+          "miss for boundary_values, so no comparison is possible")
+    sys.exit(0)
+if not isinstance(served, dict):
+    print("boundary-values currency: failed — the gateway's answer is JSON "
+          "but not the expected object of value sets")
+    sys.exit(0)
+
+with open(bv_path, encoding='utf-8') as fh:
+    local = json.load(fh)
+
+KEYS = ('address', 'outcome', 'axis', 'facet', 'tactic', 'disposition')
+differing = []
+for key in KEYS:
+    local_v = local.get(key, {}).get('value')
+    served_entry = served.get(key)
+    served_v = served_entry.get('value') if isinstance(served_entry, dict) else served_entry
+    if local_v == served_v:
+        print(f"boundary-values currency: {key} current")
+    else:
+        differing.append(key)
+        print(f"boundary-values currency: {key} differs — "
+              f"local={local_v!r} served={served_v!r}")
+
+if differing:
+    print(f"boundary-values currency: {len(differing)} of {len(KEYS)} set(s) "
+          f"differ from the gateway: {', '.join(differing)}")
+else:
+    print(f"boundary-values currency: all {len(KEYS)} set(s) agree with the "
+          "gateway")
+EOF
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # THE FIXTURE. §10.5 is the reason it is a fixture and not a live consumer:
 # NO CONSUMER IS KIT-INSTALLED AT ITS COMMITTED STATE, so the reporting
 # direction has no live subject and an acceptance claim asserting one would be
@@ -379,6 +455,99 @@ if [[ "$SELF_TEST" -eq 1 ]]; then
     echo "  FAIL unreadable declaration: exit $rc — $out"; bad=$((bad+1))
   fi
 
+  # --- 16-19: BOUNDARY-VALUES CURRENCY (kogaki#1205). A STUB GATEWAY, not a
+  # live substrate: the same reason the tree-manifest cases above build their
+  # own trees rather than reading this repository (§10.5) — no live gateway
+  # runs in CI, so a fixture depending on one could not run there at all. The
+  # stub speaks the same three JSON-RPC methods gateway-query.mjs sends
+  # (initialize, tools/list, tools/call) and nothing else.
+  BV_FIXTURE="$T/bv-fixture.json"
+  cat > "$BV_FIXTURE" <<'EOF'
+{
+  "address": {"pin": "p", "value": "A"},
+  "outcome": {"pin": "p", "value": ["o1", "o2"]},
+  "axis": {"pin": "p", "value": ["x1", "x2"]},
+  "facet": {"pin": "p", "value": ["f1", "f2"]},
+  "tactic": {"pin": "p", "value": ["t1", "t2"]},
+  "disposition": {"pin": "p", "value": ["d1", "d2"]}
+}
+EOF
+  STUB="$T/stub-gateway.cjs"
+  cat > "$STUB" <<'EOF'
+const readline = require("readline");
+const mode = process.env.STUB_BOUNDARY_MODE || "match";
+const MATCHING = {
+  address: {value: "A"},
+  outcome: {value: ["o1", "o2"]},
+  axis: {value: ["x1", "x2"]},
+  facet: {value: ["f1", "f2"]},
+  tactic: {value: ["t1", "t2"]},
+  disposition: {value: ["d1", "d2"]},
+};
+function answer() {
+  if (mode === "miss") return JSON.stringify({miss: true});
+  const data = JSON.parse(JSON.stringify(MATCHING));
+  if (mode === "diff") data.tactic.value = ["t1"];
+  return JSON.stringify(data);
+}
+function send(obj) { process.stdout.write(JSON.stringify(obj) + "\n"); }
+readline.createInterface({input: process.stdin}).on("line", (line) => {
+  if (!line.trim()) return;
+  let msg;
+  try { msg = JSON.parse(line); } catch { return; }
+  if (msg.method === "initialize") {
+    send({jsonrpc: "2.0", id: msg.id, result: {}});
+  } else if (msg.method === "tools/list") {
+    send({jsonrpc: "2.0", id: msg.id, result: {tools: [
+      {name: "boundary_values", inputSchema: {properties: {}}},
+    ]}});
+  } else if (msg.method === "tools/call") {
+    send({jsonrpc: "2.0", id: msg.id, result: {content: [
+      {type: "text", text: answer()},
+    ]}});
+  }
+});
+EOF
+
+  # 16. The transport cannot reach the gateway at all -> failed, never silent.
+  cases=$((cases+1))
+  out="$(read_boundary_currency "$BV_FIXTURE" "$T/no-such-gateway.cjs")"
+  case "$out" in
+    *"boundary-values currency: failed"*) echo "  ok   unreachable gateway -> failed, named as such";;
+    *) echo "  FAIL unreachable gateway did not report failed: $out"; bad=$((bad+1));;
+  esac
+
+  # 17. The gateway answers with a miss -> found nothing, not silence and not a
+  #     false current.
+  cases=$((cases+1))
+  out="$(STUB_BOUNDARY_MODE=miss read_boundary_currency "$BV_FIXTURE" "$STUB")"
+  case "$out" in
+    *"boundary-values currency: found nothing"*) echo "  ok   a gateway miss -> found nothing";;
+    *) echo "  FAIL a gateway miss did not report found nothing: $out"; bad=$((bad+1));;
+  esac
+
+  # 18. One set differs -> reported BY NAME, with both values, and the others
+  #     still read current — a summary would hide exactly this.
+  cases=$((cases+1))
+  out="$(STUB_BOUNDARY_MODE=diff read_boundary_currency "$BV_FIXTURE" "$STUB")"
+  if [[ "$out" == *"tactic differs"* ]] \
+     && [[ "$out" == *"local=['t1', 't2']"* ]] \
+     && [[ "$out" == *"served=['t1']"* ]] \
+     && [[ "$out" == *"axis current"* ]]; then
+    echo "  ok   a differing set is named with both values; unaffected sets still read current"
+  else
+    echo "  FAIL differing-set report: $out"; bad=$((bad+1))
+  fi
+
+  # 19. Every set agrees -> reported as agreement, not silence.
+  cases=$((cases+1))
+  out="$(STUB_BOUNDARY_MODE=match read_boundary_currency "$BV_FIXTURE" "$STUB")"
+  if [[ "$out" == *"all 6 set(s) agree with the gateway"* ]]; then
+    echo "  ok   six agreeing sets -> reported as agreement"
+  else
+    echo "  FAIL agreement report: $out"; bad=$((bad+1))
+  fi
+
   echo "fixture: $cases case(s), $bad failure(s)"
   [[ "$bad" -eq 0 ]] || { echo "FAIL: kit-currency fixture"; exit 1; }
   echo "ok: kit-currency fixture pass ran $cases case(s) clean"
@@ -397,4 +566,11 @@ OUT="$(read_currency "$ROOT" "$HOME_PATH")"; RC=$?
 echo "$OUT"
 if [[ "$RC" -ne 0 ]]; then exit 1; fi
 echo "ok: kit currency — reported, never gated on currency; the only deny is a consumer's own missing, malformed or disagreeing stamp"
+
+# BOUNDARY-VALUES CURRENCY (kogaki#1205, remedy item 3), against the LIVE
+# gateway — no --gateway passed, so gateway-query.mjs resolves it itself
+# ($TSUREZURE_GATEWAY_JS, or the machine-local MCP registration). REPORT-ONLY,
+# same as the tree-manifest reading above: a `failed` answer here is expected
+# wherever no gateway is configured, and is never this member's deny.
+read_boundary_currency "$ROOT/policy/kit/boundary-values.json" ""
 exit 0
