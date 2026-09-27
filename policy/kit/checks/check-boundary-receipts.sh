@@ -698,7 +698,17 @@ TRIGGER = re.compile(
 # --- the branch's receipts ---------------------------------------------------
 # LINE ONE ONLY. Nothing below reads a continuation line, which is what makes
 # the outcome-invariance clause structural rather than a promise.
-RECEIPT = re.compile(r'^\s*consulted:\s*\S+@[0-9a-f]{7,40}\s+\S', re.MULTILINE)
+# TWO ADMISSIBLE PIN FORMS (kogaki#1205): the FROZEN `<repo>@<sha> <file:line>`
+# form every receipt already merged was written in — admissible forever, since
+# history is never rewritten (product-lab PACKAGE-MANIFEST.json
+# `addressing._note`, 2026-09-09, product-lab#263 R1) — and the HUB's
+# UnitID-at-content-hash address the gateway actually serves,
+# `<package>::<kind>/<local-name>@<content-hash>`. This is presence detection
+# only: which form matched is not distinguished below, because nothing here
+# reads further than "a receipt is present."
+RECEIPT = re.compile(
+    r'^\s*consulted:\s*(?:\S+@[0-9a-f]{7,40}\s+\S|\S+::\S+/\S+@[0-9a-f]{6,64})',
+    re.MULTILINE)
 # A fenced block is quotation (mention), never emission (use) — kogaki#41, the
 # PR #40 false positive. Same rule as check-consult-receipts.sh: a spec or PR
 # body documenting the grammar is the one text guaranteed to contain
@@ -781,6 +791,10 @@ V2_RECEIPT = (RECEIPT_LINE + "\n  request_id: r\n"
               "  outcome: uncovered-after-2-framings\n"
               "  query: first\n  query: second\n")
 FENCED_ONLY = "```\nconsulted: <repo>@<sha> <file:line>\n```\n"
+# The hub's UnitID-at-content-hash address (kogaki#1205) — the form the
+# gateway actually serves.
+HUB_RECEIPT_LINE = ("consulted: coding::lesson/"
+                     "a-bounded-seam-does-lookup-not-exploration@0511b22120bd")
 
 FIXTURE_ENTRIES = parse_map(FIXTURE_MAP)
 
@@ -806,6 +820,8 @@ FIXTURES = [
      "checks/check-thing.sh", "and the access log", "", ["1", "2"], 0),
     ("word-bounded: 'specific' does not fire the 'CI' class of substring hit",
      "docs/specific-notes.md", "a specification, delegated", "", [], 0),
+    ("a hub UnitID-at-content-hash receipt counts as present (kogaki#1205)",
+     "checks/check-thing.sh", HUB_RECEIPT_LINE, "", ["1"], 1),
 ]
 
 failures = []
