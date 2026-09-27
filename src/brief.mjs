@@ -103,8 +103,7 @@ import {
   READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS,
   readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
   readerPathJobExtendFlagPath, readReaderPathJobExtendFlag,
-  applyReaderPathJobExtendOverrides,
-  classifyDetachedJobState,
+  readerPathAwaitStep,
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
   judgeSettings, judgePrompt, startDetachedJobSupervisor,
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
@@ -1938,37 +1937,22 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     const lastProgressAt = job.last_progress_at ? Date.parse(job.last_progress_at) : startedAt;
     const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
     const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
-    // THE OVERRIDE APPLIED HERE TOO, NOT ONLY AT THE SUPERVISOR (kogaki#1213
-    // remedy 1). Between the owner's "extend" click and the supervisor's next
-    // tick, `job.units[].checkpoint_hit` is still the PRE-extend flag; this
-    // recomputes it from the same extend file the click just wrote, against
-    // the elapsed time this poll itself just measured, so the raised bound
-    // takes effect on THIS read rather than waiting for a tick that may not
-    // have happened yet.
-    const units = applyReaderPathJobExtendOverrides(job.units || [], readReaderPathJobExtendFlag(dir), elapsedS);
-    const state = classifyDetachedJobState(units, { stopRequested, elapsedS, stalledS });
-    // A RECORD OLDER THAN THE NEWEST EXTEND WRITE IS NEVER CLASSIFIED
-    // `limit-reached` (kogaki#1213 remedy 2). The override above already
-    // covers a unit the extend file itself raises past its elapsed time; this
-    // is the residual case — a job record so stale that even ITS OWN
-    // `checkpoint_hit` flags predate the click, on units the override cannot
-    // yet name (`hitUnits` is read from the very poll that raised the extend
-    // Arm, on `src/terrain.mjs`'s own gate-answer branch). One heartbeat, a
-    // re-read, and back to the top of the loop, never a Stop-only Arm raised
-    // from a record the click had not yet reached.
-    if (state === "limit-reached") {
-      const extendPath = readerPathJobExtendFlagPath(dir);
-      if (existsSync(extendPath)) {
-        const extendMtimeMs = statSync(extendPath).mtimeMs;
-        const jobUpdatedAtMs = job.updated_at ? Date.parse(job.updated_at) : 0;
-        if (jobUpdatedAtMs < extendMtimeMs) {
-          console.log("reader-path job record predates the newest extend write — waiting for the next heartbeat before classifying.");
-          sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
-          job = readReaderPathJob(dir) || job;
-          continue;
-        }
-      }
+    // THE PER-POLL DECISION IS `src/terrain.mjs`'s OWN PURE FUNCTION
+    // (kogaki#1213): it applies the extend override against THIS poll's
+    // freshly-measured elapsed time (remedy 1, rather than trusting the
+    // record's own `checkpoint_hit` flag, which the supervisor refreshes at
+    // most once per heartbeat tick) and refuses to classify `limit-reached`
+    // from a record older than the newest extend write (remedy 2).
+    const extendPath = readerPathJobExtendFlagPath(dir);
+    const extendMtimeMs = existsSync(extendPath) ? statSync(extendPath).mtimeMs : null;
+    const step = readerPathAwaitStep(job, readReaderPathJobExtendFlag(dir), extendMtimeMs, { stopRequested, elapsedS, stalledS });
+    if (!step.classify) {
+      console.log("reader-path job record predates the newest extend write — waiting for the next heartbeat before classifying.");
+      sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
+      job = readReaderPathJob(dir) || job;
+      continue;
     }
+    const { units, state } = step;
     if (state !== "running") { await finishReaderPathJobAwait(dir, { ...job, units }, state, table, tablePath, args); return; }
     console.log(`reader-path job still running at ${elapsedS}s — waiting for the next heartbeat.`);
     sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
