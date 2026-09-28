@@ -499,7 +499,10 @@ readline.createInterface({input: process.stdin}).on("line", (line) => {
     send({jsonrpc: "2.0", id: msg.id, result: {}});
   } else if (msg.method === "tools/list") {
     send({jsonrpc: "2.0", id: msg.id, result: {tools: [
-      {name: "boundary_values", inputSchema: {properties: {}}},
+      // A permissive outputSchema, as every kit stub now publishes
+      // (kogaki#1186): the transport refuses a tool that publishes none at
+      // exit 13, and this fixture stands for the reading, not for the shape.
+      {name: "boundary_values", inputSchema: {properties: {}}, outputSchema: {type: "object"}},
     ]}});
   } else if (msg.method === "tools/call") {
     send({jsonrpc: "2.0", id: msg.id, result: {content: [

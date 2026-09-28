@@ -41,6 +41,51 @@ An unreachable gateway is not a config error: every kit tool prints exactly
 one `policy_source unavailable: <reason>` line and exits 11 — the consumer
 logs the line once and proceeds without policy interaction.
 
+## Response validation (kogaki#1186)
+
+Every Gateway tool answers one of three outcomes, carried in the `outcome`
+field of its `structuredContent`: `error`, `nodata`, or `hit` (lowercase, as
+the Gateway's published `outputSchema` enumerates them). The client reads
+`isError` first, then validates every non-error `tools/call` result against
+the `outputSchema` that tool published in its own `tools/list` entry, before
+the caller ever sees it — this guarantee is general and unconditional, never
+feature-specific:
+
+- **Exit 11** — the gateway is unreachable, or served no readable
+  `tools/list` (see Degraded behavior, above). `nodata` and `hit` are not
+  degradations; the seam answered.
+- **Exit 14** — the result carried `isError: true`. Nothing is printed on
+  stdout; stderr carries exactly one `gateway error: <code>: <reason>` line,
+  the code and reason being the Gateway's own (`not-permitted`,
+  `surface-unreadable`, …). An error is never continued past as though it
+  were an empty (`nodata`) read — the calling act stops. This branch runs
+  before validation: the Error shape is not the tool's Hit schema.
+- **Exit 13** — a non-error result did not validate against its own
+  published `outputSchema`, or the tool published none at all. Nothing is
+  printed on stdout; stderr carries exactly one `gateway response mismatch:
+  <reason>` line naming the tool and the mismatch. A malformed or
+  unschematised answer is refused rather than forwarded as though it were
+  genuine data.
+- **Exit 0** — the result validated and carried `outcome: nodata` or
+  `outcome: hit`; the `structuredContent` is printed on stdout, one JSON line
+  per framing, so the caller branches on `outcome` itself. It is a superset
+  of the Gateway's text body (which carries neither `outcome` nor `build`),
+  so every existing JSON reader of this transport still parses it.
+
+`bin/gateway-query.mjs --self-test` covers the three outcomes and both
+refusals as pure fixtures; `test/install-test.sh` drives the same shapes,
+in the real Gateway's own wire shape, through stubbed gateways over the real
+transport. `test/seam-test.sh` drives all three outcomes through a **real**
+Gateway build (`$TSUREZURE_GATEWAY_JS`) against a small fixture Hub copied
+from a real one (`$TSUREZURE_HUB_PATH`): `rules_lookup` in the copied Rule's
+own situation for `hit`, `glossary_entry` on an absent name for `nodata`
+(`rules_lookup` is a denominator answer and never misses), and a consumer the
+manifest's `visibility` block does not list for `error`. Either variable
+unset fails the test by name rather than skipping it, which is why it is
+**not a registered suite member**: CI carries neither, and a member red by
+construction is not a check (kogaki#1194). The session that merges a change
+to this transport runs it by hand.
+
 ## Issue checkpoints
 
 - `bin/issue-pins.mjs --validate-body <file>` — creation time: the body must
