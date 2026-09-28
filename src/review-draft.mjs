@@ -1636,31 +1636,26 @@ function packetBlock(text, heading, { after = null } = {}) {
 // spelling them out cannot be told apart from one restating the table or the
 // schema.
 const PACKET_READERS = {
-  // THE CLAIMS ARE A BLOCK BELOW THEIR BULLET, NOT THE BULLET'S VALUE (PR #895
-  // round 1, finding 2). The template's `- **claims.** ...` line is fixed
-  // INSTRUCTION prose — "These are what this Leg may assert" — and the rendered
-  // value, `(none recorded)` included, goes into the separate block under it. A
-  // reader testing the bullet's text for a stated absence could never match, so
-  // a Leg whose Brief declares no claims refused the WHOLE run as a false
-  // Packet gap and sent the reviewer to file against a template that was not
-  // broken. The bullet locates the region; the region carries the value.
-  claim_lines: (t, spec) => {
-    const lines = t.split("\n");
-    const at = lines.findIndex((l) => new RegExp(`^- \\*\\*${spec.bullet_label}\\.\\*\\*`).test(l));
-    if (at === -1) return null;
-    let end = lines.length;
-    for (let i = at + 1; i < lines.length; i++) { if (/^#+\s+\S/.test(lines[i])) { end = i; break; } }
-    const region = lines.slice(at + 1, end);
-    const re = new RegExp(`^${spec.prefix}\\s`);
-    const g = region.filter((l) => re.test(l)).map((l) => l.trim());
-    if (g.length) return g;
-    // A stated absence in the region is an ANSWER — this Leg declares none. It
-    // is only a hole when the bullet, and so the region, is absent altogether.
-    if (region.some((l) => PACKET_ABSENCE.test(l.trim()))) return [];
+  // A LIST UNDER ITS OWN HEADING (kogaki#1215 decision 3). The claims, the
+  // `already knows` terms and the `introduce here` terms each render as a flat
+  // `- ` list in a block of their own, in the Packet's one list convention, so
+  // no list sits under a bulleted field label and no item carries a `key:`
+  // prefix. The region runs from the heading to the next one; its fixed
+  // instruction prose carries no `- ` line, so only the items are read.
+  //
+  // A STATED ABSENCE IN THE REGION IS AN ANSWER — this Leg declares none (PR
+  // #895 round 1, finding 2): it is only a hole when the heading, and so the
+  // region, is absent altogether, or when the region carries neither an item
+  // nor an absence.
+  heading_list: (t, spec) => {
+    const block = packetBlock(t, spec.heading);
+    if (block === null) return null;
+    const items = bulletList(block, { termOnly: !!spec.term_only });
+    if (items.length) return items;
+    if (block.split("\n").some((l) => PACKET_ABSENCE.test(l.trim()))) return [];
     return null;
   },
   bullet: (t, spec) => packetBullet(t, spec.label),
-  bullet_list: (t, spec) => bulletList(packetBullet(t, spec.label), { termOnly: !!spec.term_only }),
   bullets: (t, spec) => {
     const out = {};
     for (const label of spec.labels) {
@@ -4722,10 +4717,10 @@ async function runSelfTest() {
   // would land in one and make the no-numbers-but-line-numbers case assert
   // against the fixture's own wording rather than against the format.
   const CLAIMS = {
-    a1: ["claim: alpha — the harness renders the Reverse Outline input before any record is accepted.",
-      "claim: beta — the reviewer never reads the packet that produced the prose."],
-    a2: ["claim: gamma — an ordering owned by the harness cannot be got wrong by a session."],
-    a3: ["claim: delta — a residue line is classified by the owner and never by the tool."],
+    a1: ["alpha — the harness renders the Reverse Outline input before any record is accepted.",
+      "beta — the reviewer never reads the packet that produced the prose."],
+    a2: ["gamma — an ordering owned by the harness cannot be got wrong by a session."],
+    a3: ["delta — a residue line is classified by the owner and never by the tool."],
   };
   const PACKET_FIELDS = {
     a1: { after: "The reader knows which act renders the input.", purpose: "To open the claim.",
@@ -4794,7 +4789,7 @@ async function runSelfTest() {
       // THE STATED ABSENCE THE RENDERER WRITES, verbatim (src/draft.mjs's
       // `claims || "(none recorded)"`), so the claimless case exercises the
       // string a real Packet actually carries.
-      claims: claims.length ? claims.join("\n") : "(none recorded)",
+      claims: claims.length ? claims.map((g) => `- ${g}`).join("\n") : "(none recorded)",
       section_placement: f.opens
         ? "- **This Leg OPENS a Section.** Its heading is **\"A heading\"**, rendered by the Harness immediately above your prose.\n"
           + "- **Your prose is what the heading promises.** This Leg is the whole Section."
@@ -6424,14 +6419,11 @@ async function runSelfTest() {
   // first met the term.
   {
     const pd = join(root, "packets-fm"); mkdirSync(pd, { recursive: true });
-    for (const id of ["a1", "a2", "a3"]) {
-      writePacket(pd, id);
-      if (id === "a3") {
-        const p = join(pd, "a3.md");
-        writeFileSync(p, readFileSync(p, "utf8").replace("- **introduce here.** (nothing new)",
-          "- **introduce here.** - packet"));
-      }
-    }
+    // a3 introduces `packet` through the fixture's own slot rather than a
+    // string edit of the rendered Packet, so the case follows the template's
+    // layout instead of a copy of it (kogaki#1215 moved the list under its own
+    // heading, and the literal this used to replace stopped matching).
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id, id === "a3" ? { introduces: ["packet"] } : {});
     const d = buildDraft(join(root, "theses", "fm"), { packetDir: pd });
     const fmText = readFileSync(d.path, "utf8").split("\n").slice(0, 8).join("\n");
     ok("the fixture's own frontmatter carries the term, so the case can witness the defect",
@@ -6537,7 +6529,7 @@ async function runSelfTest() {
       // a2 declares a second claim the reader will be judged not to have
       // recovered, and it carries a digit in its own text.
       writePacket(pd, id, id === "a2"
-        ? { claims: [CLAIMS.a2[0], "claim: the pinned survey at strand L97 settles the boundary"] }
+        ? { claims: [CLAIMS.a2[0], "the pinned survey at strand L97 settles the boundary"] }
         : {});
     }
     const d = buildDraft(join(root, "theses", "digit"), { packetDir: pd });

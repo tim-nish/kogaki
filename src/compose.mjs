@@ -208,13 +208,6 @@ function retiredClaimTypes() {
 function journeyUses() {
   return new Map(Object.entries(legschema().journey.uses));
 }
-// the relations layer's closed set (kogaki#1174), read from the schema for the same reason
-// the claim types and Journey uses are: the schema is rendered into the
-// composition prompt and read back here, so the set the composer is shown and
-// the set the refusal enforces are one file and cannot disagree.
-function relationTypes() {
-  return new Map(Object.entries(legschema().relation.types));
-}
 const SLOT = "*(awaiting composition)*";
 
 // ---- THE RULES OVER THE WHOLE PATH, READ FROM THE SCHEMA (kogaki#1147) ----
@@ -348,99 +341,13 @@ export function journeysRefusal(journeys, materials, at) {
   return null;
 }
 
-// ---- the relations layer (kogaki#1174) ----
-//
-// A Leg MAY declare `relations`: which of its own claims and `introduces`
-// entries are SATELLITES, and of which NUCLEUS. Every item this field does
-// not name is a nucleus by default — the field marks subordination and
-// nothing else, so a Leg declaring none renders exactly as it did before
-// this field existed.
-//
-// THE ADDRESS GRAMMAR IS TYPED BY KIND. `g<n>` addresses this Leg's nth
-// declared claim (the address `figure_roles` already uses); `i<n>` addresses
-// its nth declared `introduces` entry, both 1-based in declaration order.
-const RELATION_ADDRESS = /^([gi])([1-9][0-9]*)$/;
-
-// The address's kind ("g" or "i") and 1-based index, or `null` for a string
-// that is not one of this Leg's own addresses.
-function parseRelationAddress(addr) {
-  const m = RELATION_ADDRESS.exec(String(addr ?? ""));
-  return m ? { kind: m[1], index: Number(m[2]) } : null;
-}
-
-// PURE over one Leg's own claims and introduces, and exported for the second
-// reader — `src/draft.mjs`'s parse-back — the same arrangement `journeysRefusal`
-// and `introducesRefusal` already have: a writer and a reader disagreeing about
-// what a relation is fails silently at exactly the field that decides how the
-// Packet's tree renders.
-export function relationsRefusal(relations, claims, introduces, at) {
-  if (relations === undefined) return null;
-  if (!Array.isArray(relations)) {
-    return `${at}: relations, when present, is an array of satellite markings — each naming the item being subordinated, the nucleus it is a satellite of, and the relation between them (the relations layer)`;
-  }
-  const types = relationTypes();
-  const nClaims = (claims || []).length;
-  const nIntro = (introduces || []).length;
-  const bound = (kind) => (kind === "g" ? nClaims : nIntro);
-  const kindName = (kind) => (kind === "g" ? "claim" : "introduces entry");
-  const namedItems = new Set();
-  const namedNuclei = new Set();
-  for (const [i, r] of relations.entries()) {
-    const nth = `relations[${i}]`;
-    if (!r || typeof r !== "object" || Array.isArray(r)) {
-      return `${at}: ${nth} is not a relation entry — each names \`item\`, \`nucleus\` and \`relation\` (the relations layer, \`relation\`)`;
-    }
-    if (typeof r.relation !== "string" || r.relation === "") {
-      return `${at}: ${nth} names no relation — the type this satellite bears to its nucleus, from the closed set: ${[...types.keys()].join(", ")}`;
-    }
-    if (!types.has(r.relation)) {
-      return `${at}: ${nth} declares relation ${JSON.stringify(r.relation)} — the relations layer's set is closed: `
-        + [...types.entries()].map(([k, v]) => `${k} — ${v}`).join("; ");
-    }
-    const item = parseRelationAddress(r.item);
-    if (!item) {
-      return `${at}: ${nth} names no nucleus for a satellite that resolves — \`item\` must address one of this Leg's own claims or introduces entries, \`g<n>\` or \`i<n>\` (the relations layer)`;
-    }
-    const nucleus = parseRelationAddress(r.nucleus);
-    if (!nucleus) {
-      return `${at}: ${nth} (item ${r.item}) names no nucleus — a satellite that names no nucleus is refused: \`nucleus\` must address one of this Leg's own claims or introduces entries, \`g<n>\` or \`i<n>\` (the relations layer)`;
-    }
-    if (item.index > bound(item.kind)) {
-      return `${at}: ${nth} names item ${r.item}, and this Leg declares only ${bound(item.kind)} ${kindName(item.kind)}${bound(item.kind) === 1 ? "" : "s"} — the address points past them`;
-    }
-    if (nucleus.index > bound(nucleus.kind)) {
-      return `${at}: ${nth} (item ${r.item}) names nucleus ${r.nucleus}, and this Leg declares only ${bound(nucleus.kind)} ${kindName(nucleus.kind)}${bound(nucleus.kind) === 1 ? "" : "s"} — the address points past them`;
-    }
-    if (item.kind !== nucleus.kind) {
-      return `${at}: ${nth} makes ${r.item} a satellite of ${r.nucleus} — a satellite and its nucleus are items of the SAME KIND (both claims or both introduces entries), because the two render in separate Packet blocks`;
-    }
-    if (r.item === r.nucleus) {
-      return `${at}: ${nth} names ${r.item} a satellite of itself — a satellite subordinates to a DIFFERENT item`;
-    }
-    if (namedItems.has(r.item)) {
-      return `${at}: relations names ${r.item} as a satellite twice — one entry per item, naming one nucleus`;
-    }
-    namedItems.add(r.item);
-    namedNuclei.add(r.nucleus);
-  }
-  // A TREE IS TWO LEVELS, NEVER A CHAIN — checked after every entry is known
-  // to be well formed, because it is a fact about the WHOLE set: an item
-  // named as a nucleus above may not itself be named as a satellite below.
-  for (const n of namedNuclei) {
-    if (namedItems.has(n)) {
-      return `${at}: relations names ${n} as a nucleus and also as a satellite — a tree is two levels, never a chain; a nucleus is not itself a satellite of anything`;
-    }
-  }
-  return null;
-}
-
-// the relations layer's `budget` — OPTIONAL, the word bound this Leg's realized
-// prose may spend. Shape only: a limit the writer sees, never a target the
-// runtime judges the passage against.
+// `budget` — OPTIONAL, the word bound this Leg's realized prose may spend.
+// Shape only: a limit the writer sees, never a target the runtime judges the
+// passage against.
 export function budgetRefusal(budget, at) {
   if (budget === undefined) return null;
   if (typeof budget !== "number" || !Number.isInteger(budget) || budget <= 0) {
-    return `${at}: budget, when present, is a positive whole number of words (the relations layer) — it reads ${JSON.stringify(budget)}`;
+    return `${at}: budget, when present, is a positive whole number of words — it reads ${JSON.stringify(budget)}`;
   }
   return null;
 }
@@ -521,6 +428,17 @@ export function validateLegs(legs, readerStart) {
   const seen = new Set();
   for (const [i, s] of legs.entries()) {
     const at = `leg ${i + 1}${s && s.leg_id ? ` (${s.leg_id})` : ""}`;
+    // `relations` IS A RETIRED FIELD, refused BY NAME ahead of every other
+    // check (kogaki#1215; the precedent is `retiredClaimTypes`, refused ahead
+    // of the closed-set message). The schema no longer advertises it, so a
+    // composer should never write it — but a Leg that did would otherwise have
+    // its marking silently dropped, which is the failure the draft side's
+    // by-name refusal of a `relation:` line exists against.
+    if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, "relations")) {
+      return { error: `${at}: \`relations\` is a retired field — the relations layer is retired (kogaki#1215): `
+        + "a Leg's claims and introduces are flat lists with no item subordinate to another, and a whole "
+        + "category's realization is stated once in the Packet template, never marked per item. Remove the field." };
+    }
     const errs = [];
     for (const name of requiredLegFields()) {
       if (BESPOKE_LEG_REFUSALS.has(name)) continue;
@@ -655,17 +573,10 @@ export function validateLegs(legs, readerStart) {
       const bad = journeysRefusal(s.journeys, s.materials, at);
       if (bad) return { error: bad };
     }
-    // the relations layer's `relations`/`budget` (kogaki#1174) — OPTIONAL, validated here for the
-    // reason `bridges`, `introduces`, `figure` and `journeys` are: both reach
-    // the Leg Packet, the model's ENTIRE input, so an unvalidated satellite or
-    // budget renders as a tree the model cannot resolve or a limit it cannot
-    // read. Placed after the claims loop because a relation's address space is
-    // this Leg's own claims and introduces entries, so it does not exist until
-    // both are known to be well formed.
-    {
-      const bad = relationsRefusal(s.relations, s.claims, s.introduces, at);
-      if (bad) return { error: bad };
-    }
+    // `budget` — OPTIONAL, validated here for the reason `bridges`, `introduces`,
+    // `figure` and `journeys` are: it reaches the Leg Packet, the model's
+    // ENTIRE input, so an unvalidated budget renders as a limit the writer
+    // cannot read.
     {
       const bad = budgetRefusal(s.budget, at);
       if (bad) return { error: bad };
@@ -1577,11 +1488,6 @@ export function renderLeg(s) {
   // `parseBrief`'s reader are one round trip and this is the half that makes
   // it possible.
   for (const e of s.introduces || []) L.push(`introduces: ${e}`);
-  // the relations layer (kogaki#1174): one LINE per satellite marking, `relation: <item> of <nucleus> (<type>)`,
-  // for the reason `journey` and `introduces` are one line per entry —
-  // written only when declared, so a Brief composed before this field is
-  // byte-identical.
-  for (const r of s.relations || []) L.push(`relation: ${r.item} of ${r.nucleus} (${r.relation})`);
   if (s.budget !== undefined && s.budget !== null) L.push(`budget: ${s.budget}`);
   if (s.opens_section !== undefined) L.push(`opens_section: ${s.opens_section}`);
   if (s.bridges) L.push(`bridges: ${s.bridges.join(", ")}`);

@@ -104,7 +104,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, figureOf, figureLegs,
-  journeysRefusal, legschema, closureRowsForLeg, relationsRefusal, budgetRefusal } from "./compose.mjs";
+  journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
@@ -275,27 +275,16 @@ export function parseLegBlockBody(body, path) {
     const bad = journeysRefusal(journeys, materials, `the Brief at ${path}, leg ${idM[1]}`);
     if (bad) return { refusal: bad };
   }
-  // the relations layer's `relation:`/`budget:` (kogaki#1174), read back from the serialized form
-  // `renderLeg` writes: `relation: <item> of <nucleus> (<type>)`, ONE LINE
-  // PER ENTRY, for the reason `journey` and `introduces` are. THE PARSE-BACK
-  // IS WHAT MAKES THE DECLARATION REACH THE PACKET — the same arrangement
-  // those fields have, through the SAME shared grammar imported from the
-  // composition side: a writer and a reader disagreeing about what a relation
-  // is fails silently at exactly the field that decides how the Packet's
-  // tree renders.
-  const relationLines = [...body.matchAll(/^relation:[ \t]*(.*)$/gm)].map((x) => x[1].trim());
-  let relations;
-  if (relationLines.length) {
-    relations = relationLines.map((ln) => {
-      const m = /^(\S+)\s+of\s+(\S+)\s+\(([^)]*)\)$/.exec(ln);
-      return m ? { item: m[1], nucleus: m[2], relation: m[3] } : { item: ln, nucleus: "", relation: "" };
-    });
-    // The address space is THIS Leg's own claims and introduces entries
-    // (`claimLines` reads the same body this parser holds).
-    const claimCount = body.split("\n").filter((l) => l.startsWith("claim ")).length;
-    const bad = relationsRefusal(relations, new Array(claimCount), introduces,
-      `the Brief at ${path}, leg ${idM[1]}`);
-    if (bad) return { refusal: bad };
+  // THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28). A
+  // Brief composed before this issue could carry a `relation:` line; letting
+  // it parse silently would render no tree — this Packet no longer draws
+  // one — while the marking simply vanished, which is a Brief rendering
+  // differently from what it declares. Refused by name instead, so an old
+  // Brief cannot silently render.
+  if (/^relation:[ \t]*.*$/m.test(body)) {
+    return { refusal: `the Brief at ${path}, leg ${idM[1]}: carries a \`relation:\` line — `
+      + "the relations layer is retired (kogaki#1215): claims and introduce-here entries render as flat lists, "
+      + "and a Leg marking a satellite cannot be realized" };
   }
   const budgetM = body.match(/^budget:[ \t]*(\S*)\s*$/m);
   let budget;
@@ -305,7 +294,7 @@ export function parseLegBlockBody(body, path) {
     if (bad) return { refusal: bad };
   }
   return { leg: { leg_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, journeys,
-    figure, figure_roles, relations, budget, body } };
+    figure, figure_roles, budget, body } };
 }
 
 // The fenced form. A Reverse Outline is ONE `leg` block and this is what
@@ -1064,40 +1053,6 @@ export function priorProseBySection(priorSections, sections, currentIndex, curre
   return out.length ? out.join("\n\n") : null;
 }
 
-// THE RELATIONS LAYER'S TREE RENDER (kogaki#1174). A nucleus renders first,
-// AT THE LINE'S OWN LEFT MARGIN; a satellite of it renders immediately below,
-// indented one level, its own relation type in parens. An item this Leg's
-// `relations` never names is a nucleus by default and renders exactly as it
-// always did — so a Leg composed before this field renders byte-identical.
-//
-// SCOPED TO ONE KIND (`g` for claims, `i` for introduces entries), the relations layer's
-// own rule that a satellite and its nucleus are items of the SAME KIND —
-// each kind renders in its own Packet block, and this function is called once
-// per block with that block's own item texts and its own address prefix.
-function relationTreeLines(itemTexts, relations, kind, renderLine) {
-  const bySatellite = new Map(); // nucleus address -> [{item, nucleus, relation}]
-  const isSatellite = new Set();
-  for (const r of relations || []) {
-    if (!r.item.startsWith(kind) || !r.nucleus.startsWith(kind)) continue;
-    if (!bySatellite.has(r.nucleus)) bySatellite.set(r.nucleus, []);
-    bySatellite.get(r.nucleus).push(r);
-    isSatellite.add(r.item);
-  }
-  const out = [];
-  itemTexts.forEach((text, i) => {
-    const addr = `${kind}${i + 1}`;
-    // A SATELLITE RENDERS ONLY UNDER ITS NUCLEUS, never again at the top
-    // level — that is what makes this a tree rather than an annotated list.
-    if (isSatellite.has(addr)) return;
-    out.push(renderLine(text, 0, null));
-    for (const r of bySatellite.get(addr) || []) {
-      const si = Number(r.item.slice(kind.length)) - 1;
-      out.push(renderLine(itemTexts[si], 1, r.relation));
-    }
-  });
-  return out;
-}
-
 export function renderPacket({ template, brief, leg, moveText, priorSections, ledgerRow, section, sections }) {
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
@@ -1111,15 +1066,14 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
   const claimTexts = leg.body.split("\n")
     .filter((l) => l.startsWith("claim "))
     .map((l) => l.replace(/^claim\s*\([^)]*\)\s*:\s*/, ""));
-  // NUCLEUS FIRST, SATELLITE INDENTED (the relations layer, kogaki#1174): a claim this
-  // Leg's `relations` marks a satellite of another renders one level in,
-  // with its relation type — never as its own paragraph's worth of peer
-  // material. `\s*claim:` in src/review-items.json's `packet_blocks.claims`
-  // is what lets the Reverse Outline read a satellite's line at either
-  // indentation.
-  const claims = relationTreeLines(claimTexts, leg.relations, "g",
-    (text, depth, relation) => `${depth ? "  " : ""}claim: ${text}${relation ? ` — satellite (${relation})` : ""}`)
-    .join("\n");
+  // A FLAT LIST, ONE LINE PER CLAIM (kogaki#1215; the relations layer this
+  // rendered as a tree is retired). No indentation carries meaning here: the
+  // Leg's claims are unambiguous peers, and the writer's realization owes
+  // every one of them a recoverable line rather than a fused clause. The list
+  // convention is the Packet's ONE convention — a `- ` line under the block's
+  // own heading, exactly as `already knows` and `introduce here` render — so no
+  // `claim:` prefix sits under a bulleted field label for the reader to parse.
+  const claims = claimTexts.map((text) => `- ${text}`).join("\n");
   const intro = (leg.introduces || []);
   const known = (ledgerRow?.reader_already_knows || []);
 
@@ -1141,9 +1095,9 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     purpose: need(`leg ${leg.leg_id}'s purpose`, legField(leg.body, "purpose")),
     reader_state_before: need(`leg ${leg.leg_id}'s reader_state_before`, legField(leg.body, "reader_state_before")),
     reader_state_after: need(`leg ${leg.leg_id}'s reader_state_after`, legField(leg.body, "reader_state_after")),
-    // the relations layer's `budget` (kogaki#1174) — a LIMIT the writer sees, never a
-    // target: rendered in the write instruction, and its absence states so
-    // rather than rendering a blank the writer could read as zero.
+    // `budget` — a LIMIT the writer sees, never a target: rendered in the
+    // write instruction, and its absence states so rather than rendering a
+    // blank the writer could read as zero.
     budget: leg.budget !== undefined && leg.budget !== null
       ? `${leg.budget} words. This is a ceiling, not a target — write what this Leg needs, up to it.`
       : "(none declared — no word bound applies to this Leg.)",
@@ -1154,13 +1108,11 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
       // the model's entire input exactly as a block header does, so the
       // one-word-one-unit rule binds it too.
       : "(nothing — this is the first Leg to introduce anything, or the path introduces no terms)",
-    // NUCLEUS FIRST, SATELLITE INDENTED, the same tree the claims block renders
-    // (the relations layer, kogaki#1174) — over this Leg's own `introduces`
-    // entries, the address space `i<n>` names.
+    // A FLAT LIST, ONE LINE PER TERM (kogaki#1215; the relations layer this
+    // rendered as a tree is retired) — over this Leg's own `introduces`
+    // entries.
     introduces: intro.length
-      ? relationTreeLines(intro, leg.relations, "i",
-          (text, depth, relation) => `${depth ? "  " : ""}- ${text}${relation ? ` — satellite (${relation})` : ""}`)
-          .join("\n")
+      ? intro.map((text) => `- ${text}`).join("\n")
       : "(nothing new)",
     // CLOSURE (kogaki#1151): the rows this Leg is a party to, read from the
     // Brief's own rendered "## Closure" section (`closureRowsForLeg`) rather
@@ -2010,7 +1962,7 @@ async function runSelfTest() {
     ok("the fixture Brief's claim line carries a Strand id, so the strip is not vacuous",
       /^claim \(strand L1\): the material states the claim\.$/m.test(briefText));
     ok("the packet renders each claim as its content alone, with no Strand id",
-      /^claim: the material states the claim\.$/m.test(p1.stdout)
+      /^- the material states the claim\.$/m.test(p1.stdout)
       && !/\(strand /.test(p1.stdout));
     // THE CLAIMS SENTENCE STATES THE OBLIGATION the review's `claims-unused`
     // item enforces: a claim no outlined claim rests on is a fail there, so a
@@ -2019,6 +1971,67 @@ async function runSelfTest() {
     ok("the claims block states that every claim must be recoverable from the prose",
       /prose must make every one of them recoverable/.test(p1.stdout)
       && /assert nothing beyond/.test(p1.stdout));
+    // THE RELATIONS LAYER IS RETIRED (kogaki#1215): TWO CLAIMS RENDER AS TWO
+    // FLAT LINES, neither indented under the other and no line marking either
+    // a satellite of the other. Driven against its own fixture rather than
+    // reusing `goodBrief`'s single-claim Leg, so this case is not vacuous over
+    // a Leg that never had a second claim to fuse into a tree. The second claim
+    // rests on a SECOND Strand, because `claim.one_per_strand` lets composition
+    // produce no Leg with two claims on one — a fixture the pipeline could
+    // never emit would assert a rendering no real Packet reaches.
+    {
+      const flatDir = join(root, "theses", "flat-claims"); mkdirSync(flatDir, { recursive: true });
+      writeFileSync(join(flatDir, "brief.md"), goodBrief
+        .replace("## Thesis", "### L2 — second-strand\n\n"
+          + "- cite: `gloss/ELEMENTS.jsonl slug=second-strand kind=lesson @0000000000000000000000000000000000000000`\n\n"
+          + "## Thesis")
+        .replace("materials: L1\nrationale: the claim opens the article.",
+          "materials: L1, L2\nrationale: the claim opens the article.")
+        .replace("claim (strand L1): the material states the claim.",
+          "claim (strand L1): the material states the claim.\n"
+          + "claim (strand L2): the material states a second, unrelated claim."));
+      const flat = spawnSync(process.execPath,
+        [self, "packet", "--brief", join(flatDir, "brief.md"), "--workspace", join(root, "ws-flat-claims"),
+         "--moves-dir", movesDir, "--leg", "s1"], { encoding: "utf8" });
+      // ONE LIST, ONE CONVENTION (kogaki#1215 decision 3): both claims are
+      // `- ` lines in the claims block's own region, adjacent, at column zero,
+      // with no `claim:` prefix and no bulleted field label above them.
+      const region = (flat.stdout.split(/^## The claims this Leg asserts$/m)[1] || "").split(/^#/m)[0];
+      const items = region.split("\n").filter((l) => /^\s*- /.test(l));
+      ok("two claims render as two flat lines of one list, both anchored at column zero",
+        flat.status === 0
+        && items.length === 2
+        && items[0] === "- the material states the claim."
+        && items[1] === "- the material states a second, unrelated claim."
+        && !/^\s*claim:/m.test(flat.stdout)
+        && !/^- \*\*claims\.\*\*/m.test(flat.stdout),
+        (flat.stderr || "").slice(0, 240));
+    }
+    // A BRIEF STILL CARRYING A RETIRED `relation:` LINE IS REFUSED BY NAME
+    // (kogaki#1215), so an old Brief cannot silently render with the marking
+    // simply vanished.
+    {
+      const relDir = join(root, "theses", "retired-relation"); mkdirSync(relDir, { recursive: true });
+      writeFileSync(join(relDir, "brief.md"), goodBrief.replace(
+        "claim (strand L1): the material states the claim.",
+        "claim (strand L1): the material states the claim.\n"
+        + "relation: g1 of g2 (elaboration)"));
+      const rel = spawnSync(process.execPath,
+        [self, "packet", "--brief", join(relDir, "brief.md"), "--workspace", join(root, "ws-retired-relation"),
+         "--moves-dir", movesDir, "--leg", "s1"], { encoding: "utf8" });
+      ok("a Brief carrying a retired `relation:` line is refused, naming the relations layer as retired",
+        rel.status !== 0 && /relation:/.test(rel.stderr) && /relations layer is retired/.test(rel.stderr),
+        (rel.stderr || "").slice(0, 240));
+    }
+    // AND THE COMPOSITION SIDE REFUSES THE RETIRED KEY BY NAME TOO (PR #1218
+    // round 1, finding 3): a composed Leg object still carrying `relations`
+    // would otherwise have it silently dropped by `renderLeg`, the same
+    // vanishing marking the Brief-side refusal above is written against.
+    {
+      const v = validateLegs([{ leg_id: "s1", relations: [] }]);
+      ok("composition refuses a Leg carrying the retired `relations` key by name",
+        !!v.error && /`relations` is a retired field/.test(v.error), JSON.stringify(v).slice(0, 240));
+    }
     // A LEG CARRYING NEITHER FIELD RENDERS. They were required inputs; a Brief
     // written without them is now an ordinary Brief rather than a refusal.
     {
