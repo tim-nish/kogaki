@@ -639,6 +639,84 @@ export function composeOwnerRender(observed, { maxLines = 3, maxChars = 400 } = 
   return out.join("\n");
 }
 
+// --- response validation (kogaki#1186) --------------------------------------
+//
+// The owner's 2026-09-23 ruling: every Gateway tool answers Error, NoData or
+// Hit, and every response is validated against the `outputSchema` the
+// Gateway itself publishes for that tool. A month of failures reached the
+// consumer as an empty answer — a stale build, a refused key, a permission
+// refusal read as "the hub holds no Rule" — because this transport forwarded
+// whatever the Gateway said and exited 0. This closes that: an unvalidated
+// answer is never forwarded as if it were a source read clean.
+//
+// A minimal JSON-Schema-shaped validator, not a library: the schemas this
+// kit validates against are the ones the Gateway itself publishes, over a
+// bounded vocabulary (`type`, `enum`, `required`, `properties`, `items`).
+// Returns a reason string on the first mismatch found, or `null`.
+function validateSchema(value, schema, path) {
+  if (!schema || typeof schema !== "object") return null;
+  if (Array.isArray(schema.enum) && !schema.enum.some((e) => JSON.stringify(e) === JSON.stringify(value)))
+    return `${path} is ${JSON.stringify(value)}, not one of ${schema.enum.map((e) => JSON.stringify(e)).join(", ")}`;
+  if (schema.type !== undefined) {
+    const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+    const actual = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+    const matches = types.some(
+      (t) => t === actual || (t === "integer" && actual === "number" && Number.isInteger(value)),
+    );
+    if (!matches) return `${path} is a ${actual}, not ${types.join(" or ")}`;
+  }
+  // `required`, `properties` and `items` bind on the VALUE's shape, never on
+  // the schema's `type` keyword (PR #1220 round 1): JSON Schema applies each
+  // keyword to any instance of the matching kind whether or not `type` is
+  // declared, and a published schema that declared `required` without `type`
+  // used to constrain nothing here — the one shape that escaped a guarantee
+  // the Issue ratified as general and unconditional.
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    for (const key of schema.required ?? [])
+      if (!(key in value)) return `${path} is missing required property \`${key}\``;
+    for (const [key, sub] of Object.entries(schema.properties ?? {})) {
+      if (key in value) {
+        const err = validateSchema(value[key], sub, `${path}.${key}`);
+        if (err) return err;
+      }
+    }
+  }
+  if (Array.isArray(value) && schema.items) {
+    for (const [i, item] of value.entries()) {
+      const err = validateSchema(item, schema.items, `${path}[${i}]`);
+      if (err) return err;
+    }
+  }
+  return null;
+}
+
+// A pure reading of ONE `tools/call` response: `isError`, the tool's own
+// published `outputSchema`, and the response's `structuredContent` — nothing
+// else, so `--self-test` can drive it with no gateway spawned. Returns
+// `{ ok: true, structured }` or `{ ok: false, exit, message }`, where `exit`
+// is the transport's own exit code (13 mismatch, 14 error) and `message` is
+// the stderr line without its prefix.
+//
+// THE `isError` BRANCH RUNS FIRST (kogaki#1186 comment 5, defect 1): the
+// Gateway's own Error shape (`isError: true`, `structuredContent: {outcome:
+// "error", code, reason}`) is not the tool's Hit schema, so validating it
+// first against `outputSchema` refused every Gateway Error at exit 13
+// instead of 14. An Error result is stopped on its own terms; only a
+// non-error result is held to the published schema.
+export function classifyToolResult({ tool, isError, structured }, outputSchemaByTool) {
+  if (isError) {
+    const code = structured && typeof structured.code === "string" ? structured.code : "unknown";
+    const errReason = structured && typeof structured.reason === "string" ? structured.reason : "no reason given";
+    return { ok: false, exit: 14, message: `${code}: ${errReason}` };
+  }
+  const schema = outputSchemaByTool?.get(tool);
+  if (schema === undefined)
+    return { ok: false, exit: 13, message: `\`${tool}\` published no outputSchema; a response cannot be validated against nothing` };
+  const reason = validateSchema(structured, schema, "$");
+  if (reason) return { ok: false, exit: 13, message: `\`${tool}\`: ${reason}` };
+  return { ok: true, structured };
+}
+
 function composeReceipt(observed, outcomeToken, dispositionToken) {
   const parsed = observed.map(({ text }, i) => {
     let d;
@@ -1124,6 +1202,64 @@ function selfTest() {
   console.log("fixture pass: 10/10 owner-register cases (no pin token on the owner surface; " +
     "Question present; a wrapped served line flattened readable; the Conclusion left to the agent; " +
     "truncation states its denominator; unreadable and genuine-miss render DIFFERENTLY, both directions)");
+
+  // RESPONSE VALIDATION (kogaki#1186): the three outcomes and the two
+  // refusals, over a schema shaped like a published `outputSchema` — pure,
+  // gateway-free, exactly like the two fixture passes above.
+  const OUTCOME_SCHEMA = {
+    type: "object", required: ["outcome"],
+    properties: { outcome: { type: "string", enum: ["Error", "NoData", "Hit"] }, pin: { type: "string" } },
+  };
+  const schemas = new Map([["policy_lookup", OUTCOME_SCHEMA]]);
+  const classifyFail = [];
+  const classify = (structured, isError) =>
+    classifyToolResult({ tool: "policy_lookup", isError, structured }, schemas);
+  // AC1 — the three outcomes admit, and the caller reads `outcome`.
+  const hit = classify({ outcome: "Hit", pin: "hub@abc" }, false);
+  if (!(hit.ok && hit.structured.outcome === "Hit")) classifyFail.push("a Hit did not admit");
+  const noData = classify({ outcome: "NoData" }, false);
+  if (!(noData.ok && noData.structured.outcome === "NoData")) classifyFail.push("a NoData did not admit");
+  const err = classify({ outcome: "Error", code: "E_PERM", reason: "no Rule for this consumer" }, true);
+  if (!(err.ok === false && err.exit === 14 && err.message === "E_PERM: no Rule for this consumer"))
+    classifyFail.push("an Error result did not stop at exit 14 naming its code and reason");
+  const errNoDetail = classify({ outcome: "Error" }, true);
+  if (!(errNoDetail.ok === false && errNoDetail.exit === 14 && errNoDetail.message === "unknown: no reason given"))
+    classifyFail.push("an Error result with no code/reason did not fall back to named placeholders");
+  // AC — a result that does not validate refuses at 13, never forwarded.
+  const shapeless = classify({ outcome: "sideways" }, false);
+  if (!(shapeless.ok === false && shapeless.exit === 13 && shapeless.message.includes("policy_lookup")))
+    classifyFail.push("a response outside the enum did not refuse at exit 13");
+  // AC — a tool with NO published outputSchema at all refuses at 13, naming it.
+  const unpublished = classifyToolResult({ tool: "gloss_index", isError: false, structured: { outcome: "Hit" } }, schemas);
+  if (!(unpublished.ok === false && unpublished.exit === 13 && unpublished.message.includes("gloss_index") && unpublished.message.includes("no outputSchema")))
+    classifyFail.push("a tool publishing no outputSchema at all did not refuse at exit 13, naming the tool");
+  // The isError branch runs BEFORE validation (kogaki#1186 comment 5, defect
+  // 1): an Error result that would also fail the tool's Hit schema still
+  // stops at exit 14, on its own code and reason — it is never validated
+  // against a schema it was never meant to satisfy.
+  const errButShapeless = classify({ outcome: "sideways" }, true);
+  if (!(errButShapeless.ok === false && errButShapeless.exit === 14))
+    classifyFail.push("an isError result that fails the Hit schema did not stop at exit 14 — isError must be checked first");
+  // A published schema that declares `required`/`properties` WITHOUT a `type`
+  // keyword still constrains (PR #1220 round 1): the keywords bind on the
+  // value's shape, so a missing required property refuses at exit 13 exactly
+  // as it does under `type: "object"`, and a conforming value still admits.
+  const typeless = new Map([["policy_lookup", { required: ["outcome"], properties: { outcome: { enum: ["hit", "nodata"] } } }]]);
+  const typelessMissing = classifyToolResult({ tool: "policy_lookup", isError: false, structured: { pin: "hub@abc" } }, typeless);
+  const typelessOk = classifyToolResult({ tool: "policy_lookup", isError: false, structured: { outcome: "hit" } }, typeless);
+  if (!(typelessMissing.ok === false && typelessMissing.exit === 13 && typelessMissing.message.includes("outcome") && typelessOk.ok))
+    classifyFail.push("a schema declaring required/properties without a type keyword did not constrain — the value's shape, not the keyword, binds");
+  if (classifyFail.length) {
+    console.log("FAIL response-validation fixtures:");
+    for (const f of classifyFail) console.log(`  ${f}`);
+    process.exit(1);
+  }
+  console.log("fixture pass: 7/7 response-validation cases (Hit and NoData admit for the caller to branch " +
+    "on `outcome`; an Error stops at exit 14 naming its code and reason, with placeholders when either is " +
+    "absent; an outcome outside the published enum refuses at exit 13; a tool with no published outputSchema " +
+    "refuses at exit 13, naming the tool; the isError branch runs before validation, so an Error result that " +
+    "would also fail the Hit schema still stops at exit 14; a schema declaring required/properties without " +
+    "a type keyword still constrains, so no published shape escapes validation)");
   process.exit(0);
 }
 
@@ -1155,29 +1291,29 @@ try {
   // COST, stated because the earlier scoping was partly a cost decision: one
   // extra `tools/list` round trip per invocation on the non-receipt path.
   let declaredByTool = null;
-  // WHICH absence, carried to the announcement. Both a no-catalogue gateway
-  // and an errored `tools/list` leave `declaredByTool` null, and one fixed
-  // announcement pointed an operator debugging the second at the first's
-  // repair (kogaki#373 finding 3). The cause is recorded where it is known
-  // and spoken where it is announced.
+  let outputSchemaByTool = null;
+  // WHICH absence, carried to the announcement. Before kogaki#1186 both a
+  // no-catalogue gateway and an errored `tools/list` left `declaredByTool`
+  // null, and one fixed announcement pointed an operator debugging the second
+  // at the first's repair (kogaki#373 finding 3). The errored case now exits
+  // 11 below before reaching any announcement, so this cause has exactly one
+  // reachable value: a `tools/list` that answered without a `tools` array.
+  // On that branch the ADDRESS form is announced unchecked, while the
+  // RESPONSE is still refused at exit 13 per tool — no schema was published
+  // for it to validate against (see the split below).
   let uncheckedCause = "the gateway served no readable tool catalogue";
   {
     timer.refresh();
     const listed = await rpc(2, "tools/list", {});
-    // Routed exactly as the tools/call loop below routes its own rpc errors:
-    // a gateway that cannot be conversed with is a DEGRADE (exit 11), never a
-    // receipt refusal. Only a well-formed catalogue reaches the composer.
-    // AN ERRORING `tools/list` DEGRADES ONLY THE RECEIPT PATH. Before this
-    // change the query path never asked, so turning its error into an exit-11
-    // degrade would stop calls that used to work — the same
-    // enhancer-becomes-dependency polarity the no-catalogue branch below is
-    // shaped to avoid, reached one step earlier. On the receipt path it stays
-    // a degrade: a receipt cannot be stood behind without the catalogue.
-    if (listed.error) {
-      if (receiptMode) unavailable(`rpc error: ${listed.error.message ?? "unknown"}`);
-      uncheckedCause = `\`tools/list\` returned an rpc error (${listed.error.message ?? "unknown"})`;
-    } else
-    if (Array.isArray(listed.result?.tools))
+    // AN ERRORING `tools/list` NOW DEGRADES EVERY PATH (kogaki#1186), not only
+    // the receipt path. Before this issue a non-receipt run asserted nothing
+    // about a receipt and so could proceed unchecked; it now owes the
+    // response-validation guarantee on every call, and that guarantee cannot
+    // be established without the published `outputSchema`. A gateway that
+    // cannot be conversed with is a DEGRADE (exit 11), never a response-
+    // mismatch refusal.
+    if (listed.error) unavailable(`rpc error: ${listed.error.message ?? "unknown"}`);
+    if (Array.isArray(listed.result?.tools)) {
       declaredByTool = new Map(
         listed.result.tools.map((t) => {
           // `null`, NEVER an empty Set, where the schema does not enumerate.
@@ -1192,6 +1328,11 @@ try {
           ];
         }),
       );
+      // THE OUTPUT HALF (kogaki#1186). `outputSchema` is undefined for a tool
+      // that publishes none at all — the transport does not invent a schema to
+      // validate against, it refuses at exit 13, naming the tool.
+      outputSchemaByTool = new Map(listed.result.tools.map((t) => [t.name, t.outputSchema]));
+    }
   }
   // THE FORM IS CHECKED BEFORE ANYTHING IS SENT (kogaki#368). The refusal
   // message always said "refused here rather than sent" and, running inside
@@ -1227,24 +1368,33 @@ try {
   //     EXPLICIT `properties: {}` is the opposite case: it enumerates (zero
   //     arguments), the declared set is authoritative, and an argued call is
   //     refused truthfully.
-  //   * NO catalogue served, or `tools/list` ERRORED
-  //                                        -> proceed UNCHECKED, saying WHICH.
+  //   * `tools/list` ERRORED              -> DEGRADE, exit 11 (above). The
+  //     gateway could not be conversed with, and since kogaki#1186 every path
+  //     owes the published `outputSchema`, which that gateway cannot supply.
+  //   * NO catalogue served (a `tools/list` that answered without a `tools`
+  //     array)                             -> the ADDRESS form proceeds
+  //     UNCHECKED, saying so; the RESPONSE is refused at exit 13 per tool,
+  //     because no schema was published for it. The call is sent and its
+  //     answer is never forwarded.
   //
-  // The second is not softness. This kit is an ENHANCER, NEVER A DEPENDENCY,
-  // and a gateway that serves no `tools/list` answered every non-receipt call
-  // perfectly well before this change — refusing them, or degrading them,
-  // would make a transport that used to work stop working, to enforce a check
-  // it cannot perform. MCP requires `tools/list` of any server advertising
-  // tools, so against a real gateway the unchecked branch is unreachable; it
-  // exists for a minimal or older one.
+  // THE POLARITY THIS INVERTS, kept so the inversion is legible rather than a
+  // silent rewrite (PR #1220 round 1): before kogaki#1186 the last two cases
+  // both proceeded unchecked, on the ground that this kit is an ENHANCER,
+  // NEVER A DEPENDENCY, and a gateway serving no `tools/list` had answered
+  // every non-receipt call before. The owner's 2026-09-23 ruling puts the
+  // general guarantee first: a response that cannot be validated is not
+  // forwarded as if it had been. MCP requires `tools/list` of any server
+  // advertising tools, so against a real gateway neither branch is reachable;
+  // they exist for a minimal or older build, and a reader repairing one is
+  // pointed at exit 11 for the errored catalogue and exit 13 for the empty
+  // one — never at an unchecked pass-through, which no longer exists.
   //
-  // RESIDUE, stated rather than left to be discovered: on that branch an
-  // undeclared key is still dropped and the broader artifact still served —
-  // #368's defect, in the one place this repair cannot reach. It is announced
-  // on stderr rather than silently, so it is observable rather than assumed;
-  // it is NOT on stdout, which is the tool result the caller parses.
-  // The RECEIPT path keeps refusing on both causes, unchanged: a receipt
-  // asserts something and cannot be stood behind without the catalogue.
+  // RESIDUE on the no-catalogue branch: an undeclared key is still dropped
+  // before the call goes out — #368's defect in the one place the address
+  // check cannot reach — announced on stderr rather than silently, and NOT
+  // on stdout, which is the tool result the caller parses. The RECEIPT path
+  // keeps refusing on both causes, unchanged: a receipt asserts something and
+  // cannot be stood behind without the catalogue.
   for (const [i, framing] of framings.entries()) {
     if (!(declaredByTool instanceof Map)) {
       process.stderr.write(
@@ -1305,12 +1455,44 @@ try {
     const res = await rpc(3 + i, "tools/call", { name: framing.tool, arguments: framing.args });
     if (res.error) unavailable(`rpc error: ${res.error.message ?? "unknown"}`);
     const text = (res.result?.content ?? []).map((c) => c.text ?? "").join("");
-    if (res.result?.isError) unavailable(`tool error: ${text.slice(0, 200)}`);
+    // `structuredContent` is the MCP-native field; a response that carries
+    // none is read off the text content instead, so an unparseable body
+    // (undefined `structured`) simply fails the schema check below rather
+    // than being special-cased here.
+    let structured = res.result?.structuredContent;
+    if (structured === undefined) {
+      try { structured = JSON.parse(text); } catch { structured = undefined; }
+    }
+    // RESPONSE VALIDATION STOPS THE CALLING ACT (kogaki#1186). Buffered like
+    // every other exit here: exactly one line on stderr, nothing on stdout,
+    // for the whole invocation.
+    const verdict = classifyToolResult({ tool: framing.tool, isError: !!res.result?.isError, structured }, outputSchemaByTool);
+    if (!verdict.ok) {
+      clearTimeout(timer);
+      proc.kill();
+      process.stderr.write(`${verdict.exit === 14 ? "gateway error" : "gateway response mismatch"}: ${verdict.message}\n`);
+      process.exit(verdict.exit);
+    }
     // The declared schema rides the framing's OWN record, exactly as its
     // question does — so the schema, the arguments and the response that
     // answered them are one value and cannot be zipped wrongly.
+    //
+    // `text` is now the RE-SERIALISED `structured` value, not the raw text
+    // body (kogaki#1186 comment 5, defect 2): the Gateway's text body is the
+    // pre-#111 envelope and carries no `outcome` or `build`, so a caller
+    // parsing it could never branch on outcome; `structuredContent` is that
+    // same envelope plus `outcome` and `build`, and it is what was just
+    // validated above, so printing it is a superset of what stdout carried
+    // before and every existing downstream JSON reader still parses it.
+    //
+    // The one body that reaches here UNSTRUCTURED is a non-JSON text with no
+    // `structuredContent`, admitted only because the tool's published schema
+    // constrains nothing (`{}`): there is no structured value to print, so
+    // the raw body is forwarded as it always was and its reader keeps its
+    // own per-body parse verdict (kogaki#638's `<html>…` case). A schema that
+    // constrains anything at all has already refused that body at exit 13.
     observed.push({
-      framing, text,
+      framing, text: structured === undefined ? text : JSON.stringify(structured),
       declared: declaredByTool?.get(framing.tool),
       catalogue: declaredByTool,
     });

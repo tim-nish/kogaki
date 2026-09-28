@@ -309,6 +309,16 @@ const payload = (name) => {
     return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `topics/x.md:1@${SHA}`, text: "kit-test owes a role-assigned obligation" }] }, null, 2);
   return JSON.stringify({ pin: PIN, lines: [] }, null, 2);
 };
+// A PERMISSIVE outputSchema on every tool this stub is ever asked for
+// (kogaki#1186) — this fixture stands for the WIRE, not for the schema's own
+// shape, so it declares just enough (`type: object`) for the response
+// validation every kit tool now owes to admit the payloads above.
+// `glossary_entry` gets an UNCONSTRAINED schema (`{}`) rather than the
+// shared one: its own payload above is the "composer cannot parse this body"
+// fixture (kogaki#638's `<html>…` case) — a body that is not JSON at all —
+// and it stands for a gateway that publishes no shape constraint on that
+// tool, not for a defect in this transport's own validation.
+const OUTPUT_SCHEMA = { type: "object" };
 let buf = "";
 process.stdin.on("data", (d) => {
   buf += d;
@@ -318,6 +328,9 @@ process.stdin.on("data", (d) => {
     if (!line.trim()) continue;
     let m; try { m = JSON.parse(line); } catch { continue; }
     if (m.method === "initialize") send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
+    else if (m.method === "tools/list") send({ jsonrpc: "2.0", id: m.id, result: { tools: [
+      "gloss_index", "surface_names", "glossary_entry", "policy_lookup", "element_survey",
+    ].map((name) => ({ name, inputSchema: { type: "object" }, outputSchema: name === "glossary_entry" ? {} : OUTPUT_SCHEMA })) } });
     else if (m.method === "tools/call") send({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: payload(m.params && m.params.name) }] } });
     else if (m.id !== undefined) send({ jsonrpc: "2.0", id: m.id, result: {} });
   }
@@ -876,13 +889,17 @@ process.stdin.on("data", (d) => {
     if (m.method === "initialize")
       send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
     else if (m.method === "tools/list")
+      // A PERMISSIVE outputSchema on every tool here too (kogaki#1186) — this
+      // stub stands for the address-form check's own fixture, not for the
+      // response-validation shape, so it declares just enough (`type:
+      // object`) for a response to admit without exercising exit 13.
       send({ jsonrpc: "2.0", id: m.id, result: { tools: [
-        { name: "element_survey", inputSchema: { properties: { kind: {}, tag: {} } } },
+        { name: "element_survey", inputSchema: { properties: { kind: {}, tag: {} } }, outputSchema: { type: "object" } },
         // The FOURTH cause's two neighbours (kogaki#373): a schema that does
         // not enumerate its arguments (MCP permits this shape), and one that
         // enumerates ZERO — the pair the `?? {}` collapsed into one.
-        { name: "bare_schema", inputSchema: { type: "object" } },
-        { name: "no_args", inputSchema: { properties: {} } },
+        { name: "bare_schema", inputSchema: { type: "object" }, outputSchema: { type: "object" } },
+        { name: "no_args", inputSchema: { properties: {} }, outputSchema: { type: "object" } },
       ] } });
     else if (m.method === "tools/call")
       // A payload a RECEIPT can be composed from: request_id, a served
@@ -940,20 +957,24 @@ set -e
 [[ $CODE -eq 0 ]] || fail "a DECLARED key on the query path exited $CODE, want 0 — the guard is refusing a conforming call. $OUT"
 echo "ok: a declared argument key still serves at exit 0 (kogaki#368 AC1)"
 
-# 10c. NO CATALOGUE -> UNCHECKED AND SAID SO, never a refusal and never a
-#      degrade. The kit is an enhancer, never a dependency: a gateway serving
-#      no `tools/list` answered every non-receipt call before this change, and
-#      breaking those to enforce a check that cannot run would be a worse
-#      defect than the one being fixed. The residue is announced rather than
-#      silent, and on stderr rather than in the tool result.
+# 10c. AN UNENUMERABLE INPUT SCHEMA -> UNCHECKED AND SAID SO on the address
+#      form, never a refusal and never a degrade on that account. This is the
+#      address-form check's own kogaki#368 polarity, and it is unchanged by
+#      kogaki#1186: `element_survey`'s published `inputSchema` here carries no
+#      `properties`, so its arguments cannot be enumerated and the form is
+#      left unchecked rather than refused. stub-gw.js now also publishes an
+#      `outputSchema` for every tool it serves (kogaki#1186's own, separate,
+#      unconditional response-validation guarantee), which is why this call
+#      still exits 0 instead of the exit-13 "no outputSchema published"
+#      refusal a fully catalogue-less gateway would now draw.
 set +e
 OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kinds":["lesson"]}' --gateway "$TMP/stub-gw.js" 2>&1)
 CODE=$?
 set -e
-[[ $CODE -eq 0 ]] || fail "a catalogue-less gateway made the query path exit $CODE, want 0 — the transport has become a dependency. $OUT"
+[[ $CODE -eq 0 ]] || fail "an unenumerable-input-schema gateway made the query path exit $CODE, want 0 — the transport has become a dependency. $OUT"
 printf '%s
-' "$OUT" | grep -q 'address form unchecked: the gateway served no readable tool catalogue'   || fail "the unchecked announcement does not name the no-catalogue cause — a fixed body here pointed the erroring-tools/list operator at the wrong repair (kogaki#373): $OUT"
-echo "ok: no served catalogue leaves the form unchecked, announced and not refused (kogaki#368)"
+' "$OUT" | grep -q 'address form unchecked: `element_survey` is served but its schema does not enumerate its arguments'   || fail "the unchecked announcement does not name the unenumerable-schema cause: $OUT"
+echo "ok: an unenumerable input schema leaves the address form unchecked, announced and not refused (kogaki#368)"
 
 # 10d. THE RECEIPT PATH'S REFUSAL SHAPE, asserted. Round-1 finding on PR #372:
 #      AC2a declared a behaviour change on this path and offered "the 48-case
@@ -997,9 +1018,13 @@ printf '%s
 ' "$OUT" | grep -q 'does not carry `gloss_index`'   || fail "the refusal does not name the unserved tool, so it reads as an undeclared-key refusal: $OUT"
 echo "ok: a tool absent from a served catalogue is refused, naming which cause (kogaki#368)"
 
-# 10g. AN ERRORING `tools/list` LEAVES THE QUERY PATH WORKING. Round-1 finding
-#      on PR #372: before this change the query path never asked, so turning
-#      that error into a degrade would stop calls that used to work.
+# 10g. AN ERRORING `tools/list` NOW DEGRADES THE QUERY PATH TOO (kogaki#1186).
+#      Before that issue the query path never asked and so proceeded
+#      unchecked (PR #372 round 1); response validation now owes the
+#      published `outputSchema` on every path, and that guarantee cannot be
+#      established without a readable catalogue, so the polarity flips: a
+#      gateway that cannot serve `tools/list` is unreachable for the purpose
+#      of the general guarantee, degrade rather than proceed-unchecked.
 cat > "$TMP/stub-listerr.js" <<'STUB'
 const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
 let buf = "";
@@ -1024,10 +1049,10 @@ set +e
 OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kind":"lesson"}' --gateway "$TMP/stub-listerr.js" 2>&1)
 CODE=$?
 set -e
-[[ $CODE -eq 0 ]] || fail "an erroring tools/list made the query path exit $CODE, want 0 — a call that used to work has stopped. $OUT"
+[[ $CODE -eq 11 ]] || fail "an erroring tools/list made the query path exit $CODE, want 11 — response validation cannot be established without a readable catalogue (kogaki#1186). $OUT"
 printf '%s
-' "$OUT" | grep -q 'address form unchecked: `tools/list` returned an rpc error'   || fail "the erroring-catalogue announcement does not name ITS cause — collapsed into the no-catalogue wording, it points the operator at the wrong repair (kogaki#373): $OUT"
-echo "ok: an erroring tools/list leaves the query path serving, form unchecked and announced with its own cause (kogaki#368, kogaki#373)"
+' "$OUT" | grep -q 'policy_source unavailable: rpc error'   || fail "the degrade does not name the rpc-error cause: $OUT"
+echo "ok: an erroring tools/list degrades the query path too — response validation owes the catalogue on every path (kogaki#1186)"
 
 # 10h. A SERVED TOOL WHOSE SCHEMA DOES NOT ENUMERATE its arguments is the
 #      FOURTH cause (kogaki#373): the `?? {}` it replaces made this an empty
@@ -1572,5 +1597,131 @@ DOUT=$("$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/dirtytgt" --home "$D
 printf '%s\n' "$DOUT" | grep -q 'verdict: cannot-determine' \
   || fail "a dirty-sourced copy did not degrade to cannot-determine: $(printf '%s\n' "$DOUT" | grep verdict)"
 echo "ok: a dirty Home marks the revision, and currency degrades rather than overclaiming"
+
+# ---------------------------------------------------------------------------
+# 11. RESPONSE VALIDATION, on the real wire (kogaki#1186). The self-test above
+#     covers `classifyToolResult` as a pure fixture; these two drive an actual
+#     tools/call round trip through a fixture Gateway, so a defect in the wiring
+#     between the two — the schema never reaching the classifier, the wrong
+#     field read off `res.result` — would show here even if the pure function
+#     is correct.
+# ---------------------------------------------------------------------------
+
+# 11a. A RESPONSE OUTSIDE ITS OWN PUBLISHED outputSchema is refused at exit 13,
+#      naming the tool, never forwarded as though it were a genuine answer.
+cat > "$TMP/stub-badshape.js" <<'STUB'
+const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+let buf = "";
+process.stdin.on("data", (d) => {
+  buf += d;
+  let i;
+  while ((i = buf.indexOf("\n")) >= 0) {
+    const line = buf.slice(0, i); buf = buf.slice(i + 1);
+    if (!line.trim()) continue;
+    let m; try { m = JSON.parse(line); } catch { continue; }
+    if (m.method === "initialize") send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
+    else if (m.method === "tools/list") send({ jsonrpc: "2.0", id: m.id, result: { tools: [
+      { name: "policy_lookup", inputSchema: { type: "object" },
+        outputSchema: { type: "object", required: ["outcome"], properties: { outcome: { type: "string", enum: ["Error", "NoData", "Hit"] } } } },
+    ] } });
+    // The tool answers a shape its OWN published schema forbids: `outcome`
+    // is missing altogether.
+    else if (m.method === "tools/call") send({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: JSON.stringify({ pin: "x@0" }) }] } });
+    else if (m.id !== undefined) send({ jsonrpc: "2.0", id: m.id, result: {} });
+  }
+});
+STUB
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool policy_lookup   --args '{}' --gateway "$TMP/stub-badshape.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 13 ]] || fail "a response outside its own published outputSchema exited $CODE, want 13. $OUT"
+printf '%s\n' "$OUT" | grep -q 'gateway response mismatch:' \
+  || fail "the exit-13 refusal is missing its marker: $OUT"
+printf '%s\n' "$OUT" | grep -q 'policy_lookup' \
+  || fail "the refusal does not name the tool whose response failed to validate: $OUT"
+echo "ok: a response outside its own published outputSchema is refused at exit 13, naming the tool (kogaki#1186)"
+
+# 11b. isError: true STOPS THE CALLING ACT at exit 14, naming the code and
+#      reason, and never arrives at the consumer as though it were empty data.
+#      The stub answers the REAL Gateway's Error shape (kogaki#1186 comment 5,
+#      defect 1): `isError: true`, `structuredContent: {outcome: "error",
+#      code, reason}`, and a text body that does NOT satisfy the tool's Hit
+#      schema — so a transport that validated before reading `isError` would
+#      exit 13 here, which is the defect the real wire showed on 2026-09-28.
+cat > "$TMP/stub-toolerror.js" <<'STUB'
+const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+let buf = "";
+process.stdin.on("data", (d) => {
+  buf += d;
+  let i;
+  while ((i = buf.indexOf("\n")) >= 0) {
+    const line = buf.slice(0, i); buf = buf.slice(i + 1);
+    if (!line.trim()) continue;
+    let m; try { m = JSON.parse(line); } catch { continue; }
+    if (m.method === "initialize") send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
+    else if (m.method === "tools/list") send({ jsonrpc: "2.0", id: m.id, result: { tools: [
+      { name: "policy_lookup", inputSchema: { type: "object", properties: { question: { type: "string" } } },
+        outputSchema: { type: "object", required: ["outcome", "miss"], properties: { outcome: { type: "string", enum: ["hit", "nodata"] }, miss: { type: "boolean" } } } },
+    ] } });
+    else if (m.method === "tools/call") send({ jsonrpc: "2.0", id: m.id, result: {
+      isError: true,
+      content: [{ type: "text", text: "not-permitted: not permitted for Kind \"rule\"" }],
+      structuredContent: { outcome: "error", code: "not-permitted", reason: "not permitted for Kind \"rule\"", tool: "policy_lookup", request_id: "stub" },
+    } });
+    else if (m.id !== undefined) send({ jsonrpc: "2.0", id: m.id, result: {} });
+  }
+});
+STUB
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool policy_lookup   --args '{}' --gateway "$TMP/stub-toolerror.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 14 ]] || fail "an isError:true response in the real Gateway's Error shape exited $CODE, want 14 — validated before isError was read, or forwarded as though it were an empty answer. $OUT"
+printf '%s\n' "$OUT" | grep -q 'gateway error: not-permitted: not permitted for Kind "rule"' \
+  || fail "the exit-14 refusal does not name the code and reason: $OUT"
+[[ "$(printf '%s\n' "$OUT" | grep -vc '^gateway error:')" -eq 0 ]] \
+  || fail "the exit-14 refusal printed more than its one stderr line — stdout must be empty on an Error: $OUT"
+echo "ok: an isError:true response in the real Gateway's Error shape stops the calling act at exit 14, naming the code and reason (kogaki#1186)"
+
+# 11c. A HIT PRINTS THE structuredContent, NOT THE TEXT BODY (kogaki#1186
+#      comment 5, defect 2). The real Gateway's text body is the pre-#111
+#      envelope and carries no `outcome` or `build`; a caller that read it
+#      could never branch on `outcome`. The stub's text body and structured
+#      content differ on exactly those two fields, so a transport printing the
+#      wrong one fails here by name.
+cat > "$TMP/stub-hit.js" <<'STUB'
+const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+const body = { miss: false, tool: "policy_lookup", pin: "hub@stub", request_id: "stub", consulted: "consulted: hub@stub", lines: [{ text: "stub line" }] };
+let buf = "";
+process.stdin.on("data", (d) => {
+  buf += d;
+  let i;
+  while ((i = buf.indexOf("\n")) >= 0) {
+    const line = buf.slice(0, i); buf = buf.slice(i + 1);
+    if (!line.trim()) continue;
+    let m; try { m = JSON.parse(line); } catch { continue; }
+    if (m.method === "initialize") send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
+    else if (m.method === "tools/list") send({ jsonrpc: "2.0", id: m.id, result: { tools: [
+      { name: "policy_lookup", inputSchema: { type: "object", properties: { question: { type: "string" } } },
+        outputSchema: { type: "object", required: ["outcome", "build", "miss"], properties: { outcome: { type: "string", enum: ["hit", "nodata"] }, build: { type: "string" }, miss: { type: "boolean" } } } },
+    ] } });
+    else if (m.method === "tools/call") send({ jsonrpc: "2.0", id: m.id, result: {
+      content: [{ type: "text", text: JSON.stringify(body) }],
+      structuredContent: { outcome: "hit", build: "0.0.0+stub", ...body },
+    } });
+    else if (m.id !== undefined) send({ jsonrpc: "2.0", id: m.id, result: {} });
+  }
+});
+STUB
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool policy_lookup   --args '{}' --gateway "$TMP/stub-hit.js" 2>/dev/null)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "a Hit in the real Gateway's shape exited $CODE, want 0. $OUT"
+HIT_READ=$(printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.loads(sys.stdin.readline()); print(d.get("outcome"), d.get("build"), d.get("miss"))' 2>/dev/null || echo "unparseable")
+[[ "$HIT_READ" == "hit 0.0.0+stub False" ]] \
+  || fail "stdout on a Hit is not the structuredContent (want outcome/build/miss = hit/0.0.0+stub/false, read $HIT_READ) — a caller cannot branch on outcome from the text body. $OUT"
+echo "ok: a Hit prints the structuredContent, carrying outcome and build, not the text body (kogaki#1186)"
 
 echo "ALL PASS"
