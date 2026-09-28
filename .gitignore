@@ -279,3 +279,7 @@ policy/shape.md
 
 # Move-design Corpus: temporary, private, carries copyrighted source text (kogaki#1173)
 corpus/
+
+# The Checks declaration (claude-toolkit#1271): tracked, read by both lanes at
+# the base ref, written by the session because a worker cannot write .claude/.
+!.claude/checks.json

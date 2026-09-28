@@ -1,0 +1,5 @@
+{
+  "registry": "checks/registry.json",
+  "runner": "tools/run-registered-checks.sh",
+  "check_root": "checks"
+}
