@@ -665,7 +665,13 @@ function validateSchema(value, schema, path) {
     );
     if (!matches) return `${path} is a ${actual}, not ${types.join(" or ")}`;
   }
-  if (schema.type === "object" && typeof value === "object" && value !== null && !Array.isArray(value)) {
+  // `required`, `properties` and `items` bind on the VALUE's shape, never on
+  // the schema's `type` keyword (PR #1220 round 1): JSON Schema applies each
+  // keyword to any instance of the matching kind whether or not `type` is
+  // declared, and a published schema that declared `required` without `type`
+  // used to constrain nothing here — the one shape that escaped a guarantee
+  // the Issue ratified as general and unconditional.
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     for (const key of schema.required ?? [])
       if (!(key in value)) return `${path} is missing required property \`${key}\``;
     for (const [key, sub] of Object.entries(schema.properties ?? {})) {
@@ -675,7 +681,7 @@ function validateSchema(value, schema, path) {
       }
     }
   }
-  if (schema.type === "array" && Array.isArray(value) && schema.items) {
+  if (Array.isArray(value) && schema.items) {
     for (const [i, item] of value.entries()) {
       const err = validateSchema(item, schema.items, `${path}[${i}]`);
       if (err) return err;
@@ -1234,16 +1240,26 @@ function selfTest() {
   const errButShapeless = classify({ outcome: "sideways" }, true);
   if (!(errButShapeless.ok === false && errButShapeless.exit === 14))
     classifyFail.push("an isError result that fails the Hit schema did not stop at exit 14 — isError must be checked first");
+  // A published schema that declares `required`/`properties` WITHOUT a `type`
+  // keyword still constrains (PR #1220 round 1): the keywords bind on the
+  // value's shape, so a missing required property refuses at exit 13 exactly
+  // as it does under `type: "object"`, and a conforming value still admits.
+  const typeless = new Map([["policy_lookup", { required: ["outcome"], properties: { outcome: { enum: ["hit", "nodata"] } } }]]);
+  const typelessMissing = classifyToolResult({ tool: "policy_lookup", isError: false, structured: { pin: "hub@abc" } }, typeless);
+  const typelessOk = classifyToolResult({ tool: "policy_lookup", isError: false, structured: { outcome: "hit" } }, typeless);
+  if (!(typelessMissing.ok === false && typelessMissing.exit === 13 && typelessMissing.message.includes("outcome") && typelessOk.ok))
+    classifyFail.push("a schema declaring required/properties without a type keyword did not constrain — the value's shape, not the keyword, binds");
   if (classifyFail.length) {
     console.log("FAIL response-validation fixtures:");
     for (const f of classifyFail) console.log(`  ${f}`);
     process.exit(1);
   }
-  console.log("fixture pass: 6/6 response-validation cases (Hit and NoData admit for the caller to branch " +
+  console.log("fixture pass: 7/7 response-validation cases (Hit and NoData admit for the caller to branch " +
     "on `outcome`; an Error stops at exit 14 naming its code and reason, with placeholders when either is " +
     "absent; an outcome outside the published enum refuses at exit 13; a tool with no published outputSchema " +
     "refuses at exit 13, naming the tool; the isError branch runs before validation, so an Error result that " +
-    "would also fail the Hit schema still stops at exit 14)");
+    "would also fail the Hit schema still stops at exit 14; a schema declaring required/properties without " +
+    "a type keyword still constrains, so no published shape escapes validation)");
   process.exit(0);
 }
 
@@ -1276,11 +1292,15 @@ try {
   // extra `tools/list` round trip per invocation on the non-receipt path.
   let declaredByTool = null;
   let outputSchemaByTool = null;
-  // WHICH absence, carried to the announcement. Both a no-catalogue gateway
-  // and an errored `tools/list` leave `declaredByTool` null, and one fixed
-  // announcement pointed an operator debugging the second at the first's
-  // repair (kogaki#373 finding 3). The cause is recorded where it is known
-  // and spoken where it is announced.
+  // WHICH absence, carried to the announcement. Before kogaki#1186 both a
+  // no-catalogue gateway and an errored `tools/list` left `declaredByTool`
+  // null, and one fixed announcement pointed an operator debugging the second
+  // at the first's repair (kogaki#373 finding 3). The errored case now exits
+  // 11 below before reaching any announcement, so this cause has exactly one
+  // reachable value: a `tools/list` that answered without a `tools` array.
+  // On that branch the ADDRESS form is announced unchecked, while the
+  // RESPONSE is still refused at exit 13 per tool — no schema was published
+  // for it to validate against (see the split below).
   let uncheckedCause = "the gateway served no readable tool catalogue";
   {
     timer.refresh();
@@ -1348,24 +1368,33 @@ try {
   //     EXPLICIT `properties: {}` is the opposite case: it enumerates (zero
   //     arguments), the declared set is authoritative, and an argued call is
   //     refused truthfully.
-  //   * NO catalogue served, or `tools/list` ERRORED
-  //                                        -> proceed UNCHECKED, saying WHICH.
+  //   * `tools/list` ERRORED              -> DEGRADE, exit 11 (above). The
+  //     gateway could not be conversed with, and since kogaki#1186 every path
+  //     owes the published `outputSchema`, which that gateway cannot supply.
+  //   * NO catalogue served (a `tools/list` that answered without a `tools`
+  //     array)                             -> the ADDRESS form proceeds
+  //     UNCHECKED, saying so; the RESPONSE is refused at exit 13 per tool,
+  //     because no schema was published for it. The call is sent and its
+  //     answer is never forwarded.
   //
-  // The second is not softness. This kit is an ENHANCER, NEVER A DEPENDENCY,
-  // and a gateway that serves no `tools/list` answered every non-receipt call
-  // perfectly well before this change — refusing them, or degrading them,
-  // would make a transport that used to work stop working, to enforce a check
-  // it cannot perform. MCP requires `tools/list` of any server advertising
-  // tools, so against a real gateway the unchecked branch is unreachable; it
-  // exists for a minimal or older one.
+  // THE POLARITY THIS INVERTS, kept so the inversion is legible rather than a
+  // silent rewrite (PR #1220 round 1): before kogaki#1186 the last two cases
+  // both proceeded unchecked, on the ground that this kit is an ENHANCER,
+  // NEVER A DEPENDENCY, and a gateway serving no `tools/list` had answered
+  // every non-receipt call before. The owner's 2026-09-23 ruling puts the
+  // general guarantee first: a response that cannot be validated is not
+  // forwarded as if it had been. MCP requires `tools/list` of any server
+  // advertising tools, so against a real gateway neither branch is reachable;
+  // they exist for a minimal or older build, and a reader repairing one is
+  // pointed at exit 11 for the errored catalogue and exit 13 for the empty
+  // one — never at an unchecked pass-through, which no longer exists.
   //
-  // RESIDUE, stated rather than left to be discovered: on that branch an
-  // undeclared key is still dropped and the broader artifact still served —
-  // #368's defect, in the one place this repair cannot reach. It is announced
-  // on stderr rather than silently, so it is observable rather than assumed;
-  // it is NOT on stdout, which is the tool result the caller parses.
-  // The RECEIPT path keeps refusing on both causes, unchanged: a receipt
-  // asserts something and cannot be stood behind without the catalogue.
+  // RESIDUE on the no-catalogue branch: an undeclared key is still dropped
+  // before the call goes out — #368's defect in the one place the address
+  // check cannot reach — announced on stderr rather than silently, and NOT
+  // on stdout, which is the tool result the caller parses. The RECEIPT path
+  // keeps refusing on both causes, unchanged: a receipt asserts something and
+  // cannot be stood behind without the catalogue.
   for (const [i, framing] of framings.entries()) {
     if (!(declaredByTool instanceof Map)) {
       process.stderr.write(

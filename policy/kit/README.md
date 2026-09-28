@@ -51,9 +51,11 @@ the `outputSchema` that tool published in its own `tools/list` entry, before
 the caller ever sees it — this guarantee is general and unconditional, never
 feature-specific:
 
-- **Exit 11** — the gateway is unreachable, or served no readable
-  `tools/list` (see Degraded behavior, above). `nodata` and `hit` are not
-  degradations; the seam answered.
+- **Exit 11** — the gateway is unreachable, or answered `tools/list` with an
+  rpc error (see Degraded behavior, above). `nodata` and `hit` are not
+  degradations; the seam answered. A `tools/list` that answers without a
+  `tools` array is not this case: no schema was published, so every call
+  against it is refused at exit 13, per tool.
 - **Exit 14** — the result carried `isError: true`. Nothing is printed on
   stdout; stderr carries exactly one `gateway error: <code>: <reason>` line,
   the code and reason being the Gateway's own (`not-permitted`,
