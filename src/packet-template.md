@@ -118,11 +118,12 @@ because its meaning is not carried by the claims above.
 
 ## This Leg's Closure
 
+Honor the rows below in the prose rather than restating them as fields.
+
 The Brief's Closure ledger carries the promises the article makes to the
 reader — the Thesis's, and each Leg's own. The rows below are the ones THIS
 LEG is a party to: where it introduces a promise, discharges one (keeps it),
-or concedes one (tells the reader it is left open). Honor them in the prose
-rather than restating them as fields.
+or concedes one (tells the reader it is left open).
 
 {{closure_rows}}
 
