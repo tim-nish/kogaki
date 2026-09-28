@@ -1968,6 +1968,42 @@ async function runSelfTest() {
     ok("the claims block states that every claim must be recoverable from the prose",
       /prose must make every one of them recoverable/.test(p1.stdout)
       && /assert nothing beyond/.test(p1.stdout));
+    // THE RELATIONS LAYER IS RETIRED (kogaki#1215): TWO CLAIMS RENDER AS TWO
+    // FLAT LINES, neither indented under the other and no line marking either
+    // a satellite of the other. Driven against its own fixture rather than
+    // reusing `goodBrief`'s single-claim Leg, so this case is not vacuous over
+    // a Leg that never had a second claim to fuse into a tree.
+    {
+      const flatDir = join(root, "theses", "flat-claims"); mkdirSync(flatDir, { recursive: true });
+      writeFileSync(join(flatDir, "brief.md"), goodBrief.replace(
+        "claim (strand L1): the material states the claim.",
+        "claim (strand L1): the material states the claim.\n"
+        + "claim (strand L1): the material states a second, unrelated claim."));
+      const flat = spawnSync(process.execPath,
+        [self, "packet", "--brief", join(flatDir, "brief.md"), "--workspace", join(root, "ws-flat-claims"),
+         "--moves-dir", movesDir, "--leg", "s1"], { encoding: "utf8" });
+      ok("two claims render as two flat lines, both anchored at column zero",
+        /^claim: the material states the claim\.$/m.test(flat.stdout)
+        && /^claim: the material states a second, unrelated claim\.$/m.test(flat.stdout)
+        && !/^\s+claim:/m.test(flat.stdout),
+        (flat.stderr || "").slice(0, 240));
+    }
+    // A BRIEF STILL CARRYING A RETIRED `relation:` LINE IS REFUSED BY NAME
+    // (kogaki#1215), so an old Brief cannot silently render with the marking
+    // simply vanished.
+    {
+      const relDir = join(root, "theses", "retired-relation"); mkdirSync(relDir, { recursive: true });
+      writeFileSync(join(relDir, "brief.md"), goodBrief.replace(
+        "claim (strand L1): the material states the claim.",
+        "claim (strand L1): the material states the claim.\n"
+        + "relation: g1 of g2 (elaboration)"));
+      const rel = spawnSync(process.execPath,
+        [self, "packet", "--brief", join(relDir, "brief.md"), "--workspace", join(root, "ws-retired-relation"),
+         "--moves-dir", movesDir, "--leg", "s1"], { encoding: "utf8" });
+      ok("a Brief carrying a retired `relation:` line is refused, naming the relations layer as retired",
+        rel.status !== 0 && /relation:/.test(rel.stderr) && /relations layer is retired/.test(rel.stderr),
+        (rel.stderr || "").slice(0, 240));
+    }
     // A LEG CARRYING NEITHER FIELD RENDERS. They were required inputs; a Brief
     // written without them is now an ordinary Brief rather than a refusal.
     {
