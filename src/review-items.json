@@ -217,15 +217,16 @@
       "as a WORD SEQUENCE so a rewrap — which changes nothing — does not silently",
       "hand the instruction back as the block's value.",
       "",
-      "`claims` renders as a FLAT LIST, one `claim:` line per item at column",
-      "zero (the relations layer that once indented a satellite claim under its",
-      "nucleus is retired, kogaki#1215) — the prefix below is anchored flat to",
-      "match."
+      "`claims`, `already knows` and `introduce here` each render as a FLAT LIST",
+      "under their own heading, in the Packet's one list convention: one `- ` line",
+      "per item at column zero, no `key:` prefix, and no bulleted field label above",
+      "the list (the relations layer that once indented a satellite claim under its",
+      "nucleus is retired, and the mixed `claim:` convention with it, kogaki#1215).",
+      "`heading_list` reads the `- ` items of the block the heading opens."
     ],
     "claims": {
-      "kind": "claim_lines",
-      "prefix": "claim:",
-      "bullet_label": "claims"
+      "kind": "heading_list",
+      "heading": "The claims this Leg asserts"
     },
     "reader_state_after": {
       "kind": "bullet",
@@ -236,12 +237,12 @@
       "label": "purpose"
     },
     "introduces": {
-      "kind": "bullet_list",
-      "label": "introduce here"
+      "kind": "heading_list",
+      "heading": "Introduce here"
     },
     "already_knows": {
-      "kind": "bullet_list",
-      "label": "already knows",
+      "kind": "heading_list",
+      "heading": "Already knows",
       "term_only": true
     },
     "reader_state_before": {

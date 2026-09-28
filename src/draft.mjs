@@ -104,7 +104,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, figureOf, figureLegs,
-  journeysRefusal, legschema, closureRowsForLeg, budgetRefusal } from "./compose.mjs";
+  journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
@@ -1069,8 +1069,11 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
   // A FLAT LIST, ONE LINE PER CLAIM (kogaki#1215; the relations layer this
   // rendered as a tree is retired). No indentation carries meaning here: the
   // Leg's claims are unambiguous peers, and the writer's realization owes
-  // every one of them a recoverable line rather than a fused clause.
-  const claims = claimTexts.map((text) => `claim: ${text}`).join("\n");
+  // every one of them a recoverable line rather than a fused clause. The list
+  // convention is the Packet's ONE convention — a `- ` line under the block's
+  // own heading, exactly as `already knows` and `introduce here` render — so no
+  // `claim:` prefix sits under a bulleted field label for the reader to parse.
+  const claims = claimTexts.map((text) => `- ${text}`).join("\n");
   const intro = (leg.introduces || []);
   const known = (ledgerRow?.reader_already_knows || []);
 
@@ -1959,7 +1962,7 @@ async function runSelfTest() {
     ok("the fixture Brief's claim line carries a Strand id, so the strip is not vacuous",
       /^claim \(strand L1\): the material states the claim\.$/m.test(briefText));
     ok("the packet renders each claim as its content alone, with no Strand id",
-      /^claim: the material states the claim\.$/m.test(p1.stdout)
+      /^- the material states the claim\.$/m.test(p1.stdout)
       && !/\(strand /.test(p1.stdout));
     // THE CLAIMS SENTENCE STATES THE OBLIGATION the review's `claims-unused`
     // item enforces: a claim no outlined claim rests on is a fail there, so a
@@ -1972,20 +1975,36 @@ async function runSelfTest() {
     // FLAT LINES, neither indented under the other and no line marking either
     // a satellite of the other. Driven against its own fixture rather than
     // reusing `goodBrief`'s single-claim Leg, so this case is not vacuous over
-    // a Leg that never had a second claim to fuse into a tree.
+    // a Leg that never had a second claim to fuse into a tree. The second claim
+    // rests on a SECOND Strand, because `claim.one_per_strand` lets composition
+    // produce no Leg with two claims on one — a fixture the pipeline could
+    // never emit would assert a rendering no real Packet reaches.
     {
       const flatDir = join(root, "theses", "flat-claims"); mkdirSync(flatDir, { recursive: true });
-      writeFileSync(join(flatDir, "brief.md"), goodBrief.replace(
-        "claim (strand L1): the material states the claim.",
-        "claim (strand L1): the material states the claim.\n"
-        + "claim (strand L1): the material states a second, unrelated claim."));
+      writeFileSync(join(flatDir, "brief.md"), goodBrief
+        .replace("## Thesis", "### L2 — second-strand\n\n"
+          + "- cite: `gloss/ELEMENTS.jsonl slug=second-strand kind=lesson @0000000000000000000000000000000000000000`\n\n"
+          + "## Thesis")
+        .replace("materials: L1\nrationale: the claim opens the article.",
+          "materials: L1, L2\nrationale: the claim opens the article.")
+        .replace("claim (strand L1): the material states the claim.",
+          "claim (strand L1): the material states the claim.\n"
+          + "claim (strand L2): the material states a second, unrelated claim."));
       const flat = spawnSync(process.execPath,
         [self, "packet", "--brief", join(flatDir, "brief.md"), "--workspace", join(root, "ws-flat-claims"),
          "--moves-dir", movesDir, "--leg", "s1"], { encoding: "utf8" });
-      ok("two claims render as two flat lines, both anchored at column zero",
-        /^claim: the material states the claim\.$/m.test(flat.stdout)
-        && /^claim: the material states a second, unrelated claim\.$/m.test(flat.stdout)
-        && !/^\s+claim:/m.test(flat.stdout),
+      // ONE LIST, ONE CONVENTION (kogaki#1215 decision 3): both claims are
+      // `- ` lines in the claims block's own region, adjacent, at column zero,
+      // with no `claim:` prefix and no bulleted field label above them.
+      const region = (flat.stdout.split(/^## The claims this Leg asserts$/m)[1] || "").split(/^#/m)[0];
+      const items = region.split("\n").filter((l) => /^\s*- /.test(l));
+      ok("two claims render as two flat lines of one list, both anchored at column zero",
+        flat.status === 0
+        && items.length === 2
+        && items[0] === "- the material states the claim."
+        && items[1] === "- the material states a second, unrelated claim."
+        && !/^\s*claim:/m.test(flat.stdout)
+        && !/^- \*\*claims\.\*\*/m.test(flat.stdout),
         (flat.stderr || "").slice(0, 240));
     }
     // A BRIEF STILL CARRYING A RETIRED `relation:` LINE IS REFUSED BY NAME
@@ -2003,6 +2022,15 @@ async function runSelfTest() {
       ok("a Brief carrying a retired `relation:` line is refused, naming the relations layer as retired",
         rel.status !== 0 && /relation:/.test(rel.stderr) && /relations layer is retired/.test(rel.stderr),
         (rel.stderr || "").slice(0, 240));
+    }
+    // AND THE COMPOSITION SIDE REFUSES THE RETIRED KEY BY NAME TOO (PR #1218
+    // round 1, finding 3): a composed Leg object still carrying `relations`
+    // would otherwise have it silently dropped by `renderLeg`, the same
+    // vanishing marking the Brief-side refusal above is written against.
+    {
+      const v = validateLegs([{ leg_id: "s1", relations: [] }]);
+      ok("composition refuses a Leg carrying the retired `relations` key by name",
+        !!v.error && /`relations` is a retired field/.test(v.error), JSON.stringify(v).slice(0, 240));
     }
     // A LEG CARRYING NEITHER FIELD RENDERS. They were required inputs; a Brief
     // written without them is now an ordinary Brief rather than a refusal.

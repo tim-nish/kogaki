@@ -25,15 +25,17 @@ bans becomes the first hit of any check grepping for it, which is the
 use-versus-mention defect this repository has recorded repeatedly. The check
 asserts the absence; this comment says why the absence is deliberate.
 
-Block order is fixed: anchors, Move contract, Leg, the Journey material, the
-Leg's Section, ledger, the article so far, instruction. Heavy prose late, instruction last. Every block opens with a fixed
+Block order is fixed: anchors, Move contract, Leg, the Leg's claims, the
+Journey material, the Leg's Section, ledger, the article so far, instruction. Heavy prose late, instruction last. Every block opens with a fixed
 usage header saying what the block is FOR, because a block whose use is not
 stated gets used for whatever it resembles.
 
 THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28). The
-claims block and the `introduce here` list below RENDER AS FLAT LISTS: one
-line per item, no indentation carrying meaning, and no relation between one
-item and another. Where the realization of a whole schema category is
+claims block and the `already knows` and `introduce here` lists below RENDER AS
+FLAT LISTS under their own headings, in ONE convention: every item is a `- `
+line at column zero, one line per item, no indentation carrying meaning, no
+`key:` prefix, and no relation between one item and another. No list sits
+under a bulleted field label. Where the realization of a whole schema category is
 fixed — Closure rows, Journey material — that behaviour is stated once,
 where the category's own block opens, never as a label attached to each item.
 -->
@@ -71,11 +73,14 @@ What this Leg must accomplish, in this article, for this reader.
 - **purpose.** {{purpose}}
 - **reader_state_before.** {{reader_state_before}}
 - **reader_state_after.** {{reader_state_after}}
-- **claims.** Each entry below is a claim this Leg asserts, one per line, no
-  line subordinate to another. Your prose must make every one of them
-  recoverable, and must assert nothing beyond them. The Lesson each claim rests
-  on is at its pin and is not reproduced here: these lines are the whole of
-  what this Leg may assert.
+
+## The claims this Leg asserts
+
+Each line below is one claim, and every line is a claim of this Leg: none is
+subordinate to another. Your prose must make every one of them recoverable,
+and must assert nothing beyond them. The Lesson each claim rests on is at its
+pin and is not reproduced here: these lines are the whole of what this Leg may
+assert.
 
 {{claims}}
 
@@ -113,8 +118,13 @@ claim, and do not open a new subject.
 usable by the reader after this Leg, and a term with an anchor is anchored
 because its meaning is not carried by the claims above.
 
-- **already knows.** {{reader_already_knows}}
-- **introduce here.** {{introduces}}
+### Already knows
+
+{{reader_already_knows}}
+
+### Introduce here
+
+{{introduces}}
 
 ## This Leg's Closure
 

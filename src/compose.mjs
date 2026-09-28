@@ -428,6 +428,17 @@ export function validateLegs(legs, readerStart) {
   const seen = new Set();
   for (const [i, s] of legs.entries()) {
     const at = `leg ${i + 1}${s && s.leg_id ? ` (${s.leg_id})` : ""}`;
+    // `relations` IS A RETIRED FIELD, refused BY NAME ahead of every other
+    // check (kogaki#1215; the precedent is `retiredClaimTypes`, refused ahead
+    // of the closed-set message). The schema no longer advertises it, so a
+    // composer should never write it — but a Leg that did would otherwise have
+    // its marking silently dropped, which is the failure the draft side's
+    // by-name refusal of a `relation:` line exists against.
+    if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, "relations")) {
+      return { error: `${at}: \`relations\` is a retired field — the relations layer is retired (kogaki#1215): `
+        + "a Leg's claims and introduces are flat lists with no item subordinate to another, and a whole "
+        + "category's realization is stated once in the Packet template, never marked per item. Remove the field." };
+    }
     const errs = [];
     for (const name of requiredLegFields()) {
       if (BESPOKE_LEG_REFUSALS.has(name)) continue;
