@@ -804,16 +804,20 @@ export function legField(body, field) {
   return [m[1].trim(), ...rest].join("\n");
 }
 
-// A Brief reader section without its caption (kogaki#1224): the italic
-// `*...*` line `src/assemble.mjs` writes under Reader start and Reader target
-// is for the Brief's own reader, and blank lines carry nothing. What remains
-// is the section's content -- five `dimension: value` lines since
-// kogaki#1176, or a prose sentence in an older Brief -- so the shape is not
-// judged here. Returns null where nothing remains, so `need` refuses by name.
-function readerStateLines(section) {
+// A Brief section without its caption (kogaki#1224): the italic `*...*`
+// line `src/brief.mjs` writes as the LAST line of Thesis, Reader start,
+// Reader target and Opening question is for the Brief's own reader, not the
+// writer's input. Only that trailing line is stripped -- an italic line or a
+// paragraph break inside the section is content and is kept -- and the
+// shape of what remains (five `dimension: value` lines since kogaki#1176, or
+// prose in an older Brief) is not judged here. Returns null where nothing
+// remains, so `need` refuses by name.
+function sectionContent(section) {
   if (typeof section !== "string") return null;
-  const lines = section.split("\n").filter((l) => l.trim() !== "" && !/^\*[^*]+\*\s*$/.test(l));
-  return lines.length ? lines.join("\n") : null;
+  const lines = section.split("\n");
+  if (lines.length && /^\*[^*]+\*\s*$/.test(lines[lines.length - 1])) lines.pop();
+  const content = lines.join("\n").trim();
+  return content || null;
 }
 
 // A multi-line slot value rendered under a `- **field.**` bullet keeps its
@@ -1125,16 +1129,18 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
   const known = (ledgerRow?.reader_already_knows || []);
 
   const fields = {
-    thesis: need("the Brief's Thesis", briefSection(brief.text, "Thesis")),
+    thesis: indentContinuation(need("the Brief's Thesis", sectionContent(briefSection(brief.text, "Thesis")))),
     // THE DIMENSION LINES ONLY, INDENTED UNDER THE BULLET (kogaki#1224).
     // Reader start and Reader target are five `dimension: value` lines
     // (kogaki#1176) followed, in the Brief, by an italic caption written for
     // the Brief's own reader. The caption is not the writer's input, and a
     // whole-section read handed it over once `briefSection` returned the
-    // section whole rather than its first line.
-    reader_start: indentContinuation(need("the Brief's Reader start", readerStateLines(briefSection(brief.text, "Reader start")))),
-    reader_target: indentContinuation(need("the Brief's Reader target", readerStateLines(briefSection(brief.text, "Reader target")))),
-    opening_question: need("the Brief's Opening question", briefSection(brief.text, "Opening question")),
+    // section whole rather than its first line. Thesis and Opening question
+    // carry the same trailing caption and are read the same way (PR #1226
+    // round 1), so no caption reaches the fixed-points list at column zero.
+    reader_start: indentContinuation(need("the Brief's Reader start", sectionContent(briefSection(brief.text, "Reader start")))),
+    reader_target: indentContinuation(need("the Brief's Reader target", sectionContent(briefSection(brief.text, "Reader target")))),
+    opening_question: indentContinuation(need("the Brief's Opening question", sectionContent(briefSection(brief.text, "Opening question")))),
     // DERIVED FROM THE CONSTANT rather than naming the three again (PR #780
     // round 1). The constant carried the exclusion's whole justification and
     // was read by nothing, so it was a second statement of the rendered field
@@ -2878,10 +2884,10 @@ async function runSelfTest() {
         "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
         "## Strands", "", "### L1 — first-strand", "",
         "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-        "## Thesis", "", "The fixture claim.", "",
+        "## Thesis", "", "The fixture claim.", "", "*The claim this article makes.*", "",
         "## Reader start", "", five("start"), "", "*Where the reader stands before the article.*", "",
         "## Reader target", "", five("target"), "",
-        "## Opening question", "", "What makes the fixture claim worth stating?", "",
+        "## Opening question", "", "What makes the fixture claim worth stating?", "", "*The question the article opens on.*", "",
         "## Sequence", "", rendered, "",
       ].join("\n");
       writeFileSync(join(rDir, "brief.md"), rBrief);
@@ -2894,11 +2900,13 @@ async function runSelfTest() {
         [self, "packet", "--leg", "r1", "--brief", join(rDir, "brief.md"), "--workspace", join(root, "ws-reader-state"), "--moves-dir", movesDir],
         { encoding: "utf8" });
       const has = (line) => rp.stdout.includes(line);
-      ok("the Packet carries every dimension line of Reader start, Reader target and both Leg states",
+      ok("the Packet carries every dimension line of Reader start, Reader target and both Leg states, and no Brief caption",
         rp.status === 0
         && DIMS.every((d) => has(`${d}: start ${d}.`) && has(`${d}: target ${d}.`)
           && has(`${d}: before ${d}.`) && has(`${d}: after ${d}.`))
-        && !rp.stdout.includes("*Where the reader stands"),
+        && !rp.stdout.includes("*Where the reader stands")
+        && !rp.stdout.includes("*The claim this article makes.*")
+        && !rp.stdout.includes("*The question the article opens on.*"),
         (rp.stdout || "").slice(0, 900) + (rp.stderr || "").slice(0, 400));
       ok("the Packet names no Move id and no Lesson pin (kogaki#1224)",
         rp.status === 0 && !/\*\*Move\.\*\*/.test(rp.stdout) && !/not reproduced here/.test(rp.stdout)
