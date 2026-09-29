@@ -104,7 +104,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, figureOf, figureLegs,
-  journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs } from "./compose.mjs";
+  journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
@@ -804,6 +804,27 @@ export function legField(body, field) {
   return [m[1].trim(), ...rest].join("\n");
 }
 
+// A Brief reader section without its caption (kogaki#1224): the italic
+// `*...*` line `src/assemble.mjs` writes under Reader start and Reader target
+// is for the Brief's own reader, and blank lines carry nothing. What remains
+// is the section's content -- five `dimension: value` lines since
+// kogaki#1176, or a prose sentence in an older Brief -- so the shape is not
+// judged here. Returns null where nothing remains, so `need` refuses by name.
+function readerStateLines(section) {
+  if (typeof section !== "string") return null;
+  const lines = section.split("\n").filter((l) => l.trim() !== "" && !/^\*[^*]+\*\s*$/.test(l));
+  return lines.length ? lines.join("\n") : null;
+}
+
+// A multi-line slot value rendered under a `- **field.**` bullet keeps its
+// lines after the first indented by two spaces (kogaki#1224), so the Packet's
+// list holds the whole value as one item. A null or single-line value passes
+// through untouched.
+function indentContinuation(v) {
+  if (typeof v !== "string") return v;
+  return v.split("\n").map((l, i) => (i === 0 ? l : `  ${l}`)).join("\n");
+}
+
 // The schema's own words for one Journey use (kogaki#1111), appended to the
 // Packet's use line. The Packet is the model's entire input, so a bare token
 // like `contrast` is a word the realizer interprets; the schema's sentence is
@@ -1105,8 +1126,14 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
 
   const fields = {
     thesis: need("the Brief's Thesis", briefSection(brief.text, "Thesis")),
-    reader_start: need("the Brief's Reader start", briefSection(brief.text, "Reader start")),
-    reader_target: need("the Brief's Reader target", briefSection(brief.text, "Reader target")),
+    // THE DIMENSION LINES ONLY, INDENTED UNDER THE BULLET (kogaki#1224).
+    // Reader start and Reader target are five `dimension: value` lines
+    // (kogaki#1176) followed, in the Brief, by an italic caption written for
+    // the Brief's own reader. The caption is not the writer's input, and a
+    // whole-section read handed it over once `briefSection` returned the
+    // section whole rather than its first line.
+    reader_start: indentContinuation(need("the Brief's Reader start", readerStateLines(briefSection(brief.text, "Reader start")))),
+    reader_target: indentContinuation(need("the Brief's Reader target", readerStateLines(briefSection(brief.text, "Reader target")))),
     opening_question: need("the Brief's Opening question", briefSection(brief.text, "Opening question")),
     // DERIVED FROM THE CONSTANT rather than naming the three again (PR #780
     // round 1). The constant carried the exclusion's whole justification and
@@ -1118,8 +1145,12 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
       [`move_${f}`, moveField(moveText, f) || `(none — ${leg.move} records no ${f}.)`])),
     leg_id: leg.leg_id,
     purpose: need(`leg ${leg.leg_id}'s purpose`, legField(leg.body, "purpose")),
-    reader_state_before: need(`leg ${leg.leg_id}'s reader_state_before`, legField(leg.body, "reader_state_before")),
-    reader_state_after: need(`leg ${leg.leg_id}'s reader_state_after`, legField(leg.body, "reader_state_after")),
+    // FIVE LINES UNDER ONE BULLET (kogaki#1224): the two states are
+    // `dimension: value` lines, and `legField` now returns every one of them.
+    // The lines after the first are indented so the bullet holds them as its
+    // own continuation rather than as four new list items.
+    reader_state_before: indentContinuation(need(`leg ${leg.leg_id}'s reader_state_before`, legField(leg.body, "reader_state_before"))),
+    reader_state_after: indentContinuation(need(`leg ${leg.leg_id}'s reader_state_after`, legField(leg.body, "reader_state_after"))),
     // `budget` — a LIMIT the writer sees, never a target: rendered in the
     // write instruction, and its absence states so rather than rendering a
     // blank the writer could read as zero.
@@ -2813,6 +2844,68 @@ async function runSelfTest() {
       ok("a Journey use outside the closed set refuses at the Brief parser, quoting the use",
         jp3.status !== 0 && (jp3.stderr || "").includes("decorate"),
         (jp3.stderr || "").slice(0, 300));
+    }
+
+    // ---- FIVE-LINE READER STATES REACH THE PACKET WHOLE (kogaki#1224) ----
+    //
+    // `reader_state_before`/`after` and the Brief's Reader start/target are
+    // `dimension: value` LINES (kogaki#1176). Until this issue the Leg
+    // renderer wrote the continuation lines at column zero, `legField` read
+    // the first line only, and `briefSection` stopped at the first line end
+    // under the `m` flag -- so every Packet carried one dimension of five and
+    // no case here could see it, because every fixture state was one line.
+    // Three cases, each over a five-line value: the round trip through the
+    // real writer and reader, the Packet's own two blocks, and the
+    // Journey-less rendering without its instruction paragraphs.
+    {
+      const DIMS = ["knowledge", "question", "expectation", "orientation", "trust"];
+      const five = (tag) => DIMS.map((d) => `${d}: ${tag} ${d}.`).join("\n");
+      const legRecord = {
+        leg_id: "r1", move: "open_the_claim", materials: ["L1"], purpose: "open",
+        reader_state_before: five("before"), reader_state_after: five("after"),
+        depends_on: [], rationale: "the claim opens the article.",
+        claims: [{ strand: "L1", proposition: "the material states the claim." }],
+        introduces: [], journeys: [],
+      };
+      const rendered = renderLeg(legRecord);
+      const cont = rendered.split("\n").filter((l) => /^  (question|expectation|orientation|trust): /.test(l));
+      ok("renderLeg indents a state's continuation lines, so they are not read as Leg keys",
+        cont.length === 8 && !/^(question|expectation|orientation|trust): /m.test(rendered));
+      const rDir = join(root, "theses", "reader-state-brief");
+      mkdirSync(rDir, { recursive: true });
+      const rBrief = [
+        "# Brief — reader-state-brief", "",
+        "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+        "## Strands", "", "### L1 — first-strand", "",
+        "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+        "## Thesis", "", "The fixture claim.", "",
+        "## Reader start", "", five("start"), "", "*Where the reader stands before the article.*", "",
+        "## Reader target", "", five("target"), "",
+        "## Opening question", "", "What makes the fixture claim worth stating?", "",
+        "## Sequence", "", rendered, "",
+      ].join("\n");
+      writeFileSync(join(rDir, "brief.md"), rBrief);
+      const parsed = parseBrief(rBrief, "reader-state-brief");
+      const back = parsed.legs.length === 1 ? legField(parsed.legs[0].body, "reader_state_before") : null;
+      ok("the Brief parser reads a five-line state back as the five lines the renderer was given (round trip)",
+        parsed.refusals.length === 0 && back === five("before")
+        && legField(parsed.legs[0].body, "reader_state_after") === five("after"));
+      const rp = spawnSync(process.execPath,
+        [self, "packet", "--leg", "r1", "--brief", join(rDir, "brief.md"), "--workspace", join(root, "ws-reader-state"), "--moves-dir", movesDir],
+        { encoding: "utf8" });
+      const has = (line) => rp.stdout.includes(line);
+      ok("the Packet carries every dimension line of Reader start, Reader target and both Leg states",
+        rp.status === 0
+        && DIMS.every((d) => has(`${d}: start ${d}.`) && has(`${d}: target ${d}.`)
+          && has(`${d}: before ${d}.`) && has(`${d}: after ${d}.`))
+        && !rp.stdout.includes("*Where the reader stands"),
+        (rp.stdout || "").slice(0, 900) + (rp.stderr || "").slice(0, 400));
+      ok("the Packet names no Move id and no Lesson pin (kogaki#1224)",
+        rp.status === 0 && !/\*\*Move\.\*\*/.test(rp.stdout) && !/not reproduced here/.test(rp.stdout)
+        && /\*\*technique\.\*\*/.test(rp.stdout));
+      ok("a Journey-less Packet keeps the Journey heading and the absence line and drops the instruction paragraphs",
+        rp.status === 0 && /NOT a claim to recover/.test(rp.stdout) && /draws on no Journey material/.test(rp.stdout)
+        && !/Edit it for the Move's purpose/.test(rp.stdout));
     }
 
     const figDir = join(root, "theses", "figure-brief");
