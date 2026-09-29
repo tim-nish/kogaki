@@ -766,16 +766,42 @@ function moveField(text, field) {
 
 // A Brief's global anchors, verbatim from the document. Read from the heading
 // rather than re-derived, because "verbatim from the Brief" is the ruling.
+//
+// SLICED, NEVER MATCHED BY ONE `m`-FLAGGED REGEX (kogaki#1224; the precedent
+// is `closureRowsForLeg`, PR #1152 round 1, finding 2). The earlier form's
+// lazy group ended at `(?=\n## |$)` under the `m` flag, where `$` matches
+// EVERY line end — so the capture stopped at the section's first line. Reader
+// start and Reader target are five `dimension: value` lines each
+// (kogaki#1176); Thesis and Opening question are one line, which is why this
+// read the first line and looked complete until a multi-line section reached
+// it. A slice has no such ambiguity: one heading in, the next `## ` heading or
+// end of document out.
 function briefSection(text, heading) {
-  const re = new RegExp(`^## ${heading}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`, "m");
-  const m = text.match(re);
-  return m ? m[1].trim() : null;
+  // The heading line must be found ANCHORED at `^## ` (line start, exactly
+  // two hashes) — a bare substring search for `## ${heading}` would also
+  // match a `### ${heading}` Leg sub-heading one character in.
+  const startM = new RegExp(`(?:^|\\n)## ${heading}[ \\t]*\\n`, "m").exec(text);
+  if (!startM) return null;
+  const body = text.slice(startM.index + startM[0].length);
+  const end = body.indexOf("\n## ");
+  const section = end === -1 ? body : body.slice(0, end);
+  return section.trim() || null;
 }
 
 // The leg block's fields, read off the recorded form `renderLeg` writes.
+// A field's CONTINUATION LINES — two-space-indented lines immediately below
+// it (kogaki#1224) — are read back and rejoined by `\n`, never folded into
+// one line: `reader_state_before`/`after` are `dimension: value` lines
+// (kogaki#1176) and `readerStateDimensionLine` reads them apart by line, so
+// folding here would erase the boundary that reader needs.
 export function legField(body, field) {
-  const m = body.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
-  return m ? m[1].trim() : null;
+  const m = body.match(new RegExp(`^${field}:[ \\t]*(.*)\\n((?:  .*(?:\\n|$))*)`, "m"));
+  if (!m) {
+    const inline = body.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
+    return inline ? inline[1].trim() : null;
+  }
+  const rest = m[2].split("\n").filter((l) => l !== "").map((l) => l.slice(2));
+  return [m[1].trim(), ...rest].join("\n");
 }
 
 // The schema's own words for one Journey use (kogaki#1111), appended to the
@@ -1082,7 +1108,6 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     reader_start: need("the Brief's Reader start", briefSection(brief.text, "Reader start")),
     reader_target: need("the Brief's Reader target", briefSection(brief.text, "Reader target")),
     opening_question: need("the Brief's Opening question", briefSection(brief.text, "Opening question")),
-    move_id: leg.move,
     // DERIVED FROM THE CONSTANT rather than naming the three again (PR #780
     // round 1). The constant carried the exclusion's whole justification and
     // was read by nothing, so it was a second statement of the rendered field
@@ -1133,8 +1158,27 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     //
     // THE ABSENCE RENDERS ITS OWN LINE rather than an empty slot: a hole in
     // the model's ENTIRE input is a hole the model fills by invention.
+    //
+    // A JOURNEY-LESS LEG RENDERS THE HEADING AND THE ABSENCE LINE ONLY
+    // (kogaki#1224; owner decision 2026-09-29). The instruction paragraphs —
+    // "Edit it for the Move's purpose" among them — are instructions on HOW
+    // to use Journey material, and a Leg that draws on none has nothing for
+    // them to instruct: they lived in the template as fixed text ahead of
+    // this slot, so a Journey-less Packet rendered them unearned. They now
+    // live in this slot's own filled value, present only beside the material
+    // they instruct on.
     journeys: (leg.journeys || []).length
-      ? leg.journeys.map((j) => {
+      ? "Realize it fused into the Leg's own prose, for the Move's purpose — it is "
+        + "material, never a claim, and earns no paragraph of its own by being present.\n\n"
+        + "Material, not assertion. Each entry below names a Journey this Leg draws on "
+        + "and what you are using it for. **Edit it for the Move's purpose**: cut it, "
+        + "compress it, retell it in this article's voice — the telling is yours, and the "
+        + "`use` line says what the telling is for.\n\n"
+        + "Nothing here is a claim. The claims above are the whole of what this Leg "
+        + "asserts, and the round trip asks for those back and never for a fragment of a "
+        + "Journey. A Journey you use well may leave almost none of its original wording "
+        + "on the page.\n\n"
+        + leg.journeys.map((j) => {
           const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
             .find((c) => c.kind === "journey cite");
           return `- **${j.strand}'s Journey** — use: ${j.use}${journeyUseGloss(j.use)}\n`

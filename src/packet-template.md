@@ -59,7 +59,6 @@ does; `question` is the reader's question and its fate; `draws_on` is the
 footholds the Move's material comes from; `breaks` are the three tests a
 correct performance must survive.
 
-- **Move.** {{move_id}}
 - **technique.** {{move_technique}}
 - **question.** {{move_question}}
 - **draws_on.** {{move_draws_on}}
@@ -78,26 +77,12 @@ What this Leg must accomplish, in this article, for this reader.
 
 Each line below is one claim, and every line is a claim of this Leg: none is
 subordinate to another. Your prose must make every one of them recoverable,
-and must assert nothing beyond them. The Lesson each claim rests on is at its
-pin and is not reproduced here: these lines are the whole of what this Leg may
-assert.
+and must assert nothing beyond them: these lines are the whole of what this
+Leg may assert.
 
 {{claims}}
 
 ## The Journey material this Leg edits — NOT a claim to recover
-
-Realize it fused into the Leg's own prose, for the Move's purpose — it is
-material, never a claim, and earns no paragraph of its own by being present.
-
-Material, not assertion. Each entry below names a Journey this Leg draws on
-and what you are using it for. **Edit it for the Move's purpose**: cut it,
-compress it, retell it in this article's voice — the telling is yours, and the
-`use` line says what the telling is for.
-
-Nothing here is a claim. The claims above are the whole of what this Leg
-asserts, and the round trip asks for those back and never for a fragment of a
-Journey. A Journey you use well may leave almost none of its original wording
-on the page.
 
 {{journeys}}
 

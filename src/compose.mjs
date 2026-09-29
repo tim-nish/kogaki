@@ -1531,6 +1531,17 @@ export function introducerOf(term, legs) {
   return null;
 }
 
+// A reader-state field's continuation lines are indented by two spaces
+// (kogaki#1224): the field is `dimension: value` LINES, one per dimension
+// (kogaki#1176), and an unindented rendering put four of a Leg's five lines
+// at column zero, where they read as top-level Leg keys rather than as this
+// field's own continuation. `legField` and the Brief parser read the same
+// indent back off, so the round trip returns the lines it was given.
+function renderReaderStateField(name, value) {
+  const lines = String(value).split("\n");
+  return [`${name}: ${lines[0]}`, ...lines.slice(1).map((l) => `  ${l}`)].join("\n");
+}
+
 export function renderLeg(s) {
   const L = [];
   L.push("```leg");
@@ -1538,8 +1549,8 @@ export function renderLeg(s) {
   if (s.move) L.push(`move: ${s.move}`);
   L.push(`materials: ${s.materials.join(", ")}`);
   L.push(`purpose: ${s.purpose}`);
-  L.push(`reader_state_before: ${s.reader_state_before}`);
-  L.push(`reader_state_after: ${s.reader_state_after}`);
+  L.push(renderReaderStateField("reader_state_before", s.reader_state_before));
+  L.push(renderReaderStateField("reader_state_after", s.reader_state_after));
   L.push(`depends_on: ${s.depends_on.join(", ") || "(none)"}`);
   L.push(`rationale: ${s.rationale}`);
   for (const g of s.claims) {
