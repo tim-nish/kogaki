@@ -67,16 +67,19 @@ record:
 > payload/answer capture) — with rendering through the question UI as
 > contract, not discretion."
 
-`specs/SPEC.md:4806-4808`
+`specs/SPEC.md::4. **The gate carrier** (declared gate registry`
 
 Ported **with** its contract, ahead of Terrain, on the same ground as item 3
-(`specs/SPEC.md:113-121`). Authored consumer-side, in the same shape as
-`specs/spec-proposal-contract/SPEC.md` and `specs/spec-terrain/SPEC.md:6-15`.
+(`specs/SPEC.md::contract is the manifest's own named failure mode:`). Authored
+consumer-side, in the same shape as `specs/spec-proposal-contract/SPEC.md` and
+`specs/spec-terrain/SPEC.md` — whose consumer-side preamble, the ground both
+cited, was cut at kogaki#743 and lives in git.
 
 ## 1. What this contract binds, and what it does not
 
 Item 3 binds a **record** and by its own decision delivers no rendering
-(`specs/spec-proposal-contract/SPEC.md:137-139` puts the medium binding, the
+(`specs/spec-proposal-contract/SPEC.md::are manifest item 4, kogaki#16, and building them here would be item 3`
+puts the medium binding, the
 gate registry and `AskUserQuestion` evidence here). This spec is the other
 half: it binds the **gate** — the moment a decision reaches the owner — its
 declared enumeration, its medium, and the evidence its answer leaves behind.
@@ -96,16 +99,17 @@ happened to remember.
 **It is a separate artifact from `checks/registry.json`, and the argument is
 mechanical before it is philosophical.** Every entry in the check registry
 names a `file` that must exist under `checks/`, and
-`checks/check-registry-conformance.sh:21-27` fails any entry that does not —
+`checks/check-registry-conformance.sh::FAIL dangling registry entry (no such file)`
+fails any entry that does not —
 a gate row would be a dangling entry by construction. The admission record
 there is check-loop economics (`tier`, `runtime_ms`, `removal_signal`;
-`checks/registry.json:2-7`) and a gate has neither a runtime nor a loop
+`checks/registry.json::Registration requires an admission record`) and a gate has neither a runtime nor a loop
 position, so merging would mean fabricating those fields or making them
 optional — and an optional admission field is precisely the gap kogaki#6 was
 filed to close. Same coverage discipline, different admission economics, so
 two artifacts. The registry is currently **empty**, and the check renders
 that zero explicitly rather than passing silently: the carrier ports ahead of
-its first consumer, Terrain (`specs/SPEC.md:109-112`).
+its first consumer, Terrain (`specs/SPEC.md::The list is a manifest, not an order`).
 
 The machine-readable shape is `src/gate-schema.json`.
 `checks/check-gate-carrier.sh` reads its field lists rather than restating
@@ -138,12 +142,14 @@ contract rather than discretion:
 
 > "with rendering through the question UI as contract, not discretion"
 
-`specs/SPEC.md:4806-4808` — **repointed at v2.** This clause's first cut carried
-`:99-101`, which is where the file's own header block still cites the item and
-which resolves at this head to unrelated text on derived-artifact sensitivity.
-The quote is the whole ground §3.1 rests on, and a pin that looks sound while
+`specs/SPEC.md::4. **The gate carrier** (declared gate registry` — **repointed at v2,
+anchored at kogaki#1217.** This clause's first cut carried a line-number pin
+(lines 99-101) which by v2 resolved to unrelated text on derived-artifact
+sensitivity, and v2's repoint was itself a line number that drifted again. The
+quote is the whole ground §3.1 rests on, and a pin that looks sound while
 resolving elsewhere is the defect class `policy/consultation-map.md` records at
-kogaki#266. The header's copy is outside this clause and is not repaired here.
+kogaki#266 — which is why the pointer is now an anchor. The header block's copy
+was migrated in the same pass.
 
 **The owner ruling (2026-08-20).** The question carries the identifying
 material the owner reads, the instruction, the question, and the options.
@@ -164,7 +170,7 @@ pins that way and says where they go instead:
 > machine-facing and belong in the receipt, whose destinations are unchanged —
 > PR bodies, issue bodies, run records, spec amendments. …"
 
-`policy/kit/skills/consult-first.md:97-101` (the kit SOURCE, which
+`policy/kit/skills/consult-first.md::**Pins do not go here.**` (the kit SOURCE, which
 `policy/kit/install.sh` copies to `.claude/skills/consult-first/SKILL.md`;
 the source is authoritative and the installed copy derived — `checks/check-client-kit-install.sh` — and the install copy is machine-local
 since kogaki#615, so a pointer into it resolves nowhere on a fresh clone)
@@ -345,7 +351,8 @@ declaration would pass under both readings and evidence nothing.
 ## 5. The machine's own comparison — item 4's, decided here
 
 Story 1.6 left undecided whether the served gate lesson's comparison half is
-item 3's or item 4's (`specs/spec-proposal-contract/SPEC.md:151-156`). **It is
+item 3's or item 4's
+(`specs/spec-proposal-contract/SPEC.md::**Whether the ranked-recommendation half is owed here.**`). **It is
 item 4's.** Three grounds, and the question is answered rather than returned:
 
 1. The served lesson states the obligation of a gate's **input surface**, and

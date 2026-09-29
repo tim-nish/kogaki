@@ -271,8 +271,11 @@ undischarged obligation and is not touched here.
 a second authority beside the substrate it copied. This is not an entry and not
 a policy answer: it is this repository's own decision about where its own files
 sit. **Stated exactly, because it is a first:** the four prior deferred-slot
-fills all sit in a *spec* file (`specs/SPEC.md:606`, `:976`, `:1449`,
-`specs/spec-terrain/SPEC.md:1635`), and this is the first sited outside one. The
+fills all sat in a *spec* file (`specs/SPEC.md::deferred-slot: report-base-resolution`,
+`specs/SPEC.md::deferred-slot: refusal-signal-source`,
+`specs/SPEC.md::deferred-slot: consult-outcome-token-assignment`, and the
+terrain-family-split-carrier fill that sat in `specs/spec-terrain/SPEC.md` until
+kogaki#685 cut its history), and this is the first sited outside one. The
 governing principle is unchanged — a fill lands in the section that governs the
 surface — and `7b23d32` ratified the proposers entirely inside this file, with
 `specs/SPEC.md` carrying no proposer governance at all. What is new is only that

@@ -4046,9 +4046,11 @@ invariant: Gukan guarantees Unit schema, never data schema).
   keys stays valid, while the outcome-anchored rules above say a
   negative-outcome receipt owes facet coverage and a re-framed one owes a
   `tactic:`. Receipts sitting in exactly that gap are **valid**, and two in-tree
-  specimens show the shape: `specs/SPEC.md:1618` carries
+  specimens show the shape: the receipt in this file under
+  `request_id: 9deb90f8-401e-4580-a320-9df22794a731` carries
   `outcome: covered-after-reframing` with two `query:` lines and no `tactic:`,
-  and `policy/consultation-map.md:847` records an `uncovered-after-1-framings`
+  and `policy/consultation-map.md::line sat served and unchanged at the pin above.`
+  records an `uncovered-after-1-framings`
   declaration with no facet lines.
 
   **What the bound actually protects is narrower than those two specimens
@@ -4083,7 +4085,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
   `facet:` presence stands in for the resolution, which never blocks a
   legitimate miss and always fires on anything claiming the scheme. What that
   approximation does **not** reach is a negative outcome that is a
-  *misdeclaration* carrying no facets: `policy/consultation-map.md:847` is
+  *misdeclaration* carrying no facets:
+  `policy/consultation-map.md::line sat served and unchanged at the pin above.` is
   precisely that — PR #399's gate declared `uncovered-after-1-framings` while
   the served line sat unchanged at its pin, and the map keeps it as a
   counter-specimen. Nothing here detects that class, and a resolution field is
@@ -4272,7 +4275,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
   1. **The emitting tool is the one that made the call** — the kit's own
      transport (`policy/kit/bin/gateway-query.mjs`, which today contains no
      receipt-composition code at all: verified, `writeThenExit` at
-     `policy/kit/bin/gateway-query.mjs:41` prints the tool result and exits).
+     `policy/kit/bin/gateway-query.mjs::function writeThenExit(text, code)` prints
+     the tool result and exits).
      A tool that did not perform the consult may not emit its receipt, because
      then it is transcribing.
   2. **A hand-composed receipt stays admissible and is MARKED as the
@@ -4357,7 +4361,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
      mode, one per `--args`, and the `query:` line may not hold a serialized
      tool argument** (owner selection 2026-08-07, kogaki#160 finding 4).
 
-     `policy/consultation-map.md:67@a3b635d` already defines the field:
+     `policy/consultation-map.md::The question, verbatim** — the query that would have found the served`
+     already defines the field:
 
      > **The question, verbatim** — the query that would have found the served
      > line. This is the field the map accumulates: situation-specific keys for
@@ -4750,7 +4755,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      ANSWERS ARE GIVEN UP WITH IT** (kogaki#206, owner selection 2026-08-07).
      The enumeration above attributes exit 11 only to `-32602` schema
      validation on required-address tools, which is no longer the whole of it.
-     In **receipt mode**, `policy/kit/bin/gateway-query.mjs:744` routes a
+     In **receipt mode**, `policy/kit/bin/gateway-query.mjs::if (listed.error) unavailable(` routes a
      `tools/list` rpc error to `unavailable()` — exit **11**, one line, before
      any `tools/call` is issued. So a gateway that answers `tools/call`
      perfectly well is reported unavailable and **its answers are discarded
@@ -4760,7 +4765,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **This is recorded rather than repaired, and the reason is uniformity.**
      The `tools/call` loop routes its **own** rpc errors to `unavailable()`
-     identically (`policy/kit/bin/gateway-query.mjs:757`); PR #201 made the
+     identically (`policy/kit/bin/gateway-query.mjs::if (res.error) unavailable(`); PR #201 made the
      routing uniform, which is what its round-1 nit asked for — three causes
      had collapsed into one refusal message. Undoing it for `tools/list` alone
      would restore the split, trading a recorded judgment for an unrecorded
@@ -4772,7 +4777,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **The counter-argument is recorded rather than left standing.** Exit 11
      prints `policy_source unavailable`, and on this path the source is *not*
      unavailable — it is up and answering. Exit 12's own documented meaning
-     (`policy/kit/bin/gateway-query.mjs:115`) — *"The consult happened and its
+     (`policy/kit/bin/gateway-query.mjs::results are printed, but the wire did not carry what a receipt asserts`)
+     — *"The consult happened and its
      results are printed, but the wire did not carry what a receipt asserts"* —
      describes a missing **catalogue** at least as well. The alternative that
      restores answers-then-exit-12 for `tools/list` specifically was therefore
