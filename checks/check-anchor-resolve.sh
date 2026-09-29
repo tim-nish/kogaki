@@ -85,7 +85,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 python3 - "$@" <<'PY'
-import os, re, sys, pathlib, subprocess
+import json, os, re, sys, pathlib, subprocess
 
 # The ANCHOR corpus: where anchors are resolved and refused.
 ROOTS = ["specs", "checks", "policy"]
@@ -153,6 +153,39 @@ def is_hub(path, line, at):
         return True
     return path.startswith(HUB_PREFIX) or os.path.basename(path) in HUB_FILE
 
+# THE THIRD EXCLUSION ARM (kogaki#1219). The review lane appends a finding row
+# to KNOWN-ISSUES.jsonl on every round, and a pointer inside a row's `text` is a
+# claim about the tree AT THAT ROW'S `head`, never about the tree being edited
+# -- the same reason a receipt is excluded, carried per ROW here rather than per
+# LINE as the hub-facing grammar carries it. Arms 1-2 above cannot see it: the
+# sha is a JSON field on the row, never a `<repo>@<sha>` token on the line
+# (arm 1), and the row's paths are this repository's own rather than the hub's
+# served namespace (arm 2). Detected by parsing the WHOLE LINE as JSON and
+# reading its `head` field, because that is the row's own claim about its
+# vintage -- never by matching the filename alone, which would count an
+# unrelated JSONL file's coincidental `head` key as history it never claimed
+# to be.
+LEDGER_HEAD = re.compile(r'^[0-9a-f]{7,40}$')
+
+def ledger_head(line):
+    """The sha this line's row is pinned to, or None if the line is not a
+    whole-line JSON object carrying a `head` field. Never mechanically
+    migrated -- kogaki#1219 -- so a pointer inside one is sha-pinned history,
+    not a member of the closed set §3.1 drains."""
+    s = line.strip()
+    if not (s.startswith("{") and s.endswith("}")):
+        return None
+    try:
+        row = json.loads(s)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(row, dict):
+        return None
+    head = row.get("head")
+    if isinstance(head, str) and LEDGER_HEAD.match(head):
+        return head
+    return None
+
 # The refusing fixtures are EXCLUDED from the corpus, because they exist to
 # fail: scanning them would make every green run impossible and the exclusion
 # is what lets the self-test above assert them directly instead.
@@ -199,7 +232,7 @@ def resolve(path, token):
         return False, f"anchor occurs {n} times — DUPLICATE, identifies nothing"
     return True, ""
 
-fails, resolved, bare, hub, outside, orphan = [], 0, [], 0, [], []
+fails, resolved, bare, hub, outside, orphan, ledger = [], 0, [], 0, [], [], 0
 # Anchors are resolved over ROOTS; the closed set is counted over the TREE.
 # Two passes because the two questions have different scopes (§3.1), and
 # collapsing them would make the count as narrow as the corpus — the defect
@@ -234,8 +267,11 @@ for p, txt in tracked_texts():
     for i, line in enumerate(txt.splitlines(), 1):
         for m in ORPHAN.finditer(line):
             orphan.append(f"{p}:{i}  {m.group(1)}")
+        head = ledger_head(line)
         for m in BARE.finditer(line):
-            if is_hub(m.group(1), line, m.start()):
+            if head:
+                ledger += 1
+            elif is_hub(m.group(1), line, m.start()):
                 hub += 1
             elif not os.path.exists(m.group(1)):
                 # OUT OF TREE. §3.1 governs pointers into THIS repository's
@@ -276,6 +312,33 @@ for name, want in (("dangling-anchor.md", "DANGLING"),
     elif not any(want in why for ok, why in got if not ok):
         selftest.append(f"{name}: refused, but not as {want}")
 
+# A FOURTH FIXTURE, distinct in shape from the three above (kogaki#1219): it
+# asserts an EXCLUSION rather than a refusal, so it is read directly rather
+# than through resolve(). It exists to be recognized as a ledger row, not to
+# fail.
+LFP = os.path.join(FX, "ledger-row.jsonl")
+if not os.path.exists(LFP):
+    selftest.append(f"fixture missing: {LFP}")
+else:
+    lrows = [l for l in pathlib.Path(LFP).read_text(encoding="utf-8")
+             .splitlines() if l.strip()]
+    if not lrows:
+        selftest.append("ledger-row.jsonl: carries no row to test")
+    else:
+        lline = lrows[0]
+        lhead = ledger_head(lline)
+        if lhead is None:
+            selftest.append(
+                "ledger-row.jsonl: row not recognized as sha-pinned — the "
+                "`head` field was not read, so a review-lane finding row "
+                "would count as a bare pointer")
+        elif not any(not is_hub(m.group(1), lline, m.start())
+                     and os.path.exists(m.group(1))
+                     for m in BARE.finditer(lline)):
+            selftest.append(
+                "ledger-row.jsonl: carries no in-tree bare pointer for the "
+                "exclusion to be asserted over")
+
 if selftest:
     print("FAIL anchor resolve (SPEC.md §3.1, kogaki#635) — self-test:")
     for s in selftest:
@@ -292,7 +355,11 @@ print(f"anchor resolve: {resolved} cross-artifact anchor(s) resolve, each "
       f"directions (dangling, duplicate, heading) asserted against "
       f"fixtures that exist to fail. {hub} hub-facing receipt pointer(s) counted and NOT resolved "
       f"— the hub's boundary field, untouched by kogaki#635 and correct until "
-      f"Gukan rules on its own carrier question. Bare internal `<file>:<line>` "
+      f"Gukan rules on its own carrier question. {ledger} review-lane ledger "
+      f"pointer(s) counted and NOT resolved — a KNOWN-ISSUES.jsonl row's own "
+      f"`head` field pins it to the tree at that sha, sha-pinned history "
+      f"rather than a member of the closed set, per row (kogaki#1219). Bare "
+      f"internal `<file>:<line>` "
       f"pointers remaining: {len(bare)} — the CLOSED SET §3.1 names, counted over "
       f"the TRACKED tree rather than over this member's own corpus, so the "
       f"denominator is never narrower than the population (PR #648 round 1 "
