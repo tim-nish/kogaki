@@ -5239,7 +5239,7 @@ re-verifies what it migrates, so legacy verification returns per item as the set
 empties; a growing count is the tell that it is not.
 
 **A review-lane finding row is sha-pinned history, never a member of the
-closed set** (kogaki#1219, owner ruling on the filed record). `KNOWN-ISSUES.jsonl`
+closed set** (kogaki#1219, the resolution that Issue suggested). `KNOWN-ISSUES.jsonl`
 is appended by the review lane on every round, a tool outside this repository,
 and each of its rows carries a `head` field: a 40-hex sha stating the tree the
 row's own `text` was written against. A `<file>:<line>` inside that `text` is
