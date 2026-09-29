@@ -36,6 +36,26 @@
       "rationale": "a record composed against one Candidate cannot certify another — without this key a sitting could judge the Candidate it liked and adopt the one it wanted"
     }
   },
+  "first_leg": {
+    "before_compared_against": "reader_start",
+    "note": [
+      "THE FIRST LEG IS JUDGED AGAINST READER START, NOT AGAINST ITS MOVE'S",
+      "`before` (kogaki#1216, owner decision 2026-09-28). Reader start is a cold",
+      "read authored from the Persona and the Thesis and never from any Move,",
+      "so the question the judgment asks of Leg 1 is whether its",
+      "`reader_state_before` is a consistent specialization of the Brief's",
+      "Reader start -- on the SAME terms every other Leg's before-state is",
+      "compared to its Move's `before`. Its `reader_state_after` is judged",
+      "against its Move's `after` exactly as every other Leg's is. The",
+      "judgment input carries `reader_start` beside `move_contracts`, and the",
+      "verdict vocabulary, the one-per-Leg rule and the path-order refusal are",
+      "unchanged: `specializes` (recorded as `consistent`) passes, `contradicts`",
+      "refuses. What this replaced was a VERBATIM match of Leg 1's before-state",
+      "against Reader start (`reader_start_binds_first_leg`, retired), which",
+      "together with the specialization rule forced Reader start to be written",
+      "backwards from the first Leg's Move."
+    ]
+  },
   "verdict": {
     "required": ["leg_id", "move", "verdict", "why"],
     "move_must_equal_leg_move": true,

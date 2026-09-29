@@ -11,6 +11,18 @@
     "material) where that material is placed. The three Candidates differ BY",
     "ASSIGNMENT, not by chance.",
     "",
+    "IT ALSO AUTHORS READER START, ONCE PER BRIEF, AND LISTS THE MOVES THE",
+    "FIRST LEG MAY BIND (kogaki#1216, owner decision 2026-09-28). Reader start",
+    "is a cold read -- the stance a reader with the declared Persona holds",
+    "toward this Thesis before reading the article -- authored from the reader",
+    "file the workflow table names (rendered in this ask's input as `reader`)",
+    "and the adopted Thesis, never from any Move. `leg1_survivors` is every",
+    "Move whose `before` does not contradict that Reader start on a dimension",
+    "it declares, unranked; each unit's `opening_move` is drawn from it. Both",
+    "are decided HERE because both are properties of the Brief and of no",
+    "path: three units authoring Reader start would author one fact three",
+    "ways, and the exclusion could be checked against none of them.",
+    "",
     "THIS RECORD IS THE BLOCK'S CURRENT OUTPUT, AND NOT ITS DEFINITION",
     "(SPEC-draft-pipeline §\"Journey register is an axis of Candidate",
     "differentiation\"). A later mechanism deciding differentiation a",
@@ -28,8 +40,32 @@
   ],
   "version": "1",
   "record": {
-    "required": ["version", "entries"],
+    "required": ["version", "reader_start", "leg1_survivors", "entries"],
     "version_must_be": "1",
+    "reader_start": {
+      "type": "string",
+      "shape": "one `dimension: value` LINE per dimension, over the Move library's five (knowledge, question, expectation, orientation, trust)",
+      "authored_from": ["the reader file the Brief workflow table's `compose_path` row names (readers/dev-to-zenn.md), rendered in this ask's input as `reader`", "the adopted Thesis, in the Brief document"],
+      "never_from": "any Move's `before` -- Reader start is a COLD READ: the stance a reader with the declared Persona holds toward this Thesis before reading the article (kogaki#1216, owner decision 2026-09-28). Deriving it from the Move the first Leg will bind is what produced a Reader start that read like a reader who had already read the article several times",
+      "lines": {
+        "knowledge": "what this reader holds about the Thesis's subject, bounded by the Persona's `prior_knowledge`; a term the Persona lists as unknown may not appear",
+        "question": "`holds: none`, or a question in the reader's OWN words that follows from why they opened the post -- never a question in the article's terms",
+        "expectation": "what this reader expects of this genre, from `reader` plus the Thesis",
+        "orientation": "how they currently frame the subject, from `reader` plus the Thesis",
+        "trust": "the default a peer's post gets from this reader, from `reader` plus the Thesis"
+      },
+      "derivation_is_judgment": "each line is derived from a named Persona field plus the Thesis; the derivation is composition judgment stated to the composer and linted nowhere (Every MUST is judgment). The Persona is never copied into the Brief",
+      "rationale": "ONE per Brief, authored here rather than per unit: Reader start depends on the Persona and the Thesis and on no path, so three units authoring it would author one fact three ways, and the first-Leg exclusion below could be checked against none of them"
+    },
+    "leg1_survivors": {
+      "type": "array of string",
+      "min_length": 1,
+      "each_must_resolve_in": "moves_you_may_bind",
+      "rule": "EXCLUSION, NOT OPTIMIZATION (kogaki#1216 amendment, owner decision 2026-09-28). A Move is EXCLUDED when its `before` CONTRADICTS `reader_start` on a dimension it declares; a Move that omits a dimension is not excluded on it. Every Move not excluded is a survivor, and survivors are NOT RANKED -- no score exists anywhere. List every survivor by id",
+      "opening_move_must_be_a_survivor": true,
+      "count_is_rendered": "the Brief records how many Moves survived, beside Reader start. A count of one names the LIBRARY, not the rule, as the cause of a repeated opening, and the fix is a Move analysed from an opening passage",
+      "rationale": "the first Leg binds a survivor by the same composition order every Leg uses -- Strand information, then Leg reasoning, then the Move -- and the grounds test applies to it; the check is the existing specialization verdict applied to Leg 1 against `reader_start` (`specializes` passes, `contradicts` refuses). An empty list is refused: a library with no Move able to open from this Reader start is a store fault to name, never a Brief to compose"
+    },
     "entries": {
       "count_must_equal_units": true,
       "count_rationale": "one entry per reader-path unit — a record with fewer entries leaves a unit with no assignment, and one with more names a unit that does not exist"

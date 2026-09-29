@@ -110,7 +110,7 @@ import {
   GATE_CALL_SUFFIX, JUDGE_INPUT_MARKER,
 } from "./terrain.mjs";
 import {
-  SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, READER_FIELDS,
+  SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, AUTHORED_READER_FIELDS,
   cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal,
 } from "./assemble.mjs";
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
@@ -118,6 +118,7 @@ import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
   validateLegs, validateSpecialization, selectedStrands, journeyBearingStrands,
   resolveMoveIds, loadMoveContracts, moveContractsForLegs,
+  readerStateShapeRefusal, readerPersona, openingQuestionOf,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -1090,6 +1091,31 @@ export function validateDifferentiationRecord(record, { units, moves, journeyBea
     return { error: `\`version\` must be "1" (src/differentiation-schema.json); received `
       + `${JSON.stringify(record && record.version)}` };
   }
+  // READER START AND THE FIRST-LEG SURVIVORS (kogaki#1216). Both are
+  // properties of the Brief and of no path, so they are checked here, once,
+  // before the per-unit entries that draw on them. Reader start is a shape
+  // check only -- its DERIVATION from the Persona and the Thesis is judgment
+  // and is linted nowhere; the survivor list is checked for resolution and
+  // non-emptiness, and every unit's `opening_move` must be a member of it,
+  // which is the whole of what the exclusion rule makes mechanical.
+  if (typeof record.reader_start !== "string" || record.reader_start.trim() === "") {
+    return { error: "`reader_start` is required and cannot be blank -- the Brief's one Reader start, a cold read "
+      + "authored from the reader file and the adopted Thesis (src/differentiation-schema.json, kogaki#1216)" };
+  }
+  const shapeErr = readerStateShapeRefusal(record.reader_start, "reader_start", "reader_start");
+  if (shapeErr) return { error: shapeErr };
+  const survivors = record.leg1_survivors;
+  if (!Array.isArray(survivors) || survivors.length === 0) {
+    return { error: "`leg1_survivors` is required and cannot be empty -- every Move whose `before` does not contradict "
+      + "`reader_start` on a dimension it declares, by id (src/differentiation-schema.json, kogaki#1216); an empty list "
+      + "names a library with no Move able to open from this Reader start, which is a store fault and not a Brief" };
+  }
+  for (const id of survivors) {
+    if (typeof id !== "string" || id === "" || !moves.some((m) => m.id === id)) {
+      return { error: `\`leg1_survivors\` names ${JSON.stringify(id)}, which resolves to no record in `
+        + "`moves_you_may_bind` (src/differentiation-schema.json, kogaki#1216)" };
+    }
+  }
   const entries = record.entries;
   if (!Array.isArray(entries) || entries.length !== units) {
     return { error: `\`entries\` must carry exactly ${units} entries, one per reader-path unit; `
@@ -1124,6 +1150,11 @@ export function validateDifferentiationRecord(record, { units, moves, journeyBea
       return { error: `unit ${e.unit_number}: \`opening_move\` must resolve in \`moves_you_may_bind\`; `
         + `received ${JSON.stringify(e && e.opening_move)}` };
     }
+    if (!survivors.includes(e.opening_move)) {
+      return { error: `unit ${e.unit_number}: \`opening_move\` ${JSON.stringify(e.opening_move)} is not a member of `
+        + "`leg1_survivors` -- the first Leg binds a Move whose `before` does not contradict Reader start, and the "
+        + "survivor list is where that exclusion is recorded (src/differentiation-schema.json, kogaki#1216)" };
+    }
     if (e.journey_placement !== undefined) {
       if (!journeyBearing) {
         return { error: `unit ${e.unit_number}: \`journey_placement\` is present and this Brief's `
@@ -1149,7 +1180,7 @@ export function validateDifferentiationRecord(record, { units, moves, journeyBea
 // its per-unit prompt already carries — the same layer the rendered schema
 // and record example occupy — so the unit is told what it was assigned
 // before it ever reaches the input file it is judging over.
-function differentiationBlockFor(entry) {
+function differentiationBlockFor(entry, readerStart, survivorCount) {
   return [
     "YOUR ASSIGNED DIFFERENTIATION (kogaki#1206) — decided before any unit composed, so the three",
     "Candidates differ BY ASSIGNMENT and not by chance (src/differentiation-schema.json):",
@@ -1157,6 +1188,17 @@ function differentiationBlockFor(entry) {
     `  opening Move your first Leg MUST bind: ${entry.opening_move}`,
     `  journey placement: ${entry.journey_placement || "(none assigned — carry no Journey material for this unit)"}`,
     `  intended reader experience: ${entry.reader_experience}`,
+    "",
+    // READER START IS GIVEN, NOT COMPOSED (kogaki#1216). It was authored once
+    // at `differentiation` from the Persona and the Thesis, and every unit
+    // composes from the same one; the Harness sets it on the Candidate, so a
+    // unit that writes its own is writing a value nothing reads.
+    "THE BRIEF'S READER START (kogaki#1216) — a cold read authored from the Persona and the Thesis, never from",
+    "a Move; GIVEN to you, not yours to compose. Your first Leg's `reader_state_before` is judged against it in",
+    "place of its Move's `before` (`specializes` passes, `contradicts` refuses), and your first Leg's",
+    "`reader_state_after` MUST carry a `question:` line — it IS the Brief's Opening question. Your assigned opening",
+    `Move is one of the ${survivorCount} Move(s) whose \`before\` does not contradict this Reader start:`,
+    ...String(readerStart).split("\n").map((l) => `  ${l}`),
   ].join("\n");
 }
 
@@ -1255,6 +1297,16 @@ const STATE_WORK = {
       || fail(`${st.id}: src/brief-workflow.json's \`compose_path\` state declares no \`job.units\` — `
         + "differentiation cannot assign a unit count it is not told. Nothing was asked.");
     const journeyBearing = journeyBearingStrands(doc).length > 0;
+    // THE PERSONA, read from the file the `compose_path` row names (kogaki#1216)
+    // -- the same row this state already reads `job.units` from. A reader file
+    // this state cannot read is a store fault and refuses the STATE, before
+    // the ask: Reader start is authored FROM it, and a judge asked to author a
+    // cold read from a Persona it was never handed answers from nothing.
+    const readerFile = (composePathState && composePathState.reader_file)
+      || fail(`${st.id}: src/brief-workflow.json's \`compose_path\` state declares no \`reader_file\` -- `
+        + "Reader start is authored from the Persona it names and the Thesis (kogaki#1216). Nothing was asked.");
+    const persona = readerPersona(resolve(BRIEF_REPO, readerFile));
+    if (persona.error) fail(`${st.id}: ${persona.error}`);
     const validate = (p) => {
       let record;
       try { record = readJson(p); }
@@ -1270,6 +1322,11 @@ const STATE_WORK = {
       moves_you_may_bind: library.moves,
       units,
       journey_bearing: journeyBearing,
+      // THE PERSONA, verbatim from the reader file and named by path
+      // (kogaki#1216): `reader` and `prior_knowledge` are what `reader_start`
+      // is derived from, line by line, beside the Thesis in `brief_document`.
+      reader_file: readerFile,
+      reader: { reader: persona.reader, prior_knowledge: persona.prior_knowledge },
     });
     const path = await judged(rec, st, table, args, "differentiation", composeInputFor, validate);
     rec.brief_differentiation = path;
@@ -1411,11 +1468,32 @@ const STATE_WORK = {
               + "closing sections are filled from it at adoption, and adoption fills no default");
           }
         }
-        for (const [key, heading] of READER_FIELDS) {
+        // `opening_question` IS A RETIRED FIELD, refused BY NAME (kogaki#1216;
+        // the precedent is `relations` on a Leg). The Opening question is the
+        // first Leg's after-state `question:` line, read by `openingQuestionOf`,
+        // and a Candidate that authored one apart from it has written one fact
+        // twice -- which is the defect the retirement removes.
+        if (Object.prototype.hasOwnProperty.call(c, "opening_question")) {
+          refuseJudgment(`candidate ${c.candidate_id}: \`opening_question\` is a retired field (kogaki#1216) — the `
+            + "Opening question is the first Leg's `reader_state_after` `question:` line and is read from it; write "
+            + "the question there, in the reader's own words, and remove the field");
+        }
+        const oq = openingQuestionOf(c.legs);
+        if (oq.error) refuseJudgment(`candidate ${c.candidate_id}: ${oq.error}`);
+        // READER START IS GIVEN (set on the Candidate by the Harness from the
+        // differentiation record at the job's own boundary) and READER TARGET
+        // IS AUTHORED; both must be present here, and only the second is the
+        // composer's to have left unauthored.
+        for (const [key, heading] of AUTHORED_READER_FIELDS) {
           if (typeof c[key] !== "string" || c[key] === "") {
             refuseJudgment(`candidate ${c.candidate_id}: ${heading} is unauthored — path composition `
               + "writes it per Candidate, and adoption fills no default");
           }
+        }
+        if (typeof c.reader_start !== "string" || c.reader_start === "") {
+          refuseJudgment(`candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation `
+            + "record and set on the Candidate by the Harness at the reader-path job's boundary (kogaki#1216), so its "
+            + "absence here is the runtime's fault rather than the composer's");
         }
         // THE THREE LEDGER FIELDS, REFUSED HERE BY NAME (kogaki#1129). Their
         // key names were carried by this state's `input_shape` sentence and by
@@ -1521,6 +1599,7 @@ const STATE_WORK = {
     const differentiation = readJson(rec.brief_differentiation
       || fail(`${st.id} has no differentiation record — \`differentiation\` writes it and precedes `
         + "this state."));
+    const survivorCount = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
     const units = [1, 2, 3].map((n) => {
       const input = {
         state: st.id,
@@ -1529,6 +1608,9 @@ const STATE_WORK = {
         strands_you_may_use: strandIds,
         moves_you_may_bind: library.moves,
         unit_number: n,
+        // GIVEN, not composed (kogaki#1216): the Brief's one Reader start, the
+        // same value the assignment block above the marker renders.
+        reader_start: differentiation.reader_start,
       };
       const entry = (differentiation.entries || []).find((e) => e.unit_number === n)
         || fail(`${st.id}: the differentiation record carries no entry for unit ${n} — its own count `
@@ -1541,7 +1623,7 @@ const STATE_WORK = {
       // example already occupy.
       const markerAt = basePrompt.indexOf(JUDGE_INPUT_MARKER);
       const prompt = markerAt === -1 ? basePrompt
-        : `${basePrompt.slice(0, markerAt)}${differentiationBlockFor(entry)}\n\n${basePrompt.slice(markerAt)}`;
+        : `${basePrompt.slice(0, markerAt)}${differentiationBlockFor(entry, differentiation.reader_start, survivorCount)}\n\n${basePrompt.slice(markerAt)}`;
       return { id: `candidate-${n}`, prompt };
     });
     startDetachedJobSupervisor(dir, {
@@ -1695,6 +1777,18 @@ const STATE_WORK = {
       // nothing here compares them to anything, which is the whole of what
       // keeps the specialization judgment judgment-class.
       move_contracts: bound.contracts,
+      // THE FIRST LEG'S COMPARISON STATE (kogaki#1216). Reader start is a cold
+      // read from the Persona and the Thesis, never from a Move, so Leg 1's
+      // `reader_state_before` is judged against IT in place of its Move's
+      // `before`, on the same terms; its after-state is judged against its
+      // Move's `after` like every other Leg's. Named per Leg so the judge is
+      // told which record to compare, rather than left to infer it.
+      reader_start: c.reader_start,
+      first_leg: {
+        leg_id: c.legs[0] && c.legs[0].leg_id,
+        before_compared_against: "reader_start",
+        after_compared_against: "its Move's `after`, as `move_contracts` carries it",
+      },
     });
     const path = await judged(rec, st, table, args, "specialization", composeInputFor, validate);
     rec.brief_specialization = relFromRepo(resolve(path));
@@ -1973,11 +2067,25 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
     // started — never the Model's — so the tag this reads back at assembly
     // (`c.differentiation_unit`) is the Harness's own record of which unit
     // produced which Candidate, not a field the Model could have written.
+    // READER START AND THE SURVIVOR COUNT ARE SET HERE TOO, from the
+    // differentiation record, and by the Harness (kogaki#1216): Reader start
+    // is authored once per Brief at `differentiation` and never per unit, so
+    // whatever a unit wrote under `reader_start` is overwritten by the record
+    // rather than read, and the record's `leg1_survivors` id list rides as
+    // `leg1_survivor_count`, an integer -- named apart so a reader never takes
+    // the count for the list (PR #1222 round 1) -- for the Brief to render. Read from the run record the job belongs
+    // to, exactly as `compose_path` read it to build the units' prompts.
+    const jobRec = readRunRecord(dir);
+    const differentiation = jobRec && jobRec.brief_differentiation ? readJson(jobRec.brief_differentiation) : null;
     const candidates = (job.units || []).map((u) => {
       const c = u.candidate;
       if (c && typeof c === "object") {
         const m = /^candidate-(\d+)$/.exec(String(u.id || ""));
         if (m) c.differentiation_unit = Number(m[1]);
+        if (differentiation && typeof differentiation.reader_start === "string") {
+          c.reader_start = differentiation.reader_start;
+          c.leg1_survivor_count = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
+        }
       }
       return c;
     }).filter(Boolean);

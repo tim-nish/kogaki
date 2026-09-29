@@ -392,6 +392,44 @@ export function readerStateShapeRefusal(value, at, fieldName) {
   return null;
 }
 
+// ONE DIMENSION'S LINE, read off a line-per-dimension reader state. Returns
+// the value after `<dim>:` on the line whose LEADING token is `dim`, or null
+// where no line carries it. A later colon inside the value is the value's own
+// (`question: holds: none` reads as `holds: none`), which is the same
+// leading-token rule `readerStateShapeRefusal` checks by.
+export function readerStateDimensionLine(value, dim) {
+  if (typeof value !== "string") return null;
+  for (const line of value.split("\n")) {
+    const m = /^([a-z]+):\s*(.*)$/.exec(line);
+    if (m && m[1] === dim) return m[2].trim();
+  }
+  return null;
+}
+
+// THE OPENING QUESTION IS NOT AN AUTHORED FIELD (owner decision 2026-09-28,
+// kogaki#1216). It is the `question:` line of the FIRST Leg's
+// `reader_state_after`, and the Brief renders that line under the existing
+// `Opening question` heading. Authoring it separately let the composer write
+// one fact twice — `reader_start`'s own `question:` line and an
+// `opening_question` field that restated it — so the field is retired and
+// the value is READ here from the Leg that produces it. Returns
+// `{ question }` or `{ error }`; a first Leg whose after-state states no
+// `question:` line has left the reader with no question to hand, which is a
+// composition fault named by field rather than a blank filled in.
+export function openingQuestionOf(legs) {
+  const first = Array.isArray(legs) ? legs[0] : null;
+  if (!first || typeof first !== "object") {
+    return { error: "the path carries no first Leg, so no Opening question can be read from it" };
+  }
+  const q = readerStateDimensionLine(first.reader_state_after, "question");
+  if (q === null || q === "") {
+    return { error: `leg 1 (${first.leg_id ?? "?"}): its reader_state_after states no \`question:\` line — the `
+      + "Opening question IS that line (kogaki#1216), rendered under the Brief's `Opening question` heading, "
+      + `and no separate field authors it. Received: ${JSON.stringify(first.reader_state_after ?? null)}` };
+  }
+  return { question: q };
+}
+
 // ---- shape validation (the Leg's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
 // Returns { error } or { legs }. Pure over its argument; exported for the check.
@@ -399,30 +437,30 @@ export function validateLegs(legs, readerStart) {
   if (!Array.isArray(legs) || legs.length === 0) {
     return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Leg at all.") };
   }
-  // Reader start binds the first Leg (Closure, kogaki#1151): `readerStart` is
-  // OPTIONAL because the two call sites hold it at different points (the
-  // Candidate's own `reader_start` at compose_path, the same value again at
-  // fillBrief), and a caller with none to hand — a bare shape check — is not
-  // asked to invent one.
+  // READER START IS SHAPE-CHECKED HERE AND BOUND NOWHERE (kogaki#1216).
+  // `readerStart` is OPTIONAL because the two call sites hold it at different
+  // points (the Candidate's Harness-set `reader_start` at compose_path, the
+  // same value again at fillBrief), and a caller with none to hand — a bare
+  // shape check — is not asked to invent one.
   //
-  // READER START IS A STANCE IN THE MOVE LIBRARY'S OWN DIMENSIONS, NOT A
-  // KNOWLEDGE STATE (SPEC-draft-pipeline §"The three reader fields, and the
-  // block that authors them", kogaki#1176): both sides of
-  // this comparison are `dimension: value` lines in the same shape a Move's
-  // `before` is written in, so a first Leg's Move may specialize any
-  // dimension Reader start states — including a `question:` line reading
-  // `holds: none` — and is no longer forced onto a Move whose `before` reads
-  // as an in-subject understanding. The comparison below is unchanged by
-  // that redefinition: both sides were already opaque strings, and the check
-  // is a verbatim match, never a per-dimension one.
+  // WHAT STOOD HERE, and why it is gone (owner decision 2026-09-28,
+  // kogaki#1216). `reader_start_binds_first_leg` refused a path whose first
+  // Leg's `reader_state_before` was not Reader start VERBATIM. Together with
+  // the specialization rule — the first Leg's before-state must specialize
+  // its Move's `before` — that forced Reader start to be written BACKWARDS
+  // from the Move the first Leg binds: the Brief's Reader start was the
+  // bound Move's `before` with the article's nouns substituted, a reader who
+  // had already read the article several times. Reader start is now a cold
+  // read authored from the Persona and the Thesis at the `differentiation`
+  // state (src/differentiation-schema.json), never from any Move, and the
+  // first Leg's `reader_state_before` is JUDGED against it at
+  // `judge_specialization` on the same terms every other Leg is judged
+  // against its Move's `before` — `specializes` passes, `contradicts`
+  // refuses. No verbatim match remains, because a verbatim match is exactly
+  // what made the two fields one fact written twice.
   if (typeof readerStart === "string" && readerStart !== "") {
     const shapeErr = readerStateShapeRefusal(readerStart, "reader_start", "reader_start");
     if (shapeErr) return { error: shapeErr };
-  }
-  if (typeof readerStart === "string" && readerStart !== "" && legs[0].reader_state_before !== readerStart) {
-    return { error: pathRefusal("reader_start_binds_first_leg", `leg 1 (${legs[0].leg_id ?? "?"})`,
-      `Its reader_state_before reads ${JSON.stringify(legs[0].reader_state_before)}; `
-      + `the Brief's Reader start reads ${JSON.stringify(readerStart)}.`) };
   }
   const schema = legschema();
   const seen = new Set();
@@ -985,6 +1023,40 @@ export function moveContract(moveId, movesDir = "moves") {
       + `so a record missing one leaves the judgment nothing to be a comparison against. Repair the Move record under its own issue.` };
   }
   return { id: moveId, before, after };
+}
+
+// THE PERSONA, read from the reader file the workflow table names
+// (kogaki#1216, owner-approved design 2026-09-28). One owner-authored file
+// under `readers/` with TWO fields and nothing more: `reader` — who they are
+// by what they do, in which genre they are reading, and why they opened it —
+// and `prior_knowledge` — what can be used without explanation, and what
+// cannot. Nothing about attitude, trust or the reader's question: those are
+// Reader start dimensions, and holding them here would duplicate it. The
+// record is flat `key: value` like a Move record, so the same scalar reader
+// serves both; a missing field is a store fault named by field, exactly as a
+// half-written Move contract is. The Persona is an INPUT to authoring Reader
+// start and is never copied into the Brief.
+export const READER_PERSONA_FIELDS = ["reader", "prior_knowledge"];
+export function readerPersona(path) {
+  let text;
+  try { text = readFileSync(path, "utf8"); }
+  catch (e) {
+    return { error: `the reader file ${path} cannot be read (${e.message}) — the Brief workflow table names it, and `
+      + "Reader start is authored from it and the Thesis (kogaki#1216)" };
+  }
+  const out = { id: moveScalarField(text, "id") };
+  const missing = [];
+  for (const f of READER_PERSONA_FIELDS) {
+    const v = moveScalarField(text, f);
+    if (v === null) missing.push(f);
+    else out[f] = v;
+  }
+  if (missing.length) {
+    return { error: `the reader file ${path} declares no ${missing.join(" and no ")} — the Persona is exactly `
+      + `${READER_PERSONA_FIELDS.join(" and ")} (kogaki#1216), and Reader start cannot be authored from half of it. `
+      + "Repair the reader file under its own issue." };
+  }
+  return out;
 }
 
 // THE WHOLE ADMITTED SET, for the composing state's input. Ordered by id so
