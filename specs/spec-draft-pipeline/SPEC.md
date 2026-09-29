@@ -1,5 +1,36 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v40, amended 2026-09-29 (kogaki#1216) — **§5.1.1: READER START IS
+A COLD READ FROM THE PERSONA AND THE THESIS, THE FIRST LEG BINDS A MOVE THAT
+DOES NOT CONTRADICT IT, AND THE OPENING QUESTION IS THE FIRST LEG'S OWN.**
+Reading the first Draft produced end to end, the owner found its first
+paragraph expensive: the Brief's Reader start read like a reader who had
+already read the article several times, because the verbatim first-Leg
+binding (§5.2, `reader_start_binds_first_leg`) together with the
+specialization rule (§4.12.2) forced Reader start to be written BACKWARDS
+from the Move the first Leg binds — the Move's `before` with the article's
+nouns substituted. The owner decided (2026-09-28): (1) Reader start is the
+stance a reader with the declared **Persona** holds toward this Thesis before
+reading — authored from the Persona and the Thesis, never from a Move; (2) the
+first Leg's Move is chosen by **exclusion, not optimization** — a Move is
+excluded when its `before` contradicts Reader start on a dimension it
+declares, survivors are not ranked, and the check is the existing
+specialization verdict applied to Leg 1 against Reader start; the verbatim
+binding is removed; (3) the Opening question is not a separately authored
+field — it is the `question:` line of the first Leg's `reader_state_after`,
+rendered under the existing heading; (4) Reader start and Reader target stay
+in the Move library's reader-state schema. The Persona is one owner-authored
+file, `readers/dev-to-zenn.md`, with two fields (`reader`, `prior_knowledge`),
+named by the workflow table and read at the `differentiation` state, which
+now authors Reader start once per Brief and lists the first-Leg survivors;
+the Brief records the survivor count. Where an Analysis records the question
+before the passage as none, ingestion writes `holds: none` (§6.9). Carriers:
+`readers/dev-to-zenn.md`, `src/differentiation-schema.json`,
+`src/leg-schema.json`, `src/candidate-schema.json`,
+`src/specialization-schema.json`, `src/brief-workflow.json`,
+`src/compose.mjs`, `src/brief.mjs`, `src/assemble.mjs`,
+`tools/move_ingest.py`.
+
 **Status:** v39, amended 2026-09-24 (kogaki#1176) — **§5.1.1: READER START IS
 A STANCE IN THE MOVE LIBRARY'S OWN FIVE DIMENSIONS, NOT A KNOWLEDGE STATE.**
 Reader start was authored as what the reader *knows*, so the first Leg's
@@ -1125,6 +1156,20 @@ contradicted one need different repairs.
 realization.** `resolve` re-runs the mechanical half only; re-deriving the
 verdict would be the runtime composing one, which clause 2 forbids.
 
+**The first Leg's before-state is judged against Reader start, not against
+its Move's `before`** (kogaki#1216, owner decision 2026-09-28). Reader start is
+a cold read from the Persona and the Thesis (§5.1.1), never from a Move, so the
+question the occasion asks of Leg 1 is whether its `reader_state_before` is a
+consistent specialization of the Brief's Reader start — on the same terms every
+other Leg's before-state is compared to its Move's `before`. Its after-state is
+judged against its Move's `after` like every other Leg's. The judgment input
+carries `reader_start` beside `move_contracts` and names the first Leg
+(`src/specialization-schema.json`, `first_leg`); the vocabulary, the one-per-Leg
+rule and the path-order refusal are unchanged. This replaces the verbatim
+match §5.2 used to require, and it is what lets the first Leg bind a Move
+whose `before` merely does not contradict Reader start rather than one whose
+`before` Reader start was written to equal.
+
 **deferred slot: `specialization-judgment-and-path-review-ordering`** — where
 the judgment point sits relative to Path Review's own pass. Not answered by
 inference from this section; owed on its own licensing issue.
@@ -1796,8 +1841,11 @@ centre readable as one thing rather than three fields and a file path.
 
 ### 5.1 The settled structure section
 
-- **`reader_start`**, **`reader_target`**, **`opening_question`** — authored at
-  **path composition**, per Candidate; land at **Candidate selection**.
+- **`reader_start`**, **`reader_target`**, **`opening_question`** — the three
+  rendered reader headings, authored three ways since kogaki#1216: Reader start
+  once per Brief at **Differentiation**, from the Persona and the Thesis;
+  Reader target at **path composition**, per Candidate; the Opening question
+  read off the first Leg's after-state. All land at **Candidate selection**.
   `reader_start` is a **stance**, not a knowledge state: §5.1.1 defines it.
 - **`thesis`** — read from Terrain (§3), never invented here.
 - **`sequence`** — the ordered Legs of §4.1.
@@ -1831,49 +1879,105 @@ a second, independent declaration (owner amendment, 2026-09-23). No `Position`
 value is added to a Move or to `reader_start` — the five dimensions are the
 whole of a stance (owner ruling, 2026-09-23).
 
-**A Move opens the article by binding a `before` that matches this shape.**
-Where `reader_start`'s `question:` line reads `holds: none`, a Move whose
-`before` opens the same way — a precondition that holds no open question — is
-a legal binding for the first Leg (kogaki#1176 amendment, 2026-09-23): the
-reader arrives indifferent, and the Move's `after` is what first hands them a
-question, which is what `opening_question` records (below). This is symmetric
-with the prior, knowledge-only reading: a Move whose `before` opens on an
-in-subject understanding was always a legal binding too, and stays one — the
-redefinition widens the dimensions a first Leg's Move may specialize, it does
-not narrow which Moves qualify.
+**Reader start is a COLD READ: the stance a reader with the declared Persona
+holds toward this Thesis before reading the article, authored from the Persona
+and the Thesis and never from the Move the first Leg binds** (owner decision
+2026-09-28, kogaki#1216). What stood here let it be written backwards: the
+verbatim binding at §5.2 forced the first Leg's `reader_state_before` to equal
+Reader start, and §4.12.2 forced that same field to specialize the Move's
+`before`, so Reader start became the bound Move's `before` with the article's
+nouns substituted — in `theses/set-automatic-rules-only-sees/brief.md` the
+Move said "the explanation will choose among familiar motives" and the Brief
+said "expects the explanation to pick among those familiar failings". The
+owner's reading of why: a model fills the schema it is given and is poor at
+deciding a field is absent, so a question was manufactured for passages that
+had none; the exemplar Analysis in `passages/FORMAT.md` records the question
+before the passage as `none, or "should I read this?"`, and the Move ingested
+from it recorded an unanswered question. No Move in the library held no
+question, so the `holds: none` opening below was legal and unreachable.
 
-**`opening_question` is authored once, as what the first Leg hands the
-reader, and is never a restatement of `reader_start`'s own `question:`
-dimension.** The two answer different questions about different points in
-time: `reader_start`'s `question:` line is what the reader arrives holding,
-before the article starts (`holds: none` for the opening the owner wants);
-`opening_question` is the question the path's first Leg leaves the reader
-with. Composing the same sentence into both is composing one fact twice, not
-authoring two.
+**The Persona is declared once, in one owner-authored file the workflow table
+names** — `readers/dev-to-zenn.md`, in a `readers/` directory beside `moves/`
+and `passages/`, content rather than a schema, its first value the current
+Dev.to and Zenn reader. It carries **two fields**, one or two sentences each,
+and stays far smaller than a Move:
 
-**The block is PATH COMPOSITION, per Candidate.** The three fields describe a
-reader's movement, and a Candidate's Reader Path *is* that movement in ordered
-Legs. So they are composed where the movement is composed, carried per
-Candidate, and land at adoption beside `thesis_closure` and `tradeoffs`.
+- **`reader`** — who they are by what they do, in which genre they are reading,
+  and why they opened it. Grounding: Swales's discourse community (genre
+  analysis, 1990) and Cooper's goal-directed persona (interaction design).
+- **`prior_knowledge`** — what can be used without explanation, and what
+  cannot. Grounding: prior knowledge as the determinant of how much a text must
+  make explicit (Kintsch; McNamara & Kintsch 1996), and audience analysis in
+  technical communication.
+
+Nothing about attitude, trust or the reader's question: those are Reader start
+dimensions, and holding them in the Persona would duplicate it. **The Persona
+constrains Reader start without duplicating it** (Ede & Lunsford 1984: the
+Persona is the audience *addressed*, stable across articles; Reader start is
+the audience *invoked* for this Thesis). Each Reader start line is derived
+from a named field plus the Thesis, and the Persona is never copied into the
+Brief: `knowledge` from `prior_knowledge` (a term the Persona lists as unknown
+may not appear, which the vocabulary guard §5.1.2 already reads); `question`
+is `holds: none`, or a question in the reader's own words that follows from
+why they opened the post — never a question in the article's terms;
+`expectation`, `orientation` and `trust` from `reader` plus the Thesis. The
+derivation is composition judgment stated to the composer, not linted (§4.6).
+Selecting a Persona per article is out of scope; the `compose_path` row of
+`src/brief-workflow.json` names the reader file it reads, as it names its
+schema files, and there is no per-article selection.
+
+**The first Leg binds a Move by EXCLUSION, not optimization** (owner
+amendment, 2026-09-28). A Move is excluded when its `before` contradicts
+Reader start on a dimension it declares; a Move that omits a dimension is not
+excluded on it. Survivors are not ranked and no score exists anywhere. Leg 1
+binds a survivor by the same composition order every Leg uses — Strand
+information, Leg reasoning, then the Move (§4.5) — and the grounds test
+applies. The check is the existing specialization verdict applied to Leg 1
+against Reader start (§4.12.2): `specializes` passes, `contradicts` refuses.
+Where Reader start's `question:` line reads `holds: none`, a Move whose
+`before` holds no question, or declares no `question` line at all, survives;
+the Move's `after` is what first hands the reader a question. **Convergence is
+made visible:** the Brief records how many Moves survived the exclusion for
+Leg 1, and a count of one names the library, not the rule, as the cause of a
+repeated opening — the fix is a Move analysed from an opening passage.
+
+**The Opening question is not a separately authored field.** It is the
+`question:` line of the first Leg's `reader_state_after`, and the Brief renders
+that line under the existing `Opening question` heading (`openingQuestionOf`,
+`src/compose.mjs`). `reader_start`'s own `question:` line is what the reader
+arrives holding, before the article starts; the first Leg's after-state
+`question:` line is what the opening leaves them holding. Authoring the second
+apart from the Leg that produces it let one fact be written twice, and the two
+drifted; a Candidate carrying an `opening_question` field is refused by name.
+
+**The block is DIFFERENTIATION for Reader start and PATH COMPOSITION for
+Reader target.** Reader start depends on the Persona and the Thesis and on no
+path, so it is authored once per Brief at the `differentiation` state (§6.1),
+which also lists the first-Leg survivors, and the Harness sets it on every
+Candidate; three units authoring it would author one fact three ways, and the
+exclusion could be checked against none of them. Reader target describes where
+*this* path leaves the reader, so it is composed where the movement is
+composed, per Candidate. Both land at adoption beside `thesis_closure` and
+`tradeoffs`.
 
 - **No new gate and no new check.** They ride the Candidate-selection gate §6
   already carries, as `journey_coverage` does.
-- **Two Candidates may differ on the reader axis**, and the difference is
-  composition information rather than noise: a Candidate that starts the reader
-  somewhere else is a different article.
-- **The fill pass is NOT the site**, and declining it was a decision. Filling
-  from the composed Legs is simpler, and it lands the values *before*
-  Candidates exist — so every Candidate would carry identical reader fields and
-  the gate could not differentiate on them. **The mint was declined on a
-  different ground:** a Thesis states a claim, not a reader's starting state, so
-  deriving these three from the adopted Thesis would invent material its source
-  does not carry.
+- **Two Candidates may differ on Reader target**, and the difference is
+  composition information rather than noise; they no longer differ on Reader
+  start, because a Reader start that varied with the path was the defect.
+- **The mint is still not the site for Reader target:** a Thesis states a
+  claim, not where the reader is left, so deriving it from the adopted Thesis
+  alone would invent material its source does not carry. Reader start is
+  derived from the Thesis *and* the Persona, which is the material the mint
+  lacked.
 
 **An absent value REFUSES at adoption as an unauthored field**, naming which
 field is missing. It does not fill a default and does not render a typed
 absence and proceed. The contrast with §6.1 MUST 1 is the argument: a Journey's
 absence is a *fact about the served material*, which a composition sitting
-cannot conjure; these three are the composer's own to author.
+cannot conjure; Reader target is the composer's own to author, Reader start is
+the differentiation state's, and an Opening question a first Leg's after-state
+does not state is a composition fault named by field.
 
 `necessity:` an authoring site and a refusal, both judgments about where a
 value comes from. A default would satisfy every mechanical property here.
@@ -1953,24 +2057,24 @@ and a sidecar cannot drift from it. The entries are **authored judgments** —
 already kept, so they need a record and the record belongs where its consumer
 reads it.
 
-**Reader start binds the first Leg.** `validateLegs` also refuses a path
-whose first Leg's `reader_state_before` is not the Brief's own Reader start,
-naming both — Reader start is the direction for the initial reader pull, and a
-first Leg beginning somewhere else has the reader arriving at a Brief the
-article never opens from. The match is over the stance §5.1.1 defines: both
-sides are `dimension: value` lines in the Move library's own five dimensions,
-so the first Leg's Move may specialize any dimension Reader start states —
-including a `question:` line reading `holds: none` — and is no longer forced
-onto a Move whose `before` is an in-subject understanding (kogaki#1176). The
-comparison itself is unchanged: `validateLegs` reads both sides as opaque
-strings and refuses on anything but a verbatim match, before and after this
-redefinition.
+**Reader start no longer binds the first Leg verbatim** (kogaki#1216, owner
+decision 2026-09-28). `validateLegs` used to refuse a path whose first Leg's
+`reader_state_before` was not the Brief's Reader start as an opaque string,
+and that match — beside §4.12.2's specialization rule — is what wrote Reader
+start backwards from the first Leg's Move. The verbatim check is retired from
+`src/compose.mjs` and from `src/leg-schema.json`'s `path_rules`
+(`reader_start_binds_first_leg`); what `validateLegs` still refuses is Reader
+start's own shape. The first Leg still opens from Reader start: its
+`reader_state_before` is JUDGED against it at the specialization occasion in
+place of its Move's `before`, on the same terms as every other Leg, and the
+Move it binds is one the exclusion of §5.1.1 did not remove — stated to the
+composer as the judgment-class `first_leg_binds_a_survivor` path rule.
 
 **There is no mechanical judge of the CONTENT of any of this.** Whether an
 obligation is worth entering, and whether a discharge or a concession is the
 right call, is judged at Path Review (§4.3); Kogaki guarantees citations and
 the substrate guarantees facts. What the runtime enforces is SHAPE alone: every
-row terminal, and the first Leg's Reader start bound.
+row terminal, and Reader start in its line-per-dimension shape.
 
 `necessity:` the field is in the record shape and the fill is carried by
 `src/compose.mjs`; the siting argument is not. "Why not a sidecar" is the
@@ -2386,7 +2490,13 @@ assigning each unit the reader-state dimension it leads with, the opening Move
 its first Leg must bind, and (where the Brief carries Journey material) where
 that unit places it. Three units composing independently cannot make their
 Candidates differ by seeing each other; Differentiation is what makes them
-differ BY ASSIGNMENT instead. **The record `src/differentiation-schema.json`
+differ BY ASSIGNMENT instead. **Since kogaki#1216 the same state also authors
+the Brief's one Reader start** — from the Persona file the `compose_path` row
+names and the adopted Thesis, never from a Move (§5.1.1) — **and lists the
+first-Leg survivors**, every Move whose `before` does not contradict it; each
+unit's assigned opening Move is drawn from that list, and the Harness sets
+Reader start and the survivor count on every Candidate at the reader-path
+job's boundary. **The record `src/differentiation-schema.json`
 declares today is this block's CURRENT OUTPUT, and not its definition**: a
 later mechanism that decides differentiation a different way keeps the name
 Differentiation and the same boundary — before the reader-path units start —
@@ -2439,6 +2549,17 @@ why this is said rather than left to the reader.
 floor in particular is a judgment about register that no grammar decides.
 
 ## 6.9 Move INGESTION — how a Move enters the library
+
+**Where an Analysis records the question before the passage as none, the
+ingested Move reads `holds: none`, never a composed question** (kogaki#1216).
+The Passage-to-Move path reads the Analysis's `question` row (`passages/
+FORMAT.md` §"Reader before and after"): where its BEFORE cell reads `none`,
+alone or with a hedge, `tools/move_ingest.py` writes `holds: none` into the
+proposal's `question` field and into the `question:` line of its `before`
+before the selection screen renders, and the screen names the rewrite. The
+Analysis is the owner-answered record; a model fills the schema it is given
+and manufactured a question where the record held none, which is how the
+library came to hold no Move able to open a reader who arrives indifferent.
 
 Input is a **free-form file the owner writes**, conventionally carrying a
 `.md` extension. **It is not markdown**, and §6.9.0's grammar refuses markdown

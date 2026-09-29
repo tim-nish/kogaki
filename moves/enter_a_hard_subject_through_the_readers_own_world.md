@@ -1,11 +1,10 @@
 id: enter_a_hard_subject_through_the_readers_own_world
 before: >-
   knowledge: has noticed a crowded shelf on the subject alongside a troubled
-  world, without a reason connecting the two. question: holds an unanswered
-  question about why so many such works are appearing now. expectation:
-  anticipates another specialist introduction or survey of the field.
-  orientation: takes the current wave as an isolated present trend. trust:
-  neutral toward an author who has something to sell.
+  world, without a reason connecting the two. question: holds: none.
+  expectation: anticipates another specialist introduction or survey of the
+  field. orientation: takes the current wave as an isolated present trend.
+  trust: neutral toward an author who has something to sell.
 after: >-
   knowledge: knows the current wave belongs to a recurring historical
   pattern. question: the opening question is settled; a narrower question
@@ -16,9 +15,8 @@ after: >-
   trend. trust: raised by the author's self-implicating admission and a fair
   survey of the field's other forms.
 question: >-
-  holds: why so many works on the subject are appearing now settles: whether
-  the current wave is new raises: why worsening conditions repeatedly renew
-  interest in the subject
+  holds: none settles: whether the current wave is new raises: why worsening
+  conditions repeatedly renew interest in the subject
 order: >-
   advances, advances, raises, advances, settles, raises — familiar footholds
   are laid down before the anomaly is named, the anomaly is converted into a

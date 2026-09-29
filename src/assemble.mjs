@@ -80,7 +80,7 @@ import { fillBrief, replaceSlot, selectedStrands, placements,
   resolveMoveIds, validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
   resolveFigureForms, figureClause, figureLegs,
   ownerGateDigest, validateOwnerAnswer,
-         journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
+         journeyBearingStrands, journeyPlacements, snapshotBrief, openingQuestionOf } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
 
@@ -141,6 +141,61 @@ export const READER_FIELDS = [
   ["reader_target", "Reader target"],
   ["opening_question", "Opening question"],
 ];
+
+// THE THREE HEADINGS ABOVE ARE STILL RENDERED, AND ONLY ONE IS AUTHORED
+// (kogaki#1216, owner decision 2026-09-28). `reader_start` is GIVEN: authored
+// once per Brief at the `differentiation` state from the Persona and the
+// Thesis, and set on the Candidate by the Harness at the reader-path job's
+// boundary. `opening_question` is DERIVED: the first Leg's after-state
+// `question:` line, read by `openingQuestionOf`, and a Candidate carrying it
+// as a field is refused by name. `reader_target` is what path composition
+// authors per Candidate. `readerFieldValues` below is the one reader of all
+// three, so the gate evidence and the adoption fill render the same values.
+export const AUTHORED_READER_FIELDS = [
+  ["reader_target", "Reader target"],
+];
+
+// One value per rendered heading, or a refusal naming the field. The
+// first-Leg survivor count is NOT folded into Reader start here: the draft
+// side reads the Brief's `Reader start` section verbatim into every Leg
+// Packet, and a count is a fact about the library, not about the reader. It
+// renders under `Tradeoffs` instead (`survivorSentence` below).
+export function readerFieldValues(c) {
+  if (Object.prototype.hasOwnProperty.call(c || {}, "opening_question")) {
+    return { error: `candidate ${c.candidate_id}: \`opening_question\` is a retired field (kogaki#1216) — the Opening `
+      + "question is the first Leg's `reader_state_after` `question:` line and is read from it, never authored apart" };
+  }
+  const unauthored = [];
+  if (typeof c.reader_start !== "string" || c.reader_start === "") unauthored.push("Reader start");
+  for (const [key, heading] of AUTHORED_READER_FIELDS) {
+    if (typeof c[key] !== "string" || c[key] === "") unauthored.push(heading);
+  }
+  if (unauthored.length) return { unauthored };
+  const oq = openingQuestionOf(c.legs);
+  if (oq.error) return { error: `candidate ${c.candidate_id}: ${oq.error}` };
+  return {
+    values: {
+      reader_start: c.reader_start,
+      reader_target: c.reader_target,
+      opening_question: oq.question,
+    },
+  };
+}
+
+// THE SURVIVOR COUNT, RECORDED IN THE BRIEF (kogaki#1216 amendment). Where the
+// Candidate rides `leg1_survivors` (a Harness-set count from the
+// differentiation record), one sentence names how many Moves were not
+// excluded against Reader start for the first Leg. A count of one names the
+// LIBRARY, not the rule, as the cause of a repeated opening, and the fix is a
+// Move analysed from an opening passage -- said here so the reader of the
+// Brief is told where the repair goes. Null where no count rides (a run
+// predating the record), which is a statement rather than an omission.
+export function survivorSentence(c) {
+  if (!Number.isInteger(c.leg1_survivors)) return null;
+  const n = c.leg1_survivors;
+  return `Opening: ${n} Move${n === 1 ? "" : "s"} in the library could open from this Reader start without contradicting it, `
+    + `and the first Leg binds one of them.${n === 1 ? " A count of one names the library, not the rule, as the cause of a repeated opening; the repair is a Move analysed from an opening passage." : ""}`;
+}
 
 // THESE TWO TABLES OUTLIVE BOTH THE RENDERING AND THE RECORD THAT USED THEM,
 // and that is a decision rather than an oversight (kogaki#859). Their sole
@@ -247,7 +302,7 @@ export function findInternalVocabulary(text, exempt) {
 export const SLOT_CAPTIONS = new Map([
   ["Reader start", "Where the reader stands before the article."],
   ["Reader target", "Where the article leaves them."],
-  ["Opening question", "The question the opening puts to the reader standing there."],
+  ["Opening question", "The question the opening leaves the reader holding — read off the first Leg, never authored apart from it."],
   // THE RATIFIED NAME (kogaki#574). This heading read "Sequence" while the
   // artifact it holds has a settled name: the adopted Candidate's Reader Path,
   // which the selection gate's own effect wording says becomes this section. The
@@ -593,10 +648,10 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
       }).join(" | ");
 
   const reader = {};
+  const rf = readerFieldValues(c);
   for (const [key] of READER_FIELDS) {
-    const v = c[key];
-    reader[key] = (typeof v === "string" && v !== "")
-      ? v
+    reader[key] = rf.values && typeof rf.values[key] === "string" && rf.values[key] !== ""
+      ? rf.values[key]
       : "not stated by this path — adopting it will refuse, because the composing act did not run";
   }
   return {
@@ -1059,9 +1114,9 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // never sent to re-answer a gate that is not the problem, and it fills no
   // default: a default would be this file inventing reader state, which is
   // exactly what the read-not-invented rule refuses.
-  const unauthored = READER_FIELDS
-    .filter(([key]) => typeof c[key] !== "string" || c[key] === "")
-    .map(([, heading]) => heading);
+  const readerFields = readerFieldValues(c);
+  if (readerFields.error) return { error: readerFields.error };
+  const unauthored = readerFields.unauthored || [];
   if (unauthored.length) {
     return { error: `candidate ${candidateId}: ${unauthored.join(", ")} `
       + `${unauthored.length === 1 ? "is" : "are"} unauthored — path composition writes `
@@ -1230,10 +1285,12 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   });
   if (filled.error) return filled;
   let out = filled.doc;
+  const survivorLine = survivorSentence(c);
   let r = replaceSlot(out, "Tradeoffs",
-    typeof c.tradeoffs === "string" && c.tradeoffs !== ""
+    (typeof c.tradeoffs === "string" && c.tradeoffs !== ""
       ? c.tradeoffs
-      : `adopted over its siblings on reader experience: ${c.reader_experience}. The declined Candidates' experiences are recorded in the run's gate payload.`);
+      : `adopted over its siblings on reader experience: ${c.reader_experience}. The declined Candidates' experiences are recorded in the run's gate payload.`)
+    + (survivorLine ? `\n\n${survivorLine}` : ""));
   if (r.error) return r;
   out = r.doc;
   // THE POST-HOC DISCLOSURE FILLS HERE (kogaki#866). The scope is the ADOPTED
@@ -1271,7 +1328,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // (the settled structure section v12). A declined Candidate's values land nowhere, because only the
   // adopted Candidate reaches this function at all.
   for (const [key, heading] of READER_FIELDS) {
-    r = replaceSlot(out, heading, c[key]);
+    r = replaceSlot(out, heading, readerFields.values[key]);
     if (r.error) return r;
     out = r.doc;
   }

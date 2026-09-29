@@ -943,13 +943,80 @@ def near_duplicates(proposed_technique, index_rows):
     return hits
 
 
-def render_passage_screen(proposal, duplicates):
+# --------------------------------------------------------------------------
+# The question BEFORE the passage, read off the Analysis (kogaki#1216).
+# --------------------------------------------------------------------------
+#
+# A model fills the schema it is given and is poor at deciding a field is
+# absent, so where an Analysis recorded the reader's question before the
+# passage as `none` the authored Move still carried a composed one -- the
+# exemplar's Analysis reads `none, or "should I read this?"` and the Move
+# ingested from it read `holds an unanswered question about why so many such
+# works are appearing now`. The consequence downstream was a library with no
+# Move whose `before` holds no question, so the opening the owner wants
+# (`holds: none`) was legal and unreachable. The Analysis is the RECORD here:
+# its `## 2. Reader before and after` table carries a `question` row whose
+# BEFORE cell is the owner-answered fact, and where that cell reads `none`
+# (alone or followed by a hedge), the proposal's `question` field is written
+# `holds: none` and its `before` field's `question:` line is written
+# `holds: none` -- never a composed question. Applied BEFORE the screen
+# renders, so what the owner accepts is what is saved; the screen names the
+# rewrite so it is never silent.
+ANALYSIS_QUESTION_ROW = re.compile(
+    r"^\|\s*question\s*\|(?P<before>[^|]*)\|(?P<after>[^|]*)\|\s*$", re.M)
+NONE_QUESTION = re.compile(r"^\s*none\b", re.I)
+_QUESTION_VERBS = r"(?:settles|replaces|raises):"
+_OTHER_DIMENSIONS = r"(?:knowledge|expectation|orientation|trust):"
+
+
+def analysis_question_before(passage_text):
+    """The BEFORE cell of the Analysis's `question` row, stripped, or None
+    where the text carries no such row (a bare Passage with no Analysis)."""
+    match = ANALYSIS_QUESTION_ROW.search(passage_text)
+    return match.group("before").strip() if match else None
+
+
+def write_none_question(mapping, passage_text):
+    """Where the Analysis records the question before the passage as none,
+    write `holds: none` into the proposal and return the fields rewritten;
+    otherwise leave the mapping untouched and return an empty list."""
+    before_cell = analysis_question_before(passage_text)
+    if before_cell is None or not NONE_QUESTION.match(before_cell):
+        return []
+    changed = []
+    question = mapping.get("question")
+    if isinstance(question, str):
+        rewritten, count = re.subn(
+            r"holds:\s*.*?(?=\s+%s|$)" % _QUESTION_VERBS, "holds: none",
+            question, count=1, flags=re.S)
+        if count == 0:
+            rewritten = ("holds: none " + question).strip()
+        if rewritten != question:
+            mapping["question"] = rewritten
+            changed.append("question")
+    before = mapping.get("before")
+    if isinstance(before, str):
+        rewritten, count = re.subn(
+            r"question:\s*.*?(?=\s+%s|$)" % _OTHER_DIMENSIONS,
+            "question: holds: none.", before, count=1, flags=re.S)
+        if count and rewritten != before:
+            mapping["before"] = rewritten
+            changed.append("before")
+    return changed
+
+
+def render_passage_screen(proposal, duplicates, rewritten=()):
     """The one screen the owner sees: accept as new / merge into the named
     Move / decline. An artifact (kogaki#474's precedent), never retyped."""
     if not proposal.admitted:
         return "refused: %s\n" % proposal.refusal
 
     lines = ["proposed Move: %s" % proposal.id, ""]
+    if rewritten:
+        lines.append("the Analysis records the question before the passage as none: "
+                     "`holds: none` written into %s, never a composed question (kogaki#1216)"
+                     % " and ".join(rewritten))
+        lines.append("")
     if duplicates:
         lines.append("suspected near-duplicate(s) in moves/INDEX.md:")
         for move_id, overlap in duplicates:
@@ -1007,13 +1074,18 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
     proposal = proposals[0]
 
     duplicates = []
+    rewritten = []
     if proposal.admitted:
+        # BEFORE the screen and before any near-duplicate read (kogaki#1216):
+        # the owner accepts the rewritten record, and the rewrite is named on
+        # the screen rather than applied in silence.
+        rewritten = write_none_question(proposal.mapping, passage_text)
         duplicates = near_duplicates(proposal.mapping.get("technique", ""),
                                       read_index_rows(moves_dir))
 
     screen_path = os.path.join(out_dir, "PassageScreen.md")
     with open(screen_path, "w", encoding="utf-8") as handle:
-        handle.write(render_passage_screen(proposal, duplicates))
+        handle.write(render_passage_screen(proposal, duplicates, rewritten))
 
     result = {
         "raw": raw_path, "screen": screen_path, "proposal": proposal,
@@ -2296,6 +2368,62 @@ def self_test():
 
     check("#1175 passage: --select refuses an unrecognized token",
           select_rejects_an_unknown_token)
+
+    # ---- kogaki#1216: the question before the passage, read off the Analysis
+    NONE_ROW = ("## 2. Reader before and after\n\n"
+                "| dimension   | before                         | after |\n"
+                "|-------------|--------------------------------|-------|\n"
+                "| knowledge   | little; may know the word      | one claim |\n"
+                '| question    | none, or "should I read this?" | answered |\n'
+                "| trust       | neutral                        | raised |\n")
+    HELD_ROW = NONE_ROW.replace('none, or "should I read this?"', "holds a question about X")
+
+    def _proposal_mapping():
+        return {
+            "id": "a_move",
+            "before": "knowledge: has noticed a crowded shelf. question: holds an "
+                      "unanswered question about why so many such works are appearing "
+                      "now. expectation: anticipates a survey.",
+            "question": "holds: why so many works are appearing now settles: whether "
+                        "the wave is new raises: why worsening conditions renew interest",
+        }
+
+    def a_none_row_writes_holds_none_and_never_a_composed_question():
+        mapping = _proposal_mapping()
+        changed = write_none_question(mapping, NONE_ROW)
+        assert changed == ["question", "before"], changed
+        assert mapping["question"] == (
+            "holds: none settles: whether the wave is new raises: why worsening "
+            "conditions renew interest"), mapping["question"]
+        assert mapping["before"] == (
+            "knowledge: has noticed a crowded shelf. question: holds: none. "
+            "expectation: anticipates a survey."), mapping["before"]
+        assert "unanswered question" not in mapping["before"]
+    check("#1216 passage: an Analysis whose question-before reads none writes "
+          "`holds: none` into `question` and `before`, never a composed question",
+          a_none_row_writes_holds_none_and_never_a_composed_question)
+
+    def a_held_row_leaves_the_proposal_untouched():
+        mapping = _proposal_mapping()
+        original = dict(mapping)
+        assert write_none_question(mapping, HELD_ROW) == []
+        assert mapping == original
+    check("#1216 passage: an Analysis whose question-before holds a question "
+          "leaves the proposal untouched", a_held_row_leaves_the_proposal_untouched)
+
+    def a_passage_with_no_analysis_row_leaves_the_proposal_untouched():
+        mapping = _proposal_mapping()
+        original = dict(mapping)
+        assert analysis_question_before("just a passage, no table") is None
+        assert write_none_question(mapping, "just a passage, no table") == []
+        assert mapping == original
+        # And the screen names the rewrite only where one happened.
+        prop = Proposal(1, mapping=_proposal_mapping())
+        assert "holds: none" not in render_passage_screen(prop, [])
+        assert "never a composed question" in render_passage_screen(prop, [], ["question"])
+    check("#1216 passage: a Passage carrying no Analysis row is left untouched, "
+          "and the screen names a rewrite only where one happened",
+          a_passage_with_no_analysis_row_leaves_the_proposal_untouched)
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)

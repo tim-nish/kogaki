@@ -2,21 +2,39 @@
 # check-brief-differentiation — the `differentiation` judgment state
 # (kogaki#1206): decided before any reader-path unit composes, one entry per
 # unit, so the three Candidates differ BY ASSIGNMENT rather than by chance.
+# SINCE kogaki#1216 the same state also authors the Brief's one READER START
+# — a cold read from the Persona and the Thesis, never from a Move — and lists
+# the Moves the first Leg may bind (`leg1_survivors`, exclusion not ranking),
+# and this member covers that half too.
 #
 # WHAT THIS COVERS. `validateDifferentiationRecord` (src/brief.mjs), the pure
 # validator the `differentiation` state calls on the record before writing it
-# -- every refusal the schema declares (wrong version, wrong entry count, a
-# duplicate `unit_number`, a duplicate `dimension`, a `dimension` outside the
-# closed set, an `opening_move` outside `moves_you_may_bind`, a
-# `journey_placement` present on a Brief with no Journey material or outside
-# its own closed set, a blank `reader_experience`) and the passing shape, both
-# with and without Journey material. And `assembleSelection`'s own
-# differentiation check (src/assemble.mjs): a Candidate whose first Leg does
-# not bind its assigned unit's `opening_move` is refused naming the unit, a
-# matching Candidate is not, an entry naming no candidate's unit is not
-# checked against it, and passing no `differentiation` argument at all skips
-# the check entirely (a run predating this state, or a fixture exercising
-# assembly on its own).
+# -- every refusal the schema declares (wrong version, a `reader_start`
+# absent or not in `dimension: value` lines, a `leg1_survivors` absent, empty
+# or naming an id outside `moves_you_may_bind`, an `opening_move` that is not
+# a survivor, wrong entry count, a duplicate `unit_number`, a duplicate
+# `dimension`, a `dimension` outside the closed set, an `opening_move` outside
+# `moves_you_may_bind`, a `journey_placement` present on a Brief with no
+# Journey material or outside its own closed set, a blank `reader_experience`)
+# and the passing shape, both with and without Journey material. And
+# `assembleSelection`'s own differentiation check (src/assemble.mjs): a
+# Candidate whose first Leg does not bind its assigned unit's `opening_move`
+# is refused naming the unit, a matching Candidate is not, an entry naming no
+# candidate's unit is not checked against it, and passing no
+# `differentiation` argument at all skips the check entirely (a run predating
+# this state, or a fixture exercising assembly on its own).
+#
+# THE kogaki#1216 HALF: `readerPersona` reads the two-field reader file the
+# workflow's `compose_path` row names and refuses a file missing a field by
+# name; `openingQuestionOf` reads the Opening question off the first Leg's
+# after-state `question:` line and refuses a first Leg stating none;
+# `readerFieldValues` refuses the retired `opening_question` field by name and
+# derives the three rendered reader values; `survivorSentence` renders the
+# count; and, by absence, the verbatim first-Leg binding
+# (`reader_start_binds_first_leg`) is gone from both src/compose.mjs and
+# src/leg-schema.json's `path_rules`, replaced by the judgment-class
+# `first_leg_binds_a_survivor`, and `opening_question` is no longer a declared
+# Candidate field.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: the
 # reader-path unit's own prompt splice (`differentiationBlockFor`, spliced
@@ -25,18 +43,25 @@
 # fixture this member constructs; the free-text hint's removal from
 # `src/brief-workflow.json`'s `reader_path_unit.judgment_point` is asserted
 # by absence below, on the same convention `check-brief-reader-path-job.sh`
-# states for what it does not exercise either.
+# states for what it does not exercise either. Whether a Reader start is a
+# GOOD cold read of the Persona, and whether a Move's `before` CONTRADICTS
+# it, are judgments and are linted nowhere (Every MUST is judgment).
 set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { validateDifferentiationRecord } from "./src/brief.mjs";
-import { assembleSelection } from "./src/assemble.mjs";
+import { assembleSelection, readerFieldValues, survivorSentence } from "./src/assemble.mjs";
+import { readerPersona, openingQuestionOf, validateLegs } from "./src/compose.mjs";
 
 const fails = [];
 
-const MOVES = [{ id: "move-a" }, { id: "move-b" }, { id: "move-c" }];
+const MOVES = [{ id: "move-a" }, { id: "move-b" }, { id: "move-c" }, { id: "move-d" }];
+const READER_START = "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
+const SURVIVORS = ["move-a", "move-b", "move-c"];
 
 function baseEntries() {
   return [
@@ -44,6 +69,9 @@ function baseEntries() {
     { unit_number: 2, dimension: "question", opening_move: "move-b", reader_experience: "e2" },
     { unit_number: 3, dimension: "expectation", opening_move: "move-c", reader_experience: "e3" },
   ];
+}
+function baseRecord(over = {}) {
+  return { version: "1", reader_start: READER_START, leg1_survivors: SURVIVORS.slice(), entries: baseEntries(), ...over };
 }
 
 function check(record, ctx, want, label) {
@@ -56,26 +84,26 @@ function check(record, ctx, want, label) {
 }
 
 // (a) A CONFORMING RECORD PASSES, with no Journey material.
-check({ version: "1", entries: baseEntries() }, { units: 3, moves: MOVES, journeyBearing: false }, true, "a");
+check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a");
 
 // (a2) A CONFORMING RECORD CARRYING journey_placement PASSES when the Brief
 // carries Journey material.
 {
   const entries = baseEntries();
   entries[0].journey_placement = "opening";
-  check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: true }, true, "a2");
+  check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: true }, true, "a2");
 }
 
 // (b) WRONG version IS REFUSED.
 {
-  const r = check({ version: "2", entries: baseEntries() }, { units: 3, moves: MOVES, journeyBearing: false }, false, "b");
+  const r = check(baseRecord({ version: "2" }), { units: 3, moves: MOVES, journeyBearing: false }, false, "b");
   if (!/version/.test(r.error || "")) fails.push(`(b) refusal did not name \`version\`: ${r.error}`);
 }
 
 // (c) entries COUNT MISMATCH IS REFUSED, naming the count.
 {
   const entries = baseEntries().slice(0, 2);
-  const r = check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: false }, false, "c");
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: false }, false, "c");
   if (!/entries/.test(r.error || "")) fails.push(`(c) refusal did not name \`entries\`: ${r.error}`);
 }
 
@@ -83,7 +111,7 @@ check({ version: "1", entries: baseEntries() }, { units: 3, moves: MOVES, journe
 {
   const entries = baseEntries();
   entries[1].unit_number = 1;
-  const r = check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: false }, false, "d");
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: false }, false, "d");
   if (!/unit_number/.test(r.error || "")) fails.push(`(d) refusal did not name \`unit_number\`: ${r.error}`);
 }
 
@@ -91,7 +119,7 @@ check({ version: "1", entries: baseEntries() }, { units: 3, moves: MOVES, journe
 {
   const entries = baseEntries();
   entries[0].dimension = "vibes";
-  const r = check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: false }, false, "e");
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: false }, false, "e");
   if (!/dimension/.test(r.error || "")) fails.push(`(e) refusal did not name \`dimension\`: ${r.error}`);
 }
 
@@ -100,7 +128,7 @@ check({ version: "1", entries: baseEntries() }, { units: 3, moves: MOVES, journe
 {
   const entries = baseEntries();
   entries[1].dimension = entries[0].dimension;
-  const r = check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: false }, false, "f");
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: false }, false, "f");
   if (!/luck/.test(r.error || "")) fails.push(`(f) refusal did not name the luck/assignment distinction: ${r.error}`);
 }
 
@@ -108,7 +136,7 @@ check({ version: "1", entries: baseEntries() }, { units: 3, moves: MOVES, journe
 {
   const entries = baseEntries();
   entries[0].opening_move = "no-such-move";
-  const r = check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: false }, false, "g");
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: false }, false, "g");
   if (!/opening_move/.test(r.error || "")) fails.push(`(g) refusal did not name \`opening_move\`: ${r.error}`);
 }
 
@@ -117,7 +145,7 @@ check({ version: "1", entries: baseEntries() }, { units: 3, moves: MOVES, journe
 {
   const entries = baseEntries();
   entries[0].journey_placement = "opening";
-  const r = check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: false }, false, "h");
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: false }, false, "h");
   if (!/journey_placement/.test(r.error || "")) fails.push(`(h) refusal did not name \`journey_placement\`: ${r.error}`);
 }
 
@@ -126,7 +154,7 @@ check({ version: "1", entries: baseEntries() }, { units: 3, moves: MOVES, journe
 {
   const entries = baseEntries();
   entries[0].journey_placement = "middle";
-  const r = check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: true }, false, "i");
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: true }, false, "i");
   if (!/journey_placement/.test(r.error || "")) fails.push(`(i) refusal did not name \`journey_placement\`: ${r.error}`);
 }
 
@@ -134,8 +162,121 @@ check({ version: "1", entries: baseEntries() }, { units: 3, moves: MOVES, journe
 {
   const entries = baseEntries();
   entries[0].reader_experience = "   ";
-  const r = check({ version: "1", entries }, { units: 3, moves: MOVES, journeyBearing: false }, false, "j");
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: false }, false, "j");
   if (!/reader_experience/.test(r.error || "")) fails.push(`(j) refusal did not name \`reader_experience\`: ${r.error}`);
+}
+
+// ---- kogaki#1216: READER START AND THE FIRST-LEG SURVIVORS
+
+// (p) A reader_start ABSENT OR BLANK IS REFUSED, naming the field.
+{
+  const r1 = check(baseRecord({ reader_start: undefined }), { units: 3, moves: MOVES, journeyBearing: false }, false, "p");
+  if (!/reader_start/.test(r1.error || "")) fails.push(`(p) refusal did not name \`reader_start\`: ${r1.error}`);
+  const r2 = check(baseRecord({ reader_start: "   " }), { units: 3, moves: MOVES, journeyBearing: false }, false, "p2");
+  if (!/reader_start/.test(r2.error || "")) fails.push(`(p2) refusal did not name \`reader_start\`: ${r2.error}`);
+}
+
+// (q) A reader_start NOT IN `dimension: value` LINES IS REFUSED by the shape
+// predicate -- a knowledge sentence is not a stance (kogaki#1176).
+{
+  const r = check(baseRecord({ reader_start: "the reader knows nothing yet" }), { units: 3, moves: MOVES, journeyBearing: false }, false, "q");
+  if (!/dimension: value/.test(r.error || "")) fails.push(`(q) refusal did not name the line shape: ${r.error}`);
+}
+
+// (r) A leg1_survivors ABSENT OR EMPTY IS REFUSED -- an empty list names a
+// library with no Move able to open from this Reader start.
+{
+  const r1 = check(baseRecord({ leg1_survivors: undefined }), { units: 3, moves: MOVES, journeyBearing: false }, false, "r");
+  if (!/leg1_survivors/.test(r1.error || "")) fails.push(`(r) refusal did not name \`leg1_survivors\`: ${r1.error}`);
+  const r2 = check(baseRecord({ leg1_survivors: [] }), { units: 3, moves: MOVES, journeyBearing: false }, false, "r2");
+  if (!/leg1_survivors/.test(r2.error || "")) fails.push(`(r2) refusal did not name \`leg1_survivors\`: ${r2.error}`);
+}
+
+// (s) A SURVIVOR OUTSIDE moves_you_may_bind IS REFUSED, naming the id.
+{
+  const r = check(baseRecord({ leg1_survivors: ["move-a", "ghost-move", "move-c"] }), { units: 3, moves: MOVES, journeyBearing: false }, false, "s");
+  if (!/ghost-move/.test(r.error || "")) fails.push(`(s) refusal did not name the unresolved survivor: ${r.error}`);
+}
+
+// (t) AN opening_move THAT RESOLVES IN THE LIBRARY BUT IS NOT A SURVIVOR IS
+// REFUSED -- exclusion is where the first Leg's Move set is decided.
+{
+  const entries = baseEntries();
+  entries[2].opening_move = "move-d";
+  const r = check(baseRecord({ entries }), { units: 3, moves: MOVES, journeyBearing: false }, false, "t");
+  if (!/leg1_survivors/.test(r.error || "") || !/unit 3/.test(r.error || "")) fails.push(`(t) refusal did not name the survivor list and the unit: ${r.error}`);
+}
+
+// (u) THE OPENING QUESTION IS READ OFF THE FIRST LEG'S AFTER-STATE
+// `question:` LINE, and a first Leg stating none is refused naming the field.
+{
+  const legs = [{ leg_id: "s1", reader_state_after: "knowledge: one claim\nquestion: why does it go through anyway?\ntrust: raised" }];
+  const r = openingQuestionOf(legs);
+  if (r.question !== "why does it go through anyway?") fails.push(`(u) openingQuestionOf did not read the first Leg's question line: ${JSON.stringify(r)}`);
+  const none = openingQuestionOf([{ leg_id: "s1", reader_state_after: "knowledge: one claim" }]);
+  if (!none.error || !/question:/.test(none.error)) fails.push(`(u) a first Leg with no question line was not refused naming the line: ${JSON.stringify(none)}`);
+  const empty = openingQuestionOf([]);
+  if (!empty.error) fails.push(`(u) an empty path was not refused`);
+}
+
+// (v) THE VERBATIM FIRST-LEG BINDING IS GONE, asserted by absence in both
+// carriers, and its judgment-class replacement is declared.
+{
+  const compose = readFileSync("src/compose.mjs", "utf8");
+  const legSchema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
+  if (/pathRefusal\("reader_start_binds_first_leg"/.test(compose)) fails.push("(v) src/compose.mjs still raises the retired `reader_start_binds_first_leg` refusal");
+  if (legSchema.path_rules && legSchema.path_rules.reader_start_binds_first_leg) fails.push("(v) src/leg-schema.json still declares `reader_start_binds_first_leg` as a path rule");
+  const rule = legSchema.path_rules && legSchema.path_rules.first_leg_binds_a_survivor;
+  if (!rule || rule.class !== "judgment") fails.push("(v) src/leg-schema.json declares no judgment-class `first_leg_binds_a_survivor` path rule");
+  // A first Leg whose before-state differs from Reader start is NOT refused
+  // on that ground: the only Reader start refusal left is its own shape.
+  const shapeOnly = validateLegs([{ leg_id: "s1" }], "knowledge sentence with no dimension");
+  if (!shapeOnly.error || !/dimension: value/.test(shapeOnly.error)) fails.push(`(v) a malformed Reader start was not refused by the shape predicate: ${JSON.stringify(shapeOnly)}`);
+  const differs = validateLegs([{ leg_id: "s1", reader_state_before: "knowledge: something else" }], "knowledge: x");
+  if (differs.error && /reader_start_binds_first_leg|Reader start reads/.test(differs.error)) fails.push(`(v) a first Leg whose before-state differs from Reader start was refused on the retired verbatim ground: ${differs.error}`);
+}
+
+// (w) THE PERSONA IS READ FROM THE FILE THE WORKFLOW NAMES, two fields
+// exactly, and a file missing one refuses naming the field.
+{
+  const workflow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const row = (workflow.states || []).find((s) => s.id === "compose_path");
+  if (!row || typeof row.reader_file !== "string") fails.push("(w) src/brief-workflow.json's compose_path row names no `reader_file`");
+  else {
+    const persona = readerPersona(row.reader_file);
+    if (persona.error) fails.push(`(w) the named reader file did not read: ${persona.error}`);
+    else if (typeof persona.reader !== "string" || typeof persona.prior_knowledge !== "string") fails.push(`(w) the reader file lacks a field: ${JSON.stringify(persona)}`);
+  }
+  const dir = mkdtempSync(join(tmpdir(), "reader-"));
+  const half = join(dir, "half.md");
+  writeFileSync(half, "id: half\nreader: >-\n  someone reading something\n");
+  const r = readerPersona(half);
+  if (!r.error || !/prior_knowledge/.test(r.error)) fails.push(`(w) a reader file missing prior_knowledge was not refused naming it: ${JSON.stringify(r)}`);
+  const missing = readerPersona(join(dir, "absent.md"));
+  if (!missing.error) fails.push("(w) an absent reader file was not refused");
+}
+
+// (x) THE RENDERED READER VALUES: the retired field is refused by name, the
+// Opening question is derived, an unauthored Reader target is named, and the
+// survivor sentence carries the count.
+{
+  const c = {
+    candidate_id: "c1", reader_start: READER_START, reader_target: "knowledge: knows the claim",
+    legs: [{ leg_id: "s1", reader_state_after: "knowledge: one claim\nquestion: what was ever asked to say no?" }],
+    leg1_survivors: 3,
+  };
+  const ok = readerFieldValues(c);
+  if (!ok.values || ok.values.opening_question !== "what was ever asked to say no?") fails.push(`(x) readerFieldValues did not derive the Opening question: ${JSON.stringify(ok)}`);
+  const retired = readerFieldValues({ ...c, opening_question: "authored apart" });
+  if (!retired.error || !/opening_question/.test(retired.error)) fails.push(`(x) a Candidate carrying opening_question was not refused by name: ${JSON.stringify(retired)}`);
+  const unauthored = readerFieldValues({ ...c, reader_target: "" });
+  if (!unauthored.unauthored || unauthored.unauthored[0] !== "Reader target") fails.push(`(x) an unauthored Reader target was not named: ${JSON.stringify(unauthored)}`);
+  if (!/3 Moves/.test(survivorSentence(c) || "")) fails.push(`(x) survivorSentence did not carry the count: ${survivorSentence(c)}`);
+  if (!/names the library/.test(survivorSentence({ leg1_survivors: 1 }) || "")) fails.push("(x) a count of one did not name the library");
+  if (survivorSentence({}) !== null) fails.push("(x) a Candidate with no count did not render null");
+  const schema = JSON.parse(readFileSync("src/candidate-schema.json", "utf8"));
+  if (schema.fields.opening_question) fails.push("(x) src/candidate-schema.json still declares `opening_question` as a field");
+  if (!schema.retired_fields || !schema.retired_fields.opening_question) fails.push("(x) src/candidate-schema.json does not record `opening_question` as retired");
 }
 
 // ---- ASSEMBLY'S OWN OPENING-MOVE CHECK (src/assemble.mjs)
@@ -230,5 +371,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-differentiation — validateDifferentiationRecord's nine refusals and its passing shape, assembleSelection's opening-Move check (refused, not-refused, unmatched-unit, and no-argument), and the retired free-text hint's absence");
+console.log("ok: check-brief-differentiation — validateDifferentiationRecord's fifteen refusals and its passing shape, the Reader start / first-Leg survivor half (kogaki#1216: the persona reader, the derived Opening question, the retired field, the survivor sentence, the retired verbatim binding's absence), assembleSelection's opening-Move check (refused, not-refused, unmatched-unit, and no-argument), and the retired free-text hint's absence");
 JS
