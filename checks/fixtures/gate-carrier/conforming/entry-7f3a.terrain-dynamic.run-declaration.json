@@ -1,6 +1,6 @@
 {
   "id": "terrain-dynamic",
-  "raised_by": "the run-state-keyed half of the §4.1 fixture pair (kogaki#891) — shaped after the declaration src/brief.mjs:659 writes, whose name carries the run state's stem because two entries can share one workspace",
+  "raised_by": "the run-state-keyed half of the §4.1 fixture pair (kogaki#891) — shaped after the run-state-keyed declaration src/brief.mjs wrote at kogaki#891 (its writer, thesisGatePaths, went with the command it served), whose name carried the run state's stem because two entries can share one workspace",
   "host": "claude-code",
   "medium": "selector",
   "question": "Which tag does the survey open on?",

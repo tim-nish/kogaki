@@ -96,11 +96,12 @@
 # THE DECLINE STANDS ON THAT EVIDENCE (kogaki#126, spec sitting 2026-08-07;
 # candidate 1 of three, selected by the owner). Weighting the sources so a
 # path-signal match binds while a changed-text-only match merely reports was
-# declined again: it is a judgment clause, which `specs/SPEC.md:687-691`
+# declined again: it is a judgment clause, which
+# `specs/SPEC.md::two declared enumerations** and adds no judgment clause`
 # forecloses in as many words — this is "a presence check over two declared
 # enumerations" that "adds no judgment clause". Per-term source scoping was
 # declined as adding a per-term field to the map's entry schema, contracted at
-# `specs/SPEC.md:47-49`. What carries the decision is the map's own accretion
+# `specs/SPEC.md::the occasions file`. What carries the decision is the map's own accretion
 # polarity — "each entry routes to a judgment rather than encoding one, so a
 # member that turns out not to apply costs a consultation rather than a false
 # verdict" — which prices a spurious match at exactly one consultation

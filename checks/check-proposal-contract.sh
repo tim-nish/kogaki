@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The owner-facing proposal contract, made checkable (manifest item 3,
-# specs/SPEC.md:97-98; kogaki#15, umbrella kogaki#14).
+# `specs/SPEC.md::3. **The owner-facing proposal contract**`; kogaki#15, umbrella kogaki#14).
 #
 # Validates every proposal record (the tree-wide default carrier, named by
 # `records_home.suffix`, anywhere in the tree) against src/record-schema.json
@@ -239,7 +239,8 @@ if records:
     print(f"records: {len(records)} *{RECORDS_SUFFIX}, all conforming")
 else:
     print(f"records: 0 *{RECORDS_SUFFIX} in the tree — none yet; the contract is "
-          "ported ahead of its first consumer (Terrain, specs/SPEC.md:109-112)")
+          "ported ahead of its first consumer (Terrain, "
+          "`specs/SPEC.md::The list is a manifest, not an order`)")
 print(f"fixtures: {len(conforming)} conforming accepted, {len(nonconforming)} "
       f"non-conforming each rejected with its declared code "
       f"({len(covered)}/{len(CODES - set(CODES_WITHOUT_FIXTURE))} violation codes exercised)")

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The gate carrier, made checkable (manifest item 4, specs/SPEC.md:99-101;
+# The gate carrier, made checkable (manifest item 4,
+# `specs/SPEC.md::4. **The gate carrier** (declared gate registry`;
 # kogaki#16, umbrella kogaki#14).
 #
 # Validates the declared gate registry (src/gate-registry.json) and every gate
@@ -515,7 +516,7 @@ if gates:
 else:
     print("registry: 0 declared gates in src/gate-registry.json — none yet; the "
           "carrier is ported ahead of its first consumer (Terrain, "
-          "specs/SPEC.md:109-112)")
+          "`specs/SPEC.md::The list is a manifest, not an order`)")
     print("coverage: 0/0 — vacuous by construction, stated rather than omitted; "
           "the registry is what would make the fraction mean anything")
 print(f"captures: {len(captures)} *{CAPTURE_SUFFIX}, {capture_rows} row(s), "

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The external-dependency registry, made checkable (specs/SPEC.md:861-874,
+# The external-dependency registry, made checkable
+# (`specs/SPEC.md::this repository **needs but cannot install**`,
 # specs/spec-external-deps/SPEC.md; kogaki#55, story 1.14).
 #
 # WHAT THIS CARRIES. `src/deps-registry.json` declares the capabilities this
@@ -245,7 +246,7 @@ def registry_line(entries, path):
         return (f"registry: 0 declared dependencies in {path} — none yet; the "
                 "zero is rendered because a silent pass is indistinguishable "
                 "from a check that did not run (SPEC.md §6 precedent: "
-                "specs/spec-gate-carrier/SPEC.md:50-52)")
+                "`specs/spec-gate-carrier/SPEC.md::that zero explicitly rather than passing silently`)")
     return (f"registry: {len(entries)} declared dependency/dependencies in "
             f"{path}, all conforming")
 
