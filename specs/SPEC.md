@@ -5238,6 +5238,26 @@ UP if the rule is ignored, which is the whole of the detection. Each drain pass
 re-verifies what it migrates, so legacy verification returns per item as the set
 empties; a growing count is the tell that it is not.
 
+**A review-lane finding row is sha-pinned history, never a member of the
+closed set** (kogaki#1219, owner ruling on the filed record). `KNOWN-ISSUES.jsonl`
+is appended by the review lane on every round, a tool outside this repository,
+and each of its rows carries a `head` field: a 40-hex sha stating the tree the
+row's own `text` was written against. A `<file>:<line>` inside that `text` is
+therefore a claim about that sha, exactly as the hub-facing receipt grammar's
+sha is — carried **per row** rather than per line, because the row's own field
+is the pin rather than a token on the line the two arms above already read.
+Neither existing arm sees it: arm 1 looks for a `<repo>@<sha>` token on the
+line, which a JSON field is not, and arm 2 tests the path against the hub's
+served namespace, which this repository's own paths never match. **This is a
+third exclusion arm, not a relaxation of the first two**: `check-anchor-resolve.sh`
+parses the whole line as JSON and excludes a bare pointer found inside a row
+whose `head` field is present, counting it separately rather than folding it
+into either existing count. No hand will ever migrate one of these rows — the
+file did not exist before kogaki#635's ruling and a hand-drain pass cannot
+reach a sha-pinned history the review lane keeps appending to — so counting
+them against the same denominator a drain pass empties made the count rise
+with every review round while nothing had been ignored.
+
 **Out of scope:** the hub-facing receipt grammar — `<repo>@<sha> <file>:<line>`
 in consults, gate declarations and issue receipts — is the **hub's** boundary
 field and is untouched. It changes only if Gukan rules on its own carrier
