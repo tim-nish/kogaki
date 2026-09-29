@@ -183,16 +183,17 @@ export function readerFieldValues(c) {
 }
 
 // THE SURVIVOR COUNT, RECORDED IN THE BRIEF (kogaki#1216 amendment). Where the
-// Candidate rides `leg1_survivors` (a Harness-set count from the
-// differentiation record), one sentence names how many Moves were not
+// Candidate rides `leg1_survivor_count` (a Harness-set COUNT from the
+// differentiation record's `leg1_survivors` id list -- named apart because the
+// two are different types on two records, PR #1222 round 1), one sentence names how many Moves were not
 // excluded against Reader start for the first Leg. A count of one names the
 // LIBRARY, not the rule, as the cause of a repeated opening, and the fix is a
 // Move analysed from an opening passage -- said here so the reader of the
 // Brief is told where the repair goes. Null where no count rides (a run
 // predating the record), which is a statement rather than an omission.
 export function survivorSentence(c) {
-  if (!Number.isInteger(c.leg1_survivors)) return null;
-  const n = c.leg1_survivors;
+  if (!Number.isInteger(c.leg1_survivor_count)) return null;
+  const n = c.leg1_survivor_count;
   return `Opening: ${n} Move${n === 1 ? "" : "s"} in the library could open from this Reader start without contradicting it, `
     + `and the first Leg binds one of them.${n === 1 ? " A count of one names the library, not the rule, as the cause of a repeated opening; the repair is a Move analysed from an opening passage." : ""}`;
 }
@@ -647,12 +648,24 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
         return `between ${between}: ${why}`;
       }).join(" | ");
 
+  // PER FIELD, NEVER ALL-OR-NOTHING (PR #1222 round 1): this is the defensive
+  // path -- `compose_path`'s validator refuses every shape below first -- and
+  // it exists to tell the owner WHICH field is missing, so a Candidate lacking
+  // only its Reader target still renders the Reader start the Harness set on
+  // it and the Opening question its first Leg carries.
   const reader = {};
-  const rf = readerFieldValues(c);
+  const absent = "not stated by this path — adopting it will refuse, because the composing act did not run";
+  const oq = openingQuestionOf(c.legs);
+  const direct = {
+    reader_start: c.reader_start,
+    reader_target: c.reader_target,
+    opening_question: oq.question,
+  };
   for (const [key] of READER_FIELDS) {
-    reader[key] = rf.values && typeof rf.values[key] === "string" && rf.values[key] !== ""
-      ? rf.values[key]
-      : "not stated by this path — adopting it will refuse, because the composing act did not run";
+    reader[key] = typeof direct[key] === "string" && direct[key] !== "" ? direct[key] : absent;
+  }
+  if (Object.prototype.hasOwnProperty.call(c, "opening_question")) {
+    reader.opening_question = "authored apart from the first Leg — a retired field; adopting it will refuse";
   }
   return {
     ...reader,

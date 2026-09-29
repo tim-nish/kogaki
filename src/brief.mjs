@@ -2071,8 +2071,9 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
     // differentiation record, and by the Harness (kogaki#1216): Reader start
     // is authored once per Brief at `differentiation` and never per unit, so
     // whatever a unit wrote under `reader_start` is overwritten by the record
-    // rather than read, and `leg1_survivors` rides as a COUNT for the Brief
-    // to render beside Reader start. Read from the run record the job belongs
+    // rather than read, and the record's `leg1_survivors` id list rides as
+    // `leg1_survivor_count`, an integer -- named apart so a reader never takes
+    // the count for the list (PR #1222 round 1) -- for the Brief to render. Read from the run record the job belongs
     // to, exactly as `compose_path` read it to build the units' prompts.
     const jobRec = readRunRecord(dir);
     const differentiation = jobRec && jobRec.brief_differentiation ? readJson(jobRec.brief_differentiation) : null;
@@ -2083,7 +2084,7 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
         if (m) c.differentiation_unit = Number(m[1]);
         if (differentiation && typeof differentiation.reader_start === "string") {
           c.reader_start = differentiation.reader_start;
-          c.leg1_survivors = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
+          c.leg1_survivor_count = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
         }
       }
       return c;

@@ -54,7 +54,7 @@ import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { validateDifferentiationRecord } from "./src/brief.mjs";
-import { assembleSelection, readerFieldValues, survivorSentence } from "./src/assemble.mjs";
+import { assembleSelection, readerFieldValues, survivorSentence, candidateEvidence } from "./src/assemble.mjs";
 import { readerPersona, openingQuestionOf, validateLegs } from "./src/compose.mjs";
 
 const fails = [];
@@ -263,7 +263,7 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   const c = {
     candidate_id: "c1", reader_start: READER_START, reader_target: "knowledge: knows the claim",
     legs: [{ leg_id: "s1", reader_state_after: "knowledge: one claim\nquestion: what was ever asked to say no?" }],
-    leg1_survivors: 3,
+    leg1_survivor_count: 3,
   };
   const ok = readerFieldValues(c);
   if (!ok.values || ok.values.opening_question !== "what was ever asked to say no?") fails.push(`(x) readerFieldValues did not derive the Opening question: ${JSON.stringify(ok)}`);
@@ -272,7 +272,13 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   const unauthored = readerFieldValues({ ...c, reader_target: "" });
   if (!unauthored.unauthored || unauthored.unauthored[0] !== "Reader target") fails.push(`(x) an unauthored Reader target was not named: ${JSON.stringify(unauthored)}`);
   if (!/3 Moves/.test(survivorSentence(c) || "")) fails.push(`(x) survivorSentence did not carry the count: ${survivorSentence(c)}`);
-  if (!/names the library/.test(survivorSentence({ leg1_survivors: 1 }) || "")) fails.push("(x) a count of one did not name the library");
+  if (!/names the library/.test(survivorSentence({ leg1_survivor_count: 1 }) || "")) fails.push("(x) a count of one did not name the library");
+  // The defensive gate-evidence path degrades PER FIELD (PR #1222 round 1): a
+  // Candidate missing only its Reader target still renders the other two.
+  const partial = candidateEvidence({ ...c, reader_target: "", legs: c.legs.map((l) => ({ ...l, materials: [] })) }, []);
+  if (partial.error || partial.reader_start !== READER_START || !/what was ever asked/.test(partial.opening_question || "") || !/not stated/.test(partial.reader_target || "")) {
+    fails.push(`(x) candidateEvidence did not degrade per field: ${JSON.stringify(partial)}`);
+  }
   if (survivorSentence({}) !== null) fails.push("(x) a Candidate with no count did not render null");
   const schema = JSON.parse(readFileSync("src/candidate-schema.json", "utf8"));
   if (schema.fields.opening_question) fails.push("(x) src/candidate-schema.json still declares `opening_question` as a field");
