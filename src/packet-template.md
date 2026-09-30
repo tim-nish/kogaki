@@ -141,10 +141,7 @@ label, no commentary about what you are doing.
 Harness, from the title the Brief declared — never per Leg and never by you.
 Prose that writes its own heading is refused when the Leg is recorded.
 
-**Plain register, operationally:** no unexplained term of art; one relation per
-sentence; a concrete subject acting. Never write for an imagined audience —
-"explain this for beginners" produces condescension rather than clarity, and
-what replaces it is the three tests in this paragraph.
+**Plain register:** no unexplained term of art; a concrete subject acting.
 
 **The round trip:** the original claim must be recoverable from what you write.
 Where making it plain loses something, either restore the loss or **concede it
