@@ -556,6 +556,20 @@ export function validateLegs(legs, readerStart, obligations = []) {
       const bad = introducesRefusal(s.introduces, at);
       if (bad) return { error: bad };
     }
+    // `re-activate` (kogaki#1237, owner decision 2026-09-30) — OPTIONAL, and validated for the
+    // same reason `introduces` is: it reaches the Leg Packet, an owner-facing
+    // surface, so an unvalidated entry would render a Leg speaking of material
+    // it was never shown to have a claim to. The candidate population is
+    // closed: only the `depends_on` Legs' `introduces` entries and `claims`,
+    // never Journey material or Closure rows — the shape check refuses a
+    // malformed entry, the semantic check refuses one whose Leg, term or
+    // Strand does not exist where named.
+    if (s["re-activate"] !== undefined) {
+      const bad = reactivateRefusal(s["re-activate"], at);
+      if (bad) return { error: bad };
+      const badSemantic = reactivateSemanticRefusal(s["re-activate"], s.depends_on, legs, at);
+      if (badSemantic) return { error: badSemantic };
+    }
     // the Section grouping's `opens_section` (kogaki#822) — shape only here; the four grouping
     // rules are a property of the whole path and run after this loop.
     if (s.opens_section !== undefined) {
@@ -1655,6 +1669,78 @@ export function introducesRefusal(value, at) {
   return null;
 }
 
+// The re-activate grammar (kogaki#1237), in one place for the same reason
+// `introduces`'s is: the composition side validates records and
+// `draft.mjs parseLegBlockBody` parses the serialized form back. One line,
+// "<leg_id> term <exact introduces string>" or "<leg_id> claim <strand id>".
+export function parseReactivateEntry(raw) {
+  const line = String(raw).trim();
+  if (line === "") return { error: "an empty entry" };
+  const m = line.match(/^(\S+)\s+(term|claim)\s+(.+)$/s);
+  if (!m) {
+    return { error: `"${line}" — a re-activate entry is "<leg_id> term <exact introduces string>" or "<leg_id> claim <strand id>"` };
+  }
+  const [, leg_id, kind, rest] = m;
+  const value = rest.trim();
+  if (value === "") {
+    return { error: `"${line}" names no ${kind === "term" ? "term" : "strand"} after ${kind}` };
+  }
+  return { leg_id, kind, value };
+}
+
+// Shape refusal over a whole `re-activate` value — mirrors `introducesRefusal`.
+export function reactivateRefusal(value, at) {
+  if (!Array.isArray(value)) {
+    return `${at}: re-activate, when present, is an array of entries — one reference per line, "<leg_id> term <exact introduces string>" or "<leg_id> claim <strand id>" (re-activate)`;
+  }
+  for (const raw of value) {
+    if (typeof raw !== "string") {
+      return `${at}: re-activate carries a non-string entry — each entry is one line, "<leg_id> term <...>" or "<leg_id> claim <strand id>" (re-activate)`;
+    }
+    const e = parseReactivateEntry(raw);
+    if (e.error) return `${at}: re-activate carries ${e.error} (re-activate)`;
+  }
+  return null;
+}
+
+// Semantic refusal over a whole `re-activate` value: THE CANDIDATE POPULATION
+// IS CLOSED (kogaki#1237, owner decision 2026-09-30) — everything explicitly
+// represented in the Legs named in `depends_on`, specifically their
+// `introduces` lines (exact strings) and `claims` (addressed by Strand).
+// Journey material and Closure rows are never candidates. Refuses naming the
+// entry: which Leg, which reference, and why it does not resolve.
+export function reactivateSemanticRefusal(value, dependsOn, legs, at) {
+  if (!Array.isArray(value)) return null; // reactivateRefusal names this
+  const deps = new Set(dependsOn || []);
+  const byId = new Map((legs || []).map((l) => [l.leg_id, l]));
+  for (const raw of value) {
+    const e = parseReactivateEntry(raw);
+    if (e.error) continue; // reactivateRefusal names this
+    if (!deps.has(e.leg_id)) {
+      return `${at}: re-activate names ${JSON.stringify(raw.trim())}, but "${e.leg_id}" is not in this Leg's depends_on — a Leg may re-activate only material from a Leg it depends on`;
+    }
+    const target = byId.get(e.leg_id);
+    if (!target) {
+      return `${at}: re-activate names ${JSON.stringify(raw.trim())}, but no Leg in this path carries the id "${e.leg_id}"`;
+    }
+    if (e.kind === "term") {
+      const found = (target.introduces || []).some((intro) => {
+        const p = parseIntroducesEntry(intro);
+        return !p.error && p.term === e.value;
+      });
+      if (!found) {
+        return `${at}: re-activate names ${JSON.stringify(raw.trim())}, but "${e.leg_id}" does not introduce "${e.value}" — a re-activated term must match, verbatim, an entry in that Leg's introduces`;
+      }
+    } else {
+      const found = (target.claims || []).some((g) => g.strand === e.value);
+      if (!found) {
+        return `${at}: re-activate names ${JSON.stringify(raw.trim())}, but "${e.leg_id}" carries no claim for strand "${e.value}"`;
+      }
+    }
+  }
+  return null;
+}
+
 // THE DERIVATION. For each Leg in path order, what the reader already knows
 // arriving at it: the union of every EARLIER Leg's entries, first-introducer
 // kept. Pure over the path — no store, no file, no I/O.
@@ -1743,6 +1829,10 @@ export function renderLeg(s) {
   // `parseBrief`'s reader are one round trip and this is the half that makes
   // it possible.
   for (const e of s.introduces || []) L.push(`introduces: ${e}`);
+  // `re-activate` (kogaki#1237): one LINE per entry, for the same reason
+  // `introduces` is — the candidate population it names is closed, and a
+  // comma-joined field could not carry a term containing a comma back.
+  for (const e of s["re-activate"] || []) L.push(`re-activate: ${e}`);
   if (s.budget !== undefined && s.budget !== null) L.push(`budget: ${s.budget}`);
   if (s.opens_section !== undefined) L.push(`opens_section: ${s.opens_section}`);
   // the Reader target Leg's mark (kogaki#1231): written only where declared

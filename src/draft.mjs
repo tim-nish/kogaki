@@ -104,7 +104,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, figureOf, figureLegs,
-  journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg } from "./compose.mjs";
+  journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg,
+  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
@@ -195,6 +196,17 @@ export function parseLegBlockBody(body, path) {
   // accumulation nobody re-derives by hand.
   if (introduces.length) {
     const bad = introducesRefusal(introduces, `the Brief at ${path}, leg ${idM[1]}`);
+    if (bad) return { refusal: bad };
+  }
+  // `re-activate` (kogaki#1237), read back from the serialized form
+  // `renderLeg` writes: ONE LINE PER ENTRY, matching `introduces`'s own
+  // reader for the same reason. SHAPE ONLY — the semantic check (the named
+  // Leg is in `depends_on`, the term or Strand exists there) already ran at
+  // `validateLegs` before this Brief was minted; re-running it here would be
+  // a second copy of a judgment `compose.mjs` already made.
+  const reactivate = [...body.matchAll(/^re-activate:\s*(.*)$/gm)].map((x) => x[1]);
+  if (reactivate.length) {
+    const bad = reactivateRefusal(reactivate, `the Brief at ${path}, leg ${idM[1]}`);
     if (bad) return { refusal: bad };
   }
   // the Section grouping's `opens_section:` (kogaki#823), read back from the serialized form
@@ -313,8 +325,8 @@ export function parseLegBlockBody(body, path) {
     }
     reaches_target = true;
   }
-  return { leg: { leg_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, journeys,
-    figure, figure_roles, budget, reaches_target, body } };
+  return { leg: { leg_id: idM[1], move: moveM ? moveM[1] : null, introduces, "re-activate": reactivate,
+    opens_section, journeys, figure, figure_roles, budget, reaches_target, body } };
 }
 
 // THE READER TARGET LINE OF A PACKET (kogaki#1231, owner decision
@@ -1170,6 +1182,39 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
   const claims = claimTexts.map((text) => `- ${text}`).join("\n");
   const intro = (leg.introduces || []);
   const known = (ledgerRow?.reader_already_knows || []);
+  // WHAT THIS LEG RE-ACTIVATES (kogaki#1237, owner decision 2026-09-30):
+  // parsed the same way `validateLegs` parsed it before this Brief was
+  // minted — a bad entry never reaches here, because `parseLegBlockBody`
+  // refused the Brief on it. Each valid entry resolves to the NAMED LEG's
+  // own material, verbatim: a `term` entry to that Leg's own `introduces`
+  // line (term and anchor, if any), a `claim` entry to that Leg's own
+  // `claim (strand <id>): <proposition>` line. Nothing here is composed —
+  // the composer already selected the reference; this only resolves it.
+  const reactivateEntries = (leg["re-activate"] || [])
+    .map((raw) => parseReactivateEntry(raw))
+    .filter((e) => !e.error);
+  const active = reactivateEntries.map((e) => {
+    const target = (brief.legs || []).find((l) => l.leg_id === e.leg_id);
+    if (e.kind === "term") {
+      const found = (target?.introduces || [])
+        .map((raw) => parseIntroducesEntry(raw))
+        .find((p) => !p.error && p.term === e.value);
+      const text = found ? `${found.term}${found.anchor ? ` — ${found.anchor}` : ""}` : e.value;
+      return `- ${text} (re-activated from ${e.leg_id})`;
+    }
+    const claimText = (target?.body || "").split("\n")
+      .find((l) => l.startsWith("claim ") && l.includes(`(strand ${e.value})`));
+    const text = claimText ? claimText.replace(/^claim\s*\([^)]*\)\s*:\s*/, "") : e.value;
+    return `- ${text} (re-activated from ${e.leg_id})`;
+  });
+  // HELD IS EVERY LEDGER TERM THIS LEG DID NOT RE-ACTIVATE (acceptance item
+  // 2). A `claim` re-activation never moves a term off this list — the
+  // ledger tracks `introduces` alone, and a re-activated claim was never on
+  // it. Matched case-insensitively, the way the ledger itself keys terms.
+  const reactivatedTermKeys = new Set(
+    reactivateEntries.filter((e) => e.kind === "term").map((e) => e.value.toLowerCase())
+  );
+  const held = known.filter((k) => !reactivatedTermKeys.has(k.term.toLowerCase()));
 
   const fields = {
     thesis: indentContinuation(need("the Brief's Thesis", sectionContent(briefSection(brief.text, "Thesis")))),
@@ -1213,12 +1258,25 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
       ? `${leg.budget} words. This is a ceiling, not a target — write what this Leg needs, up to it.`
       : "(none declared — no word bound applies to this Leg.)",
     claims: claims || "(none recorded)",
-    reader_already_knows: known.length
-      ? known.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
+    // ACTIVE HERE (kogaki#1237, owner decision 2026-09-30): what this Leg
+    // re-activates, restored VERBATIM from the Leg it names — never an
+    // inventory of what the reader possesses, only what THIS Leg may speak
+    // of as its own. A STATED ABSENCE, never an empty slot (acceptance item
+    // 2): a Leg that re-activates nothing still gets the block, saying so,
+    // on the same one-word-one-unit ground `closure_rows` states.
+    active_here: active.length
+      ? active.join("\n")
+      : "(nothing — this Leg re-activates no earlier material; restore nothing here.)",
+    // HELD BY THE READER, NOT MATERIAL HERE: every OTHER ledger term — what
+    // the reader holds on arriving at this Leg but this Leg did not
+    // re-activate. Do not rely on it as material; it is not this Leg's to
+    // speak of.
+    held_by_reader: held.length
+      ? held.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
       // "Leg", not "Section" (PR #844 round 1, finding 2). A slot VALUE reaches
       // the model's entire input exactly as a block header does, so the
       // one-word-one-unit rule binds it too.
-      : "(nothing — this is the first Leg to introduce anything, or the path introduces no terms)",
+      : "(nothing — this is the first Leg to introduce anything, the path introduces no terms, or every known term is re-activated above)",
     // A FLAT LIST, ONE LINE PER TERM (kogaki#1215; the relations layer this
     // rendered as a tree is retired) — over this Leg's own `introduces`
     // entries.
@@ -2267,7 +2325,7 @@ async function runSelfTest() {
     ok("a first Section states the absence of prior ones rather than rendering empty",
       /nothing yet/.test(p1.stdout));
     ok("the derived reader-knowledge ledger reaches the packet",
-      /already knows/.test(p2.stdout));
+      /Held by the reader, not material here/.test(p2.stdout));
   }
 
   // 4b — the Leg-Move instantiation contract's MECHANICAL HALF at the realization entry (kogaki#747).
