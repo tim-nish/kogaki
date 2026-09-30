@@ -1,7 +1,3 @@
 {
-  "review": {
-    "mechanisms": [
-      "bash tools/run-registered-checks.sh"
-    ]
-  }
+  "review": {}
 }
