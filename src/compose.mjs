@@ -650,6 +650,12 @@ export function validateLegs(legs, readerStart, obligations = []) {
   // relation to its neighbours, so none of them is decidable inside the loop.
   const grouping = sectionGroupingRefusal(legs);
   if (grouping) return { error: grouping };
+  // CLOSURE (kogaki#1232, owner decision 2026-09-30), run for the same reason
+  // the Section grouping and the Reader target Leg do: both rules below are
+  // statements about the whole ledger against the whole path, not about one
+  // Leg or one row alone.
+  const closure = closureLedgerRefusal(legs, obligations);
+  if (closure) return { error: closure };
   // THE READER TARGET LEG (kogaki#1231), run last: it names a Leg by
   // POSITION relative to every other Leg, so it is decidable only once every
   // Leg above is known to be well formed — the same reason the Section
@@ -1521,6 +1527,59 @@ export function sectionGroupingRefusal(legs) {
 export function targetLegIndex(legs) {
   if (!Array.isArray(legs)) return -1;
   return legs.findIndex((s) => s && s.reaches_target === true);
+}
+
+// CLOSURE, THE TWO PATH RULES (kogaki#1232, owner decision 2026-09-30): a
+// Question a Leg will not close is set aside IN THAT LEG, "in a way that
+// releases the question without interfering with the Thesis"; needing more
+// than one set aside is read as the ReaderPath itself being unsuitable; and
+// at most one non-Thesis Question is open at any given time. `obligations` is
+// the Candidate's own ledger (src/candidate-schema.json) -- the Thesis row is
+// out of scope by name (the issue's "Not in scope") and never reaches this
+// function. Rows are read defensively: a row whose `introduced_by` or closing
+// leg is not a shape `validateLegs` can resolve is skipped here rather than
+// refused, because that shape refusal is `fillBrief`'s own (obligation N: ...)
+// and this function's job is the two rules above it, not a second reading of
+// the same field. Returns a string to refuse with, or null.
+export function closureLedgerRefusal(legs, obligations = []) {
+  const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
+  const list = Array.isArray(obligations) ? obligations : [];
+  const legIds = legs.map((s) => s.leg_id);
+  const index = new Map(legIds.map((id, i) => [id, i]));
+
+  // RULE (a): a path with more than one `conceded_by` row is refused, naming
+  // the rows.
+  const conceded = list.filter((o) => o && typeof o === "object" && o.conceded_by !== undefined);
+  if (conceded.length > 1) {
+    return pathRefusal("closure_one_conceded_row", null,
+      `${conceded.length} Closure rows end conceded_by: ${conceded.map((o) => JSON.stringify(o.text)).join(", ")}.`);
+  }
+
+  // RULE (b): a row is open on every Leg from its `introduced_by` Leg up to,
+  // and NOT INCLUDING, the Leg that closes it -- a row raised and conceded in
+  // one Leg (the same `leg_id` on both ends) is open on no Leg, by the range
+  // being empty. A Leg on which more than one row is open is refused, naming
+  // the Leg and the rows.
+  const openPerLeg = new Map();
+  for (const o of list) {
+    if (!o || typeof o !== "object" || typeof o.text !== "string") continue;
+    const closingLeg = o.discharged_by !== undefined ? o.discharged_by : o.conceded_by;
+    if (typeof o.introduced_by !== "string" || typeof closingLeg !== "string") continue;
+    if (!index.has(o.introduced_by) || !index.has(closingLeg)) continue;
+    for (let i = index.get(o.introduced_by); i < index.get(closingLeg); i++) {
+      const id = legIds[i];
+      if (!openPerLeg.has(id)) openPerLeg.set(id, []);
+      openPerLeg.get(id).push(o.text);
+    }
+  }
+  for (const [i, s] of legs.entries()) {
+    const rows = openPerLeg.get(s.leg_id);
+    if (rows && rows.length > 1) {
+      return pathRefusal("closure_one_row_open_per_leg", at(i),
+        `${rows.length} Closure rows are open here: ${rows.map((t) => JSON.stringify(t)).join(", ")}.`);
+    }
+  }
+  return null;
 }
 
 // THE READER TARGET LEG (kogaki#1231, owner decision 2026-09-30, reversing
