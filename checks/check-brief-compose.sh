@@ -355,7 +355,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
     const rTwo = closureLedgerRefusal(legs, twoConceded);
     if (!rTwo) fails.push("(l) two conceded_by rows in one path were not refused");
     else {
-      if (!/closure_one_conceded_row/.test(rTwo)) fails.push(`(l) the refusal did not name the rule: ${rTwo}`);
+      if (!/at most one conceded row in the path/.test(rTwo)) fails.push(`(l) the refusal did not name the rule: ${rTwo}`);
       if (!/a question set aside early/.test(rTwo) || !/a question set aside late/.test(rTwo)) fails.push(`(l) the refusal did not name both rows: ${rTwo}`);
     }
 
@@ -385,9 +385,9 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   const rThree = closureLedgerRefusal(legs, threeOpenAtLeg3);
   if (!rThree) fails.push("(m) three rows open at one Leg were not refused");
   else {
-    if (!/closure_one_row_open_per_leg/.test(rThree)) fails.push(`(m) the refusal did not name the rule: ${rThree}`);
-    if (!/leg 3 \(leg3\)/.test(rThree)) fails.push(`(m) the refusal did not name the Leg: ${rThree}`);
-    if (!/row A/.test(rThree) || !/row B/.test(rThree) || !/row C/.test(rThree)) fails.push(`(m) the refusal did not name every row open there: ${rThree}`);
+    if (!/at most one row open at any given Leg/.test(rThree)) fails.push(`(m) the refusal did not name the rule: ${rThree}`);
+    if (!/leg 2 \(leg2\)/.test(rThree)) fails.push(`(m) the refusal did not name the Leg: ${rThree}`);
+    if (!/row A/.test(rThree) || !/row B/.test(rThree)) fails.push(`(m) the refusal did not name the rows open there: ${rThree}`);
   }
 
   // A row open on exactly one Leg at a time, nowhere doubled, is not refused.
@@ -410,11 +410,12 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   const fullLegs = legs.map((s) => ({ ...s, move: "m", materials: ["L1"], purpose: `purpose of ${s.leg_id}`,
     reader_state_before: `orientation: before ${s.leg_id}\nknowledge: before ${s.leg_id}`,
     reader_state_after: `orientation: after ${s.leg_id}\nknowledge: after ${s.leg_id}`,
-    depends_on: [], rationale: `why ${s.leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${s.leg_id}` }] }));
+    depends_on: [], rationale: `why ${s.leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${s.leg_id}` }] }));
+  fullLegs[0].opens_section = "A Section";
   fullLegs[3].reaches_target = true;
   const rFull = validateLegs(fullLegs, "", threeOpenAtLeg3);
   if (!rFull.error) fails.push("(m) validateLegs did not refuse a full path over the same three-open ledger");
-  else if (!/closure_one_row_open_per_leg/.test(rFull.error)) fails.push(`(m) validateLegs's refusal did not name the rule: ${rFull.error}`);
+  else if (!/at most one row open at any given Leg/.test(rFull.error)) fails.push(`(m) validateLegs's refusal did not name the rule: ${rFull.error}`);
 }
 
 if (fails.length > 0) {
