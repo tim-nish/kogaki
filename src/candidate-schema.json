@@ -137,11 +137,6 @@
       "type": "string",
       "description": "The reader's STANCE when the path begins -- one `dimension: value` LINE per dimension, drawn from the Move library's own dimension set (knowledge, question, expectation, orientation, trust -- the Move library entry), NOT a knowledge state alone (kogaki#1176). GIVEN, NOT COMPOSED HERE (kogaki#1216, owner decision 2026-09-28): Reader start is a cold read authored ONCE per Brief at the `differentiation` state, from the Persona (the reader file the workflow table names) and the adopted Thesis, never from the Move any first Leg binds. It is rendered above this prompt's input marker as YOUR ASSIGNED DIFFERENTIATION and the Harness sets it on the Candidate from the differentiation record; a value composed here is overwritten by that record and never read. Your first Leg's `reader_state_before` is judged against it at the specialization occasion in place of its Move's `before` -- `specializes` passes, `contradicts` refuses -- so compose the first Leg's before-state as a specialization of the Reader start you were given. It is a line-per-dimension shape, not `moves_you_may_bind`'s own `before`/`after` shape verbatim -- a Move's `before`/`after` folds its dimensions into one paragraph, and a dimension's value there is ordinary prose free to carry any punctuation (kogaki#1211)."
     },
-    "reader_target": {
-      "required": true,
-      "type": "string",
-      "description": "Where the path leaves the reader, in the same dimensions and the same line-per-dimension shape as `reader_start`. Of the three reader fields the settled structure section names, the one path composition AUTHORS per Candidate (kogaki#1216): Reader start is given and the Opening question is read off the first Leg's after-state, so this is the reader field a Candidate is refused for leaving unauthored, and adoption fills no default."
-    },
     "coverage": {
       "required": false,
       "type": "object keyed by selected Strand id",
@@ -162,7 +157,8 @@
     }
   },
   "retired_fields": {
-    "opening_question": "RETIRED (kogaki#1216, owner decision 2026-09-28) and REFUSED BY NAME where a Candidate carries it. The Opening question is not a separately authored field: it is the `question:` line of the FIRST Leg's `reader_state_after`, and the Brief renders that line under its existing `Opening question` heading. Authoring it apart from the first Leg let one fact be written twice -- once as `reader_start`'s own `question:` line and once here -- and the two drifted. Write the question the opening leaves the reader holding INTO the first Leg's after-state, in the reader's own words."
+    "reader_target": "RETIRED (kogaki#1225, owner decision 2026-09-29) and REFUSED BY NAME where a Candidate carries it. Reader target is DERIVED, not authored: it is the LAST Leg's `reader_state_after`, whole, line for line, and the Brief renders that state under the `Reader target` heading the settled structure section names (src/assemble.mjs `readerFieldValues`). Authored apart from the Leg, it was a second statement of where the path leaves the reader that the Harness compared with nothing -- it checked only that the string was non-empty. Write where the path leaves the reader INTO the last Leg's after-state, in the reader's own condition, and carry no field.",
+    "opening_question": "RETIRED (kogaki#1216, owner decision 2026-09-28) and REFUSED BY NAME where a Candidate carries it. SINCE kogaki#1225 (owner decision 2026-09-29) NO Opening question is rendered at all: the `Opening question` heading is gone from the Brief, the fixed-points line is gone from the Leg Packet, and the first Leg's after-state is no longer required to carry a `question:` line. The first Leg already carries a before-state and an after-state, so a heading repeating its after-state question was a second Question inside Leg 1, rendered three times. Whatever question the opening leaves the reader holding belongs in the first Leg's after-state, in the reader's own words, and nowhere else."
   },
   "what_is_judged_elsewhere": [
     "Nothing here is a lint over a judgment. Whether the characteristic names",

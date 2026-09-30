@@ -110,7 +110,7 @@ import {
   GATE_CALL_SUFFIX, JUDGE_INPUT_MARKER,
 } from "./terrain.mjs";
 import {
-  SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, AUTHORED_READER_FIELDS,
+  SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, lastLegAfterState,
   cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal,
 } from "./assemble.mjs";
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
@@ -118,7 +118,7 @@ import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
   validateLegs, validateSpecialization, selectedStrands, journeyBearingStrands,
   resolveMoveIds, loadMoveContracts, moveContractsForLegs,
-  readerStateShapeRefusal, readerPersona, openingQuestionOf,
+  readerStateShapeRefusal, readerPersona,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -1195,8 +1195,8 @@ function differentiationBlockFor(entry, readerStart, survivorCount) {
     // unit that writes its own is writing a value nothing reads.
     "THE BRIEF'S READER START (kogaki#1216) — a cold read authored from the Persona and the Thesis, never from",
     "a Move; GIVEN to you, not yours to compose. Your first Leg's `reader_state_before` is judged against it in",
-    "place of its Move's `before` (`specializes` passes, `contradicts` refuses), and your first Leg's",
-    "`reader_state_after` MUST carry a `question:` line — it IS the Brief's Opening question. Your assigned opening",
+    "place of its Move's `before` (`specializes` passes, `contradicts` refuses). Your LAST Leg's `reader_state_after`",
+    "IS the Brief's Reader target (kogaki#1225) — no field authors it apart from the Leg. Your assigned opening",
     `Move is one of the ${survivorCount} Move(s) whose \`before\` does not contradict this Reader start:`,
     ...String(readerStart).split("\n").map((l) => `  ${l}`),
   ].join("\n");
@@ -1468,28 +1468,24 @@ const STATE_WORK = {
               + "closing sections are filled from it at adoption, and adoption fills no default");
           }
         }
-        // `opening_question` IS A RETIRED FIELD, refused BY NAME (kogaki#1216;
-        // the precedent is `relations` on a Leg). The Opening question is the
-        // first Leg's after-state `question:` line, read by `openingQuestionOf`,
-        // and a Candidate that authored one apart from it has written one fact
-        // twice -- which is the defect the retirement removes.
-        if (Object.prototype.hasOwnProperty.call(c, "opening_question")) {
-          refuseJudgment(`candidate ${c.candidate_id}: \`opening_question\` is a retired field (kogaki#1216) — the `
-            + "Opening question is the first Leg's `reader_state_after` `question:` line and is read from it; write "
-            + "the question there, in the reader's own words, and remove the field");
+        // `opening_question` (kogaki#1216) AND `reader_target` (kogaki#1225) ARE
+        // RETIRED FIELDS, refused BY NAME (the precedent is `relations` on a
+        // Leg), with the message declared once in src/assemble.mjs beside the
+        // rendered field table. Reader target is the LAST Leg's after-state
+        // and no Opening question is rendered; a Candidate that authored either
+        // apart from its Legs has written one fact twice -- which is the defect
+        // the retirement removes. A path whose last Leg states no after-state
+        // has no Reader target to derive, and is refused naming the Leg.
+        const retired = retiredReaderFieldRefusal(c);
+        if (retired) refuseJudgment(retired);
+        if (lastLegAfterState(c.legs) === null) {
+          const last = c.legs[c.legs.length - 1];
+          refuseJudgment(`candidate ${c.candidate_id}, leg ${last && last.leg_id}: the last Leg's \`reader_state_after\` `
+            + "is absent — it IS the Brief's Reader target (kogaki#1225), and adoption fills no default");
         }
-        const oq = openingQuestionOf(c.legs);
-        if (oq.error) refuseJudgment(`candidate ${c.candidate_id}: ${oq.error}`);
         // READER START IS GIVEN (set on the Candidate by the Harness from the
-        // differentiation record at the job's own boundary) and READER TARGET
-        // IS AUTHORED; both must be present here, and only the second is the
-        // composer's to have left unauthored.
-        for (const [key, heading] of AUTHORED_READER_FIELDS) {
-          if (typeof c[key] !== "string" || c[key] === "") {
-            refuseJudgment(`candidate ${c.candidate_id}: ${heading} is unauthored — path composition `
-              + "writes it per Candidate, and adoption fills no default");
-          }
-        }
+        // differentiation record at the job's own boundary) and must be
+        // present here; its absence is the runtime's, never the composer's.
         if (typeof c.reader_start !== "string" || c.reader_start === "") {
           refuseJudgment(`candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation `
             + "record and set on the Candidate by the Harness at the reader-path job's boundary (kogaki#1216), so its "

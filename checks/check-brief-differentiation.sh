@@ -26,15 +26,19 @@
 #
 # THE kogaki#1216 HALF: `readerPersona` reads the two-field reader file the
 # workflow's `compose_path` row names and refuses a file missing a field by
-# name; `openingQuestionOf` reads the Opening question off the first Leg's
-# after-state `question:` line and refuses a first Leg stating none;
-# `readerFieldValues` refuses the retired `opening_question` field by name and
-# derives the three rendered reader values; `survivorSentence` renders the
-# count; and, by absence, the verbatim first-Leg binding
-# (`reader_start_binds_first_leg`) is gone from both src/compose.mjs and
-# src/leg-schema.json's `path_rules`, replaced by the judgment-class
-# `first_leg_binds_a_survivor`, and `opening_question` is no longer a declared
-# Candidate field.
+# name; `survivorSentence` renders the count; and, by absence, the verbatim
+# first-Leg binding (`reader_start_binds_first_leg`) is gone from both
+# src/compose.mjs and src/leg-schema.json's `path_rules`, replaced by the
+# judgment-class `first_leg_binds_a_survivor`.
+#
+# THE kogaki#1225 HALF (owner decision 2026-09-29): `readerFieldValues`
+# refuses a Candidate carrying the retired `reader_target` or
+# `opening_question` field by name, derives Reader target from the LAST Leg's
+# `reader_state_after` line for line, and derives no Opening question at
+# all; src/candidate-schema.json records both fields as retired and declares
+# neither; the Brief skeleton `composeBrief` writes carries no `Opening
+# question` heading and `SLOT_CAPTIONS` names none; and the gate evidence
+# (`candidateEvidence`) reads Reader target off the same last Leg.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: the
 # reader-path unit's own prompt splice (`differentiationBlockFor`, spliced
@@ -53,9 +57,9 @@ node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { validateDifferentiationRecord } from "./src/brief.mjs";
-import { assembleSelection, readerFieldValues, survivorSentence, candidateEvidence } from "./src/assemble.mjs";
-import { readerPersona, openingQuestionOf, validateLegs } from "./src/compose.mjs";
+import { validateDifferentiationRecord, composeBrief } from "./src/brief.mjs";
+import { assembleSelection, readerFieldValues, survivorSentence, candidateEvidence, READER_FIELDS, SLOT_CAPTIONS } from "./src/assemble.mjs";
+import { readerPersona, validateLegs } from "./src/compose.mjs";
 
 const fails = [];
 
@@ -207,16 +211,17 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   if (!/leg1_survivors/.test(r.error || "") || !/unit 3/.test(r.error || "")) fails.push(`(t) refusal did not name the survivor list and the unit: ${r.error}`);
 }
 
-// (u) THE OPENING QUESTION IS READ OFF THE FIRST LEG'S AFTER-STATE
-// `question:` LINE, and a first Leg stating none is refused naming the field.
+// (u) NO OPENING QUESTION IS RENDERED (kogaki#1225): the rendered reader
+// field table names two headings, the Brief skeleton carries no `Opening
+// question` heading, and no slot caption names one.
 {
-  const legs = [{ leg_id: "s1", reader_state_after: "knowledge: one claim\nquestion: why does it go through anyway?\ntrust: raised" }];
-  const r = openingQuestionOf(legs);
-  if (r.question !== "why does it go through anyway?") fails.push(`(u) openingQuestionOf did not read the first Leg's question line: ${JSON.stringify(r)}`);
-  const none = openingQuestionOf([{ leg_id: "s1", reader_state_after: "knowledge: one claim" }]);
-  if (!none.error || !/question:/.test(none.error)) fails.push(`(u) a first Leg with no question line was not refused naming the line: ${JSON.stringify(none)}`);
-  const empty = openingQuestionOf([]);
-  if (!empty.error) fails.push(`(u) an empty path was not refused`);
+  const headings = READER_FIELDS.map(([, h]) => h);
+  if (headings.join("|") !== "Reader start|Reader target") fails.push(`(u) READER_FIELDS renders ${JSON.stringify(headings)}, not Reader start and Reader target alone`);
+  if (SLOT_CAPTIONS.has("Opening question")) fails.push("(u) SLOT_CAPTIONS still captions an `Opening question` slot");
+  const skeleton = composeBrief({ slug: "fixture", strands: [], thesis: "The fixture claim." });
+  const text = typeof skeleton === "string" ? skeleton : (skeleton && (skeleton.doc || skeleton.text)) || JSON.stringify(skeleton);
+  if (/^## Opening question/m.test(text)) fails.push("(u) the composed Brief skeleton still carries an `## Opening question` heading");
+  if (!/^## Reader target/m.test(text)) fails.push("(u) the composed Brief skeleton lost its `## Reader target` heading");
 }
 
 // (v) THE VERBATIM FIRST-LEG BINDING IS GONE, asserted by absence in both
@@ -256,33 +261,64 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   if (!missing.error) fails.push("(w) an absent reader file was not refused");
 }
 
-// (x) THE RENDERED READER VALUES: the retired field is refused by name, the
-// Opening question is derived, an unauthored Reader target is named, and the
-// survivor sentence carries the count.
+// (x) THE RENDERED READER VALUES (kogaki#1225): both retired fields are
+// refused by name, Reader target is the LAST Leg's after-state line for
+// line, no Opening question is derived, a path whose last Leg states no
+// after-state is refused naming the derivation, and the survivor sentence
+// carries the count.
 {
+  const LAST_AFTER = "knowledge: knows the claim\nquestion: holds: none\ntrust: raised";
   const c = {
-    candidate_id: "c1", reader_start: READER_START, reader_target: "knowledge: knows the claim",
-    legs: [{ leg_id: "s1", reader_state_after: "knowledge: one claim\nquestion: what was ever asked to say no?" }],
+    candidate_id: "c1", reader_start: READER_START,
+    legs: [
+      { leg_id: "s1", reader_state_after: "knowledge: one claim\nquestion: what was ever asked to say no?" },
+      { leg_id: "s2", reader_state_after: LAST_AFTER },
+    ],
     leg1_survivor_count: 3,
   };
   const ok = readerFieldValues(c);
-  if (!ok.values || ok.values.opening_question !== "what was ever asked to say no?") fails.push(`(x) readerFieldValues did not derive the Opening question: ${JSON.stringify(ok)}`);
-  const retired = readerFieldValues({ ...c, opening_question: "authored apart" });
-  if (!retired.error || !/opening_question/.test(retired.error)) fails.push(`(x) a Candidate carrying opening_question was not refused by name: ${JSON.stringify(retired)}`);
-  const unauthored = readerFieldValues({ ...c, reader_target: "" });
-  if (!unauthored.unauthored || unauthored.unauthored[0] !== "Reader target") fails.push(`(x) an unauthored Reader target was not named: ${JSON.stringify(unauthored)}`);
+  if (!ok.values || ok.values.reader_target !== LAST_AFTER) fails.push(`(x) readerFieldValues did not derive Reader target from the last Leg's after-state line for line: ${JSON.stringify(ok)}`);
+  if (ok.values && Object.prototype.hasOwnProperty.call(ok.values, "opening_question")) fails.push(`(x) readerFieldValues still derives an opening_question value: ${JSON.stringify(ok)}`);
+  if (ok.values && Object.keys(ok.values).sort().join(",") !== "reader_start,reader_target") fails.push(`(x) readerFieldValues renders keys other than the two headings: ${JSON.stringify(ok)}`);
+  const retiredQ = readerFieldValues({ ...c, opening_question: "authored apart" });
+  if (!retiredQ.error || !/opening_question/.test(retiredQ.error)) fails.push(`(x) a Candidate carrying opening_question was not refused by name: ${JSON.stringify(retiredQ)}`);
+  const retiredT = readerFieldValues({ ...c, reader_target: "knowledge: authored apart" });
+  if (!retiredT.error || !/reader_target/.test(retiredT.error)) fails.push(`(x) a Candidate carrying reader_target was not refused by name: ${JSON.stringify(retiredT)}`);
+  const noLast = readerFieldValues({ ...c, legs: [c.legs[0], { leg_id: "s2" }] });
+  if (!noLast.error || !/Reader target/.test(noLast.error) || !/last Leg/.test(noLast.error)) fails.push(`(x) a path whose last Leg states no after-state was not refused naming the derivation: ${JSON.stringify(noLast)}`);
+  const noLegs = readerFieldValues({ ...c, legs: [] });
+  if (!noLegs.error) fails.push("(x) a Candidate with no Legs was not refused");
   if (!/3 Moves/.test(survivorSentence(c) || "")) fails.push(`(x) survivorSentence did not carry the count: ${survivorSentence(c)}`);
   if (!/names the library/.test(survivorSentence({ leg1_survivor_count: 1 }) || "")) fails.push("(x) a count of one did not name the library");
   // The defensive gate-evidence path degrades PER FIELD (PR #1222 round 1): a
-  // Candidate missing only its Reader target still renders the other two.
-  const partial = candidateEvidence({ ...c, reader_target: "", legs: c.legs.map((l) => ({ ...l, materials: [] })) }, []);
-  if (partial.error || partial.reader_start !== READER_START || !/what was ever asked/.test(partial.opening_question || "") || !/not stated/.test(partial.reader_target || "")) {
+  // Candidate whose last Leg states no after-state still renders the Reader
+  // start the Harness set on it, and a complete one reads Reader target off
+  // the same last Leg the adoption fill does.
+  const evLegs = (legs) => legs.map((l) => ({ ...l, materials: [] }));
+  const whole = candidateEvidence({ ...c, legs: evLegs(c.legs) }, []);
+  if (whole.error || whole.reader_start !== READER_START || whole.reader_target !== LAST_AFTER || Object.prototype.hasOwnProperty.call(whole, "opening_question")) {
+    fails.push(`(x) candidateEvidence did not read Reader target off the last Leg: ${JSON.stringify(whole)}`);
+  }
+  const partial = candidateEvidence({ ...c, legs: evLegs([c.legs[0], { leg_id: "s2" }]) }, []);
+  if (partial.error || partial.reader_start !== READER_START || !/not stated/.test(partial.reader_target || "")) {
     fails.push(`(x) candidateEvidence did not degrade per field: ${JSON.stringify(partial)}`);
+  }
+  const carried = candidateEvidence({ ...c, legs: evLegs(c.legs), reader_target: "knowledge: authored apart" }, []);
+  if (carried.error || !/reader_target/.test(carried.reader_target || "") || !/retired/.test(carried.reader_target || "")) {
+    fails.push(`(x) candidateEvidence did not disclose a carried retired field: ${JSON.stringify(carried)}`);
+  }
+  // Both retired fields carried at once: the disclosure names BOTH, so it
+  // names the field the adoption refusal names (PR #1227 round 1).
+  const both = candidateEvidence({ ...c, legs: evLegs(c.legs), reader_target: "knowledge: authored apart", opening_question: "why?" }, []);
+  if (both.error || !/reader_target/.test(both.reader_target || "") || !/opening_question/.test(both.reader_target || "")) {
+    fails.push(`(x) candidateEvidence carrying both retired fields did not name both: ${JSON.stringify(both)}`);
   }
   if (survivorSentence({}) !== null) fails.push("(x) a Candidate with no count did not render null");
   const schema = JSON.parse(readFileSync("src/candidate-schema.json", "utf8"));
-  if (schema.fields.opening_question) fails.push("(x) src/candidate-schema.json still declares `opening_question` as a field");
-  if (!schema.retired_fields || !schema.retired_fields.opening_question) fails.push("(x) src/candidate-schema.json does not record `opening_question` as retired");
+  for (const f of ["opening_question", "reader_target"]) {
+    if (schema.fields[f]) fails.push(`(x) src/candidate-schema.json still declares \`${f}\` as a field`);
+    if (!schema.retired_fields || !schema.retired_fields[f]) fails.push(`(x) src/candidate-schema.json does not record \`${f}\` as retired`);
+  }
 }
 
 // ---- ASSEMBLY'S OWN OPENING-MOVE CHECK (src/assemble.mjs)
@@ -377,5 +413,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-differentiation — validateDifferentiationRecord's fifteen refusals and its passing shape, the Reader start / first-Leg survivor half (kogaki#1216: the persona reader, the derived Opening question, the retired field, the survivor sentence, the retired verbatim binding's absence), assembleSelection's opening-Move check (refused, not-refused, unmatched-unit, and no-argument), and the retired free-text hint's absence");
+console.log("ok: check-brief-differentiation — validateDifferentiationRecord's fifteen refusals and its passing shape, the Reader start / first-Leg survivor half (kogaki#1216: the persona reader, the survivor sentence, the retired verbatim binding's absence), the kogaki#1225 reader values (no Opening question heading, caption or derived value; Reader target derived from the last Leg's after-state line for line; `reader_target` and `opening_question` refused by name and recorded retired in the schema; the gate evidence reading the same last Leg), assembleSelection's opening-Move check (refused, not-refused, unmatched-unit, and no-argument), and the retired free-text hint's absence");
 JS
