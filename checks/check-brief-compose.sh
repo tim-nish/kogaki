@@ -91,6 +91,10 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
       ["x", "knowledge: an xylophone", false, "a one-character term inside a word"],
       ["CI", "knowledge: has used a CI system", true, "a term at a word boundary"],
       ["fail-closed", "orientation: expects fail-closed checks", true, "a hyphenated term"],
+      // The dimension LABELS are never matchable text (PR #1228 round 1).
+      ["trust", "knowledge: one claim\ntrust: a peer's default", false, "a term equal to a dimension label, absent from the values"],
+      ["question", "question: holds: none\ntrust: a peer's default", false, "the question label with no question in the values"],
+      ["trust", "knowledge: one claim\norientation: trust is the issue", true, "a term equal to a dimension label, present in a value"],
     ];
     for (const [term, start, want, why] of cases) {
       const got = introducedTermInReaderStart(term, start);

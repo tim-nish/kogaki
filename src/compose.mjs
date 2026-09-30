@@ -1411,10 +1411,17 @@ export function parseIntroducesEntry(raw) {
 // (kogaki#1225). The boundary is "not adjacent to a letter or digit" rather
 // than `\b`, so a term ending in punctuation or a non-ASCII letter still
 // bounds on both sides, and a one-character term matches only standing alone.
+// THE MATCH READS EACH LINE'S CONTENT, NEVER ITS DIMENSION LABEL (PR #1228
+// round 1): a Reader start is `dimension: value` lines, so matching the whole
+// string let a Leg introducing "trust" or "question" refuse every Reader
+// start on the label alone. The `<dimension>:` prefix is stripped per line
+// the way `readerStateDimensionLine` reads it, and the values are searched.
 export function introducedTermInReaderStart(term, readerStart) {
   const t = String(term).trim().toLowerCase();
   if (t === "") return false;
-  const text = String(readerStart).toLowerCase();
+  const text = String(readerStart).split("\n")
+    .map((line) => line.replace(/^\s*[a-z]+:\s*/i, ""))
+    .join("\n").toLowerCase();
   let from = 0;
   for (;;) {
     const i = text.indexOf(t, from);
