@@ -1315,15 +1315,17 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
 
   // CLOSURE (kogaki#1151): the Thesis row and the Leg rows fill in the SAME
   // write, because `replaceSlot` refuses a slot filled twice and both levels
-  // now share one slot. `established_by_legs` stays every Leg of the
-  // adopted path — unchanged from the prior Thesis-closure fill, only moved.
+  // now share one slot. `established_by_legs` names only the closing Leg --
+  // the last Leg of the adopted path -- so only that Leg's Packet carries the
+  // Thesis Closure row (kogaki#1229). Naming every Leg leaked the whole
+  // path's closure narrative into every earlier Packet.
   const filled = fillBrief(doc, {
     legs: c.legs,
     coverage: c.coverage || {},
     obligations: c.obligations || [],
     unused: c.unused || {},
     readerStart: c.reader_start,
-    thesisClosure: { explanation: c.reasoning.thesis_closure, established_by_legs: c.legs.map((s) => s.leg_id) },
+    thesisClosure: { explanation: c.reasoning.thesis_closure, established_by_legs: [c.legs[c.legs.length - 1].leg_id] },
   });
   if (filled.error) return filled;
   let out = filled.doc;
