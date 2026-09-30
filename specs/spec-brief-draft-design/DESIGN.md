@@ -439,6 +439,14 @@ assertion and left the rest. Between that removal and kogaki#752 the rule was
 live — the composer emitted concessions and the gate registry required them —
 and nothing refused a missing one.
 
+**The one-relation-per-sentence clause left `src/packet-template.md` on
+2026-09-30 (kogaki#1230)**, along with the "explain this for beginners"
+sentence and the "three tests" reference to it. Applied literally, the clause
+produced the fragment runs the owner found hard to read; no instruction
+anywhere called for short prose, so the clause was cutting against its own
+purpose rather than serving it. The operational definition now carries one
+clause: no unexplained term of art, a concrete subject acting.
+
 ## 5. Three standing prohibitions
 
 necessity: *a prohibition's ground is not checkable and its violation is a
