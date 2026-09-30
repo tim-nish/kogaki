@@ -79,7 +79,7 @@ import { fileURLToPath } from "node:url";
 import { fillBrief, replaceSlot, selectedStrands, placements,
   resolveMoveIds, validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
   resolveFigureForms, figureClause, figureLegs,
-  ownerGateDigest, validateOwnerAnswer,
+  ownerGateDigest, validateOwnerAnswer, targetLegIndex,
          journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
@@ -142,13 +142,16 @@ export const READER_FIELDS = [
 ];
 
 // BOTH HEADINGS ABOVE ARE RENDERED, AND NEITHER IS AUTHORED BY A CANDIDATE
-// (kogaki#1225, owner decision 2026-09-29). `reader_start` is GIVEN: authored
-// once per Brief at the `differentiation` state from the Persona and the
-// Thesis, and set on the Candidate by the Harness at the reader-path job's
-// boundary (kogaki#1216). `reader_target` is DERIVED: it is the LAST Leg's
-// `reader_state_after`, whole, line for line -- where the path leaves the
-// reader is where its last Leg leaves them, and a second statement of that
-// fact authored apart from the Leg was one the Harness compared with nothing.
+// (kogaki#1225, owner decision 2026-09-29; the derivation below is
+// kogaki#1231, owner decision 2026-09-30, reversing #1225's rule 1).
+// `reader_start` is GIVEN: authored once per Brief at the `differentiation`
+// state from the Persona and the Thesis, and set on the Candidate by the
+// Harness at the reader-path job's boundary (kogaki#1216). `reader_target` is
+// DERIVED: it is the `reader_state_after` of the Leg marked `reaches_target`,
+// whole, line for line -- where the path leaves the reader is where its
+// marked Leg leaves them, never wherever the path happens to end, and a
+// second statement of that fact authored apart from the Leg was one the
+// Harness compared with nothing.
 // The Opening question heading is GONE (kogaki#1225): the first Leg already
 // carries a before-state and an after-state, so a heading repeating its
 // after-state question was a second Question inside Leg 1, rendered three
@@ -157,9 +160,9 @@ export const READER_FIELDS = [
 // `readerFieldValues` below is the one reader of both rendered values, so the
 // gate evidence and the adoption fill render the same values.
 export const RETIRED_READER_FIELDS = new Map([
-  ["reader_target", "`reader_target` is a retired field (kogaki#1225) — Reader target is the last Leg's "
-    + "`reader_state_after` and is read from it; write where the path leaves the reader INTO the last Leg's "
-    + "after-state and remove the field"],
+  ["reader_target", "`reader_target` is a retired field (kogaki#1225) — Reader target is the `reader_state_after` "
+    + "of the Leg marked `reaches_target` (kogaki#1231) and is read from it; write where the path leaves the "
+    + "reader INTO that Leg's after-state and remove the field"],
   ["opening_question", "`opening_question` is a retired field (kogaki#1216; its heading is removed by kogaki#1225) — "
     + "no Opening question is rendered; the first Leg's after-state carries whatever question the opening "
     + "leaves the reader holding, and no field authors one apart"],
@@ -175,12 +178,19 @@ export function retiredReaderFieldRefusal(c) {
   return null;
 }
 
-// The last Leg's after-state, or null where the path has no last Leg or its
-// after-state is not a non-empty string.
-export function lastLegAfterState(legs) {
+// The after-state of the Leg marked `reaches_target` (kogaki#1231), or null
+// where the path carries no such Leg, or names more than one, or its
+// after-state is not a non-empty string. `targetLegIndex` (src/compose.mjs)
+// is the same search `validateLegs`' own `readerTargetLegRefusal` runs, so a
+// well-formed path and this function agree on which Leg the target is; a
+// malformed one (zero or several marked) reads null here and is refused by
+// name where composition itself is checked.
+export function targetLegAfterState(legs) {
   if (!Array.isArray(legs) || legs.length === 0) return null;
-  const last = legs[legs.length - 1];
-  const v = last && last.reader_state_after;
+  const marked = legs.filter((s) => s && s.reaches_target === true);
+  if (marked.length !== 1) return null;
+  const idx = targetLegIndex(legs);
+  const v = idx >= 0 && legs[idx] && legs[idx].reader_state_after;
   return typeof v === "string" && v !== "" ? v : null;
 }
 
@@ -197,10 +207,11 @@ export function readerFieldValues(c) {
       + "and set on the Candidate by the Harness at the reader-path job's boundary (kogaki#1216), so its absence "
       + "is the runtime's fault rather than the composer's" };
   }
-  const target = lastLegAfterState(c.legs);
+  const target = targetLegAfterState(c.legs);
   if (target === null) {
-    return { error: `candidate ${c.candidate_id}: Reader target cannot be derived — it is the last Leg's `
-      + "`reader_state_after` (kogaki#1225), and the path carries no last Leg with one" };
+    return { error: `candidate ${c.candidate_id}: Reader target cannot be derived — it is the \`reader_state_after\` `
+      + "of the Leg marked `reaches_target` (kogaki#1231), and the path carries no such Leg with one "
+      + "(zero marked, several marked, or the marked Leg's after-state is absent)" };
   }
   return {
     values: {
@@ -677,14 +688,15 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // PER FIELD, NEVER ALL-OR-NOTHING (PR #1222 round 1): this is the defensive
   // path -- `compose_path`'s validator refuses every shape below first -- and
   // it exists to tell the owner WHICH field is missing, so a Candidate whose
-  // last Leg states no after-state still renders the Reader start the Harness
-  // set on it. Reader target is DERIVED from the last Leg (kogaki#1225), so
-  // "not stated" here means the path's last Leg states none.
+  // marked Leg states no after-state still renders the Reader start the
+  // Harness set on it. Reader target is DERIVED from the Leg marked
+  // `reaches_target` (kogaki#1231), so "not stated" here means the path
+  // carries no such Leg with one.
   const reader = {};
   const absent = "not stated by this path — adopting it will refuse, because the composing act did not run";
   const direct = {
     reader_start: c.reader_start,
-    reader_target: lastLegAfterState(c.legs),
+    reader_target: targetLegAfterState(c.legs),
   };
   for (const [key] of READER_FIELDS) {
     reader[key] = typeof direct[key] === "string" && direct[key] !== "" ? direct[key] : absent;
@@ -1145,16 +1157,19 @@ export function selectionOptionIds(reviewed, doc) {
 
 // The adopted Candidate's Reader Path lands in the Brief (the settled structure section): sequence
 // through the Leg's shape fill, thesis_closure and tradeoffs from its reasoning.
-// THE LEGS THE THESIS CLOSURE ROW NAMES (kogaki#1229): the closing Leg
-// alone -- the last Leg of the adopted path today; the Reader target Leg
-// design, filed separately, moves it to the marked Leg and changes this
-// function alone. `closureRowsForLeg` hands the Thesis row to every Leg this
+// THE LEG THE THESIS CLOSURE ROW NAMES (kogaki#1229, moved from the last Leg
+// to the marked one by kogaki#1231, owner decision 2026-09-30): the Leg
+// marked `reaches_target` alone -- the one whose after-state IS the Brief's
+// Reader target. `closureRowsForLeg` hands the Thesis row to every Leg this
 // list names, so naming every Leg leaked the whole path's closure narrative
-// into every earlier Packet. Exported so the fixture in
-// checks/check-brief-compose.sh asserts the list without a Brief to adopt.
-export function closingLegIds(legs) {
-  if (!Array.isArray(legs) || legs.length === 0) return [];
-  return [legs[legs.length - 1].leg_id];
+// into every earlier Packet, and naming the last Leg under the reversed rule
+// would name a plain closing Leg instead of the one that actually reaches
+// the target. Exported so the fixture in checks/check-brief-compose.sh
+// asserts the list without a Brief to adopt.
+export function targetLegIds(legs) {
+  if (!Array.isArray(legs)) return [];
+  const idx = targetLegIndex(legs);
+  return idx >= 0 ? [legs[idx].leg_id] : [];
 }
 
 export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
@@ -1327,17 +1342,18 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
 
   // CLOSURE (kogaki#1151): the Thesis row and the Leg rows fill in the SAME
   // write, because `replaceSlot` refuses a slot filled twice and both levels
-  // now share one slot. `established_by_legs` names only the closing Leg --
-  // the last Leg of the adopted path -- so only that Leg's Packet carries the
-  // Thesis Closure row (kogaki#1229). Naming every Leg leaked the whole
-  // path's closure narrative into every earlier Packet.
+  // now share one slot. `established_by_legs` names only the Leg marked
+  // `reaches_target` -- the one whose after-state IS the Reader target --
+  // so only that Leg's Packet carries the Thesis Closure row (kogaki#1229,
+  // moved from the last Leg by kogaki#1231). Naming every Leg leaked the
+  // whole path's closure narrative into every earlier Packet.
   const filled = fillBrief(doc, {
     legs: c.legs,
     coverage: c.coverage || {},
     obligations: c.obligations || [],
     unused: c.unused || {},
     readerStart: c.reader_start,
-    thesisClosure: { explanation: c.reasoning.thesis_closure, established_by_legs: closingLegIds(c.legs) },
+    thesisClosure: { explanation: c.reasoning.thesis_closure, established_by_legs: targetLegIds(c.legs) },
   });
   if (filled.error) return filled;
   let out = filled.doc;

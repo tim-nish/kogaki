@@ -110,7 +110,7 @@ import {
   GATE_CALL_SUFFIX, JUDGE_INPUT_MARKER,
 } from "./terrain.mjs";
 import {
-  SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, lastLegAfterState,
+  SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, targetLegAfterState,
   cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal,
 } from "./assemble.mjs";
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
@@ -1435,7 +1435,7 @@ const STATE_WORK = {
         // One-claim-per-Strand, the closed claim type set, every required
         // field and its description all come from `src/leg-schema.json`
         // through that function.
-        const v = validateLegs(c.legs, c.reader_start);
+        const v = validateLegs(c.legs, c.reader_start, c.obligations);
         if (v.error) refuseJudgment(`candidate ${c.candidate_id}: ${v.error}`);
         // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
         // `resolveMoveIds` was first called by `adopt-candidate`, five states
@@ -1471,17 +1471,18 @@ const STATE_WORK = {
         // `opening_question` (kogaki#1216) AND `reader_target` (kogaki#1225) ARE
         // RETIRED FIELDS, refused BY NAME (the precedent is `relations` on a
         // Leg), with the message declared once in src/assemble.mjs beside the
-        // rendered field table. Reader target is the LAST Leg's after-state
-        // and no Opening question is rendered; a Candidate that authored either
-        // apart from its Legs has written one fact twice -- which is the defect
-        // the retirement removes. A path whose last Leg states no after-state
-        // has no Reader target to derive, and is refused naming the Leg.
+        // rendered field table. Reader target is the after-state of the Leg
+        // marked `reaches_target` (kogaki#1231) and no Opening question is
+        // rendered; a Candidate that authored either apart from its Legs has
+        // written one fact twice -- which is the defect the retirement
+        // removes. A path carrying no such Leg, or more than one, or whose
+        // marked Leg states no after-state, has no Reader target to derive.
         const retired = retiredReaderFieldRefusal(c);
         if (retired) refuseJudgment(retired);
-        if (lastLegAfterState(c.legs) === null) {
-          const last = c.legs[c.legs.length - 1];
-          refuseJudgment(`candidate ${c.candidate_id}, leg ${last && last.leg_id}: the last Leg's \`reader_state_after\` `
-            + "is absent — it IS the Brief's Reader target (kogaki#1225), and adoption fills no default");
+        if (targetLegAfterState(c.legs) === null) {
+          refuseJudgment(`candidate ${c.candidate_id}: the Leg marked \`reaches_target\`'s \`reader_state_after\` `
+            + "is absent, or the path carries none or several such Legs -- it IS the Brief's Reader target "
+            + "(kogaki#1231), and adoption fills no default");
         }
         // READER START IS GIVEN (set on the Candidate by the Harness from the
         // differentiation record at the job's own boundary) and must be
