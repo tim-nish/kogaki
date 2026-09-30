@@ -1145,6 +1145,18 @@ export function selectionOptionIds(reviewed, doc) {
 
 // The adopted Candidate's Reader Path lands in the Brief (the settled structure section): sequence
 // through the Leg's shape fill, thesis_closure and tradeoffs from its reasoning.
+// THE LEGS THE THESIS CLOSURE ROW NAMES (kogaki#1229): the closing Leg
+// alone -- the last Leg of the adopted path today; the Reader target Leg
+// design, filed separately, moves it to the marked Leg and changes this
+// function alone. `closureRowsForLeg` hands the Thesis row to every Leg this
+// list names, so naming every Leg leaked the whole path's closure narrative
+// into every earlier Packet. Exported so the fixture in
+// checks/check-brief-compose.sh asserts the list without a Brief to adopt.
+export function closingLegIds(legs) {
+  if (!Array.isArray(legs) || legs.length === 0) return [];
+  return [legs[legs.length - 1].leg_id];
+}
+
 export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   const cands = reviewed?.candidates || [];
   const c = cands.find((x) => x.candidate_id === candidateId);
@@ -1325,7 +1337,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
     obligations: c.obligations || [],
     unused: c.unused || {},
     readerStart: c.reader_start,
-    thesisClosure: { explanation: c.reasoning.thesis_closure, established_by_legs: [c.legs[c.legs.length - 1].leg_id] },
+    thesisClosure: { explanation: c.reasoning.thesis_closure, established_by_legs: closingLegIds(c.legs) },
   });
   if (filled.error) return filled;
   let out = filled.doc;

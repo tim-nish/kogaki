@@ -33,6 +33,12 @@
 #       field carries no purpose clause ("to fix or avoid"), and
 #       `src/differentiation-schema.json`'s `question:` line derives nothing
 #       from why the reader opened the post.
+#   (f) the Thesis Closure row reaches only the closing Leg (kogaki#1229):
+#       `closingLegIds` (src/assemble.mjs) names the last Leg of the path
+#       alone, and `closureRowsForLeg` (src/compose.mjs), read over a Closure
+#       section whose Thesis row names that Leg, hands the row to that Leg's
+#       Packet and to no earlier Leg's. Before kogaki#1229 the row named every
+#       Leg, so every Packet carried the whole path's closure narrative.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
@@ -47,8 +53,9 @@ cd "$(dirname "$0")/.."
 node --input-type=module - <<'JS'
 import { readFileSync } from "node:fs";
 import * as compose from "./src/compose.mjs";
+import { closingLegIds } from "./src/assemble.mjs";
 
-const { validateLegs, introducedTermInReaderStart } = compose;
+const { validateLegs, introducedTermInReaderStart, closureRowsForLeg } = compose;
 const fails = [];
 
 const READER_START = "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
@@ -124,10 +131,31 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   if (/and why they opened it\)/.test(workflow)) fails.push("(e) src/brief-workflow.json's Persona note still lists why they opened it as a `reader` field clause");
 }
 
+// (f) the Thesis Closure row reaches only the closing Leg (kogaki#1229).
+{
+  const legs = ["leg1", "leg2", "leg3", "leg4", "leg5", "leg6"].map((leg_id) => ({ leg_id }));
+  const named = closingLegIds(legs);
+  if (JSON.stringify(named) !== JSON.stringify(["leg6"])) fails.push(`(f) closingLegIds named ${JSON.stringify(named)}, want ["leg6"]`);
+  if (closingLegIds([]).length !== 0) fails.push("(f) closingLegIds over no Legs named a Leg");
+  // The Closure section exactly as fillBrief renders it (src/compose.mjs): the
+  // Thesis row, then the Leg rows.
+  const doc = "# Brief\n\n## Closure\n\n### Thesis\n\n"
+    + `The whole claim holds once the last Leg lands. — established_by_legs: ${named.join(", ")}\n\n`
+    + "### Legs\n\n- an obligation raised early — introduced_by: leg1; discharged_by: leg3\n\n## Next\n\ntext\n";
+  for (const { leg_id } of legs) {
+    const rows = closureRowsForLeg(doc, leg_id);
+    const carries = rows.some((r) => /whole claim holds/.test(r));
+    if (leg_id === "leg6" && !carries) fails.push("(f) the closing Leg's Packet carries no Thesis row");
+    if (leg_id !== "leg6" && carries) fails.push(`(f) ${leg_id}'s Packet carries the Thesis row, which only the closing Leg's may`);
+  }
+  const leg1 = closureRowsForLeg(doc, "leg1");
+  if (!leg1.some((r) => /obligation raised early/.test(r))) fails.push("(f) the Leg rows stopped reaching the Leg that introduced them");
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, and the carriers deriving nothing from why the reader opened the post");
+console.log("ok: check-brief-compose — the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, and the Thesis Closure row reaching only the closing Leg");
 JS
