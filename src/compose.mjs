@@ -406,29 +406,15 @@ export function readerStateDimensionLine(value, dim) {
   return null;
 }
 
-// THE OPENING QUESTION IS NOT AN AUTHORED FIELD (owner decision 2026-09-28,
-// kogaki#1216). It is the `question:` line of the FIRST Leg's
-// `reader_state_after`, and the Brief renders that line under the existing
-// `Opening question` heading. Authoring it separately let the composer write
-// one fact twice — `reader_start`'s own `question:` line and an
-// `opening_question` field that restated it — so the field is retired and
-// the value is READ here from the Leg that produces it. Returns
-// `{ question }` or `{ error }`; a first Leg whose after-state states no
-// `question:` line has left the reader with no question to hand, which is a
-// composition fault named by field rather than a blank filled in.
-export function openingQuestionOf(legs) {
-  const first = Array.isArray(legs) ? legs[0] : null;
-  if (!first || typeof first !== "object") {
-    return { error: "the path carries no first Leg, so no Opening question can be read from it" };
-  }
-  const q = readerStateDimensionLine(first.reader_state_after, "question");
-  if (q === null || q === "") {
-    return { error: `leg 1 (${first.leg_id ?? "?"}): its reader_state_after states no \`question:\` line — the `
-      + "Opening question IS that line (kogaki#1216), rendered under the Brief's `Opening question` heading, "
-      + `and no separate field authors it. Received: ${JSON.stringify(first.reader_state_after ?? null)}` };
-  }
-  return { question: q };
-}
+// NO OPENING QUESTION IS READ OFF THE FIRST LEG ANY MORE (owner decision
+// 2026-09-29, kogaki#1225). `openingQuestionOf` stood here: it read the first
+// Leg's after-state `question:` line and the Brief rendered it under an
+// `Opening question` heading. The first Leg already carries a before-state
+// and an after-state, so a heading repeating its after-state question was a
+// second Question inside Leg 1, rendered three times over. The heading, the
+// Packet's fixed-points line and the first-Leg `question:` requirement are
+// gone together; the last Leg's `reader_state_after` is what the Brief now
+// derives (Reader target, src/assemble.mjs `lastLegAfterState`).
 
 // ---- shape validation (the Leg's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
@@ -463,6 +449,35 @@ export function validateLegs(legs, readerStart) {
     if (shapeErr) return { error: shapeErr };
   }
   const schema = legschema();
+  // A TERM THE PATH INTRODUCES IS ONE THE READER DOES NOT HOLD ON ARRIVAL
+  // (owner decision 2026-09-29, kogaki#1225). Reader start is the state of a
+  // reader who has seen the Thesis read as a title and nothing else, so a
+  // Reader start line carrying a term some Leg lists under `introduces:` has
+  // written the article into the reader before it starts. This is the one
+  // deterministic refusal in Reader start's content: whether the reader
+  // "already knows" a term is judgment, but a Leg's own `introduces:` entry
+  // is the composer's declaration that they do not, and a declaration can
+  // be read. Whole-word, case-insensitive, over the term before the anchor
+  // separator; a term one character long still matches as a whole word.
+  // Runs before the per-Leg loop so the first offending Leg is named even
+  // when a later Leg's shape would refuse first, and skips an entry whose
+  // shape is bad -- `introducesRefusal` below names that by itself.
+  if (typeof readerStart === "string" && readerStart !== "" && Array.isArray(legs)) {
+    for (const [i, s] of legs.entries()) {
+      if (!s || typeof s !== "object" || !Array.isArray(s.introduces)) continue;
+      const at = `leg ${i + 1}${s.leg_id ? ` (${s.leg_id})` : ""}`;
+      for (const raw of s.introduces) {
+        const e = parseIntroducesEntry(raw);
+        if (e.error) continue;
+        if (introducedTermInReaderStart(e.term, readerStart)) {
+          return { error: `${at}: reader_start contains "${e.term}", a term this Leg lists under introduces — `
+            + "a term the path introduces is by definition one the reader does not hold on arrival (kogaki#1225). "
+            + "Reader start is a reader who has seen the Thesis as a title and nothing else: remove the term from "
+            + "Reader start, or from this Leg's introduces if the reader really does arrive holding it" };
+        }
+      }
+    }
+  }
   const seen = new Set();
   for (const [i, s] of legs.entries()) {
     const at = `leg ${i + 1}${s && s.leg_id ? ` (${s.leg_id})` : ""}`;
@@ -1028,10 +1043,13 @@ export function moveContract(moveId, movesDir = "moves") {
 // THE PERSONA, read from the reader file the workflow table names
 // (kogaki#1216, owner-approved design 2026-09-28). One owner-authored file
 // under `readers/` with TWO fields and nothing more: `reader` — who they are
-// by what they do, in which genre they are reading, and why they opened it —
-// and `prior_knowledge` — what can be used without explanation, and what
-// cannot. Nothing about attitude, trust or the reader's question: those are
-// Reader start dimensions, and holding them here would duplicate it. The
+// by what they do and in which genre they are reading (kogaki#1225 dropped
+// why they opened it: a purpose is not observable at the title, and it is
+// what steered Reader start toward a reader who had already lived the
+// article's problem) — and `prior_knowledge` — what can be used without
+// explanation, and what cannot. Nothing about attitude, trust or the reader's
+// question: those are Reader start dimensions, and holding them here would
+// duplicate it. The
 // record is flat `key: value` like a Move record, so the same scalar reader
 // serves both; a missing field is a store fault named by field, exactly as a
 // half-written Move contract is. The Persona is an INPUT to authoring Reader
@@ -1387,6 +1405,33 @@ export function parseIntroducesEntry(raw) {
   if (term === "") return { error: `an entry with no term before the ${INTRODUCES_SEP}` };
   if (anchor === "") return { error: `"${term}" carries a ${INTRODUCES_SEP} with no meaning anchor after it — write the term bare, or anchor it` };
   return { term, anchor };
+}
+
+// Whether `term` occurs in `readerStart` as a whole word, case-insensitive
+// (kogaki#1225). The boundary is "not adjacent to a letter or digit" rather
+// than `\b`, so a term ending in punctuation or a non-ASCII letter still
+// bounds on both sides, and a one-character term matches only standing alone.
+// THE MATCH READS EACH LINE'S CONTENT, NEVER ITS DIMENSION LABEL (PR #1228
+// round 1): a Reader start is `dimension: value` lines, so matching the whole
+// string let a Leg introducing "trust" or "question" refuse every Reader
+// start on the label alone. The `<dimension>:` prefix is stripped per line
+// the way `readerStateDimensionLine` reads it, and the values are searched.
+export function introducedTermInReaderStart(term, readerStart) {
+  const t = String(term).trim().toLowerCase();
+  if (t === "") return false;
+  const text = String(readerStart).split("\n")
+    .map((line) => line.replace(/^\s*[a-z]+:\s*/i, ""))
+    .join("\n").toLowerCase();
+  let from = 0;
+  for (;;) {
+    const i = text.indexOf(t, from);
+    if (i === -1) return false;
+    const before = i === 0 ? "" : text[i - 1];
+    const after = text[i + t.length] ?? "";
+    const wordish = (c) => c !== "" && /[\p{L}\p{N}_]/u.test(c);
+    if (!wordish(before) && !wordish(after)) return true;
+    from = i + 1;
+  }
 }
 
 // the Section grouping's `opens_section` (kogaki#822) — OPTIONAL, and shape-validated here for
