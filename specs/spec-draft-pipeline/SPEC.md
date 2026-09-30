@@ -1,5 +1,36 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v41, amended 2026-09-30 (kogaki#1225) — **§5.1.1: READER START IS
+THE PERSONA'S COLD READ OF THE THESIS AS A TITLE, READER TARGET IS THE LAST
+LEG'S AFTER-STATE, AND THE OPENING QUESTION HEADING IS REMOVED.** Reading the
+first Brief composed under kogaki#1216, the owner found its Reader start
+opening from a question — "why did my check pass when the broken thing was
+right there in the diff?" — that belongs to a reader who has already lived the
+article's problem: the Persona's `reader` field said why they opened the post,
+and the `question:` derivation followed from that purpose. The same Brief
+rendered the Opening question three times (the first Leg's after-state line,
+its own heading, every Leg Packet's fixed-points block), and `reader_target`
+was authored per Candidate and compared with nothing. The owner decided
+(2026-09-29): (1) Reader start and Reader target each name one reader state
+and each appears once in the path, Reader start where it begins and Reader
+target where it ends; (2) the Opening question heading is removed — the first
+Leg already carries a before-state and an after-state, so a heading repeating
+its after-state question was a second Question inside Leg 1; (3) the cold read
+is what produces the opening the owner wants — no "does not know what a Check
+means" statement is added, and `holds: none` is not made a default rule; (4)
+every correction is carried by the Harness. The design: **the stimulus is
+pinned** — Reader start is the state of a reader with the declared Persona who
+has seen the Thesis, read as if it were the article's title, and nothing else;
+the Persona's `reader` field loses its purpose clause; **Reader target is
+derived**, the last Leg's `reader_state_after` rendered under the existing
+heading, and a Candidate carrying `reader_target` is refused by name; and
+**one deterministic refusal** — a Reader start line containing a term any Leg
+lists under `introduces:` is refused at adoption naming the term and the Leg.
+Carriers: `readers/dev-to-zenn.md`, `src/differentiation-schema.json`,
+`src/leg-schema.json`, `src/candidate-schema.json`, `src/brief-workflow.json`,
+`src/compose.mjs`, `src/brief.mjs`, `src/assemble.mjs`, `src/draft.mjs`,
+`src/packet-template.md`, `checks/check-brief-compose.sh`.
+
 **Status:** v40, amended 2026-09-29 (kogaki#1216) — **§5.1.1: READER START IS
 A COLD READ FROM THE PERSONA AND THE THESIS, THE FIRST LEG BINDS A MOVE THAT
 DOES NOT CONTRADICT IT, AND THE OPENING QUESTION IS THE FIRST LEG'S OWN.**
@@ -1841,12 +1872,15 @@ centre readable as one thing rather than three fields and a file path.
 
 ### 5.1 The settled structure section
 
-- **`reader_start`**, **`reader_target`**, **`opening_question`** — the three
-  rendered reader headings, authored three ways since kogaki#1216: Reader start
-  once per Brief at **Differentiation**, from the Persona and the Thesis;
-  Reader target at **path composition**, per Candidate; the Opening question
-  read off the first Leg's after-state. All land at **Candidate selection**.
-  `reader_start` is a **stance**, not a knowledge state: §5.1.1 defines it.
+- **`reader_start`**, **`reader_target`** — the two rendered reader headings,
+  each naming one reader state that appears once in the path (kogaki#1225):
+  Reader start, where the path begins, authored once per Brief at
+  **Differentiation** from the Persona and the Thesis; Reader target, where it
+  ends, **derived** from the last Leg's `reader_state_after`, per Candidate.
+  Both land at **Candidate selection**. No Opening question is rendered:
+  `opening_question` and `reader_target` are retired Candidate fields, refused
+  by name. `reader_start` is a **stance**, not a knowledge state: §5.1.1
+  defines it.
 - **`thesis`** — read from Terrain (§3), never invented here.
 - **`sequence`** — the ordered Legs of §4.1.
 - **`strand_coverage`** — per selected Strand: `used_by_legs`,
@@ -1879,10 +1913,15 @@ a second, independent declaration (owner amendment, 2026-09-23). No `Position`
 value is added to a Move or to `reader_start` — the five dimensions are the
 whole of a stance (owner ruling, 2026-09-23).
 
-**Reader start is a COLD READ: the stance a reader with the declared Persona
-holds toward this Thesis before reading the article, authored from the Persona
-and the Thesis and never from the Move the first Leg binds** (owner decision
-2026-09-28, kogaki#1216). What stood here let it be written backwards: the
+**Reader start is a COLD READ, and its stimulus is pinned: the state of a
+reader with the declared Persona who has seen the Thesis, read as if it were
+the article's title, and nothing else** (owner decision 2026-09-28,
+kogaki#1216; stimulus pinned 2026-09-29, kogaki#1225). A Brief carries no Title
+at composition, so the Thesis stands in for it, and the substitution is stated
+where the composer reads it (`src/differentiation-schema.json`, the
+`differentiation` row of `src/brief-workflow.json`). It is authored from the
+Persona and that Thesis, never from the Move the first Leg binds, and never
+from a problem the reader is assumed to have lived. What stood here let it be written backwards: the
 verbatim binding at §5.2 forced the first Leg's `reader_state_before` to equal
 Reader start, and §4.12.2 forced that same field to specialize the Move's
 `before`, so Reader start became the bound Move's `before` with the article's
@@ -1902,9 +1941,12 @@ and `passages/`, content rather than a schema, its first value the current
 Dev.to and Zenn reader. It carries **two fields**, one or two sentences each,
 and stays far smaller than a Move:
 
-- **`reader`** — who they are by what they do, in which genre they are reading,
-  and why they opened it. Grounding: Swales's discourse community (genre
-  analysis, 1990) and Cooper's goal-directed persona (interaction design).
+- **`reader`** — who they are by what they do and in which genre they are
+  reading. Grounding: Swales's discourse community (genre analysis, 1990).
+  kogaki#1225 dropped the purpose clause ("why they opened it"): why the reader
+  opened the post is not observable at the title, and "to fix or avoid a
+  problem in their own work soon" is what steered the first Brief to a reader
+  who had already lived the article's problem.
 - **`prior_knowledge`** — what can be used without explanation, and what
   cannot. Grounding: prior knowledge as the determinant of how much a text must
   make explicit (Kintsch; McNamara & Kintsch 1996), and audience analysis in
@@ -1918,9 +1960,12 @@ the audience *invoked* for this Thesis). Each Reader start line is derived
 from a named field plus the Thesis, and the Persona is never copied into the
 Brief: `knowledge` from `prior_knowledge` (a term the Persona lists as unknown
 may not appear, which the vocabulary guard §5.1.2 already reads); `question`
-is `holds: none`, or a question in the reader's own words that follows from
-why they opened the post — never a question in the article's terms;
-`expectation`, `orientation` and `trust` from `reader` plus the Thesis. The
+is `holds: none`, or this reader's reaction to the wording they saw, in their
+own words — never a question in the article's terms, and never a problem they
+are assumed to have lived (kogaki#1225; `holds: none` is not a default rule —
+it is what a properly established cold read comes out as when the wording
+raises nothing for this reader); `expectation`, `orientation` and `trust` from
+`reader` plus the Thesis as a title. The
 derivation is composition judgment stated to the composer, not linted (§4.6).
 Selecting a Persona per article is out of scope; the `compose_path` row of
 `src/brief-workflow.json` names the reader file it reads, as it names its
@@ -1941,43 +1986,61 @@ made visible:** the Brief records how many Moves survived the exclusion for
 Leg 1, and a count of one names the library, not the rule, as the cause of a
 repeated opening — the fix is a Move analysed from an opening passage.
 
-**The Opening question is not a separately authored field.** It is the
-`question:` line of the first Leg's `reader_state_after`, and the Brief renders
-that line under the existing `Opening question` heading (`openingQuestionOf`,
-`src/compose.mjs`). `reader_start`'s own `question:` line is what the reader
-arrives holding, before the article starts; the first Leg's after-state
-`question:` line is what the opening leaves them holding. Authoring the second
-apart from the Leg that produces it let one fact be written twice, and the two
-drifted; a Candidate carrying an `opening_question` field is refused by name.
+**No Opening question is rendered** (owner decision 2026-09-29, kogaki#1225).
+kogaki#1216 read it off the first Leg's after-state `question:` line and
+rendered that line under an `Opening question` heading; the first Brief
+composed that way rendered it three times — the Leg's own line, the heading,
+and every Leg Packet's fixed-points block. The first Leg already carries a
+before-state and an after-state, so a heading repeating its after-state
+question was a second Question inside Leg 1. The heading, the Packet line and
+the first-Leg `question:` requirement are removed together; whatever question
+the opening leaves the reader holding lives in the first Leg's after-state, in
+the reader's own words, and nowhere else. `opening_question` stays a retired
+Candidate field, refused by name.
 
-**The block is DIFFERENTIATION for Reader start and PATH COMPOSITION for
-Reader target.** Reader start depends on the Persona and the Thesis and on no
-path, so it is authored once per Brief at the `differentiation` state (§6.1),
-which also lists the first-Leg survivors, and the Harness sets it on every
+**The block is DIFFERENTIATION for Reader start, and Reader target is
+DERIVED.** Reader start depends on the Persona and the Thesis and on no path,
+so it is authored once per Brief at the `differentiation` state (§6.1), which
+also lists the first-Leg survivors, and the Harness sets it on every
 Candidate; three units authoring it would author one fact three ways, and the
-exclusion could be checked against none of them. Reader target describes where
-*this* path leaves the reader, so it is composed where the movement is
-composed, per Candidate. Both land at adoption beside `thesis_closure` and
-`tradeoffs`.
+exclusion could be checked against none of them. Reader target is where *this*
+path leaves the reader, which is exactly the last Leg's `reader_state_after`:
+the Brief renders that state, whole and line for line, under the existing
+`Reader target` heading (`lastLegAfterState`, `src/assemble.mjs`), per
+Candidate, since the last Leg is. A Candidate carrying a `reader_target` field
+is refused by name (kogaki#1225): authored apart from the Leg it was a second
+statement of one fact that the Harness compared with nothing — it checked only
+that the string was non-empty. Both land at adoption beside `thesis_closure`
+and `tradeoffs`.
 
-- **No new gate and no new check.** They ride the Candidate-selection gate §6
-  already carries, as `journey_coverage` does.
-- **Two Candidates may differ on Reader target**, and the difference is
-  composition information rather than noise; they no longer differ on Reader
-  start, because a Reader start that varied with the path was the defect.
+- **No new gate.** They ride the Candidate-selection gate §6 already carries,
+  as `journey_coverage` does.
+- **Two Candidates may differ on Reader target**, because their last Legs
+  do, and the difference is composition information rather than noise; they
+  no longer differ on Reader start, because a Reader start that varied with
+  the path was the defect.
 - **The mint is still not the site for Reader target:** a Thesis states a
-  claim, not where the reader is left, so deriving it from the adopted Thesis
-  alone would invent material its source does not carry. Reader start is
-  derived from the Thesis *and* the Persona, which is the material the mint
-  lacked.
+  claim, not where the reader is left. Reader start is derived from the
+  Thesis *and* the Persona, which is the material the mint lacked.
 
-**An absent value REFUSES at adoption as an unauthored field**, naming which
-field is missing. It does not fill a default and does not render a typed
-absence and proceed. The contrast with §6.1 MUST 1 is the argument: a Journey's
-absence is a *fact about the served material*, which a composition sitting
-cannot conjure; Reader target is the composer's own to author, Reader start is
-the differentiation state's, and an Opening question a first Leg's after-state
-does not state is a composition fault named by field.
+**One deterministic refusal where judgment cannot be** (kogaki#1225). Whether
+a Reader start is a good cold read is judgment and is linted nowhere; but a
+Leg's `introduces:` entry is the composer's own declaration that the reader
+does not hold that term, and a declaration can be read. A Reader start line
+that contains a term any Leg of the path lists under `introduces:` is refused
+at adoption, naming the term and the Leg (`validateLegs`, `src/compose.mjs`;
+whole word, case-insensitive; the check carrier is
+`checks/check-brief-compose.sh`). A term the path introduces is by definition
+one the reader does not hold on arrival.
+
+**An absent value REFUSES at adoption**, naming what is missing: a Reader start
+absent from the differentiation record, or a last Leg stating no after-state
+for Reader target to be read from. It does not fill a default and does not
+render a typed absence and proceed. The contrast with §6.1 MUST 1 is the
+argument: a Journey's absence is a *fact about the served material*, which a
+composition sitting cannot conjure; Reader start is the differentiation
+state's to author, and a last Leg with no after-state is a composition fault
+named by Leg.
 
 `necessity:` an authoring site and a refusal, both judgments about where a
 value comes from. A default would satisfy every mechanical property here.
