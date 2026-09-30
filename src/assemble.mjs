@@ -690,11 +690,16 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
     reader[key] = typeof direct[key] === "string" && direct[key] !== "" ? direct[key] : absent;
   }
   // A retired field the Candidate still carries is disclosed on the Reader
-  // target line, since that is the value the retirement re-derives.
-  for (const key of RETIRED_READER_FIELDS.keys()) {
-    if (Object.prototype.hasOwnProperty.call(c, key)) {
-      reader.reader_target = `\`${key}\` authored apart from the Legs — a retired field (kogaki#1225); adopting it will refuse`;
-    }
+  // target line, since that is the value the retirement re-derives. EVERY
+  // carried retired field is named, in the order `retiredReaderFieldRefusal`
+  // reads them (PR #1227 round 1): a per-key overwrite disclosed only the
+  // last key while the refusal named the first, so the gate evidence and the
+  // adoption refusal named different fields for one Candidate.
+  const carried = [...RETIRED_READER_FIELDS.keys()]
+    .filter((key) => Object.prototype.hasOwnProperty.call(c, key));
+  if (carried.length > 0) {
+    reader.reader_target = `${carried.map((k) => `\`${k}\``).join(" and ")} authored apart from the Legs — `
+      + `${carried.length === 1 ? "a retired field" : "retired fields"} (kogaki#1225); adopting it will refuse`;
   }
   return {
     ...reader,

@@ -307,6 +307,12 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   if (carried.error || !/reader_target/.test(carried.reader_target || "") || !/retired/.test(carried.reader_target || "")) {
     fails.push(`(x) candidateEvidence did not disclose a carried retired field: ${JSON.stringify(carried)}`);
   }
+  // Both retired fields carried at once: the disclosure names BOTH, so it
+  // names the field the adoption refusal names (PR #1227 round 1).
+  const both = candidateEvidence({ ...c, legs: evLegs(c.legs), reader_target: "knowledge: authored apart", opening_question: "why?" }, []);
+  if (both.error || !/reader_target/.test(both.reader_target || "") || !/opening_question/.test(both.reader_target || "")) {
+    fails.push(`(x) candidateEvidence carrying both retired fields did not name both: ${JSON.stringify(both)}`);
+  }
   if (survivorSentence({}) !== null) fails.push("(x) a Candidate with no count did not render null");
   const schema = JSON.parse(readFileSync("src/candidate-schema.json", "utf8"));
   for (const f of ["opening_question", "reader_target"]) {
