@@ -772,7 +772,7 @@ function moveField(text, field) {
 // lazy group ended at `(?=\n## |$)` under the `m` flag, where `$` matches
 // EVERY line end — so the capture stopped at the section's first line. Reader
 // start and Reader target are five `dimension: value` lines each
-// (kogaki#1176); Thesis and Opening question are one line, which is why this
+// (kogaki#1176); the Thesis is one line, which is why this
 // read the first line and looked complete until a multi-line section reached
 // it. A slice has no such ambiguity: one heading in, the next `## ` heading or
 // end of document out.
@@ -805,8 +805,8 @@ export function legField(body, field) {
 }
 
 // A Brief section without its caption (kogaki#1224): the italic `*...*`
-// line `src/brief.mjs` writes as the LAST line of Thesis, Reader start,
-// Reader target and Opening question is for the Brief's own reader, not the
+// line `src/brief.mjs` writes as the LAST line of Thesis, Reader start and
+// Reader target is for the Brief's own reader, not the
 // writer's input. Only that trailing line is stripped -- an italic line or a
 // paragraph break inside the section is content and is kept -- and the
 // shape of what remains (five `dimension: value` lines since kogaki#1176, or
@@ -1135,12 +1135,13 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     // (kogaki#1176) followed, in the Brief, by an italic caption written for
     // the Brief's own reader. The caption is not the writer's input, and a
     // whole-section read handed it over once `briefSection` returned the
-    // section whole rather than its first line. Thesis and Opening question
-    // carry the same trailing caption and are read the same way (PR #1226
-    // round 1), so no caption reaches the fixed-points list at column zero.
+    // section whole rather than its first line. The Thesis carries the same
+    // trailing caption and is read the same way (PR #1226 round 1), so no
+    // caption reaches the fixed-points list at column zero. There is no
+    // Opening question slot (kogaki#1225): the heading is gone from the
+    // Brief, and a Brief that still carries one is simply not read there.
     reader_start: indentContinuation(need("the Brief's Reader start", sectionContent(briefSection(brief.text, "Reader start")))),
     reader_target: indentContinuation(need("the Brief's Reader target", sectionContent(briefSection(brief.text, "Reader target")))),
-    opening_question: indentContinuation(need("the Brief's Opening question", sectionContent(briefSection(brief.text, "Opening question")))),
     // DERIVED FROM THE CONSTANT rather than naming the three again (PR #780
     // round 1). The constant carried the exclusion's whole justification and
     // was read by nothing, so it was a second statement of the rendered field
@@ -1826,7 +1827,6 @@ async function runSelfTest() {
     // exactly the hole the refusal exists to keep open.
     "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
     "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
-    "## Opening question", "", "What makes the fixture claim worth stating?", "",
     "## Sequence", "",
     // The leg blocks carry the fields the Leg Packet RENDERS, not only the two earlier
     // cases parse. Same correction as the anchors above: the Packet refused by
@@ -2390,7 +2390,6 @@ async function runSelfTest() {
     "## Thesis", "", "The fixture claim.", "",
     "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
     "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
-    "## Opening question", "", "What makes the fixture claim worth stating?", "",
     "## Sequence", "", ...blocks,
   ].join("\n");
   writeFileSync(join(secDir, "brief.md"), secBrief([
@@ -2801,7 +2800,6 @@ async function runSelfTest() {
         "## Thesis", "", "The fixture claim.", "",
         "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
         "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
-        "## Opening question", "", "What makes the fixture claim worth stating?", "",
         "## Sequence", "",
         "```leg", "leg_id: j1", "move: open_the_claim", "purpose: open",
         "reader_state_before: the reader has not met the claim.",
@@ -2887,7 +2885,6 @@ async function runSelfTest() {
         "## Thesis", "", "The fixture claim.", "", "*The claim this article makes.*", "",
         "## Reader start", "", five("start"), "", "*Where the reader stands before the article.*", "",
         "## Reader target", "", five("target"), "",
-        "## Opening question", "", "What makes the fixture claim worth stating?", "", "*The question the article opens on.*", "",
         "## Sequence", "", rendered, "",
       ].join("\n");
       writeFileSync(join(rDir, "brief.md"), rBrief);
@@ -2906,7 +2903,7 @@ async function runSelfTest() {
           && has(`${d}: before ${d}.`) && has(`${d}: after ${d}.`))
         && !rp.stdout.includes("*Where the reader stands")
         && !rp.stdout.includes("*The claim this article makes.*")
-        && !rp.stdout.includes("*The question the article opens on.*"),
+        && !rp.stdout.includes("Opening question"),
         (rp.stdout || "").slice(0, 900) + (rp.stderr || "").slice(0, 400));
       ok("the Packet names no Move id and no Lesson pin (kogaki#1224)",
         rp.status === 0 && !/\*\*Move\.\*\*/.test(rp.stdout) && !/not reproduced here/.test(rp.stdout)
@@ -2931,7 +2928,6 @@ async function runSelfTest() {
       "## Thesis", "", "The fixture claim.", "",
       "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
       "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
-      "## Opening question", "", "What makes the fixture claim worth stating?", "",
       "## Sequence", "", ...legs,
     ].join("\n");
     const a1Block = (extra) => [

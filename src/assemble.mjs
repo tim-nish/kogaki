@@ -80,7 +80,7 @@ import { fillBrief, replaceSlot, selectedStrands, placements,
   resolveMoveIds, validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
   resolveFigureForms, figureClause, figureLegs,
   ownerGateDigest, validateOwnerAnswer,
-         journeyBearingStrands, journeyPlacements, snapshotBrief, openingQuestionOf } from "./compose.mjs";
+         journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
 
@@ -139,21 +139,50 @@ export function characteristicMaxLength() {
 export const READER_FIELDS = [
   ["reader_start", "Reader start"],
   ["reader_target", "Reader target"],
-  ["opening_question", "Opening question"],
 ];
 
-// THE THREE HEADINGS ABOVE ARE STILL RENDERED, AND ONLY ONE IS AUTHORED
-// (kogaki#1216, owner decision 2026-09-28). `reader_start` is GIVEN: authored
+// BOTH HEADINGS ABOVE ARE RENDERED, AND NEITHER IS AUTHORED BY A CANDIDATE
+// (kogaki#1225, owner decision 2026-09-29). `reader_start` is GIVEN: authored
 // once per Brief at the `differentiation` state from the Persona and the
 // Thesis, and set on the Candidate by the Harness at the reader-path job's
-// boundary. `opening_question` is DERIVED: the first Leg's after-state
-// `question:` line, read by `openingQuestionOf`, and a Candidate carrying it
-// as a field is refused by name. `reader_target` is what path composition
-// authors per Candidate. `readerFieldValues` below is the one reader of all
-// three, so the gate evidence and the adoption fill render the same values.
-export const AUTHORED_READER_FIELDS = [
-  ["reader_target", "Reader target"],
-];
+// boundary (kogaki#1216). `reader_target` is DERIVED: it is the LAST Leg's
+// `reader_state_after`, whole, line for line -- where the path leaves the
+// reader is where its last Leg leaves them, and a second statement of that
+// fact authored apart from the Leg was one the Harness compared with nothing.
+// The Opening question heading is GONE (kogaki#1225): the first Leg already
+// carries a before-state and an after-state, so a heading repeating its
+// after-state question was a second Question inside Leg 1, rendered three
+// times. A Candidate carrying either retired field is refused BY NAME, with
+// the message declared once here for every reader of a Candidate.
+// `readerFieldValues` below is the one reader of both rendered values, so the
+// gate evidence and the adoption fill render the same values.
+export const RETIRED_READER_FIELDS = new Map([
+  ["reader_target", "`reader_target` is a retired field (kogaki#1225) — Reader target is the last Leg's "
+    + "`reader_state_after` and is read from it; write where the path leaves the reader INTO the last Leg's "
+    + "after-state and remove the field"],
+  ["opening_question", "`opening_question` is a retired field (kogaki#1216; its heading is removed by kogaki#1225) — "
+    + "no Opening question is rendered; the first Leg's after-state carries whatever question the opening "
+    + "leaves the reader holding, and no field authors one apart"],
+]);
+
+// The refusal for a Candidate carrying a retired field, or null. One
+// predicate for the gate evidence, the adoption fill and the composition
+// validator, so the three cannot disagree on which fields are retired.
+export function retiredReaderFieldRefusal(c) {
+  for (const [key, why] of RETIRED_READER_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(c || {}, key)) return `candidate ${c.candidate_id}: ${why}`;
+  }
+  return null;
+}
+
+// The last Leg's after-state, or null where the path has no last Leg or its
+// after-state is not a non-empty string.
+export function lastLegAfterState(legs) {
+  if (!Array.isArray(legs) || legs.length === 0) return null;
+  const last = legs[legs.length - 1];
+  const v = last && last.reader_state_after;
+  return typeof v === "string" && v !== "" ? v : null;
+}
 
 // One value per rendered heading, or a refusal naming the field. The
 // first-Leg survivor count is NOT folded into Reader start here: the draft
@@ -161,23 +190,22 @@ export const AUTHORED_READER_FIELDS = [
 // Packet, and a count is a fact about the library, not about the reader. It
 // renders under `Tradeoffs` instead (`survivorSentence` below).
 export function readerFieldValues(c) {
-  if (Object.prototype.hasOwnProperty.call(c || {}, "opening_question")) {
-    return { error: `candidate ${c.candidate_id}: \`opening_question\` is a retired field (kogaki#1216) — the Opening `
-      + "question is the first Leg's `reader_state_after` `question:` line and is read from it, never authored apart" };
+  const retired = retiredReaderFieldRefusal(c);
+  if (retired) return { error: retired };
+  if (typeof c.reader_start !== "string" || c.reader_start === "") {
+    return { error: `candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation record `
+      + "and set on the Candidate by the Harness at the reader-path job's boundary (kogaki#1216), so its absence "
+      + "is the runtime's fault rather than the composer's" };
   }
-  const unauthored = [];
-  if (typeof c.reader_start !== "string" || c.reader_start === "") unauthored.push("Reader start");
-  for (const [key, heading] of AUTHORED_READER_FIELDS) {
-    if (typeof c[key] !== "string" || c[key] === "") unauthored.push(heading);
+  const target = lastLegAfterState(c.legs);
+  if (target === null) {
+    return { error: `candidate ${c.candidate_id}: Reader target cannot be derived — it is the last Leg's `
+      + "`reader_state_after` (kogaki#1225), and the path carries no last Leg with one" };
   }
-  if (unauthored.length) return { unauthored };
-  const oq = openingQuestionOf(c.legs);
-  if (oq.error) return { error: `candidate ${c.candidate_id}: ${oq.error}` };
   return {
     values: {
       reader_start: c.reader_start,
-      reader_target: c.reader_target,
-      opening_question: oq.question,
+      reader_target: target,
     },
   };
 }
@@ -212,7 +240,6 @@ export function survivorSentence(c) {
 export const EVIDENCE_LABELS = [
   ["reader_start", "What stance does this path assume the reader arrives in?"],
   ["reader_target", "What stance does this path leave the reader in?"],
-  ["opening_question", "What question does this path's first Leg hand the reader?"],
   ["leg_validity", "Does each leg stand on the material it cites?"],
   ["transition_continuity", "Does each leg leave the reader where the next one starts?"],
   ["thesis_closure", "Does the path close the claim?"],
@@ -303,7 +330,6 @@ export function findInternalVocabulary(text, exempt) {
 export const SLOT_CAPTIONS = new Map([
   ["Reader start", "Where the reader stands before the article."],
   ["Reader target", "Where the article leaves them."],
-  ["Opening question", "The question the opening leaves the reader holding — read off the first Leg, never authored apart from it."],
   // THE RATIFIED NAME (kogaki#574). This heading read "Sequence" while the
   // artifact it holds has a settled name: the adopted Candidate's Reader Path,
   // which the selection gate's own effect wording says becomes this section. The
@@ -613,8 +639,8 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // the count is the only thing that would say so at the gate.
   const discharged = obligations.filter((o) => o.discharged_by !== undefined).length;
   const conceded = obligations.filter((o) => o.conceded_by !== undefined).length;
-  // The three reader fields are authored at PATH COMPOSITION, per Candidate
-  // (the settled structure section v12), so they are this Candidate's own and ride its evidence — two
+  // The two reader values are this Candidate's own (Reader start set on it by
+  // the Harness, Reader target read off its last Leg, kogaki#1225) and ride its evidence — two
   // Candidates differing on the reader axis must not read identically at the
   // gate, which is the same reason journey_coverage is per-Candidate above.
   // An ABSENCE DISCLOSES HERE and REFUSES AT ADOPTION: disclosing lets the
@@ -650,22 +676,25 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
 
   // PER FIELD, NEVER ALL-OR-NOTHING (PR #1222 round 1): this is the defensive
   // path -- `compose_path`'s validator refuses every shape below first -- and
-  // it exists to tell the owner WHICH field is missing, so a Candidate lacking
-  // only its Reader target still renders the Reader start the Harness set on
-  // it and the Opening question its first Leg carries.
+  // it exists to tell the owner WHICH field is missing, so a Candidate whose
+  // last Leg states no after-state still renders the Reader start the Harness
+  // set on it. Reader target is DERIVED from the last Leg (kogaki#1225), so
+  // "not stated" here means the path's last Leg states none.
   const reader = {};
   const absent = "not stated by this path — adopting it will refuse, because the composing act did not run";
-  const oq = openingQuestionOf(c.legs);
   const direct = {
     reader_start: c.reader_start,
-    reader_target: c.reader_target,
-    opening_question: oq.question,
+    reader_target: lastLegAfterState(c.legs),
   };
   for (const [key] of READER_FIELDS) {
     reader[key] = typeof direct[key] === "string" && direct[key] !== "" ? direct[key] : absent;
   }
-  if (Object.prototype.hasOwnProperty.call(c, "opening_question")) {
-    reader.opening_question = "authored apart from the first Leg — a retired field; adopting it will refuse";
+  // A retired field the Candidate still carries is disclosed on the Reader
+  // target line, since that is the value the retirement re-derives.
+  for (const key of RETIRED_READER_FIELDS.keys()) {
+    if (Object.prototype.hasOwnProperty.call(c, key)) {
+      reader.reader_target = `\`${key}\` authored apart from the Legs — a retired field (kogaki#1225); adopting it will refuse`;
+    }
   }
   return {
     ...reader,
@@ -1118,24 +1147,19 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
     return { error: `candidate ${JSON.stringify(candidateId)} is not in the reviewed set `
       + `(${cands.map((x) => x.candidate_id).join(", ") || "empty"}) — the owner adopts from what the gate offered` };
   }
-  // the settled structure section v12: an adopted Candidate carrying no value for one of the three
-  // reader fields REFUSES, naming the field, BEFORE anything is written.
-  // This is not the claims rule's `unsupported completion` and does not borrow that
-  // term: nothing here was invented from outside the material — the value is
-  // absent because the composing act did not run. The refusal is named
+  // the settled structure section v12: an adopted Candidate whose two reader
+  // values cannot be read REFUSES, naming the field, BEFORE anything is
+  // written. Neither is authored by the Candidate (kogaki#1225): Reader start
+  // is given and Reader target is the last Leg's after-state, so an absence is
+  // the runtime's or the path's, never a slot to default. This is not the
+  // claims rule's `unsupported completion` and does not borrow that term:
+  // nothing here was invented from outside the material. The refusal is named
   // distinctly from the not-in-the-reviewed-set refusal above so a caller is
   // never sent to re-answer a gate that is not the problem, and it fills no
   // default: a default would be this file inventing reader state, which is
   // exactly what the read-not-invented rule refuses.
   const readerFields = readerFieldValues(c);
-  if (readerFields.error) return { error: readerFields.error };
-  const unauthored = readerFields.unauthored || [];
-  if (unauthored.length) {
-    return { error: `candidate ${candidateId}: ${unauthored.join(", ")} `
-      + `${unauthored.length === 1 ? "is" : "are"} unauthored — path composition writes `
-      + `${unauthored.length === 1 ? "it" : "them"} per Candidate, and adoption fills no default. `
-      + `Compose the path again; nothing was written to the Brief.` };
-  }
+  if (readerFields.error) return { error: `${readerFields.error}. Nothing was written to the Brief.` };
   // SELECTED HALF — the Candidate gate Candidate-selection gate (kogaki#891). Sited HERE,
   // above every JUDGMENT clause, because this one binds the SUBJECT'S IDENTITY:
   // the argument it checks is `candidateId` itself. Judging a specialization
@@ -1337,7 +1361,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
     if (r.error) return r;
     out = r.doc;
   }
-  // The three land from THIS Candidate, beside thesis_closure and tradeoffs
+  // The two land from THIS Candidate, beside thesis_closure and tradeoffs
   // (the settled structure section v12). A declined Candidate's values land nowhere, because only the
   // adopted Candidate reaches this function at all.
   for (const [key, heading] of READER_FIELDS) {

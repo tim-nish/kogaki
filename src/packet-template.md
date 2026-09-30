@@ -50,7 +50,6 @@ with them; they are settled.
 - **Thesis.** {{thesis}}
 - **Reader start.** {{reader_start}}
 - **Reader target.** {{reader_target}}
-- **Opening question.** {{opening_question}}
 
 ## The Move this Leg performs — its contract
 
