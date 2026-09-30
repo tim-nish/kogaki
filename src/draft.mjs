@@ -293,8 +293,51 @@ export function parseLegBlockBody(body, path) {
     const bad = budgetRefusal(budget, `the Brief at ${path}, leg ${idM[1]}`);
     if (bad) return { refusal: bad };
   }
+  // the Reader target Leg's mark (kogaki#1231), read back from the serialized
+  // form `renderLeg` writes: `reaches_target: true`, on the one Leg whose
+  // after-state IS the Brief's Reader target. THE PARSE-BACK IS WHAT MAKES
+  // THE MARK REACH THE PACKET — the same arrangement `opens_section` and
+  // `figure` have: `renderPacket` renders the marked Leg's and each closing
+  // Leg's own line under `## This Leg` off this field, and without the read
+  // every Packet would render as a Leg before the target with every check
+  // green. Only `true` is a mark; any other value is a half-declaration and
+  // refuses naming the Leg rather than reading as unmarked, because a Brief
+  // that says `reaches_target: false` on the Leg the composer meant to mark
+  // would otherwise render silently as an unmarked path.
+  const reachesM = body.match(/^reaches_target:[ \t]*(.*)$/m);
+  let reaches_target;
+  if (reachesM) {
+    if (reachesM[1].trim() !== "true") {
+      return { refusal: `the Brief at ${path}, leg ${idM[1]}: reaches_target reads ${JSON.stringify(reachesM[1].trim())} — `
+        + "the mark is `true` on exactly one Leg and absent elsewhere (kogaki#1231)" };
+    }
+    reaches_target = true;
+  }
   return { leg: { leg_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, journeys,
-    figure, figure_roles, budget, body } };
+    figure, figure_roles, budget, reaches_target, body } };
+}
+
+// THE READER TARGET LINE OF A PACKET (kogaki#1231, owner decision
+// 2026-09-30): rendered under `## This Leg` from the Brief's own mark, never
+// from the Leg's position. The marked Leg is told it reaches the target;
+// every Leg after it is a closing Leg and is told what a closing Leg may
+// still move — the three closing-Leg rules `src/leg-schema.json` declares,
+// in the writer's register rather than the schema's. A Leg BEFORE the mark
+// renders nothing here, and so does every Leg of a Brief composed before
+// the mark existed: the empty string is a filled slot, and the absence is
+// deliberate — the earlier Legs owe nothing on this ground, so no line tells
+// them so. Exported for the check.
+export const REACHES_TARGET_LINE = "This Leg reaches the Reader target.";
+export const CLOSING_LEG_LINE = "This Leg follows the Reader target: introduce nothing, raise nothing, "
+  + "and move only what the reader asks, expects or trusts.";
+export function readerTargetLine(legs, legId) {
+  const list = Array.isArray(legs) ? legs : [];
+  const targetIdx = list.findIndex((s) => s && s.reaches_target === true);
+  if (targetIdx < 0) return "";
+  const idx = list.findIndex((s) => s && s.leg_id === legId);
+  if (idx === targetIdx) return REACHES_TARGET_LINE;
+  if (idx > targetIdx) return CLOSING_LEG_LINE;
+  return "";
 }
 
 // The fenced form. A Reverse Outline is ONE `leg` block and this is what
@@ -1158,6 +1201,11 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     // own continuation rather than as four new list items.
     reader_state_before: indentContinuation(need(`leg ${leg.leg_id}'s reader_state_before`, legField(leg.body, "reader_state_before"))),
     reader_state_after: indentContinuation(need(`leg ${leg.leg_id}'s reader_state_after`, legField(leg.body, "reader_state_after"))),
+    // THE READER TARGET LINE (kogaki#1231): the marked Leg's, a closing
+    // Leg's, or nothing — off the Brief's own `reaches_target:` mark, read
+    // by `parseLegBlockBody` above. Not passed through `need`: an earlier Leg
+    // renders the empty string here by design, and that is a filled slot.
+    reader_target_line: readerTargetLine(brief.legs, leg.leg_id),
     // `budget` — a LIMIT the writer sees, never a target: rendered in the
     // write instruction, and its absence states so rather than rendering a
     // blank the writer could read as zero.

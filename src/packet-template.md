@@ -72,6 +72,8 @@ What this Leg must accomplish, in this article, for this reader.
 - **reader_state_before.** {{reader_state_before}}
 - **reader_state_after.** {{reader_state_after}}
 
+{{reader_target_line}}
+
 ## The claims this Leg asserts
 
 Each line below is one claim, and every line is a claim of this Leg: none is

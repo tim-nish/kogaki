@@ -96,7 +96,12 @@
     "reader_state_after": {
       "required": true,
       "type": "string",
-      "description": "What the reader holds when this Leg ends, in the same dimensions and the same line-per-dimension shape as `reader_state_before`. Judged against the Move's `after` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world. ON THE LAST LEG this field IS the Brief's Reader target (kogaki#1225, owner decision 2026-09-29): the Brief renders the last Leg's after-state, whole and line for line, under its `Reader target` heading, and no separate field authors it -- a Candidate carrying `reader_target` is refused by name. No Opening question is rendered any more and the first Leg's after-state owes no `question:` line: whatever question the opening leaves the reader holding belongs here, in the reader's own words, and nowhere else."
+      "description": "What the reader holds when this Leg ends, in the same dimensions and the same line-per-dimension shape as `reader_state_before`. Judged against the Move's `after` the same way. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world. ON THE LEG MARKED `reaches_target` this field IS the Brief's Reader target (kogaki#1231, owner decision 2026-09-30, reversing kogaki#1225's last-Leg derivation): the Brief renders that Leg's after-state, whole and line for line, under its `Reader target` heading, and no separate field authors it -- a Candidate carrying `reader_target` is refused by name. No Opening question is rendered any more and the first Leg's after-state owes no `question:` line: whatever question the opening leaves the reader holding belongs here, in the reader's own words, and nowhere else."
+    },
+    "reaches_target": {
+      "required": false,
+      "type": "boolean",
+      "description": "Present, and true, on exactly ONE Leg of the path -- never the first (kogaki#1231, owner decision 2026-09-30, reversing kogaki#1225's rule that the Reader target sits wherever the path ends). That Leg's `reader_state_after` IS the Brief's Reader target, and its `leg_id` is what the Thesis Closure row's `established_by_legs` names. Every Leg AFTER the marked one is a CLOSING Leg, held to the three closing-Leg path_rules below: it introduces nothing, raises no Closure row, and its `orientation` and `knowledge` lines hold at the marked Leg's -- only `question`, `expectation` and `trust` may still move. A Leg before the marked one carries no meaning from this field at all; the marking is absent."
     },
     "depends_on": {
       "required": true,
@@ -247,6 +252,21 @@
       "name": "the Section grouping rule 4",
       "rule": "TWO ADJACENT SECTIONS HOLDING EXACTLY ONE LEG EACH are refused with a request to MERGE them, because a heading on every Leg is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason.",
       "the_other_clause": "Rule 4's other clause -- a Section running past roughly a display and a half of prose without a heading -- measures REALIZED PROSE, which no Brief contains. It is a named deferred slot in the Section grouping: it binds your judgment while you group the Legs, and no refusal reads it."
+    },
+    "reaches_target_marked": {
+      "class": "checked",
+      "name": "the Reader target Leg -- exactly one Leg marked, and never the first",
+      "rule": "EXACTLY ONE Leg of the path carries `reaches_target: true`, and it is not the first Leg. Zero marked Legs leaves the Brief's Reader target undecided; two or more leaves it ambiguous which after-state is the target; marking the first Leg leaves no Leg free to reach it from anywhere (kogaki#1231)."
+    },
+    "closing_leg_introduces_nothing": {
+      "class": "checked",
+      "name": "the Reader target Leg -- a closing Leg introduces nothing and raises nothing",
+      "rule": "A Leg AFTER the one marked `reaches_target` is a CLOSING Leg. A closing Leg carries no `introduces` entry, and it is named as `introduced_by` on no Closure row: once the Reader target is reached, nothing new is put in front of the reader and no new promise is raised for a later Leg to keep (kogaki#1231)."
+    },
+    "closing_leg_state_fixed": {
+      "class": "checked",
+      "name": "the Reader target Leg -- a closing Leg's orientation and knowledge hold at the target Leg's",
+      "rule": "A closing Leg's `reader_state_after` carries the SAME `orientation` and `knowledge` lines, line for line, as the Leg marked `reaches_target` -- once the reader arrives, a closing Leg may not move them further in either dimension. Its `question`, `expectation` and `trust` lines are free to differ (kogaki#1231)."
     },
     "first_leg_binds_a_survivor": {
       "class": "judgment",

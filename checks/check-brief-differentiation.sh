@@ -31,14 +31,16 @@
 # src/compose.mjs and src/leg-schema.json's `path_rules`, replaced by the
 # judgment-class `first_leg_binds_a_survivor`.
 #
-# THE kogaki#1225 HALF (owner decision 2026-09-29): `readerFieldValues`
+# THE kogaki#1225 HALF (owner decision 2026-09-29, REVERSED by kogaki#1231's
+# marked-Leg derivation on 2026-09-30 — this half's own fixtures now mark a
+# Leg `reaches_target` rather than relying on it being last): `readerFieldValues`
 # refuses a Candidate carrying the retired `reader_target` or
-# `opening_question` field by name, derives Reader target from the LAST Leg's
-# `reader_state_after` line for line, and derives no Opening question at
+# `opening_question` field by name, derives Reader target from the MARKED
+# Leg's `reader_state_after` line for line, and derives no Opening question at
 # all; src/candidate-schema.json records both fields as retired and declares
 # neither; the Brief skeleton `composeBrief` writes carries no `Opening
 # question` heading and `SLOT_CAPTIONS` names none; and the gate evidence
-# (`candidateEvidence`) reads Reader target off the same last Leg.
+# (`candidateEvidence`) reads Reader target off the same marked Leg.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: the
 # reader-path unit's own prompt splice (`differentiationBlockFor`, spliced
@@ -261,45 +263,46 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   if (!missing.error) fails.push("(w) an absent reader file was not refused");
 }
 
-// (x) THE RENDERED READER VALUES (kogaki#1225): both retired fields are
-// refused by name, Reader target is the LAST Leg's after-state line for
-// line, no Opening question is derived, a path whose last Leg states no
-// after-state is refused naming the derivation, and the survivor sentence
-// carries the count.
+// (x) THE RENDERED READER VALUES (kogaki#1225, reversed by kogaki#1231):
+// both retired fields are refused by name, Reader target is the after-state
+// of the Leg marked `reaches_target` line for line, no Opening question is
+// derived, a path whose marked Leg states no after-state (or carries none or
+// several such Legs) is refused naming the derivation, and the survivor
+// sentence carries the count.
 {
   const LAST_AFTER = "knowledge: knows the claim\nquestion: holds: none\ntrust: raised";
   const c = {
     candidate_id: "c1", reader_start: READER_START,
     legs: [
       { leg_id: "s1", reader_state_after: "knowledge: one claim\nquestion: what was ever asked to say no?" },
-      { leg_id: "s2", reader_state_after: LAST_AFTER },
+      { leg_id: "s2", reaches_target: true, reader_state_after: LAST_AFTER },
     ],
     leg1_survivor_count: 3,
   };
   const ok = readerFieldValues(c);
-  if (!ok.values || ok.values.reader_target !== LAST_AFTER) fails.push(`(x) readerFieldValues did not derive Reader target from the last Leg's after-state line for line: ${JSON.stringify(ok)}`);
+  if (!ok.values || ok.values.reader_target !== LAST_AFTER) fails.push(`(x) readerFieldValues did not derive Reader target from the marked Leg's after-state line for line: ${JSON.stringify(ok)}`);
   if (ok.values && Object.prototype.hasOwnProperty.call(ok.values, "opening_question")) fails.push(`(x) readerFieldValues still derives an opening_question value: ${JSON.stringify(ok)}`);
   if (ok.values && Object.keys(ok.values).sort().join(",") !== "reader_start,reader_target") fails.push(`(x) readerFieldValues renders keys other than the two headings: ${JSON.stringify(ok)}`);
   const retiredQ = readerFieldValues({ ...c, opening_question: "authored apart" });
   if (!retiredQ.error || !/opening_question/.test(retiredQ.error)) fails.push(`(x) a Candidate carrying opening_question was not refused by name: ${JSON.stringify(retiredQ)}`);
   const retiredT = readerFieldValues({ ...c, reader_target: "knowledge: authored apart" });
   if (!retiredT.error || !/reader_target/.test(retiredT.error)) fails.push(`(x) a Candidate carrying reader_target was not refused by name: ${JSON.stringify(retiredT)}`);
-  const noLast = readerFieldValues({ ...c, legs: [c.legs[0], { leg_id: "s2" }] });
-  if (!noLast.error || !/Reader target/.test(noLast.error) || !/last Leg/.test(noLast.error)) fails.push(`(x) a path whose last Leg states no after-state was not refused naming the derivation: ${JSON.stringify(noLast)}`);
+  const noLast = readerFieldValues({ ...c, legs: [c.legs[0], { leg_id: "s2", reaches_target: true }] });
+  if (!noLast.error || !/Reader target/.test(noLast.error) || !/marked/.test(noLast.error)) fails.push(`(x) a path whose marked Leg states no after-state was not refused naming the derivation: ${JSON.stringify(noLast)}`);
   const noLegs = readerFieldValues({ ...c, legs: [] });
   if (!noLegs.error) fails.push("(x) a Candidate with no Legs was not refused");
   if (!/3 Moves/.test(survivorSentence(c) || "")) fails.push(`(x) survivorSentence did not carry the count: ${survivorSentence(c)}`);
   if (!/names the library/.test(survivorSentence({ leg1_survivor_count: 1 }) || "")) fails.push("(x) a count of one did not name the library");
   // The defensive gate-evidence path degrades PER FIELD (PR #1222 round 1): a
-  // Candidate whose last Leg states no after-state still renders the Reader
+  // Candidate whose marked Leg states no after-state still renders the Reader
   // start the Harness set on it, and a complete one reads Reader target off
-  // the same last Leg the adoption fill does.
+  // the same marked Leg the adoption fill does.
   const evLegs = (legs) => legs.map((l) => ({ ...l, materials: [] }));
   const whole = candidateEvidence({ ...c, legs: evLegs(c.legs) }, []);
   if (whole.error || whole.reader_start !== READER_START || whole.reader_target !== LAST_AFTER || Object.prototype.hasOwnProperty.call(whole, "opening_question")) {
-    fails.push(`(x) candidateEvidence did not read Reader target off the last Leg: ${JSON.stringify(whole)}`);
+    fails.push(`(x) candidateEvidence did not read Reader target off the marked Leg: ${JSON.stringify(whole)}`);
   }
-  const partial = candidateEvidence({ ...c, legs: evLegs([c.legs[0], { leg_id: "s2" }]) }, []);
+  const partial = candidateEvidence({ ...c, legs: evLegs([c.legs[0], { leg_id: "s2", reaches_target: true }]) }, []);
   if (partial.error || partial.reader_start !== READER_START || !/not stated/.test(partial.reader_target || "")) {
     fails.push(`(x) candidateEvidence did not degrade per field: ${JSON.stringify(partial)}`);
   }
@@ -413,5 +416,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-differentiation — validateDifferentiationRecord's fifteen refusals and its passing shape, the Reader start / first-Leg survivor half (kogaki#1216: the persona reader, the survivor sentence, the retired verbatim binding's absence), the kogaki#1225 reader values (no Opening question heading, caption or derived value; Reader target derived from the last Leg's after-state line for line; `reader_target` and `opening_question` refused by name and recorded retired in the schema; the gate evidence reading the same last Leg), assembleSelection's opening-Move check (refused, not-refused, unmatched-unit, and no-argument), and the retired free-text hint's absence");
+console.log("ok: check-brief-differentiation — validateDifferentiationRecord's fifteen refusals and its passing shape, the Reader start / first-Leg survivor half (kogaki#1216: the persona reader, the survivor sentence, the retired verbatim binding's absence), the kogaki#1225 reader values (no Opening question heading, caption or derived value; Reader target derived from the Leg marked reaches_target's after-state line for line (kogaki#1231); `reader_target` and `opening_question` refused by name and recorded retired in the schema; the gate evidence reading the same marked Leg), assembleSelection's opening-Move check (refused, not-refused, unmatched-unit, and no-argument), and the retired free-text hint's absence");
 JS

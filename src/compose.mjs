@@ -413,13 +413,14 @@ export function readerStateDimensionLine(value, dim) {
 // and an after-state, so a heading repeating its after-state question was a
 // second Question inside Leg 1, rendered three times over. The heading, the
 // Packet's fixed-points line and the first-Leg `question:` requirement are
-// gone together; the last Leg's `reader_state_after` is what the Brief now
-// derives (Reader target, src/assemble.mjs `lastLegAfterState`).
+// gone together; the Leg marked `reaches_target`'s `reader_state_after` is
+// what the Brief now derives (Reader target, kogaki#1231, src/assemble.mjs
+// `targetLegAfterState`) -- superseding kogaki#1225's last-Leg derivation.
 
 // ---- shape validation (the Leg's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
 // Returns { error } or { legs }. Pure over its argument; exported for the check.
-export function validateLegs(legs, readerStart) {
+export function validateLegs(legs, readerStart, obligations = []) {
   if (!Array.isArray(legs) || legs.length === 0) {
     return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Leg at all.") };
   }
@@ -649,6 +650,12 @@ export function validateLegs(legs, readerStart) {
   // relation to its neighbours, so none of them is decidable inside the loop.
   const grouping = sectionGroupingRefusal(legs);
   if (grouping) return { error: grouping };
+  // THE READER TARGET LEG (kogaki#1231), run last: it names a Leg by
+  // POSITION relative to every other Leg, so it is decidable only once every
+  // Leg above is known to be well formed — the same reason the Section
+  // grouping runs after the per-Leg loop rather than inside it.
+  const target = readerTargetLegRefusal(legs, obligations);
+  if (target) return { error: target };
   return { legs };
 }
 
@@ -1504,6 +1511,67 @@ export function sectionGroupingRefusal(legs) {
   return null;
 }
 
+// THE INDEX OF THE LEG MARKED `reaches_target`, or -1 where none carries it
+// (kogaki#1231). Exported so src/assemble.mjs derives the Brief's Reader
+// target and the Thesis row's `established_by_legs` from the SAME Leg
+// `validateLegs` ratified, rather than a second search that could disagree
+// with it. Not itself a refusal: a caller with zero or several marked Legs
+// gets -1 or the FIRST marked index respectively, and `readerTargetLegRefusal`
+// is what makes a path with anything but exactly one unwritable.
+export function targetLegIndex(legs) {
+  if (!Array.isArray(legs)) return -1;
+  return legs.findIndex((s) => s && s.reaches_target === true);
+}
+
+// THE READER TARGET LEG (kogaki#1231, owner decision 2026-09-30, reversing
+// kogaki#1225's last-Leg derivation): exactly one Leg is marked
+// `reaches_target`, never the first, and every Leg after it is a CLOSING
+// Leg — held to the three rules this function raises. Run after every Leg
+// is known to be well formed, for the reason `sectionGroupingRefusal` runs
+// there: this is a statement about a Leg's position relative to the whole
+// path, not about one Leg alone. `obligations` is the Candidate's own
+// ledger (src/candidate-schema.json), OPTIONAL for the same reason
+// `readerStart` is — a bare shape check over legs alone hands none, and an
+// absent ledger is read as empty rather than invented. Returns a string to
+// refuse with, or null.
+export function readerTargetLegRefusal(legs, obligations = []) {
+  const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
+  const marked = legs.map((s, i) => (s && s.reaches_target === true ? i : -1)).filter((i) => i >= 0);
+  if (marked.length !== 1) {
+    return pathRefusal("reaches_target_marked", null,
+      marked.length === 0
+        ? "No Leg of this path carries `reaches_target: true`."
+        : `${marked.length} Legs carry it: ${marked.map((i) => at(i)).join(", ")}.`);
+  }
+  const targetIdx = marked[0];
+  if (targetIdx === 0) {
+    return pathRefusal("reaches_target_marked", at(0), "The first Leg carries it, leaving no Leg free to reach the target from anywhere.");
+  }
+  const targetLeg = legs[targetIdx];
+  const obligationList = Array.isArray(obligations) ? obligations : [];
+  for (let i = targetIdx + 1; i < legs.length; i++) {
+    const s = legs[i];
+    if (Array.isArray(s.introduces) && s.introduces.length > 0) {
+      return pathRefusal("closing_leg_introduces_nothing", at(i),
+        `This closing Leg (after ${targetLeg.leg_id}, which reaches the Reader target) still carries introduces: ${JSON.stringify(s.introduces)}.`);
+    }
+    const raised = obligationList.find((o) => o && o.introduced_by === s.leg_id);
+    if (raised) {
+      return pathRefusal("closing_leg_introduces_nothing", at(i),
+        `This closing Leg (after ${targetLeg.leg_id}) is named introduced_by on a Closure row: ${JSON.stringify(raised.text)}.`);
+    }
+    for (const dim of ["orientation", "knowledge"]) {
+      const wantLine = readerStateDimensionLine(targetLeg.reader_state_after, dim);
+      const gotLine = readerStateDimensionLine(s.reader_state_after, dim);
+      if (gotLine !== wantLine) {
+        return pathRefusal("closing_leg_state_fixed", at(i),
+          `Its ${dim} line reads ${JSON.stringify(gotLine)}; the target Leg ${targetLeg.leg_id}'s reads ${JSON.stringify(wantLine)}.`);
+      }
+    }
+  }
+  return null;
+}
+
 // Shape refusal over a whole `introduces` value. Returns a string to refuse
 // with, or null. `at` is the caller's own way of naming the Leg, so one
 // grammar serves the record side and the document side without either
@@ -1618,6 +1686,14 @@ export function renderLeg(s) {
   for (const e of s.introduces || []) L.push(`introduces: ${e}`);
   if (s.budget !== undefined && s.budget !== null) L.push(`budget: ${s.budget}`);
   if (s.opens_section !== undefined) L.push(`opens_section: ${s.opens_section}`);
+  // the Reader target Leg's mark (kogaki#1231): written only where declared
+  // and true, so a Brief composed before this field is byte-identical. THE
+  // WRITE IS WHAT LETS THE PACKET SIDE SEE IT: `src/draft.mjs` reads the
+  // line back and renders the marked Leg's and each closing Leg's own line
+  // under `## This Leg`, and a mark that stayed in the Candidate and never
+  // reached the Brief would leave every Packet reading as a Leg before the
+  // target.
+  if (s.reaches_target === true) L.push("reaches_target: true");
   if (s.bridges) L.push(`bridges: ${s.bridges.join(", ")}`);
   // the figure decision (kogaki#877). Written only when declared, so a Brief composed before
   // this field is byte-identical.
@@ -1777,7 +1853,7 @@ export function replaceSlot(doc, heading, body) {
 // ---- the fill: sequence, strand_coverage, Closure ----
 // Pure over strings; exported for the check.
 export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused = {}, readerStart, thesisClosure = null }) {
-  const v = validateLegs(legs, readerStart);
+  const v = validateLegs(legs, readerStart, obligations);
   if (v.error) return { error: v.error };
   const strandIds = selectedStrands(doc);
   if (strandIds.length === 0) return { error: "the Brief carries no Strands section — not a minted Brief" };

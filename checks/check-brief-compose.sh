@@ -33,29 +33,57 @@
 #       field carries no purpose clause ("to fix or avoid"), and
 #       `src/differentiation-schema.json`'s `question:` line derives nothing
 #       from why the reader opened the post.
-#   (f) the Thesis Closure row reaches only the closing Leg (kogaki#1229):
-#       `closingLegIds` (src/assemble.mjs) names the last Leg of the path
-#       alone, and `closureRowsForLeg` (src/compose.mjs), read over a Closure
-#       section whose Thesis row names that Leg, hands the row to that Leg's
-#       Packet and to no earlier Leg's. Before kogaki#1229 the row named every
-#       Leg, so every Packet carried the whole path's closure narrative.
+#   (f) the Thesis Closure row reaches only the Reader target Leg
+#       (kogaki#1229, renamed under kogaki#1231): `targetLegIds`
+#       (src/assemble.mjs) names the Leg marked `reaches_target` alone, and
+#       `closureRowsForLeg` (src/compose.mjs), read over a Closure section
+#       whose Thesis row names that Leg, hands the row to that Leg's Packet
+#       and to no earlier Leg's. Before kogaki#1229 the row named every Leg,
+#       so every Packet carried the whole path's closure narrative.
+#   (g) `readerTargetLegRefusal` (src/compose.mjs) refuses a path carrying
+#       zero, or more than one, Leg marked `reaches_target`, and refuses one
+#       marking the first Leg — naming the rule (kogaki#1231).
+#   (h) a closing Leg (any Leg after the one marked `reaches_target`)
+#       carrying an `introduces` entry, or named `introduced_by` on a
+#       Closure row, is refused naming the Leg and the rule (kogaki#1231).
+#   (i) a closing Leg whose `reader_state_after` orientation or knowledge
+#       line differs from the target Leg's is refused naming the Leg and the
+#       rule; the same closing Leg with only its question, expectation or
+#       trust line differing is NOT refused (kogaki#1231).
+#   (j) the derivation: `targetLegAfterState` (src/assemble.mjs) reads the
+#       marked Leg's `reader_state_after`, line for line, regardless of its
+#       position in the path (kogaki#1231, reversing kogaki#1225's last-Leg
+#       derivation).
+#   (k) the mark reaches the Packet (kogaki#1231, acceptance item 4):
+#       `renderLeg` (src/compose.mjs) writes `reaches_target: true` on the
+#       marked Leg and no line on any other; `parseLegBlockBody`
+#       (src/draft.mjs) reads it back and refuses any value but `true`
+#       naming the Leg; and a Packet rendered over the real
+#       src/packet-template.md carries "This Leg reaches the Reader target."
+#       on the marked Leg, the closing-Leg line on each Leg after it, and
+#       neither on a Leg before it.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
 # its `question:` line is this reader's reaction to the wording they saw,
 # are judgments read by the owner against the Brief and linted nowhere
-# (Every MUST is judgment). The retired `reader_target` derivation and the
-# removed `Opening question` heading are covered by
-# check-brief-differentiation.sh's kogaki#1225 half, not here.
+# (Every MUST is judgment). What a closing Leg does with terms the reader
+# already holds, and the Thesis-row leak under the retired last-Leg
+# derivation, are separate proposals (kogaki#1231's own scope note), not
+# here. The retired `reader_target` derivation and the removed `Opening
+# question` heading are covered by check-brief-differentiation.sh's
+# kogaki#1225 half, not here.
 set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
 import { readFileSync } from "node:fs";
 import * as compose from "./src/compose.mjs";
-import { closingLegIds } from "./src/assemble.mjs";
+import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
+import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
+  readerTargetLine, REACHES_TARGET_LINE, CLOSING_LEG_LINE } from "./src/draft.mjs";
 
-const { validateLegs, introducedTermInReaderStart, closureRowsForLeg } = compose;
+const { validateLegs, introducedTermInReaderStart, closureRowsForLeg, readerTargetLegRefusal, renderLeg } = compose;
 const fails = [];
 
 const READER_START = "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
@@ -131,25 +159,187 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   if (/and why they opened it\)/.test(workflow)) fails.push("(e) src/brief-workflow.json's Persona note still lists why they opened it as a `reader` field clause");
 }
 
-// (f) the Thesis Closure row reaches only the closing Leg (kogaki#1229).
+// (f) the Thesis Closure row reaches only the Reader target Leg (kogaki#1229, kogaki#1231).
 {
   const legs = ["leg1", "leg2", "leg3", "leg4", "leg5", "leg6"].map((leg_id) => ({ leg_id }));
-  const named = closingLegIds(legs);
-  if (JSON.stringify(named) !== JSON.stringify(["leg6"])) fails.push(`(f) closingLegIds named ${JSON.stringify(named)}, want ["leg6"]`);
-  if (closingLegIds([]).length !== 0) fails.push("(f) closingLegIds over no Legs named a Leg");
+  legs[3].reaches_target = true; // leg4 — not the last Leg, and not the first.
+  const named = targetLegIds(legs);
+  if (JSON.stringify(named) !== JSON.stringify(["leg4"])) fails.push(`(f) targetLegIds named ${JSON.stringify(named)}, want ["leg4"]`);
+  if (targetLegIds([]).length !== 0) fails.push("(f) targetLegIds over no Legs named a Leg");
   // The Closure section exactly as fillBrief renders it (src/compose.mjs): the
   // Thesis row, then the Leg rows.
   const doc = "# Brief\n\n## Closure\n\n### Thesis\n\n"
-    + `The whole claim holds once the last Leg lands. — established_by_legs: ${named.join(", ")}\n\n`
+    + `The whole claim holds once the target Leg lands. — established_by_legs: ${named.join(", ")}\n\n`
     + "### Legs\n\n- an obligation raised early — introduced_by: leg1; discharged_by: leg3\n\n## Next\n\ntext\n";
   for (const { leg_id } of legs) {
     const rows = closureRowsForLeg(doc, leg_id);
     const carries = rows.some((r) => /whole claim holds/.test(r));
-    if (leg_id === "leg6" && !carries) fails.push("(f) the closing Leg's Packet carries no Thesis row");
-    if (leg_id !== "leg6" && carries) fails.push(`(f) ${leg_id}'s Packet carries the Thesis row, which only the closing Leg's may`);
+    if (leg_id === "leg4" && !carries) fails.push("(f) the target Leg's Packet carries no Thesis row");
+    if (leg_id !== "leg4" && carries) fails.push(`(f) ${leg_id}'s Packet carries the Thesis row, which only the target Leg's may`);
   }
   const leg1 = closureRowsForLeg(doc, "leg1");
   if (!leg1.some((r) => /obligation raised early/.test(r))) fails.push("(f) the Leg rows stopped reaching the Leg that introduced them");
+}
+
+// (g) readerTargetLegRefusal — exactly one Leg marked, and never the first.
+{
+  const base = () => ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id, reader_state_after: "orientation: settled\nknowledge: the basics" }));
+
+  const zero = base();
+  const rZero = readerTargetLegRefusal(zero);
+  if (!rZero) fails.push("(g) a path with no Leg marked reaches_target was not refused");
+  else if (!/reaches_target_marked/.test(rZero) && !/Reader target Leg/.test(rZero)) fails.push(`(g) the zero-marked refusal did not name the rule: ${rZero}`);
+
+  const two = base();
+  two[0].reaches_target = true;
+  two[2].reaches_target = true;
+  const rTwo = readerTargetLegRefusal(two);
+  if (!rTwo) fails.push("(g) a path with two Legs marked reaches_target was not refused");
+  else if (!/2 Legs carry it/.test(rTwo)) fails.push(`(g) the two-marked refusal did not count the Legs: ${rTwo}`);
+
+  const first = base();
+  first[0].reaches_target = true;
+  const rFirst = readerTargetLegRefusal(first);
+  if (!rFirst) fails.push("(g) a path marking its first Leg reaches_target was not refused");
+  else if (!/leg 1 \(leg1\)/.test(rFirst)) fails.push(`(g) the first-Leg refusal did not name the Leg: ${rFirst}`);
+
+  const one = base();
+  one[1].reaches_target = true;
+  const rOne = readerTargetLegRefusal(one);
+  if (rOne) fails.push(`(g) exactly one Leg, not the first, marked reaches_target was refused: ${rOne}`);
+}
+
+// (h) a closing Leg introduces nothing and raises nothing (kogaki#1231).
+{
+  const STATE = "orientation: settled\nknowledge: the basics";
+  const withIntroduces = [
+    { leg_id: "leg1", reader_state_after: STATE },
+    { leg_id: "leg2", reaches_target: true, reader_state_after: STATE },
+    { leg_id: "leg3", reader_state_after: STATE, introduces: ["term"] },
+  ];
+  const rIntroduces = readerTargetLegRefusal(withIntroduces);
+  if (!rIntroduces) fails.push("(h) a closing Leg carrying introduces was not refused");
+  else {
+    if (!/leg 3 \(leg3\)/.test(rIntroduces)) fails.push(`(h) the introduces refusal did not name the Leg: ${rIntroduces}`);
+    if (!/closing_leg_introduces_nothing/.test(rIntroduces) && !/introduces nothing/.test(rIntroduces)) fails.push(`(h) the introduces refusal did not name the rule: ${rIntroduces}`);
+  }
+
+  const withClosureRow = [
+    { leg_id: "leg1", reader_state_after: STATE },
+    { leg_id: "leg2", reaches_target: true, reader_state_after: STATE },
+    { leg_id: "leg3", reader_state_after: STATE },
+  ];
+  const obligations = [{ text: "a promise raised late", introduced_by: "leg3", discharged_by: "leg3" }];
+  const rClosureRow = readerTargetLegRefusal(withClosureRow, obligations);
+  if (!rClosureRow) fails.push("(h) a closing Leg named introduced_by on a Closure row was not refused");
+  else if (!/leg 3 \(leg3\)/.test(rClosureRow)) fails.push(`(h) the Closure-row refusal did not name the Leg: ${rClosureRow}`);
+
+  const clean = readerTargetLegRefusal(withClosureRow, []);
+  if (clean) fails.push(`(h) a closing Leg raising no Closure row was refused: ${clean}`);
+}
+
+// (i) a closing Leg's orientation and knowledge hold at the target Leg's (kogaki#1231).
+{
+  const TARGET_STATE = "orientation: settled\nknowledge: the basics";
+  const mismatched = [
+    { leg_id: "leg1", reader_state_after: TARGET_STATE },
+    { leg_id: "leg2", reaches_target: true, reader_state_after: TARGET_STATE },
+    { leg_id: "leg3", reader_state_after: "orientation: unsettled\nknowledge: the basics" },
+  ];
+  const rMismatch = readerTargetLegRefusal(mismatched);
+  if (!rMismatch) fails.push("(i) a closing Leg whose orientation line differs from the target Leg's was not refused");
+  else {
+    if (!/leg 3 \(leg3\)/.test(rMismatch)) fails.push(`(i) the mismatch refusal did not name the Leg: ${rMismatch}`);
+    if (!/closing_leg_state_fixed/.test(rMismatch) && !/hold at the target/.test(rMismatch)) fails.push(`(i) the mismatch refusal did not name the rule: ${rMismatch}`);
+  }
+
+  const freeLines = [
+    { leg_id: "leg1", reader_state_after: TARGET_STATE },
+    { leg_id: "leg2", reaches_target: true, reader_state_after: `${TARGET_STATE}\nquestion: holds: none\ntrust: the default` },
+    { leg_id: "leg3", reader_state_after: `${TARGET_STATE}\nquestion: holds: a new one\ntrust: a different default` },
+  ];
+  const rFree = readerTargetLegRefusal(freeLines);
+  if (rFree) fails.push(`(i) a closing Leg differing only in question/trust was refused: ${rFree}`);
+}
+
+// (j) the derivation: targetLegAfterState reads the marked Leg's reader_state_after (kogaki#1231).
+{
+  const AFTER = "orientation: settled\nknowledge: the basics";
+  const legs = [
+    { leg_id: "leg1", reader_state_after: "orientation: unsettled\nknowledge: none" },
+    { leg_id: "leg2", reaches_target: true, reader_state_after: AFTER },
+    { leg_id: "leg3", reader_state_after: AFTER },
+  ];
+  const got = targetLegAfterState(legs);
+  if (got !== AFTER) fails.push(`(j) targetLegAfterState read ${JSON.stringify(got)}, want the marked Leg's after-state ${JSON.stringify(AFTER)}`);
+
+  const noneMarked = legs.map((s) => ({ ...s, reaches_target: undefined }));
+  if (targetLegAfterState(noneMarked) !== null) fails.push("(j) targetLegAfterState read a value with no Leg marked reaches_target");
+}
+
+// (k) the mark reaches the Packet (kogaki#1231, acceptance item 4): written by renderLeg,
+// read back by parseLegBlockBody, and rendered under `## This Leg` on the marked Leg and
+// on each closing Leg, and on no Leg before the mark.
+{
+  const legOf = (leg_id, extra = {}) => ({
+    leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
+    reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
+    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }],
+    ...extra,
+  });
+  const marked = renderLeg(legOf("s2", { reaches_target: true }));
+  const plain = renderLeg(legOf("s1"));
+  if (!/^reaches_target: true$/m.test(marked)) fails.push(`(k) renderLeg wrote no reaches_target line on the marked Leg: ${JSON.stringify(marked)}`);
+  if (/reaches_target/.test(plain)) fails.push(`(k) renderLeg wrote a reaches_target line on an unmarked Leg: ${JSON.stringify(plain)}`);
+
+  const body = (text) => text.replace(/^```leg\n/, "").replace(/\n```$/, "");
+  const back = parseLegBlockBody(body(marked), "k.md");
+  if (!back.leg || back.leg.reaches_target !== true) fails.push(`(k) parseLegBlockBody did not read the mark back: ${JSON.stringify(back)}`);
+  const unmarked = parseLegBlockBody(body(plain), "k.md");
+  if (!unmarked.leg || unmarked.leg.reaches_target !== undefined) fails.push(`(k) parseLegBlockBody read a mark off an unmarked Leg: ${JSON.stringify(unmarked)}`);
+  const half = parseLegBlockBody(body(marked).replace("reaches_target: true", "reaches_target: false"), "k.md");
+  if (!half.refusal || !/leg s2/.test(half.refusal) || !/reaches_target/.test(half.refusal)) fails.push(`(k) a reaches_target value other than true was not refused naming the Leg: ${JSON.stringify(half)}`);
+
+  const legs = [legOf("s1"), legOf("s2", { reaches_target: true }), legOf("s3")];
+  if (readerTargetLine(legs, "s1") !== "") fails.push("(k) readerTargetLine rendered a line on a Leg before the mark");
+  if (readerTargetLine(legs, "s2") !== REACHES_TARGET_LINE) fails.push("(k) readerTargetLine did not render the target line on the marked Leg");
+  if (readerTargetLine(legs, "s3") !== CLOSING_LEG_LINE) fails.push("(k) readerTargetLine did not render the closing line on the Leg after the mark");
+  if (readerTargetLine([legOf("s1"), legOf("s2")], "s2") !== "") fails.push("(k) readerTargetLine rendered a line on a path carrying no mark");
+
+  // THE RENDERED PACKET, over the real template and a Brief parsed from renderLeg's own output.
+  const briefText = [
+    "# The fixture", "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
+    "## Strands", "", "### L1 — first-strand", "",
+    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+    "## Thesis", "", "The fixture claim.", "",
+    "## Reader start", "", "orientation: before s1", "knowledge: before s1", "",
+    "## Reader target", "", "orientation: after s2", "knowledge: after s2", "",
+    "## Sequence", "", legs.map(renderLeg).join("\n\n"), "",
+  ].join("\n");
+  const brief = parseBrief(briefText, "k.md");
+  if (brief.refusals.length || brief.legs.length !== 3) fails.push(`(k) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
+  const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
+  if (split.error) fails.push(`(k) the Packet template did not split: ${split.error}`);
+  const moveText = [
+    "id: open_the_claim", "technique: >-", "  what the move does.", "question: >-", "  holds: none",
+    "breaks: >-", "  what a correct performance must not do.", "",
+  ].join("\n");
+  const sections = sectionsOf(brief.legs);
+  const packets = {};
+  for (const leg of brief.legs) {
+    const r = renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
+      ledgerRow: undefined, section: sectionOfLeg(brief.legs).get(leg.leg_id), sections });
+    if (r.error) { fails.push(`(k) the Packet for ${leg.leg_id} did not render: ${r.error}`); continue; }
+    packets[leg.leg_id] = r.packet;
+  }
+  const carries = (id, line) => (packets[id] || "").includes(line);
+  if (carries("s1", REACHES_TARGET_LINE) || carries("s1", CLOSING_LEG_LINE)) fails.push("(k) the Packet of a Leg before the mark carries a Reader target line");
+  if (!carries("s2", REACHES_TARGET_LINE)) fails.push("(k) the Packet of the marked Leg does not carry the target line");
+  if (carries("s2", CLOSING_LEG_LINE)) fails.push("(k) the Packet of the marked Leg carries the closing-Leg line");
+  if (!carries("s3", CLOSING_LEG_LINE)) fails.push("(k) the Packet of the closing Leg does not carry the closing-Leg line");
+  if (carries("s3", REACHES_TARGET_LINE)) fails.push("(k) the Packet of the closing Leg carries the target line");
+  if (packets.s2 && !/## This Leg[\s\S]*This Leg reaches the Reader target\.[\s\S]*## The claims this Leg asserts/.test(packets.s2)) fails.push("(k) the target line is not rendered inside the `## This Leg` block");
 }
 
 if (fails.length > 0) {
@@ -157,5 +347,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, and the Thesis Closure row reaching only the closing Leg");
+console.log("ok: check-brief-compose — the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before)");
 JS
