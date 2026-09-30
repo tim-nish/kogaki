@@ -342,6 +342,82 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   if (packets.s2 && !/## This Leg[\s\S]*This Leg reaches the Reader target\.[\s\S]*## The claims this Leg asserts/.test(packets.s2)) fails.push("(k) the target line is not rendered inside the `## This Leg` block");
 }
 
+// (l) closureLedgerRefusal — at most one conceded_by row in the path (kogaki#1232).
+{
+  const { closureLedgerRefusal } = compose;
+  if (typeof closureLedgerRefusal !== "function") fails.push("(l) src/compose.mjs exports no closureLedgerRefusal");
+  else {
+    const legs = ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id }));
+    const twoConceded = [
+      { text: "a question set aside early", introduced_by: "leg1", conceded_by: "leg1" },
+      { text: "a question set aside late", introduced_by: "leg2", conceded_by: "leg3" },
+    ];
+    const rTwo = closureLedgerRefusal(legs, twoConceded);
+    if (!rTwo) fails.push("(l) two conceded_by rows in one path were not refused");
+    else {
+      if (!/at most one conceded row in the path/.test(rTwo)) fails.push(`(l) the refusal did not name the rule: ${rTwo}`);
+      if (!/a question set aside early/.test(rTwo) || !/a question set aside late/.test(rTwo)) fails.push(`(l) the refusal did not name both rows: ${rTwo}`);
+    }
+
+    const oneConceded = [twoConceded[0]];
+    const rOne = closureLedgerRefusal(legs, oneConceded);
+    if (rOne) fails.push(`(l) exactly one conceded_by row was refused: ${rOne}`);
+
+    // A row whose introduced_by and conceded_by name the SAME Leg is the ordinary case.
+    const sameLeg = [{ text: "set aside where raised", introduced_by: "leg2", conceded_by: "leg2" }];
+    const rSame = closureLedgerRefusal(legs, sameLeg);
+    if (rSame) fails.push(`(l) a row conceded in the Leg that raised it was refused: ${rSame}`);
+  }
+}
+
+// (m) closureLedgerRefusal — at most one row open on any given Leg (kogaki#1232). The
+// shape mirrors the owner's 2026-09-30 finding over theses/check-only-good-what-given's
+// ledger: three rows raised at leg1, leg2 and leg3, closed at leg5, leg5 and leg4 --
+// three rows open at leg3 (kogaki#1232's "What was observed").
+{
+  const { closureLedgerRefusal } = compose;
+  const legs = ["leg1", "leg2", "leg3", "leg4", "leg5"].map((leg_id) => ({ leg_id }));
+  const threeOpenAtLeg3 = [
+    { text: "row A", introduced_by: "leg1", discharged_by: "leg5" },
+    { text: "row B", introduced_by: "leg2", discharged_by: "leg5" },
+    { text: "row C", introduced_by: "leg3", discharged_by: "leg4" },
+  ];
+  const rThree = closureLedgerRefusal(legs, threeOpenAtLeg3);
+  if (!rThree) fails.push("(m) three rows open at one Leg were not refused");
+  else {
+    if (!/at most one row open at any given Leg/.test(rThree)) fails.push(`(m) the refusal did not name the rule: ${rThree}`);
+    if (!/leg 2 \(leg2\)/.test(rThree)) fails.push(`(m) the refusal did not name the Leg: ${rThree}`);
+    if (!/row A/.test(rThree) || !/row B/.test(rThree)) fails.push(`(m) the refusal did not name the rows open there: ${rThree}`);
+  }
+
+  // A row open on exactly one Leg at a time, nowhere doubled, is not refused.
+  const oneAtATime = [
+    { text: "row A", introduced_by: "leg1", discharged_by: "leg2" },
+    { text: "row B", introduced_by: "leg2", discharged_by: "leg3" },
+  ];
+  const rClean = closureLedgerRefusal(legs, oneAtATime);
+  if (rClean) fails.push(`(m) a path with at most one row open at any Leg was refused: ${rClean}`);
+
+  // A row raised and conceded in the same Leg is open on no Leg — it is never
+  // counted against another row genuinely open there.
+  const settledInPlace = [
+    { text: "row A", introduced_by: "leg2", discharged_by: "leg4" },
+    { text: "row B", introduced_by: "leg2", conceded_by: "leg2" },
+  ];
+  const rSettled = closureLedgerRefusal(legs, settledInPlace);
+  if (rSettled) fails.push(`(m) a row conceded in its own raising Leg was counted as open there: ${rSettled}`);
+  // ...and validateLegs runs the same check over a full path, refusing at the same ground.
+  const fullLegs = legs.map((s) => ({ ...s, move: "m", materials: ["L1"], purpose: `purpose of ${s.leg_id}`,
+    reader_state_before: `orientation: before ${s.leg_id}\nknowledge: before ${s.leg_id}`,
+    reader_state_after: `orientation: after ${s.leg_id}\nknowledge: after ${s.leg_id}`,
+    depends_on: [], rationale: `why ${s.leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${s.leg_id}` }] }));
+  fullLegs[0].opens_section = "A Section";
+  fullLegs[3].reaches_target = true;
+  const rFull = validateLegs(fullLegs, "", threeOpenAtLeg3);
+  if (!rFull.error) fails.push("(m) validateLegs did not refuse a full path over the same three-open ledger");
+  else if (!/at most one row open at any given Leg/.test(rFull.error)) fails.push(`(m) validateLegs's refusal did not name the rule: ${rFull.error}`);
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);

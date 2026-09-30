@@ -268,6 +268,16 @@
       "name": "the Reader target Leg -- a closing Leg's orientation and knowledge hold at the target Leg's",
       "rule": "A closing Leg's `reader_state_after` carries the SAME `orientation` and `knowledge` lines, line for line, as the Leg marked `reaches_target` -- once the reader arrives, a closing Leg may not move them further in either dimension. Its `question`, `expectation` and `trust` lines are free to differ (kogaki#1231)."
     },
+    "closure_one_conceded_row": {
+      "class": "checked",
+      "name": "Closure -- at most one conceded row in the path",
+      "rule": "A path carries AT MOST ONE Closure row whose terminal state is `conceded_by`. A Question a Leg will not close is set aside IN THAT LEG rather than carried forward (owner decision 2026-09-30): a row's `conceded_by` may name the same Leg as its `introduced_by`, and that is the ordinary case, not an exception. Two or three rows needing to be set aside is read as a sign the ReaderPath itself is not suitable, so a second `conceded_by` row is refused rather than rendered -- the repair is to close the row where it is raised, or to reshape the path."
+    },
+    "closure_one_row_open_per_leg": {
+      "class": "checked",
+      "name": "Closure -- at most one row open at any given Leg",
+      "rule": "A Closure row is OPEN on every Leg from its `introduced_by` Leg up to, and NOT INCLUDING, the Leg that closes it (`discharged_by` or `conceded_by`); a row raised and closed in the same Leg is open on no Leg. AT MOST ONE non-Thesis row may be open at any given Leg (owner decision 2026-09-30): the Thesis is carried throughout by design, but a Question or a promise is a milestone on the way to closing it, and two of them held open at once is the Brief bringing more than one loose end to the same stretch of the reader's attention. A Leg on which more than one row is open is refused, naming the Leg and every row open there."
+    },
     "first_leg_binds_a_survivor": {
       "class": "judgment",
       "name": "the first Leg binds a Move that does not contradict Reader start",
