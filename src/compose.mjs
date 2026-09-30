@@ -1686,6 +1686,14 @@ export function renderLeg(s) {
   for (const e of s.introduces || []) L.push(`introduces: ${e}`);
   if (s.budget !== undefined && s.budget !== null) L.push(`budget: ${s.budget}`);
   if (s.opens_section !== undefined) L.push(`opens_section: ${s.opens_section}`);
+  // the Reader target Leg's mark (kogaki#1231): written only where declared
+  // and true, so a Brief composed before this field is byte-identical. THE
+  // WRITE IS WHAT LETS THE PACKET SIDE SEE IT: `src/draft.mjs` reads the
+  // line back and renders the marked Leg's and each closing Leg's own line
+  // under `## This Leg`, and a mark that stayed in the Candidate and never
+  // reached the Brief would leave every Packet reading as a Leg before the
+  // target.
+  if (s.reaches_target === true) L.push("reaches_target: true");
   if (s.bridges) L.push(`bridges: ${s.bridges.join(", ")}`);
   // the figure decision (kogaki#877). Written only when declared, so a Brief composed before
   // this field is byte-identical.
