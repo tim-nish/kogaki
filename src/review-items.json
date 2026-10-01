@@ -240,10 +240,14 @@
       "kind": "heading_list",
       "heading": "Introduce here"
     },
-    "already_knows": {
+    "held_by_reader": {
       "kind": "heading_list",
-      "heading": "Already knows",
+      "heading": "Held by the reader, not material here",
       "term_only": true
+    },
+    "active_here": {
+      "kind": "heading_list",
+      "heading": "Active here"
     },
     "reader_state_before": {
       "kind": "bullet",
@@ -367,13 +371,16 @@
       "id": "already-knows",
       "class": "best-effort",
       "mode": "judged",
-      "declared_block": "already_knows",
+      "declared_block": "held_by_reader",
+      "also_declared_blocks": [
+        "active_here"
+      ],
       "field": "introduces",
       "when_declared_absent": {
         "verdict": "holds",
-        "sentence": "this Leg's Packet lists no term the reader already knows, so there is nothing for the passage to re-introduce and the question below quantifies over nothing"
+        "sentence": "this Leg's Packet lists no term held by the reader that this Leg left un-re-activated, so there is nothing for the passage to rely on without re-activation and the question below quantifies over nothing"
       },
-      "question": "Does the passage re-introduce a term the reader already knows — explaining again what an earlier Leg established? Answer `fails` if it does."
+      "question": "Does the passage rely on a term or claim the reader holds from an earlier Leg but this Leg did not re-activate — using it as material of its own, as if this Leg had restored it? Answer `fails` if it does. Re-introducing material the Leg DID re-activate (listed under `Active here`, not here) is the intended behaviour and never fails."
     },
     {
       "id": "figure-elements",

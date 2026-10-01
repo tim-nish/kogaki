@@ -630,6 +630,20 @@
         "efficacy": "case: checks/check-brief-compose.sh::(a) a Reader start carrying a term a Leg introduces was not refused",
         "efficacy_note": "MUTATION EVIDENCE (assert-by-breaking-once, applied once and restored at this admission act). Changing the introduced-term clause in `validateLegs` (src/compose.mjs) from `if (introducedTermInReaderStart(e.term, readerStart))` to `if (false)` turned case (a) red -- the path whose Reader start carried \"CI\", a term its second Leg introduces, passed the clause unrefused and fell through to the per-Leg shape loop, so the refusal named neither the term nor the Leg. Reverted, and the check returned to passing."
       }
+    },
+    {
+      "id": "draft-fresh-call",
+      "file": "check-draft-fresh-call.sh",
+      "admission": {
+        "contract": "Fresh Call at the draft runtime's realization entry points: `section --leg <id>` and `figure --leg <id>` take no `--file`; each renders its input, hands it as the entire stdin to the writer `src/draft-workflow.json` declares, re-asks a refused response with the SAME input up to the declared retries, and records the response, with the Packet reaching the run's packets directory and never the session's screen. Driven through the real entry points over a stub writer (`KOGAKI_JUDGE_CLI`), because the defect this closes was in who wrote the prose, which no assertion over a function can see",
+        "license": "kogaki#1237",
+        "tier": "pre-push",
+        "runtime_ms": 1500,
+        "efficacy": "case: checks/check-draft-fresh-call.sh::(b) the writer's output is the recorded prose, its stdin is the Packet, and the Packet is not echoed.",
+        "efficacy_note": "the named defect (kogaki#1237: the session read the Packet and wrote the Leg itself) constructed rather than a neighbour — only a run through the entry point against a writer whose output is known can show that the recorded bytes are the writer's and that nothing of the Packet reached stdout",
+        "removal_signal": "the writer block leaves `src/draft-workflow.json`, or `section`/`figure` regain a file argument by decision — either returns the realization to the session and this check has nothing to bind",
+        "removal_instrument": "probe: ! grep -q '\"writer\"' src/draft-workflow.json || ! grep -q 'no longer takes --file' src/draft.mjs"
+      }
     }
   ]
 }

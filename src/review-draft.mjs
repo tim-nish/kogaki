@@ -2157,7 +2157,17 @@ function declaredSide(leg, item, declared, items) {
       ? [`- **the record's ${item.record_field}.** ${renderSide(v)}`, ...also].join("\n")
       : renderSide(v);
   }
-  if (item.declared_block) return renderSide(declared[item.declared_block]);
+  if (item.declared_block) {
+    // A BLOCK ROW MAY CARRY COMPANION BLOCKS (kogaki#1237). `already-knows`
+    // judges reliance on held material while re-introducing re-activated
+    // material is allowed, so the judge needs BOTH lists: each renders under
+    // its own name, the row's own block first.
+    const also = (item.also_declared_blocks || [])
+      .map((b) => `- **the Leg's ${b}.** ${renderSide(declared[b])}`);
+    return also.length
+      ? [`- **the Leg's ${item.declared_block}.** ${renderSide(declared[item.declared_block])}`, ...also].join("\n")
+      : renderSide(declared[item.declared_block]);
+  }
   if (item.declared_source === "passage") {
     return "(the passage and the figure beside it, quoted below — both sides of this pair were "
       + "read from them)";
@@ -4786,6 +4796,10 @@ async function runSelfTest() {
       // the relations layer's `budget` (kogaki#1174). These fixture Legs declare none, so every
       // Packet renders the stated absence `src/draft.mjs renderPacket` writes.
       budget: "(none declared — no word bound applies to this Leg.)",
+      // the Reader target line (kogaki#1231): these fixture Legs carry no
+      // `reaches_target` mark and none follows one, so the renderer writes
+      // the empty string here, which is a filled slot.
+      reader_target_line: "",
       // THE STATED ABSENCE THE RENDERER WRITES, verbatim (src/draft.mjs's
       // `claims || "(none recorded)"`), so the claimless case exercises the
       // string a real Packet actually carries.
@@ -4795,8 +4809,12 @@ async function runSelfTest() {
           + "- **Your prose is what the heading promises.** This Leg is the whole Section."
         : "- **This Leg CONTINUES the Section headed \"A heading\".** That heading is already on the page, above prose you are writing further into.\n"
           + "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.",
-      reader_already_knows: bullets(f.knows,
-        "(nothing — this is the first Leg to introduce anything, or the path introduces no terms)"),
+      // ACTIVE HERE / HELD BY THE READER (kogaki#1237) replaced the single
+      // already-knows slot. These fixture Legs re-activate nothing, so every
+      // known term is held and Active here renders the renderer's absence.
+      active_here: "(nothing — this Leg re-activates no earlier material; restore nothing here.)",
+      held_by_reader: bullets(f.knows,
+        "(nothing — this is the first Leg to introduce anything, the path introduces no terms, or every known term is re-activated above)"),
       introduces: bullets(introduces, "(nothing new)"),
       // CLOSURE (kogaki#1151). These fixture Legs carry no Closure row — the
       // Round Trip's subject is unaffected by it — so every Packet renders the

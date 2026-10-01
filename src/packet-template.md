@@ -97,16 +97,24 @@ claim, and do not open a new subject.
 
 {{section_placement}}
 
-## What the reader already knows, and what you introduce here
+## What is active here, what is not, and what you introduce here
 
-`already knows` was established by earlier Legs — do not re-introduce it.
-`introduce here` is this Leg's obligation, one line per term: each must be
-usable by the reader after this Leg, and a term with an anchor is anchored
-because its meaning is not carried by the claims above.
+`Active here` is material re-activated from a Leg you depend on — restore it
+for the reader at first use, drawing on the article so far. `Held by the
+reader, not material here` was established by earlier Legs but is not
+re-activated for this Leg: the reader carries it, but do not rely on it as
+material and do not re-explain it. `Introduce here` is this Leg's obligation,
+one line per term: each must be usable by the reader after this Leg, and a
+term with an anchor is anchored because its meaning is not carried by the
+claims above.
 
-### Already knows
+### Active here
 
-{{reader_already_knows}}
+{{active_here}}
+
+### Held by the reader, not material here
+
+{{held_by_reader}}
 
 ### Introduce here
 

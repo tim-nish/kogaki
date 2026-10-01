@@ -249,6 +249,30 @@ try {
   rmSync(dir, { recursive: true, force: true });
 }
 
+// (i) the inverted `already-knows` item (kogaki#1237): ReviewDraft's item table asks
+// whether the passage relies on a term the reader holds but this Leg did NOT
+// re-activate, over the Packet's "Held by the reader, not material here" block,
+// and the retired "Already knows" block is named nowhere in the table.
+{
+  const items = JSON.parse(readFileSync("src/review-items.json", "utf8"));
+  const it = (items.items || []).find((i) => i.id === "already-knows");
+  if (!it) fails.push("(i) src/review-items.json carries no already-knows item");
+  else {
+    if (it.declared_block !== "held_by_reader") fails.push(`(i) already-knows reads block ${JSON.stringify(it.declared_block)}, want held_by_reader`);
+    if (!(it.also_declared_blocks || []).includes("active_here")) fails.push("(i) already-knows does not hand the judge the Active here block beside the held one");
+    if (!/did not re-activate/.test(it.question) || !/Answer `fails` if it does/.test(it.question)) fails.push(`(i) the already-knows question is not inverted onto un-re-activated material: ${it.question}`);
+    if (!/never fails/.test(it.question)) fails.push("(i) the question does not state that re-introducing re-activated material holds");
+    if (!it.when_declared_absent || it.when_declared_absent.verdict !== "holds") fails.push("(i) an empty held-by-reader list does not hold mechanically");
+  }
+  const blocks = items.packet_blocks || {};
+  const held = blocks.held_by_reader;
+  const template = readFileSync("src/packet-template.md", "utf8");
+  if (!held || held.kind !== "heading_list" || !template.includes(`### ${held.heading}`)) fails.push(`(i) packet_blocks.held_by_reader does not name a heading the template renders: ${JSON.stringify(held)}`);
+  const active = blocks.active_here;
+  if (!active || active.kind !== "heading_list" || !template.includes(`### ${active.heading}`)) fails.push(`(i) packet_blocks.active_here does not name a heading the template renders: ${JSON.stringify(active)}`);
+  if (Object.prototype.hasOwnProperty.call(blocks, "already_knows") || /Already knows/.test(JSON.stringify(blocks))) fails.push("(i) the retired already_knows block survives in packet_blocks");
+}
+
 if (fails.length) {
   console.log("FAIL brief review plumbing (SPEC-draft-pipeline §4.6, story 1.74):");
   for (const f of fails) console.log(`  - ${f}`);

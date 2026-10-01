@@ -153,6 +153,11 @@
       "type": "array of string",
       "description": "Terms this Leg introduces to the reader for the first time. The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds."
     },
+    "re-activate": {
+      "required": false,
+      "type": "array of string",
+      "description": "What this Leg treats as active material, restored from a Leg it depends on — not an inventory of what the reader possesses, but what the Writer may speak of as this Leg's own. One reference per line, in one of two forms: `<leg_id> term <exact introduces string>` (the string must match, verbatim, an entry in that Leg's `introduces`) or `<leg_id> claim <strand id>` (the strand must be one that Leg carries a claim for). The named Leg must be in this Leg's `depends_on`. Anything not named here stays available to the reader but is not material for this Leg to speak of; the composer selects from what `depends_on` makes reachable and writes no free text here."
+    },
     "opens_section": {
       "required": false,
       "type": "string",
