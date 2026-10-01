@@ -131,7 +131,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, appendFileSync, existsSync, openSync, closeSync, writeSync, rmSync, renameSync, readdirSync } from "node:fs";
 import { basename, delimiter, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadGrammar, refuseUnlessConformant, validateSurface, classMatchers, FormatRefusal } from "./format-guard.mjs";
 import { enterRun, laneDir, terrainRunEntry } from "./runs.mjs";
 
@@ -7540,12 +7540,19 @@ export class JudgmentExhausted extends Error {
 // classification are generic, and the PROMPT each unit is asked and the
 // VALIDATOR its answer is judged by are supplied by the flow binding that
 // starts the job (`src/brief.mjs`'s `compose_path`, today, and no other state
-// of any table). A unit's classification here is STRUCTURAL only — did the
-// child exit 0 and print a parseable record carrying a `legs` array — because
-// the RULES a Candidate must obey (`validateLegs`, `src/candidate-schema.json`)
-// are Brief-specific and are applied where they always were: at assembly,
-// unchanged, when `job await` hands the finished set to the existing
-// `judged()` call under its `--candidates` flag.
+// of any table). A unit's classification STARTS structural — did the child
+// exit 0 and print a parseable record carrying a `legs` array — and then, when
+// those checks pass, runs the DECLARED validator the units file names (module
+// plus export plus inputs, kogaki#1240): a checker inside a job is supplied
+// concretely by the supervisor or not at all, this file never statically
+// importing `validateLegs` or anything else Brief-specific. A unit that fails
+// the declared validator classifies `refused`, with the validator's own
+// refusal text, which is what lets the existing one-re-ask (kogaki#1203) and
+// re-run-after-two-attempts (kogaki#1204) machinery fire on a Leg-shape
+// problem exactly as it already does on a structural one — `compose_path`'s
+// own `validate()` keeps only the rules that need every unit in hand at once
+// (count, duplicate ids, duplicate characteristic, duplicate reader
+// experience), which stay genuinely cross-Candidate and stay terminal.
 export class DetachedJobStarted extends Error {
   constructor(stateId, jobRecordPath, message) {
     super(message);
@@ -7776,7 +7783,38 @@ function readerPathDeadUnitResult(stdout) {
   return null;
 }
 
-export function classifyDetachedJobUnit(out) {
+// THE DECLARED VALIDATOR, LOADED HERE AND NOWHERE ELSE (kogaki#1240). This
+// module knows nothing of Candidates, Legs or Briefs (kogaki#1193's own
+// framing, carried forward) -- a checker inside a job is supplied concretely
+// by the supervisor or not at all (the owner's 2026-09-25 principle), so the
+// units file names the module and export to `import()` at runtime rather
+// than this file statically importing anything Brief-specific. `fail()`s
+// (caught by `cmdJobSupervise`'s own catch-all, below) when the declaration
+// or the named export is missing.
+export async function loadReaderPathUnitValidator(declared) {
+  if (!declared || typeof declared !== "object") fail("the units file carries no declared validator (kogaki#1240).");
+  const modulePath = String(declared.module || fail("the declared validator names no `module`."));
+  const exportName = String(declared.export || fail("the declared validator names no `export`."));
+  const mod = await import(pathToFileURL(resolve(REPO, modulePath)).href);
+  const fn = mod[exportName];
+  if (typeof fn !== "function") fail(`${modulePath} exports no function named ${JSON.stringify(exportName)}.`);
+  const inputs = declared.inputs || {};
+  // THE `{error}`-RETURNING CONVENTION (carried from `validateLegs` and
+  // `resolveMoveIds`, which `validateReaderPathUnit` itself calls) is
+  // unwrapped HERE, once, so `classifyDetachedJobUnit` deals only in a
+  // plain string-or-falsy refusal regardless of which declared validator
+  // supplied it.
+  return (candidate) => {
+    const r = fn(candidate, inputs);
+    return r && r.error ? r.error : null;
+  };
+}
+
+// `validate`, when given, is the DECLARED validator (kogaki#1240) loaded by
+// the caller from the units file -- this function stays ignorant of what it
+// checks or why, taking only a `(candidate) => string|null` function and
+// downgrading an otherwise-`done` unit to `refused` on a truthy return.
+export function classifyDetachedJobUnit(out, validate) {
   if (out.error) {
     return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(String(out.error.message || out.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
   }
@@ -7787,6 +7825,12 @@ export function classifyDetachedJobUnit(out) {
   const r = readerPathUnitRecord(Buffer.concat(out.chunks).toString("utf8"));
   if (r.error) {
     return { status: "refused", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(r.error, 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
+  }
+  if (validate) {
+    const refusal = validate(r.candidate);
+    if (refusal) {
+      return { status: "refused", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(String(refusal), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
+    }
   }
   return { status: "done", candidate: r.candidate };
 }
@@ -7931,7 +7975,13 @@ export async function cmdJobSupervise(args) {
     const absoluteLimitS = Number(args["absolute-limit-s"]) || READER_PATH_JOB_ABSOLUTE_LIMIT_S;
     const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
     const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
-    const units = readJson(unitsPath);
+    // THE DECLARED VALIDATOR, REQUIRED (kogaki#1240): a units file with no
+    // `validator` key -- or naming no loadable export -- `fail()`s here,
+    // before any child is spawned, and is caught by this function's own
+    // catch-all below exactly like any other malformed units file.
+    const declared = readJson(unitsPath);
+    const units = Array.isArray(declared) ? declared : (declared.units || fail("the units file at " + unitsPath + " carries no `units` array."));
+    const validate = await loadReaderPathUnitValidator(declared.validator);
 
     // THE MINIMAL ENVIRONMENT (kogaki#1193, the owner's 2026-09-25 wording;
     // narrowed by kogaki#1197): no project instructions, skills, hooks or MCP
@@ -8001,7 +8051,7 @@ export async function cmdJobSupervise(args) {
       const unitRows = units.map((u) => {
         const sp = unitsRunning.get(u.id);
         if (sp.out.done) {
-          const cls = classifyDetachedJobUnit(sp.out);
+          const cls = classifyDetachedJobUnit(sp.out, validate);
           const attempt = unitAttempts.get(u.id) || 1;
           // THE ONE RE-ASK (kogaki#1203 acceptance 3): a STRUCTURAL refusal on
           // attempt 1 respawns the unit with the refusal appended, verbatim,
@@ -8102,8 +8152,9 @@ export async function cmdJobSupervise(args) {
 // and returns immediately without waiting on it: the whole reason a
 // `DetachedJobStarted` throw follows this call rather than a blocking wait.
 export function startDetachedJobSupervisor(dir, opts) {
+  const validator = opts.validator || fail("startDetachedJobSupervisor needs a declared `validator` (kogaki#1240).");
   const unitsPath = join(dir, "reader-path-job-units.json");
-  writeFileSync(unitsPath, `${JSON.stringify(opts.units, null, 2)}\n`);
+  writeFileSync(unitsPath, `${JSON.stringify({ units: opts.units, validator }, null, 2)}\n`);
   const scriptPath = fileURLToPath(import.meta.url);
   const child = spawn(process.execPath, [
     scriptPath, "job-supervise",
@@ -8151,9 +8202,11 @@ export async function cmdJobRerunUnit(args) {
     const target = priorUnits.find((u) => u.id === unitId)
       || fail(`unit ${JSON.stringify(unitId)} is not in the reader-path job's own record — nothing to re-run.`);
     const unitsPath = join(dir, "reader-path-job-units.json");
-    const originalUnits = existsSync(unitsPath) ? readJson(unitsPath) : [];
+    const declared = existsSync(unitsPath) ? readJson(unitsPath) : { units: [] };
+    const originalUnits = Array.isArray(declared) ? declared : (declared.units || []);
     const originalUnit = originalUnits.find((u) => u.id === unitId)
       || fail(`unit ${JSON.stringify(unitId)}'s original prompt is not on disk at ${unitsPath} — nothing to re-run from.`);
+    const validate = await loadReaderPathUnitValidator(declared.validator);
     const refusal = (target.failure && (target.failure.stderr_tail || target.failure.first_refusal))
       || "no further detail was recorded for the earlier attempt";
     const retryPrompt = readerPathUnitRetryPrompt(originalUnit.prompt, refusal);
@@ -8173,7 +8226,7 @@ export async function cmdJobRerunUnit(args) {
       const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
       let row;
       if (sp.out.done) {
-        const cls = classifyDetachedJobUnit(sp.out);
+        const cls = classifyDetachedJobUnit(sp.out, validate);
         if (cls.status === "done" && !candidateWritten) {
           const candPath = readerPathUnitCandidatePath(dir, unitId);
           try { writeFileSync(candPath, `${JSON.stringify(cls.candidate, null, 2)}\n`); candidateWritten = true; }
