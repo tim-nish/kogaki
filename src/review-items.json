@@ -245,6 +245,10 @@
       "heading": "Held by the reader, not material here",
       "term_only": true
     },
+    "active_here": {
+      "kind": "heading_list",
+      "heading": "Active here"
+    },
     "reader_state_before": {
       "kind": "bullet",
       "label": "reader_state_before"
@@ -368,6 +372,9 @@
       "class": "best-effort",
       "mode": "judged",
       "declared_block": "held_by_reader",
+      "also_declared_blocks": [
+        "active_here"
+      ],
       "field": "introduces",
       "when_declared_absent": {
         "verdict": "holds",

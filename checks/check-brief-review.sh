@@ -259,6 +259,7 @@ try {
   if (!it) fails.push("(i) src/review-items.json carries no already-knows item");
   else {
     if (it.declared_block !== "held_by_reader") fails.push(`(i) already-knows reads block ${JSON.stringify(it.declared_block)}, want held_by_reader`);
+    if (!(it.also_declared_blocks || []).includes("active_here")) fails.push("(i) already-knows does not hand the judge the Active here block beside the held one");
     if (!/did not re-activate/.test(it.question) || !/Answer `fails` if it does/.test(it.question)) fails.push(`(i) the already-knows question is not inverted onto un-re-activated material: ${it.question}`);
     if (!/never fails/.test(it.question)) fails.push("(i) the question does not state that re-introducing re-activated material holds");
     if (!it.when_declared_absent || it.when_declared_absent.verdict !== "holds") fails.push("(i) an empty held-by-reader list does not hold mechanically");
@@ -267,7 +268,8 @@ try {
   const held = blocks.held_by_reader;
   const template = readFileSync("src/packet-template.md", "utf8");
   if (!held || held.kind !== "heading_list" || !template.includes(`### ${held.heading}`)) fails.push(`(i) packet_blocks.held_by_reader does not name a heading the template renders: ${JSON.stringify(held)}`);
-  if (!template.includes("### Active here")) fails.push("(i) the template renders no Active here block");
+  const active = blocks.active_here;
+  if (!active || active.kind !== "heading_list" || !template.includes(`### ${active.heading}`)) fails.push(`(i) packet_blocks.active_here does not name a heading the template renders: ${JSON.stringify(active)}`);
   if (Object.prototype.hasOwnProperty.call(blocks, "already_knows") || /Already knows/.test(JSON.stringify(blocks))) fails.push("(i) the retired already_knows block survives in packet_blocks");
 }
 
