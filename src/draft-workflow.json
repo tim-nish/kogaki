@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "note": [
+    "THE DRAFT RUNTIME'S WORKFLOW TABLE (kogaki#1237, owner decision 2026-09-30: Fresh Call).",
+    "`section --leg <id>` and `figure --leg <id>` no longer take `--file`: each renders its",
+    "input (the Leg Packet; the Packet plus the figure block) and hands it, as the ENTIRE stdin,",
+    "to the command this block declares, then records the response. The session that invokes",
+    "the act never sees the Packet and never writes the prose, so nothing it read for one Leg",
+    "can be carried into the next. The keys are the ones `src/brief-workflow.json`'s `judge`",
+    "block declares, read by `writerSettingsRefusal` in src/draft.mjs, which refuses a missing",
+    "key by name rather than defaulting it: a bound a table can silently omit is not a bound.",
+    "`KOGAKI_JUDGE_CLI` replaces the resolved binary FOR FIXTURES ONLY, exactly as",
+    "src/terrain.mjs resolves it, and pins no model of its own. `effort` is declared rather",
+    "than observed. `retries` is per act: a response the act's refusals reject is re-asked",
+    "with the SAME input up to that count and then the act fails naming the Leg."
+  ],
+  "writer": {
+    "command": "claude",
+    "model": "claude-opus-5",
+    "effort": "high",
+    "output_format": "text",
+    "timeout_s": 600,
+    "retries": { "section": 2, "figure": 2 }
+  }
+}

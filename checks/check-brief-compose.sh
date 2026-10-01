@@ -418,10 +418,86 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   else if (!/at most one row open at any given Leg/.test(rFull.error)) fails.push(`(m) validateLegs's refusal did not name the rule: ${rFull.error}`);
 }
 
+// (n) `re-activate` (kogaki#1237): the three composition refusals name the entry; the
+// Packet renders what is re-activated under "Active here" verbatim and every other
+// ledger term under "Held by the reader, not material here"; a Leg re-activating
+// nothing renders a stated absence; `depends_on` reaches no Packet.
+{
+  const { reactivateRefusal, reactivateSemanticRefusal, readerKnowledgeLedger } = compose;
+  if (typeof reactivateRefusal !== "function" || typeof reactivateSemanticRefusal !== "function") fails.push("(n) src/compose.mjs exports no re-activate refusals");
+  const legOf = (leg_id, extra = {}) => ({
+    leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
+    reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
+    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    ...extra,
+  });
+  const path = (s2extra) => {
+    const legs = [legOf("s1", { opens_section: "A Section", introduces: ["unfed guard — a guard whose input nobody feeds", "pipeline"] }),
+      legOf("s2", { depends_on: ["s1"], reaches_target: true, ...s2extra }),
+      legOf("s3", { depends_on: ["s2"] })];
+    legs[2].reader_state_after = legs[1].reader_state_after;
+    return legs;
+  };
+  const outside = validateLegs(path({ "re-activate": ["s3 term pipeline"], depends_on: ["s1"] }), "");
+  if (!outside.error || !/not in this Leg's depends_on/.test(outside.error) || !/"s3 term pipeline"/.test(outside.error)) fails.push(`(n) a re-activate naming a Leg outside depends_on was not refused naming the entry: ${outside.error}`);
+  const noTerm = validateLegs(path({ "re-activate": ["s1 term deterrence"] }), "");
+  if (!noTerm.error || !/does not introduce "deterrence"/.test(noTerm.error) || !/"s1 term deterrence"/.test(noTerm.error)) fails.push(`(n) a re-activate naming a term the Leg does not introduce was not refused naming the entry: ${noTerm.error}`);
+  const noClaim = validateLegs(path({ "re-activate": ["s1 claim L9"] }), "");
+  if (!noClaim.error || !/carries no claim for strand "L9"/.test(noClaim.error) || !/"s1 claim L9"/.test(noClaim.error)) fails.push(`(n) a re-activate naming a Strand the Leg carries no claim for was not refused naming the entry: ${noClaim.error}`);
+  const shape = validateLegs(path({ "re-activate": ["s1 pipeline"] }), "");
+  if (!shape.error || !/re-activate/.test(shape.error)) fails.push(`(n) a malformed re-activate entry was not refused: ${shape.error}`);
+  const good = validateLegs(path({ "re-activate": ["s1 term unfed guard", "s1 claim L1"] }), "");
+  if (good.error) fails.push(`(n) a well-formed re-activate over depends_on material was refused: ${good.error}`);
+
+  // THE RENDERED PACKET, over the real template and a Brief parsed from renderLeg's own output.
+  const legs = path({ "re-activate": ["s1 term unfed guard"] });
+  const briefText = [
+    "# The fixture", "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
+    "## Strands", "", "### L1 — first-strand", "",
+    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+    "## Thesis", "", "The fixture claim.", "",
+    "## Reader start", "", "orientation: before s1", "knowledge: before s1", "",
+    "## Reader target", "", "orientation: after s2", "knowledge: after s2", "",
+    "## Sequence", "", legs.map(renderLeg).join("\n\n"), "",
+  ].join("\n");
+  const brief = parseBrief(briefText, "n.md");
+  if (brief.refusals.length || brief.legs.length !== 3) fails.push(`(n) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
+  else if (JSON.stringify(brief.legs[1]["re-activate"]) !== JSON.stringify(["s1 term unfed guard"])) fails.push(`(n) parseLegBlockBody did not read re-activate back one line per entry: ${JSON.stringify(brief.legs[1]["re-activate"])}`);
+  const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
+  const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-", "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
+  const ledger = readerKnowledgeLedger(brief.legs);
+  const sections = sectionsOf(brief.legs);
+  const packets = {};
+  for (const leg of brief.legs) {
+    const r = renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
+      ledgerRow: ledger.find((row) => row.leg_id === leg.leg_id), section: sectionOfLeg(brief.legs).get(leg.leg_id), sections });
+    if (r.error) { fails.push(`(n) the Packet for ${leg.leg_id} did not render: ${r.error}`); continue; }
+    packets[leg.leg_id] = r.packet;
+  }
+  const block = (id, heading) => {
+    const m = (packets[id] || "").split(`### ${heading}\n`)[1];
+    return m ? m.split("\n###")[0] : null;
+  };
+  const active2 = block("s2", "Active here"), held2 = block("s2", "Held by the reader, not material here");
+  if (active2 === null || held2 === null) fails.push("(n) the Packet does not carry both the Active here and Held by the reader blocks");
+  else {
+    if (!/unfed guard/.test(active2) || !/re-activated from s1/.test(active2)) fails.push(`(n) the re-activated term is not under Active here verbatim: ${active2.trim().slice(0, 160)}`);
+    if (/unfed guard/.test(held2)) fails.push("(n) the re-activated term is also under Held by the reader");
+    if (!/pipeline/.test(held2)) fails.push(`(n) the term not re-activated is not under Held by the reader: ${held2.trim().slice(0, 160)}`);
+  }
+  const active3 = block("s3", "Active here");
+  if (active3 === null || !/nothing — this Leg re-activates no earlier material/.test(active3)) fails.push(`(n) a Leg re-activating nothing does not render a stated absence under Active here: ${String(active3).trim().slice(0, 160)}`);
+  for (const id of Object.keys(packets)) {
+    if (/depends_on/.test(packets[id])) fails.push(`(n) depends_on reaches the Packet of ${id}`);
+    if (/Already knows/.test(packets[id])) fails.push(`(n) the retired Already knows heading is still rendered in the Packet of ${id}`);
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before)");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before)");
 JS

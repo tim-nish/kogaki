@@ -98,6 +98,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync
 import { join, resolve, relative, dirname, basename, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
 // the Leg-Move instantiation contract's mechanical half is ONE function shared with the composition side
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
@@ -107,6 +108,10 @@ import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionR
   journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg,
   reactivateRefusal, parseReactivateEntry, parseIntroducesEntry } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
+// THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
+// resolved exactly as the Terrain and Brief judges are, `KOGAKI_JUDGE_CLI`
+// included, so a fixture seam and a shim refusal read the same here.
+import { resolveJudgeBinary } from "./terrain.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
 // renderLanguageBlock live in lint-ja.mjs, which also runs the Lint that
@@ -701,6 +706,144 @@ function assembleBody(brief, ws, lang = "en") {
 
 // ---------------------------------------------------------------------------
 // Commands.
+
+// ---------------------------------------------------------------------------
+// FRESH CALL (kogaki#1237, owner decision 2026-09-30). `section` and `figure`
+// no longer take the realized text from a file the invoking session wrote.
+// Each renders its input -- the Leg Packet; the Packet plus the figure block --
+// and hands it, as the ENTIRE stdin, to the command `src/draft-workflow.json`'s
+// `writer` block declares, then records the response. The session that invokes
+// the act never sees the Packet and never writes the prose, so nothing it read
+// for one Leg can be carried into the next: the Packet is the writer's entire
+// input by construction, not by the file alone.
+//
+// THE TABLE IS HARNESS-OWNED AND REFUSES A MISSING KEY BY NAME. The keys are
+// the ones `src/brief-workflow.json`'s `judge` block declares, and none is
+// defaulted: a bound a table can silently omit is not a bound (kogaki#1030).
+const DRAFT_TABLE = join(dirname(fileURLToPath(import.meta.url)), "draft-workflow.json");
+export const WRITER_KEYS = ["command", "model", "effort", "output_format", "timeout_s", "retries"];
+export const WRITER_ACTS = ["section", "figure"];
+
+// The refusal over a parsed table, or null. EXPORTED AND PURE so a check can
+// drive it over a table it builds, without a file seam into the runtime.
+export function writerSettingsRefusal(table) {
+  const at = "src/draft-workflow.json";
+  const w = table && table.writer;
+  if (!w || typeof w !== "object" || Array.isArray(w)) {
+    return `${at} declares no \`writer\` block — Fresh Call runs the realization through a Harness-declared command, and a table without the block has no writer to call`;
+  }
+  for (const k of WRITER_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(w, k)) {
+      return `${at}'s writer block declares no \`${k}\` — the block carries ${WRITER_KEYS.join(", ")}, each required rather than defaulted, so a missing one refuses the act by name`;
+    }
+  }
+  for (const k of ["command", "model", "effort", "output_format"]) {
+    if (typeof w[k] !== "string" || w[k] === "") return `${at}'s writer block's \`${k}\` is not a non-empty string`;
+  }
+  if (!Number.isFinite(w.timeout_s) || w.timeout_s <= 0) {
+    return `${at}'s writer block declares no positive numeric \`timeout_s\` — the writer call is bounded per call, and an unbounded child is what the bound exists to refuse`;
+  }
+  if (!w.retries || typeof w.retries !== "object" || Array.isArray(w.retries)) {
+    return `${at}'s writer block's \`retries\` is not an object keyed by act (${WRITER_ACTS.join(", ")})`;
+  }
+  for (const act of WRITER_ACTS) {
+    const n = w.retries[act];
+    if (!Number.isInteger(n) || n < 0) return `${at}'s writer block declares no non-negative integer \`retries.${act}\` — how many times a refused response is re-asked before the act fails naming the Leg`;
+  }
+  return null;
+}
+
+function writerSettings() {
+  let table;
+  try { table = JSON.parse(readFileSync(DRAFT_TABLE, "utf8")); }
+  catch (e) { fail(`the draft workflow table at ${DRAFT_TABLE} cannot be read (${e.message}) — it is a runtime-read carrier and the act has no built-in fallback, deliberately: a fallback writer would be a second copy nobody maintains`); }
+  const bad = writerSettingsRefusal(table);
+  if (bad) fail(bad);
+  const w = table.writer;
+  // `KOGAKI_JUDGE_CLI` REPLACES THE BINARY, FOR FIXTURES, and is resolved like
+  // any other command (kogaki#1076): a stub that cannot answer `--version` is
+  // a fixture running something the shipped path would refuse.
+  const declared = process.env.KOGAKI_JUDGE_CLI || w.command;
+  const binary = resolveJudgeBinary(String(declared), process.env.PATH);
+  return { ...w, binary, stubbed: !!process.env.KOGAKI_JUDGE_CLI };
+}
+
+// The response's TEXT. `claude -p --output-format json` wraps the answer in an
+// envelope whose `result` carries it; `text` is the answer itself.
+function writerText(stdout, outputFormat) {
+  if (outputFormat !== "json") return String(stdout);
+  let env;
+  try { env = JSON.parse(stdout); } catch (e) { return { error: `the writer's json response does not parse (${e.message})` }; }
+  if (typeof env === "string") return env;
+  if (env && typeof env === "object" && typeof env.result === "string") return env.result;
+  return { error: "the writer's json response carries no string `result`" };
+}
+
+// ONE CALL, RE-ASKED WITH THE SAME INPUT UP TO THE DECLARED RETRIES. `refuse`
+// is the act's own refusal over the response text (returning a message or
+// null); a response it rejects is re-asked, and when the retries are spent the
+// act fails NAMING THE LEG and the last refusal. The input is never changed
+// between asks -- the Packet is the whole input, and re-reading the material is
+// not what is wanted.
+function callWriter({ settings, act, legId, input, refuse }) {
+  const attempts = 1 + settings.retries[act];
+  const refused = [];
+  for (let n = 1; n <= attempts; n++) {
+    const r = spawnSync(settings.binary.path,
+      ["-p", "--model", settings.model, "--output-format", settings.output_format],
+      { input, encoding: "utf8", timeout: 1000 * settings.timeout_s, maxBuffer: 64 * 1024 * 1024 });
+    if (r.error) {
+      fail(`leg ${legId}: the writer (${settings.binary.path}) could not be run for \`${act}\` (${r.error.code || "spawn failed"}: ${r.error.message}) — attempt ${n} of ${attempts}`);
+    }
+    if (r.status !== 0) {
+      const said = String(r.stderr || "").trim().split("\n")[0] || "(no stderr)";
+      fail(`leg ${legId}: the writer exited ${r.status === null ? `on ${r.signal}` : r.status} for \`${act}\` — ${said}`);
+    }
+    const text = writerText(r.stdout, settings.output_format);
+    const bad = (text && typeof text === "object" && text.error) ? text.error : refuse(text);
+    if (!bad) return { text, attempts: n, refused };
+    refused.push(bad);
+  }
+  fail(`leg ${legId}: the writer's \`${act}\` response was refused ${attempts} time(s) and the declared retries.${act}=${settings.retries[act]} are spent — the Leg is not recorded. Last refusal: ${refused[refused.length - 1]}`);
+}
+
+// THE PROSE REFUSALS, one function, so the re-ask loop and a check read the
+// same rule set: empty; a foreign Strand; record rendered as structure; a
+// figure drawn in prose; a heading of the prose's own.
+export function sectionProseRefusal(content, id, brief) {
+  if (typeof content !== "string" || content.trim() === "") {
+    return `the section for ${id} is empty — the writer returned no prose`;
+  }
+  const foreign = scanForeignStrands(content, brief.strands);
+  if (foreign.length) return foreignStrandRefusal(foreign[0], brief.strands);
+  const structural = findTraceStructure(content, brief.legs.map((s) => s.leg_id));
+  if (structural.length) {
+    return `the section for ${id} renders record as structure: ${structural[0]} — the per-Leg trace is frontmatter record, never visible structure in the body (SPEC-draft-command, the Brief's centre and its obligations ledger)`;
+  }
+  const quotable = content.replace(/^`{4,}[\s\S]*?^`{4,}[ \t]*$/gm, "");
+  const drawn = quotable.match(new RegExp("^```[ \\t]*" + MERMAID_FENCE + "\\b", "mi"));
+  if (drawn) {
+    return `the section for ${id} draws its own figure (a \`\`\`${MERMAID_FENCE} fence) — after the renderer and the anchor a figure's markup is rendered by the Harness from the record \`figure --leg ${id}\` validated, and prose that draws one is a second author on a seat the Brief owns, exactly as a heading in the prose is (the Section grouping). `
+      + `If this Leg should carry a figure, it is declared with \`figure:\` on the Brief (the figure decision) and designed after this prose; if it should not, remove the fence`;
+  }
+  const unfenced = content.replace(/^```[\s\S]*?^```[ \t]*$/gm, "");
+  const heading = unfenced.match(/^(#{1,6})[ \t]+(\S.*?)[ \t]*$/m);
+  if (heading) {
+    return `the section for ${id} carries its own heading (${heading[0].trim()}) — after the Section grouping the heading is the Harness's, rendered once per Section at the Leg that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. `
+      + `Remove it: the Packet's write instruction says "No heading" for this reason`;
+  }
+  return null;
+}
+
+// A figure record out of a response: the JSON object, fences stripped, or the
+// reason it is not one. The mechanical validation (`figureRecordRefusal`) runs
+// on what this returns.
+export function parseWriterRecord(text) {
+  const stripped = String(text).trim().replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/, "");
+  try { return { record: JSON.parse(stripped) }; }
+  catch (e) { return { error: `the figure record is not readable JSON (${e.message}) — the record is one JSON object, the instance of the Move's form` }; }
+}
+
 function cmdResolve(args) {
   const brief = loadBrief(args);
   const ws = enterWorkspace(args, brief.slug);
@@ -1532,7 +1675,14 @@ function driveNextPacket(brief, args, ws) {
 function cmdSection(args) {
   const brief = loadBrief(args);
   const id = argString(args, "leg", "section needs --leg <leg_id>");
-  const file = argString(args, "file", "section needs --file <path to the realized prose>");
+  // `--file` IS REMOVED, not ignored (kogaki#1237, Fresh Call): prose handed in
+  // by the invoking session is prose that session wrote from something it
+  // read, and the Packet is the writer's entire input only if nobody else
+  // writes. Named as removed so a caller on the old entry point is told the
+  // route rather than shown a silent change of author.
+  if (Object.prototype.hasOwnProperty.call(args, "file")) {
+    fail(`section no longer takes --file — the realization is written by the declared writer (src/draft-workflow.json) from the Packet and recorded here; \`section --leg ${id}\` is the whole invocation (kogaki#1237, Fresh Call)`);
+  }
   const leg = brief.legs.find((s) => s.leg_id === id);
   if (!leg) {
     fail(`no leg "${id}" in this Brief's Reader Path (${brief.legs.map((s) => s.leg_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`);
@@ -1571,85 +1721,14 @@ function cmdSection(args) {
       + `The prose may have been realized from either, and nothing here can tell which. Re-render with \`packet --leg ${id}\` and realize again`);
   }
 
-  let content;
-  try { content = readFileSync(file, "utf8"); }
-  catch (e) { fail(`the section file ${file} cannot be read (${e.message})`); }
-  const foreign = scanForeignStrands(content, brief.strands);
-  if (foreign.length) fail(foreignStrandRefusal(foreign[0], brief.strands));
-  const structural = findTraceStructure(content, brief.legs.map((s) => s.leg_id));
-  if (structural.length) {
-    fail(`the section for ${id} renders record as structure: ${structural[0]} — the per-Leg trace is frontmatter record, never visible structure in the body (SPEC-draft-command, the Brief's centre and its obligations ledger)`);
-  }
-  // THE PROSE CARRIES NO SECTION HEADING (the Section grouping, kogaki#823). The heading is
-  // the Harness's, written by `assembleBody` from the Brief's declaration, so a
-  // heading in the realized prose is a SECOND writer of the same structure —
-  // and the two do not add up to the one-heading-per-Section the ruling asks
-  // for. The template already instructs "No heading"; this is what makes the
-  // instruction binding rather than advisory, which is the whole distance
-  // between a rule and its enforcement.
-  //
-  // DISTINCT FROM `findTraceStructure` ABOVE, and stated so a reader meeting
-  // both does not read one as a widening of the other: that guard refuses
-  // RECORD rendered as structure (a leg id, a key line) and is unchanged; this
-  // refuses a TITLE the Brief did not declare, at a level the Harness owns.
-  //
-  // EVERY HEADING LEVEL, and `[ \t]` rather than `\s` (PR #843 round 1,
-  // findings 3 and 5). The first form matched `#{1,3}` with a `(?!#)` guard, so
-  // `#### A title` passed unrefused — the engine backtracks the hash run and
-  // then fails on the whitespace, which means a model answering "No heading"
-  // with a SUB-heading landed one in the body while acceptance 3, which counts
-  // `##` only, stayed green. `findTraceStructure` beside it already reads
-  // `#{1,6}`, so the two guards disagreed about what a heading is. And `\s`
-  // spans newlines, so a lone `#` line reported a "heading" assembled across
-  // three lines.
-  //
-  // FENCED BLOCKS ARE EXCLUDED (finding 5, second half). A `# install deps`
-  // comment inside a code fence in realized prose is not a heading, and
-  // refusing it is an over-refusal at composition time against prose the
-  // article may legitimately need.
-  // THE FIGURE SEAT IS THE BRIEF'S, AND PROSE IS NOT A SECOND AUTHOR ON IT
-  // (the renderer and the anchor, kogaki#879). This sits beside the heading refusal below and is the
-  // same defect one element over: after the figure record the figure's markup is produced
-  // by src/render-figure.mjs from the record the Brief's declaration led to, so
-  // a diagram drawn in the realized prose is a figure the Brief never declared,
-  // rendered by nobody, pinned by no record, and invisible to kogaki#880's
-  // round trip.
-  //
-  // REFUSED ON EVERY LEG, not only on figure-carrying ones. A Leg that
-  // declares no figure has the strongest claim of all to draw none — the
-  // default is NONE (the figure decision) — and a Leg that declares one already has its
-  // block coming from the record. Neither seat is the prose's.
-  //
-  // KEYED ON THE FENCE LANGUAGE THE RENDERER EMITS, imported rather than
-  // spelled here, so the guard and the emitter cannot drift about what a figure
-  // fence is. An ordinary code fence is untouched: this refuses `mermaid` and
-  // nothing else, and the Markdown table `matrix` renders as is deliberately
-  // NOT refused — a table is prose the article may legitimately need, and
-  // refusing every table to close this seat would be an over-refusal against
-  // material that has nothing to do with figures.
-  // AN OUTER FENCE MAKES THE INNER ONE A QUOTATION (PR #939 round 1, finding 3).
-  // Blocks delimited by FOUR OR MORE backticks are stripped before the scan, so
-  // prose that quotes a ```mermaid fence — an article about this very pipeline
-  // is the obvious case — is not read as prose that drew a figure. This is the
-  // same over-refusal PR #843 round 1 found for the heading scan and closed by
-  // stripping fences, and the first form of this guard reintroduced it one
-  // element over by matching the raw file.
-  //
-  // A BARE ```mermaid FENCE IS STILL REFUSED: only the outer-fenced case is
-  // exempt, because an outer fence is an author saying "this is displayed text"
-  // in the one way Markdown has of saying it.
-  const quotable = content.replace(/^`{4,}[\s\S]*?^`{4,}[ \t]*$/gm, "");
-  const drawn = quotable.match(new RegExp("^```[ \\t]*" + MERMAID_FENCE + "\\b", "mi"));
-  if (drawn) {
-    fail(`the section for ${id} draws its own figure (a \`\`\`${MERMAID_FENCE} fence) — after the renderer and the anchor a figure's markup is rendered by the Harness from the record \`figure --leg ${id}\` validated, and prose that draws one is a second author on a seat the Brief owns, exactly as a heading in the prose is (the Section grouping). `
-      + `If this Leg should carry a figure, it is declared with \`figure:\` on the Brief (the figure decision) and designed after this prose; if it should not, remove the fence`);
-  }
-  const unfenced = content.replace(/^```[\s\S]*?^```[ \t]*$/gm, "");
-  const heading = unfenced.match(/^(#{1,6})[ \t]+(\S.*?)[ \t]*$/m);
-  if (heading) {
-    fail(`the section for ${id} carries its own heading (${heading[0].trim()}) — after the Section grouping the heading is the Harness's, rendered once per Section at the Leg that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. `
-      + `Remove it: the Packet's write instruction says "No heading" for this reason`);
-  }
+  // THE WRITER IS CALLED WITH THE PACKET AS ITS ENTIRE STDIN, and the response
+  // is judged by the SAME refusals the file route carried (foreign Strand,
+  // record as structure, a drawn figure, a heading) plus emptiness, each a
+  // re-ask up to the declared retries and then a failure naming the Leg.
+  const settings = writerSettings();
+  const written = callWriter({ settings, act: "section", legId: id, input: packetText,
+    refuse: (text) => sectionProseRefusal(text, id, brief) });
+  const content = written.text;
   mkdirSync(sectionsDir(ws, lang), { recursive: true });
   let seq = 0;
   try { seq = readdirSync(join(ws, "snapshots")).length; } catch { /* first snapshot */ }
@@ -1673,21 +1752,25 @@ function cmdSection(args) {
     catch (e) { fail(`the Packet template at ${tplPath} cannot be read (${e.message}) — the figure block lives in it and the command has no built-in fallback`); }
     const split = splitPacketTemplate(template);
     if (split.error) fail(split.error);
+    // THE FIGURE INPUT IS RENDERED HERE ONLY TO REFUSE EARLY: it is not
+    // printed. `figure --leg <id>` renders the same input from the same stored
+    // Packet and prose and hands it to the writer; nothing reaches the session.
     const r = renderFigureInput({ figureTemplate: split.figure, packetText, leg, form, prose: content });
     if (r.error) fail(r.error);
-    process.stdout.write(r.input.endsWith("\n") ? r.input : r.input + "\n");
-    process.stdout.write(`\nleg ${id} carries a figure — fill the record above and record it with \`figure --leg ${id} --file <record.json>\`; the next Leg's Packet follows that\n`);
+    process.stdout.write(`leg ${id} carries a figure — record it with \`figure --leg ${id}\`; the next Leg's Packet follows that\n`);
     return;
   }
   const nextId = driveNextPacket(brief, args, ws);
-  if (nextId) process.stdout.write(`next: ${nextId} — its Packet is rendered above; realize from it and record with \`section --leg ${nextId} --file <prose>\`\n`);
+  if (nextId) process.stdout.write(`next: ${nextId} — its Packet is rendered to the run's packets directory, never printed here; realize it with \`section --leg ${nextId}\`\n`);
 }
 
 // the figure record's entry point (kogaki#878). ONE LEG, ONE RECORD, AFTER ITS PROSE.
 function cmdFigure(args) {
   const brief = loadBrief(args);
   const id = argString(args, "leg", "figure needs --leg <leg_id>");
-  const file = argString(args, "file", "figure needs --file <path to the record JSON>");
+  if (Object.prototype.hasOwnProperty.call(args, "file")) {
+    fail(`figure no longer takes --file — the record is written by the declared writer (src/draft-workflow.json) from the figure input and recorded here; \`figure --leg ${id}\` is the whole invocation (kogaki#1237, Fresh Call)`);
+  }
   const leg = brief.legs.find((s) => s.leg_id === id);
   if (!leg) {
     fail(`no leg "${id}" in this Brief's Reader Path (${brief.legs.map((s) => s.leg_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`);
@@ -1704,26 +1787,47 @@ function cmdFigure(args) {
   // A record filled before the text is a figure the text then has to match.
   const sectionFile = join(sectionsDir(ws, lang), `${id}.md`);
   if (!existsSync(sectionFile)) {
-    fail(`leg ${id} has no realized prose at ${sectionFile} — the figure is designed FROM the text (the figure record), so the record cannot be filled before \`section --leg ${id} --file <prose>\` records it`);
+    fail(`leg ${id} has no realized prose at ${sectionFile} — the figure is designed FROM the text (the figure record), so the record cannot be filled before \`section --leg ${id}\` records it`);
   }
   const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
   const form = figureFormFor(leg, movesDir);
   if (form.error) fail(form.error);
-
-  let raw;
-  try { raw = readFileSync(file, "utf8"); }
-  catch (e) { fail(`the figure record ${file} cannot be read (${e.message})`); }
-  let record;
-  try { record = JSON.parse(raw); }
-  catch (e) { fail(`the figure record ${file} is not readable JSON (${e.message}) — the record is one JSON object, the instance of move "${leg.move}"'s ${form.kind} form`); }
 
   const schemaPath = join(dirname(fileURLToPath(import.meta.url)), "figure-schema.json");
   let schema;
   try { schema = JSON.parse(readFileSync(schemaPath, "utf8")); }
   catch (e) { fail(`the figure schema at ${schemaPath} cannot be read (${e.message}) — it is a runtime-read carrier and this command has no built-in fallback, deliberately: a fallback schema would be a second copy nobody maintains`); }
 
-  const bad = figureRecordRefusal(record, leg, form, schema);
-  if (bad) fail(bad);
+  // THE FIGURE INPUT: the stored Packet, as served, plus the filled figure block
+  // (the figure record, kogaki#878), rendered here from the run's own files and
+  // handed to the writer as its ENTIRE stdin (Fresh Call, kogaki#1237). The
+  // response is the record; its mechanical validation is the re-ask condition.
+  const packetPath = join(packetsDir(ws, lang), `${id}.md`);
+  if (!existsSync(packetPath)) {
+    fail(`leg ${id} has no rendered Packet at ${packetPath} — the figure input is the served Packet plus the figure block, and a Packet that is gone cannot be served again as the one the prose was realized from; \`packet --leg ${id}\` restores it`);
+  }
+  const packetText = readFileSync(packetPath, "utf8");
+  const prose = readFileSync(sectionFile, "utf8");
+  const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
+  let template;
+  try { template = readFileSync(tplPath, "utf8"); }
+  catch (e) { fail(`the Packet template at ${tplPath} cannot be read (${e.message}) — the figure block lives in it and the command has no built-in fallback`); }
+  const split = splitPacketTemplate(template);
+  if (split.error) fail(split.error);
+  const rendered = renderFigureInput({ figureTemplate: split.figure, packetText, leg, form, prose });
+  if (rendered.error) fail(rendered.error);
+
+  const settings = writerSettings();
+  let record = null;
+  callWriter({ settings, act: "figure", legId: id, input: rendered.input,
+    refuse: (text) => {
+      const parsed = parseWriterRecord(text);
+      if (parsed.error) return parsed.error;
+      const bad = figureRecordRefusal(parsed.record, leg, form, schema);
+      if (bad) return bad;
+      record = parsed.record;
+      return null;
+    } });
 
   // STORED IN THE SCHEMA'S FIELD ORDER, not the input file's. The record is
   // read back by `emit` and by kogaki#880's review, and a stored artifact whose
@@ -1754,7 +1858,7 @@ function cmdFigure(args) {
   }
   process.stdout.write(`figure ${id} recorded (${form.kind}, position ${ordered.position}) — ${out}\n`);
   const nextId = driveNextPacket(brief, args, ws);
-  if (nextId) process.stdout.write(`next: ${nextId} — its Packet is rendered above; realize from it and record with \`section --leg ${nextId} --file <prose>\`\n`);
+  if (nextId) process.stdout.write(`next: ${nextId} — its Packet is rendered to the run's packets directory, never printed here; realize it with \`section --leg ${nextId}\`\n`);
 }
 
 function cmdEmit(args) {
@@ -3478,7 +3582,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       case "section": cmdSection(args); break;
       case "figure": cmdFigure(args); break;
       case "emit": cmdEmit(args); break;
-      default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--leg <id> [--file <f>]] | --self-test");
+      default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--leg <id>] | --self-test");
     }
   }
 }
