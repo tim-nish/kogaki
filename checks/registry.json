@@ -644,6 +644,21 @@
         "removal_signal": "the writer block leaves `src/draft-workflow.json`, or `section`/`figure` regain a file argument by decision — either returns the realization to the session and this check has nothing to bind",
         "removal_instrument": "probe: ! grep -q '\"writer\"' src/draft-workflow.json || ! grep -q 'no longer takes --file' src/draft.mjs"
       }
+    },
+    {
+      "id": "no-test-outside-check-root",
+      "file": "checks/check-no-test-outside-check-root.sh",
+      "admission": {
+        "contract": "No Test lives outside the Check root (kogaki#1238, owner decision 2026-10-01). `.claude/checks.json` declares `checks/` as the one place this repository's Tests live; this member scans every file under `src/` and `tools/` for the four shapes a Test outside it took before kogaki#1238 — a `--self-test` flag, a quoted `self-test` subcommand token, a `runSelfTest`/`selfTest`/`self_test` function, and a comment line opening a fixture pass — and fails naming each file and line. It states its roots, its excluded root (`policy/kit/`, the vendored client kit, governed where the kit is authored) and the number of files read on every run. Carried by no other member: the registry/tree agreement reads `checks/` and the kit's directory and never the runtimes, and the five case files that moved under `checks/` are accounted for by the members that run them, not by this scan.",
+        "license": "kogaki#1238",
+        "tier": "fast",
+        "runtime_ms": 200,
+        "runtime_ms_note": "MEASURED at kogaki#1238 on the head this landed on: 46 files under the roots, four patterns per line, plus four constructed trees in a temp dir — 0.17 s wall.",
+        "efficacy": "case: checks/check-no-test-outside-check-root.sh::a planted --self-test flag under src/ fails the scan, naming the file",
+        "efficacy_note": "the named defect — a Test under src/ that no worker may run — constructed directly: a tree with one planted `--self-test` flag under src/ is scanned and the scan reports exactly that file with that shape. The three sibling cases plant the subcommand token under tools/, a fixture-pass header beside a self-test function, and a control tree whose only self-tests sit under the vendored kit and under checks/ with a mid-sentence mention of a fixture pass, which passes.",
+        "removal_signal": "the Check root declaration leaves `.claude/checks.json`, or the Rule that a Test is created only under the declared Check root is retired in product-lab — either removes the boundary this member holds and leaves it scanning for a placement the repository no longer forbids",
+        "removal_instrument": "probe: ! grep -q '\"check_root\"' .claude/checks.json"
+      }
     }
   ]
 }
