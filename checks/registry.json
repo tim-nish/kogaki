@@ -659,6 +659,21 @@
         "removal_signal": "the Check root declaration leaves `.claude/checks.json`, or the Rule that a Test is created only under the declared Check root is retired in product-lab — either removes the boundary this member holds and leaves it scanning for a placement the repository no longer forbids",
         "removal_instrument": "probe: ! grep -q '\"check_root\"' .claude/checks.json"
       }
+    },
+    {
+      "id": "kit-install-vendors-a-copy",
+      "file": "checks/check-kit-install-vendors-a-copy.sh",
+      "admission": {
+        "contract": "specs/spec-client-kit/SPEC.md §10.2 (kogaki#1120): `policy/kit/install.sh --repo <path> --consumer <name>` vendors a stamped copy of `policy/kit/` into the consumer, not only the kit's OUTPUT. This member runs the real install against a fresh throwaway repository, under the same sandboxed HOME and claude-CLI shim `policy/kit/test/install-test.sh` already uses (kogaki#638, kogaki#787) — a second caller of install.sh owes the same guard rather than a second incident — and asserts: the copy holds `bin/gateway-query.mjs`, `checks/`, `templates/`, `skills/`, `install.sh` and `.kit-version`; `policy/kit/bin/kit-manifest.sh` over the copy equals the manifest over this repository's own `policy/kit/`; `.kit-version` records that digest with this repository's own slug (`git config --get remote.origin.url`, parsed the same way install.sh's own step 7 derives it) and revision (`git rev-parse HEAD`, suffixed `-dirty` under the same condition install.sh suffixes it); and the copy carries no `consumers.json`, the Home-side declaration `kit-manifest.sh` itself excludes from the digest. `policy/kit/test/install-test.sh` is not changed by this member (kogaki#1120 thread comment 2, 2026-10-02) — this is a second, narrower caller of install.sh for a property that test does not assert.",
+        "license": "kogaki#1120",
+        "tier": "pre-push",
+        "runtime_ms": 1500,
+        "runtime_ms_note": "Dominated by install.sh's own work against a fresh throwaway repository: the managed-block write, the shape-read attempt (degrading honestly with no gateway configured), the round-trip check (degrading the same way), and the vendor-and-stamp copy of `policy/kit/` itself. A LOCAL measurement and a tier input, never a budget assertion. Re-measure at the next admission act touching this check.",
+        "removal_signal": "the kit's separation into its own repository with a package-manager-shaped distribution (SPEC-client-kit §10.4, kogaki#9's separation trigger) — at that point vendoring is the distributor's property and this member has no subject, the same event `kit-currency`'s own removal signal names.",
+        "removal_instrument": "act: the pull request that retires `policy/kit/install.sh` for a package-manager distribution owes this member's removal row alongside `kit-currency`'s, since both are about the installer's own behaviour.",
+        "efficacy": "case: checks/check-kit-install-vendors-a-copy.sh::the vendored copy's manifest (${COPY_MANIFEST:0:12}) does not match the source's",
+        "efficacy_note": "the named defect this Issue closes — an installed consumer holding the kit's OUTPUT and no kit COPY, with `install.sh` disclaiming vendoring it by name (kogaki#1120, found 2026-09-15 reviewing claude-toolkit's install) — is exactly what this member can no longer pass: the cited assertion fails if the copy step is skipped, reverted, or made a no-op, because a skipped copy leaves `$COPY` either absent (the earlier existence assertions fail first) or stale against the manifest comparison. Run against the real install rather than a stand-in tree, on the same reasoning `install-test.sh` already states: the defect this closes was in what the installer DOES, which no assertion over a function in isolation can show."
+      }
     }
   ]
 }

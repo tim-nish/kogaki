@@ -224,6 +224,32 @@ else
   fi
 fi
 
+# 5b. VENDOR A COPY OF policy/kit/ ITSELF (kogaki#1120; contract
+#     specs/spec-client-kit/SPEC.md §10.2). A consumer holds a stamped copy of
+#     the kit, not only its OUTPUT — the stamp step below asserts this and the
+#     "no policy/kit/ in the consumer" branch there is now a defect report
+#     rather than an accepted shape, because this step is what makes that
+#     state unreachable on a normal install.
+#
+#     EXCLUDES `consumers.json` — that file is the HOME's own declaration of
+#     who installs it (step above), and a copy carrying it would let a
+#     consumer read as its own kit's source the moment kit-role.sh looked.
+#
+#     SKIPPED ON A SELF-INSTALL. Copying $KIT_DIR onto itself is copying a
+#     directory into itself, not a vendoring act — the Home is never a
+#     consumer of its own kit, which is exactly what `consumers.json`'s
+#     `role: home` already says.
+KIT_HOME_ROOT="$(cd "$KIT_DIR/../.." 2>/dev/null && pwd -P || echo "")"
+REPO_ROOT_FOR_VENDOR="$(cd "$REPO" 2>/dev/null && pwd -P || echo "")"
+if [[ -n "$KIT_HOME_ROOT" && "$KIT_HOME_ROOT" == "$REPO_ROOT_FOR_VENDOR" ]]; then
+  say "policy/kit/: self-install — no copy vendored (this tree IS the kit)"
+else
+  mkdir -p "$REPO/policy/kit"
+  cp -a "$KIT_DIR/." "$REPO/policy/kit/"
+  rm -f "$REPO/policy/kit/consumers.json"
+  say "policy/kit/: vendored copy refreshed"
+fi
+
 # 6. Round-trip check — degrades honestly, never fails the install.
 say "--- seam check ---"
 # THE ROUND-TRIP READS THE GATEWAY THIS INSTALL WAS POINTED AT (kogaki#638).
@@ -309,12 +335,14 @@ fi
 # reminder: a rule needing someone to remember it is advisory, and its apparent
 # coverage is an enumeration of the places somebody happened to act.
 #
-# STAMPED ONLY WHERE A COPY EXISTS, and the absence is DISCLOSED rather than
-# silently skipped. `install.sh` does not vendor `policy/kit/` — it installs the
-# kit's OUTPUT (the managed block, the map, the skill, the digest, the emissions
-# directory) — so a consumer holds a kit copy only if one was placed there. With
-# no copy there is nothing to be behind and no stamp is owed; saying so is what
-# keeps this distinguishable from a stamp step that failed.
+# STAMPED WHERE A COPY EXISTS, and step 5b above is what makes a copy exist on
+# every non-self-install — `install.sh` now vendors `policy/kit/` itself, not
+# only the kit's OUTPUT (the managed block, the map, the skill, the digest, the
+# emissions directory). A consumer install with no copy to stamp is therefore a
+# DEFECT in this installer rather than an accepted shape (kogaki#1120); the
+# branch below that used to disclose an expected absence now fails loudly
+# instead, which is what keeps this distinguishable from a stamp step nobody
+# noticed had stopped running.
 #
 # COMMITTED, not gitignored — §10.3. A machine-local stamp is durable against a
 # working copy only, so a fresh clone would inherit no provenance and the
@@ -331,9 +359,13 @@ if [[ -d "$REPO/policy/kit" ]]; then
   ROLE_OUT="$(bash "$KIT_DIR/bin/kit-role.sh" "$REPO/policy/kit" 2>/dev/null)" || ROLE_RC=$?
 fi
 if [[ ! -d "$REPO/policy/kit" ]]; then
-  say "no policy/kit/ in $REPO — the kit's OUTPUT is installed and no kit COPY is"
-  say "vendored here, so no stamp is owed. Stated rather than skipped silently:"
-  say "an absent stamp and a stamp step that failed read identically otherwise."
+  say "DEFECT: no policy/kit/ in $REPO after step 5b vendored a copy — a"
+  say "consumer install now always produces one (kogaki#1120), so this state"
+  say "means step 5b did not run or did not write where this step expects,"
+  say "not that no copy is owed. Failing here rather than disclosing an"
+  say "absence is what keeps an unstamped copy from reading as a successful"
+  say "install."
+  exit 1
 elif [[ "$ROLE_RC" -ne 0 ]]; then
   say "cannot read policy/kit/consumers.json to tell a SOURCE tree from a copy"
   say "(kit-role exited $ROLE_RC) — NO stamp is written. Guessing 'not the Home'"
