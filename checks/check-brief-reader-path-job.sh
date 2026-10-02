@@ -1037,7 +1037,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-reader-path-job — the nine-state Detached Job classifies, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, and grants `extend` at most once per unit");
+console.log("ok: check-brief-reader-path-job — the nine-state Detached Job classifies, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, grants `extend` at most once per unit, and records an extend click against the raising's own named units even when every one of them has finished by the time the click is read");
 JS
 status=$?
 
