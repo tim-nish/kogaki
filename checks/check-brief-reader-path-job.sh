@@ -48,7 +48,7 @@ import {
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, composeGateCall,
   runRecordPath, GATE_CALL_SUFFIX, judgePrompt, JUDGE_REFUSAL_MARKER, JUDGE_INPUT_MARKER,
   readerPathUnitRecord, readerPathUnitRetryPrompt, readerPathUnitStdoutPath,
-  applyReaderPathJobExtendOverrides, readerPathAwaitStep,
+  applyReaderPathJobExtendOverrides, readerPathAwaitStep, resolveReaderPathJobExtend,
 } from "./src/terrain.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";
 
@@ -276,6 +276,77 @@ const root = process.cwd();
   }
   if (!brief.includes("step.classify")) {
     fails.push("(r) src/brief.mjs no longer branches on readerPathAwaitStep's `classify` flag -- a stale record would fall straight through to finishReaderPathJobAwait");
+  }
+}
+
+// (u) kogaki#1241 — an `extend` click read after the units the gate RAISED
+// FOR have finished is recorded against those named units, never `[]`: the
+// declaration's own `reader_path_job_checkpoint_hit_units` wins over the live
+// job record's `checkpoint_hit` flags, which by the time the click lands name
+// nothing (every unit is `done`).
+{
+  const decl = { reader_path_job_checkpoint_hit_units: ["c1", "c2"] };
+  const finishedJob = {
+    checkpoint_s: 60, absolute_limit_s: 600,
+    units: [{ id: "c1", status: "done" }, { id: "c2", status: "done" }, { id: "c3", status: "running" }],
+  };
+  const { hitUnits, alreadyFinished, newOverrides } = resolveReaderPathJobExtend(decl, finishedJob, {});
+  if (JSON.stringify(hitUnits.slice().sort()) !== JSON.stringify(["c1", "c2"])) {
+    fails.push(`(u1) a click read after both raised units finished did not record the raising's own units: ${JSON.stringify(hitUnits)}`);
+  }
+  if (JSON.stringify(alreadyFinished.slice().sort()) !== JSON.stringify(["c1", "c2"])) {
+    fails.push(`(u1) neither named unit was reported already-finished even though both read \`done\`: ${JSON.stringify(alreadyFinished)}`);
+  }
+  if (alreadyFinished.includes("c3")) {
+    fails.push(`(u1) a unit the raising never named (c3, still running) was reported already-finished: ${JSON.stringify(alreadyFinished)}`);
+  }
+  // The grant is still written for the finished units (raising the bound costs
+  // nothing on a unit that will never read it again), capped at 60+60=120.
+  if (newOverrides.c1 !== 120 || newOverrides.c2 !== 120) {
+    fails.push(`(u1) the raised bound for a since-finished named unit was not written: ${JSON.stringify(newOverrides)}`);
+  }
+
+  // (u2) a unit STILL running when the click lands is named and reported as
+  // NOT already-finished — the note is for a unit that truly can no longer use
+  // the grant, not for every unit a click answers.
+  const stillRunningJob = {
+    checkpoint_s: 60, absolute_limit_s: 600,
+    units: [{ id: "c1", status: "running" }, { id: "c2", status: "done" }],
+  };
+  const step2 = resolveReaderPathJobExtend(decl, stillRunningJob, {});
+  if (step2.alreadyFinished.length !== 1 || step2.alreadyFinished[0] !== "c2") {
+    fails.push(`(u2) a still-running named unit beside a finished one did not isolate the finished one alone: ${JSON.stringify(step2.alreadyFinished)}`);
+  }
+
+  // (u3) a declaration written before kogaki#1241 (no
+  // reader_path_job_checkpoint_hit_units at all) falls back to the live job's
+  // own checkpoint_hit flags, the pre-fix behaviour, so an old run's
+  // declaration is not refused by the new reader.
+  const oldDecl = {};
+  const liveJob = { checkpoint_s: 60, absolute_limit_s: 600,
+    units: [{ id: "c1", status: "running", checkpoint_hit: true }, { id: "c2", status: "running", checkpoint_hit: false }] };
+  const step3 = resolveReaderPathJobExtend(oldDecl, liveJob, {});
+  if (JSON.stringify(step3.hitUnits) !== JSON.stringify(["c1"])) {
+    fails.push(`(u3) a declaration carrying no checkpoint-hit units did not fall back to the live job's own checkpoint_hit flags: ${JSON.stringify(step3.hitUnits)}`);
+  }
+
+  // (u4) the raised bound is capped at the job's own absolute limit, same as
+  // before this issue's refactor — an extend can never grant more total time
+  // than the ceiling already allows.
+  const nearCeilingJob = { checkpoint_s: 60, absolute_limit_s: 100,
+    units: [{ id: "c1", status: "running" }] };
+  const step4 = resolveReaderPathJobExtend({ reader_path_job_checkpoint_hit_units: ["c1"] }, nearCeilingJob, { c1: 80 });
+  if (step4.newOverrides.c1 !== 100) {
+    fails.push(`(u4) a raised bound past the job's own absolute limit was not capped at it: ${JSON.stringify(step4.newOverrides)}`);
+  }
+
+  const terrain = readFileSync("src/terrain.mjs", "utf8");
+  if (!terrain.includes("resolveReaderPathJobExtend(decl, job, existingOverrides)")) {
+    fails.push("(u) src/terrain.mjs's `extend` answer branch no longer calls resolveReaderPathJobExtend(decl, job, existingOverrides) -- the fix above has no caller in the live gate-answer path");
+  }
+  const brief2 = readFileSync("src/brief.mjs", "utf8");
+  if (!brief2.includes("reader_path_job_checkpoint_hit_units: checkpointHitUnits")) {
+    fails.push("(u) src/brief.mjs's finishReaderPathJobAwait no longer carries checkpointHitUnits onto the declaration as reader_path_job_checkpoint_hit_units -- the run declaration would no longer name the units `extend` was offered for");
   }
 }
 
@@ -966,7 +1037,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-reader-path-job — the nine-state Detached Job classifies, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, and grants `extend` at most once per unit");
+console.log("ok: check-brief-reader-path-job — the nine-state Detached Job classifies, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, grants `extend` at most once per unit, and records an extend click against the raising's own named units even when every one of them has finished by the time the click is read");
 JS
 status=$?
 
