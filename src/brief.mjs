@@ -1241,6 +1241,108 @@ function entryInputs(args) {
   return { entered, via: "supplied on the command line" };
 }
 
+// THE DECLARED PER-UNIT VALIDATOR (kogaki#1240). Every rule a single
+// Candidate must obey on its own -- the Leg shape, the Move ids, the closed
+// Strand set, the `reasoning` keys, the retired-field names, the Reader
+// target derivation and the ledger fields -- used to run only once every
+// unit had finished, inside `compose_path`'s whole-set `validate()`, which
+// is terminal: a breach landed well-formed-looking Candidates on disk and
+// ended the run with no re-ask. `job-supervise` DECLARES this function (by
+// module path and export name, in `reader-path-job-units.json`) and applies
+// it at the unit's own classification instead, so a breach classifies the
+// unit `refused` and gets the existing per-unit re-ask (kogaki#1203) and
+// re-run-after-two-attempts (kogaki#1204) machinery -- "a checker inside a
+// job is supplied concretely by the supervisor or not at all" (owner,
+// 2026-09-25). Pure, `{error}`-returning (never throwing): it runs inside
+// the detached unit's own classification, outside any judged/re-ask window.
+export function validateReaderPathUnit(candidate, inputs) {
+  const c = candidate || {};
+  const { strandIds = [], readerStart, movesDir } = inputs || {};
+  if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
+    return { error: `candidate ${c.candidate_id}: \`reader_experience\` is required and cannot be `
+      + "blank — Candidates differ in READER EXPERIENCE, the difference must be stated to be "
+      + "selectable, and the option's DESCRIPTION is composed from this prose (kogaki#1126)" };
+  }
+  if (typeof c.characteristic !== "string" || c.characteristic.trim() === "") {
+    return { error: `candidate ${c.candidate_id}: \`characteristic\` is required and cannot be `
+      + "blank — the option LABEL at the Candidate gate is composed from it as `<n>. "
+      + "<characteristic>`, and the Harness composes that label rather than the Candidate's prose "
+      + "(src/candidate-schema.json, `characteristic`)" };
+  }
+  const charMax = characteristicMaxLength();
+  const charValue = c.characteristic.trim();
+  if (charValue.length > charMax) {
+    return { error: `candidate ${c.candidate_id}: \`characteristic\` is ${charValue.length} `
+      + `characters and src/candidate-schema.json bounds it at ${charMax} — it names the path in a `
+      + "few words and renders as the option's label; the explanation belongs in "
+      + `\`reader_experience\`, which renders as the description beside it. Received: `
+      + `${JSON.stringify(charValue)}` };
+  }
+  // READER START IS GIVEN (kogaki#1216), not composed: `src/candidate-schema.json`
+  // declares it `given: true` and a unit's own written value is overwritten by
+  // the differentiation record and never read (`finishReaderPathJobAwait` sets
+  // it on the Candidate AFTER classification). So the value validated here --
+  // against `validateLegs` and against the unit's own answer below -- is the
+  // one the job's boundary handed this validator, `inputs.readerStart`, and it
+  // is set onto the candidate before `validateLegs` runs so the two readers of
+  // the field never disagree.
+  if (typeof readerStart !== "string" || readerStart === "") {
+    return { error: `candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation `
+      + "record and handed to this validator at the reader-path job's boundary (kogaki#1216), so its absence "
+      + "here is the runtime's fault rather than the composer's" };
+  }
+  c.reader_start = readerStart;
+  // THE LEG REFUSALS ARE `validateLegs`' OWN, re-implemented nowhere.
+  // One-claim-per-Strand, the closed claim type set, every required field
+  // and its description all come from `src/leg-schema.json` through that
+  // function.
+  const v = validateLegs(c.legs, c.reader_start, c.obligations);
+  if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
+  // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
+  const mv = resolveMoveIds(c.legs, movesDir);
+  if (mv.error) return { error: `candidate ${c.candidate_id}: ${mv.error}` };
+  // THE CLOSED STRAND SET, refused HERE rather than only at adoption. A
+  // material outside the Brief's closed set is refused by `fillBrief` at
+  // `adopt_candidate` -- after the owner has chosen the path -- so raising
+  // it here is what makes it repairable instead of terminal. A Brief never
+  // fetches: the set closed at mint.
+  for (const s of c.legs || []) {
+    for (const m of s.materials || []) {
+      if (!strandIds.includes(m)) {
+        return { error: `candidate ${c.candidate_id}, leg ${s.leg_id}: material ${m} is outside `
+          + `the Brief's closed Strand set (${strandIds.join(", ")}). The set closed at mint and a `
+          + "Brief never fetches — compose from the settled Strands and from nothing else" };
+      }
+    }
+  }
+  const reasoning = c.reasoning || {};
+  for (const key of ["leg_validity", "transition_continuity", "thesis_closure"]) {
+    if (typeof reasoning[key] !== "string" || reasoning[key].trim() === "") {
+      return { error: `candidate ${c.candidate_id}: \`reasoning.${key}\` is required — the Brief's `
+        + "closing sections are filled from it at adoption, and adoption fills no default" };
+    }
+  }
+  // `opening_question` (kogaki#1216) AND `reader_target` (kogaki#1225) ARE
+  // RETIRED FIELDS, refused BY NAME -- Reader target is the after-state of
+  // the Leg marked `reaches_target` (kogaki#1231) and no Opening question is
+  // rendered.
+  const retired = retiredReaderFieldRefusal(c);
+  if (retired) return { error: retired };
+  if (targetLegAfterState(c.legs) === null) {
+    return { error: `candidate ${c.candidate_id}: the Leg marked \`reaches_target\`'s \`reader_state_after\` `
+      + "is absent, or the path carries none or several such Legs -- it IS the Brief's Reader target "
+      + "(kogaki#1231), and adoption fills no default" };
+  }
+  // THE THREE LEDGER FIELDS, REFUSED HERE BY NAME (kogaki#1129).
+  // `candidateLedgerRefusal` reads the declaration in
+  // `src/candidate-schema.json`, which the executor renders into the unit's
+  // own prompt -- the same two-readers property `validateLegs` has, one
+  // field set over.
+  const ledger = candidateLedgerRefusal(c, strandIds);
+  if (ledger) return { error: ledger };
+  return null;
+}
+
 // ---- THE RENDERER HALF. One entry per state the table declares, keyed by state
 // id, exactly as `src/terrain.mjs`'s own STATE_WORK is: a new state is a table
 // row PLUS a renderer, and the executor invents neither.
@@ -1355,14 +1457,16 @@ const STATE_WORK = {
       fail(`${st.id}: ${library.error}`);
     }
     let composed = null;
-    // TAKES THE ASSEMBLED SET DIRECTLY (kogaki#1193): this is the FULL-SET
-    // half of what a single whole-input ask used to check in one place --
-    // cross-candidate dedup, the ledger, the closed Strand set -- and it now
-    // runs once, over three units' Candidates rather than over one judge's
-    // `{candidates: [...]}` record. The per-unit STRUCTURAL half (does the
-    // record parse, does it carry a `legs` array) is the detached
-    // supervisor's own, in `readerPathUnitRecord`/`classifyDetachedJobUnit` --
-    // this function never re-parses a unit's raw output.
+    // CROSS-CANDIDATE RULES ONLY (kogaki#1240). Every per-unit rule -- the Leg
+    // shape (`validateLegs`), the Move ids, the closed Strand set, the
+    // `reasoning` keys, the retired-field names, the Reader target derivation
+    // and the ledger fields -- moved into `validateReaderPathUnit` below,
+    // DECLARED to `job-supervise` and applied at the unit's own
+    // classification (kogaki#1193's `classifyDetachedJobUnit`), so a breach
+    // gets the unit's own re-ask rather than waiting for every unit to
+    // finish and failing the whole set here. What is left needs every
+    // Candidate in hand and cannot run any earlier: the count, and the three
+    // duplicate grounds across the set (id, reader experience, characteristic).
     const validate = (cands) => {
       if (!Array.isArray(cands)) {
         refuseJudgment(`the assembled record carries no \`candidates\` array; ${st.input_shape}`);
@@ -1379,14 +1483,6 @@ const STATE_WORK = {
       }
       const seenId = new Set();
       const seenExp = new Set();
-      // THE CHARACTERISTIC'S REFUSALS ARE `assembleSelection`'s, RAISED INSIDE
-      // THE RE-ASK WINDOW (kogaki#1126). Stated here as well as there for the
-      // reason the Candidate count already is: the same breach reaching
-      // `assemble_candidates` fails the run after the review state has spent a
-      // judge call on every Candidate, where here it is one re-ask. The BOUND is
-      // read from src/candidate-schema.json through the same exported reader, so
-      // the number in the prompt and the number in the refusal are one value.
-      const charMax = characteristicMaxLength();
       const seenChar = new Set();
       for (const c of cands) {
         if (!c || typeof c.candidate_id !== "string" || c.candidate_id === "") {
@@ -1397,33 +1493,14 @@ const STATE_WORK = {
             + "the id is what the owner's answer at the selection gate resolves through");
         }
         seenId.add(c.candidate_id);
-        if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
-          refuseJudgment(`candidate ${c.candidate_id}: \`reader_experience\` is required and cannot be `
-            + "blank — Candidates differ in READER EXPERIENCE, the difference must be stated to be "
-            + "selectable, and the option's DESCRIPTION is composed from this prose (kogaki#1126)");
-        }
-        const expKey = c.reader_experience.trim().toLowerCase();
+        const expKey = String(c.reader_experience || "").trim().toLowerCase();
         if (seenExp.has(expKey)) {
           refuseJudgment(`candidate ${c.candidate_id} states a reader experience another Candidate `
             + "already states — Candidates differ in reader experience, or they are one Candidate "
             + "presented twice");
         }
         seenExp.add(expKey);
-        if (typeof c.characteristic !== "string" || c.characteristic.trim() === "") {
-          refuseJudgment(`candidate ${c.candidate_id}: \`characteristic\` is required and cannot be `
-            + "blank — the option LABEL at the Candidate gate is composed from it as `<n>. "
-            + "<characteristic>`, and the Harness composes that label rather than the Candidate's prose "
-            + "(src/candidate-schema.json, `characteristic`)");
-        }
-        const charValue = c.characteristic.trim();
-        if (charValue.length > charMax) {
-          refuseJudgment(`candidate ${c.candidate_id}: \`characteristic\` is ${charValue.length} `
-            + `characters and src/candidate-schema.json bounds it at ${charMax} — it names the path in a `
-            + "few words and renders as the option's label; the explanation belongs in "
-            + `\`reader_experience\`, which renders as the description beside it. Received: `
-            + `${JSON.stringify(charValue)}`);
-        }
-        const charKey = charValue.toLowerCase();
+        const charKey = String(c.characteristic || "").trim().toLowerCase();
         if (seenChar.has(charKey)) {
           refuseJudgment(`candidate ${c.candidate_id} states a characteristic another Candidate already `
             + "states — Candidates differ in reader experience, and the characteristic is the name the "
@@ -1431,80 +1508,6 @@ const STATE_WORK = {
             + "tell apart at the label");
         }
         seenChar.add(charKey);
-        // THE LEG REFUSALS ARE `validateLegs`' OWN, re-implemented nowhere.
-        // One-claim-per-Strand, the closed claim type set, every required
-        // field and its description all come from `src/leg-schema.json`
-        // through that function.
-        const v = validateLegs(c.legs, c.reader_start, c.obligations);
-        if (v.error) refuseJudgment(`candidate ${c.candidate_id}: ${v.error}`);
-        // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
-        // `resolveMoveIds` was first called by `adopt-candidate`, five states
-        // downstream: a Leg binding an id that is in no Move record survived
-        // this state's re-ask window, `review_path`, `assemble_candidates`, the
-        // owner's Candidate gate and `judge_specialization` before the write
-        // refused it. Raising it inside the window is what makes it repairable
-        // — and repairable IN FACT rather than in principle, because the ask
-        // this state composes now carries the admitted set.
-        const mv = resolveMoveIds(c.legs, movesDir);
-        if (mv.error) refuseJudgment(`candidate ${c.candidate_id}: ${mv.error}`);
-        // THE CLOSED STRAND SET, refused HERE rather than only at adoption. A
-        // material outside the Brief's settled set is refused by `fillBrief`
-        // at `adopt_candidate` — after the owner has chosen the path — so
-        // raising it inside the re-ask window is what makes it repairable
-        // instead of terminal. A Brief never fetches: the set closed at mint.
-        for (const s of c.legs) {
-          for (const m of s.materials) {
-            if (!strandIds.includes(m)) {
-              refuseJudgment(`candidate ${c.candidate_id}, leg ${s.leg_id}: material ${m} is outside `
-                + `the Brief's closed Strand set (${strandIds.join(", ")}). The set closed at mint and a `
-                + "Brief never fetches — compose from the settled Strands and from nothing else");
-            }
-          }
-        }
-        const reasoning = c.reasoning || {};
-        for (const key of ["leg_validity", "transition_continuity", "thesis_closure"]) {
-          if (typeof reasoning[key] !== "string" || reasoning[key].trim() === "") {
-            refuseJudgment(`candidate ${c.candidate_id}: \`reasoning.${key}\` is required — the Brief's `
-              + "closing sections are filled from it at adoption, and adoption fills no default");
-          }
-        }
-        // `opening_question` (kogaki#1216) AND `reader_target` (kogaki#1225) ARE
-        // RETIRED FIELDS, refused BY NAME (the precedent is `relations` on a
-        // Leg), with the message declared once in src/assemble.mjs beside the
-        // rendered field table. Reader target is the after-state of the Leg
-        // marked `reaches_target` (kogaki#1231) and no Opening question is
-        // rendered; a Candidate that authored either apart from its Legs has
-        // written one fact twice -- which is the defect the retirement
-        // removes. A path carrying no such Leg, or more than one, or whose
-        // marked Leg states no after-state, has no Reader target to derive.
-        const retired = retiredReaderFieldRefusal(c);
-        if (retired) refuseJudgment(retired);
-        if (targetLegAfterState(c.legs) === null) {
-          refuseJudgment(`candidate ${c.candidate_id}: the Leg marked \`reaches_target\`'s \`reader_state_after\` `
-            + "is absent, or the path carries none or several such Legs -- it IS the Brief's Reader target "
-            + "(kogaki#1231), and adoption fills no default");
-        }
-        // READER START IS GIVEN (set on the Candidate by the Harness from the
-        // differentiation record at the job's own boundary) and must be
-        // present here; its absence is the runtime's, never the composer's.
-        if (typeof c.reader_start !== "string" || c.reader_start === "") {
-          refuseJudgment(`candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation `
-            + "record and set on the Candidate by the Harness at the reader-path job's boundary (kogaki#1216), so its "
-            + "absence here is the runtime's fault rather than the composer's");
-        }
-        // THE THREE LEDGER FIELDS, REFUSED HERE BY NAME (kogaki#1129). Their
-        // key names were carried by this state's `input_shape` sentence and by
-        // no declaration, so a composition chose its own — `raised_at` /
-        // `owed` / `settled_at` for an obligation, `role` for a Strand's role,
-        // an array for `unused` — and the three readers bound different ones.
-        // Two of those misreadings were SILENT, one refused at the Brief's
-        // final write after two owner gates and three judge calls, and none of
-        // the three was repairable by then. `candidateLedgerRefusal` reads the
-        // declaration in `src/candidate-schema.json`, which the executor
-        // renders into this state's own prompt — the same two-readers property
-        // `validateLegs` has, one field set over.
-        const ledger = candidateLedgerRefusal(c, strandIds);
-        if (ledger) refuseJudgment(ledger);
       }
       composed = cands;
     };
@@ -1632,6 +1635,18 @@ const STATE_WORK = {
       absoluteLimitS: READER_PATH_JOB_ABSOLUTE_LIMIT_S,
       stallS: READER_PATH_JOB_STALL_S,
       heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
+      // THE DECLARED VALIDATOR (kogaki#1240) -- named, never implicit. The
+      // detached `job-supervise` process is a fresh `node src/terrain.mjs`
+      // entrypoint and never statically imports Brief-specific code; it
+      // dynamically imports exactly this module and export, and the Candidate
+      // ids every unit's materials and ledger must resolve against, and the
+      // Reader start they must carry back unchanged, are handed over here
+      // rather than re-derived inside the subprocess.
+      validator: {
+        module: "src/brief.mjs",
+        export: "validateReaderPathUnit",
+        inputs: { strandIds, readerStart: differentiation.reader_start, movesDir },
+      },
     });
     throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
       `reader-path job started at ${readerPathJobPath(dir)} (kogaki#1193) -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `

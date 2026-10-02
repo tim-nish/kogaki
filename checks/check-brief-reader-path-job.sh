@@ -104,6 +104,22 @@ const root = process.cwd();
   if (notLoggedIn.status !== "died" || notLoggedIn.failure.result !== "Not logged in · Please run /login") {
     fails.push(`(b5) a dead unit's is_error result line was not carried onto its failure record: ${JSON.stringify(notLoggedIn)}`);
   }
+  // (b6) kogaki#1240: the DECLARED validator, given as `classifyDetachedJobUnit`'s
+  // optional second argument, downgrades an otherwise-structurally-`done` unit
+  // to `refused` on a truthy return, and a validator returning `null`/falsy
+  // leaves a structurally-good unit `done` -- this is the one seam the whole
+  // per-unit classification rests on, asserted directly before any of the
+  // Leg-shape fixtures below drive it through a real subprocess.
+  const goodOut = { error: null, exitCode: 0, errChunks: [], bytes: 8, endedAt: "t",
+    chunks: [Buffer.from(`${JSON.stringify({ type: "result", result: JSON.stringify({ legs: [1, 2] }) })}\n`)] };
+  const refusedByValidator = classifyDetachedJobUnit(goodOut, () => "the declared validator's own refusal text");
+  if (refusedByValidator.status !== "refused" || !refusedByValidator.failure.stderr_tail.includes("the declared validator's own refusal text")) {
+    fails.push(`(b6) a structurally-good unit was not downgraded to refused by a validator returning a truthy refusal: ${JSON.stringify(refusedByValidator)}`);
+  }
+  const passedByValidator = classifyDetachedJobUnit(goodOut, () => null);
+  if (passedByValidator.status !== "done") {
+    fails.push(`(b6) a structurally-good unit was downgraded even though its validator returned no refusal: ${JSON.stringify(passedByValidator)}`);
+  }
 }
 
 // (c) THE JOB-LEVEL REDUCTION (kogaki#1204 rewrite) — a refused or died unit
@@ -347,12 +363,33 @@ process.stdin.on("end", () => {
 `);
 chmodSync(fakeJudge, 0o755);
 
+// THE PASS-THROUGH VALIDATOR (kogaki#1240). `job-supervise` now refuses to
+// start at all when its units file names no declared validator -- every
+// fixture below that is testing the SUPERVISOR'S OWN MECHANICS (checkpoints,
+// stalls, the extend grant, the refusal-beside-a-running-sibling reduction)
+// and has nothing to do with Leg shape needs ONE to declare, so this module
+// exports a function that never refuses, loaded through the exact same
+// `loadReaderPathUnitValidator` route the real `validateReaderPathUnit`
+// (src/brief.mjs) is.
+const passthroughValidatorModule = join(scratch, "passthrough-validator.mjs");
+writeFileSync(passthroughValidatorModule, `export function passthrough() { return null; }\n`);
+const passthroughValidator = { module: passthroughValidatorModule, export: "passthrough" };
+
 function mkNewScratch() { const d = mkdtempSync(join(tmpdir(), "kogaki-rpjob-")); return d; }
 function mkNewRun() { const d = mkNewScratch(); return d; }
 
+// `units` is either the bare array the whole suite wrote before kogaki#1240,
+// or already a `{units, validator}` declaration for a caller that wants its
+// OWN validator (the Leg-shape section below) -- the bare-array shape is
+// wrapped with the pass-through validator so every pre-existing fixture
+// keeps asserting the supervisor mechanics alone.
+function declareUnits(units) {
+  return Array.isArray(units) ? { units, validator: passthroughValidator } : units;
+}
+
 function superviseSync(dir, units, opts = {}) {
   const unitsPath = join(dir, "units.json");
-  writeFileSync(unitsPath, JSON.stringify(units, null, 2));
+  writeFileSync(unitsPath, JSON.stringify(declareUnits(units), null, 2));
   const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", unitsPath,
     "--command", fakeJudge, "--model", "m", "--output-format", "json",
     "--checkpoint-s", String(opts.checkpointS ?? 100), "--absolute-limit-s", String(opts.absoluteLimitS ?? 100),
@@ -463,6 +500,21 @@ function readRecord(dir) {
   if (!rec || rec.state !== "other" || !rec.failure) fails.push(`(d7) an unreadable units file did not end the job \`other\` with a preserved record: ${JSON.stringify(rec)}`);
 }
 
+// (d7b) kogaki#1240 acceptance 4: a units file that parses and carries a
+// well-formed `units` array but names NO declared validator at all refuses
+// to start, the same `other` catch-all as an unreadable file -- never a
+// silent "no checker" run. Distinct from (d7): that file is not even valid
+// JSON, this one is, and carries no `validator` key.
+{
+  const dir = mkNewRun();
+  writeFileSync(join(dir, "units.json"), JSON.stringify({ units: [{ id: "c1", prompt: "SLOW" }] }, null, 2));
+  const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", join(dir, "units.json"),
+    "--command", fakeJudge, "--model", "m", "--output-format", "json"];
+  spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
+  const rec = readRecord(dir);
+  if (!rec || rec.state !== "other" || !rec.failure) fails.push(`(d7b) a units file naming no declared validator did not refuse to start with an \`other\` record: ${JSON.stringify(rec)}`);
+}
+
 // (d8)/(d9) THE EXTEND GRANT REACHES THE SUPERVISOR (kogaki#1193 PR #1195
 // review round 1, finding 2's own fixture). Before this fix, `checkpoint_hit`
 // never changed once true, so a unit's SECOND poll after the owner's "extend"
@@ -488,7 +540,7 @@ function pollUntil(dir, pred, timeoutMs) {
 {
   const dir = mkNewRun();
   const unitsPath = join(dir, "units.json");
-  writeFileSync(unitsPath, JSON.stringify([{ id: "c1", prompt: "SLOW" }], null, 2));
+  writeFileSync(unitsPath, JSON.stringify(declareUnits([{ id: "c1", prompt: "SLOW" }]), null, 2));
   const child = spawn(process.execPath, ["src/terrain.mjs", "job-supervise",
     "--run", dir, "--units", unitsPath, "--command", fakeJudge, "--model", "m",
     "--output-format", "json", "--checkpoint-s", "1", "--absolute-limit-s", "30",
@@ -530,7 +582,7 @@ function pollUntil(dir, pred, timeoutMs) {
 {
   const dir = mkNewRun();
   const unitsPath = join(dir, "units.json");
-  writeFileSync(unitsPath, JSON.stringify([{ id: "c1", prompt: "SLOW" }, { id: "c2", prompt: "FAIL_TWICE" }], null, 2));
+  writeFileSync(unitsPath, JSON.stringify(declareUnits([{ id: "c1", prompt: "SLOW" }, { id: "c2", prompt: "FAIL_TWICE" }]), null, 2));
   const child = spawn(process.execPath, ["src/terrain.mjs", "job-supervise",
     "--run", dir, "--units", unitsPath, "--command", fakeJudge, "--model", "m",
     "--output-format", "json", "--checkpoint-s", "30", "--absolute-limit-s", "30",
@@ -565,6 +617,107 @@ function pollUntil(dir, pred, timeoutMs) {
   } finally {
     try { child.kill("SIGKILL"); } catch { /* already exited on its own */ }
   }
+}
+
+// (d11) kogaki#1240: THE DECLARED, REAL `validateReaderPathUnit` VALIDATOR
+// REACHES UNIT CLASSIFICATION, loaded exactly as `job-supervise` loads it
+// (`loadReaderPathUnitValidator`, through its `module`/`export`/`inputs`
+// declaration) -- never a stand-in. A structurally-good Candidate record
+// whose Legs fail the Leg schema (here: the second Leg's `rationale`, a
+// required field) is refused on the VALIDATOR'S text, naming `rationale`,
+// not on the generic structural one `readerPathUnitRecord` raises; a unit
+// refused this way gets the same one-re-ask (kogaki#1203) and
+// refused-twice-is-terminal (kogaki#1204) treatment a parse failure already
+// does.
+{
+  const movesScratchDir = mkdtempSync(join(tmpdir(), "kogaki-rpjob-moves-"));
+  writeFileSync(join(movesScratchDir, "m1.md"), "id: m1\n");
+
+  const legOf = (legId, extra) => ({
+    leg_id: legId, move: "m1", materials: ["L1"],
+    purpose: `what ${legId} is for`,
+    reader_state_before: "knowledge: before\nquestion: holds: none",
+    reader_state_after: "knowledge: after\nquestion: holds: none",
+    depends_on: [], rationale: `why ${legId} sits here`,
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }],
+    ...extra,
+  });
+  const candidateOf = (leg2Extra) => ({
+    candidate_id: "c1", characteristic: "x", reader_experience: "y",
+    reader_start: "knowledge: before\nquestion: holds: none",
+    reasoning: { leg_validity: "x", transition_continuity: "x", thesis_closure: "x" },
+    legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
+  });
+  const goodCandidate = candidateOf({});
+  const missingRationaleCandidate = candidateOf({ rationale: undefined });
+  delete missingRationaleCandidate.legs[1].rationale;
+
+  const legValidator = { module: "src/brief.mjs", export: "validateReaderPathUnit",
+    inputs: { strandIds: ["L1"], movesDir: movesScratchDir,
+      readerStart: "knowledge: before\nquestion: holds: none" } };
+
+  // A SEPARATE fake judge, selecting its answer by prompt token the same way
+  // `fakeJudge` above does, but answering with these Candidates rather than
+  // the generic `{legs: [{id: "s1"}]}` stub -- "ONCE_MISSING" repairs on the
+  // retried prompt (kogaki#1203's own detection, `prompt.includes("YOUR
+  // PREVIOUS ANSWER WAS REFUSED")`), "ALWAYS_MISSING" never does.
+  const fakeJudgeLeg = join(scratch, "fake-judge-leg.mjs");
+  writeFileSync(fakeJudgeLeg, `#!/usr/bin/env node
+let chunks = [];
+process.stdin.on("data", (d) => chunks.push(d));
+process.stdin.on("end", () => {
+  const prompt = Buffer.concat(chunks).toString("utf8").trim();
+  const retried = prompt.includes("YOUR PREVIOUS ANSWER WAS REFUSED");
+  const write = (candidate) => {
+    process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
+    process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(candidate) }) + "\\n");
+    process.exit(0);
+  };
+  if (prompt.startsWith("ONCE_MISSING")) { write(retried ? ${JSON.stringify(goodCandidate)} : ${JSON.stringify(missingRationaleCandidate)}); return; }
+  write(${JSON.stringify(missingRationaleCandidate)});
+});
+`);
+  chmodSync(fakeJudgeLeg, 0o755);
+
+  function superviseLegSync(dir, unitId, prompt) {
+    const unitsPath = join(dir, "units.json");
+    writeFileSync(unitsPath, JSON.stringify({ units: [{ id: unitId, prompt }], validator: legValidator }, null, 2));
+    const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", unitsPath,
+      "--command", fakeJudgeLeg, "--model", "m", "--output-format", "json",
+      "--checkpoint-s", "100", "--absolute-limit-s", "100", "--stall-s", "100", "--heartbeat-ms", "250"];
+    return spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
+  }
+
+  // (d11a) refused once on the Leg shape, repaired on the retried prompt --
+  // the job ends `done`, and the unit's own row still names the attempt
+  // count and the FIRST refusal's text, carrying `rationale` verbatim.
+  {
+    const dir = mkNewRun();
+    superviseLegSync(dir, "c1", "ONCE_MISSING");
+    const rec = readRecord(dir);
+    const row = rec && (rec.units || []).find((u) => u.id === "c1");
+    if (!rec || rec.state !== "done" || rec.failure) {
+      fails.push(`(d11a) a unit refused once on the Leg shape and repaired on retry did not end the job \`done\`: ${JSON.stringify(rec)}`);
+    }
+    if (!row || row.attempts !== 2 || !row.first_refusal || !row.first_refusal.includes("rationale")) {
+      fails.push(`(d11a) the repaired unit's row does not carry two attempts and the first refusal naming \`rationale\`: ${JSON.stringify(row)}`);
+    }
+  }
+
+  // (d11b) refused on BOTH attempts ends the job `refused`, naming the unit
+  // and carrying the declared validator's own refusal text (the issue's
+  // "A fixture unit refused twice on the Leg shape ends the job `refused`
+  // naming the unit").
+  {
+    const dir = mkNewRun();
+    superviseLegSync(dir, "c1", "ALWAYS_MISSING");
+    const rec = readRecord(dir);
+    if (!rec || rec.state !== "refused" || !rec.failure || rec.failure.unit !== "c1"
+      || !rec.failure.stderr_tail || !rec.failure.stderr_tail.includes("rationale")) {
+      fails.push(`(d11b) a unit refused twice on the Leg shape did not end the job \`refused\`, naming the unit and the \`rationale\` refusal: ${JSON.stringify(rec)}`);
+    }
+  }
+  rmSync(movesScratchDir, { recursive: true, force: true });
 }
 
 // (e) THE SCREEN LEAKS NEITHER A STATE NAME NOR A PATH (acceptance 8). A
