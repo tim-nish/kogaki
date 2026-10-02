@@ -63,7 +63,6 @@
 //       SPEC-draft-pipeline
 //   the Leg and the Move it binds
 //       SPEC-draft-pipeline
-//   the Leg's shape
 //       SPEC-draft-pipeline
 //   the Leg-Move instantiation contract
 //       SPEC-draft-pipeline
@@ -73,7 +72,6 @@
 //       SPEC-draft-pipeline
 //   the Leg Packet
 //       SPEC-draft-pipeline
-//   the runtime-read template
 //       SPEC-draft-pipeline
 //   the Section grouping
 //       SPEC-draft-pipeline
