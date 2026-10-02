@@ -7788,16 +7788,20 @@ function readerPathDeadUnitResult(stdout) {
 // framing, carried forward) -- a checker inside a job is supplied concretely
 // by the supervisor or not at all (the owner's 2026-09-25 principle), so the
 // units file names the module and export to `import()` at runtime rather
-// than this file statically importing anything Brief-specific. `fail()`s
-// (caught by `cmdJobSupervise`'s own catch-all, below) when the declaration
-// or the named export is missing.
+// than this file statically importing anything Brief-specific. THROWS a
+// plain `Error` (caught by `cmdJobSupervise`'s own catch-all, below) when the
+// declaration or the named export is missing -- never `fail()`, which exits
+// the process directly and would skip that catch entirely, leaving no job
+// record behind for a refusal this function itself can fully describe.
 export async function loadReaderPathUnitValidator(declared) {
-  if (!declared || typeof declared !== "object") fail("the units file carries no declared validator (kogaki#1240).");
-  const modulePath = String(declared.module || fail("the declared validator names no `module`."));
-  const exportName = String(declared.export || fail("the declared validator names no `export`."));
+  if (!declared || typeof declared !== "object") throw new Error("the units file carries no declared validator (kogaki#1240).");
+  if (!declared.module) throw new Error("the declared validator names no `module`.");
+  if (!declared.export) throw new Error("the declared validator names no `export`.");
+  const modulePath = String(declared.module);
+  const exportName = String(declared.export);
   const mod = await import(pathToFileURL(resolve(REPO, modulePath)).href);
   const fn = mod[exportName];
-  if (typeof fn !== "function") fail(`${modulePath} exports no function named ${JSON.stringify(exportName)}.`);
+  if (typeof fn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(exportName)}.`);
   const inputs = declared.inputs || {};
   // THE `{error}`-RETURNING CONVENTION (carried from `validateLegs` and
   // `resolveMoveIds`, which `validateReaderPathUnit` itself calls) is
