@@ -7912,6 +7912,42 @@ export function readerPathAwaitStep(job, extendOverrides, extendMtimeMs, { stopR
   return { classify: true, units, state };
 }
 
+// THE EXTEND ANSWER'S OWN DECISION (kogaki#1241), pulled out of the gate's
+// `extend`-answer branch in `src/terrain.mjs` as a pure function on the same
+// ground `readerPathAwaitStep` above was: a fixture drives it directly rather
+// than through a live gate-answer round trip. `decl` is the declaration the
+// raising wrote — `reader_path_job_checkpoint_hit_units` is the raising's OWN
+// set of checkpoint-hit unit ids (kogaki#1241), read in preference to the live
+// `job` record's `checkpoint_hit` flags, which a click read after every named
+// unit finished would find empty. The fallback to the live job exists only for
+// a declaration written before this field existed. `job` is read for ONE
+// thing beyond that fallback: the checkpoint/absolute-limit seconds to cap the
+// raised bound by, and to tell which named units are no longer `running` by
+// the time the click is read (`alreadyFinished`) — a unit never dropped from
+// the grant for having finished, only noted.
+export function resolveReaderPathJobExtend(decl, job, existingOverrides, {
+  checkpointS = READER_PATH_JOB_CHECKPOINT_S,
+  absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S,
+} = {}) {
+  const jobUnits = job && Array.isArray(job.units) ? job.units : [];
+  const hitUnits = Array.isArray(decl && decl.reader_path_job_checkpoint_hit_units)
+    ? decl.reader_path_job_checkpoint_hit_units
+    : jobUnits.filter((u) => u.checkpoint_hit).map((u) => u.id);
+  const jobCheckpointS = (job && Number(job.checkpoint_s)) || checkpointS;
+  const jobAbsoluteLimitS = (job && Number(job.absolute_limit_s)) || absoluteLimitS;
+  const newOverrides = { ...existingOverrides };
+  for (const id of hitUnits) {
+    const current = Number((existingOverrides || {})[id]) || jobCheckpointS;
+    newOverrides[id] = Math.min(current + jobCheckpointS, jobAbsoluteLimitS);
+  }
+  const liveById = new Map(jobUnits.map((u) => [u.id, u]));
+  const alreadyFinished = hitUnits.filter((id) => {
+    const u = liveById.get(id);
+    return !u || u.status !== "running";
+  });
+  return { hitUnits, newOverrides, alreadyFinished };
+}
+
 // THE `failure` BLOCK FOR A NON-`done` JOB RECORD (kogaki#1193 acceptance 2:
 // "every state but `done` carries `failure`"). A `died`/`refused` job's
 // failure is the offending unit's own -- already shaped by
@@ -10358,20 +10394,13 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
         } else {
           // "EXTEND IS GRANTED ONCE PER UNIT" (kogaki#1193, the owner's
           // 2026-09-25 wording), RECORDED HERE — the one place an `extend`
-          // click is known to have happened. The units this raising offered
-          // `extend` FOR are named ON THE DECLARATION ITSELF
-          // (`reader_path_job_checkpoint_hit_units`, kogaki#1241) — the
-          // raising's own `checkpointHitUnits`, not whatever the job record
-          // happens to classify `checkpoint_hit` at the moment the click is
-          // READ. A click answered after every named unit has already
-          // finished found that live set empty and recorded the grant against
-          // `[]`, the exact defect #1241 is about; reading the declaration
-          // instead means the SAME units are recorded whether the click
-          // arrives mid-run or long after they finished.
+          // click is known to have happened. `resolveReaderPathJobExtend`
+          // (kogaki#1241) is the pure decision, pulled out for the same reason
+          // `readerPathAwaitStep` was (kogaki#1213): a fixture drives it
+          // directly rather than through a live gate-answer round trip.
           const job = readReaderPathJob(dir);
-          const hitUnits = Array.isArray(decl.reader_path_job_checkpoint_hit_units)
-            ? decl.reader_path_job_checkpoint_hit_units
-            : (job && Array.isArray(job.units) ? job.units : []).filter((u) => u.checkpoint_hit).map((u) => u.id);
+          const existingOverrides = readReaderPathJobExtendFlag(dir);
+          const { hitUnits, newOverrides, alreadyFinished } = resolveReaderPathJobExtend(decl, job, existingOverrides);
           rec.reader_path_job_extended = rec.reader_path_job_extended || {};
           rec.reader_path_job_extended[jobState] = Array.from(new Set(
             [...(rec.reader_path_job_extended[jobState] || []), ...hitUnits],
@@ -10382,30 +10411,13 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           // supervisor process, which is the one process computing
           // `checkpoint_hit` on a live tick. Without this write, the very next
           // `job await` poll would recompute the SAME threshold and
-          // re-classify `limit-reached` instantly. One more `checkpoint_s`
-          // window per named unit, capped at the job's own absolute limit so
-          // an extend can never grant more total time than the ceiling
-          // already allows — the job record is read for this cap alone, never
-          // for which units the grant applies to.
-          const jobCheckpointS = (job && Number(job.checkpoint_s)) || READER_PATH_JOB_CHECKPOINT_S;
-          const jobAbsoluteLimitS = (job && Number(job.absolute_limit_s)) || READER_PATH_JOB_ABSOLUTE_LIMIT_S;
-          const existingOverrides = readReaderPathJobExtendFlag(dir);
-          const newOverrides = { ...existingOverrides };
-          for (const id of hitUnits) {
-            const current = Number(existingOverrides[id]) || jobCheckpointS;
-            newOverrides[id] = Math.min(current + jobCheckpointS, jobAbsoluteLimitS);
-          }
+          // re-classify `limit-reached` instantly.
           try { writeReaderPathJobExtendFlag(dir, newOverrides); } catch { /* the record is the truth; a lost write costs the owner a repeat click, not a wrong one */ }
           // THE "ALREADY FINISHED" NOTE (kogaki#1241 remedy): a named unit no
           // longer `running` by the time the click is read is still recorded
           // under `reader_path_job_extended`, never silently dropped — but the
           // screen says so rather than claiming the extension did anything for
           // a unit that is already done.
-          const liveById = new Map((job && Array.isArray(job.units) ? job.units : []).map((u) => [u.id, u]));
-          const alreadyFinished = hitUnits.filter((id) => {
-            const u = liveById.get(id);
-            return !u || u.status !== "running";
-          });
           const finishedNote = alreadyFinished.length
             ? ` (already finished by the time the click was read: ${JSON.stringify(alreadyFinished)})`
             : "";
