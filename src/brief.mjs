@@ -2178,10 +2178,19 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   const stopOnlyQuestion = (state === "limit-reached" && !offerExtend)
     ? `A reader-path call is still running and has already used its one extension. Stopping now ends the job early and discards every candidate finished or still in progress — the alternative is to let it keep running.`
     : undefined;
+  // THE UNITS THE `extend` OPTION IS OFFERED FOR, NAMED ON THE DECLARATION
+  // ITSELF (kogaki#1241). An `extend` click is read by the executor at
+  // whatever moment the owner answers, which can be after every unit in
+  // `checkpointHitUnits` has already finished — re-reading the live job
+  // record at that point finds no `checkpoint_hit` unit left and records the
+  // grant against `[]`. Carrying the raising's own set on the declaration is
+  // what lets the `extend` branch in `src/terrain.mjs` record THESE ids
+  // regardless of what the job record reads by the time the click lands.
   const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
     {
       reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))),
       ...(stopOnlyQuestion ? { question: stopOnlyQuestion } : {}),
+      ...(offerExtend ? { reader_path_job_checkpoint_hit_units: checkpointHitUnits } : {}),
     });
   rec.gate_declarations_owed = rec.gate_declarations_owed || [];
   rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });

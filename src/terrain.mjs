@@ -10359,14 +10359,19 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           // "EXTEND IS GRANTED ONCE PER UNIT" (kogaki#1193, the owner's
           // 2026-09-25 wording), RECORDED HERE — the one place an `extend`
           // click is known to have happened. The units this raising offered
-          // `extend` FOR are exactly the ones `job status`/`job await`
-          // classified `checkpoint_hit` at the moment the gate was raised;
-          // recording them (rather than "the state was extended") is what
-          // lets `finishReaderPathJobAwait` in `src/brief.mjs` tell a unit's
-          // SECOND checkpoint hit from its first and offer `stop` alone then.
+          // `extend` FOR are named ON THE DECLARATION ITSELF
+          // (`reader_path_job_checkpoint_hit_units`, kogaki#1241) — the
+          // raising's own `checkpointHitUnits`, not whatever the job record
+          // happens to classify `checkpoint_hit` at the moment the click is
+          // READ. A click answered after every named unit has already
+          // finished found that live set empty and recorded the grant against
+          // `[]`, the exact defect #1241 is about; reading the declaration
+          // instead means the SAME units are recorded whether the click
+          // arrives mid-run or long after they finished.
           const job = readReaderPathJob(dir);
-          const hitUnits = (job && Array.isArray(job.units) ? job.units : [])
-            .filter((u) => u.checkpoint_hit).map((u) => u.id);
+          const hitUnits = Array.isArray(decl.reader_path_job_checkpoint_hit_units)
+            ? decl.reader_path_job_checkpoint_hit_units
+            : (job && Array.isArray(job.units) ? job.units : []).filter((u) => u.checkpoint_hit).map((u) => u.id);
           rec.reader_path_job_extended = rec.reader_path_job_extended || {};
           rec.reader_path_job_extended[jobState] = Array.from(new Set(
             [...(rec.reader_path_job_extended[jobState] || []), ...hitUnits],
@@ -10378,9 +10383,10 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           // `checkpoint_hit` on a live tick. Without this write, the very next
           // `job await` poll would recompute the SAME threshold and
           // re-classify `limit-reached` instantly. One more `checkpoint_s`
-          // window per hit unit, capped at the job's own absolute limit so an
-          // extend can never grant more total time than the ceiling already
-          // allows.
+          // window per named unit, capped at the job's own absolute limit so
+          // an extend can never grant more total time than the ceiling
+          // already allows — the job record is read for this cap alone, never
+          // for which units the grant applies to.
           const jobCheckpointS = (job && Number(job.checkpoint_s)) || READER_PATH_JOB_CHECKPOINT_S;
           const jobAbsoluteLimitS = (job && Number(job.absolute_limit_s)) || READER_PATH_JOB_ABSOLUTE_LIMIT_S;
           const existingOverrides = readReaderPathJobExtendFlag(dir);
@@ -10390,7 +10396,20 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
             newOverrides[id] = Math.min(current + jobCheckpointS, jobAbsoluteLimitS);
           }
           try { writeReaderPathJobExtendFlag(dir, newOverrides); } catch { /* the record is the truth; a lost write costs the owner a repeat click, not a wrong one */ }
-          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is EXTENDED for unit(s) ${JSON.stringify(hitUnits)}; the state was never marked complete, so the advance below re-enters it (kogaki#1193).`);
+          // THE "ALREADY FINISHED" NOTE (kogaki#1241 remedy): a named unit no
+          // longer `running` by the time the click is read is still recorded
+          // under `reader_path_job_extended`, never silently dropped — but the
+          // screen says so rather than claiming the extension did anything for
+          // a unit that is already done.
+          const liveById = new Map((job && Array.isArray(job.units) ? job.units : []).map((u) => [u.id, u]));
+          const alreadyFinished = hitUnits.filter((id) => {
+            const u = liveById.get(id);
+            return !u || u.status !== "running";
+          });
+          const finishedNote = alreadyFinished.length
+            ? ` (already finished by the time the click was read: ${JSON.stringify(alreadyFinished)})`
+            : "";
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is EXTENDED for unit(s) ${JSON.stringify(hitUnits)}${finishedNote}; the state was never marked complete, so the advance below re-enters it (kogaki#1193).`);
         }
       } else {
         // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
