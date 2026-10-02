@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The Move ingestion carrier's fixture pass (kogaki#876).
 #
-# A THIN INVOKER over `python3 tools/move_ingest.py --self-test`, on the
+# A THIN INVOKER over `python3 checks/move_ingest_cases.py` (kogaki#1238;
+# formerly `tools/move_ingest.py --self-test`), on the
 # arrangement check-terrain-runtime.sh and check-draft-runtime.sh already use:
 # the cases are functions of the module's own grammar, parser, validator and
 # renderer and drive them end to end, so they live with the module. Seam-free
@@ -35,7 +36,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "== move ingestion fixture pass (kogaki#876)"
 
-OUT=$(python3 tools/move_ingest.py --self-test 2>&1); RC=$?
+OUT=$(python3 checks/move_ingest_cases.py 2>&1); RC=$?
 printf '%s\n' "$OUT"
 if [[ $RC -ne 0 ]] || ! grep -q "move_ingest self-test:" <<<"$OUT"; then
   echo "FAIL: the ingestion fixture pass did not run clean — the cases live with the module and this member only invokes them"

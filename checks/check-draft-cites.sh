@@ -7,7 +7,7 @@
 # (`specs/SPEC.md::the citation resolve check over the draft's own cites is the sole mechanical`)
 # so a reader learns
 # the boundary from the instrument. The cases live with the judge in
-# `src/cite-check.mjs --self-test` (seam-free: every verdict constructed
+# `checks/cite-check-cases.mjs` (kogaki#1238; formerly `src/cite-check.mjs --self-test`; seam-free: every verdict constructed
 # over injected served lines); this wrapper runs that pass, then the LIVE
 # pass over each `theses/*/draft.md` the tree holds.
 #
@@ -24,7 +24,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 echo "== CanonicalDraft citation resolution (kogaki#588)"
 
 FAIL=0
-OUT=$(node src/cite-check.mjs --self-test 2>&1) || FAIL=1
+OUT=$(node checks/cite-check-cases.mjs 2>&1) || FAIL=1
 printf '%s\n' "$OUT"
 grep -q "cite-check self-test:" <<<"$OUT" || {
   echo "FAIL: the judge's fixture pass did not run — the cases live with the judge and this member only invokes them"

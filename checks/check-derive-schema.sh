@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The Move-schema derivation carrier's fixture pass (kogaki#1173).
 #
-# A THIN INVOKER over `python3 tools/derive_schema.py --self-test`, on the
+# A THIN INVOKER over `python3 checks/derive_schema_cases.py` (kogaki#1238;
+# formerly `tools/derive_schema.py --self-test`), on the
 # arrangement check-move-ingest.sh already uses: the cases construct their
 # own Corpus fixtures and a stub model command in a temporary directory, and
 # the pass reaches no network and no real model.
@@ -21,7 +22,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "== move-schema derivation fixture pass (kogaki#1173)"
 
-OUT=$(python3 tools/derive_schema.py --self-test 2>&1); RC=$?
+OUT=$(python3 checks/derive_schema_cases.py 2>&1); RC=$?
 printf '%s\n' "$OUT"
 if [[ $RC -ne 0 ]] || ! grep -q "derive_schema self-test:" <<<"$OUT"; then
   echo "FAIL: the derivation fixture pass did not run clean — the cases live with the module and this member only invokes them"
