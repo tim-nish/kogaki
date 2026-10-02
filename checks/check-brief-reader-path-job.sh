@@ -500,6 +500,21 @@ function readRecord(dir) {
   if (!rec || rec.state !== "other" || !rec.failure) fails.push(`(d7) an unreadable units file did not end the job \`other\` with a preserved record: ${JSON.stringify(rec)}`);
 }
 
+// (d7b) kogaki#1240 acceptance 4: a units file that parses and carries a
+// well-formed `units` array but names NO declared validator at all refuses
+// to start, the same `other` catch-all as an unreadable file -- never a
+// silent "no checker" run. Distinct from (d7): that file is not even valid
+// JSON, this one is, and carries no `validator` key.
+{
+  const dir = mkNewRun();
+  writeFileSync(join(dir, "units.json"), JSON.stringify({ units: [{ id: "c1", prompt: "SLOW" }] }, null, 2));
+  const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", join(dir, "units.json"),
+    "--command", fakeJudge, "--model", "m", "--output-format", "json"];
+  spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
+  const rec = readRecord(dir);
+  if (!rec || rec.state !== "other" || !rec.failure) fails.push(`(d7b) a units file naming no declared validator did not refuse to start with an \`other\` record: ${JSON.stringify(rec)}`);
+}
+
 // (d8)/(d9) THE EXTEND GRANT REACHES THE SUPERVISOR (kogaki#1193 PR #1195
 // review round 1, finding 2's own fixture). Before this fix, `checkpoint_hit`
 // never changed once true, so a unit's SECOND poll after the owner's "extend"
