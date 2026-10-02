@@ -69,7 +69,13 @@ PROBE_TIMEOUT_S = 10
 # WITHOUT the dispatch, which is the distinction being asserted. A member that
 # genuinely delegates through a variable is out of reach here and is caught at
 # admission review.
-DELEGATES = re.compile(r'\b(?:node|bash|python3)\s+\S+\s+(?:--)?self-test\b')
+# WIDENED AT kogaki#1238: the delegated pass now lives in a CASE FILE under
+# checks/ (`<name>-cases.mjs` / `<name>_cases.py`) rather than behind a
+# runtime's `self-test` flag, and the class follows the dispatch shape to
+# it -- a member spawning a case file delegates exactly as one spawning
+# `--self-test` did, and owes the same floor.
+DELEGATES = re.compile(r'\b(?:node|bash|python3)\s+(?:\S+\s+(?:--)?self-test\b|checks/\S+[-_]cases\.(?:mjs|py)\b)')
+CASE_FILE = re.compile(r'[-_]cases\.(?:mjs|py)$')
 
 # THE EXCEEDS ARM (kogaki#970). A member declaring `case_floor` owes BOTH
 # directions of the comparison, not just the one that refuses downward.
@@ -837,6 +843,11 @@ def fixture_pass():
                   not validate_case_floor([floor("fx", case_floor=3)], files)))
     cases.append(("a NON-delegating member owes no case_floor",
                   not validate_case_floor([floor("plain")], files)))
+    # Split like DISPATCH above, so this file does not match its own pattern.
+    FILES["checks/check-casefile.sh"] = "OUT=$(node checks/thing-" + "cases.mjs 2>&1)\n"
+    cases.append(("a member spawning a case file under checks/ is delegating (kogaki#1238)",
+                  any("has no case_floor" in x
+                      for x in validate_case_floor([floor("casefile")], files))))
     # Derived from the diff and initially UNCAUGHT: every fixture used the
     # dispatch form, so a `self-test`-anywhere mutant of DELEGATES survived.
     # The case is authored rather than the mutant dropped.
@@ -1165,7 +1176,24 @@ present = {f"{d.as_posix()}/{p.name}"
            for p in d.iterdir()
            if p.is_file() and p.name != "registry.json"}
 
+# A CASE FILE IS NOT A MEMBER (kogaki#1238). `<name>-cases.mjs` and
+# `<name>_cases.py` under checks/ hold the cases a registered member runs;
+# the member's row is the registration, so a case file is accounted for by
+# the member that names it and is dead code when none does -- the same
+# both-ways rule one level down, rather than an exemption.
+case_files = {name for name in present if CASE_FILE.search(name)}
+present = present - case_files
+member_text = ""
+for name in sorted(registered):
+    try:
+        member_text += pathlib.Path(name).read_text(encoding="utf-8")
+    except OSError:
+        pass
+
 failures = []
+for name in sorted(case_files):
+    if name not in member_text:
+        failures.append(f"FAIL case file run by no registered member (dead code): {name}")
 for name in sorted(present - registered):
     failures.append(f"FAIL unregistered check file (dead code): {name}")
 for name in sorted(registered - present):

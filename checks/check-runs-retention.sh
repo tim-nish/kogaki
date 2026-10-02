@@ -5,7 +5,8 @@
 # A THIN INVOKER, HOLDING NO ASSERTIONS OF ITS OWN — the arrangement the
 # registered siblings check-terrain-runtime.sh and check-draft-runtime.sh use,
 # for the reason those state: the cases are functions of the module's own
-# resolvers and pruner and belong beside them, in `src/runs.mjs --self-test`.
+# resolvers and pruner, in `checks/runs-cases.mjs` beside this member
+# (kogaki#1238; formerly `src/runs.mjs --self-test`).
 # Seam-free: every case builds its lane tree under its own scratch root, so the
 # pass reaches no gateway, no network, and — the property that matters in THIS
 # module — never this repository's own `runs/` directory.
@@ -36,7 +37,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "== run-intermediate retention (kogaki#750)"
 
-OUT=$(node src/runs.mjs --self-test 2>&1); RC=$?
+OUT=$(node checks/runs-cases.mjs 2>&1); RC=$?
 printf '%s\n' "$OUT"
 if [[ $RC -ne 0 ]] || ! grep -q "runs self-test:" <<<"$OUT"; then
   echo "FAIL: the retention fixture pass did not run clean — the cases live with the module and this member only invokes them"

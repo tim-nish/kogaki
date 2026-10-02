@@ -3,7 +3,8 @@
 #
 # A THIN INVOKER, HOLDING NO ASSERTIONS OF ITS OWN — the same arrangement the
 # registered sibling check-draft-runtime.sh uses, and for the same reason: the
-# cases live with the runtime they cover, in `src/terrain.mjs self-test`,
+# cases live in `checks/terrain-cases.mjs` beside this member (kogaki#1238;
+# formerly `src/terrain.mjs self-test`), importing the runtime's exports,
 # because they are functions of the runtime's own composers, grammar and
 # executor and drive them end to end. Seam-free by construction: every case
 # constructs its own inputs, so the pass reaches no gateway and no network,
@@ -63,7 +64,7 @@ echo "== terrain runtime fixture pass (kogaki#659)"
 . tools/open-gates-guard.sh
 kogaki_open_gates_guard || exit 1
 
-OUT=$(node src/terrain.mjs self-test 2>&1); RC=$?
+OUT=$(node checks/terrain-cases.mjs 2>&1); RC=$?
 printf '%s\n' "$OUT"
 if [[ $RC -ne 0 ]] || ! grep -q "terrain self-test:" <<<"$OUT"; then
   echo "FAIL: the runtime's fixture pass did not run clean — the cases live with the runtime and this member only invokes them"
