@@ -15,6 +15,71 @@ import derive_schema as _m  # noqa: E402
 # module namespace is brought in whole so they read exactly as they did.
 globals().update({k: v for k, v in vars(_m).items() if not k.startswith("__")})
 
+# --------------------------------------------------------------------------
+# The fixture library — every case constructs the defect and asserts the refusal.
+# --------------------------------------------------------------------------
+
+ANALYSIS_TEMPLATE = """# Passage analysis: {slug}
+
+source: not given
+functions: advances, raises, settles
+prior text: not assumed
+length: 3 sentences, 1 paragraphs
+language: English
+
+## Passage
+
+{passage_line}
+
+## Answers
+
+Q1 Purpose
+  answer: model — does a thing to the reader.
+
+## 1. What the Passage does
+
+Does a thing to the reader.
+
+## 2. Reader before and after
+
+| dimension   | before | after |
+|-------------|--------|-------|
+| knowledge   | little | more  |
+
+Strongest change: knowledge. Second: none.
+"""
+
+
+def _write_corpus(dirpath, n, passage_line="THE SECRET SOURCE TEXT LINE"):
+    for i in range(n):
+        slug = "analysis_%02d" % i
+        with open(os.path.join(dirpath, slug + ".md"), "w",
+                   encoding="utf-8") as handle:
+            handle.write(ANALYSIS_TEMPLATE.format(
+                slug=slug, passage_line=passage_line))
+
+
+VALID_QUESTIONS = """Disagreements with the ruled answers: none
+
+1. Should `requires` be replaced by `question`?
+
+   Every Analysis's Q2 answer names a question, never only knowledge.
+
+   1. Yes, add `question`, keep `requires`. (Recommended)
+   2. No, keep `requires` as it is.
+
+2. Should `visual_form` become `figure`?
+
+   The Corpus supports it with one Analysis.
+
+   1. Yes. (Recommended)
+   2. No.
+   3. Defer.
+"""
+
+
+HEAD = "Disagreements with the ruled answers: none\n\n"
+
 
 def self_test():
     failures = []

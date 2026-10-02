@@ -39,7 +39,7 @@ import sys
 import tempfile
 
 ROOTS = ("src", "tools")
-EXCLUDED = ("policy/kit", "the vendored client kit (kogaki#1120); its self-tests are governed where the kit is authored")
+EXCLUDED = ("policy/kit", "the vendored client kit (kogaki#1120), outside the roots by construction; its self-tests are governed where the kit is authored")
 # Each shape: a name for the report and the line pattern that detects it.
 SHAPES = (
     ("a --self-test flag", re.compile(r"--self-test\b")),
@@ -110,7 +110,11 @@ with tempfile.TemporaryDirectory() as tmp:
     plant(tmp, "policy/kit/bin/q.mjs", 'if (process.argv.includes("--self-test")) selfTest();\n')
     plant(tmp, "checks/check-inline.sh", 'if [ "$1" = "--self-test" ]; then exit 0; fi\n')
     hits, files = scan(tmp)
-    case("a tree whose only self-tests sit under the vendored kit and under checks/, with prose mentioning a fixture pass, passes",
+    # The exclusion is BY CONSTRUCTION — the walk never enters a path outside
+    # the roots — so what this case can show is exactly that: the kit file and
+    # the inline fixture under checks/ are never read (one file scanned), and
+    # a mid-sentence mention of a fixture pass under src/ is not a hit.
+    case("prose mentioning a fixture pass under src/ is not a hit, and files outside the roots (the vendored kit, checks/) are never read: one file scanned, no hit",
          hits == [] and files == 1)
 
 bad = [label for label, ok in fixture if not ok]

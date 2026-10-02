@@ -1289,43 +1289,5 @@ def main_ingest(argv=None):
     return 0
 
 
-# --------------------------------------------------------------------------
-# Self-test — every case CONSTRUCTS the defect and asserts the refusal.
-# --------------------------------------------------------------------------
-
-EIGHT = """id: {id}
-before: >-
-  question: holds an unanswered question
-after: >-
-  question: the question is settled
-question: >-
-  holds: why does it happen
-  settles: why does it happen
-order: >-
-  raises, advances, settles, in that order
-presupposes: >-
-  the reader has read the prior Leg
-technique: >-
-  does a thing
-breaks: >-
-  not always
-"""
-
-
-AXIS_FORM = """figure:
-  kind: axis
-  endpoint_a: the first endpoint the Move presents
-  endpoint_b: the opposing endpoint
-  criterion: the one axis both endpoints clarify
-"""
-
-
-def _record(move_id="a-move", form=None):
-    text = EIGHT.format(id=move_id)
-    if form is not None:
-        text += form
-    return text
-
-
 if __name__ == "__main__":
     sys.exit(main())

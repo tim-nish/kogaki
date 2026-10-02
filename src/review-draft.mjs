@@ -93,7 +93,6 @@
 //       SPEC-draft-pipeline "The figure record — the form's instance, filled after the prose"
 //   the renderer
 //       SPEC-draft-pipeline "The renderer and the anchor — markup from the record, at the Leg"
-//       specs/spec-brief-draft-design/DESIGN.md "Lifetimes: what is owner state and what is machine state"
 //   the frontmatter trace
 //       SPEC-draft-command "The three-layer boundary"
 //

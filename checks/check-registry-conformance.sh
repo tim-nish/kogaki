@@ -1192,7 +1192,9 @@ for name in sorted(registered):
 
 failures = []
 for name in sorted(case_files):
-    if name not in member_text:
+    # THE DISPATCH, NOT THE WORDS: a member's header prose names its case
+    # file too, so presence is read as `node|bash|python3 <case file>`.
+    if not re.search(r"\b(?:node|bash|python3)\s+" + re.escape(name) + r"\b", member_text):
         failures.append(f"FAIL case file run by no registered member (dead code): {name}")
 for name in sorted(present - registered):
     failures.append(f"FAIL unregistered check file (dead code): {name}")
