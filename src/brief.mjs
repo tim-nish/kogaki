@@ -1278,6 +1278,20 @@ export function validateReaderPathUnit(candidate, inputs) {
       + `\`reader_experience\`, which renders as the description beside it. Received: `
       + `${JSON.stringify(charValue)}` };
   }
+  // READER START IS GIVEN (kogaki#1216), not composed: `src/candidate-schema.json`
+  // declares it `given: true` and a unit's own written value is overwritten by
+  // the differentiation record and never read (`finishReaderPathJobAwait` sets
+  // it on the Candidate AFTER classification). So the value validated here --
+  // against `validateLegs` and against the unit's own answer below -- is the
+  // one the job's boundary handed this validator, `inputs.readerStart`, and it
+  // is set onto the candidate before `validateLegs` runs so the two readers of
+  // the field never disagree.
+  if (typeof readerStart !== "string" || readerStart === "") {
+    return { error: `candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation `
+      + "record and handed to this validator at the reader-path job's boundary (kogaki#1216), so its absence "
+      + "here is the runtime's fault rather than the composer's" };
+  }
+  c.reader_start = readerStart;
   // THE LEG REFUSALS ARE `validateLegs`' OWN, re-implemented nowhere.
   // One-claim-per-Strand, the closed claim type set, every required field
   // and its description all come from `src/leg-schema.json` through that
@@ -1318,18 +1332,6 @@ export function validateReaderPathUnit(candidate, inputs) {
     return { error: `candidate ${c.candidate_id}: the Leg marked \`reaches_target\`'s \`reader_state_after\` `
       + "is absent, or the path carries none or several such Legs -- it IS the Brief's Reader target "
       + "(kogaki#1231), and adoption fills no default" };
-  }
-  // READER START IS GIVEN (set on the Candidate by the Harness from the
-  // differentiation record at the job's own boundary) and must be present
-  // here; its absence is the runtime's, never the composer's.
-  if (typeof c.reader_start !== "string" || c.reader_start === "") {
-    return { error: `candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation `
-      + "record and set on the Candidate by the Harness at the reader-path job's boundary (kogaki#1216), so its "
-      + "absence here is the runtime's fault rather than the composer's" };
-  }
-  if (readerStart !== undefined && c.reader_start !== readerStart) {
-    return { error: `candidate ${c.candidate_id}: Reader start does not match the differentiation record's `
-      + "own value — the job's boundary sets it, and a unit's answer must carry it back unchanged" };
   }
   // THE THREE LEDGER FIELDS, REFUSED HERE BY NAME (kogaki#1129).
   // `candidateLedgerRefusal` reads the declaration in

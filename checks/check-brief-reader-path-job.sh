@@ -653,7 +653,8 @@ function pollUntil(dir, pred, timeoutMs) {
   delete missingRationaleCandidate.legs[1].rationale;
 
   const legValidator = { module: "src/brief.mjs", export: "validateReaderPathUnit",
-    inputs: { strandIds: ["L1"], movesDir: movesScratchDir } };
+    inputs: { strandIds: ["L1"], movesDir: movesScratchDir,
+      readerStart: "knowledge: before\nquestion: holds: none" } };
 
   // A SEPARATE fake judge, selecting its answer by prompt token the same way
   // `fakeJudge` above does, but answering with these Candidates rather than
