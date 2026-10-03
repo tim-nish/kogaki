@@ -25,10 +25,25 @@ bans becomes the first hit of any check grepping for it, which is the
 use-versus-mention defect this repository has recorded repeatedly. The check
 asserts the absence; this comment says why the absence is deliberate.
 
-Block order is fixed: anchors, Move contract, Leg, the Leg's claims, the
-Journey material, the Leg's Section, ledger, the article so far, instruction. Heavy prose late, instruction last. Every block opens with a fixed
-usage header saying what the block is FOR, because a block whose use is not
-stated gets used for whatever it resembles.
+Block order is fixed: Move contract, the Leg's claims, the Journey material,
+the Leg's Section, ledger, the article so far, instruction. Heavy prose late,
+instruction last. Every block opens with a fixed usage header saying what the
+block is FOR, because a block whose use is not stated gets used for whatever
+it resembles.
+
+PLANNING BLOCKS DO NOT REACH THE PACKET (kogaki#1247, owner ruling
+2026-10-02/04). "Brief = blueprint, Packet = parts" (the document-plan
+boundary of the Reiter and Dale generation pipeline): a Brief-level item is
+rendered into the Packet only where a sentence-level decision of the writer
+depends on it. The fixed-points block (Thesis, Reader start, Reader target)
+and the This Leg block (`purpose`, `reader_state_before`,
+`reader_state_after`) are retired on that ground — their operational content
+for the writer is already carried by the active, held and introduce lists and
+the Closure rows, and review of the prose reads the reader states from the
+Brief, never the Packet. The reader-target line is the one piece of that
+retired block with a live sentence-level use — it says whether this Leg may
+still introduce or raise anything — so it moves into the Section block rather
+than leaving with the rest.
 
 THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28). The
 claims block and the `already knows` and `introduce here` lists below RENDER AS
@@ -42,37 +57,15 @@ where the category's own block opens, never as a label attached to each item.
 
 # Write one Leg
 
-## What the article is doing — hold these fixed
-
-Use these as the article's fixed points. Do not restate them and do not argue
-with them; they are settled.
-
-- **Thesis.** {{thesis}}
-- **Reader start.** {{reader_start}}
-- **Reader target.** {{reader_target}}
-
-## The Move this Leg performs — its contract
+## The Move this Leg performs: its contract. Attribute, never prose: nothing here is quoted, paraphrased or made the subject of a sentence.
 
 This is the transformation you are performing. `technique` says what it
-does; `question` is the reader's question and its fate; `draws_on` is the
-footholds the Move's material comes from; `breaks` are the three tests a
-correct performance must survive.
+does; `question` is the reader's question and its fate; `breaks` are the
+three tests a correct performance must survive.
 
 - **technique.** {{move_technique}}
 - **question.** {{move_question}}
-- **draws_on.** {{move_draws_on}}
 - **breaks.** {{move_breaks}}
-
-## This Leg
-
-What this Leg must accomplish, in this article, for this reader.
-
-- **Leg.** {{leg_id}}
-- **purpose.** {{purpose}}
-- **reader_state_before.** {{reader_state_before}}
-- **reader_state_after.** {{reader_state_after}}
-
-{{reader_target_line}}
 
 ## The claims this Leg asserts
 
@@ -96,6 +89,8 @@ on the page and you are writing further into it: do not restate the heading's
 claim, and do not open a new subject.
 
 {{section_placement}}
+
+{{reader_target_line}}
 
 ## What is active here, what is not, and what you introduce here
 
@@ -151,7 +146,17 @@ label, no commentary about what you are doing.
 Harness, from the title the Brief declared — never per Leg and never by you.
 Prose that writes its own heading is refused when the Leg is recorded.
 
-**Plain register:** no unexplained term of art; a concrete subject acting.
+**Paragraphs.** Each opens on the sentence that states its point; every later
+sentence supports that sentence; a sentence that supports nothing is cut.
+
+**Prose style:** classic register, full clauses, a concrete subject acting,
+no unexplained term of art; not fragments, not runs of short sentences, not
+triads, not "not X, not Y" runs.
+
+**Referents.** A case, example, file, person or named thing comes from the
+Journey block or from the reader's own world as the Brief describes the
+reader at the outset; anything else the prose names does not exist for
+later Legs.
 
 **The round trip:** the original claim must be recoverable from what you write.
 Where making it plain loses something, either restore the loss or **concede it

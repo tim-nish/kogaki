@@ -929,13 +929,11 @@ function cmdMaterial(args) {
 // `reader_state_before`/`after` are the instance forms of exactly those two
 // fields (the Leg-Move instantiation contract), so rendering both would put the general and the specialized
 // statement of one thing side by side and leave the model to pick. The Leg's
-// instantiated states win. The four that ARE rendered are the schema's
-// `rendered-to-writer` role (kogaki#1175). `draws_on` is the one of the four
-// that the schema itself declares optional, so it is named separately from
-// the other three and rendered as a stated absence rather than refusing the
-// Packet — the same pattern the journeys block below uses.
+// instantiated states win. `draws_on` is retired from the rendered set
+// (kogaki#1247, owner ruling 2026-10-02): no composer, judge or Packet reads
+// it, so the three that remain — the schema's `rendered-to-writer` role
+// (kogaki#1175), minus `draws_on` — are all required.
 const MOVE_FIELDS_RENDERED_REQUIRED = ["technique", "question", "breaks"];
-const MOVE_FIELDS_RENDERED_OPTIONAL = ["draws_on"];
 
 // Read one field out of a Move record's folded-scalar form. The store is the
 // same one the Leg-Move instantiation contract's resolver reads, and this reads VALUES where that one reads
@@ -958,30 +956,6 @@ function moveField(text, field) {
   return inline ? inline[1].trim() : null;
 }
 
-// A Brief's global anchors, verbatim from the document. Read from the heading
-// rather than re-derived, because "verbatim from the Brief" is the ruling.
-//
-// SLICED, NEVER MATCHED BY ONE `m`-FLAGGED REGEX (kogaki#1224; the precedent
-// is `closureRowsForLeg`, PR #1152 round 1, finding 2). The earlier form's
-// lazy group ended at `(?=\n## |$)` under the `m` flag, where `$` matches
-// EVERY line end — so the capture stopped at the section's first line. Reader
-// start and Reader target are five `dimension: value` lines each
-// (kogaki#1176); the Thesis is one line, which is why this
-// read the first line and looked complete until a multi-line section reached
-// it. A slice has no such ambiguity: one heading in, the next `## ` heading or
-// end of document out.
-function briefSection(text, heading) {
-  // The heading line must be found ANCHORED at `^## ` (line start, exactly
-  // two hashes) — a bare substring search for `## ${heading}` would also
-  // match a `### ${heading}` Leg sub-heading one character in.
-  const startM = new RegExp(`(?:^|\\n)## ${heading}[ \\t]*\\n`, "m").exec(text);
-  if (!startM) return null;
-  const body = text.slice(startM.index + startM[0].length);
-  const end = body.indexOf("\n## ");
-  const section = end === -1 ? body : body.slice(0, end);
-  return section.trim() || null;
-}
-
 // The leg block's fields, read off the recorded form `renderLeg` writes.
 // A field's CONTINUATION LINES — two-space-indented lines immediately below
 // it (kogaki#1224) — are read back and rejoined by `\n`, never folded into
@@ -996,31 +970,6 @@ export function legField(body, field) {
   }
   const rest = m[2].split("\n").filter((l) => l !== "").map((l) => l.slice(2));
   return [m[1].trim(), ...rest].join("\n");
-}
-
-// A Brief section without its caption (kogaki#1224): the italic `*...*`
-// line `src/brief.mjs` writes as the LAST line of Thesis, Reader start and
-// Reader target is for the Brief's own reader, not the
-// writer's input. Only that trailing line is stripped -- an italic line or a
-// paragraph break inside the section is content and is kept -- and the
-// shape of what remains (five `dimension: value` lines since kogaki#1176, or
-// prose in an older Brief) is not judged here. Returns null where nothing
-// remains, so `need` refuses by name.
-function sectionContent(section) {
-  if (typeof section !== "string") return null;
-  const lines = section.split("\n");
-  if (lines.length && /^\*[^*]+\*\s*$/.test(lines[lines.length - 1])) lines.pop();
-  const content = lines.join("\n").trim();
-  return content || null;
-}
-
-// A multi-line slot value rendered under a `- **field.**` bullet keeps its
-// lines after the first indented by two spaces (kogaki#1224), so the Packet's
-// list holds the whole value as one item. A null or single-line value passes
-// through untouched.
-function indentContinuation(v) {
-  if (typeof v !== "string") return v;
-  return v.split("\n").map((l, i) => (i === 0 ? l : `  ${l}`)).join("\n");
 }
 
 // The schema's own words for one Journey use (kogaki#1111), appended to the
@@ -1356,39 +1305,17 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
   const held = known.filter((k) => !reactivatedTermKeys.has(k.term.toLowerCase()));
 
   const fields = {
-    thesis: indentContinuation(need("the Brief's Thesis", sectionContent(briefSection(brief.text, "Thesis")))),
-    // THE DIMENSION LINES ONLY, INDENTED UNDER THE BULLET (kogaki#1224).
-    // Reader start and Reader target are five `dimension: value` lines
-    // (kogaki#1176) followed, in the Brief, by an italic caption written for
-    // the Brief's own reader. The caption is not the writer's input, and a
-    // whole-section read handed it over once `briefSection` returned the
-    // section whole rather than its first line. The Thesis carries the same
-    // trailing caption and is read the same way (PR #1226 round 1), so no
-    // caption reaches the fixed-points list at column zero. There is no
-    // Opening question slot (kogaki#1225): the heading is gone from the
-    // Brief, and a Brief that still carries one is simply not read there.
-    reader_start: indentContinuation(need("the Brief's Reader start", sectionContent(briefSection(brief.text, "Reader start")))),
-    reader_target: indentContinuation(need("the Brief's Reader target", sectionContent(briefSection(brief.text, "Reader target")))),
     // DERIVED FROM THE CONSTANT rather than naming the three again (PR #780
     // round 1). The constant carried the exclusion's whole justification and
     // was read by nothing, so it was a second statement of the rendered field
     // set that could drift from the renderer with no check noticing.
     ...Object.fromEntries(MOVE_FIELDS_RENDERED_REQUIRED.map((f) =>
       [`move_${f}`, need(`${leg.move}'s ${f}`, moveField(moveText, f))])),
-    ...Object.fromEntries(MOVE_FIELDS_RENDERED_OPTIONAL.map((f) =>
-      [`move_${f}`, moveField(moveText, f) || `(none — ${leg.move} records no ${f}.)`])),
-    leg_id: leg.leg_id,
-    purpose: need(`leg ${leg.leg_id}'s purpose`, legField(leg.body, "purpose")),
-    // FIVE LINES UNDER ONE BULLET (kogaki#1224): the two states are
-    // `dimension: value` lines, and `legField` now returns every one of them.
-    // The lines after the first are indented so the bullet holds them as its
-    // own continuation rather than as four new list items.
-    reader_state_before: indentContinuation(need(`leg ${leg.leg_id}'s reader_state_before`, legField(leg.body, "reader_state_before"))),
-    reader_state_after: indentContinuation(need(`leg ${leg.leg_id}'s reader_state_after`, legField(leg.body, "reader_state_after"))),
-    // THE READER TARGET LINE (kogaki#1231): the marked Leg's, a closing
-    // Leg's, or nothing — off the Brief's own `reaches_target:` mark, read
-    // by `parseLegBlockBody` above. Not passed through `need`: an earlier Leg
-    // renders the empty string here by design, and that is a filled slot.
+    // THE READER TARGET LINE (kogaki#1231; moved into the Section block at
+    // kogaki#1247): the marked Leg's, a closing Leg's, or nothing — off the
+    // Brief's own `reaches_target:` mark, read by `parseLegBlockBody` above.
+    // Not passed through `need`: an earlier Leg renders the empty string here
+    // by design, and that is a filled slot.
     reader_target_line: readerTargetLine(brief.legs, leg.leg_id),
     // `budget` — a LIMIT the writer sees, never a target: rendered in the
     // write instruction, and its absence states so rather than rendering a
