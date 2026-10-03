@@ -13,6 +13,11 @@ understands X." This schema is derived by running
 `passages/DERIVATION.md` over a Corpus of analyzed Passages and ruled on by
 the owner as a document before this contract was rewritten.
 
+`order` and `presupposes` retired (kogaki#1247, owner ruling): no composer,
+judge or Packet read either. `passages/FORMAT.md` and the Analyses are
+untouched — the Analysis still records the sequence and the presupposition —
+only the authored Move record stops carrying them.
+
 **Origin.** The Move concept follows Swales' move analysis in genre studies:
 a text is coded as a sequence of communicative purposes, each a move. The
 `question` field follows Minto's Situation-Complication-Question-Answer
@@ -46,7 +51,7 @@ the article.
 
 ## Output format
 
-One record per Move, exactly these twelve keys admissible — eight always
+One record per Move, exactly these ten keys admissible — six always
 present, four optional — in this order, separated by one blank line.
 Multi-line values use YAML folded style (`>-`).
 
@@ -65,12 +70,6 @@ question: >-
   "replaces: <A> with <B>" (A is set aside, B is pursued in its stead as a
   way into A — A is not answered); "raises: <B>" (B is opened, A if any
   stays open beside it). Replacing is neither settling nor adding.>
-order: >-
-  <the Segment function sequence — raises / advances / settles, in order —
-  plus one subject-free sentence on why that order>
-presupposes: >-
-  <background the reader must already hold that `before` does not capture —
-  a fact, a reference, a prior text>
 technique: >-
   <what the Move does, subject-free, one or two sentences>
 breaks: >-
@@ -102,12 +101,6 @@ figure:
 - **question** — see the format block above; this is the field question-
   under-discussion analysis governs. Write `holds: none` when the reader
   arrives with no live question.
-- **order** — the sequence plus one subject-free sentence. "The three
-  claims build a chain toward the conclusion" is subject-free; "the reader
-  is walked from claim to claim" is not.
-- **presupposes** — distinct from `before`: `before` states the reader's
-  position on this Move's own dimensions, `presupposes` states what the
-  Move assumes without moving it.
 - **technique** — subject-free, general to the technique. A person applying
   this Move to a completely different topic must be able to follow it from
   this field alone.

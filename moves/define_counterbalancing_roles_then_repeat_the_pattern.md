@@ -27,21 +27,6 @@ question: >-
   anticipatory containment led by the actors that would otherwise be
   outweighed. raises: how those actors judge future trajectory, and which
   concrete measures they take, is opened and left unanswered.
-order: >-
-  raises the mechanism question, settles it immediately by naming
-  containment, then advances through defining the target by trajectory,
-  reusing a revised prior model, introducing cooperative restraint, and
-  naming the counter-role, before raising a universality claim that advances
-  through one fully explained case and several increasingly compressed
-  cases, then settles into a general principle. Answering the question
-  before either role is defined lets the subsequent role-naming steps read
-  as unpacking a claim already granted rather than building toward one still
-  in doubt.
-presupposes: >-
-  the reader already treats one actor's unchecked dominance as an
-  undesirable outcome worth preventing, and already has in view an existing
-  numerical model of opposing capacity that this Move goes on to revise
-  rather than introduce.
 technique: >-
   Convert an established danger into a how-question and answer it at once by
   naming the target, then distinguish the target's future trajectory from

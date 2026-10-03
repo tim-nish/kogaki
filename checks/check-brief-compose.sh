@@ -339,7 +339,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   if (carries("s2", CLOSING_LEG_LINE)) fails.push("(k) the Packet of the marked Leg carries the closing-Leg line");
   if (!carries("s3", CLOSING_LEG_LINE)) fails.push("(k) the Packet of the closing Leg does not carry the closing-Leg line");
   if (carries("s3", REACHES_TARGET_LINE)) fails.push("(k) the Packet of the closing Leg carries the target line");
-  if (packets.s2 && !/## This Leg[\s\S]*This Leg reaches the Reader target\.[\s\S]*## The claims this Leg asserts/.test(packets.s2)) fails.push("(k) the target line is not rendered inside the `## This Leg` block");
+  if (packets.s2 && !/## The Section this Leg sits in[\s\S]*This Leg reaches the Reader target\.[\s\S]*## What is active here/.test(packets.s2)) fails.push("(k) the target line is not rendered inside the `## The Section this Leg sits in` block");
 }
 
 // (l) closureLedgerRefusal — at most one conceded_by row in the path (kogaki#1232).
@@ -491,6 +491,58 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   for (const id of Object.keys(packets)) {
     if (/depends_on/.test(packets[id])) fails.push(`(n) depends_on reaches the Packet of ${id}`);
     if (/Already knows/.test(packets[id])) fails.push(`(n) the retired Already knows heading is still rendered in the Packet of ${id}`);
+  }
+}
+
+// (o) the Packet carries none of the retired planning blocks, carries the
+// three Write rules verbatim, and carries the Move block header naming
+// attribute-only use (kogaki#1247, owner ruling 2026-10-02/04).
+{
+  const legOf = (leg_id, extra = {}) => ({
+    leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
+    reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
+    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }],
+    ...extra,
+  });
+  const legs = [legOf("s1")];
+  const briefText = [
+    "# The fixture", "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
+    "## Strands", "", "### L1 — first-strand", "",
+    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+    "## Thesis", "", "The fixture claim.", "",
+    "## Reader start", "", "orientation: before s1", "knowledge: before s1", "",
+    "## Reader target", "", "orientation: after s1", "knowledge: after s1", "",
+    "## Sequence", "", legs.map(renderLeg).join("\n\n"), "",
+  ].join("\n");
+  const brief = parseBrief(briefText, "o.md");
+  if (brief.refusals.length || brief.legs.length !== 1) fails.push(`(o) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
+  else {
+    const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
+    if (split.error) fails.push(`(o) the Packet template did not split: ${split.error}`);
+    else {
+      const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
+        "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
+      const sections = sectionsOf(brief.legs);
+      const r = renderPacket({ template: split.packet, brief, leg: brief.legs[0], moveText, priorSections: [],
+        ledgerRow: undefined, section: sectionOfLeg(brief.legs).get("s1"), sections });
+      if (r.error) fails.push(`(o) the Packet for s1 did not render: ${r.error}`);
+      else {
+        const packet = r.packet;
+        for (const gone of ["Reader start", "Reader target", "purpose.", "reader_state_before", "reader_state_after", "draws_on"]) {
+          if (packet.includes(gone)) fails.push(`(o) the Packet still carries the retired string ${JSON.stringify(gone)}`);
+        }
+        const rules = [
+          "Each opens on the sentence that states its point; every later",
+          "classic register, full clauses, a concrete subject acting",
+          "A case, example, file, person or named thing comes from the",
+        ];
+        for (const rule of rules) {
+          if (!packet.includes(rule)) fails.push(`(o) the Packet does not carry the Write rule verbatim: ${JSON.stringify(rule)}`);
+        }
+        if (!/never prose/.test(packet)) fails.push("(o) the Packet's Move block header does not carry \"never prose\"");
+      }
+    }
   }
 }
 

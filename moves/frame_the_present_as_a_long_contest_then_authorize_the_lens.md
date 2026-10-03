@@ -20,17 +20,6 @@ question: >-
   holds: what structure does the present rivalry have? settles: the
   structure, by naming the relation that recurs across a long span. raises:
   how the inherited framework will be reapplied to reinterpret the present.
-order: >-
-  advances, advances, advances, advances, advances, raises, advances,
-  settles, settles. A structural claim about the present is planted before
-  the unfamiliar framework behind it is named, so the reader has a reason to
-  care about the framework before being asked to trust its authors; the
-  authors' standing is then established before the work commits to reusing
-  them.
-presupposes: >-
-  a working sense of what "rivalry among powers" ordinarily looks like as a
-  set of separate, contemporary disputes, prior to any claim that a longer
-  pattern underlies them.
 technique: >-
   Open with a compact model of a recognizable present and claim that it
   recurs across a much longer span. Name and define the inherited framework

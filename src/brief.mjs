@@ -111,7 +111,7 @@ import {
 } from "./terrain.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, targetLegAfterState,
-  cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal,
+  cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal, retiredReasoningFieldRefusal,
 } from "./assemble.mjs";
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
 import {
@@ -1316,12 +1316,14 @@ export function validateReaderPathUnit(candidate, inputs) {
     }
   }
   const reasoning = c.reasoning || {};
-  for (const key of ["leg_validity", "transition_continuity", "thesis_closure"]) {
+  for (const key of ["leg_validity", "thesis_closure"]) {
     if (typeof reasoning[key] !== "string" || reasoning[key].trim() === "") {
       return { error: `candidate ${c.candidate_id}: \`reasoning.${key}\` is required — the Brief's `
         + "closing sections are filled from it at adoption, and adoption fills no default" };
     }
   }
+  const retiredReasoning = retiredReasoningFieldRefusal(c);
+  if (retiredReasoning) return { error: retiredReasoning };
   // `opening_question` (kogaki#1216) AND `reader_target` (kogaki#1225) ARE
   // RETIRED FIELDS, refused BY NAME -- Reader target is the after-state of
   // the Leg marked `reaches_target` (kogaki#1231) and no Opening question is

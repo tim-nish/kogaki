@@ -22,16 +22,6 @@ question: >-
   settles: what each of the variable's two states means and what chain of
   consequences follows from it raises: how the variable classifies
   particular cases in the target domain
-order: >-
-  raises / advances / advances / settles / settles — the Move first fixes a
-  shared underlying motive through a controlled small-scale contrast, then
-  varies only the available means so the causal distinction becomes
-  intuitive before the parallel consequence chains for each state are
-  unfolded and closed.
-presupposes: >-
-  a prior announcement that this variable is one of several factors relevant
-  to a larger phenomenon, and reader familiarity with the smaller-scale
-  domain used to construct the controlled contrast.
 technique: >-
   Define a binary variable in parallel terms, then simplify it through two
   cases that hold an underlying motive constant while varying only the

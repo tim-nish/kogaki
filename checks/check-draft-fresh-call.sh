@@ -47,8 +47,6 @@ const moveRecord = (id, extra = []) => [
   "before: >-", "  the state this move depends on.",
   "after: >-", "  the state this move produces.",
   "question: >-", "  holds: none",
-  "order: >-", "  the segment sequence and why it runs that way.",
-  "presupposes: >-", "  background the reader must already hold.",
   "breaks: >-", "  what a correct performance must not do.",
   ...extra,
 ].join("\n") + "\n";

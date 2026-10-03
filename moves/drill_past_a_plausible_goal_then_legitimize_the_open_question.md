@@ -20,16 +20,6 @@ question: >-
   holds: why the actor undertook the observed action. raises: what the
   underlying objective is ultimately for. settles: why that deeper objective
   resists confident prediction.
-order: >-
-  advances - raises - settles. Grounding the abstract difficulty in a
-  concrete instance before questioning it earns the reader's acceptance of
-  the first-order answer, and settling the difficulty only after the
-  question has deepened keeps the resolution from feeling like a dodge of
-  the harder question.
-presupposes: >-
-  acquaintance with a real instance of an actor taking a visible, purposeful
-  action, and enough trust in a cited authority to accept their framing of
-  the domain as distinct from one governed by fixed laws.
 technique: >-
   Begin with a familiar event and ask for its cause, then state the answer
   the reader is most likely to accept. Treat that answer as an intermediate

@@ -19,20 +19,6 @@ question: >-
   actor? replaces: that question with a sharper one — why does the same
   coordinating response appear against lesser challengers, and even in
   cooperation with the dominant actor, rather than against it?
-order: >-
-  raises (marks the addition as an escalation of the existing anomaly) -
-  advances (supplies a positive case of the same response occurring
-  elsewhere) - advances (translates the asymmetry into familiar vocabulary)
-  - advances (derives the expected target from the framework's own
-  definition) - advances (states the predicted reaction at its strongest
-  form) - raises (closes with observed behavior running opposite to the
-  derived prediction). The sequence proves the mechanism is intact before
-  deriving what it should predict, so the final contrast lands as inversion
-  rather than mere non-occurrence.
-presupposes: >-
-  a governing framework whose own terms can be used to derive which actor
-  should draw the response in question, and a reader already treating the
-  absence of that response as an open anomaly rather than a settled fact.
 technique: >-
   Take an already-established missing response and add a case where that
   same response is visibly directed elsewhere, showing the mechanism exists

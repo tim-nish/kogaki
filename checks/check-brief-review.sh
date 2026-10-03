@@ -24,6 +24,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { attachReview, attachLedgerPath, readAttachLedger, reviewEntrySha,
          REVIEW_AREAS, REVISE_BOUND, MAX_ATTACHES } from "./src/review.mjs";
 
@@ -273,12 +274,142 @@ try {
   if (Object.prototype.hasOwnProperty.call(blocks, "already_knows") || /Already knows/.test(JSON.stringify(blocks))) fails.push("(i) the retired already_knows block survives in packet_blocks");
 }
 
+// (j) THE FOUR NEW ReviewDraft ITEMS JOIN THE REAL CLI (kogaki#1247 cell 5):
+// prose-style, attribute-leak, referents and unsupported-sentence each hold
+// one Leg on which the recorded verdict is `fails` and one on which it is
+// `holds` — driven through the real open/outline/compare commands, never
+// through a second reader of src/review-items.json. The passage each Leg
+// carries is written to LOOK like what its item is meant to catch or not,
+// but no model runs here: the verdict below is a RECORDED declaration, and
+// what this case proves is that the plumbing accepts and joins both tokens
+// for all four rows, exactly as kogaki#1013's design states it must.
+{
+  const ws = mkdtempSync(join(tmpdir(), "review-draft-"));
+  const draftPath = join(ws, "draft.md");
+
+  const packet = ({ claim, journey }) => [
+    "- **purpose.** walk the kit's install step",
+    "- **reader_state_before.** the reader has never met the kit",
+    "- **reader_state_after.** the reader can run the kit's installer",
+    "- **technique.** contrast",
+    "- **question.** what the kit copies and where",
+    "- **breaks.** breaks if the vendored copy is edited by hand",
+    "",
+    "## The claims this Leg asserts",
+    "",
+    `- ${claim}`,
+    "",
+    "## Introduce here",
+    "",
+    "(none)",
+    "",
+    "## Held by the reader, not material here",
+    "",
+    "(none)",
+    "",
+    "## Active here",
+    "",
+    "(none)",
+    "",
+    "## The Journey material this Leg edits — NOT a claim to recover",
+    "",
+    journey,
+    "",
+  ].join("\n");
+
+  const claimText = "the kit installer vendors a stamped copy of policy/kit into each consumer";
+  const journeyText = "The kit's install script, and the one consumer repository it was first vendored into.";
+  const packetA = packet({ claim: claimText, journey: journeyText });
+  const packetB = packet({ claim: claimText, journey: journeyText });
+  writeFileSync(join(ws, "packet-a.md"), packetA);
+  writeFileSync(join(ws, "packet-b.md"), packetB);
+
+  const legAProse = [
+    "The kit installs. It copies. It stamps.",
+    "Not staged, not reviewed: vendored straight in, by contrast, to overwrite whatever sat there before, which is the technique this Leg performs and the question it answers. The maintainer of the acme-widgets fork hit this first.",
+  ];
+  const legBProse = [
+    "The installer copies policy/kit into the consumer's tree and stamps the copy with the version it came from.",
+    "A later run of the installer repeats the copy and refreshes the stamp, so the vendored tree always names the kit version it was last drawn from.",
+  ];
+  const legALines = [7, 7 + legAProse.length - 1];
+  const legBLines = [legALines[1] + 1, legALines[1] + legBProse.length];
+  const shaA = createHash("sha256").update(packetA).digest("hex");
+  const shaB = createHash("sha256").update(packetB).digest("hex");
+  const fm = [
+    "---",
+    "trace:",
+    `  - ${JSON.stringify({ leg_id: "leg-a", lines: legALines, packet: "packet-a.md", packet_sha: shaA })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-b", lines: legBLines, packet: "packet-b.md", packet_sha: shaB })}`,
+    "---",
+  ].join("\n");
+  writeFileSync(draftPath, `${fm}\n\n${[...legAProse, ...legBProse].join("\n")}\n`);
+
+  const runCmd = (cmd, extra, input) => spawnSync(process.execPath,
+    ["src/review-draft.mjs", cmd, "--draft", draftPath, "--workspace", ws, ...extra],
+    { encoding: "utf8", input: input ?? "" });
+  const outlineFor = (legId) => "```leg\n"
+    + `leg_id: ${legId}\n`
+    + "purpose: walk the kit's install step\n"
+    + "reader_state_before: the reader has never met the kit\n"
+    + "reader_state_after: the reader can run the kit's installer\n"
+    + `claim ${claimText}\n`
+    + "```\n";
+
+  const jOpen = runCmd("open", []);
+  if (jOpen.status !== 0) fails.push(`(j) open exited ${jOpen.status}: ${(jOpen.stderr || "").trim()}`);
+  const jO1 = runCmd("outline", ["--leg", "leg-a"], outlineFor("leg-a"));
+  if (jO1.status !== 0) fails.push(`(j) outline leg-a exited ${jO1.status}: ${(jO1.stderr || "").trim()}`);
+  const jO2 = runCmd("outline", ["--leg", "leg-b"], outlineFor("leg-b"));
+  if (jO2.status !== 0) fails.push(`(j) outline leg-b exited ${jO2.status}: ${(jO2.stderr || "").trim()}`);
+
+  const jRender = runCmd("compare", []);
+  if (jRender.status !== 0) fails.push(`(j) compare (render) exited ${jRender.status}: ${(jRender.stderr || "").trim()}`);
+  const jm = /join record: (.+)$/m.exec(jRender.stdout || "");
+  if (!jm) fails.push(`(j) compare (render) named no join record: ${(jRender.stdout || "").trim()}`);
+  else {
+    const joinPath = jm[1].trim();
+    const rendered = JSON.parse(readFileSync(joinPath, "utf8"));
+    const failing = new Set(["prose-style", "attribute-leak", "referents", "unsupported-sentence"]);
+    const reasonFor = (item, leg_id) => {
+      if (!failing.has(item)) return "the two sides agree";
+      const fail = leg_id === "leg-a";
+      if (item === "prose-style") return fail ? "the passage runs short fragments one after another" : "the passage reads in full clauses with no fragment or triad";
+      if (item === "attribute-leak") return fail ? "the sentence paraphrases the Move contract's technique and question" : "no sentence quotes or paraphrases the Move contract";
+      if (item === "referents") return fail ? "the passage names a fork the Journey material does not carry" : "every named thing in the passage comes from the Journey material";
+      return fail ? "a sentence supports neither its paragraph's opening sentence nor a claim" : "every sentence supports its paragraph's opening sentence or a claim";
+    };
+    const verdicts = (rendered.owed || []).map((o) => ({
+      leg_id: o.leg_id, item: o.item, pair: o.pair,
+      verdict: failing.has(o.item) && o.leg_id === "leg-a" ? "fails" : "holds",
+      reason: reasonFor(o.item, o.leg_id),
+      model: "fixture-judge",
+    }));
+    if (!verdicts.length) fails.push("(j) the render call owed no pair — the four new items never reached a join Packet");
+
+    const jRecord = runCmd("compare", [], JSON.stringify({ verdicts }));
+    if (jRecord.status !== 0) fails.push(`(j) compare (record) exited ${jRecord.status}: ${(jRecord.stderr || "").trim()}`);
+    const jm2 = /join record: (.+)$/m.exec(jRecord.stdout || "");
+    if (!jm2) fails.push(`(j) compare (record) named no join record: ${(jRecord.stdout || "").trim()}`);
+    else {
+      const joined = JSON.parse(readFileSync(jm2[1].trim(), "utf8"));
+      if (!joined.complete) fails.push(`(j) the join did not complete: ${JSON.stringify(joined.owed)}`);
+      for (const item of ["prose-style", "attribute-leak", "referents", "unsupported-sentence"]) {
+        const a = (joined.results || []).find((r) => r.leg_id === "leg-a" && r.item === item);
+        const b = (joined.results || []).find((r) => r.leg_id === "leg-b" && r.item === item);
+        if (!a || a.verdict !== "fails") fails.push(`(j) ${item} on leg-a did not join as fails: ${JSON.stringify(a)}`);
+        if (!b || b.verdict !== "holds") fails.push(`(j) ${item} on leg-b did not join as holds: ${JSON.stringify(b)}`);
+      }
+    }
+  }
+}
+
 if (fails.length) {
   console.log("FAIL brief review plumbing (SPEC-draft-pipeline §4.6, story 1.74):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief review: 8/8 cases — (a) per-Candidate reasoning attaches and rides each "
+console.log("brief review: 10/10 cases — (a) per-Candidate reasoning attaches and rides each "
   + "Candidate with every §§4.4-4.8 area present; (b) an unreviewed Candidate is refused BY "
   + "NAME and a missing area refuses — review runs machine-side per Candidate and never "
   + "multiplies owner questions; (c) a verdict is UNATTACHABLE — verdict-shaped keys refused "
@@ -297,7 +428,13 @@ console.log("brief review: 8/8 cases — (a) per-Candidate reasoning attaches an
   + "unparseable JSON, a body with no `attaches` object, and an entry that is not an array of "
   + "round records (the door a container-shaped check leaves open) — while an ABSENT one is "
   + "zero rounds spent, because a bound whose count degrades to zero on a bad read is a "
-  + "suggestion with a good failure mode. "
+  + "suggestion with a good failure mode; (i) the inverted already-knows item reads the "
+  + "Packet's held-by-reader block beside active-here, never the retired already-knows block, "
+  + "and an empty held list holds mechanically with no model call; (j) kogaki#1247 cell five's "
+  + "four new judged items — prose-style, attribute-leak, referents, unsupported-sentence — "
+  + "join through the real open/outline/compare CLI and each hold one Leg joined `fails` and "
+  + "one joined `holds`, recorded rather than computed, which is the whole of what a judged "
+  + "item's plumbing owes. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): SIX mutations, each run once "
   + "and restored surgically — dropping the per-candidate completeness guard failed (b)'s "
   + "by-name refusal; dropping the verdict-key scan failed (c)'s unattachability; raising "
