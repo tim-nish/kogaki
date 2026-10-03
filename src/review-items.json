@@ -252,6 +252,14 @@
     "reader_state_before": {
       "kind": "bullet",
       "label": "reader_state_before"
+    },
+    "move_contract": {
+      "kind": "bullets",
+      "labels": ["technique", "question", "breaks"]
+    },
+    "journey": {
+      "kind": "block",
+      "heading": "The Journey material this Leg edits — NOT a claim to recover"
     }
   },
   "pass_two": {
@@ -434,6 +442,32 @@
       "record_field": "position",
       "figure_field": "position",
       "question": "The declared side says whether the figure was designed to set the passage up or to discharge it, and the reverse side is where the reader says they met it. The figure's draft line numbers in the prose below say where it actually sits. Did the reader meet it where the prose needed it? Answer `fails` if the passage had already done the work the figure was meant to set up, or still needed the figure it had not yet been given."
+    },
+    {
+      "id": "prose-style",
+      "class": "best-effort",
+      "mode": "judged",
+      "question": "Does the passage below use fragments, runs of short sentences, triads, or \"not X, not Y\" runs — the patterns the Write block's prose-style rule names as not classic register? Answer `fails` if it does."
+    },
+    {
+      "id": "attribute-leak",
+      "class": "preserved",
+      "mode": "judged",
+      "declared_block": "move_contract",
+      "question": "Above is this Leg's Move contract. The Packet tells the writer it is attribute, never prose: nothing in it is to be quoted, paraphrased or made the subject of a sentence. Does any sentence in the passage below quote or paraphrase the Move contract's technique, question or breaks? Answer `fails` if it does."
+    },
+    {
+      "id": "referents",
+      "class": "preserved",
+      "mode": "judged",
+      "declared_block": "journey",
+      "question": "Above is the Journey material this Leg was given to draw on. Does the passage below name a case, example, file, person or named thing that this Journey material does not carry? Answer `fails` if it does — a referent the passage invents for itself does not exist for a later Leg to rely on."
+    },
+    {
+      "id": "unsupported-sentence",
+      "class": "best-effort",
+      "mode": "judged",
+      "question": "Each paragraph in the passage below should open on the sentence that states its point, with every later sentence in that paragraph supporting it. Is there a sentence that supports neither its paragraph's opening sentence nor one of this Leg's claims? Answer `fails` if there is."
     }
   ]
 }
