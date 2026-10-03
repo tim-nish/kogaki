@@ -20,20 +20,6 @@ question: >-
   holds: why does this old framework matter now; settles: it was born to
   answer a structurally identical earlier crisis; raises: whether it can
   actually arrest a dominant power's decline in the present case.
-order: >-
-  raises the present-past pairing before entering either period; advances
-  through fixing the present configuration, transferring into the earlier
-  case, reconstructing its matching roles, and placing the instrument's
-  origin inside that reconstructed problem; settles by stating the
-  role-to-role mapping explicitly and converting it into present-day value.
-  The order works because it enters the past through a configuration already
-  recognized, only then reveals the problem the instrument was built to
-  solve, and returns last, so the payoff lands after the match is earned
-  rather than before.
-presupposes: >-
-  the reader already recognizes the present configuration that will serve as
-  the entry point, and takes the earlier case as documented well enough to
-  be reconstructed role by role.
 technique: >-
   Begin with a present configuration the reader already recognizes and
   isolate one structural relation within it. Reconstruct an earlier case

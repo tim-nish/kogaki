@@ -18,16 +18,6 @@ after: >-
 question: >-
   holds: none settles: whether the current wave is new raises: why worsening
   conditions repeatedly renew interest in the subject
-order: >-
-  advances, advances, raises, advances, settles, raises — familiar footholds
-  are laid down before the anomaly is named, the anomaly is converted into a
-  question and answered at once, and only then does the answer widen into a
-  recurring pattern, so the reader never holds the general claim before
-  knowing what present case it explains.
-presupposes: >-
-  the reader already recognizes the subject as an existing category of
-  published work and knows that current conditions are unsettled, prior to
-  any claim this Move makes about either.
 technique: >-
   Begin with a familiar scene and several recognizable forms so the reader
   can enter without specialist knowledge. Turn a visible anomaly in that

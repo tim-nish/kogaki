@@ -13,15 +13,6 @@ after: >-
 question: >-
   holds: how do the three terms differ in practice? settles: how do the
   three terms differ in practice?
-order: >-
-  raises, advances, advances, advances, advances, settles. The sequence
-  first stabilizes definitions, then compresses them into a memorable verbal
-  form, then supplies a familiar case, and finally reconstructs that case as
-  a directional chain, so the reader receives a criterion before being asked
-  to apply it.
-presupposes: >-
-  a case exists that is familiar enough to the reader that its parts can be
-  recognized without further argument.
 technique: >-
   Define each level of a hierarchy by the function it performs for the level
   immediately above it, in ascending order. Compress the set of definitions

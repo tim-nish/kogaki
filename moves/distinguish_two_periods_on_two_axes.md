@@ -19,15 +19,6 @@ question: >-
   holds: what changed besides the number of cases. replaces: what changed
   besides the number of cases with why did the object and the actors of
   conflict both shift toward great-power territorial rivalry.
-order: >-
-  advances, advances, raises, advances, settles, settles — the earlier
-  period is completed on both axes before the contrast is announced, then
-  the contrast moves from classification to named cases to a compressed
-  synthesis to its consequence; each step supplies what the next needs
-  rather than restating what came before.
-presupposes: >-
-  the reader can recognize the named examples used to anchor each axis as
-  belonging to the category they are offered under.
 technique: >-
   Describe an earlier period on two independent axes — what the cases
   concerned and who was involved. Contrast a later period on the same two

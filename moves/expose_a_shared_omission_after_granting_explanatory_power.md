@@ -15,16 +15,6 @@ after: >-
 question: >-
   replaces: how do these visible mechanisms shape action? with: what
   purposes make actors adopt the goals these mechanisms serve
-order: >-
-  advances, advances, advances, advances, advances, raises, raises. Two
-  independent, structurally different cases are each built up to their full
-  explanatory strength before the shared limitation is named, so the final
-  move reads as a discovery about both cases at once rather than an attack
-  on either.
-presupposes: >-
-  the reader already accepts that explanatory devices working through
-  visible, structural mechanisms are a legitimate and common way to account
-  for action.
 technique: >-
   Present two familiar explanatory devices that work through different
   visible mechanisms and let each succeed fully on its own terms, walking
