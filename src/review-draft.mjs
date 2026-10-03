@@ -1849,9 +1849,9 @@ function renderElements(elements) {
 
 // The one figure row the Harness decides alone. EVERY ELEMENT'S TEXT IS
 // ENTAILED BY ITS BOUND CLAIM, and the instrument is containment against the
-// claim the record's address POINTS AT — the same containment `claims` uses
-// on the prose side, with its own declared floor, so the two halves of the
-// round trip measure entailment the same way.
+// claim the record's address POINTS AT, with its own declared floor — the
+// only containment reading left on either side of the round trip, now that
+// the prose side's `claims` is judged rather than measured by shared words.
 //
 // THE BINDING ITSELF IS NOT WHAT THIS CHECKS, and saying so is the point.
 // The figure record already refuses a record that moves a role to a claim the Brief did
