@@ -20,20 +20,6 @@ question: >-
   holds: is the present instance historically unusual? replaces: is the
   present instance historically unusual? with what common cause joins the
   repetitions, and whether that cause is sufficient
-order: >-
-  raises, advances, advances, advances, advances, advances, advances,
-  advances, settles — the sequence opens by naming and counting the full
-  pattern, advances by alternating each repetition's rise with the trough
-  that preceded or followed it, and settles by moving the last repetition
-  from distant instances to a proximate one. This order works because
-  announcing the count first gives every later repetition a slot to fill,
-  and placing the strongest trough immediately before the final rise makes
-  that rise read as a broken expectation rather than another item in a list.
-presupposes: >-
-  the reader already accepts that a recurring pattern can be tracked through
-  publication counts and named public events, and holds enough background
-  awareness of the span covered to recognize each cited event without
-  further introduction.
 technique: >-
   State the full pattern and number its repetitions before presenting
   evidence. For each repetition, pair a change in external conditions with a

@@ -19,7 +19,7 @@ globals().update({k: v for k, v in vars(_m).items() if not k.startswith("__")})
 # The fixture library — every case CONSTRUCTS the defect and asserts the refusal.
 # --------------------------------------------------------------------------
 
-EIGHT = """id: {id}
+SIX = """id: {id}
 before: >-
   question: holds an unanswered question
 after: >-
@@ -27,10 +27,6 @@ after: >-
 question: >-
   holds: why does it happen
   settles: why does it happen
-order: >-
-  raises, advances, settles, in that order
-presupposes: >-
-  the reader has read the prior Leg
 technique: >-
   does a thing
 breaks: >-
@@ -47,7 +43,7 @@ AXIS_FORM = """figure:
 
 
 def _record(move_id="a-move", form=None):
-    text = EIGHT.format(id=move_id)
+    text = SIX.format(id=move_id)
     if form is not None:
         text += form
     return text
@@ -149,15 +145,46 @@ def self_test():
 
     # ---- condition 3 -----------------------------------------------------
     refuses(
-        _record().replace("presupposes: >-\n  the reader has read the prior Leg\n", ""),
+        _record().replace("breaks: >-\n  not always\n", ""),
         "3",
-        "AC3 cond 3 seven keys refused",
+        "AC3 cond 3 five keys refused",
     )
     refuses(
         _record() + "extra_field: >-\n  nope\n",
         "3",
-        "AC3 cond 3 ninth key refused",
+        "AC3 cond 3 seventh key refused",
     )
+    # kogaki#1247, owner ruling: `order` and `presupposes` are retired —
+    # neither required nor optional — so a record still carrying either is
+    # refused here, by name, as unexpected. These were formerly two of the
+    # eight required keys; the presupposes cases become refusal cases.
+    refuses(
+        _record() + "order: >-\n  raises, advances, settles, in that order\n",
+        "3",
+        "AC3 cond 3 a record carrying `order` is refused (kogaki#1247)",
+    )
+    refuses(
+        _record() + "presupposes: >-\n  the reader has read the prior Leg\n",
+        "3",
+        "AC3 cond 3 a record carrying `presupposes` is refused (kogaki#1247)",
+    )
+
+    def retired_keys_are_named_in_the_refusal():
+        for key, value in (
+            ("order", "raises, advances, settles, in that order"),
+            ("presupposes", "the reader has read the prior Leg"),
+        ):
+            text = _record() + "%s: >-\n  %s\n" % (key, value)
+            proposals = read_proposals(text)
+            bad = [p for p in proposals if not p.admitted]
+            assert bad, "a record carrying `%s` was admitted" % key
+            assert "`%s`" % key in str(bad[0].refusal), (
+                "the refusal did not name `%s`: %s" % (key, bad[0].refusal)
+            )
+
+    check("AC3 cond 3 names the retired key in the refusal (kogaki#1247)",
+          retired_keys_are_named_in_the_refusal)
+
     # §6.9.0's `id`-must-be-first precondition has no guard of its own (see the
     # note where one was removed as unreachable). What catches it is the
     # ABSORPTION, twice over, and both halves are exercised here.
@@ -171,7 +198,7 @@ def self_test():
         )
         assert not proposals[1].admitted, "the absorbed record was admitted"
         assert proposals[1].refusal.condition == "3", (
-            "the absorbed record should be short of §4.2's eight keys: %s" % proposals[1].refusal
+            "the absorbed record should be short of §4.2's six keys: %s" % proposals[1].refusal
         )
 
     check("AC3 id-not-first is caught by conditions 2 AND 3", id_not_first_is_caught_by_absorption)
@@ -189,14 +216,11 @@ def self_test():
 
     # ---- condition 4's `-` exemption: legal column-0 sequences ADMITTED ---
     def legal_sequence_admitted():
-        text = _record().replace(
-            "presupposes: >-\n  the reader has read the prior Leg\n",
-            "presupposes:\n- one\n- two\n- three\n",
-        )
+        text = _record() + "draws_on:\n- one\n- two\n- three\n"
         proposals = read_proposals(text)
         assert proposals[0].admitted, "legal column-0 sequence refused: %s" % proposals[0].refusal
-        assert proposals[0].mapping["presupposes"] == ["one", "two", "three"], (
-            proposals[0].mapping["presupposes"]
+        assert proposals[0].mapping["draws_on"] == ["one", "two", "three"], (
+            proposals[0].mapping["draws_on"]
         )
 
     check("AC3 `-` exemption admits a legal column-0 sequence", legal_sequence_admitted)
@@ -205,10 +229,7 @@ def self_test():
         # A key with an indented value opens no sequence, so a later column-0
         # bullet has nothing to belong to. This is the `no inline value` failure
         # §6.9.0 records, and it must NOT pass.
-        text = _record().replace(
-            "presupposes: >-\n  the reader has read the prior Leg\n",
-            "presupposes:\n  an indented scalar\n- stray\n",
-        )
+        text = _record() + "draws_on:\n  an indented scalar\n- stray\n"
         proposals = read_proposals(text)
         assert not proposals[0].admitted, "a bullet after an indented value was admitted"
         assert proposals[0].refusal.condition == "4", proposals[0].refusal
@@ -218,10 +239,7 @@ def self_test():
     def rule_is_not_a_sequence_item():
         # `---` starts with `-` but is NOT `- ` or bare `-`, so it is foreign to
         # a sequence rather than an item of it — the catch stays on the RULE.
-        text = _record().replace(
-            "presupposes: >-\n  the reader has read the prior Leg\n",
-            "presupposes:\n- one\n---\n- two\n",
-        )
+        text = _record() + "draws_on:\n- one\n---\n- two\n"
         proposals = read_proposals(text)
         assert not proposals[0].admitted, "`---` was admitted as a sequence item"
         assert proposals[0].refusal.condition == "4", proposals[0].refusal
@@ -294,12 +312,9 @@ def self_test():
         The `-` exemption was exercised at the PARSE and the round trip only for
         a `>-` folded scalar; nothing crossed the two.
         """
-        text = _record("seq").replace(
-            "presupposes: >-\n  the reader has read the prior Leg\n",
-            "presupposes:\n- one\n- two\n",
-        )
+        text = _record("seq") + "draws_on:\n- one\n- two\n"
         proposal = read_proposals(text)[0]
-        assert proposal.mapping["presupposes"] == ["one", "two"], proposal.mapping["presupposes"]
+        assert proposal.mapping["draws_on"] == ["one", "two"], proposal.mapping["draws_on"]
 
         body = render_move(proposal.mapping)
         for item_line in ("- one", "- two"):
@@ -312,8 +327,8 @@ def self_test():
             moves = os.path.join(tmp, "moves")
             save_accepted(moves, [proposal])
             back = read_saved(move_path(moves, "seq"))
-            assert back["presupposes"] == ["one", "two"], (
-                "a sequence did not survive the round trip: %r" % (back["presupposes"],)
+            assert back["draws_on"] == ["one", "two"], (
+                "a sequence did not survive the round trip: %r" % (back["draws_on"],)
             )
             # And the saved file is re-admissible by the grammar that wrote it.
             reread = read_proposals(open(move_path(moves, "seq")).read())
@@ -792,22 +807,22 @@ def self_test():
         "`criterion`",
         "#876 AC1 a role mapped to nothing is refused, naming it")
 
-    def an_unknown_ninth_key_is_still_refused():
+    def an_unknown_seventh_key_is_still_refused():
         """The optional set admits `draws_on`, `continues_from`, `evidence`,
         `figure` and NOTHING else — the catch condition 3 exists for is
         unchanged, which a widening is exactly the kind of change that can
         quietly remove."""
-        proposals = read_proposals(_record("subject", "notes: >-\n  a ninth key\n"))
+        proposals = read_proposals(_record("subject", "notes: >-\n  a seventh key\n"))
         bad = [p for p in proposals if not p.admitted]
         assert bad, "a key outside the optional set was admitted"
         assert bad[0].refusal.condition == "3", bad[0].refusal
-        seven = _record("subject").replace("breaks: >-\n  not always\n", "")
-        proposals = read_proposals(seven)
-        assert not proposals[0].admitted, "a seven-key record was admitted"
+        five = _record("subject").replace("breaks: >-\n  not always\n", "")
+        proposals = read_proposals(five)
+        assert not proposals[0].admitted, "a five-key record was admitted"
         assert proposals[0].refusal.condition == "3", proposals[0].refusal
 
-    check("#876 condition 3 still refuses a ninth key and a seventh",
-          an_unknown_ninth_key_is_still_refused)
+    check("#876 condition 3 still refuses an unexpected key and a short record",
+          an_unknown_seventh_key_is_still_refused)
 
     def the_nesting_is_admitted_by_name_not_by_shape():
         """An indented `key: value` under any OTHER field is the scalar it has
@@ -1045,12 +1060,12 @@ def self_test():
             moves_dir = os.path.join(d, "moves")
             os.makedirs(moves_dir)
             malformed = _record("broken").replace(
-                "presupposes: >-\n  the reader has read the prior Leg\n", "")
+                "breaks: >-\n  not always\n", "")
             stub = os.path.join(d, "stub_model")
             _write_passage_stub(stub, malformed)
             out = os.path.join(d, "run")
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
-            assert not result["proposal"].admitted, "a seven-key record was admitted"
+            assert not result["proposal"].admitted, "a five-key record was admitted"
             screen = open(result["screen"]).read()
             assert screen.startswith("refused:"), screen
             try:

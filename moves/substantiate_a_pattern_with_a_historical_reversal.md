@@ -19,17 +19,6 @@ after: >-
 question: >-
   holds: did the general pattern occur in a concrete period? raises: why did
   the reversal occur, and what followed it?
-order: >-
-  advances, advances, raises, settles — the sequence first fixes a case that
-  fits the stated pattern, lets the fit build an expectation of
-  continuation, then interrupts that expectation with a reversal and closes
-  it with the reversal's visible consequence; the order works because the
-  confirming steps are what make the reversal register as a break rather
-  than more of the same.
-presupposes: >-
-  a general pattern already stated before this Move begins, and a period the
-  reader can recognize as fitting the pattern's initial condition without
-  further argument.
 technique: >-
   Select a dated case whose starting conditions visibly satisfy a previously
   stated general pattern, and trace the expected response in one causal step

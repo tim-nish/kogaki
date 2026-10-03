@@ -24,24 +24,6 @@ question: >-
   with what the correct classification is, inferred from observed responses
   to it. raises: why does the ranking that produced the misclassification
   diverge from what other cases' responses reveal.
-order: >-
-  advances (concede apparent contradiction) - settles (rule is not wrong) -
-  settles (the premise, i.e. the classification, is wrong) - advances (state
-  the revised classification) - advances (invert the inference: responses
-  now identify the true class) - advances (name replacement candidates via
-  what responds against them) - advances (instantiate the responses as
-  concrete cases) - advances (use membership within those responses to
-  confirm the original case's declassification) - raises (convert the
-  resolved contradiction into a deeper paired question) - advances (block
-  the simple ranking that caused the error) - advances (name the added
-  variable the next explanation needs). The rule is preserved and the
-  premise relocated before the repaired account is reopened as a harder
-  question, so the reader never doubts the rule while the reclassification
-  is argued.
-presupposes: >-
-  a rule that predicts classified cases will provoke a specific response
-  from other cases, and a prior passage in which a case's observed behavior
-  appeared to violate that prediction.
 technique: >-
   Concede that an observation appears to violate a rule, then preserve the
   rule by relocating the fault to the classification of the case rather than

@@ -20,18 +20,6 @@ question: >-
   effect than others that appear equally or more capable of producing it?
   raises: what determines the variation between the higher- and
   lower-likelihood instances?
-order: >-
-  advances, raises, advances, raises, advances — the mechanism is first
-  demonstrated in a recognizable case, then bounded by a qualification, then
-  the qualification is converted into an explicit question, and only then is
-  a bounded answer-shaped list offered; each step depends on the reader
-  having accepted the one before it, so the qualification cannot precede the
-  demonstration and the variables cannot precede the qualification.
-presupposes: >-
-  the reader already holds the mechanism itself, established earlier through
-  a separate illustrative case, and already recognizes the entities being
-  contrasted as comparable enough that their differing outcomes call for
-  explanation rather than dismissal.
 technique: >-
   Apply a newly introduced mechanism to a second, more concrete case, then
   qualify it by holding the triggering action constant while allowing the

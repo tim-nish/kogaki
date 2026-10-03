@@ -22,22 +22,6 @@ question: >-
   least one actor? settles: does the outcome require the assumed motive to
   be present in at least one actor? — answered negatively, with the causal
   sequence that replaces it specified.
-order: >-
-  advances (retrieve the already-established causal model) — advances
-  (restate the visible outcome and the motive commonly assigned to it) —
-  raises (signal that a new analytical condition is about to be imposed) —
-  advances (remove the assumed motive from every actor, not just one) —
-  raises (show the outcome persists anyway, driven by perceived possibility
-  rather than actual intent) — settles (supply the technical name, then the
-  transferable definition). The order matters because the reader must
-  already accept the outcome under the ordinary explanation before that
-  explanation is withdrawn, so that the outcome's persistence is experienced
-  as a genuine surprise rather than presented as an assertion to take on
-  faith.
-presupposes: >-
-  the reader already accepts the causal model as sufficient to produce the
-  outcome, and already possesses the familiar analogy the Move retrieves
-  rather than needing it introduced from scratch.
 technique: >-
   Retrieve a causal model the reader already accepts, then explicitly strip
   out the one assumption — a hostile or self-interested motive — that reader
