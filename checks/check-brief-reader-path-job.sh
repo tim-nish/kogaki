@@ -716,7 +716,7 @@ function pollUntil(dir, pred, timeoutMs) {
   const candidateOf = (leg2Extra) => ({
     candidate_id: "c1", characteristic: "x", reader_experience: "y",
     reader_start: "knowledge: before\nquestion: holds: none",
-    reasoning: { leg_validity: "x", transition_continuity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x", thesis_closure: "x" },
     legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
   });
   const goodCandidate = candidateOf({});
