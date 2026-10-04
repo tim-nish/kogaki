@@ -288,9 +288,6 @@ try {
   const draftPath = join(ws, "draft.md");
 
   const packet = ({ claim, journey }) => [
-    "- **purpose.** walk the kit's install step",
-    "- **reader_state_before.** the reader has never met the kit",
-    "- **reader_state_after.** the reader can run the kit's installer",
     "- **technique.** contrast",
     "- **question.** what the kit copies and where",
     "- **breaks.** breaks if the vendored copy is edited by hand",

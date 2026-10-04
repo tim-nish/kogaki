@@ -209,8 +209,7 @@ Return one JSON object and nothing else:
 - `relations` — what holds between the elements, one entry per relation the
   figure asserts. The kind's own relation line is what these instantiate.
 - `emphasis` — optional; the role the figure leans on, if one does.
-- `caption` — one line, in the terms of this Leg's `reader_state_after`: what
-  the reader holds after looking at the figure.
+- `caption` — one line: what the reader holds after looking at the figure.
 - `position` — `before` or `after`: whether the reader meets the figure before
   this Leg's prose or after it.
 

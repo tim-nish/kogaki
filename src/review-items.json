@@ -213,6 +213,15 @@
       "    from one restating the table or the schema. A synonym in a join key",
       "    is the same defect as a divergence.",
       "",
+      "RETIRED AT kogaki#1247 (owner decision 2026-10-04). The Packet no longer",
+      "carries `purpose`, `reader_state_before` or `reader_state_after`, and",
+      "/review-draft never reads them from the Brief (the 2026-09-04 ruling), so",
+      "the items `purpose`, `reader-state-before` and `reader-state-after` left",
+      "this table with their three blocks, `figure-caption` judges against the",
+      "caption alone, and `drift_blocks` keeps `claims` alone. The sentence above",
+      "naming them is history, kept so a reader can see what the join used to",
+      "spell.",
+      "",
       "`after_words` is the template's own fixed instruction paragraph, matched",
       "as a WORD SEQUENCE so a rewrap — which changes nothing — does not silently",
       "hand the instruction back as the block's value.",
@@ -228,14 +237,6 @@
       "kind": "heading_list",
       "heading": "The claims this Leg asserts"
     },
-    "reader_state_after": {
-      "kind": "bullet",
-      "label": "reader_state_after"
-    },
-    "purpose": {
-      "kind": "bullet",
-      "label": "purpose"
-    },
     "introduces": {
       "kind": "heading_list",
       "heading": "Introduce here"
@@ -248,10 +249,6 @@
     "active_here": {
       "kind": "heading_list",
       "heading": "Active here"
-    },
-    "reader_state_before": {
-      "kind": "bullet",
-      "label": "reader_state_before"
     },
     "move_contract": {
       "kind": "bullets",
@@ -313,8 +310,7 @@
       "already-knows"
     ],
     "drift_blocks": [
-      "claims",
-      "reader_state_after"
+      "claims"
     ]
   },
   "thresholds": {
@@ -340,22 +336,6 @@
       "question": "The declared claim is above, in the words the Leg declares it in, and below it is every claim this reader wrote down after reading the passage blind. Is that declared claim among them? Answer `holds` where one of the claims the reader wrote says it — a paraphrase counts, and the wording need not match; answer `fails` where no claim they wrote carries it, which means the passage did not put it in front of the reader. What the reader wrote BEYOND the declared claim is not yours to judge here: the Leg is told to retell material it asserts nothing about, so surplus is expected and this question is about recovery alone."
     },
     {
-      "id": "reader-state-before",
-      "class": "preserved",
-      "mode": "judged",
-      "declared_block": "reader_state_before",
-      "field": "reader_state_before",
-      "question": "Does the state this passage assumes a reader arrives in match the state the Forward Artifact declares they arrive in? Answer `fails` where the passage assumes the reader already holds something the declared arriving state does not give them, or re-establishes something it does."
-    },
-    {
-      "id": "reader-state-after",
-      "class": "preserved",
-      "mode": "judged",
-      "declared_block": "reader_state_after",
-      "field": "reader_state_after",
-      "question": "Do the declared reader state and the outlined one describe the same reader? Answer `fails` if a reader in the outlined state would not be in the declared one."
-    },
-    {
       "id": "introduces",
       "class": "preserved",
       "mode": "judged",
@@ -366,14 +346,6 @@
         "sentence": "this Leg's Packet says to introduce no term, so the question below quantifies over nothing, and a passage that introduces nothing carries no `introduces:` line to read against it"
       },
       "question": "Is every term the Packet says to introduce here actually introduced in this passage — usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
-    },
-    {
-      "id": "purpose",
-      "class": "best-effort",
-      "mode": "judged",
-      "declared_block": "purpose",
-      "field": "purpose",
-      "question": "Do the declared purpose and the outlined one name the same job for this Leg? Answer `fails` if the passage is doing a different job."
     },
     {
       "id": "already-knows",
@@ -407,11 +379,8 @@
       "figure_only": true,
       "declared_source": "figure record",
       "record_field": "caption",
-      "also_declared_blocks": [
-        "reader_state_after"
-      ],
       "figure_field": "caption",
-      "question": "The declared side carries the record's caption and the state the Leg says its reader is left in. Does what the reader holds after looking at the figure agree with both? Answer `fails` if it agrees with neither, or if it agrees with the caption while the caption and the Leg's state pull apart."
+      "question": "The declared side carries the record's caption. Does what the reader holds after looking at the figure agree with it? Answer `fails` if it does not."
     },
     {
       "id": "figure-element-claim",
