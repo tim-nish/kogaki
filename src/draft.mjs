@@ -90,11 +90,12 @@
 //   the Move library
 //       SPEC-draft-pipeline
 //
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, openSync, closeSync } from "node:fs";
 import { join, resolve, relative, dirname, basename, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 // the Leg-Move instantiation contract's mechanical half is ONE function shared with the composition side
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
@@ -796,11 +797,36 @@ function callWriter({ settings, act, legId, input, refuse }) {
       fail(`leg ${legId}: the writer exited ${r.status === null ? `on ${r.signal}` : r.status} for \`${act}\` — ${said}`);
     }
     const text = writerText(r.stdout, settings.output_format);
+    // THE WRITER'S OWN REFUSAL (kogaki#1250, owner ruling 2026-10-04). A
+    // response opening with `refusal: <reason>` is the writer declaring that
+    // this Move step cannot be performed from the material the Packet gave
+    // it, or that material is missing — the act's FAILURE, never content, and
+    // never a sentence of meta-commentary reaching the Draft in its place.
+    // Checked ahead of `refuse` (which judges prose actually written) and
+    // failed WITHOUT a retry: the Packet is the writer's whole input and is
+    // not re-sent differently on the next ask, so an unchanged input cannot
+    // turn a refusal into prose.
+    const declaredRefusal = writerRefusal(text);
+    if (declaredRefusal) {
+      fail(`leg ${legId}: the writer refused \`${act}\` — ${declaredRefusal} — no ${act} is recorded, and this is not re-asked`);
+    }
     const bad = (text && typeof text === "object" && text.error) ? text.error : refuse(text);
     if (!bad) return { text, attempts: n, refused };
     refused.push(bad);
   }
   fail(`leg ${legId}: the writer's \`${act}\` response was refused ${attempts} time(s) and the declared retries.${act}=${settings.retries[act]} are spent — the Leg is not recorded. Last refusal: ${refused[refused.length - 1]}`);
+}
+
+// THE DECLARED FORM, pure: a response whose FIRST LINE is `refusal: <reason>`
+// is the writer's refusal of the act, not prose — the reason, or null if the
+// response does not open with the form (kogaki#1250). First-line only: a
+// refusal clause arriving later in otherwise-written prose is not this form,
+// exactly as every other Packet field is read from the start of its own line.
+export function writerRefusal(text) {
+  if (typeof text !== "string") return null;
+  const first = text.replace(/^﻿/, "").trimStart().split("\n")[0];
+  const m = first.match(/^refusal:[ \t]*(\S.*?)\s*$/);
+  return m ? m[1] : null;
 }
 
 // THE PROSE REFUSALS, one function, so the re-ask loop and a check read the
@@ -1247,6 +1273,140 @@ export function priorProseBySection(priorSections, sections, currentIndex, curre
   return out.length ? out.join("\n\n") : null;
 }
 
+// ---------------------------------------------------------------------------
+// JOURNEY TEXT RESOLUTION (kogaki#1250, owner ruling 2026-10-04). Since
+// kogaki#1111 the Packet rendered a Journey as an ADDRESS ONLY — "Its prose
+// is the served record at `<cite>`" — and handed the writer nothing to read.
+// Since Fresh Call (kogaki#1237) the writer is a separate `claude -p` process
+// with no permission grant of its own, so that address was never reachable
+// FROM INSIDE the realization: the writer had no Journey, and said so in the
+// article, which is the defect this issue closes. The Packet now carries the
+// Journey's served TEXT, resolved through the kit's gateway query BEFORE any
+// writer is called — and a Journey that does not resolve refuses the whole
+// Packet build, naming the Leg and the address, rather than reaching the
+// writer as a hole for it to fill by invention.
+//
+// THIS IS A STATED EXCEPTION to "the gateway is an enhancer, never a
+// dependency" (policy/CAPABILITIES.md): every OTHER seam in this repository
+// degrades and continues on an unreachable gateway. A Journey the writer
+// cannot read is not a degraded instruction, it is a Leg the Harness cannot
+// build — so resolution here fails the build rather than falling back.
+
+// The identity a journey cite addresses — the SAME two forms a Draft's own
+// cites are judged against (kogaki#1116/#600 — src/cite-check.mjs): the
+// address form `<package>::journey/<local-name>@<content_hash>` and the
+// identity form `gloss/ELEMENTS.jsonl slug=<slug> kind=journey @<sha>`. A
+// local copy rather than an import: cite-check.mjs is not among this issue's
+// licensed files.
+const JOURNEY_IDENTITY_RE = /^gloss\/ELEMENTS\.jsonl slug=([A-Za-z0-9._-]+) kind=(lesson|journey) @([0-9a-f]{7,40})$/;
+const JOURNEY_ADDRESS_RE = /^([A-Za-z0-9._-]+)::(lesson|journey)\/([A-Za-z0-9._-]+)@([0-9a-f]{7,64})$/;
+
+export function parseJourneyCiteRef(cite) {
+  const m = (cite ?? "").match(JOURNEY_IDENTITY_RE);
+  if (m) return { slug: m[1], kind: m[2] };
+  const a = (cite ?? "").match(JOURNEY_ADDRESS_RE);
+  return a ? { slug: a[3], kind: a[2] } : null;
+}
+
+export function journeyIdentityKey(slug, kind) { return `${kind} ${slug}`; }
+
+// THE PURE HALF: cite × served survey → the Journey's text, or why it does
+// not resolve. `served` is Map<journeyIdentityKey(slug, kind), record>,
+// exactly as `fetchJourneySurvey` below builds it — kept separate from the
+// transport so a fixture can drive every resolution outcome without spawning
+// anything (`checks/check-brief-compose.sh` is a light member: pure calls and
+// text reads, no runtime spawn).
+export function journeyTextFromSurvey(cite, served) {
+  const ref = parseJourneyCiteRef(cite);
+  if (!ref) {
+    return { error: `the cite \`${cite ?? "(none recorded)"}\` is in neither the address form `
+      + `<package>::journey/<local-name>@<content_hash> nor the identity form `
+      + `gloss/ELEMENTS.jsonl slug=<slug> kind=journey @<sha>` };
+  }
+  const rec = served.get(journeyIdentityKey(ref.slug, ref.kind));
+  if (!rec) return { error: `resolves nowhere — the served survey holds no record slug=${ref.slug} kind=${ref.kind}` };
+  const body = typeof rec.body === "string" && rec.body.trim() !== ""
+    ? rec.body
+    : (typeof rec.text === "string" ? rec.text : null);
+  if (body === null || body.trim() === "") {
+    return { error: `the served record for slug=${ref.slug} kind=${ref.kind} carries no body text to render` };
+  }
+  return { text: body.trim() };
+}
+
+// ONE REFUSAL, naming the Leg and the address (acceptance). Shared by the
+// live path and the check fixture, so the wording a reader sees for a
+// dangling Journey is asserted in one place.
+export function journeyResolutionRefusal(legId, journey, cite, result) {
+  if (!result || !result.error) return null;
+  return `leg ${legId}'s Journey ${journey.strand} (${cite || "(no journey cite recorded in the Brief)"}) does not resolve: ${result.error} — `
+    + `a Journey the writer cannot read is a refusal to the Harness, never a sentence in the Draft (kogaki#1250), `
+    + `so the Packet is not built and no writer is called`;
+}
+
+// THE TRANSPORT — the only function in this section that spawns, following
+// the same capture-through-a-file-descriptor discipline src/terrain.mjs's own
+// `gatewayQuery` uses for this tool (kogaki#23/kogaki#597): a pipe would work
+// under the kit's drain guarantee, but a file write does not depend on it.
+// `kind: "journey"` is the one filter declared — resolving every Journey a
+// Brief might cite, bounded to the one family this Packet ever renders,
+// never the whole ELEMENTS manifest.
+function fetchJourneySurvey() {
+  const bin = join(dirname(fileURLToPath(import.meta.url)), "..", "policy", "kit", "bin", "gateway-query.mjs");
+  const outPath = join(tmpdir(), `draft-journey-survey-${process.pid}-${Date.now()}.json`);
+  const fd = openSync(outPath, "w");
+  let res;
+  try {
+    res = spawnSync(process.execPath,
+      [bin, "--consumer", "kogaki", "--tool", "element_survey", "--args", JSON.stringify({ kind: "journey" })],
+      { stdio: ["ignore", fd, "pipe"], encoding: "utf8" });
+  } finally { closeSync(fd); }
+  let stdout = "";
+  try { stdout = readFileSync(outPath, "utf8"); } catch { /* nothing captured */ }
+  try { rmSync(outPath, { force: true }); } catch { /* best effort cleanup */ }
+  if (res.error) return { ok: false, reason: `the gateway query could not be run (${res.error.code || "spawn failed"}: ${res.error.message})` };
+  if (res.status !== 0) {
+    const detail = [res.stderr, stdout].map((x) => (x || "").trim()).filter(Boolean).join(" | ");
+    return { ok: false, reason: detail || `gateway-query exited ${res.status}` };
+  }
+  let payload;
+  try { payload = JSON.parse(stdout); }
+  catch (e) { return { ok: false, reason: `the survey payload is not readable JSON (${e.message})` }; }
+  if (!Array.isArray(payload.lines)) return { ok: false, reason: "miss-shaped payload — no lines array; the trial did not run" };
+  const served = new Map();
+  for (const l of payload.lines) {
+    try {
+      const rec = JSON.parse(l.text);
+      if (typeof rec?.slug === "string" && typeof rec?.kind === "string") {
+        served.set(journeyIdentityKey(rec.slug, rec.kind), rec);
+      }
+    } catch { /* an unparseable line resolves nowhere for any cite naming it, which journeyTextFromSurvey already reports */ }
+  }
+  return { ok: true, served };
+}
+
+// THE DRIVEN CALL: a Leg's declared Journeys × the Brief's own cite lines →
+// the SAME Leg with each `journeys[].resolvedText` filled, or the FIRST
+// refusal, named by Leg and address. Called once per Leg that declares any
+// Journey, before `renderPacket` runs — resolution happens or the build never
+// reaches the renderer, let alone the writer.
+export function resolveLegJourneys(leg, brief) {
+  if (!(leg.journeys || []).length) return { leg };
+  const survey = fetchJourneySurvey();
+  const resolved = [];
+  for (const j of leg.journeys) {
+    const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
+      .find((c) => c.kind === "journey cite");
+    const result = survey.ok
+      ? journeyTextFromSurvey(cite?.cite, survey.served)
+      : { error: `the gateway could not be read — ${survey.reason}` };
+    const refusal = journeyResolutionRefusal(leg.leg_id, j, cite?.cite, result);
+    if (refusal) return { error: refusal };
+    resolved.push({ ...j, resolvedText: result.text });
+  }
+  return { leg: { ...leg, journeys: resolved } };
+}
+
 export function renderPacket({ template, brief, leg, moveText, priorSections, ledgerRow, section, sections }) {
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
@@ -1358,43 +1518,50 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     closure_rows: closureRowsForLeg(brief.text, leg.leg_id).length
       ? closureRowsForLeg(brief.text, leg.leg_id).map((t) => `- ${t}`).join("\n")
       : "(nothing — this Leg carries no Closure row)",
-    // the Journey a Leg draws on (kogaki#1111). THE PACKET RENDERS THE ADDRESS AND THE
-    // USE, and says where the prose is. The Brief carries no Journey text by
-    // design — a Journey is addressed at planning and edited at realization —
-    // and this renderer is DETERMINISTIC and offline, so it reaches no served
-    // record. What it hands the realizer is the Strand's own served journey
-    // cite, which the Brief's Strands section already holds, beside the
-    // declared use in the schema's own words.
-    //
-    // THE ABSENCE RENDERS ITS OWN LINE rather than an empty slot: a hole in
-    // the model's ENTIRE input is a hole the model fills by invention.
+    // the Journey a Leg draws on (kogaki#1111). THE PACKET NOW RENDERS THE
+    // SERVED TEXT ITSELF, the address kept beside it as citation — not the
+    // address alone (kogaki#1250, owner ruling 2026-10-04). Since Fresh Call
+    // (kogaki#1237) the writer is a separate `claude -p` process with no
+    // permission grant of its own, so an address-only rendering handed it
+    // nothing it could read: the writer had no Journey, and said so in the
+    // article, which is the meta-commentary this issue closes. Resolution
+    // happens in `renderAndStorePacket`, BEFORE this function is ever called —
+    // a Journey that does not resolve refuses the whole Packet build, naming
+    // the Leg and the address, and this renderer never runs for it. By the
+    // time `leg.journeys` reaches here every entry already carries its
+    // `resolvedText`; a caller that skips resolution and calls this renderer
+    // directly (as a fixture may, to drive the render in isolation) gets the
+    // same `need()` refusal an absent block gets anywhere else in this
+    // function — a hole in the model's entire input is a hole the model fills
+    // by invention, resolved text included.
     //
     // A JOURNEY-LESS LEG RENDERS THE HEADING AND THE ABSENCE LINE ONLY
-    // (kogaki#1224; owner decision 2026-09-29). The instruction paragraphs —
-    // "Edit it for the Move's purpose" among them — are instructions on HOW
-    // to use Journey material, and a Leg that draws on none has nothing for
-    // them to instruct: they lived in the template as fixed text ahead of
-    // this slot, so a Journey-less Packet rendered them unearned. They now
-    // live in this slot's own filled value, present only beside the material
-    // they instruct on.
-    journeys: (leg.journeys || []).length
-      ? "Realize it fused into the Leg's own prose, for the Move's purpose — it is "
-        + "material, never a claim, and earns no paragraph of its own by being present.\n\n"
-        + "Material, not assertion. Each entry below names a Journey this Leg draws on "
-        + "and what you are using it for. **Edit it for the Move's purpose**: cut it, "
-        + "compress it, retell it in this article's voice — the telling is yours, and the "
-        + "`use` line says what the telling is for.\n\n"
-        + "Nothing here is a claim. The claims above are the whole of what this Leg "
-        + "asserts, and the round trip asks for those back and never for a fragment of a "
-        + "Journey. A Journey you use well may leave almost none of its original wording "
-        + "on the page.\n\n"
-        + leg.journeys.map((j) => {
-          const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
-            .find((c) => c.kind === "journey cite");
-          return `- **${j.strand}'s Journey** — use: ${j.use}${journeyUseGloss(j.use)}\n`
-            + `  Its prose is the served record at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`.`;
-        }).join("\n")
-      : "(none — this Leg draws on no Journey material, and nothing here asks for any.)",
+    // (kogaki#1224; owner decision 2026-09-29), unchanged by this issue: the
+    // instruction paragraphs below are instructions on HOW to use Journey
+    // material, and a Leg that draws on none has nothing for them to
+    // instruct.
+    journeys: need(`${leg.leg_id}'s Journey text`, (leg.journeys || []).length
+      ? ((leg.journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === ""))
+        ? null
+        : "Realize it fused into the Leg's own prose, for the Move's purpose — it is "
+          + "material, never a claim, and earns no paragraph of its own by being present.\n\n"
+          + "Material, not assertion. Each entry below names a Journey this Leg draws on, "
+          + "what you are using it for, and its served prose, quoted in full. **Edit it for "
+          + "the Move's purpose**: cut it, compress it, retell it in this article's voice — "
+          + "the telling is yours, and the `use` line says what the telling is for.\n\n"
+          + "Nothing here is a claim. The claims above are the whole of what this Leg "
+          + "asserts, and the round trip asks for those back and never for a fragment of a "
+          + "Journey. A Journey you use well may leave almost none of its original wording "
+          + "on the page.\n\n"
+          + leg.journeys.map((j) => {
+            const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
+              .find((c) => c.kind === "journey cite");
+            return `- **${j.strand}'s Journey** — use: ${j.use}${journeyUseGloss(j.use)}. `
+              + `Served at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`:\n\n`
+              + `${j.resolvedText.trim()}`;
+          }).join("\n\n")
+      )
+      : "(none — this Leg draws on no Journey material, and nothing here asks for any.)"),
     section_placement: sectionPlacement(section),
     // BOUNDED BY THE SECTION, not merely ordered (kogaki#825). Falls back to the
     // flat form only when no grouping is derivable, so a Brief that declares no
@@ -1473,7 +1640,14 @@ function renderAndStorePacket(brief, id, args, ws) {
   const sections = sectionsOf(brief.legs);
   const section = sectionOfLeg(brief.legs).get(id);
 
-  const r = renderPacket({ template, brief, leg, moveText, priorSections: prior, ledgerRow: row, section, sections });
+  // JOURNEY TEXT RESOLUTION (kogaki#1250) — BEFORE the render, and before any
+  // writer is ever invoked: a Journey that does not resolve refuses the whole
+  // Packet build, naming the Leg and the address, and `renderPacket` never
+  // runs for it.
+  const journeysResolved = resolveLegJourneys(leg, brief);
+  if (journeysResolved.error) return { error: journeysResolved.error };
+
+  const r = renderPacket({ template, brief, leg: journeysResolved.leg, moveText, priorSections: prior, ledgerRow: row, section, sections });
   if (r.error) return { error: r.error };
 
   // THE LANGUAGE BLOCK (kogaki#1158): rendered into every Packet when
