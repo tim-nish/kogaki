@@ -62,6 +62,28 @@
 #       src/packet-template.md carries "This Leg reaches the Reader target."
 #       on the marked Leg, the closing-Leg line on each Leg after it, and
 #       neither on a Leg before it.
+#   (p) `renderPacket` renders a Journey's RESOLVED text under the Journey
+#       block, its served address kept beside it as citation — never the
+#       address alone; and a Journey entry with no `resolvedText` (resolution
+#       skipped) refuses the Packet by name, the same way any other missing
+#       block does, rather than rendering a hole (kogaki#1250, owner ruling
+#       2026-10-04).
+#   (q) `journeyTextFromSurvey`/`journeyResolutionRefusal` (src/draft.mjs):
+#       a cite in neither admitted form, and a well-formed cite the served
+#       survey holds no record for, each refuse naming the Leg and the
+#       address; a cite the survey does hold resolves (both the address and
+#       the identity cite forms) and composes no refusal.
+#   (r) `writerRefusal` (src/draft.mjs) reads the declared `refusal: <reason>`
+#       form off the FIRST LINE of a writer response alone — never ordinary
+#       prose, never a refusal clause arriving after other text, never an
+#       empty reason, never a non-string (json-envelope-error) response. This
+#       is what `callWriter` checks ahead of the act's own prose refusal, to
+#       end the act without a retry (kogaki#1250).
+#   (s) `journeyProseFromShardLines` (src/draft.mjs) reads a Journey's prose
+#       out of `gloss_index` shard lines shaped as served — `{cite, text}`
+#       per line, heading, prose, `Source:` trailer — keeping only the lines
+#       whose cite names that slug and kind, and returns null where none do:
+#       `element_survey` serves manifests only, never prose.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
@@ -81,7 +103,8 @@ import { readFileSync } from "node:fs";
 import * as compose from "./src/compose.mjs";
 import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
 import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
-  readerTargetLine, REACHES_TARGET_LINE, CLOSING_LEG_LINE } from "./src/draft.mjs";
+  readerTargetLine, REACHES_TARGET_LINE, CLOSING_LEG_LINE,
+  journeyTextFromSurvey, journeyResolutionRefusal, journeyIdentityKey, writerRefusal, journeyProseFromShardLines } from "./src/draft.mjs";
 
 const { validateLegs, introducedTermInReaderStart, closureRowsForLeg, readerTargetLegRefusal, renderLeg } = compose;
 const fails = [];
@@ -546,10 +569,119 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   }
 }
 
+// (p) a Packet renders a Journey's RESOLVED text under the Journey block,
+// the served address kept beside it as citation — never the address alone
+// (kogaki#1250, owner ruling 2026-10-04).
+{
+  const leg = {
+    leg_id: "s1", move: "open_the_claim", body: "claim (strand L1): claim of s1",
+    journeys: [{ strand: "L1", use: "an example to retell", resolvedText: "The served Journey's own prose, verbatim." }],
+  };
+  const brief = {
+    text: "", legs: [leg],
+    strands: [{ id: "L1", slug: "first-strand",
+      cites: [{ kind: "journey cite", cite: "product-lab::journey/first-journey@0011223344556677" }] }],
+  };
+  const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
+  if (split.error) fails.push(`(p) the Packet template did not split: ${split.error}`);
+  else {
+    const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
+      "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
+    const sections = sectionsOf(brief.legs);
+    const r = renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
+      ledgerRow: undefined, section: sectionOfLeg(brief.legs).get("s1"), sections });
+    if (r.error) fails.push(`(p) the Packet for s1 did not render: ${r.error}`);
+    else {
+      if (!r.packet.includes("The served Journey's own prose, verbatim.")) fails.push("(p) the Packet does not carry the Journey's resolved text");
+      if (!r.packet.includes("product-lab::journey/first-journey@0011223344556677")) fails.push("(p) the Packet dropped the Journey's served address — the citation stands beside the text, never replaced by it");
+    }
+  }
+  // A Leg whose Journey entry carries no resolvedText (the caller skipped
+  // resolution) refuses the SAME WAY an absent block does anywhere else in
+  // the Packet — never a hole the model fills by invention.
+  const legUnresolved = { leg_id: "s2", move: "open_the_claim", body: "claim (strand L1): claim of s2",
+    journeys: [{ strand: "L1", use: "an example to retell" }] };
+  const sections2 = sectionsOf([legUnresolved]);
+  const r2 = renderPacket({ template: split.packet, brief: { ...brief, legs: [legUnresolved] }, leg: legUnresolved,
+    moveText: ["id: open_the_claim", "technique: >-", "  x.", "question: >-", "  holds: none", "breaks: >-", "  x.", ""].join("\n"),
+    priorSections: [], ledgerRow: undefined, section: sectionOfLeg([legUnresolved]).get("s2"), sections: sections2 });
+  if (!r2.error) fails.push("(p) a Journey entry with no resolvedText rendered a Packet instead of refusing");
+  else if (!/s2's Journey text/.test(r2.error)) fails.push(`(p) the unresolved-Journey refusal does not name the Leg's Journey text: ${r2.error}`);
+}
+
+// (q) a Journey cite that does not resolve refuses the Packet build, naming
+// the Leg and the address — BEFORE any writer is called (kogaki#1250).
+{
+  const served = new Map([
+    [journeyIdentityKey("first-journey", "journey"), { slug: "first-journey", kind: "journey", body: "The served Journey's own prose." }],
+  ]);
+  // a cite in neither admitted form.
+  const badForm = journeyTextFromSurvey("not-a-real-cite", served);
+  if (!badForm.error) fails.push("(q) a cite in neither the address nor the identity form resolved");
+  const refusalBadForm = journeyResolutionRefusal("s1", { strand: "L1" }, "not-a-real-cite", badForm);
+  if (!refusalBadForm) fails.push("(q) an unresolvable cite composed no refusal");
+  else {
+    if (!/leg s1's Journey L1/.test(refusalBadForm)) fails.push(`(q) the refusal does not name the Leg and the Strand: ${refusalBadForm}`);
+    if (!refusalBadForm.includes("not-a-real-cite")) fails.push(`(q) the refusal does not name the address: ${refusalBadForm}`);
+  }
+  // a well-formed cite the served survey holds no record for.
+  const noRecord = journeyTextFromSurvey("product-lab::journey/missing-journey@0011223344556677", served);
+  if (!noRecord.error) fails.push("(q) a cite naming a record absent from the served survey resolved");
+  const refusalNoRecord = journeyResolutionRefusal("s1", { strand: "L1" }, "product-lab::journey/missing-journey@0011223344556677", noRecord);
+  if (!refusalNoRecord || !/resolves nowhere/.test(refusalNoRecord)) fails.push(`(q) the refusal for an absent record does not say so: ${refusalNoRecord}`);
+  // a cite the served survey DOES hold — resolves, no refusal.
+  const ok = journeyTextFromSurvey("product-lab::journey/first-journey@0011223344556677", served);
+  if (ok.error) fails.push(`(q) a cite the served survey holds did not resolve: ${ok.error}`);
+  else if (ok.text !== "The served Journey's own prose.") fails.push(`(q) the resolved text is not the served record's body: ${JSON.stringify(ok.text)}`);
+  if (journeyResolutionRefusal("s1", { strand: "L1" }, "product-lab::journey/first-journey@0011223344556677", ok)) {
+    fails.push("(q) a Journey that resolves still composed a refusal");
+  }
+  // the identity form (gloss/ELEMENTS.jsonl slug=... kind=journey @sha) resolves against the same map.
+  const identity = journeyTextFromSurvey("gloss/ELEMENTS.jsonl slug=first-journey kind=journey @0011223344556677", served);
+  if (identity.error) fails.push(`(q) the identity cite form did not resolve: ${identity.error}`);
+}
+
+// (r) a writer response opening with `refusal: <reason>` is the writer's OWN
+// refusal of the act, not prose — read by `callWriter` before `refuse`, and
+// ending the act WITHOUT a retry (kogaki#1250). First-line only: a clause
+// later in otherwise-written prose is not this form.
+{
+  const r = writerRefusal("refusal: the Packet carries no example to perform this Move on");
+  if (r !== "the Packet carries no example to perform this Move on") fails.push(`(r) the refusal line was not read: ${JSON.stringify(r)}`);
+  const multi = writerRefusal("refusal: the Move cannot be performed\nsome trailing line");
+  if (multi !== "the Move cannot be performed") fails.push(`(r) a refusal followed by further lines did not read the reason off the first line alone: ${JSON.stringify(multi)}`);
+  const prose = writerRefusal("This Leg opens on the claim that...");
+  if (prose !== null) fails.push(`(r) ordinary prose was read as a refusal: ${JSON.stringify(prose)}`);
+  const late = writerRefusal("Some prose first.\nrefusal: arriving too late to count");
+  if (late !== null) fails.push(`(r) a refusal clause arriving after the first line was read as the declared form: ${JSON.stringify(late)}`);
+  const empty = writerRefusal("refusal:   ");
+  if (empty !== null) fails.push(`(r) a refusal line with no reason was read as a declared refusal: ${JSON.stringify(empty)}`);
+  const nonString = writerRefusal({ error: "the writer's json response does not parse" });
+  if (nonString !== null) fails.push(`(r) a non-string response (the json-envelope error shape) was read as a refusal: ${JSON.stringify(nonString)}`);
+}
+
+// (s) a Journey's prose is read from its Gloss shard lines, never from the
+// survey manifest, which carries none (kogaki#1250).
+{
+  const a = "coding::journey/first-journey@72aefc6dea327a46";
+  const b = "coding::journey/other-journey@4d95b3f1c2b2950c";
+  const lines = [
+    { cite: a, text: "## first-journey" }, { cite: a, text: "" },
+    { cite: a, text: "On 2026-09-02 the owner ruled on it." }, { cite: a, text: "" },
+    { cite: a, text: "Source: `coding::journey/first-journey` · origin: x · tags: y" },
+    { cite: b, text: "## other-journey" }, { cite: b, text: "Someone else's prose." },
+    { cite: b, text: "Source: `coding::journey/other-journey`" },
+  ];
+  const got = journeyProseFromShardLines(lines, "first-journey", "journey");
+  if (got !== "On 2026-09-02 the owner ruled on it.") fails.push(`(s) the shard prose was not read as the record's own lines between heading and Source: ${JSON.stringify(got)}`);
+  if (journeyProseFromShardLines(lines, "missing-journey", "journey") !== null) fails.push("(s) a slug no shard line names returned prose");
+  if (journeyProseFromShardLines(lines, "first-journey", "lesson") !== null) fails.push("(s) a lesson-kind read returned a journey's prose");
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before)");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; and writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; and journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only.");
 JS

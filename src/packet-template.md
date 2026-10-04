@@ -158,10 +158,25 @@ Journey block or from the reader's own world as the Brief describes the
 reader at the outset; anything else the prose names does not exist for
 later Legs.
 
-**The round trip:** the original claim must be recoverable from what you write.
-Where making it plain loses something, either restore the loss or **concede it
-explicitly in the prose**. A concession is part of the output; a silent
-omission is not a simplification, it is a loss.
+**The round trip — claims only.** Each claim above must be recoverable from
+what you write. Where making one plain loses something, either restore the
+loss or **concede it explicitly in the prose**. A concession is part of the
+output; a silent omission is not a simplification, it is a loss. This rule
+answers for a claim's loss alone: it is not licence for a sentence about what
+you could not read or could not perform. A Move step you cannot carry out
+from what this Packet gives you is answered below, as a refusal — never as a
+concession, and never as prose.
+
+**When a step cannot be performed.** If a Move step cannot be carried out
+from the material this Packet gives you, or material it should carry is
+missing, do not write around it and do not write a sentence telling the
+reader so. Return exactly this instead, as the whole of your response:
+
+    refusal: <reason>
+
+This ends the act as a refusal to the Harness, not as content: the Leg is not
+recorded, and it is not re-asked, because the input you were given would not
+change.
 
 <!-- FIGURE-INPUT -->
 
