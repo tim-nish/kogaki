@@ -401,12 +401,130 @@ try {
   }
 }
 
+// (k) THE DEMONSTRATIVE REFERENCE ITEM (kogaki#1255 cell 4): a mechanical
+// item read from the Draft alone, with no Packet block and no model call.
+// One Leg carries "the last one" three paragraphs past the enumeration it
+// would point at and joins `fails`, naming the line and the expression in
+// the declared form; a second Leg carries the same expression one paragraph
+// after its enumeration and joins `holds`. Driven through the real
+// open/outline/compare CLI, never through a second reader of the item table.
+{
+  const ws = mkdtempSync(join(tmpdir(), "review-draft-demref-"));
+  const draftPath = join(ws, "draft.md");
+
+  const packet = [
+    "- **technique.** contrast",
+    "- **question.** which install path a reader ends up on",
+    "- **breaks.** breaks if a reader conflates the paths",
+    "",
+    "## The claims this Leg asserts",
+    "",
+    "- the kit's install paths all land the same vendored copy",
+    "",
+    "## Introduce here",
+    "",
+    "(none)",
+    "",
+    "## Held by the reader, not material here",
+    "",
+    "(none)",
+    "",
+    "## Active here",
+    "",
+    "(none)",
+    "",
+    "## The Journey material this Leg edits — NOT a claim to recover",
+    "",
+    "The kit's three install paths and the vendored copy they all produce.",
+    "",
+  ].join("\n");
+  writeFileSync(join(ws, "packet-x.md"), packet);
+  writeFileSync(join(ws, "packet-y.md"), packet);
+
+  // LEG-X: the enumeration sits in the Leg's first paragraph, and "the last
+  // one" sits in its fourth — two paragraphs carrying neither a comma nor an
+  // "and"/"or" run come between, so the one-paragraph lookback finds no
+  // enumeration and the row fails.
+  const legXProse = [
+    "The kit installs through npm, through the shell script, or through the vendored copy already in the tree.",
+    "",
+    "Each path writes to a different place before the install finishes.",
+    "",
+    "The vendored copy skips the registry step entirely.",
+    "",
+    "The last one is the path this repository's installer takes by default.",
+  ];
+  // LEG-Y: the enumeration sits in the paragraph immediately before the one
+  // carrying "the last one", so the lookback finds it and the row holds.
+  const legYProse = [
+    "The kit renders Legs, Packets, and figures before emit.",
+    "",
+    "The last one is optional and is skipped when a Leg declares no figure.",
+  ];
+
+  const shaX = createHash("sha256").update(packet).digest("hex");
+  const legXLines = [7, 7 + legXProse.length - 1];
+  const legYLines = [legXLines[1] + 2, legXLines[1] + 1 + legYProse.length];
+  const fm = [
+    "---",
+    "trace:",
+    `  - ${JSON.stringify({ leg_id: "leg-x", lines: legXLines, packet: "packet-x.md", packet_sha: shaX })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-y", lines: legYLines, packet: "packet-y.md", packet_sha: shaX })}`,
+    "---",
+  ].join("\n");
+  writeFileSync(draftPath, `${fm}\n\n${legXProse.join("\n")}\n\n${legYProse.join("\n")}\n`);
+
+  const runCmd = (cmd, extra, input) => spawnSync(process.execPath,
+    ["src/review-draft.mjs", cmd, "--draft", draftPath, "--workspace", ws, ...extra],
+    { encoding: "utf8", input: input ?? "" });
+  const outlineFor = (legId) => "```leg\n"
+    + `leg_id: ${legId}\n`
+    + "purpose: walk the kit's install paths\n"
+    + "reader_state_before: the reader has never met the kit\n"
+    + "reader_state_after: the reader can name the kit's install paths\n"
+    + "claim the kit's install paths all land the same vendored copy\n"
+    + "```\n";
+
+  const kOpen = runCmd("open", []);
+  if (kOpen.status !== 0) fails.push(`(k) open exited ${kOpen.status}: ${(kOpen.stderr || "").trim()}`);
+  const kO1 = runCmd("outline", ["--leg", "leg-x"], outlineFor("leg-x"));
+  if (kO1.status !== 0) fails.push(`(k) outline leg-x exited ${kO1.status}: ${(kO1.stderr || "").trim()}`);
+  const kO2 = runCmd("outline", ["--leg", "leg-y"], outlineFor("leg-y"));
+  if (kO2.status !== 0) fails.push(`(k) outline leg-y exited ${kO2.status}: ${(kO2.stderr || "").trim()}`);
+
+  const kCompare = runCmd("compare", []);
+  const km = /join record: (.+)$/m.exec(kCompare.stdout || "");
+  if (!km) fails.push(`(k) compare named no join record: ${(kCompare.stdout || "").trim()}`);
+  else {
+    const joined = JSON.parse(readFileSync(km[1].trim(), "utf8"));
+    const x = (joined.results || []).find((r) => r.leg_id === "leg-x" && r.item === "demonstrative-reference");
+    const y = (joined.results || []).find((r) => r.leg_id === "leg-y" && r.item === "demonstrative-reference");
+    if (!x || x.verdict !== "fails") fails.push(`(k) demonstrative-reference on leg-x did not join as fails: ${JSON.stringify(x)}`);
+    else {
+      const ev = (x.evidence || [])[0] || "";
+      if (!/^The antecedent of the demonstrative reference 'The last one' on line \d+ is not recoverable$/.test(ev)) {
+        fails.push(`(k) leg-x's evidence is not the declared finding form naming the line and the expression: ${JSON.stringify(ev)}`);
+      }
+      if (ev.length >= 240) fails.push(`(k) leg-x's finding is ${ev.length} characters, over the 240-character bound`);
+      if (!/^leg-x\/demonstrative-reference$/.test(`${x.leg_id}/${x.item}`) || /[0-9]/.test(x.reason)) {
+        fails.push(`(k) leg-x's row carries a digit in its reason, which the comparison line refuses: ${JSON.stringify(x.reason)}`);
+      }
+    }
+    if (!y || y.verdict !== "holds") fails.push(`(k) demonstrative-reference on leg-y did not join as holds: ${JSON.stringify(y)}`);
+    const xModelCall = (joined.model_calls || []).find((c) => c.leg_id === "leg-x" && c.item === "demonstrative-reference");
+    if (xModelCall) fails.push("(k) demonstrative-reference cost a model call — it is declared mechanical and must not render a join Packet");
+    const xMech = (joined.mechanical || []).find((c) => c.leg_id === "leg-x" && c.item === "demonstrative-reference");
+    if (!xMech) fails.push("(k) demonstrative-reference on leg-x is not logged as decided mechanically");
+  }
+  rmSync(ws, { recursive: true, force: true });
+}
+
 if (fails.length) {
   console.log("FAIL brief review plumbing (SPEC-draft-pipeline §4.6, story 1.74):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief review: 10/10 cases — (a) per-Candidate reasoning attaches and rides each "
+console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches and rides each "
   + "Candidate with every §§4.4-4.8 area present; (b) an unreviewed Candidate is refused BY "
   + "NAME and a missing area refuses — review runs machine-side per Candidate and never "
   + "multiplies owner questions; (c) a verdict is UNATTACHABLE — verdict-shaped keys refused "
@@ -432,6 +550,12 @@ console.log("brief review: 10/10 cases — (a) per-Candidate reasoning attaches 
   + "join through the real open/outline/compare CLI and each hold one Leg joined `fails` and "
   + "one joined `holds`, recorded rather than computed, which is the whole of what a judged "
   + "item's plumbing owes. "
+  + "(k) kogaki#1255 cell four's demonstrative-reference item — mechanical, read from the "
+  + "Draft alone, no Packet block and no model call — joins `fails` on a Leg where \"the last "
+  + "one\" sits three paragraphs past the enumeration it would point at, naming the line and the "
+  + "expression in the declared form and under the two-hundred-forty-character bound with no "
+  + "digit in its own comparison-line reason, and joins `holds` on a Leg where the same "
+  + "expression sits one paragraph after its enumeration. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): SIX mutations, each run once "
   + "and restored surgically — dropping the per-candidate completeness guard failed (b)'s "
   + "by-name refusal; dropping the verdict-key scan failed (c)'s unattachability; raising "

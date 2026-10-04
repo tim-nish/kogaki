@@ -180,7 +180,17 @@
     "constraints/failure_modes pairing survives it: the Move contract's Packet",
     "block is four single-value fields now (technique, question, draws_on,",
     "breaks), none of them a standalone heading a `block` reader stands at or a",
-    "two-label `bullets` reader reads."
+    "two-label `bullets` reader reads.",
+    "",
+    "`demonstrative-reference` IS THE SEVENTH ROW kogaki#1251 names and is READ",
+    "FROM THE DRAFT ALONE (kogaki#1255). It declares no Packet block and no",
+    "figure field: a Packet carries no inventory of the prose's own referring",
+    "expressions, so the only side there is to ask about is the passage itself.",
+    "`class: best-effort` because the check is a curated string match over an",
+    "ordinal/positional phrase (\"the first\", \"the last one\") and a one-paragraph",
+    "lookback for an enumeration's form -- a heuristic, never a reading of which",
+    "candidate is meant, and a best-effort row is what lets a false flag ride",
+    "along without sending a Leg to correction on a guess."
   ],
   "version": "1",
   "verdicts": [
@@ -437,6 +447,11 @@
       "class": "best-effort",
       "mode": "judged",
       "question": "Each paragraph in the passage below should open on the sentence that states its point, with every later sentence in that paragraph supporting it. Is there a sentence that supports neither its paragraph's opening sentence nor one of this Leg's claims? Answer `fails` if there is."
+    },
+    {
+      "id": "demonstrative-reference",
+      "class": "best-effort",
+      "mode": "mechanical"
     }
   ]
 }
