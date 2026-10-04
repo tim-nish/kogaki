@@ -188,7 +188,7 @@
     "expressions, so the only side there is to ask about is the passage itself.",
     "`class: best-effort` because the check is a curated string match over an",
     "ordinal/positional phrase (\"the first\", \"the last one\") and a one-paragraph",
-    "lookback for an enumeration's shape -- a heuristic, never a reading of which",
+    "lookback for an enumeration's form -- a heuristic, never a reading of which",
     "candidate is meant, and a best-effort row is what lets a false flag ride",
     "along without sending a Leg to correction on a guess."
   ],

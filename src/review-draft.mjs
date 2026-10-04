@@ -1804,8 +1804,8 @@ function paragraphsOf(draft) {
 // antecedent to recover at all.
 const DEMONSTRATIVE_REFERENCE = /\bthe (first|second|third|last|former|latter|previous|next|other|same)( one)?\b/gi;
 
-// THE ANTECEDENT'S OWN SHAPE, MECHANICALLY: an enumeration is a run of items
-// joined by a comma or by "and"/"or" — the shape a list of candidates takes on
+// THE ANTECEDENT'S OWN FORM, MECHANICALLY: an enumeration is a run of items
+// joined by a comma or by "and"/"or" — the form a list of candidates takes on
 // the page, read as a string fact rather than as which candidate is meant.
 const LIST_CANDIDATE = /,\s|\s(?:and|or)\s/i;
 
@@ -1838,7 +1838,7 @@ const MECHANICAL = {
   // declares no Packet block and no figure field — a Packet does not carry
   // the prose's referring expressions, so the only side this item has is the
   // passage itself. The antecedent it asks about is read mechanically as a
-  // STRING FACT — an enumeration's shape, a comma or an "and"/"or" run — never
+  // STRING FACT — an enumeration's form, a comma or an "and"/"or" run — never
   // as which candidate is the right one, which is a reading no string fact
   // settles and this item never asks.
   //
