@@ -485,23 +485,35 @@ def validate_implement_lane_declaration(read_declaration=None, path_exists=None)
 
 
 def check_floor_decrements(entries, base_reader=None):
-    """Lowering a `case_floor` takes the admission review path (kogaki#661).
+    """Both directions of a `case_floor` move take a review path.
 
     Returns (rows, failures). A DECREMENT owes a paired `case_floor_note`
     naming the case retired, and an unpaired one FAILS — deny rather than
     report, at the strictness an incomplete admission record already draws,
     because the owner's ruling (2026-08-26) is that a decrement needs the same
-    review path as admitting a member. Without this the field is the
-    silent-shrinkage channel one hop removed: deleting a case goes red while
-    decrementing the floor beside it goes green.
+    review path as admitting a member (kogaki#661). Without this the field is
+    the silent-shrinkage channel one hop removed: deleting a case goes red
+    while decrementing the floor beside it goes green.
 
-    An INCREMENT owes nothing. Adding cases is the direction the floor exists
-    to protect, and a symmetric gate would tax exactly the edits worth
-    encouraging.
+    An INCREMENT owes no `case_floor_note` pairing — adding cases is the
+    direction the floor exists to protect, and a symmetric gate there would
+    tax exactly the edits worth encouraging. It DOES owe a fresh
+    `runtime_ms_note` (kogaki#1124): three accretion-class findings
+    (PRs #1058, #1086, #1122) found a case-count raise landing with the
+    sibling timing field untouched, though the field's own lineage states the
+    reason it is re-read at every raise — "a number left alone after a
+    case-count raise is indistinguishable from one nobody re-read". A raise
+    with no `runtime_ms_note`, or with one byte-identical to the base's, FAILS
+    for the same reason an unpaired decrement does: the record would be
+    silent about work the convention says it owes, one hop removed from the
+    figure itself. The note's CONTENT is judgment — whether the figure is
+    right, or the re-check honest — and that is never gated, the same split
+    the pairing below runs under; what is gated is only that the field MOVED.
 
-    WHAT IS GATED IS THE PAIRING, NOT THE PROSE. Whether the note names the
-    RIGHT case is judgment, and judgment is never gated here — the same split
-    `probe:` and `efficacy` already run under.
+    WHAT IS GATED IS THE PAIRING, NOT THE PROSE. Whether a note names the
+    RIGHT case, or a re-check reads the right figure, is judgment, and
+    judgment is never gated here — the same split `probe:` and `efficacy`
+    already run under.
 
     An unresolvable base renders CANNOT-DETERMINE and never a pass: an absent
     input owes could-not-establish rather than the healthy-looking answer an
@@ -526,13 +538,48 @@ def check_floor_decrements(entries, base_reader=None):
            for e in base.get("checks", [])}
     was_note = {e["id"]: (e.get("admission") or {}).get("case_floor_note", "")
                 for e in base.get("checks", [])}
+    was_runtime_note = {e["id"]: (e.get("admission") or {}).get("runtime_ms_note", "")
+                        for e in base.get("checks", [])}
     decrements = 0
+    increments = 0
     for entry in entries:
         admission = entry.get("admission") or {}
         now, before = admission.get("case_floor"), was.get(entry["id"])
         if not isinstance(now, int) or not isinstance(before, int):
             continue
-        if now >= before:
+        if now == before:
+            continue
+        if now > before:
+            increments += 1
+            note = str(admission.get("runtime_ms_note", "")).strip()
+            # SAME STALENESS RULE THE DECREMENT ARM USES BELOW: a note left
+            # over from an earlier re-check would otherwise pay for every
+            # later raise, so the comparison is against the BASE record and
+            # not against mere presence.
+            stale = note and note == str(was_runtime_note.get(entry["id"], "")).strip()
+            if not note:
+                failures.append(
+                    f"FAIL case_floor raised with no runtime_ms_note "
+                    f"re-check: {entry_path(entry)} {before} -> {now} — a "
+                    f"case_floor raise owes a `runtime_ms_note` stating the "
+                    f"figure was re-checked and what it read (kogaki#1124). "
+                    f"Without it a raise reads exactly like one nobody "
+                    f"re-read, the state the note's own lineage already "
+                    f"names")
+            elif stale:
+                failures.append(
+                    f"FAIL case_floor raised against an UNCHANGED "
+                    f"runtime_ms_note: {entry_path(entry)} {before} -> "
+                    f"{now} — the `runtime_ms_note` is byte-identical to "
+                    f"the one already at the base, so it reads as the "
+                    f"PREVIOUS re-check and not this one. Each raise owes "
+                    f"its own entry, even one that re-checks and leaves the "
+                    f"figure where it stands (kogaki#1124)")
+            else:
+                rows.append(
+                    f"case-floor-increment: {entry['id']} {before} -> "
+                    f"{now}, paired with a re-checked runtime_ms_note "
+                    f"(accepted; whether the figure is right is judgment)")
             continue
         decrements += 1
         note = str(admission.get("case_floor_note", "")).strip()
@@ -565,6 +612,8 @@ def check_floor_decrements(entries, base_reader=None):
                         f"{now}, paired with a NEW retirement note (accepted; "
                         f"whether it names the right case is judgment)")
     rows.append(f"case-floor-decrements: {decrements} observed against the "
+                f"base")
+    rows.append(f"case-floor-increments: {increments} observed against the "
                 f"base")
     return rows, failures
 
@@ -1008,8 +1057,34 @@ def fixture_pass():
     rows, f = dec_notes(4, 5, "  retired the widget case  ", "retired the widget case")
     cases.append(("staleness compares trimmed, so re-indenting the same note "
                   "does not launder it", any("UNCHANGED retirement" in x for x in f)))
+    # A RAISE owes no `case_floor_note` pairing but DOES owe a fresh
+    # `runtime_ms_note` re-check (kogaki#1124) — the same shape the decrement
+    # pairing above runs under, keyed on the sibling timing field instead.
     rows, f = dec(9, 5)
-    cases.append(("an INCREMENT owes nothing", not f))
+    cases.append(("an unpaired INCREMENT FAILS — a raise owes a "
+                  "runtime_ms_note re-check",
+                  any("no runtime_ms_note re-check" in x for x in f)))
+
+    def raise_floor(now, before, note, base_note):
+        def reader():
+            return {"checks": [{"id": "fx", "admission": {
+                "case_floor": before, "runtime_ms_note": base_note}}]}
+        return check_floor_decrements(
+            [floor("fx", case_floor=now, runtime_ms_note=note)], reader)
+    rows, f = raise_floor(9, 5, "re-measured: 40ms, unchanged",
+                          "re-measured: 40ms, unchanged")
+    cases.append(("an INCREMENT against an UNCHANGED runtime_ms_note FAILS "
+                  "— it reads as the PREVIOUS re-check, not this one",
+                  any("UNCHANGED runtime_ms_note" in x for x in f)))
+    rows, f = raise_floor(9, 5, "re-measured at the raise: 41ms, unchanged",
+                          "re-measured: 40ms, unchanged")
+    cases.append(("an INCREMENT carrying a CHANGED runtime_ms_note is "
+                  "accepted", not f and
+                  any("case-floor-increment:" in x for x in rows)))
+    rows, f = raise_floor(9, 5, "   ", "re-measured: 40ms, unchanged")
+    cases.append(("a whitespace-only runtime_ms_note does not pair at a "
+                  "raise — the omission a typed field refuses",
+                  any("no runtime_ms_note re-check" in x for x in f)))
     rows, f = dec(5, 5)
     cases.append(("an unchanged floor owes nothing", not f))
     # A member that is NEW in this diff has no base floor to fall from.
