@@ -1777,6 +1777,38 @@ function verbatimWindow(line, haystacks, n) {
   return null;
 }
 
+// THE DRAFT'S OWN PARAGRAPHS, each a run of non-blank lines, tracked by its
+// 1-based line range OVER THE FILE (frontmatter included, matching the trace's
+// own convention) rather than over the body alone — so a span this reads back
+// lines up with the one `comparisonLine` renders for every other item.
+function paragraphsOf(draft) {
+  const bodyStart = draft.frontmatterEnd + 2; // 0-based index of the body's first line
+  const paras = [];
+  let start = null;
+  for (let i = bodyStart; i < draft.lines.length; i++) {
+    if (draft.lines[i].trim() === "") {
+      if (start !== null) { paras.push({ startLine: start + 1, endLine: i }); start = null; }
+      continue;
+    }
+    if (start === null) start = i;
+  }
+  if (start !== null) paras.push({ startLine: start + 1, endLine: draft.lines.length });
+  return paras;
+}
+
+// "DEMONSTRATIVE REFERENCE" IS THE SETTLED TERM for an expression such as "the
+// first" or "the last one" — an ordinal or positional noun phrase that points
+// at an earlier enumeration rather than naming its antecedent again. The list
+// is curated rather than a general pronoun scan, because a general scan over
+// "this"/"that" would fire on every use of either word, and most carry no
+// antecedent to recover at all.
+const DEMONSTRATIVE_REFERENCE = /\bthe (first|second|third|last|former|latter|previous|next|other|same)( one)?\b/gi;
+
+// THE ANTECEDENT'S OWN SHAPE, MECHANICALLY: an enumeration is a run of items
+// joined by a comma or by "and"/"or" — the shape a list of candidates takes on
+// the page, read as a string fact rather than as which candidate is meant.
+const LIST_CANDIDATE = /,\s|\s(?:and|or)\s/i;
+
 // ONE IMPLEMENTATION PER MECHANICAL ITEM, keyed by the item's own id. Each
 // returns `{verdict, reason, span}` and never a score. The ids here are
 // BINDINGS to the table's `mode: mechanical` rows — a table row whose id has no
@@ -1802,10 +1834,58 @@ const MECHANICAL = {
   // `claims` row, asked once per DECLARED claim, so a lost claim is named to the
   // correction with its own text instead of being reported beside it.
   //
-  // THE MAP IS EMPTY AT THIS HEAD AND THE KEY STAYS. A prose Leg's rows are
-  // all judged now; the figure's element-to-claim row is mechanical and lives
-  // in `MECHANICAL_FIGURE`. The dispatch below reads both, and a table row with
-  // no implementation still refuses by name rather than silently skipping.
+  // READ FROM THE DRAFT ALONE (kogaki#1255 cell 4). `demonstrative-reference`
+  // declares no Packet block and no figure field — a Packet does not carry
+  // the prose's referring expressions, so the only side this item has is the
+  // passage itself. The antecedent it asks about is read mechanically as a
+  // STRING FACT — an enumeration's shape, a comma or an "and"/"or" run — never
+  // as which candidate is the right one, which is a reading no string fact
+  // settles and this item never asks.
+  //
+  // THE WINDOW IS ONE PARAGRAPH BACK, named so a later reader can tell the
+  // bound from an oversight: a reader who just read the paragraph before the
+  // one carrying the reference still holds it; a reader three paragraphs past
+  // it does not, which is the fixture `checks/check-brief-review.sh` carries.
+  // So the enumeration must sit in the reference's OWN paragraph (before the
+  // reference) or the one immediately before it — never further back.
+  "demonstrative-reference": ({ leg, draft }) => {
+    const paras = paragraphsOf(draft);
+    for (let pi = 0; pi < paras.length; pi++) {
+      const p = paras[pi];
+      if (p.startLine < leg.lines[0] || p.endLine > leg.lines[1]) continue;
+      const text = draft.lines.slice(p.startLine - 1, p.endLine).join("\n");
+      const re = new RegExp(DEMONSTRATIVE_REFERENCE);
+      let m;
+      while ((m = re.exec(text))) {
+        const lineNo = p.startLine + text.slice(0, m.index).split("\n").length - 1;
+        const prev = pi > 0 ? paras[pi - 1] : null;
+        const prevText = prev ? draft.lines.slice(prev.startLine - 1, prev.endLine).join("\n") : "";
+        const recoverable = LIST_CANDIDATE.test(text.slice(0, m.index)) || LIST_CANDIDATE.test(prevText);
+        if (!recoverable) {
+          return {
+            verdict: "fails",
+            reason: "a demonstrative reference's antecedent is not recoverable within the paragraph "
+              + "it appears in or the one immediately before it",
+            evidence: [`The antecedent of the demonstrative reference '${m[0]}' on line ${lineNo} `
+              + "is not recoverable"],
+            span: leg.lines,
+          };
+        }
+      }
+    }
+    return {
+      verdict: "holds",
+      reason: "every demonstrative reference's antecedent is recoverable within the paragraph it "
+        + "appears in or the one immediately before it",
+      span: leg.lines,
+    };
+  },
+
+  // THE MAP WAS EMPTY AT kogaki#1013 AND NOW CARRIES ONE ROW. A prose Leg's
+  // other rows are all judged; the figure's element-to-claim row is mechanical
+  // and lives in `MECHANICAL_FIGURE`. The dispatch below reads both, and a
+  // table row with no implementation still refuses by name rather than
+  // silently skipping.
 };
 
 // ---------------------------------------------------------------------------
