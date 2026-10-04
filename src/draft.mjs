@@ -1329,7 +1329,7 @@ export function journeyTextFromSurvey(cite, served) {
     ? rec.body
     : (typeof rec.text === "string" ? rec.text : null);
   if (body === null || body.trim() === "") {
-    return { error: `the served record for slug=${ref.slug} kind=${ref.kind} carries no body text to render` };
+    return { error: `no Gloss shard the record's renderings name carries prose for slug=${ref.slug} kind=${ref.kind}` };
   }
   return { text: body.trim() };
 }
@@ -1344,21 +1344,37 @@ export function journeyResolutionRefusal(legId, journey, cite, result) {
     + `so the Packet is not built and no writer is called`;
 }
 
+// THE SHARD READ, pure. `element_survey` serves MANIFESTS only — slug, kind,
+// tags, `renderings`, `content_hash` — never prose: a Journey's text lives in
+// the Gloss shards its record's `renderings` name, each served by
+// `gloss_index` as `{cite, text}` lines, one record after another. A record's
+// lines are its `## <slug>` heading, its prose, and a closing `Source:` line;
+// the prose is what lies between. Kept pure so a fixture drives it with
+// shard-shaped lines and spawns nothing.
+export function journeyProseFromShardLines(lines, slug, kind) {
+  const own = (lines || []).filter((l) => {
+    const ref = parseJourneyCiteRef(typeof l?.cite === "string" ? l.cite : "");
+    return ref && ref.slug === slug && ref.kind === kind;
+  }).map((l) => (typeof l.text === "string" ? l.text : ""));
+  if (own.length && own[0].trim() === `## ${slug}`) own.shift();
+  while (own.length && own[own.length - 1].trim() === "") own.pop();
+  if (own.length && /^Source: /.test(own[own.length - 1])) own.pop();
+  const prose = own.join("\n").trim();
+  return prose === "" ? null : prose;
+}
+
 // THE TRANSPORT — the only function in this section that spawns, following
 // the same capture-through-a-file-descriptor discipline src/terrain.mjs's own
-// `gatewayQuery` uses for this tool (kogaki#23/kogaki#597): a pipe would work
-// under the kit's drain guarantee, but a file write does not depend on it.
-// `kind: "journey"` is the one filter declared — resolving every Journey a
-// Brief might cite, bounded to the one family this Packet ever renders,
-// never the whole ELEMENTS manifest.
-function fetchJourneySurvey() {
+// `gatewayQuery` uses (kogaki#23/kogaki#597): a pipe would work under the
+// kit's drain guarantee, but a file write does not depend on it.
+function gatewayCall(tool, args) {
   const bin = join(dirname(fileURLToPath(import.meta.url)), "..", "policy", "kit", "bin", "gateway-query.mjs");
-  const outPath = join(tmpdir(), `draft-journey-survey-${process.pid}-${Date.now()}.json`);
+  const outPath = join(tmpdir(), `draft-${tool}-${process.pid}-${Date.now()}.json`);
   const fd = openSync(outPath, "w");
   let res;
   try {
     res = spawnSync(process.execPath,
-      [bin, "--consumer", "kogaki", "--tool", "element_survey", "--args", JSON.stringify({ kind: "journey" })],
+      [bin, "--consumer", "kogaki", "--tool", tool, "--args", JSON.stringify(args)],
       { stdio: ["ignore", fd, "pipe"], encoding: "utf8" });
   } finally { closeSync(fd); }
   let stdout = "";
@@ -1371,10 +1387,21 @@ function fetchJourneySurvey() {
   }
   let payload;
   try { payload = JSON.parse(stdout); }
-  catch (e) { return { ok: false, reason: `the survey payload is not readable JSON (${e.message})` }; }
-  if (!Array.isArray(payload.lines)) return { ok: false, reason: "miss-shaped payload — no lines array; the trial did not run" };
+  catch (e) { return { ok: false, reason: `the ${tool} payload is not readable JSON (${e.message})` }; }
+  if (!Array.isArray(payload.lines)) return { ok: false, reason: `miss-shaped ${tool} payload — no lines array` };
+  return { ok: true, lines: payload.lines };
+}
+
+// `kind: "journey"` is the one filter declared — the manifest of every
+// Journey, bounded to the one family this Packet ever renders, never the
+// whole ELEMENTS manifest. Each record a Leg needs then has its prose read
+// from the shards its `renderings` name, first one carrying it wins, each
+// shard fetched at most once per build.
+function fetchJourneySurvey() {
+  const r = gatewayCall("element_survey", { kind: "journey" });
+  if (!r.ok) return r;
   const served = new Map();
-  for (const l of payload.lines) {
+  for (const l of r.lines) {
     try {
       const rec = JSON.parse(l.text);
       if (typeof rec?.slug === "string" && typeof rec?.kind === "string") {
@@ -1385,6 +1412,18 @@ function fetchJourneySurvey() {
   return { ok: true, served };
 }
 
+function withServedProse(served, cite, shardCache) {
+  const ref = parseJourneyCiteRef(cite);
+  const rec = ref && served.get(journeyIdentityKey(ref.slug, ref.kind));
+  if (!rec || (typeof rec.body === "string" && rec.body.trim() !== "")) return;
+  for (const shard of Array.isArray(rec.renderings) ? rec.renderings : []) {
+    if (!shardCache.has(shard)) shardCache.set(shard, gatewayCall("gloss_index", { tag: shard }));
+    const got = shardCache.get(shard);
+    const prose = got.ok ? journeyProseFromShardLines(got.lines, ref.slug, ref.kind) : null;
+    if (prose) { rec.body = prose; return; }
+  }
+}
+
 // THE DRIVEN CALL: a Leg's declared Journeys × the Brief's own cite lines →
 // the SAME Leg with each `journeys[].resolvedText` filled, or the FIRST
 // refusal, named by Leg and address. Called once per Leg that declares any
@@ -1393,10 +1432,12 @@ function fetchJourneySurvey() {
 export function resolveLegJourneys(leg, brief) {
   if (!(leg.journeys || []).length) return { leg };
   const survey = fetchJourneySurvey();
+  const shardCache = new Map();
   const resolved = [];
   for (const j of leg.journeys) {
     const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
       .find((c) => c.kind === "journey cite");
+    if (survey.ok) withServedProse(survey.served, cite?.cite, shardCache);
     const result = survey.ok
       ? journeyTextFromSurvey(cite?.cite, survey.served)
       : { error: `the gateway could not be read — ${survey.reason}` };
