@@ -21,16 +21,6 @@ question: >-
   raises: why should this one condition, among several important influences,
   reveal something durable about policy? settles: by its comparative
   permanence, then by naming the resulting two-part division as the answer.
-order: >-
-  advances, advances, advances, advances, advances, advances, raises,
-  settles, settles, advances. The premise accumulates through comparison,
-  cultural image, and converging authorities before the reader is given the
-  question it was building toward, and the classification follows as the
-  question's answer rather than preceding it.
-presupposes: >-
-  the reader recognizes the named cultural reference as a shared point of
-  memory, and accepts the named authorities as credible on the relation
-  between geography and policy.
 technique: >-
   Establish a property's durability by contrasting its time scale against
   other important influences that change faster, then make that duration

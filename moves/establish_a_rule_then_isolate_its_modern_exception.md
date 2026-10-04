@@ -15,20 +15,6 @@ after: >-
 question: >-
   holds: how widely does the pattern apply replaces: how widely does the
   pattern apply with why the expected response is absent in this instance
-order: >-
-  advances (affirm the pattern) / advances (supply confirming cases) /
-  raises (mark a break) / raises (state the apparent contradiction) /
-  advances (rule out the easy dismissal that the triggering condition is
-  absent) / raises (state the contradiction at full strength) / advances
-  (concede the strongest apparent counterexamples) / advances (show they
-  fail the stricter criterion) — credibility is built before the anomaly is
-  named, and the anomaly is defended against its easiest dismissal before
-  the causal question is left open, so the next unit inherits a narrower
-  question rather than a reopened one.
-presupposes: >-
-  a named pattern with enough prior instances to be stated as a regularity,
-  and a present instance that plausibly meets the pattern's triggering
-  condition.
 technique: >-
   State a general pattern and support it with a compact sequence of past
   instances in which it held. Mark a sharp break to a present instance where

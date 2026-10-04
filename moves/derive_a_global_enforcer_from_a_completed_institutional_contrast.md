@@ -21,18 +21,6 @@ question: >-
   persist? with who has the power to compel a stop? settles: who has the
   power to compel a stop, and what institution would be required to supply
   it?
-order: >-
-  raises, advances, advances, advances, advances, advances, advances,
-  advances, settles, settles, settles. The sequence builds a complete model
-  of the enforcing function in a familiar, resolved domain, strips that
-  function from the unfamiliar domain under examination, demonstrates the
-  behavioral cost of its absence, and only then names the institution that
-  would restore it, so the remedy arrives as a derived completion rather
-  than an asserted ideal.
-presupposes: >-
-  the reader can recognize the familiar domain well enough to accept it as a
-  working model of enforcement, and accepts that the two domains are
-  meaningfully comparable rather than fundamentally different in kind.
 technique: >-
   Open with a broad causal question and grant its familiar range of answers,
   then replace it with a narrower operational question about compelled

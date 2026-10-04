@@ -126,9 +126,11 @@
       "type": "object",
       "required_keys": [
         "leg_validity",
-        "transition_continuity",
         "thesis_closure"
       ],
+      "retired_keys": {
+        "transition_continuity": "RETIRED (kogaki#1247, owner decision 2026-10-04) and REFUSED BY NAME where `reasoning` carries it -- an internal variable the gate never read ('Is it essentially an internal variable? Please remove it.'). The Candidate's reasoning now carries only `leg_validity` and `thesis_closure`."
+      },
       "description": "The composition-time reasoning this Candidate was composed with, one non-blank string per key. It is the Candidate's gate evidence and the Brief's closing sections are filled from `thesis_closure` and from the tradeoffs at adoption -- adoption fills no default, so a blank value is refused here, inside the re-ask window, rather than at the write."
     },
     "reader_start": {

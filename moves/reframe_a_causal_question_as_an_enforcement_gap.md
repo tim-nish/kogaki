@@ -23,18 +23,6 @@ question: >-
   restraint, and does the case in question have it?; settles: who has the
   power to compel restraint, answered for the familiar domain; raises: who
   performs the equivalent function in the unfamiliar comparison domain.
-order: >-
-  raises / advances / advances / advances / settles. The broad question is
-  opened and populated with its familiar range of answers before being set
-  aside for a narrower one, so the narrowing reads as a deliberate move past
-  known ground rather than an evasion of it; the familiar domain is then
-  walked step by step from rule to enforcing power so that the principle the
-  comparison needs is derived, not asserted.
-presupposes: >-
-  the reader already knows the ordinary sequence of rule-violation-then-
-  enforcement in the familiar domain well enough to recognize it without
-  further explanation, and accepts that domain as a legitimate analogy for
-  the unfamiliar one.
 technique: >-
   Open with the broadest form of a causal question and grant the range of
   answers the reader already holds, so the survey reads as complete rather

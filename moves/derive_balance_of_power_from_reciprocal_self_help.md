@@ -22,15 +22,6 @@ question: >-
   holds: what follows in practice from the absence of a guaranteeing
   authority? settles: why actors seek strength and why their interaction
   tends toward a balance rather than one-sided accumulation.
-order: >-
-  raises, advances, advances, advances, advances, advances, advances,
-  settles, advances, settles — the reciprocal escalation must complete once
-  inside the familiar scene before the mechanism is exported and named in
-  the target domain, so the reader has already felt the equilibrium form
-  before being asked to see it as a general principle.
-presupposes: >-
-  the reader accepts that no external authority reliably enforces order
-  among the actors in question.
 technique: >-
   Take an established institutional absence and, instead of arguing its
   consequence abstractly, restate it as a needed self-protective act, then

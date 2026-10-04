@@ -322,6 +322,23 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
     if (schema.fields[f]) fails.push(`(x) src/candidate-schema.json still declares \`${f}\` as a field`);
     if (!schema.retired_fields || !schema.retired_fields[f]) fails.push(`(x) src/candidate-schema.json does not record \`${f}\` as retired`);
   }
+  // `reasoning.transition_continuity` IS RETIRED (kogaki#1247): not a
+  // required key, recorded retired in the schema, and refused by name at
+  // assembly where a Candidate's `reasoning` carries it.
+  if ((schema.fields.reasoning?.required_keys || []).includes("transition_continuity")) {
+    fails.push("(x) src/candidate-schema.json still requires `reasoning.transition_continuity`");
+  }
+  if (!schema.fields.reasoning?.retired_keys?.transition_continuity) {
+    fails.push("(x) src/candidate-schema.json does not record `reasoning.transition_continuity` as retired");
+  }
+  const withRetiredReasoning = {
+    ...candidate("c1", 1, "move-a", "exp one", "one"),
+    reasoning: { leg_validity: "x", thesis_closure: "x", transition_continuity: "x" },
+  };
+  const retiredReasoningResult = assembleSelection({ candidates: [withRetiredReasoning, candidate("c2", 2, "move-b", "exp two", "two")] }, "");
+  if (!retiredReasoningResult.error || !/transition_continuity/.test(retiredReasoningResult.error) || !/retired/.test(retiredReasoningResult.error)) {
+    fails.push(`(x) a Candidate carrying \`reasoning.transition_continuity\` was not refused by name: ${JSON.stringify(retiredReasoningResult)}`);
+  }
 }
 
 // ---- ASSEMBLY'S OWN OPENING-MOVE CHECK (src/assemble.mjs)
@@ -334,7 +351,7 @@ function candidate(id, unit, move, exp, chr) {
     characteristic: chr,
     legs: [{ move }],
     review: { rationale_stands: "x", entailment: "x", prohibitions: "x", semantic_economy: "x", arc_integrity: "x", evaluation_levels: "x" },
-    reasoning: { leg_validity: "x", transition_continuity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x", thesis_closure: "x" },
   };
 }
 

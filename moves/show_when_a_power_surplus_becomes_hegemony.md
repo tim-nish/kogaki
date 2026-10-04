@@ -20,18 +20,6 @@ question: >-
   unbalanceable? settles: the threshold is fixed at the point where the
   strongest actor's strength exceeds the sum of every other actor's
   strength, however combined.
-order: >-
-  raises / advances / advances / advances / advances / advances / settles /
-  settles / settles. The danger is stated first, then a minimal model is
-  built and tested by arithmetic the reader can verify, and only once the
-  relation is established does the passage supply its technical name, its
-  generalization into a rule, and a historical authority for that rule — so
-  the naming and the generalizing each land on a relation the reader has
-  already reconstructed rather than asking it to be taken on faith.
-presupposes: >-
-  that the strengths of separate actors can be treated as commensurable
-  quantities that add, so that a coalition's total strength is a meaningful
-  single number to compare against one actor's strength.
 technique: >-
   State the undesirable concentration and the consequence it leads to, then
   build a minimal model with values chosen so the reader can test the

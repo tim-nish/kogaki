@@ -90,13 +90,16 @@ function fail(msg) {
 }
 
 // The composition-time reasoning each Candidate owes the gate, beside the
-// review areas the attach already guaranteed. The three levels are the judgment rule's
+// review areas the attach already guaranteed. The two levels are the judgment rule's
 // — observed, never scored — and the composer records them per Candidate.
+// `transition_continuity` RETIRED (kogaki#1247, owner decision 2026-10-04):
+// an internal variable the gate never read, refused by name below rather
+// than restated under any key.
 // EXPORTED (kogaki#859) so the guard SPEC the Candidate gate claims can derive this table's
-// key set rather than restate it: EVIDENCE_LABELS covers exactly these three
+// key set rather than restate it: EVIDENCE_LABELS covers exactly these two
 // plus whatever `candidateEvidence` derives, and a literal copy in the check
 // would be a second declaration that drifts the first time either moves.
-export const REASONING_FIELDS = ["leg_validity", "transition_continuity", "thesis_closure"];
+export const REASONING_FIELDS = ["leg_validity", "thesis_closure"];
 
 // THE OWNER READS THE GATE, NOT THE SPEC (kogaki#520). Every evidence item
 // keeps its internal key in the payload — that is the record, and the record
@@ -178,6 +181,29 @@ export function retiredReaderFieldRefusal(c) {
   return null;
 }
 
+// RETIRED REASONING FIELDS (kogaki#1247): a key inside `reasoning` the
+// composer no longer authors and the gate no longer reads, refused BY NAME
+// the same way a retired top-level Candidate field is -- one map, read by
+// both per-unit classification (`validateReaderPathUnit`) and assembly's
+// cross-Candidate pass (`assembleSelection`), so the two cannot disagree on
+// which reasoning keys are retired.
+export const RETIRED_REASONING_FIELDS = new Map([
+  ["transition_continuity", "`reasoning.transition_continuity` is a retired field (kogaki#1247) — it was an "
+    + "internal variable the gate never read; the Candidate's reasoning now carries only `leg_validity` and "
+    + "`thesis_closure`, and transition continuity is not restated under any key"],
+]);
+
+// The refusal for a Candidate whose `reasoning` object carries a retired
+// key, or null.
+export function retiredReasoningFieldRefusal(c) {
+  const reasoning = c && c.reasoning;
+  if (!reasoning || typeof reasoning !== "object") return null;
+  for (const [key, why] of RETIRED_REASONING_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(reasoning, key)) return `candidate ${c.candidate_id}: ${why}`;
+  }
+  return null;
+}
+
 // The after-state of the Leg marked `reaches_target` (kogaki#1231), or null
 // where the path carries no such Leg, or names more than one, or its
 // after-state is not a non-empty string. `targetLegIndex` (src/compose.mjs)
@@ -252,7 +278,6 @@ export const EVIDENCE_LABELS = [
   ["reader_start", "What stance does this path assume the reader arrives in?"],
   ["reader_target", "What stance does this path leave the reader in?"],
   ["leg_validity", "Does each leg stand on the material it cites?"],
-  ["transition_continuity", "Does each leg leave the reader where the next one starts?"],
   ["thesis_closure", "Does the path close the claim?"],
   ["obligations_ledger", "What does this path still owe the reader?"],
   ["placement_count", "How much of the settled material does this path use?"],
@@ -877,9 +902,11 @@ export function assembleSelection(reviewed, doc, differentiation) {
     }
     for (const f of REASONING_FIELDS) {
       if (typeof c.reasoning?.[f] !== "string" || c.reasoning[f] === "") {
-        return { error: `candidate ${c.candidate_id}: composition-time reasoning ${JSON.stringify(f)} absent — each Candidate carries leg validity, transition continuity and Thesis closure as its gate evidence (the Candidate gate)` };
+        return { error: `candidate ${c.candidate_id}: composition-time reasoning ${JSON.stringify(f)} absent — each Candidate carries leg validity and Thesis closure as its gate evidence (the Candidate gate)` };
       }
     }
+    const retiredReasoning = retiredReasoningFieldRefusal(c);
+    if (retiredReasoning) return { error: retiredReasoning };
     // DIFFERENTIATION ASSIGNED THIS UNIT'S OPENING MOVE BEFORE THE UNIT
     // COMPOSED (kogaki#1206). `c.differentiation_unit` is a Harness-written tag,
     // never a Model field — attached in `src/brief.mjs` at the reader-path

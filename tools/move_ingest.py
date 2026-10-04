@@ -2,7 +2,7 @@
 """Move ingestion — the mechanical half of SPEC-draft-pipeline §6.9.
 
 This module owns everything §6.9 makes MECHANICAL: locating records, admitting
-them under §6.9.0's four conditions, normalizing to §4.2's eight fields,
+them under §6.9.0's four conditions, normalizing to §4.2's six fields,
 rendering a saved file, and regenerating moves/INDEX.md.
 
 It owns NOTHING §6.9 makes JUDGMENT. There is no scoring, no verdict, and no
@@ -23,24 +23,26 @@ import re
 import subprocess
 import sys
 
-# §4.2's eight required fields, in §4.2's order (kogaki#1175 rebuilt this
+# §4.2's six required fields, in §4.2's order (kogaki#1175 rebuilt this
 # schema from the eight-field one; the prior FIELDS tuple named id, status,
-# intent, requires, effect, constraints, failure_modes, excerpt). §6.9.1a
-# fixes the order; a saved file renders in it, and condition 3 admits exactly
-# this set plus at most OPTIONAL_FIELDS.
+# intent, requires, effect, constraints, failure_modes, excerpt). `order` and
+# `presupposes` retired by owner ruling (kogaki#1247): no composer, judge or
+# Packet reads either, and a record still carrying one is refused by
+# condition 3 as an unexpected key, naming it — the same path an unknown key
+# has always taken, with no new admission rule needed. §6.9.1a fixes the
+# order; a saved file renders in it, and condition 3 admits exactly this set
+# plus at most OPTIONAL_FIELDS.
 FIELDS = (
     "id",
     "before",
     "after",
     "question",
-    "order",
-    "presupposes",
     "technique",
     "breaks",
 )
 
-# §4.2's four optional fields. None is part of §4.2's eight and none becomes
-# one — condition 3 admits the eight, plus any of these four and nothing
+# §4.2's four optional fields. None is part of §4.2's six and none becomes
+# one — condition 3 admits the six, plus any of these four and nothing
 # else. Each is absent by default.
 OPTIONAL_FIELDS = ("draws_on", "continues_from", "evidence", "figure")
 
@@ -348,22 +350,25 @@ def strip_excluded(mapping):
 
 
 def check_field_set(mapping, first_line_no):
-    """Condition 3: after the strip step, exactly §4.2's eight keys — no more
+    """Condition 3: after the strip step, exactly §4.2's six keys — no more
     and no fewer.
 
     The ordering matters and is not incidental: the excluded draft fields are
     stripped FIRST, so their presence routes to the strip step rather than to a
     refusal. What a short or long field set then means is a genuine defect —
     a record that absorbed its neighbour's `before` leaves that neighbour with
-    SEVEN, and this is the condition that catches it.
+    FIVE, and this is the condition that catches it. `order` and
+    `presupposes` take this same route (kogaki#1247): neither is required nor
+    optional, so a record still carrying one is refused here, by name, as
+    unexpected.
     """
     have = set(mapping)
     want = set(FIELDS)
     missing = sorted(want - have)
     # §4.2: the four optional fields are admitted here and NOWHERE ELSE widens
-    # the set. A record carrying any of them still has exactly the eight
+    # the set. A record carrying any of them still has exactly the six
     # required keys plus those; a record carrying anything else is still
-    # refused, so the condition keeps its catch — a short-of-eight absorbed
+    # refused, so the condition keeps its catch — a short-of-six absorbed
     # neighbour is unaffected either way.
     extra = sorted(have - want - set(OPTIONAL_FIELDS))
     if missing or extra:
@@ -374,7 +379,7 @@ def check_field_set(mapping, first_line_no):
             parts.append("unexpected %s" % ", ".join("`%s`" % k for k in extra))
         raise Refusal(
             "3",
-            "record does not carry exactly §4.2's eight required keys "
+            "record does not carry exactly §4.2's six required keys "
             "(plus at most %s) — " % ", ".join("`%s`" % f for f in OPTIONAL_FIELDS)
             + "; ".join(parts),
             line_no=first_line_no,
@@ -577,7 +582,7 @@ def read_proposals(text):
 
 PLAIN_FIELDS = ("id", "continues_from")
 
-# §4.2's optional non-nested fields, rendered after the eight required ones
+# §4.2's optional non-nested fields, rendered after the six required ones
 # and before `figure` (which renders LAST, per §6.9.1a) — in this fixed order,
 # so two records differ only where their content differs.
 OPTIONAL_SCALAR_FIELDS = ("draws_on", "continues_from", "evidence")
@@ -622,9 +627,9 @@ def render_move(mapping):
     for field in FIELDS:
         render_field(field, mapping.get(field, ""))
 
-    # §4.2: the optional scalar fields render after the eight, each only when
+    # §4.2: the optional scalar fields render after the six, each only when
     # present — a record carrying none of them renders byte-identically to
-    # what a record under the eight-field schema always did.
+    # what a record under the six-field schema always did.
     for field in OPTIONAL_SCALAR_FIELDS:
         if field in mapping:
             render_field(field, mapping[field])
