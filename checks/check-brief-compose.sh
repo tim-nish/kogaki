@@ -678,10 +678,77 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   if (journeyProseFromShardLines(lines, "first-journey", "lesson") !== null) fails.push("(s) a lesson-kind read returned a journey's prose");
 }
 
+// (t) `re-activate` admits a third form, `<leg_id> journey <strand id>`
+// (kogaki#1263): src/leg-schema.json's `re-activate` field declares it
+// beside the `term` and `claim` forms, naming the Leg's `journeys`.
+{
+  const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
+  const reactivate = schema.fields["re-activate"];
+  if (!reactivate) fails.push("(t) src/leg-schema.json declares no re-activate field");
+  else {
+    const desc = reactivate.description;
+    if (!/<leg_id> journey <strand id>/.test(desc)) fails.push(`(t) the re-activate description does not admit the journey form: ${desc}`);
+    if (!/journeys/.test(desc)) fails.push(`(t) the re-activate description does not ground the journey form in the Leg's journeys: ${desc}`);
+    if (!/<leg_id> term/.test(desc) || !/<leg_id> claim/.test(desc)) fails.push(`(t) the re-activate description dropped one of the two prior forms: ${desc}`);
+  }
+}
+
+// (u) `introduces` entries become items carrying `term`, `kind`
+// (`coined` or `established`), `source` (required when established), and
+// for a coined term the optional `nearest` and `differs` (kogaki#1263):
+// src/leg-schema.json's `introduces_item` section declares the five fields.
+{
+  const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
+  const introduces = schema.fields.introduces;
+  if (!introduces || !/introduces_item/.test(introduces.type)) fails.push(`(u) src/leg-schema.json's introduces field is not typed as introduces_item entries: ${JSON.stringify(introduces)}`);
+  const item = schema.introduces_item;
+  if (!item || !item.fields) fails.push("(u) src/leg-schema.json declares no introduces_item section");
+  else {
+    const f = item.fields;
+    if (!f.term || !f.term.required) fails.push("(u) introduces_item does not require term");
+    if (!f.kind || !f.kind.required || JSON.stringify(f.kind.enum) !== JSON.stringify(["coined", "established"])) fails.push(`(u) introduces_item's kind is not a required coined/established enum: ${JSON.stringify(f.kind)}`);
+    if (!f.source || f.source.required !== false || f.source.required_when !== "kind is established") fails.push(`(u) introduces_item's source is not required_when kind is established: ${JSON.stringify(f.source)}`);
+    if (!f.nearest || f.nearest.required !== false) fails.push("(u) introduces_item does not declare an optional nearest");
+    if (!f.differs || f.differs.required !== false) fails.push("(u) introduces_item does not declare an optional differs");
+  }
+}
+
+// (v) a Closure row whose terminal state is `conceded_by` carries `open`,
+// `why_not_here` and `reader_keeps`, in both schemas (kogaki#1263):
+// src/candidate-schema.json's `obligations` field declares the three as
+// required only when conceded, and src/leg-schema.json's
+// closure_one_conceded_row rule states the same three by name.
+{
+  const candidateSchema = JSON.parse(readFileSync("src/candidate-schema.json", "utf8"));
+  const obligations = candidateSchema.fields.obligations;
+  if (!obligations) fails.push("(v) src/candidate-schema.json declares no obligations field");
+  else {
+    const required = obligations.entry_required_when_conceded;
+    if (JSON.stringify(required) !== JSON.stringify(["open", "why_not_here", "reader_keeps"])) fails.push(`(v) obligations does not require open/why_not_here/reader_keeps when conceded: ${JSON.stringify(required)}`);
+    if (!/\bopen\b/.test(obligations.description) || !/why_not_here/.test(obligations.description) || !/reader_keeps/.test(obligations.description)) fails.push(`(v) the obligations description does not name all three conceded-row fields: ${obligations.description}`);
+  }
+  const legSchema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
+  const concededRule = legSchema.path_rules.closure_one_conceded_row;
+  if (!concededRule || !/why_not_here/.test(concededRule.rule) || !/reader_keeps/.test(concededRule.rule) || !/`open`/.test(concededRule.rule)) fails.push(`(v) closure_one_conceded_row does not name the three conceded-row fields: ${concededRule && concededRule.rule}`);
+}
+
+// (w) the `reader_state_after` of the Leg marked `reaches_target` gains a
+// `names` list (kogaki#1263): src/leg-schema.json declares `names` as an
+// array of string, required only when reaches_target is true.
+{
+  const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
+  const names = schema.fields.names;
+  if (!names) fails.push("(w) src/leg-schema.json declares no names field");
+  else {
+    if (names.required !== false || names.required_when !== "reaches_target is true") fails.push(`(w) names is not required_when reaches_target is true: ${JSON.stringify(names)}`);
+    if (names.type !== "array of string") fails.push(`(w) names is not typed as an array of string: ${JSON.stringify(names.type)}`);
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; and writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; and journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only.");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json.");
 JS

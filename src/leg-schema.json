@@ -103,6 +103,12 @@
       "type": "boolean",
       "description": "Present, and true, on exactly ONE Leg of the path -- never the first (kogaki#1231, owner decision 2026-09-30, reversing kogaki#1225's rule that the Reader target sits wherever the path ends). That Leg's `reader_state_after` IS the Brief's Reader target, and its `leg_id` is what the Thesis Closure row's `established_by_legs` names. Every Leg AFTER the marked one is a CLOSING Leg, held to the three closing-Leg path_rules below: it introduces nothing, raises no Closure row, and its `orientation` and `knowledge` lines hold at the marked Leg's -- only `question`, `expectation` and `trust` may still move. A Leg before the marked one carries no meaning from this field at all; the marking is absent."
     },
+    "names": {
+      "required": false,
+      "required_when": "reaches_target is true",
+      "type": "array of string",
+      "description": "Present on the Leg marked `reaches_target`, and there alone: the terms this path's own `introduces` entries have put in the reader's hands by the time `reader_state_after` -- the Brief's Reader target -- is reached. It is a LIST, not prose, because the Reader target heading renders `reader_state_after` whole and line for line and cannot itself enumerate what the reader now knows by name. A Leg before the mark, or a closing Leg after it, carries no meaning from this field at all; the marking is absent."
+    },
     "depends_on": {
       "required": true,
       "type": "array of string",
@@ -150,13 +156,14 @@
     },
     "introduces": {
       "required": false,
-      "type": "array of string",
-      "description": "Terms this Leg introduces to the reader for the first time. The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds."
+      "type": "array of introduces_item",
+      "description": "Terms this Leg introduces to the reader for the first time, one item per term. The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds. See `introduces_item` below -- its `term` field is what `re-activate`'s `term` form and the introduced-term refusal both match against.",
+      "see": "introduces_item"
     },
     "re-activate": {
       "required": false,
       "type": "array of string",
-      "description": "What this Leg treats as active material, restored from a Leg it depends on — not an inventory of what the reader possesses, but what the Writer may speak of as this Leg's own. One reference per line, in one of two forms: `<leg_id> term <exact introduces string>` (the string must match, verbatim, an entry in that Leg's `introduces`) or `<leg_id> claim <strand id>` (the strand must be one that Leg carries a claim for). The named Leg must be in this Leg's `depends_on`. Anything not named here stays available to the reader but is not material for this Leg to speak of; the composer selects from what `depends_on` makes reachable and writes no free text here."
+      "description": "What this Leg treats as active material, restored from a Leg it depends on — not an inventory of what the reader possesses, but what the Writer may speak of as this Leg's own. One reference per line, in one of THREE forms: `<leg_id> term <exact introduces term>` (the string must match, verbatim, the `term` of an entry in that Leg's `introduces`), `<leg_id> claim <strand id>` (the strand must be one that Leg carries a claim for), or `<leg_id> journey <strand id>` (the strand must be one that Leg names in its `journeys`). The named Leg must be in this Leg's `depends_on`. Anything not named here stays available to the reader but is not material for this Leg to speak of; the composer selects from what `depends_on` makes reachable and writes no free text here."
     },
     "opens_section": {
       "required": false,
@@ -276,7 +283,7 @@
     "closure_one_conceded_row": {
       "class": "checked",
       "name": "Closure -- at most one conceded row in the path",
-      "rule": "A path carries AT MOST ONE Closure row whose terminal state is `conceded_by`. A Question a Leg will not close is set aside IN THAT LEG rather than carried forward (owner decision 2026-09-30): a row's `conceded_by` may name the same Leg as its `introduced_by`, and that is the ordinary case, not an exception. Two or three rows needing to be set aside is read as a sign the ReaderPath itself is not suitable, so a second `conceded_by` row is refused rather than rendered -- the repair is to close the row where it is raised, or to reshape the path."
+      "rule": "A path carries AT MOST ONE Closure row whose terminal state is `conceded_by`. A Question a Leg will not close is set aside IN THAT LEG rather than carried forward (owner decision 2026-09-30): a row's `conceded_by` may name the same Leg as its `introduced_by`, and that is the ordinary case, not an exception. Two or three rows needing to be set aside is read as a sign the ReaderPath itself is not suitable, so a second `conceded_by` row is refused rather than rendered -- the repair is to close the row where it is raised, or to reshape the path. A conceded row carries three further fields, required only there and declared beside the row's other fields in `src/candidate-schema.json`'s `obligations`: `open` (what stays unresolved), `why_not_here` (why this Leg is not the one to close it) and `reader_keeps` (what the reader is left holding in its place)."
     },
     "closure_one_row_open_per_leg": {
       "class": "checked",
@@ -417,6 +424,44 @@
         "required": true,
         "type": "string",
         "description": "What this Leg uses the Journey for, from the closed set in `uses` above. A use outside that set is refused."
+      }
+    }
+  },
+  "introduces_item": {
+    "definition": [
+      "ONE TERM A LEG INTRODUCES, TYPED BY WHERE IT CAME FROM. A term new to",
+      "the reader is new for one of two reasons -- this Leg is coining it, or",
+      "this Leg is the first to bring in a term that already has a home",
+      "outside the article -- and the two carry different obligations to the",
+      "reader, so `kind` is required rather than left to prose."
+    ],
+    "fields": {
+      "term": {
+        "required": true,
+        "type": "string",
+        "description": "The term itself, exactly as it must appear to match -- `re-activate`'s `term` form and the introduced-term refusal both match this string verbatim."
+      },
+      "kind": {
+        "required": true,
+        "type": "string",
+        "enum": ["coined", "established"],
+        "description": "`coined` -- this Leg names something for the first time anywhere, inventing the term. `established` -- the term already has a home outside this article, and this Leg is the first to bring it in here."
+      },
+      "source": {
+        "required": false,
+        "required_when": "kind is established",
+        "type": "string",
+        "description": "Where an established term comes from -- the field, the text or the person it is established by. A coined term has no source but this Leg, so the field is absent there."
+      },
+      "nearest": {
+        "required": false,
+        "type": "string",
+        "description": "For a coined term, the nearest existing term a reader might reach for instead. Optional even on a coined term -- some coinages have no near neighbour worth naming."
+      },
+      "differs": {
+        "required": false,
+        "type": "string",
+        "description": "For a coined term, how it differs from `nearest` -- why the nearest existing term will not do. Present only beside `nearest`; a `differs` with no `nearest` names nothing to differ from."
       }
     }
   },
