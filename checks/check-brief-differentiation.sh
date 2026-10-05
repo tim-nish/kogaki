@@ -220,7 +220,7 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   const headings = READER_FIELDS.map(([, h]) => h);
   if (headings.join("|") !== "Reader start|Reader target") fails.push(`(u) READER_FIELDS renders ${JSON.stringify(headings)}, not Reader start and Reader target alone`);
   if (SLOT_CAPTIONS.has("Opening question")) fails.push("(u) SLOT_CAPTIONS still captions an `Opening question` slot");
-  const skeleton = composeBrief({ slug: "fixture", strands: [], thesis: "The fixture claim." });
+  const skeleton = composeBrief({ slug: "fixture", strands: [], thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" });
   const text = typeof skeleton === "string" ? skeleton : (skeleton && (skeleton.doc || skeleton.text)) || JSON.stringify(skeleton);
   if (/^## Opening question/m.test(text)) fails.push("(u) the composed Brief skeleton still carries an `## Opening question` heading");
   if (!/^## Reader target/m.test(text)) fails.push("(u) the composed Brief skeleton lost its `## Reader target` heading");
