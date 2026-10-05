@@ -456,7 +456,7 @@
       "nearest": {
         "required": false,
         "type": "string",
-        "description": "For a coined term, the nearest existing term a reader might reach for instead. Optional even on a coined term -- some coinages have no near neighbour worth naming."
+        "description": "For a coined term, the nearest existing term a reader might reach for instead. Optional even on a coined term -- some coinages have no near neighbour worth naming. At most one introduces item across the whole path may carry `nearest` -- a second one is refused."
       },
       "differs": {
         "required": false,
