@@ -1114,6 +1114,27 @@ export function readerPersona(path) {
   return out;
 }
 
+// THE PERSONA'S `prose` BLOCK (kogaki#1251 item 1, kogaki#1261): the Write
+// block's reader-dependent rules, rendered into the Leg Packet's
+// `{{prose_rules}}` slot as the file writes them. Read separately from
+// `readerPersona` because its one reader is the Packet, not Reader start's
+// authoring, and a Persona without the block still serves Reader start. A
+// missing block refuses by name: the Packet is the writer's entire input, and
+// a Write block with no prose rules is a hole the writer fills by invention.
+export function readerProse(path) {
+  let text;
+  try { text = readFileSync(path, "utf8"); }
+  catch (e) {
+    return { error: `the reader file ${path} cannot be read (${e.message}) — the Packet's prose rules are its \`prose\` block (kogaki#1261)` };
+  }
+  const prose = moveScalarField(text, "prose");
+  if (prose === null) {
+    return { error: `the reader file ${path} declares no \`prose\` block — the Packet's Write block renders the Persona's prose rules from it (kogaki#1261). `
+      + "Repair the reader file under its own issue." };
+  }
+  return { prose };
+}
+
 // THE WHOLE ADMITTED SET, for the composing state's input. Ordered by id so
 // two runs over one library render byte-identical inputs — a judge input that
 // reordered with the filesystem would make two asks look different when
@@ -1437,11 +1458,17 @@ const INTRODUCES_SEP = "—";
 // form, src/leg-schema.json `introduces_item`; kogaki#1263, kogaki#1260): a
 // Candidate composes `{term, kind, source, nearest, differs}` directly as
 // JSON, and that object is what `kind`-the-closed-set and `nearest`'s
-// path-level dedup (item 2 below) are read from. Text rendering keeps writing
-// the bare term — kind/source/nearest/differs are a composition-time record,
-// disclosed at the Candidate-selection gate, never a Packet field (the
-// issue's "Not in scope": Packet rendering is a separate Issue).
+// path-level dedup (item 2 below) are read from. THE BRIEF CARRIES THE ITEM
+// AS ITS JSON (kogaki#1261): `renderLeg` writes an `introduces_item` as one
+// `introduces: {...}` line, and a line in that form parses back here to the
+// object it was, so the Packet can render the term's kind and authority line
+// from the Brief alone.
 export function parseIntroducesEntry(raw) {
+  if (typeof raw === "string" && /^\s*\{[\s\S]*\}\s*$/.test(raw)) {
+    let obj;
+    try { obj = JSON.parse(raw); } catch { obj = null; }
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) return parseIntroducesEntry(obj);
+  }
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const term = typeof raw.term === "string" ? raw.term.trim() : "";
     if (term === "") return { error: "an introduces_item with no term" };
@@ -1946,14 +1973,17 @@ export function renderLeg(s) {
   // joined field could not be parsed back — the serialization and
   // `parseBrief`'s reader are one round trip and this is the half that makes
   // it possible.
-  // an introduces_item object (kogaki#1263, kogaki#1260) carries kind/source/
-  // nearest/differs for THIS validation layer only — Packet rendering and the
-  // Brief mint are out of scope here (the Issue says so), so the text line
-  // keeps naming only what it always named: the term, bare or anchored.
+  // an introduces_item object (kogaki#1263, kogaki#1260) is written as its
+  // JSON on the one line (kogaki#1261), the fields in the schema's own order:
+  // the Packet renders the term's kind and authority line, and the Packet
+  // reads the Brief alone, so a line naming only the term would leave it
+  // nothing to render them from. `parseIntroducesEntry` reads the line back.
   for (const e of s.introduces || []) {
     if (e && typeof e === "object" && !Array.isArray(e)) {
       const p = parseIntroducesEntry(e);
-      L.push(`introduces: ${p.error ? JSON.stringify(e) : p.term}`);
+      const item = p.error ? e : Object.fromEntries(["term", "kind", "source", "nearest", "differs"]
+        .filter((k) => p[k] !== undefined && p[k] !== null).map((k) => [k, p[k]]));
+      L.push(`introduces: ${JSON.stringify(item)}`);
     } else {
       L.push(`introduces: ${e}`);
     }
@@ -2063,6 +2093,32 @@ export function closureRowsForLeg(doc, legId) {
     if (legId === introducedBy || legId === closingLeg) rows.push(text);
   }
   return rows;
+}
+
+// THE CONCEDED ROW'S THREE FIELDS, as `fillBrief` wrote them under the row
+// (kogaki#1261): the row whose `conceded_by` is `legId`, read from the same
+// sliced "## Closure" section `closureRowsForLeg` reads, or null where this
+// Leg concedes nothing. A field the row does not carry is absent from the
+// result rather than an empty string.
+export const CONCEDED_ROW_FIELDS = ["open", "why_not_here", "reader_keeps"];
+export function concededRowFields(doc, legId) {
+  const at = doc.indexOf("## Closure\n\n");
+  if (at === -1) return null;
+  const body = doc.slice(at + "## Closure\n\n".length);
+  const end = body.indexOf("\n## ");
+  const lines = (end === -1 ? body : body.slice(0, end)).split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const rm = /^- (.*) — introduced_by: \S+?;\s*conceded_by:\s*(\S+)$/.exec(lines[i]);
+    if (!rm || rm[2] !== legId) continue;
+    const out = { text: rm[1] };
+    for (let j = i + 1; j < lines.length; j++) {
+      const fm = /^ {2}- ([a-z_]+): (.*)$/.exec(lines[j]);
+      if (!fm) break;
+      if (CONCEDED_ROW_FIELDS.includes(fm[1])) out[fm[1]] = fm[2].trim();
+    }
+    return out;
+  }
+  return null;
 }
 
 // Journey placement — journey register as a Candidate axis, MUST 1, the completeness rider's half: a
@@ -2265,6 +2321,17 @@ export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused =
     oblL.push(hasDischarged
       ? `- ${o.text} — introduced_by: ${o.introduced_by}; discharged_by: ${o.discharged_by}`
       : `- ${o.text} — introduced_by: ${o.introduced_by}; conceded_by: ${o.conceded_by}`);
+    // A CONCEDED ROW'S THREE FIELDS (kogaki#1263, carried to the Brief at
+    // kogaki#1261): one indented line each under the row, written only where
+    // present, so the Packet of the conceding Leg can render what stays open,
+    // why this article does not close it and what the reader keeps.
+    // `concededRowFields` reads them back; `closureRowsForLeg` matches the row
+    // line alone and never sees them.
+    if (hasConceded) {
+      for (const k of CONCEDED_ROW_FIELDS) {
+        if (typeof o[k] === "string" && o[k] !== "") oblL.push(`  - ${k}: ${o[k].replace(/\s*\n\s*/g, " ")}`);
+      }
+    }
   }
   if (oblL.length === 0) oblL.push("*(no obligations entered by the composer — an empty ledger is a statement, not an omission)*");
   // THE THESIS ROW, at the same slot and the same write, because both levels

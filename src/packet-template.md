@@ -19,6 +19,13 @@ generation, kept minimal. A rule enters here only with demonstrated runtime
 effect. DESIGN PRINCIPLES ABOUT THIS TEMPLATE DO NOT LIVE HERE — they belong in
 the Brief/Draft design record (kogaki#752).
 
+THE WRITE BLOCK'S READER-DEPENDENT RULES ARE THE PERSONA'S (kogaki#1251
+item 1, kogaki#1261). `{{prose_rules}}` is filled from the `prose` block of the
+Persona file the Brief was composed with, so two Personas render two Write
+blocks; the heading rule, the paragraph rule and the round trip stay here,
+identical for every Persona. `{{reactivate_line}}` renders one line after the
+budget on a Leg that re-activates material, and nothing on any other Leg.
+
 THIS FILE POINTS AT NO SPECIFICATION, and the prohibition is stated here
 WITHOUT WRITING THE SHAPE IT FORBIDS — a comment that spells out the pattern it
 bans becomes the first hit of any check grepping for it, which is the
@@ -140,7 +147,7 @@ what it says, do not contradict it, and match the voice it establishes.
 Write the prose for this Leg and nothing else. No heading, no leg id, no
 label, no commentary about what you are doing.
 
-**Budget.** {{budget}}
+**Budget.** {{budget}}{{reactivate_line}}
 
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Leg and never by you.
@@ -149,14 +156,7 @@ Prose that writes its own heading is refused when the Leg is recorded.
 **Paragraphs.** Each opens on the sentence that states its point; every later
 sentence supports that sentence; a sentence that supports nothing is cut.
 
-**Prose style:** classic register, full clauses, a concrete subject acting,
-no unexplained term of art; not fragments, not runs of short sentences, not
-triads, not "not X, not Y" runs.
-
-**Referents.** A case, example, file, person or named thing comes from the
-Journey block or from the reader's own world as the Brief describes the
-reader at the outset; anything else the prose names does not exist for
-later Legs.
+{{prose_rules}}
 
 **The round trip — claims only.** Each claim above must be recoverable from
 what you write. Where making one plain loses something, either restore the
