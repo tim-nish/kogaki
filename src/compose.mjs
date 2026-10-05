@@ -255,13 +255,12 @@ function pathRefusal(key, at, specific) {
 }
 
 
-// The two required fields whose refusal is written out below rather than
-// generated from the schema's declared type. Both say something the generic
-// "is required" sentence cannot: `move` names WHY a Move-less Leg is not a
-// Leg, and `claims` names what a claim is. They are still required fields
-// of the schema and still enumerated from it — this set only routes which
-// refusal speaks.
-const BESPOKE_LEG_REFUSALS = new Set(["move", "claims"]);
+// `claims` is a required field whose refusal is written out below rather than
+// generated from the schema's declared type, because it names what a claim
+// is. This set only routes which refusal speaks. `move` is no longer listed:
+// it is optional in the schema, and the exactly-one-of `move`/`no_move_fits`
+// refusal below speaks for it (kogaki#1276).
+const BESPOKE_LEG_REFUSALS = new Set(["claims"]);
 
 // The generic presence predicate for a required field, selected by the type
 // the schema declares. An unknown type is a LOUD failure rather than a silent

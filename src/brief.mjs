@@ -1757,7 +1757,7 @@ const STATE_WORK = {
     rec.judgments[st.id] = relFromRepo(resolve(path));
     const { fit, excluded } = specializationSelection(readJson(path), cands);
     rec.brief_excluded = excluded;
-    if (fit.length === 0) endBriefNoCandidateFits(rec, excluded);
+    if (fit.length === 0) endBriefNoCandidateFits(rec, st, excluded);
     const out = join(rec._dir, "brief-candidates-fit.json");
     writeFileSync(out, JSON.stringify(fit, null, 2) + "\n");
     rec.brief_candidates_fit = out;
@@ -1908,23 +1908,25 @@ export function excludedCandidateLines(excluded) {
 // EVERY CANDIDATE FAILED (kogaki#1276): the Brief ends with no question. The
 // report names, per Candidate, each failing Leg and the judge's sentence.
 // Nothing re-composes: the same library gives the composer the same choices.
-export function noCandidateFitsReport(excluded) {
+export function noCandidateFitsReport(excluded, briefPath) {
   const lines = ["No Candidate fits the Moves it uses, so no question is asked and the Brief ends here."];
   for (const x of excluded) {
     lines.push(`Candidate "${candidateName(x)}":`);
     for (const f of x.failures) lines.push(`  Leg ${f.leg_id} (${f.move}): ${f.verdict} — ${f.why}`);
   }
-  lines.push("The way forward is to add a Move through the Move-ingest command, or to start a new Brief.");
+  lines.push(`The Brief at ${briefPath} stays as minted, with no Reader Path in it, and its name is taken. `
+    + "The way forward is to add a Move through the Move-ingest command, or to start a new Brief under a different name.");
   return lines.join("\n");
 }
 
-function endBriefNoCandidateFits(rec, excluded) {
+function endBriefNoCandidateFits(rec, st, excluded) {
+  const report = noCandidateFitsReport(excluded, relFromRepo(needBrief(rec, st)));
   rec.brief_no_fit = excluded;
   rec.awaiting = null;
   rec.done = true;
   checkpointRun(rec);
   clearOpenRunPointer();
-  fail(noCandidateFitsReport(excluded));
+  fail(report);
 }
 
 // The owner's answer at the Candidate gate, read from the run record the

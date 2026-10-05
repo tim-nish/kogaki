@@ -1247,20 +1247,22 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (Object.keys(candidateSelectionExtra([])).length) fails.push("(ak) with no Candidate excluded, something still renders above the question");
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
   const sel = table.states.find((x) => x.id === "CANDIDATE_SELECTION");
-  if (sel.renders_above_question !== "excluded_candidates") fails.push(`(ak) CANDIDATE_SELECTION does not declare excluded_candidates above its question: ${JSON.stringify(sel.renders_above_question)}`);
+  const filled = Object.keys(candidateSelectionExtra(excluded));
+  if (JSON.stringify(filled) !== JSON.stringify([sel.renders_above_question])) fails.push(`(ak) CANDIDATE_SELECTION's renders_above_question (${JSON.stringify(sel.renders_above_question)}) is not the key its option composer fills (${JSON.stringify(filled)})`);
   if (!/"excluded_candidates"/.test(readFileSync("src/terrain.mjs", "utf8").match(/const GATE_CALL_READING_KEYS = .*/)[0])) fails.push("(ak) excluded_candidates is not a gate-call reading key");
 
   const all = { records: [recordOf(cands[0], "contradicts", WHY), recordOf(cands[1], "cannot-determine", "the Move's technique cannot be read against these claims."), recordOf(cands[2], "contradicts", WHY)] };
   const none = specializationSelection(all, cands);
   if (none.fit.length) fails.push(`(al) every Candidate failed and ${none.fit.length} were still offered`);
-  const report = noCandidateFitsReport(none.excluded);
+  const report = noCandidateFitsReport(none.excluded, "theses/fixture/brief.md");
+  if (!report.includes("theses/fixture/brief.md") || !/under a different name/.test(report)) fails.push(`(al) the report does not name the minted Brief and the different-name route: ${report}`);
   for (const c of cands) if (!report.includes(`"path ${c.candidate_id}"`)) fails.push(`(al) the report does not name candidate ${c.candidate_id}`);
   if (!report.includes(`Leg s2 (m_turn): contradicts — ${WHY}`) || !report.includes("cannot-determine — the Move's technique cannot be read")) fails.push(`(al) the report does not name each failing Leg with the judge's sentence: ${report}`);
   const brief = readFileSync("src/brief.mjs", "utf8");
   const ender = brief.slice(brief.indexOf("function endBriefNoCandidateFits"), brief.indexOf("// The owner's answer at the Candidate gate"));
   if (/emitGateDeclaration/.test(ender) || !/rec\.done = true/.test(ender) || !/clearOpenRunPointer\(\)/.test(ender)) fails.push("(al) ending with every Candidate failed raises a question or leaves the run open");
   const judgeState = brief.slice(brief.indexOf("  judge_specialization: async"), brief.indexOf("  attach_review:"));
-  if (!/if \(fit\.length === 0\) endBriefNoCandidateFits\(rec, excluded\)/.test(judgeState)) fails.push("(al) judge_specialization does not end the Brief when no Candidate fits");
+  if (!/if \(fit\.length === 0\) endBriefNoCandidateFits\(rec, st, excluded\)/.test(judgeState)) fails.push("(al) judge_specialization does not end the Brief when no Candidate fits");
 }
 
 if (fails.length > 0) {

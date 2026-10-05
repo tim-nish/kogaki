@@ -65,7 +65,8 @@
     "reader from one state to another. `Leg = Input + State` -- the Input is",
     "the material it stands on (its Strands), and the State is the Move it",
     "binds, which is what names the kind of reader-state transition it makes.",
-    "A Leg with no Move has no defined transition type and is not a Leg.",
+    "A Leg that no Move in the library fits says so in `no_move_fits` instead",
+    "of naming the nearest Move, and its Candidate is refused with that sentence.",
     "",
     "The Leg's shape is the field table below. A Leg carries exactly one of `move` and `no_move_fits`: a Leg no Move fits says so, and its Candidate is refused with that sentence rather than adopted (kogaki#1276)."
   ],
