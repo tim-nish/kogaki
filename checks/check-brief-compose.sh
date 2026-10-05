@@ -84,6 +84,20 @@
 #       per line, heading, prose, `Source:` trailer — keeping only the lines
 #       whose cite names that slug and kind, and returns null where none do:
 #       `element_survey` serves manifests only, never prose.
+#   (x) `re-activate` admits the third form `<leg_id> journey <strand id>`
+#       (kogaki#1263, kogaki#1260): a line naming a Strand the depended-on Leg
+#       lists in its `journeys` passes compose; one naming a Strand it does
+#       not refuses naming the entry.
+#   (y) a Brief carrying more than one `introduces_item` naming `nearest`
+#       across the whole path is refused naming both terms and both
+#       `nearest` values (kogaki#1251 item 2, kogaki#1260); one is not.
+#   (z) a conceded Closure row lacking any of `open`, `why_not_here` or
+#       `reader_keeps` is refused naming the row and the missing field
+#       (kogaki#1251 item 3, kogaki#1260).
+#  (aa) a Brief whose reaching Leg's `names` lists a term no Leg of the path
+#       introduces is refused naming the term (kogaki#1251 item 4,
+#       kogaki#1260); a `names` list that is a subset of the union of every
+#       Leg's `introduces` is not.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
@@ -372,8 +386,8 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   else {
     const legs = ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id }));
     const twoConceded = [
-      { text: "a question set aside early", introduced_by: "leg1", conceded_by: "leg1" },
-      { text: "a question set aside late", introduced_by: "leg2", conceded_by: "leg3" },
+      { text: "a question set aside early", introduced_by: "leg1", conceded_by: "leg1", open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" },
+      { text: "a question set aside late", introduced_by: "leg2", conceded_by: "leg3", open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" },
     ];
     const rTwo = closureLedgerRefusal(legs, twoConceded);
     if (!rTwo) fails.push("(l) two conceded_by rows in one path were not refused");
@@ -387,7 +401,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
     if (rOne) fails.push(`(l) exactly one conceded_by row was refused: ${rOne}`);
 
     // A row whose introduced_by and conceded_by name the SAME Leg is the ordinary case.
-    const sameLeg = [{ text: "set aside where raised", introduced_by: "leg2", conceded_by: "leg2" }];
+    const sameLeg = [{ text: "set aside where raised", introduced_by: "leg2", conceded_by: "leg2", open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" }];
     const rSame = closureLedgerRefusal(legs, sameLeg);
     if (rSame) fails.push(`(l) a row conceded in the Leg that raised it was refused: ${rSame}`);
   }
@@ -425,7 +439,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   // counted against another row genuinely open there.
   const settledInPlace = [
     { text: "row A", introduced_by: "leg2", discharged_by: "leg4" },
-    { text: "row B", introduced_by: "leg2", conceded_by: "leg2" },
+    { text: "row B", introduced_by: "leg2", conceded_by: "leg2", open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" },
   ];
   const rSettled = closureLedgerRefusal(legs, settledInPlace);
   if (rSettled) fails.push(`(m) a row conceded in its own raising Leg was counted as open there: ${rSettled}`);
@@ -745,10 +759,104 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   }
 }
 
+// THE FOUR kogaki#1260 FIXTURES share one minimal path: s1 opens the Section and
+// introduces two terms, s2 reaches the Reader target, s3 closes. Each fixture
+// varies one field and asserts on the ground named, never on a bare pass.
+const PATH_1260 = (s1extra = {}, s2extra = {}) => {
+  const legOf = (leg_id, extra = {}) => ({
+    leg_id, move: "open_the_claim", materials: ["L1", "L2"], purpose: `purpose of ${leg_id}`,
+    reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
+    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    ...extra,
+  });
+  const legs = [legOf("s1", { opens_section: "A Section", introduces: ["unfed guard — a guard whose input nobody feeds", "pipeline"], ...s1extra }),
+    legOf("s2", { depends_on: ["s1"], reaches_target: true, ...s2extra }),
+    legOf("s3", { depends_on: ["s2"] })];
+  legs[2].reader_state_after = legs[1].reader_state_after;
+  return legs;
+};
+
+// (x) re-activate's third form, `<leg_id> journey <strand id>` (kogaki#1263, kogaki#1260).
+{
+  const withJourney = { journeys: [{ strand: "L2", use: "illustrate" }] };
+  const good = validateLegs(PATH_1260(withJourney, { "re-activate": ["s1 journey L2"] }), "");
+  if (good.error) fails.push(`(x) \`re-activate: s1 journey L2\` over a Leg that names L2 in its journeys was refused: ${good.error}`);
+  const noJourney = validateLegs(PATH_1260(withJourney, { "re-activate": ["s1 journey L9"] }), "");
+  if (!noJourney.error || !/carries no journey for strand "L9"/.test(noJourney.error) || !/"s1 journey L9"/.test(noJourney.error)) fails.push(`(x) a re-activate naming a Strand the Leg carries no journey for was not refused naming the entry: ${noJourney.error}`);
+  const noneAtAll = validateLegs(PATH_1260({}, { "re-activate": ["s1 journey L2"] }), "");
+  if (!noneAtAll.error || !/carries no journey for strand "L2"/.test(noneAtAll.error)) fails.push(`(x) a re-activate naming a journey on a Leg with no journeys was not refused: ${noneAtAll.error}`);
+}
+
+// (y) at most one introduces_item names `nearest` across the whole path (kogaki#1251 item 2, kogaki#1260).
+{
+  const { introducesNearestRefusal } = compose;
+  if (typeof introducesNearestRefusal !== "function") fails.push("(y) src/compose.mjs exports no introducesNearestRefusal");
+  const coined = (term, nearest) => ({ term, kind: "coined", nearest, differs: `how ${term} differs from ${nearest}` });
+  const two = validateLegs(PATH_1260({ introduces: [coined("unfed guard", "dead code"), "pipeline"] }, { introduces: [coined("silent pass", "false negative")] }), "");
+  if (!two.error) fails.push("(y) a Brief carrying two nearest entries was not refused");
+  else {
+    if (!/2 introduces items naming `nearest`/.test(two.error)) fails.push(`(y) the refusal did not name the rule: ${two.error}`);
+    if (!/"unfed guard"/.test(two.error) || !/"silent pass"/.test(two.error)) fails.push(`(y) the refusal did not name both terms: ${two.error}`);
+    if (!/"dead code"/.test(two.error) || !/"false negative"/.test(two.error)) fails.push(`(y) the refusal did not name both nearest values: ${two.error}`);
+  }
+  const one = validateLegs(PATH_1260({ introduces: [coined("unfed guard", "dead code"), "pipeline"] }), "");
+  if (one.error && /naming `nearest`/.test(one.error)) fails.push(`(y) a Brief carrying exactly one nearest entry was refused on the nearest ground: ${one.error}`);
+  // an introduces_item's own shape: kind is closed, established needs source, differs needs nearest.
+  const badKind = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "borrowed" }] }), "");
+  if (!badKind.error || !/kind is closed to coined, established/.test(badKind.error)) fails.push(`(y) an introduces_item with an unknown kind was not refused: ${badKind.error}`);
+  const noSource = validateLegs(PATH_1260({ introduces: [{ term: "pipeline", kind: "established" }] }), "");
+  if (!noSource.error || !/"established" with no source/.test(noSource.error)) fails.push(`(y) an established introduces_item with no source was not refused: ${noSource.error}`);
+  const differsAlone = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined", differs: "from nothing" }] }), "");
+  if (!differsAlone.error || !/differs with no nearest/.test(differsAlone.error)) fails.push(`(y) an introduces_item carrying differs with no nearest was not refused: ${differsAlone.error}`);
+}
+
+// (z) a conceded Closure row carries open, why_not_here and reader_keeps (kogaki#1251 item 3, kogaki#1260).
+{
+  const { closureLedgerRefusal } = compose;
+  const legs = ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id }));
+  const full = { text: "a question set aside", introduced_by: "leg2", conceded_by: "leg2", open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" };
+  const rFull = closureLedgerRefusal(legs, [full]);
+  if (rFull) fails.push(`(z) a conceded row carrying all three fields was refused: ${rFull}`);
+  const { reader_keeps, ...noKeeps } = full;
+  const rKeeps = closureLedgerRefusal(legs, [noKeeps]);
+  if (!rKeeps) fails.push("(z) a conceded row missing reader_keeps was not refused");
+  else {
+    if (!/"a question set aside"/.test(rKeeps)) fails.push(`(z) the refusal did not name the row: ${rKeeps}`);
+    if (!/carries no reader_keeps/.test(rKeeps)) fails.push(`(z) the refusal did not name the missing field: ${rKeeps}`);
+    if (/carries no open/.test(rKeeps)) fails.push(`(z) the refusal named a field the row carries: ${rKeeps}`);
+  }
+  const rEmpty = closureLedgerRefusal(legs, [{ ...full, open: "" }]);
+  if (!rEmpty || !/carries no open/.test(rEmpty)) fails.push(`(z) a conceded row with an empty open was not refused naming open: ${rEmpty}`);
+  const rDischarged = closureLedgerRefusal(legs, [{ text: "a question closed", introduced_by: "leg1", discharged_by: "leg2" }]);
+  if (rDischarged) fails.push(`(z) a discharged row without the conceded-only fields was refused: ${rDischarged}`);
+  // ...and validateLegs refuses at the same ground over a full path.
+  const rPath = validateLegs(PATH_1260(), "", [noKeeps]);
+  if (!rPath.error || !/carries no reader_keeps/.test(rPath.error)) fails.push(`(z) validateLegs did not refuse a full path over a conceded row missing reader_keeps: ${rPath.error}`);
+}
+
+// (aa) the reaching Leg's `names` is a subset of the union of every Leg's introduces (kogaki#1251 item 4, kogaki#1260).
+{
+  const { readerTargetNamesRefusal } = compose;
+  if (typeof readerTargetNamesRefusal !== "function") fails.push("(aa) src/compose.mjs exports no readerTargetNamesRefusal");
+  const stray = validateLegs(PATH_1260({}, { names: ["unfed guard", "default-deny"] }), "");
+  if (!stray.error) fails.push("(aa) a reaching Leg naming a term no Leg introduces was not refused");
+  else {
+    if (!/"default-deny"/.test(stray.error)) fails.push(`(aa) the refusal did not name the term: ${stray.error}`);
+    if (!/leg 2 \(s2\)/.test(stray.error)) fails.push(`(aa) the refusal did not name the reaching Leg: ${stray.error}`);
+    if (!/no Leg of this path introduces it/.test(stray.error)) fails.push(`(aa) the refusal did not name the rule: ${stray.error}`);
+  }
+  // the union reaches across Legs: a term introduced by the reaching Leg itself, and one by an earlier Leg.
+  const subset = validateLegs(PATH_1260({}, { introduces: [{ term: "silent pass", kind: "coined" }], names: ["unfed guard", "pipeline", "silent pass"] }), "");
+  if (subset.error && /no Leg of this path introduces it/.test(subset.error)) fails.push(`(aa) a names list inside the union of every Leg's introduces was refused on the names ground: ${subset.error}`);
+  const absent = validateLegs(PATH_1260(), "");
+  if (absent.error && /no Leg of this path introduces it/.test(absent.error)) fails.push(`(aa) a reaching Leg with no names list was refused on the names ground: ${absent.error}`);
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json.");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term.");
 JS
