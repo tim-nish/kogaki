@@ -75,7 +75,7 @@
 //   the rendering rule
 //       SPEC-terrain
 //
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 // `NO_HEADLINE` IS NO LONGER IMPORTED AS A VALUE (PR #1107 round 1, nit). With
 // the dead `|| NO_RENDERING` disjunct removed, `glossFor` is the only thing
 // that names a marker here — which is the point of delegating the choice to it.
@@ -93,16 +93,15 @@ import {
 } from "./terrain.mjs";
 // ---- THE DETACHED-JOB PRIMITIVES (kogaki#1193), imported rather than
 // reimplemented for the same reason as the block above: the record shape, the
-// checkpoint/ceiling constants and the classification of a unit and of the
+// ceiling constants and the classification of a unit and of the
 // job as a whole are `src/terrain.mjs`'s own, so `compose_path`'s job-aware
 // STATE_WORK and the `job status`/`job await` verbs below read one copy of
 // each.
 import {
   detachedJobExecutor, DetachedJobStarted, READER_PATH_JOB_GATE_ID,
-  READER_PATH_JOB_CHECKPOINT_S, READER_PATH_JOB_ABSOLUTE_LIMIT_S,
+  READER_PATH_JOB_ABSOLUTE_LIMIT_S,
   READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS,
   readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
-  readerPathJobExtendFlagPath, readReaderPathJobExtendFlag,
   readerPathAwaitStep,
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
   judgeSettings, judgePrompt, startDetachedJobSupervisor,
@@ -1603,9 +1602,8 @@ const STATE_WORK = {
       }
     }
 
-    // ALREADY OPEN (kogaki#1193). The owner's "extend" answer left the loop
-    // free to re-enter this state before a fresh `job await` resumed it; the
-    // job "extend" left running is polled again, never restarted.
+    // ALREADY OPEN (kogaki#1193). A job already started is polled again by
+    // `job await`, never restarted.
     if (readReaderPathJob(dir)) {
       throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
         `the reader-path job at ${readerPathJobPath(dir)} is already open -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
@@ -1685,7 +1683,6 @@ const STATE_WORK = {
       command: cfg.command,
       model: cfg.model,
       outputFormat: cfg.outputFormat,
-      checkpointS: READER_PATH_JOB_CHECKPOINT_S,
       absoluteLimitS: READER_PATH_JOB_ABSOLUTE_LIMIT_S,
       stallS: READER_PATH_JOB_STALL_S,
       heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
@@ -2048,7 +2045,7 @@ function printReaderPathJobStatus(dir, job) {
   for (const u of job.units || []) {
     // kogaki#1197: a dead unit's own `is_error` result text says why it died.
     const why = u.failure && typeof u.failure.result === "string" ? ` — ${u.failure.result}` : "";
-    console.log(`  unit ${u.id}: ${u.status}${u.checkpoint_hit ? " (checkpoint hit)" : ""} — ${u.bytes || 0} byte(s) so far${why}`);
+    console.log(`  unit ${u.id}: ${u.status} — ${u.bytes || 0} byte(s) so far${why}`);
   }
   const rec = readRunRecord(dir);
   const owed = rec && Array.isArray(rec.gate_declarations_owed)
@@ -2084,13 +2081,22 @@ function printReaderPathJobStatus(dir, job) {
 // `await` is a plain Bash tool call the session is waiting on, and spawning a
 // subprocess to sleep would be one more thing `gate-terrain-executor.py` has
 // an opinion about. Stops the moment the job's own classification leaves
-// "running", never before and never later.
+// "running", or once `READER_PATH_JOB_AWAIT_S` of its own waiting has passed.
 function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
+// THE AWAIT'S OWN BOUND (kogaki#1271, the owner's 30-second poll, 2026-10-05).
+// A job can run to its 600s absolute limit, which is longer than one Bash tool
+// call may last, so `job await` returns after at most this long with
+// `READER_PATH_JOB_STILL_RUNNING_LINE`, raises no question and exits 0; the
+// Brief skill reads that line as "run `job await` again".
+export const READER_PATH_JOB_AWAIT_S = 30;
+export const READER_PATH_JOB_STILL_RUNNING_LINE = "reader-path job still running — call job await again";
+
 async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
   let job = initialJob;
+  const awaitStartedAt = Date.now();
   for (;;) {
     const startedAt = Date.parse(job.started_at || job.updated_at || new Date().toISOString());
     const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
@@ -2098,24 +2104,16 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
     const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
     // THE PER-POLL DECISION IS `src/terrain.mjs`'s OWN PURE FUNCTION
-    // (kogaki#1213): it applies the extend override against THIS poll's
-    // freshly-measured elapsed time (remedy 1, rather than trusting the
-    // record's own `checkpoint_hit` flag, which the supervisor refreshes at
-    // most once per heartbeat tick) and refuses to classify `limit-reached`
-    // from a record older than the newest extend write (remedy 2).
-    const extendPath = readerPathJobExtendFlagPath(dir);
-    const extendMtimeMs = existsSync(extendPath) ? statSync(extendPath).mtimeMs : null;
-    const step = readerPathAwaitStep(job, readReaderPathJobExtendFlag(dir), extendMtimeMs, { stopRequested, elapsedS, stalledS });
-    if (!step.classify) {
-      console.log("reader-path job record predates the newest extend write — waiting for the next heartbeat before classifying.");
-      sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
-      job = readReaderPathJob(dir) || job;
-      continue;
-    }
-    const { units, state } = step;
+    // (kogaki#1213), over THIS poll's freshly-measured elapsed time.
+    const { units, state } = readerPathAwaitStep(job, { stopRequested, elapsedS, stalledS });
     if (state !== "running") { await finishReaderPathJobAwait(dir, { ...job, units }, state, table, tablePath, args); return; }
+    const remainingMs = READER_PATH_JOB_AWAIT_S * 1000 - (Date.now() - awaitStartedAt);
+    if (remainingMs <= 0) {
+      console.log(`${READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`);
+      return;
+    }
     console.log(`reader-path job still running at ${elapsedS}s — waiting for the next heartbeat.`);
-    sleepSync(READER_PATH_JOB_HEARTBEAT_MS);
+    sleepSync(Math.min(READER_PATH_JOB_HEARTBEAT_MS, remainingMs));
     job = readReaderPathJob(dir) || job;
   }
 }
@@ -2181,10 +2179,8 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   if (!rec) fail(`no run record at ${dir} — the job it names has nothing to resume.`);
   rec._dir = dir;
   const failureState = rec.awaiting;
-  // THE REFUSED UNIT'S OWN ARM (kogaki#1204 acceptance 3), composed before the
-  // extend/stop logic below rather than folded into it: a refused unit never
-  // offers `extend` (there is no checkpoint left to raise), and its own
-  // reading names the unit and its refusal rather than the bare state token,
+  // THE REFUSED UNIT'S OWN ARM (kogaki#1204 acceptance 3), composed apart from
+  // the stop-only Arm below: its own reading names the unit and its refusal rather than the bare state token,
   // so the owner sees WHICH unit failed and why without spec-internal
   // vocabulary (`findInternalVocabulary`, checked at raising by
   // `checks/check-brief-reader-path-job.sh` section (e)).
@@ -2206,46 +2202,11 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
     printReaderPathJobGateCallBytes(dir, READER_PATH_JOB_GATE_ID, declPath);
     return;
   }
-  // "EXTEND IS GRANTED ONCE PER UNIT ... the same unit reaching the limit
-  // again renders stop only" (kogaki#1193 thread, 2026-09-25). The terrain
-  // executor's own `extend`-answer branch records, per state, which units'
-  // checkpoint hit it already granted an extension for; a raising here offers
-  // `extend` only when at least one checkpoint-hit unit is NOT already in
-  // that set — a unit that already spent its one extension and hit the
-  // checkpoint again offers `stop` alone, on the same "no state auto-retries"
-  // ground the rest of this gate stands on.
-  const alreadyExtended = new Set(
-    (rec.reader_path_job_extended && rec.reader_path_job_extended[failureState]) || [],
-  );
-  const checkpointHitUnits = (job.units || []).filter((u) => u.checkpoint_hit).map((u) => u.id);
-  const offerExtend = state === "limit-reached"
-    && checkpointHitUnits.some((id) => !alreadyExtended.has(id));
-  const options = offerExtend
-    ? [{ id: "extend", label: "Extend (Recommended)" }, { id: "stop", label: "Stop" }]
-    : [{ id: "stop", label: "Stop" }];
-  // THE STOP-ONLY QUESTION SAYS WHAT IS TRUE (kogaki#1213 remedy 3): the
-  // registered question reads "did not finish", which is false of a call that
-  // is still running with a checkpoint hit — the wording the owner read as a
-  // real completion problem while the call ran on and finished on its own 20
-  // seconds later. Composed only for the one case that phrasing misdescribes;
-  // every other state keeps the registered text.
-  const stopOnlyQuestion = (state === "limit-reached" && !offerExtend)
-    ? `A reader-path call is still running and has already used its one extension. Stopping now ends the job early and discards every candidate finished or still in progress — the alternative is to let it keep running.`
-    : undefined;
-  // THE UNITS THE `extend` OPTION IS OFFERED FOR, NAMED ON THE DECLARATION
-  // ITSELF (kogaki#1241). An `extend` click is read by the executor at
-  // whatever moment the owner answers, which can be after every unit in
-  // `checkpointHitUnits` has already finished — re-reading the live job
-  // record at that point finds no `checkpoint_hit` unit left and records the
-  // grant against `[]`. Carrying the raising's own set on the declaration is
-  // what lets the `extend` branch in `src/terrain.mjs` record THESE ids
-  // regardless of what the job record reads by the time the click lands.
+  // EVERY OTHER STATE ENDED THE JOB, so its Arm is stop alone; no state here
+  // ever auto-retries.
+  const options = [{ id: "stop", label: "Stop" }];
   const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
-    {
-      reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))),
-      ...(stopOnlyQuestion ? { question: stopOnlyQuestion } : {}),
-      ...(offerExtend ? { reader_path_job_checkpoint_hit_units: checkpointHitUnits } : {}),
-    });
+    { reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))) });
   rec.gate_declarations_owed = rec.gate_declarations_owed || [];
   rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
   checkpointRun(rec);
