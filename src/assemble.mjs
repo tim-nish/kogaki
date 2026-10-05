@@ -15,7 +15,7 @@
 //   assemble — takes the REVIEWED Candidates (src/review.mjs attach
 //     output: each Candidate already carrying its per-Candidate reasoning,
 //     which is what makes an unreviewed Candidate unpresentable) plus the
-//     Brief, requires 2-3 Candidates DIFFERING IN READER EXPERIENCE, and
+//     Brief, requires 1-3 Candidates DIFFERING IN READER EXPERIENCE, and
 //     emits the selection payload: each option carrying as its gate
 //     EVIDENCE the composition-time reasoning — leg validity, transition
 //     continuity, Thesis closure, the obligations ledger's state, and the
@@ -817,11 +817,12 @@ export function assembleSelection(reviewed, doc, differentiation) {
       + `${rows.join("; ") || "no row detail carried"}. The Thesis or the selected set is what should `
       + `change; no Candidate is offered.` };
   }
-  // 2-3 CANDIDATES PER ARTICLE (the Candidate gate): the count is the contract, refused
-  // naming what arrived — one Candidate is a default in disguise, four is
-  // the selector affordance overrun.
-  if (cands.length < 2 || cands.length > 3) {
-    return { error: `${cands.length} Candidate(s) — the Candidate gate presents two to three per article, differing in reader experience; a single Candidate is a default in disguise and four overruns the selector` };
+  // 1-3 CANDIDATES PER ARTICLE (the Candidate gate): the count is the contract, refused
+  // naming what arrived — four is the selector affordance overrun. One is
+  // enough (kogaki#1273, the owner's 2026-10-05 ruling: "Show the Candidate
+  // question even when there is only one successful candidate").
+  if (cands.length < 1 || cands.length > 3) {
+    return { error: `${cands.length} Candidate(s) — the Candidate gate presents one to three per article, differing in reader experience; four overruns the selector` };
   }
   const seenExp = new Map();
   // THE CHARACTERISTIC'S OWN DEDUP MAP (kogaki#1126). Separate from the
