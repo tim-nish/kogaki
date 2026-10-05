@@ -7551,7 +7551,7 @@ export class JudgmentExhausted extends Error {
 // importing `validateLegs` or anything else Brief-specific. A unit that fails
 // the declared validator classifies `refused`, with the validator's own
 // refusal text, which is what lets the existing one-re-ask (kogaki#1203) and
-// re-run-after-two-attempts (kogaki#1204) machinery fire on a Leg-shape
+// refused-twice-is-final (kogaki#1273) machinery fire on a Leg-shape
 // problem exactly as it already does on a structural one — `compose_path`'s
 // own `validate()` keeps only the rules that need every unit in hand at once
 // (count, duplicate ids, duplicate characteristic, duplicate reader
@@ -7821,46 +7821,117 @@ export function classifyDetachedJobUnit(out, validate) {
   return { status: "done", candidate: r.candidate };
 }
 
+// THE THREE SYSTEM-FAILURE STATES (kogaki#1273). A candidate REFUSAL is the
+// unit's own answer failing its checks; these three are the job itself going
+// wrong -- a unit that exited non-zero or never spawned (`died`), no output
+// growth for the stall bound (`stalled`), and the supervisor's own catch-all
+// (`other`). The owner's 2026-10-05 ruling: a system failure is a defect in
+// /brief, never retried and never raised as a question, and it ends the Brief.
+export const READER_PATH_JOB_SYSTEM_FAILURE_STATES = ["died", "stalled", "other"];
+
+// THE REDUCTION OVER A FINISHED SET (kogaki#1273). One finished Candidate is
+// enough: the job is `done` when at least one unit is `done`, whatever its
+// siblings ended as, and `refused` only when every unit was refused. `ceiling`
+// is a unit the absolute limit killed while it was still running -- a time
+// bound rather than a defect -- so a set holding no `done` unit and at least
+// one `ceiling` unit ends `ceiling`, the Stop-only arm.
+function reduceFinishedReaderPathUnits(units) {
+  if (units.some((u) => u.status === "done")) return "done";
+  if (units.some((u) => u.status === "ceiling")) return "ceiling";
+  if (units.some((u) => u.status === "refused")) return "refused";
+  return "done";
+}
+
 // THE OVERALL JOB STATE, REDUCED FROM ITS UNITS (kogaki#1193, revised
-// kogaki#1204). A unit `died` or `refused` no longer ends the job while a
-// sibling is still running — killing a running sibling on one unit's own
-// refusal is exactly the loss #1204 was filed over, two Candidates written to
-// disk and discarded because a third unit's record did not parse. The
-// supervisor keeps polling until every unit is finished or a whole-job bound
-// is passed; ONLY THEN is the job's terminal state reduced
-// over the finished set, and `died` still dominates `refused` still dominates
-// `done` in that reduction — the owner is never shown a partial set as
-// complete. `stop_requested` and the two time bounds are read AHEAD of every
-// per-unit status, because they are facts about the WHOLE job rather than
-// about any one unit, and they apply whether or not a unit has already died
-// or been refused.
+// kogaki#1204 and kogaki#1273). A REFUSED unit does not end the job while a
+// sibling is still running -- killing a running sibling on one unit's own
+// refusal is exactly the loss #1204 was filed over. A DIED unit does, at once
+// (kogaki#1273): it is a system failure, so it is answered on the tick it is
+// seen rather than after its siblings finish, which is the #1204 rule this
+// replaces. `stop_requested` is read first, because the owner's stop click is
+// answered whatever a unit is doing; the two time bounds are read only while a
+// unit is still running.
 export function classifyDetachedJobState(units, {
   stopRequested, elapsedS, stalledS,
   absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S,
   stallS = READER_PATH_JOB_STALL_S,
 } = {}) {
   if (stopRequested) return "stopped";
+  if (units.some((u) => u.status === "died")) return "died";
   const running = units.filter((u) => u.status === "running");
-  if (running.length === 0) {
-    const died = units.find((u) => u.status === "died");
-    if (died) return "died";
-    const refused = units.find((u) => u.status === "refused");
-    if (refused) return "refused";
-    return "done";
-  }
+  if (running.length === 0) return reduceFinishedReaderPathUnits(units);
   if (elapsedS >= absoluteLimitS) return "ceiling";
   if (stalledS >= stallS) return "stalled";
   return "running";
 }
 
+// THE ABSOLUTE LIMIT KEEPS FINISHED CANDIDATES (kogaki#1273). Every unit still
+// running when the job reaches `READER_PATH_JOB_ABSOLUTE_LIMIT_S` ends
+// `ceiling`, and the job is then reduced over the whole set like any other
+// finished one: `done` when a unit finished, so the Candidate question is
+// shown with what finished, and `ceiling` only when none did. The supervisor
+// applies this when it kills those units, and `job await` applies the same
+// function to a record its own clock reads past the limit before the
+// supervisor's next tick has written it, so the two cannot disagree.
+export function readerPathJobAtLimit(units) {
+  const atLimit = units.map((u) => (u.status === "running"
+    ? { id: u.id, status: "ceiling", bytes: u.bytes || 0, note: "still running at the absolute limit; killed" }
+    : u));
+  return { units: atLimit, state: reduceFinishedReaderPathUnits(atLimit) };
+}
+
+// THE ONE RETRY, AND ONLY WHEN IT FITS (kogaki#1273, the owner's 2026-10-05
+// ruling). A refused first attempt is retried once, and only if the job's
+// elapsed time plus that attempt's own duration stays within the absolute
+// limit: a retry that cannot finish before the limit is never started, which
+// is the run of 2026-10-05 whose retries began with 140-200s left and ended as
+// a timeout instead of the refusal that caused it. A refused retry is final --
+// there is never a third attempt. Seconds may be fractional.
+export function readerPathRetryDecision({ attempt, elapsedS, attemptS, absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S }) {
+  if (attempt >= READER_PATH_UNIT_MAX_ATTEMPTS) return { retry: false };
+  if (elapsedS + attemptS > absoluteLimitS) {
+    return {
+      retry: false,
+      retry_skipped: {
+        reason: "would pass the absolute limit",
+        elapsed_s: elapsedS, attempt_s: attemptS, absolute_limit_s: absoluteLimitS,
+      },
+    };
+  }
+  return { retry: true };
+}
+
 // THE READER-PATH AWAIT'S OWN PER-POLL DECISION (kogaki#1213), pulled out of
 // `awaitReaderPathJob` in `src/brief.mjs` as a pure function so a fixture can
 // drive it without a live, 10-second heartbeat wait: the job record's units
-// classified against the CURRENT elapsed time.
+// classified against the CURRENT elapsed time. THE LIMIT, READ BY THIS POLL'S
+// OWN CLOCK (kogaki#1273): the running units end `ceiling` and the finished
+// ones are kept, exactly as the supervisor reduces it -- never a Stop-only arm
+// over a set that has a finished Candidate in it.
 export function readerPathAwaitStep(job, { stopRequested, elapsedS, stalledS } = {}) {
-  const units = job.units || [];
-  const state = classifyDetachedJobState(units, { stopRequested, elapsedS, stalledS });
-  return { units, state };
+  const raw = job.units || [];
+  const classified = classifyDetachedJobState(raw, { stopRequested, elapsedS, stalledS });
+  return classified === "ceiling" ? readerPathJobAtLimit(raw) : { units: raw, state: classified };
+}
+
+function readerPathRefusedUnits(unitRows) {
+  return unitRows.filter((x) => x.status === "refused").map((x) => ({
+    id: x.id, attempts: x.attempts || 1,
+    ...(x.failure && x.failure.file ? { file: x.failure.file } : {}),
+    ...(x.retry_skipped ? { retry_skipped: x.retry_skipped } : {}),
+  }));
+}
+
+// THE UNITS A `done` JOB DID NOT FINISH, NAMED ON ITS RECORD (kogaki#1273). A
+// `done` job carries no `failure` block, so the refused and `ceiling` units
+// beside its finished Candidates ride as their own top-level fields.
+export function readerPathDoneJobUnfinished(unitRows) {
+  const refused_units = readerPathRefusedUnits(unitRows);
+  const ceiling_units = unitRows.filter((x) => x.status === "ceiling").map((x) => x.id);
+  return {
+    ...(refused_units.length ? { refused_units } : {}),
+    ...(ceiling_units.length ? { ceiling_units } : {}),
+  };
 }
 
 // THE `failure` BLOCK FOR A NON-`done` JOB RECORD (kogaki#1193 acceptance 2:
@@ -7881,10 +7952,21 @@ function readerPathJobFailure(state, unitRows, { elapsedS, stalledS, note } = {}
     const kept_candidates = unitRows
       .filter((x) => x.status === "done" && x.candidate_file)
       .map((x) => ({ id: x.id, file: x.candidate_file }));
-    return { unit: u ? u.id : null, ...(u && u.failure ? u.failure : {}), kept_candidates };
+    // THE SIBLINGS A DIED UNIT ENDED (kogaki#1273): a system failure kills
+    // every unit still running on the same tick, and the record names them.
+    const killed_units = unitRows.filter((x) => x.status === "killed").map((x) => x.id);
+    // EVERY REFUSED UNIT, NOT ONLY THE FIRST (kogaki#1273): a job ends
+    // `refused` only when all of its units were refused.
+    const refused_units = state === "refused" ? readerPathRefusedUnits(unitRows) : undefined;
+    return {
+      unit: u ? u.id : null, ...(u && u.failure ? u.failure : {}), kept_candidates,
+      ...(killed_units.length ? { killed_units } : {}),
+      ...(refused_units ? { refused_units } : {}),
+    };
   }
   if (state === "ceiling") {
-    return { elapsed_s: elapsedS, note: "the absolute limit was reached before every unit finished; nothing written so far is deleted." };
+    return { elapsed_s: elapsedS, ceiling_units: unitRows.filter((x) => x.status === "ceiling").map((x) => x.id),
+      note: "the absolute limit was reached before any unit finished; nothing written so far is deleted." };
   }
   if (state === "stalled") {
     return { stalled_s: stalledS, note: "no unit produced new output for the stall bound; nothing written so far is deleted." };
@@ -7953,6 +8035,12 @@ export async function cmdJobSupervise(args) {
     // attempt's own classification carries the second verbatim.
     const unitAttempts = new Map(units.map((u) => [u.id, 1]));
     const unitFirstRefusal = new Map();
+    // WHEN EACH UNIT'S CURRENT ATTEMPT STARTED (kogaki#1273): a refused
+    // attempt's own duration is what `readerPathRetryDecision` adds to the
+    // job's elapsed time to decide whether a retry could finish in time.
+    const unitAttemptStartedAt = new Map(units.map((u) => [u.id, startedAt]));
+    // A REFUSED UNIT'S SKIPPED RETRY, KEPT so every later tick's row carries it.
+    const unitRetrySkipped = new Map();
     // WRITTEN ONCE PER UNIT (kogaki#1204): a `done` unit's row is recomputed
     // from the same finished `out` on every later tick until the whole job
     // reaches a terminal state, and this set is what keeps that from
@@ -7985,12 +8073,21 @@ export async function cmdJobSupervise(args) {
         if (sp.out.done) {
           const cls = classifyDetachedJobUnit(sp.out, validate);
           const attempt = unitAttempts.get(u.id) || 1;
-          // THE ONE RE-ASK (kogaki#1203 acceptance 3): a STRUCTURAL refusal on
-          // attempt 1 respawns the unit with the refusal appended, verbatim,
-          // rather than ending the job -- `died` (a non-zero exit) is never
-          // retried, on the same ground the synchronous judge never retried a
-          // spawn failure.
-          if (cls.status === "refused" && attempt < READER_PATH_UNIT_MAX_ATTEMPTS) {
+          // THE ONE RE-ASK (kogaki#1203 acceptance 3, bounded by kogaki#1273):
+          // a STRUCTURAL refusal on attempt 1 respawns the unit with the
+          // refusal appended, verbatim -- but only when the retry fits inside
+          // the absolute limit (`readerPathRetryDecision`). `died` (a non-zero
+          // exit) is never retried: it is a system failure.
+          const decision = cls.status === "refused" && !unitRetrySkipped.has(u.id)
+            ? readerPathRetryDecision({
+              attempt,
+              elapsedS: Math.round((Date.now() - startedAt) / 100) / 10,
+              attemptS: Math.round(((Date.parse(sp.out.endedAt) || Date.now()) - unitAttemptStartedAt.get(u.id)) / 100) / 10,
+              absoluteLimitS,
+            })
+            : { retry: false };
+          if (decision.retry_skipped) unitRetrySkipped.set(u.id, decision.retry_skipped);
+          if (decision.retry) {
             const refusal = cls.failure.stderr_tail;
             unitFirstRefusal.set(u.id, refusal);
             const stdoutPath = readerPathUnitStdoutPath(dir, u.id);
@@ -8000,6 +8097,7 @@ export async function cmdJobSupervise(args) {
               { path: stdoutPath, flag: "a" });
             unitsRunning.set(u.id, respawned);
             unitAttempts.set(u.id, attempt + 1);
+            unitAttemptStartedAt.set(u.id, Date.now());
             bytesTotal += respawned.out.bytes;
             retried = true;
             return { id: u.id, status: "running", bytes: respawned.out.bytes };
@@ -8015,6 +8113,9 @@ export async function cmdJobSupervise(args) {
           // carries the attempt count and the first refusal, so a `done` job
           // still shows a judge drifting toward the bound.
           const retryTrace = firstRefusal !== undefined ? { attempts: attempt, first_refusal: firstRefusal } : {};
+          // A RETRY NOT STARTED IS RECORDED WITH BOTH NUMBERS (kogaki#1273).
+          const skipped = unitRetrySkipped.get(u.id);
+          const skipTrace = skipped ? { attempts: attempt, retry_skipped: skipped } : {};
           // THE CANDIDATE IS WRITTEN TO DISK THE MOMENT THIS UNIT CLASSIFIES
           // `done` (kogaki#1204 acceptance 2), whatever the OTHER units are
           // doing and whatever the job's own terminal state turns out to be --
@@ -8027,7 +8128,7 @@ export async function cmdJobSupervise(args) {
               catch { /* the job record's own embedded `candidate` is still the truth */ }
             }
           }
-          return { id: u.id, bytes: sp.out.bytes, ...cls, ...retryTrace, ...(candidateFile ? { candidate_file: candidateFile } : {}) };
+          return { id: u.id, bytes: sp.out.bytes, ...cls, ...retryTrace, ...skipTrace, ...(candidateFile ? { candidate_file: candidateFile } : {}) };
         }
         bytesTotal += sp.out.bytes;
         return { id: u.id, status: "running", bytes: sp.out.bytes };
@@ -8035,16 +8136,29 @@ export async function cmdJobSupervise(args) {
       if (retried || bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
       const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
       const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
-      const state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS, absoluteLimitS, stallS });
+      let state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS, absoluteLimitS, stallS });
+      let rows = unitRows;
+      if (state === "ceiling") {
+        // THE LIMIT KEEPS WHAT FINISHED (kogaki#1273): the units still running
+        // end `ceiling` and are killed below; the job is `done` if any unit is.
+        ({ units: rows, state } = readerPathJobAtLimit(unitRows));
+      } else if (READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes(state)) {
+        // A SYSTEM FAILURE ENDS EVERY UNIT ON THIS TICK (kogaki#1273): the
+        // units still running are killed below, with no retry, and their rows
+        // say so rather than reading `running` on a job that has ended.
+        rows = unitRows.map((r) => (r.status === "running"
+          ? { id: r.id, status: "killed", bytes: r.bytes || 0, note: `killed on the tick the job ended ${state}` } : r));
+      }
       writeReaderPathJob(dir, {
         started_at: new Date(startedAt).toISOString(),
         absolute_limit_s: absoluteLimitS,
         last_progress_at: new Date(lastProgressAt).toISOString(),
         supervisor_pid: process.pid,
         state,
-        units: unitRows,
+        units: rows,
+        ...(state === "done" ? readerPathDoneJobUnfinished(rows) : {}),
         ...(state !== "done" && state !== "running"
-          ? { failure: readerPathJobFailure(state, unitRows, { elapsedS, stalledS }) } : {}),
+          ? { failure: readerPathJobFailure(state, rows, { elapsedS, stalledS }) } : {}),
       });
       if (state === "running") continue;
       for (const u of units) {
@@ -8102,128 +8216,6 @@ export function startDetachedJobSupervisor(dir, opts) {
     units: opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0 })),
   });
   return { unitsPath, supervisorPid: child.pid };
-}
-
-// THE REFUSED EXIT'S OWN ARM (kogaki#1204 acceptance 3): "re-run" resumes
-// exactly the one unit named at the raising, through the SAME second-attempt
-// route kogaki#1203 already gives a structurally-refused unit -- the original
-// prompt plus the refusal-repair block, never a restart of the finished
-// units, whose rows this process reads once at the top and then carries
-// through UNCHANGED on every tick.
-export async function cmdJobRerunUnit(args) {
-  const dir = String(args.run || fail("job-rerun-unit needs --run <dir> (internal verb, kogaki#1204)."));
-  try {
-    const unitId = String(args.unit || fail("job-rerun-unit needs --unit <id>."));
-    const command = String(args.command || fail("job-rerun-unit needs --command <path>."));
-    const model = String(args.model || fail("job-rerun-unit needs --model <name>."));
-    const absoluteLimitS = Number(args["absolute-limit-s"]) || READER_PATH_JOB_ABSOLUTE_LIMIT_S;
-    const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
-    const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
-    const argv = ["-p", "--model", model,
-      "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-      "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
-      "--setting-sources", "", "--no-session-persistence"];
-    const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
-
-    const existing = readReaderPathJob(dir) || fail(`no reader-path job record at ${readerPathJobPath(dir)} to re-run a unit against.`);
-    const priorUnits = Array.isArray(existing.units) ? existing.units : [];
-    const target = priorUnits.find((u) => u.id === unitId)
-      || fail(`unit ${JSON.stringify(unitId)} is not in the reader-path job's own record — nothing to re-run.`);
-    const unitsPath = join(dir, "reader-path-job-units.json");
-    const declared = existsSync(unitsPath) ? readJson(unitsPath) : { units: [] };
-    const originalUnits = Array.isArray(declared) ? declared : (declared.units || []);
-    const originalUnit = originalUnits.find((u) => u.id === unitId)
-      || fail(`unit ${JSON.stringify(unitId)}'s original prompt is not on disk at ${unitsPath} — nothing to re-run from.`);
-    const validate = await loadReaderPathUnitValidator(declared.validator);
-    const refusal = (target.failure && (target.failure.stderr_tail || target.failure.first_refusal))
-      || "no further detail was recorded for the earlier attempt";
-    const retryPrompt = readerPathUnitRetryPrompt(originalUnit.prompt, refusal);
-    const stdoutPath = readerPathUnitStdoutPath(dir, unitId);
-    try { appendFileSync(stdoutPath, "\n----- re-run -----\n"); } catch { /* the disk copy is best-effort */ }
-
-    const startedAt = Date.now();
-    let sp = spawnDetachedJobUnit(command, argv, retryPrompt, () => {}, childEnv, { path: stdoutPath, flag: "a" });
-    let lastProgressAt = startedAt;
-    let lastBytes = 0;
-    let candidateWritten = false;
-
-    for (;;) {
-      // eslint-disable-next-line no-await-in-loop -- one process, one unit, the
-      // same ordinary sequential polling `cmdJobSupervise` itself uses.
-      await new Promise((r) => { setTimeout(r, heartbeatMs); });
-      const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
-      let row;
-      if (sp.out.done) {
-        const cls = classifyDetachedJobUnit(sp.out, validate);
-        if (cls.status === "done" && !candidateWritten) {
-          const candPath = readerPathUnitCandidatePath(dir, unitId);
-          try { writeFileSync(candPath, `${JSON.stringify(cls.candidate, null, 2)}\n`); candidateWritten = true; }
-          catch { /* the job record's own embedded `candidate` is still the truth */ }
-        }
-        if (cls.status === "died" || cls.status === "refused") {
-          cls.failure = { ...cls.failure, file: stdoutPath };
-        }
-        row = {
-          id: unitId, bytes: sp.out.bytes, ...cls, rerun: true,
-          ...(candidateWritten ? { candidate_file: readerPathUnitCandidatePath(dir, unitId) } : {}),
-        };
-      } else {
-        row = { id: unitId, status: "running", bytes: sp.out.bytes };
-      }
-      if (sp.out.bytes > lastBytes) { lastBytes = sp.out.bytes; lastProgressAt = Date.now(); }
-      const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
-      const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
-      // THE FROZEN SIBLINGS RIDE THROUGH UNCHANGED. They already reached their
-      // own terminal row before this process ever started, and the whole point
-      // of a per-unit re-run is that nothing about them is touched again.
-      const mergedUnits = priorUnits.map((u) => (u.id === unitId ? row : u));
-      const state = classifyDetachedJobState(mergedUnits, { stopRequested, elapsedS, stalledS, absoluteLimitS, stallS });
-      writeReaderPathJob(dir, {
-        ...existing,
-        last_progress_at: new Date(lastProgressAt).toISOString(),
-        supervisor_pid: process.pid,
-        state,
-        units: mergedUnits,
-        ...(state !== "done" && state !== "running"
-          ? { failure: readerPathJobFailure(state, mergedUnits, { elapsedS, stalledS }) } : {}),
-      });
-      if (state === "running") continue;
-      if (sp.child && !sp.out.done) { try { sp.child.kill("SIGKILL"); } catch { /* already gone */ } }
-      break;
-    }
-  } catch (e) {
-    try {
-      const existing = readReaderPathJob(dir) || { started_at: new Date().toISOString(), units: [] };
-      writeReaderPathJob(dir, {
-        ...existing,
-        supervisor_pid: process.pid,
-        state: "other",
-        failure: readerPathJobFailure("other", existing.units || [], { note: `the re-run process itself failed: ${e.message}` }),
-      });
-    } catch { /* the write itself failing leaves the prior record, which is still the truth as of its own timestamp */ }
-  }
-}
-
-// THE RE-RUN'S OWN STARTER (kogaki#1204), the same shape as
-// `startDetachedJobSupervisor` above: spawns `job-rerun-unit` DETACHED and
-// writes the job record's named unit back to `running` before returning,
-// every other unit's row carried through untouched, so `job await`'s ordinary
-// polling picks the re-run up exactly as it would a fresh job.
-export function startReaderPathUnitRerun(dir, unitId, opts) {
-  const scriptPath = fileURLToPath(import.meta.url);
-  const child = spawn(process.execPath, [
-    scriptPath, "job-rerun-unit",
-    "--run", dir, "--unit", unitId,
-    "--command", opts.command, "--model", opts.model,
-    "--absolute-limit-s", String(opts.absoluteLimitS),
-    "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
-  ], { detached: true, stdio: "ignore", cwd: REPO });
-  child.unref();
-  const existing = readReaderPathJob(dir) || { units: [] };
-  const units = (existing.units || []).map((u) => (u.id === unitId
-    ? { id: u.id, status: "running", bytes: 0 } : u));
-  writeReaderPathJob(dir, { ...existing, supervisor_pid: child.pid, state: "running", units, failure: undefined });
-  return { supervisorPid: child.pid };
 }
 
 // The one converter, so the two readers of a throwing validator cannot drift in
@@ -10255,30 +10247,11 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
             if (job && Number.isInteger(job.supervisor_pid)) process.kill(job.supervisor_pid, "SIGTERM");
           } catch { /* already gone, or never ours to signal */ }
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is STOPPED; the run is not resumed and the open-run pointer is cleared.`);
-        } else if (capOption === "rerun") {
-          // THE REFUSED UNIT'S OWN ARM (kogaki#1204 acceptance 3): "rerun"
-          // leaves the state incomplete, so the ordinary advance loop
-          // re-enters `compose_path` --
-          // which finds the job record already `running` (the starter below
-          // writes that before this function returns) and re-raises the same
-          // `DetachedJobStarted`/"run `job await`" message the owner already
-          // knows, rather than needing a resume path of its own.
-          const job = readReaderPathJob(dir) || fail(`no reader-path job record at ${readerPathJobPath(dir)} to re-run a unit against.`);
-          const refusedUnit = (job.units || []).find((u) => u.status === "refused")
-            || fail(`the reader-path job at ${jobState} names no refused unit — nothing for "rerun" to act on.`);
-          const cfg = judgeSettings(table, rec);
-          startReaderPathUnitRerun(dir, refusedUnit.id, {
-            command: cfg.command, model: cfg.model,
-            absoluteLimitS: Number(job.absolute_limit_s) || READER_PATH_JOB_ABSOLUTE_LIMIT_S,
-            stallS: READER_PATH_JOB_STALL_S,
-            heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
-          });
-          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} RE-RUNS unit ${JSON.stringify(refusedUnit.id)}; the finished siblings' rows are untouched, and the state was never marked complete, so the advance below re-enters it (kogaki#1204).`);
         } else {
           // ANY OTHER ANSWER (a free-text one): nothing is acted on, the state
           // was never marked complete, and the advance below re-enters
           // `compose_path`, which reads the job record again.
-          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the answer at ${jobState} is neither stop nor rerun, so nothing is acted on; the advance below re-enters the state and reads the job record again.`);
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the answer at ${jobState} is not stop, so nothing is acted on; the advance below re-enters the state and reads the job record again.`);
         }
       } else {
         // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
@@ -10773,7 +10746,6 @@ switch (cmd) {
   // and `job-supervise` is a different `cmd` entirely, not a `--job` value under
   // it.
   case "job-supervise": cmdJobSupervise(args); break;
-  case "job-rerun-unit": cmdJobRerunUnit(args); break;
   case "validate": {
     const record = readJson(String(args.survey || fail("validate needs --survey <file>")));
     const v = validateSurvey(record);

@@ -48,8 +48,9 @@ import {
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, composeGateCall,
   runRecordPath, GATE_CALL_SUFFIX, judgePrompt, JUDGE_REFUSAL_MARKER, JUDGE_INPUT_MARKER,
   readerPathUnitRecord, readerPathUnitRetryPrompt, readerPathUnitStdoutPath,
+  readerPathAwaitStep, readerPathRetryDecision, readerPathJobAtLimit, READER_PATH_JOB_SYSTEM_FAILURE_STATES,
 } from "./src/terrain.mjs";
-import { findInternalVocabulary } from "./src/assemble.mjs";
+import { findInternalVocabulary, assembleSelection } from "./src/assemble.mjs";
 
 const fails = [];
 const root = process.cwd();
@@ -121,10 +122,10 @@ const root = process.cwd();
   }
 }
 
-// (c) THE JOB-LEVEL REDUCTION (kogaki#1204 rewrite) — a refused or died unit
-// beside a STILL-RUNNING sibling no longer ends the whole job: the function
-// now checks for any running unit FIRST, and only once none remain does it
-// reduce over the finished set, died dominating refused dominating done.
+// (c) THE JOB-LEVEL REDUCTION (kogaki#1204, revised kogaki#1273) — a REFUSED
+// unit beside a still-running sibling does not end the job, while a DIED unit
+// does at once (a system failure). Once no unit is running, one `done` unit
+// makes the job `done`, and it is `refused` only when every unit was refused.
 // `stopRequested` still dominates everything (the owner's stop click is
 // answered no matter what a unit is doing), and the two time bounds are
 // still read in the declared order: ceiling before stalled, both of which
@@ -132,16 +133,17 @@ const root = process.cwd();
 {
   const running = [{ status: "running" }];
   const cases = [
-    // A refused/died unit beside a running sibling reads "running" — the
+    // A died unit beside a running sibling ends the job `died` on the same
+    // tick (kogaki#1273) — the #1204 rule that it waited is gone.
+    [[{ status: "died" }, ...running], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "died"],
+    // A refused unit beside a running sibling reads "running" — the
     // sibling's own work is still in flight and must not be killed for it.
-    [[{ status: "died" }, ...running], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "running"],
     [[{ status: "refused" }, ...running], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "running"],
-    // Once every unit has finished (no running left), died dominates refused.
     [[{ status: "died" }, { status: "refused" }], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "died"],
-    // A refused unit beside two FINISHED (done) siblings still reads
-    // "refused" — the reduction only withholds a terminal state while a
-    // sibling is still running, never once every unit has landed.
-    [[{ status: "refused" }, { status: "done" }, { status: "done" }], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "refused"],
+    // kogaki#1273 acceptance 3: two `done` and one `refused` end `done`;
+    // three `refused` end `refused`.
+    [[{ status: "refused" }, { status: "done" }, { status: "done" }], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "done"],
+    [[{ status: "refused" }, { status: "refused" }, { status: "refused" }], { stopRequested: false, elapsedS: 1, stalledS: 0 }, "refused"],
     [running, { stopRequested: true, elapsedS: 1, stalledS: 0 }, "stopped"],
     [[{ status: "died" }], { stopRequested: true, elapsedS: 1, stalledS: 0 }, "stopped"],
     [running, { stopRequested: false, elapsedS: 600, stalledS: 0 }, "ceiling"],
@@ -193,6 +195,9 @@ process.stdin.on("end", () => {
     process.exit(1);
   }
   if (prompt === "SLEEP_FOREVER") { setInterval(() => {}, 1 << 30); return; }
+  // kogaki#1273: an attempt that takes ~1.5s and is then refused, so a short
+  // absolute limit makes its retry one that could not finish in time.
+  if (prompt.startsWith("FAIL_SLOW")) { setTimeout(() => { process.stdout.write("not json at all"); process.exit(0); }, 1500); return; }
   if (prompt === "SLOW") {
     let i = 0;
     const iv = setInterval(() => {
@@ -259,15 +264,18 @@ function readRecord(dir) {
   if (!rec || rec.state !== "done" || rec.failure) fails.push(`(d1) all-OK units did not end \`done\` with no failure: ${JSON.stringify(rec)}`);
 }
 
-// (d2) refused — one unit's record fails the structural check; the CAUSE is
-// preserved (acceptance 7's own fixture: "fails validation once and observes
-// refused with the cause in the record").
+// (d2) one unit's record fails the structural check beside a finished sibling;
+// the job ends `done` (kogaki#1273: one finished Candidate is enough) and the
+// refused unit is named on the record with its CAUSE preserved on its row.
 {
   const dir = mkNewRun();
   superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "FAIL_JSON" }], {});
   const rec = readRecord(dir);
-  if (!rec || rec.state !== "refused" || !rec.failure || rec.failure.unit !== "c2" || !rec.failure.stderr_tail) {
-    fails.push(`(d2) a structurally-bad unit did not end \`refused\` naming its unit and cause: ${JSON.stringify(rec)}`);
+  const c2 = rec && (rec.units || []).find((u) => u.id === "c2");
+  if (!rec || rec.state !== "done" || rec.failure
+    || !Array.isArray(rec.refused_units) || !rec.refused_units.some((r) => r.id === "c2")
+    || !c2 || c2.status !== "refused" || !c2.failure || !c2.failure.stderr_tail) {
+    fails.push(`(d2) a structurally-bad unit beside a finished one did not end the job \`done\` naming the refused unit and its cause: ${JSON.stringify(rec)}`);
   }
 }
 
@@ -383,8 +391,7 @@ function pollUntil(dir, pred, timeoutMs) {
 // reduction would have declared the whole job `refused` right there and
 // killed "c1" mid-run. The fix: the job keeps polling until "c1" also
 // finishes, "c1"'s own Candidate lands on disk the moment IT classifies
-// `done` (not deleted or withheld for the job's eventual `refused`), and the
-// job record names the file.
+// `done`, and the job ends `done` naming "c2" as refused (kogaki#1273).
 {
   const dir = mkNewRun();
   const unitsPath = join(dir, "units.json");
@@ -402,8 +409,8 @@ function pollUntil(dir, pred, timeoutMs) {
       fails.push(`(d10) once "c2" refused, "c1" was not still running and/or the job state was not "running": ${JSON.stringify(early)}`);
     }
     const done = pollUntil(dir, (r) => r && r.state !== "running", 8000);
-    if (!done || done.state !== "refused") {
-      fails.push(`(d10) the job's own terminal state was not "refused" once every unit had finished: ${JSON.stringify(done)}`);
+    if (!done || done.state !== "done") {
+      fails.push(`(d10) the job's own terminal state was not "done" once every unit had finished with one of them done (kogaki#1273): ${JSON.stringify(done)}`);
     }
     const c1Final = done && (done.units || []).find((u) => u.id === "c1");
     if (!c1Final || c1Final.status !== "done") {
@@ -417,8 +424,8 @@ function pollUntil(dir, pred, timeoutMs) {
         fails.push(`(d10) "c1"'s written Candidate file did not carry the classified candidate: ${JSON.stringify(onDisk)}`);
       }
     }
-    if (!done.failure || !Array.isArray(done.failure.kept_candidates) || !done.failure.kept_candidates.some((k) => k.id === "c1")) {
-      fails.push(`(d10) the job's failure record did not name "c1"'s kept Candidate: ${JSON.stringify(done && done.failure)}`);
+    if (!done || !Array.isArray(done.refused_units) || !done.refused_units.some((k) => k.id === "c2" && k.attempts === 2)) {
+      fails.push(`(d10) the \`done\` job's record did not name "c2" as refused after two attempts: ${JSON.stringify(done)}`);
     }
   } finally {
     try { child.kill("SIGKILL"); } catch { /* already exited on its own */ }
@@ -576,7 +583,8 @@ process.stdin.on("end", () => {
 // (h) THE GATE-CALL BYTES ARE ON STDOUT, NOT ONLY THEIR ADDRESS (kogaki#1198's
 // own reproduction: `node src/brief.mjs run --status --job await` named
 // `brief-reader-path-job.gate-call.json` and printed none of it). A real
-// `job await` over a `died` job is run end to end through the CLI --
+// `job await` over a `refused` job (every unit refused, kogaki#1273 -- a
+// `died` job raises no question any more) is run end to end through the CLI --
 // `run --status` is the one Bash-reachable verb this runtime admits, and it is
 // read-only -- against a hand-written run record standing in for the hook
 // loop's own write, on the same ground section (e) states for a bare
@@ -585,9 +593,9 @@ process.stdin.on("end", () => {
 // forging a hook payload for a write it is not this check's job to attempt.
 {
   const dir = mkNewRun();
-  superviseSync(dir, [{ id: "c1", prompt: "FAIL_EXIT" }], {});
+  superviseSync(dir, [{ id: "c1", prompt: "FAIL_TWICE" }], {});
   const rec = readRecord(dir);
-  if (!rec || rec.state !== "died") fails.push(`(h) fixture premise failed: the job did not end \`died\`: ${JSON.stringify(rec)}`);
+  if (!rec || rec.state !== "refused") fails.push(`(h) fixture premise failed: the job did not end \`refused\`: ${JSON.stringify(rec)}`);
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: null },
     judge_binary: null, survey_record: null, completed: [], waits_reached: [],
@@ -600,7 +608,7 @@ process.stdin.on("end", () => {
     { cwd: root, timeout: 15000, encoding: "utf8", env });
   const callPath = join(dir, `${READER_PATH_JOB_GATE_ID}${GATE_CALL_SUFFIX}`);
   if (!existsSync(callPath)) {
-    fails.push(`(h) \`job await\` over a died job wrote no gate-call file at ${callPath}: stdout=${awaitRun.stdout} stderr=${awaitRun.stderr}`);
+    fails.push(`(h) \`job await\` over a refused job wrote no gate-call file at ${callPath}: stdout=${awaitRun.stdout} stderr=${awaitRun.stderr}`);
   } else {
     const wantBytes = JSON.parse(readFileSync(callPath, "utf8"));
     const fencedAwait = (awaitRun.stdout || "").match(/```json\n([\s\S]*?)\n```/);
@@ -767,26 +775,219 @@ process.stdin.on("end", () => {
   }
 }
 
-// (m) REFUSED TWICE IS TERMINAL (kogaki#1203 acceptance 3): a unit whose
-// retry is refused the same way ends the job `refused`, with BOTH refusals
-// recorded -- the second in `failure.stderr_tail`, the first in
-// `failure.first_refusal` -- and the unit's stdout file named by
-// `failure.file`.
+// (m) REFUSED TWICE IS TERMINAL (kogaki#1203 acceptance 3; kogaki#1273's
+// "a refused retry ends the unit `refused`"): a unit whose retry is refused
+// the same way ends `refused` after two attempts -- the job `refused`, since
+// it is the only unit -- with BOTH refusals recorded, the second in
+// `failure.stderr_tail`, the first in `failure.first_refusal`, and the unit's
+// stdout file named by `failure.file`.
 {
   const dir = mkNewRun();
-  superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "FAIL_TWICE" }], {});
+  superviseSync(dir, [{ id: "c2", prompt: "FAIL_TWICE" }], {});
   const rec = readRecord(dir);
   if (!rec || rec.state !== "refused" || !rec.failure || rec.failure.unit !== "c2") {
     fails.push(`(m) a unit refused on both attempts did not end the job \`refused\` naming its unit: ${JSON.stringify(rec)}`);
   } else {
     if (!rec.failure.stderr_tail) fails.push("(m) the terminal refusal carries no stderr_tail");
     if (!rec.failure.first_refusal) fails.push(`(m) the terminal failure block carries no first_refusal: ${JSON.stringify(rec.failure)}`);
+    const row = (rec.units || []).find((u) => u.id === "c2");
+    if (!row || row.attempts !== 2) fails.push(`(m) the refused unit's row does not record exactly two attempts: ${JSON.stringify(row)}`);
     if (rec.failure.file !== readerPathUnitStdoutPath(dir, "c2")) {
       fails.push(`(m) the terminal failure block's file does not name the unit's stdout path: ${JSON.stringify(rec.failure)}`);
     } else if (!existsSync(rec.failure.file)) {
       fails.push(`(m) the failure block names a stdout file that does not exist: ${rec.failure.file}`);
     }
   }
+}
+
+// ---- kogaki#1273: THE BOUNDED RETRY, THE SYSTEM-FAILURE EXIT, ONE CANDIDATE,
+// AND THE LIMIT THAT KEEPS FINISHED CANDIDATES.
+
+// (v1) A refusal at 200s with a 200s attempt is retried (200 + 200 fits in
+// 600), and the retry refused at 400s ends the unit -- attempt 2 never asks for
+// a third. A refusal at 400s with a 400s attempt starts no retry and records
+// `retry_skipped` with both numbers.
+{
+  const first = readerPathRetryDecision({ attempt: 1, elapsedS: 200, attemptS: 200, absoluteLimitS: 600 });
+  if (first.retry !== true) fails.push(`(v1) a refusal at 200s after a 200s attempt was not retried: ${JSON.stringify(first)}`);
+  const second = readerPathRetryDecision({ attempt: 2, elapsedS: 400, attemptS: 200, absoluteLimitS: 600 });
+  if (second.retry !== false || second.retry_skipped) fails.push(`(v1) a refused retry at 400s was offered a third attempt or read as a skipped retry: ${JSON.stringify(second)}`);
+  const late = readerPathRetryDecision({ attempt: 1, elapsedS: 400, attemptS: 400, absoluteLimitS: 600 });
+  if (late.retry !== false || !late.retry_skipped || late.retry_skipped.reason !== "would pass the absolute limit"
+    || late.retry_skipped.elapsed_s !== 400 || late.retry_skipped.attempt_s !== 400) {
+    fails.push(`(v1) a refusal at 400s after a 400s attempt started a retry or did not record retry_skipped with both numbers: ${JSON.stringify(late)}`);
+  }
+}
+
+// (v2) END TO END: a ~1.5s attempt refused against a 2s absolute limit cannot
+// be retried in time, so the supervisor starts no second attempt -- the unit
+// ends `refused` after one attempt and its row carries `retry_skipped`.
+{
+  const dir = mkNewRun();
+  superviseSync(dir, [{ id: "c1", prompt: "FAIL_SLOW" }], { absoluteLimitS: 2, stallS: 30, heartbeatMs: 100 });
+  const rec = readRecord(dir);
+  const row = rec && (rec.units || []).find((u) => u.id === "c1");
+  if (!rec || rec.state !== "refused" || !row || row.status !== "refused" || row.attempts !== 1
+    || !row.retry_skipped || row.retry_skipped.reason !== "would pass the absolute limit"
+    || typeof row.retry_skipped.elapsed_s !== "number" || typeof row.retry_skipped.attempt_s !== "number") {
+    fails.push(`(v2) a refused attempt whose retry could not finish before the limit was retried, or its row lacks retry_skipped: ${JSON.stringify(rec)}`);
+  }
+  const out = existsSync(readerPathUnitStdoutPath(dir, "c1")) ? readFileSync(readerPathUnitStdoutPath(dir, "c1"), "utf8") : "";
+  if (out.includes("attempt 2")) fails.push("(v2) the unit's stdout file shows a second attempt that should never have started");
+}
+
+// (v3) END TO END: two units `done` and one refused twice end the job `done`,
+// naming the refused unit; three refused end it `refused`, naming all three.
+{
+  const dir = mkNewRun();
+  superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "OK" }, { id: "c3", prompt: "FAIL_TWICE" }], {});
+  const rec = readRecord(dir);
+  if (!rec || rec.state !== "done" || rec.failure || !Array.isArray(rec.refused_units)
+    || rec.refused_units.length !== 1 || rec.refused_units[0].id !== "c3") {
+    fails.push(`(v3) two done units and one refused did not end the job \`done\` naming the refused unit: ${JSON.stringify(rec)}`);
+  }
+  const dir2 = mkNewRun();
+  superviseSync(dir2, [{ id: "c1", prompt: "FAIL_TWICE" }, { id: "c2", prompt: "FAIL_TWICE" }, { id: "c3", prompt: "FAIL_TWICE" }], {});
+  const rec2 = readRecord(dir2);
+  if (!rec2 || rec2.state !== "refused" || !rec2.failure || !Array.isArray(rec2.failure.refused_units)
+    || rec2.failure.refused_units.length !== 3) {
+    fails.push(`(v3) three refused units did not end the job \`refused\` naming all three: ${JSON.stringify(rec2)}`);
+  }
+}
+
+// (v4) A DIED UNIT BESIDE RUNNING SIBLINGS KILLS THEM ON THE SAME TICK: the
+// supervisor ends well inside its 100s limit (the old rule waited for the
+// siblings, which never finish), the siblings' rows read `killed`, and `job
+// await` exits non-zero with the defect line, writes no gate call, and marks
+// the run ended.
+{
+  const dir = mkNewRun();
+  const t0 = Date.now();
+  superviseSync(dir, [{ id: "c1", prompt: "SLEEP_FOREVER" }, { id: "c2", prompt: "SLEEP_FOREVER" }, { id: "c3", prompt: "FAIL_EXIT" }],
+    { absoluteLimitS: 100, stallS: 100, heartbeatMs: 100 });
+  const tookMs = Date.now() - t0;
+  const rec = readRecord(dir);
+  const killed = rec ? (rec.units || []).filter((u) => u.status === "killed").map((u) => u.id).sort() : [];
+  if (!rec || rec.state !== "died" || JSON.stringify(killed) !== JSON.stringify(["c1", "c2"])
+    || !rec.failure || JSON.stringify((rec.failure.killed_units || []).slice().sort()) !== JSON.stringify(["c1", "c2"])) {
+    fails.push(`(v4) a died unit did not end the job \`died\` with its running siblings killed and named: ${JSON.stringify(rec)}`);
+  }
+  if (tookMs > 8000) fails.push(`(v4) the supervisor took ${tookMs}ms to end after a unit died -- its siblings were not killed on the same tick`);
+  if (!READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes("died")) fails.push("(v4) `died` is not declared a system-failure state");
+  writeFileSync(runRecordPath(dir), JSON.stringify({
+    workflow: { path: "src/brief-workflow.json", version: null },
+    judge_binary: null, survey_record: null, completed: [], waits_reached: [],
+    conditional_entered: [], conditional_skipped: [], awaiting: "compose_path",
+    owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
+    done: false,
+  }, null, 2) + "\n");
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") };
+  const awaitRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
+    { cwd: root, timeout: 15000, encoding: "utf8", env });
+  if (awaitRun.status === 0) fails.push(`(v4) \`job await\` over a died job exited 0: stdout=${awaitRun.stdout} stderr=${awaitRun.stderr}`);
+  if (!String(awaitRun.stderr || "").includes("This is a /brief defect, not a candidate refusal:")
+    || !String(awaitRun.stderr || "").includes("The run is ended; nothing was retried.")) {
+    fails.push(`(v4) \`job await\` over a died job did not print the defect line: stderr=${awaitRun.stderr}`);
+  }
+  if (existsSync(join(dir, `${READER_PATH_JOB_GATE_ID}${GATE_CALL_SUFFIX}`))) {
+    fails.push("(v4) `job await` over a died job raised a question (a gate-call file was written)");
+  }
+  const runRec = JSON.parse(readFileSync(runRecordPath(dir), "utf8"));
+  if (runRec.done !== true || !runRec.brief_defect || (runRec.gate_declarations_owed || []).length) {
+    fails.push(`(v4) the run record was not marked ended with the defect named, or owes a gate: ${JSON.stringify(runRec)}`);
+  }
+}
+
+// (v4b) `job await` over a record that says `running` while its supervisor
+// process is gone ends the Brief as a defect too, rather than waiting on a
+// record nothing will update again.
+{
+  const dir = mkNewRun();
+  const gone = spawnSync(process.execPath, ["-e", ""], { encoding: "utf8" });
+  const now = new Date().toISOString();
+  writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+    started_at: now, last_progress_at: now, updated_at: now, supervisor_pid: gone.pid, state: "running",
+    units: [{ id: "c1", status: "running", bytes: 0 }],
+  }, null, 2) + "\n");
+  writeFileSync(runRecordPath(dir), JSON.stringify({
+    workflow: { path: "src/brief-workflow.json", version: null },
+    judge_binary: null, survey_record: null, completed: [], waits_reached: [],
+    conditional_entered: [], conditional_skipped: [], awaiting: "compose_path",
+    owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
+    done: false,
+  }, null, 2) + "\n");
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") };
+  const awaitRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
+    { cwd: root, timeout: 15000, encoding: "utf8", env });
+  if (awaitRun.status === 0 || !String(awaitRun.stderr || "").includes("This is a /brief defect, not a candidate refusal:")
+    || !String(awaitRun.stderr || "").includes("supervisor process")) {
+    fails.push(`(v4b) \`job await\` over a running record with no live supervisor did not end as a defect: status=${awaitRun.status} stderr=${awaitRun.stderr}`);
+  }
+}
+
+// (v5) ONE `done` CANDIDATE PASSES BOTH COUNT CHECKS: `assembleSelection`'s
+// count refusal does not fire on one Candidate (four still refuses), and
+// `compose_path`'s own count check in src/brief.mjs admits one -- that one is
+// a closure inside the state's work function, so it is read from the source,
+// on the ground this suite's note states for checks a fixture cannot reach.
+{
+  const one = {
+    candidate_id: "c1", differentiation_unit: 1, reader_experience: "exp one", characteristic: "one",
+    legs: [{ move: "move-a" }],
+    review: { rationale_stands: "x", entailment: "x", prohibitions: "x", semantic_economy: "x", arc_integrity: "x", evaluation_levels: "x" },
+    reasoning: { leg_validity: "x", thesis_closure: "x" },
+  };
+  const r1 = assembleSelection({ candidates: [one] }, "");
+  if (r1.error && /Candidate\(s\) —/.test(r1.error)) fails.push(`(v5) assembleSelection refused one Candidate on the count: ${r1.error}`);
+  const four = [1, 2, 3, 4].map((n) => ({ ...one, candidate_id: `c${n}`, reader_experience: `exp ${n}`, characteristic: `c${n}` }));
+  const r4 = assembleSelection({ candidates: four }, "");
+  if (!r4.error || !/4 Candidate\(s\) —/.test(r4.error)) fails.push(`(v5) assembleSelection did not refuse four Candidates on the count: ${JSON.stringify(r4)}`);
+  const brief = readFileSync("src/brief.mjs", "utf8");
+  if (!brief.includes("if (cands.length < 1 || cands.length > 3) {") || brief.includes("cands.length < 2")) {
+    fails.push("(v5) src/brief.mjs's compose_path count check does not admit one Candidate");
+  }
+  if (brief.includes("default in disguise") || readFileSync("src/assemble.mjs", "utf8").includes("default in disguise")) {
+    fails.push("(v5) a count refusal still says a single Candidate is a default in disguise");
+  }
+}
+
+// (v6) THE LIMIT KEEPS FINISHED CANDIDATES: a job reaching its absolute limit
+// with two units `done` and one running kills the running one, which ends
+// `ceiling`, and the job ends `done`; with no unit `done` it ends `ceiling`.
+// Asserted on the pure reduction, on `job await`'s own poll, and end to end.
+{
+  const at = readerPathJobAtLimit([{ id: "c1", status: "done" }, { id: "c2", status: "done" }, { id: "c3", status: "running" }]);
+  if (at.state !== "done" || at.units[2].status !== "ceiling") fails.push(`(v6) two done units and one running at the limit did not reduce to \`done\` with the running one \`ceiling\`: ${JSON.stringify(at)}`);
+  const none = readerPathJobAtLimit([{ id: "c1", status: "running" }, { id: "c2", status: "refused" }]);
+  if (none.state !== "ceiling") fails.push(`(v6) a job at the limit with no unit done did not reduce to \`ceiling\`: ${JSON.stringify(none)}`);
+  const job = { started_at: new Date(Date.now() - 601000).toISOString(), updated_at: new Date().toISOString(),
+    units: [{ id: "c1", status: "done" }, { id: "c2", status: "done" }, { id: "c3", status: "running" }] };
+  const step = readerPathAwaitStep(job, { stopRequested: false, elapsedS: 601, stalledS: 0 });
+  if (step.state !== "done") fails.push(`(v6) \`job await\`'s poll past the limit did not keep the finished Candidates: ${JSON.stringify(step)}`);
+  const dir = mkNewRun();
+  superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "OK" }, { id: "c3", prompt: "SLEEP_FOREVER" }],
+    { absoluteLimitS: 1, stallS: 30, heartbeatMs: 250 });
+  const rec = readRecord(dir);
+  const c3 = rec && (rec.units || []).find((u) => u.id === "c3");
+  if (!rec || rec.state !== "done" || rec.failure || !c3 || c3.status !== "ceiling"
+    || JSON.stringify(rec.ceiling_units) !== JSON.stringify(["c3"])) {
+    fails.push(`(v6) a job reaching its limit with two units done did not end \`done\` with the running unit \`ceiling\`: ${JSON.stringify(rec)}`);
+  }
+}
+
+// (v7) NO `rerun` OPTION AND NO `job-rerun-unit` VERB REMAINS.
+{
+  const brief = readFileSync("src/brief.mjs", "utf8");
+  const terrain = readFileSync("src/terrain.mjs", "utf8");
+  if (/id:\s*"rerun"/.test(brief)) fails.push("(v7) src/brief.mjs still offers a `rerun` option");
+  if (/capOption === "rerun"/.test(terrain)) fails.push("(v7) src/terrain.mjs still answers a `rerun` click");
+  if (terrain.includes("job-rerun-unit") || terrain.includes("cmdJobRerunUnit") || terrain.includes("startReaderPathUnitRerun")) {
+    fails.push("(v7) src/terrain.mjs still carries the `job-rerun-unit` verb or its starter");
+  }
+  const flowTable = JSON.parse(readFileSync("src/terrain-workflow.json", "utf8"));
+  if ((flowTable.non_flow_entry_points || {})["job-rerun-unit"]) fails.push("(v7) src/terrain-workflow.json still accounts for a `job-rerun-unit` entry point");
+  const registry = readFileSync("src/gate-registry.json", "utf8");
+  if (registry.includes('{id:\\"rerun\\"')) fails.push("(v7) src/gate-registry.json still composes a `rerun` option for the reader-path gate");
 }
 
 rmSync(scratch, { recursive: true, force: true });
@@ -796,7 +997,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-reader-path-job — the seven-state Detached Job classifies, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, and `job await` over a still-running job returns within its own 30s bound raising nothing");
+console.log("ok: check-brief-reader-path-job — the seven-state Detached Job classifies, retries a refusal once only when the retry fits the limit, ends the Brief on a system failure, keeps finished Candidates at the limit, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, and `job await` over a still-running job returns within its own 30s bound raising nothing");
 JS
 status=$?
 

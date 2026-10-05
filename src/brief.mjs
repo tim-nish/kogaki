@@ -102,7 +102,7 @@ import {
   READER_PATH_JOB_ABSOLUTE_LIMIT_S,
   READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS,
   readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
-  readerPathAwaitStep,
+  readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES, clearOpenRunPointer,
   emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
   judgeSettings, judgePrompt, startDetachedJobSupervisor,
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
@@ -1525,14 +1525,14 @@ const STATE_WORK = {
         refuseJudgment(`the assembled record carries no \`candidates\` array; ${st.input_shape}`);
       }
       // THE COUNT IS `assembleSelection`'s AND IS STATED HERE TOO, deliberately.
-      // Two to three per article is the Candidate gate's own bound, and a
-      // composition that breaks it is repairable by a re-ask — where the same
-      // breach reaching `assemble_candidates` would fail the run after the
-      // review state had already spent a judge call on every Candidate.
-      if (cands.length < 2 || cands.length > 3) {
-        refuseJudgment(`${cands.length} Candidate(s) — the Candidate gate presents two to three per `
-          + "article, differing in reader experience; a single Candidate is a default in disguise "
-          + "and four overruns the selector");
+      // One to three per article is the Candidate gate's own bound (kogaki#1273:
+      // one finished Candidate is enough, and the question is shown with it),
+      // and a breach reaching `assemble_candidates` would fail the run after
+      // the review state had already spent a judge call on every Candidate.
+      if (cands.length < 1 || cands.length > 3) {
+        refuseJudgment(`${cands.length} Candidate(s) — the Candidate gate presents one to three per `
+          + "article, differing in reader experience; none leaves nothing to choose, and four "
+          + "overruns the selector");
       }
       const seenId = new Set();
       const seenExp = new Set();
@@ -1992,13 +1992,64 @@ async function jobWork(dir, verb, table, tablePath, args) {
     fail(`\`--job ${verb}\` is not one of the reader-path job's four verbs: `
       + '`start`, `status`, `await`, `stop` (kogaki#1193).');
   }
-  const job = readReaderPathJob(dir);
+  let job;
+  try { job = readReaderPathJob(dir); } catch (e) {
+    if (verb === "status") throw e;
+    endBriefOnDefect(dir, `the job record could not be read: ${e.message}`, relFromRepo(resolve(readerPathJobPath(dir))));
+  }
   if (!job) {
     console.log(`No reader-path job record exists at ${readerPathJobPath(dir)} — nothing is running.`);
     return;
   }
   if (verb === "status") { printReaderPathJobStatus(dir, job); return; }
   await awaitReaderPathJob(dir, job, table, tablePath, args);
+}
+
+// A SYSTEM FAILURE IS A /brief DEFECT, AND IT ENDS THE BRIEF AT ONCE
+// (kogaki#1273, the owner's 2026-10-05 ruling: "do not silently continue and
+// do not retry. Treat it as a bug in the `/brief` command itself and stop the
+// entire Brief command immediately"). No question is raised -- there is
+// nothing for the owner to choose between -- the run record is marked done
+// with the defect named on it, the open-run pointer is cleared exactly as a
+// stopped run's is, and `job await` exits non-zero with the one line below.
+function endBriefOnDefect(dir, cause, file) {
+  const line = `This is a /brief defect, not a candidate refusal: ${cause} (${file}). The run is ended; nothing was retried.`;
+  const rec = readRunRecord(dir);
+  if (rec) {
+    rec._dir = dir;
+    rec.brief_defect = { state: rec.awaiting, cause, file, at: new Date().toISOString() };
+    rec.awaiting = null;
+    rec.done = true;
+    checkpointRun(rec);
+  }
+  clearOpenRunPointer();
+  process.stderr.write(`brief: ${line}\n`);
+  process.exit(1);
+}
+
+// WHAT A SYSTEM-FAILURE JOB RECORD SAYS WENT WRONG, AND WHERE TO LOOK
+// (kogaki#1273): the dead unit's own exit and stdout file, the stall's
+// length, or the supervisor's own catch-all note -- read off the record the
+// supervisor wrote, never composed from anything else.
+function readerPathDefectCause(dir, job, state) {
+  const jobFile = relFromRepo(resolve(readerPathJobPath(dir)));
+  const f = job.failure || {};
+  if (state === "died") {
+    const unit = (job.units || []).find((u) => u.status === "died") || {};
+    const uf = unit.failure || f;
+    const why = typeof uf.result === "string" ? uf.result : String(uf.stderr_tail || "").trim();
+    const file = uf.file ? relFromRepo(resolve(uf.file)) : jobFile;
+    return { cause: `the step ${JSON.stringify(unit.id || f.unit || "unknown")} stopped with exit code ${uf.exit_code}${why ? `: ${why}` : ""}`, file };
+  }
+  if (state === "stalled") {
+    return { cause: `no step produced new output for ${f.stalled_s}s`, file: jobFile };
+  }
+  return { cause: f.note || `the job ended ${state}`, file: jobFile };
+}
+
+function supervisorAlive(pid) {
+  if (!Number.isInteger(pid)) return true;
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
 }
 
 // THE BYTES, NOT ONLY THEIR ADDRESS (kogaki#1198). A path handed to a session
@@ -2106,6 +2157,24 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     // THE PER-POLL DECISION IS `src/terrain.mjs`'s OWN PURE FUNCTION
     // (kogaki#1213), over THIS poll's freshly-measured elapsed time.
     const { units, state } = readerPathAwaitStep(job, { stopRequested, elapsedS, stalledS });
+    if (READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes(state)) {
+      const { cause, file } = readerPathDefectCause(dir, job, state);
+      endBriefOnDefect(dir, cause, file);
+    }
+    // THE SUPERVISOR GONE WHILE THE RECORD SAYS RUNNING (kogaki#1273): a
+    // record nothing will ever update again is a defect, not a job to wait on.
+    // Re-read once first, so a supervisor that wrote its terminal record and
+    // exited between this poll's read and its liveness check is not mistaken
+    // for one that died.
+    if (state === "running" && !supervisorAlive(job.supervisor_pid)) {
+      const again = readReaderPathJobOrDefect(dir);
+      if (again && again.state === job.state && again.updated_at === job.updated_at) {
+        endBriefOnDefect(dir, `the supervisor process ${job.supervisor_pid} is gone while the record says ${job.state}`,
+          relFromRepo(resolve(readerPathJobPath(dir))));
+      }
+      job = again || job;
+      continue;
+    }
     if (state !== "running") { await finishReaderPathJobAwait(dir, { ...job, units }, state, table, tablePath, args); return; }
     const remainingMs = READER_PATH_JOB_AWAIT_S * 1000 - (Date.now() - awaitStartedAt);
     if (remainingMs <= 0) {
@@ -2114,16 +2183,24 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     }
     console.log(`reader-path job still running at ${elapsedS}s — waiting for the next heartbeat.`);
     sleepSync(Math.min(READER_PATH_JOB_HEARTBEAT_MS, remainingMs));
-    job = readReaderPathJob(dir) || job;
+    job = readReaderPathJobOrDefect(dir) || job;
+  }
+}
+
+function readReaderPathJobOrDefect(dir) {
+  try { return readReaderPathJob(dir); } catch (e) {
+    return endBriefOnDefect(dir, `the job record could not be read: ${e.message}`, relFromRepo(resolve(readerPathJobPath(dir))));
   }
 }
 
 // THE TWO TERMINAL ARMS (kogaki#1193). `done` resumes the run in-process,
 // attributed to the `detached-job` executor kind and carrying the assembled
 // candidates so `compose_path`'s existing, unmodified `judged(...)` call
-// validates them exactly as it validates a live judge's record. Every other
-// state raises `brief-reader-path-job` and stops — no state here ever
-// auto-retries.
+// validates them exactly as it validates a live judge's record -- one finished
+// Candidate or more (kogaki#1273), the refused and `ceiling` units beside it
+// contributing nothing. Every other state but a system failure, which
+// `awaitReaderPathJob` ends as a defect before reaching here, raises
+// `brief-reader-path-job` and stops — no state here ever auto-retries.
 async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
   if (state === "done") {
     // TAGGED WITH THE UNIT NUMBER HERE, AND NOWHERE ELSE (kogaki#1206). `u.id`
@@ -2179,20 +2256,21 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   if (!rec) fail(`no run record at ${dir} — the job it names has nothing to resume.`);
   rec._dir = dir;
   const failureState = rec.awaiting;
-  // THE REFUSED UNIT'S OWN ARM (kogaki#1204 acceptance 3), composed apart from
-  // the stop-only Arm below: its own reading names the unit and its refusal rather than the bare state token,
-  // so the owner sees WHICH unit failed and why without spec-internal
-  // vocabulary (`findInternalVocabulary`, checked at raising by
+  // EVERY UNIT REFUSED (kogaki#1273): the job ends `refused` only when no
+  // unit finished, and its arm is Stop alone -- "Re-run the failed step" is
+  // removed by the owner's 2026-10-05 ruling, since each unit already had the
+  // one retry that fitted in time. The reading names every refused unit and
+  // its refusal rather than the bare state token, so the owner sees which
+  // steps failed and why without spec-internal vocabulary
+  // (`findInternalVocabulary`, checked at raising by
   // `checks/check-brief-reader-path-job.sh` section (e)).
   if (state === "refused") {
-    const refusedUnit = (job.units || []).find((u) => u.status === "refused");
-    const refusalText = (refusedUnit && refusedUnit.failure
-      && (refusedUnit.failure.stderr_tail || refusedUnit.failure.first_refusal))
-      || "no further detail was recorded for the failed step";
-    const reading = refusedUnit
-      ? `The step named ${JSON.stringify(refusedUnit.id)} did not complete: ${refusalText}`
-      : "A step did not complete, and its own record is missing.";
-    const options = [{ id: "rerun", label: "Re-run the failed step (Recommended)" }, { id: "stop", label: "Stop" }];
+    const refusedUnits = (job.units || []).filter((u) => u.status === "refused");
+    const reading = refusedUnits.length
+      ? refusedUnits.map((u) => `The step named ${JSON.stringify(u.id)} did not complete: ${
+        (u.failure && (u.failure.stderr_tail || u.failure.first_refusal)) || "no further detail was recorded for it"}`).join("\n")
+      : "No step completed, and their own records are missing.";
+    const options = [{ id: "stop", label: "Stop" }];
     const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
       { reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))), reader_path_unit_refusal: reading });
     rec.gate_declarations_owed = rec.gate_declarations_owed || [];
