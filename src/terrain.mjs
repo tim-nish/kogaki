@@ -7565,15 +7565,8 @@ export class DetachedJobStarted extends Error {
 }
 
 export const READER_PATH_JOB_FILE = "reader-path-job.json";
-// DECLARED, NOT MEASURED, until ten job records exist to derive one from
-// (kogaki#1193 thread, 2026-09-25 — the issue's own originally-proposed 180s
-// figure was withdrawn there on exactly that ground: nothing had run yet to
-// measure it from). Re-derivation, when it comes, is a change to this
-// constant and to `src/brief-workflow.json`'s own declared echo of it, never a
-// silent drift between the two.
-export const READER_PATH_JOB_CHECKPOINT_S = 300;
 // THE OWNER'S OWN STATED CEILING (kogaki#1193), non-negotiable on technical
-// grounds: `job await` never blocks past it, whatever the checkpoint says.
+// grounds: no reader-path job runs past it.
 export const READER_PATH_JOB_ABSOLUTE_LIMIT_S = 600;
 // NO BYTE GROWTH ON ANY STILL-RUNNING UNIT FOR THIS LONG, below the absolute
 // limit, is read as a stall rather than as ordinary slow composition — a
@@ -7601,12 +7594,13 @@ export const READER_PATH_JOB_HEARTBEAT_MS = 10000;
 export const READER_PATH_JOB_STATUS_COMMAND = "node src/brief.mjs run --status --job status";
 export const READER_PATH_JOB_AWAIT_COMMAND = "node src/brief.mjs run --status --job await";
 
-// THE NINE STATES (kogaki#1193). `done` carries no `failure` block; every
-// other one does, and NOTHING IS EVER DELETED on any exit — a non-`done` job
-// record is left exactly as it stood at classification, partial output
+// THE STATES A JOB ENDS IN (kogaki#1193, narrowed by kogaki#1271, which removed
+// the still-running state the 300s question was raised on). `done` carries no `failure` block;
+// every other one does, and NOTHING IS EVER DELETED on any exit — a non-`done`
+// job record is left exactly as it stood at classification, partial output
 // included, for the Arm screen and for a later reader.
 export const READER_PATH_JOB_STATES = [
-  "done", "refused", "limit-reached", "stopped", "ceiling", "stalled", "died", "other",
+  "done", "refused", "stopped", "ceiling", "stalled", "died", "other",
 ];
 
 // ONE RE-ASK PER UNIT (kogaki#1203, the owner's 2026-09-26 "same policy as
@@ -7655,21 +7649,6 @@ export function readerPathUnitRetryPrompt(firstPrompt, refusal) {
 
 export function readerPathJobPath(dir) { return join(dir, READER_PATH_JOB_FILE); }
 export function readerPathJobStopFlagPath(dir) { return join(dir, "reader-path-job.stop"); }
-// THE EXTEND OVERRIDE FILE (kogaki#1193 PR #1195 review round 1, finding 2).
-// The owner's "extend" click needs to reach the SUPERVISOR, not just the run
-// record — the supervisor is the one process computing `checkpoint_hit`, and
-// nothing it reads today changes on an extend answer, so the very next `job
-// await` poll re-classified `limit-reached` on the same unit instantly. This
-// file is polled every tick the same way the stop flag already is: a JSON map
-// of unit id to its new, raised checkpoint-seconds bound.
-export function readerPathJobExtendFlagPath(dir) { return join(dir, "reader-path-job.extend"); }
-export function readReaderPathJobExtendFlag(dir) {
-  const p = readerPathJobExtendFlagPath(dir);
-  return existsSync(p) ? readJson(p) : {};
-}
-export function writeReaderPathJobExtendFlag(dir, overrides) {
-  writeFileSync(readerPathJobExtendFlagPath(dir), JSON.stringify(overrides, null, 2) + "\n");
-}
 
 export function readReaderPathJob(dir) {
   const p = readerPathJobPath(dir);
@@ -7847,8 +7826,8 @@ export function classifyDetachedJobUnit(out, validate) {
 // sibling is still running — killing a running sibling on one unit's own
 // refusal is exactly the loss #1204 was filed over, two Candidates written to
 // disk and discarded because a third unit's record did not parse. The
-// supervisor keeps polling until every unit is finished, at its checkpoint,
-// or past a whole-job bound; ONLY THEN is the job's terminal state reduced
+// supervisor keeps polling until every unit is finished or a whole-job bound
+// is passed; ONLY THEN is the job's terminal state reduced
 // over the finished set, and `died` still dominates `refused` still dominates
 // `done` in that reduction — the owner is never shown a partial set as
 // complete. `stop_requested` and the two time bounds are read AHEAD of every
@@ -7871,84 +7850,17 @@ export function classifyDetachedJobState(units, {
   }
   if (elapsedS >= absoluteLimitS) return "ceiling";
   if (stalledS >= stallS) return "stalled";
-  if (running.some((u) => u.checkpoint_hit)) return "limit-reached";
   return "running";
 }
 
-// THE EXTEND OVERRIDE APPLIED AT THE READING SIDE, NOT ONLY AT THE SUPERVISOR
-// (kogaki#1213). The supervisor recomputes `checkpoint_hit` from the extend
-// file at most once per heartbeat tick, so a `job await` poll landing between
-// the owner's "extend" click and that tick reads the record's PRE-extend
-// flag. This is `job await`'s own reduction of the SAME raised bound the
-// extend file already carries, checked against the current elapsed time
-// rather than trusted from the disk flag, which is what a poll in that window
-// needs in order to see the extension take effect without waiting for a tick
-// that has not happened yet.
-export function applyReaderPathJobExtendOverrides(units, overrides, elapsedS) {
-  if (!overrides || !Object.keys(overrides).length) return units;
-  return units.map((u) => {
-    if (u.status !== "running" || !u.checkpoint_hit) return u;
-    const raised = Number(overrides[u.id]);
-    return Number.isFinite(raised) && elapsedS < raised ? { ...u, checkpoint_hit: false } : u;
-  });
-}
-
 // THE READER-PATH AWAIT'S OWN PER-POLL DECISION (kogaki#1213), pulled out of
-// `awaitReaderPathJob` in `src/brief.mjs` as a pure function precisely so a
-// fixture can drive its two races without a live, 10-second heartbeat wait:
-// `applyReaderPathJobExtendOverrides` above recomputes `checkpoint_hit`
-// against the CURRENT elapsed time (remedy 1), and this wraps that with the
-// residual guard (remedy 2) — a job record whose `updated_at` predates the
-// extend file's own mtime is never classified `limit-reached`, because even a
-// unit the override does not (yet) name may have had its `checkpoint_hit`
-// computed before the click. `extendMtimeMs` is `null` when no extend file
-// exists yet, in which case the guard cannot fire. Returns `{ classify:
-// false }` when the caller should wait one heartbeat and re-read rather than
-// act on `state`.
-export function readerPathAwaitStep(job, extendOverrides, extendMtimeMs, { stopRequested, elapsedS, stalledS } = {}) {
-  const units = applyReaderPathJobExtendOverrides(job.units || [], extendOverrides, elapsedS);
+// `awaitReaderPathJob` in `src/brief.mjs` as a pure function so a fixture can
+// drive it without a live, 10-second heartbeat wait: the job record's units
+// classified against the CURRENT elapsed time.
+export function readerPathAwaitStep(job, { stopRequested, elapsedS, stalledS } = {}) {
+  const units = job.units || [];
   const state = classifyDetachedJobState(units, { stopRequested, elapsedS, stalledS });
-  if (state === "limit-reached" && extendMtimeMs != null) {
-    const jobUpdatedAtMs = job.updated_at ? Date.parse(job.updated_at) : 0;
-    if (jobUpdatedAtMs < extendMtimeMs) return { classify: false, units, state };
-  }
-  return { classify: true, units, state };
-}
-
-// THE EXTEND ANSWER'S OWN DECISION (kogaki#1241), pulled out of the gate's
-// `extend`-answer branch in `src/terrain.mjs` as a pure function on the same
-// ground `readerPathAwaitStep` above was: a fixture drives it directly rather
-// than through a live gate-answer round trip. `decl` is the declaration the
-// raising wrote — `reader_path_job_checkpoint_hit_units` is the raising's OWN
-// set of checkpoint-hit unit ids (kogaki#1241), read in preference to the live
-// `job` record's `checkpoint_hit` flags, which a click read after every named
-// unit finished would find empty. The fallback to the live job exists only for
-// a declaration written before this field existed. `job` is read for ONE
-// thing beyond that fallback: the checkpoint/absolute-limit seconds to cap the
-// raised bound by, and to tell which named units are no longer `running` by
-// the time the click is read (`alreadyFinished`) — a unit never dropped from
-// the grant for having finished, only noted.
-export function resolveReaderPathJobExtend(decl, job, existingOverrides, {
-  checkpointS = READER_PATH_JOB_CHECKPOINT_S,
-  absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S,
-} = {}) {
-  const jobUnits = job && Array.isArray(job.units) ? job.units : [];
-  const hitUnits = Array.isArray(decl && decl.reader_path_job_checkpoint_hit_units)
-    ? decl.reader_path_job_checkpoint_hit_units
-    : jobUnits.filter((u) => u.checkpoint_hit).map((u) => u.id);
-  const jobCheckpointS = (job && Number(job.checkpoint_s)) || checkpointS;
-  const jobAbsoluteLimitS = (job && Number(job.absolute_limit_s)) || absoluteLimitS;
-  const newOverrides = { ...existingOverrides };
-  for (const id of hitUnits) {
-    const current = Number((existingOverrides || {})[id]) || jobCheckpointS;
-    newOverrides[id] = Math.min(current + jobCheckpointS, jobAbsoluteLimitS);
-  }
-  const liveById = new Map(jobUnits.map((u) => [u.id, u]));
-  const alreadyFinished = hitUnits.filter((id) => {
-    const u = liveById.get(id);
-    return !u || u.status !== "running";
-  });
-  return { hitUnits, newOverrides, alreadyFinished };
+  return { units, state };
 }
 
 // THE `failure` BLOCK FOR A NON-`done` JOB RECORD (kogaki#1193 acceptance 2:
@@ -7980,17 +7892,9 @@ function readerPathJobFailure(state, unitRows, { elapsedS, stalledS, note } = {}
   if (state === "stopped") {
     return { note: "the owner's stop click ended the job; every unit's partial output stands." };
   }
-  if (state === "limit-reached") {
-    // NOT A KILL (kogaki#1193's own note above `cmdJobSupervise`): the unit
-    // named here is STILL RUNNING -- this is `job await`'s cue to raise the
-    // extend/stop Arm, not a supervisor exit, so its note says so rather than
-    // falling into the catch-all below and reading like one.
-    const hit = unitRows.filter((u) => u.checkpoint_hit).map((u) => u.id);
-    return { units: hit, note: "a checkpoint bound was reached; the unit is still running and is neither finished nor failed. Extending raises its bound; stopping ends the job and keeps whatever it has written so far." };
-  }
   // `other` (kogaki#1193's catch-all): an exit the supervisor's own top-level
   // catch reaches, naming what actually happened rather than folding it into
-  // one of the eight named exits it does not match.
+  // one of the named exits it does not match.
   return { note: note || `unclassified exit (${state})` };
 }
 
@@ -8000,13 +7904,6 @@ function readerPathJobFailure(state, unitRows, { elapsedS, stalledS, note } = {}
 // Job. It owns the per-unit children, the heartbeat write and the terminal
 // classification; nothing else writes `reader-path-job.json` once this has
 // started.
-//
-// THE CONTINUATION RULE DELIBERATELY DIFFERS FROM `classifyDetachedJobState`'s
-// CALLER AT `job await`: a `limit-reached` classification is `job await`'s cue
-// to raise the extend/stop Arm, and it is NOT this process's cue to stop doing
-// the work -- "extend" (the owner's 2026-09-25 wording) means the SAME unit
-// keeps running rather than being restarted, so this loop only stops at a
-// state nothing can extend past.
 export async function cmdJobSupervise(args) {
   const dir = String(args.run || fail("job-supervise needs --run <dir> (internal verb, kogaki#1193)."));
   let unitsRunning = null;
@@ -8014,7 +7911,6 @@ export async function cmdJobSupervise(args) {
     const unitsPath = String(args.units || fail("job-supervise needs --units <file>."));
     const command = String(args.command || fail("job-supervise needs --command <path>."));
     const model = String(args.model || fail("job-supervise needs --model <name>."));
-    const checkpointS = Number(args["checkpoint-s"]) || READER_PATH_JOB_CHECKPOINT_S;
     const absoluteLimitS = Number(args["absolute-limit-s"]) || READER_PATH_JOB_ABSOLUTE_LIMIT_S;
     const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
     const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
@@ -8078,13 +7974,6 @@ export async function cmdJobSupervise(args) {
       // has no children of its own to starve.
       await new Promise((r) => { setTimeout(r, heartbeatMs); });
       const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
-      // THE EXTEND OVERRIDE, POLLED EVERY TICK (kogaki#1193 PR #1195 review
-      // round 1, finding 2) -- the same file the gate-answer "extend" click
-      // writes. A unit named here has its checkpoint bound RAISED, which is
-      // what makes `checkpoint_hit` recompute false and lets `job await`'s
-      // polling resume rather than re-declaring `limit-reached` on the very
-      // next poll of an unchanged threshold.
-      const extendOverrides = readReaderPathJobExtendFlag(dir);
       let bytesTotal = 0;
       // A RETRY IS PROGRESS TOO (kogaki#1203): the respawned child's byte
       // counter starts back at 0, so `bytesTotal` can fall even though real
@@ -8141,9 +8030,7 @@ export async function cmdJobSupervise(args) {
           return { id: u.id, bytes: sp.out.bytes, ...cls, ...retryTrace, ...(candidateFile ? { candidate_file: candidateFile } : {}) };
         }
         bytesTotal += sp.out.bytes;
-        const elapsedUnitS = Math.floor((Date.now() - startedAt) / 1000);
-        const checkpointForUnit = Number(extendOverrides[u.id]) || checkpointS;
-        return { id: u.id, status: "running", bytes: sp.out.bytes, checkpoint_hit: elapsedUnitS >= checkpointForUnit };
+        return { id: u.id, status: "running", bytes: sp.out.bytes };
       });
       if (retried || bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
       const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
@@ -8151,7 +8038,6 @@ export async function cmdJobSupervise(args) {
       const state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS, absoluteLimitS, stallS });
       writeReaderPathJob(dir, {
         started_at: new Date(startedAt).toISOString(),
-        checkpoint_s: checkpointS,
         absolute_limit_s: absoluteLimitS,
         last_progress_at: new Date(lastProgressAt).toISOString(),
         supervisor_pid: process.pid,
@@ -8160,7 +8046,7 @@ export async function cmdJobSupervise(args) {
         ...(state !== "done" && state !== "running"
           ? { failure: readerPathJobFailure(state, unitRows, { elapsedS, stalledS }) } : {}),
       });
-      if (state === "running" || state === "limit-reached") continue;
+      if (state === "running") continue;
       for (const u of units) {
         const sp = unitsRunning.get(u.id);
         if (!sp.out.done) { try { sp.child.kill("SIGKILL"); } catch { /* already gone */ } }
@@ -8203,7 +8089,7 @@ export function startDetachedJobSupervisor(dir, opts) {
     scriptPath, "job-supervise",
     "--run", dir, "--units", unitsPath,
     "--command", opts.command, "--model", opts.model, "--output-format", opts.outputFormat,
-    "--checkpoint-s", String(opts.checkpointS), "--absolute-limit-s", String(opts.absoluteLimitS),
+    "--absolute-limit-s", String(opts.absoluteLimitS),
     "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
   ], { detached: true, stdio: "ignore", cwd: REPO });
   child.unref();
@@ -8213,7 +8099,7 @@ export function startDetachedJobSupervisor(dir, opts) {
     last_progress_at: now,
     supervisor_pid: child.pid,
     state: "running",
-    units: opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, checkpoint_hit: false })),
+    units: opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0 })),
   });
   return { unitsPath, supervisorPid: child.pid };
 }
@@ -8230,7 +8116,6 @@ export async function cmdJobRerunUnit(args) {
     const unitId = String(args.unit || fail("job-rerun-unit needs --unit <id>."));
     const command = String(args.command || fail("job-rerun-unit needs --command <path>."));
     const model = String(args.model || fail("job-rerun-unit needs --model <name>."));
-    const checkpointS = Number(args["checkpoint-s"]) || READER_PATH_JOB_CHECKPOINT_S;
     const absoluteLimitS = Number(args["absolute-limit-s"]) || READER_PATH_JOB_ABSOLUTE_LIMIT_S;
     const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
     const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
@@ -8302,7 +8187,7 @@ export async function cmdJobRerunUnit(args) {
         ...(state !== "done" && state !== "running"
           ? { failure: readerPathJobFailure(state, mergedUnits, { elapsedS, stalledS }) } : {}),
       });
-      if (state === "running" || state === "limit-reached") continue;
+      if (state === "running") continue;
       if (sp.child && !sp.out.done) { try { sp.child.kill("SIGKILL"); } catch { /* already gone */ } }
       break;
     }
@@ -8330,13 +8215,13 @@ export function startReaderPathUnitRerun(dir, unitId, opts) {
     scriptPath, "job-rerun-unit",
     "--run", dir, "--unit", unitId,
     "--command", opts.command, "--model", opts.model,
-    "--checkpoint-s", String(opts.checkpointS), "--absolute-limit-s", String(opts.absoluteLimitS),
+    "--absolute-limit-s", String(opts.absoluteLimitS),
     "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
   ], { detached: true, stdio: "ignore", cwd: REPO });
   child.unref();
   const existing = readReaderPathJob(dir) || { units: [] };
   const units = (existing.units || []).map((u) => (u.id === unitId
-    ? { id: u.id, status: "running", bytes: 0, checkpoint_hit: false } : u));
+    ? { id: u.id, status: "running", bytes: 0 } : u));
   writeReaderPathJob(dir, { ...existing, supervisor_pid: child.pid, state: "running", units, failure: undefined });
   return { supervisorPid: child.pid };
 }
@@ -10349,12 +10234,8 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
         }
       } else if (owed.gate_id === READER_PATH_JOB_GATE_ID) {
         // THE ARM ANSWERS ITSELF, ON THE SAME GROUND `JUDGMENT_RETRY_GATE_ID`
-        // DOES ONE ROW UP (kogaki#1193). `stop` ends the RUN — every non-`done`
-        // state's Arm is stop-only or extend-or-stop, and "stop" always means
-        // the open-run pointer clears, never that one judgment retries. "extend"
-        // leaves the state incomplete so the ordinary loop re-enters
-        // `compose_path`, which reads the job record itself and grants the
-        // extended unit one more checkpoint window (`src/brief.mjs`).
+        // DOES ONE ROW UP (kogaki#1193). `stop` ends the RUN, and "stop" always
+        // means the open-run pointer clears, never that one judgment retries.
         const jobState = rec.awaiting;
         rec.owner_input[jobState] = capOption !== null ? capOption : capFree;
         rec.awaiting = null;
@@ -10376,8 +10257,8 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is STOPPED; the run is not resumed and the open-run pointer is cleared.`);
         } else if (capOption === "rerun") {
           // THE REFUSED UNIT'S OWN ARM (kogaki#1204 acceptance 3): "rerun"
-          // leaves the state incomplete, on the exact ground "extend" does
-          // above, so the ordinary advance loop re-enters `compose_path` --
+          // leaves the state incomplete, so the ordinary advance loop
+          // re-enters `compose_path` --
           // which finds the job record already `running` (the starter below
           // writes that before this function returns) and re-raises the same
           // `DetachedJobStarted`/"run `job await`" message the owner already
@@ -10388,43 +10269,16 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           const cfg = judgeSettings(table, rec);
           startReaderPathUnitRerun(dir, refusedUnit.id, {
             command: cfg.command, model: cfg.model,
-            checkpointS: Number(job.checkpoint_s) || READER_PATH_JOB_CHECKPOINT_S,
             absoluteLimitS: Number(job.absolute_limit_s) || READER_PATH_JOB_ABSOLUTE_LIMIT_S,
             stallS: READER_PATH_JOB_STALL_S,
             heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
           });
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} RE-RUNS unit ${JSON.stringify(refusedUnit.id)}; the finished siblings' rows are untouched, and the state was never marked complete, so the advance below re-enters it (kogaki#1204).`);
         } else {
-          // "EXTEND IS GRANTED ONCE PER UNIT" (kogaki#1193, the owner's
-          // 2026-09-25 wording), RECORDED HERE — the one place an `extend`
-          // click is known to have happened. `resolveReaderPathJobExtend`
-          // (kogaki#1241) is the pure decision, pulled out for the same reason
-          // `readerPathAwaitStep` was (kogaki#1213): a fixture drives it
-          // directly rather than through a live gate-answer round trip.
-          const job = readReaderPathJob(dir);
-          const existingOverrides = readReaderPathJobExtendFlag(dir);
-          const { hitUnits, newOverrides, alreadyFinished } = resolveReaderPathJobExtend(decl, job, existingOverrides);
-          rec.reader_path_job_extended = rec.reader_path_job_extended || {};
-          rec.reader_path_job_extended[jobState] = Array.from(new Set(
-            [...(rec.reader_path_job_extended[jobState] || []), ...hitUnits],
-          ));
-          // THE GRANT REACHING THE SUPERVISOR (kogaki#1193 PR #1195 review
-          // round 1, finding 2). Recording the extend on `rec` above is a
-          // LEDGER for the next Arm-composing decision; it is not read by the
-          // supervisor process, which is the one process computing
-          // `checkpoint_hit` on a live tick. Without this write, the very next
-          // `job await` poll would recompute the SAME threshold and
-          // re-classify `limit-reached` instantly.
-          try { writeReaderPathJobExtendFlag(dir, newOverrides); } catch { /* the record is the truth; a lost write costs the owner a repeat click, not a wrong one */ }
-          // THE "ALREADY FINISHED" NOTE (kogaki#1241 remedy): a named unit no
-          // longer `running` by the time the click is read is still recorded
-          // under `reader_path_job_extended`, never silently dropped — but the
-          // screen says so rather than claiming the extension did anything for
-          // a unit that is already done.
-          const finishedNote = alreadyFinished.length
-            ? ` (already finished by the time the click was read: ${JSON.stringify(alreadyFinished)})`
-            : "";
-          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is EXTENDED for unit(s) ${JSON.stringify(hitUnits)}${finishedNote}; the state was never marked complete, so the advance below re-enters it (kogaki#1193).`);
+          // ANY OTHER ANSWER (a free-text one): nothing is acted on, the state
+          // was never marked complete, and the advance below re-enters
+          // `compose_path`, which reads the job record again.
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the answer at ${jobState} is neither stop nor rerun, so nothing is acted on; the advance below re-enters the state and reads the job record again.`);
         }
       } else {
         // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
@@ -10815,7 +10669,7 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     // here. This branch is checked first so the job's own state, not a
     // borrowed one, reaches the screen.
     console.log(`Executor STOPPED at ${stopped.id} — a reader-path job was started as a Detached Job and is running outside this process (kogaki#1193). The state is NOT complete.`);
-    console.log(`Poll it with  ${READER_PATH_JOB_STATUS_COMMAND}  (one-shot) or  ${READER_PATH_JOB_AWAIT_COMMAND}  (blocks until it finishes, stalls, or hits a checkpoint).`);
+    console.log(`Poll it with  ${READER_PATH_JOB_STATUS_COMMAND}  (one-shot) or  ${READER_PATH_JOB_AWAIT_COMMAND}  (waits at most 30 seconds, then says whether the job is still running).`);
   } else if (stopped && rec.awaiting === stopped.id) {
     // THE JUDGMENT-RETRY STOP (kogaki#1172 item 3). `stopped` is a `judgment`
     // state that exhausted its retries and raised `terrain-judgment-retry`
