@@ -119,6 +119,12 @@
 #       introduces is refused naming the term (kogaki#1251 item 4,
 #       kogaki#1260); a `names` list that is a subset of the union of every
 #       Leg's `introduces` is not.
+#  (bb) `composeBrief` (src/brief.mjs) records `compose_path` naming the
+#       Persona file it was composed with, and refuses a blank, absent or
+#       non-string one by name (kogaki#1251 item 1, kogaki#1262).
+#  (cc) `composeBrief` renders `external_authority: on` when the mint gives
+#       none, `external_authority: off` when minted with `off`, and refuses
+#       any third value by name (kogaki#1251 item 3, kogaki#1262).
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
@@ -136,6 +142,7 @@ cd "$(dirname "$0")/.."
 node --input-type=module - <<'JS'
 import { readFileSync } from "node:fs";
 import * as compose from "./src/compose.mjs";
+import { composeBrief } from "./src/brief.mjs";
 import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
 import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
   readerTargetLine, REACHES_TARGET_LINE, CLOSING_LEG_LINE,
@@ -1036,10 +1043,48 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   }
 }
 
+// (bb) the mint records compose_path -- the Persona's path -- and refuses without one (kogaki#1262).
+{
+  const strands = [{ display_id: "L1", slug: "a-strand", cite: "coding::lesson/a-strand@abc123" }];
+  const doc = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "readers/dev-to-zenn.md" });
+  if (!/\*compose_path:\* `readers\/dev-to-zenn\.md`/.test(doc)) {
+    fails.push(`(bb) the minted Brief does not carry compose_path naming the Persona file: ${JSON.stringify(doc.slice(0, 200))}`);
+  }
+  let threw = null;
+  try { composeBrief({ slug: "t", strands, thesis: "a claim" }); }
+  catch (e) { threw = e; }
+  if (!threw) fails.push("(bb) composeBrief with no composePath was not refused");
+  else if (!/compose_path/.test(threw.message)) fails.push(`(bb) the refusal did not name compose_path: ${threw.message}`);
+  for (const bad of ["", 42, null]) {
+    let badThrew = null;
+    try { composeBrief({ slug: "t", strands, thesis: "a claim", composePath: bad }); }
+    catch (e) { badThrew = e; }
+    if (!badThrew) fails.push(`(bb) composeBrief with composePath ${JSON.stringify(bad)} was not refused`);
+  }
+}
+
+// (cc) external_authority defaults to on at mint and is off when minted so (kogaki#1251 item 3, kogaki#1262).
+{
+  const strands = [{ display_id: "L1", slug: "a-strand", cite: "coding::lesson/a-strand@abc123" }];
+  const defaulted = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "readers/dev-to-zenn.md" });
+  if (!/\*external_authority:\* on/.test(defaulted)) {
+    fails.push(`(cc) a Brief minted with no external_authority given did not default to on: ${JSON.stringify(defaulted.slice(0, 260))}`);
+  }
+  const off = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "readers/dev-to-zenn.md", externalAuthority: "off" });
+  if (!/\*external_authority:\* off/.test(off)) {
+    fails.push(`(cc) a Brief minted with externalAuthority "off" did not carry off: ${JSON.stringify(off.slice(0, 260))}`);
+  }
+  let badThrew = null;
+  try { composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "readers/dev-to-zenn.md", externalAuthority: "maybe" }); }
+  catch (e) { badThrew = e; }
+  if (!badThrew) fails.push('(cc) composeBrief with externalAuthority "maybe" was not refused');
+  else if (!/external_authority/.test(badThrew.message)) fails.push(`(cc) the refusal did not name external_authority: ${badThrew.message}`);
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget and the re-activate line), a Journey held when not re-activated and its scene active when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields.");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget and the re-activate line), a Journey held when not re-activated and its scene active when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name, and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name.");
 JS

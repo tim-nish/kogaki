@@ -189,9 +189,24 @@ const fields = () => [...SLOT_CAPTIONS.entries()];
 // Exported and pure over its inputs, so the check exercises the composed
 // document without a filesystem. `thesis` is required: at v9 no document
 // exists without one.
-export function composeBrief({ slug, strands, thesis }) {
+export function composeBrief({ slug, strands, thesis, composePath, externalAuthority = "on" }) {
   if (typeof thesis !== "string" || thesis === "") {
     throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)");
+  }
+  // THE PERSONA'S PATH, RECORDED AT MINT (kogaki#1262, carrying kogaki#1251
+  // item 1). `compose_path` names the reader file the `compose_path` workflow
+  // state will author the Brief's Reader start from — so the Packet can read
+  // the Persona's `prose` block from the same path the Brief itself names,
+  // rather than from the workflow table a Packet has no reach into.
+  if (typeof composePath !== "string" || composePath === "") {
+    throw new Error("composeBrief: a Brief cannot be composed without the Persona's path recorded at `compose_path` (kogaki#1262) — the mint's caller resolves it from src/brief-workflow.json's `compose_path` state and passes it here.");
+  }
+  // EXTERNAL_AUTHORITY, DEFAULTING ON (kogaki#1262, carrying kogaki#1251 item
+  // 3). Set at mint and never derived later — the two admitted values are
+  // the whole of the header field, so a third value is refused here rather
+  // than reaching a reader as an unexplained string.
+  if (externalAuthority !== "on" && externalAuthority !== "off") {
+    throw new Error(`composeBrief: \`external_authority\` must be "on" or "off"; received ${JSON.stringify(externalAuthority)} (kogaki#1262)`);
   }
   const L = [];
   // TWO EMITTERS, and the split IS the tripwire's reach (the durable home and the entry point v15, kogaki#537).
@@ -220,6 +235,15 @@ export function composeBrief({ slug, strands, thesis }) {
   const say = (s = "") => { L.push(s); guarded.push(s); };
   const material = (s = "") => { L.push(s); };
   material(`# Brief — ${slug}`);
+  say();
+  // THE HEADER PAIR, RECORD RATHER THAN PROSE (kogaki#1262). Both lines are
+  // facts this mint stamps, never the owner's words nor the substrate's, but
+  // neither is composer-authored SENTENCE either — `material` carries them
+  // for the same reason it carries a Strand's `cite`: a path and a two-value
+  // switch cannot leak the internal vocabulary the `say`/`material` split
+  // guards against.
+  material(`*compose_path:* \`${composePath}\``);
+  material(`*external_authority:* ${externalAuthority}`);
   say();
   // The reader-facing definition, in the act that uses the term (the durable home and the entry point).
   say("> A **brief** is the working plan for one article: the served");
@@ -934,10 +958,22 @@ function cmdMint(args) {
       + "the thesis-determination gate naming a different name (`adopt "
       + "--thesis <id|text> --slug <name>`).");
   }
+  // THE PERSONA'S PATH, AND THE HEADER TOGGLE (kogaki#1262). `--reader-file`
+  // and `--external-authority` survive as the same class of caller override
+  // `--slug` already is: a harness minting a fixture Brief under a fixed
+  // home, never an owner question. With neither given, the Persona's path is
+  // the one `src/brief-workflow.json`'s `compose_path` state names — "no
+  // per-article selection" (kogaki#1216) means there is exactly one to read —
+  // and `external_authority` defaults on.
+  const readerFile = typeof args["reader-file"] === "string" && args["reader-file"] !== ""
+    ? args["reader-file"] : briefComposePathDefault();
+  const externalAuthority = typeof args["external-authority"] === "string" && args["external-authority"] !== ""
+    ? args["external-authority"] : "on";
   mkdirSync(home, { recursive: true });
   const out = join(home, "brief.md");
   const doc = composeBrief({
     slug, strands: state.strands, thesis: state.adopted_thesis,
+    composePath: readerFile, externalAuthority,
   });
   writeFileSync(out, doc);
   // Per-block snapshot (kogaki#523): the mint's before-state is NO FILE —
@@ -996,6 +1032,22 @@ const BRIEF_TABLE = join(BRIEF_HERE, "brief-workflow.json");
 
 function readJson(p) {
   return JSON.parse(readFileSync(p, "utf8"));
+}
+
+// THE PERSONA'S PATH, READ FROM THE ONE PLACE IT IS DECLARED (kogaki#1262).
+// `cmdMint` runs standalone (the CLI's `mint` verb) as well as under the
+// workflow, so it reads `src/brief-workflow.json` itself rather than relying
+// on a `table` a standalone caller never has in hand — the same row the
+// `differentiation` state reads `reader_file` from, by the row's own id
+// rather than by position, so the two readings cannot drift apart by table
+// edit order.
+function briefComposePathDefault() {
+  const table = readJson(BRIEF_TABLE);
+  const st = (table.states || []).find((s) => s.id === "compose_path");
+  return (st && typeof st.reader_file === "string" && st.reader_file !== "" && st.reader_file)
+    || fail("src/brief-workflow.json's `compose_path` state declares no `reader_file` — the mint records the "
+      + "Persona's path at `compose_path` (kogaki#1262) and a table with none to read has nothing to record. "
+      + "Nothing was written.");
 }
 
 // The lane entry name a START act opens a workspace under. Its shape is
@@ -2255,6 +2307,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // `skill-expansion` executor kind and no hook fields, because no hook event
     // produced them and inventing one would be a fabricated attribution.
     case "start": runWorkflow(BRIEF_FLOW, args, SKILL_EXPANSION_EXECUTOR, { stopAtFirstWait: true }); break;
-    default: fail("usage: brief.mjs start <served Lesson address> ... | run [--status] | enter <served Lesson address> ... [--run-state <path>] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
+    default: fail("usage: brief.mjs start <served Lesson address> ... | run [--status] | enter <served Lesson address> ... [--run-state <path>] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>] [--reader-file <path, defaults to src/brief-workflow.json's compose_path row>] [--external-authority on|off, defaults on]");
   }
 }
