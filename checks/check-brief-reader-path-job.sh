@@ -975,6 +975,96 @@ process.stdin.on("end", () => {
   }
 }
 
+// (w1) kogaki#1278: TWO CONCURRENT `job await` CALLS OVER THE SAME FINISHED
+// JOB RESUME IT EXACTLY ONCE. The fixture job is already `done`, and its run
+// record carries no minted Brief, so `compose_path`'s own `needBrief` -- the
+// first line of the resumed state work -- refuses deterministically and at
+// once: the claimant's own resume is observed by that one, single refusal
+// landing, never by a successful compose (which this fixture has nothing to
+// support). The second, deferred caller never reaches state work at all -- it
+// reads the exclusive resume-claim file as already taken and prints the run's
+// position instead, exiting 0.
+{
+  const dir = mkNewRun();
+  const now = new Date().toISOString();
+  writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+    started_at: now, last_progress_at: now, updated_at: now, absolute_limit_s: 600, supervisor_pid: null, state: "done",
+    units: [{ id: "candidate-1", status: "done", bytes: 50,
+      candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
+  }, null, 2) + "\n");
+  const briefTable = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  writeFileSync(runRecordPath(dir), JSON.stringify({
+    workflow: { path: "src/brief-workflow.json", version: briefTable.version },
+    judge_binary: null, survey_record: null,
+    // EVERY STATE `compose_path` SITS BEHIND IS `completed`, so the advance
+    // loop below walks straight to it rather than restarting the run from
+    // `enter` (which demands a Strand address this fixture has none of).
+    completed: ["enter", "THESIS_ADOPTION", "adopt_thesis", "mint", "differentiation"], waits_reached: [],
+    conditional_entered: [], conditional_skipped: [], awaiting: null,
+    owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
+    done: false,
+  }, null, 2) + "\n");
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") };
+  const runAwait = () => new Promise((resolvePromise) => {
+    const child = spawn(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"], { cwd: root, env });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => { stdout += d; });
+    child.stderr.on("data", (d) => { stderr += d; });
+    child.on("close", (code) => resolvePromise({ code, stdout, stderr }));
+  });
+  const results = await Promise.all([runAwait(), runAwait()]);
+  const claimed = results.filter((r) => /has no minted Brief/.test(r.stderr));
+  const deferred = results.filter((r) => /already claimed/.test(r.stdout));
+  if (claimed.length !== 1) {
+    fails.push(`(w1) two concurrent \`job await\` calls over the same \`done\` job did not resume exactly once (${claimed.length} reached needBrief's own refusal): ${JSON.stringify(results)}`);
+  }
+  if (deferred.length !== 1) {
+    fails.push(`(w1) two concurrent \`job await\` calls did not leave exactly one call reading the resume as already claimed: ${JSON.stringify(results)}`);
+  } else if (deferred[0].code !== 0) {
+    fails.push(`(w1) the deferred \`job await\` call did not exit 0: ${JSON.stringify(deferred[0])}`);
+  }
+  if (!existsSync(join(dir, "reader-path-job-resume.claim"))) {
+    fails.push(`(w1) no exclusive resume-claim file was left beside the job record at ${dir}`);
+  }
+}
+
+// (w2) kogaki#1278: A RUN RECORD ALREADY `done: true` IS NEVER RESUMED. The
+// precheck reads the RUN record, not the job's own state, so a `done` job
+// record stands in for whichever terminal state a slower, racing caller's
+// stale read saw -- the run underneath it has already been finished and
+// answered, and the resume refuses to rewrite it, naming why.
+{
+  const dir = mkNewRun();
+  const now = new Date().toISOString();
+  writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+    started_at: now, last_progress_at: now, updated_at: now, absolute_limit_s: 600, supervisor_pid: null, state: "done",
+    units: [{ id: "candidate-1", status: "done", bytes: 50,
+      candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
+  }, null, 2) + "\n");
+  writeFileSync(runRecordPath(dir), JSON.stringify({
+    workflow: { path: "src/brief-workflow.json", version: null },
+    judge_binary: null, survey_record: null, completed: ["compose_path"], waits_reached: ["CANDIDATE_SELECTION"],
+    conditional_entered: [], conditional_skipped: [], awaiting: null,
+    owner_input: { CANDIDATE_SELECTION: "c1" }, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
+    done: true,
+  }, null, 2) + "\n");
+  const before = readFileSync(runRecordPath(dir), "utf8");
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") };
+  const awaitRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
+    { cwd: root, timeout: 15000, encoding: "utf8", env });
+  const after = readFileSync(runRecordPath(dir), "utf8");
+  if (after !== before) {
+    fails.push(`(w2) a resume over a run record already \`done: true\` rewrote it: before=${before} after=${after}`);
+  }
+  if (!(awaitRun.stdout || "").includes("already done")) {
+    fails.push(`(w2) a resume over a run record already \`done: true\` did not say why it refused: stdout=${awaitRun.stdout} stderr=${awaitRun.stderr}`);
+  }
+  if (existsSync(join(dir, "reader-path-job-resume.claim"))) {
+    fails.push("(w2) a resume refused for an already-`done` run still created the resume-claim file");
+  }
+}
+
 // (v7) NO `rerun` OPTION AND NO `job-rerun-unit` VERB REMAINS.
 {
   const brief = readFileSync("src/brief.mjs", "utf8");

@@ -2242,6 +2242,15 @@ function readReaderPathJobOrDefect(dir) {
   }
 }
 
+// THE RESUME CLAIM (kogaki#1278). Beside the job record, never inside it, so
+// a claim never rides a `checkpointRun` write. An exclusive create (`wx`) is
+// the only operation here: the caller that wins the create is the one that
+// resumes, and every later caller — a second `job await`, a backgrounded one
+// that is still mid-poll — reads `EEXIST` and takes the no-op arm instead.
+function readerPathJobResumeClaimPath(dir) {
+  return join(dir, "reader-path-job-resume.claim");
+}
+
 // THE TWO TERMINAL ARMS (kogaki#1193). `done` resumes the run in-process,
 // attributed to the `detached-job` executor kind and carrying the assembled
 // candidates so `compose_path`'s existing, unmodified `judged(...)` call
@@ -2251,6 +2260,33 @@ function readReaderPathJobOrDefect(dir) {
 // `awaitReaderPathJob` ends as a defect before reaching here, raises
 // `brief-reader-path-job` and stops — no state here ever auto-retries.
 async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
+  // A RUN ALREADY `done` IS NEVER RESUMED (kogaki#1278). Checked before the
+  // claim, not after: the claim only arbitrates between waiters racing to
+  // resume a run that is still open, and a run a prior resume already closed
+  // is not that race — it is the one this issue's transcript hit, where a
+  // slower waiter's `runWorkflow` overwrote a run the faster waiter had
+  // already finished and answered.
+  const precheckRec = readRunRecord(dir);
+  if (precheckRec && precheckRec.done) {
+    console.log(`reader-path job at ${state} — run ${dir} is already done; this resume refuses to rewrite it.`);
+    return;
+  }
+  // THE CLAIM (kogaki#1278). An exclusive create: the caller that wins it is
+  // the one that resumes, every other caller prints the run's current
+  // position (the same reading `job status` gives) and exits 0 having
+  // advanced nothing.
+  const claimPath = readerPathJobResumeClaimPath(dir);
+  try {
+    writeFileSync(claimPath, `${JSON.stringify({ claimed_at: new Date().toISOString(), pid: process.pid, state }, null, 2)}\n`,
+      { flag: "wx" });
+  } catch (e) {
+    if (e && e.code === "EEXIST") {
+      console.log(`reader-path job resume at ${dir} is already claimed at ${claimPath} — printing the run's position instead of resuming it again.`);
+      printReaderPathJobStatus(dir, job);
+      return;
+    }
+    throw e;
+  }
   if (state === "done") {
     // TAGGED WITH THE UNIT NUMBER HERE, AND NOWHERE ELSE (kogaki#1206). `u.id`
     // is `candidate-<n>`, the Harness's own name for the unit `compose_path`
