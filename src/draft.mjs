@@ -103,7 +103,7 @@ import { tmpdir } from "node:os";
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, figureOf, figureLegs,
   journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg,
-  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry } from "./compose.mjs";
+  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, concededRowFields } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
 // resolved exactly as the Terrain and Brief judges are, `KOGAKI_JUDGE_CLI`
@@ -1429,12 +1429,28 @@ function withServedProse(served, cite, shardCache) {
 // refusal, named by Leg and address. Called once per Leg that declares any
 // Journey, before `renderPacket` runs — resolution happens or the build never
 // reaches the renderer, let alone the writer.
+// A RE-ACTIVATED JOURNEY RESOLVES THE SAME WAY (kogaki#1261): each
+// `<leg_id> journey <strand>` entry names a Journey the depended-on Leg drew
+// on, and its scene is served text the writer restores under `Active here`,
+// so it is fetched here, by the same survey, and carried on the Leg as
+// `reactivatedJourneys` — `{leg_id, strand, use, resolvedText}` per entry.
+export function reactivatedJourneyEntries(leg, brief) {
+  return (leg["re-activate"] || [])
+    .map((raw) => parseReactivateEntry(raw))
+    .filter((e) => !e.error && e.kind === "journey")
+    .map((e) => {
+      const target = (brief.legs || []).find((l) => l.leg_id === e.leg_id);
+      const j = (target?.journeys || []).find((x) => x.strand === e.value);
+      return { leg_id: e.leg_id, strand: e.value, use: j ? j.use : null };
+    });
+}
+
 export function resolveLegJourneys(leg, brief) {
-  if (!(leg.journeys || []).length) return { leg };
+  const reactivated = reactivatedJourneyEntries(leg, brief);
+  if (!(leg.journeys || []).length && !reactivated.length) return { leg };
   const survey = fetchJourneySurvey();
   const shardCache = new Map();
-  const resolved = [];
-  for (const j of leg.journeys) {
+  const resolveOne = (j) => {
     const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
       .find((c) => c.kind === "journey cite");
     if (survey.ok) withServedProse(survey.served, cite?.cite, shardCache);
@@ -1442,11 +1458,96 @@ export function resolveLegJourneys(leg, brief) {
       ? journeyTextFromSurvey(cite?.cite, survey.served)
       : { error: `the gateway could not be read — ${survey.reason}` };
     const refusal = journeyResolutionRefusal(leg.leg_id, j, cite?.cite, result);
-    if (refusal) return { error: refusal };
-    resolved.push({ ...j, resolvedText: result.text });
+    return refusal ? { error: refusal } : { text: result.text };
+  };
+  const resolved = [];
+  for (const j of leg.journeys || []) {
+    const r = resolveOne(j);
+    if (r.error) return { error: r.error };
+    resolved.push({ ...j, resolvedText: r.text });
   }
-  return { leg: { ...leg, journeys: resolved } };
+  const reactivatedJourneys = [];
+  for (const j of reactivated) {
+    const r = resolveOne(j);
+    if (r.error) return { error: r.error };
+    reactivatedJourneys.push({ ...j, resolvedText: r.text });
+  }
+  return { leg: { ...leg, journeys: resolved, reactivatedJourneys } };
 }
+
+// THE PERSONA THE BRIEF WAS COMPOSED WITH (kogaki#1251 item 1, kogaki#1261).
+// The Brief's own `compose_path:` line names it once the mint records it
+// (kogaki#1262); a Brief minted before that line existed reads the one
+// Persona the Brief workflow table names at its `compose_path` row's
+// `reader_file`, which is the file every such Brief was composed with. A
+// relative path resolves against the repository root, as the workflow's does.
+const DRAFT_REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
+export function packetPersonaPath(brief) {
+  const m = /^compose_path:[ \t]*(\S+)[ \t]*$/m.exec(brief?.text || "");
+  if (m) return resolve(DRAFT_REPO, m[1]);
+  let table;
+  try { table = JSON.parse(readFileSync(join(DRAFT_REPO, "src", "brief-workflow.json"), "utf8")); }
+  catch (e) { return { error: `src/brief-workflow.json cannot be read (${e.message}) — the Brief names no compose_path, and the workflow's compose_path row names the Persona otherwise` }; }
+  const row = (table.states || []).find((s) => s.id === "compose_path");
+  if (!row || typeof row.reader_file !== "string" || row.reader_file === "") {
+    return { error: "the Brief names no compose_path and src/brief-workflow.json's compose_path row names no reader_file — the Packet has no Persona to render the prose rules from (kogaki#1261)" };
+  }
+  return resolve(DRAFT_REPO, row.reader_file);
+}
+
+// The Brief header's `external_authority: on | off` (kogaki#1251 item 3,
+// set at the mint by kogaki#1262). Absent reads as `on`, the mint's default.
+export function externalAuthorityOf(brief) {
+  const m = /^external_authority:[ \t]*(on|off)[ \t]*$/m.exec(brief?.text || "");
+  return m ? m[1] === "on" : true;
+}
+
+// ONE `Introduce here` LINE (kogaki#1261). A typed item renders its kind, so
+// the writer names a coined term as coined and brings an established one in
+// under the name its source gives it; a coined term's authority line —
+// `nearest` and `differs` — renders on the same line where the item carries
+// it and the Brief has not switched the external authority off. A bare or
+// anchored term renders as it always did.
+export function introduceLine(raw, authorityOn) {
+  const p = parseIntroducesEntry(raw);
+  if (p.error || !p.kind) return `- ${typeof raw === "string" ? raw : JSON.stringify(raw)}`;
+  if (p.kind === "established") {
+    return `- ${p.term} — established: the term already has a home outside this article, in ${p.source}; bring it in under that name.`;
+  }
+  let line = `- ${p.term} — coined: this article names it for the first time; present it as a name this article gives.`;
+  if (authorityOn && p.nearest) {
+    line += ` nearest existing term: ${p.nearest}.`;
+    if (p.differs) line += ` differs: ${p.differs}`;
+  }
+  return line;
+}
+
+// THE JOURNEYS THE READER HOLDS BUT THIS LEG DOES NOT RE-ACTIVATE
+// (kogaki#1251 item 2, kogaki#1261): every Journey an earlier Leg of the path
+// drew on, by Strand, minus the ones this Leg's `re-activate` names. Each
+// renders once, naming the Legs that used it.
+export function heldJourneys(brief, leg) {
+  const reactivated = new Set((leg["re-activate"] || [])
+    .map((raw) => parseReactivateEntry(raw))
+    .filter((e) => !e.error && e.kind === "journey")
+    .map((e) => e.value));
+  const used = new Map();
+  for (const l of brief.legs || []) {
+    if (l.leg_id === leg.leg_id) break;
+    for (const j of l.journeys || []) {
+      if (reactivated.has(j.strand)) continue;
+      if (!used.has(j.strand)) used.set(j.strand, []);
+      used.get(j.strand).push(l.leg_id);
+    }
+  }
+  return [...used.entries()].map(([strand, legs]) => `- ${strand}'s Journey (used at ${legs.join(", ")})`);
+}
+
+// The Write block's one further line on a Leg that re-activates material
+// (kogaki#1251 item 6, kogaki#1261). Rendered after the budget, and as the
+// empty string on every other Leg.
+export const REACTIVATE_LINE = "**Re-activated material.** Open this Leg on a sentence that links back to "
+  + "what the reader already holds, and name each item under `Active here` in full at its first use in this Leg.";
 
 export function renderPacket({ template, brief, leg, moveText, priorSections, ledgerRow, section, sections }) {
   const missing = [];
@@ -1484,6 +1585,21 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     .filter((e) => !e.error);
   const active = reactivateEntries.map((e) => {
     const target = (brief.legs || []).find((l) => l.leg_id === e.leg_id);
+    // A RE-ACTIVATED JOURNEY RENDERS ITS SCENE (kogaki#1261): the served text
+    // `resolveLegJourneys` fetched, under the Strand and the use the named
+    // Leg drew on it for. A caller that skipped resolution gets the `need()`
+    // refusal below rather than an address the writer cannot open.
+    if (e.kind === "journey") {
+      const j = (leg.reactivatedJourneys || []).find((x) => x.leg_id === e.leg_id && x.strand === e.value);
+      if (!j || typeof j.resolvedText !== "string" || j.resolvedText.trim() === "") {
+        need(`${leg.leg_id}'s re-activated Journey ${e.value} text`, null);
+        return "";
+      }
+      const cite = (brief.strands.find((st) => st.id === e.value)?.cites || [])
+        .find((c) => c.kind === "journey cite");
+      return `- **${e.value}'s Journey** (re-activated from ${e.leg_id})${j.use ? ` — used there for: ${j.use}` : ""}. `
+        + `Its scene, served at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`:\n\n${j.resolvedText.trim()}`;
+    }
     if (e.kind === "term") {
       const found = (target?.introduces || [])
         .map((raw) => parseIntroducesEntry(raw))
@@ -1504,6 +1620,14 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     reactivateEntries.filter((e) => e.kind === "term").map((e) => e.value.toLowerCase())
   );
   const held = known.filter((k) => !reactivatedTermKeys.has(k.term.toLowerCase()));
+  const heldJourneyLines = heldJourneys(brief, leg);
+  const authorityOn = externalAuthorityOf(brief);
+  // THE PERSONA'S PROSE RULES (kogaki#1261): read from the Persona the Brief
+  // was composed with, refused by name where it cannot be read.
+  const personaPath = packetPersonaPath(brief);
+  const prose = typeof personaPath === "string" ? readerProse(personaPath) : personaPath;
+  if (prose.error) missing.push(`the Persona's prose rules (${prose.error})`);
+  const conceded = concededRowFields(brief.text || "", leg.leg_id);
 
   const fields = {
     // DERIVED FROM THE CONSTANT rather than naming the three again (PR #780
@@ -1525,6 +1649,8 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
       ? `${leg.budget} words. This is a ceiling, not a target — write what this Leg needs, up to it.`
       : "(none declared — no word bound applies to this Leg.)",
     claims: claims || "(none recorded)",
+    prose_rules: prose.error ? "" : prose.prose,
+    reactivate_line: reactivateEntries.length ? `\n\n${REACTIVATE_LINE}` : "",
     // ACTIVE HERE (kogaki#1237, owner decision 2026-09-30): what this Leg
     // re-activates, restored VERBATIM from the Leg it names — never an
     // inventory of what the reader possesses, only what THIS Leg may speak
@@ -1538,8 +1664,10 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     // the reader holds on arriving at this Leg but this Leg did not
     // re-activate. Do not rely on it as material; it is not this Leg's to
     // speak of.
-    held_by_reader: held.length
-      ? held.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
+    // A JOURNEY AN EARLIER LEG USED AND THIS LEG DOES NOT RE-ACTIVATE is held
+    // too (kogaki#1261), listed after the terms.
+    held_by_reader: (held.length || heldJourneyLines.length)
+      ? [...held.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`), ...heldJourneyLines].join("\n")
       // "Leg", not "Section" (PR #844 round 1, finding 2). A slot VALUE reaches
       // the model's entire input exactly as a block header does, so the
       // one-word-one-unit rule binds it too.
@@ -1547,8 +1675,9 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     // A FLAT LIST, ONE LINE PER TERM (kogaki#1215; the relations layer this
     // rendered as a tree is retired) — over this Leg's own `introduces`
     // entries.
+    // A typed item renders its kind and authority line (kogaki#1261).
     introduces: intro.length
-      ? intro.map((text) => `- ${text}`).join("\n")
+      ? intro.map((raw) => introduceLine(raw, authorityOn)).join("\n")
       : "(nothing new)",
     // CLOSURE (kogaki#1151): the rows this Leg is a party to, read from the
     // Brief's own rendered "## Closure" section (`closureRowsForLeg`) rather
@@ -1556,8 +1685,16 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     // EMPTY RENDERS EMPTY, NEVER ABSENT (acceptance item 3): a Leg that
     // introduces, discharges and concedes nothing still gets the block, saying
     // so, on the same one-word-one-unit ground `reader_already_knows` states.
+    // THE ROW THIS LEG CONCEDES renders its three fields (kogaki#1261): what
+    // stays open, why this article does not close it, and what the reader
+    // keeps — the concession the prose makes, not a bare sentence.
     closure_rows: closureRowsForLeg(brief.text, leg.leg_id).length
-      ? closureRowsForLeg(brief.text, leg.leg_id).map((t) => `- ${t}`).join("\n")
+      ? closureRowsForLeg(brief.text, leg.leg_id).map((t) => {
+        if (!conceded || conceded.text !== t) return `- ${t}`;
+        return `- ${t} — conceded in this Leg. Left open: ${conceded.open ?? "(not recorded)"}. `
+          + `Why this article does not close it: ${conceded.why_not_here ?? "(not recorded)"}. `
+          + `What the reader keeps: ${conceded.reader_keeps ?? "(not recorded)"}.`;
+      }).join("\n")
       : "(nothing — this Leg carries no Closure row)",
     // the Journey a Leg draws on (kogaki#1111). THE PACKET NOW RENDERS THE
     // SERVED TEXT ITSELF, the address kept beside it as citation — not the
