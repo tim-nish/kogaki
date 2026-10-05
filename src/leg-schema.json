@@ -48,8 +48,6 @@
     "      SPEC-draft-pipeline",
     "  The claims rule",
     "      SPEC-draft-pipeline",
-    "  The Leg and the Move it binds",
-    "      SPEC-draft-pipeline",
     "  The Bridge Leg and the revise pass",
     "      SPEC-draft-pipeline",
     "  The reader-knowledge ledger",
@@ -67,9 +65,10 @@
     "reader from one state to another. `Leg = Input + State` -- the Input is",
     "the material it stands on (its Strands), and the State is the Move it",
     "binds, which is what names the kind of reader-state transition it makes.",
-    "A Leg with no Move has no defined transition type and is not a Leg.",
+    "A Leg that no Move in the library fits says so in `no_move_fits` instead",
+    "of naming the nearest Move, and its Candidate is refused with that sentence.",
     "",
-    "The Leg's shape is the field table below; The Leg and the Move it binds is why `move` sits among its required fields."
+    "The Leg's shape is the field table below. A Leg carries exactly one of `move` and `no_move_fits`: a Leg no Move fits says so, and its Candidate is refused with that sentence rather than adopted (kogaki#1276)."
   ],
   "fields": {
     "leg_id": {
@@ -121,9 +120,14 @@
       "description": "Why this Leg sits HERE, at this position, rather than earlier or later. The ORDER ARGUMENT, not a restatement of the purpose and not a claim the Leg asserts."
     },
     "move": {
-      "required": true,
+      "required": false,
       "type": "string",
-      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg, so the binding is required rather than encouraged. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `before` and `after`, and an id outside it resolves to no record and is refused at composition, naming the Leg and the id. The library grows by an admission act, never by a path naming an id (kogaki#1125)."
+      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `before`, `after`, `technique` and `breaks`, read from the Move file. `before` and `after` are the reader states the Move moves between; `technique` is what the prose of this Leg will be asked to do, step by step; `breaks` are the tests a correct performance must survive. Choose a Move only where every step of its `technique` can be carried out from this Leg's own claims and materials and the Leg survives each `breaks` test. An id outside the set resolves to no record and is refused at composition, naming the Leg and the id. A Leg carries exactly one of `move` and `no_move_fits` (kogaki#1125, kogaki#1276)."
+    },
+    "no_move_fits": {
+      "required": false,
+      "type": "string",
+      "description": "Present ONLY where no Move in `moves_you_may_bind` fits this Leg: one sentence naming what this Leg's claims need that no Move's `technique` provides. Never name the nearest Move instead. A Leg carries exactly one of `move` and `no_move_fits`, and a Candidate with any `no_move_fits` Leg is refused with that sentence, so the next attempt can revise the path: omit the Leg, change the path, or leave a Strand unused (kogaki#1276)."
     },
     "claims": {
       "required": true,
