@@ -670,12 +670,22 @@ export function validateLegs(legs, readerStart, obligations = []) {
   // Leg or one row alone.
   const closure = closureLedgerRefusal(legs, obligations);
   if (closure) return { error: closure };
+  // AT MOST ONE `nearest` ACROSS THE WHOLE PATH (kogaki#1251 item 2,
+  // kogaki#1260), run here for the same reason CLOSURE does: a statement
+  // about every Leg's introduces entries together, not about one Leg alone.
+  const nearest = introducesNearestRefusal(legs);
+  if (nearest) return { error: nearest };
   // THE READER TARGET LEG (kogaki#1231), run last: it names a Leg by
   // POSITION relative to every other Leg, so it is decidable only once every
   // Leg above is known to be well formed — the same reason the Section
   // grouping runs after the per-Leg loop rather than inside it.
   const target = readerTargetLegRefusal(legs, obligations);
   if (target) return { error: target };
+  // THE REACHING LEG'S `names` (kogaki#1251 item 4, kogaki#1260), run right
+  // after: it is a further statement about that same Leg, decidable only
+  // once `readerTargetLegRefusal` has confirmed which Leg that is.
+  const names = readerTargetNamesRefusal(legs);
+  if (names) return { error: names };
   return { legs };
 }
 
@@ -1422,7 +1432,30 @@ export function validateOwnerAnswer(capture, gateId, digest) {
 // serialized form back. A `term` alone, or `term — anchor`, on one line.
 const INTRODUCES_SEP = "—";
 
+// AN ENTRY IS A STRING (the Brief's own serialized form, round-tripped by
+// `draft.mjs`) OR AN `introduces_item` OBJECT (the Candidate's own composed
+// form, src/leg-schema.json `introduces_item`; kogaki#1263, kogaki#1260): a
+// Candidate composes `{term, kind, source, nearest, differs}` directly as
+// JSON, and that object is what `kind`-the-closed-set and `nearest`'s
+// path-level dedup (item 2 below) are read from. Text rendering keeps writing
+// the bare term — kind/source/nearest/differs are a composition-time record,
+// disclosed at the Candidate-selection gate, never a Packet field (the
+// issue's "Not in scope": Packet rendering is a separate Issue).
 export function parseIntroducesEntry(raw) {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const term = typeof raw.term === "string" ? raw.term.trim() : "";
+    if (term === "") return { error: "an introduces_item with no term" };
+    if (raw.kind !== "coined" && raw.kind !== "established") {
+      return { error: `"${term}" declares kind ${JSON.stringify(raw.kind ?? null)} — introduces_item's kind is closed to coined, established (src/leg-schema.json, \`introduces_item\`)` };
+    }
+    if (raw.kind === "established" && (typeof raw.source !== "string" || raw.source === "")) {
+      return { error: `"${term}" declares kind "established" with no source — an established term names where it comes from (src/leg-schema.json, \`introduces_item\`)` };
+    }
+    if (raw.differs !== undefined && (typeof raw.nearest !== "string" || raw.nearest === "")) {
+      return { error: `"${term}" carries differs with no nearest — differs names how the term differs FROM nearest, so it names nothing without it (src/leg-schema.json, \`introduces_item\`)` };
+    }
+    return { term, anchor: null, kind: raw.kind, source: raw.source, nearest: raw.nearest, differs: raw.differs };
+  }
   const line = String(raw).trim();
   if (line === "") return { error: "an empty entry" };
   const i = line.indexOf(INTRODUCES_SEP);
@@ -1568,6 +1601,22 @@ export function closureLedgerRefusal(legs, obligations = []) {
     return pathRefusal("closure_one_conceded_row", null,
       `${conceded.length} Closure rows end conceded_by: ${conceded.map((o) => JSON.stringify(o.text)).join(", ")}.`);
   }
+  // A CONCEDED ROW CARRIES THREE FURTHER FIELDS, required only there
+  // (src/candidate-schema.json, `obligations.entry_required_when_conceded`;
+  // kogaki#1263): `open`, `why_not_here` and `reader_keeps` — a concession is
+  // not silence, so the row says what stays unresolved, why this Leg is not
+  // the one to close it, and what the reader is left holding in its place.
+  // Refused naming the row and the missing field(s) (kogaki#1251 item 3,
+  // kogaki#1260).
+  for (const o of conceded) {
+    const missing = ["open", "why_not_here", "reader_keeps"]
+      .filter((k) => typeof o[k] !== "string" || o[k] === "");
+    if (missing.length) {
+      return pathRefusal("closure_one_conceded_row", null,
+        `The conceded Closure row ${JSON.stringify(o.text)} carries no ${missing.join(", ")} — `
+        + "a conceded row ends conceded_by AND carries open, why_not_here and reader_keeps.");
+    }
+  }
 
   // RULE (b): a row is open on every Leg from its `introduced_by` Leg up to,
   // and NOT INCLUDING, the Leg that closes it -- a row raised and conceded in
@@ -1645,6 +1694,38 @@ export function readerTargetLegRefusal(legs, obligations = []) {
   return null;
 }
 
+// THE REACHING LEG'S `names` IS A SUBSET OF THE UNION OF EVERY LEG'S
+// `introduces` (kogaki#1251 item 4, kogaki#1260): `names` is present, and
+// means something, only on the Leg marked `reaches_target` (src/leg-schema.json,
+// `names`) — the terms the path's own `introduces` entries have put in the
+// reader's hands by the time the Reader target is reached. A name this path
+// never introduces anywhere is refused naming the term; absence of `names`
+// itself is a different check's job (required_when is not enforced here, to
+// leave a path composed before this field unaffected). Run after every Leg is
+// known to be well formed, the same reason `readerTargetLegRefusal` does.
+export function readerTargetNamesRefusal(legs) {
+  const idx = targetLegIndex(legs);
+  if (idx === -1) return null; // readerTargetLegRefusal names a missing or ambiguous mark
+  const targetLeg = legs[idx];
+  if (!Array.isArray(targetLeg.names)) return null;
+  const introduced = new Set();
+  for (const s of legs) {
+    if (!s || typeof s !== "object" || !Array.isArray(s.introduces)) continue;
+    for (const raw of s.introduces) {
+      const e = parseIntroducesEntry(raw);
+      if (e.error) continue; // introducesRefusal names this
+      introduced.add(e.term);
+    }
+  }
+  for (const name of targetLeg.names) {
+    if (!introduced.has(name)) {
+      return `leg ${idx + 1} (${targetLeg.leg_id}): names carries ${JSON.stringify(name)}, but no Leg of this path introduces it — `
+        + "names is the union of every Leg's introduces entries, by the time the Reader target is reached (src/leg-schema.json, `names`)";
+    }
+  }
+  return null;
+}
+
 // Shape refusal over a whole `introduces` value. Returns a string to refuse
 // with, or null. `at` is the caller's own way of naming the Leg, so one
 // grammar serves the record side and the document side without either
@@ -1655,8 +1736,9 @@ export function introducesRefusal(value, at) {
   }
   const seen = new Set();
   for (const raw of value) {
-    if (typeof raw !== "string") {
-      return `${at}: introduces carries a non-string entry — each entry is one line, "term" or "term ${INTRODUCES_SEP} anchor" (the reader-knowledge ledger)`;
+    const isItem = raw && typeof raw === "object" && !Array.isArray(raw);
+    if (typeof raw !== "string" && !isItem) {
+      return `${at}: introduces carries an entry that is neither a string nor an introduces_item object — each entry is one line, "term" or "term ${INTRODUCES_SEP} anchor", or a Candidate's own \`{term, kind, ...}\` object (src/leg-schema.json, \`introduces_item\`)`;
     }
     const e = parseIntroducesEntry(raw);
     if (e.error) return `${at}: introduces carries ${e.error} (the reader-knowledge ledger)`;
@@ -1669,16 +1751,46 @@ export function introducesRefusal(value, at) {
   return null;
 }
 
-// The re-activate grammar (kogaki#1237), in one place for the same reason
-// `introduces`'s is: the composition side validates records and
-// `draft.mjs parseLegBlockBody` parses the serialized form back. One line,
-// "<leg_id> term <exact introduces string>" or "<leg_id> claim <strand id>".
+// AT MOST ONE introduces_item ACROSS THE WHOLE PATH MAY NAME `nearest`
+// (kogaki#1251 item 2, kogaki#1260): `nearest` is a coined term's near
+// existing neighbour, offered so a reader can place the coinage against what
+// they already have a name for. Two such comparisons in one path leave the
+// reader holding two near-neighbour claims with nothing to decide between
+// them, so a second is refused rather than rendered — naming both terms and
+// both `nearest` values, so the composer can see which one to keep. Run over
+// the WHOLE path rather than per Leg, the same reason the Section grouping
+// and Closure are: this is a statement about the path, not about one Leg.
+export function introducesNearestRefusal(legs) {
+  const found = [];
+  for (const s of legs) {
+    if (!s || typeof s !== "object" || !Array.isArray(s.introduces)) continue;
+    for (const raw of s.introduces) {
+      const e = parseIntroducesEntry(raw);
+      if (e.error) continue; // introducesRefusal names this
+      if (typeof e.nearest === "string" && e.nearest !== "") {
+        found.push({ leg_id: s.leg_id, term: e.term, nearest: e.nearest });
+      }
+    }
+  }
+  if (found.length > 1) {
+    return `This Brief carries ${found.length} introduces items naming \`nearest\`: `
+      + found.map((f) => `${JSON.stringify(f.term)} (leg ${f.leg_id}) nearest ${JSON.stringify(f.nearest)}`).join(" and ")
+      + " — at most one coined term may be compared to a nearest existing term across the whole path (src/leg-schema.json, `introduces_item.nearest`).";
+  }
+  return null;
+}
+
+// The re-activate grammar (kogaki#1237, widened to a third form by kogaki#1263
+// and kogaki#1260), in one place for the same reason `introduces`'s is: the
+// composition side validates records and `draft.mjs parseLegBlockBody` parses
+// the serialized form back. One line, "<leg_id> term <exact introduces term>",
+// "<leg_id> claim <strand id>" or "<leg_id> journey <strand id>".
 export function parseReactivateEntry(raw) {
   const line = String(raw).trim();
   if (line === "") return { error: "an empty entry" };
-  const m = line.match(/^(\S+)\s+(term|claim)\s+(.+)$/s);
+  const m = line.match(/^(\S+)\s+(term|claim|journey)\s+(.+)$/s);
   if (!m) {
-    return { error: `"${line}" — a re-activate entry is "<leg_id> term <exact introduces string>" or "<leg_id> claim <strand id>"` };
+    return { error: `"${line}" — a re-activate entry is "<leg_id> term <exact introduces term>", "<leg_id> claim <strand id>" or "<leg_id> journey <strand id>"` };
   }
   const [, leg_id, kind, rest] = m;
   const value = rest.trim();
@@ -1691,11 +1803,11 @@ export function parseReactivateEntry(raw) {
 // Shape refusal over a whole `re-activate` value — mirrors `introducesRefusal`.
 export function reactivateRefusal(value, at) {
   if (!Array.isArray(value)) {
-    return `${at}: re-activate, when present, is an array of entries — one reference per line, "<leg_id> term <exact introduces string>" or "<leg_id> claim <strand id>" (re-activate)`;
+    return `${at}: re-activate, when present, is an array of entries — one reference per line, "<leg_id> term <exact introduces term>", "<leg_id> claim <strand id>" or "<leg_id> journey <strand id>" (re-activate)`;
   }
   for (const raw of value) {
     if (typeof raw !== "string") {
-      return `${at}: re-activate carries a non-string entry — each entry is one line, "<leg_id> term <...>" or "<leg_id> claim <strand id>" (re-activate)`;
+      return `${at}: re-activate carries a non-string entry — each entry is one line, "<leg_id> term <...>", "<leg_id> claim <strand id>" or "<leg_id> journey <strand id>" (re-activate)`;
     }
     const e = parseReactivateEntry(raw);
     if (e.error) return `${at}: re-activate carries ${e.error} (re-activate)`;
@@ -1704,11 +1816,12 @@ export function reactivateRefusal(value, at) {
 }
 
 // Semantic refusal over a whole `re-activate` value: THE CANDIDATE POPULATION
-// IS CLOSED (kogaki#1237, owner decision 2026-09-30) — everything explicitly
-// represented in the Legs named in `depends_on`, specifically their
-// `introduces` lines (exact strings) and `claims` (addressed by Strand).
-// Journey material and Closure rows are never candidates. Refuses naming the
-// entry: which Leg, which reference, and why it does not resolve.
+// IS CLOSED (kogaki#1237, owner decision 2026-09-30, widened by kogaki#1263
+// and kogaki#1260) — everything explicitly represented in the Legs named in
+// `depends_on`, specifically their `introduces` lines (exact strings), their
+// `claims` (addressed by Strand) and, since the third form, their `journeys`
+// (addressed by Strand). Closure rows are never candidates. Refuses naming
+// the entry: which Leg, which reference, and why it does not resolve.
 export function reactivateSemanticRefusal(value, dependsOn, legs, at) {
   if (!Array.isArray(value)) return null; // reactivateRefusal names this
   const deps = new Set(dependsOn || []);
@@ -1731,10 +1844,15 @@ export function reactivateSemanticRefusal(value, dependsOn, legs, at) {
       if (!found) {
         return `${at}: re-activate names ${JSON.stringify(raw.trim())}, but "${e.leg_id}" does not introduce "${e.value}" — a re-activated term must match, verbatim, an entry in that Leg's introduces`;
       }
-    } else {
+    } else if (e.kind === "claim") {
       const found = (target.claims || []).some((g) => g.strand === e.value);
       if (!found) {
         return `${at}: re-activate names ${JSON.stringify(raw.trim())}, but "${e.leg_id}" carries no claim for strand "${e.value}"`;
+      }
+    } else {
+      const found = (target.journeys || []).some((j) => j && j.strand === e.value);
+      if (!found) {
+        return `${at}: re-activate names ${JSON.stringify(raw.trim())}, but "${e.leg_id}" carries no journey for strand "${e.value}" — a re-activated journey must match a Strand that Leg names in its journeys`;
       }
     }
   }
@@ -1828,7 +1946,18 @@ export function renderLeg(s) {
   // joined field could not be parsed back — the serialization and
   // `parseBrief`'s reader are one round trip and this is the half that makes
   // it possible.
-  for (const e of s.introduces || []) L.push(`introduces: ${e}`);
+  // an introduces_item object (kogaki#1263, kogaki#1260) carries kind/source/
+  // nearest/differs for THIS validation layer only — Packet rendering and the
+  // Brief mint are out of scope here (the Issue says so), so the text line
+  // keeps naming only what it always named: the term, bare or anchored.
+  for (const e of s.introduces || []) {
+    if (e && typeof e === "object" && !Array.isArray(e)) {
+      const p = parseIntroducesEntry(e);
+      L.push(`introduces: ${p.error ? JSON.stringify(e) : p.term}`);
+    } else {
+      L.push(`introduces: ${e}`);
+    }
+  }
   // `re-activate` (kogaki#1237): one LINE per entry, for the same reason
   // `introduces` is — the candidate population it names is closed, and a
   // comma-joined field could not carry a term containing a comma back.
