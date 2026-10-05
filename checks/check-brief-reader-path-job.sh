@@ -975,6 +975,15 @@ process.stdin.on("end", () => {
   }
 }
 
+// THE (w) CASES' JUDGE (kogaki#1278 round 1). Resuming a run resolves its
+// judge binary before any state work, and CI offers no `claude` on PATH, so
+// without a stub every resume below refuses at that resolution instead of at
+// the step each case observes. The stub answers `--version` and nothing else:
+// no (w) case reaches a judgment call.
+const resumeJudge = join(scratch, "resume-judge.mjs");
+writeFileSync(resumeJudge, "#!/usr/bin/env node\nprocess.stdout.write(\"resume-judge fixture\\n\");\n");
+chmodSync(resumeJudge, 0o755);
+
 // (w1) kogaki#1278: TWO CONCURRENT `job await` CALLS OVER THE SAME FINISHED
 // JOB RESUME IT EXACTLY ONCE. The fixture job is already `done`, and its run
 // record carries no minted Brief, so `compose_path`'s own `needBrief` -- the
@@ -1004,7 +1013,7 @@ process.stdin.on("end", () => {
     owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
     done: false,
   }, null, 2) + "\n");
-  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") };
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json"), KOGAKI_JUDGE_CLI: resumeJudge };
   const runAwait = () => new Promise((resolvePromise) => {
     const child = spawn(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"], { cwd: root, env });
     let stdout = "";
@@ -1055,7 +1064,7 @@ process.stdin.on("end", () => {
     done: true,
   }, null, 2) + "\n");
   const before = readFileSync(runRecordPath(dir), "utf8");
-  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") };
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json"), KOGAKI_JUDGE_CLI: resumeJudge };
   const awaitRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
     { cwd: root, timeout: 15000, encoding: "utf8", env });
   const after = readFileSync(runRecordPath(dir), "utf8");
@@ -1099,7 +1108,7 @@ process.stdin.on("end", () => {
   const positionOf = (rec) => JSON.stringify({ completed: rec.completed || [], awaiting: rec.awaiting ?? null, done: !!rec.done });
   const awaitIn = (dir) => spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
     { cwd: root, timeout: 15000, encoding: "utf8",
-      env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") } });
+      env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json"), KOGAKI_JUDGE_CLI: resumeJudge } });
   {
     const { dir, rec } = mkDone();
     writeFileSync(join(dir, "reader-path-job-resume.claim"),
@@ -1140,7 +1149,7 @@ process.stdin.on("end", () => {
   }, null, 2) + "\n");
   spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
     { cwd: root, timeout: 15000, encoding: "utf8",
-      env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") } });
+      env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json"), KOGAKI_JUDGE_CLI: resumeJudge } });
   if (existsSync(join(dir, "reader-path-job-resume.claim"))) {
     fails.push("(w4) a job ended `refused` left a resume claim, which the `done` arm alone takes");
   }
