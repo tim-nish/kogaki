@@ -2270,7 +2270,7 @@ const ASK_MAX_OPTIONS = 4;
 // text rendered above the question. Without this entry the exhausted
 // judgment's own refusal text — the one property that tells an operator WHICH
 // judgment failed and why — never left the run record.
-const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "reader_path_unit_refusal"];
+const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "reader_path_unit_refusal", "excluded_candidates"];
 
 // THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
 // rather than written here: the number has a measured ground, the ground is

@@ -115,7 +115,7 @@ import {
 import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
 import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
-  validateLegs, validateSpecialization, selectedStrands, journeyBearingStrands,
+  validateLegs, validateSpecialization, specializationFailures, selectedStrands, journeyBearingStrands,
   resolveMoveIds, loadMoveContracts, moveContractsForLegs,
   readerStateShapeRefusal, readerPersona,
 } from "./compose.mjs";
@@ -1089,17 +1089,6 @@ function refuseJudgment(msg) {
   throw new JudgmentRefusal(msg);
 }
 
-// THE REFUSAL THE RE-ASK WINDOW MUST NOT ABSORB (kogaki#1125). Its carrier is
-// `TerminalJudgmentRefusal`, declared beside `JudgmentRefusal` in the executor
-// with the reason the two are separate classes; this is the one site in this
-// flow that raises it. Use it where the record is refused for a fact about the
-// ASK rather than about the answer — a second attempt meets the same input, so
-// the bound would be spent buying a better-formed answer to a question that
-// was not answerable.
-function refuseTerminally(msg) {
-  throw new TerminalJudgmentRefusal(msg);
-}
-
 async function judged(rec, st, table, args, flag, composeInput, validate) {
   try {
     return await judgedRecordPath(rec, st, table, args, flag, composeInput, validate);
@@ -1349,6 +1338,15 @@ export function validateReaderPathUnit(candidate, inputs) {
   // function.
   const v = validateLegs(c.legs, c.reader_start, c.obligations);
   if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
+  // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
+  // (kogaki#1276). The refusal is the retry prompt's text verbatim
+  // (`readerPathUnitRetryPrompt`, kogaki#1203), so the retry can revise the
+  // path: omit the Leg, change the path, or leave a Strand unused.
+  const unfit = (c.legs || []).find((s) => typeof s.no_move_fits === "string" && s.no_move_fits.trim() !== "");
+  if (unfit) {
+    return { error: `candidate ${c.candidate_id}, leg ${unfit.leg_id}: no Move fits this Leg — `
+      + `"${unfit.no_move_fits.trim()}". Revise the path: omit this Leg, change the path, or leave a Strand unused` };
+  }
   // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
   const mv = resolveMoveIds(c.legs, movesDir);
   if (mv.error) return { error: `candidate ${c.candidate_id}: ${mv.error}` };
@@ -1736,11 +1734,42 @@ const STATE_WORK = {
     return null;
   },
 
+  // ---- JUDGMENT POINT 3. The Leg-Move instantiation contract's judged half,
+  // over EVERY Candidate the reader-path job finished, in one call, before the
+  // owner chooses (kogaki#1276). A Candidate with any Leg not judged
+  // `consistent` is not offered at CANDIDATE_SELECTION; with none left the
+  // Brief ends here with no question.
+  judge_specialization: async (rec, st, args, table) => {
+    const cands = readJson(rec.brief_candidates
+      || fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`));
+    const judgeInput = specializationJudgeInput(cands, briefMovesDir(args));
+    if (judgeInput.error) fail(`${st.id}: ${judgeInput.error}`);
+    const validate = (p) => {
+      let record;
+      try { record = readJson(p); }
+      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      const v = validateSpecializationSet(record, cands);
+      if (v.error) refuseJudgment(v.error);
+    };
+    const composeInputFor = () => writeJudgeInput(rec, st, { state: st.id, ...judgeInput.input });
+    const path = await judged(rec, st, table, args, "specialization", composeInputFor, validate);
+    rec.brief_specialization = relFromRepo(resolve(path));
+    rec.judgments[st.id] = relFromRepo(resolve(path));
+    const { fit, excluded } = specializationSelection(readJson(path), cands);
+    rec.brief_excluded = excluded;
+    if (fit.length === 0) endBriefNoCandidateFits(rec, excluded);
+    const out = join(rec._dir, "brief-candidates-fit.json");
+    writeFileSync(out, JSON.stringify(fit, null, 2) + "\n");
+    rec.brief_candidates_fit = out;
+    return null;
+  },
+
   attach_review: (rec, st, args) => {
     const out = join(rec._dir, "brief-reviewed.json");
     cmdAttach({
       ...args,
-      candidates: rec.brief_candidates,
+      candidates: rec.brief_candidates_fit
+        || fail(`${st.id} has no judged Candidates — \`judge_specialization\` writes them and precedes this state.`),
       review: resolve(BRIEF_REPO, rec.brief_review
         || fail(`${st.id} has no review record — \`review_path\` writes it and precedes this state.`)),
       brief: needBrief(rec, st),
@@ -1768,106 +1797,21 @@ const STATE_WORK = {
     return null;
   },
 
-  // ---- JUDGMENT POINT 3. The Leg-Move instantiation contract's judged half,
-  // over the SELECTED Candidate alone.
-  //
-  // SCOPED TO THE SELECTION, and the scoping is the point rather than an
-  // economy: judging a record about a path nobody chose is wasted work ending in
-  // a refusal that names the wrong thing, which is `adoptCandidate`'s own stated
-  // ordering rule applied one state earlier.
-  //
-  // THE RECORD IS DISCLOSURE (kogaki#1108). A passing record no longer unlocks a
-  // write by way of an owner's ratification; it is validated here, and
-  // `adopt_candidate` renders it as one sentence in the closing summary. A
-  // `contradicts` or `cannot-determine` verdict still refuses, in path order,
-  // with the same message it always carried.
-  judge_specialization: async (rec, st, args, table) => {
-    const reviewed = readJson(rec.brief_reviewed
-      || fail(`${st.id} has no reviewed Candidates — \`attach_review\` writes them and precedes this state.`));
-    const chosen = selectedCandidateId(rec, st);
-    const c = (reviewed.candidates || []).find((x) => x.candidate_id === chosen)
-      || fail(`${st.id}: the owner selected ${JSON.stringify(chosen)} at the Candidate gate and no `
-        + `Candidate carries that id (${(reviewed.candidates || []).map((x) => x.candidate_id).join(", ") || "empty"}). `
-        + "Nothing was written.");
-    const movesDir = briefMovesDir(args);
-    // THE CONTRACTS THE VERDICT IS A COMPARISON AGAINST (kogaki#1125). Read
-    // before the ask, because a Move record this state cannot read is a store
-    // fault and not something a judge can answer around.
-    const bound = moveContractsForLegs(c.legs, movesDir);
-    if (bound.error) {
-      fail(`${st.id}: ${bound.error}`);
-    }
-    const validate = (p) => {
-      let record;
-      try { record = readJson(p); }
-      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
-      // `cannot-determine` IS TERMINAL, AND IT IS DECIDED BEFORE THE SHAPE
-      // REFUSALS (kogaki#1125). `validateSpecialization` refuses it in path
-      // order like `contradicts`, and through `refuseJudgment` that refusal
-      // reached the repair window — where a second ask over the SAME input
-      // returned `consistent` for every Leg, each `why` describing a contract
-      // that did not exist, and the run record counted it as a repair.
-      //
-      // The two verdicts are not alike in this one respect, whatever else they
-      // share: `contradicts` is a judgment REACHED, and re-asking it is at
-      // least asking the judge to reconsider something it decided.
-      // `cannot-determine` is a judgment NOT reached, and the input it was not
-      // reachable from is the input the next attempt gets. So it exits here,
-      // naming the Leg and its own sentence, and `refusals_repaired` never
-      // counts it.
-      const undecided = (record && Array.isArray(record.verdicts) ? record.verdicts : [])
-        .find((v) => v && v.verdict === "cannot-determine");
-      if (undecided) {
-        refuseTerminally(`leg ${undecided.leg_id}: cannot-determine — the judge did not reach a verdict, `
-          + `and the judging sitting wrote: "${String(undecided.why || "").trim()}". `
-          + `A verdict that was not reachable from this input is not reachable from the same input on a second ask, `
-          + `so this refuses the state rather than spending a re-ask on it (the Leg-Move instantiation contract). `
-          + `The input carried ${bound.contracts.length} Move contract(s): `
-          + `${bound.contracts.map((x) => `${x.leg_id}=${x.move}`).join(", ")}. Nothing was written.`);
-      }
-      const v = validateSpecialization(record, c.legs, chosen);
-      if (v.error) refuseJudgment(v.error);
-    };
-    const composeInputFor = () => writeJudgeInput(rec, st, {
-      state: st.id,
-      candidate_id: chosen,
-      legs_you_must_judge: c.legs,
-      // THE RECORD THE COMPARISON IS AGAINST, PER LEG (kogaki#1125). This
-      // state's judgment_point asks whether each Leg's reader states are
-      // specializations of "the requires and effect its bound Move declares",
-      // and its input carried neither — so the judge was asked about a record
-      // it was never given. The fields are verbatim from `moves/<id>.md`;
-      // nothing here compares them to anything, which is the whole of what
-      // keeps the specialization judgment judgment-class.
-      move_contracts: bound.contracts,
-      // THE FIRST LEG'S COMPARISON STATE (kogaki#1216). Reader start is a cold
-      // read from the Persona and the Thesis, never from a Move, so Leg 1's
-      // `reader_state_before` is judged against IT in place of its Move's
-      // `before`, on the same terms; its after-state is judged against its
-      // Move's `after` like every other Leg's. Named per Leg so the judge is
-      // told which record to compare, rather than left to infer it.
-      reader_start: c.reader_start,
-      first_leg: {
-        leg_id: c.legs[0] && c.legs[0].leg_id,
-        before_compared_against: "reader_start",
-        after_compared_against: "its Move's `after`, as `move_contracts` carries it",
-      },
-    });
-    const path = await judged(rec, st, table, args, "specialization", composeInputFor, validate);
-    rec.brief_specialization = relFromRepo(resolve(path));
-    rec.judgments[st.id] = relFromRepo(resolve(path));
-    return null;
-  },
-
   adopt_candidate: (rec, st, args) => {
     const briefPath = needBrief(rec, st);
+    const chosen = selectedCandidateId(rec, st);
+    const set = readJson(resolve(BRIEF_REPO, rec.brief_specialization
+      || fail(`${st.id} has no specialization record — \`judge_specialization\` writes it and precedes this state.`)));
+    const selected = (set.records || []).find((r) => r.candidate_id === chosen)
+      || fail(`${st.id}: the specialization record judges no Candidate ${JSON.stringify(chosen)}. Nothing was written.`);
+    const specialization = join(rec._dir, "brief-specialization-selected.json");
+    writeFileSync(specialization, JSON.stringify(selected, null, 2) + "\n");
     cmdAdoptCandidate({
       ...args,
       brief: briefPath,
       reviewed: rec.brief_reviewed,
-      candidate: selectedCandidateId(rec, st),
-      specialization: resolve(BRIEF_REPO, rec.brief_specialization
-        || fail(`${st.id} has no specialization record — \`judge_specialization\` writes it and precedes this state.`)),
+      candidate: chosen,
+      specialization,
       // THE SELECTION IS THE HARNESS'S OWN CAPTURE FILE, passed whole.
       // `validateOwnerAnswer` filters it by gate id and binds the answer to the
       // option set it was offered against, so the file holding both gates'
@@ -1879,6 +1823,109 @@ const STATE_WORK = {
 
   done: () => null,
 };
+
+// THE SET RECORD `judge_specialization` returns (kogaki#1276): one per-Candidate
+// record per Candidate composed, each validated by `validateSpecialization`'s
+// shape rules. A Leg not judged `consistent` is not refused here: it keeps its
+// Candidate from being offered.
+export function validateSpecializationSet(record, cands) {
+  if (!record || typeof record !== "object" || !Array.isArray(record.records)) {
+    return { error: "the specialization record carries no `records` array — one record per Candidate (src/specialization-schema.json, `set`)" };
+  }
+  const seen = new Set();
+  for (const r of record.records) {
+    const id = r && r.candidate_id;
+    if (!cands.some((c) => c.candidate_id === id)) {
+      return { error: `the specialization record judges candidate ${JSON.stringify(id)}, which is not one of the Candidates composed (${cands.map((c) => c.candidate_id).join(", ")})` };
+    }
+    if (seen.has(id)) return { error: `the specialization record judges candidate ${JSON.stringify(id)} twice — one record per Candidate` };
+    seen.add(id);
+  }
+  for (const c of cands) {
+    const r = record.records.find((x) => x.candidate_id === c.candidate_id);
+    if (!r) return { error: `candidate ${c.candidate_id} carries no specialization record — every Candidate is judged before the owner chooses (kogaki#1276)` };
+    const v = validateSpecialization(r, c.legs, c.candidate_id, { refuseFailing: false });
+    if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
+  }
+  return { ok: true };
+}
+
+// THE SPECIALIZATION JUDGE'S INPUT (kogaki#1276): every Candidate composed,
+// each Leg beside its Move's `before`, `after`, `technique` and `breaks`
+// verbatim from `moves/<id>.md`. A Move this state cannot read is a store
+// fault, returned rather than judged around.
+export function specializationJudgeInput(cands, movesDir) {
+  const candidates = [];
+  for (const c of cands) {
+    const b = moveContractsForLegs(c.legs, movesDir);
+    if (b.error) return { error: `candidate ${c.candidate_id}: ${b.error}` };
+    candidates.push({
+      candidate_id: c.candidate_id,
+      legs: c.legs,
+      move_contracts: b.contracts,
+      reader_start: c.reader_start,
+      first_leg: {
+        leg_id: c.legs[0] && c.legs[0].leg_id,
+        before_compared_against: "reader_start",
+        after_compared_against: "its Move's `after`, as `move_contracts` carries it",
+      },
+    });
+  }
+  return { input: { candidates_you_must_judge: candidates } };
+}
+
+// THE PARTITION (kogaki#1276): a Candidate with any Leg not judged
+// `consistent` is excluded, carrying every failing Leg and the judge's
+// sentence; the rest are offered. Read over a set `validateSpecializationSet`
+// admitted.
+export function specializationSelection(set, cands) {
+  const fit = [];
+  const excluded = [];
+  for (const c of cands) {
+    const r = set.records.find((x) => x.candidate_id === c.candidate_id);
+    const failures = specializationFailures(r, c.legs);
+    if (failures.length) excluded.push({ candidate_id: c.candidate_id, characteristic: c.characteristic, failures });
+    else fit.push(c);
+  }
+  return { fit, excluded };
+}
+
+// What renders above the Candidate question: one plain line per Candidate
+// not offered, and nothing when every Candidate is offered.
+export function candidateSelectionExtra(excluded) {
+  return excluded.length ? { excluded_candidates: excludedCandidateLines(excluded).join("\n") } : {};
+}
+
+function candidateName(x) {
+  return typeof x.characteristic === "string" && x.characteristic.trim() ? x.characteristic.trim() : x.candidate_id;
+}
+
+// One plain line per Candidate not offered, naming the first Leg that failed.
+export function excludedCandidateLines(excluded) {
+  return excluded.map((x) => `Not offered: "${candidateName(x)}" — Leg ${x.failures[0].leg_id} does not fit its Move.`);
+}
+
+// EVERY CANDIDATE FAILED (kogaki#1276): the Brief ends with no question. The
+// report names, per Candidate, each failing Leg and the judge's sentence.
+// Nothing re-composes: the same library gives the composer the same choices.
+export function noCandidateFitsReport(excluded) {
+  const lines = ["No Candidate fits the Moves it uses, so no question is asked and the Brief ends here."];
+  for (const x of excluded) {
+    lines.push(`Candidate "${candidateName(x)}":`);
+    for (const f of x.failures) lines.push(`  Leg ${f.leg_id} (${f.move}): ${f.verdict} — ${f.why}`);
+  }
+  lines.push("The way forward is to add a Move through the Move-ingest command, or to start a new Brief.");
+  return lines.join("\n");
+}
+
+function endBriefNoCandidateFits(rec, excluded) {
+  rec.brief_no_fit = excluded;
+  rec.awaiting = null;
+  rec.done = true;
+  checkpointRun(rec);
+  clearOpenRunPointer();
+  fail(noCandidateFitsReport(excluded));
+}
 
 // The owner's answer at the Candidate gate, read from the run record the
 // executor wrote it onto. A free-text answer carries no option and reaches
@@ -1965,7 +2012,7 @@ const GATE_WORK = {
       options: offered.options
         .filter((o) => o.id !== "none-of-these")
         .map((o) => ({ id: o.id, label: o.label, description: o.description })),
-      extra: {},
+      extra: candidateSelectionExtra(rec.brief_excluded || []),
     };
   },
 };

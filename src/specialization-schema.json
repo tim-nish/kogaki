@@ -28,6 +28,20 @@
     "      SPEC-draft-pipeline"
   ],
   "version": "1",
+  "set": {
+    "required": ["records"],
+    "records": "one `record` below per Candidate composed, no more and no fewer",
+    "note": [
+      "THE JUDGMENT RUNS OVER EVERY CANDIDATE, BEFORE THE OWNER CHOOSES",
+      "(kogaki#1276, owner decision 2026-10-05). Each Leg is judged against its",
+      "Move's `before`, `after`, `technique` and `breaks`: `consistent` only",
+      "where the reader states specialize `before` and `after`, every step of",
+      "`technique` can be carried out from the Leg's own claims and materials,",
+      "and the Leg survives each `breaks` test. A Candidate with any other",
+      "verdict is not offered at the Candidate question, which names it and",
+      "the Leg that failed. With none left, the Brief ends with no question."
+    ]
+  },
   "record": {
     "required": ["version", "candidate_id", "verdicts"],
     "version_must_be": "1",

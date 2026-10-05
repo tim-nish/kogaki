@@ -528,8 +528,17 @@ export function validateLegs(legs, readerStart, obligations = []) {
     // names as the carrier: the requirement binds at composition, which is
     // what makes such a Leg unwritable rather than discouraged. the constraints that survive's
     // no-mandatory-Moves rider is superseded there by name.
-    if (typeof s.move !== "string" || s.move === "") {
-      return { error: `${at}: move is required by the Leg's shape — a Leg binds a Move library entry by id (the Move library), because the Move is the State component of a Leg and a Leg without one has no defined reader-state transition type` };
+    // EXACTLY ONE OF `move` AND `no_move_fits` (kogaki#1276). A Leg no Move
+    // in the library fits says so in one sentence rather than naming the
+    // nearest Move; the reader-path unit then refuses its Candidate with that
+    // sentence (`validateReaderPathUnit`, src/brief.mjs).
+    const hasMove = typeof s.move === "string" && s.move !== "";
+    const hasNoFit = typeof s.no_move_fits === "string" && s.no_move_fits.trim() !== "";
+    if (hasMove && hasNoFit) {
+      return { error: `${at}: carries both move and no_move_fits — a Leg either binds a Move by id or says in one sentence that no Move fits it, never both (kogaki#1276)` };
+    }
+    if (!hasMove && !hasNoFit) {
+      return { error: `${at}: carries neither move nor no_move_fits — a Leg binds a Move library entry by id (the Move is the State component of a Leg), or says in one sentence what its claims need that no Move's technique provides (kogaki#1276)` };
     }
     for (const d of s.depends_on) {
       if (!seen.has(d)) {
@@ -1051,30 +1060,29 @@ function moveScalarField(text, name) {
   return null;
 }
 
-// ONE Move's contract, by id. The two fields are the ones the specialization
-// judgment is a comparison AGAINST — `src/brief-workflow.json`'s
-// `judge_specialization` names them in its own judgment_point — so the pair is
-// named here rather than the whole record being handed over: a reader given
-// `breaks` too would be a reader that had quietly widened what the verdict
-// is about.
+export const MOVE_CONTRACT_FIELDS = ["before", "after", "technique", "breaks"];
 export function moveContract(moveId, movesDir = "moves") {
   let text;
   try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
   catch (e) {
     return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
   }
-  const before = moveScalarField(text, "before");
-  const after = moveScalarField(text, "after");
-  const missing = [before === null ? "before" : null, after === null ? "after" : null].filter(Boolean);
+  const out = { id: moveId };
+  const missing = [];
+  for (const f of MOVE_CONTRACT_FIELDS) {
+    const v = moveScalarField(text, f);
+    if (v === null) missing.push(f);
+    else out[f] = v;
+  }
   if (missing.length) {
     // A STORE FAULT, NAMED AS ONE. A Move whose contract is half-written
     // cannot be judged against, and reporting it as a composition problem
     // would send the reader to the Brief rather than to the library.
     return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${movesDir}/${moveId}.md) — `
-      + `the specialization judgment is a comparison against a Move's before and after (the Leg-Move instantiation contract), `
-      + `so a record missing one leaves the judgment nothing to be a comparison against. Repair the Move record under its own issue.` };
+      + `the composer chooses a Move by its ${MOVE_CONTRACT_FIELDS.join(", ")} and the specialization judgment compares each Leg against the same four (kogaki#1276), `
+      + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
   }
-  return { id: moveId, before, after };
+  return out;
 }
 
 // THE PERSONA, read from the reader file the workflow table names
@@ -1162,7 +1170,7 @@ export function moveContractsForLegs(legs, movesDir = "moves") {
   for (const s of legs) {
     const c = moveContract(s.move, movesDir);
     if (c.error) return { error: `leg ${s.leg_id}: ${c.error}` };
-    out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after });
+    out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after, technique: c.technique, breaks: c.breaks });
   }
   return { contracts: out };
 }
@@ -1203,7 +1211,7 @@ export function gateRegistry() {
 // record that is absent is refused by the CALLER (the occasion is mandatory,
 // the Leg-Move instantiation contract), because "no record" is a fact about the act rather than about the
 // record's shape.
-export function validateSpecialization(record, legs, candidateId) {
+export function validateSpecialization(record, legs, candidateId, { refuseFailing = true } = {}) {
   const sch = specializationSchema();
   const at = "the specialization record";
   for (const k of sch.record.required) {
@@ -1269,6 +1277,7 @@ export function validateSpecialization(record, legs, candidateId) {
         + `the record carries one sentence of why, which is what a reader of a refusal is handed (the Leg-Move instantiation contract)` };
     }
   }
+  if (!refuseFailing) return { ok: true, judged: legs.length };
   // THE REFUSAL, deterministic and in the path's own order: the FIRST Leg
   // that does not pass, named, with its own sentence quoted back rather than
   // paraphrased.
@@ -1284,6 +1293,18 @@ export function validateSpecialization(record, legs, candidateId) {
     }
   }
   return { ok: true, judged: legs.length };
+}
+
+// EVERY LEG WHOSE VERDICT DOES NOT PASS, in path order, each with the judge's
+// own sentence (kogaki#1276). Read over a record `validateSpecialization`
+// already admitted, so every Leg carries exactly one verdict.
+export function specializationFailures(record, legs) {
+  const passing = new Set(specializationSchema().vocabulary.passing);
+  const byLeg = new Map((record.verdicts || []).map((v) => [v.leg_id, v]));
+  return legs
+    .map((s) => byLeg.get(s.leg_id))
+    .filter((v) => v && !passing.has(v.verdict))
+    .map((v) => ({ leg_id: v.leg_id, move: v.move, verdict: v.verdict, why: v.why.trim() }));
 }
 
 // ---------------------------------------------------------------------------
