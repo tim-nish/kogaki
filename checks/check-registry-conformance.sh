@@ -515,6 +515,17 @@ def check_floor_decrements(entries, base_reader=None):
     judgment is never gated here — the same split `probe:` and `efficacy`
     already run under.
 
+    An INCREMENT ALSO OWES A NEW `license` ENTRY (kogaki#1123): three
+    accretion-class findings (3f16b8ce14ee, 6593977b4452, e72aea370400,
+    carried by PRs #1061, #1086, #1122) found a case-count raise landing
+    with `license` — the only surface recording WHY a case was admitted —
+    byte-identical to the base's. Checked independently of the
+    `runtime_ms_note` pairing above, on the same STALENESS logic: a raise
+    whose `license` has not moved FAILS, naming the member and both
+    floors. Gated only that `license` MOVED; whether the appended entry
+    names the right issue is judgment and stays ungated, the same split
+    the runtime_ms_note check runs under.
+
     An unresolvable base renders CANNOT-DETERMINE and never a pass: an absent
     input owes could-not-establish rather than the healthy-looking answer an
     absent-reads-as-unchanged coercion produces (kogaki#116).
@@ -540,6 +551,8 @@ def check_floor_decrements(entries, base_reader=None):
                 for e in base.get("checks", [])}
     was_runtime_note = {e["id"]: (e.get("admission") or {}).get("runtime_ms_note", "")
                         for e in base.get("checks", [])}
+    was_license = {e["id"]: (e.get("admission") or {}).get("license", "")
+                   for e in base.get("checks", [])}
     decrements = 0
     increments = 0
     for entry in entries:
@@ -575,11 +588,31 @@ def check_floor_decrements(entries, base_reader=None):
                     f"PREVIOUS re-check and not this one. Each raise owes "
                     f"its own entry, even one that re-checks and leaves the "
                     f"figure where it stands (kogaki#1124)")
-            else:
+            # THE LICENSE-ENTRY-ON-RAISE RULE (kogaki#1123), checked beside
+            # the described-case rule's own convention that an admission
+            # record names every case it carries: a raise that leaves
+            # `license` byte-identical to the base's is a case admitted with
+            # no entry recording why, which is the accretion-class finding
+            # three consecutive raises repeated (3f16b8ce14ee, 6593977b4452,
+            # e72aea370400). Independent of the runtime_ms_note check above —
+            # a raise can fail either, or both.
+            license_now = str(admission.get("license", "")).strip()
+            license_before = str(was_license.get(entry["id"], "")).strip()
+            license_unchanged = license_now == license_before
+            if license_unchanged:
+                failures.append(
+                    f"FAIL case_floor raised with no license entry added: "
+                    f"{entry_path(entry)} {before} -> {now} — `license` is "
+                    f"the only surface recording WHY a case was admitted to "
+                    f"this member, and it reads byte-identical to the base's. "
+                    f"Append the admitting issue to `license` in this commit "
+                    f"(kogaki#1123)")
+            if note and not stale and not license_unchanged:
                 rows.append(
                     f"case-floor-increment: {entry['id']} {before} -> "
-                    f"{now}, paired with a re-checked runtime_ms_note "
-                    f"(accepted; whether the figure is right is judgment)")
+                    f"{now}, paired with a re-checked runtime_ms_note and a "
+                    f"new license entry (accepted; whether the figure or the "
+                    f"entry is right is judgment)")
             continue
         decrements += 1
         note = str(admission.get("case_floor_note", "")).strip()
@@ -1085,6 +1118,42 @@ def fixture_pass():
     cases.append(("a whitespace-only runtime_ms_note does not pair at a "
                   "raise — the omission a typed field refuses",
                   any("no runtime_ms_note re-check" in x for x in f)))
+
+    # THE LICENSE-ENTRY-ON-RAISE RULE (kogaki#1123), checked independently
+    # of the runtime_ms_note pairing above: a constant, non-stale
+    # runtime_ms_note is held fixed in each case below so only the license
+    # comparison is exercised.
+    def raise_license(now, before, license_now, license_before):
+        def reader():
+            return {"checks": [{"id": "fx", "admission": {
+                "case_floor": before, "license": license_before,
+                "runtime_ms_note": "re-measured: ok before"}}]}
+        return check_floor_decrements(
+            [floor("fx", case_floor=now, license=license_now,
+                   runtime_ms_note="re-measured: ok now")], reader)
+    rows, f = raise_license(9, 5, "kogaki#700", "kogaki#700")
+    cases.append(("an INCREMENT against an UNCHANGED license FAILS — no "
+                  "entry was appended recording why the case was admitted",
+                  any("no license entry added" in x for x in f)))
+    rows, f = raise_license(9, 5, "kogaki#700, kogaki#1123", "kogaki#700")
+    cases.append(("an INCREMENT that appends a new license entry is "
+                  "accepted", not f and
+                  any("case-floor-increment:" in x for x in rows)))
+    # Both checks are independent: an unchanged runtime_ms_note AND an
+    # unchanged license on the same raise FAIL on both counts at once.
+    def raise_both(now, before, note, license_):
+        def reader():
+            return {"checks": [{"id": "fx", "admission": {
+                "case_floor": before, "runtime_ms_note": note,
+                "license": license_}}]}
+        return check_floor_decrements(
+            [floor("fx", case_floor=now, runtime_ms_note=note,
+                   license=license_)], reader)
+    rows, f = raise_both(9, 5, "re-measured: 40ms, unchanged", "kogaki#700")
+    cases.append(("a raise stale on BOTH runtime_ms_note and license fails "
+                  "on both counts",
+                  any("UNCHANGED runtime_ms_note" in x for x in f)
+                  and any("no license entry added" in x for x in f)))
     rows, f = dec(5, 5)
     cases.append(("an unchanged floor owes nothing", not f))
     # A member that is NEW in this diff has no base floor to fall from.
