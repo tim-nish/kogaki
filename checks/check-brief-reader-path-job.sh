@@ -1015,7 +1015,12 @@ process.stdin.on("end", () => {
   });
   const results = await Promise.all([runAwait(), runAwait()]);
   const claimed = results.filter((r) => /has no minted Brief/.test(r.stderr));
-  const deferred = results.filter((r) => /already claimed/.test(r.stdout));
+  // EITHER READING IS A DEFERRAL (kogaki#1278 round 1): the claimant's own
+  // refusal may finish the run before the second caller's precheck runs, and
+  // then that caller refuses as `already done` rather than `already claimed`.
+  // Both advance nothing; which one it prints is ordering, not the defect.
+  const deferred = results.filter((r) => !/has no minted Brief/.test(r.stderr)
+    && /already claimed|already done/.test(r.stdout));
   if (claimed.length !== 1) {
     fails.push(`(w1) two concurrent \`job await\` calls over the same \`done\` job did not resume exactly once (${claimed.length} reached needBrief's own refusal): ${JSON.stringify(results)}`);
   }
@@ -1062,6 +1067,82 @@ process.stdin.on("end", () => {
   }
   if (existsSync(join(dir, "reader-path-job-resume.claim"))) {
     fails.push("(w2) a resume refused for an already-`done` run still created the resume-claim file");
+  }
+}
+
+// (w3) kogaki#1278 round 1: A CLAIM WHOSE CLAIMANT IS GONE IS TAKEN OVER
+// while the run has not moved, so a resume cut off mid-`compose_path` stays
+// resumable by `job await`; and a claim whose claimant moved the run before
+// exiting stands. The dead pid is a child this member started and reaped.
+{
+  const deadPid = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], { encoding: "utf8" }).stdout.trim();
+  const mkDone = () => {
+    const dir = mkNewRun();
+    const now = new Date().toISOString();
+    writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+      started_at: now, last_progress_at: now, updated_at: now, absolute_limit_s: 600, supervisor_pid: null, state: "done",
+      units: [{ id: "candidate-1", status: "done", bytes: 50,
+        candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
+    }, null, 2) + "\n");
+    const briefTable = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+    const rec = {
+      workflow: { path: "src/brief-workflow.json", version: briefTable.version },
+      judge_binary: null, survey_record: null,
+      completed: ["enter", "THESIS_ADOPTION", "adopt_thesis", "mint", "differentiation"], waits_reached: [],
+      conditional_entered: [], conditional_skipped: [], awaiting: null,
+      owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
+      done: false,
+    };
+    writeFileSync(runRecordPath(dir), JSON.stringify(rec, null, 2) + "\n");
+    return { dir, rec };
+  };
+  const positionOf = (rec) => JSON.stringify({ completed: rec.completed || [], awaiting: rec.awaiting ?? null, done: !!rec.done });
+  const awaitIn = (dir) => spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
+    { cwd: root, timeout: 15000, encoding: "utf8",
+      env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") } });
+  {
+    const { dir, rec } = mkDone();
+    writeFileSync(join(dir, "reader-path-job-resume.claim"),
+      JSON.stringify({ claimed_at: new Date().toISOString(), pid: Number(deadPid), state: "done", position: positionOf(rec) }) + "\n");
+    const r = awaitIn(dir);
+    if (!/has no minted Brief/.test(r.stderr || "")) {
+      fails.push(`(w3) a claim left by an exited claimant over an unmoved run was not taken over: stdout=${r.stdout} stderr=${r.stderr}`);
+    }
+  }
+  {
+    const { dir, rec } = mkDone();
+    const moved = { ...rec, completed: [...rec.completed, "compose_path"], awaiting: "CANDIDATE_SELECTION" };
+    writeFileSync(join(dir, "reader-path-job-resume.claim"),
+      JSON.stringify({ claimed_at: new Date().toISOString(), pid: Number(deadPid), state: "done", position: positionOf(rec) }) + "\n");
+    writeFileSync(runRecordPath(dir), JSON.stringify(moved, null, 2) + "\n");
+    const before = readFileSync(runRecordPath(dir), "utf8");
+    const r = awaitIn(dir);
+    if (!/already claimed/.test(r.stdout || "") || r.status !== 0 || readFileSync(runRecordPath(dir), "utf8") !== before) {
+      fails.push(`(w3) a claim whose exited claimant had moved the run was taken over: stdout=${r.stdout} stderr=${r.stderr}`);
+    }
+  }
+}
+
+// (w4) kogaki#1278 round 1: THE CLAIM IS THE `done` ARM'S ONLY. A job ended
+// `refused` raises its owed gate and leaves no claim, so a later call can
+// re-raise that gate (kogaki#1198).
+{
+  const dir = mkNewRun();
+  const now = new Date().toISOString();
+  writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+    started_at: now, last_progress_at: now, updated_at: now, absolute_limit_s: 600, supervisor_pid: null, state: "refused",
+    units: [{ id: "candidate-1", status: "refused", failure: { first_refusal: "fixture refusal" } }],
+  }, null, 2) + "\n");
+  writeFileSync(runRecordPath(dir), JSON.stringify({
+    workflow: { path: "src/brief-workflow.json", version: null }, judge_binary: null, survey_record: null,
+    completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [], awaiting: "compose_path",
+    owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [], done: false,
+  }, null, 2) + "\n");
+  spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
+    { cwd: root, timeout: 15000, encoding: "utf8",
+      env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json") } });
+  if (existsSync(join(dir, "reader-path-job-resume.claim"))) {
+    fails.push("(w4) a job ended `refused` left a resume claim, which the `done` arm alone takes");
   }
 }
 
