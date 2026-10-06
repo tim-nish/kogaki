@@ -168,11 +168,20 @@ def self_test():
         "3",
         "AC3 cond 3 a record carrying `presupposes` is refused (kogaki#1247)",
     )
+    # kogaki#1280, owner ruling: `draws_on` is retired the same way — no
+    # composer, judge or Packet reads it, so a record still carrying it is
+    # refused here, by name, as unexpected.
+    refuses(
+        _record() + "draws_on: >-\n  subject: the reader's own prior reading\n",
+        "3",
+        "AC3 cond 3 a record carrying `draws_on` is refused (kogaki#1280)",
+    )
 
     def retired_keys_are_named_in_the_refusal():
         for key, value in (
             ("order", "raises, advances, settles, in that order"),
             ("presupposes", "the reader has read the prior Leg"),
+            ("draws_on", "subject: the reader's own prior reading"),
         ):
             text = _record() + "%s: >-\n  %s\n" % (key, value)
             proposals = read_proposals(text)
@@ -182,7 +191,7 @@ def self_test():
                 "the refusal did not name `%s`: %s" % (key, bad[0].refusal)
             )
 
-    check("AC3 cond 3 names the retired key in the refusal (kogaki#1247)",
+    check("AC3 cond 3 names the retired key in the refusal (kogaki#1247, kogaki#1280)",
           retired_keys_are_named_in_the_refusal)
 
     # §6.9.0's `id`-must-be-first precondition has no guard of its own (see the
@@ -216,11 +225,11 @@ def self_test():
 
     # ---- condition 4's `-` exemption: legal column-0 sequences ADMITTED ---
     def legal_sequence_admitted():
-        text = _record() + "draws_on:\n- one\n- two\n- three\n"
+        text = _record() + "evidence:\n- one\n- two\n- three\n"
         proposals = read_proposals(text)
         assert proposals[0].admitted, "legal column-0 sequence refused: %s" % proposals[0].refusal
-        assert proposals[0].mapping["draws_on"] == ["one", "two", "three"], (
-            proposals[0].mapping["draws_on"]
+        assert proposals[0].mapping["evidence"] == ["one", "two", "three"], (
+            proposals[0].mapping["evidence"]
         )
 
     check("AC3 `-` exemption admits a legal column-0 sequence", legal_sequence_admitted)
@@ -229,7 +238,7 @@ def self_test():
         # A key with an indented value opens no sequence, so a later column-0
         # bullet has nothing to belong to. This is the `no inline value` failure
         # §6.9.0 records, and it must NOT pass.
-        text = _record() + "draws_on:\n  an indented scalar\n- stray\n"
+        text = _record() + "evidence:\n  an indented scalar\n- stray\n"
         proposals = read_proposals(text)
         assert not proposals[0].admitted, "a bullet after an indented value was admitted"
         assert proposals[0].refusal.condition == "4", proposals[0].refusal
@@ -239,7 +248,7 @@ def self_test():
     def rule_is_not_a_sequence_item():
         # `---` starts with `-` but is NOT `- ` or bare `-`, so it is foreign to
         # a sequence rather than an item of it — the catch stays on the RULE.
-        text = _record() + "draws_on:\n- one\n---\n- two\n"
+        text = _record() + "evidence:\n- one\n---\n- two\n"
         proposals = read_proposals(text)
         assert not proposals[0].admitted, "`---` was admitted as a sequence item"
         assert proposals[0].refusal.condition == "4", proposals[0].refusal
@@ -312,9 +321,9 @@ def self_test():
         The `-` exemption was exercised at the PARSE and the round trip only for
         a `>-` folded scalar; nothing crossed the two.
         """
-        text = _record("seq") + "draws_on:\n- one\n- two\n"
+        text = _record("seq") + "evidence:\n- one\n- two\n"
         proposal = read_proposals(text)[0]
-        assert proposal.mapping["draws_on"] == ["one", "two"], proposal.mapping["draws_on"]
+        assert proposal.mapping["evidence"] == ["one", "two"], proposal.mapping["evidence"]
 
         body = render_move(proposal.mapping)
         for item_line in ("- one", "- two"):
@@ -327,8 +336,8 @@ def self_test():
             moves = os.path.join(tmp, "moves")
             save_accepted(moves, [proposal])
             back = read_saved(move_path(moves, "seq"))
-            assert back["draws_on"] == ["one", "two"], (
-                "a sequence did not survive the round trip: %r" % (back["draws_on"],)
+            assert back["evidence"] == ["one", "two"], (
+                "a sequence did not survive the round trip: %r" % (back["evidence"],)
             )
             # And the saved file is re-admissible by the grammar that wrote it.
             reread = read_proposals(open(move_path(moves, "seq")).read())
@@ -808,10 +817,9 @@ def self_test():
         "#876 AC1 a role mapped to nothing is refused, naming it")
 
     def an_unknown_seventh_key_is_still_refused():
-        """The optional set admits `draws_on`, `continues_from`, `evidence`,
-        `figure` and NOTHING else — the catch condition 3 exists for is
-        unchanged, which a widening is exactly the kind of change that can
-        quietly remove."""
+        """The optional set admits `continues_from`, `evidence`, `figure` and
+        NOTHING else — the catch condition 3 exists for is unchanged, which a
+        widening is exactly the kind of change that can quietly remove."""
         proposals = read_proposals(_record("subject", "notes: >-\n  a seventh key\n"))
         bad = [p for p in proposals if not p.admitted]
         assert bad, "a key outside the optional set was admitted"

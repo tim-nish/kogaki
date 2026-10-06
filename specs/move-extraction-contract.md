@@ -18,6 +18,10 @@ judge or Packet read either. `passages/FORMAT.md` and the Analyses are
 untouched — the Analysis still records the sequence and the presupposition —
 only the authored Move record stops carrying them.
 
+`draws_on` retired too (kogaki#1280, owner ruling): no composer, judge or
+Packet reads it either, and the Packet's Move block has always been
+`technique`, `question`, `breaks`.
+
 **Origin.** The Move concept follows Swales' move analysis in genre studies:
 a text is coded as a sequence of communicative purposes, each a move. The
 `question` field follows Minto's Situation-Complication-Question-Answer
@@ -51,8 +55,8 @@ the article.
 
 ## Output format
 
-One record per Move, exactly these ten keys admissible — six always
-present, four optional — in this order, separated by one blank line.
+One record per Move, exactly these nine keys admissible — six always
+present, three optional — in this order, separated by one blank line.
 Multi-line values use YAML folded style (`>-`).
 
 ```
@@ -75,10 +79,6 @@ technique: >-
 breaks: >-
   <the three tests a correct performance must survive — remove, reorder,
   extend — one line each>
-draws_on: >-
-  <optional. Each foothold by kind — subject / the reader's own world /
-  other texts / author — and what the Move does with it. Omit if the Move
-  draws on nothing identifiable.>
 continues_from: <optional. A prior Move's id, if this one picks up directly
   from it. Omit for a true opening.>
 evidence: >-
@@ -108,7 +108,6 @@ figure:
   subject, replacing the old `constraints` + `failure_modes` pair: what
   removing a step, reordering the Move's parts, or stretching it past its
   reach each does to it.
-- **draws_on** — optional; omit rather than force an entry.
 - **continues_from** — optional; a bare Move id, no article-specific
   prose.
 - **evidence** — this field carries provenance, and its rules are below.
