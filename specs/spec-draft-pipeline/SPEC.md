@@ -424,7 +424,7 @@ Situation-Complication-Question-Answer pattern, read through
 question-under-discussion analysis (Roberts 1996): a text opens a question and
 either settles it, or replaces it with a narrower one taken up in its stead.
 
-**Eight fields are always present; four are optional.** `status` is retired —
+**Eight fields are always present; three are optional.** `status` is retired —
 a Move enters observed and nothing here licenses a later generalization claim,
 so no field carries one.
 
@@ -438,7 +438,6 @@ so no field carries one.
 | `presupposes` | always | background the reader must already hold, beyond `before` |
 | `technique` | always | what the Move does, subject-free |
 | `breaks` | always | the three tests a correct performance must survive |
-| `draws_on` | optional | the footholds the Move's material comes from |
 | `continues_from` | optional | a prior Move's `id`, when this one picks up from it |
 | `evidence` | optional | the source work and where the Passage sits — no quotation |
 | `figure` | optional | a Figure spec's `kind`, `positions` and `relations`, never its content |
@@ -469,9 +468,10 @@ narrative the Move assumes familiarity with. Distinct from `before`: `before`
 states the reader's position on the Move's own dimensions, `presupposes`
 states what the Move assumes without moving it.
 
-**`draws_on`.** Optional. Each foothold by kind — `subject`, `the reader's own
-world`, `other texts`, `author` (Property 2, below) — and what the Move does
-with it. Silent by default: a Move with no recorded foothold carries none.
+**`draws_on` retired (kogaki#1280, owner ruling).** No composer, judge or
+Packet read it; the Leg Packet's Move block has always been `technique`,
+`question`, `breaks`, so the field carried nothing downstream and was removed
+from the record contract.
 
 **`continues_from`.** Optional. A prior Move's `id`, when this Move picks up
 directly from it. About half the Corpus's Analyses name a specific antecedent
@@ -522,8 +522,9 @@ a field above:
 1. **The reader dimension most changed** fixes `before`/`after`'s dimension
    set — read off which dimension recurs as the strongest change across the
    Corpus.
-2. **The source of the material the Move draws on** fixes `draws_on`'s kind
-   set — read off the footholds that recur across the Corpus.
+2. **The source of the material the Move draws on** fixed the retired
+   `draws_on` field's kind set (kogaki#1280) — read off the footholds that
+   recur across the Corpus. No field carries this Property any longer.
 3. **The length the Move typically occupies** is a corpus fact, carried from
    each Analysis's `length` line, never an axis: the derivation reports the
    range and the typical size, and proposes no field for it unless the Corpus
@@ -538,7 +539,7 @@ reads today, from `src/draft.mjs` and `src/compose.mjs`:
 
 | role | fields | read by |
 |---|---|---|
-| `rendered-to-writer` | `technique`, `question`, `draws_on`, `breaks` | the Leg Packet's Move block (§4.14) |
+| `rendered-to-writer` | `technique`, `question`, `breaks` | the Leg Packet's Move block (§4.14) |
 | `state-before` | `before` | Path Review's specialization judgment (§4.4) |
 | `state-after` | `after` | Path Review's specialization judgment (§4.4) |
 | `figure-roles` | `figure` | a Leg's `figure:` declaration (§4.16) |
@@ -1337,10 +1338,10 @@ that benefit was never verified. `evidence` is typed accordingly — optional,
 typically empty, **read by nothing downstream** (§4.2's role table) — rather
 than reopening a predicate whose value this Issue found no ground for.
 
-**The Leg Packet's Move block is `technique`, `question`, `draws_on`, `breaks`
-(§4.14, §4.2's `rendered-to-writer` role).** None of the four is source text a
-writer imitates verbatim; a writer works from the technique's description, not
-from an exemplar passage.
+**The Leg Packet's Move block is `technique`, `question`, `breaks`
+(§4.14, §4.2's `rendered-to-writer` role; `draws_on` retired, kogaki#1280).**
+None of the three is source text a writer imitates verbatim; a writer works
+from the technique's description, not from an exemplar passage.
 
 `necessity:` a retirement recorded at the section that used to carry the
 mechanism, so a reader who remembers "exemplar" finds why it is gone rather
@@ -2668,18 +2669,19 @@ which condition 4 names and bounds rather than claiming away:**
    record, which no per-record check can see.
 2. **Duplicate keys within a record are refused rather than resolved.**
 3. **After the strip step, a record carries exactly §4.2's eight required keys,
-   plus at most the four optional ones (`draws_on`, `continues_from`,
+   plus at most the three optional ones (`continues_from`,
    `evidence`, `figure`) — no more, and none of the eight missing.** The
    ordering matters: the excluded draft fields are stripped **first**, so
    their presence routes to the strip step rather than to a refusal. A record
    that absorbed its neighbour's `before` leaves that neighbour short a
    required key, and this condition catches it. **The optional set is
    enumerated rather than open (kogaki#876's rule, carried into the rebuilt
-   schema, kogaki#1175)**: a key outside the twelve named across §4.2 is
+   schema, kogaki#1175)**: a key outside the eleven named across §4.2 is
    refused, whether it looks like a ninth key under the old count or a
-   thirteenth under this one — a widening is the change that can quietly
+   twelfth under this one — a widening is the change that can quietly
    remove a condition's catch, so what it admits is enumerated rather than
-   loosened.
+   loosened. `draws_on` took this same refusal route once retired
+   (kogaki#1280): removing a key from the optional set does not widen it.
 4. **A markdown construct anywhere in the file is refused, naming the line.**
    The bounded blind spot: **a bullet among the items of a legal block sequence
    is indistinguishable from data**, and no grammar can see it.
@@ -2700,7 +2702,7 @@ in particular is invisible in every artifact it corrupts.
 
 The eight required fields render as a **structured block as the file body**,
 and `moves/INDEX.md`'s row derives mechanically from two of them. Where the
-record carries any of the four optional fields, each renders **after** the
+record carries any of the three optional fields, each renders **after** the
 eight, `figure` last of all (§6.9.3) — and the INDEX row is unaffected: its
 two columns are `id` and `technique`, so no optional field reaches a row.
 
@@ -2730,10 +2732,11 @@ what makes normalize over a conforming input close to identity. No fence, no
 metadata, and here the block **is** the document.
 
 **The optional fields render after the eight, each when present** (kogaki#876,
-carried into the rebuilt schema by kogaki#1175). `draws_on`, `continues_from`
-and `evidence` render in §4.2's table order; `figure` renders **last of all**,
+carried into the rebuilt schema by kogaki#1175). `continues_from`
+and `evidence` render in §4.2's table order (`draws_on` retired, kogaki#1280);
+`figure` renders **last of all**,
 in the **kind's** role order, which is the order a conforming input already
-carries. A record carrying none of the four renders byte-identically to what
+carries. A record carrying none of the three renders byte-identically to what
 a record under the eight-field schema always did. **The eight remain the
 eight**: no optional field is in §4.2's required order and none is counted
 into it, which is why each renders after the loop rather than inside it.
