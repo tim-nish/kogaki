@@ -1098,7 +1098,13 @@ export function moveContract(moveId, movesDir = "moves") {
 // serves both; a missing field is a store fault named by field, exactly as a
 // half-written Move contract is. The Persona is an INPUT to authoring Reader
 // start and is never copied into the Brief.
-export const READER_PERSONA_FIELDS = ["reader", "prior_knowledge"];
+// `reader` IS REQUIRED; `prior_knowledge` IS NOT (kogaki#1281, owner decision
+// 2026-10-06). The Persona may be empty or very general ("Student", "Office
+// Worker"), and a Persona that grants no prior knowledge is a real Persona
+// rather than a half-written one -- `personaPriorKnowledgeLine` below is what
+// turns its absence into a stated absence rather than a refusal.
+export const READER_PERSONA_FIELDS = ["reader"];
+export const READER_PERSONA_OPTIONAL_FIELDS = ["prior_knowledge"];
 export function readerPersona(path) {
   let text;
   try { text = readFileSync(path, "utf8"); }
@@ -1113,12 +1119,28 @@ export function readerPersona(path) {
     if (v === null) missing.push(f);
     else out[f] = v;
   }
+  for (const f of READER_PERSONA_OPTIONAL_FIELDS) {
+    out[f] = moveScalarField(text, f); // null is a stated absence, read by personaPriorKnowledgeLine
+  }
   if (missing.length) {
-    return { error: `the reader file ${path} declares no ${missing.join(" and no ")} — the Persona is exactly `
-      + `${READER_PERSONA_FIELDS.join(" and ")} (kogaki#1216), and Reader start cannot be authored from half of it. `
+    return { error: `the reader file ${path} declares no ${missing.join(" and no ")} — the Persona names `
+      + `at least ${READER_PERSONA_FIELDS.join(" and ")} (kogaki#1216), and Reader start cannot be authored from half of it. `
       + "Repair the reader file under its own issue." };
   }
   return out;
+}
+
+// THE STATED ABSENCE (kogaki#1281, owner decision 2026-10-06): "An absent or
+// empty `prior_knowledge` grants no extra word and refuses nothing." A claim
+// line and the compose_path unit's input both need to carry the Persona's
+// `prior_knowledge` line OR this sentence -- never `undefined`, and never a
+// refusal -- so this is the one rendering both readers share.
+export const PERSONA_PRIOR_KNOWLEDGE_ABSENT =
+  "(the Persona declares no prior_knowledge — it grants no word beyond everyday ones, and a claim's words are "
+  + "bounded by everyday English plus whatever an `introduces` entry carries)";
+export function personaPriorKnowledgeLine(persona) {
+  const v = persona && persona.prior_knowledge;
+  return (typeof v === "string" && v.trim() !== "") ? v : PERSONA_PRIOR_KNOWLEDGE_ABSENT;
 }
 
 // THE PERSONA'S `prose` BLOCK (kogaki#1251 item 1, kogaki#1261): the Write

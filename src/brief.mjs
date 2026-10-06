@@ -117,7 +117,7 @@ import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
   validateLegs, validateSpecialization, specializationFailures, selectedStrands, journeyBearingStrands,
   resolveMoveIds, loadMoveContracts, moveContractsForLegs,
-  readerStateShapeRefusal, readerPersona,
+  readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -1479,7 +1479,7 @@ const STATE_WORK = {
       // (kogaki#1216): `reader` and `prior_knowledge` are what `reader_start`
       // is derived from, line by line, beside the Thesis in `brief_document`.
       reader_file: readerFile,
-      reader: { reader: persona.reader, prior_knowledge: persona.prior_knowledge },
+      reader: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
     });
     const path = await judged(rec, st, table, args, "differentiation", composeInputFor, validate);
     rec.brief_differentiation = path;
@@ -1507,6 +1507,19 @@ const STATE_WORK = {
     if (library.error) {
       fail(`${st.id}: ${library.error}`);
     }
+    // THE PERSONA'S `prior_knowledge` LINE, OR ITS STATED ABSENCE (kogaki#1281,
+    // owner decision 2026-10-06): a claim is stated in everyday words plus
+    // whatever `prior_knowledge` grants, so every unit needs the same line
+    // beside the Leg contract its `schema_file` row already renders. `st` IS
+    // the compose_path row, so `st.reader_file` is the same Persona
+    // `differentiation` read a moment earlier -- read again here rather than
+    // passed through, because the two states run independently and neither
+    // reaches into the other's locals.
+    const persona = readerPersona(resolve(BRIEF_REPO, st.reader_file
+      || fail(`${st.id}: src/brief-workflow.json's \`compose_path\` state declares no \`reader_file\` -- `
+        + "a claim is stated in the words the Persona grants (kogaki#1281). Nothing was started.")));
+    if (persona.error) fail(`${st.id}: ${persona.error}`);
+    const priorKnowledge = personaPriorKnowledgeLine(persona);
     let composed = null;
     // CROSS-CANDIDATE RULES ONLY (kogaki#1240). Every per-unit rule -- the Leg
     // shape (`validateLegs`), the Move ids, the closed Strand set, the
@@ -1632,6 +1645,7 @@ const STATE_WORK = {
       strands_you_may_use: strandIds,
       moves_you_may_bind: library.moves,
       units: 3,
+      persona_prior_knowledge: priorKnowledge,
     });
     // THE UNIT'S OWN ROW (kogaki#1203), read fresh per unit build rather than
     // reusing `st`: `st`'s own `input_shape`/`refusal` state the ASSEMBLED
@@ -1661,6 +1675,9 @@ const STATE_WORK = {
         // GIVEN, not composed (kogaki#1216): the Brief's one Reader start, the
         // same value the assignment block above the marker renders.
         reader_start: differentiation.reader_start,
+        // THE PERSONA'S LINE OR ITS STATED ABSENCE (kogaki#1281): a claim is
+        // stated in everyday words plus whatever this grants.
+        persona_prior_knowledge: priorKnowledge,
       };
       const entry = (differentiation.entries || []).find((e) => e.unit_number === n)
         || fail(`${st.id}: the differentiation record carries no entry for unit ${n} — its own count `
@@ -1711,6 +1728,18 @@ const STATE_WORK = {
   review_path: async (rec, st, args, table) => {
     const cands = readJson(rec.brief_candidates
       || fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`));
+    // THE PERSONA, read from the same row `differentiation` and `compose_path`
+    // already name theirs from (kogaki#1281): the claim register's declared
+    // side is the Persona's `prior_knowledge` line (or its stated absence)
+    // beside the `introduces` ledger up to each Leg, so the judge asked to run
+    // it needs the same line those states compose from.
+    const composePathState = (table.states || []).find((s) => s.id === "compose_path");
+    const readerFile = (composePathState && composePathState.reader_file)
+      || fail(`${st.id}: src/brief-workflow.json's \`compose_path\` state declares no \`reader_file\` -- `
+        + "the claim register is judged against the Persona it names (kogaki#1281). Nothing was asked.");
+    const persona = readerPersona(resolve(BRIEF_REPO, readerFile));
+    if (persona.error) fail(`${st.id}: ${persona.error}`);
+    const priorKnowledge = personaPriorKnowledgeLine(persona);
     const validate = (p) => {
       let review;
       try { review = readJson(p); }
@@ -1727,6 +1756,7 @@ const STATE_WORK = {
       state: st.id,
       review_areas: REVIEW_AREAS,
       candidates_you_must_review: cands,
+      persona_prior_knowledge: priorKnowledge,
     });
     const path = await judged(rec, st, table, args, "review", composeInputFor, validate);
     rec.brief_review = relFromRepo(resolve(path));

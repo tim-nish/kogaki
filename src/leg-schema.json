@@ -133,7 +133,7 @@
       "required": true,
       "type": "array of claim",
       "min_length": 1,
-      "description": "What this Leg ASSERTS, one entry per Strand it names in `materials`. A claim is a PROPOSITION ABOUT THE WORLD and names no reader; a claim that mentions the reader belongs in `purpose` or in a state field. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below -- the cardinality rule is the part most likely to be got wrong.",
+      "description": "What this Leg ASSERTS, one entry per Strand it names in `materials`. A claim is a PROPOSITION ABOUT THE WORLD and names no reader; a claim that mentions the reader belongs in `purpose` or in a state field. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. A claim is stated in EVERYDAY WORDS plus the words the Persona's `prior_knowledge` grants (owner decision 2026-10-06): where the Strand's own vocabulary and the Persona's do not match, the claim conforms to the Persona, never to the Strand's term of art. Any other word appears in a claim only if an `introduces` entry on this Leg or an earlier Leg carries it -- the reader-knowledge ledger is what makes a term available to speak of. An absent or empty `prior_knowledge` grants no extra word and refuses nothing: the Persona may be empty or very general, and the design does not fail when it grants nothing. See `claim` below -- the cardinality rule is the part most likely to be got wrong.",
       "see": "claim"
     },
     "journeys": {
