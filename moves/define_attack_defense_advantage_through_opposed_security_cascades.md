@@ -40,10 +40,6 @@ breaks: >-
   distinction legible. extend: folding a second, independent variable into
   the same unit compresses a clean single-axis elaboration into a survey and
   weakens each mirrored consequence chain.
-draws_on: >-
-  the reader's own world: a small-scale, familiar contrast stands in for the
-  more complex target-domain problem, making an abstract causal distinction
-  intuitive before it is transferred.
 evidence: >-
   geopolitics primer analyzed in this Corpus; the passage introducing and
   elaborating the offensive–defensive advantage variable.

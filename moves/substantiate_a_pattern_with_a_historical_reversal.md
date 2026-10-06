@@ -33,7 +33,3 @@ breaks: >-
   the consequence looking like unexplained data. extend: lingering to
   adjudicate whether the reversal's cause was justified stalls the movement
   from confirmation to reversal and the Move loses its temporal sharpness.
-draws_on: >-
-  the reader's own world — a period and stakes the reader is assumed to
-  already recognize, used to make the case's initial fit require no further
-  argument.

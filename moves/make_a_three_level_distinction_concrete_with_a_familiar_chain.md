@@ -30,7 +30,3 @@ breaks: >-
   judge whether the sequence's particular instance actually succeeds shifts
   the reader from learning the hierarchy to arguing about the case's truth,
   which the technique does not support.
-draws_on: >-
-  the reader's own world — a sequence assumed already familiar supplies the
-  concrete instance the abstract hierarchy is mapped onto and checked
-  against.

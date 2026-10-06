@@ -37,11 +37,6 @@ breaks: >-
   that makes the category necessary. extend: qualifying the model's values
   with real-world complicating factors dissolves the clean comparison needed
   to make the threshold verifiable by the reader.
-draws_on: >-
-  the reader's own world — the arithmetic is left simple enough to verify
-  without external tools; other texts — a historical authority is cited
-  after the fact to extend the rule's claimed scope rather than to derive
-  it.
 evidence: >-
   Passage from the Analysis of "show_when_a_power_surplus_becomes_hegemony,"
   the four-state numeric example and its naming/generalizing close.

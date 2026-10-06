@@ -34,10 +34,6 @@ breaks: >-
   detailed local explanation inside each repetition buries the repeated
   rise-and-fall shape beneath particulars, defeating the pattern's
   wide-scale claim.
-draws_on: >-
-  other texts: each repetition is anchored to named events and named books
-  carrying that era's own public language, lending the pattern the texture
-  of primary evidence rather than paraphrase.
 evidence: >-
   Analysis "reveal_a_recurring_pattern_through_three_historical_waves"; the
   Passage sits in a geopolitics-primer-style chronology moving from a 1940s

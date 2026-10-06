@@ -44,9 +44,3 @@ breaks: >-
   cases are repeating. extend: detailing each case's distinct motives and
   internal politics replaces structural equivalence with case-specific
   causation, which undermines the pattern's claim to generality.
-draws_on: >-
-  subject: revises an existing numerical model of opposing capacity to add a
-  temporal, pre-threshold stage rather than introducing a new model. other
-  texts: draws on a sequence of cases spanning several historical periods,
-  more than one region, and a non-state domain to test how far the
-  paired-role pattern reaches.

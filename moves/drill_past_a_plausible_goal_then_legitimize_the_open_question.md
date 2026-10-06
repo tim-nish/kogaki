@@ -36,6 +36,3 @@ breaks: >-
   substantive answer to the deepest question turns the technique into an
   argument for one explanation instead of a demonstration of how to expose
   an unexamined purpose.
-draws_on: >-
-  author: leans on a named authority's formulation to license the open
-  difficulty as inherent to the domain rather than a reporting failure.

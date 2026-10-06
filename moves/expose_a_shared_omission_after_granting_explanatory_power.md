@@ -33,7 +33,3 @@ breaks: >-
   same kind before naming the shared omission delays the turn and dulls the
   contrast, so the final distinction feels predictable rather than
   clarifying.
-draws_on: >-
-  subject: uses two independently sourced, structurally distinct explanatory
-  devices from the field being examined as the material whose shared
-  boundary gets exposed.
