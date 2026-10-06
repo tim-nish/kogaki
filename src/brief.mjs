@@ -75,7 +75,7 @@
 //   the rendering rule
 //       SPEC-terrain
 //
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from "node:fs";
 // `NO_HEADLINE` IS NO LONGER IMPORTED AS A VALUE (PR #1107 round 1, nit). With
 // the dead `|| NO_RENDERING` disjunct removed, `glossFor` is the only thing
 // that names a marker here — which is the point of delegating the choice to it.
@@ -2242,6 +2242,52 @@ function readReaderPathJobOrDefect(dir) {
   }
 }
 
+// THE RESUME CLAIM (kogaki#1278). Beside the job record, never inside it, so
+// a claim never rides a `checkpointRun` write. An exclusive create (`wx`) is
+// the only operation here: the caller that wins the create is the one that
+// resumes, and every later caller — a second `job await`, a backgrounded one
+// that is still mid-poll — reads `EEXIST` and takes the no-op arm instead.
+function readerPathJobResumeClaimPath(dir) {
+  return join(dir, "reader-path-job-resume.claim");
+}
+
+// A CLAIM HELD BY A PROCESS THAT IS GONE IS NOT A CLAIM (kogaki#1278 round
+// 1). The claim arbitrates between waiters that are alive at the same time;
+// it is never released explicitly, because a resume ends at a gate, a refusal
+// or a kill and only the first of those runs any code of its own. So a later
+// caller reads the claimant's pid, as `supervisorAlive` reads the
+// supervisor's, and takes over a claim whose claimant has exited — which is
+// what keeps a cut-off resume resumable by `job await` (kogaki#1193). A
+// claimant still alive keeps the claim, and that is the race this guards.
+// AND ONLY WHILE THE RUN HAS NOT MOVED: the claim records the run's position
+// when it was taken, and a claimant that exited after advancing the run (to
+// the Candidate question, say) finished its resume, so its claim stands and a
+// later waiter prints the position rather than resuming a second time.
+function readerPathRunPosition(dir) {
+  const rec = readRunRecord(dir);
+  return JSON.stringify(rec ? { completed: rec.completed || [], awaiting: rec.awaiting ?? null, done: !!rec.done } : null);
+}
+
+function claimReaderPathJobResume(dir, state) {
+  const claimPath = readerPathJobResumeClaimPath(dir);
+  const position = readerPathRunPosition(dir);
+  const body = `${JSON.stringify({ claimed_at: new Date().toISOString(), pid: process.pid, state, position }, null, 2)}\n`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      writeFileSync(claimPath, body, { flag: "wx" });
+      return true;
+    } catch (e) {
+      if (!e || e.code !== "EEXIST") throw e;
+    }
+    let held = null;
+    try { held = JSON.parse(readFileSync(claimPath, "utf8")); } catch { held = null; }
+    const pid = held && Number.isInteger(held.pid) ? held.pid : null;
+    if (attempt > 0 || pid === null || supervisorAlive(pid) || held.position !== position) return false;
+    try { unlinkSync(claimPath); } catch (e) { if (!e || e.code !== "ENOENT") throw e; }
+  }
+  return false;
+}
+
 // THE TWO TERMINAL ARMS (kogaki#1193). `done` resumes the run in-process,
 // attributed to the `detached-job` executor kind and carrying the assembled
 // candidates so `compose_path`'s existing, unmodified `judged(...)` call
@@ -2251,7 +2297,29 @@ function readReaderPathJobOrDefect(dir) {
 // `awaitReaderPathJob` ends as a defect before reaching here, raises
 // `brief-reader-path-job` and stops — no state here ever auto-retries.
 async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
+  // A RUN ALREADY `done` IS NEVER RESUMED (kogaki#1278). Checked before the
+  // claim, not after: the claim only arbitrates between waiters racing to
+  // resume a run that is still open, and a run a prior resume already closed
+  // is not that race — it is the one this issue's transcript hit, where a
+  // slower waiter's `runWorkflow` overwrote a run the faster waiter had
+  // already finished and answered.
+  const precheckRec = readRunRecord(dir);
+  if (precheckRec && precheckRec.done) {
+    console.log(`reader-path job at ${state} — run ${dir} is already done; this resume refuses to rewrite it.`);
+    return;
+  }
   if (state === "done") {
+    // THE CLAIM (kogaki#1278), taken in this arm only: it is the one that
+    // resumes the run, and the terminal arms below stay re-enterable so a
+    // later call can re-raise their owed gate (kogaki#1198). The caller that
+    // wins the claim resumes; every other caller prints the run's current
+    // position (the same reading `job status` gives) and exits 0 having
+    // advanced nothing.
+    if (!claimReaderPathJobResume(dir, state)) {
+      console.log(`reader-path job resume at ${dir} is already claimed at ${readerPathJobResumeClaimPath(dir)} — printing the run's position instead of resuming it again.`);
+      printReaderPathJobStatus(dir, job);
+      return;
+    }
     // TAGGED WITH THE UNIT NUMBER HERE, AND NOWHERE ELSE (kogaki#1206). `u.id`
     // is `candidate-<n>`, the Harness's own name for the unit `compose_path`
     // started — never the Model's — so the tag this reads back at assembly
