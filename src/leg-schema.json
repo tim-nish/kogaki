@@ -411,7 +411,13 @@
       "readers of one fact -- a Leg that named its Strand bare and drew on",
       "its Journey here rendered its `journey:` line and was disclosed as",
       "OMITTED in the same Brief. A `<L-id>.journey` token stays legal, and",
-      "still names the Strand; it no longer places anything on its own."
+      "still names the Strand; it no longer places anything on its own.",
+      "",
+      "`use` IS READ BY `validateLegs`, THE BRIEF AND COVERAGE ACCOUNTING, AND",
+      "BY NOTHING IN THE PACKET (kogaki#1286, owner decision 2026-10-06). The",
+      "Brief renders it with this section's gloss, resolved there; the Packet's",
+      "Journey block renders the Strand's served text and its cite under the",
+      "block's existing header, and none of the three use words."
     ],
     "uses": {
       "illustrate": "to illustrate this Leg's claim with the concrete case the Journey tells",
