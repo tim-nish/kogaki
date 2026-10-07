@@ -1336,7 +1336,7 @@ export function validateReaderPathUnit(candidate, inputs) {
   // One-claim-per-Strand, the closed claim type set, every required field
   // and its description all come from `src/leg-schema.json` through that
   // function.
-  const v = validateLegs(c.legs, c.reader_start, c.obligations);
+  const v = validateLegs(c.legs, c.reader_start, c.obligations, movesDir);
   if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
   // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
   // (kogaki#1276). The refusal is the retry prompt's text verbatim
