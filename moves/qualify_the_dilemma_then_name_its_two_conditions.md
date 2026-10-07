@@ -14,7 +14,9 @@ after: >-
   treats the outcome as dependent on properties of the situation and the
   actors involved, not on the triggering action alone. trust: strengthened
   by a second, independent case and by the admission of conditional
-  variation rather than a claim of universal effect.
+  variation rather than a claim of universal effect. question: what
+  determines the variation between the higher- and lower-likelihood
+  instances?
 question: >-
   holds: can the mechanism explain why some instances produce a stronger
   effect than others that appear equally or more capable of producing it?

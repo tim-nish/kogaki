@@ -419,7 +419,7 @@ export function readerStateDimensionLine(value, dim) {
 // ---- shape validation (the Leg's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
 // Returns { error } or { legs }. Pure over its argument; exported for the check.
-export function validateLegs(legs, readerStart, obligations = []) {
+export function validateLegs(legs, readerStart, obligations = [], movesDir = "moves") {
   if (!Array.isArray(legs) || legs.length === 0) {
     return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Leg at all.") };
   }
@@ -538,6 +538,37 @@ export function validateLegs(legs, readerStart, obligations = []) {
     }
     if (!hasMove && !hasNoFit) {
       return { error: `${at}: carries neither move nor no_move_fits — a Leg binds a Move library entry by id (the Move is the State component of a Leg), or says in one sentence what its claims need that no Move's technique provides (kogaki#1276)` };
+    }
+    // THE QUESTION CHAIN (kogaki#1283). A Move's `question` field states, in
+    // its own `holds:`/`raises:` prose, what the next Leg is owed.
+    // `tools/move_ingest.py`'s `check_question_chain` refuses the Move LIBRARY
+    // RECORD if a `raises:` clause carries no `question:` line in the Move's
+    // own `after` — this is the same chain at the LEG that binds the Move:
+    // the binding Leg's OWN reader_state_after must carry the question (the
+    // Leg's instance of the Move's after), and the Leg that follows it in
+    // path order must carry it in reader_state_before, for the next Leg to
+    // take up. A Move this cannot read (an id a fixture invents, never a
+    // real library entry) is silently skipped — resolveMoveIds elsewhere is
+    // what refuses a dangling id; this rule speaks only about one it can read.
+    if (hasMove) {
+      const moveQuestion = moveQuestionField(s.move, movesDir);
+      if (typeof moveQuestion === "string" && /raises:/.test(moveQuestion)) {
+        const afterQ = readerStateDimensionLine(s.reader_state_after, "question");
+        if (afterQ === null) {
+          return { error: `${at}: its Move ${JSON.stringify(s.move)} raises a question (\`question:\` carries `
+            + `\`raises:\`), but ${at}'s reader_state_after carries no \`question\` line for the next Leg to `
+            + "take up (kogaki#1283)" };
+        }
+        const next = legs[i + 1];
+        if (next) {
+          const nextAt = `leg ${i + 2}${next && next.leg_id ? ` (${next.leg_id})` : ""}`;
+          const beforeQ = readerStateDimensionLine(next.reader_state_before, "question");
+          if (beforeQ === null) {
+            return { error: `${nextAt}: the preceding Leg's Move raises a question, but ${nextAt}'s `
+              + "reader_state_before carries no `question` line to take it up (kogaki#1283)" };
+          }
+        }
+      }
     }
     for (const d of s.depends_on) {
       if (!seen.has(d)) {
@@ -1057,6 +1088,89 @@ function moveScalarField(text, name) {
     return joined.trim() === "" ? null : joined.trim();
   }
   return null;
+}
+
+// THE ONE FIELD `validateLegs`' question-chain rule (kogaki#1283) reads off a
+// bound Move — NOT added to MOVE_CONTRACT_FIELDS below, because that set is
+// `judge_specialization`'s and widening it would hand the judge a field it
+// never specializes against. UNLIKE moveContract, a Move this cannot read is
+// not this reader's refusal to raise: it returns null, and the caller treats
+// an unreadable or absent `question` field as nothing to chain — a dangling
+// Move id is resolveMoveIds's refusal elsewhere, not this rule's.
+function moveQuestionField(moveId, movesDir) {
+  let text;
+  try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
+  catch { return null; }
+  return moveScalarField(text, "question");
+}
+
+// THE SUB-LABEL WITHIN `question` (kogaki#1283). `question`'s own prose
+// states, under one of `raises:`/`settles:`/`replaces:`, what the Move hands
+// the next Leg -- these are plain text inside one folded string, never
+// nested keys (SPEC-draft-pipeline §"The Move library entry — rebuilt from
+// the Corpus"), so the span owed to one verb runs from just past its
+// colon to whichever of the three verbs comes next, or to the field's end.
+const QUESTION_VERBS = ["raises", "settles", "replaces"];
+function questionVerbSpan(text, verb) {
+  if (typeof text !== "string") return null;
+  const m = new RegExp(`${verb}:\\s*`).exec(text);
+  if (!m) return null;
+  const start = m.index + m[0].length;
+  let end = text.length;
+  for (const v of QUESTION_VERBS) {
+    const re = new RegExp(`${v}:`, "g");
+    re.lastIndex = start;
+    const hit = re.exec(text);
+    if (hit && hit.index < end) end = hit.index;
+  }
+  const span = text.slice(start, end).trim();
+  return span === "" ? null : span;
+}
+
+// THE QUESTION-CHAIN JUDGE INPUT (kogaki#1283). One entry per adjacent Leg
+// pair in path order -- the mechanical half (which lines, off which fields)
+// is extracted HERE; whether the two sides name the same question is left to
+// `review_path`'s judgment, never compared by this function.
+export function questionChainPairs(legs, movesDir = "moves") {
+  const out = [];
+  for (let i = 0; i < legs.length - 1; i++) {
+    const leg = legs[i];
+    const next = legs[i + 1];
+    const legQuestion = typeof leg.move === "string" ? moveQuestionField(leg.move, movesDir) : null;
+    const nextQuestion = typeof next.move === "string" ? moveQuestionField(next.move, movesDir) : null;
+    out.push({
+      leg: leg.leg_id,
+      next_leg: next.leg_id,
+      declared: {
+        reader_state_after_question: readerStateDimensionLine(leg.reader_state_after, "question"),
+        move_raises: questionVerbSpan(legQuestion, "raises"),
+      },
+      reverse: {
+        reader_state_before_question: readerStateDimensionLine(next.reader_state_before, "question"),
+        move_holds: questionVerbSpan(nextQuestion, "holds"),
+      },
+    });
+  }
+  return out;
+}
+
+// THE DISCHARGE JUDGE INPUT (kogaki#1283). One entry per Closure row carrying
+// `discharged_by` -- the row's own text against the discharging Leg's claim
+// lines (each claim's `proposition`), for `review_path` to judge whether
+// every part the row owes has an answer among them.
+export function dischargeRows(legs, obligations = []) {
+  const byId = new Map(legs.map((l) => [l.leg_id, l]));
+  return (Array.isArray(obligations) ? obligations : [])
+    .filter((o) => o && o.discharged_by !== undefined)
+    .map((o) => {
+      const leg = byId.get(o.discharged_by);
+      return {
+        row: o.text,
+        introduced_by: o.introduced_by,
+        discharging_leg: o.discharged_by,
+        claims: leg && Array.isArray(leg.claims) ? leg.claims.map((cl) => cl.proposition) : [],
+      };
+    });
 }
 
 export const MOVE_CONTRACT_FIELDS = ["before", "after", "technique", "breaks"];
@@ -2234,8 +2348,8 @@ export function replaceSlot(doc, heading, body) {
 
 // ---- the fill: sequence, strand_coverage, Closure ----
 // Pure over strings; exported for the check.
-export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused = {}, readerStart, thesisClosure = null }) {
-  const v = validateLegs(legs, readerStart, obligations);
+export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused = {}, readerStart, thesisClosure = null, movesDir = "moves" }) {
+  const v = validateLegs(legs, readerStart, obligations, movesDir);
   if (v.error) return { error: v.error };
   const strandIds = selectedStrands(doc);
   if (strandIds.length === 0) return { error: "the Brief carries no Strands section — not a minted Brief" };
