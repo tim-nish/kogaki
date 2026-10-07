@@ -1236,6 +1236,57 @@ def self_test():
     check("#1284 subject nouns: an Analysis that lists none admits the same `technique`",
           a_passage_run_admits_a_technique_with_no_subject_noun_listed)
 
+    # ---- kogaki#1283: a Move that raises a question carries it in `after` --
+    def a_raises_question_with_no_after_question_line_is_refused():
+        text = _record("raiser").replace(
+            "question: >-\n  holds: why does it happen\n  settles: why does it happen\n",
+            "question: >-\n  holds: why does it happen\n  raises: what happens next\n",
+        ).replace(
+            "after: >-\n  question: the question is settled\n",
+            "after: >-\n  the question is settled\n",
+        )
+        proposals = read_proposals(text)
+        bad = [p for p in proposals if not p.admitted]
+        assert bad, "a `raises:` record with no `question:` line in `after` was admitted"
+        assert bad[0].refusal.condition == "question-chain", bad[0].refusal
+        assert "`after`" in str(bad[0].refusal), bad[0].refusal
+
+    check("#1283 a `raises:` question with no `question:` line in `after` is refused",
+          a_raises_question_with_no_after_question_line_is_refused)
+
+    def a_raises_question_with_an_after_question_line_is_admitted():
+        text = _record("raiser-answered").replace(
+            "question: >-\n  holds: why does it happen\n  settles: why does it happen\n",
+            "question: >-\n  holds: why does it happen\n  raises: what happens next\n",
+        ).replace(
+            "after: >-\n  question: the question is settled\n",
+            "after: >-\n  question: the question is settled. question: what happens next\n",
+        )
+        proposals = read_proposals(text)
+        assert proposals[0].admitted, proposals[0].refusal
+
+    check("#1283 a `raises:` question answered in `after` is admitted",
+          a_raises_question_with_an_after_question_line_is_admitted)
+
+    def a_record_with_no_raises_is_unaffected():
+        proposals = read_proposals(_record("no-raises"))
+        assert proposals[0].admitted, proposals[0].refusal
+
+    check("#1283 a record whose `question` carries no `raises:` is unaffected",
+          a_record_with_no_raises_is_unaffected)
+
+    def the_affected_shipped_record_now_passes():
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", "moves",
+            "qualify_the_dilemma_then_name_its_two_conditions.md",
+        )
+        mapping = read_saved(path)
+        check_field_set(mapping, 1)
+        check_question_chain(mapping, 1)
+
+    check("#1283 the one affected shipped record carries a `question:` line in `after`",
+          the_affected_shipped_record_now_passes)
+
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)
     print("move_ingest self-test: %d checks, %d failed" % (len(ran), len(failures)))
