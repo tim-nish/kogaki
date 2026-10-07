@@ -6744,11 +6744,6 @@ function mostRecentDoneRun(lane) {
   return null;
 }
 
-// ---- THE RECORD AS IT STANDS, WRITTEN MID-ADVANCE (kogaki#1073 item 3).
-// Same writer and shape as the release (`_dir` stripped), run after every completed
-// state and every per-group judge record, since a SIGKILL at `ADVANCE_TIMEOUT_S` runs
-// no exit path. A failing write is NOT swallowed.
-// Exported for the job-verb dispatch (kogaki#1193): `job await` persists a `rec` with `_dir`.
 // THE JUDGE-TIMEOUT EXIT (kogaki#1300). Everything already written stays: the record is
 // written with `failure` beside an unchanged `completed`, then the process exits non-zero.
 function endRunOnJudgeTimeout(rec, st, dir, e) {
@@ -6771,6 +6766,11 @@ function endRunOnJudgeTimeout(rec, st, dir, e) {
   process.exit(1);
 }
 
+// ---- THE RECORD AS IT STANDS, WRITTEN MID-ADVANCE (kogaki#1073 item 3).
+// Same writer and shape as the release (`_dir` stripped), run after every completed
+// state and every per-group judge record, since a SIGKILL at the table's `advance_timeout_s` runs
+// no exit path. A failing write is NOT swallowed.
+// Exported for the job-verb dispatch (kogaki#1193): `job await` persists a `rec` with `_dir`.
 export function checkpointRun(rec) {
   if (!rec || !rec._dir) return null;
   const out = { ...rec };
