@@ -93,6 +93,62 @@ export const DISCHARGE_VERDICTS = ["fails", "holds"];
 const STRUCTURED_REVIEW_KEYS = new Set(["question_chain", "discharge"]);
 
 // ---------------------------------------------------------------------------
+// THE CLAIM REGISTER (kogaki#1281, owner decision 2026-10-06). A claim is
+// stated in everyday words plus whatever the Persona's `prior_knowledge`
+// grants, plus any word an `introduces` ledger entry on this Leg or an
+// earlier one carries. The claim register is the JUDGED half of that rule,
+// one entry per Leg: whether any claim line on that Leg uses a term of art
+// that is neither everyday nor carried forward. This is judgment, never a
+// mechanical word list [see: SPEC-draft-pipeline "Every MUST is judgment,
+// and nothing becomes a lint"] — `claimRegisterRefusal` checks only the
+// SHAPE (one entry per Leg, a closed verdict, a named word on `fails`), the
+// same split `attachReview`'s own REVIEW_AREAS loop already holds for the
+// five review areas.
+export const CLAIM_REGISTER_VERDICTS = ["holds", "fails"];
+
+// Pure; exported for the check. `entries` is the reply's own `claim_register`
+// value; `legs` is the Candidate's own Legs, in order. Returns a refusal
+// string or null.
+export function claimRegisterRefusal(entries, legs) {
+  // Only a real Leg record (an object, carrying `leg_id`) raises the
+  // register at all: a caller outside the compose_path/review_path pair --
+  // src/review.mjs's own generic plumbing is exercised by callers that never
+  // declare a Leg shape at all, holding `legs` as plain strings or omitting
+  // it -- owes this file no claim_register and is refused nothing.
+  const legList = (Array.isArray(legs) ? legs : []).filter((l) => l && typeof l === "object");
+  if (entries === undefined && legList.length === 0) return null;
+  if (!Array.isArray(entries)) {
+    return `claim_register must be an array, one entry per Leg (${legList.length} Leg(s)) — `
+      + `the vocabulary rule is judged PER LEG, never once for the whole Candidate`;
+  }
+  if (entries.length !== legList.length) {
+    return `claim_register carries ${entries.length} entry(ies) for ${legList.length} Leg(s) — `
+      + `one entry per Leg, in Leg order`;
+  }
+  for (let i = 0; i < legList.length; i++) {
+    const leg = legList[i];
+    const e = entries[i];
+    const at = `claim_register[${i}] (leg ${leg && leg.leg_id})`;
+    if (!e || typeof e !== "object" || Array.isArray(e)) {
+      return `${at} is not an entry object`;
+    }
+    if (e.leg_id !== undefined && e.leg_id !== leg.leg_id) {
+      return `${at} names leg_id ${JSON.stringify(e.leg_id)}, not ${JSON.stringify(leg && leg.leg_id)} — `
+        + `entries ride in the Candidate's own Leg order`;
+    }
+    if (!CLAIM_REGISTER_VERDICTS.includes(e.verdict)) {
+      return `${at}: verdict ${JSON.stringify(e.verdict)} is not one of `
+        + `${CLAIM_REGISTER_VERDICTS.join("/")} — the vocabulary this judgment uses is closed`;
+    }
+    if (e.verdict === "fails" && (typeof e.word !== "string" || e.word.trim() === "")) {
+      return `${at} fails and names no \`word\` — a \`fails\` verdict names the term of art `
+        + `that is neither everyday nor carried by the Persona or the \`introduces\` ledger`;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // The revise-round ledger (kogaki#894). [see: SPEC-draft-pipeline "The Bridge
 // Leg and the revise pass"]
 //
@@ -314,6 +370,11 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
           + `verdict-shaped — the agent's output is REASONING SURFACED FOR THE HUMAN GATE, `
           + `never a verdict, never a lint` };
       }
+      // `claim_register` IS NOT PROSE (kogaki#1281): it is one judged entry per
+      // Leg, checked below by `claimRegisterRefusal` against the Candidate's
+      // own Legs — the one field this loop's "non-empty string" rule does not
+      // apply to, named here rather than left to fail the generic check.
+      if (k === "claim_register") continue;
       if (typeof v !== "string" || v === "") {
         return { error: `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is `
           + `not non-empty prose — a boolean or number is a verdict wearing a type` };
@@ -325,6 +386,13 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
           + `every MUST of the five review areas is applied per Candidate, and an absent area is an `
           + `unapplied one (src/path-review-agent.md declares the shape)` };
       }
+    }
+    // THE CLAIM REGISTER (kogaki#1281): one judged entry per Leg, checked
+    // against the Candidate's own Legs — never against the review areas'
+    // "non-empty prose" rule above, because its value is a structured array.
+    {
+      const crErr = claimRegisterRefusal(r.claim_register, c.legs);
+      if (crErr) return { error: `candidate ${c.candidate_id}: ${crErr}` };
     }
     // THE QUESTION CHAIN (kogaki#1283) — one entry per adjacent Leg pair in
     // path order, named by the two Legs it sits between, in that order.

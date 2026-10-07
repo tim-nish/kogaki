@@ -166,6 +166,18 @@
 #       reasoning rather than refusing it, refuses a verdict outside either
 #       item's closed set and an array of the wrong length by name, and
 #       requires neither item at all (kogaki#1283).
+#  (aq) a Persona declaring no `prior_knowledge` is a stated absence
+#       (`personaPriorKnowledgeLine`, src/compose.mjs) -- readerPersona
+#       refuses nothing over it, and a Brief naming it composes and renders
+#       (kogaki#1281).
+#  (ar) `persona_prior_knowledge` reaches compose_path's base write, every
+#       reader-path unit's own input, and review_path's input, read from the
+#       same Persona file `reader_file` already names (kogaki#1281).
+#  (as) the claim register (`claimRegisterRefusal`, src/review.mjs): one
+#       judged entry per Leg, closed to `holds`/`fails`, a `fails` entry
+#       naming the word, and wired into `attachReview` -- refused by entry
+#       count, by a verdict outside the closed set, and by a `fails` entry
+#       naming no word (kogaki#1281).
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
@@ -188,7 +200,7 @@ import * as compose from "./src/compose.mjs";
 import { composeBrief, validateReaderPathUnit, specializationJudgeInput, validateSpecializationSet,
   specializationSelection, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
 import { judgePrompt, classifyDetachedJobUnit, readerPathUnitRetryPrompt, JUDGE_REFUSAL_MARKER } from "./src/terrain.mjs";
-import { attachReview, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHARGE_VERDICTS } from "./src/review.mjs";
+import { attachReview, claimRegisterRefusal, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHARGE_VERDICTS } from "./src/review.mjs";
 import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
 import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
   readerTargetLine, REACHES_TARGET_LINE, CLOSING_LEG_LINE,
@@ -961,8 +973,12 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   writeFileSync(personaA, personaHead + "prose: |\n  **Style A.** Persona A's rule, verbatim.\n");
   writeFileSync(personaB, personaHead + "prose: |\n  **Style B.** Persona B's rule, verbatim.\n");
   writeFileSync(personaNone, personaHead);
-  // (ab) A PERSONA WITH NO `prior_knowledge` (kogaki#1285 acceptance): the
-  // reader's-own-world line renders the stated absence rather than refusing.
+  // A PERSONA WITH NO `prior_knowledge`: `reader` and `prose` present,
+  // `prior_knowledge` ENTIRELY ABSENT (distinct from personaNone above, which
+  // lacks `prose` -- a different concern). One fixture carries both grounds:
+  // the reader's-own-world line renders the stated absence rather than
+  // refusing (kogaki#1285 acceptance), and an absent `prior_knowledge` grants
+  // no extra word to a claim line while refusing nothing (kogaki#1281).
   writeFileSync(personaNoKnowledge, "id: fixture\nreader: >-\n  A fixture reader.\nprose: |\n  **Style C.** Persona C's rule, verbatim.\n");
   const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
   const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
@@ -1119,6 +1135,76 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const src = readFileSync("src/compose.mjs", "utf8");
     if (!/oblL\.push\(`  - \$\{k\}: /.test(src)) fails.push("(ae) fillBrief does not write a conceded row's fields under the row");
   }
+
+  // (aq) kogaki#1281: an absent prior_knowledge is a STATED ABSENCE, never a refusal.
+  {
+    const persona = compose.readerPersona(personaNoKnowledge);
+    if (persona.error) fails.push(`(aq) readerPersona refused a Persona lacking prior_knowledge: ${persona.error}`);
+    else {
+      if (persona.prior_knowledge !== null) fails.push(`(aq) readerPersona read a prior_knowledge value off a Persona declaring none: ${JSON.stringify(persona.prior_knowledge)}`);
+      const line = compose.personaPriorKnowledgeLine(persona);
+      if (line !== compose.PERSONA_PRIOR_KNOWLEDGE_ABSENT) fails.push(`(aq) personaPriorKnowledgeLine did not render the stated absence: ${JSON.stringify(line)}`);
+    }
+    // the Brief composes AND the Packet renders, with no refusal anywhere.
+    const legs = [legOf("s1")];
+    const brief = briefOf(legs, [`compose_path: ${personaNoKnowledge}`]);
+    if (brief.refusals.length) fails.push(`(aq) a Brief naming a Persona with no prior_knowledge did not parse: ${JSON.stringify(brief.refusals)}`);
+    else {
+      const r = render(brief, brief.legs[0]);
+      if (r.error) fails.push(`(aq) the Packet for a Persona with no prior_knowledge did not render: ${r.error}`);
+    }
+  }
+}
+
+// (ar) kogaki#1281: `persona_prior_knowledge` reaches compose_path's base write,
+// each unit's own input, and review_path's input -- the same line, read from
+// the same `compose_path` row's `reader_file` each state already reads
+// `reader_file` from.
+{
+  const brief = readFileSync("src/brief.mjs", "utf8");
+  const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
+  if (!/const priorKnowledge = personaPriorKnowledgeLine\(persona\)/.test(composePath)) fails.push("(ar) compose_path no longer derives priorKnowledge from personaPriorKnowledgeLine");
+  if (!/persona_prior_knowledge: priorKnowledge,/.test(composePath)) fails.push("(ar) compose_path's base write does not carry persona_prior_knowledge");
+  const unitBlock = composePath.slice(composePath.indexOf("const units = [1, 2, 3].map"));
+  if (!/persona_prior_knowledge: priorKnowledge,/.test(unitBlock)) fails.push("(ar) compose_path's per-unit input does not carry persona_prior_knowledge");
+  const reviewPath = brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  judge_specialization: async"));
+  if (!/const priorKnowledge = personaPriorKnowledgeLine\(persona\)/.test(reviewPath)) fails.push("(ar) review_path no longer derives priorKnowledge from personaPriorKnowledgeLine");
+  if (!/persona_prior_knowledge: priorKnowledge,/.test(reviewPath)) fails.push("(ar) review_path's input does not carry persona_prior_knowledge");
+}
+
+// (as) kogaki#1281: the claim register -- one judged entry per Leg, a closed
+// verdict set, and a named word on `fails`.
+{
+  const legs = [{ leg_id: "s1" }, { leg_id: "s2" }];
+  const candOf = (id) => ({ candidate_id: id, legs });
+  const reviewAreaFields = () => Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for ${a}`]));
+
+  const holds = [{ leg_id: "s1", verdict: "holds" }, { leg_id: "s2", verdict: "holds" }];
+  if (claimRegisterRefusal(holds, legs)) fails.push(`(as) a claim_register with every Leg holding was refused: ${claimRegisterRefusal(holds, legs)}`);
+  const rHolds = attachReview([candOf("c1")], { c1: { ...reviewAreaFields(), claim_register: holds } }, {});
+  if (rHolds.error) fails.push(`(as) attachReview refused a holding claim_register: ${rHolds.error}`);
+
+  const fails_ = [{ leg_id: "s1", verdict: "fails", word: "idempotent" }, { leg_id: "s2", verdict: "holds" }];
+  if (claimRegisterRefusal(fails_, legs)) fails.push(`(as) a claim_register naming a word on its failing entry was refused: ${claimRegisterRefusal(fails_, legs)}`);
+  const rFails = attachReview([candOf("c1")], { c1: { ...reviewAreaFields(), claim_register: fails_ } }, {});
+  if (rFails.error) fails.push(`(as) attachReview refused a failing-with-word claim_register: ${rFails.error}`);
+  else if (rFails.candidates[0].review.claim_register[0].word !== "idempotent") fails.push("(as) attachReview did not carry the fails entry's word through");
+
+  const noWord = [{ leg_id: "s1", verdict: "fails" }, { leg_id: "s2", verdict: "holds" }];
+  const rNoWord = claimRegisterRefusal(noWord, legs);
+  if (!rNoWord || !/leg s1/.test(rNoWord) || !/\`word\`/.test(rNoWord)) fails.push(`(as) a fails entry naming no word was not refused naming the Leg: ${rNoWord}`);
+
+  const badVerdict = [{ leg_id: "s1", verdict: "contradicts" }, { leg_id: "s2", verdict: "holds" }];
+  const rBadVerdict = claimRegisterRefusal(badVerdict, legs);
+  if (!rBadVerdict || !/leg s1/.test(rBadVerdict)) fails.push(`(as) a verdict outside holds/fails was not refused naming the Leg: ${rBadVerdict}`);
+
+  const shortCount = [{ leg_id: "s1", verdict: "holds" }];
+  const rShortCount = claimRegisterRefusal(shortCount, legs);
+  if (!rShortCount || !/1 entry/.test(rShortCount)) fails.push(`(as) a claim_register with too few entries for the Legs was not refused by count: ${rShortCount}`);
+
+  if (!claimRegisterRefusal(null, legs)) fails.push("(as) an absent claim_register was not refused");
+  const rMissing = attachReview([candOf("c1")], { c1: reviewAreaFields() }, {});
+  if (!rMissing.error) fails.push("(as) attachReview did not refuse a review entry carrying no claim_register");
 }
 
 // (bb) the mint records compose_path -- the Persona's path -- and refuses without one (kogaki#1262).
@@ -1449,7 +1535,11 @@ const cand1276 = (id, leg2Extra = {}) => ({
   }
 
   const cand = (id, legsFor, obligationsFor = []) => ({ candidate_id: id, legs: legsFor, obligations: obligationsFor });
-  const areas = () => Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for ${a}`]));
+  // A holding claim register rides every reply here: these Legs are real Leg
+  // records, so attachReview owes one entry per Leg (kogaki#1281), and these
+  // cells exercise the question chain and the discharge, not the register.
+  const areas = () => ({ ...Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for ${a}`])),
+    claim_register: legs.map((l) => ({ leg_id: l.leg_id, verdict: "holds" })) });
   const qc = (verdict = "same question") => [
     { leg: "s1", next_leg: "s2", verdict, why: "both name the same variation" },
     { leg: "s2", next_leg: "s3", verdict, why: "both name the same variation" },
@@ -1503,5 +1593,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget and the re-activate line), a Journey held when not re-activated and its scene active when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name, and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name; and kogaki#1270's contract fix -- src/leg-schema.json's `introduces_item.nearest` description now states the at-most-one-per-path limit that introducesNearestRefusal enforces, unchanged; and kogaki#1276 -- the compose_path prompt and the judge_specialization input carry each Move's technique and breaks verbatim, a Leg with both or neither of move and no_move_fits is refused naming it, a no_move_fits Leg refuses its unit with its sentence and the retry prompt carries it, judge_specialization runs between review_path and CANDIDATE_SELECTION, one contradicts verdict among three leaves two offered and names the excluded one and its Leg, and every Candidate failing ends the Brief with no question and a report naming each failing Leg and the judge's sentence; and kogaki#1283's question chain — a Leg bound to a Move whose question carries raises: and whose own reader_state_after carries no question line is refused naming the Leg and the dimension, the Leg that follows it is refused the same way when its reader_state_before carries none, both carried refuses on no other ground, and a fabricated Move id no library record backs is silently skipped; and review_path's two added judged items -- questionChainPairs/dischargeRows name one pair per adjacent Leg and one row per discharged Closure row carrying the discharging Leg's claims verbatim, attachReview carries a \"different question\" or \"fails\" verdict forward as reasoning rather than refusing it, refuses a verdict outside either item's closed set or an array of the wrong length by name, and requires neither item at all.");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget and the re-activate line), a Journey held when not re-activated and its scene active when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name, and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name; and kogaki#1270's contract fix -- src/leg-schema.json's `introduces_item.nearest` description now states the at-most-one-per-path limit that introducesNearestRefusal enforces, unchanged; and kogaki#1276 -- the compose_path prompt and the judge_specialization input carry each Move's technique and breaks verbatim, a Leg with both or neither of move and no_move_fits is refused naming it, a no_move_fits Leg refuses its unit with its sentence and the retry prompt carries it, judge_specialization runs between review_path and CANDIDATE_SELECTION, one contradicts verdict among three leaves two offered and names the excluded one and its Leg, and every Candidate failing ends the Brief with no question and a report naming each failing Leg and the judge's sentence; and kogaki#1283's question chain — a Leg bound to a Move whose question carries raises: and whose own reader_state_after carries no question line is refused naming the Leg and the dimension, the Leg that follows it is refused the same way when its reader_state_before carries none, both carried refuses on no other ground, and a fabricated Move id no library record backs is silently skipped; and review_path's two added judged items -- questionChainPairs/dischargeRows name one pair per adjacent Leg and one row per discharged Closure row carrying the discharging Leg's claims verbatim, attachReview carries a \"different question\" or \"fails\" verdict forward as reasoning rather than refusing it, refuses a verdict outside either item's closed set or an array of the wrong length by name, and requires neither item at all.; and kogaki#1281 -- a Persona declaring no prior_knowledge is a stated absence, read back as such and refusing nothing, a Brief naming it composes and renders; persona_prior_knowledge reaches compose_path's base write, every unit's own input, and review_path's input, from the same Persona file; and the claim register runs one judged entry per Leg, closed to holds/fails, a fails entry naming the word that failed, refused by count, by verdict and by an unworded fails.");
 JS
