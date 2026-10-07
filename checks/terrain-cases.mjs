@@ -2843,6 +2843,56 @@ console.log(JSON.stringify(out));`, env);
         && !/advance_timeout_s|sum to \d+s/.test(loadRefusal("shipped", SHIPPED_TABLE.judge).stderr));
     }
 
+    // A JUDGMENT THAT EXHAUSTS ITS RETRIES PRINTS THE GATE CALL'S BYTES (kogaki#1299).
+    // The 2026-10-07 Brief run stopped at the judgment-retry gate naming only its
+    // declaration, and no tool could fetch the call while the gate was open. The
+    // judge here answers a record no validator admits on every attempt, so the
+    // state spends its declared `retries` and the stop raises
+    // `terrain-judgment-retry`; the case asserts the fenced block on stdout is the
+    // written call file byte-for-byte. The gate pointer, the open-run pointer and
+    // the gate-declaration sidecar all point into the scratch root.
+    {
+      const REFUSING_JUDGE = join(SCRATCH, "refusing-judge.mjs");
+      writeFileSync(REFUSING_JUDGE, [
+        "#!/usr/bin/env node",
+        'if (process.argv.includes("--version")) { console.log("refusing-judge 1.0"); process.exit(0); }',
+        'process.stdout.write(JSON.stringify({ result: "not a record" }));',
+      ].join("\n") + "\n");
+      chmodSync(REFUSING_JUDGE, 0o755);
+      const d = join(SCRATCH, "judgment-retry-stop");
+      const rd = join(d, "rd");
+      mkdirSync(rd, { recursive: true });
+      const tp = join(d, "table.json");
+      writeFileSync(tp, JSON.stringify({
+        version: SHIPPED_TABLE.version,
+        judge: SHIPPED_TABLE.judge,
+        owner_artifacts: SHIPPED_TABLE.owner_artifacts,
+        states: SHIPPED_TABLE.states.filter((st) => ["compose_input", "J2_subdivision", "cotag_groups", "full_report", "done"].includes(st.id)),
+      }));
+      writeFileSync(join(rd, RUN_RECORD_FILE), JSON.stringify({
+        workflow: { path: tp, version: SHIPPED_TABLE.version }, judge_binary: null, survey_record: FIX_SURVEY,
+        completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [], awaiting: null,
+        owner_input: { TAG_SELECTION: "fix", ID_SELECTION: "G1,G2" }, artifacts_written: [], judgments: {},
+        gate_declarations_owed: [], transitions: [], done: false,
+      }));
+      const ptr = join(d, "open-run");
+      writeFileSync(ptr, `${rd}\n`);
+      const r = terrain(["run", "--run-dir", rd, "--workflow", tp, "--report-dir", join(d, "reports")], {
+        input: FIXTURE_PAYLOAD,
+        env: { ...FIX_GW, KOGAKI_JUDGE_CLI: REFUSING_JUDGE, KOGAKI_REPORTS_DIR: join(d, "rendering"),
+          KOGAKI_OPEN_RUN: ptr, KOGAKI_OPEN_GATES: join(d, "open-gates"),
+          GATE_DECLARATION_SIDECAR_DIR: join(d, "gate-declarations"),
+          CLAUDE_CODE_SESSION_ID: "terrain-selftest-retry-stop-session" },
+      });
+      const callPath = join(rd, `terrain-judgment-retry${GATE_CALL_SUFFIX}`);
+      const fenced = r.stdout.match(/```json\n([\s\S]*?)\n```/);
+      ok("a judgment state that exhausts its declared retries prints the gate-call file's bytes in a json fence, and the printed bytes equal the file",
+        r.status === 0 && /exhausted its declared retries/.test(r.stdout)
+          && existsSync(callPath) && !!fenced
+          && fenced[1] === readFileSync(callPath, "utf8").replace(/\n+$/, ""),
+        fenced ? `status=${r.status}` : `(no fenced block on the stop's stdout) ${r.out.trim().split("\n").slice(-3).join(" | ").slice(0, 200)}`);
+    }
+
     rmSync(SCRATCH, { recursive: true, force: true });
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
     if (bad.length) process.exit(1);
