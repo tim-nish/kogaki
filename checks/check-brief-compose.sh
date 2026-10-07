@@ -148,6 +148,11 @@
 #  (al) with every Candidate failing, the Brief ends with no question and
 #       the report names each failing Leg and the judge's sentence
 #       (kogaki#1276).
+#  (am) the Journey use boundary (kogaki#1286, owner decision 2026-10-06):
+#       `renderLeg` renders the Brief's `journey:` line with the schema's own
+#       gloss, `journey: L<n> — <use> (<gloss>)`; the rendered Packet's
+#       Journey block carries the Strand's served text and its cite, under
+#       the block's existing header, and none of the three use words.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
@@ -1282,6 +1287,55 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (/emitGateDeclaration/.test(ender) || !/rec\.done = true/.test(ender) || !/clearOpenRunPointer\(\)/.test(ender)) fails.push("(al) ending with every Candidate failed raises a question or leaves the run open");
   const judgeState = brief.slice(brief.indexOf("  judge_specialization: async"), brief.indexOf("  attach_review:"));
   if (!/if \(fit\.length === 0\) endBriefNoCandidateFits\(rec, st, excluded\)/.test(judgeState)) fails.push("(al) judge_specialization does not end the Brief when no Candidate fits");
+}
+
+// (am) the Journey use boundary (kogaki#1286, owner decision 2026-10-06): the Brief's
+// `journey:` line carries the schema's own gloss; the rendered Packet's Journey block
+// carries the Strand's served text and its cite, and none of the three use words.
+{
+  const leg = {
+    leg_id: "s1", move: "open_the_claim", materials: ["L1"], purpose: "purpose of s1",
+    reader_state_before: "orientation: before s1\nknowledge: before s1",
+    reader_state_after: "orientation: after s1\nknowledge: after s1",
+    depends_on: [], rationale: "why s1", claims: [{ type: "strand", strand: "L1", proposition: "claim of s1" }],
+    journeys: [{ strand: "L1", use: "contrast" }],
+  };
+  const rendered = renderLeg(leg);
+  if (!rendered.includes("journey: L1 — contrast (to contrast, showing the expectation the event broke)")) {
+    fails.push(`(am) renderLeg did not render the Brief's journey line with the schema's gloss: ${rendered}`);
+  }
+  const briefText = [
+    "# The fixture", "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
+    "## Strands", "", "### L1 — first-strand", "",
+    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+    "## Thesis", "", "The fixture claim.", "",
+    "## Reader start", "", "orientation: before s1", "knowledge: before s1", "",
+    "## Reader target", "", "orientation: after s1", "knowledge: after s1", "",
+    "## Sequence", "", rendered, "",
+  ].join("\n");
+  const brief = parseBrief(briefText, "am.md");
+  if (brief.refusals.length || brief.legs.length !== 1) fails.push(`(am) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
+  else if (brief.legs[0].journeys?.[0]?.use !== "contrast") fails.push(`(am) the gloss was not stripped back out of the parsed use: ${JSON.stringify(brief.legs[0].journeys)}`);
+  else {
+    const parsedLeg = { ...brief.legs[0], journeys: [{ ...brief.legs[0].journeys[0], resolvedText: "The served Journey's own prose, verbatim." }] };
+    const parsedBrief = { ...brief, legs: [parsedLeg] };
+    const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
+    if (split.error) fails.push(`(am) the Packet template did not split: ${split.error}`);
+    else {
+      const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
+        "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
+      const sections = sectionsOf(parsedBrief.legs);
+      const r = renderPacket({ template: split.packet, brief: parsedBrief, leg: parsedLeg, moveText, priorSections: [],
+        ledgerRow: undefined, section: sectionOfLeg(parsedBrief.legs).get("s1"), sections });
+      if (r.error) fails.push(`(am) the Packet for s1 did not render: ${r.error}`);
+      else {
+        if (!r.packet.includes("The served Journey's own prose, verbatim.")) fails.push("(am) the Packet does not carry the Journey's served text");
+        for (const word of ["use: illustrate", "use: motivate", "use: contrast"]) {
+          if (r.packet.includes(word)) fails.push(`(am) the Packet still carries ${JSON.stringify(word)}`);
+        }
+      }
+    }
+  }
 }
 
 if (fails.length > 0) {

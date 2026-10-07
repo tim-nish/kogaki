@@ -1983,11 +1983,17 @@ export function renderLeg(s) {
     // this line as it stands, and this issue moves neither.
     L.push(`claim (strand ${g.strand}): ${g.proposition}`);
   }
-  // the Journey a Leg draws on (kogaki#1111): ONE LINE PER ENTRY, `journey: <L-id> — <use>`.
-  // One line rather than a joined field for the reason `introduces` states,
-  // and written only when declared, so a Brief composed before this field is
-  // byte-identical.
-  for (const j of s.journeys || []) L.push(`journey: ${j.strand} — ${j.use}`);
+  // the Journey a Leg draws on (kogaki#1111): ONE LINE PER ENTRY, `journey: <L-id> — <use> (<gloss>)`.
+  // The gloss is the schema's own `journey.uses` text (kogaki#1286, owner
+  // decision 2026-10-06): the Brief is where `use` is resolved, and does not
+  // leave the word bare the way the Packet's Journey block no longer carries
+  // it at all. One line rather than a joined field for the reason
+  // `introduces` states, and written only when declared, so a Brief composed
+  // before this field is byte-identical up to the gloss addition.
+  for (const j of s.journeys || []) {
+    const gloss = journeyUses().get(j.use);
+    L.push(`journey: ${j.strand} — ${j.use}${gloss ? ` (${gloss})` : ""}`);
+  }
   // the reader-knowledge ledger (kogaki#751): one LINE per entry, never a comma-joined list. A term
   // may legitimately contain a comma, and its anchor almost always does, so a
   // joined field could not be parsed back — the serialization and

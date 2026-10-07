@@ -102,7 +102,7 @@ import { tmpdir } from "node:os";
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, figureOf, figureLegs,
-  journeysRefusal, legschema, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg,
+  journeysRefusal, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg,
   reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, concededRowFields } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
@@ -279,10 +279,16 @@ export function parseLegBlockBody(body, path) {
   if (journeyLines.length) {
     // The em dash is the writer's separator. A line carrying none is a
     // half-declaration and reaches the shared refusal as an entry with no
-    // use, which is what that refusal already names.
+    // use, which is what that refusal already names. The use itself is a
+    // single token from the closed set (src/leg-schema.json, `journey.uses`);
+    // a trailing ` (<gloss>)` is `renderLeg`'s own gloss (kogaki#1286) and is
+    // stripped here rather than carried into `use`, which the closed-set
+    // refusal would otherwise reject whole.
     journeys = journeyLines.map((ln) => {
       const m = /^(\S+)\s+—\s+(.*)$/.exec(ln);
-      return m ? { strand: m[1], use: m[2].trim() } : { strand: ln, use: "" };
+      if (!m) return { strand: ln, use: "" };
+      const glossM = /^(\S+)\s+\(.*\)$/.exec(m[2].trim());
+      return { strand: m[1], use: glossM ? glossM[1] : m[2].trim() };
     });
     const materials = (body.match(/^materials:[ \t]*(.*)$/m)?.[1] || "")
       .split(",").map((x) => x.trim()).filter(Boolean);
@@ -996,16 +1002,6 @@ export function legField(body, field) {
   }
   const rest = m[2].split("\n").filter((l) => l !== "").map((l) => l.slice(2));
   return [m[1].trim(), ...rest].join("\n");
-}
-
-// The schema's own words for one Journey use (kogaki#1111), appended to the
-// Packet's use line. The Packet is the model's entire input, so a bare token
-// like `contrast` is a word the realizer interprets; the schema's sentence is
-// what the composer chose from, and rendering it keeps the two readers of the
-// closed set reading one text.
-function journeyUseGloss(use) {
-  const uses = legschema().journey.uses;
-  return uses && uses[use] ? ` (${uses[use]})` : "";
 }
 
 // ---------------------------------------------------------------------------
@@ -1773,9 +1769,9 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
         : "Realize it fused into the Leg's own prose, for the Move's purpose — it is "
           + "material, never a claim, and earns no paragraph of its own by being present.\n\n"
           + "Material, not assertion. Each entry below names a Journey this Leg draws on, "
-          + "what you are using it for, and its served prose, quoted in full. **Edit it for "
+          + "and its served prose, quoted in full. **Edit it for "
           + "the Move's purpose**: cut it, compress it, retell it in this article's voice — "
-          + "the telling is yours, and the `use` line says what the telling is for.\n\n"
+          + "the telling is yours, and the Move's technique above says what the telling is for.\n\n"
           + "Nothing here is a claim. The claims above are the whole of what this Leg "
           + "asserts, and the round trip asks for those back and never for a fragment of a "
           + "Journey. A Journey you use well may leave almost none of its original wording "
@@ -1783,7 +1779,7 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
           + leg.journeys.map((j) => {
             const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
               .find((c) => c.kind === "journey cite");
-            return `- **${j.strand}'s Journey** — use: ${j.use}${journeyUseGloss(j.use)}. `
+            return `- **${j.strand}'s Journey**. `
               + `Served at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`:\n\n`
               + `${j.resolvedText.trim()}`;
           }).join("\n\n")
