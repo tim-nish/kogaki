@@ -98,7 +98,13 @@ export const CLAIM_REGISTER_VERDICTS = ["holds", "fails"];
 // value; `legs` is the Candidate's own Legs, in order. Returns a refusal
 // string or null.
 export function claimRegisterRefusal(entries, legs) {
-  const legList = Array.isArray(legs) ? legs : [];
+  // Only a real Leg record (an object, carrying `leg_id`) raises the
+  // register at all: a caller outside the compose_path/review_path pair --
+  // src/review.mjs's own generic plumbing is exercised by callers that never
+  // declare a Leg shape at all, holding `legs` as plain strings or omitting
+  // it -- owes this file no claim_register and is refused nothing.
+  const legList = (Array.isArray(legs) ? legs : []).filter((l) => l && typeof l === "object");
+  if (entries === undefined && legList.length === 0) return null;
   if (!Array.isArray(entries)) {
     return `claim_register must be an array, one entry per Leg (${legList.length} Leg(s)) — `
       + `the vocabulary rule is judged PER LEG, never once for the whole Candidate`;

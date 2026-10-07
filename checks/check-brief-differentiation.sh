@@ -243,8 +243,10 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   if (differs.error && /reader_start_binds_first_leg|Reader start reads/.test(differs.error)) fails.push(`(v) a first Leg whose before-state differs from Reader start was refused on the retired verbatim ground: ${differs.error}`);
 }
 
-// (w) THE PERSONA IS READ FROM THE FILE THE WORKFLOW NAMES, two fields
-// exactly, and a file missing one refuses naming the field.
+// (w) THE PERSONA IS READ FROM THE FILE THE WORKFLOW NAMES. `reader` is
+// required; `prior_knowledge` is NOT (kogaki#1281, owner decision
+// 2026-10-06) -- a file missing it reads as a stated absence, never a
+// refusal, and a file missing `reader` still refuses naming it.
 {
   const workflow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
   const row = (workflow.states || []).find((s) => s.id === "compose_path");
@@ -252,13 +254,14 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   else {
     const persona = readerPersona(row.reader_file);
     if (persona.error) fails.push(`(w) the named reader file did not read: ${persona.error}`);
-    else if (typeof persona.reader !== "string" || typeof persona.prior_knowledge !== "string") fails.push(`(w) the reader file lacks a field: ${JSON.stringify(persona)}`);
+    else if (typeof persona.reader !== "string") fails.push(`(w) the reader file lacks a field: ${JSON.stringify(persona)}`);
   }
   const dir = mkdtempSync(join(tmpdir(), "reader-"));
   const half = join(dir, "half.md");
   writeFileSync(half, "id: half\nreader: >-\n  someone reading something\n");
   const r = readerPersona(half);
-  if (!r.error || !/prior_knowledge/.test(r.error)) fails.push(`(w) a reader file missing prior_knowledge was not refused naming it: ${JSON.stringify(r)}`);
+  if (r.error) fails.push(`(w) a reader file missing prior_knowledge was refused: ${JSON.stringify(r)}`);
+  else if (r.prior_knowledge !== null) fails.push(`(w) a reader file missing prior_knowledge did not read as a stated absence: ${JSON.stringify(r)}`);
   const missing = readerPersona(join(dir, "absent.md"));
   if (!missing.error) fails.push("(w) an absent reader file was not refused");
 }
