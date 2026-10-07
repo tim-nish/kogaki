@@ -23,13 +23,17 @@ THE WRITE BLOCK'S READER-DEPENDENT RULES ARE THE PERSONA'S (kogaki#1251
 item 1, kogaki#1261). `{{prose_rules}}` is filled from the `prose` block of the
 Persona file the Brief was composed with, so two Personas render two Write
 blocks; the heading rule, the paragraph rule and the round trip stay here,
-identical for every Persona. `{{reactivate_line}}` renders one line after the
-budget on a Leg that re-activates material, and nothing on any other Leg.
-`{{reader_own_world}}` is HARNESS-OWNED, not the Persona's prose block
-(kogaki#1285): it renders the Persona's `prior_knowledge` field verbatim, or a
-stated absence where the Persona declares none, before the Persona's own
-prose rules — so the Referents rule above can point at material the Packet
-actually carries.
+identical for every Persona. `{{reader_own_world}}` is HARNESS-OWNED, not the
+Persona's prose block (kogaki#1285): it renders the Persona's
+`prior_knowledge` field verbatim, or a stated absence where the Persona
+declares none, before the Persona's own prose rules — so the Referents rule
+above can point at material the Packet actually carries.
+
+LEG LINKING IS DEFAULT-DENY (kogaki#1282, owner ruling 2026-10-06). Only what
+the Brief's `introduces` and `re-activate` explicitly admit crosses into this
+Leg's Packet; nothing else the reader holds does, and no sentence here is
+asked to "link" or "connect" across that boundary — connectedness comes from
+the crossing items being used, not from an instruction told to connect.
 
 THIS FILE POINTS AT NO SPECIFICATION, and the prohibition is stated here
 WITHOUT WRITING THE SHAPE IT FORBIDS — a comment that spells out the pattern it
@@ -50,7 +54,7 @@ rendered into the Packet only where a sentence-level decision of the writer
 depends on it. The fixed-points block (Thesis, Reader start, Reader target)
 and the This Leg block (`purpose`, `reader_state_before`,
 `reader_state_after`) are retired on that ground — their operational content
-for the writer is already carried by the active, held and introduce lists and
+for the writer is already carried by the crossing block and
 the Closure rows, and review of the prose reads the reader states from the
 Brief, never the Packet. The reader-target line is the one piece of that
 retired block with a live sentence-level use — it says whether this Leg may
@@ -58,7 +62,7 @@ still introduce or raise anything — so it moves into the Section block rather
 than leaving with the rest.
 
 THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28). The
-claims block and the `already knows` and `introduce here` lists below RENDER AS
+claims block and the crossing list below RENDER AS
 FLAT LISTS under their own headings, in ONE convention: every item is a `- `
 line at column zero, one line per item, no indentation carrying meaning, no
 `key:` prefix, and no relation between one item and another. No list sits
@@ -104,28 +108,16 @@ claim, and do not open a new subject.
 
 {{reader_target_line}}
 
-## What is active here, what is not, and what you introduce here
+## What crosses into this Leg
 
-`Active here` is material re-activated from a Leg you depend on — restore it
-for the reader at first use, drawing on the article so far. `Held by the
-reader, not material here` was established by earlier Legs but is not
-re-activated for this Leg: the reader carries it, but do not rely on it as
-material and do not re-explain it. `Introduce here` is this Leg's obligation,
-one line per term: each must be usable by the reader after this Leg, and a
-term with an anchor is anchored because its meaning is not carried by the
-claims above.
+This is the whole of what you may speak of as already available: a term you
+introduce here, a term or claim re-activated from a Leg you depend on, or a
+re-activated Journey. Each line carries what crosses with it — a term with
+its meaning, a claim as a plain restatement, a Journey as its served text.
+Nothing not listed here is material for this Leg: the reader may hold more,
+but what they hold and do not see below is not yours to speak of or rely on.
 
-### Active here
-
-{{active_here}}
-
-### Held by the reader, not material here
-
-{{held_by_reader}}
-
-### Introduce here
-
-{{introduces}}
+{{crosses_here}}
 
 ## This Leg's Closure
 
@@ -140,10 +132,12 @@ or concedes one (tells the reader it is left open).
 
 ## The article so far — verbatim
 
-Everything already written, in order, grouped under the Section headings it was
-written into. The block ends with **this Leg's own Section so far** — the prose
-immediately above where you are about to write. Continue from it: do not repeat
-what it says, do not contradict it, and match the voice it establishes.
+This Leg's own Section, as written so far — nothing from an earlier Section.
+A Section is a closed discourse segment: a referent sitting in an earlier
+Section is not reachable from here by pronoun or demonstrative, so an earlier
+Section is not carried into this block even verbatim. Continue from what is
+below: do not repeat what it says, do not contradict it, and match the voice
+it establishes.
 
 {{prior_sections}}
 
@@ -152,7 +146,7 @@ what it says, do not contradict it, and match the voice it establishes.
 Write the prose for this Leg and nothing else. No heading, no leg id, no
 label, no commentary about what you are doing.
 
-**Budget.** {{budget}}{{reactivate_line}}
+**Budget.** {{budget}}
 
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Leg and never by you.

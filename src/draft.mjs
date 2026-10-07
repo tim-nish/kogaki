@@ -1217,56 +1217,28 @@ export function sectionPlacement(sec) {
       + `- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.`;
 }
 
-// PRIOR PROSE GROUPED BY SECTION (kogaki#825). The flat concatenation was
-// well defined for an opening Leg and not for a continuing one: "the article
-// so far" had no boundary inside it, so a Leg continuing a Section could not
-// tell which prose was its own Section's and which belonged to earlier ones.
-// Grouping under the headings the Draft will actually render is what bounds it,
-// and the current Section comes LAST because it is the prose immediately above
-// where the model writes.
-export function priorProseBySection(priorSections, sections, currentIndex, currentLegId) {
-  if (!priorSections.length) return null;
+// PRIOR PROSE, SCOPED TO THE CURRENT SECTION ONLY (kogaki#1282, owner ruling
+// 2026-10-06). A Section is a closed discourse segment (Grosz & Sidner): a
+// referent sitting in an earlier Section is not reachable from here by
+// pronoun or demonstrative, so an earlier Section's prose is never carried
+// into this block, not even verbatim. What this Leg may read is its own
+// Section's prose so far, and nothing from before it.
+export function priorProseInSection(priorSections, sections, currentIndex, currentLegId) {
+  const sec = (sections || []).find((s) => s.index === currentIndex);
+  if (!sec) return null;
   const have = new Map(priorSections.map((p) => [p.leg_id, p.text]));
-  const out = [];
-  for (const sec of sections) {
-    if (sec.index > currentIndex) break;
-    const parts = sec.leg_ids.filter((id) => have.has(id)).map((id) => have.get(id));
-    const current = sec.index === currentIndex;
-    // AN EMPTY CURRENT SECTION IS STILL RENDERED, and that is the finding this
-    // branch exists for (PR #844 round 1, finding 1). Skipping it made the
-    // block END with the PREVIOUS Section for every Leg that OPENS Section 2
-    // or later — while the template promises the block "ends with this Leg's
-    // own Section so far", so the model was told the last group was its own
-    // when it was the one before it.
-    //
-    // AN EARLIER SECTION WITH NO REALIZED PROSE IS STATED RATHER THAN SKIPPED
-    // (PR #847 round 1, finding 1's second half). It used to be dropped, so the
-    // block could run Section 1, Section 3 with nothing saying a Section had
-    // been passed over — a silent hole in the model's only account of what is
-    // above its prose, reachable from the same on-demand `packet --leg <id>`
-    // path as the first half. Every Section up to and including the current one
-    // now appears, and one that holds nothing yet says so.
-    const label = sec.title === undefined
-      ? `### (untitled Section ${sec.index})`
-      : `### ${sec.title}`;
-    const mark = current ? " — THIS LEG'S OWN SECTION, so far" : "";
-    // AN EMPTY SECTION DOES NOT MEAN THIS LEG OPENS IT (PR #847 round 1,
-    // finding 1). It means the Legs above it in that Section are not realized
-    // yet, and the two states are distinguished by the Section's own recorded
-    // path — which is what stops the Packet contradicting its own
-    // `section_placement` block, where a continuing Leg is told the heading is
-    // already on the page above prose it is writing further into.
-    const opensIt = sec.leg_ids[0] === currentLegId;
-    const shown = parts.length
-      ? parts.join("\n\n")
-      : current && opensIt
-        ? "(nothing yet — this Leg opens the Section, so its prose is the first in it.)"
-        : current
-          ? "(nothing yet — the Legs that open this Section are not realized, so no prose stands under this heading. You are NOT opening it: write as the Section's heading and your own Leg promise.)"
-          : "(nothing yet — no Leg of this Section is realized, so nothing stands under this heading.)";
-    out.push(`${label}${mark}\n\n${shown}`);
-  }
-  return out.length ? out.join("\n\n") : null;
+  const parts = sec.leg_ids.filter((id) => have.has(id)).map((id) => have.get(id));
+  // AN EMPTY SECTION DOES NOT MEAN THIS LEG OPENS IT (PR #847 round 1,
+  // finding 1). It means the Legs above it in that Section are not realized
+  // yet, and the two states are distinguished by the Section's own recorded
+  // path — which is what stops the Packet contradicting its own
+  // `section_placement` block, where a continuing Leg is told the heading is
+  // already on the page above prose it is writing further into.
+  const opensIt = sec.leg_ids[0] === currentLegId;
+  if (parts.length) return parts.join("\n\n");
+  return opensIt
+    ? "(nothing yet — this Leg opens the Section, so its prose is the first in it.)"
+    : "(nothing yet — the Legs that open this Section are not realized, so no prose stands under this heading. You are NOT opening it: write as the Section's heading and your own Leg promise.)";
 }
 
 // ---------------------------------------------------------------------------
@@ -1508,9 +1480,9 @@ export function introduceLine(raw, authorityOn) {
   const p = parseIntroducesEntry(raw);
   if (p.error || !p.kind) return `- ${typeof raw === "string" ? raw : JSON.stringify(raw)}`;
   if (p.kind === "established") {
-    return `- ${p.term} — established: the term already has a home outside this article, in ${p.source}; bring it in under that name.`;
+    return `- ${p.term} — established: the term already has a home outside this article, in ${p.source}; bring it in under that name. meaning: ${p.source}`;
   }
-  let line = `- ${p.term} — coined: this article names it for the first time; present it as a name this article gives.`;
+  let line = `- ${p.term} — coined: this article names it for the first time; present it as a name this article gives. meaning: ${p.meaning}`;
   if (authorityOn && p.nearest) {
     line += ` nearest existing term: ${p.nearest}.`;
     if (p.differs) line += ` differs: ${p.differs}`;
@@ -1518,32 +1490,19 @@ export function introduceLine(raw, authorityOn) {
   return line;
 }
 
-// THE JOURNEYS THE READER HOLDS BUT THIS LEG DOES NOT RE-ACTIVATE
-// (kogaki#1251 item 2, kogaki#1261): every Journey an earlier Leg of the path
-// drew on, by Strand, minus the ones this Leg's `re-activate` names. Each
-// renders once, naming the Legs that used it.
-export function heldJourneys(brief, leg) {
-  const reactivated = new Set((leg["re-activate"] || [])
-    .map((raw) => parseReactivateEntry(raw))
-    .filter((e) => !e.error && e.kind === "journey")
-    .map((e) => e.value));
-  const used = new Map();
-  for (const l of brief.legs || []) {
-    if (l.leg_id === leg.leg_id) break;
-    for (const j of l.journeys || []) {
-      if (reactivated.has(j.strand)) continue;
-      if (!used.has(j.strand)) used.set(j.strand, []);
-      used.get(j.strand).push(l.leg_id);
-    }
-  }
-  return [...used.entries()].map(([strand, legs]) => `- ${strand}'s Journey (used at ${legs.join(", ")})`);
+// THE MEANING A CROSSING TERM CARRIES (kogaki#1282, owner decision
+// 2026-10-06): a typed `coined` entry names its own `meaning`; a typed
+// `established` entry's `source` stands as its meaning (src/leg-schema.json,
+// `introduces_item`); the legacy bare/anchored form's anchor IS its meaning
+// anchor (the form `parseIntroducesEntry` refuses with no text after the
+// separator). A bare term with no anchor carries none, stated rather than
+// invented.
+function introducedMeaning(p) {
+  if (!p || p.error) return null;
+  if (p.kind === "coined") return p.meaning;
+  if (p.kind === "established") return p.source;
+  return p.anchor || null;
 }
-
-// The Write block's one further line on a Leg that re-activates material
-// (kogaki#1251 item 6, kogaki#1261). Rendered after the budget, and as the
-// empty string on every other Leg.
-export const REACTIVATE_LINE = "**Re-activated material.** Open this Leg on a sentence that links back to "
-  + "what the reader already holds, and name each item under `Active here` in full at its first use in this Leg.";
 
 // THE READER'S OWN WORLD (kogaki#1285, owner ruling 2026-10-06): the
 // Persona's `prior_knowledge` field, read directly here rather than through
@@ -1588,7 +1547,7 @@ export function personaPriorKnowledge(path) {
 export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 
-export function renderPacket({ template, brief, leg, moveText, priorSections, ledgerRow, section, sections }) {
+export function renderPacket({ template, brief, leg, moveText, priorSections, section, sections }) {
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
 
@@ -1610,15 +1569,15 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
   // `claim:` prefix sits under a bulleted field label for the reader to parse.
   const claims = claimTexts.map((text) => `- ${text}`).join("\n");
   const intro = (leg.introduces || []);
-  const known = (ledgerRow?.reader_already_knows || []);
   // WHAT THIS LEG RE-ACTIVATES (kogaki#1237, owner decision 2026-09-30):
   // parsed the same way `validateLegs` parsed it before this Brief was
   // minted — a bad entry never reaches here, because `parseLegBlockBody`
   // refused the Brief on it. Each valid entry resolves to the NAMED LEG's
-  // own material, verbatim: a `term` entry to that Leg's own `introduces`
-  // line (term and anchor, if any), a `claim` entry to that Leg's own
-  // `claim (strand <id>): <proposition>` line. Nothing here is composed —
-  // the composer already selected the reference; this only resolves it.
+  // own material: a `term` entry to that Leg's own `introduces` line,
+  // crossing WITH ITS MEANING (kogaki#1282); a `claim` entry crosses as the
+  // plain restatement composed at Brief time (`e.as`), never its own
+  // proposition. Nothing here is composed — the composer already selected
+  // the reference and, for a claim, the restatement; this only resolves it.
   const reactivateEntries = (leg["re-activate"] || [])
     .map((raw) => parseReactivateEntry(raw))
     .filter((e) => !e.error);
@@ -1643,23 +1602,12 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
       const found = (target?.introduces || [])
         .map((raw) => parseIntroducesEntry(raw))
         .find((p) => !p.error && p.term === e.value);
-      const text = found ? `${found.term}${found.anchor ? ` — ${found.anchor}` : ""}` : e.value;
+      const meaning = found ? introducedMeaning(found) : null;
+      const text = found ? `${found.term}${meaning ? ` — meaning: ${meaning}` : ""}` : e.value;
       return `- ${text} (re-activated from ${e.leg_id})`;
     }
-    const claimText = (target?.body || "").split("\n")
-      .find((l) => l.startsWith("claim ") && l.includes(`(strand ${e.value})`));
-    const text = claimText ? claimText.replace(/^claim\s*\([^)]*\)\s*:\s*/, "") : e.value;
-    return `- ${text} (re-activated from ${e.leg_id})`;
+    return `- ${e.as} (re-activated from ${e.leg_id}, strand ${e.value})`;
   });
-  // HELD IS EVERY LEDGER TERM THIS LEG DID NOT RE-ACTIVATE (acceptance item
-  // 2). A `claim` re-activation never moves a term off this list — the
-  // ledger tracks `introduces` alone, and a re-activated claim was never on
-  // it. Matched case-insensitively, the way the ledger itself keys terms.
-  const reactivatedTermKeys = new Set(
-    reactivateEntries.filter((e) => e.kind === "term").map((e) => e.value.toLowerCase())
-  );
-  const held = known.filter((k) => !reactivatedTermKeys.has(k.term.toLowerCase()));
-  const heldJourneyLines = heldJourneys(brief, leg);
   const authorityOn = externalAuthorityOf(brief);
   // THE PERSONA'S PROSE RULES (kogaki#1261): read from the Persona the Brief
   // was composed with, refused by name where it cannot be read.
@@ -1695,35 +1643,18 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
     claims: claims || "(none recorded)",
     reader_own_world: priorKnowledge || READER_OWN_WORLD_ABSENT,
     prose_rules: prose.error ? "" : prose.prose,
-    reactivate_line: reactivateEntries.length ? `\n\n${REACTIVATE_LINE}` : "",
-    // ACTIVE HERE (kogaki#1237, owner decision 2026-09-30): what this Leg
-    // re-activates, restored VERBATIM from the Leg it names — never an
-    // inventory of what the reader possesses, only what THIS Leg may speak
-    // of as its own. A STATED ABSENCE, never an empty slot (acceptance item
-    // 2): a Leg that re-activates nothing still gets the block, saying so,
+    // WHAT CROSSES INTO THIS LEG (kogaki#1282, owner ruling 2026-10-06):
+    // LEG LINKING IS DEFAULT-DENY — the whole of what this Leg may speak of
+    // as already available is this Leg's own introduced items (each with
+    // its meaning) and what it explicitly re-activates (a term with its
+    // meaning, a claim as its `as` restatement, a Journey as its served
+    // text). Nothing the reader merely holds otherwise renders here. A
+    // STATED ABSENCE, never an empty slot (acceptance item 2): a Leg that
+    // introduces and re-activates nothing still gets the block, saying so,
     // on the same one-word-one-unit ground `closure_rows` states.
-    active_here: active.length
-      ? active.join("\n")
-      : "(nothing — this Leg re-activates no earlier material; restore nothing here.)",
-    // HELD BY THE READER, NOT MATERIAL HERE: every OTHER ledger term — what
-    // the reader holds on arriving at this Leg but this Leg did not
-    // re-activate. Do not rely on it as material; it is not this Leg's to
-    // speak of.
-    // A JOURNEY AN EARLIER LEG USED AND THIS LEG DOES NOT RE-ACTIVATE is held
-    // too (kogaki#1261), listed after the terms.
-    held_by_reader: (held.length || heldJourneyLines.length)
-      ? [...held.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`), ...heldJourneyLines].join("\n")
-      // "Leg", not "Section" (PR #844 round 1, finding 2). A slot VALUE reaches
-      // the model's entire input exactly as a block header does, so the
-      // one-word-one-unit rule binds it too.
-      : "(nothing — this is the first Leg to introduce anything, the path introduces no terms, or every known term is re-activated above)",
-    // A FLAT LIST, ONE LINE PER TERM (kogaki#1215; the relations layer this
-    // rendered as a tree is retired) — over this Leg's own `introduces`
-    // entries.
-    // A typed item renders its kind and authority line (kogaki#1261).
-    introduces: intro.length
-      ? intro.map((raw) => introduceLine(raw, authorityOn)).join("\n")
-      : "(nothing new)",
+    crosses_here: (intro.length || active.length)
+      ? [...intro.map((raw) => introduceLine(raw, authorityOn)), ...active].join("\n")
+      : "(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)",
     // CLOSURE (kogaki#1151): the rows this Leg is a party to, read from the
     // Brief's own rendered "## Closure" section (`closureRowsForLeg`) rather
     // than recomputed here — fillBrief already wrote the one true rendering.
@@ -1786,21 +1717,14 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
       )
       : "(none — this Leg draws on no Journey material, and nothing here asks for any.)"),
     section_placement: sectionPlacement(section),
-    // BOUNDED BY THE SECTION, not merely ordered (kogaki#825). Falls back to the
-    // flat form only when no grouping is derivable, so a Brief that declares no
-    // Sections reads exactly as it did before this issue.
-    // THE EMPTY CASE DOES NOT ASSERT MORE THAN IT KNOWS (PR #844 round 2, nit
-    // 3). An empty `priorSections` means no earlier Leg has been REALIZED, not
-    // that none exists: `packet --leg <later id>` renders on demand before the
-    // Legs above it are written, and the old string told that Leg it was the
-    // article's first. The two states are now distinguished by the Brief's own
-    // path, which the renderer already holds.
-    prior_sections: priorSections.length
-      ? (priorProseBySection(priorSections, sections || [], section?.index ?? 1, leg.leg_id)
-         || priorSections.map((p) => p.text).join("\n\n"))
-      : (brief.legs[0] && brief.legs[0].leg_id === leg.leg_id
-          ? "(nothing yet — this is the article's first Leg, so nothing precedes it.)"
-          : "(nothing yet — the Legs before this one in the Reader Path are not realized, so no prose precedes it on the page. This is NOT the article's opening: do not write one.)"),
+    // SCOPED TO THE CURRENT SECTION ONLY (kogaki#1282, owner ruling
+    // 2026-10-06): `sectionsOf` always derives at least one Section, so this
+    // always resolves through the Section path rather than a whole-article
+    // fallback — the old "this is the article's first Leg" / "this is NOT
+    // the article's opening" strings are retired with it, subsumed by
+    // `priorProseInSection`'s own opens-it / continues-it absence messages.
+    prior_sections: priorProseInSection(priorSections, sections || [], section?.index ?? 1, leg.leg_id)
+      ?? "(nothing yet — this Leg opens the Section, so its prose is the first in it.)",
   };
   if (missing.length) {
     return { error: `the Packet for ${leg.leg_id} cannot be rendered: ${missing[0]} is absent. `
@@ -1854,9 +1778,6 @@ function renderAndStorePacket(brief, id, args, ws) {
     const f = join(sectionsDir(ws, lang), `${s.leg_id}.md`);
     if (existsSync(f)) prior.push({ leg_id: s.leg_id, text: readFileSync(f, "utf8").trim() });
   }
-  const ledger = readerKnowledgeLedger(brief.legs);
-  const row = ledger.find((r) => r.leg_id === id);
-
   // The SAME derivation the renderer and the trace use (kogaki#823's
   // `sectionsOf`/`sectionOfLeg`), never a second one: what the Draft renders
   // and what the Packet says about where this Leg sits cannot disagree.
@@ -1870,7 +1791,7 @@ function renderAndStorePacket(brief, id, args, ws) {
   const journeysResolved = resolveLegJourneys(leg, brief);
   if (journeysResolved.error) return { error: journeysResolved.error };
 
-  const r = renderPacket({ template, brief, leg: journeysResolved.leg, moveText, priorSections: prior, ledgerRow: row, section, sections });
+  const r = renderPacket({ template, brief, leg: journeysResolved.leg, moveText, priorSections: prior, section, sections });
   if (r.error) return { error: r.error };
 
   // THE LANGUAGE BLOCK (kogaki#1158): rendered into every Packet when

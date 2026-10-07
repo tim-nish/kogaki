@@ -97,27 +97,30 @@
 #  (ab) the Write block's prose rules are the Persona's (kogaki#1261): two
 #       Briefs naming two Persona files at `compose_path` render two Write
 #       blocks, each carrying its own Persona's `prose` block; across the
-#       Legs of one Brief the Write block is identical except the budget and
-#       the re-activate line, which renders on a Leg with `re-activate`
-#       entries and on no other; and a Persona with no `prose` block refuses
-#       the Packet by name. The Write block also renders a Harness-owned
-#       "The reader's own world." line carrying the Persona's
+#       Legs of one Brief the Write block is identical except the budget
+#       (kogaki#1282 retires the re-activate line); and a Persona with no
+#       `prose` block refuses the Packet by name. The Write block also renders
+#       a Harness-owned "The reader's own world." line carrying the Persona's
 #       `prior_knowledge` verbatim, or the stated absence where the Persona
 #       declares none, before its `prose` rules (kogaki#1285).
-#  (ac) a Journey an earlier Leg used and this Leg does not re-activate is
-#       listed under "Held by the reader, not material here"; a Leg that
-#       re-activates it renders its served scene under "Active here" and not
-#       under Held; an unresolved re-activated Journey refuses by name
+#  (ac) a Journey an earlier Leg used and this Leg does not re-activate
+#       crosses into neither Leg's Packet (kogaki#1282 default-deny); a Leg
+#       that re-activates it renders its served scene under "What crosses
+#       into this Leg"; an unresolved re-activated Journey refuses by name
 #       (kogaki#1261).
 #  (ad) a typed `introduces_item` round-trips through the Brief (renderLeg
-#       writes it, parseIntroducesEntry reads it back) and "Introduce here"
-#       renders its kind and, for a coined term, the `nearest`/`differs`
-#       authority line; with `external_authority: off` in the Brief header
-#       the Packet carries neither (kogaki#1261).
+#       writes it, parseIntroducesEntry reads it back) and "What crosses
+#       into this Leg" renders its kind and, for a coined term, the
+#       `nearest`/`differs` authority line; with `external_authority: off`
+#       in the Brief header the Packet carries neither (kogaki#1261).
 #  (ae) a conceded Closure row's `open`, `why_not_here` and `reader_keeps`
 #       are written under the row by fillBrief's format, read back by
 #       concededRowFields, and rendered in the Packet of the conceding Leg
 #       (kogaki#1261).
+#  (an) "the article so far" is scoped to the current Section only
+#       (kogaki#1282, owner ruling 2026-10-06): a Section-opening Leg carries
+#       none of an earlier Section's prose and states its own absence; a
+#       continuing Leg carries its own Section's prose and none from before.
 #  (aa) a Brief whose reaching Leg's `names` lists a term no Leg of the path
 #       introduces is refused naming the term (kogaki#1251 item 4,
 #       kogaki#1260); a `names` list that is a subset of the union of every
@@ -206,7 +209,7 @@ import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
 import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
   readerTargetLine, REACHES_TARGET_LINE, CLOSING_LEG_LINE,
   journeyTextFromSurvey, journeyResolutionRefusal, journeyIdentityKey, writerRefusal, journeyProseFromShardLines,
-  REACTIVATE_LINE, READER_OWN_WORLD_ABSENT } from "./src/draft.mjs";
+  READER_OWN_WORLD_ABSENT } from "./src/draft.mjs";
 
 const { validateLegs, introducedTermInReaderStart, closureRowsForLeg, readerTargetLegRefusal, renderLeg,
   questionChainPairs, dischargeRows } = compose;
@@ -544,10 +547,12 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   else if (!/at most one row open at any given Leg/.test(rFull.error)) fails.push(`(m) validateLegs's refusal did not name the rule: ${rFull.error}`);
 }
 
-// (n) `re-activate` (kogaki#1237): the three composition refusals name the entry; the
-// Packet renders what is re-activated under "Active here" verbatim and every other
-// ledger term under "Held by the reader, not material here"; a Leg re-activating
-// nothing renders a stated absence; `depends_on` reaches no Packet.
+// (n) `re-activate` (kogaki#1237, re-ruled default-deny at kogaki#1282 owner
+// ruling 2026-10-06): the three composition refusals name the entry; the
+// Packet renders what is re-activated, WITH ITS MEANING, under "What crosses
+// into this Leg"; a term this Leg does not re-activate renders nowhere at
+// all (never "held"); a Leg re-activating nothing renders a stated absence;
+// `depends_on` reaches no Packet.
 {
   const { reactivateRefusal, reactivateSemanticRefusal, readerKnowledgeLedger } = compose;
   if (typeof reactivateRefusal !== "function" || typeof reactivateSemanticRefusal !== "function") fails.push("(n) src/compose.mjs exports no re-activate refusals");
@@ -601,22 +606,27 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
     if (r.error) { fails.push(`(n) the Packet for ${leg.leg_id} did not render: ${r.error}`); continue; }
     packets[leg.leg_id] = r.packet;
   }
-  const block = (id, heading) => {
-    const m = (packets[id] || "").split(`### ${heading}\n`)[1];
-    return m ? m.split("\n###")[0] : null;
+  const block = (id) => {
+    const m = (packets[id] || "").split("## What crosses into this Leg\n")[1];
+    return m ? m.split("\n## ")[0] : null;
   };
-  const active2 = block("s2", "Active here"), held2 = block("s2", "Held by the reader, not material here");
-  if (active2 === null || held2 === null) fails.push("(n) the Packet does not carry both the Active here and Held by the reader blocks");
+  const crosses2 = block("s2");
+  if (crosses2 === null) fails.push("(n) the Packet does not carry the What crosses into this Leg block");
   else {
-    if (!/unfed guard/.test(active2) || !/re-activated from s1/.test(active2)) fails.push(`(n) the re-activated term is not under Active here verbatim: ${active2.trim().slice(0, 160)}`);
-    if (/unfed guard/.test(held2)) fails.push("(n) the re-activated term is also under Held by the reader");
-    if (!/pipeline/.test(held2)) fails.push(`(n) the term not re-activated is not under Held by the reader: ${held2.trim().slice(0, 160)}`);
+    if (!/unfed guard/.test(crosses2) || !/re-activated from s1/.test(crosses2)) fails.push(`(n) the re-activated term is not under What crosses into this Leg: ${crosses2.trim().slice(0, 160)}`);
+    // THE BUG THIS ISSUE FIXES: a typed term crossed with no meaning because
+    // `introducedMeaning` never resolved the legacy bare/anchored form's
+    // anchor as its meaning anchor.
+    if (!/a guard whose input nobody feeds/.test(crosses2)) fails.push(`(n) the re-activated term crosses with no meaning: ${crosses2.trim().slice(0, 160)}`);
+    if (/pipeline/.test(crosses2)) fails.push("(n) a term this Leg did not re-activate still crosses into it (default-deny violated)");
   }
-  const active3 = block("s3", "Active here");
-  if (active3 === null || !/nothing — this Leg re-activates no earlier material/.test(active3)) fails.push(`(n) a Leg re-activating nothing does not render a stated absence under Active here: ${String(active3).trim().slice(0, 160)}`);
+  const crosses3 = block("s3");
+  if (crosses3 === null || !/nothing — this Leg introduces and re-activates nothing/.test(crosses3)) fails.push(`(n) a Leg re-activating nothing does not render a stated absence under What crosses into this Leg: ${String(crosses3).trim().slice(0, 160)}`);
   for (const id of Object.keys(packets)) {
     if (/depends_on/.test(packets[id])) fails.push(`(n) depends_on reaches the Packet of ${id}`);
     if (/Already knows/.test(packets[id])) fails.push(`(n) the retired Already knows heading is still rendered in the Packet of ${id}`);
+    if (/Held by the reader/.test(packets[id])) fails.push(`(n) the retired Held by the reader heading is still rendered in the Packet of ${id}`);
+    if (/Re-activated material/.test(packets[id])) fails.push(`(n) the retired Re-activated material line is still rendered in the Packet of ${id}`);
   }
 }
 
@@ -1030,7 +1040,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     return a === -1 ? "" : packet.slice(a, b === -1 ? packet.length : b);
   };
 
-  // (ab) two Personas, two Write blocks; one Brief, one Write block but for the budget and the re-activate line.
+  // (ab) two Personas, two Write blocks; one Brief, one Write block but for the budget.
   {
     const legs = [legOf("s1", { budget: 120, introduces: ["pipeline"] }),
       legOf("s2", { budget: 300, depends_on: ["s1"], "re-activate": ["s1 term pipeline"] })];
@@ -1053,11 +1063,9 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
       if (writeBlock(a.s1) === writeBlock(b.s1)) fails.push("(ab) the Write block did not differ between two Personas");
     }
     if (a.s1 && a.s2) {
-      const norm = (w) => w.replace(/^\*\*Budget\.\*\* .*$/m, "**Budget.** <budget>").split(`\n\n${REACTIVATE_LINE}`).join("");
-      if (norm(writeBlock(a.s1)) !== norm(writeBlock(a.s2))) fails.push("(ab) the Write block differs across the Legs of one Brief beyond the budget and the re-activate line");
-      if (writeBlock(a.s1).includes(REACTIVATE_LINE)) fails.push("(ab) a Leg re-activating nothing carries the re-activate line");
-      if (!writeBlock(a.s2).includes(REACTIVATE_LINE)) fails.push("(ab) a Leg with re-activate entries does not carry the re-activate line");
-      if (writeBlock(a.s1) === writeBlock(a.s2)) fails.push("(ab) the budget and re-activate line did not reach the Write block");
+      const norm = (w) => w.replace(/^\*\*Budget\.\*\* .*$/m, "**Budget.** <budget>");
+      if (norm(writeBlock(a.s1)) !== norm(writeBlock(a.s2))) fails.push("(ab) the Write block differs across the Legs of one Brief beyond the budget");
+      if (writeBlock(a.s1) === writeBlock(a.s2)) fails.push("(ab) the budget did not reach the Write block");
     }
     if (a.s1 && !writeBlock(a.s1).includes("**The reader's own world.** Holds nothing.")) fails.push("(ab) the Write block does not render the Persona's prior_knowledge verbatim");
 
@@ -1081,7 +1089,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     }
   }
 
-  // (ac) a Journey an earlier Leg used and this Leg does not re-activate is held; a re-activated one renders its scene.
+  // (ac) a Journey an earlier Leg used and this Leg does not re-activate crosses into neither Leg's Packet (default-deny); a re-activated one renders its scene.
   {
     const legs = [legOf("s1", { journeys: [{ strand: "L1", use: "illustrate" }] }),
       legOf("s2", { depends_on: ["s1"] }),
@@ -1089,19 +1097,17 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const brief = briefOf(legs, [`compose_path: ${personaA}`]);
     if (brief.refusals.length) fails.push(`(ac) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`);
     else {
-      const HELD = "### Held by the reader, not material here";
-      const ACTIVE = "### Active here";
+      const CROSSES = "## What crosses into this Leg";
       const s2 = render(brief, brief.legs[1]);
       if (s2.error) fails.push(`(ac) the Packet for s2 did not render: ${s2.error}`);
-      else if (!block(s2.packet, HELD, "### Introduce here").includes("- L1's Journey (used at s1)")) fails.push("(ac) a Leg that does not re-activate an earlier Leg's Journey does not list it under Held by the reader");
+      else if (s2.packet.includes("L1's Journey")) fails.push("(ac) a Leg that does not re-activate an earlier Leg's Journey still carries it somewhere in the Packet (default-deny violated)");
       const scene = "The fixture scene, as served.";
       const s3leg = { ...brief.legs[2], reactivatedJourneys: [{ leg_id: "s1", strand: "L1", use: "illustrate", resolvedText: scene }] };
       const s3 = render(brief, s3leg);
       if (s3.error) fails.push(`(ac) the Packet for s3 did not render: ${s3.error}`);
       else {
-        const active = block(s3.packet, ACTIVE, HELD);
-        if (!active.includes(scene) || !active.includes("L1's Journey") || !active.includes("re-activated from s1")) fails.push(`(ac) a re-activated Journey's scene is not rendered under Active here: ${JSON.stringify(active)}`);
-        if (block(s3.packet, HELD, "### Introduce here").includes("L1's Journey")) fails.push("(ac) a re-activated Journey is still listed under Held by the reader");
+        const crosses = block(s3.packet, CROSSES, "\n## ");
+        if (!crosses.includes(scene) || !crosses.includes("L1's Journey") || !crosses.includes("re-activated from s1")) fails.push(`(ac) a re-activated Journey's scene is not rendered under What crosses into this Leg: ${JSON.stringify(crosses)}`);
       }
       const s3bare = render(brief, brief.legs[2]);
       if (!s3bare.error || !/re-activated Journey L1/.test(s3bare.error)) fails.push(`(ac) an unresolved re-activated Journey did not refuse the Packet by name: ${s3bare.error || "rendered"}`);
@@ -1116,16 +1122,16 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const line = renderLeg(legs[0]).split("\n").find((l) => l.startsWith("introduces: ") && l.includes("unfed guard"));
     const back = line ? parseIntroducesEntry(line.replace(/^introduces: /, "")) : { error: "no line" };
     if (back.error || back.kind !== "coined" || back.nearest !== "guard clause" || back.differs !== coined.differs) fails.push(`(ad) a typed introduces_item did not round-trip through renderLeg and parseIntroducesEntry: ${JSON.stringify(back)}`);
-    const INTRO = "### Introduce here";
+    const CROSSES = "## What crosses into this Leg";
     for (const [header, on] of [[[`compose_path: ${personaA}`], true], [[`compose_path: ${personaA}`, "external_authority: off"], false]]) {
       const brief = briefOf(legs, header);
       if (brief.refusals.length) { fails.push(`(ad) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`); continue; }
       const r = render(brief, brief.legs[0]);
       if (r.error) { fails.push(`(ad) the Packet did not render (external_authority ${on ? "on" : "off"}): ${r.error}`); continue; }
-      const intro = block(r.packet, INTRO, "\n## ");
-      if (!/- unfed guard — coined/.test(intro)) fails.push(`(ad) Introduce here does not render the coined term's kind: ${JSON.stringify(intro)}`);
-      if (!/- default-deny — established: .*firewall configuration practice/.test(intro)) fails.push(`(ad) Introduce here does not render the established term's kind and source: ${JSON.stringify(intro)}`);
-      if (on && !(intro.includes("nearest existing term: guard clause") && intro.includes(`differs: ${coined.differs}`))) fails.push(`(ad) with the external authority on, Introduce here does not carry the nearest and differs line: ${JSON.stringify(intro)}`);
+      const crosses = block(r.packet, CROSSES, "\n## ");
+      if (!/- unfed guard — coined/.test(crosses)) fails.push(`(ad) What crosses into this Leg does not render the coined term's kind: ${JSON.stringify(crosses)}`);
+      if (!/- default-deny — established: .*firewall configuration practice/.test(crosses)) fails.push(`(ad) What crosses into this Leg does not render the established term's kind and source: ${JSON.stringify(crosses)}`);
+      if (on && !(crosses.includes("nearest existing term: guard clause") && crosses.includes(`differs: ${coined.differs}`))) fails.push(`(ad) with the external authority on, What crosses into this Leg does not carry the nearest and differs line: ${JSON.stringify(crosses)}`);
       if (!on && /nearest|differs/.test(r.packet)) fails.push("(ad) with external_authority: off the Packet still carries a nearest or differs line");
     }
   }
@@ -1174,6 +1180,43 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     else {
       const r = render(brief, brief.legs[0]);
       if (r.error) fails.push(`(aq) the Packet for a Persona with no prior_knowledge did not render: ${r.error}`);
+    }
+  }
+
+  // (at) "the article so far" is scoped to the current Section only (kogaki#1282,
+  // owner ruling 2026-10-06): a Section-opening Leg carries none of an earlier
+  // Section's prose, stating its own absence instead; a continuing Leg carries
+  // its own Section's prose and none from before it.
+  {
+    const legs = [legOf("s1", { opens_section: "Section One" }),
+      legOf("s2", { opens_section: "Section Two", depends_on: ["s1"] }),
+      legOf("s3", { depends_on: ["s2"] })];
+    const brief = briefOf(legs, [`compose_path: ${personaA}`]);
+    if (brief.refusals.length) fails.push(`(at) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`);
+    else {
+      const sections = sectionsOf(brief.legs);
+      const sectionOf = sectionOfLeg(brief.legs);
+      const s1Prose = "Section One's own prose, as written.";
+      const renderWithPrior = (leg, priorSections) => renderPacket({
+        template: split.packet, brief, leg, moveText, priorSections,
+        section: sectionOf.get(leg.leg_id), sections,
+      });
+      const ARTICLE = "## The article so far — verbatim";
+      const s2 = renderWithPrior(brief.legs[1], [{ leg_id: "s1", text: s1Prose }]);
+      if (s2.error) fails.push(`(at) the Packet for s2 did not render: ${s2.error}`);
+      else {
+        const prior = block(s2.packet, ARTICLE, "\n## Write");
+        if (prior.includes(s1Prose)) fails.push(`(at) a Section-opening Leg's Packet still carries an earlier Section's prose: ${JSON.stringify(prior)}`);
+        if (!/nothing yet — this Leg opens the Section, so its prose is the first in it/.test(prior)) fails.push(`(at) a Section-opening Leg's Packet does not state the absence of its own Section's prose: ${JSON.stringify(prior)}`);
+      }
+      const s2Prose = "Section Two's own prose, as written so far.";
+      const s3 = renderWithPrior(brief.legs[2], [{ leg_id: "s1", text: s1Prose }, { leg_id: "s2", text: s2Prose }]);
+      if (s3.error) fails.push(`(at) the Packet for s3 did not render: ${s3.error}`);
+      else {
+        const prior = block(s3.packet, ARTICLE, "\n## Write");
+        if (!prior.includes(s2Prose)) fails.push(`(at) a continuing Leg's Packet does not carry its own Section's prose so far: ${JSON.stringify(prior)}`);
+        if (prior.includes(s1Prose)) fails.push(`(at) a continuing Leg's Packet still carries an earlier Section's prose: ${JSON.stringify(prior)}`);
+      }
     }
   }
 }
@@ -1636,5 +1679,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — re-activate (kogaki#1237): the three composition refusals name the entry, Active here carries the re-activated term verbatim, Held by the reader carries every other ledger term, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget and the re-activate line), a Journey held when not re-activated and its scene active when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name, and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name; and kogaki#1270's contract fix -- src/leg-schema.json's `introduces_item.nearest` description now states the at-most-one-per-path limit that introducesNearestRefusal enforces, unchanged; and kogaki#1276 -- the compose_path prompt and the judge_specialization input carry each Move's technique and breaks verbatim, a Leg with both or neither of move and no_move_fits is refused naming it, a no_move_fits Leg refuses its unit with its sentence and the retry prompt carries it, judge_specialization runs between review_path and CANDIDATE_SELECTION, one contradicts verdict among three leaves two offered and names the excluded one and its Leg, and every Candidate failing ends the Brief with no question and a report naming each failing Leg and the judge's sentence; and kogaki#1283's question chain — a Leg bound to a Move whose question carries raises: and whose own reader_state_after carries no question line is refused naming the Leg and the dimension, the Leg that follows it is refused the same way when its reader_state_before carries none, both carried refuses on no other ground, and a fabricated Move id no library record backs is silently skipped; and review_path's two added judged items -- questionChainPairs/dischargeRows name one pair per adjacent Leg and one row per discharged Closure row carrying the discharging Leg's claims verbatim, attachReview carries a \"different question\" or \"fails\" verdict forward as reasoning rather than refusing it, refuses a verdict outside either item's closed set or an array of the wrong length by name, and requires neither item at all.; and kogaki#1281 -- a Persona declaring no prior_knowledge is a stated absence, read back as such and refusing nothing, a Brief naming it composes and renders; persona_prior_knowledge reaches compose_path's base write, every unit's own input, and review_path's input, from the same Persona file; and the claim register runs one judged entry per Leg, closed to holds/fails, a fails entry naming the word that failed, refused by count, by verdict and by an unworded fails.");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237, re-ruled default-deny at kogaki#1282): the three composition refusals name the entry, What crosses into this Leg carries the re-activated term WITH ITS MEANING, a term not re-activated crosses into no Packet at all, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the article so far is scoped to the current Section only, with no earlier Section's prose reaching the Packet even verbatim; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget), a Journey crossing into neither Leg's Packet when not re-activated and its scene crossing in under What crosses into this Leg when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name, and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name; and kogaki#1270's contract fix -- src/leg-schema.json's `introduces_item.nearest` description now states the at-most-one-per-path limit that introducesNearestRefusal enforces, unchanged; and kogaki#1276 -- the compose_path prompt and the judge_specialization input carry each Move's technique and breaks verbatim, a Leg with both or neither of move and no_move_fits is refused naming it, a no_move_fits Leg refuses its unit with its sentence and the retry prompt carries it, judge_specialization runs between review_path and CANDIDATE_SELECTION, one contradicts verdict among three leaves two offered and names the excluded one and its Leg, and every Candidate failing ends the Brief with no question and a report naming each failing Leg and the judge's sentence; and kogaki#1283's question chain — a Leg bound to a Move whose question carries raises: and whose own reader_state_after carries no question line is refused naming the Leg and the dimension, the Leg that follows it is refused the same way when its reader_state_before carries none, both carried refuses on no other ground, and a fabricated Move id no library record backs is silently skipped; and review_path's two added judged items -- questionChainPairs/dischargeRows name one pair per adjacent Leg and one row per discharged Closure row carrying the discharging Leg's claims verbatim, attachReview carries a \"different question\" or \"fails\" verdict forward as reasoning rather than refusing it, refuses a verdict outside either item's closed set or an array of the wrong length by name, and requires neither item at all.; and kogaki#1281 -- a Persona declaring no prior_knowledge is a stated absence, read back as such and refusing nothing, a Brief naming it composes and renders; persona_prior_knowledge reaches compose_path's base write, every unit's own input, and review_path's input, from the same Persona file; and the claim register runs one judged entry per Leg, closed to holds/fails, a fails entry naming the word that failed, refused by count, by verdict and by an unworded fails.");
 JS
