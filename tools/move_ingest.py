@@ -1010,6 +1010,60 @@ def write_none_question(mapping, passage_text):
     return changed
 
 
+# --------------------------------------------------------------------------
+# Subject nouns, read off the Analysis (kogaki#1284).
+# --------------------------------------------------------------------------
+#
+# specs/move-extraction-contract.md requires `technique` to be subject-free,
+# and nothing enforced it: a Move derived from a Passage about one domain
+# carried that domain's own words forward into `technique` and `breaks`,
+# unnoticed until the owner read the saved file. `passages/FORMAT.md` now
+# has the Analysis list its own `subject nouns` — the nouns naming what the
+# Passage is about, offered by the model and confirmed or edited by the
+# human — and this is the mechanical half: a record whose `technique` or
+# `breaks` contains one of them is refused, naming the noun and the field.
+# The deny list is PER PASSAGE, written by that Passage's own Analysis; no
+# global word list exists, and an Analysis that lists none refuses nothing.
+ANALYSIS_SUBJECT_NOUNS_ROW = re.compile(r"^subject nouns:\s*(?P<nouns>.*)$", re.M)
+
+SUBJECT_NOUN_FIELDS = ("technique", "breaks")
+
+
+def analysis_subject_nouns(passage_text):
+    """The Analysis's `subject nouns` field, lower-cased and split on
+    commas, or `[]` where the field is absent or reads "none"."""
+    match = ANALYSIS_SUBJECT_NOUNS_ROW.search(passage_text)
+    if match is None:
+        return []
+    raw = match.group("nouns").strip()
+    if not raw or raw.lower().startswith("none"):
+        return []
+    return [noun.strip().lower() for noun in raw.split(",") if noun.strip()]
+
+
+def check_subject_nouns(mapping, passage_text, line_no):
+    """A record whose `technique` or `breaks` names a noun the Analysis
+    lists under `subject nouns` is refused, naming the noun and the field.
+    Returns a `Refusal`, or `None` where nothing is refused."""
+    nouns = analysis_subject_nouns(passage_text)
+    if not nouns:
+        return None
+    for field in SUBJECT_NOUN_FIELDS:
+        value = mapping.get(field)
+        if not isinstance(value, str):
+            continue
+        words = set(WORD.findall(value.lower()))
+        for noun in nouns:
+            if noun in words:
+                return Refusal(
+                    "subject-noun",
+                    "`%s` names subject noun `%s`, which the Analysis lists "
+                    "under `subject nouns`" % (field, noun),
+                    line_no=line_no,
+                )
+    return None
+
+
 def render_passage_screen(proposal, duplicates, rewritten=()):
     """The one screen the owner sees: accept as new / merge into the named
     Move / decline. An artifact (kogaki#474's precedent), never retyped."""
@@ -1077,6 +1131,14 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
             "exactly one" % len(proposals),
         )
     proposal = proposals[0]
+
+    if proposal.admitted:
+        # BEFORE anything else (kogaki#1284): a record naming a subject noun
+        # the Analysis lists is not merely rewritten, it is refused outright.
+        subject_refusal = check_subject_nouns(
+            proposal.mapping, passage_text, proposal.line_no)
+        if subject_refusal is not None:
+            proposal = Proposal(proposal.line_no, refusal=subject_refusal)
 
     duplicates = []
     rewritten = []

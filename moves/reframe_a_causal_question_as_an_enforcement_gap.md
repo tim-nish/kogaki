@@ -29,15 +29,15 @@ technique: >-
   than dismissed. Replace that question with a narrower operational one
   about enforcement capacity, then work through a domain the reader already
   trusts, separating the existence of a rule from the power that makes it
-  effective. Compress that domain's example into a single institutional
-  principle, which stands ready to be carried, unanswered, into the
-  unfamiliar domain the reframing was aimed at.
+  effective. Compress that domain's example into a single principle, which
+  stands ready to be carried, unanswered, into the unfamiliar domain the
+  reframing was aimed at.
 breaks: >-
   remove: dropping the initial survey of familiar answers makes the
   narrowing read as suppression of alternatives rather than a considered
   move past them. reorder: presenting the enforcement question before the
-  familiar-domain walkthrough turns the walkthrough into unmotivated civics
-  rather than the deliberately built half of a comparison. extend: adding
-  qualifications, exceptions, or failure cases to the familiar domain before
-  the comparison closes shifts attention to that domain's legitimacy and
-  stalls the transfer to the unfamiliar one.
+  familiar-domain walkthrough turns the walkthrough into an unmotivated tour
+  of the familiar domain rather than the deliberately built half of a
+  comparison. extend: adding qualifications, exceptions, or failure cases to
+  the familiar domain before the comparison closes shifts attention to that
+  domain's legitimacy and stalls the transfer to the unfamiliar one.

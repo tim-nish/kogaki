@@ -1166,6 +1166,76 @@ def self_test():
           "and the screen names a rewrite only where one happened",
           a_passage_with_no_analysis_row_leaves_the_proposal_untouched)
 
+    # ---- kogaki#1284: subject nouns, read off the Analysis ----------------
+    SUBJECT_NOUNS_ROW = "subject nouns: institutional, civics\n"
+
+    def a_technique_naming_a_listed_subject_noun_is_refused():
+        mapping = {"technique": "Compress that domain's example into a "
+                                 "single institutional principle.",
+                   "breaks": "not always"}
+        refusal = check_subject_nouns(mapping, SUBJECT_NOUNS_ROW, 1)
+        assert refusal is not None, "a listed subject noun in `technique` was not refused"
+        assert refusal.condition == "subject-noun", refusal
+        assert "`technique`" in str(refusal), str(refusal)
+        assert "institutional" in str(refusal), str(refusal)
+    check("#1284 subject nouns: a `technique` naming a listed subject noun is refused, "
+          "naming the noun and the field", a_technique_naming_a_listed_subject_noun_is_refused)
+
+    def an_analysis_with_no_subject_nouns_list_refuses_nothing():
+        mapping = {"technique": "Compress that domain's example into a "
+                                 "single institutional principle.",
+                   "breaks": "not always"}
+        assert check_subject_nouns(mapping, "just a passage, no header", 1) is None
+        assert check_subject_nouns(mapping, "subject nouns: none\n", 1) is None
+    check("#1284 subject nouns: an Analysis with no list (or \"none\") refuses nothing",
+          an_analysis_with_no_subject_nouns_list_refuses_nothing)
+
+    def a_passage_run_refuses_a_subject_noun_in_technique():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            with open(passage_path, "w") as handle:
+                handle.write(SUBJECT_NOUNS_ROW + "\nA passage about a guard's reach.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            record = _record("reframe_thing").replace(
+                "technique: >-\n  does a thing\n",
+                "technique: >-\n  compress the domain into one institutional principle\n")
+            _write_passage_stub(stub, record)
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            assert not result["proposal"].admitted, "a listed subject noun was admitted"
+            assert result["proposal"].refusal.condition == "subject-noun", result["proposal"].refusal
+            screen = open(result["screen"]).read()
+            assert screen.startswith("refused:"), screen
+            assert "institution" in screen, screen
+    check("#1284 subject nouns: the Passage-to-Move path refuses a `technique` "
+          "naming a listed subject noun", a_passage_run_refuses_a_subject_noun_in_technique)
+
+    def a_passage_run_admits_a_technique_with_no_subject_noun_listed():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            with open(passage_path, "w") as handle:
+                handle.write("subject nouns: none\n\nA passage about a guard's reach.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            record = _record("reframe_thing").replace(
+                "technique: >-\n  does a thing\n",
+                "technique: >-\n  compress the domain into one institutional principle\n")
+            _write_passage_stub(stub, record)
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            assert result["proposal"].admitted, (
+                "an Analysis listing no subject nouns still refused the record: %s"
+                % result["proposal"].refusal)
+    check("#1284 subject nouns: an Analysis that lists none admits the same `technique`",
+          a_passage_run_admits_a_technique_with_no_subject_noun_listed)
+
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)
     print("move_ingest self-test: %d checks, %d failed" % (len(ran), len(failures)))
