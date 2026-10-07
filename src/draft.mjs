@@ -1549,6 +1549,49 @@ export function heldJourneys(brief, leg) {
 export const REACTIVATE_LINE = "**Re-activated material.** Open this Leg on a sentence that links back to "
   + "what the reader already holds, and name each item under `Active here` in full at its first use in this Leg.";
 
+// THE READER'S OWN WORLD (kogaki#1285, owner ruling 2026-10-06): the
+// Persona's `prior_knowledge` field, read directly here rather than through
+// `readerProse` — that reader refuses by name on an absent block, and an
+// absent or empty `prior_knowledge` is a STATED CASE this one must render,
+// never a refusal. `compose.mjs`'s scalar-field reader is module-private, so
+// this reads the same `key: >-`/`key: |` block-scalar shape it does, over
+// the one field this slot needs.
+export function personaPriorKnowledge(path) {
+  let text;
+  try { text = readFileSync(path, "utf8"); }
+  catch { return null; }
+  const lines = text.split("\n");
+  const head = /^prior_knowledge:[ \t]*(.*)$/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(head);
+    if (!m) continue;
+    const marker = m[1].trim();
+    if (marker !== "" && !/^[>|][-+]?$/.test(marker)) {
+      const inline = marker.replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
+      return inline === "" ? null : inline;
+    }
+    const folded = marker === "" || marker.startsWith(">");
+    const body = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j];
+      if (l.trim() === "") { body.push(""); continue; }
+      if (!/^[ \t]/.test(l)) break;
+      body.push(l.trim());
+    }
+    while (body.length && body[body.length - 1] === "") body.pop();
+    const joined = folded ? body.join(" ").replace(/\s+/g, " ") : body.join("\n");
+    return joined.trim() === "" ? null : joined.trim();
+  }
+  return null;
+}
+
+// THE STATED ABSENCE (kogaki#1285 acceptance): rendered in place of
+// `prior_knowledge` where the Persona declares none, so the Referents rule
+// in `{{prose_rules}}` is never left pointing at a block the Packet does not
+// carry, and nothing here refuses on the absence.
+export const READER_OWN_WORLD_ABSENT =
+  "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
+
 export function renderPacket({ template, brief, leg, moveText, priorSections, ledgerRow, section, sections }) {
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
@@ -1627,6 +1670,11 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
   const personaPath = packetPersonaPath(brief);
   const prose = typeof personaPath === "string" ? readerProse(personaPath) : personaPath;
   if (prose.error) missing.push(`the Persona's prose rules (${prose.error})`);
+  // THE READER'S OWN WORLD (kogaki#1285): read from the same Persona, on
+  // the same path — but NEVER pushed onto `missing`, because an absent or
+  // empty `prior_knowledge` is the stated case `READER_OWN_WORLD_ABSENT`
+  // renders, not a hole in the Packet's input.
+  const priorKnowledge = typeof personaPath === "string" ? personaPriorKnowledge(personaPath) : null;
   const conceded = concededRowFields(brief.text || "", leg.leg_id);
 
   const fields = {
@@ -1649,6 +1697,7 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, le
       ? `${leg.budget} words. This is a ceiling, not a target — write what this Leg needs, up to it.`
       : "(none declared — no word bound applies to this Leg.)",
     claims: claims || "(none recorded)",
+    reader_own_world: priorKnowledge || READER_OWN_WORLD_ABSENT,
     prose_rules: prose.error ? "" : prose.prose,
     reactivate_line: reactivateEntries.length ? `\n\n${REACTIVATE_LINE}` : "",
     // ACTIVE HERE (kogaki#1237, owner decision 2026-09-30): what this Leg

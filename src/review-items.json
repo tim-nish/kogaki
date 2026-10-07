@@ -241,7 +241,13 @@
       "per item at column zero, no `key:` prefix, and no bulleted field label above",
       "the list (the relations layer that once indented a satellite claim under its",
       "nucleus is retired, and the mixed `claim:` convention with it, kogaki#1215).",
-      "`heading_list` reads the `- ` items of the block the heading opens."
+      "`heading_list` reads the `- ` items of the block the heading opens.",
+      "",
+      "`reader_own_world` IS A `paragraph`, NOT A `block` (kogaki#1285). The Write",
+      "block's reader's-own-world line is Harness-owned and sits inline before the",
+      "Persona's own prose rules, never under its own heading, so it is read from",
+      "where it OPENS to the next blank line rather than from a heading to the next",
+      "one."
     ],
     "claims": {
       "kind": "heading_list",
@@ -267,6 +273,10 @@
     "journey": {
       "kind": "block",
       "heading": "The Journey material this Leg edits — NOT a claim to recover"
+    },
+    "reader_own_world": {
+      "kind": "paragraph",
+      "opens_with": "**The reader's own world.**"
     }
   },
   "pass_two": {
@@ -440,7 +450,10 @@
       "class": "preserved",
       "mode": "judged",
       "declared_block": "journey",
-      "question": "Above is the Journey material this Leg was given to draw on. Does the passage below name a case, example, file, person or named thing that this Journey material does not carry? Answer `fails` if it does — a referent the passage invents for itself does not exist for a later Leg to rely on."
+      "also_declared_blocks": [
+        "reader_own_world"
+      ],
+      "question": "Above is the Journey material this Leg was given to draw on, and the reader's own world as the Persona declares it. Does the passage below name a case, example, file, person or named thing that neither of those carries? Answer `fails` if it does — a referent neither source carries does not exist for a later Leg to rely on."
     },
     {
       "id": "unsupported-sentence",

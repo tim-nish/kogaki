@@ -11,8 +11,8 @@ prose: |
 
   **Referents.** A referent is a case, example, file or person the prose can
   point back to later. It comes from the Journey block or from the reader's
-  own world as the Brief describes the reader at the outset; anything else the
-  prose names does not exist for later Legs. A comparison is not a referent:
+  own world as stated above; anything else the prose names does not exist
+  for later Legs. A comparison is not a referent:
   it explains a term once, and nothing later points back to it.
 
   **Supporting sentences.** A sentence that supports a paragraph's point uses
