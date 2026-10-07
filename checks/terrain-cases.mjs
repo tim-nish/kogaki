@@ -1,99 +1,154 @@
 #!/usr/bin/env node
 // checks/terrain-cases.mjs — the Terrain runtime's fixture pass (kogaki#612,
 // kogaki#659), moved here from `src/terrain.mjs self-test` under kogaki#1238:
-// a Test lives only under the declared Check root. The cases are the same
-// cases, verbatim; the runtime exports what they drive and keeps none of them.
+// a Test lives only under the declared Check root.
 // Run by checks/check-terrain-runtime.sh, which reads the count this file
 // prints against the registry's `case_floor`.
+//
+// THE RUNTIME IS REACHED THROUGH ITS PRODUCTION SURFACE AND NOTHING ELSE
+// (kogaki#1257). Until that issue the cases imported 65 names the runtime
+// exported for them alone, so 75 exports had no reader outside checks/ and the
+// module's surface described its test seams rather than what the runtime is
+// made of. Every case now drives the runtime the way a run does: through
+// `node src/terrain.mjs <command>`, or through one of the exports `src/brief.mjs`
+// and `src/draft.mjs` import, and the commands that read served material reach
+// the gateway through the real transport (`policy/kit/bin/gateway-query.mjs`)
+// pointed at a fixture gateway under `checks/fixtures/fake-gateway/`. The case
+// names are unchanged; where a body now reads a command's output in place of a
+// function's return, the property it asserts is the one the name states.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { FormatRefusal, classMatchers, loadGrammar, refuseUnlessConformant, validateSurface } from "../src/format-guard.mjs";
 import { laneDir } from "../src/runs.mjs";
 import {
-  COMPOSED_INPUT_FLAGS,
-  DISPLAY_WRAP_COLUMNS,
-  FIXTURE_PAYLOAD,
-  FIXTURE_RECORD_KEY_VALUE,
-  FIXTURE_STATE_PREFIX,
-  GATES_REGISTRY,
   GATE_CALL_SUFFIX,
-  GATE_SCHEMA,
-  GATE_WORK,
-  JUDGMENT_DECLARED,
-  JUDGMENT_OBSERVED,
-  JudgmentRefusal,
-  NO_HEADLINE,
-  NO_JUDGE,
-  NO_SEAM,
-  NO_SHARD_ADDRESSED,
-  NO_SHARD_NAME,
-  NO_SHARD_SERVED,
-  NO_TARGET,
-  REPO,
-  REPORT_FORMAT,
-  RUN_RECORD_FILE,
-  SKILL_EXPANSION_EXECUTOR,
-  STATE_WORK,
-  TERRAIN_WORKFLOW_TABLE,
-  classifyWriteOutcome,
-  composeGateCall,
-  composeIdentityCite,
-  composedInputDelta,
-  composedInputDigests,
-  derivedBaseline,
-  displayIdAbnormalLine,
   emitGateDeclaration,
   glossFor,
-  harnessJudgeInvocation,
-  intersectUnaddressable,
-  judgeBinaryCandidates,
-  judgePinLine,
-  judgedEmptyNoticeLines,
-  judgmentProvenance,
-  loadWorkflowTable,
-  neighborhoodDisplay,
-  neighborhoodJudgmentsFrom,
-  ownerGateDigest,
-  parseShardName,
-  priorPredatesCandidateIds,
-  provenanceOf,
-  questionShapeCommand,
-  questionShapeRefusal,
-  readJson,
-  readOpenRunPointer,
   readRunRecord,
-  readThesisCandidates,
-  refreshWrittenGateCall,
-  refuseTargetsOutsideCandidates,
-  renderTagDisplay,
-  reportJudgeLine,
-  reportsDestination,
-  resetQuestionShapeSupported,
   resolveJudgeBinary,
-  resolveReportTargets,
-  runCounts,
-  runDir,
-  sameIdentity,
-  selectShardNames,
-  setOpenedBy,
-  shouldReplayPrior,
-  surveyEmptinessRefusal,
-  tagRow,
-  thesisCandidatesSection,
-  wrapDisplayLine,
-  writeOpenGatePointer,
 } from "../src/terrain.mjs";
 
 // The runtime file the subprocess cases spawn, named here because the file's
 // own URL is this case file now, not the runtime.
-const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "src", "terrain.mjs");
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const TERRAIN_SCRIPT = join(REPO, "src", "terrain.mjs");
+const readJson = (p) => JSON.parse(readFileSync(p, "utf8"));
 
-    // The composed-form fixture pass (kogaki#612): pure, seam-free — every
-    // case constructs its own inputs, so the trial runs with no gateway.
+// ---- THE CARRIERS THE RUNTIME READS, READ HERE FROM THE SAME FILES. These
+// were imported from the runtime, which read them from these paths; reading the
+// path is the same value with no export standing between.
+const GATE_SCHEMA = readJson(join(REPO, "src/gate-schema.json"));
+const GATES_REGISTRY = readJson(join(REPO, "src/gate-registry.json"));
+const REPORT_FORMAT = join(REPO, "src/report-format.json");
+const TERRAIN_WORKFLOW_TABLE = join(REPO, "src/terrain-workflow.json");
+const RUN_RECORD_FILE = "run-record.json";
+
+// ---- THE STRINGS A CASE ASSERTS AGAINST, stated as the oracle. A case that
+// compared a rendering against the runtime's own constant agreed with the
+// runtime by construction; the literal is what an owner reads, so a change to
+// it is a change a case should see.
+const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
+const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
+const NO_SEAM = "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
+const NO_SHARD_NAME = "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
+const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
+const NO_TARGET = "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
+const NO_JUDGE = "none";
+// The display wrap column the judge-pin line and the report notice share
+// (kogaki#919), as the owner surface measures it.
+const DISPLAY_WRAP_COLUMNS = 77;
+
+// ---- THE FIXTURE-ONLY STATES the runtime admits to its renderer map
+// (kogaki#824), named by the prefix it refuses in the shipped table.
+const FIXTURE_STATE_PREFIX = "__fixture_";
+const FIXTURE_RECORD_KEY_VALUE = "written by this state's own renderer";
+
+// THE SYNTHESIZED HOOK PAYLOAD every fixture spawn feeds the executor
+// (kogaki#1027). The executor advances only inside a harness hook event, so a
+// fixture that drove it with no stdin would be testing the payload refusal and
+// nothing else. Synthesized rather than captured, deliberately: the acceptance
+// item is that a run driven by payloads ALONE reaches its end, and a payload
+// this pass composes is one no session and no harness supplied.
+const FIXTURE_PAYLOAD = JSON.stringify({
+  hook_event_name: "PostToolUse",
+  session_id: "fixture-session",
+  tool_use_id: "fixture-tool-use",
+});
+
+// ---- THE COMMAND SURFACE, AND THE SEAM IT READS (kogaki#1257).
+//
+// `terrain(args, opts)` runs one command of the runtime. `gateway(dir,
+// answers)` points the transport at the fixture gateway with these answers and
+// logs every call it receives into `dir`, so a case can assert WHICH addresses
+// the runtime asked for as well as what it rendered from them. A command run
+// without it reaches whatever gateway the machine has configured, so every case
+// that reads served material passes one.
+const FAKE_GATEWAY = join(REPO, "checks", "fixtures", "fake-gateway", "gateway.mjs");
+function gateway(dir, answers) {
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, "gateway-answers.json");
+  writeFileSync(file, JSON.stringify(answers));
+  return {
+    TSUREZURE_GATEWAY_JS: FAKE_GATEWAY,
+    KOGAKI_FAKE_GATEWAY: file,
+    KOGAKI_FAKE_GATEWAY_LOG: join(dir, "gateway-calls.jsonl"),
+  };
+}
+function gatewayCalls(dir) {
+  const f = join(dir, "gateway-calls.jsonl");
+  if (!existsSync(f)) return [];
+  return readFileSync(f, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+}
+// NO QUESTION-SHAPE COMMAND BY DEFAULT (kogaki#1257). That command is
+// machine-local and outside this repository; a case not ABOUT the compose-time
+// rule runs without it, so its outcome does not depend on the machine (and
+// does not pay for the command on every gate a run reaches). The cases that
+// are about the rule name the command in their own `env`.
+const NO_SHAPE_CMD = { KOGAKI_QUESTION_SHAPE_CMD: join(tmpdir(), "terrain-cases-no-question-shape-command") };
+function terrain(args, { input = "", env = {} } = {}) {
+  const r = spawnSync(process.execPath, [TERRAIN_SCRIPT, ...args], {
+    encoding: "utf8", input, cwd: REPO, env: { ...process.env, ...NO_SHAPE_CMD, ...env },
+  });
+  return { status: r.status, stdout: r.stdout || "", stderr: r.stderr || "", out: `${r.stdout || ""}${r.stderr || ""}` };
+}
+// One production export, driven in a CHILD process: the runtime caches what it
+// read from the seam per process (the served shard enumeration is read once),
+// so a case whose answer depends on what the seam served gets a process of its
+// own. The body sees the module's exports as `rt` and prints its result as the
+// last line of stdout, JSON-encoded.
+const RUNTIME_URL = pathToFileURL(TERRAIN_SCRIPT).href;
+function drive(body, env = {}) {
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e",
+    `import * as rt from ${JSON.stringify(RUNTIME_URL)};\n${body}`], {
+    encoding: "utf8", cwd: REPO, env: { ...process.env, ...NO_SHAPE_CMD, ...env },
+  });
+  const last = (r.stdout || "").trim().split("\n").pop();
+  try { return JSON.parse(last); } catch { return { driveFailed: true, status: r.status, stderr: (r.stderr || "").slice(0, 400) }; }
+}
+// A served element line, in the shape `element_survey` answers with.
+const servedLine = (rec, i = 0) => ({ text: JSON.stringify(rec), cite: `gloss/ELEMENTS.jsonl:${i + 1}@aaaaaaa` });
+// A scratch root for every case below, removed at the end of the pass.
+const SCRATCH = mkdtempSync(join(tmpdir(), "terrain-cases-"));
+// THE LONE-TAG FIXTURE'S SEAM AND SUBDIVISIONS. Every group of the fixture
+// survey judged empty, keyed by group name as the record is; the seam serves
+// one shard address and no Gloss line, so every row renders its marker.
+const LONE_ANSWERS = {
+  element_survey: { lines: [servedLine({ kind: "lesson", slug: "alpha", tags: ["testing"] })], pin: "product-lab@aaaaaaa" },
+  surface_names: { lines: [{ text: "lessons/tag=testing,window=2026-08" }] },
+  gloss_index: { "*": { lines: [] } },
+};
+const LONE_SUBDIVISIONS = join(SCRATCH, "lone-subdivisions.json");
+writeFileSync(LONE_SUBDIVISIONS, JSON.stringify(Object.fromEntries(
+  ["testing × (no second served tag)", "testing × architecture", "testing × cost"]
+    .map((g) => [g, { judged: true, subgroups: [] }]))));
+
+    // The composed-form fixture pass (kogaki#612): every case constructs its own
+    // inputs, and the cases that read served material read the fixture gateway,
+    // so the pass reaches no network.
     let n = 0; const bad = [];
     const ok = (name, cond) => { if (cond) n++; else bad.push(name); };
     // THE ANSWERS KEY IS THE QUESTION AS SENT (PR #1048 round 1, finding 1). A
@@ -105,25 +160,41 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       const q = readJson(p);
       return q.questions[0].question;
     };
-    ok("a lesson cite composes in the identity form from the record's own fields",
-      composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa") === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @aaaaaaa");
-    ok("a journey cite carries its own kind in the join key",
-      composeIdentityCite("alpha", "journey", "product-lab@aaaaaaa") === "gloss/ELEMENTS.jsonl slug=alpha kind=journey @aaaaaaa");
-    ok("the pin's sha segment is taken as served — a bare sha pin composes too",
-      composeIdentityCite("alpha", "lesson", "bbbbbbb") === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @bbbbbbb");
-    ok("an absent or empty pin refuses composition rather than minting an unpinned cite",
-      composeIdentityCite("alpha", "lesson", undefined) === null
-      && composeIdentityCite("alpha", "lesson", "") === null
-      && composeIdentityCite("alpha", "lesson", "product-lab@") === null);
-    ok("the positional form is not producible by this composer",
-      !/ELEMENTS\.jsonl:\d/.test(composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa")));
 
+    // ---- THE IDENTITY CITE IS COMPOSED BY `survey` (kogaki#612), and these
+    // cases read it off the survey record the command writes over what the seam
+    // served. A refused composition is a refused survey: the act exits and
+    // writes no record, which is the refusal the composer's `null` was for.
+    const surveyOver = (name, pin, recs) => {
+      const d = join(SCRATCH, `survey-${name}`);
+      const served = { lines: recs.map(servedLine) };
+      if (pin !== undefined) served.pin = pin;
+      const r = terrain(["survey", "--run-dir", join(d, "rd")], { env: gateway(d, { element_survey: served }) });
+      const rd = join(d, "rd");
+      const files = existsSync(rd) ? readdirSync(rd).filter((f) => f.endsWith(".terrain-survey.json")) : [];
+      return { ...r, record: files.length ? readJson(join(rd, files[0])) : null };
+    };
+    const alpha = [{ kind: "lesson", slug: "alpha", tags: ["agents"] }, { kind: "journey", slug: "alpha", tags: ["agents"] }];
+    const pinned = surveyOver("pinned", "product-lab@aaaaaaa", alpha);
+    ok("a lesson cite composes in the identity form from the record's own fields",
+      !!pinned.record && pinned.record.candidates[0].cite === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @aaaaaaa");
+    ok("a journey cite carries its own kind in the join key",
+      !!pinned.record && pinned.record.journeys[0].cite === "gloss/ELEMENTS.jsonl slug=alpha kind=journey @aaaaaaa");
+    const bare = surveyOver("bare", "bbbbbbb", alpha);
+    ok("the pin's sha segment is taken as served — a bare sha pin composes too",
+      !!bare.record && bare.record.candidates[0].cite === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @bbbbbbb");
+    ok("an absent or empty pin refuses composition rather than minting an unpinned cite",
+      [surveyOver("no-pin", undefined, alpha), surveyOver("empty-pin", "", alpha), surveyOver("sha-less-pin", "product-lab@", alpha)]
+        .every((r) => r.status !== 0 && /cannot compose an identity cite for lesson alpha/.test(r.stderr) && r.record === null));
+    ok("the positional form is not producible by this composer",
+      !!pinned.record && [...pinned.record.candidates, ...pinned.record.journeys].every((c) => !/ELEMENTS\.jsonl:\d/.test(c.cite)));
     // ---- THE SHARD ADDRESS IS SELECTED FROM THE SERVED ENUMERATION, NEVER
-    // COMPOSED (kogaki#1106). Seam-free by construction, and that is the point
-    // rather than a convenience: the property is about ADDRESS SELECTION, so a
-    // case that had to reach a gateway to drive it would be asserting the seam
-    // — which is exactly what was already monitored and exactly what stayed
-    // green through the whole drift.
+    // COMPOSED (kogaki#1106). The property is about ADDRESS SELECTION, so each
+    // case reads the addresses the runtime actually REQUESTED: `resolveHeadlines`
+    // (the export the Brief lane calls) runs against the fixture gateway, which
+    // serves the enumeration below and logs every `gloss_index` call. What
+    // stayed green through the whole drift was a seam that answered; what these
+    // assert is which names were asked for, which is what drifted.
     //
     // THE SERVED NAMES BELOW ARE A TRANSCRIPT, not an invention:
     // `surface_names(kind: "gloss")` at product-lab@7e109c8c serves 132 names
@@ -137,34 +208,60 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       "journeys/tag=agents,window=2026-08",
       "decisions/thread=articles,window=2026-08",
     ];
+    // Each entry of `calls` is one `resolveHeadlines` call; the answer is, per
+    // call, the `gloss_index` addresses it requested, its seam state and the
+    // tags it found unaddressable. ONE PROCESS PER ENUMERATION, because the
+    // runtime reads the enumeration once per process.
+    const asked = (name, served, calls) => {
+      const d = join(SCRATCH, `shards-${name}`);
+      const env = gateway(d, { surface_names: { lines: served.map((t) => ({ text: t })) } });
+      return drive(`
+import { existsSync, readFileSync } from "node:fs";
+const log = process.env.KOGAKI_FAKE_GATEWAY_LOG;
+const seen = () => existsSync(log) ? readFileSync(log, "utf8").split("\\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+const out = [];
+for (const c of ${JSON.stringify(calls)}) {
+  const before = seen().length;
+  const r = rt.resolveHeadlines(c.members, { namespaces: c.namespaces });
+  out.push({
+    asked: seen().slice(before).filter((x) => x.tool === "gloss_index").map((x) => x.args.tag),
+    seam: r.seam, unaddressable: [...r.unaddressable].sort(),
+  });
+}
+console.log(JSON.stringify(out));`, env);
+    };
+    const row = (tags, family = "lesson") => [{ slug: "m1", family, tags }];
+    const sel = asked("served", ["lessons/agents", ...SERVED], [
+      { members: row(["method"]), namespaces: ["lessons"] },
+      { members: row(["agents"]), namespaces: ["lessons"] },
+      { members: row(["agents"], "journey"), namespaces: ["journeys"] },
+      { members: row(["product-design"]), namespaces: ["lessons"] },
+      { members: row(["articles"]), namespaces: ["decisions"] },
+      { members: row(["knowledge-architecture"]), namespaces: ["lessons"] },
+    ]);
+    const askedAt = (i) => (Array.isArray(sel) && sel[i] ? sel[i].asked.join("|") : `(no answer: ${JSON.stringify(sel).slice(0, 160)})`);
     ok("a served name parses into its namespace and the axis=value pairs of its cell",
-      (() => {
-        const sn = parseShardName("lessons/tag=method,window=2026-08,date=2026-08-16");
-        return sn.namespace === "lessons"
-          && sn.cell.get("tag") === "method"
-          && sn.cell.get("window") === "2026-08"
-          && sn.cell.get("date") === "2026-08-16";
-      })());
+      // The tag axis is read out of a three-pair cell, beside `window` and
+      // `date`, and only within its own namespace.
+      askedAt(0) === "lessons/tag=method,window=2026-08,date=2026-08-16");
     // THE CONTROL THAT KEEPS THE FAULT VISIBLE. If the retired one-axis form
     // parsed as a cell carrying `tag=agents`, the selector would match the very
     // address the surface stopped serving, the fetch would form it again, and
-    // the miss would be invisible exactly as it was for six days.
+    // the miss would be invisible exactly as it was for six days. The retired
+    // name is served FIRST here, so a parse that admitted it would ask for it.
     ok("the retired one-axis form does not parse as a cell carrying that tag",
-      (() => {
-        const sn = parseShardName("lessons/agents");
-        return sn.namespace === "lessons" && sn.cell.get("tag") === undefined;
-      })());
+      Array.isArray(sel) && !sel[1].asked.includes("lessons/agents"));
     ok("a tag selects EVERY served cell carrying it, in the order the surface served them",
-      selectShardNames(SERVED, "lessons", "agents").join("|")
-        === "lessons/tag=agents,window=2026-07|lessons/tag=agents,window=2026-08|lessons/tag=agents,window=undated");
+      askedAt(1) === "lessons/tag=agents,window=2026-07|lessons/tag=agents,window=2026-08|lessons/tag=agents,window=undated");
     ok("selection is namespace-scoped, and a cell with no window is selected like any other",
-      selectShardNames(SERVED, "journeys", "agents").join("|") === "journeys/tag=agents,window=2026-08"
-      && selectShardNames(SERVED, "lessons", "product-design").join("|") === "lessons/tag=product-design"
+      askedAt(2) === "journeys/tag=agents,window=2026-08"
+      && askedAt(3) === "lessons/tag=product-design"
       // The `decisions` namespace shards by `thread`, so no `tag` addresses it
       // — the discriminator that selection reads the CELL rather than the path.
-      && selectShardNames(SERVED, "decisions", "articles").length === 0);
+      && Array.isArray(sel) && sel[4].asked.length === 0 && sel[4].unaddressable.includes("articles"));
     ok("a tag the enumeration names no shard for selects nothing rather than composing an address for it",
-      selectShardNames(SERVED, "lessons", "knowledge-architecture").length === 0);
+      Array.isArray(sel) && sel[5].asked.length === 0 && sel[5].seam === "address-fault"
+      && sel[5].unaddressable.join(",") === "knowledge-architecture");
 
     // ---- AND THE FAULT IS REPORTED AS AN ADDRESS FAULT (kogaki#1106). Every
     // case below drives `glossFor`, because the marker is what a reader sees and
@@ -188,18 +285,22 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
     // reads two namespaces, and a tag served under `lessons` alone is a tag the
     // `journeys` pass names no shard for — so the union answers "unaddressable"
     // for a tag whose shard was selected, requested and read. Only the
-    // intersection answers the question the row arm asks.
+    // intersection answers the question the row arm asks. Driven over two
+    // namespaces through `resolveHeadlines`, whose unaddressable set is the one
+    // `glossFor`'s row arm is handed.
     ok("a tag unaddressable in ONE namespace but named in another is not unaddressable for the pull",
       (() => {
-        const lessons = new Set(["knowledge-architecture"]);
-        const journeys = new Set(["knowledge-architecture", "agents", "testing"]);
-        const both = intersectUnaddressable([lessons, journeys]);
-        return both.size === 1 && both.has("knowledge-architecture")
+        const lessonsOnly = ["lessons/tag=agents,window=2026-08", "lessons/tag=testing,window=2026-08"];
+        const three = row(["knowledge-architecture", "agents", "testing"]);
+        const both = asked("intersection", lessonsOnly, [{ members: three, namespaces: ["lessons", "journeys"] }]);
+        const one = asked("one-namespace", lessonsOnly, [{ members: three, namespaces: ["journeys"] }]);
+        const none = asked("no-tag", lessonsOnly, [{ members: row([]), namespaces: ["lessons", "journeys"] }]);
+        return Array.isArray(both) && both[0].unaddressable.join(",") === "knowledge-architecture"
           // THE CONTROL that this is an intersection rather than a first-wins
-          // read: the single-namespace answer is the set itself, and no
-          // namespace read at all establishes nothing about any tag.
-          && intersectUnaddressable([journeys]).size === 3
-          && intersectUnaddressable([]).size === 0;
+          // read: the single-namespace answer is that namespace's set itself,
+          // and no namespace read at all establishes nothing about any tag.
+          && Array.isArray(one) && one[0].unaddressable.length === 3
+          && Array.isArray(none) && none[0].unaddressable.length === 0;
       })());
     ok("a row whose every tag is unaddressable renders the address marker even when the pull as a whole answered",
       glossFor({ slug: "bravo", family: "lesson", tags: ["knowledge-architecture"] },
@@ -207,41 +308,49 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // THE CONTROL: a row with an addressed tag keeps the read-and-empty
       // marker, so the arm above is about the ROW and not a blanket downgrade.
       && glossFor(addrRow, missEntry, "answered", ["lessons"], new Set(["knowledge-architecture"])) === NO_HEADLINE);
-
-    // ---- AN EMPTY SURVEY IS A REFUSAL (kogaki#1026). The cases drive the
-    // composer the refusal is made of, and the ACT is asserted beside it in
-    // `checks/check-terrain-runtime.sh`'s sibling arm — the composer answering
-    // correctly while the caller printed and carried on is exactly the state
-    // the 2026-09-09 runs were in.
+    // ---- AN EMPTY SURVEY IS A REFUSAL (kogaki#1026). The cases drive `survey`
+    // itself over what the fixture gateway serves, and read the refusal off the
+    // act: a non-zero exit, the refusal text on stderr, and no survey record
+    // written. The composer answering correctly while the caller printed and
+    // carried on is exactly the state the 2026-09-09 runs were in, so the act is
+    // what is asserted rather than the composer.
     //
     // THESE ARE THE REMOVAL TEST TOO (acceptance 3). Nothing here reads the
-    // skill file or the Spec: `surveyEmptinessRefusal` is a pure function of
-    // this module, so the cases pass with both absent from the tree, which is
-    // what makes the refusal the executor's own code path rather than a rule
-    // carried in prose beside it.
+    // skill file or the Spec, so the cases pass with both absent from the tree,
+    // which is what makes the refusal the executor's own code path rather than
+    // a rule carried in prose beside it.
+    const journeyOnly = Array.from({ length: 12 }, (_, i) => ({ kind: "journey", slug: `j${i}`, tags: ["agents"] }));
+    const callMiss = surveyOver("empty-call", "product-lab@0f31c3b", []);
+    const corpusMiss = surveyOver("empty-corpus", "product-lab@0f31c3b", journeyOnly);
     ok("the miss shape refuses as a statement about the CALL, naming 0 served lines and the pin",
-      (() => {
-        const r = surveyEmptinessRefusal(0, 0, "product-lab@0f31c3b");
-        return typeof r === "string"
-          && /0 served line\(s\)/.test(r)
-          && r.includes("pin product-lab@0f31c3b")
-          && /about the CALL/.test(r);
-      })());
+      callMiss.status !== 0 && callMiss.record === null
+      && /0 served line\(s\)/.test(callMiss.stderr)
+      && callMiss.stderr.includes("pin product-lab@0f31c3b")
+      && /about the CALL/.test(callMiss.stderr));
     ok("a served response with records and no Lesson refuses as a statement about the CORPUS, naming the count and the pin",
-      (() => {
-        const r = surveyEmptinessRefusal(12, 0, "product-lab@0f31c3b");
-        return typeof r === "string"
-          && r.includes("12 served record(s)")
-          && r.includes("pin product-lab@0f31c3b")
-          && /about the CORPUS/.test(r);
-      })());
+      corpusMiss.status !== 0 && corpusMiss.record === null
+      && corpusMiss.stderr.includes("12 served record(s)")
+      && corpusMiss.stderr.includes("pin product-lab@0f31c3b")
+      && /about the CORPUS/.test(corpusMiss.stderr));
     ok("an absent pin is NAMED rather than elided — the operator is told which pin was read, or that none was",
-      surveyEmptinessRefusal(0, 0, undefined).includes("pin absent"));
+      (() => {
+        const r = surveyOver("empty-no-pin", undefined, []);
+        return r.status !== 0 && r.stderr.includes("pin absent");
+      })());
     ok("a survey with candidates is not a refusal, so the ordinary path is untouched",
-      surveyEmptinessRefusal(0, 1, "product-lab@0f31c3b") === null
-      && surveyEmptinessRefusal(9, 4, "product-lab@0f31c3b") === null);
+      pinned.status === 0 && !!pinned.record
+      && (() => {
+        const nine = [
+          ...Array.from({ length: 4 }, (_, i) => ({ kind: "lesson", slug: `l${i}`, tags: ["agents"] })),
+          // Each Journey shares a Lesson's slug: an orphan Journey is its own
+          // refusal (JOURNEY_ORPHAN), which is not the one under test.
+          ...Array.from({ length: 5 }, (_, i) => ({ kind: "journey", slug: `l${i % 4}`, tags: ["agents"] })),
+        ];
+        const r = surveyOver("nine-four", "product-lab@0f31c3b", nine);
+        return r.status === 0 && !!r.record && r.record.candidates.length === 4;
+      })());
     ok("the two refusals are DISTINGUISHABLE — the whole point is telling the call apart from the corpus",
-      surveyEmptinessRefusal(0, 0, "p@a") !== surveyEmptinessRefusal(12, 0, "p@a"));
+      callMiss.stderr.trim() !== "" && callMiss.stderr !== corpusMiss.stderr);
     // ---- THE ABBREVIATED-FORM COMPILER (kogaki#653). A `…` in a `form`
     // abbreviates the rest of a long fixed line, so the class matches as a
     // PREFIX. The compiler truncated per split-part, and the masked form is
@@ -250,24 +359,29 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
     // reached, and every later fragment was demanded as literal prefix text.
     //
     // THE ASSERTION IS OVER THE BEHAVIOUR, not over the compiler's text: for
-    // each surface declaring `abnormal_display_id`, the line
-    // `displayIdAbnormalLine` ACTUALLY EMITS must be admitted. That is the
-    // class's whole purpose — the display-ID rule's absence case reaching the owner surface —
-    // and it had never once been true, on either surface, because the failure
-    // fires only on the abnormal path nothing exercised.
+    // each surface declaring `abnormal_display_id`, the line the runtime
+    // ACTUALLY EMITS must be admitted. That is the class's whole purpose — the
+    // display-ID rule's absence case reaching the owner surface — and it had
+    // never once been true, on either surface, because the failure fires only
+    // on the abnormal path nothing exercised. So the abnormal path is
+    // exercised: `cotags` over a survey record that predates the display-ID
+    // rule, whose display the emit-time guard refuses whole if any line of it
+    // fails its class.
     {
       const grammar = loadGrammar(REPORT_FORMAT);
-      const emitted = displayIdAbnormalLine(2, 3);
-      const admits = (surface) => {
-        try { refuseUnlessConformant(surface, emitted, grammar); return true; }
-        catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
-      };
+      const lone = readJson(join(REPO, "checks", "fixtures", "survey", "lone-tag-member.json"));
+      const predating = { ...lone, candidates: lone.candidates.map(({ display_id, ...c }) => c) };
+      const predatingPath = join(SCRATCH, "survey-predating-display-ids.json");
+      writeFileSync(predatingPath, JSON.stringify(predating));
+      const shown = terrain(["cotags", "--survey", predatingPath, "--tag", "testing",
+        "--rendering-dir", join(SCRATCH, "cotags-predating")]);
       // ONE DECLARING SURFACE. `cotag_groups` is the only surface an emit site
-      // renders this line into (the two call sites above, in the co-tag group
+      // renders this line into (the two call sites in the co-tag group
       // renderer), so it is the only surface asserted here — a surface no emit
       // site reaches would be admitted against nothing.
       for (const surface of ["cotag_groups"]) {
-        ok(`${surface} admits the line displayIdAbnormalLine actually emits`, admits(surface));
+        ok(`${surface} admits the line displayIdAbnormalLine actually emits`,
+          shown.status === 0 && /^ABNORMAL: \d+ of \d+ member\(s\) on this surface carry no display_id\. /m.test(shown.stdout));
       }
       // The control: an abbreviated form whose tail carries NO digit worked
       // before this repair and must still work, so the fix is not a widening.
@@ -281,47 +395,103 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
           } catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
         })());
     }
-
     // ---- the control plane CONTROL PLANE (story 1.89). Seam-free: every case below either
     // reads the shipped table or constructs a synthetic one, and no case
     // reaches the gateway. AC8: this pass needs no run record and emits no
     // owner surface.
-    const shipped = loadWorkflowTable(TERRAIN_WORKFLOW_TABLE);
+    //
+    // DRIVEN THROUGH `run` (kogaki#1257). A throwaway table is handed to the
+    // executor with `--workflow`, and the counts and the baseline are read off
+    // `run --status`, which renders both from the record and the table.
+    const PAYLOAD_ENV = { input: FIXTURE_PAYLOAD };
+    const runOver = (name, table, extra = []) => {
+      const d = join(SCRATCH, `ctrl-${name}`);
+      mkdirSync(d, { recursive: true });
+      const tp = join(d, "table.json");
+      writeFileSync(tp, JSON.stringify(table));
+      const rd = join(d, "rd");
+      const r = terrain(["run", "--run-dir", rd, "--workflow", tp, ...extra], PAYLOAD_ENV);
+      return { ...r, rd, record: readRunRecord(rd) };
+    };
     // The write-outcome classifier's three directions (PR #667 round 1 finding
     // 2). The executor's guard reads this, so these are the cases that separate
-    // "wrote nothing deliberately" from "wrote and did not say where".
+    // "wrote nothing deliberately" from "wrote and did not say where". Each
+    // drives one write state whose fixture-only renderer returns the outcome
+    // its own row carries, and reads the executor's verdict off the act.
+    const outcomeRun = (name, outcome) => runOver(`outcome-${name}`, {
+      version: 1,
+      owner_artifacts: { display: { path: "reports/CoTagGroups.md", writer: "one" } },
+      states: [
+        { id: `${FIXTURE_STATE_PREFIX}returns_outcome`, kind: "write", writes: "display",
+          ...(outcome === undefined ? {} : { fixture_outcome: outcome }) },
+        { id: "done", kind: "terminal" },
+      ],
+    });
+    const namedNothing = (r) => r.status !== 0 && /its renderer named no artifact/.test(r.stderr);
     ok("a renderer that names its artifact is `wrote`",
-      classifyWriteOutcome({ artifact: "reports/FullReport.md" }) === "wrote");
+      (() => {
+        const r = outcomeRun("wrote", { artifact: "reports/FullReport.md" });
+        return r.status === 0 && !!r.record && r.record.done === true
+          && r.record.artifacts_written.length === 1
+          && r.record.artifacts_written[0].path === "reports/FullReport.md";
+      })());
     ok("a renderer that RAN and deliberately wrote nothing is `wrote-nothing`, not a refusal — --no-render and the idempotent rerun are both this",
-      classifyWriteOutcome({ artifact: null }) === "wrote-nothing");
+      (() => {
+        const r = outcomeRun("wrote-nothing", { artifact: null });
+        return r.status === 0 && !!r.record && r.record.done === true
+          && r.record.artifacts_written.length === 0
+          && r.record.completed.includes(`${FIXTURE_STATE_PREFIX}returns_outcome`);
+      })());
     ok("a renderer returning nothing at all is `named-nothing` — the case the guard was built for",
-      classifyWriteOutcome(null) === "named-nothing");
+      namedNothing(outcomeRun("nothing", undefined)));
     ok("an outcome object with no `artifact` KEY is `named-nothing` too, so a renderer cannot pass the guard by omitting the field",
-      classifyWriteOutcome({ something_else: 1 }) === "named-nothing");
+      namedNothing(outcomeRun("no-artifact-key", { something_else: 1 })));
 
+    // `run --status` over a record this pass writes, read against the shipped
+    // table: the record's own counts, and the baseline derived from the table
+    // beside the table's declared one.
+    const status = (() => {
+      const rd = join(SCRATCH, "ctrl-status");
+      mkdirSync(rd, { recursive: true });
+      writeFileSync(join(rd, RUN_RECORD_FILE), JSON.stringify({
+        workflow: { path: TERRAIN_WORKFLOW_TABLE, version: readJson(TERRAIN_WORKFLOW_TABLE).version },
+        completed: [], awaiting: null, done: false, owner_input: {},
+        waits_reached: ["A", "B"],
+        artifacts_written: [{ state: "x" }, { state: "y" }],
+        judgments: { J1: "p", J2: "q" },
+        conditional_entered: ["z"], conditional_skipped: [], gate_declarations_owed: [], transitions: [],
+      }));
+      return terrain(["run", "--status", "--run-dir", rd]);
+    })();
+    // The two blocks `--status` prints, each as name → number.
+    const statusBlock = (heading) => {
+      const lines = status.stdout.split("\n");
+      const at = lines.findIndex((l) => l.startsWith(heading));
+      const out = {};
+      for (const l of at < 0 ? [] : lines.slice(at + 1)) {
+        const m = /^  (\S+)\s+(\d+)/.exec(l);
+        if (!m) break;
+        out[m[1]] = Number(m[2]);
+      }
+      return out;
+    };
     ok("the shipped workflow table loads under the structural rules",
-      Array.isArray(shipped.states) && shipped.states.length > 0);
+      status.status === 0
+      && status.stdout.includes("Workflow table: src/terrain-workflow.json")
+      && Object.keys(statusBlock("derived from the TABLE")).length > 0);
     {
       // ACCEPTANCE ITEM 2's DENOMINATOR AGREES WITH ITSELF. The baseline this
       // executor counts against is DERIVED from the states array; the table
       // also carries a hand-written `counted_baseline`. They are two readings
       // of one array and a disagreement is a defect in the table, so the
       // fixture asserts they agree rather than trusting either alone.
-      const d = derivedBaseline(shipped);
-      const c = shipped.counted_baseline || {};
-      const disagree = Object.keys(d).filter((k) =>
-        Object.prototype.hasOwnProperty.call(c, k) && c[k] !== d[k]);
-      ok(`the table's counted_baseline agrees with the baseline derived from its own states array${disagree.length ? ` (disagrees on: ${disagree.map((k) => `${k} declared ${c[k]} derived ${d[k]}`).join(", ")})` : ""}`,
-        disagree.length === 0);
+      const disagree = status.stdout.split("\n").filter((l) => l.includes("DISAGREES with counted_baseline"));
+      ok(`the table's counted_baseline agrees with the baseline derived from its own states array${disagree.length ? ` (disagrees on: ${disagree.map((l) => l.trim()).join(", ")})` : ""}`,
+        status.status === 0 && Object.keys(statusBlock("derived from the TABLE")).length > 0 && disagree.length === 0);
     }
     ok("run counts read from a record alone, with conditional entries counted separately",
       (() => {
-        const c = runCounts({
-          waits_reached: ["A", "B"],
-          artifacts_written: [{ state: "x" }, { state: "y" }],
-          judgments: { J1: "p", J2: "q" },
-          conditional_entered: ["z"],
-        });
+        const c = statusBlock("counted from the RUN RECORD");
         return c.waits === 2 && c.owner_artifact_writes === 2
           && c.judgment_points === 2 && c.conditional_states_entered === 1;
       })());
@@ -490,16 +660,41 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
     // `--run-dir`, which is the path the relocation did NOT touch, so on their
     // own they are green about a runtime still writing to the retired home
     // directory. These read the DEFAULTS.
+    //
+    // THE DEFAULT IS READ OFF A `report` THE COMMAND WROTE (kogaki#1257), from a
+    // copy of `src/` under the scratch root: the lane resolves beside the
+    // runtime's own file, so the copy's default lane is a scratch directory and
+    // the act leaves nothing in this repository's `runs/`. `policy/` is linked
+    // rather than copied, because the transport is read from beside it.
     {
       const laneRoot = laneDir("terrain");
+      const stub = join(SCRATCH, "lane-stub");
+      mkdirSync(stub, { recursive: true });
+      cpSync(join(REPO, "src"), join(stub, "src"), { recursive: true });
+      symlinkSync(join(REPO, "policy"), join(stub, "policy"));
+      const reportArgs = (extra) => [join(stub, "src", "terrain.mjs"), "report",
+        "--survey", join(REPO, "checks", "fixtures", "survey", "lone-tag-member.json"), "--tag", "testing", "--ids", "G2",
+        "--judge-model", "fixture-model", "--judge-effort", "low",
+        "--subdivisions", LONE_SUBDIVISIONS, "--rendering-dir", join(stub, "rendering"), ...extra];
+      const recordAt = (r) => {
+        const m = /^machine record \(JSON[^)]*\): (.+\.json)$/m.exec(`${r.stdout || ""}${r.stderr || ""}`);
+        return m ? m[1] : null;
+      };
+      const env = { ...process.env, ...gateway(join(stub, "gw"), LONE_ANSWERS), KOGAKI_DEBUG: "1" };
+      delete env.KOGAKI_RUN_DIR;
+      const byDefault = spawnSync(process.execPath, reportArgs([]), { encoding: "utf8", cwd: REPO, env });
+      const defaultRecord = recordAt(byDefault);
       ok("the report record store defaults into the terrain lane",
-        reportsDestination({}) === join(laneRoot, "reports"), reportsDestination({}));
+        byDefault.status === 0 && defaultRecord !== null
+        && dirname(defaultRecord) === join(stub, "runs", "terrain", "reports"), defaultRecord);
       ok("the terrain lane resolves under the repository's runs/ directory",
         laneRoot === join(REPO, "runs", "terrain"), laneRoot);
       ok("no default record destination resolves under a home directory",
-        !reportsDestination({}).includes(`${sep}.kogaki${sep}`));
+        defaultRecord !== null && !defaultRecord.includes(`${sep}.kogaki${sep}`));
+      const elsewhere = join(stub, "elsewhere");
+      const explicit = recordAt(spawnSync(process.execPath, reportArgs(["--report-dir", elsewhere]), { encoding: "utf8", cwd: REPO, env }));
       ok("an explicit --report-dir still wins over the lane default",
-        reportsDestination({ "report-dir": "/tmp/elsewhere" }) === "/tmp/elsewhere");
+        explicit !== null && dirname(explicit) === elsewhere);
       // NOT ASSERTED HERE, stated rather than left to look covered: `runDir`'s
       // DEFAULT branch. Exercising it calls `enterRun`, which prunes this
       // repository's own terrain lane — a fixture pass that evicts a
@@ -508,14 +703,13 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // against a scratch root; what is unasserted here is one expression
       // naming the lane, and that is the honest size of the gap.
       ok("an explicit --run-dir is honoured and creates exactly it", (() => {
-        const d = join(tmpdir(), `terrain-rundir-${process.pid}`);
-        const got = runDir({ "run-dir": d });
-        const fine = got === d && existsSync(d);
-        rmSync(d, { recursive: true, force: true });
-        return fine;
+        const d = join(SCRATCH, "explicit-run-dir", "made-by-the-command");
+        const r = terrain(["survey", "--run-dir", d], { env: gateway(join(SCRATCH, "explicit-run-dir-gw"), LONE_ANSWERS) });
+        return r.status === 0 && existsSync(d)
+          && readdirSync(d).some((f) => f.endsWith(".terrain-survey.json"))
+          && r.stdout.includes(`Survey record: ${d}${sep}`);
       })());
     }
-
     // ---- THE FIRST-TAG GATE CARRIES ITS LISTING (kogaki#856).
     //
     // THE DEFECT THESE ASSERT AGAINST. At `TAG_SELECTION` the executor printed
@@ -559,18 +753,73 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
         !!ts && ts.renders_gate_declaration === true
           && (GATES_REGISTRY.gates || []).some((g) => g.id === ts.gate_id),
         ts ? JSON.stringify({ decl: ts.renders_gate_declaration, gate_id: ts.gate_id }) : "(no TAG_SELECTION state)");
-      ok("an option composer is bound to TAG_SELECTION — without one the executor records the declaration as owed and unwritten",
-        typeof GATE_WORK.TAG_SELECTION === "function");
+      // THE COMPOSER IS REACHED THROUGH `run` (kogaki#1257). A one-wait table
+      // stops at TAG_SELECTION over a survey record, and what the composer
+      // returned is read off the declaration that stop WROTE: its options less
+      // the registry's standing ones, and its `tag_listing`. Every spawn carries
+      // the pointer and sidecar isolation the tag-stop block below explains.
+      const tagStop = (name, survey) => {
+        const d = join(SCRATCH, `tagstop-${name}`);
+        const rdT = join(d, "rd");
+        mkdirSync(rdT, { recursive: true });
+        const table = join(d, "table.json");
+        writeFileSync(table, JSON.stringify({ version: 1, states: [
+          { id: "TAG_SELECTION", kind: "wait", owner_supplies: "one tag name, or the standing option",
+            renders_gate_declaration: true, gate_id: "terrain-tag-selection" },
+          { id: "done", kind: "terminal" },
+        ] }));
+        writeFileSync(join(rdT, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: table, version: 1 }, survey_record: survey,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        const r = terrain(["run", "--run-dir", rdT, "--workflow", table], { input: FIXTURE_PAYLOAD, env: {
+          KOGAKI_OPEN_GATES: join(d, "open-gates"),
+          GATE_DECLARATION_SIDECAR_DIR: join(d, "gate-declarations"),
+          CLAUDE_CODE_SESSION_ID: `terrain-selftest-${name}`,
+        } });
+        const declFile = join(rdT, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`);
+        const callFile = join(rdT, `terrain-tag-selection${GATE_CALL_SUFFIX}`);
+        return { ...r, decl: existsSync(declFile) ? readJson(declFile) : null,
+          call: existsSync(callFile) ? readJson(callFile) : null };
+      };
+      const standingIds = new Set(((GATES_REGISTRY.gates || []).find((g) => g.id === "terrain-tag-selection") || { options: [] })
+        .options.map((o) => o.id));
+      // THE LISTING THE SURFACE OWES, COMPOSED HERE from the record and the
+      // declared row form — the header, one `  <tag> — <n> Lesson(s)` row per
+      // section, and the navigation hint the grammar's own line class judges.
+      // A check-side oracle rather than the renderer called twice, so a
+      // renderer that dropped or reordered rows is a byte difference.
+      const tagRowOf = (sec) => {
+        const n = (sec.by_family || {}).lesson || 0;
+        return `${sec.name} — ${n} ${n === 1 ? "Lesson" : "Lessons"}`;
+      };
+      const tagListingOf = (rec, hint) => [
+        "The survey — display 1. Navigation (narrows nothing): name a tag.", "",
+        ...rec.sections.map((s) => `  ${tagRowOf(s)}`), "", hint,
+      ].join("\n");
+      const tagGrammar = loadGrammar(REPORT_FORMAT);
 
       const surveyPath = join(REPO, "checks", "fixtures", "survey", "lone-tag-member.json");
       const surveyRec = readJson(surveyPath);
-      const composed = GATE_WORK.TAG_SELECTION({ survey_record: surveyPath });
+      const stop1 = tagStop("lone", surveyPath);
+      ok("an option composer is bound to TAG_SELECTION — without one the executor records the declaration as owed and unwritten",
+        stop1.status === 0 && !!stop1.decl && !/OWED AND UNWRITTEN/.test(stop1.out),
+        stop1.out.trim().split("\n").slice(-2).join(" | ").slice(0, 160));
+      const composed = {
+        options: ((stop1.decl || {}).options || []).filter((o) => !standingIds.has(o.id)),
+        extra: { tag_listing: (stop1.decl || {}).tag_listing },
+      };
+      const navHint = String(composed.extra.tag_listing || "").split("\n").pop();
+      const expectedListing = tagListingOf(surveyRec, navHint);
 
       // ACCEPTANCE ITEM 2, asserted as byte equality rather than as
       // containment: the declaration carries the `tag_listing` SURFACE over
       // this survey record, so no party composed, trimmed or re-rendered it.
       ok("the declaration's tag_listing is BYTE-EQUAL to the tag_listing surface over the same survey record",
-        composed.extra.tag_listing === renderTagDisplay(surveyRec),
+        composed.extra.tag_listing === expectedListing
+          && validateSurface("tag_listing", expectedListing, tagGrammar).length === 0,
         JSON.stringify(composed.extra.tag_listing || "").slice(0, 140));
 
       // EXACTLY TWO WAYS TO ANSWER (owner rulings 1 and 2, 2026-09-04): the
@@ -585,7 +834,7 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
         .slice(0, 3).map((x) => String(x.name));
       ok("the composer offers the largest served tags as options, ids equal to the tag names, at most three",
         Array.isArray(composed.options) && composed.options.length === Math.min(3, surveyRec.sections.length)
-          && composed.options.every((o, i) => o.id === rankedNames[i] && o.label === tagRow(surveyRec.sections.find((x) => String(x.name) === o.id))),
+          && composed.options.every((o, i) => o.id === rankedNames[i] && o.label === tagRowOf(surveyRec.sections.find((x) => String(x.name) === o.id))),
         JSON.stringify(composed.options));
 
       // THE BYTES REACH THE ARTIFACT, not only the composer's return value.
@@ -617,7 +866,7 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
         }
         const decl = readJson(declPath);
         ok("the WRITTEN declaration carries the listing — the bytes reach the file the session renders, not only the composer's return",
-          decl.tag_listing === renderTagDisplay(surveyRec));
+          decl.tag_listing === expectedListing);
         ok("the written declaration offers the tag options plus the standing option — between two and four, a shape the selector renders — and free text",
           decl.options.length >= 2 && decl.options.length <= 4
             && decl.options[decl.options.length - 1].id === "other-method"
@@ -642,7 +891,7 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
 
       // ACCEPTANCE ITEM 2's FIRST CLAUSE, AT THE SIZE IT NAMES (kogaki#1029;
       // PR #1061 round 1, finding 2). Everything above compares the composer
-      // against `renderTagDisplay` over a THREE-section record, and the
+      // against the listing oracle over a THREE-section record, and the
       // hook-side cases in `checks/check-open-gate-exclusivity.sh` drive
       // payloads that check writes itself. So a renderer that dropped rows past
       // some N would satisfy both sides of the byte-equality above AND every
@@ -662,31 +911,30 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
             name: `tag-${String(i + 1).padStart(2, "0")}`,
           })),
         };
-        const manyPath = join(tmpdir(), `terrain-selftest-17tags-${process.pid}.json`);
+        const manyPath = join(SCRATCH, "survey-17tags.json");
         writeFileSync(manyPath, JSON.stringify(many));
-        const listing17 = renderTagDisplay(many);
+        // THE RENDERING IS READ OFF A RUN OVER THE RECORD (kogaki#1257): the
+        // stop's written declaration and call are the composer's and the call
+        // composer's output, so all three clauses read the same run.
+        const stop17 = tagStop("17tags", manyPath);
+        const decl17 = stop17.decl || {};
+        const listing17 = String(decl17.tag_listing || "");
         const rows17 = listing17.split("\n").filter((l) => l.startsWith("  ") && l.trim());
         ok("a seventeen-tag survey renders seventeen tag rows — one per section, none dropped",
-          rows17.length === 17 && many.sections.every((sec) => listing17.includes(tagRow(sec))),
+          rows17.length === 17 && many.sections.every((sec) => listing17.includes(tagRowOf(sec))),
           JSON.stringify({ rendered: rows17.length, sections: many.sections.length }));
 
-        const composed17 = GATE_WORK.TAG_SELECTION({ survey_record: manyPath });
         ok("the declaration over a seventeen-tag survey carries that listing whole",
-          composed17.extra.tag_listing === listing17,
-          JSON.stringify((composed17.extra.tag_listing || "").length));
+          listing17 === tagListingOf(many, navHint),
+          JSON.stringify(listing17.length));
 
-        // The end of the clause: the bytes the OWNER is shown. `composeGateCall`
-        // is what puts the listing in front of the question, and this asserts
-        // every one of the seventeen rows survives that composition.
-        const call17 = composeGateCall({
-          id: "terrain-tag-selection", question: "Which tag does the survey open on?",
-          options: composed17.options, free_text_offered: true, ...composed17.extra,
-        });
-        const q17 = (call17.tool_input || { questions: [{}] }).questions[0].question || "";
+        // The end of the clause: the bytes the OWNER is shown. The call the
+        // stop wrote is what puts the listing in front of the question, and
+        // this asserts every one of the seventeen rows survives that composition.
+        const q17 = ((stop17.call || { questions: [{}] }).questions[0] || {}).question || "";
         ok("the composed gate call for a seventeen-tag survey carries all seventeen rows in the question the owner reads",
-          q17.startsWith(`${listing17}\n\n`) && many.sections.every((sec) => q17.includes(tagRow(sec))),
-          JSON.stringify({ missing: many.sections.filter((sec) => !q17.includes(tagRow(sec))).map((sec) => sec.name) }));
-        rmSync(manyPath, { force: true });
+          q17.startsWith(`${listing17}\n\n`) && many.sections.every((sec) => q17.includes(tagRowOf(sec))),
+          JSON.stringify({ missing: many.sections.filter((sec) => !q17.includes(tagRowOf(sec))).map((sec) => sec.name) }));
       }
 
       // THE ORDER IS THE DEFECT. A declaration carrying the bytes and a stop
@@ -809,17 +1057,39 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
           // AND THE FALLBACK IS STILL LIVE FOR THE GATES kogaki#1029 DID NOT
           // TOUCH — six of the eight still declare one option, so the arm the
           // owner ruled on is exercised directly rather than left unreached.
-          const oneArm = composeGateCall({
-            id: "fixture-one-option", question: "One arm?",
-            options: [{ id: "only", label: "The only declared arm" }], free_text_offered: true,
-          });
+          //
+          // DRIVEN THROUGH `emitGateDeclaration` (kogaki#1257), the production
+          // export that composes the call, over a registered one-option gate
+          // with no run-composed option — the declaration's own `free_text_offered`
+          // overridden through `extra` for the mute half. The child carries
+          // pointer and sidecar isolation and no question-shape command, so
+          // the compose-time rule degrades to admit and is not what is asserted.
+          const oneGate = (GATES_REGISTRY.gates || []).find((g) => g.id === "brief-reader-path-job");
+          const emitOne = (name, extra) => {
+            const d = join(gs, `emit-${name}`);
+            mkdirSync(join(d, "rd"), { recursive: true });
+            const r = drive(`rt.emitGateDeclaration(${JSON.stringify(join(d, "rd"))}, "brief-reader-path-job", [], ${JSON.stringify(extra)});\nconsole.log("{}");`, {
+              KOGAKI_OPEN_GATES: join(d, "open-gates"),
+              GATE_DECLARATION_SIDECAR_DIR: join(d, "gate-declarations"),
+              CLAUDE_CODE_SESSION_ID: `terrain-selftest-emit-${name}`,
+              KOGAKI_QUESTION_SHAPE_CMD: join(d, "no-such-command"),
+            });
+            const callFile = join(d, "rd", `brief-reader-path-job${GATE_CALL_SUFFIX}`);
+            const ptrDir = join(d, "open-gates");
+            const ptrs = existsSync(ptrDir) ? readdirSync(ptrDir).filter((f) => f.endsWith(".json")) : [];
+            return { r, call: existsSync(callFile) ? readJson(callFile) : null,
+              pointer: ptrs.length ? readJson(join(ptrDir, ptrs[0])) : null };
+          };
+          const oneArm = emitOne("one", {});
           ok("a gate still declaring ONE option gets the free-text row composed from its own `free_text_offered`, never an invented arm (owner ruling 2026-09-09)",
-            !!oneArm.tool_input && oneArm.tool_input.questions[0].options.length === 2
-              && oneArm.tool_input.questions[0].options[0].label === "The only declared arm",
-            JSON.stringify((oneArm.tool_input || {}).questions || oneArm.unavailable));
+            !!oneArm.call && oneArm.call.questions[0].options.length === 2
+              && oneArm.call.questions[0].options[0].label === oneGate.options[0].label,
+            JSON.stringify((oneArm.call || {}).questions || oneArm.r));
+          const mute = emitOne("mute", { free_text_offered: false });
           ok("a gate declaring one option and NO free text composes no call at all, and the reason is stated rather than an arm being invented",
-            !composeGateCall({ id: "fixture-mute", question: "?", options: [{ id: "a", label: "A" }], free_text_offered: false }).tool_input,
-            composeGateCall({ id: "fixture-mute", question: "?", options: [{ id: "a", label: "A" }], free_text_offered: false }).unavailable);
+            !mute.r.driveFailed && !mute.call && !!mute.pointer && typeof mute.pointer.gate_call_unavailable === "string"
+              && mute.pointer.gate_call_unavailable.length > 0,
+            JSON.stringify(mute.pointer || mute.r));
         }
         // THE SHARED QUESTION-SHAPE CHECK, AT COMPOSE (kogaki#1118).
         //
@@ -834,23 +1104,40 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
         // in CI, which is exactly where a wedge would next be introduced.
         {
           const shapeDir = mkdtempSync(join(tmpdir(), "terrain-selftest-shape-"));
-          const realCmd = questionShapeCommand();
+          // THE COMMAND THE RUNTIME ASKS, named the way it names it: the
+          // override, else the install path `issue-sync install-hooks` writes.
+          const realCmd = process.env.KOGAKI_QUESTION_SHAPE_CMD || join(homedir(), ".claude", "tools", "issue-sync");
           const probe = spawnSync(realCmd, ["lint-question"], { input: '{"questions":[]}', encoding: "utf8" });
           const realAnswers = !probe.error && (probe.status === 0 || probe.status === 1);
+
+          // ONE EMIT OF THE THESIS GATE, in a child under isolated pointer and
+          // sidecar directories (kogaki#1257): `emitGateDeclaration` composes
+          // the call and writes it beside the declaration, so the composed
+          // payload is read off the file rather than off an internal's return.
+          const emitThesis = (name, dynamicOptions, env = {}) => {
+            const d = join(shapeDir, `thesis-${name}`);
+            mkdirSync(d, { recursive: true });
+            const r = drive(`rt.emitGateDeclaration(${JSON.stringify(d)}, "brief-thesis-adoption", ${JSON.stringify(dynamicOptions)}, {});\nconsole.log("{}");`, {
+              KOGAKI_OPEN_GATES: join(shapeDir, `open-gates-${name}`),
+              GATE_DECLARATION_SIDECAR_DIR: join(shapeDir, `gate-declarations-${name}`),
+              CLAUDE_CODE_SESSION_ID: `terrain-selftest-thesis-${name}`,
+              ...env,
+            });
+            const callFile = join(d, `brief-thesis-adoption${GATE_CALL_SUFFIX}`);
+            const declFile = join(d, `brief-thesis-adoption${GATE_SCHEMA.capture.run_declaration_suffix}`);
+            return { dir: d, r, callFile, declFile, tool_input: existsSync(callFile) ? readJson(callFile) : null };
+          };
 
           // The thesis gate, composed as a run composes it -- two served
           // addresses in the settled set, the registry's own standing options
           // merged in beneath them by `emitGateDeclaration`'s own rule.
           const thesisGate = JSON.parse(JSON.stringify(
             (GATES_REGISTRY.gates || []).find((g) => g.id === "brief-thesis-adoption")));
-          thesisGate.options = [
-            { id: "adopt", label: "Adopt the Thesis as named above" },
-            ...thesisGate.options,
-          ];
-          const thesisCall = composeGateCall(thesisGate);
+          const adoptOption = { id: "adopt", label: "Adopt the Thesis as named above" };
+          const thesisCall = emitThesis("composed", [adoptOption], { KOGAKI_QUESTION_SHAPE_CMD: realCmd });
           ok("the Brief's thesis gate composes a call at all, over a settled set of two served addresses",
             !!thesisCall.tool_input,
-            JSON.stringify(thesisCall.refused || thesisCall.unavailable || thesisCall.over_bound || "composed"));
+            JSON.stringify(thesisCall.r.driveFailed ? thesisCall.r.stderr : "composed"));
           if (realAnswers) {
             const verdict = spawnSync(realCmd, ["lint-question"],
               { input: JSON.stringify(thesisCall.tool_input), encoding: "utf8" });
@@ -859,7 +1146,7 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
               `exit=${verdict.status} ${(verdict.stderr || "").trim().slice(0, 200)}`);
           } else {
             ok("the toolkit's question-shape command does not answer on this machine, so acceptance 1 is typed CANNOT-ESTABLISH rather than reported clean — it is machine-local, outside this repository, and its absence degrades HOW the rule is applied and never WHETHER the gate composes",
-              !thesisCall.refused, `${realCmd}: ${probe.error ? probe.error.code : `exit=${probe.status}`}`);
+              !thesisCall.r.driveFailed, `${realCmd}: ${probe.error ? probe.error.code : `exit=${probe.status}`}`);
           }
 
           // THE REFUSING COMMAND, AND THE START ACT UNDER IT (acceptance 2).
@@ -887,12 +1174,13 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
           const gatesDir = join(shapeDir, "open-gates");
           const driver = join(shapeDir, "driver.mjs");
           writeFileSync(driver,
-            `import { emitGateDeclaration } from ${JSON.stringify(resolve("src/terrain.mjs"))};\n`
+            `import { emitGateDeclaration } from ${JSON.stringify(RUNTIME_URL)};\n`
             + `emitGateDeclaration(${JSON.stringify(emitDir)}, "brief-thesis-adoption",\n`
             + `  [{ id: "adopt", label: "Adopt the Thesis as named above (a note)" }], {});\n`);
           const run = spawnSync(process.execPath, [driver], {
             encoding: "utf8",
-            env: { ...process.env, KOGAKI_QUESTION_SHAPE_CMD: stub, KOGAKI_OPEN_GATES: gatesDir },
+            env: { ...process.env, KOGAKI_QUESTION_SHAPE_CMD: stub, KOGAKI_OPEN_GATES: gatesDir,
+              GATE_DECLARATION_SIDECAR_DIR: join(shapeDir, "gate-declarations"), CLAUDE_CODE_SESSION_ID: "terrain-selftest-shape" },
           });
           const emitted = existsSync(emitDir) ? readdirSync(emitDir) : [];
           const pointers = existsSync(gatesDir) ? readdirSync(gatesDir) : [];
@@ -914,6 +1202,8 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
               ...process.env,
               KOGAKI_QUESTION_SHAPE_CMD: join(shapeDir, "no-such-command"),
               KOGAKI_OPEN_GATES: join(shapeDir, "open-gates-absent"),
+              GATE_DECLARATION_SIDECAR_DIR: join(shapeDir, "gate-declarations-absent"),
+              CLAUDE_CODE_SESSION_ID: "terrain-selftest-shape",
             },
           });
           ok("a machine with NO question-shape command renders the gate rather than refusing it — the early refusal is lost, the refusal is not, because the installed hook still guards delivery",
@@ -928,18 +1218,6 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
           // have, and a case that silently skips where the artifact is absent is
           // the reading this repository refuses.
           {
-            const stalled = join(shapeDir, "stalled-run");
-            mkdirSync(stalled, { recursive: true });
-            const decl = {
-              ...thesisGate,
-              options: thesisGate.options.map((o) => (
-                o.id === "back-to-terrain"
-                  ? { ...o, label: `${o.label} (a Brief never fetches)` }
-                  : o)),
-              declared_at: new Date().toISOString(),
-              run_declaration: true,
-              gate_instance_id: "fixture-instance-1118",
-            };
             // STAGED BY THE REAL COMPOSER UNDER AN ADMITTING COMMAND, not by a
             // literal written here (PR #1119 round 1). What is being staged is a
             // file an OLDER runtime wrote — one with no compose-time check at
@@ -947,44 +1225,81 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
             // to hand-build the payload beside it: a second composer here would
             // omit the free-text row and the folded reading, so the refresh
             // would be driven over bytes no runtime ever wrote and the case
-            // would be green either way.
+            // would be green either way. Since kogaki#1257 the composer is
+            // reached through `emitGateDeclaration` in a child, and the older
+            // runtime's declaration is completed by dropping the one field it
+            // could not have carried, `run_composed_option_ids`.
             const admitting = join(shapeDir, "admitting-issue-sync");
             writeFileSync(admitting, "#!/usr/bin/env bash\ncat >/dev/null\nexit 0\n");
             chmodSync(admitting, 0o755);
-            const savedCmd = process.env.KOGAKI_QUESTION_SHAPE_CMD;
-            process.env.KOGAKI_QUESTION_SHAPE_CMD = admitting;
-            resetQuestionShapeSupported();
-            const stale = composeGateCall(decl);
-            if (savedCmd === undefined) delete process.env.KOGAKI_QUESTION_SHAPE_CMD;
-            else process.env.KOGAKI_QUESTION_SHAPE_CMD = savedCmd;
-            resetQuestionShapeSupported();
+            const backToTerrain = thesisGate.options.find((o) => o.id === "back-to-terrain");
+            const staged = emitThesis("stalled", [
+              adoptOption, { ...backToTerrain, label: `${backToTerrain.label} (a Brief never fetches)` },
+            ], { KOGAKI_QUESTION_SHAPE_CMD: admitting });
             ok("the pre-repair payload is staged by the real composer, so the refresh is driven over the bytes a runtime actually wrote — free-text row and folded reading included",
-              !!stale.tool_input, JSON.stringify(stale.refused || stale.unavailable || "composed"));
-            writeFileSync(join(stalled, `brief-thesis-adoption${GATE_SCHEMA.capture.run_declaration_suffix}`),
-              JSON.stringify(decl, null, 2) + "\n");
-            writeFileSync(join(stalled, `brief-thesis-adoption${GATE_CALL_SUFFIX}`),
-              JSON.stringify(stale.tool_input, null, 2) + "\n");
-            const before = questionShapeRefusal(readJson(join(stalled, `brief-thesis-adoption${GATE_CALL_SUFFIX}`)));
-            const did = refreshWrittenGateCall(stalled, "brief-thesis-adoption");
-            const after = questionShapeRefusal(readJson(join(stalled, `brief-thesis-adoption${GATE_CALL_SUFFIX}`)));
+              !!staged.tool_input, JSON.stringify(staged.r.driveFailed ? staged.r.stderr : "composed"));
+            const decl = existsSync(staged.declFile) ? readJson(staged.declFile) : { options: [] };
+            delete decl.run_composed_option_ids;
+            writeFileSync(staged.declFile, JSON.stringify(decl, null, 2) + "\n");
+
+            // THE RE-ENTRY IS A REAL ONE: a run record standing at no wait, whose
+            // gate wait already owes the staged declaration, so `run` walks to
+            // the wait, finds the declaration composed, and stops — the branch
+            // that prints the written call, and the one the refresh stands in.
+            const stalledTable = join(shapeDir, "stalled-table.json");
+            writeFileSync(stalledTable, JSON.stringify({ version: 1, states: [
+              { id: "THESIS", kind: "wait", owner_supplies: "a Thesis, or the standing option",
+                renders_gate_declaration: true, gate_id: "brief-thesis-adoption" },
+              { id: "done", kind: "terminal" },
+            ] }));
+            const seed = JSON.stringify({
+              workflow: { path: stalledTable, version: 1 }, survey_record: surveyPath,
+              completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+              awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+              gate_declarations_owed: [{ state: "THESIS", gate_id: "brief-thesis-adoption", declaration: staged.declFile }],
+              done: false,
+            });
+            const reenter = () => {
+              writeFileSync(join(staged.dir, RUN_RECORD_FILE), seed);
+              return terrain(["run", "--run-dir", staged.dir, "--workflow", stalledTable], { input: FIXTURE_PAYLOAD, env: {
+                KOGAKI_OPEN_GATES: join(shapeDir, "open-gates-reentry"),
+                GATE_DECLARATION_SIDECAR_DIR: join(shapeDir, "gate-declarations-reentry"),
+                CLAUDE_CODE_SESSION_ID: "terrain-selftest-reentry",
+                KOGAKI_QUESTION_SHAPE_CMD: realCmd,
+              } });
+            };
+            const refreshNote = /NOTE: the call written by the earlier stop carried a label the shared question-shape check refuses/;
+            // THE RULE'S VERDICT ON A FILE, asked of the command itself: the
+            // refusal text when it refuses, null when it admits or cannot answer.
+            const refusalOf = (file) => {
+              if (!realAnswers || !existsSync(file)) return null;
+              const v = spawnSync(realCmd, ["lint-question"], { input: readFileSync(file, "utf8"), encoding: "utf8" });
+              return v.status === 1 ? ((v.stderr || "").trim() || "refused") : null;
+            };
+            const writtenBytes = existsSync(staged.callFile) ? readFileSync(staged.callFile, "utf8") : "";
+            const before = refusalOf(staged.callFile);
+            const first = reenter();
+            const did = first.status === 0 && refreshNote.test(first.out);
+            const after = refusalOf(staged.callFile);
             if (realAnswers) {
               ok("a gate call WRITTEN before the label repair is refused, refreshed from the registry's standing options at re-entry, and admissible afterwards — so the run that stalled on 2026-09-14 shows its gate rather than staying stalled across the fix (kogaki#1118 acceptance 4)",
-                !!before && !!did && !after,
-                `before=${!!before} refreshed=${!!did} after=${!!after}`);
+                !!before && did && !after,
+                `before=${!!before} refreshed=${did} after=${!!after} ${first.out.trim().split("\n").slice(-1)[0].slice(0, 120)}`);
+              const second = reenter();
               ok("and the refresh is a no-op on a call the check admits, so re-entry does not rewrite a payload nothing objected to",
-                refreshWrittenGateCall(stalled, "brief-thesis-adoption") === null,
-                "second call");
+                second.status === 0 && !refreshNote.test(second.out),
+                `second re-entry exit=${second.status}`);
             } else {
               ok("the question-shape command does not answer here, so the re-entry refresh has nothing to judge and rewrites nothing — acceptance 4's assertion is typed CANNOT-ESTABLISH on this machine rather than reported clean",
-                !before && did === null, `before=${!!before} refreshed=${!!did}`);
+                !before && first.status === 0 && !did, `before=${!!before} refreshed=${did} exit=${first.status}`);
               ok("and the written call is left exactly as the earlier stop wrote it, which is what an unapplied rule owes",
-                !after, "unchanged");
+                !after && existsSync(staged.callFile) && readFileSync(staged.callFile, "utf8") === writtenBytes, "unchanged");
             }
-            const declAfter = readJson(join(stalled, `brief-thesis-adoption${GATE_SCHEMA.capture.run_declaration_suffix}`));
+            const declAfter = existsSync(staged.declFile) ? readJson(staged.declFile) : {};
             ok("the declaration is refreshed WITH the call and keeps its instance id — the answer's join key is the same raising of the same gate, and the capture's `options_offered` is judged against a declaration that matches what was shown",
-              declAfter.gate_instance_id === "fixture-instance-1118"
-                && declAfter.options.length === decl.options.length,
-              `instance=${declAfter.gate_instance_id} options=${declAfter.options.length}`);
+              !!decl.gate_instance_id && declAfter.gate_instance_id === decl.gate_instance_id
+                && (declAfter.options || []).length === decl.options.length,
+              `instance=${declAfter.gate_instance_id} options=${(declAfter.options || []).length}`);
           }
           rmSync(shapeDir, { recursive: true, force: true });
         }
@@ -1311,21 +1626,27 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
             rStartPtr.status === 0 && !existsSync(ptr), `exit ${rStartPtr.status}`);
 
           // The pointer's own round trip, driven the way the start act writes
-          // it. Read IN PROCESS, so the override has to be set here too — the
-          // spawns above carry it in the child's environment.
-          const heldPtrEnv = process.env.KOGAKI_OPEN_RUN;
-          process.env.KOGAKI_OPEN_RUN = ptr;
+          // it, and READ the way an advance reads it (kogaki#1257): `run
+          // --status` with no `--run-dir` resolves the open run through the
+          // pointer and names the record it read, so the record line is the
+          // workspace the pointer resolved to.
+          const statusVia = () => {
+            const r = terrain(["run", "--workflow", startTable2, "--status"], { env: { KOGAKI_OPEN_RUN: ptr } });
+            const m = r.out.match(/^Run record: (.*)$/m);
+            return { ...r, dir: m ? dirname(m[1]) : null };
+          };
           writeFileSync(ptr, `${rdPtr}\n`);
+          const viaPtr = statusVia();
           ok("an advance with the pointer set resolves the SAME workspace the start act opened — the run the answer belongs to",
-            readOpenRunPointer() === resolve(rdPtr), String(readOpenRunPointer()));
+            viaPtr.status === 0 && viaPtr.dir === resolve(rdPtr), String(viaPtr.dir || viaPtr.out.trim().split("\n")[0]));
           // A POINTER TO A WORKSPACE THAT IS GONE IS NOT A RUN. A `runs/` prune
           // or a hand-cleaned lane leaves the file behind, and resolving it
           // would advance into a directory with no record in it.
           writeFileSync(ptr, `${join(gs, "not-a-run")}\n`);
+          const viaGone = statusVia();
           ok("a pointer naming a workspace that no longer exists reads as NO open run, rather than resolving to an empty directory",
-            readOpenRunPointer() === null, String(readOpenRunPointer()));
-          if (heldPtrEnv === undefined) delete process.env.KOGAKI_OPEN_RUN;
-          else process.env.KOGAKI_OPEN_RUN = heldPtrEnv;
+            viaGone.status !== 0 && /no Terrain run is open/.test(viaGone.out),
+            viaGone.out.trim().split("\n")[0].slice(0, 160));
         }
 
         // THE STANDING OPTION IS ROUTED NOWHERE, AND SAYS SO (PR #898 round 1).
@@ -1416,8 +1737,13 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
         spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: envFor("shared") });
         const declTwin = readJson(join(rdTwin, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
         ok("two raisings of one gate over one input compose an IDENTICAL option-set digest and DIFFERENT instance ids — so the nonce is doing work the digest cannot",
-          ownerGateDigest(declTwin.id, declTwin.options.map((o) => o.id))
-            === ownerGateDigest(declFree.id, declFree.options.map((o) => o.id))
+          // THE DIGEST'S WHOLE INPUT is `[gate_id, [option ids]]` on both sides of
+          // the seam — `checks/check-gate-capture-hook.sh` holds the runtime's
+          // and the hook's digests equal over it — so two raisings whose
+          // canonical inputs are byte-equal digest identically (kogaki#1257:
+          // compared at the input, the digest function being internal).
+          JSON.stringify([declTwin.id, declTwin.options.map((o) => o.id)])
+            === JSON.stringify([declFree.id, declFree.options.map((o) => o.id)])
             && declTwin.gate_instance_id !== declFree.gate_instance_id);
         // The twin's capture is handed the OTHER run's answered row verbatim.
         writeFileSync(join(rdTwin, `terrain${GATE_SCHEMA.capture.suffix}`),
@@ -1619,37 +1945,28 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
         // transitions carry `executor: "skill-expansion"` — the same object
         // this drives the writer with.
         //
-        // DRIVEN AT THE WRITER RATHER THAN THROUGH `start` BECAUSE THE CLI
-        // START CANNOT REACH A GATE HERE: the start act mints its own run
-        // record, its first state is the survey, and the survey state runs
-        // `cmdSurvey` against the gateway — which this pass, being seam-free by
-        // construction, does not have. A fixture that pre-wrote the survey
-        // record would be refused as a resumption, which is the start act's own
-        // rule working correctly.
+        // DRIVEN THROUGH `start` (kogaki#1257). The start act mints its own
+        // run record and its first state is the survey, which reads the seam;
+        // the fake gateway serves it, so a two-state table — `survey`, then the
+        // tag gate — carries the start act to a gate and the pointer it writes
+        // is read as written. The writer was driven directly before, because
+        // this pass then had no seam to give the survey state.
         {
           const startGates = gatesFor("startwriter");
-          const rdSW = join(gs, "rd-start-writer");
-          mkdirSync(rdSW, { recursive: true });
-          const declSW = {
-            id: "terrain-tag-selection", question: "Which tag does the survey open on?",
-            gate_instance_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-            declared_at: new Date().toISOString(),
-          };
-          const declPathSW = join(rdSW, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`);
-          writeFileSync(declPathSW, JSON.stringify(declSW, null, 2) + "\n");
-          const savedGates = process.env.KOGAKI_OPEN_GATES;
-          process.env.KOGAKI_OPEN_GATES = startGates;
-          try {
-            setOpenedBy(SKILL_EXPANSION_EXECUTOR);
-            writeOpenGatePointer(rdSW, declSW, declPathSW);
-          } finally {
-            setOpenedBy(null);
-            if (savedGates === undefined) delete process.env.KOGAKI_OPEN_GATES;
-            else process.env.KOGAKI_OPEN_GATES = savedGates;
-          }
+          const swDir = join(gs, "start-writer");
+          const swTable = join(swDir, "table.json");
+          mkdirSync(swDir, { recursive: true });
+          writeFileSync(swTable, JSON.stringify({ version: 1, states: [
+            { id: "survey", kind: "compute" },
+            { id: "TAG_SELECTION", kind: "wait", owner_supplies: "one tag name, or the standing option",
+              renders_gate_declaration: true, gate_id: "terrain-tag-selection" },
+            { id: "done", kind: "terminal" },
+          ] }));
+          const rSW = terrain(["start", "--run-dir", join(swDir, "rd"), "--workflow", swTable],
+            { env: { ...envFor("startwriter"), ...gateway(swDir, LONE_ANSWERS) } });
           ok("a pointer written under the START attribution records `opened_by: skill-expansion` — the one state in which no model turn can yet have run, and the one the prompt arm admits",
-            (readOnly("startwriter") || {}).opened_by === "skill-expansion",
-            JSON.stringify((readOnly("startwriter") || {}).opened_by));
+            rSW.status === 0 && existsSync(startGates) && (readOnly("startwriter") || {}).opened_by === "skill-expansion",
+            JSON.stringify((readOnly("startwriter") || {}).opened_by || rSW.out.trim().split("\n").slice(-1)[0].slice(0, 140)));
         }
 
         rmSync(gs, { recursive: true, force: true });
@@ -1664,62 +1981,188 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
     // had been, and — the direction a provenance case is usually blind in —
     // that the observed form is still emittable, so the repair is a split and
     // not a blanket downgrade.
+    //
+    // BOTH ARMS ARE READ OFF WHAT THE COMMANDS WROTE (kogaki#1257). The declared
+    // arm is `cotags` and `report` handed a `--subdivisions` record; the observed
+    // arm is a run whose `J2_subdivision` asked a stub judge itself, which is the
+    // only act that makes a provenance observed. The old cases composed the
+    // observed arm from a hand-built invocation record carrying an `id`, a field
+    // the executor never writes, so every observed line a real run rendered
+    // named its record `undefined` while they passed; the run below is what
+    // sees that.
+    // A SURVEY WITH ONE SUBDIVIDABLE GROUP AND ONE SMALL ONE, minted by `survey`
+    // over the fixture gateway: six Lessons under `fix × wide` (G2) and two
+    // under `fix × narrow` (G1).
+    const FIX_ANSWERS = (() => {
+      const recs = [
+        ...[1, 2, 3, 4, 5, 6].map((i) => ({ kind: "lesson", slug: `w${i}`, tags: ["fix", "wide"] })),
+        ...[1, 2].map((i) => ({ kind: "lesson", slug: `n${i}`, tags: ["fix", "narrow"] })),
+      ];
+      return {
+        element_survey: { lines: recs.map(servedLine), pin: "product-lab@aaaaaaa" },
+        surface_names: { lines: [{ text: "lessons/tag=fix,window=2026-08" }] },
+        gloss_index: { "*": { lines: [] } },
+      };
+    })();
+    const FIX_GW = gateway(join(SCRATCH, "fix-gw"), FIX_ANSWERS);
+    const FIX_SURVEY = (() => {
+      const rd = join(SCRATCH, "fix-survey");
+      terrain(["survey", "--run-dir", rd], { env: FIX_GW });
+      const f = existsSync(rd) ? readdirSync(rd).find((x) => x.endsWith(".terrain-survey.json")) : null;
+      return f ? join(rd, f) : join(rd, "(survey refused)");
+    })();
+    const fixSubgroup = (name, ms) => ({
+      name, claim: `A fixture claim over ${ms.length} member(s).`, members: ms,
+      verdicts: { coherence: "tight", coherence_why: "a fixture reason" },
+    });
+    const WIDE = [1, 2, 3, 4, 5, 6].map((i) => `lesson:w${i}`);
+    const FIX_SUBDIVISIONS = join(SCRATCH, "fix-subdivisions.json");
+    writeFileSync(FIX_SUBDIVISIONS, JSON.stringify({
+      "fix × wide": { judged: true, subgroups: [fixSubgroup("the first half", WIDE.slice(0, 3)), fixSubgroup("the second half", WIDE.slice(3))] },
+      "fix × narrow": { judged: true, subgroups: [] },
+    }));
+    const fixSha = createHash("sha256").update(readFileSync(FIX_SUBDIVISIONS)).digest("hex").slice(0, 16);
+    // The judge-pin block a display carries: its first line and every hanging
+    // continuation under it.
+    const pinBlock = (text, head) => {
+      const lines = String(text).split("\n");
+      const at = lines.findIndex((l) => l.startsWith(head));
+      if (at < 0) return null;
+      let end = at + 1;
+      while (end < lines.length && lines[end].startsWith("  ")) end++;
+      return lines.slice(at, end).join("\n");
+    };
+    const DECLARED_HEAD = "judge pin DECLARED — ";
+    const OBSERVED_HEAD = "judged by ";
+    const declaredDisplay = (model = "a-model") => terrain(["cotags", "--survey", FIX_SURVEY, "--tag", "fix",
+      "--subdivisions", FIX_SUBDIVISIONS, "--judge-model", model, "--judge-effort", "high",
+      "--rendering-dir", join(SCRATCH, "fix-cotags-rendering")], { env: FIX_GW });
+
+    // A RUN SEEDED PAST ITS WAITS, over a table narrowed to the states named.
+    // The record is written as the executor writes a fresh one, with the waits'
+    // answers already in `owner_input`, so the run starts at the first named
+    // state and stops only at the terminal one. The judge is a stub that splits
+    // a group of six or more in half and judges a smaller one empty.
+    const STUB_JUDGE = join(SCRATCH, "stub-judge.mjs");
+    writeFileSync(STUB_JUDGE, [
+      "#!/usr/bin/env node",
+      'import { readFileSync } from "node:fs";',
+      'if (process.argv.includes("--version")) { console.log("stub-judge 1.0"); process.exit(0); }',
+      'const text = readFileSync(0, "utf8");',
+      'const input = JSON.parse(text.slice(text.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));',
+      'const sg = (name, ms) => ({ name, claim: `A fixture claim over ${ms.length} member(s).`, members: ms, verdicts: { coherence: "tight", coherence_why: "a fixture reason" } });',
+      "const out = {};",
+      "for (const g of input.groups) {",
+      "  const h = Math.floor(g.members.length / 2);",
+      "  out[g.name] = { judged: true, claim: `The fixture claim for ${g.name}.`,",
+      '    subgroups: g.members.length >= 6 ? [sg("the first half", g.members.slice(0, h)), sg("the second half", g.members.slice(h))] : [] };',
+      "}",
+      "process.stdout.write(JSON.stringify({ result: JSON.stringify(out) }));",
+    ].join("\n") + "\n");
+    chmodSync(STUB_JUDGE, 0o755);
+    const SHIPPED_TABLE = readJson(TERRAIN_WORKFLOW_TABLE);
+    const seededRun = (name, { states, ownerInput, survey = FIX_SURVEY, judge = {}, env = FIX_GW, extra = [] }) => {
+      const d = join(SCRATCH, `seeded-${name}`);
+      const rd = join(d, "rd");
+      mkdirSync(rd, { recursive: true });
+      const table = {
+        version: SHIPPED_TABLE.version,
+        judge: { ...SHIPPED_TABLE.judge, ...judge },
+        owner_artifacts: SHIPPED_TABLE.owner_artifacts,
+        states: SHIPPED_TABLE.states.filter((s) => states.includes(s.id)),
+      };
+      const tp = join(d, "table.json");
+      writeFileSync(tp, JSON.stringify(table));
+      writeFileSync(join(rd, RUN_RECORD_FILE), JSON.stringify({
+        workflow: { path: tp, version: table.version }, judge_binary: null, survey_record: survey,
+        completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [], awaiting: null,
+        owner_input: ownerInput, artifacts_written: [], judgments: {}, gate_declarations_owed: [], transitions: [], done: false,
+      }));
+      const rendering = join(d, "rendering");
+      const reports = join(d, "reports");
+      const r = terrain(["run", "--run-dir", rd, "--workflow", tp, "--report-dir", reports, ...extra], {
+        input: FIXTURE_PAYLOAD, env: { ...env, KOGAKI_JUDGE_CLI: STUB_JUDGE, KOGAKI_REPORTS_DIR: rendering },
+      });
+      const read = (p) => (existsSync(p) ? readFileSync(p, "utf8") : "");
+      return { ...r, rd, reports, display: read(join(rendering, "CoTagGroups.md")), report: read(join(rendering, "FullReport.md")) };
+    };
+    const observedRun = seededRun("observed", {
+      states: ["compose_input", "J2_subdivision", "cotag_groups", "full_report", "done"],
+      ownerInput: { TAG_SELECTION: "fix", ID_SELECTION: "G1,G2" },
+    });
+    // The report the declared arm writes: the same pull, handed the record.
+    const fixReport = (name, extra = []) => {
+      const d = join(SCRATCH, `fix-report-${name}`);
+      const r = terrain(["report", "--survey", FIX_SURVEY, "--tag", "fix", "--ids", "G1,G2",
+        "--judge-model", "a-model", "--judge-effort", "high", "--subdivisions", FIX_SUBDIVISIONS,
+        "--report-dir", join(d, "reports"), "--rendering-dir", join(d, "rendering"), ...extra], { env: FIX_GW });
+      const reports = join(d, "reports");
+      const recFile = existsSync(reports) ? readdirSync(reports).find((f) => f.endsWith(".json")) : null;
+      const rendering = join(d, "rendering", "FullReport.md");
+      return { ...r, recordPath: recFile ? join(reports, recFile) : null,
+        record: recFile ? readJson(join(reports, recFile)) : null,
+        report: existsSync(rendering) ? readFileSync(rendering, "utf8") : "" };
+    };
+    const declaredReport = fixReport("declared");
+    const judgeLineOf = (report) => (String(report).split("\n").find((l) => l.startsWith("*Judge:*")) || "");
+    const noticeOf = (report, first) => {
+      const lines = String(report).split("\n");
+      const at = lines.findIndex((l) => l.startsWith(first));
+      if (at < 0) return [];
+      let end = at;
+      while (end < lines.length && !lines[end].endsWith("*")) end++;
+      return lines.slice(at, end + 1);
+    };
     {
       const grammar = loadGrammar(REPORT_FORMAT);
-      const admits = (surface, text) => validateSurface(surface, text, grammar)
-        .every((v) => !/line_class_allowlist/.test(v));
-      const pin = { model_id: "a-model", effort_tier: "high" };
-      const declared = { state: JUDGMENT_DECLARED, artifact_sha: "0123456789abcdef", invocation: null };
-      const observed = { state: JUDGMENT_OBSERVED, artifact_sha: "0123456789abcdef", invocation: { id: "inv-1" } };
+      const admits = (surface, text) => text !== null && text !== ""
+        && validateSurface(surface, text, grammar).every((v) => !/line_class_allowlist/.test(v));
+      const declaredText = declaredDisplay();
+      const declared = pinBlock(declaredText.stdout, DECLARED_HEAD);
+      const observed = pinBlock(observedRun.stdout, OBSERVED_HEAD);
+      const declaredNotice = noticeOf(declaredReport.report, "*NO SPLIT IS RECORDED");
+      const observedNotice = noticeOf(observedRun.report, "*The judgment produced NO split");
 
-      // THE STATE, not the text: terrain invokes no judge, so the only
-      // provenance a run can compute is `declared`. A future act that invokes
-      // one flips `harnessJudgeInvocation` and this case with it.
+      // THE STATE, not the text: a pull handed its record on argv invokes no
+      // judge, so the only provenance it can compute is `declared`, and the
+      // record it writes says so with no invocation record beside it.
       ok("terrain invokes no judge, so a computed provenance is DECLARED and carries no invocation record",
-        judgmentProvenance(null).state === JUDGMENT_DECLARED
-        && harnessJudgeInvocation() === null
-        && judgmentProvenance(null).invocation === null);
+        declaredReport.status === 0 && !!declaredReport.record
+        && declaredReport.record.judgment_provenance.state === "declared"
+        && declaredReport.record.judgment_provenance.invocation === null);
 
       // The sha is taken by THIS layer from the bytes on disk — the one thing
       // about the judgment the Harness actually observed.
-      {
-        const dir = join(tmpdir(), `terrain-selftest-prov-${process.pid}`);
-        mkdirSync(dir, { recursive: true });
-        const f = join(dir, "subdivisions.json");
-        writeFileSync(f, JSON.stringify({ G1: { judged: true, subgroups: [] } }));
-        const expect = createHash("sha256").update(readFileSync(f)).digest("hex").slice(0, 16);
-        ok("the provenance takes the subdivisions record's sha from the bytes on disk, not from anything the record declares",
-          judgmentProvenance(f).artifact_sha === expect && expect.length === 16);
-        rmSync(dir, { recursive: true, force: true });
-      }
+      ok("the provenance takes the subdivisions record's sha from the bytes on disk, not from anything the record declares",
+        !!declaredReport.record && declaredReport.record.judgment_provenance.artifact_sha === fixSha && fixSha.length === 16);
 
       // The display line. The pre-#892 text is the discriminator: a line that
       // still opens `judged by` under a DECLARED provenance is the defect.
       ok("under a declared provenance the display says the pin is DECLARED and does not say the judgment was observed",
-        /^judge pin DECLARED — a-model \/ high\./.test(judgePinLine(pin, declared))
-        && !/^judged by/.test(judgePinLine(pin, declared))
-        && judgePinLine(pin, declared).includes("0123456789abcdef"));
+        declared !== null && /^judge pin DECLARED — a-model \/ high\./.test(declared)
+        && !/^judged by/m.test(declaredText.stdout)
+        && declared.includes(fixSha));
       ok("the OBSERVED form is still composable and names the Harness's own invocation record — the repair is a split, not a blanket downgrade",
-        /^judged by a-model \/ high — OBSERVED/.test(judgePinLine(pin, observed))
-        && judgePinLine(pin, observed).includes("inv-1"));
+        observedRun.status === 0 && observed !== null
+        && /^judged by claude-opus-5 \/ high — OBSERVED/.test(observed)
+        && /`J2_subdivision@\d{4}-\d\d-\d\dT[^`]+`/.test(observed)
+        && !observed.includes("undefined"));
 
       // Both forms must reach the surface: a grammar admitting only the one the
       // runtime happens to emit today would refuse the other the moment a
       // judge-invoking act existed, which is the amend-it-later shape the
       // superseded entry beside it records.
       ok("cotag_groups admits BOTH judge-pin lines judgePinLine actually composes",
-        admits("cotag_groups", judgePinLine(pin, declared))
-        && admits("cotag_groups", judgePinLine(pin, observed)));
+        declaredText.status === 0 && admits("cotag_groups", declared) && admits("cotag_groups", observed));
 
       // Acceptance 2. `no split recorded` under a declaration; the judged-empty
       // wording only where the judgment was observed.
       ok("a judged-empty group renders NO SPLIT IS RECORDED under a declared provenance, and the judged-empty wording only under an observed one",
-        judgedEmptyNoticeLines(declared)[0].startsWith("*NO SPLIT IS RECORDED")
-        && !judgedEmptyNoticeLines(declared).join(" ").includes("this is a judged-empty outcome")
-        && judgedEmptyNoticeLines(observed).join(" ").includes("this is a judged-empty outcome"));
+        declaredNotice.length > 0
+        && !declaredReport.report.includes("this is a judged-empty outcome")
+        && observedNotice.join(" ").includes("this is a judged-empty outcome"));
       ok("full_report admits BOTH judged-empty notices judgedEmptyNoticeLines actually composes",
-        admits("full_report", judgedEmptyNoticeLines(declared).join("\n"))
-        && admits("full_report", judgedEmptyNoticeLines(observed).join("\n")));
+        admits("full_report", declaredNotice.join("\n")) && admits("full_report", observedNotice.join("\n")));
 
       // A report record written before the field existed renders DECLARED. The
       // direction matters: the safe default for a record that cannot show an
@@ -1730,27 +2173,32 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // while the report's counterpart notice carrying the same content was
       // hand-wrapped. These cases bound the width rather than describe it.
       ok("both judge-pin arms render inside the display wrap column, and no line of either exceeds it",
-        [judgePinLine(pin, declared), judgePinLine(pin, observed)]
-          .every((text) => text.split("\n").length > 1
-            && text.split("\n").every((l) => l.length <= DISPLAY_WRAP_COLUMNS)));
+        [declared, observed].every((text) => text !== null && text.split("\n").length > 1
+          && text.split("\n").every((l) => l.length <= DISPLAY_WRAP_COLUMNS)));
       // The column is TAKEN from the report notice, so the two surfaces cannot
       // wrap at two columns. This case is what binds them: widen one and the
       // other's own lines are measured against it.
       ok("the wrap column still fits the report notice it was taken from, on both of that notice's arms",
-        [...judgedEmptyNoticeLines(declared), ...judgedEmptyNoticeLines(observed)]
-          .every((l) => l.length <= DISPLAY_WRAP_COLUMNS));
-      // A value the owner might copy is never split across lines.
+        declaredNotice.length > 0 && observedNotice.length > 0
+        && [...declaredNotice, ...observedNotice].every((l) => l.length <= DISPLAY_WRAP_COLUMNS));
+      // A value the owner might copy is never split across lines. The token
+      // longer than the column is a model id: it rides the head, which is
+      // emitted whole on the first line however long.
       ok("wrapping breaks on spaces only — a token longer than the column is emitted whole rather than broken",
-        judgePinLine(pin, declared).includes("`0123456789abcdef`")
-        && judgePinLine(pin, observed).includes("`inv-1`")
-        && wrapDisplayLine("a ".repeat(3) + "x".repeat(120), 20).some((l) => l.includes("x".repeat(120))));
+        declared !== null && declared.includes(`\`${fixSha}\``)
+        && observed !== null && /`J2_subdivision@[^`\s]+`/.test(observed)
+        && (() => {
+          const long = "x".repeat(120);
+          const block = pinBlock(declaredDisplay(long).stdout, DECLARED_HEAD);
+          return block !== null && block.split("\n")[0].includes(long);
+        })());
       // Continuations are marked, and the grammar keys on the mark. A flush-left
       // continuation reads as a new statement, and would need a bare-placeholder
       // class to admit — which is what makes an allowlist inert.
       ok("continuation lines carry the hanging indent both arms' grammar class keys on",
-        [judgePinLine(pin, declared), judgePinLine(pin, observed)]
-          .every((text) => text.split("\n").slice(1).every((l) => l.startsWith("  "))
-            && !text.split("\n")[0].startsWith(" ")));
+        [declared, observed].every((text) => text !== null
+          && text.split("\n").slice(1).every((l) => l.startsWith("  "))
+          && !text.split("\n")[0].startsWith(" ")));
       // ---- PR #921 round 1 finding 1. THE PIN IS COMPOSER-SUPPLIED AND
       // UNBOUNDED, and the wrap made its length reach the grammar. A form
       // abbreviating one space past the pin clause demands a further word on
@@ -1761,12 +2209,20 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // it. This case is stated over the LENGTH rather than over one id: it
       // sweeps the whole range through and past the width, so a later change to
       // the column, the head or the form is measured against every crossing
-      // rather than against the one specimen that failed.
+      // rather than against the one specimen that failed. The declared arm is
+      // swept through `cotags`; the observed arm through a run whose table pins
+      // the long model, over the subdivision and display states alone.
       ok("a long composer-supplied judge pin still classifies — the pin clause is never wrapped off the first line, at any id length",
         [1, 20, 45, 48, 52, 60, 80, 140].every((n) => {
-          const long = { model_id: "m".repeat(n), effort_tier: "high" };
-          return [judgePinLine(long, declared), judgePinLine(long, observed)]
-            .every((text) => text.split("\n")[0].includes(`${long.model_id} / high`)
+          const model = "m".repeat(n);
+          const d = declaredDisplay(model);
+          const o = seededRun(`long-pin-${n}`, {
+            states: ["compose_input", "J2_subdivision", "cotag_groups", "done"],
+            ownerInput: { TAG_SELECTION: "fix" }, judge: { model },
+          });
+          return [[d, pinBlock(d.stdout, DECLARED_HEAD)], [o, pinBlock(o.stdout, OBSERVED_HEAD)]]
+            .every(([r, text]) => r.status === 0 && text !== null
+              && text.split("\n")[0].includes(`${model} / high`)
               && admits("cotag_groups", text));
         }));
 
@@ -1774,37 +2230,64 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // including the typed literal `none` — so the absence of a pin rendered
       // as `pin DECLARED`, an absence asserted as a declaration, which is #892's
       // own class one step over and arrived in the change that closed it.
+      //
+      // NO COMMAND MINTS A `none` PIN (kogaki#1257): `report` refuses a pull
+      // without one before it writes, and a stored record carrying one never
+      // shares an identity with a pull that has one, so it is recomputed rather
+      // than re-rendered. The case asserts that refusal, which is what keeps the
+      // absence from reaching the line at all.
       ok("a `none` pin renders no declaration: the report's judge line asserts nothing was declared and never says DECLARED",
-        reportJudgeLine({ judge_pin: NO_JUDGE }, declared).startsWith("*Judge:* `none` —")
-        && !/declared/i.test(reportJudgeLine({ judge_pin: NO_JUDGE }, declared))
-        && !/declared/i.test(reportJudgeLine({ judge_pin: NO_JUDGE }, observed)));
+        (() => {
+          const d = join(SCRATCH, "fix-report-no-pin");
+          const r = terrain(["report", "--survey", FIX_SURVEY, "--tag", "fix", "--ids", "G1",
+            "--subdivisions", FIX_SUBDIVISIONS, "--report-dir", join(d, "reports"),
+            "--rendering-dir", join(d, "rendering")], { env: FIX_GW });
+          return r.status !== 0 && /may never mint a judge pin\s+of `none`/.test(r.stderr)
+            && !(existsSync(join(d, "reports")) && readdirSync(join(d, "reports")).some((f) => f.endsWith(".json")))
+            && !existsSync(join(d, "rendering", "FullReport.md"));
+        })());
       // The direction a downgrade case is usually blind in: the two pinned arms
       // must still assert what they always did, or the repair is a blanket
       // silencing rather than a third arm.
+      const declaredLine = judgeLineOf(declaredReport.report);
+      const observedLine = judgeLineOf(observedRun.report);
       ok("a pinned report judge line still says DECLARED where the Harness observed nothing, and OBSERVED where it did",
-        /pin DECLARED, no Harness invocation record/.test(reportJudgeLine({ judge_pin: pin }, declared))
-        && /OBSERVED, Harness invocation record `inv-1`/.test(reportJudgeLine({ judge_pin: pin }, observed)));
+        /pin DECLARED, no Harness invocation record/.test(declaredLine)
+        && /OBSERVED, Harness invocation record `J2_subdivision@[^`]+`/.test(observedLine));
       // Acceptance 2. The rerun path re-renders a PRIOR record through this
       // same composer, so the clause must describe the RECORD; `observed:` read
       // as a claim about the run that re-read it, and a pre-#892 record
       // re-rendered by a `--subdivisions` rerun said the rerun observed nothing.
       ok("the report judge line names what the RECORD holds and never what the run passed, on all three arms",
-        [reportJudgeLine({ judge_pin: NO_JUDGE }, declared),
-          reportJudgeLine({ judge_pin: pin }, declared),
-          reportJudgeLine({ judge_pin: pin }, observed)]
-          .every((line) => /the record holds:|over subdivisions record sha/.test(line)
+        [declaredLine, observedLine]
+          .every((line) => line !== "" && /the record holds:|over subdivisions record sha/.test(line)
             && !/observed: /.test(line)));
       ok("full_report admits all three judge lines reportJudgeLine actually composes",
-        admits("full_report", reportJudgeLine({ judge_pin: NO_JUDGE }, declared))
-        && admits("full_report", reportJudgeLine({ judge_pin: pin }, declared))
-        && admits("full_report", reportJudgeLine({ judge_pin: pin }, observed)));
+        admits("full_report", declaredLine) && admits("full_report", observedLine));
 
+      // THE PRIOR RECORD, RE-RENDERED. A second identical pull replays the
+      // stored record through the same renderer, so what the record carries is
+      // what the rendering says: the field removed, and the field naming an
+      // observation.
       ok("a report record carrying no judgment_provenance reads as DECLARED rather than as observed",
-        provenanceOf({}).state === JUDGMENT_DECLARED
-        && provenanceOf(undefined).state === JUDGMENT_DECLARED
-        && provenanceOf({ judgment_provenance: observed }).state === JUDGMENT_OBSERVED);
+        (() => {
+          const rerender = (name, edit) => {
+            const first = fixReport(name);
+            if (!first.recordPath) return "";
+            const rec = readJson(first.recordPath);
+            edit(rec);
+            writeFileSync(first.recordPath, JSON.stringify(rec));
+            return judgeLineOf(fixReport(name).report);
+          };
+          const absent = rerender("prov-absent", (rec) => { delete rec.judgment_provenance; });
+          const observedRec = rerender("prov-observed", (rec) => {
+            rec.judgment_provenance = { state: "observed", artifact_sha: fixSha,
+              invocation: { state: "J2_subdivision", at: "2026-01-01T00:00:00.000Z" } };
+          });
+          return /pin DECLARED, no Harness invocation record; the record holds: no subdivisions record/.test(absent)
+            && /OBSERVED, Harness invocation record `J2_subdivision@2026-01-01T00:00:00.000Z`/.test(observedRec);
+        })());
     }
-
     // ---- THE NEIGHBORHOOD ROW NAMES ITS THESIS-CANDIDATE TARGET (kogaki#861,
     // owner report 2026-09-04, owner rulings 2026-09-05). The Provenance
     // neighborhood sat in the same file as the Thesis candidates and was
@@ -1814,69 +2297,111 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
     // the judgment record's new required field, and the ordering that makes a
     // target checkable at all.
     //
-    // SEAM-FREE, like every case above: the reader, the display and the section
-    // are pure over their inputs, and the refusals are asserted through
-    // `neighborhoodJudgmentsFrom`/`refuseTargetsOutsideCandidates`, which THROW
-    // rather than exiting — the arrangement `emitOrRefuse` uses for the format
-    // guard, and the reason these refusals are assertable at all.
+    // THROUGH `report` (kogaki#1257). Every case is a pull over the lone-tag
+    // fixture's G2, handed the mechanical enumeration (`--neighborhood-candidates`,
+    // the file `neighborhood_input` writes), the judgment record and the Thesis
+    // candidates, and every assertion reads the pull's exit, its refusal or the
+    // rendering it wrote. A renderer arm no pull can reach from its inputs — a
+    // row arriving with no target, a section handed an id it did not mint — is
+    // reached the way a rerun reaches it: by re-rendering a stored record, whose
+    // fields this pass edits between the two pulls.
     {
       const grammar = loadGrammar(REPORT_FORMAT);
       const admits = (surface, text) => validateSurface(surface, text, grammar)
         .every((v) => !/line_class_allowlist/.test(v));
-      const refused = (fn) => {
-        try { fn(); return null; }
-        catch (e) { return e instanceof JudgmentRefusal ? e.message : null; }
+      const GLOSS_ADDRESS = "lessons/tag=agents,window=2026-08";
+      const NB_ANSWERS = {
+        surface_names: { lines: [{ text: GLOSS_ADDRESS }, { text: "lessons/tag=testing,window=2026-08" }] },
+        gloss_index: {
+          [GLOSS_ADDRESS]: { lines: [{ text: "## a/b", cite: "gloss/x.md:11@aaaaaaa" },
+            { text: "Binding claims at the refusing layer. More prose after the headline.", cite: "product-lab@aaaaaaa gloss/ELEMENTS.jsonl:12" }] },
+          "*": { lines: [] },
+        },
       };
+      const suggestion = (over = {}) => ({
+        nid: "N3", slug: "a/b", family: "decision", tags: ["agents"], seeds: ["bravo", "alpha"],
+        reached_by: [{ substrate: "source_batch", instance: "q_a/2026-08-08" }], ...over,
+      });
       const wellFormed = {
         "a/b": { level: "core", claim: "A decision from the thread that produced two of this group's members.",
           target: { candidate: "TC1", role: "Core" } },
       };
+      const THREE_TC = [{ claim: "one", strands: ["L1", "L2"] }, { claim: "two", strands: ["L2", "L1"] },
+        { claim: "three", strands: ["L1", "L2"] }];
+      let nbSeq = 0;
+      // One pull. `dir` names the report store, so two pulls handed the same
+      // one are a pull and its rerun.
+      const nbReport = ({ judgments = wellFormed, sug = suggestion(), tc = THREE_TC, dir = null,
+        env = null, extra = [], files = null } = {}) => {
+        const d = join(SCRATCH, `nb-${nbSeq += 1}`);
+        mkdirSync(d, { recursive: true });
+        const f = (name, body) => { const p = join(d, name); writeFileSync(p, JSON.stringify(body)); return p; };
+        const paths = files || {
+          cands: f("candidates.json", { neighborhood: { gids: ["G2"], suggestions: sug ? [sug] : [], unresolved: [],
+            counts: { seeds: 2, suggested: sug ? 1 : 0, rendered: sug ? 1 : 0, unresolved: 0, by_family: {} } } }),
+          judgments: judgments === null ? null : f("judgments.json", judgments),
+          tc: tc === null ? null : f("thesis-candidates.json", tc),
+        };
+        const reports = dir || join(d, "reports");
+        const rendering = join(d, "rendering");
+        const r = terrain(["report", "--survey", join(REPO, "checks", "fixtures", "survey", "lone-tag-member.json"),
+          "--tag", "testing", "--ids", "G2", "--judge-model", "m", "--judge-effort", "high",
+          "--subdivisions", LONE_SUBDIVISIONS, "--neighborhood-candidates", paths.cands,
+          ...(paths.judgments ? ["--neighborhood", paths.judgments] : []),
+          ...(paths.tc ? ["--thesis-candidates", paths.tc] : []),
+          "--report-dir", reports, "--rendering-dir", rendering, ...extra],
+        { env: env || gateway(join(d, "gw"), NB_ANSWERS) });
+        const out = join(rendering, "FullReport.md");
+        const text = existsSync(out) ? readFileSync(out, "utf8") : "";
+        const lines = text.split("\n");
+        const at = lines.indexOf("## Provenance neighborhood");
+        const recs = existsSync(reports) ? readdirSync(reports).filter((x) => x.endsWith(".json")) : [];
+        return { ...r, paths, reports, text, section: at < 0 ? [] : lines.slice(at),
+          recordPath: recs.length === 1 ? join(reports, recs[0]) : null };
+      };
+      // A stored record edited in place, then the same pull again.
+      const rerenderEdited = (first, edit, again = {}) => {
+        if (!first.recordPath) return { status: null, text: "", section: [] };
+        const rec = readJson(first.recordPath);
+        edit(rec);
+        writeFileSync(first.recordPath, JSON.stringify(rec));
+        return nbReport({ files: first.paths, dir: first.reports, ...again });
+      };
+      const refusedWith = (re, opts) => {
+        const r = nbReport(opts);
+        return r.status !== 0 && re.test(r.stderr) ? r.stderr : null;
+      };
 
       ok("a judgment carrying level and claim and NO target is refused — the row's TC-target line is a fixed class and has nothing else to render from",
-        /carries no target/.test(refused(() => neighborhoodJudgmentsFrom({
-          "a/b": { level: "core", claim: "a claim" } })) || ""));
+        !!refusedWith(/carries no target/, { judgments: { "a/b": { level: "core", claim: "a claim" } } }));
       ok("a target that is not a Thesis-candidate id is refused, and so is one carrying no role — WHICH candidate and WHAT FOR are both owed",
-        /is not a Thesis-candidate id/.test(refused(() => neighborhoodJudgmentsFrom({
-          "a/b": { level: "core", claim: "a claim", target: { candidate: "l15", role: "Core" } } })) || "")
-        && /and no role for it/.test(refused(() => neighborhoodJudgmentsFrom({
-          "a/b": { level: "core", claim: "a claim", target: { candidate: "TC1" } } })) || ""));
+        !!refusedWith(/is not a Thesis-candidate id/, { judgments: { "a/b": { level: "core", claim: "a claim", target: { candidate: "l15", role: "Core" } } } })
+        && !!refusedWith(/and no role for it/, { judgments: { "a/b": { level: "core", claim: "a claim", target: { candidate: "TC1" } } } }));
       // THE CONTROL for the two above: the pre-existing refusals still fire and
       // a well-formed record still passes, so the new field is an addition
       // rather than a reader that refuses everything.
+      const pulled = nbReport();
+      const shown = pulled.section;
+      const at = (re) => shown.findIndex((l) => re.test(l));
       ok("the level-with-no-claim refusal is untouched, and a well-formed record carries level, claim and target through the reader",
-        /A level without a claim is a rank with no reason/.test(refused(() => neighborhoodJudgmentsFrom({
-          "a/b": { level: "core", target: { candidate: "TC1", role: "Core" } } })) || "")
-        && (() => {
-          const j = neighborhoodJudgmentsFrom(wellFormed).get("a/b");
-          return j.level === "core" && /A decision from the thread/.test(j.claim)
-            && j.target.candidate === "TC1" && j.target.role === "Core";
-        })());
+        !!refusedWith(/A level without a claim is a rank with no reason/, { judgments: { "a/b": { level: "core", target: { candidate: "TC1", role: "Core" } } } })
+        && pulled.status === 0
+        && /^- N3 \[core\] /.test(shown[at(/^- N3 /)] || "")
+        && shown.includes("  A decision from the thread that produced two of this group's members.")
+        && shown.includes("  serves: Core for TC1"));
 
       // A TARGET IS CHECKED AGAINST THE COMPOSED SET, not against its own shape:
       // `TC9` is a well-formed id naming nothing in a three-candidate pull.
       ok("a target naming a Thesis candidate the pull does not carry is refused, naming the row and the composed set; one inside the set passes",
-        /TC9/.test(refused(() => refuseTargetsOutsideCandidates(
-          neighborhoodJudgmentsFrom({ "a/b": { level: "core", claim: "c", target: { candidate: "TC9", role: "Core" } } }),
-          ["TC1", "TC2", "TC3"], "J3_neighborhood")) || "")
-        && refused(() => refuseTargetsOutsideCandidates(
-          neighborhoodJudgmentsFrom(wellFormed), ["TC1", "TC2", "TC3"], "J3_neighborhood")) === null);
+        (() => {
+          const msg = refusedWith(/TC9/, { judgments: { "a/b": { level: "core", claim: "c", target: { candidate: "TC9", role: "Core" } } } });
+          return !!msg && msg.includes("a/b -> TC9") && msg.includes("TC1, TC2, TC3") && pulled.status === 0;
+        })());
 
       // ---- THE ROW ITSELF. One judged suggestion, rendered through the display
       // the report section reuses, so what is asserted is what the owner reads.
-      const row = (over = {}) => ({
-        nid: "N3", slug: "a/b", level: "core",
-        relation: "from the same Batch as L15, L97 (q_a/2026-08-08)",
-        claim: "A decision from the thread that produced two of this group's members.",
-        target: { candidate: "TC1", role: "Core" },
-        gloss: "Binding claims at the refusing layer", gloss_cite: "product-lab@aaaaaaa gloss/ELEMENTS.jsonl:12",
-        ...over,
-      });
-      const linesOf = (over) => neighborhoodDisplay({ tag: "t", gids: ["G1"], suggestions: [row(over)] });
-      const shown = linesOf();
-      const at = (re) => shown.findIndex((l) => re.test(l));
-
       ok("the row states its level at the HEAD, beside the id and before the relation",
-        /^- N3 \[core\] — from the same Batch as L15, L97/.test(shown[at(/^- N3 /)] || ""));
+        /^- N3 \[core\] — from the same Batch as L1, L2/.test(shown[at(/^- N3 /)] || ""));
       ok("the claim line carries NO trailing level — the level has one carrier and it is the row above",
         (() => {
           const claimLine = shown.find((l) => /A decision from the thread/.test(l));
@@ -1887,36 +2412,42 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
         (() => {
           const i = at(/^- N3 /);
           return i >= 0 && shown[i + 1] === "  serves: Core for TC1"
-            && /^  “Binding claims at the refusing layer”/.test(shown[i + 2] || "")
+            && /^  “Binding claims at the refusing layer\.”/.test(shown[i + 2] || "")
             && /^  A decision from the thread/.test(shown[i + 3] || "");
         })(), JSON.stringify(shown.slice(-4)));
+      const noTarget = rerenderEdited(nbReport(), (rec) => { delete rec.neighborhood.suggestions[0].target; });
       ok("the TC-target line is a FIXED class: a row reaching the renderer with no target renders the typed absence marker rather than dropping the line",
         (() => {
-          const l = linesOf({ target: undefined });
+          const l = noTarget.section;
           const i = l.findIndex((x) => /^- N3 /.test(x));
-          return l[i + 1] === `  ${NO_TARGET}` && l.length === shown.length;
+          return noTarget.status === 0 && i >= 0 && l[i + 1] === `  ${NO_TARGET}` && l.length === shown.length;
         })());
 
       // THE GLOSS LINE SURVIVES THE REFORMAT, absence markers included (owner
       // ruling 2026-09-05). A row whose shard carried nothing must still say so:
       // four clean lines over an unreported fault is the anti-correlated check.
+      // Two markers are reached by the pull state they name: a row carrying no
+      // tag, and a Lesson row whose shard was read and carried no rendering for
+      // it. The seam marker is re-rendered from a stored row: a pull whose seam
+      // cannot be reached is refused before its neighborhood, because the
+      // members' own Gloss read is not soft.
+      const unaddressed = nbReport({ sug: suggestion({ tags: [] }) });
+      const seamless = rerenderEdited(nbReport(), (rec) => {
+        Object.assign(rec.neighborhood.suggestions[0], { gloss: NO_SEAM, gloss_cite: null });
+      });
+      const unrendered = nbReport({ sug: suggestion({ slug: "a/c", family: "lesson" }), judgments: { "a/c": wellFormed["a/b"] } });
+      const glossLine = (r) => r.section[r.section.findIndex((x) => /^- N3 /.test(x)) + 2];
       ok("the Gloss line still renders quoted at its cite, and each of the three typed absence markers still renders in its place",
-        /^  “Binding claims at the refusing layer”  product-lab@aaaaaaa/.test(shown[at(/^- N3 /) + 2] || "")
-        && [[{ gloss: null, gloss_cite: null }, NO_SHARD_ADDRESSED],
-          [{ gloss: NO_SEAM, gloss_cite: null }, NO_SEAM],
-          [{ gloss: "a headline with no address", gloss_cite: null }, NO_HEADLINE]]
-          .every(([over, marker]) => {
-            const l = linesOf(over);
-            return l[l.findIndex((x) => /^- N3 /.test(x)) + 2] === `  ${marker}`;
-          }));
+        /^  “Binding claims at the refusing layer\.”  product-lab@aaaaaaa/.test(glossLine(pulled) || "")
+        && [[unaddressed, NO_SHARD_ADDRESSED], [seamless, NO_SEAM], [unrendered, NO_HEADLINE]]
+          .every(([r, marker]) => r.status === 0 && glossLine(r) === `  ${marker}`));
 
       // THE GRAMMAR ADMITS WHAT THE EMITTER PRODUCES — the direction PR #658's
       // defect ran in, where a class never admitted its own emitter's line and
       // nothing said so.
       ok("full_report admits every line the reformatted row emits, on the quoted-Gloss arm and on all four absence arms",
-        [shown, linesOf({ target: undefined }), linesOf({ gloss: null, gloss_cite: null }),
-          linesOf({ gloss: NO_SEAM, gloss_cite: null }), linesOf({ gloss: "x", gloss_cite: null })]
-          .every((l) => admits("full_report", l.slice(1).join("\n"))));
+        [pulled, noTarget, unaddressed, seamless, unrendered]
+          .every((r) => r.status === 0 && r.section.length > 1 && admits("full_report", r.section.slice(1).join("\n"))));
 
       // AND THE CLASSES THEMSELVES CARRY IT, which the surface-level case above
       // CANNOT assert. `neighborhood_suggestion_claim` lost its trailing level
@@ -1944,13 +2475,15 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // it was handed, so a section that re-mints from its loop index fails.
       ok("readThesisCandidates mints the TC ids, and the Thesis candidates section renders the id it is handed rather than its own loop index",
         (() => {
-          const composed = readThesisCandidates(
-            [{ claim: "one", strands: ["L1", "L2"] }, { claim: "two", strands: ["L2", "L3"] },
-              { claim: "three", strands: ["L1", "L3"] }],
-            ["L1", "L2", "L3"], { thesis_candidates: 3 });
-          const section = thesisCandidatesSection([{ id: "TC7", claim: "seven", strands: ["L1", "L2"] }]);
-          return composed.map((c) => c.id).join(",") === "TC1,TC2,TC3"
-            && section.some((l) => l === "- TC7 — seven");
+          const minted = pulled.text.split("\n").filter((l) => /^- TC\d+ — /.test(l));
+          const handed = rerenderEdited(nbReport(), (rec) => {
+            rec.thesis_candidates = rec.thesis_candidates.map((c, i) => ({ ...c, id: `TC${i + 7}` }));
+            // The row's target is re-pointed with them, so the stored record
+            // stays one the section and the row agree on.
+            rec.neighborhood.suggestions[0].target.candidate = "TC7";
+          });
+          return minted.join("|") === "- TC1 — one|- TC2 — two|- TC3 — three"
+            && handed.status === 0 && handed.text.split("\n").includes("- TC7 — one");
         })());
 
       // ---- A RECORD PREDATING THE ID MINT IS RECOMPUTED, NEVER REPLAYED AND
@@ -1960,79 +2493,74 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // the second out of the first's reach. The CONTROL is the other half —
       // a record whose candidates all carry ids still replays, so this is a
       // guard on one shape and not a blanket disabling of the rerun path.
+      //
+      // REPLAY IS READ OFF A MARKER (kogaki#1257): the stored record's first
+      // candidate claim is rewritten before the rerun, so a replayed rendering
+      // carries the rewrite and a recomputed one carries the claim the input
+      // file still holds. THE IDENTITY CONJUNCT is the third pair: the same
+      // record, its stored pin changed, recomputes however well-formed its
+      // candidates are, which no predating guard can produce.
       ok("a stored report record whose Thesis candidates carry no id is recomputed rather than replayed, and one that carries them still replays",
         (() => {
-          const pre = { thesis_candidates: [{ claim: "one", strands: ["L1"] }] };
-          const post = { thesis_candidates: [{ id: "TC1", claim: "one", strands: ["L1"] }] };
-          const none = { thesis_candidates: [] };
-          // THE DECISION IS WHAT IS CALLED, never the conjunct alone: the
-          // identity comparison is injected so this reaches the same function
-          // `cmdReport` asks. ALL THREE CONJUNCTS ARE REACHED, and the third
-          // one is why the injection takes two values rather than one
-          // (kogaki#926): with `same` alone every assertion above was decided
-          // by the two predating guards and the id predicate, so deleting
-          // `sameIdentityFn(...)` from `shouldReplayPrior` left this case
-          // GREEN — the case claimed the whole decision and bound two thirds
-          // of it. `differs` is the discriminator: the records that replay
-          // under a comparison returning true are RECOMPUTED under one
-          // returning false, which no other conjunct can produce.
-          const same = () => true;
-          const differs = () => false;
-          const idty = { neighborhood_judgment: "NO_JUDGE" };
-          const wrap = (r) => ({ identity: idty, ...r });
-          return priorPredatesCandidateIds(pre)
-            && !priorPredatesCandidateIds(post)
-            && !priorPredatesCandidateIds(none)
-            && !priorPredatesCandidateIds({})
-            && !shouldReplayPrior(wrap(pre), idty, same)
-            && shouldReplayPrior(wrap(post), idty, same)
-            && shouldReplayPrior(wrap(none), idty, same)
-            && !shouldReplayPrior({ identity: {} }, idty, same)
-            && !shouldReplayPrior(wrap(post), idty, differs)
-            && !shouldReplayPrior(wrap(none), idty, differs);
+          const MARK = "REPLAYED FROM THE STORED RECORD";
+          const marked = (rec) => { rec.thesis_candidates[0].claim = MARK; };
+          const replayed = (r) => r.status === 0 && r.text.includes(`- TC1 — ${MARK}`);
+          const recomputed = (r) => r.status === 0 && r.text.includes("- TC1 — one") && !r.text.includes(MARK);
+          const pre = rerenderEdited(nbReport(), (rec) => {
+            marked(rec);
+            rec.thesis_candidates = rec.thesis_candidates.map(({ id, ...c }) => c);
+          });
+          const post = rerenderEdited(nbReport(), marked);
+          // The empty list: no candidates, and so no judgment over an empty
+          // enumeration, so the marker is the stored section's group name instead.
+          const noneFirst = nbReport({ judgments: null, tc: null, sug: null });
+          const none = rerenderEdited(noneFirst, (rec) => { rec.sections[0].name = MARK; });
+          const predatesKey = rerenderEdited(nbReport(), (rec) => { marked(rec); delete rec.identity.neighborhood_judgment; });
+          const differs = rerenderEdited(nbReport(), (rec) => { marked(rec); rec.identity.pin = "product-lab@0000000"; });
+          return recomputed(pre)
+            && replayed(post)
+            && none.status === 0 && none.text.includes(MARK)
+            && recomputed(predatesKey)
+            && recomputed(differs);
         })());
 
       // ---- THE SHIPPED COMPARATOR IS DRIVEN, NOT INJECTED (kogaki#974). The
-      // case above binds the identity conjunct's PRESENCE in the decision and
-      // nothing else: all six of its `shouldReplayPrior` calls pass a stub
-      // through `sameIdentityFn`, while `cmdReport` calls with the DEFAULT. So
-      // `sameIdentity` and its `reportIdentityKey` had no reader in any case,
-      // and dropping the `neighborhood_judgment` component from that key left
-      // the pass green at 95 — the bind-a-proxy shape kogaki#926 repaired one
-      // layer up, at the next seam in.
+      // two records differ ONLY in the neighborhood judgment component, which
+      // is what makes the comparator the thing being asserted: every other
+      // conjunct of the decision is identical across the pair, so no predating
+      // guard and no id predicate can produce the discrimination.
       //
-      // The two records differ ONLY in that component, which is what makes the
-      // comparator the thing being asserted: every other conjunct of the
-      // decision is identical across the pair, so no predating guard and no id
-      // predicate can produce the discrimination.
+      // DRIVEN THROUGH THE STORE (kogaki#1257). A record's filename is the
+      // digest of its identity, so the record pull A wrote is copied under the
+      // name pull B's identity digests to, and B's rerun reads it: the shipped
+      // comparator is the only thing between that file and a replay.
       //
-      // THE kogaki#741 ABSENCE-HASHING RULE IS REACHED HERE RATHER THAN STATED
-      // IN A COMMENT. It is unreachable through `shouldReplayPrior`, whose
-      // `predatesJudgmentKey` guard short-circuits on exactly the record the
-      // rule is about, so the rule is driven through the exported `sameIdentity`
-      // directly — with a control that an absent component still discriminates
-      // against a REAL judgment, so the case is not satisfied by a key that
-      // hashes everything to `NO_JUDGE`.
+      // THE kogaki#741 ABSENCE-HASHING RULE IS NO LONGER ASSERTED HERE, and the
+      // gap is stated rather than left to look covered: a stored identity with
+      // no neighborhood component is short-circuited by the predating guard
+      // before the comparator reads it (the case above asserts that recompute),
+      // and every identity a pull composes carries the component. No command
+      // reaches the rule for this component; the binary case below reaches the
+      // same rule for its own.
+      const MARK2 = "REPLAYED FROM ANOTHER IDENTITY";
+      const identityPair = (first, second) => {
+        const a = nbReport(first);
+        const b = nbReport({ ...second, dir: a.reports });
+        const files = readdirSync(a.reports).filter((x) => x.endsWith(".json"));
+        const bFile = files.find((x) => join(a.reports, x) !== a.recordPath);
+        if (!a.recordPath || !bFile) return null;
+        const rec = readJson(a.recordPath);
+        rec.thesis_candidates[0].claim = MARK2;
+        writeFileSync(a.recordPath, JSON.stringify(rec));
+        const replaysAtItsOwnIdentity = nbReport({ files: a.paths, dir: a.reports, extra: first.extra || [] }).text.includes(MARK2);
+        writeFileSync(join(a.reports, bFile), JSON.stringify(rec));
+        const atB = nbReport({ files: b.paths, dir: a.reports, extra: second.extra || [] });
+        return { a, replaysAtItsOwnIdentity, recomputesAtTheOther: atB.status === 0 && !atB.text.includes(MARK2) };
+      };
       ok("shouldReplayPrior with the SHIPPED comparator recomputes two report identities differing only in neighborhood_judgment, and an absent component hashes as NO_JUDGE without collapsing the key",
         (() => {
-          const identity = (nj) => ({
-            pin: "product-lab@abc1234",
-            query: { tag: "testing", ids: ["G1", "G2"] },
-            judge_pin: NO_JUDGE,
-            neighborhood_judgment: nj,
-          });
-          const a = identity("J-A");
-          const b = identity("J-B");
-          // NO THIRD ARGUMENT — this is the call `cmdReport` makes.
-          const replaysAtItsOwnIdentity = shouldReplayPrior({ identity: a }, a);
-          const recomputesAtTheOther = !shouldReplayPrior({ identity: a }, b);
-          // the kogaki#741 rule, and its control.
-          const absenceHashesAsNoJudge = sameIdentity(identity(undefined), identity(NO_JUDGE));
-          const absenceStillDiscriminates = !sameIdentity(identity(undefined), a);
-          return replaysAtItsOwnIdentity
-            && recomputesAtTheOther
-            && absenceHashesAsNoJudge
-            && absenceStillDiscriminates;
+          const pair = identityPair({}, { judgments: { "a/b": { ...wellFormed["a/b"], claim: "A second judgment of the same row." } } });
+          return !!pair && pair.replaysAtItsOwnIdentity && pair.recomputesAtTheOther;
         })());
 
       // ---- AND THE SAME DISCRIMINATION OVER THE BINARY COMPONENT (kogaki#1076,
@@ -2046,60 +2574,58 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // THE CLAIM UNDER TEST IS THE ONE SPEC-terrain §"THE JUDGE BINARY IS THE
       // RUN'S, RESOLVED ONCE BY THE SESSION THAT STARTS IT" MAKES: two runs with equal
       // `model_id` and `effort_tier` that ran different executables are DIFFERENT
-      // identities. So the pair differs only in `binary_version` and every other
-      // conjunct is identical, which is what makes the comparator the thing being
-      // asserted rather than some other guard. The absence control is the
-      // kogaki#741 rule applied to this component -- a pin written before the
-      // field existed hashes as `NO_JUDGE`, which is what it meant -- with its
-      // own control that the absence still discriminates against a pin naming a
-      // binary, so the case is not satisfied by a key that hashes everything.
+      // identities. The absence control is the kogaki#741 rule applied to this
+      // component -- a pin written before the field existed hashes as
+      // `NO_JUDGE`, which is what it meant -- reached by deleting the field from
+      // a stored pin and rerunning a pull that names no binary, with its own
+      // control that the absence still discriminates against a pin naming one.
       ok("two report identities differing ONLY in the judge pin's binary_version are not the same identity, and an absent component hashes as NO_JUDGE without collapsing the key",
         (() => {
-          const identity = (bv) => ({
-            pin: "product-lab@abc1234",
-            query: { tag: "testing", ids: ["G1", "G2"] },
-            judge_pin: { model_id: "m", effort_tier: "high", binary_version: bv },
-            neighborhood_judgment: NO_JUDGE,
-          });
-          const a = identity("claude 1.2.3");
-          const b = identity("claude 4.5.6");
-          const sameAtItself = sameIdentity(a, a);
-          const differsOnTheBinary = !sameIdentity(a, b);
-          const absenceHashesAsNoJudge = sameIdentity(identity(undefined), identity(null));
-          const absenceStillDiscriminates = !sameIdentity(identity(undefined), a);
-          // AND THROUGH THE DECISION TOO, on the kogaki#974 case's own ground: the
-          // comparator is what `cmdReport` reaches with NO third argument, so a
-          // case that only called `sameIdentity` would leave the shipped call
-          // path unread exactly as the six injected calls above it did.
-          const replaysAtItsOwnIdentity = shouldReplayPrior({ identity: a }, a);
-          const recomputesAtTheOther = !shouldReplayPrior({ identity: a }, b);
-          return sameAtItself && differsOnTheBinary
-            && absenceHashesAsNoJudge && absenceStillDiscriminates
-            && replaysAtItsOwnIdentity && recomputesAtTheOther;
+          const pair = identityPair({ extra: ["--judge-binary-version", "claude 1.2.3"] },
+            { extra: ["--judge-binary-version", "claude 4.5.6"] });
+          if (!pair) return false;
+          const bare = nbReport();
+          const MARK3 = "REPLAYED WITH THE BINARY FIELD ABSENT";
+          const absent = rerenderEdited(bare, (rec) => { rec.thesis_candidates[0].claim = MARK3; delete rec.identity.judge_pin.binary_version; });
+          const absenceHashesAsNoJudge = absent.status === 0 && absent.text.includes(MARK3);
+          writeFileSync(pair.a.recordPath, readFileSync(bare.recordPath));
+          const atNamed = nbReport({ files: pair.a.paths, dir: pair.a.reports, extra: ["--judge-binary-version", "claude 1.2.3"] });
+          const absenceStillDiscriminates = atNamed.status === 0 && !atNamed.text.includes(MARK3);
+          return pair.replaysAtItsOwnIdentity && pair.recomputesAtTheOther
+            && absenceHashesAsNoJudge && absenceStillDiscriminates;
         })());
 
       // ---- THE RESOLUTION'S TWO EXPORTS HAVE A READER (kogaki#1076, PR #1078
       // round 1 finding 2). `checks/check-terrain-judge-invocation.sh` drives
       // them through a whole start act, which is the property that matters and is
-      // also the most expensive way to ask any single question about them; these
-      // are the two questions a fixture that builds a PATH and runs `node` cannot
-      // ask cheaply, and an export offered to nobody reads as a case that was
-      // intended and not written.
+      // also the most expensive way to ask any single question about them.
+      //
+      // THE CANDIDATE WALK IS READ OFF `resolveJudgeBinary`'s REFUSAL
+      // (kogaki#1257), which names every candidate it searched and every one it
+      // ran, in order: with each PATH entry carrying a binary that refuses
+      // `--version`, the refusal is the walk itself. Driven in a child, because
+      // the refusal exits.
       ok("judgeBinaryCandidates walks PATH in its declared order and de-duplicates it, and treats a command carrying a separator as its own single candidate",
         (() => {
-          const walked = judgeBinaryCandidates("claude", ["/a", "/b", "/a", "", "/c"].join(delimiter));
-          const inOrder = JSON.stringify(walked)
-            === JSON.stringify(["/a/claude", "/b/claude", "/c/claude"]);
-          // A PATH LOOKUP IS WHAT A BARE WORD GETS, and nothing else does: an
-          // absolute path and a relative one are each already the single
-          // candidate this act exists to produce, so neither is searched for.
-          const absolute = judgeBinaryCandidates("/opt/claude", ["/a", "/b"].join(delimiter));
-          const relative = judgeBinaryCandidates("./bin/claude", ["/a", "/b"].join(delimiter));
-          return inOrder
-            && JSON.stringify(absolute) === JSON.stringify(["/opt/claude"])
-            && relative.length === 1 && relative[0].endsWith("/bin/claude");
+          const root = join(SCRATCH, "judge-walk");
+          const dirs = ["a", "b", "c", "bin"].map((x) => join(root, x));
+          for (const d of dirs) {
+            mkdirSync(d, { recursive: true });
+            writeFileSync(join(d, "claude"), "#!/bin/sh\nexit 3\n", { mode: 0o755 });
+          }
+          const [a, b, c, bin] = dirs;
+          const refusal = (command, pathEnv) => spawnSync(process.execPath, ["--input-type=module", "-e",
+            `import { resolveJudgeBinary } from ${JSON.stringify(RUNTIME_URL)}; resolveJudgeBinary(${JSON.stringify(command)}, ${JSON.stringify(pathEnv)});`],
+          { encoding: "utf8", cwd: root }).stderr || "";
+          const ran = (text) => text.split("\n").filter((l) => /^    \//.test(l)).map((l) => l.trim());
+          const walked = refusal("claude", [a, b, a, "", c].join(delimiter));
+          const absolute = refusal(join(bin, "claude"), [a, b].join(delimiter));
+          const relative = refusal("./bin/claude", [a, b].join(delimiter));
+          return /searched 3 candidate\(s\) over PATH/.test(walked)
+            && JSON.stringify(ran(walked)) === JSON.stringify([join(a, "claude"), join(b, "claude"), join(c, "claude")])
+            && /searched 1 candidate\(s\)/.test(absolute) && JSON.stringify(ran(absolute)) === JSON.stringify([join(bin, "claude")])
+            && /searched 1 candidate\(s\)/.test(relative) && ran(relative).length === 1 && ran(relative)[0].endsWith(`${sep}bin${sep}claude`);
         })());
-
       // A SHIM AHEAD OF A WORKING BINARY, AT THE FUNCTION. The shim EXISTS and is
       // EXECUTABLE and fails only when it is run, so a resolution testing either
       // property picks it; this is the case that says the walk RUNS its
@@ -2131,66 +2657,52 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
       // decided the Thesis candidates and the `serves: … for TC<n>` rows while
       // sitting in neither the identity nor the recorded set, so the rerun
       // replayed the prior
-      // section and printed that it was idempotent. The case drives the two
-      // functions `cmdReport`'s replay branch actually asks — the digest
-      // composer and the delta — over REAL FILE BYTES, because the digest is a
-      // read of the file and asserting over hand-written digests would bind a
-      // restatement rather than the act.
+      // section and printed that it was idempotent. The case drives the rerun
+      // itself over REAL FILE BYTES, because the digest is a read of the file
+      // and asserting over hand-written digests would bind a restatement rather
+      // than the act.
       //
       // FOUR CONJUNCTS, and each is one of the ways the fix could be wrong: the
-      // flag is in the set at all; an edited file is NAMED in the delta rather
-      // than merely counted; an UNCHANGED file still reports empty, which is the
+      // flag is in the set at all; an edited file is NAMED in the refusal rather
+      // than merely counted; an UNCHANGED file still replays, which is the
       // control that this is not a blanket disabling of the rerun path; and a
       // record predating the field recomputes rather than refusing.
       ok("an edited --thesis-candidates file at the same identity is named in the composed-input delta, an unchanged one still replays, and a record predating the field recomputes",
         (() => {
-          const d = join(tmpdir(), `terrain-selftest-tc-${process.pid}`);
-          mkdirSync(d, { recursive: true });
-          try {
-            const write = (name, body) => {
-              const f = join(d, name);
-              writeFileSync(f, JSON.stringify(body, null, 2) + "\n");
-              return f;
-            };
-            const claims = write("claims.json", { a: 1 });
-            const before = write("tc-before.json", [{ claim: "one", strands: ["L1", "L2"] }]);
-            const after = write("tc-after.json", [{ claim: "ONE, EDITED", strands: ["L1", "L2"] }]);
-            const argsOf = (tc) => ({ claims, "thesis-candidates": tc });
-
-            const prior = composedInputDigests(argsOf(before));
-            const edited = composedInputDigests(argsOf(after));
-            const same = composedInputDigests(argsOf(before));
-
-            const namesIt = COMPOSED_INPUT_FLAGS.includes("thesis-candidates");
-            const deltaEdited = composedInputDelta(prior, edited);
-            const deltaSame = composedInputDelta(prior, same);
-            // A PRE-#927 RECORD carries every other flag and not this one.
-            const preRecord = { ...prior };
-            delete preRecord["thesis-candidates"];
-
-            return namesIt
-              && prior["thesis-candidates"] !== NO_JUDGE
-              && composedInputDigests({ claims })["thesis-candidates"] === NO_JUDGE
-              && Array.isArray(deltaEdited) && deltaEdited.join(",") === "thesis-candidates"
-              && Array.isArray(deltaSame) && deltaSame.length === 0
-              && composedInputDelta(preRecord, edited) === null;
-          } finally {
-            rmSync(d, { recursive: true, force: true });
-          }
+          const first = nbReport();
+          if (!first.recordPath) return false;
+          const stored = readJson(first.recordPath).composed_inputs;
+          const edited = [{ claim: "ONE, EDITED", strands: ["L1", "L2"] }, ...THREE_TC.slice(1)];
+          const editedFile = join(SCRATCH, "nb-tc-edited.json");
+          writeFileSync(editedFile, JSON.stringify(edited));
+          const rerunWith = (tc) => nbReport({ files: { ...first.paths, tc }, dir: first.reports });
+          const refusedEdit = rerunWith(editedFile);
+          const same = rerunWith(first.paths.tc);
+          const withoutFlag = nbReport({ judgments: null, tc: null, sug: null });
+          // A PRE-#927 RECORD carries every other flag and not this one.
+          const rec = readJson(first.recordPath);
+          delete rec.composed_inputs["thesis-candidates"];
+          writeFileSync(first.recordPath, JSON.stringify(rec));
+          const preRecord = rerunWith(editedFile);
+          return /^[0-9a-f]{16}$/.test(stored["thesis-candidates"] || "")
+            && !!withoutFlag.recordPath && readJson(withoutFlag.recordPath).composed_inputs["thesis-candidates"] === NO_JUDGE
+            && refusedEdit.status !== 0
+            && /COMPOSED_INPUT_MISMATCH — this identity was already reported from different composed input\(s\): thesis-candidates\./.test(refusedEdit.stderr)
+            && same.status === 0
+            && preRecord.status === 0 && preRecord.text.includes("- TC1 — ONE, EDITED");
         })());
 
       // ---- THE ORDERING, read from the shipped carrier (the workflow table keeps the state
       // set there, so this is a property of the table and not of this file).
       ok("the shipped table composes the Thesis candidates as a judgment point AHEAD of J3_neighborhood, which is ahead of the full_report write",
         (() => {
-          const ids = shipped.states.map((x) => x.id);
-          const tc = shipped.states.find((x) => x.id === "thesis_candidates");
+          const ids = SHIPPED_TABLE.states.map((x) => x.id);
+          const tc = SHIPPED_TABLE.states.find((x) => x.id === "thesis_candidates");
           return !!tc && tc.kind === "judgment"
             && ids.indexOf("thesis_candidates") < ids.indexOf("J3_neighborhood")
             && ids.indexOf("J3_neighborhood") < ids.indexOf("full_report");
         })());
     }
-
     // ---- THE SUBDIVISION RECORD'S ARGUMENT PATH (kogaki#1085 fixture 3(b)).
     //
     // The states that RESOLVE an entered id now join the subdivision record from
@@ -2200,49 +2712,44 @@ const TERRAIN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "s
     // wins, which is what keeps the fixture and second-repository paths --
     // callers with a record on disk and no run record at all -- resolving
     // exactly the ids they resolve today. These two cases are that path and its
-    // control, driven over `resolveReportTargets` itself.
+    // control, driven through `report` over the fix survey (kogaki#1257), whose
+    // six-member `fix × wide` group is G2.
     {
-      const subdivDir = mkdtempSync(join(tmpdir(), "terrain-selftest-subids-"));
-      try {
-        const members = ["m1", "m2", "m3", "m4", "m5", "m6"];
-        const record = { candidates: members.map((id) => ({ id, tags: ["fix", "wide"] })) };
-        const groupName = "fix × wide";
-        const subgroup = (name, ms) => ({
-          name, claim: `A fixture claim over ${ms.length} member(s).`, members: ms,
-          verdicts: { coherence: "tight", coherence_why: "a fixture reason" },
-        });
-        const subPath = join(subdivDir, "subdivisions.json");
-        writeFileSync(subPath, JSON.stringify({
-          [groupName]: {
-            judged: true,
-            subgroups: [subgroup("the first three", members.slice(0, 3)),
-                        subgroup("the second three", members.slice(3))],
-          },
-        }) + "\n");
-        ok("a caller supplying --subdivisions resolves a SubGroup id to that SubGroup's members alone, with no run record in play",
-          (() => {
-            const r = resolveReportTargets(record, "fix", ["G1-1"], { subdivisions: subPath });
-            const t = r.targets[0];
-            return r.targets.length === 1
-              && t.kind === "subgroup"
-              && t.gid === "G1-1"
-              // NARROWER THAN THE PARENT, which is the half that discriminates:
-              // a resolver that quietly handed back the whole Group would render
-              // the same report and pass a membership-free assertion.
-              && t.sg.members.join(",") === "m1,m2,m3"
-              && t.group.members.length === 6;
-          })());
-        ok("the same display with no subdivisions record offers no SubGroup ids at all — the control that the case above is about the record rather than about the id",
-          (() => {
-            const r = resolveReportTargets(record, "fix", ["G1"], {});
-            return r.subOf(r.groups[0]) === null
-              && r.targets.length === 1
-              && r.targets[0].kind === "group";
-          })());
-      } finally {
-        rmSync(subdivDir, { recursive: true, force: true });
-      }
+      const subReport = (name, ids, extra) => {
+        const d = join(SCRATCH, `subids-${name}`);
+        const r = terrain(["report", "--survey", FIX_SURVEY, "--tag", "fix", "--ids", ids,
+          "--judge-model", "m", "--judge-effort", "high", ...extra,
+          "--report-dir", join(d, "reports"), "--rendering-dir", join(d, "rendering")], { env: FIX_GW });
+        const f = join(d, "rendering", "FullReport.md");
+        const text = existsSync(f) ? readFileSync(f, "utf8") : "";
+        return { ...r, sections: text.split("\n").filter((l) => /^## G/.test(l)),
+          members: text.split("\n").filter((l) => /^### /.test(l)) };
+      };
+      ok("a caller supplying --subdivisions resolves a SubGroup id to that SubGroup's members alone, with no run record in play",
+        (() => {
+          const sub = subReport("subgroup", "G2-1", ["--subdivisions", FIX_SUBDIVISIONS]);
+          const other = subReport("other-subgroup", "G2-2", ["--subdivisions", FIX_SUBDIVISIONS]);
+          const parent = subReport("parent", "G2", ["--subdivisions", FIX_SUBDIVISIONS]);
+          return sub.status === 0
+            && sub.sections.join("|") === "## G2-1 — the first half"
+            // NARROWER THAN THE PARENT, which is the half that discriminates:
+            // a resolver that quietly handed back the whole Group would render
+            // the same report and pass a membership-free assertion. The two
+            // halves render disjoint members, and the parent renders both.
+            && sub.members.join(",") === "### L1,### L2,### L3"
+            && other.status === 0 && other.members.join(",") === "### L4,### L5,### L6"
+            && parent.status === 0 && parent.sections.join("|") === "## G2 — fix × wide"
+            && parent.members.join("|") === "### G2-1 — the first half|### G2-2 — the second half";
+        })());
+      ok("the same display with no subdivisions record offers no SubGroup ids at all — the control that the case above is about the record rather than about the id",
+        (() => {
+          const r = subReport("no-record", "G2-1", []);
+          return r.status !== 0
+            && /names G2-1, which resolve to no Group or SubGroup on this display/.test(r.stderr)
+            && /The ids that do resolve are: G1, G2\./.test(r.stderr);
+        })());
     }
 
+    rmSync(SCRATCH, { recursive: true, force: true });
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
     if (bad.length) process.exit(1);

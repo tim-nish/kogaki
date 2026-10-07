@@ -45,6 +45,46 @@ fi
 # three-id shape is carried there. A digest case is about the shape of the id
 # list and not about which gate holds it, but a case naming a gate the registry
 # no longer has reads as coverage of a surface that is gone.
+# THE RUNTIME'S DIGEST IS READ OFF ITS OWN REFUSAL (kogaki#1257). The function
+# is internal to `src/terrain.mjs`, so each case drives `run` re-entering a
+# declared gate whose capture row binds a wrong digest: the refusal names the
+# digest THIS declaration's options compose, which is the value the runtime
+# compares a hook-written row against -- read where it is used rather than by
+# importing the function that computes it.
+probe_dir=$(mktemp -d "${TMPDIR:-/tmp}/gate-capture-digest-XXXXXX")
+trap 'rm -rf "$probe_dir"' EXIT
+probe="$probe_dir/digest-probe.mjs"
+cat > "$probe" <<'JS'
+import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+const repo = process.cwd();
+const gate = process.env.GATE;
+const ids = process.env.IDS.split(",").filter(Boolean);
+const schema = JSON.parse(readFileSync(join(repo, "src/gate-schema.json"), "utf8"));
+const d = mkdtempSync(join(process.env.PROBE_DIR, "run-"));
+const declPath = join(d, `probe${schema.capture.run_declaration_suffix}`);
+writeFileSync(declPath, JSON.stringify({ id: gate, question: "?", options: ids.map((id) => ({ id, label: id })),
+  gate_instance_id: "probe-instance" }));
+writeFileSync(join(d, `terrain${schema.capture.suffix}`), JSON.stringify({ rows: [{ gate_instance_id: "probe-instance",
+  evidence: { tool: "AskUserQuestion", tool_use_id: "probe-tool-use" },
+  answers_over: { option_set_digest: "not-a-digest" }, payload: { answer: {} } }] }));
+const table = join(d, "table.json");
+writeFileSync(table, JSON.stringify({ version: 1, states: [
+  { id: "W", kind: "wait", owner_supplies: "x", renders_gate_declaration: true, gate_id: gate },
+  { id: "done", kind: "terminal" }] }));
+writeFileSync(join(d, "run-record.json"), JSON.stringify({ workflow: { path: table, version: 1 }, survey_record: null,
+  completed: [], waits_reached: ["W"], conditional_entered: [], conditional_skipped: [], awaiting: "W",
+  owner_input: {}, artifacts_written: [], judgments: {},
+  gate_declarations_owed: [{ state: "W", gate_id: gate, declaration: declPath }], done: false }));
+const r = spawnSync(process.execPath, [join(repo, "src", "terrain.mjs"), "run", "--run-dir", d, "--workflow", table],
+  { encoding: "utf8", input: JSON.stringify({ hook_event_name: "PostToolUse", session_id: "s", tool_use_id: "probe-tool-use" }) });
+const m = `${r.stdout}${r.stderr}`.match(/this declaration's options digest "([0-9a-f]+)"/);
+if (!m) { process.stderr.write(`${r.stdout}${r.stderr}`); process.exit(1); }
+console.log(m[1]);
+JS
+export PROBE_DIR="$probe_dir"
+
 for case in 'terrain-tag-selection|other-method' \
             'terrain-tag-selection|agents,method,other-method' \
             'terrain-id-selection|enter-no-groups' \
@@ -62,11 +102,10 @@ ids = [i for i in os.environ["IDS"].split(",") if i]
 print(m.option_set_digest(os.environ["GATE"], ids))
 PY
 ) || { bad "the hook's digest could not be computed for $gate"; continue; }
-  js=$(GATE="$gate" IDS="$ids" node --input-type=module -e '
-import { ownerGateDigest } from "./src/terrain.mjs";
-const ids = process.env.IDS.split(",").filter(Boolean);
-console.log(ownerGateDigest(process.env.GATE, ids));
-' 2>/dev/null) || { bad "the runtime's digest could not be computed for $gate"; continue; }
+  js=$(GATE="$gate" IDS="$ids" node "$probe" 2>/dev/null) || { bad "the runtime's digest could not be computed for $gate"; continue; }
+  case "$js" in
+    *[!0-9a-f]*|'') bad "the runtime's digest could not be read for $gate: $js"; continue ;;
+  esac
   if [ "$py" != "$js" ]; then
     bad "the option-set digest DIVERGES across the harness seam for gate '$gate' with ids '$ids': hook=$py runtime=$js — a capture the hook writes would be refused by the runtime that reads it, on every gate, forever"
   fi

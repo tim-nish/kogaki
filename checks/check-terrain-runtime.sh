@@ -4,11 +4,14 @@
 # A THIN INVOKER, HOLDING NO ASSERTIONS OF ITS OWN — the same arrangement the
 # registered sibling check-draft-runtime.sh uses, and for the same reason: the
 # cases live in `checks/terrain-cases.mjs` beside this member (kogaki#1238;
-# formerly `src/terrain.mjs self-test`), importing the runtime's exports,
-# because they are functions of the runtime's own composers, grammar and
-# executor and drive them end to end. Seam-free by construction: every case
-# constructs its own inputs, so the pass reaches no gateway and no network,
-# and writes only into a scratch directory it removes.
+# formerly `src/terrain.mjs self-test`), driving the runtime through its
+# COMMAND SURFACE — `node src/terrain.mjs <cmd>` in a child process — and the
+# few exports production modules import, because since kogaki#1257 every
+# export has a reader outside checks/ and the cases reach the composers,
+# grammar and executor the way a run does. No real seam: a case that needs one
+# points `TSUREZURE_GATEWAY_JS` at `checks/fixtures/fake-gateway/gateway.mjs`,
+# which serves the answers that case wrote, so the pass reaches no gateway and
+# no network, and writes only into a scratch directory it removes.
 #
 # WHAT THE PASS ASSERTS (the count is `case_floor` in the registry, and is
 # not restated here — kogaki#661): the composed-form identity
