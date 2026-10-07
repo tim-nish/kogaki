@@ -7906,30 +7906,8 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       // The payload is now a file, the only admissible act while the pointer is
       // open is sending it byte-for-byte, and `.claude/hooks/gate-open-terrain-
       // gate.py` is what makes that true rather than this sentence.
-      const callHere = join(dir, `${stopped.gate_id}${GATE_CALL_SUFFIX}`);
-      // BEFORE THE BYTES ARE PRINTED, NOT AFTER (kogaki#1118 acceptance 4). A
-      // call written before a label repair is a payload the channel refuses, and
-      // printing it hands the session its one admissible act in a form that
-      // cannot be performed.
-      const refreshedHere = refreshWrittenGateCall(dir, stopped.gate_id);
-      if (existsSync(callHere)) {
-        console.log(`The AskUserQuestion call is WRITTEN: ${callHere}`);
-        console.log(`Send that file's contents as the tool_input, byte-for-byte — it already carries the reading (\`tag_listing\`) above the question. Nothing is retyped, summarized, reformatted or pre-selected, and the executor renders no question UI of its own (the post-tag-selection window).`);
-        // AND THE BYTES ARE HERE, NOT ONLY THEIR ADDRESS (kogaki#1057): no tool is admissible
-        // inside the open-gate interval, so stdout is the only channel. The file stays the
-        // reference for the PreToolUse equality check.
-        // ONE SITE, BOTH ENTRIES (kogaki#1057 item 2): re-entry prints through this same branch.
-        console.log(`Its bytes are below — the payload itself, not a path to one. No tool is admissible inside the open-gate interval, the Read that would fetch this file included, so a call named and unprinted is one nothing can obtain (kogaki#1057).`);
-        console.log("```json");
-        console.log(readFileSync(callHere, "utf8").replace(/\n+$/, ""));
-        console.log("```");
-        if (refreshedHere) {
-          console.log(`NOTE: the call written by the earlier stop carried a label the shared question-shape check refuses, so it was recomposed from the declaration's standing options before being printed (kogaki#1118). The bytes above are the refreshed payload and the file on disk matches them; the gate, its instance and its answer join are unchanged. The refusal it cleared: ${refreshedHere.refused.split("\n").filter(Boolean)[0]}${refreshedHere.legacy ? " — the declaration predates `run_composed_option_ids`, so every registered id was refreshed; a run-time option sharing an id with a registered one would have been overwritten, and none was recorded either way." : ""}`);
-        }
-        console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028).`);
-      } else {
-        console.log(`No AskUserQuestion call could be composed for this gate, and the reason is on the open-gate pointer (\`gate_call_unavailable\`). Render the declaration's options verbatim, nothing pre-selected, free text on.`);
-      }
+      printWrittenGateCall(dir, stopped.gate_id,
+        `Send that file's contents as the tool_input, byte-for-byte — it already carries the reading (\`tag_listing\`) above the question. Nothing is retyped, summarized, reformatted or pre-selected, and the executor renders no question UI of its own (the post-tag-selection window).`);
       console.log(`Then re-enter with a bare  run --run-dir ${dir}  — the answer is read from the harness's own capture, written by .claude/hooks/write-gate-capture.py when the owner answers. No flag carries it (kogaki#890).`);
       console.log(`A bare --input is refused at a gate wait: it would skip the declaration's own option check and the tool_use_id that evidences the rendering.`);
     } else {
@@ -7957,6 +7935,8 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     const owedHere = rec.gate_declarations_owed.find((g) => g.state === stopped.id && g.gate_id === JUDGMENT_RETRY_GATE_ID);
     if (owedHere && owedHere.declaration) {
       console.log(`This stop declares a gate. Its run declaration is WRITTEN: ${owedHere.declaration}`);
+      printWrittenGateCall(dir, JUDGMENT_RETRY_GATE_ID,
+        `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
       console.log(`Then re-enter with a bare  run --run-dir ${dir}  — the answer is read from the harness's own capture, exactly as at any other gate wait (kogaki#890).`);
     }
   } else if (rec.judgment_abandoned) {
@@ -7969,6 +7949,39 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   }
   console.log(`Run record: ${recPath}`);
   return recPath;
+}
+
+// THE GATE CALL'S PRINTING SITE, ONE FOR EVERY STOP THAT OPENS A GATE (kogaki#1299).
+// The wait stop printed the written call's bytes (kogaki#1057) and the judgment-retry
+// stop named only its declaration, so the 2026-10-07 Brief run raised a gate whose
+// one admissible payload nothing could fetch. Both stops print through here; a stop
+// kind added later reaches the bytes by calling it rather than by copying it.
+// `sendLine` is the stop's own instruction for sending the call.
+function printWrittenGateCall(dir, gateId, sendLine) {
+  const callHere = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
+  // BEFORE THE BYTES ARE PRINTED, NOT AFTER (kogaki#1118 acceptance 4). A
+  // call written before a label repair is a payload the channel refuses, and
+  // printing it hands the session its one admissible act in a form that
+  // cannot be performed.
+  const refreshedHere = refreshWrittenGateCall(dir, gateId);
+  if (existsSync(callHere)) {
+    console.log(`The AskUserQuestion call is WRITTEN: ${callHere}`);
+    console.log(sendLine);
+    // AND THE BYTES ARE HERE, NOT ONLY THEIR ADDRESS (kogaki#1057): no tool is admissible
+    // inside the open-gate interval, so stdout is the only channel. The file stays the
+    // reference for the PreToolUse equality check.
+    // ONE SITE, EVERY ENTRY (kogaki#1057 item 2): re-entry prints through this same function.
+    console.log(`Its bytes are below — the payload itself, not a path to one. No tool is admissible inside the open-gate interval, the Read that would fetch this file included, so a call named and unprinted is one nothing can obtain (kogaki#1057).`);
+    console.log("```json");
+    console.log(readFileSync(callHere, "utf8").replace(/\n+$/, ""));
+    console.log("```");
+    if (refreshedHere) {
+      console.log(`NOTE: the call written by the earlier stop carried a label the shared question-shape check refuses, so it was recomposed from the declaration's standing options before being printed (kogaki#1118). The bytes above are the refreshed payload and the file on disk matches them; the gate, its instance and its answer join are unchanged. The refusal it cleared: ${refreshedHere.refused.split("\n").filter(Boolean)[0]}${refreshedHere.legacy ? " — the declaration predates `run_composed_option_ids`, so every registered id was refreshed; a run-time option sharing an id with a registered one would have been overwritten, and none was recorded either way." : ""}`);
+    }
+    console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028).`);
+  } else {
+    console.log(`No AskUserQuestion call could be composed for this gate, and the reason is on the open-gate pointer (\`gate_call_unavailable\`). Render the declaration's options verbatim, nothing pre-selected, free text on.`);
+  }
 }
 
 // Counts, from the record and from the table, rendered side by side. This is
