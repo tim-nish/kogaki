@@ -548,6 +548,8 @@ TTLPY
   stub_repo="$hooktmp/stub-repo"
   mkdir -p "$stub_repo/.claude/hooks" "$stub_repo/src" "$stub_repo/rundir"
   cp "$ADVANCE" "$stub_repo/.claude/hooks/advance-terrain.py"
+  # The hook reads its advance bound from the table (kogaki#1300).
+  cp src/terrain-workflow.json "$stub_repo/src/terrain-workflow.json"
   # The capture row is this hook's precondition (the trio above), so the staged
   # run carries one naming the payload's own id -- otherwise the stub is never
   # spawned and both cases would pass on the narrowing rather than on the emit.

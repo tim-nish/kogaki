@@ -502,13 +502,15 @@ def main():
     # read (kogaki#1085): the `finally` below is the one place every post-spawn
     # exit passes through, and a gate payload and a refusal can both be
     # outstanding at once.
-    bound = advance_timeout_s(root)
-    if bound is None:
-        note(f"{'/'.join(WORKFLOW_TABLE)} declares no positive judge.advance_timeout_s; "
-             "nothing was advanced")
-        return 0
     refusal = None
     try:
+        # READ INSIDE THE `try`, so a table with no bound still reaches the
+        # delivery in `finally` below rather than returning past it.
+        bound = advance_timeout_s(root)
+        if bound is None:
+            note(f"{'/'.join(WORKFLOW_TABLE)} declares no positive judge.advance_timeout_s; "
+                 "nothing was advanced")
+            return 0
         try:
             # THE PAYLOAD GOES IN VERBATIM. `input=raw` rather than a
             # re-serialised dict: a round trip through this process is a chance
