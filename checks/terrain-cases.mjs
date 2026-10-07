@@ -2750,6 +2750,99 @@ console.log(JSON.stringify(out));`, env);
         })());
     }
 
+    // A JUDGE CALL THAT OUTLIVES `timeout_s` ENDS THE RUN AS A REPORT (kogaki#1300).
+    // The stub sleeps `STUB_SLEEP_MS` and then answers as STUB_JUDGE does; the
+    // sleep is read from the environment because a re-entry runs the binary the
+    // record already resolved. The open-run pointer and the open-gates directory
+    // point into the scratch root, so nothing here touches a real lane.
+    {
+      const SLOW_JUDGE = join(SCRATCH, "slow-judge.mjs");
+      writeFileSync(SLOW_JUDGE, [
+        "#!/usr/bin/env node",
+        'import { readFileSync } from "node:fs";',
+        'import { spawnSync } from "node:child_process";',
+        'if (process.argv.includes("--version")) { console.log("slow-judge 1.0"); process.exit(0); }',
+        'const input = readFileSync(0, "utf8");',
+        "Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(process.env.STUB_SLEEP_MS || 0));",
+        `const r = spawnSync(process.execPath, [${JSON.stringify(STUB_JUDGE)}], { input, encoding: "utf8" });`,
+        "process.stdout.write(r.stdout || \"\");",
+        "process.exit(r.status ?? 1);",
+      ].join("\n") + "\n");
+      chmodSync(SLOW_JUDGE, 0o755);
+      const d = join(SCRATCH, "judge-timeout");
+      const rd = join(d, "rd");
+      mkdirSync(rd, { recursive: true });
+      const tp = join(d, "table.json");
+      writeFileSync(tp, JSON.stringify({
+        version: SHIPPED_TABLE.version,
+        judge: { ...SHIPPED_TABLE.judge, timeout_s: 1 },
+        owner_artifacts: SHIPPED_TABLE.owner_artifacts,
+        states: SHIPPED_TABLE.states.filter((st) => ["compose_input", "J2_subdivision", "cotag_groups", "full_report", "done"].includes(st.id)),
+      }));
+      writeFileSync(join(rd, RUN_RECORD_FILE), JSON.stringify({
+        workflow: { path: tp, version: SHIPPED_TABLE.version }, judge_binary: null, survey_record: FIX_SURVEY,
+        completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [], awaiting: null,
+        owner_input: { TAG_SELECTION: "fix", ID_SELECTION: "G1,G2" }, artifacts_written: [], judgments: {},
+        gate_declarations_owed: [], transitions: [], done: false,
+      }));
+      const ptr = join(d, "open-run");
+      const gates = join(d, "open-gates");
+      const advance = (sleepMs) => {
+        writeFileSync(ptr, `${rd}\n`);
+        const r = terrain(["run", "--run-dir", rd, "--workflow", tp, "--report-dir", join(d, "reports")], {
+          input: FIXTURE_PAYLOAD,
+          env: { ...FIX_GW, KOGAKI_JUDGE_CLI: SLOW_JUDGE, KOGAKI_REPORTS_DIR: join(d, "rendering"),
+            KOGAKI_OPEN_RUN: ptr, KOGAKI_OPEN_GATES: gates, STUB_SLEEP_MS: String(sleepMs) },
+        });
+        return { ...r, rec: readJson(join(rd, RUN_RECORD_FILE)) };
+      };
+      const noGate = (rec) => rec.gate_declarations_owed.length === 0
+        && !readdirSync(rd).some((f) => f.startsWith("terrain-judgment-retry"))
+        && (!existsSync(gates) || readdirSync(gates).length === 0);
+      const timedOut = advance(3000);
+      const f = timedOut.rec.failure || {};
+      ok("a judge call past `timeout_s` ends the run non-zero with a report naming the state, the bound, the measured time and the run directory, `failure.cause: judge-timeout` on the record, no gate and the open-run pointer cleared",
+        timedOut.status !== 0
+        && /FAILED at J2_subdivision/.test(timedOut.stderr) && /bound\s+1s/.test(timedOut.stderr)
+        && /measured\s+\d/.test(timedOut.stderr) && timedOut.stderr.includes(rd)
+        && f.cause === "judge-timeout" && f.state === "J2_subdivision" && f.bound_s === 1 && f.measured_s >= 1
+        && noGate(timedOut.rec) && !existsSync(ptr)
+        && JSON.stringify(timedOut.rec.completed) === JSON.stringify(["compose_input"]));
+      const again = advance(3000);
+      ok("a re-entry after a judge timeout resumes at the failed state with `completed` unchanged, and keeps the earlier failure as history",
+        again.status !== 0 && (again.rec.failure || {}).state === "J2_subdivision"
+        && JSON.stringify(again.rec.completed) === JSON.stringify(timedOut.rec.completed)
+        && Array.isArray(again.rec.prior_failures) && again.rec.prior_failures.length === 1 && noGate(again.rec));
+      const resumed = advance(0);
+      ok("a re-entry whose judge answers inside the bound completes the failed state after the kept ones, and leaves no `failure` standing",
+        resumed.status === 0 && !resumed.rec.failure
+        && resumed.rec.completed[0] === "compose_input" && resumed.rec.completed.includes("J2_subdivision")
+        && resumed.rec.prior_failures.length === 2);
+
+      // THE TABLE CHECK ON ONE ADVANCE'S JUDGE CALLS (kogaki#1300).
+      const loadRefusal = (name, judge) => {
+        const tp2 = join(d, `table-${name}.json`);
+        writeFileSync(tp2, JSON.stringify({ ...SHIPPED_TABLE, judge }));
+        const rd2 = join(d, `rd-${name}`);
+        mkdirSync(rd2, { recursive: true });
+        return terrain(["run", "--run-dir", rd2, "--workflow", tp2, "--status"], { env: { KOGAKI_OPEN_RUN: ptr } });
+      };
+      const over = loadRefusal("over", { ...SHIPPED_TABLE.judge, advance_timeout_s: 100, per_group_ceiling: 4 });
+      ok("a table whose synchronous judge calls in one advance sum past `advance_timeout_s` is refused, naming the states and the sum",
+        over.status !== 0 && /thesis_candidates 90s, J3_neighborhood 90s\) sum to 180s/.test(over.stderr)
+        && /advance_timeout_s` of 100s/.test(over.stderr));
+      const wide = loadRefusal("wide", { ...SHIPPED_TABLE.judge, per_group_ceiling: 24 });
+      ok("a per-group judgment is priced at ceil(per_group_ceiling / concurrency) waves of `timeout_s`, so a ceiling past the bound is refused",
+        wide.status !== 0 && /J2_subdivision 6x90s\) sum to 540s/.test(wide.stderr));
+      const { advance_timeout_s: _dropped, ...noBound } = SHIPPED_TABLE.judge;
+      const absent = loadRefusal("absent", noBound);
+      ok("a `judge` block declaring no `advance_timeout_s` is refused rather than left to a hook constant",
+        absent.status !== 0 && /declares no positive `advance_timeout_s`/.test(absent.stderr)
+        // The shipped block loads: `--status` over an empty run directory
+        // refuses for want of a record, never for the advance bound.
+        && !/advance_timeout_s|sum to \d+s/.test(loadRefusal("shipped", SHIPPED_TABLE.judge).stderr));
+    }
+
     rmSync(SCRATCH, { recursive: true, force: true });
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
     if (bad.length) process.exit(1);

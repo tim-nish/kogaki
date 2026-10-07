@@ -2934,6 +2934,7 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
       // `res.error` STAYS OUTSIDE IT: a command that could not be spawned is not re-asked.
       // THE CALL IS AWAITED OUTSIDE THE WINDOW AND JUDGED INSIDE (kogaki#1073): the
       // window is a synchronous depth counter and must never be held across an `await`.
+      const startedAt = Date.now();
       const raw = await judgeSpawnAsync(cfg.command, argv, {
         input: prompt, maxBuffer: 64 * 1024 * 1024,
         // THE CHILD IS BOUNDED, AND ITS BOUND IS DERIVED FROM THE HOOK'S
@@ -2947,26 +2948,17 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
         // CALL and the other bounds an ADVANCE.
         timeoutMs: cfg.timeoutMs,
       });
-      // A TIMEOUT IS NOT RE-ASKED (kogaki#1172 item 2). Every other refusal in
-      // this window is fed back to the judge on the next attempt because the
-      // NEXT ask is a different ask -- it carries the refusal text and asks the
-      // judge to repair exactly it. A timeout repairs nothing by being re-asked:
-      // the same prompt over the same input takes the same wall-clock time, so a
-      // re-ask spends the retry bound on a fact a re-ask cannot change, which is
-      // what the `method` tag's three exhausted 107s attempts (2026-09-20) spent
-      // 270s doing. So this is decided BEFORE the soft window, on the same
-      // exception `r.error` already gets one arm down, and it returns rather
-      // than looping: `attempts` stays at what this call actually made (1, on
-      // the first occurrence), and the caller's exhaustion message is built
-      // from the return value exactly as it is on a bound genuinely spent.
+      // A TIMEOUT IS A SYSTEM FAILURE, NOT A REFUSAL (kogaki#1300; never re-asked
+      // since kogaki#1172). The same prompt over the same input takes the same
+      // time, so neither a re-ask nor a retry gate can repair it. Returned with
+      // `timeout` set; the caller throws `JudgeTimeout` and the run ends as a report.
       if (raw.error && raw.error.code === "ETIMEDOUT") {
+        const measuredS = Math.round((Date.now() - startedAt) / 100) / 10;
         const msg = `${st.id}${at}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
-          + "`judge` block declares. This attempt is NOT re-asked (kogaki#1172): a timeout is not repaired by "
-          + "asking the same question again, so the bound is not spent re-running a call that will time out the "
-          + "same way. The bound exists so that several calls in one span cannot exhaust the PostToolUse advance's "
-          + "own timeout and leave a half-finished record (kogaki#1030).";
+          + `\`judge\` block declares (measured ${measuredS}s). Not re-asked (kogaki#1172) and not retried (kogaki#1300).`;
         refusals.push(msg);
-        return { ok: false, out, attempts, refusals, lastRefusal: msg };
+        return { ok: false, out, attempts, refusals, lastRefusal: msg,
+          timeout: { bound_s: cfg.timeoutMs / 1000, measured_s: measuredS, label: at } };
       }
       const res = softRefusals(() => {
         const r = raw;
@@ -3118,6 +3110,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
       refusals: r.refusals, repaired: false,
     };
   }
+  if (r.timeout) throw new JudgeTimeout(st.id, r.timeout, r.lastRefusal);
   // A SPENT BOUND STOPS THE STATE, NOT THE RUN (kogaki#1172 item 3). This used
   // to be `fail()`, which exits the process; the state loop now catches this
   // instead and raises `terrain-judgment-retry` in its place, leaving the run
@@ -3301,6 +3294,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
           refusals: allRefusals, repaired: false, groups: perGroup, judged_before: [...judged],
         };
       }
+      if (r.timeout) throw new JudgeTimeout(st.id, r.timeout, r.lastRefusal);
       // A SPENT BOUND STOPS THE STATE, NOT THE RUN (kogaki#1172 item 3), on the
       // same ground the whole-input arm above takes: the groups already judged
       // are validated records on disk, and the reuse logic at the top of this
@@ -5422,6 +5416,19 @@ class JudgmentExhausted extends Error {
   }
 }
 
+// A JUDGE CALL THAT OUTLIVED ITS `timeout_s` (kogaki#1300).
+// A system failure, not a refusal: the state loop records `failure` on the run record,
+// prints a report, clears the open-run pointer and exits non-zero. No gate, no retry.
+// `completed` is untouched, so `run --run-dir <dir>` re-enters at this state.
+class JudgeTimeout extends Error {
+  constructor(stateId, timeout, message) {
+    super(message);
+    this.stateId = stateId;
+    this.boundS = timeout.bound_s;
+    this.measuredS = timeout.measured_s;
+  }
+}
+
 // ============ THE DETACHED JOB (kogaki#1193) ============
 // `compose_path` starts the job and throws `DetachedJobStarted`; the state is NOT complete
 // and no gate is raised. `job await` resumes a FINISHED job (`detached-job` attribution).
@@ -6618,7 +6625,41 @@ function loadWorkflowTable(path) {
   if (!table.states.some((s) => s.kind === "terminal")) {
     fail(`workflow table ${path} declares no terminal state. A generic executor reads the end of a run from the table and never from position (the workflow table).`);
   }
+  if (table.judge) refuseOverBudgetAdvance(path, table);
   return table;
+}
+
+// THE ADVANCE BOUND IS A TABLE FIELD, AND ITS ARITHMETIC IS CHECKED HERE (kogaki#1300).
+// An advance is the span of states between two stops: a wait, a terminal, or a state that
+// starts a Detached Job (`job`), whose calls run outside any hook-bound advance. Each
+// synchronous judgment state in a span costs `timeout_s`; a `per_group` one costs
+// ceil(per_group_ceiling / concurrency) waves of it. A span summing past
+// `advance_timeout_s` is refused, so the bound the hooks enforce cannot outgrow the table.
+function refuseOverBudgetAdvance(path, table) {
+  const j = table.judge;
+  const positive = (k) => (Number.isFinite(j[k]) && j[k] > 0 ? j[k] : fail(
+    `workflow table ${path}: the \`judge\` block declares no positive \`${k}\`. The advance bound is read `
+    + "from the table by the advance hook and checked against the judge calls one advance makes (kogaki#1300)."));
+  const advance = positive("advance_timeout_s");
+  const call = positive("timeout_s");
+  let span = [];
+  let sum = 0;
+  const close = () => {
+    if (sum > advance) {
+      fail(`workflow table ${path}: the synchronous judge calls of one advance (${span.join(", ")}) sum to ${sum}s, `
+        + `past the \`judge\` block's \`advance_timeout_s\` of ${advance}s. The advance hook kills the executor at that `
+        + "bound, so a table whose calls cannot fit inside it is refused rather than run (kogaki#1300).");
+    }
+    span = []; sum = 0;
+  };
+  for (const s of table.states) {
+    if (s.kind === "wait" || s.kind === "terminal" || s.job) { close(); continue; }
+    if (s.kind !== "judgment") continue;
+    const waves = s.per_group ? Math.ceil(positive("per_group_ceiling") / positive("concurrency")) : 1;
+    span.push(s.per_group ? `${s.id} ${waves}x${call}s` : `${s.id} ${call}s`);
+    sum += waves * call;
+  }
+  close();
 }
 
 // The baseline is DERIVED from the states array, not read from `counted_baseline`;
@@ -6708,6 +6749,28 @@ function mostRecentDoneRun(lane) {
 // state and every per-group judge record, since a SIGKILL at `ADVANCE_TIMEOUT_S` runs
 // no exit path. A failing write is NOT swallowed.
 // Exported for the job-verb dispatch (kogaki#1193): `job await` persists a `rec` with `_dir`.
+// THE JUDGE-TIMEOUT EXIT (kogaki#1300). Everything already written stays: the record is
+// written with `failure` beside an unchanged `completed`, then the process exits non-zero.
+function endRunOnJudgeTimeout(rec, st, dir, e) {
+  rec.awaiting = null;
+  rec.failure = { cause: "judge-timeout", state: st.id, bound_s: e.boundS, measured_s: e.measuredS };
+  setRunPersist(null, null);
+  delete rec._dir;
+  const recPath = writeRunRecord(dir, rec);
+  clearOpenRunPointer();
+  process.stderr.write([
+    `${flow().label} run FAILED at ${st.id}: a judge call exceeded its bound.`,
+    `  state     ${st.id}`,
+    `  bound     ${e.boundS}s (the workflow table's judge.timeout_s)`,
+    `  measured  ${e.measuredS}s`,
+    `  run       ${dir}`,
+    `This is a system failure, not a refusal: no question is raised and no retry is spent (kogaki#1300).`,
+    `Every completed state is kept; \`run --run-dir ${dir}\` re-enters at ${st.id}.`,
+    `Run record: ${recPath}`,
+  ].join("\n") + "\n");
+  process.exit(1);
+}
+
 export function checkpointRun(rec) {
   if (!rec || !rec._dir) return null;
   const out = { ...rec };
@@ -7611,6 +7674,12 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   // `rec.done`, recorded `rec.judgment_abandoned` and cleared the open-run
   // pointer — and this is what stops the loop from immediately re-entering
   // the very judgment state that answer was about.
+  // A RE-ENTRY AFTER A JUDGE TIMEOUT (kogaki#1300) keeps the failure as history
+  // rather than leaving `failure` standing over a run that is advancing again.
+  if (rec.failure) {
+    rec.prior_failures = [...(Array.isArray(rec.prior_failures) ? rec.prior_failures : []), rec.failure];
+    delete rec.failure;
+  }
   for (const st of (rec.judgment_abandoned ? [] : table.states)) {
     if (rec.completed.includes(st.id)) continue;
     if (st.conditional && !entered.has(st.id)) {
@@ -7699,6 +7768,7 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     // leave the authority standing for whatever ran next in the same process.
     let outcome = null;
     let judgmentExhausted = null;
+    let judgeTimeout = null;
     let detachedJobStarted = null;
     if (work) {
       const held = WRITING_STATE;
@@ -7711,6 +7781,7 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
         // the one frame that already has `st`, `dir` and `rec` together without
         // threading them through the judge machinery.
         if (e instanceof JudgmentExhausted) { judgmentExhausted = e; }
+        else if (e instanceof JudgeTimeout) { judgeTimeout = e; }
         // A DETACHED JOB HAS STARTED OR IS STILL RUNNING (kogaki#1193). Caught
         // in the same frame, on the same ground: the state that started or
         // found the job is the one frame that already has `st` and `dir`
@@ -7721,6 +7792,7 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       }
       finally { WRITING_STATE = held; }
     }
+    if (judgeTimeout) endRunOnJudgeTimeout(rec, st, dir, judgeTimeout);
     if (detachedJobStarted) {
       // NO GATE DECLARATION. This is the whole difference from
       // `judgmentExhausted` below: a spent judgment bound is something the

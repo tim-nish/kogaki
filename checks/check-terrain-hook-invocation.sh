@@ -261,11 +261,28 @@ assert_denied "an invocation after a data mention" \
 # THE HOOK'S CHILD BOUND FIRES BEFORE THE HARNESS'S OWN (PR #1034 round 1,
 # finding 3). A bound set AT the default can never fire first, which is a
 # declared bound that does nothing; the relay message it exists to make
-# reachable is only reachable below it.
-if python3 -c 'import re,sys; src=open(".claude/hooks/advance-terrain.py",encoding="utf-8").read(); m=re.search(r"^ADVANCE_TIMEOUT_S = (\d+)$", src, re.M); sys.exit(0 if m and int(m.group(1)) < 600 else 1)'; then
+# reachable is only reachable below it. Since kogaki#1300 the bound is each
+# workflow table's `judge.advance_timeout_s`, read by its hook, and no
+# `ADVANCE_TIMEOUT_S` constant may come back into `.claude/hooks/`.
+if python3 -c 'import json,sys; v=[json.load(open(f,encoding="utf-8"))["judge"].get("advance_timeout_s") for f in ("src/terrain-workflow.json","src/brief-workflow.json")]; sys.exit(0 if all(isinstance(x,(int,float)) and 0 < x < 600 for x in v) else 1)'; then
   pass
 else
-  bad "advance-terrain.py's ADVANCE_TIMEOUT_S is not below the harness's 600s hook default — a child bound at or above it cannot fire first, so the timeout relay it exists for is unreachable"
+  bad "a workflow table's judge.advance_timeout_s is absent or not below the harness's 600s hook default — a child bound at or above it cannot fire first, so the timeout relay it exists for is unreachable"
+fi
+if git grep -q -e "ADVANCE_TIMEOUT_S" -- .claude/hooks/; then
+  bad "an ADVANCE_TIMEOUT_S name is back in .claude/hooks/ — the advance bound is the workflow table's judge.advance_timeout_s (kogaki#1300)"
+else
+  pass
+fi
+if python3 -c 'import importlib.util,sys
+for lane in ("terrain","brief"):
+    spec=importlib.util.spec_from_file_location("h_"+lane,".claude/hooks/advance-%s.py"%lane); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    import json; want=json.load(open("src/%s-workflow.json"%lane,encoding="utf-8"))["judge"]["advance_timeout_s"]
+    if m.advance_timeout_s(".") != want: sys.exit(1)
+'; then
+  pass
+else
+  bad "an advance hook does not read its bound from its own workflow table's judge.advance_timeout_s (kogaki#1300)"
 fi
 
 # THE ADVANCE HOOK SPENDS NOTHING ON A QUESTION THAT IS NOT A TERRAIN GATE
@@ -783,7 +800,7 @@ PY
   # advance killed AFTER `emitGateDeclaration` wrote the call and the pointer
   # left exactly the state this file exists to deliver, undelivered, with its
   # only note on the stderr kogaki#1081 is about. The timeout arm cannot be
-  # driven in a check that must finish (`ADVANCE_TIMEOUT_S` is 480s); the
+  # driven in a check that must finish (`advance_timeout_s` is 480s); the
   # generic arm is the same `finally` and is one `PATH` away — with no `node`,
   # `subprocess.run` raises before the executor exists.
   # THE INTERPRETER IS NAMED ABSOLUTELY, because `PATH` is what this case takes
