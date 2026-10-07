@@ -236,12 +236,24 @@
       "as a WORD SEQUENCE so a rewrap — which changes nothing — does not silently",
       "hand the instruction back as the block's value.",
       "",
-      "`claims`, `already knows` and `introduce here` each render as a FLAT LIST",
-      "under their own heading, in the Packet's one list convention: one `- ` line",
-      "per item at column zero, no `key:` prefix, and no bulleted field label above",
-      "the list (the relations layer that once indented a satellite claim under its",
+      "`claims` and `crosses_here` each render as a FLAT LIST under their own",
+      "heading, in the Packet's one list convention: one `- ` line per item at",
+      "column zero, no `key:` prefix, and no bulleted field label above the list",
+      "(the relations layer that once indented a satellite claim under its",
       "nucleus is retired, and the mixed `claim:` convention with it, kogaki#1215).",
       "`heading_list` reads the `- ` items of the block the heading opens.",
+      "",
+      "`held_by_reader` AND `active_here` ARE GONE, MERGED INTO `crosses_here`",
+      "(kogaki#1282, owner ruling 2026-10-06). Leg linking is default-deny: the",
+      "Packet no longer renders a held list at all, and `introduces` reads the",
+      "same \"What crosses into this Leg\" block `already-knows` does — the one",
+      "block carries this Leg's own introduced terms (marked `coined` or",
+      "`established`) and whatever it re-activates (a term or claim, each",
+      "crossing with its meaning or its plain restatement), in the one list",
+      "convention above. `already-knows` is handed `claims` as a companion block",
+      "beside `crosses_here`, the same companion mechanism that used to hand it",
+      "`active_here`, so the judge can tell crossed-in or self-claimed material",
+      "from everything else the reader might hold.",
       "",
       "`reader_own_world` IS A `paragraph`, NOT A `block` (kogaki#1285). The Write",
       "block's reader's-own-world line is Harness-owned and sits inline before the",
@@ -253,18 +265,9 @@
       "kind": "heading_list",
       "heading": "The claims this Leg asserts"
     },
-    "introduces": {
+    "crosses_here": {
       "kind": "heading_list",
-      "heading": "Introduce here"
-    },
-    "held_by_reader": {
-      "kind": "heading_list",
-      "heading": "Held by the reader, not material here",
-      "term_only": true
-    },
-    "active_here": {
-      "kind": "heading_list",
-      "heading": "Active here"
+      "heading": "What crosses into this Leg"
     },
     "move_contract": {
       "kind": "bullets",
@@ -359,28 +362,28 @@
       "id": "introduces",
       "class": "preserved",
       "mode": "judged",
-      "declared_block": "introduces",
+      "declared_block": "crosses_here",
       "field": "introduces",
       "when_declared_absent": {
         "verdict": "holds",
-        "sentence": "this Leg's Packet says to introduce no term, so the question below quantifies over nothing, and a passage that introduces nothing carries no `introduces:` line to read against it"
+        "sentence": "this Leg's Packet crosses in no term and re-activates nothing, so the question below quantifies over nothing, and a passage that introduces nothing carries no `introduces:` line to read against it"
       },
-      "question": "Is every term the Packet says to introduce here actually introduced in this passage — usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
+      "question": "Is every term the Packet says to introduce here — the entries above marked `coined` or `established`, never a re-activated one — actually introduced in this passage, usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
     },
     {
       "id": "already-knows",
       "class": "best-effort",
       "mode": "judged",
-      "declared_block": "held_by_reader",
+      "declared_block": "crosses_here",
       "also_declared_blocks": [
-        "active_here"
+        "claims"
       ],
       "field": "introduces",
       "when_declared_absent": {
         "verdict": "holds",
-        "sentence": "this Leg's Packet lists no term held by the reader that this Leg left un-re-activated, so there is nothing for the passage to rely on without re-activation and the question below quantifies over nothing"
+        "sentence": "this Leg's Packet crosses nothing into it, so there is no crossed-in material for the question below to quantify over; what the passage relies on beyond its own claims is judged by the Leg's other items"
       },
-      "question": "Does the passage rely on a term or claim the reader holds from an earlier Leg but this Leg did not re-activate — using it as material of its own, as if this Leg had restored it? Answer `fails` if it does. Re-introducing material the Leg DID re-activate (listed under `Active here`, not here) is the intended behaviour and never fails."
+      "question": "Above is the whole of what crosses into this Leg — each term and claim it may speak of as already available — beside this Leg's own claims. Does the passage rely on a term, claim or case that is in neither list, treating it as if it were already available to the reader? Answer `fails` if it does. Using material that IS crossed in, or that is one of this Leg's own claims, is the intended behaviour and never fails."
     },
     {
       "id": "figure-elements",

@@ -250,28 +250,33 @@ try {
   rmSync(dir, { recursive: true, force: true });
 }
 
-// (i) the inverted `already-knows` item (kogaki#1237): ReviewDraft's item table asks
-// whether the passage relies on a term the reader holds but this Leg did NOT
-// re-activate, over the Packet's "Held by the reader, not material here" block,
-// and the retired "Already knows" block is named nowhere in the table.
+// (i) the crossing-block `already-knows` item (kogaki#1282, owner ruling
+// 2026-10-06): ReviewDraft's item table asks whether the passage relies on a
+// term, claim or case that is neither in the Packet's one "What crosses into
+// this Leg" block nor one of this Leg's own claims, and the retired
+// "Held by the reader" and "Active here" blocks are named nowhere in the
+// table.
 {
   const items = JSON.parse(readFileSync("src/review-items.json", "utf8"));
   const it = (items.items || []).find((i) => i.id === "already-knows");
   if (!it) fails.push("(i) src/review-items.json carries no already-knows item");
   else {
-    if (it.declared_block !== "held_by_reader") fails.push(`(i) already-knows reads block ${JSON.stringify(it.declared_block)}, want held_by_reader`);
-    if (!(it.also_declared_blocks || []).includes("active_here")) fails.push("(i) already-knows does not hand the judge the Active here block beside the held one");
-    if (!/did not re-activate/.test(it.question) || !/Answer `fails` if it does/.test(it.question)) fails.push(`(i) the already-knows question is not inverted onto un-re-activated material: ${it.question}`);
-    if (!/never fails/.test(it.question)) fails.push("(i) the question does not state that re-introducing re-activated material holds");
-    if (!it.when_declared_absent || it.when_declared_absent.verdict !== "holds") fails.push("(i) an empty held-by-reader list does not hold mechanically");
+    if (it.declared_block !== "crosses_here") fails.push(`(i) already-knows reads block ${JSON.stringify(it.declared_block)}, want crosses_here`);
+    if (!(it.also_declared_blocks || []).includes("claims")) fails.push("(i) already-knows does not hand the judge this Leg's claims beside the crossing block");
+    if (!/crosses into this Leg/.test(it.question)) fails.push(`(i) the already-knows question does not read against the crossing block: ${it.question}`);
+    if (!/neither list/.test(it.question) || !/Answer `fails` if it does/.test(it.question)) fails.push(`(i) the already-knows question does not fail on reliance outside the crossing block and this Leg's claims: ${it.question}`);
+    if (!/never fails/.test(it.question)) fails.push("(i) the question does not state that using crossed-in or self-claimed material holds");
+    if (!it.when_declared_absent || it.when_declared_absent.verdict !== "holds") fails.push("(i) an empty crossing block does not hold mechanically");
   }
+  const introItem = (items.items || []).find((i) => i.id === "introduces");
+  if (!introItem || introItem.declared_block !== "crosses_here") fails.push(`(i) introduces reads block ${JSON.stringify(introItem && introItem.declared_block)}, want crosses_here`);
   const blocks = items.packet_blocks || {};
-  const held = blocks.held_by_reader;
+  const crosses = blocks.crosses_here;
   const template = readFileSync("src/packet-template.md", "utf8");
-  if (!held || held.kind !== "heading_list" || !template.includes(`### ${held.heading}`)) fails.push(`(i) packet_blocks.held_by_reader does not name a heading the template renders: ${JSON.stringify(held)}`);
-  const active = blocks.active_here;
-  if (!active || active.kind !== "heading_list" || !template.includes(`### ${active.heading}`)) fails.push(`(i) packet_blocks.active_here does not name a heading the template renders: ${JSON.stringify(active)}`);
-  if (Object.prototype.hasOwnProperty.call(blocks, "already_knows") || /Already knows/.test(JSON.stringify(blocks))) fails.push("(i) the retired already_knows block survives in packet_blocks");
+  if (!crosses || crosses.kind !== "heading_list" || !template.includes(`## ${crosses.heading}`)) fails.push(`(i) packet_blocks.crosses_here does not name a heading the template renders: ${JSON.stringify(crosses)}`);
+  if (Object.prototype.hasOwnProperty.call(blocks, "held_by_reader") || Object.prototype.hasOwnProperty.call(blocks, "active_here") || Object.prototype.hasOwnProperty.call(blocks, "introduces")) {
+    fails.push("(i) a retired block (held_by_reader, active_here or the standalone introduces block) survives in packet_blocks");
+  }
 }
 
 // (j) THE FOUR NEW ReviewDraft ITEMS JOIN THE REAL CLI (kogaki#1247 cell 5):
@@ -300,15 +305,7 @@ try {
     "",
     `- ${claim}`,
     "",
-    "## Introduce here",
-    "",
-    "(none)",
-    "",
-    "## Held by the reader, not material here",
-    "",
-    "(none)",
-    "",
-    "## Active here",
+    "## What crosses into this Leg",
     "",
     "(none)",
     "",
@@ -434,15 +431,7 @@ try {
     "",
     `- ${claimText}`,
     "",
-    "## Introduce here",
-    "",
-    "(none)",
-    "",
-    "## Held by the reader, not material here",
-    "",
-    "(none)",
-    "",
-    "## Active here",
+    "## What crosses into this Leg",
     "",
     "(none)",
     "",
@@ -569,15 +558,7 @@ try {
     "",
     "- the kit's install paths all land the same vendored copy",
     "",
-    "## Introduce here",
-    "",
-    "(none)",
-    "",
-    "## Held by the reader, not material here",
-    "",
-    "(none)",
-    "",
-    "## Active here",
+    "## What crosses into this Leg",
     "",
     "(none)",
     "",
@@ -693,9 +674,10 @@ console.log("brief review: 12/12 cases — (a) per-Candidate reasoning attaches 
   + "unparseable JSON, a body with no `attaches` object, and an entry that is not an array of "
   + "round records (the door a container-shaped check leaves open) — while an ABSENT one is "
   + "zero rounds spent, because a bound whose count degrades to zero on a bad read is a "
-  + "suggestion with a good failure mode; (i) the inverted already-knows item reads the "
-  + "Packet's held-by-reader block beside active-here, never the retired already-knows block, "
-  + "and an empty held list holds mechanically with no model call; (j) kogaki#1247 cell five's "
+  + "suggestion with a good failure mode; (i) the already-knows item reads the Packet's one "
+  + "\"What crosses into this Leg\" block beside this Leg's own claims, never the retired "
+  + "held-by-reader/active-here pair or a standalone introduces block, and an empty crossing "
+  + "block holds mechanically with no model call; (j) kogaki#1247 cell five's "
   + "four new judged items — prose-style, attribute-leak, referents, unsupported-sentence — "
   + "join through the real open/outline/compare CLI and each hold one Leg joined `fails` and "
   + "one joined `holds`, recorded rather than computed, which is the whole of what a judged "
