@@ -1104,6 +1104,74 @@ function moveQuestionField(moveId, movesDir) {
   return moveScalarField(text, "question");
 }
 
+// THE SUB-LABEL WITHIN `question` (kogaki#1283). `question`'s own prose
+// states, under one of `raises:`/`settles:`/`replaces:`, what the Move hands
+// the next Leg -- these are plain text inside one folded string, never
+// nested keys (§4.2), so the span owed to one verb runs from just past its
+// colon to whichever of the three verbs comes next, or to the field's end.
+const QUESTION_VERBS = ["raises", "settles", "replaces"];
+function questionVerbSpan(text, verb) {
+  if (typeof text !== "string") return null;
+  const m = new RegExp(`${verb}:\\s*`).exec(text);
+  if (!m) return null;
+  const start = m.index + m[0].length;
+  let end = text.length;
+  for (const v of QUESTION_VERBS) {
+    const re = new RegExp(`${v}:`, "g");
+    re.lastIndex = start;
+    const hit = re.exec(text);
+    if (hit && hit.index < end) end = hit.index;
+  }
+  const span = text.slice(start, end).trim();
+  return span === "" ? null : span;
+}
+
+// THE QUESTION-CHAIN JUDGE INPUT (kogaki#1283). One entry per adjacent Leg
+// pair in path order -- the mechanical half (which lines, off which fields)
+// is extracted HERE; whether the two sides name the same question is left to
+// `review_path`'s judgment, never compared by this function.
+export function questionChainPairs(legs, movesDir = "moves") {
+  const out = [];
+  for (let i = 0; i < legs.length - 1; i++) {
+    const leg = legs[i];
+    const next = legs[i + 1];
+    const legQuestion = typeof leg.move === "string" ? moveQuestionField(leg.move, movesDir) : null;
+    const nextQuestion = typeof next.move === "string" ? moveQuestionField(next.move, movesDir) : null;
+    out.push({
+      leg: leg.leg_id,
+      next_leg: next.leg_id,
+      declared: {
+        reader_state_after_question: readerStateDimensionLine(leg.reader_state_after, "question"),
+        move_raises: questionVerbSpan(legQuestion, "raises"),
+      },
+      reverse: {
+        reader_state_before_question: readerStateDimensionLine(next.reader_state_before, "question"),
+        move_holds: questionVerbSpan(nextQuestion, "holds"),
+      },
+    });
+  }
+  return out;
+}
+
+// THE DISCHARGE JUDGE INPUT (kogaki#1283). One entry per Closure row carrying
+// `discharged_by` -- the row's own text against the discharging Leg's claim
+// lines (each claim's `proposition`), for `review_path` to judge whether
+// every part the row owes has an answer among them.
+export function dischargeRows(legs, obligations = []) {
+  const byId = new Map(legs.map((l) => [l.leg_id, l]));
+  return (Array.isArray(obligations) ? obligations : [])
+    .filter((o) => o && o.discharged_by !== undefined)
+    .map((o) => {
+      const leg = byId.get(o.discharged_by);
+      return {
+        row: o.text,
+        introduced_by: o.introduced_by,
+        discharging_leg: o.discharged_by,
+        claims: leg && Array.isArray(leg.claims) ? leg.claims.map((cl) => cl.proposition) : [],
+      };
+    });
+}
+
 export const MOVE_CONTRACT_FIELDS = ["before", "after", "technique", "breaks"];
 export function moveContract(moveId, movesDir = "moves") {
   let text;
