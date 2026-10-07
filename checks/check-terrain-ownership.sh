@@ -122,18 +122,23 @@ fi
 # surface, and the split that follows this issue cuts along what the surface
 # says the runtime is made of. The reader counts IMPORT BINDINGS rather than
 # words, so a spec naming a function in prose does not stand in for a caller.
-surface_unread() {  # surface_unread <module path>  -> prints each unread export, exit 1 if any
-  python3 - "$1" <<'PY'
+# ONE READER PROCESS FOR BOTH READINGS, because this member bounds its own
+# runtime: the module as committed, then the same text with one export nothing
+# imports appended -- the counterfactual -- each printed on its own line as
+# `<label>:<unread names, space-separated>`. The import bindings are read once.
+surface=$(python3 - src/terrain.mjs <<'PY'
 import re, subprocess, sys
 module = sys.argv[1]
 src = open(module).read()
-exported = re.findall(r'^export\s+(?:async\s+)?(?:function\*?|const|let|class|var)\s+([A-Za-z_$][\w$]*)', src, re.M)
-for m in re.finditer(r'^export\s*\{([^}]*)\}', src, re.M):
-    exported += [n.strip().split(' as ')[-1].strip() for n in m.group(1).split(',') if n.strip()]
+def exports(text):
+    names = re.findall(r'^export\s+(?:async\s+)?(?:function\*?|const|let|class|var)\s+([A-Za-z_$][\w$]*)', text, re.M)
+    for m in re.finditer(r'^export\s*\{([^}]*)\}', text, re.M):
+        names += [n.strip().split(' as ')[-1].strip() for n in m.group(1).split(',') if n.strip()]
+    return names
 files = subprocess.run(["git", "ls-files", "*.mjs", "*.js"], capture_output=True, text=True).stdout.split()
 imported = set()
 for f in files:
-    if f == "src/terrain.mjs" or f.startswith("checks/"):
+    if f == module or f.startswith("checks/"):
         continue
     try:
         t = open(f).read()
@@ -141,24 +146,23 @@ for f in files:
         continue
     for m in re.finditer(r'import\s*\{([^}]*)\}\s*from\s*["\'][^"\']*/terrain\.mjs["\']', t):
         imported |= {n.strip().split(' as ')[0].strip() for n in m.group(1).split(',') if n.strip()}
-unread = [n for n in exported if n not in imported]
-if not exported:
-    print("no export was read at all -- CANNOT-DETERMINE, never a pass"); sys.exit(1)
-for n in unread:
-    print(n)
-sys.exit(1 if unread else 0)
+for label, text in (("real", src), ("mutant", src + "\nexport function kogaki1257UnreadFixture() { return null; }\n")):
+    names = exports(text)
+    # NO EXPORT READ AT ALL is CANNOT-DETERMINE, never a pass.
+    print(f"{label}:" + (" ".join(n for n in names if n not in imported) if names else "<no export read>"))
 PY
-}
-if unread=$(surface_unread src/terrain.mjs); then pass; else
-  bad "src/terrain.mjs exports names no module outside it and outside checks/ imports: $(printf '%s' "$unread" | tr '\n' ' ')— drop the export, or import it where the runtime uses it (kogaki#1257)"
+)
+real_unread=$(printf '%s\n' "$surface" | sed -n 's/^real://p')
+mutant_unread=$(printf '%s\n' "$surface" | sed -n 's/^mutant://p')
+if printf '%s\n' "$surface" | grep -q '^real:' && [ -z "$real_unread" ]; then pass; else
+  bad "src/terrain.mjs exports names no module outside it and outside checks/ imports: ${real_unread:-the reader printed nothing} — drop the export, or import it where the runtime uses it (kogaki#1257)"
 fi
 # The counterfactual: the same module with one added export nothing imports,
 # and the same reader names it.
-{ cat src/terrain.mjs; printf '\nexport function kogaki1257UnreadFixture() { return null; }\n'; } > "$tmp/terrain-mutant.mjs"
-if unread=$(surface_unread "$tmp/terrain-mutant.mjs"); then
+if [ -z "$mutant_unread" ]; then
   bad "an export nothing imports was admitted by the surface reader — it asserts nothing"
-elif printf '%s' "$unread" | grep -qx 'kogaki1257UnreadFixture'; then pass; else
-  bad "the surface reader refused the mutant without naming its added export: ${unread:-no output}"
+elif printf '%s\n' $mutant_unread | grep -qx 'kogaki1257UnreadFixture'; then pass; else
+  bad "the surface reader refused the mutant without naming its added export: ${mutant_unread}"
 fi
 
 # ---- THE BOUND (acceptance 1): under one second on this machine run alone
