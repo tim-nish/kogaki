@@ -160,6 +160,12 @@ find best supported first. Do not show working; show candidates. Where you
 cannot write three genuinely different answers, write the ones you can:
 a padded candidate that nobody would choose is worse than a missing one.
 
+Also list every noun that names this Passage's subject — the thing the
+Passage is about, never the reader, the author, or the technique — as the
+`subject nouns` Reading. This is one list, not three candidates: there is
+no alternative reading of which nouns are the subject, only a judgment the
+human may correct.
+
 ### Step 2 — the human answers the three questions in one round
 
 Present the three questions together, in the shape under "Step 2 as
@@ -167,6 +173,10 @@ rendered" below. Each question offers its three candidates and a fourth
 option, write your own. The human answers each question with a candidate
 number or with a line of their own text. A question the human finds not
 relevant to this Passage is answered "none". Nothing else is asked.
+
+Present the `subject nouns` list alongside the three questions, as given,
+for the human to confirm or edit; it is not numbered, because there is no
+alternative candidate to choose among, only the one list the model wrote.
 
 - In a Claude Code session this is one AskUserQuestion carrying three
   questions, each with the candidates and a fourth option labelled
@@ -256,6 +266,10 @@ source: <the work, if the Passage or the human's message names it;
         otherwise "not given">
 functions: <the function of each Segment of section 3, in order, e.g.
         "advances, advances, raises, settles">
+subject nouns: <every noun naming this Passage's subject — the thing the
+        Passage is about, never the reader or the technique — offered by
+        the model as a list and confirmed or edited by the human at step 2
+        like every other Reading, comma separated, or "none">
 prior text: <assumed | not assumed — whether the Passage relies on text
         before it, with the textual sign in one clause>
 length: <N sentences, M paragraphs, counted>
@@ -336,8 +350,8 @@ longer version would cost.>
 ## 6. The technique, subject-free
 
 <Two or three sentences a writer on a completely different topic could
-follow. No words from this Passage's subject. If you cannot write it
-without the subject, the Passage is not yet understood; say so in 8.>
+follow. No words from the `subject nouns` Reading above. If you cannot
+write it without one, the Passage is not yet understood; say so in 8.>
 
 ## 7. Candidate name
 
@@ -414,6 +428,7 @@ needs no specialist knowledge, makes a difficult subject easy to enter`
 source: not given
 functions: advances, advances, advances, raises, advances, raises,
         settles, settles
+subject nouns: geopolitics, book, world
 prior text: not assumed — "It may sound strange for someone who..." opens
         with no earlier reference, and "This book" is an object the reader
         has not yet entered
