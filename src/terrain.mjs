@@ -136,19 +136,19 @@ import { loadGrammar, refuseUnlessConformant, validateSurface, classMatchers, Fo
 import { enterRun, laneDir, terrainRunEntry } from "./runs.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const REPO = resolve(HERE, "..");
+const REPO = resolve(HERE, "..");
 const SURVEY_SCHEMA = readJson(join(REPO, "src/survey-schema.json"));
 const RECORD_SCHEMA = readJson(join(REPO, "src/record-schema.json"));
-export const GATE_SCHEMA = readJson(join(REPO, "src/gate-schema.json"));
-export const GATES_REGISTRY = readJson(join(REPO, "src/gate-registry.json"));
+const GATE_SCHEMA = readJson(join(REPO, "src/gate-schema.json"));
+const GATES_REGISTRY = readJson(join(REPO, "src/gate-registry.json"));
 // the carrier rule's single carrier of the RENDERED FORM. Resolved from this module's own
 // location, like every schema above it — the emit-time refusal must not depend
 // on the cwd a run happens to start in.
-export const REPORT_FORMAT = join(REPO, "src/report-format.json");
+const REPORT_FORMAT = join(REPO, "src/report-format.json");
 
 const NO_RELATION_SECTION = "No relation (no served tag)";
 
-export function readJson(path) {
+function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
@@ -171,7 +171,7 @@ export function readJson(path) {
 // loss was observed and leave the next one to be discovered the same way.
 let RUN_PERSIST = null;
 
-export function setRunPersist(dir, rec) {
+function setRunPersist(dir, rec) {
   RUN_PERSIST = dir && rec ? { dir, rec } : null;
 }
 
@@ -291,7 +291,7 @@ function parseArgs(argv) {
 let FLOW = null;
 function flow() { return FLOW || TERRAIN_FLOW; }
 
-export function runDir(args) {
+function runDir(args) {
   const f = flow();
   if (args["run-dir"] || process.env[f.runDirEnv]) {
     const dir = args["run-dir"] || process.env[f.runDirEnv];
@@ -337,7 +337,7 @@ function openRunPointerPath() {
   return process.env[f.openRunEnv] || join(laneDir(f.lane), OPEN_RUN_POINTER);
 }
 
-export function readOpenRunPointer() {
+function readOpenRunPointer() {
   const p = openRunPointerPath();
   if (!existsSync(p)) return null;
   const dir = readFileSync(p, "utf8").trim();
@@ -411,11 +411,10 @@ function gatewayQuery(tool, toolArgs, { soft = false } = {}) {
   return JSON.parse(res.stdout);
 }
 
-// --------------------------------------------------------------------------
+// ---- SURVEY VALIDATION ----------------------------------------------------
 // Survey validation — the same rules the check applies, run BEFORE writing.
 // Returns a list of "CODE — detail" strings; empty = conforming.
-// --------------------------------------------------------------------------
-export function validateSurvey(record, schema = SURVEY_SCHEMA) {
+function validateSurvey(record, schema = SURVEY_SCHEMA) {
   const v = [];
   const s = schema.survey;
   for (const f of s.required) {
@@ -579,7 +578,7 @@ function narrowingKeys(obj, s) {
 // carry — Lessons plus marks reconstructs the Strand set exactly (what would falsify the candidate model), which
 // is what keeps `agents (115 — 59 lessons + 56 journeys)` a true statement
 // about 115 Strands while the section holds 59 rows.
-export function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
+function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
   const s = schema.survey;
   const markKey = s.journey_mark_key;
   const out = {};
@@ -611,9 +610,9 @@ export function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
 // entirely in these tokens, which is the correct reading of it — run
 // `terrain survey` again (location and naming v11: run-workspace artifacts are uncommitted
 // and regenerable, so regeneration is the remedy, not a migration).
-export const NO_DISPLAY_ID = "⟨no display_id — ABNORMAL, a survey record predating the display-ID rule, never substituted⟩";
+const NO_DISPLAY_ID = "⟨no display_id — ABNORMAL, a survey record predating the display-ID rule, never substituted⟩";
 
-export function displayIdOf(id, candidates) {
+function displayIdOf(id, candidates) {
   const c = (candidates || []).find((x) => x && x.id === id);
   return c && c.display_id ? c.display_id : NO_DISPLAY_ID;
 }
@@ -622,7 +621,7 @@ export function displayIdOf(id, candidates) {
 // `L10`, and the abnormal marker last — a lexicographic sort orders "L1", "L10",
 // "L2" in that order, and a display id's number is its meaning on every surface
 // in this file.
-export function compareDisplayIds(a, b) {
+function compareDisplayIds(a, b) {
   const n = (x) => { const m = /^([A-Za-z]+)([0-9]+)$/.exec(String(x)); return m ? [m[1], Number(m[2])] : null; };
   const na = n(a); const nb = n(b);
   if (!na && !nb) return String(a).localeCompare(String(b));
@@ -634,14 +633,14 @@ export function compareDisplayIds(a, b) {
 // The plural form, plus the count of abnormal members so a surface can state
 // the fault ONCE beneath the rows rather than per row — the shape the rendering rule's
 // `missing` counter already uses at the candidate-row surface.
-export function displayIds(ids, candidates) {
+function displayIds(ids, candidates) {
   const rendered = (ids || []).map((id) => displayIdOf(id, candidates));
   return { rendered, missing: rendered.filter((r) => r === NO_DISPLAY_ID).length };
 }
 
 // The one line every surface prints when `displayIds` reported a shortfall.
 // Stated once so the eight call sites cannot drift into eight wordings.
-export function displayIdAbnormalLine(missing, total) {
+function displayIdAbnormalLine(missing, total) {
   return `ABNORMAL: ${missing} of ${total} member(s) on this surface carry no display_id. `
     + "The survey record is the ID→slug map (SPEC.md, the display-ID rule) and this one predates it — nothing was substituted for the missing IDs. "
     + "Re-run `terrain survey` to regenerate the record (location and naming v11).";
@@ -665,7 +664,7 @@ export function displayIdAbnormalLine(missing, total) {
 // 558 lines.
 //
 // Pure, so it can be fixtured; the caller prints what it returns and exits.
-export function surveyEmptinessRefusal(servedLines, lessonCount, pin) {
+function surveyEmptinessRefusal(servedLines, lessonCount, pin) {
   if (lessonCount > 0) return null;
   const at = `pin ${pin ?? "absent"}`;
   if (servedLines === 0) {
@@ -691,15 +690,14 @@ export function surveyEmptinessRefusal(servedLines, lessonCount, pin) {
 // positional form is unproducible downstream by construction. The pin's sha
 // segment is taken as the response serves it; judging its shape belongs to
 // the resolve check (src/cite-check.mjs), not to the producer.
-export function composeIdentityCite(slug, kind, pin) {
+function composeIdentityCite(slug, kind, pin) {
   const sha = String(pin ?? "").split("@").pop();
   if (!sha) return null;
   return `gloss/ELEMENTS.jsonl slug=${slug} kind=${kind} @${sha}`;
 }
 
-// --------------------------------------------------------------------------
+// ---- SURVEY ---------------------------------------------------------------
 // survey — read the seam, compose, validate, write.
-// --------------------------------------------------------------------------
 function cmdSurvey(args) {
   // THE RUN DIRECTORY IS NOT CREATED HERE ANY MORE (kogaki#1026). `runDir`
   // creates — and on the default path PRUNES — under `runs/`, so calling it
@@ -870,7 +868,7 @@ function cmdSurvey(args) {
 // `agents (115)`. Every display showing candidate rows states its denominator
 // in Lessons (the candidate model). These two helpers are the only place a Terrain figure is
 // composed, so a new display cannot emit a bare count by forgetting to.
-export function strandFigure(split) {
+function strandFigure(split) {
   const total = SURVEY_SCHEMA.families.reduce((n, f) => n + (split[f] || 0), 0);
   return `${total} — ${SURVEY_SCHEMA.families.map((f) => {
     const n = split[f] || 0;
@@ -878,17 +876,17 @@ export function strandFigure(split) {
   }).join(" + ")}`;
 }
 
-export function denominator(inView, served) {
+function denominator(inView, served) {
   return `${inView} of ${served} Lessons`;
 }
 
-export function sectionFigure(sec, lessonsServed) {
+function sectionFigure(sec, lessonsServed) {
   return `${sec.name} (${strandFigure(sec.by_family)}); ${denominator(sec.members.length, lessonsServed)}`;
 }
 
 // A count of Lessons, family-named (SPEC.md, the rendering rule): the figure names the one
 // family the candidate model puts on the row.
-export function lessonCount(n) {
+function lessonCount(n) {
   return `${n} ${n === 1 ? "Lesson" : "Lessons"}`;
 }
 
@@ -897,17 +895,16 @@ export function lessonCount(n) {
 // line class not on the allowlist does not render — the remedy is the
 // constructive form, never a per-column removal, because an enumerated
 // prohibition's non-member fallback is admit.
-export function tagRow(sec) {
+function tagRow(sec) {
   return `${sec.name} — ${lessonCount((sec.by_family || {}).lesson || 0)}`;
 }
 
-// --------------------------------------------------------------------------
+// ---- VIEW -----------------------------------------------------------------
 // view — navigation. Narrows nothing; the record is never rewritten.
-// --------------------------------------------------------------------------
 // A tier-2 gloss shard, parsed into slug → { headline, cite }. The headline is
 // the SERVED rendering's first sentence, quoted at the cite the seam returned —
 // never re-parsed from a file and never composed here (SPEC.md, the served-renderings input rule, the rendering rule).
-export function parseGlossShard(resp) {
+function parseGlossShard(resp) {
   const out = new Map();
   const lines = resp.lines || [];
   let slug = null;
@@ -923,10 +920,9 @@ export function parseGlossShard(resp) {
   return out;
 }
 
-// --------------------------------------------------------------------------
+// ---- SHARD ADDRESSES ------------------------------------------------------
 // Shard ADDRESSES are read from the served enumeration, never composed here
 // (kogaki#1106).
-// --------------------------------------------------------------------------
 // WHAT WAS WRONG, stated before the rule. Every address in this module was
 // composed as `` `${kind}/${tag}` ``. The served surface states its own
 // addressing rule in each shard's header, quoted whole at its pin:
@@ -970,7 +966,7 @@ export function parseGlossShard(resp) {
 // A served name parsed into its namespace and its cell. Returns null for a name
 // this module cannot read as an address at all, which is reported rather than
 // skipped by the selector's caller.
-export function parseShardName(name) {
+function parseShardName(name) {
   if (typeof name !== "string") return null;
   const slash = name.indexOf("/");
   if (slash <= 0 || slash === name.length - 1) return null;
@@ -993,7 +989,7 @@ export function parseShardName(name) {
 // them. PURE, and separate from the read above it, because the property this
 // change asserts is about ADDRESS SELECTION and a case that had to reach a
 // gateway to drive it would be asserting the seam instead.
-export function selectShardNames(names, namespace, tag) {
+function selectShardNames(names, namespace, tag) {
   const out = [];
   for (const n of names || []) {
     const p = parseShardName(n);
@@ -1081,7 +1077,7 @@ function fetchHeadlines(kind, tags, { soft = false, stats = null } = {}) {
   return out;
 }
 
-export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
+const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
 
 // THE SECOND MISS STATE, WHICH `NO_HEADLINE` WAS RENDERING AS THE FIRST
 // (kogaki#689, PR #693 round 1). `NO_HEADLINE` says a shard was READ and
@@ -1101,7 +1097,7 @@ export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault t
 // A TAGGED JOURNEY IS NO LONGER ONE OF THEM (kogaki#689): the neighborhood fetch
 // addresses `journeys/` as well, so such a row is addressable and its miss is
 // read-and-empty like any other addressable row's.
-export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
+const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
 
 // THE FOURTH STATE, DISTINGUISHED (kogaki#689, owner selection at the
 // /ship-cycle 689 sitting). When the SEAM ITSELF is unreachable no shard is
@@ -1111,7 +1107,7 @@ export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it car
 // and it is the same conflation the other three markers exist to prevent, one
 // layer further out. The shape is this repository's own degradation idiom: a
 // seam-absent member reports CANNOT-DETERMINE rather than passing or failing.
-export const NO_SEAM = "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
+const NO_SEAM = "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
 
 // THE FIFTH AND SIXTH STATES (kogaki#1106). The four above all presuppose that
 // an ADDRESS existed to read. When the address itself is the fault they are all
@@ -1126,9 +1122,9 @@ export const NO_SEAM = "⟨no Gloss shard was read — the served seam was unrea
 // state carries the same split (`address-fault` against `empty-corpus`), so a
 // caller reading the aggregate and a reader reading a row are told the same
 // thing.
-export const NO_SHARD_NAME = "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
+const NO_SHARD_NAME = "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
 
-export const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
+const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
 
 // A TAG IS UNADDRESSABLE ONLY WHERE **EVERY** NAMESPACE READ FAILED TO NAME A
 // SHARD FOR IT (PR #1107 round 1, blocking). The first cut accumulated one
@@ -1144,7 +1140,7 @@ export const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard a
 // a case that had to reach a gateway to drive two namespaces would be asserting
 // the seam again. An empty list of namespaces yields the empty set: nothing was
 // read, so nothing is established about any tag.
-export function intersectUnaddressable(sets) {
+function intersectUnaddressable(sets) {
   const list = (sets || []).filter(Boolean);
   if (!list.length) return new Set();
   return new Set([...list[0]].filter((t) => list.every((s2) => s2.has(t))));
@@ -1162,7 +1158,7 @@ export function intersectUnaddressable(sets) {
 // oversight: its members are settled Lessons by construction (kogaki#528), so a
 // `journeys/` read there buys nothing and spends a shard per tag. The widening
 // is the neighborhood's, so it is declared at the neighborhood's call site.
-export const NEIGHBORHOOD_GLOSS_NAMESPACES = ["lessons", "journeys"];
+const NEIGHBORHOOD_GLOSS_NAMESPACES = ["lessons", "journeys"];
 
 // WHICH FAMILY EACH SHARD NAMESPACE CARRIES. Addressability is derived from the
 // namespaces a fetch was ACTUALLY GIVEN rather than from a second hard-coded
@@ -1172,7 +1168,7 @@ export const NEIGHBORHOOD_GLOSS_NAMESPACES = ["lessons", "journeys"];
 // happened, which is the conflation these markers exist to prevent (PR #711
 // round 1).
 const NAMESPACE_FAMILY = { lessons: "lesson", journeys: "journey" };
-export function familiesFor(namespaces) {
+function familiesFor(namespaces) {
   return (namespaces || []).map((ns) => NAMESPACE_FAMILY[ns]).filter(Boolean);
 }
 
@@ -1395,7 +1391,7 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"], unaddres
 //       → the same grammar case: `NAVIGATION_HINT` is a declared line class and
 //         its removal drops a required class.
 // consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
-export function renderTagDisplay(record) {
+function renderTagDisplay(record) {
   const out = ["The survey — display 1. Navigation (narrows nothing): name a tag.", ""];
   for (const s of record.sections) out.push(`  ${tagRow(s)}`);
   out.push("");
@@ -1403,7 +1399,7 @@ export function renderTagDisplay(record) {
   return out.join("\n");
 }
 
-// --------------------------------------------------------------------------
+// ---- COTAGS ---------------------------------------------------------------
 // cotags — the second navigation step (SPEC.md, the co-tag navigation step). Selecting a tag displays
 // the other tags its members carry, grouped by co-tag with counts.
 //
@@ -1419,15 +1415,14 @@ export function renderTagDisplay(record) {
 // unchanged at v30. The threshold the engine DOES carry is
 // `SUBDIVISION_REQUIRED_AT`, and it decides only WHETHER a group must split
 // (kogaki#683); it is not one of the instruments and none of them became one.
-// --------------------------------------------------------------------------
-export const NO_SECOND_TAG = "(no second served tag)";
+const NO_SECOND_TAG = "(no second served tag)";
 // A group with no composed claim is MARKED, never substituted — the same
 // discipline the rendering rule applies to a missing Gloss rendering, at the claim's layer.
 // The row's TC-target marker (kogaki#861). Same vocabulary as the Gloss
 // markers beside it: a fault to clear, never a substituted candidate id.
-export const NO_TARGET = "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
+const NO_TARGET = "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
 
-export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clear, never substituted⟩";
+const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clear, never substituted⟩";
 
 // No per-row pin renders on the display (the display's serve rule v5, withdrawing v4's per-row
 // pin): the pin is sited ONCE, in the Full Report, whose member records carry
@@ -1435,9 +1430,9 @@ export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clea
 // "Group ID, Strand ID, gloss, journey — and nothing else" (wa#1115/#1116).
 // The ordering is DECLARED rather than scored: co-tag name ascending, then
 // member id ascending. No scoring, no model call in the ordering.
-export const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
+const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
 
-export function cotagGroups(members, selectedTag) {
+function cotagGroups(members, selectedTag) {
   const byCotag = new Map();
   for (const c of members) {
     const others = (c.tags || []).filter((t) => t !== selectedTag);
@@ -1501,7 +1496,7 @@ export function cotagGroups(members, selectedTag) {
 // add a member either, and a cover fraction that ignores its numerator's
 // provenance would pass a group list that dropped one member and gained one
 // stranger.
-export function cotagCover(members, groups) {
+function cotagCover(members, groups) {
   const expected = members.map((c) => c.id);
   const expectedSet = new Set(expected);
   const covered = new Set(groups.flatMap((g) => g.members || []));
@@ -1946,8 +1941,7 @@ function composeOwnerListing(surfaceName, text) {
   return emitOrRefuse(surfaceName, text, () => {});
 }
 
-// --------------------------------------------------------------------------
-// THE ID GATE'S BOUNDED READING (kogaki#1090).
+// ---- THE ID GATE'S BOUNDED READING (kogaki#1090). -------------------------
 //
 // WHAT CHANGED AND WHY. kogaki#1087 put the whole `reports/CoTagGroups.md`
 // rendering inside the ID question, on the correct ground that a pointer is
@@ -1989,7 +1983,7 @@ const COTAG_SUBGROUP_HEADING = new RegExp(
   `^(G\\d+-\\d+) — (\\d+ Lessons?): ${COTAG_MEMBER_ID}(?:, ${COTAG_MEMBER_ID})* — (.+)$`);
 const COTAG_ANY_ID_LINE = /^G\d+(?:-\d+)? — /;
 
-export function composeIdGateListing(text, artifactPath) {
+function composeIdGateListing(text, artifactPath) {
   const rows = [];
   for (const line of String(text).split("\n")) {
     const g = COTAG_GROUP_HEADING.exec(line);
@@ -2022,7 +2016,7 @@ export function composeIdGateListing(text, artifactPath) {
   ].join("\n");
 }
 
-// --------------------------------------------------------------------------
+// ---- CLAIM / ADOPT --------------------------------------------------------
 // claim / adopt — GroupClaim-first rendering, and claim pinning (SPEC.md, GroupClaim-first rendering).
 //
 // A claim composed over a member set is PINNED to that set: the record carries
@@ -2044,49 +2038,6 @@ export function composeIdGateListing(text, artifactPath) {
 // wait that owes it, and adoption is that wait's captured answer; nothing
 // outside a run emits it. The surface that renders it is AskUserQuestion, the
 // gate carrier.
-// --------------------------------------------------------------------------
-function memberPins(ids, candidates) {
-  return ids.map((id) => {
-    const c = candidates.find((x) => x.id === id);
-    if (!c) fail(`member ${JSON.stringify(id)} is no candidate in this survey — a claim cannot be pinned to a member the survey does not carry`);
-    return { id, cite: c.cite };
-  });
-}
-
-function validateClaimRecord(rec, block) {
-  const v = [];
-  for (const f of block.required) {
-    if (rec[f] === undefined || rec[f] === null || rec[f] === "") v.push(`CLAIM_MISSING_FIELD — ${f}`);
-  }
-  if (rec.kind !== block.kind_must_be) v.push(`CLAIM_KIND_UNKNOWN — kind=${JSON.stringify(rec.kind)}, expected ${block.kind_must_be}`);
-  if (Array.isArray(rec.members) && rec.members.length === 0) v.push("CLAIM_UNPINNED — a claim with no member set is not pinned to anything");
-  const pins = rec.member_pins || [];
-  if (Array.isArray(rec.members) && pins.length !== rec.members.length) {
-    v.push(`CLAIM_UNPINNED — ${rec.members.length} member(s) but ${pins.length} pin(s): the record carries the member ids AND their pins, never the text alone`);
-  }
-  for (const p of pins) {
-    for (const f of block.member_pin_required) {
-      if (!p || p[f] === undefined || p[f] === "") v.push(`CLAIM_UNPINNED — member_pins entry missing ${f}`);
-    }
-  }
-  for (const k of block.narrowing_keys_forbidden || []) {
-    if (Object.prototype.hasOwnProperty.call(rec, k)) v.push(`NAVIGATION_STATE_NARROWS — claim record carries ${JSON.stringify(k)}: ${block.narrowing_rationale}`);
-  }
-  for (const k of block.group_id_keys_forbidden || []) {
-    if (Object.prototype.hasOwnProperty.call(rec, k)) v.push(`CLAIM_RECORDED_BY_GROUP_ID — ${JSON.stringify(k)}: ${block.group_id_rationale}`);
-  }
-  if (block.composed_over_must_be && rec.composed_over !== block.composed_over_must_be) {
-    v.push(`CLAIM_NOT_OVER_MEMBERS — composed_over=${JSON.stringify(rec.composed_over)}: ${block.composed_over_rationale}`);
-  }
-  if (block.adopted_must_be !== undefined && rec.adopted !== block.adopted_must_be) {
-    v.push(`CLAIM_ADOPTED_WITHOUT_GATE — ${block.adopted_rationale}`);
-  }
-  if (block.claim_sources && !block.claim_sources.includes(rec.claim_source)) {
-    v.push(`CLAIM_SOURCE_UNKNOWN — claim_source=${JSON.stringify(rec.claim_source)}; the sources are ${block.claim_sources.join("|")}`);
-  }
-  return v;
-}
-
 // THE RE-OFFER IS DELETED, AND LEAVES NO STUB (kogaki#1030 item 4, owner
 // selection 2026-09-09). `CLAIM_REOFFER` was a `wait` sited between
 // `J1_claims` and `J2_subdivision`; item 2 of that issue requires
@@ -2177,8 +2128,7 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   return out;
 }
 
-// --------------------------------------------------------------------------
-// THE GATE CALL (kogaki#1028 item 1).
+// ---- THE GATE CALL (kogaki#1028 item 1). ----------------------------------
 //
 // WHAT THIS IS. The exact `AskUserQuestion` `tool_input` the session must send,
 // written by the executor beside the declaration. Before it, the session read a
@@ -2233,7 +2183,7 @@ export const GATE_CALL_SUFFIX = ".gate-call.json";
 // a `wait` state's own option composer, because it can be raised at ANY
 // judgment state, naming itself in `extra.judgment_state`, so there is no one
 // table row to bind an option composer to.
-export const JUDGMENT_RETRY_GATE_ID = "terrain-judgment-retry";
+const JUDGMENT_RETRY_GATE_ID = "terrain-judgment-retry";
 // THE READER-PATH JOB'S ARM (kogaki#1193), raised by `job await` -- never from
 // inside this loop, since nothing here ever finds this job in a non-`done`
 // terminal state without a `job await` having classified it first.
@@ -2296,7 +2246,7 @@ const GATE_CALL_MAX_BYTES = (() => {
 // The bytes the WRITER writes, not the bytes of some other serialisation. See
 // `gate_call_bound_note`: the file is what the advance hook relays and what the
 // PreToolUse equality check compares against.
-export function gateCallBytes(toolInput) {
+function gateCallBytes(toolInput) {
   return Buffer.byteLength(JSON.stringify(toolInput, null, 2) + "\n", "utf8");
 }
 
@@ -2308,15 +2258,14 @@ const GATE_CALL_FREE_TEXT_DESCRIPTION =
 // The chip label, at most 12 characters, DERIVED rather than composed: the last
 // hyphen-separated segment of the gate id. `terrain-tag-selection` -> `selection`.
 // A gate may override it with `header` in the registry.
-export function gateCallHeader(declaration) {
+function gateCallHeader(declaration) {
   const declared = declaration.header;
   if (typeof declared === "string" && declared.trim()) return declared.trim().slice(0, 12);
   const segments = String(declaration.id || "gate").split("-").filter(Boolean);
   return (segments[segments.length - 1] || "gate").slice(0, 12);
 }
 
-// --------------------------------------------------------------------------
-// THE SHARED QUESTION-SHAPE CHECK, APPLIED AT COMPOSE (kogaki#1118).
+// ---- THE SHARED QUESTION-SHAPE CHECK, APPLIED AT COMPOSE (kogaki#1118). ----
 //
 // The rule deciding whether a question CAN BE SHOWN lives in the installed
 // Claude Code hook and was applied only at the moment of showing. A program
@@ -2352,7 +2301,7 @@ const QUESTION_SHAPE_VERB = "lint-question";
 // named the same way `src/deps-registry.json` already names `~/.claude/hooks/
 // lint-pr-merge.py` -- a committed name for a machine-local artifact, which is
 // what an external-dependency declaration is.
-export function questionShapeCommand() {
+function questionShapeCommand() {
   return process.env.KOGAKI_QUESTION_SHAPE_CMD
     || join(homedir(), ".claude", "tools", "issue-sync");
 }
@@ -2396,10 +2345,7 @@ function runQuestionShape(cmd, payload) {
 // payload the verb admits, so exit 0 on it establishes support, and anything
 // else leaves the rule inapplicable. One probe per process, because the command
 // does not change under a run.
-export let questionShapeSupported = null;
-// The cache above is reset by the case file under checks/, which cannot
-// assign an imported binding; this is the one write it needs (kogaki#1238).
-export function resetQuestionShapeSupported() { questionShapeSupported = null; }
+let questionShapeSupported = null;
 function questionShapeVerbSupported(cmd) {
   if (questionShapeSupported && questionShapeSupported.cmd === cmd) {
     return questionShapeSupported.ok;
@@ -2410,7 +2356,7 @@ function questionShapeVerbSupported(cmd) {
   return ok;
 }
 
-export function questionShapeRefusal(toolInput) {
+function questionShapeRefusal(toolInput) {
   const cmd = questionShapeCommand();
   if (!questionShapeVerbSupported(cmd)) return null;
   const res = runQuestionShape(cmd, toolInput);
@@ -2419,7 +2365,7 @@ export function questionShapeRefusal(toolInput) {
   return text || `${cmd} ${QUESTION_SHAPE_VERB} refused this gate call and printed nothing`;
 }
 
-export function composeGateCall(declaration) {
+function composeGateCall(declaration) {
   const declared = Array.isArray(declaration.options) ? declaration.options : [];
   // THE ID IS A JOIN KEY AND NEVER CONTENT, WHERE THE GATE SAYS SO (kogaki#1126).
   //
@@ -2534,8 +2480,7 @@ export function composeGateCall(declaration) {
   return { tool_input, bytes };
 }
 
-// --------------------------------------------------------------------------
-// THE OPEN-GATE POINTER (kogaki#890).
+// ---- THE OPEN-GATE POINTER (kogaki#890). ----------------------------------
 //
 // The capture is written by `.claude/hooks/write-gate-capture.py`, a
 // PostToolUse carrier on `AskUserQuestion`. That hook sees the harness's own
@@ -2551,7 +2496,6 @@ export function composeGateCall(declaration) {
 // That is what keeps this file off the trust surface: nothing downstream
 // believes a pointer, and a forged one can only cause a row to be written
 // where no gate is outstanding, which the instance-id check then refuses.
-// --------------------------------------------------------------------------
 // A GATE CALL WRITTEN BEFORE A LABEL WAS REPAIRED (kogaki#1118 acceptance 4).
 //
 // THE COMPOSE-TIME CHECK DOES NOT REACH A RUN THAT ALREADY STOPPED. Re-entry
@@ -2577,7 +2521,7 @@ export function composeGateCall(declaration) {
 // unshowable gate for an answer that joins to nothing. `gate_instance_id` is
 // NOT reminted: this is the same raising of the same gate, and a new nonce
 // would orphan the pointer the earlier stop already wrote.
-export function refreshWrittenGateCall(dir, gateId) {
+function refreshWrittenGateCall(dir, gateId) {
   const declPath = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
   const callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
   if (!existsSync(declPath) || !existsSync(callPath)) return null;
@@ -2623,7 +2567,7 @@ export function refreshWrittenGateCall(dir, gateId) {
   return { refused, declPath, callPath, legacy };
 }
 
-export function openGateDir() {
+function openGateDir() {
   return process.env.KOGAKI_OPEN_GATES || join(homedir(), ".claude", "kogaki-open-gates");
 }
 
@@ -2668,7 +2612,7 @@ function gateDeclarationSidecarDir() {
 // written, the gate still opens exactly as it did before this carrier
 // existed, and the transcript scan is what is left to answer for it -- the
 // pre-#1153 race, not a new failure this write introduces.
-export function writeGateDeclarationSidecar(sessionId) {
+function writeGateDeclarationSidecar(sessionId) {
   if (!sessionId) return;
   const dir = gateDeclarationSidecarDir();
   const path = join(dir, `${sessionId}.json`);
@@ -2724,7 +2668,7 @@ function sentQuestion(declaration, callPath) {
   return declaration.question;
 }
 
-export function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callUnavailable = null) {
+function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callUnavailable = null) {
   const gd = openGateDir();
   mkdirSync(gd, { recursive: true });
   const capPath = join(dir, `${flow().lane}${GATE_SCHEMA.capture.suffix}`);
@@ -2777,7 +2721,7 @@ export function writeOpenGatePointer(dir, declaration, declPath, callPath = null
 // adopted") stays structural, and by a shorter route than before: there is no
 // capture without a declaration, no declaration without a state, and no state.
 
-// --------------------------------------------------------------------------
+// ---- SUBDIVIDE ------------------------------------------------------------
 // subdivide — semantic subdivision as a judged substrate one level down
 // (SPEC.md, semantic subdivision), DOGFOOD-FIRST.
 //
@@ -2808,7 +2752,6 @@ export function writeOpenGatePointer(dir, declaration, declPath, callPath = null
 // The prohibition this comment used to state — no numeric constant anywhere in
 // split-or-stop logic — was reversed by the owner on 2026-08-28 on a specimen
 // it permitted. It is quoted at semantic subdivision as provenance and is not the rule here.
-// --------------------------------------------------------------------------
 // The SubGroup's own two rendered lines — its name and its claim. Rendering
 // arithmetic for the display-budget instrument; it gates nothing and is not
 // stop logic.
@@ -2839,7 +2782,7 @@ const LINES_PER_SUBGROUP_HEADER = 2;
 // deleted with the sweep, so the calculation has no second term. The number is
 // unchanged — it is an owner ruling in its own right — and now stands on that
 // ruling rather than on arithmetic whose input is gone.
-export const SUBDIVISION_REQUIRED_AT = 10;
+const SUBDIVISION_REQUIRED_AT = 10;
 
 // THE COHERENCE LABEL, closed at three (kogaki#683 disposition 5, vocabulary
 // confirmed as filed at pickup). Ordered by decreasing coherence.
@@ -2869,11 +2812,11 @@ export const SUBDIVISION_REQUIRED_AT = 10;
 // that JOINS across a boundary. This label is rendered on kogaki's own display
 // and read by nothing outside it, so no hub ratification is owed.
 // consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198
-export const COHERENCE_LABELS = Object.freeze(["tight", "related", "loose", "other"]);
+const COHERENCE_LABELS = Object.freeze(["tight", "related", "loose", "other"]);
 // The residual, named once so no reader has to infer it from the cap map's gaps.
-export const RESIDUAL_LABEL = "other";
+const RESIDUAL_LABEL = "other";
 
-export function subgroupPlacement(parent, classification, block) {
+function subgroupPlacement(parent, classification, block) {
   const subgroups = [];
   const placedIds = new Set();
   for (const sg of classification) {
@@ -2992,9 +2935,9 @@ export function subgroupPlacement(parent, classification, block) {
 // Amendment 2 requires the harness to enforce every key mechanically; a default
 // here would delete a ruled refusal silently, which is the same
 // engine-supplies-the-judgment defect ruling 1 is about, one layer down.
-export const CAPPED_LABELS = Object.freeze(COHERENCE_LABELS.filter((l) => l !== RESIDUAL_LABEL));
+const CAPPED_LABELS = Object.freeze(COHERENCE_LABELS.filter((l) => l !== RESIDUAL_LABEL));
 
-export function subdivisionLimits(grammarPath = REPORT_FORMAT) {
+function subdivisionLimits(grammarPath = REPORT_FORMAT) {
   const limits = readJson(grammarPath).limits;
   const caps = limits && limits.subgroup_member_cap;
   // EVERY PER-LABEL KEY IS CHECKED, not just the map's presence (PR #758 round
@@ -3025,12 +2968,12 @@ export function subdivisionLimits(grammarPath = REPORT_FORMAT) {
 
 // The per-label cap, or `null` for the residual, which is bounded by
 // `max_residual_members` instead and deliberately carries no row in the cap map.
-export function subgroupMemberCap(label, grammarPath = REPORT_FORMAT) {
+function subgroupMemberCap(label, grammarPath = REPORT_FORMAT) {
   const { caps } = subdivisionLimits(grammarPath);
   return Object.prototype.hasOwnProperty.call(caps, label) ? Number(caps[label]) : null;
 }
 
-export function judgeSubgroup(sg, groupClaim, parentSize = null) {
+function judgeSubgroup(sg, groupClaim, parentSize = null) {
   const vd = sg.verdicts || {};
 
   // retired-vocab-ok: the three lines here name the replacement.
@@ -3164,7 +3107,7 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
 // cover, the sum, the whole-group exemption — so a record supplied by argv
 // against no composed input has nothing here to be judged against. Those runs
 // reach the render state exactly as they did before.
-export function subdivisionRules(name, entry, parent) {
+function subdivisionRules(name, entry, parent) {
   if (!entry || !parent) return;
   // JUDGED-EMPTY IS CONFORMANT and has no SubGroup for any rule to bind on
   // (the report identity v9). It is refused at the split threshold, and that
@@ -3206,7 +3149,7 @@ const JUDGE_LIMIT_BLOCKS = Object.freeze({
   },
 });
 
-export function judgeLimits(st) {
+function judgeLimits(st) {
   if (st.limits === undefined || st.limits === null) return null;
   const key = String(st.limits);
   if (!Object.prototype.hasOwnProperty.call(JUDGE_LIMIT_BLOCKS, key)) {
@@ -3225,7 +3168,7 @@ export function judgeLimits(st) {
 // refusal: subgroup placement, the three instruments, and
 // SUBDIVISION_COVER_INCOMPLETE. Leaving those to whatever composed the record
 // would move a ratified refusal out of the runtime.
-export function composeSubdivisionRecord(args, dir, record) {
+function composeSubdivisionRecord(args, dir, record) {
   const block = SURVEY_SCHEMA.subdivision;
   const tag = String(args.tag || fail("J2_subdivision needs --tag <selected tag>"));
   const groupArg = String(args.group || fail("J2_subdivision needs --group <co-tag>"));
@@ -3316,7 +3259,7 @@ export function composeSubdivisionRecord(args, dir, record) {
 // claims-reader rationale does NOT live here: this function reads no claims
 // file, and a comment explaining `--claims` above a function that never opens
 // one is a pointer to the wrong artifact.
-export function resolveReportTargets(record, tag, enteredIds, args) {
+function resolveReportTargets(record, tag, enteredIds, args) {
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
   const groups = cotagGroups(members, tag);
@@ -3328,7 +3271,7 @@ export function resolveReportTargets(record, tag, enteredIds, args) {
   return { members, groups, resolved, subOf, targets: resolved.targets };
 }
 
-// --------------------------------------------------------------------------
+// ---- THE BRIEF'S STRAND SET (kogaki#1116) ---------------------------------
 // THE STRAND SET BRIEF IS STARTED WITH, RESOLVED AGAINST THE SERVED
 // ENUMERATION (kogaki#1116).
 //
@@ -3359,11 +3302,11 @@ export function resolveReportTargets(record, tag, enteredIds, args) {
 // renderings (SPEC-terrain, the served-renderings input rule), and a second
 // reader in the Brief lane would be a second answer to "what does the Package
 // serve".
-export const TERRAIN_TOKEN = /^(?:G[0-9]+(?:-[0-9]+)?|L[0-9]+|D[0-9]+)$/;
+const TERRAIN_TOKEN = /^(?:G[0-9]+(?:-[0-9]+)?|L[0-9]+|D[0-9]+)$/;
 
 // The refusal every human-facing token takes, stated once so the three token
 // families cannot drift into three readings of one rule.
-export function terrainTokenRefusal(tokens) {
+function terrainTokenRefusal(tokens) {
   return `${tokens.join(", ")}: a Full Report coordinate, not a Strand address. `
     + "Terrain mints G/L/D tokens by position in the served enumeration at survey "
     + "time, so they name a row of one report rather than a Strand, and a pin "
@@ -3380,7 +3323,7 @@ export function terrainTokenRefusal(tokens) {
 // changed. A content hash answers exactly that, per line, and the gateway
 // already returns one — so the cite is the address the Package serves joined to
 // the hash it serves beside it, and no kogaki artifact carries `@<commit>`.
-export function composeAddressCite(unitId, contentHash) {
+function composeAddressCite(unitId, contentHash) {
   if (typeof unitId !== "string" || unitId === "") return null;
   if (typeof contentHash !== "string" || contentHash === "") return null;
   return `${unitId}@${contentHash}`;
@@ -3500,7 +3443,7 @@ export function resolveStrandAddresses(entered) {
   return { strands };
 }
 
-// --------------------------------------------------------------------------
+// ---- REPORT ---------------------------------------------------------------
 // report — the Full Report (SPEC.md).
 //
 // The other half of the display's serve rule's compact display: the display is what the owner
@@ -3514,9 +3457,8 @@ export function resolveStrandAddresses(entered) {
 // It is a RENDERING and therefore NOT AN ADDRESS: nothing downstream resolves
 // a report id, and a Brief cites members and pins exactly as it does today
 // (topics/articles.md:64,71@f918c515).
-// --------------------------------------------------------------------------
-export const NO_GLOSS_BODY = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
-export const NO_JUDGE = "none";
+const NO_GLOSS_BODY = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
+const NO_JUDGE = "none";
 
 // THE TYPED SUBDIVISION ENTRY (the report identity v9, kogaki#199).
 //
@@ -3560,7 +3502,7 @@ export const NO_JUDGE = "none";
 // A BARE MAP IS REFUSED BY NAME, as the report identity v9 refuses the withdrawn bare array:
 // two encodings for one fact would let a stale composer silently keep the
 // unguarded shape.
-export function readClaimsRecord(raw, record) {
+function readClaimsRecord(raw, record) {
   if (raw === undefined || raw === null) return { claims: {}, pin: null };
   if (typeof raw !== "object" || Array.isArray(raw)) {
     fail("--claims must be an object (SPEC.md, the open-questions section, v10)");
@@ -3609,7 +3551,7 @@ export function readClaimsRecord(raw, record) {
 // Returns the offending entries, so the caller can NAME them. An empty array is
 // a pass. Pure over its inputs, so the fixtures can state both directions
 // without a gateway.
-export function claimsOutsideBound(claims, pin, groups) {
+function claimsOutsideBound(claims, pin, groups) {
   const out = [];
   const served = pin && pin.groups ? pin.groups : {};
   for (const name of Object.keys(claims)) {
@@ -3634,7 +3576,7 @@ export function claimsOutsideBound(claims, pin, groups) {
   return out;
 }
 
-export function readSubdivisionEntry(name, entry) {
+function readSubdivisionEntry(name, entry) {
   if (entry === undefined || entry === null) return null;   // absent: not judged
   if (Array.isArray(entry)) {
     fail(`--subdivisions entry for ${JSON.stringify(name)} is a bare array, which is the `
@@ -3659,7 +3601,7 @@ export function readSubdivisionEntry(name, entry) {
   return { judged: true, subgroups: entry.subgroups };
 }
 
-// --------------------------------------------------------------------------
+// ---- JUDGMENT PROVENANCE (kogaki#892) -------------------------------------
 // JUDGMENT PROVENANCE — what the HARNESS OBSERVED about the judgment, held
 // apart from what the RECORD DECLARES about it (kogaki#892, under the owner's
 // 2026-09-04 ruling that a Harness must not consume model output as
@@ -3711,8 +3653,8 @@ export function readSubdivisionEntry(name, entry) {
 // Harness's own acts, and a record the model composes is model output whatever
 // it is named. Minting one would discharge the issue on the surface while
 // reproducing it underneath.
-export const JUDGMENT_OBSERVED = "observed";
-export const JUDGMENT_DECLARED = "declared";
+const JUDGMENT_OBSERVED = "observed";
+const JUDGMENT_DECLARED = "declared";
 
 // THE SITE IS FILLED (kogaki#1030). The comment above says `observed` "HAS NO
 // PRODUCER TODAY … it is the arm a judge-invoking act would light up without
@@ -3734,7 +3676,7 @@ export const JUDGMENT_DECLARED = "declared";
 // this layer, not observed by it.
 const JUDGE_INVOCATIONS = new Map();
 
-export function recordJudgeInvocation(stateId, invocation) {
+function recordJudgeInvocation(stateId, invocation) {
   JUDGE_INVOCATIONS.set(stateId, invocation);
 }
 
@@ -3748,7 +3690,7 @@ export function recordJudgeInvocation(stateId, invocation) {
 // read this are the subdivision display's, and `judgmentProvenance` is called
 // with the `--subdivisions` artifact. A caller naming another state gets that
 // state's invocation.
-export function harnessJudgeInvocation(stateId = "J2_subdivision") {
+function harnessJudgeInvocation(stateId = "J2_subdivision") {
   return JUDGE_INVOCATIONS.get(stateId) || null;
 }
 
@@ -3798,7 +3740,7 @@ const JUDGE_VERSION_PROBE_MS = 20000;
 // not a `PATH` lookup at all and stands as its own single candidate -- that is
 // the absolute form this act exists to produce, and an absolute path handed in
 // is already it.
-export function judgeBinaryCandidates(command, pathEnv) {
+function judgeBinaryCandidates(command, pathEnv) {
   if (command.includes("/") || command.includes(sep)) return [resolve(command)];
   const seen = new Set();
   const out = [];
@@ -4026,7 +3968,7 @@ export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
 // marker, because the input marker's own contract is that everything after it
 // is the input file — a refusal appended past it would be read as input by any
 // reader keying on position, which is the one thing that marker promises.
-export const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
+const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
 
 // THE FIXED REPAIR SENTENCE, NAMED ONCE (kogaki#1203). `judgePrompt` below
 // puts it after a synchronous judge's own refusal; the reader-path unit's
@@ -4035,7 +3977,7 @@ export const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED ----
 // table. One exported string is what keeps the two ends of "the same refusal
 // block" — the synchronous judge's re-ask and a detached unit's re-ask — from
 // drifting into two different sentences one edit at a time.
-export const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly\n"
+const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly\n"
   + "it. The input below is unchanged, so re-reading the material is not what is wanted -- the\n"
   + "shape of your record is.";
 
@@ -4068,7 +4010,7 @@ export const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous 
 // would put the word `$per-groups:` in front of the judge as though it were the
 // shape, which is the prose-instead-of-shape defect returning through the carrier
 // that exists to end it.
-export function judgeRecordExample(st, input) {
+function judgeRecordExample(st, input) {
   const tpl = st.record_example;
   if (tpl === undefined || tpl === null) return null;
   if (typeof tpl !== "object" || Array.isArray(tpl)) {
@@ -4520,7 +4462,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
 // naming all eleven would license members this ask never handed over -- which
 // is the subset check's own reason for carrying the member set rather than a
 // digest.
-export function scopeCompositionInput(input, group) {
+function scopeCompositionInput(input, group) {
   const name = String(group && group.name);
   const members = new Set(group && Array.isArray(group.members) ? group.members : []);
   const out = { ...input, groups: [group] };
@@ -4796,7 +4738,7 @@ export async function judgedRecordPath(rec, st, table, args, flag, composeInput,
   return await invokeJudge(table, st, composeInput(), rec._dir, validate, rec);
 }
 
-export function judgmentProvenance(subdivisionsPath) {
+function judgmentProvenance(subdivisionsPath) {
   const invocation = harnessJudgeInvocation();
   return {
     state: invocation ? JUDGMENT_OBSERVED : JUDGMENT_DECLARED,
@@ -4809,12 +4751,23 @@ export function judgmentProvenance(subdivisionsPath) {
   };
 }
 
+// WHAT NAMES ONE INVOCATION RECORD (kogaki#1257). Both renderers read `.id`,
+// a field `recordJudgeInvocation` never writes, so every OBSERVED line a real
+// run produced named its record `undefined`; the cases fed a record carrying an
+// `id` and saw nothing. The state and the moment of the call are written on
+// every invocation record and together name one call; the response sha does
+// not, since on the per-group arm it is the subdivisions record's own sha,
+// which the same line already names.
+function invocationRef(invocation) {
+  return `${invocation.state}@${invocation.at}`;
+}
+
 // A record written before this field existed carries no provenance, and the
 // honest reading of that is `declared` — an old record cannot show an
 // observation it never made. Absent and declared are NOT collapsed elsewhere;
 // they are collapsed HERE, once, at the one place the distinction has no
 // consequence, so no renderer has to test for `undefined`.
-export function provenanceOf(carrier) {
+function provenanceOf(carrier) {
   const p = carrier && carrier.judgment_provenance;
   return p && p.state
     ? p
@@ -4829,7 +4782,7 @@ export function provenanceOf(carrier) {
 // two surfaces carrying the same provenance content come to wrap at two
 // columns; the self-test asserts the notice's own lines still fit inside it, so
 // the pair cannot drift apart in silence.
-export const DISPLAY_WRAP_COLUMNS = 77;
+const DISPLAY_WRAP_COLUMNS = 77;
 
 // Word wrap, with the hanging indent that says a line is a CONTINUATION. The
 // terminal is the surface kogaki#317 exists to keep readable under wrapping,
@@ -4853,7 +4806,7 @@ export const DISPLAY_WRAP_COLUMNS = 77;
 // `emitOrRefuse` failed the WHOLE `cotag_groups` emit. A display that refuses
 // itself on a long pin is worse than the long line this change removes, and no
 // fixture reached it because the fixtures carry short ids.
-export function wrapDisplayLine(text, columns = DISPLAY_WRAP_COLUMNS, indent = "  ", head = null) {
+function wrapDisplayLine(text, columns = DISPLAY_WRAP_COLUMNS, indent = "  ", head = null) {
   const words = String(text).split(/\s+/).filter((w) => w !== "");
   const out = [];
   let line = head === null ? "" : String(head);
@@ -4871,7 +4824,7 @@ export function wrapDisplayLine(text, columns = DISPLAY_WRAP_COLUMNS, indent = "
 // renderers each writing their own sentence is how the display and the report
 // would come to say different things about the same record — the second-carrier
 // shape this file refuses everywhere else.
-export function judgePinLine(pin, prov) {
+function judgePinLine(pin, prov) {
   const p = prov || { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
   const seen = p.artifact_sha
     ? `the --subdivisions record it read, sha \`${p.artifact_sha}\``
@@ -4891,7 +4844,7 @@ export function judgePinLine(pin, prov) {
   // dependency in a costume.
   if (p.state === JUDGMENT_OBSERVED) {
     return wrapDisplayLine(`the Harness holds its own `
-      + `invocation record \`${p.invocation.id}\`, taken over ${seen} (SPEC-terrain, the SubGroup threshold, the report identity)`,
+      + `invocation record \`${invocationRef(p.invocation)}\`, taken over ${seen} (SPEC-terrain, the SubGroup threshold, the report identity)`,
     DISPLAY_WRAP_COLUMNS, "  ",
     `judged by ${pin.model_id} / ${pin.effort_tier} — OBSERVED:`).join("\n");
   }
@@ -4924,7 +4877,7 @@ export function judgePinLine(pin, prov) {
 // with nothing in the line saying which. The repair is made here, at the one
 // composer both paths reach, rather than at the rerun site — a second sentence
 // for the second path is exactly the divergence this arrangement refuses.
-export function reportJudgeLine(identity, prov) {
+function reportJudgeLine(identity, prov) {
   const p = prov || { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
   const held = p.artifact_sha
     ? `subdivisions record sha \`${p.artifact_sha}\``
@@ -4935,7 +4888,7 @@ export function reportJudgeLine(identity, prov) {
   }
   const pinText = `\`${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}\``;
   return `*Judge:* ${pinText} — ${p.state === JUDGMENT_OBSERVED
-    ? `OBSERVED, Harness invocation record \`${p.invocation.id}\`, over ${held}`
+    ? `OBSERVED, Harness invocation record \`${invocationRef(p.invocation)}\`, over ${held}`
     : `pin DECLARED, no Harness invocation record; the record holds: ${held}`}`;
 }
 
@@ -4944,7 +4897,7 @@ export function reportJudgeLine(identity, prov) {
 // refusal in `cmdReport` has already fired, which is why the size scoping this
 // acceptance names is enforced upstream rather than re-tested here — a second
 // size test would be a second carrier for one threshold.
-export function judgedEmptyNoticeLines(prov) {
+function judgedEmptyNoticeLines(prov) {
   if ((prov || {}).state === JUDGMENT_OBSERVED) {
     return ["*The judgment produced NO split — this is a judged-empty outcome,",
       "not an absent judgment. Members are listed below.*"];
@@ -4961,7 +4914,7 @@ export function judgedEmptyNoticeLines(prov) {
 // because a display row is a headline; the Full Report forbids truncation anywhere, so the
 // report cannot reuse it — the same shard read for two purposes needs two
 // readers, not one reader with a flag.
-export function parseGlossFull(resp) {
+function parseGlossFull(resp) {
   const out = new Map();
   let slug = null;
   let body = [];
@@ -5008,7 +4961,7 @@ function fetchGlossBodies(kind, tag) {
   return out;
 }
 
-// --------------------------------------------------------------------------
+// ---- COMPOSE-INPUT --------------------------------------------------------
 // compose-input — the BOUNDED input the claim and subdivision composers read
 // (kogaki#163 lever 3; SPEC.md, the rendering rule's "Tag-scoped and bounded — one shard pair
 // per viewed tag", and GroupClaim-first rendering's silence on the composer's input).
@@ -5046,11 +4999,10 @@ function fetchGlossBodies(kind, tag) {
 // It composes NOTHING and judges NOTHING. The claim wording stays the
 // composer's (GroupClaim-first rendering leaves it there) and the coherence label stays the judge's
 // (semantic subdivision); this hands over material and the group structure, and no verdict.
-// --------------------------------------------------------------------------
-export const COMPOSITION_INPUT_BOUND =
+const COMPOSITION_INPUT_BOUND =
   "one tag-scoped served Gloss shard pair, fetched once for the run (SPEC.md, the rendering rule)";
 
-export function composeInput(record, tag, groups, fetchShard) {
+function composeInput(record, tag, groups, fetchShard) {
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
   // The journey shard is fetched only where a member carries a Journey — the
   // same conditional `report` already applies. An unconditional second fetch
@@ -5173,7 +5125,7 @@ function cmdComposeInput(args) {
 // `renderingDestination` is (PR #702 round 1, finding 2): a caller that wants
 // to know WHERE the record store is must not create it, and a fixture case
 // asserting the default must not leave a directory behind in the tree.
-export function reportsDestination(args) {
+function reportsDestination(args) {
   return args["report-dir"] || process.env.KOGAKI_RUN_DIR
     || join(laneDir("terrain"), "reports");
 }
@@ -5269,7 +5221,7 @@ function renderingsDir(args) {
 // could be deleted with the suite still green. Exporting it costs nothing the
 // module did not already expose (`relFromRepo` is exported for the same reason)
 // and buys a case that runs everywhere.
-export function retireIdentityNamedRenderings(dir) {
+function retireIdentityNamedRenderings(dir) {
   const stale = readdirSync(dir)
     .filter((f) => f.startsWith("terrain-full-report-") && f.endsWith(".md"));
   if (!stale.length) return;
@@ -5373,10 +5325,10 @@ function announceArtifacts(rendered, recordPath) {
 // had to print a removed subcommand or refuse. `report-format.json`'s
 // `navigation_hint` form is amended to match, deliberately and on this
 // issue's licence, never to make a refusal go away.
-export const NAVIGATION_HINT =
+const NAVIGATION_HINT =
   "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word.";
 
-export const DISPLAY_RENDERING = "CoTagGroups.md";
+const DISPLAY_RENDERING = "CoTagGroups.md";
 
 // WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain, write authority v28, kogaki#681,
 // successor to #680). Write authority's title — "owner artifacts are written only from
@@ -5526,7 +5478,7 @@ function announceDisplay(path) {
 // `full_report`'s `line_class_allowlist` is inert — three of its body classes
 // are bare placeholders admitting any line — so a grammar class on this
 // surface carries FORM and can police nothing else.
-export function thesisCandidatesSection(candidates) {
+function thesisCandidatesSection(candidates) {
   const L = ["## Thesis candidates", ""];
   L.push("*Non-binding: this section does not constrain the Brief's Thesis.*");
   L.push("");
@@ -5565,7 +5517,7 @@ export function thesisCandidatesSection(candidates) {
 // rerun that has done nothing wrong, which is exactly the treatment the
 // `priorPredatesJudgmentKey` clause declines two clauses up. Recomputing mints
 // the ids through the reader, which is where they now come from.
-export function priorPredatesCandidateIds(prior) {
+function priorPredatesCandidateIds(prior) {
   return Array.isArray(prior && prior.thesis_candidates)
     && prior.thesis_candidates.some((c) => !c || !c.id);
 }
@@ -5583,7 +5535,7 @@ export function priorPredatesCandidateIds(prior) {
 // are one rule: a stored record that cannot be shown idempotent is RECOMPUTED
 // — never replayed, and never refused, since refusing would fail a rerun that
 // has done nothing wrong.
-export function shouldReplayPrior(prior, identity, sameIdentityFn = sameIdentity) {
+function shouldReplayPrior(prior, identity, sameIdentityFn = sameIdentity) {
   const predatesJudgmentKey = !!(prior && prior.identity
     && prior.identity.neighborhood_judgment === undefined);
   return sameIdentityFn(prior && prior.identity, identity)
@@ -5591,7 +5543,7 @@ export function shouldReplayPrior(prior, identity, sameIdentityFn = sameIdentity
     && !priorPredatesCandidateIds(prior);
 }
 
-export function renderReportMarkdown(report, tag) {
+function renderReportMarkdown(report, tag) {
   const L = [];
   const i = report.identity;
   // the Full Report v7 — the title names the TAG, never an id. A report may span several
@@ -5743,14 +5695,14 @@ export function renderReportMarkdown(report, tag) {
 // the `substrate_pin` LINE CLASS, so it read 1 and passed. The repair is here,
 // at the emitters, rather than in a widened rule — which is why story 1.56
 // AC5 asserts pin-once by COUNTING OCCURRENCES over the rendered bytes.
-export function bareCite(cite) {
+function bareCite(cite) {
   if (cite === null || cite === undefined) return cite;
   const s = String(cite);
   const at = s.lastIndexOf("@");
   return at === -1 ? s : s.slice(0, at);
 }
 
-export function servedLinesBlock(report) {
+function servedLinesBlock(report) {
   const rows = [];
   const seen = new Set();
   const collect = (m) => {
@@ -5817,7 +5769,7 @@ export function servedLinesBlock(report) {
 // silence — the same rule the report identity v9 applies to judged-empty SubGroups. Without
 // it the Counted block's `journey: N` has nothing in the body to agree with,
 // which is how the run above produced a count with no material behind it.
-export function memberBlock(m, level) {
+function memberBlock(m, level) {
   const h = "#".repeat(Math.max(1, Math.min(6, level || 3)));
   // A non-object member is a malformed record, and it renders as that rather
   // than as its own string value — printing `String(m)` here was the one path
@@ -5865,7 +5817,7 @@ export function memberBlock(m, level) {
 // CANONICAL. Idempotence is set-based: two typings of the same set in
 // different orders are ONE artifact, which is what makes a re-request return
 // the same report rather than a second one.
-export function reportIdentity(pin, tag, ids, judgePin, neighborhoodJudgment) {
+function reportIdentity(pin, tag, ids, judgePin, neighborhoodJudgment) {
   return {
     pin,
     query: { tag, ids: canonicalIds(ids) },
@@ -5941,8 +5893,8 @@ function identityDigest(identity) {
 // the neighborhood section's shape now names a TC id, so a stale replay can
 // put a `serves: … for TC2` row
 // against a TC2 the supplied candidates no longer describe.
-export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood-candidates", "thesis-candidates"];
-export function composedInputDigests(args) {
+const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood-candidates", "thesis-candidates"];
+function composedInputDigests(args) {
   const out = {};
   for (const flag of COMPOSED_INPUT_FLAGS) {
     const path = args[flag];
@@ -5955,7 +5907,7 @@ export function composedInputDigests(args) {
 
 // WHICH INPUTS DIFFER, named rather than counted — a refusal telling an operator
 // only THAT something changed leaves them diffing three files to find out which.
-export function composedInputDelta(prior, current) {
+function composedInputDelta(prior, current) {
   if (!prior || typeof prior !== "object") return null;
   // A PRIOR RECORD MISSING A FLAG PREDATES THAT FLAG (kogaki#700). The
   // record-level rule already recomputes where the whole field is absent;
@@ -5967,7 +5919,7 @@ export function composedInputDelta(prior, current) {
   return COMPOSED_INPUT_FLAGS.filter((f) => prior[f] !== current[f]);
 }
 
-export function sameIdentity(a, b) {
+function sameIdentity(a, b) {
   return JSON.stringify(reportIdentityKey(a)) === JSON.stringify(reportIdentityKey(b));
 }
 function reportIdentityKey(i) {
@@ -6005,13 +5957,13 @@ function reportIdentityKey(i) {
 // different orders are ONE artifact, which is what makes a re-request return
 // the same report rather than a second one. The cost is stated in the spec —
 // section order is canonical, not entry order.
-export function idSortKey(id) {
+function idSortKey(id) {
   const m = /^G([0-9]+)(?:-([0-9]+))?$/.exec(id);
   if (!m) return [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, id];
   return [Number(m[1]), m[2] === undefined ? -1 : Number(m[2]), ""];
 }
 
-export function canonicalIds(ids) {
+function canonicalIds(ids) {
   return [...new Set(ids)].sort((a, b) => {
     const ka = idSortKey(a), kb = idSortKey(b);
     return ka[0] - kb[0] || ka[1] - kb[1] || String(ka[2]).localeCompare(String(kb[2]));
@@ -6078,7 +6030,7 @@ function resolveEnteredIds(entered, groups, subOf) {
 // point at Strands the owner is actually reading in this file; an id that is a
 // perfectly good display id elsewhere in the record is still a refusal here,
 // because the section exists to let the owner combine what is in front of them.
-export function readThesisCandidates(raw, memberDisplayIds, limits) {
+function readThesisCandidates(raw, memberDisplayIds, limits) {
   const want = Number((limits || {}).thesis_candidates);
   if (raw === null || raw === undefined) return [];
   if (!Array.isArray(raw)) {
@@ -6833,15 +6785,14 @@ function cmdReport(args) {
   }
 }
 
-// --------------------------------------------------------------------------
+// ---- ACT ------------------------------------------------------------------
 // act — the second-proposer boundary, enforced by enumeration.
-// --------------------------------------------------------------------------
 // THE PROPOSAL RECORD of the retired `act` subcommand, reachable only from
 // `TRIM_RATIFICATION`'s declaration composer (kogaki#625 item 1). While `act`
 // stood, a session could mint a trim proposal from outside the executor with no
 // run record — precisely what write authority claims is unwritable.
 // Returns the written record's path, or null where the act names no proposal.
-export function composeTrimProposal(args, dir) {
+function composeTrimProposal(args, dir) {
   const act = String(args.act || fail("TRIM_RATIFICATION needs --act <name>: the proposal it ratifies"));
   const acts = RECORD_SCHEMA.acts;
   if (acts.navigation.includes(act)) {
@@ -6902,13 +6853,12 @@ export function composeTrimProposal(args, dir) {
   return out;
 }
 
-// --------------------------------------------------------------------------
+// ---- THE GATE DECLARATION AND ITS CAPTURE ---------------------------------
 // The per-run gate declaration carries the RUN-COMPUTED options; the registry
 // declares the gate CLASS. `gate` ceased to be an entry point (kogaki#625
 // item 1) — the declaration is composed by the executor at the wait that owes
 // it, and the recorded consult miss it carried (no served position on static
 // declaration of run-computed option sets) is unchanged by who composes it.
-// --------------------------------------------------------------------------
 // THE CAPTURE, written by the executor and by nothing else (kogaki#625 item 1).
 // `capture` ceased to be an entry point: an answer to a declared gate is
 // admitted at the wait that declared it, which is what makes "a session could
@@ -6931,7 +6881,7 @@ export function composeTrimProposal(args, dir) {
 // its reader, and every refusal below is a refusal to advance rather than a
 // complaint about a shape: the wait stays outstanding, so the recovery is
 // always to render the gate again.
-export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
+function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
   // THE CAPTURE FILE IS THE FLOW'S (kogaki#1108). It was `terrain<suffix>`
   // literally; the prefix is the lane, and the writer below reads it from the
   // same place, so the two cannot name different files.
@@ -7055,11 +7005,11 @@ function noAnswerRefusal(decl, capPath, why) {
 // `.claude/hooks/write-gate-capture.py` computes the same digest over the same
 // canonical form; `checks/check-gate-capture-hook.sh` compares the two rather
 // than trusting them to agree by reading.
-export function ownerGateDigest(gateId, optionIds) {
+function ownerGateDigest(gateId, optionIds) {
   return createHash("sha256").update(JSON.stringify([gateId, [...optionIds]])).digest("hex");
 }
 
-// --------------------------------------------------------------------------
+// ---- NEIGHBORHOOD ---------------------------------------------------------
 // neighborhood — SPEC-terrain, the provenance neighborhood (story 1.44,
 // kogaki#302, umbrella kogaki#300).
 //
@@ -7136,7 +7086,7 @@ function batchKey(sourceBatch) {
 // then by instance id, then the bare substrates by name. NEVER by size — a
 // display that puts the biggest group first has ranked its groups, which is the
 // judgment the neighborhood as a report refuses, arriving as layout rather than as a score.
-export function compareGroups(a, b) {
+function compareGroups(a, b) {
   const ka = [a.instance === null ? 1 : 0, a.substrate, a.instance ?? ""];
   const kb = [b.instance === null ? 1 : 0, b.substrate, b.instance ?? ""];
   for (let i = 0; i < ka.length; i++) {
@@ -7155,7 +7105,7 @@ export function compareGroups(a, b) {
 // warned about one field over — those helpers went with the grouping headings
 // kogaki#686 deletes, and the reference is retired with them rather than left
 // pointing at a symbol the file no longer defines.
-export function renderingsOf(s) {
+function renderingsOf(s) {
   return (s.reached_by || []).length || 1;
 }
 
@@ -7167,7 +7117,7 @@ function substrateInstances(bySubstrate) {
   return out.sort(compareGroups);
 }
 
-export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
+function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // Batch records carry `id` rather than `slug` and are the JOIN TABLE, never
   // suggestions themselves — indexing them here would surface a batch as a
   // neighbor, which is not an element the owner can take.
@@ -7434,7 +7384,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
 // misses, the neighborhood is empty, and an empty is a legitimate outcome
 // here (the settled-strand-set input), so nothing downstream can tell the two apart. An id naming no
 // candidate is returned, never dropped.
-export function settledSlugs(candidates, memberIds) {
+function settledSlugs(candidates, memberIds) {
   const byId = new Map((candidates || []).map((c) => [c.id, c]));
   const slugs = [];
   const unmapped = [];
@@ -7515,7 +7465,7 @@ export class TerminalJudgmentRefusal extends Error {}
 // frames below the state loop that must catch it, and a return value would
 // have to be threaded and checked at every frame between them rather than
 // caught once where it is handled.
-export class JudgmentExhausted extends Error {
+class JudgmentExhausted extends Error {
   constructor(stateId, message) {
     super(message);
     this.stateId = stateId;
@@ -7564,7 +7514,7 @@ export class DetachedJobStarted extends Error {
   }
 }
 
-export const READER_PATH_JOB_FILE = "reader-path-job.json";
+const READER_PATH_JOB_FILE = "reader-path-job.json";
 // THE OWNER'S OWN STATED CEILING (kogaki#1193), non-negotiable on technical
 // grounds: no reader-path job runs past it.
 export const READER_PATH_JOB_ABSOLUTE_LIMIT_S = 600;
@@ -7598,22 +7548,23 @@ export const READER_PATH_JOB_AWAIT_COMMAND = "node src/brief.mjs run --status --
 // the still-running state the 300s question was raised on). `done` carries no `failure` block;
 // every other one does, and NOTHING IS EVER DELETED on any exit — a non-`done`
 // job record is left exactly as it stood at classification, partial output
-// included, for the Arm screen and for a later reader.
-export const READER_PATH_JOB_STATES = [
-  "done", "refused", "stopped", "ceiling", "stalled", "died", "other",
-];
+// included, for the Arm screen and for a later reader. The seven are `done`,
+// `refused`, `stopped`, `ceiling`, `stalled`, `died` and `other`; the list was
+// a constant nothing read, deleted at kogaki#1257, and
+// `checks/check-brief-reader-path-job.sh` (a) now reads the set off the job
+// records its fixtures end in.
 
 // ONE RE-ASK PER UNIT (kogaki#1203, the owner's 2026-09-26 "same policy as
 // before" ruling): 2 attempts total, so a unit refused on attempt 2 is
 // terminal exactly as the synchronous judge's exhausted `retries` was.
-export const READER_PATH_UNIT_MAX_ATTEMPTS = 2;
+const READER_PATH_UNIT_MAX_ATTEMPTS = 2;
 
 // ONE FILE PER UNIT, NAMED BY ITS ID (kogaki#1203 acceptance 2). Both
 // attempts of a retried unit land in this same path -- the first attempt's
 // bytes, a divider line, then the second's -- so a unit that dies or is
 // refused is inspectable from one path rather than a reader having to guess
 // which attempt's file survived.
-export function readerPathUnitStdoutPath(dir, unitId) {
+function readerPathUnitStdoutPath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.stdout`);
 }
 
@@ -7624,7 +7575,7 @@ export function readerPathUnitStdoutPath(dir, unitId) {
 // per unit and never touched again, so a finished Candidate is recoverable by
 // itself whatever the job's own terminal state turns out to be and whatever
 // else the record is rewritten to say next tick.
-export function readerPathUnitCandidatePath(dir, unitId) {
+function readerPathUnitCandidatePath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.candidate.json`);
 }
 
@@ -7640,7 +7591,7 @@ export function readerPathUnitCandidatePath(dir, unitId) {
 // rather than re-rendering; the result is byte-identical to `judgePrompt`'s
 // own re-ask over the same row and input. A prompt carrying no marker carries
 // no input to misread, and the block is appended.
-export function readerPathUnitRetryPrompt(firstPrompt, refusal) {
+function readerPathUnitRetryPrompt(firstPrompt, refusal) {
   const block = ["", JUDGE_REFUSAL_MARKER, refusal, "", JUDGE_REFUSAL_REPAIR_SENTENCE].join("\n");
   const at = firstPrompt.indexOf(`\n${JUDGE_INPUT_MARKER}\n`);
   if (at < 0) return firstPrompt + "\n" + block;
@@ -7655,7 +7606,7 @@ export function readReaderPathJob(dir) {
   return existsSync(p) ? readJson(p) : null;
 }
 
-export function writeReaderPathJob(dir, doc) {
+function writeReaderPathJob(dir, doc) {
   doc.updated_at = new Date().toISOString();
   const p = readerPathJobPath(dir);
   const tmp = `${p}.tmp`;
@@ -7681,7 +7632,7 @@ function readerPathBytes(str, n) {
 // the job ends, including a unit the ceiling or the stall bound kills mid-run:
 // the write happens as each chunk arrives rather than at `close`, where a
 // killed child never gets there.
-export function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutFile) {
+function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutFile) {
   const out = { bytes: 0, chunks: [], errChunks: [], done: false, exitCode: null, error: null, endedAt: null };
   let child;
   let fd = null;
@@ -7724,7 +7675,7 @@ export function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutF
 // end because a `stream-json` transcript carries many other line types
 // (`system`, `assistant`, …) before the one that terminates it. Unwrapping
 // `result` mirrors the same envelope `judgeRecordFrom` reads.
-export function readerPathUnitRecord(stdout) {
+function readerPathUnitRecord(stdout) {
   const lines = String(stdout == null ? "" : stdout).split("\n").filter((l) => l.trim() !== "");
   let resultLine = null;
   let anyValidJson = false;
@@ -7775,7 +7726,7 @@ function readerPathDeadUnitResult(stdout) {
 // declaration or the named export is missing -- never `fail()`, which exits
 // the process directly and would skip that catch entirely, leaving no job
 // record behind for a refusal this function itself can fully describe.
-export async function loadReaderPathUnitValidator(declared) {
+async function loadReaderPathUnitValidator(declared) {
   if (!declared || typeof declared !== "object") throw new Error("the units file carries no declared validator (kogaki#1240).");
   if (!declared.module) throw new Error("the declared validator names no `module`.");
   if (!declared.export) throw new Error("the declared validator names no `export`.");
@@ -7800,7 +7751,7 @@ export async function loadReaderPathUnitValidator(declared) {
 // the caller from the units file -- this function stays ignorant of what it
 // checks or why, taking only a `(candidate) => string|null` function and
 // downgrading an otherwise-`done` unit to `refused` on a truthy return.
-export function classifyDetachedJobUnit(out, validate) {
+function classifyDetachedJobUnit(out, validate) {
   if (out.error) {
     return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(String(out.error.message || out.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
   }
@@ -7851,7 +7802,7 @@ function reduceFinishedReaderPathUnits(units) {
 // replaces. `stop_requested` is read first, because the owner's stop click is
 // answered whatever a unit is doing; the two time bounds are read only while a
 // unit is still running.
-export function classifyDetachedJobState(units, {
+function classifyDetachedJobState(units, {
   stopRequested, elapsedS, stalledS,
   absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S,
   stallS = READER_PATH_JOB_STALL_S,
@@ -7873,7 +7824,7 @@ export function classifyDetachedJobState(units, {
 // applies this when it kills those units, and `job await` applies the same
 // function to a record its own clock reads past the limit before the
 // supervisor's next tick has written it, so the two cannot disagree.
-export function readerPathJobAtLimit(units) {
+function readerPathJobAtLimit(units) {
   const atLimit = units.map((u) => (u.status === "running"
     ? { id: u.id, status: "ceiling", bytes: u.bytes || 0, note: "still running at the absolute limit; killed" }
     : u));
@@ -7887,7 +7838,7 @@ export function readerPathJobAtLimit(units) {
 // is the run of 2026-10-05 whose retries began with 140-200s left and ended as
 // a timeout instead of the refusal that caused it. A refused retry is final --
 // there is never a third attempt. Seconds may be fractional.
-export function readerPathRetryDecision({ attempt, elapsedS, attemptS, absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S }) {
+function readerPathRetryDecision({ attempt, elapsedS, attemptS, absoluteLimitS = READER_PATH_JOB_ABSOLUTE_LIMIT_S }) {
   if (attempt >= READER_PATH_UNIT_MAX_ATTEMPTS) return { retry: false };
   if (elapsedS + attemptS > absoluteLimitS) {
     return {
@@ -7925,7 +7876,7 @@ function readerPathRefusedUnits(unitRows) {
 // THE UNITS A `done` JOB DID NOT FINISH, NAMED ON ITS RECORD (kogaki#1273). A
 // `done` job carries no `failure` block, so the refused and `ceiling` units
 // beside its finished Candidates ride as their own top-level fields.
-export function readerPathDoneJobUnfinished(unitRows) {
+function readerPathDoneJobUnfinished(unitRows) {
   const refused_units = readerPathRefusedUnits(unitRows);
   const ceiling_units = unitRows.filter((x) => x.status === "ceiling").map((x) => x.id);
   return {
@@ -7986,7 +7937,7 @@ function readerPathJobFailure(state, unitRows, { elapsedS, stalledS, note } = {}
 // Job. It owns the per-unit children, the heartbeat write and the terminal
 // classification; nothing else writes `reader-path-job.json` once this has
 // started.
-export async function cmdJobSupervise(args) {
+async function cmdJobSupervise(args) {
   const dir = String(args.run || fail("job-supervise needs --run <dir> (internal verb, kogaki#1193)."));
   let unitsRunning = null;
   try {
@@ -8242,7 +8193,7 @@ const THESIS_CANDIDATE_ID = /^TC[0-9]+$/;
 // that candidate, and a record without one is refused exactly as a level with
 // no claim is: the row has a fixed line class for it and no way to render it
 // from anything else.
-export function neighborhoodJudgmentsFrom(raw) {
+function neighborhoodJudgmentsFrom(raw) {
   const out = new Map();
   for (const [slug, v] of Object.entries(raw || {})) {
     if (!v || typeof v !== "object") {
@@ -8291,7 +8242,7 @@ export function neighborhoodJudgmentsFrom(raw) {
   return out;
 }
 
-export function readNeighborhoodJudgments(path) {
+function readNeighborhoodJudgments(path) {
   if (!path) return new Map();
   const raw = readJson(String(path));
   return orFail(() => neighborhoodJudgmentsFrom(raw));
@@ -8306,7 +8257,7 @@ export function readNeighborhoodJudgments(path) {
 //
 // Pure and throwing, so BOTH readers — the J3 state and the pull — reach one
 // implementation of the rule rather than two readings of it.
-export function refuseTargetsOutsideCandidates(judgments, candidateIds, at) {
+function refuseTargetsOutsideCandidates(judgments, candidateIds, at) {
   const known = new Set(candidateIds || []);
   const bad = [...judgments.entries()]
     .filter(([, j]) => j.target && !known.has(j.target.candidate))
@@ -8384,10 +8335,10 @@ function neighborhoodForTargets(record, targets) {
 // THE RECOMMENDATION LEVELS, harness-fixed and closed (kogaki#686, owner ruling
 // 2026-08-28). Ordered strongest first — the order IS the level ranking, and it
 // is the only ranking in this file. Extending the set is the owner's act.
-export const NEIGHBORHOOD_LEVELS = Object.freeze(["core", "useful", "background"]);
+const NEIGHBORHOOD_LEVELS = Object.freeze(["core", "useful", "background"]);
 // The display cap. Ten rows, ruled; see the refusal below for what happens when
 // more than ten are judged; the fill takes the first ten in level order.
-export const NEIGHBORHOOD_DISPLAY_CAP = 10;
+const NEIGHBORHOOD_DISPLAY_CAP = 10;
 
 // THE NEIGHBORHOOD SECTION (kogaki#686). Four fields per row, and up to ten
 // rows FILLED IN LEVEL ORDER `core -> useful -> background` (the neighborhood section's shape, kogaki#741
@@ -8441,7 +8392,7 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // Pure over its input and states every arm rather than returning a bare list:
 // the display renders a different sentence for each, and an arm collapsed here
 // would have to be re-derived there.
-export function neighborhoodDisplaySet(suggestions) {
+function neighborhoodDisplaySet(suggestions) {
   const list = suggestions || [];
   const found = list.length;
   const judged = list.filter((x) => NEIGHBORHOOD_LEVELS.includes(x.level));
@@ -8488,7 +8439,7 @@ export function neighborhoodDisplaySet(suggestions) {
   return { state: "shown", found, unjudged, shown, composition };
 }
 
-export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
+function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
   const out = [];
   const say = (s = "") => out.push(s);
   say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
@@ -8731,7 +8682,7 @@ export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] })
 // (kogaki#698) — including deferring to a callee comment that was itself false
 // at the time. The sole call site spreads `report.neighborhood`, so nothing
 // here is positionally load-bearing either.
-export function neighborhoodSection({ gids, no_material, suggestions, unresolved = [] }) {
+function neighborhoodSection({ gids, no_material, suggestions, unresolved = [] }) {
   const head = [
     "## Provenance neighborhood",
     "",
@@ -8759,7 +8710,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 // process.exit — so the module was unimportable and every composer in it was
 // reachable only through a subprocess. A mechanism no fixture can call is the
 // orphan shape one level in (`orphan-mechanisms-fail-the-suite`).
-// ==========================================================================
+// ==== THE CONTROL PLANE ====================================================
 // the control plane — THE CONTROL PLANE: the workflow table, the run record, the executor.
 // (SPEC-terrain, the control plane, v23; kogaki#625 acceptance items 1, 2, 5 and 6; story
 // 1.89 / kogaki#652.)
@@ -8795,7 +8746,6 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 // renderer, which is bound to its state by construction. What would breach
 // the workflow table is control code that knew the ORDER those states run in — and none
 // below does.
-// ==========================================================================
 
 // The kind vocabulary this executor interprets. The table's `state_kinds`
 // object is the prose for these; `stops` is the only CONTROL property a kind
@@ -8809,8 +8759,8 @@ const KIND_SEMANTICS = {
   terminal: { stops: true, needsRenderer: false },
 };
 
-export const TERRAIN_WORKFLOW_TABLE = join(REPO, "src/terrain-workflow.json");
-export const RUN_RECORD_FILE = "run-record.json";
+const TERRAIN_WORKFLOW_TABLE = join(REPO, "src/terrain-workflow.json");
+const RUN_RECORD_FILE = "run-record.json";
 
 // ---- WHO EXECUTED THIS TRANSITION (kogaki#1027) ------------------------------
 //
@@ -8883,7 +8833,7 @@ export function detachedJobExecutor(jobRecordRelPath) {
 let OPENED_BY = null;
 
 // Set once per act, by the one caller that knows: see `cmdRun`.
-export function setOpenedBy(advancedBy) {
+function setOpenedBy(advancedBy) {
   OPENED_BY = (advancedBy && EXECUTOR_KINDS.includes(advancedBy.executor))
     ? advancedBy.executor
     : null;
@@ -8954,7 +8904,7 @@ function completeState(rec, stateId, advancedBy) {
 // unique, kinds interpretable, a write naming an artifact, a terminal
 // existing. It judges no semantic contract, because the workflow table makes the table
 // authoritative over sequencing and "authoritative over NOTHING ELSE".
-export function loadWorkflowTable(path) {
+function loadWorkflowTable(path) {
   const table = readJson(path);
   if (!Array.isArray(table.states) || table.states.length === 0) {
     fail(`workflow table ${path} declares no states. The workflow table makes this artifact authoritative over sequencing; an empty array is not a flow.`);
@@ -8985,8 +8935,9 @@ export function loadWorkflowTable(path) {
 // figure someone typed beside it. `counted_baseline` is then a second reading
 // of the same array, and `terrain.mjs run --status` renders both so a
 // disagreement between them is visible rather than resolved silently.
-// THE WRITE-OUTCOME CLASSIFIER, pure and exported so the distinction it draws
-// is TESTABLE rather than asserted (PR #667 round 1 finding 2). The executor's
+// THE WRITE-OUTCOME CLASSIFIER, pure so the distinction it draws is TESTABLE
+// rather than asserted — through `run` over a fixture-only state since
+// kogaki#1257 (PR #667 round 1 finding 2). The executor's
 // guard used to read `!outcome.artifact`, which folded two different claims
 // into one branch:
 //
@@ -8999,12 +8950,12 @@ export function loadWorkflowTable(path) {
 // It is a classifier rather than a refusal because `fail()` exits the process:
 // keeping the judgment pure is what lets the fixture pass exercise all three
 // directions without spawning three subprocesses.
-export function classifyWriteOutcome(outcome) {
+function classifyWriteOutcome(outcome) {
   if (!outcome || typeof outcome !== "object" || !("artifact" in outcome)) return "named-nothing";
   return outcome.artifact ? "wrote" : "wrote-nothing";
 }
 
-export function derivedBaseline(table) {
+function derivedBaseline(table) {
   const states = table.states;
   const writing = states.filter((s) => s.kind === "write");
   // `writers_per_artifact` IS DROPPED, NOT REPAIRED (PR #655 round 1 finding 3,
@@ -9041,7 +8992,7 @@ export function derivedBaseline(table) {
 // a run that never browsed rows legitimately writes fewer artifacts than the
 // table's unconditional maximum — which is why `--status` renders the
 // unconditional floor beside the table's total rather than asserting equality.
-export function runCounts(rec) {
+function runCounts(rec) {
   return {
     waits: rec.waits_reached.length,
     owner_artifact_writes: rec.artifacts_written.length,
@@ -9050,7 +9001,7 @@ export function runCounts(rec) {
   };
 }
 
-export function runRecordPath(dir) { return join(dir, RUN_RECORD_FILE); }
+function runRecordPath(dir) { return join(dir, RUN_RECORD_FILE); }
 
 // EXPORTED FOR THE JOB-VERB DISPATCH (kogaki#1193): `job await` runs as its
 // own `run --status --job await` invocation, outside the executor's own
@@ -9148,10 +9099,6 @@ function newRunRecord(tablePath, table) {
   };
 }
 
-function stateById(table, id) {
-  return table.states.find((s) => s.id === id) || null;
-}
-
 // The path the table declares for the artifact a write state names. Read from
 // the table rather than held here, so renaming an owner artifact is a table
 // edit and not a code edit (the workflow table's evolvability contract).
@@ -9180,19 +9127,8 @@ function needSurvey(rec) {
 // `src/terrain-workflow.json`, so an id that never enters that file alters no contract
 // — and the bound is asserted rather than promised: the pass drives the shipped
 // table against this prefix.
-// THE SYNTHESIZED HOOK PAYLOAD every fixture spawn feeds the executor
-// (kogaki#1027). The executor advances only inside a harness hook event, so a
-// fixture that drove it with no stdin would be testing the payload refusal and
-// nothing else. Synthesized rather than captured, deliberately: the acceptance
-// item is that a run driven by payloads ALONE reaches its end, and a payload
-// this pass composes is one no session and no harness supplied.
-export const FIXTURE_PAYLOAD = JSON.stringify({
-  hook_event_name: "PostToolUse",
-  session_id: "fixture-session",
-  tool_use_id: "fixture-tool-use",
-});
-export const FIXTURE_STATE_PREFIX = "__fixture_";
-export const FIXTURE_RECORD_KEY_VALUE = "written by this state's own renderer";
+const FIXTURE_STATE_PREFIX = "__fixture_";
+const FIXTURE_RECORD_KEY_VALUE = "written by this state's own renderer";
 
 // ---- THE RENDERER HALF (the workflow table: "a table row PLUS a renderer"). ------------
 // Keyed by state id. Each entry performs its state's work and returns either
@@ -9275,7 +9211,7 @@ function judgePinArgs(table, args, rec) {
   };
 }
 
-export const STATE_WORK = {
+const STATE_WORK = {
   survey: (rec, st, args) => {
     rec.survey_record = cmdSurvey({ ...args, "run-dir": rec._dir });
     return null;
@@ -9738,6 +9674,13 @@ export const STATE_WORK = {
     rec.fixture_record_key = FIXTURE_RECORD_KEY_VALUE;
     return null;
   },
+  // RETURNS THE OUTCOME ITS OWN TABLE ROW CARRIES (kogaki#1257), so the write
+  // guard's three directions are driven through `run` against a throwaway table
+  // rather than by calling the classifier. A row with no `fixture_outcome` key
+  // returns nothing at all, which is the direction the guard refuses. Bounded
+  // by the same case as the state above.
+  [`${FIXTURE_STATE_PREFIX}returns_outcome`]: (rec, st) =>
+    (Object.prototype.hasOwnProperty.call(st, "fixture_outcome") ? st.fixture_outcome : null),
 };
 
 // ---- GATE OPTION COMPOSERS — the mirror of STATE_WORK for the other half of
@@ -9768,7 +9711,7 @@ export const STATE_WORK = {
 // option, so the run contributes at most three (kogaki#1029).
 const TAG_OPTION_COUNT = 3;
 
-export const GATE_WORK = {
+const GATE_WORK = {
   // THE LISTING RIDES THE DECLARATION, and that is the whole of kogaki#856's
   // display fix. `tag_listing` carries the runtime's own pre-selection
   // rendering over THIS run's survey record, byte-for-byte, through the same

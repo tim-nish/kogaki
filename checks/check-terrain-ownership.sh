@@ -24,6 +24,9 @@
 #      a synthesized Bash payload. Without it the first check is a guard after a
 #      model-constructed input, the shape the 2026-09-04 control-input
 #      direction forbids.
+#   3. THE EXPORT SURFACE HAS A PRODUCTION READER (kogaki#1257). Every name the
+#      runtime module exports is imported by a tracked module outside it that is
+#      not under `checks/`, so the surface cannot grow unused again silently.
 #
 # EACH FIXTURE CARRIES ITS OWN COUNTERFACTUAL (acceptance 2): the golden record
 # with one `advanced_by` removed fails; a Bash payload naming `--status`, the
@@ -111,6 +114,53 @@ if [ "$admitted_rc" -eq 0 ] && [ -z "$admitted" ]; then pass; else
   bad "a Bash payload naming \`terrain.mjs run --status\` was not admitted cleanly (rc=$admitted_rc, output: ${admitted:-none}) — the one read-only route into a stuck run is closed, or the hook fails on it"
 fi
 
+# ---- 3. THE EXPORT SURFACE HAS A PRODUCTION READER (kogaki#1257). Every name
+# `src/terrain.mjs` exports is imported by at least one tracked module outside
+# it that is not under `checks/`. At 9ae8592 the module exported 192 names and
+# 156 of them had no such reader: 81 nothing imported, 75 only the checks
+# reached into. An export a check alone reads is a test seam wearing a module
+# surface, and the split that follows this issue cuts along what the surface
+# says the runtime is made of. The reader counts IMPORT BINDINGS rather than
+# words, so a spec naming a function in prose does not stand in for a caller.
+surface_unread() {  # surface_unread <module path>  -> prints each unread export, exit 1 if any
+  python3 - "$1" <<'PY'
+import re, subprocess, sys
+module = sys.argv[1]
+src = open(module).read()
+exported = re.findall(r'^export\s+(?:async\s+)?(?:function\*?|const|let|class|var)\s+([A-Za-z_$][\w$]*)', src, re.M)
+for m in re.finditer(r'^export\s*\{([^}]*)\}', src, re.M):
+    exported += [n.strip().split(' as ')[-1].strip() for n in m.group(1).split(',') if n.strip()]
+files = subprocess.run(["git", "ls-files", "*.mjs", "*.js"], capture_output=True, text=True).stdout.split()
+imported = set()
+for f in files:
+    if f == "src/terrain.mjs" or f.startswith("checks/"):
+        continue
+    try:
+        t = open(f).read()
+    except OSError:
+        continue
+    for m in re.finditer(r'import\s*\{([^}]*)\}\s*from\s*["\'][^"\']*/terrain\.mjs["\']', t):
+        imported |= {n.strip().split(' as ')[0].strip() for n in m.group(1).split(',') if n.strip()}
+unread = [n for n in exported if n not in imported]
+if not exported:
+    print("no export was read at all -- CANNOT-DETERMINE, never a pass"); sys.exit(1)
+for n in unread:
+    print(n)
+sys.exit(1 if unread else 0)
+PY
+}
+if unread=$(surface_unread src/terrain.mjs); then pass; else
+  bad "src/terrain.mjs exports names no module outside it and outside checks/ imports: $(printf '%s' "$unread" | tr '\n' ' ')— drop the export, or import it where the runtime uses it (kogaki#1257)"
+fi
+# The counterfactual: the same module with one added export nothing imports,
+# and the same reader names it.
+{ cat src/terrain.mjs; printf '\nexport function kogaki1257UnreadFixture() { return null; }\n'; } > "$tmp/terrain-mutant.mjs"
+if unread=$(surface_unread "$tmp/terrain-mutant.mjs"); then
+  bad "an export nothing imports was admitted by the surface reader — it asserts nothing"
+elif printf '%s' "$unread" | grep -qx 'kogaki1257UnreadFixture'; then pass; else
+  bad "the surface reader refused the mutant without naming its added export: ${unread:-no output}"
+fi
+
 # ---- THE BOUND (acceptance 1): under one second on this machine run alone
 # (639 ms measured at kogaki#1031). The self-check fails at two seconds rather
 # than one because the suite runs eight members in contention and a bound at
@@ -122,6 +172,6 @@ if [ "$elapsed_ms" -lt 2000 ]; then pass; else
 fi
 
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass in ${elapsed_ms}ms — the executor refuses a transition with no hook payload, the golden record is attributed on every transition and its mutant is refused, and the Bash route into the executor is denied with --status admitted (kogaki#1031)"
+  note "ok: $cases case(s) pass in ${elapsed_ms}ms — the executor refuses a transition with no hook payload, the golden record is attributed on every transition and its mutant is refused, and the Bash route into the executor is denied with --status admitted (kogaki#1031), and every export has a reader outside checks/ (kogaki#1257)"
 fi
 exit "$fail"

@@ -193,13 +193,14 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, chmodSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as compose from "./src/compose.mjs";
 import { composeBrief, validateReaderPathUnit, specializationJudgeInput, validateSpecializationSet,
   specializationSelection, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
-import { judgePrompt, classifyDetachedJobUnit, readerPathUnitRetryPrompt, JUDGE_REFUSAL_MARKER } from "./src/terrain.mjs";
+import { judgePrompt } from "./src/terrain.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHARGE_VERDICTS } from "./src/review.mjs";
 import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
 import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
@@ -1330,14 +1331,35 @@ const cand1276 = (id, leg2Extra = {}) => ({
   delete c.legs[1].move;
   c.legs[1].no_move_fits = SENTENCE;
   const validate = (x) => { const r = validateReaderPathUnit(x, { strandIds: ["L1"], readerStart: START_1276, movesDir: fitMoves }); return r && r.error ? r.error : null; };
-  const stdout = JSON.stringify({ type: "result", result: JSON.stringify(c) }) + "\n";
-  const cls = classifyDetachedJobUnit({ exitCode: 0, chunks: [Buffer.from(stdout)], errChunks: [], bytes: stdout.length, endedAt: "t" }, validate);
-  if (cls.status !== "refused") fails.push(`(ai) a Candidate with a no_move_fits Leg classified ${cls.status}, want refused`);
+  // THE UNIT IS CLASSIFIED BY A REAL `job-supervise` RUN (kogaki#1257), under
+  // the declared `validateReaderPathUnit` validator and a fake judge that
+  // answers this Candidate on every attempt and records each prompt it is
+  // sent -- so the refusal is read off the unit row and the retry prompt is
+  // the second one the supervisor actually sent.
+  const sup = mkdtempSync(join(tmpdir(), "kogaki-ai-"));
+  const judge = join(sup, "judge.mjs");
+  writeFileSync(judge, "#!/usr/bin/env node\nimport { appendFileSync } from \"node:fs\";\n"
+    + "let c = []; process.stdin.on(\"data\", (d) => c.push(d)); process.stdin.on(\"end\", () => {\n"
+    + `  appendFileSync(${JSON.stringify(join(sup, "prompts.jsonl"))}, JSON.stringify(Buffer.concat(c).toString("utf8")) + "\\n");\n`
+    + `  process.stdout.write(${JSON.stringify(JSON.stringify({ type: "result", result: JSON.stringify(c) }) + "\n")});\n`
+    + "});\n");
+  chmodSync(judge, 0o755);
+  writeFileSync(join(sup, "units.json"), JSON.stringify({ units: [{ id: "u", prompt: "compose one path\n----- INPUT -----\n{}" }],
+    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit",
+      inputs: { strandIds: ["L1"], readerStart: START_1276, movesDir: fitMoves } } }));
+  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", sup, "--units", join(sup, "units.json"),
+    "--command", judge, "--model", "m", "--output-format", "json",
+    "--absolute-limit-s", "100", "--stall-s", "100", "--heartbeat-ms", "250"], { encoding: "utf8", timeout: 15000 });
+  const jobFile = join(sup, "reader-path-job.json");
+  const unit = existsSync(jobFile) ? (JSON.parse(readFileSync(jobFile, "utf8")).units || []).find((u) => u.id === "u") : null;
+  if (!unit || unit.status !== "refused") fails.push(`(ai) a Candidate with a no_move_fits Leg classified ${unit && unit.status}, want refused`);
   else {
-    const refusal = cls.failure.stderr_tail;
+    const refusal = unit.first_refusal || "";
     if (!refusal.includes(SENTENCE) || !/leg s2/.test(refusal)) fails.push(`(ai) the unit refusal does not carry the Leg's sentence: ${refusal}`);
-    const retry = readerPathUnitRetryPrompt("compose one path\n----- INPUT -----\n{}", refusal);
-    if (!retry.includes(JUDGE_REFUSAL_MARKER) || !retry.includes(SENTENCE)) fails.push("(ai) the retry prompt does not carry the no_move_fits sentence verbatim");
+    const promptsFile = join(sup, "prompts.jsonl");
+    const sent = existsSync(promptsFile) ? readFileSync(promptsFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+    const retry = sent[1] || "";
+    if (!retry.includes("YOUR PREVIOUS ANSWER WAS REFUSED") || !retry.includes(SENTENCE)) fails.push("(ai) the retry prompt does not carry the no_move_fits sentence verbatim");
   }
   const good = validate(cand1276("c1"));
   if (good) fails.push(`(ai) the same Candidate with a move on every Leg was refused: ${good}`);
