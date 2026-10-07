@@ -1107,7 +1107,8 @@ function moveQuestionField(moveId, movesDir) {
 // THE SUB-LABEL WITHIN `question` (kogaki#1283). `question`'s own prose
 // states, under one of `raises:`/`settles:`/`replaces:`, what the Move hands
 // the next Leg -- these are plain text inside one folded string, never
-// nested keys (§4.2), so the span owed to one verb runs from just past its
+// nested keys (SPEC-draft-pipeline §"The Move library entry — rebuilt from
+// the Corpus"), so the span owed to one verb runs from just past its
 // colon to whichever of the three verbs comes next, or to the field's end.
 const QUESTION_VERBS = ["raises", "settles", "replaces"];
 function questionVerbSpan(text, verb) {
