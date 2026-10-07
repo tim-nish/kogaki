@@ -1281,6 +1281,41 @@ function entryInputs(args) {
   return { entered, via: "supplied on the command line" };
 }
 
+// THE PATH-REVIEW UNIT'S DECLARED VALIDATOR (kogaki#1301), loaded by the
+// detached supervisor exactly as `validateReaderPathUnit` is. Each unit
+// reviews ONE Candidate, named by the unit's own id in `inputs.candidates`, and
+// its entry is checked by `attachReview` over that Candidate alone — the same
+// shape check the single synchronous call ran, against an empty ledger.
+export function validateReviewPathUnit(entry, inputs, unitId) {
+  const c = ((inputs || {}).candidates || {})[unitId];
+  if (!c || typeof c.candidate_id !== "string") {
+    return { error: `the path-review unit ${JSON.stringify(unitId)} names no Candidate the job was started with` };
+  }
+  const r = attachReview([c], { [c.candidate_id]: entry }, {});
+  return r.error ? { error: r.error } : null;
+}
+
+// THE TWO DETACHED JOBS OF THIS FLOW (kogaki#1301). The reader-path job keeps
+// its files in the run directory, as it has since kogaki#1193; the path-review
+// job keeps the same set of files in a directory of its own beneath it, so the
+// two never overwrite each other's record. `job status` and `job await` read
+// the job of the state the run is waiting at.
+const REVIEW_PATH_JOB_DIR = "review-path";
+function detachedJobFor(runDir, stateId) {
+  const review = stateId === "review_path";
+  return {
+    runDir,
+    stateId: review ? "review_path" : "compose_path",
+    jobDir: review ? join(runDir, REVIEW_PATH_JOB_DIR) : runDir,
+    label: review ? "path-review job" : "reader-path job",
+  };
+}
+function detachedJobOfRun(runDir) {
+  let rec = null;
+  try { rec = readRunRecord(runDir); } catch { rec = null; }
+  return detachedJobFor(runDir, rec && rec.awaiting);
+}
+
 // THE DECLARED PER-UNIT VALIDATOR (kogaki#1240). Every rule a single
 // Candidate must obey on its own -- the Leg shape, the Move ids, the closed
 // Strand set, the `reasoning` keys, the retired-field names, the Reader
@@ -1721,13 +1756,57 @@ const STATE_WORK = {
 
   // ---- JUDGMENT POINT 2. Path review, which is REASONING and never a verdict.
   //
-  // `attachReview` is the validator and it is the same function the next state
-  // writes through: a review record that would be unattachable is refused here,
-  // inside the re-ask window, rather than at the attach where the round would
-  // already be spent.
+  // A DETACHED JOB, ONE UNIT PER CANDIDATE (kogaki#1301), split the way
+  // `compose_path` was split at kogaki#1193: the one synchronous call over
+  // every Candidate outgrew the hook advance's bound. Every item this state
+  // judges is per Candidate, so each unit carries its own Candidate, that
+  // Candidate's own `question_chain_pairs` and `discharge_rows`, the Persona's
+  // line and the review areas, and nothing of its siblings. `attachReview` is
+  // still the validator, applied per unit at the unit's own classification
+  // (`validateReviewPathUnit`), so a review that would be unattachable is
+  // re-asked inside the job rather than refused at the attach.
   review_path: async (rec, st, args, table) => {
     const cands = readJson(rec.brief_candidates
       || fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`));
+    const job = detachedJobFor(rec._dir, st.id);
+
+    // RESUMPTION (kogaki#1301). `job await`'s "done" arm re-enters this state
+    // carrying `--review-result <file>`: the finished units' entries keyed by
+    // `candidate_id`, and the Candidates whose unit did not end `done`. The
+    // record keeps the shape the single call wrote, so `judge_specialization`
+    // and `attach_review` read it unchanged; a Candidate left unreviewed is
+    // not offered, and is named above the Candidate question.
+    if (args["review-result"]) {
+      const result = readJson(String(args["review-result"]));
+      const review = result && typeof result.review === "object" && result.review ? result.review : {};
+      const unreviewed = Array.isArray(result && result.unreviewed) ? result.unreviewed : [];
+      const reviewed = cands.filter((c) => Object.prototype.hasOwnProperty.call(review, c.candidate_id));
+      if (reviewed.length === 0) fail(`${st.id}: the path-review job ended \`done\` and its result carries no reviewed Candidate.`);
+      const r = attachReview(reviewed, review, {});
+      if (r.error) fail(`${st.id}: ${r.error}`);
+      const out = join(rec._dir, "brief-review.json");
+      writeFileSync(out, JSON.stringify(review, null, 2) + "\n");
+      rec.brief_review = relFromRepo(resolve(out));
+      rec.judgments[st.id] = relFromRepo(resolve(readerPathJobPath(job.jobDir)));
+      rec.brief_review_unfinished = unreviewed.map((u) => {
+        const c = cands.find((x) => x.candidate_id === u.candidate_id) || {};
+        return { candidate_id: u.candidate_id, characteristic: c.characteristic, review_unfinished: u.status };
+      });
+      if (reviewed.length < cands.length) {
+        const outCands = join(rec._dir, "brief-candidates-reviewed.json");
+        writeFileSync(outCands, JSON.stringify(reviewed, null, 2) + "\n");
+        rec.brief_candidates_reviewed = outCands;
+      }
+      return null;
+    }
+
+    // ALREADY OPEN: polled again by `job await`, never restarted.
+    if (readReaderPathJob(job.jobDir)) {
+      throw new DetachedJobStarted(st.id, readerPathJobPath(job.jobDir),
+        `the path-review job at ${readerPathJobPath(job.jobDir)} is already open -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
+        + "to poll it (kogaki#1301).");
+    }
+
     // THE PERSONA, read from the same row `differentiation` and `compose_path`
     // already name theirs from (kogaki#1281): the claim register's declared
     // side is the Persona's `prior_knowledge` line (or its stated absence)
@@ -1736,41 +1815,64 @@ const STATE_WORK = {
     const composePathState = (table.states || []).find((s) => s.id === "compose_path");
     const readerFile = (composePathState && composePathState.reader_file)
       || fail(`${st.id}: src/brief-workflow.json's \`compose_path\` state declares no \`reader_file\` -- `
-        + "the claim register is judged against the Persona it names (kogaki#1281). Nothing was asked.");
+        + "the claim register is judged against the Persona it names (kogaki#1281). Nothing was started.");
     const persona = readerPersona(resolve(BRIEF_REPO, readerFile));
     if (persona.error) fail(`${st.id}: ${persona.error}`);
     const priorKnowledge = personaPriorKnowledgeLine(persona);
-    const validate = (p) => {
-      let review;
-      try { review = readJson(p); }
-      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
-      // AGAINST AN EMPTY LEDGER, DELIBERATELY. This is a SHAPE check — every
-      // Candidate reviewed, no verdict-shaped field anywhere — and the round
-      // count is the ledger's, spent once, by the state that actually attaches.
-      // Passing the live ledger here would let a refused judge response consume
-      // the revise round the Candidate has not yet had.
-      const r = attachReview(cands, review, {});
-      if (r.error) refuseJudgment(r.error);
-    };
     const movesDir = briefMovesDir(args);
-    const composeInputFor = () => writeJudgeInput(rec, st, {
+    const unitRow = table.review_path_unit
+      || fail(`${st.id}: src/brief-workflow.json declares no review_path_unit row for the Detached `
+        + "Job's per-Candidate prompt — nothing was started (kogaki#1301).");
+    // THE SHARED BASE, DISCLOSED, as `compose_path` writes its own: the fields
+    // every unit carries, and the ids of the Candidates the units review.
+    writeJudgeInput(rec, st, {
       state: st.id,
       review_areas: REVIEW_AREAS,
       question_chain_verdicts: QUESTION_CHAIN_VERDICTS,
       discharge_verdicts: DISCHARGE_VERDICTS,
-      candidates_you_must_review: cands,
       persona_prior_knowledge: priorKnowledge,
-      // THE MECHANICAL HALF, EXTRACTED HERE (kogaki#1283): which lines, off
-      // which fields, for the judge to compare — never the comparison itself.
-      question_chain_pairs: Object.fromEntries(cands.map((c) =>
-        [c.candidate_id, questionChainPairs(c.legs, movesDir)])),
-      discharge_rows: Object.fromEntries(cands.map((c) =>
-        [c.candidate_id, dischargeRows(c.legs, c.obligations)])),
+      units: cands.map((c, i) => ({ unit: `review-${i + 1}`, candidate_id: c.candidate_id })),
     });
-    const path = await judged(rec, st, table, args, "review", composeInputFor, validate);
-    rec.brief_review = relFromRepo(resolve(path));
-    rec.judgments[st.id] = relFromRepo(resolve(path));
-    return null;
+    // ONE PROMPT PER CANDIDATE, carrying that Candidate alone. THE MECHANICAL
+    // HALF IS EXTRACTED HERE (kogaki#1283): which lines, off which fields, for
+    // the judge to compare — never the comparison itself.
+    const units = cands.map((c, i) => {
+      const input = {
+        state: st.id,
+        review_areas: REVIEW_AREAS,
+        question_chain_verdicts: QUESTION_CHAIN_VERDICTS,
+        discharge_verdicts: DISCHARGE_VERDICTS,
+        candidate_you_must_review: c,
+        persona_prior_knowledge: priorKnowledge,
+        question_chain_pairs: questionChainPairs(c.legs, movesDir),
+        discharge_rows: dischargeRows(c.legs, c.obligations),
+      };
+      return { id: `review-${i + 1}`, prompt: judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null) };
+    });
+    // WHICH UNIT REVIEWS WHICH CANDIDATE is the Harness's own record, never the
+    // Model's: the result is keyed by `candidate_id` from this map alone.
+    rec.brief_review_units = Object.fromEntries(units.map((u, i) => [u.id, cands[i].candidate_id]));
+    rec.detached_job_dirs = { ...(rec.detached_job_dirs || {}), [st.id]: REVIEW_PATH_JOB_DIR };
+    mkdirSync(job.jobDir, { recursive: true });
+    const cfg = judgeSettings(table, rec);
+    startDetachedJobSupervisor(job.jobDir, {
+      units,
+      command: cfg.command,
+      model: cfg.model,
+      outputFormat: cfg.outputFormat,
+      absoluteLimitS: READER_PATH_JOB_ABSOLUTE_LIMIT_S,
+      stallS: READER_PATH_JOB_STALL_S,
+      heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
+      recordArray: "claim_register",
+      validator: {
+        module: "src/brief.mjs",
+        export: "validateReviewPathUnit",
+        inputs: { candidates: Object.fromEntries(units.map((u, i) => [u.id, cands[i]])) },
+      },
+    });
+    throw new DetachedJobStarted(st.id, readerPathJobPath(job.jobDir),
+      `path-review job started at ${readerPathJobPath(job.jobDir)} (kogaki#1301) -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
+      + "to poll it.");
   },
 
   // ---- JUDGMENT POINT 3. The Leg-Move instantiation contract's judged half,
@@ -1779,7 +1881,9 @@ const STATE_WORK = {
   // `consistent` is not offered at CANDIDATE_SELECTION; with none left the
   // Brief ends here with no question.
   judge_specialization: async (rec, st, args, table) => {
-    const cands = readJson(rec.brief_candidates
+    // THE REVIEWED CANDIDATES (kogaki#1301): where a path-review unit did not
+    // finish, its Candidate is not judged here and is not offered.
+    const cands = readJson(rec.brief_candidates_reviewed || rec.brief_candidates
       || fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`));
     const judgeInput = specializationJudgeInput(cands, briefMovesDir(args));
     if (judgeInput.error) fail(`${st.id}: ${judgeInput.error}`);
@@ -1794,7 +1898,8 @@ const STATE_WORK = {
     const path = await judged(rec, st, table, args, "specialization", composeInputFor, validate);
     rec.brief_specialization = relFromRepo(resolve(path));
     rec.judgments[st.id] = relFromRepo(resolve(path));
-    const { fit, excluded } = specializationSelection(readJson(path), cands);
+    const { fit, excluded: misfit } = specializationSelection(readJson(path), cands);
+    const excluded = [...(rec.brief_review_unfinished || []), ...misfit];
     rec.brief_excluded = excluded;
     if (fit.length === 0) endBriefNoCandidateFits(rec, st, excluded);
     const out = join(rec._dir, "brief-candidates-fit.json");
@@ -1940,8 +2045,11 @@ function candidateName(x) {
 }
 
 // One plain line per Candidate not offered, naming the first Leg that failed.
+// A Candidate whose path review did not finish (kogaki#1301) is named as such.
 export function excludedCandidateLines(excluded) {
-  return excluded.map((x) => `Not offered: "${candidateName(x)}" — Leg ${x.failures[0].leg_id} does not fit its Move.`);
+  return excluded.map((x) => (x.review_unfinished
+    ? `Not offered: "${candidateName(x)}" — its review did not finish.`
+    : `Not offered: "${candidateName(x)}" — Leg ${x.failures[0].leg_id} does not fit its Move.`));
 }
 
 // EVERY CANDIDATE FAILED (kogaki#1276): the Brief ends with no question. The
@@ -1951,7 +2059,8 @@ export function noCandidateFitsReport(excluded, briefPath) {
   const lines = ["No Candidate fits the Moves it uses, so no question is asked and the Brief ends here."];
   for (const x of excluded) {
     lines.push(`Candidate "${candidateName(x)}":`);
-    for (const f of x.failures) lines.push(`  Leg ${f.leg_id} (${f.move}): ${f.verdict} — ${f.why}`);
+    if (x.review_unfinished) lines.push(`  its review did not finish (${x.review_unfinished}).`);
+    for (const f of x.failures || []) lines.push(`  Leg ${f.leg_id} (${f.move}): ${f.verdict} — ${f.why}`);
   }
   lines.push(`The Brief at ${briefPath} stays as minted, with no Reader Path in it, and its name is taken. `
     + "The way forward is to add a Move through the Move-ingest command, or to start a new Brief under a different name.");
@@ -2080,17 +2189,20 @@ async function jobWork(dir, verb, table, tablePath, args) {
     fail(`\`--job ${verb}\` is not one of the reader-path job's four verbs: `
       + '`start`, `status`, `await`, `stop` (kogaki#1193).');
   }
+  // THE JOB OF THE STATE THE RUN IS WAITING AT (kogaki#1301): the path-review
+  // job while the run waits at `review_path`, the reader-path job otherwise.
+  const j = detachedJobOfRun(dir);
   let job;
-  try { job = readReaderPathJob(dir); } catch (e) {
+  try { job = readReaderPathJob(j.jobDir); } catch (e) {
     if (verb === "status") throw e;
-    endBriefOnDefect(dir, `the job record could not be read: ${e.message}`, relFromRepo(resolve(readerPathJobPath(dir))));
+    endBriefOnDefect(dir, `the job record could not be read: ${e.message}`, relFromRepo(resolve(readerPathJobPath(j.jobDir))));
   }
   if (!job) {
-    console.log(`No reader-path job record exists at ${readerPathJobPath(dir)} — nothing is running.`);
+    console.log(`No ${j.label} record exists at ${readerPathJobPath(j.jobDir)} — nothing is running.`);
     return;
   }
-  if (verb === "status") { printReaderPathJobStatus(dir, job); return; }
-  await awaitReaderPathJob(dir, job, table, tablePath, args);
+  if (verb === "status") { printReaderPathJobStatus(j, job); return; }
+  await awaitReaderPathJob(j, job, table, tablePath, args);
 }
 
 // A SYSTEM FAILURE IS A /brief DEFECT, AND IT ENDS THE BRIEF AT ONCE
@@ -2119,8 +2231,8 @@ function endBriefOnDefect(dir, cause, file) {
 // (kogaki#1273): the dead unit's own exit and stdout file, the stall's
 // length, or the supervisor's own catch-all note -- read off the record the
 // supervisor wrote, never composed from anything else.
-function readerPathDefectCause(dir, job, state) {
-  const jobFile = relFromRepo(resolve(readerPathJobPath(dir)));
+function readerPathDefectCause(j, job, state) {
+  const jobFile = relFromRepo(resolve(readerPathJobPath(j.jobDir)));
   const f = job.failure || {};
   if (state === "died") {
     const unit = (job.units || []).find((u) => u.status === "died") || {};
@@ -2177,10 +2289,11 @@ function printReaderPathJobGateCallBytes(dir, gateId, declPath) {
 // hit — has no live `job await` call left to print them the first time; this
 // is its second chance, gated on the same two facts the raising itself left
 // behind: the gate-call file exists, and no capture row has answered it yet.
-function printReaderPathJobStatus(dir, job) {
+function printReaderPathJobStatus(j, job) {
+  const dir = j.runDir;
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date().toISOString());
   const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
-  console.log(`reader-path job at ${readerPathJobPath(dir)} — elapsed ${elapsedS}s of ${READER_PATH_JOB_ABSOLUTE_LIMIT_S}s absolute limit:`);
+  console.log(`${j.label} at ${readerPathJobPath(j.jobDir)} — elapsed ${elapsedS}s of ${READER_PATH_JOB_ABSOLUTE_LIMIT_S}s absolute limit:`);
   for (const u of job.units || []) {
     // kogaki#1197: a dead unit's own `is_error` result text says why it died.
     const why = u.failure && typeof u.failure.result === "string" ? ` — ${u.failure.result}` : "";
@@ -2232,8 +2345,10 @@ function sleepSync(ms) {
 // Brief skill reads that line as "run `job await` again".
 export const READER_PATH_JOB_AWAIT_S = 30;
 export const READER_PATH_JOB_STILL_RUNNING_LINE = "reader-path job still running — call job await again";
+export const REVIEW_PATH_JOB_STILL_RUNNING_LINE = "path-review job still running — call job await again";
 
-async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
+async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
+  const dir = j.runDir;
   let job = initialJob;
   const awaitStartedAt = Date.now();
   for (;;) {
@@ -2241,12 +2356,12 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
     const lastProgressAt = job.last_progress_at ? Date.parse(job.last_progress_at) : startedAt;
     const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
-    const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
+    const stopRequested = existsSync(readerPathJobStopFlagPath(j.jobDir));
     // THE PER-POLL DECISION IS `src/terrain.mjs`'s OWN PURE FUNCTION
     // (kogaki#1213), over THIS poll's freshly-measured elapsed time.
     const { units, state } = readerPathAwaitStep(job, { stopRequested, elapsedS, stalledS });
     if (READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes(state)) {
-      const { cause, file } = readerPathDefectCause(dir, job, state);
+      const { cause, file } = readerPathDefectCause(j, job, state);
       endBriefOnDefect(dir, cause, file);
     }
     // THE SUPERVISOR GONE WHILE THE RECORD SAYS RUNNING (kogaki#1273): a
@@ -2255,29 +2370,29 @@ async function awaitReaderPathJob(dir, initialJob, table, tablePath, args) {
     // exited between this poll's read and its liveness check is not mistaken
     // for one that died.
     if (state === "running" && !supervisorAlive(job.supervisor_pid)) {
-      const again = readReaderPathJobOrDefect(dir);
+      const again = readReaderPathJobOrDefect(j);
       if (again && again.state === job.state && again.updated_at === job.updated_at) {
         endBriefOnDefect(dir, `the supervisor process ${job.supervisor_pid} is gone while the record says ${job.state}`,
-          relFromRepo(resolve(readerPathJobPath(dir))));
+          relFromRepo(resolve(readerPathJobPath(j.jobDir))));
       }
       job = again || job;
       continue;
     }
-    if (state !== "running") { await finishReaderPathJobAwait(dir, { ...job, units }, state, table, tablePath, args); return; }
+    if (state !== "running") { await finishReaderPathJobAwait(j, { ...job, units }, state, table, tablePath, args); return; }
     const remainingMs = READER_PATH_JOB_AWAIT_S * 1000 - (Date.now() - awaitStartedAt);
     if (remainingMs <= 0) {
-      console.log(`${READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`);
+      console.log(`${j.stateId === "review_path" ? REVIEW_PATH_JOB_STILL_RUNNING_LINE : READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`);
       return;
     }
-    console.log(`reader-path job still running at ${elapsedS}s — waiting for the next heartbeat.`);
+    console.log(`${j.label} still running at ${elapsedS}s — waiting for the next heartbeat.`);
     sleepSync(Math.min(READER_PATH_JOB_HEARTBEAT_MS, remainingMs));
-    job = readReaderPathJobOrDefect(dir) || job;
+    job = readReaderPathJobOrDefect(j) || job;
   }
 }
 
-function readReaderPathJobOrDefect(dir) {
-  try { return readReaderPathJob(dir); } catch (e) {
-    return endBriefOnDefect(dir, `the job record could not be read: ${e.message}`, relFromRepo(resolve(readerPathJobPath(dir))));
+function readReaderPathJobOrDefect(j) {
+  try { return readReaderPathJob(j.jobDir); } catch (e) {
+    return endBriefOnDefect(j.runDir, `the job record could not be read: ${e.message}`, relFromRepo(resolve(readerPathJobPath(j.jobDir))));
   }
 }
 
@@ -2286,8 +2401,8 @@ function readReaderPathJobOrDefect(dir) {
 // the only operation here: the caller that wins the create is the one that
 // resumes, and every later caller — a second `job await`, a backgrounded one
 // that is still mid-poll — reads `EEXIST` and takes the no-op arm instead.
-function readerPathJobResumeClaimPath(dir) {
-  return join(dir, "reader-path-job-resume.claim");
+function readerPathJobResumeClaimPath(j) {
+  return join(j.jobDir, "reader-path-job-resume.claim");
 }
 
 // A CLAIM HELD BY A PROCESS THAT IS GONE IS NOT A CLAIM (kogaki#1278 round
@@ -2307,9 +2422,9 @@ function readerPathRunPosition(dir) {
   return JSON.stringify(rec ? { completed: rec.completed || [], awaiting: rec.awaiting ?? null, done: !!rec.done } : null);
 }
 
-function claimReaderPathJobResume(dir, state) {
-  const claimPath = readerPathJobResumeClaimPath(dir);
-  const position = readerPathRunPosition(dir);
+function claimReaderPathJobResume(j, state) {
+  const claimPath = readerPathJobResumeClaimPath(j);
+  const position = readerPathRunPosition(j.runDir);
   const body = `${JSON.stringify({ claimed_at: new Date().toISOString(), pid: process.pid, state, position }, null, 2)}\n`;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -2335,7 +2450,9 @@ function claimReaderPathJobResume(dir, state) {
 // contributing nothing. Every other state but a system failure, which
 // `awaitReaderPathJob` ends as a defect before reaching here, raises
 // `brief-reader-path-job` and stops — no state here ever auto-retries.
-async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args) {
+async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
+  const dir = j.runDir;
+  const jobRel = relFromRepo(resolve(readerPathJobPath(j.jobDir)));
   // A RUN ALREADY `done` IS NEVER RESUMED (kogaki#1278). Checked before the
   // claim, not after: the claim only arbitrates between waiters racing to
   // resume a run that is still open, and a run a prior resume already closed
@@ -2344,7 +2461,7 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   // already finished and answered.
   const precheckRec = readRunRecord(dir);
   if (precheckRec && precheckRec.done) {
-    console.log(`reader-path job at ${state} — run ${dir} is already done; this resume refuses to rewrite it.`);
+    console.log(`${j.label} at ${state} — run ${dir} is already done; this resume refuses to rewrite it.`);
     return;
   }
   if (state === "done") {
@@ -2354,9 +2471,30 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
     // wins the claim resumes; every other caller prints the run's current
     // position (the same reading `job status` gives) and exits 0 having
     // advanced nothing.
-    if (!claimReaderPathJobResume(dir, state)) {
-      console.log(`reader-path job resume at ${dir} is already claimed at ${readerPathJobResumeClaimPath(dir)} — printing the run's position instead of resuming it again.`);
-      printReaderPathJobStatus(dir, job);
+    if (!claimReaderPathJobResume(j, state)) {
+      console.log(`${j.label} resume at ${dir} is already claimed at ${readerPathJobResumeClaimPath(j)} — printing the run's position instead of resuming it again.`);
+      printReaderPathJobStatus(j, job);
+      return;
+    }
+    // THE PATH-REVIEW JOB'S RESULT (kogaki#1301): each finished unit's entry
+    // keyed by the `candidate_id` the Harness recorded for that unit when it
+    // started the job, and every Candidate whose unit did not end `done`
+    // named beside them. `review_path` re-enters on `--review-result`.
+    if (j.stateId === "review_path") {
+      const jobRec = readRunRecord(dir);
+      const unitCandidate = (jobRec && jobRec.brief_review_units) || {};
+      const review = {};
+      const unreviewed = [];
+      for (const u of job.units || []) {
+        const candidateId = unitCandidate[u.id];
+        if (typeof candidateId !== "string") continue;
+        if (u.status === "done" && u.candidate && typeof u.candidate === "object") review[candidateId] = u.candidate;
+        else unreviewed.push({ candidate_id: candidateId, unit: u.id, status: u.status });
+      }
+      const resultPath = join(j.jobDir, "review-path-result.json");
+      writeFileSync(resultPath, `${JSON.stringify({ review, unreviewed }, null, 2)}\n`);
+      await runWorkflow(BRIEF_FLOW, { ...args, status: undefined, job: undefined, "review-result": resultPath, "run-dir": dir },
+        detachedJobExecutor(jobRel));
       return;
     }
     // TAGGED WITH THE UNIT NUMBER HERE, AND NOWHERE ELSE (kogaki#1206). `u.id`
@@ -2405,7 +2543,7 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
     // after that race — observed as CANDIDATE_SELECTION composing no option
     // set ("this runtime has no option composer bound").
     await runWorkflow(BRIEF_FLOW, { ...args, status: undefined, job: undefined, candidates: resultPath, "run-dir": dir },
-      detachedJobExecutor(relFromRepo(resolve(readerPathJobPath(dir)))));
+      detachedJobExecutor(jobRel));
     return;
   }
   const rec = readRunRecord(dir);
@@ -2428,11 +2566,11 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
       : "No step completed, and their own records are missing.";
     const options = [{ id: "stop", label: "Stop" }];
     const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
-      { reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))), reader_path_unit_refusal: reading });
+      { reader_path_job_state: state, reader_path_job: jobRel, reader_path_unit_refusal: reading });
     rec.gate_declarations_owed = rec.gate_declarations_owed || [];
     rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
     checkpointRun(rec);
-    console.log(`reader-path job at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
+    console.log(`${j.label} at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
     printReaderPathJobGateCallBytes(dir, READER_PATH_JOB_GATE_ID, declPath);
     return;
   }
@@ -2440,11 +2578,11 @@ async function finishReaderPathJobAwait(dir, job, state, table, tablePath, args)
   // ever auto-retries.
   const options = [{ id: "stop", label: "Stop" }];
   const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
-    { reader_path_job_state: state, reader_path_job: relFromRepo(resolve(readerPathJobPath(dir))) });
+    { reader_path_job_state: state, reader_path_job: jobRel });
   rec.gate_declarations_owed = rec.gate_declarations_owed || [];
   rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
   checkpointRun(rec);
-  console.log(`reader-path job at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
+  console.log(`${j.label} at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
   printReaderPathJobGateCallBytes(dir, READER_PATH_JOB_GATE_ID, declPath);
 }
 
