@@ -1634,10 +1634,13 @@ export function parseIntroducesEntry(raw) {
     if (raw.kind === "established" && (typeof raw.source !== "string" || raw.source === "")) {
       return { error: `"${term}" declares kind "established" with no source — an established term names where it comes from (src/leg-schema.json, \`introduces_item\`)` };
     }
+    if (raw.kind === "coined" && (typeof raw.meaning !== "string" || raw.meaning === "")) {
+      return { error: `"${term}" declares kind "coined" with no meaning — a coined term names its own meaning, since nothing outside this Leg can supply it (src/leg-schema.json, \`introduces_item\`)` };
+    }
     if (raw.differs !== undefined && (typeof raw.nearest !== "string" || raw.nearest === "")) {
       return { error: `"${term}" carries differs with no nearest — differs names how the term differs FROM nearest, so it names nothing without it (src/leg-schema.json, \`introduces_item\`)` };
     }
-    return { term, anchor: null, kind: raw.kind, source: raw.source, nearest: raw.nearest, differs: raw.differs };
+    return { term, anchor: null, kind: raw.kind, source: raw.source, meaning: raw.meaning, nearest: raw.nearest, differs: raw.differs };
   }
   const line = String(raw).trim();
   if (line === "") return { error: "an empty entry" };
@@ -1964,18 +1967,35 @@ export function introducesNearestRefusal(legs) {
 }
 
 // The re-activate grammar (kogaki#1237, widened to a third form by kogaki#1263
-// and kogaki#1260), in one place for the same reason `introduces`'s is: the
-// composition side validates records and `draft.mjs parseLegBlockBody` parses
-// the serialized form back. One line, "<leg_id> term <exact introduces term>",
-// "<leg_id> claim <strand id>" or "<leg_id> journey <strand id>".
+// and kogaki#1260; the claim form's `as` sentence required by kogaki#1282), in
+// one place for the same reason `introduces`'s is: the composition side
+// validates records and `draft.mjs parseLegBlockBody` parses the serialized
+// form back. One line, "<leg_id> term <exact introduces term>",
+// "<leg_id> claim <strand id> as <one plain sentence>" or
+// "<leg_id> journey <strand id>". THE `as` SENTENCE IS A PLAIN RESTATEMENT
+// WRITTEN AT BRIEF TIME, NEVER THE CLAIM'S OWN PROPOSITION RENDERED VERBATIM
+// (kogaki#1282, owner decision 2026-10-06) — a re-activated claim crosses as
+// this sentence, not as the whole proposition the Leg it depends on asserted.
 export function parseReactivateEntry(raw) {
   const line = String(raw).trim();
   if (line === "") return { error: "an empty entry" };
   const m = line.match(/^(\S+)\s+(term|claim|journey)\s+(.+)$/s);
   if (!m) {
-    return { error: `"${line}" — a re-activate entry is "<leg_id> term <exact introduces term>", "<leg_id> claim <strand id>" or "<leg_id> journey <strand id>"` };
+    return { error: `"${line}" — a re-activate entry is "<leg_id> term <exact introduces term>", "<leg_id> claim <strand id> as <one plain sentence>" or "<leg_id> journey <strand id>"` };
   }
   const [, leg_id, kind, rest] = m;
+  if (kind === "claim") {
+    const am = rest.match(/^(\S+)\s+as\s+(.+)$/s);
+    if (!am) {
+      return { error: `"${line}" — a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required` };
+    }
+    const [, strand, asSentence] = am;
+    const value = strand.trim();
+    const as = asSentence.trim();
+    if (value === "") return { error: `"${line}" names no strand after claim` };
+    if (as === "") return { error: `"${line}" carries an as with no sentence after it — a re-activated claim crosses as a plain restatement, not as its proposition` };
+    return { leg_id, kind, value, as };
+  }
   const value = rest.trim();
   if (value === "") {
     return { error: `"${line}" names no ${kind === "term" ? "term" : "strand"} after ${kind}` };
@@ -1986,11 +2006,11 @@ export function parseReactivateEntry(raw) {
 // Shape refusal over a whole `re-activate` value — mirrors `introducesRefusal`.
 export function reactivateRefusal(value, at) {
   if (!Array.isArray(value)) {
-    return `${at}: re-activate, when present, is an array of entries — one reference per line, "<leg_id> term <exact introduces term>", "<leg_id> claim <strand id>" or "<leg_id> journey <strand id>" (re-activate)`;
+    return `${at}: re-activate, when present, is an array of entries — one reference per line, "<leg_id> term <exact introduces term>", "<leg_id> claim <strand id> as <one plain sentence>" or "<leg_id> journey <strand id>" (re-activate)`;
   }
   for (const raw of value) {
     if (typeof raw !== "string") {
-      return `${at}: re-activate carries a non-string entry — each entry is one line, "<leg_id> term <...>", "<leg_id> claim <strand id>" or "<leg_id> journey <strand id>" (re-activate)`;
+      return `${at}: re-activate carries a non-string entry — each entry is one line, "<leg_id> term <...>", "<leg_id> claim <strand id> as <one plain sentence>" or "<leg_id> journey <strand id>" (re-activate)`;
     }
     const e = parseReactivateEntry(raw);
     if (e.error) return `${at}: re-activate carries ${e.error} (re-activate)`;
@@ -2143,7 +2163,7 @@ export function renderLeg(s) {
   for (const e of s.introduces || []) {
     if (e && typeof e === "object" && !Array.isArray(e)) {
       const p = parseIntroducesEntry(e);
-      const item = p.error ? e : Object.fromEntries(["term", "kind", "source", "nearest", "differs"]
+      const item = p.error ? e : Object.fromEntries(["term", "kind", "source", "meaning", "nearest", "differs"]
         .filter((k) => p[k] !== undefined && p[k] !== null).map((k) => [k, p[k]]));
       L.push(`introduces: ${JSON.stringify(item)}`);
     } else {

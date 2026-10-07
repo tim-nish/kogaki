@@ -250,28 +250,33 @@ try {
   rmSync(dir, { recursive: true, force: true });
 }
 
-// (i) the inverted `already-knows` item (kogaki#1237): ReviewDraft's item table asks
-// whether the passage relies on a term the reader holds but this Leg did NOT
-// re-activate, over the Packet's "Held by the reader, not material here" block,
-// and the retired "Already knows" block is named nowhere in the table.
+// (i) the crossing-block `already-knows` item (kogaki#1282, owner ruling
+// 2026-10-06): ReviewDraft's item table asks whether the passage relies on a
+// term, claim or case that is neither in the Packet's one "What crosses into
+// this Leg" block nor one of this Leg's own claims, and the retired
+// "Held by the reader" and "Active here" blocks are named nowhere in the
+// table.
 {
   const items = JSON.parse(readFileSync("src/review-items.json", "utf8"));
   const it = (items.items || []).find((i) => i.id === "already-knows");
   if (!it) fails.push("(i) src/review-items.json carries no already-knows item");
   else {
-    if (it.declared_block !== "held_by_reader") fails.push(`(i) already-knows reads block ${JSON.stringify(it.declared_block)}, want held_by_reader`);
-    if (!(it.also_declared_blocks || []).includes("active_here")) fails.push("(i) already-knows does not hand the judge the Active here block beside the held one");
-    if (!/did not re-activate/.test(it.question) || !/Answer `fails` if it does/.test(it.question)) fails.push(`(i) the already-knows question is not inverted onto un-re-activated material: ${it.question}`);
-    if (!/never fails/.test(it.question)) fails.push("(i) the question does not state that re-introducing re-activated material holds");
-    if (!it.when_declared_absent || it.when_declared_absent.verdict !== "holds") fails.push("(i) an empty held-by-reader list does not hold mechanically");
+    if (it.declared_block !== "crosses_here") fails.push(`(i) already-knows reads block ${JSON.stringify(it.declared_block)}, want crosses_here`);
+    if (!(it.also_declared_blocks || []).includes("claims")) fails.push("(i) already-knows does not hand the judge this Leg's claims beside the crossing block");
+    if (!/crosses into this Leg/.test(it.question)) fails.push(`(i) the already-knows question does not read against the crossing block: ${it.question}`);
+    if (!/neither list/.test(it.question) || !/Answer `fails` if it does/.test(it.question)) fails.push(`(i) the already-knows question does not fail on reliance outside the crossing block and this Leg's claims: ${it.question}`);
+    if (!/never fails/.test(it.question)) fails.push("(i) the question does not state that using crossed-in or self-claimed material holds");
+    if (!it.when_declared_absent || it.when_declared_absent.verdict !== "holds") fails.push("(i) an empty crossing block does not hold mechanically");
   }
+  const introItem = (items.items || []).find((i) => i.id === "introduces");
+  if (!introItem || introItem.declared_block !== "crosses_here") fails.push(`(i) introduces reads block ${JSON.stringify(introItem && introItem.declared_block)}, want crosses_here`);
   const blocks = items.packet_blocks || {};
-  const held = blocks.held_by_reader;
+  const crosses = blocks.crosses_here;
   const template = readFileSync("src/packet-template.md", "utf8");
-  if (!held || held.kind !== "heading_list" || !template.includes(`### ${held.heading}`)) fails.push(`(i) packet_blocks.held_by_reader does not name a heading the template renders: ${JSON.stringify(held)}`);
-  const active = blocks.active_here;
-  if (!active || active.kind !== "heading_list" || !template.includes(`### ${active.heading}`)) fails.push(`(i) packet_blocks.active_here does not name a heading the template renders: ${JSON.stringify(active)}`);
-  if (Object.prototype.hasOwnProperty.call(blocks, "already_knows") || /Already knows/.test(JSON.stringify(blocks))) fails.push("(i) the retired already_knows block survives in packet_blocks");
+  if (!crosses || crosses.kind !== "heading_list" || !template.includes(`## ${crosses.heading}`)) fails.push(`(i) packet_blocks.crosses_here does not name a heading the template renders: ${JSON.stringify(crosses)}`);
+  if (Object.prototype.hasOwnProperty.call(blocks, "held_by_reader") || Object.prototype.hasOwnProperty.call(blocks, "active_here") || Object.prototype.hasOwnProperty.call(blocks, "introduces")) {
+    fails.push("(i) a retired block (held_by_reader, active_here or the standalone introduces block) survives in packet_blocks");
+  }
 }
 
 // (j) THE FOUR NEW ReviewDraft ITEMS JOIN THE REAL CLI (kogaki#1247 cell 5):
@@ -300,15 +305,7 @@ try {
     "",
     `- ${claim}`,
     "",
-    "## Introduce here",
-    "",
-    "(none)",
-    "",
-    "## Held by the reader, not material here",
-    "",
-    "(none)",
-    "",
-    "## Active here",
+    "## What crosses into this Leg",
     "",
     "(none)",
     "",
@@ -434,15 +431,7 @@ try {
     "",
     `- ${claimText}`,
     "",
-    "## Introduce here",
-    "",
-    "(none)",
-    "",
-    "## Held by the reader, not material here",
-    "",
-    "(none)",
-    "",
-    "## Active here",
+    "## What crosses into this Leg",
     "",
     "(none)",
     "",
@@ -569,15 +558,7 @@ try {
     "",
     "- the kit's install paths all land the same vendored copy",
     "",
-    "## Introduce here",
-    "",
-    "(none)",
-    "",
-    "## Held by the reader, not material here",
-    "",
-    "(none)",
-    "",
-    "## Active here",
+    "## What crosses into this Leg",
     "",
     "(none)",
     "",
@@ -669,12 +650,181 @@ try {
   rmSync(ws, { recursive: true, force: true });
 }
 
+// (m) THE FAILING-PASSAGE FIXTURE FOR already-knows (kogaki#1282 cell three,
+// closing #1282): a passage that relies on a term an EARLIER Leg introduced,
+// where THIS Leg's own Packet never re-activates it, joins `fails`; the same
+// reliance, with the term re-activated into this Leg's crossing block, joins
+// `holds`. Driven through the real open/outline/compare CLI — case (i) checks
+// the item table's shape, and this case is what proves the comparison's
+// DECLARED SIDE actually enforces default-deny rather than only declaring it.
+{
+  const ws = mkdtempSync(join(tmpdir(), "review-draft-alreadyknows-"));
+  const draftPath = join(ws, "draft.md");
+
+  const packet1 = [
+    "- **technique.** contrast",
+    "- **question.** what the installer tracks and where",
+    "- **breaks.** breaks if a later run loses track of what it already touched",
+    "",
+    "## The claims this Leg asserts",
+    "",
+    "- the installer writes a stamped ledger entry for every file it overwrites",
+    "",
+    "## What crosses into this Leg",
+    "",
+    "- the stamped ledger — coined here: a dated record of each file the installer "
+      + "overwrote, kept beside the vendored tree",
+    "- the install log — coined here: a plain-text file naming the vendored tree's root path",
+    "",
+    "## The Journey material this Leg edits — NOT a claim to recover",
+    "",
+    "The installer's first run, and the two records it leaves behind.",
+    "",
+    "**The reader's own world.** Can read code and has installed a dependency by hand.",
+    "",
+  ].join("\n");
+
+  const packetSecond = (claim, crossTheLedger) => [
+    "- **technique.** contrast",
+    "- **question.** what a second run of the installer updates",
+    "- **breaks.** breaks if a reader conflates the two records",
+    "",
+    "## The claims this Leg asserts",
+    "",
+    `- ${claim}`,
+    "",
+    "## What crosses into this Leg",
+    "",
+    "- the install log — re-activated from leg-1: a plain-text file naming the "
+      + "vendored tree's root path",
+    ...(crossTheLedger ? ["- the stamped ledger — re-activated from leg-1: a dated record "
+      + "of each file the installer overwrote, kept beside the vendored tree"] : []),
+    "",
+    "## The Journey material this Leg edits — NOT a claim to recover",
+    "",
+    "The installer's second run, re-reading what it wrote before.",
+    "",
+    "**The reader's own world.** Can read code and has installed a dependency by hand.",
+    "",
+  ].join("\n");
+
+  const claimText = "a second run of the installer refreshes only the entries whose file changed";
+  const relyProse = [
+    "The second run walks the stamped ledger and refreshes any entry whose file changed.",
+    "Everything else is left exactly as the install log already names it.",
+  ];
+  const leg1Prose = [
+    "The installer's first run writes the stamped ledger, one dated entry per file it "
+      + "overwrites, and the install log, naming the vendored tree's root path.",
+  ];
+
+  const packetFail = packetSecond(claimText, false);
+  const packetHold = packetSecond(claimText, true);
+  writeFileSync(join(ws, "packet-1.md"), packet1);
+  writeFileSync(join(ws, "packet-fail.md"), packetFail);
+  writeFileSync(join(ws, "packet-hold.md"), packetHold);
+
+  const leg1Lines = [7, 7 + leg1Prose.length - 1];
+  const legFailLines = [leg1Lines[1] + 1, leg1Lines[1] + relyProse.length];
+  const legHoldLines = [legFailLines[1] + 1, legFailLines[1] + relyProse.length];
+  const sha1 = createHash("sha256").update(packet1).digest("hex");
+  const shaFail = createHash("sha256").update(packetFail).digest("hex");
+  const shaHold = createHash("sha256").update(packetHold).digest("hex");
+  const fm = [
+    "---",
+    "trace:",
+    `  - ${JSON.stringify({ leg_id: "leg-1", lines: leg1Lines, packet: "packet-1.md", packet_sha: sha1 })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-fail", lines: legFailLines, packet: "packet-fail.md", packet_sha: shaFail })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-hold", lines: legHoldLines, packet: "packet-hold.md", packet_sha: shaHold })}`,
+    "---",
+  ].join("\n");
+  writeFileSync(draftPath, `${fm}\n\n${[...leg1Prose, ...relyProse, ...relyProse].join("\n")}\n`);
+
+  const runCmd = (cmd, extra, input) => spawnSync(process.execPath,
+    ["src/review-draft.mjs", cmd, "--draft", draftPath, "--workspace", ws, ...extra],
+    { encoding: "utf8", input: input ?? "" });
+  const outlineFor = (legId, claim, introduces) => "```leg\n"
+    + `leg_id: ${legId}\n`
+    + "purpose: walk the installer's record-keeping\n"
+    + "reader_state_before: the reader has never met the installer's records\n"
+    + "reader_state_after: the reader can say what each record holds\n"
+    + `claim ${claim}\n`
+    + (introduces || []).map((t) => `introduces: ${t}\n`).join("")
+    + "```\n";
+
+  const lOpen = runCmd("open", []);
+  if (lOpen.status !== 0) fails.push(`(m) open exited ${lOpen.status}: ${(lOpen.stderr || "").trim()}`);
+  const lO1 = runCmd("outline", ["--leg", "leg-1"],
+    outlineFor("leg-1", "the installer writes a stamped ledger entry for every file it overwrites",
+      ["the stamped ledger", "the install log"]));
+  if (lO1.status !== 0) fails.push(`(m) outline leg-1 exited ${lO1.status}: ${(lO1.stderr || "").trim()}`);
+  const lO2 = runCmd("outline", ["--leg", "leg-fail"], outlineFor("leg-fail", claimText));
+  if (lO2.status !== 0) fails.push(`(m) outline leg-fail exited ${lO2.status}: ${(lO2.stderr || "").trim()}`);
+  const lO3 = runCmd("outline", ["--leg", "leg-hold"], outlineFor("leg-hold", claimText));
+  if (lO3.status !== 0) fails.push(`(m) outline leg-hold exited ${lO3.status}: ${(lO3.stderr || "").trim()}`);
+
+  const lRender = runCmd("compare", []);
+  if (lRender.status !== 0) fails.push(`(m) compare (render) exited ${lRender.status}: ${(lRender.stderr || "").trim()}`);
+  const lm = /join record: (.+)$/m.exec(lRender.stdout || "");
+  if (!lm) fails.push(`(m) compare (render) named no join record: ${(lRender.stdout || "").trim()}`);
+  else {
+    const joinPath = lm[1].trim();
+    const renderedJoin = JSON.parse(readFileSync(joinPath, "utf8"));
+    // THE DECLARED SIDE READ BACK, before any verdict is supplied: leg-fail's
+    // rendered join Packet for already-knows carries no mention of the
+    // stamped ledger, and leg-hold's does — the property this fixture exists
+    // to prove is in the comparison's rendering, not only in the verdict.
+    const akPacket = (legId) => {
+      const o = (renderedJoin.owed || []).find((x) => x.leg_id === legId && x.item === "already-knows");
+      return o ? readFileSync(o.packet, "utf8") : null;
+    };
+    const failPacket = akPacket("leg-fail");
+    const holdPacket = akPacket("leg-hold");
+    if (!failPacket) fails.push("(m) leg-fail's already-knows pair rendered no join Packet");
+    else if (/stamped ledger/.test(failPacket.split("### The prose itself")[0])) {
+      fails.push("(m) leg-fail's declared side names the stamped ledger, which this Leg never re-activates");
+    }
+    if (!holdPacket) fails.push("(m) leg-hold's already-knows pair rendered no join Packet");
+    else if (!/stamped ledger/.test(holdPacket.split("### The prose itself")[0])) {
+      fails.push("(m) leg-hold's declared side does not carry the stamped ledger it re-activates");
+    }
+
+    const verdicts = (renderedJoin.owed || []).map((o) => {
+      const already = o.item === "already-knows";
+      const verdict = already && o.leg_id === "leg-fail" ? "fails" : "holds";
+      const reason = already
+        ? (o.leg_id === "leg-fail"
+          ? "the passage treats the stamped ledger as already available though this Leg never re-activates it"
+          : "the passage relies only on terms and claims this Leg's own crossing block declares")
+        : "the two sides agree";
+      return { leg_id: o.leg_id, item: o.item, pair: o.pair, verdict, reason, model: "fixture-judge" };
+    });
+    if (!verdicts.some((v) => v.item === "already-knows")) {
+      fails.push("(m) the render call owed no already-knows pair — the crossing-block comparison never reached a join Packet");
+    }
+
+    const lRecord = runCmd("compare", [], JSON.stringify({ verdicts }));
+    if (lRecord.status !== 0) fails.push(`(m) compare (record) exited ${lRecord.status}: ${(lRecord.stderr || "").trim()}`);
+    const lm2 = /join record: (.+)$/m.exec(lRecord.stdout || "");
+    if (!lm2) fails.push(`(m) compare (record) named no join record: ${(lRecord.stdout || "").trim()}`);
+    else {
+      const joined = JSON.parse(readFileSync(lm2[1].trim(), "utf8"));
+      if (!joined.complete) fails.push(`(m) the join did not complete: ${JSON.stringify(joined.owed)}`);
+      const fail = (joined.results || []).find((r) => r.leg_id === "leg-fail" && r.item === "already-knows");
+      const hold = (joined.results || []).find((r) => r.leg_id === "leg-hold" && r.item === "already-knows");
+      if (!fail || fail.verdict !== "fails") fails.push(`(m) already-knows on leg-fail did not join as fails: ${JSON.stringify(fail)}`);
+      if (!hold || hold.verdict !== "holds") fails.push(`(m) already-knows on leg-hold did not join as holds: ${JSON.stringify(hold)}`);
+    }
+  }
+  rmSync(ws, { recursive: true, force: true });
+}
+
 if (fails.length) {
   console.log("FAIL brief review plumbing (SPEC-draft-pipeline §4.6, story 1.74):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief review: 12/12 cases — (a) per-Candidate reasoning attaches and rides each "
+console.log("brief review: 13/13 cases — (a) per-Candidate reasoning attaches and rides each "
   + "Candidate with every §§4.4-4.8 area present; (b) an unreviewed Candidate is refused BY "
   + "NAME and a missing area refuses — review runs machine-side per Candidate and never "
   + "multiplies owner questions; (c) a verdict is UNATTACHABLE — verdict-shaped keys refused "
@@ -693,9 +843,10 @@ console.log("brief review: 12/12 cases — (a) per-Candidate reasoning attaches 
   + "unparseable JSON, a body with no `attaches` object, and an entry that is not an array of "
   + "round records (the door a container-shaped check leaves open) — while an ABSENT one is "
   + "zero rounds spent, because a bound whose count degrades to zero on a bad read is a "
-  + "suggestion with a good failure mode; (i) the inverted already-knows item reads the "
-  + "Packet's held-by-reader block beside active-here, never the retired already-knows block, "
-  + "and an empty held list holds mechanically with no model call; (j) kogaki#1247 cell five's "
+  + "suggestion with a good failure mode; (i) the already-knows item reads the Packet's one "
+  + "\"What crosses into this Leg\" block beside this Leg's own claims, never the retired "
+  + "held-by-reader/active-here pair or a standalone introduces block, and an empty crossing "
+  + "block holds mechanically with no model call; (j) kogaki#1247 cell five's "
   + "four new judged items — prose-style, attribute-leak, referents, unsupported-sentence — "
   + "join through the real open/outline/compare CLI and each hold one Leg joined `fails` and "
   + "one joined `holds`, recorded rather than computed, which is the whole of what a judged "
@@ -709,6 +860,13 @@ console.log("brief review: 12/12 cases — (a) per-Candidate reasoning attaches 
   + "expression in the declared form and under the two-hundred-forty-character bound with no "
   + "digit in its own comparison-line reason, and joins `holds` on a Leg where the same "
   + "expression sits one paragraph after its enumeration. "
+  + "(m) kogaki#1282 cell three's failing-passage fixture for already-knows — driven through "
+  + "the real open/outline/compare CLI, with an earlier Leg's coined term read back out of "
+  + "the rendered join Packet's declared side: ABSENT from a later Leg that never "
+  + "re-activates it, where the item joins `fails` on a passage relying on it, and PRESENT "
+  + "once that Leg's own crossing block re-activates the term, where the same reliance joins "
+  + "`holds` — proving default-deny in the comparison's rendering, not only in the item "
+  + "table's declared shape. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): SIX mutations, each run once "
   + "and restored surgically — dropping the per-candidate completeness guard failed (b)'s "
   + "by-name refusal; dropping the verdict-key scan failed (c)'s unattachability; raising "
