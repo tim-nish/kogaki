@@ -36,10 +36,6 @@ breaks: >-
   biographical or historical detail on the authors before returning to the
   present delays the promised reinterpretation and turns the orientation
   move into a survey.
-draws_on: >-
-  other texts: borrows standing from a canon of widely recognized
-  world-changing works to calibrate the inherited framework's authors,
-  transferring credibility rather than arguing for it directly.
 evidence: >-
   reference geopolitics primer; passage sits at the transition from the
   book's opening structural claim about the present to its definition of the

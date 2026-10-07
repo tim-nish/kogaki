@@ -41,7 +41,3 @@ breaks: >-
   or any other sufficient direct explanation for the outcome, reintroduces a
   cause the Move was built to exclude and weakens the claim that the reduced
   condition alone produces the result.
-draws_on: >-
-  the reader's own world: builds on a scenario the reader already knows and
-  defers the technical vocabulary until that scenario has done the
-  explanatory work, so the term arrives earned rather than imposed.

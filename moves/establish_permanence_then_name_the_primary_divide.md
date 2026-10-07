@@ -36,8 +36,3 @@ breaks: >-
   been led to. extend: piling on further authorities before posing the
   central question delays the turn and dilutes the force of the
   question-answer transition.
-draws_on: >-
-  the reader's own world: a shared cultural memory makes an abstract
-  contrast felt rather than merely stated. other texts: a poem, a theorist,
-  and a practical-political figure are drawn on as independent, converging
-  witnesses to the same claim.

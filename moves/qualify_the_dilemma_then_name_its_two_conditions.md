@@ -36,7 +36,3 @@ breaks: >-
   explain. extend: fully defining and applying the variables within this
   same passage collapses its roadmap function into the explanatory unit it
   was meant to introduce.
-draws_on: >-
-  subject: a second, concrete case is supplied to make the mechanism's
-  operation legible before it is qualified, giving the qualification
-  something visible to constrain.

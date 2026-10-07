@@ -35,8 +35,3 @@ breaks: >-
   otherwise experience. extend: continuing into an explanation of the
   opposite behavior's causes resolves the question at the moment the Move
   finishes sharpening it, collapsing sharpening into settling.
-draws_on: >-
-  other texts: a governing framework's own definitional vocabulary, used to
-  derive the expected target rather than asserted independently. the
-  reader's own world: familiar political vocabulary, used to make a
-  technical asymmetry legible before returning to theory.

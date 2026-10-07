@@ -41,8 +41,3 @@ breaks: >-
   qualifications, exceptions, or failure cases to the familiar domain before
   the comparison closes shifts attention to that domain's legitimacy and
   stalls the transfer to the unfamiliar one.
-draws_on: >-
-  the reader's own world: the familiar domain (an institution the reader has
-  direct or ordinary experience of) supplies the worked example from which
-  the enforcement principle is derived, rather than the technique asserting
-  that principle directly.

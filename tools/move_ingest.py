@@ -25,13 +25,13 @@ import sys
 
 # §4.2's six required fields, in §4.2's order (kogaki#1175 rebuilt this
 # schema from the eight-field one; the prior FIELDS tuple named id, status,
-# intent, requires, effect, constraints, failure_modes, excerpt). `order` and
-# `presupposes` retired by owner ruling (kogaki#1247): no composer, judge or
-# Packet reads either, and a record still carrying one is refused by
-# condition 3 as an unexpected key, naming it — the same path an unknown key
-# has always taken, with no new admission rule needed. §6.9.1a fixes the
-# order; a saved file renders in it, and condition 3 admits exactly this set
-# plus at most OPTIONAL_FIELDS.
+# intent, requires, effect, constraints, failure_modes, excerpt). `order`,
+# `presupposes` (kogaki#1247) and `draws_on` (kogaki#1280) retired by owner
+# ruling: no composer, judge or Packet reads any of the three, and a record
+# still carrying one is refused by condition 3 as an unexpected key, naming
+# it — the same path an unknown key has always taken, with no new admission
+# rule needed. §6.9.1a fixes the order; a saved file renders in it, and
+# condition 3 admits exactly this set plus at most OPTIONAL_FIELDS.
 FIELDS = (
     "id",
     "before",
@@ -41,10 +41,10 @@ FIELDS = (
     "breaks",
 )
 
-# §4.2's four optional fields. None is part of §4.2's six and none becomes
-# one — condition 3 admits the six, plus any of these four and nothing
+# §4.2's three optional fields. None is part of §4.2's six and none becomes
+# one — condition 3 admits the six, plus any of these three and nothing
 # else. Each is absent by default.
-OPTIONAL_FIELDS = ("draws_on", "continues_from", "evidence", "figure")
+OPTIONAL_FIELDS = ("continues_from", "evidence", "figure")
 
 # The only key whose value is a nested mapping. The value model stays
 # deliberately small (§6.9.0): scalars, `>-` folded scalars, column-0
@@ -358,14 +358,14 @@ def check_field_set(mapping, first_line_no):
     refusal. What a short or long field set then means is a genuine defect —
     a record that absorbed its neighbour's `before` leaves that neighbour with
     FIVE, and this is the condition that catches it. `order` and
-    `presupposes` take this same route (kogaki#1247): neither is required nor
-    optional, so a record still carrying one is refused here, by name, as
-    unexpected.
+    `presupposes` take this same route (kogaki#1247), and `draws_on` takes it
+    too (kogaki#1280): none of the three is required nor optional, so a
+    record still carrying one is refused here, by name, as unexpected.
     """
     have = set(mapping)
     want = set(FIELDS)
     missing = sorted(want - have)
-    # §4.2: the four optional fields are admitted here and NOWHERE ELSE widens
+    # §4.2: the three optional fields are admitted here and NOWHERE ELSE widens
     # the set. A record carrying any of them still has exactly the six
     # required keys plus those; a record carrying anything else is still
     # refused, so the condition keeps its catch — a short-of-six absorbed
@@ -585,7 +585,7 @@ PLAIN_FIELDS = ("id", "continues_from")
 # §4.2's optional non-nested fields, rendered after the six required ones
 # and before `figure` (which renders LAST, per §6.9.1a) — in this fixed order,
 # so two records differ only where their content differs.
-OPTIONAL_SCALAR_FIELDS = ("draws_on", "continues_from", "evidence")
+OPTIONAL_SCALAR_FIELDS = ("continues_from", "evidence")
 
 
 def render_move(mapping):

@@ -35,8 +35,3 @@ breaks: >-
   extend: add further similarities beyond the controlling relation, and the
   match dilutes, starts to look fitted after the fact, and the return to
   present value is delayed.
-draws_on: >-
-  subject: the present power configuration supplies the recognizable entry
-  point the analogy transfers from. other texts: named foundational works
-  anchor the earlier case as documented history rather than invented
-  parallel.

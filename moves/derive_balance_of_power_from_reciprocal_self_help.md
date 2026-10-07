@@ -40,10 +40,6 @@ breaks: >-
   variables (intentions, alliances, misperception) into the reciprocal
   sequence obscures the minimal chain from shared insecurity to equilibrium
   that the technique depends on.
-draws_on: >-
-  the reader's own world — a domestic scenario of theft, weapons, and a
-  neighbor — supplies the mechanism the target domain's actors are then
-  shown to share.
 evidence: >-
   geopolitics primer analyzed as
   derive_balance_of_power_from_reciprocal_self_help; passage running from

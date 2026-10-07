@@ -42,7 +42,3 @@ breaks: >-
   extend: supplying the full deeper explanation immediately collapses the
   reclassification, the new question, and the promised explanatory pivot
   into one move, losing the staged effect of repair-then-reopen.
-draws_on: >-
-  the reader's own world: leans on the reader's prior sense that
-  classification by a single aggregate ranking is intuitive, then overturns
-  it in favor of a relational criterion inferred from observed responses.

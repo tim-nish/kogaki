@@ -31,11 +31,5 @@ breaks: >-
   inserting definition or technical background before the question restores
   the barrier the familiar opening was meant to remove and delays the
   promised answer.
-draws_on: >-
-  subject: recognizable formats within the field that require no prior
-  expertise to identify. the reader's own world: a scene ordinary enough to
-  have already been noticed without study. author: a admission that costs
-  the author something, since it implicates their own position in the field
-  being described.
 evidence: >-
   geopolitics primer, opening passage (per moves/INDEX.md's worked example).
