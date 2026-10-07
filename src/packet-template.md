@@ -25,6 +25,11 @@ Persona file the Brief was composed with, so two Personas render two Write
 blocks; the heading rule, the paragraph rule and the round trip stay here,
 identical for every Persona. `{{reactivate_line}}` renders one line after the
 budget on a Leg that re-activates material, and nothing on any other Leg.
+`{{reader_own_world}}` is HARNESS-OWNED, not the Persona's prose block
+(kogaki#1285): it renders the Persona's `prior_knowledge` field verbatim, or a
+stated absence where the Persona declares none, before the Persona's own
+prose rules — so the Referents rule above can point at material the Packet
+actually carries.
 
 THIS FILE POINTS AT NO SPECIFICATION, and the prohibition is stated here
 WITHOUT WRITING THE SHAPE IT FORBIDS — a comment that spells out the pattern it
@@ -155,6 +160,8 @@ Prose that writes its own heading is refused when the Leg is recorded.
 
 **Paragraphs.** Each opens on the sentence that states its point; every later
 sentence supports that sentence; a sentence that supports nothing is cut.
+
+**The reader's own world.** {{reader_own_world}}
 
 {{prose_rules}}
 

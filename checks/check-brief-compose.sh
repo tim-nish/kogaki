@@ -100,7 +100,10 @@
 #       Legs of one Brief the Write block is identical except the budget and
 #       the re-activate line, which renders on a Leg with `re-activate`
 #       entries and on no other; and a Persona with no `prose` block refuses
-#       the Packet by name.
+#       the Packet by name. The Write block also renders a Harness-owned
+#       "The reader's own world." line carrying the Persona's
+#       `prior_knowledge` verbatim, or the stated absence where the Persona
+#       declares none, before its `prose` rules (kogaki#1285).
 #  (ac) a Journey an earlier Leg used and this Leg does not re-activate is
 #       listed under "Held by the reader, not material here"; a Leg that
 #       re-activates it renders its served scene under "Active here" and not
@@ -171,7 +174,7 @@ import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
 import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
   readerTargetLine, REACHES_TARGET_LINE, CLOSING_LEG_LINE,
   journeyTextFromSurvey, journeyResolutionRefusal, journeyIdentityKey, writerRefusal, journeyProseFromShardLines,
-  REACTIVATE_LINE } from "./src/draft.mjs";
+  REACTIVATE_LINE, READER_OWN_WORLD_ABSENT } from "./src/draft.mjs";
 
 const { validateLegs, introducedTermInReaderStart, closureRowsForLeg, readerTargetLegRefusal, renderLeg } = compose;
 const fails = [];
@@ -933,10 +936,14 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   const personaA = join(dir, "persona-a.md");
   const personaB = join(dir, "persona-b.md");
   const personaNone = join(dir, "persona-none.md");
+  const personaNoKnowledge = join(dir, "persona-no-knowledge.md");
   const personaHead = "id: fixture\nreader: >-\n  A fixture reader.\nprior_knowledge: >-\n  Holds nothing.\n";
   writeFileSync(personaA, personaHead + "prose: |\n  **Style A.** Persona A's rule, verbatim.\n");
   writeFileSync(personaB, personaHead + "prose: |\n  **Style B.** Persona B's rule, verbatim.\n");
   writeFileSync(personaNone, personaHead);
+  // (ab) A PERSONA WITH NO `prior_knowledge` (kogaki#1285 acceptance): the
+  // reader's-own-world line renders the stated absence rather than refusing.
+  writeFileSync(personaNoKnowledge, "id: fixture\nreader: >-\n  A fixture reader.\nprose: |\n  **Style C.** Persona C's rule, verbatim.\n");
   const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
   const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
     "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
@@ -994,14 +1001,26 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
       if (!writeBlock(a.s2).includes(REACTIVATE_LINE)) fails.push("(ab) a Leg with re-activate entries does not carry the re-activate line");
       if (writeBlock(a.s1) === writeBlock(a.s2)) fails.push("(ab) the budget and re-activate line did not reach the Write block");
     }
+    if (a.s1 && !writeBlock(a.s1).includes("**The reader's own world.** Holds nothing.")) fails.push("(ab) the Write block does not render the Persona's prior_knowledge verbatim");
+
+    // (ab) a Persona declaring no prior_knowledge renders the stated absence, never a refusal (kogaki#1285).
+    const noKnowledge = packetsOf(personaNoKnowledge);
+    if (noKnowledge.s1 && !writeBlock(noKnowledge.s1).includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) a Persona with no prior_knowledge did not render the stated absence");
+
     const none = briefOf(legs, [`compose_path: ${personaNone}`]);
     const r = render(none, none.legs[0]);
     if (!r.error || !/prose/.test(r.error)) fails.push(`(ab) a Persona with no prose block did not refuse the Packet naming it: ${r.error || "rendered"}`);
-    // With no compose_path the workflow table's Persona is read, and its prose block renders.
+    // With no compose_path the workflow table's Persona is read, and its prose block renders,
+    // carrying readers/dev-to-zenn.md's own prior_knowledge and neither the retired
+    // "as the Brief describes the reader at the outset" wording nor an unfilled slot (kogaki#1285).
     const dflt = briefOf(legs);
     const rd = render(dflt, dflt.legs[0]);
     if (rd.error) fails.push(`(ab) with no compose_path the Packet did not render from the workflow's Persona: ${rd.error}`);
-    else if (!rd.packet.includes("**Supporting sentences.**")) fails.push("(ab) with no compose_path the Packet does not carry readers/dev-to-zenn.md's prose block");
+    else {
+      if (!rd.packet.includes("**Supporting sentences.**")) fails.push("(ab) with no compose_path the Packet does not carry readers/dev-to-zenn.md's prose block");
+      if (!rd.packet.includes("**The reader's own world.** Can read code and has used a CI system")) fails.push("(ab) with no compose_path the Packet does not render readers/dev-to-zenn.md's prior_knowledge verbatim");
+      if (rd.packet.includes("as the Brief describes the reader at the outset")) fails.push("(ab) the Packet still carries the retired reader-description wording");
+    }
   }
 
   // (ac) a Journey an earlier Leg used and this Leg does not re-activate is held; a re-activated one renders its scene.

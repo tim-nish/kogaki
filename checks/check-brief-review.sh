@@ -287,7 +287,11 @@ try {
   const ws = mkdtempSync(join(tmpdir(), "review-draft-"));
   const draftPath = join(ws, "draft.md");
 
-  const packet = ({ claim, journey }) => [
+  // THE READER'S OWN WORLD JOINS EVERY PACKET (kogaki#1285): `referents` now
+  // also declares `reader_own_world`, so a fixture Packet missing that
+  // paragraph would make `declaredFor()` hard-fail the whole run — this is
+  // joined beside the Journey block on every Leg below, never read by name.
+  const packet = ({ claim, journey, ownWorld }) => [
     "- **technique.** contrast",
     "- **question.** what the kit copies and where",
     "- **breaks.** breaks if the vendored copy is edited by hand",
@@ -312,12 +316,15 @@ try {
     "",
     journey,
     "",
+    `**The reader's own world.** ${ownWorld}`,
+    "",
   ].join("\n");
 
   const claimText = "the kit installer vendors a stamped copy of policy/kit into each consumer";
   const journeyText = "The kit's install script, and the one consumer repository it was first vendored into.";
-  const packetA = packet({ claim: claimText, journey: journeyText });
-  const packetB = packet({ claim: claimText, journey: journeyText });
+  const ownWorldText = "Can read code and has used a CI system.";
+  const packetA = packet({ claim: claimText, journey: journeyText, ownWorld: ownWorldText });
+  const packetB = packet({ claim: claimText, journey: journeyText, ownWorld: ownWorldText });
   writeFileSync(join(ws, "packet-a.md"), packetA);
   writeFileSync(join(ws, "packet-b.md"), packetB);
 
@@ -401,7 +408,148 @@ try {
   }
 }
 
-// (k) THE DEMONSTRATIVE REFERENCE ITEM (kogaki#1255 cell 4): a mechanical
+// (k) THE READER'S OWN WORLD GRANTS A REFERENT (kogaki#1285 acceptance): the
+// declared side `referents` reads is now the Journey block AND the
+// Harness-owned reader's-own-world line, so a passage naming a referent the
+// Persona's prior_knowledge grants joins `holds` even though the Journey
+// material never carries it, and a passage naming a referent neither source
+// carries still joins `fails`. Driven through the real open/outline/compare
+// CLI; the verdicts below are RECORDED declarations, not a model's, same as
+// (j) — what this case proves is that the join Packet actually carries both
+// blocks for the judge to read.
+{
+  const ws = mkdtempSync(join(tmpdir(), "review-draft-ownworld-"));
+  const draftPath = join(ws, "draft.md");
+
+  const claimText = "the kit installer vendors a stamped copy of policy/kit into each consumer";
+  const journeyText = "The kit's install script, and the one consumer repository it was first vendored into.";
+  const ownWorldText = "Can read code and has used a CI system.";
+
+  const packet = [
+    "- **technique.** contrast",
+    "- **question.** what referent the passage may name",
+    "- **breaks.** breaks if the passage invents a referent neither source carries",
+    "",
+    "## The claims this Leg asserts",
+    "",
+    `- ${claimText}`,
+    "",
+    "## Introduce here",
+    "",
+    "(none)",
+    "",
+    "## Held by the reader, not material here",
+    "",
+    "(none)",
+    "",
+    "## Active here",
+    "",
+    "(none)",
+    "",
+    "## The Journey material this Leg edits — NOT a claim to recover",
+    "",
+    journeyText,
+    "",
+    `**The reader's own world.** ${ownWorldText}`,
+    "",
+  ].join("\n");
+  writeFileSync(join(ws, "packet-granted.md"), packet);
+  writeFileSync(join(ws, "packet-neither.md"), packet);
+
+  // LEG-GRANTED: names a CI system, which the reader's own world carries —
+  // the Journey material never mentions it, so this holds ONLY because the
+  // declared side now reads reader_own_world beside the Journey block.
+  const legGrantedProse = [
+    "The installer copies policy/kit into the consumer's tree, the same way a CI system copies a build into its own workspace before running it.",
+  ];
+  // LEG-NEITHER: names a court, which neither the Journey material nor the
+  // reader's own world carries.
+  const legNeitherProse = [
+    "The installer copies policy/kit into the consumer's tree, the way a court copies a filed brief into its own docket.",
+  ];
+
+  const sha = createHash("sha256").update(packet).digest("hex");
+  const legGrantedLines = [7, 7 + legGrantedProse.length - 1];
+  const legNeitherLines = [legGrantedLines[1] + 1, legGrantedLines[1] + legNeitherProse.length];
+  const fm = [
+    "---",
+    "trace:",
+    `  - ${JSON.stringify({ leg_id: "leg-granted", lines: legGrantedLines, packet: "packet-granted.md", packet_sha: sha })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-neither", lines: legNeitherLines, packet: "packet-neither.md", packet_sha: sha })}`,
+    "---",
+  ].join("\n");
+  writeFileSync(draftPath, `${fm}\n\n${[...legGrantedProse, ...legNeitherProse].join("\n")}\n`);
+
+  const runCmd = (cmd, extra, input) => spawnSync(process.execPath,
+    ["src/review-draft.mjs", cmd, "--draft", draftPath, "--workspace", ws, ...extra],
+    { encoding: "utf8", input: input ?? "" });
+  const outlineFor = (legId) => "```leg\n"
+    + `leg_id: ${legId}\n`
+    + "purpose: walk the kit's install step\n"
+    + "reader_state_before: the reader has never met the kit\n"
+    + "reader_state_after: the reader can run the kit's installer\n"
+    + `claim ${claimText}\n`
+    + "```\n";
+
+  const lOpen = runCmd("open", []);
+  if (lOpen.status !== 0) fails.push(`(k) open exited ${lOpen.status}: ${(lOpen.stderr || "").trim()}`);
+  const lO1 = runCmd("outline", ["--leg", "leg-granted"], outlineFor("leg-granted"));
+  if (lO1.status !== 0) fails.push(`(k) outline leg-granted exited ${lO1.status}: ${(lO1.stderr || "").trim()}`);
+  const lO2 = runCmd("outline", ["--leg", "leg-neither"], outlineFor("leg-neither"));
+  if (lO2.status !== 0) fails.push(`(k) outline leg-neither exited ${lO2.status}: ${(lO2.stderr || "").trim()}`);
+
+  const lRender = runCmd("compare", []);
+  if (lRender.status !== 0) fails.push(`(k) compare (render) exited ${lRender.status}: ${(lRender.stderr || "").trim()}`);
+  const lm = /join record: (.+)$/m.exec(lRender.stdout || "");
+  if (!lm) fails.push(`(k) compare (render) named no join record: ${(lRender.stdout || "").trim()}`);
+  else {
+    const joinPath = lm[1].trim();
+    const rendered = JSON.parse(readFileSync(joinPath, "utf8"));
+    const owedReferents = (rendered.owed || []).filter((o) => o.item === "referents");
+    if (!owedReferents.length) fails.push("(k) the render call owed no referents pair");
+    // THE DECLARED SIDE CARRIES BOTH BLOCKS (kogaki#1285): the join Packet
+    // put in front of the judge names the Journey material AND the reader's
+    // own world, so a verdict here can be told the Persona grants the
+    // referent rather than inferring it from the passage alone.
+    for (const o of owedReferents) {
+      const joinText = readFileSync(o.packet, "utf8");
+      if (!joinText.includes(journeyText)) fails.push(`(k) ${o.leg_id}'s referents join Packet does not carry the Journey material`);
+      if (!joinText.includes(ownWorldText)) fails.push(`(k) ${o.leg_id}'s referents join Packet does not carry the reader's own world`);
+    }
+    // EVERY OWED PAIR NEEDS A VERDICT TO COMPLETE THE JOIN — this fixture's
+    // Legs also owe the other judged items (claims, prose-style, etc.); only
+    // `referents` is this case's concern, so every other item just agrees.
+    const verdicts = (rendered.owed || []).map((o) => (o.item === "referents" ? {
+      leg_id: o.leg_id, item: o.item, pair: o.pair,
+      verdict: o.leg_id === "leg-neither" ? "fails" : "holds",
+      reason: o.leg_id === "leg-neither"
+        ? "the passage names a court, which neither the Journey material nor the reader's own world carries"
+        : "the passage names a CI system, which the reader's own world carries",
+      model: "fixture-judge",
+    } : {
+      leg_id: o.leg_id, item: o.item, pair: o.pair,
+      verdict: "holds",
+      reason: "the two sides agree",
+      model: "fixture-judge",
+    }));
+
+    const lRecord = runCmd("compare", [], JSON.stringify({ verdicts }));
+    if (lRecord.status !== 0) fails.push(`(k) compare (record) exited ${lRecord.status}: ${(lRecord.stderr || "").trim()}`);
+    const lm2 = /join record: (.+)$/m.exec(lRecord.stdout || "");
+    if (!lm2) fails.push(`(k) compare (record) named no join record: ${(lRecord.stdout || "").trim()}`);
+    else {
+      const joined = JSON.parse(readFileSync(lm2[1].trim(), "utf8"));
+      if (!joined.complete) fails.push(`(k) the join did not complete: ${JSON.stringify(joined.owed)}`);
+      const granted = (joined.results || []).find((r) => r.leg_id === "leg-granted" && r.item === "referents");
+      const neither = (joined.results || []).find((r) => r.leg_id === "leg-neither" && r.item === "referents");
+      if (!granted || granted.verdict !== "holds") fails.push(`(k) referents on leg-granted did not join as holds: ${JSON.stringify(granted)}`);
+      if (!neither || neither.verdict !== "fails") fails.push(`(k) referents on leg-neither did not join as fails: ${JSON.stringify(neither)}`);
+    }
+  }
+  rmSync(ws, { recursive: true, force: true });
+}
+
+// (l) THE DEMONSTRATIVE REFERENCE ITEM (kogaki#1255 cell 4): a mechanical
 // item read from the Draft alone, with no Packet block and no model call.
 // One Leg carries "the last one" three paragraphs past the enumeration it
 // would point at and joins `fails`, naming the line and the expression in
@@ -436,6 +584,8 @@ try {
     "## The Journey material this Leg edits — NOT a claim to recover",
     "",
     "The kit's three install paths and the vendored copy they all produce.",
+    "",
+    "**The reader's own world.** Can read code and has used a CI system.",
     "",
   ].join("\n");
   writeFileSync(join(ws, "packet-x.md"), packet);
@@ -486,35 +636,35 @@ try {
     + "```\n";
 
   const kOpen = runCmd("open", []);
-  if (kOpen.status !== 0) fails.push(`(k) open exited ${kOpen.status}: ${(kOpen.stderr || "").trim()}`);
+  if (kOpen.status !== 0) fails.push(`(l) open exited ${kOpen.status}: ${(kOpen.stderr || "").trim()}`);
   const kO1 = runCmd("outline", ["--leg", "leg-x"], outlineFor("leg-x"));
-  if (kO1.status !== 0) fails.push(`(k) outline leg-x exited ${kO1.status}: ${(kO1.stderr || "").trim()}`);
+  if (kO1.status !== 0) fails.push(`(l) outline leg-x exited ${kO1.status}: ${(kO1.stderr || "").trim()}`);
   const kO2 = runCmd("outline", ["--leg", "leg-y"], outlineFor("leg-y"));
-  if (kO2.status !== 0) fails.push(`(k) outline leg-y exited ${kO2.status}: ${(kO2.stderr || "").trim()}`);
+  if (kO2.status !== 0) fails.push(`(l) outline leg-y exited ${kO2.status}: ${(kO2.stderr || "").trim()}`);
 
   const kCompare = runCmd("compare", []);
   const km = /join record: (.+)$/m.exec(kCompare.stdout || "");
-  if (!km) fails.push(`(k) compare named no join record: ${(kCompare.stdout || "").trim()}`);
+  if (!km) fails.push(`(l) compare named no join record: ${(kCompare.stdout || "").trim()}`);
   else {
     const joined = JSON.parse(readFileSync(km[1].trim(), "utf8"));
     const x = (joined.results || []).find((r) => r.leg_id === "leg-x" && r.item === "demonstrative-reference");
     const y = (joined.results || []).find((r) => r.leg_id === "leg-y" && r.item === "demonstrative-reference");
-    if (!x || x.verdict !== "fails") fails.push(`(k) demonstrative-reference on leg-x did not join as fails: ${JSON.stringify(x)}`);
+    if (!x || x.verdict !== "fails") fails.push(`(l) demonstrative-reference on leg-x did not join as fails: ${JSON.stringify(x)}`);
     else {
       const ev = (x.evidence || [])[0] || "";
       if (!/^The antecedent of the demonstrative reference 'The last one' on line \d+ is not recoverable$/.test(ev)) {
-        fails.push(`(k) leg-x's evidence is not the declared finding form naming the line and the expression: ${JSON.stringify(ev)}`);
+        fails.push(`(l) leg-x's evidence is not the declared finding form naming the line and the expression: ${JSON.stringify(ev)}`);
       }
-      if (ev.length >= 240) fails.push(`(k) leg-x's finding is ${ev.length} characters, over the 240-character bound`);
+      if (ev.length >= 240) fails.push(`(l) leg-x's finding is ${ev.length} characters, over the 240-character bound`);
       if (!/^leg-x\/demonstrative-reference$/.test(`${x.leg_id}/${x.item}`) || /[0-9]/.test(x.reason)) {
-        fails.push(`(k) leg-x's row carries a digit in its reason, which the comparison line refuses: ${JSON.stringify(x.reason)}`);
+        fails.push(`(l) leg-x's row carries a digit in its reason, which the comparison line refuses: ${JSON.stringify(x.reason)}`);
       }
     }
-    if (!y || y.verdict !== "holds") fails.push(`(k) demonstrative-reference on leg-y did not join as holds: ${JSON.stringify(y)}`);
+    if (!y || y.verdict !== "holds") fails.push(`(l) demonstrative-reference on leg-y did not join as holds: ${JSON.stringify(y)}`);
     const xModelCall = (joined.model_calls || []).find((c) => c.leg_id === "leg-x" && c.item === "demonstrative-reference");
-    if (xModelCall) fails.push("(k) demonstrative-reference cost a model call — it is declared mechanical and must not render a join Packet");
+    if (xModelCall) fails.push("(l) demonstrative-reference cost a model call — it is declared mechanical and must not render a join Packet");
     const xMech = (joined.mechanical || []).find((c) => c.leg_id === "leg-x" && c.item === "demonstrative-reference");
-    if (!xMech) fails.push("(k) demonstrative-reference on leg-x is not logged as decided mechanically");
+    if (!xMech) fails.push("(l) demonstrative-reference on leg-x is not logged as decided mechanically");
   }
   rmSync(ws, { recursive: true, force: true });
 }
@@ -524,7 +674,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches and rides each "
+console.log("brief review: 12/12 cases — (a) per-Candidate reasoning attaches and rides each "
   + "Candidate with every §§4.4-4.8 area present; (b) an unreviewed Candidate is refused BY "
   + "NAME and a missing area refuses — review runs machine-side per Candidate and never "
   + "multiplies owner questions; (c) a verdict is UNATTACHABLE — verdict-shaped keys refused "
@@ -549,8 +699,11 @@ console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches 
   + "four new judged items — prose-style, attribute-leak, referents, unsupported-sentence — "
   + "join through the real open/outline/compare CLI and each hold one Leg joined `fails` and "
   + "one joined `holds`, recorded rather than computed, which is the whole of what a judged "
-  + "item's plumbing owes. "
-  + "(k) kogaki#1255 cell four's demonstrative-reference item — mechanical, read from the "
+  + "item's plumbing owes; (k) kogaki#1285's reader's-own-world line joins the referents "
+  + "item's declared side beside the Journey block, so a passage naming a referent the "
+  + "Persona's prior_knowledge grants joins `holds` even though the Journey material never "
+  + "carries it, and a passage naming a referent neither source carries still joins `fails`. "
+  + "(l) kogaki#1255 cell four's demonstrative-reference item — mechanical, read from the "
   + "Draft alone, no Packet block and no model call — joins `fails` on a Leg where \"the last "
   + "one\" sits three paragraphs past the enumeration it would point at, naming the line and the "
   + "expression in the declared form and under the two-hundred-forty-character bound with no "
