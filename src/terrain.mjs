@@ -2939,7 +2939,7 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
         input: prompt, maxBuffer: 64 * 1024 * 1024,
         // THE CHILD IS BOUNDED, AND ITS BOUND IS DERIVED FROM THE HOOK'S
         // (PR #1044 round 1). `.claude/hooks/advance-terrain.py` kills the whole
-        // advance at `ADVANCE_TIMEOUT_S`, and a span can now make several pinned
+        // advance at the table's `advance_timeout_s`, and a span can now make several pinned
         // calls inside one PostToolUse event -- so an unbounded child could
         // exhaust the hook's bound mid-span and leave the half-finished record
         // that bound exists to relay, falsifying the one-hook-event guarantee
