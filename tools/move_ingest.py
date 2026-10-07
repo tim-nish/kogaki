@@ -513,6 +513,31 @@ def check_figure(mapping, first_line_no, kinds=None):
         )
 
 
+def check_question_chain(mapping, first_line_no):
+    """kogaki#1283: a Move that `raises:` a question carries it in `after`.
+
+    §4.2's `question` field states, in its own `holds:`/`raises:` prose, what
+    the next Leg is owed. A record whose `question` carries `raises:` and
+    whose `after` carries no `question:` line raises a question the record
+    itself never states as part of the reader state it leaves behind — the
+    exact gap the Draft of `theses/guard-enforces-rules-for-recognised`
+    surfaced at Leg 3, where nothing short of the owner's own reading caught
+    it. The refusal is mechanical, over the two fields' text alone: it reads
+    no meaning into either `question:` line, only whether one is present.
+    """
+    question = mapping.get("question")
+    if not isinstance(question, str) or "raises:" not in question:
+        return
+    after = mapping.get("after")
+    if not isinstance(after, str) or "question:" not in after:
+        raise Refusal(
+            "question-chain",
+            "`question` carries `raises:` but `after` carries no "
+            "`question:` line for the next Leg to take up",
+            line_no=first_line_no,
+        )
+
+
 # §6.9.0's stated precondition — `id` MUST be the record's first key — has NO
 # guard of its own here, and that is deliberate rather than an omission.
 #
@@ -569,6 +594,7 @@ def read_proposals(text):
             stripped = strip_excluded(mapping)
             check_field_set(mapping, first_line_no)
             check_figure(mapping, first_line_no)
+            check_question_chain(mapping, first_line_no)
         except Refusal as r:
             proposals.append(Proposal(first_line_no, refusal=r))
             continue

@@ -112,12 +112,12 @@ import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, targetLegAfterState,
   cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal, retiredReasoningFieldRefusal,
 } from "./assemble.mjs";
-import { cmdAttach, attachReview, REVIEW_AREAS } from "./review.mjs";
+import { cmdAttach, attachReview, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHARGE_VERDICTS } from "./review.mjs";
 import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
   validateLegs, validateSpecialization, specializationFailures, selectedStrands, journeyBearingStrands,
   resolveMoveIds, loadMoveContracts, moveContractsForLegs,
-  readerStateShapeRefusal, readerPersona,
+  readerStateShapeRefusal, readerPersona, questionChainPairs, dischargeRows,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -1336,7 +1336,7 @@ export function validateReaderPathUnit(candidate, inputs) {
   // One-claim-per-Strand, the closed claim type set, every required field
   // and its description all come from `src/leg-schema.json` through that
   // function.
-  const v = validateLegs(c.legs, c.reader_start, c.obligations);
+  const v = validateLegs(c.legs, c.reader_start, c.obligations, movesDir);
   if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
   // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
   // (kogaki#1276). The refusal is the retry prompt's text verbatim
@@ -1723,10 +1723,19 @@ const STATE_WORK = {
       const r = attachReview(cands, review, {});
       if (r.error) refuseJudgment(r.error);
     };
+    const movesDir = briefMovesDir(args);
     const composeInputFor = () => writeJudgeInput(rec, st, {
       state: st.id,
       review_areas: REVIEW_AREAS,
+      question_chain_verdicts: QUESTION_CHAIN_VERDICTS,
+      discharge_verdicts: DISCHARGE_VERDICTS,
       candidates_you_must_review: cands,
+      // THE MECHANICAL HALF, EXTRACTED HERE (kogaki#1283): which lines, off
+      // which fields, for the judge to compare — never the comparison itself.
+      question_chain_pairs: Object.fromEntries(cands.map((c) =>
+        [c.candidate_id, questionChainPairs(c.legs, movesDir)])),
+      discharge_rows: Object.fromEntries(cands.map((c) =>
+        [c.candidate_id, dischargeRows(c.legs, c.obligations)])),
     });
     const path = await judged(rec, st, table, args, "review", composeInputFor, validate);
     rec.brief_review = relFromRepo(resolve(path));

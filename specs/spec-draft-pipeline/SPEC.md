@@ -1167,6 +1167,20 @@ verdict-shaped field by key. A specialization verdict recorded there would be
 **unattachable by construction**. The judgment is sited where a verdict is a
 legitimate output.
 
+**Two Path Review items carry a verdict, and they are named rather than
+admitted by shape** (kogaki#1283, owner decision of 2026-10-06). `question_chain`
+judges, per adjacent Leg pair, whether the question one Leg's Move raises is the
+question the next Leg's Move holds (`same question` / `different question`), and
+`discharge` judges, per Closure row carrying `discharged_by`, whether every part
+of what the row owes is answered by the discharging Leg's claims (`holds` /
+`fails`). Each compares two carriers rather than reading the writing, so a
+closed two-value verdict is its legitimate output. `src/review.mjs` exempts
+exactly those two keys from the verdict scan; every review-area entry stays
+prose and is still refused a verdict-shaped field by key. The verdicts are
+carried to the human gate and refuse nothing. The specialization verdict is
+still not sited there: it judges one Leg against its own Move, which neither
+item does.
+
 **The record is bound on both axes** — the **Candidate** it was composed
 against, and per verdict the **Move** the Leg binds. Without the first a
 sitting judges the Candidate it likes and adopts the one it wants; without the
