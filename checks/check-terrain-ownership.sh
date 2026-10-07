@@ -27,6 +27,9 @@
 #   3. THE EXPORT SURFACE HAS A PRODUCTION READER (kogaki#1257). Every name the
 #      runtime module exports is imported by a tracked module outside it that is
 #      not under `checks/`, so the surface cannot grow unused again silently.
+#   4. NO COMMENT BLOCK IN THE RUNTIME MODULE EXCEEDS TWELVE LINES (kogaki#1258).
+#      A long comment is a pointer plus what the next editor needs; the
+#      retelling lives in the Issue or Decision it cites.
 #
 # EACH FIXTURE CARRIES ITS OWN COUNTERFACTUAL (acceptance 2): the golden record
 # with one `advanced_by` removed fails; a Bash payload naming `--status`, the
@@ -150,6 +153,27 @@ for label, text in (("real", src), ("mutant", src + "\nexport function kogaki125
     names = exports(text)
     # NO EXPORT READ AT ALL is CANNOT-DETERMINE, never a pass.
     print(f"{label}:" + (" ".join(n for n in names if n not in imported) if names else "<no export read>"))
+# Case 4 (kogaki#1258), in this same process: comment blocks over twelve lines,
+# as `<first>-<last>` line ranges. A block is a run of `//` lines, or one `/* */`.
+def long_blocks(text):
+    lines, out, i = text.split("\n"), [], 0
+    while i < len(lines):
+        s, j = lines[i].strip(), i
+        if s.startswith("/*"):
+            while j < len(lines) - 1 and "*/" not in lines[j][(lines[j].find("/*") + 2) if j == i else 0:]:
+                j += 1
+        elif s.startswith("//"):
+            while j + 1 < len(lines) and lines[j + 1].strip().startswith("//"):
+                j += 1
+        else:
+            i += 1
+            continue
+        if j - i + 1 > 12:
+            out.append(f"{i + 1}-{j + 1}")
+        i = j + 1
+    return out
+for label, text in (("blocks-real", src), ("blocks-mutant", src + "\n" + "// kogaki1258 fixture\n" * 13)):
+    print(f"{label}:" + " ".join(long_blocks(text)))
 PY
 )
 real_unread=$(printf '%s\n' "$surface" | sed -n 's/^real://p')
@@ -165,6 +189,18 @@ elif printf '%s\n' $mutant_unread | grep -qx 'kogaki1257UnreadFixture'; then pas
   bad "the surface reader refused the mutant without naming its added export: ${mutant_unread}"
 fi
 
+# ---- 4. NO COMMENT BLOCK IN `src/terrain.mjs` EXCEEDS TWELVE LINES
+# (kogaki#1258). Read by case 3's process above; the counterfactual appends a
+# thirteen-line block and the same reader must name it.
+long_real=$(printf '%s\n' "$surface" | sed -n 's/^blocks-real://p')
+long_mutant=$(printf '%s\n' "$surface" | sed -n 's/^blocks-mutant://p')
+if printf '%s\n' "$surface" | grep -q '^blocks-real:' && [ -z "$long_real" ]; then pass; else
+  bad "src/terrain.mjs has comment blocks over twelve lines at ${long_real:-<the reader printed nothing>} — cut each to its Issue pointer and what the next editor needs (kogaki#1258)"
+fi
+if [ -n "$long_mutant" ] && [ "${long_mutant##* }" != "${long_real##* }" ]; then pass; else
+  bad "a thirteen-line comment block appended to the module was not named by the block reader — it asserts nothing"
+fi
+
 # ---- THE BOUND (acceptance 1): under one second on this machine run alone
 # (639 ms measured at kogaki#1031). The self-check fails at two seconds rather
 # than one because the suite runs eight members in contention and a bound at
@@ -176,6 +212,6 @@ if [ "$elapsed_ms" -lt 2000 ]; then pass; else
 fi
 
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass in ${elapsed_ms}ms — the executor refuses a transition with no hook payload, the golden record is attributed on every transition and its mutant is refused, and the Bash route into the executor is denied with --status admitted (kogaki#1031), and every export has a reader outside checks/ (kogaki#1257)"
+  note "ok: $cases case(s) pass in ${elapsed_ms}ms — the executor refuses a transition with no hook payload, the golden record is attributed on every transition and its mutant is refused, and the Bash route into the executor is denied with --status admitted (kogaki#1031), and every export has a reader outside checks/ (kogaki#1257), and no comment block in src/terrain.mjs exceeds twelve lines (kogaki#1258)"
 fi
 exit "$fail"

@@ -1,131 +1,12 @@
 #!/usr/bin/env node
 // Terrain — the survey/selection surface (manifest item 1, specs/SPEC.md, the port manifest;
-// kogaki#14 umbrella, kogaki#17 story 1.8; governing spec
-// SPEC-terrain).
-//
-// Terrain reads SERVED RENDERINGS only, through the seam (element_survey),
-// and composes the survey under its three contracts:
-//   the placement cover — completeness is a cover counted in placements, AFTER composition,
-//        with every figure naming which family it counted;
-//   grouping is presentation-only — navigation narrows nothing;
-//   the second-proposer boundary — rank/trim/hide are proposals routed
-//        through the item-3 record contract; enumerate/sort/filter-by-owner
-//        are navigation; an act in neither list is a report.
-//
-// Terrain validates a survey record BEFORE writing it, with the same rules
-// checks/check-terrain-composition.sh applies after — constrain generation,
-// then detect what generation cannot promise.
-//
-// Run state (survey records, proposal records, gate declarations, captures)
-// lives in the run workspace — `runs/terrain/<timestamp>/` in the working tree
-// since kogaki#750, `~/.kogaki/runs/...` before it. It is still machine state
-// and still uncommitted — machine-readable intermediates and resumable run
-// state live in machine-state directories (specs/SPEC.md, "Human-facing files
-// live where the human works"), and `.gitignore` keeps it so; what the move
-// changes is that it is legible where a contributor works and bounded by the
-// in-band prune, rather than accumulating unread in a hidden home directory.
-//
-// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
-// The rule these entries are written under -- what a copy is, what the two
-// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
-// names a section number or a line range -- lives in ONE place:
-// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
-// already drifted into eight variants, which is what kogaki#982 collapsed.
-//
-// THE NAMES THIS FILE USES, and the spec each one names:
-//   the open questions
-//       SPEC-terrain
-//   the open-questions section
-//       SPEC-terrain
-//   the Full Report
-//       SPEC-terrain
-//   the report identity
-//       SPEC-terrain
-//   location and naming
-//       SPEC-terrain
-//   the Thesis candidates
-//       SPEC-terrain
-//   the provenance neighborhood
-//       SPEC-terrain
-//   the neighborhood defect
-//       SPEC-terrain
-//   the neighborhood as a report
-//       SPEC-terrain
-//   the settled-strand-set input
-//       SPEC-terrain
-//   the neighborhood join
-//       SPEC-terrain
-//   the neighborhood section's shape
-//       SPEC-terrain
-//   the carrier rule
-//       SPEC-terrain
-//   the emit-time refusal
-//       SPEC-terrain
-//   the display-ID rule
-//       SPEC-terrain
-//   the single producer rule
-//       SPEC-terrain
-//   how A–E compose
-//       SPEC-terrain
-//   the control plane
-//       SPEC-terrain
-//   the workflow table
-//       SPEC-terrain
-//   the re-entrant executor
-//       SPEC-terrain
-//   the run record
-//       SPEC-terrain
-//   the wait rule
-//       SPEC-terrain
-//   write authority
-//       SPEC-terrain
-//   the typed judgment points
-//       SPEC-terrain
-//   the claim re-offer wait
-//       SPEC-terrain
-//   subdivide's composition fold
-//       SPEC-terrain
-//   the non-flow utilities
-//       SPEC-terrain
-//   what is not carried
-//       SPEC-terrain
-//   the placement cover
-//       SPEC-terrain
-//   presentation-only grouping
-//       SPEC-terrain
-//   the second-proposer boundary
-//       SPEC-terrain
-//   the served-renderings input rule
-//       SPEC-terrain
-//   the out-of-scope decision
-//       SPEC-terrain
-//   the candidate model
-//       SPEC-terrain
-//   what would falsify the candidate model
-//       SPEC-terrain
-//   the co-tag navigation step
-//       SPEC-terrain
-//   the pre-selection listing
-//       SPEC-terrain
-//   the display's serve rule
-//       SPEC-terrain
-//   the SubGroup threshold
-//       SPEC-terrain
-//   the post-tag-selection window
-//       SPEC-terrain
-//   GroupClaim-first rendering
-//       SPEC-terrain
-//   semantic subdivision
-//       SPEC-terrain
-//   measurement before offering
-//       SPEC-terrain
-//   the rendering rule
-//       SPEC-terrain
-//   what `options_offered` is judged against
-//       SPEC-gate-carrier
-//   Human-facing files live where the human works
-//       specs/SPEC.md
-//
+// kogaki#14 umbrella, kogaki#17 story 1.8; governing spec SPEC-terrain).
+// Reads SERVED RENDERINGS only, through the seam (element_survey). Validates a survey record
+// BEFORE writing it, with the rules checks/check-terrain-composition.sh applies after.
+// Run state lives in `runs/terrain/<timestamp>/` (kogaki#750): machine state, never committed.
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): see `src/SPEC-REFERENCES.md`.
+// A spec name used here is a pointer to SPEC-terrain, except what `options_offered` is judged
+// against (SPEC-gate-carrier) and "Human-facing files live where the human works" (specs/SPEC.md).
 import { spawnSync, spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, appendFileSync, existsSync, openSync, closeSync, writeSync, rmSync, renameSync, readdirSync } from "node:fs";
@@ -152,23 +33,10 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-// THE PENDING RUN RECORD, held for exactly as long as a run's state loop is
-// executing (kogaki#808). `fail()` is `process.exit(1)`, and the record was
-// written only after the loop — so a refusal raised INSIDE a state discarded
-// every transition the same act had already performed. The specimen is
-// `J3_neighborhood`: `neighborhood_input` writes the candidate enumeration to
-// the run directory, `J3_neighborhood` then refuses for want of `--neighborhood`,
-// and the enumeration sat on disk with the run record not naming it. J1 and J2
-// have the same shape and lose nothing, because their input is produced by a
-// separate command; J3's is produced by the preceding state in the same act,
-// which is what makes the loss specific to it.
-//
-// A REFUSAL STAYS A REFUSAL. This changes nothing about what is refused, what
-// exit code it carries, or what it prints; it stops the refusal being a
-// ROLLBACK of the states that completed before it. That is the constraint the
-// issue's own `remedy:` names, and it is sited at `fail()` rather than at the
-// judgment states because a per-state repair would cover the one state whose
-// loss was observed and leave the next one to be discovered the same way.
+// THE PENDING RUN RECORD, held for exactly as long as a run's state loop is executing
+// (kogaki#808). `fail()` persists it before exiting, so a refusal inside a state no longer
+// discards the transitions the same act already performed (specimen: `J3_neighborhood`).
+// A refusal stays a refusal: same exit code, same text — only the rollback is removed.
 let RUN_PERSIST = null;
 
 function setRunPersist(dir, rec) {
@@ -195,28 +63,10 @@ export function persistPendingRun() {
 }
 
 // ---- THE ONE SOFT WINDOW, AND IT IS A JUDGE RE-ASK (kogaki#1030). ----------
-//
-// A judgment state's refusals are `fail()` — `process.exit(1)` — which is right
-// for every caller it has ever had: an owner-supplied record that the state
-// refuses is the run stopping. With the executor invoking the judge itself, the
-// same refusal is now also the thing a RETRY reads: "the response passes through
-// the existing refusals; a refused response is retried at most the count
-// `terrain-workflow.json` declares for the state, then the run fails with the refusal
-// text" (kogaki#1030 item 1).
-//
-// SO THE REFUSALS ARE NOT DUPLICATED, THE EXIT IS DEFERRED. A second copy of
-// each state's refusal, written to throw for the retry path, is two readings of
-// one rule — the shape `J3_neighborhood`'s own comment sets out to avoid. The
-// window is opened around ONE call, the validation of one judge response, and
-// closed in a `finally`; inside it `fail()` throws the refusal instead of
-// exiting, and `invokeJudge`'s caller decides between re-asking and letting the
-// refusal reach `fail()` for real.
-//
-// COUNTED, NOT BOOLEAN, so a nested open cannot close the window early.
-//
-// EVERYTHING OUTSIDE THAT WINDOW IS UNCHANGED. A refusal raised anywhere else in
-// a run still exits, still persists the pending record, and still prints the
-// same text — this adds no second exit path and retires none.
+// Inside the window `fail()` throws the refusal instead of exiting, so `invokeJudge`'s caller
+// can re-ask up to the count `terrain-workflow.json` declares; refusals are not duplicated.
+// The window wraps ONE judge-response validation and closes in a `finally`; it is COUNTED, not
+// boolean, so a nested open cannot close it early. Everywhere else a refusal still exits.
 let SOFT_REFUSAL_DEPTH = 0;
 
 function softRefusals(fn) {
@@ -257,37 +107,13 @@ function parseArgs(argv) {
   return args;
 }
 
-// The run workspace. An explicit `--run-dir` and `KOGAKI_RUN_DIR` are unchanged
-// — the flow drives several states through ONE workspace and that is how it
-// says which — and only the DEFAULT moves, from the hidden home directory to
-// this lane's own directory in the tree (kogaki#750).
-//
-// The default path is also the only one that PRUNES, and deliberately: pruning
-// is a lane's act over the entries it owns, and a caller who named a directory
-// named it because they hold it. `enterRun` prunes before it creates, so the
-// bound is enforced as the run's first act rather than after the write it was
-// supposed to bound.
+// The run workspace: an explicit `--run-dir` or `KOGAKI_RUN_DIR` wins; only the DEFAULT lives
+// in this lane's directory in the tree (kogaki#750), and only the default path PRUNES.
+// `enterRun` prunes before it creates, so the bound is the run's first act.
 // ---- WHICH FLOW THIS ACT IS AN ACT OF (kogaki#1108) -----------------------
-//
-// THE EXECUTOR WAS ALWAYS GENERIC AND ITS BINDINGS WERE ALWAYS TERRAIN'S. The
-// loop below reads order, kind, conditionality and stopping from the table and
-// names no state -- that property is kogaki#625's and is unchanged. What was
-// hard-coded around it was everything a SECOND flow would need to differ in:
-// which table is loaded, which lane directory the run workspace and the
-// open-run pointer live in, which prefix the capture file carries, and which
-// two maps supply the renderers and the option composers.
-//
-// A PROCESS-WIDE VARIABLE, AND THAT IS THE SCOPE OF THE FACT -- the same shape
-// and the same argument as `OPENED_BY` and `WRITING_STATE` above it. One
-// invocation of a runtime is one act of one flow: `runWorkflow` receives the
-// binding from its caller and everything under that call belongs to it.
-// Threading it through `emitGateDeclaration`'s callers -- option composers,
-// several frames down -- would carry one value along a longer path and give it
-// a second place to disagree with itself.
-//
-// THE DEFAULT IS TERRAIN'S, so every existing caller and the whole fixture
-// pass are unchanged: a reader that never enters `runWorkflow` reads the flow
-// this file has always been.
+// The executor names no state (kogaki#625); `FLOW` binds table, lane directory, capture prefix,
+// renderers and option composers. Process-wide, like `OPENED_BY` and `WRITING_STATE`: one
+// invocation is one act of one flow, set by `runWorkflow`. Default is Terrain's.
 let FLOW = null;
 function flow() { return FLOW || TERRAIN_FLOW; }
 
@@ -302,28 +128,10 @@ function runDir(args) {
 }
 
 // ---- WHICH RUN THE ADVANCE IS AN ADVANCE OF (PR #1034 round 1, blocking) ----
-//
-// THE DEFECT THIS CLOSES, stated because it is the one the model's `--run-dir`
-// was silently carrying. `--run-dir` was run identity, re-supplied by the
-// session on every re-entry; kogaki#1027 removes the session's route and left
-// nothing in its place. With no carrier the default branch above mints a
-// TIMESTAMP-NAMED NEW WORKSPACE per invocation, so `start` would open run A and
-// stop at its gate while the advance ran in an empty B — re-running `survey`,
-// raising the same gate class again, and orphaning A's open-gate pointer, which
-// by `write-gate-capture.py`'s own docstring makes every later raising of that
-// class ambiguous until the TTL reaps it. Pinning `KOGAKI_RUN_DIR` instead fails
-// the other way: `start` refuses an existing record, so one fixed directory
-// admits exactly one run ever.
-//
-// SO THE CARRIER IS A POINTER THE START ACT WRITES, and it is the smallest
-// thing that can be one: a file in the lane directory naming the workspace this
-// lane's open run lives in. It is written at `start`, read by the advance, and
-// removed when the run reaches its terminal — so "no open run" and "an open run
-// somewhere" are distinguishable states rather than one silence.
-//
-// MACHINE-LOCAL, like every other run intermediate: it lives under `runs/`,
-// which this repository ignores wholesale, so it is repo-visible and never
-// committed.
+// kogaki#1027 removed `--run-dir` as the session's run-identity carrier; without one the default
+// branch mints a new workspace per invocation and orphans the open run's gate pointer.
+// The carrier is a pointer file in the lane directory: written at `start`, read by the advance,
+// removed at the run's terminal. Machine-local under `runs/`, never committed.
 const OPEN_RUN_POINTER = "open-run";
 
 // `KOGAKI_OPEN_RUN` overrides the pointer path for tests, on the idiom
@@ -593,23 +401,9 @@ function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
 }
 
 // THE ONE RESOLUTION PATH FROM AN ID TO WHAT AN OWNER READS (the display-ID rule, story 1.53).
-//
-// No owner surface renders an element name. The rendered token is the
-// `display_id` the survey record assigned once, and this function is how every
-// surface gets it — the record's candidate entry is the map, so there is no
-// per-artifact map for `cotags`, `report`, `claim`, `adopt` or `subdivide` to
-// write and no second carrier to drift (AC3).
-//
-// A MEMBER WITH NO `display_id` IS ABNORMAL, MARKED, AND NEVER SUBSTITUTED
-// (AC7). Falling back to the slug would reintroduce exactly the ~40-character
-// name this story removes, and it would do it silently — the reading that looks
-// most helpful is the one that undoes the change. So the abnormality gets the
-// same treatment the rendering rule already gives a missing Gloss rendering
-// (`NO_HEADLINE`): a stated token in place of the value, never the value from
-// somewhere else. A legacy survey record written before this story renders
-// entirely in these tokens, which is the correct reading of it — run
-// `terrain survey` again (location and naming v11: run-workspace artifacts are uncommitted
-// and regenerable, so regeneration is the remedy, not a migration).
+// The survey record's candidate entry is the only ID map; no surface keeps its own (AC3).
+// A member with no `display_id` renders the stated `NO_DISPLAY_ID` token, never the slug (AC7);
+// the remedy for a legacy record is to run `terrain survey` again.
 const NO_DISPLAY_ID = "⟨no display_id — ABNORMAL, a survey record predating the display-ID rule, never substituted⟩";
 
 function displayIdOf(id, candidates) {
@@ -646,24 +440,10 @@ function displayIdAbnormalLine(missing, total) {
     + "Re-run `terrain survey` to regenerate the record (location and naming v11).";
 }
 
-// A SURVEY WITH NO CANDIDATES IS A REFUSAL (kogaki#1026), and it was a NOTE
-// until 2026-09-09, when the difference cost two runs. The note was correct
-// and said the right thing — the ambiguity kogaki#368 left behind, that zero
-// candidates can mean the corpus holds no Lessons or that the call reached no
-// surface — but it printed and returned, and the executor carried on into
-// `TAG_SELECTION`, wrote a gate declaration whose tag listing held only its
-// header lines, and minted an open-gate pointer. Raising the tag question over
-// an empty table is precisely what the pre-selection listing exists to
-// prevent, so the surface that states the ambiguity is also the one that must
-// stop.
-//
-// THE PIN IS PART OF THE REFUSAL, not decoration. The two causes are told
-// apart by asking a second served surface AT THE SAME PIN, and an operator who
-// is not told which pin was read cannot perform that check — which is how the
-// 2026-09-09 runs were read as a corpus with no material when the corpus held
-// 558 lines.
-//
-// Pure, so it can be fixtured; the caller prints what it returns and exits.
+// A SURVEY WITH NO CANDIDATES IS A REFUSAL (kogaki#1026; the ambiguity is kogaki#368's):
+// zero candidates stops the run before `TAG_SELECTION` raises a gate over an empty table.
+// The refusal names the pin read, because the two causes are told apart by asking a second
+// served surface AT THE SAME PIN. Pure, so it can be fixtured; the caller prints and exits.
 function surveyEmptinessRefusal(servedLines, lessonCount, pin) {
   if (lessonCount > 0) return null;
   const at = `pin ${pin ?? "absent"}`;
@@ -699,26 +479,10 @@ function composeIdentityCite(slug, kind, pin) {
 // ---- SURVEY ---------------------------------------------------------------
 // survey — read the seam, compose, validate, write.
 function cmdSurvey(args) {
-  // THE RUN DIRECTORY IS NOT CREATED HERE ANY MORE (kogaki#1026). `runDir`
-  // creates — and on the default path PRUNES — under `runs/`, so calling it
-  // first made every survey touch the run store before it knew whether it had
-  // anything to survey. The read and the decision both come first, and the
-  // directory is taken only once this act is going to write into it.
-  //
-  // WHAT THAT DOES AND DOES NOT BUY, stated rather than left to be assumed
-  // (PR #1033 round 1). On the STANDALONE `terrain survey` path it leaves
-  // `runs/` absent, which is what the act arm asserts. Under the EXECUTOR it
-  // does not: `cmdRun` takes the run directory before the `survey` state runs,
-  // so the lane is already entered and pruned by then. What the refusal
-  // withholds there — and what kogaki#1026 actually asks for — is the run
-  // RECORD, the gate declaration and the open-gate pointer, none of which is
-  // written once this state exits non-zero.
-  // `{}`, NOT a kind filter. `element_survey` declares `kind` (SINGULAR) and
-  // `tag`; this sent `kinds` and the gateway dropped the undeclared key and
-  // returned the miss shape, so the survey composed with ZERO candidates at
-  // exit zero and validated (kogaki#368). The families are filtered below
-  // anyway, on `rec.kind`, so the server-side filter was never load-bearing.
-  // The transport now refuses an undeclared key before sending it.
+  // The run directory is taken only after the read and the emptiness decision (kogaki#1026;
+  // PR #1033 round 1): a refusal writes no run record, gate declaration or open-gate pointer.
+  // `{}`, NOT a kind filter: `element_survey` declares `kind` and `tag`, and an undeclared key
+  // returned the miss shape (kogaki#368). Families are filtered below on `rec.kind`.
   const resp = gatewayQuery("element_survey", {});
   // The candidate row is ONE LESSON (SPEC.md, the candidate model). Journeys are read into their
   // own list and become a MARK on their Lesson's row; the list stays in the
@@ -734,24 +498,11 @@ function cmdSurvey(args) {
       fail(`unparseable served record at ${line.cite} — surfaced, not skipped: a silently dropped record breaks the cover`);
     }
     if (rec.kind === "lesson") {
-      // The id stays family-qualified: a journey shares its lesson's slug, and
-      // the qualification is what kept the two apart when both were rows.
-      //
-      // `display_id` is minted HERE and nowhere else (the display-ID rule, story 1.53). The
-      // survey record IS the ID→slug map, so there is no second carrier to
-      // drift from: every owner surface resolves through `displayIdOf` over
-      // these candidates.
-      //
-      // ASSIGNMENT ORDER, and why it is the served corpus's own order (SQ1).
-      // the display-ID rule makes the ID stable within a pin and explicitly permits a pin
-      // advance to renumber, but "legal to shuffle" is hostile to an owner
-      // holding a printed display — so the numbering follows the order the
-      // substrate SERVES the records in, which is append-stable for the common
-      // pin advance (a Lesson added to the end of a shard takes the next
-      // number and shuffles nothing). It is not stable against an insertion
-      // earlier in the served order, and no assignment can be without a
-      // persistent map — which AC3 forbids as the second carrier this story
-      // exists to remove. The weaker guarantee is stated rather than implied.
+      // The id stays family-qualified: a journey shares its lesson's slug.
+      // `display_id` is minted HERE and nowhere else (the display-ID rule, story 1.53); the survey
+      // record IS the ID→slug map, and every owner surface resolves through `displayIdOf`.
+      // Numbering follows the substrate's SERVED order (SQ1): append-stable across a pin advance,
+      // not stable against an earlier insertion; no persistent map is kept (AC3).
       const cite = composeIdentityCite(rec.slug, rec.kind, resp.pin);
       if (!cite) fail(`cannot compose an identity cite for lesson ${rec.slug} — the survey response carries no resolvable pin (${resp.pin ?? "absent"}); surfaced, not skipped`);
       lessons.push({ id: `lesson:${rec.slug}`, display_id: `L${lessons.length + 1}`, slug: rec.slug, family: "lesson", tags: rec.tags || [], cite, journey: null });
@@ -841,21 +592,9 @@ function cmdSurvey(args) {
   console.log(`Journey coverage: ${c.coverage} Lessons carry a Journey — ${c.thin_lessons} thin Lesson(s), the actionable set; the mark reads by absence.`);
   console.log(`Pin: ${record.pin}`);
   console.log(`Survey record: ${out}\n`);
-  // THE TAG LISTING IS NOT EMITTED HERE ANY MORE (PR #667 round 1 findings 4
-  // and 5). It is the `tag_listing` surface, and `renderTagDisplay` is its one
-  // emitter, reached through the executor and written under that surface's
-  // grammar. While both existed a run emitted the listing TWICE — once from
-  // this compute state under no grammar, once from `tags` through the
-  // guard — and the two had already diverged, since only the guarded copy
-  // carried the amended navigation hint. Two emitters of one surface with one
-  // of them unguarded is the defect class kogaki#665 exists to close, arriving
-  // one channel over; extracting rather than copying is what criterion 2 asks
-  // for. The navigation line went with it: it named `view`, which the non-flow utilities
-  // removes.
-  // The bounded-input pointer, sited at the step BEFORE the one that needs it.
-  // A composer reaching for material per group has already spent the reads by
-  // the time `cotags` runs, so a pointer only on the CoTagGroups display would arrive
-  // after the cost (kogaki#163 lever 3).
+  // The tag listing is emitted only by `renderTagDisplay`, the `tag_listing` surface's one
+  // emitter (PR #667 round 1 findings 4 and 5; kogaki#665) — do not emit it from this state.
+  // The bounded-input pointer, sited at the step BEFORE the one that needs it (kogaki#163 lever 3).
   console.log(`Before composing claims for a tag: compose-input --survey ${out} --tag T — ${COMPOSITION_INPUT_BOUND}. Composing from per-group material instead spends one read per PLACEMENT, which is what the 2026-08-07 architecture run measured at ~19 minutes.`);
   // Returned so the control plane executor can record the survey record BY PATH (the run record)
   // without re-deriving the name. The record references it and copies nothing
@@ -921,51 +660,15 @@ function parseGlossShard(resp) {
 }
 
 // ---- SHARD ADDRESSES ------------------------------------------------------
-// Shard ADDRESSES are read from the served enumeration, never composed here
-// (kogaki#1106).
-// WHAT WAS WRONG, stated before the rule. Every address in this module was
-// composed as `` `${kind}/${tag}` ``. The served surface states its own
-// addressing rule in each shard's header, quoted whole at its pin:
-//
-//   "Full plain-register renderings for every lesson in this cell. The cell is
-//    the `axis=value` pairs in its address; the path is only their rendering in
-//    the Kind's declared order (`PACKAGE-MANIFEST.json` `kinds.lesson.shard_axes`)."
-//   product-lab@7e109c8c views/lessons/tag=agents,window=2026-08.md:3-5
-//
-// So an address is a CELL of `axis=value` pairs, and `<kind>/<tag>` encodes one
-// axis and no others. When the surface added a `window` axis every address this
-// module formed became a miss — a well-formed answer, exit 0, real pin, no
-// error anywhere — and the absence surfaced downstream as missing MATERIAL,
-// where it read as the corpus being empty rather than the name being wrong.
-//
-// AND THE CELL SHAPE IS NOT UNIFORM, which is why adding `window=` by hand
-// would have been the same defect one axis later: the served enumeration today
-// carries `tag`, `tag,window`, `tag,window,date`, `thread`, `thread,window` and
-// `thread,window,date` cells side by side, so no single template addresses them
-// all and the axis order is the Kind's to declare rather than this module's to
-// know.
-//
-// THE ADDRESS IS THEREFORE SELECTED, NEVER COMPOSED. `surface_names(kind:
-// "gloss")` is the served enumeration of every shard name; a request for
-// (namespace, tag) resolves to the served names whose namespace matches and
-// whose cell carries that tag. Nothing here renders a path, so the declared
-// axis order is never a thing this module can get wrong.
-//
-// WHICH CONJUNCT THIS ESTABLISHES, named because the served position requires
-// it: "Reachability of a served artifact is the conjunction of an address that
-// resolves to it and a surface that discloses the address exists — neither
-// implies the other … a fix invoking a conjunction lesson must name which
-// conjunct it establishes and name the one it leaves open"
-// (product-lab@7e109c8c LESSONS.md:168). This establishes the ADDRESS conjunct
-// by deriving it from the DISCLOSURE conjunct, so the two can no longer
-// disagree: an address exists here only because the surface disclosed it. What
-// it leaves open is the disclosure surface itself — if `surface_names` stops
-// enumerating a shard that still exists, this module cannot reach it, and that
-// state reports as an address fault rather than as material.
-//
-// A served name parsed into its namespace and its cell. Returns null for a name
-// this module cannot read as an address at all, which is reported rather than
-// skipped by the selector's caller.
+// Shard ADDRESSES are selected from the served enumeration, never composed here (kogaki#1106).
+// An address is a cell of `axis=value` pairs in the Kind's declared order, and cell shapes vary
+// (product-lab@7e109c8c views/lessons/tag=agents,window=2026-08.md:3-5); never render a path.
+// `surface_names(kind: "gloss")` names every shard; a (namespace, tag) request resolves to the
+// served names whose namespace matches and whose cell carries that tag.
+// Establishes the ADDRESS conjunct from the DISCLOSURE one (product-lab@7e109c8c LESSONS.md:168);
+// a shard `surface_names` stops enumerating reports as an address fault.
+// A served name parsed into its namespace and its cell; null for a name that is not an address,
+// which the selector's caller reports rather than skips.
 function parseShardName(name) {
   if (typeof name !== "string") return null;
   const slash = name.indexOf("/");
@@ -1016,37 +719,12 @@ function servedShardNames({ soft = false } = {}) {
   return SERVED_SHARD_NAMES;
 }
 
-// Tag-scoped and bounded: the shards the served enumeration names for the
-// viewed tags, and nothing else. No fan-out, no whole-corpus prefetch (SPEC.md,
-// the rendering rule).
-//
-// THE BOUND MOVED FROM ONE SHARD PER TAG TO ONE CELL SET PER TAG, and that is
-// stated rather than left to be noticed. A tag is served across several cells
-// — `agents` is four today, one per window — so reading a tag costs as many
-// requests as the surface has cells for it. It is still a function of the
-// VIEWED TAGS and never of the corpus, which is what the rendering rule's bound
-// is about; what it is not is the literal "one shard per viewed tag" the old
-// composed address happened to make true. Reading fewer would drop members:
-// each cell carries a different set, so a cell not read is material silently
-// absent, which is the state this whole family of markers exists to prevent.
-//
-// `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN. `resolveHeadlines`
-// is its only injecting caller, and the shape is kept rather than collapsed to
-// that one caller, because widening the return would make a caller's contract
-// a casualty of a fetch accounting change.
-//
-// TWO COUNTS, BECAUSE AN EMPTY MAP HAS TWO CAUSES (kogaki#689). A shard that
-// ANSWERED and carried nothing, and a seam that never answered, both leave the
-// map empty — so a caller reading only the map cannot tell "this corpus has no
-// rendering for these tags" from "no read happened". `answered` counts the
-// responses the seam actually produced, miss responses included: a miss is the
-// seam saying there is no such shard, which is a read.
-//
-// AND A THIRD CAUSE, WHICH IS WHY THE NAMES ARE COUNTED TOO (kogaki#1106). A
-// tag the enumeration names no shard for leaves the map empty having made no
-// request at all, so `calls` and `answered` are both silent about it. That is
-// the state the whole address drift presented as, and `unaddressable` is what
-// separates it from a corpus that lost its entries.
+// Tag-scoped and bounded: the shards the served enumeration names for the viewed tags, and
+// nothing else (SPEC.md, the rendering rule). A tag may span several cells; read them all, since
+// a cell not read is material silently absent.
+// `stats` is an out-parameter; `resolveHeadlines` is its only injecting caller.
+// `answered` counts seam responses, misses included, so "no rendering" and "no read" differ
+// (kogaki#689); `unaddressable` counts tags the enumeration names no shard for (kogaki#1106).
 function fetchHeadlines(kind, tags, { soft = false, stats = null } = {}) {
   const out = new Map();
   const names = servedShardNames({ soft });
@@ -1079,24 +757,11 @@ function fetchHeadlines(kind, tags, { soft = false, stats = null } = {}) {
 
 const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
 
-// THE SECOND MISS STATE, WHICH `NO_HEADLINE` WAS RENDERING AS THE FIRST
-// (kogaki#689, PR #693 round 1). `NO_HEADLINE` says a shard was READ and
-// carried no rendering for the slug. A row whose shard was never ADDRESSED is a
-// different fact, and rendering it as the first asserts a read that did not
-// happen — which is the state the ruling's own consulted line refuses, arriving
-// one layer in from where the ruling looked:
-//
-//   "every enumerated class renders including its zero, and an empty class says
-//    so rather than being omitted" — the failure named is SILENCE, and silence
-//    is indistinguishable from NOT CHECKED.
-//   product-lab@b20d85ea topics/archive/knowledge-architecture.md:57
-//
-// Two ways no shard carries a row, and this marker covers both because both are
-// the same fact to a reader: the record carries no tag, so there is no shard
-// address to form; or its family is outside every namespace the fetch was given.
-// A TAGGED JOURNEY IS NO LONGER ONE OF THEM (kogaki#689): the neighborhood fetch
-// addresses `journeys/` as well, so such a row is addressable and its miss is
-// read-and-empty like any other addressable row's.
+// THE SECOND MISS STATE (kogaki#689, PR #693 round 1): `NO_HEADLINE` means a shard was READ and
+// carried no rendering; a row whose shard was never ADDRESSED gets this marker instead.
+// Covers both causes: the record carries no tag, or its family is outside every namespace the
+// fetch was given. Tagged journeys are addressable (the fetch reads `journeys/` too).
+// product-lab@b20d85ea topics/archive/knowledge-architecture.md:57
 const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
 
 // THE FOURTH STATE, DISTINGUISHED (kogaki#689, owner selection at the
@@ -1109,37 +774,17 @@ const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it carries no
 // seam-absent member reports CANNOT-DETERMINE rather than passing or failing.
 const NO_SEAM = "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
 
-// THE FIFTH AND SIXTH STATES (kogaki#1106). The four above all presuppose that
-// an ADDRESS existed to read. When the address itself is the fault they are all
-// false of the row, and the one that got stamped — `NO_HEADLINE`, "a shard was
-// READ and carried none" — is the most misleading of the four: it says the
-// corpus is missing the material, which sent two `/brief` runs and a six-day-old
-// emission candidate looking for the material rather than for the name.
-//
-// AND THE TWO ARE SEPARATE BECAUSE A CORPUS THAT LOST EVERY ENTRY AND A SCHEME
-// THAT RENAMED EVERY ENTRY ARE OTHERWISE THE SAME OBSERVATION. Both leave every
-// row unrendered; only one of them is repaired by fixing an address. The seam
-// state carries the same split (`address-fault` against `empty-corpus`), so a
-// caller reading the aggregate and a reader reading a row are told the same
-// thing.
+// THE FIFTH AND SIXTH STATES (kogaki#1106): the ADDRESS itself is the fault, so `NO_HEADLINE`
+// would wrongly claim the material is missing. A misaddressed corpus and an empty corpus are
+// kept apart, matching the seam state's `address-fault` / `empty-corpus` split.
 const NO_SHARD_NAME = "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
 
 const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
 
-// A TAG IS UNADDRESSABLE ONLY WHERE **EVERY** NAMESPACE READ FAILED TO NAME A
-// SHARD FOR IT (PR #1107 round 1, blocking). The first cut accumulated one
-// shared set across the namespace loop, so on the two-namespace report path
-// every tag served under `lessons` alone — the common case — was added by the
-// `journeys` pass even though its `lessons` shard had been selected, requested
-// and read. `glossFor`'s row arm then rendered `NO_SHARD_NAME` for a row whose
-// shard WAS read and simply carried no rendering: `NO_HEADLINE`'s fact asserted
-// as the address fault's, which is the exact inversion of the separation these
-// markers exist to create, on the one path that renders them to an owner.
-//
-// PURE AND SEPARATE FROM THE LOOP, because the defect is in the QUANTIFIER and
-// a case that had to reach a gateway to drive two namespaces would be asserting
-// the seam again. An empty list of namespaces yields the empty set: nothing was
-// read, so nothing is established about any tag.
+// A TAG IS UNADDRESSABLE ONLY WHERE **EVERY** NAMESPACE READ FAILED TO NAME A SHARD FOR IT
+// (PR #1107 round 1, blocking) — an intersection, not a union, across namespaces.
+// Pure and separate from the fetch loop so the quantifier is fixturable; no namespaces yields
+// the empty set.
 function intersectUnaddressable(sets) {
   const list = (sets || []).filter(Boolean);
   if (!list.length) return new Set();
@@ -1172,22 +817,10 @@ function familiesFor(namespaces) {
   return (namespaces || []).map((ns) => NAMESPACE_FAMILY[ns]).filter(Boolean);
 }
 
-// THE BOUNDED RESOLVER THE BRIEF LANE CALLS (kogaki#528). Terrain is the one
-// component that reads served renderings through the seam (the served-renderings input rule, the rendering rule), so the
-// Brief does not become a second substrate reader: it hands over the members
-// it has already settled and gets their served prose back.
-//
-// BOUNDED BY THE MEMBERS, NEVER BY THE CORPUS. The tag set fetched is the
-// union of the given members' OWN tags, so a settled set of 2-4 Strands costs
-// at most that many shards. This is the same rule the rendering rule already binds `cmdView`
-// to — "one shard per viewed tag … no fan-out, no whole-corpus prefetch" —
-// applied to a set that is smaller still, and it is why attaching renderings
-// to every candidate at survey-generation time was REFUSED: that would fetch
-// every tag in the corpus, which is the prefetch the rendering rule names.
-//
-// AN ABSENCE IS DISCLOSED, NEVER SUBSTITUTED: a member whose shard carries no
-// rendering gets NO_HEADLINE, the same abnormal marker `cmdView` renders, so a
-// missing rendering reads as a fault to clear rather than as prose.
+// THE BOUNDED RESOLVER THE BRIEF LANE CALLS (kogaki#528): the Brief gets served prose through
+// Terrain, the one seam reader (the served-renderings input rule, the rendering rule).
+// Bounded by the members, never by the corpus: fetch only the union of the members' own tags.
+// An absence is disclosed as NO_HEADLINE, never substituted.
 export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
   const list = Array.isArray(members) ? members : [];
   const tags = [...new Set(list.flatMap((m) => m.tags || []))];
@@ -1298,31 +931,13 @@ function glossMarkerFor(x) {
   return NO_SHARD_ADDRESSED;
 }
 
-// WHICH OF THE THREE GLOSS STATES A ROW IS IN (kogaki#689, PR #693 round 1).
-//
-// EXPORTED AND PURE BECAUSE THE INLINE FORM WAS UNASSERTABLE. This decision sat
-// inside `cmdReport`'s fetch loop, and the neighborhood cases drive the display
-// directly — so every assertion about the miss markers was exercising the
-// EMITTER'S fallback and none was reaching the state assignment. Collapsing the
-// two miss states back into one marker changed nothing any case could see, which
-// is the shape a mutation-verification cannot detect: an assertion that never
-// ran and an assertion that survived are the same silence.
-//
-// FOUR STATES, FOUR ANSWERS (kogaki#689):
+// WHICH GLOSS STATE A ROW IS IN (kogaki#689, PR #693 round 1). Exported and pure so cases
+// reach the state assignment, not the emitter's fallback. Four states, four answers:
 //   * a shard was read and carried a rendering → the headline;
 //   * a shard was READ and carried none for the slug → `NO_HEADLINE`;
-//   * NO SHARD COULD BE ADDRESSED — the row carries no tag, so no address can
-//     be formed, or its family is outside every namespace the fetch was given
-//     → `NO_SHARD_ADDRESSED`;
-//   * NO SHARD WAS READ AT ALL — the seam itself never answered → `NO_SEAM`.
-// Any of the last three rendered as another asserts something that did not
-// happen, which is the whole reason they are separate strings.
-//
-// THE SEAM STATE CANNOT ARISE FROM THE REPORT PATH, and that is declared rather
-// than implied. `cmdReport` reads member Gloss bodies through a NON-soft
-// `fetchGlossBodies` before the neighborhood's soft fetch runs, so a down seam
-// exits and the pull renders nothing. The arm is correct and prospective; its
-// reopen trigger is the first Gloss caller on this path that reads SOFTLY.
+//   * no shard could be addressed (no tag, or family outside the namespaces) → `NO_SHARD_ADDRESSED`;
+//   * the seam itself never answered → `NO_SEAM`.
+// Never render one miss state as another. `NO_SEAM` cannot arise on the report path today.
 export function glossFor(sug, headline, seam, namespaces = ["lessons"], unaddressable = null) {
   // READ `found`, NEVER TRUTHINESS OF THE ENTRY. `resolveHeadlines` returns an
   // entry for every member it was handed, so `if (headline)` was true on every
@@ -1357,39 +972,11 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"], unaddres
   return NO_HEADLINE;
 }
 
-// The PRE-SELECTION listing: the TAG ROWS — a tag name and its Lesson count,
-// and nothing else (the rendering rule's allowlist, transcribed into the `tag_listing` grammar).
-//
-// EXTRACTED OUT OF `cmdSurvey`'s STDOUT, where this surface's own grammar
-// already named its emitter (`report-format.json` surfaces.tag_listing
-// `emitter_today`: "tagRow(), rendered at :506"). The state used to be wired
-// to the untagged half of `view` — a CANDIDATE-row listing, a different
-// surface — and the wiring was correct-looking because nothing enforced the
-// grammar on the write path. The stale `terrain-workflow.json` note that directed an
-// implementer there is criterion 5's second amendment and is corrected under
-// #666, which owns the table.
-//
-// The completeness, coverage, pin and record lines stay in `cmdSurvey`'s
-// stdout: they belong to the `survey` COMPUTE state, which writes no owner
-// artifact, and admitting them here would put four line classes into a
-// grammar the rendering rule deliberately holds to two.
-//
-// COMPLETENESS INVENTORY (kogaki#625, carried from PR #667 round 2). An
-// extraction criterion measures what must NOT remain, so it is satisfied most
-// cheaply by removing behaviour, and checked alone it rewards the loss it
-// exists to prevent — the inventory names what must SURVIVE and the test that
-// fails if it stops:
-//   · the header and one tag_row per section, and NOTHING else
-//       → `checks/check-terrain-composition.sh`'s tag_listing grammar case: the
-//         surface declares only `header` and `tag_row` under a REFUSE
-//         non_member_fallback, so a fourth line class fails at emit time.
-//   · ONE emitter for this surface — `cmdSurvey` no longer composes tag rows
-//       → the single-construction assertion in the same check, which counts
-//         `tagRow(` call sites and fails on a second.
-//   · the navigation hint, which is what tells the owner the surface narrows
-//     nothing
-//       → the same grammar case: `NAVIGATION_HINT` is a declared line class and
-//         its removal drops a required class.
+// The PRE-SELECTION listing: the TAG ROWS — a tag name and its Lesson count, and nothing else
+// (the rendering rule's allowlist, transcribed into the `tag_listing` grammar). Owned by the
+// table under #666; completeness/coverage/pin/record lines stay in `cmdSurvey`'s stdout.
+// Must survive (kogaki#625, PR #667 round 2), each held by checks/check-terrain-composition.sh:
+// header plus one tag_row per section only; ONE `tagRow(` emitter; the navigation hint.
 // consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
 function renderTagDisplay(record) {
   const out = ["The survey — display 1. Navigation (narrows nothing): name a tag.", ""];
@@ -1400,21 +987,11 @@ function renderTagDisplay(record) {
 }
 
 // ---- COTAGS ---------------------------------------------------------------
-// cotags — the second navigation step (SPEC.md, the co-tag navigation step). Selecting a tag displays
-// the other tags its members carry, grouped by co-tag with counts.
-//
-// It is NAVIGATION in the full sense the second-proposer boundary gives — it is that section's `enumerate`
-// and `sort` applied to the tags the members already carry on the served
-// surface — so it writes NO record of any kind, proposal or otherwise. A
-// navigation act wrapped as a proposal is a contract violation from the other
-// direction (record-schema.json acts).
-//
-// Nothing HERE is a member-count threshold, and that is now a statement about
-// this function rather than about the runtime. Semantic subdivision's three instruments are three
-// quantities, none of them a count of members, and they gate nothing — that is
-// unchanged at v30. The threshold the engine DOES carry is
-// `SUBDIVISION_REQUIRED_AT`, and it decides only WHETHER a group must split
-// (kogaki#683); it is not one of the instruments and none of them became one.
+// cotags — the second navigation step (SPEC.md, the co-tag navigation step): the other tags a
+// selected tag's members carry, grouped by co-tag with counts.
+// NAVIGATION (the second-proposer boundary's `enumerate` and `sort`): it writes NO record.
+// No member-count threshold here; `SUBDIVISION_REQUIRED_AT` (kogaki#683) decides only WHETHER
+// a group must split.
 const NO_SECOND_TAG = "(no second served tag)";
 // A group with no composed claim is MARKED, never substituted — the same
 // discipline the rendering rule applies to a missing Gloss rendering, at the claim's layer.
@@ -1442,23 +1019,11 @@ function cotagGroups(members, selectedTag) {
       byCotag.get(k).push(c.id);
     }
   }
-  // THE GroupID IS MINTED HERE, at the one place groups are composed
-  // (the display's serve rule v6, story 1.56, kogaki#317). `G<n>` over the sorted group list, so
-  // the id and `COTAG_SORT` agree by construction rather than by two call
-  // sites happening to order the same way.
-  //
-  // IT CARRIES THE HIERARCHY, which is why it exists. Through v5 the level was
-  // carried by indentation, and a claim line that wrapped at the terminal edge
-  // resumed at column 0 — so the hierarchy vanished exactly where the text was
-  // longest. An id is content: it survives wrapping.
-  //
-  // SCOPE, stated rather than implied (AC11, owner decision 2026-08-11 on
-  // kogaki#317): the id is assigned in sort order and A PIN ADVANCE MAY
-  // RENUMBER IT. One new co-tag shifts every group after it. The display and
-  // the report of a single run agree, which is what an owner-entered id set
-  // (kogaki#314) consumes; an id copied from a display printed under an earlier
-  // pin does not, and the display says so. No persistent map is written —
-  // that would be the second carrier the display-ID rule's ID→slug rule already refuses.
+  // THE GroupID IS MINTED HERE, at the one place groups are composed (the display's serve rule
+  // v6, story 1.56, kogaki#317): `G<n>` over the sorted list, so id and `COTAG_SORT` agree.
+  // It carries the hierarchy as content, so it survives wrapping.
+  // A pin advance MAY renumber it (AC11): ids agree within one run, which is what kogaki#314
+  // consumes; no persistent map is written (the display-ID rule).
   return [...byCotag.keys()].sort().map((k, i) => ({
     name: `${selectedTag} × ${k}`,
     cotag: k,
@@ -1467,35 +1032,11 @@ function cotagGroups(members, selectedTag) {
   }));
 }
 
-// The cover measurement, over a COMPOSED GROUP LIST TREATED AS UNTRUSTED.
-//
-// This is the repair of a guard that could not fail (PR #123 review). The
-// earlier form derived both sides of the comparison from `cotagGroups`'s own
-// return value, and `cotagGroups` places every member by construction — so
-// `uncovered` was empty for every possible input and the refusal was
-// unreachable. A check that cannot fail is not a lenient check; it is theatre,
-// and it looks identical to a check that has been switched off
-// (`a-dissolved-unit-retires-its-check-never-re-points-it`,
-// gloss/lessons/testing.md:29@f918c515). Worse, it is the structurally-incapable
-// shape rather than the merely narrow one: no reading of its output bore on the
-// question, so a passing audit and a broken composition were the same
-// observation (topics/claude-code-ops.md:56@f918c515).
-//
-// So the two sides are now derived INDEPENDENTLY and the function takes the
-// group list as a PARAMETER rather than computing it: `members` is the record's
-// own answer to which Strands carry the selected tag, `groups` is whatever the
-// composer produced. That gives the guard an input that can make it fail —
-// which is the whole of #105's criterion that the count run AFTER composition,
-// "because a composer that cannot omit in principle can still omit in fact"
-// (topics/articles.md:74@f918c515). The evidence that it fires is
-// checks/check-terrain-composition.sh's cotags fixture, which runs both
-// directions on every invocation; an unexercised guard's health may be inferred
-// only from runs that executed it (`absence-verification-counts-exercised-trials`).
-//
-// `invented` is the same measurement from the other side: a composer may not
-// add a member either, and a cover fraction that ignores its numerator's
-// provenance would pass a group list that dropped one member and gained one
-// stranger.
+// The cover measurement, over a COMPOSED GROUP LIST TREATED AS UNTRUSTED (PR #123 review; #105).
+// `members` (the record's answer) and `groups` (the composer's output) MUST be derived
+// independently — derive both from `cotagGroups` and the guard can never fail.
+// `invented` is the reverse measurement: a composer may not add a member either.
+// Fixture: checks/check-terrain-composition.sh's cotags case runs both directions.
 function cotagCover(members, groups) {
   const expected = members.map((c) => c.id);
   const expectedSet = new Set(expected);
@@ -1645,57 +1186,19 @@ function cmdCotags(args) {
     const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
 
     // THE SUBDIVISION IS JUDGED BEFORE ANYTHING IS EMITTED (the SubGroup threshold v7, kogaki#316
-    // decision 3, re-keyed at v30 and relabelled at kogaki#738). A split whose
-    // only named SubGroup is labelled `other` — the judge found no coherent
-    // subset among its members, so the split bought nothing — "does not
-    // discharge the subdivision obligation"
-    // — and that means
-    // the group renders NO SubGroups, which is the fallback the SubGroup threshold already names
-    // ("renders no SubGroups and is fully conformant"). It is NOT a refusal: a
-    // judge's verdict must not be fatal to the surface, and refusing here would
-    // contradict that conformance clause. BOUNDED BELOW THE THRESHOLD at v30
-    // (kogaki#683): at `SUBDIVISION_REQUIRED_AT` members or more the fallback
-    // is exactly the outcome semantic subdivision refuses, so it yields and the group renders.
-    //
-    // It has to happen here rather than at the render loop below, because the
-    // heading form itself differs — a group serving SubGroups carries the count
-    // alone, a flat one carries its member ids — so the decision must precede
-    // the heading it changes.
+    // decision 3; kogaki#738). A split whose only named SubGroup is `other` renders NO SubGroups —
+    // a conformant fallback, NOT a refusal; at `SUBDIVISION_REQUIRED_AT` members or more
+    // (kogaki#683) the fallback yields and the group renders.
+    // It precedes the render loop because the heading form depends on it.
     let judged = null;
     if (subForHeading && subForHeading.length) {
       const { subgroups } = subgroupPlacement(g, subForHeading, SURVEY_SCHEMA.subdivision);
-      // THE SUM-TO-PARENT REFUSAL, PRE-RENDER (the SubGroup threshold rule 1; report-format.json
-      // v13, kogaki#684). Through v12 this was a decidable rule over the
-      // rendered text — the SubGroup counts against the parent count on the
-      // group heading — and disposition 2 removed the heading's count, so one
-      // side of that comparison is gone. It is carried here instead of being
-      // re-pointed at the sum of the SubGroup counts, which would compare the
-      // sum to itself and could never fail.
-      //
-      // WHAT THIS DOES NOT REPLACE, stated because the two are not equivalent:
-      // it reads the PLACEMENT and the withdrawn rule read the TEXT, and
-      // the emit-time refusal's own specimen is a renderer that dropped four of six member
-      // fields while every assertion about the data structure stayed green. A
-      // renderer that omits a whole SubGroup line still passes this. The
-      // grammar's `not_expressible` entry records that gap as a gap.
-      //
-      // WHICH DIRECTION IT CAN ACTUALLY FIRE IN, stated so the refusal is not
-      // read as covering more than it does — AND BOTH DIRECTIONS ARE NOW LIVE
-      // (kogaki#738). This read "UNDER-placement is unreachable from here:
-      // `subgroupPlacement` sweeps every unplaced member into the catch-all, so
-      // the sum can never fall short", which was true of the sweep and false the
-      // moment it was deleted. Under-placement is now refused one function
-      // earlier, by SUBDIVISION_COVER_INCOMPLETE, naming the members it left —
-      // so this refusal never sees it, which is a different fact from it being
-      // unreachable. What it catches is DOUBLE placement — a judge record naming
-      // one member in two SubGroups, which makes the counts sum OVER the parent
-      // and renders that member twice. The withdrawn grammar rule caught both;
-      // between this and the cover refusal, both are caught again.
-      // THE SUM REFUSAL IS `subgroupPlacement`'s NOW (PR #1070 round 1), on the
-      // ground this block's own comment already gave: two implementations of one
-      // refusal is the drift the SubGroup limits' single carrier exists to
-      // prevent. What the note below records is unchanged and is kept because it
-      // is about the RULE rather than about its address.
+      // SUM-TO-PARENT (the SubGroup threshold rule 1; report-format.json v13).
+      // The sum refusal lives in `subgroupPlacement` (one carrier); it catches DOUBLE placement.
+      // Under-placement is refused earlier by SUBDIVISION_COVER_INCOMPLETE.
+      // It reads PLACEMENT, not TEXT: a renderer omitting a SubGroup line still passes
+      // (the grammar's `not_expressible` entry records that gap).
+      // Records: kogaki#684, kogaki#738; PR #1070.
       for (const sg of subgroups) {
         sg.by_family = familySplit(sg.members, record.candidates);
         judgeSubgroup(sg, claim, g.members.length);
@@ -1707,21 +1210,10 @@ function cmdCotags(args) {
       // is implemented; a wider reading — no named SubGroup is tighter — would
       // be this lane deciding more than kogaki#316 did.
       const named = subgroups;
-      // the SubGroup threshold v7 RULE 3, RE-KEYED ON THE LABEL AND BOUNDED BY THE THRESHOLD
+      // the SubGroup threshold v7 RULE 3: suppress a split that bought nothing.
       // retired-vocab-ok: provenance, past tense.
-      // (kogaki#683, re-keyed again at kogaki#738). The suppression tested
-      // `tighter_than_parent !== true`, which no longer exists; then `forced`,
-      // which named the engine's compulsion; now `other`, which names the
-      // judge's finding. What it keys on is the OUTCOME — one SubGroup that
-      // discriminates nothing — and that outcome is unchanged by the relabel.
-      //
-      // AND IT CANNOT FIRE AT OR ABOVE THE THRESHOLD, which is the collision
-      // this issue's own dispositions create and nothing else resolves. Rule 3
-      // says such a group "renders no SubGroups"; disposition 1 says a group of
-      // 10 or more that renders judged-empty is refused at render. For a ≥10
-      // group the two rules point opposite ways, so the suppression yields:
-      // the group RENDERS its split, labelled `other`, which is the honest
-      // outcome. Below the threshold rule 3 is untouched.
+      // Keys on the OUTCOME — one SubGroup labelled `other` — and never fires at or above
+      // SUBDIVISION_REQUIRED_AT: a ≥10 group renders its split. Records: kogaki#683, kogaki#738.
       const bought = named.length === 1 && named[0].verdicts
         && named[0].verdicts.coherence === "other";
       const boughtNothing = bought && g.members.length < SUBDIVISION_REQUIRED_AT;
@@ -1739,19 +1231,9 @@ function cmdCotags(args) {
     // emitter and a leading one on another is how the pre-v31 display ended up
     // spacing subdivided groups and running flat ones together.
     say("");
-    // the SubGroup threshold — A SUBDIVIDED GROUP'S HEADING CARRIES THE PARENT'S LESSON COUNT
-    // AGAIN (kogaki#739, owner ruling 2026-09-01; report-format.json v15).
-    //
-    // WHAT THE MEMBER DUMP TOOK WITH IT AND WHAT IT DID NOT. v31 removed the
-    // whole tail on the ground that the members render on the SubGroup lines
-    // and are read there — true of the MEMBERS, false of the PARENT TOTAL.
-    // No line then carried it, which is why `subgroup_members_sum_to_parent`
-    // had to leave `expressible`: one side of its comparison was gone.
-    //
-    // ONLY THE COUNT RETURNS, not the member list. The two heading classes
-    // therefore differ by exactly the `: <ids>` tail, and the count sits in
-    // the same position on both, family-named per the rendering rule — a subdivided display and
-    // a flat one are read left to right the same way.
+    // the SubGroup threshold — a subdivided group's heading carries the parent's Lesson count
+    // (kogaki#739; report-format.json v15). Only the count, not the member list: the two
+    // heading classes differ by exactly the `: <ids>` tail, count in the same position.
     say(judged
       ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
       : `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
@@ -1855,23 +1337,10 @@ function cmdCotags(args) {
   say(`Narrows nothing: the survey record is unchanged, the full candidate set stays reachable, and free text still reaches every Strand at the gate.`);
   if (!selected) say(`\nSelect a group (still narrowing nothing): cotags --survey <F> --tag ${tag} --group "<co-tag>"`);
 
-  // THE REFUSAL, over the STRING that is about to be emitted (AC1, AC3). Not
-  // over `groups`, not over `record` — the recorded specimen is a renderer that
-  // dropped four of six member fields while every assertion about the data
-  // structure stayed green.
-  // The refusal still gates the WRITE as well as the print — `emitOrRefuse`
-  // validates before its callback runs, so a nonconformant display reaches
-  // neither the owner's terminal nor their artifact (the emit-time refusal, story 1.54 AC1).
-  // THROUGH THE ONE PRIVATE WRITER, like the two display states beside it
-  // (PR #667 round 1 finding 3). This was a SECOND path to the same artifact —
-  // its own `emitOrRefuse` plus a direct `writeDisplay` — which left
-  // `writeDisplaySurface` one of two rather than the one criterion 1 names, and
-  // left the `writers_per_artifact` drop resting on a "no second path" ground
-  // the tree did not hold. The refusal still gates the write, because that is
-  // what `writeDisplaySurface` does — AND the print, which now happens inside
-  // that writer's refusal callback rather than here (PR #667 round 2). Hoisting
-  // it above the writer is what made `cmdCotags` emit before it validated,
-  // which at the base it did not.
+  // THE REFUSAL is over the STRING about to be emitted (AC1, AC3), never over `groups`/`record`.
+  // Write and print both go through `writeDisplaySurface`, the one private writer; the print
+  // happens inside its refusal callback, so nothing emits before it validates
+  // (the emit-time refusal, story 1.54 AC1). Records: PR #667.
   const text = display.join("\n");
   const path = writeDisplaySurface(args, "cotag_groups", text);
   announceDisplay(path);
@@ -1900,36 +1369,11 @@ function emitOrRefuse(surfaceName, text, write) {
 }
 
 // THE LISTING'S COMPOSE PATH (kogaki#856; SPEC-terrain, the pre-selection listing).
-//
-// The pre-selection tag listing is not the CoTagGroups display: that is the
-// rendering written AFTER a tag has been selected, and this precedes it. So it
-// writes no owner artifact at all — `reports/CoTagGroups.md` has exactly one
-// writing state, `cotag_groups` — and it reaches the owner as bytes carried in
-// the TAG_SELECTION gate declaration, which the session renders above the
-// question.
-//
-// WHY IT IS NOT PRINTED, and this is the finding the whole issue turns on:
-//
-//   "In the Claude Code harness a tool call's stdout is displayed to the MODEL,
-//   not reliably to the OWNER … every conformant behavior renders nothing, and
-//   the observed false claim ('the display is above') is what an agent produces
-//   when instructed to deliver through a channel that does not display."
+// It writes no owner artifact and is never printed: the bytes ride the TAG_SELECTION gate
+// declaration, which the session renders verbatim. Nothing here relies on stdout.
 //   consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:98
-//
-// THE PREVIOUS ANSWER to that finding was to make the OWNER type the command,
-// so the print landed in their own terminal — which is why `emitOwnerListing`
-// stood here and is now gone with its last caller. The owner ruled that premise
-// false on 2026-09-04: the owner types nothing, and the Harness displays what
-// the runtime produces where the declaration puts it. Both halves of the
-// finding are still respected — nothing here relies on stdout reaching the
-// owner, and no session retypes the table — because the bytes ride an artifact
-// the session renders verbatim rather than a stream it has to relay.
-//
-// THE GRAMMAR GUARD IS KEPT, and that is the point of routing through here
-// rather than handing `renderTagDisplay`'s return straight to the composer.
-// the emit-time refusal's refusal is about what may be EMITTED, never about what may be
-// written, so a surface that writes no artifact owes it exactly as much: one
-// composer, one refusal, and a nonconformant listing reaches no declaration.
+// The grammar guard still applies: one composer, one refusal, and a nonconformant
+// listing reaches no declaration.
 
 // THE SAME GUARD, WITHOUT THE PRINT (kogaki#856). A rendering carried in a gate
 // declaration is judged by exactly the grammar that judged it when it was
@@ -1942,41 +1386,11 @@ function composeOwnerListing(surfaceName, text) {
 }
 
 // ---- THE ID GATE'S BOUNDED READING (kogaki#1090). -------------------------
-//
-// WHAT CHANGED AND WHY. kogaki#1087 put the whole `reports/CoTagGroups.md`
-// rendering inside the ID question, on the correct ground that a pointer is
-// rendered by whoever chooses to open it. For the `agents` tag that rendering is
-// 40,789 characters, the composed call was 42,432 bytes, and the delivery
-// channel truncated it — so the gate never rendered and the run wedged. A 40 KB
-// question is also not a reading surface an owner can use in a terminal.
-//
-// SO THE READING IS A PROJECTION OF THAT ARTIFACT, NOT A SECOND RENDERING OF
-// THE DATA. One line per Group and one per SubGroup — id, Lesson count, name —
-// read off the heading lines of the text `cotag_groups` wrote and
-// `composeOwnerListing` has already judged against the `cotag_groups` surface.
-// The claims, the coherence lines, the disclosures and the member id lists stay
-// in the artifact, which the question names as the full reading.
-//
-// PROJECTED RATHER THAN RECOMPOSED, and that is the load-bearing half. Deriving
-// the rows from the survey record again would be a second computation of the
-// grouping, free to disagree with the file the owner is being pointed at —
-// which is the two-carriers-of-one-fact shape this repository keeps removing.
-// Read off the artifact, the listing cannot say anything the artifact does not.
-//
-// A HEADING IT CANNOT REDUCE IS A REFUSAL, never a dropped row, AND NEVER A
-// WRONG ROW (PR #1091 round 1, finding 2). A projection that silently loses a
-// group would send the owner a shorter grouping than the one that exists; one
-// that silently MIS-REDUCES a heading sends them a wrong one, which is the
-// quieter of the two and the one a reader cannot detect. So the member id list
-// is matched against its own grammar rather than by a wildcard: the SubGroup
-// line is `<sgid> — <count>: <ids> — <name>`, and `<name>` is model-composed
-// free text free to contain the em-dash separator this display uses everywhere.
-// A wildcard id segment binds the name to the tail after the LAST separator and
-// truncates it; a lazy one is no better, because `NO_DISPLAY_ID` — the abnormal
-// token that stands where a display_id is missing — contains the separator
-// itself, so laziness would stop inside a token. The id grammar is the only
-// anchor that is right in both cases, and a line whose id segment does not
-// satisfy it falls through to the refusal below rather than being guessed at.
+// One line per Group/SubGroup (id, Lesson count, name), PROJECTED from the heading lines
+// `cotag_groups` wrote — never recomposed from the survey record. Records: kogaki#1087.
+// A heading it cannot reduce is a REFUSAL, never a dropped or wrong row (PR #1091).
+// Match the id segment by its own grammar, not a wildcard or lazy match: `<name>` and
+// `NO_DISPLAY_ID` can both contain the em-dash separator.
 const COTAG_MEMBER_ID = "(?:L\\d+|⟨[^⟩]*⟩)";
 const COTAG_GROUP_HEADING = /^(G\d+) — (.+?) — (\d+ Lessons?)(?::.*)?$/;
 const COTAG_SUBGROUP_HEADING = new RegExp(
@@ -2017,50 +1431,12 @@ function composeIdGateListing(text, artifactPath) {
 }
 
 // ---- CLAIM / ADOPT --------------------------------------------------------
-// claim / adopt — GroupClaim-first rendering, and claim pinning (SPEC.md, GroupClaim-first rendering).
-//
-// A claim composed over a member set is PINNED to that set: the record carries
-// the member IDS and their pins, not only the claim text, because a derived
-// expression's truth is relative to the set it was derived from. A subset
-// selection therefore RECOMPOSES the claim and RE-OFFERS it as a GATE EVENT —
-// never a silent refresh and never carried over unchanged. Keeping a group
-// claim over a changed subset asserts commonality over absent members (a
-// provenance lie); discarding it throws away the only thing in the interaction
-// the machine did not supply.
-//
-// The composer's prompt, model and wording are implementation and are NOT
-// specified by GroupClaim-first rendering — so the text arrives as an argument. What is bound here is
-// the pinning, the gate event and the record's shape.
-//
-// The re-offer routes through the gate carrier (manifest item 4), never
-// through an affordance of Terrain's own: the sequencing refusal and the out-of-scope
-// decision are unchanged. The declaration is composed by the executor at the
-// wait that owes it, and adoption is that wait's captured answer; nothing
-// outside a run emits it. The surface that renders it is AskUserQuestion, the
-// gate carrier.
-// THE RE-OFFER IS DELETED, AND LEAVES NO STUB (kogaki#1030 item 4, owner
-// selection 2026-09-09). `CLAIM_REOFFER` was a `wait` sited between
-// `J1_claims` and `J2_subdivision`; item 2 of that issue requires
-// `compose_input`, both judgments and the `reports/CoTagGroups.md` write to
-// complete inside ONE PostToolUse hook, so the co-tag file is finished before
-// the ID question is offered. A wait in that span makes that guarantee false on
-// exactly the runs where it fires, so the gate and the requirement cannot both
-// hold. What the wait existed for is not lost: its subject is a claim pinned to
-// a PROPER SUBSET of the set its composition pin served -- a derived origin
-// member set -- and that is governed by the rule that a derived origin member
-// set ANNOUNCES ITSELF, a duty on the rendering rather than a wait.
-//
-// DELETED RATHER THAN DEPRECATED, per SPEC-terrain "A removed entry point is
-// DELETED, and leaves no stub": the state is gone from `src/terrain-workflow.json`, its
-// gate is gone from `src/gate-registry.json`, and this composer is gone with
-// them. Nothing refuses by name here because nothing can reach it -- a table row
-// naming a gate this runtime has no composer for is already a declared,
-// reported state (`gate_declarations_owed[].unwritten`).
-// The one place a run declaration is composed. Its callers are `GATE_WORK`'s
-// option composers, reached from the executor at the wait that owes the
-// declaration, and nothing outside a run can reach this composer at all. The
-// claim re-offer routes through manifest item 4's carrier and never through an
-// affordance of Terrain's own (SPEC.md, GroupClaim-first rendering, the out-of-scope decision).
+// claim / adopt (SPEC.md, GroupClaim-first rendering). A claim is PINNED to its member set:
+// the record carries the member ids and their pins; the claim text arrives as an argument.
+// The claim re-offer wait is DELETED with no stub (kogaki#1030 item 4; SPEC-terrain).
+// The one place a run declaration is composed; callers are `GATE_WORK`'s option composers
+// at the wait that owes it — nothing outside a run reaches it. Re-offers route through
+// manifest item 4's carrier, never an affordance of Terrain's own.
 export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
   if (!registered) fail(`${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
@@ -2129,52 +1505,13 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 }
 
 // ---- THE GATE CALL (kogaki#1028 item 1). ----------------------------------
-//
-// WHAT THIS IS. The exact `AskUserQuestion` `tool_input` the session must send,
-// written by the executor beside the declaration. Before it, the session read a
-// declaration and COMPOSED a question from it -- and on 2026-09-09, with the tag
-// gate open, it composed nothing at all: it called two MCP tools, wrote a file,
-// declined to render the gate, and answered the typed tag by calling
-// `ListAgents`. A payload the model composes is a payload the model can decline
-// to compose, paraphrase, or reorder, and no downstream carrier could tell.
-//
-// SO THE PAYLOAD IS AN ARTIFACT, NOT AN INSTRUCTION. `.claude/hooks/gate-open-
-// terrain-gate.py` allows exactly the call that is byte-equal to this file
-// after JSON canonicalisation and denies every other tool while the gate is
-// open. That comparison is only possible because the bytes exist on disk; a
-// prose instruction to "render it as declared" is checkable by nobody.
-//
-// THE READING RIDES INSIDE THE PAYLOAD. Where the declaration carries a reading
-// the owner answers over -- the runtime's own pre-selection listing at the tag
-// gate, its composed grouping at the ID gate; `GATE_CALL_READING_KEYS` is the
-// enumeration -- it goes into the question text ABOVE the question line rather
-// than being left for the session to put on screen. kogaki#856 put the reading before the question; this puts it inside
-// the thing that is compared, so a table that arrives missing, paraphrased or
-// reordered is a byte difference and is denied rather than merely regretted.
-//
-// THE SECOND OPTION IS COMPOSED, AND THAT IS AN OWNER RULING (2026-09-09, at the
-// /ship-cycle gate on this issue). `AskUserQuestion` admits 2-4 options; seven
-// of this repository's eight registered gates declare exactly one. The
-// declaration's `free_text_offered: true` is the second way to answer -- the
-// registry says so in as many words for the tag gate ("exactly two ways to
-// answer exist ... the standing option above, or free-form entry of a tag
-// name") -- so the composer TRANSCRIBES that flag into the row the harness
-// requires rather than the session inventing one at render time. It is the
-// deterministic half extended by one step, not a new arm: the ground is that an
-// automated lane which stops at one ruled outcome and says nothing about what
-// follows hands the following act to judgment, where a new design decision
-// enters disguised as a mechanical continuation.
+// The exact `AskUserQuestion` `tool_input` the session must send, written beside the
+// declaration; `.claude/hooks/gate-open-terrain-gate.py` admits only a byte-equal call.
+// Any reading (`GATE_CALL_READING_KEYS`) goes in the question text above the question line
+// (kogaki#856). The free-text second option is transcribed from `free_text_offered`.
 // consulted: product-lab@0f31c3bebdd65a126dd5c2928b86c2a212bba5c2 LESSONS.md:42
-//
-// AND WHERE IT CANNOT COMPOSE ONE, IT SAYS SO RATHER THAN WEDGING THE RUN. A
-// gate offering no option at all, or more than four after the free-text row, has
-// no valid payload -- so no `gate-call.json` is written and the pointer carries
-// `gate_call_unavailable` instead. The hook then still denies every tool but
-// `AskUserQuestion`, which is the exclusivity this issue is about, and admits
-// any payload for the question itself, because there is nothing to compare it
-// to. A deny with no admissible act is a wedge, and the failure this repository
-// already ruled on is that a fail-closed refusal relocates the choice it
-// refuses rather than preventing anything.
+// No valid payload (no option, or >4): write no `gate-call.json`, carry
+// `gate_call_unavailable` on the pointer — never wedge the run.
 // consulted: product-lab@0f31c3bebdd65a126dd5c2928b86c2a212bba5c2 LESSONS.md:44
 export const GATE_CALL_SUFFIX = ".gate-call.json";
 
@@ -2196,30 +1533,11 @@ export const READER_PATH_JOB_GATE_ID = "brief-reader-path-job";
 const ASK_MIN_OPTIONS = 2;
 const ASK_MAX_OPTIONS = 4;
 
-// ONE constant, never a per-gate wording composed at render time. A gate that
-// wants its own words declares `free_text_label` in `src/gate-registry.json`,
-// where an owner merges it, rather than the executor inventing a phrasing per
-// gate -- which is the composition this whole file removes.
-// THE READING KEYS, IN ONE LIST RATHER THAN ONE BRANCH PER GATE (kogaki#1087).
-// A declaration whose gate owes the owner something to read before answering
-// carries those bytes under one of these keys, and the composer puts the first
-// one it finds above the question line. It was a single `tag_listing` test until
-// the ID gate stopped carrying a pointer and started carrying its grouping; a
-// second `||` branch beside the first is how two carriers of one rule begin, so
-// the keys are enumerated here and the composer reads the enumeration.
-// A THIRD MEMBER AT PR #1109 round 1, which is the enumeration doing its job:
-// the Brief's thesis gate is answered over a settled Strand set the owner
-// settled in ANOTHER run, and where that set came from was recorded on the run
-// record and read by nothing. A provenance the owner cannot see is a provenance
-// that cannot be checked at the one moment it matters.
-// `judgment_refusal` JOINS THIS LIST FOR terrain-judgment-retry (kogaki#1172).
-// The gate's own `dynamic_options` note says the reading varies per raising
-// and rides in `extra` rather than in the options — this is the mechanism
-// that note refers to: `emitGateDeclaration`'s `extra` is spread onto the
-// declaration, and this list is what promotes a declaration field into the
-// text rendered above the question. Without this entry the exhausted
-// judgment's own refusal text — the one property that tells an operator WHICH
-// judgment failed and why — never left the run record.
+// ONE constant, never a per-gate wording; a gate wanting its own words declares
+// `free_text_label` in `src/gate-registry.json`.
+// THE READING KEYS, one enumeration the composer reads (kogaki#1087): the first key found
+// on a declaration is rendered above the question line. Add a key here, never a branch.
+// Members added at PR #1109 and kogaki#1172 (`judgment_refusal`, spread from `extra`).
 const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "reader_path_unit_refusal", "excluded_candidates"];
 
 // THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
@@ -2266,34 +1584,10 @@ function gateCallHeader(declaration) {
 }
 
 // ---- THE SHARED QUESTION-SHAPE CHECK, APPLIED AT COMPOSE (kogaki#1118). ----
-//
-// The rule deciding whether a question CAN BE SHOWN lives in the installed
-// Claude Code hook and was applied only at the moment of showing. A program
-// that composes a question could not apply it, and learned of a refusal as a
-// DEADLOCK: on 2026-09-14 the thesis gate's `back-to-terrain` label ended in a
-// bracketed clause, the hook admits only `(Recommended)` as a trailing marker,
-// and the session could render no admissible question and call no admissible
-// tool while the gate stayed open. Nothing was written and nothing could be.
-//
-// SO THE CHECK MOVES TO THE COMPOSE SITE, AND NO COPY OF THE RULE IS WRITTEN
-// HERE. claude-toolkit#1077 made the rule ONE NAMED COMMAND -- `issue-sync
-// lint-question`, reading an AskUserQuestion payload on stdin -- which the hook
-// calls at delivery and this composer calls at composition. Two carriers of one
-// rule that cannot see each other drift silently, and the divergence surfaces
-// only when some act needs both to agree; a second copy in this file is exactly
-// that shape, so the command is invoked rather than its rule restated.
+// Invoke `issue-sync lint-question` (claude-toolkit#1077); never restate its rule here.
 // consulted: product-lab@3b3802d245287f568fd93a574c8d422b277e69c8 LESSONS.md:68
-//
-// ONLY EXIT 1 REFUSES, and that asymmetry is the whole of the degradation
-// policy. The command is an EXTERNAL DEPENDENCY -- machine-local, installed by
-// `issue-sync install-hooks`, outside this repository and uninstallable from it
-// (`src/deps-registry.json`, and SPEC-external-deps' "Report, never gate"). An
-// absent command, an unreadable payload (exit 2) and a tool one commit behind
-// all ADMIT: a fail-closed arm here would wedge every gate in this repository
-// on a machine where the toolkit is merely missing, which is the failure this
-// issue is about reintroduced from the other side. The hook still guards
-// delivery on a machine that has one, so admitting here loses the EARLY
-// refusal and never the refusal.
+// ONLY EXIT 1 REFUSES. An absent command, exit 2 or an older tool ADMIT — it is an
+// external dependency (`src/deps-registry.json`; SPEC-external-deps "Report, never gate").
 const QUESTION_SHAPE_VERB = "lint-question";
 
 // The command's location is MACHINE-LOCAL and the env var is the seam a fixture
@@ -2331,20 +1625,9 @@ function runQuestionShape(cmd, payload) {
   }
 }
 
-// WHETHER THE COMMAND SUPPORTS THE VERB, ASKED BEFORE ITS EXIT 1 IS BELIEVED
-// (PR #1119 round 1). `exit 1` is the refusal in claude-toolkit#1077's contract,
-// and it is also what an older `issue-sync` may print for an unknown
-// subcommand — so reading exit 1 as authoritative without establishing that the
-// verb exists would make a toolkit one commit behind refuse EVERY gate in this
-// repository with a usage banner quoted as the channel's refusal. That is the
-// fail-closed wedge the comment above says a fail-closed arm would reintroduce,
-// arriving through the exit code rather than through the policy.
-//
-// THE PROBE IS THE ONE `checks/check-gate-call-shape.sh` ALREADY PERFORMS, and
-// asking it here is what makes the two sites agree: an empty question set is a
-// payload the verb admits, so exit 0 on it establishes support, and anything
-// else leaves the rule inapplicable. One probe per process, because the command
-// does not change under a run.
+// Probe that the verb exists before believing its exit 1 (PR #1119; claude-toolkit#1077):
+// an older `issue-sync` exits 1 on an unknown subcommand. Same probe as
+// `checks/check-gate-call-shape.sh` (empty question set => exit 0); once per process.
 let questionShapeSupported = null;
 function questionShapeVerbSupported(cmd) {
   if (questionShapeSupported && questionShapeSupported.cmd === cmd) {
@@ -2368,24 +1651,8 @@ function questionShapeRefusal(toolInput) {
 function composeGateCall(declaration) {
   const declared = Array.isArray(declaration.options) ? declaration.options : [];
   // THE ID IS A JOIN KEY AND NEVER CONTENT, WHERE THE GATE SAYS SO (kogaki#1126).
-  //
-  // WHAT WAS MEASURED. The description fell back to the option's id, so the
-  // Candidate gate of runs/brief/brief-2026-09-15T22-53-48-359Z rendered three
-  // options whose description column read `A`, `B` and `C`. The id is what the
-  // owner's answer resolves through at adoption; it carries nothing a reader
-  // can act on, and a column of record ids is the internal-vocabulary defect
-  // arriving through a default rather than through a prose leak.
-  //
-  // WHY A DECLARED ROW RATHER THAN A BLANKET REFUSAL. Four of the five
-  // registered gates compose their options at run time from served material,
-  // and several carry no per-option description at all; refusing every one of
-  // them here would wedge gates this issue is not about, on a rendering
-  // decision each of them owes its own answer to. So the obligation is
-  // `option_descriptions_required` in src/gate-registry.json -- a gate declares
-  // that its options carry their own descriptions, and an option arriving
-  // without one is `unavailable` by name instead of quietly showing its id. A
-  // gate that has not made that declaration renders exactly as before, and the
-  // absence is visible in the registry rather than inferable only from output.
+  // Only a gate declaring `option_descriptions_required` (src/gate-registry.json) refuses an
+  // undescribed option as `unavailable`; every other gate renders exactly as before.
   const owed = declaration.option_descriptions_required === true;
   const undescribed = owed
     ? declared.filter((o) => typeof o.description !== "string" || o.description.trim() === "")
@@ -2481,46 +1748,12 @@ function composeGateCall(declaration) {
 }
 
 // ---- THE OPEN-GATE POINTER (kogaki#890). ----------------------------------
-//
-// The capture is written by `.claude/hooks/write-gate-capture.py`, a
-// PostToolUse carrier on `AskUserQuestion`. That hook sees the harness's own
-// payload — the question, the labels, the tool_use_id — and has no way to know
-// which run raised the question, because a run workspace is machine-local and
-// may sit anywhere. The pointer is how it finds out: one small file per
-// OUTSTANDING raising, naming the instance, the declaration and the capture
-// path, in a directory the hook reads.
-//
-// IT CARRIES NO ANSWER AND GRANTS NOTHING. A pointer is a forwarding address;
-// deleting the whole directory costs a re-render and never an admitted answer,
-// because the executor reads the CAPTURE and refuses without a matching row.
-// That is what keeps this file off the trust surface: nothing downstream
-// believes a pointer, and a forged one can only cause a row to be written
-// where no gate is outstanding, which the instance-id check then refuses.
-// A GATE CALL WRITTEN BEFORE A LABEL WAS REPAIRED (kogaki#1118 acceptance 4).
-//
-// THE COMPOSE-TIME CHECK DOES NOT REACH A RUN THAT ALREADY STOPPED. Re-entry
-// does not recompose: it reads the `*.gate-call.json` the earlier stop wrote and
-// prints its bytes, which is what makes the PreToolUse equality check possible.
-// So a run that stalled on an unshowable label stays stalled across the repair
-// -- the 2026-09-14 Brief run is exactly that, its call file carrying the label
-// the channel refuses -- and the fix would reach every future run and none of
-// the runs it was filed for.
-//
-// SO THE WRITTEN CALL IS RE-CHECKED AT RE-ENTRY, AND REFRESHED WHERE IT FAILS.
-// Only the STANDING options are refreshed, matched by option id against
-// `src/gate-registry.json` -- the ones an owner edits by hand, which is the
-// class the incident came from. A run-time option is composed from material
-// this re-entry does not hold and is carried through untouched; where the
-// refusal is on one of those, nothing here can repair it and the act refuses
-// with the command's own text rather than printing a payload no session can
-// send.
-//
-// THE DECLARATION IS REWRITTEN WITH THE CALL, never one without the other. The
-// capture's `options_offered` is judged against the declaration
-// (check-gate-carrier.sh), so refreshing the payload alone would trade an
-// unshowable gate for an answer that joins to nothing. `gate_instance_id` is
-// NOT reminted: this is the same raising of the same gate, and a new nonce
-// would orphan the pointer the earlier stop already wrote.
+// One file per OUTSTANDING raising, read by `.claude/hooks/write-gate-capture.py`.
+// It carries no answer and grants nothing: the executor reads the CAPTURE.
+// RE-ENTRY RE-CHECKS A WRITTEN GATE CALL (kogaki#1118 acceptance 4): refresh only the
+// STANDING options (by id against `src/gate-registry.json`); a failing run-time option refuses
+// with the command's text. Rewrite the declaration with the call; never remint
+// `gate_instance_id`.
 function refreshWrittenGateCall(dir, gateId) {
   const declPath = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
   const callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
@@ -2571,47 +1804,19 @@ function openGateDir() {
   return process.env.KOGAKI_OPEN_GATES || join(homedir(), ".claude", "kogaki-open-gates");
 }
 
-// THE GATE-DECLARATION SIDECAR (kogaki#1153). `lint-gate-declaration.py`
-// reads `~/.claude/gate-declarations/<session_id>.json` BEFORE the transcript
-// scan, and since v68 (claude-toolkit#774) it is the PRIMARY carrier, not the
-// fallback -- because the transcript read waits at most a few hundred
-// milliseconds for the harness to flush the assistant text, and a composed
-// gate has no assistant turn to flush: the question is the Harness's own,
-// with no session text preceding it inside the open-gate interval where the
-// sidecar write itself is also denied. So the write has to happen HERE, at
-// the one act that composes the call, before the open-gate pointer ever
-// exists to deny anything.
-//
-// `GATE_DECLARATION_SIDECAR_DIR` mirrors the hook's own override (its
-// `SIDECAR_DIR_ENV`), copied rather than imported for the reason every other
-// constant in this file is copied across the process boundary: a Python hook
-// and a Node executor share no module.
+// THE GATE-DECLARATION SIDECAR (kogaki#1153). `lint-gate-declaration.py` reads it as the
+// PRIMARY carrier (v68, claude-toolkit#774); it must be written here, at compose, before the
+// open-gate pointer exists. `GATE_DECLARATION_SIDECAR_DIR` mirrors the hook's override,
+// copied because a Python hook and a Node executor share no module.
 function gateDeclarationSidecarDir() {
   return process.env.GATE_DECLARATION_SIDECAR_DIR
     || join(homedir(), ".claude", "gate-declarations");
 }
 
-// EVERY GATE THIS FILE COMPOSES CARRIES EXACTLY ONE QUESTION (see
-// `composeGateCall`'s `questions: [{ ... }]`), so the sidecar this writes
-// always keys question index 1 -- there is no second question to leave
-// unanswered.
-//
-// THE DECLARATION IS `mechanical`, ALWAYS, and that is the true declaration
-// rather than a placeholder one: a Harness-composed question leans on no
-// served position of its own, so there is nothing for `recommendation` or
-// `no-recommendation` to carry here. A gate whose OPTIONS were composed from
-// a consulted reading still declares `mechanical` at this seam -- the
-// declaration is about who is answering the question the Harness renders,
-// not about how the Harness came to compose its options.
-//
-// A WRITE FAILURE HERE IS NOT FATAL TO THE GATE (kogaki#1153, following
-// kogaki#1090's `over_bound`/`refused` split at the SAME call site): the
-// declaration and the call are the artifacts this function's callers commit
-// to writing, and the sidecar is a second carrier for a check outside this
-// process. Where the directory cannot be created or the file cannot be
-// written, the gate still opens exactly as it did before this carrier
-// existed, and the transcript scan is what is left to answer for it -- the
-// pre-#1153 race, not a new failure this write introduces.
+// Every composed gate has exactly ONE question, so the sidecar keys index 1, and the
+// declaration is always `mechanical`.
+// A write failure is NOT fatal (kogaki#1153; cf. kogaki#1090): the gate still opens and the
+// transcript scan answers for it (the pre-#1153 race).
 function writeGateDeclarationSidecar(sessionId) {
   if (!sessionId) return;
   const dir = gateDeclarationSidecarDir();
@@ -2622,30 +1827,10 @@ function writeGateDeclarationSidecar(sessionId) {
   } catch { /* the transcript scan is the fallback carrier this write is racing to make unnecessary, not the only one */ }
 }
 
-// THE POINTER NAMES ITS SESSION (kogaki#1028 item 5).
-//
-// Every consumer of this directory previously matched on the question text
-// alone, so one machine's outstanding gate was every session's outstanding gate:
-// a second session answering a question with the same text wrote a row into the
-// first session's capture, and a PreToolUse deny keyed on "a pointer exists"
-// would have frozen every session on the machine rather than the one at the
-// gate.
-//
-// THE ID IS READ FROM AN ENVIRONMENT VARIABLE, SO ITS ABSENCE IS A CASE AND NOT
-// AN ERROR, AND THE TWO READERS TREAT IT DIFFERENTLY ON PURPOSE (PR #1043 round
-// 1, findings 2 and 5 -- the first cut's comment here said one thing and the
-// reader did another, which is the worse half of the defect):
-//
-//   `.claude/hooks/write-gate-capture.py` treats a null-session pointer as it
-//       treated every pointer before this field existed, matching on question
-//       text alone. Refusing it would turn "we cannot prove who owns this" into
-//       "no answer is ever recorded", breaking a path that works today.
-//   `.claude/hooks/gate-open-terrain-gate.py` gates nothing on a null-session
-//       pointer. Denying every tool call in a session that cannot be shown to
-//       own the gate is the failure with no recovery inside the session.
-//
-// Both readers therefore fail toward the recoverable side of their own act, and
-// neither treats the absence as a wildcard.
+// THE POINTER NAMES ITS SESSION (kogaki#1028 item 5; PR #1043).
+// A missing session id is a case, not an error: `write-gate-capture.py` falls back to
+// question-text matching; `gate-open-terrain-gate.py` gates nothing on a null-session pointer.
+// Both fail toward the recoverable side; neither treats absence as a wildcard.
 function sessionId() {
   // `CLAUDE_CODE_SESSION_ID` is what Claude Code exports into a Bash tool call
   // and into a hook's process, which are the two routes the executor is started
@@ -2722,95 +1907,25 @@ function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callU
 // capture without a declaration, no declaration without a state, and no state.
 
 // ---- SUBDIVIDE ------------------------------------------------------------
-// subdivide — semantic subdivision as a judged substrate one level down
-// (SPEC.md, semantic subdivision), DOGFOOD-FIRST.
-//
-// Placement plus title-derivation, hiding none: a cap decides WHICH members
-// appear, subdivision decides WHERE each appears and hides none. It is
-// therefore inside the presentation-only invariant and is NOT the refused
-// within-axis cap.
-//
-// NOT OFFERED BY DEFAULT. Co-tags stay the default for a run naming no
-// substrate, and this path is reachable only by naming it. Running it, and
-// merging it, ARRIVES at measurement before offering's offering gate rather than discharging it.
-//
-// WHICH MODEL judges is a per-invocation PINNED FACT and not a decision this
-// code makes: the judge pin (model id + effort tier) is ADOPTED for
-// per-invocation judged surfaces and names terrain displays, claims and
-// groupings among them, with the judge-migration tripwire as its complement —
-// the pin makes a judge change observable, the tripwire makes it
-// consequential. So the classification and its verdicts arrive as input and
-// the record pins the judge that produced them. Terrain names no model.
-//
-// THE SPLIT DECISION CARRIES A CONSTANT AND THE JUDGMENT DOES NOT (semantic subdivision v30,
-// kogaki#683). `SUBDIVISION_REQUIRED_AT` decides WHETHER a group must serve
-// SubGroups; it stands in for no verdict. What the judge supplies is the
-// COHERENCE LABEL — one of a closed three, with one sentence of why — and no
-// number is compared against it. The three instruments remain REPORTED
-// quantities gating nothing, and the display budget still arrives per run.
-//
-// The prohibition this comment used to state — no numeric constant anywhere in
-// split-or-stop logic — was reversed by the owner on 2026-08-28 on a specimen
-// it permitted. It is quoted at semantic subdivision as provenance and is not the rule here.
-// The SubGroup's own two rendered lines — its name and its claim. Rendering
-// arithmetic for the display-budget instrument; it gates nothing and is not
-// stop logic.
+// subdivide (SPEC.md, semantic subdivision): placement + title-derivation, hiding none.
+// Reachable only by naming it; co-tags stay the default. Terrain names no model: the
+// classification arrives as input and the record pins the judge.
+// `SUBDIVISION_REQUIRED_AT` decides WHETHER to split (semantic subdivision v30, kogaki#683);
+// the judge supplies the coherence label, and no number is compared against it.
+// LINES_PER_SUBGROUP_HEADER: display-budget arithmetic only; it gates nothing.
 const LINES_PER_SUBGROUP_HEADER = 2;
 
-// The PLACEMENT half of subdivision, extracted so the co-tag display (the SubGroup threshold) and
-// `subdivide` (semantic subdivision) share ONE composer rather than each carrying its own.
-//
-// It is this half — not the instruments and not the coherence verdicts — that owns
-// the guarantee subdivision hides none: a member the judge invented is refused,
-// and a member the judge left unplaced lands in the EXPLICIT named SubGroup
-// rather than being dropped. Two copies of that would be two places for the
-// cover to be wrong, and the second copy is the one nobody re-reads.
-// THE SPLIT DECISION IS THE ENGINE'S (SPEC-terrain, semantic subdivision v30, kogaki#683, owner
-// ruling 2026-08-28 with the disposition-1 boundary confirmed at pickup
-// 2026-08-29).
-//
-// A NUMBER IN SPLIT-OR-STOP LOGIC WAS A DEFECT AND IS NOW THE RULE. Semantic subdivision carried
-// "Terrain implements no member-count threshold. A number appearing in its code
-// as one is a defect against this paragraph", and kogaki#316 withdrew a numeric
-// trigger on 2026-08-09. The owner REVERSES their own recorded withdrawal,
-// dated 2026-08-28, on a specimen the old contract permitted: G1 (agents ×
-// architecture) served 40 members flat, judged-empty, violating nothing.
-//
-// THE BOUNDARY IS AT TEN, AND ITS DERIVATION OUTLIVED ITS INPUT (kogaki#738).
-// This read: "the catch-all cap leaves 30% of the parent, and 30% of 10 is 3
-// Strands — the minimum article — so the requirement works AT 10". That cap is
-// deleted with the sweep, so the calculation has no second term. The number is
-// unchanged — it is an owner ruling in its own right — and now stands on that
-// ruling rather than on arithmetic whose input is gone.
+// The PLACEMENT half of subdivision, ONE composer shared by the co-tag display (the SubGroup
+// threshold) and `subdivide`: refuses invented members and requires every member placed.
+// The split boundary is an owner ruling (SPEC-terrain, semantic subdivision v30, kogaki#683),
+// not derived arithmetic. Records: kogaki#316, kogaki#738.
 const SUBDIVISION_REQUIRED_AT = 10;
 
-// THE COHERENCE LABEL, closed at three (kogaki#683 disposition 5, vocabulary
-// confirmed as filed at pickup). Ordered by decreasing coherence.
-//
-// THE SET IS THREE AFFINITY LABELS PLUS A RESIDUAL (kogaki#738, owner rulings
-// 2026-09-01 and owner amendments 1 and 2 the same day). It was `tight | related
-// | forced`, where `forced` — "grouped to satisfy the split requirement" — named
-// a fact about the ENGINE: the threshold compelled a split that bought nothing.
-// The tell is right below — the placement used to STAMP `forced` on a bucket it
-// composed itself, which is a label with no judgment behind it.
-//
-// `loose` is the third AFFINITY label, below `related`. `other` is the RESIDUAL
-// and is a different kind of thing: it holds what the judge could place nowhere,
-// it carries no affinity claim, and it is bounded by its own limit rather than by
-// a per-label cap. Keeping them in one closed set is what the runtime validates
-// against; keeping them DISTINCT is why `RESIDUAL_LABEL` is named separately and
-// why `limits.subgroup_member_cap` has no `other` row.
-//
-// `other` IS NOT UNLIMITED, and that reverses this issue's own body. The body
-// ruled it unbounded, "safe only because it is judged"; owner amendment 1 ruled
-// that `other` = unlimited is an ANTI-PATTERN, because what actually went wrong
-// was member counts implicitly assumed and never enforced. A judged bucket with
-// no bound is still a black hole with a verdict attached.
-//
-// CONSUMER-OWNED VALUES, and that is a ruling rather than an omission: a
-// consumer owns the SHAPE of its own record and never the VALUES of a field
-// that JOINS across a boundary. This label is rendered on kogaki's own display
-// and read by nothing outside it, so no hub ratification is owed.
+// THE COHERENCE LABEL: three affinity labels plus the residual `other`, ordered by
+// decreasing coherence (kogaki#683 disposition 5; kogaki#738).
+// `other` is the residual: named separately (`RESIDUAL_LABEL`), carries no affinity claim, has
+// no `limits.subgroup_member_cap` row, and is bounded by its own limit — never unlimited.
+// Consumer-owned values: rendered only on kogaki's own display, so no hub ratification.
 // consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198
 const COHERENCE_LABELS = Object.freeze(["tight", "related", "loose", "other"]);
 // The residual, named once so no reader has to infer it from the cap map's gaps.
@@ -2820,23 +1935,9 @@ function subgroupPlacement(parent, classification, block) {
   const subgroups = [];
   const placedIds = new Set();
   for (const sg of classification) {
-    // THE KEYS ARE THE RECORD EXAMPLE'S, AND THE EXAMPLE IS THE BINDING
-    // (kogaki#1067). `src/terrain-workflow.json`'s `J2_subdivision.record_example` — the
-    // literal shape kogaki#1062 item 5 put in front of the judge — writes each
-    // SubGroup as `{name, claim, members, verdicts: {coherence, …}}`, and the
-    // live 2026-09-10 judge conformed to it. This reader read a `subgroup` key and
-    // took the WHOLE entry as the verdicts object, so it refused every real
-    // classification with "each SubGroup needs a `subgroup` name" and stalled
-    // the run before `cotag_groups`. Every other reader of a SubGroup in this
-    // file — the coherence checks, the display and report renderers,
-    // `resolveEnteredIds` — already read `name`, and `judgeSubgroup` and the
-    // residual filter already read `.verdicts.coherence`, so the two spellings
-    // here were the only ones out of step.
-    //
-    // NO SECOND SPELLING IS ACCEPTED. A reader tolerating both keys re-opens
-    // exactly the drift this closes: the example would stop being the one
-    // binding, and the next judge to conform to it would have no way to tell
-    // which half of the reader it was talking to.
+    // THE KEYS ARE THE RECORD EXAMPLE'S (kogaki#1067; kogaki#1062 item 5):
+    // `src/terrain-workflow.json`'s `J2_subdivision.record_example` writes each SubGroup as
+    // `{name, claim, members, verdicts: {coherence, …}}`. NO SECOND SPELLING is accepted.
     const name = String(sg.name || fail("each SubGroup needs a `name` — the key `J2_subdivision.record_example` declares (kogaki#1067)"));
     const members = [...new Set(sg.members || [])].sort();
     const stray = members.filter((id) => !parent.members.includes(id));
@@ -2844,20 +1945,10 @@ function subgroupPlacement(parent, classification, block) {
     members.forEach((id) => placedIds.add(id));
     subgroups.push({ name, claim: String(sg.claim || ""), members, verdicts: sg.verdicts || {} });
   }
-  // AN UNPLACED MEMBER IS A REFUSAL NAMING IT (the SubGroup threshold rule 1, kogaki#738 ruling 1).
-  // This branch used to SWEEP: every member the judge left out was pushed into a
-  // `(fits no composed SubGroup)` SubGroup carrying `coherence: "forced"` "by
-  // construction" — a verdict the judge never reached, on a bucket the engine
-  // composed. The cover property is unchanged and is now stronger: every member
-  // still appears, and it appears because the judge placed it.
-  //
-  // THE FALLBACK IS CHOSEN RATHER THAN INHERITED. The sweep was never decided;
-  // it was whatever the code did with the members it had left over.
+  // AN UNPLACED MEMBER IS A REFUSAL NAMING IT (the SubGroup threshold rule 1, kogaki#738).
+  // Never sweep: every member appears because the judge placed it.
   // consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:82
-  //
-  // AND THE REFUSAL NAMES THE IDS, which is load-bearing rather than a message
-  // preference: the judge must still dispose of every member, so a refusal that
-  // reported only a count would remove the sweep and hand back nothing to act on.
+  // The refusal names the ids, not just a count — the judge must dispose of each.
   // consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:38
   const unplaced = parent.members.filter((id) => !placedIds.has(id));
   if (unplaced.length) {
@@ -2870,26 +1961,10 @@ function subgroupPlacement(parent, classification, block) {
       + `because a bucket it fills carries a verdict nobody reached.`);
   }
 
-  // THE RESIDUAL IS BOUNDED (owner amendment 1 ruling 2, kogaki#738). Until the
-  // residual falls to N the classification is REFUSED and further SubGroups are
-  // forced — the refusal names the remainder count against N. It sits here
-  // rather than in `judgeSubgroup` because it is a property of the WHOLE
-  // classification: the residual is whatever the judge put in the `other`
-  // SubGroup(s), and one SubGroup at a time cannot see the total.
-  //
-  // THIS REVERSES THE ISSUE BODY, and the reversal is the point. The body ruled
-  // `other` unbounded, "safe only because it is judged"; the owner superseded
-  // that the same day — `other` = unlimited is an ANTI-PATTERN. A judged bucket
-  // with no bound still lets Lessons disappear into it, which is the instability
-  // the issue was filed over.
-  // DOUBLE PLACEMENT, HERE RATHER THAN AT A CALLER (PR #1070 round 1). The cover
-  // refusal above cannot see it: a member named in two SubGroups IS placed, so
-  // the cover is complete and the counts sum OVER the parent instead. It lived
-  // at the co-tag display alone, which meant the report's two placement sites
-  // never had it and kogaki#1068's new judgment-state call arrived with a second
-  // copy of it -- two wordings citing two different grounds on their first day.
-  // It sits with `placedIds`, which is what it is actually about, and every
-  // caller gets one reading of it.
+  // THE RESIDUAL IS BOUNDED (owner amendment 1 ruling 2, kogaki#738): until it falls to N the
+  // classification is REFUSED. Checked here because only the whole classification sees it.
+  // DOUBLE PLACEMENT is refused here too, with `placedIds`, for every caller (PR #1070;
+  // kogaki#1068): the cover refusal cannot see it, since the counts sum OVER the parent.
   const placedCount = subgroups.reduce((n, sg) => n + sg.members.length, 0);
   if (placedCount !== parent.members.length) {
     fail(`SUBGROUP_MEMBERS_DO_NOT_SUM — ${parent.name} holds ${parent.members.length} member Lesson(s) `
@@ -2916,25 +1991,11 @@ function subgroupPlacement(parent, classification, block) {
   return { subgroups, placedIds };
 }
 
-// The JUDGMENT half of subdivision (semantic subdivision), extracted beside `subgroupPlacement`
-// so the co-tag display (the SubGroup threshold) and `subdivide` share ONE implementation.
-//
-// kogaki#133's first finding is what this closes: the display placed members
-// and printed name, claim and ids while evaluating neither conjunct and
-// emitting neither disclosure, so "where semantic subdivision's conditions put them" was
-// satisfied by the caller's JSON alone. A second copy of these rules would be
-// a second place for the judgment to drift; the rule is enforced at the
-// layer where it can be broken, and both surfaces break it the same way.
-// THE LIMITS' ONE READER (semantic subdivision, kogaki#738 ruling 5 and owner amendment 2's five
-// config keys). Every number the subdivision judgment enforces comes from here,
-// and NONE is restated in this file — unlike `SUBDIVISION_REQUIRED_AT`, which is
-// duplicated and cross-checked, these have one carrier and so cannot disagree
-// with it.
-//
-// A MISSING BLOCK FAILS LOUDLY rather than returning a permissive default.
-// Amendment 2 requires the harness to enforce every key mechanically; a default
-// here would delete a ruled refusal silently, which is the same
-// engine-supplies-the-judgment defect ruling 1 is about, one layer down.
+// The JUDGMENT half of subdivision, shared by the co-tag display and `subdivide`: one
+// implementation, so the two surfaces cannot drift (kogaki#133).
+// THE LIMITS' ONE READER (kogaki#738 ruling 5, owner amendment 2's five config keys).
+// Every number the subdivision judgment enforces is read here and restated nowhere else.
+// A missing block FAILS LOUDLY; a permissive default would silently delete a ruled refusal.
 const CAPPED_LABELS = Object.freeze(COHERENCE_LABELS.filter((l) => l !== RESIDUAL_LABEL));
 
 function subdivisionLimits(grammarPath = REPORT_FORMAT) {
@@ -2977,24 +2038,10 @@ function judgeSubgroup(sg, groupClaim, parentSize = null) {
   const vd = sg.verdicts || {};
 
   // retired-vocab-ok: the three lines here name the replacement.
-  // THE COHERENCE LABEL REPLACES THE CONJUNCTIVE LEAF CONDITION (kogaki#683
-  // disposition 5, owner selection at pickup 2026-08-29). `composes_honestly`
-  // and `tighter_than_parent` are GONE — one instrument, not two — and the
-  // label carries what they carried: `tight` is what the conjunction admitted,
-  // `related` is the honest-but-not-tighter middle the conjunction collapsed
-  // into a bare failure, and the third label — `forced` until kogaki#738, `other`
-  // since — carries the residue.
-  //
-  // `legible_at_a_glance` IS NOT FOLDED IN, and the omission is deliberate: it
-  // is one of semantic subdivision's three INSTRUMENTS rather than a conjunct of the leaf
-  // condition, so absorbing it would re-cut the three-quantity triple in the
-  // same act that deletes the paragraph's other text — two re-cuts of one
-  // paragraph with only one licensed by a disposition.
-  //
-  // THE VALUE IS THE JUDGE'S AND IS NOT INVENTED HERE. A record arriving with
-  // no label, or with a value outside the closed set, is REFUSED rather than
-  // defaulted: a default would be this layer supplying the judgment the label
-  // exists to carry.
+  // THE COHERENCE LABEL (kogaki#683 disposition 5; third label renamed at kogaki#738).
+  // `composes_honestly` and `tighter_than_parent` are GONE; the label carries them.
+  // `legible_at_a_glance` is an instrument, not a leaf conjunct, and is not folded in.
+  // The value is the judge's: a missing or out-of-set label is REFUSED, never defaulted.
   const coherence = vd.coherence;
   if (!COHERENCE_LABELS.includes(coherence)) {
     fail(`SubGroup ${JSON.stringify(sg.name)} carries coherence ${JSON.stringify(coherence === undefined ? null : coherence)}; the closed set is ${COHERENCE_LABELS.join(" | ")} (SPEC-terrain, semantic subdivision, kogaki#683). The label is the judge's and is never defaulted here — a default would be this layer supplying the judgment the label exists to carry.`);
@@ -3007,27 +2054,11 @@ function judgeSubgroup(sg, groupClaim, parentSize = null) {
   sg.coherence_why = why;
   sg.coherence_line = `coherence: ${coherence} — ${why}`;
 
-  // THE SIZE LIMITS, READ FROM THE CARRIER (semantic subdivision, kogaki#738 ruling 3 and owner
-  // amendments 1 and 2). Three refusals, and they bind different populations:
-  //
-  //   - an AFFINITY SubGroup over its label's cap — `tight` 5, `related` 7,
-  //     `loose` 7. The asymmetry is the consumer's: Brief consumes a `tight`
-  //     group WHOLE and cannot yet filter Strands, while `related` and `loose`
-  //     are browse material a reader selects from.
-  //   - an AFFINITY SubGroup under `min_subgroup_members` (M). A SubGroup of one
-  //     or two is a claim about a relationship too small to be one.
-  //   - the RESIDUAL over `max_residual_members` (N), which is handled at the
-  //     placement rather than here, because it is a property of the whole
-  //     classification and this function sees one SubGroup at a time.
-  //
-  // THE FLOOR DOES NOT BIND THE RESIDUAL. A shrinking residual is the outcome
-  // the whole design wants, so a floor on it would refuse exactly the
-  // classifications that did best.
-  //
-  // READ, NEVER RESTATED. The numbers live in `report-format.json`'s `limits`
-  // block so an owner edits them without a code change — unlike
-  // `SUBDIVISION_REQUIRED_AT`, which is duplicated and cross-checked, these have
-  // one carrier and so cannot disagree with it.
+  // THE SIZE LIMITS (kogaki#738 ruling 3, owner amendments 1 and 2): an affinity
+  // SubGroup over its label's cap or under `min_subgroup_members` is refused here;
+  // `max_residual_members` is checked at placement, which sees the whole classification.
+  // The floor does NOT bind the residual.
+  // Numbers are READ from `report-format.json`'s `limits` block, never restated.
   const { min } = subdivisionLimits();
   const cap = subgroupMemberCap(coherence);
   if (cap !== null && sg.members.length > cap) {
@@ -3036,22 +2067,10 @@ function judgeSubgroup(sg, groupClaim, parentSize = null) {
       + `(report-format.json limits.subgroup_member_cap.${coherence}, SPEC-terrain, semantic subdivision, kogaki#738). `
       + `Compose a tighter SubGroup, or judge these members at a label whose cap admits them.`);
   }
-  // THE FLOOR EXEMPTS A WHOLE-GROUP SubGroup (owner selection 2026-09-01, at the
-  // pickup gate for amendment 1). M refuses a SPLINTER — a SubGroup too small to
-  // be a real division of its parent — and a SubGroup holding the entire parent
-  // divided nothing, so there is no splinter for M to police. Without the
-  // exemption a group under M has NO conformant affinity classification at all:
-  // the residual is the only path left, and it asserts the judge found no
-  // loose-or-better affinity among them, which the harness would then be forcing
-  // the judge to assert whether or not it is true. That is the same served line
-  // this issue's own refusal was built on, firing the other way —
+  // THE FLOOR EXEMPTS A WHOLE-GROUP SubGroup (owner selection 2026-09-01, amendment 1):
+  // a SubGroup holding the entire parent divided nothing, so M has no splinter to refuse.
   // consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:38
-  // ("when the actor must still dispose of the item in front of it, a fail-closed
-  // refusal prevents nothing and merely removes one option").
-  //
-  // KEYED ON A STRUCTURAL FACT, never on a size. `parentSize === members.length`
-  // says the SubGroup IS the group; a threshold like "2M or more" would be a
-  // second derived number nobody ruled.
+  // Keyed on the structural fact `parentSize === members.length`, never on a size.
   const wholeGroup = parentSize !== null && sg.members.length === parentSize;
   if (coherence !== RESIDUAL_LABEL && sg.members.length < min && !wholeGroup) {
     fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
@@ -3078,35 +2097,10 @@ function judgeSubgroup(sg, groupClaim, parentSize = null) {
   return sg;
 }
 
-// THE SubGroup RULES, RUN WHERE THE RE-ASK IS (kogaki#1068). Until this landed
-// they ran only in `subgroupPlacement` and `judgeSubgroup` at the two RENDER
-// states — the co-tag display and `cotag_groups` — and `J2_subdivision`, the
-// state that HAS the bounded re-ask loop, validated the envelope alone
-// (`judged: true`, `subgroups` an array). So a record that breached a cap, fell
-// under the minimum, overran the residual or left a member unplaced passed J2,
-// spent every group's call, and failed the run at a state with no route back to
-// the judge. On the parked 2026-09-09 live run nine of eleven groups breached a
-// rule this way.
-//
-// IT RE-IMPLEMENTS NOTHING. The refusals are `subgroupPlacement`'s and
-// `judgeSubgroup`'s, called over this group's own entry — the same two functions
-// `cotag_groups` calls, which is what keeps one reading of every limit.
-// `cotag_groups` KEEPS ITS CHECKS and is simply expected never to be the first
-// to fire them; a second implementation here would be the drift the SubGroup
-// limits' single carrier exists to prevent.
-//
-// THE DISCLOSURES ARE NOT THIS LAYER'S. `judgeSubgroup` also computes the two
-// disclosures, which are a RENDERING concern and need the GroupClaim to compute
-// the undiscriminating-claim one; the display holds that claim and recomputes
-// them there. What is wanted here is the refusals, so the claim is passed empty
-// and the disclosures this call produces are discarded — a disclosure is not a
-// refusal, and none of them can fail.
-//
-// A GROUP WITH NO COMPOSED PARENT IS NOT JUDGED HERE, and that is a bound rather
-// than a hole: the rules are all statements ABOUT the parent's membership — the
-// cover, the sum, the whole-group exemption — so a record supplied by argv
-// against no composed input has nothing here to be judged against. Those runs
-// reach the render state exactly as they did before.
+// THE SubGroup RULES, RUN AT J2 WHERE THE RE-ASK IS (kogaki#1068).
+// Re-implements nothing: calls `subgroupPlacement` and `judgeSubgroup`, as `cotag_groups`
+// does, which keeps its own checks. Claim is passed empty; disclosures are discarded.
+// A group with no composed parent is not judged here (the rules are about its membership).
 function subdivisionRules(name, entry, parent) {
   if (!entry || !parent) return;
   // JUDGED-EMPTY IS CONFORMANT and has no SubGroup for any rule to bind on
@@ -3118,23 +2112,9 @@ function subdivisionRules(name, entry, parent) {
   for (const sg of subgroups) judgeSubgroup(sg, "", parent.members.length);
 }
 
-// THE LIMITS THE RECORD IS JUDGED AGAINST, PUT IN FRONT OF THE JUDGE
-// (kogaki#1068 item 2). The per-group ask carried the group, its material, the
-// composition pin, the bound and the accounting; it named no cap, no minimum and
-// no residual bound, and `record_example` carries the closed label set with no
-// count against it. A judge asked to subdivide eight members at `tight` under a
-// cap of five it has not been told breaches it — and did, in four of eleven
-// groups on the 2026-09-09 run.
-//
-// READ, NEVER RETYPED. Every number comes back through `subdivisionLimits`, the
-// one reader of `report-format.json`'s `limits` block, so the numbers in the ask
-// and the numbers in the refusal cannot disagree.
-//
-// KEYED ON THE STATE'S OWN DECLARATION, so a second state joins by a table row
-// rather than by an edit here — the property `per_group`, `retries` and
-// `record_example` already have. An unknown block name is refused BY NAME, on
-// `record_example`'s directive ground: a third block is added by ruling rather
-// than by spelling.
+// THE LIMITS PUT IN FRONT OF THE JUDGE (kogaki#1068 item 2).
+// Every number comes through `subdivisionLimits`, so the ask and the refusal cannot disagree.
+// Keyed on the state's own declaration; an unknown block name is refused BY NAME.
 const JUDGE_LIMIT_BLOCKS = Object.freeze({
   subdivision: () => {
     const { caps, min, maxResidual } = subdivisionLimits();
@@ -3242,23 +2222,10 @@ function composeSubdivisionRecord(args, dir, record) {
   return path;
 }
 
-// THE ENTERED SET RESOLVED TO TARGETS, SHARED BY `report` AND THE EXECUTOR'S
-// `neighborhood_input` (kogaki#690). Both need the same answer to "which
-// Groups and SubGroups did the owner enter", and the emitter's whole job is to
-// enumerate the neighborhood of exactly that set — so a second resolver here
-// would be two answers to one question, and the one that drifted would be the
-// one no report ever exercised.
-//
-// Resolution runs against THE GROUPS THIS RUN COMPOSES (AC6): story 1.56 AC11
-// makes an id valid for the run that printed it — a pin advance may renumber —
-// so nothing here caches, persists or reconstructs an earlier numbering.
-//
-// IT RETURNS `subOf` RATHER THAN LEAVING ITS CALLER TO REBUILD ONE. Resolving a
-// SubGroup id already requires parsing `--subdivisions`, so handing the closure
-// back is what keeps one parse and one answer (PR #701 round 1). The open-questions section, v10
-// claims-reader rationale does NOT live here: this function reads no claims
-// file, and a comment explaining `--claims` above a function that never opens
-// one is a pointer to the wrong artifact.
+// THE ENTERED SET RESOLVED TO TARGETS, shared by `report` and `neighborhood_input`
+// (kogaki#690): one resolver, never a second. Story 1.56 AC11: ids are valid only for
+// the run that printed them, so resolution runs against this run's groups and caches nothing.
+// Returns `subOf` so callers keep one `--subdivisions` parse (PR #701). Reads no claims file.
 function resolveReportTargets(record, tag, enteredIds, args) {
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
@@ -3272,36 +2239,11 @@ function resolveReportTargets(record, tag, enteredIds, args) {
 }
 
 // ---- THE BRIEF'S STRAND SET (kogaki#1116) ---------------------------------
-// THE STRAND SET BRIEF IS STARTED WITH, RESOLVED AGAINST THE SERVED
-// ENUMERATION (kogaki#1116).
-//
-// WHAT THIS REPLACES, AND WHY THE REPLACEMENT IS A REVERSAL RATHER THAN DRIFT.
-// kogaki#1108 removed the argv from the Brief skill's `!` line and had `enter`
-// read the settled set off TERRAIN's own run record instead — `survey_record`
-// plus the owner's answer at `ID_SELECTION`. The ground it gave was that an id
-// list the Model retypes is an id list the Model can retype wrong. The cost was
-// not stated and was paid immediately: Brief became unrunnable whenever the
-// Terrain lane's open run had not reached its ID gate, which is what happened on
-// 2026-09-11 (kogaki#1090) and left every `/brief` start refusing from
-// 2026-09-12 on. The owner ruled on 2026-09-13/14 that Brief and Terrain are
-// INDEPENDENT: Brief takes its Strand set on its own command line, never reads a
-// Terrain run, and the Model's opportunistic resolution of a report coordinate
-// is accepted — because the resolved set is shown to the owner at the first
-// gate, which is where a mis-resolution is catchable.
-//
-// THE ARGUMENT FORM IS THE SERVED ADDRESS, AND THAT IS NOT A PREFERENCE.
-// An `L<n>` is not a Strand identity: Terrain mints it by POSITION in the served
-// enumeration at survey time, so the same token names a different Lesson after a
-// pin advance. The identity the Package serves is the address
-// `<package>::<kind>/<local-name>` (product-lab#263 R1, which declined a
-// per-kind number), so that is what an argument is, and a human-facing token is
-// refused BY NAME rather than guessed at.
-//
-// IT LIVES HERE, NOT IN THE BRIEF RUNTIME, for the reason every other served
-// read does: `src/terrain.mjs` is the one component that reads served
-// renderings (SPEC-terrain, the served-renderings input rule), and a second
-// reader in the Brief lane would be a second answer to "what does the Package
-// serve".
+// Resolves the Strand set Brief is started with against the served enumeration.
+// Brief takes its set on its own command line and never reads a Terrain run.
+// Records: kogaki#1108, kogaki#1090; product-lab#263 R1.
+// An argument is the served address `<package>::<kind>/<local-name>`; an `L<n>` token is
+// positional, so it is refused BY NAME. Lives here: this file is the one served reader.
 const TERRAIN_TOKEN = /^(?:G[0-9]+(?:-[0-9]+)?|L[0-9]+|D[0-9]+)$/;
 
 // The refusal every human-facing token takes, stated once so the three token
@@ -3329,24 +2271,11 @@ function composeAddressCite(unitId, contentHash) {
   return `${unitId}@${contentHash}`;
 }
 
-// Resolve the addresses a Brief run was started with against the served
-// enumeration. Returns `{ strands }` or `{ error }` — the same shape the
-// deleted survey-record resolver returned, so the caller's refusal handling is
-// unchanged.
-//
-// REFUSES BY NAME AND SUBSTITUTES NOTHING, which is the deleted resolver's own
-// rule kept: an address the Package does not serve names ITSELF in the refusal,
-// and no near-miss is silently accepted. The served enumeration is ~1700 rows,
-// so the refusal states the COUNT it searched rather than listing it — a
-// listing nobody can read is not a disclosure.
-//
-// THE DISPLAY ID IS MINTED HERE, BY THE OWNER'S OWN ARGUMENT ORDER, and it is a
-// WITHIN-DOCUMENT token rather than an identity: the Brief's Strands section
-// carries `### L<n> — <slug>` beside that Strand's served cite, so the mapping
-// travels with the document that uses it and no second carrier can drift from
-// it. That is what lets the Leg grammar, the Packets and the Draft keep
-// addressing material as `L<n>` while the IDENTITY on the command line and in
-// every cite is the served address.
+// Resolve a Brief run's addresses against the served enumeration; returns `{ strands }`
+// or `{ error }`. Refuses BY NAME and substitutes nothing; the refusal states the COUNT
+// searched rather than listing ~1700 rows.
+// The display id `L<n>` is minted here by argument order: a within-document token, while
+// the identity on the command line and in every cite stays the served address.
 export function resolveStrandAddresses(entered) {
   const list = (Array.isArray(entered) ? entered : []).map((x) => String(x).trim()).filter(Boolean);
   if (!list.length) {
@@ -3444,64 +2373,24 @@ export function resolveStrandAddresses(entered) {
 }
 
 // ---- REPORT ---------------------------------------------------------------
-// report — the Full Report (SPEC.md).
-//
-// The other half of the display's serve rule's compact display: the display is what the owner
-// NAVIGATES, this is what they READ. Untruncated Claims and Glosses, with no
-// truncation anywhere — which is why it parses the served shard whole rather
-// than through `parseGlossShard`, whose whole job is to cut a headline.
-//
-// It is a REPORT and therefore not a choice: it ranks nothing, narrows
-// nothing and hides nothing, so it sits in neither act list (the second-proposer boundary, the Full Report).
-//
-// It is a RENDERING and therefore NOT AN ADDRESS: nothing downstream resolves
-// a report id, and a Brief cites members and pins exactly as it does today
+// report — the Full Report (SPEC.md): untruncated Claims and Glosses, so it parses the
+// served shard whole rather than through `parseGlossShard`.
+// A REPORT ranks, narrows and hides nothing; a RENDERING, so no report id is an address
 // (topics/articles.md:64,71@f918c515).
 const NO_GLOSS_BODY = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
 const NO_JUDGE = "none";
 
-// THE TYPED SUBDIVISION ENTRY (the report identity v9, kogaki#199).
-//
-// WHAT IT REPLACES, and why the old shape had to go rather than be tolerated.
-// The entry used to be a bare array and its presence was tested for truthiness,
-// so `[]` — a judged group with no subdivision — was TRUTHY and took the
-// judged branch by accident, while an absent key and `{}` took the unjudged
-// one. Three inputs, three different conformance outcomes, and NONE of them
-// was the artifact the report identity names as conformant: `subgroupPlacement(group, [], …)`
-// placed nothing, computed `unplaced` as every member, and pushed the
-// `no_member_hidden_subgroup` catch-all, after which `members` was nulled. A
-// group whose judgment ran and found no split could not be recorded at all.
-//
-// The distinction is now STATED rather than inferred from a language
-// property nothing documents:
-//
+// THE TYPED SUBDIVISION ENTRY (the report identity v9, kogaki#199):
 //   {"G": {"judged": true, "subgroups": [ … ]}}   judged, with a subdivision
 //   {"G": {"judged": true, "subgroups": []}}      judged, EMPTY — conformant
 //   key absent                                    not judged — refused on the co-tag path
-//
-// A BARE ARRAY IS REFUSED BY NAME rather than read as the old form. Accepting
-// it would leave two encodings for one fact, and a composer emitting the old
-// shape would get the old accidental semantics back silently — the collision
-// the served surface rules against: "a collision wants REFUSAL OR
-// QUALIFICATION at the resolver, never a first-hit-wins guess"
+// A BARE ARRAY IS REFUSED BY NAME: two encodings for one fact are never accepted.
 // (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:154`).
-// THE TYPED CLAIMS RECORD, and the subset refusal it exists to make possible
-// (the open-questions section, v10, kogaki#212).
-//
-// WHY THE CLAIMS ARTIFACT IS THE CARRIER. The pin has to accompany the claims,
-// and v9 never said where it lives. It lives HERE, in one artifact with them,
-// because a pin in a separate file can go stale beside the claims it
-// accompanies and nothing in the tool would catch that — the same
-// existence-versus-standing gap the subset check exists to close, moved one
-// file over. It also mirrors the report identity v9's typed subdivision record, so both
-// composed inputs carry one shape rule learned once.
-//
+// THE TYPED CLAIMS RECORD (the open-questions section, v10, kogaki#212): the pin lives in
+// one artifact with the claims, so it cannot go stale beside them.
 //   { "composition_pin": { "tag": …, "pin": …, "groups": { "<G>": ["lesson:…"] } },
 //     "claims":         { "<G>": "…" } }
-//
-// A BARE MAP IS REFUSED BY NAME, as the report identity v9 refuses the withdrawn bare array:
-// two encodings for one fact would let a stale composer silently keep the
-// unguarded shape.
+// A BARE MAP IS REFUSED BY NAME.
 function readClaimsRecord(raw, record) {
   if (raw === undefined || raw === null) return { claims: {}, pin: null };
   if (typeof raw !== "object" || Array.isArray(raw)) {
@@ -3602,78 +2491,20 @@ function readSubdivisionEntry(name, entry) {
 }
 
 // ---- JUDGMENT PROVENANCE (kogaki#892) -------------------------------------
-// JUDGMENT PROVENANCE — what the HARNESS OBSERVED about the judgment, held
-// apart from what the RECORD DECLARES about it (kogaki#892, under the owner's
-// 2026-09-04 ruling that a Harness must not consume model output as
-// authoritative control input for state, counts, eligibility or routing).
-//
-// `readSubdivisionEntry` above refuses an entry that does not state
-// `"judged": true`, and that refusal does real work: judged-empty and
-// never-judged are different states and the flag is what separates them. What
-// it CANNOT do is show that a judgment ran. `{"judged": true, "subgroups": []}`
-// is the conformant record for a judgment that found no split, and it is
-// byte-identical to one nobody performed. The judge pin is the same shape one
-// level over — `--judge-model`/`--judge-effort` are values the composer
-// supplies, and `readNeighborhoodJudgments`' own note is explicit that "no
-// model call happens inside this tool".
-//
-// THE DEFECT WAS IN THE RENDERING, NOT IN THE JUDGMENT. The judgment is a
-// named LLM judgment point and it stays. What the display printed was
-// `judged by <model>/<effort>` — which reads as a fact the Harness stands
-// behind — on the strength of a declaration alone. The right act with a guard
-// silently disabled, which is the ruling's own test for this class.
-//
-// TWO STATES, and which of them is reachable is stated rather than left for a
-// reader to infer:
-//
-//   `observed`  the Harness invoked the judge itself, or holds a judgment
-//               record its OWN act wrote. SINCE kogaki#1030 THIS STATE HAS A
-//               PRODUCER: the executor invokes the pinned model at every
-//               judgment state, so a run that reached one holds an invocation
-//               record its own act wrote. The arm was named here before it had
-//               one -- a single-state provenance is indistinguishable from no
-//               provenance at all -- and lighting it up touched neither
-//               renderer, which is what that naming was for.
-//   `declared`  no such record. The pin names what the COMPOSER says judged
-//               this split. This is every run whose judgment record arrived on
-//               argv, and every run made before kogaki#1030.
-//
-// WHAT THE HARNESS DOES OBSERVE, in both states: the `--subdivisions` artifact
-// it read, whose sha it takes ITSELF from the bytes on disk — the same read
-// `composedInputDigests` already makes for the report record. That is
-// kogaki#892 acceptance 1's second arm, "a recorded judgment artifact whose sha
-// the Harness took", and it is a real binding: it says WHICH record a rendering
-// came from, so a rendering and a record can be shown to disagree. It is NOT
-// evidence that a judgment ran, and the rendered text says so rather than
-// letting the sha stand in for the thing it cannot show.
-//
-// NO NEW FILE IS READ FOR THIS, and the omission is the decision. A
-// `judgment-record.json` the session writes and this layer reads back would be
-// the SAME defect wearing a second carrier: read-back is allowed only of the
-// Harness's own acts, and a record the model composes is model output whatever
-// it is named. Minting one would discharge the issue on the surface while
-// reproducing it underneath.
+// What the HARNESS OBSERVED about a judgment, held apart from what the RECORD DECLARES
+// (owner ruling 2026-09-04: model output is never authoritative control input).
+//   `observed`  the Harness invoked the judge itself (producer since kogaki#1030).
+//   `declared`  no such record; the pin names what the COMPOSER says judged the split.
+// In both states the `--subdivisions` sha is taken by the Harness from disk; it binds a
+// rendering to a record and is NOT evidence a judgment ran — the text must say so.
+// Never read back a model-composed record (e.g. a `judgment-record.json`).
 const JUDGMENT_OBSERVED = "observed";
 const JUDGMENT_DECLARED = "declared";
 
-// THE SITE IS FILLED (kogaki#1030). The comment above says `observed` "HAS NO
-// PRODUCER TODAY … it is the arm a judge-invoking act would light up without
-// touching either renderer". This is that act, and neither renderer is touched:
-// the executor now invokes the judge itself at every `judgment` state, and what
-// it records here is ITS OWN act — the model it pinned from the workflow table,
-// the command it ran, the state it ran it for, how many times it asked, and the
-// sha it took from the response bytes on disk.
-//
-// STILL NOT A READ-BACK OF MODEL OUTPUT. The distinction kogaki#892 draws is
-// between a record the HARNESS wrote about an act it performed and a record the
-// MODEL composed about itself; this is the first. Nothing in the invocation
-// record comes from the response's content — the model cannot write its own
-// provenance by saying it judged.
-//
-// SET BY `invokeJudge` AND BY NOTHING ELSE, per state, for the life of the
-// process. A run where the owner supplied the record on argv sets none and stays
-// `declared`, which is the honest reading: that run's judgment was declared to
-// this layer, not observed by it.
+// THE `observed` PRODUCER (kogaki#1030): the executor's OWN record of each judge call —
+// pinned model, command, state, attempt count, response sha from disk.
+// Nothing in it comes from the response's content (kogaki#892).
+// Set by `invokeJudge` alone; an argv-supplied record sets none and stays `declared`.
 const JUDGE_INVOCATIONS = new Map();
 
 function recordJudgeInvocation(stateId, invocation) {
@@ -3695,45 +2526,13 @@ function harnessJudgeInvocation(stateId = "J2_subdivision") {
 }
 
 // ---- THE JUDGE CALL ITSELF (kogaki#1030 item 1). ---------------------------
-//
-// THE MODEL IS A CALLED FUNCTION, NEVER THE DRIVER. The executor composes the
-// prompt from the table's own declaration of the state — its judgment point, its
-// input shape and its refusal text — hands the state's composed input alongside,
-// runs the pinned model, and parses ONE typed record out. Every decision about
-// what happens next stays here.
-//
-// THE MODEL IS PINNED IN `terrain-workflow.json` AND NEVER INHERITED FROM THE SESSION.
-// A judgment carried out by whatever model happened to be driving is not
-// reproducible and the run record could not say what judged it.
-//
-// `KOGAKI_JUDGE_CLI` REPLACES THE BINARY, FOR FIXTURES. The acceptance cases
-// drive this path with `claude -p` stubbed, and a fixture that had to reach the
-// real CLI would be a fixture that cannot run. It overrides WHICH executable is
-// run and nothing else: the argv, the pinned model, the parse and every refusal
-// below are the same on both paths, so the fixture exercises the shipped code
-// rather than a second one written for it.
+// The model is a called function, never the driver: compose the prompt from the table,
+// run the pinned model (`terrain-workflow.json`, never the session's), parse ONE record.
+// `KOGAKI_JUDGE_CLI` replaces WHICH executable runs, for fixtures, and nothing else.
 // ---- THE JUDGE BINARY IS RESOLVED ONCE, BY THE SESSION THAT STARTS THE RUN
 // (kogaki#1076).
-//
-// The table's `judge.command` is the bare word `claude`, and a bare word is
-// resolved by whoever spawns it -- so the binary a judgment call ran was
-// whatever the FIRING session's `PATH` offered first. On 2026-09-10 an advance
-// fired from a second session resolved a Windows npm shim under `/mnt/c`, whose
-// own `exec` failed, and three judge calls exited 127 against a tree in which
-// the same judge had run to completion an hour earlier. Nothing in the tree had
-// changed; the session had.
-//
-// THE PIN NAMED EVERYTHING BUT THE BINARY. `judge_pin` carries the model, the
-// effort tier and the survey revision, so two runs with equal pins had run
-// different executables and one of them was not an executable at all. A run's
-// judgments depended on an environment the run neither owned nor recorded.
-//
-// RESOLUTION IS A WALK, AND RUNNING THE CANDIDATE IS WHAT MAKES IT ONE.
-// Existence and the execute bit do not discriminate: the shim HAS both, and
-// fails only when it is run. So each candidate is RUN, with `--version`, and the
-// first that exits 0 is the run's binary -- a walk that stopped at the first
-// existing file would have chosen the shim, which is the defect with an extra
-// leg.
+// Resolution walks PATH and RUNS each candidate with `--version`; the first that exits 0
+// wins. Existence and the execute bit do not discriminate (a broken shim has both).
 const JUDGE_VERSION_PROBE_MS = 20000;
 
 // THE ORDER `PATH` DECLARES, DE-DUPLICATED. A command carrying a separator is
@@ -3800,19 +2599,9 @@ export function resolveJudgeBinary(command, pathEnv) {
     + `execute bit do not discriminate a working install from a shim whose own \`exec\` fails.`);
 }
 
-// RESOLVED AT THE START ACT, BEFORE THE SURVEY (kogaki#1076 item 1), and read
-// back by every later act of the same run. A record that already carries one is
-// never re-resolved: that is the whole of item 2 -- the advance uses the RUN's
-// binary and not the session's.
-//
-// A RECORD WRITTEN BEFORE THIS FIELD EXISTED RESOLVES AT ITS NEXT ACT rather
-// than falling back to the bare word. The fallback is the defect; a resolution
-// that refuses in a session whose PATH offers only the shim names the shim,
-// which is strictly better than the exit 127 it replaces.
-//
-// `KOGAKI_JUDGE_CLI` IS RESOLVED LIKE ANY OTHER COMMAND, not around this act.
-// It replaces WHICH executable is run, and a fixture whose stub cannot answer
-// `--version` is a fixture running something the shipped path would refuse.
+// RESOLVED AT THE START ACT (kogaki#1076 item 1) and read back by later acts; a record
+// that carries one is never re-resolved. An older record resolves at its next act —
+// never falls back to the bare word. `KOGAKI_JUDGE_CLI` is resolved like any command.
 function ensureJudgeBinary(rec, table) {
   if (rec.judge_binary) return rec.judge_binary;
   const declared = process.env.KOGAKI_JUDGE_CLI || ((table && table.judge) || {}).command;
@@ -3861,20 +2650,9 @@ export function judgeSettings(table, rec) {
       "the workflow table's `judge` block declares no numeric `timeout_s`. A judgment call inside a "
       + "PostToolUse hook is bounded by that hook, and an unbounded child can exhaust the hook's own "
       + "timeout mid-span (kogaki#1030, PR #1044 round 1).")),
-    // HOW MANY OF THOSE BOUNDED CALLS RUN AT ONCE (kogaki#1073). `timeout_s`
-    // bounds ONE call and `ADVANCE_TIMEOUT_S` bounds the WHOLE advance, and
-    // between them sat a quantity neither named: the SUM. kogaki#1062 made each
-    // per-group call small and left the sum untouched, and on 2026-09-10 eleven
-    // sequential calls of thirty to ninety seconds each were killed at the
-    // advance bound after eight of them. The repair is to remove the sum rather
-    // than to choose a number for it: with the calls running concurrently the
-    // wall time of a per-group judgment state is about the LONGEST call, not the
-    // total, so neither bound has to move.
-    //
-    // REQUIRED AND POSITIVE, on `timeout_s`'s own ground one field above: a cap
-    // a table can silently omit is not a cap, and a run that defaulted it would
-    // be running at a width nothing declared. A cap of 1 is the sequential
-    // behaviour, declared rather than inherited.
+    // HOW MANY BOUNDED CALLS RUN AT ONCE (kogaki#1073; kogaki#1062). Concurrency keeps
+    // a per-group state's wall time near the LONGEST call, not the sum.
+    // REQUIRED AND POSITIVE, like `timeout_s`; a cap of 1 is the sequential behaviour.
     concurrency: Number.isInteger(j.concurrency) && j.concurrency > 0 ? j.concurrency : fail(
       "the workflow table's `judge` block declares no positive integer `concurrency`. It is the number "
       + "of judge calls a per-group judgment state runs at once; the per-call bound `timeout_s` and the "
@@ -3981,35 +2759,12 @@ const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous answer 
   + "it. The input below is unchanged, so re-reading the material is not what is wanted -- the\n"
   + "shape of your record is.";
 
-// THE FILLED RECORD EXAMPLE (kogaki#1059). A PROSE SHAPE DESCRIPTION CANNOT BIND
-// A VALIDATOR'S SHAPE. `input_shape` is one sentence — for `J1_claims`, "typed
-// claims record carrying composition_pin and one claim per group" — and on
-// 2026-09-09 the live judge returned a record that SATISFIES that sentence and
-// the validator refused three times: the pin as the pin STRING rather than the
-// pin OBJECT the subset check needs the `groups` map out of, and the claims as
-// an array of `{group, claim}` rather than the `{group: claim}` map. The literal
-// shape existed only in a source comment and in the refusal text, neither of
-// which the judge sees.
-//
-// SO THE EXAMPLE IS FILLED FROM THE RUN'S OWN COMPOSED INPUT rather than written
-// out as a literal in the table. A hand-written example is a fourth carrier of
-// the shape that can drift from the validator exactly as the prose did; one
-// built from `composition_pin` as the input actually holds it, and keyed by the
-// group names that input actually composed, cannot name a pin the run did not
-// compose or a group the subset check would then refuse.
-//
-// TABLE-DRIVEN, so a fifth judgment state gets an example by adding a row and no
-// code here — the property the prompt composer above already has. Two directives
-// and no third, each refused by name:
-//
+// THE FILLED RECORD EXAMPLE (kogaki#1059): built from the run's own composed input
+// (`composition_pin`, the composed group names), never a hand-written literal.
+// Table-driven; two directives, each refused by name:
 //   "$input:<key>"          the composed input's top-level <key>, verbatim
 //   "$per-group:<text>"     an object mapping each composed group's name to <text>
-//
-// Any other value is a literal. A `$`-prefixed string that is neither directive
-// is a REFUSAL rather than a literal: a typo'd directive rendered as its own text
-// would put the word `$per-groups:` in front of the judge as though it were the
-// shape, which is the prose-instead-of-shape defect returning through the carrier
-// that exists to end it.
+// Any other value is a literal; any other `$`-prefixed string is a REFUSAL.
 function judgeRecordExample(st, input) {
   const tpl = st.record_example;
   if (tpl === undefined || tpl === null) return null;
@@ -4068,21 +2823,9 @@ function judgeRecordExample(st, input) {
   return out;
 }
 
-// The prompt is composed FROM THE TABLE, so a fifth judgment state needs a table
-// row and no code here: its judgment point, input shape and refusal text are
-// already the three things the state declares about what it wants.
-//
-// COMPOSED PER ATTEMPT (kogaki#1059). It was composed once outside the retry
-// loop, so attempt N+1 was byte-identical to attempt N and never saw attempt N's
-// refusal — which made the declared bound a REPETITION rather than a repair loop:
-// on 2026-09-09 it reproduced one deterministic refusal three times at about
-// ninety seconds each. `lastRefusal` is what makes the second ask a different
-// ask.
-// EXPORTED FOR THE DETACHED JOB (kogaki#1193): each unit's prompt is composed
-// with this same renderer -- the schema files verbatim, the record example if
-// the state declares one, the input marker -- so the text a unit's child
-// process reads and the text the synchronous judge call would have read are
-// built by one function, never two copies one edit away from disagreeing.
+// The prompt is composed FROM THE TABLE (judgment point, input shape, refusal text).
+// COMPOSED PER ATTEMPT (kogaki#1059): `lastRefusal` makes each re-ask a different ask.
+// EXPORTED FOR THE DETACHED JOB (kogaki#1193): unit prompts use this one renderer.
 export function judgePrompt(st, inputText, input, lastRefusal) {
   const L = [];
   L.push(`You are the judge at the ${flow().label} workflow's \`${st.id}\` judgment point.`);
@@ -4090,30 +2833,12 @@ export function judgePrompt(st, inputText, input, lastRefusal) {
   L.push(`JUDGMENT POINT: ${st.judgment_point || st.id}`);
   L.push(`REQUIRED RECORD SHAPE: ${st.input_shape || "the typed record this state declares"}`);
   if (st.refusal) L.push(`WHAT IS REFUSED: ${st.refusal}`);
-  // THE DECLARED SCHEMA, RENDERED VERBATIM (kogaki#1108). A state may name a
-  // file carrying the shape of the elements its record is built from, and the
-  // executor puts that file in front of the judge.
-  //
-  // WHY VERBATIM AND WHY A FILE. `input_shape` is one sentence about the
-  // RECORD; a Leg has fifteen fields, each with a meaning, and a sentence
-  // cannot carry them. Before this the composing party inferred those fields
-  // from skill prose and the validator checked them afterwards, so the only
-  // Harness text saying what a field MEANS was a refusal string seen after
-  // shape had already failed. The validator reads its field set from this same
-  // file, which is what makes "the prompt and the refusal cannot disagree" a
-  // property of there being one file rather than a promise.
-  //
-  // NOT A SECOND INPUT. It is the SHAPE the record is filled against, and it
-  // stands above the input marker -- everything past that marker is still the
-  // composed input verbatim, by the marker's own contract.
-  // ONE ROW, ONE OR MANY FILES (kogaki#1126). A record has as many element
-  // kinds as it has, and `compose_path` has two: a Candidate, whose shape
-  // `src/candidate-schema.json` declares and this state's own refusals enforce,
-  // and a Leg, whose shape `src/leg-schema.json` declares and `validateLegs`
-  // enforces. Folding the two into one file would hand one validator a text it
-  // does not enforce, which is the disagreement the row exists to prevent; so
-  // the row takes a LIST and the prompt carries each file whole, in order. A
-  // bare string is the one-element list and every pre-#1126 row reads unchanged.
+  // THE DECLARED SCHEMA, RENDERED VERBATIM (kogaki#1108). The validator reads its field
+  // set from the same file, so the prompt and the refusal cannot disagree.
+  // It stands ABOVE the input marker; everything past the marker is the composed input.
+  // ONE ROW, ONE OR MANY FILES (kogaki#1126): each file whole, in order; a bare string
+  // is the one-element list, so every pre-#1126 row reads unchanged.
+  // Never fold two schemas into one file.
   for (const declared of (Array.isArray(st.schema_file) ? st.schema_file : (st.schema_file ? [st.schema_file] : []))) {
     const sp = join(REPO, String(declared));
     if (!existsSync(sp)) {
@@ -4179,25 +2904,10 @@ function judgeRecordFrom(stdout, st) {
   return null;
 }
 
-// THE RETRY IS BOUNDED BY THE TABLE, and the bound is the STATE's. `retries` is
-// the number of RE-ASKS, so a state declaring 2 makes at most three calls.
-//
-// THE FAILURE CARRIES THE REFUSAL TEXT, which is the issue's own wording: the
-// last refusal the state raised is what the run fails with, so the operator
-// reads why the judge's record was rejected rather than "the judge failed".
-// ONE BOUNDED ASK-AND-VALIDATE LOOP, WRITTEN ONCE AND SPENT BY BOTH INVOCATION
-// SHAPES (kogaki#1062). `invokeJudge` asks once over the whole composed input;
-// `invokeJudgePerGroup` asks once per composed group. The bound, the per-attempt
-// prompt composition, the widened refusal window and the deliberate
-// spawn-failure exception are properties of AN ASK rather than of either shape,
-// so a second copy of them for the per-group path would be two readings of one
-// licence -- exactly the shape `judgedRecordPath` already refuses for the
-// VALIDATION body one line below it.
-//
-// IT RETURNS RATHER THAN FAILING on an exhausted bound, and that is what the
-// per-group shape needs: the failure text names the group and the groups already
-// judged, and only the caller knows those. The whole-input caller's `fail()` is
-// unchanged and still carries the same words it did.
+// THE RETRY IS BOUNDED BY THE STATE's `retries` (re-asks: 2 means at most three calls);
+// a failure carries the last refusal text.
+// ONE ASK-AND-VALIDATE LOOP for both invocation shapes (kogaki#1062): never copy it.
+// It RETURNS on an exhausted bound; only the caller can name the groups in the failure.
 async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label }) {
   const argv = ["-p", "--model", cfg.model, "--output-format", cfg.outputFormat];
   const at = label || "";
@@ -4220,26 +2930,10 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
     // loop, so attempt N+1 is a different ask from attempt N.
     const prompt = judgePrompt(st, inputText, input, lastRefusal);
     try {
-      // THE WHOLE RESPONSE HANDLING IS INSIDE THE WINDOW (PR #1044 round 1).
-      // The first cut wrapped only `validate`, so `retries` bounded the
-      // CONFORMANCE arm alone: a response that was not JSON, a `result` that did
-      // not parse, and a non-zero exit each reached `fail()` outside the window
-      // and ended the run on the first occurrence. Those are the arms a re-ask is
-      // LIKELIEST to repair, and the licence does not distinguish them -- #1030
-      // item 1 says "the response passes through the existing refusals; a refused
-      // response is retried at most the count `terrain-workflow.json` declares".
-      //
-      // `res.error` STAYS OUTSIDE IT, and that is the one deliberate exception: a
-      // command that could not be SPAWNED will not spawn on the next attempt
-      // either, so re-asking would spend the bound on a fact that cannot change.
-      // A model that answered badly is a different case from a binary that is not
-      // there.
-      // THE CALL IS AWAITED OUTSIDE THE WINDOW AND ITS RESULT IS JUDGED INSIDE
-      // (kogaki#1073). The soft window is a synchronous depth counter, and a
-      // window held across an `await` would be open while OTHER groups' results
-      // were being judged in the same process — so the two are separated: the
-      // child runs first and raises nothing, and every refusal below is decided
-      // in one synchronous window as it always was.
+      // ALL RESPONSE HANDLING IS INSIDE THE RETRY WINDOW (PR #1044; #1030 item 1).
+      // `res.error` STAYS OUTSIDE IT: a command that could not be spawned is not re-asked.
+      // THE CALL IS AWAITED OUTSIDE THE WINDOW AND JUDGED INSIDE (kogaki#1073): the
+      // window is a synchronous depth counter and must never be held across an `await`.
       const raw = await judgeSpawnAsync(cfg.command, argv, {
         input: prompt, maxBuffer: 64 * 1024 * 1024,
         // THE CHILD IS BOUNDED, AND ITS BOUND IS DERIVED FROM THE HOOK'S
@@ -4350,27 +3044,11 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
         + "(kogaki#1059).");
     }
   }
-  // ONE CALL PER COMPOSED GROUP WHERE THE TABLE DECLARES IT (kogaki#1062). A
-  // TABLE fact, so a second state joins by a row and no code here -- the
-  // property `judgeRecordExample` and `judgePrompt` already have.
-  // THE LIMITS THE RECORD IS JUDGED AGAINST (kogaki#1068 item 2), RESOLVED FOR
-  // EVERY JUDGMENT STATE AND SPENT BY ONE (PR #1070 round 1). Resolving it inside
-  // the per-group arm made both properties the table's `limits` row claims false
-  // for a state that declared the key without `per_group`: the block silently did
-  // not reach the ask, and the unknown-block-name refusal was unreachable, so a
-  // typo in the table read as an absent key. Resolving it here makes the refusal
-  // a property of DECLARING the key, which is what the row says it is.
-  //
-  // IT IS SPENT ON THE PER-GROUP ASK ALONE, and the asymmetry is deliberate
-  // rather than an oversight the line above repairs. `judgePrompt` embeds the
-  // whole-input arm's input file VERBATIM, by the marker's own contract --
-  // everything past it is the file, so a reader or a stub can find the input by
-  // position -- and injecting a key there would put a prompt in front of the
-  // judge that disagrees with the artifact on disk. The per-group arm already
-  // COMPOSES its text from a narrowed object, so the limits ride the same
-  // narrowing. A state that wants them on the whole-input ask needs the composer
-  // to write them into the artifact, which is a change to `compose_input` and not
-  // to this line.
+  // ONE CALL PER COMPOSED GROUP WHERE THE TABLE DECLARES IT (kogaki#1062).
+  // THE LIMITS (kogaki#1068 item 2) RESOLVE FOR EVERY JUDGMENT STATE (PR #1070), so the
+  // unknown-block refusal fires on declaring the key.
+  // They are SPENT ON THE PER-GROUP ASK ALONE: the whole-input prompt embeds its input
+  // file verbatim; limits there belong in `compose_input`, not here.
   const limits = judgeLimits(st);
   if (st.per_group === true) {
     return await invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits);
@@ -4449,19 +3127,9 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     + `the workflow table declares for this state). The last refusal, verbatim: ${r.lastRefusal}`);
 }
 
-// THE COMPOSED INPUT, NARROWED TO ONE GROUP (kogaki#1062). The whole point of
-// the per-group ask is that each call carries THAT GROUP'S material alone: the
-// composed input's `material` holds every member's untruncated Gloss body, so
-// the whole-input ask grows with the tag and the per-group ask does not.
-//
-// IT NARROWS AND NEVER ADDS. Every key the composed input carries is kept as it
-// stands -- the tag, the pin, the bound -- and only the three that are keyed BY
-// GROUP are cut down: `groups`, `material`, and `composition_pin.groups`. A
-// judge told about eleven groups and asked about one would compose a claim
-// against a parent it cannot see the rest of, and a `composition_pin` still
-// naming all eleven would license members this ask never handed over -- which
-// is the subset check's own reason for carrying the member set rather than a
-// digest.
+// THE COMPOSED INPUT, NARROWED TO ONE GROUP (kogaki#1062).
+// It NARROWS AND NEVER ADDS: every key is kept, and only the group-keyed three are cut —
+// `groups`, `material`, and `composition_pin.groups`.
 function scopeCompositionInput(input, group) {
   const name = String(group && group.name);
   const members = new Set(group && Array.isArray(group.members) ? group.members : []);
@@ -4491,19 +3159,9 @@ function scopeCompositionInput(input, group) {
   return out;
 }
 
-// ONE CALL PER COMPOSED GROUP (kogaki#1062). The per-group records are ASSEMBLED
-// into the typed per-group record the existing validator reads, and that
-// validator then runs over the assembly -- so no refusal moves and no validation
-// is re-implemented. What changes is the SIZE of one ask and the SCOPE of one
-// re-ask, which is the whole of the repair: on 2026-09-09 the whole-input ask
-// straddled the 90s per-call bound (two of three attempts exceeded it) while
-// `J1_claims`, the smaller judgment over the same input, already spent ~70s of
-// it.
-//
-// A GROUP'S REFUSAL IS RE-ASKED ALONE, to the state's own `retries`, and the
-// groups that passed are not re-asked -- kogaki#1060's per-attempt feedback
-// applied per group, which is what makes the bound a per-group repair loop
-// rather than a whole-run one.
+// ONE CALL PER COMPOSED GROUP (kogaki#1062). Per-group records are ASSEMBLED and the
+// existing validator runs over the assembly; no refusal moves or is re-implemented.
+// A refused group is re-asked alone to the state's `retries` (kogaki#1060).
 async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits) {
   if (!input || typeof input !== "object" || Array.isArray(input) || !Array.isArray(input.groups)) {
     fail(`${st.id}: this state declares \`per_group\`, and the composed input at ${inputPath} carries no `
@@ -4784,28 +3442,11 @@ function provenanceOf(carrier) {
 // the pair cannot drift apart in silence.
 const DISPLAY_WRAP_COLUMNS = 77;
 
-// Word wrap, with the hanging indent that says a line is a CONTINUATION. The
-// terminal is the surface kogaki#317 exists to keep readable under wrapping,
-// and a continuation flush against the left margin reads as a new statement —
-// the indent is what distinguishes the two by eye, and it is what the grammar's
-// `judge_pin_continuation` class keys on, so the allowlist stays specific
-// instead of gaining a bare-placeholder member that would admit anything.
-//
-// A single word longer than the column is emitted OVERLONG rather than broken:
-// the tokens that reach this line are a sha in backticks and an invocation id,
-// and breaking one would produce a value that cannot be copied.
-//
-// A `head` IS EMITTED WHOLE ON THE FIRST LINE, however long, and the wrap
-// begins after it (PR #921 round 1 finding 1). This is not a convenience: the
-// grammar classifies a wrapped line by its FIRST line, and an abbreviated form
-// compiles to a PREFIX regex, so whatever the class pins must be text no input
-// can push onto a continuation. Wrapping the sentence whole put the pin clause
-// — `<model_id> / <effort_tier>.`, composer-supplied and unbounded in length —
-// inside the wrappable region, so a model id past roughly 45 characters moved
-// the wrap point above it, `line_class_allowlist` returned null and
-// `emitOrRefuse` failed the WHOLE `cotag_groups` emit. A display that refuses
-// itself on a long pin is worse than the long line this change removes, and no
-// fixture reached it because the fixtures carry short ids.
+// Word wrap with a hanging indent marking a CONTINUATION (kogaki#317); the grammar's
+// `judge_pin_continuation` class keys on that indent.
+// A word longer than the column is emitted OVERLONG, never broken (shas, invocation ids).
+// A `head` is emitted WHOLE on the first line (PR #921): the grammar classifies a wrapped
+// line by its first line, so no input length may push the head onto a continuation.
 function wrapDisplayLine(text, columns = DISPLAY_WRAP_COLUMNS, indent = "  ", head = null) {
   const words = String(text).split(/\s+/).filter((w) => w !== "");
   const out = [];
@@ -4829,19 +3470,9 @@ function judgePinLine(pin, prov) {
   const seen = p.artifact_sha
     ? `the --subdivisions record it read, sha \`${p.artifact_sha}\``
     : "no --subdivisions record at all";
-  // BOTH ARMS WRAP, by one rule (kogaki#919 acceptance 2). The observed arm was
-  // unreachable when that rule was written, and wrapping only the arm a run
-  // could then produce would have left the divergence standing for whenever a
-  // producer appeared — the amend-it-later shape this file refuses. kogaki#1030
-  // is that producer, and the rule needed no amendment to meet it, which is the
-  // whole of what writing it that way bought.
-  //
-  // THE PIN CLAUSE IS THE HEAD, on both arms, and that is what keeps a long
-  // composer-supplied `model_id` from moving the text the grammar classifies
-  // on (PR #921 round 1 finding 1). Each form below abbreviates at exactly the
-  // head's end and NOT one space later: a form ending `<effort_tier>. …`
-  // demands a further word on the first line, which is the same length
-  // dependency in a costume.
+  // BOTH ARMS WRAP, by one rule (kogaki#919 acceptance 2; observed arm since kogaki#1030).
+  // THE PIN CLAUSE IS THE HEAD on both arms (PR #921): each form abbreviates at exactly
+  // the head's end, not one space later.
   if (p.state === JUDGMENT_OBSERVED) {
     return wrapDisplayLine(`the Harness holds its own `
       + `invocation record \`${invocationRef(p.invocation)}\`, taken over ${seen} (SPEC-terrain, the SubGroup threshold, the report identity)`,
@@ -4856,27 +3487,12 @@ function judgePinLine(pin, prov) {
   `judge pin DECLARED — ${pin.model_id} / ${pin.effort_tier}.`).join("\n");
 }
 
-// THE REPORT'S JUDGE LINE, composed ONCE (kogaki#918). It sits beside
-// `judgePinLine` rather than inside it: the display and the report are two
-// surfaces with two sentences by the report identity's own arrangement, and folding them
-// would make one of them say what the other's reader needs. What it does share
-// is the rule — one composer per surface, so a renderer cannot come to say two
-// things about one record.
-//
-// THREE ARMS, and the third is what #918 adds. A `none` pin is the ABSENCE of
-// a pin, not a declared one, so a provenance clause reading `pin DECLARED`
-// against it asserts a declaration nobody made — the same class kogaki#892
-// closed one step over (a declaration rendered as an observation), arriving in
-// the change that closed it.
-//
-// AND THE CLAUSE NAMES THE RECORD, never the run. It used to open `observed:`,
-// which reads as a fact about the act that produced the line — and the
-// idempotent-rerun path re-renders a PRIOR record through this same function,
-// so a rerun that DID pass `--subdivisions` rendered a pre-#892 record as
-// `observed: no subdivisions record`: true of the record, false of the run,
-// with nothing in the line saying which. The repair is made here, at the one
-// composer both paths reach, rather than at the rerun site — a second sentence
-// for the second path is exactly the divergence this arrangement refuses.
+// THE REPORT'S JUDGE LINE, composed ONCE (kogaki#918; see also kogaki#892).
+// Kept beside `judgePinLine`, not folded in: two surfaces, one composer each.
+// Three arms (#918 adds the third): a `none` pin is the ABSENCE of a pin,
+// never rendered as `pin DECLARED`.
+// The clause names the RECORD, never the run: the idempotent rerun re-renders a PRIOR (pre-#892)
+// record through this same function, so fix wording here, not at the rerun site.
 function reportJudgeLine(identity, prov) {
   const p = prov || { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
   const held = p.artifact_sha
@@ -4962,43 +3578,13 @@ function fetchGlossBodies(kind, tag) {
 }
 
 // ---- COMPOSE-INPUT --------------------------------------------------------
-// compose-input — the BOUNDED input the claim and subdivision composers read
-// (kogaki#163 lever 3; SPEC.md, the rendering rule's "Tag-scoped and bounded — one shard pair
-// per viewed tag", and GroupClaim-first rendering's silence on the composer's input).
-//
-// WHAT THIS FIXES, measured rather than argued. Dogfood run 2026-08-07, tag
-// `architecture`: 70 Lessons, 11 co-tag groups, 131 placements, ~19 minutes
-// between the survey record write and the last Full Report write. The runtime
-// was never the cost — re-running `cotags` read-only over the same record
-// renders instantly — the cost was COMPOSITION, and it grew in the wrong
-// quantity: the composer reached for each group's material once per group, so
-// 70 Lessons cost 131 reads. The material a group needs is a subset of the
-// material the TAG's shard pair already carries, and that pair is already the rendering rule's
-// budget, so the excess bought nothing.
-//
-// THE BOUND IS STRUCTURAL, NOT ADVISORY. `material` is keyed by member id and
-// `groups` carry ids only — references into it. A member appearing in five
-// groups therefore appears ONCE in this artifact, and there is no shape in
-// which a per-group copy could be written: the composer has no per-group
-// material to re-read because none exists. That is the difference between
-// bounding an input and asking a composer to be frugal with one.
-//
-// THE FETCHER IS INJECTED, and that is what makes the bound OBSERVABLE. The
-// property this story asserts is a count of served-material reads, so the
-// detector's unit has to be the read itself — "if the check is reading the
-// system's own explanation of what it did, an explanation is not evidence"
-// (`match-the-detectors-unit-to-the-propertys-unit`,
-// gloss/lessons/testing.md:131@12ba65dd). A `reads:` field this function wrote
-// about itself would be exactly that explanation, so the accounting block
-// below is a REPORT for the operator and the check does not read it: the
-// fixture passes a counting fetcher and counts the calls, and a second fixture
-// holds the candidate set fixed while multiplying the placements to show the
-// count does not move with them (AC3's discriminator, which no single run can
-// display).
-//
-// It composes NOTHING and judges NOTHING. The claim wording stays the
-// composer's (GroupClaim-first rendering leaves it there) and the coherence label stays the judge's
-// (semantic subdivision); this hands over material and the group structure, and no verdict.
+// compose-input — the BOUNDED input the claim and subdivision composers read (kogaki#163 lever 3;
+// SPEC.md, the rendering rule: "Tag-scoped and bounded — one shard pair per viewed tag").
+// The bound is structural: `material` is keyed by member id and `groups` carry ids only, so a
+// member in five groups appears ONCE; never add per-group copies of material.
+// The fetcher is INJECTED so a check can count served-material reads; the accounting block below
+// is an operator report and no check reads it (gloss/lessons/testing.md:131@12ba65dd).
+// It composes and judges NOTHING: claim wording stays the composer's, coherence the judge's.
 const COMPOSITION_INPUT_BOUND =
   "one tag-scoped served Gloss shard pair, fetched once for the run (SPEC.md, the rendering rule)";
 
@@ -5039,20 +3625,11 @@ function composeInput(record, tag, groups, fetchShard) {
     kind: "composition-input",
     tag,
     pin: record.pin,
-    // THE COMPOSITION PIN (the open-questions section, v10, kogaki#212). The claim composer copies this
-    // into its claims artifact, and `cotags` refuses claims whose members are
-    // not a SUBSET of what it covers — which is what makes composing from the
-    // whole survey unproducible rather than merely discouraged.
-    //
-    // IT CARRIES THE SERVED MEMBER SET, NOT A DIGEST, and that correction is
-    // the whole of why the guard can do its job. A digest supports EQUALITY,
-    // not subset, and can name no offender — so it could not deliver the
-    // refusal the open questions states, which names the members that fall outside. The
-    // property was load-bearing and the digest was the mechanism, so the
-    // mechanism gave way
+    // THE COMPOSITION PIN (the open-questions section, v10, kogaki#212). The claim composer copies
+    // this into its claims artifact; `cotags` refuses claims whose members are not a SUBSET of it.
+    // It carries the served MEMBER SET, not a digest: a digest supports equality, not subset, and
+    // cannot name the offending members the refusal must name.
     // (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:86`).
-    //
-    // It costs no new computation: `groups` below is already assembled.
     composition_pin: {
       tag,
       pin: record.pin,
@@ -5147,20 +3724,9 @@ function reportsDir(args) {
   return dir;
 }
 
-// The retired directory, disposed of rather than left to rot (acceptance 4).
-//
-// kogaki#750 retires the PARENT — no lane writes anywhere under `~/.kogaki` any
-// more — and widening this `rmSync` to that parent was DECLINED rather than
-// overlooked: #234 licensed removing one directory this repository had written,
-// and removing a whole home-directory tree on every survey run is a larger act
-// than the one licensed, on a path no check of this repository can see. The
-// owner deleted the legacy contents by hand on 2026-09-01, so the widening
-// would also have nothing left to remove on the machine that motivated it.
-// Reports are idempotently regenerable (the report identity), so there is nothing to migrate
-// — the honest act is to remove it and SAY SO ONCE, never to leave an invalid
-// location on disk looking authoritative. Silent removal is not on the table:
-// deleting a directory the owner may have opened, without a word, is the
-// storage-side twin of the defect this whole change is about.
+// The retired directory, removed and announced ONCE, never silently (acceptance 4).
+// Scoped to the one directory #234 licensed; kogaki#750 retires the parent `~/.kogaki`, but this
+// `rmSync` must not widen to that parent. Reports are regenerable, so nothing is migrated.
 function retireLegacyReportsDir() {
   const legacy = join(homedir(), ".kogaki", "reports");
   if (!existsSync(legacy)) return;
@@ -5171,28 +3737,11 @@ function retireLegacyReportsDir() {
     + "idempotent (SPEC-terrain, the report identity) — rerun to regenerate at the new locations.");
 }
 
-// Where the OWNER RENDERING lives (location and naming v11, kogaki#234). The working tree,
-// because a Full Report is what the owner reads to think a Thesis through and
-// `specs/SPEC.md`, "Human-facing files live where the human works", rules that a
-// machine-local hidden directory DECLARES a
-// file machine-facing. Terrain was in a failed state under that rule until this
-// existed.
-//
-// The discriminator is LIFETIME, never format: a run workspace holds things
-// whose lifetime is the RUN, the tree holds things whose lifetime is the
-// OWNER's — the discriminator is LIFETIME, not format or audience-in-principle. Defaulting to the repository root rather than to cwd is
-// deliberate — the location must not depend on where the command was invoked
-// from, which would be the producing stage's convenience picking the location
-// again, one layer down.
-// THE DESTINATION IS RESOLVED PURELY, and preparing it is a second act (PR
-// #702 round 1, finding 2). `renderingsDir` is not a resolver: it `mkdirSync`s
-// the destination and runs `retireIdentityNamedRenderings`, which DELETES files
-// in the owner's tree and announces it. A write-authority guard that called it
-// to learn where the write would land therefore created `reports/` and retired
-// owner-tree files BEFORE deciding the act was unauthorized — a refusal that
-// keeps the act off the owner surface in the write direction only. Splitting
-// the two makes the guard's input side-effect-free; `renderingsDir` composes
-// the same expression, so the default cannot drift between them.
+// Where the OWNER RENDERING lives (location and naming v11, kogaki#234; `specs/SPEC.md`,
+// "Human-facing files live where the human works"). The discriminator is LIFETIME, not format.
+// Default to the repository root, never cwd: the location must not depend on the invocation dir.
+// Resolution is PURE (PR #702 round 1): `renderingsDir` also mkdirs and retires owner-tree files,
+// so a guard must call this, never `renderingsDir`, to learn where a write would land.
 function renderingDestination(args) {
   return args["rendering-dir"] || process.env.KOGAKI_REPORTS_DIR
     || join(repoRoot(), "reports");
@@ -5205,22 +3754,10 @@ function renderingsDir(args) {
   return dir;
 }
 
-// location and naming v12 (owner ruling 2026-08-14): the tree holds EXACTLY ONE owner
-// rendering — `FullReport.md`, overwritten on every pull. An identity-named
-// `terrain-full-report-<digest>.md` in the tree is the machine register's
-// naming reaching the owner surface — the defect the no-hidden-path owner-surface rule states by
-// LOCATION, arriving by NAME — so any file so named is retired on sight, with
-// one line saying so (the same disposal discipline as `retireLegacyReportsDir`:
-// never silently). Nothing is lost: the rendering is a pure function of the
-// machine record (the report identity), which keeps identity and coexistence in the run
-// workspace, so a rerun regenerates any of them.
-// EXPORTED so the retirement can be asserted SEAM-FREE (PR #436 round 1,
-// finding 4). Reached only through `renderingsDir`, this ran exclusively on the
-// `report` path, which reads served Gloss — so on a machine with no gateway
-// every case covering it degraded to CANNOT-DETERMINE and the whole behaviour
-// could be deleted with the suite still green. Exporting it costs nothing the
-// module did not already expose (`relFromRepo` is exported for the same reason)
-// and buys a case that runs everywhere.
+// location and naming v12 (owner ruling 2026-08-14): the tree holds EXACTLY ONE owner rendering,
+// `FullReport.md`. Any identity-named `terrain-full-report-<digest>.md` is retired on sight, with
+// one line saying so (as `retireLegacyReportsDir`: never silently); a rerun regenerates it.
+// EXPORTED so the retirement is asserted seam-free (PR #436 round 1, finding 4).
 function retireIdentityNamedRenderings(dir) {
   const stale = readdirSync(dir)
     .filter((f) => f.startsWith("terrain-full-report-") && f.endsWith(".md"));
@@ -5267,19 +3804,9 @@ function repoRoot() {
   }
 }
 
-// THE OWNER SURFACE'S ARTIFACT LINES, IN ONE PLACE (the no-hidden-path owner-surface rule; location and naming, v11).
-//
-// This function exists because there are TWO paths that finish a report — the
-// fresh write and the idempotent rerun — and PR #240 round 1 finding 2 fixed
-// clause 3 on the first and left the second printing the absolute
-// `~/.kogaki/runs/reports/….json` with no repo-relative rendering path at all.
-// The live run of 2026-08-08 took the rerun path, which is the path a SECOND
-// look always takes, and got the machine path and no "READ THIS ONE" line.
-//
-// Two branches printing the same contract in two places is what made a
-// one-branch fix look complete, so the contract is stated ONCE and both
-// branches call it. A duplicated invariant is one that a later fix updates
-// half of.
+// THE OWNER SURFACE'S ARTIFACT LINES, IN ONE PLACE (no-hidden-path rule; location and naming v11).
+// Both report paths — the fresh write and the idempotent rerun — must call this; never print the
+// artifact lines inline on one branch (PR #240 round 1 finding 2).
 function announceArtifacts(rendered, recordPath) {
   if (rendered) {
     console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md, location and naming): ${relFromRepo(rendered)}`);
@@ -5297,64 +3824,22 @@ function announceArtifacts(rendered, recordPath) {
   }
 }
 
-// THE CoTagGroups OWNER RENDERING (kogaki#434; implemented under
-// kogaki#464 after #434 closed without it).
-//
-// The runtime WRITES this rendering, and the single producer rule's removal of the relay as a
-// producer is why: the channel this repository is operated through displays a
-// tool call's stdout TO THE MODEL and not reliably to the owner — it collapses
-// to a one-line summary — and retyping is prohibited (the single producer rule) while a question
-// UI is prohibited after tag selection (the post-tag-selection window). What model composition produced
-// was not silence but a FALSE CLAIM OF SUCCESS, which reads as delivery.
-//
-// THE NAME IS A LITERAL joined onto the renderings directory, exactly as
-// `FullReport.md` is, so a second rendering name is UNWRITABLE RATHER THAN
-// DETECTED — the constrain-side answer what is not carried names in its own
-// what-is-not-carried list. Every display renders through here; there is no
-// second path and no caller-supplied name.
-//
-// location and naming v12's "exactly one owner rendering" is SCOPED TO FULL REPORT
-// RENDERINGS, and this display is a SECOND owner-rendering class with
-// its own count of exactly one: overwritten per render, never accumulated. The
-// invariant location and naming v12 actually protects — no accumulation, no machine-register
-// naming on the owner surface — holds for both, which is why this is a scoping
-// and not a repeal.
-// THE NAVIGATION HINT, one literal shared by the emitter and asserted against
-// the grammar (kogaki#665). Its previous form named `view --survey <F> …` —
-// the entry point this issue REMOVES — so under REFUSE the emitter would have
-// had to print a removed subcommand or refuse. `report-format.json`'s
-// `navigation_hint` form is amended to match, deliberately and on this
-// issue's licence, never to make a refusal go away.
+// THE CoTagGroups OWNER RENDERING (kogaki#434; implemented under kogaki#464 after #434 closed).
+// The runtime WRITES it (the single producer rule): the relay must not retype the display.
+// The name is a LITERAL on the renderings directory, like `FullReport.md`: every display renders
+// through here, with no second path and no caller-supplied name. One file, overwritten per render.
+// NAVIGATION_HINT is one literal shared by the emitter and `report-format.json`'s `navigation_hint`
+// form (kogaki#665); change both together.
 const NAVIGATION_HINT =
   "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word.";
 
 const DISPLAY_RENDERING = "CoTagGroups.md";
 
-// WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain, write authority v28, kogaki#681,
-// successor to #680). Write authority's title — "owner artifacts are written only from
-// writing states" — was carried by nothing: `cotags` and `report` stayed live
-// dispatcher cases calling the same renderers, so a session could mint
-// `reports/CoTagGroups.md` or `reports/FullReport.md` out of order, with no run
-// record. #680's disposition ("they cease to exist as entry points") was
-// REFUTED by observation at #681: the executor re-surveys live rather than
-// accepting a fixture, `compose_input` crosses the served-material seam, and
-// `J1_claims` is non-conditional — so the 34 composition-check sites that drive
-// these two commands could not be migrated, and the claimless display the display's serve rule
-// requires is unreachable through `run` at all.
-//
-// SO THE REFUSAL BINDS THE WRITE AND NOT THE ENTRY POINT. The commands survive
-// as COMPOSITION routes; what they cannot do is land an owner artifact. The
-// discriminator is the RESOLVED destination, never a flag and never an env
-// var's presence — the non-flow utilities forecloses a debug-only escape ("a retained generator
-// regenerates what a ban forbids"), and a route whose refusal could be
-// switched off would be exactly that. A caller that redirects elsewhere writes
-// no owner artifact by that section's own lifetime rule, which is why the check suite's
-// throwaway-directory runs are unaffected rather than exempted.
-//
-// WHAT THIS DOES NOT CLAIM, stated because the superseded prose overclaimed in
-// exactly this direction: the composition remains callable out of order. The
-// property carried here is the one in the section's title, and write authority now says
-// that and no more.
+// WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain, write authority v28,
+// kogaki#681, successor to #680; #681 kept `cotags`/`report` as entry points).
+// The refusal binds the WRITE, not the entry point: `cotags`/`report` stay composition routes but
+// cannot land an owner artifact out of order. The discriminator is the RESOLVED destination —
+// never a flag or env var. The composition itself remains callable out of order.
 let WRITING_STATE = null;
 
 // The default owner location, as one expression. `renderingsDir` composes the
@@ -5385,31 +3870,10 @@ function writeDisplay(args, text) {
   return path;
 }
 
-// THE ONE PRIVATE DISPLAY WRITER (write authority, kogaki#665). Every state whose
-// `writes` field names the display artifact goes through here, and the GRAMMAR
-// COMES FROM THE CALLING STATE rather than from the artifact path — three
-// states share one file, and `report-format.json` declares a separate surface
-// for each, so a writer that inferred the grammar from `CoTagGroups.md` could only
-// ever enforce one of the three.
-//
-// WHAT THIS REMOVES, which is the point rather than a tidy: `cmdView` used to
-// call `writeDisplay` DIRECTLY, with no `emitOrRefuse` anywhere on its path —
-// so the two listing surfaces had declared grammars that nothing on the
-// write path enforced. An earlier form admitted two writers; write authority supersedes it with
-// one, and this is that one. The refusal gates the WRITE and not only a print,
-// because `emitOrRefuse` takes the write as a callback: there is no path here
-// that emits first.
-//
-// AND THE PRINT IS INSIDE THE CALLBACK TOO (PR #667 round 2, carried to
-// kogaki#625). All three display states printed the text and THEN called this,
-// so the sentence above was true of the write and false of the terminal — the
-// property "a nonconformant display reaches neither the owner's terminal nor
-// their artifact" had quietly become a property of the artifact alone. The single producer rule
-// puts the owner's reading on the artifact, so the ratified guarantee was
-// intact and only its stated reach was overclaimed; the repair is to make the
-// sentence true again rather than to narrow it, because a comment asserting a
-// structural property the code no longer has is how the next edit loses it for
-// real. One printer, one writer, one callback, one refusal.
+// THE ONE PRIVATE DISPLAY WRITER (write authority, kogaki#665; PR #667 round 2, kogaki#625).
+// The GRAMMAR comes from the CALLING STATE, not the artifact path: three states share one file.
+// Both the print and the write run inside `emitOrRefuse`'s callback, so a nonconformant display
+// reaches neither terminal nor artifact. One printer, one writer, one callback, one refusal.
 function writeDisplaySurface(args, surface, text) {
   // BEFORE THE PRINTER, NOT ONLY BEFORE THE WRITE (write authority v28, kogaki#681).
   // `writeDisplay` carries the same refusal as the writer's own guard, but the
@@ -5430,54 +3894,20 @@ function writeDisplaySurface(args, surface, text) {
   return path || fail(`${surface} produced no artifact path`);
 }
 
-// THE HAND-OVER'S FLOOR, and only its floor. Writing the artifact is NOT
-// delivery: a run that writes `reports/CoTagGroups.md` and tells the owner nothing
-// produces exactly the owner-visible state kogaki#434 was filed against.
-//
-// THE DESIGN CONTENT THIS WAS IMPLEMENTED AGAINST, COPIED HERE RATHER THAN
-// CITED (owner ruling 2026-09-05, kogaki#857). A section number is not a stable
-// name and carries no authority over code; a spec may be rewritten or deleted
-// and this function must keep working against what it was built for. So the
-// rule it implements is stated here in full, and propagating a later design
-// change into this code is a separate, explicit act:
-//
-//   the hand-over floor  — the rendering reaches the owner as the first act
-//   after the command returns, and the object of that act is the artifact,
-//   NAMED. Handing over nothing is a failure. The floor binds the HAND-OVER
-//   and never the write.
-//
-//   one rendering per class — exactly one CoTagGroups file exists, overwritten
-//   per render, the same count the Full Report's rendering carries.
-//
-// What this function does is name the artifact. WHICH FORM the relay's own
-// hand-over takes — a pointer, an `!`-command, a file-send — is non-normative
-// and is deliberately not decided here: a runtime that printed one prescribed
-// form would re-import the harness binding the ruling removed.
+// THE HAND-OVER'S FLOOR (kogaki#434; owner ruling 2026-09-05, kogaki#857). Writing is not
+// delivery: the rendering must reach the owner, NAMED, as the first act after the command returns.
+// Exactly one CoTagGroups file exists, overwritten per render. This function names the artifact;
+// the form of the relay's hand-over is deliberately not decided here.
 function announceDisplay(path) {
   console.log(`CoTagGroups — READ THIS ONE (owner rendering): ${relFromRepo(path)}`);
   console.log("ONE CoTagGroups file, overwritten per render — one owner rendering per class.");
 }
 
-// The owner register (location and naming v11). Markdown, because the artifact's whole job is
-// to be READ — the JSON beside it keeps every machine property, so nothing here
-// is load-bearing for identity and nothing may parse it back.
+// The owner register (location and naming v11). Markdown; nothing may parse it back.
 // the Thesis candidates — the section this register renders (kogaki#760).
-//
-// THE ABSENT CASE RENDERS THE SECTION AND SAYS IT IS EMPTY, which is the
-// fallback CHOSEN at the gate rather than inherited from the code. The three
-// candidates were: refuse the render, omit the section, or disclose. Omitting
-// makes "no candidates were composed" and "this section does not exist"
-// indistinguishable to the owner, which is the silence the neighborhood section's shape already refuses
-// for the neighborhood — "an empty result renders its explicit lines, never an
-// absent section" — and this follows that precedent in the same file. Refusing
-// was the stronger reading of "fixed section" and was declined at the gate for
-// its blast radius: eighteen `report` invocations supply no such file.
-//
-// The count, the arity and the membership are NOT checked here. They are
-// runtime refusals in `cmdReport`, sited before anything is written, because
-// `full_report`'s `line_class_allowlist` is inert — three of its body classes
-// are bare placeholders admitting any line — so a grammar class on this
-// surface carries FORM and can police nothing else.
+// The absent case RENDERS the section and says it is empty — never omit it, never refuse.
+// Count, arity and membership are NOT checked here; they are runtime refusals in `cmdReport`,
+// because `full_report`'s `line_class_allowlist` is inert.
 function thesisCandidatesSection(candidates) {
   const L = ["## Thesis candidates", ""];
   L.push("*Non-binding: this section does not constrain the Brief's Thesis.*");
@@ -5503,38 +3933,18 @@ function thesisCandidatesSection(candidates) {
   return L;
 }
 
-// THE PRE-#861 REPLAY GUARD, PURE AND EXPORTED (PR #923 round 1, finding 2).
-// It lives here rather than inline in `cmdReport` for the reason every other
-// predicate in this file was split out: `cmdReport` reaches the seam, so a
-// fixture that can only call the command cannot state this property, and a
-// guard whose failing path no case can reach is one nobody can show works.
-//
-// WHAT IT ANSWERS: thesis candidate ids were minted at RENDER time until
-// kogaki#861 moved the mint into `readThesisCandidates`, so a record stored
-// before that move carries candidates with no `id` — and `thesisCandidatesSection`
-// now refuses one, naming "a caller that bypassed the reader" when the true
-// cause is a record predating the field. Replaying such a record would fail a
-// rerun that has done nothing wrong, which is exactly the treatment the
-// `priorPredatesJudgmentKey` clause declines two clauses up. Recomputing mints
-// the ids through the reader, which is where they now come from.
+// THE PRE-#861 REPLAY GUARD, PURE AND EXPORTED (PR #923 round 1, finding 2) so a case can reach it.
+// A record stored before kogaki#861 carries thesis candidates with no `id`; such a record is
+// RECOMPUTED (the reader mints the ids), never replayed into `thesisCandidatesSection`.
 function priorPredatesCandidateIds(prior) {
   return Array.isArray(prior && prior.thesis_candidates)
     && prior.thesis_candidates.some((c) => !c || !c.id);
 }
 
-// THE WHOLE REPLAY DECISION, not just its new conjunct — and the widening is
-// the repair rather than tidiness. The first cut of this fix exported the
-// predicate alone and asserted it, and the mutation that DROPPED the conjunct
-// from `cmdReport`'s condition left the fixture GREEN: the case bound the
-// predicate and the defect lived at the call site, which is the same
-// binds-a-proxy shape this sitting's own emission names one layer over. A case
-// can only bind the decision if the decision is the thing it calls, so the
-// condition moves here whole and `cmdReport` asks it rather than composing it.
-//
-// The two predating guards are stated as one function and not two because they
-// are one rule: a stored record that cannot be shown idempotent is RECOMPUTED
-// — never replayed, and never refused, since refusing would fail a rerun that
-// has done nothing wrong.
+// THE WHOLE REPLAY DECISION lives here, and `cmdReport` asks it rather than composing it, so a
+// case binds the decision itself, not a predicate beside the call site.
+// Rule: a stored record that cannot be shown idempotent is RECOMPUTED — never replayed, never
+// refused.
 function shouldReplayPrior(prior, identity, sameIdentityFn = sameIdentity) {
   const predatesJudgmentKey = !!(prior && prior.identity
     && prior.identity.neighborhood_judgment === undefined);
@@ -5569,23 +3979,9 @@ function renderReportMarkdown(report, tag) {
   L.push("> article material is quoted from served renderings at pins, never");
   L.push("> from a report.");
   L.push("");
-  // the Thesis candidates — THE THESIS CANDIDATES SECTION (kogaki#760, owner ruling
-  // 2026-09-01). The early image, so it is the first CONTENT the owner reads.
-  //
-  // SITED BELOW THE PREAMBLE, and the choice is stated rather than left as an
-  // accident of where the push landed. The ruling says "immediately after the
-  // report header"; the preamble is the boundary notice governing how
-  // everything under it is read ("It is a RENDERING, not an address"), and a
-  // section whose claims a judge composed belongs under that notice rather
-  // than above it. Everything the ruling's own ground asks for is still
-  // satisfied — nothing but the identity and the boundary precedes it.
-  //
-  // NON-BINDING, AND THE LINE SAYS SO ON THE SURFACE. Brief cannot yet select
-  // or discard Strands, so the desired combination must be completable inside
-  // Terrain; this section serves that and constrains the Brief's eventual
-  // Thesis not at all. A reader who meets three candidate claims at the top of
-  // a report will otherwise take them for a narrowing, which is the one thing
-  // the second-proposer boundary promises this surface never does.
+  // the Thesis candidates — THE THESIS CANDIDATES SECTION (kogaki#760, owner ruling 2026-09-01).
+  // Sited directly BELOW THE PREAMBLE (the boundary notice) and above all other content.
+  // NON-BINDING, and the line says so on the surface: it constrains the Brief's Thesis not at all.
   L.push(...thesisCandidatesSection(report.thesis_candidates));
   // The singular `## Group claim` block is GONE (the Full Report v7): a report may span
   // several ids, so there is no one group whose claim heads the file. Each
@@ -5635,19 +4031,9 @@ function renderReportMarkdown(report, tag) {
   L.push("## Counted");
   L.push("");
   for (const [fam, n] of Object.entries(report.counted || {})) L.push(`- ${fam}: ${n}`);
-  // THE `- lessons served: <n>` LINE IS GONE (kogaki#761, owner ruling
-  // 2026-09-01; report-format.json v16 retires its `counted_served` class in
-  // the same act). It rendered the full served denominator — every candidate
-  // in the survey record, not the members of this report — and the owner ruled
-  // it must not be displayed.
-  //
-  // THE RECORD FIELD STAYS, and the split is the whole of why this is safe:
-  // `report.lessons_served` is still written by both record builders — grep
-  // `lessons_served:` for the pair; they are named by the FIELD rather than by
-  // a line number, which this very edit would have shifted — so nothing
-  // reading the machine record breaks. What is withdrawn is one line of the
-  // OWNER SURFACE. A reader looking for the denominator finds it on the record
-  // and not on the report, which is the state the ruling asks for.
+  // No `- lessons served: <n>` line on the owner surface (kogaki#761, owner ruling 2026-09-01;
+  // report-format.json v16 retires `counted_served`).
+  // `report.lessons_served` is still written by both record builders (grep `lessons_served:`).
   L.push("");
   L.push(...servedLinesBlock(report));
   // the neighborhood as a report v20 / the Full Report v8 (kogaki#473) — the provenance neighborhood, ONCE and
@@ -5664,37 +4050,10 @@ function renderReportMarkdown(report, tag) {
   return L.join("\n") + "\n";
 }
 
-// THE MEMBER → SERVED-LINE MAP, SITED ONCE AT THE REPORT'S END (the Full Report, line 805).
-//
-// This is the baseline's own siting — *"the shared pin stated once in the Full
-// Report, with the member → served-line map at the report's end"*
-// (wa#1115/#1116) — and until story 1.53 the renderer satisfied the Full Report by putting
-// a `*Served line:*` row on every member instead. That per-member form is what
-// kogaki#318 called the second name-shaped row, and the owner's story-1.53 SQ2
-// ruling removed it.
-//
-// So the map MOVES rather than disappearing, and both halves matter: the display-ID rule
-// takes element NAMES off the owner surface, while the Full Report keeps the ADDRESS the
-// report is accountable to. A cite is an address — it is what lets a reader
-// check the report against the substrate — and dropping it from the rendering
-// entirely would have made the owner rendering uncheckable without opening the
-// machine record, which is a different decision from the one that was made.
-//
-// A member with no display_id or no cite is NAMED here rather than omitted:
-// a map that silently skips its unmappable rows is the shape the placement cover forbids.
-// THE PIN IS STATED ONCE, IN THE IDENTITY — so every other cite renders BARE
-// (the Full Report v12, kogaki#315, story 1.56 AC5/AC6).
-//
-// A served cite arrives as `<file>:<line>@<pin>`; the `@<pin>` half is the
-// substrate pin repeated. On a two-member report that was six pin-bearing
-// lines where the Full Report registers one, and story 1.53 did not fix it — it moved the
-// per-member `*Served line:*` row into a trailing map and carried the pin
-// along, same count, different siting.
-//
-// `pin_once_per_file` could not see any of it: that rule counts occurrences of
-// the `substrate_pin` LINE CLASS, so it read 1 and passed. The repair is here,
-// at the emitters, rather than in a widened rule — which is why story 1.56
-// AC5 asserts pin-once by COUNTING OCCURRENCES over the rendered bytes.
+// THE MEMBER → SERVED-LINE MAP, SITED ONCE AT THE REPORT'S END (the Full Report, line 805;
+// wa#1115/#1116; story 1.53, kogaki#318). A member with no display_id or cite is NAMED.
+// THE PIN IS STATED ONCE, IN THE IDENTITY — every other cite renders BARE (the Full Report v12,
+// kogaki#315, story 1.56 AC5/AC6). AC5 asserts pin-once by counting occurrences in rendered bytes.
 function bareCite(cite) {
   if (cite === null || cite === undefined) return cite;
   const s = String(cite);
@@ -5743,32 +4102,11 @@ function servedLinesBlock(report) {
   return L;
 }
 
-// ONE MEMBER, WHOLE (the Full Report). The record carries six served fields per member —
-// `id`, `cite`, `gloss`, `gloss_cite`, `journey_gloss`, `journey_cite` — and
-// this is the surface the Full Report addresses when it says "the complete Lesson and
-// Journey Glosses, with no truncation anywhere" and that the report "carries
-// the member → served-line map in its member records".
-//
-// THE DEFECT THIS REPLACES. The previous renderer emitted `\`id\` — gloss` and
-// dropped the other four. The live dogfood run of 2026-08-08 (kogaki#234
-// comment 5223800169) found `grep -c "gloss/lessons/"` returning ZERO over
-// every file in `reports/`, no Journey Gloss text anywhere, and a file that
-// opened with `> Untruncated.` and printed `- journey: 1` in its Counted block
-// while containing no journey. That is the kogaki#243 form-E shape exactly:
-// the prose asserted a property no carrier held, and every assertion under the report identity
-// stayed green because identity and idempotence are true of a rendering that
-// drops its material.
-//
-// The member is a BLOCK rather than a list row because the property is
-// UNTRUNCATED: a served Gloss body is multi-line prose, and a bullet row can
-// only carry it by flattening or by cutting. A form that cannot hold the whole
-// value is the truncation, one layer down from the code that does the cutting.
-//
-// ABSENCE IS STATED, never left as a gap. A member with no Journey and a
-// member whose Journey went missing render differently, and neither renders as
-// silence — the same rule the report identity v9 applies to judged-empty SubGroups. Without
-// it the Counted block's `journey: N` has nothing in the body to agree with,
-// which is how the run above produced a count with no material behind it.
+// ONE MEMBER, WHOLE (the Full Report): render all six served fields — `id`, `cite`, `gloss`,
+// `gloss_cite`, `journey_gloss`, `journey_cite` — with no truncation (kogaki#234, kogaki#243).
+// A BLOCK, not a list row, so multi-line Gloss prose is never flattened or cut.
+// Absence is STATED: no Journey and a missing Journey render differently, never as silence
+// (the report identity v9).
 function memberBlock(m, level) {
   const h = "#".repeat(Math.max(1, Math.min(6, level || 3)));
   // A non-object member is a malformed record, and it renders as that rather
@@ -5840,59 +4178,13 @@ function identityDigest(identity) {
     .digest("hex").slice(0, 16);
 }
 
-// THE COMPOSED-INPUT DIGEST (the report identity, kogaki#700). The identity names the substrate
-// pin, the query and the judge pin — and NOT the composed inputs, which the report identity
-// ratifies in as many words ("Nothing else enters the key: not the composed
-// claims, not the run"). Those inputs nonetheless decide what the artifact says,
-// so a rerun supplying different ones had the same identity and a different
-// rendering, and the idempotent-rerun branch replayed the stored one. Measured on
-// all three: a changed `--claims` re-rendered the first claim, a changed
-// `--subdivisions` rendered no SubGroup, and a judged `--neighborhood` pull of a
-// set already reported unjudged rendered the unjudged form.
-//
-// THE DIGEST IS RECORDED, NOT KEYED, which is the served discipline rather than a
-// compromise between the two arms: a rendering is pinned to the sha of the content
-// it was made from, and a mismatch RE-SURFACES rather than silently re-rendering.
+// THE COMPOSED-INPUT DIGEST (the report identity, kogaki#700). Composed inputs are RECORDED,
+// not keyed: a mismatch at the same identity refuses (`COMPOSED_INPUT_MISMATCH`), never replays.
 // consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:118
-//
-// FILE BYTES RATHER THAN A PARSE, deliberately. It is literally "the content it
-// was made from", it adds no second parse of an artifact the run already read
-// through its own reader, and it cannot drift from whatever those readers accept.
-// The cost is stated: a whitespace-only reformat of an input refuses a rerun that
-// would have rendered identically. That is a false refusal and never a false
-// render, and the record cannot know the edit was insignificant.
-// `neighborhood-candidates` joined the set with kogaki#700: once the pull
-// consumes the emitter's persisted enumeration, that file decides what the
-// artifact says exactly as the three original inputs do.
-// `neighborhood` LEFT THIS SET at kogaki#741 and is now KEYED, per the report identity's
-// quadruple. The rest stay RECORDED — kogaki#700's arm is untouched for them,
-// and `COMPOSED_INPUT_MISMATCH` still fires on a changed `--claims`. The
-// discriminator is membership: a claims or subdivisions record changes what a
-// group SAYS about members the query already fixed, while the judgment record
-// decides WHICH CANDIDATES ARE DISPLAYED AT ALL.
-// `thesis-candidates` JOINED THE SET AT kogaki#927, and it joined the RECORDED
-// half rather than the identity because the report identity's own
-// discriminator puts it there: the claims and subdivisions change what a
-// section SAYS about members
-// the query already fixed, while the neighborhood judgment decides WHICH
-// CANDIDATES ARE DISPLAYED AT ALL. An edited candidates file changes the
-// Thesis candidates' claim text and strand picks, and the `serves: … for
-// TC<n>` rows that join
-// against them — what the report says, never who is in it. So it is RECORDED,
-// and `COMPOSED_INPUT_MISMATCH` is what a rerun at the same identity with an
-// edited file now meets.
-//
-// WHAT THE OMISSION COST, kept because the failure reported SUCCESS. The flag
-// decided the artifact while sitting in neither the identity nor this list, so
-// a same-identity rerun with an edited file took the replay branch, found an
-// empty delta, re-rendered the PRIOR record's Thesis candidates section, and
-// printed that the rerun was idempotent — rendering a candidate list the
-// invocation did not
-// supply, and returning before `refuseTargetsOutsideCandidates` could see it.
-// kogaki#861 raised the cost rather than creating it: every row judged under
-// the neighborhood section's shape now names a TC id, so a stale replay can
-// put a `serves: … for TC2` row
-// against a TC2 the supplied candidates no longer describe.
+// Digest is over FILE BYTES, not a parse (a whitespace-only edit refuses a rerun).
+// Set membership: an input that changes what the report SAYS is RECORDED here (kogaki#927);
+// one that decides WHICH CANDIDATES ARE DISPLAYED is KEYED (`neighborhood`, kogaki#741).
+// Every flag that decides the artifact must be here or in the identity (see kogaki#861).
 const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood-candidates", "thesis-candidates"];
 function composedInputDigests(args) {
   const out = {};
@@ -5942,21 +4234,9 @@ function reportIdentityKey(i) {
 }
 
 // THE ENTERED ID SET, RESOLVED AND CANONICALISED (the Full Report v6, kogaki#314).
-//
-// The owner reads a display and types `G10,G5-1,G5-2`. Those ids resolve
-// against THE GROUPS THIS RUN COMPOSES and nothing else — story 1.56 AC11
-// makes an id valid for the run that printed it, because a pin advance may
-// renumber, so a cached numbering would silently resolve to the wrong Strands.
-//
-// THE SORT IS NUMERIC-AWARE, and this is the part a plain reading gets wrong.
-// `G5-1` comes before `G10`: lexicographically `"G10" < "G5-1"`, which would
-// render a display's tenth group above its fifth. Compare the numeric
-// components, never the raw string.
-//
-// CANONICAL, so identity is SET-BASED (the Full Report v6): two typings of the same ids in
-// different orders are ONE artifact, which is what makes a re-request return
-// the same report rather than a second one. The cost is stated in the spec —
-// section order is canonical, not entry order.
+// Ids resolve only against the groups THIS RUN composes (story 1.56 AC11).
+// The sort is NUMERIC-AWARE: `G5-1` before `G10`; never compare the raw string.
+// Canonical, so identity is set-based: the same ids in any order are ONE artifact.
 function idSortKey(id) {
   const m = /^G([0-9]+)(?:-([0-9]+))?$/.exec(id);
   if (!m) return [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, id];
@@ -6006,30 +4286,11 @@ function resolveEnteredIds(entered, groups, subOf) {
 }
 
 // the Thesis candidates — reading and REFUSING the Thesis-candidate input (kogaki#760).
-//
-// EVERY BOUND IS A RUNTIME REFUSAL, and that siting is the finding rather than
-// a preference. `full_report`'s `line_class_allowlist` is INERT — three of its
-// body classes (`group_claim_body`, `subgroup_claim_body`, `member_gloss_body`)
-// are bare placeholders admitting any line, which the grammar's own reader
-// notes record — so a grammar class declared for this section polices its FORM
-// and cannot carry the count, the arity or the membership. A class asserted as
-// their carrier would read as coverage while checking nothing:
-//
-//   "the load-bearing half of an enumerated prohibition is its NON-MEMBER
-//    FALLBACK: a carrier keyed to the DECLARED instance bounds ARITY while
-//    leaving KIND admit-by-default, and because the carrier visibly works the
-//    enumeration reads as coverage."
+// Every bound is a RUNTIME refusal: `full_report`'s `line_class_allowlist` is inert, so a grammar
+// class cannot carry count, arity or membership.
 //   consulted: product-lab@ed0873dc topics/claude-code-ops.md:142
-//
-// THE COUNT IS EXACT, NOT A MAXIMUM. `limits.thesis_candidates` is read from
-// the grammar and never written here — a second literal would be the
-// two-carriers-of-one-number shape, and the number is exactly the kind of
-// value that drifts silently when copied.
-//
-// THE MEMBER SET IS THIS REPORT'S, not the survey's. A candidate may only
-// point at Strands the owner is actually reading in this file; an id that is a
-// perfectly good display id elsewhere in the record is still a refusal here,
-// because the section exists to let the owner combine what is in front of them.
+// The count is EXACT, read from `limits.thesis_candidates`; never write a second literal.
+// The member set is THIS report's display ids, not the survey's.
 function readThesisCandidates(raw, memberDisplayIds, limits) {
   const want = Number((limits || {}).thesis_candidates);
   if (raw === null || raw === undefined) return [];
@@ -6084,26 +4345,10 @@ function readThesisCandidates(raw, memberDisplayIds, limits) {
       fail(`${at} names ${[...new Set(dup)].join(", ")} more than once. A repeated strand inflates the `
         + "combination without adding to it.");
     }
-    // THE ID IS MINTED HERE, POSITIONALLY, AND IT IS MINTED BEFORE THE
-    // NEIGHBORHOOD IS JUDGED (kogaki#861, owner ruling 2026-09-05). It used to
-    // be minted at RENDER time inside `thesisCandidatesSection`, which was
-    // sound while nothing but that section named a TC id — and unusable the
-    // moment J3's judgment record had to name one. A neighbor's target is
-    // checked against this set, so the set must be FIXED before the judgment
-    // rather than assigned after it:
-    //
-    //   "JUDGMENT SITS IN THE GAPS BETWEEN DETERMINISTIC PARTS, NEVER AS A
-    //    LAYER AROUND THEM … is the model deciding what happens next, or
-    //    supplying a value between two things whose order is already fixed?"
-    //   product-lab@ab04cc9bca21a600cd9eb0a594619d3ca899d05f
-    //     topics/claude-code-ops.md:24
-    //
-    // Still POSITIONAL and still never read from the input: a supplied id would
-    // be a second carrier for a number the list already fixes, and the two
-    // would drift the first time a candidate was reordered. What changed is
-    // WHEN the position is read, not who decides it — the `thesis_candidates`
-    // state reads it, writes the minted list to the run workspace, and every
-    // later reader of that file re-mints the same ids from the same order.
+    // THE ID IS MINTED HERE, POSITIONALLY, BEFORE THE NEIGHBORHOOD IS JUDGED (kogaki#861, owner
+    // ruling 2026-09-05): J3's targets are checked against this set, so it must be fixed first.
+    // (product-lab@ab04cc9bca21a600cd9eb0a594619d3ca899d05f topics/claude-code-ops.md:24)
+    // Never read an id from the input; later readers re-mint the same ids from the same order.
     return { id: `TC${i + 1}`, claim, strands: [...strands] };
   });
 }
@@ -6185,20 +4430,10 @@ function cmdReport(args) {
       + `{"judged": true, "subgroups": []} for a group whose judgment found no subdivision`);
   }
 
-  // the Thesis candidates (kogaki#760) — READ AND REFUSED HERE, before any generation runs, so
-  // the three bounds are checked while nothing has been written. The member set
-  // is THIS report's rendered display ids, which is why it is computed from the
-  // resolved targets rather than from the survey record.
-  // KEYED ON `t.kind`, LIKE THE TWO OTHER READERS OF THIS SHAPE. The first
-  // version tested `t.subgroup`, a field `resolveEnteredIds` never sets — the
-  // resolver puts the SubGroup on `t.sg` — so the ternary was always false and
-  // a `--ids G5-1` report validated candidates against the WHOLE PARENT GROUP.
-  // The refusal then admitted display ids the rendering does not carry, which
-  // is the coverage-shaped failure this very section cites
-  // `product-lab@ed0873dc topics/claude-code-ops.md:142` against, produced by
-  // the code that cites it. Caught by PR #763 round 1; the refusal block below
-  // gains a SubGroup-target case, because all five of its original cases ran
-  // `--ids G2` and none could have gone red on this.
+  // the Thesis candidates (kogaki#760) — READ AND REFUSED HERE, before anything is written.
+  // The member set is THIS report's rendered display ids, computed from the resolved targets.
+  // Key on `t.kind` (the SubGroup is on `t.sg`), like the other readers of this shape (PR #763
+  // round 1).
   const reportMemberIds = [...new Set(
     targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
     // `displayIdOf` returns the ABNORMAL sentinel rather than a falsy value
@@ -6236,20 +4471,11 @@ function cmdReport(args) {
   return generateReport(targets);
 
   function generateReport(entered) {
-  // the Full Report v7 — ONE report over the entered set. The identity is the set; each
-  // entered id becomes one SECTION, and the identity block, Counted and
-  // Served lines appear once for the file.
-  // THE NEIGHBOURHOOD JUDGMENT IS THE FOURTH COMPONENT (the report identity, kogaki#741), so
-  // it is hashed INTO the identity rather than beside it. Same reading as
-  // `composedInputDigests` takes — the record's file bytes — so the two cannot
-  // disagree about what "this input" is.
-  // A RECORD-JOINED PATH THAT NO LONGER RESOLVES REFUSES BY NAME (the neighborhood section's shape,
-  // kogaki#741 acceptance 2). The run record stores the judgment file's PATH,
-  // so a rerun reads the file again — and deleting it between J3 and the render
-  // must fail loudly rather than render an unjudged section. Left to the digest read below or to `readJson`
-  // this surfaces as an uncaught ENOENT, which is loud but names neither the
-  // state nor the repair, so the check is made HERE — ahead of the
-  // digest read, which is the first line that touches the file — and typed.
+  // the Full Report v7 — ONE report over the entered set; one SECTION per entered id.
+  // The neighbourhood judgment is the FOURTH identity component (the report identity, kogaki#741),
+  // hashed from the record's file bytes, as `composedInputDigests` reads it.
+  // A missing record-joined judgment path refuses BY NAME here, ahead of the digest read
+  // (the neighborhood section's shape, kogaki#741 acceptance 2).
   if (args.neighborhood && !existsSync(String(args.neighborhood))) {
     fail(`the neighborhood judgment record this pull joins is gone: ${String(args.neighborhood)} `
       + "does not exist. The run record names it, so J3_neighborhood ran and its file was removed "
@@ -6325,19 +4551,9 @@ function cmdReport(args) {
     subgroups = [];
   } else if (sub) {
     const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
-    // the SubGroup threshold v7 RULE 3 BINDS THIS SURFACE TOO, and it did not until PR #355
-    // round 1 finding 1. The rule reads unconditionally — "the group renders no
-    // SubGroups" — and story 1.57 implemented the suppression only in
-    // `cmdCotags`, so one run's two owner surfaces disagreed: the display showed
-    // the group flat while the report still carried the SubGroups the display
-    // had suppressed. An owner copying a G-id between them would have found two
-    // different structures under it, which is the divergence kogaki#317 minted
-    // the ids to prevent.
-    //
-    // The judgement runs HERE rather than being read off the display, because
-    // the two surfaces share the subdivision record and nothing else — reading
-    // the display's verdict would be a second carrier. Same input, same
-    // `judgeSubgroup`, same conclusion.
+    // the SubGroup threshold v7 RULE 3 binds this surface too (PR #355 round 1; kogaki#317):
+    // both owner surfaces must show the same structure under a G-id.
+    // Judge HERE with the same `judgeSubgroup`; never read the display's verdict.
     for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim, group.members.length);
     // EVERY SubGroup IS NAMED BY THE JUDGE (kogaki#738): the catch-all filter
     // that stood here excluded a bucket the engine composed, and that bucket is
@@ -6394,25 +4610,9 @@ function cmdReport(args) {
   for (const t of entered) sectionsOut.push(buildSection(t));
 
   // THE SPLIT REQUIREMENT REACHES THIS SURFACE TOO (semantic subdivision v30, kogaki#683; PR #705
-  // round 1). Disposition 1 refuses a judged-empty outcome for a group at or
-  // above the threshold, and the `subdivision_required_at_ten` grammar rule
-  // carries that on `cotag_groups`. It cannot carry it here: `full_report`'s
-  // section heading renders no LessonCount, and that surface's line-class
-  // allowlist is INERT by the grammar's own record — three body classes are
-  // bare placeholders, so no line on it can be unadmitted. A rule declared over
-  // a surface that cannot refuse would be coverage in name only.
-  //
-  // So the carrier here is a PRE-RENDER refusal, which is the same class in the
-  // sense the disposition names — engine-side, at emit, no model discretion —
-  // reached by the route this surface actually has. The runtime's declining to
-  // suppress at the threshold closes the SUPPRESSION route; this closes the
-  // judge-supplied-empty route, which is the one a record can walk in with.
-  //
-  // SCOPED TO GROUP SECTIONS. A section keyed by a SubGroup id carries that
-  // SubGroup's members and `subgroups: null`; semantic subdivision's requirement is on composed
-  // GROUPS, so the test reads the empty-array state that only a judged group
-  // reaches, and a suppressed split is excluded because suppression is already
-  // unavailable at this size.
+  // round 1). `full_report`'s allowlist is inert, so the carrier is this PRE-RENDER refusal.
+  // Scoped to GROUP sections: only a judged group reaches the empty-array `subgroups` state;
+  // SubGroup sections carry `subgroups: null`.
   for (const sec of sectionsOut) {
     if (sec.subgroups && sec.subgroups.length === 0 && !sec.suppressed_split
         && (sec.members || []).length >= SUBDIVISION_REQUIRED_AT) {
@@ -6429,21 +4629,10 @@ function cmdReport(args) {
   const out = join(dir, `terrain-full-report-${identityDigest(identity)}.json`);
   if (existsSync(out)) {
     const prior = readJson(out);
-    // A PRE-#741 RECORD IS NEVER REPLAYED (PR #756 round 1). `reportIdentityKey`
-    // hashes an ABSENT fourth component as `NO_JUDGE`, which is what it meant —
-    // but it makes a stored record written under the superseded design match a
-    // pull carrying no judgment, and its stored rendering may hold the very
-    // unjudged section the neighborhood section's shape now has no path to. Falling through RECOMPUTES,
-    // which reaches the refuse-unjudged guard below and refuses exactly when the
-    // enumeration is non-empty; it is the same treatment `composedInputDelta`
-    // gives a record predating ITS field, for the same reason — a record that
-    // cannot be shown idempotent is recomputed rather than replayed.
-    // A PRE-#861 RECORD IS NEVER REPLAYED EITHER, and for the reason the clause
-    // above already gives rather than a new one. Both predating guards and the
-    // identity comparison are `shouldReplayPrior`, pure and exported: this
-    // branch reaches the seam, so a condition composed HERE is one no fixture
-    // can state — see that function's own header for what the first cut of this
-    // fix left unbound.
+    // A PRE-#741 RECORD IS NEVER REPLAYED (PR #756 round 1): an absent fourth component hashes as
+    // `NO_JUDGE`, so falling through RECOMPUTES and reaches the refuse-unjudged guard below.
+    // A PRE-#861 RECORD IS NEVER REPLAYED EITHER. Both guards and the identity comparison live in
+    // `shouldReplayPrior`, pure and exported; never compose the condition here.
     if (shouldReplayPrior(prior, identity)) {
       // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (the report identity, kogaki#700).
       // Same identity is not the same artifact when the inputs it was rendered
@@ -6469,26 +4658,10 @@ function cmdReport(args) {
           + "invocation did not supply, while reporting success. Re-run against a fresh --report-dir to render the new "
           + "inputs as their own report, or restore the inputs this identity was reported from.");
       } else {
-        // IDEMPOTENT ON THE RECORD, AND THE RENDERING IS STILL WRITTEN IN THIS
-        // ACT (location and naming v11: "Both are written in the same act"). Idempotence is a
-        // claim about the RECORD — one identity, one report — and the rendering
-        // is a pure function of that record, so re-deriving it is the same
-        // artifact rather than a second one. Writing it rather than skipping it
-        // is what makes a rerun self-healing: the rendering's lifetime is the
-        // OWNER's by lifetime, so it can be deleted, be stale from an older
-        // renderer, or never have existed because the first run passed
-        // `--no-render`, and none of those are states a second run should leave
-        // standing while reporting success.
-        // the emit-time refusal — the rerun path refuses on exactly the same grammar as the fresh
-        // one. It is the path a SECOND look always takes, and it is the path that
-        // shipped the last two clause-3 defects; a guard installed on the fresh
-        // write alone would be the same half-fix again.
-        //
-        // VALIDATED OUTSIDE the `--no-render` branch, symmetrically with the
-        // fresh path (PR #352 round 1). The asymmetry was against this change's
-        // own stated ground: the rendering is a pure function of the record, so a
-        // record that renders nonconformantly IS one, and whether the owner asked
-        // for the file cannot be what decides if it is checked.
+        // IDEMPOTENT ON THE RECORD; THE RENDERING IS STILL WRITTEN (location and naming v11).
+        // Rewriting it makes a rerun self-healing (deleted, stale, or `--no-render` first run).
+        // The rerun refuses on the same emit-time grammar as the fresh path, and validates
+        // OUTSIDE the `--no-render` branch, symmetrically with the fresh path (PR #352 round 1).
         const priorText = renderReportMarkdown(prior, tag);
         let priorRendered = null;
         if (!args["no-render"]) {
@@ -6529,20 +4702,11 @@ function cmdReport(args) {
   }
 
 
-  // THE PROVENANCE NEIGHBORHOOD — ONE ENUMERATION (kogaki#700). Where the
-  // run's emitter (`neighborhood_input`) persisted the enumeration, the pull
-  // CONSUMES it rather than calling `neighborhoodForTargets` again: the
-  // emitter's file is what J3 admitted judgment keys against, and a second
-  // live read here is how a key admitted against enumeration A could be
-  // absent from enumeration B and silently dropped, the section then
-  // reporting the judgment layer as not having run. Only a pull with no
-  // emitted enumeration — the unjudged flow, which has no admitted keys to
-  // stay consistent with — computes fresh, inside the pull, seeded by the
-  // entered set (the settled-strand-set input), after every refusal above so a refused pull pays no
-  // seam call. Either way the result is stored IN THE RECORD, so the
-  // rendering stays a pure function of the record (the report identity) — a section
-  // recomputed from the live seam at render time would let a moved serving
-  // change what an unchanged identity renders.
+  // THE PROVENANCE NEIGHBORHOOD — ONE ENUMERATION (kogaki#700).
+  // Where `neighborhood_input` persisted the enumeration, the pull CONSUMES it: it is what J3
+  // admitted judgment keys against, and a second live read can silently drop an admitted key.
+  // Only a pull with no emitted enumeration computes fresh, after every refusal above.
+  // Either way the result is stored IN THE RECORD, so rendering stays a pure function of it.
   const candPath = args["neighborhood-candidates"];
   const neighborhood = candPath
     ? (readJson(String(candPath)).neighborhood
@@ -6643,32 +4807,12 @@ function cmdReport(args) {
       : `from the same Batch as ${who}`;
   }
 
-  // THE BOUNDED GLOSS FETCH (kogaki#689, owner ruling 2026-08-28). kogaki#686
-  // disposition 3 rules four fields per row and this is the fourth; until this
-  // landed the report path fetched nothing and every row rendered its absence,
-  // so the grammar declared a field the pipeline could not fill.
-  //
-  // BOUNDED BY THE ROWS THAT RENDER, NEVER BY THE CANDIDATE SET. The fetch runs
-  // over `neighborhoodDisplaySet`'s own selection — at most `NEIGHBORHOOD_DISPLAY_CAP`
-  // rows, and none at all on the empty and none-judged arms, which render no
-  // row. The over-cap arm left that list at kogaki#741: it fills to the cap and
-  // is fetched over like any other rendering arm. `resolveHeadlines` then bounds it a second time, to the union
-  // of those rows' OWN tags: this is the same bound kogaki#528 ratified for the
-  // Brief lane and the same one the rendering rule binds `cmdView` to. The corpus-wide prefetch
-  // the rendering rule forbids is not reachable from here, because the tag set is a function of
-  // ten records rather than of the corpus.
-  //
-  // A MISS IS DISCLOSED AND NEVER SUBSTITUTED. `resolveHeadlines` returns
-  // `NO_HEADLINE` where the shard carries no rendering, which is the same
-  // abnormal marker `cmdView` and the Brief lane render — a fault to clear
-  // rather than prose. The earlier `gloss unrecorded` literal is gone with the
-  // condition it disclosed: it said "this path makes no fetch", which is no
-  // longer true, and keeping it beside `NO_HEADLINE` would be two vocabularies
-  // for one state.
-  //
-  // THE HEADLINE IS QUOTED AT ITS CITE. It is a served rendering, so it travels
-  // with the address it was read from and never as bare prose — the verbatim
-  // rule the slug substitution was refused under at #686 round 1.
+  // THE BOUNDED GLOSS FETCH (kogaki#689; kogaki#686 disposition 3; kogaki#741; kogaki#528).
+  // Bounded by the rows that render (`neighborhoodDisplaySet`, at most
+  // `NEIGHBORHOOD_DISPLAY_CAP`), never by the candidate set; `resolveHeadlines` bounds it
+  // again to those rows' own tags.
+  // A miss renders `NO_HEADLINE` and is never substituted.
+  // The headline is a served rendering: it travels with its address (#686).
   const shownRows = neighborhoodDisplaySet(neighborhood.suggestions || []).shown || [];
   if (shownRows.length) {
     const { headlines: heads, seam, namespaces: ns, unaddressable } = resolveHeadlines(
@@ -6709,25 +4853,10 @@ function cmdReport(args) {
     neighborhood,
   };
   const abnormal = abnormalTotal;
-  // THE REFUSAL PRECEDES BOTH WRITES (the emit-time refusal, story 1.54 AC2). The record is
-  // written BELOW this line, not above it: location and naming v11 requires the record and
-  // its rendering in the same act, so a refusal that had already written the
-  // record would leave a machine record with no rendering — the 2026-08-06
-  // defect specimen from the other side.
-  //
-  // AND IT VALIDATES UNDER `--no-render` TOO, where nothing will be written.
-  // The rendering is a pure function of the record, so a record that renders
-  // nonconformantly IS a nonconformant record; skipping the check when the
-  // owner opted out of the file would make `--no-render` a way to mint exactly
-  // the artifact this refuses, which is the escape hatch SQ1 declined arriving
-  // through a flag that already exists.
-  //
-  // THROUGH `emitOrRefuse` LIKE THE OTHER TWO SITES (PR #352 round 1 nit).
-  // This path's writes are separated by the record write, so the "write" it
-  // hands over is empty and the two real writes follow below — but the WHEN is
-  // the helper's, which is the whole reason the helper exists. Three validation
-  // sites in two shapes, with the odd one out being the one the helper was
-  // written for, is the drift `announceArtifacts` was written to end.
+  // THE REFUSAL PRECEDES BOTH WRITES (story 1.54 AC2; location and naming v11).
+  // The record is written BELOW this line, and validation runs under `--no-render` too.
+  // It goes through `emitOrRefuse` like the other two sites (PR #352): the write handed over
+  // is empty and the two real writes follow.
   const renderedText = renderReportMarkdown(report, tag);
   emitOrRefuse("full_report", renderedText, () => {});
 
@@ -6739,20 +4868,9 @@ function cmdReport(args) {
   // is the opt-out and its absence is the default.
   let rendered = null;
   if (!args["no-render"]) {
-    // write authority v28 (kogaki#681) — the same write-authority refusal the display
-    // writer carries, at the other owner artifact, and BEFORE the destination
-    // is prepared.
-    //
-    // THIS COMMENT SAID SOMETHING FALSE AND THE FALSEHOOD WAS THE DEFECT (PR
-    // #702 round 1, finding 1). It read: "sited HERE rather than at
-    // `renderingsDir`, which also runs on read-shaped paths (the rerun branch
-    // READS `priorRendered` through it)". The rerun branch does not read it —
-    // its own text says "THE RENDERING IS STILL WRITTEN IN THIS ACT", and it
-    // returns `priorRendered` as a real owner artifact. Mis-typing the sibling
-    // path as read-shaped is exactly what made guarding this one look
-    // sufficient, so the rerun branch shipped unguarded and write authority v28's central
-    // claim was false at the artifact the amendment was written to protect.
-    // The guard now sits on BOTH branches and this note is the record.
+    // write authority v28 (kogaki#681; PR #702) — the write-authority refusal, BEFORE the
+    // destination is prepared. The rerun branch also WRITES the rendering, so the guard sits
+    // on BOTH branches.
     refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
     const rdir = renderingsDir(args);
     // location and naming v12 — ONE owner rendering, a fixed human name, overwritten per
@@ -6854,33 +4972,12 @@ function composeTrimProposal(args, dir) {
 }
 
 // ---- THE GATE DECLARATION AND ITS CAPTURE ---------------------------------
-// The per-run gate declaration carries the RUN-COMPUTED options; the registry
-// declares the gate CLASS. `gate` ceased to be an entry point (kogaki#625
-// item 1) — the declaration is composed by the executor at the wait that owes
-// it, and the recorded consult miss it carried (no served position on static
-// declaration of run-computed option sets) is unchanged by who composes it.
-// THE CAPTURE, written by the executor and by nothing else (kogaki#625 item 1).
-// `capture` ceased to be an entry point: an answer to a declared gate is
-// admitted at the wait that declared it, which is what makes "a session could
-// mint run state from outside the executor" unwritable rather than discouraged.
-// THE ANSWER IS READ, NEVER ARGUED (kogaki#890; owner selection 2026-09-05).
-//
-// `writeCapture` stood here and took the answer from the session:
-// `--capture-option`, `--capture-free-text` and `--tool-use-id` were all
-// composed by the model after it rendered the gate, and the id was stored
-// under the key `evidence` without ever being resolved against anything. The
-// option bound was real — an option the declaration did not offer was refused
-// — and it was the only real thing: a mis-transcribed option that WAS offered,
-// or a capture issued with no gate ever shown, was admitted, the wait
-// completed, and the run advanced on an answer the owner never gave. That is
-// the right act with the guard silently disabled, which the 2026-09-04 ruling
-// separates from the loud failure and treats as the dangerous one.
-//
-// The row is now written by `.claude/hooks/write-gate-capture.py` at the
-// moment the owner answers, from the harness's own payload. This function is
-// its reader, and every refusal below is a refusal to advance rather than a
-// complaint about a shape: the wait stays outstanding, so the recovery is
-// always to render the gate again.
+// The per-run declaration carries the RUN-COMPUTED options; the registry declares the CLASS.
+// Records: kogaki#625 item 1, kogaki#890.
+// Only the executor composes the declaration and admits the capture, at the wait that owes it.
+// The answer is READ, never argued: `.claude/hooks/write-gate-capture.py` writes the row from
+// the harness payload; this function is its reader.
+// Every refusal below leaves the wait outstanding; recovery is to render the gate again.
 function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
   // THE CAPTURE FILE IS THE FLOW'S (kogaki#1108). It was `terrain<suffix>`
   // literally; the prefix is the lane, and the writer below reads it from the
@@ -6904,25 +5001,11 @@ function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
     fail(noAnswerRefusal(decl, capPath,
       `the capture holds ${rows.length} row(s) and none carries this raising's instance id ${JSON.stringify(instance)}`));
   }
-  // THE ADVANCE IS THE ANSWER'S OWN, AND THIS IS THE SECOND READER OF THAT
-  // (kogaki#1075). `.claude/hooks/advance-terrain.py` will not spawn this act
-  // for a question whose `tool_use_id` no row of this run carries; the guard
-  // holds here too, at the re-entry, for the reason the open-gate exclusivity
-  // has two readers -- a precondition enforced only where it cannot re-ask is a
-  // precondition one direct invocation walks past.
-  //
-  // WHAT IT REFUSES. An advance driven by a payload that answered SOME OTHER
-  // question while this gate's row was already on disk: the run would move on
-  // an answer the owner did give, attributed to a question they gave it at
-  // nowhere. That is what happened on 2026-09-10, when a `/ship-cycle` cleanup
-  // question in another session walked a parked run through two states and
-  // three failed judgments.
-  //
-  // A NULL ID DOES NOT REFUSE, and the asymmetry is deliberate: a caller that
-  // names no payload is asserting nothing about which question drove it, and
-  // absence of a claim is not a claim that fails. Every route that can advance
-  // a run names one -- `completeState` refuses a transition with no attribution
-  // -- so the admitted case is a reader, not an advance.
+  // THE ADVANCE IS THE ANSWER'S OWN — second reader of the guard in
+  // `.claude/hooks/advance-terrain.py` (kogaki#1075).
+  // Refuses an advance driven by a payload whose `tool_use_id` answers some other question.
+  // A NULL ID DOES NOT REFUSE: it asserts nothing; every advancing route names one
+  // (`completeState` refuses a transition with no attribution).
   if (typeof payloadToolUseId === "string" && payloadToolUseId !== "") {
     const answered = mine.filter((r) => (r.evidence || {}).tool_use_id === payloadToolUseId);
     if (answered.length === 0) {
@@ -7010,46 +5093,11 @@ function ownerGateDigest(gateId, optionIds) {
 }
 
 // ---- NEIGHBORHOOD ---------------------------------------------------------
-// neighborhood — SPEC-terrain, the provenance neighborhood (story 1.44,
-// kogaki#302, umbrella kogaki#300).
-//
-// A WIDENING OF THE SETTLED STRAND SET, offered BESIDE it. The neighborhood as a report: a report,
-// never a proposal — it narrows nothing, so the second-proposer boundary
-// does not engage, and the full population stays reachable.
-//
-// INPUT IS THE SETTLED STRAND SET ALONE (the settled-strand-set input v15). There is no Thesis
-// argument and a run must not refuse for want of one: the 2026-08-09 owner
-// correction withdrew "Thesis" from Terrain's vocabulary on the ground that a
-// claim-shaped input is DEAD INPUT here — the substrates below compute over
-// member metadata and cannot read a claim, so a required Thesis was an input
-// nothing consumed.
-//
-// THE BOUND IS DECLARED, NOT CHOSEN (the neighborhood join v16, owner selection 2026-08-12).
-// The unit is traversal — substrates x depth — and the values are fixed:
-// `source_batch` one hop, and nothing else since kogaki#686. They are read
-// from the spec here rather than picked: an implementation choosing different
-// values settles a spec question silently, and one deriving them from the
-// settled set's CONTENT reintroduces the withdrawn input.
-//
-// SHARED-CARRIER IS OFF AS A VALUE, NOT AS AN ABSENCE. The substrate is
-// implemented and its depth is zero, so it enumerates nothing at the declared
-// setting and needs no code change if a later amendment turns it on. Writing it
-// out is what keeps the neighborhood join's three substrates three.
-// EXPLORATION IS FIXED: SAME DISTILL BATCH, AND NOTHING ELSE (kogaki#686,
-// owner ruling 2026-08-28). The two other substrates are DELETED rather than
-// set to zero — per that ruling's own doctrine, a superseded behaviour is
-// deleted, not kept as a record beside its exception.
-//
-//   cross_links (the reference-link walk, two hops) — removed on MEASUREMENT,
-//     not on taste: on the 2026-08-28 pull it contributed zero rows, all 15
-//     candidates arriving through Batch membership. Removing it bounds the
-//     worst case, which a depth-2 walk over a cyclic [[slug]] graph does not.
-//   shared_carrier — was already inert at bound 0, which is precisely the
-//     "record kept beside its exception" shape the same ruling deletes.
-//
-// The object survives as a single-key freeze rather than becoming a bare
-// constant, so the substrate stays NAMED at its call site and a future
-// widening is a visible edit to a declared set rather than a new literal.
+// SPEC-terrain, the provenance neighborhood (story 1.44, kogaki#302, umbrella kogaki#300);
+// the settled-strand-set input v15; the neighborhood join v16; kogaki#686.
+// A report beside the settled strand set, never a proposal. Input is the settled set alone.
+// The bound is declared by the spec, not chosen: `source_batch` one hop and nothing else.
+// The single-key freeze keeps the substrate NAMED; widening is an edit to this declared set.
 const NEIGHBORHOOD_BOUND = Object.freeze({
   source_batch: 1,
 });
@@ -7206,46 +5254,18 @@ function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
       batchSeeds.get(k).add(s);
     }
 
-    // THE WALK IS PER BATCH, NOT PER SEED (kogaki#369). The two markers above
-    // state facts about a SEED — this record carries no source_batch, this
-    // record's source_batch names nothing served — so they belong in the seed
-    // loop. What a batch's `members` lists is a fact about the BATCH, and
-    // walking it once per seed restated that fact once per seed: with a
-    // co-tag group's members commonly drawn from one sitting, a single
-    // unserved member yielded one identical line per seed, up to the whole
-    // size of the settled set.
-    //
-    // The fix is the loop, not a guard on the push. A de-duplicating set over
-    // `<batch>|<member>` would suppress the symptom and leave the per-seed
-    // walk in place — and this is already the SECOND defect of its class in
-    // this function, the first having been fixed with exactly such a guard
-    // (`expanded`, below), which did not stop the second being written in the
-    // same commit.
+    // THE WALK IS PER BATCH, NOT PER SEED (kogaki#369). The seed markers above belong in
+    // the seed loop; a batch's `members` is walked once per distinct batch.
+    // Keep it a loop over batches, not a de-duplicating guard on the push.
     for (const [k, batch] of distinctBatches) {
       // Family-keyed, so every family's list is walked rather than one.
       for (const family of Object.keys(batch.members || {})) {
         for (const m of batch.members[family] || []) {
-          // POPULATION IS COUNTED BEFORE THE SERVED-SET GUARD BELOW, and the
-          // ordering is the decision rather than an accident. `members` is the
-          // batch's own statement of what it holds; a member the served set
-          // does not carry is still IN the batch, and dropping it from the
-          // denominator would make the ratio climb as the corpus loses
-          // records — the same silent-flattery shape the neighborhood defect removes, arriving
-          // as arithmetic. It is marked as unresolved below either way, so the
-          // absence is disclosed rather than absorbed.
-          //
-          // SEEDS ARE EXCLUDED, and this is what makes the ratio well-formed
-          // rather than merely per-family. `note()` returns early on a seed, so
-          // a seed can NEVER become a suggestion; leaving seeds in the
-          // denominator counts candidates the numerator is structurally unable
-          // to reach. Round 1 of PR #383 found the first version doing exactly
-          // that — rendering `lesson: 2 of 2` where one of the two members WAS
-          // the seed — so the denominator is the batch's members MINUS the
-          // settled set: what this substrate could actually have surfaced.
-          // Guarded rather than `continue`d: a seed must still fall through to
-          // the served-set check and `note()` below, and skipping the whole
-          // iteration would make that correctness depend on seeds always being
-          // served — true today, and not a fact this loop should rest on.
+          // POPULATION IS COUNTED BEFORE THE SERVED-SET GUARD BELOW, by decision: an unserved
+          // member is still in the batch's denominator (and is marked unresolved below).
+          // SEEDS ARE EXCLUDED, since `note()` never suggests a seed (PR #383).
+          // Guarded rather than `continue`d: a seed must still reach the served-set check
+          // and `note()` below.
           if (!seedSet.has(m)) {
             if (!population.has(family)) population.set(family, new Set());
             population.get(family).add(m);
@@ -7312,33 +5332,11 @@ function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     reached_by: substrateInstances(reached.get(slug)),
   }));
 
-  // the neighborhood section's shape's PER-FAMILY FIGURES (story 1.45, AC3). Every family that appears
-  // either in a walked batch's `members` or among the suggestions gets a row;
-  // the union is what stops a family with suggestions and no batch population
-  // from vanishing, and a family with population and no suggestions from being
-  // dropped as uninteresting — a zero numerator is a reading.
-  //
-  // `population: null` IS NOT ZERO, and the distinction is load-bearing. A
-  // family with no `members` list behind it has no denominator that is
-  // READABLE; printing 0 there would assert a
-  // population that was never counted, and printing `n of 0` is arithmetic
-  // nonsense that reads as a bug in the numerator. Null renders as an explicit
-  // "no denominator readable" on the display.
-  // THE TWO SIDES OF THE RATIO RANGE OVER ONE SET, and getting that wrong is
-  // what round 1 of PR #383 caught. The denominator is the walked batches'
-  // members of this family, minus the seeds; so the numerator must be the
-  // suggestions DRAWN FROM THAT SET, never every suggestion of the family. A
-  // cross-link two hops out is a real suggestion and is in no walked batch's
-  // `members` — counting it against a batch-membership denominator produced
-  // `2 of 2` where one of the two was not among those members, and `3 of 2` as
-  // soon as a second cross-link appeared. An impossible ratio is worse than a
-  // pooled one: a reader can see that pooling hides something, and cannot see
-  // that a well-formed-looking fraction is measuring two different populations.
-  //
-  // So suggestions reached from OUTSIDE the walked membership are reported as
-  // their own count with NO denominator rather than folded in. They are not
-  // lost — the neighborhood as a report widens, so every suggestion still renders as its own row with
-  // its substrate; this figure is about what the batch substrate could reach.
+  // PER-FAMILY FIGURES (story 1.45, AC3; PR #383). Every family in a walked batch's
+  // `members` or among the suggestions gets a row; a zero numerator is a reading.
+  // `population: null` IS NOT ZERO: it renders as "no denominator readable".
+  // Both sides of the ratio range over one set: the numerator counts only suggestions drawn
+  // from the walked members minus seeds; others are counted separately with no denominator.
   const families = new Set([
     ...population.keys(),
     ...suggestions.map((s) => s.family).filter((f) => f !== null),
@@ -7396,75 +5394,27 @@ function settledSlugs(candidates, memberIds) {
   return { slugs: [...new Set(slugs)], unmapped };
 }
 
-// THE ENUMERATION FOR A RESOLVED TARGET SET — the machinery `cmdNeighborhood`
-// held, extracted when that subcommand retired (SPEC-terrain, the settled-strand-set input v20,
-// story 1.69, kogaki#473) so `cmdReport` computes it inside the pull. Reuse,
-// never re-derive: a second resolver is how the section and the display it
-// replaced would drift.
-// THE JUDGMENT LAYER'S INPUT (kogaki#686). The LLM supplies, per mechanical
-// candidate, one free-form claim and one level from the harness-fixed set. It
-// arrives as a FILE the session composed, exactly as `--classification` does
-// for J2_subdivision: no model call happens inside this tool, and
-// `--judge-model`/`--judge-effort` remain the PIN rather than an invocation.
-//
-// The vocabulary is CLOSED and checked here. A level outside the set is refused
-// rather than passed through, because the display ranks by level and an
-// unrecognised token would sort as "no level" — showing a judged candidate as
-// unjudged, which is the silent-exclusion shape the neighborhood defect exists to remove.
-// THE REFUSAL IS A THROW AND THE FILE READER CONVERTS IT (kogaki#861). Every
-// refusal below used to call `fail()` directly, which exits the process — so
-// the only way to assert one was to spawn a subprocess, and none of them was
-// asserted by anything. This is `FormatRefusal`/`emitOrRefuse`'s arrangement
-// one module over: the judgment is decided by a PURE function that throws, and
-// the one impure caller turns the throw into the same `fail()` the refusal
-// always was. The refusal text, its wording and its siting are unchanged; what
-// moved is who exits.
+// THE ENUMERATION FOR A RESOLVED TARGET SET — extracted from the retired `cmdNeighborhood`
+// (SPEC-terrain, the settled-strand-set input v20, story 1.69, kogaki#473). Reuse, never
+// re-derive.
+// THE JUDGMENT LAYER'S INPUT (kogaki#686): a session-composed FILE, as `--classification`
+// is; no model call happens here. The level vocabulary is CLOSED and checked here.
+// THE REFUSAL IS A THROW (kogaki#861): a pure function throws; the one impure caller turns it
+// into `fail()`.
 export class JudgmentRefusal extends Error {}
 
 // A REFUSAL THE RE-ASK WINDOW MUST NOT ABSORB (kogaki#1125).
-//
-// `JudgmentRefusal` says "this record is wrong, and a better one could be
-// composed from the same input" — which is the whole warrant for re-asking.
-// Some refusals carry the opposite fact: the ask itself was malformed, so the
-// input a second attempt would be composed against is the same input that
-// produced the refusal, and re-asking can only pressure the judge into a
-// well-formed answer it has no grounds for.
-//
-// THE OBSERVED CASE, and the one this class exists for. A
-// `judge_specialization` verdict of `cannot-determine` grounded in a missing
-// input was routed through the refusal-repair window; attempt 1 said the Move
-// library carried no such id, attempt 2 returned `consistent` for all six
-// Legs with `why` describing contracts that do not exist, and the run record
-// counted that as a repair. A bounded process needs at least one exit that
-// does not start another round — this is that exit, and it is terminal by
-// construction rather than by a count.
-//
-// `judgeAttempts` does not catch it (it catches `JudgmentRefusal` alone), so
-// it propagates past the window; the flow's `judged` wrapper turns it into the
-// ordinary `fail()` every other terminal refusal exits through, and
-// `refusals_repaired` never counts it because nothing pushes it onto that list.
-//
+// The ask itself was malformed, so a re-ask from the same input cannot repair it; terminal by
+// construction. `judgeAttempts` catches only `JudgmentRefusal`, so this propagates to `fail()`
+// and `refusals_repaired` never counts it.
 // consulted: coding::lesson/a-bounded-process-needs-one-exit-that-does-not-reproduce-it@206c657ee8da71ffbb1f4e41bf673d60401aaf49b87508be5b996058a5b8ea82
 export class TerminalJudgmentRefusal extends Error {}
 
-// A JUDGMENT STATE'S BOUND, SPENT (kogaki#1172, item 3 — owner ruling
-// 2026-09-20: "a judgment that fails inside an advance renders a retry
-// question"). Before this, a judgment state that exhausted its declared
-// `retries` called `fail()` — `process.exit(1)` — which ends the RUN, not just
-// the state: the advance stopped with no gate outstanding and no run
-// declaration written, so the owner had a stderr line and no way to make the
-// hook re-enter the run. `terrain-judgment-retry` is the recovery: the state
-// loop catches this instead of letting the process exit, writes that gate's
-// declaration, and stops exactly as a `wait` state stops — the failed
-// judgment state is NOT marked complete, so the owner's "retry" click re-fires
-// the advance into the SAME state through the ordinary table loop, and
-// "abandon" clears the open-run pointer instead.
-//
-// THROWN, NEVER PASSED AS A RETURN VALUE, on the same ground `JudgmentRefusal`
-// is: the throw site is deep inside `invokeJudge`/`invokeJudgePerGroup`, many
-// frames below the state loop that must catch it, and a return value would
-// have to be threaded and checked at every frame between them rather than
-// caught once where it is handled.
+// A JUDGMENT STATE'S BOUND, SPENT (kogaki#1172, item 3).
+// The state loop catches this, writes the `terrain-judgment-retry` gate declaration and
+// stops as a `wait` does; the state is NOT marked complete, so "retry" re-enters it and
+// "abandon" clears the open-run pointer.
+// THROWN, never returned: the throw site is many frames below the loop that catches it.
 class JudgmentExhausted extends Error {
   constructor(stateId, message) {
     super(message);
@@ -7473,39 +5423,12 @@ class JudgmentExhausted extends Error {
 }
 
 // ============ THE DETACHED JOB (kogaki#1193) ============
-//
-// A `judgment` state's ONE synchronous judge call, run from inside the
-// PostToolUse hook that advances the run, is what `compose_path` outgrew: it
-// composes two to three whole Reader Paths in one call, against the largest
-// prompt this table renders, and the hook's own bound is a property of AN
-// ADVANCE rather than of what one state may cost. The detached job is the
-// escape: `compose_path` starts it, throws `DetachedJobStarted`, and the
-// advance stops exactly as a judgment-exhausted advance does — the state is
-// NOT complete, so the ordinary table loop re-enters it on the next advance —
-// except no gate is raised for "still running": there is nothing yet for an
-// owner to decide. `job await`, typed by the session outside any hook, is
-// what turns a FINISHED job into the resumed state, carrying the truthful
-// `detached-job` attribution `detachedJobExecutor` mints above.
-//
-// WHAT LIVES HERE, GENERICALLY, AND WHAT DOES NOT. This file is the generic
-// executor and knows nothing of Candidates, Legs or Briefs — so the job
-// record's I/O, the per-unit child process, the heartbeat and the 9-state
-// classification are generic, and the PROMPT each unit is asked and the
-// VALIDATOR its answer is judged by are supplied by the flow binding that
-// starts the job (`src/brief.mjs`'s `compose_path`, today, and no other state
-// of any table). A unit's classification STARTS structural — did the child
-// exit 0 and print a parseable record carrying a `legs` array — and then, when
-// those checks pass, runs the DECLARED validator the units file names (module
-// plus export plus inputs, kogaki#1240): a checker inside a job is supplied
-// concretely by the supervisor or not at all, this file never statically
-// importing `validateLegs` or anything else Brief-specific. A unit that fails
-// the declared validator classifies `refused`, with the validator's own
-// refusal text, which is what lets the existing one-re-ask (kogaki#1203) and
-// refused-twice-is-final (kogaki#1273) machinery fire on a Leg-shape
-// problem exactly as it already does on a structural one — `compose_path`'s
-// own `validate()` keeps only the rules that need every unit in hand at once
-// (count, duplicate ids, duplicate characteristic, duplicate reader
-// experience), which stay genuinely cross-Candidate and stay terminal.
+// `compose_path` starts the job and throws `DetachedJobStarted`; the state is NOT complete
+// and no gate is raised. `job await` resumes a FINISHED job (`detached-job` attribution).
+// This file stays generic: the PROMPT and the declared VALIDATOR (kogaki#1240) come from the
+// flow binding; never import `validateLegs` or anything Brief-specific here.
+// A unit failing the validator classifies `refused`, feeding the re-ask (kogaki#1203) and
+// refused-twice-is-final (kogaki#1273) machinery.
 export class DetachedJobStarted extends Error {
   constructor(stateId, jobRecordPath, message) {
     super(message);
@@ -7518,19 +5441,10 @@ const READER_PATH_JOB_FILE = "reader-path-job.json";
 // THE OWNER'S OWN STATED CEILING (kogaki#1193), non-negotiable on technical
 // grounds: no reader-path job runs past it.
 export const READER_PATH_JOB_ABSOLUTE_LIMIT_S = 600;
-// NO BYTE GROWTH ON ANY STILL-RUNNING UNIT FOR THIS LONG, below the absolute
-// limit, is read as a stall rather than as ordinary slow composition — a
-// declared heuristic, not a measurement, and narrower than the absolute limit
-// so a stalled run is reported before the ceiling spends the owner's whole
-// wait on a unit producing nothing.
-//
-// RECONCILING WITH THE ISSUE BODY (kogaki#1193 comment 3, 2026-09-25): the
-// body names two separate signals, "no heartbeat for 60 seconds" and "no new
-// output bytes for 120 seconds". The supervisor's own heartbeat is a fact
-// about the SUPERVISOR PROCESS (it stops only if that process dies, which
-// the `died`/`other` states already cover); the only per-unit progress
-// signal available to it is output-byte growth. This single, narrower bound
-// is what stands in for both.
+// NO BYTE GROWTH ON ANY STILL-RUNNING UNIT FOR THIS LONG is read as a stall — a declared
+// heuristic, kept narrower than the absolute limit.
+// Per kogaki#1193 comment 3, this one output-byte bound stands in for both of the Issue's
+// heartbeat and output signals.
 export const READER_PATH_JOB_STALL_S = 90;
 export const READER_PATH_JOB_HEARTBEAT_MS = 10000;
 
@@ -7955,24 +5869,12 @@ async function cmdJobSupervise(args) {
     const units = Array.isArray(declared) ? declared : (declared.units || fail("the units file at " + unitsPath + " carries no `units` array."));
     const validate = await loadReaderPathUnitValidator(declared.validator);
 
-    // THE MINIMAL ENVIRONMENT (kogaki#1193, the owner's 2026-09-25 wording;
-    // narrowed by kogaki#1197): no project instructions, skills, hooks or MCP
-    // servers -- only the prompt this process's spawner composed and handed
-    // it in `units[].prompt`, and the SESSION'S OWN LOGIN. The bare-session
-    // flag this argv carried through kogaki#1193 is gone (kogaki#1197): in
-    // Claude Code 2.1.282 that flag reads auth strictly from
-    // `ANTHROPIC_API_KEY` or an `apiKeyHelper`, never the OAuth login this
-    // machine uses, so every unit died `Not logged in`. Dropping it also
-    // re-admits auto-memory, so `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` is set in
-    // the child's own environment to remove that again. THE OUTPUT
-    // FORMAT IS HARDCODED, NEVER PARAMETERIZED (kogaki#1193 PR #1195 review
-    // round 1, finding 1): `--output-format json` buffers every byte
-    // until the child exits, so the stall bound's only progress signal --
-    // output-byte growth -- never fires before the child is already done,
-    // and every real unit hit `stalled` long before finishing. `stream-json`
-    // with `--include-partial-messages` writes incrementally, which is the
-    // whole fix; a per-caller `--output-format` flag would let that
-    // regression back in through `startDetachedJobSupervisor`'s own opts.
+    // THE MINIMAL ENVIRONMENT (kogaki#1193, kogaki#1197): only `units[].prompt` and the
+    // session's own login; do not add the bare-session flag (it breaks OAuth auth), and keep
+    // `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` in the child env.
+    // THE OUTPUT FORMAT IS HARDCODED (PR #1195): `stream-json` with
+    // `--include-partial-messages` is the stall bound's only progress signal; never make it
+    // a per-caller option.
     const argv = ["-p", "--model", model,
       "--output-format", "stream-json", "--verbose", "--include-partial-messages",
       "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
@@ -8320,78 +6222,21 @@ function neighborhoodForTargets(record, targets) {
   return { gids: targets.map((t) => t.gid), suggestions, unresolved, counts, unmapped };
 }
 
-// THE NEIGHBORHOOD DISPLAY, composed apart from the command (story 1.45).
-//
-// Exported and pure over its inputs for the same reason `neighborhoodOf` is:
-// the neighborhood section's shape's obligations are properties of what RENDERS, not of what enumerates,
-// so a fixture that can only call the enumerator cannot exercise them. Before
-// this split the disclosure lines lived inside `cmdNeighborhood`, which reads
-// a survey file and calls the seam — so the only way to assert them was a
-// subprocess with a live seam, and a property whose failing path is never
-// exercised is not covered (AC5).
-//
-// Returns the lines; the caller prints.
-//
-// THE RECOMMENDATION LEVELS, harness-fixed and closed (kogaki#686, owner ruling
-// 2026-08-28). Ordered strongest first — the order IS the level ranking, and it
-// is the only ranking in this file. Extending the set is the owner's act.
+// THE NEIGHBORHOOD DISPLAY, composed apart from the command (story 1.45, AC5).
+// Exported and pure so a fixture can exercise what RENDERS; returns lines, the caller prints.
+// THE RECOMMENDATION LEVELS (kogaki#686): closed, ordered strongest first — the order IS the
+// ranking. Extending the set is the owner's act.
 const NEIGHBORHOOD_LEVELS = Object.freeze(["core", "useful", "background"]);
 // The display cap. Ten rows, ruled; see the refusal below for what happens when
 // more than ten are judged; the fill takes the first ten in level order.
 const NEIGHBORHOOD_DISPLAY_CAP = 10;
 
-// THE NEIGHBORHOOD SECTION (kogaki#686). Four fields per row, and up to ten
-// rows FILLED IN LEVEL ORDER `core -> useful -> background` (the neighborhood section's shape, kogaki#741
-// ruling 3) — it was "all from the HIGHEST level present" until kogaki#754, a
-// single-level premise the fill retires.
-//
-// WHAT WAS DELETED HERE, and why the deletions are not "kept beside their
-// exception": the per-family tallies, the walk-settings line, the "narrows
-// nothing" boilerplate, the per-Batch section headers, and the disjointness and
-// unresolved footnotes. Each existed to discharge a disclosure obligation that
-// the neighborhood defect, the neighborhood as a report or the neighborhood
-// section's shape imposes over an enumeration this section no longer performs —
-// with exploration fixed to one substrate at one hop, a per-family denominator
-// and a substrate-grouping heading describe a shape the output cannot have.
-//
-// THE REFUSAL, and it is the one place this section declines to render
-// (owner selection 2026-08-28). Above the cap AT THE HIGHEST LEVEL the section
-// renders NO ROWS and states the counts. Truncating instead would need a
-// tie-break among equals, and a machine choosing which of ten equally
-// recommended relations the owner may see is the shape the served record names
-// as failing the second-proposer test
-// (product-lab@b20d85ea topics/articles.md:125). Silent truncation is refused
-// one step earlier by the same record's rule that a surface which must not drop
-// its tail reports rather than truncates
-// (topics/archive/knowledge-architecture.md:67).
-// A PARAMETER A FUNCTION DOES NOT READ IS A CLAIM ON ITS CALLER IT CANNOT
-// HONOUR, so the signature below carries exactly what is read and nothing else.
-//
-// IT NO LONGER ENUMERATES WHICH PARAMETERS THOSE ARE (kogaki#698, owner ruling
-// 2026-08-29). This comment held a list, and the list was a CONFORMANCE COPY of
-// the parameter declaration one line beneath it — with no declared precedence
-// and no check anywhere in `checks/` referencing it. It was wrong in both
-// directions about `unresolved` within two days: first claiming it was read
-// after the reading line was removed, then claiming it was neither read nor
-// accepted while kogaki#691 read it. The declaration was correct throughout.
-//
-//   "A stale `accepted` field is worse than no field … it ships only with
-//    declared precedence AND the mechanical mismatch check."
-//   product-lab@b20d85ea topics/archive/knowledge-architecture.md:97
-//
-// It shipped with neither, so the copy is removed rather than instrumented: a
-// parser over source comments, maintained forever, to check a fact the
-// declaration already states is the more expensive half of the same repair.
-// THE DISPLAY SELECTION, DEFINED ONCE (kogaki#689). Which rows a populated
-// section renders — the judged set, the level-ordered fill, the cap — was
-// computed inside the display alone, and the bounded Gloss fetch below has to
-// reach the SAME set: a fetch over more rows than render pays for rows nobody
-// sees, and a fetch over fewer leaves a rendered row unfilled. Two computations
-// of "which rows show" is how those two drift, so there is one.
-//
-// Pure over its input and states every arm rather than returning a bare list:
-// the display renders a different sentence for each, and an arm collapsed here
-// would have to be re-derived there.
+// THE NEIGHBORHOOD SECTION (kogaki#686, kogaki#741 ruling 3, kogaki#754; kogaki#698,
+// kogaki#691). Four fields per row; up to ten rows filled in level order
+// `core -> useful -> background`.
+// The parameter list below is the one statement of what is read; do not restate it here.
+// THE DISPLAY SELECTION, DEFINED ONCE (kogaki#689): the display and the Gloss fetch must
+// reach the same rows. Pure, and it states every arm rather than returning a bare list.
 function neighborhoodDisplaySet(suggestions) {
   const list = suggestions || [];
   const found = list.length;
@@ -8410,20 +6255,10 @@ function neighborhoodDisplaySet(suggestions) {
   // and an arm removed from a pure helper is one its own fixture can no longer
   // state.
   if (!judged.length) return { state: "none-judged", found, unjudged, shown: [], composition: [] };
-  // `top` AND `atTop` ARE DELETED (kogaki#741 ruling 3, kogaki#754). The
-  // selection carried the highest level present and the entries at it; with the
-  // fill spanning levels neither describes what renders, and a field that no
-  // longer describes the selection is one a caller can still read — which is
-  // exactly how this implementation first rendered one row under a counts line
-  // saying three. What replaced them is `composition`, computed below over the
-  // rows that actually show.
-  // THE FILL, DETERMINISTIC IN THE HARNESS (the neighborhood section's shape, kogaki#741 ruling 3). Rows
-  // fill to the cap in level order `core -> useful -> background`; within a
-  // level the DECLARED SLUG SORT orders them, and that sort CARRIES NO
-  // JUDGMENT — which is the whole ground on which this replaced the refusal.
-  // The harness fixes where an arbitrary reproducible line falls; it does not
-  // rank relations by relevance, so no machine decides which relation the owner
-  // may see.
+  // `top` and `atTop` are gone (kogaki#741 ruling 3, kogaki#754); `composition` below is
+  // computed over the rows that actually show.
+  // THE FILL: rows fill to the cap in level order `core -> useful -> background`; within a
+  // level the declared slug sort orders them and carries NO judgment.
   const ordered = [];
   for (const l of NEIGHBORHOOD_LEVELS) {
     ordered.push(...judged.filter((x) => x.level === l)
@@ -8458,39 +6293,14 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
   // than left beside its replacement.
   const { found, unjudged, shown } = sel;
 
-  // THE BATCH-SIDE RESOLUTION DISCLOSURE (the neighborhood defect, kogaki#691, owner ruling
-  // 2026-08-29 — arm 1: the duty SURVIVES disposition 4 and is discharged on
-  // the surface). The enumerator marks three gaps — a seed carrying no
-  // `source_batch`, a `source_batch` naming a batch nothing serves, and a batch
-  // member the served set does not carry — and after #686 they reached no
-  // surface at all.
-  //
-  // THIS IS NOT MERELY A RESTORED OMISSION. Where every seed fails to resolve
-  // the enumeration produces no candidate, and the empty arm below then stated
-  // "The enumeration ran over the settled set's Batches and returned nothing —
-  // a result about this settled set, not a failure." That is FALSE of a run
-  // that could not find the Batches: the surface asserted a completed
-  // enumeration and a clean result. A silence that reads as a clean result is
-  // the served defect; stating the clean result outright is that defect one
-  // degree worse.
-  //   product-lab@b20d85ea topics/archive/claude-code-ops.md:24 —
-  //   "A check anti-correlated with its need is worse than no check, because
-  //    its silence reads as a clean result."
+  // THE BATCH-SIDE RESOLUTION DISCLOSURE (the neighborhood defect, kogaki#691, after #686).
+  // The enumerator's three gaps — no `source_batch`, an unserved `source_batch`, an unserved
+  // member — must reach this surface; where every seed fails to resolve, the empty arm's
+  // "returned nothing" sentence would be false.
   const gaps = Array.isArray(unresolved) ? unresolved : [];
-  // TWO KINDS, AND ONLY ONE OF THEM MAKES THE EMPTY FORM FALSE (PR #697 round
-  // 1). A `seed` gap is a settled reference that could not be resolved to a
-  // Batch, so no enumeration ran over it — that is what falsifies "the
-  // enumeration ran over the settled set's Batches". A `member` gap is the
-  // opposite situation: the batch RESOLVED, this walk ran over it, and one of
-  // its listed members is not served. Rendering both under one header told the
-  // reader a settled reference had failed to resolve when it had not, and — in
-  // the state where a member gap is the ONLY gap — displaced an empty form that
-  // was TRUE with a line that was false. That is the defect this section exists
-  // to remove, reproduced one state in.
-  //
-  // The kind is read from the marker, never sniffed out of its `why` prose: a
-  // renderer recovering by string-match a fact the producer already knew is a
-  // join that every wording change silently breaks.
+  // TWO KINDS (PR #697): only a `seed` gap falsifies the empty form's "the enumeration ran
+  // over the settled set's Batches"; a `member` gap does not, so they render apart.
+  // The kind is read from the marker, never string-matched out of its `why` prose.
   const seedGaps = gaps.filter((g) => g.kind === "seed");
   const memberGaps = gaps.filter((g) => g.kind !== "seed");
   const sayRows = (list) => {
@@ -8578,59 +6388,17 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
     ? `all ${comp[0][0]}`
     : comp.map(([l, n]) => `${n} ${l}`).join(", then ");
   say(`showing ${sel.shown.length} of ${found} — ${desc}`);
-  // THE BATCH-SIDE RESOLUTION GAPS RENDER HERE (kogaki#691, owner ruling
-  // 2026-08-29 — the neighborhood defect's duty SURVIVES #686 disposition 4 and is discharged on
-  // the surface). Both kinds ride a populated section: a partial resolution
-  // failure is not discharged by the seeds that did resolve, because the counts
-  // above are over what the walk REACHED and a reader cannot otherwise tell a
-  // small neighborhood from a small fraction of the settled set having been
-  // walked at all.
-  //
-  // THIS COMMENT SAID THE OPPOSITE UNTIL PR #697 ROUND 1, in the same commit
-  // that added the rendering two lines below: that none of the three markers
-  // reaches a surface, that the round-1 line "is REMOVED here", and that the
-  // question was carried on #686 "which stays open" — #686 closed on
-  // 2026-08-28. A comment falsified by its own diff is the class this change's
-  // own description names against the coverage case, arriving inside the fix
-  // for it.
+  // THE BATCH-SIDE RESOLUTION GAPS RENDER HERE (kogaki#691; #686 disposition 4; PR #697).
+  // Both kinds ride a populated section: the counts above cover only what the walk REACHED.
   if (unjudged) say(`${unjudged} candidate(s) carry no level and are counted here, never shown.`);
   if (gaps.length) sayGaps();
   say();
 
-  // FOUR FIXED LINE CLASSES PER ROW, in the ruled order (kogaki#861, owner
-  // report 2026-09-04 and rulings 2026-09-05): the id/level/relation row, the
-  // TC-target line, the Gloss line or its marker, the claim line. Each is a
-  // fixed class, so the information is always shown explicitly and never only
-  // where something happened to be recorded.
-  //
-  // THE LEVEL MOVED TO THE HEAD OF THE ROW and is gone from the tail of the
-  // claim. It ranks the row, and a rank read after the sentence it ranks is a
-  // rank the reader has to go back for; the trailing `[core]` is DELETED rather
-  // than kept beside the new position, because two carriers for one level is
-  // how a later edit updates half of them.
-  //
-  // THE GLOSS LINE STAYS, ABSENCE MARKERS INCLUDED (owner ruling 2026-09-05).
-  // The owner's sketch of the new format omitted it and showed the NEW lines
-  // rather than an exhaustive row spec. Dropping the three typed markers with
-  // it would have been the worse half of that reading: a row whose shard
-  // carried nothing would then render four clean lines and say nothing about
-  // the fault —
-  //   "A check inherits the trigger of the gate it is sited in, and can be
-  //    ANTI-CORRELATED with its own need. … A check anti-correlated with its
-  //    need is worse than no check, because its silence reads as a clean
-  //    result."
-  //   product-lab@ab04cc9bca21a600cd9eb0a594619d3ca899d05f
-  //     topics/archive/claude-code-ops.md:24
-  //
-  // `relation` is plain words rather than a substrate token, because the row is
-  // read by the owner and not by a parser.
-  //
-  // THE GLOSS IS QUOTED AT ITS CITE (kogaki#689). It is a served rendering, so
-  // it travels with the address it was read from; a headline rendered bare is
-  // the paraphrase-standing-for-a-quote shape the verbatim rule refuses. A row
-  // whose shard carried no rendering gets `NO_HEADLINE` — the same abnormal
-  // marker `cmdView` and the Brief lane render, so one vocabulary covers the
-  // state wherever it arises, and it is a fault to clear rather than prose.
+  // FOUR FIXED LINE CLASSES PER ROW, in the ruled order (kogaki#861): id/level/relation,
+  // TC target, Gloss line or its marker, claim. The level heads the row and nowhere else.
+  // The Gloss line stays, absence markers included: a silent row would read as clean.
+  // `relation` is plain words; the row is read by the owner, not a parser.
+  // THE GLOSS IS QUOTED AT ITS CITE (kogaki#689); a missing rendering gets `NO_HEADLINE`.
   for (const x of shown) {
     say(`- ${x.nid} [${x.level}] — ${x.relation || "relation unrecorded"}`);
     // THE TC-TARGET LINE, ALWAYS (kogaki#861). `readNeighborhoodJudgments`
@@ -8661,27 +6429,12 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
   return out;
 }
 
-// THE FULL REPORT SECTION (SPEC-terrain, the neighborhood as a report v20, story 1.69, kogaki#473).
-//
-// The neighborhood's owner rendering is a section of `reports/FullReport.md`,
-// at the Full Report's ONCE tier, LAST — never a display of its own. The lines are
-// `neighborhoodDisplay`'s, reused rather than re-derived: the display's own
-// heading (a plain-text line naming tag and set) is replaced by the Markdown
-// heading and the `*Seeded by:*` line `report-format.json` v6 declares, and
-// everything from the counts line down is the same emitter the neighborhood section's shape's
-// obligations were asserted against. A second composer is how the section
-// and the enumeration would drift — the reuse rule the licensing issue
-// states verbatim.
-//
-// Exported and pure over its inputs for the same reason `neighborhoodDisplay`
-// is: the neighborhood section's shape's obligations are properties of what RENDERS, so a fixture must
-// reach this without a seam.
-// The rule the callee's comment states, holding HERE TOO: this frame forwards
-// exactly what the callee reads, so its own parameter list is the one statement
-// of that. It enumerated the same list and inherited the same defect
-// (kogaki#698) — including deferring to a callee comment that was itself false
-// at the time. The sole call site spreads `report.neighborhood`, so nothing
-// here is positionally load-bearing either.
+// THE FULL REPORT SECTION (SPEC-terrain, the neighborhood as a report v20, story 1.69,
+// kogaki#473). The last section of `reports/FullReport.md` at the ONCE tier; the lines are
+// `neighborhoodDisplay`'s, reused, with the heading and `*Seeded by:*` line of
+// `report-format.json` v6. Exported and pure so a fixture reaches it without a seam.
+// This frame forwards exactly what the callee reads; its parameter list is the statement
+// of that (kogaki#698).
 function neighborhoodSection({ gids, no_material, suggestions, unresolved = [] }) {
   const head = [
     "## Provenance neighborhood",
@@ -8704,48 +6457,15 @@ function neighborhoodSection({ gids, no_material, suggestions, unresolved = [] }
   ];
 }
 
-// The CLI dispatch runs only when this file IS the entry point. Without the
-// guard, importing the module to exercise one of its exported composers runs
-// the dispatch with no command, which prints the usage banner and calls
-// process.exit — so the module was unimportable and every composer in it was
-// reachable only through a subprocess. A mechanism no fixture can call is the
-// orphan shape one level in (`orphan-mechanisms-fail-the-suite`).
+// The CLI dispatch runs only when this file IS the entry point, so the module stays
+// importable by fixtures (`orphan-mechanisms-fail-the-suite`).
 // ==== THE CONTROL PLANE ====================================================
-// the control plane — THE CONTROL PLANE: the workflow table, the run record, the executor.
-// (SPEC-terrain, the control plane, v23; kogaki#625 acceptance items 1, 2, 5 and 6; story
-// 1.89 / kogaki#652.)
-//
-// WHERE THIS LIVES, stated rather than left implicit (story 1.89 SQ1). The control plane
-// does not decide whether the executor is a sibling module or part of this
-// file. Two things decided it here: kogaki#625's licensed artifact list names
-// `src/terrain.mjs` and no sibling, so a new module would be an artifact
-// no licence covers; and story 1.90 makes these same renderers PRIVATE to the
-// executor, which is a smaller and more reviewable edit when caller and
-// callee already share a file.
-//
-// WHAT "THE EXECUTOR HOLDS NO STATE LIST OF ITS OWN" MEANS, precisely —
-// because the claim is checkable only if it is stated (the workflow table; #625 item 6):
-//
-//   Read from the table on EVERY run, and appearing nowhere in this file:
-//   the state ids, their ORDER, their KIND, which of them WAIT, which WRITE
-//   which artifact, under which GRAMMAR SURFACE, which are CONDITIONAL, which
-//   reach a JUDGMENT POINT, and which is TERMINAL.
-//
-//   Held here: what a KIND MEANS (`KIND_SEMANTICS`), which is interpretation
-//   and not sequencing; and the RENDERER HALF (`STATE_WORK`), which the workflow table
-//   names in as many words — "a table row PLUS A RENDERER".
-//
-// The consequence is the testable one: moving a handoff, adding a wait, or
-// adding a terminal costs ZERO code here. Adding a `write` costs exactly its
-// renderer — the executor REFUSES a write state it has no renderer for,
-// naming it, rather than inventing one or silently skipping it.
-//
-// A RENDERER MAY NAME THE WAIT IT CONSUMES, and that is not a state list.
-// `compose_input` needs the tag the owner named; it reads it from the run
-// record by the id of the wait that supplied it. That binding is part of the
-// renderer, which is bound to its state by construction. What would breach
-// the workflow table is control code that knew the ORDER those states run in — and none
-// below does.
+// The workflow table, the run record, the executor (SPEC-terrain, the control plane, v23;
+// kogaki#625 items 1, 2, 5, 6; #625 item 6; story 1.89 / kogaki#652).
+// The executor holds NO state list: ids, order, kinds, waits, writes, conditions and
+// terminals come from the table; only `KIND_SEMANTICS` and `STATE_WORK` live here.
+// It REFUSES a write state it has no renderer for. A renderer may name the wait it consumes;
+// no control code here may know the ORDER states run in.
 
 // The kind vocabulary this executor interprets. The table's `state_kinds`
 // object is the prose for these; `stops` is the only CONTROL property a kind
@@ -8763,30 +6483,11 @@ const TERRAIN_WORKFLOW_TABLE = join(REPO, "src/terrain-workflow.json");
 const RUN_RECORD_FILE = "run-record.json";
 
 // ---- WHO EXECUTED THIS TRANSITION (kogaki#1027) ------------------------------
-//
-// Every Terrain run before this one started when the model typed
-// `node src/terrain.mjs run` into Bash and advanced when the model chose to
-// re-enter, and the run record recorded WHICH states completed and never WHO
-// executed the transition -- so a run the model drove and a run the Harness
-// drove left identical records. `advanced_by` is the field that tells them
-// apart, and it is COPIED from the harness's own payload rather than composed
-// here: an executor that mints its own attribution records the thing the field
-// exists to evidence.
-//
-// TWO EXECUTOR KINDS, AND THE SECOND IS NAMED RATHER THAN DISGUISED (owner
-// selection, 2026-09-09, at the /ship-cycle gate on this issue). `hook` carries
-// the three payload fields verbatim. `skill-expansion` carries NO hook fields
-// at all, because the skill's `!` line receives no hook payload and inventing
-// `hook_event_name: "SkillStart"` would be exactly the fabricated attribution
-// the refusal below exists to prevent. The kinds are a closed set: a third one
-// is a decision, not an addition.
-//
-// AND THE SELF-DECLARED KIND IS ONLY TRUSTWORTHY BECAUSE THE BASH ROUTE IS
-// DENIED. `.claude/hooks/gate-terrain-executor.py` refuses any Bash command
-// naming this file with any verb but `--status`, so a model cannot type
-// `terrain.mjs start` and obtain a start-attributed record. The deny is the
-// other half of this field, not a separate guard beside it, which is why the
-// Removal Test fixture exercises it.
+// `advanced_by` is COPIED from the harness's own payload, never composed here.
+// The kinds are a closed set: `hook` carries the three payload fields verbatim;
+// `skill-expansion` carries no hook fields. A third kind is a decision, not an addition.
+// The self-declared kind is trustworthy only because `.claude/hooks/gate-terrain-executor.py`
+// denies the Bash route; the Removal Test fixture exercises that deny.
 const EXECUTOR_KINDS = ["hook", "skill-expansion", "detached-job"];
 
 // The start act's attribution. It carries no hook fields, deliberately -- see
@@ -8814,22 +6515,9 @@ export function detachedJobExecutor(jobRecordRelPath) {
 }
 
 // WHO OPENED THE POINTER THIS ACT WRITES (kogaki#1051).
-//
-// The pointer already records WHICH gate is open and WHOSE session it is open
-// for. What it could not say is whether the model has had a turn since -- and
-// for the START act the answer is no, by construction: the harness runs the
-// skill's `!` line BEFORE it runs UserPromptSubmit on the prompt that invoked
-// the skill, so the gate is already open when the prompt that opened it is
-// judged, and `gate-open-terrain-gate.py` refused it. On 2026-09-09 that
-// wedged two sessions at their first prompt with no model turn ever running,
-// and the recovery was to move the pointers out of the directory by hand.
-//
-// A PROCESS-WIDE VARIABLE, AND THAT IS THE SCOPE OF THE FACT. One invocation
-// of this file is one act with one attribution: `cmdRun` receives it from its
-// caller and every pointer written under that call was opened by it. Threading
-// it through `emitGateDeclaration`'s callers -- the option composers, several
-// frames down -- would carry the same single value along a longer path and
-// give a second place for it to disagree with itself.
+// For the START act the model has had no turn since the gate opened: the skill's `!`
+// line runs before UserPromptSubmit judges the invoking prompt.
+// Process-wide on purpose: one invocation is one act with one attribution, set by `cmdRun`.
 let OPENED_BY = null;
 
 // Set once per act, by the one caller that knows: see `cmdRun`.
@@ -8929,27 +6617,13 @@ function loadWorkflowTable(path) {
   return table;
 }
 
-// The baseline, DERIVED from the states array rather than read from the
-// table's own `counted_baseline` object. Deriving is the point: it is what
-// lets acceptance item 2 compare a run against the table instead of against a
-// figure someone typed beside it. `counted_baseline` is then a second reading
-// of the same array, and `terrain.mjs run --status` renders both so a
-// disagreement between them is visible rather than resolved silently.
-// THE WRITE-OUTCOME CLASSIFIER, pure so the distinction it draws is TESTABLE
-// rather than asserted — through `run` over a fixture-only state since
-// kogaki#1257 (PR #667 round 1 finding 2). The executor's
-// guard used to read `!outcome.artifact`, which folded two different claims
-// into one branch:
-//
+// The baseline is DERIVED from the states array, not read from `counted_baseline`;
+// `run --status` renders both so a disagreement is visible.
+// THE WRITE-OUTCOME CLASSIFIER (kogaki#1257; PR #667 round 1 finding 2). Kept pure
+// (`fail()` exits) so the fixture can exercise all three outcomes:
 //   wrote          — the renderer wrote and named what it wrote
-//   wrote-nothing  — the renderer RAN and deliberately wrote nothing
-//                    (`--no-render`, location and naming v11; the idempotent rerun, the report identity)
-//   named-nothing  — the renderer wrote and did not say where; the case the
-//                    guard was built for, and the only one that refuses
-//
-// It is a classifier rather than a refusal because `fail()` exits the process:
-// keeping the judgment pure is what lets the fixture pass exercise all three
-// directions without spawning three subprocesses.
+//   wrote-nothing  — ran and deliberately wrote nothing (`--no-render`, idempotent rerun)
+//   named-nothing  — wrote and did not say where; the only one that refuses
 function classifyWriteOutcome(outcome) {
   if (!outcome || typeof outcome !== "object" || !("artifact" in outcome)) return "named-nothing";
   return outcome.artifact ? "wrote" : "wrote-nothing";
@@ -8958,26 +6632,10 @@ function classifyWriteOutcome(outcome) {
 function derivedBaseline(table) {
   const states = table.states;
   const writing = states.filter((s) => s.kind === "write");
-  // `writers_per_artifact` IS DROPPED, NOT REPAIRED (PR #655 round 1 finding 3,
-  // decided at kogaki#665 as that issue's body requires). It mapped each
-  // `owner_artifacts` entry to 1 when its `writer` field was a non-empty
-  // string and took the max — so the figure was 1 for any table declaring a
-  // writer, however many writers there were. `writer` is a PROSE SENTENCE and
-  // not a countable set, so the two-writer breach write authority exists to forbid was
-  // never expressible in this derivation, and the self-test asserting
-  // agreement with `counted_baseline` could not fail on the key.
-  //
-  // A DERIVED FIGURE THAT CAN NEVER DISAGREE IS WORSE THAN AN ABSENT ONE,
-  // because a Test Plan reads it as evidence. The countable alternative — the
-  // set of call sites reaching the private writer — is a fact about the CODE
-  // and not about the table, and `derivedBaseline` derives from the table
-  // alone. So the key leaves both sides: the derivation here and the
-  // declaration in `terrain-workflow.json`'s `counted_baseline`, together, because a
-  // declared key with no derived counterpart is the omission hole in the other
-  // direction. What replaces it is not a better count: write authority's one-writer
-  // property is made true BY CONSTRUCTION at this issue — one private
-  // `writeDisplaySurface`, no second path — which is constrain-generation where
-  // the figure was after-the-fact detection that never fired.
+  // `writers_per_artifact` IS DROPPED (PR #655 round 1 finding 3; decided at kogaki#665).
+  // `writer` is prose, not a countable set, so the figure could never disagree.
+  // Keep this derivation and `terrain-workflow.json`'s `counted_baseline` key-for-key;
+  // one-writer is by construction: one private `writeDisplaySurface`, no second path.
   return {
     waits: states.filter((s) => s.kind === "wait").length,
     conditional_states: states.filter((s) => Boolean(s.conditional)).length,
@@ -9042,23 +6700,10 @@ function mostRecentDoneRun(lane) {
 }
 
 // ---- THE RECORD AS IT STANDS, WRITTEN MID-ADVANCE (kogaki#1073 item 3).
-//
-// The loop's own write at the end of the advance is unchanged and is still the
-// release point; this is the same write performed EARLIER as well, after every
-// state that completes and after every per-group judge record that lands. An
-// advance killed at `ADVANCE_TIMEOUT_S` runs no exit path -- `persistPendingRun`
-// is `fail()`'s, and a SIGKILL calls nothing -- so before this the only carrier
-// of an interrupted advance's progress was the files on disk, and the run's own
-// record said the owner's answered gate was still awaiting an answer.
-//
-// IT IS THE SAME WRITER AND THE SAME SHAPE, `_dir` stripped exactly as the
-// release does, so a checkpoint and a final record cannot disagree about form.
-// A failing write is NOT swallowed: the run directory is where every artifact of
-// this advance is going, and a checkpoint that could not be written is a fact
-// about the run rather than an inconvenience of the tracing.
-// EXPORTED FOR THE JOB-VERB DISPATCH (kogaki#1193), for the same reason as
-// `readRunRecord`/`writeRunRecord` above: `job await`'s gate-declaration and
-// resumption arms persist a `rec` carrying `_dir`, outside the executor loop.
+// Same writer and shape as the release (`_dir` stripped), run after every completed
+// state and every per-group judge record, since a SIGKILL at `ADVANCE_TIMEOUT_S` runs
+// no exit path. A failing write is NOT swallowed.
+// Exported for the job-verb dispatch (kogaki#1193): `job await` persists a `rec` with `_dir`.
 export function checkpointRun(rec) {
   if (!rec || !rec._dir) return null;
   const out = { ...rec };
@@ -9148,38 +6793,12 @@ function needCompositionInput(rec, st) {
       + `state in the workflow table. A judgment asked over nothing is a judgment about nothing (kogaki#1030).`);
 }
 
-// The judge pin the two writing states record, from the table that pins the
-// model and the invocation the executor actually made (kogaki#1030).
-//
-// THE MODEL HALF IS OBSERVED AND THE EFFORT HALF IS DECLARED, and the two are
-// not conflated: the model is the one this process ran, read from the same
-// `judge` block the call read; the effort tier is what the table declares the
-// run asks at, because the call carries no effort flag and a value read back
-// from nothing would be the provenance lie kogaki#892 exists to prevent.
-//
-// AN EXPLICIT FLAG STILL WINS. This supplies a default where a hook-driven run
-// has no route to supply one; it overrides nothing.
-// The judged records the two writing states render FROM, joined from the run
-// record rather than from this act's argv (kogaki#1030).
-//
-// THE RULE IS `full_report`'s OWN, APPLIED TO THE STATES BESIDE IT. That state
-// already joins the neighborhood judgment this way, and says why: "J3 wrote the
-// path it validated; reading it back here is what makes deleting the judgment
-// file after J3 and re-rendering fail loudly — the record still names the path".
-// The claims and the subdivision records are in exactly that position: `J1_claims`
-// and `J2_subdivision` validated them, and before this act nothing carried them
-// forward, so a hook-driven run reached `cotag_groups` with the judgments it had
-// just made invisible to it and `full_report` refused for want of an entry the
-// run already held.
-//
-// AN EXPLICIT FLAG STILL WINS, for the fixture and second-repository paths.
-//
-// `claims` NO LONGER JOINS FROM `rec.judgments` (kogaki#1172). There is no
-// `J1_claims` judgment any more, and `J2_subdivision`'s own judgments entry is
-// its per-group subdivision record, not the `{composition_pin, claims}` shape
-// this join has always supplied. `rec.claims_derived` is the executor's own
-// re-shaping of that per-group record's `claim` fields, written beside it —
-// see `J2_subdivision`'s own state work.
+// The judge pin the two writing states record (kogaki#1030; see kogaki#892).
+// The model half is observed; the effort half is declared by the table. An explicit flag wins.
+// The judged records the writing states render FROM are joined from the run record,
+// not argv (kogaki#1030) — `full_report`'s own rule. An explicit flag still wins.
+// `claims` joins from `rec.claims_derived`, not `rec.judgments` (kogaki#1172); see
+// `J2_subdivision`'s state work.
 function judgmentJoins(rec, args) {
   const j = (rec && rec.judgments) || {};
   const join = {};
@@ -9248,34 +6867,11 @@ const STATE_WORK = {
     return null;
   },
 
-  // JUDGMENT POINTS. The executor VALIDATES and never composes (the typed judgment points): the
-  // refusals are the existing ones — this story adds no new judgment semantics
-  // and re-implements none.
-  //
-  // WHAT kogaki#1030 CHANGES IS WHO PRODUCES THE RECORD, and nothing else. The
-  // typed record used to arrive only as a file on argv, and with `--input`,
-  // `--at` and `--enter` deleted (kogaki#1027) nothing in a hook-driven run
-  // could put one there — so a run reached the whole-input claims judgment and
-  // stopped at a refusal asking for a flag no route could supply. The executor
-  // now ASKS THE PINNED MODEL for the record itself, writes it, and runs these
-  // same refusals over it; an explicit flag still wins and is unchanged.
-  //
-  // THE VALIDATION BODY IS THE SAME FUNCTION ON BOTH PATHS, which is why it is
-  // written once as `validate` and handed to `judgedRecordPath`. Two copies —
-  // one for the owner's record, one for the judge's — is two readings of one
-  // rule, and it is the shape the state below this one already refuses.
-  //
-  // `J1_claims` IS DELETED, NO STUB (kogaki#1172, owner ruling 2026-09-20). It
-  // was the one judgment point still asked over the WHOLE composed input, and
-  // its cost was a function of the tag the owner picked — from 3 to 138
-  // Lessons — with no `per_group` term bounding it the way `J2_subdivision`'s
-  // already was. The `method` tag (138 Lessons, 14 groups, 274 KB composed
-  // input) measured its single call at 107s, over the 90s per-call bound on
-  // all three licensed attempts, while `J2_subdivision`'s eleven per-group
-  // calls on a smaller tag stayed inside it. GroupClaim composition is folded
-  // into `J2_subdivision` below: the per-group ask now returns the group's
-  // claim beside its SubGroups, in one call, over that group's own material
-  // alone.
+  // JUDGMENT POINTS. The executor VALIDATES and never composes (the typed judgment points).
+  // Since kogaki#1030 the executor asks the pinned model for the record and runs the same
+  // refusals over it; an explicit flag still wins (`--input`/`--at`/`--enter` gone: kogaki#1027).
+  // One `validate` body serves both paths via `judgedRecordPath`; do not fork it.
+  // GroupClaim composition is folded into `J2_subdivision`, per group (kogaki#1172).
   J2_subdivision: async (rec, st, args, table) => {
     // THE COMPOSED PARENTS, READ ONCE (kogaki#1068). The SubGroup rules are
     // statements about a group's own membership -- the cover, the caps, the
@@ -9315,20 +6911,10 @@ const STATE_WORK = {
       () => needCompositionInput(rec, st), validate);
     rec.judgments[st.id] = relFromRepo(resolve(path));
 
-    // THE GroupClaim, DERIVED FROM THE FOLDED RECORD (kogaki#1172). Every
-    // downstream reader of a claim — `cotags`' subset-bound display and
-    // `report`'s rendering — reads the pre-existing typed CLAIMS RECORD shape
-    // `{composition_pin, claims}` through `readClaimsRecord`, unchanged: that
-    // shape is not this state's own record any more (it is per-group, and its
-    // record IS the per-group map), so it is derived here rather than asked
-    // for a second time. `entry.claim` rides beside `subgroups` in the SAME
-    // per-group call this state already makes — no second judge call, no
-    // second artifact composed by the model, only a re-shaping of what this
-    // one call already returned, over the pin the executor already holds from
-    // `compose_input`. A group whose entry carries no `claim` is simply absent
-    // from the derived map, which `cotags` and `report` already render as
-    // `NO_CLAIM` — the same graceful degrade a run supplying no `--claims` at
-    // all has always rendered.
+    // THE GroupClaim, DERIVED FROM THE FOLDED RECORD (kogaki#1172). Readers still take
+    // `{composition_pin, claims}` via `readClaimsRecord`; it is re-shaped from `entry.claim`
+    // of the same per-group call — no second judge call. A group with no `claim` is absent
+    // from the map and renders `NO_CLAIM`.
     if (args.claims === undefined) {
       const assembled = readJson(path);
       const claimsMap = {};
@@ -9364,42 +6950,13 @@ const STATE_WORK = {
     return null;
   },
 
-  // THE NEIGHBORHOOD'S EMITTER AND ITS JUDGMENT POINT (kogaki#690, owner
-  // ruling 2026-08-29). The reader existed and nothing produced its input —
-  // "a reader with no writer is dead code wearing enforcement's name". These
-  // two states are `compose_input → J1_claims` applied a second time, which is
-  // the shape this table already uses for exactly this problem.
-  //
-  // BOTH ARE CONDITIONAL, and that is the answer to what an unjudged pull is.
-  // A run naming neither renders the all-unjudged line the neighborhood section's shape already declares,
-  // which is a legitimate terminal: refusing it would make the Report
-  // unobtainable without an LLM pass, which no ruling asked for. What the
-  // declaration removes is the SILENT version — an unjudged run is now a
-  // skipped conditional the run record names, not an absent capability.
-  // THE THESIS CANDIDATES ARE COMPOSED AND THEIR IDS FIXED BEFORE J3 JUDGES
-  // (kogaki#861, owner ruling 2026-09-05). The alternative on the table was one
-  // combined judgment composing candidates and neighborhood together; the
-  // ordering was chosen instead, and the ground is what a judgment point is
-  // for:
-  //
-  //   "JUDGMENT SITS IN THE GAPS BETWEEN DETERMINISTIC PARTS, NEVER AS A LAYER
-  //    AROUND THEM … is the model deciding what happens next, or supplying a
-  //    value between two things whose order is already fixed?"
-  //   product-lab@ab04cc9bca21a600cd9eb0a594619d3ca899d05f
-  //     topics/claude-code-ops.md:24
-  //
-  // TC1 must MEAN something before a neighbor can be judged against it. With one
-  // combined record the model would be supplying the candidate list and the
-  // targets into it in the same act, so nothing outside that act could refuse a
-  // target naming a candidate the same record invented. Two states put the
-  // ordering in the table, where the workflow table keeps it, and the refusal below reads a
-  // set the state before it fixed.
-  //
-  // IT VALIDATES AND NEVER COMPOSES (the typed judgment points), like every judgment point beside
-  // it: `readThesisCandidates` is the existing reader and carries the count,
-  // arity and membership refusals unchanged. What this state adds is the WRITE
-  // — the minted list goes to the run workspace so J3 and the pull read one
-  // fixed set of ids rather than each re-deciding what TC1 is.
+  // THE NEIGHBORHOOD'S EMITTER AND ITS JUDGMENT POINT (kogaki#690). Both are conditional;
+  // a run naming neither renders the all-unjudged line, a legitimate terminal.
+  // THESIS CANDIDATES ARE COMPOSED AND THEIR IDS FIXED BEFORE J3 JUDGES (kogaki#861),
+  // so J3's refusal reads a set the state before it fixed.
+  // Ground: product-lab@ab04cc9bca21a600cd9eb0a594619d3ca899d05f topics/claude-code-ops.md:24
+  // `readThesisCandidates` carries the count/arity/membership refusals; this state adds the
+  // WRITE, so J3 and the pull read one fixed set of ids.
   thesis_candidates: async (rec, st, args, table) => {
     const record = readJson(needSurvey(rec));
     const tag = ownerInput(rec, "TAG_SELECTION")
@@ -9527,28 +7084,10 @@ const STATE_WORK = {
       fail(`${st.id} refuses ${orphans.length} judgment key(s) no mechanical candidate carries: ${orphans.join(", ")}. `
         + "A judgment that joins nothing is silently dropped and the section then reports that the judgment layer did not run, which is false.");
     }
-    // THE FOURTH REFUSAL — COVERAGE (kogaki#741 ruling 1, kogaki#754). The three
-    // above refuse a key naming no candidate, a level outside the closed set,
-    // and a level with no claim; none of them refuses a record that judges only
-    // SOME candidates. That omission IS an LLM-controlled skip: ruling 1 removes
-    // every such skip and states that the LLM controls "the level label ... PER
-    // CANDIDATE", so a record leaving a candidate unlabelled has not supplied
-    // what the ruling requires. Without this the candidate silently never
-    // displays, which is the same silence the orphan refusal exists to end,
-    // arriving from the other direction.
-    //
-    // The partial arm is therefore closed BY CONSTRUCTION rather than counted:
-    // `neighborhoodDisplay` no longer needs an unjudged tally, because after this
-    // refusal there is nothing for it to count.
-    // THE FIFTH REFUSAL — THE TARGET NAMES A COMPOSED CANDIDATE (kogaki#861).
-    // The typed record now carries, per candidate, the Thesis candidate it
-    // serves; `neighborhoodJudgmentsFrom` refuses a record with no target and
-    // refuses one whose target is not a TC id, and neither can refuse `TC9` in a
-    // three-candidate pull — that is a fact about the OTHER state's output, and
-    // this is where the two meet. Read from the file the `thesis_candidates`
-    // state wrote rather than from argv, for the reason the judgment path is
-    // read from the run record one state down: the ids J3 checks against must be
-    // the ids the pull will render.
+    // THE FOURTH REFUSAL — COVERAGE (kogaki#741 ruling 1, kogaki#754): every candidate must
+    // be labelled; so `neighborhoodDisplay` needs no unjudged tally.
+    // THE FIFTH REFUSAL — THE TARGET NAMES A COMPOSED CANDIDATE (kogaki#861). Ids are read
+    // from the file `thesis_candidates` wrote, not argv: J3 must check the ids the pull renders.
     const composedTc = rec.thesis_candidates
       ? readJson(rec.thesis_candidates)
       : fail(`${st.id} has no composed Thesis candidates to check its targets against — enter thesis_candidates first (\`--enter thesis_candidates\`). A neighborhood judged before the candidates exist names ids nothing has fixed (kogaki#861).`);
@@ -9648,28 +7187,9 @@ const STATE_WORK = {
   },
 
   // ---- THE ONE FIXTURE-ONLY RENDERER (kogaki#824). ------------------------
-  // A STATE'S OWN RENDERER SETTING A RECORD KEY is the shape kogaki#808's loss
-  // has, and it is the shape this seam-free pass could not otherwise stage.
-  // TWO states above set a record key and NEITHER is reachable without the
-  // gateway, by different routes — stated separately because a disjunction over
-  // them is false and an earlier form of this comment asserted one (PR #852
-  // round 1): `survey` reaches `cmdSurvey`, which calls `gatewayQuery`
-  // DIRECTLY; `neighborhood_input` sets `rec.neighborhood_candidates` and calls
-  // no gateway function itself, but opens with `readJson(needSurvey(rec))`, and
-  // the survey record it demands is minted by `survey` and by nothing else — a
-  // TRANSITIVE dependency, which is a real bar to a seam-free pass and not the
-  // direct read the earlier sentence claimed.
-  //
-  // So the property was asserted through `conditional_entered` instead — a
-  // PROXY the executor writes in its own advance loop, three lines from
-  // `rec.completed.push(st.id)` — and a persist narrowed to control fields
-  // would have kept the pass green while dropping exactly the key #808 was
-  // filed over.
-  //
-  // ADMITTED FOR THE FIXTURE PATH ONLY, and that bound is a CASE rather than
-  // this comment: the id carries `FIXTURE_STATE_PREFIX`, and the pass asserts
-  // the shipped `src/terrain-workflow.json` names no state carrying it. A comment
-  // saying "fixture-only" is the shape kogaki#824 exists to stop trusting.
+  // Sets a record key seam-free, the shape of kogaki#808's loss (#808; PR #852 round 1).
+  // The fixture-only bound is a CASE: the id carries `FIXTURE_STATE_PREFIX`, and the pass
+  // asserts the shipped `src/terrain-workflow.json` names no state carrying it.
   [`${FIXTURE_STATE_PREFIX}sets_record_key`]: (rec) => {
     rec.fixture_record_key = FIXTURE_RECORD_KEY_VALUE;
     return null;
@@ -9683,60 +7203,19 @@ const STATE_WORK = {
     (Object.prototype.hasOwnProperty.call(st, "fixture_outcome") ? st.fixture_outcome : null),
 };
 
-// ---- GATE OPTION COMPOSERS — the mirror of STATE_WORK for the other half of
-// the wait rule's split (kogaki#625 item 1, owner selection 2026-08-26).
-//
-//   "Workflow orchestration (start, supervise, land, record, expose state) is
-//    deterministic infrastructure and belongs in engine code, while a session
-//    holds only the steps whose next action turns on an open question ... a
-//    judgment step is engine-scheduled but model-decided."
-//
+// ---- GATE OPTION COMPOSERS — the mirror of STATE_WORK (kogaki#625 item 1; kogaki#1030).
 // consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:32
-//   outcome: covered-after-reframing
-//   query: "Removing a command that a session invokes: when engine code absorbs
-//          a step a session used to perform by hand, which part must stay with
-//          the session and which becomes deterministic infrastructure?"
-//
-// COMPOSING a declaration and RECORDING a capture are `record`, and record is
-// engine code; RENDERING the question is the judgment step and stays the
-// session's. This is the split the claim re-offer wait was the first case of,
-// generalised to every wait the table marks `renders_gate_declaration: true` --
-// and it outlived that wait, which kogaki#1030 deleted.
-//
-// the post-tag-selection window's EMPTY QUESTION ALLOWLIST IS UNTOUCHED, and that is the clause worth
-// checking rather than assuming: the executor still asks nothing and still
-// renders no question UI. It writes a file and stops. What changed is that the
-// file can no longer be written from anywhere else.
+// Composing a declaration is engine work; RENDERING the question stays the session's.
+// The executor asks nothing and renders no question UI: it writes a file and stops.
 // The selector affordance holds four options; one is the registry's standing
 // option, so the run contributes at most three (kogaki#1029).
 const TAG_OPTION_COUNT = 3;
 
 const GATE_WORK = {
-  // THE LISTING RIDES THE DECLARATION, and that is the whole of kogaki#856's
-  // display fix. `tag_listing` carries the runtime's own pre-selection
-  // rendering over THIS run's survey record, byte-for-byte, through the same
-  // format guard that judged it when `tags` printed it — so no session
-  // composes the table, retypes it, or is asked to hand over a command that
-  // produces it. The session renders these bytes above the question; the
-  // question text stays short and the table is never put inside it (owner
-  // ruling 4, 2026-09-04).
-  //
-  // NO RUN-COMPUTED OPTION, and the empty list is the shape rather than an
-  // omission (owner rulings 1 and 2, 2026-09-04). Exactly two ways to answer
-  // exist: the registry's standing option, which stands for "a method other
-  // than co-tags" and is routed nowhere because no other method exists yet,
-  // and free-form entry of a tag name. A per-tag option set is not offered —
-  // the served tag count is in the hundreds and the selector affordance holds
-  // four.
-  //
-  // REVISED 2026-09-09 (kogaki#1029, the first live hook-driven run): the
-  // harness's selector REFUSES a question with fewer than two options, so the
-  // one-standing-option shape above was unrenderable — the gate never appeared
-  // and the run could not be advanced by anyone. The FORMAT is the surface's
-  // (two to four options); the VALUES are the run's. The composer now offers
-  // the largest served tags, up to TAG_OPTION_COUNT, each option id being the
-  // tag name itself so a click lands exactly where a typed tag lands; the
-  // standing option still rides beside them, and any other tag is free text.
+  // THE LISTING RIDES THE DECLARATION (kogaki#856): `tag_listing` is the runtime's own
+  // pre-selection rendering, byte-for-byte; the table is never put inside the question.
+  // Options are the largest served tags, up to TAG_OPTION_COUNT, id = tag name, plus the
+  // standing option; any other tag is free text. The selector needs 2–4 options (kogaki#1029).
   TAG_SELECTION: (rec) => {
     const survey = readJson(needSurvey(rec));
     const ranked = [...(survey.sections || [])]
@@ -9757,47 +7236,11 @@ const GATE_WORK = {
     return { options: (p.options || []).map((o) => ({ id: o.id, label: o.label })), extra: { proposal: relFromRepo(resolve(proposalPath)) } };
   },
 
-  // THE ONE WAIT THAT DECLARED NO GATE (kogaki#890, acceptance item 3).
-  //
-  // `ID_SELECTION` took the owner's G/SG id list as a bare `--input` — a value
-  // the model composed after reading the grouping, with no declaration to
-  // check it against and no evidence that any question was ever put. That is
-  // the same channel the other waits of the table AS IT THEN STOOD had closed --
-  // four of them, before kogaki#1030 and kogaki#1087 deleted two -- surviving in
-  // the one state a gate-coverage number computed over the DECLARED gates could
-  // not see: the enumeration was complete and the uncovered wait was outside it.
-  //
-  // NO RUN-COMPUTED OPTION, and the empty list is the shape rather than an
-  // omission. The answer is a LIST, and a list is not an option: a composed run
-  // routinely carries more groups than the selector affordance's four, so a
-  // per-group option set would either truncate the owner's view or refuse the
-  // run outright. Exactly two ways to answer exist — the standing negation, or
-  // free-form entry of the ids — which is `terrain-tag-selection`'s shape in
-  // this same table, arrived at from the same constraint.
-  //
-  // THE GROUPING RIDES THE DECLARATION AS BYTES (kogaki#1087). It rode as a
-  // POINTER until this issue -- `groups_artifact` named the file `cotag_groups`
-  // wrote and left the rendering to the session, on the ground that inlining it
-  // would invent a second rendering surface nothing grammars. That ground was
-  // false in one respect and it was the load-bearing one: `report-format.json`
-  // grammars `cotag_groups` exactly as it grammars `tag_listing`, so the bytes
-  // this state reads have already passed the emit-time refusal at the write, and
-  // passing them through `composeOwnerListing` re-checks them against the same
-  // surface rather than against a format of this state's own.
-  //
-  // WHAT THE POINTER COST, observed rather than argued: on the live run of
-  // 2026-09-10 the owner was asked which groups to enter with the grouping
-  // nowhere on screen -- a pointer is rendered by whoever chooses to open it, and
-  // the one act the tag gate proved must not be left to a session is putting the
-  // reading in front of the owner. As bytes it is inside the payload the
-  // PreToolUse equality check admits, so a grouping that arrives missing or
-  // paraphrased is a byte difference and is denied.
-  //
-  // THE ABSENCE STAYS TYPED AND STAYS A NON-REFUSAL. A run whose `cotag_groups`
-  // wrote nothing reaches this wait with no reading to carry, and the gate is
-  // still raised: the sentence below rides in the reading's place, so the owner
-  // is told what they are not being shown instead of being asked over a silence.
-  // Refusing here would wedge the one run that most needs an owner.
+  // THE ONE WAIT THAT DECLARED NO GATE (kogaki#890, acceptance item 3; see kogaki#1030).
+  // No run-computed option: the answer is a list — the standing negation or free-form ids.
+  // THE GROUPING RIDES THE DECLARATION AS BYTES (kogaki#1087), through `composeOwnerListing`,
+  // so a missing or paraphrased grouping is a byte difference and is denied.
+  // An empty `cotag_groups` still raises the gate, with the sentence below in its place.
   ID_SELECTION: (rec) => {
     const written = (rec.artifacts_written || []).filter((a) => a.state === "cotag_groups").pop();
     // `resolve` against the repository root rather than the cwd: the recorded
@@ -9826,67 +7269,19 @@ const GATE_WORK = {
 
 
 // ---- THE EXECUTOR --------------------------------------------------------
-// ONE entry point, entered once per act (the re-entrant executor). It reads the run record,
-// executes table states until the next declared stop, writes that state's
-// artifact, and stops. It never blocks on input: every wait in this flow
-// spans a chat turn, `parseArgs` reads process.argv only, and supplying a
-// stdin path would turn a wait into a prompt — which the post-tag-selection window's empty question
-// allowlist for that window forbids.
-// NO STOP IN THIS FLOW PRINTS AN INVOCATION (kogaki#856). A hand-over whose
-// owner must read something before answering rides the gate declaration for
-// that wait — the pre-selection tag listing is the one such reader, carried in
-// the TAG_SELECTION declaration, where the executor composes the bytes and the
-// session renders them above the question.
-//
-// THE FIELD IS GONE FROM `field_semantics` TOO, not merely unused. A schema key
-// no state declares is an invitation to declare one, and what would then be
-// declared is a channel this issue removed.
-//
-// WHAT WENT WITH IT, stated because the retirement is deliberate and not a
-// casualty: kogaki#807's eight fixture cases asserted that every declared
-// `owner_reads` key reached the stop output. `checks/registry.json` names the
-// condition under which they retire — "or when the table stops declaring
-// owner_reads at all" — and that is exactly what happened, so they are retired
-// rather than re-pointed at whatever now occupies the same position. A check
-// whose unit a redesign dissolved does not become easier to satisfy; it stops
-// being a check.
+// ONE entry point, entered once per act (the re-entrant executor). It never blocks on input:
+// `parseArgs` reads process.argv only; no stdin path.
+// NO STOP IN THIS FLOW PRINTS AN INVOCATION (kogaki#856): owner reading rides the gate
+// declaration. Records: kogaki#807; `checks/registry.json`.
 // consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:133
 
-// THE EXECUTOR'S ONE BODY, ENTERED BY TWO ACTS (kogaki#1027).
-//
-// `advancedBy` is the attribution every transition this act writes will carry,
-// and it is resolved by the CALLER -- `cmdRun` from the hook payload on stdin,
-// `cmdStart` as the skill expansion. Passing it in rather than reading it here
-// is what keeps the "a transition without a payload is refused BEFORE ANY
-// WRITE" ordering true by construction: by the time this function runs, the
-// attribution already exists or the caller already refused.
-//
+// THE EXECUTOR'S ONE BODY, ENTERED BY TWO ACTS (kogaki#1027). `advancedBy` is resolved
+// by the CALLER, so a transition without a payload is refused BEFORE ANY WRITE.
 // ---- THE TWO FLOW BINDINGS (kogaki#1108) ----------------------------------
-//
-// A FLOW IS A TABLE PLUS TWO MAPS PLUS A LANE, and nothing else. Everything a
-// second flow needs to differ in is here; everything below `runWorkflow` is
-// shared. The shape is the workflow table's own contract one level up: a new
-// STATE is a table row plus a renderer, and a new FLOW is a table plus the two
-// maps those rows are looked up in.
-//
-//   lane         the `runs/` lane. It sites the run workspace, the open-run
-//                pointer, and the capture file's own filename prefix -- which
-//                is what keeps two concurrent runs of two flows from reading
-//                each other's answers.
-//   label        the flow's name in a refusal addressed to a person.
-//   startLine    the `!` line of the flow's skill file, named in the refusal a
-//                reader meets when no run is open. Named rather than
-//                described, because the reader's next act is to run it.
-//   tablePath    the workflow table this flow's states come from.
-//   newRunDir    how a START act opens a workspace in this lane.
-//   stateWork    the renderer half, keyed by state id.
-//   gateWork     the option-composer half, keyed by state id.
-//   runDirEnv    the environment variable pinning a run workspace, per flow so
-//   openRunEnv   that a fixture pinning one lane does not redirect the other.
-//
-// THE DEFAULT REMAINS TERRAIN'S. `flow()` falls back to this binding, so every
-// caller outside `runWorkflow` -- the exported readers, the whole fixture pass
-// -- reads exactly what it read before this change.
+// A flow is a table plus two maps plus a lane; everything below `runWorkflow` is shared.
+//   lane: `runs/` lane (workspace, open-run pointer, capture prefix); label; startLine;
+//   tablePath; newRunDir; stateWork; gateWork; runDirEnv/openRunEnv (per flow).
+// `flow()` falls back to Terrain's binding for every caller outside `runWorkflow`.
 const TERRAIN_FLOW = {
   lane: "terrain",
   label: "Terrain",
@@ -9935,32 +7330,11 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     fail("`start --status` is refused: `start` opens a run and `--status` reads one, and the two are not one act. "
       + `The read-only route is this runtime's own \`run --status\` (kogaki#1038).`);
   }
-  // `start` READS NO ARGUMENTS FROM THE SESSION (kogaki#1163). The skill's `!`
-  // line forwards `$ARGUMENTS` so a session's resumption attempt is visible
-  // here rather than silently dropped by an expansion line that never named
-  // them; `start` itself takes no run identity, mints a fresh workspace on
-  // every call, and has nowhere to put what the session typed. Refused before
-  // `runDir` is called, exactly where `--status` is refused above, so a refused
-  // start opens no workspace and prunes no lane.
-  //
-  // THE GUARD IS AN ALLOWLIST, NOT A POSITIONAL TEST (PR #1168 round 1). The
-  // forwarding that makes a resumption attempt visible also opens every flag
-  // route to it, and two of them act: `--run-dir <fresh path>` mints a run and
-  // writes NO open-run pointer, which no later advance can resolve, and
-  // `--workflow <path>` chooses the table the run drives. Both are the
-  // fixture's and the second repository's route — a caller who names a
-  // directory or a table holds it — so they stay, and everything else the
-  // session could type is refused rather than acted on.
-  //
-  // AND IT READS THIS RUNTIME'S OWN CLI SHAPE, NOT EVERY CALLER'S. `cmdRun` is
-  // reached from three places and only one of them is `parseArgs` above:
-  // `runWorkflow` composes an options object, and `src/brief.mjs` has a parser
-  // of its own producing `_cmd`/`_rest` and its own read arguments (`--slug`,
-  // `--moves-dir`). A guard that judged those objects by THIS parser's
-  // allowlist refuses the Brief start act on the arguments it exists to take —
-  // which is what it did, and what `brief-compose` caught. `_` is the array
-  // `parseArgs` always sets and neither other caller has, so its presence is
-  // the one honest test for "these arguments came from this runtime's CLI".
+  // `start` READS NO ARGUMENTS FROM THE SESSION (kogaki#1163); refused before `runDir`,
+  // so a refused start opens no workspace and prunes no lane.
+  // An ALLOWLIST (PR #1168 round 1): only `--run-dir` and `--workflow` pass.
+  // Applies only when `_` is present (the `parseArgs` CLI): `runWorkflow` and
+  // the Brief runtime's own parser pass other options.
   const START_READS = new Set(["run-dir", "workflow"]);
   if (stopAtFirstWait && Array.isArray(args._)) {
     const positionals = args._;
@@ -10109,25 +7483,9 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
   if (rec.awaiting) {
     const owed = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting);
     if (owed && owed.declaration) {
-      // RECORDED REPO-RELATIVE, READ REPO-RELATIVE — and it took two goes to
-      // get both halves pointing the same way (PR #671 rounds 1 and 2).
-      //
-      // The declaration is stored as `relFromRepo(resolve(declPath))`, which
-      // strips the repository root and returns an OUT-OF-REPO path unchanged.
-      // The first cut read it back through `join(REPO, …)`, which turned an
-      // absolute /tmp path into `<repo>/tmp/...` — every capture in a
-      // machine-local run workspace died in `readFileSync` before any refusal
-      // could speak. Round 1 replaced that with a bare `readJson(…)`, which
-      // fixed /tmp and broke the mirror case: Node resolves a relative path
-      // against `process.cwd()`, so an IN-REPO `--run-dir` driven from a
-      // subdirectory records `terrain/run/…` and reads it from wherever the
-      // process happens to stand. The same crash, arriving from the other side.
-      //
-      // `resolve(REPO, …)` satisfies both, because it returns an
-      // already-absolute path untouched and re-roots a repo-relative one
-      // against the root `relFromRepo` stripped — so the read is the exact
-      // inverse of the write rather than a second convention that agrees with
-      // it by luck.
+      // RECORDED REPO-RELATIVE, READ REPO-RELATIVE (PR #671 rounds 1 and 2). Read with
+      // `resolve(REPO, …)`: the exact inverse of `relFromRepo`, correct for absolute /tmp
+      // paths and repo-relative ones, independent of cwd.
       const decl = readJson(resolve(REPO, owed.declaration));
       // THE PAYLOAD'S OWN ID IS PASSED, and it is the one `advancedBy` already
       // carries: `advancedByFromPayload` copied it out of the harness event
@@ -10197,24 +7555,10 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the answer at ${jobState} is not stop, so nothing is acted on; the advance below re-enters the state and reads the job record again.`);
         }
       } else {
-        // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
-        // (PR #898 round 1). A gate may legitimately offer an answer with no
-        // downstream — `terrain-tag-selection`'s standing option stands for a
-        // method that does not exist yet — and the answer is still evidence, so the
-        // capture is written first and the refusal comes after it. What must NOT
-        // happen is the advance: the option id would land where the wait's value
-        // goes, and a later state would refuse it as if it were a malformed value
-        // of that kind rather than a deliberate answer to this question.
-        //
-        // DATA, NOT DRIVER CODE, like every other field the executor reads here: the
-        // routing is declared per gate in `src/gate-registry.json` and rides into
-        // the run declaration, so a second gate with an unrouted option needs no
-        // change to this file and no state is named below.
-        //
-        // THE WAIT STAYS OUTSTANDING, which is what makes the refusal recoverable:
-        // `rec.awaiting` is untouched, nothing is pushed onto `completed`, and since
-        // kogaki#808 a refusal persists the record — so the capture row is on disk,
-        // the declaration is still owed, and re-entering re-offers the same gate.
+        // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED (PR #898 round 1).
+        // Capture first, refuse after; never advance. Routing is data in `src/gate-registry.json`.
+        // The wait stays outstanding (`rec.awaiting` untouched; refusal persists per kogaki#808),
+        // so re-entering re-offers the same gate.
         const unrouted = (decl.unrouted_options || {})[capOption];
         if (unrouted) {
           fail(`${JSON.stringify(capOption)} is an option gate ${owed.gate_id} declares as ROUTED NOWHERE, so the run does not advance past ${rec.awaiting}. `
@@ -10242,25 +7586,9 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
 
   // ---- The advance. Order, kind, conditionality and stopping all come from
   // the table; nothing below names a state.
-  // NOTHING ENTERS A CONDITIONAL STATE ANY MORE, and that is the stated cost of
-  // deleting `--enter` (kogaki#1027 item 5). `--enter` was a model-typed
-  // selector: the session decided that a conditional state should run and said
-  // so on a Bash command line. With the flag gone and no computed condition in
-  // its place, every conditional state is SKIPPED and the record says so --
-  // which is what the executor already did on any act that omitted the flag.
-  //
-  // NAMED RATHER THAN HIDDEN: the shipped table's ONE remaining conditional
-  // state, TRIM_RATIFICATION, is unreachable until a later child of kogaki#1025
-  // makes its declared condition something the executor evaluates. The empty set
-  // below is that fact, written once.
-  //
-  // IT WAS TWO. `CLAIM_REOFFER` was the other, and kogaki#1030 deleted it rather
-  // than giving it the computed condition this comment anticipated -- because
-  // that issue's item 2 requires the two judgments and the co-tag write to
-  // complete inside one hook, and a wait sited between them cannot be made
-  // reachable without falsifying that. Recorded here because a reader meeting a
-  // one-member set where the history says two should be able to tell a deletion
-  // from a state that quietly stopped being listed.
+  // Every conditional state is SKIPPED and recorded so (kogaki#1027 item 5). TRIM_RATIFICATION
+  // is unreachable until a child of kogaki#1025 makes its condition computable;
+  // CLAIM_REOFFER was deleted by kogaki#1030.
   const entered = new Set();
   let stopped = null;
   // SURVIVES THE LOOP, UNLIKE `detachedJobStarted` ITSELF (kogaki#1193 PR
@@ -10311,31 +7639,10 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       // story's, and inventing one here would put a declaration behind a
       // runtime that the post-tag-selection window's allowlist keeps empty for the other two waits.
       if (st.renders_gate_declaration && !rec.gate_declarations_owed.some((g) => g.state === st.id)) {
-        // AND THE EXECUTOR COMPOSES IT (kogaki#625 item 1). The pre-item-1 form
-        // recorded the id of a state that owed a declaration and left composing
-        // it to a `gate` invocation outside the run — which is how a session
-        // minted run state the executor never saw. Composing is `record`, and
-        // record is engine work; the RENDERING is the harness UI's, over the
-        // byte-fixed call the exclusivity hook admits (kogaki#1028), and is
-        // still not performed here.
-        //
-        // the workflow table binds this exactly as it binds a renderer: a new gate state is a
-        // table row PLUS an option composer, and the executor invents neither.
-        // THE LIMIT IS DECLARED RATHER THAN SILENT, and #625 acceptance item 6
-        // is what forced it to be. A state this runtime has no option composer
-        // for still RUNS — it reaches the wait, stops, and records that its
-        // declaration is owed and unwritten. Refusing instead would have meant
-        // that adding a gate state to a table needs driver code, which is the
-        // property item 6 denies and the evolvability fixture proves: its
-        // CLOSING_CONFIRMATION is exactly such a state.
-        //
-        // This costs item 1 nothing. What item 1 closes is a SESSION minting run
-        // state from outside the executor, and that is closed by `gate` and
-        // `capture` ceasing to exist — not by whether this runtime happens to
-        // know how to compose a given table's options. An uncomposed
-        // declaration is a table owing a composer; it is not an escape hatch,
-        // because there is no longer any surface through which one could be
-        // written by hand.
+        // AND THE EXECUTOR COMPOSES IT (kogaki#625 item 1); rendering stays the harness UI's
+        // (kogaki#1028). A gate state is a table row PLUS an option composer.
+        // With no composer the state still RUNS, stops, and records its declaration owed and
+        // unwritten (#625 acceptance item 6; the evolvability fixture's CLOSING_CONFIRMATION).
         const compose = flow().gateWork[st.id];
         if (!compose) {
           rec.gate_declarations_owed.push({ state: st.id, gate_id: st.gate_id || null, declaration: null,
@@ -10445,19 +7752,9 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       break;
     }
     if (st.kind === "write") {
-      // A WRITE STATE THAT LEGITIMATELY WROTE NOTHING IS NOT A RENDERER THAT
-      // NAMED NO ARTIFACT (PR #667 round 1 finding 2). The two were one branch,
-      // so making `full_report` OBSERVE its path turned two live non-writing
-      // paths into executor aborts: `run --no-render`, which location and naming v11 licenses
-      // ("--no-render opts out of the rendering"), and the idempotent-rerun
-      // branch, which the report identity rules "IDEMPOTENT, not a duplicate" and which
-      // returns after having written. An abort is neither of those.
-      //
-      // So the renderer declares WHICH it means. `{ artifact: <path> }` wrote
-      // and names it; `{ artifact: null }` ran and wrote nothing, deliberately;
-      // and a renderer returning nothing at all still FAILS, because that is
-      // the case the guard was built for — a renderer that wrote and did not
-      // say where.
+      // A WRITE STATE THAT WROTE NOTHING IS NOT A RENDERER THAT NAMED NO ARTIFACT
+      // (PR #667 round 1 finding 2). `{ artifact: <path> }` wrote; `{ artifact: null }` ran
+      // and wrote nothing deliberately; returning nothing still FAILS.
       const kindOfWrite = classifyWriteOutcome(outcome);
       if (kindOfWrite === "named-nothing") {
         fail(`workflow state ${JSON.stringify(st.id)} is kind "write" and its renderer named no artifact.`);
@@ -10539,24 +7836,10 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
       if (existsSync(callHere)) {
         console.log(`The AskUserQuestion call is WRITTEN: ${callHere}`);
         console.log(`Send that file's contents as the tool_input, byte-for-byte — it already carries the reading (\`tag_listing\`) above the question. Nothing is retyped, summarized, reformatted or pre-selected, and the executor renders no question UI of its own (the post-tag-selection window).`);
-        // AND THE BYTES ARE HERE, NOT ONLY THEIR ADDRESS (kogaki#1057). On
-        // 2026-09-09 at 15:48 UTC this stop named the file and printed none of
-        // it. The session's one admissible act needed those bytes; the act that
-        // fetches bytes is a `Read`, and `.claude/hooks/gate-open-terrain-
-        // gate.py` denies every tool inside the interval, no tool exempt. The
-        // two refusals were each correct and jointly unrenderable: a payload
-        // named and not printed is a payload no admissible act can obtain.
-        // A PATH IS AN INSTRUCTION TO READ; the interval closes over the read.
-        // So the start act delivers the payload on the one channel it already
-        // owns to the session — this stdout, which the skill expansion hands
-        // over before any tool exists to deny. THE FILE STAYS THE REFERENCE:
-        // the PreToolUse equality check is unchanged and still compares against
-        // it, so a payload that arrives paraphrased is refused exactly as
-        // before, and nothing here admits a second act into the interval.
-        // ONE SITE, BOTH ENTRIES (kogaki#1057 item 2). A re-entry that stops at
-        // a gate wait with a written call prints through this same branch, so
-        // "the same holds at re-entry" is a property of where this stands
-        // rather than a second copy that could drift from it.
+        // AND THE BYTES ARE HERE, NOT ONLY THEIR ADDRESS (kogaki#1057): no tool is admissible
+        // inside the open-gate interval, so stdout is the only channel. The file stays the
+        // reference for the PreToolUse equality check.
+        // ONE SITE, BOTH ENTRIES (kogaki#1057 item 2): re-entry prints through this same branch.
         console.log(`Its bytes are below — the payload itself, not a path to one. No tool is admissible inside the open-gate interval, the Read that would fetch this file included, so a call named and unprinted is one nothing can obtain (kogaki#1057).`);
         console.log("```json");
         console.log(readFileSync(callHere, "utf8").replace(/\n+$/, ""));
