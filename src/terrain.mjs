@@ -5589,7 +5589,7 @@ function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutFile) {
 // end because a `stream-json` transcript carries many other line types
 // (`system`, `assistant`, …) before the one that terminates it. Unwrapping
 // `result` mirrors the same envelope `judgeRecordFrom` reads.
-function readerPathUnitRecord(stdout) {
+function readerPathUnitRecord(stdout, recordArray = "legs") {
   const lines = String(stdout == null ? "" : stdout).split("\n").filter((l) => l.trim() !== "");
   let resultLine = null;
   let anyValidJson = false;
@@ -5608,7 +5608,9 @@ function readerPathUnitRecord(stdout) {
   })() : inner;
   if (record && record.__parseError) return { error: record.__parseError };
   if (!record || typeof record !== "object" || Array.isArray(record)) return { error: "not a JSON object" };
-  if (!Array.isArray(record.legs)) return { error: "no `legs` array" };
+  // THE ARRAY THE RECORD MUST CARRY IS DECLARED BY THE UNITS FILE (kogaki#1301):
+  // `legs` for a reader-path unit, `claim_register` for a path-review unit.
+  if (!Array.isArray(record[recordArray])) return { error: `no \`${recordArray}\` array` };
   return { candidate: record };
 }
 
@@ -5654,9 +5656,10 @@ async function loadReaderPathUnitValidator(declared) {
   // `resolveMoveIds`, which `validateReaderPathUnit` itself calls) is
   // unwrapped HERE, once, so `classifyDetachedJobUnit` deals only in a
   // plain string-or-falsy refusal regardless of which declared validator
-  // supplied it.
-  return (candidate) => {
-    const r = fn(candidate, inputs);
+  // supplied it. The unit's own id rides as the third argument (kogaki#1301),
+  // so a job whose units each judge a different subject can resolve which one.
+  return (candidate, unitId) => {
+    const r = fn(candidate, inputs, unitId);
     return r && r.error ? r.error : null;
   };
 }
@@ -5665,7 +5668,7 @@ async function loadReaderPathUnitValidator(declared) {
 // the caller from the units file -- this function stays ignorant of what it
 // checks or why, taking only a `(candidate) => string|null` function and
 // downgrading an otherwise-`done` unit to `refused` on a truthy return.
-function classifyDetachedJobUnit(out, validate) {
+function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = null) {
   if (out.error) {
     return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(String(out.error.message || out.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
   }
@@ -5673,12 +5676,12 @@ function classifyDetachedJobUnit(out, validate) {
     const result = readerPathDeadUnitResult(Buffer.concat(out.chunks || []).toString("utf8"));
     return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(Buffer.concat(out.errChunks).toString("utf8"), 4000), bytes_written: out.bytes, ended_at: out.endedAt, ...(result !== null ? { result } : {}) } };
   }
-  const r = readerPathUnitRecord(Buffer.concat(out.chunks).toString("utf8"));
+  const r = readerPathUnitRecord(Buffer.concat(out.chunks).toString("utf8"), recordArray);
   if (r.error) {
     return { status: "refused", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(r.error, 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
   }
   if (validate) {
-    const refusal = validate(r.candidate);
+    const refusal = validate(r.candidate, unitId);
     if (refusal) {
       return { status: "refused", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(String(refusal), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
     }
@@ -5868,6 +5871,7 @@ async function cmdJobSupervise(args) {
     const declared = readJson(unitsPath);
     const units = Array.isArray(declared) ? declared : (declared.units || fail("the units file at " + unitsPath + " carries no `units` array."));
     const validate = await loadReaderPathUnitValidator(declared.validator);
+    const recordArray = typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "legs";
 
     // THE MINIMAL ENVIRONMENT (kogaki#1193, kogaki#1197): only `units[].prompt` and the
     // session's own login; do not add the bare-session flag (it breaks OAuth auth), and keep
@@ -5924,7 +5928,7 @@ async function cmdJobSupervise(args) {
       const unitRows = units.map((u) => {
         const sp = unitsRunning.get(u.id);
         if (sp.out.done) {
-          const cls = classifyDetachedJobUnit(sp.out, validate);
+          const cls = classifyDetachedJobUnit(sp.out, validate, recordArray, u.id);
           const attempt = unitAttempts.get(u.id) || 1;
           // THE ONE RE-ASK (kogaki#1203 acceptance 3, bounded by kogaki#1273):
           // a STRUCTURAL refusal on attempt 1 respawns the unit with the
@@ -6050,7 +6054,7 @@ async function cmdJobSupervise(args) {
 export function startDetachedJobSupervisor(dir, opts) {
   const validator = opts.validator || fail("startDetachedJobSupervisor needs a declared `validator` (kogaki#1240).");
   const unitsPath = join(dir, "reader-path-job-units.json");
-  writeFileSync(unitsPath, `${JSON.stringify({ units: opts.units, validator }, null, 2)}\n`);
+  writeFileSync(unitsPath, `${JSON.stringify({ units: opts.units, validator, ...(opts.recordArray ? { record_array: opts.recordArray } : {}) }, null, 2)}\n`);
   const scriptPath = fileURLToPath(import.meta.url);
   const child = spawn(process.execPath, [
     scriptPath, "job-supervise",
@@ -7542,9 +7546,12 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
           // own ceiling or stall rather than ending promptly on the owner's
           // click. Best-effort kill of the recorded pid alongside it, since the
           // flag alone still costs one heartbeat's delay.
-          try { writeFileSync(readerPathJobStopFlagPath(dir), `${new Date().toISOString()}\n`); } catch { /* the record is the truth; the flag is only a nudge */ }
+          // A JOB KEPT IN ITS OWN DIRECTORY (kogaki#1301's path-review job) is
+          // named on the run record by the state that started it.
+          const jobDir = rec.detached_job_dirs && rec.detached_job_dirs[jobState] ? join(dir, rec.detached_job_dirs[jobState]) : dir;
+          try { writeFileSync(readerPathJobStopFlagPath(jobDir), `${new Date().toISOString()}\n`); } catch { /* the record is the truth; the flag is only a nudge */ }
           try {
-            const job = readReaderPathJob(dir);
+            const job = readReaderPathJob(jobDir);
             if (job && Number.isInteger(job.supervisor_pid)) process.kill(job.supervisor_pid, "SIGTERM");
           } catch { /* already gone, or never ours to signal */ }
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the reader-path job at ${jobState} is STOPPED; the run is not resumed and the open-run pointer is cleared.`);
@@ -7867,7 +7874,7 @@ async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
     // apart from the judgment-retry stop, and printed that stop's false text
     // here. This branch is checked first so the job's own state, not a
     // borrowed one, reaches the screen.
-    console.log(`Executor STOPPED at ${stopped.id} — a reader-path job was started as a Detached Job and is running outside this process (kogaki#1193). The state is NOT complete.`);
+    console.log(`Executor STOPPED at ${stopped.id} — a Detached Job was started and is running outside this process (kogaki#1193; \`review_path\`'s since kogaki#1301). The state is NOT complete.`);
     console.log(`Poll it with  ${READER_PATH_JOB_STATUS_COMMAND}  (one-shot) or  ${READER_PATH_JOB_AWAIT_COMMAND}  (waits at most 30 seconds, then says whether the job is still running).`);
   } else if (stopped && rec.awaiting === stopped.id) {
     // THE JUDGMENT-RETRY STOP (kogaki#1172 item 3). `stopped` is a `judgment`
