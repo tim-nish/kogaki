@@ -167,7 +167,7 @@
     "re-activate": {
       "required": false,
       "type": "array of string",
-      "description": "What this Leg treats as active material, restored from a Leg it depends on — not an inventory of what the reader possesses, but what the Writer may speak of as this Leg's own. One reference per line, in one of THREE forms: `<leg_id> term <exact introduces term>` (the string must match, verbatim, the `term` of an entry in that Leg's `introduces`), `<leg_id> claim <strand id>` (the strand must be one that Leg carries a claim for), or `<leg_id> journey <strand id>` (the strand must be one that Leg names in its `journeys`). The named Leg must be in this Leg's `depends_on`. Anything not named here stays available to the reader but is not material for this Leg to speak of; the composer selects from what `depends_on` makes reachable and writes no free text here."
+      "description": "What this Leg treats as active material, restored from a Leg it depends on — not an inventory of what the reader possesses, but what the Writer may speak of as this Leg's own. One reference per line, in one of THREE forms: `<leg_id> term <exact introduces term>` (the string must match, verbatim, the `term` of an entry in that Leg's `introduces`), `<leg_id> claim <strand id> as <one plain sentence>` (the strand must be one that Leg carries a claim for, and the `as` sentence is required -- a plain restatement of that claim written at Brief time, never the claim's own `proposition` rendered verbatim), or `<leg_id> journey <strand id>` (the strand must be one that Leg names in its `journeys`). The named Leg must be in this Leg's `depends_on`. Anything not named here stays available to the reader but is not material for this Leg to speak of; the composer selects from what `depends_on` makes reachable and writes no free text here beyond the `as` sentence the claim form requires."
     },
     "opens_section": {
       "required": false,
@@ -457,11 +457,17 @@
         "enum": ["coined", "established"],
         "description": "`coined` -- this Leg names something for the first time anywhere, inventing the term. `established` -- the term already has a home outside this article, and this Leg is the first to bring it in here."
       },
+      "meaning": {
+        "required": false,
+        "required_when": "kind is coined",
+        "type": "string",
+        "description": "One sentence giving the term's meaning. Required on a `coined` term, because nothing outside this Leg can supply it. On an `established` term, `source` stands as the meaning and this field is not asked for separately -- the term crosses into a later Leg's Packet carrying whichever of the two it has."
+      },
       "source": {
         "required": false,
         "required_when": "kind is established",
         "type": "string",
-        "description": "Where an established term comes from -- the field, the text or the person it is established by. A coined term has no source but this Leg, so the field is absent there."
+        "description": "Where an established term comes from -- the field, the text or the person it is established by. A coined term has no source but this Leg, so the field is absent there. Stands as the term's meaning when it crosses into a later Leg's Packet."
       },
       "nearest": {
         "required": false,

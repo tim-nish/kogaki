@@ -569,11 +569,11 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   if (!outside.error || !/not in this Leg's depends_on/.test(outside.error) || !/"s3 term pipeline"/.test(outside.error)) fails.push(`(n) a re-activate naming a Leg outside depends_on was not refused naming the entry: ${outside.error}`);
   const noTerm = validateLegs(path({ "re-activate": ["s1 term deterrence"] }), "");
   if (!noTerm.error || !/does not introduce "deterrence"/.test(noTerm.error) || !/"s1 term deterrence"/.test(noTerm.error)) fails.push(`(n) a re-activate naming a term the Leg does not introduce was not refused naming the entry: ${noTerm.error}`);
-  const noClaim = validateLegs(path({ "re-activate": ["s1 claim L9"] }), "");
-  if (!noClaim.error || !/carries no claim for strand "L9"/.test(noClaim.error) || !/"s1 claim L9"/.test(noClaim.error)) fails.push(`(n) a re-activate naming a Strand the Leg carries no claim for was not refused naming the entry: ${noClaim.error}`);
+  const noClaim = validateLegs(path({ "re-activate": ["s1 claim L9 as a restated claim"] }), "");
+  if (!noClaim.error || !/carries no claim for strand "L9"/.test(noClaim.error) || !/"s1 claim L9 as a restated claim"/.test(noClaim.error)) fails.push(`(n) a re-activate naming a Strand the Leg carries no claim for was not refused naming the entry: ${noClaim.error}`);
   const shape = validateLegs(path({ "re-activate": ["s1 pipeline"] }), "");
   if (!shape.error || !/re-activate/.test(shape.error)) fails.push(`(n) a malformed re-activate entry was not refused: ${shape.error}`);
-  const good = validateLegs(path({ "re-activate": ["s1 term unfed guard", "s1 claim L1"] }), "");
+  const good = validateLegs(path({ "re-activate": ["s1 term unfed guard", "s1 claim L1 as a restated claim"] }), "");
   if (good.error) fails.push(`(n) a well-formed re-activate over depends_on material was refused: ${good.error}`);
 
   // THE RENDERED PACKET, over the real template and a Brief parsed from renderLeg's own output.
@@ -898,7 +898,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
 {
   const { introducesNearestRefusal } = compose;
   if (typeof introducesNearestRefusal !== "function") fails.push("(y) src/compose.mjs exports no introducesNearestRefusal");
-  const coined = (term, nearest) => ({ term, kind: "coined", nearest, differs: `how ${term} differs from ${nearest}` });
+  const coined = (term, nearest) => ({ term, kind: "coined", meaning: `the meaning of ${term}`, nearest, differs: `how ${term} differs from ${nearest}` });
   const two = validateLegs(PATH_1260({ introduces: [coined("unfed guard", "dead code"), "pipeline"] }, { introduces: [coined("silent pass", "false negative")] }), "");
   if (!two.error) fails.push("(y) a Brief carrying two nearest entries was not refused");
   else {
@@ -913,8 +913,29 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   if (!badKind.error || !/kind is closed to coined, established/.test(badKind.error)) fails.push(`(y) an introduces_item with an unknown kind was not refused: ${badKind.error}`);
   const noSource = validateLegs(PATH_1260({ introduces: [{ term: "pipeline", kind: "established" }] }), "");
   if (!noSource.error || !/"established" with no source/.test(noSource.error)) fails.push(`(y) an established introduces_item with no source was not refused: ${noSource.error}`);
-  const differsAlone = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined", differs: "from nothing" }] }), "");
+  const differsAlone = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds", differs: "from nothing" }] }), "");
   if (!differsAlone.error || !/differs with no nearest/.test(differsAlone.error)) fails.push(`(y) an introduces_item carrying differs with no nearest was not refused: ${differsAlone.error}`);
+  // a coined introduces_item with no meaning is refused naming the entry (kogaki#1282).
+  const noMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined" }, "pipeline"] }), "");
+  if (!noMeaning.error || !/"unfed guard" declares kind "coined" with no meaning/.test(noMeaning.error)) fails.push(`(y) a coined introduces_item with no meaning was not refused naming the entry: ${noMeaning.error}`);
+  const withMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds" }, "pipeline"] }), "");
+  if (withMeaning.error && /with no meaning/.test(withMeaning.error)) fails.push(`(y) a coined introduces_item carrying meaning was refused on the meaning ground: ${withMeaning.error}`);
+}
+
+// (am) a re-activate claim entry requires an `as` sentence (kogaki#1282, owner decision 2026-10-06):
+// the claim crosses as a plain restatement written at Brief time, never as its own proposition.
+{
+  const withClaim = (reactivate) => PATH_1260({}, { "re-activate": reactivate });
+  const noAs = validateLegs(withClaim(["s1 claim L1"]), "");
+  if (!noAs.error || !/a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required/.test(noAs.error)) {
+    fails.push(`(am) a re-activate claim entry with no as sentence was not refused naming the grammar: ${noAs.error}`);
+  }
+  const noAsEither = validateLegs(withClaim(["s1 claim L1 as"]), "");
+  if (!noAsEither.error || !/a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required/.test(noAsEither.error)) {
+    fails.push(`(am) a re-activate claim entry with a bare trailing as was not refused naming the grammar: ${noAsEither.error}`);
+  }
+  const withAs = validateLegs(withClaim(["s1 claim L1 as the grounded claim, restated plainly"]), "");
+  if (withAs.error) fails.push(`(am) a re-activate claim entry carrying an as sentence was refused: ${withAs.error}`);
 }
 
 // (z) a conceded Closure row carries open, why_not_here and reader_keeps (kogaki#1251 item 3, kogaki#1260).
@@ -1089,7 +1110,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
 
   // (ad) a typed introduces_item round-trips through the Brief and renders its kind and authority line.
   {
-    const coined = { term: "unfed guard", kind: "coined", nearest: "guard clause", differs: "nothing ever feeds it a failing input" };
+    const coined = { term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds", nearest: "guard clause", differs: "nothing ever feeds it a failing input" };
     const established = { term: "default-deny", kind: "established", source: "firewall configuration practice" };
     const legs = [legOf("s1", { introduces: [coined, established] })];
     const line = renderLeg(legs[0]).split("\n").find((l) => l.startsWith("introduces: ") && l.includes("unfed guard"));
