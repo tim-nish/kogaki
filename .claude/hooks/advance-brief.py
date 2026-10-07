@@ -35,7 +35,7 @@ payload on stdin, verbatim, and copies `hook_event_name`, `session_id` and
 `tool_use_id` out of it into every transition it writes.
 
 THE TIMEOUT IS DECLARED RATHER THAN INHERITED, and its derivation is this lane's
-own rather than the sibling's -- see `ADVANCE_TIMEOUT_S` below.
+own rather than the sibling's -- see `advance_timeout_s` below.
 """
 import json
 import os
@@ -82,7 +82,23 @@ from pathlib import Path
 # THE HOOK'S OWN TIMEOUT lives in the machine-local registration this repository
 # deliberately does not commit. What is declarable here is the CHILD's, and the
 # constant is what tells an installer what "above" means.
-ADVANCE_TIMEOUT_S = 480
+# THE BOUND IS READ FROM THE TABLE (kogaki#1300): `judge.advance_timeout_s` in
+# src/brief-workflow.json, where the executor also refuses a table whose judge
+# calls in one advance sum past it. The derivation above is the ground for the
+# value the table carries; no copy of the number lives in this file.
+WORKFLOW_TABLE = ("src", "brief-workflow.json")
+
+
+def advance_timeout_s(root):
+    """The table's `judge.advance_timeout_s` in seconds, or None where unreadable."""
+    try:
+        with open(Path(root).joinpath(*WORKFLOW_TABLE), encoding="utf-8") as f:
+            value = json.load(f)["judge"]["advance_timeout_s"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        return None
+    return value
 
 # The open-run pointer the start act writes, read here for the SAME reason the
 # executor reads it: an advance is an advance OF a run, and a hook that spawned
@@ -476,7 +492,7 @@ def main():
     # THE DELIVERY IS ONE POINT AND EVERY POST-SPAWN EXIT PASSES THROUGH IT
     # (kogaki#1081, PR #1082 round 1). The first cut read the pointer on the two
     # `returncode` arms and returned above it on the other two -- so an executor
-    # killed at ADVANCE_TIMEOUT_S *after* `emitGateDeclaration` had written the
+    # killed at `advance_timeout_s` *after* `emitGateDeclaration` had written the
     # call and the pointer left precisely the state this file exists to deliver,
     # undelivered, with its only note on the stderr this issue is about. `try`
     # around the spawn and the delivery in `finally` is what makes "on every exit
@@ -488,15 +504,22 @@ def main():
     # outstanding at once.
     refusal = None
     try:
+        # READ INSIDE THE `try`, so a table with no bound still reaches the
+        # delivery in `finally` below rather than returning past it.
+        bound = advance_timeout_s(root)
+        if bound is None:
+            note(f"{'/'.join(WORKFLOW_TABLE)} declares no positive judge.advance_timeout_s; "
+                 "nothing was advanced")
+            return 0
         try:
             # THE PAYLOAD GOES IN VERBATIM. `input=raw` rather than a
             # re-serialised dict: a round trip through this process is a chance
             # for a field to change shape, and the executor's attribution is
             # supposed to be a copy.
             proc = subprocess.run(cmd, input=raw, capture_output=True, text=True,
-                                  timeout=ADVANCE_TIMEOUT_S, cwd=str(root))
+                                  timeout=bound, cwd=str(root))
         except subprocess.TimeoutExpired:
-            note(f"the advance exceeded {ADVANCE_TIMEOUT_S}s and was stopped; the "
+            note(f"the advance exceeded {bound}s and was stopped; the "
                  "run record holds whatever transitions completed before that, and "
                  "the gate is re-offered at the next raising")
             return 0
