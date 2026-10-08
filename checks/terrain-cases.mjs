@@ -2146,7 +2146,9 @@ console.log(JSON.stringify(out));`, env);
         && declared.includes(fixSha));
       ok("the OBSERVED form is still composable and names the Harness's own invocation record — the repair is a split, not a blanket downgrade",
         observedRun.status === 0 && observed !== null
-        && /^judged by claude-opus-5 \/ high — OBSERVED/.test(observed)
+        // The table pins a model and no effort (kogaki#1307), so the observed pin's
+        // effort is the literal `unset` the runtime records rather than a tier.
+        && /^judged by claude-opus-5 \/ unset — OBSERVED/.test(observed)
         && /`J2_subdivision@\d{4}-\d\d-\d\dT[^`]+`/.test(observed)
         && !observed.includes("undefined"));
 
@@ -2222,9 +2224,11 @@ console.log(JSON.stringify(out));`, env);
             states: ["compose_input", "J2_subdivision", "cotag_groups", "done"],
             ownerInput: { TAG_SELECTION: "fix" }, judge: { model },
           });
-          return [[d, pinBlock(d.stdout, DECLARED_HEAD)], [o, pinBlock(o.stdout, OBSERVED_HEAD)]]
-            .every(([r, text]) => r.status === 0 && text !== null
-              && text.split("\n")[0].includes(`${model} / high`)
+          // The declared arm is handed `high` on argv; the observed arm's table
+          // pins no effort, so it renders `unset` (kogaki#1307).
+          return [[d, pinBlock(d.stdout, DECLARED_HEAD), "high"], [o, pinBlock(o.stdout, OBSERVED_HEAD), "unset"]]
+            .every(([r, text, effort]) => r.status === 0 && text !== null
+              && text.split("\n")[0].includes(`${model} / ${effort}`)
               && admits("cotag_groups", text));
         }));
 

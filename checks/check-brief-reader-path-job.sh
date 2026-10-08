@@ -46,7 +46,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import {
-  readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES, JOB_UNIT_NO_TOOLS_SENTENCE,
+  readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES, startDetachedJobSupervisor,
 } from "./src/workflow/detached-job.mjs";
 import {
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX,
@@ -56,6 +56,25 @@ import { findInternalVocabulary, assembleSelection } from "./src/assemble.mjs";
 
 const fails = [];
 const root = process.cwd();
+
+// THE NO-TOOLS SENTENCE, READ OFF THE UNITS FILE THE STARTER WRITES (kogaki#1307):
+// the runtime keeps the sentence unexported, so a check reads it where every
+// job unit's prompt actually carries it -- the head of a unit prompt, ahead of
+// the unit's own text -- from a started job whose supervisor is killed at once.
+function noToolsSentenceAsWritten(units) {
+  const d = mkdtempSync(join(tmpdir(), "kogaki-1307-units-"));
+  const started = startDetachedJobSupervisor(d, {
+    units, command: "/bin/false", model: "m", outputFormat: "json", absoluteLimitS: 5, stallS: 5, heartbeatMs: 100,
+    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: {} },
+  });
+  try { process.kill(started.supervisorPid); } catch { /* already gone */ }
+  return JSON.parse(readFileSync(started.unitsPath, "utf8")).units;
+}
+const JOB_UNIT_NO_TOOLS_SENTENCE = (() => {
+  const p = noToolsSentenceAsWritten([{ id: "u", prompt: "UNIT" }])[0].prompt;
+  return p.endsWith("\n\nUNIT") ? p.slice(0, -"\n\nUNIT".length) : "";
+})();
+if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carries no sentence ahead of the unit's own prompt");
 
 // (d) END TO END: a real `job-supervise` child process, against a FAKE judge
 // binary whose behaviour is selected by the PROMPT it reads on stdin (never
@@ -122,6 +141,11 @@ process.stdin.on("end", () => {
     } else {
       process.stdout.write(refusedRecord("the fixture's first refusal"));
     }
+    process.exit(0);
+  }
+  if (prompt.startsWith("NO_LEGS_ONCE")) {
+    if (nthCall("NO_LEGS_ONCE") === 1) { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ no_legs: true }) }) + "\\n"); process.exit(0); }
+    process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "after-no-legs" }] }) }) + "\\n");
     process.exit(0);
   }
   if (prompt.startsWith("NO_LEGS")) {
@@ -245,21 +269,21 @@ function unitStdoutFile(dir, unitId) {
 {
   // (b2)-(b4) in one run: no unit dies, so no sibling is killed. An exit-0
   // non-JSON stdout and a record with no `legs` array are MALFORMED OUTPUT
-  // since kogaki#1307: respawned with the same prompt until the limit, which
-  // ends the unit `refused` carrying the class, the count and the cause.
+  // since kogaki#1307: respawned with the same prompt, spending no attempt, so
+  // a unit whose first answer was malformed and whose second was well-formed
+  // ends `done` with the count on its row and the respawn marked in its stdout
+  // file. Driven by answers that change across calls rather than by a short
+  // limit, which a contended machine can reach mid-respawn.
   const dir = mkNewRun();
-  superviseSync(dir, [{ id: "bad", prompt: "FAIL_JSON" }, { id: "nolegs", prompt: "NO_LEGS" }, { id: "good", prompt: "OK" }],
-    { absoluteLimitS: 2, heartbeatMs: 100 });
+  superviseSync(dir, [{ id: "bad", prompt: "MALFORMED_ONCE" }, { id: "nolegs", prompt: "NO_LEGS_ONCE" }, { id: "good", prompt: "OK" }], {});
   const rec = readRecord(dir);
-  const badJson = unitRowOf(rec, "bad");
-  if (!badJson || badJson.status !== "refused" || (badJson.failure || {}).class !== "malformed output"
-    || !(badJson.malformed_output >= 1) || !String((badJson.failure || {}).stderr_tail || "").includes("not JSON")) {
-    fails.push(`(b2) an exit-0 non-JSON stdout did not classify as malformed output, respawned until the limit: ${JSON.stringify(badJson)}`);
-  }
-  const noLegs = unitRowOf(rec, "nolegs");
-  if (!noLegs || noLegs.status !== "refused" || (noLegs.failure || {}).class !== "malformed output"
-    || !String((noLegs.failure || {}).stderr_tail || "").includes("legs")) {
-    fails.push(`(b3) a record with no \`legs\` array did not classify as malformed output: ${JSON.stringify(noLegs)}`);
+  for (const [tag, id, cause] of [["b2", "bad", "not json at all"], ["b3", "nolegs", "no_legs"]]) {
+    const row = unitRowOf(rec, id);
+    const out = unitStdoutFile(dir, id) && existsSync(unitStdoutFile(dir, id)) ? readFileSync(unitStdoutFile(dir, id), "utf8") : "";
+    if (!row || row.status !== "done" || row.malformed_output !== 1 || row.attempts !== 1
+      || !out.includes(cause) || !out.includes("malformed output 1; respawned with the same prompt")) {
+      fails.push(`(${tag}) a malformed first answer (${cause}) was not classified malformed output and respawned with no attempt spent: ${JSON.stringify(row)} stdout=${out.slice(0, 300)}`);
+    }
   }
   const good = unitRowOf(rec, "good");
   if (!good || good.status !== "done" || !good.candidate || !Array.isArray(good.candidate.legs)) {
@@ -1495,7 +1519,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 
 // (y3) THE LIMIT IS READ FROM kogaki.settings.json AND A MISSING KEY IS REFUSED
 // BY NAME. The table names the setting, the repository's file holds it, and
-// `kogakiSetting` reads it -- from a fixture file through `KOGAKI_SETTINGS` --
+// `settingValue` reads it -- from a fixture file through `KOGAKI_SETTINGS` --
 // and refuses a file without the key, and a missing file, naming the key.
 {
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
@@ -1509,7 +1533,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   const sdir = mkNewScratch();
   const readKey = (file, key) => spawnSync(process.execPath, ["--input-type=module", "-e",
-    `import { kogakiSetting } from "./src/workflow/judge.mjs"; console.log(JSON.stringify(kogakiSetting(${JSON.stringify(key)})));`],
+    `import { settingValue } from "./src/workflow/judge.mjs"; console.log(JSON.stringify(settingValue({ setting: ${JSON.stringify(key)} })));`],
     { cwd: root, timeout: 15000, encoding: "utf8", env: { ...process.env, KOGAKI_SETTINGS: file } });
   const fixture = join(sdir, "settings.json");
   writeFileSync(fixture, JSON.stringify({ brief: { compose_job_limit_s: 7 } }));

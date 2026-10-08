@@ -198,13 +198,13 @@ export function ensureJudgeBinary(rec, table) {
 // "<dotted key>"}`, and `settingValue` resolves the row. A missing file or key is a
 // refusal naming the key: a value a run needs is never defaulted.
 // `KOGAKI_SETTINGS` points at another file FOR FIXTURES ONLY.
-export const SETTINGS_FILE = "kogaki.settings.json";
+const SETTINGS_FILE = "kogaki.settings.json";
 
-export function settingsPath() {
+function settingsPath() {
   return process.env.KOGAKI_SETTINGS ? resolve(process.env.KOGAKI_SETTINGS) : join(REPO, SETTINGS_FILE);
 }
 
-export function kogakiSetting(key) {
+function kogakiSetting(key) {
   const p = settingsPath();
   if (!existsSync(p)) fail(`the setting \`${key}\` is needed and ${p} does not exist — ${SETTINGS_FILE} carries the values an owner changes without coding (kogaki#1307).`);
   let doc;

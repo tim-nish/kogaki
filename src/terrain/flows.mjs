@@ -80,7 +80,7 @@ function judgmentJoins(rec, args) {
   return join;
 }
 
-export const JUDGE_EFFORT_UNSET = "unset";
+const JUDGE_EFFORT_UNSET = "unset";
 
 function judgePinArgs(table, args, rec) {
   const j = (table && table.judge) || {};

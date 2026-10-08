@@ -108,7 +108,7 @@ function readerPathUnitRetryPrompt(firstPrompt, refusal) {
 // tool call written as text -- the malformed output of run brief-2026-10-08T02-55-02-626Z.
 // `startDetachedJobSupervisor` puts this first in every unit prompt it writes, and the
 // supervisor puts it first in every Move-fit prompt it builds, so no caller can omit it.
-export const JOB_UNIT_NO_TOOLS_SENTENCE = "You are running with no tools and cannot open files. Every file path "
+const JOB_UNIT_NO_TOOLS_SENTENCE = "You are running with no tools and cannot open files. Every file path "
   + "in this prompt is a citation for a human reader, not something to open; everything you need is in this "
   + "prompt. Answer with the record alone.";
 
@@ -311,10 +311,10 @@ async function loadReaderPathFitJudge(declared) {
 // `malformed` (class `malformed output`), which the supervisor respawns and never
 // returns as a row; a record the validator refuses classifies `refused` (class
 // `schema refusal`).
-export const MALFORMED_OUTPUT = "malformed output";
-export const SCHEMA_REFUSAL = "schema refusal";
+const MALFORMED_OUTPUT = "malformed output";
+const SCHEMA_REFUSAL = "schema refusal";
 
-export function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = null) {
+function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = null) {
   if (out.error) {
     return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(String(out.error.message || out.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
   }

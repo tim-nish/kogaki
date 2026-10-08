@@ -205,7 +205,7 @@ import { join } from "node:path";
 import * as compose from "./src/compose.mjs";
 import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFitVerdict,
   composeJobExcluded, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
-import { startDetachedJobSupervisor, JOB_UNIT_NO_TOOLS_SENTENCE } from "./src/workflow/detached-job.mjs";
+import { startDetachedJobSupervisor } from "./src/workflow/detached-job.mjs";
 import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHARGE_VERDICTS } from "./src/review.mjs";
@@ -1449,11 +1449,13 @@ const cand1276 = (id, leg2Extra = {}) => ({
   });
   try { process.kill(started.supervisorPid); } catch { /* already gone */ }
   const declared = JSON.parse(readFileSync(started.unitsPath, "utf8"));
-  if (declared.units.length !== 2 || !declared.units.every((u) => u.prompt.startsWith(`${JOB_UNIT_NO_TOOLS_SENTENCE}\n\n`))) {
-    fails.push(`(aj) a compose job unit prompt does not begin with the no-tools sentence: ${JSON.stringify(declared.units.map((u) => u.prompt.slice(0, 80)))}`);
+  const heads = declared.units.map((u, i) => u.prompt.slice(0, u.prompt.length - `\n\n${["first", "second"][i]} unit prompt`.length));
+  const sentence = heads[0] || "";
+  if (declared.units.length !== 2 || !declared.units[0].prompt.endsWith("\n\nfirst unit prompt") || heads[1] !== sentence) {
+    fails.push(`(aj) the compose job unit prompts do not each begin with the same sentence ahead of the unit's own text: ${JSON.stringify(declared.units.map((u) => u.prompt.slice(0, 80)))}`);
   }
-  if (!/no tools/.test(JOB_UNIT_NO_TOOLS_SENTENCE) || !/not something to open/.test(JOB_UNIT_NO_TOOLS_SENTENCE)) {
-    fails.push(`(aj) the no-tools sentence does not say the session has no tools and that a path is not to be opened: ${JOB_UNIT_NO_TOOLS_SENTENCE}`);
+  if (!/^You are running with no tools/.test(sentence) || !/not something to open/.test(sentence) || /\n/.test(sentence)) {
+    fails.push(`(aj) the sentence every unit prompt begins with does not say the session has no tools and that a path is not to be opened: ${JSON.stringify(sentence)}`);
   }
   const brief = readFileSync("src/brief.mjs", "utf8");
   if (!/startDetachedJobSupervisor\(dir, \{\n\s+units,/.test(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")))) {
