@@ -108,7 +108,7 @@ import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
 // resolved exactly as the Terrain and Brief judges are, `KOGAKI_JUDGE_CLI`
 // included, so a fixture seam and a shim refusal read the same here.
-import { resolveJudgeBinary } from "./terrain.mjs";
+import { resolveJudgeBinary } from "./workflow/judge.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
 // renderLanguageBlock live in lint-ja.mjs, which also runs the Lint that

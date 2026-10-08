@@ -80,34 +80,38 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from "
 // the dead `|| NO_RENDERING` disjunct removed, `glossFor` is the only thing
 // that names a marker here — which is the point of delegating the choice to it.
 // The name survives in the comments below as the marker they discuss.
-import { resolveHeadlines, glossFor } from "./terrain.mjs";
+import { resolveHeadlines, glossFor } from "./workflow/strands.mjs";
 // ---- THE EXECUTOR, IMPORTED RATHER THAN REIMPLEMENTED (kogaki#1108).
-// `runWorkflow` is `src/terrain.mjs`'s own advance loop entered with a FLOW
+// `runWorkflow` is the workflow engine's advance loop entered with a FLOW
 // BINDING; `judgedRecordPath` is the one route a judgment record reaches a state
 // by; `persistPendingRun` is what makes a refusal raised in a Brief state persist
 // the transitions the act completed before it. None of the three is copied here.
+import { runWorkflow } from "./workflow/executor.mjs";
+import { judgedRecordPath } from "./workflow/judge.mjs";
 import {
-  runWorkflow, judgedRecordPath, persistPendingRun, SKILL_EXPANSION_EXECUTOR,
-  readHookPayload, advancedByFromPayload, relFromRepo, JudgmentRefusal,
-  TerminalJudgmentRefusal, resolveStrandAddresses,
-} from "./terrain.mjs";
+  persistPendingRun, SKILL_EXPANSION_EXECUTOR, readHookPayload, advancedByFromPayload,
+  relFromRepo, JudgmentRefusal, TerminalJudgmentRefusal,
+} from "./workflow/run-record.mjs";
+import { resolveStrandAddresses } from "./workflow/strands.mjs";
 // ---- THE DETACHED-JOB PRIMITIVES (kogaki#1193), imported rather than
 // reimplemented for the same reason as the block above: the record shape, the
 // ceiling constants and the classification of a unit and of the
-// job as a whole are `src/terrain.mjs`'s own, so `compose_path`'s job-aware
+// job as a whole are `src/workflow/detached-job.mjs`'s, so `compose_path`'s job-aware
 // STATE_WORK and the `job status`/`job await` verbs below read one copy of
 // each.
 import {
-  detachedJobExecutor, DetachedJobStarted, READER_PATH_JOB_GATE_ID,
-  READER_PATH_JOB_ABSOLUTE_LIMIT_S,
-  READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS,
-  readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
-  readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES, clearOpenRunPointer,
-  emitGateDeclaration, readRunRecord, writeRunRecord, checkpointRun,
-  judgeSettings, judgePrompt, startDetachedJobSupervisor,
+  DetachedJobStarted, READER_PATH_JOB_ABSOLUTE_LIMIT_S, READER_PATH_JOB_STALL_S,
+  READER_PATH_JOB_HEARTBEAT_MS, readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
+  readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES, startDetachedJobSupervisor,
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
-  GATE_CALL_SUFFIX, JUDGE_INPUT_MARKER,
-} from "./terrain.mjs";
+} from "./workflow/detached-job.mjs";
+import {
+  READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX,
+} from "./workflow/gate.mjs";
+import { judgeSettings, judgePrompt, JUDGE_INPUT_MARKER } from "./workflow/judge.mjs";
+import {
+  detachedJobExecutor, clearOpenRunPointer, readRunRecord, writeRunRecord, checkpointRun,
+} from "./workflow/run-record.mjs";
 import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, targetLegAfterState,
   cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal, retiredReasoningFieldRefusal,
@@ -1009,7 +1013,7 @@ function cmdMint(args) {
 //
 // WHAT A FLOW IS, and it is the whole of what this block adds: a TABLE
 // (`src/brief-workflow.json`), a LANE, and the TWO MAPS a state id is looked up
-// in. `runWorkflow` is `src/terrain.mjs`'s own advance loop — the one that reads
+// in. `runWorkflow` is the workflow engine's advance loop — the one that reads
 // the run record, executes states until the next declared wait or the terminal,
 // composes the gate declaration and its byte-fixed call, reads the harness's
 // capture, invokes the pinned judge and validates what comes back. None of it is
@@ -1430,7 +1434,7 @@ export function validateReaderPathUnit(candidate, inputs) {
 }
 
 // ---- THE RENDERER HALF. One entry per state the table declares, keyed by state
-// id, exactly as `src/terrain.mjs`'s own STATE_WORK is: a new state is a table
+// id, exactly as Terrain's STATE_WORK is: a new state is a table
 // row PLUS a renderer, and the executor invents neither.
 const STATE_WORK = {
   enter: (rec, st, args) => {
@@ -2174,7 +2178,7 @@ const GATE_WORK = {
 // STATE_WORK on the entry that finds no job record (it opens the job and
 // throws `DetachedJobStarted`, exactly as a judgment-retry state throws
 // `JudgmentExhausted`); `stop` runs in-process from the `READER_PATH_JOB_GATE_ID`
-// gate-answer branch `src/terrain.mjs`'s own wait-answer block already
+// gate-answer branch the engine's own wait-answer block already
 // carries. Neither is a read, and neither is reachable from a Bash command —
 // `run --status --job start` and `run --status --job stop` are refused below
 // by name, not by the hook (the hook admits any `run --status`, `--job`
@@ -2357,7 +2361,7 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
     const lastProgressAt = job.last_progress_at ? Date.parse(job.last_progress_at) : startedAt;
     const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
     const stopRequested = existsSync(readerPathJobStopFlagPath(j.jobDir));
-    // THE PER-POLL DECISION IS `src/terrain.mjs`'s OWN PURE FUNCTION
+    // THE PER-POLL DECISION IS `src/workflow/detached-job.mjs`'s PURE FUNCTION
     // (kogaki#1213), over THIS poll's freshly-measured elapsed time.
     const { units, state } = readerPathAwaitStep(job, { stopRequested, elapsedS, stalledS });
     if (READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes(state)) {

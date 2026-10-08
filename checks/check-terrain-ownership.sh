@@ -24,12 +24,16 @@
 #      a synthesized Bash payload. Without it the first check is a guard after a
 #      model-constructed input, the shape the 2026-09-04 control-input
 #      direction forbids.
-#   3. THE EXPORT SURFACE HAS A PRODUCTION READER (kogaki#1257). Every name the
-#      runtime module exports is imported by a tracked module outside it that is
-#      not under `checks/`, so the surface cannot grow unused again silently.
-#   4. NO COMMENT BLOCK IN THE RUNTIME MODULE EXCEEDS TWELVE LINES (kogaki#1258).
+#   3. THE EXPORT SURFACE HAS A PRODUCTION READER (kogaki#1257). Every name a
+#      runtime module exports is imported from it by a tracked module that is
+#      not under `checks/`, so the surface cannot grow unused again silently;
+#      and no check imports the entry point (kogaki#1259).
+#   4. NO COMMENT BLOCK IN A RUNTIME MODULE EXCEEDS TWELVE LINES (kogaki#1258).
 #      A long comment is a pointer plus what the next editor needs; the
 #      retelling lives in the Issue or Decision it cites.
+#   5. NO MODULE UNDER `src/terrain/` OR `src/workflow/` EXCEEDS 1,500 LINES
+#      (kogaki#1259).
+#   6. NO COMMAND MODULE IMPORTS ANOTHER COMMAND'S (kogaki#1302).
 #
 # EACH FIXTURE CARRIES ITS OWN COUNTERFACTUAL (acceptance 2): the golden record
 # with one `advanced_by` removed fails; a Bash payload naming `--status`, the
@@ -117,44 +121,71 @@ if [ "$admitted_rc" -eq 0 ] && [ -z "$admitted" ]; then pass; else
   bad "a Bash payload naming \`terrain.mjs run --status\` was not admitted cleanly (rc=$admitted_rc, output: ${admitted:-none}) — the one read-only route into a stuck run is closed, or the hook fails on it"
 fi
 
-# ---- 3. THE EXPORT SURFACE HAS A PRODUCTION READER (kogaki#1257). Every name
-# `src/terrain.mjs` exports is imported by at least one tracked module outside
-# it that is not under `checks/`. At 9ae8592 the module exported 192 names and
-# 156 of them had no such reader: 81 nothing imported, 75 only the checks
-# reached into. An export a check alone reads is a test seam wearing a module
-# surface, and the split that follows this issue cuts along what the surface
-# says the runtime is made of. The reader counts IMPORT BINDINGS rather than
-# words, so a spec naming a function in prose does not stand in for a caller.
-# ONE READER PROCESS FOR BOTH READINGS, because this member bounds its own
-# runtime: the module as committed, then the same text with one export nothing
-# imports appended -- the counterfactual -- each printed on its own line as
-# `<label>:<unread names, space-separated>`. The import bindings are read once.
-surface=$(python3 - src/terrain.mjs <<'PY'
-import re, subprocess, sys
-module = sys.argv[1]
-src = open(module).read()
+# ---- 3. THE EXPORT SURFACE HAS A PRODUCTION READER (kogaki#1257), over every
+# module the runtime is split into (kogaki#1259): `src/terrain.mjs`, and each
+# module under `src/terrain/` and `src/workflow/`. Every name a module exports
+# is imported FROM THAT MODULE by a tracked module outside `checks/`. At
+# 9ae8592 the one module exported 192 names and 156 had no such reader. The
+# reader counts IMPORT BINDINGS resolved to the file they name, so a spec
+# naming a function in prose, or a second module exporting the same name, does
+# not stand in for a caller. ONE READER PROCESS FOR EVERY CASE BELOW, because
+# this member bounds its own runtime; each reading prints one
+# `<label>:<findings, space-separated>` line, its counterfactual beside it.
+# 3b. NO CHECK IMPORTS THE ENTRY POINT (kogaki#1259): a check reaches a stage
+# through the module that exports it, or through the command surface.
+surface=$(python3 - <<'PY'
+import os, re, subprocess
+tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split()
+ENTRY = "src/terrain.mjs"
+RUNTIME = [ENTRY] + sorted(f for f in tracked if re.fullmatch(r"src/(terrain|workflow)/[^/]+\.mjs", f))
+IMPORT = re.compile(r'(?:import|export)\s*\{([^}]*)\}\s*from\s*["\']([^"\']+)["\']')
+SPEC = re.compile(r'(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s*)["\'](\.[^"\']*)["\']', re.M)
+def read(f):
+    try:
+        return open(f).read()
+    except OSError:
+        return ""
+def resolve(f, spec):
+    return os.path.normpath(os.path.join(os.path.dirname(f), spec)) if spec.startswith(".") else None
+def bindings(f, text):
+    for names, spec in IMPORT.findall(text):
+        target = resolve(f, spec)
+        if target:
+            yield target, {n.strip().split(" as ")[0].strip() for n in names.split(",") if n.strip()}
 def exports(text):
     names = re.findall(r'^export\s+(?:async\s+)?(?:function\*?|const|let|class|var)\s+([A-Za-z_$][\w$]*)', text, re.M)
     for m in re.finditer(r'^export\s*\{([^}]*)\}', text, re.M):
         names += [n.strip().split(' as ')[-1].strip() for n in m.group(1).split(',') if n.strip()]
     return names
-files = subprocess.run(["git", "ls-files", "*.mjs", "*.js"], capture_output=True, text=True).stdout.split()
-imported = set()
-for f in files:
-    if f == module or f.startswith("checks/"):
+sources = {f: read(f) for f in tracked if f.endswith((".mjs", ".js"))}
+imported = {}
+for f, t in sources.items():
+    if f.startswith("checks/"):
         continue
-    try:
-        t = open(f).read()
-    except OSError:
-        continue
-    for m in re.finditer(r'import\s*\{([^}]*)\}\s*from\s*["\'][^"\']*/terrain\.mjs["\']', t):
-        imported |= {n.strip().split(' as ')[0].strip() for n in m.group(1).split(',') if n.strip()}
-for label, text in (("real", src), ("mutant", src + "\nexport function kogaki1257UnreadFixture() { return null; }\n")):
-    names = exports(text)
+    for target, names in bindings(f, t):
+        if target != f:
+            imported.setdefault(target, set()).update(names)
+def unread(texts):
+    out, seen = [], 0
+    for m, t in texts.items():
+        names = exports(t)
+        seen += len(names)
+        out += [f"{m}:{n}" for n in names if n not in imported.get(m, set())]
     # NO EXPORT READ AT ALL is CANNOT-DETERMINE, never a pass.
-    print(f"{label}:" + (" ".join(n for n in names if n not in imported) if names else "<no export read>"))
-# Case 4 (kogaki#1258), in this same process: comment blocks over twelve lines,
-# as `<first>-<last>` line ranges. A block is a run of `//` lines, or one `/* */`.
+    return " ".join(out) if seen else "<no export read>"
+texts = {m: sources.get(m, "") for m in RUNTIME}
+mutant = dict(texts)
+mutant["src/workflow/run-record.mjs"] = texts.get("src/workflow/run-record.mjs", "") + "\nexport function kogaki1257UnreadFixture() { return null; }\n"
+print("real:" + unread(texts))
+print("mutant:" + unread(mutant))
+def entry_importers(files):
+    return " ".join(sorted(f for f, t in files.items() if f.startswith("checks/")
+                           and any(target == ENTRY for target, _ in bindings(f, t))))
+checks = {f: t for f, t in sources.items() if f.startswith("checks/")}
+print("entry-real:" + entry_importers(checks))
+print("entry-mutant:" + entry_importers({**checks, "checks/kogaki1259-fixture.mjs": 'import { glossFor } from "../src/terrain.mjs";\n'}))
+# Case 4 (kogaki#1258): comment blocks over twelve lines, as `<module>:<first>-<last>`.
+# A block is a run of `//` lines, or one `/* */`.
 def long_blocks(text):
     lines, out, i = text.split("\n"), [], 0
     while i < len(lines):
@@ -172,33 +203,115 @@ def long_blocks(text):
             out.append(f"{i + 1}-{j + 1}")
         i = j + 1
     return out
-for label, text in (("blocks-real", src), ("blocks-mutant", src + "\n" + "// kogaki1258 fixture\n" * 13)):
-    print(f"{label}:" + " ".join(long_blocks(text)))
+def all_blocks(ts):
+    return " ".join(f"{m}:{b}" for m, t in ts.items() for b in long_blocks(t))
+print("blocks-real:" + all_blocks(texts))
+print("blocks-mutant:" + all_blocks({**texts, ENTRY: texts[ENTRY] + "\n" + "// kogaki1258 fixture\n" * 13}))
+# Case 5 (kogaki#1259): no module under src/terrain/ or src/workflow/ exceeds 1,500 lines.
+BOUND = 1500
+def over(ts):
+    return " ".join(f"{m}={t.count(chr(10))}" for m, t in ts.items() if m != ENTRY and t.count("\n") > BOUND)
+print(f"lines-modules:{len(RUNTIME) - 1}")
+print("lines-real:" + over(texts))
+print("lines-mutant:" + over({**texts, "src/terrain/kogaki1259-fixture.mjs": "x\n" * (BOUND + 1)}))
+# Case 6 (kogaki#1302): no command module imports another command's. A command is a
+# `src/<name>.mjs` whose skill `.claude/skills/<name>/SKILL.md` is tracked; its module
+# set is that entry and everything under `src/<name>/`. Shared code lives outside both.
+commands = sorted({m.group(1) for f in tracked for m in [re.fullmatch(r"\.claude/skills/([^/]+)/SKILL\.md", f)]
+                   if m and f"src/{m.group(1)}.mjs" in tracked})
+def command_of(path):
+    for c in commands:
+        if path == f"src/{c}.mjs" or path.startswith(f"src/{c}/"):
+            return c
+    return None
+def crossings(files):
+    out = set()
+    for f, t in files.items():
+        a = command_of(f)
+        if a is None:
+            continue
+        for spec in SPEC.findall(t):
+            b = command_of(resolve(f, spec))
+            if b is not None and b != a:
+                out.add(f"{f}->{resolve(f, spec)}")
+    return out
+src_files = {f: t for f, t in sources.items() if f.startswith("src/")}
+# THE ONE EXEMPTION, ANCHORED BY COUNT: Draft's Leg parser is read by Review Draft, and
+# moving it is not this split's (kogaki#1259 "Not in scope"). A new crossing fails, and so
+# does this entry once its edge is gone.
+EXEMPT = {"src/review-draft.mjs->src/draft.mjs"}
+real = crossings(src_files)
+print("boundary-commands:" + " ".join(commands))
+print("boundary-real:" + " ".join(sorted(real - EXEMPT)))
+print("boundary-stale-exempt:" + " ".join(sorted(EXEMPT - real)))
+fixture = {**src_files, "src/brief.mjs": src_files.get("src/brief.mjs", "") + '\nimport { cotagGroups } from "./terrain/cotags.mjs";\n'}
+print("boundary-mutant:" + " ".join(sorted(crossings(fixture) - EXEMPT)))
 PY
 )
-real_unread=$(printf '%s\n' "$surface" | sed -n 's/^real://p')
-mutant_unread=$(printf '%s\n' "$surface" | sed -n 's/^mutant://p')
+field() { printf '%s\n' "$surface" | sed -n "s/^$1://p"; }
+real_unread=$(field real)
+mutant_unread=$(field mutant)
 if printf '%s\n' "$surface" | grep -q '^real:' && [ -z "$real_unread" ]; then pass; else
-  bad "src/terrain.mjs exports names no module outside it and outside checks/ imports: ${real_unread:-the reader printed nothing} — drop the export, or import it where the runtime uses it (kogaki#1257)"
+  bad "the Terrain runtime exports names no module outside it and outside checks/ imports from it: ${real_unread:-the reader printed nothing} — drop the export, or import it where the runtime uses it (kogaki#1257)"
 fi
-# The counterfactual: the same module with one added export nothing imports,
-# and the same reader names it.
 if [ -z "$mutant_unread" ]; then
   bad "an export nothing imports was admitted by the surface reader — it asserts nothing"
-elif printf '%s\n' $mutant_unread | grep -qx 'kogaki1257UnreadFixture'; then pass; else
+elif printf '%s\n' $mutant_unread | grep -qx 'src/workflow/run-record.mjs:kogaki1257UnreadFixture'; then pass; else
   bad "the surface reader refused the mutant without naming its added export: ${mutant_unread}"
 fi
+entry_real=$(field entry-real)
+entry_mutant=$(field entry-mutant)
+if printf '%s\n' "$surface" | grep -q '^entry-real:' && [ -z "$entry_real" ]; then pass; else
+  bad "checks import src/terrain.mjs for internals: ${entry_real:-the reader printed nothing} — import the stage module that exports the name, or run the command surface (kogaki#1259)"
+fi
+if [ "$entry_mutant" = "checks/kogaki1259-fixture.mjs" ]; then pass; else
+  bad "a check importing the entry point was not named by the entry reader (got: ${entry_mutant:-nothing}) — it asserts nothing"
+fi
 
-# ---- 4. NO COMMENT BLOCK IN `src/terrain.mjs` EXCEEDS TWELVE LINES
-# (kogaki#1258). Read by case 3's process above; the counterfactual appends a
-# thirteen-line block and the same reader must name it.
-long_real=$(printf '%s\n' "$surface" | sed -n 's/^blocks-real://p')
-long_mutant=$(printf '%s\n' "$surface" | sed -n 's/^blocks-mutant://p')
+# ---- 4. NO COMMENT BLOCK IN ANY RUNTIME MODULE EXCEEDS TWELVE LINES
+# (kogaki#1258, over every module since kogaki#1259). Read by case 3's process
+# above; the counterfactual appends a thirteen-line block and the same reader
+# must name it.
+long_real=$(field blocks-real)
+long_mutant=$(field blocks-mutant)
 if printf '%s\n' "$surface" | grep -q '^blocks-real:' && [ -z "$long_real" ]; then pass; else
-  bad "src/terrain.mjs has comment blocks over twelve lines at ${long_real:-<the reader printed nothing>} — cut each to its Issue pointer and what the next editor needs (kogaki#1258)"
+  bad "runtime modules have comment blocks over twelve lines at ${long_real:-<the reader printed nothing>} — cut each to its Issue pointer and what the next editor needs (kogaki#1258)"
 fi
 if [ -n "$long_mutant" ] && [ "${long_mutant##* }" != "${long_real##* }" ]; then pass; else
   bad "a thirteen-line comment block appended to the module was not named by the block reader — it asserts nothing"
+fi
+
+# ---- 5. NO MODULE UNDER `src/terrain/` OR `src/workflow/` EXCEEDS 1,500 LINES
+# (kogaki#1259): a worker's cell is one module, and a module past the bound is
+# the 11,019-line file arriving again one stage at a time. No module read at
+# all is CANNOT-DETERMINE, never a pass.
+modules=$(field lines-modules)
+lines_real=$(field lines-real)
+lines_mutant=$(field lines-mutant)
+if [ "${modules:-0}" -gt 0 ] && printf '%s\n' "$surface" | grep -q '^lines-real:' && [ -z "$lines_real" ]; then pass; else
+  bad "modules over the 1,500-line bound: ${lines_real:-none named, but ${modules:-no} module(s) were read} — cut the module at its own section markers (kogaki#1259)"
+fi
+if [ "$lines_mutant" = "src/terrain/kogaki1259-fixture.mjs=1501" ]; then pass; else
+  bad "a 1,501-line module was not named by the line reader (got: ${lines_mutant:-nothing}) — it asserts nothing"
+fi
+
+# ---- 6. NO COMMAND MODULE IMPORTS ANOTHER COMMAND'S (kogaki#1302). For every
+# command entry `src/<command>.mjs` and directory `src/<command>/`, no import
+# resolves to another command's entry or directory; shared code lives outside
+# every command directory, which is why the engine Brief runs on is
+# `src/workflow/`. The counterfactual is Brief importing a Terrain stage.
+commands=$(field boundary-commands)
+boundary_real=$(field boundary-real)
+boundary_stale=$(field boundary-stale-exempt)
+boundary_mutant=$(field boundary-mutant)
+if [ -n "$commands" ] && printf '%s\n' "$surface" | grep -q '^boundary-real:' && [ -z "$boundary_real" ]; then pass; else
+  bad "a command module imports another command's: ${boundary_real:-no command read (commands: ${commands:-none})} — move what both read to a shared file outside every command directory (kogaki#1302)"
+fi
+if [ -z "$boundary_stale" ]; then pass; else
+  bad "the boundary exemption names an import that no longer exists: ${boundary_stale} — drop it from the case (kogaki#1302)"
+fi
+if [ "$boundary_mutant" = "src/brief.mjs->src/terrain/cotags.mjs" ]; then pass; else
+  bad "Brief importing a Terrain stage was not named by the boundary reader (got: ${boundary_mutant:-nothing}) — it asserts nothing"
 fi
 
 # ---- THE BOUND (acceptance 1): under one second on this machine run alone
@@ -212,6 +325,6 @@ if [ "$elapsed_ms" -lt 2000 ]; then pass; else
 fi
 
 if [ "$fail" -eq 0 ]; then
-  note "ok: $cases case(s) pass in ${elapsed_ms}ms — the executor refuses a transition with no hook payload, the golden record is attributed on every transition and its mutant is refused, and the Bash route into the executor is denied with --status admitted (kogaki#1031), and every export has a reader outside checks/ (kogaki#1257), and no comment block in src/terrain.mjs exceeds twelve lines (kogaki#1258)"
+  note "ok: $cases case(s) pass in ${elapsed_ms}ms — the executor refuses a transition with no hook payload, the golden record is attributed on every transition and its mutant is refused, and the Bash route into the executor is denied with --status admitted (kogaki#1031), and every export of every runtime module has a reader outside checks/ and no check imports the entry point (kogaki#1257, kogaki#1259), and no comment block in a runtime module exceeds twelve lines (kogaki#1258), and no module under src/terrain/ or src/workflow/ exceeds 1,500 lines (kogaki#1259), and no command module imports another command's (kogaki#1302)"
 fi
 exit "$fail"

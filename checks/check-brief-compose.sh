@@ -203,7 +203,7 @@ import { join } from "node:path";
 import * as compose from "./src/compose.mjs";
 import { composeBrief, validateReaderPathUnit, specializationJudgeInput, validateSpecializationSet,
   specializationSelection, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
-import { judgePrompt } from "./src/terrain.mjs";
+import { judgePrompt } from "./src/workflow/judge.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHARGE_VERDICTS } from "./src/review.mjs";
 import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
 import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
@@ -1460,7 +1460,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
   const sel = table.states.find((x) => x.id === "CANDIDATE_SELECTION");
   const filled = Object.keys(candidateSelectionExtra(excluded));
   if (JSON.stringify(filled) !== JSON.stringify([sel.renders_above_question])) fails.push(`(ak) CANDIDATE_SELECTION's renders_above_question (${JSON.stringify(sel.renders_above_question)}) is not the key its option composer fills (${JSON.stringify(filled)})`);
-  if (!/"excluded_candidates"/.test(readFileSync("src/terrain.mjs", "utf8").match(/const GATE_CALL_READING_KEYS = .*/)[0])) fails.push("(ak) excluded_candidates is not a gate-call reading key");
+  if (!/"excluded_candidates"/.test(readFileSync("src/workflow/gate.mjs", "utf8").match(/const GATE_CALL_READING_KEYS = .*/)[0])) fails.push("(ak) excluded_candidates is not a gate-call reading key");
 
   const all = { records: [recordOf(cands[0], "contradicts", WHY), recordOf(cands[1], "cannot-determine", "the Move's technique cannot be read against these claims."), recordOf(cands[2], "contradicts", WHY)] };
   const none = specializationSelection(all, cands);

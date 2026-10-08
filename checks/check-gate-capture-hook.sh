@@ -115,12 +115,12 @@ done
 # A gate that refuses without naming the hook sends the owner round the
 # render-the-question loop forever on a machine where the hook was never
 # installed, which is the one state re-rendering cannot fix.
-grep -q 'write-gate-capture\.py' src/terrain.mjs \
-  || bad "src/terrain.mjs never names $HOOK — an unanswered gate's refusal must name the carrier that would answer it, because the un-installed machine is exactly the case re-rendering does not resolve"
+grep -q 'write-gate-capture\.py' src/workflow/gate.mjs \
+  || bad "src/workflow/gate.mjs never names $HOOK — an unanswered gate's refusal must name the carrier that would answer it, because the un-installed machine is exactly the case re-rendering does not resolve"
 
 for dead in capture-option capture-free-text tool-use-id; do
-  grep -q "\"$dead\"" src/terrain.mjs \
-    || bad "src/terrain.mjs no longer mentions --$dead — it must REFUSE it by name, not merely ignore it: an ignored flag is a session quietly getting a different act than it asked for"
+  grep -q "\"$dead\"" src/workflow/executor.mjs \
+    || bad "src/workflow/executor.mjs no longer mentions --$dead — it must REFUSE it by name, not merely ignore it: an ignored flag is a session quietly getting a different act than it asked for"
 done
 
 if [ "$fail" -eq 0 ]; then

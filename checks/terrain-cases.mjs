@@ -24,13 +24,10 @@ import { homedir, tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { FormatRefusal, classMatchers, loadGrammar, refuseUnlessConformant, validateSurface } from "../src/format-guard.mjs";
 import { laneDir } from "../src/runs.mjs";
-import {
-  GATE_CALL_SUFFIX,
-  emitGateDeclaration,
-  glossFor,
-  readRunRecord,
-  resolveJudgeBinary,
-} from "../src/terrain.mjs";
+import { GATE_CALL_SUFFIX, emitGateDeclaration } from "../src/workflow/gate.mjs";
+import { resolveJudgeBinary } from "../src/workflow/judge.mjs";
+import { readRunRecord } from "../src/workflow/run-record.mjs";
+import { glossFor } from "../src/workflow/strands.mjs";
 
 // The runtime file the subprocess cases spawn, named here because the file's
 // own URL is this case file now, not the runtime.
@@ -118,12 +115,17 @@ function terrain(args, { input = "", env = {} } = {}) {
 // One production export, driven in a CHILD process: the runtime caches what it
 // read from the seam per process (the served shard enumeration is read once),
 // so a case whose answer depends on what the seam served gets a process of its
-// own. The body sees the module's exports as `rt` and prints its result as the
+// own. The body sees every stage module's exports as `rt` -- never the entry
+// point's, which exports nothing (kogaki#1259) -- and prints its result as the
 // last line of stdout, JSON-encoded.
-const RUNTIME_URL = pathToFileURL(TERRAIN_SCRIPT).href;
+const moduleUrl = (m) => pathToFileURL(join(REPO, "src", `${m}.mjs`)).href;
+const STAGE_URLS = ["workflow", "terrain"].flatMap((d) => readdirSync(join(REPO, "src", d))
+  .filter((f) => f.endsWith(".mjs")).map((f) => moduleUrl(`${d}/${f.slice(0, -4)}`)));
+const STAGE_IMPORTS = STAGE_URLS.map((u, i) => `import * as rt${i} from ${JSON.stringify(u)};`).join("\n")
+  + `\nconst rt = Object.assign({}, ${STAGE_URLS.map((_, i) => `rt${i}`).join(", ")});`;
 function drive(body, env = {}) {
   const r = spawnSync(process.execPath, ["--input-type=module", "-e",
-    `import * as rt from ${JSON.stringify(RUNTIME_URL)};\n${body}`], {
+    `${STAGE_IMPORTS}\n${body}`], {
     encoding: "utf8", cwd: REPO, env: { ...process.env, ...NO_SHAPE_CMD, ...env },
   });
   const last = (r.stdout || "").trim().split("\n").pop();
@@ -1174,7 +1176,7 @@ console.log(JSON.stringify(out));`, env);
           const gatesDir = join(shapeDir, "open-gates");
           const driver = join(shapeDir, "driver.mjs");
           writeFileSync(driver,
-            `import { emitGateDeclaration } from ${JSON.stringify(RUNTIME_URL)};\n`
+            `import { emitGateDeclaration } from ${JSON.stringify(moduleUrl("workflow/gate"))};\n`
             + `emitGateDeclaration(${JSON.stringify(emitDir)}, "brief-thesis-adoption",\n`
             + `  [{ id: "adopt", label: "Adopt the Thesis as named above (a note)" }], {});\n`);
           const run = spawnSync(process.execPath, [driver], {
@@ -2615,7 +2617,7 @@ console.log(JSON.stringify(out));`, env);
           }
           const [a, b, c, bin] = dirs;
           const refusal = (command, pathEnv) => spawnSync(process.execPath, ["--input-type=module", "-e",
-            `import { resolveJudgeBinary } from ${JSON.stringify(RUNTIME_URL)}; resolveJudgeBinary(${JSON.stringify(command)}, ${JSON.stringify(pathEnv)});`],
+            `import { resolveJudgeBinary } from ${JSON.stringify(moduleUrl("workflow/judge"))}; resolveJudgeBinary(${JSON.stringify(command)}, ${JSON.stringify(pathEnv)});`],
           { encoding: "utf8", cwd: root }).stderr || "";
           const ran = (text) => text.split("\n").filter((l) => /^    \//.test(l)).map((l) => l.trim());
           const walked = refusal("claude", [a, b, a, "", c].join(delimiter));
