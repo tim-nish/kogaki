@@ -9,32 +9,28 @@
 # output is unattachable. Whether the reasoning is any good is the human
 # gate's question, deliberately unasked here.
 #
-# AND SINCE kogaki#894, THE ARITHMETIC OF §4.11's BOUND. "One revise round per
-# Candidate" was prose with its count in the composing sitting's memory, so a
-# Candidate re-reviewed three times reached assembly with no refusal and no
-# disclosure. Cases (e)-(h) assert the count is the Harness's: a third attach
-# refuses by name, a Candidate at the bound carries a residue entry THIS
-# RUNTIME wrote, a re-run with the same reasoning spends no round, and a
-# DAMAGED ledger refuses rather than reading as zero rounds spent.
+# AND SINCE kogaki#1307, AN ATTACH COUNTS NOTHING. The revise pass — and the
+# round bound, Arms and attach ledger kogaki#894 built for it — is gone, since no
+# state of the Brief table ever ran it. Case (e) asserts the attach writes no
+# ledger and refuses nothing on a second attach.
 set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { attachReview, attachLedgerPath, readAttachLedger, reviewEntrySha,
-         REVIEW_AREAS, REVISE_BOUND, MAX_ATTACHES } from "./src/review.mjs";
+import * as reviewModule from "./src/review.mjs";
+import { attachReview, REVIEW_AREAS } from "./src/review.mjs";
 
 const fails = [];
 const dir = mkdtempSync(join(tmpdir(), "brief-review-"));
 
-// CLOSURE (kogaki#1151): each Candidate carries one open row (neither
-// discharged_by nor conceded_by) so the revise bound's withdrawal-and-residue
-// arm actually fires — a Candidate with no open row reaches the bound clean,
-// carrying no residue at all, which case (f) below no longer holds true of.
+// Each Candidate carries one open Closure row: since kogaki#1307 an open row is
+// reasoning the owner reads at the gate, never a withdrawal, so case (e) checks
+// it rides through untouched.
 const cands = [
   { candidate_id: "cand-1", legs: ["s1", "s2"], obligations: [{ text: "the case's generality is open", introduced_by: "s1" }] },
   { candidate_id: "cand-2", legs: ["s2", "s1"], obligations: [{ text: "the case's generality is open", introduced_by: "s2" }] },
@@ -79,173 +75,43 @@ try {
 
   // (d) COMMAND PATH agrees with the exported function, and the output file
   // carries the attached reasoning (the artifact the selection gate reads).
-  // The ledger root is the scratch dir, never this repository's `runs/` — a
-  // fixture that counted revise rounds into the developer's live workspace
-  // would spend a real Brief's bound to assert an arithmetic property.
   const cf = join(dir, "cands.json"); const rf = join(dir, "review.json"); const of = join(dir, "reviewed.json");
-  const root = join(dir, "runs");
-  mkdirSync(join(dir, "theses", "fixture-slug"), { recursive: true });
-  const brief = join(dir, "theses", "fixture-slug", "brief.md");
-  writeFileSync(brief, "# fixture brief\n");
-  // The fixture seam is a NAMED ENVIRONMENT VARIABLE, never a command-line
-  // flag: a `--ledger-root` flag would be a public surface letting any caller
-  // reset the count, which is the property §4.11's Harness-resolved-home
-  // bullet asserts the opposite of (PR #908 round 1).
-  const env = { ...process.env, KOGAKI_ATTACH_LEDGER_ROOT_FOR_TESTS: root };
-  const attach = (reviewFile) => spawnSync(process.execPath,
-    ["src/review.mjs", "attach", "--candidates", cf, "--review", reviewFile,
-     "--brief", brief, "--out", of], { encoding: "utf8", env });
+  const attach = () => spawnSync(process.execPath,
+    ["src/review.mjs", "attach", "--candidates", cf, "--review", rf, "--out", of], { encoding: "utf8", cwd: process.cwd() });
   writeFileSync(cf, JSON.stringify(cands)); writeFileSync(rf, JSON.stringify(review));
-  const p = attach(rf);
+  const p = attach();
   if (p.status !== 0) fails.push(`(d) attach exited ${p.status}: ${(p.stderr || "").trim()}`);
   const disk = JSON.parse(readFileSync(of, "utf8"));
   if (JSON.stringify(disk.candidates) !== JSON.stringify(attachReview(cands, review).candidates)) {
     fails.push("(d) the command's output differs from the exported function's — two producers");
   }
   if (!/no verdict anywhere/.test(p.stdout || "")) fails.push("(d) the command does not state the no-verdict property in its own output");
-  // `--brief` is REQUIRED: without it the bound has no workspace to be counted
-  // in, and an optional flag would make the count opt-in for the one caller
-  // whose memory the count was already living in.
-  const nb = spawnSync(process.execPath, ["src/review.mjs", "attach", "--candidates", cf,
-    "--review", rf, "--out", of], { encoding: "utf8", env });
-  if (nb.status === 0 || !/--brief/.test(nb.stderr || "")) {
-    fails.push("(d) attach without --brief was accepted — the revise-round ledger has no identity to be keyed on, so the bound is uncounted");
-  }
 
-  // `--ledger-root` is NOT a surface: an unknown flag must not relocate the
-  // ledger, or the bound is resettable by the party it bounds.
-  const flagged = spawnSync(process.execPath, ["src/review.mjs", "attach", "--candidates", cf,
-    "--review", rf, "--brief", brief, "--out", of, "--ledger-root", join(dir, "elsewhere")],
-    { encoding: "utf8", env });
-  if (flagged.status === 0 && existsSync(join(dir, "elsewhere"))) {
-    fails.push("(d) --ledger-root relocated the ledger — a caller-chosen home is a bound the counted party can reset (§4.11)");
-  }
-
-  // (e) THE BOUND IS THE HARNESS'S ARITHMETIC (§4.11; kogaki#894). Two
-  // attaches with DIFFERENT reasoning pass — the first review and the one
-  // revise round — and a third is refused BY NAME, naming the prior attaches.
-  if (REVISE_BOUND !== 1 || MAX_ATTACHES !== 2) {
-    fails.push(`(e) the bound is ${REVISE_BOUND} revise round(s) / ${MAX_ATTACHES} attach(es) — the loop is bounded at ONE revise round per Candidate`);
-  }
-  const lp = attachLedgerPath(brief, root);
-  if (lp.error) fails.push(`(e) the ledger path did not resolve: ${lp.error}`);
-  const a1 = attachReview(cands, both("first "), {});
-  if (a1.error) fails.push(`(e) the first attach was refused: ${a1.error}`);
-  // THE REVISE ARMS (kogaki#1151): the second attach on a Candidate carrying
-  // an open Closure row owes one of the four declared Arms per row, checked
-  // against the FIRST attach's own snapshot — so the fixture's revise round
-  // carries `revise_arms` naming the row it concedes.
-  const withArms = cands.map((c) => ({ ...c,
-    revise_arms: (c.obligations || []).map((o) => ({ text: o.text, introduced_by: o.introduced_by, arm: "concede", legs: [o.introduced_by] })) }));
-  const a2 = attachReview(withArms, both("revised "), a1.attaches);
-  if (a2.error) fails.push(`(e) the ONE revise round was refused: ${a2.error}`);
-  else if ((a2.attaches["cand-1"] || []).length !== 2) fails.push("(e) the revise round was not counted");
-  const a3 = a2.error ? null : attachReview(cands, both("third "), a2.attaches);
-  if (!a3 || !a3.error || !/cand-1/.test(a3.error)
-      || !/bounded at ONE revise round per Candidate/.test(a3.error)
-      || !/attach 3/.test(a3.error)) {
-    fails.push(`(e) a THIRD attach was not refused by name against the one-revise-round bound: ${JSON.stringify(a3 && (a3.error || "accepted"))}`);
-  }
-  // The refusal must name the prior attaches — a bound that refuses without
-  // saying what it counted is a bound the composer cannot check.
-  if (a3 && a3.error && !/round 1 at /.test(a3.error)) {
-    fails.push("(e) the refusal does not name the prior attaches it counted");
-  }
-
-  // (f) THE RESIDUE IS HARNESS-WRITTEN, never a model-declared line. A
-  // Candidate at the bound carries one; a Candidate that ARRIVES carrying one
-  // is refused — that is `bridges`'s defect one field over.
-  const atBound = a2.error ? [] : a2.candidates.filter((c) => c.revise_residue);
-  if (atBound.length !== cands.length) fails.push("(f) a Candidate at the bound carries no residue entry — the surviving gap rides to the gate DISCLOSED (§4.11)");
-  else {
-    for (const c of atBound) {
-      if (c.revise_residue.attaches !== 2 || typeof c.revise_residue.statement !== "string"
-          || !/revise round per Candidate/.test(c.revise_residue.bound)) {
-        fails.push(`(f) ${c.candidate_id}'s residue does not state the bound it was written against`);
-      }
-      // WITHDRAWN, NOT MERELY DISCLOSED (kogaki#1151): a Candidate at the
-      // bound still carrying an open Closure row is withdrawn from the
-      // Candidate set, and its open rows are named in the residue.
-      if (c.withdrawn !== true) fails.push(`(f) ${c.candidate_id} reached the bound with an open Closure row and was not withdrawn`);
-      if (!Array.isArray(c.revise_residue.open_rows) || c.revise_residue.open_rows.length !== 1) {
-        fails.push(`(f) ${c.candidate_id}'s residue does not carry its open Closure row(s): ${JSON.stringify(c.revise_residue.open_rows)}`);
-      }
+  // (e) AN ATTACH WRITES NO LEDGER AND REFUSES NOTHING ON A SECOND ATTACH
+  // (kogaki#1307). The revise pass's bound, Arms and ledger are gone: a second
+  // and a third attach with DIFFERENT reasoning are accepted exactly as the
+  // first, the command path leaves nothing in the directory but its own output,
+  // and an open Closure row rides through with no withdrawal and no residue.
+  const first = attachReview(cands, both("first "));
+  const second = attachReview(cands, both("second "));
+  const third = attachReview(cands, both("third "));
+  if (first.error || second.error || third.error) {
+    fails.push(`(e) a repeated attach was refused: ${first.error || second.error || third.error}`);
+  } else {
+    if ("attaches" in second) fails.push("(e) attachReview still returns an `attaches` count");
+    for (const c of third.candidates) {
+      if ("withdrawn" in c || "revise_residue" in c) fails.push(`(e) ${c.candidate_id} carries a withdrawal or residue — the revise pass is gone`);
+      if (!Array.isArray(c.obligations) || c.obligations.length !== 1) fails.push(`(e) ${c.candidate_id}'s open Closure row did not ride through`);
     }
   }
-  if (!a1.error && a1.candidates.some((c) => c.revise_residue)) {
-    fails.push("(f) a Candidate that has not spent its revise round carries a residue entry — the entry would then mean nothing");
+  for (const gone of ["REVISE_BOUND", "MAX_ATTACHES", "REVISE_ARMS", "attachLedgerPath", "readAttachLedger", "writeAttachLedger", "ATTACH_LEDGER"]) {
+    if (gone in reviewModule) fails.push(`(e) src/review.mjs still exports ${gone}`);
   }
-  const declared = cands.map((c) => ({ ...c, revise_residue: { attaches: 1, statement: "we say it is fine" } }));
-  const rd = attachReview(declared, review, {});
-  if (!rd.error || !/revise_residue/.test(rd.error) || !/never declared/.test(rd.error)) {
-    fails.push(`(f) a model-DECLARED residue was accepted: ${JSON.stringify(rd.error || "accepted")}`);
-  }
-
-  // (g) A REFUSED ATTACH SPENDS NO ROUND, and RE-ATTACHING THE SAME REASONING
-  // spends none either — recovery in this repository is re-running the
-  // command, and a count that charged a re-run would make the bound punish it.
-  const bad = attachReview(cands, { "cand-1": entry(), "cand-2": { ...entry(), verdict: "pass" } }, a1.attaches);
-  if (!bad.error) fails.push("(g) a malformed attach was accepted");
-  if ((a1.attaches["cand-1"] || []).length !== 1) fails.push("(g) a refused attach mutated the ledger — a typo would spend the Candidate's revise round");
-  const again = attachReview(cands, both("revised "), a2.attaches);
-  if (again.error) fails.push(`(g) re-attaching the SAME reasoning was refused: ${again.error}`);
-  else if ((again.attaches["cand-1"] || []).length !== 2) fails.push("(g) re-attaching the same reasoning spent a round — recovery is re-running, and the count is keyed on the reasoning's identity");
-  if (reviewEntrySha(entry("x")) === reviewEntrySha(entry("y"))) fails.push("(g) two different review entries hash the same — the round key does not distinguish reasoning");
-
-  // (h) A DAMAGED LEDGER REFUSES; IT NEVER READS AS ZERO ROUNDS SPENT. This
-  // is the one branch the PR body named as a property and nothing broke once
-  // (PR #908 round 1) — and it is the branch that decides whether the bound
-  // survives a bad file or quietly becomes a suggestion.
-  const badLedger = join(dir, "corrupt-ledger.json");
-  writeFileSync(badLedger, "{ this is not json");
-  const rc = readAttachLedger(badLedger);
-  if (!rc.error || !/NOT an empty one/.test(rc.error)) {
-    fails.push(`(h) an unparseable ledger did not refuse: ${JSON.stringify(rc.error || rc)}`);
-  }
-  const shapeless = join(dir, "shapeless-ledger.json");
-  writeFileSync(shapeless, JSON.stringify({ rounds: 2 }));
-  const rs2 = readAttachLedger(shapeless);
-  if (!rs2.error || !/attaches/.test(rs2.error)) {
-    fails.push(`(h) a ledger with no \`attaches\` object did not refuse: ${JSON.stringify(rs2.error || rs2)}`);
-  }
-  if (readAttachLedger(join(dir, "no-such-ledger.json")).error) {
-    fails.push("(h) an ABSENT ledger refused — absent is zero rounds spent, and only a DAMAGED one is unknown");
-  }
-  // THE THIRD DOOR (PR #910 round 1): a ledger whose VALUES are damaged. The
-  // container-shaped check passed these, and the coercion below it then
-  // restored the Candidate to zero rounds spent — the degrade-to-zero this
-  // case exists to refuse, reached without an unparseable byte in the file.
-  for (const [name, body] of [
-    ["scalar-entry", { attaches: { "cand-1": 5 } }],
-    ["object-entry", { attaches: { "cand-1": { round: 2 } } }],
-    ["malformed-round", { attaches: { "cand-1": [{ round: "2", sha: "x", at: "t" }] } }],
-    ["array-attaches", { attaches: [] }],
-  ]) {
-    const f = join(dir, `damaged-${name}.json`);
-    writeFileSync(f, JSON.stringify(body));
-    const rr = readAttachLedger(f);
-    if (!rr.error) fails.push(`(h) a damaged ledger (${name}) read as ${JSON.stringify(rr.attaches)} instead of refusing — the count degraded to zero without an unparseable byte`);
-  }
-  // And the PURE function refuses it too, for a caller that did not come
-  // through the reader — a guard on one door only is a guard with a bypass.
-  const coerced = attachReview(cands, review, { "cand-1": 5 });
-  if (!coerced.error || !/not an array of round/.test(coerced.error)) {
-    fails.push(`(h) attachReview COERCED a damaged ledger entry instead of refusing: ${JSON.stringify(coerced.error || "accepted")}`);
-  }
-
-  // The command path writes the ledger the exported arithmetic reads. The
-  // revise round owes `revise_arms` the same way the in-process (e)/(f) cases
-  // do (kogaki#1151) — `cf` is overwritten with the Arms-carrying Candidates.
-  writeFileSync(cf, JSON.stringify(withArms));
-  const p2 = attach((() => { const f = join(dir, "review2.json"); writeFileSync(f, JSON.stringify(both("revised "))); return f; })());
-  if (p2.status !== 0) fails.push(`(g) the second command attach exited ${p2.status}: ${(p2.stderr || "").trim()}`);
-  const led = lp.error ? { error: lp.error } : readAttachLedger(lp.path);
-  if (led.error) fails.push(`(g) the ledger the command wrote is unreadable: ${led.error}`);
-  else if ((led.attaches["cand-1"] || []).length !== 2) fails.push("(g) the command path did not record the revise round in the run workspace — the count would live in the sitting's memory again");
-  const p3 = attach((() => { const f = join(dir, "review3.json"); writeFileSync(f, JSON.stringify(both("third "))); return f; })());
-  if (p3.status === 0 || !/bounded at ONE revise round per Candidate/.test(p3.stderr || "")) {
-    fails.push(`(g) the command path admitted a third attach: ${(p3.stderr || "").trim() || "exit 0"}`);
-  }
+  writeFileSync(rf, JSON.stringify(both("again ")));
+  const p2 = attach();
+  if (p2.status !== 0) fails.push(`(e) a second command attach was refused: ${(p2.stderr || "").trim()}`);
+  const left = readdirSync(dir).filter((f) => !["cands.json", "review.json", "reviewed.json"].includes(f));
+  if (left.length) fails.push(`(e) the command attach wrote something beside its output: ${left.join(", ")}`);
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
@@ -824,26 +690,15 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief review: 13/13 cases — (a) per-Candidate reasoning attaches and rides each "
+console.log("brief review: 10/10 cases — (a) per-Candidate reasoning attaches and rides each "
   + "Candidate with every §§4.4-4.8 area present; (b) an unreviewed Candidate is refused BY "
   + "NAME and a missing area refuses — review runs machine-side per Candidate and never "
   + "multiplies owner questions; (c) a verdict is UNATTACHABLE — verdict-shaped keys refused "
   + "by name, non-string values refused as verdicts wearing a type; (d) the command path "
-  + "agrees byte-for-byte with the exported function, states the no-verdict property in "
-  + "its own output, and REQUIRES --brief, without which the bound has no workspace to be "
-  + "counted in; (e) §4.11's bound is the HARNESS's arithmetic — the first review and the "
-  + "one revise round pass, a THIRD attach is refused by name and names the prior attaches "
-  + "it counted; (f) the residue a Candidate at the bound rides to the gate with is written "
-  + "by this runtime FROM THE LEDGER, a Candidate below the bound carries none, and a "
-  + "model-DECLARED `revise_residue` is refused — that is `bridges`'s defect one field over; "
-  + "(g) a refused attach spends no round and re-attaching the SAME reasoning spends none "
-  + "either (the count is keyed on the reasoning's identity, so recovery-by-re-running does "
-  + "not consume the bound), and the command path records the round in the RUN WORKSPACE "
-  + "rather than in the composing sitting's memory; (h) a DAMAGED ledger REFUSES — "
-  + "unparseable JSON, a body with no `attaches` object, and an entry that is not an array of "
-  + "round records (the door a container-shaped check leaves open) — while an ABSENT one is "
-  + "zero rounds spent, because a bound whose count degrades to zero on a bad read is a "
-  + "suggestion with a good failure mode; (i) the already-knows item reads the Packet's one "
+  + "agrees byte-for-byte with the exported function and states the no-verdict property in "
+  + "its own output; (e) an attach counts nothing (kogaki#1307): a second and third attach "
+  + "are accepted, no ledger is written, the revise-pass exports are gone, and an open Closure "
+  + "row rides through with no withdrawal; (i) the already-knows item reads the Packet's one "
   + "\"What crosses into this Leg\" block beside this Leg's own claims, never the retired "
   + "held-by-reader/active-here pair or a standalone introduces block, and an empty crossing "
   + "block holds mechanically with no model call; (j) kogaki#1247 cell five's "
@@ -867,21 +722,12 @@ console.log("brief review: 13/13 cases — (a) per-Candidate reasoning attaches 
   + "once that Leg's own crossing block re-activates the term, where the same reliance joins "
   + "`holds` — proving default-deny in the comparison's rendering, not only in the item "
   + "table's declared shape. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): SIX mutations, each run once "
-  + "and restored surgically — dropping the per-candidate completeness guard failed (b)'s "
-  + "by-name refusal; dropping the verdict-key scan failed (c)'s unattachability; raising "
-  + "MAX_ATTACHES to 3 failed (e)'s third-attach refusal AND (f)'s residue, since a "
-  + "Candidate that never reaches the bound never carries one; counting into the CALLER's "
-  + "ledger object instead of a copy failed (g)'s spends-no-round assertion; returning "
-  + "`{ attaches: {} }` from the unparseable-JSON branch instead of refusing failed (h), and "
-  + "restoring the `Array.isArray(v) ? [...v] : []` coercion failed (h)'s damaged-VALUE cases "
-  + "while every other case stayed green. NOT "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): dropping the per-candidate "
+  + "completeness guard failed (b)'s by-name refusal; dropping the verdict-key scan failed "
+  + "(c)'s unattachability. NOT "
   + "COVERED, stated rather than implied: whether the agent's reasoning is sound — the "
   + "grounds test applied well, the prohibitions actually looked for, the arc actually "
   + "traced — is judgment-class (§4.6 clause 3 keeps every MUST un-linted) and belongs to "
   + "the human gate reading the attached reasoning; this member exercises the plumbing that "
-  + "makes an unjudged or verdict-bearing Candidate unable to reach that gate. AND NOT "
-  + "COVERED: whether the revise actually REPAIRED the gap — the Harness counts the round "
-  + "and never judges the repair, so a residue entry says a round was spent, never that a "
-  + "gap survived it.");
+  + "makes an unjudged or verdict-bearing Candidate unable to reach that gate.");
 JS

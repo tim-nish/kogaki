@@ -1177,8 +1177,9 @@ saying it judged.
 
 **The judge pin's two halves are now of different kinds, and are not conflated.**
 `model_id` is OBSERVED — the model the executor actually ran. `effort_tier` is
-DECLARED in the same block, because the call carries no effort flag and a value
-read back from nothing would be the provenance lie §13 exists to prevent.
+the literal `unset` (kogaki#1307): the call carries no effort flag, so the table
+declares no tier, and a tier recorded for a call that asked for none would be the
+provenance lie §13 exists to prevent.
 
 **What is NOT asserted anywhere**: that the pinned model is reachable, or that
 its answers are good. The registered fixture stubs the binary through

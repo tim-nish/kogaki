@@ -66,7 +66,8 @@ function needCompositionInput(rec, st) {
 }
 
 // The judge pin the two writing states record (kogaki#1030; see kogaki#892).
-// The model half is observed; the effort half is declared by the table. An explicit flag wins.
+// The model half is observed. NO CALL PASSES AN EFFORT FLAG, so the table declares no effort
+// (kogaki#1307) and the effort half is the literal `unset`. An explicit flag wins.
 // The judged records the writing states render FROM are joined from the run record,
 // not argv (kogaki#1030) — `full_report`'s own rule. An explicit flag still wins.
 // `claims` joins from `rec.claims_derived`, not `rec.judgments` (kogaki#1172); see
@@ -78,6 +79,8 @@ function judgmentJoins(rec, args) {
   if (j.J2_subdivision && args.subdivisions === undefined) join.subdivisions = resolve(REPO, j.J2_subdivision);
   return join;
 }
+
+export const JUDGE_EFFORT_UNSET = "unset";
 
 function judgePinArgs(table, args, rec) {
   const j = (table && table.judge) || {};
@@ -93,11 +96,11 @@ function judgePinArgs(table, args, rec) {
   const binary = (rec && rec.judge_binary) || null;
   const fromRun = binary && binary.version && args["judge-binary-version"] === undefined
     ? { "judge-binary-version": String(binary.version) } : {};
-  if (!j.model || !j.effort) return fromRun;
+  if (!j.model) return fromRun;
   if (args["judge-model"] !== undefined || args["judge-effort"] !== undefined) return fromRun;
   return {
     "judge-model": String(j.model),
-    "judge-effort": String(j.effort),
+    "judge-effort": JUDGE_EFFORT_UNSET,
     ...fromRun,
   };
 }

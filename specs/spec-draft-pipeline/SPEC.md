@@ -1,5 +1,24 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v42, amended 2026-10-08 (kogaki#1307) — **MOVE FIT IS JUDGED INSIDE
+THE COMPOSE JOB, PER JOB UNIT, AND THE REVISE PASS IS REMOVED.** The Brief run
+of 2026-10-08 ended with no Reader Path and no question: one compose job unit
+spent an attempt on malformed output, one hit the 600-second limit while still
+reasoning, and the one Candidate that finished was excluded after Path Review
+by `judge_specialization`, from where nothing re-composed. The owner decided
+(2026-10-08): a content judgment made after a verdict-free review is
+positioned incorrectly, so §4.12.2's judged half runs per compose job unit —
+a `contradicts` or `cannot-determine` on any Leg is a schema refusal of that
+unit, re-asked once with the judge's sentence; §4.11's revise pass and its four
+Arms, which no state of the Brief table ever ran, leave; a run whose every
+Candidate is excluded ends with no question and removes its empty Brief. The
+compose and review job limits, the unit count, the judge model and the Persona
+file move to `kogaki.settings.json`, the owner's file for values changed
+without coding. Carriers: `kogaki.settings.json`, `src/brief-workflow.json`,
+`src/brief.mjs`, `src/workflow/detached-job.mjs`, `src/review.mjs`.
+**deferred slots minted by this amendment: none; `specialization-judgment-and-
+path-review-ordering` is filled (§4.12.2).**
+
 **Status:** v41, amended 2026-09-30 (kogaki#1225) — **§5.1.1: READER START IS
 THE PERSONA'S COLD READ OF THE THESIS AS A TITLE, READER TARGET IS THE LAST
 LEG'S AFTER-STATE, AND THE OPENING QUESTION HEADING IS REMOVED.** Reading the
@@ -849,7 +868,7 @@ themselves Brief-stage acts. The hub refresh is **owed, not done**.
 requires be declared in the artifact. The section number survives because other
 carriers cite it.
 
-### 4.11 The Bridge Leg and the revise pass
+### 4.11 The Bridge Leg
 
 Once the Thesis is decided and the Leg sequence is being composed, a causal
 gap between adjacent Legs is repaired by inserting a **Bridge Leg**.
@@ -878,161 +897,46 @@ Brief from the **existing** library and the selected Strands; minting is not
 this workflow's act. A transition typing against no entry raises §4.1's reopen
 trigger rather than composing anyway.
 
-**The revise pass.** After Path Review, per Candidate: a gap found in
-transition continuity, or an open row in §5.2's Closure ledger, routes that
-Candidate **back to path composition**. The revised Candidate is **re-reviewed
-before assembly**. **The loop is bounded at one revise round per Candidate**;
-no mechanical retries — "there is no guarantee that another round will produce
-a better result" (owner, 2026-09-19) — so a gap or an open row surviving the one
-revise is never re-looped.
+**The revise pass is removed** (kogaki#1307, owner decision 2026-10-08). It
+routed a Candidate with a continuity gap or an open Closure row back to path
+composition once after Path Review, under four Harness-declared Arms and a
+round count kept in an attach ledger — and no state of the Brief table ever
+ran it, so the bound counted a loop that did not exist. What it was for is now
+done earlier and once: a Candidate whose Legs do not fit their Moves is
+recomposed once inside the compose job (§4.12.2), and Path Review carries its
+reasoning onto every finished Candidate and counts nothing. An open Closure row
+is reasoning the owner reads at the Candidate gate, never a withdrawal.
 
-**The Arms are declared by the Harness, one chosen per open Closure row**
-(kogaki#1151, owner decision 2026-09-19). When a Candidate is sent back to path
-composition once, ownership of what a revise CAN DO is never handed to the
-Model — it is fine for the Model to choose which Arm applies to a row, but the
-Model must not be allowed to define the Arms themselves. The four, each naming
-the Legs it touches:
+**Disclosure-class evidence gets ONE test, applied per field** (kogaki#909,
+owner ruling 2026-09-06). Disclosure-class evidence that bears on the pending
+selection is **decision-grade** and reaches the **selection gate**; evidence
+that is a post-hoc report or approval is **post-hoc** and rides the **minted
+Brief's slot** (this section's own disclosure surface, kogaki#864, built at
+kogaki#866). `bridges` is post-hoc and stays exactly where kogaki#864 put it.
+`revise_residue`, the one decision-grade field, left with the revise pass, so
+no field is decision-grade at present and the table declares that grade no
+longer; a field that bears on the choice joins by its own ruling.
+`consulted: product-lab@172ede395a5d74ef9a8b2c7b2031f79fda2fc930
+topics/archive/knowledge-architecture.md:172` — "a **pending human verdict**
+is violated by not being acted on, and the human acts on what they SEE rather
+than on what the authoritative file contains, so its carrier is the render
+layer."
 
-- **(a) insert a Leg that discharges the row** — the Bridge Leg insertion
-  contract above;
-- **(b) amend an existing Leg so it discharges the row**;
-- **(c) concede the row at a named Leg**;
-- **(d) amend the introducing Leg so the promise is not made and the row is
-  not raised.**
-
-A reply naming anything else is refused. `src/review.mjs` checks a reply
-against this closed set (`REVISE_ARMS`) rather than against a rule the Model
-could satisfy by inventing its own vocabulary.
-
-**Exits at the bound.** After the second Path Review, a Candidate with every
-Closure row terminal proceeds to assembly. A Candidate with an open row is
-**withdrawn** from the Candidate set — its rows are written into
-`revise_residue` by the runtime, it is never offered at Candidate selection,
-and it is never re-looped: "the failure indicates that the particular
-combination of Strands used by that Candidate was not good enough" (owner,
-2026-09-19), and no replacement is generated for it. **If every Candidate
-withdraws**, selection refuses naming the open rows and the run returns to the
-composer through §6's existing route — every Candidate adoptable again once the
-Thesis or the settled set changes. **No revert to the pre-revise Candidate**:
-it held the same open row.
-
-**THE HARNESS COUNTS THE ROUND, and until kogaki#894 nothing did.** The clause
-above was a bound in prose with its count outside the Harness: nothing in
-`src/review.mjs` or `src/assemble.mjs` counted an attach, `attachReview` took a
-reviewed set with no notion of which pass it was, and `bridges` on a Leg is a
-model-declared array. The count lived in the composing sitting's memory, so a
-Candidate re-reviewed three times reached assembly with no refusal and no
-disclosure, and nothing in the run record showed it. **A bound the Harness
-cannot count is not a bound** — the review-lane shape of 2026-09-04 one step
-earlier, where the Harness at least owned the arithmetic over model-supplied
-evidence and here owned neither.
-
-The carrier is `src/review.mjs attach`, and three properties are what make the
-count honest rather than merely present:
-
-- **The ledger's home is Harness-resolved**, from the Brief's own slug —
-  `runs/brief/<slug>/review-attach-ledger.json`, through `runs.mjs`'s pure
-  resolver. A caller-chosen path would let a second attach land beside the
-  first with a fresh count, which is a bound the counted party can reset. **The
-  one relocation seam is `KOGAKI_ATTACH_LEDGER_ROOT_FOR_TESTS`**, named here
-  because a seam nothing declares is indistinguishable from the surface this
-  bullet rules out: the fixture pass must not count into a developer's live
-  `runs/`, where asserting the arithmetic would spend a real Brief's bound. It
-  is deliberately **not** a command-line flag — PR #908 round 1 found the flag
-  form to be exactly the caller-chosen home this bullet asserts the opposite
-  of, whatever the intent behind it.
-- **The ledger's lifetime is the lane's retention bound**, stated rather than
-  discovered. The ledger lives inside `runs/brief/<slug>/`, which `enterRun`
-  prunes keep-last; a pruned workspace leaves no file, and no file reads as no
-  rounds spent — the degrades-to-zero shape the damaged-read refusal below
-  refuses, arriving by a different door. It is low risk rather than no risk: a
-  Candidate's first attach and its one revise sit inside a single composing
-  sitting, and each attach keeps the directory fresh.
-- **A round is spent by attaching DIFFERENT reasoning**, keyed on a sha of the
-  attached entry. Re-running an attach with the same reasoning is the
-  recovery-by-re-running every command here promises, and charging it a round
-  would make recovery cost the bound. A refused attach spends nothing either:
-  the ledger is written only on success, so a malformed entry never consumes a
-  revise the Candidate has not had.
-- **The residue entry is written by the runtime, from the ledger.** A Candidate
-  at the bound with every Closure row terminal carries none — the revise did its
-  job. A Candidate that STILL carries an open row carries `revise_residue` into
-  the reviewed set — how many attaches, the bound it was written against, and
-  the open rows themselves — and is marked `withdrawn`, per the Arms and exits
-  bullet above. A Candidate arriving with its own `revise_residue` is
-  **refused**: a model-declared residue is a model-supplied control input
-  wearing the Harness's field name, which is `bridges`'s own shape one field
-  over. **The Harness counts the round and never judges the repair** — a
-  residue entry says a round was spent, never that a gap survived it.
-  **AND IT REACHES THE OWNER AT THE GATE** (kogaki#909, owner ruling
-  2026-09-06). Between PR #908 and that ruling it did not: the entry rode the
-  reviewed set where a later act could read it, and the selection gate's options
-  carried `id` and `label` alone since kogaki#859 emptied the evidence
-  rendering, so nothing put it on screen. That was **the same hole this section
-  records for the bridge disclosure** — one hole rather than two, both
-  Candidate-level evidence with no owner surface left to ride — and #909 asked
-  the question for the CLASS rather than a third time for a third field, #877's
-  `figure:` being the third that would have re-derived the same absence.
-
-  **THE TEST IS WHETHER THE EVIDENCE BEARS ON THE CHOICE, and it is one test
-  applied per field rather than a ruling per field.** Disclosure-class evidence
-  that bears on the pending selection is **decision-grade** and reaches the
-  **selection gate**; evidence that is a post-hoc report or approval is
-  **post-hoc** and rides the **minted Brief's slot** (§4.11's own disclosure
-  surface, kogaki#864, built at kogaki#866). The residue is decision-grade: it
-  says this Candidate spent its one revise round and that anything the revise
-  did not repair stands, which is a property of the Candidate the owner is
-  choosing **between**, so it is owed before the choice rather than after it.
-  `bridges` is post-hoc and stays exactly where kogaki#864 put it.
-  `consulted: product-lab@172ede395a5d74ef9a8b2c7b2031f79fda2fc930
-  topics/archive/knowledge-architecture.md:172` — "a **pending human verdict**
-  is violated by not being acted on, and the human acts on what they SEE rather
-  than on what the authoritative file contains, so its carrier is the render
-  layer."
-
-  **THIS IS ONE ITEM, NEVER THE LIST RESTORED.** §6's reduction removed sixteen
-  paragraphs per Candidate — about 20,000 characters above a question whose
-  labels total under 900 — and its ruling is explicit that a later run showing
-  one evidence item is needed to decide adds **that item** by its own ruling.
-  What renders is the Harness's own one sentence about its own arithmetic, on at
-  most three Candidates, and only where a revise round was actually spent. A
-  Candidate that spent none renders nothing, so the empty case §6 established is
-  intact.
-
-  **THE CARRIER IS `src/disclosure-fields.json`, and a declared field reaching
-  no surface is refused at the WRITE.** The table names each disclosure-class
-  field's grade, the grade names the surface, and `src/assemble.mjs` derives the
-  gate's rendering **from the table** rather than enumerating the fields it
-  knows — so a field added to the table reaches the owner with no code naming
-  it, and a renderer that regressed to an enumeration is refused by name at the
-  composition site. `src/review.mjs` refuses to mint a residue at all where the
-  table declares no surface for it. The assertion is
-  `checks/check-brief-compose.sh` case **(u)**.
-  **What this does NOT claim, stated rather than left to be trusted past:** a
-  field **nobody declared** is outside the table's reach — no reading of it
-  bears on a key that was never entered. What is closed is the defect the class
-  was found by, a *declared* piece of evidence with no surface.
-
-- **A DAMAGED ledger refuses; an ABSENT one is zero rounds spent.** This is the
-  bullet the lifetime clause above points at, and the distinction is the whole
-  of it: absent is a fact about a Brief that has not been reviewed yet, while
-  damaged means the count is **unknown**, and a bound whose tally degrades to
-  zero on a bad read is a suggestion with a good failure mode rather than a
-  bound. Three doors, because two of them were found open one at a time
-  (PR #910 round 1): an unparseable file, a body carrying no `attaches` object,
-  and — the one a container-shaped check leaves open — an `attaches` entry that
-  is not an array of round records. `{"attaches": {"cand-1": 5}}` parses, passes
-  a check that asks only whether `attaches` is an object, and then restores that
-  Candidate to zero rounds spent with no unparseable byte anywhere in the file.
-  The refusal lives at **both doors** — the reader and the pure function — since
-  a guard on one is a guard with a bypass.
-
-The assertion is `checks/check-brief-review.sh` cases (e)–(h).
+**THE CARRIER IS `src/disclosure-fields.json`, and a declared field reaching
+no surface is refused at the WRITE.** The table names each disclosure-class
+field's grade, the grade names the surface, and `src/assemble.mjs` derives the
+gate's rendering **from the table** rather than enumerating the fields it
+knows — so a field added to the table reaches the owner with no code naming
+it, and a renderer that regressed to an enumeration is refused by name at the
+composition site. **What this does NOT claim, stated rather than left to be
+trusted past:** a field **nobody declared** is outside the table's reach — no
+reading of it bears on a key that was never entered. What is closed is the
+defect the class was found by, a *declared* piece of evidence with no surface.
 
 **Routing a finding does not make an evaluation level a check.** Transition
 continuity is observed inside Path Review's `evaluation_levels` area
-(`src/review.mjs`) — there is no area by that name. The revise pass registers
-no check member, computes no score and produces no verdict.
+(`src/review.mjs`) — there is no area by that name. It registers no check
+member, computes no score and produces no verdict.
 
 **Approval is post-hoc disclosure.** No per-Bridge question: each Candidate's
 evidence carries its inserted bridges — how many, between which Legs, and each
@@ -1105,7 +1009,7 @@ still owes it its own ruling.
 `necessity:` an insertion contract whose marking field is validated by a
 carrier, and whose *reason* — insertion is history, not shape — is what stops
 the field being deleted as redundant with the placement constraints. The
-bounded loop and the disclosure shape are conduct at a judgment point.
+disclosure shape is conduct at a judgment point.
 
 ### 4.12 The Leg↔Move instantiation contract
 
@@ -1151,8 +1055,10 @@ states.
 
 #### 4.12.2 The judged half — the specialization verdict
 
-1. **A mandatory occasion with no skip**, at adoption — the act that writes a
-   path into a Brief.
+1. **A mandatory occasion with no skip**, inside the compose job — every job
+   unit's Candidate is judged before the unit finishes (kogaki#1307) — and the
+   record rides to adoption, the act that writes a path into a Brief, which
+   validates it again.
 2. **A typed record the harness VALIDATES AND NEVER COMPOSES.** The carrier is
    `src/specialization-schema.json`. No default verdict exists, none is
    inferred from a Leg's fields, and a missing record is a refusal rather than
@@ -1216,9 +1122,25 @@ match §5.2 used to require, and it is what lets the first Leg bind a Move
 whose `before` merely does not contradict Reader start rather than one whose
 `before` Reader start was written to equal.
 
-**deferred slot: `specialization-judgment-and-path-review-ordering`** — where
-the judgment point sits relative to Path Review's own pass. Not answered by
-inference from this section; owed on its own licensing issue.
+**The judged half runs per compose job unit, before Path Review** (kogaki#1307,
+owner decision 2026-10-08; this fills the deferred slot
+`specialization-judgment-and-path-review-ordering`). kogaki#1276 had moved the
+judgment after Path Review and widened it to every Candidate in one call, so a
+Candidate excluded there could not be repaired: nothing re-composes after
+review. The owner ruled that a content judgment made after a verdict-free
+review is positioned incorrectly. Each compose job unit is a headless session
+(a `claude -p` child that runs with no tools); once its record passes the
+schema, the supervisor runs one more headless session over that record alone,
+from the `reader_path_fit_unit` row of `src/brief-workflow.json`, with each
+Leg's Move contract and the Brief's Reader start. A `contradicts` or
+`cannot-determine` on any Leg is a **schema refusal**: the unit is re-asked
+once with the judge's sentence, verbatim, and a second failure ends the unit
+refused. The record is written beside the unit's Candidate and adoption renders
+it as the one sentence kogaki#1108 made it. A judge answer whose own shape is
+wrong is **malformed output** and is asked again with the same prompt, bounded
+only by the job limit. When every unit is refused, the Brief ends with no
+question, its empty `theses/<slug>/` is removed, and the closing report names
+each Candidate's failing Legs and says the Brief was removed.
 
 `necessity:` the split between what a runtime may decide and what only a
 reading sitting can. The schema holds the record's shape; nothing but prose can
@@ -2328,7 +2250,7 @@ may not shed, and why declining a slug may not cost the Thesis.
 
 **A command is named for the artifact it completes, and it runs until that
 artifact is complete.** One invocation drives the whole arc — entry, the thesis
-gate, the mint, path composition, Path Review with §4.11's revise routing,
+gate, the mint, path composition with its per-unit Move fit (§4.12.2), Path Review,
 Candidate assembly, the Candidate-selection gate, §4.12.3's ratification gate,
 adoption — and ends only at a
 **filled** Brief, or at an owner answer that ends it.
@@ -2520,8 +2442,9 @@ falsifiable rather than merely written down.
 **THE CLAUSE HAS BEEN EXERCISED ONCE, AND ONCE IS THE RECORD** (kogaki#909,
 owner ruling 2026-09-06). The item added is **decision-grade disclosure
 evidence** — evidence that bears on the choice the owner is making at this gate,
-of which `revise_residue` is the first and currently the only member. The
-grading test and its carrier live in §4.11 and are not restated here; what §6
+of which `revise_residue` was the first and only member until kogaki#1307 removed
+it with the revise pass. The grading test and its carrier live in §4.11 and are
+not restated here; what §6
 records is that its own reversal route was used as written, by its own ruling,
 for one item rather than for a list.
 

@@ -135,22 +135,24 @@
 #       the at-most-one-introduces-item-per-path limit that
 #       `introducesNearestRefusal` (unchanged, kogaki#1260) enforces
 #       (kogaki#1270).
-#  (ag) the `compose_path` prompt and the `judge_specialization` input carry
+#  (ag) the `compose_path` prompt and the per-unit Move-fit input carry
 #       each Move's `technique` and `breaks` verbatim from its file, beside
-#       `before` and `after` (kogaki#1276).
+#       `before` and `after` (kogaki#1276; per unit since kogaki#1307).
 #  (ah) `validateLegs` refuses a Leg carrying both `move` and `no_move_fits`,
 #       or neither, naming the Leg (kogaki#1276).
 #  (ai) a Candidate with a `no_move_fits` Leg ends its reader-path unit
 #       `refused` with that sentence, and the retry prompt carries the
 #       sentence verbatim (kogaki#1276).
-#  (aj) `judge_specialization` sits directly after `review_path` and before
-#       CANDIDATE_SELECTION in src/brief-workflow.json (kogaki#1276).
-#  (ak) with three Candidates and one `contradicts` verdict, the other two
-#       are offered and the line above the Candidate question names the
-#       excluded one and its failing Leg (kogaki#1276).
-#  (al) with every Candidate failing, the Brief ends with no question and
-#       the report names each failing Leg and the judge's sentence
-#       (kogaki#1276).
+#  (aj) every compose job unit prompt begins with the no-tools sentence; the
+#       Brief table carries no `judge_specialization` state and no `effort`
+#       field, and the Terrain table no `effort` (kogaki#1307).
+#  (ak) with three compose units and one refused on a `contradicts` verdict,
+#       the other two are offered and the line above the Candidate question
+#       names the excluded one and its failing Leg (kogaki#1276, kogaki#1307).
+#  (al) with every Candidate failing, `job await` ends the Brief with no
+#       question, `theses/<slug>/` is gone, and the report names each failing
+#       Leg and the judge's sentence and says the Brief was removed
+#       (kogaki#1276, kogaki#1307).
 #  (am) the Journey use boundary (kogaki#1286, owner decision 2026-10-06):
 #       `renderLeg` renders the Brief's `journey:` line with the schema's own
 #       gloss, `journey: L<n> — <use> (<gloss>)`; the rendered Packet's
@@ -196,13 +198,15 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, chmodSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, chmodSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as compose from "./src/compose.mjs";
-import { composeBrief, validateReaderPathUnit, specializationJudgeInput, validateSpecializationSet,
-  specializationSelection, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
+import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFitVerdict,
+  composeJobExcluded, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
+import { startDetachedJobSupervisor, JOB_UNIT_NO_TOOLS_SENTENCE } from "./src/workflow/detached-job.mjs";
+import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHARGE_VERDICTS } from "./src/review.mjs";
 import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
@@ -1230,9 +1234,9 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
   if (!/const priorKnowledge = personaPriorKnowledgeLine\(persona\)/.test(composePath)) fails.push("(ar) compose_path no longer derives priorKnowledge from personaPriorKnowledgeLine");
   if (!/persona_prior_knowledge: priorKnowledge,/.test(composePath)) fails.push("(ar) compose_path's base write does not carry persona_prior_knowledge");
-  const unitBlock = composePath.slice(composePath.indexOf("const units = [1, 2, 3].map"));
+  const unitBlock = composePath.slice(composePath.indexOf("const units = Array.from("));
   if (!/persona_prior_knowledge: priorKnowledge,/.test(unitBlock)) fails.push("(ar) compose_path's per-unit input does not carry persona_prior_knowledge");
-  const reviewPath = brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  judge_specialization: async"));
+  const reviewPath = brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  attach_review:"));
   if (!/const priorKnowledge = personaPriorKnowledgeLine\(persona\)/.test(reviewPath)) fails.push("(ar) review_path no longer derives priorKnowledge from personaPriorKnowledgeLine");
   if (!/persona_prior_knowledge: priorKnowledge,/.test(reviewPath)) fails.push("(ar) review_path's input does not carry persona_prior_knowledge");
 }
@@ -1338,7 +1342,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
   legs: [leg1276("s1", { opens_section: "Intro" }), leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
 });
 
-// (ag) technique and breaks reach the composer's prompt and the judge's input verbatim.
+// (ag) technique and breaks reach the composer's prompt and the per-unit fit judge's input verbatim.
 {
   const library = compose.loadMoveContracts(fitMoves);
   if (library.error) fails.push(`(ag) loadMoveContracts refused the fixture library: ${library.error}`);
@@ -1359,19 +1363,22 @@ const cand1276 = (id, leg2Extra = {}) => ({
       fails.push("(ag) compose_path's unit input no longer takes `moves_you_may_bind` from loadMoveContracts");
     }
   }
-  const j = specializationJudgeInput([cand1276("c1")], fitMoves);
-  if (j.error) fails.push(`(ag) specializationJudgeInput refused: ${j.error}`);
+  const j = readerPathFitInput(cand1276("c1"), fitMoves, START_1276);
+  if (j.error) fails.push(`(ag) readerPathFitInput refused: ${j.error}`);
   else {
-    const contracts = j.input.candidates_you_must_judge[0].move_contracts;
-    for (const c of contracts) {
+    const own = j.input.candidate_you_must_judge;
+    if (!own || own.candidate_id !== "c1") fails.push(`(ag) the per-unit fit input does not hold its one Candidate: ${JSON.stringify(own && own.candidate_id)}`);
+    for (const c of (own && own.move_contracts) || []) {
       const f = FIT_MOVE[c.move];
       if (!f || c.technique !== f.technique || c.breaks !== f.breaks || typeof c.before !== "string" || typeof c.after !== "string") {
-        fails.push(`(ag) the judge_specialization input does not carry leg ${c.leg_id}'s Move contract verbatim: ${JSON.stringify(c)}`);
+        fails.push(`(ag) the per-unit fit input does not carry leg ${c.leg_id}'s Move contract verbatim: ${JSON.stringify(c)}`);
       }
     }
     const brief = readFileSync("src/brief.mjs", "utf8");
-    const judgeState = brief.slice(brief.indexOf("  judge_specialization: async"), brief.indexOf("  attach_review:"));
-    if (!/specializationJudgeInput\(cands, /.test(judgeState)) fails.push("(ag) judge_specialization does not build its input with specializationJudgeInput");
+    const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
+    if (!/prompt_export: "readerPathFitPrompt"/.test(composePath) || !/verdict_export: "readerPathFitVerdict"/.test(composePath)) {
+      fails.push("(ag) compose_path does not declare the per-unit fit judge to its job");
+    }
   }
 }
 
@@ -1429,15 +1436,40 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (good) fails.push(`(ai) the same Candidate with a move on every Leg was refused: ${good}`);
 }
 
-// (aj) judge_specialization sits after review_path and before CANDIDATE_SELECTION.
+// (aj) every compose job unit prompt begins with the no-tools sentence, and
+// neither table carries `judge_specialization` or `effort` (kogaki#1307). The
+// sentence is read off the units file `startDetachedJobSupervisor` -- the one
+// starter `compose_path` calls -- writes for the job.
 {
-  const ids = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).states.map((x) => x.id);
-  const at = (id) => ids.indexOf(id);
-  if (at("judge_specialization") !== at("review_path") + 1) fails.push(`(aj) judge_specialization does not directly follow review_path: ${ids.join(", ")}`);
-  if (!(at("judge_specialization") < at("CANDIDATE_SELECTION"))) fails.push(`(aj) judge_specialization does not come before CANDIDATE_SELECTION: ${ids.join(", ")}`);
+  const run = mkdtempSync(join(tmpdir(), "kogaki-1307-units-"));
+  const started = startDetachedJobSupervisor(run, {
+    units: [{ id: "candidate-1", prompt: "first unit prompt" }, { id: "candidate-2", prompt: "second unit prompt" }],
+    command: "/bin/false", model: "m", outputFormat: "json", absoluteLimitS: 5, stallS: 5, heartbeatMs: 100,
+    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: {} },
+  });
+  try { process.kill(started.supervisorPid); } catch { /* already gone */ }
+  const declared = JSON.parse(readFileSync(started.unitsPath, "utf8"));
+  if (declared.units.length !== 2 || !declared.units.every((u) => u.prompt.startsWith(`${JOB_UNIT_NO_TOOLS_SENTENCE}\n\n`))) {
+    fails.push(`(aj) a compose job unit prompt does not begin with the no-tools sentence: ${JSON.stringify(declared.units.map((u) => u.prompt.slice(0, 80)))}`);
+  }
+  if (!/no tools/.test(JOB_UNIT_NO_TOOLS_SENTENCE) || !/not something to open/.test(JOB_UNIT_NO_TOOLS_SENTENCE)) {
+    fails.push(`(aj) the no-tools sentence does not say the session has no tools and that a path is not to be opened: ${JOB_UNIT_NO_TOOLS_SENTENCE}`);
+  }
+  const brief = readFileSync("src/brief.mjs", "utf8");
+  if (!/startDetachedJobSupervisor\(dir, \{\n\s+units,/.test(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")))) {
+    fails.push("(aj) compose_path no longer starts its job through startDetachedJobSupervisor, so the units file above is not its prompts");
+  }
+  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  if (table.states.some((x) => x.id === "judge_specialization")) fails.push("(aj) src/brief-workflow.json still declares a judge_specialization state");
+  const hasEffort = (v) => v && typeof v === "object" && (Array.isArray(v) ? v.some(hasEffort) : ("effort" in v || Object.values(v).some(hasEffort)));
+  if (hasEffort(table)) fails.push("(aj) src/brief-workflow.json still carries an `effort` field");
+  if (hasEffort(JSON.parse(readFileSync("src/terrain-workflow.json", "utf8")))) fails.push("(aj) src/terrain-workflow.json still carries an `effort` field");
 }
 
 // (ak)/(al) the partition, the line above the question, and the closing report.
+// Since kogaki#1307 the partition is the compose job's own: a unit whose Legs do
+// not fit their Moves after its one re-ask ends `refused`, carrying the judge's
+// verdicts, and `composeJobExcluded` reads the excluded Candidates off the rows.
 {
   const cands = ["c1", "c2", "c3"].map((id) => cand1276(id));
   const verdict = (leg, v, why) => ({ leg_id: leg.leg_id, move: leg.move, verdict: v, why });
@@ -1446,10 +1478,17 @@ const cand1276 = (id, leg2Extra = {}) => ({
     verdicts: [verdict(c.legs[0], "consistent", "the reader states specialize the Move's before and after."), verdict(c.legs[1], v2, why2)],
   });
   const WHY = "the Leg's two claims are about one guard, and the technique needs a second party.";
-  const one = { records: [recordOf(cands[0], "consistent"), recordOf(cands[1], "contradicts", WHY), recordOf(cands[2], "consistent")] };
-  const v = validateSpecializationSet(one, cands);
-  if (v.error) fails.push(`(ak) a set carrying one contradicts verdict was refused as a record: ${v.error}`);
-  const { fit, excluded } = specializationSelection(one, cands);
+  // The unit row the supervisor writes for a refused unit, built from the real verdict reader.
+  const rowOf = (c, i, v2, why2) => {
+    const r = readerPathFitVerdict(recordOf(c, v2, why2), c);
+    if (v2 === "consistent") return { id: `candidate-${i + 1}`, status: "done", candidate: c };
+    if (!r.refusal) fails.push(`(ak) a ${v2} verdict was not read as a refusal of the unit: ${JSON.stringify(r)}`);
+    return { id: `candidate-${i + 1}`, status: "refused", candidate: c,
+      failure: { class: "schema refusal", stderr_tail: r.refusal, move_fit: r.failures || [] } };
+  };
+  const rows = [rowOf(cands[0], 0, "consistent"), rowOf(cands[1], 1, "contradicts", WHY), rowOf(cands[2], 2, "consistent")];
+  const excluded = composeJobExcluded(rows);
+  const fit = rows.filter((u) => u.status === "done").map((u) => u.candidate);
   if (JSON.stringify(fit.map((c) => c.candidate_id)) !== JSON.stringify(["c1", "c3"])) fails.push(`(ak) the offered Candidates are ${JSON.stringify(fit.map((c) => c.candidate_id))}, want ["c1","c3"]`);
   const extra = candidateSelectionExtra(excluded).excluded_candidates || "";
   const lines = extra.split("\n").filter(Boolean);
@@ -1462,18 +1501,48 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (JSON.stringify(filled) !== JSON.stringify([sel.renders_above_question])) fails.push(`(ak) CANDIDATE_SELECTION's renders_above_question (${JSON.stringify(sel.renders_above_question)}) is not the key its option composer fills (${JSON.stringify(filled)})`);
   if (!/"excluded_candidates"/.test(readFileSync("src/workflow/gate.mjs", "utf8").match(/const GATE_CALL_READING_KEYS = .*/)[0])) fails.push("(ak) excluded_candidates is not a gate-call reading key");
 
-  const all = { records: [recordOf(cands[0], "contradicts", WHY), recordOf(cands[1], "cannot-determine", "the Move's technique cannot be read against these claims."), recordOf(cands[2], "contradicts", WHY)] };
-  const none = specializationSelection(all, cands);
-  if (none.fit.length) fails.push(`(al) every Candidate failed and ${none.fit.length} were still offered`);
-  const report = noCandidateFitsReport(none.excluded, "theses/fixture/brief.md");
-  if (!report.includes("theses/fixture/brief.md") || !/under a different name/.test(report)) fails.push(`(al) the report does not name the minted Brief and the different-name route: ${report}`);
+  // (al) END TO END through `job await`: a compose job whose every unit ended
+  // `refused` on its Move fit, under a run whose Brief was minted in a
+  // `theses/<slug>/` of its own. No question is asked, the directory is gone,
+  // and the report names each failing Leg and says the Brief was removed.
+  const allRows = [rowOf(cands[0], 0, "contradicts", WHY),
+    rowOf(cands[1], 1, "cannot-determine", "the Move's technique cannot be read against these claims."),
+    rowOf(cands[2], 2, "contradicts", WHY)];
+  const base = mkdtempSync(join(tmpdir(), "kogaki-1307-nofit-"));
+  const thesisDir = join(base, "theses", "fixture-1307");
+  mkdirSync(thesisDir, { recursive: true });
+  const briefPath = join(thesisDir, "brief.md");
+  writeFileSync(briefPath, composeBrief({ slug: "fixture-1307", strands: [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }],
+    thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" }));
+  const run = join(base, "run");
+  mkdirSync(run);
+  const now = new Date().toISOString();
+  writeFileSync(join(run, "reader-path-job.json"), JSON.stringify({
+    started_at: now, last_progress_at: now, updated_at: now, absolute_limit_s: 1200, supervisor_pid: null, state: "refused",
+    units: allRows.map((u) => ({ ...u, bytes: 50 })),
+  }, null, 2) + "\n");
+  writeFileSync(runRecordPath(run), JSON.stringify({
+    workflow: { path: "src/brief-workflow.json", version: table.version }, judge_binary: null, survey_record: null,
+    completed: ["enter", "THESIS_ADOPTION", "adopt_thesis", "mint", "differentiation"], waits_reached: [],
+    conditional_entered: [], conditional_skipped: [], awaiting: "compose_path", owner_input: {},
+    artifacts_written: [{ state: "mint", path: briefPath }], judgments: {}, gate_declarations_owed: [], done: false,
+  }, null, 2) + "\n");
+  const stub = join(base, "judge.mjs");
+  writeFileSync(stub, "#!/usr/bin/env node\nprocess.stdout.write(\"fixture judge\\n\");\n");
+  chmodSync(stub, 0o755);
+  const r = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"], { encoding: "utf8", timeout: 60000,
+    env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: run, KOGAKI_BRIEF_OPEN_RUN: join(run, "open-run-pointer.json"), KOGAKI_JUDGE_CLI: stub } });
+  const report = String(r.stderr || "");
+  const after = JSON.parse(readFileSync(runRecordPath(run), "utf8"));
+  if (existsSync(thesisDir)) fails.push(`(al) every Candidate failed and theses/<slug>/ is still there: ${thesisDir} stderr=${report}`);
+  if (!/was removed, so its name is free again/.test(report)) fails.push(`(al) the closing report does not say the Brief was removed: ${report}`);
+  if (/under a different name/.test(report)) fails.push(`(al) the report still offers the different-name route though the name is free: ${report}`);
   for (const c of cands) if (!report.includes(`"path ${c.candidate_id}"`)) fails.push(`(al) the report does not name candidate ${c.candidate_id}`);
   if (!report.includes(`Leg s2 (m_turn): contradicts — ${WHY}`) || !report.includes("cannot-determine — the Move's technique cannot be read")) fails.push(`(al) the report does not name each failing Leg with the judge's sentence: ${report}`);
-  const brief = readFileSync("src/brief.mjs", "utf8");
-  const ender = brief.slice(brief.indexOf("function endBriefNoCandidateFits"), brief.indexOf("// The owner's answer at the Candidate gate"));
-  if (/emitGateDeclaration/.test(ender) || !/rec\.done = true/.test(ender) || !/clearOpenRunPointer\(\)/.test(ender)) fails.push("(al) ending with every Candidate failed raises a question or leaves the run open");
-  const judgeState = brief.slice(brief.indexOf("  judge_specialization: async"), brief.indexOf("  attach_review:"));
-  if (!/if \(fit\.length === 0\) endBriefNoCandidateFits\(rec, st, excluded\)/.test(judgeState)) fails.push("(al) judge_specialization does not end the Brief when no Candidate fits");
+  if (after.done !== true || (after.gate_declarations_owed || []).length || after.awaiting) fails.push(`(al) ending with every Candidate failed raised a question or left the run open: ${JSON.stringify(after)}`);
+  if (existsSync(join(run, "brief-reader-path-job.gate-call.json"))) fails.push("(al) ending with every Candidate failed wrote a gate call");
+  const kept = noCandidateFitsReport(composeJobExcluded(allRows), "theses/fixture/brief.md", { removed: false });
+  if (!/could not be removed/.test(kept)) fails.push(`(al) a Brief that could not be removed is not reported as kept: ${kept}`);
 }
 
 // (am) the Journey use boundary (kogaki#1286, owner decision 2026-10-06): the Brief's

@@ -38,21 +38,16 @@
     "already drifted into eight variants, which is what kogaki#982 collapsed.",
     "",
     "THE NAMES THIS FILE USES, and the spec each one names:",
-    "  The Bridge Leg and the revise pass",
+    "  The Bridge Leg",
     "      SPEC-draft-pipeline"
   ],
   "grades": {
-    "decision": "selection-gate",
     "post-hoc": "brief-slot"
   },
   "fields": {
     "bridges": {
       "grade": "post-hoc",
-      "why": "A Bridge Leg is approved by disclosing it after the fact [implemented-against: SPEC-draft-pipeline \"The Bridge Leg and the revise pass\", copied 2026-09-06]. The approval is about what was ADOPTED, so a per-Candidate disclosure was always wider than the thing approved (kogaki#864, built at kogaki#866)."
-    },
-    "revise_residue": {
-      "grade": "decision",
-      "why": "It says this Candidate spent its one revise round and that anything the revise did not repair stands. That is a property of the Candidate the owner is choosing BETWEEN, so it is owed before the choice rather than after it (kogaki#894, carried at kogaki#909)."
+      "why": "A Bridge Leg is approved by disclosing it after the fact [implemented-against: SPEC-draft-pipeline \"The Bridge Leg\", copied 2026-10-08]. The approval is about what was ADOPTED, so a per-Candidate disclosure was always wider than the thing approved (kogaki#864, built at kogaki#866)."
     }
   }
 }

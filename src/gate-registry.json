@@ -216,7 +216,7 @@
     },
     {
       "id": "brief-reader-path-job",
-      "raised_by": "src/brief.mjs — `job await`'s own terminal arm raises this gate the moment the detached reader-path job it polled classifies to anything other than `done` (kogaki#1193). It is bound to `compose_path` alone, scope held to that one judgment state's own detached job; `review_path`, `judge_specialization` and every Terrain judgment state are untouched by it.",
+      "raised_by": "src/brief.mjs — `job await`'s own terminal arm raises this gate the moment the detached reader-path job it polled classifies to anything other than `done` (kogaki#1193). Since kogaki#1307 a compose job whose every unit was refused raises no question -- no Candidate fits, and the Brief ends with its empty `theses/<slug>/` removed -- so this gate is raised for the path-review job's `refused` ending alone; every Terrain judgment state is untouched by it.",
       "host": "claude-code",
       "medium": "selector",
       "question": "A reader-path step did not finish. Stop here?",
