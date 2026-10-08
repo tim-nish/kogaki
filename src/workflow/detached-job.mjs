@@ -664,7 +664,7 @@ export async function cmdJobSupervise(args) {
       // A SCHEMA-VALID CANDIDATE IS KEPT ON EVERY ENDING (PR #1308 round 1): a unit whose
       // fit call refused, died or ran out of time still carries the Candidate it composed,
       // so the record holds it. It is not offered: its Move fit was not judged `consistent`,
-      // and §4.12.2 makes that judgment an occasion with no skip.
+      // and "The judged half — the specialization verdict" makes that judgment an occasion with no skip.
       if (st.composed && cls.status !== "done") { row.candidate = st.composed; row.fit_judged = cls.status === "refused" && !!cls.specialization; }
       // THE CANDIDATE IS WRITTEN TO DISK THE MOMENT THIS UNIT ENDS `done` (kogaki#1204
       // acceptance 2), whatever its siblings are doing; with a Move-fit judge, the
