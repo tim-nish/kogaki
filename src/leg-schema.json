@@ -48,7 +48,7 @@
     "      SPEC-draft-pipeline",
     "  The claims rule",
     "      SPEC-draft-pipeline",
-    "  The Bridge Leg and the revise pass",
+    "  The Bridge Leg",
     "      SPEC-draft-pipeline",
     "  The reader-knowledge ledger",
     "      SPEC-draft-pipeline",
@@ -156,7 +156,7 @@
     "bridges": {
       "required": false,
       "type": "array of exactly two string",
-      "description": "Present only on a Leg inserted between two adjacent Legs during the revise pass; names that adjacent pair by `leg_id`. It is disclosed at the Candidate-selection gate, so an unvalidated marking would render at an owner surface. The Bridge Leg and the revise pass is where that insertion is defined."
+      "description": "Present only on a Leg inserted between two adjacent Legs to repair a causal gap between them; names that adjacent pair by `leg_id`. It is disclosed at the Candidate-selection gate, so an unvalidated marking would render at an owner surface. The Bridge Leg is where that insertion is defined."
     },
     "introduces": {
       "required": false,

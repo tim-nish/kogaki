@@ -192,6 +192,38 @@ export function ensureJudgeBinary(rec, table) {
   return rec.judge_binary;
 }
 
+// THE OWNER'S SETTINGS FILE (kogaki#1307): `kogaki.settings.json` at the repository
+// root, the one human-facing place for values changed during non-coding operation.
+// A table row that would restate one of them names it instead, as `{"setting":
+// "<dotted key>"}`, and `settingValue` resolves the row. A missing file or key is a
+// refusal naming the key: a value a run needs is never defaulted.
+// `KOGAKI_SETTINGS` points at another file FOR FIXTURES ONLY.
+const SETTINGS_FILE = "kogaki.settings.json";
+
+function settingsPath() {
+  return process.env.KOGAKI_SETTINGS ? resolve(process.env.KOGAKI_SETTINGS) : join(REPO, SETTINGS_FILE);
+}
+
+function kogakiSetting(key) {
+  const p = settingsPath();
+  if (!existsSync(p)) fail(`the setting \`${key}\` is needed and ${p} does not exist — ${SETTINGS_FILE} carries the values an owner changes without coding (kogaki#1307).`);
+  let doc;
+  try { doc = JSON.parse(readFileSync(p, "utf8")); }
+  catch (e) { fail(`the setting \`${key}\` is needed and ${p} is not JSON (${e.message}).`); }
+  let v = doc;
+  for (const part of String(key).split(".")) {
+    v = v && typeof v === "object" && !Array.isArray(v) && Object.prototype.hasOwnProperty.call(v, part) ? v[part] : undefined;
+  }
+  if (v === undefined || v === null || v === "") fail(`${p} carries no setting \`${key}\` — add it there; nothing defaults it (kogaki#1307).`);
+  return v;
+}
+
+// A table value that names a setting is read from the settings file; any other value is the
+// table's own literal.
+export function settingValue(v) {
+  return v && typeof v === "object" && !Array.isArray(v) && typeof v.setting === "string" ? kogakiSetting(v.setting) : v;
+}
+
 // EXPORTED FOR THE DETACHED JOB (kogaki#1193): `compose_path`'s own STATE_WORK
 // resolves the same command/model/timeout the synchronous judge path reads,
 // because the unit prompts it composes are handed to the SAME binary at the
@@ -215,7 +247,7 @@ export function judgeSettings(table, rec) {
     // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). What `--version` said,
     // taken from the executable the run actually resolved.
     binaryVersion: binary ? (binary.version || null) : null,
-    model: String(j.model || fail("the workflow table's `judge` block pins no `model`")),
+    model: String(settingValue(j.model) || fail("the workflow table's `judge` block pins no `model`")),
     outputFormat: String(j.output_format || "json"),
     // PER CALL, IN SECONDS IN THE TABLE AND MILLISECONDS HERE. Required rather
     // than defaulted: a bound that a table can silently omit is not a bound.
@@ -412,6 +444,14 @@ export function judgePrompt(st, inputText, input, lastRefusal) {
   // ONE ROW, ONE OR MANY FILES (kogaki#1126): each file whole, in order; a bare string
   // is the one-element list, so every pre-#1126 row reads unchanged.
   // Never fold two schemas into one file.
+  // `schema_blocks` (kogaki#1307) names the top-level blocks of a ONE-file row to render,
+  // each verbatim, for a row asking for one part of a file that also declares a shape this
+  // judge is never asked for -- the per-unit Move-fit judge answers ONE specialization
+  // record, and the file's `set` envelope is the adoption-level carrier, not its answer.
+  const blocks = Array.isArray(st.schema_blocks) ? st.schema_blocks.map(String) : null;
+  if (blocks && Array.isArray(st.schema_file)) {
+    fail(`${st.id}: \`schema_blocks\` names blocks of ONE schema file, and this row declares several (kogaki#1307).`);
+  }
   for (const declared of (Array.isArray(st.schema_file) ? st.schema_file : (st.schema_file ? [st.schema_file] : []))) {
     const sp = join(REPO, String(declared));
     if (!existsSync(sp)) {
@@ -420,6 +460,19 @@ export function judgePrompt(st, inputText, input, lastRefusal) {
         + `wearing a declaration (kogaki#1108).`);
     }
     L.push("");
+    if (blocks) {
+      const whole = JSON.parse(readFileSync(sp, "utf8"));
+      const missing = blocks.filter((b) => !(b in whole));
+      if (missing.length) {
+        fail(`${st.id}: \`schema_blocks\` names ${JSON.stringify(missing)}, which ${declared} does not declare (kogaki#1307).`);
+      }
+      L.push(`THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- the blocks ${blocks.join(", ")} of ${declared}, verbatim.`);
+      L.push("Every field they declare, and what each one means. The refusals that judge your answer read");
+      L.push("their field set from these same blocks, so what you are asked for and what is checked are one");
+      L.push("text. Read them before composing.");
+      L.push(JSON.stringify(Object.fromEntries(blocks.map((b) => [b, whole[b]])), null, 2));
+      continue;
+    }
     L.push(`THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- ${declared}, verbatim.`);
     L.push("Every field it declares, and what each one means. The refusals that judge your answer read");
     L.push("their field set from this same file, so what you are asked for and what is checked are one");

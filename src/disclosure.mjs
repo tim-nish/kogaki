@@ -1,8 +1,8 @@
 // disclosure — the ONE reader of src/disclosure-fields.json, the closed table
 // of Candidate-level disclosure-class fields and the owner surface each
 // reaches (kogaki#909, owner ruling 2026-09-06).
-// [see: SPEC-draft-pipeline "The Bridge Leg and the revise pass", for the
-// damaged-ledger refusal, and SPEC-draft-pipeline "Candidates ride the existing
+// [see: SPEC-draft-pipeline "The Bridge Leg", for the post-hoc bridge
+// disclosure, and SPEC-draft-pipeline "Candidates ride the existing
 // gate — no new carrier, no new check", for the Candidate-level surface]
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
@@ -13,7 +13,7 @@
 // already drifted into eight variants, which is what kogaki#982 collapsed.
 //
 // THE NAMES THIS FILE USES, and the spec each one names:
-//   The Bridge Leg and the revise pass
+//   The Bridge Leg
 //       SPEC-draft-pipeline
 //   Candidates ride the existing gate — no new carrier, no new check
 //       SPEC-draft-pipeline
@@ -54,9 +54,8 @@ const TABLE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "disclosure-
 // Read once at module load, the way the lane's other declared sets are read.
 // A malformed table is a REFUSAL rather than an empty default: a table that
 // degrades to "no fields are disclosure-class" would make every surface
-// obligation vacuous on a bad read, which is the damaged-ledger shape the
-// Bridge Leg's revise pass already refuses one field over.
-// [see: SPEC-draft-pipeline "The Bridge Leg and the revise pass"]
+// obligation vacuous on a bad read: a count that degrades to zero on a bad read
+// is a suggestion with a good failure mode rather than a bound.
 function loadTable() {
   let raw;
   try {

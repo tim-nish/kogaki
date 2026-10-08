@@ -44,7 +44,7 @@
 //       SPEC-draft-pipeline
 //   the Leg's shape
 //       SPEC-draft-pipeline
-//   the Bridge Leg and the revise pass
+//   the Bridge Leg
 //       SPEC-draft-pipeline
 //   the Leg-Move instantiation contract
 //       SPEC-draft-pipeline
@@ -388,8 +388,8 @@ export const SLOT_CAPTIONS = new Map([
   // the ledger can hold.
   ["Closure", "The obligation definition, the Thesis row and each Leg row — every row ending kept or conceded, by the Leg that closes it."],
   ["Tradeoffs", "What adopting this path gave up."],
-  // THE POST-HOC DISCLOSURE SURFACE (kogaki#866, ratified at the Bridge Leg and the revise pass/journey register as a Candidate axis by
-  // kogaki#864). the Bridge Leg and the revise pass approves a Bridge Leg by disclosing it after the fact
+  // THE POST-HOC DISCLOSURE SURFACE (kogaki#866, ratified at the Bridge Leg/journey register as a Candidate axis by
+  // kogaki#864). the Bridge Leg approves a Bridge Leg by disclosing it after the fact
   // rather than by asking; that disclosure rode the selection gate's evidence
   // rendering until kogaki#859 emptied it, and this slot is where it lands
   // instead. journey register as a Candidate axis's journey coverage rides the same slot on its OWN ground —
@@ -683,7 +683,7 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // owner see which Candidate is incomplete before choosing it, and keeping
   // the refusal at adoption is what stops that refusal becoming unreachable.
   // The disclosure carries no record key — this text has a rendering path.
-  // BRIDGE DISCLOSURE (the Bridge Leg and the revise pass v16, kogaki#524). Approval is POST-HOC: no
+  // BRIDGE DISCLOSURE (the Bridge Leg v16, kogaki#524). Approval is POST-HOC: no
   // per-Bridge question, so the one gate that exists must carry what was
   // inserted and why. Computed from THIS Candidate's own legs — two Candidates
   // that bridged differently must not read identically, the same reason
@@ -760,11 +760,12 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
 // actually carries, and an empty array where it carries none — so a Candidate
 // that owed nothing renders exactly what kogaki#859 left it.
 //
-// THE HARNESS'S OWN WORDS ARE RENDERED, NEVER RE-DESCRIBED. `revise_residue`
-// is written by `src/review.mjs` from the attach ledger, and its `statement` is
-// the Harness's sentence about its own arithmetic (the Bridge Leg and the revise pass). Re-writing it here
-// would be a second derivation of one fact, and the two would agree until one
-// was edited. Where a field carries no readable statement the paragraph says
+// THE HARNESS'S OWN WORDS ARE RENDERED, NEVER RE-DESCRIBED: a decision-grade
+// field carries its own `statement`, and re-writing it here would be a second
+// derivation of one fact, and the two would agree until one was edited. NO FIELD
+// IS DECISION-GRADE AT PRESENT (kogaki#1307 removed `revise_residue` with the
+// revise pass), so this renders nothing; the table-driven loop stays so a field
+// declared later reaches the gate with no edit here. Where a field carries no readable statement the paragraph says
 // so rather than rendering an empty line: an absent disclosure and a blank one
 // are different readings, and only the second is a defect.
 //
@@ -794,29 +795,12 @@ export function assembleSelection(reviewed, doc, differentiation) {
   // THE TABLE IS CHECKED BEFORE IT IS TRUSTED (kogaki#909). A malformed
   // disclosure table would make every surface obligation below vacuous while
   // reading exactly like a Candidate set that owed none — the degrades-to-zero
-  // shape the Bridge Leg and the revise pass's damaged-ledger clause refuses one field over, arriving by a
-  // different door.
+  // shape a damaged table would otherwise take, arriving by a different door.
   const table = validateDisclosureTable();
   if (table.error) return { error: `the disclosure table is malformed: ${table.error}` };
   const all = reviewed?.candidates;
   if (!Array.isArray(all)) return { error: "input is the attach output: { candidates: [...] } (src/review.mjs)" };
-  // A WITHDRAWN CANDIDATE NEVER REACHES THIS GATE (Closure, exits at the
-  // bound, kogaki#1151). `src/review.mjs` withdraws a Candidate that spent its
-  // one revise round and still carries an open Closure row: its rows are
-  // recorded in `revise_residue` for exactly this refusal, and no replacement
-  // is generated for it. If EVERY Candidate withdrew, the Thesis or the
-  // settled set is what should change, and this refuses naming the open rows
-  // — the same disposition the "none-of-these" negation reaches by the
-  // owner's own choice, reached here because no choice is offerable at all.
-  const withdrawn = all.filter((c) => c.withdrawn === true);
-  const cands = all.filter((c) => c.withdrawn !== true);
-  if (cands.length === 0) {
-    const rows = withdrawn.flatMap((c) => (c.revise_residue?.open_rows || [])
-      .map((o) => `${c.candidate_id}: ${o.text} (introduced_by ${o.introduced_by})`));
-    return { error: `every Candidate was withdrawn at the revise bound carrying an open Closure row — `
-      + `${rows.join("; ") || "no row detail carried"}. The Thesis or the selected set is what should `
-      + `change; no Candidate is offered.` };
-  }
+  const cands = all;
   // 1-3 CANDIDATES PER ARTICLE (the Candidate gate): the count is the contract, refused
   // naming what arrived — four is the selector affordance overrun. One is
   // enough (kogaki#1273, the owner's 2026-10-05 ruling: "Show the Candidate
@@ -934,7 +918,7 @@ export function assembleSelection(reviewed, doc, differentiation) {
   // ruling rather than being tidying beside it: computing a value the payload
   // does not carry is precisely "an entry with no reader". It stays EXPORTED
   // and stays exercised by `checks/check-brief-compose.sh`, because journey register as a Candidate axis's
-  // journey-coverage disclosure and the Bridge Leg and the revise pass's bridge disclosure are specified
+  // journey-coverage disclosure and the Bridge Leg's bridge disclosure are specified
   // behaviours whose display this ruling removed and whose future is an open
   // decision — deleting the derivation would settle that decision by making
   // one arm unbuildable, which is not this issue's to do.
@@ -1073,8 +1057,8 @@ export function assembleSelection(reviewed, doc, differentiation) {
     // run to measure whether the owner read them found they did not. This is
     // bounded to the Harness's own one-sentence statement about its own
     // arithmetic, on at most three Candidates, and only when the arithmetic
-    // actually fired. A Candidate that spent no revise round renders nothing,
-    // so the empty case stays exactly what #859 left it.
+    // actually fired. A Candidate carrying no decision-grade field renders
+    // nothing, so the empty case stays exactly what #859 left it.
     rendering: decisionGradeRendering(c),
   }));
   // THE OBLIGATION IS GENERATED BY THE EVIDENCE, NEVER BY A CALLER
@@ -1107,7 +1091,7 @@ export function assembleSelection(reviewed, doc, differentiation) {
         + `${disclosureSurface(owed[0]) || "no declared surface"} — and this gate composed `
         + `${rendered} rendering(s) for them. Evidence that bears on the choice is owed BEFORE `
         + `the choice, because the owner acts on what they see and not on what the record holds `
-        + `(the Bridge Leg and the revise pass, the Candidate gate). Either render it here or regrade the field in `
+        + `(the Candidate gate). Either render it here or regrade the field in `
         + `src/disclosure-fields.json under its own issue` };
     }
   }

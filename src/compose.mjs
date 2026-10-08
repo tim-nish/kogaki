@@ -62,7 +62,7 @@
 //       SPEC-draft-pipeline
 //   the Leg's shape
 //       SPEC-draft-pipeline
-//   the Bridge Leg and the revise pass
+//   the Bridge Leg
 //       SPEC-draft-pipeline
 //   the Leg-Move instantiation contract
 //       SPEC-draft-pipeline
@@ -439,8 +439,8 @@ export function validateLegs(legs, readerStart, obligations = [], movesDir = "mo
   // had already read the article several times. Reader start is now a cold
   // read authored from the Persona and the Thesis at the `differentiation`
   // state (src/differentiation-schema.json), never from any Move, and the
-  // first Leg's `reader_state_before` is JUDGED against it at
-  // `judge_specialization` on the same terms every other Leg is judged
+  // first Leg's `reader_state_before` is JUDGED against it by the per-unit
+  // Move-fit judge (kogaki#1307) on the same terms every other Leg is judged
   // against its Move's `before` — `specializes` passes, `contradicts`
   // refuses. No verbatim match remains, because a verbatim match is exactly
   // what made the two fields one fact written twice.
@@ -575,13 +575,13 @@ export function validateLegs(legs, readerStart, obligations = [], movesDir = "mo
         return { error: pathRefusal("depends_on_ordering", at, `Its depends_on names "${d}", which is not an EARLIER Leg of this path: either move the Leg that carries that id ahead of this one, or drop the dependency.`) };
       }
     }
-    // the Bridge Leg and the revise pass's `bridges` — optional, and when present it names the ADJACENT
+    // the Bridge Leg's `bridges` — optional, and when present it names the ADJACENT
     // PAIR this Leg was inserted between. Validated here because the
     // selection gate's disclosure is computed from it: an unvalidated marking
     // renders `between :` or `between true:` at an owner surface.
     if (s.bridges !== undefined) {
       if (!Array.isArray(s.bridges) || s.bridges.length !== 2 || s.bridges.some((b) => typeof b !== "string" || b === "")) {
-        return { error: `${at}: bridges, when present, names the two adjacent legs this Leg was inserted between (the Bridge Leg and the revise pass) — an array of exactly two leg ids` };
+        return { error: `${at}: bridges, when present, names the two adjacent legs this Leg was inserted between (the Bridge Leg) — an array of exactly two leg ids` };
       }
     }
     // the reader-knowledge ledger's `introduces` (kogaki#751) — OPTIONAL, and validated here for
@@ -1030,13 +1030,13 @@ export function resolveMoveIds(legs, movesDir = "moves") {
 // and returns them to its caller verbatim; it matches no string against any
 // other, computes no verdict, and is never consulted by a validator that
 // decides whether a Leg's reader states hold. The specialization judgment
-// stays where the judgment rule sites it: with the judge, at
-// `judge_specialization`, over a record whose SHAPE this file owns.
+// stays where the judgment rule sites it: with the judge, inside each compose
+// job unit (kogaki#1307), over a record whose SHAPE this file owns.
 //
 // WHAT IT IS FOR, and the defect it closes (kogaki#1125). Two states were
 // asked about Move contracts they were never handed. `compose_path` composed
 // the `move` field with the field's NAME and no set of legal values, and
-// invented six ids that read like Moves; `judge_specialization` was asked to
+// invented six ids that read like Moves; the specialization judge was asked to
 // judge each Leg's states as specializations of "the before and after its
 // bound Move declares" with no Move record in its input at all. A judge asked
 // about a record it was never given answers from nothing — which is what the
@@ -1092,7 +1092,7 @@ function moveScalarField(text, name) {
 
 // THE ONE FIELD `validateLegs`' question-chain rule (kogaki#1283) reads off a
 // bound Move — NOT added to MOVE_CONTRACT_FIELDS below, because that set is
-// `judge_specialization`'s and widening it would hand the judge a field it
+// the Move-fit judge's and widening it would hand the judge a field it
 // never specializes against. UNLIKE moveContract, a Move this cannot read is
 // not this reader's refusal to raise: it returns null, and the caller treats
 // an unreadable or absent `question` field as nothing to chain — a dangling

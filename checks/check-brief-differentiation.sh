@@ -59,7 +59,7 @@ node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { validateDifferentiationRecord, composeBrief } from "./src/brief.mjs";
+import { validateDifferentiationRecord, composeBrief, briefPersonaFile } from "./src/brief.mjs";
 import { assembleSelection, readerFieldValues, survivorSentence, candidateEvidence, READER_FIELDS, SLOT_CAPTIONS } from "./src/assemble.mjs";
 import { readerPersona, validateLegs } from "./src/compose.mjs";
 
@@ -249,10 +249,12 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
 // refusal, and a file missing `reader` still refuses naming it.
 {
   const workflow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  // Since kogaki#1307 the row NAMES the setting `brief.persona_file` and the
+  // path is read from `kogaki.settings.json`.
   const row = (workflow.states || []).find((s) => s.id === "compose_path");
-  if (!row || typeof row.reader_file !== "string") fails.push("(w) src/brief-workflow.json's compose_path row names no `reader_file`");
+  if (!row || row.reader_file?.setting !== "brief.persona_file") fails.push("(w) src/brief-workflow.json's compose_path row does not name the `brief.persona_file` setting as its `reader_file`");
   else {
-    const persona = readerPersona(row.reader_file);
+    const persona = readerPersona(briefPersonaFile(workflow));
     if (persona.error) fails.push(`(w) the named reader file did not read: ${persona.error}`);
     else if (typeof persona.reader !== "string") fails.push(`(w) the reader file lacks a field: ${JSON.stringify(persona)}`);
   }

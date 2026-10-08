@@ -46,7 +46,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import {
-  readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES,
+  readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES, startDetachedJobSupervisor,
 } from "./src/workflow/detached-job.mjs";
 import {
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX,
@@ -57,11 +57,36 @@ import { findInternalVocabulary, assembleSelection } from "./src/assemble.mjs";
 const fails = [];
 const root = process.cwd();
 
+// THE NO-TOOLS SENTENCE, READ OFF THE UNITS FILE THE STARTER WRITES (kogaki#1307):
+// the runtime keeps the sentence unexported, so a check reads it where every
+// job unit's prompt actually carries it -- the head of a unit prompt, ahead of
+// the unit's own text -- from a started job whose supervisor is killed at once.
+function noToolsSentenceAsWritten(units) {
+  const d = mkdtempSync(join(tmpdir(), "kogaki-1307-units-"));
+  const started = startDetachedJobSupervisor(d, {
+    units, command: "/bin/false", model: "m", outputFormat: "json", absoluteLimitS: 5, stallS: 5, heartbeatMs: 100,
+    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: {} },
+  });
+  try { process.kill(started.supervisorPid); } catch { /* already gone */ }
+  return JSON.parse(readFileSync(started.unitsPath, "utf8")).units;
+}
+const JOB_UNIT_NO_TOOLS_SENTENCE = (() => {
+  const p = noToolsSentenceAsWritten([{ id: "u", prompt: "UNIT" }])[0].prompt;
+  return p.endsWith("\n\nUNIT") ? p.slice(0, -"\n\nUNIT".length) : "";
+})();
+if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carries no sentence ahead of the unit's own prompt");
+
 // (d) END TO END: a real `job-supervise` child process, against a FAKE judge
 // binary whose behaviour is selected by the PROMPT it reads on stdin (never
 // by an argv flag, since the supervisor hands every unit the same argv) --
 // "OK\n" writes a valid stream-json transcript ending in a `type: "result"`
-// line, "FAIL_EXIT\n" exits 3, "FAIL_JSON\n" writes unparseable stdout,
+// line, "FAIL_EXIT\n" exits 3, "FAIL_JSON\n" writes unparseable stdout on
+// every call -- MALFORMED OUTPUT, respawned with the same prompt until the
+// limit (kogaki#1307) -- while "FAIL_TWICE"/"FAIL_ONCE"/"RECORD_ONCE"/
+// "FAIL_SLOW" answer a well-formed record the pass-through validator refuses,
+// a SCHEMA REFUSAL, re-asked once. Every prompt the supervisor sends begins
+// with the no-tools sentence (kogaki#1307), which the judge strips before it
+// reads the token,
 // "SLEEP_FOREVER\n" never exits on its own, "SLOW\n" writes a `type: "system"`
 // line every 300ms for 8 ticks (~2.4s) THEN its result line -- streamed,
 // incremental output past the fixture's own stall bound (kogaki#1193 PR #1195
@@ -70,15 +95,43 @@ const root = process.cwd();
 const scratch = mkdtempSync(join(tmpdir(), "kogaki-rpjob-fakejudge-"));
 const fakeJudge = join(scratch, "fake-judge.mjs");
 writeFileSync(fakeJudge, `#!/usr/bin/env node
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+const NO_TOOLS = ${JSON.stringify(JOB_UNIT_NO_TOOLS_SENTENCE)};
+// A SCHEMA REFUSAL: a well-formed record the pass-through validator refuses.
+const refusedRecord = (why) => JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "refused" }], refuse: why }) }) + "\\n";
+// THE CALL COUNT PER TOKEN, kept in the file the fixture names, for a unit whose
+// answer changes across respawns of the SAME prompt (kogaki#1307).
+const nthCall = (token) => {
+  const f = process.env.KOGAKI_FAKE_JUDGE_COUNTER;
+  if (!f) return 1;
+  const m = existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : {};
+  m[token] = (m[token] || 0) + 1;
+  writeFileSync(f, JSON.stringify(m));
+  return m[token];
+};
 let chunks = [];
 process.stdin.on("data", (d) => chunks.push(d));
 process.stdin.on("end", () => {
-  const prompt = Buffer.concat(chunks).toString("utf8").trim();
+  const sent = Buffer.concat(chunks).toString("utf8").trim();
+  const prompt = sent.startsWith(NO_TOOLS) ? sent.slice(NO_TOOLS.length).trim() : sent;
   const retried = prompt.includes("YOUR PREVIOUS ANSWER WAS REFUSED");
   // EVERY PROMPT THE SUPERVISOR SENDS IS RECORDED when the fixture names a
   // file (kogaki#1257), so a retried unit's second prompt is read as sent.
-  if (process.env.KOGAKI_FAKE_JUDGE_PROMPTS) appendFileSync(process.env.KOGAKI_FAKE_JUDGE_PROMPTS, JSON.stringify(prompt) + "\\n");
+  if (process.env.KOGAKI_FAKE_JUDGE_PROMPTS) appendFileSync(process.env.KOGAKI_FAKE_JUDGE_PROMPTS, JSON.stringify(sent) + "\\n");
+  // kogaki#1307: malformed output once, then a well-formed record.
+  if (prompt.startsWith("MALFORMED_ONCE")) {
+    if (nthCall("MALFORMED_ONCE") === 1) { process.stdout.write("not json at all"); process.exit(0); }
+    process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "after-malformed" }] }) }) + "\\n");
+    process.exit(0);
+  }
+  // kogaki#1307: malformed output, then a schema refusal, then -- on the re-ask
+  // -- a well-formed record.
+  if (prompt.startsWith("MALFORMED_THEN_REFUSED")) {
+    if (retried) { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "repaired" }] }) }) + "\\n"); process.exit(0); }
+    if (nthCall("MALFORMED_THEN_REFUSED") === 1) { process.stdout.write("not json at all"); process.exit(0); }
+    process.stdout.write(refusedRecord("the fixture's schema refusal after a malformed answer"));
+    process.exit(0);
+  }
   // "RECORD_ONCE" anywhere in the prompt refuses the first attempt and answers
   // the retry -- found by inclusion, because a real unit prompt carries the
   // token inside its input rather than at its head.
@@ -86,8 +139,13 @@ process.stdin.on("end", () => {
     if (retried) {
       process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "recorded" }] }) }) + "\\n");
     } else {
-      process.stdout.write("not json at all");
+      process.stdout.write(refusedRecord("the fixture's first refusal"));
     }
+    process.exit(0);
+  }
+  if (prompt.startsWith("NO_LEGS_ONCE")) {
+    if (nthCall("NO_LEGS_ONCE") === 1) { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ no_legs: true }) }) + "\\n"); process.exit(0); }
+    process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "after-no-legs" }] }) }) + "\\n");
     process.exit(0);
   }
   if (prompt.startsWith("NO_LEGS")) {
@@ -107,13 +165,14 @@ process.stdin.on("end", () => {
   // startsWith, not ===: a retried unit's prompt is this token plus the
   // refusal block appended (kogaki#1203), so the SAME structural refusal
   // must keep firing across both attempts.
-  if (prompt.startsWith("FAIL_JSON") || prompt.startsWith("FAIL_TWICE")) { process.stdout.write("not json at all"); process.exit(0); }
+  if (prompt.startsWith("FAIL_JSON")) { process.stdout.write("not json at all"); process.exit(0); }
+  if (prompt.startsWith("FAIL_TWICE")) { process.stdout.write(refusedRecord("the fixture refuses this record every time")); process.exit(0); }
   if (prompt.startsWith("FAIL_ONCE")) {
     if (retried) {
       process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
       process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "retried-ok" }] }) }) + "\\n");
     } else {
-      process.stdout.write("not json at all");
+      process.stdout.write(refusedRecord("the fixture's first refusal"));
     }
     process.exit(0);
   }
@@ -125,7 +184,7 @@ process.stdin.on("end", () => {
   if (prompt === "SLEEP_FOREVER") { setInterval(() => {}, 1 << 30); return; }
   // kogaki#1273: an attempt that takes ~1.5s and is then refused, so a short
   // absolute limit makes its retry one that could not finish in time.
-  if (prompt.startsWith("FAIL_SLOW")) { setTimeout(() => { process.stdout.write("not json at all"); process.exit(0); }, 1500); return; }
+  if (prompt.startsWith("FAIL_SLOW")) { setTimeout(() => { process.stdout.write(refusedRecord("the fixture's slow refusal")); process.exit(0); }, 1500); return; }
   if (prompt === "SLOW") {
     let i = 0;
     const iv = setInterval(() => {
@@ -154,7 +213,9 @@ chmodSync(fakeJudge, 0o755);
 // `loadReaderPathUnitValidator` route the real `validateReaderPathUnit`
 // (src/brief.mjs) is.
 const passthroughValidatorModule = join(scratch, "passthrough-validator.mjs");
-writeFileSync(passthroughValidatorModule, `export function passthrough() { return null; }\n`);
+// It refuses one shape only -- a record carrying the fake judge's own `refuse`
+// sentence -- so a SCHEMA REFUSAL is reachable without a Brief rule (kogaki#1307).
+writeFileSync(passthroughValidatorModule, `export function passthrough(c) { return c && c.refuse ? { error: c.refuse } : null; }\n`);
 const passthroughValidator = { module: passthroughValidatorModule, export: "passthrough" };
 
 function mkNewScratch() { const d = mkdtempSync(join(tmpdir(), "kogaki-rpjob-")); return d; }
@@ -177,7 +238,7 @@ function superviseSync(dir, units, opts = {}) {
     "--absolute-limit-s", String(opts.absoluteLimitS ?? 100),
     "--stall-s", String(opts.stallS ?? 100), "--heartbeat-ms", String(opts.heartbeatMs ?? 250)];
   return spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8",
-    env: { ...process.env, ...(opts.env || {}) } });
+    env: { ...process.env, KOGAKI_FAKE_JUDGE_COUNTER: join(dir, "fake-judge-counter.json"), ...(opts.env || {}) } });
 }
 
 // EVERY TERMINAL STATE A FIXTURE'S JOB RECORD REACHES, gathered as the records
@@ -206,17 +267,23 @@ function unitStdoutFile(dir, unitId) {
 // Read off the unit ROWS of real `job-supervise` runs since kogaki#1257: the
 // row is where the supervisor records each unit's classification.
 {
-  // (b2)-(b4) in one run: no unit dies, so no sibling is killed.
+  // (b2)-(b4) in one run: no unit dies, so no sibling is killed. An exit-0
+  // non-JSON stdout and a record with no `legs` array are MALFORMED OUTPUT
+  // since kogaki#1307: respawned with the same prompt, spending no attempt, so
+  // a unit whose first answer was malformed and whose second was well-formed
+  // ends `done` with the count on its row and the respawn marked in its stdout
+  // file. Driven by answers that change across calls rather than by a short
+  // limit, which a contended machine can reach mid-respawn.
   const dir = mkNewRun();
-  superviseSync(dir, [{ id: "bad", prompt: "FAIL_JSON" }, { id: "nolegs", prompt: "NO_LEGS" }, { id: "good", prompt: "OK" }], {});
+  superviseSync(dir, [{ id: "bad", prompt: "MALFORMED_ONCE" }, { id: "nolegs", prompt: "NO_LEGS_ONCE" }, { id: "good", prompt: "OK" }], {});
   const rec = readRecord(dir);
-  const badJson = unitRowOf(rec, "bad");
-  if (!badJson || badJson.status !== "refused" || !String((badJson.failure || {}).stderr_tail || "").includes("not JSON")) {
-    fails.push(`(b2) an exit-0 non-JSON stdout did not classify as refused: ${JSON.stringify(badJson)}`);
-  }
-  const noLegs = unitRowOf(rec, "nolegs");
-  if (!noLegs || noLegs.status !== "refused" || !String((noLegs.failure || {}).stderr_tail || "").includes("legs")) {
-    fails.push(`(b3) a record with no \`legs\` array did not classify as refused: ${JSON.stringify(noLegs)}`);
+  for (const [tag, id, cause] of [["b2", "bad", "not json at all"], ["b3", "nolegs", "no_legs"]]) {
+    const row = unitRowOf(rec, id);
+    const out = unitStdoutFile(dir, id) && existsSync(unitStdoutFile(dir, id)) ? readFileSync(unitStdoutFile(dir, id), "utf8") : "";
+    if (!row || row.status !== "done" || row.malformed_output !== 1 || row.attempts !== 1
+      || !out.includes(cause) || !out.includes("malformed output 1; respawned with the same prompt")) {
+      fails.push(`(${tag}) a malformed first answer (${cause}) was not classified malformed output and respawned with no attempt spent: ${JSON.stringify(row)} stdout=${out.slice(0, 300)}`);
+    }
   }
   const good = unitRowOf(rec, "good");
   if (!good || good.status !== "done" || !good.candidate || !Array.isArray(good.candidate.legs)) {
@@ -298,7 +365,7 @@ function unitStdoutFile(dir, unitId) {
 // refused unit is named on the record with its CAUSE preserved on its row.
 {
   const dir = mkNewRun();
-  superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "FAIL_JSON" }], {});
+  superviseSync(dir, [{ id: "c1", prompt: "OK" }, { id: "c2", prompt: "FAIL_TWICE" }], {});
   const rec = readRecord(dir);
   const c2 = rec && (rec.units || []).find((u) => u.id === "c2");
   if (!rec || rec.state !== "done" || rec.failure
@@ -505,10 +572,12 @@ function pollUntil(dir, pred, timeoutMs) {
   // PREVIOUS ANSWER WAS REFUSED")`), "ALWAYS_MISSING" never does.
   const fakeJudgeLeg = join(scratch, "fake-judge-leg.mjs");
   writeFileSync(fakeJudgeLeg, `#!/usr/bin/env node
+const NO_TOOLS = ${JSON.stringify(JOB_UNIT_NO_TOOLS_SENTENCE)};
 let chunks = [];
 process.stdin.on("data", (d) => chunks.push(d));
 process.stdin.on("end", () => {
-  const prompt = Buffer.concat(chunks).toString("utf8").trim();
+  const sent = Buffer.concat(chunks).toString("utf8").trim();
+  const prompt = sent.startsWith(NO_TOOLS) ? sent.slice(NO_TOOLS.length).trim() : sent;
   const retried = prompt.includes("YOUR PREVIOUS ANSWER WAS REFUSED");
   const write = (candidate) => {
     process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
@@ -614,8 +683,10 @@ process.stdin.on("end", () => {
 // (h) THE GATE-CALL BYTES ARE ON STDOUT, NOT ONLY THEIR ADDRESS (kogaki#1198's
 // own reproduction: `node src/brief.mjs run --status --job await` named
 // `brief-reader-path-job.gate-call.json` and printed none of it). A real
-// `job await` over a `refused` job (every unit refused, kogaki#1273 -- a
-// `died` job raises no question any more) is run end to end through the CLI --
+// `job await` over a `refused` PATH-REVIEW job (every unit refused, kogaki#1273
+// -- a `died` job raises no question any more, and since kogaki#1307 neither
+// does a refused COMPOSE job, which ends the Brief as "no Candidate fits") is
+// run end to end through the CLI --
 // `run --status` is the one Bash-reachable verb this runtime admits, and it is
 // read-only -- against a hand-written run record standing in for the hook
 // loop's own write, on the same ground section (e) states for a bare
@@ -624,13 +695,15 @@ process.stdin.on("end", () => {
 // forging a hook payload for a write it is not this check's job to attempt.
 {
   const dir = mkNewRun();
-  superviseSync(dir, [{ id: "c1", prompt: "FAIL_TWICE" }], {});
-  const rec = readRecord(dir);
+  const jobDir = join(dir, "review-path");
+  mkdirSync(jobDir);
+  superviseSync(jobDir, [{ id: "c1", prompt: "FAIL_TWICE" }], {});
+  const rec = readRecord(jobDir);
   if (!rec || rec.state !== "refused") fails.push(`(h) fixture premise failed: the job did not end \`refused\`: ${JSON.stringify(rec)}`);
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: null },
     judge_binary: null, survey_record: null, completed: [], waits_reached: [],
-    conditional_entered: [], conditional_skipped: [], awaiting: "compose_path",
+    conditional_entered: [], conditional_skipped: [], awaiting: "review_path",
     owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
     done: false,
   }, null, 2) + "\n");
@@ -762,12 +835,15 @@ process.stdin.on("end", () => {
     return { sent, refusal: row && row.first_refusal, row };
   };
   const firstPrompt = "RECORD_ONCE -- THE FIRST PROMPT, UNCHANGED BELOW THIS LINE";
+  // EVERY PROMPT SENT BEGINS WITH THE NO-TOOLS SENTENCE (kogaki#1307), so the
+  // first prompt as sent is that sentence and then the unit's own prompt.
+  const NT = (p) => `${JOB_UNIT_NO_TOOLS_SENTENCE}\n\n${p}`;
   const synthetic = retriedOnce(firstPrompt);
   const retryPrompt = synthetic.sent[1] || "";
   if (synthetic.sent.length !== 2 || !synthetic.refusal) {
     fails.push(`(k) a unit refused once was not asked exactly twice with its first refusal recorded: ${JSON.stringify(synthetic)}`);
   }
-  if (!retryPrompt.startsWith(firstPrompt)) {
+  if (!retryPrompt.startsWith(NT(firstPrompt))) {
     fails.push("(k) the retried unit prompt does not begin with the first prompt, unchanged");
   }
   if (!retryPrompt.includes(RETRY_MARKER)) {
@@ -787,8 +863,8 @@ process.stdin.on("end", () => {
     const realFirst = judgePrompt(unitRow, inputText, input, null);
     const real = retriedOnce(realFirst);
     const realRetry = real.sent[1] || "";
-    if (real.sent[0] !== realFirst.trim() || !real.refusal
-      || realRetry !== judgePrompt(unitRow, inputText, input, real.refusal).trim()) {
+    if (real.sent[0] !== NT(realFirst).trim() || !real.refusal
+      || realRetry !== NT(judgePrompt(unitRow, inputText, input, real.refusal)).trim()) {
       fails.push("(k) the retried unit prompt differs from judgePrompt's own re-ask of the same row and input");
     }
     if (!realRetry.endsWith(`${JUDGE_INPUT_MARKER}\n${inputText}`)) {
@@ -837,6 +913,8 @@ process.stdin.on("end", () => {
     fails.push(`(m) a unit refused on both attempts did not end the job \`refused\` naming its unit: ${JSON.stringify(rec)}`);
   } else {
     if (!rec.failure.stderr_tail) fails.push("(m) the terminal refusal carries no stderr_tail");
+    const mRow = (rec.units || []).find((u) => u.id === "c2");
+    if (!mRow || !mRow.failure || mRow.failure.class !== "schema refusal") fails.push(`(m) the refused unit's failure is not classed a schema refusal (kogaki#1307): ${JSON.stringify(mRow)}`);
     if (!rec.failure.first_refusal) fails.push(`(m) the terminal failure block carries no first_refusal: ${JSON.stringify(rec.failure)}`);
     const row = (rec.units || []).find((u) => u.id === "c2");
     if (!row || row.attempts !== 2) fails.push(`(m) the refused unit's row does not record exactly two attempts: ${JSON.stringify(row)}`);
@@ -958,7 +1036,7 @@ process.stdin.on("end", () => {
   const gone = spawnSync(process.execPath, ["-e", ""], { encoding: "utf8" });
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, supervisor_pid: gone.pid, state: "running",
+    started_at: now, last_progress_at: now, updated_at: now, absolute_limit_s: 600, supervisor_pid: gone.pid, state: "running",
     units: [{ id: "c1", status: "running", bytes: 0 }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(dir), JSON.stringify({
@@ -1018,7 +1096,7 @@ process.stdin.on("end", () => {
   const none = readRecord(dirNone);
   if (!none || none.state !== "ceiling") fails.push(`(v6) a job at the limit with no unit done did not reduce to \`ceiling\`: ${JSON.stringify(none)}`);
   const job = { started_at: new Date(Date.now() - 601000).toISOString(), updated_at: new Date().toISOString(),
-    units: [{ id: "c1", status: "done" }, { id: "c2", status: "done" }, { id: "c3", status: "running" }] };
+    absolute_limit_s: 600, units: [{ id: "c1", status: "done" }, { id: "c2", status: "done" }, { id: "c3", status: "running" }] };
   const step = readerPathAwaitStep(job, { stopRequested: false, elapsedS: 601, stalledS: 0 });
   if (step.state !== "done") fails.push(`(v6) \`job await\`'s poll past the limit did not keep the finished Candidates: ${JSON.stringify(step)}`);
   const dir = mkNewRun();
@@ -1216,12 +1294,13 @@ chmodSync(resumeJudge, 0o755);
 // A Brief run directory standing just past `differentiation`, with a `done`
 // reader-path job of three Candidates beside it, is driven by `job await`
 // alone -- the verb the session types -- against a fake judge that answers
-// every path-review unit (refusing every attempt for `c2`) and the one
-// synchronous `judge_specialization` call, and logs each call it receives.
+// every path-review unit (refusing every attempt for `c2`), and logs each call
+// it receives -- with no synchronous judge call left to answer at all, since
+// Move fit moved inside the compose job (kogaki#1307).
 // (x1) each unit's prompt holds exactly one Candidate; (x3) the refused unit
 // leaves the other two at CANDIDATE_SELECTION with `c2` named above the
-// question; (x4) the run reaches CANDIDATE_SELECTION and no synchronous call
-// was a `review_path` call -- with the detector shown to fire on the head a
+// question; (x4) the run reaches CANDIDATE_SELECTION and no synchronous judge
+// call was made at all -- with the `review_path` detector shown to fire on the head a
 // synchronous `review_path` call would carry, since a catcher that never
 // fires reads exactly like one that passed. (x2) three `done` units assemble
 // to the record keyed by `candidate_id`, read off a `done` job record.
@@ -1258,18 +1337,24 @@ import { appendFileSync } from "node:fs";
 const argv = process.argv.slice(2);
 if (argv.includes("--version")) { process.stdout.write("fixture judge\\n"); process.exit(0); }
 const format = argv[argv.indexOf("--output-format") + 1];
+const NO_TOOLS = ${JSON.stringify(JOB_UNIT_NO_TOOLS_SENTENCE)};
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
-  const prompt = Buffer.concat(c).toString("utf8");
+  const sent = Buffer.concat(c).toString("utf8");
+  const prompt = sent.startsWith(NO_TOOLS) ? sent.slice(NO_TOOLS.length).replace(/^\\s+/, "") : sent;
   const head = prompt.split("\\n")[0];
   appendFileSync(${JSON.stringify(calls)}, JSON.stringify({ format, head }) + "\\n");
   const input = JSON.parse(prompt.slice(prompt.indexOf(${JSON.stringify(JUDGE_INPUT_MARKER)}) + ${JUDGE_INPUT_MARKER.length}));
   let record;
-  if (head.includes("\`judge_specialization\`")) {
-    record = { records: input.candidates_you_must_judge.map((x) => ({ version: "1", candidate_id: x.candidate_id,
-      verdicts: x.legs.map((l) => ({ leg_id: l.leg_id, move: l.move, verdict: "consistent", why: "both reader states specialize the Move." })) })) };
-  } else if (head.includes("\`review_path_unit\`")) {
+  if (head.includes("\`review_path_unit\`")) {
     const x = input.candidate_you_must_review;
-    if (x.candidate_id === "c2") { process.stdout.write("not json at all"); process.exit(0); }
+    // A SCHEMA REFUSAL every time (kogaki#1307): a record missing an area, which the
+    // declared validator refuses -- unparseable stdout would be malformed output,
+    // respawned until the job limit.
+    if (x.candidate_id === "c2") {
+      record = { rationale_stands: "r", claim_register: x.legs.map((l) => ({ leg_id: l.leg_id, verdict: "holds" })) };
+      process.stdout.write((format === "stream-json" ? JSON.stringify({ type: "result", result: JSON.stringify(record) }) : JSON.stringify(record)) + "\\n");
+      process.exit(0);
+    }
     record = { rationale_stands: "r", entailment: "e", prohibitions: "p", semantic_economy: "s", arc_integrity: "a", evaluation_levels: "v",
       claim_register: x.legs.map((l) => ({ leg_id: l.leg_id, verdict: "holds" })) };
   } else { process.stderr.write("unexpected prompt: " + head + "\\n"); process.exit(5); }
@@ -1298,7 +1383,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return dir;
   };
   const env = (dir) => ({ ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json"),
-    KOGAKI_JUDGE_CLI: judge, KOGAKI_ATTACH_LEDGER_ROOT_FOR_TESTS: base });
+    KOGAKI_JUDGE_CLI: judge });
   const awaitIn = (dir) => spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await", "--moves-dir", moves],
     { cwd: root, timeout: 60000, encoding: "utf8", env: env(dir) });
   const recOf = (dir) => JSON.parse(readFileSync(runRecordPath(dir), "utf8"));
@@ -1345,7 +1430,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const logged = existsSync(calls) ? readFileSync(calls, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
   if (logged.some(isSyncReviewPath)) fails.push(`(x4) a synchronous review_path judge call was made: ${JSON.stringify(logged)}`);
   if (logged.filter((c) => c.format === "stream-json" && c.head.includes("`review_path_unit`")).length < 3) fails.push(`(x4) fewer than three path-review units reached the judge: ${JSON.stringify(logged)}`);
-  if (!logged.some((c) => c.format !== "stream-json" && c.head.includes("`judge_specialization`"))) fails.push(`(x4) the synchronous judge_specialization call never reached the judge, so the log proves nothing: ${JSON.stringify(logged)}`);
+  if (logged.some((c) => c.format !== "stream-json")) fails.push(`(x4) a synchronous judge call was made, though no judgment state follows the path-review job since kogaki#1307: ${JSON.stringify(logged)}`);
   const reviewRow = briefTable.states.find((s) => s.id === "review_path");
   const syncHead = judgePrompt(reviewRow, "{}", {}, null).split("\n")[0];
   if (!isSyncReviewPath({ format: briefTable.judge.output_format, head: syncHead })) fails.push(`(x4) the detector does not fire on the head a synchronous review_path call carries: ${syncHead}`);
@@ -1375,15 +1460,200 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (after.awaiting !== "CANDIDATE_SELECTION" || (after.brief_review_unfinished || []).length) fails.push(`(x2) three reviewed Candidates did not reach CANDIDATE_SELECTION with none left out: awaiting=${after.awaiting} unfinished=${JSON.stringify(after.brief_review_unfinished)}`);
 
   // (x5) the table: `review_path` carries a `job` block on the reader-path
-  // job's own bounds, its unit row exists, and the judge note's advance
-  // arithmetic names one synchronous call after the job.
+  // job's own stall and heartbeat, its limit NAMES the review setting
+  // (kogaki#1307), its unit row exists, and the judge note states that no
+  // synchronous judgment follows the jobs.
   const job = reviewRow.job || {};
   const composeJob = (briefTable.states.find((s) => s.id === "compose_path") || {}).job || {};
-  for (const k of ["absolute_limit_s", "stall_s", "heartbeat_ms"]) {
+  for (const k of ["stall_s", "heartbeat_ms"]) {
     if (job[k] === undefined || job[k] !== composeJob[k]) fails.push(`(x5) review_path's job block does not declare ${k} as the bound the supervisor enforces (${job[k]} vs ${composeJob[k]})`);
   }
+  if (!job.absolute_limit_s || job.absolute_limit_s.setting !== "brief.review_job_limit_s") fails.push(`(x5) review_path's job limit does not name the setting brief.review_job_limit_s: ${JSON.stringify(job.absolute_limit_s)}`);
   if (!briefTable.review_path_unit || !/ONE CANDIDATE|ONE composed Candidate/.test(briefTable.review_path_unit.judgment_point || "")) fails.push("(x5) src/brief-workflow.json declares no review_path_unit row for one Candidate");
-  if (!/after the path-review job carries ONE judge call/.test(briefTable.judge.note || "")) fails.push("(x5) the judge note's advance arithmetic does not name one synchronous call after the path-review job");
+  if (!/no synchronous judgment state follows the jobs/.test(briefTable.judge.note || "")) fails.push("(x5) the judge note does not state that no synchronous judgment follows the jobs");
+}
+
+// ---- kogaki#1307: THE TWO FAILURE CLASSES, THE LIMIT FROM THE SETTINGS FILE,
+// AND THE MOVE FIT JUDGED INSIDE EACH COMPOSE JOB UNIT.
+
+// (y1) MALFORMED OUTPUT SPENDS NO ATTEMPT: a unit whose first answer is not
+// JSON is respawned with the SAME prompt and finishes `done` with
+// `malformed_output: 1` and `attempts: 1`; and a unit whose malformed answer is
+// followed by a schema refusal is still re-asked once, finishing `done` with
+// `attempts: 2` and the refusal on its row.
+{
+  const dir = mkNewRun();
+  const promptsFile = join(dir, "prompts.jsonl");
+  superviseSync(dir, [{ id: "c1", prompt: "MALFORMED_ONCE" }], { env: { KOGAKI_FAKE_JUDGE_PROMPTS: promptsFile } });
+  const row = unitRowOf(readRecord(dir), "c1");
+  if (!row || row.status !== "done" || row.malformed_output !== 1 || row.attempts !== 1 || row.first_refusal) {
+    fails.push(`(y1) a malformed first answer did not end the unit \`done\` with malformed_output: 1 and attempts: 1: ${JSON.stringify(row)}`);
+  }
+  const sent = existsSync(promptsFile) ? readFileSync(promptsFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  if (sent.length !== 2 || sent[0] !== sent[1]) fails.push(`(y1) the malformed unit was not respawned with the same prompt: ${JSON.stringify(sent)}`);
+  const dir2 = mkNewRun();
+  superviseSync(dir2, [{ id: "c1", prompt: "MALFORMED_THEN_REFUSED" }], {});
+  const row2 = unitRowOf(readRecord(dir2), "c1");
+  if (!row2 || row2.status !== "done" || row2.malformed_output !== 1 || row2.attempts !== 2
+    || !String(row2.first_refusal || "").includes("the fixture's schema refusal after a malformed answer")) {
+    fails.push(`(y1) a schema refusal after a malformed answer was not re-asked once: ${JSON.stringify(row2)}`);
+  }
+}
+
+// (y2) A SCHEMA REFUSAL IS RE-ASKED ONCE, THEN THE UNIT IS `refused`: two
+// prompts are sent, the second carrying the first refusal, and the row reads
+// `refused` with class `schema refusal` after two attempts.
+{
+  const dir = mkNewRun();
+  const promptsFile = join(dir, "prompts.jsonl");
+  superviseSync(dir, [{ id: "c1", prompt: "FAIL_TWICE" }], { env: { KOGAKI_FAKE_JUDGE_PROMPTS: promptsFile } });
+  const row = unitRowOf(readRecord(dir), "c1");
+  const sent = existsSync(promptsFile) ? readFileSync(promptsFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  if (!row || row.status !== "refused" || row.attempts !== 2 || (row.failure || {}).class !== "schema refusal" || row.malformed_output) {
+    fails.push(`(y2) a unit refused twice did not end \`refused\` as a schema refusal after two attempts: ${JSON.stringify(row)}`);
+  }
+  if (sent.length !== 2 || !sent[1].includes("the fixture refuses this record every time")) {
+    fails.push(`(y2) the schema refusal was not re-asked exactly once with its refusal text: ${JSON.stringify(sent)}`);
+  }
+}
+
+// (y3) THE LIMIT IS READ FROM kogaki.settings.json AND A MISSING KEY IS REFUSED
+// BY NAME. The table names the setting, the repository's file holds it, and
+// `settingValue` reads it -- from a fixture file through `KOGAKI_SETTINGS` --
+// and refuses a file without the key, and a missing file, naming the key.
+{
+  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const composeJob = (table.states.find((x) => x.id === "compose_path") || {}).job || {};
+  if (!composeJob.absolute_limit_s || composeJob.absolute_limit_s.setting !== "brief.compose_job_limit_s") {
+    fails.push(`(y3) compose_path's job limit does not name the setting brief.compose_job_limit_s: ${JSON.stringify(composeJob.absolute_limit_s)}`);
+  }
+  const settings = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
+  if (settings.brief.compose_job_limit_s !== 1200 || settings.brief.review_job_limit_s !== 600 || settings.brief.compose_units !== 3) {
+    fails.push(`(y3) kogaki.settings.json does not hold the owner's values: ${JSON.stringify(settings.brief)}`);
+  }
+  const sdir = mkNewScratch();
+  const readKey = (file, key) => spawnSync(process.execPath, ["--input-type=module", "-e",
+    `import { settingValue } from "./src/workflow/judge.mjs"; console.log(JSON.stringify(settingValue({ setting: ${JSON.stringify(key)} })));`],
+    { cwd: root, timeout: 15000, encoding: "utf8", env: { ...process.env, KOGAKI_SETTINGS: file } });
+  const fixture = join(sdir, "settings.json");
+  writeFileSync(fixture, JSON.stringify({ brief: { compose_job_limit_s: 7 } }));
+  const got = readKey(fixture, "brief.compose_job_limit_s");
+  if (got.status !== 0 || got.stdout.trim() !== "7") fails.push(`(y3) the compose job limit was not read from the settings file: ${got.stdout} ${got.stderr}`);
+  const missing = readKey(fixture, "brief.review_job_limit_s");
+  if (missing.status === 0 || !String(missing.stderr).includes("brief.review_job_limit_s")) {
+    fails.push(`(y3) a missing key was not refused by name: status=${missing.status} stderr=${missing.stderr}`);
+  }
+  const noFile = readKey(join(sdir, "absent.json"), "brief.compose_job_limit_s");
+  if (noFile.status === 0 || !String(noFile.stderr).includes("brief.compose_job_limit_s")) {
+    fails.push(`(y3) a missing settings file was not refused naming the key: status=${noFile.status} stderr=${noFile.stderr}`);
+  }
+  // The supervisor takes no limit of its own: a units run with no
+  // `--absolute-limit-s` is refused rather than defaulted.
+  const unitsPath = join(sdir, "units.json");
+  writeFileSync(unitsPath, JSON.stringify(declareUnits([{ id: "c1", prompt: "OK" }])));
+  const noLimit = spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", sdir, "--units", unitsPath,
+    "--command", fakeJudge, "--model", "m", "--output-format", "json", "--stall-s", "100", "--heartbeat-ms", "250"],
+    { cwd: root, timeout: 15000, encoding: "utf8" });
+  const noLimitRec = readRecord(sdir);
+  if (noLimitRec && noLimitRec.state === "done") fails.push(`(y3) the supervisor ran a job with no --absolute-limit-s: ${JSON.stringify(noLimitRec)} ${noLimit.stderr}`);
+}
+
+// (y4) THE MOVE FIT IS JUDGED INSIDE THE UNIT: a fit judge declared in the units
+// file -- the real `readerPathFitPrompt`/`readerPathFitVerdict` of src/brief.mjs
+// over a real Move library, beside the real `validateReaderPathUnit` -- answers
+// `contradicts` on the first Candidate, which re-asks the compose call with the
+// judge's sentence verbatim; the second Candidate is judged `consistent`, and
+// that record is written beside the unit's Candidate.
+{
+  const base = mkNewScratch();
+  const moves = join(base, "moves");
+  mkdirSync(moves);
+  writeFileSync(join(moves, "m1.md"), ["id: m1", "technique: >-", "  states the claim, then names the case it leaves out.",
+    "before: >-", "  knowledge: before.", "after: >-", "  knowledge: after.", "question: >-", "  holds: none",
+    "breaks: >-", "  breaks if the left-out case is never named.", ""].join("\n"));
+  const START = "knowledge: before\nquestion: holds: none";
+  const legOf = (legId, extra) => ({
+    leg_id: legId, move: "m1", materials: ["L1"], purpose: `what ${legId} is for`,
+    reader_state_before: START, reader_state_after: "knowledge: after\nquestion: holds: none",
+    depends_on: [], rationale: `why ${legId} sits here`,
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], ...extra,
+  });
+  const candidate = {
+    candidate_id: "c1", characteristic: "x", reader_experience: "y", reader_start: START,
+    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true })],
+  };
+  const SENTENCE = "the Leg names no case left out, which the technique requires of it.";
+  const counter = join(base, "fit-counter.json");
+  const prompts = join(base, "prompts.jsonl");
+  const judgeFile = join(base, "fit-fake-judge.mjs");
+  writeFileSync(judgeFile, `#!/usr/bin/env node
+import { appendFileSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
+  const prompt = Buffer.concat(c).toString("utf8");
+  appendFileSync(${JSON.stringify(prompts)}, JSON.stringify(prompt) + "\\n");
+  const out = (r) => { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0); };
+  if (!prompt.includes("FIT_JUDGE_HEAD")) out(${JSON.stringify(candidate)});
+  const n = (existsSync(${JSON.stringify(counter)}) ? Number(readFileSync(${JSON.stringify(counter)}, "utf8")) : 0) + 1;
+  writeFileSync(${JSON.stringify(counter)}, String(n));
+  const verdicts = ["s1", "s2"].map((leg) => ({ leg_id: leg, move: "m1",
+    verdict: n === 1 && leg === "s2" ? "contradicts" : "consistent",
+    why: n === 1 && leg === "s2" ? ${JSON.stringify(SENTENCE)} : "both reader states specialize the Move's before and after." }));
+  out({ version: "1", candidate_id: "c1", verdicts });
+});
+`);
+  chmodSync(judgeFile, 0o755);
+  const unitsPath = join(base, "units.json");
+  writeFileSync(unitsPath, JSON.stringify({
+    units: [{ id: "c1", prompt: "COMPOSE ONE CANDIDATE" }],
+    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: { strandIds: ["L1"], movesDir: moves, readerStart: START } },
+    fit_judge: { module: "src/brief.mjs", prompt_export: "readerPathFitPrompt", verdict_export: "readerPathFitVerdict",
+      inputs: { movesDir: moves, readerStart: START, promptHead: "FIT_JUDGE_HEAD\n" } },
+  }, null, 2));
+  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", base, "--units", unitsPath,
+    "--command", judgeFile, "--model", "m", "--output-format", "json",
+    "--absolute-limit-s", "100", "--stall-s", "100", "--heartbeat-ms", "150"], { cwd: root, timeout: 30000, encoding: "utf8" });
+  const rec = readRecord(base);
+  const row = unitRowOf(rec, "c1");
+  const sent = existsSync(prompts) ? readFileSync(prompts, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const composeCalls = sent.filter((x) => !x.includes("FIT_JUDGE_HEAD"));
+  if (!row || row.status !== "done" || row.attempts !== 2 || !String(row.first_refusal || "").includes(SENTENCE)) {
+    fails.push(`(y4) a contradicts verdict did not re-ask the unit once with the judge's sentence and then finish: ${JSON.stringify(row)}`);
+  }
+  if (composeCalls.length !== 2 || !composeCalls[1].includes(SENTENCE)) {
+    fails.push(`(y4) the re-asked compose prompt does not carry the judge's sentence verbatim: ${JSON.stringify(composeCalls.map((x) => x.slice(-300)))}`);
+  }
+  if (!sent.every((x) => x.startsWith(JOB_UNIT_NO_TOOLS_SENTENCE))) fails.push("(y4) a compose or fit call's prompt does not begin with the no-tools sentence");
+  if (!row || !row.specialization_file || !existsSync(row.specialization_file) || !row.candidate_file
+    || join(row.specialization_file, "..") !== join(row.candidate_file, "..")) {
+    fails.push(`(y4) no specialization record was written beside the unit's Candidate: ${JSON.stringify(row)}`);
+  } else {
+    const spec = JSON.parse(readFileSync(row.specialization_file, "utf8"));
+    if (spec.candidate_id !== "c1" || !spec.verdicts.every((v) => v.verdict === "consistent")) {
+      fails.push(`(y4) the written specialization record is not the consistent one: ${JSON.stringify(spec)}`);
+    }
+  }
+  // (y5) A FIT CALL THAT DIES KEEPS THE COMPOSED CANDIDATE ON THE ROW (PR #1308
+  // round 1): the unit ends `died`, its row carries the schema-valid Candidate it
+  // composed, marked `fit_judged: false`, and it is not written as an offered one.
+  const dieDir = mkNewScratch();
+  const dieJudge = join(base, "fit-dies.mjs");
+  writeFileSync(dieJudge, `#!/usr/bin/env node
+const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
+  const prompt = Buffer.concat(c).toString("utf8");
+  if (prompt.includes("FIT_JUDGE_HEAD")) { process.stderr.write("fit call died on purpose\\n"); process.exit(4); }
+  process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(${JSON.stringify(candidate)}) }) + "\\n");
+});
+`);
+  chmodSync(dieJudge, 0o755);
+  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", dieDir, "--units", unitsPath,
+    "--command", dieJudge, "--model", "m", "--output-format", "json",
+    "--absolute-limit-s", "100", "--stall-s", "100", "--heartbeat-ms", "150"], { cwd: root, timeout: 30000, encoding: "utf8" });
+  const dieRow = unitRowOf(readRecord(dieDir), "c1");
+  if (!dieRow || dieRow.status !== "died" || !dieRow.candidate || dieRow.candidate.candidate_id !== "c1"
+    || dieRow.fit_judged !== false || dieRow.candidate_file) {
+    fails.push(`(y5) a unit whose fit call died did not keep its composed Candidate on the row, unoffered: ${JSON.stringify(dieRow)}`);
+  }
 }
 
 // (v7) NO `rerun` OPTION AND NO `job-rerun-unit` VERB REMAINS.
@@ -1426,7 +1696,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-reader-path-job — the seven-state Detached Job classifies, retries a refusal once only when the retry fits the limit, ends the Brief on a system failure, keeps finished Candidates at the limit, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, `job await` over a still-running job returns within its own 30s bound raising nothing, and path review runs as its own Detached Job with one Candidate per unit, a refused unit's Candidate left out and named, and no synchronous review_path call in any advance (kogaki#1301)");
+console.log("ok: check-brief-reader-path-job — the seven-state Detached Job classifies, retries a refusal once only when the retry fits the limit, ends the Brief on a system failure, keeps finished Candidates at the limit, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, `job await` over a still-running job returns within its own 30s bound raising nothing, and path review runs as its own Detached Job with one Candidate per unit, a refused unit's Candidate left out and named, and no synchronous review_path call in any advance (kogaki#1301); malformed output is respawned with the same prompt spending no attempt while a schema refusal is re-asked once, the job limit is read from kogaki.settings.json with a missing key refused by name, and a contradicts Move-fit verdict re-asks the unit with the judge's sentence and writes the consistent record beside its Candidate (kogaki#1307)");
 JS
 status=$?
 

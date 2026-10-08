@@ -108,7 +108,7 @@ import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
 // resolved exactly as the Terrain and Brief judges are, `KOGAKI_JUDGE_CLI`
 // included, so a fixture seam and a shim refusal read the same here.
-import { resolveJudgeBinary } from "./workflow/judge.mjs";
+import { resolveJudgeBinary, settingValue } from "./workflow/judge.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
 // renderLanguageBlock live in lint-ja.mjs, which also runs the Lint that
@@ -1447,8 +1447,10 @@ export function resolveLegJourneys(leg, brief) {
 // The Brief's own `compose_path:` line names it once the mint records it
 // (kogaki#1262); a Brief minted before that line existed reads the one
 // Persona the Brief workflow table names at its `compose_path` row's
-// `reader_file`, which is the file every such Brief was composed with. A
-// relative path resolves against the repository root, as the workflow's does.
+// `reader_file`, which is the file every such Brief was composed with -- since
+// kogaki#1307 the row names the setting `brief.persona_file` in
+// `kogaki.settings.json`, read here as the workflow reads it. A relative path
+// resolves against the repository root, as the workflow's does.
 const DRAFT_REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 export function packetPersonaPath(brief) {
   const m = /^compose_path:[ \t]*(\S+)[ \t]*$/m.exec(brief?.text || "");
@@ -1457,10 +1459,11 @@ export function packetPersonaPath(brief) {
   try { table = JSON.parse(readFileSync(join(DRAFT_REPO, "src", "brief-workflow.json"), "utf8")); }
   catch (e) { return { error: `src/brief-workflow.json cannot be read (${e.message}) — the Brief names no compose_path, and the workflow's compose_path row names the Persona otherwise` }; }
   const row = (table.states || []).find((s) => s.id === "compose_path");
-  if (!row || typeof row.reader_file !== "string" || row.reader_file === "") {
+  const readerFile = row ? settingValue(row.reader_file) : undefined;
+  if (typeof readerFile !== "string" || readerFile === "") {
     return { error: "the Brief names no compose_path and src/brief-workflow.json's compose_path row names no reader_file — the Packet has no Persona to render the prose rules from (kogaki#1261)" };
   }
-  return resolve(DRAFT_REPO, row.reader_file);
+  return resolve(DRAFT_REPO, readerFile);
 }
 
 // The Brief header's `external_authority: on | off` (kogaki#1251 item 3,
