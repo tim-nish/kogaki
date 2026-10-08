@@ -46,9 +46,12 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import {
-  READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX, judgePrompt, JUDGE_INPUT_MARKER,
   readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES,
-} from "./src/terrain.mjs";
+} from "./src/workflow/detached-job.mjs";
+import {
+  READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX,
+} from "./src/workflow/gate.mjs";
+import { judgePrompt, JUDGE_INPUT_MARKER } from "./src/workflow/judge.mjs";
 import { findInternalVocabulary, assembleSelection } from "./src/assemble.mjs";
 
 const fails = [];
@@ -592,12 +595,12 @@ process.stdin.on("end", () => {
 // and its child environment sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY` to keep
 // auto-memory off now that `--bare` no longer does.
 {
-  const terrain = readFileSync("src/terrain.mjs", "utf8");
+  const terrain = readFileSync("src/workflow/detached-job.mjs", "utf8");
   if (terrain.includes(`"--bare"`)) {
-    fails.push("(g) src/terrain.mjs still passes `--bare` to a unit child — the flag that read auth strictly from ANTHROPIC_API_KEY/apiKeyHelper and never the OAuth login, killing every unit with \"Not logged in\"");
+    fails.push("(g) src/workflow/detached-job.mjs still passes `--bare` to a unit child — the flag that read auth strictly from ANTHROPIC_API_KEY/apiKeyHelper and never the OAuth login, killing every unit with \"Not logged in\"");
   }
   if (!terrain.includes("CLAUDE_CODE_DISABLE_AUTO_MEMORY")) {
-    fails.push("(g) src/terrain.mjs no longer sets CLAUDE_CODE_DISABLE_AUTO_MEMORY in a unit child's environment — dropping `--bare` re-admits auto-memory with nothing left to suppress it");
+    fails.push("(g) src/workflow/detached-job.mjs no longer sets CLAUDE_CODE_DISABLE_AUTO_MEMORY in a unit child's environment — dropping `--bare` re-admits auto-memory with nothing left to suppress it");
   }
   // The `job status` line carries a dead unit's result text too (design item
   // 2), asserted by string: the status verb is hook-run, not fixture-run.
@@ -1386,11 +1389,13 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 // (v7) NO `rerun` OPTION AND NO `job-rerun-unit` VERB REMAINS.
 {
   const brief = readFileSync("src/brief.mjs", "utf8");
-  const terrain = readFileSync("src/terrain.mjs", "utf8");
+  // The Terrain runtime is the entry and every module it was split into (kogaki#1259).
+  const terrain = ["src/terrain.mjs", ...["src/terrain", "src/workflow"].flatMap((d) => readdirSync(d)
+    .filter((f) => f.endsWith(".mjs")).map((f) => join(d, f)))].map((p) => readFileSync(p, "utf8")).join("\n");
   if (/id:\s*"rerun"/.test(brief)) fails.push("(v7) src/brief.mjs still offers a `rerun` option");
-  if (/capOption === "rerun"/.test(terrain)) fails.push("(v7) src/terrain.mjs still answers a `rerun` click");
+  if (/capOption === "rerun"/.test(terrain)) fails.push("(v7) the Terrain runtime still answers a `rerun` click");
   if (terrain.includes("job-rerun-unit") || terrain.includes("cmdJobRerunUnit") || terrain.includes("startReaderPathUnitRerun")) {
-    fails.push("(v7) src/terrain.mjs still carries the `job-rerun-unit` verb or its starter");
+    fails.push("(v7) the Terrain runtime still carries the `job-rerun-unit` verb or its starter");
   }
   const flowTable = JSON.parse(readFileSync("src/terrain-workflow.json", "utf8"));
   if ((flowTable.non_flow_entry_points || {})["job-rerun-unit"]) fails.push("(v7) src/terrain-workflow.json still accounts for a `job-rerun-unit` entry point");
