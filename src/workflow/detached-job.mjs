@@ -661,7 +661,11 @@ export async function cmdJobSupervise(args) {
         ...(st.firstRefusal !== undefined ? { first_refusal: st.firstRefusal } : {}),
         ...(st.retrySkipped !== undefined ? { retry_skipped: st.retrySkipped } : {}),
       };
-      if (cls.status === "refused" && st.composed) row.candidate = st.composed;
+      // A SCHEMA-VALID CANDIDATE IS KEPT ON EVERY ENDING (PR #1308 round 1): a unit whose
+      // fit call refused, died or ran out of time still carries the Candidate it composed,
+      // so the record holds it. It is not offered: its Move fit was not judged `consistent`,
+      // and §4.12.2 makes that judgment an occasion with no skip.
+      if (st.composed && cls.status !== "done") { row.candidate = st.composed; row.fit_judged = cls.status === "refused" && !!cls.specialization; }
       // THE CANDIDATE IS WRITTEN TO DISK THE MOMENT THIS UNIT ENDS `done` (kogaki#1204
       // acceptance 2), whatever its siblings are doing; with a Move-fit judge, the
       // specialization record is written beside it (kogaki#1307).
@@ -720,6 +724,15 @@ export async function cmdJobSupervise(args) {
         // say so rather than reading `running` on a job that has ended.
         rows = unitRows.map((r) => (r.status === "running"
           ? { id: r.id, status: "killed", bytes: r.bytes || 0, note: `killed on the tick the job ended ${state}` } : r));
+      }
+      // A UNIT ENDED MID-FIT KEEPS ITS COMPOSED CANDIDATE (PR #1308 round 1), on the
+      // ground the ended-unit row above states: on the record, never offered.
+      if (state !== "running") {
+        rows = rows.map((r) => {
+          const st = S.get(r.id);
+          return st && st.composed && r.status !== "done" && !r.candidate
+            ? { ...r, candidate: st.composed, fit_judged: false } : r;
+        });
       }
       writeReaderPathJob(dir, {
         started_at: new Date(startedAt).toISOString(),

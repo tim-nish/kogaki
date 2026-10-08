@@ -444,6 +444,14 @@ export function judgePrompt(st, inputText, input, lastRefusal) {
   // ONE ROW, ONE OR MANY FILES (kogaki#1126): each file whole, in order; a bare string
   // is the one-element list, so every pre-#1126 row reads unchanged.
   // Never fold two schemas into one file.
+  // `schema_blocks` (kogaki#1307) names the top-level blocks of a ONE-file row to render,
+  // each verbatim, for a row asking for one part of a file that also declares a shape this
+  // judge is never asked for -- the per-unit Move-fit judge answers ONE specialization
+  // record, and the file's `set` envelope is the adoption-level carrier, not its answer.
+  const blocks = Array.isArray(st.schema_blocks) ? st.schema_blocks.map(String) : null;
+  if (blocks && Array.isArray(st.schema_file)) {
+    fail(`${st.id}: \`schema_blocks\` names blocks of ONE schema file, and this row declares several (kogaki#1307).`);
+  }
   for (const declared of (Array.isArray(st.schema_file) ? st.schema_file : (st.schema_file ? [st.schema_file] : []))) {
     const sp = join(REPO, String(declared));
     if (!existsSync(sp)) {
@@ -452,6 +460,19 @@ export function judgePrompt(st, inputText, input, lastRefusal) {
         + `wearing a declaration (kogaki#1108).`);
     }
     L.push("");
+    if (blocks) {
+      const whole = JSON.parse(readFileSync(sp, "utf8"));
+      const missing = blocks.filter((b) => !(b in whole));
+      if (missing.length) {
+        fail(`${st.id}: \`schema_blocks\` names ${JSON.stringify(missing)}, which ${declared} does not declare (kogaki#1307).`);
+      }
+      L.push(`THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- the blocks ${blocks.join(", ")} of ${declared}, verbatim.`);
+      L.push("Every field they declare, and what each one means. The refusals that judge your answer read");
+      L.push("their field set from these same blocks, so what you are asked for and what is checked are one");
+      L.push("text. Read them before composing.");
+      L.push(JSON.stringify(Object.fromEntries(blocks.map((b) => [b, whole[b]])), null, 2));
+      continue;
+    }
     L.push(`THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- ${declared}, verbatim.`);
     L.push("Every field it declares, and what each one means. The refusals that judge your answer read");
     L.push("their field set from this same file, so what you are asked for and what is checked are one");

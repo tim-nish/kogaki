@@ -1633,6 +1633,27 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       fails.push(`(y4) the written specialization record is not the consistent one: ${JSON.stringify(spec)}`);
     }
   }
+  // (y5) A FIT CALL THAT DIES KEEPS THE COMPOSED CANDIDATE ON THE ROW (PR #1308
+  // round 1): the unit ends `died`, its row carries the schema-valid Candidate it
+  // composed, marked `fit_judged: false`, and it is not written as an offered one.
+  const dieDir = mkNewScratch();
+  const dieJudge = join(base, "fit-dies.mjs");
+  writeFileSync(dieJudge, `#!/usr/bin/env node
+const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
+  const prompt = Buffer.concat(c).toString("utf8");
+  if (prompt.includes("FIT_JUDGE_HEAD")) { process.stderr.write("fit call died on purpose\\n"); process.exit(4); }
+  process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(${JSON.stringify(candidate)}) }) + "\\n");
+});
+`);
+  chmodSync(dieJudge, 0o755);
+  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", dieDir, "--units", unitsPath,
+    "--command", dieJudge, "--model", "m", "--output-format", "json",
+    "--absolute-limit-s", "100", "--stall-s", "100", "--heartbeat-ms", "150"], { cwd: root, timeout: 30000, encoding: "utf8" });
+  const dieRow = unitRowOf(readRecord(dieDir), "c1");
+  if (!dieRow || dieRow.status !== "died" || !dieRow.candidate || dieRow.candidate.candidate_id !== "c1"
+    || dieRow.fit_judged !== false || dieRow.candidate_file) {
+    fails.push(`(y5) a unit whose fit call died did not keep its composed Candidate on the row, unoffered: ${JSON.stringify(dieRow)}`);
+  }
 }
 
 // (v7) NO `rerun` OPTION AND NO `job-rerun-unit` VERB REMAINS.
