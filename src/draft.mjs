@@ -83,8 +83,6 @@
 //       SPEC-draft-pipeline
 //   the durable home and the entry point
 //       SPEC-draft-pipeline
-//   the closed kind set and the Move's figure
-//       SPEC-draft-pipeline
 //
 // NO MOVE IS OPENED HERE (kogaki#1311, owner decision 2026-10-09: "Information
 // that belongs to Move has responsibility only up to CandidatePath creation").
