@@ -133,9 +133,46 @@ assert_denied "a status flag on the start verb" "node src/terrain.mjs start --st
 assert_denied "a status read chained to a start"   "node src/terrain.mjs run --status; node src/terrain.mjs start"
 assert_denied "a status read &&-chained to a run"  "node src/terrain.mjs run --status && node src/terrain.mjs run"
 assert_denied "a start piped from a status read"   "node src/terrain.mjs run --status | node src/terrain.mjs start"
-# ...and the inspection route survives the split: two status reads in one
-# command are still two status reads.
-assert_admitted "two chained status reads" "node src/terrain.mjs run --status; node src/terrain.mjs run --run-dir /tmp/y --status"
+# ...and two status reads in one command are no longer admitted (kogaki#1314):
+# the inspection route is admitted only as the WHOLE command, so a second
+# segment of any kind -- even another status read -- is denied.
+assert_denied "two chained status reads" "node src/terrain.mjs run --status; node src/terrain.mjs run --run-dir /tmp/y --status"
+
+# ---- kogaki#1314. THE STATUS AND AWAIT VERBS ARE ADMITTED ONLY AS THE WHOLE
+# COMMAND, SPELLED EXACTLY. Once a gate is open the executor's stdout is the
+# only channel its bytes have, and a loop polling `job await` through
+# `grep -q "still running"` and `tail -1` was admitted on its body segment and
+# dropped a Candidate question's bytes. Acceptance 1: each spelling is admitted
+# when it is the whole command.
+AWAIT="node src/brief.mjs run --status --job await --run-dir /x"
+assert_admitted "the Brief await verb, whole"  "$AWAIT"
+assert_admitted "the Brief job-status verb, whole" "node src/brief.mjs run --status --job status"
+assert_admitted "the bare Brief status verb, whole" "node src/brief.mjs run --status"
+# Acceptance 2: the await invocation is denied wherever it is not the whole
+# command, and every deny reason carries the exact admitted spelling, so the
+# retry is a copy and not a composition.
+SPELLING="node src/brief.mjs run --status --job await --run-dir <dir>"
+for probe in "inside a command substitution|out=\$($AWAIT)" \
+             "inside an echoed substitution|echo \$($AWAIT)" \
+             "after a loop keyword|for i in 1 2; do $AWAIT; done" \
+             "before a pipe|$AWAIT | tail -1" \
+             "followed by a second command|$AWAIT; echo done" \
+             "with a trailing 2>&1|$AWAIT 2>&1"; do
+  label=${probe%%|*}; cmd=${probe#*|}
+  assert_denied "the await verb $label" "$cmd"
+  out=$(deny_verdict "$cmd")
+  if printf '%s' "$out" | grep -qF -- "$SPELLING"; then pass; else
+    bad "the deny on the await verb $label does not carry the exact admitted spelling \`$SPELLING\` — a retry would have to be composed rather than copied (kogaki#1314)"
+  fi
+done
+# The issue's own specimen, verbatim in shape.
+assert_denied "the polling loop the Issue records" \
+  'for i in $(seq 1 18); do out=$(node src/brief.mjs run --status --job await --run-dir /x 2>&1); echo "$out" | grep -q "still running" || { echo "$out" | tail -250; break; }; echo "$out" | tail -1; done'
+# The grammar is closed: an unknown `--job` verb, a stray word and a repeated
+# flag are each not that one invocation.
+assert_denied "an unknown job verb"      "node src/brief.mjs run --status --job start"
+assert_denied "a stray trailing word"    "node src/brief.mjs run --status extra"
+assert_denied "a repeated run-dir"       "node src/brief.mjs run --status --run-dir /a --run-dir /b"
 
 # THE ANCHOR IS THE INVOCATION SHAPE, NOT THE BARE FILENAME (kogaki#1063).
 #
