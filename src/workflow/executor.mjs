@@ -10,7 +10,7 @@ import {
 } from "./detached-job.mjs";
 import {
   GATE_CALL_SUFFIX, JUDGMENT_RETRY_GATE_ID, READER_PATH_JOB_GATE_ID, emitGateDeclaration,
-  openGateDir, readCapturedAnswer, refreshWrittenGateCall,
+  openGateDir, readCapturedAnswer, refreshWrittenGateCall, restoreOpenGatePointer,
 } from "./gate.mjs";
 import { JudgeTimeout, JudgmentExhausted, ensureJudgeBinary } from "./judge.mjs";
 import {
@@ -623,7 +623,7 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
 // one admissible payload nothing could fetch. Both stops print through here; a stop
 // kind added later reaches the bytes by calling it rather than by copying it.
 // `sendLine` is the stop's own instruction for sending the call.
-function printWrittenGateCall(dir, gateId, sendLine) {
+export function printWrittenGateCall(dir, gateId, sendLine) {
   const callHere = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
   // BEFORE THE BYTES ARE PRINTED, NOT AFTER (kogaki#1118 acceptance 4). A
   // call written before a label repair is a payload the channel refuses, and
@@ -631,6 +631,12 @@ function printWrittenGateCall(dir, gateId, sendLine) {
   // cannot be performed.
   const refreshedHere = refreshWrittenGateCall(dir, gateId);
   if (existsSync(callHere)) {
+    // THE POINTER IS RESTORED HERE, BEFORE THE BYTES PRINT (kogaki#1313). A
+    // re-print reaching this far has a written declaration and a written call
+    // for this gate_instance_id — the two facts `restoreOpenGatePointer` needs
+    // to write a live pointer again where an earlier raising's was abandoned,
+    // so the capture hook has somewhere to join the owner's answer to.
+    restoreOpenGatePointer(dir, gateId);
     console.log(`The AskUserQuestion call is WRITTEN: ${callHere}`);
     console.log(sendLine);
     // AND THE BYTES ARE HERE, NOT ONLY THEIR ADDRESS (kogaki#1057): no tool is admissible

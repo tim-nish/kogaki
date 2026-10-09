@@ -481,6 +481,24 @@ function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callU
   }, null, 2) + "\n");
 }
 
+// A RE-PRINT THAT FINDS NO LIVE POINTER WRITES ONE AGAIN (kogaki#1313). The
+// raising that wrote the declaration and the call also wrote a pointer with
+// this instance id; where a session abandoned the gate before capturing it,
+// that pointer moved to `abandoned/` and the instance has no live one. The
+// declaration and the call are both still on disk, so this writes the
+// pointer again from them, with the same instance id — the capture hook then
+// joins the owner's later answer to the declaration already on the record,
+// rather than leaving a re-raised gate with no admissible act at all.
+export function restoreOpenGatePointer(dir, gateId) {
+  const declPath = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
+  if (!existsSync(declPath)) return;
+  const declaration = readJson(declPath);
+  if (!declaration.gate_instance_id) return;
+  if (existsSync(join(openGateDir(), `${declaration.gate_instance_id}.json`))) return;
+  const callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
+  writeOpenGatePointer(dir, declaration, declPath, existsSync(callPath) ? callPath : null, null);
+}
+
 // ---- THE GATE DECLARATION AND ITS CAPTURE ---------------------------------
 // The per-run declaration carries the RUN-COMPUTED options; the registry declares the CLASS.
 // Records: kogaki#625 item 1, kogaki#890.
