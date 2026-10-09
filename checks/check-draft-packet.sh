@@ -24,9 +24,9 @@
 #       none of them names a Move reader exported by src/compose.mjs.
 #
 # NOT COVERED, stated rather than implied: `adopt-candidate` is not driven end
-# to end here — its inputs are an owner's recorded gate answer and a judged
-# specialization record, which no fixture in this repository builds — so
-# src/assemble.mjs's half of (c) is the source read alone. Whether the prose a
+# to end here — src/assemble.mjs's half of (c) is the source read alone. The
+# end-to-end run, over a fixture gate answer and specialization record, is
+# checks/check-adopt-candidate.sh's (kogaki#1317). Whether the prose a
 # writer produces from the waypoints is any good is ReviewDraft's judgment and
 # never linted here.
 set -u

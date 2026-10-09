@@ -29,6 +29,7 @@
           "purpose": "opens the fixture path by stating the fixture Strand's claim",
           "reader_state_before": "knowledge: the reader has not yet seen the fixture Strand's claim",
           "reader_state_after": "knowledge: the reader has seen the fixture Strand's claim stated once",
+          "depends_on": [],
           "rationale": "the fixture path opens on the Strand's own claim, the only material this Candidate carries",
           "move": "fixture-move-open",
           "claims": [
@@ -37,7 +38,7 @@
           "waypoints": [
             { "effect": "states the fixture Strand's claim to the reader for the first time", "serves": ["L1"] }
           ],
-          "opens_section": true
+          "opens_section": "The fixture Strand's claim"
         },
         {
           "leg_id": "leg2",
