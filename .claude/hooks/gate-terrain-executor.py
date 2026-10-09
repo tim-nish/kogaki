@@ -6,7 +6,8 @@ kogaki#1116, acceptance item 5. Contract: specs/spec-terrain/SPEC.md §16. Read
 them there -- this file restates neither.
 
 WHAT THIS REFUSES. Any `Bash` command naming `terrain.mjs` OR `brief.mjs` with
-any verb other than `--status`. That is the whole rule, and the allowance is
+any verb other than `--status` -- and, since kogaki#1314, any command in which
+that `--status` invocation is not the WHOLE command (see `admitted`). That is the whole rule, and the allowance is
 deliberately a FLAG rather than a subcommand list: `run --status` is read-only,
 it is the one route by which a person can inspect a stuck run, and an inspection
 route that was denied would leave the run unreadable by the one party able to
@@ -82,6 +83,16 @@ EXECUTORS = {
 }
 ADMITTED = "--status"
 
+# THE EXACT SPELLING A RETRY COPIES (kogaki#1314). Per executor, because the
+# Brief runtime's inspection route carries the `job` verbs and Terrain's does
+# not; the reason prints these verbatim so the retry is a copy of a whole
+# command rather than a composition around one.
+SPELLINGS = {
+    "terrain.mjs": ("node src/terrain.mjs run --status --run-dir <dir>",),
+    "brief.mjs": ("node src/brief.mjs run --status --job await --run-dir <dir>",
+                  "node src/brief.mjs run --status --job status --run-dir <dir>"),
+}
+
 REASON = (
     "`{cmd}` RUNS {executor} -- the path stands in command position -- and the "
     "{lane} executor is invoked by hooks only (kogaki#1027, widened to the Brief "
@@ -93,8 +104,13 @@ REASON = (
     "and there is no stub: `--input`, `--at` and `--enter` are deleted and the "
     "executor refuses them by name.\n\n"
     "The one verb admitted from a Bash command is `run {admitted}`, which is "
-    "read-only. If you are inspecting a run, re-issue the command with "
-    "`{admitted}`.\n\n"
+    "read-only, and it is admitted only as THE WHOLE COMMAND (kogaki#1314): no "
+    "pipe, no redirection, no `2>&1`, no `$(...)`, no loop and no second "
+    "command around it, because the executor's stdout is the only channel an "
+    "open gate's bytes have and a filter composed around it decides what the "
+    "owner sees. If you are inspecting a run, issue exactly this as the whole "
+    "Bash command, and call it again rather than looping:\n\n"
+    "{spellings}\n\n"
     "NAMING the file is not running it: a grep pattern, a comment and an Issue's "
     "`files=` footprint cell all pass, because this deny anchors on the "
     "invocation shape rather than on the bare filename (kogaki#1063). If you are "
@@ -178,9 +194,12 @@ def _unquote(token):
 
     A quote character is not part of a path, and `bash -c "node src/terrain.mjs
     start"` hands us `"node` as one token. Stripping is what lets the
-    interpreter behind a quote still read as an interpreter.
+    interpreter behind a quote still read as an interpreter. A `$` is stripped
+    with them (kogaki#1314), so the `$(node` a command substitution leaves
+    attached reads as the interpreter it opens and the invocation inside it is
+    found -- and then refused by `admitted`, which takes no substitution.
     """
-    return (token or "").strip("\"'`()")
+    return (token or "").strip("\"'`()$")
 
 
 def _transparent(token):
@@ -239,26 +258,78 @@ def command_index(tokens):
     return None
 
 
-def admitted(tokens, index):
-    """Only `run --status`, on the INVOCATION's own arguments, rides through.
+# THE WHOLE-COMMAND GRAMMAR (kogaki#1314). The arguments the inspection route
+# takes, beyond `run` and `--status`: `--job` with one of its two read verbs,
+# and `--run-dir` with a path. Anything else -- a redirection, a `2>&1`, a
+# stray word -- is not part of that one invocation.
+JOB_VERBS = {"status", "await"}
+# Characters that mean the text is no longer one plain invocation: command
+# substitution, a subshell or group, a redirection. A segment split already
+# removed `;`, `|`, `&` and newlines; these are the rest of the shell around
+# a command that the token read would otherwise strip and walk past.
+COMPOSED = re.compile(r"[$`()<>{}]")
 
-    READ FROM THE SAME TOKEN THE DENY ANCHORS ON (PR #1064 round 1). The first
-    cut read the verb by searching the raw segment for the filename, so a data
-    mention standing earlier in the segment supplied the verb for a later
-    invocation: `NOTE=terrain.mjs run node src/terrain.mjs start --status` was
-    denied by the anchor and then admitted by the verb read. The admission now
-    takes the arguments of the command the anchor found, and nothing else.
 
-    `--status` is matched as a WHOLE TOKEN so `--status-key` does not admit; and
-    the absence of any other flag is not an admission -- a bare
-    `node src/terrain.mjs run` carries no verb at all and is denied.
+def _prefix_ok(tokens):
+    """An optional transparent prefix -- never a loop or conditional keyword."""
+    return all(_transparent(t) and t not in {"then", "do", "else"}
+               for t in tokens)
 
-    THE VERB IS `run` (PR #1040 round 1, blocking finding): `start` opens a
-    workspace and repoints the open run BEFORE it looks at `--status`, so the
-    flag admitted an act that clobbers the owner's live run.
+
+def _args_ok(args):
+    """`run`, `--status`, and at most `--job <verb>` and `--run-dir <path>`."""
+    if not args or args[0] != "run":
+        return False
+    seen = set()
+    k = 1
+    while k < len(args):
+        a = args[k]
+        if a in seen:
+            return False
+        if a == ADMITTED:
+            seen.add(a)
+            k += 1
+        elif a == "--job" and k + 1 < len(args) and args[k + 1] in JOB_VERBS:
+            seen.add(a)
+            k += 2
+        elif (a == "--run-dir" and k + 1 < len(args)
+              and not args[k + 1].startswith("-")):
+            seen.add(a)
+            k += 2
+        else:
+            return False
+    return ADMITTED in seen
+
+
+def admitted(command, segment, tokens, index):
+    """Only `run --status` as THE WHOLE COMMAND rides through (kogaki#1314).
+
+    THE WHOLE STRING, NOT THE SEGMENT. Admission read one segment's arguments,
+    so `for i in ...; do out=$(node src/brief.mjs run --status --job await
+    ...); echo "$out" | grep ... ; done` rode through on the loop body, and the
+    filter around it dropped a gate's bytes on the one channel they had. A
+    command is admitted only when it has exactly one segment, that segment
+    carries no substitution, grouping or redirection, and its tokens are an
+    optional transparent prefix, an interpreter, the executor path and the
+    inspection grammar `_args_ok` reads -- in any order after `run`.
+
+    READ FROM THE SAME TOKEN THE DENY ANCHORS ON (PR #1064 round 1): a data
+    mention earlier in the segment cannot supply the verb for a later
+    invocation, because everything before the path must be prefix and
+    interpreter.
+
+    `--status` is matched as a WHOLE TOKEN so `--status-key` does not admit; a
+    bare `run` carries no verb and is denied; and the verb is `run` (PR #1040
+    round 1): `start` opens a workspace and repoints the open run BEFORE it
+    looks at `--status`.
     """
-    args = tokens[index + 1:]
-    return bool(args) and args[0] == "run" and ADMITTED in args[1:]
+    if len(segments(command)) != 1 or COMPOSED.search(segment):
+        return False
+    if index < 1 or INTERPRETER.match(tokens[index - 1]) is None:
+        return False
+    if not _prefix_ok(tokens[:index - 1]):
+        return False
+    return _args_ok(tokens[index + 1:])
 
 
 def offending(command):
@@ -270,7 +341,7 @@ def offending(command):
     for seg in segments(command):
         tokens = _tokens(seg)
         index = command_index(tokens)
-        if index is not None and not admitted(tokens, index):
+        if index is not None and not admitted(command, seg, tokens, index):
             return seg.strip(), tokens[index].rsplit("/", 1)[-1]
     return None
 
@@ -293,8 +364,10 @@ def main():
         return 0
     seg, executor = hit
     lane, skill, advance = EXECUTORS.get(executor, EXECUTORS["terrain.mjs"])
+    spellings = "\n".join("    " + line for line in
+                          SPELLINGS.get(executor, SPELLINGS["terrain.mjs"]))
     deny(REASON.format(cmd=seg[:200], executor=executor, lane=lane, skill=skill,
-                       advance=advance, admitted=ADMITTED))
+                       advance=advance, admitted=ADMITTED, spellings=spellings))
     return 0
 
 
