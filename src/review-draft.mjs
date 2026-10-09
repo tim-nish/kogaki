@@ -848,7 +848,8 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
     ...fieldLines,
     "",
     "`introduces` is legitimately absent — a passage that introduces nothing carries no such",
-    "line. `claims` is not: every passage asserts something.",
+    "line. `claims` is not: every passage asserts something. Nor is `waypoint`: every paragraph",
+    "does something to its reader.",
     "",
     "## The form",
     "",
@@ -862,6 +863,8 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
     "reader_state_after: …",
     "claim …",
     "claim …",
+    "waypoint …",
+    "waypoint …",
     "introduces: <term>",
     "introduces: <term> — <where the passage anchors it, only if it does>",
     "```",
@@ -922,7 +925,8 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
 // grammar, read by the same `claimLines` the realization side reads, because
 // "in the Brief's form" is the whole claim.
 //
-// THE FIELDS ARE FIVE, AND TWO LEFT TOGETHER (owner 2026-09-17; kogaki#1132).
+// THE FIELDS WERE FIVE, AND TWO LEFT TOGETHER (owner 2026-09-17; kogaki#1132); `waypoints`
+// made them six (kogaki#1311).
 // `concession` was the one field here that was not a Brief field at all — it
 // entered through kogaki#871's body with no design-table row — and
 // `opens_section` is a Brief field whose Round Trip row asked a realization
@@ -941,6 +945,18 @@ export const RECONSTRUCTIBLE_FIELDS = [
     definition: "what a reader knows and believes once they have read it." },
   { name: "claims", kind: "claim-lines",
     definition: "one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept." },
+  // THE ROUTE, READ BACK (kogaki#1311). The forward Leg carries `waypoints`,
+  // one step of what the Leg does to its reader each, and the Packet renders
+  // them in place of the Move; Reverse Outlining compares the prose's own
+  // route to them. The reader writes one line per PARAGRAPH, since a paragraph
+  // is what a reader can point at, and the per-declared `waypoints` row asks
+  // whether each declared step is among those lines — at any position, so a
+  // passage that spent two paragraphs on one step is not refused on the count.
+  // The forward form's `(serves …)` is the Brief's address and the reader
+  // cannot know it, so the line is bare, the way `claim ` lines are.
+  { name: "waypoints", kind: "waypoint-lines",
+    definition: "one `waypoint ` line per paragraph of the passage, in order — what that paragraph DOES to you "
+      + "as a reader (what it brings you to see, doubt, hold or expect), in your words; never a summary of what it says." },
   // BOTH ARMS, and the bare one first (PR #1022 round 1, finding 3). This read
   // `introduces: <term> — <anchor>`, which is only half of what
   // `parseIntroducesEntry` accepts: a term may be written BARE, and only a
@@ -1119,6 +1135,15 @@ function outlineClaims(body) {
   return String(body).split("\n").filter((l) => l.startsWith("claim "));
 }
 
+// The Reverse Outline's own waypoint lines (kogaki#1311), in paragraph order.
+// A reader may write the line bare (`waypoint …`) or with a colon; neither
+// carries the forward form's `(serves …)`, which addresses a Strand the reader
+// never saw — a line that does carries it as read, and it is compared as text.
+function outlineWaypoints(body) {
+  return String(body).split("\n").filter((l) => /^waypoint\b/.test(l))
+    .map((l) => l.replace(/^waypoint\b[ \t]*(\([^)]*\))?[ \t]*:?[ \t]*/, "").trim());
+}
+
 function repeatedLines(body, field) {
   return [...String(body).matchAll(new RegExp(`^${field}:[ \\t]*(.*)$`, "gm"))].map((x) => x[1].trim());
 }
@@ -1160,6 +1185,19 @@ function validateReverseOutline(text, leg, file) {
       }
       continue;
     }
+    if (f.kind === "waypoint-lines") {
+      // A FLOOR, for the reason `claims` has one: every passage does something
+      // to its reader, so an outline naming no step at all read nothing.
+      const ws = outlineWaypoints(body);
+      if (ws.length === 0) {
+        problems.push("carries no `waypoint ` line — every paragraph does something to its reader, and the "
+          + "steps are what the Round Trip compares against the waypoints the Leg was written toward");
+      }
+      for (const [i, v] of ws.entries()) {
+        if (v === "") problems.push(`\`waypoint\` line ${i + 1} is blank — ${f.definition}`);
+      }
+      continue;
+    }
     if (f.kind === "repeated-line") {
       for (const [i, v] of repeatedLines(body, f.name).entries()) {
         if (v === "") problems.push(`\`${f.name}:\` entry ${i + 1} is blank — ${f.definition}`);
@@ -1184,7 +1222,7 @@ function validateReverseOutline(text, leg, file) {
   // admit-by-default is how that arrives with no trace.
   const declared = new Set([...RECONSTRUCTIBLE_NAMES, ...NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name), "leg_id"]);
   for (const ln of body.split("\n")) {
-    if (ln.startsWith("claim ") || ln.trim() === "") continue;
+    if (ln.startsWith("claim ") || /^waypoint\b/.test(ln) || ln.trim() === "") continue;
     const m = /^([a-z_][a-z0-9_]*):/.exec(ln);
     if (m && !declared.has(m[1])) {
       problems.push(`carries \`${m[1]}:\`, which is not a Brief Leg field — a field in the Reverse Outline `
@@ -1207,6 +1245,7 @@ function validateReverseOutline(text, leg, file) {
     reader_state_before: legField(body, "reader_state_before"),
     reader_state_after: legField(body, "reader_state_after"),
     claims: outlineClaims(body).map((l) => ({ text: l.replace(/^claim[ \t]+/, "").trim() })),
+    waypoints: outlineWaypoints(body).map((t) => ({ text: t })),
     introduces: repeatedLines(body, "introduces").map((t) => ({ text: t })),
   };
 }

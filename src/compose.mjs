@@ -260,7 +260,10 @@ function pathRefusal(key, at, specific) {
 // is. This set only routes which refusal speaks. `move` is no longer listed:
 // it is optional in the schema, and the exactly-one-of `move`/`no_move_fits`
 // refusal below speaks for it (kogaki#1276).
-const BESPOKE_LEG_REFUSALS = new Set(["claims"]);
+// `waypoints` is listed for the reason `claims` is: its refusal names what a
+// waypoint is and which one failed, which the generic sentence cannot
+// (kogaki#1311).
+const BESPOKE_LEG_REFUSALS = new Set(["claims", "waypoints"]);
 
 // The generic presence predicate for a required field, selected by the type
 // the schema declares. An unknown type is a LOUD failure rather than a silent
@@ -277,6 +280,8 @@ function legFieldPresent(decl, v) {
     case "array of claim":
       return Array.isArray(v) && v.length >= (decl.min_length || 0);
     case "array of journey":
+      return Array.isArray(v) && v.length >= (decl.min_length || 0);
+    case "array of waypoint":
       return Array.isArray(v) && v.length >= (decl.min_length || 0);
     default:
       return null;
@@ -347,6 +352,60 @@ export function budgetRefusal(budget, at) {
   if (budget === undefined) return null;
   if (typeof budget !== "number" || !Number.isInteger(budget) || budget <= 0) {
     return `${at}: budget, when present, is a positive whole number of words — it reads ${JSON.stringify(budget)}`;
+  }
+  return null;
+}
+
+// ---- the route a Leg takes its reader along (kogaki#1311) ----
+//
+// `waypoints` is the Leg's specialization of its Move's `technique`, written
+// at composition so that nothing after the Candidate has to open the Move.
+// SHAPE ONLY, and the count is not shape: whether the waypoints specialize
+// the `technique` and survive its `breaks` is the Move-fit judgment's, and
+// how many there are is the composer's (owner decision 2026-10-09).
+//
+// `claimStrands` is the Strand ids this Leg's claims name. Every refusal
+// names the Leg and, where one is at fault, the waypoint by its position.
+// PURE, and exported for the realization entry in `src/draft.mjs`, which
+// re-runs it over a Brief's parsed Legs rather than re-expressing it.
+export function waypointsRefusal(waypoints, claimStrands, at) {
+  const def = "a waypoint is one step of what this Leg does to its reader, carrying an `effect` "
+    + "(what the step does to the reader, never what the prose says) and `serves` (the claims it serves, "
+    + "by the Strand id each names) — src/leg-schema.json, `waypoint`";
+  if (!Array.isArray(waypoints) || waypoints.length === 0) {
+    return `${at}: carries no waypoints — every Leg carries an ordered, non-empty \`waypoints\` list, its `
+      + `specialization of its Move's technique, written at composition because no stage after the Candidate `
+      + `reads the Move (kogaki#1311). ${def}`;
+  }
+  const strands = new Set(claimStrands);
+  const served = new Set();
+  for (const [i, w] of waypoints.entries()) {
+    const nth = `waypoint ${i + 1}`;
+    if (!w || typeof w !== "object" || Array.isArray(w)) {
+      return `${at}: ${nth} is not a waypoint — ${def}`;
+    }
+    if (typeof w.effect !== "string" || w.effect.trim() === "") {
+      return `${at}: ${nth} has an empty effect — ${def}`;
+    }
+    if (!Array.isArray(w.serves) || w.serves.length === 0
+      || w.serves.some((x) => typeof x !== "string" || x.trim() === "")) {
+      return `${at}: ${nth} has an empty serves — every waypoint serves at least one claim of this Leg, `
+        + `named by its Strand id; a step no claim of this Leg supports is the signal to pull in a Journey, `
+        + `bind another Move, or report no_move_fits. ${def}`;
+    }
+    for (const x of w.serves) {
+      if (!strands.has(x)) {
+        return `${at}: ${nth} serves ${JSON.stringify(x)}, and this Leg carries no claim for that Strand `
+          + `(its claims name ${[...strands].join(", ") || "none"}) — a waypoint serves a claim of its own Leg`;
+      }
+      served.add(x);
+    }
+  }
+  const unserved = [...strands].filter((x) => !served.has(x));
+  if (unserved.length) {
+    return `${at}: its claim for ${unserved.map((x) => JSON.stringify(x)).join(", ")} is served by no waypoint `
+      + `— every claim of a Leg is served by at least one of its waypoints, or the route the prose follows `
+      + `never reaches it (kogaki#1311)`;
   }
   return null;
 }
@@ -657,6 +716,13 @@ export function validateLegs(legs, readerStart, obligations = [], movesDir = "mo
         }
         byStrand.set(g.strand, g.proposition);
       }
+    }
+    // the route (kogaki#1311) — REQUIRED, and checked after the claims loop
+    // because `serves` addresses the claims by Strand, so its address space
+    // does not exist until the claims are known to be well formed.
+    {
+      const bad = waypointsRefusal(s.waypoints, s.claims.map((g) => g.strand), at);
+      if (bad) return { error: bad };
     }
     // the figure decision's `figure:`/`figure_roles` (kogaki#877) — OPTIONAL, and validated
     // here for the reason `bridges` and `introduces` are: the count and the
@@ -1305,7 +1371,12 @@ export function moveContractsForLegs(legs, movesDir = "moves") {
   for (const s of legs) {
     const c = moveContract(s.move, movesDir);
     if (c.error) return { error: `leg ${s.leg_id}: ${c.error}` };
-    out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after, technique: c.technique, breaks: c.breaks });
+    // THE LEG'S WAYPOINTS RIDE BESIDE THE MOVE'S `technique` AND `breaks`
+    // (kogaki#1311): the fit judgment judges the waypoints against those two,
+    // so the input sets them side by side rather than leaving the judge to
+    // find them in the Leg array.
+    out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after, technique: c.technique, breaks: c.breaks,
+      waypoints: s.waypoints });
   }
   return { contracts: out };
 }
@@ -2138,6 +2209,14 @@ export function renderLeg(s) {
     // `material --strand` reader and the figure `g<n>` addressing both read
     // this line as it stands, and this issue moves neither.
     L.push(`claim (strand ${g.strand}): ${g.proposition}`);
+  }
+  // the route (kogaki#1311): ONE LINE PER WAYPOINT, in order,
+  // `waypoint (serves L<n>[, L<m>]): <effect>` — the claim line's own form, so
+  // the Strand addressing sits in the parenthesis and the effect, which is
+  // free prose, runs to the end of the line. `src/draft.mjs`'s
+  // `parseLegBlockBody` reads it back.
+  for (const w of s.waypoints || []) {
+    L.push(`waypoint (serves ${w.serves.join(", ")}): ${String(w.effect).replace(/\s*\n\s*/g, " ").trim()}`);
   }
   // the Journey a Leg draws on (kogaki#1111): ONE LINE PER ENTRY, `journey: <L-id> — <use> (<gloss>)`.
   // The gloss is the schema's own `journey.uses` text (kogaki#1286, owner

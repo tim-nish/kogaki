@@ -163,9 +163,9 @@ try {
   // paragraph would make `declaredFor()` hard-fail the whole run — this is
   // joined beside the Journey block on every Leg below, never read by name.
   const packet = ({ claim, journey, ownWorld }) => [
-    "- **technique.** contrast",
-    "- **question.** what the kit copies and where",
-    "- **breaks.** breaks if the vendored copy is edited by hand",
+    "## The waypoints this Leg takes the reader through",
+    "",
+    "- the reader is brought to see what the kit copies and where *Serves:* the Leg's claim",
     "",
     "## The claims this Leg asserts",
     "",
@@ -221,6 +221,7 @@ try {
     + "reader_state_before: the reader has never met the kit\n"
     + "reader_state_after: the reader can run the kit's installer\n"
     + `claim ${claimText}\n`
+    + "waypoint the passage brings me to see what the kit does\n"
     + "```\n";
 
   const jOpen = runCmd("open", []);
@@ -242,7 +243,7 @@ try {
       if (!failing.has(item)) return "the two sides agree";
       const fail = leg_id === "leg-a";
       if (item === "prose-style") return fail ? "the passage runs short fragments one after another" : "the passage reads in full clauses with no fragment or triad";
-      if (item === "attribute-leak") return fail ? "the sentence paraphrases the Move contract's technique and question" : "no sentence quotes or paraphrases the Move contract";
+      if (item === "attribute-leak") return fail ? "the sentence tells the reader what the passage is doing to them" : "no sentence quotes, paraphrases or announces a waypoint";
       if (item === "referents") return fail ? "the passage names a fork the Journey material does not carry" : "every named thing in the passage comes from the Journey material";
       return fail ? "a sentence supports neither its paragraph's opening sentence nor a claim" : "every sentence supports its paragraph's opening sentence or a claim";
     };
@@ -289,9 +290,9 @@ try {
   const ownWorldText = "Can read code and has used a CI system.";
 
   const packet = [
-    "- **technique.** contrast",
-    "- **question.** what referent the passage may name",
-    "- **breaks.** breaks if the passage invents a referent neither source carries",
+    "## The waypoints this Leg takes the reader through",
+    "",
+    "- the reader is brought to see what referent the passage may name *Serves:* the Leg's claim",
     "",
     "## The claims this Leg asserts",
     "",
@@ -344,6 +345,7 @@ try {
     + "reader_state_before: the reader has never met the kit\n"
     + "reader_state_after: the reader can run the kit's installer\n"
     + `claim ${claimText}\n`
+    + "waypoint the passage brings me to see what the kit does\n"
     + "```\n";
 
   const lOpen = runCmd("open", []);
@@ -416,9 +418,9 @@ try {
   const draftPath = join(ws, "draft.md");
 
   const packet = [
-    "- **technique.** contrast",
-    "- **question.** which install path a reader ends up on",
-    "- **breaks.** breaks if a reader conflates the paths",
+    "## The waypoints this Leg takes the reader through",
+    "",
+    "- the reader is brought to see which install path a reader ends up on *Serves:* the Leg's claim",
     "",
     "## The claims this Leg asserts",
     "",
@@ -480,6 +482,7 @@ try {
     + "reader_state_before: the reader has never met the kit\n"
     + "reader_state_after: the reader can name the kit's install paths\n"
     + "claim the kit's install paths all land the same vendored copy\n"
+    + "waypoint the passage brings me to see what the kit does\n"
     + "```\n";
 
   const kOpen = runCmd("open", []);
@@ -528,9 +531,9 @@ try {
   const draftPath = join(ws, "draft.md");
 
   const packet1 = [
-    "- **technique.** contrast",
-    "- **question.** what the installer tracks and where",
-    "- **breaks.** breaks if a later run loses track of what it already touched",
+    "## The waypoints this Leg takes the reader through",
+    "",
+    "- the reader is brought to see what the installer tracks and where *Serves:* the Leg's claim",
     "",
     "## The claims this Leg asserts",
     "",
@@ -551,9 +554,9 @@ try {
   ].join("\n");
 
   const packetSecond = (claim, crossTheLedger) => [
-    "- **technique.** contrast",
-    "- **question.** what a second run of the installer updates",
-    "- **breaks.** breaks if a reader conflates the two records",
+    "## The waypoints this Leg takes the reader through",
+    "",
+    "- the reader is brought to see what a second run of the installer updates *Serves:* the Leg's claim",
     "",
     "## The claims this Leg asserts",
     "",
@@ -615,6 +618,7 @@ try {
     + "reader_state_before: the reader has never met the installer's records\n"
     + "reader_state_after: the reader can say what each record holds\n"
     + `claim ${claim}\n`
+    + "waypoint the passage brings me to see what the installer records\n"
     + (introduces || []).map((t) => `introduces: ${t}\n`).join("")
     + "```\n";
 

@@ -182,6 +182,15 @@
     "none of them a standalone heading a `block` reader stands at or a",
     "two-label `bullets` reader reads.",
     "",
+    "`move_contract` LEAVES `packet_blocks` AND `waypoints` TAKES ITS PLACE",
+    "(kogaki#1311, owner decision 2026-10-09). The Packet carries no Move field",
+    "now: the Move's responsibility ends at the Candidate, and the Leg's own",
+    "waypoints are what the writer realizes from. `attribute-leak` reads the",
+    "waypoints block, and the per-declared `waypoints` row is the Reverse",
+    "Outlining comparison over them -- the reader's `waypoint` lines, one per",
+    "paragraph, against the Packet's. Best-effort, because one waypoint per",
+    "paragraph is a tendency the owner declined to bound.",
+    "",
     "`demonstrative-reference` IS THE SEVENTH ROW kogaki#1251 names and is READ",
     "FROM THE DRAFT ALONE (kogaki#1255). It declares no Packet block and no",
     "figure field: a Packet carries no inventory of the prose's own referring",
@@ -269,9 +278,9 @@
       "kind": "heading_list",
       "heading": "What crosses into this Leg"
     },
-    "move_contract": {
-      "kind": "bullets",
-      "labels": ["technique", "question", "breaks"]
+    "waypoints": {
+      "kind": "heading_list",
+      "heading": "The waypoints this Leg takes the reader through"
     },
     "journey": {
       "kind": "block",
@@ -357,6 +366,18 @@
         "sentence": "this Leg declares no claim, so there is nothing for the reader to have recovered and the question below quantifies over nothing; what the passage asserts is judged by the Leg's other items"
       },
       "question": "The declared claim is above, in the words the Leg declares it in, and below it is every claim this reader wrote down after reading the passage blind. Is that declared claim among them? Answer `holds` where one of the claims the reader wrote says it — a paraphrase counts, and the wording need not match; answer `fails` where no claim they wrote carries it, which means the passage did not put it in front of the reader. What the reader wrote BEYOND the declared claim is not yours to judge here: the Leg is told to retell material it asserts nothing about, so surplus is expected and this question is about recovery alone."
+    },
+    {
+      "id": "waypoints",
+      "class": "best-effort",
+      "mode": "per-declared",
+      "declared_block": "waypoints",
+      "field": "waypoints",
+      "when_declared_absent": {
+        "verdict": "holds",
+        "sentence": "this Leg declares no waypoint, so there is no step for the reader to have been taken through and the question below quantifies over nothing"
+      },
+      "question": "The declared waypoint is above: one step of what this passage was meant to do to its reader, with the claim it serves. Below it is every step this reader wrote down after reading the passage blind, one per paragraph, saying what each paragraph did to them. Is the declared step's effect among them? Answer `holds` where one of the steps the reader wrote carries that effect -- in their own words, at any position, and spread over more or fewer paragraphs than one; answer `fails` where none does, which means the passage never took the reader through it. A step the reader wrote that matches no declared waypoint is not yours to judge here, and how many paragraphs the passage spent is not a criterion (kogaki#1311)."
     },
     {
       "id": "introduces",
@@ -445,8 +466,8 @@
       "id": "attribute-leak",
       "class": "preserved",
       "mode": "judged",
-      "declared_block": "move_contract",
-      "question": "Above is this Leg's Move contract. The Packet tells the writer it is attribute, never prose: nothing in it is to be quoted, paraphrased or made the subject of a sentence. Does any sentence in the passage below quote or paraphrase the Move contract's technique, question or breaks? Answer `fails` if it does."
+      "declared_block": "waypoints",
+      "question": "Above are this Leg's waypoints: what each step of the passage was meant to do to its reader. The Packet tells the writer they say what a step does, never what to write: none is to be quoted, paraphrased or announced to the reader. Does any sentence in the passage below quote or paraphrase a waypoint, or tell the reader what the passage is doing to them? Answer `fails` if it does."
     },
     {
       "id": "referents",

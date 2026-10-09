@@ -29,8 +29,8 @@
 //              diff artifact (the kogaki#523 constraint).
 //   packet   — render the Leg Packet: the model's ENTIRE input for one
 //              Leg (the Leg Packet, kogaki#749), deterministic and stored as served.
-//   figure   — accept one Leg's figure record: the INSTANCE of its Move's
-//              figure, filled after that Leg's prose is recorded
+//   figure   — accept one Leg's figure record: the INSTANCE of the form
+//              its figure_roles bind, filled after that Leg's prose is recorded
 //              (kogaki#878). Validated against src/figure-schema.json, the
 //              kind's role set, and the BRIEF's own role→claim binding; a
 //              record that moved a role to another claim refuses by role.
@@ -65,8 +65,6 @@
 //       SPEC-draft-pipeline
 //   the Leg-Move instantiation contract
 //       SPEC-draft-pipeline
-//   the mechanical half of move id resolution
-//       SPEC-draft-pipeline
 //   the reader-knowledge ledger
 //       SPEC-draft-pipeline
 //   the Leg Packet
@@ -85,10 +83,13 @@
 //       SPEC-draft-pipeline
 //   the durable home and the entry point
 //       SPEC-draft-pipeline
-//   the closed kind set and the Move's figure
-//       SPEC-draft-pipeline
-//   the Move library
-//       SPEC-draft-pipeline
+//
+// NO MOVE IS OPENED HERE (kogaki#1311, owner decision 2026-10-09: "Information
+// that belongs to Move has responsibility only up to CandidatePath creation").
+// The Leg carries its own route as `waypoints`, written at composition, and
+// the Packet renders those; a figure's kind is read off the Leg's own
+// `figure_roles` against src/figure-kinds.json. `--moves-dir` is refused by
+// name rather than ignored.
 //
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, openSync, closeSync } from "node:fs";
 import { join, resolve, relative, dirname, basename, sep } from "node:path";
@@ -96,12 +97,12 @@ import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
-// the Leg-Move instantiation contract's mechanical half is ONE function shared with the composition side
-// (src/compose.mjs), never a second copy here: two resolvers are two things
-// that can disagree about what a dangling move id is, and the refusal a
-// composer sees would stop matching the one a realizer sees.
-import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
-  figureRefusal, parseFigureRoles, figureKinds, figureOf, figureLegs,
+// The waypoint grammar is ONE function shared with the composition side
+// (src/compose.mjs), never a second copy here: a writer and a reader that
+// disagree about what a waypoint is fail silently at the block the writer
+// realizes from.
+import { waypointsRefusal, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
+  figureRefusal, parseFigureRoles, figureKinds, figureLegs,
   journeysRefusal, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg,
   reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, concededRowFields } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
@@ -180,9 +181,9 @@ export function parseLegBlockBody(body, path) {
   // `move:` IS READ (the Leg-Move instantiation contract, kogaki#747). It was parsed for `leg_id` only
   // and the Move binding sat here as uninterpreted dead input, so a typo'd
   // or renamed id rode a minted Brief in silence until the Leg Packet
-  // assembler joined Leg.move → moves/<id>.md and failed mid-draft. Read
-  // here, refused at `resolve` below — at the entry to realization rather
-  // than partway through it.
+  // assembler joined Leg.move → moves/<id>.md and failed mid-draft. Since
+  // kogaki#1311 no realization act opens the Move, so the id is carried for
+  // the record and the trace and resolved nowhere on this side.
   const moveM = body.match(/^move:\s*(\S+)\s*$/m);
   // the reader-knowledge ledger's `introduces:` (kogaki#751), read back from the serialized form.
   // ONE LINE PER ENTRY, matching `renderLeg`'s writer — a term may contain
@@ -295,6 +296,18 @@ export function parseLegBlockBody(body, path) {
     const bad = journeysRefusal(journeys, materials, `the Brief at ${path}, leg ${idM[1]}`);
     if (bad) return { refusal: bad };
   }
+  // the route (kogaki#1311), read back from the serialized form `renderLeg`
+  // writes: `waypoint (serves L<n>[, L<m>]): <effect>`, ONE LINE PER WAYPOINT
+  // in order. Read here and checked at the realization entry (`loadBrief`),
+  // not here: this parser also reads a Reverse Outline, whose `waypoint` lines
+  // are a blind reader's and carry no Strand, so a line without the
+  // parenthesis reads as a waypoint with an empty `serves` and the caller
+  // that needs one refuses it.
+  const waypoints = [...body.matchAll(/^waypoint\b[ \t]*(.*)$/gm)].map((x) => {
+    const m = /^\(serves[ \t]+([^)]*)\)[ \t]*:[ \t]*(.*)$/.exec(x[1].trim());
+    if (!m) return { effect: x[1].trim().replace(/^:[ \t]*/, ""), serves: [] };
+    return { effect: m[2].trim(), serves: m[1].split(",").map((y) => y.trim()).filter(Boolean) };
+  });
   // THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28). A
   // Brief composed before this issue could carry a `relation:` line; letting
   // it parse silently would render no tree — this Packet no longer draws
@@ -334,7 +347,7 @@ export function parseLegBlockBody(body, path) {
     reaches_target = true;
   }
   return { leg: { leg_id: idM[1], move: moveM ? moveM[1] : null, introduces, "re-activate": reactivate,
-    opens_section, journeys, figure, figure_roles, budget, reaches_target, body } };
+    opens_section, journeys, figure, figure_roles, budget, reaches_target, waypoints, body } };
 }
 
 // THE READER TARGET LINE OF A PACKET (kogaki#1231, owner decision
@@ -551,26 +564,37 @@ function loadBrief(args) {
   catch (e) { fail(`the Brief at ${path} cannot be read (${e.message})`); }
   const brief = parseBrief(text, path);
   if (brief.refusals.length) fail(brief.refusals[0]);
-  // the Leg-Move instantiation contract's MECHANICAL HALF at the realization entry: `resolve` refuses an
-  // EXISTING Brief carrying a move id that resolves to no record, naming the
-  // Leg and the id. The composition-side seat (assemble.mjs adopt-candidate)
-  // stops one entering a Brief; this one stops a Brief whose library moved
-  // underneath it — a Move renamed or withdrawn after the Brief was composed
-  // dangles without the Brief changing at all, so neither seat subsumes the
-  // other. The judged half is NOT re-run here: it was rendered at composition
-  // by a sitting reading the material, and re-deriving it at realization
-  // would be this runtime composing a verdict, which the Leg-Move instantiation contract forbids.
-  // THE STORE DEFAULT IS WORKING-DIRECTORY-RELATIVE, and this entry is shared
-  // by resolve, material, section and emit — so all four gain a cwd dependency
-  // this runtime did not have before (a Brief arrives as a path; the workspace
-  // default is home-relative). Driven from outside the repository root they
-  // refuse as a STORE fault naming `--moves-dir`, which is legible rather than
-  // silent. Not made Brief-relative on purpose: inferring a repository root
-  // from a Brief's path guesses at a layout the spec does not govern, and a
-  // wrong guess resolves SILENTLY against the wrong library (the mechanical half of move id resolution).
-  const resolved = resolveMoveIds(brief.legs, args["moves-dir"]);
-  if (resolved.error) fail(resolved.error);
-  return { ...brief, path: resolve(path), movesChecked: resolved.checked };
+  // THE LEG'S ROUTE AT THE REALIZATION ENTRY (kogaki#1311). Every Leg carries
+  // `waypoints`, and a Brief whose Leg carries none refuses here the way any
+  // missing field refuses — by name, naming the Leg — because the Packet
+  // renders the waypoints in place of the Move and has nothing else to give
+  // the writer. A Brief composed before this field (the 2026-10-08
+  // `check-only-good-what-given`) is recomposed by a new `/brief` run, never
+  // patched here. The check is the composition side's own `waypointsRefusal`,
+  // over the claims this Leg's block names.
+  //
+  // NO MOVE ID IS RESOLVED HERE ANY MORE. It was (kogaki#747), beside the
+  // Packet's and the figure's own Move reads, and all three are gone: the
+  // Move is read up to the Candidate and never again, so a Move renamed after
+  // a Brief was composed no longer reaches realization at all.
+  if (args["moves-dir"] !== undefined) {
+    fail("--moves-dir is no longer taken: /draft opens no Move file (kogaki#1311). A Leg carries its own "
+      + "waypoints, written when the Brief was composed, and the Packet renders those");
+  }
+  for (const leg of brief.legs) {
+    const strands = claimStrandsOf(leg.body);
+    const bad = waypointsRefusal(leg.waypoints, strands, `the Brief at ${path}, leg ${leg.leg_id}`);
+    if (bad) fail(bad);
+  }
+  return { ...brief, path: resolve(path) };
+}
+
+// The Strand ids a Leg block's claims name, read off `renderLeg`'s one claim
+// form, `claim (strand L<n>): <proposition>` (kogaki#1095).
+function claimStrandsOf(body) {
+  return String(body).split("\n")
+    .map((l) => /^claim\s*\(strand\s+([^)\s]+)\s*\)\s*:/.exec(l))
+    .filter(Boolean).map((m) => m[1]);
 }
 
 // the Section grouping's SECTION GROUPING, derived from the Brief and from nothing else
@@ -805,7 +829,7 @@ function callWriter({ settings, act, legId, input, refuse }) {
     const text = writerText(r.stdout, settings.output_format);
     // THE WRITER'S OWN REFUSAL (kogaki#1250, owner ruling 2026-10-04). A
     // response opening with `refusal: <reason>` is the writer declaring that
-    // this Move step cannot be performed from the material the Packet gave
+    // this waypoint cannot be reached from the material the Packet gave
     // it, or that material is missing — the act's FAILURE, never content, and
     // never a sentence of meta-commentary reaching the Draft in its place.
     // Checked ahead of `refuse` (which judges prose actually written) and
@@ -869,7 +893,7 @@ export function sectionProseRefusal(content, id, brief) {
 export function parseWriterRecord(text) {
   const stripped = String(text).trim().replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/, "");
   try { return { record: JSON.parse(stripped) }; }
-  catch (e) { return { error: `the figure record is not readable JSON (${e.message}) — the record is one JSON object, the instance of the Move's form` }; }
+  catch (e) { return { error: `the figure record is not readable JSON (${e.message}) — the record is one JSON object, the instance of the Leg's figure form` }; }
 }
 
 function cmdResolve(args) {
@@ -922,7 +946,7 @@ function cmdResolve(args) {
   const ledger = readerKnowledgeLedger([...brief.legs, { leg_id: "(end)" }]);
   const introduced = ledger[ledger.length - 1].reader_already_knows.length;
   process.stdout.write(`reader-knowledge ledger: ${introduced} term(s) introduced across ${brief.legs.length} leg(s), derived from the path at read time and stored nowhere (the reader-knowledge ledger)${introduced === 0 ? " — this path introduces no terms, which is a reading of it and not an error" : ""}\n`);
-  process.stdout.write(`move ids: ${brief.movesChecked} of ${brief.legs.length} leg(s) resolved against the Move library (the Leg-Move instantiation contract) — the specialization judgment was rendered at composition and is not re-derived here\n`);
+  process.stdout.write(`waypoints: ${brief.legs.reduce((n, l) => n + l.waypoints.length, 0)} across ${brief.legs.length} leg(s), each serving a claim of its Leg — the route was written and judged at composition, and no Move is opened here (kogaki#1311)\n`);
   process.stdout.write(`workspace: ${ws} (machine-local; snapshots and run identity live here, never in the artifact)\n`);
 }
 
@@ -944,7 +968,7 @@ function cmdMaterial(args) {
 //
 // The harness-assembled input from which the model realizes ONE Leg's prose —
 // the one LLM judgment of the Draft lane. `packet --leg <id>` renders it
-// DETERMINISTICALLY from the template plus the Brief plus the Move record plus
+// DETERMINISTICALLY from the template plus the Brief plus
 // the workspace's realized Sections plus the derived ledger; the session
 // realizes the prose; `section` validates it as before.
 //
@@ -956,37 +980,14 @@ function cmdMaterial(args) {
 // run id, no ordering that depends on a directory read: the Sections come in
 // the Brief's recorded order and the ledger is recomputed from the path.
 
-// `before`/`after` are EXCLUDED from the rendered Move contract, and the
-// exclusion is the ruling rather than an omission: the Leg's own
-// `reader_state_before`/`after` are the instance forms of exactly those two
-// fields (the Leg-Move instantiation contract), so rendering both would put the general and the specialized
-// statement of one thing side by side and leave the model to pick. The Leg's
-// instantiated states win. `draws_on` is retired from the rendered set
-// (kogaki#1247, owner ruling 2026-10-02): no composer, judge or Packet reads
-// it, so the three that remain — the schema's `rendered-to-writer` role
-// (kogaki#1175), minus `draws_on` — are all required.
-const MOVE_FIELDS_RENDERED_REQUIRED = ["technique", "question", "breaks"];
-
-// Read one field out of a Move record's folded-scalar form. The store is the
-// same one the Leg-Move instantiation contract's resolver reads, and this reads VALUES where that one reads
-// only ids — the split is deliberate (the mechanical half of move id resolution: a resolver that parsed these
-// would be one edit from comparing them), so this is a second reader with its
-// own purpose rather than a widening of the first.
-function moveField(text, field) {
-  const m = text.match(new RegExp(`^${field}:\\s*(>-)?[ \\t]*\\n((?:[ \\t]+.*\\n?)*)`, "m"));
-  // SPLIT ON A NEWLINE, not on the two-character sequence backslash-n (PR #780
-  // round 1). The first form never split at all, so every real Move record —
-  // which wraps technique/question/draws_on/breaks across lines — reached
-  // the model's ENTIRE INPUT carrying its source newlines and two-space
-  // indents. The self-test could not see it: its fixture records write
-  // single-line folded scalars, so the fold was never exercised. Same
-  // fixture-too-small class this file records three times against its own
-  // cases, arriving here on the side a mutation cannot reach — there was no
-  // guard to delete, only a fold that silently did nothing.
-  if (m) return m[2].split("\n").map((l) => l.trim()).filter(Boolean).join(" ").trim();
-  const inline = text.match(new RegExp(`^${field}:[ \\t]*(.+)$`, "m"));
-  return inline ? inline[1].trim() : null;
-}
+// NO MOVE FIELD IS RENDERED (kogaki#1311, owner decision 2026-10-09). The
+// Packet carried the bound Move's `technique`, `question` and `breaks` until
+// this issue, and the writer instantiated the Move's general route alone —
+// the instantiation the 2026-10-05 and 2026-10-08 runs refused at Leg 2 and
+// Leg 4. The Leg now carries that instantiation itself, as `waypoints`
+// written at composition and judged there against the Move, and the Packet
+// renders the waypoints in the Move block's place. No Move file is opened
+// to render a Packet.
 
 // The leg block's fields, read off the recorded form `renderLeg` writes.
 // A field's CONTINUATION LINES — two-space-indented lines immediately below
@@ -1045,23 +1046,35 @@ export function claimAt(leg, addr) {
   return claimLines(leg)[Number(m[1]) - 1] ?? null;
 }
 
-// The Move's form for one figure-carrying Leg, with its roles in the CLOSED
-// SET'S declared order rather than the record's key order — the same record
-// must render the same bytes, and object key order is an accident of how the
-// file was written.
-export function figureFormFor(leg, movesDir = "moves") {
-  const r = figureOf(leg.move, movesDir);
-  if (r.error) return { error: `leg ${leg.leg_id}: ${r.error}` };
-  if (!r.form) {
-    return { error: `leg ${leg.leg_id} declares figure: and its move "${leg.move}" carries no figure — a figure is the INSTANCE of its Move's form (the figure decision). Composition refuses this, so a Brief reaching realization with it has had its Move edited since` };
-  }
+// The form for one figure-carrying Leg, with its roles in the CLOSED SET'S
+// declared order rather than the record's key order — the same record must
+// render the same bytes, and object key order is an accident of how the file
+// was written.
+//
+// THE KIND IS READ OFF THE LEG, NOT THE MOVE (kogaki#1311). Every kind in
+// src/figure-kinds.json has its own role set, and the Leg's `figure_roles`
+// binds exactly the roles of its Move's form — composition refused anything
+// else while the Move was still in reach (`resolveFigureForms`). So the kind
+// whose role set equals the Leg's bound roles IS that form's kind, and the
+// figure is designed without opening the Move. What a role means is the
+// kind's `relation` line and the claim it is bound to; the Move's own wording
+// for a role stays with the Move, whose responsibility ends at the Candidate.
+export function figureFormFor(leg) {
   const kinds = figureKinds().kinds || {};
-  const kind = r.form.kind;
-  if (!kind || !Object.prototype.hasOwnProperty.call(kinds, kind)) {
-    return { error: `leg ${leg.leg_id}: move "${leg.move}" declares figure kind ${JSON.stringify(kind ?? null)}, outside the closed set (${Object.keys(kinds).sort().join(", ")}) — src/figure-kinds.json is what admits a kind` };
+  const bound = Object.keys(leg.figure_roles || {}).sort();
+  const matches = Object.entries(kinds).filter(([, k]) => {
+    const roles = [...(k.roles || [])].sort();
+    return roles.length === bound.length && roles.every((r, i) => r === bound[i]);
+  });
+  if (matches.length !== 1) {
+    return { error: `leg ${leg.leg_id}: figure_roles binds ${bound.length ? bound.map((r) => `"${r}"`).join(", ") : "no role"}, `
+      + `which is ${matches.length ? "the role set of more than one kind" : "the role set of no kind"} in src/figure-kinds.json `
+      + `(${Object.entries(kinds).map(([n, k]) => `${n}: ${(k.roles || []).join(", ")}`).join("; ")}) — composition binds exactly `
+      + `one form's roles, so this Brief has been edited since it was adopted` };
   }
-  const roles = kinds[kind].roles || [];
-  return { kind, roles, relation: kinds[kind].relation, lines: Object.fromEntries(roles.map((x) => [x, r.form[x] ?? null])) };
+  const [kind, decl] = matches[0];
+  const roles = decl.roles || [];
+  return { kind, roles, relation: decl.relation, lines: Object.fromEntries(roles.map((x) => [x, decl.relation])) };
 }
 
 // The figure input: the stored Packet, unchanged, plus the filled block. The
@@ -1071,7 +1084,7 @@ export function figureFormFor(leg, movesDir = "moves") {
 export function renderFigureInput({ figureTemplate, packetText, leg, form, prose }) {
   const missing = form.roles.filter((r) => !form.lines[r]);
   if (missing.length) {
-    return { error: `leg ${leg.leg_id}: move "${leg.move}"'s ${form.kind} form maps no vocabulary line for ${missing.map((x) => `"${x}"`).join(", ")} — ingestion refuses such a form (the closed kind set and the Move's figure), so the library record has been edited since` };
+    return { error: `leg ${leg.leg_id}: the ${form.kind} form carries no line for ${missing.map((x) => `"${x}"`).join(", ")} — src/figure-kinds.json declares a relation for every kind, so the file has been edited since` };
   }
   const binding = [];
   for (const role of form.roles) {
@@ -1084,7 +1097,7 @@ export function renderFigureInput({ figureTemplate, packetText, leg, form, prose
   }
   const fields = {
     figure_kind: form.kind,
-    figure_form_roles: form.roles.map((r) => `- **${r}** — ${form.lines[r]}`).join("\n"),
+    figure_form_roles: form.roles.map((r) => `- **${r}**`).join("\n") + `\n\nWhat holds between them: ${form.relation}.`,
     figure_binding: binding.join("\n"),
     figure_reason: leg.figure,
     figure_prose: prose.trim(),
@@ -1107,7 +1120,7 @@ export function renderFigureInput({ figureTemplate, packetText, leg, form, prose
 export function figureRecordRefusal(record, leg, form, schema) {
   const at = `the figure record for leg ${leg.leg_id}`;
   if (record === null || typeof record !== "object" || Array.isArray(record)) {
-    return `${at} is not a JSON object — the record is the instance of the Move's form, one object (src/figure-schema.json)`;
+    return `${at} is not a JSON object — the record is the instance of the Leg's figure form, one object (src/figure-schema.json)`;
   }
   for (const key of schema.required) {
     if (!Object.prototype.hasOwnProperty.call(record, key)) {
@@ -1123,7 +1136,7 @@ export function figureRecordRefusal(record, leg, form, schema) {
     return `${at} carries ${extra.map((x) => `"${x}"`).join(", ")}, which src/figure-schema.json does not define — the record's fields are ${[...known].sort().join(", ")}`;
   }
   if (record.kind !== form.kind) {
-    return `${at} declares kind ${JSON.stringify(record.kind)} and move "${leg.move}"'s figure is ${JSON.stringify(form.kind)} — the record is the INSTANCE of that form (the figure decision), so its kind is the form's and never a choice made at realization`;
+    return `${at} declares kind ${JSON.stringify(record.kind)} and leg ${leg.leg_id}'s figure_roles bind the ${JSON.stringify(form.kind)} form — the record is the INSTANCE of that form (the figure decision), so its kind is the form's and never a choice made at realization`;
   }
   if (record.elements === null || typeof record.elements !== "object" || Array.isArray(record.elements)) {
     return `${at}: elements is one entry per role of the ${form.kind} form (${form.roles.join(", ")}), keyed by role`;
@@ -1550,7 +1563,23 @@ export function personaPriorKnowledge(path) {
 export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 
-export function renderPacket({ template, brief, leg, moveText, priorSections, section, sections }) {
+// The waypoints block's lines (kogaki#1311): `- <effect> Serves: <claim>[; <claim>]`,
+// one per waypoint, in order. A `serves` entry is resolved to the proposition
+// of this Leg's claim for that Strand; one naming no claim never reaches here,
+// because the realization entry refused it. Returns null on an empty route so
+// the caller's `need` names the hole.
+export function waypointLines(leg) {
+  const ws = leg.waypoints || [];
+  if (!ws.length) return null;
+  const byStrand = new Map();
+  for (const l of String(leg.body || "").split("\n")) {
+    const m = /^claim\s*\(strand\s+([^)\s]+)\s*\)\s*:\s*(.*)$/.exec(l);
+    if (m) byStrand.set(m[1], m[2].trim());
+  }
+  return ws.map((w) => `- ${w.effect.trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`).join("\n");
+}
+
+export function renderPacket({ template, brief, leg, priorSections, section, sections }) {
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
 
@@ -1625,12 +1654,13 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, se
   const conceded = concededRowFields(brief.text || "", leg.leg_id);
 
   const fields = {
-    // DERIVED FROM THE CONSTANT rather than naming the three again (PR #780
-    // round 1). The constant carried the exclusion's whole justification and
-    // was read by nothing, so it was a second statement of the rendered field
-    // set that could drift from the renderer with no check noticing.
-    ...Object.fromEntries(MOVE_FIELDS_RENDERED_REQUIRED.map((f) =>
-      [`move_${f}`, need(`${leg.move}'s ${f}`, moveField(moveText, f))])),
+    // THE ROUTE (kogaki#1311): one line per waypoint, in the Leg's order, each
+    // the effect and then the claim or claims it serves, quoted as this Leg's
+    // claims block quotes them — the Strand id is the Brief's address and the
+    // writer cannot open it, so the claim's own words stand in for it. A Leg
+    // with no waypoint never reaches here (`loadBrief` refuses it), and
+    // `need` refuses the render rather than leave the block empty.
+    waypoints: need(`${leg.leg_id}'s waypoints`, waypointLines(leg)),
     // THE READER TARGET LINE (kogaki#1231; moved into the Section block at
     // kogaki#1247): the marked Leg's, a closing Leg's, or nothing — off the
     // Brief's own `reaches_target:` mark, read by `parseLegBlockBody` above.
@@ -1700,12 +1730,12 @@ export function renderPacket({ template, brief, leg, moveText, priorSections, se
     journeys: need(`${leg.leg_id}'s Journey text`, (leg.journeys || []).length
       ? ((leg.journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === ""))
         ? null
-        : "Realize it fused into the Leg's own prose, for the Move's purpose — it is "
+        : "Realize it fused into the Leg's own prose, for this Leg's waypoints — it is "
           + "material, never a claim, and earns no paragraph of its own by being present.\n\n"
           + "Material, not assertion. Each entry below names a Journey this Leg draws on, "
           + "and its served prose, quoted in full. **Edit it for "
-          + "the Move's purpose**: cut it, compress it, retell it in this article's voice — "
-          + "the telling is yours, and the Move's technique above says what the telling is for.\n\n"
+          + "this Leg's waypoints**: cut it, compress it, retell it in this article's voice — "
+          + "the telling is yours, and the waypoints above say what the telling is for.\n\n"
           + "Nothing here is a claim. The claims above are the whole of what this Leg "
           + "asserts, and the round trip asks for those back and never for a fragment of a "
           + "Journey. A Journey you use well may leave almost none of its original wording "
@@ -1754,13 +1784,6 @@ function renderAndStorePacket(brief, id, args, ws) {
   const lang = langOf(args);
   const leg = brief.legs.find((s) => s.leg_id === id);
   if (!leg) return { error: `no leg "${id}" in this Brief's Reader Path (${brief.legs.map((s) => s.leg_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it` };
-  const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
-  let moveText;
-  try { moveText = readFileSync(join(movesDir, `${leg.move}.md`), "utf8"); }
-  catch (e) {
-    return { error: `leg ${id} binds move "${leg.move}" and its record cannot be read from ${movesDir} (${e.message}) — `
-      + `resolve refuses a dangling id before this point (the mechanical half of move id resolution), so this is the store rather than the Brief` };
-  }
   const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
   let template;
   try { template = readFileSync(tplPath, "utf8"); }
@@ -1794,7 +1817,7 @@ function renderAndStorePacket(brief, id, args, ws) {
   const journeysResolved = resolveLegJourneys(leg, brief);
   if (journeysResolved.error) return { error: journeysResolved.error };
 
-  const r = renderPacket({ template, brief, leg: journeysResolved.leg, moveText, priorSections: prior, section, sections });
+  const r = renderPacket({ template, brief, leg: journeysResolved.leg, priorSections: prior, section, sections });
   if (r.error) return { error: r.error };
 
   // THE LANGUAGE BLOCK (kogaki#1158): rendered into every Packet when
@@ -1987,8 +2010,7 @@ function cmdSection(args) {
   // driven by `figure`, not here: two inputs printed at once would leave the
   // realizer choosing which to answer.
   if (leg.figure !== undefined && leg.figure !== null) {
-    const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
-    const form = figureFormFor(leg, movesDir);
+    const form = figureFormFor(leg);
     if (form.error) fail(form.error);
     const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
     let template;
@@ -2033,8 +2055,7 @@ function cmdFigure(args) {
   if (!existsSync(sectionFile)) {
     fail(`leg ${id} has no realized prose at ${sectionFile} — the figure is designed FROM the text (the figure record), so the record cannot be filled before \`section --leg ${id}\` records it`);
   }
-  const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
-  const form = figureFormFor(leg, movesDir);
+  const form = figureFormFor(leg);
   if (form.error) fail(form.error);
 
   const schemaPath = join(dirname(fileURLToPath(import.meta.url)), "figure-schema.json");
@@ -2273,6 +2294,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     case "section": cmdSection(args); break;
     case "figure": cmdFigure(args); break;
     case "emit": cmdEmit(args); break;
-    default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--leg <id>]");
+    default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--strand <L-id>] [--leg <id>]");
   }
 }

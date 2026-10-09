@@ -548,7 +548,7 @@ function pollUntil(dir, pred, timeoutMs) {
     reader_state_before: "knowledge: before\nquestion: holds: none",
     reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }],
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ effect: `the reader comes to hold what ${legId} claims`, serves: ["L1"] }],
     ...extra,
   });
   const candidateOf = (leg2Extra) => ({
@@ -1320,7 +1320,7 @@ chmodSync(resumeJudge, 0o755);
     leg_id: legId, move: "m_open", materials: ["L1"], purpose: `what ${legId} is for`,
     reader_state_before: START, reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }],
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ effect: `the reader comes to hold what ${legId} claims`, serves: ["L1"] }],
     ...extra,
   });
   const cand = (id) => ({
@@ -1576,7 +1576,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     leg_id: legId, move: "m1", materials: ["L1"], purpose: `what ${legId} is for`,
     reader_state_before: START, reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], ...extra,
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ effect: `the reader comes to hold what ${legId} claims`, serves: ["L1"] }], ...extra,
   });
   const candidate = {
     candidate_id: "c1", characteristic: "x", reader_experience: "y", reader_start: START,

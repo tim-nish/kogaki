@@ -38,26 +38,10 @@ import { writerSettingsRefusal, WRITER_KEYS, WRITER_ACTS, parseWriterRecord } fr
 const fails = [];
 const root = mkdtempSync(join(tmpdir(), "draft-fresh-call-"));
 
-// ---- the fixture Brief and Move library, the self-test's own shape ----
-const movesDir = join(root, "moves");
-mkdirSync(movesDir, { recursive: true });
-const moveRecord = (id, extra = []) => [
-  `id: ${id}`,
-  "technique: >-", `  what ${id} does to the reader.`,
-  "before: >-", "  the state this move depends on.",
-  "after: >-", "  the state this move produces.",
-  "question: >-", "  holds: none",
-  "breaks: >-", "  what a correct performance must not do.",
-  ...extra,
-].join("\n") + "\n";
-writeFileSync(join(movesDir, "open_the_claim.md"), moveRecord("open_the_claim"));
-writeFileSync(join(movesDir, "close_the_claim.md"), moveRecord("close_the_claim"));
-writeFileSync(join(movesDir, "place_on_the_axis.md"), moveRecord("place_on_the_axis", [
-  "figure:", "  kind: axis",
-  "  endpoint_a: the state the reader starts in",
-  "  endpoint_b: the state the reader ends in",
-  "  criterion: what the two are being compared on",
-]));
+// ---- the fixture Brief, the self-test's own shape ----
+// NO MOVE LIBRARY (kogaki#1311): /draft opens no Move file, so the fixture
+// carries none and every act below runs without one. Each Leg carries the
+// waypoint line the realization entry requires.
 const briefText = (legs) => [
   "# Brief — fixture-brief", "",
   "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
@@ -71,7 +55,8 @@ const briefText = (legs) => [
 const leg = (id, move, extra = []) => [
   "```leg", `leg_id: ${id}`, `move: ${move}`, `purpose: purpose of ${id}`,
   `reader_state_before: before ${id}.`, `reader_state_after: after ${id}.`,
-  "materials: L1", `rationale: rationale for ${id}.`, ...extra, "```", "",
+  "materials: L1", `rationale: rationale for ${id}.`, ...extra,
+  `waypoint (serves L1): the reader is brought to what ${id} claims.`, "```", "",
 ];
 const briefDir = join(root, "theses", "fixture-brief");
 mkdirSync(briefDir, { recursive: true });
@@ -96,7 +81,7 @@ const count = join(root, "count.txt");
 const ws = join(root, "ws");
 const envOf = (over = {}) => ({ ...process.env, KOGAKI_JUDGE_CLI: stub, STUB_CAPTURE: capture, STUB_COUNT: count, ...over });
 const drive = (env, cmd, ...extra) => spawnSync(process.execPath,
-  ["src/draft.mjs", cmd, "--brief", join(briefDir, "brief.md"), "--workspace", ws, "--moves-dir", movesDir, ...extra],
+  ["src/draft.mjs", cmd, "--brief", join(briefDir, "brief.md"), "--workspace", ws, ...extra],
   { encoding: "utf8", env });
 const resetCount = () => { try { rmSync(count); } catch { /* none yet */ } };
 
@@ -191,7 +176,7 @@ const PROSE = "The fixture prose for the Leg, written by the stub writer.\n\nA s
   ]).replace("# Brief — fixture-brief", "# Brief — figure-brief"));
   const figWs = join(root, "ws-figure");
   const driveFig = (env, cmd, ...extra) => spawnSync(process.execPath,
-    ["src/draft.mjs", cmd, "--brief", join(figDir, "brief.md"), "--workspace", figWs, "--moves-dir", movesDir, ...extra],
+    ["src/draft.mjs", cmd, "--brief", join(figDir, "brief.md"), "--workspace", figWs, ...extra],
     { encoding: "utf8", env });
   const record = {
     kind: "axis",

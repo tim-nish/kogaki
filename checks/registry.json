@@ -661,6 +661,20 @@
       }
     },
     {
+      "id": "draft-packet",
+      "file": "checks/check-draft-packet.sh",
+      "admission": {
+        "contract": "The Leg Packet renders the Leg's waypoints and no Move, and the Draft stages open no Move file (owner decision 2026-10-09: Move information is responsible only up to the Candidate). `draft.mjs packet` renders a waypoints block carrying every waypoint's effect and the claim it serves in the claim's own words and no technique, question or breaks; `draft.mjs resolve` refuses a Leg with no waypoint naming the Leg and the field, and refuses `--moves-dir` by name; resolve, packet, section, emit and `review-draft.mjs open` open no path under moves/ under a filesystem trap with a control arm; and src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader src/compose.mjs exports",
+        "license": "kogaki#1311",
+        "tier": "pre-push",
+        "runtime_ms": 1000,
+        "efficacy": "case: checks/check-draft-packet.sh::(c) a Draft stage opened a path under moves/",
+        "efficacy_note": "mutation-verified at authoring: an `existsSync(join(\"moves\", ...))` added to the Packet render failed (c) driven and read, and dropping the realization-entry waypoints refusal failed (b) -- the named defect (kogaki#1311: the writer instantiated the Move's technique alone, from a Packet carrying the Move) constructed rather than a neighbour",
+        "removal_signal": "a ruling returns Move information to a stage after the Candidate, or the Leg loses `waypoints` -- either way the Packet no longer has one source and this check has nothing to bind",
+        "removal_instrument": "probe: ! grep -q '\"waypoints\"' src/leg-schema.json || grep -q 'move_technique' src/packet-template.md"
+      }
+    },
+    {
       "id": "no-test-outside-check-root",
       "file": "checks/check-no-test-outside-check-root.sh",
       "admission": {

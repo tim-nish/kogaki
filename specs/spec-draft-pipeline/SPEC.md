@@ -1,5 +1,25 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v43, amended 2026-10-09 (kogaki#1311) — **A LEG CARRIES ITS
+WAYPOINTS, THE MOVE IS READ ONLY UNTIL THE CANDIDATE IS COMPOSED, AND THE
+DRAFT WRITES FROM THE LEG ALONE.** On 2026-10-08 `/draft` stopped at Leg 4 of
+5: the writer could not perform the Move's `technique` from a Packet carrying
+one claim, after the fit judgment had passed the Leg by reading its state lines
+— the second run of the class #1276 repaired three days earlier. `technique`
+was read at four sites with four co-inputs. The owner decided (2026-10-09):
+"Information that belongs to Move has responsibility only up to CandidatePath
+creation." So every Leg carries `waypoints` (§4.1) — its own specialization of
+the Move's `technique`, an ordered list of effects on the reader each serving a
+claim — written at composition and judged there (§4.12.2); the Leg Packet
+renders the waypoints in place of the Move block (§4.14); and nothing after the
+Candidate opens a Move file: `draft.mjs` takes no `--moves-dir`, adoption
+resolves no Move (§4.12.1), and the figure stage reads its kind off the Leg's
+own `figure_roles` (§4.17). Carriers: `src/leg-schema.json`,
+`src/compose.mjs`, `src/brief.mjs`, `src/brief-workflow.json`,
+`src/draft.mjs`, `src/packet-template.md`, `src/review-draft.mjs`,
+`src/review-items.json`, `src/assemble.mjs`. **deferred slots minted by this
+amendment: none.**
+
 **Status:** v42, amended 2026-10-08 (kogaki#1307) — **MOVE FIT IS JUDGED INSIDE
 THE COMPOSE JOB, PER JOB UNIT, AND THE REVISE PASS IS REMOVED.** The Brief run
 of 2026-10-08 ended with no Reader Path and no question: one compose job unit
@@ -395,6 +415,28 @@ those paths into.
   kogaki#1176.
 - **`purpose`** — what the Leg does to the reader.
 - **`reader_state_before`** / **`reader_state_after`**.
+- **`waypoints`** — **required** (kogaki#1311). The ordered route from
+  `reader_state_before` to `reader_state_after`: this Leg's own
+  specialization of its Move's `technique`, written when the Leg is composed.
+  Each waypoint carries an `effect` and the claims it `serves`, by Strand id.
+  Two boundaries, both the owner's (2026-10-09):
+  - **An effect, never wording.** "A `development.element` describes what it
+    does to the Reader, not what should be written. That prevents the prose
+    from becoming templated."
+  - **It serves a claim, and need not state one.** A waypoint "does not have
+    to directly use the Claim itself; it only needs to produce prose that is
+    functionally related to and serves that Claim."
+
+  **The count is the composer's**, decided from the Move's prose, and the
+  composer need not reproduce a Move's internal structure element for
+  element, even where the Move describes a fixed number. One waypoint per
+  paragraph is "a strong tendency rather than a guarantee", and no mechanism
+  refuses a mismatch. `validateLegs` refuses an empty list, a waypoint with an
+  empty `effect` or `serves`, a `serves` entry naming a Strand the Leg carries
+  no claim for, and a claim no waypoint serves — each naming the Leg and the
+  waypoint; `draft.mjs resolve` refuses a Brief Leg carrying none, by name. **No
+  Move information is copied onto the Leg**: `breaks` is part of the Move and
+  its responsibility ends when the Candidate is produced.
 - **`depends_on`** — the earlier Legs whose conclusions this Leg stands on.
 - **`rationale`** — why *this article's* materials make this the next Leg.
 - **`introduces`** — optional; §4.13.
@@ -488,8 +530,8 @@ states the reader's position on the Move's own dimensions, `presupposes`
 states what the Move assumes without moving it.
 
 **`draws_on` retired (kogaki#1280, owner ruling).** No composer, judge or
-Packet read it; the Leg Packet's Move block has always been `technique`,
-`question`, `breaks`, so the field carried nothing downstream and was removed
+Packet read it; the Leg Packet's Move block was then `technique`,
+`question`, `breaks` (and left the Packet with kogaki#1311), so the field carried nothing downstream and was removed
 from the record contract.
 
 **`continues_from`.** Optional. A prior Move's `id`, when this Move picks up
@@ -498,13 +540,16 @@ in their own notes; the rest are true openings and carry no value.
 
 **`technique`.** What the Move does, written subject-free — replaces
 `intent`. Subject-free is the general rule (below); `technique` is where the
-Corpus already wrote it that way without being told to.
+Corpus already wrote it that way without being told to. A Leg specializes it
+in its own `waypoints` (§4.1) and the writer never reads it (kogaki#1311).
 
 **`breaks`.** The three tests a correct performance must survive — remove,
 reorder, extend — one line each, replacing `constraints` and `failure_modes`.
-Rendered in the Leg Packet as what the writer must not do (§4.14) and read at
-Reverse Outlining as what to check; not read by Path Review's specialization
-judgment, which compares the Leg's states to `before`/`after` only (§4.4).
+Read by the Move-fit judgment, which asks whether a Leg's waypoints survive
+each test (§4.12.2), and by the composer choosing a Move; not rendered to the
+writer and not read by Reverse Outlining, which compares the prose to the
+Leg's waypoints instead (kogaki#1311 — the sentence this replaces said the
+reverse, and stopped being true when the Move left the Packet).
 
 **`evidence`.** Optional, typically empty until source metadata is captured
 upstream. A source line naming the work and where the Passage sits — never a
@@ -558,15 +603,16 @@ reads today, from `src/draft.mjs` and `src/compose.mjs`:
 
 | role | fields | read by |
 |---|---|---|
-| `rendered-to-writer` | `technique`, `question`, `breaks` | the Leg Packet's Move block (§4.14) |
+| `specialized-by-the-Leg` | `technique`, `breaks` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); no stage after the Candidate (kogaki#1311) |
+| `question-chain` | `question` | `validateLegs`' question chain and Path Review's `question_chain` item (§4.12.2), both inside the Candidate phase |
 | `state-before` | `before` | Path Review's specialization judgment (§4.4) |
 | `state-after` | `after` | Path Review's specialization judgment (§4.4) |
 | `figure-roles` | `figure` | a Leg's `figure:` declaration (§4.16) |
 | `identity` | `id`, `continues_from` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
 | not read downstream | `order`, `presupposes`, `evidence` | nothing; kept for the record's own sake |
 
-A second schema declaring, say, a `claim` field under the `rendered-to-writer`
-role runs through the same Packet unmodified. The multi-schema manifest itself
+No Move field has a role read after the Candidate: the `rendered-to-writer`
+role left this table with kogaki#1311, when the Packet stopped carrying the Move. The multi-schema manifest itself
 — one library, several declared schemas — is not built by this Issue; it is
 deferred, productization work, and this table is what a later reopen builds
 on.
@@ -1039,19 +1085,20 @@ no way to tell an addition from a re-division.
 
 #### 4.12.1 The mechanical half — move id resolution
 
-Every `move:` resolves to a record in the library. A path **cannot be adopted**
-and `resolve` **refuses an existing Brief** with a dangling id; the refusal
-names **the Leg and the id**.
+Every `move:` resolves to a record in the library, and a Candidate binding a
+dangling id is refused **at composition** (`validateReaderPathUnit`), naming
+**the Leg and the id**, where the unit's re-ask can still repair it.
 
-**Two seats, and neither subsumes the other.** Adoption stops a dangling id
-entering a Brief. `resolve` stops a Brief whose **library moved underneath it**
-— a Move renamed or withdrawn after composition dangles without the Brief
-changing at all, so a Brief that passed adoption can fail at realization.
-**One resolver, not two:** both seats call the same exported function.
+**One seat, since kogaki#1311.** There were two: adoption stopped a dangling id
+entering a Brief, and `resolve` stopped a Brief whose library moved underneath
+it. Both read the Move after the Candidate was composed, which the owner's
+2026-10-09 decision ends — "Information that belongs to Move has
+responsibility only up to CandidatePath creation." A Move renamed after a
+Brief was composed no longer reaches realization at all: the Leg carries its
+own `waypoints`, and nothing in the Draft lane opens the Move it names.
 
-`necessity:` two seats and one resolver. That neither seat subsumes the other
-is a claim about when a library moves relative to a Brief, which no call site
-states.
+`necessity:` the seat's position is a claim about where the Move's
+responsibility ends, which no call site states.
 
 #### 4.12.2 The judged half — the specialization verdict
 
@@ -1066,6 +1113,25 @@ states.
 3. **A deterministic refusal naming the failing Leg**, in the path's own
    order, **quoting the sentence the judging sitting wrote** rather than
    paraphrasing a judgment the runtime did not make.
+
+**What is judged, per Leg** (kogaki#1311, replacing #1276's second and third
+clauses). Three things, all against the Move the Leg binds, whose contract the
+input carries beside the Leg's own `waypoints`:
+
+- whether `reader_state_before` and `reader_state_after` are consistent
+  specializations of the Move's `before` and `after` — the first Leg's before
+  against Reader start, below;
+- whether the Leg's **waypoints, read in order, are a consistent
+  specialization of the Move's `technique`**, each waypoint's effect obtainable
+  from the claim it serves. The waypoints are judged, not the claims and not
+  the state lines: on 2026-10-08 the judgment read Leg 4's state lines, which
+  the composer had written to mirror the Move, and passed a Leg the writer
+  then could not perform;
+- whether the waypoints **survive each test in the Move's `breaks`**.
+
+**Count fidelity is not a criterion.** A Leg whose `technique` names "twice"
+and whose waypoints number three is not refused on that ground. The verdict
+vocabulary and the one retry (kogaki#1307) are unchanged.
 
 **Why not Path Review.** Path Review's output is reasoning surfaced for a human
 gate — never a verdict, never a score — and `src/review.mjs` refuses any
@@ -1105,8 +1171,10 @@ buys a refusal that says **which**, because an unjudgeable Move contract and a
 contradicted one need different repairs.
 
 **The judged half is rendered once, at composition, and is not re-derived at
-realization.** `resolve` re-runs the mechanical half only; re-deriving the
-verdict would be the runtime composing one, which clause 2 forbids.
+realization.** `resolve` reads no Move at all since kogaki#1311 — it checks
+that every Leg carries waypoints that serve its claims, which is shape;
+re-deriving the verdict would be the runtime composing one, which clause 2
+forbids.
 
 **The first Leg's before-state is judged against Reader start, not against
 its Move's `before`** (kogaki#1216, owner decision 2026-09-28). Reader start is
@@ -1274,10 +1342,10 @@ that benefit was never verified. `evidence` is typed accordingly — optional,
 typically empty, **read by nothing downstream** (§4.2's role table) — rather
 than reopening a predicate whose value this Issue found no ground for.
 
-**The Leg Packet's Move block is `technique`, `question`, `breaks`
-(§4.14, §4.2's `rendered-to-writer` role; `draws_on` retired, kogaki#1280).**
-None of the three is source text a writer imitates verbatim; a writer works
-from the technique's description, not from an exemplar passage.
+**The Leg Packet carries no Move block** (kogaki#1311). It carried
+`technique`, `question` and `breaks` until then; the Move's prose left the
+Packet with that Issue, and the writer works from the Leg's own waypoints
+(§4.14).
 
 `necessity:` a retirement recorded at the section that used to carry the
 mechanism, so a reader who remembers "exemplar" finds why it is gone rather
@@ -1320,7 +1388,7 @@ article another article's subject matter — so its header says so in the
 imperative.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
-anchors → the Move's contract → the Leg's fields → the §4.13 ledger → **this
+anchors → **the Leg's waypoints** → the Leg's fields → the §4.13 ledger → **this
 Leg's own §5.2 Closure rows** → every previously realized Leg's prose in
 recorded order → the write instruction.
 
@@ -1331,13 +1399,17 @@ whole ledger. A Leg party to no row renders the block **empty rather than
 absent**, on the same one-word-one-unit ground the reader-knowledge ledger's
 own empty case states.
 
-**The Move's `before`/`after` are EXCLUDED**, and the exclusion is the ruling
-rather than an omission: §4.12 makes the Leg's own `reader_state_before`/
-`after` the instance forms of exactly those two fields, so rendering both
-would put the general and the specialized statement of one thing side by side
-and leave the model to choose. The Leg's instantiated states win, under their
-own names — the collision is in the two pairs' meaning, general vs.
-specialized, never in which one renders.
+**No Move field renders, and the waypoints block takes the Move block's place**
+(kogaki#1311). The Move's `before`/`after` were excluded from the start, for
+the reason that now covers every Move field: the Leg carries the instance form
+of each — its states for `before`/`after`, its waypoints for `technique` — so
+rendering the Move beside it would put the general and the specialized
+statement of one thing side by side and leave the model to choose. The block
+renders each waypoint's effect and the claim it serves, in the claim's own
+words, under a fixed usage header: a waypoint says what a step does, never
+what to write; a paragraph opens on the sentence that states its point; one
+paragraph per waypoint is the expected shape, and the writer may spend more or
+fewer where an effect needs it. `draft.mjs` opens no Move file to render it.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
 run id, and prior Legs' prose in the **Brief's recorded order** rather than from
@@ -1540,7 +1612,8 @@ non-empty line, a binding of the form `role=g<n>`, an address inside this Leg's
 claim count — is decidable from the Leg record alone and refuses at
 `validateLegs`. Whether the Move declares a form at all, and whether the
 bindings are exactly that form's roles, needs the Move library open and refuses
-at adoption, beside §4.12.1's move-id resolution. Both are "at composition" in
+at composition, beside §4.12.1's move-id resolution (it sat at adoption until
+kogaki#1311 ended the Move's reads after the Candidate). Both are "at composition" in
 §4.15's sense: the Brief is being authored and the refusal can still be fixed.
 
 **A binding to another Leg's claim is unreachable rather than separately
@@ -1593,8 +1666,10 @@ prose is the article and the figure carries what the prose leaves hard to hold.
 prose and then renders the **figure input**: the Leg's Packet exactly as it was
 served, plus a block carrying
 
-- **the form** — its kind, and each role with the line the Move's `figure`
-  maps it to;
+- **the form** — its kind and roles, and the kind's relation line from
+  `src/figure-kinds.json`. The kind is read off the Leg's own `figure_roles`:
+  every kind's role set is distinct and composition bound exactly one form's
+  roles, so no Move is opened (kogaki#1311);
 - **the binding** — each role with the claim text the Brief bound it to,
   quoted verbatim, licence included;
 - **the `figure:` reason line** from the Brief;
@@ -1612,7 +1687,8 @@ ends is one whose two halves nothing distinguishes.
 
 **The Packet stays the only input.** Nothing the model reads at realization is
 outside it: the form and the binding travel in the appended block, which the
-Harness composes from the Move record it already read to render the Packet. This
+Harness composes from the Leg and the closed kind set, never from a Move
+record. This
 is the owner's 2026-09-04 rule applied to figures.
 
 **The record is one JSON object, the instance of the form** in the sense a Leg
