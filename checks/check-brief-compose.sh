@@ -418,7 +418,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
     reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
     reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ effect: `the reader comes to hold what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
   const marked = renderLeg(legOf("s2", { reaches_target: true }));
@@ -543,7 +543,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   const fullLegs = legs.map((s) => ({ ...s, move: "m", materials: ["L1"], purpose: `purpose of ${s.leg_id}`,
     reader_state_before: `orientation: before ${s.leg_id}\nknowledge: before ${s.leg_id}`,
     reader_state_after: `orientation: after ${s.leg_id}\nknowledge: after ${s.leg_id}`,
-    depends_on: [], rationale: `why ${s.leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${s.leg_id}` }] }));
+    depends_on: [], rationale: `why ${s.leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${s.leg_id}` }], waypoints: [{ effect: `the reader comes to hold what ${s.leg_id} claims`, serves: ["L1"] }] }));
   fullLegs[0].opens_section = "A Section";
   fullLegs[3].reaches_target = true;
   const rFull = validateLegs(fullLegs, "", threeOpenAtLeg3);
@@ -564,7 +564,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
     reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
     reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ effect: `the reader comes to hold what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
   const path = (s2extra) => {
@@ -642,7 +642,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
     reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
     reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ effect: `the reader comes to hold what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
   const legs = [legOf("s1")];
@@ -682,7 +682,9 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
         for (const rule of rules) {
           if (!packet.includes(rule)) fails.push(`(o) the Packet does not carry the Write rule verbatim: ${JSON.stringify(rule)}`);
         }
-        if (!/never prose/.test(packet)) fails.push("(o) the Packet's Move block header does not carry \"never prose\"");
+        // THE WAYPOINTS BLOCK REPLACED THE MOVE BLOCK (kogaki#1311): its header
+        // says a waypoint is what a step does, never what to write.
+        if (!/never what\s+to write/.test(packet)) fails.push("(o) the Packet's waypoints block header does not carry \"never what to write\"");
       }
     }
   }
@@ -694,6 +696,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
 {
   const leg = {
     leg_id: "s1", move: "open_the_claim", body: "claim (strand L1): claim of s1",
+    waypoints: [{ effect: "the reader comes to hold what s1 claims", serves: ["L1"] }],
     journeys: [{ strand: "L1", use: "an example to retell", resolvedText: "The served Journey's own prose, verbatim." }],
   };
   const brief = {
@@ -704,10 +707,8 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
   if (split.error) fails.push(`(p) the Packet template did not split: ${split.error}`);
   else {
-    const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
-      "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
     const sections = sectionsOf(brief.legs);
-    const r = renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
+    const r = renderPacket({ template: split.packet, brief, leg, priorSections: [],
       ledgerRow: undefined, section: sectionOfLeg(brief.legs).get("s1"), sections });
     if (r.error) fails.push(`(p) the Packet for s1 did not render: ${r.error}`);
     else {
@@ -719,10 +720,10 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   // resolution) refuses the SAME WAY an absent block does anywhere else in
   // the Packet — never a hole the model fills by invention.
   const legUnresolved = { leg_id: "s2", move: "open_the_claim", body: "claim (strand L1): claim of s2",
+    waypoints: [{ effect: "the reader comes to hold what s2 claims", serves: ["L1"] }],
     journeys: [{ strand: "L1", use: "an example to retell" }] };
   const sections2 = sectionsOf([legUnresolved]);
   const r2 = renderPacket({ template: split.packet, brief: { ...brief, legs: [legUnresolved] }, leg: legUnresolved,
-    moveText: ["id: open_the_claim", "technique: >-", "  x.", "question: >-", "  holds: none", "breaks: >-", "  x.", ""].join("\n"),
     priorSections: [], ledgerRow: undefined, section: sectionOfLeg([legUnresolved]).get("s2"), sections: sections2 });
   if (!r2.error) fails.push("(p) a Journey entry with no resolvedText rendered a Packet instead of refusing");
   else if (!/s2's Journey text/.test(r2.error)) fails.push(`(p) the unresolved-Journey refusal does not name the Leg's Journey text: ${r2.error}`);
@@ -887,7 +888,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     leg_id, move: "open_the_claim", materials: ["L1", "L2"], purpose: `purpose of ${leg_id}`,
     reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
     reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ effect: `the reader comes to hold what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
   const legs = [legOf("s1", { opens_section: "A Section", introduces: ["unfed guard — a guard whose input nobody feeds", "pipeline"], ...s1extra }),
@@ -1023,7 +1024,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
     reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
     reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ effect: `the reader comes to hold what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
   const briefOf = (legs, header = [], closure = []) => parseBrief([
@@ -1333,7 +1334,7 @@ const leg1276 = (legId, extra) => ({
   reader_state_before: "knowledge: before\nquestion: holds: none",
   reader_state_after: "knowledge: after\nquestion: holds: none",
   depends_on: [], rationale: `why ${legId} sits here`,
-  claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }],
+  claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ effect: `the reader comes to hold what ${legId} claims`, serves: ["L1"] }],
   ...extra,
 });
 const cand1276 = (id, leg2Extra = {}) => ({
@@ -1562,7 +1563,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
     leg_id: "s1", move: "open_the_claim", materials: ["L1"], purpose: "purpose of s1",
     reader_state_before: "orientation: before s1\nknowledge: before s1",
     reader_state_after: "orientation: after s1\nknowledge: after s1",
-    depends_on: [], rationale: "why s1", claims: [{ type: "strand", strand: "L1", proposition: "claim of s1" }],
+    depends_on: [], rationale: "why s1", claims: [{ type: "strand", strand: "L1", proposition: "claim of s1" }], waypoints: [{ effect: "the reader comes to hold what s1 claims", serves: ["L1"] }],
     journeys: [{ strand: "L1", use: "contrast" }],
   };
   const rendered = renderLeg(leg);
@@ -1627,7 +1628,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
     reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
     reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ effect: `the reader comes to hold what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
 
@@ -1679,7 +1680,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
     reader_state_before: `orientation: before ${leg_id}\nknowledge: before ${leg_id}`,
     reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
     depends_on: [], rationale: `why ${leg_id}`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ effect: `the reader comes to hold what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
   const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] }), legOf("s3", { depends_on: ["s2"] })];

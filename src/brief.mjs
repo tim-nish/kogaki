@@ -120,7 +120,7 @@ import { cmdAttach, attachReview, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHAR
 import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
   validateLegs, validateSpecialization, specializationFailures, selectedStrands, journeyBearingStrands,
-  resolveMoveIds, loadMoveContracts, moveContractsForLegs,
+  resolveMoveIds, resolveFigureForms, loadMoveContracts, moveContractsForLegs,
   readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, questionChainPairs, dischargeRows,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
@@ -1407,6 +1407,13 @@ export function validateReaderPathUnit(candidate, inputs) {
   // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
   const mv = resolveMoveIds(c.legs, movesDir);
   if (mv.error) return { error: `candidate ${c.candidate_id}: ${mv.error}` };
+  // THE FIGURE DECISION'S MOVE-DEPENDENT HALF, RESOLVED HERE AND NOWHERE LATER
+  // (kogaki#1311; it sat at adoption under kogaki#877). Whether a figure-
+  // carrying Leg's Move declares a form, and whether its bindings are exactly
+  // that form's roles, needs the Move open — and the Move is read up to the
+  // Candidate and never again, so this is the last seat that can decide it.
+  const fig = resolveFigureForms(c.legs, movesDir);
+  if (fig.error) return { error: `candidate ${c.candidate_id}: ${fig.error}` };
   // THE CLOSED STRAND SET, refused HERE rather than only at adoption. A
   // material outside the Brief's closed set is refused by `fillBrief` at
   // `adopt_candidate` -- after the owner has chosen the path -- so raising

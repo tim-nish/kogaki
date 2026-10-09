@@ -122,7 +122,7 @@
     "move": {
       "required": false,
       "type": "string",
-      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `before`, `after`, `technique` and `breaks`, read from the Move file. `before` and `after` are the reader states the Move moves between; `technique` is what the prose of this Leg will be asked to do, step by step; `breaks` are the tests a correct performance must survive. Choose a Move only where every step of its `technique` can be carried out from this Leg's own claims and materials and the Leg survives each `breaks` test. An id outside the set resolves to no record and is refused at composition, naming the Leg and the id. A Leg carries exactly one of `move` and `no_move_fits` (kogaki#1125, kogaki#1276)."
+      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `before`, `after`, `technique` and `breaks`, read from the Move file. `before` and `after` are the reader states the Move moves between; `technique` is the general route between them, which this Leg SPECIALIZES in its own `waypoints`; `breaks` are the tests that route must survive. Choose a Move only where you can write waypoints that specialize its `technique` from this Leg's own claims and materials and that survive each `breaks` test. THE MOVE IS READ HERE AND NEVER AGAIN (kogaki#1311, owner decision 2026-10-09): no stage after the Candidate opens a Move, so the writer meets this Leg's waypoints and never the Move's prose. An id outside the set resolves to no record and is refused at composition, naming the Leg and the id. A Leg carries exactly one of `move` and `no_move_fits` (kogaki#1125, kogaki#1276)."
     },
     "no_move_fits": {
       "required": false,
@@ -136,10 +136,17 @@
       "description": "What this Leg ASSERTS, one entry per Strand it names in `materials`. A claim is a PROPOSITION ABOUT THE WORLD and names no reader; a claim that mentions the reader belongs in `purpose` or in a state field. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. A claim is stated in EVERYDAY WORDS plus the words the Persona's `prior_knowledge` grants (owner decision 2026-10-06): where the Strand's own vocabulary and the Persona's do not match, the claim conforms to the Persona, never to the Strand's term of art. Any other word appears in a claim only if an `introduces` entry on this Leg or an earlier Leg carries it -- the reader-knowledge ledger is what makes a term available to speak of. An absent or empty `prior_knowledge` grants no extra word and refuses nothing: the Persona may be empty or very general, and the design does not fail when it grants nothing. See `claim` below -- the cardinality rule is the part most likely to be got wrong.",
       "see": "claim"
     },
+    "waypoints": {
+      "required": true,
+      "type": "array of waypoint",
+      "min_length": 1,
+      "description": "The route this Leg takes the reader along, from `reader_state_before` to `reader_state_after`, as an ORDERED list of waypoints -- this Leg's specialization of its Move's `technique` (kogaki#1311, owner decision 2026-10-09). Each waypoint says what that step DOES TO THE READER, never what the prose says: an effect, not a sentence to write, which is what keeps the prose from becoming templated. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. How many waypoints a Leg carries is yours to decide from the Move's prose and this Leg's claims: you need not reproduce the Move's internal structure element for element, even where its `technique` describes a fixed number, and nothing reads the count. One waypoint tends to become one paragraph, as a strong tendency rather than a guarantee. A waypoint whose effect no claim of this Leg supports is the signal that the Leg is short of material: pull in a Journey, bind another Move, or report `no_move_fits` -- never a waypoint serving a claim it does not draw on. See `waypoint` below.",
+      "see": "waypoint"
+    },
     "journeys": {
       "required": false,
       "type": "array of journey",
-      "description": "The Journeys this Leg draws on, each naming the Strand whose Journey it takes and what the Leg uses it for. A Journey is MATERIAL THE LEG EDITS, never an assertion the Leg must recover -- it carries no claim, Reverse Outlining checks no fragment of it, and the Leg Packet renders it as prose to edit for the Move's purpose. Nothing here bounds how many a Leg declares: a Leg telling two cases for one claim is a path-review judgment, the way the number of claims is bounded by the Leg's materials rather than by a number. See `journey` below.",
+      "description": "The Journeys this Leg draws on, each naming the Strand whose Journey it takes and what the Leg uses it for. A Journey is MATERIAL THE LEG EDITS, never an assertion the Leg must recover -- it carries no claim, Reverse Outlining checks no fragment of it, and the Leg Packet renders it as prose to edit for this Leg's waypoints. Nothing here bounds how many a Leg declares: a Leg telling two cases for one claim is a path-review judgment, the way the number of claims is bounded by the Leg's materials rather than by a number. See `journey` below.",
       "see": "journey"
     },
     "entailed": {
@@ -373,6 +380,54 @@
         "required": true,
         "type": "string",
         "description": "The Strand this claim is asserted on behalf of, as a LessonDisplayID (`L<n>`). It is one of this Leg's `materials`, it is where the pinned Lesson that grounds the claim is addressed, and no other claim of this Leg names it."
+      }
+    }
+  },
+  "waypoint": {
+    "definition": [
+      "A WAYPOINT IS ONE STEP OF WHAT THIS LEG DOES TO ITS READER (kogaki#1311).",
+      "The Leg's `reader_state_before` and `reader_state_after` say where the",
+      "reader starts and ends; the waypoints say how the Leg gets them from one",
+      "to the other, in order. The Move's `technique` says that in general and",
+      "for every article; a Leg's waypoints say it for THIS Leg's claims.",
+      "",
+      "AN EFFECT, NEVER A SENTENCE TO WRITE. `effect` is what the reader is",
+      "brought to see, doubt, hold or expect at this step, in one or two",
+      "sentences. A waypoint that dictates wording turns the writer into a",
+      "transcriber and the article into a template; the writer decides what",
+      "is written to produce the effect.",
+      "",
+      "IT SERVES A CLAIM, AND NEED NOT STATE ONE. A waypoint does not have to",
+      "use the claim itself; it only needs to produce prose that is",
+      "functionally related to that claim and serves it. A reinforcing step --",
+      "an example, a consequence, an answer to the obvious objection -- names",
+      "the claim it reinforces in `serves`.",
+      "",
+      "THE MOVE'S RESPONSIBILITY ENDS HERE. The Move is read when the Leg is",
+      "composed and judged, and never again: the Leg Packet renders these",
+      "waypoints in place of any Move field, and nothing after the Candidate",
+      "opens a Move file. So whatever the writer needs from the Move has to be",
+      "in the waypoints.",
+      "",
+      "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses",
+      "an empty list, a waypoint with an empty `effect` or an empty `serves`,",
+      "a `serves` entry naming a Strand this Leg carries no claim for, and a",
+      "claim of this Leg that no waypoint serves -- each naming the Leg and",
+      "the waypoint. Whether the waypoints specialize the Move's `technique`",
+      "and survive its `breaks` is judged, at the Move-fit judgment, and never",
+      "a lint."
+    ],
+    "fields": {
+      "effect": {
+        "required": true,
+        "type": "string",
+        "description": "What this step does to the reader, in one or two sentences -- what they are brought to see, doubt, hold or expect. Never what the prose says, and never a sentence for the writer to copy."
+      },
+      "serves": {
+        "required": true,
+        "type": "array of string",
+        "min_length": 1,
+        "description": "The claim or claims of this Leg this step serves, each named by the Strand id its claim names (`L<n>`). Every entry is a Strand this Leg carries a claim for."
       }
     }
   },

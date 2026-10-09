@@ -77,8 +77,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fillBrief, replaceSlot, selectedStrands, placements,
-  resolveMoveIds, validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
-  resolveFigureForms, figureClause, figureLegs,
+  validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
+  figureClause, figureLegs,
   ownerGateDigest, validateOwnerAnswer, targetLegIndex,
          journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
@@ -1292,29 +1292,17 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
       + `Nothing was written.` };
   }
 
-  // THE LEG↔MOVE INSTANTIATION CONTRACT (the Leg-Move instantiation contract, kogaki#747), BOTH HALVES,
-  // BEFORE ANYTHING IS WRITTEN. Adoption is the one surviving write that
-  // lands a sequence in an existing Brief, so it is the one occasion at which
-  // the contract can be made unskippable: a path reaches a Brief through here
-  // or it does not reach one at all. That is why the seat is here and not at
-  // path review — review's output is reasoning for a human gate and is
-  // refused any verdict-shaped field by key (src/review.mjs), so a verdict
-  // recorded there would be unattachable by construction.
+  // THE LEG↔MOVE INSTANTIATION CONTRACT AT ADOPTION IS ITS JUDGED HALF ALONE
+  // (kogaki#1311, owner decision 2026-10-09: "Information that belongs to Move
+  // has responsibility only up to CandidatePath creation"). Adoption opens no
+  // Move file. The mechanical half — every move id resolves to a library
+  // record — and the figure decision's Move-dependent half both ran at
+  // composition (`validateReaderPathUnit`, src/brief.mjs), where the Move is
+  // still in reach and a refusal is still repairable by the unit's re-ask;
+  // here they would re-open the library one state past the point the Move's
+  // responsibility ends. What adoption still owes is the fit record, rendered
+  // as the record it is.
   //
-  // MECHANICAL HALF — every move id resolves to a Move library record.
-  const resolved = resolveMoveIds(c.legs, instantiation.movesDir);
-  if (resolved.error) {
-    return { error: `candidate ${candidateId}: ${resolved.error} Nothing was written to the Brief.` };
-  }
-  // the figure decision's MOVE-DEPENDENT HALF (kogaki#877), at the same unskippable seat and
-  // immediately after it: whether each figure-carrying Leg's Move declares a
-  // form, and whether the bindings are exactly that form's roles, is decidable
-  // only with the library open — which is what this occasion already has. The
-  // grammar and the claim addressing were refused at `validateLegs`.
-  const figured = resolveFigureForms(c.legs, instantiation.movesDir);
-  if (figured.error) {
-    return { error: `candidate ${candidateId}: ${figured.error} Nothing was written to the Brief.` };
-  }
   // JUDGED HALF — the specialization record is REQUIRED, and its absence is
   // refused HERE rather than inside the validator: "no record" is a fact
   // about the act that did not happen, not about a record's shape. This is
@@ -1487,14 +1475,14 @@ export function cmdAdoptCandidate(args) {
     "adopt-candidate needs --candidate <id> — which Candidate is being adopted. It is checked AGAINST the "
     + "owner's recorded answer at the Candidate gate selection gate (--selection) and never stands in for it.");
   const doc = readFileSync(briefPath, "utf8");
-  // the Leg-Move instantiation contract's two halves reach the runtime as CALLER-SUPPLIED INPUTS, never as
-  // something this command derives: the moves directory is a path (default
-  // `moves`, overridable so the checks can point at a fixture library), and
-  // the specialization record is read from disk and parsed, never composed.
+  // the Leg-Move instantiation contract's judged half reaches the runtime as a CALLER-SUPPLIED INPUT, never as
+  // something this command derives: the specialization record is read from
+  // disk and parsed, never composed. No moves directory is taken any more —
+  // adoption opens no Move file (kogaki#1311).
   // `--specialization` has no default and no implicit empty value — an
   // omitted flag reaches `adoptCandidate` as `undefined` and is refused
   // there, which is what makes the occasion unskippable.
-  const instantiation = { movesDir: typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : undefined };
+  const instantiation = {};
   if (typeof args.specialization === "string" && args.specialization !== "") {
     try { instantiation.specialization = JSON.parse(readFileSync(args.specialization, "utf8")); }
     catch (e) { fail(`the specialization record at ${args.specialization} cannot be read (${e.message}) — the Leg-Move instantiation contract's judgment record is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
@@ -1602,6 +1590,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   switch (args._cmd) {
     case "assemble": cmdAssemble(args); break;
     case "adopt-candidate": cmdAdoptCandidate(args); break;
-    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> --selection <capture> [--moves-dir <dir>]");
+    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> --selection <capture>");
   }
 }

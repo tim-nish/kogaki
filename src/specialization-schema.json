@@ -35,9 +35,11 @@
       "THE JUDGMENT RUNS OVER EVERY CANDIDATE, BEFORE THE OWNER CHOOSES",
       "(kogaki#1276, owner decision 2026-10-05). Each Leg is judged against its",
       "Move's `before`, `after`, `technique` and `breaks`: `consistent` only",
-      "where the reader states specialize `before` and `after`, every step of",
-      "`technique` can be carried out from the Leg's own claims and materials,",
-      "and the Leg survives each `breaks` test. A Candidate with any other",
+      "where the reader states specialize `before` and `after`, the Leg's",
+      "waypoints, read in order, specialize `technique` with each waypoint's",
+      "effect obtainable from the claim it serves, and the waypoints survive",
+      "each `breaks` test (kogaki#1311; the waypoint count is no criterion).",
+      "A Candidate with any other",
       "verdict is not offered at the Candidate question, which names it and",
       "the Leg that failed. With none left, the Brief ends with no question."
     ]

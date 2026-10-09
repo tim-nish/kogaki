@@ -41,7 +41,7 @@ bans becomes the first hit of any check grepping for it, which is the
 use-versus-mention defect this repository has recorded repeatedly. The check
 asserts the absence; this comment says why the absence is deliberate.
 
-Block order is fixed: Move contract, the Leg's claims, the Journey material,
+Block order is fixed: the waypoints, the Leg's claims, the Journey material,
 the Leg's Section, ledger, the article so far, instruction. Heavy prose late,
 instruction last. Every block opens with a fixed usage header saying what the
 block is FOR, because a block whose use is not stated gets used for whatever
@@ -69,19 +69,25 @@ line at column zero, one line per item, no indentation carrying meaning, no
 under a bulleted field label. Where the realization of a whole schema category is
 fixed — Closure rows, Journey material — that behaviour is stated once,
 where the category's own block opens, never as a label attached to each item.
+
+NO MOVE REACHES THE PACKET (kogaki#1311, owner decision 2026-10-09). The
+Move's responsibility ends when the Candidate is composed; what the writer
+needs from it arrives as this Leg's waypoints, which the Brief composed as
+the Leg's own specialization of the Move and judged there.
 -->
 
 # Write one Leg
 
-## The Move this Leg performs: its contract. Attribute, never prose: nothing here is quoted, paraphrased or made the subject of a sentence.
+## The waypoints this Leg takes the reader through
 
-This is the transformation you are performing. `technique` says what it
-does; `question` is the reader's question and its fate; `breaks` are the
-three tests a correct performance must survive.
+Each line below is one step of what this Leg does to its reader, in order,
+and the claim it serves. It says what the step DOES to the reader, never what
+to write: the words are yours, and no line here is quoted, paraphrased or
+announced to the reader. Open each paragraph on the sentence that states its
+point. One paragraph per waypoint is the expected shape; spend more or fewer
+where an effect needs it.
 
-- **technique.** {{move_technique}}
-- **question.** {{move_question}}
-- **breaks.** {{move_breaks}}
+{{waypoints}}
 
 ## The claims this Leg asserts
 
@@ -164,12 +170,12 @@ what you write. Where making one plain loses something, either restore the
 loss or **concede it explicitly in the prose**. A concession is part of the
 output; a silent omission is not a simplification, it is a loss. This rule
 answers for a claim's loss alone: it is not licence for a sentence about what
-you could not read or could not perform. A Move step you cannot carry out
-from what this Packet gives you is answered below, as a refusal — never as a
+you could not read or could not perform. A waypoint you cannot reach from
+what this Packet gives you is answered below, as a refusal — never as a
 concession, and never as prose.
 
-**When a step cannot be performed.** If a Move step cannot be carried out
-from the material this Packet gives you, or material it should carry is
+**When a step cannot be performed.** If a waypoint cannot be reached from
+the material this Packet gives you, or material it should carry is
 missing, do not write around it and do not write a sentence telling the
 reader so. Return exactly this instead, as the whole of your response:
 
@@ -193,9 +199,9 @@ follows.
 The Leg's prose is written and recorded. Design its figure now, from the text
 above and the material below, and from nothing else.
 
-The **form** is the Move's, not yours. It names the positions a figure of this
-kind has; it carries no subject matter and nothing here is a word the reader
-sees.
+The **form** is the kind's, not yours: the Brief bound its roles. It names the
+positions a figure of this kind has; it carries no subject matter and nothing
+here is a word the reader sees.
 
 - **kind.** {{figure_kind}}
 - **roles.**
