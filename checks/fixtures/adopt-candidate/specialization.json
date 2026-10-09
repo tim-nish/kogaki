@@ -1,0 +1,18 @@
+{
+  "version": "1",
+  "candidate_id": "cand-a",
+  "verdicts": [
+    {
+      "leg_id": "leg1",
+      "move": "fixture-move-open",
+      "verdict": "consistent",
+      "why": "the before and after states specialize the fixture open Move in order"
+    },
+    {
+      "leg_id": "leg2",
+      "move": "fixture-move-close",
+      "verdict": "consistent",
+      "why": "the before and after states specialize the fixture close Move in order"
+    }
+  ]
+}

@@ -675,6 +675,20 @@
       }
     },
     {
+      "id": "adopt-candidate",
+      "file": "checks/check-adopt-candidate.sh",
+      "admission": {
+        "contract": "`node src/assemble.mjs adopt-candidate` runs end to end over a fixture run directory with a captured Candidate-gate answer (kogaki#1317). Over a fixture Brief, a fixture reviewed-Candidates JSON and a fixture specialization record, with the Candidate-selection capture's `option_set_digest` computed from the same `selectionOptionIds`/`ownerGateDigest` functions `adoptCandidate` itself calls: the command exits 0 and writes every slot of the Brief; the closing summary names no Move-library count and does report the Leg specialization verdict(s) read from the record; and a run with no `--specialization` still refuses by name rather than silently filling a default.",
+        "license": "kogaki#1317",
+        "tier": "pre-push",
+        "runtime_ms": 800,
+        "efficacy": "case: checks/check-adopt-candidate.sh::(a) adopt-candidate exited <status> over the fixture",
+        "efficacy_note": "mutation-verified at authoring: a938f2a (#1311) removed `adoptCandidate`'s Move-resolving step and with it the local `resolved`, but left two reads of it dangling (the return's `checked: resolved.checked` and the summary's Move-library count), and no check in this repository drove `adopt-candidate` end to end to catch it -- check-draft-packet.sh names the gap by name in its own \"NOT COVERED\" note. Reintroducing either dangling read against this fixture throws `ReferenceError: resolved is not defined` and fails (a); reverting the summary line to name a Move-library count fails (b).",
+        "removal_signal": "`adopt-candidate` loses its CLI shape (another entry point takes its place), or the Leg-Move instantiation contract retires the specialization record as an adoption input -- either leaves this fixture driving an occasion the runtime no longer has",
+        "removal_instrument": "probe: ! grep -q 'case \"adopt-candidate\"' src/assemble.mjs"
+      }
+    },
+    {
       "id": "no-test-outside-check-root",
       "file": "checks/check-no-test-outside-check-root.sh",
       "admission": {

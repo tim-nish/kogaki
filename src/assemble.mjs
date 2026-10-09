@@ -1410,7 +1410,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // the one that was validated.
   const tally = {};
   for (const v of instantiation.specialization.verdicts) tally[v.verdict] = (tally[v.verdict] || 0) + 1;
-  return { doc: out, placed: filled.placed, total: filled.total, checked: resolved.checked, judged: judged.judged,
+  return { doc: out, placed: filled.placed, total: filled.total, judged: judged.judged,
     record_digest: digest, specialization_tally: tally, selected_by: chose.tool_use_id };
 }
 
@@ -1517,7 +1517,7 @@ export function cmdAdoptCandidate(args) {
   const snapSeq = snapshotBrief(briefPath, "adopt-candidate", "before", doc);
   writeFileSync(briefPath, r.doc);
   snapshotBrief(briefPath, "adopt-candidate", "after", r.doc, snapSeq);
-  console.log(`instantiation contract (the Leg-Move instantiation contract): ${r.checked} move id(s) resolved against the Move library, ${r.judged} Leg specialization verdict(s) read from the record — judged by the composing sitting, validated here, composed here never`);
+  console.log(`instantiation contract (the Leg-Move instantiation contract): ${r.judged} Leg specialization verdict(s) read from the record — judged by the composing sitting, validated here, composed here never`);
   console.log(`candidate selection (the Candidate gate): ${id} was the owner's own answer at the brief-candidate-selection gate (AskUserQuestion ${r.selected_by}) — read from the capture, never carried by --candidate (kogaki#891)`);
   // ONE SENTENCE, ON EVERY ADOPTION (kogaki#1108). Disclosure replaces the
   // gate: the record is named by its digest and tallied by verdict, so a

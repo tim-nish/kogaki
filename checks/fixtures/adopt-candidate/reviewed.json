@@ -1,0 +1,62 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand-a",
+      "characteristic": "a two-leg path stating then settling one claim",
+      "reader_experience": "the reader sees the fixture Strand's claim stated once, then sees it settled",
+      "reader_start": "knowledge: the reader has not yet seen the fixture Strand's claim",
+      "reasoning": {
+        "leg_validity": "each Leg specializes its bound Move's before/after over the fixture Strand's claim, in order",
+        "thesis_closure": "the second Leg settles the fixture Strand's claim, closing the Thesis row"
+      },
+      "review": {
+        "rationale_stands": "the path's reasoning holds over the fixture Strand's claim with nothing else in play",
+        "entailment": "each Leg's claim entails from the fixture Strand named in its materials",
+        "prohibitions": "the path names no coined term and opens exactly one Section, so no prohibition is at risk",
+        "semantic_economy": "two Legs state and settle one claim with no spare material carried",
+        "arc_integrity": "the path opens on the claim and closes on it settled, with nothing introduced after the close",
+        "evaluation_levels": "the fixture path is judged at the Leg level only, which is all it carries"
+      },
+      "coverage": {
+        "L1": { "role_in_thesis": "the one claim this fixture path states and then settles" }
+      },
+      "obligations": [],
+      "unused": {},
+      "legs": [
+        {
+          "leg_id": "leg1",
+          "materials": ["L1"],
+          "purpose": "opens the fixture path by stating the fixture Strand's claim",
+          "reader_state_before": "knowledge: the reader has not yet seen the fixture Strand's claim",
+          "reader_state_after": "knowledge: the reader has seen the fixture Strand's claim stated once",
+          "rationale": "the fixture path opens on the Strand's own claim, the only material this Candidate carries",
+          "move": "fixture-move-open",
+          "claims": [
+            { "type": "strand", "proposition": "the fixture Strand's claim, stated plainly", "strand": "L1" }
+          ],
+          "waypoints": [
+            { "effect": "states the fixture Strand's claim to the reader for the first time", "serves": ["L1"] }
+          ],
+          "opens_section": true
+        },
+        {
+          "leg_id": "leg2",
+          "materials": ["L1"],
+          "purpose": "closes the fixture path by settling the fixture Strand's claim",
+          "reader_state_before": "knowledge: the reader has seen the fixture Strand's claim stated once",
+          "reader_state_after": "knowledge: the reader holds the fixture Strand's claim as settled",
+          "depends_on": ["leg1"],
+          "rationale": "the fixture path closes on the same Strand's claim, now settled for the reader",
+          "move": "fixture-move-close",
+          "claims": [
+            { "type": "strand", "proposition": "the fixture Strand's claim, now settled", "strand": "L1" }
+          ],
+          "waypoints": [
+            { "effect": "restates the fixture Strand's claim as settled for the reader", "serves": ["L1"] }
+          ],
+          "reaches_target": true
+        }
+      ]
+    }
+  ]
+}
