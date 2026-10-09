@@ -682,7 +682,7 @@
         "license": "kogaki#1317",
         "tier": "pre-push",
         "runtime_ms": 800,
-        "efficacy": "case: checks/check-adopt-candidate.sh::(a) adopt-candidate exited <status> over the fixture",
+        "efficacy": "case: checks/check-adopt-candidate.sh::(a) adopt-candidate exited ${r.status} over the fixture",
         "efficacy_note": "mutation-verified at authoring: a938f2a (#1311) removed `adoptCandidate`'s Move-resolving step and with it the local `resolved`, but left two reads of it dangling (the return's `checked: resolved.checked` and the summary's Move-library count), and no check in this repository drove `adopt-candidate` end to end to catch it -- check-draft-packet.sh names the gap by name in its own \"NOT COVERED\" note. Reintroducing either dangling read against this fixture throws `ReferenceError: resolved is not defined` and fails (a); reverting the summary line to name a Move-library count fails (b).",
         "removal_signal": "`adopt-candidate` loses its CLI shape (another entry point takes its place), or the Leg-Move instantiation contract retires the specialization record as an adoption input -- either leaves this fixture driving an occasion the runtime no longer has",
         "removal_instrument": "probe: ! grep -q 'case \"adopt-candidate\"' src/assemble.mjs"
