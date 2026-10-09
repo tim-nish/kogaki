@@ -86,7 +86,7 @@ import { resolveHeadlines, glossFor } from "./workflow/strands.mjs";
 // BINDING; `judgedRecordPath` is the one route a judgment record reaches a state
 // by; `persistPendingRun` is what makes a refusal raised in a Brief state persist
 // the transitions the act completed before it. None of the three is copied here.
-import { runWorkflow } from "./workflow/executor.mjs";
+import { runWorkflow, printWrittenGateCall } from "./workflow/executor.mjs";
 import { judgedRecordPath } from "./workflow/judge.mjs";
 import {
   persistPendingRun, SKILL_EXPANSION_EXECUTOR, readHookPayload, advancedByFromPayload,
@@ -106,7 +106,7 @@ import {
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
 } from "./workflow/detached-job.mjs";
 import {
-  READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX,
+  READER_PATH_JOB_GATE_ID, emitGateDeclaration,
 } from "./workflow/gate.mjs";
 import { judgeSettings, judgePrompt, JUDGE_INPUT_MARKER, settingValue } from "./workflow/judge.mjs";
 import {
@@ -2290,43 +2290,19 @@ function supervisorAlive(pid) {
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
 }
 
-// THE BYTES, NOT ONLY THEIR ADDRESS (kogaki#1198). A path handed to a session
-// inside the open-gate interval is an instruction to read, and the interval
-// denies every tool that could carry it out — the same failure kogaki#1057
-// fixed for the terrain start act and kogaki#1081 fixed for the advance hook.
-// This is the third raising route, and it prints exactly what those two do:
-// one line naming the file, the file's own bytes in a fenced block, then the
-// line saying every other tool is denied until the answer is captured. THE
-// FILE STAYS THE REFERENCE — the PreToolUse equality check still compares
-// against it, so this is a second reader of one payload, not a second one.
-// WHERE NO CALL WAS WRITTEN (`composeGateCall`'s `gate_call_unavailable`
-// arm) there are no bytes, so it names where the reason is instead — an owed
-// gate announced with neither a payload nor a reason is the failure this issue
-// names, on either caller.
-function printReaderPathJobGateCallBytes(dir, gateId, declPath) {
-  const callPath = join(dir, `${gateId}${GATE_CALL_SUFFIX}`);
-  if (!existsSync(callPath)) {
-    console.log(`No AskUserQuestion call could be composed for this gate, and the reason is on the open-gate pointer (\`gate_call_unavailable\`). Render the declaration's options verbatim, nothing pre-selected, free text on: ${declPath}.`);
-    return;
-  }
-  console.log(`The AskUserQuestion call is WRITTEN: ${callPath}`);
-  console.log(`Its bytes are below — the payload itself, not a path to one. No tool is admissible inside the open-gate interval, the Read that would fetch this file included, so a call named and unprinted is one nothing can obtain (kogaki#1057, kogaki#1198).`);
-  console.log("```json");
-  console.log(readFileSync(callPath, "utf8").replace(/\n+$/, ""));
-  console.log("```");
-  console.log(`While this gate is open, every other tool call is DENIED and the turn cannot end until the answer is captured (kogaki#1028). The declaration that raised it: ${declPath}.`);
-}
-
 // A ONE-LINE HEARTBEAT, read straight off the record `job start`'s supervisor
 // updates every `READER_PATH_JOB_HEARTBEAT_MS` (kogaki#1193's own bound: the
 // elapsed seconds and the output bytes per unit, and nothing this call cannot
 // get from the file alone — `status` never blocks and never polls).
 //
-// A RUN WITH AN OWED, UNCAPTURED GATE PRINTS ITS BYTES TOO (kogaki#1198). A
-// session that re-enters after the raising — the one this issue's transcript
-// hit — has no live `job await` call left to print them the first time; this
-// is its second chance, gated on the same two facts the raising itself left
-// behind: the gate-call file exists, and no capture row has answered it yet.
+// A RUN WITH AN OWED, UNCAPTURED GATE PRINTS ITS BYTES TOO (kogaki#1198,
+// widened by kogaki#1313 to the gate OWED AT THE AWAITING STATE, whatever its
+// gate_id). A session that re-enters after the raising — the one this
+// issue's transcript hit, and kogaki#1313's own transcript, a wait LATER than
+// `brief-reader-path-job` reached by the same resume — has no live `job
+// await` call left to print them the first time; this is its second chance,
+// gated on the same two facts the raising itself left behind: the gate-call
+// file exists, and no capture row has answered it yet.
 function printReaderPathJobStatus(j, job) {
   const dir = j.runDir;
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date().toISOString());
@@ -2340,16 +2316,22 @@ function printReaderPathJobStatus(j, job) {
     console.log(`  unit ${u.id}: ${u.status} — ${u.bytes || 0} byte(s) so far${why}`);
   }
   const rec = readRunRecord(dir);
+  // THE GATE OWED AT THE AWAITING STATE, WHATEVER ITS GATE_ID (kogaki#1313).
+  // A job resume advances the workflow past the job's own gate into later
+  // states, each able to raise its own — `brief-candidate-selection` at
+  // `CANDIDATE_SELECTION`, say — and this print is the owner's only second
+  // chance at whichever one is outstanding, not only at
+  // `brief-reader-path-job`. Matched on `state`, not on `gate_id`.
   const owed = rec && Array.isArray(rec.gate_declarations_owed)
-    ? rec.gate_declarations_owed.filter((g) => g.gate_id === READER_PATH_JOB_GATE_ID && g.declaration).pop()
+    ? rec.gate_declarations_owed.filter((g) => g.state === rec.awaiting && g.declaration).pop()
     : null;
   if (rec && rec.awaiting && owed) {
     // BOTH ARTIFACTS ARE NAMED FROM `dir` AND THE GATE ID, NOT FROM
     // `owed.declaration` (kogaki#1198). `emitGateDeclaration` writes the
     // declaration and the call beside each other, `${gateId}<suffix>` in the
-    // run's own directory — the same reconstruction `printReaderPathJobGateCallBytes`
-    // does for the call, so this reads the run-relative path the writer used
-    // rather than re-deriving the repo root a session may not be standing in.
+    // run's own directory, which is the path `printWrittenGateCall` derives
+    // too, so this reads the run-relative path the writer used rather than
+    // re-deriving the repo root a session may not be standing in.
     const declPath = join(dir, `${owed.gate_id}${gateSchema().capture.run_declaration_suffix}`);
     const capPath = captureFile({ _dir: dir });
     let captured = false;
@@ -2362,8 +2344,14 @@ function printReaderPathJobStatus(j, job) {
       } catch { /* an unreadable capture reads as not yet answered, not as an error status prints past */ }
     }
     if (!captured) {
-      console.log(`This run has an OWED, UNCAPTURED gate at state ${rec.awaiting} — the same one \`job await\` raised:`);
-      printReaderPathJobGateCallBytes(dir, owed.gate_id, declPath);
+      console.log(`This run has an OWED, UNCAPTURED gate at state ${rec.awaiting}:`);
+      // THE ONE PRINTING SITE (kogaki#1313), shared with every stop the
+      // executor's own advance loop prints through -- `printReaderPathJobGateCallBytes`
+      // is removed in favour of it, so the bytes `job status` and `job await`
+      // print here are composed exactly once, never by a second reader kept
+      // in step with the first by hand.
+      printWrittenGateCall(dir, owed.gate_id,
+        `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
     }
   }
 }
@@ -2623,7 +2611,8 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
     rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
     checkpointRun(rec);
     console.log(`${j.label} at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
-    printReaderPathJobGateCallBytes(dir, READER_PATH_JOB_GATE_ID, declPath);
+    printWrittenGateCall(dir, READER_PATH_JOB_GATE_ID,
+      `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
     return;
   }
   // EVERY OTHER STATE ENDED THE JOB, so its Arm is stop alone; no state here
@@ -2635,7 +2624,8 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
   rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
   checkpointRun(rec);
   console.log(`${j.label} at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
-  printReaderPathJobGateCallBytes(dir, READER_PATH_JOB_GATE_ID, declPath);
+  printWrittenGateCall(dir, READER_PATH_JOB_GATE_ID,
+    `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
 }
 
 // THE FLOW BINDING. Everything a second flow differs in, and nothing else —

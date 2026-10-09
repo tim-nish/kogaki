@@ -736,6 +736,80 @@ process.stdin.on("end", () => {
   }
 }
 
+// (k) A LATER WAIT'S OWED GATE RE-PRINTS TOO, MATCHED ON THE AWAITING STATE
+// RATHER THAN ONLY `brief-reader-path-job` (kogaki#1313 design item 1), AND A
+// RE-PRINT THAT FINDS NO LIVE POINTER WRITES ONE AGAIN (design item 2). A job
+// resume can advance the workflow past the reader-path job's own gate into a
+// LATER wait -- `CANDIDATE_SELECTION`, raising `brief-candidate-selection` --
+// driven here at the declaration/capture layer directly, the ground section
+// (e) and (h) state for a bare `emitGateDeclaration` call and a hand-written
+// run record: the executor is invoked by hooks only.
+{
+  const dir = mkNewRun();
+  // A FINISHED JOB RECORD STILL ON DISK (kogaki#1301): `compose_path` finished
+  // and the run advanced past it, so `reader-path-job.json` is a terminal
+  // record `job status`'s own dispatch still reads before it reaches the print.
+  writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+    started_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    absolute_limit_s: 600, state: "done", units: [],
+  }, null, 2) + "\n");
+  const declPath = emitGateDeclaration(dir, "brief-candidate-selection",
+    [{ id: "c1", label: "Candidate 1", description: "The first composed Reader Path." },
+      { id: "c2", label: "Candidate 2", description: "The second composed Reader Path." }], {});
+  const callPath = join(dir, `brief-candidate-selection${GATE_CALL_SUFFIX}`);
+  const wantBytes = JSON.parse(readFileSync(callPath, "utf8"));
+  const declaration = JSON.parse(readFileSync(declPath, "utf8"));
+  const pointerPath = join(process.env.KOGAKI_OPEN_GATES, `${declaration.gate_instance_id}.json`);
+  // ABANDONMENT, SIMULATED (the shape section (i) drives through the Stop
+  // hook itself): the pointer this raising wrote is removed, standing in for
+  // its move to `abandoned/`.
+  rmSync(pointerPath, { force: true });
+  writeFileSync(runRecordPath(dir), JSON.stringify({
+    workflow: { path: "src/brief-workflow.json", version: null },
+    judge_binary: null, survey_record: null, completed: [], waits_reached: [],
+    conditional_entered: [], conditional_skipped: [], awaiting: "CANDIDATE_SELECTION",
+    owner_input: {}, artifacts_written: [], judgments: {},
+    gate_declarations_owed: [{ state: "CANDIDATE_SELECTION", gate_id: "brief-candidate-selection", declaration: declPath }],
+    done: false,
+  }, null, 2) + "\n");
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir };
+
+  // (k1) NO CAPTURE ROW, NO LIVE POINTER: `job status` prints the fenced
+  // block equal to the gate-call file's own bytes, and afterwards a pointer
+  // named by the declaration's `gate_instance_id` exists again.
+  const statusRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "status"],
+    { cwd: root, timeout: 15000, encoding: "utf8", env });
+  const fenced = (statusRun.stdout || "").match(/```json\n([\s\S]*?)\n```/);
+  if (!fenced) {
+    fails.push(`(k1) \`job status\` on a run awaiting CANDIDATE_SELECTION with an owed, uncaptured brief-candidate-selection gate carries no \`\`\`json fence: ${statusRun.stdout}`);
+  } else if (JSON.stringify(JSON.parse(fenced[1])) !== JSON.stringify(wantBytes)) {
+    fails.push(`(k1) \`job status\`'s fenced block does not equal brief-candidate-selection's own gate-call file: ${fenced[1]} vs ${JSON.stringify(wantBytes)}`);
+  }
+  if (!existsSync(pointerPath)) {
+    fails.push(`(k1) \`job status\` re-printed the gate's bytes and did not restore a live open-gate pointer at ${pointerPath}`);
+  }
+
+  // (k2) A CAPTURE ROW NAMING THE SAME gate_instance_id: no fenced block is
+  // printed and no pointer is (re)written. The pointer (k1) restored is
+  // removed first, so a pointer found after this case could only be this
+  // case's own write.
+  rmSync(pointerPath, { force: true });
+  writeFileSync(join(dir, "brief.gate-capture.json"), JSON.stringify({
+    rows: [{ gate_instance_id: declaration.gate_instance_id,
+      evidence: { tool: "AskUserQuestion", tool_use_id: "t1" },
+      answers_over: { option_set_digest: "whatever-the-digest-was" },
+      payload: { answer: { option: "c1" } } }],
+  }, null, 2) + "\n");
+  const statusRun2 = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "status"],
+    { cwd: root, timeout: 15000, encoding: "utf8", env });
+  if ((statusRun2.stdout || "").includes("```json")) {
+    fails.push(`(k2) \`job status\` re-printed the gate's bytes though the capture already names this raising's instance id: ${statusRun2.stdout}`);
+  }
+  if (existsSync(pointerPath)) {
+    fails.push(`(k2) \`job status\` wrote an open-gate pointer though the gate is already captured: ${pointerPath}`);
+  }
+}
+
 // (v) `job await` OVER A STILL-RUNNING JOB RETURNS WITHIN ITS OWN 30s BOUND
 // AND RAISES NOTHING (kogaki#1271). A job can run to its 600s absolute limit,
 // longer than one Bash tool call may last, so `job await` stops waiting after
