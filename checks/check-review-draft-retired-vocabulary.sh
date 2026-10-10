@@ -84,25 +84,52 @@ TERMS=(
 # The acceptance's own three roots (kogaki#1018), and L2 says why no more.
 ROOTS=(.claude/skills/review-draft src/review-draft.mjs src/review-items.json)
 
-# roots_missing <tree> — prints every declared ROOT that resolves to no tracked
-# file in <tree>. `git grep` accepts a pathspec member matching no tracked file
+# JOURNEY_TERMS — the four words kogaki#1323 (owner ruling 2026-10-10) retires
+# from the Draft pipeline's own telling of what a Journey is: "A Journey must
+# not be rendered as a narrative merely because it is called a Journey. In
+# Kogaki, a Journey is a Strand." A separate list from TERMS above, scoped to
+# a separate ROOTS: `.claude/skills/review-draft`, `src/review-items.json` and
+# `src/review-draft.mjs` already carry `retell` legitimately (ReviewDraft's own
+# "tells the writer to retell it" rule), and `src/leg-schema.json` legitimately
+# keeps `narrative` in its own definition ("a long Strand that CAN be turned
+# into a narrative, but is never rendered as one merely because it is called a
+# Journey") — widening either list to cover those sites would re-judge prose
+# this issue leaves standing.
+JOURNEY_TERMS=(
+  "retell"
+  "telling"
+  "narrative"
+  "narrated"
+)
+JOURNEY_ROOTS=(src/draft.mjs)
+
+# roots_missing <tree> [roots_array_name] — prints every declared root (TERMS'
+# ROOTS by default, or the named array) that resolves to no tracked file in
+# <tree>. `git grep` accepts a pathspec member matching no tracked file
 # WITHOUT error, so a root that stops resolving is silently dropped and every
 # term goes unsearched there while the ok line reads unchanged. The failure is
 # silent and PARTIAL, which is the shape kogaki#765 measured on the terrain
 # member after a file move.
 roots_missing() {
-  local tree="$1" r
-  for r in "${ROOTS[@]}"; do
+  local tree="$1"
+  local -n roots_ref="${2:-ROOTS}"
+  local r
+  for r in "${roots_ref[@]}"; do
     if [ -z "$(cd "$tree" && git ls-files -- "$r" 2>/dev/null | head -1)" ]; then
       printf '%s\n' "$r"
     fi
   done
 }
 
-# scan <tree> — prints "file:line" for every unmarked survivor.
+# scan <tree> [terms_array_name] [roots_array_name] — prints "file:line" for
+# every unmarked survivor of the named terms (TERMS/ROOTS by default) over the
+# named roots.
 scan() {
-  local tree="$1" term f l hit
-  for term in "${TERMS[@]}"; do
+  local tree="$1"
+  local -n terms_ref="${2:-TERMS}"
+  local -n roots_ref="${3:-ROOTS}"
+  local term f l hit
+  for term in "${terms_ref[@]}"; do
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
       f="${hit%%:*}"; hit="${hit#*:}"; l="${hit%%:*}"
@@ -114,7 +141,7 @@ scan() {
       if sed -n "$(( l > 10 ? l - 10 : 1 )),${l}p" "$tree/$f" 2>/dev/null \
            | grep -qF "retired-vocab-ok"; then continue; fi
       printf '%s:%s\n' "$f" "$l"
-    done < <(cd "$tree" && git grep -inF -- "$term" -- "${ROOTS[@]}" 2>/dev/null || true)
+    done < <(cd "$tree" && git grep -inF -- "$term" -- "${roots_ref[@]}" 2>/dev/null || true)
   done
 }
 
@@ -182,9 +209,24 @@ if ! grep -qF "$absent_root" <<< "$guard_fired"; then
   fails+=("(c) THE ROOT GUARD DOES NOT FIRE: a declared root that no tree carries was not reported, so the negative direction above is unevidenced and a root silently dropped from the scan would read exactly like a clean one.")
 fi
 
+# ---- (d) NO CARRIER STATES THE JOURNEY VOCABULARY kogaki#1323 RETIRES.
+journey_missing_roots="$(roots_missing "$root" JOURNEY_ROOTS || true)"
+if [ -n "$journey_missing_roots" ]; then
+  while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    fails+=("(d) the declared Journey scan root \`$r\` resolves to no tracked file, so kogaki#1323's words were searched in a tree that does not contain it. Repoint JOURNEY_ROOTS at the carrier's current location, or drop the root deliberately.")
+  done <<< "$journey_missing_roots"
+fi
+journey_survivors="$(scan "$root" JOURNEY_TERMS JOURNEY_ROOTS | sort -u || true)"
+if [ -n "$journey_survivors" ]; then
+  while IFS= read -r s; do
+    fails+=("(d) the Journey vocabulary kogaki#1323 retires is stated at $s — a Journey is a Strand that supplies a concrete example, and is never rendered as a narrative, told, or narrated, merely because it is called a Journey (owner ruling 2026-10-10). If this occurrence is dated provenance, an explicit replacement statement, or a must-not-appear tripwire, mark it \`retired-vocab-ok\` at the site.")
+  done <<< "$journey_survivors"
+fi
+
 if [ ${#fails[@]} -gt 0 ]; then
   printf 'FAIL check-review-draft-retired-vocabulary\n'
   printf '  - %s\n' "${fails[@]}"
   exit 1
 fi
-printf 'ok: check-review-draft-retired-vocabulary — %d terms over %d roots (%s), all resolving; no carrier states them; discrimination and the root guard asserted both ways\n' "${#TERMS[@]}" "${#ROOTS[@]}" "${ROOTS[*]}"
+printf 'ok: check-review-draft-retired-vocabulary — %d terms over %d roots (%s), all resolving; %d Journey terms over %d roots (%s), all resolving; no carrier states either vocabulary; discrimination and the root guard asserted both ways\n' "${#TERMS[@]}" "${#ROOTS[@]}" "${ROOTS[*]}" "${#JOURNEY_TERMS[@]}" "${#JOURNEY_ROOTS[@]}" "${JOURNEY_ROOTS[*]}"

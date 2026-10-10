@@ -1730,12 +1730,13 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     journeys: need(`${leg.leg_id}'s Journey text`, (leg.journeys || []).length
       ? ((leg.journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === ""))
         ? null
-        : "Realize it fused into the Leg's own prose, for this Leg's waypoints — it is "
-          + "material, never a claim, and earns no paragraph of its own by being present.\n\n"
+        : "Material for a concrete example serving this Leg's waypoints — use as much or as "
+          + "little of it as the waypoints need, in any form, from one clause to several "
+          + "sentences. It is material, never a claim, and earns no paragraph of its own by "
+          + "being present.\n\n"
           + "Material, not assertion. Each entry below names a Journey this Leg draws on, "
           + "and its served prose, quoted in full. **Edit it for "
-          + "this Leg's waypoints**: cut it, compress it, retell it in this article's voice — "
-          + "the telling is yours, and the waypoints above say what the telling is for.\n\n"
+          + "this Leg's waypoints**: cut it, compress it, use as much or as little as they need.\n\n"
           + "Nothing here is a claim. The claims above are the whole of what this Leg "
           + "asserts, and the round trip asks for those back and never for a fragment of a "
           + "Journey. A Journey you use well may leave almost none of its original wording "

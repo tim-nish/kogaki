@@ -75,6 +75,7 @@ mkdirSync(cwd, { recursive: true });
 const trap = join(root, "trap.mjs");
 writeFileSync(trap, `
 import fs from "node:fs";
+import cp from "node:child_process";
 import { syncBuiltinESMExports } from "node:module";
 const log = process.env.MOVES_TRAP_LOG;
 const hit = (p) => typeof p === "string" || p instanceof URL ? /(^|[\\\\/])moves([\\\\/]|$)/.test(String(p)) : false;
@@ -86,6 +87,28 @@ for (const name of ["readFileSync", "openSync", "readdirSync", "existsSync", "st
     return orig.call(fs, p, ...rest);
   };
 }
+// THE GATEWAY STUB (kogaki#1323): this worktree cannot reach a live gateway,
+// so the one spawn \`fetchJourneySurvey\` makes against
+// policy/kit/bin/gateway-query.mjs is answered here with one served record
+// for the fixture Journey named by $FAKE_JOURNEY_CITE, its prose already
+// carried in $FAKE_JOURNEY_PROSE -- every other spawnSync call (the stub
+// writer included) passes through to the real implementation untouched.
+const origSpawnSync = cp.spawnSync;
+cp.spawnSync = function (cmd, args, opts) {
+  const isGatewayQuery = Array.isArray(args)
+    && args.some((a) => typeof a === "string" && a.endsWith("gateway-query.mjs"));
+  if (isGatewayQuery && process.env.FAKE_JOURNEY_CITE) {
+    const cite = process.env.FAKE_JOURNEY_CITE;
+    const slug = (cite.split("slug=")[1] || "").split(" ")[0];
+    const kind = (cite.split("kind=")[1] || "").split(" ")[0];
+    const rec = { slug, kind, body: process.env.FAKE_JOURNEY_PROSE };
+    const payload = JSON.stringify({ lines: [{ text: JSON.stringify(rec) }] });
+    const fd = opts && opts.stdio ? opts.stdio[1] : undefined;
+    if (typeof fd === "number") fs.writeSync(fd, payload);
+    return { status: 0, stdout: "", stderr: "", signal: null, pid: 0 };
+  }
+  return origSpawnSync.call(cp, cmd, args, opts);
+};
 syncBuiltinESMExports();
 `);
 const trapLog = join(root, "trap.log");
@@ -331,11 +354,58 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   }
 }
 
+// (g) the Journey block renders material for a concrete example, in the
+// fixture's own served prose (the control arm: resolution reached the
+// renderer, so the check below is not vacuous), and none of the four words
+// retired by kogaki#1323 (owner ruling 2026-10-10): a Journey is a Strand,
+// never a narrative told merely because it is named one.
+{
+  const journeyProse = "The installer wrote the kit's manifest before the lockfile existed, and the second run found no lockfile to compare against.";
+  const journeyBriefText = [
+    "# Brief — journey-brief", "",
+    "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+    "## Strands", "",
+    "### L1 — first-strand", "",
+    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`",
+    "- journey cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=journey @1111111111111111111111111111111111111111`", "",
+    "### L2 — second-strand", "", "- cite: `gloss/ELEMENTS.jsonl slug=second-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+    "## Thesis", "", "The fixture claim.", "",
+    "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+    "## Sequence", "",
+    ...leg("s1", "name_a_paradox_after_removing_aggressive_intent", [
+      `claim (strand L1): ${C1}`, "waypoint (serves L1): The reader sees the copy land.",
+      "journey: L1 — illustrate"]),
+  ].join("\n");
+  const journeyDir = join(root, "theses", "journey-brief");
+  mkdirSync(journeyDir, { recursive: true });
+  const journeyBriefPath = join(journeyDir, "brief.md");
+  writeFileSync(journeyBriefPath, journeyBriefText);
+  const journeyDraft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...args,
+    "--brief", journeyBriefPath, "--workspace", join(root, "journey-ws")],
+    { KOGAKI_JUDGE_CLI: stub, FAKE_JOURNEY_CITE: "gloss/ELEMENTS.jsonl slug=first-strand kind=journey @1111111111111111111111111111111111111111", FAKE_JOURNEY_PROSE: journeyProse, ...env });
+
+  const r0 = journeyDraft(["resolve"]);
+  if (r0.status !== 0) fails.push(`(g) resolve failed: ${(r0.stderr || "").slice(0, 400)}`);
+  const r = journeyDraft(["packet", "--leg", "s1"]);
+  if (r.status !== 0) fails.push(`(g) packet --leg s1 failed: ${(r.stderr || "").slice(0, 400)}`);
+  const packet = r.stdout || "";
+  const head = "## The Journey material this Leg edits";
+  const at = packet.indexOf(head);
+  if (at === -1) fails.push("(g) the Packet carries no Journey block");
+  else {
+    const block = packet.slice(at, packet.indexOf("\n## ", at + head.length));
+    if (!block.includes(journeyProse)) fails.push("(g) control: the Journey block does not carry the fixture's served prose — the retired-word check below would pass vacuously");
+    for (const w of ["retell", "telling", "narrative", "narrated"]) {
+      if (new RegExp(w, "i").test(block)) fails.push(`(g) the Journey block still carries the retired word "${w}" (kogaki#1323)`);
+    }
+  }
+}
+
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
   console.log("FAIL check-draft-packet");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one line per waypoint with its effect and the claim it serves in the claim's own words, and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; and src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311)");
+console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one line per waypoint with its effect and the claim it serves in the claim's own words, and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323)");
 JS
