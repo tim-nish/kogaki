@@ -15,8 +15,8 @@ Leg. The Packet is the realizer's entire input, so a word meaning two things
 inside it is a defect in the one artifact whose job is to be unambiguous.
 
 TEMPLATE CONTENT IS OPERATIONAL TEXT ONLY: rules that change model behaviour at
-generation, kept minimal. A rule enters here only with demonstrated runtime
-effect. DESIGN PRINCIPLES ABOUT THIS TEMPLATE DO NOT LIVE HERE — they belong in
+generation, kept minimal. A rule enters here only with a demonstrated change
+in what is generated. DESIGN PRINCIPLES ABOUT THIS TEMPLATE DO NOT LIVE HERE — they belong in
 the Brief/Draft design record (kogaki#752).
 
 THE WRITE BLOCK'S READER-DEPENDENT RULES ARE THE PERSONA'S (kogaki#1251
@@ -80,11 +80,10 @@ the Leg's own specialization of the Move and judged there.
 
 ## The waypoints this Leg takes the reader through
 
-Each line below is one step of what this Leg does to its reader, in order,
-and the claim it serves. It says what the step DOES to the reader, never what
-to write: the words are yours, and no line here is quoted, paraphrased or
-announced to the reader. One paragraph per waypoint is the expected shape;
-spend more or fewer where an effect needs it.
+Each numbered line below is the point one paragraph makes, in order, and the
+claim it serves. The point is not quoted: its wording is yours, and no line
+here is copied or announced to the reader. One paragraph per point is the
+expected shape; spend more or fewer where a point needs it.
 
 {{waypoints}}
 

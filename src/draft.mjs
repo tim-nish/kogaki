@@ -297,7 +297,7 @@ export function parseLegBlockBody(body, path) {
     if (bad) return { refusal: bad };
   }
   // the route (kogaki#1311), read back from the serialized form `renderLeg`
-  // writes: `waypoint (serves L<n>[, L<m>]): <effect>`, ONE LINE PER WAYPOINT
+  // writes: `waypoint (serves L<n>[, L<m>]): <point>`, ONE LINE PER WAYPOINT
   // in order. Read here and checked at the realization entry (`loadBrief`),
   // not here: this parser also reads a Reverse Outline, whose `waypoint` lines
   // are a blind reader's and carry no Strand, so a line without the
@@ -305,8 +305,8 @@ export function parseLegBlockBody(body, path) {
   // that needs one refuses it.
   const waypoints = [...body.matchAll(/^waypoint\b[ \t]*(.*)$/gm)].map((x) => {
     const m = /^\(serves[ \t]+([^)]*)\)[ \t]*:[ \t]*(.*)$/.exec(x[1].trim());
-    if (!m) return { effect: x[1].trim().replace(/^:[ \t]*/, ""), serves: [] };
-    return { effect: m[2].trim(), serves: m[1].split(",").map((y) => y.trim()).filter(Boolean) };
+    if (!m) return { point: x[1].trim().replace(/^:[ \t]*/, ""), serves: [] };
+    return { point: m[2].trim(), serves: m[1].split(",").map((y) => y.trim()).filter(Boolean) };
   });
   // THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28). A
   // Brief composed before this issue could carry a `relation:` line; letting
@@ -1563,8 +1563,10 @@ export function personaPriorKnowledge(path) {
 export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 
-// The waypoints block's lines (kogaki#1311): `- <effect> Serves: <claim>[; <claim>]`,
-// one per waypoint, in order. A `serves` entry is resolved to the proposition
+// The waypoints block's lines (kogaki#1311, kogaki#1326): a NUMBERED list,
+// `<i>. <point> *Serves:* <claim>[; <claim>]`, one per waypoint, in order —
+// each point once, since the point is what its paragraph makes and the
+// number is its place in the route. A `serves` entry is resolved to the proposition
 // of this Leg's claim for that Strand; one naming no claim never reaches here,
 // because the realization entry refused it. Returns null on an empty route so
 // the caller's `need` names the hole.
@@ -1576,7 +1578,7 @@ export function waypointLines(leg) {
     const m = /^claim\s*\(strand\s+([^)\s]+)\s*\)\s*:\s*(.*)$/.exec(l);
     if (m) byStrand.set(m[1], m[2].trim());
   }
-  return ws.map((w) => `- ${w.effect.trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`).join("\n");
+  return ws.map((w, i) => `${i + 1}. ${w.point.trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`).join("\n");
 }
 
 export function renderPacket({ template, brief, leg, priorSections, section, sections }) {
@@ -1654,8 +1656,8 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   const conceded = concededRowFields(brief.text || "", leg.leg_id);
 
   const fields = {
-    // THE ROUTE (kogaki#1311): one line per waypoint, in the Leg's order, each
-    // the effect and then the claim or claims it serves, quoted as this Leg's
+    // THE ROUTE (kogaki#1311, kogaki#1326): one numbered line per waypoint, in
+    // the Leg's order, each the point and then the claim or claims it serves, quoted as this Leg's
     // claims block quotes them — the Strand id is the Brief's address and the
     // writer cannot open it, so the claim's own words stand in for it. A Leg
     // with no waypoint never reaches here (`loadBrief` refuses it), and

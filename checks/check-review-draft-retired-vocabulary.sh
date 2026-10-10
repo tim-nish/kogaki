@@ -103,6 +103,24 @@ JOURNEY_TERMS=(
 )
 JOURNEY_ROOTS=(src/draft.mjs)
 
+# WAYPOINT_TERMS — the effect form of a waypoint, which kogaki#1326 (owner
+# decision 2026-10-10) retires: a waypoint states the point its paragraph
+# makes, never what a step does to the reader. Matched as the phrasings the
+# effect form was written in rather than as the bare word, because
+# `src/review-draft.mjs` legitimately says a Move's "effect is carried by the
+# reader states" about something that is not a waypoint, and a bare `effect`
+# would re-judge that prose. `src/compose.mjs` is not a root: it carries the
+# refusal of the retired field by name, which is the must-not-appear tripwire
+# rather than a survivor.
+WAYPOINT_TERMS=(
+  "w.effect"
+  "waypoint's effect"
+  "effect:"
+  "does to the reader"
+  "does to its reader"
+)
+WAYPOINT_ROOTS=(src/review-draft.mjs src/review-items.json src/draft.mjs src/packet-template.md)
+
 # roots_missing <tree> [roots_array_name] — prints every declared root (TERMS'
 # ROOTS by default, or the named array) that resolves to no tracked file in
 # <tree>. `git grep` accepts a pathspec member matching no tracked file
@@ -224,9 +242,30 @@ if [ -n "$journey_survivors" ]; then
   done <<< "$journey_survivors"
 fi
 
+# ---- (e) NO CARRIER STATES THE WAYPOINT EFFECT FORM kogaki#1326 RETIRES.
+waypoint_missing_roots="$(roots_missing "$root" WAYPOINT_ROOTS || true)"
+if [ -n "$waypoint_missing_roots" ]; then
+  while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    fails+=("(e) the declared waypoint scan root \`$r\` resolves to no tracked file, so kogaki#1326's retired form was searched in a tree that does not contain it. Repoint WAYPOINT_ROOTS at the carrier's current location, or drop the root deliberately.")
+  done <<< "$waypoint_missing_roots"
+fi
+waypoint_survivors="$(scan "$root" WAYPOINT_TERMS WAYPOINT_ROOTS | sort -u || true)"
+if [ -n "$waypoint_survivors" ]; then
+  while IFS= read -r s; do
+    fails+=("(e) the effect form of a waypoint kogaki#1326 retires is stated at $s — a waypoint states the point its paragraph makes, not an effect on the reader (owner decision 2026-10-10). If this occurrence is dated provenance, an explicit replacement statement, or a must-not-appear tripwire, mark it \`retired-vocab-ok\` at the site.")
+  done <<< "$waypoint_survivors"
+fi
+# (e) DISCRIMINATES, asserted the way (b) asserts it for TERMS.
+printf '// const e = w.effect;\n' > "$tmp/src/review-draft.mjs"
+( cd "$tmp" && git add -A >/dev/null 2>&1 )
+if ! grep -q "src/review-draft.mjs" <<< "$(scan "$tmp" WAYPOINT_TERMS WAYPOINT_ROOTS || true)"; then
+  fails+=("(e) THE WAYPOINT ARM DOES NOT DISCRIMINATE: a planted line reading a waypoint's \`effect\` was not reported, so (e)'s pass is unevidenced.")
+fi
+
 if [ ${#fails[@]} -gt 0 ]; then
   printf 'FAIL check-review-draft-retired-vocabulary\n'
   printf '  - %s\n' "${fails[@]}"
   exit 1
 fi
-printf 'ok: check-review-draft-retired-vocabulary — %d terms over %d roots (%s), all resolving; %d Journey terms over %d roots (%s), all resolving; no carrier states either vocabulary; discrimination and the root guard asserted both ways\n' "${#TERMS[@]}" "${#ROOTS[@]}" "${ROOTS[*]}" "${#JOURNEY_TERMS[@]}" "${#JOURNEY_ROOTS[@]}" "${JOURNEY_ROOTS[*]}"
+printf 'ok: check-review-draft-retired-vocabulary — %d terms over %d roots (%s), all resolving; %d Journey terms over %d roots (%s), all resolving; %d waypoint effect-form terms over %d roots (%s), all resolving (kogaki#1326); no carrier states any of the three; discrimination and the root guard asserted both ways\n' "${#TERMS[@]}" "${#ROOTS[@]}" "${ROOTS[*]}" "${#JOURNEY_TERMS[@]}" "${#JOURNEY_ROOTS[@]}" "${JOURNEY_ROOTS[*]}" "${#WAYPOINT_TERMS[@]}" "${#WAYPOINT_ROOTS[@]}" "${WAYPOINT_ROOTS[*]}"

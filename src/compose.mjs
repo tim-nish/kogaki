@@ -369,9 +369,10 @@ export function budgetRefusal(budget, at) {
 // PURE, and exported for the realization entry in `src/draft.mjs`, which
 // re-runs it over a Brief's parsed Legs rather than re-expressing it.
 export function waypointsRefusal(waypoints, claimStrands, at) {
-  const def = "a waypoint is one step of what this Leg does to its reader, carrying an `effect` "
-    + "(what the step does to the reader, never what the prose says) and `serves` (the claims it serves, "
-    + "by the Strand id each names) — src/leg-schema.json, `waypoint`";
+  const def = "a waypoint is a point its paragraph makes, carrying a `point` "
+    + "(the proposition the paragraph makes, in the article's subject, one sentence — never an effect on "
+    + "the reader) and `serves` (the claims it serves, by the Strand id each names) — src/leg-schema.json, "
+    + "`waypoint` (kogaki#1326)";
   if (!Array.isArray(waypoints) || waypoints.length === 0) {
     return `${at}: carries no waypoints — every Leg carries an ordered, non-empty \`waypoints\` list, its `
       + `specialization of its Move's technique, written at composition because no stage after the Candidate `
@@ -384,8 +385,16 @@ export function waypointsRefusal(waypoints, claimStrands, at) {
     if (!w || typeof w !== "object" || Array.isArray(w)) {
       return `${at}: ${nth} is not a waypoint — ${def}`;
     }
-    if (typeof w.effect !== "string" || w.effect.trim() === "") {
-      return `${at}: ${nth} has an empty effect — ${def}`;
+    // THE EFFECT FORM IS RETIRED BY NAME (kogaki#1326, owner decision
+    // 2026-10-10): a waypoint saying what a step does to the reader was a
+    // stage direction the writer narrated, so a Leg still carrying it is
+    // refused rather than read as a waypoint with no point.
+    if (Object.hasOwn(w, "effect")) {
+      return `${at}: ${nth} carries \`effect\`, which is retired — a waypoint states the point its `
+        + `paragraph makes, not an effect on the reader (kogaki#1326). ${def}`;
+    }
+    if (typeof w.point !== "string" || w.point.trim() === "") {
+      return `${at}: ${nth} has an empty point — ${def}`;
     }
     if (!Array.isArray(w.serves) || w.serves.length === 0
       || w.serves.some((x) => typeof x !== "string" || x.trim() === "")) {
@@ -2145,12 +2154,12 @@ export function renderLeg(s) {
     L.push(`claim (strand ${g.strand}): ${g.proposition}`);
   }
   // the route (kogaki#1311): ONE LINE PER WAYPOINT, in order,
-  // `waypoint (serves L<n>[, L<m>]): <effect>` — the claim line's own form, so
-  // the Strand addressing sits in the parenthesis and the effect, which is
+  // `waypoint (serves L<n>[, L<m>]): <point>` — the claim line's own form, so
+  // the Strand addressing sits in the parenthesis and the point, which is
   // free prose, runs to the end of the line. `src/draft.mjs`'s
   // `parseLegBlockBody` reads it back.
   for (const w of s.waypoints || []) {
-    L.push(`waypoint (serves ${w.serves.join(", ")}): ${String(w.effect).replace(/\s*\n\s*/g, " ").trim()}`);
+    L.push(`waypoint (serves ${w.serves.join(", ")}): ${String(w.point).replace(/\s*\n\s*/g, " ").trim()}`);
   }
   // the Journey a Leg draws on (kogaki#1111): ONE LINE PER ENTRY, `journey: <L-id> — <use> (<gloss>)`.
   // The gloss is the schema's own `journey.uses` text (kogaki#1286, owner

@@ -140,7 +140,7 @@
       "required": true,
       "type": "array of waypoint",
       "min_length": 1,
-      "description": "The route this Leg takes the reader along, from `reader_state_before` to `reader_state_after`, as an ORDERED list of waypoints -- this Leg's specialization of its Move's `technique` (kogaki#1311, owner decision 2026-10-09). Each waypoint says what that step DOES TO THE READER, never what the prose says: an effect, not a sentence to write, which is what keeps the prose from becoming templated. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. How many waypoints a Leg carries is yours to decide from the Move's prose and this Leg's claims: you need not reproduce the Move's internal structure element for element, even where its `technique` describes a fixed number, and nothing reads the count. One waypoint tends to become one paragraph, as a strong tendency rather than a guarantee. A waypoint whose effect no claim of this Leg supports is the signal that the Leg is short of material: pull in a Journey, bind another Move, or report `no_move_fits` -- never a waypoint serving a claim it does not draw on. See `waypoint` below.",
+      "description": "The route this Leg takes the reader along, from `reader_state_before` to `reader_state_after`, as an ORDERED list of waypoints -- this Leg's specialization of its Move's `technique` (kogaki#1311, owner decision 2026-10-09). Each waypoint is a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326, owner decision 2026-10-10) -- what the paragraph establishes, never how the reader is to feel or what they are handed, and never a stage direction. The point is not quoted; its wording is the writer's. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. How many waypoints a Leg carries is yours to decide from the Move's prose and this Leg's claims: you need not reproduce the Move's internal structure element for element, even where its `technique` describes a fixed number, and nothing reads the count. One waypoint tends to become one paragraph, as a strong tendency rather than a guarantee. A waypoint whose point no claim of this Leg supports is the signal that the Leg is short of material: pull in a Journey, bind another Move, or report `no_move_fits` -- never a waypoint serving a claim it does not draw on. See `waypoint` below.",
       "see": "waypoint"
     },
     "journeys": {
@@ -385,21 +385,24 @@
   },
   "waypoint": {
     "definition": [
-      "A WAYPOINT IS ONE STEP OF WHAT THIS LEG DOES TO ITS READER (kogaki#1311).",
-      "The Leg's `reader_state_before` and `reader_state_after` say where the",
-      "reader starts and ends; the waypoints say how the Leg gets them from one",
-      "to the other, in order. The Move's `technique` says that in general and",
-      "for every article; a Leg's waypoints say it for THIS Leg's claims.",
+      "A WAYPOINT IS A POINT ITS PARAGRAPH MAKES (kogaki#1326, owner decision",
+      "2026-10-10, replacing the effect form kogaki#1311 introduced). The",
+      "Leg's `reader_state_before` and `reader_state_after` say where the",
+      "reader starts and ends; the waypoints say, in order, what the Leg's",
+      "paragraphs establish to get them from one to the other. The Move's",
+      "`technique` says that in general and for every article; a Leg's",
+      "waypoints say it for THIS Leg's claims, in the article's subject.",
       "",
-      "AN EFFECT, NEVER A SENTENCE TO WRITE. `effect` is what the reader is",
-      "brought to see, doubt, hold or expect at this step, in one or two",
-      "sentences. A waypoint that dictates wording turns the writer into a",
-      "transcriber and the article into a template; the writer decides what",
-      "is written to produce the effect.",
+      "A POINT, NEVER AN EFFECT AND NEVER A SENTENCE TO COPY. `point` is the",
+      "proposition the paragraph makes, in one sentence. It names what the",
+      "paragraph establishes -- never how the reader is to feel, what they",
+      "are \"handed\", or when they \"receive\" something: an effect is a",
+      "stage direction, and a writer given one narrates it. Nor is it the",
+      "Move's technique with the subject filled in. The point is not quoted:",
+      "its wording is the writer's.",
       "",
-      "IT SERVES A CLAIM, AND NEED NOT STATE ONE. A waypoint does not have to",
-      "use the claim itself; it only needs to produce prose that is",
-      "functionally related to that claim and serves it. A reinforcing step --",
+      "IT SERVES A CLAIM. A point need not restate the claim; it is a",
+      "proposition obtainable from the claim it serves. A reinforcing step --",
       "an example, a consequence, an answer to the obvious objection -- names",
       "the claim it reinforces in `serves`.",
       "",
@@ -410,18 +413,19 @@
       "in the waypoints.",
       "",
       "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses",
-      "an empty list, a waypoint with an empty `effect` or an empty `serves`,",
-      "a `serves` entry naming a Strand this Leg carries no claim for, and a",
+      "an empty list, a waypoint with an empty `point` or an empty `serves`,",
+      "a waypoint carrying the retired `effect`, a `serves` entry naming a",
+      "Strand this Leg carries no claim for, and a",
       "claim of this Leg that no waypoint serves -- each naming the Leg and",
       "the waypoint. Whether the waypoints specialize the Move's `technique`",
       "and survive its `breaks` is judged, at the Move-fit judgment, and never",
       "a lint."
     ],
     "fields": {
-      "effect": {
+      "point": {
         "required": true,
         "type": "string",
-        "description": "What this step does to the reader, in one or two sentences -- what they are brought to see, doubt, hold or expect. Never what the prose says, and never a sentence for the writer to copy."
+        "description": "The proposition this paragraph makes, in the article's subject, in one sentence -- what the paragraph establishes. Never how the reader is to feel or what they are handed, and never a sentence for the writer to copy: its wording is the writer's."
       },
       "serves": {
         "required": true,

@@ -664,7 +664,7 @@
       "id": "draft-packet",
       "file": "checks/check-draft-packet.sh",
       "admission": {
-        "contract": "The Leg Packet renders the Leg's waypoints and no Move, and the Draft stages open no Move file (owner decision 2026-10-09: Move information is responsible only up to the Candidate). `draft.mjs packet` renders a waypoints block carrying every waypoint's effect and the claim it serves in the claim's own words and no technique, question or breaks; `draft.mjs resolve` refuses a Leg with no waypoint naming the Leg and the field, and refuses `--moves-dir` by name; resolve, packet, section, emit and `review-draft.mjs open` open no path under moves/ under a filesystem trap with a control arm; and src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader src/compose.mjs exports",
+        "contract": "The Leg Packet renders the Leg's waypoints and no Move, and the Draft stages open no Move file (owner decision 2026-10-09: Move information is responsible only up to the Candidate). `draft.mjs packet` renders a waypoints block carrying every waypoint's point once, as a numbered list, and the claim it serves in the claim's own words, with neither \"effect\" nor \"does to the reader\" in the Packet (kogaki#1326) and no technique, question or breaks; `draft.mjs resolve` refuses a Leg with no waypoint naming the Leg and the field, and refuses `--moves-dir` by name; resolve, packet, section, emit and `review-draft.mjs open` open no path under moves/ under a filesystem trap with a control arm; and src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader src/compose.mjs exports",
         "license": "kogaki#1311",
         "tier": "pre-push",
         "runtime_ms": 1000,
