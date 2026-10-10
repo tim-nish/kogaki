@@ -377,7 +377,7 @@
         "verdict": "holds",
         "sentence": "this Leg declares no waypoint, so there is no step for the reader to have been taken through and the question below quantifies over nothing"
       },
-      "question": "The declared waypoint is above: one step of what this passage was meant to do to its reader, with the claim it serves. Below it is every step this reader wrote down after reading the passage blind, one per paragraph, saying what each paragraph did to them. Is the declared step's effect among them? Answer `holds` where one of the steps the reader wrote carries that effect -- in their own words, at any position, and spread over more or fewer paragraphs than one; answer `fails` where none does, which means the passage never took the reader through it. A step the reader wrote that matches no declared waypoint is not yours to judge here, and how many paragraphs the passage spent is not a criterion (kogaki#1311)."
+      "question": "The declared waypoint is above: the point one paragraph of this passage was meant to make, with the claim it serves. Below it is every point this reader wrote down after reading the passage blind, one per paragraph, saying what each paragraph established. Is the declared point among them? Answer `holds` where one of the points the reader wrote makes it -- a paraphrase counts, at any position, and spread over more or fewer paragraphs than one; answer `fails` where none does, which means the passage never made that point. A point the reader wrote that matches no declared waypoint is not yours to judge here, and how many paragraphs the passage spent is not a criterion (kogaki#1311, kogaki#1326)."
     },
     {
       "id": "introduces",

@@ -13,7 +13,9 @@
 # WHAT THIS COVERS:
 #   (a) a Packet rendered by `draft.mjs packet` carries no `technique`,
 #       `question` or `breaks` field of any Move, and carries the waypoints
-#       block with every waypoint's effect and the claim each serves;
+#       block with every waypoint's point, once and numbered, and the claim
+#       each serves — and neither "effect" nor "does to the reader" anywhere
+#       in it (kogaki#1326);
 #   (b) `draft.mjs resolve` on a Brief whose Leg carries no waypoint line
 #       refuses, naming the field and the Leg; and `--moves-dir` is refused by
 #       name rather than ignored;
@@ -137,9 +139,9 @@ const trapped = (args, env = {}) => {
 const C1 = "the installer copies the kit into the consumer's tree.";
 const C2 = "a second run refreshes the copy and its stamp.";
 const W = [
-  { effect: "The reader sees the copy land where they did not expect a write.", serves: ["L1"] },
-  { effect: "The reader starts to doubt that the copy stays as written.", serves: ["L1", "L2"] },
-  { effect: "The reader expects the next run to overwrite their edit.", serves: ["L2"] },
+  { point: "The installer writes into a tree the consumer thought was theirs alone.", serves: ["L1"] },
+  { point: "A copy that a later run may rewrite is not a copy the consumer can edit.", serves: ["L1", "L2"] },
+  { point: "The next run overwrites any edit made to the copy.", serves: ["L2"] },
 ];
 const briefText = (legs) => [
   "# Brief — packet-brief", "",
@@ -159,9 +161,9 @@ const leg = (id, move, lines) => [
 const goodLegs = [
   ...leg("s1", "name_a_paradox_after_removing_aggressive_intent", [
     `claim (strand L1): ${C1}`, `claim (strand L2): ${C2}`,
-    ...W.map((w) => `waypoint (serves ${w.serves.join(", ")}): ${w.effect}`)]),
+    ...W.map((w) => `waypoint (serves ${w.serves.join(", ")}): ${w.point}`)]),
   ...leg("s2", "a_move_no_library_holds", [
-    `claim (strand L1): ${C1}`, "waypoint (serves L1): The reader holds the copy as settled."]),
+    `claim (strand L1): ${C1}`, "waypoint (serves L1): The copy is settled once installed."]),
 ];
 const briefDir = join(root, "theses", "packet-brief");
 mkdirSync(briefDir, { recursive: true });
@@ -198,16 +200,23 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
   if (at === -1) fails.push("(a) the Packet carries no waypoints block");
   else {
     const block = packet.slice(at, packet.indexOf("\n## ", at + head.length));
-    const lines = block.split("\n").filter((l) => l.startsWith("- "));
-    if (lines.length !== W.length) fails.push(`(a) the waypoints block carries ${lines.length} line(s), not one per waypoint (${W.length})`);
+    // A NUMBERED LIST, EACH POINT ONCE (kogaki#1326): line i is `i. <point>`.
+    const lines = block.split("\n").filter((l) => /^\d+\. /.test(l));
+    if (lines.length !== W.length) fails.push(`(a) the waypoints block carries ${lines.length} numbered line(s), not one per waypoint (${W.length})`);
     const claimOf = { L1: C1, L2: C2 };
     W.forEach((w, i) => {
       const l = lines[i] || "";
-      if (!l.includes(w.effect)) fails.push(`(a) waypoint ${i + 1}'s effect is not on its line: ${l}`);
+      if (!l.startsWith(`${i + 1}. ${w.point}`)) fails.push(`(a) waypoint ${i + 1}'s point is not on its line, numbered ${i + 1}: ${l}`);
+      if (packet.split(w.point).length - 1 !== 1) fails.push(`(a) waypoint ${i + 1}'s point is not listed exactly once in the Packet`);
       for (const s of w.serves) {
         if (!l.includes(claimOf[s])) fails.push(`(a) waypoint ${i + 1}'s line does not carry the claim it serves (${s}): ${l}`);
       }
     });
+    // THE EFFECT FORM IS GONE FROM THE PACKET (kogaki#1326): no instruction
+    // tells the writer what a step does to the reader.
+    for (const word of [/\beffect\b/i, /does to the reader/i]) {
+      if (word.test(packet)) fails.push(`(a) the Packet still carries ${word}`);
+    }
     if (/\(serves L\d/.test(block) || /\bL[12]\b/.test(block)) fails.push("(a) the waypoints block carries a Strand id the writer cannot open");
   }
 }
@@ -407,5 +416,5 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one line per waypoint with its effect and the claim it serves in the claim's own words, and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323)");
+console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323)");
 JS

@@ -849,7 +849,7 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
     "",
     "`introduces` is legitimately absent — a passage that introduces nothing carries no such",
     "line. `claims` is not: every passage asserts something. Nor is `waypoint`: every paragraph",
-    "does something to its reader.",
+    "makes a point.",
     "",
     "## The form",
     "",
@@ -945,18 +945,18 @@ export const RECONSTRUCTIBLE_FIELDS = [
     definition: "what a reader knows and believes once they have read it." },
   { name: "claims", kind: "claim-lines",
     definition: "one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept." },
-  // THE ROUTE, READ BACK (kogaki#1311). The forward Leg carries `waypoints`,
-  // one step of what the Leg does to its reader each, and the Packet renders
+  // THE ROUTE, READ BACK (kogaki#1311, kogaki#1326). The forward Leg carries
+  // `waypoints`, each the point one paragraph makes, and the Packet renders
   // them in place of the Move; Reverse Outlining compares the prose's own
   // route to them. The reader writes one line per PARAGRAPH, since a paragraph
   // is what a reader can point at, and the per-declared `waypoints` row asks
-  // whether each declared step is among those lines — at any position, so a
+  // whether each declared point is among those lines — at any position, so a
   // passage that spent two paragraphs on one step is not refused on the count.
   // The forward form's `(serves …)` is the Brief's address and the reader
   // cannot know it, so the line is bare, the way `claim ` lines are.
   { name: "waypoints", kind: "waypoint-lines",
-    definition: "one `waypoint ` line per paragraph of the passage, in order — what that paragraph DOES to you "
-      + "as a reader (what it brings you to see, doubt, hold or expect), in your words; never a summary of what it says." },
+    definition: "one `waypoint ` line per paragraph of the passage, in order — the point that paragraph makes: "
+      + "the one proposition it establishes, in one sentence, in your words; never what it does to you as a reader." },
   // BOTH ARMS, and the bare one first (PR #1022 round 1, finding 3). This read
   // `introduces: <term> — <anchor>`, which is only half of what
   // `parseIntroducesEntry` accepts: a term may be written BARE, and only a
@@ -1190,8 +1190,8 @@ function validateReverseOutline(text, leg, file) {
       // to its reader, so an outline naming no step at all read nothing.
       const ws = outlineWaypoints(body);
       if (ws.length === 0) {
-        problems.push("carries no `waypoint ` line — every paragraph does something to its reader, and the "
-          + "steps are what the Round Trip compares against the waypoints the Leg was written toward");
+        problems.push("carries no `waypoint ` line — every paragraph makes a point, and the points are what "
+          + "the Round Trip compares against the waypoints the Leg was written toward");
       }
       for (const [i, v] of ws.entries()) {
         if (v === "") problems.push(`\`waypoint\` line ${i + 1} is blank — ${f.definition}`);
@@ -1616,7 +1616,9 @@ function packetBullet(text, label) {
   return null;
 }
 
-// A `- item` list read out of a bullet value, with the stated-absence forms
+// A `- item` list read out of a bullet value — or a numbered `1. item` list,
+// which is how the waypoints block renders its points in route order
+// (kogaki#1326) — with the stated-absence forms
 // answering as the empty list. `already knows` renders each entry as
 // `term — anchor (introduced at <leg>)`; only the term is the join key, and the
 // anchor is what the Packet carries FOR THE WRITER rather than for this reader.
@@ -1625,7 +1627,7 @@ function bulletList(value, { termOnly = false } = {}) {
   if (PACKET_ABSENCE.test(value)) return [];
   const out = [];
   for (const l of value.split("\n")) {
-    const m = l.match(/^\s*-\s+(.*\S)\s*$/);
+    const m = l.match(/^\s*(?:-|\d+\.)\s+(.*\S)\s*$/);
     if (!m) continue;
     let t = m[1];
     if (termOnly) {

@@ -9,8 +9,8 @@ one claim, after the fit judgment had passed the Leg by reading its state lines
 was read at four sites with four co-inputs. The owner decided (2026-10-09):
 "Information that belongs to Move has responsibility only up to CandidatePath
 creation." So every Leg carries `waypoints` (§4.1) — its own specialization of
-the Move's `technique`, an ordered list of effects on the reader each serving a
-claim — written at composition and judged there (§4.12.2); the Leg Packet
+the Move's `technique`, an ordered list of points each serving a claim (the
+effect form kogaki#1311 gave them is replaced by kogaki#1326) — written at composition and judged there (§4.12.2); the Leg Packet
 renders the waypoints in place of the Move block (§4.14); and nothing after the
 Candidate opens a Move file: `draft.mjs` takes no `--moves-dir`, adoption
 resolves no Move (§4.12.1), and the figure stage reads its kind off the Leg's
@@ -418,21 +418,31 @@ those paths into.
 - **`waypoints`** — **required** (kogaki#1311). The ordered route from
   `reader_state_before` to `reader_state_after`: this Leg's own
   specialization of its Move's `technique`, written when the Leg is composed.
-  Each waypoint carries an `effect` and the claims it `serves`, by Strand id.
-  Two boundaries, both the owner's (2026-10-09):
-  - **An effect, never wording.** "A `development.element` describes what it
-    does to the Reader, not what should be written. That prevents the prose
-    from becoming templated."
-  - **It serves a claim, and need not state one.** A waypoint "does not have
-    to directly use the Claim itself; it only needs to produce prose that is
-    functionally related to and serves that Claim."
+  Each waypoint carries a `point` and the claims it `serves`, by Strand id.
+  - **A point, never an effect** (kogaki#1326, owner decision 2026-10-10:
+    "Let us revise the boundary so that a Waypoint describes what should be
+    written rather than being a Move itself"). `point` is the proposition the
+    paragraph makes, in the article's subject, one sentence, in route order:
+    what the paragraph establishes, never how the reader is to feel or what
+    they are "handed". The effect form kogaki#1311 introduced — what a step
+    does to the reader — was narrated by the writer: on the 2026-10-09 Draft
+    the stage directions became topic sentences, and a Leg's waypoints were
+    its Move's technique with the subject filled in. The point is not quoted;
+    its wording stays the writer's.
+  - **It serves a claim.** A point need not restate the claim; it is
+    obtainable from the claim it serves, and a reinforcing point — an
+    example, a consequence, an answer to an objection — names the claim it
+    reinforces.
+  - **The composer writes the points from the Move's Segments** where the
+    Move carries them, and from its `technique` until it does.
 
   **The count is the composer's**, decided from the Move's prose, and the
   composer need not reproduce a Move's internal structure element for
   element, even where the Move describes a fixed number. One waypoint per
   paragraph is "a strong tendency rather than a guarantee", and no mechanism
   refuses a mismatch. `validateLegs` refuses an empty list, a waypoint with an
-  empty `effect` or `serves`, a `serves` entry naming a Strand the Leg carries
+  empty `point` or `serves`, a waypoint still carrying `effect` (by name), a
+  `serves` entry naming a Strand the Leg carries
   no claim for, and a claim no waypoint serves — each naming the Leg and the
   waypoint; `draft.mjs resolve` refuses a Brief Leg carrying none, by name. **No
   Move information is copied onto the Leg**: `breaks` is part of the Move and
@@ -1131,9 +1141,9 @@ input carries beside the Leg's own `waypoints`:
 - whether `reader_state_before` and `reader_state_after` are consistent
   specializations of the Move's `before` and `after` — the first Leg's before
   against Reader start, below;
-- whether the Leg's **waypoints, read in order, are a consistent
-  specialization of the Move's `technique`**, each waypoint's effect obtainable
-  from the claim it serves. The waypoints are judged, not the claims and not
+- whether the Leg's **points, read in order, follow the Move's order** as its
+  `technique` gives it, each point obtainable from the claim it serves
+  (kogaki#1326). The points are judged, not the claims and not
   the state lines: on 2026-10-08 the judgment read Leg 4's state lines, which
   the composer had written to mirror the Move, and passed a Leg the writer
   then could not perform;
@@ -1417,10 +1427,14 @@ the reason that now covers every Move field: the Leg carries the instance form
 of each — its states for `before`/`after`, its waypoints for `technique` — so
 rendering the Move beside it would put the general and the specialized
 statement of one thing side by side and leave the model to choose. The block
-renders each waypoint's effect and the claim it serves, in the claim's own
-words, under a fixed usage header: a waypoint says what a step does, never
-what to write; one paragraph per waypoint is the expected shape, and the
-writer may spend more or fewer where an effect needs it. `draft.mjs` opens no
+renders the points as a **numbered list**, each point once and in route order,
+with the claim it serves in the claim's own words (kogaki#1326), under a fixed
+usage header: the point is not quoted and its wording is the writer's; one
+paragraph per point is the expected shape, and the writer may spend more or
+fewer where a point needs it. The header carries no sentence about what a
+step does to the reader. Reverse Outlining reads the points back: the Blind
+Reader writes the point each paragraph makes, and the `waypoints` row asks
+whether each declared point is among them. `draft.mjs` opens no
 Move file to render it.
 
 **The Journey block renders material for a concrete example** (kogaki#1323,
