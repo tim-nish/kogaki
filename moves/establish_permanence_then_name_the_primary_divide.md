@@ -17,10 +17,6 @@ after: >-
   stable foundation for understanding policy and as the source of the
   central classification. trust: raised by convergence among an independent
   cultural reference, a theorist, and a practical authority.
-question: >-
-  raises: why should this one condition, among several important influences,
-  reveal something durable about policy? settles: by its comparative
-  permanence, then by naming the resulting two-part division as the answer.
 technique: >-
   Establish a property's durability by contrasting its time scale against
   other important influences that change faster, then make that duration

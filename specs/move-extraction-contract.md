@@ -19,12 +19,18 @@ untouched — the Analysis still records the sequence and the presupposition —
 only the authored Move record stops carrying them.
 
 `draws_on` retired too (kogaki#1280, owner ruling): no composer, judge or
-Packet reads it either, and the Packet's Move block has always been
-`technique`, `question`, `breaks`.
+Packet reads it either.
+
+`question` retired (kogaki#1324, owner ruling 2026-10-10): the composer is
+never handed it — the Move it reads is `before`, `after`, `technique` and
+`breaks` — so the one reader it had, path review's question chain, judged a
+Candidate against a field the composer never received. The reader's question
+is carried where the composer does see it: the `question:` line of `before`
+and `after`.
 
 **Origin.** The Move concept follows Swales' move analysis in genre studies:
 a text is coded as a sequence of communicative purposes, each a move. The
-`question` field follows Minto's Situation-Complication-Question-Answer
+**question** dimension of `before`/`after` follows Minto's Situation-Complication-Question-Answer
 pattern, read through question-under-discussion analysis (Roberts 1996): a
 text opens a question and either settles it, or replaces it with a narrower
 one taken up in its stead.
@@ -55,7 +61,7 @@ the article.
 
 ## Output format
 
-One record per Move, exactly these nine keys admissible — six always
+One record per Move, exactly these eight keys admissible — five always
 present, three optional — in this order, separated by one blank line.
 Multi-line values use YAML folded style (`>-`).
 
@@ -68,12 +74,6 @@ before: >-
 after: >-
   <one line per reader dimension this Move leaves the reader in, same
   dimension set as before>
-question: >-
-  <one line per verb that applies: "holds: <A>" (the question the reader
-  arrives with, or "none"); "settles: <A>" (A is answered);
-  "replaces: <A> with <B>" (A is set aside, B is pursued in its stead as a
-  way into A — A is not answered); "raises: <B>" (B is opened, A if any
-  stays open beside it). Replacing is neither settling nor adding.>
 technique: >-
   <what the Move does, subject-free, one or two sentences>
 breaks: >-
@@ -97,10 +97,11 @@ figure:
   changes. A Move whose `before` and `after` describe the same state on a
   dimension is not moving that dimension; omit it. Written at the
   **dimension level**, generalizable to another article — not this
-  article's own facts.
-- **question** — see the format block above; this is the field question-
-  under-discussion analysis governs. Write `holds: none` when the reader
-  arrives with no live question.
+  article's own facts. The `question:` line is the one question-under-
+  discussion analysis governs: it states the question the reader holds, and
+  `after` states whether the Move settled it, replaced it with a narrower
+  one, or raised a new one beside it. Write `question: holds: none.` in
+  `before` when the reader arrives with no live question.
 - **technique** — subject-free, general to the technique. A person applying
   this Move to a completely different topic must be able to follow it from
   this field alone.

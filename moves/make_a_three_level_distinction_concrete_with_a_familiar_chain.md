@@ -10,9 +10,6 @@ after: >-
   a complete example that assigns all three terms consistently. orientation:
   the terms form a directional hierarchy in which each lower level serves
   the one above it.
-question: >-
-  holds: how do the three terms differ in practice? settles: how do the
-  three terms differ in practice?
 technique: >-
   Define each level of a hierarchy by the function it performs for the level
   immediately above it, in ascending order. Compress the set of definitions

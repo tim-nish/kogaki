@@ -89,7 +89,6 @@ for name in sorted(os.listdir('moves')):
         mapping = m.read_saved(path)
         m.check_field_set(mapping, 1)
         m.check_figure(mapping, 1)
-        m.check_question_chain(mapping, 1)
     except Exception as exc:
         bad.append('%s: %s' % (path, exc))
         continue

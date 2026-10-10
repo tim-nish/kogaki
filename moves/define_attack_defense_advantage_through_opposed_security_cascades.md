@@ -17,11 +17,6 @@ after: >-
   determining which means is rational. trust: has watched a familiar,
   controlled contrast carried systematically into the target domain, though
   its broader empirical claims remain asserted rather than established.
-question: >-
-  holds: how does the announced variable operate to produce its effects
-  settles: what each of the variable's two states means and what chain of
-  consequences follows from it raises: how the variable classifies
-  particular cases in the target domain
 technique: >-
   Define a binary variable in parallel terms, then simplify it through two
   cases that hold an underlying motive constant while varying only the

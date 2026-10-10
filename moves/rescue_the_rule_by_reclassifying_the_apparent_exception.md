@@ -18,12 +18,6 @@ after: >-
   cases respond to a candidate rather than read off a single ranking. trust:
   partly restored by a premise-level diagnosis tied to observable responses,
   with the deeper causal account honestly deferred.
-question: >-
-  holds: why does the case invert the rule's predicted pattern? settles: the
-  rule itself is not wrong. replaces: the case's classification is wrong
-  with what the correct classification is, inferred from observed responses
-  to it. raises: why does the ranking that produced the misclassification
-  diverge from what other cases' responses reveal.
 technique: >-
   Concede that an observation appears to violate a rule, then preserve the
   rule by relocating the fault to the classification of the case rather than

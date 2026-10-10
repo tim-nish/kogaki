@@ -14,11 +14,6 @@ after: >-
   rather than generally inert. trust: raised by translating the asymmetry
   into familiar vocabulary and by deriving the expected case directly from
   the framework's own definition.
-question: >-
-  holds: why has no sufficiently united response formed against the dominant
-  actor? replaces: that question with a sharper one — why does the same
-  coordinating response appear against lesser challengers, and even in
-  cooperation with the dominant actor, rather than against it?
 technique: >-
   Take an already-established missing response and add a case where that
   same response is visibly directed elsewhere, showing the mechanism exists

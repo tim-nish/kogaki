@@ -1393,7 +1393,7 @@ export function validateReaderPathUnit(candidate, inputs) {
   // One-claim-per-Strand, the closed claim type set, every required field
   // and its description all come from `src/leg-schema.json` through that
   // function.
-  const v = validateLegs(c.legs, c.reader_start, c.obligations, movesDir);
+  const v = validateLegs(c.legs, c.reader_start, c.obligations);
   if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
   // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
   // (kogaki#1276). The refusal is the retry prompt's text verbatim
@@ -1867,7 +1867,6 @@ const STATE_WORK = {
     const persona = readerPersona(resolve(BRIEF_REPO, briefPersonaFile(table)));
     if (persona.error) fail(`${st.id}: ${persona.error}`);
     const priorKnowledge = personaPriorKnowledgeLine(persona);
-    const movesDir = briefMovesDir(args);
     const unitRow = table.review_path_unit
       || fail(`${st.id}: src/brief-workflow.json declares no review_path_unit row for the Detached `
         + "Job's per-Candidate prompt — nothing was started (kogaki#1301).");
@@ -1892,7 +1891,7 @@ const STATE_WORK = {
         discharge_verdicts: DISCHARGE_VERDICTS,
         candidate_you_must_review: c,
         persona_prior_knowledge: priorKnowledge,
-        question_chain_pairs: questionChainPairs(c.legs, movesDir),
+        question_chain_pairs: questionChainPairs(c.legs),
         discharge_rows: dischargeRows(c.legs, c.obligations),
       };
       return { id: `review-${i + 1}`, prompt: judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null) };

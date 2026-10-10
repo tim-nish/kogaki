@@ -15,9 +15,6 @@ after: >-
   takes the current wave as one instance of a historical recurrence rather
   than a standalone trend. trust: raised by the author's self-implicating
   admission and a fair survey of the field's other forms.
-question: >-
-  holds: none settles: whether the current wave is new raises: why worsening
-  conditions repeatedly renew interest in the subject
 technique: >-
   Begin with a familiar scene and several recognizable forms so the reader
   can enter without specialist knowledge. Turn a visible anomaly in that

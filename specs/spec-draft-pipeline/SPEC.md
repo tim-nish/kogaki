@@ -480,23 +480,23 @@ was written. The schema authority remains
 
 **Origin.** The Move concept follows Swales' move analysis in genre studies: a
 text is coded as a sequence of communicative purposes, each a move. The
-reader's question, the central field of `question` below, follows Minto's
+reader's question, the `question` dimension of `before`/`after` below, follows Minto's
 Situation-Complication-Question-Answer pattern, read through
 question-under-discussion analysis (Roberts 1996): a text opens a question and
 either settles it, or replaces it with a narrower one taken up in its stead.
 
-**Eight fields are always present; three are optional.** `status` is retired —
+**Five fields are always present; three are optional.** `status` is retired —
 a Move enters observed and nothing here licenses a later generalization claim,
-so no field carries one.
+so no field carries one. `order` and `presupposes` (kogaki#1247), `draws_on`
+(kogaki#1280) and `question` (kogaki#1324) are retired too, each by owner
+ruling, and a record still carrying one is refused by name at §6.9.0
+condition 3.
 
 | field | present | what it holds |
 |---|---|---|
 | `id` | always | verb phrase naming the transformation, snake_case |
 | `before` | always | one line per reader dimension the Move starts from |
 | `after` | always | one line per reader dimension the Move leaves the reader in |
-| `question` | always | the question the reader arrives with and its fate |
-| `order` | always | the Segment function sequence and why it runs in that order |
-| `presupposes` | always | background the reader must already hold, beyond `before` |
 | `technique` | always | what the Move does, subject-free |
 | `breaks` | always | the three tests a correct performance must survive |
 | `continues_from` | optional | a prior Move's `id`, when this one picks up from it |
@@ -511,23 +511,28 @@ against the Corpus (Property 1, below); all five survived (kogaki#1173,
 disagreement was raised against dropping it, since a slower-moving dimension
 is still a dimension).
 
-**`question`.** One line per verb that applies: `holds: <A>` (the question the
-reader arrives with, or `none`); `settles: <A>` (A is answered);
-`replaces: <A> with <B>` (A is set aside and B is pursued in its stead, as a
-way into A — A is not answered); `raises: <B>` (B is opened, and A, if any,
-stays open beside it). Replacing is its own verb, neither settling nor adding:
-question-under-discussion analysis treats a sub-question taken up in place of
-a larger one as a strategy distinct from answering it.
+**The reader's question lives in `before`/`after`.** Its `question:` line
+states the question the reader holds (`holds: none` where the reader arrives
+with no live question), and `after`'s line states whether the Move settled
+it, replaced it with a narrower one taken up in its stead, or raised a new
+one beside it — question-under-discussion analysis treats a sub-question
+taken up in place of a larger one as a strategy distinct from answering it.
 
-**`order`.** The Segment function sequence (`raises` / `advances` / `settles`,
-in order) plus one sentence stating why that order — subject-free, like
-`technique`, per the subject-independence rule below.
+**`question` retired (kogaki#1324, owner ruling 2026-10-10).** The record
+carried a separate `question` field (`holds:` / `settles:` / `replaces:` /
+`raises:`), and the composer was never handed it: the Move it reads is
+`before`, `after`, `technique` and `breaks`. Its one reader was the question
+chain — `validateLegs`' refusal and Path Review's `question_chain` item
+(§4.12.2) — which therefore judged a Candidate against a field the composer
+never received, depending on the Move rather than on what the Composer
+produced. The field was also redundant by construction: the ingest check
+that guarded it already required its `raises:` to appear as a `question:`
+line in `after`. The field, that ingest check and the compose-side refusal
+are removed together; the question chain reads the Legs' own question lines
+only.
 
-**`presupposes`.** Background facts or references the reader must already
-hold that `before` does not capture — a school-taught poem, a generic
-narrative the Move assumes familiarity with. Distinct from `before`: `before`
-states the reader's position on the Move's own dimensions, `presupposes`
-states what the Move assumes without moving it.
+**`order` and `presupposes` retired (kogaki#1247, owner ruling).** No
+composer, judge or Packet read either.
 
 **`draws_on` retired (kogaki#1280, owner ruling).** No composer, judge or
 Packet read it; the Leg Packet's Move block was then `technique`,
@@ -604,12 +609,11 @@ reads today, from `src/draft.mjs` and `src/compose.mjs`:
 | role | fields | read by |
 |---|---|---|
 | `specialized-by-the-Leg` | `technique`, `breaks` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); no stage after the Candidate (kogaki#1311) |
-| `question-chain` | `question` | `validateLegs`' question chain and Path Review's `question_chain` item (§4.12.2), both inside the Candidate phase |
 | `state-before` | `before` | Path Review's specialization judgment (§4.4) |
 | `state-after` | `after` | Path Review's specialization judgment (§4.4) |
 | `figure-roles` | `figure` | a Leg's `figure:` declaration (§4.16) |
 | `identity` | `id`, `continues_from` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
-| not read downstream | `order`, `presupposes`, `evidence` | nothing; kept for the record's own sake |
+| not read downstream | `evidence` | nothing; kept for the record's own sake |
 
 No Move field has a role read after the Candidate: the `rendered-to-writer`
 role left this table with kogaki#1311, when the Packet stopped carrying the Move. The multi-schema manifest itself
@@ -1141,8 +1145,10 @@ legitimate output.
 
 **Two Path Review items carry a verdict, and they are named rather than
 admitted by shape** (kogaki#1283, owner decision of 2026-10-06). `question_chain`
-judges, per adjacent Leg pair, whether the question one Leg's Move raises is the
-question the next Leg's Move holds (`same question` / `different question`), and
+judges, per adjacent Leg pair, whether Leg N's `reader_state_after` question
+line and Leg N+1's `reader_state_before` question line name the same question
+(`same question` / `different question`) — the Leg lines only, nothing from a
+Move (kogaki#1324), and
 `discharge` judges, per Closure row carrying `discharged_by`, whether every part
 of what the row owes is answered by the discharging Leg's claims (`holds` /
 `fails`). Each compares two carriers rather than reading the writing, so a
@@ -2647,8 +2653,8 @@ ingested Move reads `holds: none`, never a composed question** (kogaki#1216).
 The Passage-to-Move path reads the Analysis's `question` row (`passages/
 FORMAT.md` §"Reader before and after"): where its BEFORE cell reads `none`,
 alone or with a hedge, `tools/move_ingest.py` writes `holds: none` into the
-proposal's `question` field and into the `question:` line of its `before`
-before the selection screen renders, and the screen names the rewrite. The
+`question:` line of the proposal's `before` (the Move's own `question` field,
+which it also rewrote, retired at kogaki#1324) before the selection screen renders, and the screen names the rewrite. The
 Analysis is the owner-answered record; a model fills the schema it is given
 and manufactured a question where the record held none, which is how the
 library came to hold no Move able to open a reader who arrives indifferent.
@@ -2657,8 +2663,8 @@ Input is a **free-form file the owner writes**, conventionally carrying a
 `.md` extension. **It is not markdown**, and §6.9.0's grammar refuses markdown
 constructs by name: the extension is the owner's filing convenience, not a
 promise about the interior. A command reads it and
-proposes each Move in exactly §4.2's eight required fields, plus whichever of
-the four optional ones are present, stripping the excluded draft fields. An
+proposes each Move in exactly §4.2's five required fields, plus whichever of
+the three optional ones are present, stripping the excluded draft fields. An
 **agent review** applies the authoring discipline as **judgment**: one
 transition not an arc, separable from content, an id naming the operation in
 established terms, `after` differing from `before`, subject-independence
@@ -2696,9 +2702,11 @@ which condition 4 names and bounds rather than claiming away:**
    naming the line. This is the condition that catches an out-of-order *first*
    record, which no per-record check can see.
 2. **Duplicate keys within a record are refused rather than resolved.**
-3. **After the strip step, a record carries exactly §4.2's eight required keys,
+3. **After the strip step, a record carries exactly §4.2's five required keys,
    plus at most the three optional ones (`continues_from`,
-   `evidence`, `figure`) — no more, and none of the eight missing.** The
+   `evidence`, `figure`) — no more, and none of the five missing.** A
+   retired field (`order`, `presupposes`, `draws_on`, `question`) is an
+   unexpected key here and is refused naming it. The
    ordering matters: the excluded draft fields are stripped **first**, so
    their presence routes to the strip step rather than to a refusal. A record
    that absorbed its neighbour's `before` leaves that neighbour short a
@@ -2728,10 +2736,10 @@ in particular is invisible in every artifact it corrupts.
 
 ### 6.9.1 The file interior — the §4.2 block IS the file body
 
-The eight required fields render as a **structured block as the file body**,
+The five required fields render as a **structured block as the file body**,
 and `moves/INDEX.md`'s row derives mechanically from two of them. Where the
 record carries any of the three optional fields, each renders **after** the
-eight, `figure` last of all (§6.9.3) — and the INDEX row is unaffected: its
+five, `figure` last of all (§6.9.3) — and the INDEX row is unaffected: its
 two columns are `id` and `technique`, so no optional field reaches a row.
 
 **The declined arm, with its real cost.** Headed prose sections per field are
@@ -2753,20 +2761,20 @@ reader proposes again.
 
 #### 6.9.1a What that entails
 
-**The file body.** The eight required fields in §4.2's order as a YAML
+**The file body.** The five required fields in §4.2's order as a YAML
 mapping, byte-identical in form to the block the owner authored — which is
 what makes normalize over a conforming input close to identity. No fence, no
 `---` delimiters: front-matter delimiters imply a document below the
 metadata, and here the block **is** the document.
 
-**The optional fields render after the eight, each when present** (kogaki#876,
+**The optional fields render after the five, each when present** (kogaki#876,
 carried into the rebuilt schema by kogaki#1175). `continues_from`
 and `evidence` render in §4.2's table order (`draws_on` retired, kogaki#1280);
 `figure` renders **last of all**,
 in the **kind's** role order, which is the order a conforming input already
 carries. A record carrying none of the three renders byte-identically to what
-a record under the eight-field schema always did. **The eight remain the
-eight**: no optional field is in §4.2's required order and none is counted
+a record under the five-field schema always did. **The five remain the
+five**: no optional field is in §4.2's required order and none is counted
 into it, which is why each renders after the loop rather than inside it.
 
 **The filename.** `moves/<id>.md`, the `id` field as the whole stem —

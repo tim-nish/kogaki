@@ -21,12 +21,6 @@ after: >-
   trust: extends confidence in the model because it is refitted, with
   decreasing explanation each time, across a widening set of independent
   cases.
-question: >-
-  holds: how is a single actor prevented from becoming dominant before the
-  decisive imbalance already exists? settles: prevention operates through
-  anticipatory containment led by the actors that would otherwise be
-  outweighed. raises: how those actors judge future trajectory, and which
-  concrete measures they take, is opened and left unanswered.
 technique: >-
   Convert an established danger into a how-question and answer it at once by
   naming the target, then distinguish the target's future trajectory from

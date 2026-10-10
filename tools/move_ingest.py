@@ -2,7 +2,7 @@
 """Move ingestion — the mechanical half of SPEC-draft-pipeline §6.9.
 
 This module owns everything §6.9 makes MECHANICAL: locating records, admitting
-them under §6.9.0's four conditions, normalizing to §4.2's six fields,
+them under §6.9.0's four conditions, normalizing to §4.2's five fields,
 rendering a saved file, and regenerating moves/INDEX.md.
 
 It owns NOTHING §6.9 makes JUDGMENT. There is no scoring, no verdict, and no
@@ -23,26 +23,26 @@ import re
 import subprocess
 import sys
 
-# §4.2's six required fields, in §4.2's order (kogaki#1175 rebuilt this
+# §4.2's five required fields, in §4.2's order (kogaki#1175 rebuilt this
 # schema from the eight-field one; the prior FIELDS tuple named id, status,
 # intent, requires, effect, constraints, failure_modes, excerpt). `order`,
-# `presupposes` (kogaki#1247) and `draws_on` (kogaki#1280) retired by owner
-# ruling: no composer, judge or Packet reads any of the three, and a record
-# still carrying one is refused by condition 3 as an unexpected key, naming
-# it — the same path an unknown key has always taken, with no new admission
-# rule needed. §6.9.1a fixes the order; a saved file renders in it, and
+# `presupposes` (kogaki#1247), `draws_on` (kogaki#1280) and `question`
+# (kogaki#1324) retired by owner ruling: no composer reads any of the four —
+# `question` was read only by path review, which judged a Candidate against a
+# field the composer was never given — and a record still carrying one is
+# refused by condition 3 as an unexpected key, naming it — the same path an
+# unknown key has always taken, with no new admission rule needed. §6.9.1a fixes the order; a saved file renders in it, and
 # condition 3 admits exactly this set plus at most OPTIONAL_FIELDS.
 FIELDS = (
     "id",
     "before",
     "after",
-    "question",
     "technique",
     "breaks",
 )
 
-# §4.2's three optional fields. None is part of §4.2's six and none becomes
-# one — condition 3 admits the six, plus any of these three and nothing
+# §4.2's three optional fields. None is part of §4.2's five and none becomes
+# one — condition 3 admits the five, plus any of these three and nothing
 # else. Each is absent by default.
 OPTIONAL_FIELDS = ("continues_from", "evidence", "figure")
 
@@ -350,25 +350,26 @@ def strip_excluded(mapping):
 
 
 def check_field_set(mapping, first_line_no):
-    """Condition 3: after the strip step, exactly §4.2's six keys — no more
+    """Condition 3: after the strip step, exactly §4.2's five keys — no more
     and no fewer.
 
     The ordering matters and is not incidental: the excluded draft fields are
     stripped FIRST, so their presence routes to the strip step rather than to a
     refusal. What a short or long field set then means is a genuine defect —
     a record that absorbed its neighbour's `before` leaves that neighbour with
-    FIVE, and this is the condition that catches it. `order` and
-    `presupposes` take this same route (kogaki#1247), and `draws_on` takes it
-    too (kogaki#1280): none of the three is required nor optional, so a
-    record still carrying one is refused here, by name, as unexpected.
+    FOUR, and this is the condition that catches it. `order` and
+    `presupposes` take this same route (kogaki#1247), `draws_on` takes it
+    too (kogaki#1280), and so does `question` (kogaki#1324): none of the four
+    is required nor optional, so a record still carrying one is refused here,
+    by name, as unexpected.
     """
     have = set(mapping)
     want = set(FIELDS)
     missing = sorted(want - have)
     # §4.2: the three optional fields are admitted here and NOWHERE ELSE widens
-    # the set. A record carrying any of them still has exactly the six
+    # the set. A record carrying any of them still has exactly the five
     # required keys plus those; a record carrying anything else is still
-    # refused, so the condition keeps its catch — a short-of-six absorbed
+    # refused, so the condition keeps its catch — a short-of-five absorbed
     # neighbour is unaffected either way.
     extra = sorted(have - want - set(OPTIONAL_FIELDS))
     if missing or extra:
@@ -379,7 +380,7 @@ def check_field_set(mapping, first_line_no):
             parts.append("unexpected %s" % ", ".join("`%s`" % k for k in extra))
         raise Refusal(
             "3",
-            "record does not carry exactly §4.2's six required keys "
+            "record does not carry exactly §4.2's five required keys "
             "(plus at most %s) — " % ", ".join("`%s`" % f for f in OPTIONAL_FIELDS)
             + "; ".join(parts),
             line_no=first_line_no,
@@ -513,31 +514,6 @@ def check_figure(mapping, first_line_no, kinds=None):
         )
 
 
-def check_question_chain(mapping, first_line_no):
-    """kogaki#1283: a Move that `raises:` a question carries it in `after`.
-
-    §4.2's `question` field states, in its own `holds:`/`raises:` prose, what
-    the next Leg is owed. A record whose `question` carries `raises:` and
-    whose `after` carries no `question:` line raises a question the record
-    itself never states as part of the reader state it leaves behind — the
-    exact gap the Draft of `theses/guard-enforces-rules-for-recognised`
-    surfaced at Leg 3, where nothing short of the owner's own reading caught
-    it. The refusal is mechanical, over the two fields' text alone: it reads
-    no meaning into either `question:` line, only whether one is present.
-    """
-    question = mapping.get("question")
-    if not isinstance(question, str) or "raises:" not in question:
-        return
-    after = mapping.get("after")
-    if not isinstance(after, str) or "question:" not in after:
-        raise Refusal(
-            "question-chain",
-            "`question` carries `raises:` but `after` carries no "
-            "`question:` line for the next Leg to take up",
-            line_no=first_line_no,
-        )
-
-
 # §6.9.0's stated precondition — `id` MUST be the record's first key — has NO
 # guard of its own here, and that is deliberate rather than an omission.
 #
@@ -550,7 +526,7 @@ def check_question_chain(mapping, first_line_no):
 # written with `before:` above `id:` is not seen as a boundary at all — it is
 # absorbed into the record above, and the absorption is caught twice over:
 # condition 2 sees the duplicate `before` in the absorbing record, and
-# condition 3 sees the absorbed one left with SEVEN keys. Both are exercised.
+# condition 3 sees the absorbed one left with SIX keys. Both are exercised.
 #
 # The precondition is therefore stated (here) and enforced (there), which is
 # the arrangement §6.9.0 describes. A third guard asserting it directly would
@@ -594,7 +570,6 @@ def read_proposals(text):
             stripped = strip_excluded(mapping)
             check_field_set(mapping, first_line_no)
             check_figure(mapping, first_line_no)
-            check_question_chain(mapping, first_line_no)
         except Refusal as r:
             proposals.append(Proposal(first_line_no, refusal=r))
             continue
@@ -608,7 +583,7 @@ def read_proposals(text):
 
 PLAIN_FIELDS = ("id", "continues_from")
 
-# §4.2's optional non-nested fields, rendered after the six required ones
+# §4.2's optional non-nested fields, rendered after the five required ones
 # and before `figure` (which renders LAST, per §6.9.1a) — in this fixed order,
 # so two records differ only where their content differs.
 OPTIONAL_SCALAR_FIELDS = ("continues_from", "evidence")
@@ -653,9 +628,9 @@ def render_move(mapping):
     for field in FIELDS:
         render_field(field, mapping.get(field, ""))
 
-    # §4.2: the optional scalar fields render after the six, each only when
+    # §4.2: the optional scalar fields render after the five, each only when
     # present — a record carrying none of them renders byte-identically to
-    # what a record under the six-field schema always did.
+    # what a record under the five-field schema always did.
     for field in OPTIONAL_SCALAR_FIELDS:
         if field in mapping:
             render_field(field, mapping[field])
@@ -988,15 +963,14 @@ def near_duplicates(proposed_technique, index_rows):
 # (`holds: none`) was legal and unreachable. The Analysis is the RECORD here:
 # its `## 2. Reader before and after` table carries a `question` row whose
 # BEFORE cell is the owner-answered fact, and where that cell reads `none`
-# (alone or followed by a hedge), the proposal's `question` field is written
-# `holds: none` and its `before` field's `question:` line is written
-# `holds: none` -- never a composed question. Applied BEFORE the screen
-# renders, so what the owner accepts is what is saved; the screen names the
-# rewrite so it is never silent.
+# (alone or followed by a hedge), the proposal's `before` field's `question:`
+# line is written `holds: none` -- never a composed question. (The Move's own
+# `question` field, which this rewrote too, retired at kogaki#1324.)
+# Applied BEFORE the screen renders, so what the owner accepts is what is
+# saved; the screen names the rewrite so it is never silent.
 ANALYSIS_QUESTION_ROW = re.compile(
     r"^\|\s*question\s*\|(?P<before>[^|]*)\|(?P<after>[^|]*)\|\s*$", re.M)
 NONE_QUESTION = re.compile(r"^\s*none\b", re.I)
-_QUESTION_VERBS = r"(?:settles|replaces|raises):"
 _OTHER_DIMENSIONS = r"(?:knowledge|expectation|orientation|trust):"
 
 
@@ -1015,16 +989,6 @@ def write_none_question(mapping, passage_text):
     if before_cell is None or not NONE_QUESTION.match(before_cell):
         return []
     changed = []
-    question = mapping.get("question")
-    if isinstance(question, str):
-        rewritten, count = re.subn(
-            r"holds:\s*.*?(?=\s+%s|$)" % _QUESTION_VERBS, "holds: none",
-            question, count=1, flags=re.S)
-        if count == 0:
-            rewritten = ("holds: none " + question).strip()
-        if rewritten != question:
-            mapping["question"] = rewritten
-            changed.append("question")
     before = mapping.get("before")
     if isinstance(before, str):
         rewritten, count = re.subn(

@@ -15,11 +15,6 @@ after: >-
   combined, not against any one rival in isolation. trust: accepts the
   rule's claimed universality on the strength of verifiable arithmetic
   first, then an attributed historical precedent.
-question: >-
-  holds: what amount or distribution of strength makes one actor
-  unbalanceable? settles: the threshold is fixed at the point where the
-  strongest actor's strength exceeds the sum of every other actor's
-  strength, however combined.
 technique: >-
   State the undesirable concentration and the consequence it leads to, then
   build a minimal model with values chosen so the reader can test the
