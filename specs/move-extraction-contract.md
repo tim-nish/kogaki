@@ -96,9 +96,9 @@ figure:
 - **before / after** — reader states, one line per dimension the Move
   changes. `passages/FORMAT.md` §2 states the rule once, for the Analysis
   this Move is drawn from: a dimension its table records as unchanged is
-  omitted from the Move. Written at the
-  **dimension level**, generalizable to another article — not this
-  article's own facts. The `question:` line is the one question-under-
+  omitted from the Move. Written at the **dimension level**, generalizable
+  to another article — not this article's own facts. The `question:` line
+  is the one question-under-
   discussion analysis governs: it states the question the reader holds, and
   `after` states whether the Move settled it, replaced it with a narrower
   one, or raised a new one beside it. Write `question: holds: none.` in
