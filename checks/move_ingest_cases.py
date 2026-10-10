@@ -1245,6 +1245,68 @@ def self_test():
     check("#1284 subject nouns: an Analysis that lists none admits the same `technique`",
           a_passage_run_admits_a_technique_with_no_subject_noun_listed)
 
+    # ---- kogaki#1319: unchanged by default, and the section 8 split note --
+
+    def a_changed_dimension_with_no_segment_is_refused_naming_it():
+        text = (
+            "| dimension   | before    | after     | Segment |\n"
+            "|-------------|-----------|-----------|---------|\n"
+            "| knowledge   | unchanged | unchanged |         |\n"
+            "| question    | none      | settled   |         |\n"
+        )
+        refusal = check_analysis_dimensions(text, 1)
+        assert refusal is not None, "a changed row with no Segment named was not refused"
+        assert refusal.condition == "dimension-segment", refusal
+        assert "question" in str(refusal), str(refusal)
+    check("#1319 section 2: a row that records a change with no Segment named "
+          "is refused, naming the dimension",
+          a_changed_dimension_with_no_segment_is_refused_naming_it)
+
+    def an_undismissed_split_note_is_refused_naming_it():
+        text = "## 8. Notes\n\nsplit: the Passage may hold two units\n"
+        refusal = check_analysis_split_note(text, 1)
+        assert refusal is not None, "an undismissed split note was not refused"
+        assert refusal.condition == "split-note", refusal
+        assert "two units" in str(refusal), str(refusal)
+    check("#1319 section 8: a split note with no matching `dismissed:` line "
+          "is refused, naming the note",
+          an_undismissed_split_note_is_refused_naming_it)
+
+    def a_split_note_dismissed_by_quotation_refuses_nothing():
+        text = ("## 8. Notes\n\nsplit: the Passage may hold two units\n"
+                "dismissed: the Passage may hold two units\n")
+        assert check_analysis_split_note(text, 1) is None, (
+            "a split note dismissed by repeating it verbatim was still refused")
+    check("#1319 section 8: a split note dismissed by quoting it verbatim refuses nothing",
+          a_split_note_dismissed_by_quotation_refuses_nothing)
+
+    def a_passage_with_every_dimension_unchanged_reaches_the_model():
+        with tempfile.TemporaryDirectory() as d:
+            passage_path = os.path.join(d, "passage.txt")
+            with open(passage_path, "w") as handle:
+                handle.write(
+                    "| dimension   | before    | after     | Segment |\n"
+                    "|-------------|-----------|-----------|---------|\n"
+                    "| knowledge   | unchanged | unchanged |         |\n"
+                    "| question    | unchanged | unchanged |         |\n"
+                    "| expectation | unchanged | unchanged |         |\n"
+                    "| orientation | unchanged | unchanged |         |\n"
+                    "| trust       | unchanged | unchanged |         |\n"
+                    "\ndimensions changed: 0\n\nA passage about nothing moving.\n")
+            contract_path = os.path.join(d, "contract.md")
+            open(contract_path, "w").write("CONTRACT\n")
+            moves_dir = os.path.join(d, "moves")
+            os.makedirs(moves_dir)
+            stub = os.path.join(d, "stub_model")
+            _write_passage_stub(stub, _record("settle_nothing"))
+            out = os.path.join(d, "run")
+            result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
+            assert os.path.isfile(result["screen"]), (
+                "an Analysis with `dimensions changed: 0` did not reach the model")
+            assert result["proposal"].admitted, result["proposal"].refusal
+    check("#1319 `dimensions changed: 0` is accepted, and ingestion runs to the model",
+          a_passage_with_every_dimension_unchanged_reaches_the_model)
+
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)
     print("move_ingest self-test: %d checks, %d failed" % (len(ran), len(failures)))

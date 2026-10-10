@@ -94,8 +94,9 @@ figure:
 - **id** — a verb phrase describing the transformation, not the topic:
   `derive_mitigation_from_causal_mechanism`, not `north_korea_diplomacy`.
 - **before / after** — reader states, one line per dimension the Move
-  changes. A Move whose `before` and `after` describe the same state on a
-  dimension is not moving that dimension; omit it. Written at the
+  changes. `passages/FORMAT.md` §2 states the rule once, for the Analysis
+  this Move is drawn from: a dimension its table records as unchanged is
+  omitted from the Move. Written at the
   **dimension level**, generalizable to another article — not this
   article's own facts. The `question:` line is the one question-under-
   discussion analysis governs: it states the question the reader holds, and

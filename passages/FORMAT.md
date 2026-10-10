@@ -23,16 +23,21 @@ the Corpus; this file does not extract Moves.
   chose the model's first candidate 20 times and saw no need for the
   question.)
 - **Segment** — one entry of section 3: a sentence or group of sentences
-  that does one thing to the reader. The model draws the boundaries. Each
+  that does one thing to the reader. The model draws the boundaries, and
+  the human confirms the cut at step 2 before section 3 is written. Each
   Segment carries one **function**: it *raises* a question the reader did
   not hold, *advances* toward an answer to a question already open, or
   *settles* one. The functions come from Q2's frameworks (Minto; question
-  under discussion). No position in the work is inferred for the Passage
-  as a whole: where an earlier form of this contract asked "opening, body
-  or closing", the model produced a fourth value, "continuation", for
-  Passages that presupposed prior text, which is what Q4 records. A
-  Passage may run from an opening to a closing; the Segments carry that,
-  and the human never cuts a paragraph out to make it visible.
+  under discussion). Each Segment also carries one **relation** to the
+  Segment before it, from a fixed set: cause, consequence, contrast,
+  elaboration, evidence, enumeration, or none. The first Segment's relation
+  is always "none"; there is nothing before it. No position in the work is
+  inferred for the Passage as a whole: where an earlier form of this
+  contract asked "opening, body or closing", the model produced a fourth
+  value, "continuation", for Passages that presupposed prior text, which is
+  what Q4 records. A Passage may run from an opening to a closing; the
+  Segments carry that, and the human never cuts a paragraph out to make it
+  visible.
 - **Analysis** — the artifact this contract produces from one Passage: the
   Passage verbatim, the four questions (Q1 the model's own, Q2 to Q4 with their candidates) and the
   human's answers, and the filled sections below. One file per Passage.
@@ -178,6 +183,13 @@ Present the `subject nouns` list alongside the three questions, as given,
 for the human to confirm or edit; it is not numbered, because there is no
 alternative candidate to choose among, only the one list the model wrote.
 
+Present the Segments as a fourth item, beside the Passage: the model's
+proposed cut, each Segment given as its opening words and its function.
+The human answers with one line, either accepting the cut as proposed or
+redrawing it (naming the merge, split, or renumbering). Section 3 is
+written from whichever cut the human confirms, never from the model's
+first proposal where the human redrew it.
+
 - In a Claude Code session this is one AskUserQuestion carrying three
   questions, each with the candidates and a fourth option labelled
   "Write my own" as its options. A "Write my own" choice is followed by
@@ -250,7 +262,13 @@ Q4. What does it assume the reader already has, and what does it use it
   3. <candidate>
   4. Write my own
 
-Reply on one line, e.g. "2: 1, 3: my own text, 4: none".
+Segments — the proposed cut of the Passage:
+  1. "<opening words>" — <function>
+  2. "<opening words>" — <function>
+  ...
+Accept this cut as proposed, or redraw it in one line.
+
+Reply on one line, e.g. "2: 1, 3: my own text, 4: none, segments: accepted".
 ```
 
 ---
@@ -313,22 +331,32 @@ Passage's subject, built on the answers above.>
 
 ## 2. Reader before and after
 
-| dimension   | before                         | after                          |
-|-------------|--------------------------------|--------------------------------|
-| knowledge   | <state or "unchanged">         | <state or "unchanged">         |
-| question    |                                |                                |
-| expectation |                                |                                |
-| orientation |                                |                                |
-| trust       |                                |                                |
+Every cell defaults to "unchanged". A dimension that changes is given its
+state before and after, and the Segment column names the Segment, by its
+number from section 3, that moved it. `specs/move-extraction-contract.md`
+states the rule that follows from this: a Move omits any dimension this
+table records as unchanged.
 
-Strongest change: <one dimension>. Second: <one dimension or "none">.
+| dimension   | before                         | after                          | Segment |
+|-------------|--------------------------------|--------------------------------|---------|
+| knowledge   | unchanged                      | unchanged                      |         |
+| question    | unchanged                      | unchanged                      |         |
+| expectation | unchanged                      | unchanged                      |         |
+| orientation | unchanged                      | unchanged                      |         |
+| trust       | unchanged                      | unchanged                      |         |
+
+dimensions changed: <N, counting the rows above that are not "unchanged";
+zero is a valid answer>
 
 ## 3. The order inside the Passage
 
-<A numbered list, one entry per Segment, in the order they appear. Each
-entry: the quoted opening words of that Segment, a dash, its function
-(raises | advances | settles), a dash, then what it does to the reader in
-one clause. Then one sentence stating why this order and not another.>
+<A numbered list, one entry per Segment, in the cut the human confirmed at
+step 2. Each entry: the quoted opening words of that Segment, a dash, its
+function (raises | advances | settles), a dash, its relation to the
+previous Segment (cause | consequence | contrast | elaboration | evidence
+| enumeration | none — the first Segment is always "none"), a dash, then
+what it does to the reader in one clause. Then one sentence stating why
+this order and not another.>
 
 ## 4. What the Passage presupposes
 
@@ -360,9 +388,13 @@ the topic.>
 
 ## 8. Notes
 
-<Anything the contract did not ask for: a second unit inside the Passage,
-a question none of whose candidates fit and what the human wrote instead,
-a resemblance to another Analysis in the Corpus by slug, or nothing.>
+<Anything the contract did not ask for: a question none of whose
+candidates fit and what the human wrote instead, a resemblance to another
+Analysis in the Corpus by slug, or nothing. A note that names a second
+unit inside the Passage is written `split: <the note>`. Ingestion refuses
+on a `split:` line until the Passage is split into two Analyses, or the
+human dismisses it by repeating the note verbatim on the next line as
+`dismissed: <the same text>`.>
 ```
 
 ---
@@ -414,11 +446,23 @@ Q4. What does it assume the reader already has, and what does it use it
      that no more than that will be required.
   4. Write my own
 
-Reply on one line, e.g. "2: 1, 3: my own text, 4: none".
+Segments — the proposed cut of the Passage:
+  1. "It may sound strange..." — advances
+  2. "bookstores are now overflowing..." — advances
+  3. "Some make extensive use of maps..." — advances
+  4. "At a time when the publishing industry..." — raises
+  5. "This book, too, will probably be placed..." — advances
+  6. "So why has geopolitics attracted..." — raises
+  7. "The biggest reason is the instability..." — settles
+  8. "Throughout history, interest..." — settles
+Accept this cut as proposed, or redraw it in one line.
+
+Reply on one line, e.g. "2: 1, 3: my own text, 4: none, segments: accepted".
 ```
 
 Human's reply: `2: 1, 3: 1, 4: starting from book sales, which
-needs no specialist knowledge, makes a difficult subject easy to enter`
+needs no specialist knowledge, makes a difficult subject easy to enter,
+segments: accepted`
 
 ### Step 3, the file
 
@@ -506,34 +550,34 @@ subject exists to answer.
 
 ## 2. Reader before and after
 
-| dimension   | before                                   | after                                              |
-|-------------|------------------------------------------|----------------------------------------------------|
-| knowledge   | little; may know the word                | one claim: interest rises when the world is unstable |
-| question    | none, or "should I read this?"           | "why is everyone reading about this now?" answered; "what is unstable now?" opened |
-| expectation | a definition or a table of contents      | the book will explain instability through geopolitics |
-| orientation | this is one more geopolitics book        | this book knows the genre and places itself inside it |
-| trust       | neutral                                  | raised: the author admits their own position and names a fact against interest |
+| dimension   | before                                   | after                                              | Segment |
+|-------------|-------------------------------------------|----------------------------------------------------|---------|
+| knowledge   | little; may know the word                | one claim: interest rises when the world is unstable | 6, 7 |
+| question    | none, or "should I read this?"           | "why is everyone reading about this now?" answered; "what is unstable now?" opened | 6, 7 |
+| expectation | a definition or a table of contents      | the book will explain instability through geopolitics | 4, 6 |
+| orientation | this is one more geopolitics book        | this book knows the genre and places itself inside it | 3, 5 |
+| trust       | neutral                                  | raised: the author admits their own position and names a fact against interest | 1 |
 
-Strongest change: expectation. Second: question.
+dimensions changed: 5
 
 ## 3. The order inside the Passage
 
-1. "It may sound strange for someone who..." — advances — puts the author in the
-   room and makes the next sentence an admission.
-2. "bookstores are now overflowing" — advances — hands the reader a fact they can
-   confirm.
-3. "Some make extensive use of maps... academic works" — advances — shows the field
-   is varied and that the author has surveyed it.
-4. "At a time when the publishing industry is stagnating..." — raises — builds the
-   incongruity.
-5. "This book, too, will probably be placed..." — advances — places this book inside
-   the genre just surveyed.
-6. "So why has geopolitics attracted so much attention?" — raises — names the
-   reader's question for them.
-7. "The biggest reason is the instability of the world" — settles — answers it at
-   once.
-8. "Throughout history, interest... has repeatedly surged" — settles — generalizes
-   the answer so it becomes the book's thesis.
+1. "It may sound strange for someone who..." — advances — none — puts the author
+   in the room and makes the next sentence an admission.
+2. "bookstores are now overflowing" — advances — consequence — hands the reader a
+   fact they can confirm.
+3. "Some make extensive use of maps... academic works" — advances — elaboration —
+   shows the field is varied and that the author has surveyed it.
+4. "At a time when the publishing industry is stagnating..." — raises — contrast —
+   builds the incongruity.
+5. "This book, too, will probably be placed..." — advances — consequence — places
+   this book inside the genre just surveyed.
+6. "So why has geopolitics attracted so much attention?" — raises — enumeration —
+   names the reader's question for them.
+7. "The biggest reason is the instability of the world" — settles — evidence —
+   answers it at once.
+8. "Throughout history, interest... has repeatedly surged" — settles — elaboration
+   — generalizes the answer so it becomes the book's thesis.
 
 The order works because every foothold is placed before the first
 specialist claim, and the question is asked only once the reader has
@@ -572,7 +616,8 @@ enter_a_hard_subject_through_the_readers_own_world
 
 The human answered Q4 in their own words; the closest candidate was 1,
 which named the same footholds without the point that none needs
-expertise. That point is carried into sections 1 and 6. The Passage may
-hold two units, sentences 1 to 5 and 6 to 8; if the Corpus shows them
-recurring separately, split it.
+expertise. That point is carried into sections 1 and 6.
+
+split: the Passage may hold two units, sentences 1 to 5 and 6 to 8
+dismissed: the Passage may hold two units, sentences 1 to 5 and 6 to 8
 ```
