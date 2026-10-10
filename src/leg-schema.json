@@ -436,11 +436,17 @@
       "A JOURNEY IS MATERIAL THE LEG DRAWS ON, NEVER AN ASSERTION THE LEG",
       "MUST RECOVER. A Lesson's Claim is a proposition, and the planning",
       "decision is what transformation of it this Leg asserts -- so it is",
-      "carried in the Brief as the Leg's claim. A Journey is a narrative, and",
-      "how it is told depends on the Move being performed and on the prose",
-      "already on the page -- so it is ADDRESSED at planning and EDITED at",
-      "realization. That asymmetry is the whole of why this field carries an",
-      "address and a use rather than any text.",
+      "carried in the Brief as the Leg's claim. A Journey is a Strand that",
+      "supplies a concrete example, and how much of it a Leg draws on depends",
+      "on the Move being performed and on the prose already on the page -- so",
+      "it is ADDRESSED at planning and EDITED at realization. That asymmetry is",
+      "the whole of why this field carries an address and a use rather than any",
+      "text. It is not fundamentally different from a Claim -- apart from",
+      "allowing more detailed specification, it is a long Strand that CAN be",
+      "turned into a narrative, but is never rendered as one merely because it",
+      "is called a Journey; its purpose is to supply technically appropriate,",
+      "relevant concrete examples, and it is not evidence (kogaki#1323, owner",
+      "ruling 2026-10-10).",
       "",
       "THE BRIEF CARRIES NO JOURNEY TEXT. The entry names a Strand and what",
       "this Leg uses that Strand's Journey for; the prose lives at the",
@@ -475,9 +481,9 @@
       "block's existing header, and none of the three use words."
     ],
     "uses": {
-      "illustrate": "to illustrate this Leg's claim with the concrete case the Journey tells",
-      "motivate": "to motivate the question this Leg opens, with the event that raised it",
-      "contrast": "to contrast, showing the expectation the event broke"
+      "illustrate": "to illustrate this Leg's claim with the case that illustrates it",
+      "motivate": "to motivate the question this Leg opens, with the case that motivates it",
+      "contrast": "to contrast, with the case that contrasts it, showing the expectation it broke"
     },
     "fields": {
       "strand": {

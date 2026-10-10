@@ -707,8 +707,9 @@ true or false of the world, is in the wrong field.
 **A Lesson and a Journey are not treated alike, and the asymmetry is the
 principle.** A Lesson's Claim is a proposition, its transformation into this
 Leg's claim is the planning decision, and the Brief carries the result; a
-Journey is a narrative, its telling depends on the Move and the prior prose, and
-the Brief carries only its address and its use (kogaki#1111).
+Journey is a Strand that supplies a concrete example, how much of it the Leg
+draws on depends on the Move and the prior prose, and the Brief carries only
+its address and its use (kogaki#1111; kogaki#1323).
 
 **The set was three, and the two that left are named with where their content
 belongs.** A `leg_effect` entry was inherited reader state and a
@@ -838,6 +839,11 @@ is a judgment about meaning, and §4.6 clause 3 forbids the mechanization that
 would otherwise be the obvious carrier.
 
 ### 4.8 Journey integrity — the arc, not the layout
+
+**A Journey is material for a concrete example, in any form** (kogaki#1323,
+owner ruling 2026-10-10) — not fundamentally different from a Claim, apart
+from allowing more detailed specification through Waypoints. What follows is
+about its **arc** once a Leg draws on it, never a license to tell it.
 
 - **A Lesson's claims and evidence project freely into multiple Legs.** No
   budget, no once-per-Strand rule.
@@ -1416,6 +1422,11 @@ words, under a fixed usage header: a waypoint says what a step does, never
 what to write; one paragraph per waypoint is the expected shape, and the
 writer may spend more or fewer where an effect needs it. `draft.mjs` opens no
 Move file to render it.
+
+**The Journey block renders material for a concrete example** (kogaki#1323,
+owner ruling 2026-10-10), in whatever form this Leg's waypoints need — one
+clause or several sentences. Nothing here is a claim, and nothing here is a
+narrative to tell merely because it is named a Journey.
 
 **Every block the template renders is a Harness contract; every style rule is
 the Persona's** (kogaki#1321). The heading rule, the budget, the round trip,
