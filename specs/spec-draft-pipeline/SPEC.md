@@ -1407,9 +1407,24 @@ rendering the Move beside it would put the general and the specialized
 statement of one thing side by side and leave the model to choose. The block
 renders each waypoint's effect and the claim it serves, in the claim's own
 words, under a fixed usage header: a waypoint says what a step does, never
-what to write; a paragraph opens on the sentence that states its point; one
-paragraph per waypoint is the expected shape, and the writer may spend more or
-fewer where an effect needs it. `draft.mjs` opens no Move file to render it.
+what to write; one paragraph per waypoint is the expected shape, and the
+writer may spend more or fewer where an effect needs it. `draft.mjs` opens no
+Move file to render it.
+
+**Every block the template renders is a Harness contract; every style rule is
+the Persona's** (kogaki#1321). The heading rule, the budget, the round trip,
+the refusal form, the waypoints and claims blocks, the Journey block and the
+reader's own world are fixed, identical for every Persona, because each
+changes model behaviour at generation and is this file's own concern. A rule
+that instead governs how the prose reads — the first-sentence preference, the
+paragraph anaphora rule, the enumeration bound, voice — carries no runtime
+check and belongs to the reader the article is written for, so it lives in
+the Persona's `prose` block (§4.14, `{{prose_rules}}`) and nowhere else: a
+Persona whose `prose` block is empty asks the template for no style rule at
+all. The "article so far" block follows the same line: it carries the Leg's
+own Section's prose and one fixed header naming what it is, never an
+instruction, because continuity is a style question the Persona's voice rule
+already answers.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
 run id, and prior Legs' prose in the **Brief's recorded order** rather than from
