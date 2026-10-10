@@ -1054,6 +1054,71 @@ def check_subject_nouns(mapping, passage_text, line_no):
     return None
 
 
+# --------------------------------------------------------------------------
+# Section 2's dimension/Segment pairing, and section 8's split note
+# (kogaki#1319). Both read the Analysis as given, before the model is
+# spawned: a defect in the Analysis itself, never a defect the extraction
+# step could have caused.
+# --------------------------------------------------------------------------
+ANALYSIS_DIMENSION_ROW = re.compile(
+    r"^\|\s*(?P<dim>knowledge|question|expectation|orientation|trust)\s*\|"
+    r"(?P<before>[^|]*)\|(?P<after>[^|]*)\|(?P<segment>[^|]*)\|\s*$", re.M)
+
+
+def check_analysis_dimensions(passage_text, line_no=None):
+    """`passages/FORMAT.md` §2: every cell of the reader-dimension table
+    defaults to "unchanged"; a row that records a change on either side
+    names the Segment, by number, that moved it. A changed row with no
+    Segment named is refused, naming the dimension. Returns a `Refusal`,
+    or `None` where every row is unchanged or names its Segment."""
+    for match in ANALYSIS_DIMENSION_ROW.finditer(passage_text):
+        before = match.group("before").strip()
+        after = match.group("after").strip()
+        if before.lower() == "unchanged" and after.lower() == "unchanged":
+            continue
+        if not match.group("segment").strip():
+            return Refusal(
+                "dimension-segment",
+                "the `%s` row of section 2 records a change naming no "
+                "Segment" % match.group("dim"),
+                line_no=line_no,
+            )
+    return None
+
+
+ANALYSIS_SPLIT_NOTE = re.compile(r"^split:\s*(?P<note>.+?)\s*$")
+ANALYSIS_DISMISSED_NOTE = re.compile(r"^dismissed:\s*(?P<note>.+?)\s*$")
+
+
+def check_analysis_split_note(passage_text, line_no=None):
+    """`passages/FORMAT.md` §8: a `split:` note names a second unit inside
+    the Passage and refuses ingestion, naming the note, until it is
+    dismissed by repeating it verbatim on a later line as `dismissed: <the
+    same text>`. Returns a `Refusal`, or `None` where no split note is left
+    undismissed."""
+    lines = passage_text.splitlines()
+    for i, line in enumerate(lines):
+        match = ANALYSIS_SPLIT_NOTE.match(line.strip())
+        if not match:
+            continue
+        note = match.group("note").strip()
+        dismissed = False
+        for later in lines[i + 1:]:
+            stripped = later.strip()
+            if not stripped:
+                continue
+            dmatch = ANALYSIS_DISMISSED_NOTE.match(stripped)
+            dismissed = bool(dmatch and dmatch.group("note").strip() == note)
+            break
+        if not dismissed:
+            return Refusal(
+                "split-note",
+                "section 8 carries an undismissed split note: %r" % note,
+                line_no=line_no,
+            )
+    return None
+
+
 def render_passage_screen(proposal, duplicates, rewritten=()):
     """The one screen the owner sees: accept as new / merge into the named
     Move / decline. An artifact (kogaki#474's precedent), never retyped."""
@@ -1094,6 +1159,16 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
         passage_text = handle.read()
     with open(contract_path, encoding="utf-8") as handle:
         contract_text = handle.read()
+
+    # BEFORE the model is called (kogaki#1319): both checks read the
+    # Analysis as given, and a defect in it is never the extraction step's
+    # to catch.
+    dimension_refusal = check_analysis_dimensions(passage_text)
+    if dimension_refusal is not None:
+        raise dimension_refusal
+    split_refusal = check_analysis_split_note(passage_text)
+    if split_refusal is not None:
+        raise split_refusal
 
     os.makedirs(out_dir, exist_ok=True)
     out_dir = os.path.abspath(out_dir)
