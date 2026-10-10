@@ -406,13 +406,19 @@ try {
   rmSync(ws, { recursive: true, force: true });
 }
 
-// (l) THE DEMONSTRATIVE REFERENCE ITEM (kogaki#1255 cell 4): a mechanical
-// item read from the Draft alone, with no Packet block and no model call.
-// One Leg carries "the last one" three paragraphs past the enumeration it
-// would point at and joins `fails`, naming the line and the expression in
-// the declared form; a second Leg carries the same expression one paragraph
-// after its enumeration and joins `holds`. Driven through the real
-// open/outline/compare CLI, never through a second reader of the item table.
+// (l) THE DEMONSTRATIVE REFERENCE ITEM (kogaki#1255 cell 4, kogaki#1322): a
+// mechanical item read from the Draft alone, with no Packet block and no
+// model call. One Leg carries "the last one" three paragraphs past the
+// enumeration it would point at and joins `fails`, naming the line and the
+// expression in the declared form; a second Leg carries the same expression
+// one paragraph after its enumeration and joins `holds`. Three more Legs
+// carry kogaki#1322's paragraph-opener cases: a paragraph opening "That left
+// me holding" joins `fails` naming the line and the word; a paragraph
+// opening "The fallback step left me holding" joins `holds`; a demonstrative
+// in a paragraph's SECOND sentence, with its antecedent one paragraph back,
+// still joins `holds` — the opener test never reaches past the first
+// sentence. Driven through the real open/outline/compare CLI, never through
+// a second reader of the item table.
 {
   const ws = mkdtempSync(join(tmpdir(), "review-draft-demref-"));
   const draftPath = join(ws, "draft.md");
@@ -451,7 +457,7 @@ try {
     "",
     "The vendored copy skips the registry step entirely.",
     "",
-    "The last one is the path this repository's installer takes by default.",
+    "The last one is the path the project's installer takes by default.",
   ];
   // LEG-Y: the enumeration sits in the paragraph immediately before the one
   // carrying "the last one", so the lookback finds it and the row holds.
@@ -460,18 +466,44 @@ try {
     "",
     "The last one is optional and is skipped when a Leg declares no figure.",
   ];
+  // LEG-OPEN-FAIL (kogaki#1322): the paragraph opens on a demonstrative, with
+  // no lookback at all — the row fails naming the line and the word.
+  const legOpenFailProse = [
+    "That left me holding the install log with nothing in it.",
+  ];
+  // LEG-OPEN-HOLD (kogaki#1322): the paragraph opens on a definite noun
+  // phrase, not a demonstrative or a third-person pronoun — the row holds.
+  const legOpenHoldProse = [
+    "The fallback step left me holding the install log with nothing in it.",
+  ];
+  // LEG-OPEN-SECOND (kogaki#1322): the enumeration sits one paragraph back,
+  // and the demonstrative sits in the CURRENT paragraph's second sentence —
+  // the opener test never looks past a paragraph's first sentence, so the
+  // row holds.
+  const legOpenSecondProse = [
+    "The kit installs through npm, through the shell script, or through the vendored copy already in the tree.",
+    "",
+    "Each path writes to a different place before the install finishes. That one is what ships by default.",
+  ];
 
   const shaX = createHash("sha256").update(packet).digest("hex");
-  const legXLines = [7, 7 + legXProse.length - 1];
+  const legXLines = [10, 10 + legXProse.length - 1];
   const legYLines = [legXLines[1] + 2, legXLines[1] + 1 + legYProse.length];
+  const legOpenFailLines = [legYLines[1] + 2, legYLines[1] + 1 + legOpenFailProse.length];
+  const legOpenHoldLines = [legOpenFailLines[1] + 2, legOpenFailLines[1] + 1 + legOpenHoldProse.length];
+  const legOpenSecondLines = [legOpenHoldLines[1] + 2, legOpenHoldLines[1] + 1 + legOpenSecondProse.length];
   const fm = [
     "---",
     "trace:",
     `  - ${JSON.stringify({ leg_id: "leg-x", lines: legXLines, packet: "packet-x.md", packet_sha: shaX })}`,
     `  - ${JSON.stringify({ leg_id: "leg-y", lines: legYLines, packet: "packet-y.md", packet_sha: shaX })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-open-fail", lines: legOpenFailLines, packet: "packet-x.md", packet_sha: shaX })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-open-hold", lines: legOpenHoldLines, packet: "packet-x.md", packet_sha: shaX })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-open-second", lines: legOpenSecondLines, packet: "packet-x.md", packet_sha: shaX })}`,
     "---",
   ].join("\n");
-  writeFileSync(draftPath, `${fm}\n\n${legXProse.join("\n")}\n\n${legYProse.join("\n")}\n`);
+  writeFileSync(draftPath, `${fm}\n\n${legXProse.join("\n")}\n\n${legYProse.join("\n")}\n\n`
+    + `${legOpenFailProse.join("\n")}\n\n${legOpenHoldProse.join("\n")}\n\n${legOpenSecondProse.join("\n")}\n`);
 
   const runCmd = (cmd, extra, input) => spawnSync(process.execPath,
     ["src/review-draft.mjs", cmd, "--draft", draftPath, "--workspace", ws, ...extra],
@@ -491,6 +523,12 @@ try {
   if (kO1.status !== 0) fails.push(`(l) outline leg-x exited ${kO1.status}: ${(kO1.stderr || "").trim()}`);
   const kO2 = runCmd("outline", ["--leg", "leg-y"], outlineFor("leg-y"));
   if (kO2.status !== 0) fails.push(`(l) outline leg-y exited ${kO2.status}: ${(kO2.stderr || "").trim()}`);
+  const kO3 = runCmd("outline", ["--leg", "leg-open-fail"], outlineFor("leg-open-fail"));
+  if (kO3.status !== 0) fails.push(`(l) outline leg-open-fail exited ${kO3.status}: ${(kO3.stderr || "").trim()}`);
+  const kO4 = runCmd("outline", ["--leg", "leg-open-hold"], outlineFor("leg-open-hold"));
+  if (kO4.status !== 0) fails.push(`(l) outline leg-open-hold exited ${kO4.status}: ${(kO4.stderr || "").trim()}`);
+  const kO5 = runCmd("outline", ["--leg", "leg-open-second"], outlineFor("leg-open-second"));
+  if (kO5.status !== 0) fails.push(`(l) outline leg-open-second exited ${kO5.status}: ${(kO5.stderr || "").trim()}`);
 
   const kCompare = runCmd("compare", []);
   const km = /join record: (.+)$/m.exec(kCompare.stdout || "");
@@ -515,6 +553,27 @@ try {
     if (xModelCall) fails.push("(l) demonstrative-reference cost a model call — it is declared mechanical and must not render a join Packet");
     const xMech = (joined.mechanical || []).find((c) => c.leg_id === "leg-x" && c.item === "demonstrative-reference");
     if (!xMech) fails.push("(l) demonstrative-reference on leg-x is not logged as decided mechanically");
+
+    const openFail = (joined.results || []).find((r) => r.leg_id === "leg-open-fail" && r.item === "demonstrative-reference");
+    const openHold = (joined.results || []).find((r) => r.leg_id === "leg-open-hold" && r.item === "demonstrative-reference");
+    const openSecond = (joined.results || []).find((r) => r.leg_id === "leg-open-second" && r.item === "demonstrative-reference");
+    if (!openFail || openFail.verdict !== "fails") {
+      fails.push(`(l) demonstrative-reference on leg-open-fail did not join as fails: ${JSON.stringify(openFail)}`);
+    } else {
+      const ev = (openFail.evidence || [])[0] || "";
+      if (!/^The word 'That' on line \d+ opens its paragraph reaching into the paragraph before it$/.test(ev)) {
+        fails.push(`(l) leg-open-fail's evidence is not the paragraph-opener finding form naming the line and the word: ${JSON.stringify(ev)}`);
+      }
+      if (/[0-9]/.test(openFail.reason)) {
+        fails.push(`(l) leg-open-fail's row carries a digit in its reason, which the comparison line refuses: ${JSON.stringify(openFail.reason)}`);
+      }
+    }
+    if (!openHold || openHold.verdict !== "holds") {
+      fails.push(`(l) demonstrative-reference on leg-open-hold did not join as holds: ${JSON.stringify(openHold)}`);
+    }
+    if (!openSecond || openSecond.verdict !== "holds") {
+      fails.push(`(l) demonstrative-reference on leg-open-second did not join as holds: ${JSON.stringify(openSecond)}`);
+    }
   }
   rmSync(ws, { recursive: true, force: true });
 }
@@ -762,7 +821,11 @@ console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches 
   + "one\" sits three paragraphs past the enumeration it would point at, naming the line and the "
   + "expression in the declared form and under the two-hundred-forty-character bound with no "
   + "digit in its own comparison-line reason, and joins `holds` on a Leg where the same "
-  + "expression sits one paragraph after its enumeration. "
+  + "expression sits one paragraph after its enumeration. kogaki#1322's paragraph-opener test "
+  + "joins `fails` naming the line and the word on a Leg opening \"That left me holding\", "
+  + "joins `holds` on a Leg opening \"The fallback step left me holding\", and joins `holds` on "
+  + "a Leg carrying a demonstrative in a paragraph's second sentence with its antecedent one "
+  + "paragraph back — the opener test never reaches past a paragraph's first sentence. "
   + "(m) kogaki#1282 cell three's failing-passage fixture for already-knows — driven through "
   + "the real open/outline/compare CLI, with an earlier Leg's coined term read back out of "
   + "the rendered join Packet's declared side: ABSENT from a later Leg that never "

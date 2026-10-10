@@ -669,9 +669,9 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
         const rules = [
           "broken where the flow of the prose calls for it",
           "classic register, full clauses, a concrete subject acting",
-          // The Referents rule moved into the Persona's `prose` block and now
-          // defines a referent (kogaki#1261).
-          "A referent is a case, example, file or person the prose can",
+          // The Referents rule moved into the Persona's `prose` block
+          // (kogaki#1261) and was narrowed to Journey referents (kogaki#1322).
+          "A referent is a case, example, file or person introduced in",
         ];
         for (const rule of rules) {
           if (!packet.includes(rule)) fails.push(`(o) the Packet does not carry the Write rule verbatim: ${JSON.stringify(rule)}`);

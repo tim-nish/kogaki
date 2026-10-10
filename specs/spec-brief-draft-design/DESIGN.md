@@ -447,6 +447,23 @@ anywhere called for short prose, so the clause was cutting against its own
 purpose rather than serving it. The operational definition now carries one
 clause: no unexplained term of art, a concrete subject acting.
 
+**The paragraph is the anaphora boundary, on both sides (kogaki#1322, owner
+ruling 2026-10-10).** Reference is free inside a paragraph; across a
+paragraph boundary it tightens. A paragraph's first sentence names what it
+refers to in full — no "this", "that", "it", "these", "those" or a bare
+definite noun such as "the result" reaching back into the paragraph before
+it — because a reader who just read the paragraph before still holds it, and
+a reader three paragraphs past it does not, which is a distinction no
+mechanism estimates. The Section rule narrows with it: a case, file or
+person introduced in the Journey block may be named again, by name, in a
+later paragraph; nothing else carries across, including something from the
+reader's own world. The operational halves live in their own carriers —
+the Persona's prose block at `readers/dev-to-zenn.md`, and the
+paragraph-opener string test inside `src/review-draft.mjs`'s
+`demonstrative-reference` item — and this is their ground, for the same
+reason the round-trip clause's ground lives here rather than in either
+carrier.
+
 ## 5. Three standing prohibitions
 
 necessity: *a prohibition's ground is not checkable and its violation is a
