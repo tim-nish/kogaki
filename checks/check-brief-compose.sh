@@ -673,7 +673,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
           if (packet.includes(gone)) fails.push(`(o) the Packet still carries the retired string ${JSON.stringify(gone)}`);
         }
         const rules = [
-          "Each opens on the sentence that states its point; every later",
+          "broken where the flow of the prose calls for it",
           "classic register, full clauses, a concrete subject acting",
           // The Referents rule moved into the Persona's `prose` block and now
           // defines a referent (kogaki#1261).
@@ -1088,8 +1088,8 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const rd = render(dflt, dflt.legs[0]);
     if (rd.error) fails.push(`(ab) with no compose_path the Packet did not render from the workflow's Persona: ${rd.error}`);
     else {
-      if (!rd.packet.includes("**Supporting sentences.**")) fails.push("(ab) with no compose_path the Packet does not carry readers/dev-to-zenn.md's prose block");
-      if (!rd.packet.includes("**The reader's own world.** Can read code and has used a CI system")) fails.push("(ab) with no compose_path the Packet does not render readers/dev-to-zenn.md's prior_knowledge verbatim");
+      if (!rd.packet.includes("**Referents.**")) fails.push("(ab) with no compose_path the Packet does not carry readers/dev-to-zenn.md's prose block");
+      if (!rd.packet.includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) with no compose_path the Packet does not render readers/dev-to-zenn.md's stated prior_knowledge absence");
       if (rd.packet.includes("as the Brief describes the reader at the outset")) fails.push("(ab) the Packet still carries the retired reader-description wording");
     }
   }
@@ -1206,7 +1206,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
         template: split.packet, brief, leg, moveText, priorSections,
         section: sectionOf.get(leg.leg_id), sections,
       });
-      const ARTICLE = "## The article so far — verbatim";
+      const ARTICLE = "## The article so far, up to this Leg:";
       const s2 = renderWithPrior(brief.legs[1], [{ leg_id: "s1", text: s1Prose }]);
       if (s2.error) fails.push(`(at) the Packet for s2 did not render: ${s2.error}`);
       else {

@@ -40,6 +40,27 @@ import { spawnSync } from "node:child_process";
 
 const fails = [];
 const repo = resolve(".");
+
+// Reads a Persona file's `prose: |` block the same way src/compose.mjs's
+// `readerProse` does, so a fixture built here matches what the Packet
+// actually renders (kogaki#1321).
+function readerProseOf(text) {
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^prose:[ \t]*(.*)$/);
+    if (!m) continue;
+    const body = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j];
+      if (l.trim() === "") { body.push(""); continue; }
+      if (!/^[ \t]/.test(l)) break;
+      body.push(l.trim());
+    }
+    while (body.length && body[body.length - 1] === "") body.pop();
+    return body.join("\n").trim();
+  }
+  return "";
+}
 const root = mkdtempSync(join(tmpdir(), "draft-packet-"));
 // THE WORKING DIRECTORY HOLDS NO `moves/`, so a default-path Move read has
 // nothing to find and the trap below sees any attempt whatever it resolves to.
@@ -215,6 +236,98 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
       if (new RegExp(`\\b${name}\\b`).test(code)) fails.push(`(c) ${f} names the Move reader \`${name}\``);
     }
     if (/join\([^)]*["'`]moves["'`]/.test(code) || /["'`]moves\//.test(code)) fails.push(`(c) ${f} builds a path under moves/`);
+  }
+}
+
+// ---- the style-rule split (kogaki#1321) ----
+// The template carries no style rule of its own; every one lives in the
+// Persona's `prose` block and reaches the Packet only through
+// `{{prose_rules}}`. Each case below is an ABSENCE, so each owes a control
+// arm proving the same search catches the thing when it IS there
+// (kogaki#1321 thread comment, receipt
+// coding::lesson/an-absence-catchers-silence-is-indistinguishable-from-its-success@ddef48a0b4e6f4dd07eac5d01167f192763a0bd58528a0142f585172fe342eb1).
+
+const templateRaw = readFileSync(join(repo, "src", "packet-template.md"), "utf8");
+const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8");
+
+// (d) "states its point" appears nowhere outside the `{{prose_rules}}` block.
+// Driven over the real pipeline: a Persona whose prose carries the phrase
+// (the shipped dev-to-zenn.md does, in its Paragraphs rule) renders it inside
+// the Packet; stripping that one injected span away leaves no other copy.
+{
+  const styleDir = join(root, "theses", "style-brief");
+  mkdirSync(styleDir, { recursive: true });
+  const stylePersona = join(root, "persona-with-rule.md");
+  writeFileSync(stylePersona, personaRaw);
+  const styleBriefPath = join(styleDir, "brief.md");
+  writeFileSync(styleBriefPath, briefText(goodLegs).replace(
+    "# Brief — packet-brief", `# Brief — style-brief\n\ncompose_path: ${stylePersona}`));
+  const stylePacket = (args) => trapped([join(repo, "src", "draft.mjs"), ...args,
+    "--brief", styleBriefPath, "--workspace", join(root, "ws-style")], { KOGAKI_JUDGE_CLI: stub });
+  stylePacket(["resolve"]);
+  const r = stylePacket(["packet", "--leg", "s1"]);
+  if (r.status !== 0) fails.push(`(d) packet --leg s1 failed: ${(r.stderr || "").slice(0, 400)}`);
+  const packet = r.stdout || "";
+  const persona = readerProseOf(personaRaw);
+  if (!persona.includes("states its point")) {
+    fails.push("(d) control: the fixture Persona's prose does not carry \"states its point\" — the case below would pass vacuously");
+  }
+  if (!packet.includes(persona)) {
+    fails.push("(d) control: the rendered Packet does not carry the Persona's prose verbatim — {{prose_rules}} did not fill");
+  }
+  const withoutProseRules = packet.split(persona).join("");
+  if (withoutProseRules.includes("states its point")) {
+    fails.push("(d) \"states its point\" appears in the Packet outside the {{prose_rules}} block");
+  }
+  if (templateRaw.includes("states its point")) {
+    fails.push("(d) src/packet-template.md itself carries \"states its point\" — the rule has not left the template");
+  }
+}
+
+// (e) the "article so far" block's header is the one sentence and carries no
+// imperative. Leg s2 depends on s1, so its Packet's block is non-empty — the
+// control arm that keeps the no-imperative assertion from passing on a block
+// with nothing in it to be imperative about.
+{
+  const r0 = draft(["resolve"]);
+  if (r0.status !== 0) fails.push(`(e) resolve failed: ${(r0.stderr || "").slice(0, 400)}`);
+  const rs1 = draft(["section", "--leg", "s1"]);
+  if (rs1.status !== 0) fails.push(`(e) section --leg s1 failed: ${(rs1.stderr || "").slice(0, 400)}`);
+  const r = draft(["packet", "--leg", "s2"]);
+  if (r.status !== 0) fails.push(`(e) packet --leg s2 failed: ${(r.stderr || "").slice(0, 400)}`);
+  const packet = r.stdout || "";
+  const head = "## The article so far, up to this Leg:";
+  const at = packet.indexOf(head);
+  if (at === -1) fails.push("(e) the Packet carries no \"The article so far, up to this Leg:\" header");
+  else {
+    const block = packet.slice(at, packet.indexOf("\n## ", at + head.length));
+    const body = block.slice(head.length).trim();
+    if (body === "") fails.push("(e) control: the article-so-far block is empty — the no-imperative case below would pass vacuously");
+    for (const imperative of ["Continue from", "match the voice", "do not repeat", "do not contradict", "nothing from an earlier Section"]) {
+      if (block.includes(imperative)) fails.push(`(e) the article-so-far block still carries an imperative: "${imperative}"`);
+    }
+    const headLine = block.split("\n")[0];
+    if (headLine !== head) fails.push(`(e) the header is not the one sentence: "${headLine}"`);
+  }
+}
+
+// (f) a Persona whose `prose` block is empty renders a Packet with no style
+// rule at all. `{{prose_rules}}` is the template's only seam for a style
+// rule, so substituting it with the empty string must leave no trace of any
+// rule that lives in the Persona's prose (checked against the shipped
+// dev-to-zenn.md's own rules). Control arm: the same substitution with the
+// Persona's actual prose DOES surface those rules, so the search is not
+// vacuous.
+{
+  const marker = "{{prose_rules}}";
+  if (!templateRaw.includes(marker)) fails.push("(f) src/packet-template.md carries no {{prose_rules}} slot");
+  const prose = readerProseOf(personaRaw);
+  const emptyRender = templateRaw.split(marker).join("");
+  const fullRender = templateRaw.split(marker).join(prose);
+  const ruleMarkers = ["Prose style:", "Referents.", "Paragraphs.", "Enumerations", "Voice."];
+  for (const m of ruleMarkers) {
+    if (!fullRender.includes(m)) fails.push(`(f) control: substituting the Persona's actual prose does not surface its "${m}" rule — the empty-render case below would pass vacuously`);
+    if (emptyRender.includes(m)) fails.push(`(f) the template carries the style rule "${m}" even with an empty {{prose_rules}}`);
   }
 }
 

@@ -83,9 +83,8 @@ the Leg's own specialization of the Move and judged there.
 Each line below is one step of what this Leg does to its reader, in order,
 and the claim it serves. It says what the step DOES to the reader, never what
 to write: the words are yours, and no line here is quoted, paraphrased or
-announced to the reader. Open each paragraph on the sentence that states its
-point. One paragraph per waypoint is the expected shape; spend more or fewer
-where an effect needs it.
+announced to the reader. One paragraph per waypoint is the expected shape;
+spend more or fewer where an effect needs it.
 
 {{waypoints}}
 
@@ -136,14 +135,7 @@ or concedes one (tells the reader it is left open).
 
 {{closure_rows}}
 
-## The article so far — verbatim
-
-This Leg's own Section, as written so far — nothing from an earlier Section.
-A Section is a closed discourse segment: a referent sitting in an earlier
-Section is not reachable from here by pronoun or demonstrative, so an earlier
-Section is not carried into this block even verbatim. Continue from what is
-below: do not repeat what it says, do not contradict it, and match the voice
-it establishes.
+## The article so far, up to this Leg:
 
 {{prior_sections}}
 
@@ -157,9 +149,6 @@ label, no commentary about what you are doing.
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Leg and never by you.
 Prose that writes its own heading is refused when the Leg is recorded.
-
-**Paragraphs.** Each opens on the sentence that states its point; every later
-sentence supports that sentence; a sentence that supports nothing is cut.
 
 **The reader's own world.** {{reader_own_world}}
 
