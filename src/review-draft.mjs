@@ -1848,6 +1848,23 @@ const DEMONSTRATIVE_REFERENCE = /\bthe (first|second|third|last|former|latter|pr
 // the page, read as a string fact rather than as which candidate is meant.
 const LIST_CANDIDATE = /,\s|\s(?:and|or)\s/i;
 
+// THE PARAGRAPH-OPENER TEST (kogaki#1322, owner ruling 2026-10-10): a
+// paragraph's first sentence names what it refers to in full. A STRING RULE,
+// over the sentence's own text and nothing else — no antecedent search, so a
+// demonstrative whose antecedent sits in the very same sentence also fails.
+// The owner chose strictness at paragraph openers over the cost of a false
+// flag there. The bare definite noun ("the result") cannot be told from a
+// generic definite by a string and stays in the Persona's prose rule only.
+const OPENER_DEMONSTRATIVE = /\b(this|that|these|those)\b/i;
+const OPENER_THIRD_PERSON = /^(it|they|them)\b|^\S+\s+(it|they|them)\b/i;
+
+// The paragraph's first sentence, as a string: up to the first sentence
+// terminator, or the whole text when it carries none.
+function firstSentenceOf(text) {
+  const m = /^[\s\S]*?[.!?](?=\s|$)/.exec(text);
+  return m ? m[0] : text;
+}
+
 // ONE IMPLEMENTATION PER MECHANICAL ITEM, keyed by the item's own id. Each
 // returns `{verdict, reason, span}` and never a score. The ids here are
 // BINDINGS to the table's `mode: mechanical` rows — a table row whose id has no
@@ -1887,12 +1904,37 @@ const MECHANICAL = {
   // it does not, which is the fixture `checks/check-brief-review.sh` carries.
   // So the enumeration must sit in the reference's OWN paragraph (before the
   // reference) or the one immediately before it — never further back.
+  //
+  // A SECOND TEST OVER A PARAGRAPH'S FIRST SENTENCE (kogaki#1322, owner
+  // ruling 2026-10-10). The owner's boundary for anaphora is the paragraph,
+  // on both sides: a first sentence that opens on a demonstrative or a
+  // third-person pronoun fails by naming the line and the word, with no
+  // lookback at all — the one-paragraph window above stays for a sentence
+  // after the first.
   "demonstrative-reference": ({ leg, draft }) => {
     const paras = paragraphsOf(draft);
     for (let pi = 0; pi < paras.length; pi++) {
       const p = paras[pi];
       if (p.startLine < leg.lines[0] || p.endLine > leg.lines[1]) continue;
       const text = draft.lines.slice(p.startLine - 1, p.endLine).join("\n");
+
+      const opener = firstSentenceOf(text);
+      const openerDem = OPENER_DEMONSTRATIVE.exec(opener);
+      const openerPron = !openerDem && OPENER_THIRD_PERSON.exec(opener);
+      const openerHit = openerDem || openerPron;
+      if (openerHit) {
+        const word = openerHit[1] || openerHit[2];
+        const lineNo = p.startLine + opener.slice(0, openerHit.index).split("\n").length - 1;
+        return {
+          verdict: "fails",
+          reason: "a paragraph's first sentence names what it refers to in full, and this one "
+            + "reaches into the paragraph before it instead",
+          evidence: [`The word '${word}' on line ${lineNo} opens its paragraph reaching into the `
+            + "paragraph before it"],
+          span: leg.lines,
+        };
+      }
+
       const re = new RegExp(DEMONSTRATIVE_REFERENCE);
       let m;
       while ((m = re.exec(text))) {
