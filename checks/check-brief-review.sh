@@ -748,47 +748,39 @@ try {
   rmSync(ws, { recursive: true, force: true });
 }
 
-// (n) THE QUESTION CHAIN READS LEG LINES ONLY (kogaki#1324, owner decision
-// 2026-10-10). The `review_path_unit` input's `question_chain_pairs` carries,
-// per adjacent Leg pair, Leg N's `reader_state_after` question line and Leg
-// N+1's `reader_state_before` question line, and nothing from a Move: the
-// composer is never handed a Move's `question`, so a review judging against
-// it would judge the Move rather than what the Composer produced. The pairs
-// are built from Legs bound to a real library Move, so a reader that still
-// reached for one would have one to reach; the executor is read back to
-// confirm this extraction is the one the unit input carries; and the
-// extraction's own source opens no Move file.
+// (n) THE QUESTION CHAIN IS RETIRED (kogaki#1325, owner decision 2026-10-10).
+// kogaki#1324 left it comparing Leg N's after-state question line with Leg
+// N+1's before-state question line; with the before-state derived from the
+// previous after-state those are one line, so the item is retired and its
+// kogaki#1324 cases with it, never re-pointed. What is asserted is the absence
+// the removal leaves: `questionChainPairs` is no longer exported, the
+// review_path_unit input carries no `question_chain_pairs` and no
+// `question_chain_verdicts`, the Candidate it carries has its Legs' derived
+// before-states, and a record carrying `question_chain` is refused by name.
 {
-  const { questionChainPairs } = await import("./src/compose.mjs");
-  const realMove = readdirSync("moves").find((f) => f.endsWith(".md") && f !== "INDEX.md").replace(/\.md$/, "");
-  const leg = (id, before, after) => ({ leg_id: id, move: realMove,
-    reader_state_before: `knowledge: before ${id}\nquestion: ${before}`,
-    reader_state_after: `knowledge: after ${id}\nquestion: ${after}` });
-  const pairs = questionChainPairs([leg("s1", "holds: none", "why does it hold"),
-    leg("s2", "why does it hold", "when does it fail"), leg("s3", "when does it fail", "settled")]);
-  if (pairs.length !== 2) fails.push(`(n) questionChainPairs over 3 Legs returned ${pairs.length} pairs, not 2`);
-  for (const p of pairs) {
-    const keys = [...Object.keys(p.declared || {}), ...Object.keys(p.reverse || {})];
-    for (const gone of ["move_raises", "move_holds"]) {
-      if (keys.includes(gone) || JSON.stringify(p).includes(gone)) fails.push(`(n) the ${p.leg}->${p.next_leg} pair still carries \`${gone}\` — the chain must read Leg lines only`);
-    }
-    if (JSON.stringify(keys) !== JSON.stringify(["reader_state_after_question", "reader_state_before_question"])) {
-      fails.push(`(n) the ${p.leg}->${p.next_leg} pair carries ${JSON.stringify(keys)}, not exactly the two Leg question lines`);
-    }
-  }
-  if (pairs[0] && (pairs[0].declared.reader_state_after_question !== "why does it hold"
-      || pairs[0].reverse.reader_state_before_question !== "why does it hold")) {
-    fails.push(`(n) the first pair did not carry the two Legs' own question lines: ${JSON.stringify(pairs[0])}`);
-  }
+  const compose = await import("./src/compose.mjs");
+  if ("questionChainPairs" in compose) fails.push("(n) src/compose.mjs still exports questionChainPairs");
+  const review = await import("./src/review.mjs");
+  if ("QUESTION_CHAIN_VERDICTS" in review) fails.push("(n) src/review.mjs still exports QUESTION_CHAIN_VERDICTS");
   const briefSrc = readFileSync("src/brief.mjs", "utf8");
-  if (!/question_chain_pairs: questionChainPairs\(c\.legs\),/.test(briefSrc)) {
-    fails.push("(n) review_path's unit input does not build `question_chain_pairs` from `questionChainPairs(c.legs)` alone");
+  const reviewPath = briefSrc.slice(briefSrc.indexOf("  review_path: async"), briefSrc.indexOf("  attach_review"));
+  if (/question_chain_pairs|question_chain_verdicts/.test(reviewPath)) {
+    fails.push("(n) review_path's unit input still carries `question_chain_pairs` or `question_chain_verdicts`");
   }
-  const composeSrc = readFileSync("src/compose.mjs", "utf8");
-  const body = /export function questionChainPairs\([^)]*\) \{[\s\S]*?\n\}/.exec(composeSrc);
-  if (!body) fails.push("(n) src/compose.mjs declares no questionChainPairs function");
-  else if (/movesDir|readFileSync|moveScalarField|moveQuestionField|\.md`/.test(body[0])) {
-    fails.push("(n) questionChainPairs still opens a Move file");
+  if (!/candidate_you_must_review: \{ \.\.\.c, legs: deriveReaderStatesBefore\(c\.legs, c\.reader_start\) \}/.test(reviewPath)) {
+    fails.push("(n) review_path's unit input does not carry the Candidate with its Legs' derived before-states");
+  }
+  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  if (/`question_chain`, one entry per adjacent Leg pair/.test(table.review_path_unit.judgment_point)) {
+    fails.push("(n) the review_path_unit row still asks for the question chain");
+  }
+  const leg = (id) => ({ leg_id: id, reader_state_after: `knowledge: after ${id}` });
+  const r = review.attachReview([{ candidate_id: "c1", legs: [leg("s1"), leg("s2")] }],
+    { c1: { ...Object.fromEntries(review.REVIEW_AREAS.map((k) => [k, `reasoning for ${k}`])),
+      claim_register: [{ leg_id: "s1", verdict: "holds" }, { leg_id: "s2", verdict: "holds" }],
+      question_chain: [{ leg: "s1", next_leg: "s2", verdict: "same question", why: "one line, read twice" }] } });
+  if (!r.error || !/`question_chain` is a retired review item \(kogaki#1325\)/.test(r.error)) {
+    fails.push(`(n) a review record carrying question_chain was not refused by name: ${JSON.stringify(r)}`);
   }
 }
 
@@ -833,10 +825,10 @@ console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches 
   + "once that Leg's own crossing block re-activates the term, where the same reliance joins "
   + "`holds` — proving default-deny in the comparison's rendering, not only in the item "
   + "table's declared shape. "
-  + "(n) kogaki#1324's question chain reads Leg lines only — each `question_chain_pairs` "
-  + "entry the review_path_unit input carries holds Leg N's after question line and Leg "
-  + "N+1's before question line and no `move_raises` or `move_holds` key, built from "
-  + "`questionChainPairs(c.legs)` alone, whose source opens no Move file. "
+  + "(n) the question chain is retired (kogaki#1325) — questionChainPairs and "
+  + "QUESTION_CHAIN_VERDICTS are no longer exported, the review_path_unit input carries no "
+  + "question-chain field and carries the Candidate with its Legs' derived before-states, and "
+  + "a record carrying `question_chain` is refused by name. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): dropping the per-candidate "
   + "completeness guard failed (b)'s by-name refusal; dropping the verdict-key scan failed "
   + "(c)'s unattachability. NOT "

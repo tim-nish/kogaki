@@ -414,7 +414,25 @@ those paths into.
   `after` (§4.2, §5.1.1) — not the knowledge-only field it was before
   kogaki#1176.
 - **`purpose`** — what the Leg does to the reader.
-- **`reader_state_before`** / **`reader_state_after`**.
+- **`reader_state_after`** — what the reader holds when the Leg ends, judged
+  against the Move's `after` (§4.12.2).
+- **`reader_state_before`** — **derived, never composed** (kogaki#1325, owner
+  decision 2026-10-10: "The proposal for `specializes` seems to have returned
+  to the original design. I approve."). It is the previous Leg's
+  `reader_state_after`, verbatim, and the Brief's Reader start for the first
+  Leg; `validateLegs` writes it and refuses a Candidate whose Leg carries the
+  field, by name. So a before-state can hold nothing no earlier text stated:
+  the reader arrives at a Leg holding exactly what the Leg before it left them
+  holding. **What replaced it** was a composed before-state judged a
+  "consistent specialization" of its Move's `before`, or of Reader start for
+  the first Leg (kogaki#1216). Nothing defined a specialization beyond the
+  word, and in the Brief run of 2026-10-09 the first Leg's before-state moved
+  the Thesis out of Reader start's `question` line into `knowledge` — "holds
+  the sentence as a slogan" — and the judge accepted it; the Move's `before`
+  then held a general claim no text had stated, and the Draft's opening left
+  the reader without the rule. The Brief still renders the derived value as
+  the Leg block's `reader_state_before:` line, so every reader of the file
+  keeps working until the record writes each state once (kogaki#1328).
 - **`waypoints`** — **required** (kogaki#1311). The ordered route from
   `reader_state_before` to `reader_state_after`: this Leg's own
   specialization of its Move's `technique`, written when the Leg is composed.
@@ -941,7 +959,7 @@ gap between adjacent Legs is repaired by inserting a **Bridge Leg**.
 
 **An insertion contract, not a type.** A Bridge Leg is an ordinary §4.1 Leg
 whose placement is constrained by its neighbours: its `reader_state_before` is
-the predecessor's `reader_state_after`; its `reader_state_after` supplies what
+the predecessor's `reader_state_after`, as every Leg's is (§4.1); its `reader_state_after` supplies what
 the successor's `reader_state_before` requires; `depends_on` is updated across
 the splice. It may use Strands or not, and bind a Move or not; where its
 connecting claim is not traceable to Strand material it carries the flags every
@@ -1080,8 +1098,11 @@ disclosure shape is conduct at a judgment point.
 ### 4.12 The Leg↔Move instantiation contract
 
 A Leg **instantiates** a Move: `move` names a record in the library (§7), and
-the Leg's `reader_state_before`/`after` are the **instance forms** of that
-Move's `before`/`after`, specialized to this reader and these Strands. §4.1
+the Leg's `reader_state_after` is the **instance form** of that Move's
+`after`, specialized to this reader and these Strands. Its
+`reader_state_before` instantiates nothing: it is derived (§4.1, kogaki#1325),
+and what is asked of the Move's `before` is whether it requires anything that
+derived state does not hold. §4.1
 makes the binding required; this section governs **the relationship the binding
 asserts**.
 
@@ -1091,7 +1112,7 @@ which added the third for the reason §4.12.3 states:
 | half | the question | who answers | where it is carried |
 |---|---|---|---|
 | mechanical | does the id resolve? | the runtime | a set-membership test over the library |
-| judged | are the instantiated states consistent specializations? | the composing sitting | a typed record the runtime validates and never composes |
+| judged | does the Leg fit its Move — the `before` requiring nothing the derived state lacks, the after-state and the points specializing the rest? | the composing sitting | a typed record the runtime validates and never composes |
 | ratified | does the owner accept that judgment as the ground for writing this path? | the owner | a capture at a declared gate, bound to the Candidate and to the record |
 
 `necessity:` that the contract HAS these halves, and that which half a property
@@ -1135,12 +1156,19 @@ responsibility ends, which no call site states.
    paraphrasing a judgment the runtime did not make.
 
 **What is judged, per Leg** (kogaki#1311, replacing #1276's second and third
-clauses). Three things, all against the Move the Leg binds, whose contract the
-input carries beside the Leg's own `waypoints`:
+clauses; the first clause split by kogaki#1325). Four things, all against the
+Move the Leg binds, whose contract the input carries beside the Leg's own
+`waypoints` and its derived `reader_state_before`:
 
-- whether `reader_state_before` and `reader_state_after` are consistent
-  specializations of the Move's `before` and `after` — the first Leg's before
-  against Reader start, below;
+- **one question of the Move's `before`**: does it require, on any dimension,
+  something the derived before-state does not hold? A Move whose `before`
+  needs a stated claim that no earlier Leg's claims or `introduces` entries
+  carry does not fit — `contradicts`, with the `why` naming the dimension —
+  and at the first Leg, where nothing has been stated, that is any stated
+  claim at all. The before-state itself is never judged: it is derived, so
+  there is nothing in it a composer could have specialized well or badly;
+- whether `reader_state_after` is a consistent specialization of the Move's
+  `after`;
 - whether the Leg's **points, read in order, follow the Move's order** as its
   `technique` gives it, each point obtainable from the claim it serves
   (kogaki#1326). The points are judged, not the claims and not
@@ -1159,21 +1187,23 @@ verdict-shaped field by key. A specialization verdict recorded there would be
 **unattachable by construction**. The judgment is sited where a verdict is a
 legitimate output.
 
-**Two Path Review items carry a verdict, and they are named rather than
-admitted by shape** (kogaki#1283, owner decision of 2026-10-06). `question_chain`
-judges, per adjacent Leg pair, whether Leg N's `reader_state_after` question
-line and Leg N+1's `reader_state_before` question line name the same question
-(`same question` / `different question`) — the Leg lines only, nothing from a
-Move (kogaki#1324), and
-`discharge` judges, per Closure row carrying `discharged_by`, whether every part
-of what the row owes is answered by the discharging Leg's claims (`holds` /
-`fails`). Each compares two carriers rather than reading the writing, so a
-closed two-value verdict is its legitimate output. `src/review.mjs` exempts
-exactly those two keys from the verdict scan; every review-area entry stays
-prose and is still refused a verdict-shaped field by key. The verdicts are
-carried to the human gate and refuse nothing. The specialization verdict is
-still not sited there: it judges one Leg against its own Move, which neither
-item does.
+**One Path Review item carries a verdict, and it is named rather than
+admitted by shape** (kogaki#1283, owner decision of 2026-10-06). `discharge`
+judges, per Closure row carrying `discharged_by`, whether every part of what
+the row owes is answered by the discharging Leg's claims (`holds` / `fails`).
+It compares two carriers rather than reading the writing, so a closed
+two-value verdict is its legitimate output. `src/review.mjs` exempts exactly
+that key from the verdict scan; every review-area entry stays prose and is
+still refused a verdict-shaped field by key. The verdict is carried to the
+human gate and refuses nothing. The specialization verdict is still not sited
+there: it judges one Leg against its own Move, which `discharge` does not.
+**`question_chain` was the second such item and is retired** (kogaki#1325): it
+judged whether Leg N's after-state question line and Leg N+1's before-state
+question line named the same question (kogaki#1283, narrowed to the Leg lines
+by kogaki#1324). With the before-state derived from the previous after-state
+the two lines are one line, so a record carrying it is refused by name; the
+Move's `after` question against the state is the fit judge's after-state
+comparison.
 
 **The record is bound on both axes** — the **Candidate** it was composed
 against, and per verdict the **Move** the Leg binds. Without the first a
@@ -1198,19 +1228,23 @@ that every Leg carries waypoints that serve its claims, which is shape;
 re-deriving the verdict would be the runtime composing one, which clause 2
 forbids.
 
-**The first Leg's before-state is judged against Reader start, not against
-its Move's `before`** (kogaki#1216, owner decision 2026-09-28). Reader start is
-a cold read from the Persona and the Thesis (§5.1.1), never from a Move, so the
-question the occasion asks of Leg 1 is whether its `reader_state_before` is a
-consistent specialization of the Brief's Reader start — on the same terms every
-other Leg's before-state is compared to its Move's `before`. Its after-state is
-judged against its Move's `after` like every other Leg's. The judgment input
-carries `reader_start` beside `move_contracts` and names the first Leg
-(`src/specialization-schema.json`, `first_leg`); the vocabulary, the one-per-Leg
-rule and the path-order refusal are unchanged. This replaces the verbatim
-match §5.2 used to require, and it is what lets the first Leg bind a Move
-whose `before` merely does not contradict Reader start rather than one whose
-`before` Reader start was written to equal.
+**The first Leg's before-state IS Reader start** (kogaki#1325, owner decision
+2026-10-10), derived like every other Leg's before-state, so the question asked
+of Leg 1's Move is the one question above, against Reader start. Reader start
+is a cold read from the Persona and the Thesis (§5.1.1), never from a Move, so
+an opening Move whose `before` needs a claim the reader could only hold from
+the article is refused at the first Leg, naming the dimension. The judgment
+input carries each Leg's derived before-state and the question itself
+(`src/specialization-schema.json`, `before_state`); the vocabulary, the
+one-per-Leg rule, the path-order refusal and the one re-ask are unchanged.
+**What this replaces** is kogaki#1216's arrangement, under which Leg 1's
+composed before-state was judged a consistent specialization of Reader start —
+the arrangement that let the 2026-10-09 run move the Thesis into `knowledge`.
+kogaki#1216's own ground still holds: Reader start is never written backwards
+from the first Leg's Move, because the judgment now runs from the state to the
+Move's `before` rather than from a composed before-state back to Reader start,
+and the first Leg still binds a Move whose `before` merely does not contradict
+Reader start.
 
 **The judged half runs per compose job unit, before Path Review** (kogaki#1307,
 owner decision 2026-10-08; this fills the deferred slot
@@ -2024,7 +2058,14 @@ own words — never a question in the article's terms, and never a problem they
 are assumed to have lived (kogaki#1225; `holds: none` is not a default rule —
 it is what a properly established cold read comes out as when the wording
 raises nothing for this reader); `expectation`, `orientation` and `trust` from
-`reader` plus the Thesis as a title. The
+`reader` plus the Thesis as a title. **What the reader saw at the title
+enters the `question` dimension only** (kogaki#1325): the Thesis may appear in
+`question`, as the reader's reaction to the wording, and never in `knowledge`,
+because no text has stated it yet — and Reader start is the first Leg's
+before-state verbatim (§4.1), so whatever it holds is what the opening Move's
+`before` is judged against. One part of that is mechanical and refused at the
+`differentiation` record: a `knowledge:` line containing the Thesis
+(`readerStartThesisRefusal`). The rest of the
 derivation is composition judgment stated to the composer, not linted (§4.6).
 Selecting a Persona per article is out of scope; the `compose_path` row of
 `src/brief-workflow.json` names the reader file it reads, as it names its
@@ -2186,11 +2227,13 @@ and that match — beside §4.12.2's specialization rule — is what wrote Reade
 start backwards from the first Leg's Move. The verbatim check is retired from
 `src/compose.mjs` and from `src/leg-schema.json`'s `path_rules`
 (`reader_start_binds_first_leg`); what `validateLegs` still refuses is Reader
-start's own shape. The first Leg still opens from Reader start: its
-`reader_state_before` is JUDGED against it at the specialization occasion in
-place of its Move's `before`, on the same terms as every other Leg, and the
-Move it binds is one the exclusion of §5.1.1 did not remove — stated to the
-composer as the judgment-class `first_leg_binds_a_survivor` path rule.
+start's own shape. The first Leg still opens from Reader start, and since
+kogaki#1325 its `reader_state_before` IS Reader start, derived rather than
+composed (§4.1): the verbatim equality returns by construction, without the
+backwards authoring, because what is judged is whether the opening Move's
+`before` requires anything Reader start does not hold (§4.12.2). The Move it
+binds is one the exclusion of §5.1.1 did not remove — stated to the composer
+as the judgment-class `first_leg_binds_a_survivor` path rule.
 
 **There is no mechanical judge of the CONTENT of any of this.** Whether an
 obligation is worth entering, and whether a discharge or a concession is the

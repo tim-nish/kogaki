@@ -1309,7 +1309,8 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // the no-skip half of the occasion; the validator owns everything else.
   if (instantiation.specialization === undefined) {
     return { error: `candidate ${candidateId}: no specialization record — whether each Leg's `
-      + `reader_state_before/after are consistent specializations of its Move's requires/effect is a `
+      + `Move fits it — its \`before\` requiring nothing the derived before-state does not hold (kogaki#1325), its `
+      + `reader_state_after a consistent specialization of the Move's \`after\` — is a `
       + `JUDGMENT, and it is a mandatory occasion at Brief composition (the Leg-Move instantiation contract, kogaki#747). Adoption `
       + `composes no verdict of its own and fills no default. Judge the path, record the verdicts `
       + `(src/specialization-schema.json), and pass --specialization <path>. Nothing was written.` };

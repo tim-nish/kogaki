@@ -35,7 +35,9 @@
       "THE JUDGMENT RUNS OVER EVERY CANDIDATE, BEFORE THE OWNER CHOOSES",
       "(kogaki#1276, owner decision 2026-10-05). Each Leg is judged against its",
       "Move's `before`, `after`, `technique` and `breaks`: `consistent` only",
-      "where the reader states specialize `before` and `after`, the Leg's",
+      "where the Move's `before` requires nothing the Leg's DERIVED before-state",
+      "does not hold (`before_state` below, kogaki#1325), the Leg's",
+      "`reader_state_after` specializes `after`, the Leg's",
       "waypoints, read in order, specialize `technique` with each waypoint's",
       "effect obtainable from the claim it serves, and the waypoints survive",
       "each `breaks` test (kogaki#1311; the waypoint count is no criterion).",
@@ -52,24 +54,28 @@
       "rationale": "a record composed against one Candidate cannot certify another — without this key a sitting could judge the Candidate it liked and adopt the one it wanted"
     }
   },
-  "first_leg": {
-    "before_compared_against": "reader_start",
+  "before_state": {
+    "derived_from": "the previous Leg's `reader_state_after`; for the first Leg, the Brief's Reader start",
+    "question": "Does this Leg's Move's `before` require, on any dimension, something the derived before-state does not hold? A Move whose `before` needs a stated claim that no earlier Leg's claims or `introduces` entries carry does not fit: answer `contradicts`, and name the dimension in `why`. At the first Leg nothing has been stated yet, so a `before` that needs any stated claim does not fit there.",
     "note": [
-      "THE FIRST LEG IS JUDGED AGAINST READER START, NOT AGAINST ITS MOVE'S",
-      "`before` (kogaki#1216, owner decision 2026-09-28). Reader start is a cold",
-      "read authored from the Persona and the Thesis and never from any Move,",
-      "so the question the judgment asks of Leg 1 is whether its",
-      "`reader_state_before` is a consistent specialization of the Brief's",
-      "Reader start -- on the SAME terms every other Leg's before-state is",
-      "compared to its Move's `before`. Its `reader_state_after` is judged",
-      "against its Move's `after` exactly as every other Leg's is. The",
-      "judgment input carries `reader_start` beside `move_contracts`, and the",
-      "verdict vocabulary, the one-per-Leg rule and the path-order refusal are",
-      "unchanged: `specializes` (recorded as `consistent`) passes, `contradicts`",
-      "refuses. What this replaced was a VERBATIM match of Leg 1's before-state",
-      "against Reader start (`reader_start_binds_first_leg`, retired), which",
-      "together with the specialization rule forced Reader start to be written",
-      "backwards from the first Leg's Move."
+      "THE BEFORE-STATE IS DERIVED, AND IS NOT JUDGED (kogaki#1325, owner",
+      "decision 2026-10-10). A Leg writes no `reader_state_before`: the",
+      "Harness derives it as the previous Leg's `reader_state_after`, or the",
+      "Brief's Reader start for the first Leg, and the judgment input carries",
+      "the derived value on each Leg. So there is no before-state verdict to",
+      "give. What is asked instead runs the other way -- from the state the",
+      "reader is actually in to what the Move's `before` needs -- and it is",
+      "the one question above.",
+      "",
+      "WHAT STOOD HERE. A composed before-state, judged as a 'consistent",
+      "specialization' of its Move's `before`, or of Reader start for the",
+      "first Leg (kogaki#1216). Nothing defined a specialization beyond the",
+      "word. On 2026-10-09 Reader start placed the Thesis in `question`, the",
+      "first Leg's composed before-state moved it into `knowledge`, and the",
+      "judge accepted that as a specialization; the Move's `before` then held",
+      "a general claim no text had stated, and the Draft's opening left the",
+      "reader without the rule. The after-state's judgment against the Move's",
+      "`after` is unchanged."
     ]
   },
   "verdict": {
