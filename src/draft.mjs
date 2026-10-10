@@ -111,6 +111,12 @@ import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // included, so a fixture seam and a shim refusal read the same here.
 import { resolveJudgeBinary, settingValue } from "./workflow/judge.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
+// THE THESIS IS READ BY THE SAME PARSER THAT READS IT AT COMPOSITION
+// (kogaki#1327): `briefThesis` is the Brief's own reader for its `## Thesis`
+// section, exported for the gate declaration brief.mjs itself emits a Thesis
+// candidate from. A second reader here would be the two-copy divergence the
+// Leg block parser already refuses to be (kogaki#1014).
+import { briefThesis } from "./brief.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
 // renderLanguageBlock live in lint-ja.mjs, which also runs the Lint that
 // reads terms/prh.yml the same way — one parser, imported rather than a
@@ -410,6 +416,17 @@ export function parseBrief(text, path = "<brief>") {
   const slugM = text.match(/^# Brief — (.+?)\s*$/m);
   const slug = slugM ? slugM[1] : basename(dirname(resolve(path)));
 
+  // THE THESIS IS THE ARTICLE'S TITLE, VERBATIM (kogaki#1327, owner decision
+  // 2026-10-10). Read by `briefThesis`, the same reader the Brief side
+  // exports for it — not re-expressed here — so a Draft and a Brief cannot
+  // disagree about what the Thesis says. No field is composed for the title:
+  // `emit` renders exactly what this returns.
+  const thesis = briefThesis(text);
+  if (thesis === null) {
+    refusals.push(`the Brief at ${path} carries no "## Thesis" section with a non-empty paragraph — `
+      + "the Draft's title is the Thesis, rendered verbatim, and there is no field composed for it (SPEC-draft-pipeline §4.15)");
+  }
+
   // THE SURVEY PIN IS NO LONGER REQUIRED, AND ITS ABSENCE IS TYPED RATHER THAN
   // REFUSED (kogaki#1116). The commit pin is deprecated: a Brief minted since
   // that issue carries no `*Survey pin:*` line at all, because each Strand's
@@ -447,7 +464,7 @@ export function parseBrief(text, path = "<brief>") {
     refusals.push(`the Brief at ${path} carries no Reader Path legs — there is nothing to realize`);
   }
 
-  return { slug, surveyPin, strands, legs, refusals, text };
+  return { slug, surveyPin, thesis, strands, legs, refusals, text };
 }
 
 // The closed-set refusal, in `fillBrief`'s own shape: name the foreign id AND
@@ -693,6 +710,11 @@ function assembleBody(brief, ws, lang = "en") {
     line = span[1] + 2;
     return span;
   };
+  // THE TITLE IS THE THESIS, RENDERED FIRST (kogaki#1327, design item 1). It
+  // is pushed by the same `push` every other block is, so its line and the
+  // bytes it points at cannot disagree — the kogaki#868 property, extended to
+  // the one line the body carries that no Leg and no Section wrote.
+  push(`# ${brief.thesis}`);
   const sections = sectionsOf(brief.legs);
   const opensAt = new Map();
   for (const sec of sections) opensAt.set(sec.leg_ids[0], sec);
