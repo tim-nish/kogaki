@@ -12,9 +12,6 @@ after: >-
   orientation: superficial opposition and the stricter, defined form of the
   expected response are held apart, so only the latter counts as a
   confirming or disconfirming instance.
-question: >-
-  holds: how widely does the pattern apply replaces: how widely does the
-  pattern apply with why the expected response is absent in this instance
 technique: >-
   State a general pattern and support it with a compact sequence of past
   instances in which it held. Mark a sharp break to a present instance where

@@ -18,10 +18,6 @@ after: >-
   neighbor, and liable to provoke counteraction. trust: raised by having
   walked the mechanism through a fully worked familiar case rather than
   asserting it of the abstract actors directly.
-question: >-
-  holds: what follows in practice from the absence of a guaranteeing
-  authority? settles: why actors seek strength and why their interaction
-  tends toward a balance rather than one-sided accumulation.
 technique: >-
   Take an established institutional absence and, instead of arguing its
   consequence abstractly, restate it as a needed self-protective act, then

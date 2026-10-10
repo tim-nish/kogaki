@@ -16,9 +16,6 @@ after: >-
   the initial pattern did not name. trust: has seen the generalization
   tested against a case, qualified by adverse evidence rather than left to
   stand unchallenged.
-question: >-
-  holds: did the general pattern occur in a concrete period? raises: why did
-  the reversal occur, and what followed it?
 technique: >-
   Select a dated case whose starting conditions visibly satisfy a previously
   stated general pattern, and trace the expected response in one causal step

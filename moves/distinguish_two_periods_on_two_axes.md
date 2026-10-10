@@ -15,10 +15,6 @@ after: >-
   a changed kind of case and a particular explanatory lens, not by volume.
   orientation: treats the later period as a qualitative break on two axes at
   once.
-question: >-
-  holds: what changed besides the number of cases. replaces: what changed
-  besides the number of cases with why did the object and the actors of
-  conflict both shift toward great-power territorial rivalry.
 technique: >-
   Describe an earlier period on two independent axes — what the cases
   concerned and who was involved. Contrast a later period on the same two

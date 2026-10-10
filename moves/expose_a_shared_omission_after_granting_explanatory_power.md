@@ -12,9 +12,6 @@ after: >-
   expectation: the next account will move beneath visible mechanisms to the
   motivating purposes behind them. orientation: standard explanatory
   diagrams are useful but bounded instruments within a deeper explanation.
-question: >-
-  replaces: how do these visible mechanisms shape action? with: what
-  purposes make actors adopt the goals these mechanisms serve
 technique: >-
   Present two familiar explanatory devices that work through different
   visible mechanisms and let each succeed fully on its own terms, walking

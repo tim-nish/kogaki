@@ -17,11 +17,6 @@ after: >-
   variation rather than a claim of universal effect. question: what
   determines the variation between the higher- and lower-likelihood
   instances?
-question: >-
-  holds: can the mechanism explain why some instances produce a stronger
-  effect than others that appear equally or more capable of producing it?
-  raises: what determines the variation between the higher- and
-  lower-likelihood instances?
 technique: >-
   Apply a newly introduced mechanism to a second, more concrete case, then
   qualify it by holding the triggering action constant while allowing the

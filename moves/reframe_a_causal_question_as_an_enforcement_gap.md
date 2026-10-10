@@ -17,12 +17,6 @@ after: >-
   enforce restraint, not only about what drives the behavior. trust: raised,
   because several plausible motive-based answers were granted before the
   narrower question displaced them.
-question: >-
-  holds: why does the phenomenon persist across cases?; replaces: why does
-  the phenomenon persist across cases? with who has the power to compel
-  restraint, and does the case in question have it?; settles: who has the
-  power to compel restraint, answered for the familiar domain; raises: who
-  performs the equivalent function in the unfamiliar comparison domain.
 technique: >-
   Open with the broadest form of a causal question and grant the range of
   answers the reader already holds, so the survey reads as complete rather

@@ -16,10 +16,6 @@ after: >-
   century-long pattern of rises and falls rather than the immediate news
   cycle. trust: is raised by counts, dated periods, named events, and
   qualified causal claims.
-question: >-
-  holds: is the present instance historically unusual? replaces: is the
-  present instance historically unusual? with what common cause joins the
-  repetitions, and whether that cause is sufficient
 technique: >-
   State the full pattern and number its repetitions before presenting
   evidence. For each repetition, pair a change in external conditions with a

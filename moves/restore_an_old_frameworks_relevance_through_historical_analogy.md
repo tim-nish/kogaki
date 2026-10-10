@@ -16,10 +16,6 @@ after: >-
   situation as a recurrence of the structural problem that produced the
   framework. trust: raised by matched roles, a shared label, a dated period,
   and named foundational texts.
-question: >-
-  holds: why does this old framework matter now; settles: it was born to
-  answer a structurally identical earlier crisis; raises: whether it can
-  actually arrest a dominant power's decline in the present case.
 technique: >-
   Begin with a present configuration the reader already recognizes and
   isolate one structural relation within it. Reconstruct an earlier case

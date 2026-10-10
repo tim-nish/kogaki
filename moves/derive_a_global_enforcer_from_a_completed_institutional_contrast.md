@@ -16,11 +16,6 @@ after: >-
   reconstructed the missing function before being told the remedy, and by a
   recognized authority having reached the same conclusion under comparable
   stakes.
-question: >-
-  holds: why does the phenomenon persist? replaces: why does the phenomenon
-  persist? with who has the power to compel a stop? settles: who has the
-  power to compel a stop, and what institution would be required to supply
-  it?
 technique: >-
   Open with a broad causal question and grant its familiar range of answers,
   then replace it with a narrower operational question about compelled

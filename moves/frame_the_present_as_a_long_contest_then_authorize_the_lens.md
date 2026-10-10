@@ -16,10 +16,6 @@ after: >-
   framework's authors on a scale calibrated by canonical achievements
   elsewhere, not at the margins. trust: raised, because the framework is
   named, historically situated, and given an external measure of standing.
-question: >-
-  holds: what structure does the present rivalry have? settles: the
-  structure, by naming the relation that recurs across a long span. raises:
-  how the inherited framework will be reapplied to reinterpret the present.
 technique: >-
   Open with a compact model of a recognizable present and claim that it
   recurs across a much longer span. Name and define the inherited framework

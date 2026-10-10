@@ -17,11 +17,6 @@ after: >-
   outcome as a system-level effect obtainable without the assumed motive,
   not as proof of it. trust: trusts the technical term because it was
   reconstructed before being named, rather than asserted first.
-question: >-
-  holds: does the outcome require the assumed motive to be present in at
-  least one actor? settles: does the outcome require the assumed motive to
-  be present in at least one actor? — answered negatively, with the causal
-  sequence that replaces it specified.
 technique: >-
   Retrieve a causal model the reader already accepts, then explicitly strip
   out the one assumption — a hostile or self-interested motive — that reader

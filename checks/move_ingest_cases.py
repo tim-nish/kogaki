@@ -19,14 +19,11 @@ globals().update({k: v for k, v in vars(_m).items() if not k.startswith("__")})
 # The fixture library — every case CONSTRUCTS the defect and asserts the refusal.
 # --------------------------------------------------------------------------
 
-SIX = """id: {id}
+FIVE = """id: {id}
 before: >-
   question: holds an unanswered question
 after: >-
   question: the question is settled
-question: >-
-  holds: why does it happen
-  settles: why does it happen
 technique: >-
   does a thing
 breaks: >-
@@ -43,7 +40,7 @@ AXIS_FORM = """figure:
 
 
 def _record(move_id="a-move", form=None):
-    text = SIX.format(id=move_id)
+    text = FIVE.format(id=move_id)
     if form is not None:
         text += form
     return text
@@ -147,12 +144,12 @@ def self_test():
     refuses(
         _record().replace("breaks: >-\n  not always\n", ""),
         "3",
-        "AC3 cond 3 five keys refused",
+        "AC3 cond 3 four keys refused",
     )
     refuses(
         _record() + "extra_field: >-\n  nope\n",
         "3",
-        "AC3 cond 3 seventh key refused",
+        "AC3 cond 3 sixth key refused",
     )
     # kogaki#1247, owner ruling: `order` and `presupposes` are retired —
     # neither required nor optional — so a record still carrying either is
@@ -176,6 +173,23 @@ def self_test():
         "3",
         "AC3 cond 3 a record carrying `draws_on` is refused (kogaki#1280)",
     )
+
+    # kogaki#1324, owner ruling: the Move's `question` field is retired — the
+    # composer never received it, so path review judged a Candidate against a
+    # field it was never given. A record still carrying it is refused here,
+    # BY NAME, as unexpected.
+    def a_record_carrying_question_is_refused_by_name():
+        text = _record("asker") + (
+            "question: >-\n  holds: why does it happen\n  raises: what happens next\n")
+        proposals = read_proposals(text)
+        bad = [p for p in proposals if not p.admitted]
+        assert bad, "a record carrying `question` was admitted"
+        assert bad[0].refusal.condition == "3", bad[0].refusal
+        assert "unexpected `question`" in str(bad[0].refusal), (
+            "the refusal did not name `question`: %s" % bad[0].refusal)
+
+    check("AC3 cond 3 a record carrying `question` is refused by name (kogaki#1324)",
+          a_record_carrying_question_is_refused_by_name)
 
     def retired_keys_are_named_in_the_refusal():
         for key, value in (
@@ -207,7 +221,7 @@ def self_test():
         )
         assert not proposals[1].admitted, "the absorbed record was admitted"
         assert proposals[1].refusal.condition == "3", (
-            "the absorbed record should be short of §4.2's six keys: %s" % proposals[1].refusal
+            "the absorbed record should be short of §4.2's five keys: %s" % proposals[1].refusal
         )
 
     check("AC3 id-not-first is caught by conditions 2 AND 3", id_not_first_is_caught_by_absorption)
@@ -816,21 +830,21 @@ def self_test():
         "`criterion`",
         "#876 AC1 a role mapped to nothing is refused, naming it")
 
-    def an_unknown_seventh_key_is_still_refused():
+    def an_unknown_sixth_key_is_still_refused():
         """The optional set admits `continues_from`, `evidence`, `figure` and
         NOTHING else — the catch condition 3 exists for is unchanged, which a
         widening is exactly the kind of change that can quietly remove."""
-        proposals = read_proposals(_record("subject", "notes: >-\n  a seventh key\n"))
+        proposals = read_proposals(_record("subject", "notes: >-\n  a sixth key\n"))
         bad = [p for p in proposals if not p.admitted]
         assert bad, "a key outside the optional set was admitted"
         assert bad[0].refusal.condition == "3", bad[0].refusal
-        five = _record("subject").replace("breaks: >-\n  not always\n", "")
-        proposals = read_proposals(five)
-        assert not proposals[0].admitted, "a five-key record was admitted"
+        four = _record("subject").replace("breaks: >-\n  not always\n", "")
+        proposals = read_proposals(four)
+        assert not proposals[0].admitted, "a four-key record was admitted"
         assert proposals[0].refusal.condition == "3", proposals[0].refusal
 
     check("#876 condition 3 still refuses an unexpected key and a short record",
-          an_unknown_seventh_key_is_still_refused)
+          an_unknown_sixth_key_is_still_refused)
 
     def the_nesting_is_admitted_by_name_not_by_shape():
         """An indented `key: value` under any OTHER field is the scalar it has
@@ -1073,7 +1087,7 @@ def self_test():
             _write_passage_stub(stub, malformed)
             out = os.path.join(d, "run")
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
-            assert not result["proposal"].admitted, "a five-key record was admitted"
+            assert not result["proposal"].admitted, "a four-key record was admitted"
             screen = open(result["screen"]).read()
             assert screen.startswith("refused:"), screen
             try:
@@ -1125,23 +1139,18 @@ def self_test():
             "before": "knowledge: has noticed a crowded shelf. question: holds an "
                       "unanswered question about why so many such works are appearing "
                       "now. expectation: anticipates a survey.",
-            "question": "holds: why so many works are appearing now settles: whether "
-                        "the wave is new raises: why worsening conditions renew interest",
         }
 
     def a_none_row_writes_holds_none_and_never_a_composed_question():
         mapping = _proposal_mapping()
         changed = write_none_question(mapping, NONE_ROW)
-        assert changed == ["question", "before"], changed
-        assert mapping["question"] == (
-            "holds: none settles: whether the wave is new raises: why worsening "
-            "conditions renew interest"), mapping["question"]
+        assert changed == ["before"], changed
         assert mapping["before"] == (
             "knowledge: has noticed a crowded shelf. question: holds: none. "
             "expectation: anticipates a survey."), mapping["before"]
         assert "unanswered question" not in mapping["before"]
     check("#1216 passage: an Analysis whose question-before reads none writes "
-          "`holds: none` into `question` and `before`, never a composed question",
+          "`holds: none` into `before`, never a composed question",
           a_none_row_writes_holds_none_and_never_a_composed_question)
 
     def a_held_row_leaves_the_proposal_untouched():
@@ -1161,7 +1170,7 @@ def self_test():
         # And the screen names the rewrite only where one happened.
         prop = Proposal(1, mapping=_proposal_mapping())
         assert "holds: none" not in render_passage_screen(prop, [])
-        assert "never a composed question" in render_passage_screen(prop, [], ["question"])
+        assert "never a composed question" in render_passage_screen(prop, [], ["before"])
     check("#1216 passage: a Passage carrying no Analysis row is left untouched, "
           "and the screen names a rewrite only where one happened",
           a_passage_with_no_analysis_row_leaves_the_proposal_untouched)
@@ -1235,57 +1244,6 @@ def self_test():
                 % result["proposal"].refusal)
     check("#1284 subject nouns: an Analysis that lists none admits the same `technique`",
           a_passage_run_admits_a_technique_with_no_subject_noun_listed)
-
-    # ---- kogaki#1283: a Move that raises a question carries it in `after` --
-    def a_raises_question_with_no_after_question_line_is_refused():
-        text = _record("raiser").replace(
-            "question: >-\n  holds: why does it happen\n  settles: why does it happen\n",
-            "question: >-\n  holds: why does it happen\n  raises: what happens next\n",
-        ).replace(
-            "after: >-\n  question: the question is settled\n",
-            "after: >-\n  the question is settled\n",
-        )
-        proposals = read_proposals(text)
-        bad = [p for p in proposals if not p.admitted]
-        assert bad, "a `raises:` record with no `question:` line in `after` was admitted"
-        assert bad[0].refusal.condition == "question-chain", bad[0].refusal
-        assert "`after`" in str(bad[0].refusal), bad[0].refusal
-
-    check("#1283 a `raises:` question with no `question:` line in `after` is refused",
-          a_raises_question_with_no_after_question_line_is_refused)
-
-    def a_raises_question_with_an_after_question_line_is_admitted():
-        text = _record("raiser-answered").replace(
-            "question: >-\n  holds: why does it happen\n  settles: why does it happen\n",
-            "question: >-\n  holds: why does it happen\n  raises: what happens next\n",
-        ).replace(
-            "after: >-\n  question: the question is settled\n",
-            "after: >-\n  question: the question is settled. question: what happens next\n",
-        )
-        proposals = read_proposals(text)
-        assert proposals[0].admitted, proposals[0].refusal
-
-    check("#1283 a `raises:` question answered in `after` is admitted",
-          a_raises_question_with_an_after_question_line_is_admitted)
-
-    def a_record_with_no_raises_is_unaffected():
-        proposals = read_proposals(_record("no-raises"))
-        assert proposals[0].admitted, proposals[0].refusal
-
-    check("#1283 a record whose `question` carries no `raises:` is unaffected",
-          a_record_with_no_raises_is_unaffected)
-
-    def the_affected_shipped_record_now_passes():
-        path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "..", "moves",
-            "qualify_the_dilemma_then_name_its_two_conditions.md",
-        )
-        mapping = read_saved(path)
-        check_field_set(mapping, 1)
-        check_question_chain(mapping, 1)
-
-    check("#1283 the one affected shipped record carries a `question:` line in `after`",
-          the_affected_shipped_record_now_passes)
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)

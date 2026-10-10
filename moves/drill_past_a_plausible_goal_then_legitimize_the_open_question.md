@@ -16,10 +16,6 @@ after: >-
   expressions of purposes that cannot be inferred by a fixed rule. trust:
   raised, because the difficulty is framed as inherent to the domain and
   backed by a cited authority.
-question: >-
-  holds: why the actor undertook the observed action. raises: what the
-  underlying objective is ultimately for. settles: why that deeper objective
-  resists confident prediction.
 technique: >-
   Begin with a familiar event and ask for its cause, then state the answer
   the reader is most likely to accept. Treat that answer as an intermediate
