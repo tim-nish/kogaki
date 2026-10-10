@@ -1561,7 +1561,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
     journeys: [{ strand: "L1", use: "contrast" }],
   };
   const rendered = renderLeg(leg);
-  if (!rendered.includes("journey: L1 — contrast (to contrast, showing the expectation the event broke)")) {
+  if (!rendered.includes("journey: L1 — contrast (to contrast this Leg's claim with the case that contrasts it)")) {
     fails.push(`(am) renderLeg did not render the Brief's journey line with the schema's gloss: ${rendered}`);
   }
   const briefText = [

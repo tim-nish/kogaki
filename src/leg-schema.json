@@ -483,7 +483,7 @@
     "uses": {
       "illustrate": "to illustrate this Leg's claim with the case that illustrates it",
       "motivate": "to motivate the question this Leg opens, with the case that motivates it",
-      "contrast": "to contrast, showing the expectation the event broke"
+      "contrast": "to contrast this Leg's claim with the case that contrasts it"
     },
     "fields": {
       "strand": {
