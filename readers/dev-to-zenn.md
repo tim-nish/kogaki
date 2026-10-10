@@ -1,9 +1,8 @@
 id: dev-to-zenn
 reader: >-
-  Working developers reading a peer's post on Dev.to or Zenn.
+  An ordinary person with no specialized knowledge
 prior_knowledge: >-
-  Can read code and has used a CI system; does not hold software-engineering
-  vocabulary such as invariant or fail-closed; does not know this codebase.
+
 prose: |
   **Prose style:** classic register, full clauses, a concrete subject acting,
   no unexplained term of art; not fragments, not runs of short sentences, not
