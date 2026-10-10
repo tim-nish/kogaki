@@ -116,12 +116,13 @@ import {
   SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, targetLegAfterState,
   cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal, retiredReasoningFieldRefusal,
 } from "./assemble.mjs";
-import { cmdAttach, attachReview, REVIEW_AREAS, QUESTION_CHAIN_VERDICTS, DISCHARGE_VERDICTS } from "./review.mjs";
+import { cmdAttach, attachReview, REVIEW_AREAS, DISCHARGE_VERDICTS } from "./review.mjs";
 import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
-  validateLegs, validateSpecialization, specializationFailures, selectedStrands, journeyBearingStrands,
+  validateLegs, validateSpecialization, specializationFailures, specializationSchema, selectedStrands, journeyBearingStrands,
   resolveMoveIds, resolveFigureForms, loadMoveContracts, moveContractsForLegs,
-  readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, questionChainPairs, dischargeRows,
+  readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, dischargeRows,
+  deriveReaderStatesBefore, readerStartThesisRefusal,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -1141,6 +1142,14 @@ function writeJudgeInput(rec, st, body) {
 }
 
 const DIFFERENTIATION_DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
+
+// THE BRIEF'S ADOPTED THESIS, read off its `## Thesis` section as `composeBrief`
+// writes it (kogaki#1325): the one paragraph between the heading and the caption.
+// Null where the section is absent, so a caller checks nothing rather than a blank.
+export function briefThesis(doc) {
+  const m = /^## Thesis\n\n([\s\S]*?)\n\n/m.exec(doc);
+  return m && m[1].trim() !== "" ? m[1].trim() : null;
+}
 const DIFFERENTIATION_PLACEMENTS = ["opening", "turn", "close"];
 
 // PURE, so `checks/check-brief-differentiation.sh` can import and test every
@@ -1148,7 +1157,7 @@ const DIFFERENTIATION_PLACEMENTS = ["opening", "turn", "close"];
 // (attachReview, validateLegs, assembleSelection, candidateLedgerRefusal).
 // Returns `{ error }` naming the offending entry, or `{ entries }` on success
 // (kogaki#1206).
-export function validateDifferentiationRecord(record, { units, moves, journeyBearing }) {
+export function validateDifferentiationRecord(record, { units, moves, journeyBearing, thesis }) {
   if (!record || record.version !== "1") {
     return { error: `\`version\` must be "1" (src/differentiation-schema.json); received `
       + `${JSON.stringify(record && record.version)}` };
@@ -1166,6 +1175,11 @@ export function validateDifferentiationRecord(record, { units, moves, journeyBea
   }
   const shapeErr = readerStateShapeRefusal(record.reader_start, "reader_start", "reader_start");
   if (shapeErr) return { error: shapeErr };
+  // THE THESIS ENTERS `question` ONLY (kogaki#1325). `thesis` is optional for
+  // a caller with none to hand; the differentiation state always passes the
+  // Brief's own.
+  const thesisErr = readerStartThesisRefusal(record.reader_start, thesis);
+  if (thesisErr) return { error: thesisErr };
   const survivors = record.leg1_survivors;
   if (!Array.isArray(survivors) || survivors.length === 0) {
     return { error: "`leg1_survivors` is required and cannot be empty -- every Move whose `before` does not contradict "
@@ -1256,8 +1270,10 @@ function differentiationBlockFor(entry, readerStart, survivorCount) {
     // composes from the same one; the Harness sets it on the Candidate, so a
     // unit that writes its own is writing a value nothing reads.
     "THE BRIEF'S READER START (kogaki#1216) — a cold read authored from the Persona and the Thesis, never from",
-    "a Move; GIVEN to you, not yours to compose. Your first Leg's `reader_state_before` is judged against it in",
-    "place of its Move's `before` (`specializes` passes, `contradicts` refuses). Your LAST Leg's `reader_state_after`",
+    "a Move; GIVEN to you, not yours to compose. It IS your first Leg's before-state (kogaki#1325): no Leg writes a",
+    "`reader_state_before` -- each begins at the previous Leg's `reader_state_after`, the first at Reader start, and",
+    "a Leg carrying the field is refused by name. Your opening Move's `before` must require nothing Reader start",
+    "does not hold. Your LAST Leg's `reader_state_after`",
     "IS the Brief's Reader target (kogaki#1225) — no field authors it apart from the Leg. Your assigned opening",
     `Move is one of the ${survivorCount} Move(s) whose \`before\` does not contradict this Reader start:`,
     ...String(readerStart).split("\n").map((l) => `  ${l}`),
@@ -1511,6 +1527,7 @@ const STATE_WORK = {
     if (library.error) fail(`${st.id}: ${library.error}`);
     const units = briefJobSetting(table, "compose_path", "units");
     const journeyBearing = journeyBearingStrands(doc).length > 0;
+    const thesis = briefThesis(doc);
     // THE PERSONA, read from the file the `compose_path` row names (kogaki#1216)
     // -- the same row this state already reads `job.units` from. A reader file
     // this state cannot read is a store fault and refuses the STATE, before
@@ -1523,7 +1540,7 @@ const STATE_WORK = {
       let record;
       try { record = readJson(p); }
       catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
-      const r = validateDifferentiationRecord(record, { units, moves: library.moves, journeyBearing });
+      const r = validateDifferentiationRecord(record, { units, moves: library.moves, journeyBearing, thesis });
       if (r.error) refuseJudgment(r.error);
     };
     const composeInputFor = () => writeJudgeInput(rec, st, {
@@ -1811,7 +1828,7 @@ const STATE_WORK = {
   // `compose_path` was split at kogaki#1193: the one synchronous call over
   // every Candidate outgrew the hook advance's bound. Every item this state
   // judges is per Candidate, so each unit carries its own Candidate, that
-  // Candidate's own `question_chain_pairs` and `discharge_rows`, the Persona's
+  // Candidate's own `discharge_rows`, the Persona's
   // line and the review areas, and nothing of its siblings. `attachReview` is
   // still the validator, applied per unit at the unit's own classification
   // (`validateReviewPathUnit`), so a review that would be unattachable is
@@ -1875,23 +1892,23 @@ const STATE_WORK = {
     writeJudgeInput(rec, st, {
       state: st.id,
       review_areas: REVIEW_AREAS,
-      question_chain_verdicts: QUESTION_CHAIN_VERDICTS,
       discharge_verdicts: DISCHARGE_VERDICTS,
       persona_prior_knowledge: priorKnowledge,
       units: cands.map((c, i) => ({ unit: `review-${i + 1}`, candidate_id: c.candidate_id })),
     });
     // ONE PROMPT PER CANDIDATE, carrying that Candidate alone. THE MECHANICAL
-    // HALF IS EXTRACTED HERE (kogaki#1283): which lines, off which fields, for
-    // the judge to compare — never the comparison itself.
+    // HALF IS EXTRACTED HERE (kogaki#1283): which rows, which claims, for the
+    // judge to compare — never the comparison itself.
     const units = cands.map((c, i) => {
       const input = {
         state: st.id,
         review_areas: REVIEW_AREAS,
-        question_chain_verdicts: QUESTION_CHAIN_VERDICTS,
         discharge_verdicts: DISCHARGE_VERDICTS,
-        candidate_you_must_review: c,
+        // THE LEGS CARRY THEIR DERIVED BEFORE-STATES (kogaki#1325), the same
+        // states the Brief will render, so the review reads the path the
+        // reader walks rather than a Candidate missing half of each transition.
+        candidate_you_must_review: { ...c, legs: deriveReaderStatesBefore(c.legs, c.reader_start) },
         persona_prior_knowledge: priorKnowledge,
-        question_chain_pairs: questionChainPairs(c.legs),
         discharge_rows: dischargeRows(c.legs, c.obligations),
       };
       return { id: `review-${i + 1}`, prompt: judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null) };
@@ -1988,8 +2005,10 @@ const STATE_WORK = {
 // instantiation contract, kogaki#1276). Once a compose unit's record passes
 // `validateReaderPathUnit`, the supervisor runs one more headless session over that
 // Candidate alone, with each Leg beside its Move's `before`, `after`, `technique` and
-// `breaks` verbatim from `moves/<id>.md`, and the Brief's Reader start for the first
-// Leg. `inputs.promptHead` is the `reader_path_fit_unit` row rendered by `judgePrompt`
+// `breaks` verbatim from `moves/<id>.md`. Each Leg carries its DERIVED before-state
+// (kogaki#1325) -- the previous Leg's after-state, or Reader start for the first --
+// and `before_state` carries the one question asked of the Move's `before` against
+// it, read from src/specialization-schema.json. `inputs.promptHead` is the `reader_path_fit_unit` row rendered by `judgePrompt`
 // in `compose_path`, ending at the input marker; this appends the unit's own input.
 export function readerPathFitInput(candidate, movesDir, readerStart) {
   const b = moveContractsForLegs(candidate.legs, movesDir);
@@ -1998,13 +2017,12 @@ export function readerPathFitInput(candidate, movesDir, readerStart) {
     input: {
       candidate_you_must_judge: {
         candidate_id: candidate.candidate_id,
-        legs: candidate.legs,
+        legs: deriveReaderStatesBefore(candidate.legs, readerStart),
         move_contracts: b.contracts,
         reader_start: readerStart,
-        first_leg: {
-          leg_id: candidate.legs[0] && candidate.legs[0].leg_id,
-          before_compared_against: "reader_start",
-          after_compared_against: "its Move's `after`, as `move_contracts` carries it",
+        before_state: {
+          derived_from: specializationSchema().before_state.derived_from,
+          question: specializationSchema().before_state.question,
         },
       },
     },

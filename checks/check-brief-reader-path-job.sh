@@ -545,7 +545,6 @@ function pollUntil(dir, pred, timeoutMs) {
   const legOf = (legId, extra) => ({
     leg_id: legId, move: "m1", materials: ["L1"],
     purpose: `what ${legId} is for`,
-    reader_state_before: "knowledge: before\nquestion: holds: none",
     reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }],
@@ -1392,7 +1391,7 @@ chmodSync(resumeJudge, 0o755);
   const START = "knowledge: before\nquestion: holds: none";
   const leg = (legId, extra) => ({
     leg_id: legId, move: "m_open", materials: ["L1"], purpose: `what ${legId} is for`,
-    reader_state_before: START, reader_state_after: "knowledge: after\nquestion: holds: none",
+    reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }],
     ...extra,
@@ -1648,7 +1647,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const START = "knowledge: before\nquestion: holds: none";
   const legOf = (legId, extra) => ({
     leg_id: legId, move: "m1", materials: ["L1"], purpose: `what ${legId} is for`,
-    reader_state_before: START, reader_state_after: "knowledge: after\nquestion: holds: none",
+    reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }], ...extra,
   });

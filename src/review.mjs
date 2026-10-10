@@ -67,17 +67,22 @@ export const REVIEW_AREAS = [
 const VERDICT_KEYS = new Set(["verdict", "pass", "fail", "passed", "failed",
   "score", "grade", "ok", "approved", "rating", "result", "status"]);
 
-// THE QUESTION CHAIN AND DISCHARGE (kogaki#1283). Two review items added to
-// `review_path` alongside the six prose REVIEW_AREAS, each carrying an
-// EXPLICIT verdict rather than prose: unlike the five review areas, the
-// judgment here is not whether the Candidate's writing is good but whether
-// two stated lines name the same question, or whether a Closure row's claims
-// answer it -- a closed-set answer the human gate reads as a verdict on
-// purpose, the same shape the Move-fit judge's `consistent`/`contradicts`
-// already is inside the compose job.
-export const QUESTION_CHAIN_VERDICTS = ["same question", "different question"];
+// THE DISCHARGE (kogaki#1283). A review item added to `review_path`
+// alongside the six prose REVIEW_AREAS, carrying an EXPLICIT verdict rather
+// than prose: unlike the review areas, the judgment here is not whether the
+// Candidate's writing is good but whether a Closure row's claims answer it --
+// a closed-set answer the human gate reads as a verdict on purpose, the same
+// shape the Move-fit judge's `consistent`/`contradicts` already is inside the
+// compose job.
+//
+// THE QUESTION CHAIN IS RETIRED (kogaki#1325). It was the second such item:
+// whether Leg N's after-state question line and Leg N+1's before-state
+// question line named the same question. A Leg's before-state is now the
+// previous Leg's after-state by construction, so the two lines are one line;
+// a record carrying `question_chain` is refused by name below rather than
+// read as a seventh prose area.
 export const DISCHARGE_VERDICTS = ["fails", "holds"];
-const STRUCTURED_REVIEW_KEYS = new Set(["question_chain", "discharge"]);
+const STRUCTURED_REVIEW_KEYS = new Set(["discharge"]);
 
 // ---------------------------------------------------------------------------
 // THE CLAIM REGISTER (kogaki#1281, owner decision 2026-10-06). A claim is
@@ -156,6 +161,11 @@ export function attachReview(candidates, review) {
         + `machine-side PER CANDIDATE (kogaki#490), and an unreviewed Candidate `
         + `cannot ride into the selection gate as if reviewed` };
     }
+    if (r && typeof r === "object" && "question_chain" in r) {
+      return { error: `candidate ${c.candidate_id}: \`question_chain\` is a retired review item (kogaki#1325) — `
+        + "a Leg's before-state is the previous Leg's after-state, so the two question lines it compared are one "
+        + "line. Remove the field; the Move's `after` question is judged at Move fit." };
+    }
     for (const [k, v] of Object.entries(r)) {
       if (STRUCTURED_REVIEW_KEYS.has(k)) continue;
       if (VERDICT_KEYS.has(k)) {
@@ -187,42 +197,12 @@ export function attachReview(candidates, review) {
       const crErr = claimRegisterRefusal(r.claim_register, c.legs);
       if (crErr) return { error: `candidate ${c.candidate_id}: ${crErr}` };
     }
-    // THE QUESTION CHAIN (kogaki#1283) — one entry per adjacent Leg pair in
-    // path order, named by the two Legs it sits between, in that order.
-    // VALIDATED WHEN PRESENT, the same as `bridges`/`introduces` on a Leg
-    // (src/compose.mjs): a caller whose Candidates carry no real Leg records
-    // at all (the plumbing fixtures in checks/check-brief-review.sh, whose
-    // `legs` are bare strings) has nothing this item could name, and is not
-    // this bullet's concern to retrofit.
-    if ("question_chain" in r) {
-      const qcLegs = Array.isArray(c.legs) ? c.legs : [];
-      const expectedPairs = Math.max(qcLegs.length - 1, 0);
-      if (!Array.isArray(r.question_chain) || r.question_chain.length !== expectedPairs) {
-        return { error: `candidate ${c.candidate_id}: \`question_chain\` is not an array of exactly `
-          + `${expectedPairs} entr${expectedPairs === 1 ? "y" : "ies"} — one per adjacent Leg pair in path order` };
-      }
-      for (let i = 0; i < expectedPairs; i++) {
-        const entry = r.question_chain[i];
-        const leg = qcLegs[i], next = qcLegs[i + 1];
-        if (!entry || typeof entry !== "object" || Array.isArray(entry)
-            || entry.leg !== leg.leg_id || entry.next_leg !== next.leg_id) {
-          return { error: `candidate ${c.candidate_id}: question_chain entry ${i + 1} does not name leg `
-            + `${JSON.stringify(leg.leg_id)} and next_leg ${JSON.stringify(next.leg_id)}, in that path order` };
-        }
-        if (!QUESTION_CHAIN_VERDICTS.includes(entry.verdict)) {
-          return { error: `candidate ${c.candidate_id}: question_chain entry ${i + 1} (leg `
-            + `${JSON.stringify(leg.leg_id)}): verdict ${JSON.stringify(entry.verdict)} is not one of `
-            + `${QUESTION_CHAIN_VERDICTS.map((v) => JSON.stringify(v)).join(", ")}` };
-        }
-        if (typeof entry.why !== "string" || entry.why === "") {
-          return { error: `candidate ${c.candidate_id}: question_chain entry ${i + 1} (leg `
-            + `${JSON.stringify(leg.leg_id)}) carries no \`why\`` };
-        }
-      }
-    }
     // THE DISCHARGE (kogaki#1283) — one entry per Closure row carrying
     // `discharged_by`, named by the row's own text and its discharging Leg.
-    // VALIDATED WHEN PRESENT, for the same reason `question_chain` is.
+    // VALIDATED WHEN PRESENT, the same as `bridges`/`introduces` on a Leg
+    // (src/compose.mjs): a caller whose Candidates carry no real Closure rows
+    // (the plumbing fixtures in checks/check-brief-review.sh) has nothing this
+    // item could name, and is not this bullet's concern to retrofit.
     if ("discharge" in r) {
       const dischargedRows = (Array.isArray(c.obligations) ? c.obligations : [])
         .filter((o) => o && o.discharged_by !== undefined);

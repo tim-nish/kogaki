@@ -61,7 +61,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { validateDifferentiationRecord, composeBrief, briefPersonaFile } from "./src/brief.mjs";
 import { assembleSelection, readerFieldValues, survivorSentence, candidateEvidence, READER_FIELDS, SLOT_CAPTIONS } from "./src/assemble.mjs";
-import { readerPersona, validateLegs } from "./src/compose.mjs";
+import { readerPersona, validateLegs, deriveReaderStatesBefore } from "./src/compose.mjs";
 
 const fails = [];
 
@@ -239,8 +239,16 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   // on that ground: the only Reader start refusal left is its own shape.
   const shapeOnly = validateLegs([{ leg_id: "s1" }], "knowledge sentence with no dimension");
   if (!shapeOnly.error || !/dimension: value/.test(shapeOnly.error)) fails.push(`(v) a malformed Reader start was not refused by the shape predicate: ${JSON.stringify(shapeOnly)}`);
-  const differs = validateLegs([{ leg_id: "s1", reader_state_before: "knowledge: something else" }], "knowledge: x");
-  if (differs.error && /reader_start_binds_first_leg|Reader start reads/.test(differs.error)) fails.push(`(v) a first Leg whose before-state differs from Reader start was refused on the retired verbatim ground: ${differs.error}`);
+  // SINCE kogaki#1325 a first Leg has no before-state of its own to differ:
+  // it writes none, and the derivation makes it Reader start verbatim. The
+  // retired verbatim refusal's EFFECT returns by construction, without the
+  // backwards authoring, so this case asserts the construction rather than
+  // probing a ground no input can now reach.
+  const derived = deriveReaderStatesBefore([{ leg_id: "s1", reader_state_after: "knowledge: y" },
+    { leg_id: "s2", reader_state_after: "knowledge: z" }], "knowledge: x");
+  if (derived[0].reader_state_before !== "knowledge: x" || derived[1].reader_state_before !== "knowledge: y") {
+    fails.push(`(v) the first Leg's before-state is not Reader start, or a later Leg's not the previous after-state: ${JSON.stringify(derived)}`);
+  }
 }
 
 // (w) THE PERSONA IS READ FROM THE FILE THE WORKFLOW NAMES. `reader` is

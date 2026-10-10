@@ -25,13 +25,19 @@
 #   3. several dimensions, each its own newline-separated line — must NOT be
 #      refused (the shape the schemas ask for, exercised with more than one
 #      dimension present).
+#   4. a Reader start whose `knowledge:` line contains the Thesis — must be
+#      refused by `readerStartThesisRefusal` and by the differentiation record's
+#      validator, naming `knowledge` (kogaki#1325): what the reader saw at the
+#      title enters `question` only. The same Thesis on the `question:` line is
+#      not refused.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-echo "== readerStateShapeRefusal unit check (kogaki#1211)"
+echo "== readerStateShapeRefusal unit check (kogaki#1211), and the Thesis in Reader start's knowledge line (kogaki#1325)"
 
 OUT=$(node --input-type=module - <<'JS' 2>&1
-import { readerStateShapeRefusal } from "./src/compose.mjs";
+import { readerStateShapeRefusal, readerStartThesisRefusal } from "./src/compose.mjs";
+import { validateDifferentiationRecord } from "./src/brief.mjs";
 
 const cases = [];
 
@@ -60,6 +66,24 @@ const cases = [];
     + "trust: holds no reason yet to doubt the source.";
   const got = readerStateShapeRefusal(value, "reader_start", "reader_start");
   cases.push(["multiple dimensions, one newline-separated line each", got === null, got]);
+}
+
+// Case 4: the Thesis read as a title enters `question` only (kogaki#1325).
+{
+  const thesis = "A check is only as good as what it is given.";
+  const inKnowledge = "knowledge: holds the sentence a check is only as good as what it is given as a slogan\n"
+    + "question: holds: none";
+  const inQuestion = "knowledge: holds that the project runs checks\n"
+    + "question: is a check only as good as what it is given?";
+  const got = readerStartThesisRefusal(inKnowledge, thesis);
+  cases.push(["a Reader start whose knowledge line contains the Thesis is refused",
+    typeof got === "string" && got.includes("knowledge") && got.includes("kogaki#1325"), got]);
+  const record = { version: "1", reader_start: inKnowledge, leg1_survivors: ["m1"], entries: [] };
+  const viaRecord = validateDifferentiationRecord(record, { units: 0, moves: [{ id: "m1" }], journeyBearing: false, thesis });
+  cases.push(["the differentiation record refuses the same Reader start",
+    !!(viaRecord && viaRecord.error && viaRecord.error.includes("knowledge line contains the Thesis")), viaRecord]);
+  const ok = readerStartThesisRefusal(inQuestion, thesis);
+  cases.push(["the Thesis on the question line is not refused", ok === null, ok]);
 }
 
 let failed = 0;
@@ -94,5 +118,6 @@ for f in src/candidate-schema.json src/leg-schema.json; do
   fi
 done
 
+echo "ok: a Reader start whose knowledge line contains the Thesis is refused, and the Thesis on its question line is not (kogaki#1325)"
 echo "ok: readerStateShapeRefusal splits on newlines, not on \"; \"; src/candidate-schema.json and src/leg-schema.json describe the line-per-dimension shape the check enforces rather than the Move library's own folded shape"
 exit 0
