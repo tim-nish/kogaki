@@ -1313,13 +1313,18 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
 const fitMoves = mkdtempSync(join(tmpdir(), "kogaki-1276-moves-"));
 const FIT_MOVE = {
   m_open: { technique: "states the claim, then names the one case it does not cover.", breaks: "breaks if the uncovered case is never named." },
-  m_turn: { technique: "sets a second party answering the first in kind, twice, and ends at a balance.", breaks: "breaks if only one party acts." },
+  // m_turn CARRIES `segments` (kogaki#1320); m_open carries none, so the two
+  // fixtures together exercise the fit judge's fallback to `technique`.
+  m_turn: { technique: "sets a second party answering the first in kind, twice, and ends at a balance.", breaks: "breaks if only one party acts.",
+    segments: "1. raises — opens — the first party states its claim.\n2. settles — answers the opening — the second party answers in kind." },
 };
 for (const [id, f] of Object.entries(FIT_MOVE)) {
-  writeFileSync(join(fitMoves, `${id}.md`), [
+  const lines = [
     `id: ${id}`, "technique: >-", `  ${f.technique}`, "before: >-", `  knowledge: before ${id}.`,
-    "after: >-", `  knowledge: after ${id}.`, "question: >-", "  holds: none", "breaks: >-", `  ${f.breaks}`, "",
-  ].join("\n"));
+    "after: >-", `  knowledge: after ${id}.`, "question: >-", "  holds: none", "breaks: >-", `  ${f.breaks}`,
+  ];
+  if (f.segments) lines.push("segments: |-", ...f.segments.split("\n").map((l) => `  ${l}`));
+  writeFileSync(join(fitMoves, `${id}.md`), lines.join("\n") + "\n");
 }
 const START_1276 = "knowledge: before\nquestion: holds: none";
 const leg1276 = (legId, extra) => ({
@@ -1378,6 +1383,35 @@ const cand1276 = (id, leg2Extra = {}) => ({
     const schemaText = fitHead.slice(fitHead.indexOf("THE SCHEMA THE ELEMENTS"));
     if (/"set"\s*:/.test(schemaText) || /"required":\s*\[\s*"records"/.test(schemaText) || !/"verdicts"/.test(schemaText)) {
       fails.push("(ag) the per-unit fit prompt renders the set envelope, or no `verdicts` record, as the shape to answer");
+    }
+  }
+}
+
+// (at) kogaki#1320 — the compose_path prompt and the per-unit fit judge's
+// input carry each bound Move's `segments` verbatim; a Move that carries
+// none (m_open) rides `segments: null` rather than refusing.
+{
+  const library = compose.loadMoveContracts(fitMoves);
+  if (library.error) fails.push(`(at) loadMoveContracts refused the fixture library: ${library.error}`);
+  else {
+    const mTurn = library.moves.find((m) => m.id === "m_turn");
+    const mOpen = library.moves.find((m) => m.id === "m_open");
+    if (!mTurn || mTurn.segments !== FIT_MOVE.m_turn.segments) fails.push(`(at) loadMoveContracts does not carry m_turn's segments verbatim: ${JSON.stringify(mTurn)}`);
+    if (!mOpen || mOpen.segments !== null) fails.push(`(at) loadMoveContracts carries a segments value for a Move with none: ${JSON.stringify(mOpen)}`);
+    const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+    const input = { state: "compose_path", moves_you_may_bind: library.moves, unit_number: 1 };
+    const prompt = judgePrompt(table.reader_path_unit, JSON.stringify(input, null, 2), input, null);
+    // THE PROMPT TEXT IS A JSON-STRINGIFIED INPUT, so a segments value with
+    // newlines appears there with escaped `\n`, not a literal newline.
+    if (!prompt.includes(JSON.stringify(FIT_MOVE.m_turn.segments).slice(1, -1))) fails.push("(at) the compose_path unit prompt does not carry m_turn's segments verbatim");
+  }
+  const j = readerPathFitInput(cand1276("c1"), fitMoves, START_1276);
+  if (j.error) fails.push(`(at) readerPathFitInput refused: ${j.error}`);
+  else {
+    for (const c of j.input.candidate_you_must_judge.move_contracts) {
+      const f = FIT_MOVE[c.move];
+      const want = f.segments || null;
+      if (c.segments !== want) fails.push(`(at) the per-unit fit input does not carry leg ${c.leg_id}'s Move segments (want ${JSON.stringify(want)}, got ${JSON.stringify(c.segments)})`);
     }
   }
 }
