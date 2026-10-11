@@ -698,6 +698,7 @@
     {
       "id": "draft-packet",
       "file": "checks/check-draft-packet.sh",
+      "covers": ["src/draft.mjs", "src/review-draft.mjs", "src/assemble.mjs", "src/packet-template.md", "readers/dev-to-zenn.md"],
       "admission": {
         "contract": "The Leg Packet renders the Leg's waypoints and no Move, and the Draft stages open no Move file (owner decision 2026-10-09: Move information is responsible only up to the Candidate). `draft.mjs packet` renders a waypoints block carrying every waypoint's point once, as a numbered list, and the claim it serves in the claim's own words, with neither \"effect\" nor \"does to the reader\" in the Packet (kogaki#1326) and no technique, question or breaks; `draft.mjs resolve` refuses a Leg with no waypoint naming the Leg and the field, and refuses `--moves-dir` by name; resolve, packet, section, emit and `review-draft.mjs open` open no path under moves/ under a filesystem trap with a control arm; and src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader src/compose.mjs exports",
         "license": "kogaki#1311",
@@ -712,6 +713,7 @@
     {
       "id": "adopt-candidate",
       "file": "checks/check-adopt-candidate.sh",
+      "covers": ["src/assemble.mjs"],
       "admission": {
         "contract": "`node src/assemble.mjs adopt-candidate` runs end to end over a fixture run directory with a captured Candidate-gate answer (kogaki#1317). Over a fixture Brief, a fixture reviewed-Candidates JSON and a fixture specialization record, with the Candidate-selection capture's `option_set_digest` computed from the same `selectionOptionIds`/`ownerGateDigest` functions `adoptCandidate` itself calls: the command exits 0 and writes every slot of the Brief; the closing summary names no Move-library count and does report the Leg specialization verdict(s) read from the record; and a run with no `--specialization` still refuses by name rather than silently filling a default.",
         "license": "kogaki#1317",
