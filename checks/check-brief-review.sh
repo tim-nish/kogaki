@@ -784,12 +784,32 @@ try {
   }
 }
 
+// (o) the claim register's judgment narrows (kogaki#1331, owner decision 2026-10-10): the
+// review_path_unit input carries no `persona_prior_knowledge` grant and carries the Brief's
+// `defined_terms` instead, and the row asks only whether a claim uses a defined word its Leg
+// has not been handed by an `introduces` entry -- never whether a word is everyday English.
+{
+  const briefSrc = readFileSync("src/brief.mjs", "utf8");
+  const reviewPath = briefSrc.slice(briefSrc.indexOf("  review_path: async"), briefSrc.indexOf("  attach_review"))
+    .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  const unitInput = reviewPath.slice(reviewPath.indexOf("const units = cands.map("));
+  if (/persona_prior_knowledge|prior_knowledge/.test(unitInput)) fails.push("(o) the review_path_unit input still carries the Persona's prior_knowledge");
+  if (!/defined_terms: definedTerms,/.test(unitInput)) fails.push("(o) the review_path_unit input does not carry the Brief's defined_terms");
+  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const jp = table.review_path_unit.judgment_point;
+  if (/everyday English/.test(jp)) fails.push("(o) the review_path_unit row still asks whether a claim's word is everyday English");
+  if (/persona_prior_knowledge/.test(jp)) fails.push("(o) the review_path_unit row still names persona_prior_knowledge as the claim register's declared side");
+  if (!/defined_terms/.test(jp)) fails.push("(o) the review_path_unit row does not name defined_terms as the claim register's declared side");
+  const reviewSrc = readFileSync("src/review.mjs", "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  if (/everyday|Persona/.test(reviewSrc)) fails.push("(o) src/review.mjs's claim register still names everyday words or the Persona");
+}
+
 if (fails.length) {
   console.log("FAIL brief review plumbing (SPEC-draft-pipeline §4.6, story 1.74):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches and rides each "
+console.log("brief review: 12/12 cases — (a) per-Candidate reasoning attaches and rides each "
   + "Candidate with every §§4.4-4.8 area present; (b) an unreviewed Candidate is refused BY "
   + "NAME and a missing area refuses — review runs machine-side per Candidate and never "
   + "multiplies owner questions; (c) a verdict is UNATTACHABLE — verdict-shaped keys refused "
@@ -829,6 +849,9 @@ console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches 
   + "QUESTION_CHAIN_VERDICTS are no longer exported, the review_path_unit input carries no "
   + "question-chain field and carries the Candidate with its Legs' derived before-states, and "
   + "a record carrying `question_chain` is refused by name. "
+  + "(o) the claim register narrows (kogaki#1331): the review_path_unit input carries no "
+  + "persona_prior_knowledge grant and carries the Brief's defined_terms, and neither the row "
+  + "nor src/review.mjs asks whether a word is everyday English. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): dropping the per-candidate "
   + "completeness guard failed (b)'s by-name refusal; dropping the verdict-key scan failed "
   + "(c)'s unattachability. NOT "

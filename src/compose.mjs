@@ -1311,14 +1311,13 @@ export function readerPersona(path) {
   return out;
 }
 
-// THE STATED ABSENCE (kogaki#1281, owner decision 2026-10-06): "An absent or
-// empty `prior_knowledge` grants no extra word and refuses nothing." A claim
-// line and the compose_path unit's input both need to carry the Persona's
-// `prior_knowledge` line OR this sentence -- never `undefined`, and never a
-// refusal -- so this is the one rendering both readers share.
+// THE STATED ABSENCE (kogaki#1281): an absent or empty `prior_knowledge`
+// refuses nothing. Its one reader is Reader start's authoring at the
+// `differentiation` state, which carries the Persona's `prior_knowledge` line
+// OR this sentence -- never `undefined`, and never a refusal. It grants a
+// claim no word (kogaki#1331, owner decision 2026-10-10).
 export const PERSONA_PRIOR_KNOWLEDGE_ABSENT =
-  "(the Persona declares no prior_knowledge — it grants no word beyond everyday ones, and a claim's words are "
-  + "bounded by everyday English plus whatever an `introduces` entry carries)";
+  "(the Persona declares no prior_knowledge)";
 export function personaPriorKnowledgeLine(persona) {
   const v = persona && persona.prior_knowledge;
   return (typeof v === "string" && v.trim() !== "") ? v : PERSONA_PRIOR_KNOWLEDGE_ABSENT;

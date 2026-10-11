@@ -1559,17 +1559,12 @@ const STATE_WORK = {
     if (library.error) {
       fail(`${st.id}: ${library.error}`);
     }
-    // THE PERSONA'S `prior_knowledge` LINE, OR ITS STATED ABSENCE (kogaki#1281,
-    // owner decision 2026-10-06): a claim is stated in everyday words plus
-    // whatever `prior_knowledge` grants, so every unit needs the same line
-    // beside the Leg contract its `schema_file` row already renders. `st` IS
-    // the compose_path row, so `st.reader_file` is the same Persona
-    // `differentiation` read a moment earlier -- read again here rather than
-    // passed through, because the two states run independently and neither
-    // reaches into the other's locals.
-    const persona = readerPersona(resolve(BRIEF_REPO, briefPersonaFile(table)));
-    if (persona.error) fail(`${st.id}: ${persona.error}`);
-    const priorKnowledge = personaPriorKnowledgeLine(persona);
+    // THE PERSONA'S `prior_knowledge` IS NOT READ HERE (kogaki#1331, owner
+    // decision 2026-10-10: "Let us remove Persona's permission to use
+    // specialized terminology"). It granted a claim the words it named, and
+    // that grant is what let a word's article-specific sense through; which
+    // words need introducing is now the Brief's `defined_terms`, refused by
+    // `validateLegs`. `prior_knowledge` keeps its one reader at Reader start.
     let composed = null;
     // CROSS-CANDIDATE RULES ONLY (kogaki#1240). Every per-unit rule -- the Leg
     // shape (`validateLegs`), the Move ids, the closed Strand set, the
@@ -1714,7 +1709,6 @@ const STATE_WORK = {
       strands_you_may_use: strandIds,
       moves_you_may_bind: library.moves,
       units: unitCount,
-      persona_prior_knowledge: priorKnowledge,
     });
     // THE UNIT'S OWN ROW (kogaki#1203), read fresh per unit build rather than
     // reusing `st`: `st`'s own `input_shape`/`refusal` state the ASSEMBLED
@@ -1744,9 +1738,6 @@ const STATE_WORK = {
         // GIVEN, not composed (kogaki#1216): the Brief's one Reader start, the
         // same value the assignment block above the marker renders.
         reader_start: differentiation.reader_start,
-        // THE PERSONA'S LINE OR ITS STATED ABSENCE (kogaki#1281): a claim is
-        // stated in everyday words plus whatever this grants.
-        persona_prior_knowledge: priorKnowledge,
       };
       const entry = (differentiation.entries || []).find((e) => e.unit_number === n)
         || fail(`${st.id}: the differentiation record carries no entry for unit ${n} — its own count `
@@ -1852,14 +1843,12 @@ const STATE_WORK = {
         + "to poll it (kogaki#1301).");
     }
 
-    // THE PERSONA, read from the same row `differentiation` and `compose_path`
-    // already name theirs from (kogaki#1281): the claim register's declared
-    // side is the Persona's `prior_knowledge` line (or its stated absence)
-    // beside the `introduces` ledger up to each Leg, so the judge asked to run
-    // it needs the same line those states compose from.
-    const persona = readerPersona(resolve(BRIEF_REPO, briefPersonaFile(table)));
-    if (persona.error) fail(`${st.id}: ${persona.error}`);
-    const priorKnowledge = personaPriorKnowledgeLine(persona);
+    // THE BRIEF'S DEFINED TERMS, the claim register's one declared side
+    // (kogaki#1331, narrowing kogaki#1281): whether a claim uses a term the
+    // Brief classifies `defined` that no `introduces` entry up to its Leg has
+    // handed it. The Persona's `prior_knowledge` is not in this input — it
+    // granted words, and the grant is removed (owner decision 2026-10-10).
+    const definedTerms = definedTermsOf(readMintedBrief(rec, st).record);
     const unitRow = table.review_path_unit
       || fail(`${st.id}: src/brief-workflow.json declares no review_path_unit row for the Detached `
         + "Job's per-Candidate prompt — nothing was started (kogaki#1301).");
@@ -1869,7 +1858,7 @@ const STATE_WORK = {
       state: st.id,
       review_areas: REVIEW_AREAS,
       discharge_verdicts: DISCHARGE_VERDICTS,
-      persona_prior_knowledge: priorKnowledge,
+      defined_terms: definedTerms,
       units: cands.map((c, i) => ({ unit: `review-${i + 1}`, candidate_id: c.candidate_id })),
     });
     // ONE PROMPT PER CANDIDATE, carrying that Candidate alone. THE MECHANICAL
@@ -1884,7 +1873,7 @@ const STATE_WORK = {
         // states the Brief will render, so the review reads the path the
         // reader walks rather than a Candidate missing half of each transition.
         candidate_you_must_review: { ...c, legs: deriveReaderStatesBefore(c.legs, c.reader_start) },
-        persona_prior_knowledge: priorKnowledge,
+        defined_terms: definedTerms,
         discharge_rows: dischargeRows(c.legs, c.obligations),
       };
       return { id: `review-${i + 1}`, prompt: judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null) };
