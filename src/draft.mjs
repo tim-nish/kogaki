@@ -111,12 +111,6 @@ import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // included, so a fixture seam and a shim refusal read the same here.
 import { resolveJudgeBinary, settingValue } from "./workflow/judge.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
-// THE THESIS IS READ BY THE SAME PARSER THAT READS IT AT COMPOSITION
-// (kogaki#1327): `briefThesis` is the Brief's own reader for its `## Thesis`
-// section, exported for the gate declaration brief.mjs itself emits a Thesis
-// candidate from. A second reader here would be the two-copy divergence the
-// Leg block parser already refuses to be (kogaki#1014).
-import { briefThesis } from "./brief.mjs";
 // the Terminology List Decision's ONE carrier: parseTermsYaml and
 // renderLanguageBlock live in lint-ja.mjs, which also runs the Lint that
 // reads terms/prh.yml the same way — one parser, imported rather than a
@@ -397,6 +391,13 @@ export function parseLegBlock(text, path = "<reverse-outline>") {
   return parseLegBlockBody(m[1], path);
 }
 
+// The Brief's `## Thesis` section: the paragraph under that heading, trimmed,
+// or null where the heading is absent or its paragraph is empty (kogaki#1327).
+export function briefThesisOf(text) {
+  const m = /^## Thesis\n\n([\s\S]*?)\n\n/m.exec(text);
+  return m && m[1].trim() !== "" ? m[1].trim() : null;
+}
+
 export function parseBrief(text, path = "<brief>") {
   const lines = text.split("\n");
   const refusals = [];
@@ -417,14 +418,16 @@ export function parseBrief(text, path = "<brief>") {
   const slug = slugM ? slugM[1] : basename(dirname(resolve(path)));
 
   // THE THESIS IS THE ARTICLE'S TITLE, VERBATIM (kogaki#1327, owner decision
-  // 2026-10-10). Read by `briefThesis`, the same reader the Brief side
-  // exports for it — not re-expressed here — so a Draft and a Brief cannot
-  // disagree about what the Thesis says. No field is composed for the title:
-  // `emit` renders exactly what this returns.
-  const thesis = briefThesis(text);
+  // 2026-10-10). Read here by `briefThesisOf`, this command's own reader of
+  // the Brief's `## Thesis` section: a command module imports no other
+  // command's (kogaki#1302), so the Brief side's reader is not imported, and
+  // the two agree through the Brief's section grammar rather than a shared
+  // function. No field is composed for the title: `emit` renders exactly
+  // what this returns.
+  const thesis = briefThesisOf(text);
   if (thesis === null) {
     refusals.push(`the Brief at ${path} carries no "## Thesis" section with a non-empty paragraph — `
-      + "the Draft's title is the Thesis, rendered verbatim, and there is no field composed for it (SPEC-draft-pipeline §4.15)");
+      + "the Draft's title is the Thesis, rendered verbatim, and there is no field composed for it");
   }
 
   // THE SURVEY PIN IS NO LONGER REQUIRED, AND ITS ABSENCE IS TYPED RATHER THAN
