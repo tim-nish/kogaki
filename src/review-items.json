@@ -199,7 +199,17 @@
     "ordinal/positional phrase (\"the first\", \"the last one\") and a one-paragraph",
     "lookback for an enumeration's form -- a heuristic, never a reading of which",
     "candidate is meant, and a best-effort row is what lets a false flag ride",
-    "along without sending a Leg to correction on a guess."
+    "along without sending a Leg to correction on a guess.",
+    "",
+    "`defined-term-order` READS THE BRIEF'S DEFINED TERMS (kogaki#1331, owner decision",
+    "2026-10-10: \"The review of the Draft may read it\"). It declares no Packet block,",
+    "because the list lives in the Brief and ends there -- nothing of it reaches the",
+    "Packet. A term the Brief classifies `defined` occurring in the prose of a Leg before",
+    "the Leg whose `introduces` carries it fails, naming the term and the line: a string",
+    "match over the Draft's Leg trace, no judgment, and within the introducing Leg the",
+    "first occurrence is the introduction by definition. `class: preserved`, because a",
+    "defined word the reader meets before it is introduced is the defect the list exists",
+    "to catch, and the finding names the word the correction must move or introduce."
   ],
   "version": "1",
   "verdicts": [
@@ -488,6 +498,11 @@
     {
       "id": "demonstrative-reference",
       "class": "best-effort",
+      "mode": "mechanical"
+    },
+    {
+      "id": "defined-term-order",
+      "class": "preserved",
       "mode": "mechanical"
     }
   ]

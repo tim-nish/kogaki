@@ -6,8 +6,10 @@
 // THE INPUTS ARE CLOSED, AND THAT IS THE WHOLE OF THE DESIGN. This command
 // reads three things: `theses/<slug>/draft.md`; its frontmatter trace, which
 // after kogaki#868 carries each Leg's line range and its Packet's path and
-// sha; and the Packet files those entries name. It reads no Brief, no Move
-// file, no Strand. The owner's 2026-09-04 ruling is why:
+// sha; and the Packet files those entries name. It reads no Move file and no
+// Strand, and of the Brief only its Defined Terms (kogaki#1331, owner decision
+// 2026-10-10: "The review of the Draft may read it"). The owner's 2026-09-04
+// ruling is why the inputs are otherwise closed:
 //
 //   "The Packet was specifically designed to be the only source required to
 //    generate the Draft without reading the Leg or Move files separately.
@@ -20,8 +22,11 @@
 // So a check that needs anything else is a PACKET GAP and is filed against
 // `src/packet-template.md`. It is never satisfied by a side read, and the
 // absence of any such read here is the mechanical half of that ruling: there
-// is no code path in this file that opens a Brief, a Move or a Strand, which
-// is a stronger statement than a rule saying not to.
+// is no code path in this file that opens a Move or a Strand, which is a
+// stronger statement than a rule saying not to. The one path that opens the
+// Brief reads its `defined_terms` and the Leg each is introduced on, for the
+// `defined-term-order` item, which is a Brief-sense check rather than a
+// reconstruction and so has no Packet side to read instead.
 //
 // THE HARNESS OWNS THE ORDERING (the same ruling `.claude/skills/draft/SKILL.md`
 // records for /draft): `outline` refuses a Leg whose Reverse Outline input it did not
@@ -104,12 +109,20 @@ import { createHash } from "node:crypto";
 // WORDED ("only node builtins and ./runs.mjs") rather than widened past its
 // own property. It is here for exactly one act: `correct` re-enters the
 // realization lane as a subprocess, because a corrected Leg must be realized
-// by the same renderer that wrote the Packets. Nothing here reads a Brief, a
-// Move or a Strand — the reviewer's blindness is a property of what this
-// module READS, and it reads none of them.
+// by the same renderer that wrote the Packets. Nothing here reads a Move or a
+// Strand, and of the Brief it reads its defined terms alone (below) — the
+// reviewer's blindness is a property of what this module READS.
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { enterRun } from "./runs.mjs";
+// THE ONE READ OF THE BRIEF, AND THE OWNER'S RULING THAT ADMITS IT (kogaki#1331,
+// owner decision 2026-10-10): "The review of the Draft may read it." It reads
+// the Brief's `defined_terms` and which Leg's `introduces` carries each term,
+// for the one mechanical item that asks whether a defined term reaches the
+// prose before its introducing Leg — and nothing else of the Brief. The list
+// lives in the Brief and ends there; copying it into a Packet so this module
+// could stay blind would be the copy downstream that ruling refuses.
+import { parseYaml } from "./yaml.mjs";
 
 // THE REVERSE OUTLINE'S OWN READER (kogaki#1328). The outline is a fenced
 // `leg` block a blind reader writes in the Brief Leg's field names, and until
@@ -1898,6 +1911,51 @@ function firstSentenceOf(text) {
   return m ? m[0] : text;
 }
 
+// THE BRIEF'S DEFINED TERMS IN LEG ORDER (kogaki#1331): each `defined` term
+// beside the position, in the Brief's Reader Path, of the first Leg whose
+// `introduces` carries it (the path's length where none does), and each Leg's
+// own position. Read once per Draft. An `introduces` entry is a map carrying
+// `term`, or the string form `term — anchor`. Null where the Draft names no
+// Brief; a Brief named and unreadable refuses, since a pass over it would be
+// a pass over nothing.
+const DEFINED_TERM_ORDER = new Map();
+function definedTermOrder(draft) {
+  if (!draft.brief) return null;
+  if (DEFINED_TERM_ORDER.has(draft.path)) return DEFINED_TERM_ORDER.get(draft.path);
+  const p = resolve(dirname(draft.path), draft.brief);
+  let record;
+  try { record = parseYaml(readFileSync(p, "utf8"), p); }
+  catch (e) {
+    fail(`the Brief this Draft names (${p}) cannot be read for its defined terms (${e.message}) — `
+      + "the defined-term-order item reads the Brief's `defined_terms` and nothing else of it (kogaki#1331)");
+  }
+  const path = Array.isArray(record?.reader_path) ? record.reader_path : [];
+  const termOf = (raw) => (raw && typeof raw === "object" ? String(raw.term ?? "") : String(raw ?? "").split("—")[0]).trim().toLowerCase();
+  const position = new Map(path.map((s, i) => [s && s.leg_id, i]));
+  const terms = (Array.isArray(record?.defined_terms) ? record.defined_terms : [])
+    .filter((e) => e && e.class === "defined" && typeof e.term === "string" && e.term.trim() !== "")
+    .map((e) => {
+      const key = e.term.trim().toLowerCase();
+      const i = path.findIndex((s) => Array.isArray(s?.introduces) && s.introduces.some((raw) => termOf(raw) === key));
+      return { term: e.term.trim(), introducedAt: i === -1 ? path.length : i };
+    });
+  const order = { position, terms };
+  DEFINED_TERM_ORDER.set(draft.path, order);
+  return order;
+}
+
+// Whole-word and case-insensitive: the term not adjacent to a letter or digit
+// on either side, the boundary composition's own refusal uses.
+function wholeWord(term, text) {
+  const t = term.toLowerCase();
+  const hay = String(text).toLowerCase();
+  const wordish = (c) => c !== undefined && c !== "" && /[\p{L}\p{N}_]/u.test(c);
+  for (let i = hay.indexOf(t); i !== -1; i = hay.indexOf(t, i + 1)) {
+    if (!wordish(hay[i - 1]) && !wordish(hay[i + t.length])) return true;
+  }
+  return false;
+}
+
 // ONE IMPLEMENTATION PER MECHANICAL ITEM, keyed by the item's own id. Each
 // returns `{verdict, reason, span}` and never a score. The ids here are
 // BINDINGS to the table's `mode: mechanical` rows — a table row whose id has no
@@ -1991,6 +2049,41 @@ const MECHANICAL = {
       verdict: "holds",
       reason: "every demonstrative reference's antecedent is recoverable within the paragraph it "
         + "appears in or the one immediately before it",
+      span: leg.lines,
+    };
+  },
+
+  // A DEFINED TERM BEFORE ITS INTRODUCING LEG (kogaki#1331). A term the
+  // Brief classifies `defined` occurring, whole-word and case-insensitive, in
+  // the prose of a Leg that comes before the Leg whose `introduces` carries it
+  // fails, naming the term and the line. A STRING MATCH OVER THE DRAFT'S LEG
+  // TRACE, no judgment: within the introducing Leg itself the first
+  // occurrence is the introduction by definition, so that Leg and every one
+  // after it are not read. A defined term no Leg introduces is before every
+  // Leg. A Draft naming no Brief defines no term.
+  "defined-term-order": ({ leg, draft }) => {
+    const order = definedTermOrder(draft);
+    if (!order) {
+      return { verdict: "holds", reason: "the Draft names no Brief, so it defines no term", span: leg.lines };
+    }
+    const here = order.position.get(leg.leg_id);
+    if (here !== undefined) {
+      for (const { term, introducedAt } of order.terms) {
+        if (here >= introducedAt) continue;
+        for (let n = leg.lines[0]; n <= leg.lines[1]; n++) {
+          if (!wholeWord(term, draft.lines[n - 1] ?? "")) continue;
+          return {
+            verdict: "fails",
+            reason: "a term the Brief defines reaches the prose before the Leg that introduces it",
+            evidence: [`The defined term '${term}' on line ${n} is used before the Leg that introduces it`],
+            span: leg.lines,
+          };
+        }
+      }
+    }
+    return {
+      verdict: "holds",
+      reason: "no term the Brief defines reaches this Leg's prose before the Leg that introduces it",
       span: leg.lines,
     };
   },

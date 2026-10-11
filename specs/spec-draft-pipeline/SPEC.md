@@ -483,6 +483,21 @@ transition type rather than an undertested one.
 The shape is enforced by `validateLegs` in `src/compose.mjs`, so a Move-less
 Leg is unwritable rather than discouraged.
 
+**A defined term reaches a Leg only after the Leg that introduces it**
+(kogaki#1331, owner decision 2026-10-10). `validateLegs` refuses a Candidate
+in which a term the Brief's `defined_terms` (§5.1) classifies `defined`
+appears — whole-word, case-insensitive — in a claim's `proposition`, a
+waypoint's `point` or an `opens_section` of any Leg before the Leg whose
+`introduces` carries it, naming the Leg, the field and the term; a defined
+term no Leg introduces is before every Leg. The Thesis is exempt as the
+title, so its defined words are carried by the `introduces` of the first Leg
+whose claim uses them. The refusal rides the compose unit's own re-ask: the
+composer adds the `introduces` entry or rewords, and the Candidate is not
+discarded. Which words are `defined` is decided once, at mint; the test is on
+the sense the article gives a word, never on whether the word is common —
+"check", "guard", "list" and "pass" in a CI sense are everyday English and
+still defined.
+
 **Reopen trigger.** The declined `move: none` arm — every Leg declaring either
 a library entry or a typed absence with a reason — costs nothing while no
 untypeable transition has been observed. **The first genuine transition that
@@ -2035,8 +2050,8 @@ centre readable as one thing rather than three fields and a file path.
 state. Its keys are declared in `src/candidate-schema.json` under
 `brief_record`, in the order the file writes them, each with the caption the
 file carries above it as a comment for the owner. The mint writes the header
-keys (`slug`, `compose_path`, `external_authority`), the closed `strands` list
-and the adopted `thesis`, and every key below it as `null` — a slot awaiting
+keys (`slug`, `compose_path`, `external_authority`), the closed `strands` list,
+the adopted `thesis` and its `defined_terms`, and every key below it as `null` — a slot awaiting
 composition; adoption fills them in one write. Every reader of the Brief —
 `src/draft.mjs`, `src/review-draft.mjs`, `src/assemble.mjs`, `src/compose.mjs`
 — loads the record and none parses a rendering: the three parsers that read a
@@ -2062,6 +2077,21 @@ as lists of maps, each reader state as a five-key map, `introduces` as a list
   `reader_target` are retired Candidate fields, refused by name.
   `reader_start` is a **stance**, not a knowledge state: §5.1.1 defines it.
 - **`thesis`** — read from Terrain (§3), never invented here.
+- **`defined_terms`** — the article's **Defined Terms** (kogaki#1331, owner
+  decision 2026-10-10): every noun of the Thesis and of each Strand's claim,
+  one `{ term, class }` entry per term, where a term is one or more words in
+  the form an `introduces` entry's `term` takes and `class` is `defined` (used
+  in a sense this article gives it) or `ordinary` (used in the sense the
+  reader already holds). Written **once, at mint**, from the
+  `defined_terms_unit` judgment the `mint` state asks before the file exists,
+  and never again; an entry occurring whole-word in neither the Thesis nor a
+  claim is refused naming it. Its readers are composition (§4.1), path
+  review's claim register, and the Draft review's `defined-term-order` item.
+  **It lives in the Brief and its boundary ends there**: nothing of it reaches
+  `src/packet-template.md` or a rendered Packet — information whose boundary
+  is planning is not copied downstream "just a little", because each copy then
+  needs its own assessment. A Brief minted before the field carries none and
+  defines nothing.
 - **`reader_path`** — the ordered Legs of §4.1. **Each reader state is written
   once per boundary**: a Leg carries its `reader_state_after` and no
   before-state, which is the previous after-state (or `reader_start`) and is
@@ -2136,7 +2166,11 @@ and stays far smaller than a Move:
 - **`prior_knowledge`** — what can be used without explanation, and what
   cannot. Grounding: prior knowledge as the determinant of how much a text must
   make explicit (Kintsch; McNamara & Kintsch 1996), and audience analysis in
-  technical communication.
+  technical communication. **Its one reader is Reader start**: it grants a
+  claim no word (kogaki#1331, owner decision 2026-10-10 — "Let us remove
+  Persona's permission to use specialized terminology"), and neither
+  composition nor path review reads it. Which words a Leg must introduce is
+  the Brief's `defined_terms` (§5.1).
 
 Nothing about attitude, trust or the reader's question: those are Reader start
 dimensions, and holding them in the Persona would duplicate it. **The Persona
@@ -3273,8 +3307,13 @@ separate rather than folded together.
 concept: the prescribed Japanese form, its forbidden variants (leaked
 English, a katakana variant, a notation variant), and a note. It is used
 TWICE — rendered into the language block at generation, and run as the Lint
-after — and **nowhere else**: no second term list, no per-Brief or
-per-Section override.
+after — and **nowhere else**: no second Japanese term list, no per-Brief or
+per-Section override of it. **Two carriers for two constraints** (kogaki#1331):
+`terms/prh.yml` governs a term's Japanese **surface form**, and the Brief's
+`defined_terms` (§5.1) governs its **sense** — which words this article gives
+a meaning to, and so which must be introduced before a Leg may use them.
+Neither stands in for the other, and the per-Brief list is not an override of
+this one: it names no Japanese form at all.
 
 **THE GROUND FOR LINT BEFORE ROUND TRIP.** A term-list deviation is a
 surface-form defect a deterministic pass names for free; spending a Round
