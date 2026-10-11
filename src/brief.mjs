@@ -122,7 +122,7 @@ import {
   validateLegs, validateSpecialization, specializationFailures, specializationSchema, selectedStrands, journeyBearingStrands,
   resolveMoveIds, resolveFigureForms, loadMoveContracts, moveContractsForLegs,
   readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, dischargeRows,
-  deriveReaderStatesBefore, readerStartThesisRefusal,
+  deriveReaderStatesBefore, readerStartThesisRefusal, sectionHeadingsWithLastAfterState,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -2024,6 +2024,7 @@ export function readerPathFitInput(candidate, movesDir, readerStart) {
           derived_from: specializationSchema().before_state.derived_from,
           question: specializationSchema().before_state.question,
         },
+        section_headings: sectionHeadingsWithLastAfterState(candidate.legs),
       },
     },
   };

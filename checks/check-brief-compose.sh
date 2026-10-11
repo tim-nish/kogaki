@@ -1833,6 +1833,26 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (clean) fails.push(`(ap) a heading carrying no introduced term was refused: ${clean}`);
 }
 
+// (aq) kogaki#1327 — the `reader_path_fit_unit` input carries each Section's
+// heading beside its LAST Leg's after-state, not the opening Leg's own, so
+// the fit judge can answer whether the heading states that destination.
+{
+  const s2After = "knowledge: after s2\nquestion: holds: none";
+  const cand = cand1276("c-aq", { reader_state_after: s2After });
+  const j = readerPathFitInput(cand, fitMoves, START_1276);
+  if (j.error) fails.push(`(aq) readerPathFitInput refused: ${j.error}`);
+  else {
+    const sh = j.input.candidate_you_must_judge.section_headings;
+    if (!Array.isArray(sh) || sh.length !== 1) fails.push(`(aq) section_headings does not carry one entry per Section: ${JSON.stringify(sh)}`);
+    else if (sh[0].leg_id !== "s1" || sh[0].heading !== "Intro" || sh[0].after_state !== s2After) {
+      fails.push(`(aq) section_headings did not carry the opening Leg's heading beside the Section's LAST Leg's after-state: ${JSON.stringify(sh)}`);
+    }
+  }
+  if (!/section_headings/.test(JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_fit_unit.judgment_point)) {
+    fails.push("(aq) the reader_path_fit_unit judgment_point does not name section_headings as one more judged item at the Leg that opens the Section");
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);

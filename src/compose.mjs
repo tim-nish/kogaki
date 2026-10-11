@@ -1790,6 +1790,21 @@ export function opensSectionIntroducedTermRefusal(legs) {
   return null;
 }
 
+// EACH SECTION'S HEADING BESIDE ITS LAST AFTER-STATE (owner decision
+// 2026-10-10, kogaki#1327): one entry per Leg that opens a Section, the
+// heading it carries and the `reader_state_after` of the LAST Leg of that
+// Section — the destination rule 2 (§4.15.1) says the heading states, read
+// here rather than left for the fit judge to walk the path and find the
+// Section's end itself. A path opening no Section (shape rule 3's refusal
+// handles that case) returns no entries.
+export function sectionHeadingsWithLastAfterState(legs) {
+  const opens = legs.map((s, i) => (typeof s.opens_section === "string" && s.opens_section !== "" ? i : -1)).filter((i) => i >= 0);
+  return opens.map((i, k) => {
+    const end = k + 1 < opens.length ? opens[k + 1] : legs.length;
+    return { leg_id: legs[i].leg_id, heading: legs[i].opens_section, after_state: legs[end - 1].reader_state_after };
+  });
+}
+
 // the Section grouping's four grouping rules, validated over the WHOLE path rather than per
 // Leg, because every one of them is a statement about a Leg's relation to its
 // NEIGHBOURS. Returns the first refusal or null.
