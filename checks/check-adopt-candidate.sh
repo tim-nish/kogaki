@@ -29,7 +29,14 @@
 #   (c) a run with no --specialization still refuses, by name, rather than
 #       silently filling a default — so a check that only drove the
 #       passing path could not itself pass on a composer that stopped
-#       refusing there.
+#       refusing there;
+#   (d) the Thesis row of Closure is DERIVED (kogaki#1328): the written
+#       record carries no free-text Thesis row, and the row handed to the
+#       Leg marked `reaches_target` — and to no other Leg — is the one
+#       `thesisClosureRow` renders from the Strand coverage's
+#       `role_in_thesis`; and a Candidate still carrying
+#       `reasoning.thesis_closure` is refused, naming the field, with the
+#       Brief left as it was.
 #
 # NOT COVERED: whether the fixture's own waypoints, claims or reasoning are
 # GOOD prose is nobody's judgment here — every value below is written only to
@@ -49,7 +56,7 @@ const repo = resolve(".");
 const root = mkdtempSync(join(tmpdir(), "adopt-candidate-"));
 
 const fixtureDir = join(repo, "checks", "fixtures", "adopt-candidate");
-const briefFixture = readFileSync(join(fixtureDir, "brief.md"), "utf8");
+const briefFixture = readFileSync(join(fixtureDir, "brief.yaml"), "utf8");
 const reviewedPath = join(fixtureDir, "reviewed.json");
 const reviewed = JSON.parse(readFileSync(reviewedPath, "utf8"));
 const specializationPath = join(fixtureDir, "specialization.json");
@@ -57,7 +64,7 @@ const specializationPath = join(fixtureDir, "specialization.json");
 // `adoptCandidate` WRITES the Brief it is pointed at, so the checked-in
 // fixture is copied into the scratch dir rather than edited in place — every
 // future run of this check reads the same unfilled Brief.
-const briefPath = join(root, "brief.md");
+const briefPath = join(root, "brief.yaml");
 writeFileSync(briefPath, briefFixture);
 
 // THE SELECTION CAPTURE BINDS TO THE OPTION SET `selectionOptionIds` DERIVES
@@ -65,9 +72,16 @@ writeFileSync(briefPath, briefFixture);
 // computed here from the functions `adoptCandidate` itself calls, never
 // hand-typed.
 const { selectionOptionIds } = await import(pathToFileURL(join(repo, "src", "assemble.mjs")).href);
-const { ownerGateDigest } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
+const { ownerGateDigest, parseBriefRecord, unfilledSlots, thesisClosureRow, closureRowsOf } =
+  await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const candidateId = reviewed.candidates[0].candidate_id;
-const offered = selectionOptionIds(reviewed, briefFixture);
+const fixtureRecord = parseBriefRecord(briefFixture, "checks/fixtures/adopt-candidate/brief.yaml");
+if (fixtureRecord.error) {
+  console.log("FAIL check-adopt-candidate");
+  console.log(`  - the fixture Brief is not a readable record: ${fixtureRecord.error}`);
+  process.exit(1);
+}
+const offered = selectionOptionIds(reviewed, fixtureRecord.record);
 if (offered.error) {
   console.log("FAIL check-adopt-candidate");
   console.log(`  - the fixture's own Candidate-selection option set cannot be composed: ${offered.error}`);
@@ -97,9 +111,23 @@ const r = run(full);
 if (r.status !== 0) {
   fails.push(`(a) adopt-candidate exited ${r.status} over the fixture: ${(r.stderr || r.stdout || "").slice(0, 2000)}`);
 } else {
-  const after = readFileSync(briefPath, "utf8");
-  if (/awaiting composition/.test(after)) {
-    fails.push("(a) the written Brief still carries an unfilled `(awaiting composition)` slot");
+  const after = parseBriefRecord(readFileSync(briefPath, "utf8"), briefPath);
+  if (after.error) fails.push(`(a) the written Brief is not a readable record: ${after.error}`);
+  else {
+    const open = unfilledSlots(after.record);
+    if (open.length) fails.push(`(a) the written Brief still carries unfilled slot(s): ${open.join(", ")}`);
+    // (d) the derived Thesis row.
+    const rec = after.record;
+    if ((rec.closure || []).some((o) => /^The Thesis\b/.test(String(o.text || "")) || o.thesis !== undefined)) {
+      fails.push("(d) the written record carries a Thesis row in `closure` — the row is derived on read, never written");
+    }
+    const expected = thesisClosureRow(rec);
+    if (!expected || !expected.includes(reviewed.candidates[0].coverage.L1.role_in_thesis)) {
+      fails.push(`(d) the derived Thesis row does not carry the Strand's role_in_thesis: ${JSON.stringify(expected)}`);
+    }
+    const handed = (id) => closureRowsOf(rec, id).filter((o) => o.text === expected).length;
+    if (handed("leg2") !== 1) fails.push("(d) the Leg marked `reaches_target` (leg2) is not handed the derived Thesis row exactly once");
+    if (handed("leg1") !== 0) fails.push("(d) a Leg not marked `reaches_target` (leg1) is handed the Thesis row");
   }
   if (/move id\(s\) resolved against the Move library/i.test(r.stdout || "") || /move library/i.test(r.stdout || "")) {
     fails.push("(b) the closing summary still names a Move-library count — acceptance item 2 is unmet");
@@ -121,11 +149,27 @@ if (noSpec.status === 0) {
   fails.push(`(c) adopt-candidate with no --specialization refused, but not by naming the missing specialization record: ${(noSpec.stderr || "").slice(0, 500)}`);
 }
 
+// (d) a Candidate still carrying the retired free-text field is refused by name.
+{
+  writeFileSync(briefPath, briefFixture);
+  const legacy = structuredClone(reviewed);
+  legacy.candidates[0].reasoning.thesis_closure = "the second Leg settles the fixture Strand's claim";
+  const legacyPath = join(root, "reviewed-legacy.json");
+  writeFileSync(legacyPath, JSON.stringify(legacy));
+  const r = run(["--brief", briefPath, "--reviewed", legacyPath, "--candidate", candidateId,
+    "--specialization", specializationPath, "--selection", selectionPath]);
+  if (r.status === 0) fails.push("(d) a Candidate carrying `reasoning.thesis_closure` was adopted");
+  else if (!/reasoning\.thesis_closure/.test(r.stderr || "")) {
+    fails.push(`(d) the refusal of a Candidate carrying reasoning.thesis_closure does not name the field: ${(r.stderr || "").slice(0, 500)}`);
+  }
+  if (readFileSync(briefPath, "utf8") !== briefFixture) fails.push("(d) the refused adoption wrote to the Brief");
+}
+
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
   console.log("FAIL check-adopt-candidate");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-adopt-candidate — adopt-candidate over a fixture Brief, reviewed Candidate, specialization record and a selection capture digested against the fixture's own option set exits 0 and fills every slot; its closing summary names no Move-library count and does report the Leg specialization verdict(s) read from the record; and a run with no --specialization still refuses, naming the record (kogaki#1317)");
+console.log("ok: check-adopt-candidate — adopt-candidate over a fixture Brief, reviewed Candidate, specialization record and a selection capture digested against the fixture's own option set exits 0 and fills every slot; its closing summary names no Move-library count and does report the Leg specialization verdict(s) read from the record; and a run with no --specialization still refuses, naming the record (kogaki#1317); the Thesis row of Closure is derived from the coverage and handed to the reaches_target Leg alone, and a Candidate carrying reasoning.thesis_closure is refused by name (kogaki#1328)");
 JS

@@ -505,6 +505,16 @@ the repository, read by people. The runtime **creates and never edits** them
 beyond the landing writes their own commands make; a collision refuses rather
 than overwriting.
 
+**The Brief is one YAML record, `theses/<slug>/brief.yaml`** (kogaki#1328,
+owner decision 2026-10-10), and it is the file both the owner and every command
+read. There is no Markdown Brief and no second rendering of it: the mint writes
+the record with its composition keys `null`, adoption fills them, and the Draft,
+the review and the Packet load the same keys — so what the owner reads is the
+information the machine is handed, in the record's own tree, and no reader
+depends on how a line was rendered. Its shape is declared in
+`src/candidate-schema.json` under `brief_record`; `specs/spec-draft-pipeline/SPEC.md`
+§5.1 lists its keys.
+
 **The run workspace** is **machine state**: run records, per-block snapshots,
 realized Sections, rendered Packets. Disposable, and never the artifact. It
 lives at `runs/<lane>/` in the repository — `runs/draft/<slug>/` for this lane

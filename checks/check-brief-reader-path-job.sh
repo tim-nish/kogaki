@@ -56,6 +56,14 @@ import { findInternalVocabulary, assembleSelection } from "./src/assemble.mjs";
 
 const fails = [];
 const root = process.cwd();
+// INJECTABLE, NOT GUESSED (kogaki#1343): (d10) and (v) below watch a real
+// spawned supervisor finish or a real poll return within a real wall-clock
+// bound, so how long that needs is a fact about the machine running this
+// check, not a constant this file can guess once. A run under heavier
+// concurrent load than this tree sees locally sets
+// KOGAKI_CHECK_WAIT_SCALE to widen those bounds without the check being
+// rewritten.
+const WAIT_SCALE = Number(process.env.KOGAKI_CHECK_WAIT_SCALE || "1");
 
 // THE NO-TOOLS SENTENCE, READ OFF THE UNITS FILE THE STARTER WRITES (kogaki#1307):
 // the runtime keeps the sentence unexported, so a check reads it where every
@@ -499,12 +507,12 @@ function pollUntil(dir, pred, timeoutMs) {
   try {
     // "c2" refuses fast; if the OLD bug were still present the job would
     // already read `refused` here, well before "c1" (SLOW, ~2.4s) is done.
-    const early = pollUntil(dir, (r) => r && (r.units || []).some((u) => u.id === "c2" && u.status === "refused"), 3000);
+    const early = pollUntil(dir, (r) => r && (r.units || []).some((u) => u.id === "c2" && u.status === "refused"), 3000 * WAIT_SCALE);
     const c1Early = early && (early.units || []).find((u) => u.id === "c1");
     if (!c1Early || c1Early.status !== "running" || early.state !== "running") {
       fails.push(`(d10) once "c2" refused, "c1" was not still running and/or the job state was not "running": ${JSON.stringify(early)}`);
     }
-    const done = pollUntil(dir, (r) => r && r.state !== "running", 8000);
+    const done = pollUntil(dir, (r) => r && r.state !== "running", 8000 * WAIT_SCALE);
     if (!done || done.state !== "done") {
       fails.push(`(d10) the job's own terminal state was not "done" once every unit had finished with one of them done (kogaki#1273): ${JSON.stringify(done)}`);
     }
@@ -553,7 +561,7 @@ function pollUntil(dir, pred, timeoutMs) {
   const candidateOf = (leg2Extra) => ({
     candidate_id: "c1", characteristic: "x", reader_experience: "y",
     reader_start: "knowledge: before\nquestion: holds: none",
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
     legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
   });
   const goodCandidate = candidateOf({});
@@ -834,12 +842,12 @@ process.stdin.on("end", () => {
   const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir };
   const t0 = Date.now();
   const awaitRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
-    { cwd: root, timeout: 60000, encoding: "utf8", env });
+    { cwd: root, timeout: 60000 * WAIT_SCALE, encoding: "utf8", env });
   const tookS = (Date.now() - t0) / 1000;
   if (awaitRun.status !== 0) {
     fails.push(`(v) \`job await\` over a running job did not exit 0 (status ${awaitRun.status}): stdout=${awaitRun.stdout} stderr=${awaitRun.stderr}`);
   }
-  if (tookS > 40) {
+  if (tookS > 40 * WAIT_SCALE) {
     fails.push(`(v) \`job await\` over a running job took ${tookS}s, past its own 30s bound`);
   }
   if (!(awaitRun.stdout || "").includes("reader-path job still running — call job await again")) {
@@ -1138,7 +1146,7 @@ process.stdin.on("end", () => {
     candidate_id: "c1", differentiation_unit: 1, reader_experience: "exp one", characteristic: "one",
     legs: [{ move: "move-a" }],
     review: { rationale_stands: "x", entailment: "x", prohibitions: "x", semantic_economy: "x", arc_integrity: "x", evaluation_levels: "x" },
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
   };
   const r1 = assembleSelection({ candidates: [one] }, "");
   if (r1.error && /Candidate\(s\) —/.test(r1.error)) fails.push(`(v5) assembleSelection refused one Candidate on the count: ${r1.error}`);
@@ -1398,7 +1406,7 @@ chmodSync(resumeJudge, 0o755);
   });
   const cand = (id) => ({
     candidate_id: id, characteristic: `path ${id}`, reader_experience: `experience ${id}`,
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
     legs: [leg("s1", { opens_section: "Intro" }), leg("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true })],
   });
   const entryFor = (c) => ({ rationale_stands: "r", entailment: "e", prohibitions: "p", semantic_economy: "s",
@@ -1440,7 +1448,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const mkRun = (name, extra = {}) => {
     const dir = join(base, name);
     mkdirSync(dir);
-    const briefPath = join(dir, "brief.md");
+    const briefPath = join(dir, "brief.yaml");
     writeFileSync(briefPath, composeBrief({ slug: "fixture", strands: [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }],
       thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" }));
     const diffPath = join(dir, "differentiation.json");
@@ -1653,7 +1661,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   });
   const candidate = {
     candidate_id: "c1", characteristic: "x", reader_experience: "y", reader_start: START,
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
     legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true })],
   };
   const SENTENCE = "the Leg names no case left out, which the technique requires of it.";

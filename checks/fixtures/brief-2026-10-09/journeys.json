@@ -1,0 +1,12 @@
+[
+  {
+    "slug": "an-enumerated-prohibitions-load-bearing-half-is-its-non-member-fallback",
+    "kind": "journey",
+    "body": "The guard on approval requests looked complete: it counted them, refused bundled ones, and enforced the limit. Then a request reached the owner in a form the guard simply did not recognise, asking something that had already been decided months earlier. The lesson was not that the guard was weak — it was that it had been checking how many of one known shape could be asked, never whether other shapes existed, and its visible success is what kept anyone from asking."
+  },
+  {
+    "slug": "default-deny-protects-the-set-nobody-classified",
+    "kind": "journey",
+    "body": "Keeping private files out of a public project seemed to mean listing them as exclusions — with the nagging worry that the list itself advertises their names. Then a tool, doing exactly what its approved design said, published the assistant's private working folder. Adding those files to the exclusion list would not have helped: the real exposure was everything nobody had classified, which no list of known items can cover. So the direction flipped — exclude everything, justify each exception — and now forgetting makes something fail visibly instead of publishing quietly."
+  }
+]

@@ -34,6 +34,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { writerSettingsRefusal, WRITER_KEYS, WRITER_ACTS, parseWriterRecord } from "./src/draft.mjs";
+import { legRecord, briefRecordText, readerStateMap, parseFigureRoles } from "./src/compose.mjs";
 
 const fails = [];
 const root = mkdtempSync(join(tmpdir(), "draft-fresh-call-"));
@@ -41,28 +42,28 @@ const root = mkdtempSync(join(tmpdir(), "draft-fresh-call-"));
 // ---- the fixture Brief, the self-test's own shape ----
 // NO MOVE LIBRARY (kogaki#1311): /draft opens no Move file, so the fixture
 // carries none and every act below runs without one. Each Leg carries the
-// waypoint line the realization entry requires.
-const briefText = (legs) => [
-  "# Brief — fixture-brief", "",
-  "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
-  "## Strands", "", "### L1 — first-strand", "",
-  "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-  "## Thesis", "", "The fixture claim.", "",
-  "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
-  "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
-  "## Sequence", "", ...legs,
-].join("\n");
-const leg = (id, move, extra = []) => [
-  "```leg", `leg_id: ${id}`, `move: ${move}`, `purpose: purpose of ${id}`,
-  `reader_state_before: before ${id}.`, `reader_state_after: after ${id}.`,
-  "materials: L1", `rationale: rationale for ${id}.`, ...extra,
-  `waypoint (serves L1): the reader is brought to what ${id} claims.`, "```", "",
-];
+// waypoint the realization entry requires. The Brief is a record (kogaki#1328),
+// its Legs written by `legRecord` and the file by `briefRecordText`.
+const briefText = (legs, slug = "fixture-brief") => briefRecordText({
+  slug, compose_path: "readers/dev-to-zenn.md", external_authority: "on",
+  strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
+  thesis: "The fixture claim.",
+  reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
+  reader_target: legs[legs.length - 1].leg_id,
+  reader_path: legs.map(legRecord),
+  strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+});
+const leg = (id, move, claims, extra = {}) => ({
+  leg_id: id, move, purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
+  materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`,
+  claims: claims.map((proposition) => ({ strand: "L1", proposition })),
+  waypoints: [{ point: `the reader is brought to what ${id} claims.`, serves: ["L1"] }], ...extra,
+});
 const briefDir = join(root, "theses", "fixture-brief");
 mkdirSync(briefDir, { recursive: true });
-writeFileSync(join(briefDir, "brief.md"), briefText([
-  ...leg("s1", "open_the_claim", ["claim (strand L1): the material states the claim."]),
-  ...leg("s2", "close_the_claim", ["claim (strand L1): the material states why the claim holds."]),
+writeFileSync(join(briefDir, "brief.yaml"), briefText([
+  leg("s1", "open_the_claim", ["the material states the claim."]),
+  leg("s2", "close_the_claim", ["the material states why the claim holds."]),
 ]));
 
 // ---- the stub writer: answers --version, captures its stdin, prints what it is told ----
@@ -81,7 +82,7 @@ const count = join(root, "count.txt");
 const ws = join(root, "ws");
 const envOf = (over = {}) => ({ ...process.env, KOGAKI_JUDGE_CLI: stub, STUB_CAPTURE: capture, STUB_COUNT: count, ...over });
 const drive = (env, cmd, ...extra) => spawnSync(process.execPath,
-  ["src/draft.mjs", cmd, "--brief", join(briefDir, "brief.md"), "--workspace", ws, ...extra],
+  ["src/draft.mjs", cmd, "--brief", join(briefDir, "brief.yaml"), "--workspace", ws, ...extra],
   { encoding: "utf8", env });
 const resetCount = () => { try { rmSync(count); } catch { /* none yet */ } };
 
@@ -163,20 +164,20 @@ const PROSE = "The fixture prose for the Leg, written by the stub writer.\n\nA s
 // (e) figure: the writer's stdin is the Packet plus the figure block, the response is the record.
 {
   const G = [
-    "claim (strand L1): the material states the reader starts unconvinced.",
-    "claim (strand L1): the material states the reader ends convinced.",
-    "claim (strand L1): the material states conviction is the criterion.",
+    "the material states the reader starts unconvinced.",
+    "the material states the reader ends convinced.",
+    "the material states conviction is the criterion.",
   ];
   const figDir = join(root, "theses", "figure-brief");
   mkdirSync(figDir, { recursive: true });
-  writeFileSync(join(figDir, "brief.md"), briefText([
-    ...leg("a1", "place_on_the_axis", [...G,
-      "figure: what the prose leaves the reader unable to hold in one view.",
-      "figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3"]),
-  ]).replace("# Brief — fixture-brief", "# Brief — figure-brief"));
+  writeFileSync(join(figDir, "brief.yaml"), briefText([
+    leg("a1", "place_on_the_axis", G, {
+      figure: "what the prose leaves the reader unable to hold in one view.",
+      figure_roles: parseFigureRoles("endpoint_a=g1, endpoint_b=g2, criterion=g3").roles }),
+  ], "figure-brief"));
   const figWs = join(root, "ws-figure");
   const driveFig = (env, cmd, ...extra) => spawnSync(process.execPath,
-    ["src/draft.mjs", cmd, "--brief", join(figDir, "brief.md"), "--workspace", figWs, ...extra],
+    ["src/draft.mjs", cmd, "--brief", join(figDir, "brief.yaml"), "--workspace", figWs, ...extra],
     { encoding: "utf8", env });
   const record = {
     kind: "axis",

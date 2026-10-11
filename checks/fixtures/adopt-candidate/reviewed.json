@@ -6,8 +6,7 @@
       "reader_experience": "the reader sees the fixture Strand's claim stated once, then sees it settled",
       "reader_start": "knowledge: the reader has not yet seen the fixture Strand's claim",
       "reasoning": {
-        "leg_validity": "each Leg specializes its bound Move's before/after over the fixture Strand's claim, in order",
-        "thesis_closure": "the second Leg settles the fixture Strand's claim, closing the Thesis row"
+        "leg_validity": "each Leg specializes its bound Move's before/after over the fixture Strand's claim, in order"
       },
       "review": {
         "rationale_stands": "the path's reasoning holds over the fixture Strand's claim with nothing else in play",

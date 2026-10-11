@@ -44,7 +44,13 @@ import json, os, pathlib, re, subprocess, sys, tempfile
 
 INSTRUMENT = re.compile(r'^(act|none|probe): \S', re.DOTALL)
 EFFICACY = re.compile(r'^(case|none): \S', re.DOTALL)
-PROBE_TIMEOUT_S = 10
+# INJECTABLE, NOT GUESSED (kogaki#1343): a `probe:` is a real subprocess —
+# several are `git grep` over the whole tree — so how long it needs before
+# COULD-NOT-ESTABLISH is a fact about the machine running it, not this
+# check. A run under heavier concurrent load than this tree sees locally
+# sets `KOGAKI_PROBE_TIMEOUT_S` rather than this file guessing a bigger
+# constant that the next load level outgrows again.
+PROBE_TIMEOUT_S = int(os.environ.get("KOGAKI_PROBE_TIMEOUT_S", "10"))
 
 # The DELEGATING CLASS (kogaki#661), DETECTED rather than enumerated. A member
 # that spawns another artifact's fixture pass owes a `case_floor`, and the
@@ -316,11 +322,40 @@ def validate_covers(entries, path_exists=None):
     check it cannot actually reach, the same dead-reference defect the
     registry/tree agreement above already refuses one level up, for `file`
     rather than `covers`.
+
+    THE TREE IS THE TRACKED TREE, NOT ONLY THE WORKING COPY (kogaki#1343).
+    The review lane removes `.claude/settings.json` from the worktree it
+    checks (head-authored material may grant nothing), and
+    `check-terrain-hook-invocation.sh` covers exactly that file — so at
+    every review-run head this check failed on a file that is tracked,
+    present at the head, and absent only from that one working copy, while
+    every other checkout of the same head passed. A value is resolved
+    against the working copy first and the index second: tracked and
+    deleted from the working copy is still a path the check reads.
     """
     if path_exists is None:
+        tracked = None
+
+        def tracked_paths():
+            nonlocal tracked
+            if tracked is None:
+                try:
+                    r = subprocess.run(["git", "ls-files", "-z"],
+                                       capture_output=True, text=True,
+                                       timeout=PROBE_TIMEOUT_S)
+                    tracked = set(p for p in r.stdout.split("\0") if p)
+                except (OSError, subprocess.SubprocessError):
+                    tracked = set()
+            return tracked
+
         def path_exists(path):
             p = pathlib.Path(path)
-            return p.is_dir() if (path == "." or path.endswith("/")) else p.is_file()
+            if path == "." or path.endswith("/"):
+                if p.is_dir():
+                    return True
+                prefix = "" if path == "." else path
+                return any(t.startswith(prefix) for t in tracked_paths())
+            return p.is_file() or path in tracked_paths()
     failures = []
     for entry in entries:
         path = entry_path(entry)

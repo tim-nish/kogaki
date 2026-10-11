@@ -95,7 +95,7 @@
     "reaches_target": {
       "required": false,
       "type": "boolean",
-      "description": "Present, and true, on exactly ONE Leg of the path -- never the first (kogaki#1231, owner decision 2026-09-30, reversing kogaki#1225's rule that the Reader target sits wherever the path ends). That Leg's `reader_state_after` IS the Brief's Reader target, and its `leg_id` is what the Thesis Closure row's `established_by_legs` names. Every Leg AFTER the marked one is a CLOSING Leg, held to the three closing-Leg path_rules below: it introduces nothing, raises no Closure row, and its `orientation` and `knowledge` lines hold at the marked Leg's -- only `question`, `expectation` and `trust` may still move. A Leg before the marked one carries no meaning from this field at all; the marking is absent."
+      "description": "Present, and true, on exactly ONE Leg of the path -- never the first (kogaki#1231, owner decision 2026-09-30, reversing kogaki#1225's rule that the Reader target sits wherever the path ends). That Leg's `reader_state_after` IS the Brief's Reader target, and it is the one Leg the Brief's derived Thesis row of Closure is handed to (kogaki#1328). Every Leg AFTER the marked one is a CLOSING Leg, held to the three closing-Leg path_rules below: it introduces nothing, raises no Closure row, and its `orientation` and `knowledge` lines hold at the marked Leg's -- only `question`, `expectation` and `trust` may still move. A Leg before the marked one carries no meaning from this field at all; the marking is absent."
     },
     "names": {
       "required": false,
