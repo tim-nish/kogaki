@@ -1,7 +1,10 @@
 # Move extraction contract
 
 Paste this whole file into the conversation after the model has read the
-article. It is self-contained: no other context is needed or permitted.
+article. It is self-contained: no other context is needed or permitted —
+by the model. The Analysis beside the Passage is a second input (kogaki#1320),
+read by `tools/move_ingest.py` itself, after the model returns its record,
+and never handed to the model. See "The `segments` field" below.
 
 Rebuilt 2026-09-23 (kogaki#1175, owner ruling, kogaki#1173's ten schema
 questions). The prior eight-field schema (`intent`, `requires`, `effect`,
@@ -27,6 +30,14 @@ never handed it — the Move it reads is `before`, `after`, `technique` and
 Candidate against a field the composer never received. The reader's question
 is carried where the composer does see it: the `question:` line of `before`
 and `after`.
+
+`segments` added (kogaki#1320, owner ruling 2026-10-10): the record carries
+the Analysis's ordered Segments, so a human can check a Leg's waypoint order
+against something other than the prose of `technique`. The model is never
+asked to write it — the eight keys below are still the whole of what the
+model authors — `tools/move_ingest.py`'s `passage` mode copies it from the
+Analysis's own section 3, entry for entry, after the model has returned its
+record.
 
 **Origin.** The Move concept follows Swales' move analysis in genre studies:
 a text is coded as a sequence of communicative purposes, each a move. The
@@ -139,3 +150,25 @@ legible. `specs/spec-draft-pipeline/SPEC.md` §6.9.3 states what ingestion
 validates about it — cited here and restated nowhere. Most articles have no
 figure to extract; leave the field out entirely rather than writing an
 empty block.
+
+## The `segments` field
+
+Not one of the eight keys above, and never written by the model. In
+`tools/move_ingest.py`'s `passage` mode, once the model's record is admitted,
+the tool reads the Analysis beside the Passage and copies its `## 3. The
+order inside the Passage` section into the record's own `segments`, entry
+for entry, in the same order: one line per Segment, each carrying its
+function (raises, advances, settles), its relation to the previous Segment,
+and the clause stating what it does to the reader — the quoted opening
+words stay in the Analysis and are not copied, since they locate a Segment
+in the Passage and `segments` does not carry the Passage.
+
+A record is refused, naming `segments`, where the Analysis carries no
+section 3 for the tool to copy it from, or where the model's own record
+already carried a `segments` value that disagrees with the copy — the
+model is never asked to write or reorder Segments, so a value it supplied
+anyway is a defect, not an alternative to the copy.
+
+A saved Move renders `segments` as a numbered list, in section 3's own
+order, so a human reads the order as a list rather than checking it against
+the prose of `technique`.
