@@ -258,6 +258,19 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
   if (opened.length) fails.push(`(c) a Draft stage opened a path under moves/: ${opened.join("; ")}`);
 }
 
+// (h) the Thesis is the article's title, verbatim (kogaki#1327): the
+// assembled Draft's first line is `# ` followed by the Thesis exactly as the
+// Brief's own "## Thesis" section states it.
+{
+  const draftMd = join(briefDir, "draft.md");
+  const text = readFileSync(draftMd, "utf8");
+  const [, ...bodyParts] = text.split("\n\n");
+  const bodyFirstLine = bodyParts.join("\n\n").split("\n")[0];
+  if (bodyFirstLine !== "# The fixture claim.") {
+    fails.push(`(h) the Draft's first body line is not "# " followed by the Thesis verbatim: ${JSON.stringify(bodyFirstLine)}`);
+  }
+}
+
 // (c) read: none of the three files names a Move reader src/compose.mjs exports.
 {
   const readers = ["resolveMoveIds", "loadMoveIds", "loadMoveContracts", "moveContract", "moveContractsForLegs",
@@ -416,5 +429,5 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323)");
+console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327)");
 JS

@@ -1620,9 +1620,10 @@ the precedence is declared rather than left to two texts that can drift. DESIGN
 §2.1 keeps the ruling's grounds — why Section is a unit at all — and this section
 keeps the contract a validator and a registered check assert against.
 
-**What this section does not decide.** How a Section title is *worded* is
-composition judgment; this says a title exists and where it is declared, never
-what it should say. Packet timing and location stay §3's and kogaki#809's.
+**What this section does not decide.** How a Section title is *worded*, beyond
+§4.15.1's three rules, is composition judgment; this says a title exists and
+where it is declared, never the whole of what it should say. Packet timing and
+location stay §3's and kogaki#809's.
 
 **BUILT AT THIS HEAD, and the halves are still named separately because they
 landed at different times.** The DECLARATION half landed at kogaki#822: the
@@ -1651,6 +1652,58 @@ of it — §4.1 names every other optional field's own subsection and this field
 none. What no carrier holds: why a heading is a promise to the reader rather than
 an artifact of how the text was produced, and why length is subordinated to the
 grouping rather than standing in for it.
+
+#### 4.15.1 The Thesis is the title, and a heading states a destination (kogaki#1327, owner decision 2026-10-10)
+
+**The ground.** A rendered Draft carried no title at all — the Brief carries
+no field for one (kogaki#1225) — and the Section headings a composer did write
+carried no rule about their content: "A list that worked, until it didn't" and
+"The check that was handed nothing" are headings this gap produced. The owner:
+"Poetic expressions remain in the titles alone, and they convey almost no
+information." Striking titles wait until the prose carries one; they do not
+return here.
+
+**Three rules, the first built at this head and the other two stated for the
+composition and validation sides to build against:**
+
+1. **The article's title is the Thesis, verbatim.** No field is composed for
+   it: `src/draft.mjs` renders the Brief's own `## Thesis` section (the durable
+   home and the entry point) as the Draft's first line, a level-one heading,
+   read by the same parser the Brief side exports for it (`briefThesis`,
+   `src/brief.mjs`) rather than a second reader that could disagree with it
+   about what the Thesis says.
+2. **A Section heading states the Section's destination, in everyday words.**
+   `opens_section`'s value is one plain sentence or phrase stating what the
+   reader holds at the Section's end, drawn from the after-state of the
+   Section's last Leg — not a restatement of the Leg's `purpose`, and not a
+   term coined for the occasion: "I want readers to be able to skip directly
+   to any Section and still understand its heading."
+3. **No heading carries a term the article introduces anywhere in it** — not
+   just a term introduced within that Section. `validateLegs`
+   (`src/compose.mjs`) refuses a Candidate whose `opens_section` contains,
+   whole-word and case-insensitive, the `term` of any Leg's `introduces` entry
+   anywhere on the path, naming the heading and the term — the same mechanical
+   test §4.13's reading of Reader start already runs (kogaki#1225,
+   `introducedTermInReaderStart`), because a reader may enter the article at
+   any Section and a term that Section's own Legs did not introduce is still
+   one the reader does not yet hold.
+
+**Rule 3 is mechanical; rule 2's "states the destination" is judgment, read
+beside the after-state it is judged against** — one more item at the fit
+judge, the Leg that opens the Section, the same site §4.12.2's specialization
+verdict already runs at.
+
+**BUILT AT THIS HEAD.** Rule 1 alone: `src/draft.mjs`'s `assembleBody` pushes
+the title ahead of every Section, asserted by `checks/check-draft-packet.sh`.
+Rules 2 and 3 are stated here as the contract `validateLegs`, `src/leg-schema.json`
+and the fit judge's input build against; this subsection does not claim their
+build.
+
+**What this subsection does not decide.** Whether a given heading's wording
+states the destination well enough is the fit judge's judgment, not a second
+mechanical test; rule 3 is the one deterministic refusal rule 2's content
+admits, the same relationship §4.13 holds between Reader start's content and
+the one term-match it refuses on.
 
 ### 4.16 The figure decision — `figure:` and `figure_roles` on a Leg
 
