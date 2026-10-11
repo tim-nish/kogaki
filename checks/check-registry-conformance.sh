@@ -297,6 +297,54 @@ def validate_entries(entries, opener=None):
     return failures
 
 
+def validate_covers(entries, path_exists=None):
+    """Every registry entry declares `covers`, naming real paths (kogaki#1269).
+
+    `covers` is the source paths or directories the check reads, written by
+    the check's author — a check reading only its own fixtures declares
+    `covers: []`, a positive declaration of "none" that is distinct from
+    omission. A MISSING `covers` key FAILS: without it, admission cannot put
+    the check on a cell's `checks:` list when the cell's files live only
+    under a path this entry does not name — the defect #1246 found, which
+    cost two worker dispatches their whole turn budget re-deriving these
+    values by hand.
+
+    Each value in a non-empty `covers` is resolved against the tree. A
+    directory value (trailing `/`) or the whole-tree scan (`.`) is checked
+    with `is_dir`; anything else is checked with `is_file`. A value naming
+    no path on disk FAILS — a stale or mistyped entry credits a cell with a
+    check it cannot actually reach, the same dead-reference defect the
+    registry/tree agreement above already refuses one level up, for `file`
+    rather than `covers`.
+    """
+    if path_exists is None:
+        def path_exists(path):
+            p = pathlib.Path(path)
+            return p.is_dir() if (path == "." or path.endswith("/")) else p.is_file()
+    failures = []
+    for entry in entries:
+        path = entry_path(entry)
+        covers = entry.get("covers")
+        if covers is None:
+            failures.append(
+                f"FAIL admission record has no covers: {path} — declare "
+                f"the source paths or directories this check reads, or "
+                f"`covers: []` for a check that reads only its own fixtures "
+                f"(kogaki#1269)")
+            continue
+        if not isinstance(covers, list):
+            failures.append(
+                f"FAIL covers malformed: {path} — must be a list of paths, "
+                f"got {covers!r}")
+            continue
+        for value in covers:
+            if not isinstance(value, str) or not path_exists(value):
+                failures.append(
+                    f"FAIL covers names no path on disk: {path} — "
+                    f"{value!r} (kogaki#1269)")
+    return failures
+
+
 def validate_case_floor(entries, file_reader=None):
     """`case_floor` on every member that delegates to another artifact's pass.
 
@@ -1171,6 +1219,38 @@ def fixture_pass():
                   "crash the check",
                   any("CANNOT-DETERMINE" in x for x in rows) and not f))
 
+    # `covers` (kogaki#1269): the paths a check reads, resolved against the
+    # tree. A stand-in tree, for the reason TREE above states — a fixture
+    # reading the real repository would pass for reasons it does not control.
+    _OMIT = object()
+    COVERS_TREE = {"real.sh", "checks/"}
+
+    def covers_exists(path):
+        return path in COVERS_TREE
+
+    def covers_entry(covers):
+        e = entry("act: x", id_="fx")
+        if covers is not _OMIT:
+            e["covers"] = covers
+        return e
+
+    cases.append(("an entry with no covers key fails",
+                  any("no covers" in x for x in
+                      validate_covers([covers_entry(_OMIT)], covers_exists))))
+    cases.append(("covers: [] is accepted — a check reading only its own "
+                  "fixtures declares none",
+                  not validate_covers([covers_entry([])], covers_exists)))
+    cases.append(("a covers value naming no path on disk fails",
+                  any("names no path on disk" in x for x in
+                      validate_covers([covers_entry(["gone.sh"])],
+                                      covers_exists))))
+    cases.append(("a covers value naming a real file passes",
+                  not validate_covers([covers_entry(["real.sh"])],
+                                      covers_exists)))
+    cases.append(("a covers directory value (trailing `/`) passes",
+                  not validate_covers([covers_entry(["checks/"])],
+                                      covers_exists)))
+
     failed = [name for name, ok in cases if not ok]
     if failed:
         for name in failed:
@@ -1365,6 +1445,8 @@ for name in sorted(registered - present):
 # grammar added under kogaki#113): an empty record passed the filename
 # comparison above, which was the gap #6 names.
 failures += validate_entries(entries)
+# Every entry declares `covers`, naming real paths (kogaki#1269).
+failures += validate_covers(entries)
 # The delegating class and its floor (kogaki#661).
 failures += validate_case_floor(entries)
 failures += validate_floor_exceeds_arm(entries)
