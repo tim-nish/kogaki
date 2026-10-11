@@ -44,7 +44,13 @@ import json, os, pathlib, re, subprocess, sys, tempfile
 
 INSTRUMENT = re.compile(r'^(act|none|probe): \S', re.DOTALL)
 EFFICACY = re.compile(r'^(case|none): \S', re.DOTALL)
-PROBE_TIMEOUT_S = 10
+# INJECTABLE, NOT GUESSED (kogaki#1343): a `probe:` is a real subprocess —
+# several are `git grep` over the whole tree — so how long it needs before
+# COULD-NOT-ESTABLISH is a fact about the machine running it, not this
+# check. A run under heavier concurrent load than this tree sees locally
+# sets `KOGAKI_PROBE_TIMEOUT_S` rather than this file guessing a bigger
+# constant that the next load level outgrows again.
+PROBE_TIMEOUT_S = int(os.environ.get("KOGAKI_PROBE_TIMEOUT_S", "10"))
 
 # The DELEGATING CLASS (kogaki#661), DETECTED rather than enumerated. A member
 # that spawns another artifact's fixture pass owes a `case_floor`, and the
