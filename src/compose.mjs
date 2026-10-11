@@ -762,6 +762,12 @@ export function validateLegs(legs, readerStart, obligations = []) {
   // relation to its neighbours, so none of them is decidable inside the loop.
   const grouping = sectionGroupingRefusal(legs);
   if (grouping) return { error: grouping };
+  // NO INTRODUCED TERM IN ANY HEADING (kogaki#1327), run beside the Section
+  // grouping for the same reason: a statement about a Leg's `opens_section`
+  // against every OTHER Leg's `introduces`, decidable only once the whole
+  // path is known.
+  const heading = opensSectionIntroducedTermRefusal(legs);
+  if (heading) return { error: heading };
   // CLOSURE (kogaki#1232, owner decision 2026-09-30), run for the same reason
   // the Section grouping and the Reader target Leg do: both rules below are
   // statements about the whole ledger against the whole path, not about one
@@ -1709,31 +1715,37 @@ export function parseIntroducesEntry(raw) {
   return { term, anchor };
 }
 
-// Whether `term` occurs in `readerStart` as a whole word, case-insensitive
-// (kogaki#1225). The boundary is "not adjacent to a letter or digit" rather
+// THE WHOLE-WORD, CASE-INSENSITIVE MATCH ITSELF, shared by every mechanical
+// introduced-term refusal (Reader start, kogaki#1225; a Section heading,
+// kogaki#1327). The boundary is "not adjacent to a letter or digit" rather
 // than `\b`, so a term ending in punctuation or a non-ASCII letter still
 // bounds on both sides, and a one-character term matches only standing alone.
+function wholeWordMatch(term, text) {
+  const t = String(term).trim().toLowerCase();
+  if (t === "") return false;
+  const haystack = String(text).toLowerCase();
+  let from = 0;
+  for (;;) {
+    const i = haystack.indexOf(t, from);
+    if (i === -1) return false;
+    const before = i === 0 ? "" : haystack[i - 1];
+    const after = haystack[i + t.length] ?? "";
+    const wordish = (c) => c !== "" && /[\p{L}\p{N}_]/u.test(c);
+    if (!wordish(before) && !wordish(after)) return true;
+    from = i + 1;
+  }
+}
+
 // THE MATCH READS EACH LINE'S CONTENT, NEVER ITS DIMENSION LABEL (PR #1228
 // round 1): a Reader start is `dimension: value` lines, so matching the whole
 // string let a Leg introducing "trust" or "question" refuse every Reader
 // start on the label alone. The `<dimension>:` prefix is stripped per line
 // the way `readerStateDimensionLine` reads it, and the values are searched.
 export function introducedTermInReaderStart(term, readerStart) {
-  const t = String(term).trim().toLowerCase();
-  if (t === "") return false;
   const text = String(readerStart).split("\n")
     .map((line) => line.replace(/^\s*[a-z]+:\s*/i, ""))
-    .join("\n").toLowerCase();
-  let from = 0;
-  for (;;) {
-    const i = text.indexOf(t, from);
-    if (i === -1) return false;
-    const before = i === 0 ? "" : text[i - 1];
-    const after = text[i + t.length] ?? "";
-    const wordish = (c) => c !== "" && /[\p{L}\p{N}_]/u.test(c);
-    if (!wordish(before) && !wordish(after)) return true;
-    from = i + 1;
-  }
+    .join("\n");
+  return wholeWordMatch(term, text);
 }
 
 // the Section grouping's `opens_section` (kogaki#822) — OPTIONAL, and shape-validated here for
@@ -1741,7 +1753,39 @@ export function introducedTermInReaderStart(term, readerStart) {
 // unvalidated value renders as a blank or as `undefined` above a Section.
 export function opensSectionRefusal(value, at) {
   if (typeof value !== "string" || value.trim() === "") {
-    return `${at}: opens_section, when present, is the Section's title — a non-empty string (the Section grouping). Its PRESENCE marks the opening and its VALUE carries the title, which is why an empty one has no meaning rather than meaning "opens with no title"`;
+    return `${at}: opens_section, when present, states the Section's destination — a non-empty string (the Section grouping). Its PRESENCE marks the opening and its VALUE carries the destination, which is why an empty one has no meaning rather than meaning "opens with no destination"`;
+  }
+  return null;
+}
+
+// NO INTRODUCED TERM IN ANY HEADING (owner decision 2026-10-10, kogaki#1327).
+// A Section heading states where the Section leaves the reader, in everyday
+// words, and carries no term — whole-word, case-insensitive — that ANY Leg
+// of the path lists under `introduces`, not just a term introduced within
+// that Section: "I want readers to be able to skip directly to any Section
+// and still understand its heading." Collected once over the whole path
+// (a term introduced on a LATER Leg still refuses an earlier heading) and
+// then checked against every `opens_section`, for the same reason
+// `sectionGroupingRefusal` runs after the per-Leg loop rather than inside it.
+export function opensSectionIntroducedTermRefusal(legs) {
+  const terms = [];
+  for (const s of legs) {
+    if (!s || typeof s !== "object" || !Array.isArray(s.introduces)) continue;
+    for (const raw of s.introduces) {
+      const e = parseIntroducesEntry(raw);
+      if (e.error) continue;
+      terms.push({ term: e.term, leg_id: s.leg_id });
+    }
+  }
+  for (const [i, s] of legs.entries()) {
+    if (!s || typeof s !== "object" || typeof s.opens_section !== "string" || s.opens_section === "") continue;
+    const at = `leg ${i + 1}${s.leg_id ? ` (${s.leg_id})` : ""}`;
+    for (const { term, leg_id } of terms) {
+      if (wholeWordMatch(term, s.opens_section)) {
+        return pathRefusal("opens_section_no_introduced_term", at,
+          `Its opens_section ${JSON.stringify(s.opens_section)} contains "${term}", a term leg ${JSON.stringify(leg_id)} lists under introduces.`);
+      }
+    }
   }
   return null;
 }

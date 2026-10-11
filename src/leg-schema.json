@@ -174,7 +174,7 @@
     "opens_section": {
       "required": false,
       "type": "string",
-      "description": "Present on a Leg that opens a Section of the finished article; carries that Section's name. The four grouping rules are a property of the WHOLE PATH and run after every Leg is known to be well formed -- they are stated in `path_rules` below, as the validator checks them, and three of the four refuse. The Section grouping carries the four rules.",
+      "description": "Present on a Leg that opens a Section of the finished article. ITS VALUE STATES THE SECTION'S DESTINATION, not a title (owner decision 2026-10-10): one plain sentence or phrase stating what the reader holds at the Section's end, drawn from the after-state of the Section's last Leg, in EVERYDAY WORDS. It carries no term, whole-word and case-insensitive, that ANY Leg of the path lists under `introduces` -- not just a term introduced within that Section -- so a reader can skip directly to any Section and still understand its heading; this is checked (`opens_section_no_introduced_term` below). The four grouping rules and the heading rule are a property of the WHOLE PATH and run after every Leg is known to be well formed -- they are stated in `path_rules` below, as the validator checks them.",
       "see": "path_rules"
     },
     "figure": {
@@ -278,6 +278,11 @@
       "name": "the Section grouping rule 4",
       "rule": "TWO ADJACENT SECTIONS HOLDING EXACTLY ONE LEG EACH are refused with a request to MERGE them, because a heading on every Leg is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason.",
       "the_other_clause": "Rule 4's other clause -- a Section running past roughly a display and a half of prose without a heading -- measures REALIZED PROSE, which no Brief contains. It is a named deferred slot in the Section grouping: it binds your judgment while you group the Legs, and no refusal reads it."
+    },
+    "opens_section_no_introduced_term": {
+      "class": "checked",
+      "name": "the Section grouping -- a heading carries no term any Leg introduces",
+      "rule": "A Leg's `opens_section` carries no term, whole-word and case-insensitive, that ANY Leg of the path lists under `introduces` -- not just a term introduced within that Section (owner decision 2026-10-10). A Section heading states where the Section leaves the reader, in everyday words, and \"I want readers to be able to skip directly to any Section and still understand its heading\" is why the whole path is read rather than only the Legs before the Section opens. The same mechanical test that refuses an introduced term in Reader start."
     },
     "reaches_target_marked": {
       "class": "checked",

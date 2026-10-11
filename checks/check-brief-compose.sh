@@ -1812,6 +1812,27 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (u3 && u3.error) fails.push(`(ao3) the compose unit refused the same Candidate: ${u3.error}`);
 }
 
+// (ap) kogaki#1327 — a Section heading carries no term ANY Leg of the path
+// introduces, not just terms introduced within that Section.
+{
+  const legsFor = (s1Extra = {}, s2Extra = {}) => [leg1276("s1", { opens_section: "what the reader now holds", ...s1Extra }),
+    leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...s2Extra })];
+  const refusal = (ls) => { const r = compose.validateLegs(ls, START_1276, []); return r.error || null; };
+
+  // a term introduced on a LATER Leg still refuses an EARLIER heading.
+  const laterTerm = refusal(legsFor({ opens_section: "what a pipeline now does" }, { introduces: ["pipeline"] }));
+  if (!laterTerm) fails.push("(ap) a heading carrying a term introduced on a later Leg was not refused");
+  else {
+    if (!/"pipeline"/.test(laterTerm)) fails.push(`(ap) the refusal did not name the term: ${laterTerm}`);
+    if (!/leg 1 \(s1\)/.test(laterTerm)) fails.push(`(ap) the refusal did not name the heading's Leg: ${laterTerm}`);
+    if (!/leg "s2"/.test(laterTerm)) fails.push(`(ap) the refusal did not name the introducing Leg: ${laterTerm}`);
+  }
+
+  // a heading free of introduced terms passes.
+  const clean = refusal(legsFor({}, { introduces: ["pipeline"] }));
+  if (clean) fails.push(`(ap) a heading carrying no introduced term was refused: ${clean}`);
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
