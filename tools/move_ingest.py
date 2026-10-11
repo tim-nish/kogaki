@@ -41,10 +41,16 @@ FIELDS = (
     "breaks",
 )
 
-# §4.2's three optional fields. None is part of §4.2's five and none becomes
-# one — condition 3 admits the five, plus any of these three and nothing
-# else. Each is absent by default.
-OPTIONAL_FIELDS = ("continues_from", "evidence", "figure")
+# §4.2's three optional fields, plus `segments` (kogaki#1320): none is part
+# of §4.2's five required keys and none becomes one — condition 3 admits the
+# five, plus any of these four and nothing else. Each is absent by default.
+# `segments` is never one of the eight keys the model authors (the contract's
+# own output format); it is the one field `tools/move_ingest.py`'s `passage`
+# mode writes itself, after the model's record is admitted, so it has to be
+# optional here for condition 3 to admit a record that carries it — and for
+# the 21 Moves ingested before this field existed to keep validating with
+# none.
+OPTIONAL_FIELDS = ("continues_from", "evidence", "figure", "segments")
 
 # The only key whose value is a nested mapping. The value model stays
 # deliberately small (§6.9.0): scalars, `>-` folded scalars, column-0
@@ -583,10 +589,17 @@ def read_proposals(text):
 
 PLAIN_FIELDS = ("id", "continues_from")
 
-# §4.2's optional non-nested fields, rendered after the five required ones
-# and before `figure` (which renders LAST, per §6.9.1a) — in this fixed order,
-# so two records differ only where their content differs.
-OPTIONAL_SCALAR_FIELDS = ("continues_from", "evidence")
+# §4.2's optional non-nested fields, plus `segments` (kogaki#1320), rendered
+# after the five required ones and before `figure` (which renders LAST, per
+# §6.9.1a) — in this fixed order, so two records differ only where their
+# content differs.
+OPTIONAL_SCALAR_FIELDS = ("continues_from", "evidence", "segments")
+
+# `segments` alone renders as a LITERAL block (`|-`), never folded: a Segment
+# entry is a line of a list the owner reads in order, and a `>-` fold would
+# join the Segments into one run-on paragraph, losing the very order this
+# field exists to make checkable (kogaki#1320).
+LITERAL_FIELDS = ("segments",)
 
 
 def render_move(mapping):
@@ -619,6 +632,16 @@ def render_move(mapping):
             return
         if field in PLAIN_FIELDS:
             out.append("%s: %s" % (field, value))
+            return
+        if field in LITERAL_FIELDS:
+            out.append("%s: |-" % field)
+            # Each line stripped before re-indenting, never trusted as
+            # already bare: a value read back off a saved file (`read_saved`)
+            # keeps the two-space indent its own continuation lines were
+            # read with, and re-indenting an already-indented line would
+            # double it on every subsequent round trip.
+            for line in str(value).splitlines():
+                out.append("  %s" % line.strip())
             return
         out.append("%s: >-" % field)
         for chunk in _wrap(str(value), 74):
@@ -1119,6 +1142,94 @@ def check_analysis_split_note(passage_text, line_no=None):
     return None
 
 
+# --------------------------------------------------------------------------
+# `segments`, copied from Analysis section 3 (kogaki#1320).
+# --------------------------------------------------------------------------
+#
+# `passages/FORMAT.md` §3 writes one numbered entry per Segment: the quoted
+# opening words, a dash, the function (raises | advances | settles), a dash,
+# the relation to the previous Segment, a dash, then the clause stating what
+# it does to the reader. The quoted opening words locate the Segment in the
+# Passage and are not copied — `segments` does not carry the Passage.
+SECTION3_HEADING = re.compile(r"^##\s*3\.\s*The order inside the Passage\s*$", re.M)
+NEXT_HEADING = re.compile(r"^##\s*\d+\.", re.M)
+
+SEGMENT_ENTRY = re.compile(
+    r'^\s*\d+\.\s*"[^"]*"\s*—\s*'
+    r"(?P<function>raises|advances|settles)\s*—\s*"
+    r"(?P<relation>cause|consequence|contrast|elaboration|evidence|enumeration|none)\s*—\s*"
+    r"(?P<clause>.+?)(?=\n[ \t]*\n|\n\s*\d+\.\s*\"|\Z)",
+    re.M | re.S,
+)
+
+
+def section3_body(passage_text):
+    """The text of Analysis `## 3. The order inside the Passage`, between
+    its heading and the next, or `None` where the text carries no such
+    heading — a bare Passage with no Analysis."""
+    heading = SECTION3_HEADING.search(passage_text)
+    if heading is None:
+        return None
+    rest = passage_text[heading.end():]
+    next_heading = NEXT_HEADING.search(rest)
+    body = rest[:next_heading.start()] if next_heading else rest
+    return body
+
+
+def analysis_segments(passage_text):
+    """The ordered Segments of Analysis section 3, each
+    `(function, relation, clause)`, or `None` where the text carries no
+    section 3 at all."""
+    body = section3_body(passage_text)
+    if body is None:
+        return None
+    segments = []
+    for match in SEGMENT_ENTRY.finditer(body):
+        clause = " ".join(match.group("clause").split())
+        segments.append((match.group("function"), match.group("relation"), clause))
+    return segments
+
+
+def render_segments_text(segments):
+    """The §4.2 `segments` value: one numbered line per Segment, in order —
+    the LITERAL text a saved Move renders (`render_move`), never a `>-`
+    folded paragraph that would lose the order."""
+    return "\n".join(
+        "%d. %s — %s — %s" % (i + 1, function, relation, clause)
+        for i, (function, relation, clause) in enumerate(segments)
+    )
+
+
+def check_segments(mapping, passage_text, line_no):
+    """Copy the Analysis's ordered Segments into the record's own
+    `segments`. Returns `(Refusal, None)` where the Analysis carries no
+    section 3 to copy from, or where the record already carried a
+    `segments` value that disagrees with the copy — the model is never
+    asked to write or reorder Segments, so a value it supplied anyway is a
+    defect, not an alternative reading. Otherwise returns `(None, <the
+    literal numbered-list text>)`."""
+    segments = analysis_segments(passage_text)
+    if segments is None:
+        return Refusal(
+            "segments",
+            "the record carries no `segments` — the Analysis carries no "
+            "section 3 (\"## 3. The order inside the Passage\") for the "
+            "tool to copy it from",
+            line_no=line_no,
+        ), None
+    text = render_segments_text(segments)
+    existing = mapping.get("segments")
+    if existing is not None and str(existing).strip() != text.strip():
+        return Refusal(
+            "segments",
+            "`segments` does not match the Analysis's section 3 — the "
+            "model is never asked to write or reorder Segments, and this "
+            "record's `segments` disagrees with the copy",
+            line_no=line_no,
+        ), None
+    return None, text
+
+
 def render_passage_screen(proposal, duplicates, rewritten=()):
     """The one screen the owner sees: accept as new / merge into the named
     Move / decline. An artifact (kogaki#474's precedent), never retyped."""
@@ -1204,6 +1315,16 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
             proposal.mapping, passage_text, proposal.line_no)
         if subject_refusal is not None:
             proposal = Proposal(proposal.line_no, refusal=subject_refusal)
+
+    if proposal.admitted:
+        # The Analysis's ordered Segments, copied into the record itself
+        # (kogaki#1320) — never asked of the model.
+        segments_refusal, segments_text = check_segments(
+            proposal.mapping, passage_text, proposal.line_no)
+        if segments_refusal is not None:
+            proposal = Proposal(proposal.line_no, refusal=segments_refusal)
+        else:
+            proposal.mapping["segments"] = segments_text
 
     duplicates = []
     rewritten = []

@@ -530,6 +530,7 @@ condition 3.
 | `continues_from` | optional | a prior Move's `id`, when this one picks up from it |
 | `evidence` | optional | the source work and where the Passage sits — no quotation |
 | `figure` | optional | a Figure spec's `kind`, `positions` and `relations`, never its content |
+| `segments` | added by the tool | the Analysis's ordered Segments, copied in by `tools/move_ingest.py`, never authored by the model |
 
 **`before` / `after`.** One line per reader dimension the Move changes;
 unchanged dimensions are omitted. The dimension set — knowledge, question,
@@ -601,6 +602,15 @@ that set is a widening owed to `src/figure-kinds.json` under its own
 amendment, never a silent admission. **Absent by default**, admitted the same
 way `visual_form` was: added only when the Move's transformation has a
 relational shape, which is the admission act's judgment, never a rule here.
+
+**`segments` (kogaki#1320, owner ruling 2026-10-10).** Not one of the eight
+keys the model authors. `tools/move_ingest.py`'s `passage` mode copies the
+Analysis's `## 3. The order inside the Passage` into the admitted record's
+own `segments`, entry for entry, in the same order, so a human can check a
+Leg's waypoint order against something other than the prose of `technique`.
+A record is refused, naming `segments`, where the Analysis carries no
+section 3 to copy from, or where the model's own record already carried a
+`segments` value that disagrees with the copy.
 
 **Subject-independence is the default for every field (owner ruling,
 2026-09-23: "a fundamental principle of the design from the beginning").** No
@@ -1170,11 +1180,13 @@ Move the Leg binds, whose contract the input carries beside the Leg's own
 - whether `reader_state_after` is a consistent specialization of the Move's
   `after`;
 - whether the Leg's **points, read in order, follow the Move's order** as its
-  `technique` gives it, each point obtainable from the claim it serves
-  (kogaki#1326). The points are judged, not the claims and not
-  the state lines: on 2026-10-08 the judgment read Leg 4's state lines, which
-  the composer had written to mirror the Move, and passed a Leg the writer
-  then could not perform;
+  `segments` give it, or as its `technique` gives it where the Move carries
+  no `segments` (kogaki#1320 — the 21 Moves ingested before the field
+  existed carry none, and the judgment falls back rather than refusing),
+  each point obtainable from the claim it serves (kogaki#1326). The points
+  are judged, not the claims and not the state lines: on 2026-10-08 the
+  judgment read Leg 4's state lines, which the composer had written to
+  mirror the Move, and passed a Leg the writer then could not perform;
 - whether the waypoints **survive each test in the Move's `breaks`**.
 
 **Count fidelity is not a criterion.** A Leg whose `technique` names "twice"

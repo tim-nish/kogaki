@@ -1252,6 +1252,10 @@ export function moveContract(moveId, movesDir = "moves") {
       + `the composer chooses a Move by its ${MOVE_CONTRACT_FIELDS.join(", ")} and the specialization judgment compares each Leg against the same four (kogaki#1276), `
       + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
   }
+  // `segments` IS OPTIONAL (kogaki#1320): the 21 Moves ingested before the
+  // field existed carry none, and the composer and the fit judge fall back
+  // to `technique` where it is absent rather than refusing.
+  out.segments = moveScalarField(text, "segments");
   return out;
 }
 
@@ -1365,9 +1369,12 @@ export function moveContractsForLegs(legs, movesDir = "moves") {
     // THE LEG'S WAYPOINTS RIDE BESIDE THE MOVE'S `technique` AND `breaks`
     // (kogaki#1311): the fit judgment judges the waypoints against those two,
     // so the input sets them side by side rather than leaving the judge to
-    // find them in the Leg array.
+    // find them in the Leg array. `segments` RIDES BESIDE THEM TOO
+    // (kogaki#1320), null where the Move carries none, so the fit judge
+    // compares the waypoints' order against `segments` and falls back to
+    // `technique` only where that read is null.
     out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after, technique: c.technique, breaks: c.breaks,
-      waypoints: s.waypoints });
+      segments: c.segments, waypoints: s.waypoints });
   }
   return { contracts: out };
 }

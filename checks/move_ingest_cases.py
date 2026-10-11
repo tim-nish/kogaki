@@ -39,6 +39,18 @@ AXIS_FORM = """figure:
 """
 
 
+# kogaki#1320: a passage-mode fixture that reaches an admitted proposal now
+# needs an Analysis section 3 for `segments` to copy from — appended to every
+# such fixture's passage text, never to one whose proposal is refused for an
+# earlier reason (the segments check runs only once a proposal is admitted).
+SECTION3 = (
+    "\n\n## 3. The order inside the Passage\n\n"
+    '1. "Opening words" — raises — none — '
+    "gives the reader an unanswered question.\n"
+    '2. "Closing words" — settles — cause — answers it directly.\n'
+)
+
+
 def _record(move_id="a-move", form=None):
     text = FIVE.format(id=move_id)
     if form is not None:
@@ -907,7 +919,7 @@ def self_test():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
             with open(passage_path, "w") as handle:
-                handle.write("A passage about persistent institutions.\n")
+                handle.write("A passage about persistent institutions.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             with open(contract_path, "w") as handle:
                 handle.write("EXTRACTION CONTRACT\n")
@@ -931,7 +943,7 @@ def self_test():
     def the_model_is_spawned_at_most_once_per_out_dir():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n")
+            open(passage_path, "w").write("A passage.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -953,7 +965,7 @@ def self_test():
     def select_accept_writes_and_regenerates_the_index():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n")
+            open(passage_path, "w").write("A passage.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -976,7 +988,7 @@ def self_test():
     def decline_writes_nothing():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n")
+            open(passage_path, "w").write("A passage.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -996,7 +1008,7 @@ def self_test():
     def select_merge_rewrites_the_named_move_and_regenerates_the_index():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n")
+            open(passage_path, "w").write("A passage.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1026,7 +1038,7 @@ def self_test():
     def select_merge_refuses_an_unknown_target():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n")
+            open(passage_path, "w").write("A passage.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1049,7 +1061,7 @@ def self_test():
     def a_near_duplicate_is_named_from_the_index():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n")
+            open(passage_path, "w").write("A passage.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1104,7 +1116,7 @@ def self_test():
     def select_rejects_an_unknown_token():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n")
+            open(passage_path, "w").write("A passage.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1227,7 +1239,8 @@ def self_test():
         with tempfile.TemporaryDirectory() as d:
             passage_path = os.path.join(d, "passage.txt")
             with open(passage_path, "w") as handle:
-                handle.write("subject nouns: none\n\nA passage about a guard's reach.\n")
+                handle.write(
+                    "subject nouns: none\n\nA passage about a guard's reach.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1292,7 +1305,7 @@ def self_test():
                     "| expectation | unchanged | unchanged |         |\n"
                     "| orientation | unchanged | unchanged |         |\n"
                     "| trust       | unchanged | unchanged |         |\n"
-                    "\ndimensions changed: 0\n\nA passage about nothing moving.\n")
+                    "\ndimensions changed: 0\n\nA passage about nothing moving.\n" + SECTION3)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
