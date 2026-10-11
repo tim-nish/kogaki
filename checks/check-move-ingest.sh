@@ -118,5 +118,110 @@ if [[ "$COUNT" -lt 1 ]]; then
   exit 1
 fi
 
+# --------------------------------------------------------------------------
+# `segments` (kogaki#1320) — the Passage-to-Move path copies the Analysis's
+# ordered Segments into the record itself, and refuses where there is none.
+# Each case runs the act — `run_passage` itself, against a stubbed model —
+# never a grep over the contract or spec wording (admission consult,
+# kogaki#1320: "a contract tested against its own text is green about the
+# document").
+# --------------------------------------------------------------------------
+SEGMENTS_OUT=$(python3 <<'PY'
+import os
+import sys
+import tempfile
+
+sys.path.insert(0, "tools")
+import move_ingest as m
+
+MOVE_RECORD = """id: test_move_segments
+before: >-
+  knowledge: holds nothing about the technique.
+after: >-
+  knowledge: holds the technique.
+technique: >-
+  demonstrates a simple reusable technique.
+breaks: >-
+  remove: the setup - the payoff lands for no reason.
+  reorder: swap the two halves - the setup no longer earns the payoff.
+  extend: add a third beat - the point dilutes.
+"""
+
+def fake_spawn(command, model, prompt, timeout_s, cwd=None):
+    return MOVE_RECORD
+
+m.spawn_model = fake_spawn
+
+failures = []
+
+# Case 1 — no Analysis at all: refused, naming `segments`.
+tmp1 = tempfile.mkdtemp()
+passage1 = os.path.join(tmp1, "bare.md")
+with open(passage1, "w") as fh:
+    fh.write("A bare Passage with no Analysis at all.\n")
+try:
+    m.run_passage(passage1, "specs/move-extraction-contract.md",
+                  os.path.join(tmp1, "moves"), "stub", "stub-model",
+                  os.path.join(tmp1, "out"), 60, select="accept")
+    failures.append(
+        "a record with no Analysis section 3 was accepted; it must be "
+        "refused naming `segments`")
+except m.Refusal as refusal:
+    if "segments" not in str(refusal):
+        failures.append(
+            "the no-Analysis refusal does not name `segments` -- got: %s"
+            % refusal)
+
+# Case 2 — an Analysis with section 3: the saved Move renders `segments`
+# as a numbered list, in section 3's own order.
+tmp2 = tempfile.mkdtemp()
+passage2 = os.path.join(tmp2, "analysed.md")
+with open(passage2, "w") as fh:
+    fh.write("""## 3. The order inside the Passage
+
+1. "Opening words one" — raises — none — gives the reader an unanswered question.
+2. "Opening words two" — settles — cause — answers it directly.
+
+## 4. What the Passage presupposes
+
+nothing beyond ordinary attention.
+""")
+moves_dir2 = os.path.join(tmp2, "moves")
+try:
+    m.run_passage(passage2, "specs/move-extraction-contract.md", moves_dir2,
+                  "stub", "stub-model", os.path.join(tmp2, "out"), 60,
+                  select="accept")
+except m.Refusal as refusal:
+    failures.append(
+        "a record with an Analysis section 3 was refused -- %s" % refusal)
+else:
+    saved = os.path.join(moves_dir2, "test_move_segments.md")
+    if not os.path.isfile(saved):
+        failures.append("no Move was saved at %s" % saved)
+    else:
+        text = open(saved).read()
+        expected = """segments: |-
+  1. raises — none — gives the reader an unanswered question.
+  2. settles — cause — answers it directly.
+"""
+        if expected not in text:
+            failures.append(
+                "`segments` did not render as a numbered list in section "
+                "3's order -- saved file:\n%s" % text)
+
+if failures:
+    for f in failures:
+        print("FAIL: %s" % f)
+    sys.exit(1)
+print(
+    "ok: segments refused with no Analysis, naming the field; saved with "
+    "an Analysis, numbered in section 3's order (kogaki#1320)")
+PY
+); SEGRC=$?
+printf '%s\n' "$SEGMENTS_OUT"
+if [[ $SEGRC -ne 0 ]]; then
+  exit 1
+fi
+
 echo "ok: ingestion fixture pass ran ${N} case(s) clean, exactly at its floor of ${FLOOR}; ${COUNT} shipped record(s) validate against the live kind set"
 exit 0
