@@ -1180,11 +1180,13 @@ Move the Leg binds, whose contract the input carries beside the Leg's own
 - whether `reader_state_after` is a consistent specialization of the Move's
   `after`;
 - whether the Leg's **points, read in order, follow the Move's order** as its
-  `technique` gives it, each point obtainable from the claim it serves
-  (kogaki#1326). The points are judged, not the claims and not
-  the state lines: on 2026-10-08 the judgment read Leg 4's state lines, which
-  the composer had written to mirror the Move, and passed a Leg the writer
-  then could not perform;
+  `segments` give it, or as its `technique` gives it where the Move carries
+  no `segments` (kogaki#1320 — the 21 Moves ingested before the field
+  existed carry none, and the judgment falls back rather than refusing),
+  each point obtainable from the claim it serves (kogaki#1326). The points
+  are judged, not the claims and not the state lines: on 2026-10-08 the
+  judgment read Leg 4's state lines, which the composer had written to
+  mirror the Move, and passed a Leg the writer then could not perform;
 - whether the waypoints **survive each test in the Move's `breaks`**.
 
 **Count fidelity is not a criterion.** A Leg whose `technique` names "twice"
