@@ -784,12 +784,110 @@ try {
   }
 }
 
+// (o) the claim register's judgment narrows (kogaki#1331, owner decision 2026-10-10): the
+// review_path_unit input carries no `persona_prior_knowledge` grant and carries the Brief's
+// `defined_terms` instead, and the row asks only whether a claim uses a defined word its Leg
+// has not been handed by an `introduces` entry -- never whether a word is everyday English.
+{
+  const briefSrc = readFileSync("src/brief.mjs", "utf8");
+  const reviewPath = briefSrc.slice(briefSrc.indexOf("  review_path: async"), briefSrc.indexOf("  attach_review"))
+    .split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  const unitInput = reviewPath.slice(reviewPath.indexOf("const units = cands.map("));
+  if (/persona_prior_knowledge|prior_knowledge/.test(unitInput)) fails.push("(o) the review_path_unit input still carries the Persona's prior_knowledge");
+  if (!/defined_terms: definedTerms,/.test(unitInput)) fails.push("(o) the review_path_unit input does not carry the Brief's defined_terms");
+  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const jp = table.review_path_unit.judgment_point;
+  if (/everyday English/.test(jp)) fails.push("(o) the review_path_unit row still asks whether a claim's word is everyday English");
+  if (/persona_prior_knowledge/.test(jp)) fails.push("(o) the review_path_unit row still names persona_prior_knowledge as the claim register's declared side");
+  if (!/defined_terms/.test(jp)) fails.push("(o) the review_path_unit row does not name defined_terms as the claim register's declared side");
+  const reviewSrc = readFileSync("src/review.mjs", "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  if (/everyday|Persona/.test(reviewSrc)) fails.push("(o) src/review.mjs's claim register still names everyday words or the Persona");
+}
+
+// (p) THE DEFINED-TERM ORDER ITEM (kogaki#1331): mechanical, reading the Brief's `defined_terms`
+// and which Leg introduces each, and nothing of the Brief besides. A Draft using the defined word
+// "gate" two lines before the sentence that introduces it -- at the end of the Leg before the
+// introducing Leg -- joins `fails` naming the word and the line; the introducing Leg, whose first
+// use IS the introduction, joins `holds`. Driven through the real open/outline/compare CLI.
+{
+  const { stringifyYaml } = await import("./src/yaml.mjs");
+  const ws = mkdtempSync(join(tmpdir(), "review-draft-defterm-"));
+  const draftPath = join(ws, "draft.md");
+  writeFileSync(join(ws, "brief.yaml"), stringifyYaml({
+    slug: "fixture", thesis: "A gate passes only what it was given.",
+    defined_terms: [{ term: "gate", class: "defined" }, { term: "given", class: "ordinary" }],
+    reader_path: [{ leg_id: "leg-a" }, { leg_id: "leg-b", introduces: [{ term: "gate", kind: "coined", meaning: "the step that decides" }] }],
+  }));
+  const packet = [
+    "## The waypoints this Leg takes the reader through", "",
+    "- the reader is brought to see what the step decides *Serves:* the Leg's claim", "",
+    "## The claims this Leg asserts", "",
+    "- the step passes only what it was handed", "",
+    "## What crosses into this Leg", "", "(none)", "",
+    "## The Journey material this Leg edits — NOT a claim to recover", "",
+    "The step and what it was handed.", "",
+    "**The reader's own world.** Can read code and has used a CI system.", "",
+  ].join("\n");
+  writeFileSync(join(ws, "packet-a.md"), packet);
+  const sha = createHash("sha256").update(packet).digest("hex");
+  const legA = ["The pipeline runs several steps before a merge.", "", "Each one reads what the gate was given."];
+  const legB = ["A gate is the step that decides whether a change may go on.", "", "It reads only what it was handed."];
+  const aLines = [8, 8 + legA.length - 1];
+  const bLines = [aLines[1] + 2, aLines[1] + 1 + legB.length];
+  const fm = ["---", "brief: brief.yaml", "trace:",
+    `  - ${JSON.stringify({ leg_id: "leg-a", lines: aLines, packet: "packet-a.md", packet_sha: sha })}`,
+    `  - ${JSON.stringify({ leg_id: "leg-b", lines: bLines, packet: "packet-a.md", packet_sha: sha })}`,
+    "---"].join("\n");
+  writeFileSync(draftPath, `${fm}\n\n${legA.join("\n")}\n\n${legB.join("\n")}\n`);
+  const runCmd = (cmd, extra, input) => spawnSync(process.execPath,
+    ["src/review-draft.mjs", cmd, "--draft", draftPath, "--workspace", ws, ...extra],
+    { encoding: "utf8", input: input ?? "" });
+  const outlineFor = (legId) => "```leg\n" + `leg_id: ${legId}\n`
+    + "purpose: say what the step decides\n"
+    + "reader_state_before: the reader has never met the step\n"
+    + "reader_state_after: the reader can say what the step decides\n"
+    + "claim the step passes only what it was handed\n"
+    + "waypoint the passage brings me to see what the step decides\n" + "```\n";
+  const open = runCmd("open", []);
+  if (open.status !== 0) fails.push(`(p) open exited ${open.status}: ${(open.stderr || "").trim()}`);
+  for (const id of ["leg-a", "leg-b"]) {
+    const o = runCmd("outline", ["--leg", id], outlineFor(id));
+    if (o.status !== 0) fails.push(`(p) outline ${id} exited ${o.status}: ${(o.stderr || "").trim()}`);
+  }
+  const cmp = runCmd("compare", []);
+  const m = /join record: (.+)$/m.exec(cmp.stdout || "");
+  if (!m) fails.push(`(p) compare named no join record: ${((cmp.stdout || "") + (cmp.stderr || "")).trim().slice(0, 400)}`);
+  else {
+    const joined = JSON.parse(readFileSync(m[1].trim(), "utf8"));
+    const a = (joined.results || []).find((r) => r.leg_id === "leg-a" && r.item === "defined-term-order");
+    const b = (joined.results || []).find((r) => r.leg_id === "leg-b" && r.item === "defined-term-order");
+    if (!a || a.verdict !== "fails") fails.push(`(p) defined-term-order on leg-a did not join as fails: ${JSON.stringify(a)}`);
+    else {
+      const ev = (a.evidence || [])[0] || "";
+      if (ev !== `The defined term 'gate' on line ${aLines[1]} is used before the Leg that introduces it`) {
+        fails.push(`(p) leg-a's finding does not name the word and the line two before the introducing sentence: ${JSON.stringify(ev)}`);
+      }
+      if (/[0-9]/.test(a.reason)) fails.push(`(p) leg-a's reason carries a digit: ${JSON.stringify(a.reason)}`);
+    }
+    if (!b || b.verdict !== "holds") fails.push(`(p) defined-term-order on the introducing leg-b did not join as holds: ${JSON.stringify(b)}`);
+    if ((joined.model_calls || []).some((c) => c.item === "defined-term-order")) fails.push("(p) defined-term-order cost a model call — it is declared mechanical");
+  }
+  rmSync(ws, { recursive: true, force: true });
+  // AND THE SPEC SAYS SO: §8.2 names the two carriers -- terms/prh.yml for the Japanese surface
+  // form, the Brief's defined_terms for the sense -- where it used to say "no second term list".
+  const spec = readFileSync("specs/spec-draft-pipeline/SPEC.md", "utf8");
+  const s82 = spec.slice(spec.indexOf("### 8.2 The Terminology List Decision"), spec.indexOf("### 8.2.1"));
+  if (!/Two carriers for two constraints/.test(s82) || !/surface form/.test(s82) || !/`defined_terms`/.test(s82)) {
+    fails.push("(p) SPEC-draft-pipeline §8.2 does not state that terms/prh.yml governs surface form and defined_terms governs sense");
+  }
+}
+
 if (fails.length) {
   console.log("FAIL brief review plumbing (SPEC-draft-pipeline §4.6, story 1.74):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches and rides each "
+console.log("brief review: 13/13 cases — (a) per-Candidate reasoning attaches and rides each "
   + "Candidate with every §§4.4-4.8 area present; (b) an unreviewed Candidate is refused BY "
   + "NAME and a missing area refuses — review runs machine-side per Candidate and never "
   + "multiplies owner questions; (c) a verdict is UNATTACHABLE — verdict-shaped keys refused "
@@ -829,6 +927,13 @@ console.log("brief review: 11/11 cases — (a) per-Candidate reasoning attaches 
   + "QUESTION_CHAIN_VERDICTS are no longer exported, the review_path_unit input carries no "
   + "question-chain field and carries the Candidate with its Legs' derived before-states, and "
   + "a record carrying `question_chain` is refused by name. "
+  + "(o) the claim register narrows (kogaki#1331): the review_path_unit input carries no "
+  + "persona_prior_knowledge grant and carries the Brief's defined_terms, and neither the row "
+  + "nor src/review.mjs asks whether a word is everyday English. "
+  + "(p) the defined-term-order item (kogaki#1331) reads the Brief's defined_terms, joins "
+  + "`fails` on a Leg using a defined word two lines before the sentence introducing it, naming "
+  + "the word and the line, joins `holds` on the introducing Leg, and costs no model call; and "
+  + "SPEC-draft-pipeline's Terminology List Decision names its two carriers, surface form and sense. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): dropping the per-candidate "
   + "completeness guard failed (b)'s by-name refusal; dropping the verdict-key scan failed "
   + "(c)'s unattachability. NOT "

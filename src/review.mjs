@@ -85,12 +85,15 @@ export const DISCHARGE_VERDICTS = ["fails", "holds"];
 const STRUCTURED_REVIEW_KEYS = new Set(["discharge"]);
 
 // ---------------------------------------------------------------------------
-// THE CLAIM REGISTER (kogaki#1281, owner decision 2026-10-06). A claim is
-// stated in everyday words plus whatever the Persona's `prior_knowledge`
-// grants, plus any word an `introduces` ledger entry on this Leg or an
-// earlier one carries. The claim register is the JUDGED half of that rule,
-// one entry per Leg: whether any claim line on that Leg uses a term of art
-// that is neither everyday nor carried forward. This is judgment, never a
+// THE CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331, owner decisions
+// 2026-10-06 and 2026-10-10). A term the Brief's `defined_terms` classifies
+// `defined` reaches a claim only once an `introduces` entry on that Leg or an
+// earlier one has handed it. The claim register is the JUDGED half of that
+// rule, one entry per Leg: whether any claim line on that Leg uses a defined
+// term, in the sense this article gives it, that no `introduces` entry has
+// handed the Leg. The Persona's `prior_knowledge` grants no word: a word being
+// everyday English never excused it, since the test is on the sense, not on
+// the word. This is judgment, never a
 // mechanical word list [see: SPEC-draft-pipeline "Every MUST is judgment,
 // and nothing becomes a lint"] — `claimRegisterRefusal` checks only the
 // SHAPE (one entry per Leg, a closed verdict, a named word on `fails`), the
@@ -133,8 +136,8 @@ export function claimRegisterRefusal(entries, legs) {
         + `${CLAIM_REGISTER_VERDICTS.join("/")} — the vocabulary this judgment uses is closed`;
     }
     if (e.verdict === "fails" && (typeof e.word !== "string" || e.word.trim() === "")) {
-      return `${at} fails and names no \`word\` — a \`fails\` verdict names the term of art `
-        + `that is neither everyday nor carried by the Persona or the \`introduces\` ledger`;
+      return `${at} fails and names no \`word\` — a \`fails\` verdict names the defined term `
+        + `the Leg uses that no \`introduces\` entry on it or an earlier Leg has handed it`;
     }
   }
   return null;

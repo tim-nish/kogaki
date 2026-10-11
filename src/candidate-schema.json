@@ -218,6 +218,14 @@
         "caption": "The claim this article makes. You adopted it when the Brief was named; it is composed from the settled Strands and never invented.",
         "description": "The adopted Thesis, verbatim. The Draft's title is this text."
       },
+      "defined_terms": {
+        "required": false,
+        "filled_at": "mint",
+        "caption": "The words this article gives a meaning to, and the words it uses as the reader already knows them. Written once, when the Brief was named; a word marked defined is used only after the leg that introduces it.",
+        "entry_keys": ["term", "class"],
+        "one_of": ["defined", "ordinary"],
+        "description": "Every noun of the Thesis and of each Strand's claim, one entry per term (one or more words, in the form an `introduces` entry's `term` takes), each with `class` `defined` -- used in a sense this article gives it -- or `ordinary` -- used in the sense the reader already holds. Written once by the mint and never again (kogaki#1331). Composition refuses a `defined` term in a claim, a waypoint's point or a heading before the Leg whose `introduces` carries it. It lives in the Brief and ends there: nothing of it reaches the Packet. A Brief minted before the field carries none and defines nothing."
+      },
       "reader_start": {
         "required": true,
         "filled_at": "adoption",
@@ -266,6 +274,14 @@
         "caption": "What the composer inserted to carry the reader across a gap, and on what reasoning.",
         "description": "`bridges`, the disclosure of every gap the path bridged, or the statement that none was."
       }
+    }
+  },
+  "defined_terms_record": {
+    "note": "THE MINT'S ONE JUDGED RECORD (kogaki#1331): the `defined_terms_unit` row of src/brief-workflow.json asks for it, and src/compose.mjs `definedTermsRefusal` refuses an entry against the same two fields. The mint writes `defined_terms` into the Brief from it, and nothing else reads it.",
+    "version": "1",
+    "fields": {
+      "version": "the literal \"1\"",
+      "defined_terms": "a list, one entry per noun of the Thesis and of each Strand claim the input carries: `term` (one or more words, exactly as they occur in that text, in the form an `introduces` entry's `term` takes, so `non-member fallback` is one term) and `class`, one of `defined` (this article gives the word a sense the reader does not already hold -- a word used in a CI-specific or article-specific sense is `defined` even when it is everyday English) or `ordinary` (the reader already holds the sense the article uses). No other key, no prose, no term twice, and no term that occurs whole-word in neither the Thesis nor a claim."
     }
   }
 }

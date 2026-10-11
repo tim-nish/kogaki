@@ -170,9 +170,10 @@
 #       (`personaPriorKnowledgeLine`, src/compose.mjs) -- readerPersona
 #       refuses nothing over it, and a Brief naming it composes and renders
 #       (kogaki#1281).
-#  (ar) `persona_prior_knowledge` reaches compose_path's base write, every
-#       reader-path unit's own input, and review_path's input, read from the
-#       same Persona file `reader_file` already names (kogaki#1281).
+#  (ar) `persona_prior_knowledge` reaches NEITHER compose_path's base write,
+#       nor any reader-path unit's own input, nor review_path's input: the
+#       Persona grants a claim no word (kogaki#1331, reversing kogaki#1281's
+#       grant), and review_path's input carries the Brief's `defined_terms`.
 #  (au) a Leg's before-state is derived (kogaki#1325): a Leg carrying
 #       `reader_state_before` is refused naming the field; the per-unit fit
 #       input carries each Leg's derived before-state, the one question asked
@@ -192,6 +193,15 @@
 #       the after-state as a map, no before-state at all -- reads back
 #       through `readBrief` to the same Legs, and holds no line over 120
 #       characters.
+#  (aw) the Brief's Defined Terms (kogaki#1331): `composeBrief` writes
+#       `defined_terms`, each entry exactly one of `defined`/`ordinary`, and
+#       refuses an entry outside the two classes or occurring whole-word in
+#       neither the Thesis nor a claim, naming it; `validateLegs` refuses a
+#       Leg 2 claim using a `defined` word no Leg 1 or Leg 2 `introduces`
+#       entry carries, naming the Leg, the field and the word, and passes the
+#       same Candidate with the entry added, and a Thesis word used in Leg 1's
+#       claim and carried by Leg 1's `introduces`. Which words are classified
+#       `ordinary` when they are not is the composer's judgment, unchecked.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
@@ -1215,20 +1225,20 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   }
 }
 
-// (ar) kogaki#1281: `persona_prior_knowledge` reaches compose_path's base write,
-// each unit's own input, and review_path's input -- the same line, read from
-// the same `compose_path` row's `reader_file` each state already reads
-// `reader_file` from.
+// (ar) kogaki#1331: `persona_prior_knowledge` reaches no composition or path-review
+// input -- the grant it carried is removed (owner decision 2026-10-10) -- and
+// review_path's input carries the Brief's `defined_terms` in its place. The
+// Persona's line keeps its one reader, differentiation's Reader start.
 {
   const brief = readFileSync("src/brief.mjs", "utf8");
-  const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
-  if (!/const priorKnowledge = personaPriorKnowledgeLine\(persona\)/.test(composePath)) fails.push("(ar) compose_path no longer derives priorKnowledge from personaPriorKnowledgeLine");
-  if (!/persona_prior_knowledge: priorKnowledge,/.test(composePath)) fails.push("(ar) compose_path's base write does not carry persona_prior_knowledge");
-  const unitBlock = composePath.slice(composePath.indexOf("const units = Array.from("));
-  if (!/persona_prior_knowledge: priorKnowledge,/.test(unitBlock)) fails.push("(ar) compose_path's per-unit input does not carry persona_prior_knowledge");
-  const reviewPath = brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  attach_review:"));
-  if (!/const priorKnowledge = personaPriorKnowledgeLine\(persona\)/.test(reviewPath)) fails.push("(ar) review_path no longer derives priorKnowledge from personaPriorKnowledgeLine");
-  if (!/persona_prior_knowledge: priorKnowledge,/.test(reviewPath)) fails.push("(ar) review_path's input does not carry persona_prior_knowledge");
+  const code = (t) => t.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  const composePath = code(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")));
+  const reviewPath = code(brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  attach_review:")));
+  const differentiation = code(brief.slice(brief.indexOf("  differentiation: async"), brief.indexOf("  compose_path: async")));
+  if (/persona_prior_knowledge|personaPriorKnowledgeLine/.test(composePath)) fails.push("(ar) compose_path still reads or passes the Persona's prior_knowledge");
+  if (/persona_prior_knowledge|personaPriorKnowledgeLine/.test(reviewPath)) fails.push("(ar) review_path still reads or passes the Persona's prior_knowledge");
+  if ((reviewPath.match(/defined_terms: definedTerms,/g) || []).length !== 2) fails.push("(ar) review_path's base write and per-unit input do not both carry defined_terms");
+  if (!/prior_knowledge: personaPriorKnowledgeLine\(persona\)/.test(differentiation)) fails.push("(ar) differentiation no longer carries the Persona's prior_knowledge for Reader start");
 }
 
 // (as) kogaki#1281: the claim register -- one judged entry per Leg, a closed
@@ -1932,10 +1942,68 @@ const cand1276 = (id, leg2Extra = {}) => ({
   }
 }
 
+// (aw) kogaki#1331 — the Brief carries its Defined Terms, written once at mint,
+// and composition refuses a `defined` word used before its introducing Leg.
+{
+  const { parseBriefRecord, DEFINED_TERM_CLASSES } = compose;
+  const strands = [{ display_id: "L1", slug: "first-strand", cite: "fixture" }];
+  const base = { slug: "t", strands, composePath: "readers/dev-to-zenn.md" };
+  const thesis = "A gate passes only what it was given.";
+  const claims = ["The check reads the list it was handed."];
+  const terms = [{ term: "gate", class: "defined" }, { term: "check", class: "defined" }, { term: "list", class: "ordinary" }];
+
+  // a minted Brief carries defined_terms, each entry exactly one of the two classes.
+  let minted = null;
+  try { minted = parseBriefRecord(composeBrief({ ...base, thesis, definedTerms: terms, claims }), "brief.yaml"); }
+  catch (e) { fails.push(`(aw) composeBrief refused a well-formed list: ${e.message}`); }
+  if (minted && minted.error) fails.push(`(aw) the minted Brief does not read back: ${minted.error}`);
+  else if (minted) {
+    const dt = minted.record.defined_terms;
+    if (!Array.isArray(dt) || dt.length !== 3) fails.push(`(aw) the minted Brief does not carry the three defined_terms: ${JSON.stringify(dt)}`);
+    else if (!dt.every((e) => Object.keys(e).length === 2 && DEFINED_TERM_CLASSES.includes(e.class))) {
+      fails.push(`(aw) a defined_terms entry does not carry exactly one of the two classes: ${JSON.stringify(dt)}`);
+    }
+  }
+  // an entry outside the two classes, and one occurring in neither text, refuse naming it.
+  for (const [bad, want] of [[[{ term: "gate", class: "maybe" }], /"gate".*class "maybe"/],
+    [[{ term: "pipeline", class: "defined" }], /"pipeline", which occurs whole-word in neither/]]) {
+    let msg = null;
+    try { composeBrief({ ...base, thesis, definedTerms: bad, claims }); } catch (e) { msg = e.message; }
+    if (!msg) fails.push(`(aw) composeBrief did not refuse ${JSON.stringify(bad)}`);
+    else if (!want.test(msg)) fails.push(`(aw) the refusal of ${JSON.stringify(bad)} did not name it: ${msg}`);
+  }
+
+  // Leg 2's claim uses a defined word no Leg 1 or Leg 2 introduces entry carries: refused naming the Leg, field and word.
+  const legsFor = (s1Extra = {}, s2Extra = {}) => [leg1276("s1", { opens_section: "what the reader now holds", ...s1Extra }),
+    leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true,
+      claims: [{ type: "strand", strand: "L1", proposition: "the check reads what it was handed" }], ...s2Extra })];
+  const defined = ["gate", "check"];
+  const r = compose.validateLegs(legsFor(), START_1276, [], defined);
+  if (!r.error) fails.push("(aw) a Leg 2 claim using a defined word no Leg introduces was not refused");
+  else {
+    if (!/leg 2 \(s2\)/.test(r.error)) fails.push(`(aw) the refusal did not name the Leg: ${r.error}`);
+    if (!/claims\[0\]\.proposition/.test(r.error)) fails.push(`(aw) the refusal did not name the field: ${r.error}`);
+    if (!/"check"/.test(r.error)) fails.push(`(aw) the refusal did not name the word: ${r.error}`);
+  }
+  // the same Candidate with the entry added passes.
+  const added = compose.validateLegs(legsFor({}, { introduces: ["check"] }), START_1276, [], defined);
+  if (added.error) fails.push(`(aw) the Candidate with the introduces entry added was refused: ${added.error}`);
+  // a Thesis word used in Leg 1's claim and carried by Leg 1's introduces passes.
+  const thesisWord = compose.validateLegs(legsFor(
+    { claims: [{ type: "strand", strand: "L1", proposition: "a gate passes only what it was given" }], introduces: ["gate"] },
+    { introduces: ["check"] }), START_1276, [], defined);
+  if (thesisWord.error) fails.push(`(aw) a Thesis word carried by Leg 1's introduces and used in Leg 1's claim was refused: ${thesisWord.error}`);
+  // the mint's judged row asks for the record the refusal reads.
+  const row = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).defined_terms_unit;
+  if (!row || !judgePrompt(row, "", null, null).includes("defined_terms_record")) {
+    fails.push("(aw) src/brief-workflow.json declares no defined_terms_unit row rendering candidate-schema.json's defined_terms_record");
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — re-activate (kogaki#1237, re-ruled default-deny at kogaki#1282): the three composition refusals name the entry, What crosses into this Leg carries the re-activated term WITH ITS MEANING, a term not re-activated crosses into no Packet at all, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the article so far is scoped to the current Section only, with no earlier Section's prose reaching the Packet even verbatim; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by legRecord, read back by readBrief, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget), a Journey crossing into neither Leg's Packet when not re-activated and its scene crossing in under What crosses into this Leg when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name (and a Brief record carrying none is refused by the Draft's reader, kogaki#1328), and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name; and kogaki#1270's contract fix -- src/leg-schema.json's `introduces_item.nearest` description now states the at-most-one-per-path limit that introducesNearestRefusal enforces, unchanged; and kogaki#1276 -- the compose_path prompt and the per-unit Move-fit input carry each Move's technique and breaks verbatim, a Leg with both or neither of move and no_move_fits is refused naming it, a no_move_fits Leg refuses its unit with its sentence and the retry prompt carries it, every compose job unit prompt begins with the no-tools sentence and neither table carries judge_specialization or effort (kogaki#1307), one unit refused on a contradicts verdict among three leaves two offered and names the excluded one and its Leg, and every Candidate failing ends the Brief through job await with no question, its theses/<slug>/ removed, and a report naming each failing Leg and the judge's sentence and saying the Brief was removed; and kogaki#1283's review_path two added judged items -- questionChainPairs/dischargeRows name one pair per adjacent Leg and one row per discharged Closure row carrying the discharging Leg's claims verbatim, attachReview carries a \"different question\" or \"fails\" verdict forward as reasoning rather than refusing it, refuses a verdict outside either item's closed set or an array of the wrong length by name, and requires neither item at all.; and kogaki#1281 -- a Persona declaring no prior_knowledge is a stated absence, read back as such and refusing nothing, a Brief naming it composes and renders; persona_prior_knowledge reaches compose_path's base write, every unit's own input, and review_path's input, from the same Persona file; and the claim register runs one judged entry per Leg, closed to holds/fails, a fails entry naming the word that failed, refused by count, by verdict and by an unworded fails; and kogaki#1311 -- a Leg with no waypoints, a waypoint with an empty point or serves, a waypoint carrying the retired effect (kogaki#1326), a serves naming a Strand the Leg has no claim for, and a claim no waypoint serves are each refused naming the Leg and the waypoint, the compose_path unit prompt renders the schema's waypoints entry, the per-unit fit input carries each Leg's waypoints beside its Move's technique and breaks, and a Candidate whose waypoint counts differ from the count its Move's technique names passes; and kogaki#1325 -- a Leg writing reader_state_before is refused by name, the fit input carries each Leg's derived before-state and the one question asked of the Move's before with no specialization vocabulary for it, and a Leg 1 contradicts naming knowledge refuses the unit with the judge's sentence, re-asked once; and kogaki#1328 -- adoption writes brief.yaml with every Leg field in list or map form, reading back through the Draft's reader with each before-state derived, and no line over 120 characters.");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237, re-ruled default-deny at kogaki#1282): the three composition refusals name the entry, What crosses into this Leg carries the re-activated term WITH ITS MEANING, a term not re-activated crosses into no Packet at all, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the article so far is scoped to the current Section only, with no earlier Section's prose reaching the Packet even verbatim; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by legRecord, read back by readBrief, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget), a Journey crossing into neither Leg's Packet when not re-activated and its scene crossing in under What crosses into this Leg when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name (and a Brief record carrying none is refused by the Draft's reader, kogaki#1328), and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name; and kogaki#1270's contract fix -- src/leg-schema.json's `introduces_item.nearest` description now states the at-most-one-per-path limit that introducesNearestRefusal enforces, unchanged; and kogaki#1276 -- the compose_path prompt and the per-unit Move-fit input carry each Move's technique and breaks verbatim, a Leg with both or neither of move and no_move_fits is refused naming it, a no_move_fits Leg refuses its unit with its sentence and the retry prompt carries it, every compose job unit prompt begins with the no-tools sentence and neither table carries judge_specialization or effort (kogaki#1307), one unit refused on a contradicts verdict among three leaves two offered and names the excluded one and its Leg, and every Candidate failing ends the Brief through job await with no question, its theses/<slug>/ removed, and a report naming each failing Leg and the judge's sentence and saying the Brief was removed; and kogaki#1283's review_path two added judged items -- questionChainPairs/dischargeRows name one pair per adjacent Leg and one row per discharged Closure row carrying the discharging Leg's claims verbatim, attachReview carries a \"different question\" or \"fails\" verdict forward as reasoning rather than refusing it, refuses a verdict outside either item's closed set or an array of the wrong length by name, and requires neither item at all.; and kogaki#1281 -- a Persona declaring no prior_knowledge is a stated absence, read back as such and refusing nothing, a Brief naming it composes and renders; persona_prior_knowledge reaches no compose_path or review_path input, review_path's carrying the Brief's defined_terms instead (kogaki#1331); and the claim register runs one judged entry per Leg, closed to holds/fails, a fails entry naming the word that failed, refused by count, by verdict and by an unworded fails; and kogaki#1311 -- a Leg with no waypoints, a waypoint with an empty point or serves, a waypoint carrying the retired effect (kogaki#1326), a serves naming a Strand the Leg has no claim for, and a claim no waypoint serves are each refused naming the Leg and the waypoint, the compose_path unit prompt renders the schema's waypoints entry, the per-unit fit input carries each Leg's waypoints beside its Move's technique and breaks, and a Candidate whose waypoint counts differ from the count its Move's technique names passes; and kogaki#1325 -- a Leg writing reader_state_before is refused by name, the fit input carries each Leg's derived before-state and the one question asked of the Move's before with no specialization vocabulary for it, and a Leg 1 contradicts naming knowledge refuses the unit with the judge's sentence, re-asked once; and kogaki#1328 -- adoption writes brief.yaml with every Leg field in list or map form, reading back through the Draft's reader with each before-state derived, and no line over 120 characters; and kogaki#1331 -- a minted Brief carries defined_terms, each entry exactly one of defined or ordinary, an entry outside the two classes or occurring in neither the Thesis nor a claim refused naming it, a Leg 2 claim using a defined word no Leg 1 or Leg 2 introduces entry carries refused naming the Leg, the field and the word, the same Candidate with the entry added passing, and a Thesis word used in Leg 1's claim and carried by Leg 1's introduces passing.");
 JS
