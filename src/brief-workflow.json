@@ -104,7 +104,7 @@
     {
       "id": "mint",
       "kind": "write",
-      "does": "Consumes the adopted pair and creates the Brief's durable home -- `theses/<slug>/brief.yaml`, the one YAML record the owner and every later command read (kogaki#1328), thesis filled by construction, every downstream composition field a typed unfilled slot (`null`). Binds `src/brief.mjs`'s `mint` case. Idempotence is by slug and a collision REFUSES: a Brief is owner state from the moment it exists, and this runtime is a creator, never an editor.",
+      "does": "Consumes the adopted pair and creates the Brief's durable home -- `theses/<slug>/brief.yaml`, the one YAML record the owner and every later command read (kogaki#1328), thesis filled by construction, every downstream composition field a typed unfilled slot (`null`), and `defined_terms` written ONCE from the `defined_terms_unit` judgment this renderer asks before the file exists (kogaki#1331). Binds `src/brief.mjs`'s `mint` case. Idempotence is by slug and a collision REFUSES: a Brief is owner state from the moment it exists, and this runtime is a creator, never an editor.",
       "writes": "brief",
       "conditional": false,
       "renders_gate_declaration": false,
@@ -239,6 +239,17 @@
     "schema_blocks_note": "THE ONE-RECORD BLOCKS ONLY (kogaki#1307, PR #1308 round 1): the file's `set` envelope -- `{ records: [...] }`, one per Candidate -- is the shape the adoption-level `brief-specialization.json` carries, written by the Harness from every unit's own record, and rendering it here told this judge to answer a set while `input_shape` and `readerPathFitVerdict` require ONE record at the root.",
     "refusal": "a record carrying no `verdicts` array, or naming another candidate_id; a verdict outside the closed set; a Leg carrying no verdict, or two; a verdict naming a leg_id the Candidate does not carry; a verdict whose move is not the Leg's; a `why` under four words -- each of these is this judge's own malformed output, and the same prompt is asked again. `contradicts` and `cannot-determine` are verdicts, not malformed output: the Candidate is refused with them and recomposed once",
     "governing": "SPEC-draft-pipeline, the Leg-Move instantiation contract; kogaki#1276, kogaki#1307, kogaki#1311"
+  },
+  "defined_terms_unit": {
+    "id": "defined_terms_unit",
+    "note": "NOT A STATE OF THIS FLOW (kogaki#1331, owner decision 2026-10-10). The Brief's Defined Terms are written ONCE, by the mint, so the judgment that classifies them is asked from inside the `mint` state's renderer, before the Brief exists, and its record is what the mint writes as `defined_terms`. It is a row rather than a state for the reason the two unit rows above are: it is one judged record inside an act the flow already has, and a state of its own would be a second writer of a field the owner ruled is written once. Composition is its one consumer; nothing of it reaches the Packet.",
+    "judgment_point": "list EVERY NOUN of the adopted Thesis and of each Strand claim in the input -- `thesis` and `strand_claims` -- and classify each `defined` or `ordinary`. A term is one or more words exactly as they occur in that text, in the form an `introduces` entry's `term` takes (so `non-member fallback` is one term). `defined` means this article uses the word in a sense it gives it -- a CI-specific or article-specific sense the reader does not already hold -- EVEN WHEN THE WORD IS EVERYDAY ENGLISH: `check`, `guard`, `list` or `pass` used in a CI sense is `defined`. `ordinary` means the reader already holds the sense the article uses. The test is on the sense, never on whether the word is common.",
+    "input_shape": "ONE record AT ITS OWN ROOT -- `version` \"1\" and `defined_terms`, a list of `{ term, class }` entries, as src/candidate-schema.json's `defined_terms_record` declares",
+    "schema_file": "src/candidate-schema.json",
+    "schema_blocks": ["defined_terms_record"],
+    "refusal": "a record whose `version` is not \"1\"; `defined_terms` not a list; an entry that is not a `{ term, class }` map, carries any other key, carries no term, or a class outside `defined`, `ordinary`; a term listed twice; a term that occurs whole-word in neither the Thesis nor any Strand claim",
+    "retries": 2,
+    "governing": "SPEC-draft-pipeline, the durable home and the entry point; kogaki#1331"
   },
   "counted_baseline": {
     "waits": 2,

@@ -124,6 +124,7 @@ import {
   resolveMoveIds, resolveFigureForms, loadMoveContracts, moveContractsForLegs,
   readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, dischargeRows,
   deriveReaderStatesBefore, readerStartThesisRefusal, sectionHeadingsWithLastAfterState,
+  definedTermsRefusal, definedTermsOf,
 } from "./compose.mjs";
 import { enterSubRun, enterRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname, basename } from "node:path";
@@ -185,7 +186,7 @@ function parseArgs(argv) {
 // Exported and pure over its inputs, so the check exercises the record
 // without a filesystem. `thesis` is required: at v9 no document exists
 // without one. Returns the record's text.
-export function composeBrief({ slug, strands, thesis, composePath, externalAuthority = "on" }) {
+export function composeBrief({ slug, strands, thesis, composePath, externalAuthority = "on", definedTerms = [], claims = [] }) {
   if (typeof thesis !== "string" || thesis === "") {
     throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)");
   }
@@ -204,6 +205,13 @@ export function composeBrief({ slug, strands, thesis, composePath, externalAutho
   if (externalAuthority !== "on" && externalAuthority !== "off") {
     throw new Error(`composeBrief: \`external_authority\` must be "on" or "off"; received ${JSON.stringify(externalAuthority)} (kogaki#1262)`);
   }
+  // THE DEFINED TERMS, WRITTEN HERE AND NEVER AGAIN (kogaki#1331, owner
+  // decision 2026-10-10). The classification is the judge's, asked by the
+  // `mint` state before this runs; what is checked here is the entries' shape
+  // and that each term occurs in the Thesis or in one of the Strand claims it
+  // was read from. A caller with no list composes a Brief that defines nothing.
+  const termsErr = definedTermsRefusal(definedTerms, { thesis, claims });
+  if (termsErr) throw new Error(`composeBrief: ${termsErr}`);
   const record = {
     slug,
     compose_path: composePath,
@@ -227,6 +235,7 @@ export function composeBrief({ slug, strands, thesis, composePath, externalAutho
       return e;
     }),
     thesis,
+    defined_terms: definedTerms.map((e) => ({ term: e.term.trim(), class: e.class })),
   };
   for (const key of briefSlotKeys()) record[key] = null;
   // THE TRIPWIRE, OVER THIS COMPOSER'S OWN TEXT (kogaki#526, kogaki#537). The
@@ -871,11 +880,29 @@ function cmdMint(args) {
     ? args["reader-file"] : briefComposePathDefault();
   const externalAuthority = typeof args["external-authority"] === "string" && args["external-authority"] !== ""
     ? args["external-authority"] : "on";
+  // THE DEFINED TERMS ARE THE `defined_terms_unit` JUDGMENT'S (kogaki#1331):
+  // handed over by the `mint` state as `definedTerms`, or read from the
+  // record a caller names with `--defined-terms <file>`. A mint with neither
+  // refuses — the list is written once, here, so a Brief minted without it
+  // could never carry it.
+  let definedTerms = Array.isArray(args.definedTerms) ? args.definedTerms : null;
+  if (!definedTerms && typeof args["defined-terms"] === "string" && args["defined-terms"] !== "") {
+    let r;
+    try { r = JSON.parse(readFileSync(args["defined-terms"], "utf8")); }
+    catch (e) { fail(`--defined-terms ${args["defined-terms"]} is not a readable JSON record (${e.message})`); }
+    definedTerms = r && r.defined_terms;
+  }
+  if (!Array.isArray(definedTerms)) {
+    fail("the mint writes the Brief's Defined Terms once and never again (kogaki#1331), and none were handed to it — "
+      + "the `mint` state asks the `defined_terms_unit` judgment for them; a standalone mint names the record with "
+      + "`--defined-terms <file>`. Nothing was written.");
+  }
   mkdirSync(home, { recursive: true });
   const out = join(home, BRIEF_RECORD_FILE);
   const doc = composeBrief({
     slug, strands: state.strands, thesis: state.adopted_thesis,
     composePath: readerFile, externalAuthority,
+    definedTerms, claims: strandClaims(state).map((c) => c.claim),
   });
   writeFileSync(out, doc);
   // Per-block snapshot (kogaki#523): the mint's before-state is NO FILE —
@@ -892,6 +919,17 @@ function cmdMint(args) {
   // that guard exists for. Every sibling renderer in `src/terrain.mjs` returns
   // its path for the same reason.
   return out;
+}
+
+// EACH SETTLED STRAND'S CLAIM, as the run state carries it: the served
+// headline `enter` resolved for the member, in the order the set was settled.
+// A member whose rendering was not found has no claim to read a term from and
+// is left out rather than given a marker's words (kogaki#1331).
+export function strandClaims(state) {
+  const renderings = (state && state.strand_renderings) || {};
+  return (Array.isArray(state?.strands) ? state.strands : [])
+    .map((s) => ({ id: s.display_id, claim: renderings[s.slug] && renderings[s.slug].headline }))
+    .filter((c) => typeof c.claim === "string" && c.claim.trim() !== "");
 }
 
 // ===========================================================================
@@ -1277,7 +1315,7 @@ function detachedJobOfRun(runDir) {
 // the detached unit's own classification, outside any judged/re-ask window.
 export function validateReaderPathUnit(candidate, inputs) {
   const c = candidate || {};
-  const { strandIds = [], readerStart, movesDir } = inputs || {};
+  const { strandIds = [], readerStart, movesDir, definedTerms = [] } = inputs || {};
   if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
     return { error: `candidate ${c.candidate_id}: \`reader_experience\` is required and cannot be `
       + "blank — Candidates differ in READER EXPERIENCE, the difference must be stated to be "
@@ -1316,7 +1354,10 @@ export function validateReaderPathUnit(candidate, inputs) {
   // One-claim-per-Strand, the closed claim type set, every required field
   // and its description all come from `src/leg-schema.json` through that
   // function.
-  const v = validateLegs(c.legs, c.reader_start, c.obligations);
+  // THE BRIEF'S DEFINED TERMS ride the same call (kogaki#1331), handed over at
+  // the job's boundary from the minted Brief, so a defined term used before
+  // its introducing Leg gets this unit's own re-ask.
+  const v = validateLegs(c.legs, c.reader_start, c.obligations, definedTerms);
   if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
   // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
   // (kogaki#1276). The refusal is the retry prompt's text verbatim
@@ -1417,9 +1458,36 @@ const STATE_WORK = {
     return null;
   },
 
-  mint: (rec, st, args) => ({
-    artifact: cmdMint({ ...args, "run-state": needRunState(rec, st) }),
-  }),
+  // THE MINT ASKS ONE JUDGMENT BEFORE IT WRITES (kogaki#1331): the Brief's
+  // Defined Terms, from the `defined_terms_unit` row, over the adopted Thesis
+  // and each Strand's claim. The record is validated by the same refusal
+  // `composeBrief` applies, so a re-ask carries its text; the mint then writes
+  // the list once. A run that has adopted nothing goes straight to `cmdMint`,
+  // whose refusal names that, without spending a judge call.
+  mint: async (rec, st, args, table) => {
+    const runState = needRunState(rec, st);
+    const state = readJson(runState);
+    if (state.stage !== "adopted") return { artifact: cmdMint({ ...args, "run-state": runState }) };
+    const row = table.defined_terms_unit
+      || fail(`${st.id}: src/brief-workflow.json declares no defined_terms_unit row for the Brief's Defined Terms (kogaki#1331)`);
+    const thesis = state.adopted_thesis;
+    const claims = strandClaims(state);
+    let entries = null;
+    const validate = (p) => {
+      let r;
+      try { r = readJson(p); }
+      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
+      if (!r || r.version !== "1") {
+        refuseJudgment(`\`version\` must be "1" (src/candidate-schema.json, \`defined_terms_record\`); received ${JSON.stringify(r && r.version)}`);
+      }
+      const err = definedTermsRefusal(r.defined_terms, { thesis, claims: claims.map((c) => c.claim) });
+      if (err) refuseJudgment(err);
+      entries = r.defined_terms;
+    };
+    const composeInputFor = () => writeJudgeInput(rec, row, { state: st.id, unit: row.id, thesis, strand_claims: claims });
+    rec.brief_defined_terms = await judged(rec, row, table, args, "defined-terms", composeInputFor, validate);
+    return { artifact: cmdMint({ ...args, "run-state": runState, definedTerms: entries }) };
+  },
 
   // ---- JUDGMENT POINT 0. Differentiation (kogaki#1206): decided BEFORE any
   // reader-path unit composes, one entry per unit, so the three Candidates
@@ -1722,7 +1790,7 @@ const STATE_WORK = {
       validator: {
         module: "src/brief.mjs",
         export: "validateReaderPathUnit",
-        inputs: { strandIds, readerStart: differentiation.reader_start, movesDir },
+        inputs: { strandIds, readerStart: differentiation.reader_start, movesDir, definedTerms: definedTermsOf(record) },
       },
     });
     throw new DetachedJobStarted(st.id, readerPathJobPath(dir),

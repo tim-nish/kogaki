@@ -58,6 +58,10 @@
 #       `established_by_legs`. A control arm runs the same scan over the
 #       pre-record grammar and finds it. The fenced `leg` block review-draft
 #       still reads is the Reverse Outline a reader writes, not the Brief.
+#   (k) NOTHING OF THE DEFINED TERMS REACHES THE PACKET (kogaki#1331): the
+#       2026-10-09 record given a `defined_terms` list renders every Leg's
+#       Packet byte for byte as the same record without one -- no
+#       `defined_terms`, and no `ordinary` beyond the fixture's own prose.
 #
 # NOT COVERED, stated rather than implied: `adopt-candidate` is not driven end
 # to end here — src/assemble.mjs's half of (c) is the source read alone. The
@@ -520,11 +524,52 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   }
 }
 
+// (k) nothing of the Brief's Defined Terms reaches the Packet (kogaki#1331, owner decision 2026-10-10:
+// "I will not accept Defined Terms crossing into the Packet"). The 2026-10-09 record is written twice,
+// once as it is and once given a list naming two of its Thesis words, one in each class, and every
+// Leg's Packet from the second is the first's byte for byte: no field, line or classification of the
+// list reaches the writer. The fixture's own prose uses "ordinary", so the word is counted against
+// the Packet without the list rather than searched for alone.
+{
+  const fx = join(repo, "checks", "fixtures", "brief-2026-10-09");
+  const record = parseBriefRecord(readFileSync(join(fx, "brief.yaml"), "utf8"), "brief.yaml").record;
+  const words = record.thesis.match(/[A-Za-z]{4,}/g) || [];
+  const withTerms = { ...record, defined_terms: [{ term: words[0], class: "defined" }, { term: words[1], class: "ordinary" }] };
+  const write = (tag, rec) => {
+    const dir = join(root, `theses-1331-${tag}`, rec.slug);
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, "brief.yaml");
+    writeFileSync(path, briefRecordText(rec));
+    return path;
+  };
+  const plain = write("plain", record);
+  const listed = write("listed", withTerms);
+  const back = parseBriefRecord(readFileSync(listed, "utf8"), "brief.yaml");
+  if (back.error || !Array.isArray(back.record.defined_terms) || back.record.defined_terms.length !== 2) {
+    fails.push(`(k) the record does not carry defined_terms back: ${back.error || JSON.stringify(back.record.defined_terms)}`);
+  }
+  const run = (path, args) => trapped([join(repo, "src", "draft.mjs"), ...args, "--brief", path, "--workspace", join(root, `ws-1331-${path === plain ? "plain" : "listed"}`)],
+    { FAKE_JOURNEYS: readFileSync(join(fx, "journeys.json"), "utf8") });
+  for (const path of [plain, listed]) {
+    const r0 = run(path, ["resolve"]);
+    if (r0.status !== 0) fails.push(`(k) resolve over ${path} failed: ${(r0.stderr || "").slice(0, 400)}`);
+  }
+  const count = (text, re) => (text.match(re) || []).length;
+  for (const leg of record.reader_path) {
+    const a = run(plain, ["packet", "--leg", leg.leg_id]);
+    const b = run(listed, ["packet", "--leg", leg.leg_id]);
+    if (a.status !== 0 || b.status !== 0) { fails.push(`(k) packet --leg ${leg.leg_id} failed: ${((a.stderr || "") + (b.stderr || "")).slice(0, 400)}`); continue; }
+    if (/defined_terms/.test(b.stdout)) fails.push(`(k) ${leg.leg_id}: the Packet names defined_terms`);
+    if (count(b.stdout, /\bordinary\b/gi) !== count(a.stdout, /\bordinary\b/gi)) fails.push(`(k) ${leg.leg_id}: the Packet carries "ordinary" as a classification`);
+    if (b.stdout !== a.stdout) fails.push(`(k) ${leg.leg_id}: the Packet rendered from a record carrying defined_terms differs from the one without`);
+  }
+}
+
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
   console.log("FAIL check-draft-packet");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327); and the 2026-10-09 Brief carried into the record renders every Leg's waypoints, claims, Journey text, Section, crossing and Closure lines exactly as its Markdown Packets did, the Thesis row alone derived and handed to the reaches_target Leg, and none of src/draft.mjs, src/review-draft.mjs, src/assemble.mjs or src/compose.mjs names a retired Brief parser or the Markdown Brief's line grammar (kogaki#1328)");
+console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327); and the 2026-10-09 Brief carried into the record renders every Leg's waypoints, claims, Journey text, Section, crossing and Closure lines exactly as its Markdown Packets did, the Thesis row alone derived and handed to the reaches_target Leg, and none of src/draft.mjs, src/review-draft.mjs, src/assemble.mjs or src/compose.mjs names a retired Brief parser or the Markdown Brief's line grammar (kogaki#1328); and a Brief record carrying defined_terms renders no Packet naming defined_terms or carrying the word ordinary (kogaki#1331)");
 JS
