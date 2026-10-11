@@ -38,8 +38,9 @@
 # `opening_question` field by name, derives Reader target from the MARKED
 # Leg's `reader_state_after` line for line, and derives no Opening question at
 # all; src/candidate-schema.json records both fields as retired and declares
-# neither; the Brief skeleton `composeBrief` writes carries no `Opening
-# question` heading and `SLOT_CAPTIONS` names none; and the gate evidence
+# neither; the Brief record `composeBrief` writes carries no
+# `opening_question` key and its declared keys (src/candidate-schema.json,
+# `brief_record`) name none; and the gate evidence
 # (`candidateEvidence`) reads Reader target off the same marked Leg.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: the
@@ -60,7 +61,8 @@ import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { validateDifferentiationRecord, composeBrief, briefPersonaFile } from "./src/brief.mjs";
-import { assembleSelection, readerFieldValues, survivorSentence, candidateEvidence, READER_FIELDS, SLOT_CAPTIONS } from "./src/assemble.mjs";
+import { assembleSelection, readerFieldValues, survivorSentence, candidateEvidence, READER_FIELDS } from "./src/assemble.mjs";
+import { briefRecordKeys, parseBriefRecord } from "./src/compose.mjs";
 import { readerPersona, validateLegs, deriveReaderStatesBefore } from "./src/compose.mjs";
 
 const fails = [];
@@ -214,16 +216,23 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
 }
 
 // (u) NO OPENING QUESTION IS RENDERED (kogaki#1225): the rendered reader
-// field table names two headings, the Brief skeleton carries no `Opening
-// question` heading, and no slot caption names one.
+// field table names two headings, and the Brief record -- its declared keys
+// and the skeleton the mint writes -- carries no Opening question (kogaki#1328).
 {
   const headings = READER_FIELDS.map(([, h]) => h);
   if (headings.join("|") !== "Reader start|Reader target") fails.push(`(u) READER_FIELDS renders ${JSON.stringify(headings)}, not Reader start and Reader target alone`);
-  if (SLOT_CAPTIONS.has("Opening question")) fails.push("(u) SLOT_CAPTIONS still captions an `Opening question` slot");
-  const skeleton = composeBrief({ slug: "fixture", strands: [], thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" });
-  const text = typeof skeleton === "string" ? skeleton : (skeleton && (skeleton.doc || skeleton.text)) || JSON.stringify(skeleton);
-  if (/^## Opening question/m.test(text)) fails.push("(u) the composed Brief skeleton still carries an `## Opening question` heading");
-  if (!/^## Reader target/m.test(text)) fails.push("(u) the composed Brief skeleton lost its `## Reader target` heading");
+  const keys = briefRecordKeys();
+  if (keys.some((k) => /opening/i.test(k))) fails.push(`(u) the Brief record still declares an Opening question key: ${keys.join(", ")}`);
+  if (!keys.includes("reader_target")) fails.push("(u) the Brief record lost its `reader_target` key");
+  const skeleton = composeBrief({ slug: "fixture", strands: [{ display_id: "L1", slug: "s", cite: "c" }],
+    thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" });
+  const minted = parseBriefRecord(skeleton, "fixture.yaml");
+  if (minted.error) fails.push(`(u) the minted Brief skeleton does not read back: ${minted.error}`);
+  else {
+    if (Object.keys(minted.record).some((k) => /opening/i.test(k))) fails.push("(u) the minted Brief skeleton still carries an Opening question key");
+    if (!("reader_target" in minted.record)) fails.push("(u) the minted Brief skeleton lost its `reader_target` slot");
+  }
+  if (/opening question/i.test(skeleton)) fails.push("(u) the minted Brief skeleton's captions still name an Opening question");
 }
 
 // (v) THE VERBATIM FIRST-LEG BINDING IS GONE, asserted by absence in both
@@ -346,7 +355,7 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   }
   const withRetiredReasoning = {
     ...candidate("c1", 1, "move-a", "exp one", "one"),
-    reasoning: { leg_validity: "x", thesis_closure: "x", transition_continuity: "x" },
+    reasoning: { leg_validity: "x", transition_continuity: "x" },
   };
   const retiredReasoningResult = assembleSelection({ candidates: [withRetiredReasoning, candidate("c2", 2, "move-b", "exp two", "two")] }, "");
   if (!retiredReasoningResult.error || !/transition_continuity/.test(retiredReasoningResult.error) || !/retired/.test(retiredReasoningResult.error)) {
@@ -364,7 +373,7 @@ function candidate(id, unit, move, exp, chr) {
     characteristic: chr,
     legs: [{ move }],
     review: { rationale_stands: "x", entailment: "x", prohibitions: "x", semantic_economy: "x", arc_integrity: "x", evaluation_levels: "x" },
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
   };
 }
 

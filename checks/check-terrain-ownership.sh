@@ -236,10 +236,10 @@ def crossings(files):
                 out.add(f"{f}->{resolve(f, spec)}")
     return out
 src_files = {f: t for f, t in sources.items() if f.startswith("src/")}
-# THE ONE EXEMPTION, ANCHORED BY COUNT: Draft's Leg parser is read by Review Draft, and
-# moving it is not this split's (kogaki#1259 "Not in scope"). A new crossing fails, and so
-# does this entry once its edge is gone.
-EXEMPT = {"src/review-draft.mjs->src/draft.mjs"}
+# NO EXEMPTION (kogaki#1328): the one this held -- Review Draft reading Draft's Leg parser --
+# went with the parser, since both now load the Brief record through src/compose.mjs. A new
+# crossing fails.
+EXEMPT = set()
 real = crossings(src_files)
 print("boundary-commands:" + " ".join(commands))
 print("boundary-real:" + " ".join(sorted(real - EXEMPT)))

@@ -63,8 +63,6 @@
 //       SPEC-draft-pipeline
 //   the Leg and the Move it binds
 //       SPEC-draft-pipeline
-//   the Leg-Move instantiation contract
-//       SPEC-draft-pipeline
 //   the reader-knowledge ledger
 //       SPEC-draft-pipeline
 //   the Leg Packet
@@ -80,8 +78,6 @@
 //   the judgment rule
 //       SPEC-draft-pipeline
 //   the Brief's centre and its obligations ledger
-//       SPEC-draft-pipeline
-//   the durable home and the entry point
 //       SPEC-draft-pipeline
 //
 // NO MOVE IS OPENED HERE (kogaki#1311, owner decision 2026-10-09: "Information
@@ -102,9 +98,10 @@ import { tmpdir } from "node:os";
 // disagree about what a waypoint is fail silently at the block the writer
 // realizes from.
 import { waypointsRefusal, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
-  figureRefusal, parseFigureRoles, figureKinds, figureLegs,
-  journeysRefusal, closureRowsForLeg, budgetRefusal, validateLegs, renderLeg,
-  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, concededRowFields } from "./compose.mjs";
+  figureRefusal, figureKinds, figureLegs,
+  journeysRefusal, closureRowsOf, budgetRefusal,
+  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse,
+  parseBriefRecord, unfilledSlots, briefLegs, legschema } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
 // resolved exactly as the Terrain and Brief judges are, `KOGAKI_JUDGE_CLI`
@@ -145,10 +142,6 @@ function parseArgs(argv) {
   return args;
 }
 
-// The typed unfilled slot brief.mjs mints (the durable home and the entry point). Its literal presence is
-// what makes "template" decidable by field rather than by judgment.
-const SLOT = "*(awaiting composition)*";
-
 // A Brief minted since kogaki#1116 carries no survey pin, because the commit pin
 // is deprecated and each Strand's cite carries the served address at its own
 // content hash. The absence is STATED in the Draft's frontmatter rather than
@@ -159,195 +152,146 @@ export const NO_SURVEY_PIN = "none — the commit pin is deprecated (kogaki#1116
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 // ---------------------------------------------------------------------------
-// Brief parsing — pure over the document text, exported for the fixture pass.
+// THE BRIEF IS READ AS ITS RECORD (kogaki#1328, owner decision 2026-10-10).
 //
-// The parse reads exactly what the runtime consumes: slug, survey pin, the
-// settled Strand set with its cite lines, and the Sequence's leg blocks in
-// document order. Everything else in the Brief is reachable material, not
-// structure this harness interprets.
-// ONE PARSER, AND THIS IS IT (kogaki#1014). A `leg` block's fields are read
-// HERE and nowhere else: `parseBrief` calls it once per fenced block, and the
-// Reverse Outline a Blind Reader hands back is validated by the same call. A
-// second reader for the same block is exactly the two-copy divergence the
-// Reverse Outlining rebuild exists to remove — the Reverse Outline is a Brief
-// Leg block, so it is parsed by the Brief parser or it is not one.
+// `theses/<slug>/brief.yaml` is one YAML record, and this is where /draft
+// reads it: `parseBriefRecord` (src/compose.mjs) reads the YAML and refuses a
+// key the record does not declare, and `briefLegs` hands back the Reader
+// Path's Legs in their recorded order with each before-state derived from the
+// state before it. No regular expression reads a rendering of the Brief here:
+// `parseBrief`, `parseLegBlockBody` and the Closure regex they shared are
+// gone, because every field they recovered was structured data a moment
+// before the Brief was written, and the record keeps it structured.
 //
-// Returns `{ leg }` or `{ refusal }`. The caller decides what a refusal costs:
-// `parseBrief` collects it and keeps reading the document, while a Reverse
-// Outline has one block and refuses on it.
-export function parseLegBlockBody(body, path) {
-  const idM = body.match(/^leg_id:\s*(\S+)\s*$/m);
-  if (!idM) return { refusal: `the Brief at ${path} carries a leg block with no leg_id` };
-  // `move:` IS READ (the Leg-Move instantiation contract, kogaki#747). It was parsed for `leg_id` only
-  // and the Move binding sat here as uninterpreted dead input, so a typo'd
-  // or renamed id rode a minted Brief in silence until the Leg Packet
-  // assembler joined Leg.move → moves/<id>.md and failed mid-draft. Since
-  // kogaki#1311 no realization act opens the Move, so the id is carried for
-  // the record and the trace and resolved nowhere on this side.
-  const moveM = body.match(/^move:\s*(\S+)\s*$/m);
-  // the reader-knowledge ledger's `introduces:` (kogaki#751), read back from the serialized form.
-  // ONE LINE PER ENTRY, matching `renderLeg`'s writer — a term may contain
-  // a comma and its anchor almost always does, so a comma-joined field could
-  // not be parsed back at all. Absent entirely is the ordinary case and is
-  // not an absence to report: a Leg that introduces nothing carries no
-  // line, and the ledger below simply has nothing to fold in from it.
-  const introduces = [...body.matchAll(/^introduces:\s*(.*)$/gm)].map((x) => x[1]);
-  // A MALFORMED ENTRY REFUSES NAMING THE LEG (acceptance). The shape
-  // grammar is the composition side's, imported rather than re-expressed:
-  // the writer and the reader disagreeing about what an entry is would be
-  // the round trip failing silently at exactly the field whose value is an
-  // accumulation nobody re-derives by hand.
-  if (introduces.length) {
-    const bad = introducesRefusal(introduces, `the Brief at ${path}, leg ${idM[1]}`);
-    if (bad) return { refusal: bad };
+// THE SHAPE CHECKS STILL RUN AT THE READ, through the composition side's own
+// predicates, imported rather than re-expressed: `validateLegs` ran them
+// before the Brief was written, and a Brief edited by hand afterwards is read
+// as any other record — so a Leg this side cannot realize refuses here,
+// naming the Leg, rather than reaching a Packet half-formed.
+//
+// Returns `{ slug, surveyPin, thesis, strands, legs, refusals, text, record }`.
+// `refusals` collects every reason the Brief is not an input; the caller
+// decides what one costs.
+export function readBrief(text, path = "<brief>") {
+  const refusals = [];
+  const parsed = parseBriefRecord(text, path);
+  if (parsed.error) return { refusals: [parsed.error], text, legs: [], strands: [] };
+  const record = parsed.record;
+
+  // A template is refused BY FIELD (AC1): the first slot still awaiting
+  // composition names the field the refusal carries.
+  const open = unfilledSlots(record);
+  if (open.length) {
+    refusals.push(`the Brief at ${path} is a template, not an input: the field "${open[0]}" still reads as an `
+      + "unfilled slot (null) — the Brief is filled when a Candidate is adopted");
   }
-  // `re-activate` (kogaki#1237), read back from the serialized form
-  // `renderLeg` writes: ONE LINE PER ENTRY, matching `introduces`'s own
-  // reader for the same reason. SHAPE ONLY — the semantic check (the named
-  // Leg is in `depends_on`, the term or Strand exists there) already ran at
-  // `validateLegs` before this Brief was minted; re-running it here would be
-  // a second copy of a judgment `compose.mjs` already made.
-  const reactivate = [...body.matchAll(/^re-activate:\s*(.*)$/gm)].map((x) => x[1]);
-  if (reactivate.length) {
-    const bad = reactivateRefusal(reactivate, `the Brief at ${path}, leg ${idM[1]}`);
-    if (bad) return { refusal: bad };
+
+  const slug = typeof record.slug === "string" && record.slug !== "" ? record.slug : basename(dirname(resolve(path)));
+
+  // THE THESIS IS THE ARTICLE'S TITLE, VERBATIM (kogaki#1327, owner decision
+  // 2026-10-10): the record's `thesis` key, rendered by `emit` exactly as it
+  // stands. No field is composed for the title.
+  const thesis = typeof record.thesis === "string" && record.thesis.trim() !== "" ? record.thesis.trim() : null;
+  if (thesis === null) {
+    refusals.push(`the Brief at ${path} carries no non-empty \`thesis\` — `
+      + "the Draft's title is the Thesis, rendered verbatim, and there is no field composed for it");
   }
-  // the Section grouping's `opens_section:` (kogaki#823), read back from the serialized form
-  // `renderLeg` writes. THE PARSE-BACK IS WHAT MAKES THE DECLARATION LIVE:
-  // kogaki#822 landed the field, its four grouping rules and its writer, and
-  // nothing on this side read it — so a Brief could declare its Sections
-  // perfectly and the Draft would still render one heading per Leg, with
-  // every check green. The round trip is asserted at both ends through ONE
-  // shared shape grammar, imported rather than re-expressed, for the reason
-  // `introduces` is: a writer and a reader disagreeing about what a value is
-  // fails silently at exactly the field whose value reaches an owner-facing
-  // heading.
-  // `[ \t]*` and NOT `\s*`: `\s` matches a newline, so a blank value would
-  // eat the line break and capture the NEXT field's line as the title — a
-  // Section silently headed "purpose: ..." instead of refusing. Caught by the
-  // blank-value fixture below; the same idiom `legField` already uses.
-  const opensM = body.match(/^opens_section:[ \t]*(.*)$/m);
-  let opens_section;
-  if (opensM) {
-    const bad = opensSectionRefusal(opensM[1].trim(), `the Brief at ${path}, leg ${idM[1]}`);
-    if (bad) return { refusal: bad };
-    opens_section = opensM[1].trim();
-  }
-  // the figure decision's `figure:`/`figure_roles:` (kogaki#877), read back from the
-  // serialized form `renderLeg` writes. THE PARSE-BACK IS WHAT MAKES THE
-  // DECLARATION REACH THE PAGE: #877 landed the field, its grammar and its
-  // writer, and nothing on this side read it — so a Brief could declare a
-  // figure perfectly and the Draft would render none, with every check green.
-  // The same round-trip arrangement `introduces` and `opens_section` have,
-  // through the SAME shared grammar imported from the composition side: a
-  // writer and a reader disagreeing about what a binding is fails silently at
-  // exactly the field whose value reaches a rendered figure.
-  //
-  // `[ \t]*` and not `\s*`, for the reason `opens_section` states: `\s`
-  // spans a newline, so a blank `figure:` would capture the NEXT field's line
-  // as the figure's reason instead of refusing.
-  const figM = body.match(/^figure:[ \t]*(.*)$/m);
-  const rolesM = body.match(/^figure_roles:[ \t]*(.*)$/m);
-  let figure, figure_roles;
-  if (figM || rolesM) {
-    let parsedRoles;
-    if (rolesM) {
-      const r = parseFigureRoles(rolesM[1]);
-      if (r.error) return { refusal: `the Brief at ${path}, leg ${idM[1]}: figure_roles — ${r.error} (the figure decision)` };
-      parsedRoles = r.roles;
+
+  // THE SURVEY PIN IS NO LONGER CARRIED (kogaki#1116): each Strand's cite
+  // carries the served address at its own content hash, so the absence is a
+  // recorded absence, and the frontmatter says which.
+  const surveyPin = NO_SURVEY_PIN;
+
+  // Strands, with their cites in the order the mint wrote them.
+  const strands = record.strands.map((s) => ({
+    id: String(s.id),
+    slug: String(s.slug),
+    cites: [
+      ...(typeof s.cite === "string" ? [{ kind: "cite", cite: s.cite }] : []),
+      ...(typeof s.journey_cite === "string" ? [{ kind: "journey cite", cite: s.journey_cite }] : []),
+    ],
+  }));
+
+  // Legs, in recorded order. The order IS the Reader Path (AC3); nothing
+  // below re-sorts it.
+  const legs = [];
+  if (Array.isArray(record.reader_path)) {
+    const declared = new Set(Object.keys(legschema().fields));
+    for (const [i, raw] of record.reader_path.entries()) {
+      const bad = legRecordRefusal(raw, declared, `the Brief at ${path}, leg ${raw?.leg_id ?? i + 1}`);
+      if (bad) { refusals.push(bad); continue; }
     }
-    // THE GRAMMAR IS THE COMPOSITION SIDE'S, not a second expression of it.
-    // A blank `figure:` reaches here as the empty string, which is what the
-    // shared refusal already calls a half-declaration.
-    const bad = figureRefusal(figM ? figM[1].trim() : undefined, parsedRoles,
-      `the Brief at ${path}, leg ${idM[1]}`);
-    if (bad) return { refusal: bad };
-    figure = figM[1].trim();
-    figure_roles = parsedRoles;
+    if (!refusals.length) legs.push(...briefLegs(record));
   }
-  // the Journey a Leg draws on (kogaki#1111), read back from the serialized form
-  // `renderLeg` writes: `journey: <L-id> — <use>`, ONE LINE PER ENTRY. THE
-  // PARSE-BACK IS WHAT MAKES THE DECLARATION REACH THE PACKET — the same
-  // arrangement `introduces`, `opens_section` and `figure` have, through the
-  // SAME shared grammar imported from the composition side, because a writer
-  // and a reader disagreeing about what a value is fails silently at exactly
-  // the field whose value reaches the model's entire input.
-  //
-  // `[ \t]*` and not `\s*`, for the reason `opens_section` states: `\s` spans
-  // a newline, so a blank `journey:` would capture the NEXT field's line.
-  const journeyLines = [...body.matchAll(/^journey:[ \t]*(.*)$/gm)].map((x) => x[1].trim());
-  let journeys;
-  if (journeyLines.length) {
-    // The em dash is the writer's separator. A line carrying none is a
-    // half-declaration and reaches the shared refusal as an entry with no
-    // use, which is what that refusal already names. The use itself is a
-    // single token from the closed set (src/leg-schema.json, `journey.uses`);
-    // a trailing ` (<gloss>)` is `renderLeg`'s own gloss (kogaki#1286) and is
-    // stripped here rather than carried into `use`, which the closed-set
-    // refusal would otherwise reject whole.
-    journeys = journeyLines.map((ln) => {
-      const m = /^(\S+)\s+—\s+(.*)$/.exec(ln);
-      if (!m) return { strand: ln, use: "" };
-      const glossM = /^(\S+)\s+\(.*\)$/.exec(m[2].trim());
-      return { strand: m[1], use: glossM ? glossM[1] : m[2].trim() };
-    });
-    const materials = (body.match(/^materials:[ \t]*(.*)$/m)?.[1] || "")
-      .split(",").map((x) => x.trim()).filter(Boolean);
-    const bad = journeysRefusal(journeys, materials, `the Brief at ${path}, leg ${idM[1]}`);
-    if (bad) return { refusal: bad };
+  if (legs.length === 0 && refusals.length === 0) {
+    refusals.push(`the Brief at ${path} carries no Reader Path legs — there is nothing to realize`);
   }
-  // the route (kogaki#1311), read back from the serialized form `renderLeg`
-  // writes: `waypoint (serves L<n>[, L<m>]): <point>`, ONE LINE PER WAYPOINT
-  // in order. Read here and checked at the realization entry (`loadBrief`),
-  // not here: this parser also reads a Reverse Outline, whose `waypoint` lines
-  // are a blind reader's and carry no Strand, so a line without the
-  // parenthesis reads as a waypoint with an empty `serves` and the caller
-  // that needs one refuses it.
-  const waypoints = [...body.matchAll(/^waypoint\b[ \t]*(.*)$/gm)].map((x) => {
-    const m = /^\(serves[ \t]+([^)]*)\)[ \t]*:[ \t]*(.*)$/.exec(x[1].trim());
-    if (!m) return { point: x[1].trim().replace(/^:[ \t]*/, ""), serves: [] };
-    return { point: m[2].trim(), serves: m[1].split(",").map((y) => y.trim()).filter(Boolean) };
-  });
-  // THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28). A
-  // Brief composed before this issue could carry a `relation:` line; letting
-  // it parse silently would render no tree — this Packet no longer draws
-  // one — while the marking simply vanished, which is a Brief rendering
-  // differently from what it declares. Refused by name instead, so an old
-  // Brief cannot silently render.
-  if (/^relation:[ \t]*.*$/m.test(body)) {
-    return { refusal: `the Brief at ${path}, leg ${idM[1]}: carries a \`relation:\` line — `
-      + "the relations layer is retired (kogaki#1215): claims and introduce-here entries render as flat lists, "
-      + "and a Leg marking a satellite cannot be realized" };
-  }
-  const budgetM = body.match(/^budget:[ \t]*(\S*)\s*$/m);
-  let budget;
-  if (budgetM) {
-    budget = /^[0-9]+$/.test(budgetM[1]) ? Number(budgetM[1]) : budgetM[1];
-    const bad = budgetRefusal(budget, `the Brief at ${path}, leg ${idM[1]}`);
-    if (bad) return { refusal: bad };
-  }
-  // the Reader target Leg's mark (kogaki#1231), read back from the serialized
-  // form `renderLeg` writes: `reaches_target: true`, on the one Leg whose
-  // after-state IS the Brief's Reader target. THE PARSE-BACK IS WHAT MAKES
-  // THE MARK REACH THE PACKET — the same arrangement `opens_section` and
-  // `figure` have: `renderPacket` renders the marked Leg's and each closing
-  // Leg's own line under `## This Leg` off this field, and without the read
-  // every Packet would render as a Leg before the target with every check
-  // green. Only `true` is a mark; any other value is a half-declaration and
-  // refuses naming the Leg rather than reading as unmarked, because a Brief
-  // that says `reaches_target: false` on the Leg the composer meant to mark
-  // would otherwise render silently as an unmarked path.
-  const reachesM = body.match(/^reaches_target:[ \t]*(.*)$/m);
-  let reaches_target;
-  if (reachesM) {
-    if (reachesM[1].trim() !== "true") {
-      return { refusal: `the Brief at ${path}, leg ${idM[1]}: reaches_target reads ${JSON.stringify(reachesM[1].trim())} — `
-        + "the mark is `true` on exactly one Leg and absent elsewhere (kogaki#1231)" };
+
+  return { slug, surveyPin, thesis, strands, legs, refusals, text, record };
+}
+
+// One Leg of the record, held to the shapes a Packet needs: the key set
+// `src/leg-schema.json` declares, and each field's own grammar through the
+// composition side's predicates. Returns a refusal string or null.
+function legRecordRefusal(raw, declared, at) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return `${at}: a Leg is a map of named fields`;
+  if (typeof raw.leg_id !== "string" || raw.leg_id === "") return `${at}: carries no \`leg_id\``;
+  for (const k of Object.keys(raw)) {
+    if (k === "reader_state_before") {
+      return `${at}: carries \`reader_state_before\` — a Leg's before-state is the state written before it `
+        + "(the Reader start, or the previous Leg's after-state) and is derived on read, never written (kogaki#1325, kogaki#1328)";
     }
-    reaches_target = true;
+    // THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28):
+    // a Leg marking a satellite cannot be realized, and is refused by name.
+    if (k === "relation") {
+      return `${at}: carries a \`relation\` — the relations layer is retired (kogaki#1215): claims and `
+        + "introduce-here entries render as flat lists, and a Leg marking a satellite cannot be realized";
+    }
+    if (!declared.has(k)) {
+      return `${at}: carries \`${k}\`, which is not a Leg field (src/leg-schema.json) — a field nobody declared is refused rather than read`;
+    }
   }
-  return { leg: { leg_id: idM[1], move: moveM ? moveM[1] : null, introduces, "re-activate": reactivate,
-    opens_section, journeys, figure, figure_roles, budget, reaches_target, waypoints, body } };
+  if (raw.reader_state_after === null || typeof raw.reader_state_after !== "object" || Array.isArray(raw.reader_state_after)) {
+    return `${at}: \`reader_state_after\` is a map of the reader's state, one key per dimension`;
+  }
+  if (!Array.isArray(raw.claims) || raw.claims.some((g) => !g || typeof g.strand !== "string" || typeof g.proposition !== "string")) {
+    return `${at}: \`claims\` is a list of maps, each naming its \`strand\` and its \`proposition\``;
+  }
+  if (!Array.isArray(raw.waypoints) || raw.waypoints.some((w) => !w || typeof w.point !== "string" || !Array.isArray(w.serves))) {
+    return `${at}: \`waypoints\` is a list of maps, each with its \`point\` and the Strands it \`serves\``;
+  }
+  if (raw.introduces !== undefined) {
+    const bad = introducesRefusal(raw.introduces, at);
+    if (bad) return bad;
+  }
+  if (raw["re-activate"] !== undefined) {
+    const bad = reactivateRefusal(raw["re-activate"], at);
+    if (bad) return bad;
+  }
+  if (raw.opens_section !== undefined) {
+    const bad = opensSectionRefusal(typeof raw.opens_section === "string" ? raw.opens_section.trim() : raw.opens_section, at);
+    if (bad) return bad;
+  }
+  if (raw.figure !== undefined || raw.figure_roles !== undefined) {
+    const bad = figureRefusal(raw.figure, raw.figure_roles, at);
+    if (bad) return bad;
+  }
+  if (raw.journeys !== undefined) {
+    const bad = journeysRefusal((Array.isArray(raw.journeys) ? raw.journeys : []).map((j) => ({ strand: j?.strand, use: j?.use })),
+      Array.isArray(raw.materials) ? raw.materials.map(String) : [], at);
+    if (bad) return bad;
+  }
+  if (raw.budget !== undefined) {
+    const bad = budgetRefusal(raw.budget, at);
+    if (bad) return bad;
+  }
+  // the Reader target Leg's mark (kogaki#1231): only `true` is a mark, and any
+  // other value refuses naming the Leg rather than reading as unmarked.
+  if (raw.reaches_target !== undefined && raw.reaches_target !== true) {
+    return `${at}: reaches_target reads ${JSON.stringify(raw.reaches_target)} — `
+      + "the mark is `true` on exactly one Leg and absent elsewhere (kogaki#1231)";
+  }
+  return null;
 }
 
 // THE READER TARGET LINE OF A PACKET (kogaki#1231, owner decision
@@ -371,103 +315,6 @@ export function readerTargetLine(legs, legId) {
   if (idx === targetIdx) return REACHES_TARGET_LINE;
   if (idx > targetIdx) return CLOSING_LEG_LINE;
   return "";
-}
-
-// The fenced form. A Reverse Outline is ONE `leg` block and this is what
-// unwraps it: the fence grammar is `parseBrief`'s own, so a Blind Reader who
-// writes a block the Brief could not carry is refused here rather than
-// downstream at a field nobody declared.
-export function parseLegBlock(text, path = "<reverse-outline>") {
-  const m = /^```leg\n([\s\S]*?)\n```/m.exec(text);
-  if (!m) {
-    return { refusal: `${path} carries no fenced \`leg\` block — a Reverse Outline IS a Brief Leg block, `
-      + "written in the Brief's own field names, so there is nothing here to compare against the Forward Artifact" };
-  }
-  const rest = text.slice(m.index + m[0].length);
-  if (/^```leg\n/m.test(rest)) {
-    return { refusal: `${path} carries more than one fenced \`leg\` block — a Reverse Outline is the reading of ONE passage, `
-      + "and two blocks leave the Harness to pick which one the reader meant" };
-  }
-  return parseLegBlockBody(m[1], path);
-}
-
-// The Brief's `## Thesis` section: the paragraph under that heading, trimmed,
-// or null where the heading is absent or its paragraph is empty (kogaki#1327).
-export function briefThesisOf(text) {
-  const m = /^## Thesis\n\n([\s\S]*?)\n\n/m.exec(text);
-  return m && m[1].trim() !== "" ? m[1].trim() : null;
-}
-
-export function parseBrief(text, path = "<brief>") {
-  const lines = text.split("\n");
-  const refusals = [];
-
-  // A template is refused BY FIELD (AC1): the slot token's nearest preceding
-  // heading names the field the refusal carries.
-  let heading = "(document head)";
-  for (const ln of lines) {
-    const h = ln.match(/^##\s+(.+?)\s*$/);
-    if (h) heading = h[1];
-    if (ln.includes(SLOT)) {
-      refusals.push(`the Brief at ${path} is a template, not an input: the field "${heading}" still reads as an unfilled slot (${SLOT})`);
-      break;
-    }
-  }
-
-  const slugM = text.match(/^# Brief — (.+?)\s*$/m);
-  const slug = slugM ? slugM[1] : basename(dirname(resolve(path)));
-
-  // THE THESIS IS THE ARTICLE'S TITLE, VERBATIM (kogaki#1327, owner decision
-  // 2026-10-10). Read here by `briefThesisOf`, this command's own reader of
-  // the Brief's `## Thesis` section: a command module imports no other
-  // command's (kogaki#1302), so the Brief side's reader is not imported, and
-  // the two agree through the Brief's section grammar rather than a shared
-  // function. No field is composed for the title: `emit` renders exactly
-  // what this returns.
-  const thesis = briefThesisOf(text);
-  if (thesis === null) {
-    refusals.push(`the Brief at ${path} carries no "## Thesis" section with a non-empty paragraph — `
-      + "the Draft's title is the Thesis, rendered verbatim, and there is no field composed for it");
-  }
-
-  // THE SURVEY PIN IS NO LONGER REQUIRED, AND ITS ABSENCE IS TYPED RATHER THAN
-  // REFUSED (kogaki#1116). The commit pin is deprecated: a Brief minted since
-  // that issue carries no `*Survey pin:*` line at all, because each Strand's
-  // cite carries the served address at its OWN content hash — which is the fact
-  // the response-wide commit was standing in for, stated per member. A Brief
-  // minted before it still carries the line and is still read here, so the two
-  // generations are both realizable; what changed is that the absence is a
-  // recorded absence rather than a refusal, and the frontmatter says which.
-  const pinM = text.match(/\*Survey pin:\*\s*`([^`]+)`/);
-  const surveyPin = pinM ? pinM[1] : NO_SURVEY_PIN;
-
-  // Strands: "### L<n> — <slug>" with their cite lines.
-  const strands = [];
-  const strandRe = /^### (L\d+) — (\S+)\s*$/gm;
-  let m;
-  while ((m = strandRe.exec(text)) !== null) {
-    const tail = text.slice(m.index);
-    const block = tail.slice(0, tail.indexOf("\n###", 1) === -1 ? tail.length : tail.indexOf("\n###", 1));
-    const cites = [...block.matchAll(/^- (journey cite|cite): `([^`]+)`\s*$/gm)]
-      .map((c) => ({ kind: c[1], cite: c[2] }));
-    strands.push({ id: m[1], slug: m[2], cites });
-  }
-  if (strands.length === 0) refusals.push(`the Brief at ${path} settles no Strands — nothing is reachable`);
-
-  // Legs: fenced ```leg blocks, in document order. The order IS the Reader
-  // Path (AC3); nothing below re-sorts it.
-  const legs = [];
-  const legRe = /^```leg\n([\s\S]*?)\n```/gm;
-  while ((m = legRe.exec(text)) !== null) {
-    const parsed = parseLegBlockBody(m[1], path);
-    if (parsed.refusal) { refusals.push(parsed.refusal); continue; }
-    legs.push(parsed.leg);
-  }
-  if (legs.length === 0 && refusals.length === 0) {
-    refusals.push(`the Brief at ${path} carries no Reader Path legs — there is nothing to realize`);
-  }
-
-  return { slug, surveyPin, thesis, strands, legs, refusals, text };
 }
 
 // The closed-set refusal, in `fillBrief`'s own shape: name the foreign id AND
@@ -578,11 +425,11 @@ function snapshotDraft(ws, phase, seq, content) {
 }
 
 function loadBrief(args) {
-  const path = argString(args, "brief", "this command needs --brief <path to theses/<slug>/brief.md>");
+  const path = argString(args, "brief", "this command needs --brief <path to theses/<slug>/brief.yaml>");
   let text;
   try { text = readFileSync(path, "utf8"); }
   catch (e) { fail(`the Brief at ${path} cannot be read (${e.message})`); }
-  const brief = parseBrief(text, path);
+  const brief = readBrief(text, path);
   if (brief.refusals.length) fail(brief.refusals[0]);
   // THE LEG'S ROUTE AT THE REALIZATION ENTRY (kogaki#1311). Every Leg carries
   // `waypoints`, and a Brief whose Leg carries none refuses here the way any
@@ -602,19 +449,11 @@ function loadBrief(args) {
       + "waypoints, written when the Brief was composed, and the Packet renders those");
   }
   for (const leg of brief.legs) {
-    const strands = claimStrandsOf(leg.body);
+    const strands = leg.claims.map((g) => g.strand);
     const bad = waypointsRefusal(leg.waypoints, strands, `the Brief at ${path}, leg ${leg.leg_id}`);
     if (bad) fail(bad);
   }
   return { ...brief, path: resolve(path) };
-}
-
-// The Strand ids a Leg block's claims name, read off `renderLeg`'s one claim
-// form, `claim (strand L<n>): <proposition>` (kogaki#1095).
-function claimStrandsOf(body) {
-  return String(body).split("\n")
-    .map((l) => /^claim\s*\(strand\s+([^)\s]+)\s*\)\s*:/.exec(l))
-    .filter(Boolean).map((m) => m[1]);
 }
 
 // the Section grouping's SECTION GROUPING, derived from the Brief and from nothing else
@@ -982,10 +821,11 @@ function cmdMaterial(args) {
   if (!strand) fail(foreignStrandRefusal(id, brief.strands));
   process.stdout.write(`${strand.id} — ${strand.slug}\n`);
   for (const c of strand.cites) process.stdout.write(`${c.kind}: ${c.cite}\n`);
-  // The Brief's own text is the material: every claim line naming this
-  // Strand, quoted as the Brief carries it.
-  const claims = [...brief.text.matchAll(new RegExp(`^claim \\(strand ${id}\\): (.+)$`, "gm"))];
-  for (const g of claims) process.stdout.write(`claim: ${g[1]}\n`);
+  // The Brief's own record is the material: every claim naming this Strand,
+  // in the Reader Path's order, quoted as the Brief carries it.
+  for (const leg of brief.legs) {
+    for (const g of leg.claims) if (g.strand === id) process.stdout.write(`claim: ${g.proposition}\n`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1013,22 +853,6 @@ function cmdMaterial(args) {
 // written at composition and judged there against the Move, and the Packet
 // renders the waypoints in the Move block's place. No Move file is opened
 // to render a Packet.
-
-// The leg block's fields, read off the recorded form `renderLeg` writes.
-// A field's CONTINUATION LINES — two-space-indented lines immediately below
-// it (kogaki#1224) — are read back and rejoined by `\n`, never folded into
-// one line: `reader_state_before`/`after` are `dimension: value` lines
-// (kogaki#1176) and `readerStateDimensionLine` reads them apart by line, so
-// folding here would erase the boundary that reader needs.
-export function legField(body, field) {
-  const m = body.match(new RegExp(`^${field}:[ \\t]*(.*)\\n((?:  .*(?:\\n|$))*)`, "m"));
-  if (!m) {
-    const inline = body.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
-    return inline ? inline[1].trim() : null;
-  }
-  const rest = m[2].split("\n").filter((l) => l !== "").map((l) => l.slice(2));
-  return [m[1].trim(), ...rest].join("\n");
-}
 
 // ---------------------------------------------------------------------------
 // the figure record — its realization-side machinery (kogaki#878).
@@ -1059,7 +883,7 @@ export function splitPacketTemplate(text) {
 // which is what makes a role bound to another Leg's claim unreachable rather
 // than refused by a rule.
 export function claimLines(leg) {
-  return leg.body.split("\n").filter((l) => l.startsWith("claim "));
+  return (leg.claims || []).map((g) => `claim (strand ${g.strand}): ${g.proposition}`);
 }
 // VERBATIM, THE WHOLE LINE. The binding block quotes what the Brief recorded,
 // including which Strand or Leg effect licensed it: an element is that claim
@@ -1491,8 +1315,8 @@ export function resolveLegJourneys(leg, brief) {
 // resolves against the repository root, as the workflow's does.
 const DRAFT_REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 export function packetPersonaPath(brief) {
-  const m = /^compose_path:[ \t]*(\S+)[ \t]*$/m.exec(brief?.text || "");
-  if (m) return resolve(DRAFT_REPO, m[1]);
+  const named = brief?.record?.compose_path;
+  if (typeof named === "string" && named !== "") return resolve(DRAFT_REPO, named);
   let table;
   try { table = JSON.parse(readFileSync(join(DRAFT_REPO, "src", "brief-workflow.json"), "utf8")); }
   catch (e) { return { error: `src/brief-workflow.json cannot be read (${e.message}) — the Brief names no compose_path, and the workflow's compose_path row names the Persona otherwise` }; }
@@ -1507,8 +1331,7 @@ export function packetPersonaPath(brief) {
 // The Brief header's `external_authority: on | off` (kogaki#1251 item 3,
 // set at the mint by kogaki#1262). Absent reads as `on`, the mint's default.
 export function externalAuthorityOf(brief) {
-  const m = /^external_authority:[ \t]*(on|off)[ \t]*$/m.exec(brief?.text || "");
-  return m ? m[1] === "on" : true;
+  return brief?.record?.external_authority !== "off";
 }
 
 // ONE `Introduce here` LINE (kogaki#1261). A typed item renders its kind, so
@@ -1598,11 +1421,7 @@ export const READER_OWN_WORLD_ABSENT =
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
   if (!ws.length) return null;
-  const byStrand = new Map();
-  for (const l of String(leg.body || "").split("\n")) {
-    const m = /^claim\s*\(strand\s+([^)\s]+)\s*\)\s*:\s*(.*)$/.exec(l);
-    if (m) byStrand.set(m[1], m[2].trim());
-  }
+  const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition).trim()]));
   return ws.map((w, i) => `${i + 1}. ${w.point.trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`).join("\n");
 }
 
@@ -1616,9 +1435,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   // renders the proposition alone, so every claim line it carries is a claim
   // and nothing else — which is also what keeps a Strand id's digits out of a
   // review comparison line.
-  const claimTexts = leg.body.split("\n")
-    .filter((l) => l.startsWith("claim "))
-    .map((l) => l.replace(/^claim\s*\([^)]*\)\s*:\s*/, ""));
+  const claimTexts = (leg.claims || []).map((g) => g.proposition);
   // A FLAT LIST, ONE LINE PER CLAIM (kogaki#1215; the relations layer this
   // rendered as a tree is retired). No indentation carries meaning here: the
   // Leg's claims are unambiguous peers, and the writer's realization owes
@@ -1630,7 +1447,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   const intro = (leg.introduces || []);
   // WHAT THIS LEG RE-ACTIVATES (kogaki#1237, owner decision 2026-09-30):
   // parsed the same way `validateLegs` parsed it before this Brief was
-  // minted — a bad entry never reaches here, because `parseLegBlockBody`
+  // minted — a bad entry never reaches here, because `readBrief`
   // refused the Brief on it. Each valid entry resolves to the NAMED LEG's
   // own material: a `term` entry to that Leg's own `introduces` line,
   // crossing WITH ITS MEANING (kogaki#1282); a `claim` entry crosses as the
@@ -1678,7 +1495,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   // empty `prior_knowledge` is the stated case `READER_OWN_WORLD_ABSENT`
   // renders, not a hole in the Packet's input.
   const priorKnowledge = typeof personaPath === "string" ? personaPriorKnowledge(personaPath) : null;
-  const conceded = concededRowFields(brief.text || "", leg.leg_id);
+  const closureRows = closureRowsOf(brief.record, leg.leg_id);
 
   const fields = {
     // THE ROUTE (kogaki#1311, kogaki#1326): one numbered line per waypoint, in
@@ -1690,7 +1507,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     waypoints: need(`${leg.leg_id}'s waypoints`, waypointLines(leg)),
     // THE READER TARGET LINE (kogaki#1231; moved into the Section block at
     // kogaki#1247): the marked Leg's, a closing Leg's, or nothing — off the
-    // Brief's own `reaches_target:` mark, read by `parseLegBlockBody` above.
+    // Brief's own `reaches_target` mark, read by `readBrief` above.
     // Not passed through `need`: an earlier Leg renders the empty string here
     // by design, and that is a filled slot.
     reader_target_line: readerTargetLine(brief.legs, leg.leg_id),
@@ -1716,20 +1533,20 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
       ? [...intro.map((raw) => introduceLine(raw, authorityOn)), ...active].join("\n")
       : "(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)",
     // CLOSURE (kogaki#1151): the rows this Leg is a party to, read from the
-    // Brief's own rendered "## Closure" section (`closureRowsForLeg`) rather
-    // than recomputed here — fillBrief already wrote the one true rendering.
+    // Brief record's `closure` list, with the derived Thesis row on the Leg
+    // marked `reaches_target` (`closureRowsOf`, kogaki#1328).
     // EMPTY RENDERS EMPTY, NEVER ABSENT (acceptance item 3): a Leg that
     // introduces, discharges and concedes nothing still gets the block, saying
     // so, on the same one-word-one-unit ground `reader_already_knows` states.
     // THE ROW THIS LEG CONCEDES renders its three fields (kogaki#1261): what
     // stays open, why this article does not close it, and what the reader
     // keeps — the concession the prose makes, not a bare sentence.
-    closure_rows: closureRowsForLeg(brief.text, leg.leg_id).length
-      ? closureRowsForLeg(brief.text, leg.leg_id).map((t) => {
-        if (!conceded || conceded.text !== t) return `- ${t}`;
-        return `- ${t} — conceded in this Leg. Left open: ${conceded.open ?? "(not recorded)"}. `
-          + `Why this article does not close it: ${conceded.why_not_here ?? "(not recorded)"}. `
-          + `What the reader keeps: ${conceded.reader_keeps ?? "(not recorded)"}.`;
+    closure_rows: closureRows.length
+      ? closureRows.map((o) => {
+        if (o.conceded_by !== leg.leg_id) return `- ${o.text}`;
+        return `- ${o.text} — conceded in this Leg. Left open: ${o.open ?? "(not recorded)"}. `
+          + `Why this article does not close it: ${o.why_not_here ?? "(not recorded)"}. `
+          + `What the reader keeps: ${o.reader_keeps ?? "(not recorded)"}.`;
       }).join("\n")
       : "(nothing — this Leg carries no Closure row)",
     // the Journey a Leg draws on (kogaki#1111). THE PACKET NOW RENDERS THE
@@ -2304,10 +2121,8 @@ function cmdEmit(args) {
 }
 
 // THIS FILE IS BOTH A COMMAND AND A LIBRARY, AND THE GUARD IS WHAT MAKES THE
-// SECOND POSSIBLE (kogaki#1014). `parseLegBlock` is the Brief's own reader for
-// a `leg` block and ReviewDraft's Reverse Outline is one — "parsed by the same
-// function that parses a Brief Leg" is the acceptance, so this module has to be
-// importable. Without the guard the dispatch below ran at import, read the
+// SECOND POSSIBLE (kogaki#1014). ReviewDraft and the checks import this
+// module's exports, so it has to be importable. Without the guard the dispatch below ran at import, read the
 // IMPORTER's argv, matched no subcommand and exited 1: `review-draft open`
 // died on draft.mjs's usage line before writing anything.
 //

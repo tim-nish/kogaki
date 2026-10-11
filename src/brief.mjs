@@ -25,7 +25,7 @@
 //            and the slug it is paired with, or an override slug the owner
 //            named in the same answer. Emits no ask of its own.
 //   mint   — consumes the adopted (Thesis, slug) PAIR from the run state and
-//            creates theses/<slug>/brief.md with `thesis` FILLED AT MINT BY
+//            creates theses/<slug>/brief.yaml with `thesis` FILLED AT MINT BY
 //            CONSTRUCTION and every downstream the settled structure section field a typed unfilled
 //            slot. Idempotence by slug; a collision refuses (creator, never
 //            an editor).
@@ -113,13 +113,14 @@ import {
   detachedJobExecutor, clearOpenRunPointer, readRunRecord, writeRunRecord, checkpointRun,
 } from "./workflow/run-record.mjs";
 import {
-  SLOT_CAPTIONS, findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, targetLegAfterState,
+  findInternalVocabulary, selectionOptionIds, retiredReaderFieldRefusal, targetLegAfterState,
   cmdAssemble, cmdAdoptCandidate, characteristicMaxLength, candidateLedgerRefusal, retiredReasoningFieldRefusal,
 } from "./assemble.mjs";
 import { cmdAttach, attachReview, REVIEW_AREAS, DISCHARGE_VERDICTS } from "./review.mjs";
 import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
-  validateLegs, validateSpecialization, specializationFailures, specializationSchema, selectedStrands, journeyBearingStrands,
+  validateLegs, validateSpecialization, specializationFailures, specializationSchema, briefStrandIds, briefJourneyStrands,
+  briefSlotKeys, briefRecordText, briefRecordDeclaration, readBriefRecord, BRIEF_RECORD_FILE,
   resolveMoveIds, resolveFigureForms, loadMoveContracts, moveContractsForLegs,
   readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, dischargeRows,
   deriveReaderStatesBefore, readerStartThesisRefusal, sectionHeadingsWithLastAfterState,
@@ -173,26 +174,17 @@ function parseArgs(argv) {
   return args;
 }
 
-// The settled-structure fields DOWNSTREAM OF THE THESIS, every one present as a TYPED
-// UNFILLED SLOT — an absent field and a field awaiting composition are
-// different silences, and only the second lets a later sitting resume
-// (the durable home and the entry point). The `thesis` field is NOT in this list at v9: it is filled at
-// mint by construction, because the mint runs at Thesis adoption.
-const SLOT = "*(awaiting composition)*";
-// THE CAPTIONS ARE READ FROM ONE TABLE, NOT WRITTEN HERE (kogaki#526). Every
-// caption used to carry its own field key and, in three cases, a section
-// reference — `thesis_closure — explanation and established_by_legs.`,
-// `sequence — the ordered legs of \u00a74.1.` (the caption's own words, quoted
-// as the SPECIMEN it is and escaped so the kogaki#902 sweep does not read it
-// as a reference) — on a TRACKED document the owner
-// reads directly. kogaki#520 removed that vocabulary from the gate payload and
-// installed a tripwire there; the tripwire reads the payload and had no reach
-// into the minted document, which is why this was a separate carrier.
-const fields = () => [...SLOT_CAPTIONS.entries()];
-
-// Exported and pure over its inputs, so the check exercises the composed
-// document without a filesystem. `thesis` is required: at v9 no document
-// exists without one.
+// THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10), and
+// the mint writes its first version: the header fields, the closed Strand set
+// and the adopted Thesis FILLED, and every field downstream of the Thesis
+// present as `null` — a TYPED UNFILLED SLOT. An absent field and a field
+// awaiting composition are different silences, and only the second lets a
+// later sitting resume (the durable home and the entry point). The key set and
+// its captions are `src/candidate-schema.json`'s `brief_record`.
+//
+// Exported and pure over its inputs, so the check exercises the record
+// without a filesystem. `thesis` is required: at v9 no document exists
+// without one. Returns the record's text.
 export function composeBrief({ slug, strands, thesis, composePath, externalAuthority = "on" }) {
   if (typeof thesis !== "string" || thesis === "") {
     throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)");
@@ -212,149 +204,54 @@ export function composeBrief({ slug, strands, thesis, composePath, externalAutho
   if (externalAuthority !== "on" && externalAuthority !== "off") {
     throw new Error(`composeBrief: \`external_authority\` must be "on" or "off"; received ${JSON.stringify(externalAuthority)} (kogaki#1262)`);
   }
-  const L = [];
-  // TWO EMITTERS, and the split IS the tripwire's reach (the durable home and the entry point v15, kogaki#537).
-  // `say` emits text THIS COMPOSER AUTHORS and is guarded; `material` emits text
-  // that arrived from the owner or from the served substrate and is not.
-  //
-  // WHY THE SPLIT RATHER THAN ONE GUARD OVER EVERYTHING. The rule being enforced
-  // is "this codebase's vocabulary does not reach the owner", and a rule is
-  // enforced at the layer where it CAN BE BROKEN — the composer. An owner typing
-  // their own Thesis is not this system leaking; neither is a served rendering
-  // quoted at its pin. The predicate reads SHAPE and cannot tell provenance, so
-  // provenance is carried here, by which emitter the line goes through.
-  //
-  //   "grep the known internal vocabulary AT THE BOUNDARY … that grep covers
-  //    only the coined-identifier sub-class"
-  //   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:63
-  //   "a rule is enforced only at the layer where it can be broken"
-  //   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:103
-  //
-  // THE COST, STATED RATHER THAN LEFT: a leak written INTO a material line is
-  // unguarded, and the set of material lines is an enumeration that can go
-  // stale. It is small, it is all in this function, and the durable home and the entry point v15 names it — a
-  // future line carrying external content goes through `material` or the guard
-  // silently widens to text this codebase did not write.
-  const guarded = [];
-  const say = (s = "") => { L.push(s); guarded.push(s); };
-  const material = (s = "") => { L.push(s); };
-  material(`# Brief — ${slug}`);
-  say();
-  // THE HEADER PAIR, RECORD RATHER THAN PROSE (kogaki#1262). Both lines are
-  // facts this mint stamps, never the owner's words nor the substrate's, but
-  // neither is composer-authored SENTENCE either — `material` carries them
-  // for the same reason it carries a Strand's `cite`: a path and a two-value
-  // switch cannot leak the internal vocabulary the `say`/`material` split
-  // guards against.
-  material(`*compose_path:* \`${composePath}\``);
-  material(`*external_authority:* ${externalAuthority}`);
-  say();
-  // The reader-facing definition, in the act that uses the term (the durable home and the entry point).
-  say("> A **brief** is the working plan for one article: the served");
-  say("> material (Strands) the owner settled on, and the composition");
-  // THE THIRD OWNER-FACING SURFACE (PR #581 round 1). This definition names the
-  // composition fields to an owner, and it carried `sequence` — so after
-  // kogaki#574 a reader met a field name in the document's own opening and then
-  // found no section by that name below it. Neither the heading the issue names
-  // nor the record field it protects: a third surface, and the one place the
-  // retired token was actively misleading once its section moved.
-  say("> fields — thesis, Reader Path, coverage, obligations — filled in as");
-  say("> composition proceeds. It is the durable document a drafting");
-  say("> sitting resumes from.");
-  say();
-  // NO SURVEY PIN LINE (kogaki#1116, acceptance item 6). The commit pin is
-  // deprecated: it dated a whole gateway response, so it said the same thing
-  // about every member of the set and nothing about whether any ONE Strand's
-  // material had moved. Each Strand's `cite` below carries the served address at
-  // its own content hash, which answers that per member — and no Brief output
-  // carries `@<commit>` any more.
-  say("*Strand set: CLOSED at mint. Adding a Strand is your act, taken by going back through Terrain — a Brief never reaches for material on its own.*");
-  say();
-  say("## Strands");
-  say();
-  for (const s of strands) {
-    material(`### ${s.display_id} — ${s.slug}`);
-    say();
-    material(`- cite: \`${s.cite ?? "none recorded"}\``);
-    if (s.journey) {
-      // The served Journey cite is part of "their pins and served cites"
-      // (the durable home and the entry point) — a cite the record holds and the document drops sends the
-      // composition sitting back to the run workspace, which is what a
-      // durable Brief exists to avoid (PR #484 round 1 finding 5).
-      //
-      // THE TWO STATES RENDER DIFFERENTLY, AND THAT IS THE POINT (kogaki#507).
-      // A Journey with a served cite and a Journey with none are different
-      // facts, and rendering them on the same line with only the value
-      // differing made an absence indistinguishable from a presence to every
-      // reader of the marker. That is not a reader's bug to fix one at a
-      // time: this line is the PROJECTION the readers share, so the
-      // distinction belongs here.
-      //
-      //   "a carrier owes an enumerated READER set rather than only a write
-      //    contract, and where the readers share a projection the obligation
-      //    belongs in the projection, because a per-reader fix repairs one
-      //    reader and leaves the count unchanged."
-      //
-      // consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:57
-      //
-      // The uncited state is DISCLOSED rather than dropped: terrain tallies it
-      // as an abnormality (`terrain.mjs`: `c.journey && !jg`), so a
-      // composition sitting is owed the fact that a Journey exists whose cite
-      // the served record does not carry.
-      if (s.journey.cite) {
-        material(`- journey cite: \`${s.journey.cite}\``);
-      } else {
-        say("- journey: PRESENT WITH NO SERVED CITE — abnormal; this Strand's Journey");
-        say("  material cannot be cited at the pin, so it is not composable material");
-        say("  Stated here rather than dropped, because a Journey nothing can cite is");
-        say("  a fault to clear rather than material to compose from.");
+  const record = {
+    slug,
+    compose_path: composePath,
+    external_authority: externalAuthority,
+    strands: strands.map((s) => {
+      const e = { id: s.display_id, slug: s.slug, cite: s.cite ?? "none recorded" };
+      // THE TWO JOURNEY STATES ARE RECORDED DIFFERENTLY, AND THAT IS THE POINT
+      // (kogaki#507). A Journey with a served cite and a Journey with none are
+      // different facts: the first is composable material and is cited at its
+      // pin; the second is a fault to clear, DISCLOSED rather than dropped —
+      // terrain tallies it as an abnormality, so a composition sitting is owed
+      // the fact that a Journey exists whose cite the served record does not
+      // carry. Only the first makes the Strand Journey-bearing.
+      if (s.journey) {
+        if (s.journey.cite) e.journey_cite = s.journey.cite;
+        else {
+          e.journey_uncited = "This Strand has a Journey the served record carries no cite for, so it cannot be "
+            + "cited at the pin and is not material to compose from. It is a fault to clear rather than material.";
+        }
       }
-    }
-    say();
-  }
-  say("## Thesis");
-  say();
-  material(thesis);
-  say();
-  say("*The claim this article makes. You adopted it when the Brief was named; it is composed from the settled Strands and never invented.*");
-  say();
-  for (const [heading, meaning] of fields()) {
-    say(`## ${heading}`);
-    say();
-    say(`${SLOT}`);
-    say();
-    say(`*${meaning}*`);
-    say();
-  }
-  // THE TRIPWIRE, LAST — the same predicate the gate rendering uses, now with
-  // reach into the minted document (kogaki#526). It THROWS rather than
-  // returning a refusal because a caller cannot usefully proceed with a
-  // half-composed Brief, and because this is the same deny-not-rewrite stance
-  // kogaki#520 took at the gate: a rewrite layer would let the leak keep being
-  // written and the next term of art would arrive unlabelled.
-  //
-  // WHAT IS CHECKED, and it is no longer every line (the durable home and the entry point v15, kogaki#537).
-  // kogaki#526 checked all of them, which was right about the captions — three
-  // lines outside them carried a section reference, and narrowing to captions
-  // would have satisfied #526's sentence while leaving the document leaking.
-  // But the full reach also read the ADOPTED THESIS and the STRAND MATERIAL,
-  // and refused the owner's own verbatim words at mint. So the guard now binds
-  // the `say` set — this composer's own text — and the `material` set is exempt.
-  for (const line of guarded) {
+      return e;
+    }),
+    thesis,
+  };
+  for (const key of briefSlotKeys()) record[key] = null;
+  // THE TRIPWIRE, OVER THIS COMPOSER'S OWN TEXT (kogaki#526, kogaki#537). The
+  // owner reads the file directly, so the captions and the header — the text
+  // this composer authors — carry no internal key and no pointer into a spec
+  // they do not hold. It THROWS rather than returning a refusal because a
+  // caller cannot usefully proceed with a half-composed Brief. The adopted
+  // Thesis and the Strand material are NOT checked: they are the owner's words
+  // and the substrate's, and a rule is enforced at the layer where it can be
+  // broken. The record's KEYS are machine-facing names and are not captions.
+  const decl = briefRecordDeclaration();
+  for (const line of [decl.header, ...Object.values(decl.keys).map((d) => d.caption).filter(Boolean),
+    ...record.strands.map((e) => e.journey_uncited).filter(Boolean)]) {
     const leak = findInternalVocabulary(line);
     if (leak) {
       throw new Error(
         `the minted Brief leaks spec-internal vocabulary: ${leak.kind} `
         + `${JSON.stringify(leak.token)} in composer-authored text — `
-        + `${JSON.stringify(line.trim().slice(0, 80))}. theses/<slug>/brief.md is a tracked `
+        + `${JSON.stringify(line.trim().slice(0, 80))}. theses/<slug>/brief.yaml is a tracked `
         + `document the owner reads directly, so an internal key or a pointer into a spec they `
         + `do not hold has no rendering path here (kogaki#526). This REFUSES rather than `
-        + `rewrites, as the gate's own tripwire does. The adopted Thesis and the Strand `
-        + `material are NOT checked (kogaki#537): they are the owner's words and the `
-        + `substrate's, and a rule is enforced at the layer where it can be broken.`);
+        + `rewrites, as the gate's own tripwire does.`);
     }
   }
-  return L.join("\n") + "\n";
+  return briefRecordText(record);
 }
 
 // THE SURVEY-RECORD RESOLVER IS DELETED, NOT KEPT AS A FALLBACK (kogaki#1116).
@@ -800,7 +697,8 @@ function cmdEnter(args) {
 // — the Brief's Thesis and the name it is minted under — was authorised by
 // the model's account of what the owner chose, and a model that adopted a
 // candidate the owner declined, or passed its own sentence as the owner's
-// free text, minted a tracked `theses/<slug>/brief.md` with no refusal.
+// free text, minted a tracked `theses/<slug>/brief.md` with no refusal (the
+// Brief has been `brief.yaml` since kogaki#1328).
 //
 // The answer now arrives as a `*.gate-capture.json` row carrying the
 // AskUserQuestion `tool_use_id`, bound to the option set it was offered
@@ -974,7 +872,7 @@ function cmdMint(args) {
   const externalAuthority = typeof args["external-authority"] === "string" && args["external-authority"] !== ""
     ? args["external-authority"] : "on";
   mkdirSync(home, { recursive: true });
-  const out = join(home, "brief.md");
+  const out = join(home, BRIEF_RECORD_FILE);
   const doc = composeBrief({
     slug, strands: state.strands, thesis: state.adopted_thesis,
     composePath: readerFile, externalAuthority,
@@ -1143,12 +1041,21 @@ function writeJudgeInput(rec, st, body) {
 
 const DIFFERENTIATION_DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
 
-// THE BRIEF'S ADOPTED THESIS, read off its `## Thesis` section as `composeBrief`
-// writes it (kogaki#1325): the one paragraph between the heading and the caption.
-// Null where the section is absent, so a caller checks nothing rather than a blank.
-export function briefThesis(doc) {
-  const m = /^## Thesis\n\n([\s\S]*?)\n\n/m.exec(doc);
-  return m && m[1].trim() !== "" ? m[1].trim() : null;
+// THE BRIEF'S ADOPTED THESIS, the record's `thesis` key as `composeBrief`
+// writes it (kogaki#1325, kogaki#1328). Null where it is absent or blank, so a
+// caller checks nothing rather than a blank.
+export function briefThesis(record) {
+  const t = record && record.thesis;
+  return typeof t === "string" && t.trim() !== "" ? t.trim() : null;
+}
+
+// The minted Brief a state reads: its record and its text, or a refusal of
+// the STATE naming why it cannot be read.
+function readMintedBrief(rec, st) {
+  const briefPath = needBrief(rec, st);
+  const r = readBriefRecord(briefPath);
+  if (r.error) fail(`${st.id}: ${r.error}`);
+  return { briefPath, record: r.record, doc: r.text };
 }
 const DIFFERENTIATION_PLACEMENTS = ["opening", "turn", "close"];
 
@@ -1445,14 +1352,17 @@ export function validateReaderPathUnit(candidate, inputs) {
     }
   }
   const reasoning = c.reasoning || {};
-  for (const key of ["leg_validity", "thesis_closure"]) {
-    if (typeof reasoning[key] !== "string" || reasoning[key].trim() === "") {
-      return { error: `candidate ${c.candidate_id}: \`reasoning.${key}\` is required — the Brief's `
-        + "closing sections are filled from it at adoption, and adoption fills no default" };
-    }
-  }
+  // A RETIRED KEY IS REFUSED BY NAME FIRST (kogaki#1328): a Candidate still
+  // carrying `reasoning.thesis_closure` is told the field is retired, never
+  // that some other key is missing.
   const retiredReasoning = retiredReasoningFieldRefusal(c);
   if (retiredReasoning) return { error: retiredReasoning };
+  for (const key of ["leg_validity"]) {
+    if (typeof reasoning[key] !== "string" || reasoning[key].trim() === "") {
+      return { error: `candidate ${c.candidate_id}: \`reasoning.${key}\` is required — it is the Candidate's `
+        + "gate evidence, and adoption fills no default" };
+    }
+  }
   // `opening_question` (kogaki#1216) AND `reader_target` (kogaki#1225) ARE
   // RETIRED FIELDS, refused BY NAME -- Reader target is the after-state of
   // the Leg marked `reaches_target` (kogaki#1231) and no Opening question is
@@ -1519,15 +1429,14 @@ const STATE_WORK = {
   // Candidate with its unit number so `src/assemble.mjs` can check the first
   // Leg bound what was assigned.
   differentiation: async (rec, st, args, table) => {
-    const briefPath = needBrief(rec, st);
-    const doc = readFileSync(briefPath, "utf8");
-    const strandIds = selectedStrands(doc);
+    const { briefPath, record, doc } = readMintedBrief(rec, st);
+    const strandIds = briefStrandIds(record);
     const movesDir = briefMovesDir(args);
     const library = loadMoveContracts(movesDir);
     if (library.error) fail(`${st.id}: ${library.error}`);
     const units = briefJobSetting(table, "compose_path", "units");
-    const journeyBearing = journeyBearingStrands(doc).length > 0;
-    const thesis = briefThesis(doc);
+    const journeyBearing = briefJourneyStrands(record).length > 0;
+    const thesis = briefThesis(record);
     // THE PERSONA, read from the file the `compose_path` row names (kogaki#1216)
     // -- the same row this state already reads `job.units` from. A reader file
     // this state cannot read is a store fault and refuses the STATE, before
@@ -1571,9 +1480,8 @@ const STATE_WORK = {
   // refusal enforces are ONE FILE and cannot disagree. That property is the
   // reason `src/leg-schema.json` exists; this state is its second reader.
   compose_path: async (rec, st, args, table) => {
-    const briefPath = needBrief(rec, st);
-    const doc = readFileSync(briefPath, "utf8");
-    const strandIds = selectedStrands(doc);
+    const { briefPath, record, doc } = readMintedBrief(rec, st);
+    const strandIds = briefStrandIds(record);
     const movesDir = briefMovesDir(args);
     // THE ADMITTED SET, READ ONCE AND BEFORE THE ASK (kogaki#1125). A store
     // fault refuses the STATE rather than the composition: the library being
@@ -2119,7 +2027,7 @@ function endBriefNoCandidateFits(rec, st, excluded) {
   // THE EMPTY BRIEF IS REMOVED (kogaki#1307, owner decision 2026-10-08): its
   // `theses/<slug>/` holds only what `mint` wrote, and keeping it takes the name.
   let removed = false;
-  if (basename(briefPath) === "brief.md") {
+  if (basename(briefPath) === BRIEF_RECORD_FILE) {
     try { rmSync(dirname(briefPath), { recursive: true, force: true }); removed = !existsSync(dirname(briefPath)); }
     catch { removed = false; }
   }
@@ -2201,8 +2109,8 @@ const GATE_WORK = {
   CANDIDATE_SELECTION: (rec) => {
     const reviewed = readJson(rec.brief_reviewed
       || fail("CANDIDATE_SELECTION has no reviewed Candidates to offer — `attach_review` writes them and precedes this wait."));
-    const doc = readFileSync(needBrief(rec, { id: "CANDIDATE_SELECTION" }), "utf8");
-    const offered = selectionOptionIds(reviewed, doc);
+    const { record } = readMintedBrief(rec, { id: "CANDIDATE_SELECTION" });
+    const offered = selectionOptionIds(reviewed, record);
     if (offered.error) {
       fail(`${offered.error}\n\nNo gate is raised: the Candidates cannot be presented, so there is nothing `
         + "to choose between. Repair the Candidates, not the gate.");

@@ -1,0 +1,35 @@
+# A brief is the working plan for one article: the served material (Strands) the owner settled on, and the composition
+# fields -- thesis, Reader Path, coverage, obligations -- filled in as composition proceeds. It is the durable document
+# a drafting sitting resumes from. A key reading null is still awaiting composition.
+
+slug: check-adopt-candidate-fixture
+compose_path: readers/fixture.md
+external_authority: "on"
+# The Strand set is closed at mint. Adding a Strand is your act, taken by going back through Terrain; a Brief never
+# reaches for material on its own.
+strands:
+  - id: L1
+    slug: the-fixture-strands-claim
+    cite: coding::lesson/the-fixture-strands-claim@0000000000000000000000000000000000000000000000000000000000000001
+# The claim this article makes. You adopted it when the Brief was named; it is composed from the settled Strands and
+# never invented.
+thesis: The fixture Strand's claim, carried by a two-Leg path.
+# Where the reader stands before the article.
+reader_start: null
+# Where the article leaves them: the state after the Leg named here.
+reader_target: null
+# The ordered legs the article walks. Each leg starts from the state the one before it ends in.
+reader_path: null
+# Per settled Strand: which legs use it, and the part it plays in the claim. Counted after composition, never declared
+# ahead of it.
+strand_coverage: null
+# Per Strand carrying Journey material: the legs that place it, or why it was left out.
+journey_coverage: null
+# An obligation is a promise the prose makes to the reader that a later passage must keep: a question raised, an analogy
+# introduced, a limitation conceded. Each row ends kept or conceded, by the leg that closes it. The Thesis itself is
+# closed by the leg named under reader target, from the coverage above.
+closure: null
+# What adopting this path gave up.
+tradeoffs: null
+# What the composer inserted to carry the reader across a gap, and on what reasoning.
+bridged: null

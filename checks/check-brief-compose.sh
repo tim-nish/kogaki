@@ -36,9 +36,9 @@
 #   (f) the Thesis Closure row reaches only the Reader target Leg
 #       (kogaki#1229, renamed under kogaki#1231): `targetLegIds`
 #       (src/assemble.mjs) names the Leg marked `reaches_target` alone, and
-#       `closureRowsForLeg` (src/compose.mjs), read over a Closure section
-#       whose Thesis row names that Leg, hands the row to that Leg's Packet
-#       and to no earlier Leg's. Before kogaki#1229 the row named every Leg,
+#       `closureRowsOf` (src/compose.mjs), read over a Brief record, hands the
+#       Thesis row -- derived from the Strand coverage (kogaki#1328) -- to that
+#       Leg's Packet and to no other Leg's. Before kogaki#1229 the row named every Leg,
 #       so every Packet carried the whole path's closure narrative.
 #   (g) `readerTargetLegRefusal` (src/compose.mjs) refuses a path carrying
 #       zero, or more than one, Leg marked `reaches_target`, and refuses one
@@ -55,9 +55,9 @@
 #       position in the path (kogaki#1231, reversing kogaki#1225's last-Leg
 #       derivation).
 #   (k) the mark reaches the Packet (kogaki#1231, acceptance item 4):
-#       `renderLeg` (src/compose.mjs) writes `reaches_target: true` on the
-#       marked Leg and no line on any other; `parseLegBlockBody`
-#       (src/draft.mjs) reads it back and refuses any value but `true`
+#       `legRecord` (src/compose.mjs) writes `reaches_target: true` on the
+#       marked Leg and no key on any other; `readBrief` (src/draft.mjs)
+#       reads it back off the record and refuses any value but `true`
 #       naming the Leg; and a Packet rendered over the real
 #       src/packet-template.md carries "This Leg reaches the Reader target."
 #       on the marked Leg, the closing-Leg line on each Leg after it, and
@@ -108,14 +108,14 @@
 #       that re-activates it renders its served scene under "What crosses
 #       into this Leg"; an unresolved re-activated Journey refuses by name
 #       (kogaki#1261).
-#  (ad) a typed `introduces_item` round-trips through the Brief (renderLeg
-#       writes it, parseIntroducesEntry reads it back) and "What crosses
+#  (ad) a typed `introduces_item` round-trips through the Brief record
+#       (legRecord writes it, readBrief reads it back) and "What crosses
 #       into this Leg" renders its kind and, for a coined term, the
 #       `nearest`/`differs` authority line; with `external_authority: off`
 #       in the Brief header the Packet carries neither (kogaki#1261).
 #  (ae) a conceded Closure row's `open`, `why_not_here` and `reader_keeps`
-#       are written under the row by fillBrief's format, read back by
-#       concededRowFields, and rendered in the Packet of the conceding Leg
+#       are carried on the row in the Brief record, read back by
+#       closureRowsOf, and rendered in the Packet of the conceding Leg
 #       (kogaki#1261).
 #  (an) "the article so far" is scoped to the current Section only
 #       (kogaki#1282, owner ruling 2026-10-06): a Section-opening Leg carries
@@ -127,7 +127,9 @@
 #       Leg's `introduces` is not.
 #  (bb) `composeBrief` (src/brief.mjs) records `compose_path` naming the
 #       Persona file it was composed with, and refuses a blank, absent or
-#       non-string one by name (kogaki#1251 item 1, kogaki#1262).
+#       non-string one by name (kogaki#1251 item 1, kogaki#1262); and
+#       a Brief record carrying none is refused by `readBrief`, naming the
+#       key (kogaki#1328).
 #  (cc) `composeBrief` renders `external_authority: on` when the mint gives
 #       none, `external_authority: off` when minted with `off`, and refuses
 #       any third value by name (kogaki#1251 item 3, kogaki#1262).
@@ -154,8 +156,8 @@
 #       Leg and the judge's sentence and says the Brief was removed
 #       (kogaki#1276, kogaki#1307).
 #  (am) the Journey use boundary (kogaki#1286, owner decision 2026-10-06):
-#       `renderLeg` renders the Brief's `journey:` line with the schema's own
-#       gloss, `journey: L<n> — <use> (<gloss>)`; the rendered Packet's
+#       `legRecord` writes the Brief record's Journey entry with the schema's
+#       own gloss as its `meaning`, and the reader drops it; the rendered Packet's
 #       Journey block carries the Strand's served text and its cite, under
 #       the block's existing header, and none of the three use words.
 #  (an) `dischargeRows` extracts the mechanical half of review_path's added
@@ -182,6 +184,14 @@
 #       naming the word, and wired into `attachReview` -- refused by entry
 #       count, by a verdict outside the closed set, and by a `fails` entry
 #       naming no word (kogaki#1281).
+#  (av) adoption writes the Brief as a YAML record (kogaki#1328): driven
+#       through `adoptCandidate` over checks/fixtures/adopt-candidate/, with
+#       one Leg's fields lengthened past the width and given `introduces`,
+#       the written `brief.yaml` carries every Leg field in list or map form
+#       -- materials, depends_on, claims, waypoints and introduces as lists,
+#       the after-state as a map, no before-state at all -- reads back
+#       through `readBrief` to the same Legs, and holds no line over 120
+#       characters.
 #
 # WHAT THIS DOES NOT COVER, stated rather than left to look covered: whether
 # a Reader start is a GOOD cold read of the Thesis as a title, and whether
@@ -209,14 +219,30 @@ import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS, DISCHARGE_VERDICTS } from "./src/review.mjs";
 import { targetLegIds, targetLegAfterState } from "./src/assemble.mjs";
-import { parseLegBlockBody, parseBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
+import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
   readerTargetLine, REACHES_TARGET_LINE, CLOSING_LEG_LINE,
   journeyTextFromSurvey, journeyResolutionRefusal, journeyIdentityKey, writerRefusal, journeyProseFromShardLines,
   READER_OWN_WORLD_ABSENT } from "./src/draft.mjs";
 
-const { validateLegs, introducedTermInReaderStart, closureRowsForLeg, readerTargetLegRefusal, renderLeg,
-  dischargeRows } = compose;
+const { validateLegs, introducedTermInReaderStart, closureRowsOf, readerTargetLegRefusal, legRecord,
+  briefRecordText, readerStateMap, dischargeRows } = compose;
 const fails = [];
+
+// A FIXTURE BRIEF IS A RECORD (kogaki#1328): its Legs written by `legRecord`,
+// the file's text by `briefRecordText`, and read back by `readBrief` -- the
+// one reader the Draft uses -- so a fixture exercises the round trip rather
+// than an in-memory shortcut. `keys` overrides any top-level key.
+const recordOf = (legs, keys = {}) => ({
+  slug: "fixture", compose_path: "readers/dev-to-zenn.md", external_authority: "on",
+  strands: [{ id: "L1", slug: "first-strand", cite: "coding::lesson/first-strand@" + "0".repeat(64) }],
+  thesis: "The fixture claim.",
+  reader_start: readerStateMap(`orientation: before ${legs[0].leg_id}\nknowledge: before ${legs[0].leg_id}`),
+  reader_target: (legs.find((s) => s.reaches_target === true) || legs[legs.length - 1]).leg_id,
+  reader_path: legs.map(legRecord),
+  strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+  ...keys,
+});
+const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText(record), path);
 
 const READER_START = "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
 
@@ -298,19 +324,21 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   const named = targetLegIds(legs);
   if (JSON.stringify(named) !== JSON.stringify(["leg4"])) fails.push(`(f) targetLegIds named ${JSON.stringify(named)}, want ["leg4"]`);
   if (targetLegIds([]).length !== 0) fails.push("(f) targetLegIds over no Legs named a Leg");
-  // The Closure section exactly as fillBrief renders it (src/compose.mjs): the
-  // Thesis row, then the Leg rows.
-  const doc = "# Brief\n\n## Closure\n\n### Thesis\n\n"
-    + `The whole claim holds once the target Leg lands. — established_by_legs: ${named.join(", ")}\n\n`
-    + "### Legs\n\n- an obligation raised early — introduced_by: leg1; discharged_by: leg3\n\n## Next\n\ntext\n";
+  // A Brief record over the same path: the Thesis row is derived from the
+  // Strand coverage (kogaki#1328), and one Leg row raised and kept early.
+  const doc = {
+    thesis: "The whole claim.", reader_path: legs,
+    strand_coverage: [{ strand: "L1", used_by_legs: ["leg4"], role_in_thesis: "The whole claim holds once the target Leg lands." }],
+    closure: [{ text: "an obligation raised early", introduced_by: "leg1", discharged_by: "leg3" }],
+  };
   for (const { leg_id } of legs) {
-    const rows = closureRowsForLeg(doc, leg_id);
-    const carries = rows.some((r) => /whole claim holds/.test(r));
+    const rows = closureRowsOf(doc, leg_id);
+    const carries = rows.some((r) => /whole claim holds/.test(r.text));
     if (leg_id === "leg4" && !carries) fails.push("(f) the target Leg's Packet carries no Thesis row");
     if (leg_id !== "leg4" && carries) fails.push(`(f) ${leg_id}'s Packet carries the Thesis row, which only the target Leg's may`);
   }
-  const leg1 = closureRowsForLeg(doc, "leg1");
-  if (!leg1.some((r) => /obligation raised early/.test(r))) fails.push("(f) the Leg rows stopped reaching the Leg that introduced them");
+  const leg1 = closureRowsOf(doc, "leg1");
+  if (!leg1.some((r) => /obligation raised early/.test(r.text))) fails.push("(f) the Leg rows stopped reaching the Leg that introduced them");
 }
 
 // (g) readerTargetLegRefusal — exactly one Leg marked, and never the first.
@@ -409,8 +437,8 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   if (targetLegAfterState(noneMarked) !== null) fails.push("(j) targetLegAfterState read a value with no Leg marked reaches_target");
 }
 
-// (k) the mark reaches the Packet (kogaki#1231, acceptance item 4): written by renderLeg,
-// read back by parseLegBlockBody, and rendered under `## This Leg` on the marked Leg and
+// (k) the mark reaches the Packet (kogaki#1231, acceptance item 4): written by legRecord,
+// read back by readBrief, and rendered under `## This Leg` on the marked Leg and
 // on each closing Leg, and on no Leg before the mark.
 {
   const legOf = (leg_id, extra = {}) => ({
@@ -419,18 +447,19 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
     depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
-  const marked = renderLeg(legOf("s2", { reaches_target: true }));
-  const plain = renderLeg(legOf("s1"));
-  if (!/^reaches_target: true$/m.test(marked)) fails.push(`(k) renderLeg wrote no reaches_target line on the marked Leg: ${JSON.stringify(marked)}`);
-  if (/reaches_target/.test(plain)) fails.push(`(k) renderLeg wrote a reaches_target line on an unmarked Leg: ${JSON.stringify(plain)}`);
+  const marked = legRecord(legOf("s2", { reaches_target: true }));
+  const plain = legRecord(legOf("s1"));
+  if (marked.reaches_target !== true) fails.push(`(k) legRecord wrote no reaches_target key on the marked Leg: ${JSON.stringify(marked)}`);
+  if ("reaches_target" in plain) fails.push(`(k) legRecord wrote a reaches_target key on an unmarked Leg: ${JSON.stringify(plain)}`);
 
-  const body = (text) => text.replace(/^```leg\n/, "").replace(/\n```$/, "");
-  const back = parseLegBlockBody(body(marked), "k.md");
-  if (!back.leg || back.leg.reaches_target !== true) fails.push(`(k) parseLegBlockBody did not read the mark back: ${JSON.stringify(back)}`);
-  const unmarked = parseLegBlockBody(body(plain), "k.md");
-  if (!unmarked.leg || unmarked.leg.reaches_target !== undefined) fails.push(`(k) parseLegBlockBody read a mark off an unmarked Leg: ${JSON.stringify(unmarked)}`);
-  const half = parseLegBlockBody(body(marked).replace("reaches_target: true", "reaches_target: false"), "k.md");
-  if (!half.refusal || !/leg s2/.test(half.refusal) || !/reaches_target/.test(half.refusal)) fails.push(`(k) a reaches_target value other than true was not refused naming the Leg: ${JSON.stringify(half)}`);
+  const pair = [legOf("s1"), legOf("s2", { reaches_target: true })];
+  const back = briefOfRecord(recordOf(pair), "k.yaml");
+  if (back.refusals.length || back.legs[1].reaches_target !== true) fails.push(`(k) readBrief did not read the mark back: ${JSON.stringify(back.refusals)}`);
+  else if (back.legs[0].reaches_target !== undefined) fails.push(`(k) readBrief read a mark off an unmarked Leg: ${JSON.stringify(back.legs[0])}`);
+  const halfRecord = recordOf(pair);
+  halfRecord.reader_path[1].reaches_target = false;
+  const half = briefOfRecord(halfRecord, "k.yaml");
+  if (!half.refusals.some((r) => /leg s2/.test(r) && /reaches_target/.test(r))) fails.push(`(k) a reaches_target value other than true was not refused naming the Leg: ${JSON.stringify(half.refusals)}`);
 
   const legs = [legOf("s1"), legOf("s2", { reaches_target: true }), legOf("s3")];
   if (readerTargetLine(legs, "s1") !== "") fails.push("(k) readerTargetLine rendered a line on a Leg before the mark");
@@ -438,17 +467,8 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   if (readerTargetLine(legs, "s3") !== CLOSING_LEG_LINE) fails.push("(k) readerTargetLine did not render the closing line on the Leg after the mark");
   if (readerTargetLine([legOf("s1"), legOf("s2")], "s2") !== "") fails.push("(k) readerTargetLine rendered a line on a path carrying no mark");
 
-  // THE RENDERED PACKET, over the real template and a Brief parsed from renderLeg's own output.
-  const briefText = [
-    "# The fixture", "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
-    "## Strands", "", "### L1 — first-strand", "",
-    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-    "## Thesis", "", "The fixture claim.", "",
-    "## Reader start", "", "orientation: before s1", "knowledge: before s1", "",
-    "## Reader target", "", "orientation: after s2", "knowledge: after s2", "",
-    "## Sequence", "", legs.map(renderLeg).join("\n\n"), "",
-  ].join("\n");
-  const brief = parseBrief(briefText, "k.md");
+  // THE RENDERED PACKET, over the real template and a Brief read back from its own record.
+  const brief = briefOfRecord(recordOf(legs), "k.yaml");
   if (brief.refusals.length || brief.legs.length !== 3) fails.push(`(k) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
   const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
   if (split.error) fails.push(`(k) the Packet template did not split: ${split.error}`);
@@ -581,20 +601,11 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
   const good = validateLegs(path({ "re-activate": ["s1 term unfed guard", "s1 claim L1 as a restated claim"] }), "");
   if (good.error) fails.push(`(n) a well-formed re-activate over depends_on material was refused: ${good.error}`);
 
-  // THE RENDERED PACKET, over the real template and a Brief parsed from renderLeg's own output.
+  // THE RENDERED PACKET, over the real template and a Brief read back from its own record.
   const legs = path({ "re-activate": ["s1 term unfed guard"] });
-  const briefText = [
-    "# The fixture", "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
-    "## Strands", "", "### L1 — first-strand", "",
-    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-    "## Thesis", "", "The fixture claim.", "",
-    "## Reader start", "", "orientation: before s1", "knowledge: before s1", "",
-    "## Reader target", "", "orientation: after s2", "knowledge: after s2", "",
-    "## Sequence", "", legs.map(renderLeg).join("\n\n"), "",
-  ].join("\n");
-  const brief = parseBrief(briefText, "n.md");
+  const brief = briefOfRecord(recordOf(legs), "n.yaml");
   if (brief.refusals.length || brief.legs.length !== 3) fails.push(`(n) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
-  else if (JSON.stringify(brief.legs[1]["re-activate"]) !== JSON.stringify(["s1 term unfed guard"])) fails.push(`(n) parseLegBlockBody did not read re-activate back one line per entry: ${JSON.stringify(brief.legs[1]["re-activate"])}`);
+  else if (JSON.stringify(brief.legs[1]["re-activate"]) !== JSON.stringify(["s1 term unfed guard"])) fails.push(`(n) readBrief did not read re-activate back one entry per list item: ${JSON.stringify(brief.legs[1]["re-activate"])}`);
   const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
   const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-", "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
   const ledger = readerKnowledgeLedger(brief.legs);
@@ -641,16 +652,7 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
     ...extra,
   });
   const legs = [legOf("s1")];
-  const briefText = [
-    "# The fixture", "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
-    "## Strands", "", "### L1 — first-strand", "",
-    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-    "## Thesis", "", "The fixture claim.", "",
-    "## Reader start", "", "orientation: before s1", "knowledge: before s1", "",
-    "## Reader target", "", "orientation: after s1", "knowledge: after s1", "",
-    "## Sequence", "", legs.map(renderLeg).join("\n\n"), "",
-  ].join("\n");
-  const brief = parseBrief(briefText, "o.md");
+  const brief = briefOfRecord(recordOf(legs), "o.yaml");
   if (brief.refusals.length || brief.legs.length !== 1) fails.push(`(o) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
   else {
     const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
@@ -994,7 +996,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   const { mkdtempSync, writeFileSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const { concededRowFields, parseIntroducesEntry } = compose;
+  const { parseIntroducesEntry } = compose;
   const dir = mkdtempSync(join(tmpdir(), "kogaki-1261-"));
   const personaA = join(dir, "persona-a.md");
   const personaB = join(dir, "persona-b.md");
@@ -1020,15 +1022,11 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
-  const briefOf = (legs, header = [], closure = []) => parseBrief([
-    "# The fixture", "", ...header, "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
-    "## Strands", "", "### L1 — first-strand", "",
-    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`",
-    "- journey cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=journey @0000000000000000000000000000000000000000`", "",
-    "## Thesis", "", "The fixture claim.", "",
-    "## Sequence", "", legs.map(renderLeg).join("\n\n"), "",
-    ...(closure.length ? ["## Closure", "", "### Thesis", "", "*(awaiting adoption)*", "", "### Legs", "", ...closure, ""] : []),
-  ].join("\n"), "ab.md");
+  const briefOf = (legs, keys = {}) => briefOfRecord(recordOf(legs, {
+    strands: [{ id: "L1", slug: "first-strand", cite: "coding::lesson/first-strand@" + "0".repeat(64),
+      journey_cite: "coding::journey/first-strand@" + "0".repeat(64) }],
+    ...keys,
+  }), "ab.yaml");
   const render = (brief, leg) => renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
     ledgerRow: undefined, section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
   const writeBlock = (packet) => packet.slice(packet.indexOf("\n## Write\n"));
@@ -1043,7 +1041,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const legs = [legOf("s1", { budget: 120, introduces: ["pipeline"] }),
       legOf("s2", { budget: 300, depends_on: ["s1"], "re-activate": ["s1 term pipeline"] })];
     const packetsOf = (persona) => {
-      const brief = briefOf(legs, [`compose_path: ${persona}`]);
+      const brief = briefOf(legs, { compose_path: persona });
       if (brief.refusals.length) { fails.push(`(ab) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`); return {}; }
       const out = {};
       for (const leg of brief.legs) {
@@ -1071,18 +1069,18 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const noKnowledge = packetsOf(personaNoKnowledge);
     if (noKnowledge.s1 && !writeBlock(noKnowledge.s1).includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) a Persona with no prior_knowledge did not render the stated absence");
 
-    const none = briefOf(legs, [`compose_path: ${personaNone}`]);
+    const none = briefOf(legs, { compose_path: personaNone });
     const r = render(none, none.legs[0]);
     if (!r.error || !/prose/.test(r.error)) fails.push(`(ab) a Persona with no prose block did not refuse the Packet naming it: ${r.error || "rendered"}`);
-    // With no compose_path the workflow table's Persona is read, and its prose block renders,
-    // carrying readers/dev-to-zenn.md's own prior_knowledge and neither the retired
-    // "as the Brief describes the reader at the outset" wording nor an unfilled slot (kogaki#1285).
-    const dflt = briefOf(legs);
+    // The shipped Persona's prose block renders, carrying readers/dev-to-zenn.md's
+    // own prior_knowledge and neither the retired "as the Brief describes the
+    // reader at the outset" wording nor an unfilled slot (kogaki#1285).
+    const dflt = briefOf(legs, { compose_path: "readers/dev-to-zenn.md" });
     const rd = render(dflt, dflt.legs[0]);
-    if (rd.error) fails.push(`(ab) with no compose_path the Packet did not render from the workflow's Persona: ${rd.error}`);
+    if (rd.error) fails.push(`(ab) the Packet did not render from readers/dev-to-zenn.md: ${rd.error}`);
     else {
-      if (!rd.packet.includes("**Referents.**")) fails.push("(ab) with no compose_path the Packet does not carry readers/dev-to-zenn.md's prose block");
-      if (!rd.packet.includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) with no compose_path the Packet does not render readers/dev-to-zenn.md's stated prior_knowledge absence");
+      if (!rd.packet.includes("**Referents.**")) fails.push("(ab) the Packet does not carry readers/dev-to-zenn.md's prose block");
+      if (!rd.packet.includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) the Packet does not render readers/dev-to-zenn.md's stated prior_knowledge absence");
       if (rd.packet.includes("as the Brief describes the reader at the outset")) fails.push("(ab) the Packet still carries the retired reader-description wording");
     }
   }
@@ -1092,7 +1090,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const legs = [legOf("s1", { journeys: [{ strand: "L1", use: "illustrate" }] }),
       legOf("s2", { depends_on: ["s1"] }),
       legOf("s3", { depends_on: ["s1"], "re-activate": ["s1 journey L1"] })];
-    const brief = briefOf(legs, [`compose_path: ${personaA}`]);
+    const brief = briefOf(legs, { compose_path: personaA });
     if (brief.refusals.length) fails.push(`(ac) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`);
     else {
       const CROSSES = "## What crosses into this Leg";
@@ -1117,11 +1115,12 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const coined = { term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds", nearest: "guard clause", differs: "nothing ever feeds it a failing input" };
     const established = { term: "default-deny", kind: "established", source: "firewall configuration practice" };
     const legs = [legOf("s1", { introduces: [coined, established] })];
-    const line = renderLeg(legs[0]).split("\n").find((l) => l.startsWith("introduces: ") && l.includes("unfed guard"));
-    const back = line ? parseIntroducesEntry(line.replace(/^introduces: /, "")) : { error: "no line" };
-    if (back.error || back.kind !== "coined" || back.nearest !== "guard clause" || back.differs !== coined.differs) fails.push(`(ad) a typed introduces_item did not round-trip through renderLeg and parseIntroducesEntry: ${JSON.stringify(back)}`);
+    const read = briefOf(legs, { compose_path: personaA });
+    const entry = read.refusals.length ? null : (read.legs[0].introduces || []).find((e) => e && e.term === "unfed guard");
+    const back = entry ? parseIntroducesEntry(entry) : { error: "no entry" };
+    if (back.error || back.kind !== "coined" || back.nearest !== "guard clause" || back.differs !== coined.differs) fails.push(`(ad) a typed introduces_item did not round-trip through legRecord and readBrief: ${JSON.stringify(back)}`);
     const CROSSES = "## What crosses into this Leg";
-    for (const [header, on] of [[[`compose_path: ${personaA}`], true], [[`compose_path: ${personaA}`, "external_authority: off"], false]]) {
+    for (const [header, on] of [[{ compose_path: personaA }, true], [{ compose_path: personaA, external_authority: "off" }, false]]) {
       const brief = briefOf(legs, header);
       if (brief.refusals.length) { fails.push(`(ad) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`); continue; }
       const r = render(brief, brief.legs[0]);
@@ -1137,16 +1136,16 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   // (ae) a conceded Closure row renders its three fields in the conceding Leg's Packet.
   {
     const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] })];
-    const closure = [
-      "- Whether the guard can be fed at all — introduced_by: s1; conceded_by: s2",
-      "  - open: whether any input reaches the guard",
-      "  - why_not_here: the article's evidence is one week of runs",
-      "  - reader_keeps: a way to check their own guard",
-    ];
-    const brief = briefOf(legs, [`compose_path: ${personaA}`], closure);
-    const f = concededRowFields(brief.text, "s2");
-    if (!f || f.open !== "whether any input reaches the guard" || f.why_not_here !== "the article's evidence is one week of runs" || f.reader_keeps !== "a way to check their own guard") fails.push(`(ae) concededRowFields did not read the row's three fields back: ${JSON.stringify(f)}`);
-    if (concededRowFields(brief.text, "s1") !== null) fails.push("(ae) concededRowFields read a conceded row off a Leg that does not concede it");
+    const closure = [{
+      text: "Whether the guard can be fed at all", introduced_by: "s1", conceded_by: "s2",
+      open: "whether any input reaches the guard",
+      why_not_here: "the article's evidence is one week of runs",
+      reader_keeps: "a way to check their own guard",
+    }];
+    const brief = briefOf(legs, { compose_path: personaA, closure });
+    const f = brief.refusals.length ? null : closureRowsOf(brief.record, "s2").find((o) => o.conceded_by === "s2");
+    if (!f || f.open !== "whether any input reaches the guard" || f.why_not_here !== "the article's evidence is one week of runs" || f.reader_keeps !== "a way to check their own guard") fails.push(`(ae) closureRowsOf did not read the row's three fields back off the record: ${JSON.stringify(f)}`);
+    if (!brief.refusals.length && closureRowsOf(brief.record, "s1").some((o) => o.conceded_by === "s1")) fails.push("(ae) closureRowsOf read a conceded row off a Leg that does not concede it");
     const s2 = render(brief, brief.legs[1]);
     if (s2.error) fails.push(`(ae) the Packet for s2 did not render: ${s2.error}`);
     else {
@@ -1157,9 +1156,6 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     }
     const s1 = render(brief, brief.legs[0]);
     if (!s1.error && s1.packet.includes("a way to check their own guard")) fails.push("(ae) the introducing Leg's Packet renders the conceded row's fields");
-    // fillBrief's own format: the three fields are written under a conceded row.
-    const src = readFileSync("src/compose.mjs", "utf8");
-    if (!/oblL\.push\(`  - \$\{k\}: /.test(src)) fails.push("(ae) fillBrief does not write a conceded row's fields under the row");
   }
 
   // (aq) kogaki#1281: an absent prior_knowledge is a STATED ABSENCE, never a refusal.
@@ -1173,7 +1169,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     }
     // the Brief composes AND the Packet renders, with no refusal anywhere.
     const legs = [legOf("s1")];
-    const brief = briefOf(legs, [`compose_path: ${personaNoKnowledge}`]);
+    const brief = briefOf(legs, { compose_path: personaNoKnowledge });
     if (brief.refusals.length) fails.push(`(aq) a Brief naming a Persona with no prior_knowledge did not parse: ${JSON.stringify(brief.refusals)}`);
     else {
       const r = render(brief, brief.legs[0]);
@@ -1189,7 +1185,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const legs = [legOf("s1", { opens_section: "Section One" }),
       legOf("s2", { opens_section: "Section Two", depends_on: ["s1"] }),
       legOf("s3", { depends_on: ["s2"] })];
-    const brief = briefOf(legs, [`compose_path: ${personaA}`]);
+    const brief = briefOf(legs, { compose_path: personaA });
     if (brief.refusals.length) fails.push(`(at) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`);
     else {
       const sections = sectionsOf(brief.legs);
@@ -1274,7 +1270,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
 {
   const strands = [{ display_id: "L1", slug: "a-strand", cite: "coding::lesson/a-strand@abc123" }];
   const doc = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "readers/dev-to-zenn.md" });
-  if (!/\*compose_path:\* `readers\/dev-to-zenn\.md`/.test(doc)) {
+  if (!/^compose_path: readers\/dev-to-zenn\.md$/m.test(doc)) {
     fails.push(`(bb) the minted Brief does not carry compose_path naming the Persona file: ${JSON.stringify(doc.slice(0, 200))}`);
   }
   let threw = null;
@@ -1288,17 +1284,24 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     catch (e) { badThrew = e; }
     if (!badThrew) fails.push(`(bb) composeBrief with composePath ${JSON.stringify(bad)} was not refused`);
   }
+  // THE RECORD REQUIRES IT (kogaki#1328): a Brief record carrying no
+  // compose_path is refused by the Draft's reader, naming the key.
+  const bare = recordOf([{ leg_id: "s1", move: "m", materials: ["L1"], purpose: "p", reader_state_after: "knowledge: k",
+    depends_on: [], rationale: "r", claims: [{ strand: "L1", proposition: "c" }], waypoints: [{ point: "w", serves: ["L1"] }] }]);
+  delete bare.compose_path;
+  const noPath = briefOfRecord(bare, "bb.yaml");
+  if (!noPath.refusals.some((r) => /`compose_path`/.test(r))) fails.push(`(bb) a Brief record with no compose_path was not refused naming the key: ${JSON.stringify(noPath.refusals)}`);
 }
 
 // (cc) external_authority defaults to on at mint and is off when minted so (kogaki#1251 item 3, kogaki#1262).
 {
   const strands = [{ display_id: "L1", slug: "a-strand", cite: "coding::lesson/a-strand@abc123" }];
   const defaulted = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "readers/dev-to-zenn.md" });
-  if (!/\*external_authority:\* on/.test(defaulted)) {
+  if (!/^external_authority: "on"$/m.test(defaulted)) {
     fails.push(`(cc) a Brief minted with no external_authority given did not default to on: ${JSON.stringify(defaulted.slice(0, 260))}`);
   }
   const off = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "readers/dev-to-zenn.md", externalAuthority: "off" });
-  if (!/\*external_authority:\* off/.test(off)) {
+  if (!/^external_authority: "off"$/m.test(off)) {
     fails.push(`(cc) a Brief minted with externalAuthority "off" did not carry off: ${JSON.stringify(off.slice(0, 260))}`);
   }
   let badThrew = null;
@@ -1336,7 +1339,7 @@ const leg1276 = (legId, extra) => ({
 });
 const cand1276 = (id, leg2Extra = {}) => ({
   candidate_id: id, characteristic: `path ${id}`, reader_experience: `experience ${id}`,
-  reader_start: START_1276, reasoning: { leg_validity: "x", thesis_closure: "x" },
+  reader_start: START_1276, reasoning: { leg_validity: "x" },
   legs: [leg1276("s1", { opens_section: "Intro" }), leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
 });
 
@@ -1622,7 +1625,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
   const base = mkdtempSync(join(tmpdir(), "kogaki-1307-nofit-"));
   const thesisDir = join(base, "theses", "fixture-1307");
   mkdirSync(thesisDir, { recursive: true });
-  const briefPath = join(thesisDir, "brief.md");
+  const briefPath = join(thesisDir, "brief.yaml");
   writeFileSync(briefPath, composeBrief({ slug: "fixture-1307", strands: [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }],
     thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" }));
   const run = join(base, "run");
@@ -1652,7 +1655,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (!report.includes(`Leg s2 (m_turn): contradicts — ${WHY}`) || !report.includes("cannot-determine — the Move's technique cannot be read")) fails.push(`(al) the report does not name each failing Leg with the judge's sentence: ${report}`);
   if (after.done !== true || (after.gate_declarations_owed || []).length || after.awaiting) fails.push(`(al) ending with every Candidate failed raised a question or left the run open: ${JSON.stringify(after)}`);
   if (existsSync(join(run, "brief-reader-path-job.gate-call.json"))) fails.push("(al) ending with every Candidate failed wrote a gate call");
-  const kept = noCandidateFitsReport(composeJobExcluded(allRows), "theses/fixture/brief.md", { removed: false });
+  const kept = noCandidateFitsReport(composeJobExcluded(allRows), "theses/fixture/brief.yaml", { removed: false });
   if (!/could not be removed/.test(kept)) fails.push(`(al) a Brief that could not be removed is not reported as kept: ${kept}`);
 }
 
@@ -1666,22 +1669,14 @@ const cand1276 = (id, leg2Extra = {}) => ({
     depends_on: [], rationale: "why s1", claims: [{ type: "strand", strand: "L1", proposition: "claim of s1" }], waypoints: [{ point: "the paragraph establishes what s1 claims", serves: ["L1"] }],
     journeys: [{ strand: "L1", use: "contrast" }],
   };
-  const rendered = renderLeg(leg);
-  if (!rendered.includes("journey: L1 — contrast (to contrast this Leg's claim with the case that contrasts it)")) {
-    fails.push(`(am) renderLeg did not render the Brief's journey line with the schema's gloss: ${rendered}`);
+  const written = legRecord(leg);
+  const entry = (written.journeys || [])[0] || {};
+  if (entry.use !== "contrast" || entry.meaning !== "to contrast this Leg's claim with the case that contrasts it") {
+    fails.push(`(am) legRecord did not write the Brief's journey entry with the schema's gloss: ${JSON.stringify(entry)}`);
   }
-  const briefText = [
-    "# The fixture", "", "survey pin: `product-lab@0000000000000000000000000000000000000000`", "",
-    "## Strands", "", "### L1 — first-strand", "",
-    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-    "## Thesis", "", "The fixture claim.", "",
-    "## Reader start", "", "orientation: before s1", "knowledge: before s1", "",
-    "## Reader target", "", "orientation: after s1", "knowledge: after s1", "",
-    "## Sequence", "", rendered, "",
-  ].join("\n");
-  const brief = parseBrief(briefText, "am.md");
+  const brief = briefOfRecord(recordOf([leg]), "am.yaml");
   if (brief.refusals.length || brief.legs.length !== 1) fails.push(`(am) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
-  else if (brief.legs[0].journeys?.[0]?.use !== "contrast") fails.push(`(am) the gloss was not stripped back out of the parsed use: ${JSON.stringify(brief.legs[0].journeys)}`);
+  else if (brief.legs[0].journeys?.[0]?.use !== "contrast") fails.push(`(am) the gloss was carried into the read Journey entry: ${JSON.stringify(brief.legs[0].journeys)}`);
   else {
     const parsedLeg = { ...brief.legs[0], journeys: [{ ...brief.legs[0].journeys[0], resolvedText: "The served Journey's own prose, verbatim." }] };
     const parsedBrief = { ...brief, legs: [parsedLeg] };
@@ -1887,10 +1882,60 @@ const cand1276 = (id, leg2Extra = {}) => ({
   }
 }
 
+// (av) adoption writes brief.yaml: every Leg field in list or map form, no line over 120 characters.
+{
+  const { adoptCandidate, selectionOptionIds } = await import("./src/assemble.mjs");
+  const { parseBriefRecord } = compose;
+  const fx = "checks/fixtures/adopt-candidate";
+  const minted = parseBriefRecord(readFileSync(join(fx, "brief.yaml"), "utf8"), "brief.yaml");
+  const reviewed = JSON.parse(readFileSync(join(fx, "reviewed.json"), "utf8"));
+  const long = "a sentence long enough that no single line of the record could hold it, ".repeat(5).trim();
+  const leg1 = reviewed.candidates[0].legs[0];
+  leg1.purpose = long;
+  leg1.reader_state_after = `knowledge: ${long}\nquestion: holds: none`;
+  leg1.introduces = [{ term: "fixture term", kind: "coined", meaning: long, nearest: "a near term", differs: "it differs" }];
+  const offered = minted.error ? { error: minted.error } : selectionOptionIds(reviewed, minted.record);
+  if (offered.error) fails.push(`(av) the fixture's option set cannot be composed: ${offered.error}`);
+  else {
+    const selection = { rows: [{ gate_id: "brief-candidate-selection",
+      evidence: { tool: "AskUserQuestion", tool_use_id: "toolu_fixture_av" },
+      answers_over: { option_set_digest: compose.ownerGateDigest("brief-candidate-selection", offered.ids) },
+      payload: { answer: { option: "cand-a" } } }] };
+    const specialization = JSON.parse(readFileSync(join(fx, "specialization.json"), "utf8"));
+    const r = adoptCandidate(minted.record, reviewed, "cand-a", { selection, specialization });
+    if (r.error) fails.push(`(av) adoption over the fixture refused: ${r.error}`);
+    else {
+      const text = briefRecordText(r.record);
+      const over = text.split("\n").filter((l) => l.length > 120);
+      if (over.length) fails.push(`(av) the written brief.yaml carries ${over.length} line(s) over 120 characters: ${JSON.stringify(over[0])}`);
+      const back = parseBriefRecord(text, "brief.yaml");
+      const path = back.error ? [] : back.record.reader_path;
+      if (back.error || path.length !== 2) fails.push(`(av) the written brief.yaml does not read back with its two Legs: ${back.error || path.length}`);
+      for (const leg of path) {
+        for (const k of ["materials", "depends_on", "claims", "waypoints"]) {
+          if (!Array.isArray(leg[k])) fails.push(`(av) ${leg.leg_id}.${k} is not a list in the record`);
+        }
+        if (!leg.reader_state_after || typeof leg.reader_state_after !== "object" || Array.isArray(leg.reader_state_after)) {
+          fails.push(`(av) ${leg.leg_id}.reader_state_after is not a map in the record`);
+        }
+        if ("reader_state_before" in leg) fails.push(`(av) ${leg.leg_id} carries a before-state, which is the previous after-state and is never written`);
+        if ((leg.claims || []).some((g) => typeof g !== "object" || typeof g.proposition !== "string")) fails.push(`(av) ${leg.leg_id}.claims is not a list of maps`);
+        if ((leg.waypoints || []).some((w) => typeof w !== "object" || !Array.isArray(w.serves))) fails.push(`(av) ${leg.leg_id}.waypoints is not a list of maps`);
+      }
+      const intro = path[0]?.introduces;
+      if (!Array.isArray(intro) || typeof intro[0] !== "object" || intro[0].meaning !== long) fails.push(`(av) leg1.introduces is not a list of maps carrying the meaning whole: ${JSON.stringify(intro)}`);
+      if (path[0]?.purpose !== long) fails.push("(av) the lengthened purpose did not read back whole after wrapping");
+      const read = readBrief(text, "brief.yaml");
+      if (read.refusals.length) fails.push(`(av) the Draft's reader refused the adopted record: ${JSON.stringify(read.refusals)}`);
+      else if (read.legs[1].reader_state_before !== read.legs[0].reader_state_after) fails.push("(av) leg2's before-state was not derived from leg1's after-state");
+    }
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — re-activate (kogaki#1237, re-ruled default-deny at kogaki#1282): the three composition refusals name the entry, What crosses into this Leg carries the re-activated term WITH ITS MEANING, a term not re-activated crosses into no Packet at all, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the article so far is scoped to the current Section only, with no earlier Section's prose reaching the Packet even verbatim; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by renderLeg, read back by parseLegBlockBody, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget), a Journey crossing into neither Leg's Packet when not re-activated and its scene crossing in under What crosses into this Leg when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name, and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name; and kogaki#1270's contract fix -- src/leg-schema.json's `introduces_item.nearest` description now states the at-most-one-per-path limit that introducesNearestRefusal enforces, unchanged; and kogaki#1276 -- the compose_path prompt and the per-unit Move-fit input carry each Move's technique and breaks verbatim, a Leg with both or neither of move and no_move_fits is refused naming it, a no_move_fits Leg refuses its unit with its sentence and the retry prompt carries it, every compose job unit prompt begins with the no-tools sentence and neither table carries judge_specialization or effort (kogaki#1307), one unit refused on a contradicts verdict among three leaves two offered and names the excluded one and its Leg, and every Candidate failing ends the Brief through job await with no question, its theses/<slug>/ removed, and a report naming each failing Leg and the judge's sentence and saying the Brief was removed; and kogaki#1283's review_path two added judged items -- questionChainPairs/dischargeRows name one pair per adjacent Leg and one row per discharged Closure row carrying the discharging Leg's claims verbatim, attachReview carries a \"different question\" or \"fails\" verdict forward as reasoning rather than refusing it, refuses a verdict outside either item's closed set or an array of the wrong length by name, and requires neither item at all.; and kogaki#1281 -- a Persona declaring no prior_knowledge is a stated absence, read back as such and refusing nothing, a Brief naming it composes and renders; persona_prior_knowledge reaches compose_path's base write, every unit's own input, and review_path's input, from the same Persona file; and the claim register runs one judged entry per Leg, closed to holds/fails, a fails entry naming the word that failed, refused by count, by verdict and by an unworded fails; and kogaki#1311 -- a Leg with no waypoints, a waypoint with an empty point or serves, a waypoint carrying the retired effect (kogaki#1326), a serves naming a Strand the Leg has no claim for, and a claim no waypoint serves are each refused naming the Leg and the waypoint, the compose_path unit prompt renders the schema's waypoints entry, the per-unit fit input carries each Leg's waypoints beside its Move's technique and breaks, and a Candidate whose waypoint counts differ from the count its Move's technique names passes; and kogaki#1325 -- a Leg writing reader_state_before is refused by name, the fit input carries each Leg's derived before-state and the one question asked of the Move's before with no specialization vocabulary for it, and a Leg 1 contradicts naming knowledge refuses the unit with the judge's sentence, re-asked once.");
+console.log("ok: check-brief-compose — re-activate (kogaki#1237, re-ruled default-deny at kogaki#1282): the three composition refusals name the entry, What crosses into this Leg carries the re-activated term WITH ITS MEANING, a term not re-activated crosses into no Packet at all, a Leg re-activating nothing renders a stated absence, and depends_on reaches no Packet; the article so far is scoped to the current Section only, with no earlier Section's prose reaching the Packet even verbatim; the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, the carriers deriving nothing from why the reader opened the post, the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's (question/expectation/trust free), the Reader target derivation reading the marked Leg regardless of position, and the mark reaching the Packet (written by legRecord, read back by readBrief, rendered on the marked Leg and each closing Leg and on no Leg before); a Journey's resolved text renders under the Journey block with its served address kept beside it as citation, and an unresolved Journey entry refuses by name rather than rendering a hole (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal name the Leg and the address for an unparseable cite and for one the served survey holds no record for, resolve a cite the survey does hold (both admitted cite forms), and compose no refusal when one resolves; writerRefusal reads the declared `refusal: <reason>` form off the first line alone, never ordinary prose, a trailing line, a refusal arriving after other text, an empty reason, or a non-string response; journeyProseFromShardLines reads a Journey's prose from its own Gloss shard lines only; and kogaki#1263's four schema widenings — re-activate's third `journey` form, `introduces` typed as `introduces_item` (term/kind/source/nearest/differs), a conceded Closure row's `open`/`why_not_here`/`reader_keeps` declared in both schemas, and the `names` list required on the Leg marked reaches_target — are all declared in src/leg-schema.json and src/candidate-schema.json; and kogaki#1260's four compose refusals over those fields — re-activate's `journey` form resolving against the depended-on Leg's journeys, a second `nearest` across the path refused naming both, a conceded Closure row refused naming the row and its missing open/why_not_here/reader_keeps, and a reaching Leg's `names` entry no Leg introduces refused naming the term; and kogaki#1261's Packet rendering — the Persona's prose block in the Write block (two Personas, two blocks; one Brief, one block but for the budget), a Journey crossing into neither Leg's Packet when not re-activated and its scene crossing in under What crosses into this Leg when it is, a typed term's kind and authority line with external_authority switching the authority off, and a conceded row's three fields; and kogaki#1262's two mint-side fields — `composeBrief` records `compose_path` naming the Persona file it was composed with and refuses a blank or non-string one by name (and a Brief record carrying none is refused by the Draft's reader, kogaki#1328), and `external_authority` renders `on` by default and `off` when minted so, refusing any third value by name; and kogaki#1270's contract fix -- src/leg-schema.json's `introduces_item.nearest` description now states the at-most-one-per-path limit that introducesNearestRefusal enforces, unchanged; and kogaki#1276 -- the compose_path prompt and the per-unit Move-fit input carry each Move's technique and breaks verbatim, a Leg with both or neither of move and no_move_fits is refused naming it, a no_move_fits Leg refuses its unit with its sentence and the retry prompt carries it, every compose job unit prompt begins with the no-tools sentence and neither table carries judge_specialization or effort (kogaki#1307), one unit refused on a contradicts verdict among three leaves two offered and names the excluded one and its Leg, and every Candidate failing ends the Brief through job await with no question, its theses/<slug>/ removed, and a report naming each failing Leg and the judge's sentence and saying the Brief was removed; and kogaki#1283's review_path two added judged items -- questionChainPairs/dischargeRows name one pair per adjacent Leg and one row per discharged Closure row carrying the discharging Leg's claims verbatim, attachReview carries a \"different question\" or \"fails\" verdict forward as reasoning rather than refusing it, refuses a verdict outside either item's closed set or an array of the wrong length by name, and requires neither item at all.; and kogaki#1281 -- a Persona declaring no prior_knowledge is a stated absence, read back as such and refusing nothing, a Brief naming it composes and renders; persona_prior_knowledge reaches compose_path's base write, every unit's own input, and review_path's input, from the same Persona file; and the claim register runs one judged entry per Leg, closed to holds/fails, a fails entry naming the word that failed, refused by count, by verdict and by an unworded fails; and kogaki#1311 -- a Leg with no waypoints, a waypoint with an empty point or serves, a waypoint carrying the retired effect (kogaki#1326), a serves naming a Strand the Leg has no claim for, and a claim no waypoint serves are each refused naming the Leg and the waypoint, the compose_path unit prompt renders the schema's waypoints entry, the per-unit fit input carries each Leg's waypoints beside its Move's technique and breaks, and a Candidate whose waypoint counts differ from the count its Move's technique names passes; and kogaki#1325 -- a Leg writing reader_state_before is refused by name, the fit input carries each Leg's derived before-state and the one question asked of the Move's before with no specialization vocabulary for it, and a Leg 1 contradicts naming knowledge refuses the unit with the judge's sentence, re-asked once; and kogaki#1328 -- adoption writes brief.yaml with every Leg field in list or map form, reading back through the Draft's reader with each before-state derived, and no line over 120 characters.");
 JS

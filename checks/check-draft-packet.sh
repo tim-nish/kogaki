@@ -25,12 +25,36 @@
 #       proving the trap records such a read; and read, for all three, as source:
 #       none of them names a Move reader exported by src/compose.mjs.
 #
+#   (i) THE 2026-10-09 BRIEF, CARRIED INTO THE RECORD (kogaki#1328): the Brief
+#       `theses/check-only-good-what-given/brief.md` as written on 2026-10-09,
+#       converted to the record at checks/fixtures/brief-2026-10-09/brief.yaml,
+#       renders a Packet per Leg whose waypoints, claims, Journey text, Section
+#       lines, crossing lines and Closure rows are the ones the Markdown Brief's
+#       Packets carried, compared field for field against
+#       `packet-fields.json` -- the fields of the four Packets the pre-record
+#       code rendered from the Markdown file, captured once with the served
+#       Journey prose in `journeys.json`. The one row that differs is the one
+#       the Issue changes: the Thesis row of Closure, which is now derived from
+#       the Strand coverage and reaches the Leg marked `reaches_target` alone.
+#   (j) NO READER OF THE BRIEF READS PROSE (kogaki#1328): src/draft.mjs,
+#       src/review-draft.mjs, src/assemble.mjs and src/compose.mjs, read as
+#       source with comments stripped, name none of the three retired
+#       parsers (`parseBrief`, `parseLegBlockBody`, `closureRowsForLeg`) nor
+#       `concededRowFields`, and none of the Markdown Brief's line grammar --
+#       its section headings, a regex over `claim (strand` or `waypoint
+#       (serves` (the figure input still WRITES the first form), the
+#       `*compose_path:*` header form or the Closure row's
+#       `established_by_legs`. A control arm runs the same scan over the
+#       pre-record grammar and finds it. The fenced `leg` block review-draft
+#       still reads is the Reverse Outline a reader writes, not the Brief.
+#
 # NOT COVERED, stated rather than implied: `adopt-candidate` is not driven end
 # to end here — src/assemble.mjs's half of (c) is the source read alone. The
 # end-to-end run, over a fixture gate answer and specialization record, is
 # checks/check-adopt-candidate.sh's (kogaki#1317). Whether the prose a
 # writer produces from the waypoints is any good is ReviewDraft's judgment and
-# never linted here.
+# never linted here. The `## Write` block is not compared in (i): it is the
+# template's and the Persona's, and (d) and (f) hold it.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -39,9 +63,12 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodS
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 const fails = [];
 const repo = resolve(".");
+const { legRecord, briefRecordText, readerStateMap, thesisClosureRow, parseBriefRecord } =
+  await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 
 // Reads a Persona file's `prose: |` block the same way src/compose.mjs's
 // `readerProse` does, so a fixture built here matches what the Packet
@@ -91,20 +118,17 @@ for (const name of ["readFileSync", "openSync", "readdirSync", "existsSync", "st
 }
 // THE GATEWAY STUB (kogaki#1323): this worktree cannot reach a live gateway,
 // so the one spawn \`fetchJourneySurvey\` makes against
-// policy/kit/bin/gateway-query.mjs is answered here with one served record
-// for the fixture Journey named by $FAKE_JOURNEY_CITE, its prose already
-// carried in $FAKE_JOURNEY_PROSE -- every other spawnSync call (the stub
-// writer included) passes through to the real implementation untouched.
+// policy/kit/bin/gateway-query.mjs is answered here with the served records
+// in $FAKE_JOURNEYS -- a JSON list of \`{ slug, kind, body }\`, the prose
+// already carried -- and every other spawnSync call (the stub writer
+// included) passes through to the real implementation untouched.
 const origSpawnSync = cp.spawnSync;
 cp.spawnSync = function (cmd, args, opts) {
   const isGatewayQuery = Array.isArray(args)
     && args.some((a) => typeof a === "string" && a.endsWith("gateway-query.mjs"));
-  if (isGatewayQuery && process.env.FAKE_JOURNEY_CITE) {
-    const cite = process.env.FAKE_JOURNEY_CITE;
-    const slug = (cite.split("slug=")[1] || "").split(" ")[0];
-    const kind = (cite.split("kind=")[1] || "").split(" ")[0];
-    const rec = { slug, kind, body: process.env.FAKE_JOURNEY_PROSE };
-    const payload = JSON.stringify({ lines: [{ text: JSON.stringify(rec) }] });
+  if (isGatewayQuery && process.env.FAKE_JOURNEYS) {
+    const recs = JSON.parse(process.env.FAKE_JOURNEYS);
+    const payload = JSON.stringify({ lines: recs.map((rec) => ({ text: JSON.stringify(rec) })) });
     const fd = opts && opts.stdio ? opts.stdio[1] : undefined;
     if (typeof fd === "number") fs.writeSync(fd, payload);
     return { status: 0, stdout: "", stderr: "", signal: null, pid: 0 };
@@ -143,31 +167,33 @@ const W = [
   { point: "A copy that a later run may rewrite is not a copy the consumer can edit.", serves: ["L1", "L2"] },
   { point: "The next run overwrites any edit made to the copy.", serves: ["L2"] },
 ];
-const briefText = (legs) => [
-  "# Brief — packet-brief", "",
-  "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
-  "## Strands", "",
-  "### L1 — first-strand", "", "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-  "### L2 — second-strand", "", "- cite: `gloss/ELEMENTS.jsonl slug=second-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-  "## Thesis", "", "The fixture claim.", "",
-  "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
-  "## Sequence", "", ...legs,
-].join("\n");
-const leg = (id, move, lines) => [
-  "```leg", `leg_id: ${id}`, `move: ${move}`, `purpose: purpose of ${id}`,
-  `reader_state_before: knowledge: before ${id}.`, `reader_state_after: knowledge: after ${id}.`,
-  "materials: L1, L2", `rationale: rationale for ${id}.`, ...lines, "```", "",
-];
+// A Brief record (kogaki#1328): its Legs written by `legRecord` and the file
+// by `briefRecordText`, so the fixture is read through the Draft's own reader.
+const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
+const briefText = (legs, keys = {}) => briefRecordText({
+  slug: "packet-brief", compose_path: "readers/dev-to-zenn.md", external_authority: "on",
+  strands: [{ id: "L1", slug: "first-strand", cite: lessonCite("first-strand") },
+    { id: "L2", slug: "second-strand", cite: lessonCite("second-strand") }],
+  thesis: "The fixture claim.",
+  reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
+  reader_target: legs[legs.length - 1].leg_id,
+  reader_path: legs.map(legRecord),
+  strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+  ...keys,
+});
+const leg = (id, move, claims, waypoints, extra = {}) => ({
+  leg_id: id, move, purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
+  materials: ["L1", "L2"], depends_on: [], rationale: `rationale for ${id}.`, claims, waypoints, ...extra,
+});
 const goodLegs = [
-  ...leg("s1", "name_a_paradox_after_removing_aggressive_intent", [
-    `claim (strand L1): ${C1}`, `claim (strand L2): ${C2}`,
-    ...W.map((w) => `waypoint (serves ${w.serves.join(", ")}): ${w.point}`)]),
-  ...leg("s2", "a_move_no_library_holds", [
-    `claim (strand L1): ${C1}`, "waypoint (serves L1): The copy is settled once installed."]),
+  leg("s1", "name_a_paradox_after_removing_aggressive_intent",
+    [{ strand: "L1", proposition: C1 }, { strand: "L2", proposition: C2 }], W),
+  leg("s2", "a_move_no_library_holds",
+    [{ strand: "L1", proposition: C1 }], [{ point: "The copy is settled once installed.", serves: ["L1"] }]),
 ];
 const briefDir = join(root, "theses", "packet-brief");
 mkdirSync(briefDir, { recursive: true });
-const briefPath = join(briefDir, "brief.md");
+const briefPath = join(briefDir, "brief.yaml");
 writeFileSync(briefPath, briefText(goodLegs));
 const ws = join(root, "ws");
 
@@ -226,11 +252,11 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
 {
   const badDir = join(root, "theses", "no-waypoints");
   mkdirSync(badDir, { recursive: true });
-  const badPath = join(badDir, "brief.md");
+  const badPath = join(badDir, "brief.yaml");
   writeFileSync(badPath, briefText([
-    ...leg("s1", "open_the_claim", [`claim (strand L1): ${C1}`, "waypoint (serves L1): The reader sees the copy."]),
-    ...leg("s2", "open_the_claim", [`claim (strand L1): ${C1}`]),
-  ]).replace("# Brief — packet-brief", "# Brief — no-waypoints"));
+    leg("s1", "open_the_claim", [{ strand: "L1", proposition: C1 }], [{ point: "The reader sees the copy.", serves: ["L1"] }]),
+    leg("s2", "open_the_claim", [{ strand: "L1", proposition: C1 }], []),
+  ], { slug: "no-waypoints" }));
   const r = spawnSync(process.execPath, [join(repo, "src", "draft.mjs"), "resolve", "--brief", badPath, "--workspace", join(root, "ws-bad")],
     { cwd, encoding: "utf8" });
   if (r.status === 0) fails.push("(b) resolve accepted a Brief whose Leg carries no waypoints");
@@ -260,7 +286,7 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
 
 // (h) the Thesis is the article's title, verbatim (kogaki#1327): the
 // assembled Draft's first line is `# ` followed by the Thesis exactly as the
-// Brief's own "## Thesis" section states it.
+// Brief record's own `thesis` key states it.
 {
   const draftMd = join(briefDir, "draft.md");
   const text = readFileSync(draftMd, "utf8");
@@ -304,9 +330,8 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   mkdirSync(styleDir, { recursive: true });
   const stylePersona = join(root, "persona-with-rule.md");
   writeFileSync(stylePersona, personaRaw);
-  const styleBriefPath = join(styleDir, "brief.md");
-  writeFileSync(styleBriefPath, briefText(goodLegs).replace(
-    "# Brief — packet-brief", `# Brief — style-brief\n\ncompose_path: ${stylePersona}`));
+  const styleBriefPath = join(styleDir, "brief.yaml");
+  writeFileSync(styleBriefPath, briefText(goodLegs, { slug: "style-brief", compose_path: stylePersona }));
   const stylePacket = (args) => trapped([join(repo, "src", "draft.mjs"), ...args,
     "--brief", styleBriefPath, "--workspace", join(root, "ws-style")], { KOGAKI_JUDGE_CLI: stub });
   stylePacket(["resolve"]);
@@ -383,28 +408,19 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
 // never a narrative told merely because it is named one.
 {
   const journeyProse = "The installer wrote the kit's manifest before the lockfile existed, and the second run found no lockfile to compare against.";
-  const journeyBriefText = [
-    "# Brief — journey-brief", "",
-    "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
-    "## Strands", "",
-    "### L1 — first-strand", "",
-    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`",
-    "- journey cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=journey @1111111111111111111111111111111111111111`", "",
-    "### L2 — second-strand", "", "- cite: `gloss/ELEMENTS.jsonl slug=second-strand kind=lesson @0000000000000000000000000000000000000000`", "",
-    "## Thesis", "", "The fixture claim.", "",
-    "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
-    "## Sequence", "",
-    ...leg("s1", "name_a_paradox_after_removing_aggressive_intent", [
-      `claim (strand L1): ${C1}`, "waypoint (serves L1): The reader sees the copy land.",
-      "journey: L1 — illustrate"]),
-  ].join("\n");
+  const journeyBriefText = briefText([
+    leg("s1", "name_a_paradox_after_removing_aggressive_intent", [{ strand: "L1", proposition: C1 }],
+      [{ point: "The reader sees the copy land.", serves: ["L1"] }], { journeys: [{ strand: "L1", use: "illustrate" }] }),
+  ], { slug: "journey-brief", strands: [
+    { id: "L1", slug: "first-strand", cite: lessonCite("first-strand"), journey_cite: `coding::journey/first-strand@${"1".repeat(64)}` },
+    { id: "L2", slug: "second-strand", cite: lessonCite("second-strand") }] });
   const journeyDir = join(root, "theses", "journey-brief");
   mkdirSync(journeyDir, { recursive: true });
-  const journeyBriefPath = join(journeyDir, "brief.md");
+  const journeyBriefPath = join(journeyDir, "brief.yaml");
   writeFileSync(journeyBriefPath, journeyBriefText);
   const journeyDraft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...args,
     "--brief", journeyBriefPath, "--workspace", join(root, "journey-ws")],
-    { KOGAKI_JUDGE_CLI: stub, FAKE_JOURNEY_CITE: "gloss/ELEMENTS.jsonl slug=first-strand kind=journey @1111111111111111111111111111111111111111", FAKE_JOURNEY_PROSE: journeyProse, ...env });
+    { KOGAKI_JUDGE_CLI: stub, FAKE_JOURNEYS: JSON.stringify([{ slug: "first-strand", kind: "journey", body: journeyProse }]), ...env });
 
   const r0 = journeyDraft(["resolve"]);
   if (r0.status !== 0) fails.push(`(g) resolve failed: ${(r0.stderr || "").slice(0, 400)}`);
@@ -423,11 +439,81 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   }
 }
 
+// (i) the 2026-10-09 Brief, carried into the record: every Packet field the
+// Markdown Brief's Packets carried, field for field, but the Thesis row.
+{
+  const fx = join(repo, "checks", "fixtures", "brief-2026-10-09");
+  // The Packet's fields: per `## ` block, the lines the Brief supplies -- list
+  // and numbered lines, the stated-absence lines, the Reader target line, and
+  // a Journey's served prose -- never the template's own instruction text.
+  const packetFields = (packet) => {
+    const out = {};
+    for (const part of packet.split(/\n(?=## )/).slice(1)) {
+      const [head, ...rest] = part.split("\n");
+      if (head === "## Write") continue;
+      const lines = rest.filter((l) => l.trim() !== "");
+      const journeyAt = lines.findIndex((l) => l.startsWith("- **"));
+      out[head] = head.startsWith("## The Journey material") && journeyAt >= 0
+        ? lines.slice(journeyAt)
+        : lines.filter((l) => /^(- |\d+\. |\(none|\(nothing|This Leg )/.test(l));
+    }
+    return out;
+  };
+  const want = JSON.parse(readFileSync(join(fx, "packet-fields.json"), "utf8"));
+  const briefYaml = readFileSync(join(fx, "brief.yaml"), "utf8");
+  const record = parseBriefRecord(briefYaml, "brief.yaml").record;
+  const dir = join(root, "theses", record.slug);
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, "brief.yaml");
+  writeFileSync(path, briefYaml);
+  const run = (args) => trapped([join(repo, "src", "draft.mjs"), ...args, "--brief", path, "--workspace", join(root, "ws-1009")],
+    { FAKE_JOURNEYS: readFileSync(join(fx, "journeys.json"), "utf8") });
+  const r0 = run(["resolve"]);
+  if (r0.status !== 0) fails.push(`(i) resolve over the 2026-10-09 record failed: ${(r0.stderr || "").slice(0, 400)}`);
+  const thesisRow = `- ${thesisClosureRow(record)}`;
+  const isOldThesisRow = (l) => l.startsWith("- The Thesis — ");
+  for (const legId of Object.keys(want)) {
+    const r = run(["packet", "--leg", legId]);
+    if (r.status !== 0) { fails.push(`(i) packet --leg ${legId} failed: ${(r.stderr || "").slice(0, 400)}`); continue; }
+    const got = packetFields(r.stdout || "");
+    for (const head of new Set([...Object.keys(want[legId]), ...Object.keys(got)])) {
+      let a = want[legId][head] || [];
+      let b = got[head] || [];
+      if (head === "## This Leg's Closure") {
+        const reaches = legId === record.reader_target;
+        if (reaches !== b.includes(thesisRow)) fails.push(`(i) ${legId}: the derived Thesis row is ${reaches ? "missing from" : "handed to"} its Packet`);
+        if (reaches !== a.some(isOldThesisRow)) fails.push(`(i) ${legId}: the reference's Thesis row does not sit where the derived one does`);
+        a = a.filter((l) => !isOldThesisRow(l));
+        b = b.filter((l) => l !== thesisRow);
+      }
+      if (JSON.stringify(a) !== JSON.stringify(b)) {
+        const i = a.findIndex((l, k) => l !== b[k]);
+        fails.push(`(i) ${legId} ${head}: line ${i + 1} differs from the 2026-10-09 Packet -- want ${JSON.stringify(a[i])}, got ${JSON.stringify(b[i])}`);
+      }
+    }
+  }
+}
+
+// (j) no reader of the Brief reads prose.
+{
+  const retired = [/\bparseBrief\b/, /\bparseLegBlockBody\b/, /\bclosureRowsForLeg\b/, /\bconcededRowFields\b/,
+    /## (Strands|Thesis|Reader start|Reader target|Reader Path|Sequence|Strand coverage|Closure|Tradeoffs)\b/,
+    /claim \\\(strand/, /waypoint \\\(serves/, /\*compose_path:\*/, /established_by_legs/];
+  const scan = (code) => retired.filter((re) => re.test(code)).map(String);
+  const control = "const b = parseBrief(text); const m = /^claim \\(strand (L\\d+)\\)/.exec(line); x.indexOf('## Sequence');";
+  if (scan(control).length < 3) fails.push(`(j) control: the scan does not find the pre-record grammar in a line that carries it: ${scan(control)}`);
+  for (const f of ["src/draft.mjs", "src/review-draft.mjs", "src/assemble.mjs", "src/compose.mjs"]) {
+    const code = readFileSync(join(repo, f), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+    const hit = scan(code);
+    if (hit.length) fails.push(`(j) ${f} still names the Markdown Brief's grammar or a retired parser: ${hit.join(", ")}`);
+  }
+}
+
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
   console.log("FAIL check-draft-packet");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327)");
+console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327); and the 2026-10-09 Brief carried into the record renders every Leg's waypoints, claims, Journey text, Section, crossing and Closure lines exactly as its Markdown Packets did, the Thesis row alone derived and handed to the reaches_target Leg, and none of src/draft.mjs, src/review-draft.mjs, src/assemble.mjs or src/compose.mjs names a retired Brief parser or the Markdown Brief's line grammar (kogaki#1328)");
 JS

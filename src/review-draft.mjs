@@ -110,10 +110,42 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { enterRun } from "./runs.mjs";
-// ONE PARSER FOR A `leg` BLOCK, and it is the Brief's (kogaki#1014). The
-// Reverse Outline is a Brief Leg block, so it is read by the function
-// `parseBrief` calls per fenced block rather than by a second reader here.
-import { parseLegBlock, legField } from "./draft.mjs";
+
+// THE REVERSE OUTLINE'S OWN READER (kogaki#1328). The outline is a fenced
+// `leg` block a blind reader writes in the Brief Leg's field names, and until
+// the Brief became one YAML record it was read by the Brief's own Leg-block
+// parser (kogaki#1014). The Brief has no line grammar any more, so the outline
+// is read here, by the module that asks for it — over the outline's text, which
+// is the reader's writing and never the Brief's. The field names it may carry
+// are still the Brief Leg's, closed by `validateReverseOutline` below.
+function parseLegBlock(text, path = "<reverse-outline>") {
+  const m = /^```leg\n([\s\S]*?)\n```/m.exec(text);
+  if (!m) {
+    return { refusal: `${path} carries no fenced \`leg\` block — a Reverse Outline is written in the Brief `
+      + "Leg's own field names, so there is nothing here to compare against the Forward Artifact" };
+  }
+  const rest = text.slice(m.index + m[0].length);
+  if (/^```leg\n/m.test(rest)) {
+    return { refusal: `${path} carries more than one fenced \`leg\` block — a Reverse Outline is the reading of ONE passage, `
+      + "and two blocks leave the Harness to pick which one the reader meant" };
+  }
+  const body = m[1];
+  const idM = body.match(/^leg_id:\s*(\S+)\s*$/m);
+  if (!idM) return { refusal: `${path} carries a leg block with no leg_id` };
+  return { leg: { leg_id: idM[1], body } };
+}
+
+// One field of an outline block: the value after `<field>:`, with any
+// two-space-indented continuation lines rejoined by a newline.
+function legField(body, field) {
+  const m = body.match(new RegExp(`^${field}:[ \\t]*(.*)\\n((?:  .*(?:\\n|$))*)`, "m"));
+  if (!m) {
+    const inline = body.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
+    return inline ? inline[1].trim() : null;
+  }
+  const rest = m[2].split("\n").filter((l) => l !== "").map((l) => l.slice(2));
+  return [m[1].trim(), ...rest].join("\n");
+}
 
 function fail(msg) {
   process.stderr.write(`review-draft: ${msg}\n`);
@@ -261,7 +293,7 @@ function readDraft(draftPath) {
           + "threaded to the realization lane as `--lang`, where it becomes a directory segment, a "
           + "run-record key and part of the emitted Draft's filename, so a value outside "
           + "`aa`/`aaa` with optional `-subtag` parts would write outside the track it names. "
-          + "Re-emit the Draft (`node src/draft.mjs emit --brief <brief.md> --lang <tag>`), which "
+          + "Re-emit the Draft (`node src/draft.mjs emit --brief <brief.yaml> --lang <tag>`), which "
           + "writes the field.");
       }
       lang = m[1];
@@ -322,7 +354,7 @@ function resolveInputs(draft) {
         || !Number.isInteger(t.lines[0]) || !Number.isInteger(t.lines[1])) {
       fail(`leg ${id} carries no line range in the trace — ReviewDraft locates each Leg's prose `
         + "by the range kogaki#868 writes, and a Draft emitted before that lands must be re-emitted "
-        + "(node src/draft.mjs emit --brief <brief.md>)");
+        + "(node src/draft.mjs emit --brief <brief.yaml>)");
     }
     if (typeof t.packet !== "string" || typeof t.packet_sha !== "string") {
       fail(`leg ${id} names no Packet in the trace — the Packet is the only source ReviewDraft `
@@ -333,7 +365,7 @@ function resolveInputs(draft) {
     if (!existsSync(packetPath)) {
       fail(`leg ${id}: the Packet the trace names is absent — ${packetPath}. The run workspace is `
         + "machine state and is pruned; re-render it with "
-        + "`node src/draft.mjs packet --brief <brief.md> --leg " + id + "`");
+        + "`node src/draft.mjs packet --brief <brief.yaml> --leg " + id + "`");
     }
     const actual = sha256(readFileSync(packetPath, "utf8"));
     if (actual !== t.packet_sha) {
@@ -362,7 +394,7 @@ function resolveInputs(draft) {
           || !Number.isInteger(f.lines[0]) || !Number.isInteger(f.lines[1])) {
         fail(`leg ${id}: its trace entry carries a figure with no line range — the renderer records the `
           + "figure's own range beside the Leg's prose range, and without it Reverse Outlining "
-          + "has no block to quote; re-emit the Draft (node src/draft.mjs emit --brief <brief.md>)");
+          + "has no block to quote; re-emit the Draft (node src/draft.mjs emit --brief <brief.yaml>)");
       }
       if (typeof f.record !== "string" || typeof f.record_sha !== "string") {
         fail(`leg ${id}: its trace entry carries a figure naming no record — the record is the `
@@ -372,7 +404,7 @@ function resolveInputs(draft) {
       if (!existsSync(recordPath)) {
         fail(`leg ${id}: the figure record the trace names is absent — ${recordPath}. The run `
           + "workspace is machine state and is pruned; re-record it with "
-          + `\`node src/draft.mjs figure --brief <brief.md> --leg ${id} --file <record.json>\``);
+          + `\`node src/draft.mjs figure --brief <brief.yaml> --leg ${id} --file <record.json>\``);
       }
       const recordText = readFileSync(recordPath, "utf8");
       const recordActual = sha256(recordText);
@@ -921,9 +953,9 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
 // answer is not in the passage, and asking would get an invention back that the
 // Round Trip would then dutifully compare.
 //
-// `claims` IS THE `claim ` LINES, not a `claims:` field — the Brief's own
-// grammar, read by the same `claimLines` the realization side reads, because
-// "in the Brief's form" is the whole claim.
+// `claims` IS THE `claim ` LINES, not a `claims:` field — the line form the
+// figure input renders a Leg's claims in (`claimLines`, src/draft.mjs), read
+// here off the outline by `outlineClaims`.
 //
 // THE FIELDS WERE FIVE, AND TWO LEFT TOGETHER (owner 2026-09-17; kogaki#1132); `waypoints`
 // made them six (kogaki#1311).
@@ -1148,10 +1180,9 @@ function repeatedLines(body, field) {
   return [...String(body).matchAll(new RegExp(`^${field}:[ \\t]*(.*)$`, "gm"))].map((x) => x[1].trim());
 }
 
-// VALIDATED BY THE BRIEF PARSER, which is the acceptance rather than a way of
-// meeting it: `parseLegBlock` is the function `parseBrief` calls per fenced
-// block, so a Reverse Outline the Brief could not carry is refused by the same
-// code that would refuse it inside a Brief.
+// VALIDATED AGAINST THE BRIEF LEG'S FIELD NAMES: the outline's line set is
+// closed below to the fields a Brief Leg carries, so an outline naming a field
+// the Brief does not have is refused rather than read.
 //
 // EVERY REFUSAL NAMES WHAT IT SAW. A Reverse Outline is the one artifact in
 // this flow a person wrote by hand, so "invalid" without the field is a refusal
@@ -2846,7 +2877,7 @@ function briefOf(draft) {
   if (!draft.brief) {
     fail(`${draft.path} names no Brief in its frontmatter, and the correction path re-enters the `
       + "realization lane to render a fresh Packet. Re-emit the Draft "
-      + "(`node src/draft.mjs emit --brief <brief.md>`), which writes the field.");
+      + "(`node src/draft.mjs emit --brief <brief.yaml>`), which writes the field.");
   }
   const p = resolve(dirname(draft.path), draft.brief);
   if (!existsSync(p)) {

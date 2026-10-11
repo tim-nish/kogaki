@@ -2030,28 +2030,56 @@ centre readable as one thing rather than three fields and a file path.
 
 ### 5.1 The settled structure section
 
-- **`reader_start`**, **`reader_target`** — the two rendered reader headings,
-  each naming one reader state that appears once in the path (kogaki#1225):
-  Reader start, where the path begins, authored once per Brief at
-  **Differentiation** from the Persona and the Thesis; Reader target, where it
-  ends, **derived** from the last Leg's `reader_state_after`, per Candidate.
-  Both land at **Candidate selection**. No Opening question is rendered:
-  `opening_question` and `reader_target` are retired Candidate fields, refused
-  by name. `reader_start` is a **stance**, not a knowledge state: §5.1.1
-  defines it.
-- **`thesis`** — read from Terrain (§3), never invented here.
-- **`sequence`** — the ordered Legs of §4.1.
-- **`strand_coverage`** — per selected Strand: `used_by_legs`,
-  `role_in_thesis`.
-- **`obligations`** and **`thesis_closure`** — the two levels of **Closure**,
-  §5.2: `thesis_closure` carries `explanation` and `established_by_legs`, and
-  `obligations` is the Leg-level ledger. Both fill in the same write, into one
-  rendered section named **Closure**.
-- **`tradeoffs`**
+**The Brief is one YAML record** (kogaki#1328, owner decision 2026-10-10):
+`theses/<slug>/brief.yaml`, and no Markdown rendering of it is written at any
+state. Its keys are declared in `src/candidate-schema.json` under
+`brief_record`, in the order the file writes them, each with the caption the
+file carries above it as a comment for the owner. The mint writes the header
+keys (`slug`, `compose_path`, `external_authority`), the closed `strands` list
+and the adopted `thesis`, and every key below it as `null` — a slot awaiting
+composition; adoption fills them in one write. Every reader of the Brief —
+`src/draft.mjs`, `src/review-draft.mjs`, `src/assemble.mjs`, `src/compose.mjs`
+— loads the record and none parses a rendering: the three parsers that read a
+Markdown Brief back (`parseBrief`, `parseLegBlockBody`, `closureRowsForLeg`)
+are removed. The Draft's `brief_pin` is the hash of the record file.
 
-`necessity:` the field list is carried by `src/compose.mjs`, `src/brief.mjs`
-and `src/assemble.mjs`. What no carrier holds is which block authors which
-field, which the subsections below state one at a time.
+**What the owner reads is what the machine is handed.** The file is the
+record, so the owner reading it reads the same tree the Packet is built from;
+the owner's words: "If a file is intended for human review, it should also
+contain the information supplied to the machine", and "Unless the rendering
+format is properly organized, Markdown can be far less readable than JSON or
+YAML." The record's native tree is that organization — waypoints and claims
+as lists of maps, each reader state as a five-key map, `introduces` as a list
+— and no line of it exceeds 120 characters.
+
+- **`reader_start`**, **`reader_target`** — the two reader keys, each naming
+  one reader state that appears once in the path (kogaki#1225):
+  `reader_start`, where the path begins, a five-key map authored once per
+  Brief at **Differentiation** from the Persona and the Thesis;
+  `reader_target`, where it ends, **names the Leg marked `reaches_target`**
+  (kogaki#1231), whose `reader_state_after` it is. Both land at **Candidate
+  selection**. No Opening question is written: `opening_question` and
+  `reader_target` are retired Candidate fields, refused by name.
+  `reader_start` is a **stance**, not a knowledge state: §5.1.1 defines it.
+- **`thesis`** — read from Terrain (§3), never invented here.
+- **`reader_path`** — the ordered Legs of §4.1. **Each reader state is written
+  once per boundary**: a Leg carries its `reader_state_after` and no
+  before-state, which is the previous after-state (or `reader_start`) and is
+  derived on read (kogaki#1325).
+- **`strand_coverage`** — per selected Strand: `used_by_legs`,
+  `role_in_thesis`; and **`journey_coverage`** — per Journey-bearing Strand,
+  the Legs that place it or why it was omitted.
+- **`closure`** — the Leg-level rows of **Closure**, §5.2. The Thesis row is
+  not written: it is derived from `strand_coverage` (§5.2).
+  `reasoning.thesis_closure` is a retired Candidate field, refused by name.
+- **`tradeoffs`** and **`bridged`** — the adoption record: what adopting this
+  path gave up, and what the composer inserted to carry the reader across a
+  gap. Nothing after adoption reads them; they stay in the file because the
+  owner reads it.
+
+`necessity:` the field list is carried by `src/candidate-schema.json`
+(`brief_record`) and read by `src/compose.mjs`. What no carrier holds is which
+block authors which field, which the subsections below state one at a time.
 
 #### 5.1.1 The three reader fields, and the block that authors them
 
@@ -2175,7 +2203,7 @@ the Brief renders that state, whole and line for line, under the existing
 Candidate, since the last Leg is. A Candidate carrying a `reader_target` field
 is refused by name (kogaki#1225): authored apart from the Leg it was a second
 statement of one fact that the Harness compared with nothing — it checked only
-that the string was non-empty. Both land at adoption beside `thesis_closure`
+that the string was non-empty. Both land at adoption beside `closure`
 and `tradeoffs`.
 
 - **No new gate.** They ride the Candidate-selection gate §6 already carries,
@@ -2212,9 +2240,11 @@ value comes from. A default would satisfy every mechanical property here.
 
 #### 5.1.2 The vocabulary guard's reach
 
-`theses/<slug>/brief.md` is a tracked document the owner reads directly, and a
+`theses/<slug>/brief.yaml` is a tracked document the owner reads directly, and a
 guard refuses spec-internal vocabulary in it. **It governs the composer's own
-text** — slot captions, headings, the reader-facing definition, the frame. It
+text** — the key captions and the header comment the record carries, the
+reader-facing definition, the frame. The record's keys are machine-facing names
+and are not captions. It
 does **not** govern the adopted Thesis or the Strand material: display id, slug,
 served cites, the survey pin, the Brief's own name.
 
@@ -2261,10 +2291,15 @@ raised, an analogy introduced, a limitation conceded — this is the definition,
 stated where the Brief's Closure section renders it, above the ledger, so a
 reader of the document meets it before the rows that instantiate it.
 
-**One ledger at two levels.** The **Thesis row** is the promise the Opening
-question makes: `thesis_closure`'s `explanation`, with `established_by_legs`.
-The **Leg rows** are the obligations ledger — the owner's proposed name is
-*Legs closure* — each carrying `text` and `introduced_by`.
+**One ledger at two levels.** The **Thesis row** is the Thesis's own promise,
+and it is **derived, never written** (kogaki#1328): rendered from each placed
+Strand's `strand_coverage.role_in_thesis` and handed to the one Leg marked
+`reaches_target`, whose after-state is the Reader target, and to no other Leg.
+It was the Candidate's free-text `reasoning.thesis_closure`, copied into the
+Brief whole — one line of 1934 characters in the 2026-10-09 Brief, restating
+what the coverage already carried per Strand. The **Leg rows** are the
+obligations ledger — the owner's proposed name is *Legs closure* — the record's
+`closure` list, each row carrying `text` and `introduced_by`.
 
 **Every row ends in one of two terminal states, written by the composer:**
 `discharged_by: <leg>` (the promise is kept there) or `conceded_by: <leg>`
@@ -2277,9 +2312,9 @@ both (an ambiguous close) is refused the same way.
   unplaced selected Strand discloses.
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:75`
 
-**The ledger is a section of the Brief document**, not a sidecar and not a
-projection assembled at gate time. The same document carries the obligations and
-the `thesis_closure` that must discharge them, so the gate reads one artifact
+**The ledger is a key of the Brief record**, not a sidecar and not a
+projection assembled at gate time. The same record carries the obligations and
+the coverage the Thesis row is derived from, so the gate reads one artifact
 and a sidecar cannot drift from it. The entries are **authored judgments** —
 "this Leg opens this question" — not something a computation reveals from data
 already kept, so they need a record and the record belongs where its consumer
@@ -2348,7 +2383,7 @@ the accepted risk bounded rather than silent.
 
 **The display id is minted from the argument order, and it is a within-document
 token rather than an identity.** The first address takes `L1`. The Brief's
-Strands section carries `### L<n> — <slug>` beside that Strand's served cite, so
+`strands` list carries each `id: L<n>` beside that Strand's slug and served cite, so
 the mapping travels with the document that uses it and no second carrier can
 drift from it — which is what lets the Leg grammar, the Packets and the Draft
 keep addressing material as `L<n>` while the identity everywhere else is the
@@ -2597,7 +2632,7 @@ the id comparison happened to do with an answer nobody had considered, and an
 enumeration's load-bearing half is what happens to what it does not name. The
 ground for choosing refusal over adoption: a Candidate is a **composed**
 object — an ordered sequence of Legs, each binding a Move library record,
-plus the reasoning that fills `thesis_closure` and tradeoffs — so there is no
+plus the reasoning that fills the tradeoffs — so there is no
 Reader Path in free text to adopt, and admitting one would put the runtime in
 the business of resolving prose into a sequence. That is the judgment layer
 v32 removed from this seam. §4.12.3's ratification gate reaches the same

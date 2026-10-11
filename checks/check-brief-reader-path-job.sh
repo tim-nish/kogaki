@@ -553,7 +553,7 @@ function pollUntil(dir, pred, timeoutMs) {
   const candidateOf = (leg2Extra) => ({
     candidate_id: "c1", characteristic: "x", reader_experience: "y",
     reader_start: "knowledge: before\nquestion: holds: none",
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
     legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
   });
   const goodCandidate = candidateOf({});
@@ -1138,7 +1138,7 @@ process.stdin.on("end", () => {
     candidate_id: "c1", differentiation_unit: 1, reader_experience: "exp one", characteristic: "one",
     legs: [{ move: "move-a" }],
     review: { rationale_stands: "x", entailment: "x", prohibitions: "x", semantic_economy: "x", arc_integrity: "x", evaluation_levels: "x" },
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
   };
   const r1 = assembleSelection({ candidates: [one] }, "");
   if (r1.error && /Candidate\(s\) —/.test(r1.error)) fails.push(`(v5) assembleSelection refused one Candidate on the count: ${r1.error}`);
@@ -1398,7 +1398,7 @@ chmodSync(resumeJudge, 0o755);
   });
   const cand = (id) => ({
     candidate_id: id, characteristic: `path ${id}`, reader_experience: `experience ${id}`,
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
     legs: [leg("s1", { opens_section: "Intro" }), leg("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true })],
   });
   const entryFor = (c) => ({ rationale_stands: "r", entailment: "e", prohibitions: "p", semantic_economy: "s",
@@ -1440,7 +1440,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const mkRun = (name, extra = {}) => {
     const dir = join(base, name);
     mkdirSync(dir);
-    const briefPath = join(dir, "brief.md");
+    const briefPath = join(dir, "brief.yaml");
     writeFileSync(briefPath, composeBrief({ slug: "fixture", strands: [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }],
       thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" }));
     const diffPath = join(dir, "differentiation.json");
@@ -1653,7 +1653,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   });
   const candidate = {
     candidate_id: "c1", characteristic: "x", reader_experience: "y", reader_start: START,
-    reasoning: { leg_validity: "x", thesis_closure: "x" },
+    reasoning: { leg_validity: "x" },
     legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true })],
   };
   const SENTENCE = "the Leg names no case left out, which the technique requires of it.";

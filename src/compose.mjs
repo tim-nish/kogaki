@@ -106,6 +106,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { laneDir } from "./runs.mjs";
+import { stringifyYaml, parseYaml } from "./yaml.mjs";
 
 function fail(msg) {
   process.stderr.write(`compose: ${msg}\n`);
@@ -142,7 +143,7 @@ export function snapshotBrief(briefPath, stage, phase, content, seq = null) {
       }
       seq = max + 1;
     }
-    writeFileSync(join(dir, `${String(seq).padStart(3, "0")}-${stage}-${phase}.md`), content);
+    writeFileSync(join(dir, `${String(seq).padStart(3, "0")}-${stage}-${phase}.yaml`), content);
     return seq;
   } catch (e) {
     process.stderr.write(`compose: Brief snapshot ${stage}/${phase} skipped `
@@ -302,8 +303,8 @@ function legFieldPresent(decl, v) {
 // Leg alone lives here: the shape, the closed use set, and that the Journey's
 // Strand is one this Leg actually carries in `materials`. Whether that
 // Strand's SERVED RECORD carries Journey material needs the Brief's own
-// Strands section and so is checked in `fillBrief`, beside the existing
-// `<L-id>.journey` check that reads the same `journeyBearingStrands` list.
+// `strands` list and so is checked in `fillBrief`, beside the existing
+// `<L-id>.journey` check that reads the same `briefJourneyStrands` list.
 // The same split `figureRefusal` and `resolveFigureForms` already run under.
 //
 // PURE, and exported for that second reader.
@@ -1684,10 +1685,10 @@ const INTRODUCES_SEP = "—";
 // Candidate composes `{term, kind, source, nearest, differs}` directly as
 // JSON, and that object is what `kind`-the-closed-set and `nearest`'s
 // path-level dedup (item 2 below) are read from. THE BRIEF CARRIES THE ITEM
-// AS ITS JSON (kogaki#1261): `renderLeg` writes an `introduces_item` as one
-// `introduces: {...}` line, and a line in that form parses back here to the
-// object it was, so the Packet can render the term's kind and authority line
-// from the Brief alone.
+// AS ITS FIELDS (kogaki#1261; a map in the Brief record since kogaki#1328):
+// `legRecord` writes an `introduces_item` as the map it was, and a JSON line
+// written before that still parses back here to the object it was, so the
+// Packet can render the term's kind and authority line from the Brief alone.
 export function parseIntroducesEntry(raw) {
   if (typeof raw === "string" && /^\s*\{[\s\S]*\}\s*$/.test(raw)) {
     let obj;
@@ -2233,108 +2234,248 @@ export function introducerOf(term, legs) {
   return null;
 }
 
-// A reader-state field's continuation lines are indented by two spaces
-// (kogaki#1224): the field is `dimension: value` LINES, one per dimension
-// (kogaki#1176), and an unindented rendering put four of a Leg's five lines
-// at column zero, where they read as top-level Leg keys rather than as this
-// field's own continuation. `legField` and the Brief parser read the same
-// indent back off, so the round trip returns the lines it was given.
-function renderReaderStateField(name, value) {
-  const lines = String(value).split("\n");
-  return [`${name}: ${lines[0]}`, ...lines.slice(1).map((l) => `  ${l}`)].join("\n");
+// ---- THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10) ----
+//
+// `theses/<slug>/brief.yaml` is the Brief: the owner reads it, and every
+// command after adoption reads it, through `parseBriefRecord` below and the
+// small readers beside it. Nothing reads the Brief back from a rendering any
+// more. What the Draft, the review and the Packet take from it was structured
+// data a moment before it was written — the Candidate record, the mint's
+// header and Strand cites — and it stays structured in the file: waypoints as
+// a list, each reader state as a five-key map, claims as a list of maps.
+//
+// THE SHAPE IS DECLARED IN `src/candidate-schema.json`, under `brief_record`,
+// beside the Candidate record most of it is copied from, and this file reads
+// its key set from there (`briefRecordKeys`) so the declaration and the
+// refusal cannot disagree.
+//
+// EACH READER STATE IS WRITTEN ONCE PER BOUNDARY. `reader_start` is the state
+// before the first Leg; each Leg carries only its `reader_state_after`; a
+// Leg's before-state is the previous after-state (`deriveReaderStatesBefore`,
+// kogaki#1325), derived on read rather than written twice. `reader_target`
+// names the Leg marked `reaches_target`, whose after-state it is.
+export const BRIEF_RECORD_FILE = "brief.yaml";
+const RECORD_WIDTH = 120;
+
+let CANDIDATE_SCHEMA_FILE = null;
+function candidateSchemaBlock() {
+  if (!CANDIDATE_SCHEMA_FILE) {
+    const p = join(dirname(fileURLToPath(import.meta.url)), "candidate-schema.json");
+    CANDIDATE_SCHEMA_FILE = JSON.parse(readFileSync(p, "utf8"));
+  }
+  const b = CANDIDATE_SCHEMA_FILE.brief_record;
+  if (!b || typeof b.keys !== "object") {
+    throw new Error("src/candidate-schema.json declares no `brief_record.keys` — the Brief record's shape is declared there (kogaki#1328), and a reader with no declaration has no key set to refuse against");
+  }
+  return b;
+}
+export function briefRecordDeclaration() { return candidateSchemaBlock(); }
+// The record's top-level keys, in the order the file writes them, and the
+// subset that is a slot awaiting composition at mint.
+export function briefRecordKeys() { return Object.keys(candidateSchemaBlock().keys); }
+export function briefSlotKeys() {
+  const keys = candidateSchemaBlock().keys;
+  return Object.keys(keys).filter((k) => keys[k].filled_at === "adoption");
 }
 
-export function renderLeg(s) {
-  const L = [];
-  L.push("```leg");
-  L.push(`leg_id: ${s.leg_id}`);
-  if (s.move) L.push(`move: ${s.move}`);
-  L.push(`materials: ${s.materials.join(", ")}`);
-  L.push(`purpose: ${s.purpose}`);
-  L.push(renderReaderStateField("reader_state_before", s.reader_state_before));
-  L.push(renderReaderStateField("reader_state_after", s.reader_state_after));
-  L.push(`depends_on: ${s.depends_on.join(", ") || "(none)"}`);
-  L.push(`rationale: ${s.rationale}`);
-  for (const g of s.claims) {
-    // ONE FORM, and no other (kogaki#1095): `claim (strand L<n>): <proposition>`.
-    // The type is written out rather than dropped because `src/draft.mjs`'s
-    // `material --strand` reader and the figure `g<n>` addressing both read
-    // this line as it stands, and this issue moves neither.
-    L.push(`claim (strand ${g.strand}): ${g.proposition}`);
+// A reader state's line form — one `dimension: value` line per dimension, the
+// form the Candidate carries and every in-memory reader reads — to the
+// record's five-key map, and back. The map is keyed by READER_STATE_DIMENSIONS
+// in that order; a dimension the state does not carry is absent.
+export function readerStateMap(value) {
+  if (value === null || value === undefined) return null;
+  const out = {};
+  for (const dim of READER_STATE_DIMENSIONS) {
+    const v = readerStateDimensionLine(value, dim);
+    if (v !== null) out[dim] = v;
   }
-  // the route (kogaki#1311): ONE LINE PER WAYPOINT, in order,
-  // `waypoint (serves L<n>[, L<m>]): <point>` — the claim line's own form, so
-  // the Strand addressing sits in the parenthesis and the point, which is
-  // free prose, runs to the end of the line. `src/draft.mjs`'s
-  // `parseLegBlockBody` reads it back.
-  for (const w of s.waypoints || []) {
-    L.push(`waypoint (serves ${w.serves.join(", ")}): ${String(w.point).replace(/\s*\n\s*/g, " ").trim()}`);
+  return out;
+}
+export function readerStateText(map) {
+  if (!map || typeof map !== "object") return undefined;
+  return READER_STATE_DIMENSIONS.filter((d) => typeof map[d] === "string").map((d) => `${d}: ${map[d]}`).join("\n");
+}
+
+// One Leg as the record carries it: its fields in the schema's order, the
+// before-state left out (derived on read), the reader state as a map, an
+// `introduces` object with its fields in the schema's own order.
+const INTRODUCES_KEYS = ["term", "kind", "source", "meaning", "nearest", "differs"];
+export function legRecord(s) {
+  const out = { leg_id: s.leg_id };
+  if (s.move) out.move = s.move;
+  out.materials = [...s.materials];
+  out.purpose = s.purpose;
+  out.reader_state_after = readerStateMap(s.reader_state_after);
+  out.depends_on = [...(s.depends_on || [])];
+  out.rationale = s.rationale;
+  out.claims = (s.claims || []).map((g) => ({ strand: g.strand, proposition: g.proposition }));
+  out.waypoints = (s.waypoints || []).map((w) => ({ serves: [...w.serves], point: String(w.point).replace(/\s*\n\s*/g, " ").trim() }));
+  if ((s.journeys || []).length) {
+    out.journeys = s.journeys.map((j) => {
+      const gloss = journeyUses().get(j.use);
+      return gloss ? { strand: j.strand, use: j.use, meaning: gloss } : { strand: j.strand, use: j.use };
+    });
   }
-  // the Journey a Leg draws on (kogaki#1111): ONE LINE PER ENTRY, `journey: <L-id> — <use> (<gloss>)`.
-  // The gloss is the schema's own `journey.uses` text (kogaki#1286, owner
-  // decision 2026-10-06): the Brief is where `use` is resolved, and does not
-  // leave the word bare the way the Packet's Journey block no longer carries
-  // it at all. One line rather than a joined field for the reason
-  // `introduces` states, and written only when declared, so a Brief composed
-  // before this field is byte-identical up to the gloss addition.
-  for (const j of s.journeys || []) {
-    const gloss = journeyUses().get(j.use);
-    L.push(`journey: ${j.strand} — ${j.use}${gloss ? ` (${gloss})` : ""}`);
-  }
-  // the reader-knowledge ledger (kogaki#751): one LINE per entry, never a comma-joined list. A term
-  // may legitimately contain a comma, and its anchor almost always does, so a
-  // joined field could not be parsed back — the serialization and
-  // `parseBrief`'s reader are one round trip and this is the half that makes
-  // it possible.
-  // an introduces_item object (kogaki#1263, kogaki#1260) is written as its
-  // JSON on the one line (kogaki#1261), the fields in the schema's own order:
-  // the Packet renders the term's kind and authority line, and the Packet
-  // reads the Brief alone, so a line naming only the term would leave it
-  // nothing to render them from. `parseIntroducesEntry` reads the line back.
-  for (const e of s.introduces || []) {
-    if (e && typeof e === "object" && !Array.isArray(e)) {
+  if ((s.introduces || []).length) {
+    out.introduces = s.introduces.map((e) => {
+      if (!e || typeof e !== "object" || Array.isArray(e)) return e;
       const p = parseIntroducesEntry(e);
-      const item = p.error ? e : Object.fromEntries(["term", "kind", "source", "meaning", "nearest", "differs"]
-        .filter((k) => p[k] !== undefined && p[k] !== null).map((k) => [k, p[k]]));
-      L.push(`introduces: ${JSON.stringify(item)}`);
-    } else {
-      L.push(`introduces: ${e}`);
-    }
+      const src = p.error ? e : p;
+      return Object.fromEntries(INTRODUCES_KEYS.filter((k) => src[k] !== undefined && src[k] !== null).map((k) => [k, src[k]]));
+    });
   }
-  // `re-activate` (kogaki#1237): one LINE per entry, for the same reason
-  // `introduces` is — the candidate population it names is closed, and a
-  // comma-joined field could not carry a term containing a comma back.
-  for (const e of s["re-activate"] || []) L.push(`re-activate: ${e}`);
-  if (s.budget !== undefined && s.budget !== null) L.push(`budget: ${s.budget}`);
-  if (s.opens_section !== undefined) L.push(`opens_section: ${s.opens_section}`);
-  // the Reader target Leg's mark (kogaki#1231): written only where declared
-  // and true, so a Brief composed before this field is byte-identical. THE
-  // WRITE IS WHAT LETS THE PACKET SIDE SEE IT: `src/draft.mjs` reads the
-  // line back and renders the marked Leg's and each closing Leg's own line
-  // under `## This Leg`, and a mark that stayed in the Candidate and never
-  // reached the Brief would leave every Packet reading as a Leg before the
-  // target.
-  if (s.reaches_target === true) L.push("reaches_target: true");
-  if (s.bridges) L.push(`bridges: ${s.bridges.join(", ")}`);
-  // the figure decision (kogaki#877). Written only when declared, so a Brief composed before
-  // this field is byte-identical.
+  if ((s["re-activate"] || []).length) out["re-activate"] = [...s["re-activate"]];
+  if (s.budget !== undefined && s.budget !== null) out.budget = s.budget;
+  if (s.opens_section !== undefined) out.opens_section = s.opens_section;
+  if (s.reaches_target === true) out.reaches_target = true;
+  if (Array.isArray(s.names)) out.names = [...s.names];
+  if (s.bridges) out.bridges = [...s.bridges];
   if (s.figure !== undefined && s.figure !== null) {
-    L.push(`figure: ${s.figure}`);
-    L.push(`figure_roles: ${renderFigureRoles(s.figure_roles)}`);
+    out.figure = s.figure;
+    out.figure_roles = { ...s.figure_roles };
   }
   if (s.entailed === true) {
-    L.push(`entailed: true`);
-    L.push(`entailment_reasoning: ${s.entailment_reasoning}`);
+    out.entailed = true;
+    out.entailment_reasoning = s.entailment_reasoning;
   }
-  L.push("```");
-  return L.join("\n");
+  return out;
 }
 
-// The selected Strands are read from the Brief's own Strands section —
-// the closed set the mint wrote (the durable home and the entry point's closed-set invariant: composition
-// may use exactly this set).
-export function selectedStrands(doc) {
-  return [...doc.matchAll(/^### (L[0-9]+) — /gm)].map((m) => m[1]);
+// The record's Legs back to the in-memory shape every reader of a Leg reads:
+// the reader states in their line form, each before-state derived from the
+// state before it.
+export function briefLegs(record) {
+  const path = Array.isArray(record?.reader_path) ? record.reader_path : [];
+  const legs = path.map((r) => {
+    const s = { ...r };
+    s.reader_state_after = readerStateText(r.reader_state_after);
+    if (Array.isArray(r.journeys)) s.journeys = r.journeys.map((j) => ({ strand: j.strand, use: j.use }));
+    if (r.figure_roles && typeof r.figure_roles === "object") s.figure_roles = { ...r.figure_roles };
+    s.materials = Array.isArray(r.materials) ? r.materials.map(String) : [];
+    s.depends_on = Array.isArray(r.depends_on) ? r.depends_on.map(String) : [];
+    s.claims = Array.isArray(r.claims) ? r.claims : [];
+    s.waypoints = Array.isArray(r.waypoints) ? r.waypoints : [];
+    return s;
+  });
+  return deriveReaderStatesBefore(legs, readerStateText(record?.reader_start));
+}
+
+// The Strand ids of the closed set, in the order the mint wrote them; and the
+// Journey-bearing members — the Strands whose served record carries a
+// Journey cite. Read from the record for the reason they always were read
+// from the Brief: the Brief is the closed set's carrier, and a second source
+// would be a Brief fetch.
+export function briefStrandIds(record) {
+  return (Array.isArray(record?.strands) ? record.strands : []).map((s) => s.id);
+}
+export function briefJourneyStrands(record) {
+  return (Array.isArray(record?.strands) ? record.strands : [])
+    .filter((s) => typeof s.journey_cite === "string" && s.journey_cite !== "").map((s) => s.id);
+}
+
+// The record's text: its keys in the declared order, a caption above each
+// as a comment for the owner who reads the file, every line within
+// RECORD_WIDTH. A comment is never read back.
+export function briefRecordText(record) {
+  const decl = candidateSchemaBlock();
+  const ordered = {};
+  for (const k of Object.keys(decl.keys)) if (k in record) ordered[k] = record[k];
+  for (const k of Object.keys(record)) if (!(k in ordered)) ordered[k] = record[k];
+  const comments = new Map(Object.entries(decl.keys)
+    .filter(([, d]) => typeof d.caption === "string").map(([k, d]) => [k, d.caption]));
+  return stringifyYaml(ordered, { width: RECORD_WIDTH, comments, header: decl.header });
+}
+
+// The record read from its text, or a refusal naming what is wrong. A key the
+// declaration does not name is refused rather than read, and a required key
+// absent is refused by name; a slot key present as `null` is a slot awaiting
+// composition, which is a template rather than a malformed record, and the
+// caller decides what that costs.
+export function parseBriefRecord(text, path = "<brief>") {
+  let record;
+  try { record = parseYaml(text, path); }
+  catch (e) { return { error: `the Brief at ${path} is not a YAML record this reader can read: ${e.message}` }; }
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    return { error: `the Brief at ${path} is not a YAML map — the Brief record is one map of named keys (kogaki#1328)` };
+  }
+  const decl = candidateSchemaBlock().keys;
+  for (const k of Object.keys(record)) {
+    if (!Object.prototype.hasOwnProperty.call(decl, k)) {
+      return { error: `the Brief at ${path} carries the key \`${k}\`, which the Brief record does not declare `
+        + `(src/candidate-schema.json, \`brief_record\`) — a key nobody reads is refused rather than carried` };
+    }
+  }
+  for (const [k, d] of Object.entries(decl)) {
+    if (d.required === true && !(k in record)) {
+      return { error: `the Brief at ${path} carries no \`${k}\` — ${d.description}` };
+    }
+  }
+  if (!Array.isArray(record.strands) || record.strands.length === 0) {
+    return { error: `the Brief at ${path} settles no Strands — \`strands\` is the closed set the mint wrote` };
+  }
+  return { record };
+}
+export function readBriefRecord(path) {
+  let text;
+  try { text = readFileSync(path, "utf8"); }
+  catch (e) { return { error: `the Brief at ${path} cannot be read (${e.message})` }; }
+  const r = parseBriefRecord(text, path);
+  return r.error ? r : { record: r.record, text };
+}
+// The slot keys still awaiting composition, in the declared order.
+export function unfilledSlots(record) {
+  return briefSlotKeys().filter((k) => record[k] === null || record[k] === undefined);
+}
+
+// Fills one slot of the record; a slot already filled refuses, because
+// composition resumes by judgment, never by overwrite.
+export function fillSlot(record, key, value) {
+  if (!briefSlotKeys().includes(key)) {
+    return { error: `\`${key}\` is not a slot of the Brief record (src/candidate-schema.json, \`brief_record\`)` };
+  }
+  if (record[key] !== null && record[key] !== undefined) {
+    return { error: `the Brief's \`${key}\` is already filled — composition resumes by judgment, not by overwrite, `
+      + "or this is not a minted Brief (the durable home and the entry point)" };
+  }
+  return { record: { ...record, [key]: value } };
+}
+
+// THE THESIS ROW OF CLOSURE IS DERIVED (kogaki#1328). It was the Candidate's
+// free-text `reasoning.thesis_closure`, written into the Brief whole — one
+// line of 1934 characters in the 2026-10-09 Brief, carrying what the Strand
+// coverage already carried per Strand. It is now rendered from that coverage
+// — each placed Strand's `role_in_thesis` — and handed to the one Leg marked
+// `reaches_target`, the Leg whose after-state is the Reader target. Null where
+// the record carries no such Leg or no stated role.
+export function thesisClosureRow(record) {
+  const roles = (Array.isArray(record?.strand_coverage) ? record.strand_coverage : [])
+    .filter((c) => typeof c.role_in_thesis === "string" && c.role_in_thesis.trim() !== "")
+    .map((c) => c.role_in_thesis.trim());
+  if (!roles.length || typeof record.thesis !== "string") return null;
+  return `The Thesis — ${record.thesis.trim()} — is established by the end of this Leg, with each piece of `
+    + `the material doing its part: ${roles.join(" ")}`;
+}
+export function thesisClosureLeg(record) {
+  const marked = (Array.isArray(record?.reader_path) ? record.reader_path : []).filter((s) => s.reaches_target === true);
+  return marked.length === 1 ? marked[0].leg_id : null;
+}
+
+// THE LEG PACKET'S OWN CLOSURE ROWS (Closure, kogaki#1151). A Leg is handed
+// only the rows it is a party to — where it is `introduced_by`,
+// `discharged_by` or `conceded_by` — as their text; the derived Thesis row is
+// handed to the Leg marked `reaches_target`. Read from the record's `closure`
+// list, which adoption wrote from the Candidate's obligations ledger.
+export const CONCEDED_ROW_FIELDS = ["open", "why_not_here", "reader_keeps"];
+export function closureRowsOf(record, legId) {
+  const rows = [];
+  if (thesisClosureLeg(record) === legId) {
+    const t = thesisClosureRow(record);
+    if (t) rows.push({ text: t });
+  }
+  for (const o of Array.isArray(record?.closure) ? record.closure : []) {
+    if (o.introduced_by === legId || o.discharged_by === legId || o.conceded_by === legId) rows.push(o);
+  }
+  return rows;
 }
 
 // The placement count, taken AFTER composition and COUNTED IN PLACEMENTS
@@ -2351,87 +2492,6 @@ export function placements(legs, strandIds) {
     }
   }
   return used;
-}
-
-// The JOURNEY-BEARING members of the closed set, read from the Brief's own
-// Strands section: the mint renders a `- journey cite:` line under exactly
-// those Strands whose served record carried Journey material (brief.mjs).
-// Read from the document for the same reason selectedStrands is — the Brief
-// is the closed set's carrier, and a second source would be a Brief fetch.
-export function journeyBearingStrands(doc) {
-  const out = [];
-  const secs = [...doc.matchAll(/^### (L[0-9]+) — [^\n]*\n([\s\S]*?)(?=^### |^## )/gm)];
-  for (const m of secs) {
-    if (/^- journey cite:/m.test(m[2])) out.push(m[1]);
-  }
-  return out;
-}
-
-// THE LEG PACKET'S OWN CLOSURE ROWS (Closure, kogaki#1151). A Leg is handed
-// only the rows it is a party to — where it is `introduced_by`, `discharged_by`
-// or `conceded_by` — as their PROSE TEXT, in the same "already knows / introduce
-// here" shape the reader-knowledge ledger already renders; the Thesis row is handed to its
-// `established_by_legs`. Read from the Brief's OWN rendered "## Closure"
-// section rather than recomputed from a Candidate record — fillBrief already
-// wrote the one true rendering, and a second derivation here could disagree
-// with it.
-export function closureRowsForLeg(doc, legId) {
-  const rows = [];
-  // THE SECTION IS SLICED, NEVER MATCHED BY ONE `m`-FLAGGED REGEX (PR #1152
-  // round 1, finding 2). The first cut read
-  // `/^## Closure\n\n([\s\S]*?)(?:\n## |$)/m`, where `m` makes `$` match at
-  // every LINE end — so the lazy group stopped at the first one and the capture
-  // was ALWAYS empty. The function therefore returned `[]` for every Leg and
-  // every Packet rendered the stated absence, with nothing in the tree reading
-  // the rows-present branch to notice. A slice has no such ambiguity: one
-  // heading in, the next `## ` heading or end of document out.
-  const at = doc.indexOf("## Closure\n\n");
-  if (at === -1) return rows;
-  const body = doc.slice(at + "## Closure\n\n".length);
-  const end = body.indexOf("\n## ");
-  const section = end === -1 ? body : body.slice(0, end);
-  const thesisM = /### Thesis\n\n([\s\S]*?)\n\n### Legs/m.exec(section);
-  if (thesisM) {
-    const t = thesisM[1].trim();
-    const em = /^([\s\S]*?)\s+—\s+established_by_legs:\s*(.*)$/m.exec(t);
-    if (em) {
-      const legs = em[2].split(",").map((s) => s.trim()).filter(Boolean);
-      if (legs.includes(legId)) rows.push(em[1].trim());
-    }
-  }
-  for (const line of section.split("\n")) {
-    const rm = /^- (.*) — introduced_by: (\S+?);\s*(?:discharged_by|conceded_by):\s*(\S+)$/.exec(line);
-    if (!rm) continue;
-    const [, text, introducedBy, closingLeg] = rm;
-    if (legId === introducedBy || legId === closingLeg) rows.push(text);
-  }
-  return rows;
-}
-
-// THE CONCEDED ROW'S THREE FIELDS, as `fillBrief` wrote them under the row
-// (kogaki#1261): the row whose `conceded_by` is `legId`, read from the same
-// sliced "## Closure" section `closureRowsForLeg` reads, or null where this
-// Leg concedes nothing. A field the row does not carry is absent from the
-// result rather than an empty string.
-export const CONCEDED_ROW_FIELDS = ["open", "why_not_here", "reader_keeps"];
-export function concededRowFields(doc, legId) {
-  const at = doc.indexOf("## Closure\n\n");
-  if (at === -1) return null;
-  const body = doc.slice(at + "## Closure\n\n".length);
-  const end = body.indexOf("\n## ");
-  const lines = (end === -1 ? body : body.slice(0, end)).split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const rm = /^- (.*) — introduced_by: \S+?;\s*conceded_by:\s*(\S+)$/.exec(lines[i]);
-    if (!rm || rm[2] !== legId) continue;
-    const out = { text: rm[1] };
-    for (let j = i + 1; j < lines.length; j++) {
-      const fm = /^ {2}- ([a-z_]+): (.*)$/.exec(lines[j]);
-      if (!fm) break;
-      if (CONCEDED_ROW_FIELDS.includes(fm[1])) out[fm[1]] = fm[2].trim();
-    }
-    return out;
-  }
-  return null;
 }
 
 // Journey placement — journey register as a Candidate axis, MUST 1, the completeness rider's half: a
@@ -2453,7 +2513,7 @@ export function concededRowFields(doc, legId) {
 // over material the path placed is a FALSE disclosure, and the Brief carrying
 // it is handed to /draft as a settled input.
 //
-// So the field `journeysRefusal` validates and `renderLeg` renders is the
+// So the field `journeysRefusal` validates and `legRecord` writes is the
 // record of Journey use, and the count is taken from it. A spelling convention
 // beside that field is a second source that can disagree with the first, which
 // is the defect rather than a redundancy. `<L-id>.journey` in `materials` stays
@@ -2470,49 +2530,20 @@ export function journeyPlacements(legs, journeyIds) {
   return used;
 }
 
-// Exported for the adoption writer (story 1.75): thesis_closure and
-// tradeoffs fill through the same one slot-replacer, so a filled field
-// refuses overwrite everywhere for the same reason.
-export function replaceSlot(doc, heading, body) {
-  const re = new RegExp(`## ${heading}\\n\\n\\*\\(awaiting composition\\)\\*`);
-  if (!re.test(doc)) {
-    return { error: `the Brief's "${heading}" section is not a typed unfilled slot — `
-      + `either it was already filled (composition resumes by judgment, not by overwrite) `
-      + `or this is not a minted Brief (the durable home and the entry point)` };
-  }
-  // A REPLACER FUNCTION, NEVER A REPLACEMENT STRING (kogaki#539). `String
-  // .prototype.replace` reads `$&`, `` $` ``, `$'` and `$<name>` in its second
-  // argument as SUBSTITUTION PATTERNS, so a composed body containing any of
-  // them was expanded instead of written: `costs $& twice` reached the Brief as
-  // `costs ## Reader start`. A function form takes no patterns at all.
-  //
-  // NOT AN ESCAPE OF `$` IN THE BODY, deliberately. Escaping is a denial list
-  // over a syntax that can grow — `$<name>` was added to the language after the
-  // others — and it leaves the next pattern unhandled. The function removes the
-  // possibility rather than enumerating what to catch.
-  //
-  // `$1` survived the old form only because this regex has no capture groups,
-  // which is a property of the pattern rather than a guarantee, and is exactly
-  // the kind of incidental safety that stops holding when the pattern changes.
-  return { doc: doc.replace(re, () => `## ${heading}\n\n${body}`) };
-}
-
-// ---- the fill: sequence, strand_coverage, Closure ----
-// Pure over strings; exported for the check.
-export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused = {}, readerStart, thesisClosure = null }) {
+// ---- the fill: reader_path, strand_coverage, journey_coverage, closure ----
+// Pure over the record; exported for the check. Returns `{ record, placed,
+// total }` or `{ error }`.
+export function fillBrief(record, { legs, coverage = {}, obligations = [], unused = {}, readerStart }) {
   const v = validateLegs(legs, readerStart, obligations);
   if (v.error) return { error: v.error };
-  // THE LEGS RENDERED ARE THE DERIVED ONES (kogaki#1325): each carries the
-  // before-state `validateLegs` derived, so the Brief's Leg blocks keep the
-  // `reader_state_before` line every reader of the file already parses.
   legs = v.legs;
-  const strandIds = selectedStrands(doc);
-  if (strandIds.length === 0) return { error: "the Brief carries no Strands section — not a minted Brief" };
+  const strandIds = briefStrandIds(record);
+  if (strandIds.length === 0) return { error: "the Brief carries no Strands — not a minted Brief" };
   // materials may reference only the closed set's Strands (plus the Thesis,
   // reader assumptions, earlier legs' conclusions, constructed material —
   // the Leg's shape's many-to-many list; only L<n> tokens are checkable against the
   // closed set, and a foreign L<n> is a Brief fetch by the durable home and the entry point invariant).
-  const journeyIds = journeyBearingStrands(doc);
+  const journeyIds = briefJourneyStrands(record);
   for (const s of legs) {
     for (const m of s.materials) {
       if (/^L[0-9]+$/.test(m) && !strandIds.includes(m)) {
@@ -2532,7 +2563,7 @@ export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused =
         }
         if (!journeyIds.includes(j[1])) {
           return { error: `leg ${s.leg_id}: material ${m} claims Journey material for ${j[1]}, whose served `
-            + `record carries none (the Brief renders no journey cite for it) — a Journey the material does not `
+            + `record carries none (the Brief records no journey cite for it) — a Journey the material does not `
             + `have is unsupported completion (the claims rule), never a composition choice` };
         }
       }
@@ -2540,13 +2571,11 @@ export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused =
     // THE SERVED-RECORD HALF OF the Journey a Leg draws on (kogaki#1111). `journeysRefusal`
     // checks the shape, the closed use set and that the Leg carries the
     // Strand; whether that Strand's SERVED record carries Journey material is
-    // a fact about the Brief, and this is the one place holding both. Same
-    // ground as the `<L-id>.journey` check above: a Journey the material does
-    // not have is unsupported completion, never a composition choice.
+    // a fact about the Brief, and this is the one place holding both.
     for (const j of s.journeys || []) {
       if (!journeyIds.includes(j.strand)) {
         return { error: `leg ${s.leg_id}: journey draws on ${j.strand}'s Journey, whose served record carries none `
-          + `(the Brief renders no journey cite for it) — a Journey the material does not have is unsupported `
+          + `(the Brief records no journey cite for it) — a Journey the material does not have is unsupported `
           + `completion (the claims rule), never a composition choice` };
       }
     }
@@ -2557,64 +2586,28 @@ export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused =
     }
   }
 
-  let out = doc;
-  const seq = legs.map(renderLeg).join("\n\n");
-  // The owner-facing heading is the ratified name (kogaki#574); the settled structure section record
-  // field this fills is still `sequence`, and only the rendering moved.
-  let r = replaceSlot(out, "Reader Path", seq);
-  if (r.error) return r;
-  out = r.doc;
-
   // Strand coverage: used_by_legs DERIVED from the composed legs; an
   // unplaced selected Strand DISCLOSES rather than silently drops (the obligations ledger).
   const place = placements(legs, strandIds);
   const placed = strandIds.filter((id) => place.get(id).length > 0);
-  const covL = [];
-  for (const id of strandIds) {
-    const uses = place.get(id);
-    if (uses.length > 0) {
-      covL.push(`- **${id}** — used_by_legs: ${uses.join(", ")}; role_in_thesis: ${coverage[id]?.role_in_thesis ?? "(not stated by the composer)"}`);
-    } else {
-      covL.push(`- **${id}** — **UNPLACED, disclosed**: ${unused[id] ?? "left unused (the claims rule's third move — omit the Leg, revise the path, or leave the Strand unused; never invention)"}`);
-    }
-  }
-  covL.push("");
-  covL.push(`*Strand placement count, taken AFTER composition, counted in placements: ${placed.length} of ${strandIds.length} selected Strand(s) placed.*`);
+  const strandCoverage = strandIds.map((id) => (place.get(id).length > 0
+    ? { strand: id, used_by_legs: place.get(id), role_in_thesis: coverage[id]?.role_in_thesis ?? null }
+    : { strand: id, unplaced: unused[id] ?? "left unused (the claims rule's third move — omit the Leg, revise the path, or leave the Strand unused; never invention)" }));
   // journey register as a Candidate axis MUST 1 — journey material is PLACED OR ITS OMISSION IS DISCLOSED,
-  // per Journey-bearing member. Vacuous rather than violated where the
-  // selected set carries no Journey material (journey register as a Candidate axis's contingency), and the
-  // empty case renders its own line rather than being omitted.
-  covL.push("");
-  if (journeyIds.length === 0) {
-    covL.push("*Journey coverage: no selected Strand carries Journey material — journey register as a Candidate axis's MUSTs are vacuous here, not unmet.*");
-  } else {
-    const jplace = journeyPlacements(legs, journeyIds);
-    const jplaced = journeyIds.filter((id) => jplace.get(id).length > 0);
-    covL.push("*Journey coverage (journey register as a Candidate axis MUST 1 — placed, or the omission disclosed):*");
-    for (const id of journeyIds) {
-      const uses = jplace.get(id);
-      if (uses.length > 0) {
-        covL.push(`- **${id}** journey — placed by: ${uses.join(", ")}`);
-      } else {
-        covL.push(`- **${id}** journey — **OMITTED, disclosed**: ${unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Leg, revise the path, or leave the material unused; never invention)"}`);
-      }
-    }
-    covL.push(`*Journey placement count, taken AFTER composition: ${jplaced.length} of ${journeyIds.length} Journey-bearing Strand(s) placed.*`);
-  }
-  r = replaceSlot(out, "Strand coverage", covL.join("\n"));
-  if (r.error) return r;
-  out = r.doc;
+  // per Journey-bearing member. An empty list where the selected set carries
+  // no Journey material: vacuous rather than violated.
+  const jplace = journeyPlacements(legs, journeyIds);
+  const journeyCoverage = journeyIds.map((id) => (jplace.get(id).length > 0
+    ? { strand: id, placed_by: jplace.get(id) }
+    : { strand: id, omitted: unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Leg, revise the path, or leave the material unused; never invention)" }));
 
-  // CLOSURE (kogaki#1151, superseding the obligations ledger's own "Unresolved
-  // obligations" rendering). An obligation is a promise the prose makes to the
-  // reader that a later passage must keep: a question raised, an analogy
-  // introduced, a limitation conceded. EVERY ROW NOW ENDS IN ONE OF TWO
-  // TERMINAL STATES — `discharged_by` (the promise is kept there) or
-  // `conceded_by` (the prose there tells the reader it is left open) —
-  // "unresolved" is no longer a state the ledger can hold, and a row carrying
-  // neither, or both, is refused by name.
+  // CLOSURE (kogaki#1151). An obligation is a promise the prose makes to the
+  // reader that a later passage must keep. EVERY ROW ENDS IN ONE OF TWO
+  // TERMINAL STATES — `discharged_by` or `conceded_by` — and a row carrying
+  // neither, or both, is refused by name. The Thesis row is not a row of this
+  // list: it is derived (`thesisClosureRow`, kogaki#1328).
   const legIds = new Set(legs.map((s) => s.leg_id));
-  const oblL = [];
+  const closure = [];
   for (const [i, o] of obligations.entries()) {
     if (typeof o.text !== "string" || o.text === "" || typeof o.introduced_by !== "string") {
       return { error: `obligation ${i + 1}: each Closure row carries its text and introduced_by (the obligation definition)` };
@@ -2635,48 +2628,33 @@ export function fillBrief(doc, { legs, coverage = {}, obligations = [], unused =
         + `every Closure row ends discharged_by or conceded_by, naming the Leg — this row carries `
         + `${hasDischarged ? "BOTH" : "NEITHER"}` };
     }
-    oblL.push(hasDischarged
-      ? `- ${o.text} — introduced_by: ${o.introduced_by}; discharged_by: ${o.discharged_by}`
-      : `- ${o.text} — introduced_by: ${o.introduced_by}; conceded_by: ${o.conceded_by}`);
-    // A CONCEDED ROW'S THREE FIELDS (kogaki#1263, carried to the Brief at
-    // kogaki#1261): one indented line each under the row, written only where
-    // present, so the Packet of the conceding Leg can render what stays open,
-    // why this article does not close it and what the reader keeps.
-    // `concededRowFields` reads them back; `closureRowsForLeg` matches the row
-    // line alone and never sees them.
-    if (hasConceded) {
+    const row = { text: o.text, introduced_by: o.introduced_by };
+    if (hasDischarged) row.discharged_by = o.discharged_by;
+    else {
+      row.conceded_by = o.conceded_by;
+      // A CONCEDED ROW'S THREE FIELDS (kogaki#1263, kogaki#1261): what stays
+      // open, why this article does not close it, and what the reader keeps.
       for (const k of CONCEDED_ROW_FIELDS) {
-        if (typeof o[k] === "string" && o[k] !== "") oblL.push(`  - ${k}: ${o[k].replace(/\s*\n\s*/g, " ")}`);
+        if (typeof o[k] === "string" && o[k] !== "") row[k] = o[k];
       }
     }
+    closure.push(row);
   }
-  if (oblL.length === 0) oblL.push("*(no obligations entered by the composer — an empty ledger is a statement, not an omission)*");
-  // THE THESIS ROW, at the same slot and the same write, because both levels
-  // of Closure fill from the same act — the adopted Candidate — and a Brief
-  // slot filled twice is refused by `replaceSlot`. `thesisClosure` is optional
-  // so a caller exercising the fill's plumbing alone (the check) is not made
-  // to invent a Thesis; production has exactly one caller, `adoptCandidate`,
-  // which always carries it.
-  const thesisLine = thesisClosure
-    ? `${thesisClosure.explanation} — established_by_legs: ${(thesisClosure.established_by_legs || []).join(", ")}`
-    : "*(awaiting adoption)*";
-  const closureL = [
-    "An obligation is a promise the prose makes to the reader that a later "
-    + "passage must keep: a question raised, an analogy introduced, a "
-    + "limitation conceded.",
-    "",
-    "### Thesis",
-    "",
-    thesisLine,
-    "",
-    "### Legs",
-    "",
-    ...oblL,
-  ];
-  r = replaceSlot(out, "Closure", closureL.join("\n"));
-  if (r.error) return r;
-  return { doc: r.doc, placed: placed.length, total: strandIds.length };
+
+  let out = record;
+  for (const [key, value] of [
+    ["reader_path", legs.map(legRecord)],
+    ["strand_coverage", strandCoverage],
+    ["journey_coverage", journeyCoverage],
+    ["closure", closure],
+  ]) {
+    const r = fillSlot(out, key, value);
+    if (r.error) return r;
+    out = r.record;
+  }
+  return { record: out, placed: placed.length, total: strandIds.length };
 }
+
 
 function argString(args, key, usage) {
   const v = args[key];

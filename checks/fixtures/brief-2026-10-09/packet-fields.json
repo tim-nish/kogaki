@@ -1,0 +1,128 @@
+{
+  "leg1": {
+    "## The waypoints this Leg takes the reader through": [
+      "1. The reader is handed one dated run of a real list of forbidden commands and recognizes its starting conditions as exactly the situation the sentence describes, so they settle in expecting the case to confirm what they already believe. *Serves:* A list of forbidden commands decides nothing about a command that is not on it; the step that runs for everything the list does not name — its non-member fallback — is what decides those cases.",
+      "2. Following one step — the list names a dangerous command, the command is stopped — the reader's expectation that the entries are the part doing the work becomes active and specific. *Serves:* A list of forbidden commands decides nothing about a command that is not on it; the step that runs for everything the list does not name — its non-member fallback — is what decides those cases.",
+      "3. That expectation breaks on a command that was never on the list and ran anyway, and the reader sees that the deciding step was not any entry but the one that handles everything the list does not name. *Serves:* A list of forbidden commands decides nothing about a command that is not on it; the step that runs for everything the list does not name — its non-member fallback — is what decides those cases.",
+      "4. The reader is left holding the visible result of that moment and a question of their own: why a command outside the list was ever something the list answered for. *Serves:* A list of forbidden commands decides nothing about a command that is not on it; the step that runs for everything the list does not name — its non-member fallback — is what decides those cases."
+    ],
+    "## The claims this Leg asserts": [
+      "- A list of forbidden commands decides nothing about a command that is not on it; the step that runs for everything the list does not name — its non-member fallback — is what decides those cases."
+    ],
+    "## The Journey material this Leg edits — NOT a claim to recover": [
+      "- **L2's Journey**. Served at `coding::journey/an-enumerated-prohibitions-load-bearing-half-is-its-non-member-fallback@4042ac26f7c795d8da13cc29a32ac55e20b374e7795585c5f66d6cdaac6732b2`:",
+      "The guard on approval requests looked complete: it counted them, refused bundled ones, and enforced the limit. Then a request reached the owner in a form the guard simply did not recognise, asking something that had already been decided months earlier. The lesson was not that the guard was weak — it was that it had been checking how many of one known shape could be asked, never whether other shapes existed, and its visible success is what kept anyone from asking."
+    ],
+    "## The Section this Leg sits in": [
+      "- **This Leg OPENS a Section.** Its heading is **\"A list that worked, until it didn't\"**, rendered by the Harness immediately above your prose.",
+      "- **Your prose is what the heading promises.** 1 further Leg continues under it, so open the question rather than closing it."
+    ],
+    "## What crosses into this Leg": [
+      "- non-member fallback — coined: this article names it for the first time; present it as a name this article gives. meaning: The step a list of named things runs for anything that is not on the list — the answer the list gives to everything it never mentions. nearest existing term: else branch. differs: An else branch is a place in the code; the non-member fallback is the decision that place makes on behalf of an unbounded set of cases nobody enumerated, which is why it carries more weight than any single entry above it."
+    ],
+    "## This Leg's Closure": [
+      "- Explain why a command that was never on the list was that list's business at all — name what gave the fallback the deciding vote, rather than leaving the reversal as a thing that merely happened."
+    ],
+    "## The article so far, up to this Leg:": [
+      "(nothing yet — this Leg opens the Section, so its prose is the first in it.)"
+    ]
+  },
+  "leg2": {
+    "## The waypoints this Leg takes the reader through": [
+      "1. The reader is walked through one guard of the family on its own cases and credits it completely — it catches what it is asked to catch, and nothing about it looks careless. *Serves:* A family of guards reaches exactly the inputs its matcher selects; code added inside the guards changes how they judge what they see and never widens what they see.",
+      "2. A second guard, working a different way, is granted the same full credit, so the reader is now holding a set of guards they have actively judged to be well written. *Serves:* A family of guards reaches exactly the inputs its matcher selects; code added inside the guards changes how they judge what they see and never widens what they see.",
+      "3. With that credit standing, the reader is brought to see the one boundary both guards share: each ran only on what the matcher selected, so the unlisted command reached neither of them. *Serves:* A family of guards reaches exactly the inputs its matcher selects; code added inside the guards changes how they judge what they see and never widens what they see.",
+      "4. The reader re-reads the earlier reversal and finds nothing inside the guards left to blame, which turns their attention forward to whether the giving can fail even when the selection is right. *Serves:* A family of guards reaches exactly the inputs its matcher selects; code added inside the guards changes how they judge what they see and never widens what they see."
+    ],
+    "## The claims this Leg asserts": [
+      "- A family of guards reaches exactly the inputs its matcher selects; code added inside the guards changes how they judge what they see and never widens what they see."
+    ],
+    "## The Journey material this Leg edits — NOT a claim to recover": [
+      "(none — this Leg draws on no Journey material, and nothing here asks for any.)"
+    ],
+    "## The Section this Leg sits in": [
+      "- **This Leg CONTINUES the Section headed \"A list that worked, until it didn't\".** That heading is already on the page, above prose you are writing further into.",
+      "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own."
+    ],
+    "## What crosses into this Leg": [
+      "- matcher — established: the term already has a home outside this article, in the ordinary pattern-matching readers already write in CI config, globs and path filters — the expression that decides which things a rule runs over.; bring it in under that name. meaning: the ordinary pattern-matching readers already write in CI config, globs and path filters — the expression that decides which things a rule runs over.",
+      "- guard — established: the term already has a home outside this article, in common usage among programmers for the piece of code placed in front of an action to stop it before it happens.; bring it in under that name. meaning: common usage among programmers for the piece of code placed in front of an action to stop it before it happens.",
+      "- non-member fallback — meaning: The step a list of named things runs for anything that is not on the list — the answer the list gives to everything it never mentions. (re-activated from leg1)",
+      "- A list of forbidden commands says nothing about a command that is not on it; the step for everything unnamed is what decides those cases. (re-activated from leg1, strand L2)"
+    ],
+    "## This Leg's Closure": [
+      "- Explain why a command that was never on the list was that list's business at all — name what gave the fallback the deciding vote, rather than leaving the reversal as a thing that merely happened.",
+      "- Account for a second way the giving fails, distinct from a list missing an entry or a selection drawn too narrowly, since the reader has been told to expect one."
+    ],
+    "## The article so far, up to this Leg:": [
+      "(nothing yet — the Legs that open this Section are not realized, so no prose stands under this heading. You are NOT opening it: write as the Section's heading and your own Leg promise.)"
+    ]
+  },
+  "leg3": {
+    "## The waypoints this Leg takes the reader through": [
+      "1. The reader is handed back the explanation they now hold — a miss means the selection was too narrow or an entry was missing — in the confident form they would state it themselves. *Serves:* When a value that may be absent is treated as permission, the guard depending on it runs with nothing to examine and reports no problem, with every written part of it correct.",
+      "2. That explanation is then explicitly removed: the reader is shown a case where the matcher is right, the list is complete, and the guard's own code is correct, and is told plainly that nothing here is written wrong. *Serves:* When a value that may be absent is treated as permission, the guard depending on it runs with nothing to examine and reports no problem, with every written part of it correct.",
+      "3. With every mistake ruled out, the reader watches the check still report no problem, because the value it reads was allowed to be absent and absence was taken as permission — so the miss survives with no error to blame it on. *Serves:* When a value that may be absent is treated as permission, the guard depending on it runs with nothing to examine and reports no problem, with every written part of it correct.",
+      "4. Only now does the reader receive a name and a one-line definition for the state they have just watched, so the term lands as a label for their own observation rather than as an assertion. *Serves:* When a value that may be absent is treated as permission, the guard depending on it runs with nothing to examine and reports no problem, with every written part of it correct."
+    ],
+    "## The claims this Leg asserts": [
+      "- When a value that may be absent is treated as permission, the guard depending on it runs with nothing to examine and reports no problem, with every written part of it correct."
+    ],
+    "## The Journey material this Leg edits — NOT a claim to recover": [
+      "(none — this Leg draws on no Journey material, and nothing here asks for any.)"
+    ],
+    "## The Section this Leg sits in": [
+      "- **This Leg OPENS a Section.** Its heading is **\"The check that was handed nothing\"**, rendered by the Harness immediately above your prose.",
+      "- **Your prose is what the heading promises.** 1 further Leg continues under it, so open the question rather than closing it."
+    ],
+    "## What crosses into this Leg": [
+      "- unfed guard — coined: this article names it for the first time; present it as a name this article gives. meaning: A guard that runs, finds nothing to examine because the value it depends on never arrived, and reports no problem — a success that records only its own emptiness.",
+      "- matcher — meaning: the ordinary pattern-matching readers already write in CI config, globs and path filters — the expression that decides which things a rule runs over. (re-activated from leg2)",
+      "- guard — meaning: common usage among programmers for the piece of code placed in front of an action to stop it before it happens. (re-activated from leg2)",
+      "- How far a set of guards can reach is fixed by the pattern that picks out what they look at, not by what is written inside them. (re-activated from leg2, strand L1)",
+      "- non-member fallback — meaning: The step a list of named things runs for anything that is not on the list — the answer the list gives to everything it never mentions. (re-activated from leg1)"
+    ],
+    "## This Leg's Closure": [
+      "- Account for a second way the giving fails, distinct from a list missing an entry or a selection drawn too narrowly, since the reader has been told to expect one.",
+      "- Say what a writer does instead, for the cases nobody listed and the values nobody supplied, so the reader leaves with a repair and not a catalogue of ways to be caught out."
+    ],
+    "## The article so far, up to this Leg:": [
+      "(nothing yet — this Leg opens the Section, so its prose is the first in it.)"
+    ]
+  },
+  "leg4": {
+    "## The waypoints this Leg takes the reader through": [
+      "1. The reader is brought to see the undesirable condition as one thing rather than a run of separate oversights: a set of cases nobody classified, every one of which is answered by the same single step. *Serves:* Writing the fallback toward refusal covers exactly the cases nobody classified, because that set is the one no entry names and no matcher selects.",
+      "2. A deliberately small example with countable parts lets the reader add up what is named as allowed, what is named as forbidden, and what is left — and see for themselves that the remainder outweighs both named groups together. *Serves:* Writing the fallback toward refusal covers exactly the cases nobody classified, because that set is the one no entry names and no matcher selects.",
+      "3. Holding that sum, the reader tests the two possible fallbacks against the remainder and finds the comparison is not close: one covers none of it, the other covers all of it. *Serves:* Writing the fallback toward refusal covers exactly the cases nobody classified, because that set is the one no entry names and no matcher selects.",
+      "4. Only after the comparison has been made by the reader does the arrangement get its name, and the result generalizes from the counted example into a rule the reader has already verified once. *Serves:* Writing the fallback toward refusal covers exactly the cases nobody classified, because that set is the one no entry names and no matcher selects.",
+      "5. A long-standing outside practice is then shown to have reached the same rule, so the reader leaves treating the rule as confirmed rather than newly proposed, and leaves able to point at the step in a check that answers for everything nobody considered. *Serves:* Writing the fallback toward refusal covers exactly the cases nobody classified, because that set is the one no entry names and no matcher selects."
+    ],
+    "## The claims this Leg asserts": [
+      "- Writing the fallback toward refusal covers exactly the cases nobody classified, because that set is the one no entry names and no matcher selects."
+    ],
+    "## The Journey material this Leg edits — NOT a claim to recover": [
+      "(none — this Leg draws on no Journey material, and nothing here asks for any.)"
+    ],
+    "## The Section this Leg sits in": [
+      "- **This Leg CONTINUES the Section headed \"The check that was handed nothing\".** That heading is already on the page, above prose you are writing further into.",
+      "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.",
+      "This Leg reaches the Reader target."
+    ],
+    "## What crosses into this Leg": [
+      "- default-deny — established: the term already has a home outside this article, in the way firewalls and permission systems have long been configured: anything not explicitly allowed is refused.; bring it in under that name. meaning: the way firewalls and permission systems have long been configured: anything not explicitly allowed is refused.",
+      "- unfed guard — meaning: A guard that runs, finds nothing to examine because the value it depends on never arrived, and reports no problem — a success that records only its own emptiness. (re-activated from leg3)",
+      "- matcher — meaning: the ordinary pattern-matching readers already write in CI config, globs and path filters — the expression that decides which things a rule runs over. (re-activated from leg2)",
+      "- A value allowed to be absent, when absence counts as permission, leaves its guard with nothing to look at and a clean result. (re-activated from leg3, strand L3)",
+      "- A set of guards only ever runs over what its pattern selected, so code inside them cannot extend their reach. (re-activated from leg2, strand L1)"
+    ],
+    "## This Leg's Closure": [
+      "- The Thesis — a check is only as good as what it is given — is established by leg 4, whose after-state is the Reader target. The path closes it by decomposition rather than repetition: the reader meets the sentence as a slogan, watches it hold in one dated case and then reverse, and is then handed the three parts of the giving that the reversal turned on. The matcher sets the outer bound on what any guard in a family can ever see, so no amount of code inside them widens the check's reach (L1). The entries of an enumerated prohibition decide only the cases they name, and the step that answers for non-members decides everything else (L2). A value permitted to be absent, with absence read as permission, leaves a wholly correct guard with nothing to examine and a clean result (L3). Those three establish the Thesis negatively — three distinct ways what a check is handed caps what it can catch, one of them with no mistake anywhere in the written code, which is what lifts the sentence off \"bad input, bad output\" and answers the reader's opening suspicion. Leg 4 closes it positively: because the unclassified set is exactly what no entry names and no matcher selects, the fallback written toward refusal is the only part of the giving that covers it, and the reader verifies that by summing a four-part example themselves rather than taking it on assertion. What is left open is deliberate and conceded in the leg that raises it: the path does not say which inputs in a particular repository to classify first, and the reader keeps a procedure for reading any check instead — name what selects what it sees, what it names, and what it does with everything else. The Reader target records the arrival the assignment asks for: the slogan is now a thing with moving parts the reader can point at in their own config, and their remaining question is about their own code rather than about the sentence.",
+      "- Say what a writer does instead, for the cases nobody listed and the values nobody supplied, so the reader leaves with a repair and not a catalogue of ways to be caught out.",
+      "- Say which inputs in a particular repository deserve a classified list in the first place, and how a writer would find them. — conceded in this Leg. Left open: How to take an inventory of a real repository's inputs, and in what order to classify them, is not answered on this path.. Why this article does not close it: This leg's work is to show that the unclassified set is one set with a size and that the fallback answers for all of it; an inventory procedure would need material the Brief's Strands do not carry, and attempting it here would displace the close the reader has been promised.. What the reader keeps: A test they can run unaided on any check in their own config: name what selects what it sees, what it names, and what it does with everything else — and read that third answer as the one the check gives to every case nobody considered.."
+    ],
+    "## The article so far, up to this Leg:": [
+      "(nothing yet — the Legs that open this Section are not realized, so no prose stands under this heading. You are NOT opening it: write as the Section's heading and your own Leg promise.)"
+    ]
+  }
+}
