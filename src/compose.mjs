@@ -1793,7 +1793,8 @@ export function opensSectionIntroducedTermRefusal(legs) {
 // EACH SECTION'S HEADING BESIDE ITS LAST AFTER-STATE (owner decision
 // 2026-10-10, kogaki#1327): one entry per Leg that opens a Section, the
 // heading it carries and the `reader_state_after` of the LAST Leg of that
-// Section — the destination rule 2 (§4.15.1) says the heading states, read
+// Section — the destination SPEC-draft-pipeline §"The Thesis is the title,
+// and a heading states a destination" rule 2 says the heading states, read
 // here rather than left for the fit judge to walk the path and find the
 // Section's end itself. A path opening no Section (shape rule 3's refusal
 // handles that case) returns no entries.
