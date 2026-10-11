@@ -36,6 +36,17 @@
 #       Journey prose in `journeys.json`. The one row that differs is the one
 #       the Issue changes: the Thesis row of Closure, which is now derived from
 #       the Strand coverage and reaches the Leg marked `reaches_target` alone.
+#       THE REFERENCE IS RE-DERIVABLE, not self-attested: the Markdown Brief it
+#       was rendered from is committed beside it as `source-brief.md`, and the
+#       pre-record code is master at e5988c4. To regenerate `packet-fields.json`,
+#       check out that commit into a scratch worktree, copy `source-brief.md` to
+#       `theses/check-only-good-what-given/brief.md` there, run its
+#       `src/draft.mjs resolve` and then `packet --leg <id>` for leg1..leg4 with
+#       the gateway reachable, and apply `packetFields` below to each Packet.
+#       `brief.yaml` is that file converted once -- its Legs read by e5988c4's
+#       `parseBrief`, its adoption sections taken whole -- and written through
+#       `legRecord`/`briefRecordText`; `journeys.json` is the two served
+#       Journey records the Brief cites, as `element_survey` returned them.
 #   (j) NO READER OF THE BRIEF READS PROSE (kogaki#1328): src/draft.mjs,
 #       src/review-draft.mjs, src/assemble.mjs and src/compose.mjs, read as
 #       source with comments stripped, name none of the three retired

@@ -21,17 +21,17 @@ is advisory; what binds is in the Harness.
 
 ## Entry points
 
-    node src/draft.mjs resolve  --brief <brief.md>
-    node src/draft.mjs material --brief <brief.md> --strand <L-id>
-    node src/draft.mjs packet   --brief <brief.md> --leg <leg_id>
-    node src/draft.mjs section  --brief <brief.md> --leg <leg_id>
-    node src/draft.mjs figure   --brief <brief.md> --leg <leg_id>
-    node src/draft.mjs emit     --brief <brief.md>
+    node src/draft.mjs resolve  --brief <brief.yaml>
+    node src/draft.mjs material --brief <brief.yaml> --strand <L-id>
+    node src/draft.mjs packet   --brief <brief.yaml> --leg <leg_id>
+    node src/draft.mjs section  --brief <brief.yaml> --leg <leg_id>
+    node src/draft.mjs figure   --brief <brief.yaml> --leg <leg_id>
+    node src/draft.mjs emit     --brief <brief.yaml>
 
 `resolve` opens the run and renders the first UNREALIZED Leg's Packet — not the
 path's first Leg, which differ once a run is resumed mid-way. `material` prints
-one Strand's citations and every `claim (strand <L-id>)` line the Brief carries
-for it; it takes no Leg. `packet` re-renders a Packet on demand. `section`
+one Strand's citations and, as `claim: <proposition>` lines, every claim the Brief
+record carries for it; it takes no Leg. `packet` re-renders a Packet on demand. `section`
 hands the Leg's Packet, as the entire input, to the writer `src/draft-workflow.json`
 declares, records the response as the Leg's prose, and renders the next
 unrealized Leg's Packet into the run's packets directory — never onto this
