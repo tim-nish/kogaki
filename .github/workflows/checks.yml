@@ -33,6 +33,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      # THE CLIENT COPY IS INSTALLED, NEVER CHECKED OUT (kogaki#1346).
+      # `policy/kit/` lives in its own private repository and is gitignored
+      # here, so the copy the suite runs against is cloned and installed inside
+      # this job. The clone uses a read-only deploy key, and its URL is a secret
+      # too, so the repository's name never enters this tree (Decision
+      # 2026-10-12 D1; checks/check-system-name-absent.sh).
+      - name: Install the client copy
+        env:
+          CLIENT_DEPLOY_KEY: ${{ secrets.CLIENT_DEPLOY_KEY }}
+          CLIENT_REPO_URL: ${{ secrets.CLIENT_REPO_URL }}
+        run: |
+          key="$RUNNER_TEMP/client-deploy-key"
+          printf '%s\n' "$CLIENT_DEPLOY_KEY" > "$key"
+          chmod 600 "$key"
+          GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+            git clone -q --depth 1 "$CLIENT_REPO_URL" "$RUNNER_TEMP/client"
+          rm -f "$key"
+          bash "$RUNNER_TEMP/client/install.sh" --repo "$GITHUB_WORKSPACE" --consumer kogaki
       - name: Run registered checks
         env:
           # Supplied for checks that read the branch's own git-resident text

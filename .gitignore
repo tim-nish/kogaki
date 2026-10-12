@@ -289,3 +289,13 @@ corpus/
 # (tim-nish/claude-toolkit#1490), written by the session because a worker
 # cannot write .claude/.
 !.claude/issue-sync.json
+
+# THE INSTALLED CLIENT COPY (kogaki#1346). `policy/kit/` moved to its own
+# private repository, and this tree is now one of its installed consumers:
+# the copy is written by that repository's `install.sh --repo <this tree>
+# --consumer kogaki`, locally and in CI's `checks` job, and is never committed
+# -- a tracked copy would be an undeclared duplicate of the source, the same
+# ground the consult-first skill's line above stands on. Its stamp
+# (`policy/kit/.kit-version`) is ignored with it, so provenance is per
+# install rather than per clone.
+policy/kit/
