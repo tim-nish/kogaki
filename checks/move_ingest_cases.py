@@ -153,8 +153,11 @@ def self_test():
     )
 
     # ---- condition 3 -----------------------------------------------------
+    # kogaki#1349: `moves/ROLES.json` fixes only `id`, `before` and `after` as
+    # required roles, so a short record is exercised here by dropping one of
+    # those rather than `breaks` (now an optional role's field).
     refuses(
-        _record().replace("breaks: >-\n  not always\n", ""),
+        _record().replace("before: >-\n  question: holds an unanswered question\n", ""),
         "3",
         "AC3 cond 3 four keys refused",
     )
@@ -673,7 +676,8 @@ def self_test():
     def refusal_row_reaches_the_rendering():
         """A refused record's row carries its condition and line number
         verbatim."""
-        bad = _record("broken").replace("breaks: >-\n  not always\n", "")
+        bad = _record("broken").replace(
+            "before: >-\n  question: holds an unanswered question\n", "")
         proposals = read_proposals(_record("good") + bad)
         body = render_proposals(proposals)
         assert "REFUSED" in body, body
@@ -843,14 +847,15 @@ def self_test():
         "#876 AC1 a role mapped to nothing is refused, naming it")
 
     def an_unknown_sixth_key_is_still_refused():
-        """The optional set admits `continues_from`, `evidence`, `figure` and
-        NOTHING else — the catch condition 3 exists for is unchanged, which a
-        widening is exactly the kind of change that can quietly remove."""
+        """The admitted set is `moves/ROLES.json`'s roles plus `OPTIONAL_FIELDS`
+        and NOTHING else — the catch condition 3 exists for is unchanged, which
+        a widening is exactly the kind of change that can quietly remove."""
         proposals = read_proposals(_record("subject", "notes: >-\n  a sixth key\n"))
         bad = [p for p in proposals if not p.admitted]
         assert bad, "a key outside the optional set was admitted"
         assert bad[0].refusal.condition == "3", bad[0].refusal
-        four = _record("subject").replace("breaks: >-\n  not always\n", "")
+        four = _record("subject").replace(
+            "before: >-\n  question: holds an unanswered question\n", "")
         proposals = read_proposals(four)
         assert not proposals[0].admitted, "a four-key record was admitted"
         assert proposals[0].refusal.condition == "3", proposals[0].refusal
@@ -1094,7 +1099,7 @@ def self_test():
             moves_dir = os.path.join(d, "moves")
             os.makedirs(moves_dir)
             malformed = _record("broken").replace(
-                "breaks: >-\n  not always\n", "")
+                "before: >-\n  question: holds an unanswered question\n", "")
             stub = os.path.join(d, "stub_model")
             _write_passage_stub(stub, malformed)
             out = os.path.join(d, "run")
