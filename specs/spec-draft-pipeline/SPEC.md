@@ -673,23 +673,34 @@ a field above:
 **Field roles — the pipeline reads roles, never field names (kogaki#1175,
 owner question 2026-09-23).** A schema declares, for every field, the role
 the pipeline reads it by; a second schema with different field names runs
-through the same Packet by declaring the same roles. The roles this pipeline
-reads today, from `src/draft.mjs` and `src/compose.mjs`:
+through the same Packet by declaring the same roles. **`moves/ROLES.json` is
+the one carrier of this mapping** (kogaki#1349): `tools/move_ingest.py`
+validates an ingested record against it and `src/compose.mjs` builds the
+per-Leg Move input through an adapter that reads it, rather than either
+reading a Move's fields by name, so a schema that renames a field changes
+nothing downstream of the declaration. The table below is this file's own
+reading of the same roles, kept beside the declaration rather than inside it
+because a role's *reader* is prose this file states and the JSON does not:
 
-| role | fields | read by |
+| role | field (current schema) | read by |
 |---|---|---|
-| `specialized-by-the-Leg` | `technique`, `breaks` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); no stage after the Candidate (kogaki#1311) |
+| `identity` | `id` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
 | `state-before` | `before` | Path Review's specialization judgment (§4.4) |
 | `state-after` | `after` | Path Review's specialization judgment (§4.4) |
+| `specialized-by-the-Leg` | `technique` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); no stage after the Candidate (kogaki#1311) |
+| `tests` | `breaks` | the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2) |
+| `segments` | `segments` | the composer and the per-unit Move-fit judgment, as the waypoints' order where the Move carries it (§4.12.2, kogaki#1320) |
 | `figure-roles` | `figure` | a Leg's `figure:` declaration (§4.16) |
-| `identity` | `id`, `continues_from` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
+| `continues-from` | `continues_from` | nothing downstream; kept for the record's own sake |
 | not read downstream | `evidence` | nothing; kept for the record's own sake |
 
-No Move field has a role read after the Candidate: the `rendered-to-writer`
-role left this table with kogaki#1311, when the Packet stopped carrying the Move. The multi-schema manifest itself
-— one library, several declared schemas — is not built by this Issue; it is
-deferred, productization work, and this table is what a later reopen builds
-on.
+`identity`, `state-before` and `state-after` are the roles every schema must
+map; the rest are optional, null where a schema has nothing to map them to
+(`moves/ROLES.json`). No Move field has a role read after the Candidate: the
+`rendered-to-writer` role left this table with kogaki#1311, when the Packet
+stopped carrying the Move. The multi-schema manifest itself — one library,
+several declared schemas — is not built by this Issue; it is deferred,
+productization work, and this table is what a later reopen builds on.
 
 **Moves ↔ Strands are many-to-many.** A Move may bind no Strand, several, a
 Journey, the Thesis, or an earlier Leg's conclusion.
