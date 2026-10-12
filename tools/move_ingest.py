@@ -23,16 +23,14 @@ import re
 import subprocess
 import sys
 
-# §4.2's five required fields, in §4.2's order (kogaki#1175 rebuilt this
-# schema from the eight-field one; the prior FIELDS tuple named id, status,
-# intent, requires, effect, constraints, failure_modes, excerpt). `order`,
-# `presupposes` (kogaki#1247), `draws_on` (kogaki#1280) and `question`
-# (kogaki#1324) retired by owner ruling: no composer reads any of the four —
-# `question` was read only by path review, which judged a Candidate against a
-# field the composer was never given — and a record still carrying one is
-# refused by condition 3 as an unexpected key, naming it — the same path an
-# unknown key has always taken, with no new admission rule needed. §6.9.1a fixes the order; a saved file renders in it, and
-# condition 3 admits exactly this set plus at most OPTIONAL_FIELDS.
+# §4.2's five fields, in §4.2's order (kogaki#1175 rebuilt this schema from
+# the eight-field one; the prior FIELDS tuple named id, status, intent,
+# requires, effect, constraints, failure_modes, excerpt). This is a RENDER
+# order and a round-trip set, never the admission rule: kogaki#1349 moves
+# condition 3's required/admitted-key test onto `moves/ROLES.json` (see
+# `load_roles`/`check_field_set` below), because a key's presence here no
+# longer says it is required at ingestion — only that a mapped value renders
+# in this position.
 FIELDS = (
     "id",
     "before",
@@ -41,15 +39,19 @@ FIELDS = (
     "breaks",
 )
 
-# §4.2's three optional fields, plus `segments` (kogaki#1320): none is part
-# of §4.2's five required keys and none becomes one — condition 3 admits the
-# five, plus any of these four and nothing else. Each is absent by default.
-# `segments` is never one of the eight keys the model authors (the contract's
-# own output format); it is the one field `tools/move_ingest.py`'s `passage`
-# mode writes itself, after the model's record is admitted, so it has to be
-# optional here for condition 3 to admit a record that carries it — and for
-# the 21 Moves ingested before this field existed to keep validating with
-# none.
+# Optional, non-role-bearing fields admitted alongside whatever
+# `moves/ROLES.json` maps (kogaki#1349): `evidence` is read by no role and no
+# composer, so the declaration never names it, and it is admitted here by
+# the same "carried, read by nothing" rule the declaration states for any
+# field it leaves unnamed. `segments` is never one of the eight keys the
+# model authors (the contract's own output format); it is the one field
+# `tools/move_ingest.py`'s `passage` mode writes itself, after the model's
+# record is admitted, so it has to be optional here for condition 3 to admit
+# a record that carries it — and for the 21 Moves ingested before this field
+# existed to keep validating with none. `segments`, `figure` and
+# `continues_from` are also named by the declaration's optional roles; they
+# are listed here too only as the historical constant their own fixtures
+# still reference.
 OPTIONAL_FIELDS = ("continues_from", "evidence", "figure", "segments")
 
 # The only key whose value is a nested mapping. The value model stays
@@ -355,9 +357,16 @@ def strip_excluded(mapping):
     return removed
 
 
-def check_field_set(mapping, first_line_no):
-    """Condition 3: after the strip step, exactly §4.2's five keys — no more
-    and no fewer.
+def check_field_set(mapping, first_line_no, roles=None):
+    """Condition 3: after the strip step, every field `moves/ROLES.json`
+    marks required is present, and no key outside what the declaration (plus
+    `OPTIONAL_FIELDS`) admits is carried.
+
+    kogaki#1349: this used to be a hard-coded five-key set. It now reads
+    `moves/ROLES.json` instead — the file that owns which Move field answers
+    which role — so a required ROLE missing or empty refuses by name, the
+    same as before, but a field the declaration maps to an OPTIONAL role is
+    no longer required just because §4.2's library happens to fill it today.
 
     The ordering matters and is not incidental: the excluded draft fields are
     stripped FIRST, so their presence routes to the strip step rather than to a
@@ -366,18 +375,21 @@ def check_field_set(mapping, first_line_no):
     FOUR, and this is the condition that catches it. `order` and
     `presupposes` take this same route (kogaki#1247), `draws_on` takes it
     too (kogaki#1280), and so does `question` (kogaki#1324): none of the four
-    is required nor optional, so a record still carrying one is refused here,
-    by name, as unexpected.
+    is named by the declaration nor by `OPTIONAL_FIELDS`, so a record still
+    carrying one is refused here, by name, as unexpected.
     """
+    roles = roles if roles is not None else load_roles()
     have = set(mapping)
-    want = set(FIELDS)
+    want = set(roles["required_fields"])
     missing = sorted(want - have)
-    # §4.2: the three optional fields are admitted here and NOWHERE ELSE widens
-    # the set. A record carrying any of them still has exactly the five
-    # required keys plus those; a record carrying anything else is still
-    # refused, so the condition keeps its catch — a short-of-five absorbed
-    # neighbour is unaffected either way.
-    extra = sorted(have - want - set(OPTIONAL_FIELDS))
+    # The admitted set is the declaration's optional fields plus
+    # `OPTIONAL_FIELDS` (`evidence`, named by no role) — nothing else widens
+    # it. A record carrying any of them still has every required role filled;
+    # a record carrying anything else is still refused, so the condition
+    # keeps its catch — a short record missing a required role is unaffected
+    # either way.
+    admitted_optional = set(roles["optional_fields"]) | set(OPTIONAL_FIELDS)
+    extra = sorted(have - want - admitted_optional)
     if missing or extra:
         parts = []
         if missing:
@@ -386,8 +398,9 @@ def check_field_set(mapping, first_line_no):
             parts.append("unexpected %s" % ", ".join("`%s`" % k for k in extra))
         raise Refusal(
             "3",
-            "record does not carry exactly §4.2's five required keys "
-            "(plus at most %s) — " % ", ".join("`%s`" % f for f in OPTIONAL_FIELDS)
+            "record does not carry every role `moves/ROLES.json` requires "
+            "(plus at most %s) — "
+            % ", ".join("`%s`" % f for f in sorted(admitted_optional))
             + "; ".join(parts),
             line_no=first_line_no,
         )
@@ -445,6 +458,60 @@ def load_figure_kinds(path=None):
         raise ValueError("%s declares no kinds" % path)
     _KINDS_CACHE[path] = kinds
     return kinds
+
+
+# kogaki#1349: the Move field-to-role declaration beside the library. The
+# pipeline reads roles, never field names (specs/spec-draft-pipeline/SPEC.md
+# field-roles table); this is the one file that owns which Move field
+# answers which role for the schema this repository ships.
+ROLES_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "moves",
+    "ROLES.json",
+)
+
+_ROLES_CACHE = {}
+
+
+def load_roles(path=None):
+    """The declaration as `{"required_fields": [...], "optional_fields": [...]}`.
+
+    Two properties of the FILE are asserted here rather than trusted, same
+    reasoning as `load_figure_kinds`: a malformed declaration is a defect in
+    this repository, so it raises rather than refusing a Move.
+
+      · `required` and `optional` must each be a role-to-field mapping;
+      · no field may be named by both a required role and an optional one —
+        that would leave condition 3 unable to say whether its absence is a
+        refusal or not.
+
+    A role mapped to nothing (null, or absent from the mapping) contributes
+    no field — that is what "optional roles, null when unmapped" means for a
+    schema that has nothing to map it to.
+    """
+    path = path or ROLES_PATH
+    if path in _ROLES_CACHE:
+        return _ROLES_CACHE[path]
+    with open(path) as handle:
+        data = json.load(handle)
+    required = data.get("required")
+    optional = data.get("optional")
+    if not isinstance(required, dict) or not isinstance(optional, dict):
+        raise ValueError(
+            "%s must declare `required` and `optional` as role-to-field "
+            "mappings" % path
+        )
+    required_fields = sorted({v for v in required.values() if v})
+    optional_fields = sorted({v for v in optional.values() if v})
+    overlap = set(required_fields) & set(optional_fields)
+    if overlap:
+        raise ValueError(
+            "%s maps %s to both a required and an optional role" %
+            (path, ", ".join("`%s`" % f for f in sorted(overlap)))
+        )
+    roles = {"required_fields": required_fields, "optional_fields": optional_fields}
+    _ROLES_CACHE[path] = roles
+    return roles
 
 
 def check_figure(mapping, first_line_no, kinds=None):
