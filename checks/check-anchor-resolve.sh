@@ -73,7 +73,7 @@
 #   * It does not touch the HUB-FACING receipt grammar — `<repo>@<sha>
 #     <file>:<line>` in consults, gate declarations and issue receipts. That is
 #     the hub's boundary field (specs/SPEC.md §3.1, Out of scope), and a line
-#     number there is correct until Gukan rules otherwise.
+#     number there is correct until the policy system rules otherwise.
 #   * It does not read a bare `:<line>` as a failure by itself, and that is
 #     deliberate rather than provisional. The existing pointers are a CLOSED,
 #     ENUMERATED SET (§3.1) draining by on-touch migration and by bounded
@@ -355,7 +355,7 @@ print(f"anchor resolve: {resolved} cross-artifact anchor(s) resolve, each "
       f"directions (dangling, duplicate, heading) asserted against "
       f"fixtures that exist to fail. {hub} hub-facing receipt pointer(s) counted and NOT resolved "
       f"— the hub's boundary field, untouched by kogaki#635 and correct until "
-      f"Gukan rules on its own carrier question. {ledger} review-lane ledger "
+      f"the policy system rules on its own carrier question. {ledger} review-lane ledger "
       f"pointer(s) counted and NOT resolved — a KNOWN-ISSUES.jsonl row's own "
       f"`head` field pins it to the tree at that sha, sha-pinned history "
       f"rather than a member of the closed set, per row (kogaki#1219). Bare "

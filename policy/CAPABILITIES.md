@@ -1,5 +1,5 @@
 <!-- tsurezure-client-kit:file (managed — replaced by install.sh while this marker is present) -->
-# Gukan capabilities served to this repository
+# Policy system capabilities served to this repository
 
 Served by the tsurezure gateway under the operator's grant (consumer
 identity declared per request, logged server-side). All tools are

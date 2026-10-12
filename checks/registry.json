@@ -756,6 +756,22 @@
         "efficacy": "case: checks/check-kit-install-vendors-a-copy.sh::the vendored copy's manifest (${COPY_MANIFEST:0:12}) does not match the source's",
         "efficacy_note": "the named defect this Issue closes — an installed consumer holding the kit's OUTPUT and no kit COPY, with `install.sh` disclaiming vendoring it by name (kogaki#1120, found 2026-09-15 reviewing claude-toolkit's install) — is exactly what this member can no longer pass: the cited assertion fails if the copy step is skipped, reverted, or made a no-op, because a skipped copy leaves `$COPY` either absent (the earlier existence assertions fail first) or stale against the manifest comparison. Run against the real install rather than a stand-in tree, on the same reasoning `install-test.sh` already states: the defect this closes was in what the installer DOES, which no assertion over a function in isolation can show."
       }
+    },
+    {
+      "id": "system-name-absent",
+      "file": "checks/check-system-name-absent.sh",
+      "covers": ["README.md", "specs/SPEC.md", "src/cite-check.mjs", "checks/check-anchor-resolve.sh", "policy/source.yaml", "policy/CAPABILITIES.md", "policy/kit/templates/CAPABILITIES.md", "policy/kit/bin/shape.mjs", ".claude/issue-sync.json"],
+      "admission": {
+        "contract": "The system's name does not appear in this repository's working tree outside a quoted Package address and the one term-list entry that denies it (kogaki#1347, Decision 2026-10-12 D1). This member reads the term from `.claude/issue-sync.json`'s `lexicon` array — the per-repository layer over claude-toolkit's global lexicon, tracked by a `.gitignore` re-include on the `.claude/checks.json` precedent (kogaki#615) — runs `git grep -I -i -n -F` for it over the tracked tree, drops a match sitting inside a quoted Package address (the `coding::` UnitID form, a `<repo>@<sha>` pin, or a `consulted:`/`receipt:` line) and drops the lexicon entry's own line, then fails naming every remaining file and line. It separately asserts the term is absent from README.md's first heading, read directly rather than through the scan: the repository description and topics sit beside that heading and stay empty by convention, a property this check does not assert on GitHub's own metadata because nothing in the tree can read it.",
+        "license": "kogaki#1347, filed through the dictated path over a rendered title and body the owner clicked `File as drafted` on.",
+        "tier": "fast",
+        "runtime_ms": 150,
+        "runtime_ms_note": "Not locally measured at this admission act: `checks run --only system-name-absent` is outside this cell's licensed act list (kogaki#1347 is split into two plan cells, and the check's own run is the licensed suite's to execute, not this worker's). The figure is a judgment estimate from the member's shape — one `git grep -F` pass per lexicon term over the tracked tree plus a constructed in-process fixture, no model call and no filesystem tree construction. Re-measure at the next admission act touching this check.",
+        "removal_signal": "Decision 2026-10-12 D1 is retired or amended to permit the name in prose, or the `lexicon` entry naming the term leaves `.claude/issue-sync.json` — either removes what this member is reading and asserting",
+        "removal_instrument": "probe: ! grep -q '\"lexicon\"' .claude/issue-sync.json",
+        "efficacy": "case: checks/check-system-name-absent.sh::a bare mention in prose is a hit",
+        "efficacy_note": "ASSERT-BY-BREAKING-ONCE, as an in-process fixture rather than a constructed tree (the filter is a pure function of (path, text), not of a git checkout). The fixture plants six constructed (path, text) pairs through `is_hit` directly: a bare mention in README-shaped prose is a hit; a `coding::` UnitID, a `consulted:` line, a `receipt:` line, and a bare `<repo>@<sha>` pin each carrying the term are exempt; and the lexicon file's own line is exempt by path alone. Reverting `is_hit` to `return False` unconditionally turns the first case red (a bare mention stops being reported) while leaving the four exemption cases vacuously green, which is why the fixture asserts the positive case and not only the exemptions — a filter that reports nothing passes every exemption case for the wrong reason."
+      }
     }
   ]
 }

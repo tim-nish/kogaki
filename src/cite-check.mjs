@@ -27,7 +27,7 @@
 // [implemented-against: specs/SPEC.md "The guarantee split", copied 2026-09-06]
 // It asserts nothing about whether a claim is true, whether an interpretation
 // is valid, or whether a scope was widened: those are the author's judgment,
-// attributed as such, and Gukan's facts are Gukan's.
+// attributed as such, and the policy system's facts are its own.
 //
 // WHAT IT RESOLVES. A CanonicalDraft's frontmatter carries cites in TWO live
 // forms, and the join key is the same in both: `(kind, slug)`, resolved against
@@ -91,8 +91,8 @@ const REPO = join(HERE, "..");
 // [implemented-against: specs/SPEC.md "The guarantee split", copied 2026-09-06]
 export const GUARANTEE_SPLIT =
   'the boundary this instrument stops at — "Kogaki guarantees citation ' +
-  "integrity — a quoted claim was quoted, and its pin resolves. Gukan " +
-  "guarantees the facts. … There is no Fact unit, no fact floor, and no " +
+  "integrity — a quoted claim was quoted, and its pin resolves. The policy " +
+  "system guarantees the facts. … There is no Fact unit, no fact floor, and no " +
   "provenance map — the citation resolve check over the draft's own cites " +
   'is the sole mechanical instrument on grounding." ' +
   "Nothing here judges whether a claim is true, an interpretation valid, or " +

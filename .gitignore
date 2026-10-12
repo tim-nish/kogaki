@@ -283,3 +283,9 @@ corpus/
 # The Checks declaration (claude-toolkit#1271): tracked, read by both lanes at
 # the base ref, written by the session because a worker cannot write .claude/.
 !.claude/checks.json
+
+# The repository's term list (kogaki#1347): tracked, read on every clone by
+# checks/check-system-name-absent.sh and by the filing lint
+# (tim-nish/claude-toolkit#1490), written by the session because a worker
+# cannot write .claude/.
+!.claude/issue-sync.json
