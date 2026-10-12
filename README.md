@@ -1,7 +1,7 @@
 # Kogaki (小書)
 
 Writes development articles from the owner's ratified knowledge substrate
-(the Gukan pattern: Grains, Threads, Glossary), served read-only through the
+(the Grains, Threads, Glossary pattern), served read-only through the
 tsurezure-gateway seam. Successor of `writing-assistant` (archived
 2026-08-04; its address is never recycled).
 

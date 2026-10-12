@@ -8,18 +8,19 @@ substrate. Public from the start; written clean.
 ## 1. Mission
 
 Write articles whose material is the owner's ratified, plain-register
-knowledge — Grains, Threads, and the Glossary served by the Gukan substrate —
+knowledge — Grains, Threads, and the Glossary served by the policy system —
 for self-branding through development writing. Prose the reader trusts
 because every grounded claim resolves to a served rendering at a pin.
 
 ## 2. The repository-invisible boundary
 
-**A repository is where development happens together with Gukan; it is not a
-place Kogaki collects from.** Kogaki reads Grains, Threads, and the Glossary
-only, through the gateway seam. A repo path is not an address Kogaki can
-resolve — enforced in the gateway client code, not by instruction. When
-provenance metadata says a Lesson originated in some project, Kogaki may read
-Gukan's *definition* of that project; it never opens the project.
+**A repository is where development happens together with the policy
+system; it is not a place Kogaki collects from.** Kogaki reads Grains,
+Threads, and the Glossary only, through the gateway seam. A repo path is not
+an address Kogaki can resolve — enforced in the gateway client code, not by
+instruction. When provenance metadata says a Lesson originated in some
+project, Kogaki may read the policy system's *definition* of that project; it
+never opens the project.
 
 Rationale (served): re-expression happens once, upstream, at a human gate —
 material quoted from ratified renderings makes the untranslated-register
@@ -345,7 +346,7 @@ reconstruction. (Raised on PR #267 and carried here as `carried: #234`.)
 ## 3. The guarantee split
 
 **Kogaki guarantees citation integrity — a quoted claim was quoted, and its
-pin resolves. Gukan guarantees the facts.** Kogaki never guarantees that an
+pin resolves. The policy system guarantees the facts.** Kogaki never guarantees that an
 interpretation of a served line is valid; a claim widened beyond its quoted
 scope is the author's judgment and is attributed as such (scope travels with
 the claim). There is no Fact unit, no fact floor, and no provenance map —
@@ -354,8 +355,8 @@ instrument on grounding.
 
 **Measurements:** no article class requiring measurement display exists yet
 (product-lab#153, held). When one arrives, *Kogaki's* boundary changes — a
-declared measurement input for that class — never Gukan's (PolicyPackage
-invariant: Gukan guarantees Unit schema, never data schema).
+declared measurement input for that class — never the policy system's
+(PolicyPackage invariant: the policy system guarantees Unit schema, never data schema).
 
 ## 4. Compliance mechanism (established before any pipeline code)
 
@@ -4026,8 +4027,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
   paid.
 
   **AND THE SAME DISCIPLINE CROSSES THE SEAM, so the pointer is written here
-  rather than left to the next editor to reconstruct.** Gukan (product-lab) is
-  the reference implementation of the consultation experience and the kit
+  rather than left to the next editor to reconstruct.** The policy system
+  (product-lab) is the reference implementation of the consultation experience and the kit
   inherits from it; the two must not diverge. The hub-side mirrors of this
   clause are **product-lab#198** (`/ask` executes the facet scheme) and
   **product-lab#199** (`/ask` executes the Tactics classifier), and the owner
@@ -5144,7 +5145,7 @@ individually).
 ## 6. Non-goals
 
 Prose generation from repositories; measurement storage or transport;
-writing to the Gukan substrate (proposal-only contribute-back stays the
+writing to the policy system (proposal-only contribute-back stays the
 sole path); a second knowledge store of any kind.
 
 ## 3.1 A cross-artifact pointer addresses an anchor, never a line number
@@ -5179,8 +5180,9 @@ elsewhere" where a pointer carried an adjacent verbatim quote, so a wrong
 pointer without one was indistinguishable from a right one.
 
 **Even a sha-pinned line number buys this repository nothing.** Kogaki is a
-consumer: verifying against Gukan's commit sha would need Gukan-side
-implementation, and whether Gukan's files carry shas at all is undecided.
+consumer: verifying against the policy system's commit sha would need
+policy-system-side implementation, and whether the policy system's files
+carry shas at all is undecided.
 
 **The form reuses a discipline this repository already ships** rather than
 minting one: `checks/registry.json`'s efficacy citation is already
@@ -5266,8 +5268,8 @@ with every review round while nothing had been ignored.
 
 **Out of scope:** the hub-facing receipt grammar — `<repo>@<sha> <file>:<line>`
 in consults, gate declarations and issue receipts — is the **hub's** boundary
-field and is untouched. It changes only if Gukan rules on its own carrier
-question. This section governs this repository's internal cross-artifact
+field and is untouched. It changes only if the policy system rules on its
+own carrier question. This section governs this repository's internal cross-artifact
 pointers only.
 
 ## 3.2 A citation of a retired carrier is a historical ground, never a live pointer

@@ -513,7 +513,7 @@ function selfTest() {
   const full = render({
     consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
     h: { rows: [{ cite: "LESSONS.md:1@abc1234", text: "a lesson\nwrapped" }], all: 12 },
-    g: { rows: [{ name: "Gukan", cite: "GLOSSARY.md:1@abc1234", text: "state: x" }], all: 3, scoped: 1 },
+    g: { rows: [{ name: "Example", cite: "GLOSSARY.md:1@abc1234", text: "state: x" }], all: 3, scoped: 1 },
     o: { rows: [{ cite: "topics/x.md:2@abc1234", text: "kogaki owes y" }] },
     b: { rows: ["1. Check/CI infrastructure"] },
   });
@@ -533,8 +533,8 @@ function selfTest() {
   if (!isStateLine("`state: adopted 2026-08-06`")) fail("a FENCED state line must be recognised");
   if (!isStateLine("state: bare")) fail("an unfenced state line must be recognised");
   if (isStateLine("restate: not this")) fail("`restate:` must not be read as a state line");
-  const names = flattenNames({ lines: [{ cite: "GLOSSARY.md:1@a", text: "Gukan" }, { cite: "GLOSSARY.md:2@a", text: "a: prose, with punctuation" }] });
-  if (!names.includes("Gukan")) fail("glossary names must be read from the served {cite,text} records");
+  const names = flattenNames({ lines: [{ cite: "GLOSSARY.md:1@a", text: "Example" }, { cite: "GLOSSARY.md:2@a", text: "a: prose, with punctuation" }] });
+  if (!names.includes("Example")) fail("glossary names must be read from the served {cite,text} records");
   if (names.some((n) => n.includes(":"))) fail("prose must not be admitted as a glossary name");
 
   // THE SOFT-READ CASES (PR #332 round 1, finding 1). A failed read must never
