@@ -42,38 +42,40 @@ def is_hit(path, text):
     return not any(pattern.search(text) for pattern in ADDRESS_PATTERNS)
 
 
-# ---- the fixture: constructed lines, so the filter's refusal is shown
-# rather than believed.
-fixture = []
-def case(label, cond):
-    fixture.append((label, bool(cond)))
-
-case("a bare mention in prose is a hit",
-     is_hit("README.md", "Writes articles for the Gukan project."))
-case("a coding:: UnitID carrying the term is exempt",
-     not is_hit("policy/consultation-map.md",
-                 "consulted: product-lab@dec0d568 coding::decision/knowledge-architecture-gukan-d13@ac40902"))
-case("a consulted: line naming a pin is exempt",
-     not is_hit("policy/consultation-map.md",
-                 "consulted: product-lab@dec0d568dd8fc0b2 gukan-boundary"))
-case("a receipt: line naming a pin is exempt",
-     not is_hit("some/file.md", "receipt: gukan-pkg@0511b22120bd"))
-case("a bare <repo>@<sha> pin with no consulted:/receipt: label is exempt",
-     not is_hit("some/file.md", "see gukan-pkg@0511b22120bd for the ground"))
-case("the lexicon entry's own file is exempt by path, even unaddressed",
-     not is_hit(LEXICON_FILE, "    \"Gukan\""))
-
-bad = [label for label, ok in fixture if not ok]
-if bad:
-    print("FAIL system-name-absent: this member's own fixture failed — " + " | ".join(bad))
-    sys.exit(1)
-
 # ---- the live scan over this repository.
 with open(LEXICON_FILE, encoding="utf-8") as handle:
     terms = json.load(handle).get("lexicon", [])
 
 if not terms:
     print("FAIL system-name-absent: .claude/issue-sync.json carries no `lexicon` entry to read the term from")
+    sys.exit(1)
+
+# ---- the fixture: constructed lines built from the term itself, so the
+# filter's refusal is shown rather than believed, without this file ever
+# spelling the term (kogaki#1347 re-dispatch, ordinal 3).
+term = terms[0]
+fixture = []
+def case(label, cond):
+    fixture.append((label, bool(cond)))
+
+case("a bare mention in prose is a hit",
+     is_hit("README.md", f"Writes articles for the {term} project."))
+case("a coding:: UnitID carrying the term is exempt",
+     not is_hit("policy/consultation-map.md",
+                 f"consulted: product-lab@dec0d568 coding::decision/knowledge-architecture-{term.lower()}-d13@ac40902"))
+case("a consulted: line naming a pin is exempt",
+     not is_hit("policy/consultation-map.md",
+                 f"consulted: product-lab@dec0d568dd8fc0b2 {term.lower()}-boundary"))
+case("a receipt: line naming a pin is exempt",
+     not is_hit("some/file.md", f"receipt: {term.lower()}-pkg@0511b22120bd"))
+case("a bare <repo>@<sha> pin with no consulted:/receipt: label is exempt",
+     not is_hit("some/file.md", f"see {term.lower()}-pkg@0511b22120bd for the ground"))
+case("the lexicon entry's own file is exempt by path, even unaddressed",
+     not is_hit(LEXICON_FILE, f'    "{term}"'))
+
+bad = [label for label, ok in fixture if not ok]
+if bad:
+    print("FAIL system-name-absent: this member's own fixture failed — " + " | ".join(bad))
     sys.exit(1)
 
 hits = []
