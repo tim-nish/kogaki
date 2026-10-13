@@ -1582,6 +1582,51 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   if (after.awaiting !== "CANDIDATE_SELECTION" || (after.brief_review_unfinished || []).length) fails.push(`(x2) three reviewed Candidates did not reach CANDIDATE_SELECTION with none left out: awaiting=${after.awaiting} unfinished=${JSON.stringify(after.brief_review_unfinished)}`);
 
+  // (x6) kogaki#1360: A COMPOSE UNIT REFUSED ON MOVE FIT KEEPS ITS CANDIDATE ON
+  // THE ROW, and that Candidate reaches `excluded` and nothing else. A `done`
+  // compose job whose `candidate-2` ended `refused` with `candidate` still on it
+  // and `failure.move_fit` naming Leg s2 is driven through `job await` to
+  // CANDIDATE_SELECTION: the forwarded set carries c1 and c3 only, c2 sits
+  // under `excluded`, the question offers ["c1","c3"], and the line above it
+  // names c2 and neither offered Candidate. Before this case every refused
+  // fixture unit carried no `candidate`, so the presence test the resume arm
+  // used read exactly like the status test it was not.
+  {
+    const dir6 = mkRun("fit-refused");
+    const refusal = "THE MOVE FIT WAS JUDGED, AND THESE LEGS DO NOT FIT THE MOVE EACH BINDS:\nLeg s2 (m_turn): contradicts — fixture why.";
+    writeFileSync(join(dir6, "reader-path-job.json"), JSON.stringify({
+      started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "done",
+      units: [
+        { id: "candidate-1", status: "done", bytes: 50, candidate: cand("c1"), specialization: { version: "1", candidate_id: "c1", verdicts: [] } },
+        { id: "candidate-2", status: "refused", bytes: 50, candidate: cand("c2"), attempts: 3,
+          failure: { class: "schema refusal", exit_code: 0, stderr_tail: refusal,
+            move_fit: [{ leg_id: "s2", move: "m_turn", verdict: "contradicts", why: "fixture why." }] } },
+        { id: "candidate-3", status: "done", bytes: 50, candidate: cand("c3"), specialization: { version: "1", candidate_id: "c3", verdicts: [] } },
+      ],
+    }, null, 2) + "\n");
+    const outs6 = [awaitIn(dir6)];
+    for (let i = 0; i < 6 && recOf(dir6).awaiting !== "CANDIDATE_SELECTION" && !recOf(dir6).done; i++) outs6.push(awaitIn(dir6));
+    const rec6 = recOf(dir6);
+    const seen6 = JSON.stringify(outs6.map((o) => ({ status: o.status, stdout: (o.stdout || "").slice(-300), stderr: (o.stderr || "").slice(-300) })));
+    const fwdPath = join(dir6, "reader-path-candidates.json");
+    const fwd = existsSync(fwdPath) ? JSON.parse(readFileSync(fwdPath, "utf8")) : {};
+    const fwdIds = (fwd.candidates || []).map((c) => c.candidate_id);
+    const exIds = (fwd.excluded || []).map((x) => x.candidate_id);
+    if (JSON.stringify(fwdIds) !== JSON.stringify(["c1", "c3"]) || JSON.stringify(exIds) !== JSON.stringify(["c2"])) {
+      fails.push(`(x6) the set forwarded to compose_path is ${JSON.stringify(fwdIds)} with excluded ${JSON.stringify(exIds)}, want ["c1","c3"] and ["c2"]: ${seen6}`);
+    }
+    if (rec6.awaiting !== "CANDIDATE_SELECTION") fails.push(`(x6) the run did not reach CANDIDATE_SELECTION: awaiting=${rec6.awaiting} ${seen6}`);
+    const decl6Path = join(dir6, "brief-candidate-selection.run-declaration.json");
+    const decl6 = existsSync(decl6Path) ? JSON.parse(readFileSync(decl6Path, "utf8")) : {};
+    if (JSON.stringify(decl6.run_composed_option_ids) !== JSON.stringify(["c1", "c3"])) {
+      fails.push(`(x6) CANDIDATE_SELECTION offers ${JSON.stringify(decl6.run_composed_option_ids)}, want ["c1","c3"] with the fit-refused c2 left out`);
+    }
+    const above6 = String(decl6.excluded_candidates || "");
+    if (!above6.includes("path c2") || !above6.includes("Leg s2") || /path c1|path c3/.test(above6)) {
+      fails.push(`(x6) the line above the Candidate question does not name the fit-refused Candidate and its Leg alone: ${JSON.stringify(above6)}`);
+    }
+  }
+
   // (x5) the table: `review_path` carries a `job` block on the reader-path
   // job's own stall and heartbeat, its two bounds NAME the same settings as the
   // compose job's (kogaki#1355), its unit row exists, and the judge note states

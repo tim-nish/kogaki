@@ -223,7 +223,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as compose from "./src/compose.mjs";
 import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFitVerdict,
-  composeJobExcluded, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
+  composeJobExcluded, composeJobFinished, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
 import { startDetachedJobSupervisor } from "./src/workflow/detached-job.mjs";
 import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
@@ -1616,7 +1616,9 @@ const cand1276 = (id, leg2Extra = {}) => ({
   };
   const rows = [rowOf(cands[0], 0, "consistent"), rowOf(cands[1], 1, "contradicts", WHY), rowOf(cands[2], 2, "consistent")];
   const excluded = composeJobExcluded(rows);
-  const fit = rows.filter((u) => u.status === "done").map((u) => u.candidate);
+  // THE RUN'S OWN FILTER, NOT A HAND-WRITTEN ONE (kogaki#1360): the partition
+  // asserted here is the one `job await` forwards to `compose_path`.
+  const fit = composeJobFinished(rows).map((u) => u.candidate);
   if (JSON.stringify(fit.map((c) => c.candidate_id)) !== JSON.stringify(["c1", "c3"])) fails.push(`(ak) the offered Candidates are ${JSON.stringify(fit.map((c) => c.candidate_id))}, want ["c1","c3"]`);
   const extra = candidateSelectionExtra(excluded).excluded_candidates || "";
   const lines = extra.split("\n").filter(Boolean);
