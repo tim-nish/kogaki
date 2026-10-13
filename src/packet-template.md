@@ -75,10 +75,16 @@ under a bulleted field label. Where the realization of a whole schema category i
 fixed — Closure rows, Journey material — that behaviour is stated once,
 where the category's own block opens, never as a label attached to each item.
 
-NO MOVE REACHES THE PACKET (kogaki#1311, owner decision 2026-10-09). The
-Move's responsibility ends when the Candidate is composed; what the writer
-needs from it arrives as this Leg's waypoints, which the Brief composed as
-the Leg's own specialization of the Move and judged there.
+NO MOVE REACHES THE PACKET BUT ITS SEGMENTS (kogaki#1311, owner decision
+2026-10-09; kogaki#1359, design on kogaki#1329). The Leg's Move's
+responsibility ends when the Candidate is composed; what the writer needs
+from it arrives as this Leg's waypoints, which the Brief composed as the
+Leg's own specialization of the Move and judged there. Each waypoint in turn
+binds a paragraph Move, in the Brief's second pass; what the writer needs
+from THAT arrives as the Move's Segments, copied onto the waypoint when the
+Brief was composed and rendered under the point -- and nothing else of the
+Move: no id, no before or after, no technique, no breaks. No Move file is
+opened here.
 -->
 
 # Write one Leg
@@ -89,6 +95,13 @@ Each numbered line below is the point one paragraph makes, in order, and the
 claim it serves. The point is not quoted: its wording is yours, and no line
 here is copied or announced to the reader. One paragraph per point is the
 expected shape; spend more or fewer where a point needs it.
+
+Under a point, the indented numbered lines are the shape of that paragraph,
+one line per segment, each in three parts: what the segment does, how it
+relates to the segment before it, and the kind of clause that carries it.
+Build the paragraph through those segments in that order. These lines name
+a shape and never words: nothing in them is copied, quoted or announced to
+the reader.
 
 {{waypoints}}
 

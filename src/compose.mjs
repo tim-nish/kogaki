@@ -2519,7 +2519,13 @@ export function legRecord(s) {
   out.depends_on = [...(s.depends_on || [])];
   out.rationale = s.rationale;
   out.claims = (s.claims || []).map((g) => ({ strand: g.strand, proposition: g.proposition }));
-  out.waypoints = (s.waypoints || []).map((w) => ({ serves: [...w.serves], point: String(w.point).replace(/\s*\n\s*/g, " ").trim() }));
+  // THE BOUND PARAGRAPH MOVE AND ITS SEGMENTS RIDE ON THE WAYPOINT (kogaki#1359, design
+  // on kogaki#1329): written here exactly as the second pass bound them, so the Brief
+  // stays self-contained and `draft.mjs` opens no Move file. A waypoint the second pass
+  // never reached carries neither, and the realization entry refuses it by name.
+  out.waypoints = (s.waypoints || []).map((w) => ({ serves: [...w.serves], point: String(w.point).replace(/\s*\n\s*/g, " ").trim(),
+    ...(w.move !== undefined ? { move: w.move } : {}),
+    ...(w.segments !== undefined ? { segments: String(w.segments).split("\n").map((l) => l.trim()).filter(Boolean).join("\n") } : {}) }));
   if ((s.journeys || []).length) {
     out.journeys = s.journeys.map((j) => {
       const gloss = journeyUses().get(j.use);
