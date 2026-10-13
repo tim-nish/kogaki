@@ -680,7 +680,9 @@ const READER_START = "knowledge: can read code and has used a CI system\nquestio
           if (packet.includes(gone)) fails.push(`(o) the Packet still carries the retired string ${JSON.stringify(gone)}`);
         }
         const rules = [
-          "broken where the flow of the prose calls for it",
+          // The paragraph-structure rule left the Persona (kogaki#1350: the Move
+          // owns structure); the anaphora rule it kept stands in for it.
+          "first sentence names what it refers to in full",
           "classic register, full clauses, a concrete subject acting",
           // The Referents rule moved into the Persona's `prose` block
           // (kogaki#1261) and was narrowed to Journey referents (kogaki#1322).
