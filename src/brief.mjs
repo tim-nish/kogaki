@@ -95,12 +95,12 @@ import {
 import { resolveStrandAddresses } from "./workflow/strands.mjs";
 // ---- THE DETACHED-JOB PRIMITIVES (kogaki#1193), imported rather than
 // reimplemented for the same reason as the block above: the record shape, the
-// ceiling constants and the classification of a unit and of the
+// job's bounds and the classification of a unit and of the
 // job as a whole are `src/workflow/detached-job.mjs`'s, so `compose_path`'s job-aware
 // STATE_WORK and the `job status`/`job await` verbs below read one copy of
 // each.
 import {
-  DetachedJobStarted, READER_PATH_JOB_STALL_S, readerPathJobLimitS,
+  DetachedJobStarted, READER_PATH_JOB_STALL_S, readerPathJobBounds, RETIRED_JOB_LIMIT_KEYS,
   READER_PATH_JOB_HEARTBEAT_MS, readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
   readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES, startDetachedJobSupervisor,
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
@@ -997,8 +997,8 @@ export function briefPersonaFile(table) {
       + "read through it (kogaki#1216, kogaki#1262). Nothing was written.");
 }
 
-// THE COMPOSE JOB'S UNIT COUNT AND THE TWO JOB LIMITS ARE SETTINGS (kogaki#1307), named
-// by the `job` rows of `compose_path` and `review_path`.
+// THE COMPOSE JOB'S UNIT COUNT AND EACH JOB'S TWO BOUNDS ARE SETTINGS (kogaki#1307,
+// kogaki#1355), named by the `job` rows of `compose_path` and `review_path`.
 function briefJobSetting(table, stateId, key) {
   const st = ((table && table.states) || []).find((s) => s.id === stateId);
   const v = st && st.job ? settingValue(st.job[key]) : undefined;
@@ -1006,6 +1006,37 @@ function briefJobSetting(table, stateId, key) {
   return Number.isInteger(n) && n > 0 ? n
     : fail(`src/brief-workflow.json's \`${stateId}\` job declares no positive \`${key}\` -- it names a setting in `
       + "kogaki.settings.json (kogaki#1307). Nothing was started.");
+}
+
+// A JOB UNIT IS BOUNDED PER CALL AND PER ATTEMPT COUNT, NEVER BY A WHOLE-JOB LIMIT
+// (kogaki#1355): `call_limit_s` and `unit_attempts`, each naming a setting, read before
+// anything starts. A `job` row or a settings file still carrying a retired whole-job
+// limit is refused naming the key, as a missing key is refused -- a limit that silently
+// stopped binding would read as one still in force. The settings file is found as
+// `settingValue` finds it, `KOGAKI_SETTINGS` included.
+export function briefJobBounds(table, stateId) {
+  const st = ((table && table.states) || []).find((s) => s.id === stateId);
+  const row = (st && st.job) || {};
+  for (const k of RETIRED_JOB_LIMIT_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(row, k)) {
+      fail(`src/brief-workflow.json's \`${stateId}\` job carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- `
+        + "a unit is bounded by `call_limit_s` and `unit_attempts`. Nothing was started.");
+    }
+  }
+  const settingsPath = process.env.KOGAKI_SETTINGS ? resolve(process.env.KOGAKI_SETTINGS) : join(BRIEF_REPO, "kogaki.settings.json");
+  let settings = null;
+  try { settings = JSON.parse(readFileSync(settingsPath, "utf8")); } catch { settings = null; }
+  const brief = settings && settings.brief && typeof settings.brief === "object" ? settings.brief : {};
+  for (const k of RETIRED_JOB_LIMIT_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(brief, k)) {
+      fail(`${settingsPath} carries the setting \`brief.${k}\`, a whole-job limit retired by kogaki#1355 -- remove it; `
+        + "`brief.call_limit_s` and `brief.unit_attempts` bound a job unit. Nothing was started.");
+    }
+  }
+  return {
+    callLimitS: briefJobSetting(table, stateId, "call_limit_s"),
+    unitAttempts: briefJobSetting(table, stateId, "unit_attempts"),
+  };
 }
 
 // The lane entry name a START act opens a workspace under. Its shape is
@@ -1685,9 +1716,10 @@ const STATE_WORK = {
     // prompt here, before the supervisor is spawned, so the detached process
     // resolves no schema and reads no table of its own.
     const cfg = judgeSettings(table, rec);
-    // THE UNIT COUNT AND THE LIMIT ARE SETTINGS (kogaki#1307), read before anything starts.
+    // THE UNIT COUNT AND THE TWO BOUNDS ARE SETTINGS (kogaki#1307, kogaki#1355), read
+    // before anything starts.
     const unitCount = briefJobSetting(table, "compose_path", "units");
-    const absoluteLimitS = briefJobSetting(table, "compose_path", "absolute_limit_s");
+    const { callLimitS, unitAttempts } = briefJobBounds(table, "compose_path");
     // THE MOVE-FIT ROW (kogaki#1307): judged per unit inside this job, so it is read here
     // and its prompt head rendered here, where the Brief's own table and flow are in hand;
     // the supervisor appends each unit's own input below the marker.
@@ -1758,7 +1790,8 @@ const STATE_WORK = {
       command: cfg.command,
       model: cfg.model,
       outputFormat: cfg.outputFormat,
-      absoluteLimitS,
+      callLimitS,
+      unitAttempts,
       stallS: READER_PATH_JOB_STALL_S,
       heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
       // THE DECLARED MOVE-FIT JUDGE (kogaki#1307): once a unit's record passes the
@@ -1889,7 +1922,7 @@ const STATE_WORK = {
       command: cfg.command,
       model: cfg.model,
       outputFormat: cfg.outputFormat,
-      absoluteLimitS: briefJobSetting(table, "review_path", "absolute_limit_s"),
+      ...briefJobBounds(table, "review_path"),
       stallS: READER_PATH_JOB_STALL_S,
       heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
       recordArray: "claim_register",
@@ -2286,18 +2319,39 @@ function supervisorAlive(pid) {
 // await` call left to print them the first time; this is its second chance,
 // gated on the same two facts the raising itself left behind: the gate-call
 // file exists, and no capture row has answered it yet.
-function printReaderPathJobStatus(j, job) {
-  const dir = j.runDir;
-  const startedAt = Date.parse(job.started_at || job.updated_at || new Date().toISOString());
-  const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
-  let limitS;
-  try { limitS = `${readerPathJobLimitS(job)}s`; } catch { limitS = "an unrecorded"; }
-  console.log(`${j.label} at ${readerPathJobPath(j.jobDir)} — elapsed ${elapsedS}s of ${limitS} absolute limit:`);
+// THE STATUS LINES (kogaki#1355): a header naming the job's two bounds, then one line
+// per unit naming the attempt it is on, the call it is in and its status, and from
+// attempt 2 on an estimate -- `attempt_1_s`, attempt 1's own duration as the supervisor
+// wrote it onto the row, less the time this attempt has already run. The estimate is
+// read from the record, never derived here from anything but the row and the clock.
+// `job status` and `job await`'s heartbeat both print these lines.
+export function readerPathJobStatusLines(label, jobPath, job, now = Date.now()) {
+  const startedAt = Date.parse(job.started_at || job.updated_at || new Date(now).toISOString());
+  const elapsedS = Math.floor((now - startedAt) / 1000);
+  let bounds = null;
+  try { bounds = readerPathJobBounds(job); } catch { bounds = null; }
+  const n = bounds ? bounds.unitAttempts : "an unrecorded number of";
+  const limit = bounds ? `${bounds.callLimitS}s` : "an unrecorded time";
+  const lines = [`${label} at ${jobPath} — elapsed ${elapsedS}s; each unit gets up to ${n} attempts of at most ${limit} per call:`];
   for (const u of job.units || []) {
+    const attempt = Number.isInteger(u.attempts) ? u.attempts : 1;
+    const phase = u.phase === "fit" ? "fit" : "compose";
     // kogaki#1197: a dead unit's own `is_error` result text says why it died.
     const why = u.failure && typeof u.failure.result === "string" ? ` — ${u.failure.result}` : "";
-    console.log(`  unit ${u.id}: ${u.status} — ${u.bytes || 0} byte(s) so far${why}`);
+    let estimate = "";
+    if (u.status === "running" && attempt >= 2 && typeof u.attempt_1_s === "number") {
+      const began = Date.parse(u.attempt_started_at || "");
+      const ranS = Number.isFinite(began) ? (now - began) / 1000 : 0;
+      estimate = `, about ${Math.max(0, Math.round(u.attempt_1_s - ranS))}s to go`;
+    }
+    lines.push(`  unit ${u.id}: attempt ${attempt} of ${bounds ? bounds.unitAttempts : "?"}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s) so far${estimate}${why}`);
   }
+  return lines;
+}
+
+function printReaderPathJobStatus(j, job) {
+  const dir = j.runDir;
+  for (const line of readerPathJobStatusLines(j.label, readerPathJobPath(j.jobDir), job)) console.log(line);
   const rec = readRunRecord(dir);
   // THE GATE OWED AT THE AWAITING STATE, WHATEVER ITS GATE_ID (kogaki#1313).
   // A job resume advances the workflow past the job's own gate into later
@@ -2350,8 +2404,9 @@ function sleepSync(ms) {
 }
 
 // THE AWAIT'S OWN BOUND (kogaki#1271, the owner's 30-second poll, 2026-10-05).
-// A job can run to its 600s absolute limit, which is longer than one Bash tool
-// call may last, so `job await` returns after at most this long with
+// A job runs for as many attempts of as long a call as its two bounds allow
+// (kogaki#1355), far longer than one Bash tool call may last, so `job await`
+// returns after at most this long with the status lines and
 // `READER_PATH_JOB_STILL_RUNNING_LINE`, raises no question and exits 0; the
 // Brief skill reads that line as "run `job await` again".
 export const READER_PATH_JOB_AWAIT_S = 30;
@@ -2369,8 +2424,9 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
     const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
     const stopRequested = existsSync(readerPathJobStopFlagPath(j.jobDir));
     // THE PER-POLL DECISION IS `src/workflow/detached-job.mjs`'s PURE FUNCTION
-    // (kogaki#1213), over THIS poll's freshly-measured elapsed time.
-    const { units, state } = readerPathAwaitStep(job, { stopRequested, elapsedS, stalledS });
+    // (kogaki#1213), over THIS poll's freshly-measured stall reading. It reads no time
+    // limit (kogaki#1355): the per-call limit is the supervisor's own.
+    const { units, state } = readerPathAwaitStep(job, { stopRequested, stalledS });
     if (READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes(state)) {
       const { cause, file } = readerPathDefectCause(j, job, state);
       endBriefOnDefect(dir, cause, file);
@@ -2392,6 +2448,9 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
     if (state !== "running") { await finishReaderPathJobAwait(j, { ...job, units }, state, table, tablePath, args); return; }
     const remainingMs = READER_PATH_JOB_AWAIT_S * 1000 - (Date.now() - awaitStartedAt);
     if (remainingMs <= 0) {
+      // THE HEARTBEAT CARRIES THE ATTEMPTS AND THE ESTIMATE (kogaki#1355), so the owner
+      // waiting on a long job sees which attempt each unit is on and how long is left.
+      for (const line of readerPathJobStatusLines(j.label, readerPathJobPath(j.jobDir), job)) console.log(line);
       console.log(`${j.stateId === "review_path" ? REVIEW_PATH_JOB_STILL_RUNNING_LINE : READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`);
       return;
     }
@@ -2457,8 +2516,8 @@ function claimReaderPathJobResume(j, state) {
 // attributed to the `detached-job` executor kind and carrying the assembled
 // candidates so `compose_path`'s existing, unmodified `judged(...)` call
 // validates them exactly as it validates a live judge's record -- one finished
-// Candidate or more (kogaki#1273), the refused and `ceiling` units beside it
-// contributing nothing. Every other state but a system failure, which
+// Candidate or more (kogaki#1273), the refused units beside it contributing
+// nothing. Every other state but a system failure, which
 // `awaitReaderPathJob` ends as a defect before reaching here, raises
 // `brief-reader-path-job` and stops — no state here ever auto-retries.
 async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
@@ -2569,8 +2628,8 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
   const failureState = rec.awaiting;
   // EVERY UNIT REFUSED (kogaki#1273): the job ends `refused` only when no
   // unit finished, and its arm is Stop alone -- "Re-run the failed step" is
-  // removed by the owner's 2026-10-05 ruling, since each unit already had the
-  // one retry that fitted in time. The reading names every refused unit and
+  // removed by the owner's 2026-10-05 ruling, since each unit already spent
+  // every attempt it had (kogaki#1355). The reading names every refused unit and
   // its refusal rather than the bare state token, so the owner sees which
   // steps failed and why without spec-internal vocabulary
   // (`findInternalVocabulary`, checked at raising by
