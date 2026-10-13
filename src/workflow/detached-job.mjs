@@ -18,7 +18,7 @@ import { REPO, fail, readJson } from "./run-record.mjs";
 // its answer fails in one of two classes (kogaki#1307): MALFORMED OUTPUT -- not JSON, or no
 // record in it -- respawns the unit with the same prompt and counts no attempt; a SCHEMA
 // REFUSAL -- a record the declared validator, or the declared Move-fit judge, refuses --
-// feeds the one re-ask (kogaki#1203) and refused-twice-is-final (kogaki#1273) machinery.
+// spends one of the unit's attempts and is re-asked (kogaki#1203, counted by kogaki#1355).
 export class DetachedJobStarted extends Error {
   constructor(stateId, jobRecordPath, message) {
     super(message);
@@ -28,12 +28,16 @@ export class DetachedJobStarted extends Error {
 }
 
 const READER_PATH_JOB_FILE = "reader-path-job.json";
-// THE ABSOLUTE LIMIT IS NOT A CONSTANT HERE (kogaki#1307): each job's own limit is
-// read by its starter from `kogaki.settings.json` and written onto the job record as
-// `absolute_limit_s`, which the supervisor enforces and `job await` reads back. One
-// number per job, held in one place, so a change to the setting needs no code edit.
+// A UNIT IS BOUNDED PER CALL AND PER ATTEMPT COUNT, NEVER BY A WHOLE-JOB LIMIT
+// (kogaki#1355, the owner's 2026-10-13 ruling, superseding kogaki#1273's one retry that
+// fits). `call_limit_s` is how long one headless session may run before it is killed;
+// `unit_attempts` is how many attempts a unit gets. Neither is a constant here: the
+// job's starter reads both from `kogaki.settings.json` (`brief.call_limit_s`,
+// `brief.unit_attempts`) and writes them onto the job record, which the supervisor
+// enforces and `job await` reads back. A job's longest run is therefore
+// `unit_attempts` x calls per attempt x `call_limit_s`, and nothing else ends it on time.
 // NO BYTE GROWTH ON ANY STILL-RUNNING UNIT FOR THIS LONG is read as a stall — a declared
-// heuristic, kept narrower than the absolute limit.
+// heuristic, kept narrower than the per-call limit.
 // Per kogaki#1193 comment 3, this one output-byte bound stands in for both of the Issue's
 // heartbeat and output signals.
 export const READER_PATH_JOB_STALL_S = 90;
@@ -53,20 +57,16 @@ export const READER_PATH_JOB_AWAIT_COMMAND = "node src/brief.mjs run --status --
 // the still-running state the 300s question was raised on). `done` carries no `failure` block;
 // every other one does, and NOTHING IS EVER DELETED on any exit — a non-`done`
 // job record is left exactly as it stood at classification, partial output
-// included, for the Arm screen and for a later reader. The seven are `done`,
-// `refused`, `stopped`, `ceiling`, `stalled`, `died` and `other`; the list was
+// included, for the Arm screen and for a later reader. The six are `done`,
+// `refused`, `stopped`, `stalled`, `died` and `other` (`ceiling` left with the
+// whole-job limit, kogaki#1355); the list was
 // a constant nothing read, deleted at kogaki#1257, and
 // `checks/check-brief-reader-path-job.sh` (a) now reads the set off the job
 // records its fixtures end in.
 
-// ONE RE-ASK PER UNIT (kogaki#1203, the owner's 2026-09-26 "same policy as
-// before" ruling): 2 attempts total, so a unit refused on attempt 2 is
-// terminal exactly as the synchronous judge's exhausted `retries` was.
-const READER_PATH_UNIT_MAX_ATTEMPTS = 2;
-
-// ONE FILE PER UNIT, NAMED BY ITS ID (kogaki#1203 acceptance 2). Both
-// attempts of a retried unit land in this same path -- the first attempt's
-// bytes, a divider line, then the second's -- so a unit that dies or is
+// ONE FILE PER UNIT, NAMED BY ITS ID (kogaki#1203 acceptance 2). Every
+// attempt of a retried unit lands in this same path -- the first attempt's
+// bytes, a divider line, then the next's -- so a unit that dies or is
 // refused is inspectable from one path rather than a reader having to guess
 // which attempt's file survived.
 function readerPathUnitStdoutPath(dir, unitId) {
@@ -158,7 +158,7 @@ function readerPathBytes(str, n) {
 // `{ path, flag }`, `flag` defaulting to `"w"` -- a fresh file for a unit's
 // first attempt, `"a"` for a retried attempt that appends past a divider its
 // caller already wrote. This is what puts a unit's raw output on disk BEFORE
-// the job ends, including a unit the ceiling or the stall bound kills mid-run:
+// the job ends, including a call the per-call limit or the stall bound kills mid-run:
 // the write happens as each chunk arrives rather than at `close`, where a
 // killed child never gets there.
 function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutFile) {
@@ -313,6 +313,9 @@ async function loadReaderPathFitJudge(declared) {
 // `schema refusal`).
 const MALFORMED_OUTPUT = "malformed output";
 const SCHEMA_REFUSAL = "schema refusal";
+// A UNIT WHOSE LAST ATTEMPT'S CALL RAN PAST `call_limit_s` (kogaki#1355) ends `refused`
+// with this class: a time bound, never a system failure.
+const CALL_TIME_LIMIT = "call time limit";
 
 function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = null) {
   if (out.error) {
@@ -340,7 +343,7 @@ function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = n
 // compose call; a judge answer with no record, or one whose own shape the declared
 // verdict function refuses, is `malformed` and is respawned; a `contradicts` or
 // `cannot-determine` on any Leg is a SCHEMA REFUSAL of the unit's Candidate, carrying
-// the judge's sentences verbatim, which the unit's one re-ask answers.
+// the judge's sentences verbatim, which the unit's next attempt answers.
 function classifyFitJudgeCall(out, fit, candidate, unitId) {
   const base = classifyDetachedJobUnit(out, null, "verdicts", unitId);
   if (base.status !== "done") return base;
@@ -365,126 +368,95 @@ export const READER_PATH_JOB_SYSTEM_FAILURE_STATES = ["died", "stalled", "other"
 
 // THE REDUCTION OVER A FINISHED SET (kogaki#1273). One finished Candidate is
 // enough: the job is `done` when at least one unit is `done`, whatever its
-// siblings ended as, and `refused` only when every unit was refused. `ceiling`
-// is a unit the absolute limit killed while it was still running -- a time
-// bound rather than a defect -- so a set holding no `done` unit and at least
-// one `ceiling` unit ends `ceiling`, the Stop-only arm.
+// siblings ended as, and `refused` only when every unit was refused.
 function reduceFinishedReaderPathUnits(units) {
   if (units.some((u) => u.status === "done")) return "done";
-  if (units.some((u) => u.status === "ceiling")) return "ceiling";
   if (units.some((u) => u.status === "refused")) return "refused";
   return "done";
 }
 
 // THE OVERALL JOB STATE, REDUCED FROM ITS UNITS (kogaki#1193, revised
-// kogaki#1204 and kogaki#1273). A REFUSED unit does not end the job while a
-// sibling is still running -- killing a running sibling on one unit's own
+// kogaki#1204, kogaki#1273 and kogaki#1355). A REFUSED unit does not end the job
+// while a sibling is still running -- killing a running sibling on one unit's own
 // refusal is exactly the loss #1204 was filed over. A DIED unit does, at once
 // (kogaki#1273): it is a system failure, so it is answered on the tick it is
-// seen rather than after its siblings finish, which is the #1204 rule this
-// replaces. `stop_requested` is read first, because the owner's stop click is
-// answered whatever a unit is doing; the two time bounds are read only while a
-// unit is still running.
+// seen rather than after its siblings finish. `stop_requested` is read first,
+// because the owner's stop click is answered whatever a unit is doing; the stall
+// bound is read only while a unit is still running. There is no whole-job time
+// bound (kogaki#1355): a call past `call_limit_s` is the unit's own attempt to
+// spend, answered by the supervisor, never a state of the job.
 function classifyDetachedJobState(units, {
-  stopRequested, elapsedS, stalledS, absoluteLimitS,
-  stallS = READER_PATH_JOB_STALL_S,
+  stopRequested, stalledS, stallS = READER_PATH_JOB_STALL_S,
 } = {}) {
   if (stopRequested) return "stopped";
   if (units.some((u) => u.status === "died")) return "died";
   const running = units.filter((u) => u.status === "running");
   if (running.length === 0) return reduceFinishedReaderPathUnits(units);
-  if (elapsedS >= absoluteLimitS) return "ceiling";
   if (stalledS >= stallS) return "stalled";
   return "running";
 }
 
-// THE ABSOLUTE LIMIT KEEPS FINISHED CANDIDATES (kogaki#1273). Every unit still
-// running when the job reaches its absolute limit (`absolute_limit_s`) ends
-// `ceiling`, and the job is then reduced over the whole set like any other
-// finished one: `done` when a unit finished, so the Candidate question is
-// shown with what finished, and `ceiling` only when none did. The supervisor
-// applies this when it kills those units, and `job await` applies the same
-// function to a record its own clock reads past the limit before the
-// supervisor's next tick has written it, so the two cannot disagree.
-function readerPathJobAtLimit(units) {
-  const atLimit = units.map((u) => (u.status === "running"
-    ? { id: u.id, status: "ceiling", bytes: u.bytes || 0, note: "still running at the absolute limit; killed" }
-    : u));
-  return { units: atLimit, state: reduceFinishedReaderPathUnits(atLimit) };
-}
+// THE RETIRED JOB-LIMIT KEYS (kogaki#1355): the two settings and the record field
+// they were written onto. A record still carrying one is refused naming it, as a
+// missing key is refused: a whole-job limit that silently stopped binding would
+// read as one still in force.
+export const RETIRED_JOB_LIMIT_KEYS = ["compose_job_limit_s", "review_job_limit_s", "absolute_limit_s"];
 
-// THE ONE RETRY, AND ONLY WHEN IT FITS (kogaki#1273, the owner's 2026-10-05
-// ruling). A refused first attempt is retried once, and only if the job's
-// elapsed time plus that attempt's own duration stays within the absolute
-// limit: a retry that cannot finish before the limit is never started, which
-// is the run of 2026-10-05 whose retries began with 140-200s left and ended as
-// a timeout instead of the refusal that caused it. A refused retry is final --
-// there is never a third attempt. Seconds may be fractional.
-function readerPathRetryDecision({ attempt, elapsedS, attemptS, absoluteLimitS }) {
-  if (attempt >= READER_PATH_UNIT_MAX_ATTEMPTS) return { retry: false };
-  if (elapsedS + attemptS > absoluteLimitS) {
-    return {
-      retry: false,
-      retry_skipped: {
-        reason: "would pass the absolute limit",
-        elapsed_s: elapsedS, attempt_s: attemptS, absolute_limit_s: absoluteLimitS,
-      },
-    };
+// THE JOB'S OWN TWO BOUNDS, READ OFF ITS RECORD (kogaki#1355): `call_limit_s` and
+// `unit_attempts` as its starter wrote them from `kogaki.settings.json`, never a
+// constant of this file and never defaulted.
+export function readerPathJobBounds(job) {
+  for (const k of RETIRED_JOB_LIMIT_KEYS) {
+    if (job && Object.prototype.hasOwnProperty.call(job, k)) {
+      throw new Error(`the job record carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- a unit is bounded by \`call_limit_s\` and \`unit_attempts\` alone.`);
+    }
   }
-  return { retry: true };
+  const callLimitS = job && Number(job.call_limit_s);
+  if (!Number.isFinite(callLimitS) || callLimitS <= 0) {
+    throw new Error("the job record carries no positive `call_limit_s` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).");
+  }
+  const unitAttempts = job && Number(job.unit_attempts);
+  if (!Number.isInteger(unitAttempts) || unitAttempts <= 0) {
+    throw new Error("the job record carries no positive integer `unit_attempts` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).");
+  }
+  return { callLimitS, unitAttempts };
 }
 
 // THE READER-PATH AWAIT'S OWN PER-POLL DECISION (kogaki#1213), pulled out of
 // `awaitReaderPathJob` in `src/brief.mjs` as a pure function so a fixture can
 // drive it without a live, 10-second heartbeat wait: the job record's units
-// classified against the CURRENT elapsed time. THE LIMIT, READ BY THIS POLL'S
-// OWN CLOCK (kogaki#1273): the running units end `ceiling` and the finished
-// ones are kept, exactly as the supervisor reduces it -- never a Stop-only arm
-// over a set that has a finished Candidate in it.
-// THE LIMIT IS THE JOB'S OWN (kogaki#1307): `absolute_limit_s` as its starter wrote it
-// onto the record from `kogaki.settings.json`, never a constant of this file.
-export function readerPathAwaitStep(job, { stopRequested, elapsedS, stalledS } = {}) {
+// classified against the CURRENT stall reading. THIS POLL READS NO TIME LIMIT
+// (kogaki#1355): the per-call limit is the supervisor's to enforce on its own
+// children, and there is no whole-job limit left for a second clock to read. The
+// record's bounds are still checked, so a record carrying a retired key is refused.
+export function readerPathAwaitStep(job, { stopRequested, stalledS } = {}) {
+  readerPathJobBounds(job);
   const raw = job.units || [];
-  const absoluteLimitS = readerPathJobLimitS(job);
-  const classified = classifyDetachedJobState(raw, { stopRequested, elapsedS, stalledS, absoluteLimitS });
-  return classified === "ceiling" ? readerPathJobAtLimit(raw) : { units: raw, state: classified };
-}
-
-export function readerPathJobLimitS(job) {
-  const n = job && Number(job.absolute_limit_s);
-  if (!Number.isFinite(n) || n <= 0) {
-    throw new Error("the job record carries no `absolute_limit_s` -- the job's starter writes it from kogaki.settings.json (kogaki#1307).");
-  }
-  return n;
+  return { units: raw, state: classifyDetachedJobState(raw, { stopRequested, stalledS }) };
 }
 
 function readerPathRefusedUnits(unitRows) {
   return unitRows.filter((x) => x.status === "refused").map((x) => ({
     id: x.id, attempts: x.attempts || 1,
     ...(x.failure && x.failure.file ? { file: x.failure.file } : {}),
-    ...(x.retry_skipped ? { retry_skipped: x.retry_skipped } : {}),
   }));
 }
 
 // THE UNITS A `done` JOB DID NOT FINISH, NAMED ON ITS RECORD (kogaki#1273). A
-// `done` job carries no `failure` block, so the refused and `ceiling` units
-// beside its finished Candidates ride as their own top-level fields.
+// `done` job carries no `failure` block, so the refused units beside its
+// finished Candidates ride as their own top-level field.
 function readerPathDoneJobUnfinished(unitRows) {
   const refused_units = readerPathRefusedUnits(unitRows);
-  const ceiling_units = unitRows.filter((x) => x.status === "ceiling").map((x) => x.id);
-  return {
-    ...(refused_units.length ? { refused_units } : {}),
-    ...(ceiling_units.length ? { ceiling_units } : {}),
-  };
+  return refused_units.length ? { refused_units } : {};
 }
 
 // THE `failure` BLOCK FOR A NON-`done` JOB RECORD (kogaki#1193 acceptance 2:
 // "every state but `done` carries `failure`"). A `died`/`refused` job's
 // failure is the offending unit's own -- already shaped by
-// `classifyDetachedJobUnit` -- carried up rather than re-described; the three
-// whole-job exits (`ceiling`, `stalled`, `stopped`) and the catch-all `other`
+// `classifyDetachedJobUnit` -- carried up rather than re-described; the two
+// whole-job exits (`stalled`, `stopped`) and the catch-all `other`
 // state each a fact ABOUT THE JOB, so they are described here.
-function readerPathJobFailure(state, unitRows, { elapsedS, stalledS, note } = {}) {
+function readerPathJobFailure(state, unitRows, { stalledS, note } = {}) {
   if (state === "died" || state === "refused") {
     const u = unitRows.find((x) => x.status === state);
     // THE FINISHED SIBLINGS' CANDIDATES, NAMED (kogaki#1204 acceptance 2): a
@@ -507,10 +479,6 @@ function readerPathJobFailure(state, unitRows, { elapsedS, stalledS, note } = {}
       ...(killed_units.length ? { killed_units } : {}),
       ...(refused_units ? { refused_units } : {}),
     };
-  }
-  if (state === "ceiling") {
-    return { elapsed_s: elapsedS, ceiling_units: unitRows.filter((x) => x.status === "ceiling").map((x) => x.id),
-      note: "the absolute limit was reached before any unit finished; nothing written so far is deleted." };
   }
   if (state === "stalled") {
     return { stalled_s: stalledS, note: "no unit produced new output for the stall bound; nothing written so far is deleted." };
@@ -537,10 +505,14 @@ export async function cmdJobSupervise(args) {
     const unitsPath = String(args.units || fail("job-supervise needs --units <file>."));
     const command = String(args.command || fail("job-supervise needs --command <path>."));
     const model = String(args.model || fail("job-supervise needs --model <name>."));
-    // THE LIMIT IS HANDED OVER, NEVER DEFAULTED (kogaki#1307): the starter read it from
-    // `kogaki.settings.json`, and a supervisor told no limit refuses to start.
-    const absoluteLimitS = Number(args["absolute-limit-s"]);
-    if (!Number.isFinite(absoluteLimitS) || absoluteLimitS <= 0) throw new Error("job-supervise needs a positive --absolute-limit-s (kogaki#1307).");
+    // THE TWO BOUNDS ARE HANDED OVER, NEVER DEFAULTED (kogaki#1307, kogaki#1355): the
+    // starter read them from `kogaki.settings.json`, and a supervisor told either one
+    // not refuses to start. The retired whole-job limit is refused by name.
+    if (args["absolute-limit-s"] !== undefined) throw new Error("job-supervise was handed --absolute-limit-s, a whole-job limit retired by kogaki#1355; it takes --call-limit-s and --unit-attempts.");
+    const callLimitS = Number(args["call-limit-s"]);
+    if (!Number.isFinite(callLimitS) || callLimitS <= 0) throw new Error("job-supervise needs a positive --call-limit-s (kogaki#1355).");
+    const unitAttempts = Number(args["unit-attempts"]);
+    if (!Number.isInteger(unitAttempts) || unitAttempts <= 0) throw new Error("job-supervise needs a positive integer --unit-attempts (kogaki#1355).");
     const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
     const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
     // THE DECLARED VALIDATOR, REQUIRED (kogaki#1240): a units file with no
@@ -565,16 +537,19 @@ export async function cmdJobSupervise(args) {
       "--setting-sources", "", "--no-session-persistence"];
     const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
     const startedAt = Date.now();
-    const nowS = () => Math.round((Date.now() - startedAt) / 100) / 10;
-    // THE PER-UNIT STATE. `attempts` counts SCHEMA REFUSALS answered by a re-ask
-    // (kogaki#1203): it starts at 1 and reaches `READER_PATH_UNIT_MAX_ATTEMPTS` at most;
-    // `firstRefusal` holds attempt 1's refusal so a unit refused twice reports both.
-    // `malformed` counts MALFORMED OUTPUT respawns (kogaki#1307), which spend no attempt.
-    // `phase` is `compose` while the unit's own record is being written and `fit` while
-    // its Move fit is judged; `composed` holds the record the fit call judges.
+    // THE PER-UNIT STATE (kogaki#1355). `attempts` is the attempt now running: it starts
+    // at 1 and reaches `unitAttempts` at most. A schema refusal or a call killed at
+    // `callLimitS` spends one; `refusals` holds every attempt's refusal and `timedOut`
+    // every killed call, so a unit that spent them all reports each. `malformed` counts
+    // MALFORMED OUTPUT respawns (kogaki#1307), which spend no attempt, and
+    // `malformedThisAttempt` bounds them at `unitAttempts` per attempt.
+    // `attempt1S` is attempt 1's own duration, written onto the row from attempt 2 on as
+    // the status line's estimate. `phase` is `compose` while the unit's own record is
+    // being written and `fit` while its Move fit is judged; `composed` holds the record
+    // the fit call judges.
     const S = new Map(units.map((u) => [u.id, {
-      attempts: 1, malformed: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
-      composed: null, fitPrompt: null, firstRefusal: undefined, retrySkipped: undefined,
+      attempts: 1, malformed: 0, malformedThisAttempt: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
+      composed: null, fitPrompt: null, refusals: [], timedOut: [], attempt1S: undefined,
       attemptStartedAt: startedAt, callStartedAt: startedAt, final: null,
     }]));
     const spawnCompose = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).prompt, () => {}, childEnv,
@@ -585,81 +560,44 @@ export async function cmdJobSupervise(args) {
     let lastProgressAt = startedAt;
     let lastBytesTotal = 0;
 
-    // ONE FINISHED CALL OF ONE UNIT, ANSWERED (kogaki#1307). Returns the row while the
-    // unit is still working, and sets `st.final` once it has ended.
-    const answer = (u, sp) => {
+    const secondsSince = (t, end = Date.now()) => Math.round((end - t) / 100) / 10;
+
+    // A NEW ATTEMPT BEGINS (kogaki#1355): attempt 1's duration is kept for the estimate,
+    // the malformed bound resets, and the count moves on.
+    const beginNextAttempt = (st, endedAt) => {
+      if (st.attempts === 1) st.attempt1S = secondsSince(st.attemptStartedAt, endedAt);
+      st.attempts += 1;
+      st.malformedThisAttempt = 0;
+      st.attemptStartedAt = Date.now();
+      st.callStartedAt = st.attemptStartedAt;
+    };
+
+    // THE ROW OF A UNIT STILL WORKING (kogaki#1355): the attempt it is on, the call it is
+    // in and when that attempt began, and from attempt 2 on attempt 1's own duration --
+    // what `job await`'s status line reads, never recomputes.
+    const runningRow = (u, bytes) => {
       const st = S.get(u.id);
-      const cls = st.phase === "compose"
-        ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
-        : classifyFitJudgeCall(sp.out, fit, st.composed, u.id);
-      const stdoutPath = st.phase === "compose" ? readerPathUnitStdoutPath(dir, u.id) : readerPathUnitFitStdoutPath(dir, u.id);
-      const callS = Math.round(((Date.parse(sp.out.endedAt) || Date.now()) - st.callStartedAt) / 100) / 10;
-      // MALFORMED OUTPUT IS RETRIED MECHANICALLY (kogaki#1307): the same prompt again,
-      // no attempt spent, bounded only by the job limit -- a respawn that could not
-      // finish inside it is never started.
-      if (cls.status === "malformed") {
-        st.malformed += 1;
-        const fits = readerPathRetryDecision({ attempt: 0, elapsedS: nowS(), attemptS: callS, absoluteLimitS });
-        if (fits.retry) {
-          try { appendFileSync(stdoutPath, `\n----- malformed output ${st.malformed}; respawned with the same prompt -----\n`); } catch { /* best-effort */ }
-          const respawned = st.phase === "compose" ? spawnCompose(u, "a") : spawnFit(u, "a");
-          unitsRunning.set(u.id, respawned);
-          st.callStartedAt = Date.now();
-          return { row: { id: u.id, status: "running", bytes: 0 }, progressed: true };
-        }
-        st.retrySkipped = fits.retry_skipped;
-        cls.status = "refused";
-      }
-      // A FINISHED, VALID RECORD WITH A DECLARED MOVE-FIT JUDGE IS JUDGED NEXT, inside
-      // the same unit and the same limit (kogaki#1307).
-      if (cls.status === "done" && st.phase === "compose" && fit) {
-        st.phase = "fit";
-        st.composed = cls.candidate;
-        st.fitPrompt = withNoToolsSentence(fit.prompt(cls.candidate, u.id));
-        unitsRunning.set(u.id, spawnFit(u, "w"));
-        st.callStartedAt = Date.now();
-        return { row: { id: u.id, status: "running", bytes: 0 }, progressed: true };
-      }
-      // THE ONE RE-ASK (kogaki#1203, bounded by kogaki#1273): a SCHEMA REFUSAL on attempt
-      // 1 -- the validator's, or the Move-fit judge's sentence -- respawns the compose call
-      // with the refusal spliced in verbatim, only when it fits inside the limit. `died`
-      // is never retried: it is a system failure.
-      if (cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL && st.retrySkipped === undefined) {
-        const decision = readerPathRetryDecision({
-          attempt: st.attempts, elapsedS: nowS(),
-          attemptS: Math.round(((Date.parse(sp.out.endedAt) || Date.now()) - st.attemptStartedAt) / 100) / 10,
-          absoluteLimitS,
-        });
-        if (decision.retry_skipped) st.retrySkipped = decision.retry_skipped;
-        if (decision.retry) {
-          const refusal = cls.failure.stderr_tail;
-          st.firstRefusal = refusal;
-          const composePath = readerPathUnitStdoutPath(dir, u.id);
-          try { appendFileSync(composePath, `\n----- attempt ${st.attempts + 1} -----\n`); } catch { /* best-effort */ }
-          st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), refusal);
-          st.attempts += 1;
-          st.phase = "compose";
-          st.composed = null;
-          unitsRunning.set(u.id, spawnCompose(u, "a"));
-          st.attemptStartedAt = Date.now();
-          st.callStartedAt = st.attemptStartedAt;
-          return { row: { id: u.id, status: "running", bytes: 0 }, progressed: true };
-        }
-      }
-      // THE UNIT HAS ENDED. Its row keeps every count a reader needs to see a unit that
-      // drifted toward a bound: attempts, malformed outputs, the first refusal, a retry
-      // not started.
+      return { id: u.id, status: "running", bytes, attempts: st.attempts, phase: st.phase,
+        attempt_started_at: new Date(st.attemptStartedAt).toISOString(),
+        ...(st.attempt1S !== undefined ? { attempt_1_s: st.attempt1S } : {}) };
+    };
+
+    // THE UNIT HAS ENDED. Its row keeps every count a reader needs to see a unit that
+    // drifted toward a bound: attempts, malformed outputs, every refusal, every killed call.
+    const endUnit = (u, cls, bytes, stdoutPath) => {
+      const st = S.get(u.id);
+      const firstRefusal = st.attempts > 1 && st.refusals.length ? st.refusals[0] : undefined;
       if (cls.status === "died" || cls.status === "refused") {
         cls.failure = { ...cls.failure, file: stdoutPath,
-          ...(st.firstRefusal !== undefined ? { first_refusal: st.firstRefusal } : {}) };
+          ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}) };
       }
-      const traced = st.firstRefusal !== undefined || st.retrySkipped !== undefined || st.malformed > 0;
       const row = {
-        id: u.id, bytes: sp.out.bytes, ...cls,
-        ...(traced ? { attempts: st.attempts } : {}),
+        id: u.id, bytes, ...cls, attempts: st.attempts, phase: st.phase,
+        ...(st.attempt1S !== undefined ? { attempt_1_s: st.attempt1S } : {}),
         ...(st.malformed > 0 ? { malformed_output: st.malformed } : {}),
-        ...(st.firstRefusal !== undefined ? { first_refusal: st.firstRefusal } : {}),
-        ...(st.retrySkipped !== undefined ? { retry_skipped: st.retrySkipped } : {}),
+        ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}),
+        ...(st.refusals.length ? { refusals: st.refusals.slice() } : {}),
+        ...(st.timedOut.length ? { timed_out: st.timedOut.slice() } : {}),
       };
       // A SCHEMA-VALID CANDIDATE IS KEPT ON EVERY ENDING (PR #1308 round 1): a unit whose
       // fit call refused, died or ran out of time still carries the Candidate it composed,
@@ -682,7 +620,93 @@ export async function cmdJobSupervise(args) {
         }
       }
       st.final = row;
-      return { row, progressed: false };
+      return row;
+    };
+
+    const callStdoutPath = (u) => (S.get(u.id).phase === "compose" ? readerPathUnitStdoutPath(dir, u.id) : readerPathUnitFitStdoutPath(dir, u.id));
+    const respawnCall = (u) => {
+      const sp = S.get(u.id).phase === "compose" ? spawnCompose(u, "a") : spawnFit(u, "a");
+      unitsRunning.set(u.id, sp);
+      S.get(u.id).callStartedAt = Date.now();
+      return sp;
+    };
+
+    // A CALL PAST `call_limit_s` IS KILLED AND SPENDS ONE ATTEMPT (kogaki#1355). It is a
+    // time bound, not a defect, so the Brief does not end: the same call is asked again
+    // with the same prompt while an attempt is left, and the unit ends `refused` naming
+    // the limit once none is.
+    const timeOut = (u, sp) => {
+      const st = S.get(u.id);
+      try { if (sp.child) sp.child.kill("SIGKILL"); } catch { /* already gone */ }
+      const callS = secondsSince(st.callStartedAt);
+      st.timedOut.push({ attempt: st.attempts, phase: st.phase, call_s: callS });
+      const stdoutPath = callStdoutPath(u);
+      if (st.attempts < unitAttempts) {
+        beginNextAttempt(st, Date.now());
+        try { appendFileSync(stdoutPath, `\n----- the ${st.phase} call ran past the ${callLimitS}s per-call limit; attempt ${st.attempts} asks it again with the same prompt -----\n`); } catch { /* best-effort */ }
+        respawnCall(u);
+        return { row: runningRow(u, 0), progressed: true };
+      }
+      const refusal = `the ${st.phase} call ran past the ${callLimitS}s per-call limit on attempt ${st.attempts} of ${unitAttempts}, the last one`;
+      st.refusals.push(refusal);
+      return { row: endUnit(u, { status: "refused", failure: { class: CALL_TIME_LIMIT, stderr_tail: refusal, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
+    };
+
+    // ONE FINISHED CALL OF ONE UNIT, ANSWERED (kogaki#1307, attempts counted by
+    // kogaki#1355). Returns the row while the unit is still working, and sets `st.final`
+    // once it has ended.
+    const answer = (u, sp) => {
+      const st = S.get(u.id);
+      const cls = st.phase === "compose"
+        ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
+        : classifyFitJudgeCall(sp.out, fit, st.composed, u.id);
+      const stdoutPath = callStdoutPath(u);
+      const endedAt = Date.parse(sp.out.endedAt) || Date.now();
+      // MALFORMED OUTPUT IS RETRIED MECHANICALLY (kogaki#1307): the same prompt again,
+      // no attempt spent, and at most `unit_attempts` respawns per attempt (kogaki#1355),
+      // so a unit cannot loop. A unit past that bound ends `refused` naming the count.
+      if (cls.status === "malformed") {
+        st.malformed += 1;
+        st.malformedThisAttempt += 1;
+        if (st.malformedThisAttempt <= unitAttempts) {
+          try { appendFileSync(stdoutPath, `\n----- malformed output ${st.malformed}; respawned with the same prompt -----\n`); } catch { /* best-effort */ }
+          respawnCall(u);
+          return { row: runningRow(u, 0), progressed: true };
+        }
+        cls.status = "refused";
+        cls.failure = { ...cls.failure, stderr_tail: `malformed output ${st.malformedThisAttempt} times on attempt ${st.attempts}, past the bound of ${unitAttempts} respawns per attempt; the last: ${cls.failure.stderr_tail}` };
+        st.refusals.push(cls.failure.stderr_tail);
+        return { row: endUnit(u, cls, sp.out.bytes, stdoutPath), progressed: false };
+      }
+      // A FINISHED, VALID RECORD WITH A DECLARED MOVE-FIT JUDGE IS JUDGED NEXT, inside
+      // the same unit and the same attempt (kogaki#1307).
+      if (cls.status === "done" && st.phase === "compose" && fit) {
+        st.phase = "fit";
+        st.composed = cls.candidate;
+        st.fitPrompt = withNoToolsSentence(fit.prompt(cls.candidate, u.id));
+        unitsRunning.set(u.id, spawnFit(u, "w"));
+        st.callStartedAt = Date.now();
+        return { row: runningRow(u, 0), progressed: true };
+      }
+      // A SCHEMA REFUSAL SPENDS ONE ATTEMPT (kogaki#1203, counted by kogaki#1355): the
+      // validator's, or the Move-fit judge's sentence, re-asks the compose call with the
+      // refusal spliced in verbatim while an attempt is left. The retry decision reads the
+      // attempt count only. `died` is never retried: it is a system failure.
+      if (cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL) {
+        const refusal = cls.failure.stderr_tail;
+        st.refusals.push(refusal);
+        if (st.attempts < unitAttempts) {
+          beginNextAttempt(st, endedAt);
+          const composePath = readerPathUnitStdoutPath(dir, u.id);
+          try { appendFileSync(composePath, `\n----- attempt ${st.attempts} -----\n`); } catch { /* best-effort */ }
+          st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), refusal);
+          st.phase = "compose";
+          st.composed = null;
+          unitsRunning.set(u.id, spawnCompose(u, "a"));
+          return { row: runningRow(u, 0), progressed: true };
+        }
+      }
+      return { row: endUnit(u, cls, sp.out.bytes, stdoutPath), progressed: false };
     };
 
     for (;;) {
@@ -703,27 +727,28 @@ export async function cmdJobSupervise(args) {
         const st = S.get(u.id);
         if (st.final) { bytesTotal += st.final.bytes || 0; return st.final; }
         const sp = unitsRunning.get(u.id);
-        if (!sp.out.done) { bytesTotal += sp.out.bytes; return { id: u.id, status: "running", bytes: sp.out.bytes }; }
+        if (!sp.out.done) {
+          if (secondsSince(st.callStartedAt) < callLimitS) { bytesTotal += sp.out.bytes; return runningRow(u, sp.out.bytes); }
+          const t = timeOut(u, sp);
+          if (t.progressed) progressed = true;
+          bytesTotal += t.row.bytes || 0;
+          return t.row;
+        }
         const a = answer(u, sp);
         if (a.progressed) progressed = true;
         bytesTotal += a.row.bytes || 0;
         return a.row;
       });
       if (progressed || bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
-      const elapsedS = Math.floor((Date.now() - startedAt) / 1000);
       const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
-      let state = classifyDetachedJobState(unitRows, { stopRequested, elapsedS, stalledS, absoluteLimitS, stallS });
+      const state = classifyDetachedJobState(unitRows, { stopRequested, stalledS, stallS });
       let rows = unitRows;
-      if (state === "ceiling") {
-        // THE LIMIT KEEPS WHAT FINISHED (kogaki#1273): the units still running
-        // end `ceiling` and are killed below; the job is `done` if any unit is.
-        ({ units: rows, state } = readerPathJobAtLimit(unitRows));
-      } else if (READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes(state)) {
+      if (READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes(state)) {
         // A SYSTEM FAILURE ENDS EVERY UNIT ON THIS TICK (kogaki#1273): the
         // units still running are killed below, with no retry, and their rows
         // say so rather than reading `running` on a job that has ended.
         rows = unitRows.map((r) => (r.status === "running"
-          ? { id: r.id, status: "killed", bytes: r.bytes || 0, note: `killed on the tick the job ended ${state}` } : r));
+          ? { id: r.id, status: "killed", bytes: r.bytes || 0, attempts: r.attempts, phase: r.phase, note: `killed on the tick the job ended ${state}` } : r));
       }
       // A UNIT ENDED MID-FIT KEEPS ITS COMPOSED CANDIDATE (PR #1308 round 1), on the
       // ground the ended-unit row above states: on the record, never offered.
@@ -736,14 +761,15 @@ export async function cmdJobSupervise(args) {
       }
       writeReaderPathJob(dir, {
         started_at: new Date(startedAt).toISOString(),
-        absolute_limit_s: absoluteLimitS,
+        call_limit_s: callLimitS,
+        unit_attempts: unitAttempts,
         last_progress_at: new Date(lastProgressAt).toISOString(),
         supervisor_pid: process.pid,
         state,
         units: rows,
         ...(state === "done" ? readerPathDoneJobUnfinished(rows) : {}),
         ...(state !== "done" && state !== "running"
-          ? { failure: readerPathJobFailure(state, rows, { elapsedS, stalledS }) } : {}),
+          ? { failure: readerPathJobFailure(state, rows, { stalledS }) } : {}),
       });
       if (state === "running") continue;
       for (const u of units) {
@@ -781,9 +807,13 @@ export async function cmdJobSupervise(args) {
 // `DetachedJobStarted` throw follows this call rather than a blocking wait.
 export function startDetachedJobSupervisor(dir, opts) {
   const validator = opts.validator || fail("startDetachedJobSupervisor needs a declared `validator` (kogaki#1240).");
-  const absoluteLimitS = Number(opts.absoluteLimitS);
-  if (!Number.isFinite(absoluteLimitS) || absoluteLimitS <= 0) {
-    fail("startDetachedJobSupervisor needs a positive `absoluteLimitS`, read from kogaki.settings.json (kogaki#1307).");
+  const callLimitS = Number(opts.callLimitS);
+  if (!Number.isFinite(callLimitS) || callLimitS <= 0) {
+    fail("startDetachedJobSupervisor needs a positive `callLimitS`, read from kogaki.settings.json (kogaki#1355).");
+  }
+  const unitAttempts = Number(opts.unitAttempts);
+  if (!Number.isInteger(unitAttempts) || unitAttempts <= 0) {
+    fail("startDetachedJobSupervisor needs a positive integer `unitAttempts`, read from kogaki.settings.json (kogaki#1355).");
   }
   const unitsPath = join(dir, "reader-path-job-units.json");
   // EVERY UNIT PROMPT BEGINS WITH THE NO-TOOLS SENTENCE (kogaki#1307), written here so the
@@ -797,18 +827,19 @@ export function startDetachedJobSupervisor(dir, opts) {
     scriptPath, "job-supervise",
     "--run", dir, "--units", unitsPath,
     "--command", opts.command, "--model", opts.model, "--output-format", opts.outputFormat,
-    "--absolute-limit-s", String(absoluteLimitS),
+    "--call-limit-s", String(callLimitS), "--unit-attempts", String(unitAttempts),
     "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
   ], { detached: true, stdio: "ignore", cwd: REPO });
   child.unref();
   const now = new Date().toISOString();
   writeReaderPathJob(dir, {
     started_at: now,
-    absolute_limit_s: absoluteLimitS,
+    call_limit_s: callLimitS,
+    unit_attempts: unitAttempts,
     last_progress_at: now,
     supervisor_pid: child.pid,
     state: "running",
-    units: opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0 })),
+    units: opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, attempts: 1, phase: "compose", attempt_started_at: now })),
   });
   return { unitsPath, supervisorPid: child.pid };
 }

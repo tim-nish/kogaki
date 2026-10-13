@@ -1542,7 +1542,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
       inputs: { strandIds: ["L1"], readerStart: START_1276, movesDir: fitMoves } } }));
   spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", sup, "--units", join(sup, "units.json"),
     "--command", judge, "--model", "m", "--output-format", "json",
-    "--absolute-limit-s", "100", "--stall-s", "100", "--heartbeat-ms", "250"], { encoding: "utf8", timeout: 15000 });
+    "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "250"], { encoding: "utf8", timeout: 15000 });
   const jobFile = join(sup, "reader-path-job.json");
   const unit = existsSync(jobFile) ? (JSON.parse(readFileSync(jobFile, "utf8")).units || []).find((u) => u.id === "u") : null;
   if (!unit || unit.status !== "refused") fails.push(`(ai) a Candidate with a no_move_fits Leg classified ${unit && unit.status}, want refused`);
@@ -1566,7 +1566,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
   const run = mkdtempSync(join(tmpdir(), "kogaki-1307-units-"));
   const started = startDetachedJobSupervisor(run, {
     units: [{ id: "candidate-1", prompt: "first unit prompt" }, { id: "candidate-2", prompt: "second unit prompt" }],
-    command: "/bin/false", model: "m", outputFormat: "json", absoluteLimitS: 5, stallS: 5, heartbeatMs: 100,
+    command: "/bin/false", model: "m", outputFormat: "json", callLimitS: 5, unitAttempts: 2, stallS: 5, heartbeatMs: 100,
     validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: {} },
   });
   try { process.kill(started.supervisorPid); } catch { /* already gone */ }
@@ -1642,7 +1642,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
   mkdirSync(run);
   const now = new Date().toISOString();
   writeFileSync(join(run, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, absolute_limit_s: 1200, supervisor_pid: null, state: "refused",
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "refused",
     units: allRows.map((u) => ({ ...u, bytes: 50 })),
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(run), JSON.stringify({

@@ -1,5 +1,22 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v44, amended 2026-10-13 (kogaki#1355) — **A JOB UNIT IS BOUNDED
+PER CALL AND PER ATTEMPT COUNT, AND THE STATUS LINE SHOWS THE ATTEMPT AND AN
+ESTIMATE.** The Brief run of 2026-10-13 ended with no Brief: all three compose
+units were refused on their first attempt, after 605, 760 and 600 seconds, and
+not one was asked again, because a retry started only if it would end within
+twenty minutes of the job's start, which two ten-minute attempts never do. The
+owner decided (2026-10-13), thinking of it as HTTP requests: bound each call by
+time and each unit by a number of attempts, with three attempts by default, and
+show the attempt and, from the second on, an estimate of the time left. So a
+call running past `brief.call_limit_s` is stopped and asked again, a refusal
+spends an attempt, a unit ends refused only once `brief.unit_attempts` is spent
+(§4.12.2), and no other time bound applies. This replaces kogaki#1273's
+rule that a refused unit is retried once and only when the retry fits; that
+Issue's other rules stand. Carriers: `kogaki.settings.json`,
+`src/brief-workflow.json`, `src/workflow/detached-job.mjs`, `src/brief.mjs`,
+`src/gate-registry.json`. **deferred slots minted by this amendment: none.**
+
 **Status:** v43, amended 2026-10-09 (kogaki#1311) — **A LEG CARRIES ITS
 WAYPOINTS, THE MOVE IS READ ONLY UNTIL THE CANDIDATE IS COMPOSED, AND THE
 DRAFT WRITES FROM THE LEG ALONE.** On 2026-10-08 `/draft` stopped at Leg 4 of
@@ -23,7 +40,7 @@ amendment: none.**
 **Status:** v42, amended 2026-10-08 (kogaki#1307) — **MOVE FIT IS JUDGED INSIDE
 THE COMPOSE JOB, PER JOB UNIT, AND THE REVISE PASS IS REMOVED.** The Brief run
 of 2026-10-08 ended with no Reader Path and no question: one compose job unit
-spent an attempt on malformed output, one hit the 600-second limit while still
+spent an attempt on malformed output, one ran out of time while still
 reasoning, and the one Candidate that finished was excluded after Path Review
 by `judge_specialization`, from where nothing re-composed. The owner decided
 (2026-10-08): a content judgment made after a verdict-free review is
@@ -31,8 +48,8 @@ positioned incorrectly, so §4.12.2's judged half runs per compose job unit —
 a `contradicts` or `cannot-determine` on any Leg is a schema refusal of that
 unit, re-asked once with the judge's sentence; §4.11's revise pass and its four
 Arms, which no state of the Brief table ever ran, leave; a run whose every
-Candidate is excluded ends with no question and removes its empty Brief. The
-compose and review job limits, the unit count, the judge model and the Persona
+Candidate is excluded ends with no question and removes its empty Brief. The jobs'
+time settings, the unit count, the judge model and the Persona
 file move to `kogaki.settings.json`, the owner's file for values changed
 without coding. Carriers: `kogaki.settings.json`, `src/brief-workflow.json`,
 `src/brief.mjs`, `src/workflow/detached-job.mjs`, `src/review.mjs`.
@@ -1206,7 +1223,8 @@ Move the Leg binds, whose contract the input carries beside the Leg's own
 
 **Count fidelity is not a criterion.** A Leg whose `technique` names "twice"
 and whose waypoints number three is not refused on that ground. The verdict
-vocabulary and the one retry (kogaki#1307) are unchanged.
+vocabulary is unchanged, and a refused unit is asked again while it has an
+attempt left (below).
 
 **Why not Path Review.** Path Review's output is reasoning surfaced for a human
 gate — never a verdict, never a score — and `src/review.mjs` refuses any
@@ -1263,7 +1281,7 @@ an opening Move whose `before` needs a claim the reader could only hold from
 the article is refused at the first Leg, naming the dimension. The judgment
 input carries each Leg's derived before-state and the question itself
 (`src/specialization-schema.json`, `before_state`); the vocabulary, the
-one-per-Leg rule, the path-order refusal and the one re-ask are unchanged.
+one-per-Leg rule, the path-order refusal and the unit's re-ask are unchanged.
 **What this replaces** is kogaki#1216's arrangement, under which Leg 1's
 composed before-state was judged a consistent specialization of Reader start —
 the arrangement that let the 2026-10-09 run move the Thesis into `knowledge`.
@@ -1284,14 +1302,47 @@ review is positioned incorrectly. Each compose job unit is a headless session
 schema, the supervisor runs one more headless session over that record alone,
 from the `reader_path_fit_unit` row of `src/brief-workflow.json`, with each
 Leg's Move contract and the Brief's Reader start. A `contradicts` or
-`cannot-determine` on any Leg is a **schema refusal**: the unit is re-asked
-once with the judge's sentence, verbatim, and a second failure ends the unit
-refused. The record is written beside the unit's Candidate and adoption renders
-it as the one sentence kogaki#1108 made it. A judge answer whose own shape is
-wrong is **malformed output** and is asked again with the same prompt, bounded
-only by the job limit. When every unit is refused, the Brief ends with no
+`cannot-determine` on any Leg is a **schema refusal** of the unit. The record
+is written beside the unit's Candidate and adoption renders it as the one
+sentence kogaki#1108 made it. When every unit is refused, the Brief ends with no
 question, its empty `theses/<slug>/` is removed, and the closing report names
 each Candidate's failing Legs and says the Brief was removed.
+
+**A job unit is bounded per call and per attempt count** (kogaki#1355, owner
+decision 2026-10-13, replacing kogaki#1273's one retry that fits). Two
+settings in `kogaki.settings.json` bound every unit of the compose job and of
+the path-review job, and each is written onto the job record when the job
+starts:
+
+- `brief.call_limit_s` — how long one headless session (one compose call, one
+  fit call, one review call) may run before it is stopped. The stall bound
+  stays beneath it as the no-progress guard.
+- `brief.unit_attempts` — how many attempts a unit gets. A compose unit makes
+  two calls per attempt (compose, then fit); a review unit makes one.
+
+What spends an attempt: a **schema refusal** — the validator's, or the fit
+judge's — is asked again with the refusal spliced in verbatim, until the
+attempts are spent, and the unit then ends refused with every attempt's
+refusal on its row. A **call stopped at the per-call limit** is asked again
+with the same prompt and its row records it as timed out; it is a time bound,
+not a defect, so the Brief does not end. A **malformed output** (not JSON, or
+no record in it) spends no attempt and is asked again with the same prompt, at
+most `brief.unit_attempts` times per attempt, past which the unit ends refused
+naming the count. A **system failure** (`died`, `stalled`, `other`) still ends
+the Brief at once. Whether to ask again reads the attempt count alone, and
+no other time bound applies: a job's longest run is the attempts, times the
+calls per attempt, times the per-call limit, and the owner sets both numbers
+without an Issue. A settings file or a `job` row still carrying either retired
+time setting of kogaki#1307 is refused naming it, as a missing setting is.
+
+**The status line shows the attempt and an estimate.** `job status`, and
+`job await` each time it returns at its 30-second bound, print a header
+naming both settings — `each unit gets up to <N> attempts of at most <s>s per
+call` — and one line per unit: `unit <id>: attempt <n> of <N>,
+<compose|fit>, <status>, <bytes> byte(s) so far`, followed from attempt 2 on
+by `about <m>s to go`, where `<m>` is attempt 1's own duration, written onto
+the unit's row by the supervisor as `attempt_1_s`, less the time the current
+attempt has already run.
 
 `necessity:` the split between what a runtime may decide and what only a
 reading sitting can. The schema holds the record's shape; nothing but prose can
