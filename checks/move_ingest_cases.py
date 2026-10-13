@@ -40,7 +40,7 @@ AXIS_FORM = """figure:
 
 
 # kogaki#1320: a passage-mode fixture that reaches an admitted proposal now
-# needs an Analysis section 3 for `segments` to copy from — appended to every
+# needs an Extraction section 3 for `segments` to copy from — appended to every
 # such fixture's passage text, never to one whose proposal is refused for an
 # earlier reason (the segments check runs only once a proposal is admitted).
 # kogaki#1367: every entry carries both clauses — the content clause for the
@@ -1146,7 +1146,7 @@ def self_test():
     check("#1175 passage: --select refuses an unrecognized token",
           select_rejects_an_unknown_token)
 
-    # ---- kogaki#1216: the question before the passage, read off the Analysis
+    # ---- kogaki#1216: the question before the passage, read off the Extraction
     NONE_ROW = ("## 2. Reader before and after\n\n"
                 "| dimension   | before                         | after |\n"
                 "|-------------|--------------------------------|-------|\n"
@@ -1171,7 +1171,7 @@ def self_test():
             "knowledge: has noticed a crowded shelf. question: holds: none. "
             "expectation: anticipates a survey."), mapping["before"]
         assert "unanswered question" not in mapping["before"]
-    check("#1216 passage: an Analysis whose question-before reads none writes "
+    check("#1216 passage: an Extraction whose question-before reads none writes "
           "`holds: none` into `before`, never a composed question",
           a_none_row_writes_holds_none_and_never_a_composed_question)
 
@@ -1180,24 +1180,24 @@ def self_test():
         original = dict(mapping)
         assert write_none_question(mapping, HELD_ROW) == []
         assert mapping == original
-    check("#1216 passage: an Analysis whose question-before holds a question "
+    check("#1216 passage: an Extraction whose question-before holds a question "
           "leaves the proposal untouched", a_held_row_leaves_the_proposal_untouched)
 
-    def a_passage_with_no_analysis_row_leaves_the_proposal_untouched():
+    def a_passage_with_no_extraction_row_leaves_the_proposal_untouched():
         mapping = _proposal_mapping()
         original = dict(mapping)
-        assert analysis_question_before("just a passage, no table") is None
+        assert extraction_question_before("just a passage, no table") is None
         assert write_none_question(mapping, "just a passage, no table") == []
         assert mapping == original
         # And the screen names the rewrite only where one happened.
         prop = Proposal(1, mapping=_proposal_mapping())
         assert "holds: none" not in render_passage_screen(prop, [])
         assert "never a composed question" in render_passage_screen(prop, [], ["before"])
-    check("#1216 passage: a Passage carrying no Analysis row is left untouched, "
+    check("#1216 passage: a Passage carrying no Extraction row is left untouched, "
           "and the screen names a rewrite only where one happened",
-          a_passage_with_no_analysis_row_leaves_the_proposal_untouched)
+          a_passage_with_no_extraction_row_leaves_the_proposal_untouched)
 
-    # ---- kogaki#1284: subject nouns, read off the Analysis ----------------
+    # ---- kogaki#1284: subject nouns, read off the Extraction ----------------
     SUBJECT_NOUNS_ROW = "subject nouns: institutional, civics\n"
 
     def a_technique_naming_a_listed_subject_noun_is_refused():
@@ -1212,14 +1212,14 @@ def self_test():
     check("#1284 subject nouns: a `technique` naming a listed subject noun is refused, "
           "naming the noun and the field", a_technique_naming_a_listed_subject_noun_is_refused)
 
-    def an_analysis_with_no_subject_nouns_list_refuses_nothing():
+    def an_extraction_with_no_subject_nouns_list_refuses_nothing():
         mapping = {"technique": "Compress that domain's example into a "
                                  "single institutional principle.",
                    "breaks": "not always"}
         assert check_subject_nouns(mapping, "just a passage, no header", 1) is None
         assert check_subject_nouns(mapping, "subject nouns: none\n", 1) is None
-    check("#1284 subject nouns: an Analysis with no list (or \"none\") refuses nothing",
-          an_analysis_with_no_subject_nouns_list_refuses_nothing)
+    check("#1284 subject nouns: an Extraction with no list (or \"none\") refuses nothing",
+          an_extraction_with_no_subject_nouns_list_refuses_nothing)
 
     def a_passage_run_refuses_a_subject_noun_in_technique():
         with tempfile.TemporaryDirectory() as d:
@@ -1263,9 +1263,9 @@ def self_test():
             out = os.path.join(d, "run")
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
             assert result["proposal"].admitted, (
-                "an Analysis listing no subject nouns still refused the record: %s"
+                "an Extraction listing no subject nouns still refused the record: %s"
                 % result["proposal"].refusal)
-    check("#1284 subject nouns: an Analysis that lists none admits the same `technique`",
+    check("#1284 subject nouns: an Extraction that lists none admits the same `technique`",
           a_passage_run_admits_a_technique_with_no_subject_noun_listed)
 
     # ---- kogaki#1319: unchanged by default, and the section 8 split note --
@@ -1277,7 +1277,7 @@ def self_test():
             "| knowledge   | unchanged | unchanged |         |\n"
             "| question    | none      | settled   |         |\n"
         )
-        refusal = check_analysis_dimensions(text, 1)
+        refusal = check_extraction_dimensions(text, 1)
         assert refusal is not None, "a changed row with no Segment named was not refused"
         assert refusal.condition == "dimension-segment", refusal
         assert "question" in str(refusal), str(refusal)
@@ -1287,7 +1287,7 @@ def self_test():
 
     def an_undismissed_split_note_is_refused_naming_it():
         text = "## 8. Notes\n\nsplit: the Passage may hold two units\n"
-        refusal = check_analysis_split_note(text, 1)
+        refusal = check_extraction_split_note(text, 1)
         assert refusal is not None, "an undismissed split note was not refused"
         assert refusal.condition == "split-note", refusal
         assert "two units" in str(refusal), str(refusal)
@@ -1298,7 +1298,7 @@ def self_test():
     def a_split_note_dismissed_by_quotation_refuses_nothing():
         text = ("## 8. Notes\n\nsplit: the Passage may hold two units\n"
                 "dismissed: the Passage may hold two units\n")
-        assert check_analysis_split_note(text, 1) is None, (
+        assert check_extraction_split_note(text, 1) is None, (
             "a split note dismissed by repeating it verbatim was still refused")
     check("#1319 section 8: a split note dismissed by quoting it verbatim refuses nothing",
           a_split_note_dismissed_by_quotation_refuses_nothing)
@@ -1325,7 +1325,7 @@ def self_test():
             out = os.path.join(d, "run")
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
             assert os.path.isfile(result["screen"]), (
-                "an Analysis with `dimensions changed: 0` did not reach the model")
+                "an Extraction with `dimensions changed: 0` did not reach the model")
             assert result["proposal"].admitted, result["proposal"].refusal
     check("#1319 `dimensions changed: 0` is accepted, and ingestion runs to the model",
           a_passage_with_every_dimension_unchanged_reaches_the_model)

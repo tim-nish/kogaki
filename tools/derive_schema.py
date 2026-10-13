@@ -8,7 +8,7 @@ authorship act that is ORCHESTRATION rather than composition (kogaki#1173,
 Admission comment 6): counting the Corpus and refusing below the minimum it
 declares; stripping every `## Passage` section and every Figure spec's
 printed `positions:` content before anything reaches the model, since the
-derivation reads Analyses and never Passages (`passages/FORMAT.md`, the
+derivation reads Extractions and never Passages (`passages/FORMAT.md`, the
 source-text boundary); spawning the model once with a pinned model id;
 writing the two files `DERIVATION.md` describes; checking the owner-facing
 one against the bounds it states; and posting it on the Issue that asked for
@@ -16,7 +16,7 @@ the run, in one call, or refusing and naming the bound that failed.
 
 It owns NOTHING `DERIVATION.md` makes the model's: no schema proposal, no
 Property values, no sequence reading, no judgment about what the Corpus
-supports. Nothing here reads an Analysis's content beyond what stripping and
+supports. Nothing here reads an Extraction's content beyond what stripping and
 validation need — the FACT that a line was a Passage line, never its
 meaning.
 """
@@ -84,9 +84,9 @@ def list_corpus(corpus_dir):
 def refuse_below_minimum(paths):
     if len(paths) < MIN_CORPUS:
         raise Refusal(
-            "the Corpus holds %d Analysis file(s), below the minimum of %d "
+            "the Corpus holds %d Extraction file(s), below the minimum of %d "
             "`passages/DERIVATION.md` declares. Each proposed field needs two "
-            "Analyses that fill it differently and the sequence reading needs "
+            "Extractions that fill it differently and the sequence reading needs "
             "names that recur — neither is meaningful below the minimum."
             % (len(paths), MIN_CORPUS))
 
@@ -106,7 +106,7 @@ def redact_position(line):
     return "%s%s: (label removed)" % (m.group(1), m.group(2))
 
 
-def strip_analysis(text):
+def strip_extraction(text):
     """Remove the Passage's prose and every Figure spec's printed labels,
     and return the stripped text together with every line removed or
     redacted, so a later check can assert none of them reached the model's
@@ -121,8 +121,8 @@ def strip_analysis(text):
     spec's `content`, in FIGURE.md's own vocabulary — is redacted. A
     `## Figure` block outside the Passage section is redacted the same way.
 
-    An Analysis with no `## Passage` heading is returned with its prose
-    unchanged: an Analysis that left the Corpus keeps no Passage
+    An Extraction with no `## Passage` heading is returned with its prose
+    unchanged: an Extraction that left the Corpus keeps no Passage
     (`FORMAT.md`'s source-text boundary)."""
     out = []
     stripped = []
@@ -166,13 +166,13 @@ def strip_analysis(text):
         out.append(line)
     if in_passage:
         raise Refusal(
-            "an Analysis opens a `## Passage` section and never reaches `%s`, "
+            "an Extraction opens a `## Passage` section and never reaches `%s`, "
             "so where its source text ends cannot be told — `FORMAT.md` "
             "requires that heading after the Passage" % ANSWERS_HEADING)
     return "\n".join(out), stripped
 
 
-# `passages/FORMAT.md` lets an Analysis keep short quotations of its source,
+# `passages/FORMAT.md` lets an Extraction keep short quotations of its source,
 # "a few words each with a gloss", in the evidence line and section 3. They
 # are Passage text all the same, and the derivation reads the account, never
 # the source (kogaki#1173: "No Passage text leaves the Corpus"). So a quoted
@@ -224,7 +224,7 @@ def check_no_fragment_leak(text, fragments):
 def load_and_strip(paths):
     """Returns `(slug, stripped_text)` pairs and the flat list of every
     stripped line, across the whole Corpus."""
-    analyses = []
+    extractions = []
     all_stripped = []
     all_fragments = []
     for path in paths:
@@ -232,24 +232,24 @@ def load_and_strip(paths):
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
         try:
-            text, stripped = strip_analysis(text)
+            text, stripped = strip_extraction(text)
         except Refusal as refusal:
             raise Refusal("%s: %s" % (os.path.basename(path), refusal))
         text, fragments = strip_quotations(text)
-        analyses.append((slug, text))
+        extractions.append((slug, text))
         all_stripped.extend(stripped)
         all_fragments.extend(fragments)
-    return analyses, all_stripped, all_fragments
+    return extractions, all_stripped, all_fragments
 
 
 # --------------------------------------------------------------------------
 # Assembling the prompt.
 # --------------------------------------------------------------------------
 
-def assemble_prompt(derivation_text, analyses):
+def assemble_prompt(derivation_text, extractions):
     parts = [derivation_text, "", "---", "",
-             "## The Corpus (%d Analyses, cited by slug)" % len(analyses), ""]
-    for slug, text in analyses:
+             "## The Corpus (%d Extractions, cited by slug)" % len(extractions), ""]
+    for slug, text in extractions:
         parts.append("### %s" % slug)
         parts.append("")
         parts.append(text)
@@ -409,9 +409,9 @@ def run(corpus_dir, derivation_path, command, model, out_dir, timeout_s,
 
     paths = list_corpus(corpus_dir)
     refuse_below_minimum(paths)
-    analyses, stripped_lines, fragments = load_and_strip(paths)
+    extractions, stripped_lines, fragments = load_and_strip(paths)
 
-    prompt = assemble_prompt(derivation_text, analyses)
+    prompt = assemble_prompt(derivation_text, extractions)
     check_no_leak(prompt, stripped_lines)
     check_no_fragment_leak(prompt, fragments)
 
@@ -458,7 +458,7 @@ def main(argv=None):
         "Composing the proposal is the model's; everything around it is "
         "this command's (kogaki#1173).")
     parser.add_argument("corpus_dir", nargs="?",
-                         help="the private Corpus directory of Analyses")
+                         help="the private Corpus directory of Extractions")
     parser.add_argument("--model", help="the pinned model id")
     parser.add_argument("--out", help="the run directory to write into")
     parser.add_argument("--command", default="claude",
@@ -487,7 +487,7 @@ def main(argv=None):
         sys.stderr.write("refused: %s\n" % refusal)
         return 1
 
-    print("derived a schema proposal from %d Analyses -> %s, %s"
+    print("derived a schema proposal from %d Extractions -> %s, %s"
           % (result["corpus_size"], result["working"], result["questions"]))
     return 0
 

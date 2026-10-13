@@ -1,13 +1,13 @@
-# Passage analysis: the interaction contract
+# Extraction: the interaction contract
 
-This file is the whole protocol for turning one Passage into one Analysis.
+This file is the whole protocol for turning one Passage into one Extraction.
 Hand it to a model together with one Passage. The model answers the
 first analytical question itself and asks the human the other three,
 offering candidate answers it wrote itself; the human picks one per
-question or writes their own; the model then writes the Analysis file. It runs unchanged in a Claude Code session and in a chat
+question or writes their own; the model then writes the Extraction file. It runs unchanged in a Claude Code session and in a chat
 session. Nothing else is needed or permitted as context.
 
-It ends at the Analysis. Turning an Analysis into a Move is a separate
+It ends at the Extraction. Turning an Extraction into a Move is a separate
 contract that will be written once the Move schema has been derived from
 the Corpus; this file does not extract Moves.
 
@@ -15,11 +15,11 @@ the Corpus; this file does not extract Moves.
 
 - **Passage** — one contiguous piece of prose the owner selected by hand
   because it forms one meaningful unit. The owner decides the boundaries.
-  That selection is the whole of the human's input before analysis.
+  That selection is the whole of the human's input before extraction.
 - **Question** — one of the four analytical questions below, each taken
   from an established framework. Q1 the model answers itself; for Q2, Q3
   and Q4 it writes three candidates and the human chooses. (Q1 left the
-  human's screen on 2026-09-23: in the first round of 21 Analyses the human
+  human's screen on 2026-09-23: in the first round of 21 Extractions the human
   chose the model's first candidate 20 times and saw no need for the
   question.)
 - **Segment** — one entry of section 3: a sentence or group of sentences
@@ -38,17 +38,17 @@ the Corpus; this file does not extract Moves.
   what Q4 records. A Passage may run from an opening to a closing; the
   Segments carry that, and the human never cuts a paragraph out to make it
   visible.
-- **Analysis** — the artifact this contract produces from one Passage: the
+- **Extraction** — the artifact this contract produces from one Passage: the
   Passage verbatim, the four questions (Q1 the model's own, Q2 to Q4 with their candidates) and the
   human's answers, and the filled sections below. One file per Passage.
 - **Paragraph** — a unit one level above a Passage: one or more Passages,
   in source order, that the human judges act as a single unit at the
-  paragraph grain. A Paragraph is never analyzed from the source text
-  directly; it names Passages whose own Analyses already exist, and draws
-  no Segment of its own (see "The paragraph unit"). Most Analyses are
+  paragraph grain. A Paragraph is never extracted from the source text
+  directly; it names Passages whose own Extractions already exist, and draws
+  no Segment of its own (see "The paragraph unit"). Most Extractions are
   Passage-unit and never mention a Paragraph; the `unit`, `contains` and
   `status` header lines exist only to carry this one case.
-- **Corpus** — the collection of Analyses. It is the input to a later act
+- **Corpus** — the collection of Extractions. It is the input to a later act
   that derives a Move schema; that act has its own format and is not this
   one.
 
@@ -65,20 +65,20 @@ when the Corpus is started. The slug is the candidate name from section 7,
 a snake_case verb phrase. The owner may rename it. The Corpus is temporary
 design evidence: it exists to derive one Move schema, is never kept in
 kogaki, which is public, and is deleted once the schema is settled, because
-each Analysis carries its Passage verbatim; see "The source text boundary".
+each Extraction carries its Passage verbatim; see "The source text boundary".
 
 ## The source text boundary
 
 Three artifacts touch the source text, and each keeps a different amount.
 
-- **The Analysis keeps the Passage verbatim, in the private, temporary
+- **The Extraction keeps the Passage verbatim, in the private, temporary
   Corpus only.**
-  Its use is audit and re-analysis: a reader checking an Analysis, or a
+  Its use is audit and re-extraction: a reader checking an Extraction, or a
   re-run after this contract changes, needs the text. The derivation act
-  reads the Analyses, never the Passages, so the verbatim text has no
+  reads the Extractions, never the Passages, so the verbatim text has no
   downstream reader and never travels. A Passage longer than one section
-  of its work is not one unit; split it before analysis.
-- **An Analysis that leaves the private Corpus keeps no Passage.** If one
+  of its work is not one unit; split it before extraction.
+- **An Extraction that leaves the private Corpus keeps no Passage.** If one
   is published, moved to a public repository, or quoted in an Issue, its
   Passage section is replaced by one line naming the source and where the
   Passage sits, and everything else stays. The short quotations in the
@@ -87,7 +87,7 @@ Three artifacts touch the source text, and each keeps a different amount.
   subordinate to it.
 - **A Move carries no quotation.** kogaki's extraction contract already
   rules (kogaki#751, 2026-09-02) that a Move's evidence is the extractor's
-  own account of the reader movement and never verbatim text; the Analysis
+  own account of the reader movement and never verbatim text; the Extraction
   sections 1, 3 and 6 are written to be that account. Nothing in the
   Passage section is ever copied into a Move.
 
@@ -95,10 +95,10 @@ Three artifacts touch the source text, and each keeps a different amount.
 
 ## The paragraph unit
 
-A Passage is analysed once as a whole, and each of its paragraphs may be
-analysed again on its own. Two levels, no more: a Passage-level Analysis
-and the paragraph Analyses it contains. Everything in "The Analysis" below
-applies to a paragraph Analysis, except the six rules here (mechanism m2,
+A Passage is extracted once as a whole, and each of its paragraphs may be
+extracted again on its own. Two levels, no more: a Passage-level Extraction
+and the paragraph Extractions it contains. Everything in "The Extraction" below
+applies to a paragraph Extraction, except the six rules here (mechanism m2,
 kogaki#1348), carried verbatim:
 
 1. **The unit is one paragraph.** The `## Passage` section holds one
@@ -106,7 +106,7 @@ kogaki#1348), carried verbatim:
    announced by the paragraph belongs to it. The header's `length:` counts
    this paragraph only. Add a header line `unit: paragraph <N> of <M> in
    <passage slug>`.
-2. **The reader enters with the earlier text.** Before analysing paragraph
+2. **The reader enters with the earlier text.** Before extracting paragraph
    N, read paragraphs 1 to N-1 of the same Passage in full, and the end of
    the Passage that precedes it in the work when one is given. The reader
    state you write is the state of a reader who has just read all of that.
@@ -138,19 +138,19 @@ kogaki#1348), carried verbatim:
 
 Three header lines carry the two levels:
 
-- `unit: paragraph <N> of <M> in <passage slug>` — on a paragraph Analysis
-  only (rule 1). A Passage-level Analysis carries no `unit:` line.
-- `contains: <slug>, <slug>, ...` — on a Passage-level Analysis only,
-  listing the section 7 names of its paragraph Analyses in the order the
-  paragraphs run in the Passage. A `contains:` line on a paragraph Analysis
+- `unit: paragraph <N> of <M> in <passage slug>` — on a paragraph Extraction
+  only (rule 1). A Passage-level Extraction carries no `unit:` line.
+- `contains: <slug>, <slug>, ...` — on a Passage-level Extraction only,
+  listing the section 7 names of its paragraph Extractions in the order the
+  paragraphs run in the Passage. A `contains:` line on a paragraph Extraction
   would make a third level, and ingestion refuses it naming the line.
 - `status: unreviewed model draft (m2)` — the first line of a paragraph
-  Analysis no human has read yet. The owner removes it on review; nothing
+  Extraction no human has read yet. The owner removes it on review; nothing
   writes it back.
 
-A paragraph Analysis is ingested with `tools/move_ingest.py passage
---from-analysis <pNN.md> [...]`, which reads the
-record off the Analysis rather than asking a model for it: `id` from
+A paragraph Extraction is ingested with `tools/move_ingest.py passage
+--from-extraction <pNN.md> [...]`, which reads the
+record off the Extraction rather than asking a model for it: `id` from
 section 7, `before` and `after` from the rows of section 2 whose `after` is
 not `unchanged`, and `segments` from section 3. The record lands in
 `moves/`, the one library, like any other Move.
@@ -174,7 +174,7 @@ a reason to improvise a fifth question.
 - **Q2. Question** — *Which question does this stretch answer, and which
   question does it raise?* Question-under-discussion analysis in discourse
   semantics (Roberts 1996); Minto's Situation, Complication, Question,
-  Answer is the same analysis as professional practice. A candidate names
+  Answer is the same extraction as professional practice. A candidate names
   the question the reader holds on leaving, where it was raised, and
   where, if anywhere, it was answered.
 - **Q3. Disposition** — *What has the Passage done to make the reader
@@ -221,7 +221,7 @@ beside this file, and treat the figure as part of the Passage from then
 on: it is one entry in the order section, and it counts as a foothold
 where Q4 asks what the reader already has. If the Passage refers to a
 figure that was not given, record "figure referred to, not given" in the
-notes and analyze the prose alone.
+notes and extract from the prose alone.
 
 Take nothing from the human but the Passage and, where there is one, the
 figure's image: do not ask for its title, its author, where it sits in the
@@ -271,9 +271,9 @@ first proposal where the human redrew it.
   and the human replies on one line, for example `2: 1, 3: my own
   text here, 4: none`.
 
-### Step 3 — the model writes the Analysis
+### Step 3 — the model writes the Extraction
 
-Fill every section under "The Analysis" and write the file. The human's
+Fill every section under "The Extraction" and write the file. The human's
 answers are the ground truth about what matters: sections 1, 5 and 6 are
 built on them, above all on the answers to Q1 and to whichever question
 the human answered in their own words. Candidates the human did not choose
@@ -283,7 +283,7 @@ what a Move schema must carry. The position of the chosen candidate is
 not a signal: in the first round 53 of 84 choices were the first
 candidate, which measured the candidate format, not the text.
 
-Rules for the analyst throughout:
+Rules for the writer of an Extraction throughout:
 
 1. Write about the reader's state, not the text's content. "The reader now
    holds the question X" is an answer; "the passage discusses X" is not.
@@ -344,12 +344,12 @@ Reply on one line, e.g. "2: 1, 3: my own text, 4: none, segments: accepted".
 
 ---
 
-## The Analysis
+## The Extraction
 
 Fill every section. Keep the headings exactly as written.
 
 ```
-# Passage analysis: <slug>
+# Extraction: <slug>
 
 source: <the work, if the Passage or the human's message names it;
         otherwise "not given">
@@ -364,12 +364,12 @@ prior text: <assumed | not assumed — whether the Passage relies on text
 length: <N sentences, M paragraphs, counted>
 language: <the language of the text as given, and "reads as translated"
         with one sign if so>
-unit: <paragraph analyses only — "paragraph <N> of <M> in <passage
+unit: <paragraph extractions only — "paragraph <N> of <M> in <passage
         slug>", see "The paragraph unit"; omitted on a Passage-level
-        Analysis>
-contains: <Passage-level analyses only — the section 7 names of its
-        paragraph Analyses, comma separated, in the order the paragraphs
-        run; omitted until they exist, and never on a paragraph Analysis>
+        Extraction>
+contains: <Passage-level extractions only — the section 7 names of its
+        paragraph Extractions, comma separated, in the order the paragraphs
+        run; omitted until they exist, and never on a paragraph Extraction>
 
 ## Passage
 
@@ -472,9 +472,9 @@ the topic.>
 
 <Anything the contract did not ask for: a question none of whose
 candidates fit and what the human wrote instead, a resemblance to another
-Analysis in the Corpus by slug, or nothing. A note that names a second
+Extraction in the Corpus by slug, or nothing. A note that names a second
 unit inside the Passage is written `split: <the note>`. Ingestion refuses
-on a `split:` line until the Passage is split into two Analyses, or the
+on a `split:` line until the Passage is split into two Extractions, or the
 human dismisses it by repeating the note verbatim on the next line as
 `dismissed: <the same text>`.>
 ```
@@ -549,7 +549,7 @@ segments: accepted`
 ### Step 3, the file
 
 ```
-# Passage analysis: enter_a_hard_subject_through_the_readers_own_world
+# Extraction: enter_a_hard_subject_through_the_readers_own_world
 
 source: not given
 functions: advances, advances, advances, raises, advances, raises,

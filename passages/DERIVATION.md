@@ -1,10 +1,10 @@
 # Move schema derivation: the interaction contract
 
-This file is the whole protocol for turning a Corpus of Analyses into a
+This file is the whole protocol for turning a Corpus of Extractions into a
 Move-schema proposal. Hand it to a model together with the whole Corpus —
-every Analysis produced by `FORMAT.md`, with its `## Passage` section
-already removed. It runs once, over the whole Corpus, never per Analysis:
-`FORMAT.md` analyzes one Passage, this file reads all of them and proposes
+every Extraction produced by `FORMAT.md`, with its `## Passage` section
+already removed. It runs once, over the whole Corpus, never per Extraction:
+`FORMAT.md` extracts one Passage, this file reads all of them and proposes
 the fields a Move record must carry. Nothing else is needed or permitted as
 context.
 
@@ -26,34 +26,34 @@ settles it, or replaces it with a narrower one taken up in its stead.
 The Move schema in `moves/` today has eight fields, decided without a
 corpus behind them: all 22 records begin their `requires` with "the reader
 understands X", so a change in the reader's question, expectation,
-orientation or trust has no place in it. This format starts from analyzed
+orientation or trust has no place in it. This format starts from extracted
 prose instead and proposes a schema the Corpus actually supports.
 
-## Minimum corpus size: 10 Analyses
+## Minimum corpus size: 10 Extractions
 
 Below ten, refuse and say so, naming the count found. Each proposed field
-needs two Analyses in the Corpus that fill it differently, and the
+needs two Extractions in the Corpus that fill it differently, and the
 sequence reading (below) needs names that recur — neither is meaningful
 below ten.
 
 ## Input
 
-Every file handed to you is one Analysis written under `FORMAT.md`, with
+Every file handed to you is one Extraction written under `FORMAT.md`, with
 the prose of its `## Passage` section removed before it reached you: this
-format reads Analyses and never Passages (the source-text boundary,
+format reads Extractions and never Passages (the source-text boundary,
 `FORMAT.md`). Where a Passage carried a figure, its `## Figure` spec
 (`FIGURE.md`) is kept — `kind`, the role names under `positions:`,
 `relations` and `encoding` — and only each position's printed label is
 replaced by `(label removed)`, because the label is the figure's content
 and the rest is its structure. The short quotations `FORMAT.md` lets an
-Analysis keep are removed too: each reads `(quote removed)` followed by its
+Extraction keep are removed too: each reads `(quote removed)` followed by its
 English gloss, and any other source-language wording reads `(source wording
-removed)`. Work from the glosses and the Analysis's own account. If any Analysis in front of you nonetheless
+removed)`. Work from the glosses and the Extraction's own account. If any Extraction in front of you nonetheless
 contains what reads like source prose rather than an account of a reader's
 state, do not use it as evidence for any field and say so in the working
 file under "anomalies".
 
-Each Analysis carries: a header (`source`, `functions`, `prior text`,
+Each Extraction carries: a header (`source`, `functions`, `prior text`,
 `length`, `language`); the four questions with their candidates and the
 human's chosen answer (Q1 model-written; Q2, Q3, Q4 with a candidate
 number or the human's own words); and the eight numbered sections —
@@ -77,22 +77,22 @@ The three that remain:
 2. **The source of the material the Move draws on** — read off Q4's
    footholds across the Corpus: the subject, the reader's own world, other
    texts, the author. Propose the values the Corpus shows, the same way.
-3. **The length the Move typically occupies** — read off each Analysis's
+3. **The length the Move typically occupies** — read off each Extraction's
    `length` line (sentences and paragraphs). This is a fact **carried**
    from the Corpus, not an axis derived from it: report the range and the
    typical size, and do not propose categories for it unless the Corpus
    itself clusters into visibly distinct bands.
 
 For axes 1 and 2, name explicitly any value the Corpus does not yet
-support — a value you would expect from the framework but that no Analysis
+support — a value you would expect from the framework but that no Extraction
 in front of you fills.
 
 ## Sequence
 
-Read the `functions` line of every Analysis (the Segment function
+Read the `functions` line of every Extraction (the Segment function
 sequence: raises / advances / settles, in order) together with each
-Analysis's candidate name (section 7). Report which candidate names recur
-across different Analyses **with the same function sequence**, and which
+Extraction's candidate name (section 7). Report which candidate names recur
+across different Extractions **with the same function sequence**, and which
 occur only once or with a different sequence each time. A name recurring
 with the same sequence is evidence the Corpus supports it as one Move; a
 name occurring only once, or with a different sequence each time it
@@ -114,7 +114,7 @@ exists.
 The owner has already ruled on the ten schema questions below (kogaki#1173,
 2026-09-23). Do not re-ask them. Test each against the Corpus: for each,
 state in `working.md` whether the Corpus confirms it, citing at least two
-Analyses by slug, or where it contradicts it and which Analyses show that.
+Extractions by slug, or where it contradicts it and which Extractions show that.
 A contradiction is a **disagreement**: report it in `working.md` under
 "disagreements" and name it on the first line of `questions.md` (below).
 
@@ -141,12 +141,12 @@ A contradiction is a **disagreement**: report it in `working.md` under
 7. **`technique`** (section 6, subject-free) replaces `intent`; `evidence`
    is an optional source line (work and where the Passage sits), never a
    quotation. `excerpt` is removed.
-8. **One Move per Analysis**, with the function sequence inside it.
+8. **One Move per Extraction**, with the function sequence inside it.
 9. **`status`** is retired; provenance, where wanted, is the `evidence`
    line.
 10. **`figure`** replaces `visual_form`: an optional block carrying a Figure
     spec's `kind`, `positions` (roles) and `relations`, never its content.
-    State how many Analyses in the Corpus carry a figure.
+    State how many Extractions in the Corpus carry a figure.
 
 ## The schema proposal
 
@@ -158,8 +158,8 @@ field, give:
 - **name** — the field's key.
 - **what reader-facing fact it holds** — one sentence, about the reader,
   not the text.
-- **which Analysis sections it is derived from** — by section number(s).
-- **two Analyses that fill it differently** — by slug, with the value
+- **which Extraction sections it is derived from** — by section number(s).
+- **two Extractions that fill it differently** — by slug, with the value
   each would carry, so the field's range is shown rather than asserted.
 
 ## Output: two files
@@ -177,7 +177,7 @@ Then a numbered list of **at most ten** questions, covering only what the
 Corpus leaves open: a Property value the Corpus does not settle, a field
 proposed beyond the ruled answers, and one question per disagreement. Each
 question is at most **twelve lines**, in plain words, with **two or three
-options**, **exactly one** of them marked `(Recommended)`. Cite Analyses by
+options**, **exactly one** of them marked `(Recommended)`. Cite Extractions by
 slug only; no Passage text and no printed figure label appears in this
 file. Longer material a question needs to point at goes in `working.md` and
 the question names where to look.
@@ -192,7 +192,7 @@ Disagreements with the ruled answers: none
 
 1. Which reader change should a Move be filed under?
 
-   Most Analyses name knowledge or question as the strongest change;
+   Most Extractions name knowledge or question as the strongest change;
    trust is strongest only in `frame_the_present_as_a_long_contest_then_authorize_the_lens`.
    See working.md, "Property 1".
 

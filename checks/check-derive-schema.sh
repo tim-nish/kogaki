@@ -59,8 +59,8 @@ if [[ ! -f passages/DERIVATION.md ]]; then
   echo "FAIL: passages/DERIVATION.md does not exist"
   exit 1
 fi
-if ! grep -q "10 Analyses" passages/DERIVATION.md; then
-  echo "FAIL: passages/DERIVATION.md does not state the minimum Corpus size of 10 Analyses tools/derive_schema.py enforces"
+if ! grep -q "10 Extractions" passages/DERIVATION.md; then
+  echo "FAIL: passages/DERIVATION.md does not state the minimum Corpus size of 10 Extractions tools/derive_schema.py enforces"
   exit 1
 fi
 if ! grep -q "at most ten" passages/DERIVATION.md; then

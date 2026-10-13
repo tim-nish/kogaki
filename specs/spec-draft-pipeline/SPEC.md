@@ -110,7 +110,7 @@ in the Move library's reader-state schema. The Persona is one owner-authored
 file, `readers/dev-to-zenn.md`, with two fields (`reader`, `prior_knowledge`),
 named by the workflow table and read at the `differentiation` state, which
 now authors Reader start once per Brief and lists the first-Leg survivors;
-the Brief records the survivor count. Where an Analysis records the question
+the Brief records the survivor count. Where an Extraction records the question
 before the passage as none, ingestion writes `holds: none` (§6.9). Carriers:
 `readers/dev-to-zenn.md`, `src/differentiation-schema.json`,
 `src/leg-schema.json`, `src/candidate-schema.json`,
@@ -556,7 +556,7 @@ gets relaxed.
 decided without a corpus behind it (kogaki#1173): every one of the 22 Moves it
 produced began `requires` with "the reader understands X", so a change in the
 reader's question, expectation, orientation or trust had no place in it. This
-one is derived by running `passages/DERIVATION.md` over a Corpus of analyzed
+one is derived by running `passages/DERIVATION.md` over a Corpus of Extractions of
 Passages and ruled on by the owner as a document (kogaki#1173) before anything
 was written. The schema authority remains
 `specs/move-extraction-contract.md`.
@@ -584,16 +584,16 @@ the composer the *order of the points*, the paragraph Move's Segments give the
 writer the *shape of one paragraph*, and neither level reaches the writer
 otherwise. **`segments` holds the generalized clauses only** (kogaki#1367):
 each Segment's content clause is written about the original paragraph and
-stays in the Analysis for the owner's reading and the derivation tooling, but
+stays in the Extraction for the owner's reading and the derivation tooling, but
 `tools/move_ingest.py` copies the generalized clause — subject-free the way
 `technique` is written — into the Move record, never the content clause,
 since a Move reaches any article it is bound into and a content-bearing
 Segment clause would carry its source paragraph into every one of them. A
-paragraph Move is read off a written paragraph Analysis
+paragraph Move is read off a written paragraph Extraction
 (`passages/FORMAT.md` "The paragraph unit") by `tools/move_ingest.py
-passage --from-analysis`, with no model call, and lands in `moves/` like any
+passage --from-extraction`, with no model call, and lands in `moves/` like any
 other accepted Move (§6.9). **Populating the library with paragraph-derived
-Moves is the owner's act**, one Analysis at a time; a Brief run binds from
+Moves is the owner's act**, one Extraction at a time; a Brief run binds from
 whatever `moves/` holds, and a waypoint no Move in it fits refuses
 `no_paragraph_move_fits` with no fallback (§4.1) — there is no start-time
 refusal on an empty directory.
@@ -615,7 +615,7 @@ condition 3.
 | `continues_from` | optional | a prior Move's `id`, when this one picks up from it |
 | `evidence` | optional | the source work and where the Passage sits — no quotation |
 | `figure` | optional | a Figure spec's `kind`, `positions` and `relations`, never its content |
-| `segments` | added by the tool | the Analysis's ordered Segments, copied in by `tools/move_ingest.py`, never authored by the model |
+| `segments` | added by the tool | the Extraction's ordered Segments, copied in by `tools/move_ingest.py`, never authored by the model |
 
 **`before` / `after`.** One line per reader dimension the Move changes;
 unchanged dimensions are omitted. The dimension set — knowledge, question,
@@ -654,7 +654,7 @@ Packet read it; the Leg Packet's Move block was then `technique`,
 from the record contract.
 
 **`continues_from`.** Optional. A prior Move's `id`, when this Move picks up
-directly from it. About half the Corpus's Analyses name a specific antecedent
+directly from it. About half the Corpus's Extractions name a specific antecedent
 in their own notes; the rest are true openings and carry no value.
 
 **`technique`.** What the Move does, written subject-free — replaces
@@ -690,10 +690,10 @@ relational shape, which is the admission act's judgment, never a rule here.
 
 **`segments` (kogaki#1320, owner ruling 2026-10-10).** Not one of the eight
 keys the model authors. `tools/move_ingest.py`'s `passage` mode copies the
-Analysis's `## 3. The order inside the Passage` into the admitted record's
+Extraction's `## 3. The order inside the Passage` into the admitted record's
 own `segments`, entry for entry, in the same order, so a human can check a
 Leg's waypoint order against something other than the prose of `technique`.
-A record is refused, naming `segments`, where the Analysis carries no
+A record is refused, naming `segments`, where the Extraction carries no
 section 3 to copy from, or where the model's own record already carried a
 `segments` value that disagrees with the copy.
 
@@ -718,7 +718,7 @@ a field above:
    `draws_on` field's kind set (kogaki#1280) — read off the footholds that
    recur across the Corpus. No field carries this Property any longer.
 3. **The length the Move typically occupies** is a corpus fact, carried from
-   each Analysis's `length` line, never an axis: the derivation reports the
+   each Extraction's `length` line, never an axis: the derivation reports the
    range and the typical size, and proposes no field for it unless the Corpus
    itself clusters into visibly distinct bands. None does yet, so no field
    carries it.
@@ -2278,7 +2278,7 @@ Move said "the explanation will choose among familiar motives" and the Brief
 said "expects the explanation to pick among those familiar failings". The
 owner's reading of why: a model fills the schema it is given and is poor at
 deciding a field is absent, so a question was manufactured for passages that
-had none; the exemplar Analysis in `passages/FORMAT.md` records the question
+had none; the exemplar Extraction in `passages/FORMAT.md` records the question
 before the passage as `none, or "should I read this?"`, and the Move ingested
 from it recorded an unanswered question. No Move in the library held no
 question, so the `holds: none` opening below was legal and unreachable.
@@ -2343,7 +2343,7 @@ Where Reader start's `question:` line reads `holds: none`, a Move whose
 the Move's `after` is what first hands the reader a question. **Convergence is
 made visible:** the Brief records how many Moves survived the exclusion for
 Leg 1, and a count of one names the library, not the rule, as the cause of a
-repeated opening — the fix is a Move analysed from an opening passage.
+repeated opening — the fix is a Move extracted from an opening passage.
 
 **No Opening question is rendered** (owner decision 2026-09-29, kogaki#1225).
 kogaki#1216 read it off the first Leg's after-state `question:` line and
@@ -2982,14 +2982,14 @@ floor in particular is a judgment about register that no grammar decides.
 
 ## 6.9 Move INGESTION — how a Move enters the library
 
-**Where an Analysis records the question before the passage as none, the
+**Where an Extraction records the question before the passage as none, the
 ingested Move reads `holds: none`, never a composed question** (kogaki#1216).
-The Passage-to-Move path reads the Analysis's `question` row (`passages/
+The Passage-to-Move path reads the Extraction's `question` row (`passages/
 FORMAT.md` §"Reader before and after"): where its BEFORE cell reads `none`,
 alone or with a hedge, `tools/move_ingest.py` writes `holds: none` into the
 `question:` line of the proposal's `before` (the Move's own `question` field,
 which it also rewrote, retired at kogaki#1324) before the selection screen renders, and the screen names the rewrite. The
-Analysis is the owner-answered record; a model fills the schema it is given
+Extraction is the owner-answered record; a model fills the schema it is given
 and manufactured a question where the record held none, which is how the
 library came to hold no Move able to open a reader who arrives indifferent.
 
@@ -3013,16 +3013,16 @@ and the command regenerates `moves/INDEX.md`.
 split or rename, so the reviewed proposal is not the authored file — nothing
 self-admits.
 
-**The paragraph path: `--from-analysis` (kogaki#1358, kogaki#1359; design on
+**The paragraph path: `--from-extraction` (kogaki#1358, kogaki#1359; design on
 kogaki#1329, kogaki#1366).** A paragraph Move enters the library by a second
 route that calls no model. `tools/move_ingest.py passage
---from-analysis <pNN.md>... --out <dir>` takes one or more written
-paragraph Analyses (`passages/FORMAT.md` "The paragraph unit", `unit:
-paragraph <N> of <M> in <slug>`) and READS each record off its Analysis: the
+--from-extraction <pNN.md>... --out <dir>` takes one or more written
+paragraph Extractions (`passages/FORMAT.md` "The paragraph unit", `unit:
+paragraph <N> of <M> in <slug>`) and READS each record off its Extraction: the
 `id` from section 7, `before`/`after` from section 2's changed rows, the
-`segments` from section 3; the model authored the Analysis and authors
+`segments` from section 3; the model authored the Extraction and authors
 nothing here. It takes no Passage file and requires `--out`. A paragraph
-Analysis carrying `contains:` is refused by name — two levels, no more. The
+Extraction carrying `contains:` is refused by name — two levels, no more. The
 proposals render on the same selection screen and admission is the same
 owner act at the same accept/decline question; nothing is written before
 `--select accept`. Accepted Moves land in `moves/` like any other accepted
@@ -3299,7 +3299,7 @@ record carries no claim about its own generality, and none is inferred from
 its presence in the library.
 
 `necessity:` a field withdrawn because the Corpus gave no ground for the
-promotion it licensed — no Analysis in the derivation run made a generality
+promotion it licensed — no Extraction in the derivation run made a generality
 claim distinct from what `before`/`after` already state.
 
 ### 7.1 Trigger
@@ -3385,8 +3385,8 @@ is the *existence* of machinery, which only prose can forbid.
 consultation and entered under the eight-field schema this section used to
 describe. **All 22 records that grew from them were retired in full on
 2026-09-23** (kogaki#1175, owner ruling): they were extracted from the same
-sections of the reference work the Corpus analyzes, so each is superseded by
-an Analysis of the same text under the rebuilt schema, and their existence was
+sections of the reference work the Corpus extracts, so each is superseded by
+an Extraction of the same text under the rebuilt schema, and their existence was
 not a reason to keep them. They carry no schema-date marker because none is
 needed for a retired record — git history is the retention. kogaki#177's
 excerpt-backfill question is moot: there is no `excerpt` field to backfill

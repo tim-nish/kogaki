@@ -2,7 +2,7 @@
 
 Paste this whole file into the conversation after the model has read the
 article. It is self-contained: no other context is needed or permitted —
-by the model. The Analysis beside the Passage is a second input (kogaki#1320),
+by the model. The Extraction beside the Passage is a second input (kogaki#1320),
 read by `tools/move_ingest.py` itself, after the model returns its record,
 and never handed to the model. See "The `segments` field" below.
 
@@ -13,12 +13,12 @@ withdrawn in full: it was decided without a corpus behind it, and its
 `requires`/`effect` pair admitted only a change in the reader's *knowledge* —
 every one of the 22 Moves it produced began `requires` with "the reader
 understands X." This schema is derived by running
-`passages/DERIVATION.md` over a Corpus of analyzed Passages and ruled on by
+`passages/DERIVATION.md` over a Corpus of Extractions of Passages and ruled on by
 the owner as a document before this contract was rewritten.
 
 `order` and `presupposes` retired (kogaki#1247, owner ruling): no composer,
-judge or Packet read either. `passages/FORMAT.md` and the Analyses are
-untouched — the Analysis still records the sequence and the presupposition —
+judge or Packet read either. `passages/FORMAT.md` and the Extractions are
+untouched — the Extraction still records the sequence and the presupposition —
 only the authored Move record stops carrying them.
 
 `draws_on` retired too (kogaki#1280, owner ruling): no composer, judge or
@@ -32,11 +32,11 @@ is carried where the composer does see it: the `question:` line of `before`
 and `after`.
 
 `segments` added (kogaki#1320, owner ruling 2026-10-10): the record carries
-the Analysis's ordered Segments, so a human can check a Leg's waypoint order
+the Extraction's ordered Segments, so a human can check a Leg's waypoint order
 against something other than the prose of `technique`. The model is never
 asked to write it — the eight keys below are still the whole of what the
 model authors — `tools/move_ingest.py`'s `passage` mode copies it from the
-Analysis's own section 3, entry for entry, after the model has returned its
+Extraction's own section 3, entry for entry, after the model has returned its
 record.
 
 `segments` generalized only (kogaki#1367, owner ruling 2026-10-13): each §3
@@ -114,7 +114,7 @@ figure:
 - **id** — a verb phrase describing the transformation, not the topic:
   `derive_mitigation_from_causal_mechanism`, not `north_korea_diplomacy`.
 - **before / after** — reader states, one line per dimension the Move
-  changes. `passages/FORMAT.md` §2 states the rule once, for the Analysis
+  changes. `passages/FORMAT.md` §2 states the rule once, for the Extraction
   this Move is drawn from: a dimension its table records as unchanged is
   omitted from the Move. Written at the **dimension level**, generalizable
   to another article — not this article's own facts. The `question:` line
@@ -164,17 +164,17 @@ empty block.
 
 Not one of the eight keys above, and never written by the model. In
 `tools/move_ingest.py`'s `passage` mode, once the model's record is admitted,
-the tool reads the Analysis beside the Passage and copies its `## 3. The
+the tool reads the Extraction beside the Passage and copies its `## 3. The
 order inside the Passage` section into the record's own `segments`, entry
 for entry, in the same order: one line per Segment, each carrying its
 function (raises, advances, settles), its relation to the previous Segment,
 and the generalized clause stating what it does to the reader — the
-quoted opening words stay in the Analysis and are not copied, since they
+quoted opening words stay in the Extraction and are not copied, since they
 locate a Segment in the Passage and `segments` does not carry the Passage,
-and the content clause stays in the Analysis too, since it is written
+and the content clause stays in the Extraction too, since it is written
 about the original and `segments` carries only the generalized clause.
 
-A record is refused, naming `segments`, where the Analysis carries no
+A record is refused, naming `segments`, where the Extraction carries no
 section 3 for the tool to copy it from, where a §3 entry carries only the
 content clause with no generalized clause, naming that Segment's number,
 or where the model's own record already carried a `segments` value that

@@ -19,7 +19,7 @@ globals().update({k: v for k, v in vars(_m).items() if not k.startswith("__")})
 # The fixture library — every case constructs the defect and asserts the refusal.
 # --------------------------------------------------------------------------
 
-ANALYSIS_TEMPLATE = """# Passage analysis: {slug}
+EXTRACTION_TEMPLATE = """# Extraction: {slug}
 
 source: not given
 functions: advances, raises, settles
@@ -52,10 +52,10 @@ Strongest change: knowledge. Second: none.
 
 def _write_corpus(dirpath, n, passage_line="THE SECRET SOURCE TEXT LINE"):
     for i in range(n):
-        slug = "analysis_%02d" % i
+        slug = "extraction_%02d" % i
         with open(os.path.join(dirpath, slug + ".md"), "w",
                    encoding="utf-8") as handle:
-            handle.write(ANALYSIS_TEMPLATE.format(
+            handle.write(EXTRACTION_TEMPLATE.format(
                 slug=slug, passage_line=passage_line))
 
 
@@ -63,14 +63,14 @@ VALID_QUESTIONS = """Disagreements with the ruled answers: none
 
 1. Should `requires` be replaced by `question`?
 
-   Every Analysis's Q2 answer names a question, never only knowledge.
+   Every Extraction's Q2 answer names a question, never only knowledge.
 
    1. Yes, add `question`, keep `requires`. (Recommended)
    2. No, keep `requires` as it is.
 
 2. Should `visual_form` become `figure`?
 
-   The Corpus supports it with one Analysis.
+   The Corpus supports it with one Extraction.
 
    1. Yes. (Recommended)
    2. No.
@@ -125,27 +125,27 @@ def self_test():
     check("a Corpus exactly at the minimum size is accepted",
           corpus_at_minimum_does_not_refuse)
 
-    def strip_analysis_removes_the_passage():
-        text = ANALYSIS_TEMPLATE.format(
+    def strip_extraction_removes_the_passage():
+        text = EXTRACTION_TEMPLATE.format(
             slug="x", passage_line="THE SECRET SOURCE TEXT LINE")
-        stripped_text, stripped_lines = strip_analysis(text)
+        stripped_text, stripped_lines = strip_extraction(text)
         assert "THE SECRET SOURCE TEXT LINE" not in stripped_text
         assert "THE SECRET SOURCE TEXT LINE" in stripped_lines
         assert "## Answers" in stripped_text
         assert "## 1. What the Passage does" in stripped_text
 
-    check("strip_analysis removes the ## Passage section and reports it",
-          strip_analysis_removes_the_passage)
+    check("strip_extraction removes the ## Passage section and reports it",
+          strip_extraction_removes_the_passage)
 
     def a_figure_inside_the_passage_keeps_structure_drops_labels():
-        text = ("# Passage analysis: x\n\nsource: not given\n\n"
+        text = ("# Extraction: x\n\nsource: not given\n\n"
                 "## Passage\n\nTHE SECRET PROSE LINE\n\n"
                 "## Figure\n\nkind: pyramid\nreferred to as: not named\n\n"
                 "positions:\n  - top level: THE PRINTED LABEL\n\n"
                 "relations:\n  - the top level is joined against the middle\n\n"
                 "encoding:\n  - ranking \u2014 vertical position: higher is higher\n\n"
                 "## Answers\n\nQ1 Purpose\n")
-        stripped_text, stripped_lines = strip_analysis(text)
+        stripped_text, stripped_lines = strip_extraction(text)
         assert "THE SECRET PROSE LINE" not in stripped_text
         assert "THE PRINTED LABEL" not in stripped_text
         assert "kind: pyramid" in stripped_text
@@ -163,9 +163,9 @@ def self_test():
         with tempfile.TemporaryDirectory() as d:
             _write_corpus(d, MIN_CORPUS, passage_line="ANOTHER SECRET LINE")
             paths = list_corpus(d)
-            analyses, stripped_lines, _ = load_and_strip(paths)
+            extractions, stripped_lines, _ = load_and_strip(paths)
             derivation_text = "DERIVATION INSTRUCTIONS\n"
-            prompt = assemble_prompt(derivation_text, analyses)
+            prompt = assemble_prompt(derivation_text, extractions)
             assert "ANOTHER SECRET LINE" not in prompt
             check_no_leak(prompt, stripped_lines)  # must not raise
 
@@ -209,7 +209,7 @@ def self_test():
     def a_heading_inside_the_passage_is_stripped():
         text = ("## Passage\n\n## A SOURCE HEADING\nprose\n\n"
                 "## Answers\n\nQ1\n")
-        stripped_text, stripped_lines = strip_analysis(text)
+        stripped_text, stripped_lines = strip_extraction(text)
         assert "A SOURCE HEADING" not in stripped_text
         assert "## A SOURCE HEADING" in stripped_lines
         assert "## Answers" in stripped_text
@@ -218,7 +218,7 @@ def self_test():
           a_heading_inside_the_passage_is_stripped)
 
     def an_unclosed_passage_refuses():
-        strip_analysis("## Passage\n\nprose\n\n## 1. What it does\n")
+        strip_extraction("## Passage\n\nprose\n\n## 1. What it does\n")
 
     refuses(an_unclosed_passage_refuses, "never reaches",
             "a Passage section with no `## Answers` after it refuses")

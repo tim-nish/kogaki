@@ -260,14 +260,14 @@ export function readerFieldValues(c) {
 // two are different types on two records, PR #1222 round 1), one sentence names how many Moves were not
 // excluded against Reader start for the first Leg. A count of one names the
 // LIBRARY, not the rule, as the cause of a repeated opening, and the fix is a
-// Move analysed from an opening passage -- said here so the reader of the
+// Move extracted from an opening passage -- said here so the reader of the
 // Brief is told where the repair goes. Null where no count rides (a run
 // predating the record), which is a statement rather than an omission.
 export function survivorSentence(c) {
   if (!Number.isInteger(c.leg1_survivor_count)) return null;
   const n = c.leg1_survivor_count;
   return `Opening: ${n} Move${n === 1 ? "" : "s"} in the library could open from this Reader start without contradicting it, `
-    + `and the first Leg binds one of them.${n === 1 ? " A count of one names the library, not the rule, as the cause of a repeated opening; the repair is a Move analysed from an opening passage." : ""}`;
+    + `and the first Leg binds one of them.${n === 1 ? " A count of one names the library, not the rule, as the cause of a repeated opening; the repair is a Move extracted from an opening passage." : ""}`;
 }
 
 // THESE TWO TABLES OUTLIVE BOTH THE RENDERING AND THE RECORD THAT USED THEM,
