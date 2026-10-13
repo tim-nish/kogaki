@@ -1236,32 +1236,96 @@ export function dischargeRows(legs, obligations = []) {
     });
 }
 
-export const MOVE_CONTRACT_FIELDS = ["before", "after", "technique", "breaks"];
+// ---- THE ADAPTER (kogaki#1349): Move field -> role, declared by the library ----
+//
+// `moves/ROLES.json` is the one carrier of which Move field feeds which
+// reader (specs/spec-draft-pipeline/SPEC.md field-roles table). This reader
+// resolves it WITH NO FALLBACK: a Move library with no declaration is a
+// library this adapter cannot read at all, never one it reads against a
+// built-in default — a fallback is exactly what would make the rename
+// fixture in Acceptance unobservable (owner decision 2026-10-12). Every role
+// still emits under its CURRENT output key, so the compose and judge inputs
+// stay byte-identical to what they were before the declaration existed.
+export function moveRoles(movesDir = "moves") {
+  const p = join(movesDir, "ROLES.json");
+  let text;
+  try { text = readFileSync(p, "utf8"); }
+  catch (e) {
+    return { error: `the Move library at ${movesDir} carries no ROLES.json (${e.message}) — a Move library is `
+      + `its records AND its field-to-role declaration, and this adapter reads the declaration with no fallback `
+      + `to any built-in mapping (kogaki#1349)` };
+  }
+  let decl;
+  try { decl = JSON.parse(text); }
+  catch (e) {
+    return { error: `${p} does not parse as JSON (${e.message})` };
+  }
+  if (!decl || typeof decl.required !== "object" || decl.required === null
+    || typeof decl.optional !== "object" || decl.optional === null) {
+    return { error: `${p} declares no \`required\` and \`optional\` role-to-field mapping (kogaki#1349)` };
+  }
+  return { roles: decl };
+}
+
+// The required roles, mapped to the compose/judge output key each has always
+// emitted under (kogaki#1349: "each role emitting under its current output
+// key so compose and judge inputs stay byte-identical").
+const REQUIRED_ROLE_OUTPUT_KEYS = [["state-before", "before"], ["state-after", "after"]];
+// The optional roles this reader has a use for. A role this library's
+// declaration leaves null is carried on the output as null, exactly as
+// `segments` already was before this adapter existed (kogaki#1320).
+const OPTIONAL_ROLE_OUTPUT_KEYS = [["specialized-by-the-Leg", "technique"], ["tests", "breaks"], ["segments", "segments"]];
+
 export function moveContract(moveId, movesDir = "moves") {
   let text;
   try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
   catch (e) {
     return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
   }
+  const rolesResult = moveRoles(movesDir);
+  if (rolesResult.error) return rolesResult;
+  const { required, optional } = rolesResult.roles;
   const out = { id: moveId };
   const missing = [];
-  for (const f of MOVE_CONTRACT_FIELDS) {
-    const v = moveScalarField(text, f);
-    if (v === null) missing.push(f);
-    else out[f] = v;
+  for (const [role, outKey] of REQUIRED_ROLE_OUTPUT_KEYS) {
+    const field = required[role];
+    if (typeof field !== "string" || field === "") {
+      return { error: `${movesDir}/ROLES.json names no field for the required role "${role}" — every schema maps `
+        + `identity, state-before and state-after (specs/spec-draft-pipeline/SPEC.md field-roles table)` };
+    }
+    const v = moveScalarField(text, field);
+    if (v === null) missing.push(field);
+    else out[outKey] = v;
   }
   if (missing.length) {
     // A STORE FAULT, NAMED AS ONE. A Move whose contract is half-written
     // cannot be judged against, and reporting it as a composition problem
     // would send the reader to the Brief rather than to the library.
     return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${movesDir}/${moveId}.md) — `
-      + `the composer chooses a Move by its ${MOVE_CONTRACT_FIELDS.join(", ")} and the specialization judgment compares each Leg against the same four (kogaki#1276), `
+      + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
       + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
   }
-  // `segments` IS OPTIONAL (kogaki#1320): the 21 Moves ingested before the
-  // field existed carry none, and the composer and the fit judge fall back
-  // to `technique` where it is absent rather than refusing.
-  out.segments = moveScalarField(text, "segments");
+  for (const [role, outKey] of OPTIONAL_ROLE_OUTPUT_KEYS) {
+    const field = optional[role];
+    if (typeof field !== "string" || field === "") {
+      out[outKey] = null; // the declaration leaves this role unmapped
+      continue;
+    }
+    const v = moveScalarField(text, field);
+    if (v === null && (role === "specialized-by-the-Leg" || role === "tests")) {
+      // Mapped AND absent from the record is a half-written contract, same
+      // as a missing required field — the declaration says this library's
+      // Moves carry the role, so a record that does not is the fault.
+      return { error: `move "${moveId}" declares no ${field} (${movesDir}/${moveId}.md) — `
+        + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
+        + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
+    }
+    // `segments` IS OPTIONAL EVEN WHEN MAPPED (kogaki#1320): the 21 Moves
+    // ingested before the field existed carry none, and the composer and the
+    // fit judge fall back to `technique` where it is absent rather than
+    // refusing.
+    out[outKey] = v;
+  }
   return out;
 }
 
