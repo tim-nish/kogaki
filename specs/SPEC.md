@@ -3689,7 +3689,7 @@ declared measurement input for that class — never the policy system's
   and `.claude/skills/review-lane/**`, both since deleted — in the cheap tier, so
   the classifier called its own instrument cheap. Measured on PR #98: two
   consecutive spawned reviewers, both `error_max_turns` at 25 turns against a
-  cap of 24, ~$2 spent, no report posted, the PR left unreviewed. Resolving the
+  cap of 24, no report posted, the PR left unreviewed. Resolving the
   reflexive class before the careful/ordinary axis is what stops a diff that
   also matches something cheaper from averaging it away.
 

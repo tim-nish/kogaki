@@ -5,7 +5,7 @@ grain: lesson
 
 ## Trigger — what happened
 
-/ship-cycle 1251 in kogaki, 2026-10-04: the admitted plan cell named eleven files, among them src/review-draft.mjs (4558 lines) and three others over 2000 lines, with a budget of 260 turns and 207600 context tokens. The implementer worker ran 49 turns over 14 minutes, spent $3.44, and was stopped by Claude Code's autocompact-thrashing breaker (the context refilled to its limit within three turns of a compaction, three times running). It left no implementation commit, only the supervisor's consult-receipt commit.
+/ship-cycle 1251 in kogaki, 2026-10-04: the admitted plan cell named eleven files, among them src/review-draft.mjs (4558 lines) and three others over 2000 lines, with a budget of 260 turns and 207600 context tokens. The implementer worker ran 49 turns over 14 minutes, and was stopped by Claude Code's autocompact-thrashing breaker (the context refilled to its limit within three turns of a compaction, three times running). It left no implementation commit, only the supervisor's consult-receipt commit.
 
 ## The learning
 

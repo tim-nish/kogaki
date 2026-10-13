@@ -5,7 +5,7 @@ grain: lesson
 
 ## Trigger — what happened
 
-kogaki#1241 was admitted with files= naming checks/check-brief-reader-path-job.sh and a body line 'consult: none'; the implementer worker committed four green commits, then the registered suite refused the head on check-boundary-receipts (Check/CI boundary matched on the path, no receipt), ending the run suite-failed after ~9 minutes and $2.69 of work.
+kogaki#1241 was admitted with files= naming checks/check-brief-reader-path-job.sh and a body line 'consult: none'; the implementer worker committed four green commits, then the registered suite refused the head on check-boundary-receipts (Check/CI boundary matched on the path, no receipt), ending the run suite-failed after ~9 minutes of work.
 
 ## The learning
 
