@@ -420,16 +420,16 @@ export function waypointsRefusal(waypoints, claimStrands, at) {
   return null;
 }
 
-// ---- the paragraph Move a waypoint binds (kogaki#1358, design on kogaki#1329) ----
+// ---- the Move a waypoint binds (kogaki#1358, design on kogaki#1329, one library kogaki#1366) ----
 //
-// The second pass, after the Waypoints exist, binds one paragraph Move per
-// waypoint and copies its Segments onto it, so the Brief stays
-// self-contained and no stage after it opens a Move file. Three refusals,
-// each naming the Leg and the waypoint:
+// The second pass, after the Waypoints exist, binds one Move per waypoint,
+// from the same library a Leg's own Move binds from, and copies its Segments
+// onto it, so the Brief stays self-contained and no stage after it opens a
+// Move file. Three refusals, each naming the Leg and the waypoint:
 //   1. a waypoint carrying `move` or `segments` in a Candidate from the
 //      compose unit (`composed`) — the compose unit never writes either,
 //      which is what keeps the library from shaping the waypoints;
-//   2. a `move` that names no record in the paragraph library;
+//   2. a `move` that names no record in the library;
 //   3. a `move` with no `segments` beside it.
 // `library` is `{ ids }` or `{ error }` as `loadMoveIds` returns it, read
 // once per `validateLegs` call and only where some waypoint carries `move`.
@@ -438,18 +438,18 @@ export function waypointMovesRefusal(waypoints, at, { composed = false, library 
     const nth = `waypoint ${i + 1}`;
     const hasMove = Object.hasOwn(w, "move");
     if (composed && (hasMove || Object.hasOwn(w, "segments"))) {
-      return `${at}: ${nth} carries \`${hasMove ? "move" : "segments"}\` from the compose unit — a paragraph `
+      return `${at}: ${nth} carries \`${hasMove ? "move" : "segments"}\` from the compose unit — a waypoint's `
         + `Move is bound by the second pass after the waypoints exist, never at composition, so the library `
         + `cannot shape the waypoints (kogaki#1329)`;
     }
     if (!hasMove) continue;
     if (typeof w.move !== "string" || w.move.trim() === "") {
-      return `${at}: ${nth} carries an empty \`move\` — a waypoint's move is a paragraph Move id (kogaki#1329)`;
+      return `${at}: ${nth} carries an empty \`move\` — a waypoint's move is a Move id (kogaki#1329)`;
     }
     if (library && library.error) return `${at}: ${nth} binds move "${w.move}", and ${library.error}`;
     if (!library || !library.ids.has(w.move)) {
-      return `${at}: ${nth} binds move "${w.move}", which names no record in the paragraph Move library — `
-        + `a waypoint binds an admitted paragraph Move, and the library grows by an admission act (kogaki#1329)`;
+      return `${at}: ${nth} binds move "${w.move}", which names no record in the library — `
+        + `a waypoint binds an admitted Move, and the library grows by an admission act (kogaki#1329)`;
     }
     if (typeof w.segments !== "string" || w.segments.trim() === "") {
       return `${at}: ${nth} binds move "${w.move}" and carries no \`segments\` — the bound Move's Segments are `
@@ -529,7 +529,7 @@ export function readerStateDimensionLine(value, dim) {
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
 // Returns { error } or { legs }. Pure over its argument; exported for the check.
 export function validateLegs(legs, readerStart, obligations = [], definedTerms = [],
-  { composed = false, paragraphMovesDir = "moves/paragraph" } = {}) {
+  { composed = false, movesDir = "moves" } = {}) {
   if (!Array.isArray(legs) || legs.length === 0) {
     return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Leg at all.") };
   }
@@ -592,7 +592,7 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
     }
   }
   const seen = new Set();
-  let paragraphLibrary = null;
+  let moveLibrary = null;
   for (const [i, s] of legs.entries()) {
     const at = `leg ${i + 1}${s && s.leg_id ? ` (${s.leg_id})` : ""}`;
     // `relations` IS A RETIRED FIELD, refused BY NAME ahead of every other
@@ -758,12 +758,12 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
     {
       const bad = waypointsRefusal(s.waypoints, s.claims.map((g) => g.strand), at);
       if (bad) return { error: bad };
-      // the paragraph Move each waypoint binds (kogaki#1358) — read the
+      // the Move each waypoint binds (kogaki#1358, kogaki#1366) — read the
       // library only once, and only where some waypoint carries a move.
-      if (paragraphLibrary === null && s.waypoints.some((w) => Object.hasOwn(w, "move"))) {
-        paragraphLibrary = loadMoveIds(paragraphMovesDir);
+      if (moveLibrary === null && s.waypoints.some((w) => Object.hasOwn(w, "move"))) {
+        moveLibrary = loadMoveIds(movesDir);
       }
-      const badMove = waypointMovesRefusal(s.waypoints, at, { composed, library: paragraphLibrary });
+      const badMove = waypointMovesRefusal(s.waypoints, at, { composed, library: moveLibrary });
       if (badMove) return { error: badMove };
     }
     // the figure decision's `figure:`/`figure_roles` (kogaki#877) — OPTIONAL, and validated
