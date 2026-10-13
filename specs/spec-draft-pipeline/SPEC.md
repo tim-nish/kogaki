@@ -485,8 +485,8 @@ those paths into.
   copy a waypoint carries is its own paragraph Move's Segments, below.
   - **`move` and `segments` — the bound paragraph Move** (kogaki#1358,
     kogaki#1359; design on kogaki#1329, owner decisions 2026-10-10 and
-    2026-10-12). Every waypoint binds one Move from the **paragraph library**
-    (`moves/paragraph/`, §4.2) by its `id`, and carries that Move's
+    2026-10-12). Every waypoint binds one Move from **the Move library**
+    (`moves/`, §4.2) by its `id`, and carries that Move's
     `segments` copied verbatim beside it. **The binding is a second pass,
     once per Leg, after the Leg's waypoints exist and the Move-fit judgment
     has passed them** (`paragraph_move_unit`, `src/brief-workflow.json`): a
@@ -498,7 +498,7 @@ those paths into.
     unit as `no_paragraph_move_fits`, naming the Leg and the waypoint, and is
     re-asked once with the sentence verbatim. `validateLegs` refuses a
     compose-unit Candidate whose waypoint already carries `move` or
-    `segments`, a bound `move` naming no record in the paragraph library, and
+    `segments`, a bound `move` naming no record in the Move library, and
     a bound `move` with no `segments`, each naming the Leg and the waypoint;
     the Brief record (`legRecord`, `src/compose.mjs`) writes both fields onto
     the waypoint, and `draft.mjs resolve` refuses a Brief whose waypoint
@@ -568,23 +568,28 @@ Situation-Complication-Question-Answer pattern, read through
 question-under-discussion analysis (Roberts 1996): a text opens a question and
 either settles it, or replaces it with a narrower one taken up in its stead.
 
-**Two levels, one schema (kogaki#1358, kogaki#1359; design on kogaki#1329,
-owner decision 2026-10-10).** The library holds Moves at two levels and no
-third: a **Leg Move** is the transformation a Leg performs over a Passage, and
-a **paragraph Move** is the transformation one paragraph of that Passage
-performs. Both are records of this section's schema, and the two live in two
-directories — `moves/` for Leg Moves and **`moves/paragraph/`** for paragraph
-Moves — each with its own `INDEX.md` and its own copy of `ROLES.json`, so the
-same adapter reads either. A paragraph Move's `segments` are what a Leg's
+**Two levels, one schema, one library (kogaki#1358, kogaki#1359, kogaki#1366;
+design on kogaki#1329, owner decisions 2026-10-10, 2026-10-12 and 2026-10-13).**
+A Move serves one of two levels and no third: a **Leg Move** is the
+transformation a Leg performs over a Passage, and a **paragraph Move** is the
+transformation one paragraph of that Passage performs. Both are records of
+this section's schema, and a Move record says nothing about which level it
+serves — the two live together in **one directory, `moves/`**, with one
+`INDEX.md` and one `ROLES.json`, and the same adapter reads every record. The
+difference between the levels stays where the 2026-10-12 decision put it, in
+the fit judgment: a Leg's successor is chosen freely, a waypoint's successor
+is fixed by the next waypoint. A paragraph Move's `segments` are what a Leg's
 waypoint copies when it binds the Move (§4.1): the Leg Move's Segments give
 the composer the *order of the points*, the paragraph Move's Segments give the
 writer the *shape of one paragraph*, and neither level reaches the writer
 otherwise. A paragraph Move is read off a written paragraph Analysis
 (`passages/FORMAT.md` "The paragraph unit") by `tools/move_ingest.py
-passage --from-analysis`, with no model call, and lands in the library `--library`
-names (§6.9). **Populating `moves/paragraph/` is the owner's act**, one
-Analysis at a time; a Brief run binds from whatever the directory holds and
-refuses at its start, naming the ingest command, while it holds nothing.
+passage --from-analysis`, with no model call, and lands in `moves/` like any
+other accepted Move (§6.9). **Populating the library with paragraph-derived
+Moves is the owner's act**, one Analysis at a time; a Brief run binds from
+whatever `moves/` holds, and a waypoint no Move in it fits refuses
+`no_paragraph_move_fits` with no fallback (§4.1) — there is no start-time
+refusal on an empty directory.
 
 **Five fields are always present; three are optional.** `status` is retired —
 a Move enters observed and nothing here licenses a later generalization claim,
@@ -3001,10 +3006,10 @@ and the command regenerates `moves/INDEX.md`.
 split or rename, so the reviewed proposal is not the authored file — nothing
 self-admits.
 
-**The paragraph path: `--from-analysis` and `--library` (kogaki#1358,
-kogaki#1359; design on kogaki#1329).** A paragraph Move enters the library by
-a second route that calls no model. `tools/move_ingest.py passage
---from-analysis <pNN.md>... --out <dir> --library moves/paragraph` takes one or more written
+**The paragraph path: `--from-analysis` (kogaki#1358, kogaki#1359; design on
+kogaki#1329, kogaki#1366).** A paragraph Move enters the library by a second
+route that calls no model. `tools/move_ingest.py passage
+--from-analysis <pNN.md>... --out <dir>` takes one or more written
 paragraph Analyses (`passages/FORMAT.md` "The paragraph unit", `unit:
 paragraph <N> of <M> in <slug>`) and READS each record off its Analysis: the
 `id` from section 7, `before`/`after` from section 2's changed rows, the
@@ -3013,11 +3018,9 @@ nothing here. It takes no Passage file and requires `--out`. A paragraph
 Analysis carrying `contains:` is refused by name — two levels, no more. The
 proposals render on the same selection screen and admission is the same
 owner act at the same accept/decline question; nothing is written before
-`--select accept`. `--library` (alias `--moves-dir`) names the directory the
-accepted Moves land in and whose `INDEX.md` is regenerated; it defaults to
-`moves/`, so a paragraph ingest names `moves/paragraph/` explicitly, and the
-directory carries its own `ROLES.json` copy for the record to validate
-against (§4.2).
+`--select accept`. Accepted Moves land in `moves/` like any other accepted
+Move, and the command regenerates `moves/INDEX.md` — there is no second
+directory and no flag naming one.
 
 `necessity:` the review criteria are judgments about a record's prose, and the
 admission boundary is a rule about authority. A tool that admitted its own

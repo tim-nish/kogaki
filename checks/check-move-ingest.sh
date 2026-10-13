@@ -224,58 +224,15 @@ if [[ $SEGRC -ne 0 ]]; then
 fi
 
 # --------------------------------------------------------------------------
-# The paragraph library (kogaki#1358) — `moves/paragraph/` mirrors `moves/`
-# with its own ROLES.json copy and INDEX.md. Its live read tolerates an
-# empty directory (kogaki#1187's empty-set refusal applies only to `moves/`,
-# which was already backfilled; `moves/paragraph/` starts empty until a
-# `unit: paragraph` Analysis is first ingested into it).
-# --------------------------------------------------------------------------
-if [[ ! -f moves/paragraph/ROLES.json ]]; then
-  echo "FAIL: moves/paragraph/ROLES.json is missing"
-  exit 1
-fi
-if ! diff -q moves/ROLES.json moves/paragraph/ROLES.json >/dev/null; then
-  echo "FAIL: moves/paragraph/ROLES.json is not a copy of moves/ROLES.json"
-  exit 1
-fi
-
-PARAGRAPH_LIVE=$(python3 -c "
-import os, sys
-sys.path.insert(0, 'tools')
-import move_ingest as m
-bad = []
-moves_dir = 'moves/paragraph'
-for name in sorted(os.listdir(moves_dir)):
-    if not name.endswith('.md') or name == 'INDEX.md':
-        continue
-    path = os.path.join(moves_dir, name)
-    try:
-        mapping = m.read_saved(path)
-        m.check_field_set(mapping, 1)
-        m.check_figure(mapping, 1)
-    except Exception as exc:
-        bad.append('%s: %s' % (path, exc))
-        continue
-    if m.render_move(mapping) != open(path).read():
-        bad.append('%s: does not round-trip through the renderer' % path)
-for line in bad:
-    print(line)
-" 2>&1) || { echo "FAIL: the live read over moves/paragraph/ could not run"; printf '%s\n' "$PARAGRAPH_LIVE"; exit 1; }
-printf '%s\n' "$PARAGRAPH_LIVE"
-if [[ -n "$PARAGRAPH_LIVE" ]]; then
-  echo "FAIL: a record in moves/paragraph/ does not satisfy §6.9.0 condition 3 or §6.9.3 against the live kind set"
-  exit 1
-fi
-
-# --------------------------------------------------------------------------
-# `--from-analysis` (kogaki#1358, design on kogaki#1329). The fixture is
-# built here in the shape of corpus/p1329/m2/..._cascades/p01.md, because
-# corpus/ is ignored and CI never sees it. Three cases, each driving the act:
+# `--from-analysis` (kogaki#1358, design on kogaki#1329; one library,
+# kogaki#1366). The fixture is built here in the shape of
+# corpus/p1329/m2/..._cascades/p01.md, because corpus/ is ignored and CI
+# never sees it. Three cases, each driving the act:
 #   1. the derived record's id, before, after and segments are sections 7,
 #      2 (changed rows only) and 3 of the Analysis;
 #   2. a paragraph Analysis carrying `contains:` is refused naming the line;
-#   3. `--library <dir>/paragraph --select accept` lands the Move there and
-#      regenerates that directory's INDEX.md and not <dir>/INDEX.md.
+#   3. `--select accept` lands the Move in the one `moves/` library and
+#      regenerates `moves/INDEX.md`.
 # --------------------------------------------------------------------------
 FROM_ANALYSIS_OUT=$(python3 <<'PY'
 import io, os, sys, tempfile, contextlib
@@ -347,30 +304,30 @@ if p.admitted or "contains: a_slug, b_slug" not in str(p.refusal):
 
 with tempfile.TemporaryDirectory() as tmp:
     moves = os.path.join(tmp, "moves")
-    library = os.path.join(moves, "paragraph")
-    os.makedirs(library)
-    with open(os.path.join(moves, "INDEX.md"), "w") as h:
-        h.write("leg index, untouched\n")
+    os.makedirs(moves)
     src = os.path.join(tmp, "p01.md")
     with open(src, "w") as h:
         h.write(ANALYSIS)
-    with contextlib.redirect_stdout(io.StringIO()):
-        rc = m.main(["passage", "--from-analysis", src, "--library", library,
-                     "--out", os.path.join(tmp, "run"), "--select", "accept"])
-    saved = os.path.join(library, want["id"] + ".md")
+    cwd = os.getcwd()
+    os.chdir(tmp)
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = m.main(["passage", "--from-analysis", "p01.md",
+                         "--out", "run", "--select", "accept"])
+    finally:
+        os.chdir(cwd)
+    saved = os.path.join(moves, want["id"] + ".md")
     if rc != 0 or not os.path.isfile(saved):
-        failures.append("case 3: --library did not land the accepted Move in %s (rc %d)"
-                        % (library, rc))
+        failures.append("case 3: the accepted Move did not land in %s (rc %d)"
+                        % (moves, rc))
     else:
         if open(saved).read() != m.render_move(want) or \
                 m.render_move(m.read_saved(saved)) != m.render_move(want):
             failures.append("case 3: the saved Move is not the derived record, "
                             "round-tripped: %r" % open(saved).read())
-        index = open(os.path.join(library, "INDEX.md")).read()
+        index = open(os.path.join(moves, "INDEX.md")).read()
         if want["id"] not in index:
-            failures.append("case 3: %s/INDEX.md was not regenerated" % library)
-    if open(os.path.join(moves, "INDEX.md")).read() != "leg index, untouched\n":
-        failures.append("case 3: moves/INDEX.md was rewritten by a --library run")
+            failures.append("case 3: %s/INDEX.md was not regenerated" % moves)
 
 if failures:
     for f in failures:
@@ -378,7 +335,7 @@ if failures:
     sys.exit(1)
 print("ok: --from-analysis reads id, before, after and segments off sections 7, 2 "
       "and 3, refuses `contains:` on a paragraph Analysis naming the line, and "
-      "--library lands the Move and its INDEX.md in that directory alone (kogaki#1358)")
+      "lands the accepted Move and its INDEX.md in the one moves/ library (kogaki#1358, kogaki#1366)")
 PY
 ); FARC=$?
 printf '%s\n' "$FROM_ANALYSIS_OUT"

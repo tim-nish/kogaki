@@ -2009,23 +2009,39 @@ const cand1276 = (id, leg2Extra = {}) => ({
   }
 }
 
-// (ax) kogaki#1358 (design on kogaki#1329) -- a waypoint carries the paragraph
-// Move the second pass binds and that Move's Segments, and validateLegs
-// refuses the three cases, each naming the Leg and the waypoint: a `move` on a
-// Candidate from the compose unit, a `move` naming no record in the paragraph
-// library, and a `move` with no `segments`. A bound waypoint passes.
+// (ax) kogaki#1358, kogaki#1359 (design on kogaki#1329), one library kogaki#1366 --
+// ONE fixture library holds one Leg-derived record (`m_turn`) and one paragraph-derived
+// record (`p_define`), under the same `movesDir`. A waypoint carries the Move the second
+// pass binds and that Move's Segments, and validateLegs refuses the three cases, each
+// naming the Leg and the waypoint: a `move` on a Candidate from the compose unit, a
+// `move` naming no record in the library, and a `move` with no `segments`. A bound
+// waypoint passes. The second pass, `paragraph_move_unit`, binds one Move per waypoint
+// after the fit unit: the row is declared and renders through judgePrompt naming the
+// refusal; one prompt per Leg carries the Leg's derived before-state, its waypoints each
+// with the point that follows, and every bindable Move's contract; the verdict copies the
+// bound Move's Segments onto each waypoint and the bound Candidate passes validateLegs
+// against the same library; a `move: null` ends the unit `no_paragraph_move_fits` naming
+// the Leg and the waypoint, with no Point–Support text anywhere in the record; the
+// judge's own malformed records are `{error}`; compose_path declares the judge; and the
+// compose unit's validator refuses a waypoint already carrying `move`.
 {
-  const paragraphLib = mkdtempSync(join(tmpdir(), "kogaki-1358-paragraph-"));
-  writeFileSync(join(paragraphLib, "p_define.md"), "id: p_define\nbefore: >-\n  knowledge: x.\nafter: >-\n  knowledge: y.\n");
+  const oneLib = mkdtempSync(join(tmpdir(), "kogaki-1366-moves-"));
+  writeFileSync(join(oneLib, "ROLES.json"), readFileSync("moves/ROLES.json"));
+  writeFileSync(join(oneLib, "m_turn.md"), ["id: m_turn", "technique: >-", "  sets a second party answering the first in kind, twice, and ends at a balance.",
+    "before: >-", "  knowledge: before m_turn.", "after: >-", "  knowledge: after m_turn.", "question: >-", "  holds: none", "breaks: >-",
+    "  breaks if only one party acts.", "segments: |-", "  1. raises — opens — the first party states its claim.",
+    "  2. settles — answers the opening — the second party answers in kind.", ""].join("\n"));
   const SEG = "1. settles — elaboration — defines the term.";
+  writeFileSync(join(oneLib, "p_define.md"), ["id: p_define", "technique: >-", "  how p_define builds its paragraph.", "before: >-", "  knowledge: before p_define.",
+    "after: >-", "  knowledge: after p_define.", "breaks: >-", "  breaks if p_define is cut.", "segments: |-", `  ${SEG}`, ""].join("\n"));
   const legsWith = (w) => [leg1276("s1", { opens_section: "Intro", waypoints: [{ point: "the term is defined", serves: ["L1"], ...w }] }),
     leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true })];
-  const run = (w, opts) => compose.validateLegs(legsWith(w), START_1276, [], [], { paragraphMovesDir: paragraphLib, ...opts });
+  const run = (w, opts) => compose.validateLegs(legsWith(w), START_1276, [], [], { movesDir: oneLib, ...opts });
   const cases = [
     ["a waypoint carrying move from the compose unit", run({ move: "p_define", segments: SEG }, { composed: true }),
       /leg 1 \(s1\): waypoint 1 carries `move` from the compose unit/],
-    ["a waypoint whose move names no record in the paragraph library", run({ move: "p_missing", segments: SEG }),
-      /leg 1 \(s1\): waypoint 1 binds move "p_missing", which names no record in the paragraph Move library/],
+    ["a waypoint whose move names no record in the library", run({ move: "p_missing", segments: SEG }),
+      /leg 1 \(s1\): waypoint 1 binds move "p_missing", which names no record in the library/],
     ["a waypoint binding a move with no segments", run({ move: "p_define" }),
       /leg 1 \(s1\): waypoint 1 binds move "p_define" and carries no `segments`/],
   ];
@@ -2041,26 +2057,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
       fails.push(`(ax) src/leg-schema.json's waypoint does not declare an optional \`${f}\``);
     }
   }
-}
 
-// (ay) kogaki#1359 (design on kogaki#1329) -- the second pass: `paragraph_move_unit`
-// binds one paragraph Move per waypoint after the fit unit. The row is declared and
-// renders through judgePrompt naming the refusal; one prompt per Leg carries the Leg's
-// derived before-state, its waypoints each with the point that follows, and every
-// paragraph Move's contract; the verdict copies the bound Move's Segments onto each
-// waypoint and the bound Candidate passes validateLegs against the paragraph library; a
-// `move: null` ends the unit `no_paragraph_move_fits` naming the Leg and the waypoint,
-// with no Point–Support text anywhere in the record; the judge's own malformed records
-// are `{error}`; compose_path declares the judge; and the compose unit's validator
-// refuses a waypoint already carrying `move`.
-{
-  const lib = mkdtempSync(join(tmpdir(), "kogaki-1359-paragraph-"));
-  writeFileSync(join(lib, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  const PSEG = { p_define: "1. settles — elaboration — defines the term.", p_turn: "1. raises — opens — states a case.\n2. settles — answers — reverses it." };
-  for (const [id, seg] of Object.entries(PSEG)) {
-    writeFileSync(join(lib, `${id}.md`), [`id: ${id}`, "technique: >-", `  how ${id} builds its paragraph.`, "before: >-", `  knowledge: before ${id}.`,
-      "after: >-", `  knowledge: after ${id}.`, "breaks: >-", `  breaks if ${id} is cut.`, "segments: |-", ...seg.split("\n").map((l) => `  ${l}`), ""].join("\n"));
-  }
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
   const row = table.paragraph_move_unit;
   if (!row) fails.push("(ay) src/brief-workflow.json declares no paragraph_move_unit row");
@@ -2069,7 +2066,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
     fails.push("(ay) the paragraph_move_unit row's prompt does not name no_paragraph_move_fits, paragraph_moves_you_may_bind and next_point");
   }
   const cand = cand1276("c-ay", { waypoints: [{ point: "the first case is stated", serves: ["L1"] }, { point: "the case is reversed", serves: ["L1"] }] });
-  const inputs = { paragraphMovesDir: lib, readerStart: START_1276, definedTerms: [], promptHead: "BIND_HEAD\n" };
+  const inputs = { movesDir: oneLib, readerStart: START_1276, definedTerms: [], promptHead: "BIND_HEAD\n" };
   let prompts = [];
   try { prompts = paragraphMovePrompts(cand, inputs); } catch (e) { fails.push(`(ay) paragraphMovePrompts threw: ${e.message}`); }
   if (prompts.length !== 2 || prompts[0].leg_id !== "s1" || prompts[1].leg_id !== "s2") {
@@ -2083,8 +2080,8 @@ const cand1276 = (id, leg2Extra = {}) => ({
       fails.push(`(ay) the prompt's waypoints do not carry the point that follows each: ${JSON.stringify(leg.waypoints)}`);
     }
     const ids = (p2.paragraph_moves_you_may_bind || []).map((m) => m.id).sort();
-    if (ids.join() !== "p_define,p_turn" || !p2.paragraph_moves_you_may_bind.every((m) => typeof m.before === "string" && typeof m.segments === "string")) {
-      fails.push(`(ay) the prompt does not carry every paragraph Move's contract: ${JSON.stringify(p2.paragraph_moves_you_may_bind)}`);
+    if (ids.join() !== "m_turn,p_define" || !p2.paragraph_moves_you_may_bind.every((m) => typeof m.before === "string" && typeof m.segments === "string")) {
+      fails.push(`(ay) the prompt does not carry every bindable Move's contract: ${JSON.stringify(p2.paragraph_moves_you_may_bind)}`);
     }
   }
   const rec = (legId, bindings) => ({ version: "1", candidate_id: "c-ay", leg_id: legId, bindings });
@@ -2092,17 +2089,17 @@ const cand1276 = (id, leg2Extra = {}) => ({
   // the bound Candidate: every waypoint carries move and segments, and validateLegs passes.
   const b1 = paragraphMoveVerdict(rec("s1", [{ waypoint: 1, move: "p_define", why: WHY }]), cand, inputs, "s1");
   const b2 = b1.candidate
-    ? paragraphMoveVerdict(rec("s2", [{ waypoint: 1, move: "p_define", why: WHY }, { waypoint: 2, move: "p_turn", why: WHY }]), b1.candidate, inputs, "s2") : b1;
+    ? paragraphMoveVerdict(rec("s2", [{ waypoint: 1, move: "p_define", why: WHY }, { waypoint: 2, move: "p_define", why: WHY }]), b1.candidate, inputs, "s2") : b1;
   if (!b2.candidate) fails.push(`(ay) binding both Legs did not hand back a bound Candidate: ${JSON.stringify(b2)}`);
   else {
     const ws = b2.candidate.legs.flatMap((s) => s.waypoints);
     if (ws.length !== 3 || !ws.every((w) => typeof w.move === "string" && typeof w.segments === "string")) fails.push(`(ay) a bound waypoint lacks move or segments: ${JSON.stringify(ws)}`);
-    if (ws[2].move !== "p_turn" || ws[2].segments !== PSEG.p_turn) fails.push(`(ay) the bound Move's Segments were not copied verbatim onto the waypoint: ${JSON.stringify(ws[2])}`);
-    const v = compose.validateLegs(b2.candidate.legs, START_1276, [], [], { paragraphMovesDir: lib });
+    if (ws[2].move !== "p_define" || ws[2].segments !== SEG) fails.push(`(ay) the bound Move's Segments were not copied verbatim onto the waypoint: ${JSON.stringify(ws[2])}`);
+    const v = compose.validateLegs(b2.candidate.legs, START_1276, [], [], { movesDir: oneLib });
     if (v.error) fails.push(`(ay) the bound Candidate fails validateLegs: ${v.error}`);
     if (cand.legs[1].waypoints[0].move !== undefined) fails.push("(ay) the verdict wrote onto the input Candidate rather than handing back a new one");
   }
-  // no paragraph Move fits a waypoint: the unit's refusal names the Leg and the waypoint, with no Point–Support text.
+  // no Move fits a waypoint: the unit's refusal names the Leg and the waypoint, with no Point–Support text.
   const none = paragraphMoveVerdict(rec("s2", [{ waypoint: 1, move: "p_define", why: WHY },
     { waypoint: 2, move: null, why: "no Move's before holds a stated case to reverse." }]), cand, inputs, "s2");
   if (!none.refusal) fails.push(`(ay) a move: null binding was not the unit's refusal: ${JSON.stringify(none)}`);
@@ -2118,10 +2115,10 @@ const cand1276 = (id, leg2Extra = {}) => ({
   // the judge's own malformed records are asked again, never a refusal.
   for (const [what, r] of [
     ["another leg_id", rec("s1", [{ waypoint: 1, move: "p_define", why: WHY }])],
-    ["a move outside the library", rec("s2", [{ waypoint: 1, move: "p_missing", why: WHY }, { waypoint: 2, move: "p_turn", why: WHY }])],
+    ["a move outside the library", rec("s2", [{ waypoint: 1, move: "p_missing", why: WHY }, { waypoint: 2, move: "p_define", why: WHY }])],
     ["one binding for two waypoints", rec("s2", [{ waypoint: 1, move: "p_define", why: WHY }])],
-    ["bindings out of order", rec("s2", [{ waypoint: 2, move: "p_define", why: WHY }, { waypoint: 1, move: "p_turn", why: WHY }])],
-    ["a why under four words", rec("s2", [{ waypoint: 1, move: "p_define", why: "fits" }, { waypoint: 2, move: "p_turn", why: WHY }])],
+    ["bindings out of order", rec("s2", [{ waypoint: 2, move: "p_define", why: WHY }, { waypoint: 1, move: "p_define", why: WHY }])],
+    ["a why under four words", rec("s2", [{ waypoint: 1, move: "p_define", why: "fits" }, { waypoint: 2, move: "p_define", why: WHY }])],
   ]) {
     const r2 = paragraphMoveVerdict(r, cand, inputs, "s2");
     if (!r2.error) fails.push(`(ay) a record with ${what} was not read as malformed: ${JSON.stringify(r2)}`);
@@ -2132,8 +2129,8 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (!/bindJudge: \{[\s\S]*?prompts_export: "paragraphMovePrompts",[\s\S]*?verdict_export: "paragraphMoveVerdict"/.test(composePath) || !/table\.paragraph_move_unit/.test(composePath)) {
     fails.push("(ay) compose_path does not declare the paragraph-move judge from the paragraph_move_unit row");
   }
-  const early = validateReaderPathUnit(cand1276("c-ay2", { waypoints: [{ point: "a point", serves: ["L1"], move: "p_define", segments: PSEG.p_define }] }),
-    { strandIds: ["L1"], readerStart: START_1276, movesDir: fitMoves });
+  const early = validateReaderPathUnit(cand1276("c-ay2", { waypoints: [{ point: "a point", serves: ["L1"], move: "p_define", segments: SEG }] }),
+    { strandIds: ["L1"], readerStart: START_1276, movesDir: oneLib });
   if (!early.error || !/carries `move` from the compose unit/.test(early.error)) fails.push(`(ay) the compose unit's validator did not refuse a waypoint already carrying move: ${early.error}`);
 }
 
