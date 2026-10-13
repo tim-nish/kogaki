@@ -73,15 +73,17 @@ set -euo pipefail
 SUITE_SELF="$0"
 cd "$(git -C "$(dirname "$SUITE_SELF")" rev-parse --show-toplevel)"
 
-# --ci-shape (kogaki#1182) and --compare-base (kogaki#1188): THE ONLY TWO
-# FLAGS THIS RUNNER TAKES, checked here rather than left for the python
-# heredoc to notice, because the shape must be built and exported before
-# anything below -- the open-gate directory, the members themselves -- runs
-# under it. Both stripped from "$@" so neither is
-# mistaken downstream for a member argument that does not exist. THE TWO
-# COMPOSE: a caller may pass both in either order.
+# --ci-shape (kogaki#1182), --compare-base (kogaki#1188) and the repeatable
+# --only <id> (kogaki#1353): THE ONLY THREE FLAGS THIS RUNNER TAKES, checked
+# here rather than left for the python heredoc to notice, because the shape
+# must be built and exported before anything below -- the open-gate
+# directory, the members themselves -- runs under it. All three stripped
+# from "$@" so none is mistaken downstream for a member argument that does
+# not exist. THEY COMPOSE: a caller may pass any of them in any order and
+# any combination.
 CI_SHAPE=0
 COMPARE_BASE=""
+ONLY_IDS=()
 REMAINING_ARGS=()
 i=0
 ARGS=("$@")
@@ -95,12 +97,18 @@ while (( i < ${#ARGS[@]} )); do
     COMPARE_BASE="${ARGS[$i]}"
   elif [[ "$arg" == --compare-base=* ]]; then
     COMPARE_BASE="${arg#--compare-base=}"
+  elif [[ "$arg" == "--only" ]]; then
+    (( i + 1 < ${#ARGS[@]} )) || { echo "run-registered-checks.sh: --only needs an <id>" >&2; exit 2; }
+    i=$(( i + 1 ))
+    ONLY_IDS+=("${ARGS[$i]}")
+  elif [[ "$arg" == --only=* ]]; then
+    ONLY_IDS+=("${arg#--only=}")
   elif [[ "$arg" == -* ]]; then
     # AN UNRECOGNISED FLAG IS REFUSED, NEVER SILENTLY DROPPED (PR #1192 round
     # 1 finding 3). `--compare-base=<ref>` used to fall through to here and
     # into REMAINING_ARGS, which nothing downstream reads, so a typo'd `=`
     # spelling ran the suite with no comparison and no complaint. The header
-    # above calls these "the only two flags this runner takes" -- this is
+    # above calls these "the only three flags this runner takes" -- this is
     # what makes that true rather than aspirational.
     echo "run-registered-checks.sh: unrecognised flag: $arg" >&2
     exit 2
@@ -110,6 +118,20 @@ while (( i < ${#ARGS[@]} )); do
   i=$(( i + 1 ))
 done
 export COMPARE_BASE
+# Guarded for the same empty-array reason as SUITE_OWNED_TMPDIRS and
+# REMAINING_ARGS below: an empty ONLY_IDS must not abort the ordinary
+# no-`--only` invocation under `set -u`. Joined on newlines rather than a
+# delimiter an id could plausibly contain, and popped from the environment
+# by the python body before any member runs, so no member subprocess -- and
+# no nested run-registered-checks.sh a member starts, the way
+# checks/check-ci-shape.sh and checks/check-runner-only.sh do -- ever reads
+# the outer run's own `--only` as its own.
+if ((${#ONLY_IDS[@]})); then
+  ONLY_IDS_JOINED="$(printf '%s\n' "${ONLY_IDS[@]}")"
+else
+  ONLY_IDS_JOINED=""
+fi
+export ONLY_IDS_JOINED
 # Guarded before expanding, as SUITE_OWNED_TMPDIRS already is below (PR #1183
 # round 1, finding 3): an empty array expands to an unbound variable under
 # `set -u` on bash before 4.4, which would abort the ORDINARY no-argument
@@ -237,6 +259,22 @@ if not entries:
 # far below to use, and removed from the environment before the first member
 # — pool or serial — executes, so no child process ever sees it.
 compare_base = os.environ.pop("COMPARE_BASE", "") or None
+# READ AND POPPED HERE FOR THE SAME REASON AS COMPARE_BASE ABOVE (kogaki#1353):
+# checks/check-ci-shape.sh and checks/check-runner-only.sh both run this
+# runner nested inside a sandbox, and an inherited ONLY_IDS_JOINED would
+# filter that nested run to the outer run's own `--only` selection.
+only_ids = [x for x in os.environ.pop("ONLY_IDS_JOINED", "").splitlines() if x]
+if only_ids:
+    unknown = [oid for oid in only_ids if oid not in {e["id"] for e in entries}]
+    if unknown:
+        print(f"run-registered-checks.sh: --only names unknown check id(s) "
+              f"not in checks/registry.json: {', '.join(unknown)}", file=sys.stderr)
+        sys.exit(2)
+    # REGISTRY ORDER, not --only's own order (the issue's own wording): the
+    # filter walks `entries` in the order the registry already has them,
+    # never the order a caller happened to repeat --only in.
+    wanted = set(only_ids)
+    entries = [e for e in entries if e["id"] in wanted]
 
 def git(*args):
     return subprocess.run(["git", *args], capture_output=True, text=True)
@@ -399,7 +437,15 @@ def resolve_jobs():
 
 sha = head_key()
 forced = os.environ.get("CHECKS_FORCE", "") == "1"
-if sha and not forced:
+# A `--only` RUN IS NOT A FULL PASS AND NEVER CONSULTS OR PRODUCES THE
+# ONCE-PER-HEAD VERDICT (kogaki#1353): the store's whole premise is that the
+# recorded run executed every registered member, which a one-member run by
+# construction did not, so it skips the lookup here and the write far below.
+if only_ids:
+    print(f"note: --only {' '.join(only_ids)}; skipping the full-pass "
+          f"verdict lookup and the recorded write ({len(entries)} of the "
+          f"registry's check(s) selected)", flush=True)
+elif sha and not forced:
     source = local_verdict(sha) or ci_verdict(sha)
     if source:
         print(f"reused: full-pass suite verdict for head {sha} from {source}; "
@@ -659,10 +705,12 @@ if failed:
 # transient. So the verdict is written on a FULL pass — every member green —
 # and a degraded run leaves the next one to execute again, which is exactly
 # what a machine that does have the seam should do.
-if sha and not degraded:
+if sha and not degraded and not only_ids:
     # Written only on a full pass, only for a clean head, only outside the
-    # tree (kogaki#769). A write failure is reported and is not a suite
-    # failure: the verdict is true whether or not it was stored.
+    # tree (kogaki#769), and only when every registered member ran
+    # (kogaki#1353: never on a `--only` run). A write failure is reported
+    # and is not a suite failure: the verdict is true whether or not it was
+    # stored.
     try:
         d = store_dir()
         d.mkdir(parents=True, exist_ok=True)
