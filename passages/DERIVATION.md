@@ -26,7 +26,7 @@ settles it, or replaces it with a narrower one taken up in its stead.
 The Move schema in `moves/` today has eight fields, decided without a
 corpus behind them: all 22 records begin their `requires` with "the reader
 understands X", so a change in the reader's question, expectation,
-orientation or trust has no place in it. This format starts from extracted
+orientation or trust has no place in it. This format starts from the Extractions of real
 prose instead and proposes a schema the Corpus actually supports.
 
 ## Minimum corpus size: 10 Extractions

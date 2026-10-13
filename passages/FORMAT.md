@@ -174,7 +174,7 @@ a reason to improvise a fifth question.
 - **Q2. Question** — *Which question does this stretch answer, and which
   question does it raise?* Question-under-discussion analysis in discourse
   semantics (Roberts 1996); Minto's Situation, Complication, Question,
-  Answer is the same extraction as professional practice. A candidate names
+  Answer is the same analysis as professional practice. A candidate names
   the question the reader holds on leaving, where it was raised, and
   where, if anywhere, it was answered.
 - **Q3. Disposition** — *What has the Passage done to make the reader
