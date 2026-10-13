@@ -423,9 +423,12 @@
       "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses",
       "an empty list, a waypoint with an empty `point` or an empty `serves`,",
       "a waypoint carrying the retired `effect`, a `serves` entry naming a",
-      "Strand this Leg carries no claim for, and a",
-      "claim of this Leg that no waypoint serves -- each naming the Leg and",
-      "the waypoint. Whether the waypoints specialize the Move's `technique`",
+      "Strand this Leg carries no claim for, a",
+      "claim of this Leg that no waypoint serves, a `move` or `segments` on",
+      "a Candidate from the compose unit, a `move` naming no record in the",
+      "paragraph library, and a `move` with no `segments` -- each naming the",
+      "Leg and the waypoint (kogaki#1329: the second pass binds one paragraph",
+      "Move per waypoint after the waypoints exist). Whether the waypoints specialize the Move's `technique`",
       "and survive its `breaks` is judged, at the Move-fit judgment, and never",
       "a lint."
     ],
@@ -440,6 +443,16 @@
         "type": "array of string",
         "min_length": 1,
         "description": "The claim or claims of this Leg this step serves, each named by the Strand id its claim names (`L<n>`). Every entry is a Strand this Leg carries a claim for."
+      },
+      "move": {
+        "required": false,
+        "type": "string",
+        "description": "NEVER WRITTEN AT COMPOSITION: a Candidate from the compose unit whose waypoint carries this field is refused by name (kogaki#1329). The paragraph Move this waypoint binds, by id, written by the second pass after the waypoints exist and read from `moves/paragraph/`. Once written it names a record in that library."
+      },
+      "segments": {
+        "required": false,
+        "type": "string",
+        "description": "NEVER WRITTEN AT COMPOSITION, like `move`. The bound paragraph Move's Segments, one `<n>. function — relation — clause` line each, copied at bind time so the Brief stays self-contained and no later stage opens a Move file. Present exactly when `move` is (kogaki#1329)."
       }
     }
   },

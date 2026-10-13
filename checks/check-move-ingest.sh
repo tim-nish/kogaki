@@ -223,5 +223,168 @@ if [[ $SEGRC -ne 0 ]]; then
   exit 1
 fi
 
+# --------------------------------------------------------------------------
+# The paragraph library (kogaki#1358) — `moves/paragraph/` mirrors `moves/`
+# with its own ROLES.json copy and INDEX.md. Its live read tolerates an
+# empty directory (kogaki#1187's empty-set refusal applies only to `moves/`,
+# which was already backfilled; `moves/paragraph/` starts empty until a
+# `unit: paragraph` Analysis is first ingested into it).
+# --------------------------------------------------------------------------
+if [[ ! -f moves/paragraph/ROLES.json ]]; then
+  echo "FAIL: moves/paragraph/ROLES.json is missing"
+  exit 1
+fi
+if ! diff -q moves/ROLES.json moves/paragraph/ROLES.json >/dev/null; then
+  echo "FAIL: moves/paragraph/ROLES.json is not a copy of moves/ROLES.json"
+  exit 1
+fi
+
+PARAGRAPH_LIVE=$(python3 -c "
+import os, sys
+sys.path.insert(0, 'tools')
+import move_ingest as m
+bad = []
+moves_dir = 'moves/paragraph'
+for name in sorted(os.listdir(moves_dir)):
+    if not name.endswith('.md') or name == 'INDEX.md':
+        continue
+    path = os.path.join(moves_dir, name)
+    try:
+        mapping = m.read_saved(path)
+        m.check_field_set(mapping, 1)
+        m.check_figure(mapping, 1)
+    except Exception as exc:
+        bad.append('%s: %s' % (path, exc))
+        continue
+    if m.render_move(mapping) != open(path).read():
+        bad.append('%s: does not round-trip through the renderer' % path)
+for line in bad:
+    print(line)
+" 2>&1) || { echo "FAIL: the live read over moves/paragraph/ could not run"; printf '%s\n' "$PARAGRAPH_LIVE"; exit 1; }
+printf '%s\n' "$PARAGRAPH_LIVE"
+if [[ -n "$PARAGRAPH_LIVE" ]]; then
+  echo "FAIL: a record in moves/paragraph/ does not satisfy §6.9.0 condition 3 or §6.9.3 against the live kind set"
+  exit 1
+fi
+
+# --------------------------------------------------------------------------
+# `--from-analysis` (kogaki#1358, design on kogaki#1329). The fixture is
+# built here in the shape of corpus/p1329/m2/..._cascades/p01.md, because
+# corpus/ is ignored and CI never sees it. Three cases, each driving the act:
+#   1. the derived record's id, before, after and segments are sections 7,
+#      2 (changed rows only) and 3 of the Analysis;
+#   2. a paragraph Analysis carrying `contains:` is refused naming the line;
+#   3. `--library <dir>/paragraph --select accept` lands the Move there and
+#      regenerates that directory's INDEX.md and not <dir>/INDEX.md.
+# --------------------------------------------------------------------------
+FROM_ANALYSIS_OUT=$(python3 <<'PY'
+import io, os, sys, tempfile, contextlib
+sys.path.insert(0, "tools")
+import move_ingest as m
+
+ANALYSIS = """status: worked example (m2), written from the owner's notes
+
+# Passage analysis: define_a_named_variable_with_almost_no_new_words
+
+source: not given
+unit: paragraph 1 of 11 in define_attack_defense_advantage_through_opposed_security_cascades
+functions: settles, raises
+length: 2 sentences, 1 paragraph
+
+## Passage
+
+A term is defined. Each of its states is defined as follows.
+
+## 2. Reader before and after
+
+| dimension   | before | after | Segment |
+|-------------|--------|-------|---------|
+| knowledge   | the first factor is named and not yet defined | the first factor is defined | 1 |
+| question    | what is the first factor? | "what do its two states look like?" opened | 2 |
+| expectation | the factors will be explained one at a time | unchanged | |
+| orientation | a book explaining politics through named factors | unchanged | |
+| trust       | neutral | unchanged | |
+
+dimensions changed: 2
+
+## 3. The order inside the Passage
+
+1. "A term is defined" [gloss] — settles — elaboration — takes up item one of the preceding list and defines it.
+2. "Each of its states" — raises — enumeration — tells the reader two items are coming.
+
+## 7. Candidate name
+
+define_a_named_variable_with_almost_no_new_words
+
+## 8. Notes
+
+none
+"""
+
+failures = []
+
+p = m.derive_from_analysis(ANALYSIS)
+want = {
+    "id": "define_a_named_variable_with_almost_no_new_words",
+    "before": "knowledge: the first factor is named and not yet defined. "
+              "question: what is the first factor?",
+    "after": "knowledge: the first factor is defined. "
+             "question: \"what do its two states look like?\" opened.",
+    "segments": "1. settles — elaboration — takes up item one of the preceding list and defines it.\n"
+                "2. raises — enumeration — tells the reader two items are coming.",
+}
+if not p.admitted:
+    failures.append("case 1: the p01-shaped Analysis was refused: %s" % p.refusal)
+elif p.mapping != want:
+    failures.append("case 1: derived %r, want %r" % (p.mapping, want))
+
+with_contains = ANALYSIS.replace(
+    "length: 2 sentences", "contains: a_slug, b_slug\nlength: 2 sentences")
+p = m.derive_from_analysis(with_contains)
+if p.admitted or "contains: a_slug, b_slug" not in str(p.refusal):
+    failures.append("case 2: a paragraph Analysis carrying `contains:` was not "
+                    "refused naming the line -- got %r" % p.refusal)
+
+with tempfile.TemporaryDirectory() as tmp:
+    moves = os.path.join(tmp, "moves")
+    library = os.path.join(moves, "paragraph")
+    os.makedirs(library)
+    with open(os.path.join(moves, "INDEX.md"), "w") as h:
+        h.write("leg index, untouched\n")
+    src = os.path.join(tmp, "p01.md")
+    with open(src, "w") as h:
+        h.write(ANALYSIS)
+    with contextlib.redirect_stdout(io.StringIO()):
+        rc = m.main(["passage", "--from-analysis", src, "--library", library,
+                     "--out", os.path.join(tmp, "run"), "--select", "accept"])
+    saved = os.path.join(library, want["id"] + ".md")
+    if rc != 0 or not os.path.isfile(saved):
+        failures.append("case 3: --library did not land the accepted Move in %s (rc %d)"
+                        % (library, rc))
+    else:
+        if open(saved).read() != m.render_move(want) or \
+                m.render_move(m.read_saved(saved)) != m.render_move(want):
+            failures.append("case 3: the saved Move is not the derived record, "
+                            "round-tripped: %r" % open(saved).read())
+        index = open(os.path.join(library, "INDEX.md")).read()
+        if want["id"] not in index:
+            failures.append("case 3: %s/INDEX.md was not regenerated" % library)
+    if open(os.path.join(moves, "INDEX.md")).read() != "leg index, untouched\n":
+        failures.append("case 3: moves/INDEX.md was rewritten by a --library run")
+
+if failures:
+    for f in failures:
+        print("FAIL: %s" % f)
+    sys.exit(1)
+print("ok: --from-analysis reads id, before, after and segments off sections 7, 2 "
+      "and 3, refuses `contains:` on a paragraph Analysis naming the line, and "
+      "--library lands the Move and its INDEX.md in that directory alone (kogaki#1358)")
+PY
+); FARC=$?
+printf '%s\n' "$FROM_ANALYSIS_OUT"
+if [[ $FARC -ne 0 ]]; then
+  exit 1
+fi
+
 echo "ok: ingestion fixture pass ran ${N} case(s) clean, exactly at its floor of ${FLOOR}; ${COUNT} shipped record(s) validate against the live kind set"
 exit 0
