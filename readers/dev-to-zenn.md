@@ -8,8 +8,8 @@ prose: |
   no unexplained term of art; not fragments, not runs of short sentences, not
   triads, not "not X, not Y" runs.
 
-  **Paragraphs.** A paragraph should generally open on the sentence that
-  states its point, broken where the flow of the prose calls for it. That
+  **Paragraphs.** Paragraph structure comes from the bound Move's Segments,
+  their functions and relations; register does not dictate it. A paragraph's
   first sentence names what it refers to in full: no "this", "that", "it",
   "these", "those" or a bare definite noun such as "the result" reaching
   back into an earlier paragraph. Inside a paragraph, reference is free.
@@ -20,8 +20,6 @@ prose: |
   world — does not carry across a paragraph boundary and does not exist for
   later Legs. A comparison is not a referent:
   it explains a term once, and nothing later points back to it.
-
-  **Enumerations** run to three items at most.
 
   **Voice.** The first person is permitted; where a claim's scope is narrower
   than the sentence that states it, say so in the first person with a hedge.
