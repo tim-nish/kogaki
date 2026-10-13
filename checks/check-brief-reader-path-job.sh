@@ -1903,11 +1903,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     "before: >-", "  knowledge: before.", "after: >-", "  knowledge: after.", "question: >-", "  holds: none",
     "breaks: >-", "  breaks if the left-out case is never named.", ""].join("\n"));
   writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  const plib = join(moves, "paragraph");
-  mkdirSync(plib);
-  writeFileSync(join(plib, "ROLES.json"), readFileSync("moves/ROLES.json"));
   const PSEG = "1. settles — elaboration — makes the point.";
-  writeFileSync(join(plib, "p1.md"), ["id: p1", "technique: >-", "  makes one point and holds it.", "before: >-", "  knowledge: before.",
+  writeFileSync(join(moves, "p1.md"), ["id: p1", "technique: >-", "  makes one point and holds it.", "before: >-", "  knowledge: before.",
     "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if the point is dropped.", "segments: |-", `  ${PSEG}`, ""].join("\n"));
   const START = "knowledge: before\nquestion: holds: none";
   const legOf = (legId, extra) => ({
@@ -1953,7 +1950,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     fit_judge: { module: "src/brief.mjs", prompt_export: "readerPathFitPrompt", verdict_export: "readerPathFitVerdict",
       inputs: { movesDir: moves, readerStart: START, promptHead: "FIT_JUDGE_HEAD\n" } },
     bind_judge: { module: "src/brief.mjs", prompts_export: "paragraphMovePrompts", verdict_export: "paragraphMoveVerdict",
-      inputs: { paragraphMovesDir: plib, readerStart: START, definedTerms: [], promptHead: "BIND_HEAD\n" } },
+      inputs: { movesDir: moves, readerStart: START, definedTerms: [], promptHead: "BIND_HEAD\n" } },
   }, null, 2));
   spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", base, "--units", unitsPath,
     "--command", judgeFile, "--model", "m", "--output-format", "json",
