@@ -1246,24 +1246,32 @@ def check_analysis_split_note(passage_text, line_no=None):
 
 
 # --------------------------------------------------------------------------
-# `segments`, copied from Analysis section 3 (kogaki#1320).
+# `segments`, copied from Analysis section 3 (kogaki#1320, generalized clause
+# kogaki#1367).
 # --------------------------------------------------------------------------
 #
 # `passages/FORMAT.md` §3 writes one numbered entry per Segment: the quoted
 # opening words, a dash, the function (raises | advances | settles), a dash,
-# the relation to the previous Segment, a dash, then the clause stating what
-# it does to the reader. The quoted opening words locate the Segment in the
-# Passage and are not copied — `segments` does not carry the Passage.
+# the relation to the previous Segment, a dash, the content clause stating
+# what it does to the reader about THIS Passage's own content, a dash, then
+# `generalized:` and a second, subject-free clause stating the same thing so
+# it could be performed on any subject. The quoted opening words and the
+# content clause locate and explain the Segment for the owner's reading and
+# are not copied — `segments` carries the generalized clause only, since the
+# content clause carries the source paragraph's own subject into every Move
+# derived from it.
 SECTION3_HEADING = re.compile(r"^##\s*3\.\s*The order inside the Passage\s*$", re.M)
 NEXT_HEADING = re.compile(r"^##\s*\d+\.", re.M)
 
 SEGMENT_ENTRY = re.compile(
-    r'^\s*\d+\.\s*"[^"]*"(?:\s*\[[^\]]*\])?\s*—\s*'
+    r'^\s*(?P<num>\d+)\.\s*"[^"]*"(?:\s*\[[^\]]*\])?\s*—\s*'
     r"(?P<function>raises|advances|settles)\s*—\s*"
     r"(?P<relation>cause|consequence|contrast|elaboration|evidence|enumeration|none)\s*—\s*"
-    r"(?P<clause>.+?)(?=\n[ \t]*\n|\n\s*\d+\.\s*\"|\Z)",
+    r"(?P<rest>.+?)(?=\n[ \t]*\n|\n\s*\d+\.\s*\"|\Z)",
     re.M | re.S,
 )
+
+GENERALIZED_CLAUSE = re.compile(r"^(?P<content>.*?)\s*—\s*generalized:\s*(?P<generalized>.+)$", re.S)
 
 
 def section3_body(passage_text):
@@ -1279,17 +1287,29 @@ def section3_body(passage_text):
     return body
 
 
-def analysis_segments(passage_text):
+def analysis_segments(passage_text, line_no=None):
     """The ordered Segments of Analysis section 3, each
-    `(function, relation, clause)`, or `None` where the text carries no
-    section 3 at all."""
+    `(function, relation, generalized_clause)` — the content clause is
+    parsed and discarded, never copied (kogaki#1367). Returns `None` where
+    the text carries no section 3 at all, and raises `Refusal` naming the
+    Segment's number where an entry carries only the content clause."""
     body = section3_body(passage_text)
     if body is None:
         return None
     segments = []
     for match in SEGMENT_ENTRY.finditer(body):
-        clause = " ".join(match.group("clause").split())
-        segments.append((match.group("function"), match.group("relation"), clause))
+        rest = " ".join(match.group("rest").split())
+        gmatch = GENERALIZED_CLAUSE.match(rest)
+        if gmatch is None:
+            raise Refusal(
+                "segments",
+                "Segment %s carries only the content clause — section 3 "
+                "owes a `— generalized: <clause>` second clause on every "
+                "entry" % match.group("num"),
+                line_no=line_no,
+            )
+        generalized = gmatch.group("generalized").strip()
+        segments.append((match.group("function"), match.group("relation"), generalized))
     return segments
 
 
@@ -1306,12 +1326,16 @@ def render_segments_text(segments):
 def check_segments(mapping, passage_text, line_no):
     """Copy the Analysis's ordered Segments into the record's own
     `segments`. Returns `(Refusal, None)` where the Analysis carries no
-    section 3 to copy from, or where the record already carried a
-    `segments` value that disagrees with the copy — the model is never
-    asked to write or reorder Segments, so a value it supplied anyway is a
-    defect, not an alternative reading. Otherwise returns `(None, <the
-    literal numbered-list text>)`."""
-    segments = analysis_segments(passage_text)
+    section 3 to copy from, where a Segment entry carries only the content
+    clause, or where the record already carried a `segments` value that
+    disagrees with the copy — the model is never asked to write or reorder
+    Segments, so a value it supplied anyway is a defect, not an alternative
+    reading. Otherwise returns `(None, <the literal numbered-list text, the
+    generalized clauses only>)`."""
+    try:
+        segments = analysis_segments(passage_text, line_no=line_no)
+    except Refusal as refusal:
+        return refusal, None
     if segments is None:
         return Refusal(
             "segments",

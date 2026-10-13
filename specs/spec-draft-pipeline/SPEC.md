@@ -582,7 +582,14 @@ is fixed by the next waypoint. A paragraph Move's `segments` are what a Leg's
 waypoint copies when it binds the Move (§4.1): the Leg Move's Segments give
 the composer the *order of the points*, the paragraph Move's Segments give the
 writer the *shape of one paragraph*, and neither level reaches the writer
-otherwise. A paragraph Move is read off a written paragraph Analysis
+otherwise. **`segments` holds the generalized clauses only** (kogaki#1367):
+each Segment's content clause is written about the original paragraph and
+stays in the Analysis for the owner's reading and the derivation tooling, but
+`tools/move_ingest.py` copies the generalized clause — subject-free the way
+`technique` is written — into the Move record, never the content clause,
+since a Move reaches any article it is bound into and a content-bearing
+Segment clause would carry its source paragraph into every one of them. A
+paragraph Move is read off a written paragraph Analysis
 (`passages/FORMAT.md` "The paragraph unit") by `tools/move_ingest.py
 passage --from-analysis`, with no model call, and lands in `moves/` like any
 other accepted Move (§6.9). **Populating the library with paragraph-derived

@@ -39,6 +39,15 @@ model authors — `tools/move_ingest.py`'s `passage` mode copies it from the
 Analysis's own section 3, entry for entry, after the model has returned its
 record.
 
+`segments` generalized only (kogaki#1367, owner ruling 2026-10-13): each §3
+entry carries two clauses, a content clause written about the original and
+a generalized clause, subject-free the way `technique` is written.
+`segments` carries the generalized clause of each entry and never the
+content clause — a content-bearing Segment clause would let a Move's
+structure be reconstructed back to its source paragraph, which the
+generalized clause cannot be. A §3 entry carrying only the content clause
+is refused at ingestion, naming the Segment's number.
+
 **Origin.** The Move concept follows Swales' move analysis in genre studies:
 a text is coded as a sequence of communicative purposes, each a move. The
 **question** dimension of `before`/`after` follows Minto's Situation-Complication-Question-Answer
@@ -159,15 +168,19 @@ the tool reads the Analysis beside the Passage and copies its `## 3. The
 order inside the Passage` section into the record's own `segments`, entry
 for entry, in the same order: one line per Segment, each carrying its
 function (raises, advances, settles), its relation to the previous Segment,
-and the clause stating what it does to the reader — the quoted opening
-words stay in the Analysis and are not copied, since they locate a Segment
-in the Passage and `segments` does not carry the Passage.
+and the generalized clause stating what it does to the reader — the
+quoted opening words stay in the Analysis and are not copied, since they
+locate a Segment in the Passage and `segments` does not carry the Passage,
+and the content clause stays in the Analysis too, since it is written
+about the original and `segments` carries only the generalized clause.
 
 A record is refused, naming `segments`, where the Analysis carries no
-section 3 for the tool to copy it from, or where the model's own record
-already carried a `segments` value that disagrees with the copy — the
-model is never asked to write or reorder Segments, so a value it supplied
-anyway is a defect, not an alternative to the copy.
+section 3 for the tool to copy it from, where a §3 entry carries only the
+content clause with no generalized clause, naming that Segment's number,
+or where the model's own record already carried a `segments` value that
+disagrees with the copy — the model is never asked to write or reorder
+Segments, so a value it supplied anyway is a defect, not an alternative to
+the copy.
 
 A saved Move renders `segments` as a numbered list, in section 3's own
 order, so a human reads the order as a list rather than checking it against

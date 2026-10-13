@@ -124,9 +124,11 @@ kogaki#1348), carried verbatim:
 5. **The first Segment links to the previous paragraph.** In §3 the first
    Segment's relation is not `none`: it is its relation to the previous
    paragraph's last point, from the same set (cause, consequence, contrast,
-   elaboration, evidence, enumeration), and its clause says which point of
-   the previous paragraph it takes up. Only the first paragraph of a work
-   with no text before it keeps `none`. §1 names that relation too.
+   elaboration, evidence, enumeration), and its content clause says which
+   point of the previous paragraph it takes up. Its generalized clause
+   follows the normal rule regardless — subject-free, naming no term,
+   place, person or claim of the original. Only the first paragraph of a
+   work with no text before it keeps `none`. §1 names that relation too.
 6. **A row is credited where the paragraph finishes moving it.** The §2
    Segment column names the Segment after which the new state holds, not
    the Segment that first mentions something the state is about. Write the
@@ -429,9 +431,14 @@ zero is a valid answer>
 step 2. Each entry: the quoted opening words of that Segment, a dash, its
 function (raises | advances | settles), a dash, its relation to the
 previous Segment (cause | consequence | contrast | elaboration | evidence
-| enumeration | none — the first Segment is always "none"), a dash, then
-what it does to the reader in one clause. Then one sentence stating why
-this order and not another.>
+| enumeration | none — the first Segment is always "none"), a dash, what
+it does to the reader in one clause written about this Passage's own
+content, a dash, then `generalized:` and a second clause stating the same
+thing subject-free — written the way section 6 is written, naming no
+term, place, person or claim of the original, so that it could be
+performed on any subject. An entry carrying only the content clause is
+refused at ingestion, naming the Segment's number. Then one sentence
+stating why this order and not another.>
 
 ## 4. What the Passage presupposes
 
@@ -638,21 +645,32 @@ dimensions changed: 5
 ## 3. The order inside the Passage
 
 1. "It may sound strange for someone who..." — advances — none — puts the author
-   in the room and makes the next sentence an admission.
+   in the room and makes the next sentence an admission. — generalized: names
+   the speaker's own stake in the subject so the statement that follows reads
+   as a concession.
 2. "bookstores are now overflowing" — advances — consequence — hands the reader a
-   fact they can confirm.
+   fact they can confirm. — generalized: hands the reader one fact they can
+   confirm for themselves.
 3. "Some make extensive use of maps... academic works" — advances — elaboration —
-   shows the field is varied and that the author has surveyed it.
+   shows the field is varied and that the author has surveyed it. — generalized:
+   surveys the range of existing approaches, showing the speaker has covered
+   the field.
 4. "At a time when the publishing industry is stagnating..." — raises — contrast —
-   builds the incongruity.
+   builds the incongruity. — generalized: states an incongruity between a
+   general trend and a specific exception to it.
 5. "This book, too, will probably be placed..." — advances — consequence — places
-   this book inside the genre just surveyed.
+   this book inside the genre just surveyed. — generalized: places the present
+   work inside the field just surveyed.
 6. "So why has geopolitics attracted so much attention?" — raises — enumeration —
-   names the reader's question for them.
+   names the reader's question for them. — generalized: states the reader's own
+   question in their voice, naming it directly.
 7. "The biggest reason is the instability of the world" — settles — evidence —
-   answers it at once.
+   answers it at once. — generalized: answers the question at once with a
+   single stated cause.
 8. "Throughout history, interest... has repeatedly surged" — settles — elaboration
-   — generalizes the answer so it becomes the book's thesis.
+   — generalizes the answer so it becomes the book's thesis. — generalized:
+   generalizes the answer into a recurring pattern so it becomes the work's
+   thesis.
 
 The order works because every foothold is placed before the first
 specialist claim, and the question is asked only once the reader has

@@ -172,15 +172,16 @@ except m.Refusal as refusal:
             "the no-Analysis refusal does not name `segments` -- got: %s"
             % refusal)
 
-# Case 2 — an Analysis with section 3: the saved Move renders `segments`
-# as a numbered list, in section 3's own order.
+# Case 2 — an Analysis with section 3, every entry carrying both clauses:
+# the saved Move renders `segments` as a numbered list holding the
+# generalized clauses only, none of the content clauses (kogaki#1367).
 tmp2 = tempfile.mkdtemp()
 passage2 = os.path.join(tmp2, "analysed.md")
 with open(passage2, "w") as fh:
     fh.write("""## 3. The order inside the Passage
 
-1. "Opening words one" — raises — none — gives the reader an unanswered question.
-2. "Opening words two" — settles — cause — answers it directly.
+1. "Opening words one" — raises — none — gives the reader an unanswered question about the book's own subject. — generalized: gives the reader an unanswered question.
+2. "Opening words two" — settles — cause — answers the book's own question directly. — generalized: answers it directly.
 
 ## 4. What the Passage presupposes
 
@@ -206,16 +207,84 @@ else:
 """
         if expected not in text:
             failures.append(
-                "`segments` did not render as a numbered list in section "
-                "3's order -- saved file:\n%s" % text)
+                "`segments` did not render as a numbered list of the "
+                "generalized clauses in section 3's order -- saved file:\n%s"
+                % text)
+        if "book's own subject" in text or "book's own question" in text:
+            failures.append(
+                "`segments` carried a content clause -- saved file:\n%s" % text)
+
+# Case 3 — a §3 entry with only the content clause (no `generalized:`
+# second clause) is refused naming its Segment number (kogaki#1367).
+tmp3 = tempfile.mkdtemp()
+passage3 = os.path.join(tmp3, "analysed.md")
+with open(passage3, "w") as fh:
+    fh.write("""## 3. The order inside the Passage
+
+1. "Opening words one" — raises — none — gives the reader an unanswered question.
+2. "Opening words two" — settles — cause — answers it directly. — generalized: answers it directly.
+
+## 4. What the Passage presupposes
+
+nothing beyond ordinary attention.
+""")
+try:
+    m.run_passage(passage3, "specs/move-extraction-contract.md",
+                  os.path.join(tmp3, "moves"), "stub", "stub-model",
+                  os.path.join(tmp3, "out"), 60, select="accept")
+    failures.append(
+        "a §3 entry carrying only the content clause was accepted; it "
+        "must be refused naming the Segment's number")
+except m.Refusal as refusal:
+    if "Segment 1" not in str(refusal):
+        failures.append(
+            "the one-clause refusal does not name Segment 1 -- got: %s"
+            % refusal)
+
+# Case 4 — a supplied `segments` value disagreeing with the generalized
+# clauses is refused as today.
+tmp4 = tempfile.mkdtemp()
+passage4 = os.path.join(tmp4, "analysed.md")
+with open(passage4, "w") as fh:
+    fh.write("""## 3. The order inside the Passage
+
+1. "Opening words one" — raises — none — gives the reader an unanswered question. — generalized: gives the reader an unanswered question.
+
+## 4. What the Passage presupposes
+
+nothing beyond ordinary attention.
+""")
+disagreeing_record = MOVE_RECORD + "segments: |-\n  1. raises — none — a disagreeing clause.\n"
+
+def fake_spawn_disagreeing(command, model, prompt, timeout_s, cwd=None):
+    return disagreeing_record
+
+m.spawn_model = fake_spawn_disagreeing
+try:
+    m.run_passage(passage4, "specs/move-extraction-contract.md",
+                  os.path.join(tmp4, "moves"), "stub", "stub-model",
+                  os.path.join(tmp4, "out"), 60, select="accept")
+    failures.append(
+        "a record supplying a `segments` value disagreeing with the "
+        "generalized clauses was accepted")
+except m.Refusal as refusal:
+    if "disagrees with the copy" not in str(refusal):
+        failures.append(
+            "the disagreeing-segments refusal does not name the "
+            "disagreement -- got: %s" % refusal)
+finally:
+    m.spawn_model = fake_spawn
 
 if failures:
     for f in failures:
         print("FAIL: %s" % f)
     sys.exit(1)
 print(
-    "ok: segments refused with no Analysis, naming the field; saved with "
-    "an Analysis, numbered in section 3's order (kogaki#1320)")
+    "ok: segments refused with no Analysis, naming the field; saved as the "
+    "generalized clauses only with an Analysis carrying both clauses; "
+    "refused naming the Segment's number with only the content clause; "
+    "refused where a supplied `segments` disagrees with the copy "
+    "(kogaki#1320, kogaki#1367)")
 PY
 ); SEGRC=$?
 printf '%s\n' "$SEGMENTS_OUT"
@@ -266,8 +335,8 @@ dimensions changed: 2
 
 ## 3. The order inside the Passage
 
-1. "A term is defined" [gloss] — settles — elaboration — takes up item one of the preceding list and defines it.
-2. "Each of its states" — raises — enumeration — tells the reader two items are coming.
+1. "A term is defined" [gloss] — settles — elaboration — takes up item one of the preceding list and defines it. — generalized: takes up the first of a previously presented list of items and defines it.
+2. "Each of its states" — raises — enumeration — tells the reader two items are coming. — generalized: tells the reader a fixed number of items are coming.
 
 ## 7. Candidate name
 
@@ -287,8 +356,8 @@ want = {
               "question: what is the first factor?",
     "after": "knowledge: the first factor is defined. "
              "question: \"what do its two states look like?\" opened.",
-    "segments": "1. settles — elaboration — takes up item one of the preceding list and defines it.\n"
-                "2. raises — enumeration — tells the reader two items are coming.",
+    "segments": "1. settles — elaboration — takes up the first of a previously presented list of items and defines it.\n"
+                "2. raises — enumeration — tells the reader a fixed number of items are coming.",
 }
 if not p.admitted:
     failures.append("case 1: the p01-shaped Analysis was refused: %s" % p.refusal)
