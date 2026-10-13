@@ -929,9 +929,9 @@ def write_index(moves_dir):
     out = [
         "# Moves",
         "",
-        "Regenerated whole from `moves/` at each ingestion run "
+        "Regenerated whole from `%s/` at each ingestion run "
         "(SPEC-draft-pipeline §6.9.1a). Every column is read off a file; none is "
-        "composed. Nothing reads this file to decide anything.",
+        "composed. Nothing reads this file to decide anything." % moves_dir.rstrip("/"),
         "",
         "| id | technique |",
         "| --- | --- |",
@@ -1176,6 +1176,65 @@ def check_analysis_dimensions(passage_text, line_no=None):
     return None
 
 
+ANALYSIS_UNIT_ROW = re.compile(r"^unit:\s*(?P<unit>passage|paragraph)\s*$", re.M)
+ANALYSIS_STATUS_ROW = re.compile(r"^status:\s*(?P<status>.+?)\s*$", re.M)
+ANALYSIS_CONTAINS_ROW = re.compile(r"^contains:\s*(?P<contains>.*)$", re.M)
+
+
+def analysis_unit(passage_text):
+    """The Analysis's `unit:` header, or `None` where the text carries no
+    such line (a bare Passage with no Analysis)."""
+    match = ANALYSIS_UNIT_ROW.search(passage_text)
+    return match.group("unit") if match else None
+
+
+def analysis_status(passage_text):
+    """The Analysis's `status:` header, stripped, or `None` where the text
+    carries no such line."""
+    match = ANALYSIS_STATUS_ROW.search(passage_text)
+    return match.group("status").strip() if match else None
+
+
+def analysis_contains(passage_text):
+    """The Analysis's `contains:` header, stripped, or `None` where the
+    line is absent or empty."""
+    match = ANALYSIS_CONTAINS_ROW.search(passage_text)
+    if match is None:
+        return None
+    raw = match.group("contains").strip()
+    return raw or None
+
+
+def check_paragraph_fields(passage_text, line_no=None):
+    """`passages/FORMAT.md` "The paragraph unit": `contains:` is refused on
+    a `unit: passage` Analysis, which has nothing to contain, and a
+    `unit: paragraph` Analysis ingests only once `status: complete` — a
+    Paragraph is read from its own named Passage Analyses, never
+    re-derived from Passage text, so a named Analysis that does not yet
+    exist leaves nothing for ingestion to read. Returns a `Refusal`, or
+    `None` where neither condition is violated."""
+    unit = analysis_unit(passage_text)
+    contains = analysis_contains(passage_text)
+    if unit != "paragraph":
+        if contains:
+            return Refusal(
+                "paragraph-contains",
+                "`contains:` names %r on a `unit: %s` Analysis, which has "
+                "nothing to contain" % (contains, unit or "passage"),
+                line_no=line_no,
+            )
+        return None
+    status = analysis_status(passage_text)
+    if status is None or not status.lower().startswith("complete"):
+        return Refusal(
+            "paragraph-status",
+            "a `unit: paragraph` Analysis ingests only once `status: "
+            "complete` — got %r" % (status or "(no status: line)"),
+            line_no=line_no,
+        )
+    return None
+
+
 ANALYSIS_SPLIT_NOTE = re.compile(r"^split:\s*(?P<note>.+?)\s*$")
 ANALYSIS_DISMISSED_NOTE = re.compile(r"^dismissed:\s*(?P<note>.+?)\s*$")
 
@@ -1347,6 +1406,9 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
     split_refusal = check_analysis_split_note(passage_text)
     if split_refusal is not None:
         raise split_refusal
+    paragraph_refusal = check_paragraph_fields(passage_text)
+    if paragraph_refusal is not None:
+        raise paragraph_refusal
 
     os.makedirs(out_dir, exist_ok=True)
     out_dir = os.path.abspath(out_dir)
@@ -1533,6 +1595,13 @@ def main_passage(argv):
         "screen. Nothing is written to moves/ before --select accept.",
     )
     parser.add_argument("passage", nargs="?", help="the Passage text file")
+    parser.add_argument(
+        "--from-analysis",
+        help="a unit: paragraph Analysis file, already written, read in "
+        "place of the positional Passage file (passages/FORMAT.md "
+        "\"The paragraph unit\"); selects moves/paragraph as the default "
+        "--library",
+    )
     parser.add_argument("--model", help="the pinned model id for the authorship step")
     parser.add_argument("--command", default="claude",
                          help="the model command (default: claude)")
@@ -1545,16 +1614,30 @@ def main_passage(argv):
         help="path to specs/move-extraction-contract.md",
     )
     parser.add_argument("--moves-dir", default="moves", help="the Move library directory")
+    parser.add_argument(
+        "--library",
+        help="the Move library directory, overriding --moves-dir; "
+        "moves/paragraph is used automatically with --from-analysis when "
+        "--library is not given",
+    )
     parser.add_argument("--out", help="the run directory (raw.txt, PassageScreen.md)")
     parser.add_argument("--timeout", type=int, default=600, help="per-call bound in seconds")
     parser.add_argument("--select", help="the owner's recorded choice: accept, decline, or merge:<id>")
     args = parser.parse_args(argv)
 
-    if not args.passage or not args.model or not args.out:
-        parser.error("a Passage file, --model and --out are required")
+    input_path = args.from_analysis or args.passage
+    if not input_path or not args.model or not args.out:
+        parser.error("a Passage file (or --from-analysis), --model and --out are required")
+
+    moves_dir = args.library
+    if moves_dir is None:
+        moves_dir = (
+            os.path.join(args.moves_dir, "paragraph")
+            if args.from_analysis else args.moves_dir
+        )
 
     try:
-        result = run_passage(args.passage, args.contract, args.moves_dir,
+        result = run_passage(input_path, args.contract, moves_dir,
                               args.command, args.model, args.out, args.timeout,
                               select=args.select)
     except Refusal as refusal:

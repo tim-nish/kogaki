@@ -223,5 +223,124 @@ if [[ $SEGRC -ne 0 ]]; then
   exit 1
 fi
 
+# --------------------------------------------------------------------------
+# The paragraph library (kogaki#1358) — `moves/paragraph/` mirrors `moves/`
+# with its own ROLES.json copy and INDEX.md. Its live read tolerates an
+# empty directory (kogaki#1187's empty-set refusal applies only to `moves/`,
+# which was already backfilled; `moves/paragraph/` starts empty until a
+# `unit: paragraph` Analysis is first ingested into it).
+# --------------------------------------------------------------------------
+if [[ ! -f moves/paragraph/ROLES.json ]]; then
+  echo "FAIL: moves/paragraph/ROLES.json is missing"
+  exit 1
+fi
+if ! diff -q moves/ROLES.json moves/paragraph/ROLES.json >/dev/null; then
+  echo "FAIL: moves/paragraph/ROLES.json is not a copy of moves/ROLES.json"
+  exit 1
+fi
+
+PARAGRAPH_LIVE=$(python3 -c "
+import os, sys
+sys.path.insert(0, 'tools')
+import move_ingest as m
+bad = []
+moves_dir = 'moves/paragraph'
+for name in sorted(os.listdir(moves_dir)):
+    if not name.endswith('.md') or name == 'INDEX.md':
+        continue
+    path = os.path.join(moves_dir, name)
+    try:
+        mapping = m.read_saved(path)
+        m.check_field_set(mapping, 1)
+        m.check_figure(mapping, 1)
+    except Exception as exc:
+        bad.append('%s: %s' % (path, exc))
+        continue
+    if m.render_move(mapping) != open(path).read():
+        bad.append('%s: does not round-trip through the renderer' % path)
+for line in bad:
+    print(line)
+" 2>&1) || { echo "FAIL: the live read over moves/paragraph/ could not run"; printf '%s\n' "$PARAGRAPH_LIVE"; exit 1; }
+printf '%s\n' "$PARAGRAPH_LIVE"
+if [[ -n "$PARAGRAPH_LIVE" ]]; then
+  echo "FAIL: a record in moves/paragraph/ does not satisfy §6.9.0 condition 3 or §6.9.3 against the live kind set"
+  exit 1
+fi
+
+# --------------------------------------------------------------------------
+# The paragraph guard (kogaki#1358) — `check_paragraph_fields` runs the act
+# against hand-built Analysis text, never a grep over passages/FORMAT.md's
+# own wording (admission consult, kogaki#1320's precedent): `contains:` on a
+# `unit: passage` Analysis is refused naming `contains:`; a `unit: paragraph`
+# Analysis with no `status: complete` is refused naming `status:`; a
+# `unit: paragraph` Analysis with `status: complete` is admitted.
+# --------------------------------------------------------------------------
+PARAGRAPH_GUARD_OUT=$(python3 <<'PY'
+import sys
+sys.path.insert(0, "tools")
+import move_ingest as m
+
+failures = []
+
+passage_with_contains = """unit: passage
+contains: some_slug
+"""
+refusal = m.check_paragraph_fields(passage_with_contains)
+if refusal is None or "contains:" not in str(refusal):
+    failures.append(
+        "a `unit: passage` Analysis carrying `contains:` was not refused "
+        "naming `contains:` -- got: %r" % refusal)
+
+paragraph_pending = """unit: paragraph
+contains: a, b
+status: pending: b
+"""
+refusal = m.check_paragraph_fields(paragraph_pending)
+if refusal is None or "status:" not in str(refusal):
+    failures.append(
+        "a `unit: paragraph` Analysis with a pending `status:` was not "
+        "refused naming `status:` -- got: %r" % refusal)
+
+paragraph_no_status = """unit: paragraph
+contains: a, b
+"""
+refusal = m.check_paragraph_fields(paragraph_no_status)
+if refusal is None or "status:" not in str(refusal):
+    failures.append(
+        "a `unit: paragraph` Analysis with no `status:` line was not "
+        "refused naming `status:` -- got: %r" % refusal)
+
+paragraph_complete = """unit: paragraph
+contains: a, b
+status: complete
+"""
+refusal = m.check_paragraph_fields(paragraph_complete)
+if refusal is not None:
+    failures.append(
+        "a `unit: paragraph` Analysis with `status: complete` was refused "
+        "-- %s" % refusal)
+
+plain_passage = """unit: passage
+"""
+refusal = m.check_paragraph_fields(plain_passage)
+if refusal is not None:
+    failures.append(
+        "a `unit: passage` Analysis with no `contains:` was refused -- %s"
+        % refusal)
+
+if failures:
+    for f in failures:
+        print("FAIL: %s" % f)
+    sys.exit(1)
+print("ok: check_paragraph_fields refuses `contains:` on a unit: passage "
+      "Analysis and an incomplete unit: paragraph Analysis, and admits a "
+      "complete one (kogaki#1358)")
+PY
+); PGRC=$?
+printf '%s\n' "$PARAGRAPH_GUARD_OUT"
+if [[ $PGRC -ne 0 ]]; then
+  exit 1
+fi
+
 echo "ok: ingestion fixture pass ran ${N} case(s) clean, exactly at its floor of ${FLOOR}; ${COUNT} shipped record(s) validate against the live kind set"
 exit 0
