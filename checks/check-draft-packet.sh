@@ -336,10 +336,11 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
 const templateRaw = readFileSync(join(repo, "src", "packet-template.md"), "utf8");
 const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8");
 
-// (d) "states its point" appears nowhere outside the `{{prose_rules}}` block.
-// Driven over the real pipeline: a Persona whose prose carries the phrase
-// (the shipped dev-to-zenn.md does, in its Paragraphs rule) renders it inside
-// the Packet; stripping that one injected span away leaves no other copy.
+// (d) "no unexplained term of art" appears nowhere outside the
+// `{{prose_rules}}` block. Driven over the real pipeline: a Persona whose
+// prose carries the phrase (the shipped dev-to-zenn.md does, in its Prose
+// style rule) renders it inside the Packet; stripping that one injected span
+// away leaves no other copy.
 {
   const styleDir = join(root, "theses", "style-brief");
   mkdirSync(styleDir, { recursive: true });
@@ -354,18 +355,18 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   if (r.status !== 0) fails.push(`(d) packet --leg s1 failed: ${(r.stderr || "").slice(0, 400)}`);
   const packet = r.stdout || "";
   const persona = readerProseOf(personaRaw);
-  if (!persona.includes("states its point")) {
-    fails.push("(d) control: the fixture Persona's prose does not carry \"states its point\" — the case below would pass vacuously");
+  if (!persona.includes("no unexplained term of art")) {
+    fails.push("(d) control: the fixture Persona's prose does not carry \"no unexplained term of art\" — the case below would pass vacuously");
   }
   if (!packet.includes(persona)) {
     fails.push("(d) control: the rendered Packet does not carry the Persona's prose verbatim — {{prose_rules}} did not fill");
   }
   const withoutProseRules = packet.split(persona).join("");
-  if (withoutProseRules.includes("states its point")) {
-    fails.push("(d) \"states its point\" appears in the Packet outside the {{prose_rules}} block");
+  if (withoutProseRules.includes("no unexplained term of art")) {
+    fails.push("(d) \"no unexplained term of art\" appears in the Packet outside the {{prose_rules}} block");
   }
-  if (templateRaw.includes("states its point")) {
-    fails.push("(d) src/packet-template.md itself carries \"states its point\" — the rule has not left the template");
+  if (templateRaw.includes("no unexplained term of art")) {
+    fails.push("(d) src/packet-template.md itself carries \"no unexplained term of art\" — the rule has not left the template");
   }
 }
 
@@ -409,7 +410,7 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   const prose = readerProseOf(personaRaw);
   const emptyRender = templateRaw.split(marker).join("");
   const fullRender = templateRaw.split(marker).join(prose);
-  const ruleMarkers = ["Prose style:", "Referents.", "Paragraphs.", "Enumerations", "Voice."];
+  const ruleMarkers = ["Prose style:", "Referents.", "Paragraphs.", "Voice."];
   for (const m of ruleMarkers) {
     if (!fullRender.includes(m)) fails.push(`(f) control: substituting the Persona's actual prose does not surface its "${m}" rule — the empty-render case below would pass vacuously`);
     if (emptyRender.includes(m)) fails.push(`(f) the template carries the style rule "${m}" even with an empty {{prose_rules}}`);

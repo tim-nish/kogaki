@@ -29,6 +29,11 @@ Persona's prose block (kogaki#1285): it renders the Persona's
 declares none, before the Persona's own prose rules — so the Referents rule
 above can point at material the Packet actually carries.
 
+THE MOVE OWNS PARAGRAPH STRUCTURE, THE PERSONA OWNS REGISTER (kogaki#1350,
+owner ruling 2026-10-12): a Move's Segments, their functions and relations,
+decide where a paragraph opens and how long it runs; the Persona's `prose`
+block carries no rule that dictates either.
+
 LEG LINKING IS DEFAULT-DENY (kogaki#1282, owner ruling 2026-10-06). Only what
 the Brief's `introduces` and `re-activate` explicitly admit crosses into this
 Leg's Packet; nothing else the reader holds does, and no sentence here is
