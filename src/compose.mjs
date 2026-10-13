@@ -1377,9 +1377,32 @@ export function moveContract(moveId, movesDir = "moves") {
   return out;
 }
 
-// THE PERSONA, read from the reader file the workflow table names
-// (kogaki#1216, owner-approved design 2026-09-28). One owner-authored file
-// under `readers/` with TWO fields and nothing more: `reader` — who they are
+// THE AUDIENCE FILE (kogaki#1370, owner decision 2026-10-13): one
+// owner-authored file under `audiences/` holding two keys -- `persona`, who
+// is read to, and `register`, how they are addressed. `audienceSection`
+// returns the indented lines under a top-level key, dedented, so the flat
+// scalar reader below reads the `persona` map's two fields exactly as it
+// reads a Move record's.
+export function audienceSection(text, name) {
+  const lines = text.split("\n");
+  const head = new RegExp(`^${name}:[ \\t]*$`);
+  const at = lines.findIndex((l) => head.test(l));
+  if (at < 0) return null;
+  const body = [];
+  for (let j = at + 1; j < lines.length; j++) {
+    const l = lines[j];
+    if (l.trim() !== "" && !/^[ \t]/.test(l)) break;
+    body.push(l);
+  }
+  const indents = body.filter((l) => l.trim() !== "").map((l) => l.match(/^[ \t]*/)[0].length);
+  if (!indents.length) return null;
+  const cut = Math.min(...indents);
+  return body.map((l) => l.slice(Math.min(cut, l.match(/^[ \t]*/)[0].length))).join("\n");
+}
+
+// THE PERSONA, the Audience file's `persona` key (kogaki#1216, owner-approved
+// design 2026-09-28; moved under the Audience by kogaki#1370). TWO fields and
+// nothing more: `reader` — who they are
 // by what they do and in which genre they are reading (kogaki#1225 dropped
 // why they opened it: a purpose is not observable at the title, and it is
 // what steered Reader start toward a reader who had already lived the
@@ -1387,7 +1410,7 @@ export function moveContract(moveId, movesDir = "moves") {
 // explanation, and what cannot. Nothing about attitude, trust or the reader's
 // question: those are Reader start dimensions, and holding them here would
 // duplicate it. The
-// record is flat `key: value` like a Move record, so the same scalar reader
+// map is flat `key: value` like a Move record, so the same scalar reader
 // serves both; a missing field is a store fault named by field, exactly as a
 // half-written Move contract is. The Persona is an INPUT to authoring Reader
 // start and is never copied into the Brief.
@@ -1402,23 +1425,24 @@ export function readerPersona(path) {
   let text;
   try { text = readFileSync(path, "utf8"); }
   catch (e) {
-    return { error: `the reader file ${path} cannot be read (${e.message}) — the Brief workflow table names it, and `
-      + "Reader start is authored from it and the Thesis (kogaki#1216)" };
+    return { error: `the Audience file ${path} cannot be read (${e.message}) — the Brief workflow table names it, and `
+      + "Reader start is authored from its `persona` and the Thesis (kogaki#1216)" };
   }
   const out = { id: moveScalarField(text, "id") };
+  const persona = audienceSection(text, "persona") ?? "";
   const missing = [];
   for (const f of READER_PERSONA_FIELDS) {
-    const v = moveScalarField(text, f);
-    if (v === null) missing.push(f);
+    const v = moveScalarField(persona, f);
+    if (v === null) missing.push(`persona.${f}`);
     else out[f] = v;
   }
   for (const f of READER_PERSONA_OPTIONAL_FIELDS) {
-    out[f] = moveScalarField(text, f); // null is a stated absence, read by personaPriorKnowledgeLine
+    out[f] = moveScalarField(persona, f); // null is a stated absence, read by personaPriorKnowledgeLine
   }
   if (missing.length) {
-    return { error: `the reader file ${path} declares no ${missing.join(" and no ")} — the Persona names `
+    return { error: `the Audience file ${path} declares no ${missing.join(" and no ")} — the Persona names `
       + `at least ${READER_PERSONA_FIELDS.join(" and ")} (kogaki#1216), and Reader start cannot be authored from half of it. `
-      + "Repair the reader file under its own issue." };
+      + "Repair the Audience file under its own issue." };
   }
   return out;
 }
@@ -1435,25 +1459,25 @@ export function personaPriorKnowledgeLine(persona) {
   return (typeof v === "string" && v.trim() !== "") ? v : PERSONA_PRIOR_KNOWLEDGE_ABSENT;
 }
 
-// THE PERSONA'S `prose` BLOCK (kogaki#1251 item 1, kogaki#1261): the Write
-// block's reader-dependent rules, rendered into the Leg Packet's
-// `{{prose_rules}}` slot as the file writes them. Read separately from
+// THE AUDIENCE'S `register` (kogaki#1251 item 1, kogaki#1261, kogaki#1370):
+// the Write block's reader-dependent rules, rendered into the Leg Packet's
+// `{{register}}` slot as the file writes them. Read separately from
 // `readerPersona` because its one reader is the Packet, not Reader start's
-// authoring, and a Persona without the block still serves Reader start. A
-// missing block refuses by name: the Packet is the writer's entire input, and
-// a Write block with no prose rules is a hole the writer fills by invention.
+// authoring, and an Audience without the register still serves Reader start. A
+// missing register refuses by name: the Packet is the writer's entire input, and
+// a Write block with no register is a hole the writer fills by invention.
 export function readerProse(path) {
   let text;
   try { text = readFileSync(path, "utf8"); }
   catch (e) {
-    return { error: `the reader file ${path} cannot be read (${e.message}) — the Packet's prose rules are its \`prose\` block (kogaki#1261)` };
+    return { error: `the Audience file ${path} cannot be read (${e.message}) — the Packet's register is its \`register\` key (kogaki#1261, kogaki#1370)` };
   }
-  const prose = moveScalarField(text, "prose");
-  if (prose === null) {
-    return { error: `the reader file ${path} declares no \`prose\` block — the Packet's Write block renders the Persona's prose rules from it (kogaki#1261). `
-      + "Repair the reader file under its own issue." };
+  const register = moveScalarField(text, "register");
+  if (register === null) {
+    return { error: `the Audience file ${path} declares no \`register\` — the Packet's Write block renders the Audience's register from it (kogaki#1261, kogaki#1370). `
+      + "Repair the Audience file under its own issue." };
   }
-  return { prose };
+  return { register };
 }
 
 // THE WHOLE ADMITTED SET, for the composing state's input. Ordered by id so

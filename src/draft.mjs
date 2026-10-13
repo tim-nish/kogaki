@@ -100,7 +100,7 @@ import { tmpdir } from "node:os";
 import { waypointsRefusal, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, figureKinds, figureLegs,
   journeysRefusal, closureRowsOf, budgetRefusal,
-  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse,
+  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, audienceSection,
   parseBriefRecord, unfilledSlots, briefLegs, legschema } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
@@ -1333,12 +1333,12 @@ export function resolveLegJourneys(leg, brief) {
   return { leg: { ...leg, journeys: resolved, reactivatedJourneys } };
 }
 
-// THE PERSONA THE BRIEF WAS COMPOSED WITH (kogaki#1251 item 1, kogaki#1261).
-// The Brief's own `compose_path:` line names it once the mint records it
-// (kogaki#1262); a Brief minted before that line existed reads the one
-// Persona the Brief workflow table names at its `compose_path` row's
+// THE AUDIENCE THE BRIEF WAS COMPOSED FOR (kogaki#1251 item 1, kogaki#1261,
+// kogaki#1370). The Brief's own `compose_path:` line names it once the mint
+// records it (kogaki#1262); a Brief minted before that line existed reads the
+// one Audience the Brief workflow table names at its `compose_path` row's
 // `reader_file`, which is the file every such Brief was composed with -- since
-// kogaki#1307 the row names the setting `brief.persona_file` in
+// kogaki#1307 the row names a setting, `brief.audience_file` since kogaki#1370, in
 // `kogaki.settings.json`, read here as the workflow reads it. A relative path
 // resolves against the repository root, as the workflow's does.
 const DRAFT_REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -1347,11 +1347,11 @@ export function packetPersonaPath(brief) {
   if (typeof named === "string" && named !== "") return resolve(DRAFT_REPO, named);
   let table;
   try { table = JSON.parse(readFileSync(join(DRAFT_REPO, "src", "brief-workflow.json"), "utf8")); }
-  catch (e) { return { error: `src/brief-workflow.json cannot be read (${e.message}) — the Brief names no compose_path, and the workflow's compose_path row names the Persona otherwise` }; }
+  catch (e) { return { error: `src/brief-workflow.json cannot be read (${e.message}) — the Brief names no compose_path, and the workflow's compose_path row names the Audience otherwise` }; }
   const row = (table.states || []).find((s) => s.id === "compose_path");
   const readerFile = row ? settingValue(row.reader_file) : undefined;
   if (typeof readerFile !== "string" || readerFile === "") {
-    return { error: "the Brief names no compose_path and src/brief-workflow.json's compose_path row names no reader_file — the Packet has no Persona to render the prose rules from (kogaki#1261)" };
+    return { error: "the Brief names no compose_path and src/brief-workflow.json's compose_path row names no reader_file — the Packet has no Audience to render the register from (kogaki#1261, kogaki#1370)" };
   }
   return resolve(DRAFT_REPO, readerFile);
 }
@@ -1397,17 +1397,20 @@ function introducedMeaning(p) {
 }
 
 // THE READER'S OWN WORLD (kogaki#1285, owner ruling 2026-10-06): the
-// Persona's `prior_knowledge` field, read directly here rather than through
-// `readerProse` — that reader refuses by name on an absent block, and an
-// absent or empty `prior_knowledge` is a STATED CASE this one must render,
-// never a refusal. `compose.mjs`'s scalar-field reader is module-private, so
-// this reads the same `key: >-`/`key: |` block-scalar shape it does, over
-// the one field this slot needs.
+// Audience's `persona.prior_knowledge` field, read directly here rather than
+// through `readerProse` — that reader refuses by name on an absent register,
+// and an absent or empty `prior_knowledge` is a STATED CASE this one must
+// render, never a refusal. `compose.mjs`'s scalar-field reader is
+// module-private, so this reads the same `key: >-`/`key: |` block-scalar
+// shape it does, over the one field this slot needs, inside the `persona` map
+// `audienceSection` returns.
 export function personaPriorKnowledge(path) {
   let text;
   try { text = readFileSync(path, "utf8"); }
   catch { return null; }
-  const lines = text.split("\n");
+  const persona = audienceSection(text, "persona");
+  if (persona === null) return null;
+  const lines = persona.split("\n");
   const head = /^prior_knowledge:[ \t]*(.*)$/;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(head);
@@ -1434,7 +1437,7 @@ export function personaPriorKnowledge(path) {
 
 // THE STATED ABSENCE (kogaki#1285 acceptance): rendered in place of
 // `prior_knowledge` where the Persona declares none, so the Referents rule
-// in `{{prose_rules}}` is never left pointing at a block the Packet does not
+// in `{{register}}` is never left pointing at a block the Packet does not
 // carry, and nothing here refuses on the absence.
 export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
@@ -1529,12 +1532,12 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     return `- ${e.as} (re-activated from ${e.leg_id}, strand ${e.value})`;
   });
   const authorityOn = externalAuthorityOf(brief);
-  // THE PERSONA'S PROSE RULES (kogaki#1261): read from the Persona the Brief
-  // was composed with, refused by name where it cannot be read.
+  // THE AUDIENCE'S REGISTER (kogaki#1261, kogaki#1370): read from the
+  // Audience the Brief was composed for, refused by name where it cannot be read.
   const personaPath = packetPersonaPath(brief);
-  const prose = typeof personaPath === "string" ? readerProse(personaPath) : personaPath;
-  if (prose.error) missing.push(`the Persona's prose rules (${prose.error})`);
-  // THE READER'S OWN WORLD (kogaki#1285): read from the same Persona, on
+  const register = typeof personaPath === "string" ? readerProse(personaPath) : personaPath;
+  if (register.error) missing.push(`the Audience's register (${register.error})`);
+  // THE READER'S OWN WORLD (kogaki#1285): read from the same Audience, on
   // the same path — but NEVER pushed onto `missing`, because an absent or
   // empty `prior_knowledge` is the stated case `READER_OWN_WORLD_ABSENT`
   // renders, not a hole in the Packet's input.
@@ -1563,7 +1566,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
       : "(none declared — no word bound applies to this Leg.)",
     claims: claims || "(none recorded)",
     reader_own_world: priorKnowledge || READER_OWN_WORLD_ABSENT,
-    prose_rules: prose.error ? "" : prose.prose,
+    register: register.error ? "" : register.register,
     // WHAT CROSSES INTO THIS LEG (kogaki#1282, owner ruling 2026-10-06):
     // LEG LINKING IS DEFAULT-DENY — the whole of what this Leg may speak of
     // as already available is this Leg's own introduced items (each with

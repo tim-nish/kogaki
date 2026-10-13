@@ -5099,7 +5099,7 @@ subsystem per PR through the gate above:
    contract, not discretion.
 5. **Run-record/workspace machinery** (checkpoints, resume, block mode as
    opt-in dev control, durable Brief home).
-6. **The style contract and plain-register commitment**, consumed at
+6. **The Register contract and plain-register commitment**, consumed at
    generation. **The carrier SPLIT at kogaki#749 and kogaki#752** and this row
    names all three halves rather than the one it used to: the two OPERATIONAL
    clauses (plain register's definition, the round-trip test) live in
@@ -5113,7 +5113,7 @@ subsystem per PR through the gate above:
    register) was **declined rather than dropped silently**: it governed an
    owner-authored document no instance of which was ever created, and the
    decline is recorded at DESIGN.md §7. This pipeline binds **no authored
-   style clause**: the contract instance is owner-authored and nothing here
+   Register clause**: the contract instance is owner-authored and nothing here
    creates it.
 7. **Review** — findings-only, one dimension: conformance to the named
    contract, citing the clause; plus the citation resolve check.

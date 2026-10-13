@@ -190,10 +190,10 @@ export function composeBrief({ slug, strands, thesis, composePath, externalAutho
   if (typeof thesis !== "string" || thesis === "") {
     throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)");
   }
-  // THE PERSONA'S PATH, RECORDED AT MINT (kogaki#1262, carrying kogaki#1251
-  // item 1). `compose_path` names the reader file the `compose_path` workflow
+  // THE AUDIENCE'S PATH, RECORDED AT MINT (kogaki#1262, carrying kogaki#1251
+  // item 1). `compose_path` names the Audience file the `compose_path` workflow
   // state will author the Brief's Reader start from — so the Packet can read
-  // the Persona's `prose` block from the same path the Brief itself names,
+  // the Audience's `register` from the same path the Brief itself names,
   // rather than from the workflow table a Packet has no reach into.
   if (typeof composePath !== "string" || composePath === "") {
     throw new Error("composeBrief: a Brief cannot be composed without the Persona's path recorded at `compose_path` (kogaki#1262) — the mint's caller resolves it from src/brief-workflow.json's `compose_path` state and passes it here.");
@@ -983,17 +983,17 @@ function readJson(p) {
 // rather than by position, so the two readings cannot drift apart by table
 // edit order.
 function briefComposePathDefault() {
-  return briefPersonaFile(readJson(BRIEF_TABLE));
+  return briefAudienceFile(readJson(BRIEF_TABLE));
 }
 
-// THE PERSONA FILE IS A SETTING (kogaki#1307): the `compose_path` row's `reader_file`
-// names `brief.persona_file` in `kogaki.settings.json`, and every reader resolves it
-// here, so the row and the settings file are one fact.
-export function briefPersonaFile(table) {
+// THE AUDIENCE FILE IS A SETTING (kogaki#1307, kogaki#1370): the `compose_path` row's
+// `reader_file` names `brief.audience_file` in `kogaki.settings.json`, and every reader
+// resolves it here, so the row and the settings file are one fact.
+export function briefAudienceFile(table) {
   const st = ((table && table.states) || []).find((s) => s.id === "compose_path");
   const v = st ? settingValue(st.reader_file) : undefined;
   return (typeof v === "string" && v !== "" && v)
-    || fail("src/brief-workflow.json's `compose_path` state declares no `reader_file` — the Persona's path is "
+    || fail("src/brief-workflow.json's `compose_path` state declares no `reader_file` — the Audience file's path is "
       + "read through it (kogaki#1216, kogaki#1262). Nothing was written.");
 }
 
@@ -1147,7 +1147,7 @@ export function validateDifferentiationRecord(record, { units, moves, journeyBea
   // which is the whole of what the exclusion rule makes mechanical.
   if (typeof record.reader_start !== "string" || record.reader_start.trim() === "") {
     return { error: "`reader_start` is required and cannot be blank -- the Brief's one Reader start, a cold read "
-      + "authored from the reader file and the adopted Thesis (src/differentiation-schema.json, kogaki#1216)" };
+      + "authored from the Audience's persona and the adopted Thesis (src/differentiation-schema.json, kogaki#1216)" };
   }
   const shapeErr = readerStateShapeRefusal(record.reader_start, "reader_start", "reader_start");
   if (shapeErr) return { error: shapeErr };
@@ -1539,12 +1539,13 @@ const STATE_WORK = {
     const units = briefJobSetting(table, "compose_path", "units");
     const journeyBearing = briefJourneyStrands(record).length > 0;
     const thesis = briefThesis(record);
-    // THE PERSONA, read from the file the `compose_path` row names (kogaki#1216)
-    // -- the same row this state already reads `job.units` from. A reader file
-    // this state cannot read is a store fault and refuses the STATE, before
-    // the ask: Reader start is authored FROM it, and a judge asked to author a
-    // cold read from a Persona it was never handed answers from nothing.
-    const readerFile = briefPersonaFile(table);
+    // THE PERSONA, read from the Audience file the `compose_path` row names
+    // (kogaki#1216, kogaki#1370) -- the same row this state already reads
+    // `job.units` from. An Audience file this state cannot read is a store
+    // fault and refuses the STATE, before the ask: Reader start is authored
+    // FROM it, and a judge asked to author a cold read from a Persona it was
+    // never handed answers from nothing.
+    const readerFile = briefAudienceFile(table);
     const persona = readerPersona(resolve(BRIEF_REPO, readerFile));
     if (persona.error) fail(`${st.id}: ${persona.error}`);
     const validate = (p) => {
@@ -1562,8 +1563,8 @@ const STATE_WORK = {
       moves_you_may_bind: library.moves,
       units,
       journey_bearing: journeyBearing,
-      // THE PERSONA, verbatim from the reader file and named by path
-      // (kogaki#1216): `reader` and `prior_knowledge` are what `reader_start`
+      // THE PERSONA, verbatim from the Audience file's `persona` and named by
+      // path (kogaki#1216, kogaki#1370): `reader` and `prior_knowledge` are what `reader_start`
       // is derived from, line by line, beside the Thesis in `brief_document`.
       reader_file: readerFile,
       reader: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },

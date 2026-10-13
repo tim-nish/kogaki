@@ -1492,7 +1492,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     mkdirSync(dir);
     const briefPath = join(dir, "brief.yaml");
     writeFileSync(briefPath, composeBrief({ slug: "fixture", strands: [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }],
-      thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" }));
+      thesis: "The fixture claim.", composePath: "audiences/dev-to-zenn.md" }));
     const diffPath = join(dir, "differentiation.json");
     writeFileSync(diffPath, JSON.stringify({ reader_start: START, leg1_survivors: ["m_open"],
       entries: [1, 2, 3].map((n) => ({ unit_number: n, dimension: ["knowledge", "question", "trust"][n - 1], opening_move: "m_open", reader_experience: `exp ${n}` })) }));

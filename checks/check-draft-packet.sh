@@ -85,13 +85,13 @@ const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap, thesisClosureRow, parseBriefRecord } =
   await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 
-// Reads a Persona file's `prose: |` block the same way src/compose.mjs's
+// Reads an Audience file's `register: |` block the same way src/compose.mjs's
 // `readerProse` does, so a fixture built here matches what the Packet
-// actually renders (kogaki#1321).
-function readerProseOf(text) {
+// actually renders (kogaki#1321, kogaki#1370).
+function registerOf(text) {
   const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^prose:[ \t]*(.*)$/);
+    const m = lines[i].match(/^register:[ \t]*(.*)$/);
     if (!m) continue;
     const body = [];
     for (let j = i + 1; j < lines.length; j++) {
@@ -198,7 +198,7 @@ const withBoundWaypoints = (rec) => ({ ...rec, reader_path: (rec.reader_path || 
 // by `briefRecordText`, so the fixture is read through the Draft's own reader.
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
 const briefText = (legs, keys = {}) => briefRecordText({
-  slug: "packet-brief", compose_path: "readers/dev-to-zenn.md", external_authority: "on",
+  slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
   strands: [{ id: "L1", slug: "first-strand", cite: lessonCite("first-strand") },
     { id: "L2", slug: "second-strand", cite: lessonCite("second-strand") }],
   thesis: "The fixture claim.",
@@ -378,45 +378,45 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
   }
 }
 
-// ---- the style-rule split (kogaki#1321) ----
-// The template carries no style rule of its own; every one lives in the
-// Persona's `prose` block and reaches the Packet only through
-// `{{prose_rules}}`. Each case below is an ABSENCE, so each owes a control
+// ---- the register split (kogaki#1321, kogaki#1370) ----
+// The template carries no register rule of its own; every one lives in the
+// Audience's `register` and reaches the Packet only through
+// `{{register}}`. Each case below is an ABSENCE, so each owes a control
 // arm proving the same search catches the thing when it IS there
 // (kogaki#1321 thread comment, receipt
 // coding::lesson/an-absence-catchers-silence-is-indistinguishable-from-its-success@ddef48a0b4e6f4dd07eac5d01167f192763a0bd58528a0142f585172fe342eb1).
 
 const templateRaw = readFileSync(join(repo, "src", "packet-template.md"), "utf8");
-const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8");
+const audienceRaw = readFileSync(join(repo, "audiences", "dev-to-zenn.md"), "utf8");
 
 // (d) "no unexplained term of art" appears nowhere outside the
-// `{{prose_rules}}` block. Driven over the real pipeline: a Persona whose
-// prose carries the phrase (the shipped dev-to-zenn.md does, in its Prose
-// style rule) renders it inside the Packet; stripping that one injected span
-// away leaves no other copy.
+// `{{register}}` block. Driven over the real pipeline: an Audience whose
+// register carries the phrase (the shipped dev-to-zenn.md does, in its
+// Sentences rule) renders it inside the Packet; stripping that one injected
+// span away leaves no other copy.
 {
-  const styleDir = join(root, "theses", "style-brief");
-  mkdirSync(styleDir, { recursive: true });
-  const stylePersona = join(root, "persona-with-rule.md");
-  writeFileSync(stylePersona, personaRaw);
-  const styleBriefPath = join(styleDir, "brief.yaml");
-  writeFileSync(styleBriefPath, briefText(goodLegs, { slug: "style-brief", compose_path: stylePersona }));
-  const stylePacket = (args) => trapped([join(repo, "src", "draft.mjs"), ...args,
-    "--brief", styleBriefPath, "--workspace", join(root, "ws-style")], { KOGAKI_JUDGE_CLI: stub });
-  stylePacket(["resolve"]);
-  const r = stylePacket(["packet", "--leg", "s1"]);
+  const registerDir = join(root, "theses", "register-brief");
+  mkdirSync(registerDir, { recursive: true });
+  const registerAudience = join(root, "audience-with-rule.md");
+  writeFileSync(registerAudience, audienceRaw);
+  const registerBriefPath = join(registerDir, "brief.yaml");
+  writeFileSync(registerBriefPath, briefText(goodLegs, { slug: "register-brief", compose_path: registerAudience }));
+  const registerPacket = (args) => trapped([join(repo, "src", "draft.mjs"), ...args,
+    "--brief", registerBriefPath, "--workspace", join(root, "ws-register")], { KOGAKI_JUDGE_CLI: stub });
+  registerPacket(["resolve"]);
+  const r = registerPacket(["packet", "--leg", "s1"]);
   if (r.status !== 0) fails.push(`(d) packet --leg s1 failed: ${(r.stderr || "").slice(0, 400)}`);
   const packet = r.stdout || "";
-  const persona = readerProseOf(personaRaw);
-  if (!persona.includes("no unexplained term of art")) {
-    fails.push("(d) control: the fixture Persona's prose does not carry \"no unexplained term of art\" — the case below would pass vacuously");
+  const register = registerOf(audienceRaw);
+  if (!register.includes("no unexplained term of art")) {
+    fails.push("(d) control: the fixture Audience's register does not carry \"no unexplained term of art\" — the case below would pass vacuously");
   }
-  if (!packet.includes(persona)) {
-    fails.push("(d) control: the rendered Packet does not carry the Persona's prose verbatim — {{prose_rules}} did not fill");
+  if (!packet.includes(register)) {
+    fails.push("(d) control: the rendered Packet does not carry the Audience's register verbatim — {{register}} did not fill");
   }
-  const withoutProseRules = packet.split(persona).join("");
-  if (withoutProseRules.includes("no unexplained term of art")) {
-    fails.push("(d) \"no unexplained term of art\" appears in the Packet outside the {{prose_rules}} block");
+  const withoutRegister = packet.split(register).join("");
+  if (withoutRegister.includes("no unexplained term of art")) {
+    fails.push("(d) \"no unexplained term of art\" appears in the Packet outside the {{register}} block");
   }
   if (templateRaw.includes("no unexplained term of art")) {
     fails.push("(d) src/packet-template.md itself carries \"no unexplained term of art\" — the rule has not left the template");
@@ -450,23 +450,23 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   }
 }
 
-// (f) a Persona whose `prose` block is empty renders a Packet with no style
-// rule at all. `{{prose_rules}}` is the template's only seam for a style
-// rule, so substituting it with the empty string must leave no trace of any
-// rule that lives in the Persona's prose (checked against the shipped
-// dev-to-zenn.md's own rules). Control arm: the same substitution with the
-// Persona's actual prose DOES surface those rules, so the search is not
-// vacuous.
+// (f) an Audience whose `register` is empty renders a Packet with no
+// register rule at all. `{{register}}` is the template's only seam for a
+// register rule, so substituting it with the empty string must leave no trace
+// of any rule that lives in the Audience's register (checked against the
+// shipped dev-to-zenn.md's own rules). Control arm: the same substitution with
+// the Audience's actual register DOES surface those rules, so the search is
+// not vacuous.
 {
-  const marker = "{{prose_rules}}";
-  if (!templateRaw.includes(marker)) fails.push("(f) src/packet-template.md carries no {{prose_rules}} slot");
-  const prose = readerProseOf(personaRaw);
+  const marker = "{{register}}";
+  if (!templateRaw.includes(marker)) fails.push("(f) src/packet-template.md carries no {{register}} slot");
+  const register = registerOf(audienceRaw);
   const emptyRender = templateRaw.split(marker).join("");
-  const fullRender = templateRaw.split(marker).join(prose);
-  const ruleMarkers = ["Prose style:", "Referents.", "Paragraphs.", "Voice."];
+  const fullRender = templateRaw.split(marker).join(register);
+  const ruleMarkers = ["Sentences:", "Referents.", "Paragraphs.", "Voice."];
   for (const m of ruleMarkers) {
-    if (!fullRender.includes(m)) fails.push(`(f) control: substituting the Persona's actual prose does not surface its "${m}" rule — the empty-render case below would pass vacuously`);
-    if (emptyRender.includes(m)) fails.push(`(f) the template carries the style rule "${m}" even with an empty {{prose_rules}}`);
+    if (!fullRender.includes(m)) fails.push(`(f) control: substituting the Audience's actual register does not surface its "${m}" rule — the empty-render case below would pass vacuously`);
+    if (emptyRender.includes(m)) fails.push(`(f) the template carries the register rule "${m}" even with an empty {{register}}`);
   }
 }
 

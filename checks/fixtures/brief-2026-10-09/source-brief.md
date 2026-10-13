@@ -1,6 +1,6 @@
 # Brief — check-only-good-what-given
 
-*compose_path:* `readers/dev-to-zenn.md`
+*compose_path:* `audiences/dev-to-zenn.md`
 *external_authority:* on
 
 > A **brief** is the working plan for one article: the served

@@ -24,9 +24,9 @@
 # `differentiation` argument at all skips the check entirely (a run predating
 # this state, or a fixture exercising assembly on its own).
 #
-# THE kogaki#1216 HALF: `readerPersona` reads the two-field reader file the
-# workflow's `compose_path` row names and refuses a file missing a field by
-# name; `survivorSentence` renders the count; and, by absence, the verbatim
+# THE kogaki#1216 HALF: `readerPersona` reads the two-field `persona` of the
+# Audience file the workflow's `compose_path` row names (kogaki#1370) and
+# refuses a file missing a field by name; `survivorSentence` renders the count; and, by absence, the verbatim
 # first-Leg binding (`reader_start_binds_first_leg`) is gone from both
 # src/compose.mjs and src/leg-schema.json's `path_rules`, replaced by the
 # judgment-class `first_leg_binds_a_survivor`.
@@ -60,7 +60,7 @@ node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { validateDifferentiationRecord, composeBrief, briefPersonaFile } from "./src/brief.mjs";
+import { validateDifferentiationRecord, composeBrief, briefAudienceFile } from "./src/brief.mjs";
 import { assembleSelection, readerFieldValues, survivorSentence, candidateEvidence, READER_FIELDS } from "./src/assemble.mjs";
 import { briefRecordKeys, parseBriefRecord } from "./src/compose.mjs";
 import { readerPersona, validateLegs, deriveReaderStatesBefore } from "./src/compose.mjs";
@@ -225,7 +225,7 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   if (keys.some((k) => /opening/i.test(k))) fails.push(`(u) the Brief record still declares an Opening question key: ${keys.join(", ")}`);
   if (!keys.includes("reader_target")) fails.push("(u) the Brief record lost its `reader_target` key");
   const skeleton = composeBrief({ slug: "fixture", strands: [{ display_id: "L1", slug: "s", cite: "c" }],
-    thesis: "The fixture claim.", composePath: "readers/dev-to-zenn.md" });
+    thesis: "The fixture claim.", composePath: "audiences/dev-to-zenn.md" });
   const minted = parseBriefRecord(skeleton, "fixture.yaml");
   if (minted.error) fails.push(`(u) the minted Brief skeleton does not read back: ${minted.error}`);
   else {
@@ -260,29 +260,36 @@ check(baseRecord(), { units: 3, moves: MOVES, journeyBearing: false }, true, "a"
   }
 }
 
-// (w) THE PERSONA IS READ FROM THE FILE THE WORKFLOW NAMES. `reader` is
+// (w) THE PERSONA IS READ FROM THE AUDIENCE FILE THE WORKFLOW NAMES, under
+// its `persona` key (kogaki#1370). `reader` is
 // required; `prior_knowledge` is NOT (kogaki#1281, owner decision
 // 2026-10-06) -- a file missing it reads as a stated absence, never a
 // refusal, and a file missing `reader` still refuses naming it.
 {
   const workflow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-  // Since kogaki#1307 the row NAMES the setting `brief.persona_file` and the
-  // path is read from `kogaki.settings.json`.
+  // Since kogaki#1307 the row NAMES a setting, `brief.audience_file` since
+  // kogaki#1370, and the path is read from `kogaki.settings.json`.
   const row = (workflow.states || []).find((s) => s.id === "compose_path");
-  if (!row || row.reader_file?.setting !== "brief.persona_file") fails.push("(w) src/brief-workflow.json's compose_path row does not name the `brief.persona_file` setting as its `reader_file`");
+  if (!row || row.reader_file?.setting !== "brief.audience_file") fails.push("(w) src/brief-workflow.json's compose_path row does not name the `brief.audience_file` setting as its `reader_file`");
   else {
-    const persona = readerPersona(briefPersonaFile(workflow));
-    if (persona.error) fails.push(`(w) the named reader file did not read: ${persona.error}`);
-    else if (typeof persona.reader !== "string") fails.push(`(w) the reader file lacks a field: ${JSON.stringify(persona)}`);
+    const persona = readerPersona(briefAudienceFile(workflow));
+    if (persona.error) fails.push(`(w) the named Audience file did not read: ${persona.error}`);
+    else if (typeof persona.reader !== "string") fails.push(`(w) the Audience file's persona lacks a field: ${JSON.stringify(persona)}`);
   }
   const dir = mkdtempSync(join(tmpdir(), "reader-"));
   const half = join(dir, "half.md");
-  writeFileSync(half, "id: half\nreader: >-\n  someone reading something\n");
+  writeFileSync(half, "id: half\npersona:\n  reader: >-\n    someone reading something\n");
   const r = readerPersona(half);
-  if (r.error) fails.push(`(w) a reader file missing prior_knowledge was refused: ${JSON.stringify(r)}`);
-  else if (r.prior_knowledge !== null) fails.push(`(w) a reader file missing prior_knowledge did not read as a stated absence: ${JSON.stringify(r)}`);
+  if (r.error) fails.push(`(w) an Audience file missing prior_knowledge was refused: ${JSON.stringify(r)}`);
+  else if (r.prior_knowledge !== null) fails.push(`(w) an Audience file missing prior_knowledge did not read as a stated absence: ${JSON.stringify(r)}`);
   const missing = readerPersona(join(dir, "absent.md"));
-  if (!missing.error) fails.push("(w) an absent reader file was not refused");
+  if (!missing.error) fails.push("(w) an absent Audience file was not refused");
+  // The retired flat shape: `reader` at the top level, outside `persona`, is
+  // not the Persona, so the file refuses naming `persona.reader`.
+  const flat = join(dir, "flat.md");
+  writeFileSync(flat, "id: flat\nreader: >-\n  someone reading something\n");
+  const f = readerPersona(flat);
+  if (!f.error || !/persona\.reader/.test(f.error)) fails.push(`(w) a reader file in the retired flat shape was not refused naming persona.reader: ${JSON.stringify(f)}`);
 }
 
 // (x) THE RENDERED READER VALUES (kogaki#1225, reversed by kogaki#1231):

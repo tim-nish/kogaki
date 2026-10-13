@@ -1,10 +1,11 @@
 id: dev-to-zenn
-reader: >-
-  An ordinary person with no specialized knowledge
-prior_knowledge: >-
+persona:
+  reader: >-
+    An ordinary person with no specialized knowledge
+  prior_knowledge: >-
 
-prose: |
-  **Prose style:** classic register, full clauses, a concrete subject acting,
+register: |
+  **Sentences:** classic register, full clauses, a concrete subject acting,
   no unexplained term of art; not fragments, not runs of short sentences, not
   triads, not "not X, not Y" runs.
 

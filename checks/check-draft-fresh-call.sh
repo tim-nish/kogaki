@@ -45,7 +45,7 @@ const root = mkdtempSync(join(tmpdir(), "draft-fresh-call-"));
 // waypoint the realization entry requires. The Brief is a record (kogaki#1328),
 // its Legs written by `legRecord` and the file by `briefRecordText`.
 const briefText = (legs, slug = "fixture-brief") => briefRecordText({
-  slug, compose_path: "readers/dev-to-zenn.md", external_authority: "on",
+  slug, compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
   thesis: "The fixture claim.",
   reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),

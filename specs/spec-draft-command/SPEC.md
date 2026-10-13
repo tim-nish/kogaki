@@ -263,7 +263,7 @@ against it is an argument rather than a configuration.
 - **It does not touch review** (port manifest item 7) and **does not cover
   `/variant`**, which gets its own carrier when demanded.
 - **It creates no Move and mandates none.**
-- **It adds no second style artifact.** Register is **operational text in
+- **It adds no second Register artifact.** Register is **operational text in
   `src/packet-template.md`**, which the model reads at generation; its ground is
   `specs/spec-brief-draft-design/DESIGN.md` §4. This spec neither restates nor
   supplements either.

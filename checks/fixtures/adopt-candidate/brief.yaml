@@ -3,7 +3,7 @@
 # a drafting sitting resumes from. A key reading null is still awaiting composition.
 
 slug: check-adopt-candidate-fixture
-compose_path: readers/fixture.md
+compose_path: audiences/fixture.md
 external_authority: "on"
 # The Strand set is closed at mint. Adding a Strand is your act, taken by going back through Terrain; a Brief never
 # reaches for material on its own.

@@ -470,7 +470,7 @@
       "id": "prose-style",
       "class": "best-effort",
       "mode": "judged",
-      "question": "Does the passage below use fragments, runs of short sentences, triads, or \"not X, not Y\" runs — the patterns the Write block's prose-style rule names as not classic register? Answer `fails` if it does."
+      "question": "Does the passage below use fragments, runs of short sentences, triads, or \"not X, not Y\" runs — the patterns the register's Sentences rule names as not classic register? Answer `fails` if it does."
     },
     {
       "id": "attribute-leak",
