@@ -2055,6 +2055,14 @@ export function moveFitRefusal(failures) {
 
 // THE UNITS A FINISHED COMPOSE JOB DID NOT TURN INTO A CANDIDATE (kogaki#1307): each
 // refused unit, with the Legs that did not fit where Move fit was what refused it.
+// THE UNITS THAT FINISHED A FIT CANDIDATE (kogaki#1360): `status: "done"` with a
+// Candidate on the row. The partition `finishReaderPathJobAwait` forwards to
+// `compose_path` is this function's and `composeJobExcluded`'s, so a check that
+// asserts the offered set reads the same filter the run performs.
+export function composeJobFinished(units) {
+  return (units || []).filter((u) => u.status === "done" && u.candidate && typeof u.candidate === "object");
+}
+
 export function composeJobExcluded(units) {
   return (units || []).filter((u) => u.status === "refused").map((u) => {
     const c = u.candidate && typeof u.candidate === "object" ? u.candidate : {};
@@ -2582,18 +2590,24 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
     // to, exactly as `compose_path` read it to build the units' prompts.
     const jobRec = readRunRecord(dir);
     const differentiation = jobRec && jobRec.brief_differentiation ? readJson(jobRec.brief_differentiation) : null;
-    const candidates = (job.units || []).map((u) => {
+    // FROM THE UNITS THAT ENDED `done`, AND NO OTHER (kogaki#1360). Presence of
+    // `candidate` on a row stopped meaning "finished" at kogaki#1307: the Move-fit
+    // judge runs after the compose call has produced a structurally valid
+    // Candidate, so a unit it refuses keeps that Candidate on its row (the
+    // "Not offered" line reads the characteristic off it) under `status:
+    // "refused"`. Mapping every row carrying one put two refused Candidates on
+    // the Candidate question of run 2026-10-13T06-54-14-062Z, the owner chose
+    // one, and `adopt_candidate` refused it for having no specialization record.
+    const candidates = composeJobFinished(job.units).map((u) => {
       const c = u.candidate;
-      if (c && typeof c === "object") {
-        const m = /^candidate-(\d+)$/.exec(String(u.id || ""));
-        if (m) c.differentiation_unit = Number(m[1]);
-        if (differentiation && typeof differentiation.reader_start === "string") {
-          c.reader_start = differentiation.reader_start;
-          c.leg1_survivor_count = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
-        }
+      const m = /^candidate-(\d+)$/.exec(String(u.id || ""));
+      if (m) c.differentiation_unit = Number(m[1]);
+      if (differentiation && typeof differentiation.reader_start === "string") {
+        c.reader_start = differentiation.reader_start;
+        c.leg1_survivor_count = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
       }
       return c;
-    }).filter(Boolean);
+    });
     // THE MOVE-FIT RECORDS AND THE UNITS THAT FINISHED NO CANDIDATE (kogaki#1307), carried
     // to `compose_path` beside the Candidates.
     const specializations = (job.units || [])
