@@ -2056,7 +2056,10 @@ export function moveFitRefusal(failures) {
 // THE UNITS THAT FINISHED A FIT CANDIDATE (kogaki#1360): `status: "done"` with a
 // Candidate on the row. The partition `finishReaderPathJobAwait` forwards to
 // `compose_path` is this function's and `composeJobExcluded`'s, so a check that
-// asserts the offered set reads the same filter the run performs.
+// asserts the offered set reads the same filter the run performs. It does not
+// also require a `specialization` on the row: a unit ends `done` with none when
+// the job ran no Move-fit judge (src/workflow/detached-job.mjs writes the record
+// only "with a Move-fit judge"), and that Candidate is still a finished one.
 export function composeJobFinished(units) {
   return (units || []).filter((u) => u.status === "done" && u.candidate && typeof u.candidate === "object");
 }
