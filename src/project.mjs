@@ -506,7 +506,7 @@ function cmdPropose(args) {
       `project.mjs propose (${profile.id}): write a Title and a Description for the reviewed Draft `
       + `below, and reply on standard input as JSON: {"title": "...", "description": "..."}\n\n`
       + "The Harness owns only that both exist and fit their caps; their wording is yours, and "
-      + "Persona and style are settled at the Brief boundary, not here.\n\n"
+      + "the Audience's persona and register are settled at the Brief boundary, not here.\n\n"
       + `  title        non-empty string, at most ${profile.caps.title} characters\n`
       + `  description  non-empty string, at most ${profile.caps.description} characters `
       + "(profile-declared, provisional)\n\n"
