@@ -426,7 +426,7 @@
       "Strand this Leg carries no claim for, a",
       "claim of this Leg that no waypoint serves, a `move` or `segments` on",
       "a Candidate from the compose unit, a `move` naming no record in the",
-      "paragraph library, and a `move` with no `segments` -- each naming the",
+      "Move library, and a `move` with no `segments` -- each naming the",
       "Leg and the waypoint (kogaki#1329: the second pass binds one paragraph",
       "Move per waypoint after the waypoints exist). Whether the waypoints specialize the Move's `technique`",
       "and survive its `breaks` is judged, at the Move-fit judgment, and never",
@@ -447,7 +447,7 @@
       "move": {
         "required": false,
         "type": "string",
-        "description": "NEVER WRITTEN AT COMPOSITION: a Candidate from the compose unit whose waypoint carries this field is refused by name (kogaki#1329). The paragraph Move this waypoint binds, by id, written by the second pass after the waypoints exist and read from `moves/paragraph/`. Once written it names a record in that library."
+        "description": "NEVER WRITTEN AT COMPOSITION: a Candidate from the compose unit whose waypoint carries this field is refused by name (kogaki#1329). The paragraph Move this waypoint binds, by id, written by the second pass after the waypoints exist and read from `moves/`, the one Move library the Leg pass reads too (kogaki#1366). Once written it names a record in that library."
       },
       "segments": {
         "required": false,
