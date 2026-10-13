@@ -95,39 +95,62 @@ Three artifacts touch the source text, and each keeps a different amount.
 
 ## The paragraph unit
 
-Every Analysis carries a `unit` header line. For almost all of them it
-reads `unit: passage`, the shape the rest of this contract describes, and
-the three fields below do not apply and are omitted. A `unit: paragraph`
-Analysis exists for the paragraph the human can see once more than one of
-its Passages already has an Analysis of its own: the question it answers
-is what the whole paragraph does to the reader, which no single contained
-Passage's Analysis states, because each was written against that Passage's
-own boundary alone.
+A Passage is analysed once as a whole, and each of its paragraphs may be
+analysed again on its own. Two levels, no more: a Passage-level Analysis
+and the paragraph Analyses it contains. Everything in "The Analysis" below
+applies to a paragraph Analysis, except the six rules here (mechanism m2,
+kogaki#1348), carried verbatim:
 
-A Paragraph is never analyzed from the source text directly, and draws no
-Segment of its own:
+1. **The unit is one paragraph.** The `## Passage` section holds one
+   paragraph of the Passage verbatim. A definition list or block quotation
+   announced by the paragraph belongs to it. The header's `length:` counts
+   this paragraph only. Add a header line `unit: paragraph <N> of <M> in
+   <passage slug>`.
+2. **The reader enters with the earlier text.** Before analysing paragraph
+   N, read paragraphs 1 to N-1 of the same Passage in full, and the end of
+   the Passage that precedes it in the work when one is given. The reader
+   state you write is the state of a reader who has just read all of that.
+3. **The before column is carried, not drafted.** In §2, every row's
+   `before` is written in full and is copied from the previous paragraph's
+   state for that row: its `after` where that row changed, its `before`
+   where it was unchanged. For paragraph 1 the before column is the state
+   the preceding text leaves the reader in. The `after` cell is
+   `unchanged` where this paragraph does not move the row; otherwise the new
+   state in one short clause. `dimensions changed` counts the rows whose
+   `after` is not `unchanged`.
+4. **The model answers Q2, Q3 and Q4 itself**, as it already answers Q1:
+   one answer each, recorded as `answer: model — <answer>`, no candidates.
+   No human round. The Segment cut is the model's own and is not confirmed.
+5. **The first Segment links to the previous paragraph.** In §3 the first
+   Segment's relation is not `none`: it is its relation to the previous
+   paragraph's last point, from the same set (cause, consequence, contrast,
+   elaboration, evidence, enumeration), and its clause says which point of
+   the previous paragraph it takes up. Only the first paragraph of a work
+   with no text before it keeps `none`. §1 names that relation too.
+6. **A row is credited where the paragraph finishes moving it.** The §2
+   Segment column names the Segment after which the new state holds, not
+   the Segment that first mentions something the state is about. Write the
+   `expectation` `after` as what the reader, having finished the paragraph,
+   expects the next paragraph to do, and say what this paragraph has
+   completed.
 
-- `unit: paragraph` replaces `unit: passage` in the header; nothing else in
-  the header's shape changes.
-- `contains:` names the Passage Analyses this Paragraph is built from, by
-  slug, comma separated, in source order — the order the Passages run in
-  the work, never the order they happened to be analyzed in. Refused on a
-  `unit: passage` Analysis, which has nothing to contain.
-- `status:` records whether every Analysis named in `contains:` exists:
-  `complete`, once all of them do, or `pending: <slug>, <slug>` naming the
-  ones that do not yet. Ingestion of a Paragraph refuses until
-  `status: complete` — a Paragraph is read from its Passages' own
-  Analyses, never re-derived from the Passage text, so a named Analysis
-  that does not yet exist leaves nothing for it to read.
+Three header lines carry the two levels:
 
-Section 3 of a Paragraph-unit Analysis draws no fresh cut: it lists the
-Segments its contained Passages already carry, concatenated in `contains:`
-order, each still bearing the function and relation its own Passage gave
-it. The four questions and the sections after section 3 are still answered
-fresh, at the paragraph grain, exactly as steps 1 to 3 describe — the model
-still writes three candidates for Q2 to Q4 and the human still chooses —
-but every answer speaks to the paragraph's whole effect, never to one
-contained Passage alone.
+- `unit: paragraph <N> of <M> in <passage slug>` — on a paragraph Analysis
+  only (rule 1). A Passage-level Analysis carries no `unit:` line.
+- `contains: <slug>, <slug>, ...` — on a Passage-level Analysis only,
+  listing the section 7 names of its paragraph Analyses in the order the
+  paragraphs run in the Passage. A `contains:` line on a paragraph Analysis
+  would make a third level, and ingestion refuses it naming the line.
+- `status: unreviewed model draft (m2)` — the first line of a paragraph
+  Analysis no human has read yet. The owner removes it on review; nothing
+  writes it back.
+
+A paragraph Analysis is ingested with `tools/move_ingest.py passage
+--from-analysis <pNN.md> [...] --library moves/paragraph`, which reads the
+record off the Analysis rather than asking a model for it: `id` from
+section 7, `before` and `after` from the rows of section 2 whose `after` is
+not `unchanged`, and `segments` from section 3.
 
 ---
 
@@ -338,14 +361,12 @@ prior text: <assumed | not assumed — whether the Passage relies on text
 length: <N sentences, M paragraphs, counted>
 language: <the language of the text as given, and "reads as translated"
         with one sign if so>
-unit: <passage | paragraph — "passage" unless this Analysis is for a
-        Paragraph, see "The paragraph unit">
-contains: <paragraph only — the Passage Analyses this Paragraph is built
-        from, by slug, comma separated, in source order; omitted entirely
-        on a unit: passage Analysis>
-status: <paragraph only — "complete" once every Analysis named in
-        contains: exists, or "pending: <slug>, <slug>" naming the ones
-        that do not yet; omitted entirely on a unit: passage Analysis>
+unit: <paragraph analyses only — "paragraph <N> of <M> in <passage
+        slug>", see "The paragraph unit"; omitted on a Passage-level
+        Analysis>
+contains: <Passage-level analyses only — the section 7 names of its
+        paragraph Analyses, comma separated, in the order the paragraphs
+        run; omitted until they exist, and never on a paragraph Analysis>
 
 ## Passage
 
@@ -532,7 +553,6 @@ prior text: not assumed — "It may sound strange for someone who..." opens
 length: 12 sentences, 3 paragraphs
 language: English; reads as translated (Japanese publishing references,
         "manga or novels", "scholars from Japan and abroad")
-unit: passage
 
 ## Passage
 

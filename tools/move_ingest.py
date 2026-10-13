@@ -716,6 +716,12 @@ def render_move(mapping):
 
     out = []
     for field in FIELDS:
+        # A field `moves/ROLES.json` leaves optional and the record does not
+        # carry renders nothing (kogaki#1358: a paragraph Move read off its
+        # Analysis carries no `technique` or `breaks`). The three required
+        # roles are always present on a record condition 3 admitted.
+        if field not in mapping and field not in ("id", "before", "after"):
+            continue
         render_field(field, mapping.get(field, ""))
 
     # §4.2: the optional scalar fields render after the five, each only when
@@ -1176,63 +1182,34 @@ def check_analysis_dimensions(passage_text, line_no=None):
     return None
 
 
-ANALYSIS_UNIT_ROW = re.compile(r"^unit:\s*(?P<unit>passage|paragraph)\s*$", re.M)
-ANALYSIS_STATUS_ROW = re.compile(r"^status:\s*(?P<status>.+?)\s*$", re.M)
-ANALYSIS_CONTAINS_ROW = re.compile(r"^contains:\s*(?P<contains>.*)$", re.M)
+# --------------------------------------------------------------------------
+# The paragraph unit (kogaki#1358, design on kogaki#1329): two levels, no
+# more. A paragraph Analysis carries `unit: paragraph <N> of <M> in <slug>`;
+# a Passage-level Analysis lists its paragraphs on `contains:`. A `contains:`
+# line on a paragraph Analysis would make a third level, so it is refused
+# BEFORE anything is derived, naming the line.
+# --------------------------------------------------------------------------
+ANALYSIS_PARAGRAPH_UNIT_ROW = re.compile(r"^unit:\s*paragraph\b", re.M)
+ANALYSIS_CONTAINS_ROW = re.compile(r"^contains:.*$", re.M)
 
 
-def analysis_unit(passage_text):
-    """The Analysis's `unit:` header, or `None` where the text carries no
-    such line (a bare Passage with no Analysis)."""
-    match = ANALYSIS_UNIT_ROW.search(passage_text)
-    return match.group("unit") if match else None
-
-
-def analysis_status(passage_text):
-    """The Analysis's `status:` header, stripped, or `None` where the text
-    carries no such line."""
-    match = ANALYSIS_STATUS_ROW.search(passage_text)
-    return match.group("status").strip() if match else None
-
-
-def analysis_contains(passage_text):
-    """The Analysis's `contains:` header, stripped, or `None` where the
-    line is absent or empty."""
+def check_paragraph_level(passage_text):
+    """`passages/FORMAT.md` "The paragraph unit": a `contains:` line on a
+    `unit: paragraph` Analysis is refused, naming the line. Returns a
+    `Refusal`, or `None` where the text is not a paragraph Analysis or
+    carries no `contains:` line."""
+    if ANALYSIS_PARAGRAPH_UNIT_ROW.search(passage_text) is None:
+        return None
     match = ANALYSIS_CONTAINS_ROW.search(passage_text)
     if match is None:
         return None
-    raw = match.group("contains").strip()
-    return raw or None
-
-
-def check_paragraph_fields(passage_text, line_no=None):
-    """`passages/FORMAT.md` "The paragraph unit": `contains:` is refused on
-    a `unit: passage` Analysis, which has nothing to contain, and a
-    `unit: paragraph` Analysis ingests only once `status: complete` — a
-    Paragraph is read from its own named Passage Analyses, never
-    re-derived from Passage text, so a named Analysis that does not yet
-    exist leaves nothing for ingestion to read. Returns a `Refusal`, or
-    `None` where neither condition is violated."""
-    unit = analysis_unit(passage_text)
-    contains = analysis_contains(passage_text)
-    if unit != "paragraph":
-        if contains:
-            return Refusal(
-                "paragraph-contains",
-                "`contains:` names %r on a `unit: %s` Analysis, which has "
-                "nothing to contain" % (contains, unit or "passage"),
-                line_no=line_no,
-            )
-        return None
-    status = analysis_status(passage_text)
-    if status is None or not status.lower().startswith("complete"):
-        return Refusal(
-            "paragraph-status",
-            "a `unit: paragraph` Analysis ingests only once `status: "
-            "complete` — got %r" % (status or "(no status: line)"),
-            line_no=line_no,
-        )
-    return None
+    return Refusal(
+        "paragraph-contains",
+        "a `unit: paragraph` Analysis carries `contains:` — two levels, no "
+        "more; only a Passage-level Analysis lists the paragraphs it contains",
+        line_no=passage_text.count("\n", 0, match.start()) + 1,
+        line=match.group(0),
+    )
 
 
 ANALYSIS_SPLIT_NOTE = re.compile(r"^split:\s*(?P<note>.+?)\s*$")
@@ -1281,7 +1258,7 @@ SECTION3_HEADING = re.compile(r"^##\s*3\.\s*The order inside the Passage\s*$", r
 NEXT_HEADING = re.compile(r"^##\s*\d+\.", re.M)
 
 SEGMENT_ENTRY = re.compile(
-    r'^\s*\d+\.\s*"[^"]*"\s*—\s*'
+    r'^\s*\d+\.\s*"[^"]*"(?:\s*\[[^\]]*\])?\s*—\s*'
     r"(?P<function>raises|advances|settles)\s*—\s*"
     r"(?P<relation>cause|consequence|contrast|elaboration|evidence|enumeration|none)\s*—\s*"
     r"(?P<clause>.+?)(?=\n[ \t]*\n|\n\s*\d+\.\s*\"|\Z)",
@@ -1356,6 +1333,162 @@ def check_segments(mapping, passage_text, line_no):
     return None, text
 
 
+# --------------------------------------------------------------------------
+# `--from-analysis` (kogaki#1358, design on kogaki#1329): the record is READ
+# off a written Analysis, never authored by a model. `id` is section 7's
+# name, `before` and `after` are section 2's changed rows only, and
+# `segments` is section 3 exactly as `check_segments` copies it on the
+# Passage path.
+# --------------------------------------------------------------------------
+SECTION7_HEADING = re.compile(r"^##\s*7\.\s*Candidate name\s*$", re.M)
+MOVE_ID = re.compile(r"^[a-z0-9_]+$")
+
+
+def section7_name(passage_text):
+    """The first non-blank line under Analysis `## 7. Candidate name`, or
+    `None` where the text carries no such heading or no line under it."""
+    heading = SECTION7_HEADING.search(passage_text)
+    if heading is None:
+        return None
+    rest = passage_text[heading.end():]
+    next_heading = NEXT_HEADING.search(rest)
+    body = rest[:next_heading.start()] if next_heading else rest
+    for line in body.splitlines():
+        if line.strip():
+            return line.strip()
+    return None
+
+
+def changed_dimension_rows(passage_text):
+    """Section 2's rows whose `after` is not `unchanged`, in table order,
+    each `(dimension, before, after, segment)`."""
+    rows = []
+    for match in ANALYSIS_DIMENSION_ROW.finditer(passage_text):
+        after = match.group("after").strip()
+        if after.lower() == "unchanged":
+            continue
+        rows.append((match.group("dim"), match.group("before").strip(), after,
+                     match.group("segment").strip()))
+    return rows
+
+
+def _state_text(rows, column):
+    """One `<dimension>: <state>.` sentence per changed row, in table
+    order — the shape the Leg library's `before` and `after` already
+    read in."""
+    parts = []
+    for row in rows:
+        state = row[column].rstrip()
+        if state and state[-1] not in ".?!":
+            state += "."
+        parts.append("%s: %s" % (row[0], state))
+    return " ".join(parts)
+
+
+def derive_from_analysis(passage_text, line_no=1):
+    """The proposal `--from-analysis` offers for one Analysis, as a
+    `Proposal` carrying its `Refusal` where the Analysis cannot supply a
+    field. Nothing here is judged: every value is a copy of a section."""
+    try:
+        # Not `check_analysis_dimensions`: under m2 rule 3 every `before`
+        # cell is carried in full, so only an `after` other than `unchanged`
+        # is a change, and only a change owes its Segment.
+        for refusal in (check_paragraph_level(passage_text),
+                        check_analysis_split_note(passage_text)):
+            if refusal is not None:
+                raise refusal
+        move_id = section7_name(passage_text)
+        if move_id is None or not MOVE_ID.match(move_id):
+            raise Refusal(
+                "from-analysis",
+                "section 7 (\"## 7. Candidate name\") carries no Move id "
+                "-- got %r" % move_id,
+            )
+        rows = changed_dimension_rows(passage_text)
+        for dim, _before, _after, segment in rows:
+            if not segment:
+                raise Refusal(
+                    "dimension-segment",
+                    "the `%s` row of section 2 records a change naming no "
+                    "Segment" % dim,
+                )
+        if not rows:
+            raise Refusal(
+                "from-analysis",
+                "section 2 records no changed row, so there is no `before` "
+                "or `after` to read",
+            )
+        mapping = {
+            "id": move_id,
+            "before": _state_text(rows, 1),
+            "after": _state_text(rows, 2),
+        }
+        segments_refusal, segments_text = check_segments(mapping, passage_text, line_no)
+        if segments_refusal is not None:
+            raise segments_refusal
+        if not segments_text:
+            raise Refusal(
+                "segments",
+                "section 3 carries no Segment entry in the `\"<opening words>\" "
+                "— <function> — <relation> — <clause>` shape",
+            )
+        mapping["segments"] = segments_text
+        check_field_set(mapping, line_no)
+    except Refusal as refusal:
+        return Proposal(line_no, refusal=refusal)
+    return Proposal(line_no, mapping=mapping)
+
+
+def run_from_analysis(analysis_paths, moves_dir, out_dir, select=None):
+    """The `--from-analysis` path: one proposal per Analysis, shown on one
+    screen, written only on the owner's recorded choice. `accept` writes
+    every admitted proposal, `decline` writes nothing, and `merge:<id>`
+    is admitted only for a single Analysis."""
+    proposals = []
+    for path in analysis_paths:
+        with open(path, encoding="utf-8") as handle:
+            proposals.append(derive_from_analysis(handle.read()))
+
+    index_rows = read_index_rows(moves_dir)
+    screens = []
+    for proposal in proposals:
+        duplicates = []
+        if proposal.admitted:
+            duplicates = near_duplicates(proposal.mapping.get("technique", ""),
+                                          index_rows)
+        screens.append(render_passage_screen(proposal, duplicates))
+
+    os.makedirs(out_dir, exist_ok=True)
+    screen_path = os.path.join(os.path.abspath(out_dir), "PassageScreen.md")
+    with open(screen_path, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(screens))
+
+    result = {"screen": screen_path, "proposals": proposals, "written": None}
+    if select is None:
+        return result
+
+    refused = [p for p in proposals if not p.admitted]
+    if refused:
+        raise Refusal(
+            "from-analysis",
+            "%d proposal(s) refused (%s); nothing to select against"
+            % (len(refused), "; ".join(str(p.refusal) for p in refused)),
+        )
+    if select == "accept":
+        result["written"] = save_accepted(moves_dir, proposals)
+        return result
+    if select == "decline":
+        return result
+    if select.startswith("merge:") and len(proposals) == 1:
+        result["written"] = [merge_into(moves_dir, select[len("merge:"):], proposals[0])]
+        return result
+    raise Refusal(
+        "from-analysis",
+        "--select must be `accept`, `decline`, or (for one Analysis) "
+        "`merge:<id>` — got %r" % select,
+    )
+
+
 def render_passage_screen(proposal, duplicates, rewritten=()):
     """The one screen the owner sees: accept as new / merge into the named
     Move / decline. An artifact (kogaki#474's precedent), never retyped."""
@@ -1406,9 +1539,6 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
     split_refusal = check_analysis_split_note(passage_text)
     if split_refusal is not None:
         raise split_refusal
-    paragraph_refusal = check_paragraph_fields(passage_text)
-    if paragraph_refusal is not None:
-        raise paragraph_refusal
 
     os.makedirs(out_dir, exist_ok=True)
     out_dir = os.path.abspath(out_dir)
@@ -1596,11 +1726,12 @@ def main_passage(argv):
     )
     parser.add_argument("passage", nargs="?", help="the Passage text file")
     parser.add_argument(
-        "--from-analysis",
-        help="a unit: paragraph Analysis file, already written, read in "
-        "place of the positional Passage file (passages/FORMAT.md "
-        "\"The paragraph unit\"); selects moves/paragraph as the default "
-        "--library",
+        "--from-analysis", nargs="+", metavar="ANALYSIS",
+        help="one or more written Analyses (one Passage's paragraph "
+        "Analyses, passages/FORMAT.md \"The paragraph unit\"): each record "
+        "is read off its Analysis -- id from section 7, before/after from "
+        "section 2's changed rows, segments from section 3 -- and no model "
+        "is called",
     )
     parser.add_argument("--model", help="the pinned model id for the authorship step")
     parser.add_argument("--command", default="claude",
@@ -1613,31 +1744,35 @@ def main_passage(argv):
         ),
         help="path to specs/move-extraction-contract.md",
     )
-    parser.add_argument("--moves-dir", default="moves", help="the Move library directory")
     parser.add_argument(
-        "--library",
-        help="the Move library directory, overriding --moves-dir; "
-        "moves/paragraph is used automatically with --from-analysis when "
-        "--library is not given",
+        "--library", "--moves-dir", dest="library", default="moves",
+        help="the Move library directory the accepted Moves land in and "
+        "whose INDEX.md is regenerated (default: moves)",
     )
     parser.add_argument("--out", help="the run directory (raw.txt, PassageScreen.md)")
     parser.add_argument("--timeout", type=int, default=600, help="per-call bound in seconds")
     parser.add_argument("--select", help="the owner's recorded choice: accept, decline, or merge:<id>")
     args = parser.parse_args(argv)
 
-    input_path = args.from_analysis or args.passage
-    if not input_path or not args.model or not args.out:
-        parser.error("a Passage file (or --from-analysis), --model and --out are required")
+    if args.from_analysis:
+        if args.passage or not args.out:
+            parser.error("--from-analysis takes no Passage file and requires --out")
+        try:
+            result = run_from_analysis(args.from_analysis, args.library,
+                                       args.out, select=args.select)
+        except Refusal as refusal:
+            sys.stderr.write("refused: %s\n" % refusal)
+            return 1
+        print("proposals -- see %s" % result["screen"])
+        if result["written"]:
+            print("accepted -- wrote %s" % ", ".join(result["written"]))
+        return 0
 
-    moves_dir = args.library
-    if moves_dir is None:
-        moves_dir = (
-            os.path.join(args.moves_dir, "paragraph")
-            if args.from_analysis else args.moves_dir
-        )
+    if not args.passage or not args.model or not args.out:
+        parser.error("a Passage file, --model and --out are required")
 
     try:
-        result = run_passage(input_path, args.contract, moves_dir,
+        result = run_passage(args.passage, args.contract, args.library,
                               args.command, args.model, args.out, args.timeout,
                               select=args.select)
     except Refusal as refusal:

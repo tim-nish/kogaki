@@ -268,77 +268,121 @@ if [[ -n "$PARAGRAPH_LIVE" ]]; then
 fi
 
 # --------------------------------------------------------------------------
-# The paragraph guard (kogaki#1358) — `check_paragraph_fields` runs the act
-# against hand-built Analysis text, never a grep over passages/FORMAT.md's
-# own wording (admission consult, kogaki#1320's precedent): `contains:` on a
-# `unit: passage` Analysis is refused naming `contains:`; a `unit: paragraph`
-# Analysis with no `status: complete` is refused naming `status:`; a
-# `unit: paragraph` Analysis with `status: complete` is admitted.
+# `--from-analysis` (kogaki#1358, design on kogaki#1329). The fixture is
+# built here in the shape of corpus/p1329/m2/..._cascades/p01.md, because
+# corpus/ is ignored and CI never sees it. Three cases, each driving the act:
+#   1. the derived record's id, before, after and segments are sections 7,
+#      2 (changed rows only) and 3 of the Analysis;
+#   2. a paragraph Analysis carrying `contains:` is refused naming the line;
+#   3. `--library <dir>/paragraph --select accept` lands the Move there and
+#      regenerates that directory's INDEX.md and not <dir>/INDEX.md.
 # --------------------------------------------------------------------------
-PARAGRAPH_GUARD_OUT=$(python3 <<'PY'
-import sys
+FROM_ANALYSIS_OUT=$(python3 <<'PY'
+import io, os, sys, tempfile, contextlib
 sys.path.insert(0, "tools")
 import move_ingest as m
 
+ANALYSIS = """status: worked example (m2), written from the owner's notes
+
+# Passage analysis: define_a_named_variable_with_almost_no_new_words
+
+source: not given
+unit: paragraph 1 of 11 in define_attack_defense_advantage_through_opposed_security_cascades
+functions: settles, raises
+length: 2 sentences, 1 paragraph
+
+## Passage
+
+A term is defined. Each of its states is defined as follows.
+
+## 2. Reader before and after
+
+| dimension   | before | after | Segment |
+|-------------|--------|-------|---------|
+| knowledge   | the first factor is named and not yet defined | the first factor is defined | 1 |
+| question    | what is the first factor? | "what do its two states look like?" opened | 2 |
+| expectation | the factors will be explained one at a time | unchanged | |
+| orientation | a book explaining politics through named factors | unchanged | |
+| trust       | neutral | unchanged | |
+
+dimensions changed: 2
+
+## 3. The order inside the Passage
+
+1. "A term is defined" [gloss] — settles — elaboration — takes up item one of the preceding list and defines it.
+2. "Each of its states" — raises — enumeration — tells the reader two items are coming.
+
+## 7. Candidate name
+
+define_a_named_variable_with_almost_no_new_words
+
+## 8. Notes
+
+none
+"""
+
 failures = []
 
-passage_with_contains = """unit: passage
-contains: some_slug
-"""
-refusal = m.check_paragraph_fields(passage_with_contains)
-if refusal is None or "contains:" not in str(refusal):
-    failures.append(
-        "a `unit: passage` Analysis carrying `contains:` was not refused "
-        "naming `contains:` -- got: %r" % refusal)
+p = m.derive_from_analysis(ANALYSIS)
+want = {
+    "id": "define_a_named_variable_with_almost_no_new_words",
+    "before": "knowledge: the first factor is named and not yet defined. "
+              "question: what is the first factor?",
+    "after": "knowledge: the first factor is defined. "
+             "question: \"what do its two states look like?\" opened.",
+    "segments": "1. settles — elaboration — takes up item one of the preceding list and defines it.\n"
+                "2. raises — enumeration — tells the reader two items are coming.",
+}
+if not p.admitted:
+    failures.append("case 1: the p01-shaped Analysis was refused: %s" % p.refusal)
+elif p.mapping != want:
+    failures.append("case 1: derived %r, want %r" % (p.mapping, want))
 
-paragraph_pending = """unit: paragraph
-contains: a, b
-status: pending: b
-"""
-refusal = m.check_paragraph_fields(paragraph_pending)
-if refusal is None or "status:" not in str(refusal):
-    failures.append(
-        "a `unit: paragraph` Analysis with a pending `status:` was not "
-        "refused naming `status:` -- got: %r" % refusal)
+with_contains = ANALYSIS.replace(
+    "length: 2 sentences", "contains: a_slug, b_slug\nlength: 2 sentences")
+p = m.derive_from_analysis(with_contains)
+if p.admitted or "contains: a_slug, b_slug" not in str(p.refusal):
+    failures.append("case 2: a paragraph Analysis carrying `contains:` was not "
+                    "refused naming the line -- got %r" % p.refusal)
 
-paragraph_no_status = """unit: paragraph
-contains: a, b
-"""
-refusal = m.check_paragraph_fields(paragraph_no_status)
-if refusal is None or "status:" not in str(refusal):
-    failures.append(
-        "a `unit: paragraph` Analysis with no `status:` line was not "
-        "refused naming `status:` -- got: %r" % refusal)
-
-paragraph_complete = """unit: paragraph
-contains: a, b
-status: complete
-"""
-refusal = m.check_paragraph_fields(paragraph_complete)
-if refusal is not None:
-    failures.append(
-        "a `unit: paragraph` Analysis with `status: complete` was refused "
-        "-- %s" % refusal)
-
-plain_passage = """unit: passage
-"""
-refusal = m.check_paragraph_fields(plain_passage)
-if refusal is not None:
-    failures.append(
-        "a `unit: passage` Analysis with no `contains:` was refused -- %s"
-        % refusal)
+with tempfile.TemporaryDirectory() as tmp:
+    moves = os.path.join(tmp, "moves")
+    library = os.path.join(moves, "paragraph")
+    os.makedirs(library)
+    with open(os.path.join(moves, "INDEX.md"), "w") as h:
+        h.write("leg index, untouched\n")
+    src = os.path.join(tmp, "p01.md")
+    with open(src, "w") as h:
+        h.write(ANALYSIS)
+    with contextlib.redirect_stdout(io.StringIO()):
+        rc = m.main(["passage", "--from-analysis", src, "--library", library,
+                     "--out", os.path.join(tmp, "run"), "--select", "accept"])
+    saved = os.path.join(library, want["id"] + ".md")
+    if rc != 0 or not os.path.isfile(saved):
+        failures.append("case 3: --library did not land the accepted Move in %s (rc %d)"
+                        % (library, rc))
+    else:
+        if open(saved).read() != m.render_move(want) or \
+                m.render_move(m.read_saved(saved)) != m.render_move(want):
+            failures.append("case 3: the saved Move is not the derived record, "
+                            "round-tripped: %r" % open(saved).read())
+        index = open(os.path.join(library, "INDEX.md")).read()
+        if want["id"] not in index:
+            failures.append("case 3: %s/INDEX.md was not regenerated" % library)
+    if open(os.path.join(moves, "INDEX.md")).read() != "leg index, untouched\n":
+        failures.append("case 3: moves/INDEX.md was rewritten by a --library run")
 
 if failures:
     for f in failures:
         print("FAIL: %s" % f)
     sys.exit(1)
-print("ok: check_paragraph_fields refuses `contains:` on a unit: passage "
-      "Analysis and an incomplete unit: paragraph Analysis, and admits a "
-      "complete one (kogaki#1358)")
+print("ok: --from-analysis reads id, before, after and segments off sections 7, 2 "
+      "and 3, refuses `contains:` on a paragraph Analysis naming the line, and "
+      "--library lands the Move and its INDEX.md in that directory alone (kogaki#1358)")
 PY
-); PGRC=$?
-printf '%s\n' "$PARAGRAPH_GUARD_OUT"
-if [[ $PGRC -ne 0 ]]; then
+); FARC=$?
+printf '%s\n' "$FROM_ANALYSIS_OUT"
+if [[ $FARC -ne 0 ]]; then
   exit 1
 fi
 
