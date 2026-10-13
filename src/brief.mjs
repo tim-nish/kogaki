@@ -2053,8 +2053,6 @@ export function moveFitRefusal(failures) {
     "Compose the Candidate again so that each of these Legs fits its Move, or binds a Move it does fit."].join("\n");
 }
 
-// THE UNITS A FINISHED COMPOSE JOB DID NOT TURN INTO A CANDIDATE (kogaki#1307): each
-// refused unit, with the Legs that did not fit where Move fit was what refused it.
 // THE UNITS THAT FINISHED A FIT CANDIDATE (kogaki#1360): `status: "done"` with a
 // Candidate on the row. The partition `finishReaderPathJobAwait` forwards to
 // `compose_path` is this function's and `composeJobExcluded`'s, so a check that
@@ -2063,6 +2061,8 @@ export function composeJobFinished(units) {
   return (units || []).filter((u) => u.status === "done" && u.candidate && typeof u.candidate === "object");
 }
 
+// THE UNITS A FINISHED COMPOSE JOB DID NOT TURN INTO A CANDIDATE (kogaki#1307): each
+// refused unit, with the Legs that did not fit where Move fit was what refused it.
 export function composeJobExcluded(units) {
   return (units || []).filter((u) => u.status === "refused").map((u) => {
     const c = u.candidate && typeof u.candidate === "object" ? u.candidate : {};
