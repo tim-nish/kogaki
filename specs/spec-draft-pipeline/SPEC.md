@@ -1331,7 +1331,9 @@ most `brief.unit_attempts` times per attempt, past which the unit ends refused
 naming the count. A **system failure** (`died`, `stalled`, `other`) still ends
 the Brief at once. Whether to ask again reads the attempt count alone, and
 no other time bound applies: a job's longest run is the attempts, times the
-calls per attempt, times the per-call limit, and the owner sets both numbers
+calls per attempt plus the malformed-output bound (each respawn is a full call
+that spends no attempt), times the per-call limit — with the defaults, a
+compose unit's 3 × (2 + 3) × 900 seconds — and the owner sets both numbers
 without an Issue. A settings file or a `job` row still carrying either retired
 time setting of kogaki#1307 is refused naming it, as a missing setting is.
 

@@ -35,7 +35,8 @@ const READER_PATH_JOB_FILE = "reader-path-job.json";
 // job's starter reads both from `kogaki.settings.json` (`brief.call_limit_s`,
 // `brief.unit_attempts`) and writes them onto the job record, which the supervisor
 // enforces and `job await` reads back. A job's longest run is therefore
-// `unit_attempts` x calls per attempt x `call_limit_s`, and nothing else ends it on time.
+// `unit_attempts` x (calls per attempt + `unit_attempts` malformed respawns, each a full
+// call that spends no attempt) x `call_limit_s`, and nothing else ends it on time.
 // NO BYTE GROWTH ON ANY STILL-RUNNING UNIT FOR THIS LONG is read as a stall — a declared
 // heuristic, kept narrower than the per-call limit.
 // Per kogaki#1193 comment 3, this one output-byte bound stands in for both of the Issue's
