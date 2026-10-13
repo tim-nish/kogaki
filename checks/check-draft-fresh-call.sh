@@ -57,7 +57,10 @@ const leg = (id, move, claims, extra = {}) => ({
   leg_id: id, move, purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
   materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`,
   claims: claims.map((proposition) => ({ strand: "L1", proposition })),
-  waypoints: [{ point: `the reader is brought to what ${id} claims.`, serves: ["L1"] }], ...extra,
+  // every waypoint carries its bound paragraph Move and that Move's Segments (kogaki#1359), as
+  // the Brief's second pass writes them; `resolve` refuses a waypoint without them.
+  waypoints: [{ point: `the reader is brought to what ${id} claims.`, serves: ["L1"], move: "p_fixture_point",
+    segments: "1. settles — elaboration — makes the point." }], ...extra,
 });
 const briefDir = join(root, "theses", "fixture-brief");
 mkdirSync(briefDir, { recursive: true });

@@ -177,11 +177,23 @@ const trapped = (args, env = {}) => {
 // ---- the fixture Brief ----
 const C1 = "the installer copies the kit into the consumer's tree.";
 const C2 = "a second run refreshes the copy and its stamp.";
+// EVERY WAYPOINT CARRIES ITS BOUND PARAGRAPH MOVE AND THAT MOVE'S SEGMENTS (kogaki#1359,
+// design on kogaki#1329), as the Brief's second pass writes them: the Packet renders the
+// Segments under the point, and `resolve` refuses a waypoint carrying neither.
+const SEG_A = "1. settles — elaboration — names the tree the installer writes into.\n2. raises — consequence — asks whose tree it now is.";
+const SEG_B = "1. settles — elaboration — states what a copy under a later run is.";
 const W = [
-  { point: "The installer writes into a tree the consumer thought was theirs alone.", serves: ["L1"] },
-  { point: "A copy that a later run may rewrite is not a copy the consumer can edit.", serves: ["L1", "L2"] },
-  { point: "The next run overwrites any edit made to the copy.", serves: ["L2"] },
+  { point: "The installer writes into a tree the consumer thought was theirs alone.", serves: ["L1"], move: "p_name_the_tree", segments: SEG_A },
+  { point: "A copy that a later run may rewrite is not a copy the consumer can edit.", serves: ["L1", "L2"], move: "p_state_the_copy", segments: SEG_B },
+  { point: "The next run overwrites any edit made to the copy.", serves: ["L2"], move: "p_state_the_copy", segments: SEG_B },
 ];
+const BOUND = { move: "p_fixture_point", segments: "1. settles — elaboration — makes the point.\n2. settles — consequence — holds it." };
+// The 2026-10-09 record predates the second pass, so its waypoints carry no `move`: the
+// cases that resolve it bind every waypoint in memory first, exactly as the second pass
+// would have, and write the bound record. The bound lines are indented, so the
+// field-for-field comparison of (i) reads past them.
+const withBoundWaypoints = (rec) => ({ ...rec, reader_path: (rec.reader_path || []).map((l) => ({ ...l,
+  waypoints: (l.waypoints || []).map((w) => ({ ...w, ...BOUND })) })) });
 // A Brief record (kogaki#1328): its Legs written by `legRecord` and the file
 // by `briefRecordText`, so the fixture is read through the Draft's own reader.
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
@@ -204,7 +216,7 @@ const goodLegs = [
   leg("s1", "name_a_paradox_after_removing_aggressive_intent",
     [{ strand: "L1", proposition: C1 }, { strand: "L2", proposition: C2 }], W),
   leg("s2", "a_move_no_library_holds",
-    [{ strand: "L1", proposition: C1 }], [{ point: "The copy is settled once installed.", serves: ["L1"] }]),
+    [{ strand: "L1", proposition: C1 }], [{ point: "The copy is settled once installed.", serves: ["L1"], ...BOUND }]),
 ];
 const briefDir = join(root, "theses", "packet-brief");
 mkdirSync(briefDir, { recursive: true });
@@ -259,6 +271,28 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
       if (word.test(packet)) fails.push(`(a) the Packet still carries ${word}`);
     }
     if (/\(serves L\d/.test(block) || /\bL[12]\b/.test(block)) fails.push("(a) the waypoints block carries a Strand id the writer cannot open");
+    // THE BOUND MOVE'S SEGMENTS UNDER EACH POINT (kogaki#1359): the lines between a point's
+    // line and the next are its Segments, indented, one per line, `function — relation —
+    // clause` -- and nothing else of the Move reaches the Packet, not even its id.
+    const blockLines = block.split("\n");
+    W.forEach((w, i) => {
+      const from = blockLines.indexOf(lines[i]);
+      const to = i + 1 < W.length ? blockLines.indexOf(lines[i + 1]) : blockLines.length;
+      const under = blockLines.slice(from + 1, to).filter((l) => l.trim() !== "");
+      const want = w.segments.split("\n");
+      if (under.length !== want.length || !under.every((l, k) => l.trim() === want[k] && /^\s+\d+\. /.test(l))) {
+        fails.push(`(a) waypoint ${i + 1}'s Segments are not rendered as an indented numbered sub-list under its point: ${JSON.stringify(under)}`);
+      }
+      for (const l of under) {
+        if (l.trim().replace(/^\d+\. /, "").split(" — ").length !== 3) fails.push(`(a) a Segment line is not function — relation — clause: ${l}`);
+      }
+    });
+    for (const id of new Set(W.map((w) => w.move))) {
+      if (packet.includes(id)) fails.push(`(a) the Packet names the bound paragraph Move's id ${id}`);
+    }
+    for (const field of ["before", "after", "technique", "breaks"]) {
+      if (new RegExp(`^\\s*\\*\\*${field}`, "m").test(block) || new RegExp(`\\b${field}:`, "i").test(block)) fails.push(`(a) the waypoints block carries the Move field \`${field}\``);
+    }
   }
 }
 
@@ -269,7 +303,7 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
   mkdirSync(badDir, { recursive: true });
   const badPath = join(badDir, "brief.yaml");
   writeFileSync(badPath, briefText([
-    leg("s1", "open_the_claim", [{ strand: "L1", proposition: C1 }], [{ point: "The reader sees the copy.", serves: ["L1"] }]),
+    leg("s1", "open_the_claim", [{ strand: "L1", proposition: C1 }], [{ point: "The reader sees the copy.", serves: ["L1"], ...BOUND }]),
     leg("s2", "open_the_claim", [{ strand: "L1", proposition: C1 }], []),
   ], { slug: "no-waypoints" }));
   const r = spawnSync(process.execPath, [join(repo, "src", "draft.mjs"), "resolve", "--brief", badPath, "--workspace", join(root, "ws-bad")],
@@ -278,6 +312,25 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
   else if (!/leg s2/.test(r.stderr || "") || !/waypoints/.test(r.stderr || "")) fails.push(`(b) the refusal does not name the Leg and the field: ${(r.stderr || "").slice(0, 300)}`);
   const rm = draft(["resolve", "--moves-dir", join(root, "nowhere")]);
   if (rm.status === 0 || !/--moves-dir is no longer taken/.test(rm.stderr || "")) fails.push(`(b) --moves-dir was not refused by name: ${(rm.stderr || "").slice(0, 200)}`);
+  // A WAYPOINT WITHOUT A BOUND MOVE IS REFUSED AT THE REALIZATION ENTRY (kogaki#1359,
+  // design on kogaki#1329), naming the Leg and the waypoint; so is a move with no
+  // segments. Neither read opens a Move file: the ids here name no library record.
+  for (const [what, w, want] of [
+    ["no move", { point: "The reader sees the copy.", serves: ["L1"] }, /leg s2.*waypoint 2 carries no `move`/],
+    ["a move with no segments", { point: "The reader sees the copy.", serves: ["L1"], move: "p_fixture_point" }, /leg s2.*waypoint 2 binds move "p_fixture_point" and carries no `segments`/],
+  ]) {
+    const dir = join(root, "theses", `unbound-${what.replace(/\W+/g, "-")}`);
+    mkdirSync(dir, { recursive: true });
+    const p = join(dir, "brief.yaml");
+    writeFileSync(p, briefText([
+      leg("s1", "open_the_claim", [{ strand: "L1", proposition: C1 }], [{ point: "The copy lands.", serves: ["L1"], ...BOUND }]),
+      leg("s2", "open_the_claim", [{ strand: "L1", proposition: C1 }], [{ point: "The copy is named.", serves: ["L1"], ...BOUND }, w]),
+    ], { slug: "unbound" }));
+    const r = trapped([join(repo, "src", "draft.mjs"), "resolve", "--brief", p, "--workspace", join(root, `ws-${what.replace(/\W+/g, "-")}`)]);
+    if (r.status === 0) fails.push(`(b) resolve accepted a Brief whose waypoint carries ${what}`);
+    else if (!want.test(r.stderr || "")) fails.push(`(b) the refusal of a waypoint with ${what} does not name the Leg and the waypoint: ${(r.stderr || "").slice(0, 300)}`);
+    if (r.opened.length) fails.push(`(b) resolve opened a path under moves/ while refusing: ${r.opened.join("; ")}`);
+  }
 }
 
 // (c) driven: every /draft act and /review-draft's open, under the trap.
@@ -426,7 +479,7 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   const journeyProse = "The installer wrote the kit's manifest before the lockfile existed, and the second run found no lockfile to compare against.";
   const journeyBriefText = briefText([
     leg("s1", "name_a_paradox_after_removing_aggressive_intent", [{ strand: "L1", proposition: C1 }],
-      [{ point: "The reader sees the copy land.", serves: ["L1"] }], { journeys: [{ strand: "L1", use: "illustrate" }] }),
+      [{ point: "The reader sees the copy land.", serves: ["L1"], ...BOUND }], { journeys: [{ strand: "L1", use: "illustrate" }] }),
   ], { slug: "journey-brief", strands: [
     { id: "L1", slug: "first-strand", cite: lessonCite("first-strand"), journey_cite: `coding::journey/first-strand@${"1".repeat(64)}` },
     { id: "L2", slug: "second-strand", cite: lessonCite("second-strand") }] });
@@ -481,7 +534,7 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
   const dir = join(root, "theses", record.slug);
   mkdirSync(dir, { recursive: true });
   const path = join(dir, "brief.yaml");
-  writeFileSync(path, briefYaml);
+  writeFileSync(path, briefRecordText(withBoundWaypoints(record)));
   const run = (args) => trapped([join(repo, "src", "draft.mjs"), ...args, "--brief", path, "--workspace", join(root, "ws-1009")],
     { FAKE_JOURNEYS: readFileSync(join(fx, "journeys.json"), "utf8") });
   const r0 = run(["resolve"]);
@@ -533,7 +586,7 @@ const personaRaw = readFileSync(join(repo, "readers", "dev-to-zenn.md"), "utf8")
 // the Packet without the list rather than searched for alone.
 {
   const fx = join(repo, "checks", "fixtures", "brief-2026-10-09");
-  const record = parseBriefRecord(readFileSync(join(fx, "brief.yaml"), "utf8"), "brief.yaml").record;
+  const record = withBoundWaypoints(parseBriefRecord(readFileSync(join(fx, "brief.yaml"), "utf8"), "brief.yaml").record);
   const words = record.thesis.match(/[A-Za-z]{4,}/g) || [];
   const withTerms = { ...record, defined_terms: [{ term: words[0], class: "defined" }, { term: words[1], class: "ordinary" }] };
   const write = (tag, rec) => {
@@ -572,5 +625,5 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327); and the 2026-10-09 Brief carried into the record renders every Leg's waypoints, claims, Journey text, Section, crossing and Closure lines exactly as its Markdown Packets did, the Thesis row alone derived and handed to the reaches_target Leg, and none of src/draft.mjs, src/review-draft.mjs, src/assemble.mjs or src/compose.mjs names a retired Brief parser or the Markdown Brief's line grammar (kogaki#1328); and a Brief record carrying defined_terms renders no Packet naming defined_terms or carrying the word ordinary (kogaki#1331)");
+console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327); and the 2026-10-09 Brief carried into the record renders every Leg's waypoints, claims, Journey text, Section, crossing and Closure lines exactly as its Markdown Packets did, the Thesis row alone derived and handed to the reaches_target Leg, and none of src/draft.mjs, src/review-draft.mjs, src/assemble.mjs or src/compose.mjs names a retired Brief parser or the Markdown Brief's line grammar (kogaki#1328); and a Brief record carrying defined_terms renders no Packet naming defined_terms or carrying the word ordinary (kogaki#1331); and each waypoint's bound paragraph Move renders its Segments under the point as an indented numbered sub-list of function — relation — clause lines and nothing else of the Move, not even its id, while resolve refuses a waypoint carrying no move, and a move with no segments, each naming the Leg and the waypoint and opening no path under moves/ (kogaki#1359)");
 JS

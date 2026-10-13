@@ -480,8 +480,31 @@ those paths into.
   `serves` entry naming a Strand the Leg carries
   no claim for, and a claim no waypoint serves — each naming the Leg and the
   waypoint; `draft.mjs resolve` refuses a Brief Leg carrying none, by name. **No
-  Move information is copied onto the Leg**: `breaks` is part of the Move and
-  its responsibility ends when the Candidate is produced.
+  information of the Leg's Move is copied onto the Leg**: `breaks` is part of
+  the Move and its responsibility ends when the Candidate is produced. The one
+  copy a waypoint carries is its own paragraph Move's Segments, below.
+  - **`move` and `segments` — the bound paragraph Move** (kogaki#1358,
+    kogaki#1359; design on kogaki#1329, owner decisions 2026-10-10 and
+    2026-10-12). Every waypoint binds one Move from the **paragraph library**
+    (`moves/paragraph/`, §4.2) by its `id`, and carries that Move's
+    `segments` copied verbatim beside it. **The binding is a second pass,
+    once per Leg, after the Leg's waypoints exist and the Move-fit judgment
+    has passed them** (`paragraph_move_unit`, `src/brief-workflow.json`): a
+    same-call binding would let the library shape the points, the inversion
+    §4.2 forbids. The judge binds; the Harness copies the Segments
+    (`paragraphMoveVerdict`, `src/brief.mjs`), so the Brief stays
+    self-contained and no later stage opens a Move file. **There is no
+    Point–Support fallback**: a waypoint no paragraph Move fits refuses the
+    unit as `no_paragraph_move_fits`, naming the Leg and the waypoint, and is
+    re-asked once with the sentence verbatim. `validateLegs` refuses a
+    compose-unit Candidate whose waypoint already carries `move` or
+    `segments`, a bound `move` naming no record in the paragraph library, and
+    a bound `move` with no `segments`, each naming the Leg and the waypoint;
+    the Brief record (`legRecord`, `src/compose.mjs`) writes both fields onto
+    the waypoint, and `draft.mjs resolve` refuses a Brief whose waypoint
+    carries no `move`, or a `move` with no `segments`, naming the Leg and the
+    waypoint (§4.14). A Brief composed before the second pass existed is
+    recomposed by a new `/brief` run, never patched.
 - **`depends_on`** — the earlier Legs whose conclusions this Leg stands on.
 - **`rationale`** — why *this article's* materials make this the next Leg.
 - **`introduces`** — optional; §4.13.
@@ -544,6 +567,24 @@ reader's question, the `question` dimension of `before`/`after` below, follows M
 Situation-Complication-Question-Answer pattern, read through
 question-under-discussion analysis (Roberts 1996): a text opens a question and
 either settles it, or replaces it with a narrower one taken up in its stead.
+
+**Two levels, one schema (kogaki#1358, kogaki#1359; design on kogaki#1329,
+owner decision 2026-10-10).** The library holds Moves at two levels and no
+third: a **Leg Move** is the transformation a Leg performs over a Passage, and
+a **paragraph Move** is the transformation one paragraph of that Passage
+performs. Both are records of this section's schema, and the two live in two
+directories — `moves/` for Leg Moves and **`moves/paragraph/`** for paragraph
+Moves — each with its own `INDEX.md` and its own copy of `ROLES.json`, so the
+same adapter reads either. A paragraph Move's `segments` are what a Leg's
+waypoint copies when it binds the Move (§4.1): the Leg Move's Segments give
+the composer the *order of the points*, the paragraph Move's Segments give the
+writer the *shape of one paragraph*, and neither level reaches the writer
+otherwise. A paragraph Move is read off a written paragraph Analysis
+(`passages/FORMAT.md` "The paragraph unit") by `tools/move_ingest.py
+passage --from-analysis`, with no model call, and lands in the library `--library`
+names (§6.9). **Populating `moves/paragraph/` is the owner's act**, one
+Analysis at a time; a Brief run binds from whatever the directory holds and
+refuses at its start, naming the ingest command, while it holds nothing.
 
 **Five fields are always present; three are optional.** `status` is retired —
 a Move enters observed and nothing here licenses a later generalization claim,
@@ -1561,6 +1602,21 @@ step does to the reader. Reverse Outlining reads the points back: the Blind
 Reader writes the point each paragraph makes, and the `waypoints` row asks
 whether each declared point is among them. `draft.mjs` opens no
 Move file to render it.
+
+**Under each point, the bound paragraph Move's Segments — and nothing else of
+the Move** (kogaki#1359, design on kogaki#1329). Each waypoint carries the
+`segments` of the paragraph Move it bound (§4.1), and the block renders them
+as an **indented numbered sub-list** of the point's own line, one line per
+Segment, `function — relation — clause`, exactly as the Brief's copy holds
+them. The header says what the sub-list is for: the shape of that paragraph,
+built through its segments in that order, naming a shape and never words. The
+Move's `id`, `before`, `after`, `technique` and `breaks` do not render, and
+`draft.mjs` still opens no Move file: the Segments are the Brief's own copy,
+written at bind time. `draft.mjs resolve` refuses a Brief whose waypoint
+carries no `move`, or a `move` with no `segments`, naming the Leg and the
+waypoint — such a Brief predates the second pass and is recomposed, never
+patched. `checks/check-draft-packet.sh` carries the rendering and both
+refusals.
 
 **The Journey block renders material for a concrete example** (kogaki#1323,
 owner ruling 2026-10-10), in whatever form this Leg's waypoints need — one
@@ -2944,6 +3000,24 @@ and the command regenerates `moves/INDEX.md`.
 **ADMISSION IS THE OWNER'S ACT AT THAT QUESTION, never the command's.** Review may
 split or rename, so the reviewed proposal is not the authored file — nothing
 self-admits.
+
+**The paragraph path: `--from-analysis` and `--library` (kogaki#1358,
+kogaki#1359; design on kogaki#1329).** A paragraph Move enters the library by
+a second route that calls no model. `tools/move_ingest.py passage
+--from-analysis <pNN.md>... --out <dir> --library moves/paragraph` takes one or more written
+paragraph Analyses (`passages/FORMAT.md` "The paragraph unit", `unit:
+paragraph <N> of <M> in <slug>`) and READS each record off its Analysis: the
+`id` from section 7, `before`/`after` from section 2's changed rows, the
+`segments` from section 3; the model authored the Analysis and authors
+nothing here. It takes no Passage file and requires `--out`. A paragraph
+Analysis carrying `contains:` is refused by name — two levels, no more. The
+proposals render on the same selection screen and admission is the same
+owner act at the same accept/decline question; nothing is written before
+`--select accept`. `--library` (alias `--moves-dir`) names the directory the
+accepted Moves land in and whose `INDEX.md` is regenerated; it defaults to
+`moves/`, so a paragraph ingest names `moves/paragraph/` explicitly, and the
+directory carries its own `ROLES.json` copy for the record to validate
+against (§4.2).
 
 `necessity:` the review criteria are judgments about a record's prose, and the
 admission boundary is a rule about authority. A tool that admitted its own

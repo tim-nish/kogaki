@@ -121,7 +121,7 @@ import {
   snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry,
   validateLegs, validateSpecialization, specializationFailures, specializationSchema, briefStrandIds, briefJourneyStrands,
   briefSlotKeys, briefRecordText, briefRecordDeclaration, readBriefRecord, BRIEF_RECORD_FILE,
-  resolveMoveIds, resolveFigureForms, loadMoveContracts, moveContractsForLegs,
+  resolveMoveIds, resolveFigureForms, loadMoveContracts, moveContractsForLegs, moveContract, loadMoveIds,
   readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, dischargeRows,
   deriveReaderStatesBefore, readerStartThesisRefusal, sectionHeadingsWithLastAfterState,
   definedTermsRefusal, definedTermsOf,
@@ -1388,7 +1388,10 @@ export function validateReaderPathUnit(candidate, inputs) {
   // THE BRIEF'S DEFINED TERMS ride the same call (kogaki#1331), handed over at
   // the job's boundary from the minted Brief, so a defined term used before
   // its introducing Leg gets this unit's own re-ask.
-  const v = validateLegs(c.legs, c.reader_start, c.obligations, definedTerms);
+  // THIS IS THE COMPOSE UNIT'S OWN RECORD (`composed`, kogaki#1358): a waypoint carrying
+  // `move` or `segments` here is refused by name, because the second pass binds them after
+  // the waypoints exist and the library must not shape the waypoints (kogaki#1329).
+  const v = validateLegs(c.legs, c.reader_start, c.obligations, definedTerms, { composed: true });
   if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
   // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
   // (kogaki#1276). The refusal is the retry prompt's text verbatim
@@ -1726,6 +1729,26 @@ const STATE_WORK = {
     const fitRow = table.reader_path_fit_unit
       || fail(`${st.id}: src/brief-workflow.json declares no reader_path_fit_unit row for the job unit's Move-fit `
         + "judgment — nothing was started (kogaki#1307).");
+    // THE SECOND PASS'S ROW AND LIBRARY (kogaki#1359, design on kogaki#1329): once the fit
+    // call has passed a unit's Candidate, the supervisor binds one paragraph Move per
+    // waypoint, one call per Leg, from `<movesDir>/paragraph` -- the same schema and the
+    // same ROLES.json as the Leg library, read through the same adapter (kogaki#1349). The
+    // library is read HERE, before anything starts: there is no fallback paragraph shape,
+    // so a library with nothing to bind would refuse every unit after the compose and fit
+    // calls had been paid for. The row's prompt head is rendered here, where the table is
+    // in hand; the supervisor appends each Leg's own input below the marker.
+    const bindRow = table.paragraph_move_unit
+      || fail(`${st.id}: src/brief-workflow.json declares no paragraph_move_unit row for the job unit's second `
+        + "pass — nothing was started (kogaki#1359).");
+    const paragraphMovesDir = join(movesDir, "paragraph");
+    const paragraphLibrary = loadMoveContracts(paragraphMovesDir);
+    if (paragraphLibrary.error) {
+      fail(`${st.id}: the paragraph Move library at ${paragraphMovesDir} cannot be bound from — ${paragraphLibrary.error}. `
+        + "The second pass binds one paragraph Move per waypoint after the waypoints exist and has no fallback "
+        + "paragraph shape (kogaki#1329), so a Brief cannot be composed until the library holds admitted paragraph "
+        + `Moves: run \`tools/move_ingest.py passage --from-analysis <pNN.md> --library ${paragraphMovesDir}\` over the `
+        + "reviewed Analyses. Nothing was started.");
+    }
     // THE SHARED BASE, DISCLOSED (kogaki#1193). Every unit's own prompt is
     // written straight into `reader-path-job-units.json` by
     // `startDetachedJobSupervisor` below and never lands under this state's
@@ -1803,6 +1826,18 @@ const STATE_WORK = {
         prompt_export: "readerPathFitPrompt",
         verdict_export: "readerPathFitVerdict",
         inputs: { movesDir, readerStart: differentiation.reader_start, promptHead: judgePrompt(fitRow, "", null, null) },
+      },
+      // THE DECLARED PARAGRAPH-MOVE JUDGE (kogaki#1359, design on kogaki#1329): once the fit
+      // call has passed a unit's Candidate, the supervisor runs one more headless session per
+      // Leg with what `paragraphMovePrompts` builds, and reads each answer with
+      // `paragraphMoveVerdict`, which copies the bound Move's Segments onto the waypoint. A
+      // waypoint no paragraph Move fits is a schema refusal of the unit, `no_paragraph_move_fits`.
+      bindJudge: {
+        module: "src/brief.mjs",
+        prompts_export: "paragraphMovePrompts",
+        verdict_export: "paragraphMoveVerdict",
+        inputs: { paragraphMovesDir, readerStart: differentiation.reader_start, definedTerms: definedTermsOf(record),
+          promptHead: judgePrompt(bindRow, "", null, null) },
       },
       // THE DECLARED VALIDATOR (kogaki#1240) -- named, never implicit. The
       // detached `job-supervise` process is a fresh `node src/terrain.mjs`
@@ -2051,6 +2086,120 @@ export function moveFitRefusal(failures) {
   return ["THE MOVE FIT WAS JUDGED, AND THESE LEGS DO NOT FIT THE MOVE EACH BINDS:",
     ...failures.map((f) => `Leg ${f.leg_id} (${f.move}): ${f.verdict} — the judge wrote: "${f.why}"`),
     "Compose the Candidate again so that each of these Legs fits its Move, or binds a Move it does fit."].join("\n");
+}
+
+// ---- THE SECOND PASS: one paragraph Move per waypoint (kogaki#1359, design on kogaki#1329) ----
+//
+// After the Move-fit call has passed a unit's Candidate, the supervisor runs one more
+// headless session PER LEG with what `paragraphMovePrompts` builds, and reads each
+// answer with `paragraphMoveVerdict`. The judge BINDS -- one Move from the paragraph
+// library per waypoint, judged for fit the way a Leg's Move is, with the next waypoints
+// in view because a paragraph's successor is fixed where a Leg's is chosen -- and the
+// Harness COPIES the bound Move's Segments onto the waypoint, so the Brief stays
+// self-contained and `draft.mjs` opens no Move file. The library is `<movesDir>/paragraph`:
+// the same schema, the same ROLES.json, the same adapter as the Leg library (kogaki#1349),
+// the level being where the record lives. NOTHING HERE IS A FALLBACK: a waypoint no
+// paragraph Move fits refuses the unit with `no_paragraph_move_fits`, naming the Leg and
+// the waypoint, and the Candidate is recomposed once with that sentence (owner decision
+// 2026-10-12: no Point–Support fallback once the Packet's rule is gone).
+export const NO_PARAGRAPH_MOVE_FITS = "no_paragraph_move_fits";
+
+// One Leg's input: the Leg with its DERIVED before-state (kogaki#1325), its after-state,
+// and its waypoints each carrying the point that follows it, beside every paragraph Move's
+// contract verbatim from the library.
+export function paragraphMoveInput(candidate, legId, paragraphMovesDir, readerStart) {
+  const library = loadMoveContracts(paragraphMovesDir);
+  if (library.error) return { error: `candidate ${candidate.candidate_id}: the paragraph Move library cannot be read — ${library.error}` };
+  const legs = deriveReaderStatesBefore(candidate.legs || [], readerStart);
+  const leg = legs.find((s) => s.leg_id === legId);
+  if (!leg) return { error: `candidate ${candidate.candidate_id} carries no Leg ${legId}` };
+  const ws = leg.waypoints || [];
+  return {
+    input: {
+      leg_you_must_bind: {
+        candidate_id: candidate.candidate_id,
+        leg_id: leg.leg_id,
+        reader_state_before: leg.reader_state_before,
+        reader_state_after: leg.reader_state_after,
+        waypoints: ws.map((w, i) => ({ waypoint: i + 1, point: w.point, serves: w.serves,
+          next_point: i + 1 < ws.length ? ws[i + 1].point : null })),
+      },
+      paragraph_moves_you_may_bind: library.moves,
+    },
+  };
+}
+
+// One prompt per Leg, in path order. `inputs.promptHead` is the `paragraph_move_unit` row
+// rendered by `judgePrompt` in `compose_path`, ending at the input marker.
+export function paragraphMovePrompts(candidate, inputs) {
+  return (candidate.legs || []).map((s) => {
+    const r = paragraphMoveInput(candidate, s.leg_id, inputs.paragraphMovesDir, inputs.readerStart);
+    // A LIBRARY THE START ADMITTED AND THIS CANNOT READ is a store fault, not a Candidate's.
+    if (r.error) throw new Error(r.error);
+    return { leg_id: s.leg_id, prompt: `${inputs.promptHead}${JSON.stringify(r.input, null, 2)}` };
+  });
+}
+
+// THE JUDGE'S ANSWER, READ BACK, FOR ONE LEG. `{error}` is the judge's own malformed
+// output, asked again with the same prompt; `{refusal, failures}` is a waypoint no Move
+// fits, the unit's schema refusal; `{candidate}` is the Candidate with this Leg's
+// waypoints bound -- `move` the judge's, `segments` copied from the Move record -- and
+// re-validated through `validateLegs` against the paragraph library, so what the unit
+// hands on is what the Brief's own reader will accept. A Move record the library admitted
+// and this cannot bind from -- unreadable, or carrying no segments -- is a store fault
+// and THROWS: the supervisor's catch-all ends the job `other`, a defect in /brief and
+// never a Candidate's refusal.
+export function paragraphMoveVerdict(record, candidate, inputs, legId) {
+  const { paragraphMovesDir, readerStart, definedTerms = [] } = inputs || {};
+  const r = record || {};
+  const leg = (candidate.legs || []).find((s) => s.leg_id === legId);
+  if (!leg) return { error: `candidate ${candidate.candidate_id} carries no Leg ${legId}` };
+  if (String(r.version) !== "1") return { error: `the binding record's version is ${JSON.stringify(r.version)}, not "1"` };
+  if (r.candidate_id !== candidate.candidate_id) return { error: `the binding record names candidate ${JSON.stringify(r.candidate_id)}, not ${candidate.candidate_id}` };
+  if (r.leg_id !== legId) return { error: `the binding record names leg ${JSON.stringify(r.leg_id)}, not ${legId}` };
+  const ws = leg.waypoints || [];
+  if (!Array.isArray(r.bindings) || r.bindings.length !== ws.length) {
+    return { error: `the binding record carries ${Array.isArray(r.bindings) ? r.bindings.length : "no"} binding(s) for leg ${legId}'s `
+      + `${ws.length} waypoint(s) — one per waypoint, in order` };
+  }
+  const library = loadMoveIds(paragraphMovesDir);
+  if (library.error) throw new Error(library.error);
+  const failures = [];
+  const bound = [];
+  for (const [i, b] of r.bindings.entries()) {
+    const at = `leg ${legId}, waypoint ${i + 1}`;
+    if (!b || typeof b !== "object" || Array.isArray(b)) return { error: `${at}: the binding is not a map` };
+    if (b.waypoint !== i + 1) return { error: `${at}: the binding names waypoint ${JSON.stringify(b.waypoint)} — bindings are one per waypoint, in order` };
+    if (typeof b.why !== "string" || b.why.trim().split(/\s+/).length < 4) return { error: `${at}: \`why\` is under four words` };
+    if (b.move === null) { failures.push({ leg_id: legId, waypoint: i + 1, point: ws[i].point, why: b.why.trim() }); continue; }
+    if (typeof b.move !== "string" || !library.ids.has(b.move)) {
+      return { error: `${at}: binds move ${JSON.stringify(b.move)}, which names no Move in the paragraph library at ${paragraphMovesDir}` };
+    }
+    bound.push(b.move);
+  }
+  if (failures.length) return { refusal: noParagraphMoveFitsRefusal(failures), failures };
+  const waypoints = ws.map((w, i) => {
+    const c = moveContract(bound[i], paragraphMovesDir);
+    if (c.error) throw new Error(c.error);
+    if (typeof c.segments !== "string" || c.segments.trim() === "") {
+      throw new Error(`paragraph Move "${bound[i]}" carries no segments (${paragraphMovesDir}/${bound[i]}.md) — the second pass copies `
+        + "the bound Move's Segments onto the waypoint (kogaki#1329), so a paragraph Move without them cannot be bound. "
+        + "Repair the Move record under its own issue.");
+    }
+    return { ...w, move: bound[i], segments: c.segments };
+  });
+  const legs = candidate.legs.map((s) => (s.leg_id === legId ? { ...s, waypoints } : s));
+  const out = { ...candidate, legs };
+  const v = validateLegs(legs, readerStart, out.obligations, definedTerms, { paragraphMovesDir });
+  if (v.error) throw new Error(`candidate ${candidate.candidate_id}: the bound Candidate fails validateLegs — ${v.error}`);
+  return { candidate: out };
+}
+
+export function noParagraphMoveFitsRefusal(failures) {
+  return [`THE PARAGRAPH MOVES WERE JUDGED, AND NO PARAGRAPH MOVE FITS THESE WAYPOINTS (${NO_PARAGRAPH_MOVE_FITS}):`,
+    ...failures.map((f) => `Leg ${f.leg_id}, waypoint ${f.waypoint} ("${f.point}"): the judge wrote: "${f.why}"`),
+    "There is no fallback paragraph shape. Compose the Candidate again so that each waypoint's point can be made by a "
+    + "paragraph Move in the library, or change the route."].join("\n");
 }
 
 // THE UNITS THAT FINISHED A FIT CANDIDATE (kogaki#1360): `status: "done"` with a
@@ -2346,7 +2495,7 @@ export function readerPathJobStatusLines(label, jobPath, job, now = Date.now()) 
   const lines = [`${label} at ${jobPath} — elapsed ${elapsedS}s; each unit gets up to ${n} attempts of at most ${limit} per call:`];
   for (const u of job.units || []) {
     const attempt = Number.isInteger(u.attempts) ? u.attempts : 1;
-    const phase = u.phase === "fit" ? "fit" : "compose";
+    const phase = u.phase === "fit" || u.phase === "bind" ? u.phase : "compose";
     // kogaki#1197: a dead unit's own `is_error` result text says why it died.
     const why = u.failure && typeof u.failure.result === "string" ? ` — ${u.failure.result}` : "";
     let estimate = "";
