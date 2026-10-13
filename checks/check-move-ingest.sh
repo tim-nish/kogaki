@@ -119,7 +119,7 @@ if [[ "$COUNT" -lt 1 ]]; then
 fi
 
 # --------------------------------------------------------------------------
-# `segments` (kogaki#1320) — the Passage-to-Move path copies the Analysis's
+# `segments` (kogaki#1320) — the Passage-to-Move path copies the Extraction's
 # ordered Segments into the record itself, and refuses where there is none.
 # Each case runs the act — `run_passage` itself, against a stubbed model —
 # never a grep over the contract or spec wording (admission consult,
@@ -154,29 +154,29 @@ m.spawn_model = fake_spawn
 
 failures = []
 
-# Case 1 — no Analysis at all: refused, naming `segments`.
+# Case 1 — no Extraction at all: refused, naming `segments`.
 tmp1 = tempfile.mkdtemp()
 passage1 = os.path.join(tmp1, "bare.md")
 with open(passage1, "w") as fh:
-    fh.write("A bare Passage with no Analysis at all.\n")
+    fh.write("A bare Passage with no Extraction at all.\n")
 try:
     m.run_passage(passage1, "specs/move-extraction-contract.md",
                   os.path.join(tmp1, "moves"), "stub", "stub-model",
                   os.path.join(tmp1, "out"), 60, select="accept")
     failures.append(
-        "a record with no Analysis section 3 was accepted; it must be "
+        "a record with no Extraction section 3 was accepted; it must be "
         "refused naming `segments`")
 except m.Refusal as refusal:
     if "segments" not in str(refusal):
         failures.append(
-            "the no-Analysis refusal does not name `segments` -- got: %s"
+            "the no-Extraction refusal does not name `segments` -- got: %s"
             % refusal)
 
-# Case 2 — an Analysis with section 3, every entry carrying both clauses:
+# Case 2 — an Extraction with section 3, every entry carrying both clauses:
 # the saved Move renders `segments` as a numbered list holding the
 # generalized clauses only, none of the content clauses (kogaki#1367).
 tmp2 = tempfile.mkdtemp()
-passage2 = os.path.join(tmp2, "analysed.md")
+passage2 = os.path.join(tmp2, "extracted.md")
 with open(passage2, "w") as fh:
     fh.write("""## 3. The order inside the Passage
 
@@ -194,7 +194,7 @@ try:
                   select="accept")
 except m.Refusal as refusal:
     failures.append(
-        "a record with an Analysis section 3 was refused -- %s" % refusal)
+        "a record with an Extraction section 3 was refused -- %s" % refusal)
 else:
     saved = os.path.join(moves_dir2, "test_move_segments.md")
     if not os.path.isfile(saved):
@@ -217,7 +217,7 @@ else:
 # Case 3 — a §3 entry with only the content clause (no `generalized:`
 # second clause) is refused naming its Segment number (kogaki#1367).
 tmp3 = tempfile.mkdtemp()
-passage3 = os.path.join(tmp3, "analysed.md")
+passage3 = os.path.join(tmp3, "extracted.md")
 with open(passage3, "w") as fh:
     fh.write("""## 3. The order inside the Passage
 
@@ -244,7 +244,7 @@ except m.Refusal as refusal:
 # Case 4 — a supplied `segments` value disagreeing with the generalized
 # clauses is refused as today.
 tmp4 = tempfile.mkdtemp()
-passage4 = os.path.join(tmp4, "analysed.md")
+passage4 = os.path.join(tmp4, "extracted.md")
 with open(passage4, "w") as fh:
     fh.write("""## 3. The order inside the Passage
 
@@ -280,8 +280,8 @@ if failures:
         print("FAIL: %s" % f)
     sys.exit(1)
 print(
-    "ok: segments refused with no Analysis, naming the field; saved as the "
-    "generalized clauses only with an Analysis carrying both clauses; "
+    "ok: segments refused with no Extraction, naming the field; saved as the "
+    "generalized clauses only with an Extraction carrying both clauses; "
     "refused naming the Segment's number with only the content clause; "
     "refused where a supplied `segments` disagrees with the copy "
     "(kogaki#1320, kogaki#1367)")
@@ -293,24 +293,24 @@ if [[ $SEGRC -ne 0 ]]; then
 fi
 
 # --------------------------------------------------------------------------
-# `--from-analysis` (kogaki#1358, design on kogaki#1329; one library,
+# `--from-extraction` (kogaki#1358, design on kogaki#1329; one library,
 # kogaki#1366). The fixture is built here in the shape of
 # corpus/p1329/m2/..._cascades/p01.md, because corpus/ is ignored and CI
 # never sees it. Three cases, each driving the act:
 #   1. the derived record's id, before, after and segments are sections 7,
-#      2 (changed rows only) and 3 of the Analysis;
-#   2. a paragraph Analysis carrying `contains:` is refused naming the line;
+#      2 (changed rows only) and 3 of the Extraction;
+#   2. a paragraph Extraction carrying `contains:` is refused naming the line;
 #   3. `--select accept` lands the Move in the one `moves/` library and
 #      regenerates `moves/INDEX.md`.
 # --------------------------------------------------------------------------
-FROM_ANALYSIS_OUT=$(python3 <<'PY'
+FROM_EXTRACTION_OUT=$(python3 <<'PY'
 import io, os, sys, tempfile, contextlib
 sys.path.insert(0, "tools")
 import move_ingest as m
 
-ANALYSIS = """status: worked example (m2), written from the owner's notes
+EXTRACTION = """status: worked example (m2), written from the owner's notes
 
-# Passage analysis: define_a_named_variable_with_almost_no_new_words
+# Extraction: define_a_named_variable_with_almost_no_new_words
 
 source: not given
 unit: paragraph 1 of 11 in define_attack_defense_advantage_through_opposed_security_cascades
@@ -349,7 +349,7 @@ none
 
 failures = []
 
-p = m.derive_from_analysis(ANALYSIS)
+p = m.derive_from_extraction(EXTRACTION)
 want = {
     "id": "define_a_named_variable_with_almost_no_new_words",
     "before": "knowledge: the first factor is named and not yet defined. "
@@ -360,15 +360,15 @@ want = {
                 "2. raises — enumeration — tells the reader a fixed number of items are coming.",
 }
 if not p.admitted:
-    failures.append("case 1: the p01-shaped Analysis was refused: %s" % p.refusal)
+    failures.append("case 1: the p01-shaped Extraction was refused: %s" % p.refusal)
 elif p.mapping != want:
     failures.append("case 1: derived %r, want %r" % (p.mapping, want))
 
-with_contains = ANALYSIS.replace(
+with_contains = EXTRACTION.replace(
     "length: 2 sentences", "contains: a_slug, b_slug\nlength: 2 sentences")
-p = m.derive_from_analysis(with_contains)
+p = m.derive_from_extraction(with_contains)
 if p.admitted or "contains: a_slug, b_slug" not in str(p.refusal):
-    failures.append("case 2: a paragraph Analysis carrying `contains:` was not "
+    failures.append("case 2: a paragraph Extraction carrying `contains:` was not "
                     "refused naming the line -- got %r" % p.refusal)
 
 with tempfile.TemporaryDirectory() as tmp:
@@ -376,12 +376,12 @@ with tempfile.TemporaryDirectory() as tmp:
     os.makedirs(moves)
     src = os.path.join(tmp, "p01.md")
     with open(src, "w") as h:
-        h.write(ANALYSIS)
+        h.write(EXTRACTION)
     cwd = os.getcwd()
     os.chdir(tmp)
     try:
         with contextlib.redirect_stdout(io.StringIO()):
-            rc = m.main(["passage", "--from-analysis", "p01.md",
+            rc = m.main(["passage", "--from-extraction", "p01.md",
                          "--out", "run", "--select", "accept"])
     finally:
         os.chdir(cwd)
@@ -398,16 +398,27 @@ with tempfile.TemporaryDirectory() as tmp:
         if want["id"] not in index:
             failures.append("case 3: %s/INDEX.md was not regenerated" % moves)
 
+# case 4 (kogaki#1369): the old spelling `--from-analysis` is refused by
+# name, naming `--from-extraction`, and is never read as the paragraph path.
+err = io.StringIO()
+with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+    rc = m.main(["passage", "--from-analysis", "p01.md", "--out", "run"])
+if rc == 0 or "--from-analysis is retired" not in err.getvalue() \
+        or "--from-extraction" not in err.getvalue():
+    failures.append("case 4: --from-analysis was not refused naming "
+                    "--from-extraction (rc %d, stderr %r)" % (rc, err.getvalue()))
+
 if failures:
     for f in failures:
         print("FAIL: %s" % f)
     sys.exit(1)
-print("ok: --from-analysis reads id, before, after and segments off sections 7, 2 "
-      "and 3, refuses `contains:` on a paragraph Analysis naming the line, and "
-      "lands the accepted Move and its INDEX.md in the one moves/ library (kogaki#1358, kogaki#1366)")
+print("ok: --from-extraction reads id, before, after and segments off sections 7, 2 "
+      "and 3, refuses `contains:` on a paragraph Extraction naming the line, and "
+      "lands the accepted Move and its INDEX.md in the one moves/ library, and "
+      "--from-analysis is refused naming --from-extraction (kogaki#1358, kogaki#1366, kogaki#1369)")
 PY
 ); FARC=$?
-printf '%s\n' "$FROM_ANALYSIS_OUT"
+printf '%s\n' "$FROM_EXTRACTION_OUT"
 if [[ $FARC -ne 0 ]]; then
   exit 1
 fi

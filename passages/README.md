@@ -2,10 +2,10 @@
 
 An exceptional utility, not a live route. `FORMAT.md` is the interaction
 contract that turns one hand-selected Passage of published prose into one
-Analysis; a private, temporary Corpus of such Analyses is the evidence from
+Extraction; a private, temporary Corpus of such Extractions is the evidence from
 which a Move schema is derived (kogaki#1173, #1175). The Corpus itself is
 never stored here and is deleted after the schema is settled, because each
-Analysis carries copyrighted source text verbatim. This directory keeps only
+Extraction carries copyrighted source text verbatim. This directory keeps only
 the contract and this note, so the exercise can be repeated if a later
 schema question needs it.
 

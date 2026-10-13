@@ -718,7 +718,7 @@ def render_move(mapping):
     for field in FIELDS:
         # A field `moves/ROLES.json` leaves optional and the record does not
         # carry renders nothing (kogaki#1358: a paragraph Move read off its
-        # Analysis carries no `technique` or `breaks`). The three required
+        # Extraction carries no `technique` or `breaks`). The three required
         # roles are always present on a record condition 3 admitted.
         if field not in mapping and field not in ("id", "before", "after"):
             continue
@@ -1046,17 +1046,17 @@ def near_duplicates(proposed_technique, index_rows):
 
 
 # --------------------------------------------------------------------------
-# The question BEFORE the passage, read off the Analysis (kogaki#1216).
+# The question BEFORE the passage, read off the Extraction (kogaki#1216).
 # --------------------------------------------------------------------------
 #
 # A model fills the schema it is given and is poor at deciding a field is
-# absent, so where an Analysis recorded the reader's question before the
+# absent, so where an Extraction recorded the reader's question before the
 # passage as `none` the authored Move still carried a composed one -- the
-# exemplar's Analysis reads `none, or "should I read this?"` and the Move
+# exemplar's Extraction reads `none, or "should I read this?"` and the Move
 # ingested from it read `holds an unanswered question about why so many such
 # works are appearing now`. The consequence downstream was a library with no
 # Move whose `before` holds no question, so the opening the owner wants
-# (`holds: none`) was legal and unreachable. The Analysis is the RECORD here:
+# (`holds: none`) was legal and unreachable. The Extraction is the RECORD here:
 # its `## 2. Reader before and after` table carries a `question` row whose
 # BEFORE cell is the owner-answered fact, and where that cell reads `none`
 # (alone or followed by a hedge), the proposal's `before` field's `question:`
@@ -1064,24 +1064,24 @@ def near_duplicates(proposed_technique, index_rows):
 # `question` field, which this rewrote too, retired at kogaki#1324.)
 # Applied BEFORE the screen renders, so what the owner accepts is what is
 # saved; the screen names the rewrite so it is never silent.
-ANALYSIS_QUESTION_ROW = re.compile(
+EXTRACTION_QUESTION_ROW = re.compile(
     r"^\|\s*question\s*\|(?P<before>[^|]*)\|(?P<after>[^|]*)\|\s*$", re.M)
 NONE_QUESTION = re.compile(r"^\s*none\b", re.I)
 _OTHER_DIMENSIONS = r"(?:knowledge|expectation|orientation|trust):"
 
 
-def analysis_question_before(passage_text):
-    """The BEFORE cell of the Analysis's `question` row, stripped, or None
-    where the text carries no such row (a bare Passage with no Analysis)."""
-    match = ANALYSIS_QUESTION_ROW.search(passage_text)
+def extraction_question_before(passage_text):
+    """The BEFORE cell of the Extraction's `question` row, stripped, or None
+    where the text carries no such row (a bare Passage with no Extraction)."""
+    match = EXTRACTION_QUESTION_ROW.search(passage_text)
     return match.group("before").strip() if match else None
 
 
 def write_none_question(mapping, passage_text):
-    """Where the Analysis records the question before the passage as none,
+    """Where the Extraction records the question before the passage as none,
     write `holds: none` into the proposal and return the fields rewritten;
     otherwise leave the mapping untouched and return an empty list."""
-    before_cell = analysis_question_before(passage_text)
+    before_cell = extraction_question_before(passage_text)
     if before_cell is None or not NONE_QUESTION.match(before_cell):
         return []
     changed = []
@@ -1097,28 +1097,28 @@ def write_none_question(mapping, passage_text):
 
 
 # --------------------------------------------------------------------------
-# Subject nouns, read off the Analysis (kogaki#1284).
+# Subject nouns, read off the Extraction (kogaki#1284).
 # --------------------------------------------------------------------------
 #
 # specs/move-extraction-contract.md requires `technique` to be subject-free,
 # and nothing enforced it: a Move derived from a Passage about one domain
 # carried that domain's own words forward into `technique` and `breaks`,
 # unnoticed until the owner read the saved file. `passages/FORMAT.md` now
-# has the Analysis list its own `subject nouns` — the nouns naming what the
+# has the Extraction list its own `subject nouns` — the nouns naming what the
 # Passage is about, offered by the model and confirmed or edited by the
 # human — and this is the mechanical half: a record whose `technique` or
 # `breaks` contains one of them is refused, naming the noun and the field.
-# The deny list is PER PASSAGE, written by that Passage's own Analysis; no
-# global word list exists, and an Analysis that lists none refuses nothing.
-ANALYSIS_SUBJECT_NOUNS_ROW = re.compile(r"^subject nouns:\s*(?P<nouns>.*)$", re.M)
+# The deny list is PER PASSAGE, written by that Passage's own Extraction; no
+# global word list exists, and an Extraction that lists none refuses nothing.
+EXTRACTION_SUBJECT_NOUNS_ROW = re.compile(r"^subject nouns:\s*(?P<nouns>.*)$", re.M)
 
 SUBJECT_NOUN_FIELDS = ("technique", "breaks")
 
 
-def analysis_subject_nouns(passage_text):
-    """The Analysis's `subject nouns` field, lower-cased and split on
+def extraction_subject_nouns(passage_text):
+    """The Extraction's `subject nouns` field, lower-cased and split on
     commas, or `[]` where the field is absent or reads "none"."""
-    match = ANALYSIS_SUBJECT_NOUNS_ROW.search(passage_text)
+    match = EXTRACTION_SUBJECT_NOUNS_ROW.search(passage_text)
     if match is None:
         return []
     raw = match.group("nouns").strip()
@@ -1128,10 +1128,10 @@ def analysis_subject_nouns(passage_text):
 
 
 def check_subject_nouns(mapping, passage_text, line_no):
-    """A record whose `technique` or `breaks` names a noun the Analysis
+    """A record whose `technique` or `breaks` names a noun the Extraction
     lists under `subject nouns` is refused, naming the noun and the field.
     Returns a `Refusal`, or `None` where nothing is refused."""
-    nouns = analysis_subject_nouns(passage_text)
+    nouns = extraction_subject_nouns(passage_text)
     if not nouns:
         return None
     for field in SUBJECT_NOUN_FIELDS:
@@ -1143,7 +1143,7 @@ def check_subject_nouns(mapping, passage_text, line_no):
             if noun in words:
                 return Refusal(
                     "subject-noun",
-                    "`%s` names subject noun `%s`, which the Analysis lists "
+                    "`%s` names subject noun `%s`, which the Extraction lists "
                     "under `subject nouns`" % (field, noun),
                     line_no=line_no,
                 )
@@ -1152,22 +1152,22 @@ def check_subject_nouns(mapping, passage_text, line_no):
 
 # --------------------------------------------------------------------------
 # Section 2's dimension/Segment pairing, and section 8's split note
-# (kogaki#1319). Both read the Analysis as given, before the model is
-# spawned: a defect in the Analysis itself, never a defect the extraction
+# (kogaki#1319). Both read the Extraction as given, before the model is
+# spawned: a defect in the Extraction itself, never a defect the extraction
 # step could have caused.
 # --------------------------------------------------------------------------
-ANALYSIS_DIMENSION_ROW = re.compile(
+EXTRACTION_DIMENSION_ROW = re.compile(
     r"^\|\s*(?P<dim>knowledge|question|expectation|orientation|trust)\s*\|"
     r"(?P<before>[^|]*)\|(?P<after>[^|]*)\|(?P<segment>[^|]*)\|\s*$", re.M)
 
 
-def check_analysis_dimensions(passage_text, line_no=None):
+def check_extraction_dimensions(passage_text, line_no=None):
     """`passages/FORMAT.md` §2: every cell of the reader-dimension table
     defaults to "unchanged"; a row that records a change on either side
     names the Segment, by number, that moved it. A changed row with no
     Segment named is refused, naming the dimension. Returns a `Refusal`,
     or `None` where every row is unchanged or names its Segment."""
-    for match in ANALYSIS_DIMENSION_ROW.finditer(passage_text):
+    for match in EXTRACTION_DIMENSION_ROW.finditer(passage_text):
         before = match.group("before").strip()
         after = match.group("after").strip()
         if before.lower() == "unchanged" and after.lower() == "unchanged":
@@ -1184,39 +1184,39 @@ def check_analysis_dimensions(passage_text, line_no=None):
 
 # --------------------------------------------------------------------------
 # The paragraph unit (kogaki#1358, design on kogaki#1329): two levels, no
-# more. A paragraph Analysis carries `unit: paragraph <N> of <M> in <slug>`;
-# a Passage-level Analysis lists its paragraphs on `contains:`. A `contains:`
-# line on a paragraph Analysis would make a third level, so it is refused
+# more. A paragraph Extraction carries `unit: paragraph <N> of <M> in <slug>`;
+# a Passage-level Extraction lists its paragraphs on `contains:`. A `contains:`
+# line on a paragraph Extraction would make a third level, so it is refused
 # BEFORE anything is derived, naming the line.
 # --------------------------------------------------------------------------
-ANALYSIS_PARAGRAPH_UNIT_ROW = re.compile(r"^unit:\s*paragraph\b", re.M)
-ANALYSIS_CONTAINS_ROW = re.compile(r"^contains:.*$", re.M)
+EXTRACTION_PARAGRAPH_UNIT_ROW = re.compile(r"^unit:\s*paragraph\b", re.M)
+EXTRACTION_CONTAINS_ROW = re.compile(r"^contains:.*$", re.M)
 
 
 def check_paragraph_level(passage_text):
     """`passages/FORMAT.md` "The paragraph unit": a `contains:` line on a
-    `unit: paragraph` Analysis is refused, naming the line. Returns a
-    `Refusal`, or `None` where the text is not a paragraph Analysis or
+    `unit: paragraph` Extraction is refused, naming the line. Returns a
+    `Refusal`, or `None` where the text is not a paragraph Extraction or
     carries no `contains:` line."""
-    if ANALYSIS_PARAGRAPH_UNIT_ROW.search(passage_text) is None:
+    if EXTRACTION_PARAGRAPH_UNIT_ROW.search(passage_text) is None:
         return None
-    match = ANALYSIS_CONTAINS_ROW.search(passage_text)
+    match = EXTRACTION_CONTAINS_ROW.search(passage_text)
     if match is None:
         return None
     return Refusal(
         "paragraph-contains",
-        "a `unit: paragraph` Analysis carries `contains:` — two levels, no "
-        "more; only a Passage-level Analysis lists the paragraphs it contains",
+        "a `unit: paragraph` Extraction carries `contains:` — two levels, no "
+        "more; only a Passage-level Extraction lists the paragraphs it contains",
         line_no=passage_text.count("\n", 0, match.start()) + 1,
         line=match.group(0),
     )
 
 
-ANALYSIS_SPLIT_NOTE = re.compile(r"^split:\s*(?P<note>.+?)\s*$")
-ANALYSIS_DISMISSED_NOTE = re.compile(r"^dismissed:\s*(?P<note>.+?)\s*$")
+EXTRACTION_SPLIT_NOTE = re.compile(r"^split:\s*(?P<note>.+?)\s*$")
+EXTRACTION_DISMISSED_NOTE = re.compile(r"^dismissed:\s*(?P<note>.+?)\s*$")
 
 
-def check_analysis_split_note(passage_text, line_no=None):
+def check_extraction_split_note(passage_text, line_no=None):
     """`passages/FORMAT.md` §8: a `split:` note names a second unit inside
     the Passage and refuses ingestion, naming the note, until it is
     dismissed by repeating it verbatim on a later line as `dismissed: <the
@@ -1224,7 +1224,7 @@ def check_analysis_split_note(passage_text, line_no=None):
     undismissed."""
     lines = passage_text.splitlines()
     for i, line in enumerate(lines):
-        match = ANALYSIS_SPLIT_NOTE.match(line.strip())
+        match = EXTRACTION_SPLIT_NOTE.match(line.strip())
         if not match:
             continue
         note = match.group("note").strip()
@@ -1233,7 +1233,7 @@ def check_analysis_split_note(passage_text, line_no=None):
             stripped = later.strip()
             if not stripped:
                 continue
-            dmatch = ANALYSIS_DISMISSED_NOTE.match(stripped)
+            dmatch = EXTRACTION_DISMISSED_NOTE.match(stripped)
             dismissed = bool(dmatch and dmatch.group("note").strip() == note)
             break
         if not dismissed:
@@ -1246,7 +1246,7 @@ def check_analysis_split_note(passage_text, line_no=None):
 
 
 # --------------------------------------------------------------------------
-# `segments`, copied from Analysis section 3 (kogaki#1320, generalized clause
+# `segments`, copied from Extraction section 3 (kogaki#1320, generalized clause
 # kogaki#1367).
 # --------------------------------------------------------------------------
 #
@@ -1275,9 +1275,9 @@ GENERALIZED_CLAUSE = re.compile(r"^(?P<content>.*?)\s*—\s*generalized:\s*(?P<g
 
 
 def section3_body(passage_text):
-    """The text of Analysis `## 3. The order inside the Passage`, between
+    """The text of Extraction `## 3. The order inside the Passage`, between
     its heading and the next, or `None` where the text carries no such
-    heading — a bare Passage with no Analysis."""
+    heading — a bare Passage with no Extraction."""
     heading = SECTION3_HEADING.search(passage_text)
     if heading is None:
         return None
@@ -1287,8 +1287,8 @@ def section3_body(passage_text):
     return body
 
 
-def analysis_segments(passage_text, line_no=None):
-    """The ordered Segments of Analysis section 3, each
+def extraction_segments(passage_text, line_no=None):
+    """The ordered Segments of Extraction section 3, each
     `(function, relation, generalized_clause)` — the content clause is
     parsed and discarded, never copied (kogaki#1367). Returns `None` where
     the text carries no section 3 at all, and raises `Refusal` naming the
@@ -1324,8 +1324,8 @@ def render_segments_text(segments):
 
 
 def check_segments(mapping, passage_text, line_no):
-    """Copy the Analysis's ordered Segments into the record's own
-    `segments`. Returns `(Refusal, None)` where the Analysis carries no
+    """Copy the Extraction's ordered Segments into the record's own
+    `segments`. Returns `(Refusal, None)` where the Extraction carries no
     section 3 to copy from, where a Segment entry carries only the content
     clause, or where the record already carried a `segments` value that
     disagrees with the copy — the model is never asked to write or reorder
@@ -1333,13 +1333,13 @@ def check_segments(mapping, passage_text, line_no):
     reading. Otherwise returns `(None, <the literal numbered-list text, the
     generalized clauses only>)`."""
     try:
-        segments = analysis_segments(passage_text, line_no=line_no)
+        segments = extraction_segments(passage_text, line_no=line_no)
     except Refusal as refusal:
         return refusal, None
     if segments is None:
         return Refusal(
             "segments",
-            "the record carries no `segments` — the Analysis carries no "
+            "the record carries no `segments` — the Extraction carries no "
             "section 3 (\"## 3. The order inside the Passage\") for the "
             "tool to copy it from",
             line_no=line_no,
@@ -1349,7 +1349,7 @@ def check_segments(mapping, passage_text, line_no):
     if existing is not None and str(existing).strip() != text.strip():
         return Refusal(
             "segments",
-            "`segments` does not match the Analysis's section 3 — the "
+            "`segments` does not match the Extraction's section 3 — the "
             "model is never asked to write or reorder Segments, and this "
             "record's `segments` disagrees with the copy",
             line_no=line_no,
@@ -1358,8 +1358,8 @@ def check_segments(mapping, passage_text, line_no):
 
 
 # --------------------------------------------------------------------------
-# `--from-analysis` (kogaki#1358, design on kogaki#1329): the record is READ
-# off a written Analysis, never authored by a model. `id` is section 7's
+# `--from-extraction` (kogaki#1358, design on kogaki#1329): the record is READ
+# off a written Extraction, never authored by a model. `id` is section 7's
 # name, `before` and `after` are section 2's changed rows only, and
 # `segments` is section 3 exactly as `check_segments` copies it on the
 # Passage path.
@@ -1369,7 +1369,7 @@ MOVE_ID = re.compile(r"^[a-z0-9_]+$")
 
 
 def section7_name(passage_text):
-    """The first non-blank line under Analysis `## 7. Candidate name`, or
+    """The first non-blank line under Extraction `## 7. Candidate name`, or
     `None` where the text carries no such heading or no line under it."""
     heading = SECTION7_HEADING.search(passage_text)
     if heading is None:
@@ -1387,7 +1387,7 @@ def changed_dimension_rows(passage_text):
     """Section 2's rows whose `after` is not `unchanged`, in table order,
     each `(dimension, before, after, segment)`."""
     rows = []
-    for match in ANALYSIS_DIMENSION_ROW.finditer(passage_text):
+    for match in EXTRACTION_DIMENSION_ROW.finditer(passage_text):
         after = match.group("after").strip()
         if after.lower() == "unchanged":
             continue
@@ -1409,22 +1409,22 @@ def _state_text(rows, column):
     return " ".join(parts)
 
 
-def derive_from_analysis(passage_text, line_no=1):
-    """The proposal `--from-analysis` offers for one Analysis, as a
-    `Proposal` carrying its `Refusal` where the Analysis cannot supply a
+def derive_from_extraction(passage_text, line_no=1):
+    """The proposal `--from-extraction` offers for one Extraction, as a
+    `Proposal` carrying its `Refusal` where the Extraction cannot supply a
     field. Nothing here is judged: every value is a copy of a section."""
     try:
-        # Not `check_analysis_dimensions`: under m2 rule 3 every `before`
+        # Not `check_extraction_dimensions`: under m2 rule 3 every `before`
         # cell is carried in full, so only an `after` other than `unchanged`
         # is a change, and only a change owes its Segment.
         for refusal in (check_paragraph_level(passage_text),
-                        check_analysis_split_note(passage_text)):
+                        check_extraction_split_note(passage_text)):
             if refusal is not None:
                 raise refusal
         move_id = section7_name(passage_text)
         if move_id is None or not MOVE_ID.match(move_id):
             raise Refusal(
-                "from-analysis",
+                "from-extraction",
                 "section 7 (\"## 7. Candidate name\") carries no Move id "
                 "-- got %r" % move_id,
             )
@@ -1438,7 +1438,7 @@ def derive_from_analysis(passage_text, line_no=1):
                 )
         if not rows:
             raise Refusal(
-                "from-analysis",
+                "from-extraction",
                 "section 2 records no changed row, so there is no `before` "
                 "or `after` to read",
             )
@@ -1463,15 +1463,15 @@ def derive_from_analysis(passage_text, line_no=1):
     return Proposal(line_no, mapping=mapping)
 
 
-def run_from_analysis(analysis_paths, moves_dir, out_dir, select=None):
-    """The `--from-analysis` path: one proposal per Analysis, shown on one
+def run_from_extraction(extraction_paths, moves_dir, out_dir, select=None):
+    """The `--from-extraction` path: one proposal per Extraction, shown on one
     screen, written only on the owner's recorded choice. `accept` writes
     every admitted proposal, `decline` writes nothing, and `merge:<id>`
-    is admitted only for a single Analysis."""
+    is admitted only for a single Extraction."""
     proposals = []
-    for path in analysis_paths:
+    for path in extraction_paths:
         with open(path, encoding="utf-8") as handle:
-            proposals.append(derive_from_analysis(handle.read()))
+            proposals.append(derive_from_extraction(handle.read()))
 
     index_rows = read_index_rows(moves_dir)
     screens = []
@@ -1494,7 +1494,7 @@ def run_from_analysis(analysis_paths, moves_dir, out_dir, select=None):
     refused = [p for p in proposals if not p.admitted]
     if refused:
         raise Refusal(
-            "from-analysis",
+            "from-extraction",
             "%d proposal(s) refused (%s); nothing to select against"
             % (len(refused), "; ".join(str(p.refusal) for p in refused)),
         )
@@ -1507,8 +1507,8 @@ def run_from_analysis(analysis_paths, moves_dir, out_dir, select=None):
         result["written"] = [merge_into(moves_dir, select[len("merge:"):], proposals[0])]
         return result
     raise Refusal(
-        "from-analysis",
-        "--select must be `accept`, `decline`, or (for one Analysis) "
+        "from-extraction",
+        "--select must be `accept`, `decline`, or (for one Extraction) "
         "`merge:<id>` — got %r" % select,
     )
 
@@ -1521,7 +1521,7 @@ def render_passage_screen(proposal, duplicates, rewritten=()):
 
     lines = ["proposed Move: %s" % proposal.id, ""]
     if rewritten:
-        lines.append("the Analysis records the question before the passage as none: "
+        lines.append("the Extraction records the question before the passage as none: "
                      "`holds: none` written into %s, never a composed question (kogaki#1216)"
                      % " and ".join(rewritten))
         lines.append("")
@@ -1555,12 +1555,12 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
         contract_text = handle.read()
 
     # BEFORE the model is called (kogaki#1319): both checks read the
-    # Analysis as given, and a defect in it is never the extraction step's
+    # Extraction as given, and a defect in it is never the extraction step's
     # to catch.
-    dimension_refusal = check_analysis_dimensions(passage_text)
+    dimension_refusal = check_extraction_dimensions(passage_text)
     if dimension_refusal is not None:
         raise dimension_refusal
-    split_refusal = check_analysis_split_note(passage_text)
+    split_refusal = check_extraction_split_note(passage_text)
     if split_refusal is not None:
         raise split_refusal
 
@@ -1593,14 +1593,14 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
 
     if proposal.admitted:
         # BEFORE anything else (kogaki#1284): a record naming a subject noun
-        # the Analysis lists is not merely rewritten, it is refused outright.
+        # the Extraction lists is not merely rewritten, it is refused outright.
         subject_refusal = check_subject_nouns(
             proposal.mapping, passage_text, proposal.line_no)
         if subject_refusal is not None:
             proposal = Proposal(proposal.line_no, refusal=subject_refusal)
 
     if proposal.admitted:
-        # The Analysis's ordered Segments, copied into the record itself
+        # The Extraction's ordered Segments, copied into the record itself
         # (kogaki#1320) — never asked of the model.
         segments_refusal, segments_text = check_segments(
             proposal.mapping, passage_text, proposal.line_no)
@@ -1740,7 +1740,19 @@ def main(argv=None):
     return main_ingest(argv)
 
 
+# The flag's old spelling (kogaki#1369): the component it names is the
+# Extraction, so `--from-analysis` is refused by name rather than kept as an
+# alias, pointing at the one spelling that runs.
+RETIRED_FROM_FLAG = "--from-analysis"
+
+
 def main_passage(argv):
+    for arg in argv:
+        if arg == RETIRED_FROM_FLAG or arg.startswith(RETIRED_FROM_FLAG + "="):
+            sys.stderr.write(
+                "refused: %s is retired -- the record is the Extraction now; "
+                "use --from-extraction\n" % RETIRED_FROM_FLAG)
+            return 2
     parser = argparse.ArgumentParser(
         prog="move_ingest.py passage",
         description="The Passage-to-Move path (kogaki#1175): a Passage in, one "
@@ -1750,10 +1762,10 @@ def main_passage(argv):
     )
     parser.add_argument("passage", nargs="?", help="the Passage text file")
     parser.add_argument(
-        "--from-analysis", nargs="+", metavar="ANALYSIS",
-        help="one or more written Analyses (one Passage's paragraph "
-        "Analyses, passages/FORMAT.md \"The paragraph unit\"): each record "
-        "is read off its Analysis -- id from section 7, before/after from "
+        "--from-extraction", nargs="+", metavar="EXTRACTION",
+        help="one or more written Extractions (one Passage's paragraph "
+        "Extractions, passages/FORMAT.md \"The paragraph unit\"): each record "
+        "is read off its Extraction -- id from section 7, before/after from "
         "section 2's changed rows, segments from section 3 -- and no model "
         "is called",
     )
@@ -1773,11 +1785,11 @@ def main_passage(argv):
     parser.add_argument("--select", help="the owner's recorded choice: accept, decline, or merge:<id>")
     args = parser.parse_args(argv)
 
-    if args.from_analysis:
+    if args.from_extraction:
         if args.passage or not args.out:
-            parser.error("--from-analysis takes no Passage file and requires --out")
+            parser.error("--from-extraction takes no Passage file and requires --out")
         try:
-            result = run_from_analysis(args.from_analysis, "moves",
+            result = run_from_extraction(args.from_extraction, "moves",
                                        args.out, select=args.select)
         except Refusal as refusal:
             sys.stderr.write("refused: %s\n" % refusal)

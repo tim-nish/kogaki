@@ -66,7 +66,7 @@
       "each_must_resolve_in": "moves_you_may_bind",
       "rule": "EXCLUSION, NOT OPTIMIZATION (kogaki#1216 amendment, owner decision 2026-09-28). A Move is EXCLUDED when its `before` CONTRADICTS `reader_start` on a dimension it declares; a Move that omits a dimension is not excluded on it. Every Move not excluded is a survivor, and survivors are NOT RANKED -- no score exists anywhere. List every survivor by id",
       "opening_move_must_be_a_survivor": true,
-      "count_is_rendered": "the Brief records how many Moves survived, beside Reader start. A count of one names the LIBRARY, not the rule, as the cause of a repeated opening, and the fix is a Move analysed from an opening passage",
+      "count_is_rendered": "the Brief records how many Moves survived, beside Reader start. A count of one names the LIBRARY, not the rule, as the cause of a repeated opening, and the fix is a Move extracted from an opening passage",
       "rationale": "the first Leg binds a survivor by the same composition order every Leg uses -- Strand information, then Leg reasoning, then the Move -- and the grounds test applies to it; the check is the existing specialization verdict applied to Leg 1 against `reader_start` (`specializes` passes, `contradicts` refuses). An empty list is refused: a library with no Move able to open from this Reader start is a store fault to name, never a Brief to compose"
     },
     "entries": {
