@@ -1339,6 +1339,10 @@ for (const [id, f] of Object.entries(FIT_MOVE)) {
   if (f.segments) lines.push("segments: |-", ...f.segments.split("\n").map((l) => `  ${l}`));
   writeFileSync(join(fitMoves, `${id}.md`), lines.join("\n") + "\n");
 }
+// A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
+// `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback to the
+// repository's own, so this temporary library carries its own copy.
+writeFileSync(join(fitMoves, "ROLES.json"), readFileSync("moves/ROLES.json"));
 const START_1276 = "knowledge: before\nquestion: holds: none";
 const leg1276 = (legId, extra) => ({
   leg_id: legId, move: "m_open", materials: ["L1"], purpose: `what ${legId} is for`,
