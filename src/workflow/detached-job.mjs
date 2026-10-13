@@ -29,14 +29,11 @@ export class DetachedJobStarted extends Error {
 
 const READER_PATH_JOB_FILE = "reader-path-job.json";
 // A UNIT IS BOUNDED PER CALL AND PER ATTEMPT COUNT, NEVER BY A WHOLE-JOB LIMIT
-// (kogaki#1355, the owner's 2026-10-13 ruling, superseding kogaki#1273's one retry that
-// fits). `call_limit_s` is how long one headless session may run before it is killed;
-// `unit_attempts` is how many attempts a unit gets. Neither is a constant here: the
-// job's starter reads both from `kogaki.settings.json` (`brief.call_limit_s`,
-// `brief.unit_attempts`) and writes them onto the job record, which the supervisor
-// enforces and `job await` reads back. A job's longest run is therefore
-// `unit_attempts` x (calls per attempt + `unit_attempts` malformed respawns, each a full
-// call that spends no attempt) x `call_limit_s`, and nothing else ends it on time.
+// (kogaki#1355, superseding kogaki#1273's one retry that fits). `call_limit_s` and
+// `unit_attempts` are read by the job's starter from `kogaki.settings.json` and written
+// onto the job record, which the supervisor enforces and `job await` reads back. A job's
+// longest run is `unit_attempts` x (calls per attempt + `unit_attempts` malformed
+// respawns, each a full call spending no attempt) x `call_limit_s`.
 // NO BYTE GROWTH ON ANY STILL-RUNNING UNIT FOR THIS LONG is read as a stall — a declared
 // heuristic, kept narrower than the per-call limit.
 // Per kogaki#1193 comment 3, this one output-byte bound stands in for both of the Issue's
