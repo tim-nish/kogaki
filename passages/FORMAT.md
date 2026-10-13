@@ -41,6 +41,13 @@ the Corpus; this file does not extract Moves.
 - **Analysis** — the artifact this contract produces from one Passage: the
   Passage verbatim, the four questions (Q1 the model's own, Q2 to Q4 with their candidates) and the
   human's answers, and the filled sections below. One file per Passage.
+- **Paragraph** — a unit one level above a Passage: one or more Passages,
+  in source order, that the human judges act as a single unit at the
+  paragraph grain. A Paragraph is never analyzed from the source text
+  directly; it names Passages whose own Analyses already exist, and draws
+  no Segment of its own (see "The paragraph unit"). Most Analyses are
+  Passage-unit and never mention a Paragraph; the `unit`, `contains` and
+  `status` header lines exist only to carry this one case.
 - **Corpus** — the collection of Analyses. It is the input to a later act
   that derives a Move schema; that act has its own format and is not this
   one.
@@ -83,6 +90,44 @@ Three artifacts touch the source text, and each keeps a different amount.
   own account of the reader movement and never verbatim text; the Analysis
   sections 1, 3 and 6 are written to be that account. Nothing in the
   Passage section is ever copied into a Move.
+
+---
+
+## The paragraph unit
+
+Every Analysis carries a `unit` header line. For almost all of them it
+reads `unit: passage`, the shape the rest of this contract describes, and
+the three fields below do not apply and are omitted. A `unit: paragraph`
+Analysis exists for the paragraph the human can see once more than one of
+its Passages already has an Analysis of its own: the question it answers
+is what the whole paragraph does to the reader, which no single contained
+Passage's Analysis states, because each was written against that Passage's
+own boundary alone.
+
+A Paragraph is never analyzed from the source text directly, and draws no
+Segment of its own:
+
+- `unit: paragraph` replaces `unit: passage` in the header; nothing else in
+  the header's shape changes.
+- `contains:` names the Passage Analyses this Paragraph is built from, by
+  slug, comma separated, in source order — the order the Passages run in
+  the work, never the order they happened to be analyzed in. Refused on a
+  `unit: passage` Analysis, which has nothing to contain.
+- `status:` records whether every Analysis named in `contains:` exists:
+  `complete`, once all of them do, or `pending: <slug>, <slug>` naming the
+  ones that do not yet. Ingestion of a Paragraph refuses until
+  `status: complete` — a Paragraph is read from its Passages' own
+  Analyses, never re-derived from the Passage text, so a named Analysis
+  that does not yet exist leaves nothing for it to read.
+
+Section 3 of a Paragraph-unit Analysis draws no fresh cut: it lists the
+Segments its contained Passages already carry, concatenated in `contains:`
+order, each still bearing the function and relation its own Passage gave
+it. The four questions and the sections after section 3 are still answered
+fresh, at the paragraph grain, exactly as steps 1 to 3 describe — the model
+still writes three candidates for Q2 to Q4 and the human still chooses —
+but every answer speaks to the paragraph's whole effect, never to one
+contained Passage alone.
 
 ---
 
@@ -293,6 +338,14 @@ prior text: <assumed | not assumed — whether the Passage relies on text
 length: <N sentences, M paragraphs, counted>
 language: <the language of the text as given, and "reads as translated"
         with one sign if so>
+unit: <passage | paragraph — "passage" unless this Analysis is for a
+        Paragraph, see "The paragraph unit">
+contains: <paragraph only — the Passage Analyses this Paragraph is built
+        from, by slug, comma separated, in source order; omitted entirely
+        on a unit: passage Analysis>
+status: <paragraph only — "complete" once every Analysis named in
+        contains: exists, or "pending: <slug>, <slug>" naming the ones
+        that do not yet; omitted entirely on a unit: passage Analysis>
 
 ## Passage
 
@@ -479,6 +532,7 @@ prior text: not assumed — "It may sound strange for someone who..." opens
 length: 12 sentences, 3 paragraphs
 language: English; reads as translated (Japanese publishing references,
         "manga or novels", "scholars from Japan and abroad")
+unit: passage
 
 ## Passage
 
