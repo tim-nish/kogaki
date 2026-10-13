@@ -18,7 +18,7 @@
     "the Thesis, read as if it were the article's title, and nothing else. A",
     "Brief carries no Title at composition, so the Thesis stands in for it,",
     "and this file says so where the composer reads it. It is authored from",
-    "the reader file the workflow table names (rendered in this ask's input",
+    "the Audience file's `persona` the workflow table names (rendered in this ask's input",
     "as `reader`) and the adopted Thesis, never from any Move. `leg1_survivors` is every",
     "Move whose `before` does not contradict that Reader start on a dimension",
     "it declares, unranked; each unit's `opening_move` is drawn from it. Both",
@@ -48,7 +48,7 @@
     "reader_start": {
       "type": "string",
       "shape": "one `dimension: value` LINE per dimension, over the Move library's five (knowledge, question, expectation, orientation, trust)",
-      "authored_from": ["the reader file the Brief workflow table's `compose_path` row names (readers/dev-to-zenn.md), rendered in this ask's input as `reader`", "the adopted Thesis, in the Brief document, READ AS IF IT WERE THE ARTICLE'S TITLE (kogaki#1225): the Brief carries no Title at composition, so the Thesis stands in for it, and what the reader has seen is that wording and nothing else"],
+      "authored_from": ["the `persona` of the Audience file the Brief workflow table's `compose_path` row names (audiences/dev-to-zenn.md), rendered in this ask's input as `reader`", "the adopted Thesis, in the Brief document, READ AS IF IT WERE THE ARTICLE'S TITLE (kogaki#1225): the Brief carries no Title at composition, so the Thesis stands in for it, and what the reader has seen is that wording and nothing else"],
       "never_from": "any Move's `before`, and never from a problem the reader is assumed to have lived -- Reader start is a COLD READ: the state of a reader with the declared Persona who has seen the Thesis as a title and nothing else (kogaki#1216, owner decision 2026-09-28; stimulus pinned by kogaki#1225, owner decision 2026-09-29). Deriving it from the Move the first Leg will bind is what produced a Reader start that read like a reader who had already read the article several times; deriving its question from why the reader opened the post is what produced one who had already lived the article's problem",
       "lines": {
         "knowledge": "what this reader holds about the Thesis's subject, bounded by the Persona's `prior_knowledge`; a term the Persona lists as unknown may not appear",

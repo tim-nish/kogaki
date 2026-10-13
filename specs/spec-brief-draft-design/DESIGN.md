@@ -458,7 +458,7 @@ mechanism estimates. The Section rule narrows with it: a case, file or
 person introduced in the Journey block may be named again, by name, in a
 later paragraph; nothing else carries across, including something from the
 reader's own world. The operational halves live in their own carriers —
-the Persona's prose block at `readers/dev-to-zenn.md`, and the
+the Audience's `register` at `audiences/dev-to-zenn.md` (kogaki#1370), and the
 paragraph-opener string test inside `src/review-draft.mjs`'s
 `demonstrative-reference` item — and this is their ground, for the same
 reason the round-trip clause's ground lives here rather than in either
@@ -468,13 +468,13 @@ carrier.
 
 necessity: *a prohibition's ground is not checkable and its violation is a
 DESIGN act rather than a runtime one — nothing at runtime can observe a second
-style artifact being created, because creating it is a person deciding to.*
+Register artifact being created, because creating it is a person deciding to.*
 
 **These three are re-homed here from `specs/spec-style-contract/` (kogaki#749).**
 This document is their normative home.
 
-1. **No per-run style questions.** Style is never asked at run time. A run that
-   opens a style question has converted a settled property into a per-run
+1. **No per-run Register questions.** The Register is never asked at run
+   time. A run that opens a Register question has converted a settled property into a per-run
    negotiation, and the cost is paid by the owner on every run thereafter.
 2. **No syntax metrics anywhere in a run.** Sentence lengths, word counts,
    readability indices: a syntax metric added anywhere in this pipeline has
@@ -491,7 +491,7 @@ This document is their normative home.
    > the neighbour."
 
    `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:69`
-3. **No second style-constitution artifact.** One carrier for the operational
+3. **No second Register-constitution artifact.** One carrier for the operational
    rules — the Packet template — and this record for their ground. A third
    document restating either is the conformance copy that drifts.
 

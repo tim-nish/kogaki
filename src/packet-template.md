@@ -19,20 +19,20 @@ generation, kept minimal. A rule enters here only with a demonstrated change
 in what is generated. DESIGN PRINCIPLES ABOUT THIS TEMPLATE DO NOT LIVE HERE — they belong in
 the Brief/Draft design record (kogaki#752).
 
-THE WRITE BLOCK'S READER-DEPENDENT RULES ARE THE PERSONA'S (kogaki#1251
-item 1, kogaki#1261). `{{prose_rules}}` is filled from the `prose` block of the
-Persona file the Brief was composed with, so two Personas render two Write
-blocks; the heading rule, the paragraph rule and the round trip stay here,
-identical for every Persona. `{{reader_own_world}}` is HARNESS-OWNED, not the
-Persona's prose block (kogaki#1285): it renders the Persona's
-`prior_knowledge` field verbatim, or a stated absence where the Persona
-declares none, before the Persona's own prose rules — so the Referents rule
-above can point at material the Packet actually carries.
+THE WRITE BLOCK'S READER-DEPENDENT RULES ARE THE AUDIENCE'S REGISTER
+(kogaki#1251 item 1, kogaki#1261, kogaki#1370). `{{register}}` is filled from
+the `register` key of the Audience file the Brief was composed for, so two
+Audiences render two Write blocks; the heading rule, the paragraph rule and
+the round trip stay here, identical for every Audience. `{{reader_own_world}}`
+is HARNESS-OWNED, not the register (kogaki#1285): it renders the Audience's
+`persona.prior_knowledge` field verbatim, or a stated absence where the
+Persona declares none, before the register — so the Referents rule above can
+point at material the Packet actually carries.
 
-THE MOVE OWNS PARAGRAPH STRUCTURE, THE PERSONA OWNS REGISTER (kogaki#1350,
-owner ruling 2026-10-12): a Move's Segments, their functions and relations,
-decide where a paragraph opens and how long it runs; the Persona's `prose`
-block carries no rule that dictates either.
+THE MOVE OWNS PARAGRAPH STRUCTURE, THE AUDIENCE'S REGISTER OWNS WORD CHOICE
+(kogaki#1350, owner ruling 2026-10-12): a Move's Segments, their functions and
+relations, decide where a paragraph opens and how long it runs; the register
+carries no rule that dictates either.
 
 LEG LINKING IS DEFAULT-DENY (kogaki#1282, owner ruling 2026-10-06). Only what
 the Brief's `introduces` and `re-activate` explicitly admit crosses into this
@@ -169,7 +169,7 @@ Prose that writes its own heading is refused when the Leg is recorded.
 
 **The reader's own world.** {{reader_own_world}}
 
-{{prose_rules}}
+{{register}}
 
 **The round trip — claims only.** Each claim above must be recoverable from
 what you write. Where making one plain loses something, either restore the

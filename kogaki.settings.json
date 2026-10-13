@@ -9,7 +9,7 @@
     "compose_units_means": "How many Candidates the compose job asks for at once, one job unit each.",
     "judge_model": "claude-opus-5",
     "judge_model_means": "The model every Brief judgment and every job unit is asked with.",
-    "persona_file": "readers/dev-to-zenn.md",
-    "persona_file_means": "The Persona file the Brief composes for: who the reader is and what they already know."
+    "audience_file": "audiences/dev-to-zenn.md",
+    "audience_file_means": "The Audience file the Brief composes for. Its `persona` key says who the reader is and what they already know; its `register` key says how the prose addresses them."
   }
 }

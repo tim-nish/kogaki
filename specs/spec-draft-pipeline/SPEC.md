@@ -1,5 +1,21 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v45, amended 2026-10-14 (kogaki#1370) — **THE READER FILE IS THE
+AUDIENCE, WITH A `persona` KEY AND A `register` KEY.** The file the Brief
+composes for held `reader` and `prior_knowledge`, which say who the reader is,
+beside `prose`, which says how the prose addresses them, and was called the
+Persona after its first half alone. The owner decided (2026-10-13): the
+writing component is the **Register**, and the file holding the Persona and
+the Register is the **Audience**, with a key for each. So the file moves to
+`audiences/dev-to-zenn.md` as `id`, `persona` (holding `reader` and
+`prior_knowledge`) and `register` (§5.1.1, §4.14); the setting
+`brief.persona_file` becomes `brief.audience_file`; the Leg Packet's
+`{{prose_rules}}` slot becomes `{{register}}`; and the Register's rules are
+moved, none edited. Persona stays the name of the `persona` key. Carriers:
+`audiences/dev-to-zenn.md`, `kogaki.settings.json`, `src/brief-workflow.json`,
+`src/compose.mjs`, `src/draft.mjs`, `src/brief.mjs`, `src/packet-template.md`.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v44, amended 2026-10-13 (kogaki#1355) — **A JOB UNIT IS BOUNDED
 PER CALL AND PER ATTEMPT COUNT, AND THE STATUS LINE SHOWS THE ATTEMPT AND AN
 ESTIMATE.** The Brief run of 2026-10-13 ended with no Brief: all three compose
@@ -50,7 +66,7 @@ unit, re-asked once with the judge's sentence; §4.11's revise pass and its four
 Arms, which no state of the Brief table ever ran, leave; a run whose every
 Candidate is excluded ends with no question and removes its empty Brief. The jobs'
 time settings, the unit count, the judge model and the Persona
-file move to `kogaki.settings.json`, the owner's file for values changed
+file (the Audience file since kogaki#1370) move to `kogaki.settings.json`, the owner's file for values changed
 without coding. Carriers: `kogaki.settings.json`, `src/brief-workflow.json`,
 `src/brief.mjs`, `src/workflow/detached-job.mjs`, `src/review.mjs`.
 **deferred slots minted by this amendment: none; `specialization-judgment-and-
@@ -107,7 +123,8 @@ binding is removed; (3) the Opening question is not a separately authored
 field — it is the `question:` line of the first Leg's `reader_state_after`,
 rendered under the existing heading; (4) Reader start and Reader target stay
 in the Move library's reader-state schema. The Persona is one owner-authored
-file, `readers/dev-to-zenn.md`, with two fields (`reader`, `prior_knowledge`),
+file, `readers/dev-to-zenn.md` (the Audience file `audiences/dev-to-zenn.md`
+since kogaki#1370), with two fields (`reader`, `prior_knowledge`),
 named by the workflow table and read at the `differentiation` state, which
 now authors Reader start once per Brief and lists the first-Leg survivors;
 the Brief records the survivor count. Where an Analysis records the question
@@ -1635,20 +1652,20 @@ owner ruling 2026-10-10), in whatever form this Leg's waypoints need — one
 clause or several sentences. Nothing here is a claim, and nothing here is a
 narrative to tell merely because it is named a Journey.
 
-**Every block the template renders is a Harness contract; every style rule is
-the Persona's** (kogaki#1321). The heading rule, the budget, the round trip,
-the refusal form, the waypoints and claims blocks, the Journey block and the
-reader's own world are fixed, identical for every Persona, because each
-changes model behaviour at generation and is this file's own concern. A rule
-that instead governs how the prose reads — the first-sentence preference, the
-paragraph anaphora rule, the enumeration bound, voice — carries no runtime
-check and belongs to the reader the article is written for, so it lives in
-the Persona's `prose` block (§4.14, `{{prose_rules}}`) and nowhere else: a
-Persona whose `prose` block is empty asks the template for no style rule at
-all. The "article so far" block follows the same line: it carries the Leg's
-own Section's prose and one fixed header naming what it is, never an
-instruction, because continuity is a style question the Persona's voice rule
-already answers.
+**Every block the template renders is a Harness contract; every rule of how
+the prose reads is the Audience's Register** (kogaki#1321, kogaki#1370). The
+heading rule, the budget, the round trip, the refusal form, the waypoints and
+claims blocks, the Journey block and the reader's own world are fixed,
+identical for every Audience, because each changes model behaviour at
+generation and is this file's own concern. A rule that instead governs how
+the prose reads — the first-sentence preference, the paragraph anaphora rule,
+the enumeration bound, voice — carries no runtime check and belongs to the
+reader the article is written for, so it lives in the Audience's `register`
+(§4.14, `{{register}}`) and nowhere else: an Audience whose `register` is
+empty asks the template for no register rule at all. The "article so far"
+block follows the same line: it carries the Leg's own Section's prose and one
+fixed header naming what it is, never an instruction, because continuity is a
+question of register the Audience's voice rule already answers.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
 run id, and prior Legs' prose in the **Brief's recorded order** rather than from
@@ -2283,11 +2300,15 @@ before the passage as `none, or "should I read this?"`, and the Move ingested
 from it recorded an unanswered question. No Move in the library held no
 question, so the `holds: none` opening below was legal and unreachable.
 
-**The Persona is declared once, in one owner-authored file the workflow table
-names** — `readers/dev-to-zenn.md`, in a `readers/` directory beside `moves/`
-and `passages/`, content rather than a schema, its first value the current
-Dev.to and Zenn reader. It carries **two fields**, one or two sentences each,
-and stays far smaller than a Move:
+**The Persona is declared once, in one owner-authored Audience file the
+workflow table names** — `audiences/dev-to-zenn.md`, in an `audiences/`
+directory beside `moves/` and `passages/`, content rather than a schema, its
+first value the current Dev.to and Zenn reader (kogaki#1370). The Audience
+holds two keys: `persona`, who is read to, and `register`, how they are
+addressed — word choice, hedging voice, referent rules, the anaphora rule —
+which the Leg Packet alone reads (§4.14) and which carries no rule on
+structure (kogaki#1350). The `persona` key carries **two fields**, one or two
+sentences each, and stays far smaller than a Move:
 
 - **`reader`** — who they are by what they do and in which genre they are
   reading. Grounding: Swales's discourse community (genre analysis, 1990).
@@ -2327,7 +2348,7 @@ before-state verbatim (§4.1), so whatever it holds is what the opening Move's
 (`readerStartThesisRefusal`). The rest of the
 derivation is composition judgment stated to the composer, not linted (§4.6).
 Selecting a Persona per article is out of scope; the `compose_path` row of
-`src/brief-workflow.json` names the reader file it reads, as it names its
+`src/brief-workflow.json` names the Audience file it reads, as it names its
 schema files, and there is no per-article selection.
 
 **The first Leg binds a Move by EXCLUSION, not optimization** (owner
@@ -2923,7 +2944,7 @@ its first Leg must bind, and (where the Brief carries Journey material) where
 that unit places it. Three units composing independently cannot make their
 Candidates differ by seeing each other; Differentiation is what makes them
 differ BY ASSIGNMENT instead. **Since kogaki#1216 the same state also authors
-the Brief's one Reader start** — from the Persona file the `compose_path` row
+the Brief's one Reader start** — from the Audience file's `persona` the `compose_path` row
 names and the adopted Thesis, never from a Move (§5.1.1) — **and lists the
 first-Leg survivors**, every Move whose `before` does not contradict it; each
 unit's assigned opening Move is drawn from that list, and the Harness sets
@@ -3553,7 +3574,7 @@ tell a deliberate ordering from an arbitrary one.
 
 Not in this pipeline: a Probe successor; mechanical evidence resolution;
 automatic `before`/`after` judgment; a closed structure vocabulary or
-framework menu; adjacency data in any form; a second style artifact.
+framework menu; adjacency data in any form; a second Register artifact.
 
 `necessity:` an enumeration of what was decided against. Absence of code is not
 evidence of a decision, and each of these has been proposed at least once.
