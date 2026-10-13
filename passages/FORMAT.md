@@ -147,10 +147,11 @@ Three header lines carry the two levels:
   writes it back.
 
 A paragraph Analysis is ingested with `tools/move_ingest.py passage
---from-analysis <pNN.md> [...] --library moves/paragraph`, which reads the
+--from-analysis <pNN.md> [...]`, which reads the
 record off the Analysis rather than asking a model for it: `id` from
 section 7, `before` and `after` from the rows of section 2 whose `after` is
-not `unchanged`, and `segments` from section 3.
+not `unchanged`, and `segments` from section 3. The record lands in
+`moves/`, the one library, like any other Move.
 
 ---
 

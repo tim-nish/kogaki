@@ -1744,11 +1744,6 @@ def main_passage(argv):
         ),
         help="path to specs/move-extraction-contract.md",
     )
-    parser.add_argument(
-        "--library", "--moves-dir", dest="library", default="moves",
-        help="the Move library directory the accepted Moves land in and "
-        "whose INDEX.md is regenerated (default: moves)",
-    )
     parser.add_argument("--out", help="the run directory (raw.txt, PassageScreen.md)")
     parser.add_argument("--timeout", type=int, default=600, help="per-call bound in seconds")
     parser.add_argument("--select", help="the owner's recorded choice: accept, decline, or merge:<id>")
@@ -1758,7 +1753,7 @@ def main_passage(argv):
         if args.passage or not args.out:
             parser.error("--from-analysis takes no Passage file and requires --out")
         try:
-            result = run_from_analysis(args.from_analysis, args.library,
+            result = run_from_analysis(args.from_analysis, "moves",
                                        args.out, select=args.select)
         except Refusal as refusal:
             sys.stderr.write("refused: %s\n" % refusal)
@@ -1772,7 +1767,7 @@ def main_passage(argv):
         parser.error("a Passage file, --model and --out are required")
 
     try:
-        result = run_passage(args.passage, args.contract, args.library,
+        result = run_passage(args.passage, args.contract, "moves",
                               args.command, args.model, args.out, args.timeout,
                               select=args.select)
     except Refusal as refusal:
