@@ -748,8 +748,8 @@ because a role's *reader* is prose this file states and the JSON does not:
 | `identity` | `id` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
 | `state-before` | `before` | Path Review's specialization judgment (§4.4) |
 | `state-after` | `after` | Path Review's specialization judgment (§4.4) |
-| `specialized-by-the-Leg` | `technique` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); no stage after the Candidate (kogaki#1311) |
-| `tests` | `breaks` | the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2) |
+| `specialized-by-the-Leg` | `technique` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); for a paragraph Move, the ParagraphPlan stage, as the Paragraph Waypoints' order where the Move carries no `segments`, and as a criterion of its judge (§4.19, kogaki#1378) |
+| `tests` | `breaks` | the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); for a paragraph Move, the ParagraphPlan stage's judge, against the Paragraph Waypoints (§4.19, kogaki#1378) |
 | `segments` | `segments` | the composer and the per-unit Move-fit judgment, as the waypoints' order where the Move carries it (§4.12.2, kogaki#1320); for a paragraph Move, the ParagraphPlan stage, as the Paragraph Waypoints' order (§4.19, kogaki#1375); no stage after it |
 | `figure-roles` | `figure` | a Leg's `figure:` declaration (§4.16) |
 | `continues-from` | `continues_from` | nothing downstream; kept for the record's own sake |
@@ -2194,8 +2194,9 @@ one Writer call.
 
 **The Move boundary, moved.** Move information may be used up to Paragraph
 Waypoint generation and nowhere after it. This stage is the last reader of a
-paragraph Move: it binds one and builds from its Segments, and what it writes
-for the Packet holds nothing of a Move. The 2026-10-09 boundary ("Information
+paragraph Move: it binds one and builds from its Segments, or its `technique`
+where the Move carries none, and what it writes for the Packet holds nothing
+of a Move. The 2026-10-09 boundary ("Information
 that belongs to Move has responsibility only up to CandidatePath creation")
 holds for the Leg Move; the paragraph Move's responsibility ends here, and the
 Writer never reads a Move (2026-10-12).
@@ -2210,11 +2211,22 @@ supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
    point in view — and generates each Leg Waypoint's Paragraph Waypoints from
    four inputs: the Leg Waypoint, the Claims its `serves` names (the input that
    takes the place of Claims at the paragraph level), the bound Move's
-   Segments (their generalized clauses) and the Audience's `persona`. A Leg
-   Waypoint no Move fits refuses the unit as `no_paragraph_move_fits`, naming
-   the Leg and the Waypoint; there is no fallback paragraph shape.
+   Segments, or its `technique` where the Move carries no Segments, and the
+   Audience's `persona`. The order is the Leg composer's own rule (§4.1):
+   built from the Move's Segments where it carries them, and from its
+   `technique` until it does. A Leg Waypoint no Move fits refuses the unit as
+   `no_paragraph_move_fits`, naming the Leg and the Waypoint; there is no
+   fallback paragraph shape.
 2. `paragraph_plan_judge_unit` judges the generated Paragraph Waypoints against
-   the bound Move's `before` and `after`. A `does-not-fit` refuses the attempt.
+   the bound Move, the four things the Leg judge judges (§4.12.2, owner
+   decision 2026-10-14: "I had assumed that ParagraphPlan would use the same
+   generation and validation conditions as Leg Waypoint generation"): whether
+   they begin from a state the Move's `before` holds; whether they end where
+   its `after` leaves the reader, toward the next Leg Waypoint's point; whether,
+   read in order, they follow the Move's order as its Segments give it, or as
+   its `technique` gives it where the Move carries no Segments; and whether
+   they survive each test in the Move's `breaks`. A `does-not-fit` on any of
+   the four refuses the attempt.
 
 A refused attempt is asked again with the refusal text verbatim until
 `brief.unit_attempts` is spent; a call is bounded by `brief.call_limit_s`;
@@ -2223,8 +2235,8 @@ by name. A unit that spends its attempts stops the stage naming the Leg and the
 Waypoint, writing nothing and leaving the Brief unchanged, and the work resumes
 from the same Brief by running `/paragraph-plan` again; the Reader Path is not
 composed again. **A bound paragraph Move that does not fill a role the stage
-needs (`segments`, `before`, `after`) is a fatal stop naming the Move and the
-role**, never a default.
+needs (`before`, `after`, `breaks`, and neither `segments` nor `technique`) is
+a fatal stop naming the Move and the role**, never a default.
 
 **A Paragraph Waypoint has the shape of a Leg Waypoint**: `point`, the
 proposition its paragraph makes, and `serves`, the Strand ids of Claims its
