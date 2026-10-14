@@ -498,30 +498,20 @@ those paths into.
   no claim for, and a claim no waypoint serves — each naming the Leg and the
   waypoint; `draft.mjs resolve` refuses a Brief Leg carrying none, by name. **No
   information of the Leg's Move is copied onto the Leg**: `breaks` is part of
-  the Move and its responsibility ends when the Candidate is produced. The one
-  copy a waypoint carries is its own paragraph Move's Segments, below.
-  - **`move` and `segments` — the bound paragraph Move** (kogaki#1358,
-    kogaki#1359; design on kogaki#1329, owner decisions 2026-10-10 and
-    2026-10-12). Every waypoint binds one Move from **the Move library**
-    (`moves/`, §4.2) by its `id`, and carries that Move's
-    `segments` copied verbatim beside it. **The binding is a second pass,
-    once per Leg, after the Leg's waypoints exist and the Move-fit judgment
-    has passed them** (`paragraph_move_unit`, `src/brief-workflow.json`): a
-    same-call binding would let the library shape the points, the inversion
-    §4.2 forbids. The judge binds; the Harness copies the Segments
-    (`paragraphMoveVerdict`, `src/brief.mjs`), so the Brief stays
-    self-contained and no later stage opens a Move file. **There is no
-    Point–Support fallback**: a waypoint no paragraph Move fits refuses the
-    unit as `no_paragraph_move_fits`, naming the Leg and the waypoint, and is
-    re-asked once with the sentence verbatim. `validateLegs` refuses a
-    compose-unit Candidate whose waypoint already carries `move` or
-    `segments`, a bound `move` naming no record in the Move library, and
-    a bound `move` with no `segments`, each naming the Leg and the waypoint;
-    the Brief record (`legRecord`, `src/compose.mjs`) writes both fields onto
-    the waypoint, and `draft.mjs resolve` refuses a Brief whose waypoint
-    carries no `move`, or a `move` with no `segments`, naming the Leg and the
-    waypoint (§4.14). A Brief composed before the second pass existed is
-    recomposed by a new `/brief` run, never patched.
+  the Move and its responsibility ends when the Candidate is produced, and no
+  paragraph Move reaches the waypoint at all.
+  - **A Leg Waypoint carries `point` and `serves`, and nothing else**
+    (kogaki#1375, owner decision 2026-10-14: "Move information may be used up
+    to Paragraph Waypoint generation and nowhere after it"). The paragraph
+    Move is bound after the Brief, by the ParagraphPlan stage (§4.19), and
+    which Move it bound stays in that stage's run directory; nothing of it
+    reaches the Brief. `waypointsRefusal` (`src/compose.mjs`) refuses a
+    waypoint carrying `move` or `segments` by name, as it refuses `effect`, so
+    a Brief carrying either — one composed while kogaki#1359's second pass
+    copied them onto the waypoint — is refused at every read, by `/brief`'s
+    own validation, by `/paragraph-plan` and by `draft.mjs resolve`, and is
+    recomposed by a new `/brief` run, never patched. `src/leg-schema.json`
+    declares neither field.
 - **`depends_on`** — the earlier Legs whose conclusions this Leg stands on.
 - **`rationale`** — why *this article's* materials make this the next Leg.
 - **`introduces`** — optional; §4.13.
@@ -595,11 +585,11 @@ serves — the two live together in **one directory, `moves/`**, with one
 `INDEX.md` and one `ROLES.json`, and the same adapter reads every record. The
 difference between the levels stays where the 2026-10-12 decision put it, in
 the fit judgment: a Leg's successor is chosen freely, a waypoint's successor
-is fixed by the next waypoint. A paragraph Move's `segments` are what a Leg's
-waypoint copies when it binds the Move (§4.1): the Leg Move's Segments give
-the composer the *order of the points*, the paragraph Move's Segments give the
-writer the *shape of one paragraph*, and neither level reaches the writer
-otherwise. **`segments` holds the generalized clauses only** (kogaki#1367):
+is fixed by the next waypoint. The Leg Move's Segments give the composer the
+*order of the Leg Waypoints*, and a paragraph Move's Segments give the
+ParagraphPlan stage (§4.19) the *order of one Leg Waypoint's Paragraph
+Waypoints*; neither level reaches the Brief, the Packet or the writer
+(kogaki#1375). **`segments` holds the generalized clauses only** (kogaki#1367):
 each Segment's content clause is written about the original paragraph and
 stays in the Extraction for the owner's reading and the derivation tooling, but
 `tools/move_ingest.py` copies the generalized clause — subject-free the way
@@ -611,8 +601,9 @@ paragraph Move is read off a written paragraph Extraction
 passage --from-extraction`, with no model call, and lands in `moves/` like any
 other accepted Move (§6.9). **Populating the library with paragraph-derived
 Moves is the owner's act**, one Extraction at a time; a Brief run binds from
-whatever `moves/` holds, and a waypoint no Move in it fits refuses
-`no_paragraph_move_fits` with no fallback (§4.1) — there is no start-time
+whatever `moves/` holds — a ParagraphPlan run binds from it (§4.19), and a
+Leg Waypoint no Move in it fits refuses `no_paragraph_move_fits` with no
+fallback — there is no start-time
 refusal on an empty directory.
 
 **Five fields are always present; three are optional.** `status` is retired —
@@ -759,7 +750,7 @@ because a role's *reader* is prose this file states and the JSON does not:
 | `state-after` | `after` | Path Review's specialization judgment (§4.4) |
 | `specialized-by-the-Leg` | `technique` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); no stage after the Candidate (kogaki#1311) |
 | `tests` | `breaks` | the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2) |
-| `segments` | `segments` | the composer and the per-unit Move-fit judgment, as the waypoints' order where the Move carries it (§4.12.2, kogaki#1320) |
+| `segments` | `segments` | the composer and the per-unit Move-fit judgment, as the waypoints' order where the Move carries it (§4.12.2, kogaki#1320); for a paragraph Move, the ParagraphPlan stage, as the Paragraph Waypoints' order (§4.19, kogaki#1375); no stage after it |
 | `figure-roles` | `figure` | a Leg's `figure:` declaration (§4.16) |
 | `continues-from` | `continues_from` | nothing downstream; kept for the record's own sake |
 | not read downstream | `evidence` | nothing; kept for the record's own sake |
@@ -1624,28 +1615,25 @@ rendering the Move beside it would put the general and the specialized
 statement of one thing side by side and leave the model to choose. The block
 renders the points as a **numbered list**, each point once and in route order,
 with the claim it serves in the claim's own words (kogaki#1326), under a fixed
-usage header: the point is not quoted and its wording is the writer's; one
-paragraph per point is the expected shape, and the writer may spend more or
-fewer where a point needs it. The header carries no sentence about what a
+usage header: the point is not quoted and its wording is the writer's, and
+the paragraphs that carry it are the Paragraph Waypoints beneath it. The header carries no sentence about what a
 step does to the reader. Reverse Outlining reads the points back: the Blind
 Reader writes the point each paragraph makes, and the `waypoints` row asks
 whether each declared point is among them. `draft.mjs` opens no
 Move file to render it.
 
-**Under each point, the bound paragraph Move's Segments — and nothing else of
-the Move** (kogaki#1359, design on kogaki#1329). Each waypoint carries the
-`segments` of the paragraph Move it bound (§4.1), and the block renders them
-as an **indented numbered sub-list** of the point's own line, one line per
-Segment, `function — relation — clause`, exactly as the Brief's copy holds
-them. The header says what the sub-list is for: the shape of that paragraph,
-built through its segments in that order, naming a shape and never words. The
-Move's `id`, `before`, `after`, `technique` and `breaks` do not render, and
-`draft.mjs` still opens no Move file: the Segments are the Brief's own copy,
-written at bind time. `draft.mjs resolve` refuses a Brief whose waypoint
-carries no `move`, or a `move` with no `segments`, naming the Leg and the
-waypoint — such a Brief predates the second pass and is recomposed, never
-patched. `checks/check-draft-packet.sh` carries the rendering and both
-refusals.
+**Under each point, its Paragraph Waypoints — and nothing of a Move**
+(kogaki#1375, owner decision 2026-10-14). `draft.mjs` reads the ParagraphPlan
+file beside the Brief (§4.19) and the block renders each Leg Waypoint's
+Paragraph Waypoints as an **indented numbered sub-list** of the point's own
+line, one line per Paragraph Waypoint, its `point` and the Strand ids it
+serves: one paragraph each, in order. No Segment, Move id or other Move field
+renders, and `draft.mjs` opens no Move file — the ParagraphPlan file holds
+none. `draft.mjs resolve` refuses a Brief with no ParagraphPlan file beside
+it, and a ParagraphPlan file whose recorded Brief hash is not the Brief's,
+naming both files; it refuses a Brief whose waypoint carries `move` or
+`segments` by name (§4.1). `checks/check-draft-packet.sh` carries the
+rendering and every refusal.
 
 **The Journey block renders material for a concrete example** (kogaki#1323,
 owner ruling 2026-10-10), in whatever form this Leg's waypoints need — one
@@ -2186,6 +2174,93 @@ markup is the Harness's and not the model's, where in the body it lands, or that
 the Leg's line range must exclude it. What no carrier holds: why the
 transcription is a fixed function rather than a judgment, and why the figure's
 lines are recorded beside the prose's rather than inside them.
+
+### 4.19 The ParagraphPlan stage — Paragraph Waypoints, after the Brief (kogaki#1375)
+
+**What it is.** The Brief's Reader Path plans an article down to Leg Waypoints,
+the points a Leg's paragraphs make. **ParagraphPlan** refines that document plan
+one level down, to paragraphs: for every Leg Waypoint the Composer generates
+its **Paragraph Waypoints**, through the same kind of feedback loop as the
+Brief's, and hands them to the Packet through a planning record, never directly
+(owner decision 2026-10-14). It is its own stage after the Brief, with its own
+owner command `/paragraph-plan` (`.claude/skills/paragraph-plan/SKILL.md`), its
+own module `src/paragraph-plan.mjs` and its own workflow rows
+(`src/paragraph-plan-workflow.json`), and it runs on an adopted Brief before
+`/draft`: `/terrain → /brief → /paragraph-plan → /draft`.
+
+**It is not Reiter and Dale's microplanning.** It refines the document plan
+down to paragraphs; word choice, reference and sentence shape stay inside the
+one Writer call.
+
+**The Move boundary, moved.** Move information may be used up to Paragraph
+Waypoint generation and nowhere after it. This stage is the last reader of a
+paragraph Move: it binds one and builds from its Segments, and what it writes
+for the Packet holds nothing of a Move. The 2026-10-09 boundary ("Information
+that belongs to Move has responsibility only up to CandidatePath creation")
+holds for the Leg Move; the paragraph Move's responsibility ends here, and the
+Writer never reads a Move (2026-10-12).
+
+**The loop.** One Detached Job unit per Leg, in Reader Path order, on the shared
+supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
+`judgePrompt`. Each attempt makes two calls:
+
+1. `paragraph_plan_unit` binds one paragraph Move from `moves/` to each Leg
+   Waypoint — its `before` against the state the reader is in when the Leg
+   Waypoint begins, its `after` toward the next Leg Waypoint's point, with that
+   point in view — and generates each Leg Waypoint's Paragraph Waypoints from
+   four inputs: the Leg Waypoint, the Claims its `serves` names (the input that
+   takes the place of Claims at the paragraph level), the bound Move's
+   Segments (their generalized clauses) and the Audience's `persona`. A Leg
+   Waypoint no Move fits refuses the unit as `no_paragraph_move_fits`, naming
+   the Leg and the Waypoint; there is no fallback paragraph shape.
+2. `paragraph_plan_judge_unit` judges the generated Paragraph Waypoints against
+   the bound Move's `before` and `after`. A `does-not-fit` refuses the attempt.
+
+A refused attempt is asked again with the refusal text verbatim until
+`brief.unit_attempts` is spent; a call is bounded by `brief.call_limit_s`;
+there is no limit on the whole job — the Brief's own settings and rules, read
+by name. A unit that spends its attempts stops the stage naming the Leg and the
+Waypoint, writing nothing and leaving the Brief unchanged, and the work resumes
+from the same Brief by running `/paragraph-plan` again; the Reader Path is not
+composed again. **A bound paragraph Move that does not fill a role the stage
+needs (`segments`, `before`, `after`) is a fatal stop naming the Move and the
+role**, never a default.
+
+**A Paragraph Waypoint has the shape of a Leg Waypoint**: `point`, the
+proposition its paragraph makes, and `serves`, the Strand ids of Claims its
+parent Leg Waypoint serves. Their number is not fixed and follows the Leg
+Waypoints' rule (§4.1): every Claim the parent serves is served by at least
+one of them, and a Segment is not a paragraph.
+
+**The ParagraphPlan file.** `theses/<slug>/paragraph-plan.yaml`, beside the
+Brief, one YAML record: `version`; `brief`, the `path` and `sha256` of the
+Brief it was made from; and `legs`, one entry per Leg in order, each carrying
+one entry per Leg Waypoint in order with its `paragraph_waypoints` (`point`,
+`serves`). **It holds no Move id, no Segment and no Move field**; a key outside
+those is refused by name when it is read. Which Move was bound to which Leg
+Waypoint stays in the stage's run directory
+(`paragraph-plan-bindings.json`), a record of the run that no later stage
+reads. **The stage never writes the Brief, and the Brief names nothing
+downstream**: the ParagraphPlan file names the Brief, not the reverse.
+`/draft` reads the file beside the Brief and refuses a missing one or one whose
+Brief hash is not the Brief's (§4.14). Its writer and reader
+(`paragraphPlanRecord`, `readParagraphPlanBeside`) live in `src/compose.mjs`,
+shared code, since two commands touch the file and a command module never
+imports another's (kogaki#1302).
+
+**The Audience.** Paragraph Waypoint generation reads the Audience's `persona`;
+the Packet reads its `register`, which says nothing about paragraph structure.
+
+`checks/check-paragraph-plan.sh` carries the stage end to end over a fake judge;
+`checks/check-draft-packet.sh` carries `/draft`'s read.
+
+`necessity:` §4.1 says what a Leg Waypoint is and §4.14 what the Packet renders
+from it; neither says where a paragraph's point comes from, which stage may
+read a paragraph Move, or what file carries the plan between the Brief and the
+Packet. kogaki#1359 answered by copying the bound Move's Segments onto the
+Brief and rendering them for the writer, which broke the 2026-10-09 and
+2026-10-12 boundaries; this section is the carrier of the answer that replaced
+it.
 
 ## 5. The Brief's centre, and Closure inside it
 

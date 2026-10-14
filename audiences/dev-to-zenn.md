@@ -9,8 +9,7 @@ register: |
   no unexplained term of art; not fragments, not runs of short sentences, not
   triads, not "not X, not Y" runs.
 
-  **Paragraphs.** Paragraph structure comes from the bound Move's Segments,
-  their functions and relations; register does not dictate it. A paragraph's
+  **Paragraphs.** A paragraph's
   first sentence names what it refers to in full: no "this", "that", "it",
   "these", "those" or a bare definite noun such as "the result" reaching
   back into an earlier paragraph. Inside a paragraph, reference is free.

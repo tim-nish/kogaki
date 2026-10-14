@@ -414,23 +414,24 @@
       "an example, a consequence, an answer to the obvious objection -- names",
       "the claim it reinforces in `serves`.",
       "",
-      "THE MOVE'S RESPONSIBILITY ENDS HERE. The Move is read when the Leg is",
-      "composed and judged, and never again: the Leg Packet renders these",
-      "waypoints in place of any Move field, and nothing after the Candidate",
-      "opens a Move file. So whatever the writer needs from the Move has to be",
-      "in the waypoints.",
+      "THE LEG'S MOVE ENDS HERE, AND NO MOVE INFORMATION REACHES THE BRIEF.",
+      "The Leg's Move is read when the Leg is composed and judged, and never",
+      "again. A waypoint carries `point` and `serves` and nothing else: the",
+      "paragraph Move each waypoint is planned with is bound AFTER the Brief,",
+      "by the ParagraphPlan stage (`/paragraph-plan`, kogaki#1375), which",
+      "generates this waypoint's Paragraph Waypoints -- the same shape, one",
+      "level down -- into its own file and keeps which Move it bound in its run",
+      "directory. Move information is used up to Paragraph Waypoint generation",
+      "and nowhere after it.",
       "",
       "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses",
       "an empty list, a waypoint with an empty `point` or an empty `serves`,",
-      "a waypoint carrying the retired `effect`, a `serves` entry naming a",
-      "Strand this Leg carries no claim for, a",
-      "claim of this Leg that no waypoint serves, a `move` or `segments` on",
-      "a Candidate from the compose unit, a `move` naming no record in the",
-      "Move library, and a `move` with no `segments` -- each naming the",
-      "Leg and the waypoint (kogaki#1329: the second pass binds one paragraph",
-      "Move per waypoint after the waypoints exist). Whether the waypoints specialize the Move's `technique`",
-      "and survive its `breaks` is judged, at the Move-fit judgment, and never",
-      "a lint."
+      "a waypoint carrying the retired `effect`, or the retired `move` or",
+      "`segments` (kogaki#1375), a `serves` entry naming a Strand this Leg",
+      "carries no claim for, and a claim of this Leg that no waypoint serves",
+      "-- each naming the Leg and the waypoint. Whether the waypoints",
+      "specialize the Move's `technique` and survive its `breaks` is judged,",
+      "at the Move-fit judgment, and never a lint."
     ],
     "fields": {
       "point": {
@@ -443,16 +444,6 @@
         "type": "array of string",
         "min_length": 1,
         "description": "The claim or claims of this Leg this step serves, each named by the Strand id its claim names (`L<n>`). Every entry is a Strand this Leg carries a claim for."
-      },
-      "move": {
-        "required": false,
-        "type": "string",
-        "description": "NEVER WRITTEN AT COMPOSITION: a Candidate from the compose unit whose waypoint carries this field is refused by name (kogaki#1329). The paragraph Move this waypoint binds, by id, written by the second pass after the waypoints exist and read from `moves/`, the one Move library the Leg pass reads too (kogaki#1366). Once written it names a record in that library."
-      },
-      "segments": {
-        "required": false,
-        "type": "string",
-        "description": "NEVER WRITTEN AT COMPOSITION, like `move`. The bound paragraph Move's Segments, one `<n>. function — relation — clause` line each, copied at bind time so the Brief stays self-contained and no later stage opens a Move file. Present exactly when `move` is (kogaki#1329)."
       }
     }
   },

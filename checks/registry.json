@@ -698,7 +698,7 @@
     {
       "id": "draft-packet",
       "file": "checks/check-draft-packet.sh",
-      "covers": ["src/draft.mjs", "src/review-draft.mjs", "src/assemble.mjs", "src/packet-template.md", "audiences/dev-to-zenn.md", "src/yaml.mjs", "src/compose.mjs"],
+      "covers": ["src/draft.mjs", "src/review-draft.mjs", "src/assemble.mjs", "src/packet-template.md", "audiences/dev-to-zenn.md", "src/yaml.mjs", "src/compose.mjs", "src/paragraph-plan.mjs"],
       "admission": {
         "contract": "The Leg Packet renders the Leg's waypoints and no Move, and the Draft stages open no Move file (owner decision 2026-10-09: Move information is responsible only up to the Candidate). `draft.mjs packet` renders a waypoints block carrying every waypoint's point once, as a numbered list, and the claim it serves in the claim's own words, with neither \"effect\" nor \"does to the reader\" in the Packet (kogaki#1326) and no technique, question or breaks; `draft.mjs resolve` refuses a Leg with no waypoint naming the Leg and the field, and refuses `--moves-dir` by name; resolve, packet, section, emit and `review-draft.mjs open` open no path under moves/ under a filesystem trap with a control arm; and src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader src/compose.mjs exports",
         "license": "kogaki#1311",
@@ -708,6 +708,22 @@
         "efficacy_note": "mutation-verified at authoring: an `existsSync(join(\"moves\", ...))` added to the Packet render failed (c) driven and read, and dropping the realization-entry waypoints refusal failed (b) -- the named defect (kogaki#1311: the writer instantiated the Move's technique alone, from a Packet carrying the Move) constructed rather than a neighbour",
         "removal_signal": "a ruling returns Move information to a stage after the Candidate, or the Leg loses `waypoints` -- either way the Packet no longer has one source and this check has nothing to bind",
         "removal_instrument": "probe: ! grep -q '\"waypoints\"' src/leg-schema.json || grep -q 'move_technique' src/packet-template.md"
+      }
+    },
+    {
+      "id": "paragraph-plan",
+      "file": "checks/check-paragraph-plan.sh",
+      "covers": ["src/paragraph-plan.mjs", "src/paragraph-plan-workflow.json", "src/compose.mjs", "src/workflow/detached-job.mjs", ".claude/skills/paragraph-plan/"],
+      "admission": {
+        "contract": "The ParagraphPlan stage generates every Leg Waypoint's Paragraph Waypoints after the Brief, and no Move information leaves it (owner decision 2026-10-14). Driven end to end through `node src/paragraph-plan.mjs start|await` over a real Brief record, a scratch Move library and a fake judge binary: a planned job writes `paragraph-plan.yaml` beside the Brief naming the Brief by path and content hash and holding `point` and `serves` per Paragraph Waypoint and nothing of a Move, the Brief byte-for-byte unchanged and the bound Move kept in the run directory's `paragraph-plan-bindings.json`; a judge's does-not-fit sentence is put into the next attempt's prompt; a Leg Waypoint no Move fits is asked again until `brief.unit_attempts` is spent and then stops naming the Leg and the Waypoint, writing nothing; a bound Move without `segments` stops naming the Move and the role; `start` refuses a Brief whose Leg Waypoint carries `move` or `segments` by name; and every Harness path and subcommand `.claude/skills/paragraph-plan/SKILL.md` names exists, the criterion on which that skill file is tracked.",
+        "license": "kogaki#1375",
+        "tier": "pre-push",
+        "runtime_ms": 100000,
+        "runtime_ms_note": "measured at authoring: about 100 s, almost all of it the shared supervisor's heartbeat-paced polling across three fixture jobs (one of them running three attempts); the fake judge answers at once.",
+        "efficacy": "case: checks/check-paragraph-plan.sh::(a) the ParagraphPlan file carries Move information",
+        "efficacy_note": "mutation-verified at authoring: adding `move: \"p1\"` to each Leg Waypoint entry `paragraphPlanRecord` writes failed (a) twice, on the field and on the Move id -- the named defect (kogaki#1375: Move information reaching the Brief and the Packet) constructed rather than a neighbour.",
+        "removal_signal": "a ruling retires the ParagraphPlan stage or lets Move information past Paragraph Waypoint generation -- either way the stage this check drives, or the boundary it holds, is gone",
+        "removal_instrument": "probe: ! test -f src/paragraph-plan.mjs"
       }
     },
     {
