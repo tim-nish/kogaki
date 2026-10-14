@@ -101,7 +101,7 @@ import { waypointsRefusal, introducesRefusal, readerKnowledgeLedger, opensSectio
   figureRefusal, figureKinds, figureLegs,
   journeysRefusal, closureRowsOf, budgetRefusal,
   reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, audienceSection,
-  parseBriefRecord, unfilledSlots, briefLegs, legschema } from "./compose.mjs";
+  parseBriefRecord, unfilledSlots, briefLegs, legschema, readParagraphPlanBeside } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
 // resolved exactly as the Terrain and Brief judges are, `KOGAKI_JUDGE_CLI`
@@ -257,10 +257,8 @@ function legRecordRefusal(raw, declared, at) {
   if (!Array.isArray(raw.claims) || raw.claims.some((g) => !g || typeof g.strand !== "string" || typeof g.proposition !== "string")) {
     return `${at}: \`claims\` is a list of maps, each naming its \`strand\` and its \`proposition\``;
   }
-  if (!Array.isArray(raw.waypoints) || raw.waypoints.some((w) => !w || typeof w.point !== "string" || !Array.isArray(w.serves)
-    || (w.move !== undefined && typeof w.move !== "string") || (w.segments !== undefined && typeof w.segments !== "string"))) {
-    return `${at}: \`waypoints\` is a list of maps, each with its \`point\`, the Strands it \`serves\`, and once bound its paragraph `
-      + "`move` and that Move's `segments` (kogaki#1329)";
+  if (!Array.isArray(raw.waypoints) || raw.waypoints.some((w) => !w || typeof w.point !== "string" || !Array.isArray(w.serves))) {
+    return `${at}: \`waypoints\` is a list of maps, each with its \`point\` and the Strands it \`serves\``;
   }
   if (raw.introduces !== undefined) {
     const bad = introducesRefusal(raw.introduces, at);
@@ -454,34 +452,18 @@ function loadBrief(args) {
     const strands = leg.claims.map((g) => g.strand);
     const bad = waypointsRefusal(leg.waypoints, strands, `the Brief at ${path}, leg ${leg.leg_id}`);
     if (bad) fail(bad);
-    // EVERY WAYPOINT CARRIES ITS BOUND PARAGRAPH MOVE (kogaki#1359, design on kogaki#1329),
-    // refused here the way a missing route is, naming the Leg and the waypoint.
-    const unbound = waypointMoveRefusal(leg.waypoints, `the Brief at ${path}, leg ${leg.leg_id}`);
-    if (unbound) fail(unbound);
   }
-  return { ...brief, path: resolve(path) };
-}
-
-// THE BOUND PARAGRAPH MOVE IS REQUIRED AT THE REALIZATION ENTRY (kogaki#1359, design on
-// kogaki#1329): every waypoint carries the paragraph `move` the Brief's second pass bound
-// and that Move's `segments`, copied onto the waypoint at bind time, and the Packet
-// renders the Segments under the point. A Brief whose waypoint carries neither was
-// composed before the second pass existed and is recomposed by a new `/brief` run, never
-// patched here. NO MOVE FILE IS OPENED: the id is not resolved and the Segments are the
-// Brief's own copy, which is what lets the Draft lane stay closed to `moves/`
-// (kogaki#1311). Exported for the check.
-export function waypointMoveRefusal(waypoints, at) {
-  for (const [i, w] of (waypoints || []).entries()) {
-    if (typeof w.move !== "string" || w.move.trim() === "") {
-      return `${at}: waypoint ${i + 1} carries no \`move\` — every waypoint binds a paragraph Move, written by the Brief's `
-        + "second pass after the waypoints exist (kogaki#1329); a Brief composed before it is recomposed by a new /brief run";
-    }
-    if (typeof w.segments !== "string" || w.segments.trim() === "") {
-      return `${at}: waypoint ${i + 1} binds move "${w.move}" and carries no \`segments\` — the bound Move's Segments are `
-        + "copied onto the waypoint at bind time, and the Packet renders them under the point (kogaki#1329)";
-    }
-  }
-  return null;
+  // THE PARAGRAPH WAYPOINTS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375,
+  // owner decision 2026-10-14): `/paragraph-plan` writes `paragraph-plan.yaml` next to
+  // the Brief, naming the Brief's path and content hash, and /draft reads it here. A
+  // missing file, and one made from a different Brief, are refused naming both files;
+  // the Brief itself names nothing downstream. The file holds `point` and `serves` per
+  // Paragraph Waypoint and NOTHING OF A MOVE, so this read opens no Move file either.
+  const plan = readParagraphPlanBeside(path, text, brief.legs);
+  if (plan.error) fail(plan.error);
+  const legs = brief.legs.map((leg) => ({ ...leg,
+    waypoints: leg.waypoints.map((w, i) => ({ ...w, paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i] })) }));
+  return { ...brief, legs, path: resolve(path), paragraphPlanPath: plan.path };
 }
 
 // the Section grouping's SECTION GROUPING, derived from the Brief and from nothing else
@@ -1443,33 +1425,26 @@ export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 
 // The waypoints block's lines (kogaki#1311, kogaki#1326): a NUMBERED list,
-// `<i>. <point> *Serves:* <claim>[; <claim>]`, one per waypoint, in order —
-// each point once, since the point is what its paragraph makes and the
-// number is its place in the route. A `serves` entry is resolved to the proposition
-// of this Leg's claim for that Strand; one naming no claim never reaches here,
-// because the realization entry refused it. Returns null on an empty route so
-// the caller's `need` names the hole.
+// `<i>. <point> *Serves:* <claim>[; <claim>]`, one per Leg Waypoint, in order —
+// each point once, and the number is its place in the route. A `serves` entry is
+// resolved to the proposition of this Leg's claim for that Strand; one naming no
+// claim never reaches here, because the realization entry refused it. Returns null
+// on an empty route so the caller's `need` names the hole.
+//
+// THE PARAGRAPH WAYPOINTS, UNDER THEIR LEG WAYPOINT (kogaki#1375): each Leg
+// Waypoint's Paragraph Waypoints, as the ParagraphPlan file carries them, render as
+// an indented numbered sub-list beneath it, in the same `<j>. <point> *Serves:*
+// <claim>` form — one line per paragraph. NOTHING OF A MOVE is rendered: the
+// ParagraphPlan file holds none. A Leg Waypoint carrying no Paragraph Waypoints
+// renders its own line alone, so a Packet rendered over a fixture with no plan still
+// renders; the realization entry (`loadBrief`) is where a missing plan refuses.
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
   if (!ws.length) return null;
   const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition).trim()]));
-  return ws.map((w, i) => {
-    const head = `${i + 1}. ${w.point.trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
-    const segs = segmentLines(w.segments);
-    return segs.length ? [head, ...segs.map((l) => `   ${l}`)].join("\n") : head;
-  }).join("\n");
-}
-
-// THE BOUND PARAGRAPH MOVE'S SEGMENTS, UNDER THE POINT (kogaki#1359, design on
-// kogaki#1329): one line per Segment exactly as the Brief's copy of the Move record
-// carries them, `<n>. function — relation — clause`, indented as a numbered sub-list
-// of the point's own line, and NOTHING ELSE OF THE MOVE -- not its id, its before or
-// after, its technique or its breaks. The Segments are the paragraph's shape; the point
-// is what the paragraph establishes. A waypoint carrying no segments renders its point
-// alone, so a Packet rendered over an unbound fixture still renders; the realization
-// entry (`loadBrief`) is where that absence refuses.
-export function segmentLines(segments) {
-  return String(segments || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const line = (w, n) => `${n}. ${String(w.point).trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
+  return ws.map((w, i) => [line(w, i + 1),
+    ...(w.paragraph_waypoints || []).map((p, j) => `   ${line(p, j + 1)}`)].join("\n")).join("\n");
 }
 
 export function renderPacket({ template, brief, leg, priorSections, section, sections }) {

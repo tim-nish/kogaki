@@ -125,13 +125,6 @@ function readerPathUnitSpecializationPath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.specialization.json`);
 }
 
-// THE PARAGRAPH-MOVE CALLS' OWN FILE (kogaki#1359, design on kogaki#1329): the second
-// pass runs one call per Leg, and every Leg's call of one attempt lands in this one path
-// under a divider line, beside the fit call's file.
-function readerPathUnitBindStdoutPath(dir, unitId) {
-  return join(dir, `reader-path-unit-${unitId}.bind.stdout`);
-}
-
 export function readerPathJobPath(dir) { return join(dir, READER_PATH_JOB_FILE); }
 export function readerPathJobStopFlagPath(dir) { return join(dir, "reader-path-job.stop"); }
 
@@ -308,32 +301,6 @@ async function loadReaderPathFitJudge(declared) {
   };
 }
 
-// THE DECLARED PARAGRAPH-MOVE JUDGE (kogaki#1359, design on kogaki#1329), loaded on the
-// fit judge's own terms and run AFTER it: the second pass binds one paragraph Move per
-// waypoint only once the waypoints exist and the Leg's own Move fits them. `prompts`
-// builds the calls from the fit-passed Candidate -- `[{ leg_id, prompt }]`, one per Leg
-// in path order -- and `verdict` reads one call's record back, returning `{error}` for a
-// record whose own shape is wrong, `{refusal, failures}` where no paragraph Move fits a
-// waypoint, and `{candidate}` with that Leg's waypoints bound otherwise. Absent, a unit
-// ends at the fit call. This file stays ignorant of waypoints and Moves.
-async function loadParagraphMoveJudge(declared) {
-  if (declared === undefined || declared === null) return null;
-  if (typeof declared !== "object" || !declared.module || !declared.prompts_export || !declared.verdict_export) {
-    throw new Error("the units file's `bind_judge` names no `module`, `prompts_export` and `verdict_export` (kogaki#1359).");
-  }
-  const modulePath = String(declared.module);
-  const mod = await import(pathToFileURL(resolve(REPO, modulePath)).href);
-  const promptsFn = mod[String(declared.prompts_export)];
-  const verdictFn = mod[String(declared.verdict_export)];
-  if (typeof promptsFn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.prompts_export)}.`);
-  if (typeof verdictFn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.verdict_export)}.`);
-  const inputs = declared.inputs || {};
-  return {
-    prompts: (candidate, unitId) => promptsFn(candidate, inputs, unitId),
-    verdict: (record, candidate, legId, unitId) => verdictFn(record, candidate, inputs, legId, unitId) || {},
-  };
-}
-
 // `validate`, when given, is the DECLARED validator (kogaki#1240) loaded by
 // the caller from the units file -- this function stays ignorant of what it
 // checks or why, taking only a `(candidate) => string|null` function and
@@ -387,26 +354,6 @@ function classifyFitJudgeCall(out, fit, candidate, unitId) {
       failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(v.refusal), 4000), bytes_written: out.bytes, ended_at: out.endedAt, move_fit: v.failures || [] } };
   }
   return { status: "done", specialization: base.candidate };
-}
-
-// THE PARAGRAPH-MOVE CALL'S CLASSIFICATION (kogaki#1359): the fit call's three readings
-// over the second pass. A judge answer with no `bindings` record, or one the declared
-// verdict refuses as malformed, is respawned; a waypoint no paragraph Move fits is a
-// SCHEMA REFUSAL of the unit's Candidate (`no_paragraph_move_fits`), carrying the judge's
-// sentences verbatim into the unit's next attempt -- there is no fallback paragraph shape;
-// a bound Leg is `done` with the Candidate now carrying its waypoints' `move` and `segments`.
-function classifyBindJudgeCall(out, bind, candidate, legId, unitId) {
-  const base = classifyDetachedJobUnit(out, null, "bindings", unitId);
-  if (base.status !== "done") return base;
-  const v = bind.verdict(base.candidate, candidate, legId, unitId);
-  if (v.error) {
-    return { status: "malformed", failure: { class: MALFORMED_OUTPUT, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(v.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
-  }
-  if (v.refusal) {
-    return { status: "refused",
-      failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(v.refusal), 4000), bytes_written: out.bytes, ended_at: out.endedAt, paragraph_moves: v.failures || [] } };
-  }
-  return { status: "done", candidate: v.candidate };
 }
 
 // THE THREE SYSTEM-FAILURE STATES (kogaki#1273). A candidate REFUSAL is the
@@ -574,7 +521,6 @@ export async function cmdJobSupervise(args) {
     const units = Array.isArray(declared) ? declared : (declared.units || fail("the units file at " + unitsPath + " carries no `units` array."));
     const validate = await loadReaderPathUnitValidator(declared.validator);
     const fit = await loadReaderPathFitJudge(declared.fit_judge);
-    const bind = await loadParagraphMoveJudge(declared.bind_judge);
     const recordArray = typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "legs";
 
     // THE MINIMAL ENVIRONMENT (kogaki#1193, kogaki#1197): only `units[].prompt` and the
@@ -597,22 +543,17 @@ export async function cmdJobSupervise(args) {
     // `malformedThisAttempt` bounds them at `unitAttempts` per attempt.
     // `attempt1S` is attempt 1's own duration, written onto the row from attempt 2 on as
     // the status line's estimate. `phase` is `compose` while the unit's own record is
-    // being written, `fit` while its Move fit is judged, and `bind` while the second pass
-    // binds its waypoints' paragraph Moves one Leg at a time (kogaki#1359); `composed`
-    // holds the record the fit call judges and, from the bind phase on, the Candidate as
-    // bound so far; `bindQueue` the Legs still to bind and `bindLeg` the one in the call.
+    // being written and `fit` while its Move fit is judged; `composed` holds the record
+    // the fit call judges.
     const S = new Map(units.map((u) => [u.id, {
       attempts: 1, malformed: 0, malformedThisAttempt: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
-      composed: null, fitPrompt: null, specialization: null, bindQueue: null, bindLeg: null, bindPrompt: null,
-      refusals: [], timedOut: [], attempt1S: undefined,
+      composed: null, fitPrompt: null, refusals: [], timedOut: [], attempt1S: undefined,
       attemptStartedAt: startedAt, callStartedAt: startedAt, final: null,
     }]));
     const spawnCompose = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).prompt, () => {}, childEnv,
       { path: readerPathUnitStdoutPath(dir, u.id), flag });
     const spawnFit = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).fitPrompt, () => {}, childEnv,
       { path: readerPathUnitFitStdoutPath(dir, u.id), flag });
-    const spawnBind = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).bindPrompt, () => {}, childEnv,
-      { path: readerPathUnitBindStdoutPath(dir, u.id), flag });
     unitsRunning = new Map(units.map((u) => [u.id, spawnCompose(u, "w")]));
     let lastProgressAt = startedAt;
     let lastBytesTotal = 0;
@@ -660,10 +601,7 @@ export async function cmdJobSupervise(args) {
       // fit call refused, died or ran out of time still carries the Candidate it composed,
       // so the record holds it. It is not offered: its Move fit was not judged `consistent`,
       // and "The judged half — the specialization verdict" makes that judgment an occasion with no skip.
-      // A UNIT THAT PASSED THE FIT CALL AND ENDED IN THE SECOND PASS (kogaki#1359) keeps
-      // its Candidate the same way, `fit_judged: true`: the fit was judged consistent, and
-      // what was not reached is the paragraph binding.
-      if (st.composed && cls.status !== "done") { row.candidate = st.composed; row.fit_judged = (cls.status === "refused" && !!cls.specialization) || !!st.specialization; }
+      if (st.composed && cls.status !== "done") { row.candidate = st.composed; row.fit_judged = cls.status === "refused" && !!cls.specialization; }
       // THE CANDIDATE IS WRITTEN TO DISK THE MOMENT THIS UNIT ENDS `done` (kogaki#1204
       // acceptance 2), whatever its siblings are doing; with a Move-fit judge, the
       // specialization record is written beside it (kogaki#1307).
@@ -683,14 +621,9 @@ export async function cmdJobSupervise(args) {
       return row;
     };
 
-    const callStdoutPath = (u) => {
-      const ph = S.get(u.id).phase;
-      return ph === "compose" ? readerPathUnitStdoutPath(dir, u.id)
-        : ph === "fit" ? readerPathUnitFitStdoutPath(dir, u.id) : readerPathUnitBindStdoutPath(dir, u.id);
-    };
+    const callStdoutPath = (u) => (S.get(u.id).phase === "compose" ? readerPathUnitStdoutPath(dir, u.id) : readerPathUnitFitStdoutPath(dir, u.id));
     const respawnCall = (u) => {
-      const ph = S.get(u.id).phase;
-      const sp = ph === "compose" ? spawnCompose(u, "a") : ph === "fit" ? spawnFit(u, "a") : spawnBind(u, "a");
+      const sp = S.get(u.id).phase === "compose" ? spawnCompose(u, "a") : spawnFit(u, "a");
       unitsRunning.set(u.id, sp);
       S.get(u.id).callStartedAt = Date.now();
       return sp;
@@ -724,20 +657,8 @@ export async function cmdJobSupervise(args) {
       const st = S.get(u.id);
       const cls = st.phase === "compose"
         ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
-        : st.phase === "fit" ? classifyFitJudgeCall(sp.out, fit, st.composed, u.id)
-          : classifyBindJudgeCall(sp.out, bind, st.composed, st.bindLeg, u.id);
+        : classifyFitJudgeCall(sp.out, fit, st.composed, u.id);
       const stdoutPath = callStdoutPath(u);
-      // THE NEXT LEG OF THE SECOND PASS (kogaki#1359): one call per Leg, in path order,
-      // every Leg's call of this attempt appended to the one bind file under a divider.
-      const nextBindCall = (flag) => {
-        const next = st.bindQueue.shift();
-        st.bindLeg = next.leg_id;
-        st.bindPrompt = withNoToolsSentence(next.prompt);
-        if (flag === "a") { try { appendFileSync(readerPathUnitBindStdoutPath(dir, u.id), `\n----- leg ${next.leg_id} -----\n`); } catch { /* best-effort */ } }
-        unitsRunning.set(u.id, spawnBind(u, flag));
-        st.callStartedAt = Date.now();
-        return { row: runningRow(u, 0), progressed: true };
-      };
       const endedAt = Date.parse(sp.out.endedAt) || Date.now();
       // MALFORMED OUTPUT IS RETRIED MECHANICALLY (kogaki#1307): the same prompt again,
       // no attempt spent, and at most `unit_attempts` respawns per attempt (kogaki#1355),
@@ -765,20 +686,6 @@ export async function cmdJobSupervise(args) {
         st.callStartedAt = Date.now();
         return { row: runningRow(u, 0), progressed: true };
       }
-      // A FIT-PASSED CANDIDATE WITH A DECLARED PARAGRAPH-MOVE JUDGE IS BOUND NEXT
-      // (kogaki#1359, design on kogaki#1329): the second pass runs only after the
-      // waypoints exist and the Leg's own Move fits them, one call per Leg, inside the
-      // same unit and the same attempt. The fit record is kept for the finished row.
-      if (cls.status === "done" && st.phase === "fit" && bind) {
-        st.specialization = cls.specialization || null;
-        st.bindQueue = bind.prompts(st.composed, u.id);
-        if (st.bindQueue.length) { st.phase = "bind"; return nextBindCall("w"); }
-      }
-      if (cls.status === "done" && st.phase === "bind") {
-        st.composed = cls.candidate;
-        if (st.bindQueue.length) return nextBindCall("a");
-        cls.specialization = st.specialization;
-      }
       // A SCHEMA REFUSAL SPENDS ONE ATTEMPT (kogaki#1203, counted by kogaki#1355): the
       // validator's, or the Move-fit judge's sentence, re-asks the compose call with the
       // refusal spliced in verbatim while an attempt is left. The retry decision reads the
@@ -793,9 +700,6 @@ export async function cmdJobSupervise(args) {
           st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), refusal);
           st.phase = "compose";
           st.composed = null;
-          st.specialization = null;
-          st.bindQueue = null;
-          st.bindLeg = null;
           unitsRunning.set(u.id, spawnCompose(u, "a"));
           return { row: runningRow(u, 0), progressed: true };
         }
@@ -915,7 +819,6 @@ export function startDetachedJobSupervisor(dir, opts) {
   const units = opts.units.map((u) => ({ ...u, prompt: withNoToolsSentence(u.prompt) }));
   writeFileSync(unitsPath, `${JSON.stringify({ units, validator,
     ...(opts.fitJudge ? { fit_judge: opts.fitJudge } : {}),
-    ...(opts.bindJudge ? { bind_judge: opts.bindJudge } : {}),
     ...(opts.recordArray ? { record_array: opts.recordArray } : {}) }, null, 2)}\n`);
   const scriptPath = join(REPO, "src", "terrain.mjs");
   const child = spawn(process.execPath, [

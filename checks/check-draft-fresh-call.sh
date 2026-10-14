@@ -34,7 +34,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { writerSettingsRefusal, WRITER_KEYS, WRITER_ACTS, parseWriterRecord } from "./src/draft.mjs";
-import { legRecord, briefRecordText, readerStateMap, parseFigureRoles } from "./src/compose.mjs";
+import { legRecord, briefRecordText, readerStateMap, parseFigureRoles, parseBriefRecord, briefLegs } from "./src/compose.mjs";
+import { paragraphPlanRecord, paragraphPlanRecordText, paragraphPlanPathFor } from "./src/paragraph-plan.mjs";
 
 const fails = [];
 const root = mkdtempSync(join(tmpdir(), "draft-fresh-call-"));
@@ -57,14 +58,20 @@ const leg = (id, move, claims, extra = {}) => ({
   leg_id: id, move, purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
   materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`,
   claims: claims.map((proposition) => ({ strand: "L1", proposition })),
-  // every waypoint carries its bound paragraph Move and that Move's Segments (kogaki#1359), as
-  // the Brief's second pass writes them; `resolve` refuses a waypoint without them.
-  waypoints: [{ point: `the reader is brought to what ${id} claims.`, serves: ["L1"], move: "p_fixture_point",
-    segments: "1. settles — elaboration — makes the point." }], ...extra,
+  waypoints: [{ point: `the reader is brought to what ${id} claims.`, serves: ["L1"] }], ...extra,
 });
+// THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375): /draft reads each Leg Waypoint's
+// Paragraph Waypoints from it and refuses a Brief without one, so the fixture Brief is
+// written with its plan, made by the stage's own writer: one paragraph per Leg Waypoint.
+function writeBriefWithPlan(path, text) {
+  writeFileSync(path, text);
+  const legs = briefLegs(parseBriefRecord(text, path).record).map((l) => ({ leg_id: l.leg_id,
+    waypoints: l.waypoints.map((w) => [{ point: `one paragraph makes what ${l.leg_id} claims.`, serves: [...w.serves] }]) }));
+  writeFileSync(paragraphPlanPathFor(path), paragraphPlanRecordText(paragraphPlanRecord({ briefPath: path, briefText: text, legs })));
+}
 const briefDir = join(root, "theses", "fixture-brief");
 mkdirSync(briefDir, { recursive: true });
-writeFileSync(join(briefDir, "brief.yaml"), briefText([
+writeBriefWithPlan(join(briefDir, "brief.yaml"), briefText([
   leg("s1", "open_the_claim", ["the material states the claim."]),
   leg("s2", "close_the_claim", ["the material states why the claim holds."]),
 ]));
@@ -173,7 +180,7 @@ const PROSE = "The fixture prose for the Leg, written by the stub writer.\n\nA s
   ];
   const figDir = join(root, "theses", "figure-brief");
   mkdirSync(figDir, { recursive: true });
-  writeFileSync(join(figDir, "brief.yaml"), briefText([
+  writeBriefWithPlan(join(figDir, "brief.yaml"), briefText([
     leg("a1", "place_on_the_axis", G, {
       figure: "what the prose leaves the reader unable to hold in one view.",
       figure_roles: parseFigureRoles("endpoint_a=g1, endpoint_b=g2, criterion=g3").roles }),

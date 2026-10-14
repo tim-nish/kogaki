@@ -29,10 +29,11 @@ is HARNESS-OWNED, not the register (kogaki#1285): it renders the Audience's
 Persona declares none, before the register — so the Referents rule above can
 point at material the Packet actually carries.
 
-THE MOVE OWNS PARAGRAPH STRUCTURE, THE AUDIENCE'S REGISTER OWNS WORD CHOICE
-(kogaki#1350, owner ruling 2026-10-12): a Move's Segments, their functions and
-relations, decide where a paragraph opens and how long it runs; the register
-carries no rule that dictates either.
+THE PARAGRAPH PLAN OWNS PARAGRAPH STRUCTURE, THE AUDIENCE'S REGISTER OWNS
+WORD CHOICE (kogaki#1350, owner ruling 2026-10-12; kogaki#1375): where a
+paragraph opens and what it establishes arrive as the Paragraph Waypoints the
+ParagraphPlan stage generated from a paragraph Move; the register carries no
+rule that dictates either.
 
 LEG LINKING IS DEFAULT-DENY (kogaki#1282, owner ruling 2026-10-06). Only what
 the Brief's `introduces` and `re-activate` explicitly admit crosses into this
@@ -75,33 +76,27 @@ under a bulleted field label. Where the realization of a whole schema category i
 fixed — Closure rows, Journey material — that behaviour is stated once,
 where the category's own block opens, never as a label attached to each item.
 
-NO MOVE REACHES THE PACKET BUT ITS SEGMENTS (kogaki#1311, owner decision
-2026-10-09; kogaki#1359, design on kogaki#1329). The Leg's Move's
-responsibility ends when the Candidate is composed; what the writer needs
-from it arrives as this Leg's waypoints, which the Brief composed as the
-Leg's own specialization of the Move and judged there. Each waypoint in turn
-binds a paragraph Move, in the Brief's second pass; what the writer needs
-from THAT arrives as the Move's Segments, copied onto the waypoint when the
-Brief was composed and rendered under the point -- and nothing else of the
-Move: no id, no before or after, no technique, no breaks. No Move file is
-opened here.
+NO MOVE REACHES THE PACKET (kogaki#1311, owner decision 2026-10-09;
+kogaki#1375, owner decision 2026-10-14). The Leg's Move's responsibility ends
+when the Candidate is composed; what the writer needs from it arrives as this
+Leg's waypoints, which the Brief composed as the Leg's own specialization of
+the Move and judged there. A paragraph Move's responsibility ends when the
+ParagraphPlan stage has generated the Paragraph Waypoints from it; what the
+writer needs from THAT arrives as the Paragraph Waypoints, read from the
+ParagraphPlan file beside the Brief and rendered under each waypoint -- and
+nothing of the Move itself. No Move file is opened here.
 -->
 
 # Write one Leg
 
 ## The waypoints this Leg takes the reader through
 
-Each numbered line below is the point one paragraph makes, in order, and the
-claim it serves. The point is not quoted: its wording is yours, and no line
-here is copied or announced to the reader. One paragraph per point is the
-expected shape; spend more or fewer where a point needs it.
-
-Under a point, the indented numbered lines are the shape of that paragraph,
-one line per segment, each in three parts: what the segment does, how it
-relates to the segment before it, and the kind of clause that carries it.
-Build the paragraph through those segments in that order. These lines name
-a shape and never words: nothing in them is copied, quoted or announced to
-the reader.
+Each numbered line below is a point this Leg makes, in order, and the claim
+it serves. Under it, the indented numbered lines are the paragraphs that make
+that point, in order: each is the point one paragraph makes, and the claim it
+serves. One paragraph per indented line is the expected shape.
+The point is not quoted: its wording is yours, and no line here is copied or
+announced to the reader.
 
 {{waypoints}}
 

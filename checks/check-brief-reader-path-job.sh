@@ -1887,100 +1887,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
 }
 
-// (y7) THE SECOND PASS RUNS INSIDE THE UNIT, ONE CALL PER LEG (kogaki#1359, design on
-// kogaki#1329): a paragraph-move judge declared in the units file -- the real
-// `paragraphMovePrompts`/`paragraphMoveVerdict` of src/brief.mjs over a real paragraph
-// library -- runs after the fit call, Leg by Leg in path order; a `move: null` on the
-// first attempt refuses the unit `no_paragraph_move_fits` naming the Leg and the
-// waypoint and re-asks the compose call with that sentence; the second attempt binds
-// every waypoint, the written Candidate carries move and segments on each, and the
-// specialization record is still written beside it.
-{
-  const base = mkNewScratch();
-  const moves = join(base, "moves");
-  mkdirSync(moves);
-  writeFileSync(join(moves, "m1.md"), ["id: m1", "technique: >-", "  states the claim, then names the case it leaves out.",
-    "before: >-", "  knowledge: before.", "after: >-", "  knowledge: after.", "question: >-", "  holds: none",
-    "breaks: >-", "  breaks if the left-out case is never named.", ""].join("\n"));
-  writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  const PSEG = "1. settles — elaboration — makes the point.";
-  writeFileSync(join(moves, "p1.md"), ["id: p1", "technique: >-", "  makes one point and holds it.", "before: >-", "  knowledge: before.",
-    "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if the point is dropped.", "segments: |-", `  ${PSEG}`, ""].join("\n"));
-  const START = "knowledge: before\nquestion: holds: none";
-  const legOf = (legId, extra) => ({
-    leg_id: legId, move: "m1", materials: ["L1"], purpose: `what ${legId} is for`,
-    reader_state_after: "knowledge: after\nquestion: holds: none",
-    depends_on: [], rationale: `why ${legId} sits here`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }], ...extra,
-  });
-  const candidate = {
-    candidate_id: "c1", characteristic: "x", reader_experience: "y", reader_start: START,
-    reasoning: { leg_validity: "x" },
-    legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true })],
-  };
-  const SENTENCE = "no paragraph Move's before holds a reversed case to answer.";
-  const counter = join(base, "bind-counter.json");
-  const prompts = join(base, "bind-prompts.jsonl");
-  const judgeFile = join(base, "bind-fake-judge.mjs");
-  writeFileSync(judgeFile, `#!/usr/bin/env node
-import { appendFileSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
-  const prompt = Buffer.concat(c).toString("utf8");
-  appendFileSync(${JSON.stringify(prompts)}, JSON.stringify(prompt) + "\\n");
-  const out = (r) => { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0); };
-  if (prompt.includes("FIT_JUDGE_HEAD")) {
-    out({ version: "1", candidate_id: "c1", verdicts: ["s1", "s2"].map((leg) => ({ leg_id: leg, move: "m1", verdict: "consistent",
-      why: "both reader states specialize the Move's before and after." })) });
-  }
-  if (!prompt.includes("BIND_HEAD")) out(${JSON.stringify(candidate)});
-  const input = JSON.parse(prompt.slice(prompt.indexOf("BIND_HEAD\\n") + "BIND_HEAD\\n".length));
-  const leg = input.leg_you_must_bind;
-  const n = (existsSync(${JSON.stringify(counter)}) ? Number(readFileSync(${JSON.stringify(counter)}, "utf8")) : 0) + 1;
-  writeFileSync(${JSON.stringify(counter)}, String(n));
-  const unfit = n === 2 && leg.leg_id === "s2";
-  out({ version: "1", candidate_id: "c1", leg_id: leg.leg_id, bindings: leg.waypoints.map((w) => ({ waypoint: w.waypoint,
-    move: unfit ? null : "p1", why: unfit ? ${JSON.stringify(SENTENCE)} : "its before holds the state and its after reaches the next point." })) });
-});
-`);
-  chmodSync(judgeFile, 0o755);
-  const unitsPath = join(base, "units.json");
-  writeFileSync(unitsPath, JSON.stringify({
-    units: [{ id: "c1", prompt: "COMPOSE ONE CANDIDATE" }],
-    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: { strandIds: ["L1"], movesDir: moves, readerStart: START } },
-    fit_judge: { module: "src/brief.mjs", prompt_export: "readerPathFitPrompt", verdict_export: "readerPathFitVerdict",
-      inputs: { movesDir: moves, readerStart: START, promptHead: "FIT_JUDGE_HEAD\n" } },
-    bind_judge: { module: "src/brief.mjs", prompts_export: "paragraphMovePrompts", verdict_export: "paragraphMoveVerdict",
-      inputs: { movesDir: moves, readerStart: START, definedTerms: [], promptHead: "BIND_HEAD\n" } },
-  }, null, 2));
-  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", base, "--units", unitsPath,
-    "--command", judgeFile, "--model", "m", "--output-format", "json",
-    "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "150"], { cwd: root, timeout: 60000, encoding: "utf8" });
-  const rec = readRecord(base);
-  const row = unitRowOf(rec, "c1");
-  const sent = existsSync(prompts) ? readFileSync(prompts, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
-  const kind = (p) => (p.includes("FIT_JUDGE_HEAD") ? "fit" : p.includes("BIND_HEAD") ? "bind" : "compose");
-  const kinds = sent.map(kind).join(",");
-  if (!row || row.status !== "done" || row.attempts !== 2 || !String(row.first_refusal || "").includes("no_paragraph_move_fits")
-    || !String(row.first_refusal || "").includes("Leg s2, waypoint 1") || !String(row.first_refusal || "").includes(SENTENCE)) {
-    fails.push(`(y7) a move: null binding did not refuse the unit no_paragraph_move_fits naming the Leg and the waypoint, re-ask it once and finish: ${JSON.stringify(row)}`);
-  }
-  if (kinds !== "compose,fit,bind,bind,compose,fit,bind,bind") fails.push(`(y7) the calls did not run compose, fit, then one bind per Leg, twice: ${kinds}`);
-  const bindLegs = sent.filter((p) => kind(p) === "bind").map((p) => JSON.parse(p.slice(p.indexOf("BIND_HEAD\n") + "BIND_HEAD\n".length)).leg_you_must_bind.leg_id).join(",");
-  if (bindLegs !== "s1,s2,s1,s2") fails.push(`(y7) the bind calls did not run Leg by Leg in path order: ${bindLegs}`);
-  const composeCalls = sent.filter((p) => kind(p) === "compose");
-  if (composeCalls.length !== 2 || !composeCalls[1].includes(SENTENCE)) fails.push("(y7) the re-asked compose prompt does not carry the judge's sentence verbatim");
-  if (!sent.every((x) => x.startsWith(JOB_UNIT_NO_TOOLS_SENTENCE))) fails.push("(y7) a compose, fit or bind call's prompt does not begin with the no-tools sentence");
-  if (!row || !row.candidate_file || !existsSync(row.candidate_file)) fails.push(`(y7) no Candidate was written for the bound unit: ${JSON.stringify(row)}`);
-  else {
-    const written = JSON.parse(readFileSync(row.candidate_file, "utf8"));
-    const ws = (written.legs || []).flatMap((s) => s.waypoints || []);
-    if (ws.length !== 2 || !ws.every((w) => w.move === "p1" && w.segments === PSEG)) fails.push(`(y7) the written Candidate's waypoints do not each carry the bound move and its Segments: ${JSON.stringify(ws)}`);
-    if (JSON.stringify(row.candidate) !== JSON.stringify(written)) fails.push("(y7) the row's Candidate and the written one differ");
-  }
-  if (!row || !row.specialization_file || !existsSync(row.specialization_file)) fails.push(`(y7) the specialization record was not written beside the bound Candidate: ${JSON.stringify(row)}`);
-  if (!existsSync(join(base, "reader-path-unit-c1.bind.stdout"))) fails.push("(y7) the bind calls' own stdout file was not written");
-}
-
 // (v7) NO `rerun` OPTION AND NO `job-rerun-unit` VERB REMAINS.
 {
   const brief = readFileSync("src/brief.mjs", "utf8");
@@ -2022,7 +1928,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-reader-path-job — the six-state Detached Job classifies, bounds each unit per call and per attempt count with no whole-job limit and shows the attempt and an estimate on the status line (kogaki#1355), ends the Brief on a system failure, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, `job await` over a still-running job returns within its own 30s bound raising nothing, and path review runs as its own Detached Job with one Candidate per unit, a refused unit's Candidate left out and named, and no synchronous review_path call in any advance (kogaki#1301); malformed output is respawned with the same prompt spending no attempt while a schema refusal spends one, the bounds are read from kogaki.settings.json with a missing or retired key refused by name, and a contradicts Move-fit verdict re-asks the unit with the judge's sentence and writes the consistent record beside its Candidate (kogaki#1307); and the second pass binds one paragraph Move per waypoint, one call per Leg in path order after the fit call, a move: null re-asking the unit once with no_paragraph_move_fits naming the Leg and the waypoint, and the bound Candidate written with move and segments on every waypoint beside its specialization record (kogaki#1359)");
+console.log("ok: check-brief-reader-path-job — the six-state Detached Job classifies, bounds each unit per call and per attempt count with no whole-job limit and shows the attempt and an estimate on the status line (kogaki#1355), ends the Brief on a system failure, supervises end to end against a fake judge, preserves failure on every non-`done` exit, leaks no internal vocabulary at the screen, `job await` over a still-running job returns within its own 30s bound raising nothing, and path review runs as its own Detached Job with one Candidate per unit, a refused unit's Candidate left out and named, and no synchronous review_path call in any advance (kogaki#1301); malformed output is respawned with the same prompt spending no attempt while a schema refusal spends one, the bounds are read from kogaki.settings.json with a missing or retired key refused by name, and a contradicts Move-fit verdict re-asks the unit with the judge's sentence and writes the consistent record beside its Candidate (kogaki#1307)");
 JS
 status=$?
 
