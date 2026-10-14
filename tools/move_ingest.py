@@ -717,9 +717,11 @@ def render_move(mapping):
     out = []
     for field in FIELDS:
         # A field `moves/ROLES.json` leaves optional and the record does not
-        # carry renders nothing (kogaki#1358: a paragraph Move read off its
-        # Extraction carries no `technique` or `breaks`). The three required
-        # roles are always present on a record condition 3 admitted.
+        # carry renders nothing. `technique` and `breaks` are read off a
+        # paragraph Move's Extraction too, now (kogaki#1377) — the gap this
+        # guarded (kogaki#1358) is closed, and the guard stays only for a
+        # schema that maps neither role. The three required roles are always
+        # present on a record condition 3 admitted.
         if field not in mapping and field not in ("id", "before", "after"):
             continue
         render_field(field, mapping.get(field, ""))
@@ -1360,12 +1362,55 @@ def check_segments(mapping, passage_text, line_no):
 # --------------------------------------------------------------------------
 # `--from-extraction` (kogaki#1358, design on kogaki#1329): the record is READ
 # off a written Extraction, never authored by a model. `id` is section 7's
-# name, `before` and `after` are section 2's changed rows only, and
-# `segments` is section 3 exactly as `check_segments` copies it on the
-# Passage path.
+# name, `before` and `after` are section 2's changed rows only, `technique`
+# is section 6 and `breaks` is section 5 (kogaki#1377), and `segments` is
+# section 3 exactly as `check_segments` copies it on the Passage path.
 # --------------------------------------------------------------------------
 SECTION7_HEADING = re.compile(r"^##\s*7\.\s*Candidate name\s*$", re.M)
 MOVE_ID = re.compile(r"^[a-z0-9_]+$")
+
+# `technique` (section 6) and `breaks` (section 5), added to the derivation by
+# kogaki#1377: every Leg Move already carries both, read from the sections
+# `specs/move-extraction-contract.md` names as their source, and the
+# paragraph path owed them from the start.
+SECTION5_HEADING = re.compile(r"^##\s*5\.\s*Where it would break\s*$", re.M)
+SECTION6_HEADING = re.compile(r"^##\s*6\.\s*The technique, subject-free\s*$", re.M)
+
+
+def _numbered_section_body(passage_text, heading_re):
+    """The raw text between a numbered Extraction heading and the next, or
+    `None` where the text carries no such heading at all -- the split
+    `section3_body` and `section7_name` each read inline, shared here rather
+    than tripled for kogaki#1377's two added sections."""
+    heading = heading_re.search(passage_text)
+    if heading is None:
+        return None
+    rest = passage_text[heading.end():]
+    next_heading = NEXT_HEADING.search(rest)
+    return rest[:next_heading.start()] if next_heading else rest
+
+
+def section6_technique(passage_text):
+    """`technique`: Extraction `## 6. The technique, subject-free`, its
+    lines joined into one paragraph, the way `extraction_segments` joins a
+    Segment's own lines. `None` where the text carries no section 6, or an
+    empty one."""
+    body = _numbered_section_body(passage_text, SECTION6_HEADING)
+    if body is None:
+        return None
+    text = " ".join(body.split())
+    return text or None
+
+
+def section5_breaks(passage_text):
+    """`breaks`: Extraction `## 5. Where it would break`, verbatim -- its
+    three lines (remove, reorder, extend), joined the same way `technique`
+    is. `None` where the text carries no section 5, or an empty one."""
+    body = _numbered_section_body(passage_text, SECTION5_HEADING)
+    if body is None:
+        return None
+    text = " ".join(body.split())
+    return text or None
 
 
 def section7_name(passage_text):
@@ -1442,10 +1487,26 @@ def derive_from_extraction(passage_text, line_no=1):
                 "section 2 records no changed row, so there is no `before` "
                 "or `after` to read",
             )
+        technique = section6_technique(passage_text)
+        if technique is None:
+            raise Refusal(
+                "from-extraction",
+                "section 6 (\"## 6. The technique, subject-free\") carries "
+                "no text for `technique`",
+            )
+        breaks = section5_breaks(passage_text)
+        if breaks is None:
+            raise Refusal(
+                "from-extraction",
+                "section 5 (\"## 5. Where it would break\") carries no "
+                "text for `breaks`",
+            )
         mapping = {
             "id": move_id,
             "before": _state_text(rows, 1),
             "after": _state_text(rows, 2),
+            "technique": technique,
+            "breaks": breaks,
         }
         segments_refusal, segments_text = check_segments(mapping, passage_text, line_no)
         if segments_refusal is not None:

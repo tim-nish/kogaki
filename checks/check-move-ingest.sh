@@ -296,10 +296,13 @@ fi
 # `--from-extraction` (kogaki#1358, design on kogaki#1329; one library,
 # kogaki#1366). The fixture is built here in the shape of
 # corpus/p1329/m2/..._cascades/p01.md, because corpus/ is ignored and CI
-# never sees it. Three cases, each driving the act:
-#   1. the derived record's id, before, after and segments are sections 7,
-#      2 (changed rows only) and 3 of the Extraction;
+# never sees it. Cases, each driving the act:
+#   1. the derived record's id, before, after, technique, breaks and segments
+#      are sections 7, 2 (changed rows only), 6, 5 and 3 of the Extraction
+#      (kogaki#1377 added technique and breaks);
 #   2. a paragraph Extraction carrying `contains:` is refused naming the line;
+#   2b. an Extraction missing section 6 is refused naming the section
+#      (kogaki#1377);
 #   3. `--select accept` lands the Move in the one `moves/` library and
 #      regenerates `moves/INDEX.md`.
 # --------------------------------------------------------------------------
@@ -338,6 +341,16 @@ dimensions changed: 2
 1. "A term is defined" [gloss] — settles — elaboration — takes up item one of the preceding list and defines it. — generalized: takes up the first of a previously presented list of items and defines it.
 2. "Each of its states" — raises — enumeration — tells the reader two items are coming. — generalized: tells the reader a fixed number of items are coming.
 
+## 5. Where it would break
+
+remove: the second sentence — the reader never learns the states exist.
+reorder: name the states before the factor — the reader has no term to hang them on.
+extend: add a third state — the completeness claim breaks.
+
+## 6. The technique, subject-free
+
+Name the item once, then promise its full set of states before giving any one of them.
+
 ## 7. Candidate name
 
 define_a_named_variable_with_almost_no_new_words
@@ -358,6 +371,10 @@ want = {
              "question: \"what do its two states look like?\" opened.",
     "segments": "1. settles — elaboration — takes up the first of a previously presented list of items and defines it.\n"
                 "2. raises — enumeration — tells the reader a fixed number of items are coming.",
+    "technique": "Name the item once, then promise its full set of states before giving any one of them.",
+    "breaks": "remove: the second sentence — the reader never learns the states exist. "
+              "reorder: name the states before the factor — the reader has no term to hang them on. "
+              "extend: add a third state — the completeness claim breaks.",
 }
 if not p.admitted:
     failures.append("case 1: the p01-shaped Extraction was refused: %s" % p.refusal)
@@ -370,6 +387,19 @@ p = m.derive_from_extraction(with_contains)
 if p.admitted or "contains: a_slug, b_slug" not in str(p.refusal):
     failures.append("case 2: a paragraph Extraction carrying `contains:` was not "
                     "refused naming the line -- got %r" % p.refusal)
+
+# case 2b (kogaki#1377): an Extraction missing section 6 is refused naming
+# the section, and nothing is proposed.
+no_section6 = EXTRACTION.replace(
+    """## 6. The technique, subject-free
+
+Name the item once, then promise its full set of states before giving any one of them.
+
+""", "")
+p = m.derive_from_extraction(no_section6)
+if p.admitted or "section 6" not in str(p.refusal):
+    failures.append("case 2b: an Extraction with no section 6 was not refused "
+                    "naming the section -- got %r" % p.refusal)
 
 with tempfile.TemporaryDirectory() as tmp:
     moves = os.path.join(tmp, "moves")
@@ -412,10 +442,12 @@ if failures:
     for f in failures:
         print("FAIL: %s" % f)
     sys.exit(1)
-print("ok: --from-extraction reads id, before, after and segments off sections 7, 2 "
-      "and 3, refuses `contains:` on a paragraph Extraction naming the line, and "
-      "lands the accepted Move and its INDEX.md in the one moves/ library, and "
-      "--from-analysis is refused naming --from-extraction (kogaki#1358, kogaki#1366, kogaki#1369)")
+print("ok: --from-extraction reads id, before, after, technique, breaks and segments "
+      "off sections 7, 2, 6, 5 and 3, refuses `contains:` on a paragraph Extraction "
+      "naming the line, refuses an Extraction missing section 6 naming the section, "
+      "and lands the accepted Move and its INDEX.md in the one moves/ library, and "
+      "--from-analysis is refused naming --from-extraction "
+      "(kogaki#1358, kogaki#1366, kogaki#1369, kogaki#1377)")
 PY
 ); FARC=$?
 printf '%s\n' "$FROM_EXTRACTION_OUT"
