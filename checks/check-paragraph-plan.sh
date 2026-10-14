@@ -13,19 +13,24 @@
 #       byte-for-byte unchanged; which Move was bound stays in the run
 #       directory's `paragraph-plan-bindings.json`. A `does-not-fit` from the
 #       judge on a first attempt is put verbatim into the second attempt's
-#       prompt, and the plan call is handed the Move's `segments`, the Leg
-#       Waypoint's Claims and the persona.
+#       prompt; the plan call is handed the Move's `segments` and `breaks`
+#       beside the Leg Waypoint's Claims and the persona, and the judge call
+#       is handed all five roles -- `before`, `after`, `technique`, `breaks`
+#       and `segments` (kogaki#1378).
 #   (b) a Leg Waypoint no Move fits (`move: null`) refuses the unit
 #       `no_paragraph_move_fits` and is asked again until `brief.unit_attempts`
 #       is spent; the stage then stops naming the Leg and the Waypoint, writes
 #       no ParagraphPlan file, and leaves the Brief unchanged.
-#   (c) a bound Move that does not fill a role this stage needs (`segments`)
-#       stops the stage naming the Move and the role; nothing is defaulted and
-#       no ParagraphPlan file is written.
+#   (c) a bound Move that fills neither `segments` nor `technique` stops the
+#       stage naming the Move and the role; nothing is defaulted and no
+#       ParagraphPlan file is written.
 #   (d) `start` refuses a Brief whose Leg Waypoint carries `move` or `segments`,
 #       by name.
 #   (e) every Harness path and subcommand `.claude/skills/paragraph-plan/SKILL.md`
 #       names exists — the criterion on which the skill file is tracked.
+#   (f) a bound Move carrying `technique` and no `segments` plans and judges
+#       the same as one carrying `segments` -- the fallback kogaki#1378 gives
+#       the Leg composer's own rule (§4.1), never a stop.
 #
 # NOT COVERED, stated rather than implied: the `--tools ""` minimal environment
 # and the call-limit stop are the shared supervisor's, held by
@@ -60,6 +65,18 @@ writeFileSync(join(moves, "p1.md"), ["id: p1", "technique: >-", "  makes one poi
   "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if the point is dropped.", "segments: |-", `  ${PSEG}`, ""].join("\n"));
 writeFileSync(join(moves, "p2.md"), ["id: p2", "technique: >-", "  names a case and leaves it.", "before: >-", "  knowledge: before.",
   "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if the case is never named.", ""].join("\n"));
+
+// ---- an isolated Move library for (c): its own ROLES.json leaves `specialized-by-the-Leg`
+// unmapped, the way `segments` already goes unmapped where a schema has nothing for it, so a
+// Move record here may fill neither `segments` nor `technique` without moveContract() itself
+// refusing before boundMoveContract()'s own check can run.
+const movesNoOrder = join(root, "moves-c");
+mkdirSync(movesNoOrder);
+const rolesNoTechnique = JSON.parse(readFileSync("moves/ROLES.json", "utf8"));
+rolesNoTechnique.optional["specialized-by-the-Leg"] = null;
+writeFileSync(join(movesNoOrder, "ROLES.json"), JSON.stringify(rolesNoTechnique, null, 2));
+writeFileSync(join(movesNoOrder, "p3.md"), ["id: p3", "before: >-", "  knowledge: before.", "after: >-", "  knowledge: after.",
+  "breaks: >-", "  breaks if the point is dropped.", ""].join("\n"));
 
 // ---- the Brief: two Legs, three Leg Waypoints ----
 const C1 = "the installer copies the kit into the consumer's tree.";
@@ -111,7 +128,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const leg = body("leg_you_must_plan").leg_you_must_plan;
   out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => {
     const nofit = mode === "nofit" && leg.leg_id === "s1" && w.waypoint === 2;
-    return { waypoint: w.waypoint, move: nofit ? null : mode === "broken" ? "p2" : "p1",
+    return { waypoint: w.waypoint, move: nofit ? null : mode === "broken" ? "p3" : mode === "technique" ? "p2" : "p1",
       why: nofit ? "NOFIT-SENTENCE no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
       paragraph_waypoints: nofit ? [] : [{ point: "PW-" + leg.leg_id + "-" + w.waypoint + " the paragraph establishes its point.", serves: [...w.serves] }] };
   }) });
@@ -119,7 +136,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 `);
 chmodSync(judge, 0o755);
 
-function runStage(name, ls, mode) {
+function runStage(name, ls, mode, movesDir = moves) {
   const dir = join(root, name);
   const briefDir = join(dir, "theses", "plan-brief");
   const runDir = join(dir, "run");
@@ -131,7 +148,7 @@ function runStage(name, ls, mode) {
   writeFileSync(briefPath, text);
   const env = { ...process.env, KOGAKI_JUDGE_CLI: judge, PP_FIXTURE_DIR: dir };
   const cli = (args) => spawnSync(process.execPath, [join(repo, "src", "paragraph-plan.mjs"), ...args, "--brief", briefPath,
-    "--run-dir", runDir, "--moves-dir", moves], { cwd: repo, encoding: "utf8", env, timeout: 180000 });
+    "--run-dir", runDir, "--moves-dir", movesDir], { cwd: repo, encoding: "utf8", env, timeout: 180000 });
   const started = cli(["start"]);
   let awaited = null;
   if (started.status === 0) {
@@ -175,8 +192,14 @@ function runStage(name, ls, mode) {
   if (s2Plans.length !== 2 || !s2Plans[1].includes("JUDGE-SENTENCE")) {
     fails.push(`(a) the judge's does-not-fit sentence was not put into Leg s2's second plan prompt (${s2Plans.length} plan prompt(s))`);
   }
-  if (!plans.length || !plans.every((p) => p.includes(PSEG) && p.includes(C2) && p.includes('"persona"'))) {
-    fails.push("(a) a plan prompt is not handed the Move's segments, the Leg Waypoint's Claims and the persona");
+  if (!plans.length || !plans.every((p) => p.includes(PSEG) && p.includes(C2) && p.includes('"persona"')
+    && p.includes("makes one point and holds it.") && p.includes("breaks if the point is dropped."))) {
+    fails.push("(a) a plan prompt is not handed the Move's segments and breaks beside the Leg Waypoint's Claims and the persona");
+  }
+  const judges = r.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
+  if (!judges.length || !judges.every((p) => p.includes('"before"') && p.includes('"after"') && p.includes('"technique"')
+    && p.includes('"breaks"') && p.includes('"segments"'))) {
+    fails.push("(a) a judge prompt is not handed the bound Move's before, after, technique, breaks and segments");
   }
 }
 
@@ -196,15 +219,40 @@ function runStage(name, ls, mode) {
   if (readFileSync(r.briefPath, "utf8") !== r.text) fails.push("(b) the Brief was rewritten by a stopped stage");
 }
 
-// (c) a bound Move without `segments` stops the stage naming the Move and the role.
+// (c) a bound Move that fills neither `segments` nor `technique` stops the stage naming the Move.
 {
-  const r = runStage("broken", legs, "broken");
+  const r = runStage("broken", legs, "broken", movesNoOrder);
   const out = r.awaited ? `${r.awaited.stdout}${r.awaited.stderr}` : "";
   if (r.started.status !== 0) fails.push(`(c) start failed: ${(r.started.stderr || "").slice(0, 400)}`);
   else if (!r.awaited || r.awaited.status === 0) fails.push(`(c) await did not stop the stage: ${out.slice(0, 600)}`);
-  if (!out.includes('"p2"') || !out.includes("`segments`")) fails.push(`(c) the stop does not name the Move p2 and the role segments: ${out.slice(0, 600)}`);
+  if (!out.includes('"p3"') || !out.includes("neither `segments` nor `technique`")) {
+    fails.push(`(c) the stop does not name the Move p3 and that it fills neither segments nor technique: ${out.slice(0, 600)}`);
+  }
   if (existsSync(r.planPath)) fails.push("(c) a ParagraphPlan file was written over a Move missing a role");
   if (readFileSync(r.briefPath, "utf8") !== r.text) fails.push("(c) the Brief was rewritten by a stopped stage");
+}
+
+// (f) a bound Move carrying `technique` and no `segments` plans and judges the same as one
+// carrying `segments` -- the fallback kogaki#1378 gives the Leg composer's own rule, never a stop.
+{
+  const r = runStage("technique", legs, "technique");
+  if (r.started.status !== 0) fails.push(`(f) start failed: ${(r.started.stderr || "").slice(0, 400)}`);
+  else if (!r.awaited || r.awaited.status !== 0) fails.push(`(f) await did not finish the job: ${(r.awaited && (r.awaited.stdout + r.awaited.stderr) || "").slice(0, 600)}`);
+  if (!existsSync(r.planPath)) fails.push("(f) no ParagraphPlan file was written for a Move carrying technique and no segments");
+  else {
+    const plan = readFileSync(r.planPath, "utf8");
+    for (const id of ["s1-1", "s1-2", "s2-1"]) if (!plan.includes(`PW-${id}`)) fails.push(`(f) the ParagraphPlan file lacks the Paragraph Waypoint of ${id}`);
+  }
+  const bindings = join(r.runDir, "paragraph-plan-bindings.json");
+  if (!existsSync(bindings)) fails.push("(f) the run directory carries no paragraph-plan-bindings.json");
+  else {
+    const b = JSON.parse(readFileSync(bindings, "utf8")).bindings || [];
+    if (b.length !== 3 || !b.every((x) => x.move === "p2")) fails.push(`(f) the bindings record does not name p2 for each Leg Waypoint: ${JSON.stringify(b)}`);
+  }
+  const judges = r.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
+  if (!judges.length || !judges.every((p) => p.includes("names a case and leaves it.") && p.includes("breaks if the case is never named."))) {
+    fails.push("(f) a judge prompt is not handed the bound Move's technique and breaks");
+  }
 }
 
 // (d) a Brief whose Leg Waypoint carries move or segments is refused at start, by name.
@@ -244,5 +292,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a bound Move missing segments stops naming the Move and the role, each with the Brief unchanged and no file written; a Leg Waypoint carrying move or segments is refused at start by name; the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments and breaks and the judge call carries all five roles; a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a bound Move filling neither segments nor technique stops naming the Move, each with the Brief unchanged and no file written; a Move carrying technique and no segments plans and judges the same as one carrying segments; a Leg Waypoint carrying move or segments is refused at start by name; the skill names only entry points the Harness has.");
 JS
