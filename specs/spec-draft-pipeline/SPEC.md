@@ -3110,17 +3110,22 @@ split or rename, so the reviewed proposal is not the authored file — nothing
 self-admits.
 
 **The paragraph path: `--from-extraction` (kogaki#1358, kogaki#1359; design on
-kogaki#1329, kogaki#1366).** A paragraph Move enters the library by a second
-route that calls no model. `tools/move_ingest.py passage
+kogaki#1329, kogaki#1366, kogaki#1377).** A paragraph Move enters the library by
+a second route that calls no model. `tools/move_ingest.py passage
 --from-extraction <pNN.md>... --out <dir>` takes one or more written
 paragraph Extractions (`passages/FORMAT.md` "The paragraph unit", `unit:
 paragraph <N> of <M> in <slug>`) and READS each record off its Extraction: the
-`id` from section 7, `before`/`after` from section 2's changed rows, the
-`segments` from section 3; the model authored the Extraction and authors
-nothing here. It takes no Passage file and requires `--out`. A paragraph
-Extraction carrying `contains:` is refused by name — two levels, no more. The
-proposals render on the same selection screen and admission is the same
-owner act at the same accept/decline question; nothing is written before
+`id` from section 7, `before`/`after` from section 2's changed rows,
+`technique` from section 6, `breaks` from section 5, and `segments` from
+section 3; the model authored the Extraction and authors nothing here. An
+Extraction with no section 5 or no section 6, or an empty one, is refused
+naming the section, and nothing is proposed for it (kogaki#1377) — the same
+Leg Moves and Paragraph Moves are one kind of Move, under one schema (§4.2),
+and a derived record missing a role the schema maps is the same defect a
+model-authored one would be. It takes no Passage file and requires `--out`. A
+paragraph Extraction carrying `contains:` is refused by name — two levels, no
+more. The proposals render on the same selection screen and admission is the
+same owner act at the same accept/decline question; nothing is written before
 `--select accept`. Accepted Moves land in `moves/` like any other accepted
 Move, and the command regenerates `moves/INDEX.md` — there is no second
 directory and no flag naming one.

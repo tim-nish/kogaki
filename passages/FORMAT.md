@@ -152,8 +152,10 @@ A paragraph Extraction is ingested with `tools/move_ingest.py passage
 --from-extraction <pNN.md> [...]`, which reads the
 record off the Extraction rather than asking a model for it: `id` from
 section 7, `before` and `after` from the rows of section 2 whose `after` is
-not `unchanged`, and `segments` from section 3. The record lands in
-`moves/`, the one library, like any other Move.
+not `unchanged`, `technique` from section 6, `breaks` from section 5, and
+`segments` from section 3. An Extraction with no section 5 or no section 6
+is refused naming the section. The record lands in `moves/`, the one
+library, like any other Move.
 
 ---
 
