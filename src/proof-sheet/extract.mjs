@@ -138,9 +138,47 @@ export function extractionUnitInput({ passage, paragraphs, index, before, namesT
   };
 }
 
+// THE RECORD'S SHAPE, SHOWN AS JSON (kogaki#1395): the paragraph number already filled as a
+// number, `answers` holding exactly `q1` to `q4`, and every other value a placeholder naming
+// what belongs there -- the two type slips a live run met (a string paragraph number, a
+// top-level key nested inside `answers`) are constrained at generation this way rather than
+// only caught by the validator after the fact.
+function extractionRecordSkeleton(input) {
+  const p = input.paragraph_you_must_extract;
+  return {
+    version: "1", paragraph: p.number, source: "<one line>", prior_text: "<one line>", language: "<one line>",
+    subject_nouns: ["<a noun, or omit for none>"],
+    answers: { q1: "<one sentence>", q2: "<one sentence>", q3: "<one sentence>", q4: "<one sentence>" },
+    what_it_does: "<one sentence>",
+    reader: DIMENSIONS.map((dimension) => ({ dimension, before: "<the carried state, or your own for the first paragraph>",
+      after: "unchanged | <the new state>", segment: "<Segment number(s), or empty where after is unchanged>" })),
+    segments: p.sentences.map(() => ({ function: "raises | advances | settles",
+      relation: "cause | consequence | contrast | elaboration | evidence | enumeration | none",
+      content: "<one clause>", generalized: "<the same clause, subject-free>" })),
+    why_this_order: "<one sentence>", presupposes: "<two or three lines, as one string>",
+    breaks: { remove: "<one line>", reorder: "<one line>", extend: "<one line>" },
+    technique: "<two or three sentences>", name: "<snake_case_verb_phrase>", notes: "",
+  };
+}
+
+// SPLICED RIGHT AFTER THE RECORD-SHAPE PARAGRAPH `judgePrompt` already renders (its
+// `REQUIRED RECORD SHAPE:` line) -- the skeleton follows what it describes, never stands
+// apart from it.
+function withExtractionRecordSkeleton(prompt, input) {
+  const marker = "\nREQUIRED RECORD SHAPE:";
+  const at = prompt.indexOf(marker);
+  const lineEnd = at < 0 ? -1 : prompt.indexOf("\n", at + 1);
+  const skeleton = ["", "THE RECORD'S SHAPE AS JSON, with this paragraph's number filled as a number and `answers`",
+    "holding exactly q1 to q4 -- every other value is a placeholder naming what belongs there:",
+    JSON.stringify(extractionRecordSkeleton(input), null, 2)].join("\n");
+  if (lineEnd < 0) return `${prompt}\n${skeleton}`;
+  return `${prompt.slice(0, lineEnd)}\n${skeleton}${prompt.slice(lineEnd)}`;
+}
+
 export function extractionUnitPrompt(row, input) {
   const held = bindFlow(FLOW);
-  try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
+  try { return withExtractionRecordSkeleton(judgePrompt(row, JSON.stringify(input, null, 2), input, null), input); }
+  finally { bindFlow(held); }
 }
 
 // ---------------------------------------------------------------------------
@@ -170,85 +208,117 @@ function nounIn(nouns, text) {
   return nouns.find((n) => (/\s/.test(n) ? lower.includes(n) : ws.has(n)));
 }
 
+// EVERY FAILING FIELD, NOT ONLY THE FIRST (kogaki#1395). A record read back against FORMAT
+// used to return on its first bad field, so an answer with two slips reported one and spent
+// its attempt on a refusal naming only one of them. `errors` collects one line per field, in
+// (approximately) the record shape's own order, and each later check guards on the shape it
+// reads so one bad field never throws reading another. Only the record's own top-level key
+// set returns at once -- a record missing or inventing a top-level key is a different class
+// of refusal than a field within an otherwise-complete record.
 export function validateExtractionUnit(record, input) {
   const p = input.paragraph_you_must_extract;
   const at = `paragraph ${p.number}`;
   const r = record || {};
   const bad = keysRefusal(r, RECORD_KEYS, `${at}: the record`);
   if (bad) return { error: bad };
-  if (String(r.version) !== "1") return { error: `${at}: the record's version is ${JSON.stringify(r.version)}, not "1"` };
-  if (r.paragraph !== p.number) return { error: `${at}: the record names paragraph ${JSON.stringify(r.paragraph)}, not ${p.number}` };
+  const errors = [];
+  if (String(r.version) !== "1") errors.push(`${at}: the record's version is ${JSON.stringify(r.version)}, not "1"`);
+  if (r.paragraph !== p.number) errors.push(`${at}: the record names paragraph ${JSON.stringify(r.paragraph)}, not ${p.number}`);
   for (const k of ["source", "prior_text", "language", "what_it_does", "why_this_order", "presupposes", "technique", "name"]) {
     const e = lineRefusal(r[k], `${at}: \`${k}\``);
-    if (e) return { error: e };
+    if (e) errors.push(e);
   }
-  { const e = lineRefusal(r.notes, `${at}: \`notes\``, { empty: true }); if (e) return { error: e }; }
-  if (/(^|\s)split:/.test(r.notes)) return { error: `${at}: \`notes\` carries a \`split:\` line — the paragraph's boundary is the source's own, and the ingest refuses an undismissed split note` };
+  { const e = lineRefusal(r.notes, `${at}: \`notes\``, { empty: true }); if (e) errors.push(e); }
+  if (typeof r.notes === "string" && /(^|\s)split:/.test(r.notes)) {
+    errors.push(`${at}: \`notes\` carries a \`split:\` line — the paragraph's boundary is the source's own, and the ingest refuses an undismissed split note`);
+  }
   if (!Array.isArray(r.subject_nouns) || r.subject_nouns.some((n) => lineRefusal(n, "noun") || n.includes(","))) {
-    return { error: `${at}: \`subject_nouns\` is not an array of one-line strings without commas` };
+    errors.push(`${at}: \`subject_nouns\` is not an array of one-line strings without commas`);
   }
-  { const e = keysRefusal(r.answers, ANSWER_KEYS, `${at}: \`answers\``); if (e) return { error: e }; }
-  for (const k of ANSWER_KEYS) { const e = lineRefusal(r.answers[k], `${at}: answer ${k.toUpperCase()}`); if (e) return { error: e }; }
-  { const e = keysRefusal(r.breaks, BREAK_KEYS, `${at}: \`breaks\``); if (e) return { error: e }; }
-  for (const k of BREAK_KEYS) { const e = lineRefusal(r.breaks[k], `${at}: \`breaks.${k}\``); if (e) return { error: e }; }
+  const nouns = Array.isArray(r.subject_nouns)
+    ? r.subject_nouns.filter((s) => typeof s === "string").map((s) => s.trim().toLowerCase()).filter(Boolean) : [];
+
+  const answersBad = keysRefusal(r.answers, ANSWER_KEYS, `${at}: \`answers\``);
+  if (answersBad) errors.push(answersBad);
+  else for (const k of ANSWER_KEYS) { const e = lineRefusal(r.answers[k], `${at}: answer ${k.toUpperCase()}`); if (e) errors.push(e); }
+
+  const breaksBad = keysRefusal(r.breaks, BREAK_KEYS, `${at}: \`breaks\``);
+  if (breaksBad) errors.push(breaksBad);
+  else for (const k of BREAK_KEYS) { const e = lineRefusal(r.breaks[k], `${at}: \`breaks.${k}\``); if (e) errors.push(e); }
 
   // Section 3: one Segment per sentence, both clauses on every one.
   const n = p.sentences.length;
-  if (!Array.isArray(r.segments) || r.segments.length !== n) {
-    return { error: `${at}: \`segments\` carries ${Array.isArray(r.segments) ? r.segments.length : "no"} entr(ies) for the paragraph's ${n} sentence(s) — one Segment per sentence, in order` };
+  const segmentsOk = Array.isArray(r.segments) && r.segments.length === n;
+  if (!segmentsOk) {
+    errors.push(`${at}: \`segments\` carries ${Array.isArray(r.segments) ? r.segments.length : "no"} entr(ies) for the paragraph's ${n} sentence(s) — one Segment per sentence, in order`);
   }
-  const nouns = r.subject_nouns.map((s) => s.trim().toLowerCase()).filter(Boolean);
-  for (const [i, s] of r.segments.entries()) {
-    const atS = `${at}, Segment ${i + 1}`;
-    const e = keysRefusal(s, SEGMENT_KEYS, atS);
-    if (e) return { error: e };
-    if (!FUNCTIONS.includes(s.function)) return { error: `${atS}: function ${JSON.stringify(s.function)} is outside ${FUNCTIONS.join(" | ")}` };
-    if (!RELATIONS.includes(s.relation)) return { error: `${atS}: relation ${JSON.stringify(s.relation)} is outside ${RELATIONS.join(" | ")}` };
-    for (const k of ["content", "generalized"]) {
-      const e2 = lineRefusal(s[k], `${atS}: the \`${k}\` clause`);
-      if (e2) return { error: e2 };
+  if (Array.isArray(r.segments)) {
+    for (const [i, s] of r.segments.entries()) {
+      const atS = `${at}, Segment ${i + 1}`;
+      const e = keysRefusal(s, SEGMENT_KEYS, atS);
+      if (e) { errors.push(e); continue; }
+      if (!FUNCTIONS.includes(s.function)) errors.push(`${atS}: function ${JSON.stringify(s.function)} is outside ${FUNCTIONS.join(" | ")}`);
+      if (!RELATIONS.includes(s.relation)) errors.push(`${atS}: relation ${JSON.stringify(s.relation)} is outside ${RELATIONS.join(" | ")}`);
+      for (const k of ["content", "generalized"]) {
+        const e2 = lineRefusal(s[k], `${atS}: the \`${k}\` clause`);
+        if (e2) errors.push(e2);
+      }
+      if (typeof s.content === "string" && /—\s*generalized:/.test(s.content)) {
+        errors.push(`${atS}: the \`content\` clause carries \`— generalized:\`; the two clauses are two fields`);
+      }
+      if (typeof s.generalized === "string") {
+        const noun = nounIn(nouns, s.generalized);
+        if (noun) errors.push(`${atS}: the \`generalized\` clause names "${noun}", one of your subject_nouns — it names no term of the original`);
+      }
     }
-    if (/—\s*generalized:/.test(s.content)) return { error: `${atS}: the \`content\` clause carries \`— generalized:\`; the two clauses are two fields` };
-    const noun = nounIn(nouns, s.generalized);
-    if (noun) return { error: `${atS}: the \`generalized\` clause names "${noun}", one of your subject_nouns — it names no term of the original` };
   }
-  if (input.earlier_paragraphs.length && r.segments[0].relation === "none") {
-    return { error: `${at}, Segment 1: relation is \`none\`, and earlier paragraphs exist — it is the relation to the previous paragraph's last point (FORMAT "The paragraph unit", rule 5)` };
+  if (segmentsOk && input.earlier_paragraphs.length && r.segments[0].relation === "none") {
+    errors.push(`${at}, Segment 1: relation is \`none\`, and earlier paragraphs exist — it is the relation to the previous paragraph's last point (FORMAT "The paragraph unit", rule 5)`);
   }
-  if (input.earlier_paragraphs.length && !wordsOf(r.what_it_does).has(r.segments[0].relation)) {
-    return { error: `${at}: \`what_it_does\` does not name Segment 1's relation to the previous paragraph, \`${r.segments[0].relation}\` — section 1 names that relation too (FORMAT "The paragraph unit", rule 5)` };
+  if (segmentsOk && input.earlier_paragraphs.length && typeof r.what_it_does === "string" && !wordsOf(r.what_it_does).has(r.segments[0].relation)) {
+    errors.push(`${at}: \`what_it_does\` does not name Segment 1's relation to the previous paragraph, \`${r.segments[0].relation}\` — section 1 names that relation too (FORMAT "The paragraph unit", rule 5)`);
   }
-  { const noun = nounIn(nouns, r.technique); if (noun) return { error: `${at}: \`technique\` names "${noun}", one of your subject_nouns — section 6 is subject-free` }; }
+  if (typeof r.technique === "string") {
+    const noun = nounIn(nouns, r.technique);
+    if (noun) errors.push(`${at}: \`technique\` names "${noun}", one of your subject_nouns — section 6 is subject-free`);
+  }
 
   // Section 2: the five dimensions, the carried before column, a Segment for every change.
-  if (!Array.isArray(r.reader) || r.reader.length !== DIMENSIONS.length) {
-    return { error: `${at}: \`reader\` carries ${Array.isArray(r.reader) ? r.reader.length : "no"} row(s) — five, one per dimension, in the order ${DIMENSIONS.join(", ")}` };
+  const readerOk = Array.isArray(r.reader) && r.reader.length === DIMENSIONS.length;
+  if (!readerOk) {
+    errors.push(`${at}: \`reader\` carries ${Array.isArray(r.reader) ? r.reader.length : "no"} row(s) — five, one per dimension, in the order ${DIMENSIONS.join(", ")}`);
   }
   let changed = 0;
-  for (const [i, row] of r.reader.entries()) {
-    const atR = `${at}, section 2 row ${i + 1}`;
-    const e = keysRefusal(row, ROW_KEYS, atR);
-    if (e) return { error: e };
-    if (row.dimension !== DIMENSIONS[i]) return { error: `${atR}: names ${JSON.stringify(row.dimension)}, not ${DIMENSIONS[i]} — the rows run ${DIMENSIONS.join(", ")}` };
-    const atD = `${at}, the \`${row.dimension}\` row`;
-    for (const k of ["before", "after"]) { const e2 = lineRefusal(row[k], `${atD}'s \`${k}\``); if (e2) return { error: e2 }; }
-    { const e2 = lineRefusal(row.segment, `${atD}'s \`segment\``, { empty: true }); if (e2) return { error: e2 }; }
-    const want = input.reader_state_before && input.reader_state_before[row.dimension];
-    if (typeof want === "string" && row.before.trim() !== want.trim()) {
-      return { error: `${atD}'s \`before\` is ${JSON.stringify(row.before)}, and the previous paragraph left it ${JSON.stringify(want)} — the before column is carried, not drafted (FORMAT "The paragraph unit", rule 3)` };
+  if (Array.isArray(r.reader)) {
+    for (const [i, row] of r.reader.entries()) {
+      const atR = `${at}, section 2 row ${i + 1}`;
+      const e = keysRefusal(row, ROW_KEYS, atR);
+      if (e) { errors.push(e); continue; }
+      if (i >= DIMENSIONS.length) continue;
+      if (row.dimension !== DIMENSIONS[i]) { errors.push(`${atR}: names ${JSON.stringify(row.dimension)}, not ${DIMENSIONS[i]} — the rows run ${DIMENSIONS.join(", ")}`); continue; }
+      const atD = `${at}, the \`${row.dimension}\` row`;
+      let rowOk = true;
+      for (const k of ["before", "after"]) { const e2 = lineRefusal(row[k], `${atD}'s \`${k}\``); if (e2) { errors.push(e2); rowOk = false; } }
+      { const e2 = lineRefusal(row.segment, `${atD}'s \`segment\``, { empty: true }); if (e2) { errors.push(e2); rowOk = false; } }
+      if (!rowOk) continue;
+      const want = input.reader_state_before && input.reader_state_before[row.dimension];
+      if (typeof want === "string" && row.before.trim() !== want.trim()) {
+        errors.push(`${atD}'s \`before\` is ${JSON.stringify(row.before)}, and the previous paragraph left it ${JSON.stringify(want)} — the before column is carried, not drafted (FORMAT "The paragraph unit", rule 3)`);
+      }
+      if (isUnchanged(row.after)) continue;
+      changed += 1;
+      const nums = row.segment.split(",").map((x) => x.trim()).filter(Boolean);
+      if (!nums.length) { errors.push(`${atD} records a change naming no Segment`); continue; }
+      const off = nums.find((x) => !/^\d+$/.test(x) || Number(x) < 1 || Number(x) > n);
+      if (off !== undefined) errors.push(`${atD} names Segment ${JSON.stringify(off)}, and the paragraph has Segments 1 to ${n}`);
     }
-    if (isUnchanged(row.after)) continue;
-    changed += 1;
-    const nums = row.segment.split(",").map((x) => x.trim()).filter(Boolean);
-    if (!nums.length) return { error: `${atD} records a change naming no Segment` };
-    const off = nums.find((x) => !/^\d+$/.test(x) || Number(x) < 1 || Number(x) > n);
-    if (off !== undefined) return { error: `${atD} names Segment ${JSON.stringify(off)}, and the paragraph has Segments 1 to ${n}` };
   }
-  if (!changed) return { error: `${at}: section 2 records no changed row — the ingest reads \`before\` and \`after\` from the changed rows, so at least one moves` };
+  if (readerOk && !changed) errors.push(`${at}: section 2 records no changed row — the ingest reads \`before\` and \`after\` from the changed rows, so at least one moves`);
 
-  if (!MOVE_ID.test(r.name)) return { error: `${at}: \`name\` ${JSON.stringify(r.name)} is not in the library's id form — lower-case letters, digits and underscores` };
-  if (input.names_taken.includes(r.name)) return { error: `${at}: \`name\` ${JSON.stringify(r.name)} is already taken by an earlier paragraph of this Leg` };
-  return {};
+  if (!MOVE_ID.test(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is not in the library's id form — lower-case letters, digits and underscores`);
+  else if (input.names_taken.includes(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is already taken by an earlier paragraph of this Leg`);
+
+  return errors.length ? { error: errors.join("\n") } : {};
 }
 
 // ---------------------------------------------------------------------------
