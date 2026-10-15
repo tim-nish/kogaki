@@ -274,7 +274,9 @@ function positiveSetting(job, key) {
 }
 
 // Read the Extractor run: its `extractions.json` names the Leg and the files written, and
-// `p<N>/answer.json` holds paragraph N's Extraction record.
+// `p<N>/answer.json` holds paragraph N's Extraction record. The Leg is cut by the
+// Extractor's own `legParagraphs` (The paragraph unit, rule 1), so paragraph N here is the
+// paragraph Extraction N was written for.
 export function readExtractorRun(runDir, legOverride = null) {
   const idx = join(runDir, "extractions.json");
   let doc;
