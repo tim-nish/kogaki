@@ -351,16 +351,14 @@ export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
 // marker, because the input marker's own contract is that everything after it
 // is the input file — a refusal appended past it would be read as input by any
 // reader keying on position, which is the one thing that marker promises.
-export const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
+const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
 
-// THE FIXED REPAIR SENTENCE, NAMED ONCE (kogaki#1203). `judgePrompt` below
-// puts it after a synchronous judge's own refusal; the reader-path unit's
-// retry prompt (`readerPathUnitRetryPrompt`) puts the SAME text after a
-// unit's structural refusal, from the supervisor process, which reads no
-// table. One exported string is what keeps the two ends of "the same refusal
-// block" — the synchronous judge's re-ask and a detached unit's re-ask — from
-// drifting into two different sentences one edit at a time.
-export const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly\n"
+// THE FIXED REPAIR SENTENCE, NAMED ONCE (kogaki#1203). Since kogaki#1395 it is
+// rendered only by `judgeRefusalBlock` below, which both the synchronous judge's
+// re-ask and the detached unit's retry (`readerPathUnitRetryPrompt`) call, so
+// neither the sentence nor the marker is exported any more: the one exported
+// renderer is what keeps the two ends of "the same refusal block" from drifting.
+const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly\n"
   + "it. The input below is unchanged, so re-reading the material is not what is wanted -- the\n"
   + "shape of your record is.";
 
