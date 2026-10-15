@@ -2225,9 +2225,8 @@ supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
    point in view — and generates the Paragraph Waypoints of the one paragraph
    carrying that Leg Waypoint: one per Segment of the bound Move, in the
    Move's order, or, where the Move carries no Segments, the points its
-   `technique` gives — the Leg composer's own rule (§4.1) — from four inputs
-   and nothing else: the Leg Waypoint, the Claims its `serves` names (the
-   input that takes the place of Claims at the paragraph level), the bound
+   `technique` gives — the Leg composer's own rule (§4.1) — from three inputs
+   and nothing else: the Leg Waypoint's own `point`, the bound
    Move's Segments or `technique`, and the Audience's `persona`. A Leg
    Waypoint no Move fits refuses the unit as
    `no_paragraph_move_fits`, naming the Leg and the Waypoint; there is no

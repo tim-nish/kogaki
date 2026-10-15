@@ -14,7 +14,8 @@
 #       directory's `paragraph-plan-bindings.json`. A `does-not-fit` from the
 #       judge on a first attempt is put verbatim into the second attempt's
 #       prompt; the plan call is handed the Move's `segments` and `breaks`
-#       beside the Leg Waypoint's Claims and the persona, and the judge call
+#       beside the Leg Waypoint's own `point`, `serves` and `next_point` and
+#       the persona, and NO Claim proposition (kogaki#1382); the judge call
 #       is handed all five roles -- `before`, `after`, `technique`, `breaks`
 #       and `segments` (kogaki#1378).
 #   (b) a Leg Waypoint no Move fits (`move: null`) refuses the unit
@@ -205,9 +206,15 @@ function runStage(name, ls, mode, movesDir = moves) {
   if (s2Plans.length !== 2 || !s2Plans[1].includes("JUDGE-SENTENCE")) {
     fails.push(`(a) the judge's does-not-fit sentence was not put into Leg s2's second plan prompt (${s2Plans.length} plan prompt(s))`);
   }
-  if (!plans.length || !plans.every((p) => p.includes(PSEG) && p.includes(C2) && p.includes('"persona"')
+  if (!plans.length || !plans.every((p) => p.includes(PSEG) && p.includes('"persona"')
     && p.includes("makes one point and holds it.") && p.includes("breaks if the point is dropped."))) {
-    fails.push("(a) a plan prompt is not handed the Move's segments and breaks beside the Leg Waypoint's Claims and the persona");
+    fails.push("(a) a plan prompt is not handed the Move's segments and breaks beside the persona");
+  }
+  if (!plans.length || !plans.every((p) => p.includes('"point"') && p.includes('"serves"') && p.includes('"next_point"'))) {
+    fails.push("(a) a plan prompt does not carry a Leg Waypoint entry's point, serves and next_point");
+  }
+  if (plans.some((p) => p.includes(C1) || p.includes(C2))) {
+    fails.push("(a) a plan prompt carries a Claim proposition on a Leg Waypoint entry (kogaki#1382)");
   }
   const judges = r.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
   if (!judges.length || !judges.every((p) => p.includes('"before"') && p.includes('"after"') && p.includes('"technique"')
@@ -339,5 +346,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments and breaks and the judge call carries all five roles; a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a bound Move filling neither segments nor technique stops naming the Move, each with the Brief unchanged and no file written; a Move carrying technique and no segments plans and judges the same as one carrying segments; a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Leg Waypoint carrying move or segments is refused at start by name; the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries all five roles; a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a bound Move filling neither segments nor technique stops naming the Move, each with the Brief unchanged and no file written; a Move carrying technique and no segments plans and judges the same as one carrying segments; a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Leg Waypoint carrying move or segments is refused at start by name; the skill names only entry points the Harness has.");
 JS
