@@ -71,14 +71,14 @@ export const RECORDER_TEXT = `#!/usr/bin/env node
 // Written by src/proof-sheet/leg-run.mjs (kogaki#1386): passes one model call through to the
 // stage's declared command unchanged and appends what it was given and what it answered to
 // the stage's calls.jsonl.
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 const real = process.env.KOGAKI_PROOF_SHEET_REAL_CLI;
 const log = process.env.KOGAKI_PROOF_SHEET_CALLS;
 const argv = process.argv.slice(2);
 if (argv.includes("--version")) {
   const v = spawnSync(real, argv, { encoding: "utf8" });
-  process.stdout.write(v.stdout || ""); process.stderr.write(v.stderr || "");
+  writeSync(1, v.stdout || ""); writeSync(2, v.stderr || "");
   process.exit(v.status === null ? 1 : v.status);
 }
 const stdin = readFileSync(0, "utf8");
@@ -88,7 +88,9 @@ if (log) {
   appendFileSync(log, JSON.stringify({ at, argv, stdin, stdout: r.stdout || "", stderr: String(r.stderr || "").slice(-4000),
     exit: r.status, signal: r.signal || null, ...(r.error ? { error: String(r.error.message) } : {}) }) + "\\n");
 }
-process.stdout.write(r.stdout || ""); process.stderr.write(r.stderr || "");
+// WRITTEN SYNCHRONOUSLY: \`process.stdout.write\` to a pipe is asynchronous, and \`process.exit\`
+// right after it cuts an answer longer than the pipe's buffer — the stage then reads no result line.
+writeSync(1, r.stdout || ""); writeSync(2, r.stderr || "");
 process.exit(r.status === null ? 1 : r.status);
 `;
 

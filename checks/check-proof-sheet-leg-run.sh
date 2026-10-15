@@ -10,7 +10,8 @@
 # Issue: a plan names the gate, not the outputs):
 #   (a) the run exits 0 with every stage `done` in `run.json`, and each model stage's calls
 #       went through the recorder: `calls.jsonl` per stage holds exactly the calls the fake
-#       binary saw (Extractor 4 — paragraph 1 refused once —, Leg Brief composer 2,
+#       binary saw, each judge answer padded past a pipe's buffer and handed through whole
+#       (Extractor 4 — paragraph 1 refused once —, Leg Brief composer 2,
 #       ParagraphPlan generator and judge, Writer 1), each prompt and answer as sent.
 #   (b) the ingest derived one Move per Extraction into the run's own library, and the
 #       ParagraphPlan file gives each Leg Waypoint as many Paragraph Waypoints as its bound
@@ -65,15 +66,19 @@ writeFileSync(map, mapText(mapRows));
 // ---- the one fake model binary, answering every stage ----
 const judge = join(root, "fake-model.mjs");
 writeFileSync(judge, `#!/usr/bin/env node
-import { appendFileSync } from "node:fs";
+import { appendFileSync, writeSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
 const dir = process.env.PSR_FIXTURE_DIR;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const out = (r, stage) => {
-    appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, argv: process.argv.slice(2), prompt, answer: stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n" }) + "\\n");
+    appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, argv: process.argv.slice(2), prompt, answer: stage === "writer" ? r : JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n" + JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n" }) + "\\n");
     // The Writer is declared with a text output format (src/draft-workflow.json); every judge with json.
-    process.stdout.write(stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
+    // A judge's answer is preceded by a stream line longer than a pipe's buffer, as a live
+    // stream-json answer is: the recorder must hand all of it through (the 2026-10-15 live run
+    // lost the result line of every answer past the first to an asynchronous write).
+    if (stage !== "writer") writeSync(1, JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n");
+    writeSync(1, stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
   };
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
   const retried = prompt.includes("----- YOUR PREVIOUS ANSWER WAS REFUSED -----");
@@ -166,22 +171,23 @@ else {
   ok(!existsSync(join(runDir, "ingest", "calls.jsonl")), "(a) the ingest made a model call");
 
   // (b) the ingest's Moves and the plan's counts
-  const ingest = JSON.parse(readFileSync(join(runDir, "ingest", "ingest.json"), "utf8"));
+  const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
+  const ingest = JSON.parse(readOr(join(runDir, "ingest", "ingest.json"), '{"written":[],"entries":[]}'));
   ok(ingest.written.length === 3 && [1, 2, 3].every((n) => existsSync(join(runDir, "moves", `name_an_act_then_its_cost_${n}.md`))),
     `(b) the ingest did not write one Move per Extraction into the run's library: ${JSON.stringify(ingest.written)}`);
-  ok(ingest.entries.every((e) => e.admitted && e.screen.includes(`id: ${e.move}`)), "(b) an ingest entry does not carry its screen");
-  const plan = parseYaml(readFileSync(join(runDir, "brief", "paragraph-plan.yaml"), "utf8"), "plan");
-  ok(JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.length)) === "[2,2,3]", "(b) the ParagraphPlan file's Paragraph Waypoint counts are not the Moves' Segment counts");
+  ok(ingest.entries.length === 3 && ingest.entries.every((e) => e.admitted && e.screen.includes(`id: ${e.move}`)), "(b) an ingest entry does not carry its screen");
+  const plan = parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan");
+  ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.length)) === "[2,2,3]", "(b) the ParagraphPlan file's Paragraph Waypoint counts are not the Moves' Segment counts");
 
   // (c) the Writer's prompt is the Packet alone
-  const packet = readFileSync(join(runDir, "draft", "leg-fixture", "packets", "copy-leg.md"), "utf8");
+  const packet = readOr(join(runDir, "draft", "leg-fixture", "packets", "copy-leg.md"), null);
   const w = calls("draft");
-  ok(w.length === 1 && w[0].stdin === packet, "(c) the Writer's recorded prompt is not the Packet byte for byte");
+  ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(c) the Writer's recorded prompt is not the Packet byte for byte");
   ok(seen.filter((s) => s.stage === "writer").every((s) => s.prompt === packet), "(c) the model binary was handed something other than the Packet");
   ok(w.length && w[0].argv.includes("--tools") && w[0].argv[w[0].argv.indexOf("--tools") + 1] === "", "(c) the Writer was not called with --tools \"\"");
 
   // (e) the sheet
-  const html = readFileSync(join(runDir, "sheet.html"), "utf8");
+  const html = readOr(join(runDir, "sheet.html"), "");
   ok((html.match(/<section class="card">/g) || []).length === 1, "(e) the sheet does not carry one card");
   const top = html.slice(html.indexOf('<table class="pair">'), html.indexOf("</table>", html.indexOf('<table class="pair">')));
   const rows = top.split("<tr><th>").slice(2);
@@ -203,7 +209,7 @@ else {
   ok(/has no "## Cells of the Leg card" row for "Packet"/.test(refused.error || ""), `(f) a map missing the Packet row was not refused by name: ${refused.error}`);
   const stoppedRun = join(root, "stopped-run");
   cpSync(runDir, stoppedRun, { recursive: true });
-  rmSync(join(stoppedRun, "draft", "leg-fixture", "sections"), { recursive: true });
+  rmSync(join(stoppedRun, "draft", "leg-fixture", "sections"), { recursive: true, force: true });
   const rec = JSON.parse(readFileSync(join(stoppedRun, "run.json"), "utf8"));
   rec.stages[4] = { stage: "draft", state: "stopped", stopped: "STOP-LINE the writer refused section", leg_id: "copy-leg", workspace: join(stoppedRun, "draft", "leg-fixture") };
   rec.stopped = "draft: STOP-LINE the writer refused section";
