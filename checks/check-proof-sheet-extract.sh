@@ -19,8 +19,9 @@
 #   (e) paragraph 2 is handed the reader state paragraph 1 left (its `after` where a row
 #       moved, its `before` where not), and its before column carries it.
 #   (f) the validator refuses, naming the field: a `before` that is not the carried state,
-#       a Segment count other than the sentence count, and a `generalized` clause naming a
-#       subject noun.
+#       a Segment count other than the sentence count, a `generalized` clause naming a
+#       subject noun, and a section 1 not naming Segment 1's relation (rule 5).
+#   (g) a block quotation or list announced by a paragraph stays with it (rule 1).
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -65,7 +66,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     version: "1", paragraph: p.number, source: "not given", prior_text: first ? "not assumed — opens on a fact" : "assumed — \\"So\\" takes up the previous paragraph",
     language: "English", subject_nouns: ["installer", "kit"],
     answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act.", q4: "The reader's own tree." },
-    what_it_does: "Hands the reader a fact and then the cost of it.",
+    what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
     reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
       after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
     segments: p.sentences.map((s, i) => ({ function: i === p.sentences.length - 1 ? "settles" : "advances",
@@ -159,7 +160,7 @@ const persona = { reader: "a developer", prior_knowledge: "none" };
 const input = X.extractionUnitInput({ passage: "s", paragraphs: [P1, P2], index: 1,
   before: { knowledge: "K", question: "Q", expectation: "E", orientation: "O", trust: "T" }, namesTaken: [], persona });
 const good = () => ({ version: "1", paragraph: 2, source: "not given", prior_text: "assumed", language: "English", subject_nouns: ["installer"],
-  answers: { q1: "a", q2: "b", q3: "c", q4: "d" }, what_it_does: "x",
+  answers: { q1: "a", q2: "b", q3: "c", q4: "d" }, what_it_does: "x by elaboration",
   reader: ["knowledge", "question", "expectation", "orientation", "trust"].map((d) => ({ dimension: d, before: d[0].toUpperCase(),
     after: d === "knowledge" ? "moved" : "unchanged", segment: d === "knowledge" ? "2" : "" })),
   segments: [1, 2, 3].map(() => ({ function: "advances", relation: "elaboration", content: "c", generalized: "g" })),
@@ -171,6 +172,13 @@ const m2 = good(); m2.segments.pop();
 ok(/one Segment per sentence/.test(X.validateExtractionUnit(m2, input).error || ""), "(f) a Segment count other than the sentence count was not refused");
 const m3 = good(); m3.segments[1].generalized = "the installer copies";
 ok(/Segment 2: the `generalized` clause names "installer"/.test(X.validateExtractionUnit(m3, input).error || ""), "(f) a generalized clause naming a subject noun was not refused");
+
+const m4 = good(); m4.what_it_does = "x";
+ok(/`what_it_does` does not name Segment 1's relation/.test(X.validateExtractionUnit(m4, input).error || ""), "(f) a section 1 not naming Segment 1's relation was not refused");
+
+// (g) announced blocks stay with their paragraph
+const ps = X.legParagraphs("One says:\n\n> a quoted line.\n\nThen a list:\n\n- first\n- second\n\nA new paragraph.");
+ok(ps.length === 3 && ps[0].endsWith("> a quoted line.") && ps[1].endsWith("- second"), `(g) an announced block was cut into its own paragraph: ${JSON.stringify(ps)}`);
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }
 console.log("ok proof-sheet-extract");

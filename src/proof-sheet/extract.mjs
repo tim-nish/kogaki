@@ -71,10 +71,19 @@ function fail(msg) {
 }
 
 // ---------------------------------------------------------------------------
-// THE LEG AND ITS SENTENCES. A Leg file is its paragraphs, separated by blank lines.
+// THE LEG AND ITS SENTENCES. A Leg file is its paragraphs, separated by blank lines. A block
+// quotation, list or definition list announced by a paragraph belongs to it (FORMAT "The
+// paragraph unit", rule 1): a block opening with `>`, a list marker or `: ` is joined to the
+// paragraph before it rather than counted as a paragraph of its own.
+const ANNOUNCED_BLOCK = /^(>|[-*+]\s|\d+[.)]\s|:\s)/;
 
 export function legParagraphs(text) {
-  return String(text).split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean);
+  const out = [];
+  for (const block of String(text).split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean)) {
+    if (out.length && ANNOUNCED_BLOCK.test(block)) out[out.length - 1] += `\n\n${block}`;
+    else out.push(block);
+  }
+  return out;
 }
 
 // The Harness's cut: a sentence ends at `.`, `!` or `?` followed by a space or the end, or
@@ -205,6 +214,9 @@ export function validateExtractionUnit(record, input) {
   }
   if (input.earlier_paragraphs.length && r.segments[0].relation === "none") {
     return { error: `${at}, Segment 1: relation is \`none\`, and earlier paragraphs exist — it is the relation to the previous paragraph's last point (FORMAT "The paragraph unit", rule 5)` };
+  }
+  if (input.earlier_paragraphs.length && !wordsOf(r.what_it_does).has(r.segments[0].relation)) {
+    return { error: `${at}: \`what_it_does\` does not name Segment 1's relation to the previous paragraph, \`${r.segments[0].relation}\` — section 1 names that relation too (FORMAT "The paragraph unit", rule 5)` };
   }
   { const noun = nounIn(nouns, r.technique); if (noun) return { error: `${at}: \`technique\` names "${noun}", one of your subject_nouns — section 6 is subject-free` }; }
 
@@ -415,6 +427,12 @@ export function runExtractor(legPath, { out, passage = null, audience = null } =
     }
     writeJson(join(dir, "answer.json"), u.candidate);
     const file = join(outDir, `${u.candidate.name}.md`);
+    // NEVER OVER AN EARLIER FILE: an Extraction the owner has already reviewed carries no
+    // status line and nothing here could tell it from a draft.
+    if (existsSync(file)) {
+      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${paragraphs.length}: an Extraction named `
+        + `${u.candidate.name} already exists at ${file}, and nothing was written over it — the answer is in ${join(dir, "answer.json")}` };
+    }
     writeFileSync(file, extractionFileText(u.candidate, input, runRel));
     written.push(file);
     namesTaken.push(u.candidate.name);
