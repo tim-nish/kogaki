@@ -138,12 +138,15 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       why: refuse ? "JUDGE-SENTENCE the first paragraph waypoint never reaches the after state." : "they begin at before and end at after." })) });
   }
   const leg = body("leg_you_must_plan").leg_you_must_plan;
+  const planCounter = dir + "/plan-" + leg.leg_id;
+  const planN = (existsSync(planCounter) ? Number(readFileSync(planCounter, "utf8")) : 0) + 1;
+  writeFileSync(planCounter, String(planN));
   out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => {
     const nofit = mode === "nofit" && leg.leg_id === "s1" && w.waypoint === 2;
     const move = nofit ? null : mode === "broken" ? "p3" : mode === "technique" ? "p2" : mode === "segments3" ? "p4" : "p1";
     const pw = (n) => ({ point: "PW-" + leg.leg_id + "-" + w.waypoint + "-" + n + " the paragraph establishes its point.", serves: [...w.serves] });
     return { waypoint: w.waypoint, move,
-      why: nofit ? "NOFIT-SENTENCE no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
+      why: nofit ? "NOFIT-SENTENCE-" + planN + " no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
       paragraph_waypoints: nofit ? [] : mode === "segments3" ? [pw(1), pw(2), pw(3)] : [pw(1)] };
   }) });
 });
@@ -234,7 +237,12 @@ function runStage(name, ls, mode, movesDir = moves) {
   }
   const s1Plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"') && p.includes('"leg_id": "s1"'));
   if (s1Plans.length !== 3) fails.push(`(b) Leg s1 was not asked brief.unit_attempts (3) times: ${s1Plans.length}`);
-  if (s1Plans.length > 1 && !s1Plans[1].includes("NOFIT-SENTENCE")) fails.push("(b) the no_paragraph_move_fits refusal was not put into the next attempt's prompt");
+  if (s1Plans.length > 1 && !s1Plans[1].includes("NOFIT-SENTENCE-1")) fails.push("(b) the no_paragraph_move_fits refusal was not put into the next attempt's prompt");
+  // the shared supervisor's retry prompt carries every refusal so far, not only the last one (kogaki#1395)
+  if (s1Plans.length > 2 && !(s1Plans[2].includes("NOFIT-SENTENCE-1") && s1Plans[2].includes("NOFIT-SENTENCE-2")
+    && s1Plans[2].indexOf("NOFIT-SENTENCE-1") < s1Plans[2].indexOf("NOFIT-SENTENCE-2"))) {
+    fails.push("(b) the third attempt's prompt does not carry BOTH the first and second attempts' refusals, oldest first");
+  }
   if (existsSync(r.planPath)) fails.push("(b) a ParagraphPlan file was written for a stopped job");
   if (readFileSync(r.briefPath, "utf8") !== r.text) fails.push("(b) the Brief was rewritten by a stopped stage");
 }

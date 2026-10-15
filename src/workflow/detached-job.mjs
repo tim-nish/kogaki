@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync, appendFileSync, existsSync, openSync, closeSync, writeSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { JUDGE_INPUT_MARKER, JUDGE_REFUSAL_MARKER, JUDGE_REFUSAL_REPAIR_SENTENCE } from "./judge.mjs";
+import { JUDGE_INPUT_MARKER, judgeRefusalBlock } from "./judge.mjs";
 import { REPO, fail, readJson } from "./run-record.mjs";
 
 // ============ THE DETACHED JOB (kogaki#1193) ============
@@ -82,20 +82,16 @@ function readerPathUnitCandidatePath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.candidate.json`);
 }
 
-// THE RETRIED UNIT'S PROMPT (kogaki#1203): the first prompt, verbatim, plus
-// the SAME refusal block a synchronous judge's re-ask gets from `judgePrompt`
-// -- the marker, the refusal verbatim, `JUDGE_REFUSAL_REPAIR_SENTENCE` --
-// SPLICED IN BEFORE `JUDGE_INPUT_MARKER`, exactly where `judgePrompt` puts it
-// (PR #1207 review round 1): everything after that marker is the input file,
-// so a block appended past it would be read as input, which is the defect
-// #1203 diagnosed. The supervisor reads no table and no `st` -- the whole of
-// what it has for a unit is the first prompt `startDetachedJobSupervisor`
-// wrote into `reader-path-job-units.json` -- so it splices at the marker
-// rather than re-rendering; the result is byte-identical to `judgePrompt`'s
-// own re-ask over the same row and input. A prompt carrying no marker carries
-// no input to misread, and the block is appended.
-function readerPathUnitRetryPrompt(firstPrompt, refusal) {
-  const block = ["", JUDGE_REFUSAL_MARKER, refusal, "", JUDGE_REFUSAL_REPAIR_SENTENCE].join("\n");
+// THE RETRIED UNIT'S PROMPT (kogaki#1203; shares its renderer with `judgePrompt` as of
+// kogaki#1395): the first prompt, verbatim, with `judgeRefusalBlock`'s text for the unit's
+// WHOLE refusal history -- not only the last -- spliced in BEFORE `JUDGE_INPUT_MARKER`,
+// exactly where `judgePrompt` puts the same block (PR #1207 review round 1): a block past
+// that marker would be read as input, the #1203 defect. The supervisor reads no table and
+// no `st`, so it splices into the prompt `startDetachedJobSupervisor` wrote rather than
+// re-rendering; splicing the SAME renderer's text is what keeps the two byte-identical
+// (`checks/check-brief-reader-path-job.sh` assertion (k)).
+function readerPathUnitRetryPrompt(firstPrompt, refusals) {
+  const block = judgeRefusalBlock(refusals);
   const at = firstPrompt.indexOf(`\n${JUDGE_INPUT_MARKER}\n`);
   if (at < 0) return firstPrompt + "\n" + block;
   return firstPrompt.slice(0, at) + block + "\n" + firstPrompt.slice(at);
@@ -697,7 +693,7 @@ export async function cmdJobSupervise(args) {
           beginNextAttempt(st, endedAt);
           const composePath = readerPathUnitStdoutPath(dir, u.id);
           try { appendFileSync(composePath, `\n----- attempt ${st.attempts} -----\n`); } catch { /* best-effort */ }
-          st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), refusal);
+          st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), st.refusals);
           st.phase = "compose";
           st.composed = null;
           unitsRunning.set(u.id, spawnCompose(u, "a"));

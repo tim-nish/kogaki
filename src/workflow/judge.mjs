@@ -351,18 +351,29 @@ export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
 // marker, because the input marker's own contract is that everything after it
 // is the input file — a refusal appended past it would be read as input by any
 // reader keying on position, which is the one thing that marker promises.
-export const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
+const JUDGE_REFUSAL_MARKER = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
 
-// THE FIXED REPAIR SENTENCE, NAMED ONCE (kogaki#1203). `judgePrompt` below
-// puts it after a synchronous judge's own refusal; the reader-path unit's
-// retry prompt (`readerPathUnitRetryPrompt`) puts the SAME text after a
-// unit's structural refusal, from the supervisor process, which reads no
-// table. One exported string is what keeps the two ends of "the same refusal
-// block" — the synchronous judge's re-ask and a detached unit's re-ask — from
-// drifting into two different sentences one edit at a time.
-export const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly\n"
+// THE FIXED REPAIR SENTENCE, NAMED ONCE (kogaki#1203). Since kogaki#1395 it is
+// rendered only by `judgeRefusalBlock` below, which both the synchronous judge's
+// re-ask and the detached unit's retry (`readerPathUnitRetryPrompt`) call, so
+// neither the sentence nor the marker is exported any more: the one exported
+// renderer is what keeps the two ends of "the same refusal block" from drifting.
+const JUDGE_REFUSAL_REPAIR_SENTENCE = "That is the refusal your previous answer raised, verbatim. Answer again, repairing exactly\n"
   + "it. The input below is unchanged, so re-reading the material is not what is wanted -- the\n"
   + "shape of your record is.";
+
+// EVERY REFUSAL, OLDEST FIRST, UNDER ITS OWN ATTEMPT NUMBER (kogaki#1395): a single string is
+// read as a one-entry list, so no caller that passed the old shape changes. `judgePrompt`
+// below is this block's only renderer, and the detached job supervisor's retry prompt
+// (`readerPathUnitRetryPrompt`, `detached-job.mjs`) splices this SAME text rather than
+// re-rendering it, which is what keeps a unit's retry and a synchronous judge's own re-ask
+// byte-identical over the same row, input and refusals
+// (`checks/check-brief-reader-path-job.sh` assertion (k)).
+export function judgeRefusalBlock(refusals) {
+  const list = Array.isArray(refusals) ? refusals : [refusals];
+  return ["", ...list.flatMap((r, i) => [`${JUDGE_REFUSAL_MARKER} (attempt ${i + 1})`, r, ""]),
+    JUDGE_REFUSAL_REPAIR_SENTENCE].join("\n");
+}
 
 // THE FILLED RECORD EXAMPLE (kogaki#1059): built from the run's own composed input
 // (`composition_pin`, the composed group names), never a hand-written literal.
@@ -491,12 +502,8 @@ export function judgePrompt(st, inputText, input, lastRefusal) {
   L.push("");
   L.push("Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.");
   L.push("Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.");
-  if (lastRefusal) {
-    L.push("");
-    L.push(JUDGE_REFUSAL_MARKER);
-    L.push(lastRefusal);
-    L.push("");
-    L.push(JUDGE_REFUSAL_REPAIR_SENTENCE);
+  if (Array.isArray(lastRefusal) ? lastRefusal.length : lastRefusal) {
+    L.push(judgeRefusalBlock(lastRefusal));
   }
   L.push("");
   // THE MARKER IS PART OF THE CONTRACT, not decoration. Everything after it is
@@ -552,9 +559,10 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
   let attempts = 0;
   for (let attempt = 0; attempt <= retries; attempt++) {
     attempts += 1;
-    // THE ASK CARRIES THE PRIOR REFUSAL (kogaki#1059). Composed HERE, inside the
-    // loop, so attempt N+1 is a different ask from attempt N.
-    const prompt = judgePrompt(st, inputText, input, lastRefusal);
+    // THE ASK CARRIES EVERY PRIOR REFUSAL, OLDEST FIRST (kogaki#1059, widened by
+    // kogaki#1395). Composed HERE, inside the loop, so attempt N+1 is a different ask
+    // from attempt N and carries every refusal attempt N met, not only the last.
+    const prompt = judgePrompt(st, inputText, input, refusals);
     try {
       // ALL RESPONSE HANDLING IS INSIDE THE RETRY WINDOW (PR #1044; #1030 item 1).
       // `res.error` STAYS OUTSIDE IT: a command that could not be spawned is not re-asked.
