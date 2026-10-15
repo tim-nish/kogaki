@@ -1380,6 +1380,20 @@ sentence kogaki#1108 made it. When every unit is refused, the Brief ends with no
 question, its empty `theses/<slug>/` is removed, and the closing report names
 each Candidate's failing Legs and says the Brief was removed.
 
+**The fit pass asks one more question, at the marked Leg only** (kogaki#1330).
+Beside each Leg's Move-fit judgment, `reader_path_fit_unit` asks whether the
+Leg marked `reaches_target`'s `reader_state_after` holds the Thesis as a claim
+the reader can state in their own words — Thesis attainment is judged where
+the Reader target is reached (§5.1), never at the review of the finished
+Draft. The fit input carries the Thesis beside the Candidate, read from the
+Brief record (`readerPathFitInput`, `src/brief.mjs`). A marked Leg whose
+after-state does not hold the Thesis is `contradicts`, with a `why` naming the
+Thesis — the same schema refusal as above, re-asked with the refusal text
+until the unit's attempts are spent. Legs before the mark and closing Legs
+after it owe nothing on the Thesis, and this adds no rule about which Leg is
+last: the closing-Leg rules (`closing_leg_introduces_nothing`,
+`closing_leg_state_fixed`) and `readerTargetLegRefusal` are unchanged.
+
 **A job unit is bounded per call and per attempt count** (kogaki#1355, owner
 decision 2026-10-13, replacing kogaki#1273's one retry that fits). Two
 settings in `kogaki.settings.json` bound every unit of the compose job and of
@@ -2329,7 +2343,11 @@ as lists of maps, each reader state as a five-key map, `introduces` as a list
   `reader_target`, where it ends, **names the Leg marked `reaches_target`**
   (kogaki#1231), whose `reader_state_after` it is. Both land at **Candidate
   selection**. No Opening question is written: `opening_question` and
-  `reader_target` are retired Candidate fields, refused by name.
+  `reader_target` are retired Candidate fields, refused by name. **This is
+  the Leg Thesis attainment is judged at** (kogaki#1330, §4.12.2): the fit
+  pass asks, at this Leg alone, whether its `reader_state_after` holds the
+  Thesis as a claim the reader can state in their own words, never at the
+  review of the finished Draft.
   `reader_start` is a **stance**, not a knowledge state: §5.1.1 defines it.
 - **`thesis`** — read from Terrain (§3), never invented here.
 - **`defined_terms`** — the article's **Defined Terms** (kogaki#1331, owner
