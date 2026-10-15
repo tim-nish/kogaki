@@ -297,6 +297,11 @@ export function resumeLeg(runDir, { provenance }) {
   const record = { ...prior, stages: [] };
   delete record.stopped;
   delete record.finished_at;
+  // THE JUDGE BINARY IS RE-RESOLVED, NOT FROZEN FROM THE STOPPED ATTEMPT: a resume is a fresh
+  // process, and the point of resuming after a stop is that whatever stopped it can have been
+  // fixed in the environment since. `record.model_command` is overwritten with the newly
+  // resolved path, so the record keeps naming the binary the resumed run actually used.
+  record.model_command = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
   runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug: record.passage, realPath: record.model_command,
     audienceArgs: ["--audience", record.audience], priorStages });
   const sheet = join(runDir, "sheet.html");
