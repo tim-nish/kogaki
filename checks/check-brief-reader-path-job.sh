@@ -153,6 +153,16 @@ process.stdin.on("end", () => {
     }
     process.exit(0);
   }
+  // "RECORD_TWICE" (kogaki#1395): two DISTINCT refusals, by call count, then a
+  // well-formed record on the third call -- proving a retry carries every
+  // refusal so far, not only the last.
+  if (prompt.includes("RECORD_TWICE")) {
+    const n = nthCall("RECORD_TWICE");
+    if (n === 1) process.stdout.write(refusedRecord("the fixture's first refusal"));
+    else if (n === 2) process.stdout.write(refusedRecord("the fixture's second refusal"));
+    else process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "recorded-twice" }] }) }) + "\\n");
+    process.exit(0);
+  }
   if (prompt.startsWith("NO_LEGS_ONCE")) {
     if (nthCall("NO_LEGS_ONCE") === 1) { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ no_legs: true }) }) + "\\n"); process.exit(0); }
     process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "after-no-legs" }] }) }) + "\\n");
@@ -1011,6 +1021,27 @@ process.stdin.on("end", () => {
     }
     if (!realRetry.endsWith(`${JUDGE_INPUT_MARKER}\n${inputText}`)) {
       fails.push("(k) the retried unit prompt carries text after its input");
+    }
+    // TWO REFUSALS NOW RIDE INTO THE THIRD ATTEMPT, BOTH (kogaki#1395): a unit
+    // refused twice is asked a third time with `judgePrompt`'s OWN re-ask over
+    // the two-entry refusals list, byte-identical to the supervisor's third
+    // prompt -- not only the most recent refusal, the defect this Issue closed.
+    const input2 = { state: "compose_path", unit_number: 1, fixture: "RECORD_TWICE" };
+    const inputText2 = JSON.stringify(input2, null, 2);
+    const firstPrompt2 = judgePrompt(unitRow, inputText2, input2, null);
+    const dir2 = mkNewRun();
+    const promptsFile2 = join(dir2, "prompts.jsonl");
+    superviseSync(dir2, [{ id: "c1", prompt: firstPrompt2 }], { unitAttempts: 3, env: { KOGAKI_FAKE_JUDGE_PROMPTS: promptsFile2 } });
+    const sent2 = existsSync(promptsFile2)
+      ? readFileSync(promptsFile2, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+    const row2 = unitRowOf(readRecord(dir2), "c1");
+    const refusals2 = (row2 && row2.refusals) || [];
+    if (sent2.length !== 3 || refusals2.length !== 2) {
+      fails.push(`(k) a unit refused twice was not asked three times with two refusals recorded: ${JSON.stringify({ sent: sent2.length, refusals: refusals2 })}`);
+    }
+    const thirdExpected = NT(judgePrompt(unitRow, inputText2, input2, refusals2)).trim();
+    if ((sent2[2] || "") !== thirdExpected) {
+      fails.push("(k) the third retry prompt differs from judgePrompt's own re-ask over the two-entry refusals list");
     }
   }
 }
