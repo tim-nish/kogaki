@@ -41,7 +41,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, chmod
 import { join, resolve, basename, extname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import { resolveJudgeBinary } from "../workflow/judge.mjs";
+import { resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO } from "../workflow/run-record.mjs";
 import { legParagraphs, writeJson } from "./extract.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
@@ -122,6 +122,10 @@ function runCommand(stageDir, name, argv, env, log) {
   return rec;
 }
 
+function readJsonOr(path, dflt) {
+  try { return JSON.parse(readFileSync(path, "utf8")); } catch { return dflt; }
+}
+
 function stopLine(rec) {
   const said = `${rec.stdout}\n${rec.stderr}`.split("\n").map((l) => l.trim()).filter(Boolean);
   return `\`${rec.name}\` exited ${rec.exit === null ? "on a signal" : rec.exit}: ${said.slice(-3).join(" ") || rec.error || "(no output)"}`;
@@ -155,33 +159,31 @@ with open(os.path.join(out_dir, "ingest.json"), "w", encoding="utf-8") as h:
 sys.exit(1 if "refused" in result else 0)
 `;
 
-// RUN ONE LEG. Returns `{ runDir, stopped?, sheet }`.
-export function runLeg(legPath, { out, passage = null, audience = null, provenance }) {
-  let text;
-  try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
-  const paragraphs = legParagraphs(text);
-  if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to run`);
-  if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`);
-  const slug = passage || basename(legPath, extname(legPath)).replace(/\.passage$/, "");
-  const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
-  const runDir = join(resolve(out), `leg-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
-  mkdirSync(runDir, { recursive: true });
-  writeFileSync(join(runDir, "leg.md"), text);
-  writeFileSync(join(runDir, RECORDER_FILE), RECORDER_TEXT);
-  chmodSync(join(runDir, RECORDER_FILE), 0o755);
-  const audienceArgs = audience ? ["--audience", audience] : [];
-  const record = { leg: resolve(legPath), passage: slug, paragraphs: paragraphs.length, audience: audience || null,
-    model_command: realPath, started_at: new Date().toISOString(), stages: [] };
+// THE AUDIENCE, RESOLVED ONCE (kogaki#1396). The flag if given, the `brief.audience_file`
+// setting otherwise — resolved here and nowhere else, so every stage reads the one path the
+// run used and the sheet reads it back from the record rather than the live setting.
+function resolvedAudience(audience) {
+  return audience || String(settingValue({ setting: "brief.audience_file" }));
+}
+
+// THE STAGE ENGINE, shared by a fresh run and a resumed one. `priorStages`, a `Map` of stage
+// name to its previous `run.json` entry, is `null` for a fresh run. A stage already `done`
+// is kept as its own record and never re-entered; a stage short of that re-enters with its
+// stage directory's existing `command.json` as the log it appends to, so a resumed attempt
+// keeps the stopped one rather than replacing it.
+function runStages(runDir, record, { legFile, slug, realPath, audienceArgs, priorStages }) {
   const save = () => writeJson(join(runDir, RUN_FILE), record);
   const dirOf = (stage) => { const d = join(runDir, stage); mkdirSync(d, { recursive: true }); return d; };
   const stage = (name, body) => {
+    const prev = priorStages && priorStages.get(name);
+    if (prev && prev.state === "done") { record.stages.push(prev); save(); return prev; }
     if (record.stopped) { record.stages.push({ stage: name, state: "not run" }); save(); return null; }
     const d = dirOf(name);
-    const log = [];
+    const log = readJsonOr(join(d, "command.json"), []);
     // A STAGE THAT THROWS IS STILL A PLACED STOP: the throw is this stage's stop line, so the
     // stage list and the sheet name where the run ended rather than the run dying unrecorded.
     let r;
-    try { r = body(d, stageEnv(runDir, d, realPath), log); }
+    try { r = body(d, stageEnv(runDir, d, realPath), log, prev); }
     catch (e) { r = { stopped: `the stage threw: ${String(e && e.message || e).split("\n")[0]}` }; }
     record.stages.push({ stage: name, state: r.stopped ? "stopped" : "done", ...r });
     if (r.stopped) record.stopped = `${name}: ${r.stopped}`;
@@ -190,11 +192,13 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
   };
   save();
 
-  // 1. The Extractor, one job per paragraph.
-  const ex = stage("extract", (d, env, log) => {
-    const c = runCommand(d, "extract", [process.execPath, "src/proof-sheet/extract.mjs", "run", "--leg", join(runDir, "leg.md"),
-      "--out", d, "--passage", slug, ...audienceArgs], env, log);
-    const extractorRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || null;
+  // 1. The Extractor, one job per paragraph. Re-entered, it skips every paragraph it already
+  // wrote by naming its own earlier run directory with `--resume`.
+  const ex = stage("extract", (d, env, log, prev) => {
+    const resumeArgs = prev && prev.extractor_run ? ["--resume", prev.extractor_run] : [];
+    const c = runCommand(d, "extract", [process.execPath, "src/proof-sheet/extract.mjs", "run", "--leg", legFile,
+      "--out", d, "--passage", slug, ...audienceArgs, ...resumeArgs], env, log);
+    const extractorRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || (prev && prev.extractor_run) || null;
     if (c.exit !== 0) return { stopped: stopLine(c), extractor_run: extractorRun };
     if (!extractorRun) return { stopped: `\`extract\` exited 0 but printed no run directory: ${stopLine(c)}` };
     const written = JSON.parse(readFileSync(join(extractorRun, "extractions.json"), "utf8")).written;
@@ -221,7 +225,8 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
     return { brief: join(d, "brief.yaml"), leg_brief_run: legBriefRun };
   });
 
-  // 4. /paragraph-plan, unchanged, with the run's library and its own run directory.
+  // 4. /paragraph-plan, unchanged, with the run's library and its own run directory. Resumed
+  // whole rather than re-entered mid-job (kogaki#1396, out of scope).
   stage("paragraph-plan", (d, env, log) => {
     const job = join(d, "job");
     mkdirSync(job, { recursive: true });
@@ -239,7 +244,7 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
     return { stopped: `the ParagraphPlan job was still running after ${PLAN_AWAITS_MAX} awaits of ${PLAN_AWAIT_S}s`, job };
   });
 
-  // 5. /draft resolve, then section for the Brief's one Leg.
+  // 5. /draft resolve, then section for the Brief's one Leg. Resumed whole (out of scope).
   stage("draft", (d, env, log) => {
     const dr = (cmd, extra = []) => runCommand(d, `draft ${cmd}`, [process.execPath, "src/draft.mjs", cmd,
       "--brief", brief.brief, "--workspace", d, ...extra], env, log);
@@ -253,6 +258,52 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
 
   record.finished_at = new Date().toISOString();
   save();
+}
+
+// RUN ONE LEG. Returns `{ runDir, stopped?, sheet }`.
+export function runLeg(legPath, { out, passage = null, audience = null, provenance, resume = null }) {
+  if (resume) return resumeLeg(resume, { provenance });
+  let text;
+  try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
+  const paragraphs = legParagraphs(text);
+  if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to run`);
+  if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`);
+  const slug = passage || basename(legPath, extname(legPath)).replace(/\.passage$/, "");
+  const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
+  const runDir = join(resolve(out), `leg-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  mkdirSync(runDir, { recursive: true });
+  writeFileSync(join(runDir, "leg.md"), text);
+  writeFileSync(join(runDir, RECORDER_FILE), RECORDER_TEXT);
+  chmodSync(join(runDir, RECORDER_FILE), 0o755);
+  const audiencePath = resolvedAudience(audience);
+  const record = { leg: resolve(legPath), passage: slug, paragraphs: paragraphs.length, audience: audiencePath,
+    model_command: realPath, started_at: new Date().toISOString(), stages: [] };
+  runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug, realPath, audienceArgs: ["--audience", audiencePath], priorStages: null });
+  const sheet = join(runDir, "sheet.html");
+  const built = buildSheet({ runs: [runDir], provenance, out: sheet });
+  if (built.error) fail(`the sheet was not written: ${built.error}`);
+  return { runDir, sheet, ...(record.stopped ? { stopped: record.stopped } : {}) };
+}
+
+// RESUME ONE LEG RUN, re-entering at the first stage its own `run.json` does not record
+// `done` (kogaki#1396). Returns `{ runDir, stopped?, sheet }`.
+export function resumeLeg(runDir, { provenance }) {
+  runDir = resolve(runDir);
+  const runFile = join(runDir, RUN_FILE);
+  if (!existsSync(runFile)) fail(`${runDir} carries no ${RUN_FILE} — there is nothing to resume`);
+  if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was resumed.`);
+  const prior = JSON.parse(readFileSync(runFile, "utf8"));
+  const priorStages = new Map((prior.stages || []).map((s) => [s.stage, s]));
+  const record = { ...prior, stages: [] };
+  delete record.stopped;
+  delete record.finished_at;
+  // THE JUDGE BINARY IS RE-RESOLVED, NOT FROZEN FROM THE STOPPED ATTEMPT: a resume is a fresh
+  // process, and the point of resuming after a stop is that whatever stopped it can have been
+  // fixed in the environment since. `record.model_command` is overwritten with the newly
+  // resolved path, so the record keeps naming the binary the resumed run actually used.
+  record.model_command = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
+  runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug: record.passage, realPath: record.model_command,
+    audienceArgs: ["--audience", record.audience], priorStages });
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
   if (built.error) fail(`the sheet was not written: ${built.error}`);
@@ -276,11 +327,15 @@ function parseArgs(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
-  if (args._cmd !== "run" || !str("leg") || !str("out") || !str("provenance")) {
-    fail("usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> --out <dir> "
-      + "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>]");
+  const usage = "usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> --out <dir> "
+    + "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>] "
+    + "| node src/proof-sheet/leg-run.mjs run --resume <Leg run directory> --provenance <the provenance map>";
+  if (args._cmd !== "run" || !str("provenance") || (str("resume") ? (str("leg") || str("out")) : (!str("leg") || !str("out")))) {
+    fail(usage);
   }
-  const r = runLeg(str("leg"), { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance") });
+  const r = str("resume")
+    ? resumeLeg(str("resume"), { provenance: str("provenance") })
+    : runLeg(str("leg"), { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance") });
   console.log(`run directory: ${r.runDir}`);
   console.log(`sheet written: ${r.sheet}`);
   if (r.stopped) { console.log(`the run stopped at ${r.stopped}`); process.exitCode = 1; }

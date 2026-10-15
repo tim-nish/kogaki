@@ -385,7 +385,10 @@ export function lastRefusal(job) {
 
 // RUN THE EXTRACTOR over a Leg's paragraphs. Writes one Extraction per paragraph into `out`
 // and returns `{ written: [paths], runDir }`, or `{ stopped: line, written, runDir }`.
-export function runExtractor(legPath, { out, passage = null, audience = null } = {}) {
+// `resume`, an earlier `runDir` of this same Extractor, re-enters at the first paragraph that
+// carries no `answer.json` and no written Extraction, carrying the reader state the last
+// written Extraction left (kogaki#1396) — every earlier paragraph is skipped, not re-asked.
+export function runExtractor(legPath, { out, passage = null, audience = null, resume = null } = {}) {
   let text;
   try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
   const paragraphs = legParagraphs(text);
@@ -401,13 +404,27 @@ export function runExtractor(legPath, { out, passage = null, audience = null } =
   const model = String(settingValue(table.judge.model));
   const heartbeatMs = Number(table.job.heartbeat_ms) || READER_PATH_JOB_HEARTBEAT_MS;
   const outDir = resolve(out);
-  const runDir = join(outDir, `extractor-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  const runDir = resume ? resolve(resume) : join(outDir, `extractor-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });
   const runRel = relFromRepo(runDir, outDir);
   const written = [];
   let before = null;
   const namesTaken = [];
-  for (let i = 0; i < paragraphs.length; i++) {
+  let start = 0;
+  if (resume) {
+    for (let i = 0; i < paragraphs.length; i++) {
+      const dir = join(runDir, `p${i + 1}`);
+      let answer = null;
+      try { answer = JSON.parse(readFileSync(join(dir, "answer.json"), "utf8")); } catch { answer = null; }
+      const file = answer ? join(outDir, `${answer.name}.md`) : null;
+      if (!answer || !file || !existsSync(file)) break;
+      written.push(file);
+      namesTaken.push(answer.name);
+      before = carriedState(answer);
+      start = i + 1;
+    }
+  }
+  for (let i = start; i < paragraphs.length; i++) {
     const dir = join(runDir, `p${i + 1}`);
     mkdirSync(dir, { recursive: true });
     const input = extractionUnitInput({ passage: slug, paragraphs, index: i, before, namesTaken: [...namesTaken], persona });
@@ -462,10 +479,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = parseArgs(process.argv.slice(2));
   if (args._cmd !== "run" || typeof args.leg !== "string" || typeof args.out !== "string") {
     fail("usage: node src/proof-sheet/extract.mjs run --leg <file of the Leg's paragraphs, blank-line separated> --out <dir> "
-      + "[--passage <slug>] [--audience <audiences/<name>.md>]");
+      + "[--passage <slug>] [--audience <audiences/<name>.md>] [--resume <earlier Extractor run directory>]");
   }
   const r = runExtractor(args.leg, { out: args.out, passage: typeof args.passage === "string" ? args.passage : null,
-    audience: typeof args.audience === "string" ? args.audience : null });
+    audience: typeof args.audience === "string" ? args.audience : null, resume: typeof args.resume === "string" ? args.resume : null });
   for (const f of r.written) console.log(`Extraction written: ${f}`);
   console.log(`run directory: ${r.runDir}`);
   if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }

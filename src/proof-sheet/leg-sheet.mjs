@@ -166,9 +166,14 @@ function segmentCount(moveText) { return moveSegments(moveText).length; }
 // TIER 1 -- the shared section: what the stages were given, none of what they produced.
 function sharedTier(r, { provenance, mapHash }) {
   const out = [];
-  const audiencePath = resolve(REPO, r.run.audience || String(settingValue({ setting: "brief.audience_file" })));
-  const audience = read(audiencePath);
-  out.push(["audience", { artifact: relative(REPO, audiencePath), hashOf: audience, body: pre(audience || "(cannot be read)") }, "cell"]);
+  // THE AUDIENCE READS FROM THE RECORD ALONE (kogaki#1396): `run.json`'s own `audience` is
+  // the path the run resolved and used, once, at its start. A record without it (an older
+  // run, from before the run named the path it used) shows the cell as unreadable rather
+  // than resolving a substitute from the live setting, which could have moved since.
+  const audienceRel = r.run.audience || null;
+  const audiencePath = audienceRel ? resolve(REPO, audienceRel) : null;
+  const audience = audiencePath ? read(audiencePath) : null;
+  out.push(["audience", { artifact: audienceRel || "(unreadable: the run record names no audience)", hashOf: audience, body: pre(audience || "(cannot be read)") }, "cell"]);
 
   const readerStartMarker = "`leg_reader_start_unit` judgment point";
   const legPathMarker = "`leg_path_unit` judgment point";
