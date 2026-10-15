@@ -1595,6 +1595,19 @@ exemplar fails worst — read as content rather than as form, it hands this
 article another article's subject matter — so its header says so in the
 imperative.
 
+**The Writer is spawned with no tools** (kogaki#1383, owner decision
+2026-10-15), so that the Packet's standing as the model's entire input is
+enforced by the spawn and not only by instruction. `callWriter` runs it with
+the same five hardening arguments `src/workflow/detached-job.mjs` already
+spawns the ParagraphPlan and Brief job units with — `--tools ""
+--disable-slash-commands --strict-mcp-config --setting-sources ""
+--no-session-persistence` — beside `--model` and `--output-format`. A
+session with its default tools, run from the repository root, could open the
+Brief, the Move library or, in a Proof Sheet run, the Extraction holding the
+original paragraph; removing the reach is what makes that unreadable rather
+than merely undocumented. The Packet stays the Writer's whole input; nothing
+is added to it.
+
 **Block order is fixed**, heavy prose late and the instruction last: global
 anchors → **the Leg's waypoints** → the Leg's fields → the §4.13 ledger → **this
 Leg's own §5.2 Closure rows** → every previously realized Leg's prose in

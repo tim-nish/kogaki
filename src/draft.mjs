@@ -691,7 +691,9 @@ function callWriter({ settings, act, legId, input, refuse }) {
   const refused = [];
   for (let n = 1; n <= attempts; n++) {
     const r = spawnSync(settings.binary.path,
-      ["-p", "--model", settings.model, "--output-format", settings.output_format],
+      ["-p", "--model", settings.model, "--output-format", settings.output_format,
+        "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
+        "--setting-sources", "", "--no-session-persistence"],
       { input, encoding: "utf8", timeout: 1000 * settings.timeout_s, maxBuffer: 64 * 1024 * 1024 });
     if (r.error) {
       fail(`leg ${legId}: the writer (${settings.binary.path}) could not be run for \`${act}\` (${r.error.code || "spawn failed"}: ${r.error.message}) — attempt ${n} of ${attempts}`);
