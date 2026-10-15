@@ -186,21 +186,56 @@ else {
   ok(seen.filter((s) => s.stage === "writer").every((s) => s.prompt === packet), "(c) the model binary was handed something other than the Packet");
   ok(w.length && w[0].argv.includes("--tools") && w[0].argv[w[0].argv.indexOf("--tools") + 1] === "", "(c) the Writer was not called with --tools \"\"");
 
-  // (e) the sheet
+  // (e) the sheet: three tiers (shared, the Leg card, one card per paragraph) -- every
+  // assertion below reads inside the tier or paragraph card a cell belongs to, not a bare
+  // substring search over the whole page (the consult receipt on the Issue: the property is
+  // per card).
   const html = readOr(join(runDir, "sheet.html"), "");
   ok((html.match(/<section class="card">/g) || []).length === 1, "(e) the sheet does not carry one card");
-  const top = html.slice(html.indexOf('<table class="pair">'), html.indexOf("</table>", html.indexOf('<table class="pair">')));
-  const rows = top.split("<tr><th>").slice(2);
-  ok(rows.length === 3 && rows.every((row, i) => row.includes(PARAS[i]) && row.includes(WRITTEN[i])),
-    `(e) the top does not pair original paragraph N with written paragraph N: ${rows.length} row(s)`);
-  for (const name of Object.values(S.SHEET_CELLS)) {
-    ok(html.includes(`<b>${name}`) || (["Original Leg", "Written Leg"].includes(name) && top.includes(name)), `(e) the sheet draws no "${name}" cell`);
-    ok(html.includes(`provenance row: <code>| ${name} | fixture artifact |`) || (["Original Leg", "Written Leg"].includes(name) && top.includes(`provenance row: ${name}`)), `(e) the "${name}" cell prints no provenance row`);
+  ok(/<details class="tier"><summary>Shared/.test(html), "(e) the shared tier is missing, or opens by default");
+  ok(/<details class="tier leg" open><summary>Leg card<\/summary>/.test(html), "(e) the Leg card tier is missing, or does not open by default");
+  for (let i = 1; i <= 3; i++) {
+    ok(new RegExp(`<details class="card para"><summary>Paragraph ${i}</summary>`).test(html), `(e) paragraph ${i}'s card is missing, or opens by default`);
   }
+
+  const sliceBetween = (a, b) => html.slice(html.indexOf(a), b ? html.indexOf(b) : undefined);
+  const sharedHtml = sliceBetween('<details class="tier"><summary>Shared', '<details class="tier leg"');
+  const legHtml = sliceBetween('<details class="tier leg"', '<details class="card para"><summary>Paragraph 1');
+  const paraStarts = [1, 2, 3].map((i) => html.indexOf(`<details class="card para"><summary>Paragraph ${i}</summary>`));
+  const paraHtmls = paraStarts.map((s, i) => html.slice(s, i + 1 < paraStarts.length ? paraStarts[i + 1] : undefined));
+
+  const TIER1 = ["audience", "extractorPrompt", "readerStartPrompt", "legPathPrompt", "generatorPrompt", "judgePrompt", "writerPrompt", "settings", "run"];
+  const TIER2 = ["original", "written", "brief", "readerStart", "legPath", "generator", "judge", "plan", "packet", "writer"];
+  const TIER3 = ["passage", "extraction", "move", "waypoint", "paragraphWaypoints"];
+  const checkCell = (slice, key, where) => {
+    const name = S.SHEET_CELLS[key];
+    ok(slice.includes(`<b>${name}`) || (["Original Leg", "Written Leg"].includes(name) && slice.includes(name)), `(e) ${where} draws no "${name}" cell`);
+    ok(slice.includes(`provenance row: <code>| ${name} | fixture artifact |`) || (["Original Leg", "Written Leg"].includes(name) && slice.includes(`provenance row: ${name}`)), `(e) ${where}'s "${name}" cell prints no provenance row`);
+  };
+  for (const key of TIER1) checkCell(sharedHtml, key, "the shared tier");
+  for (const key of TIER2) checkCell(legHtml, key, "the Leg card");
+  for (let i = 0; i < 3; i++) for (const key of TIER3) checkCell(paraHtmls[i], key, `paragraph ${i + 1}'s card`);
+
   ok(!/sha none<\/span><\/summary><p class="prov">provenance row: <code>\| (Extraction|Move|Packet|Writer) /.test(html), "(e) a cell of a finished stage shows no content hash");
-  const ex1 = html.slice(html.indexOf("<b>Extraction — paragraph 1"), html.indexOf("<b>Extraction — paragraph 2"));
-  ok(ex1.includes("prompt as rendered") && ex1.includes("attempts — 2") && ex1.includes("call 2 of 2"), "(e) the paragraph 1 Extraction cell does not show its prompt and both attempts");
-  ok(html.includes("Every recorded Writer call's prompt is the Packet, byte for byte, and nothing else."), "(e) the Writer cell does not state its prompt is the Packet");
+
+  const legTop = legHtml.slice(legHtml.indexOf('<table class="pair">'), legHtml.indexOf("</table>", legHtml.indexOf('<table class="pair">')));
+  const legRows = legTop.split("<tr><th>").slice(2);
+  ok(legRows.length === 3 && legRows.every((row, i) => row.includes(PARAS[i]) && row.includes(WRITTEN[i])),
+    `(e) the Leg card's top does not pair original paragraph N with written paragraph N: ${legRows.length} row(s)`);
+  for (let i = 0; i < 3; i++) {
+    const pTop = paraHtmls[i].slice(paraHtmls[i].indexOf('<table class="pair">'), paraHtmls[i].indexOf("</table>", paraHtmls[i].indexOf('<table class="pair">')));
+    ok(pTop.includes(PARAS[i]) && pTop.includes(WRITTEN[i]), `(e) paragraph ${i + 1}'s own top does not pair its original and written paragraph`);
+  }
+
+  ok(sharedHtml.includes("<b>Extractor, prompt as rendered") && sharedHtml.includes("prompt as rendered") && sharedHtml.includes("instruction"),
+    "(e) the shared tier's Extractor prompt cell does not show the prompt as rendered");
+  ok(sharedHtml.includes("attempt bound (brief.unit_attempts)") && sharedHtml.includes("call limit, seconds (brief.call_limit_s)") && sharedHtml.includes("audience file (brief.audience_file)"),
+    "(e) the shared tier's settings cell does not show the settings the stages read");
+
+  const ex1 = paraHtmls[0].slice(paraHtmls[0].indexOf("<b>Extraction"), paraHtmls[0].indexOf("<b>Move"));
+  ok(!ex1.includes("prompt as rendered") && ex1.includes("attempts — 2") && ex1.includes("call 2 of 2"),
+    "(e) paragraph 1's Extraction cell shows its prompt, or does not show both attempts");
+  ok(legHtml.includes("Every recorded Writer call's prompt is the Packet, byte for byte, and nothing else."), "(e) the Writer cell does not state its prompt is the Packet");
 
   // (f) the map gates; a stopped Draft still draws
   const short = join(root, "PROVENANCE-short.md");
