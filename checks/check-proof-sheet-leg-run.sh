@@ -191,7 +191,7 @@ else {
   ok((html.match(/<section class="card">/g) || []).length === 1, "(e) the sheet does not carry one card");
   const top = html.slice(html.indexOf('<table class="pair">'), html.indexOf("</table>", html.indexOf('<table class="pair">')));
   const rows = top.split("<tr><th>").slice(2);
-  ok(rows.length === 3 && rows.every((row, i) => row.includes(PARAS[i].replace(/'/g, "'")) && row.includes(WRITTEN[i])),
+  ok(rows.length === 3 && rows.every((row, i) => row.includes(PARAS[i]) && row.includes(WRITTEN[i])),
     `(e) the top does not pair original paragraph N with written paragraph N: ${rows.length} row(s)`);
   for (const name of Object.values(S.SHEET_CELLS)) {
     ok(html.includes(`<b>${name}`) || (["Original Leg", "Written Leg"].includes(name) && top.includes(name)), `(e) the sheet draws no "${name}" cell`);

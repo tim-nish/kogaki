@@ -178,7 +178,11 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
     if (record.stopped) { record.stages.push({ stage: name, state: "not run" }); save(); return null; }
     const d = dirOf(name);
     const log = [];
-    const r = body(d, stageEnv(runDir, d, realPath), log);
+    // A STAGE THAT THROWS IS STILL A PLACED STOP: the throw is this stage's stop line, so the
+    // stage list and the sheet name where the run ended rather than the run dying unrecorded.
+    let r;
+    try { r = body(d, stageEnv(runDir, d, realPath), log); }
+    catch (e) { r = { stopped: `the stage threw: ${String(e && e.message || e).split("\n")[0]}` }; }
     record.stages.push({ stage: name, state: r.stopped ? "stopped" : "done", ...r });
     if (r.stopped) record.stopped = `${name}: ${r.stopped}`;
     save();
@@ -192,6 +196,7 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
       "--out", d, "--passage", slug, ...audienceArgs], env, log);
     const extractorRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || null;
     if (c.exit !== 0) return { stopped: stopLine(c), extractor_run: extractorRun };
+    if (!extractorRun) return { stopped: `\`extract\` exited 0 but printed no run directory: ${stopLine(c)}` };
     const written = JSON.parse(readFileSync(join(extractorRun, "extractions.json"), "utf8")).written;
     return { extractor_run: extractorRun, extractions: written };
   });
@@ -212,7 +217,7 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
     const c = runCommand(d, "leg-brief", [process.execPath, "src/proof-sheet/leg-brief.mjs", "run", "--extractions", ex.extractor_run,
       "--out", d, "--slug", slug, ...audienceArgs], env, log);
     const legBriefRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || null;
-    if (c.exit !== 0) return { stopped: stopLine(c), leg_brief_run: legBriefRun };
+    if (c.exit !== 0 || !legBriefRun) return { stopped: stopLine(c), leg_brief_run: legBriefRun };
     return { brief: join(d, "brief.yaml"), leg_brief_run: legBriefRun };
   });
 
