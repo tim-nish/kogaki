@@ -821,6 +821,22 @@
         "efficacy": "case: checks/check-move-roles.sh::a Move record missing `before` is refused, naming the field",
         "efficacy_note": "NOT MUTATION-TESTED at this admission act, for the same reason runtime_ms_note gives: executing this check by id is outside this cell's licensed act list, and the repository's `--only` runner gap blocks it independent of licensing. Reasoned rather than measured: the named case constructs the defect directly -- a fixture Move record carrying `after`, `technique` and `breaks` but no `before` -- and asserts `moveContract`'s returned `error` string names both the missing field and the record's id. Deleting the `missing.length` refusal arm in `moveContract` (src/compose.mjs) would let this fixture's record compose with `before: undefined` rather than refuse, turning only this case red: the Acceptance-1 structural case asserts a different function (`moveRoles`) and the Acceptance-4 rename case asserts a record that DOES carry every required field, so neither rides on the same arm. Owed at the next admission act able to execute the member: re-run with the refusal arm commented out and record the actual result in place of this note."
       }
+    },
+    {
+      "id": "proof-sheet-leg-brief",
+      "file": "checks/check-proof-sheet-leg-brief.sh",
+      "covers": ["src/proof-sheet/leg-brief.mjs", "src/proof-sheet/extraction-workflow.json", "src/proof-sheet/extract.mjs", "src/brief-workflow.json", "src/compose.mjs", "src/paragraph-plan.mjs", "src/draft.mjs"],
+      "admission": {
+        "contract": "The Leg Brief composer writes, from the Extractions of one original Leg, a Brief /paragraph-plan and /draft accept unedited, through two rows derived from the production rows they copy (kogaki#1385, owner decision 2026-10-15). Driven end to end through `node src/proof-sheet/leg-brief.mjs run` over a three-paragraph Leg, a fixture Extractor run directory and a fake judge binary: `brief.yaml` carries one Leg with three Leg Waypoints and three Claims, its Reader start and after-state as five-key maps, and every constant field marked; /paragraph-plan's `readAdoptedBrief` accepts it and `node src/draft.mjs resolve` accepts it with a plan written beside it by the ParagraphPlan stage's own writer, neither file edited; the run directory holds per row the prompt as rendered, the answer and the attempt count with every refusal, and the Reader start's refused first answer is put verbatim into the second attempt; each rendered prompt carries its row's judgment point derived from the production row with only the declared substitutions, `leg-brief.mjs diff` applies both rows cleanly, and a substitution naming a span production no longer carries refuses naming it; every call runs with `--tools \"\"`; and the validators refuse by name a Leg carrying `move`, a Leg Waypoint count other than the paragraph count, Claim N not naming L<N>, a Leg Waypoint carrying `effect` (production `waypointsRefusal`), a `reader_state_after` not in dimension lines (production `validateLegs`) and a malformed Reader start (production `readerStateShapeRefusal`).",
+        "license": "kogaki#1385",
+        "tier": "pre-push",
+        "runtime_ms": 33000,
+        "runtime_ms_note": "measured at authoring: about 32 s, almost all of it the shared supervisor's 10 s heartbeat across two sequential fixture jobs, one of them running two attempts; the fake judge answers at once.",
+        "efficacy": "case: checks/check-proof-sheet-leg-brief.sh::(b) /draft resolve refused the Brief",
+        "efficacy_note": "mutation-verified at authoring: dropping `bridged` from the constant fields `constantFields` writes failed (a) and both halves of (b) with the parser's own refusal (`carries no `bridged``) -- the named defect, a Brief /paragraph-plan and /draft cannot read unedited, constructed rather than a neighbour. Separately, deriving the row from the production text without applying the substitutions failed (d) on every substituted span.",
+        "removal_signal": "a ruling retires the Proof Sheet's Leg Brief composer, or lets the production composer compose from an original Leg -- either way the rows this check drives are gone",
+        "removal_instrument": "probe: ! test -f src/proof-sheet/leg-brief.mjs"
+      }
     }
   ]
 }

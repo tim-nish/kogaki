@@ -339,7 +339,7 @@ export function extractionFileText(record, input, runRel) {
 // ---------------------------------------------------------------------------
 // THE RUN.
 
-function writeJson(path, doc) {
+export function writeJson(path, doc) {
   const tmp = `${path}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`);
   renameSync(tmp, path);
@@ -360,8 +360,10 @@ function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-// Wait on one paragraph's job until it is no longer running. Returns the job record.
-function awaitJob(dir, heartbeatMs) {
+// Wait on one job until it is no longer running. Returns the job record. Exported for the
+// Leg Brief composer (src/proof-sheet/leg-brief.mjs, kogaki#1385), which runs its two rows
+// on the same supervisor.
+export function awaitJob(dir, heartbeatMs) {
   for (;;) {
     const job = readReaderPathJob(dir);
     if (job && job.state !== "running") return job;
@@ -375,7 +377,7 @@ function awaitJob(dir, heartbeatMs) {
   }
 }
 
-function lastRefusal(job) {
+export function lastRefusal(job) {
   const u = (job.units || [])[0] || {};
   if (Array.isArray(u.refusals) && u.refusals.length) return u.refusals[u.refusals.length - 1];
   return (u.failure && (u.failure.result || u.failure.stderr_tail)) || (job.failure && job.failure.note) || u.status || job.state;
