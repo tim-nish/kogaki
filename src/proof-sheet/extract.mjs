@@ -36,7 +36,9 @@
 // `src/SPEC-REFERENCES.md`. It is not restated here.
 //
 // THE NAMES THIS FILE USES, and the spec each one names:
-//   The paragraph unit, The Extraction
+//   The paragraph unit
+//       passages/FORMAT.md
+//   The Extraction
 //       passages/FORMAT.md
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
