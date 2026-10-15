@@ -2221,13 +2221,14 @@ supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
 1. `paragraph_plan_unit` binds one paragraph Move from `moves/` to each Leg
    Waypoint — its `before` against the state the reader is in when the Leg
    Waypoint begins, its `after` toward the next Leg Waypoint's point, with that
-   point in view — and generates each Leg Waypoint's Paragraph Waypoints from
-   four inputs: the Leg Waypoint, the Claims its `serves` names (the input that
-   takes the place of Claims at the paragraph level), the bound Move's
-   Segments, or its `technique` where the Move carries no Segments, and the
-   Audience's `persona`. The order is the Leg composer's own rule (§4.1):
-   built from the Move's Segments where it carries them, and from its
-   `technique` until it does. A Leg Waypoint no Move fits refuses the unit as
+   point in view — and generates the Paragraph Waypoints of the one paragraph
+   carrying that Leg Waypoint: one per Segment of the bound Move, in the
+   Move's order, or, where the Move carries no Segments, the points its
+   `technique` gives — the Leg composer's own rule (§4.1) — from four inputs
+   and nothing else: the Leg Waypoint, the Claims its `serves` names (the
+   input that takes the place of Claims at the paragraph level), the bound
+   Move's Segments or `technique`, and the Audience's `persona`. A Leg
+   Waypoint no Move fits refuses the unit as
    `no_paragraph_move_fits`, naming the Leg and the Waypoint; there is no
    fallback paragraph shape.
 2. `paragraph_plan_judge_unit` judges the generated Paragraph Waypoints against
@@ -2251,11 +2252,16 @@ composed again. **A bound paragraph Move that does not fill a role the stage
 needs (`before`, `after`, `breaks`, and neither `segments` nor `technique`) is
 a fatal stop naming the Move and the role**, never a default.
 
-**A Paragraph Waypoint has the shape of a Leg Waypoint**: `point`, the
-proposition its paragraph makes, and `serves`, the Strand ids of Claims its
-parent Leg Waypoint serves. Their number is not fixed and follows the Leg
-Waypoints' rule (§4.1): every Claim the parent serves is served by at least
-one of them, and a Segment is not a paragraph.
+**A Leg Waypoint is one paragraph, and a Paragraph Waypoint is one Segment of
+the bound Move.** These are different kinds of Waypoints and the two rules
+carry no contradiction: the Leg Waypoint's own rule (§4.1) concerns its
+output into paragraphs, one per Leg Waypoint; the Paragraph Waypoint's rule
+concerns its input from the Move's Segments. A Paragraph Waypoint has the
+shape of a Leg Waypoint: `point`, the proposition its paragraph makes, and
+`serves`, the Strand ids of Claims its parent Leg Waypoint serves. It writes
+one Paragraph Waypoint per Segment of the bound Move, in the Move's order,
+or, where the Move carries no Segments, the points its `technique` gives;
+every Claim the parent serves is served by at least one of them.
 
 **The ParagraphPlan file.** `theses/<slug>/paragraph-plan.yaml`, beside the
 Brief, one YAML record: `version`; `brief`, the `path` and `sha256` of the

@@ -31,6 +31,10 @@
 #   (f) a bound Move carrying `technique` and no `segments` plans and judges
 #       the same as one carrying `segments` -- the fallback kogaki#1378 gives
 #       the Leg composer's own rule (§4.1), never a stop.
+#   (g) a bound Move carrying three `segments` yields a plan record with
+#       three Paragraph Waypoints under its Leg Waypoint, and the rendered
+#       Packet carries the three indented lines under the one point, under the
+#       revised header (kogaki#1381).
 #
 # NOT COVERED, stated rather than implied: the `--tools ""` minimal environment
 # and the call-limit stop are the shared supervisor's, held by
@@ -53,6 +57,8 @@ const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS } =
   await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
+const { parseYaml } = await import(pathToFileURL(join(repo, "src", "yaml.mjs")).href);
+const { waypointLines } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-"));
 
@@ -65,6 +71,11 @@ writeFileSync(join(moves, "p1.md"), ["id: p1", "technique: >-", "  makes one poi
   "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if the point is dropped.", "segments: |-", `  ${PSEG}`, ""].join("\n"));
 writeFileSync(join(moves, "p2.md"), ["id: p2", "technique: >-", "  names a case and leaves it.", "before: >-", "  knowledge: before.",
   "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if the case is never named.", ""].join("\n"));
+const PSEG3 = ["1. opens — contrast — sets up the point.", "2. settles — elaboration — makes the point.",
+  "3. closes — consequence — leaves the point."];
+writeFileSync(join(moves, "p4.md"), ["id: p4", "technique: >-", "  should not be read -- segments present.", "before: >-",
+  "  knowledge: before.", "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if a segment is dropped.",
+  "segments: |-", ...PSEG3.map((s) => `  ${s}`), ""].join("\n"));
 
 // ---- an isolated Move library for (c): its own ROLES.json leaves `specialized-by-the-Leg`
 // unmapped, the way `segments` already goes unmapped where a schema has nothing for it, so a
@@ -128,9 +139,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const leg = body("leg_you_must_plan").leg_you_must_plan;
   out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => {
     const nofit = mode === "nofit" && leg.leg_id === "s1" && w.waypoint === 2;
-    return { waypoint: w.waypoint, move: nofit ? null : mode === "broken" ? "p3" : mode === "technique" ? "p2" : "p1",
+    const move = nofit ? null : mode === "broken" ? "p3" : mode === "technique" ? "p2" : mode === "segments3" ? "p4" : "p1";
+    const pw = (n) => ({ point: "PW-" + leg.leg_id + "-" + w.waypoint + "-" + n + " the paragraph establishes its point.", serves: [...w.serves] });
+    return { waypoint: w.waypoint, move,
       why: nofit ? "NOFIT-SENTENCE no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
-      paragraph_waypoints: nofit ? [] : [{ point: "PW-" + leg.leg_id + "-" + w.waypoint + " the paragraph establishes its point.", serves: [...w.serves] }] };
+      paragraph_waypoints: nofit ? [] : mode === "segments3" ? [pw(1), pw(2), pw(3)] : [pw(1)] };
   }) });
 });
 `);
@@ -255,6 +268,40 @@ function runStage(name, ls, mode, movesDir = moves) {
   }
 }
 
+// (g) a bound Move carrying three `segments` yields three Paragraph Waypoints under its Leg
+// Waypoint, and the rendered Packet carries the three indented lines under the one point,
+// under the revised header (kogaki#1381).
+{
+  const r = runStage("segments3", legs, "segments3");
+  if (r.started.status !== 0) fails.push(`(g) start failed: ${(r.started.stderr || "").slice(0, 400)}`);
+  else if (!r.awaited || r.awaited.status !== 0) fails.push(`(g) await did not finish the job: ${(r.awaited && (r.awaited.stdout + r.awaited.stderr) || "").slice(0, 600)}`);
+  let planLegWp = null;
+  if (!existsSync(r.planPath)) fails.push("(g) no ParagraphPlan file was written for a Move carrying three segments");
+  else {
+    const record = parseYaml(readFileSync(r.planPath, "utf8"), r.planPath);
+    planLegWp = record.legs.find((l) => l.leg_id === "s1").waypoints[0];
+    if (!Array.isArray(planLegWp.paragraph_waypoints) || planLegWp.paragraph_waypoints.length !== 3) {
+      fails.push(`(g) the ParagraphPlan file does not carry three Paragraph Waypoints under s1's first Leg Waypoint: ${JSON.stringify(planLegWp)}`);
+    }
+    for (const n of [1, 2, 3]) if (!readFileSync(r.planPath, "utf8").includes(`PW-s1-1-${n}`)) fails.push(`(g) the ParagraphPlan file lacks Paragraph Waypoint ${n} of s1's first Leg Waypoint`);
+  }
+  if (planLegWp) {
+    const s1 = legs.find((l) => l.leg_id === "s1");
+    const renderLeg = { claims: s1.claims, waypoints: [{ ...s1.waypoints[0], paragraph_waypoints: planLegWp.paragraph_waypoints }] };
+    const rendered = waypointLines(renderLeg);
+    const indented = (rendered || "").split("\n").filter((l) => l.startsWith("   "));
+    if (indented.length !== 3) fails.push(`(g) the rendered Packet waypoints block does not carry three indented lines under the one point: ${JSON.stringify(rendered)}`);
+    for (const n of [1, 2, 3]) if (!(rendered || "").includes(`PW-s1-1-${n}`)) fails.push(`(g) the rendered Packet waypoints block lacks Paragraph Waypoint ${n}`);
+  }
+  const header = readFileSync("src/packet-template.md", "utf8");
+  if (!header.includes("they are not one sentence each") || !header.includes("as many sentences as it needs")) {
+    fails.push("(g) src/packet-template.md's waypoints header does not state the revised rule");
+  }
+  if (header.includes("One paragraph per indented line is the expected shape")) {
+    fails.push("(g) src/packet-template.md's waypoints header still carries the retired one-sentence-per-line rule");
+  }
+}
+
 // (d) a Brief whose Leg Waypoint carries move or segments is refused at start, by name.
 for (const k of ["move", "segments"]) {
   const bad = legs.map((l) => ({ ...l }));
@@ -292,5 +339,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments and breaks and the judge call carries all five roles; a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a bound Move filling neither segments nor technique stops naming the Move, each with the Brief unchanged and no file written; a Move carrying technique and no segments plans and judges the same as one carrying segments; a Leg Waypoint carrying move or segments is refused at start by name; the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments and breaks and the judge call carries all five roles; a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a bound Move filling neither segments nor technique stops naming the Move, each with the Brief unchanged and no file written; a Move carrying technique and no segments plans and judges the same as one carrying segments; a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Leg Waypoint carrying move or segments is refused at start by name; the skill names only entry points the Harness has.");
 JS

@@ -92,9 +92,10 @@ nothing of the Move itself. No Move file is opened here.
 ## The waypoints this Leg takes the reader through
 
 Each numbered line below is a point this Leg makes, in order, and the claim
-it serves. Under it, the indented numbered lines are the paragraphs that make
-that point, in order: each is the point one paragraph makes, and the claim it
-serves. One paragraph per indented line is the expected shape.
+it serves — one paragraph, carrying that point. Under it, the indented
+numbered lines are the points that paragraph makes, in order, each with the
+claim it serves: they are not one sentence each, and the paragraph expresses
+them in as many sentences as it needs.
 The point is not quoted: its wording is yours, and no line here is copied or
 announced to the reader.
 
