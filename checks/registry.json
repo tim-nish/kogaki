@@ -727,6 +727,22 @@
       }
     },
     {
+      "id": "proof-sheet-extract",
+      "file": "checks/check-proof-sheet-extract.sh",
+      "covers": ["src/proof-sheet/extract.mjs", "src/proof-sheet/extraction-workflow.json", "passages/FORMAT.md", "tools/move_ingest.py"],
+      "admission": {
+        "contract": "The Extractor writes each paragraph's Extraction from a fixed row on the shared supervisor, with a run record (kogaki#1384, owner decision 2026-10-15). Driven end to end through `node src/proof-sheet/extract.mjs run` over a two-paragraph Leg and a fake judge binary: one Extraction per paragraph is written in FORMAT's paragraph-unit layout, with the status line naming the run, the `unit:` line, and one section 3 entry per sentence carrying both the content clause and `— generalized:`; `tools/move_ingest.py`'s `derive_from_extraction` admits both files unedited; the run directory holds per paragraph the prompt as rendered (the `extraction_unit` row through `judgePrompt`, FORMAT verbatim above the input marker), the answer and the attempt count with every refusal, and a refused first answer's refusal is put verbatim into the second attempt; every call runs with `--tools \"\"`; paragraph 2 is handed and carries paragraph 1's reader state in its before column; and the validator refuses a drafted before, a Segment count other than the sentence count, and a generalized clause naming a subject noun.",
+        "license": "kogaki#1384",
+        "tier": "pre-push",
+        "runtime_ms": 33000,
+        "runtime_ms_note": "measured at authoring: about 32 s, almost all of it the shared supervisor's 10 s heartbeat across two sequential fixture jobs, one of them running two attempts; the fake judge answers at once.",
+        "efficacy": "case: checks/check-proof-sheet-extract.sh::(b) the ingest refused an Extraction",
+        "efficacy_note": "mutation-verified at authoring: removing the ` — generalized: <clause>` half from the section 3 line `extractionFileText` renders failed (a) on both files and (b) with the ingest's own refusal (`Segment 1 carries only the content clause`) -- the named defect, an Extraction the ingest cannot read unedited, constructed rather than a neighbour.",
+        "removal_signal": "a ruling retires the Proof Sheet's Extractor row, or moves Extraction into a production stage that carries its own check -- either way the stage this check drives is gone",
+        "removal_instrument": "probe: ! test -f src/proof-sheet/extract.mjs"
+      }
+    },
+    {
       "id": "adopt-candidate",
       "file": "checks/check-adopt-candidate.sh",
       "covers": ["src/assemble.mjs"],
