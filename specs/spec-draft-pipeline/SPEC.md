@@ -1640,7 +1640,8 @@ Move file to render it.
 file beside the Brief (§4.19) and the block renders each Leg Waypoint's
 Paragraph Waypoints as an **indented numbered sub-list** of the point's own
 line, one line per Paragraph Waypoint, its `point` and the Strand ids it
-serves: one paragraph each, in order. No Segment, Move id or other Move field
+serves: the points the Leg Waypoint's one paragraph makes, in order, and not
+one sentence each. No Segment, Move id or other Move field
 renders, and `draft.mjs` opens no Move file — the ParagraphPlan file holds
 none. `draft.mjs resolve` refuses a Brief with no ParagraphPlan file beside
 it, and a ParagraphPlan file whose recorded Brief hash is not the Brief's,

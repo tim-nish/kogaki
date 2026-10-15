@@ -2587,8 +2587,9 @@ export function paragraphPlanPathFor(briefPath) {
 
 const PLAN_HEADER = [
   "The paragraph plan for one article: under every Leg Waypoint of the Brief named below, the Paragraph Waypoints",
-  "-- the points its paragraphs make, in order, each with the Claims it serves. /paragraph-plan writes it from the",
-  "Brief; /draft reads it beside the Brief and refuses it when the Brief has changed since. It holds nothing of a Move.",
+  "-- the points its one paragraph makes, in order, each with the Claims it serves. A Leg Waypoint is one paragraph,",
+  "and a Paragraph Waypoint is one Segment of the Move bound to it. /paragraph-plan writes it from the Brief; /draft",
+  "reads it beside the Brief and refuses it when the Brief has changed since. It holds nothing of a Move.",
 ].join(" ");
 
 export function paragraphPlanRecord({ briefPath, briefText, legs }) {
