@@ -134,10 +134,12 @@ function legForUnit(inputs, unitId) {
 }
 
 // What a unit is handed about its Leg: the derived before-state, the after-state, and
-// each Leg Waypoint with the Claims its `serves` names and the next Leg Waypoint's point.
-// Kept small and plain so the validator and the judge read the same Leg the prompt showed.
+// each Leg Waypoint's own point, serves and the next Leg Waypoint's point -- no Claim
+// proposition (kogaki#1382, owner decision 2026-10-14: the Leg Waypoint alone is
+// sufficient input; the served Claim justified the Leg Waypoint's selection, not its
+// generation). Kept small and plain so the validator and the judge read the same Leg
+// the prompt showed.
 export function planLeg(leg) {
-  const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition)]));
   const ws = leg.waypoints || [];
   return {
     leg_id: leg.leg_id,
@@ -147,7 +149,6 @@ export function planLeg(leg) {
       waypoint: i + 1,
       point: String(w.point),
       serves: [...w.serves],
-      claims: w.serves.map((x) => ({ strand: x, proposition: byStrand.get(x) ?? null })),
       next_point: i + 1 < ws.length ? String(ws[i + 1].point) : null,
     })),
   };
