@@ -837,6 +837,30 @@
         "removal_signal": "a ruling retires the Proof Sheet's Leg Brief composer, or lets the production composer compose from an original Leg -- either way the rows this check drives are gone",
         "removal_instrument": "probe: ! test -f src/proof-sheet/leg-brief.mjs"
       }
+    },
+    {
+      "id": "proof-sheet-leg-run",
+      "file": "checks/check-proof-sheet-leg-run.sh",
+      "covers": [
+        "src/proof-sheet/leg-run.mjs",
+        "src/proof-sheet/leg-sheet.mjs",
+        "src/proof-sheet/extract.mjs",
+        "src/proof-sheet/leg-brief.mjs",
+        "src/paragraph-plan.mjs",
+        "src/draft.mjs",
+        "tools/move_ingest.py"
+      ],
+      "admission": {
+        "contract": "One command runs an original Leg through the Extractor, the ingest, the Leg Brief composer, `/paragraph-plan` and `/draft`, and writes a sheet with one card per Leg (kogaki#1386, owner decision 2026-10-15). Driven end to end through `node src/proof-sheet/leg-run.mjs run` over a three-paragraph Leg and one fake model binary answering every stage: every stage ends `done` in `run.json`; each model stage's calls went through the run's recorder, so `calls.jsonl` per stage holds exactly the prompts and answers the binary saw (Extractor 4 with paragraph 1 refused once, Leg Brief composer 2, ParagraphPlan generator and judge, Writer 1) and the ingest made none; the ingest derived one Move per Extraction into the run's own library and the ParagraphPlan file gives each Leg Waypoint as many Paragraph Waypoints as its bound Move has Segments; the Writer's recorded prompt is the Packet `/draft` rendered, byte for byte, sent with `--tools \"\"`; nothing under the repository's `moves/` or `theses/` changes; the sheet carries one card whose top pairs original paragraph N with written paragraph N, draws every cell of `SHEET_CELLS` with its provenance row and content hash, shows the paragraph 1 Extraction's prompt and both attempts, and states the Writer's prompt is the Packet; a provenance map missing a row refuses the sheet naming it, and a stopped Draft stage still draws the card with the stop.",
+        "license": "kogaki#1386",
+        "tier": "pre-push",
+        "runtime_ms": 97000,
+        "runtime_ms_note": "measured at authoring: about 96 s, almost all of it the shared supervisor's 10 s heartbeat across six sequential fixture jobs (three Extractor paragraphs, two Leg Brief rows, one ParagraphPlan job); the fake model answers at once.",
+        "efficacy": "case: checks/check-proof-sheet-leg-run.sh::(c) the Writer's recorded prompt is not the Packet byte for byte",
+        "efficacy_note": "mutation-verified at authoring: handing the stages the real binary instead of the run's recorder (`stageEnv` setting `KOGAKI_JUDGE_CLI` to the resolved command) failed (a) on every model stage, (c) on the Writer's recorded prompt, and (e) on the Extraction and Writer cells -- the named defect, a run whose prompts and answers are not on the record, constructed rather than a neighbour.",
+        "removal_signal": "a ruling retires the Leg Proof Sheet, or moves its run onto a production command -- either way the run this check drives is gone",
+        "removal_instrument": "probe: ! test -f src/proof-sheet/leg-run.mjs"
+      }
     }
   ]
 }
