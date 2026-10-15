@@ -2042,6 +2042,50 @@ const cand1276 = (id, leg2Extra = {}) => ({
   if (/bindJudge|paragraphMove(Prompts|Verdict)/.test(brief)) fails.push("(ax) src/brief.mjs still declares the paragraph-Move judge inside the compose job");
 }
 
+// (ay) kogaki#1330 — Thesis attainment is verified at composition, at the Leg
+// marked `reaches_target`, and at no other Leg. (ay1) the per-unit fit input
+// carries the Brief's Thesis beside the Candidate; (ay2) a fit record whose
+// marked-Leg (s2) verdict is `contradicts` naming the Thesis is read as the
+// unit's own schema refusal, carrying the judge's sentence, as every
+// `contradicts` verdict is; (ay3) a path with a closing Leg after the marked
+// Leg still passes `readerTargetLegRefusal` exactly as it does today -- this
+// Issue adds no rule about which Leg is last.
+{
+  const THESIS = "A check is only as good as what it is given.";
+
+  // (ay1)
+  const j = readerPathFitInput(cand1276("c1"), fitMoves, START_1276, THESIS);
+  if (j.error) fails.push(`(ay1) readerPathFitInput refused: ${j.error}`);
+  else if (j.input.candidate_you_must_judge.thesis !== THESIS) {
+    fails.push(`(ay1) the per-unit fit input does not carry the Brief's Thesis: ${JSON.stringify(j.input.candidate_you_must_judge.thesis)}`);
+  }
+
+  // (ay2)
+  const cand = cand1276("c1"); // legs[0] = s1, legs[1] = s2 (marked reaches_target: true)
+  const verdict = (leg, v, why) => ({ leg_id: leg.leg_id, move: leg.move, verdict: v, why });
+  const WHY_THESIS = `the after-state never states ${JSON.stringify(THESIS)} in words the reader could repeat.`;
+  const rec = { version: "1", candidate_id: "c1",
+    verdicts: [verdict(cand.legs[0], "consistent", "the after-state specializes the Move's after."),
+      verdict(cand.legs[1], "contradicts", WHY_THESIS)] };
+  const v = readerPathFitVerdict(rec, cand);
+  if (v.error) fails.push(`(ay2) a contradicts record on the marked Leg was refused as malformed rather than read: ${v.error}`);
+  else if (!v.refusal || !v.refusal.includes(`Leg s2 (m_turn): contradicts — the judge wrote: "${WHY_THESIS}"`)
+      || !/Compose the Candidate again/.test(v.refusal) || !(v.failures || []).some((f) => f.leg_id === "s2")) {
+    fails.push(`(ay2) a marked-Leg contradicts naming the Thesis was not read as the unit's refusal with the judge's sentence: ${JSON.stringify(v)}`);
+  }
+  const table1330 = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_fit_unit;
+  if (!/the input's `thesis` carries the Brief's adopted Thesis/.test(table1330.judgment_point)
+      || !/ONLY ON THE LEG MARKED `reaches_target`/.test(table1330.judgment_point)) {
+    fails.push("(ay2) the reader_path_fit_unit row does not name the Thesis question at the marked Leg");
+  }
+
+  // (ay3) a closing Leg after the marked one still passes, unchanged.
+  const legsWithClose = ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id, reader_state_after: "orientation: settled\nknowledge: the basics" }));
+  legsWithClose[1].reaches_target = true; // leg2 — not the last Leg.
+  const rClose = readerTargetLegRefusal(legsWithClose);
+  if (rClose) fails.push(`(ay3) a path with a closing Leg after the marked one was refused: ${rClose}`);
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-compose");
   for (const f of fails) console.log(`  - ${f}`);

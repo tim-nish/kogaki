@@ -1806,7 +1806,8 @@ const STATE_WORK = {
         module: "src/brief.mjs",
         prompt_export: "readerPathFitPrompt",
         verdict_export: "readerPathFitVerdict",
-        inputs: { movesDir, readerStart: differentiation.reader_start, promptHead: judgePrompt(fitRow, "", null, null) },
+        inputs: { movesDir, readerStart: differentiation.reader_start, thesis: briefThesis(record),
+          promptHead: judgePrompt(fitRow, "", null, null) },
       },
       // THE DECLARED VALIDATOR (kogaki#1240) -- named, never implicit. The
       // detached `job-supervise` process is a fresh `node src/terrain.mjs`
@@ -2012,7 +2013,7 @@ const STATE_WORK = {
 // and `before_state` carries the one question asked of the Move's `before` against
 // it, read from src/specialization-schema.json. `inputs.promptHead` is the `reader_path_fit_unit` row rendered by `judgePrompt`
 // in `compose_path`, ending at the input marker; this appends the unit's own input.
-export function readerPathFitInput(candidate, movesDir, readerStart) {
+export function readerPathFitInput(candidate, movesDir, readerStart, thesis) {
   const b = moveContractsForLegs(candidate.legs, movesDir);
   if (b.error) return { error: `candidate ${candidate.candidate_id}: ${b.error}` };
   return {
@@ -2022,6 +2023,10 @@ export function readerPathFitInput(candidate, movesDir, readerStart) {
         legs: deriveReaderStatesBefore(candidate.legs, readerStart),
         move_contracts: b.contracts,
         reader_start: readerStart,
+        // THE BRIEF'S THESIS (kogaki#1330), judged only on the Leg marked
+        // `reaches_target`: Thesis attainment is verified here, at
+        // composition, never at the review of the Draft.
+        thesis,
         before_state: {
           derived_from: specializationSchema().before_state.derived_from,
           question: specializationSchema().before_state.question,
@@ -2033,7 +2038,7 @@ export function readerPathFitInput(candidate, movesDir, readerStart) {
 }
 
 export function readerPathFitPrompt(candidate, inputs) {
-  const r = readerPathFitInput(candidate, inputs.movesDir, inputs.readerStart);
+  const r = readerPathFitInput(candidate, inputs.movesDir, inputs.readerStart, inputs.thesis);
   // A MOVE THE VALIDATOR ADMITTED AND THIS CANNOT READ is a store fault, not a Candidate's.
   if (r.error) throw new Error(r.error);
   return `${inputs.promptHead}${JSON.stringify(r.input, null, 2)}`;
