@@ -81,6 +81,7 @@ const stub = join(root, "writer.sh");
 writeFileSync(stub, [
   "#!/usr/bin/env bash",
   'if [ "${1:-}" = "--version" ]; then echo "stub-writer 1.0"; exit 0; fi',
+  'printf "%s\\n" "$@" > "$STUB_ARGS"',
   'cat > "$STUB_CAPTURE"',
   'n=0; [ -f "$STUB_COUNT" ] && n=$(cat "$STUB_COUNT"); n=$((n+1)); echo "$n" > "$STUB_COUNT"',
   'if [ -n "${STUB_BAD_UNTIL:-}" ] && [ "$n" -le "$STUB_BAD_UNTIL" ]; then printf "%s" "$STUB_BAD"; exit 0; fi',
@@ -89,8 +90,9 @@ writeFileSync(stub, [
 chmodSync(stub, 0o755);
 const capture = join(root, "capture.txt");
 const count = join(root, "count.txt");
+const stubArgs = join(root, "args.txt");
 const ws = join(root, "ws");
-const envOf = (over = {}) => ({ ...process.env, KOGAKI_JUDGE_CLI: stub, STUB_CAPTURE: capture, STUB_COUNT: count, ...over });
+const envOf = (over = {}) => ({ ...process.env, KOGAKI_JUDGE_CLI: stub, STUB_CAPTURE: capture, STUB_COUNT: count, STUB_ARGS: stubArgs, ...over });
 const drive = (env, cmd, ...extra) => spawnSync(process.execPath,
   ["src/draft.mjs", cmd, "--brief", join(briefDir, "brief.yaml"), "--workspace", ws, ...extra],
   { encoding: "utf8", env });
@@ -123,6 +125,14 @@ const PROSE = "The fixture prose for the Leg, written by the stub writer.\n\nA s
   if (line && (r.stdout || "").includes(line)) fails.push(`(b) the Packet's bytes reached section's stdout: ${JSON.stringify(line)}`);
   if (!/next: s2/.test(r.stdout || "") || !/never printed here/.test(r.stdout || "")) fails.push(`(b) section did not name the next Leg without echoing its Packet: ${(r.stdout || "").slice(0, 200)}`);
   if (readFileSync(count, "utf8").trim() !== "1") fails.push("(b) an accepted response was asked for more than once");
+  // THE WRITER IS SPAWNED WITH NO TOOLS (kogaki#1383, owner decision 2026-10-15): the
+  // Packet is the writer's whole input by construction, not by the prompt alone.
+  const writerArgs = readFileSync(stubArgs, "utf8").split("\n");
+  if (writerArgs[writerArgs.indexOf("--tools") + 1] !== "") fails.push(`(b) --tools was not followed by an empty string: ${JSON.stringify(writerArgs)}`);
+  if (writerArgs[writerArgs.indexOf("--setting-sources") + 1] !== "") fails.push(`(b) --setting-sources was not followed by an empty string: ${JSON.stringify(writerArgs)}`);
+  for (const want of ["--tools", "--disable-slash-commands", "--strict-mcp-config", "--setting-sources", "--no-session-persistence"]) {
+    if (!writerArgs.includes(want)) fails.push(`(b) the writer was not spawned with ${want}: ${JSON.stringify(writerArgs)}`);
+  }
 }
 
 // (c) a refused response is re-asked with the same input, up to retries.section, then fails naming the Leg.
