@@ -40,7 +40,41 @@ import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { legParagraphs, sentencesOf, EXTRACTION_TABLE } from "./extract.mjs";
 
 export const PROVENANCE_SECTION = "## Cells of the Leg card";
+// The provenance map's row for each cell, by the name the map's first column carries. These
+// are the gate's keys, one distinct row per cell, and are never displayed (kogaki#1400).
 export const SHEET_CELLS = {
+  // Tier 1 -- the shared section: what the stages were given, none of what they produced.
+  audience: "Audience",
+  extractorPrompt: "Extractor, prompt as rendered",
+  readerStartPrompt: "Leg Brief composer, Reader start, prompt as rendered",
+  legPathPrompt: "Leg Brief composer, Leg path, prompt as rendered",
+  generatorPrompt: "ParagraphPlan generator, prompt as rendered",
+  judgePrompt: "ParagraphPlan judge, prompt as rendered",
+  writerPrompt: "Writer, prompt as rendered",
+  settings: "Settings the stages read",
+  run: "Run record",
+  // Tier 2 -- the Leg card: everything the run holds at Leg grain.
+  original: "Original Leg",
+  written: "Written Leg",
+  brief: "Brief, the fields the stages read",
+  readerStart: "Leg Brief composer, Reader start",
+  legPath: "Leg Brief composer, Leg path",
+  generator: "ParagraphPlan generator",
+  judge: "ParagraphPlan judge",
+  plan: "ParagraphPlan file",
+  packet: "Packet",
+  writer: "Writer",
+  // Tier 3 -- one card per paragraph.
+  passage: "Passage, cut into sentences",
+  extraction: "Extraction",
+  move: "Move",
+  waypoint: "Leg Waypoint",
+  paragraphWaypoints: "Paragraph Waypoints",
+};
+
+// What each cell is titled on the sheet: the pipeline's nouns and nothing else (kogaki#1400,
+// owner decision 2026-10-16). Two cells may share a title; they never share a provenance row.
+export const SHEET_TITLES = {
   // Tier 1 -- the shared section: what the stages were given, none of what they produced.
   audience: "Audience",
   extractorPrompt: "Extraction",
@@ -180,7 +214,7 @@ function badgeSpan(key) {
 // One cell: its label, its badge, its artifact (repository-root-relative), the content
 // hash of what it shows.
 function cell(key, { artifact, hashOf, body, suffix = "" }) {
-  const name = SHEET_CELLS[key];
+  const name = SHEET_TITLES[key];
   const b = SHEET_CELL_BADGE[key];
   const cls = b && b.type === "substitute" ? "cell substitute" : "cell";
   return `<details class="${cls}"><summary><b>${esc(name)}${esc(suffix)}</b>${badgeSpan(key)} <span class="meta">${esc(artifact)} · sha ${contentHash(hashOf)}</span></summary>`
@@ -257,8 +291,8 @@ function legCardTier(r, { sectionPath, written, writtenParas, draftStop }) {
   for (let i = 0; i < n; i++) {
     pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td>${written ? esc(writtenParas[i] || "") : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "")}</td></tr>`);
   }
-  const top = `<table class="pair"><thead><tr><th></th><th>${esc(SHEET_CELLS.original)} <span class="meta">${esc(rel(join(r.runDir, "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
-    + `<th>${esc(SHEET_CELLS.written)} <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
+  const top = `<table class="pair"><thead><tr><th></th><th>${esc(SHEET_TITLES.original)} <span class="meta">${esc(rel(join(r.runDir, "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
+    + `<th>${esc(SHEET_TITLES.written)} <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
     + `<tbody>${pairs.join("")}</tbody></table>`;
 
   const cells = [];
@@ -337,7 +371,7 @@ function paragraphCard(r, i, { written, writtenParas, draftStop, planLeg, bindin
   const original = r.paragraphs[i] || "";
   const hasWritten = written !== null;
   const writtenPara = hasWritten ? (writtenParas[i] || "") : null;
-  const top = `<table class="pair"><thead><tr><th></th><th>${esc(SHEET_CELLS.original)}</th><th>${esc(SHEET_CELLS.written)}</th></tr></thead>`
+  const top = `<table class="pair"><thead><tr><th></th><th>${esc(SHEET_TITLES.original)}</th><th>${esc(SHEET_TITLES.written)}</th></tr></thead>`
     + `<tbody><tr><th>${i + 1}</th><td>${esc(original)}</td><td>${hasWritten ? esc(writtenPara) : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "")}</td></tr></tbody></table>`;
 
   const file = r.extractions[i] ? join(r.runDir, "extract", r.extractions[i]) : null;

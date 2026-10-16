@@ -20,7 +20,7 @@
 #       Packet file `/draft` rendered, byte for byte, and equals what the fake binary read.
 #   (d) the run writes nothing to the repository's `moves/` or `theses/`.
 #   (e) the sheet: one card; its top pairs original paragraph N with written paragraph N for
-#       all three; every cell of `SHEET_CELLS` is drawn with its provenance row and a content
+#       all three; every cell of `SHEET_CELLS` is drawn with its title, its badge and a content
 #       hash; the Extraction cell of paragraph 1 shows its prompt and two attempts; the
 #       Writer cell states the prompt is the Packet.
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
@@ -208,7 +208,7 @@ else {
   const TIER2 = ["original", "written", "brief", "readerStart", "legPath", "generator", "judge", "plan", "packet", "writer"];
   const TIER3 = ["passage", "extraction", "move", "waypoint", "paragraphWaypoints"];
   const checkCell = (slice, key, where) => {
-    const name = S.SHEET_CELLS[key];
+    const name = S.SHEET_TITLES[key];
     ok(slice.includes(`<b>${name}`) || (["Original Leg", "Written Leg"].includes(name) && slice.includes(name)), `(e) ${where} draws no "${name}" cell`);
     const badge = S.SHEET_CELL_BADGE[key];
     if (badge) {
@@ -220,7 +220,10 @@ else {
   for (const key of TIER2) checkCell(legHtml, key, "the Leg card");
   for (let i = 0; i < 3; i++) for (const key of TIER3) checkCell(paraHtmls[i], key, `paragraph ${i + 1}'s card`);
 
-  ok(!/<b>(Extraction|Move|Packet|Draft)<\/b>[^<]*<\/span>[^<]*<span class="meta">[^<]*· sha none</.test(html), "(e) a cell of a finished stage shows no content hash");
+  ok(!/<b>(Extraction|Move|Packet|Draft)<\/b> <span class="badge [^"]*"[^>]*>[^<]*<\/span> <span class="meta">[^<]*· sha none</.test(html), "(e) a cell of a finished stage shows no content hash");
+  ok(/<b>Packet<\/b> <span class="badge [^"]*"[^>]*>[^<]*<\/span> <span class="meta">[^<]*· sha [0-9a-f]{12}</.test(html), "(e) the content-hash pattern matches no cell, so the assertion above cannot fail");
+  ok(new Set(Object.values(S.SHEET_CELLS)).size === Object.keys(S.SHEET_CELLS).length && Object.keys(S.SHEET_CELLS).every((k) => k in S.SHEET_TITLES),
+    "(e) two cells share a provenance row, or a cell has no title");
   ok(!html.includes("provenance row:"), "(e) the sheet renders a provenance row line");
 
   const legTop = legHtml.slice(legHtml.indexOf('<table class="pair">'), legHtml.indexOf("</table>", legHtml.indexOf('<table class="pair">')));
