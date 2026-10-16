@@ -154,10 +154,26 @@ export function planLeg(leg) {
   };
 }
 
+// A SEGMENT CONTRIBUTES FUNCTION, RELATION AND POSITION TO THE PLAN CALL, NEVER ITS
+// DESCRIPTION (kogaki#1403). A Segment's description is the Extractor's analysis of the
+// original paragraph's technique, written for a reader of the Move; sent verbatim into the
+// plan call, the planner read it as content the new paragraph must say rather than as an
+// analysis of the old one. `segments` lines are `<n>. <function> — <relation> — <description>`
+// (`tools/move_ingest.py`'s `render_segments_text`); this keeps the first two fields and
+// drops the description and the separator before it. `technique`, `before`, `after` and
+// `breaks` are untouched -- `technique` is the Move's only order where `segments` is empty.
+export function segmentsForPlanCall(segments) {
+  if (typeof segments !== "string" || segments.trim() === "") return segments;
+  return segments.split("\n").map((line) => {
+    const parts = line.split(" — ");
+    return parts.length < 3 ? line : parts.slice(0, 2).join(" — ");
+  }).join("\n");
+}
+
 export function paragraphPlanUnitInput(leg, moves, persona) {
   return {
     leg_you_must_plan: leg,
-    paragraph_moves_you_may_bind: moves,
+    paragraph_moves_you_may_bind: moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) })),
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
   };
 }
