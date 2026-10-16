@@ -45,8 +45,8 @@
       "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own."
     ],
     "## What crosses into this Leg": [
-      "- matcher — established: the term already has a home outside this article, in the ordinary pattern-matching readers already write in CI config, globs and path filters — the expression that decides which things a rule runs over.; bring it in under that name. meaning: the ordinary pattern-matching readers already write in CI config, globs and path filters — the expression that decides which things a rule runs over.",
-      "- guard — established: the term already has a home outside this article, in common usage among programmers for the piece of code placed in front of an action to stop it before it happens.; bring it in under that name. meaning: common usage among programmers for the piece of code placed in front of an action to stop it before it happens.",
+      "- matcher — established: the term already has a home outside this article; bring it in under that name.",
+      "- guard — established: the term already has a home outside this article; bring it in under that name.",
       "- non-member fallback — meaning: The step a list of named things runs for anything that is not on the list — the answer the list gives to everything it never mentions. (re-activated from leg1)",
       "- A list of forbidden commands says nothing about a command that is not on it; the step for everything unnamed is what decides those cases. (re-activated from leg1, strand L2)"
     ],
@@ -77,8 +77,8 @@
     ],
     "## What crosses into this Leg": [
       "- unfed guard — coined: this article names it for the first time; present it as a name this article gives. meaning: A guard that runs, finds nothing to examine because the value it depends on never arrived, and reports no problem — a success that records only its own emptiness.",
-      "- matcher — meaning: the ordinary pattern-matching readers already write in CI config, globs and path filters — the expression that decides which things a rule runs over. (re-activated from leg2)",
-      "- guard — meaning: common usage among programmers for the piece of code placed in front of an action to stop it before it happens. (re-activated from leg2)",
+      "- matcher (re-activated from leg2)",
+      "- guard (re-activated from leg2)",
       "- How far a set of guards can reach is fixed by the pattern that picks out what they look at, not by what is written inside them. (re-activated from leg2, strand L1)",
       "- non-member fallback — meaning: The step a list of named things runs for anything that is not on the list — the answer the list gives to everything it never mentions. (re-activated from leg1)"
     ],
@@ -110,9 +110,9 @@
       "This Leg reaches the Reader target."
     ],
     "## What crosses into this Leg": [
-      "- default-deny — established: the term already has a home outside this article, in the way firewalls and permission systems have long been configured: anything not explicitly allowed is refused.; bring it in under that name. meaning: the way firewalls and permission systems have long been configured: anything not explicitly allowed is refused.",
+      "- default-deny — established: the term already has a home outside this article; bring it in under that name.",
       "- unfed guard — meaning: A guard that runs, finds nothing to examine because the value it depends on never arrived, and reports no problem — a success that records only its own emptiness. (re-activated from leg3)",
-      "- matcher — meaning: the ordinary pattern-matching readers already write in CI config, globs and path filters — the expression that decides which things a rule runs over. (re-activated from leg2)",
+      "- matcher (re-activated from leg2)",
       "- A value allowed to be absent, when absence counts as permission, leaves its guard with nothing to look at and a clean result. (re-activated from leg3, strand L3)",
       "- A set of guards only ever runs over what its pattern selected, so code inside them cannot extend their reach. (re-activated from leg2, strand L1)"
     ],

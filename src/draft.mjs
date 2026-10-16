@@ -1346,17 +1346,20 @@ export function externalAuthorityOf(brief) {
   return brief?.record?.external_authority !== "off";
 }
 
-// ONE `Introduce here` LINE (kogaki#1261). A typed item renders its kind, so
-// the writer names a coined term as coined and brings an established one in
-// under the name its source gives it; a coined term's authority line —
-// `nearest` and `differs` — renders on the same line where the item carries
-// it and the Brief has not switched the external authority off. A bare or
-// anchored term renders as it always did.
+// ONE `Introduce here` LINE (kogaki#1261, amended kogaki#1404). A typed item
+// renders its kind, so the writer names a coined term as coined and brings
+// an established one in under its name alone — never under the `source` that
+// justifies the "established" kind, which is Brief-side material and has no
+// home in the Writer's instruction (kogaki#1404); a coined term's authority
+// line — `nearest` and `differs` — renders on the same line where the item
+// carries it and the Brief has not switched the external authority off. A
+// bare or anchored term renders as it always did.
 export function introduceLine(raw, authorityOn) {
   const p = parseIntroducesEntry(raw);
   if (p.error || !p.kind) return `- ${typeof raw === "string" ? raw : JSON.stringify(raw)}`;
   if (p.kind === "established") {
-    return `- ${p.term} — established: the term already has a home outside this article, in ${p.source}; bring it in under that name. meaning: ${p.source}`;
+    return `- ${p.term} — established: the term already has a home outside this article; bring it in under that name.`
+      + (p.meaning ? ` meaning: ${p.meaning}` : "");
   }
   let line = `- ${p.term} — coined: this article names it for the first time; present it as a name this article gives. meaning: ${p.meaning}`;
   if (authorityOn && p.nearest) {
@@ -1367,16 +1370,17 @@ export function introduceLine(raw, authorityOn) {
 }
 
 // THE MEANING A CROSSING TERM CARRIES (kogaki#1282, owner decision
-// 2026-10-06): a typed `coined` entry names its own `meaning`; a typed
-// `established` entry's `source` stands as its meaning (src/leg-schema.json,
-// `introduces_item`); the legacy bare/anchored form's anchor IS its meaning
-// anchor (the form `parseIntroducesEntry` refuses with no text after the
-// separator). A bare term with no anchor carries none, stated rather than
-// invented.
+// 2026-10-06; amended kogaki#1404): a typed `coined` entry names its own
+// `meaning`; a typed `established` entry's `source` is a Brief-side
+// justification for the "established" kind and never the term's meaning
+// (src/leg-schema.json, `introduces_item`) — an established entry carries a
+// `meaning` only where the Brief gave it one, and none otherwise; the legacy
+// bare/anchored form's anchor IS its meaning anchor (the form
+// `parseIntroducesEntry` refuses with no text after the separator). A bare
+// term with no anchor carries none, stated rather than invented.
 function introducedMeaning(p) {
   if (!p || p.error) return null;
-  if (p.kind === "coined") return p.meaning;
-  if (p.kind === "established") return p.source;
+  if (p.kind === "coined" || p.kind === "established") return p.meaning || null;
   return p.anchor || null;
 }
 

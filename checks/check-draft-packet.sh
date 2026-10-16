@@ -647,11 +647,74 @@ const audienceRaw = readFileSync(join(repo, "audiences", "dev-to-zenn.md"), "utf
   }
 }
 
+// (l) AN ESTABLISHED TERM CROSSES WITH ITS NAME AND BRIEF MEANING, NEVER ITS
+// `source` (kogaki#1404). The absence is a control-arm case (thread comment,
+// receipt coding::lesson/an-absence-catchers-silence-is-indistinguishable-from-its-success@ddef48a0b4e6f4dd07eac5d01167f192763a0bd58528a0142f585172fe342eb1):
+// a distinctive source text is also rendered verbatim as a CONTROL term's
+// `meaning`, in the same Packet, so the scan below is proven able to find it
+// where it IS rendered before it is trusted to find it absent.
+{
+  const sourceText = "the offense-defense balance literature of international relations, from which this text takes the measure and its two cases";
+  const establishedTerm = "established-term-no-meaning";
+  const establishedWithMeaningTerm = "established-term-with-meaning";
+  const establishedMeaning = "the balance between how easy attack is and how easy defense is.";
+  const controlTerm = "control-term";
+  const establishedBriefText = briefText([
+    leg("s1", "name_a_paradox_after_removing_aggressive_intent", [{ strand: "L1", proposition: C1 }],
+      [{ point: "The reader sees the copy land.", serves: ["L1"] }],
+      { introduces: [
+        { term: establishedTerm, kind: "established", source: sourceText },
+        { term: establishedWithMeaningTerm, kind: "established", source: sourceText, meaning: establishedMeaning },
+        { term: controlTerm, kind: "coined", meaning: sourceText },
+      ] }),
+  ], { slug: "established-term-brief" });
+  const establishedDir = join(root, "theses", "established-term-brief");
+  mkdirSync(establishedDir, { recursive: true });
+  const establishedBriefPath = join(establishedDir, "brief.yaml");
+  writeBriefWithPlan(establishedBriefPath, establishedBriefText);
+  const establishedDraft = (args) => trapped([join(repo, "src", "draft.mjs"), ...args,
+    "--brief", establishedBriefPath, "--workspace", join(root, "established-ws")], { KOGAKI_JUDGE_CLI: stub });
+
+  const r0 = establishedDraft(["resolve"]);
+  if (r0.status !== 0) fails.push(`(l) resolve failed: ${(r0.stderr || "").slice(0, 400)}`);
+  const r = establishedDraft(["packet", "--leg", "s1"]);
+  if (r.status !== 0) fails.push(`(l) packet --leg s1 failed: ${(r.stderr || "").slice(0, 400)}`);
+  const packet = r.stdout || "";
+  const head = "## What crosses into this Leg";
+  const at = packet.indexOf(head);
+  if (at === -1) fails.push("(l) the Packet carries no crossing block");
+  else {
+    const block = packet.slice(at, packet.indexOf("\n## ", at + head.length));
+    const lineOf = (term) => block.split("\n").find((l) => l.startsWith(`- ${term} —`)) || "";
+    const establishedLine = lineOf(establishedTerm);
+    const establishedWithMeaningLine = lineOf(establishedWithMeaningTerm);
+    if (!establishedLine) fails.push("(l) the crossing block does not carry the established term with no meaning");
+    else if (establishedLine !== `- ${establishedTerm} — established: the term already has a home outside this article; bring it in under that name.`) {
+      fails.push(`(l) the established term with no meaning renders a different line than expected: ${JSON.stringify(establishedLine)}`);
+    }
+    if (!establishedWithMeaningLine) fails.push("(l) the crossing block does not carry the established term with a meaning");
+    else if (establishedWithMeaningLine !== `- ${establishedWithMeaningTerm} — established: the term already has a home outside this article; bring it in under that name. meaning: ${establishedMeaning}`) {
+      fails.push(`(l) the established term with a meaning renders a different line than expected: ${JSON.stringify(establishedWithMeaningLine)}`);
+    }
+    if (!block.includes(controlTerm)) fails.push("(l) control: the crossing block does not carry the control term — the case below would pass vacuously");
+    // CONTROL: the scan over the Packet DOES find the source text where it is
+    // rendered, as the control term's meaning — proving the scan below is not
+    // vacuous before it is trusted to find the source text absent from the
+    // established lines.
+    if ((packet.match(new RegExp(sourceText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length !== 1) {
+      fails.push("(l) control: the source text does not appear exactly once in the Packet, as the control term's rendered meaning — the absence case below would pass vacuously");
+    }
+    if (establishedLine.includes(sourceText) || establishedWithMeaningLine.includes(sourceText)) {
+      fails.push("(l) an established term's line carries the source text");
+    }
+  }
+}
+
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
   console.log("FAIL check-draft-packet");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327); and the 2026-10-09 Brief carried into the record renders every Leg's waypoints, claims, Journey text, Section, crossing and Closure lines exactly as its Markdown Packets did, the Thesis row alone derived and handed to the reaches_target Leg, and none of src/draft.mjs, src/review-draft.mjs, src/assemble.mjs or src/compose.mjs names a retired Brief parser or the Markdown Brief's line grammar (kogaki#1328); and a Brief record carrying defined_terms renders no Packet naming defined_terms or carrying the word ordinary (kogaki#1331); and each Leg Waypoint's Paragraph Waypoints from the ParagraphPlan file render under it as an indented numbered sub-list with the claims they serve and no Segment line, while resolve refuses a waypoint carrying move or segments by name, a Brief with no ParagraphPlan file and one whose plan was made from a different Brief naming both files, each opening no path under moves/ (kogaki#1375)");
+console.log("ok: check-draft-packet — a rendered Packet carries the waypoints block, one numbered line per waypoint with its point, listed once, and the claim it serves in the claim's own words, neither \"effect\" nor \"does to the reader\" anywhere in the Packet (kogaki#1326), and no technique, question or breaks of any Move; resolve refuses a Leg with no waypoint naming the Leg and the field, and refuses --moves-dir by name; resolve, packet, section and emit and review-draft open open no path under moves/ under a trap whose control arm records such a read; src/draft.mjs, src/review-draft.mjs and src/assemble.mjs name no Move reader and build no moves/ path (kogaki#1311); and the Journey block carries the fixture's served prose and none of retell, telling, narrative or narrated (kogaki#1323); and the assembled Draft's first line is `# ` followed by the Thesis verbatim (kogaki#1327); and the 2026-10-09 Brief carried into the record renders every Leg's waypoints, claims, Journey text, Section, crossing and Closure lines exactly as its Markdown Packets did, the Thesis row alone derived and handed to the reaches_target Leg, and none of src/draft.mjs, src/review-draft.mjs, src/assemble.mjs or src/compose.mjs names a retired Brief parser or the Markdown Brief's line grammar (kogaki#1328); and a Brief record carrying defined_terms renders no Packet naming defined_terms or carrying the word ordinary (kogaki#1331); and each Leg Waypoint's Paragraph Waypoints from the ParagraphPlan file render under it as an indented numbered sub-list with the claims they serve and no Segment line, while resolve refuses a waypoint carrying move or segments by name, a Brief with no ParagraphPlan file and one whose plan was made from a different Brief naming both files, each opening no path under moves/ (kogaki#1375); and an established term crosses with its name and, where the Brief gives one, its meaning, and never its source — a control term proving the scan would catch the source text where it is rendered (kogaki#1404)");
 JS
