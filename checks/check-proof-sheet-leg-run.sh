@@ -19,12 +19,17 @@
 #   (c) the Writer's recorded prompt is the Packet alone: the recorded stdin equals the
 #       Packet file `/draft` rendered, byte for byte, and equals what the fake binary read.
 #   (d) the run writes nothing to the repository's `moves/` or `theses/`.
-#   (e) the sheet: one card; its top pairs original paragraph N with written paragraph N for
-#       all three; every cell of `SHEET_CELLS` is drawn with its title, its badge and a content
-#       hash; the Extraction cell of paragraph 1 shows its prompt and two attempts; the
-#       Writer cell states the prompt is the Packet.
+#   (e) the sheet: one run-conditions line, one comparison table, and exactly the seven cards
+#       of `SHEET_CELLS` in pipeline order, Brief and ParagraphPlan in one row; every card has
+#       Output, Inputs, Prompt and Calls in that order, Output open and the other three folded,
+#       and every Inputs entry links to another card's id on the page; the Extraction card
+#       shows paragraph 1's prompt and two attempts; the Draft card states its prompt equals
+#       the Packet rather than repeating it; every recorded call's prompt, cut into its
+#       instruction and its input, has each piece appear exactly once on the whole page (a retry
+#       shows only the refusal block it inserted); the Audience and the settings appear only in
+#       the run-conditions line.
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
-#       stopped Draft stage still draws the card with the stop in the written column.
+#       stopped Draft stage still draws the card with the stop in its Output.
 #   (g) where the owner's map is on disk (corpus/ is not versioned), it carries every row.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
@@ -186,67 +191,109 @@ else {
   ok(seen.filter((s) => s.stage === "writer").every((s) => s.prompt === packet), "(c) the model binary was handed something other than the Packet");
   ok(w.length && w[0].argv.includes("--tools") && w[0].argv[w[0].argv.indexOf("--tools") + 1] === "", "(c) the Writer was not called with --tools \"\"");
 
-  // (e) the sheet: three tiers (shared, the Leg card, one card per paragraph) -- every
-  // assertion below reads inside the tier or paragraph card a cell belongs to, not a bare
-  // substring search over the whole page (the consult receipt on the Issue: the property is
-  // per card).
+  // (e) the sheet: one run-conditions line, one comparison table, and the seven cards of
+  // `SHEET_CELLS` in pipeline order, Brief and ParagraphPlan in one row -- every assertion
+  // below reads inside the card a property belongs to, not a bare substring search over the
+  // whole page (the consult receipt on the Issue: the property is per card).
   const html = readOr(join(runDir, "sheet.html"), "");
-  ok((html.match(/<section class="card">/g) || []).length === 1, "(e) the sheet does not carry one card");
-  ok(/<details class="tier"><summary>Shared/.test(html), "(e) the shared tier is missing, or opens by default");
-  ok(/<details class="tier leg" open><summary>Leg card<\/summary>/.test(html), "(e) the Leg card tier is missing, or does not open by default");
-  for (let i = 1; i <= 3; i++) {
-    ok(new RegExp(`<details class="card para"><summary>Paragraph ${i}</summary>`).test(html), `(e) paragraph ${i}'s card is missing, or opens by default`);
-  }
+  ok((html.match(/<section class="card">/g) || []).length === 1, "(e) the sheet does not carry one run section");
+  ok(/<div class="run-conditions" id="run-conditions">/.test(html), "(e) the run-conditions line is missing");
+  ok(/<table class="pair">/.test(html), "(e) the comparison table is missing");
 
-  const sliceBetween = (a, b) => html.slice(html.indexOf(a), b ? html.indexOf(b) : undefined);
-  const sharedHtml = sliceBetween('<details class="tier"><summary>Shared', '<details class="tier leg"');
-  const legHtml = sliceBetween('<details class="tier leg"', '<details class="card para"><summary>Paragraph 1');
-  const paraStarts = [1, 2, 3].map((i) => html.indexOf(`<details class="card para"><summary>Paragraph ${i}</summary>`));
-  const paraHtmls = paraStarts.map((s, i) => html.slice(s, i + 1 < paraStarts.length ? paraStarts[i + 1] : undefined));
+  const ORDER = ["extraction", "move", "brief", "paragraphPlan", "packet", "draft", "runRecord"];
+  // Each card carries a stable id, `card-0-<key>` for the sheet's only run (idx 0).
+  const idxOf = (key) => html.indexOf(`id="card-0-${key}"`);
+  const starts = ORDER.map((k) => idxOf(k));
+  ok(starts.every((p) => p >= 0), `(e) a card is missing: ${ORDER.filter((k, i) => starts[i] < 0).join(", ")}`);
+  ok(starts.every((p, i) => i === 0 || p > starts[i - 1]), `(e) the cards are not in pipeline order: ${ORDER.join(", ")}`);
 
-  const TIER1 = ["audience", "extractorPrompt", "readerStartPrompt", "legPathPrompt", "generatorPrompt", "judgePrompt", "writerPrompt", "settings", "run"];
-  const TIER2 = ["original", "written", "brief", "readerStart", "legPath", "generator", "judge", "plan", "packet", "writer"];
-  const TIER3 = ["passage", "extraction", "move", "waypoint", "paragraphWaypoints"];
-  const checkCell = (slice, key, where) => {
-    const name = S.SHEET_TITLES[key];
-    ok(slice.includes(`<b>${name}`) || (["Original Leg", "Written Leg"].includes(name) && slice.includes(name)), `(e) ${where} draws no "${name}" cell`);
-    const badge = S.SHEET_CELL_BADGE[key];
-    if (badge) {
-      const wantLabel = badge.type === "substitute" ? "Proof Sheet substitute" : "production";
-      ok(slice.includes(`<span class="badge ${badge.type}"`) && slice.includes(`>${wantLabel}<`), `(e) ${where}'s "${name}" cell carries no "${wantLabel}" badge`);
-    }
+  const cardHtml = (key) => {
+    const i = ORDER.indexOf(key);
+    const next = i + 1 < ORDER.length ? starts[i + 1] : html.indexOf("</section></body>");
+    return html.slice(starts[i], next >= 0 ? next : undefined);
   };
-  for (const key of TIER1) checkCell(sharedHtml, key, "the shared tier");
-  for (const key of TIER2) checkCell(legHtml, key, "the Leg card");
-  for (let i = 0; i < 3; i++) for (const key of TIER3) checkCell(paraHtmls[i], key, `paragraph ${i + 1}'s card`);
+  const cards = {};
+  for (const key of ORDER) cards[key] = cardHtml(key);
 
-  ok(!/<b>(Extraction|Move|Packet|Draft)<\/b> <span class="badge [^"]*"[^>]*>[^<]*<\/span> <span class="meta">[^<]*· sha none</.test(html), "(e) a cell of a finished stage shows no content hash");
-  ok(/<b>Packet<\/b> <span class="badge [^"]*"[^>]*>[^<]*<\/span> <span class="meta">[^<]*· sha [0-9a-f]{12}</.test(html), "(e) the content-hash pattern matches no cell, so the assertion above cannot fail");
-  ok(new Set(Object.values(S.SHEET_CELLS)).size === Object.keys(S.SHEET_CELLS).length && Object.keys(S.SHEET_CELLS).every((k) => k in S.SHEET_TITLES),
-    "(e) two cells share a provenance row, or a cell has no title");
-  ok(!html.includes("provenance row:"), "(e) the sheet renders a provenance row line");
+  ok(/<div class="cols">/.test(html) && html.indexOf('<div class="cols">') < starts[ORDER.indexOf("brief")]
+    && starts[ORDER.indexOf("paragraphPlan")] < html.indexOf("</div>", starts[ORDER.indexOf("paragraphPlan")]),
+    "(e) Brief and ParagraphPlan are not in one row");
 
-  const legTop = legHtml.slice(legHtml.indexOf('<table class="pair">'), legHtml.indexOf("</table>", legHtml.indexOf('<table class="pair">')));
-  const legRows = legTop.split("<tr><th>").slice(2);
-  ok(legRows.length === 3 && legRows.every((row, i) => row.includes(PARAS[i]) && row.includes(WRITTEN[i])),
-    `(e) the Leg card's top does not pair original paragraph N with written paragraph N: ${legRows.length} row(s)`);
-  for (let i = 0; i < 3; i++) {
-    const pTop = paraHtmls[i].slice(paraHtmls[i].indexOf('<table class="pair">'), paraHtmls[i].indexOf("</table>", paraHtmls[i].indexOf('<table class="pair">')));
-    ok(pTop.includes(PARAS[i]) && pTop.includes(WRITTEN[i]), `(e) paragraph ${i + 1}'s own top does not pair its original and written paragraph`);
+  for (const key of ORDER) {
+    const name = S.SHEET_TITLES[key];
+    const c = cards[key];
+    ok(c.includes(`<b>${name}`), `(e) the ${name} card draws no title`);
+    const badge = S.SHEET_CELL_BADGE[key];
+    const wantLabel = badge.type === "substitute" ? "Proof Sheet substitute" : "production";
+    ok(c.includes(`<span class="badge ${badge.type}"`) && c.includes(`>${wantLabel}<`), `(e) the ${name} card carries no "${wantLabel}" badge`);
+    ok(/<details class="part out" open><summary>Output<\/summary>/.test(c), `(e) the ${name} card's Output is missing, or does not open by default`);
+    ok(/<details class="part in"(?! open)><summary>Inputs<\/summary>/.test(c), `(e) the ${name} card's Inputs is missing, or opens by default`);
+    ok(/<details class="part prompt"(?! open)><summary>Prompt<\/summary>/.test(c), `(e) the ${name} card's Prompt is missing, or opens by default`);
+    ok(/<details class="part calls"(?! open)><summary>Calls<\/summary>/.test(c), `(e) the ${name} card's Calls is missing, or opens by default`);
+    const partOrder = [...c.matchAll(/<details class="part (\w+)"/g)].map((m) => m[1]);
+    ok(JSON.stringify(partOrder) === JSON.stringify(["out", "in", "prompt", "calls"]), `(e) the ${name} card's four parts are out of order: ${partOrder.join(",")}`);
+    for (const href of [...c.matchAll(/<a href="#([^"]+)">/g)].map((m) => m[1])) {
+      ok(ORDER.some((k) => href === `card-0-${k}`), `(e) the ${name} card's Inputs links to "${href}", which is not a card`);
+    }
   }
 
-  ok(sharedHtml.includes("<b>Extraction") && sharedHtml.includes("instruction"),
-    "(e) the shared tier's Extraction prompt cell does not show its instruction");
-  ok(sharedHtml.includes("attempt bound (brief.unit_attempts)") && sharedHtml.includes("call limit, seconds (brief.call_limit_s)") && sharedHtml.includes("audience file (brief.audience_file)"),
-    "(e) the shared tier's settings cell does not show the settings the stages read");
+  ok(new Set(Object.values(S.SHEET_CELLS)).size === Object.keys(S.SHEET_CELLS).length && Object.keys(S.SHEET_CELLS).every((k) => k in S.SHEET_TITLES),
+    "(e) two cards share a provenance row, or a card has no title");
 
-  const ex1 = paraHtmls[0].slice(paraHtmls[0].indexOf("<b>Extraction"), paraHtmls[0].indexOf("<b>Move"));
-  ok(!ex1.includes("prompt as rendered") && ex1.includes("attempts — 2") && ex1.includes("call 2 of 2"),
-    "(e) paragraph 1's Extraction cell shows its prompt, or does not show both attempts");
-  ok(legHtml.includes("Every recorded Draft call's prompt is the Packet, byte for byte, and nothing else."), "(e) the Draft cell does not state its prompt is the Packet");
-  const summaries = [...html.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => m[1]);
-  for (const word of ["prompt as rendered", "generator", "judge", "Writer", "the fields the stages read"]) {
-    ok(!summaries.some((t) => t.toLowerCase().includes(word.toLowerCase())), `(e) a summary on the sheet contains "${word}"`);
+  const legRows = html.slice(html.indexOf('<table class="pair">'), html.indexOf("</table>", html.indexOf('<table class="pair">')))
+    .split("<tr><th>").slice(2);
+  ok(legRows.length === 3 && legRows.every((row, i) => row.includes(PARAS[i]) && row.includes(WRITTEN[i])),
+    `(e) the comparison table does not pair original paragraph N with written paragraph N: ${legRows.length} row(s)`);
+
+  ok(cards.extraction.includes("instruction"), "(e) the Extraction card does not show its paragraphs' prompts");
+  const ex1 = cards.extraction.slice(cards.extraction.indexOf("paragraph 1"));
+  ok(ex1.includes("attempts 2") && ex1.includes("call 2 of 2"), "(e) the Extraction card does not show paragraph 1's two attempts");
+
+  ok(/id="run-conditions"[\s\S]*?attempt bound \(brief\.unit_attempts\)/.test(html), "(e) the run-conditions line does not show the settings the stages read");
+  for (const key of ORDER) {
+    ok(!cards[key].includes("attempt bound (brief.unit_attempts)"), `(e) the ${key} card shows the settings, which belong only to the run-conditions line`);
+  }
+
+  // No prompt text appears in more than one place: each recorded call's prompt is cut into its
+  // instruction (before any refusal block or the input marker) and its input (from the input
+  // marker), and each piece, escaped as the sheet escapes it, occurs on the page exactly once
+  // -- a call whose prompt is shown under Prompt names it rather than repeating it, and a
+  // retry shows only the refusal block it inserted.
+  const escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const occurrences = (needle) => html.split(needle).length - 1;
+  const INPUT = "----- INPUT (JSON) -----";
+  const REFUSED = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
+  let pieces = 0;
+  for (const st of ["extract", "brief", "paragraph-plan", "draft"]) {
+    const recorded = readOr(join(runDir, st, "calls.jsonl"), "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    for (const [n, c] of recorded.entries()) {
+      const text = String(c.stdin);
+      const cut = [text.indexOf(REFUSED), text.indexOf(INPUT)].filter((x) => x >= 0);
+      const end = cut.length ? Math.min(...cut) : text.length;
+      const at = text.indexOf(INPUT);
+      for (const [part, piece] of [["instruction", text.slice(0, end).trim()], ["input", at >= 0 ? text.slice(at).trim() : ""]]) {
+        if (!piece) continue;
+        pieces++;
+        const k = occurrences(escHtml(piece));
+        ok(k === 1, `(e) the ${st} call ${n + 1}'s prompt ${part} appears ${k} times on the sheet, not once`);
+      }
+    }
+  }
+  ok(pieces >= 9, `(e) only ${pieces} prompt piece(s) were checked for appearing once`);
+  const audienceRel = JSON.parse(readOr(join(runDir, "run.json"), "{}")).audience;
+  const audienceText = audienceRel ? readOr(resolve(repo, audienceRel), null) : null;
+  if (audienceText) {
+    const head = escHtml(audienceText.trim().split("\n")[0]);
+    ok(html.indexOf('id="run-conditions"') >= 0 && html.slice(html.indexOf('id="run-conditions"')).includes(head)
+      && ORDER.every((key) => !cards[key].includes(escHtml(audienceText))), "(e) the Audience is not shown in the run-conditions line alone");
+  }
+
+  ok(cards.draft.includes("The recorded prompt equals the Packet shown in the Packet card above, byte for byte."),
+    "(e) the Draft card does not state its prompt equals the Packet");
+  const packetText = readOr(join(runDir, "draft", "leg-fixture", "packets", "copy-leg.md"), null);
+  if (packetText) {
+    ok(cards.packet.includes(packetText.slice(0, 40).split("\n")[0]), "(e) the Packet card does not show the Packet's own text");
+    ok(!cards.draft.includes(packetText), "(e) the Draft card repeats the Packet's text instead of linking to it");
   }
 
   // (f) the map gates; a stopped Draft still draws

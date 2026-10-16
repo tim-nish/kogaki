@@ -1,23 +1,27 @@
 #!/usr/bin/env node
-// The Leg sheet — one card per Leg run, built from the run directory alone (kogaki#1386,
-// owner decision 2026-10-15).
+// The Leg sheet — one card per artifact, in pipeline order, built from the run directory
+// alone (kogaki#1401, owner decision 2026-10-16).
 //
-// WHAT IT SHOWS. At the top of each card, the original Leg beside the written Leg, paragraph
-// by paragraph (one Leg Waypoint is one paragraph; the original is cut as The paragraph unit cuts it). Below, two columns of closed cells in
-// pipeline order. Left: the Passage as the stages cut it, each paragraph's Extraction with its
-// section 3 clause pairs, each Move with its ingest entry, the Audience, the Brief. Right: the
-// Leg Brief composer's two calls, the ParagraphPlan's plan and check calls, the ParagraphPlan
-// file with its Paragraph Waypoint counts against the bound Move's Segment counts, the Packet,
-// and the Draft. A cell for a model stage shows the prompt, the answer, the attempts and every
-// recorded call; a stage with no model call says so.
+// WHAT IT SHOWS. A run-conditions line (the Audience, the settings, the model command and
+// the run directory, each with its path and content hash — the Audience's text and the
+// settings' values open from the line), then the original-beside-written comparison table,
+// then seven cards in pipeline order: Extraction, Move, Brief, ParagraphPlan, Packet, Draft,
+// Run record. The Brief and ParagraphPlan cards sit side by side in one row on a wide
+// viewport and stack on a narrow one. Every card has the same four parts, in the same order:
+// Output (the artifact file, open by default — a table of one row per paragraph for a
+// per-paragraph artifact), Inputs (folded, a list of links to the cards this stage read, no
+// content repeated), Prompt (folded, the recorded stdin as its instruction half and its input
+// half — a stage with two calls shows one prompt per call, titled by what it produced) and
+// Calls (folded, attempts and refusals, then every recorded call's stdin and stdout). Nothing
+// is rendered twice: a card that needs another's content links to it instead.
 //
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
-// the run directory itself, printed once in the card header. Every card and prompt cell carries
-// one badge, `production` or `Proof Sheet substitute` (`SHEET_CELL_BADGE`), by stage.
+// the run directory itself, printed once in the card header. Every card carries one badge,
+// `production` or `Proof Sheet substitute` (`SHEET_CELL_BADGE`).
 //
-// EVERY CELL IS ADMITTED BY A ROW OF THE PROVENANCE MAP. The map's "Cells of the Leg card"
-// table has one row per cell this file draws (`SHEET_CELLS`). A map missing a row refuses the
-// sheet, naming the rows it lacks — a cell nobody can trace is not drawn; the row's label is
+// EVERY CARD IS ADMITTED BY A ROW OF THE PROVENANCE MAP. The map's "Cells of the Leg card"
+// table has one row per card this file draws (`SHEET_CELLS`). A map missing a row refuses the
+// sheet, naming the rows it lacks — a card nobody can trace is not drawn; the row's label is
 // the check, not something the card displays.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
@@ -37,99 +41,44 @@ import { pathToFileURL } from "node:url";
 import { parseYaml } from "../yaml.mjs";
 import { settingValue, JUDGE_INPUT_MARKER } from "../workflow/judge.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
-import { legParagraphs, sentencesOf, EXTRACTION_TABLE } from "./extract.mjs";
+import { legParagraphs, EXTRACTION_TABLE } from "./extract.mjs";
 
 export const PROVENANCE_SECTION = "## Cells of the Leg card";
-// The provenance map's row for each cell, by the name the map's first column carries. These
-// are the gate's keys, one distinct row per cell, and are never displayed (kogaki#1400).
+// The provenance map's row for each card, by the name the map's first column carries. These
+// are the gate's keys, one distinct row per card, and are never displayed (kogaki#1400).
 export const SHEET_CELLS = {
-  // Tier 1 -- the shared section: what the stages were given, none of what they produced.
-  audience: "Audience",
-  extractorPrompt: "Extractor, prompt as rendered",
-  readerStartPrompt: "Leg Brief composer, Reader start, prompt as rendered",
-  legPathPrompt: "Leg Brief composer, Leg path, prompt as rendered",
-  generatorPrompt: "ParagraphPlan generator, prompt as rendered",
-  judgePrompt: "ParagraphPlan judge, prompt as rendered",
-  writerPrompt: "Writer, prompt as rendered",
-  settings: "Settings the stages read",
-  run: "Run record",
-  // Tier 2 -- the Leg card: everything the run holds at Leg grain.
-  original: "Original Leg",
-  written: "Written Leg",
-  brief: "Brief, the fields the stages read",
-  readerStart: "Leg Brief composer, Reader start",
-  legPath: "Leg Brief composer, Leg path",
-  generator: "ParagraphPlan generator",
-  judge: "ParagraphPlan judge",
-  plan: "ParagraphPlan file",
-  packet: "Packet",
-  writer: "Writer",
-  // Tier 3 -- one card per paragraph.
-  passage: "Passage, cut into sentences",
   extraction: "Extraction",
   move: "Move",
-  waypoint: "Leg Waypoint",
-  paragraphWaypoints: "Paragraph Waypoints",
-};
-
-// What each cell is titled on the sheet: the pipeline's nouns and nothing else (kogaki#1400,
-// owner decision 2026-10-16). Two cells may share a title; they never share a provenance row.
-export const SHEET_TITLES = {
-  // Tier 1 -- the shared section: what the stages were given, none of what they produced.
-  audience: "Audience",
-  extractorPrompt: "Extraction",
-  readerStartPrompt: "Brief, Reader start",
-  legPathPrompt: "Brief, Leg Waypoint",
-  generatorPrompt: "ParagraphPlan, the plan call",
-  judgePrompt: "ParagraphPlan, the check call",
-  writerPrompt: "Packet",
-  settings: "Settings",
-  run: "Run record",
-  // Tier 2 -- the Leg card: everything the run holds at Leg grain.
-  original: "Original Leg",
-  written: "Written Leg",
   brief: "Brief",
-  readerStart: "Brief, Reader start",
-  legPath: "Brief, Leg Waypoint",
-  generator: "ParagraphPlan, the plan call",
-  judge: "ParagraphPlan, the check call",
-  plan: "ParagraphPlan",
+  paragraphPlan: "ParagraphPlan",
   packet: "Packet",
-  writer: "Draft",
-  // Tier 3 -- one card per paragraph.
-  passage: "Passage, cut into sentences",
-  extraction: "Extraction",
-  move: "Move",
-  waypoint: "Leg Waypoint",
-  paragraphWaypoints: "Paragraph Waypoints",
+  draft: "Draft",
+  runRecord: "Run record",
 };
 
-// Every card and prompt cell carries one badge, production or Proof Sheet substitute
-// (kogaki#1400, owner decision 2026-10-16). A substitute's note, where it has one,
-// goes in the badge's title attribute.
+// What each card is titled on the sheet: the pipeline's nouns and nothing else (kogaki#1400,
+// #1401), in pipeline order.
+export const SHEET_TITLES = {
+  extraction: "Extraction",
+  move: "Move",
+  brief: "Brief",
+  paragraphPlan: "ParagraphPlan",
+  packet: "Packet",
+  draft: "Draft",
+  runRecord: "Run record",
+};
+
+// Every card carries one badge, production or Proof Sheet substitute (kogaki#1400, carried
+// onto the seven cards by #1401). A substitute's note, where it has one, goes in the badge's
+// title attribute.
 export const SHEET_CELL_BADGE = {
-  audience: { type: "production" },
-  extractorPrompt: { type: "substitute" },
-  readerStartPrompt: { type: "substitute", note: "production rows with declared substitutions" },
-  legPathPrompt: { type: "substitute", note: "production rows with declared substitutions" },
-  generatorPrompt: { type: "production" },
-  judgePrompt: { type: "production" },
-  writerPrompt: { type: "production" },
-  settings: { type: "production" },
-  run: { type: "production" },
-  brief: { type: "substitute", note: "production rows with declared substitutions" },
-  readerStart: { type: "substitute", note: "production rows with declared substitutions" },
-  legPath: { type: "substitute", note: "production rows with declared substitutions" },
-  generator: { type: "production" },
-  judge: { type: "production" },
-  plan: { type: "production" },
-  packet: { type: "production" },
-  writer: { type: "production" },
-  passage: { type: "production" },
   extraction: { type: "substitute" },
   move: { type: "production", note: "production code, written into this run's own library" },
-  waypoint: { type: "substitute" },
-  paragraphWaypoints: { type: "production" },
+  brief: { type: "substitute", note: "production rows with declared substitutions" },
+  paragraphPlan: { type: "production" },
+  packet: { type: "production" },
+  draft: { type: "production" },
+  runRecord: { type: "production" },
 };
 
 export function contentHash(text) {
@@ -192,18 +141,48 @@ function stageNote(r, name) {
   return `<p class="stop">${esc(name)}: ${esc(s.state)}${s.stopped ? ` — ${esc(s.stopped)}` : ""}</p>`;
 }
 
-function callsBlock(calls, label = "recorded model calls") {
-  if (!calls.length) return `<p class="muted">No ${esc(label)}.</p>`;
-  return calls.map((c, i) => sub(`${label}: call ${i + 1} of ${calls.length} — exit ${c.exit}, at ${c.at}`,
-    `${pre(`argv: ${JSON.stringify(c.argv)}`)}${sub("prompt (stdin)", pre(c.stdin))}${sub("answer (stdout)", pre(c.stdout))}`
-    + (c.stderr ? sub("stderr", pre(c.stderr)) : ""))).join("");
-}
-
 const sub = (title, body) => `<details class="sub"><summary>${esc(title)}</summary>${body}</details>`;
 const subOpen = (title, body) => `<details class="sub" open><summary>${esc(title)}</summary>${body}</details>`;
 
-// Every card and prompt cell carries one badge: production, or Proof Sheet substitute
-// with a coloured left border and the note (if any) in the badge's title attribute.
+// A call's stdin against the prompts the sheet already shows (`shown`, as [where, text]
+// pairs): the same text byte for byte, or the same text with one block inserted -- a retry,
+// whose refusal sits between the instruction and the input (src/workflow/judge.mjs
+// `judgeRefusalBlock`) -- or neither.
+function againstShown(stdin, shown) {
+  const text = String(stdin);
+  for (const [where, prompt] of shown) {
+    if (prompt === text) return { where, inserted: null };
+  }
+  for (const [where, prompt] of shown) {
+    if (text.length <= prompt.length) continue;
+    let a = 0;
+    while (a < prompt.length && prompt[a] === text[a]) a++;
+    const b = prompt.length - a;
+    if (text.endsWith(prompt.slice(a))) return { where, inserted: text.slice(a, text.length - b) };
+  }
+  return null;
+}
+
+// Every recorded call, folded: argv, then its prompt and answer. A call whose stdin is a
+// prompt the sheet already shows names where rather than showing it again, and a retry
+// shows only the block it inserted (kogaki#1401, "no prompt text appears in more than one
+// place on the sheet"); a call whose stdin is shown nowhere else is shown whole.
+function callsBlock(calls, label = "recorded model calls", shown = []) {
+  if (!calls.length) return `<p class="muted">No ${esc(label)}.</p>`;
+  return calls.map((c, i) => {
+    const m = againstShown(c.stdin, shown);
+    const prompt = !m ? sub("prompt (stdin)", pre(c.stdin))
+      : m.inserted === null ? `<p class="muted">prompt (stdin): the prompt shown under ${esc(m.where)}, byte for byte.</p>`
+        : `<p class="muted">prompt (stdin): the prompt shown under ${esc(m.where)}, with this block inserted before its input:</p>${pre(m.inserted)}`;
+    return sub(`${label}: call ${i + 1} of ${calls.length} — exit ${c.exit}, at ${c.at}`,
+      pre(`argv: ${JSON.stringify(c.argv)}`) + prompt
+      + sub("answer (stdout)", pre(c.stdout))
+      + (c.stderr ? sub("stderr", pre(c.stderr)) : ""));
+  }).join("");
+}
+
+// Every card carries one badge: production, or Proof Sheet substitute with a coloured left
+// border and the note (if any) in the badge's title attribute.
 function badgeSpan(key) {
   const b = SHEET_CELL_BADGE[key];
   if (!b) return "";
@@ -211,27 +190,58 @@ function badgeSpan(key) {
   return ` <span class="badge ${b.type}"${b.note ? ` title="${esc(b.note)}"` : ""}>${esc(label)}</span>`;
 }
 
-// One cell: its label, its badge, its artifact (repository-root-relative), the content
-// hash of what it shows.
-function cell(key, { artifact, hashOf, body, suffix = "" }) {
-  const name = SHEET_TITLES[key];
-  const b = SHEET_CELL_BADGE[key];
-  const cls = b && b.type === "substitute" ? "cell substitute" : "cell";
-  return `<details class="${cls}"><summary><b>${esc(name)}${esc(suffix)}</b>${badgeSpan(key)} <span class="meta">${esc(artifact)} · sha ${contentHash(hashOf)}</span></summary>`
-    + `${body}</details>`;
+// A list of Inputs entries, each a link to another card on the same page and the path of
+// what the stage read (kogaki#1401 acceptance: "every Inputs entry is a link to another
+// card"). No input's content is repeated here.
+function inputsList(entries, idx = 0) {
+  if (!entries.length) return `<p class="muted">None drawn as a card.</p>`;
+  return `<ul>${entries.map(([key, path]) => `<li><a href="#card-${idx}-${key}">${esc(SHEET_TITLES[key])}</a>${path ? ` <span class="meta">${esc(path)}</span>` : ""}</li>`).join("")}</ul>`;
 }
 
-// A prompt cell for the shared tier: the instruction part (above the judge's input marker,
-// or the whole prompt where there is none) open, the input part folded.
-function promptCell(key, { artifact, promptText }) {
-  if (promptText === null || promptText === undefined) {
-    return cell(key, { artifact, hashOf: null, body: `<p class="muted">No model call was recorded.</p>` });
-  }
+// One card: Output (open by default), Inputs, Prompt, Calls, in that order.
+function cardWrap(key, { output, inputs, prompt, calls }, idx = 0) {
+  const name = SHEET_TITLES[key];
+  const b = SHEET_CELL_BADGE[key];
+  const cls = b && b.type === "substitute" ? "pcard substitute" : "pcard";
+  return `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key)}</h3>`
+    + `<details class="part out" open><summary>Output</summary>${output}</details>`
+    + `<details class="part in"><summary>Inputs</summary>${inputs}</details>`
+    + `<details class="part prompt"><summary>Prompt</summary>${prompt}</details>`
+    + `<details class="part calls"><summary>Calls</summary>${calls}</details>`
+    + `</section>`;
+}
+
+// A recorded prompt's two halves: the instruction (above the judge's input marker, or the
+// whole prompt where there is none), open, and the input, folded, with a note that they are
+// two halves of one recorded file.
+function promptHalves(promptText) {
+  if (promptText === null || promptText === undefined) return `<p class="muted">No model call was recorded.</p>`;
   const at = promptText.indexOf(JUDGE_INPUT_MARKER);
   const instruction = at >= 0 ? promptText.slice(0, at) : promptText;
   const input = at >= 0 ? promptText.slice(at) : null;
-  return cell(key, { artifact, hashOf: promptText,
-    body: `${subOpen("instruction", pre(instruction))}${input !== null ? sub("input", pre(input)) : ""}` });
+  return (input !== null ? `<p class="muted">The instruction and the input below are two halves of one recorded prompt file.</p>` : "")
+    + `${subOpen("instruction", pre(instruction))}`
+    + (input !== null ? sub("input", pre(input)) : "");
+}
+
+// A stage's Prompt part: one prompt where the stage made one call (or one per paragraph),
+// or one titled prompt per call where a stage makes two (the Brief composer's two calls, the
+// ParagraphPlan's plan and check calls), each titled by what it produced.
+// Where every prompt carries the same instruction (the Extractor's, one per paragraph), the
+// instruction is shown once and each prompt's input under its own title.
+function promptPart(named) {
+  if (!named.length) return `<p class="muted">No model call was recorded.</p>`;
+  if (named.length === 1) return promptHalves(named[0][1]);
+  const halves = named.map(([title, text]) => {
+    const at = text.indexOf(JUDGE_INPUT_MARKER);
+    return { title, instruction: at >= 0 ? text.slice(0, at) : null, input: at >= 0 ? text.slice(at) : null };
+  });
+  if (halves.every((h) => h.instruction !== null && h.instruction === halves[0].instruction)) {
+    return `<p class="muted">Each recorded prompt file is this one instruction followed by its own input.</p>`
+      + subOpen("instruction", pre(halves[0].instruction))
+      + halves.map((h) => sub(`${h.title} — input`, pre(h.input))).join("");
+  }
+  return named.map(([title, text]) => sub(title, promptHalves(text))).join("");
 }
 
 function moveSegments(moveText) {
@@ -240,10 +250,11 @@ function moveSegments(moveText) {
 }
 function segmentCount(moveText) { return moveSegments(moveText).length; }
 
-// TIER 1 -- the shared section: what the stages were given, none of what they produced.
-function sharedTier(r, { provenance, mapHash }) {
-  const relRun = (...segs) => relFromRepo(join(r.runDir, ...segs), REPO);
-  const out = [];
+// THE RUN-CONDITIONS LINE: the Audience, the settings, the model command and the run
+// directory, each with its path and content hash. The Audience's text and the settings'
+// values open from here -- and nowhere else (kogaki#1401).
+function runConditionsLine(r) {
+  const relRun = relFromRepo(r.runDir, REPO);
   // THE AUDIENCE READS FROM THE RECORD ALONE (kogaki#1396): `run.json`'s own `audience` is
   // the path the run resolved and used, once, at its start. A record without it (an older
   // run, from before the run named the path it used) shows the cell as unreadable rather
@@ -251,203 +262,262 @@ function sharedTier(r, { provenance, mapHash }) {
   const audienceRel = r.run.audience || null;
   const audiencePath = audienceRel ? resolve(REPO, audienceRel) : null;
   const audience = audiencePath ? read(audiencePath) : null;
-  out.push(["audience", { artifact: audiencePath ? relFromRepo(audiencePath, REPO) : "(unreadable: the run record names no audience)", hashOf: audience, body: pre(audience || "(cannot be read)") }, "cell"]);
+  const audienceLabel = audiencePath ? relFromRepo(audiencePath, REPO) : "(unreadable: the run record names no audience)";
 
-  const readerStartMarker = "`leg_reader_start_unit` judgment point";
-  const legPathMarker = "`leg_path_unit` judgment point";
-  const readerStartCalls = r.briefCalls.filter((c) => String(c.stdin).includes(readerStartMarker));
-  const legPathCalls = r.briefCalls.filter((c) => String(c.stdin).includes(legPathMarker));
-  const genCalls = r.planCalls.filter((c) => String(c.stdin).includes('"leg_you_must_plan"'));
-  const judgeCalls = r.planCalls.filter((c) => String(c.stdin).includes('"leg_you_must_judge"'));
-  const writerCalls = r.draftCalls;
-
-  out.push(["extractorPrompt", { artifact: r.extractCalls.length ? `${relRun("extract", "calls.jsonl")} · paragraph 1` : "(no call)", promptText: r.extractCalls[0] ? r.extractCalls[0].stdin : null }, "prompt"]);
-  out.push(["readerStartPrompt", { artifact: readerStartCalls.length ? `${relRun("brief", "calls.jsonl")} · reader-start` : "(no call)", promptText: readerStartCalls[0] ? readerStartCalls[0].stdin : null }, "prompt"]);
-  out.push(["legPathPrompt", { artifact: legPathCalls.length ? `${relRun("brief", "calls.jsonl")} · leg-path` : "(no call)", promptText: legPathCalls[0] ? legPathCalls[0].stdin : null }, "prompt"]);
-  out.push(["generatorPrompt", { artifact: genCalls.length ? `${relRun("paragraph-plan", "calls.jsonl")} · plan call` : "(no call)", promptText: genCalls[0] ? genCalls[0].stdin : null }, "prompt"]);
-  out.push(["judgePrompt", { artifact: judgeCalls.length ? `${relRun("paragraph-plan", "calls.jsonl")} · check call` : "(no call)", promptText: judgeCalls[0] ? judgeCalls[0].stdin : null }, "prompt"]);
-  out.push(["writerPrompt", { artifact: writerCalls.length ? relRun("draft", "calls.jsonl") : "(no call)", promptText: writerCalls[0] ? writerCalls[0].stdin : null }, "prompt"]);
-
+  const settingsPath = resolve(REPO, "kogaki.settings.json");
   const table = readJson(EXTRACTION_TABLE);
   const settingsText = [
     `attempt bound (brief.unit_attempts): ${table ? settingValue(table.job.unit_attempts) : "(unreadable)"}`,
     `call limit, seconds (brief.call_limit_s): ${table ? settingValue(table.job.call_limit_s) : "(unreadable)"}`,
     `audience file (brief.audience_file): ${settingValue({ setting: "brief.audience_file" })}`,
   ].join("\n");
-  out.push(["settings", { artifact: "kogaki.settings.json", hashOf: settingsText, body: pre(settingsText) }, "cell"]);
+
+  const modelCommand = r.run.model_command || "(not recorded)";
   const runText = read(join(r.runDir, "run.json"));
-  out.push(["run", { artifact: relRun("run.json"), hashOf: runText, body: pre(runText || "(none)") }, "cell"]);
-  return `<details class="tier"><summary>Shared — what the stages were given</summary>`
-    + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
-    + out.map(([key, opts, kind]) => (kind === "prompt" ? promptCell(key, opts) : cell(key, opts))).join("")
-    + `</details>`;
+
+  return `<div class="run-conditions" id="run-conditions"><b>Run conditions</b><ul>`
+    + `<li>Audience: <span class="meta">${esc(audienceLabel)} · sha ${contentHash(audience)}</span> ${sub("Audience text", pre(audience || "(cannot be read)"))}</li>`
+    + `<li>Settings: <span class="meta">${esc(relFromRepo(settingsPath, REPO))} · sha ${contentHash(settingsText)}</span> ${sub("Settings values", pre(settingsText))}</li>`
+    + `<li>Model command: <span class="meta">${esc(modelCommand)} · sha ${contentHash(modelCommand)}</span></li>`
+    + `<li>Run directory: <span class="meta">${esc(relRun)} · sha ${contentHash(runText)}</span></li>`
+    + `</ul></div>`;
 }
 
-// TIER 2 -- the Leg card: everything the run holds at Leg grain.
-function legCardTier(r, { sectionPath, written, writtenParas, draftStop }) {
+// THE ORIGINAL-BESIDE-WRITTEN TABLE: one row per paragraph, original Leg beside written Leg
+// (one Leg Waypoint is one paragraph; the original is cut as The paragraph unit cuts it).
+function comparisonTable(r, { sectionPath, written, writtenParas, draftStop }) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const n = Math.max(r.paragraphs.length, writtenParas.length);
   const pairs = [];
   for (let i = 0; i < n; i++) {
     pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td>${written ? esc(writtenParas[i] || "") : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "")}</td></tr>`);
   }
-  const top = `<table class="pair"><thead><tr><th></th><th>${esc(SHEET_TITLES.original)} <span class="meta">${esc(rel(join(r.runDir, "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
-    + `<th>${esc(SHEET_TITLES.written)} <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
+  return `<table class="pair"><thead><tr><th></th><th>Original Leg <span class="meta">${esc(rel(join(r.runDir, "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
+    + `<th>Written Leg <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
     + `<tbody>${pairs.join("")}</tbody></table>`;
+}
 
-  const cells = [];
-  const b = r.briefRecord || {};
-  const leg = (b.reader_path || [])[0] || {};
-  const reduced = r.briefRecord ? json({ reader_start: b.reader_start, compose_path: b.compose_path,
-    leg: { leg_id: leg.leg_id, purpose: leg.purpose, reader_state_after: leg.reader_state_after, claims: leg.claims, waypoints: leg.waypoints } }) : null;
-  cells.push(cell("brief", { suffix: " (rows derived from production with declared substitutions)", artifact: rel(r.briefPath), hashOf: r.briefText,
-    body: (r.briefText ? "" : stageNote(r, "brief")) + pre(reduced || "(not written)") + sub("the whole Brief", pre(r.briefText || "(not written)")) }));
+// CARD 1 — EXTRACTION. Output: one row per paragraph, its path, hash and file, with its
+// clause pairs folded beside it. Inputs: none drawn as a card (the original paragraph is in
+// the comparison table above, the Audience is in the run-conditions line). Prompt: one per
+// paragraph. Calls: one group per paragraph, with its attempt count.
+function extractionCard(r, idx) {
+  const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
+  const n = r.paragraphs.length;
+  const per = [];
+  for (let i = 0; i < n; i++) {
+    const name = r.extractions[i];
+    const file = name ? join(r.runDir, "extract", name) : null;
+    const text = file ? read(file) : null;
+    const pdir = r.extractorRun ? join(r.extractorRun, `p${i + 1}`) : null;
+    const promptText = pdir ? read(join(pdir, "prompt.md")) : null;
+    const answer = pdir ? readJson(join(pdir, "answer.json")) : null;
+    const attempts = pdir ? readJson(join(pdir, "attempts.json")) : null;
+    const inputAt = promptText ? promptText.indexOf(JUDGE_INPUT_MARKER) : -1;
+    const key = inputAt >= 0 ? promptText.slice(inputAt) : null;
+    const calls = key ? r.extractCalls.filter((c) => String(c.stdin).includes(key)) : [];
+    const segs = answer && Array.isArray(answer.segments) ? answer.segments : [];
+    per.push({ i, file, text, promptText, calls, attempts, segs });
+  }
+  const pairsOf = (p) => (p.segs.length
+    ? `<table><thead><tr><th>#</th><th>function</th><th>relation</th><th>content clause</th><th>generalized clause</th></tr></thead><tbody>`
+      + p.segs.map((s, j) => `<tr><td>${j + 1}</td><td>${esc(s.function || "")}</td><td>${esc(s.relation || "")}</td><td>${esc(s.content || "")}</td><td>${esc(s.generalized || "")}</td></tr>`).join("")
+      + `</tbody></table>`
+    : `<p class="muted">No clause pairs.</p>`);
+  const output = stageNote(r, "extract")
+    + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>`
+    + per.map((p) => `<tr><td>${p.i + 1}</td><td><p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
+      + (p.file ? pre(p.text || "(not written)") + sub("clause pairs", pairsOf(p)) : "") + `</td></tr>`).join("")
+    + `</tbody></table>`;
+
+  // The Prompt is the recorded stdin of each paragraph's first call, not the judge's
+  // `prompt.md`: the recorder's stdin carries the CLI preamble the model actually read.
+  const promptEntries = per.filter((p) => p.calls.length).map((p) => [`paragraph ${p.i + 1}`, p.calls[0].stdin]);
+  const callsHtml = per.some((p) => p.calls.length)
+    ? per.map((p) => sub(`paragraph ${p.i + 1} — attempts ${p.attempts ? p.attempts.attempts : "?"}`, callsBlock(p.calls, `paragraph ${p.i + 1} calls`, promptEntries.map(([t, x]) => [`Prompt, ${t}`, x])))).join("")
+    : `<p class="muted">No recorded model calls.</p>`;
+
+  return cardWrap("extraction", { output, inputs: inputsList([], idx), prompt: promptPart(promptEntries), calls: callsHtml }, idx);
+}
+
+// CARD 2 — MOVE. Output: one row per paragraph, its Move file's path, hash and content, with
+// its ingest screen folded. Inputs: Extraction. No model call -- `tools/move_ingest.py` is mechanical.
+function moveCard(r, idx) {
+  const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
+  const entries = (r.ingest && r.ingest.entries) || [];
+  const n = r.paragraphs.length;
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const e = entries[i] || {};
+    const mp = e.move ? join(r.runDir, "moves", `${e.move}.md`) : null;
+    const mt = mp ? read(mp) : null;
+    rows.push(`<tr><td>${i + 1}</td><td><p class="meta">${mp ? esc(rel(mp)) : "(not written)"} · sha ${contentHash(mt)}</p>`
+      + pre(mt || e.refusal || "(not written)") + (e.screen ? sub(`ingest entry — sha ${contentHash(e.screen)}`, pre(e.screen)) : "") + `</td></tr>`);
+  }
+  const output = stageNote(r, "ingest")
+    + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+  return cardWrap("move", {
+    output,
+    inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
+    prompt: `<p class="muted">No model call: <code>tools/move_ingest.py</code> <code>run_from_extraction</code> derives the Move mechanically.</p>`,
+    calls: `<p class="muted">No model call.</p>`,
+  }, idx);
+}
+
+// CARD 3 — BRIEF. Output: the Brief file, whole, with its path and hash. Inputs: Extraction (the reader state and claims the Leg Brief composer reads).
+// Prompt/Calls: the composer's two calls, Reader start and Leg path, each titled by what it
+// produced.
+function briefCard(r, idx) {
+  const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
+  const output = (r.briefText ? "" : stageNote(r, "brief"))
+    + `<p class="meta">${esc(rel(r.briefPath))} · sha ${contentHash(r.briefText)}</p>` + pre(r.briefText || "(not written)");
 
   const readerStartMarker = "`leg_reader_start_unit` judgment point";
   const legPathMarker = "`leg_path_unit` judgment point";
-  for (const [key, sub_, marker] of [["readerStart", "reader-start", readerStartMarker], ["legPath", "leg-path", legPathMarker]]) {
+  const named = [];
+  let callsHtml = "";
+  for (const [sub_, marker, title] of [["reader-start", readerStartMarker, "Brief, Reader start"], ["leg-path", legPathMarker, "Brief, Leg Waypoint"]]) {
     const d = r.legBriefRun ? join(r.legBriefRun, sub_) : null;
     const answer = d ? readJson(join(d, "answer.json")) : null;
     const attempts = d ? readJson(join(d, "attempts.json")) : null;
-    cells.push(cell(key, { artifact: d ? rel(join(d, "answer.json")) : "(not run)", hashOf: answer && json(answer),
-      body: (answer ? "" : stageNote(r, "brief")) + sub(`answer — sha ${contentHash(answer && json(answer))}`, pre(answer ? json(answer) : "(none)"))
-        + sub(`attempts — ${attempts ? attempts.attempts : "?"}`, pre(attempts ? json(attempts) : "(none)"))
-        + callsBlock(r.briefCalls.filter((c) => String(c.stdin).includes(marker))) }));
+    const calls = r.briefCalls.filter((c) => String(c.stdin).includes(marker));
+    if (calls.length) named.push([title, calls[0].stdin]);
+    callsHtml += sub(`${title} — attempts ${attempts ? attempts.attempts : "?"}`,
+      sub(`answer — sha ${contentHash(answer && json(answer))}`, pre(answer ? json(answer) : "(none)")) + pre(attempts ? json(attempts) : "(no attempts record)")
+      + callsBlock(calls, `${title} calls`, named.map(([t, x]) => [`Prompt, ${t}`, x])));
   }
+  return cardWrap("brief", {
+    output,
+    inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
+    prompt: promptPart(named),
+    calls: callsHtml,
+  }, idx);
+}
+
+// CARD 4 — PARAGRAPHPLAN. Output: the plan file, the check verdict as a line (not a card),
+// and Leg Waypoint -> Paragraph Waypoints counts against the bound Move's Segments. Inputs:
+// Brief, Move. Prompt/Calls: the plan call and the check call, each titled by what it
+// produced.
+function paragraphPlanCard(r, idx) {
+  const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const job = readJson(join(r.jobDir, "reader-path-job.json"));
   const candFile = existsSync(r.jobDir) ? readdirSync(r.jobDir).find((f) => /^reader-path-unit-.+\.candidate\.json$/.test(f)) : null;
   const specFile = existsSync(r.jobDir) ? readdirSync(r.jobDir).find((f) => /^reader-path-unit-.+\.specialization\.json$/.test(f)) : null;
-  const candidate = candFile ? read(join(r.jobDir, candFile)) : null;
   const verdict = specFile ? read(join(r.jobDir, specFile)) : null;
   const genCalls = r.planCalls.filter((c) => String(c.stdin).includes('"leg_you_must_plan"'));
   const judgeCalls = r.planCalls.filter((c) => String(c.stdin).includes('"leg_you_must_judge"'));
-  cells.push(cell("generator", { artifact: candFile ? rel(join(r.jobDir, candFile)) : "(no candidate)", hashOf: candidate,
-    body: (candidate ? "" : stageNote(r, "paragraph-plan")) + sub("answer", pre(candidate || "(none)"))
-      + sub("attempts and refusals (the job record)", pre(job ? json({ state: job.state, units: (job.units || []).map((u) => ({ id: u.id, status: u.status, attempts: u.attempts, refusals: u.refusals || [] })) }) : "(none)"))
-      + callsBlock(genCalls) }));
-  cells.push(cell("judge", { artifact: specFile ? rel(join(r.jobDir, specFile)) : "(no verdict)", hashOf: verdict,
-    body: (verdict ? "" : stageNote(r, "paragraph-plan")) + sub("verdict", pre(verdict || "(none)")) + callsBlock(judgeCalls) }));
   const planText = read(r.planPath);
   const bindings = readJson(join(r.jobDir, "paragraph-plan-bindings.json"));
-  let counts = "";
   let plan = null;
   if (planText) { try { plan = parseYaml(planText, r.planPath); } catch { plan = null; } }
   const pl = plan && plan.legs && plan.legs[0];
+  let verdictJson = null;
+  try { verdictJson = verdict ? JSON.parse(verdict) : null; } catch { verdictJson = null; }
+  const verdictLine = verdictJson && Array.isArray(verdictJson.verdicts)
+    ? `Check verdict: ${verdictJson.verdicts.map((v) => `Leg Waypoint ${v.waypoint}: ${v.verdict}`).join("; ")}`
+    : "Check verdict: (none recorded)";
+
+  let countsTable = "";
   if (pl) {
-    counts = `<table><thead><tr><th>Leg Waypoint</th><th>bound Move</th><th>Paragraph Waypoints</th><th>Segments of the Move</th></tr></thead><tbody>`
+    countsTable = `<table><thead><tr><th>Leg Waypoint</th><th>bound Move</th><th>Paragraph Waypoints</th><th>Segments of the Move</th></tr></thead><tbody>`
       + pl.waypoints.map((w) => {
         const bnd = ((bindings && bindings.bindings) || []).find((x) => x.waypoint === w.waypoint) || {};
         const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}.md`))) : 0;
-        const k = (w.paragraph_waypoints || []).length;
-        return `<tr${k !== segs ? ' class="off"' : ""}><td>${w.waypoint}</td><td>${esc(bnd.move || "?")}</td><td>${k}</td><td>${segs}</td></tr>`;
+        const pws = w.paragraph_waypoints || [];
+        return `<tr${pws.length !== segs ? ' class="off"' : ""}><td>${w.waypoint}</td><td>${esc(bnd.move || "?")}</td>`
+          + `<td><ol>${pws.map((p) => `<li>${esc(p.point || "")}</li>`).join("")}</ol></td><td>${segs}</td></tr>`;
       }).join("") + `</tbody></table>`;
   }
-  cells.push(cell("plan", { artifact: rel(r.planPath), hashOf: planText,
-    body: (planText ? "" : stageNote(r, "paragraph-plan")) + `<p class="muted">No model call: written by <code>/paragraph-plan</code> from the job's candidates.</p>`
-      + counts + sub("the file", pre(planText || "(not written)")) + sub("bindings", pre(bindings ? json(bindings) : "(none)")) }));
+  const output = (planText ? "" : stageNote(r, "paragraph-plan"))
+    + `<p class="meta">${esc(rel(r.planPath))} · sha ${contentHash(planText)}</p>`
+    + `<p>${esc(verdictLine)}</p>`
+    + countsTable
+    + sub("the file", pre(planText || "(not written)"))
+    + sub("bindings", pre(bindings ? json(bindings) : "(none)"));
+
+  const named = [];
+  if (genCalls[0]) named.push(["ParagraphPlan, the plan call", genCalls[0].stdin]);
+  if (judgeCalls[0]) named.push(["ParagraphPlan, the check call", judgeCalls[0].stdin]);
+
+  const callsHtml = sub("the plan call — attempts and refusals",
+      pre(job ? json({ state: job.state, units: (job.units || []).map((u) => ({ id: u.id, status: u.status, attempts: u.attempts, refusals: u.refusals || [] })) }) : "(none)")
+      + callsBlock(genCalls, "plan calls", named.map(([t, x]) => [`Prompt, ${t}`, x])))
+    + sub("the check call", callsBlock(judgeCalls, "check calls", named.map(([t, x]) => [`Prompt, ${t}`, x])));
+
+  return cardWrap("paragraphPlan", {
+    output,
+    inputs: inputsList([["brief", rel(r.briefPath)], ["move", relFromRepo(join(r.runDir, "moves"), REPO)]], idx),
+    prompt: promptPart(named),
+    calls: callsHtml,
+  }, idx);
+}
+
+// CARD 5 — PACKET. Output: the Packet file, whole. Inputs: Brief, ParagraphPlan. No model
+// call -- `/draft` renders it mechanically.
+function packetCard(r, idx) {
+  const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const packetPath = r.legId ? join(r.ws, "packets", `${r.legId}.md`) : null;
   const packet = packetPath ? read(packetPath) : null;
-  cells.push(cell("packet", { artifact: packetPath ? rel(packetPath) : "(not rendered)", hashOf: packet,
-    body: (packet ? "" : stageNote(r, "draft")) + `<p class="muted">No model call: rendered by <code>/draft</code> from the Brief and the ParagraphPlan file.</p>` + pre(packet || "(not rendered)") }));
-  const writerCalls = r.draftCalls;
-  const draftRun = read(join(r.ws, "run.json"));
-  const same = writerCalls.length && packet !== null && writerCalls.every((c) => c.stdin === packet);
-  cells.push(cell("writer", { artifact: sectionPath ? rel(sectionPath) : "(not written)", hashOf: written,
-    body: stageNote(r, "draft")
-      + `<p>${writerCalls.length ? (same ? "Every recorded Draft call's prompt is the Packet, byte for byte, and nothing else." : `<span class="stop">A recorded Draft call's prompt is not the Packet.</span>`) : "No Draft call was recorded."}</p>`
-      + sub("output", pre(written || "(not written)"))
-      + sub("run record (/draft run.json)", pre(draftRun || "(none)"))
-      + sub("commands", pre(json((readJson(join(r.runDir, "draft", "command.json")) || []).map((c) => ({ name: c.name, argv: c.argv, exit: c.exit, stdout: c.stdout, stderr: c.stderr })))))
-      + callsBlock(writerCalls, "recorded Draft calls") }));
-
-  return `<details class="tier leg" open><summary>Leg card</summary>${top}${cells.join("")}</details>`;
+  const output = (packet ? "" : stageNote(r, "draft"))
+    + `<p class="meta">${packetPath ? esc(rel(packetPath)) : "(not rendered)"} · sha ${contentHash(packet)}</p>`
+    + pre(packet || "(not rendered)");
+  return cardWrap("packet", {
+    output,
+    inputs: inputsList([["brief", rel(r.briefPath)], ["paragraphPlan", rel(r.planPath)]], idx),
+    prompt: `<p class="muted">No model call: rendered by <code>/draft</code> from the Brief and the ParagraphPlan file.</p>`,
+    calls: `<p class="muted">No model call.</p>`,
+  }, idx);
 }
 
-// TIER 3 -- one card per paragraph: original beside written, then Extraction/Move
-// (left) beside the Leg Waypoint and Paragraph Waypoints (right). A paragraph with
-// no Extraction shows the Extractor's stop on the left and nothing on the right.
-function paragraphCard(r, i, { written, writtenParas, draftStop, planLeg, bindings }) {
+// CARD 6 — DRAFT. Output: one row per paragraph, the written text (or the stop). Inputs:
+// Packet. The Writer's recorded prompt is the Packet, so the Prompt and Calls parts say so
+// rather than showing it again (kogaki#1401).
+function draftCard(r, idx, { sectionPath, written, writtenParas, draftStop }) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
-  const original = r.paragraphs[i] || "";
-  const hasWritten = written !== null;
-  const writtenPara = hasWritten ? (writtenParas[i] || "") : null;
-  const top = `<table class="pair"><thead><tr><th></th><th>${esc(SHEET_TITLES.original)}</th><th>${esc(SHEET_TITLES.written)}</th></tr></thead>`
-    + `<tbody><tr><th>${i + 1}</th><td>${esc(original)}</td><td>${hasWritten ? esc(writtenPara) : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "")}</td></tr></tbody></table>`;
-
-  const file = r.extractions[i] ? join(r.runDir, "extract", r.extractions[i]) : null;
-  if (!file) {
-    const left = stageNote(r, "extract") || `<p class="stop">extract: not run for paragraph ${i + 1}</p>`;
-    return `<details class="card para"><summary>Paragraph ${i + 1}</summary>${top}<div class="cols"><div>${left}</div><div></div></div></details>`;
+  const packetPath = r.legId ? join(r.ws, "packets", `${r.legId}.md`) : null;
+  const packet = packetPath ? read(packetPath) : null;
+  const writerCalls = r.draftCalls;
+  const same = writerCalls.length && packet !== null && writerCalls.every((c) => c.stdin === packet);
+  const n = Math.max(r.paragraphs.length, writtenParas.length);
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const cellText = written ? esc(writtenParas[i] || "") : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "");
+    rows.push(`<tr><td>${i + 1}</td><td>${cellText}</td></tr>`);
   }
-  const text = read(file);
-  const pdir = r.extractorRun ? join(r.extractorRun, `p${i + 1}`) : null;
-  const prompt = pdir ? read(join(pdir, "prompt.md")) : null;
-  const answer = pdir ? readJson(join(pdir, "answer.json")) : null;
-  const attempts = pdir ? readJson(join(pdir, "attempts.json")) : null;
-  const inputAt = prompt ? prompt.indexOf(JUDGE_INPUT_MARKER) : -1;
-  const key = inputAt >= 0 ? prompt.slice(inputAt) : null;
-  const calls = key ? r.extractCalls.filter((c) => String(c.stdin).includes(key)) : [];
-  const segs = answer && Array.isArray(answer.segments) ? answer.segments : [];
-  const pairsTable = segs.length ? `<table><thead><tr><th>#</th><th>function</th><th>relation</th><th>content clause</th><th>generalized clause</th></tr></thead><tbody>`
-    + segs.map((s, j) => `<tr><td>${j + 1}</td><td>${esc(s.function || "")}</td><td>${esc(s.relation || "")}</td><td>${esc(s.content || "")}</td><td>${esc(s.generalized || "")}</td></tr>`).join("")
-    + `</tbody></table>` : `<p class="muted">No section 3 entries.</p>`;
+  const output = `<p class="meta">${sectionPath ? esc(rel(sectionPath)) : "(not written)"} · sha ${contentHash(written)}</p>`
+    + `<table><thead><tr><th>paragraph</th><th>written text</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+    + stageNote(r, "draft");
 
-  let left = cell("passage", { artifact: rel(join(r.runDir, "leg.md")), hashOf: original,
-    body: `<p class="muted">No model call: the Harness's own cut (extract.mjs <code>legParagraphs</code>, <code>sentencesOf</code>). One sentence is one Segment.</p>`
-      + `<ol>${sentencesOf(original).map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` });
-  left += cell("extraction", { artifact: rel(file), hashOf: text,
-    body: `<h4>Section 3, clause pairs</h4>${pairsTable}`
-      + sub("the Extraction file", pre(text || "(not written)"))
-      + sub(`answer — sha ${contentHash(answer && json(answer))}`, pre(answer ? json(answer) : "(none)"))
-      + sub(`attempts — ${attempts ? attempts.attempts : "?"}`, pre(attempts ? json(attempts) : "(none)"))
-      + callsBlock(calls) });
-  const entries = (r.ingest && r.ingest.entries) || [];
-  const e = entries[i] || {};
-  const mp = e.move ? join(r.runDir, "moves", `${e.move}.md`) : null;
-  const mt = mp ? read(mp) : null;
-  left += cell("move", { artifact: mp ? rel(mp) : "(not written)", hashOf: mt,
-    body: (mt ? "" : stageNote(r, "ingest")) + `<p class="muted">No model call: <code>tools/move_ingest.py</code> <code>run_from_extraction</code>, accepted into this run's library.</p>`
-      + pre(mt || e.refusal || "(not written)")
-      + sub(`ingest entry — ${e.extraction || "?"} · sha ${contentHash(e.screen)}`, pre(e.screen || "(none)")) });
+  const prompt = writerCalls.length
+    ? `<p>${same ? "The recorded prompt equals the Packet shown in the Packet card above, byte for byte." : `<span class="stop">The recorded prompt is not the Packet.</span>`}</p>`
+    : `<p class="muted">No Draft call was recorded.</p>`;
+  const calls = callsBlock(writerCalls, "recorded Draft calls", packet === null ? [] : [["the Packet card's Output", packet]]);
 
-  const b = r.briefRecord || {};
-  const leg = (b.reader_path || [])[0] || {};
-  const w = (leg.waypoints || [])[i] || null;
-  let right = cell("waypoint", { artifact: rel(r.briefPath), hashOf: w && json(w), body: pre(w ? json(w) : "(not written)") });
-  const pw = planLeg ? (planLeg.waypoints || []).find((ww) => ww.waypoint === i + 1) : null;
-  const bnd = pw ? ((bindings && bindings.bindings) || []).find((x) => x.waypoint === i + 1) || {} : {};
-  const moveSegs = bnd.move ? moveSegments(read(join(r.runDir, "moves", `${bnd.move}.md`))) : [];
-  const pws = (pw && pw.paragraph_waypoints) || [];
-  right += cell("paragraphWaypoints", { artifact: rel(r.planPath), hashOf: json(pws),
-    body: `<table><thead><tr><th>#</th><th>Paragraph Waypoint</th><th>Segment of ${esc(bnd.move || "?")}</th></tr></thead><tbody>`
-      + pws.map((p, j) => `<tr><td>${j + 1}</td><td>${esc(p.point || "")}</td><td>${esc(moveSegs[j] || "(none)")}</td></tr>`).join("")
-      + `</tbody></table>` });
-  right += `<p class="muted">Written paragraph ${i + 1} again:</p><p>${hasWritten ? esc(writtenPara) : "(not written)"}</p>`;
-
-  return `<details class="card para"><summary>Paragraph ${i + 1}</summary>${top}<div class="cols"><div>${left}</div><div>${right}</div></div></details>`;
+  return cardWrap("draft", {
+    output,
+    inputs: inputsList([["packet", packetPath ? rel(packetPath) : null]], idx),
+    prompt,
+    calls,
+  }, idx);
 }
 
-function card(r, { provenance, mapHash }) {
-  const sectionPath = r.legId ? join(r.ws, "sections", `${r.legId}.md`) : null;
-  const written = sectionPath ? read(sectionPath) : null;
-  const writtenParas = written ? written.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean) : [];
-  const draftStop = r.stage("draft").stopped || r.run.stopped || null;
-
-  const planText = read(r.planPath);
-  let plan = null;
-  if (planText) { try { plan = parseYaml(planText, r.planPath); } catch { plan = null; } }
-  const planLeg = plan && plan.legs && plan.legs[0];
-  const bindings = readJson(join(r.jobDir, "paragraph-plan-bindings.json"));
-
-  const shared = sharedTier(r, { provenance, mapHash });
-  const legCard = legCardTier(r, { sectionPath, written, writtenParas, draftStop });
-  const n = Math.max(r.paragraphs.length, writtenParas.length);
-  const paragraphs = [];
-  for (let i = 0; i < n; i++) paragraphs.push(paragraphCard(r, i, { written, writtenParas, draftStop, planLeg, bindings }));
-
-  return `<section class="card"><h2>${esc(r.run.passage || "Leg")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
-    + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
-    + shared + legCard + paragraphs.join("") + `</section>`;
+// CARD 7 — RUN RECORD. Output: `run.json` and each stage's `command.json`. Inputs: none; this
+// card names what ran, not what it read.
+function runRecordCard(r, idx) {
+  const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
+  const runText = read(join(r.runDir, "run.json"));
+  const stages = ["extract", "ingest", "brief", "paragraph-plan", "draft"];
+  const commands = stages.map((s) => {
+    const cmd = readJson(join(r.runDir, s, "command.json")) || [];
+    return sub(`${s} — command.json`, pre(json(cmd.map((c) => ({ name: c.name, argv: c.argv, exit: c.exit })))));
+  }).join("");
+  const output = `<p class="meta">${esc(rel(join(r.runDir, "run.json")))} · sha ${contentHash(runText)}</p>` + pre(runText || "(none)") + commands;
+  return cardWrap("runRecord", {
+    output,
+    inputs: inputsList([], idx),
+    prompt: `<p class="muted">No model call: this card names what ran and how.</p>`,
+    calls: `<p class="muted">No model calls of its own; see each card above for its stage's calls.</p>`,
+  }, idx);
 }
 
 const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--accent:#8a3b12;--off:#fbe3d6}
@@ -455,16 +525,41 @@ const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--ac
 :root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;margin:0 auto;max-width:1400px;padding:16px}
 .card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
+.run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
 .pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
 .pair td{width:50%;white-space:pre-wrap}.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:800px){.cols{grid-template-columns:1fr}}
-details.cell{border:1px solid var(--line);border-radius:4px;margin:6px 0;padding:4px 8px}details.sub{margin:4px 0 4px 8px}
-details.tier{margin:10px 0}details.tier>summary{font-size:18px;font-weight:bold;cursor:pointer}
-details.card.para{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}details.card.para>summary{font-size:16px;font-weight:bold;cursor:pointer}
+.pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
+details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
+details.sub{margin:4px 0 4px 8px}table.rows{width:100%}table.rows td:last-child{width:100%}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
 table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}tr.off{background:var(--off)}.stop{color:var(--accent)}
 .badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
 .badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
-details.cell.substitute{border-left:4px solid var(--accent)}`;
+.pcard.substitute{border-left:4px solid var(--accent)}`;
+
+function card(r, { provenance, mapHash, idx = 0 }) {
+  const sectionPath = r.legId ? join(r.ws, "sections", `${r.legId}.md`) : null;
+  const written = sectionPath ? read(sectionPath) : null;
+  const writtenParas = written ? written.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean) : [];
+  const draftStop = r.stage("draft").stopped || r.run.stopped || null;
+
+  const conditions = runConditionsLine(r);
+  const comparison = comparisonTable(r, { sectionPath, written, writtenParas, draftStop });
+
+  const cards = [
+    extractionCard(r, idx),
+    moveCard(r, idx),
+    `<div class="cols">${briefCard(r, idx)}${paragraphPlanCard(r, idx)}</div>`,
+    packetCard(r, idx),
+    draftCard(r, idx, { sectionPath, written, writtenParas, draftStop }),
+    runRecordCard(r, idx),
+  ].join("");
+
+  return `<section class="card"><h2>${esc(r.run.passage || "Leg")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
+    + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
+    + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
+    + conditions + comparison + cards + `</section>`;
+}
 
 // BUILD THE SHEET. Returns `{ written }` or `{ error }`.
 export function buildSheet({ runs, provenance, out }) {
@@ -476,7 +571,7 @@ export function buildSheet({ runs, provenance, out }) {
     return { error: `the provenance map at ${provenance} has no "${PROVENANCE_SECTION}" row for ${missing.map((m) => `"${m}"`).join(", ")} — a cell nobody can trace is not drawn` };
   }
   const mapHash = contentHash(mapText);
-  const cards = runs.map((d) => card(readRun(resolve(d)), { provenance, mapHash }));
+  const cards = runs.map((d, idx) => card(readRun(resolve(d)), { provenance, mapHash, idx }));
   writeFileSync(out, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<title>Leg Proof Sheet</title><style>${CSS}</style></head><body><h1>Leg Proof Sheet</h1>`
     + `<p class="muted">One card per Leg run. Provenance map: ${esc(provenance)} · sha ${contentHash(mapText)}</p>${cards.join("")}</body></html>\n`);
