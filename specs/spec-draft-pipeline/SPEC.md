@@ -1668,6 +1668,13 @@ owner ruling 2026-10-10), in whatever form this Leg's waypoints need — one
 clause or several sentences. Nothing here is a claim, and nothing here is a
 narrative to tell merely because it is named a Journey.
 
+**An established term crosses with its name and, where the Brief gives one,
+its meaning — never its `source`** (kogaki#1404, owner ruling 2026-10-16).
+`introduces_item`'s `source` (§4.13) is a Brief-side justification for why a
+term counts as `established`, not Writer material, and the crossing block
+never renders it: the defect this closes is exactly `source` text composed as
+provenance reaching the write instruction and, from there, the prose.
+
 **Every block the template renders is a Harness contract; every rule of how
 the prose reads is the Audience's Register** (kogaki#1321, kogaki#1370). The
 heading rule, the budget, the round trip, the refusal form, the waypoints and
