@@ -24,8 +24,10 @@
 #       Output, Inputs, Prompt and Calls in that order, Output open and the other three folded,
 #       and every Inputs entry links to another card's id on the page; the Extraction card
 #       shows paragraph 1's prompt and two attempts; the Draft card states its prompt equals
-#       the Packet rather than repeating it, and the Packet's own text appears exactly once on
-#       the whole page; the Audience and the settings appear only in the run-conditions line.
+#       the Packet rather than repeating it; every recorded call's prompt, cut into its
+#       instruction and its input, has each piece appear exactly once on the whole page (a retry
+#       shows only the refusal block it inserted); the Audience and the settings appear only in
+#       the run-conditions line.
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
 #       stopped Draft stage still draws the card with the stop in its Output.
 #   (g) where the owner's map is on disk (corpus/ is not versioned), it carries every row.
@@ -250,6 +252,40 @@ else {
   ok(/id="run-conditions"[\s\S]*?attempt bound \(brief\.unit_attempts\)/.test(html), "(e) the run-conditions line does not show the settings the stages read");
   for (const key of ORDER) {
     ok(!cards[key].includes("attempt bound (brief.unit_attempts)"), `(e) the ${key} card shows the settings, which belong only to the run-conditions line`);
+  }
+
+  // No prompt text appears in more than one place: each recorded call's prompt is cut into its
+  // instruction (before any refusal block or the input marker) and its input (from the input
+  // marker), and each piece, escaped as the sheet escapes it, occurs on the page exactly once
+  // -- a call whose prompt is shown under Prompt names it rather than repeating it, and a
+  // retry shows only the refusal block it inserted.
+  const escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const occurrences = (needle) => html.split(needle).length - 1;
+  const INPUT = "----- INPUT (JSON) -----";
+  const REFUSED = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
+  let pieces = 0;
+  for (const st of ["extract", "brief", "paragraph-plan", "draft"]) {
+    const recorded = readOr(join(runDir, st, "calls.jsonl"), "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    for (const [n, c] of recorded.entries()) {
+      const text = String(c.stdin);
+      const cut = [text.indexOf(REFUSED), text.indexOf(INPUT)].filter((x) => x >= 0);
+      const end = cut.length ? Math.min(...cut) : text.length;
+      const at = text.indexOf(INPUT);
+      for (const [part, piece] of [["instruction", text.slice(0, end).trim()], ["input", at >= 0 ? text.slice(at).trim() : ""]]) {
+        if (!piece) continue;
+        pieces++;
+        const k = occurrences(escHtml(piece));
+        ok(k === 1, `(e) the ${st} call ${n + 1}'s prompt ${part} appears ${k} times on the sheet, not once`);
+      }
+    }
+  }
+  ok(pieces >= 9, `(e) only ${pieces} prompt piece(s) were checked for appearing once`);
+  const audienceRel = JSON.parse(readOr(join(runDir, "run.json"), "{}")).audience;
+  const audienceText = audienceRel ? readOr(resolve(repo, audienceRel), null) : null;
+  if (audienceText) {
+    const head = escHtml(audienceText.trim().split("\n")[0]);
+    ok(html.indexOf('id="run-conditions"') >= 0 && html.slice(html.indexOf('id="run-conditions"')).includes(head)
+      && ORDER.every((key) => !cards[key].includes(escHtml(audienceText))), "(e) the Audience is not shown in the run-conditions line alone");
   }
 
   ok(cards.draft.includes("The recorded prompt equals the Packet shown in the Packet card above, byte for byte."),

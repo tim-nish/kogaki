@@ -144,19 +144,41 @@ function stageNote(r, name) {
 const sub = (title, body) => `<details class="sub"><summary>${esc(title)}</summary>${body}</details>`;
 const subOpen = (title, body) => `<details class="sub" open><summary>${esc(title)}</summary>${body}</details>`;
 
-// Every recorded call, folded: argv, then its prompt and answer -- unless `refPrompt` is
-// given, in which case a call whose stdin equals it is said so rather than shown again (the
-// Draft call's prompt is the Packet, already shown in the Packet card: kogaki#1401, "no prompt
-// text appears in more than one place on the sheet").
-function callsBlock(calls, label = "recorded model calls", refPrompt = null) {
+// A call's stdin against the prompts the sheet already shows (`shown`, as [where, text]
+// pairs): the same text byte for byte, or the same text with one block inserted -- a retry,
+// whose refusal sits between the instruction and the input (src/workflow/judge.mjs
+// `judgeRefusalBlock`) -- or neither.
+function againstShown(stdin, shown) {
+  const text = String(stdin);
+  for (const [where, prompt] of shown) {
+    if (prompt === text) return { where, inserted: null };
+  }
+  for (const [where, prompt] of shown) {
+    if (text.length <= prompt.length) continue;
+    let a = 0;
+    while (a < prompt.length && prompt[a] === text[a]) a++;
+    const b = prompt.length - a;
+    if (text.endsWith(prompt.slice(a))) return { where, inserted: text.slice(a, text.length - b) };
+  }
+  return null;
+}
+
+// Every recorded call, folded: argv, then its prompt and answer. A call whose stdin is a
+// prompt the sheet already shows names where rather than showing it again, and a retry
+// shows only the block it inserted (kogaki#1401, "no prompt text appears in more than one
+// place on the sheet"); a call whose stdin is shown nowhere else is shown whole.
+function callsBlock(calls, label = "recorded model calls", shown = []) {
   if (!calls.length) return `<p class="muted">No ${esc(label)}.</p>`;
-  return calls.map((c, i) => sub(`${label}: call ${i + 1} of ${calls.length} — exit ${c.exit}, at ${c.at}`,
-    pre(`argv: ${JSON.stringify(c.argv)}`)
-    + (refPrompt !== null
-        ? `<p class="muted">prompt (stdin): ${c.stdin === refPrompt ? "equals the Packet shown in the Packet card above, byte for byte." : "differs from the Packet shown in the Packet card above."}</p>`
-        : sub("prompt (stdin)", pre(c.stdin)))
-    + sub("answer (stdout)", pre(c.stdout))
-    + (c.stderr ? sub("stderr", pre(c.stderr)) : ""))).join("");
+  return calls.map((c, i) => {
+    const m = againstShown(c.stdin, shown);
+    const prompt = !m ? sub("prompt (stdin)", pre(c.stdin))
+      : m.inserted === null ? `<p class="muted">prompt (stdin): the prompt shown under ${esc(m.where)}, byte for byte.</p>`
+        : `<p class="muted">prompt (stdin): the prompt shown under ${esc(m.where)}, with this block inserted before its input:</p>${pre(m.inserted)}`;
+    return sub(`${label}: call ${i + 1} of ${calls.length} — exit ${c.exit}, at ${c.at}`,
+      pre(`argv: ${JSON.stringify(c.argv)}`) + prompt
+      + sub("answer (stdout)", pre(c.stdout))
+      + (c.stderr ? sub("stderr", pre(c.stderr)) : ""));
+  }).join("");
 }
 
 // Every card carries one badge: production, or Proof Sheet substitute with a coloured left
@@ -168,12 +190,12 @@ function badgeSpan(key) {
   return ` <span class="badge ${b.type}"${b.note ? ` title="${esc(b.note)}"` : ""}>${esc(label)}</span>`;
 }
 
-// A list of Inputs entries, each a link to another card on the same page (kogaki#1401
-// acceptance: "every Inputs entry is a link to another card"). No input's content is
-// repeated here.
+// A list of Inputs entries, each a link to another card on the same page and the path of
+// what the stage read (kogaki#1401 acceptance: "every Inputs entry is a link to another
+// card"). No input's content is repeated here.
 function inputsList(entries, idx = 0) {
-  if (!entries.length) return `<p class="muted">None.</p>`;
-  return `<ul>${entries.map(([key, note]) => `<li><a href="#card-${idx}-${key}">${esc(SHEET_TITLES[key])}</a>${note ? ` — ${esc(note)}` : ""}</li>`).join("")}</ul>`;
+  if (!entries.length) return `<p class="muted">None drawn as a card.</p>`;
+  return `<ul>${entries.map(([key, path]) => `<li><a href="#card-${idx}-${key}">${esc(SHEET_TITLES[key])}</a>${path ? ` <span class="meta">${esc(path)}</span>` : ""}</li>`).join("")}</ul>`;
 }
 
 // One card: Output (open by default), Inputs, Prompt, Calls, in that order.
@@ -197,16 +219,28 @@ function promptHalves(promptText) {
   const at = promptText.indexOf(JUDGE_INPUT_MARKER);
   const instruction = at >= 0 ? promptText.slice(0, at) : promptText;
   const input = at >= 0 ? promptText.slice(at) : null;
-  return `${subOpen("instruction", pre(instruction))}`
-    + (input !== null ? sub("input (two halves of one recorded prompt)", pre(input)) : "");
+  return (input !== null ? `<p class="muted">The instruction and the input below are two halves of one recorded prompt file.</p>` : "")
+    + `${subOpen("instruction", pre(instruction))}`
+    + (input !== null ? sub("input", pre(input)) : "");
 }
 
 // A stage's Prompt part: one prompt where the stage made one call (or one per paragraph),
 // or one titled prompt per call where a stage makes two (the Brief composer's two calls, the
 // ParagraphPlan's plan and check calls), each titled by what it produced.
+// Where every prompt carries the same instruction (the Extractor's, one per paragraph), the
+// instruction is shown once and each prompt's input under its own title.
 function promptPart(named) {
   if (!named.length) return `<p class="muted">No model call was recorded.</p>`;
   if (named.length === 1) return promptHalves(named[0][1]);
+  const halves = named.map(([title, text]) => {
+    const at = text.indexOf(JUDGE_INPUT_MARKER);
+    return { title, instruction: at >= 0 ? text.slice(0, at) : null, input: at >= 0 ? text.slice(at) : null };
+  });
+  if (halves.every((h) => h.instruction !== null && h.instruction === halves[0].instruction)) {
+    return `<p class="muted">Each recorded prompt file is this one instruction followed by its own input.</p>`
+      + subOpen("instruction", pre(halves[0].instruction))
+      + halves.map((h) => sub(`${h.title} — input`, pre(h.input))).join("");
+  }
   return named.map(([title, text]) => sub(title, promptHalves(text))).join("");
 }
 
@@ -249,7 +283,8 @@ function runConditionsLine(r) {
     + `</ul></div>`;
 }
 
-// THE ORIGINAL-BESIDE-WRITTEN TABLE: one row per paragraph, original Leg beside written Leg.
+// THE ORIGINAL-BESIDE-WRITTEN TABLE: one row per paragraph, original Leg beside written Leg
+// (one Leg Waypoint is one paragraph; the original is cut as The paragraph unit cuts it).
 function comparisonTable(r, { sectionPath, written, writtenParas, draftStop }) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const n = Math.max(r.paragraphs.length, writtenParas.length);
@@ -262,10 +297,10 @@ function comparisonTable(r, { sectionPath, written, writtenParas, draftStop }) {
     + `<tbody>${pairs.join("")}</tbody></table>`;
 }
 
-// CARD 1 — EXTRACTION. Output: one row per paragraph, its file and hash, then its §3 clause
-// pairs. Inputs: none drawn as a card (the original paragraph is in the comparison table
-// above, the Audience is in the run-conditions line). Prompt: one per paragraph. Calls: one
-// group per paragraph, with its attempt count.
+// CARD 1 — EXTRACTION. Output: one row per paragraph, its path, hash and file, with its
+// clause pairs folded beside it. Inputs: none drawn as a card (the original paragraph is in
+// the comparison table above, the Audience is in the run-conditions line). Prompt: one per
+// paragraph. Calls: one group per paragraph, with its attempt count.
 function extractionCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const n = r.paragraphs.length;
@@ -284,62 +319,58 @@ function extractionCard(r, idx) {
     const segs = answer && Array.isArray(answer.segments) ? answer.segments : [];
     per.push({ i, file, text, promptText, calls, attempts, segs });
   }
-  const output = `<table><thead><tr><th>paragraph</th><th>file</th><th>hash</th></tr></thead><tbody>`
-    + per.map((p) => `<tr><td>${p.i + 1}</td><td>${p.file ? esc(rel(p.file)) : "(not written)"}</td><td>sha ${contentHash(p.text)}</td></tr>`).join("")
-    + `</tbody></table>`
-    + (per.map((p) => {
-        if (!p.file) return "";
-        const pairsTable = p.segs.length
-          ? `<table><thead><tr><th>#</th><th>function</th><th>relation</th><th>content clause</th><th>generalized clause</th></tr></thead><tbody>`
-            + p.segs.map((s, j) => `<tr><td>${j + 1}</td><td>${esc(s.function || "")}</td><td>${esc(s.relation || "")}</td><td>${esc(s.content || "")}</td><td>${esc(s.generalized || "")}</td></tr>`).join("")
-            + `</tbody></table>`
-          : `<p class="muted">No section 3 entries.</p>`;
-        return sub(`paragraph ${p.i + 1} — §3 clause pairs`, pairsTable + sub("the Extraction file", pre(p.text || "(not written)")));
-      }).join("") || stageNote(r, "extract"));
+  const pairsOf = (p) => (p.segs.length
+    ? `<table><thead><tr><th>#</th><th>function</th><th>relation</th><th>content clause</th><th>generalized clause</th></tr></thead><tbody>`
+      + p.segs.map((s, j) => `<tr><td>${j + 1}</td><td>${esc(s.function || "")}</td><td>${esc(s.relation || "")}</td><td>${esc(s.content || "")}</td><td>${esc(s.generalized || "")}</td></tr>`).join("")
+      + `</tbody></table>`
+    : `<p class="muted">No clause pairs.</p>`);
+  const output = stageNote(r, "extract")
+    + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>`
+    + per.map((p) => `<tr><td>${p.i + 1}</td><td><p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
+      + (p.file ? pre(p.text || "(not written)") + sub("clause pairs", pairsOf(p)) : "") + `</td></tr>`).join("")
+    + `</tbody></table>`;
 
-  const promptEntries = per.filter((p) => p.promptText !== null).map((p) => [`paragraph ${p.i + 1}`, p.promptText]);
+  // The Prompt is the recorded stdin of each paragraph's first call, not the judge's
+  // `prompt.md`: the recorder's stdin carries the CLI preamble the model actually read.
+  const promptEntries = per.filter((p) => p.calls.length).map((p) => [`paragraph ${p.i + 1}`, p.calls[0].stdin]);
   const callsHtml = per.some((p) => p.calls.length)
-    ? per.map((p) => sub(`paragraph ${p.i + 1} — attempts ${p.attempts ? p.attempts.attempts : "?"}`, callsBlock(p.calls, `paragraph ${p.i + 1} calls`))).join("")
+    ? per.map((p) => sub(`paragraph ${p.i + 1} — attempts ${p.attempts ? p.attempts.attempts : "?"}`, callsBlock(p.calls, `paragraph ${p.i + 1} calls`, promptEntries.map(([t, x]) => [`Prompt, ${t}`, x])))).join("")
     : `<p class="muted">No recorded model calls.</p>`;
 
   return cardWrap("extraction", { output, inputs: inputsList([], idx), prompt: promptPart(promptEntries), calls: callsHtml }, idx);
 }
 
-// CARD 2 — MOVE. Output: one row per paragraph, its Move file and hash, then its content and
-// ingest screen. Inputs: Extraction. No model call -- `tools/move_ingest.py` is mechanical.
+// CARD 2 — MOVE. Output: one row per paragraph, its Move file's path, hash and content, with
+// its ingest screen folded. Inputs: Extraction. No model call -- `tools/move_ingest.py` is mechanical.
 function moveCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const entries = (r.ingest && r.ingest.entries) || [];
   const n = r.paragraphs.length;
   const rows = [];
-  const detail = [];
   for (let i = 0; i < n; i++) {
     const e = entries[i] || {};
     const mp = e.move ? join(r.runDir, "moves", `${e.move}.md`) : null;
     const mt = mp ? read(mp) : null;
-    rows.push(`<tr><td>${i + 1}</td><td>${mp ? esc(rel(mp)) : "(not written)"}</td><td>sha ${contentHash(mt)}</td></tr>`);
-    detail.push(mp ? sub(`paragraph ${i + 1}`, pre(mt || e.refusal || "(not written)") + sub(`ingest entry — sha ${contentHash(e.screen)}`, pre(e.screen || "(none)"))) : "");
+    rows.push(`<tr><td>${i + 1}</td><td><p class="meta">${mp ? esc(rel(mp)) : "(not written)"} · sha ${contentHash(mt)}</p>`
+      + pre(mt || e.refusal || "(not written)") + (e.screen ? sub(`ingest entry — sha ${contentHash(e.screen)}`, pre(e.screen)) : "") + `</td></tr>`);
   }
-  const output = `<table><thead><tr><th>paragraph</th><th>file</th><th>hash</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
-    + (detail.join("") || stageNote(r, "ingest"));
+  const output = stageNote(r, "ingest")
+    + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
   return cardWrap("move", {
     output,
-    inputs: inputsList([["extraction", "the Extraction files"]], idx),
+    inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
     prompt: `<p class="muted">No model call: <code>tools/move_ingest.py</code> <code>run_from_extraction</code> derives the Move mechanically.</p>`,
     calls: `<p class="muted">No model call.</p>`,
   }, idx);
 }
 
-// CARD 3 — BRIEF. Output: the Brief file, the fields the stages read reduced, and the whole
-// file folded. Inputs: Extraction (the reader state and claims the Leg Brief composer reads).
+// CARD 3 — BRIEF. Output: the Brief file, whole, with its path and hash. Inputs: Extraction (the reader state and claims the Leg Brief composer reads).
 // Prompt/Calls: the composer's two calls, Reader start and Leg path, each titled by what it
 // produced.
 function briefCard(r, idx) {
-  const b = r.briefRecord || {};
-  const leg = (b.reader_path || [])[0] || {};
-  const reduced = r.briefRecord ? json({ reader_start: b.reader_start, compose_path: b.compose_path,
-    leg: { leg_id: leg.leg_id, purpose: leg.purpose, reader_state_after: leg.reader_state_after, claims: leg.claims, waypoints: leg.waypoints } }) : null;
-  const output = (r.briefText ? "" : stageNote(r, "brief")) + pre(reduced || "(not written)") + sub("the whole Brief", pre(r.briefText || "(not written)"));
+  const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
+  const output = (r.briefText ? "" : stageNote(r, "brief"))
+    + `<p class="meta">${esc(rel(r.briefPath))} · sha ${contentHash(r.briefText)}</p>` + pre(r.briefText || "(not written)");
 
   const readerStartMarker = "`leg_reader_start_unit` judgment point";
   const legPathMarker = "`leg_path_unit` judgment point";
@@ -347,17 +378,17 @@ function briefCard(r, idx) {
   let callsHtml = "";
   for (const [sub_, marker, title] of [["reader-start", readerStartMarker, "Brief, Reader start"], ["leg-path", legPathMarker, "Brief, Leg Waypoint"]]) {
     const d = r.legBriefRun ? join(r.legBriefRun, sub_) : null;
-    const promptText = d ? read(join(d, "prompt.md")) : null;
     const answer = d ? readJson(join(d, "answer.json")) : null;
     const attempts = d ? readJson(join(d, "attempts.json")) : null;
     const calls = r.briefCalls.filter((c) => String(c.stdin).includes(marker));
-    if (promptText !== null) named.push([title, promptText]);
+    if (calls.length) named.push([title, calls[0].stdin]);
     callsHtml += sub(`${title} — attempts ${attempts ? attempts.attempts : "?"}`,
-      sub(`answer — sha ${contentHash(answer && json(answer))}`, pre(answer ? json(answer) : "(none)")) + callsBlock(calls, `${title} calls`));
+      sub(`answer — sha ${contentHash(answer && json(answer))}`, pre(answer ? json(answer) : "(none)")) + pre(attempts ? json(attempts) : "(no attempts record)")
+      + callsBlock(calls, `${title} calls`, named.map(([t, x]) => [`Prompt, ${t}`, x])));
   }
   return cardWrap("brief", {
     output,
-    inputs: inputsList([["extraction", "the reader state and claims the Extractor produced"]], idx),
+    inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
     prompt: promptPart(named),
     calls: callsHtml,
   }, idx);
@@ -410,12 +441,12 @@ function paragraphPlanCard(r, idx) {
 
   const callsHtml = sub("the plan call — attempts and refusals",
       pre(job ? json({ state: job.state, units: (job.units || []).map((u) => ({ id: u.id, status: u.status, attempts: u.attempts, refusals: u.refusals || [] })) }) : "(none)")
-      + callsBlock(genCalls, "plan calls"))
-    + sub("the check call", callsBlock(judgeCalls, "check calls"));
+      + callsBlock(genCalls, "plan calls", named.map(([t, x]) => [`Prompt, ${t}`, x])))
+    + sub("the check call", callsBlock(judgeCalls, "check calls", named.map(([t, x]) => [`Prompt, ${t}`, x])));
 
   return cardWrap("paragraphPlan", {
     output,
-    inputs: inputsList([["brief", "the Leg Waypoint and claims"], ["move", "the bound Move"]], idx),
+    inputs: inputsList([["brief", rel(r.briefPath)], ["move", relFromRepo(join(r.runDir, "moves"), REPO)]], idx),
     prompt: promptPart(named),
     calls: callsHtml,
   }, idx);
@@ -432,7 +463,7 @@ function packetCard(r, idx) {
     + pre(packet || "(not rendered)");
   return cardWrap("packet", {
     output,
-    inputs: inputsList([["brief", "the Brief"], ["paragraphPlan", "the ParagraphPlan file"]], idx),
+    inputs: inputsList([["brief", rel(r.briefPath)], ["paragraphPlan", rel(r.planPath)]], idx),
     prompt: `<p class="muted">No model call: rendered by <code>/draft</code> from the Brief and the ParagraphPlan file.</p>`,
     calls: `<p class="muted">No model call.</p>`,
   }, idx);
@@ -460,11 +491,11 @@ function draftCard(r, idx, { sectionPath, written, writtenParas, draftStop }) {
   const prompt = writerCalls.length
     ? `<p>${same ? "The recorded prompt equals the Packet shown in the Packet card above, byte for byte." : `<span class="stop">The recorded prompt is not the Packet.</span>`}</p>`
     : `<p class="muted">No Draft call was recorded.</p>`;
-  const calls = callsBlock(writerCalls, "recorded Draft calls", packet);
+  const calls = callsBlock(writerCalls, "recorded Draft calls", packet === null ? [] : [["the Packet card's Output", packet]]);
 
   return cardWrap("draft", {
     output,
-    inputs: inputsList([["packet", "the Packet"]], idx),
+    inputs: inputsList([["packet", packetPath ? rel(packetPath) : null]], idx),
     prompt,
     calls,
   }, idx);
@@ -499,7 +530,7 @@ body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;ma
 .pair td{width:50%;white-space:pre-wrap}.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:800px){.cols{grid-template-columns:1fr}}
 .pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
 details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
-details.sub{margin:4px 0 4px 8px}
+details.sub{margin:4px 0 4px 8px}table.rows{width:100%}table.rows td:last-child{width:100%}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
 table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}tr.off{background:var(--off)}.stop{color:var(--accent)}
 .badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
