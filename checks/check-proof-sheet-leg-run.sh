@@ -20,7 +20,7 @@
 #       Packet file `/draft` rendered, byte for byte, and equals what the fake binary read.
 #   (d) the run writes nothing to the repository's `moves/` or `theses/`.
 #   (e) the sheet: one card; its top pairs original paragraph N with written paragraph N for
-#       all three; every cell of `SHEET_CELLS` is drawn with its provenance row and a content
+#       all three; every cell of `SHEET_CELLS` is drawn with its title, its badge and a content
 #       hash; the Extraction cell of paragraph 1 shows its prompt and two attempts; the
 #       Writer cell states the prompt is the Packet.
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
@@ -208,15 +208,23 @@ else {
   const TIER2 = ["original", "written", "brief", "readerStart", "legPath", "generator", "judge", "plan", "packet", "writer"];
   const TIER3 = ["passage", "extraction", "move", "waypoint", "paragraphWaypoints"];
   const checkCell = (slice, key, where) => {
-    const name = S.SHEET_CELLS[key];
+    const name = S.SHEET_TITLES[key];
     ok(slice.includes(`<b>${name}`) || (["Original Leg", "Written Leg"].includes(name) && slice.includes(name)), `(e) ${where} draws no "${name}" cell`);
-    ok(slice.includes(`provenance row: <code>| ${name} | fixture artifact |`) || (["Original Leg", "Written Leg"].includes(name) && slice.includes(`provenance row: ${name}`)), `(e) ${where}'s "${name}" cell prints no provenance row`);
+    const badge = S.SHEET_CELL_BADGE[key];
+    if (badge) {
+      const wantLabel = badge.type === "substitute" ? "Proof Sheet substitute" : "production";
+      ok(slice.includes(`<span class="badge ${badge.type}"`) && slice.includes(`>${wantLabel}<`), `(e) ${where}'s "${name}" cell carries no "${wantLabel}" badge`);
+    }
   };
   for (const key of TIER1) checkCell(sharedHtml, key, "the shared tier");
   for (const key of TIER2) checkCell(legHtml, key, "the Leg card");
   for (let i = 0; i < 3; i++) for (const key of TIER3) checkCell(paraHtmls[i], key, `paragraph ${i + 1}'s card`);
 
-  ok(!/sha none<\/span><\/summary><p class="prov">provenance row: <code>\| (Extraction|Move|Packet|Writer) /.test(html), "(e) a cell of a finished stage shows no content hash");
+  ok(!/<b>(Extraction|Move|Packet|Draft)<\/b> <span class="badge [^"]*"[^>]*>[^<]*<\/span> <span class="meta">[^<]*· sha none</.test(html), "(e) a cell of a finished stage shows no content hash");
+  ok(/<b>Packet<\/b> <span class="badge [^"]*"[^>]*>[^<]*<\/span> <span class="meta">[^<]*· sha [0-9a-f]{12}</.test(html), "(e) the content-hash pattern matches no cell, so the assertion above cannot fail");
+  ok(new Set(Object.values(S.SHEET_CELLS)).size === Object.keys(S.SHEET_CELLS).length && Object.keys(S.SHEET_CELLS).every((k) => k in S.SHEET_TITLES),
+    "(e) two cells share a provenance row, or a cell has no title");
+  ok(!html.includes("provenance row:"), "(e) the sheet renders a provenance row line");
 
   const legTop = legHtml.slice(legHtml.indexOf('<table class="pair">'), legHtml.indexOf("</table>", legHtml.indexOf('<table class="pair">')));
   const legRows = legTop.split("<tr><th>").slice(2);
@@ -227,15 +235,19 @@ else {
     ok(pTop.includes(PARAS[i]) && pTop.includes(WRITTEN[i]), `(e) paragraph ${i + 1}'s own top does not pair its original and written paragraph`);
   }
 
-  ok(sharedHtml.includes("<b>Extractor, prompt as rendered") && sharedHtml.includes("prompt as rendered") && sharedHtml.includes("instruction"),
-    "(e) the shared tier's Extractor prompt cell does not show the prompt as rendered");
+  ok(sharedHtml.includes("<b>Extraction") && sharedHtml.includes("instruction"),
+    "(e) the shared tier's Extraction prompt cell does not show its instruction");
   ok(sharedHtml.includes("attempt bound (brief.unit_attempts)") && sharedHtml.includes("call limit, seconds (brief.call_limit_s)") && sharedHtml.includes("audience file (brief.audience_file)"),
     "(e) the shared tier's settings cell does not show the settings the stages read");
 
   const ex1 = paraHtmls[0].slice(paraHtmls[0].indexOf("<b>Extraction"), paraHtmls[0].indexOf("<b>Move"));
   ok(!ex1.includes("prompt as rendered") && ex1.includes("attempts — 2") && ex1.includes("call 2 of 2"),
     "(e) paragraph 1's Extraction cell shows its prompt, or does not show both attempts");
-  ok(legHtml.includes("Every recorded Writer call's prompt is the Packet, byte for byte, and nothing else."), "(e) the Writer cell does not state its prompt is the Packet");
+  ok(legHtml.includes("Every recorded Draft call's prompt is the Packet, byte for byte, and nothing else."), "(e) the Draft cell does not state its prompt is the Packet");
+  const summaries = [...html.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => m[1]);
+  for (const word of ["prompt as rendered", "generator", "judge", "Writer", "the fields the stages read"]) {
+    ok(!summaries.some((t) => t.toLowerCase().includes(word.toLowerCase())), `(e) a summary on the sheet contains "${word}"`);
+  }
 
   // (f) the map gates; a stopped Draft still draws
   const short = join(root, "PROVENANCE-short.md");
