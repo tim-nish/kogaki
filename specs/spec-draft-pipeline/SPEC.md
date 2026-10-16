@@ -2277,6 +2277,19 @@ one Paragraph Waypoint per Segment of the bound Move, in the Move's order,
 or, where the Move carries no Segments, the points its `technique` gives;
 every Claim the parent serves is served by at least one of them.
 
+**Two contributions, not one (kogaki#1403).** The Leg Waypoint's `point`
+supplies a Paragraph Waypoint's content; the bound Move supplies its order and
+its shape. A Segment reaches the plan call as its number, its function
+(raises | advances | settles) and its relation to the Segment before it —
+never its description, the Extractor's analysis of the original paragraph's
+technique, written for a reader of the Move and not for the planner. A
+Paragraph Waypoint is a part of the Leg Waypoint's `point`, placed and shaped
+by its Segment; one that instead states what the paragraph does to its reader
+— announcing, defining rather than arguing, closing a list, leaving nothing
+open — is refused rather than accepted as a stylistic variant. The `technique`
+fallback is unaffected, since it is the Move's only order where `segments` is
+empty, and `before`, `after` and `breaks` are unaffected.
+
 **The ParagraphPlan file.** `theses/<slug>/paragraph-plan.yaml`, beside the
 Brief, one YAML record: `version`; `brief`, the `path` and `sha256` of the
 Brief it was made from; and `legs`, one entry per Leg in order, each carrying
