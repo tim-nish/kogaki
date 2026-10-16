@@ -210,13 +210,18 @@ else {
   const checkCell = (slice, key, where) => {
     const name = S.SHEET_CELLS[key];
     ok(slice.includes(`<b>${name}`) || (["Original Leg", "Written Leg"].includes(name) && slice.includes(name)), `(e) ${where} draws no "${name}" cell`);
-    ok(slice.includes(`provenance row: <code>| ${name} | fixture artifact |`) || (["Original Leg", "Written Leg"].includes(name) && slice.includes(`provenance row: ${name}`)), `(e) ${where}'s "${name}" cell prints no provenance row`);
+    const badge = S.SHEET_CELL_BADGE[key];
+    if (badge) {
+      const wantLabel = badge.type === "substitute" ? "Proof Sheet substitute" : "production";
+      ok(slice.includes(`<span class="badge ${badge.type}"`) && slice.includes(`>${wantLabel}<`), `(e) ${where}'s "${name}" cell carries no "${wantLabel}" badge`);
+    }
   };
   for (const key of TIER1) checkCell(sharedHtml, key, "the shared tier");
   for (const key of TIER2) checkCell(legHtml, key, "the Leg card");
   for (let i = 0; i < 3; i++) for (const key of TIER3) checkCell(paraHtmls[i], key, `paragraph ${i + 1}'s card`);
 
-  ok(!/sha none<\/span><\/summary><p class="prov">provenance row: <code>\| (Extraction|Move|Packet|Writer) /.test(html), "(e) a cell of a finished stage shows no content hash");
+  ok(!/<b>(Extraction|Move|Packet|Draft)<\/b>[^<]*<\/span>[^<]*<span class="meta">[^<]*· sha none</.test(html), "(e) a cell of a finished stage shows no content hash");
+  ok(!html.includes("provenance row:"), "(e) the sheet renders a provenance row line");
 
   const legTop = legHtml.slice(legHtml.indexOf('<table class="pair">'), legHtml.indexOf("</table>", legHtml.indexOf('<table class="pair">')));
   const legRows = legTop.split("<tr><th>").slice(2);
@@ -227,8 +232,8 @@ else {
     ok(pTop.includes(PARAS[i]) && pTop.includes(WRITTEN[i]), `(e) paragraph ${i + 1}'s own top does not pair its original and written paragraph`);
   }
 
-  ok(sharedHtml.includes("<b>Extractor, prompt as rendered") && sharedHtml.includes("prompt as rendered") && sharedHtml.includes("instruction"),
-    "(e) the shared tier's Extractor prompt cell does not show the prompt as rendered");
+  ok(sharedHtml.includes("<b>Extraction") && sharedHtml.includes("instruction"),
+    "(e) the shared tier's Extraction prompt cell does not show its instruction");
   ok(sharedHtml.includes("attempt bound (brief.unit_attempts)") && sharedHtml.includes("call limit, seconds (brief.call_limit_s)") && sharedHtml.includes("audience file (brief.audience_file)"),
     "(e) the shared tier's settings cell does not show the settings the stages read");
 
