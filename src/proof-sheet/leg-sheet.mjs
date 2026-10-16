@@ -250,6 +250,78 @@ function moveSegments(moveText) {
 }
 function segmentCount(moveText) { return moveSegments(moveText).length; }
 
+// THE PER-PARAGRAPH ANCHOR IDS a written-paragraph cell links to, and every per-paragraph row
+// carries (kogaki#1402): one id per card per paragraph number, scoped by the sheet's run index
+// so two runs on one page never collide.
+const anchorId = (card, n, idx) => `${card}-p${n}-${idx}`;
+
+// THE PACKET'S RENDERED WAYPOINTS, CUT BY THEIR OWN NUMBERING (kogaki#1402): the Packet's
+// waypoints block is a NUMBERED list, one top-level line per Leg Waypoint with its Paragraph
+// Waypoints indented beneath it (`src/draft.mjs` `waypointLines`); this cuts that block back
+// into one piece per Leg Waypoint number, reading only the rendered Packet -- the Packet file
+// and `/draft` are untouched.
+const WAYPOINTS_HEADING = "## The waypoints this Leg takes the reader through";
+export function packetWaypointBlocks(packetText) {
+  if (!packetText) return [];
+  const at = packetText.indexOf(WAYPOINTS_HEADING);
+  if (at < 0) return [];
+  const bodyStart = packetText.indexOf("\n", at) + 1;
+  const nextHeading = packetText.indexOf("\n## ", bodyStart);
+  const section = packetText.slice(bodyStart, nextHeading >= 0 ? nextHeading : undefined);
+  const blocks = [];
+  let current = null;
+  for (const line of section.split("\n")) {
+    const m = line.match(/^(\d+)\.\s/);
+    if (m) {
+      if (current) blocks.push(current);
+      current = { n: Number(m[1]), lines: [line] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (current) blocks.push(current);
+  return blocks.map((b) => ({ n: b.n, text: b.lines.join("\n").trim() }));
+}
+
+// THE PIPELINE DIAGRAM (kogaki#1402, owner reading 2026-10-16): one left-to-right flowchart,
+// opening the run's section, mapping the sources (Passage, cut into Segments; Persona;
+// Audience) onto the six artifacts in pipeline order, every node a link to where that material
+// sits on the page. The artifact node names are the pipeline nouns SHEET_TITLES carries and
+// nothing else (kogaki#1400). Mermaid is loaded from a pinned CDN; the diagram's own text is
+// also written as a `<pre>` fallback, so a sheet opened offline still shows the graph as text.
+const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+
+function pipelineDiagram(idx) {
+  const cardHref = (key) => `#card-${idx}-${key}`;
+  const nodes = [
+    ["Passage", `#comparison-${idx}`],
+    ["Segments", cardHref("extraction")],
+    ["Persona", "#run-conditions"],
+    ["Audience", "#run-conditions"],
+    ["Extraction", cardHref("extraction")],
+    ["Move", cardHref("move")],
+    ["Brief", cardHref("brief")],
+    ["ParagraphPlan", cardHref("paragraphPlan")],
+    ["Packet", cardHref("packet")],
+    ["Draft", cardHref("draft")],
+  ];
+  const edges = [
+    ["Passage", "Extraction"], ["Audience", "Extraction"], ["Segments", "Move"],
+    ["Persona", "Brief"], ["Extraction", "Brief"],
+    ["Move", "ParagraphPlan"], ["Brief", "ParagraphPlan"],
+    ["Brief", "Packet"], ["ParagraphPlan", "Packet"],
+    ["Packet", "Draft"],
+  ];
+  const nodeId = (name) => `${name}_${idx}`;
+  const lines = ["flowchart LR"];
+  for (const [name] of nodes) lines.push(`  ${nodeId(name)}["${name}"]`);
+  for (const [a, b] of edges) lines.push(`  ${nodeId(a)} --> ${nodeId(b)}`);
+  for (const [name, href] of nodes) lines.push(`  click ${nodeId(name)} "${href}"`);
+  const text = lines.join("\n");
+  return `<div class="diagram"><div class="mermaid">${esc(text)}</div>`
+    + `<p class="muted">Diagram text (shown for a sheet without network access to Mermaid):</p>${pre(text)}</div>`;
+}
+
 // THE RUN-CONDITIONS LINE: the Audience, the settings, the model command and the run
 // directory, each with its path and content hash. The Audience's text and the settings'
 // values open from here -- and nowhere else (kogaki#1401).
@@ -285,14 +357,22 @@ function runConditionsLine(r) {
 
 // THE ORIGINAL-BESIDE-WRITTEN TABLE: one row per paragraph, original Leg beside written Leg
 // (one Leg Waypoint is one paragraph; the original is cut as The paragraph unit cuts it).
-function comparisonTable(r, { sectionPath, written, writtenParas, draftStop }) {
+// Every written-paragraph cell links down to that paragraph's own row in each per-paragraph
+// card -- Extraction, Move, ParagraphPlan, Packet and Draft -- so a reader reading the problem
+// in a row can reach its evidence without reconstructing the pipeline (kogaki#1402).
+function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop }) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const n = Math.max(r.paragraphs.length, writtenParas.length);
+  const anchorLinks = (i) => `<p class="anchors">`
+    + [["Extraction", "extraction"], ["Move", "move"], ["ParagraphPlan", "planwp"], ["Packet", "packetwp"], ["Draft", "draft"]]
+      .map(([label, card]) => `<a href="#${anchorId(card, i, idx)}">${esc(label)}</a>`).join(" · ")
+    + `</p>`;
   const pairs = [];
   for (let i = 0; i < n; i++) {
-    pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td>${written ? esc(writtenParas[i] || "") : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "")}</td></tr>`);
+    const writtenCell = written ? `${esc(writtenParas[i] || "")}${anchorLinks(i + 1)}` : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "");
+    pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td>${writtenCell}</td></tr>`);
   }
-  return `<table class="pair"><thead><tr><th></th><th>Original Leg <span class="meta">${esc(rel(join(r.runDir, "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
+  return `<table class="pair" id="comparison-${idx}"><thead><tr><th></th><th>Original Leg <span class="meta">${esc(rel(join(r.runDir, "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
     + `<th>Written Leg <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
     + `<tbody>${pairs.join("")}</tbody></table>`;
 }
@@ -326,7 +406,7 @@ function extractionCard(r, idx) {
     : `<p class="muted">No clause pairs.</p>`);
   const output = stageNote(r, "extract")
     + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>`
-    + per.map((p) => `<tr><td>${p.i + 1}</td><td><p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
+    + per.map((p) => `<tr id="${anchorId("extraction", p.i + 1, idx)}"><td>${p.i + 1}</td><td><p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
       + (p.file ? pre(p.text || "(not written)") + sub("clause pairs", pairsOf(p)) : "") + `</td></tr>`).join("")
     + `</tbody></table>`;
 
@@ -351,7 +431,7 @@ function moveCard(r, idx) {
     const e = entries[i] || {};
     const mp = e.move ? join(r.runDir, "moves", `${e.move}.md`) : null;
     const mt = mp ? read(mp) : null;
-    rows.push(`<tr><td>${i + 1}</td><td><p class="meta">${mp ? esc(rel(mp)) : "(not written)"} · sha ${contentHash(mt)}</p>`
+    rows.push(`<tr id="${anchorId("move", i + 1, idx)}"><td>${i + 1}</td><td><p class="meta">${mp ? esc(rel(mp)) : "(not written)"} · sha ${contentHash(mt)}</p>`
       + pre(mt || e.refusal || "(not written)") + (e.screen ? sub(`ingest entry — sha ${contentHash(e.screen)}`, pre(e.screen)) : "") + `</td></tr>`);
   }
   const output = stageNote(r, "ingest")
@@ -424,7 +504,7 @@ function paragraphPlanCard(r, idx) {
         const bnd = ((bindings && bindings.bindings) || []).find((x) => x.waypoint === w.waypoint) || {};
         const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}.md`))) : 0;
         const pws = w.paragraph_waypoints || [];
-        return `<tr${pws.length !== segs ? ' class="off"' : ""}><td>${w.waypoint}</td><td>${esc(bnd.move || "?")}</td>`
+        return `<tr id="${anchorId("planwp", w.waypoint, idx)}"${pws.length !== segs ? ' class="off"' : ""}><td>${w.waypoint}</td><td>${esc(bnd.move || "?")}</td>`
           + `<td><ol>${pws.map((p) => `<li>${esc(p.point || "")}</li>`).join("")}</ol></td><td>${segs}</td></tr>`;
       }).join("") + `</tbody></table>`;
   }
@@ -452,14 +532,27 @@ function paragraphPlanCard(r, idx) {
   }, idx);
 }
 
-// CARD 5 — PACKET. Output: the Packet file, whole. Inputs: Brief, ParagraphPlan. No model
-// call -- `/draft` renders it mechanically.
+// CARD 5 — PACKET. Output: the Packet file, whole, with a per-Leg-Waypoint table above it
+// cutting the rendered waypoints block by its own numbering (kogaki#1402: "the Packet is shown
+// whole, so the lines the Writer received for paragraph N are not readable beside paragraph
+// N"). Inputs: Brief, ParagraphPlan. No model call -- `/draft` renders it mechanically.
 function packetCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const packetPath = r.legId ? join(r.ws, "packets", `${r.legId}.md`) : null;
   const packet = packetPath ? read(packetPath) : null;
+  const blocks = packetWaypointBlocks(packet);
+  const n = Math.max(r.paragraphs.length, blocks.length);
+  const wpRows = [];
+  for (let i = 1; i <= n; i++) {
+    const b = blocks.find((x) => x.n === i);
+    wpRows.push(`<tr id="${anchorId("packetwp", i, idx)}"><td>${i}</td><td>${b ? pre(b.text) : `<p class="muted">No block for this Leg Waypoint.</p>`}</td></tr>`);
+  }
+  const wpTable = n
+    ? `<table class="rows"><thead><tr><th>Leg Waypoint</th><th>its block, as the Packet renders it</th></tr></thead><tbody>${wpRows.join("")}</tbody></table>`
+    : "";
   const output = (packet ? "" : stageNote(r, "draft"))
     + `<p class="meta">${packetPath ? esc(rel(packetPath)) : "(not rendered)"} · sha ${contentHash(packet)}</p>`
+    + wpTable
     + pre(packet || "(not rendered)");
   return cardWrap("packet", {
     output,
@@ -482,7 +575,7 @@ function draftCard(r, idx, { sectionPath, written, writtenParas, draftStop }) {
   const rows = [];
   for (let i = 0; i < n; i++) {
     const cellText = written ? esc(writtenParas[i] || "") : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "");
-    rows.push(`<tr><td>${i + 1}</td><td>${cellText}</td></tr>`);
+    rows.push(`<tr id="${anchorId("draft", i + 1, idx)}"><td>${i + 1}</td><td>${cellText}</td></tr>`);
   }
   const output = `<p class="meta">${sectionPath ? esc(rel(sectionPath)) : "(not written)"} · sha ${contentHash(written)}</p>`
     + `<table><thead><tr><th>paragraph</th><th>written text</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
@@ -535,7 +628,9 @@ pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-m
 table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}tr.off{background:var(--off)}.stop{color:var(--accent)}
 .badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
 .badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
-.pcard.substitute{border-left:4px solid var(--accent)}`;
+.pcard.substitute{border-left:4px solid var(--accent)}
+.diagram{margin-bottom:16px}.diagram .mermaid{max-height:220px}
+.anchors{margin:4px 0 0;font-size:12px}`;
 
 function card(r, { provenance, mapHash, idx = 0 }) {
   const sectionPath = r.legId ? join(r.ws, "sections", `${r.legId}.md`) : null;
@@ -544,7 +639,7 @@ function card(r, { provenance, mapHash, idx = 0 }) {
   const draftStop = r.stage("draft").stopped || r.run.stopped || null;
 
   const conditions = runConditionsLine(r);
-  const comparison = comparisonTable(r, { sectionPath, written, writtenParas, draftStop });
+  const comparison = comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop });
 
   const cards = [
     extractionCard(r, idx),
@@ -572,8 +667,10 @@ export function buildSheet({ runs, provenance, out }) {
   }
   const mapHash = contentHash(mapText);
   const cards = runs.map((d, idx) => card(readRun(resolve(d)), { provenance, mapHash, idx }));
+  const mermaidScript = `<script type="module">import mermaid from "${MERMAID_CDN}"; mermaid.initialize({ startOnLoad: true });</script>`;
   writeFileSync(out, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
-    + `<title>Leg Proof Sheet</title><style>${CSS}</style></head><body><h1>Leg Proof Sheet</h1>`
+    + `<title>Leg Proof Sheet</title><style>${CSS}</style>${mermaidScript}</head><body><h1>Leg Proof Sheet</h1>`
+    + pipelineDiagram(0)
     + `<p class="muted">One card per Leg run. Provenance map: ${esc(provenance)} · sha ${contentHash(mapText)}</p>${cards.join("")}</body></html>\n`);
   return { written: out };
 }

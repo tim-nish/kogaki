@@ -198,7 +198,7 @@ else {
   const html = readOr(join(runDir, "sheet.html"), "");
   ok((html.match(/<section class="card">/g) || []).length === 1, "(e) the sheet does not carry one run section");
   ok(/<div class="run-conditions" id="run-conditions">/.test(html), "(e) the run-conditions line is missing");
-  ok(/<table class="pair">/.test(html), "(e) the comparison table is missing");
+  ok(/<table class="pair"/.test(html), "(e) the comparison table is missing");
 
   const ORDER = ["extraction", "move", "brief", "paragraphPlan", "packet", "draft", "runRecord"];
   // Each card carries a stable id, `card-0-<key>` for the sheet's only run (idx 0).
@@ -240,7 +240,8 @@ else {
   ok(new Set(Object.values(S.SHEET_CELLS)).size === Object.keys(S.SHEET_CELLS).length && Object.keys(S.SHEET_CELLS).every((k) => k in S.SHEET_TITLES),
     "(e) two cards share a provenance row, or a card has no title");
 
-  const legRows = html.slice(html.indexOf('<table class="pair">'), html.indexOf("</table>", html.indexOf('<table class="pair">')))
+  const pairStart = html.indexOf('<table class="pair"');
+  const legRows = html.slice(pairStart, html.indexOf("</table>", pairStart))
     .split("<tr><th>").slice(2);
   ok(legRows.length === 3 && legRows.every((row, i) => row.includes(PARAS[i]) && row.includes(WRITTEN[i])),
     `(e) the comparison table does not pair original paragraph N with written paragraph N: ${legRows.length} row(s)`);
@@ -294,6 +295,55 @@ else {
   if (packetText) {
     ok(cards.packet.includes(packetText.slice(0, 40).split("\n")[0]), "(e) the Packet card does not show the Packet's own text");
     ok(!cards.draft.includes(packetText), "(e) the Draft card repeats the Packet's text instead of linking to it");
+  }
+
+  // (j) THE PIPELINE DIAGRAM, THE COMPARISON TABLE'S ANCHORS AND THE PACKET'S PER-WAYPOINT
+  // ROWS (kogaki#1402). The diagram opens the page, before the run-conditions line and the
+  // comparison table; its ten nodes -- the sources (Passage, Segments, Persona, Audience) and
+  // the six artifacts -- each click to an id that exists on the page, and its text is also
+  // written as a `<pre>` fallback. Each written-paragraph cell links to that paragraph's row
+  // in Extraction, Move, ParagraphPlan, Packet and Draft. The Packet card gets one row per Leg
+  // Waypoint, cut from the rendered Packet by its own numbering, with the whole Packet below.
+  const h1At = html.indexOf("<h1>Leg Proof Sheet</h1>");
+  const diagramAt = html.indexOf('<div class="diagram">');
+  ok(h1At >= 0 && diagramAt > h1At, "(j) the diagram does not follow the sheet's title");
+  ok(diagramAt >= 0 && diagramAt < html.indexOf('id="run-conditions"') && diagramAt < pairStart,
+    "(j) the diagram is not the sheet's first element, before the run-conditions line and the comparison table");
+
+  const diagramHtml = html.slice(diagramAt, html.indexOf("</div>", html.indexOf("</div>", diagramAt) + 1) + "</div>".length);
+  ok(diagramHtml.includes("flowchart LR"), "(j) the diagram is not a left-to-right flowchart");
+  const DIAGRAM_NODES = ["Passage", "Segments", "Persona", "Audience", "Extraction", "Move", "Brief", "ParagraphPlan", "Packet", "Draft"];
+  const DIAGRAM_LINKS = { Passage: "#comparison-0", Segments: "#card-0-extraction", Persona: "#run-conditions", Audience: "#run-conditions",
+    Extraction: "#card-0-extraction", Move: "#card-0-move", Brief: "#card-0-brief", ParagraphPlan: "#card-0-paragraphPlan",
+    Packet: "#card-0-packet", Draft: "#card-0-draft" };
+  for (const name of DIAGRAM_NODES) {
+    ok(diagramHtml.includes(escHtml(`${name}_0["${name}"]`)), `(j) the diagram has no "${name}" node`);
+    ok(diagramHtml.includes(escHtml(`click ${name}_0 "${DIAGRAM_LINKS[name]}"`)), `(j) the diagram's "${name}" node carries no click link`);
+  }
+  for (const target of ["comparison-0", "run-conditions", "card-0-extraction", "card-0-move", "card-0-brief", "card-0-paragraphPlan", "card-0-packet", "card-0-draft"]) {
+    ok(html.includes(`id="${target}"`), `(j) the diagram links to "#${target}", which is not an id on the page`);
+  }
+  ok(/<pre>[\s\S]*flowchart LR[\s\S]*<\/pre>/.test(diagramHtml), "(j) the diagram's text is not present as a <pre> fallback");
+
+  for (let i = 1; i <= 3; i++) {
+    const cell = legRows[i - 1];
+    for (const card of ["extraction", "move", "planwp", "packetwp", "draft"]) {
+      ok(cell.includes(`href="#${card}-p${i}-0"`), `(j) paragraph ${i}'s written cell carries no link to "${card}-p${i}-0"`);
+      ok(html.includes(`id="${card}-p${i}-0"`), `(j) "${card}-p${i}-0" is linked but is not an id on the page`);
+    }
+  }
+
+  if (packetText) {
+    for (let i = 1; i <= 3; i++) {
+      const rowAt = cards.packet.indexOf(`id="packetwp-p${i}-0"`);
+      ok(rowAt >= 0, `(j) the Packet card has no row for Leg Waypoint ${i}`);
+      if (rowAt >= 0) {
+        const rowHtml = cards.packet.slice(rowAt, cards.packet.indexOf("</tr>", rowAt));
+        ok(rowHtml.includes(`POINT-${i}`), `(j) the Packet card's Leg Waypoint ${i} row does not carry its point`);
+        ok(rowHtml.includes(`PW-${i}-1`), `(j) the Packet card's Leg Waypoint ${i} row does not carry its Paragraph Waypoints`);
+      }
+    }
+    ok(cards.packet.includes(escHtml(packetText.trim())), "(j) the whole Packet no longer appears below the per-waypoint table");
   }
 
   // (f) the map gates; a stopped Draft still draws
