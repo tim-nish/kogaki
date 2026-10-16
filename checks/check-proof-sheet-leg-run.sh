@@ -240,7 +240,11 @@ else {
   const ex1 = paraHtmls[0].slice(paraHtmls[0].indexOf("<b>Extraction"), paraHtmls[0].indexOf("<b>Move"));
   ok(!ex1.includes("prompt as rendered") && ex1.includes("attempts — 2") && ex1.includes("call 2 of 2"),
     "(e) paragraph 1's Extraction cell shows its prompt, or does not show both attempts");
-  ok(legHtml.includes("Every recorded Writer call's prompt is the Packet, byte for byte, and nothing else."), "(e) the Writer cell does not state its prompt is the Packet");
+  ok(legHtml.includes("Every recorded Draft call's prompt is the Packet, byte for byte, and nothing else."), "(e) the Draft cell does not state its prompt is the Packet");
+  const summaries = [...html.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => m[1]);
+  for (const word of ["prompt as rendered", "generator", "judge", "Writer", "the fields the stages read"]) {
+    ok(!summaries.some((t) => t.toLowerCase().includes(word.toLowerCase())), `(e) a summary on the sheet contains "${word}"`);
+  }
 
   // (f) the map gates; a stopped Draft still draws
   const short = join(root, "PROVENANCE-short.md");

@@ -320,11 +320,11 @@ function legCardTier(r, { sectionPath, written, writtenParas, draftStop }) {
   const same = writerCalls.length && packet !== null && writerCalls.every((c) => c.stdin === packet);
   cells.push(cell("writer", { artifact: sectionPath ? rel(sectionPath) : "(not written)", hashOf: written,
     body: stageNote(r, "draft")
-      + `<p>${writerCalls.length ? (same ? "Every recorded Writer call's prompt is the Packet, byte for byte, and nothing else." : `<span class="stop">A recorded Writer call's prompt is not the Packet.</span>`) : "No Writer call was recorded."}</p>`
+      + `<p>${writerCalls.length ? (same ? "Every recorded Draft call's prompt is the Packet, byte for byte, and nothing else." : `<span class="stop">A recorded Draft call's prompt is not the Packet.</span>`) : "No Draft call was recorded."}</p>`
       + sub("output", pre(written || "(not written)"))
       + sub("run record (/draft run.json)", pre(draftRun || "(none)"))
       + sub("commands", pre(json((readJson(join(r.runDir, "draft", "command.json")) || []).map((c) => ({ name: c.name, argv: c.argv, exit: c.exit, stdout: c.stdout, stderr: c.stderr })))))
-      + callsBlock(writerCalls, "recorded Writer calls") }));
+      + callsBlock(writerCalls, "recorded Draft calls") }));
 
   return `<details class="tier leg" open><summary>Leg card</summary>${top}${cells.join("")}</details>`;
 }
