@@ -111,7 +111,8 @@
 #       (kogaki#1261).
 #  (ad) a typed `introduces_item` round-trips through the Brief record
 #       (legRecord writes it, readBrief reads it back) and "What crosses
-#       into this Leg" renders its kind and, for a coined term, the
+#       into this Leg" renders its kind, never an established term's
+#       `source` (kogaki#1404), and, for a coined term, the
 #       `nearest`/`differs` authority line; with `external_authority: off`
 #       in the Brief header the Packet carries neither (kogaki#1261).
 #  (ae) a conceded Closure row's `open`, `why_not_here` and `reader_keeps`
@@ -1140,7 +1141,8 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
       if (r.error) { fails.push(`(ad) the Packet did not render (external_authority ${on ? "on" : "off"}): ${r.error}`); continue; }
       const crosses = block(r.packet, CROSSES, "\n## ");
       if (!/- unfed guard — coined/.test(crosses)) fails.push(`(ad) What crosses into this Leg does not render the coined term's kind: ${JSON.stringify(crosses)}`);
-      if (!/- default-deny — established: .*firewall configuration practice/.test(crosses)) fails.push(`(ad) What crosses into this Leg does not render the established term's kind and source: ${JSON.stringify(crosses)}`);
+      if (!crosses.includes("- default-deny — established")) fails.push(`(ad) What crosses into this Leg does not render the established term's kind: ${JSON.stringify(crosses)}`);
+      if (crosses.includes("firewall configuration practice")) fails.push(`(ad) What crosses into this Leg carries the established term's source, which is Brief-side material (kogaki#1404): ${JSON.stringify(crosses)}`);
       if (on && !(crosses.includes("nearest existing term: guard clause") && crosses.includes(`differs: ${coined.differs}`))) fails.push(`(ad) with the external authority on, What crosses into this Leg does not carry the nearest and differs line: ${JSON.stringify(crosses)}`);
       if (!on && /nearest|differs/.test(r.packet)) fails.push("(ad) with external_authority: off the Packet still carries a nearest or differs line");
     }
