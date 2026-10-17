@@ -261,6 +261,12 @@ function segmentCount(moveText) { return moveSegments(moveText).length; }
 // so two runs on one page never collide.
 const anchorId = (card, n, idx) => `${card}-p${n}-${idx}`;
 
+// A PER-PARAGRAPH (OR PER-LEG-WAYPOINT) ROW, folded (kogaki#1410, owner 2026-10-17): closed by
+// default, open only for the first, carrying the anchor id the comparison table and the other
+// per-paragraph cards link to -- a browser navigating to that id opens the details it sits in.
+const prowBlock = (card, n, idx, summary, body, cls = "") =>
+  `<details class="prow${cls ? ` ${cls}` : ""}"${n === 1 ? " open" : ""} id="${anchorId(card, n, idx)}"><summary>${esc(summary)}</summary>${body}</details>`;
+
 // THE PACKET'S RENDERED WAYPOINTS, CUT BY THEIR OWN NUMBERING (kogaki#1402): the Packet's
 // waypoints block is a NUMBERED list, one top-level line per Leg Waypoint with its Paragraph
 // Waypoints indented beneath it (`src/draft.mjs` `waypointLines`); this cuts that block back
@@ -289,20 +295,42 @@ export function packetWaypointBlocks(packetText) {
   return blocks.map((b) => ({ n: b.n, text: b.lines.join("\n").trim() }));
 }
 
-// THE PIPELINE DIAGRAM (kogaki#1402, owner reading 2026-10-16): one left-to-right flowchart,
-// opening the run's section, mapping the sources (Passage, cut into Segments; Persona;
-// Audience) onto the six artifacts in pipeline order, every node a link to where that material
-// sits on the page. The artifact node names are the pipeline nouns SHEET_TITLES carries and
-// nothing else (kogaki#1400). Mermaid is loaded from a pinned CDN; the diagram's own text is
-// also written as a `<pre>` fallback, so a sheet opened offline still shows the graph as text.
+// THE PIPELINE DIAGRAM (kogaki#1402, redrawn by the owner's 2026-10-17 reading, kogaki#1410):
+// one left-to-right flowchart, opening the run's section, laid out in two rows -- Extraction,
+// Move, ParagraphPlan, Packet, Draft on the first, Brief under Move, fed by Extraction and
+// Audience and feeding ParagraphPlan and Packet, on the second. Passage and Audience are the
+// only sources; Segments and Persona are not drawn as nodes (Segments is section 3 of the
+// Extraction, and Persona is a key of the Audience file). Audience also feeds Packet, the edge
+// that governs the Packet's prose rules. Every node is a link to where that material sits on
+// the page, and carries one of three provenance classes -- owner-authored input, model-written
+// or mechanically derived with no model call -- with the production/substitute distinction
+// (kogaki#1400) riding a dashed border on Extraction and Brief. The artifact node names are the
+// pipeline nouns SHEET_TITLES carries and nothing else (kogaki#1400). Mermaid is loaded from a
+// pinned CDN; the diagram's own text is also written as a `<pre>` fallback inside a closed
+// details element, so a sheet opened offline still shows the graph as text without it taking
+// space by default (owner, 2026-10-17: "I would prefer it to be collapsed by default").
 const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+
+// The diagram's three provenance classes, by node name (kogaki#1410 design: "Three classes...
+// owner-authored input... model-written... mechanically derived with no model call").
+const DIAGRAM_CLASSES = {
+  ownerInput: ["Passage", "Audience"],
+  modelWritten: ["Extraction", "Brief", "ParagraphPlan", "Draft"],
+  mechanical: ["Move", "Packet"],
+};
+const DIAGRAM_CLASS_LABELS = {
+  ownerInput: "owner-authored input",
+  modelWritten: "model-written",
+  mechanical: "mechanically derived, no model call",
+};
+// The production/substitute border rides the dashed style (kogaki#1400), on Extraction and
+// Brief only -- ParagraphPlan and Draft are production and stay solid.
+const DIAGRAM_DASHED = ["Extraction", "Brief"];
 
 function pipelineDiagram(idx) {
   const cardHref = (key) => `#card-${idx}-${key}`;
   const nodes = [
     ["Passage", `#comparison-${idx}`],
-    ["Segments", cardHref("extraction")],
-    ["Persona", "#run-conditions"],
     ["Audience", "#run-conditions"],
     ["Extraction", cardHref("extraction")],
     ["Move", cardHref("move")],
@@ -312,10 +340,10 @@ function pipelineDiagram(idx) {
     ["Draft", cardHref("draft")],
   ];
   const edges = [
-    ["Passage", "Extraction"], ["Audience", "Extraction"], ["Segments", "Move"],
-    ["Persona", "Brief"], ["Extraction", "Brief"],
+    ["Passage", "Extraction"], ["Audience", "Extraction"],
+    ["Extraction", "Move"], ["Extraction", "Brief"], ["Audience", "Brief"],
     ["Move", "ParagraphPlan"], ["Brief", "ParagraphPlan"],
-    ["Brief", "Packet"], ["ParagraphPlan", "Packet"],
+    ["Brief", "Packet"], ["ParagraphPlan", "Packet"], ["Audience", "Packet"],
     ["Packet", "Draft"],
   ];
   const nodeId = (name) => `${name}_${idx}`;
@@ -323,9 +351,18 @@ function pipelineDiagram(idx) {
   for (const [name] of nodes) lines.push(`  ${nodeId(name)}["${name}"]`);
   for (const [a, b] of edges) lines.push(`  ${nodeId(a)} --> ${nodeId(b)}`);
   for (const [name, href] of nodes) lines.push(`  click ${nodeId(name)} "${href}"`);
+  lines.push("  classDef ownerInput fill:#e9e4d8,stroke:#8a3b12,color:#1d1d1b");
+  lines.push("  classDef modelWritten fill:#dce8df,stroke:#2f6b45,color:#1d1d1b");
+  lines.push("  classDef mechanical fill:#dbe3ef,stroke:#2b4f7a,color:#1d1d1b");
+  lines.push("  classDef dashed stroke-dasharray: 5 5");
+  for (const [cls, names] of Object.entries(DIAGRAM_CLASSES)) lines.push(`  class ${names.map(nodeId).join(",")} ${cls}`);
+  lines.push(`  class ${DIAGRAM_DASHED.map(nodeId).join(",")} dashed`);
   const text = lines.join("\n");
-  return `<div class="diagram"><div class="mermaid">${esc(text)}</div>`
-    + `<p class="muted">Diagram text (shown for a sheet without network access to Mermaid):</p>${pre(text)}</div>`;
+  const legend = `<ul class="legend">${Object.entries(DIAGRAM_CLASS_LABELS)
+    .map(([cls, label]) => `<li><span class="swatch ${cls}"></span> ${esc(label)}</li>`).join("")}</ul>`;
+  return `<div class="diagram"><div class="mermaid">${esc(text)}</div>${legend}`
+    + sub("Diagram text (shown for a sheet without network access to Mermaid)", pre(text))
+    + `</div>`;
 }
 
 // THE RUN-CONDITIONS LINE: the Audience, the settings, the model command and the run
@@ -383,10 +420,12 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
     + `<tbody>${pairs.join("")}</tbody></table>`;
 }
 
-// CARD 1 — EXTRACTION. Output: one row per paragraph, its path, hash and file, with its
-// Segments folded beside it. Inputs: none drawn as a card (the original paragraph is in
-// the comparison table above, the Audience is in the run-conditions line). Prompt: one per
-// paragraph. Calls: one group per paragraph, with its attempt count.
+// CARD 1 — EXTRACTION. Output: one collapsible block per paragraph, closed by default except
+// paragraph 1 (kogaki#1410, owner 2026-10-17: "having all of them expanded makes navigation
+// cumbersome"), each with its path, hash and file, with its Segments folded beside it. Inputs:
+// none drawn as a card (the original paragraph is in the comparison table above, the Audience
+// is in the run-conditions line). Prompt: one per paragraph. Calls: one group per paragraph,
+// with its attempt count.
 function extractionCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const n = r.paragraphs.length;
@@ -415,11 +454,10 @@ function extractionCard(r, idx) {
       + `</tbody></table>`
     : `<p class="muted">No Segments.</p>`);
   const output = stageNote(r, "extract")
-    + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>`
-    + per.map((p) => `<tr id="${anchorId("extraction", p.i + 1, idx)}"><td>${p.i + 1}</td><td><p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
+    + per.map((p) => prowBlock("extraction", p.i + 1, idx, `paragraph ${p.i + 1}`,
+      `<p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
       + (p.file ? pre(p.rendered || p.text || "(not written)") + sub(`record file — ${esc(rel(p.file))}`, pre(p.text || "(not written)"))
-        + sub("Segments", pairsOf(p)) : "") + `</td></tr>`).join("")
-    + `</tbody></table>`;
+        + sub("Segments", pairsOf(p)) : ""))).join("");
 
   // The Prompt is the recorded stdin of each paragraph's first call, not the judge's
   // `prompt.md`: the recorder's stdin carries the CLI preamble the model actually read.
@@ -431,8 +469,9 @@ function extractionCard(r, idx) {
   return cardWrap("extraction", { output, inputs: inputsList([], idx), prompt: promptPart(promptEntries), calls: callsHtml }, idx);
 }
 
-// CARD 2 — MOVE. Output: one row per paragraph, its Move file's path, hash and content, with
-// its ingest screen folded. Inputs: Extraction. No model call -- `tools/move_ingest.py` is mechanical.
+// CARD 2 — MOVE. Output: one collapsible block per paragraph, closed by default except
+// paragraph 1 (kogaki#1410), its Move file's path, hash and content, with its ingest screen
+// folded. Inputs: Extraction. No model call -- `tools/move_ingest.py` is mechanical.
 function moveCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const entries = (r.ingest && r.ingest.entries) || [];
@@ -442,11 +481,11 @@ function moveCard(r, idx) {
     const e = entries[i] || {};
     const mp = e.move ? join(r.runDir, "moves", `${e.move}${MOVE_RECORD_EXT}`) : null;
     const mt = mp ? read(mp) : null;
-    rows.push(`<tr id="${anchorId("move", i + 1, idx)}"><td>${i + 1}</td><td><p class="meta">${mp ? esc(rel(mp)) : "(not written)"} · sha ${contentHash(mt)}</p>`
-      + pre(mt || e.refusal || "(not written)") + (e.screen ? sub(`ingest entry — sha ${contentHash(e.screen)}`, pre(e.screen)) : "") + `</td></tr>`);
+    rows.push(prowBlock("move", i + 1, idx, `paragraph ${i + 1}`,
+      `<p class="meta">${mp ? esc(rel(mp)) : "(not written)"} · sha ${contentHash(mt)}</p>`
+      + pre(mt || e.refusal || "(not written)") + (e.screen ? sub(`ingest entry — sha ${contentHash(e.screen)}`, pre(e.screen)) : "")));
   }
-  const output = stageNote(r, "ingest")
-    + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+  const output = stageNote(r, "ingest") + rows.join("");
   return cardWrap("move", {
     output,
     inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
@@ -510,14 +549,15 @@ function paragraphPlanCard(r, idx) {
 
   let countsTable = "";
   if (pl) {
-    countsTable = `<table><thead><tr><th>Leg Waypoint</th><th>bound Move</th><th>Paragraph Waypoints</th><th>Segments of the Move</th></tr></thead><tbody>`
-      + pl.waypoints.map((w) => {
-        const bnd = ((bindings && bindings.bindings) || []).find((x) => x.waypoint === w.waypoint) || {};
-        const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}${MOVE_RECORD_EXT}`))) : 0;
-        const pws = w.paragraph_waypoints || [];
-        return `<tr id="${anchorId("planwp", w.waypoint, idx)}"${pws.length !== segs ? ' class="off"' : ""}><td>${w.waypoint}</td><td>${esc(bnd.move || "?")}</td>`
-          + `<td><ol>${pws.map((p) => `<li>${esc(p.point || "")}</li>`).join("")}</ol></td><td>${segs}</td></tr>`;
-      }).join("") + `</tbody></table>`;
+    countsTable = pl.waypoints.map((w) => {
+      const bnd = ((bindings && bindings.bindings) || []).find((x) => x.waypoint === w.waypoint) || {};
+      const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}${MOVE_RECORD_EXT}`))) : 0;
+      const pws = w.paragraph_waypoints || [];
+      return prowBlock("planwp", w.waypoint, idx, `Leg Waypoint ${w.waypoint}`,
+        `<p class="meta">bound Move: ${esc(bnd.move || "?")} · Segments of the Move: ${segs}</p>`
+        + `<ol>${pws.map((p) => `<li>${esc(p.point || "")}</li>`).join("")}</ol>`,
+        pws.length !== segs ? "off" : "");
+    }).join("");
   }
   const output = (planText ? "" : stageNote(r, "paragraph-plan"))
     + `<p class="meta">${esc(rel(r.planPath))} · sha ${contentHash(planText)}</p>`
@@ -556,14 +596,11 @@ function packetCard(r, idx) {
   const wpRows = [];
   for (let i = 1; i <= n; i++) {
     const b = blocks.find((x) => x.n === i);
-    wpRows.push(`<tr id="${anchorId("packetwp", i, idx)}"><td>${i}</td><td>${b ? pre(b.text) : `<p class="muted">No block for this Leg Waypoint.</p>`}</td></tr>`);
+    wpRows.push(prowBlock("packetwp", i, idx, `Leg Waypoint ${i}`, b ? pre(b.text) : `<p class="muted">No block for this Leg Waypoint.</p>`));
   }
-  const wpTable = n
-    ? `<table class="rows"><thead><tr><th>Leg Waypoint</th><th>its block, as the Packet renders it</th></tr></thead><tbody>${wpRows.join("")}</tbody></table>`
-    : "";
   const output = (packet ? "" : stageNote(r, "draft"))
     + `<p class="meta">${packetPath ? esc(rel(packetPath)) : "(not rendered)"} · sha ${contentHash(packet)}</p>`
-    + wpTable
+    + wpRows.join("")
     + pre(packet || "(not rendered)");
   return cardWrap("packet", {
     output,
@@ -586,10 +623,10 @@ function draftCard(r, idx, { sectionPath, written, writtenParas, draftStop }) {
   const rows = [];
   for (let i = 0; i < n; i++) {
     const cellText = written ? esc(writtenParas[i] || "") : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "");
-    rows.push(`<tr id="${anchorId("draft", i + 1, idx)}"><td>${i + 1}</td><td>${cellText}</td></tr>`);
+    rows.push(prowBlock("draft", i + 1, idx, `paragraph ${i + 1}`, `<p>${cellText}</p>`));
   }
   const output = `<p class="meta">${sectionPath ? esc(rel(sectionPath)) : "(not written)"} · sha ${contentHash(written)}</p>`
-    + `<table><thead><tr><th>paragraph</th><th>written text</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+    + rows.join("")
     + stageNote(r, "draft");
 
   const prompt = writerCalls.length
@@ -635,12 +672,18 @@ body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;ma
 .pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
 details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
 details.sub{margin:4px 0 4px 8px}table.rows{width:100%}table.rows td:last-child{width:100%}
+details.prow{margin:4px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.prow>summary{font-weight:bold;cursor:pointer}
+details.prow.off{background:var(--off)}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
 table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}tr.off{background:var(--off)}.stop{color:var(--accent)}
 .badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
 .badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
 .pcard.substitute{border-left:4px solid var(--accent)}
 .diagram{margin-bottom:16px}.diagram .mermaid{max-height:220px}
+.legend{list-style:none;display:flex;gap:14px;flex-wrap:wrap;margin:4px 0;padding:0;font-size:12px;color:var(--muted)}
+.legend li{display:flex;align-items:center;gap:4px}
+.swatch{display:inline-block;width:11px;height:11px;border-radius:2px;border:1px solid var(--line)}
+.swatch.ownerInput{background:#e9e4d8}.swatch.modelWritten{background:#dce8df}.swatch.mechanical{background:#dbe3ef}
 .anchors{margin:4px 0 0;font-size:12px}`;
 
 function card(r, { provenance, mapHash, idx = 0 }) {
