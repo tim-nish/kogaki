@@ -325,8 +325,7 @@ if failures:
 print(
     "ok: segments refused with no Extraction, naming the field; saved as each "
     "Segment's does and relation as a list of maps, never the content clause "
-    "or Segment 1's relation; Extractions read as YAML records; "
-    "maps; refused naming the Segment's number with no `does`, or with no "
+    "or Segment 1's relation; Extractions read as YAML records; refused naming the Segment's number with no `does`, or with no "
     "`relation` after the first; refused where a supplied `segments` disagrees "
     "with the copy; no retired label set in the format, the Extractor, the "
     "ingest or ParagraphPlan (kogaki#1320, kogaki#1367, kogaki#1414, kogaki#1413)")
