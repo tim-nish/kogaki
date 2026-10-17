@@ -256,10 +256,11 @@ function segmentCount(moveText) { return moveSegments(moveText).length; }
 const anchorId = (card, n, idx) => `${card}-p${n}-${idx}`;
 
 // A PER-PARAGRAPH (OR PER-LEG-WAYPOINT) ROW, folded (kogaki#1410, owner 2026-10-17): closed by
-// default, open only for the first, carrying the anchor id the comparison table and the other
-// per-paragraph cards link to -- a browser navigating to that id opens the details it sits in.
+// default, open only for the first. The anchor id the comparison table links to sits on a
+// `div` INSIDE the details, never on the details itself: a browser navigating to a fragment
+// opens the closed details that are the target's ancestors, not a details that is the target.
 const prowBlock = (card, n, idx, summary, body, cls = "") =>
-  `<details class="prow${cls ? ` ${cls}` : ""}"${n === 1 ? " open" : ""} id="${anchorId(card, n, idx)}"><summary>${esc(summary)}</summary>${body}</details>`;
+  `<details class="prow${cls ? ` ${cls}` : ""}"${n === 1 ? " open" : ""}><summary>${esc(summary)}</summary><div id="${anchorId(card, n, idx)}">${body}</div></details>`;
 
 // THE PACKET'S RENDERED WAYPOINTS, CUT BY THEIR OWN NUMBERING (kogaki#1402): the Packet's
 // waypoints block is a NUMBERED list, one top-level line per Leg Waypoint with its Paragraph
@@ -660,11 +661,11 @@ body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;ma
 .pair td{width:50%;white-space:pre-wrap}.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:800px){.cols{grid-template-columns:1fr}}
 .pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
 details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
-details.sub{margin:4px 0 4px 8px}table.rows{width:100%}table.rows td:last-child{width:100%}
+details.sub{margin:4px 0 4px 8px}
 details.prow{margin:4px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.prow>summary{font-weight:bold;cursor:pointer}
 details.prow.off{background:var(--off)}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
-table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}tr.off{background:var(--off)}.stop{color:var(--accent)}
+table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}.stop{color:var(--accent)}
 .badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
 .badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
 .pcard.substitute{border-left:4px solid var(--accent)}
