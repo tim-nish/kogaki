@@ -117,12 +117,12 @@
     "move": {
       "required": false,
       "type": "string",
-      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `before`, `after`, `technique` and `breaks`, read from the Move file. `before` and `after` are the reader states the Move moves between; `technique` is the general route between them, which this Leg SPECIALIZES in its own `waypoints`; `breaks` are the tests that route must survive. Choose a Move only where you can write waypoints that specialize its `technique` from this Leg's own claims and materials and that survive each `breaks` test. THE MOVE IS READ HERE AND NEVER AGAIN (kogaki#1311, owner decision 2026-10-09): no stage after the Candidate opens a Move, so the writer meets this Leg's waypoints and never the Move's prose. An id outside the set resolves to no record and is refused at composition, naming the Leg and the id. A Leg carries exactly one of `move` and `no_move_fits` (kogaki#1125, kogaki#1276)."
+      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `before`, `after`, `segments` and `breaks`, read from the Move file. `before` and `after` are the reader states the Move moves between; `segments` is the general route between them, its ordered steps, which this Leg SPECIALIZES in its own `waypoints`; `breaks` are the tests that route must survive. Choose a Move only where you can write waypoints that specialize its `segments` from this Leg's own claims and materials and that survive each `breaks` test. THE MOVE IS READ HERE AND NEVER AGAIN (kogaki#1311, owner decision 2026-10-09): no stage after the Candidate opens a Move, so the writer meets this Leg's waypoints and never the Move's prose. An id outside the set resolves to no record and is refused at composition, naming the Leg and the id. A Leg carries exactly one of `move` and `no_move_fits` (kogaki#1125, kogaki#1276)."
     },
     "no_move_fits": {
       "required": false,
       "type": "string",
-      "description": "Present ONLY where no Move in `moves_you_may_bind` fits this Leg: one sentence naming what this Leg's claims need that no Move's `technique` provides. Never name the nearest Move instead. A Leg carries exactly one of `move` and `no_move_fits`, and a Candidate with any `no_move_fits` Leg is refused with that sentence, so the next attempt can revise the path: omit the Leg, change the path, or leave a Strand unused (kogaki#1276)."
+      "description": "Present ONLY where no Move in `moves_you_may_bind` fits this Leg: one sentence naming what this Leg's claims need that no Move's `segments` provide. Never name the nearest Move instead. A Leg carries exactly one of `move` and `no_move_fits`, and a Candidate with any `no_move_fits` Leg is refused with that sentence, so the next attempt can revise the path: omit the Leg, change the path, or leave a Strand unused (kogaki#1276)."
     },
     "claims": {
       "required": true,
@@ -135,7 +135,7 @@
       "required": true,
       "type": "array of waypoint",
       "min_length": 1,
-      "description": "The route this Leg takes the reader along, from `reader_state_before` to `reader_state_after`, as an ORDERED list of waypoints -- this Leg's specialization of its Move's `technique` (kogaki#1311, owner decision 2026-10-09). Each waypoint is a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326, owner decision 2026-10-10) -- what the paragraph establishes, never how the reader is to feel or what they are handed, and never a stage direction. The point is not quoted; its wording is the writer's. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. How many waypoints a Leg carries is yours to decide from the Move's prose and this Leg's claims: you need not reproduce the Move's internal structure element for element, even where its `technique` describes a fixed number, and nothing reads the count. One waypoint tends to become one paragraph, as a strong tendency rather than a guarantee. A waypoint whose point no claim of this Leg supports is the signal that the Leg is short of material: pull in a Journey, bind another Move, or report `no_move_fits` -- never a waypoint serving a claim it does not draw on. See `waypoint` below.",
+      "description": "The route this Leg takes the reader along, from `reader_state_before` to `reader_state_after`, as an ORDERED list of waypoints -- this Leg's specialization of its Move's `segments` (kogaki#1311, owner decision 2026-10-09). Each waypoint is a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326, owner decision 2026-10-10) -- what the paragraph establishes, never how the reader is to feel or what they are handed, and never a stage direction. The point is not quoted; its wording is the writer's. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. How many waypoints a Leg carries is yours to decide from the Move's prose and this Leg's claims: you need not reproduce the Move's internal structure element for element, even where its `segments` hold a fixed number, and nothing reads the count. One waypoint tends to become one paragraph, as a strong tendency rather than a guarantee. A waypoint whose point no claim of this Leg supports is the signal that the Leg is short of material: pull in a Journey, bind another Move, or report `no_move_fits` -- never a waypoint serving a claim it does not draw on. See `waypoint` below.",
       "see": "waypoint"
     },
     "journeys": {
@@ -398,7 +398,7 @@
       "Leg's `reader_state_before` and `reader_state_after` say where the",
       "reader starts and ends; the waypoints say, in order, what the Leg's",
       "paragraphs establish to get them from one to the other. The Move's",
-      "`technique` says that in general and for every article; a Leg's",
+      "`segments` say that in general and for every article; a Leg's",
       "waypoints say it for THIS Leg's claims, in the article's subject.",
       "",
       "A POINT, NEVER AN EFFECT AND NEVER A SENTENCE TO COPY. `point` is the",
@@ -406,7 +406,7 @@
       "paragraph establishes -- never how the reader is to feel, what they",
       "are \"handed\", or when they \"receive\" something: an effect is a",
       "stage direction, and a writer given one narrates it. Nor is it the",
-      "Move's technique with the subject filled in. The point is not quoted:",
+      "Move's Segments with the subject filled in. The point is not quoted:",
       "its wording is the writer's.",
       "",
       "IT SERVES A CLAIM. A point need not restate the claim; it is a",
@@ -430,7 +430,7 @@
       "`segments` (kogaki#1375), a `serves` entry naming a Strand this Leg",
       "carries no claim for, and a claim of this Leg that no waypoint serves",
       "-- each naming the Leg and the waypoint. Whether the waypoints",
-      "specialize the Move's `technique` and survive its `breaks` is judged,",
+      "specialize the Move's `segments` and survive its `breaks` is judged,",
       "at the Move-fit judgment, and never a lint."
     ],
     "fields": {

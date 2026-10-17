@@ -1462,8 +1462,9 @@ chmodSync(resumeJudge, 0o755);
   mkdirSync(moves);
   for (const id of ["m_open", "m_turn"]) {
     writeFileSync(join(moves, `${id}.yaml`), [
-      `id: ${id}`, "technique: >-", `  the technique of ${id}.`, "before:", `  knowledge: before ${id}.`,
-      "after:", `  knowledge: after ${id}.`, "breaks:", `  - breaks if ${id} is skipped.`, "",
+      `id: ${id}`, "before:", `  knowledge: before ${id}.`,
+      "after:", `  knowledge: after ${id}.`, "breaks:", `  - breaks if ${id} is skipped.`,
+      "segments:", `  - does: opens ${id}.`, `  - does: closes ${id}.`, "    relation: answers the opening.", "",
     ].join("\n"));
   }
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
@@ -1827,9 +1828,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const base = mkNewScratch();
   const moves = join(base, "moves");
   mkdirSync(moves);
-  writeFileSync(join(moves, "m1.yaml"), ["id: m1", "technique: >-", "  states the claim, then names the case it leaves out.",
+  writeFileSync(join(moves, "m1.yaml"), ["id: m1",
     "before:", "  knowledge: before.", "after:", "  knowledge: after.",
-    "breaks:", "  - breaks if the left-out case is never named.", ""].join("\n"));
+    "breaks:", "  - breaks if the left-out case is never named.",
+    "segments:", "  - does: states the claim.", "  - does: names the case it leaves out.", "    relation: limits the claim.", ""].join("\n"));
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
   // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback.
   writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
@@ -1845,7 +1847,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     reasoning: { leg_validity: "x" },
     legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true })],
   };
-  const SENTENCE = "the Leg names no case left out, which the technique requires of it.";
+  const SENTENCE = "the Leg names no case left out, which the Segments require of it.";
   const counter = join(base, "fit-counter.json");
   const prompts = join(base, "prompts.jsonl");
   const judgeFile = join(base, "fit-fake-judge.mjs");

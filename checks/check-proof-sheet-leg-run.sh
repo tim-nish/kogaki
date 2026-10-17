@@ -116,7 +116,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
-      technique: "Name an act, then name who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
+      description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
     };
     if (first && !retried) delete record.segments[0].does;
     return out(record, "extract");
@@ -420,7 +420,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
-      technique: "Name an act, then name who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
+      description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
     };
     if (p.number === ${brokenParagraph === null ? "null" : String(brokenParagraph)}) delete record.notes;
     return out(record, "extract");
