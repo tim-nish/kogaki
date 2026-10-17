@@ -668,6 +668,13 @@ OPTIONAL_SCALAR_FIELDS = ("continues_from", "evidence", "segments")
 # field exists to make checkable (kogaki#1320).
 LITERAL_FIELDS = ("segments",)
 
+# `breaks` renders LITERAL where its value holds more than one line: the list
+# of prose tests a paragraph Move's Extraction section 5 gives it, one `- `
+# line per test (kogaki#1414). A one-line value -- every Move written before
+# that, read back off its own `>-` fold -- still renders folded, so those
+# files are byte-identical to what they have always been.
+LITERAL_WHEN_MULTILINE_FIELDS = ("breaks",)
+
 
 def render_move(mapping):
     """The §4.2 mapping in §4.2's order AS the file body.
@@ -700,7 +707,8 @@ def render_move(mapping):
         if field in PLAIN_FIELDS:
             out.append("%s: %s" % (field, value))
             return
-        if field in LITERAL_FIELDS:
+        if field in LITERAL_FIELDS or (
+                field in LITERAL_WHEN_MULTILINE_FIELDS and "\n" in str(value).strip()):
             out.append("%s: |-" % field)
             # Each line stripped before re-indenting, never trusted as
             # already bare: a value read back off a saved file (`read_saved`)
@@ -1249,31 +1257,35 @@ def check_extraction_split_note(passage_text, line_no=None):
 
 # --------------------------------------------------------------------------
 # `segments`, copied from Extraction section 3 (kogaki#1320, generalized clause
-# kogaki#1367).
+# kogaki#1367, two prose fields kogaki#1414).
 # --------------------------------------------------------------------------
 #
 # `passages/FORMAT.md` §3 writes one numbered entry per Segment: the quoted
-# opening words, a dash, the function (raises | advances | settles), a dash,
-# the relation to the previous Segment, a dash, the content clause stating
-# what it does to the reader about THIS Passage's own content, a dash, then
-# `generalized:` and a second, subject-free clause stating the same thing so
-# it could be performed on any subject. The quoted opening words and the
-# content clause locate and explain the Segment for the owner's reading and
-# are not copied — `segments` carries the generalized clause only, since the
-# content clause carries the source paragraph's own subject into every Move
-# derived from it.
+# opening words, a dash, the content clause stating what it does about THIS
+# Passage's own content, a dash, `does:` and the step's operation written
+# subject-free, then -- on every Segment after the first -- a dash,
+# `relation:` and the step's relation to the Segment before it, in prose.
+# Both fields are prose; no label set is read or admitted (kogaki#1414). The
+# quoted opening words and the content clause locate and explain the Segment
+# for the owner's reading and are not copied, since the content clause
+# carries the source paragraph's own subject into every Move derived from
+# it. Segment 1's `relation:`, where the Extraction records one, is a fact
+# about the source paragraph's predecessor and is not copied either: a Move
+# carries no relation to what precedes it (kogaki#1411).
 SECTION3_HEADING = re.compile(r"^##\s*3\.\s*The order inside the Passage\s*$", re.M)
 NEXT_HEADING = re.compile(r"^##\s*\d+\.", re.M)
 
 SEGMENT_ENTRY = re.compile(
     r'^\s*(?P<num>\d+)\.\s*"[^"]*"(?:\s*\[[^\]]*\])?\s*—\s*'
-    r"(?P<function>raises|advances|settles)\s*—\s*"
-    r"(?P<relation>cause|consequence|contrast|elaboration|evidence|enumeration|none)\s*—\s*"
     r"(?P<rest>.+?)(?=\n[ \t]*\n|\n\s*\d+\.\s*\"|\Z)",
     re.M | re.S,
 )
 
-GENERALIZED_CLAUSE = re.compile(r"^(?P<content>.*?)\s*—\s*generalized:\s*(?P<generalized>.+)$", re.S)
+SEGMENT_FIELDS = re.compile(
+    r"^(?P<content>.*?)\s*—\s*does:\s*(?P<does>.*?)"
+    r"(?:\s*—\s*relation:\s*(?P<relation>.*))?$",
+    re.S,
+)
 
 
 def section3_body(passage_text):
@@ -1290,50 +1302,61 @@ def section3_body(passage_text):
 
 
 def extraction_segments(passage_text, line_no=None):
-    """The ordered Segments of Extraction section 3, each
-    `(function, relation, generalized_clause)` — the content clause is
-    parsed and discarded, never copied (kogaki#1367). Returns `None` where
-    the text carries no section 3 at all, and raises `Refusal` naming the
-    Segment's number where an entry carries only the content clause."""
+    """The ordered Segments of Extraction section 3, each `(does,
+    relation)` — `relation` is `None` on Segment 1, whose recorded relation
+    (if any) is a fact about the source and never copied (kogaki#1411), and
+    the content clause is parsed and discarded (kogaki#1367). Returns `None`
+    where the text carries no section 3 at all, and raises `Refusal` naming
+    the Segment's number where an entry carries no `does:` clause, or where a
+    Segment after the first carries no `relation:` clause (kogaki#1414)."""
     body = section3_body(passage_text)
     if body is None:
         return None
     segments = []
-    for match in SEGMENT_ENTRY.finditer(body):
+    for index, match in enumerate(SEGMENT_ENTRY.finditer(body)):
         rest = " ".join(match.group("rest").split())
-        gmatch = GENERALIZED_CLAUSE.match(rest)
-        if gmatch is None:
+        fields = SEGMENT_FIELDS.match(rest)
+        if fields is None or not fields.group("does").strip():
             raise Refusal(
                 "segments",
-                "Segment %s carries only the content clause — section 3 "
-                "owes a `— generalized: <clause>` second clause on every "
-                "entry" % match.group("num"),
+                "Segment %s carries no `— does: <operation>` clause — "
+                "section 3 owes one on every entry" % match.group("num"),
                 line_no=line_no,
             )
-        generalized = gmatch.group("generalized").strip()
-        segments.append((match.group("function"), match.group("relation"), generalized))
+        relation = (fields.group("relation") or "").strip()
+        if index > 0 and not relation:
+            raise Refusal(
+                "segments",
+                "Segment %s carries no `— relation: <prose>` clause — "
+                "every Segment after the first owes its relation to the "
+                "Segment before it" % match.group("num"),
+                line_no=line_no,
+            )
+        segments.append((fields.group("does").strip(), relation if index > 0 else None))
     return segments
 
 
 def render_segments_text(segments):
     """The §4.2 `segments` value: one numbered line per Segment, in order —
-    the LITERAL text a saved Move renders (`render_move`), never a `>-`
-    folded paragraph that would lose the order."""
+    `<n>. does: <operation>`, followed on every Segment after the first by
+    ` — relation: <prose>` — the LITERAL text a saved Move renders
+    (`render_move`), never a `>-` folded paragraph that would lose the
+    order."""
     return "\n".join(
-        "%d. %s — %s — %s" % (i + 1, function, relation, clause)
-        for i, (function, relation, clause) in enumerate(segments)
+        "%d. does: %s" % (i + 1, does) + ("" if relation is None else " — relation: %s" % relation)
+        for i, (does, relation) in enumerate(segments)
     )
 
 
 def check_segments(mapping, passage_text, line_no):
     """Copy the Extraction's ordered Segments into the record's own
     `segments`. Returns `(Refusal, None)` where the Extraction carries no
-    section 3 to copy from, where a Segment entry carries only the content
-    clause, or where the record already carried a `segments` value that
+    section 3 to copy from, where a Segment entry is missing a field
+    `extraction_segments` requires, or where the record already carried a `segments` value that
     disagrees with the copy — the model is never asked to write or reorder
     Segments, so a value it supplied anyway is a defect, not an alternative
-    reading. Otherwise returns `(None, <the literal numbered-list text, the
-    generalized clauses only>)`."""
+    reading. Otherwise returns `(None, <the literal numbered-list text,
+    each Segment's `does` and `relation` only>)`."""
     try:
         segments = extraction_segments(passage_text, line_no=line_no)
     except Refusal as refusal:
@@ -1402,15 +1425,38 @@ def section6_technique(passage_text):
     return text or None
 
 
-def section5_breaks(passage_text):
-    """`breaks`: Extraction `## 5. Where it would break`, verbatim -- its
-    three lines (remove, reorder, extend), joined the same way `technique`
-    is. `None` where the text carries no section 5, or an empty one."""
+BREAKS_TEST = re.compile(r"^\s*-\s+(?P<test>.*)$")
+
+
+def section5_breaks(passage_text, line_no=None):
+    """`breaks`: Extraction `## 5. Where it would break`, a list of prose
+    tests (kogaki#1414) -- one `- ` line per test, a test's own continuation
+    lines joined onto it the way `technique` joins its lines -- rendered as
+    one `- <test>` line per test. `None` where the text carries no section
+    5, or an empty one; raises `Refusal` where section 5 carries text before
+    its first `- ` test, since a test the list does not hold is no test."""
     body = _numbered_section_body(passage_text, SECTION5_HEADING)
     if body is None:
         return None
-    text = " ".join(body.split())
-    return text or None
+    tests = []
+    for line in body.splitlines():
+        if not line.strip():
+            continue
+        match = BREAKS_TEST.match(line)
+        if match is not None:
+            tests.append(match.group("test").strip())
+        elif tests:
+            tests[-1] = "%s %s" % (tests[-1], line.strip())
+        else:
+            raise Refusal(
+                "from-extraction",
+                "section 5 (\"## 5. Where it would break\") carries text "
+                "before its first `- ` test -- it is a list of prose tests, "
+                "one `- ` line each: %r" % line.strip(),
+                line_no=line_no,
+            )
+    tests = [" ".join(t.split()) for t in tests if t.strip()]
+    return "\n".join("- %s" % t for t in tests) or None
 
 
 def section7_name(passage_text):
@@ -1515,7 +1561,7 @@ def derive_from_extraction(passage_text, line_no=1):
             raise Refusal(
                 "segments",
                 "section 3 carries no Segment entry in the `\"<opening words>\" "
-                "— <function> — <relation> — <clause>` shape",
+                "— <clause> — does: <operation> — relation: <prose>` shape",
             )
         mapping["segments"] = segments_text
         check_field_set(mapping, line_no)

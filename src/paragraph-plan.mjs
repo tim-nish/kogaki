@@ -154,20 +154,31 @@ export function planLeg(leg) {
   };
 }
 
-// A SEGMENT CONTRIBUTES FUNCTION, RELATION AND POSITION TO THE PLAN CALL, NEVER ITS
-// DESCRIPTION (kogaki#1403). A Segment's description is the Extractor's analysis of the
-// original paragraph's technique, written for a reader of the Move; sent verbatim into the
-// plan call, the planner read it as content the new paragraph must say rather than as an
-// analysis of the old one. `segments` lines are `<n>. <function> — <relation> — <description>`
-// (`tools/move_ingest.py`'s `render_segments_text`); this keeps the first two fields and
-// drops the description and the separator before it. `technique`, `before`, `after` and
-// `breaks` are untouched -- `technique` is the Move's only order where `segments` is empty.
+// EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS TWO FIELDS (kogaki#1414, reverting the
+// withholding of kogaki#1403). A Segment is `does`, the step's operation written subject-free,
+// and `relation`, its relation to the Segment before it, in prose -- no label set. `segments`
+// lines are `<n>. does: <operation>[ — relation: <prose>]` (`tools/move_ingest.py`'s
+// `render_segments_text`); this splits each line into `{ segment, does, relation }` so the
+// planner reads the two fields apart. kogaki#1403 withheld the description because the
+// planner read it as content; the plan row now says a `does` is an operation to perform and
+// never a point to state, and the judge checks each Paragraph Waypoint against its own
+// Segment, so the leak is refused where it happens rather than by blinding the planner (on
+// the 2026-10-16 run two labels alone could not carry "concede and promise to simplify", and
+// paragraph 2's first point lost its Segment). A line not in that shape rides whole as its `does`. `technique`, `before`,
+// `after` and `breaks` are untouched -- `technique` is the Move's only order where
+// `segments` is empty.
 export function segmentsForPlanCall(segments) {
   if (typeof segments !== "string" || segments.trim() === "") return segments;
-  return segments.split("\n").map((line) => {
-    const parts = line.split(" — ");
-    return parts.length < 3 ? line : parts.slice(0, 2).join(" — ");
-  }).join("\n");
+  return segments.split("\n").map((l) => l.trim()).filter(Boolean).map((line, i) => {
+    const numbered = line.match(/^(\d+)\.\s*(.*)$/);
+    const body = numbered ? numbered[2] : line;
+    const m = body.match(/^does:\s*(.*?)(?:\s*—\s*relation:\s*(.*))?$/);
+    return {
+      segment: numbered ? Number(numbered[1]) : i + 1,
+      does: (m ? m[1] : body).trim(),
+      relation: (m && m[2] ? m[2] : "").trim(),
+    };
+  });
 }
 
 export function paragraphPlanUnitInput(leg, moves, persona) {
@@ -312,6 +323,7 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId) {
     ...failures.map((f) => `Leg ${f.leg_id}, Waypoint ${f.waypoint}: the judge wrote: "${f.why}"`),
     "Generate the Paragraph Waypoints again so that they begin where the bound Move's before holds, end where its "
     + "after leaves the reader, follow the Move's order (its segments, or its technique where it carries no segments), "
+    + "each perform its own Segment's does and stand in that Segment's relation, "
     + "and survive each of its breaks, or bind another Move."].join("\n") };
 }
 

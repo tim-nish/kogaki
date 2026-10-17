@@ -378,7 +378,7 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
 }
 
 // CARD 1 — EXTRACTION. Output: one row per paragraph, its path, hash and file, with its
-// clause pairs folded beside it. Inputs: none drawn as a card (the original paragraph is in
+// Segments folded beside it. Inputs: none drawn as a card (the original paragraph is in
 // the comparison table above, the Audience is in the run-conditions line). Prompt: one per
 // paragraph. Calls: one group per paragraph, with its attempt count.
 function extractionCard(r, idx) {
@@ -400,14 +400,14 @@ function extractionCard(r, idx) {
     per.push({ i, file, text, promptText, calls, attempts, segs });
   }
   const pairsOf = (p) => (p.segs.length
-    ? `<table><thead><tr><th>#</th><th>function</th><th>relation</th><th>content clause</th><th>generalized clause</th></tr></thead><tbody>`
-      + p.segs.map((s, j) => `<tr><td>${j + 1}</td><td>${esc(s.function || "")}</td><td>${esc(s.relation || "")}</td><td>${esc(s.content || "")}</td><td>${esc(s.generalized || "")}</td></tr>`).join("")
+    ? `<table><thead><tr><th>#</th><th>content clause</th><th>does</th><th>relation</th></tr></thead><tbody>`
+      + p.segs.map((s, j) => `<tr><td>${j + 1}</td><td>${esc(s.content || "")}</td><td>${esc(s.does || "")}</td><td>${esc(s.relation || "")}</td></tr>`).join("")
       + `</tbody></table>`
-    : `<p class="muted">No clause pairs.</p>`);
+    : `<p class="muted">No Segments.</p>`);
   const output = stageNote(r, "extract")
     + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>`
     + per.map((p) => `<tr id="${anchorId("extraction", p.i + 1, idx)}"><td>${p.i + 1}</td><td><p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
-      + (p.file ? pre(p.text || "(not written)") + sub("clause pairs", pairsOf(p)) : "") + `</td></tr>`).join("")
+      + (p.file ? pre(p.text || "(not written)") + sub("Segments", pairsOf(p)) : "") + `</td></tr>`).join("")
     + `</tbody></table>`;
 
   // The Prompt is the recorded stdin of each paragraph's first call, not the judge's

@@ -18,8 +18,8 @@
 //
 // WHAT THE HARNESS WRITES AND WHAT THE MODEL WRITES. The model answers a JSON record of
 // FORMAT's sections; the Harness cuts the paragraph into sentences (one Segment each), and
-// writes every line it can count or already knows — the status line, `unit:`, `length:`,
-// `functions:` and each Segment's quoted opening words — then renders the file in FORMAT's
+// writes every line it can count or already knows — the status line, `unit:`, `length:`
+// and each Segment's quoted opening words — then renders the file in FORMAT's
 // layout. What it renders is what the ingest's own parser reads, which is why a record the
 // validator passes is a file the ingest takes without edits.
 //
@@ -52,15 +52,16 @@ import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
 
 export const EXTRACTION_TABLE = join(REPO, "src", "proof-sheet", "extraction-workflow.json");
 export const DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
-export const FUNCTIONS = ["raises", "advances", "settles"];
-export const RELATIONS = ["cause", "consequence", "contrast", "elaboration", "evidence", "enumeration", "none"];
 export const STATUS_LINE = "status: unreviewed model draft (m2)";
 const RECORD_KEYS = ["version", "paragraph", "source", "prior_text", "language", "subject_nouns", "answers",
   "what_it_does", "reader", "segments", "why_this_order", "presupposes", "breaks", "technique", "name", "notes"];
-const ANSWER_KEYS = ["q1", "q2", "q3", "q4"];
+// Q4 Footing is retired (kogaki#1414): its one consumer went with kogaki#1280, and FORMAT
+// says why. Purpose, Question and Disposition are unchanged.
+const ANSWER_KEYS = ["q1", "q2", "q3"];
 const ROW_KEYS = ["dimension", "before", "after", "segment"];
-const SEGMENT_KEYS = ["function", "relation", "content", "generalized"];
-const BREAK_KEYS = ["remove", "reorder", "extend"];
+// A Segment is two prose fields beside its content clause, and `breaks` is a list of prose
+// tests (kogaki#1414): no label set is offered to the model or read back from it.
+const SEGMENT_KEYS = ["content", "does", "relation"];
 // The library's id form: the ingest's own `MOVE_ID` (tools/move_ingest.py).
 const MOVE_ID = /^[a-z0-9_]+$/;
 const FLOW = { lane: "brief", label: "Extractor" };
@@ -139,7 +140,7 @@ export function extractionUnitInput({ passage, paragraphs, index, before, namesT
 }
 
 // THE RECORD'S SHAPE, SHOWN AS JSON (kogaki#1395): the paragraph number already filled as a
-// number, `answers` holding exactly `q1` to `q4`, and every other value a placeholder naming
+// number, `answers` holding exactly `q1` to `q3`, and every other value a placeholder naming
 // what belongs there -- the two type slips a live run met (a string paragraph number, a
 // top-level key nested inside `answers`) are constrained at generation this way rather than
 // only caught by the validator after the fact.
@@ -148,15 +149,17 @@ function extractionRecordSkeleton(input) {
   return {
     version: "1", paragraph: p.number, source: "<one line>", prior_text: "<one line>", language: "<one line>",
     subject_nouns: ["<a noun, or omit for none>"],
-    answers: { q1: "<one sentence>", q2: "<one sentence>", q3: "<one sentence>", q4: "<one sentence>" },
+    answers: { q1: "<one sentence>", q2: "<one sentence>", q3: "<one sentence>" },
     what_it_does: "<one sentence>",
     reader: DIMENSIONS.map((dimension) => ({ dimension, before: "<the carried state, or your own for the first paragraph>",
       after: "unchanged | <the new state>", segment: "<Segment number(s), or empty where after is unchanged>" })),
-    segments: p.sentences.map(() => ({ function: "raises | advances | settles",
-      relation: "cause | consequence | contrast | elaboration | evidence | enumeration | none",
-      content: "<one clause>", generalized: "<the same clause, subject-free>" })),
+    segments: p.sentences.map((_, i) => ({ content: "<one clause, about this paragraph's own content>",
+      does: "<the step's operation in one clause, subject-free, never its effect on the reader>",
+      relation: i === 0
+        ? (input.earlier_paragraphs.length ? "<in prose, how it takes up the previous paragraph's last point>" : "")
+        : "<in prose, how it relates to the Segment before it>" })),
     why_this_order: "<one sentence>", presupposes: "<two or three lines, as one string>",
-    breaks: { remove: "<one line>", reorder: "<one line>", extend: "<one line>" },
+    breaks: ["<one change a careful writer might make — what the reader loses>", "<another, naming a different change>"],
     technique: "<two or three sentences>", name: "<snake_case_verb_phrase>", notes: "",
   };
 }
@@ -169,7 +172,7 @@ function withExtractionRecordSkeleton(prompt, input) {
   const at = prompt.indexOf(marker);
   const lineEnd = at < 0 ? -1 : prompt.indexOf("\n", at + 1);
   const skeleton = ["", "THE RECORD'S SHAPE AS JSON, with this paragraph's number filled as a number and `answers`",
-    "holding exactly q1 to q4 -- every other value is a placeholder naming what belongs there:",
+    "holding exactly q1 to q3 -- every other value is a placeholder naming what belongs there:",
     JSON.stringify(extractionRecordSkeleton(input), null, 2)].join("\n");
   if (lineEnd < 0) return `${prompt}\n${skeleton}`;
   return `${prompt.slice(0, lineEnd)}\n${skeleton}${prompt.slice(lineEnd)}`;
@@ -242,9 +245,11 @@ export function validateExtractionUnit(record, input) {
   if (answersBad) errors.push(answersBad);
   else for (const k of ANSWER_KEYS) { const e = lineRefusal(r.answers[k], `${at}: answer ${k.toUpperCase()}`); if (e) errors.push(e); }
 
-  const breaksBad = keysRefusal(r.breaks, BREAK_KEYS, `${at}: \`breaks\``);
-  if (breaksBad) errors.push(breaksBad);
-  else for (const k of BREAK_KEYS) { const e = lineRefusal(r.breaks[k], `${at}: \`breaks.${k}\``); if (e) errors.push(e); }
+  if (!Array.isArray(r.breaks) || !r.breaks.length) {
+    errors.push(`${at}: \`breaks\` is not a list of prose tests — one or more one-line strings, each a change and what the reader loses`);
+  } else {
+    for (const [i, t] of r.breaks.entries()) { const e = lineRefusal(t, `${at}: \`breaks\` test ${i + 1}`); if (e) errors.push(e); }
+  }
 
   // Section 3: one Segment per sentence, both clauses on every one.
   const n = p.sentences.length;
@@ -257,26 +262,25 @@ export function validateExtractionUnit(record, input) {
       const atS = `${at}, Segment ${i + 1}`;
       const e = keysRefusal(s, SEGMENT_KEYS, atS);
       if (e) { errors.push(e); continue; }
-      if (!FUNCTIONS.includes(s.function)) errors.push(`${atS}: function ${JSON.stringify(s.function)} is outside ${FUNCTIONS.join(" | ")}`);
-      if (!RELATIONS.includes(s.relation)) errors.push(`${atS}: relation ${JSON.stringify(s.relation)} is outside ${RELATIONS.join(" | ")}`);
-      for (const k of ["content", "generalized"]) {
+      for (const k of ["content", "does"]) {
         const e2 = lineRefusal(s[k], `${atS}: the \`${k}\` clause`);
         if (e2) errors.push(e2);
       }
-      if (typeof s.content === "string" && /—\s*generalized:/.test(s.content)) {
-        errors.push(`${atS}: the \`content\` clause carries \`— generalized:\`; the two clauses are two fields`);
+      const firstWithNothingBefore = i === 0 && !input.earlier_paragraphs.length;
+      { const e2 = lineRefusal(s.relation, `${atS}: the \`relation\` clause`, { empty: firstWithNothingBefore }); if (e2) errors.push(e2); }
+      if (firstWithNothingBefore && typeof s.relation === "string" && s.relation.trim()) {
+        errors.push(`${atS}: carries a \`relation\`, and nothing comes before this paragraph — leave it empty`);
       }
-      if (typeof s.generalized === "string") {
-        const noun = nounIn(nouns, s.generalized);
-        if (noun) errors.push(`${atS}: the \`generalized\` clause names "${noun}", one of your subject_nouns — it names no term of the original`);
+      for (const k of SEGMENT_KEYS) {
+        if (typeof s[k] === "string" && /—\s*(does|relation):/.test(s[k])) {
+          errors.push(`${atS}: the \`${k}\` clause carries \`— does:\` or \`— relation:\`; the clauses are separate fields`);
+        }
+      }
+      if (typeof s.does === "string") {
+        const noun = nounIn(nouns, s.does);
+        if (noun) errors.push(`${atS}: the \`does\` clause names "${noun}", one of your subject_nouns — it names no term of the original`);
       }
     }
-  }
-  if (segmentsOk && input.earlier_paragraphs.length && r.segments[0].relation === "none") {
-    errors.push(`${at}, Segment 1: relation is \`none\`, and earlier paragraphs exist — it is the relation to the previous paragraph's last point (FORMAT "The paragraph unit", rule 5)`);
-  }
-  if (segmentsOk && input.earlier_paragraphs.length && typeof r.what_it_does === "string" && !wordsOf(r.what_it_does).has(r.segments[0].relation)) {
-    errors.push(`${at}: \`what_it_does\` does not name Segment 1's relation to the previous paragraph, \`${r.segments[0].relation}\` — section 1 names that relation too (FORMAT "The paragraph unit", rule 5)`);
   }
   if (typeof r.technique === "string") {
     const noun = nounIn(nouns, r.technique);
@@ -340,7 +344,6 @@ export function extractionFileText(record, input, runRel) {
     `# Extraction: ${record.name}`,
     "",
     `source: ${record.source.trim()}`,
-    `functions: ${segs.map((s) => s.function).join(", ")}`,
     `subject nouns: ${nouns.length ? nouns.join(", ") : "none"}`,
     `prior text: ${record.prior_text.trim()}`,
     `length: ${p.sentences.length} sentence${p.sentences.length === 1 ? "" : "s"}, 1 paragraph`,
@@ -362,9 +365,6 @@ export function extractionFileText(record, input, runRel) {
     "Q3 Disposition",
     `  answer: model — ${record.answers.q3.trim()}`,
     "",
-    "Q4 Footing",
-    `  answer: model — ${record.answers.q4.trim()}`,
-    "",
     "## 1. What the Passage does",
     "",
     record.what_it_does.trim(),
@@ -377,7 +377,8 @@ export function extractionFileText(record, input, runRel) {
     "",
     "## 3. The order inside the Passage",
     "",
-    ...segs.map((s, i) => `${i + 1}. "${openingWords(p.sentences[i])}" — ${s.function} — ${s.relation} — ${s.content.trim()} — generalized: ${s.generalized.trim()}`),
+    ...segs.map((s, i) => `${i + 1}. "${openingWords(p.sentences[i])}" — ${s.content.trim()} — does: ${s.does.trim()}`
+      + (s.relation.trim() ? ` — relation: ${s.relation.trim()}` : "")),
     "",
     record.why_this_order.trim(),
     "",
@@ -387,9 +388,7 @@ export function extractionFileText(record, input, runRel) {
     "",
     "## 5. Where it would break",
     "",
-    `remove:  ${record.breaks.remove.trim()}`,
-    `reorder: ${record.breaks.reorder.trim()}`,
-    `extend:  ${record.breaks.extend.trim()}`,
+    ...record.breaks.map((t) => `- ${t.trim()}`),
     "",
     "## 6. The technique, subject-free",
     "",

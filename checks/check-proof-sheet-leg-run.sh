@@ -107,19 +107,18 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const record = {
       version: "1", paragraph: p.number, source: "not given", prior_text: first ? "not assumed — opens on a fact" : "assumed — \\"So\\" takes up the previous paragraph",
       language: "English", subject_nouns: ["installer", "kit"],
-      answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act.", q4: "The reader's own tree." },
+      answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
       reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
         after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
-      segments: p.sentences.map((s, i) => ({ function: i === p.sentences.length - 1 ? "settles" : "advances",
-        relation: i === 0 ? (first ? "none" : "consequence") : "elaboration",
-        content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
-        generalized: "states one consequence of an act the reader did not ask for." })),
+      segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
+        does: "states one consequence of an act the reader did not ask for.",
+        relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
-      breaks: { remove: "the fact — the cost floats", reorder: "cost first — no ground", extend: "a second example — the point blurs" },
+      breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
       technique: "Name an act, then name who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
     };
-    if (first && !retried) delete record.segments[0].generalized;
+    if (first && !retried) delete record.segments[0].does;
     return out(record, "extract");
   }
   if (prompt.includes("\`leg_reader_start_unit\` judgment point")) {
@@ -412,16 +411,15 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const record = {
       version: "1", paragraph: p.number, source: "not given", prior_text: first ? "not assumed — opens on a fact" : "assumed — \\"So\\" takes up the previous paragraph",
       language: "English", subject_nouns: ["installer", "kit"],
-      answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act.", q4: "The reader's own tree." },
+      answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
       reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
         after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
-      segments: p.sentences.map((s, i) => ({ function: i === p.sentences.length - 1 ? "settles" : "advances",
-        relation: i === 0 ? (first ? "none" : "consequence") : "elaboration",
-        content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
-        generalized: "states one consequence of an act the reader did not ask for." })),
+      segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
+        does: "states one consequence of an act the reader did not ask for.",
+        relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
-      breaks: { remove: "the fact — the cost floats", reorder: "cost first — no ground", extend: "a second example — the point blurs" },
+      breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
       technique: "Name an act, then name who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
     };
     if (p.number === ${brokenParagraph === null ? "null" : String(brokenParagraph)}) delete record.notes;

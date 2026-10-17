@@ -43,16 +43,17 @@ AXIS_FORM = """figure:
 # needs an Extraction section 3 for `segments` to copy from — appended to every
 # such fixture's passage text, never to one whose proposal is refused for an
 # earlier reason (the segments check runs only once a proposal is admitted).
-# kogaki#1367: every entry carries both clauses — the content clause for the
-# owner's reading, then a second, subject-free `generalized:` clause, which
-# is the one `segments` copies.
+# kogaki#1367: every entry carries the content clause for the owner's reading;
+# kogaki#1414: then a subject-free `does:` clause and, after the first
+# Segment, a prose `relation:` clause -- the two fields `segments` copies.
 SECTION3 = (
     "\n\n## 3. The order inside the Passage\n\n"
-    '1. "Opening words" — raises — none — '
-    "gives the reader an unanswered question about this passage's own "
-    "subject. — generalized: gives the reader an unanswered question.\n"
-    '2. "Closing words" — settles — cause — answers this passage\'s own '
-    "question directly. — generalized: answers it directly.\n"
+    '1. "Opening words" — gives the reader an unanswered question about '
+    "this passage's own subject. — does: states a question the reader did "
+    "not hold.\n"
+    '2. "Closing words" — answers this passage\'s own question directly. '
+    "— does: answers it directly. — relation: answers the question the "
+    "step before raised.\n"
 )
 
 
