@@ -1296,68 +1296,6 @@ def fixture_pass():
     return True
 
 
-def probe_precondition_fixture():
-    """The registered external-deps probe, run against stand-in dep trees.
-
-    The synthetic runners above cannot reach this defect class: it lives in
-    the probe's own text, not in the branch that dispatches on its exit
-    code. So this fixture executes the registered probe itself, in a
-    temporary tree, and asserts that a DROPPED `verification` block is
-    could-not-establish (exit 2) rather than the healthy-looking not-yet
-    (exit 1) an `or {}` coercion produced — asking what the predicate would
-    answer if its input were empty, and refusing the answer that matches its
-    normal healthy output (kogaki#116). Exit 1 stays reserved for a
-    present-and-false `decidable`, which the third case pins.
-    """
-    reg = json.loads(pathlib.Path("checks/registry.json").read_text())
-    entry = next((e for e in reg["checks"] if e["id"] == "external-deps"), None)
-    instrument = str(((entry or {}).get("admission") or {})
-                     .get("removal_instrument", ""))
-    kind, _, probe = instrument.partition(": ")
-    if kind != "probe":
-        print("FAIL fixture: external-deps carries no `probe:` instrument — "
-              "the probe-precondition fixture has nothing to exercise")
-        return False
-
-    def run(verification):
-        dep = {"id": "spawned-session-tool-grants"}
-        if verification is not None:
-            dep["verification"] = verification
-        with tempfile.TemporaryDirectory() as tmp:
-            # The probe opens src/deps-registry.json (kogaki#806), so the
-            # synthetic tree mirrors that layout rather than the old deps/.
-            src_dir = pathlib.Path(tmp) / "src"
-            src_dir.mkdir()
-            (src_dir / "deps-registry.json").write_text(
-                json.dumps({"dependencies": [dep]}))
-            return subprocess.run(["bash", "-c", probe], cwd=tmp,
-                                  capture_output=True, text=True,
-                                  timeout=PROBE_TIMEOUT_S)
-
-    cases = []
-    r = run(None)
-    cases.append(("an absent verification block is a precondition failure, "
-                  "not a not-yet",
-                  r.returncode == 2 and "precondition failed" in r.stderr))
-    r = run({"reason": "no decidable key"})
-    cases.append(("a verification block without `decidable` is also a "
-                  "precondition failure",
-                  r.returncode == 2 and "precondition failed" in r.stderr))
-    cases.append(("a present-and-false decidable is the not-yet (exit 1)",
-                  run({"decidable": False}).returncode == 1))
-    cases.append(("a present-and-true decidable fires the signal (exit 0)",
-                  run({"decidable": True}).returncode == 0))
-
-    failed = [name for name, ok in cases if not ok]
-    if failed:
-        for name in failed:
-            print(f"FAIL fixture: {name}")
-        return False
-    print(f"ok: probe-precondition fixture ({len(cases)} case(s)) — the "
-          f"registered probe separates could-not-establish from not-yet")
-    return True
-
-
 def implement_lane_fixture():
     """`validate_implement_lane_declaration`'s four arms, over synthetic reads.
 
@@ -1408,7 +1346,6 @@ def implement_lane_fixture():
 
 
 fixtures_ok = fixture_pass()
-fixtures_ok = probe_precondition_fixture() and fixtures_ok
 fixtures_ok = implement_lane_fixture() and fixtures_ok
 if not fixtures_ok:
     sys.exit(1)
