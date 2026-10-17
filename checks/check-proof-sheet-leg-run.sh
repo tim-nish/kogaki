@@ -378,18 +378,23 @@ else {
 
   // THE PER-PARAGRAPH (AND PER-LEG-WAYPOINT) ROWS ARE FOLDED (kogaki#1410, owner 2026-10-17):
   // every row on Extraction, Move, ParagraphPlan, Packet and Draft is a `details.prow`, open
-  // only for the first.
+  // only for the first. The link target sits INSIDE the details rather than on it, because
+  // following a fragment opens a closed details that is the target's ancestor and leaves one
+  // that is the target closed -- so this is what makes a comparison-table link open the block.
   for (const card of ["extraction", "move", "planwp", "packetwp", "draft"]) {
     for (let i = 1; i <= 3; i++) {
       const anchor = `${card}-p${i}-0`;
       const at = html.indexOf(`id="${anchor}"`);
       ok(at >= 0, `(j) "${anchor}" is not on the page`);
       if (at < 0) continue;
-      const tagStart = html.lastIndexOf("<details", at);
-      const tagEnd = html.indexOf(">", at);
-      const tag = html.slice(tagStart, tagEnd + 1);
-      ok(tag.startsWith("<details"), `(j) "${anchor}" does not sit on a details element: ${tag}`);
-      ok(i === 1 ? / open/.test(tag) : !/ open/.test(tag), `(j) "${anchor}" is ${i === 1 ? "not open" : "open"} by default: ${tag}`);
+      const targetTag = html.slice(html.lastIndexOf("<", at), html.indexOf(">", at) + 1);
+      ok(!targetTag.startsWith("<details"), `(j) "${anchor}" is on the details itself, so following a link to it leaves the block closed: ${targetTag}`);
+      const tagStart = html.lastIndexOf('<details class="prow', at);
+      const enclosed = tagStart >= 0 && !html.slice(tagStart, at).includes("</details>");
+      ok(enclosed, `(j) "${anchor}" is not inside a folded per-paragraph block, so a link to it opens nothing`);
+      if (!enclosed) continue;
+      const tag = html.slice(tagStart, html.indexOf(">", tagStart) + 1);
+      ok(i === 1 ? / open/.test(tag) : !/ open/.test(tag), `(j) "${anchor}"'s block is ${i === 1 ? "not open" : "open"} by default: ${tag}`);
     }
   }
 
