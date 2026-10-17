@@ -11,5 +11,10 @@
     "segments": "segments",
     "figure-roles": "figure",
     "continues-from": "continues_from"
+  },
+  "shapes": {
+    "_": "kogaki#1414: the shape of the two list-valued roles, both prose with no label set. Stated for people; tools/move_ingest.py enforces it on the paragraph path, and the role adapter never reads it. The Moves written before it are regenerated under it by kogaki#1415.",
+    "segments": "one numbered line per Segment, in order: `<n>. does: <the step's operation, subject-free, never its effect on the reader>`, followed on every Segment after the first by ` — relation: <its relation to the Segment before it, in prose>`; Segment 1 carries no relation (kogaki#1411)",
+    "breaks": "a list of prose tests, one `- <a specific change to the paragraph> — <what the reader loses>` line each, read whole; no keys and no fixed kinds"
   }
 }

@@ -172,16 +172,18 @@ except m.Refusal as refusal:
             "the no-Extraction refusal does not name `segments` -- got: %s"
             % refusal)
 
-# Case 2 — an Extraction with section 3, every entry carrying both clauses:
-# the saved Move renders `segments` as a numbered list holding the
-# generalized clauses only, none of the content clauses (kogaki#1367).
+# Case 2 — an Extraction with section 3, every entry carrying its content
+# clause, its `does:` and, after the first, its `relation:` (kogaki#1414): the
+# saved Move renders `segments` as a numbered list of the two prose fields,
+# none of the content clauses (kogaki#1367), and Segment 1's recorded
+# relation -- a fact about the source -- is not copied (kogaki#1411).
 tmp2 = tempfile.mkdtemp()
 passage2 = os.path.join(tmp2, "extracted.md")
 with open(passage2, "w") as fh:
     fh.write("""## 3. The order inside the Passage
 
-1. "Opening words one" — raises — none — gives the reader an unanswered question about the book's own subject. — generalized: gives the reader an unanswered question.
-2. "Opening words two" — settles — cause — answers the book's own question directly. — generalized: answers it directly.
+1. "Opening words one" — gives the reader an unanswered question about the book's own subject. — does: states a question the reader did not hold. — relation: takes up the source's earlier chapter.
+2. "Opening words two" — answers the book's own question directly. — does: answers it directly. — relation: answers the question the step before raised.
 
 ## 4. What the Passage presupposes
 
@@ -202,27 +204,31 @@ else:
     else:
         text = open(saved).read()
         expected = """segments: |-
-  1. raises — none — gives the reader an unanswered question.
-  2. settles — cause — answers it directly.
+  1. does: states a question the reader did not hold.
+  2. does: answers it directly. — relation: answers the question the step before raised.
 """
         if expected not in text:
             failures.append(
-                "`segments` did not render as a numbered list of the "
-                "generalized clauses in section 3's order -- saved file:\n%s"
-                % text)
+                "`segments` did not render as a numbered list of each "
+                "Segment's does and relation in section 3's order -- saved "
+                "file:\n%s" % text)
         if "book's own subject" in text or "book's own question" in text:
             failures.append(
                 "`segments` carried a content clause -- saved file:\n%s" % text)
+        if "earlier chapter" in text:
+            failures.append(
+                "`segments` carried Segment 1's relation, a fact about the "
+                "source -- saved file:\n%s" % text)
 
-# Case 3 — a §3 entry with only the content clause (no `generalized:`
-# second clause) is refused naming its Segment number (kogaki#1367).
+# Case 3 — a §3 entry with only the content clause (no `does:`) is refused
+# naming its Segment number (kogaki#1367, kogaki#1414).
 tmp3 = tempfile.mkdtemp()
 passage3 = os.path.join(tmp3, "extracted.md")
 with open(passage3, "w") as fh:
     fh.write("""## 3. The order inside the Passage
 
-1. "Opening words one" — raises — none — gives the reader an unanswered question.
-2. "Opening words two" — settles — cause — answers it directly. — generalized: answers it directly.
+1. "Opening words one" — gives the reader an unanswered question.
+2. "Opening words two" — answers it directly. — does: answers it directly. — relation: answers the question before it.
 
 ## 4. What the Passage presupposes
 
@@ -233,28 +239,55 @@ try:
                   os.path.join(tmp3, "moves"), "stub", "stub-model",
                   os.path.join(tmp3, "out"), 60, select="accept")
     failures.append(
-        "a §3 entry carrying only the content clause was accepted; it "
-        "must be refused naming the Segment's number")
+        "a §3 entry carrying no `does:` was accepted; it must be refused "
+        "naming the Segment's number")
 except m.Refusal as refusal:
-    if "Segment 1" not in str(refusal):
+    if "Segment 1" not in str(refusal) or "does:" not in str(refusal):
         failures.append(
-            "the one-clause refusal does not name Segment 1 -- got: %s"
-            % refusal)
+            "the no-`does:` refusal does not name Segment 1 and the field "
+            "-- got: %s" % refusal)
 
-# Case 4 — a supplied `segments` value disagreeing with the generalized
-# clauses is refused as today.
-tmp4 = tempfile.mkdtemp()
-passage4 = os.path.join(tmp4, "extracted.md")
-with open(passage4, "w") as fh:
+# Case 3b — a Segment after the first with no `relation:` is refused naming
+# its number (kogaki#1414).
+tmp3b = tempfile.mkdtemp()
+passage3b = os.path.join(tmp3b, "extracted.md")
+with open(passage3b, "w") as fh:
     fh.write("""## 3. The order inside the Passage
 
-1. "Opening words one" — raises — none — gives the reader an unanswered question. — generalized: gives the reader an unanswered question.
+1. "Opening words one" — gives the reader a question. — does: states a question.
+2. "Opening words two" — answers it directly. — does: answers it directly.
 
 ## 4. What the Passage presupposes
 
 nothing beyond ordinary attention.
 """)
-disagreeing_record = MOVE_RECORD + "segments: |-\n  1. raises — none — a disagreeing clause.\n"
+try:
+    m.run_passage(passage3b, "specs/move-extraction-contract.md",
+                  os.path.join(tmp3b, "moves"), "stub", "stub-model",
+                  os.path.join(tmp3b, "out"), 60, select="accept")
+    failures.append(
+        "Segment 2 with no `relation:` was accepted; it must be refused "
+        "naming the Segment's number")
+except m.Refusal as refusal:
+    if "Segment 2" not in str(refusal) or "relation:" not in str(refusal):
+        failures.append(
+            "the no-`relation:` refusal does not name Segment 2 and the "
+            "field -- got: %s" % refusal)
+
+# Case 4 — a supplied `segments` value disagreeing with the copy is refused
+# as today.
+tmp4 = tempfile.mkdtemp()
+passage4 = os.path.join(tmp4, "extracted.md")
+with open(passage4, "w") as fh:
+    fh.write("""## 3. The order inside the Passage
+
+1. "Opening words one" — gives the reader an unanswered question. — does: states a question the reader did not hold.
+
+## 4. What the Passage presupposes
+
+nothing beyond ordinary attention.
+""")
+disagreeing_record = MOVE_RECORD + "segments: |-\n  1. does: a disagreeing clause.\n"
 
 def fake_spawn_disagreeing(command, model, prompt, timeout_s, cwd=None):
     return disagreeing_record
@@ -266,7 +299,7 @@ try:
                   os.path.join(tmp4, "out"), 60, select="accept")
     failures.append(
         "a record supplying a `segments` value disagreeing with the "
-        "generalized clauses was accepted")
+        "copy was accepted")
 except m.Refusal as refusal:
     if "disagrees with the copy" not in str(refusal):
         failures.append(
@@ -275,16 +308,30 @@ except m.Refusal as refusal:
 finally:
     m.spawn_model = fake_spawn
 
+# Case 5 — no closed label set survives in the contract, the Extractor, the
+# ingest or ParagraphPlan (kogaki#1414). Each retired set is matched by a
+# member no prose here needs, so the format's own history sentence, which
+# names the sets without listing them, passes.
+RETIRED = ("settles", "elaboration", "enumeration", "reorder:", "extend:")
+for path in ("passages/FORMAT.md", "src/proof-sheet/extract.mjs",
+             "src/proof-sheet/extraction-workflow.json", "tools/move_ingest.py",
+             "src/paragraph-plan.mjs", "src/paragraph-plan-workflow.json"):
+    body = open(path).read()
+    for token in RETIRED:
+        if token in body:
+            failures.append("%s still carries the retired label `%s`" % (path, token))
+
 if failures:
     for f in failures:
         print("FAIL: %s" % f)
     sys.exit(1)
 print(
-    "ok: segments refused with no Extraction, naming the field; saved as the "
-    "generalized clauses only with an Extraction carrying both clauses; "
-    "refused naming the Segment's number with only the content clause; "
-    "refused where a supplied `segments` disagrees with the copy "
-    "(kogaki#1320, kogaki#1367)")
+    "ok: segments refused with no Extraction, naming the field; saved as each "
+    "Segment's does and relation, never the content clause or Segment 1's "
+    "relation; refused naming the Segment's number with no `does:`, or with no "
+    "`relation:` after the first; refused where a supplied `segments` disagrees "
+    "with the copy; no retired label set in the format, the Extractor, the "
+    "ingest or ParagraphPlan (kogaki#1320, kogaki#1367, kogaki#1414)")
 PY
 ); SEGRC=$?
 printf '%s\n' "$SEGMENTS_OUT"
@@ -303,6 +350,8 @@ fi
 #   2. a paragraph Extraction carrying `contains:` is refused naming the line;
 #   2b. an Extraction missing section 6 is refused naming the section
 #      (kogaki#1377);
+#   2c. a section 5 line before its first `- ` test is refused naming the
+#      section (kogaki#1414);
 #   3. `--select accept` lands the Move in the one `moves/` library and
 #      regenerates `moves/INDEX.md`.
 # --------------------------------------------------------------------------
@@ -317,7 +366,6 @@ EXTRACTION = """status: worked example (m2), written from the owner's notes
 
 source: not given
 unit: paragraph 1 of 11 in define_attack_defense_advantage_through_opposed_security_cascades
-functions: settles, raises
 length: 2 sentences, 1 paragraph
 
 ## Passage
@@ -338,14 +386,16 @@ dimensions changed: 2
 
 ## 3. The order inside the Passage
 
-1. "A term is defined" [gloss] — settles — elaboration — takes up item one of the preceding list and defines it. — generalized: takes up the first of a previously presented list of items and defines it.
-2. "Each of its states" — raises — enumeration — tells the reader two items are coming. — generalized: tells the reader a fixed number of items are coming.
+1. "A term is defined" [gloss] — takes up item one of the preceding list and defines it. — does: takes up the first of a previously presented list of items and defines it. — relation: takes up the list the previous paragraph closed on.
+2. "Each of its states" — tells the reader two items are coming. — does: announces that a fixed number of items follow.
+   — relation: opens the defined item into its parts.
 
 ## 5. Where it would break
 
-remove: the second sentence — the reader never learns the states exist.
-reorder: name the states before the factor — the reader has no term to hang them on.
-extend: add a third state — the completeness claim breaks.
+- drop the second sentence — the reader never learns the states exist.
+- name the states before the factor — the reader has no term to hang
+  them on.
+- add a third state — the completeness claim breaks.
 
 ## 6. The technique, subject-free
 
@@ -369,12 +419,12 @@ want = {
               "question: what is the first factor?",
     "after": "knowledge: the first factor is defined. "
              "question: \"what do its two states look like?\" opened.",
-    "segments": "1. settles — elaboration — takes up the first of a previously presented list of items and defines it.\n"
-                "2. raises — enumeration — tells the reader a fixed number of items are coming.",
+    "segments": "1. does: takes up the first of a previously presented list of items and defines it.\n"
+                "2. does: announces that a fixed number of items follow. — relation: opens the defined item into its parts.",
     "technique": "Name the item once, then promise its full set of states before giving any one of them.",
-    "breaks": "remove: the second sentence — the reader never learns the states exist. "
-              "reorder: name the states before the factor — the reader has no term to hang them on. "
-              "extend: add a third state — the completeness claim breaks.",
+    "breaks": "- drop the second sentence — the reader never learns the states exist.\n"
+              "- name the states before the factor — the reader has no term to hang them on.\n"
+              "- add a third state — the completeness claim breaks.",
 }
 if not p.admitted:
     failures.append("case 1: the p01-shaped Extraction was refused: %s" % p.refusal)
@@ -400,6 +450,15 @@ p = m.derive_from_extraction(no_section6)
 if p.admitted or "section 6" not in str(p.refusal):
     failures.append("case 2b: an Extraction with no section 6 was not refused "
                     "naming the section -- got %r" % p.refusal)
+
+# case 2c (kogaki#1414): section 5 is a list of prose tests; text before its
+# first `- ` test is refused naming the section, and nothing is proposed.
+keyed_breaks = EXTRACTION.replace(
+    "- drop the second sentence", "drop: the second sentence", 1)
+p = m.derive_from_extraction(keyed_breaks)
+if p.admitted or "section 5" not in str(p.refusal):
+    failures.append("case 2c: a section 5 line before its first `- ` test was "
+                    "not refused naming the section -- got %r" % p.refusal)
 
 with tempfile.TemporaryDirectory() as tmp:
     moves = os.path.join(tmp, "moves")
@@ -445,9 +504,10 @@ if failures:
 print("ok: --from-extraction reads id, before, after, technique, breaks and segments "
       "off sections 7, 2, 6, 5 and 3, refuses `contains:` on a paragraph Extraction "
       "naming the line, refuses an Extraction missing section 6 naming the section, "
+      "refuses a section 5 line before its first `- ` test naming the section, "
       "and lands the accepted Move and its INDEX.md in the one moves/ library, and "
       "--from-analysis is refused naming --from-extraction "
-      "(kogaki#1358, kogaki#1366, kogaki#1369, kogaki#1377)")
+      "(kogaki#1358, kogaki#1366, kogaki#1369, kogaki#1377, kogaki#1414)")
 PY
 ); FARC=$?
 printf '%s\n' "$FROM_EXTRACTION_OUT"

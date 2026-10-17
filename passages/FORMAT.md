@@ -2,7 +2,7 @@
 
 This file is the whole protocol for turning one Passage into one Extraction.
 Hand it to a model together with one Passage. The model answers the
-first analytical question itself and asks the human the other three,
+first analytical question itself and asks the human the other two,
 offering candidate answers it wrote itself; the human picks one per
 question or writes their own; the model then writes the Extraction file. It runs unchanged in a Claude Code session and in a chat
 session. Nothing else is needed or permitted as context.
@@ -16,30 +16,31 @@ the Corpus; this file does not extract Moves.
 - **Passage** — one contiguous piece of prose the owner selected by hand
   because it forms one meaningful unit. The owner decides the boundaries.
   That selection is the whole of the human's input before extraction.
-- **Question** — one of the four analytical questions below, each taken
-  from an established framework. Q1 the model answers itself; for Q2, Q3
-  and Q4 it writes three candidates and the human chooses. (Q1 left the
+- **Question** — one of the three analytical questions below, each taken
+  from an established framework. Q1 the model answers itself; for Q2 and
+  Q3 it writes three candidates and the human chooses. (Q1 left the
   human's screen on 2026-09-23: in the first round of 21 Extractions the human
   chose the model's first candidate 20 times and saw no need for the
   question.)
 - **Segment** — one entry of section 3: a sentence or group of sentences
   that does one thing to the reader. The model draws the boundaries, and
-  the human confirms the cut at step 2 before section 3 is written. Each
-  Segment carries one **function**: it *raises* a question the reader did
-  not hold, *advances* toward an answer to a question already open, or
-  *settles* one. The functions come from Q2's frameworks (Minto; question
-  under discussion). Each Segment also carries one **relation** to the
-  Segment before it, from a fixed set: cause, consequence, contrast,
-  elaboration, evidence, enumeration, or none. The first Segment's relation
-  is always "none"; there is nothing before it. No position in the work is
-  inferred for the Passage as a whole: where an earlier form of this
-  contract asked "opening, body or closing", the model produced a fourth
-  value, "continuation", for Passages that presupposed prior text, which is
-  what Q4 records. A Passage may run from an opening to a closing; the
-  Segments carry that, and the human never cuts a paragraph out to make it
-  visible.
+  the human confirms the cut at step 2 before section 3 is written. A
+  Segment carries two fields, both prose: **does**, the step's operation,
+  written subject-free so it could be performed on any subject, and never
+  its effect on the reader; and **relation**, the step's relation to the
+  Segment before it. Segment 1 has no Segment before it, so its relation is
+  left out, except where a paragraph Extraction records how the paragraph
+  takes up the one before it ("The paragraph unit", rule 5). Neither field
+  draws on a label set. Earlier forms of this contract gave each Segment a
+  function and a relation drawn from two closed label sets; no framework
+  this file cites defines either set as a complete classification, nothing branched on the function, and a planner handed
+  the two labels without the prose lost what the Segment did (kogaki#1414).
+  Where a Segment sits is its place in the list. No position in the work is
+  inferred for the Passage as a whole, and a Passage may run from an
+  opening to a closing; the Segments carry that, and the human never cuts a
+  paragraph out to make it visible.
 - **Extraction** — the artifact this contract produces from one Passage: the
-  Passage verbatim, the four questions (Q1 the model's own, Q2 to Q4 with their candidates) and the
+  Passage verbatim, the three questions (Q1 the model's own, Q2 and Q3 with their candidates) and the
   human's answers, and the filled sections below. One file per Passage.
 - **Paragraph** — a unit one level above a Passage: one or more Passages,
   in source order, that the human judges act as a single unit at the
@@ -118,17 +119,18 @@ kogaki#1348), carried verbatim:
    `unchanged` where this paragraph does not move the row; otherwise the new
    state in one short clause. `dimensions changed` counts the rows whose
    `after` is not `unchanged`.
-4. **The model answers Q2, Q3 and Q4 itself**, as it already answers Q1:
+4. **The model answers Q2 and Q3 itself**, as it already answers Q1:
    one answer each, recorded as `answer: model — <answer>`, no candidates.
    No human round. The Segment cut is the model's own and is not confirmed.
-5. **The first Segment links to the previous paragraph.** In §3 the first
-   Segment's relation is not `none`: it is its relation to the previous
-   paragraph's last point, from the same set (cause, consequence, contrast,
-   elaboration, evidence, enumeration), and its content clause says which
-   point of the previous paragraph it takes up. Its generalized clause
-   follows the normal rule regardless — subject-free, naming no term,
-   place, person or claim of the original. Only the first paragraph of a
-   work with no text before it keeps `none`. §1 names that relation too.
+5. **The first Segment records how the paragraph takes up the one before
+   it.** In §3 the first Segment carries a `relation:` stating, in prose,
+   how it takes up the previous paragraph's last point, and its content
+   clause says which point that is. Its `does:` follows the normal rule
+   regardless — subject-free, naming no term, place, person or claim of the
+   original. Only the first paragraph of a work with no text before it
+   leaves the relation out. §1 names that relation too. It is a fact about
+   the source: ingestion does not copy it into the Move, which carries no
+   relation to what precedes it (kogaki#1411).
 6. **A row is credited where the paragraph finishes moving it.** The §2
    Segment column names the Segment after which the new state holds, not
    the Segment that first mentions something the state is about. Write the
@@ -159,12 +161,12 @@ library, like any other Move.
 
 ---
 
-## The four questions (one answered by the model, three asked)
+## The three questions (one answered by the model, two asked)
 
 Each question comes from a framework that has been used in research or
 professional practice to ask why a stretch of prose works on its reader.
 None is invented here. The sources are named so the set is revised
-against them rather than by taste; a Passage none of the four can account
+against them rather than by taste; a Passage none of the three can account
 for is a finding against a named framework, recorded in section 8, never
 a reason to improvise a fifth question.
 
@@ -185,15 +187,16 @@ a reason to improvise a fifth question.
   the exordium makes the audience attentum, docilem, benevolum). A
   candidate says which of the three the Passage works on most and by what
   means.
-- **Q4. Footing** — *What does the Passage assume the reader already has,
-  and what does it use it for?* Ausubel's advance organizers and the
-  schema-theory account of comprehension (Bransford and Johnson 1972). A
-  candidate names the footholds, each with its source (the subject, the
-  reader's own world, other texts, the author), and what the Passage does
-  with them.
+Retired: **Q4. Footing** — *What does the Passage assume the reader already
+has, and what does it use it for?* (Ausubel's advance organizers; Bransford
+and Johnson 1972). Its one consumer went with kogaki#1280, after which
+nothing downstream read the answer, so an Extraction no longer writes it
+(kogaki#1414). What a Passage needs the reader to hold already is still
+recorded, in section 4. The numbers Q1 to Q3 are kept so that earlier
+Extractions read the same.
 
 Considered and left out, with the reason: Aristotle's three appeals
-(ethos, pathos, logos) are covered by Q3 and Q4; Loewenstein's
+(ethos, pathos, logos) are covered by Q3 and section 4; Loewenstein's
 information-gap account of curiosity is the mechanism behind Q2, not a
 separate question; Rhetorical Structure Theory is reserved for the Packet,
 where it describes how content is arranged rather than why it captivates.
@@ -220,8 +223,8 @@ Three steps. The human acts once, at step 2.
 Read the Passage. If the Passage refers to a figure and the figure's image
 is given with it, first produce a Figure spec by `FIGURE.md`, which sits
 beside this file, and treat the figure as part of the Passage from then
-on: it is one entry in the order section, and it counts as a foothold
-where Q4 asks what the reader already has. If the Passage refers to a
+on: it is one entry in the order section, and it counts toward what
+section 4 says the reader already has. If the Passage refers to a
 figure that was not given, record "figure referred to, not given" in the
 notes and extract from the prose alone.
 
@@ -231,7 +234,7 @@ work, or anything else about it. What the header needs is inferred from the text
 cannot be inferred is written as "not determinable from the Passage".
 
 Answer Q1 yourself; it becomes section 1 and is recorded under Answers
-as `answer: model`. For each of Q2, Q3 and Q4 write three candidate
+as `answer: model`. For each of Q2 and Q3 write three candidate
 answers, each one or two sentences, each a genuinely different answer to
 that question and not a rewording of another. Order them with the one you
 find best supported first. Do not show working; show candidates. Where you
@@ -244,34 +247,34 @@ Passage is about, never the reader, the author, or the technique — as the
 no alternative reading of which nouns are the subject, only a judgment the
 human may correct.
 
-### Step 2 — the human answers the three questions in one round
+### Step 2 — the human answers the two questions in one round
 
-Present the three questions together, in the shape under "Step 2 as
+Present the two questions together, in the shape under "Step 2 as
 rendered" below. Each question offers its three candidates and a fourth
 option, write your own. The human answers each question with a candidate
 number or with a line of their own text. A question the human finds not
 relevant to this Passage is answered "none". Nothing else is asked.
 
-Present the `subject nouns` list alongside the three questions, as given,
+Present the `subject nouns` list alongside the two questions, as given,
 for the human to confirm or edit; it is not numbered, because there is no
 alternative candidate to choose among, only the one list the model wrote.
 
-Present the Segments as a fourth item, beside the Passage: the model's
-proposed cut, each Segment given as its opening words and its function.
+Present the Segments as a third item, beside the Passage: the model's
+proposed cut, each Segment given as its opening words and its `does`.
 The human answers with one line, either accepting the cut as proposed or
 redrawing it (naming the merge, split, or renumbering). Section 3 is
 written from whichever cut the human confirms, never from the model's
 first proposal where the human redrew it.
 
-- In a Claude Code session this is one AskUserQuestion carrying three
+- In a Claude Code session this is one AskUserQuestion carrying two
   questions, each with the candidates and a fourth option labelled
   "Write my own" as its options. A "Write my own" choice is followed by
-  the human's text in the same answer. Render the three questions with
+  the human's text in the same answer. Render the two questions with
   their candidates in the reply text before the call as well, because a
   long option is clipped in the question widget.
 - In a chat session this is one message in exactly the rendered shape,
   and the human replies on one line, for example `2: 1, 3: my own
-  text here, 4: none`.
+  text here`.
 
 ### Step 3 — the model writes the Extraction
 
@@ -312,7 +315,7 @@ Rules for the writer of an Extraction throughout:
 ## Step 2 as rendered
 
 ```
-Three questions about the Passage. For each, pick a number or write your
+Two questions about the Passage. For each, pick a number or write your
 own answer. Answer "none" if the question does not apply here.
 
 Q2. Which question does this stretch answer, and which does it raise?
@@ -328,20 +331,13 @@ Q3. What has it done to make the reader attentive, able to follow, and
   3. <candidate>
   4. Write my own
 
-Q4. What does it assume the reader already has, and what does it use it
-    for?
-  1. <candidate>
-  2. <candidate>
-  3. <candidate>
-  4. Write my own
-
 Segments — the proposed cut of the Passage:
-  1. "<opening words>" — <function>
-  2. "<opening words>" — <function>
+  1. "<opening words>" — <does>
+  2. "<opening words>" — <does>
   ...
 Accept this cut as proposed, or redraw it in one line.
 
-Reply on one line, e.g. "2: 1, 3: my own text, 4: none, segments: accepted".
+Reply on one line, e.g. "2: 1, 3: my own text, segments: accepted".
 ```
 
 ---
@@ -355,8 +351,6 @@ Fill every section. Keep the headings exactly as written.
 
 source: <the work, if the Passage or the human's message names it;
         otherwise "not given">
-functions: <the function of each Segment of section 3, in order, e.g.
-        "advances, advances, raises, settles">
 subject nouns: <every noun naming this Passage's subject — the thing the
         Passage is about, never the reader or the technique — offered by
         the model as a list and confirmed or edited by the human at step 2
@@ -397,12 +391,6 @@ Q3 Disposition
   3. <candidate>
   answer: <as above>
 
-Q4 Footing
-  1. <candidate>
-  2. <candidate>
-  3. <candidate>
-  answer: <as above>
-
 ## 1. What the Passage does
 
 <One sentence. A verb phrase about the reader, with no words from the
@@ -430,17 +418,19 @@ zero is a valid answer>
 ## 3. The order inside the Passage
 
 <A numbered list, one entry per Segment, in the cut the human confirmed at
-step 2. Each entry: the quoted opening words of that Segment, a dash, its
-function (raises | advances | settles), a dash, its relation to the
-previous Segment (cause | consequence | contrast | elaboration | evidence
-| enumeration | none — the first Segment is always "none"), a dash, what
-it does to the reader in one clause written about this Passage's own
-content, a dash, then `generalized:` and a second clause stating the same
-thing subject-free — written the way section 6 is written, naming no
-term, place, person or claim of the original, so that it could be
-performed on any subject. An entry carrying only the content clause is
-refused at ingestion, naming the Segment's number. Then one sentence
-stating why this order and not another.>
+step 2. Each entry: the quoted opening words of that Segment, a dash, one
+clause saying what the Segment does, written about this Passage's own
+content, a dash, then `does:` and the Segment's operation in one clause,
+subject-free — written the way section 6 is written, naming no term,
+place, person or claim of the original, so that it could be performed on
+any subject, and stating what the step does, never its effect on the
+reader. On every Segment after the first, a dash, then `relation:` and
+one clause stating, in prose, how this Segment relates to the one before
+it; Segment 1 leaves it out (but see "The paragraph unit", rule 5). No
+label set is used for either field. An entry with no `does:`, or a
+Segment after the first with no `relation:`, is refused at ingestion,
+naming the Segment's number. Then one sentence stating why this order
+and not another.>
 
 ## 4. What the Passage presupposes
 
@@ -450,14 +440,13 @@ the same words and feel nothing; say what they would feel instead.>
 
 ## 5. Where it would break
 
-<Three tests, one line each:
-  remove:  <one element from the answers or section 3> — <what the reader
-           loses>
-  reorder: <one swap from section 3> — <what the reader loses>
-  extend:  <one plausible addition a careful writer might make> — <what
-           the reader loses>
-The third test is where density goes wrong; be specific about what a
-longer version would cost.>
+<A list of prose tests, each a line beginning `- `: one specific change a
+careful writer might make to the Passage, a dash, what the reader loses.
+Each test names a change no other test names. The tests are
+read whole; there are no keys and no fixed kinds. Do not leave out the
+plausible addition: a longer version is where density goes wrong, so be
+specific about what it would cost. Ingestion refuses text before the
+first `- `.>
 
 ## 6. The technique, subject-free
 
@@ -491,7 +480,7 @@ English translation.
 ### Step 2, as rendered
 
 ```
-Three questions about the Passage. For each, pick a number or write your
+Two questions about the Passage. For each, pick a number or write your
 own answer. Answer "none" if the question does not apply here.
 
 Q2. Which question does this stretch answer, and which does it raise?
@@ -518,35 +507,23 @@ Q3. What has it done to make the reader attentive, able to follow, and
      reader is pulled forward to see it justified.
   4. Write my own
 
-Q4. What does it assume the reader already has, and what does it use it
-    for?
-  1. A bookstore shelf the reader has seen (reader's world), a sense of
-     book formats (other texts), and the author's own position (the
-     author); used to survey the field, place the book, and earn trust
-     before any specialist term appears.
-  2. A vague sense that the world is unstable (reader's world); used so
-     that the one-line answer feels already known rather than asserted.
-  3. The word geopolitics and nothing more (subject); used to promise
-     that no more than that will be required.
-  4. Write my own
-
 Segments — the proposed cut of the Passage:
-  1. "It may sound strange..." — advances
-  2. "bookstores are now overflowing..." — advances
-  3. "Some make extensive use of maps..." — advances
-  4. "At a time when the publishing industry..." — raises
-  5. "This book, too, will probably be placed..." — advances
-  6. "So why has geopolitics attracted..." — raises
-  7. "The biggest reason is the instability..." — settles
-  8. "Throughout history, interest..." — settles
+  1. "It may sound strange..." — names the speaker's own stake
+  2. "bookstores are now overflowing..." — hands over one checkable fact
+  3. "Some make extensive use of maps..." — surveys the existing approaches
+  4. "At a time when the publishing industry..." — states an incongruity
+  5. "This book, too, will probably be placed..." — places the present work
+  6. "So why has geopolitics attracted..." — states the reader's question
+  7. "The biggest reason is the instability..." — answers with one cause
+  8. "Throughout history, interest..." — generalizes the answer
 Accept this cut as proposed, or redraw it in one line.
 
-Reply on one line, e.g. "2: 1, 3: my own text, 4: none, segments: accepted".
+Reply on one line, e.g. "2: 1, 3: my own text, segments: accepted".
 ```
 
-Human's reply: `2: 1, 3: 1, 4: starting from book sales, which
-needs no specialist knowledge, makes a difficult subject easy to enter,
-segments: accepted`
+Human's reply: `2: 1, 3: starting from book sales, which needs no
+specialist knowledge, makes a difficult subject easy to enter, segments:
+accepted`
 
 ### Step 3, the file
 
@@ -554,8 +531,6 @@ segments: accepted`
 # Extraction: enter_a_hard_subject_through_the_readers_own_world
 
 source: not given
-functions: advances, advances, advances, raises, advances, raises,
-        settles, settles
 subject nouns: geopolitics, book, world
 prior text: not assumed — "It may sound strange for someone who..." opens
         with no earlier reference, and "This book" is an object the reader
@@ -612,17 +587,6 @@ Q3 Disposition
      claim is made.
   3. Mostly attention: the one-sentence answer arrives so fast that the
      reader is pulled forward to see it justified.
-  answer: 1
-
-Q4 Footing
-  1. A bookstore shelf the reader has seen (reader's world), a sense of
-     book formats (other texts), and the author's own position (the
-     author); used to survey the field, place the book, and earn trust
-     before any specialist term appears.
-  2. A vague sense that the world is unstable (reader's world); used so
-     that the one-line answer feels already known rather than asserted.
-  3. The word geopolitics and nothing more (subject); used to promise
-     that no more than that will be required.
   answer: own: starting from book sales, which needs no specialist
           knowledge, makes a difficult subject easy to enter
 
@@ -646,33 +610,35 @@ dimensions changed: 5
 
 ## 3. The order inside the Passage
 
-1. "It may sound strange for someone who..." — advances — none — puts the author
-   in the room and makes the next sentence an admission. — generalized: names
-   the speaker's own stake in the subject so the statement that follows reads
-   as a concession.
-2. "bookstores are now overflowing" — advances — consequence — hands the reader a
-   fact they can confirm. — generalized: hands the reader one fact they can
-   confirm for themselves.
-3. "Some make extensive use of maps... academic works" — advances — elaboration —
-   shows the field is varied and that the author has surveyed it. — generalized:
-   surveys the range of existing approaches, showing the speaker has covered
-   the field.
-4. "At a time when the publishing industry is stagnating..." — raises — contrast —
-   builds the incongruity. — generalized: states an incongruity between a
-   general trend and a specific exception to it.
-5. "This book, too, will probably be placed..." — advances — consequence — places
-   this book inside the genre just surveyed. — generalized: places the present
-   work inside the field just surveyed.
-6. "So why has geopolitics attracted so much attention?" — raises — enumeration —
-   names the reader's question for them. — generalized: states the reader's own
-   question in their voice, naming it directly.
-7. "The biggest reason is the instability of the world" — settles — evidence —
-   answers it at once. — generalized: answers the question at once with a
-   single stated cause.
-8. "Throughout history, interest... has repeatedly surged" — settles — elaboration
-   — generalizes the answer so it becomes the book's thesis. — generalized:
-   generalizes the answer into a recurring pattern so it becomes the work's
-   thesis.
+1. "It may sound strange for someone who..." — puts the author in the room
+   and makes the next sentence an admission. — does: names the speaker's own
+   stake in the subject so the statement that follows reads as a concession.
+2. "bookstores are now overflowing" — hands the reader a fact they can
+   confirm. — does: states one fact the reader can confirm for themselves.
+   — relation: the fact is the concession the previous step set up.
+3. "Some make extensive use of maps... academic works" — shows the field is
+   varied and that the author has surveyed it. — does: surveys the range of
+   existing approaches, showing the speaker has covered the field.
+   — relation: widens the one fact into the range of cases behind it.
+4. "At a time when the publishing industry is stagnating..." — builds the
+   incongruity. — does: states an incongruity between a general trend and a
+   specific exception to it. — relation: sets the surveyed growth against
+   the trend it runs counter to.
+5. "This book, too, will probably be placed..." — places this book inside
+   the genre just surveyed. — does: places the present work inside the field
+   just surveyed. — relation: follows from the exception: the present work
+   is one more case of it.
+6. "So why has geopolitics attracted so much attention?" — names the
+   reader's question for them. — does: states the reader's own question in
+   their voice, naming it directly. — relation: asks the question the
+   incongruity left open.
+7. "The biggest reason is the instability of the world" — answers it at
+   once. — does: answers the question with a single stated cause.
+   — relation: answers the question just asked.
+8. "Throughout history, interest... has repeatedly surged" — generalizes
+   the answer so it becomes the book's thesis. — does: generalizes the
+   answer into a recurring pattern so it becomes the work's thesis.
+   — relation: extends the single cause into a pattern over time.
 
 The order works because every foothold is placed before the first
 specialist claim, and the question is asked only once the reader has
@@ -687,13 +653,13 @@ sales pitch.
 
 ## 5. Where it would break
 
-remove:  the author's admission in sentence 1 — the survey of the genre
-         reads as promotion, and trust does not rise
-reorder: put the question before the survey — the reader has no foothold
-         yet and no reason to care about the answer
-extend:  add two paragraphs defining geopolitics before the question — the
-         first specialist claim arrives before the footholds are set, and
-         the reader is back to expecting a textbook
+- drop the author's admission in sentence 1 — the survey of the genre
+  reads as promotion, and trust does not rise
+- put the question before the survey — the reader has no foothold yet and
+  no reason to care about the answer
+- add two paragraphs defining geopolitics before the question — the first
+  specialist claim arrives before the footholds are set, and the reader is
+  back to expecting a textbook
 
 ## 6. The technique, subject-free
 
@@ -709,8 +675,8 @@ enter_a_hard_subject_through_the_readers_own_world
 
 ## 8. Notes
 
-The human answered Q4 in their own words; the closest candidate was 1,
-which named the same footholds without the point that none needs
+The human answered Q3 in their own words; the closest candidate was 1,
+which named the same means without the point that none of them needs
 expertise. That point is carried into sections 1 and 6.
 
 split: the Passage may hold two units, sentences 1 to 5 and 6 to 8
