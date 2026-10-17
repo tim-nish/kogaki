@@ -54,12 +54,28 @@ FIELDS = (
 # still reference.
 OPTIONAL_FIELDS = ("continues_from", "evidence", "figure", "segments")
 
-# The only key whose value is a nested mapping. The value model stays
+# The keys whose value is a nested mapping. The value model stays
 # deliberately small (§6.9.0): scalars, `>-` folded scalars, column-0
-# sequences — and this one nesting, admitted by NAME rather than by shape, so
+# sequences — and these nestings, admitted by NAME rather than by shape, so
 # an accidentally-indented `key: value` under any other field is still the
-# scalar it has always been.
-NESTED_FIELDS = ("figure",)
+# scalar it has always been. `before` and `after` joined `figure` at
+# kogaki#1413: a Move's state is a map keyed by dimension, one sentence per
+# changed dimension, and a state written as one joined line is refused by
+# name (`check_state_shape`).
+NESTED_FIELDS = ("figure", "before", "after")
+
+# The two state fields and the five reader dimensions they are keyed by, in
+# passages/FORMAT.md's order (kogaki#1413).
+STATE_FIELDS = ("before", "after")
+DIMENSIONS = ("knowledge", "question", "expectation", "orientation", "trust")
+
+# The saved Move record is a `.yaml` file, written and read by the Brief's own
+# YAML module, `src/yaml.mjs`, so the record the ingest writes is the record
+# the composer reads, through one reader (kogaki#1413).
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+YAML_MODULE = os.path.join(REPO_ROOT, "src", "yaml.mjs")
+MOVE_RECORD_EXT = ".yaml"
+RECORD_WIDTH = 80
 
 # `kind` selects the schema; every other key in the block is a role. The block
 # is FLAT, so a kind declaring a role named `kind` would make the two
@@ -106,6 +122,35 @@ class Refusal(Exception):
             if line is not None:
                 detail += "\n    %s" % line.rstrip("\n")
         super().__init__("condition %s — %s" % (condition, detail))
+
+
+# --------------------------------------------------------------------------
+# The YAML bridge (kogaki#1413): `src/yaml.mjs` is the one reader and the one
+# writer of the Brief, the Move and the Extraction, so the ingest calls it
+# rather than carrying a Python parser that could read a record differently.
+# --------------------------------------------------------------------------
+
+def _yaml_call(args, stdin=None):
+    try:
+        r = subprocess.run(["node", YAML_MODULE] + list(args), input=stdin,
+                           capture_output=True, text=True)
+    except OSError as exc:
+        raise Refusal("yaml", "node could not be run to read or write a YAML "
+                      "record through src/yaml.mjs: %s" % exc)
+    if r.returncode != 0:
+        raise Refusal("yaml", (r.stderr or "").strip() or
+                      "src/yaml.mjs exited %d" % r.returncode)
+    return r.stdout
+
+
+def yaml_read(path):
+    """The value of the YAML file at `path`, read by `src/yaml.mjs`."""
+    return json.loads(_yaml_call(["parse", path]))
+
+
+def yaml_write(value):
+    """`value` as YAML, written by `src/yaml.mjs`."""
+    return _yaml_call(["stringify", str(RECORD_WIDTH)], stdin=json.dumps(value))
 
 
 # --------------------------------------------------------------------------
@@ -406,6 +451,71 @@ def check_field_set(mapping, first_line_no, roles=None):
         )
 
 
+def check_state_shape(mapping, first_line_no):
+    """`before` and `after` are maps keyed by dimension (kogaki#1413): one
+    entry per changed dimension, each a one-line sentence, keyed by one of
+    passages/FORMAT.md's five dimensions. A state written as one joined line
+    is refused BY NAME rather than split — splitting it would be the ingest
+    reading prose for structure, which is the joined line's own defect."""
+    for field in STATE_FIELDS:
+        if field not in mapping:
+            continue
+        value = mapping[field]
+        if isinstance(value, str):
+            raise Refusal(
+                "state",
+                "`%s` is one joined line, not a map keyed by dimension — a "
+                "Move's state is one `<dimension>: <sentence>` line per "
+                "changed dimension, indented under `%s:`, and a joined-line "
+                "state is refused by name (kogaki#1413)" % (field, field),
+                line_no=first_line_no,
+            )
+        if not isinstance(value, dict) or not value:
+            raise Refusal(
+                "state",
+                "`%s` is not a map keyed by dimension — one entry per changed "
+                "dimension over %s (kogaki#1413)" % (field, ", ".join(DIMENSIONS)),
+                line_no=first_line_no,
+            )
+        for key, sentence in value.items():
+            if key not in DIMENSIONS:
+                raise Refusal(
+                    "state",
+                    "`%s` carries `%s`, which is not a reader dimension — the "
+                    "dimensions are %s" % (field, key, ", ".join(DIMENSIONS)),
+                    line_no=first_line_no,
+                )
+            if not isinstance(sentence, str) or not sentence.strip() or "\n" in sentence:
+                raise Refusal(
+                    "state",
+                    "`%s.%s` is not one non-empty sentence on one line" % (field, key),
+                    line_no=first_line_no,
+                )
+
+
+def check_breaks_shape(mapping, first_line_no):
+    """`breaks` is a list of prose tests (kogaki#1414), carried as a YAML list
+    (kogaki#1413): one entry per test, each one line. A `breaks` written as
+    one prose paragraph is refused by name, as the Adapter refuses it."""
+    if "breaks" not in mapping:
+        return
+    value = mapping["breaks"]
+    if not isinstance(value, list) or not value:
+        raise Refusal(
+            "breaks",
+            "`breaks` is not a list of prose tests — one `- <a specific change> "
+            "— <what the reader loses>` entry per test (kogaki#1414, kogaki#1413)",
+            line_no=first_line_no,
+        )
+    for i, test in enumerate(value):
+        if not isinstance(test, str) or not test.strip() or "\n" in test:
+            raise Refusal(
+                "breaks",
+                "`breaks` test %d is not one non-empty line" % (i + 1),
+                line_no=first_line_no,
+            )
+
+
 # --------------------------------------------------------------------------
 # §6.9.3 — the visual form
 # --------------------------------------------------------------------------
@@ -642,6 +752,8 @@ def read_proposals(text):
             mapping, _order = parse_record(first_line_no, lines)
             stripped = strip_excluded(mapping)
             check_field_set(mapping, first_line_no)
+            check_state_shape(mapping, first_line_no)
+            check_breaks_shape(mapping, first_line_no)
             check_figure(mapping, first_line_no)
         except Refusal as r:
             proposals.append(Proposal(first_line_no, refusal=r))
@@ -654,130 +766,83 @@ def read_proposals(text):
 # Rendering (§6.9.1a)
 # --------------------------------------------------------------------------
 
-PLAIN_FIELDS = ("id", "continues_from")
+# §4.2's optional fields, plus `segments` (kogaki#1320), rendered after the
+# five required ones and before `figure` (which renders LAST, per §6.9.1a) —
+# in this fixed order, so two records differ only where their content differs.
+OPTIONAL_RENDER_FIELDS = ("continues_from", "evidence", "segments")
 
-# §4.2's optional non-nested fields, plus `segments` (kogaki#1320), rendered
-# after the five required ones and before `figure` (which renders LAST, per
-# §6.9.1a) — in this fixed order, so two records differ only where their
-# content differs.
-OPTIONAL_SCALAR_FIELDS = ("continues_from", "evidence", "segments")
 
-# `segments` alone renders as a LITERAL block (`|-`), never folded: a Segment
-# entry is a line of a list the owner reads in order, and a `>-` fold would
-# join the Segments into one run-on paragraph, losing the very order this
-# field exists to make checkable (kogaki#1320).
-LITERAL_FIELDS = ("segments",)
-
-# `breaks` renders LITERAL where its value holds more than one line: the list
-# of prose tests a paragraph Move's Extraction section 5 gives it, one `- `
-# line per test (kogaki#1414). A one-line value -- every Move written before
-# that, read back off its own `>-` fold -- still renders folded, so those
-# files are byte-identical to what they have always been.
-LITERAL_WHEN_MULTILINE_FIELDS = ("breaks",)
+def ordered_record(mapping):
+    """The §4.2 mapping in §4.2's order, as the value the record file holds:
+    the five fields, the optional ones, then `figure` in its kind's own role
+    order — and each state map in the dimensions' order, so two records that
+    differ only in the order their entries were typed render identically."""
+    record = {}
+    for field in FIELDS:
+        # A field `moves/ROLES.json` leaves optional and the record does not
+        # carry renders nothing; the three required roles are always present
+        # on a record condition 3 admitted.
+        if field not in mapping and field not in ("id", "before", "after"):
+            continue
+        value = mapping.get(field, "")
+        if field in STATE_FIELDS and isinstance(value, dict):
+            value = {d: value[d] for d in DIMENSIONS if d in value}
+        record[field] = value
+    for field in OPTIONAL_RENDER_FIELDS:
+        if field in mapping:
+            record[field] = mapping[field]
+    form = mapping.get("figure")
+    if isinstance(form, dict) and form:
+        roles = load_figure_kinds().get(form.get(KIND_SELECTOR), [])
+        # The kind's own role ORDER, never the mapping's insertion order.
+        block = {KIND_SELECTOR: form.get(KIND_SELECTOR, "")}
+        for role in roles:
+            block[role] = form.get(role, "")
+        record["figure"] = block
+    return record
 
 
 def render_move(mapping):
-    """The §4.2 mapping in §4.2's order AS the file body.
-
-    No fence and no `---` delimiters: front-matter delimiters imply a document
-    below the metadata, and here the block IS the document. A field whose value
-    is genuinely a paragraph is a `>-` folded scalar, as the specimen already
-    writes them.
-    """
-    def render_field(field, value):
-        if isinstance(value, list):
-            out.append("%s:" % field)
-            for item in value:
-                # COLUMN 0, not indented. The indented form was written first and
-                # the parser could not read it back: `SEQUENCE_ITEM` matches an
-                # item at column 0 only, so `  - one` fell through to the scalar
-                # buffer and a list-valued field came back as the string
-                # "- one\n- two". `write_index` reads every file through that
-                # same path, so the breakage reached the INDEX row too.
-                #
-                # Column 0 is also the form §6.9.0's `-` exemption exists FOR:
-                # a YAML block sequence may legally sit there under its own key,
-                # and refusing it "would reject valid input on a purely
-                # typographic axis, and would falsify §6.9.1a's promise that a
-                # saved file is byte-identical in form to what the owner
-                # authored". Rendering at column 0 is what makes that promise
-                # true rather than merely asserted.
-                out.append("- %s" % item)
-            return
-        if field in PLAIN_FIELDS:
-            out.append("%s: %s" % (field, value))
-            return
-        if field in LITERAL_FIELDS or (
-                field in LITERAL_WHEN_MULTILINE_FIELDS and "\n" in str(value).strip()):
-            out.append("%s: |-" % field)
-            # Each line stripped before re-indenting, never trusted as
-            # already bare: a value read back off a saved file (`read_saved`)
-            # keeps the two-space indent its own continuation lines were
-            # read with, and re-indenting an already-indented line would
-            # double it on every subsequent round trip.
-            for line in str(value).splitlines():
-                out.append("  %s" % line.strip())
-            return
-        out.append("%s: >-" % field)
-        for chunk in _wrap(str(value), 74):
-            out.append("  %s" % chunk)
-
-    out = []
-    for field in FIELDS:
-        # A field `moves/ROLES.json` leaves optional and the record does not
-        # carry renders nothing. `technique` and `breaks` are read off a
-        # paragraph Move's Extraction too, now (kogaki#1377) — the gap this
-        # guarded (kogaki#1358) is closed, and the guard stays only for a
-        # schema that maps neither role. The three required roles are always
-        # present on a record condition 3 admitted.
-        if field not in mapping and field not in ("id", "before", "after"):
-            continue
-        render_field(field, mapping.get(field, ""))
-
-    # §4.2: the optional scalar fields render after the five, each only when
-    # present — a record carrying none of them renders byte-identically to
-    # what a record under the five-field schema always did.
-    for field in OPTIONAL_SCALAR_FIELDS:
-        if field in mapping:
-            render_field(field, mapping[field])
-
-    # §6.9.3: `figure` renders LAST and only when present, so a Move without
-    # one is byte-identical to what it has always been.
-    form = mapping.get("figure")
-    if isinstance(form, dict) and form:
-        out.append("figure:")
-        out.append("  %s: %s" % (KIND_SELECTOR, form.get(KIND_SELECTOR, "")))
-        roles = load_figure_kinds().get(form.get(KIND_SELECTOR), [])
-        # The kind's own role ORDER, never the mapping's insertion order: the
-        # file is the record, and two records of one kind that differ only in
-        # the order their roles were typed would otherwise render differently.
-        for role in roles:
-            out.append("  %s: %s" % (role, form.get(role, "")))
-    return "\n".join(out) + "\n"
-
-
-def _wrap(text, width):
-    words = text.split()
-    if not words:
-        return [""]
-    lines, line = [], words[0]
-    for word in words[1:]:
-        if len(line) + 1 + len(word) <= width:
-            line += " " + word
-        else:
-            lines.append(line)
-            line = word
-    lines.append(line)
-    return lines
+    """The record file's text: `ordered_record` written as YAML by
+    `src/yaml.mjs`, the writer the Brief record uses (kogaki#1413). No fence
+    and no `---` delimiter: the mapping IS the document."""
+    return yaml_write(ordered_record(mapping))
 
 
 def move_path(moves_dir, move_id):
-    """`moves/<id>.md`, the id as the WHOLE stem — derived, never composed.
+    """`moves/<id>.yaml`, the id as the WHOLE stem — derived, never composed.
 
     A review that renames a Move renames its file, and nothing else has to be
     updated to agree, because nothing else stores the name.
     """
+    return os.path.join(moves_dir, "%s%s" % (move_id, MOVE_RECORD_EXT))
+
+
+def retired_move_path(moves_dir, move_id):
+    """`moves/<id>.md`, the retired record form (kogaki#1413)."""
     return os.path.join(moves_dir, "%s.md" % move_id)
+
+
+def retired_record_refusal(path):
+    return Refusal(
+        "record-form",
+        "%s is a Move record in the retired `.md` form — a Move record is a "
+        "`.yaml` file carrying `before` and `after` as maps keyed by dimension "
+        "(kogaki#1413), and a `.md` Move is refused by name rather than read; "
+        "regenerate it from its Extraction (kogaki#1415)" % path,
+    )
+
+
+def saved_ids(moves_dir):
+    """Every id a file in `moves_dir` already holds, in either record form —
+    a `.md` record still holds its id, so a new Move cannot take it."""
+    out = set()
+    for name in os.listdir(moves_dir):
+        if name.endswith(MOVE_RECORD_EXT):
+            out.add(name[:-len(MOVE_RECORD_EXT)])
+        elif name.endswith(".md") and name != "INDEX.md":
+            out.add(name[:-3])
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -852,11 +917,7 @@ def save_accepted(moves_dir, accepted):
     # showing nothing lost.
     # `makedirs` above guarantees the directory exists, so this read needs no
     # isdir guard and no empty-set fallback for a branch that cannot be taken.
-    seen = {
-        name[:-3]
-        for name in os.listdir(moves_dir)
-        if name.endswith(".md") and name != "INDEX.md"
-    }
+    seen = saved_ids(moves_dir)
 
     # Pass 1 — validate the whole batch. Nothing is written until every id has
     # cleared, which is what makes a refusal leave no residue.
@@ -885,11 +946,14 @@ def save_accepted(moves_dir, accepted):
 
 
 def read_saved(path):
-    """Read one saved Move file back to a mapping, for INDEX regeneration."""
-    with open(path) as handle:
-        text = handle.read()
-    records = split_records(text)
-    mapping, _ = parse_record(records[0][0], records[0][1])
+    """Read one saved Move file back to a mapping, through `src/yaml.mjs` —
+    the reader the composer reads it with (kogaki#1413). A `.md` record is
+    refused by name."""
+    if path.endswith(".md"):
+        raise retired_record_refusal(path)
+    mapping = yaml_read(path)
+    if not isinstance(mapping, dict):
+        raise Refusal("record-form", "%s is not a map of fields" % path)
     return mapping
 
 
@@ -904,6 +968,8 @@ def merge_into(moves_dir, target_id, proposal):
     of the same save step, over a file that already exists.
     """
     path = move_path(moves_dir, target_id)
+    if not os.path.isfile(path) and os.path.isfile(retired_move_path(moves_dir, target_id)):
+        raise retired_record_refusal(retired_move_path(moves_dir, target_id))
     if not os.path.isfile(path):
         raise Refusal(
             "passage",
@@ -913,6 +979,8 @@ def merge_into(moves_dir, target_id, proposal):
     merged.update(proposal.mapping)
     merged["id"] = target_id
     check_field_set(merged, 0)
+    check_state_shape(merged, 0)
+    check_breaks_shape(merged, 0)
     with open(path, "w") as handle:
         handle.write(render_move(merged))
     write_index(moves_dir)
@@ -931,7 +999,9 @@ def write_index(moves_dir):
     """
     rows = []
     for name in sorted(os.listdir(moves_dir)):
-        if not name.endswith(".md") or name == "INDEX.md":
+        # Only `.yaml` records are read: a `.md` record is the retired form,
+        # refused at every read and listed nowhere (kogaki#1413).
+        if not name.endswith(MOVE_RECORD_EXT):
             continue
         mapping = read_saved(os.path.join(moves_dir, name))
         rows.append(
@@ -1056,96 +1126,142 @@ def near_duplicates(proposed_technique, index_rows):
 
 
 # --------------------------------------------------------------------------
+# THE EXTRACTION IS A YAML RECORD (kogaki#1413). passages/FORMAT.md's sections
+# are its keys: `reader` a map of dimension rows, `segments` a list of
+# Segment maps, `breaks` a list of prose
+# tests. Every reader below takes the PARSED record, read by `src/yaml.mjs`;
+# none scans Markdown, so no file-specific hierarchy rule survives here. A
+# Markdown Extraction is refused by name.
+# --------------------------------------------------------------------------
+
+EXTRACTION_EXT = ".yaml"
+# The heading every Markdown Extraction opened with — what tells a retired
+# Extraction from a bare Passage handed to the Passage path.
+MARKDOWN_EXTRACTION_SIGN = re.compile(r"^#\s*Extraction:", re.M)
+
+
+def read_extraction(path):
+    """`(text, record)` for the file at `path`: an Extraction `.yaml` file
+    parsed to its record, or a bare Passage with `record` None. A Markdown
+    Extraction is refused by name, as is a `.yaml` file that is not a map."""
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    if path.endswith(EXTRACTION_EXT):
+        record = yaml_read(path)
+        if not isinstance(record, dict):
+            raise Refusal("extraction-form", "%s is not an Extraction record — "
+                          "a map of passages/FORMAT.md's fields" % path)
+        return text, record
+    if MARKDOWN_EXTRACTION_SIGN.search(text):
+        raise Refusal(
+            "extraction-form",
+            "%s is a Markdown Extraction — an Extraction is a YAML record "
+            "(passages/FORMAT.md \"The Extraction\", kogaki#1413), read by the "
+            "Brief's YAML reader, and the Markdown form is refused by name "
+            "rather than scanned" % path,
+        )
+    return text, None
+
+
+def _cell(value):
+    """A record cell as one stripped line: a number written bare (`segment:
+    2`) reads as its digits."""
+    if value is None:
+        return ""
+    return " ".join(str(value).split())
+
+
+def extraction_rows(record):
+    """Section 2's rows, `{dimension: (before, after, segment)}`, in the
+    dimensions' order, for each dimension the record carries."""
+    reader = (record or {}).get("reader")
+    if not isinstance(reader, dict):
+        return {}
+    rows = {}
+    for dim in DIMENSIONS:
+        row = reader.get(dim)
+        if not isinstance(row, dict):
+            continue
+        rows[dim] = (_cell(row.get("before")), _cell(row.get("after")),
+                     _cell(row.get("segment")))
+    return rows
+
+
+def _is_unchanged(cell):
+    return cell.strip().lower() == "unchanged"
+
+
+# --------------------------------------------------------------------------
 # The question BEFORE the passage, read off the Extraction (kogaki#1216).
 # --------------------------------------------------------------------------
 #
 # A model fills the schema it is given and is poor at deciding a field is
 # absent, so where an Extraction recorded the reader's question before the
-# passage as `none` the authored Move still carried a composed one -- the
-# exemplar's Extraction reads `none, or "should I read this?"` and the Move
-# ingested from it read `holds an unanswered question about why so many such
-# works are appearing now`. The consequence downstream was a library with no
-# Move whose `before` holds no question, so the opening the owner wants
-# (`holds: none`) was legal and unreachable. The Extraction is the RECORD here:
-# its `## 2. Reader before and after` table carries a `question` row whose
-# BEFORE cell is the owner-answered fact, and where that cell reads `none`
-# (alone or followed by a hedge), the proposal's `before` field's `question:`
-# line is written `holds: none` -- never a composed question. (The Move's own
-# `question` field, which this rewrote too, retired at kogaki#1324.)
-# Applied BEFORE the screen renders, so what the owner accepts is what is
-# saved; the screen names the rewrite so it is never silent.
-EXTRACTION_QUESTION_ROW = re.compile(
-    r"^\|\s*question\s*\|(?P<before>[^|]*)\|(?P<after>[^|]*)\|\s*$", re.M)
+# passage as `none` the authored Move still carried a composed one. The
+# Extraction is the RECORD here: its `reader` `question` row's BEFORE cell
+# is the owner-answered fact, and where that cell reads `none` (alone or
+# followed by a hedge), the proposal's `before.question` is written
+# `holds: none.` -- never a composed question. Applied BEFORE the screen
+# renders, so what the owner accepts is what is saved; the screen names the
+# rewrite so it is never silent.
 NONE_QUESTION = re.compile(r"^\s*none\b", re.I)
-_OTHER_DIMENSIONS = r"(?:knowledge|expectation|orientation|trust):"
 
 
-def extraction_question_before(passage_text):
+def extraction_question_before(record):
     """The BEFORE cell of the Extraction's `question` row, stripped, or None
-    where the text carries no such row (a bare Passage with no Extraction)."""
-    match = EXTRACTION_QUESTION_ROW.search(passage_text)
-    return match.group("before").strip() if match else None
+    where there is no record or no such row (a bare Passage)."""
+    row = extraction_rows(record).get("question")
+    return row[0] if row else None
 
 
-def write_none_question(mapping, passage_text):
+def write_none_question(mapping, record):
     """Where the Extraction records the question before the passage as none,
-    write `holds: none` into the proposal and return the fields rewritten;
-    otherwise leave the mapping untouched and return an empty list."""
-    before_cell = extraction_question_before(passage_text)
+    write `holds: none.` into the proposal's `before.question` and return the
+    fields rewritten; otherwise leave the mapping untouched and return []."""
+    before_cell = extraction_question_before(record)
     if before_cell is None or not NONE_QUESTION.match(before_cell):
         return []
-    changed = []
     before = mapping.get("before")
-    if isinstance(before, str):
-        rewritten, count = re.subn(
-            r"question:\s*.*?(?=\s+%s|$)" % _OTHER_DIMENSIONS,
-            "question: holds: none.", before, count=1, flags=re.S)
-        if count and rewritten != before:
-            mapping["before"] = rewritten
-            changed.append("before")
-    return changed
+    if isinstance(before, dict) and "question" in before and before["question"] != "holds: none.":
+        before["question"] = "holds: none."
+        return ["before"]
+    return []
 
 
 # --------------------------------------------------------------------------
 # Subject nouns, read off the Extraction (kogaki#1284).
 # --------------------------------------------------------------------------
 #
-# specs/move-extraction-contract.md requires `technique` to be subject-free,
-# and nothing enforced it: a Move derived from a Passage about one domain
-# carried that domain's own words forward into `technique` and `breaks`,
-# unnoticed until the owner read the saved file. `passages/FORMAT.md` now
-# has the Extraction list its own `subject nouns` — the nouns naming what the
+# specs/move-extraction-contract.md requires `technique` to be subject-free.
+# The Extraction lists its own `subject_nouns` — the nouns naming what the
 # Passage is about, offered by the model and confirmed or edited by the
 # human — and this is the mechanical half: a record whose `technique` or
 # `breaks` contains one of them is refused, naming the noun and the field.
-# The deny list is PER PASSAGE, written by that Passage's own Extraction; no
-# global word list exists, and an Extraction that lists none refuses nothing.
-EXTRACTION_SUBJECT_NOUNS_ROW = re.compile(r"^subject nouns:\s*(?P<nouns>.*)$", re.M)
-
+# The deny list is PER PASSAGE; no global word list exists, and an
+# Extraction that lists none refuses nothing.
 SUBJECT_NOUN_FIELDS = ("technique", "breaks")
 
 
-def extraction_subject_nouns(passage_text):
-    """The Extraction's `subject nouns` field, lower-cased and split on
-    commas, or `[]` where the field is absent or reads "none"."""
-    match = EXTRACTION_SUBJECT_NOUNS_ROW.search(passage_text)
-    if match is None:
+def extraction_subject_nouns(record):
+    """The Extraction's `subject_nouns`, lower-cased, or `[]` where there is
+    no record or the list is absent or empty."""
+    nouns = (record or {}).get("subject_nouns")
+    if not isinstance(nouns, list):
         return []
-    raw = match.group("nouns").strip()
-    if not raw or raw.lower().startswith("none"):
-        return []
-    return [noun.strip().lower() for noun in raw.split(",") if noun.strip()]
+    return [str(n).strip().lower() for n in nouns if str(n).strip()]
 
 
-def check_subject_nouns(mapping, passage_text, line_no):
+def check_subject_nouns(mapping, record, line_no):
     """A record whose `technique` or `breaks` names a noun the Extraction
-    lists under `subject nouns` is refused, naming the noun and the field.
+    lists under `subject_nouns` is refused, naming the noun and the field.
     Returns a `Refusal`, or `None` where nothing is refused."""
-    nouns = extraction_subject_nouns(passage_text)
+    nouns = extraction_subject_nouns(record)
     if not nouns:
         return None
     for field in SUBJECT_NOUN_FIELDS:
         value = mapping.get(field)
+        if isinstance(value, list):
+            value = " ".join(str(v) for v in value)
         if not isinstance(value, str):
             continue
         words = set(WORD.findall(value.lower()))
@@ -1154,39 +1270,33 @@ def check_subject_nouns(mapping, passage_text, line_no):
                 return Refusal(
                     "subject-noun",
                     "`%s` names subject noun `%s`, which the Extraction lists "
-                    "under `subject nouns`" % (field, noun),
+                    "under `subject_nouns`" % (field, noun),
                     line_no=line_no,
                 )
     return None
 
 
 # --------------------------------------------------------------------------
-# Section 2's dimension/Segment pairing, and section 8's split note
+# `reader`'s dimension/Segment pairing, and the `split_notes` entries
 # (kogaki#1319). Both read the Extraction as given, before the model is
 # spawned: a defect in the Extraction itself, never a defect the extraction
 # step could have caused.
 # --------------------------------------------------------------------------
-EXTRACTION_DIMENSION_ROW = re.compile(
-    r"^\|\s*(?P<dim>knowledge|question|expectation|orientation|trust)\s*\|"
-    r"(?P<before>[^|]*)\|(?P<after>[^|]*)\|(?P<segment>[^|]*)\|\s*$", re.M)
 
-
-def check_extraction_dimensions(passage_text, line_no=None):
-    """`passages/FORMAT.md` §2: every cell of the reader-dimension table
+def check_extraction_dimensions(record, line_no=None):
+    """`passages/FORMAT.md` §2: every cell of the reader-dimension rows
     defaults to "unchanged"; a row that records a change on either side
     names the Segment, by number, that moved it. A changed row with no
     Segment named is refused, naming the dimension. Returns a `Refusal`,
-    or `None` where every row is unchanged or names its Segment."""
-    for match in EXTRACTION_DIMENSION_ROW.finditer(passage_text):
-        before = match.group("before").strip()
-        after = match.group("after").strip()
-        if before.lower() == "unchanged" and after.lower() == "unchanged":
+    or `None`."""
+    for dim, (before, after, segment) in extraction_rows(record).items():
+        if _is_unchanged(before) and _is_unchanged(after):
             continue
-        if not match.group("segment").strip():
+        if not segment:
             return Refusal(
                 "dimension-segment",
-                "the `%s` row of section 2 records a change naming no "
-                "Segment" % match.group("dim"),
+                "the `%s` row of `reader` records a change naming no "
+                "Segment" % dim,
                 line_no=line_no,
             )
     return None
@@ -1195,376 +1305,230 @@ def check_extraction_dimensions(passage_text, line_no=None):
 # --------------------------------------------------------------------------
 # The paragraph unit (kogaki#1358, design on kogaki#1329): two levels, no
 # more. A paragraph Extraction carries `unit: paragraph <N> of <M> in <slug>`;
-# a Passage-level Extraction lists its paragraphs on `contains:`. A `contains:`
-# line on a paragraph Extraction would make a third level, so it is refused
-# BEFORE anything is derived, naming the line.
+# a Passage-level Extraction lists its paragraphs under `contains`. A
+# `contains` on a paragraph Extraction would make a third level, so it is
+# refused BEFORE anything is derived, naming the field.
 # --------------------------------------------------------------------------
-EXTRACTION_PARAGRAPH_UNIT_ROW = re.compile(r"^unit:\s*paragraph\b", re.M)
-EXTRACTION_CONTAINS_ROW = re.compile(r"^contains:.*$", re.M)
 
-
-def check_paragraph_level(passage_text):
-    """`passages/FORMAT.md` "The paragraph unit": a `contains:` line on a
-    `unit: paragraph` Extraction is refused, naming the line. Returns a
-    `Refusal`, or `None` where the text is not a paragraph Extraction or
-    carries no `contains:` line."""
-    if EXTRACTION_PARAGRAPH_UNIT_ROW.search(passage_text) is None:
+def check_paragraph_level(record):
+    """`passages/FORMAT.md` "The paragraph unit": `contains` on a
+    `unit: paragraph` Extraction is refused, naming the field. Returns a
+    `Refusal`, or `None`."""
+    record = record or {}
+    if not _cell(record.get("unit")).startswith("paragraph"):
         return None
-    match = EXTRACTION_CONTAINS_ROW.search(passage_text)
-    if match is None:
+    if record.get("contains") in (None, "", []):
         return None
     return Refusal(
         "paragraph-contains",
-        "a `unit: paragraph` Extraction carries `contains:` — two levels, no "
+        "a `unit: paragraph` Extraction carries `contains` — two levels, no "
         "more; only a Passage-level Extraction lists the paragraphs it contains",
-        line_no=passage_text.count("\n", 0, match.start()) + 1,
-        line=match.group(0),
     )
 
 
-EXTRACTION_SPLIT_NOTE = re.compile(r"^split:\s*(?P<note>.+?)\s*$")
-EXTRACTION_DISMISSED_NOTE = re.compile(r"^dismissed:\s*(?P<note>.+?)\s*$")
-
-
-def check_extraction_split_note(passage_text, line_no=None):
-    """`passages/FORMAT.md` §8: a `split:` note names a second unit inside
-    the Passage and refuses ingestion, naming the note, until it is
-    dismissed by repeating it verbatim on a later line as `dismissed: <the
-    same text>`. Returns a `Refusal`, or `None` where no split note is left
-    undismissed."""
-    lines = passage_text.splitlines()
-    for i, line in enumerate(lines):
-        match = EXTRACTION_SPLIT_NOTE.match(line.strip())
-        if not match:
-            continue
-        note = match.group("note").strip()
-        dismissed = False
-        for later in lines[i + 1:]:
-            stripped = later.strip()
-            if not stripped:
-                continue
-            dmatch = EXTRACTION_DISMISSED_NOTE.match(stripped)
-            dismissed = bool(dmatch and dmatch.group("note").strip() == note)
-            break
-        if not dismissed:
+def check_extraction_split_note(record, line_no=None):
+    """`passages/FORMAT.md` §8: an entry of `split_notes` names a second unit
+    inside the Passage and refuses ingestion, naming the note, until it is
+    dismissed by repeating it verbatim as its `dismissed`. Returns a
+    `Refusal`, or `None`."""
+    notes = (record or {}).get("split_notes")
+    if not isinstance(notes, list):
+        return None
+    for entry in notes:
+        note = _cell(entry.get("note") if isinstance(entry, dict) else entry)
+        dismissed = _cell(entry.get("dismissed")) if isinstance(entry, dict) else ""
+        if note and dismissed != note:
             return Refusal(
                 "split-note",
-                "section 8 carries an undismissed split note: %r" % note,
+                "`split_notes` carries an undismissed split note: %r" % note,
                 line_no=line_no,
             )
     return None
 
 
 # --------------------------------------------------------------------------
-# `segments`, copied from Extraction section 3 (kogaki#1320, generalized clause
-# kogaki#1367, two prose fields kogaki#1414).
+# `segments`, copied from the Extraction's `segments` (kogaki#1320, generalized clause
+# kogaki#1367, two prose fields kogaki#1414, a list of maps kogaki#1413).
 # --------------------------------------------------------------------------
 #
-# `passages/FORMAT.md` §3 writes one numbered entry per Segment: the quoted
-# opening words, a dash, the content clause stating what it does about THIS
-# Passage's own content, a dash, `does:` and the step's operation written
-# subject-free, then -- on every Segment after the first -- a dash,
-# `relation:` and the step's relation to the Segment before it, in prose.
-# Both fields are prose; no label set is read or admitted (kogaki#1414). The
-# quoted opening words and the content clause locate and explain the Segment
-# for the owner's reading and are not copied, since the content clause
-# carries the source paragraph's own subject into every Move derived from
-# it. Segment 1's `relation:`, where the Extraction records one, is a fact
-# about the source paragraph's predecessor and is not copied either: a Move
-# carries no relation to what precedes it (kogaki#1411).
-SECTION3_HEADING = re.compile(r"^##\s*3\.\s*The order inside the Passage\s*$", re.M)
-NEXT_HEADING = re.compile(r"^##\s*\d+\.", re.M)
+# Section 3 is a list of Segment maps: the quoted `opening` words, the
+# `content` clause stating what it does about THIS Passage's own content, the
+# subject-free `does`, and -- on every Segment after the first -- `relation`,
+# its relation to the Segment before it, in prose. Both fields are prose; no
+# label set is read or admitted (kogaki#1414). `opening` and `content` locate
+# and explain the Segment for the owner's reading and are not copied, since
+# the content clause carries the source paragraph's own subject into every
+# Move derived from it. Segment 1's `relation`, where the Extraction records
+# one, is a fact about the source paragraph's predecessor and is not copied
+# either: a Move carries no relation to what precedes it (kogaki#1411).
 
-SEGMENT_ENTRY = re.compile(
-    r'^\s*(?P<num>\d+)\.\s*"[^"]*"(?:\s*\[[^\]]*\])?\s*—\s*'
-    r"(?P<rest>.+?)(?=\n[ \t]*\n|\n\s*\d+\.\s*\"|\Z)",
-    re.M | re.S,
-)
-
-SEGMENT_FIELDS = re.compile(
-    r"^(?P<content>.*?)\s*—\s*does:\s*(?P<does>.*?)"
-    r"(?:\s*—\s*relation:\s*(?P<relation>.*))?$",
-    re.S,
-)
-
-
-def section3_body(passage_text):
-    """The text of Extraction `## 3. The order inside the Passage`, between
-    its heading and the next, or `None` where the text carries no such
-    heading — a bare Passage with no Extraction."""
-    heading = SECTION3_HEADING.search(passage_text)
-    if heading is None:
+def extraction_segments(record, line_no=None):
+    """The ordered Segments of the Extraction's `segments` as the Move's own
+    `segments` value: `[{"does": ...}, {"does": ..., "relation": ...}, ...]`.
+    Returns `None` where there is no record or it carries no `segments`, and
+    raises `Refusal` naming the Segment's number where an entry carries no
+    `does`, or where a Segment after the first carries no `relation`."""
+    entries = (record or {}).get("segments")
+    if entries is None:
         return None
-    rest = passage_text[heading.end():]
-    next_heading = NEXT_HEADING.search(rest)
-    body = rest[:next_heading.start()] if next_heading else rest
-    return body
-
-
-def extraction_segments(passage_text, line_no=None):
-    """The ordered Segments of Extraction section 3, each `(does,
-    relation)` — `relation` is `None` on Segment 1, whose recorded relation
-    (if any) is a fact about the source and never copied (kogaki#1411), and
-    the content clause is parsed and discarded (kogaki#1367). Returns `None`
-    where the text carries no section 3 at all, and raises `Refusal` naming
-    the Segment's number where an entry carries no `does:` clause, or where a
-    Segment after the first carries no `relation:` clause (kogaki#1414)."""
-    body = section3_body(passage_text)
-    if body is None:
-        return None
+    if not isinstance(entries, list):
+        raise Refusal("segments", "`segments` is not a list of "
+                      "Segment maps", line_no=line_no)
     segments = []
-    for index, match in enumerate(SEGMENT_ENTRY.finditer(body)):
-        rest = " ".join(match.group("rest").split())
-        fields = SEGMENT_FIELDS.match(rest)
-        if fields is None or not fields.group("does").strip():
+    for index, entry in enumerate(entries):
+        number = index + 1
+        if not isinstance(entry, dict):
+            raise Refusal("segments", "Segment %d is not a map" % number, line_no=line_no)
+        does = _cell(entry.get("does"))
+        if not does:
             raise Refusal(
                 "segments",
-                "Segment %s carries no `— does: <operation>` clause — "
-                "section 3 owes one on every entry" % match.group("num"),
+                "Segment %d carries no `does` — the Extraction owes one on every "
+                "entry" % number,
                 line_no=line_no,
             )
-        relation = (fields.group("relation") or "").strip()
+        relation = _cell(entry.get("relation"))
         if index > 0 and not relation:
             raise Refusal(
                 "segments",
-                "Segment %s carries no `— relation: <prose>` clause — "
-                "every Segment after the first owes its relation to the "
-                "Segment before it" % match.group("num"),
+                "Segment %d carries no `relation` — every Segment after the "
+                "first owes its relation to the Segment before it" % number,
                 line_no=line_no,
             )
-        segments.append((fields.group("does").strip(), relation if index > 0 else None))
+        segments.append({"does": does} if index == 0 else {"does": does, "relation": relation})
     return segments
 
 
-def render_segments_text(segments):
-    """The §4.2 `segments` value: one numbered line per Segment, in order —
-    `<n>. does: <operation>`, followed on every Segment after the first by
-    ` — relation: <prose>` — the LITERAL text a saved Move renders
-    (`render_move`), never a `>-` folded paragraph that would lose the
-    order."""
-    return "\n".join(
-        "%d. does: %s" % (i + 1, does) + ("" if relation is None else " — relation: %s" % relation)
-        for i, (does, relation) in enumerate(segments)
-    )
-
-
-def check_segments(mapping, passage_text, line_no):
+def check_segments(mapping, record, line_no):
     """Copy the Extraction's ordered Segments into the record's own
     `segments`. Returns `(Refusal, None)` where the Extraction carries no
-    section 3 to copy from, where a Segment entry is missing a field
-    `extraction_segments` requires, or where the record already carried a `segments` value that
-    disagrees with the copy — the model is never asked to write or reorder
-    Segments, so a value it supplied anyway is a defect, not an alternative
-    reading. Otherwise returns `(None, <the literal numbered-list text,
-    each Segment's `does` and `relation` only>)`."""
+    `segments` to copy from, where a Segment entry is missing a field
+    `extraction_segments` requires, or where the record already carried a
+    `segments` value that disagrees with the copy — the model is never asked
+    to write or reorder Segments, so a value it supplied anyway is a defect,
+    not an alternative reading. Otherwise returns `(None, <the list>)`."""
     try:
-        segments = extraction_segments(passage_text, line_no=line_no)
+        segments = extraction_segments(record, line_no=line_no)
     except Refusal as refusal:
         return refusal, None
     if segments is None:
         return Refusal(
             "segments",
             "the record carries no `segments` — the Extraction carries no "
-            "section 3 (\"## 3. The order inside the Passage\") for the "
-            "tool to copy it from",
+            "`segments` for the tool to copy it from",
             line_no=line_no,
         ), None
-    text = render_segments_text(segments)
     existing = mapping.get("segments")
-    if existing is not None and str(existing).strip() != text.strip():
+    if existing is not None and existing != segments:
         return Refusal(
             "segments",
-            "`segments` does not match the Extraction's section 3 — the "
+            "`segments` does not match the Extraction's `segments` — the "
             "model is never asked to write or reorder Segments, and this "
             "record's `segments` disagrees with the copy",
             line_no=line_no,
         ), None
-    return None, text
+    return None, segments
 
 
 # --------------------------------------------------------------------------
 # `--from-extraction` (kogaki#1358, design on kogaki#1329): the record is READ
-# off a written Extraction, never authored by a model. `id` is section 7's
-# name, `before` and `after` are section 2's changed rows only, `technique`
-# is section 6 and `breaks` is section 5 (kogaki#1377), and `segments` is
-# section 3 exactly as `check_segments` copies it on the Passage path.
+# off a written Extraction, never authored by a model. Every Move field comes
+# from one Extraction field, the table passages/FORMAT.md "Where each field
+# goes" states: `id` is `name`, `before` and `after` are `reader`'s changed
+# rows only, `technique` is `technique` and `breaks` is `breaks`
+# (kogaki#1377), and `segments` is the Extraction's `segments` exactly as `check_segments`
+# copies it on the Passage path.
 # --------------------------------------------------------------------------
-SECTION7_HEADING = re.compile(r"^##\s*7\.\s*Candidate name\s*$", re.M)
 MOVE_ID = re.compile(r"^[a-z0-9_]+$")
 
-# `technique` (section 6) and `breaks` (section 5), added to the derivation by
-# kogaki#1377: every Leg Move already carries both, read from the sections
-# `specs/move-extraction-contract.md` names as their source, and the
-# paragraph path owed them from the start.
-SECTION5_HEADING = re.compile(r"^##\s*5\.\s*Where it would break\s*$", re.M)
-SECTION6_HEADING = re.compile(r"^##\s*6\.\s*The technique, subject-free\s*$", re.M)
+
+def changed_dimension_rows(record):
+    """Section 2's rows whose `after` is not `unchanged`, in the dimensions'
+    order, each `(dimension, before, after, segment)`."""
+    return [(dim, before, after, segment)
+            for dim, (before, after, segment) in extraction_rows(record).items()
+            if after and not _is_unchanged(after)]
 
 
-def _numbered_section_body(passage_text, heading_re):
-    """The raw text between a numbered Extraction heading and the next, or
-    `None` where the text carries no such heading at all -- the split
-    `section3_body` and `section7_name` each read inline, shared here rather
-    than tripled for kogaki#1377's two added sections."""
-    heading = heading_re.search(passage_text)
-    if heading is None:
+def extraction_breaks(record):
+    """`breaks`: a list of prose tests (kogaki#1414), each test
+    one line. `None` where the record carries none or an empty list; raises
+    `Refusal` where it is not a list of non-empty strings."""
+    tests = (record or {}).get("breaks")
+    if tests in (None, []):
         return None
-    rest = passage_text[heading.end():]
-    next_heading = NEXT_HEADING.search(rest)
-    return rest[:next_heading.start()] if next_heading else rest
+    if not isinstance(tests, list) or any(not _cell(x) for x in tests):
+        raise Refusal(
+            "from-extraction",
+            "`breaks` is not a list of prose tests -- one entry "
+            "per test, each a change and what the reader loses",
+        )
+    return [_cell(x) for x in tests]
 
 
-def section6_technique(passage_text):
-    """`technique`: Extraction `## 6. The technique, subject-free`, its
-    lines joined into one paragraph, the way `extraction_segments` joins a
-    Segment's own lines. `None` where the text carries no section 6, or an
-    empty one."""
-    body = _numbered_section_body(passage_text, SECTION6_HEADING)
-    if body is None:
-        return None
-    text = " ".join(body.split())
-    return text or None
-
-
-BREAKS_TEST = re.compile(r"^\s*-\s+(?P<test>.*)$")
-
-
-def section5_breaks(passage_text, line_no=None):
-    """`breaks`: Extraction `## 5. Where it would break`, a list of prose
-    tests (kogaki#1414) -- one `- ` line per test, a test's own continuation
-    lines joined onto it the way `technique` joins its lines -- rendered as
-    one `- <test>` line per test. `None` where the text carries no section
-    5, or an empty one; raises `Refusal` where section 5 carries text before
-    its first `- ` test, since a test the list does not hold is no test."""
-    body = _numbered_section_body(passage_text, SECTION5_HEADING)
-    if body is None:
-        return None
-    tests = []
-    for line in body.splitlines():
-        if not line.strip():
-            continue
-        match = BREAKS_TEST.match(line)
-        if match is not None:
-            tests.append(match.group("test").strip())
-        elif tests:
-            tests[-1] = "%s %s" % (tests[-1], line.strip())
-        else:
-            raise Refusal(
-                "from-extraction",
-                "section 5 (\"## 5. Where it would break\") carries text "
-                "before its first `- ` test -- it is a list of prose tests, "
-                "one `- ` line each: %r" % line.strip(),
-                line_no=line_no,
-            )
-    tests = [" ".join(t.split()) for t in tests if t.strip()]
-    return "\n".join("- %s" % t for t in tests) or None
-
-
-def section7_name(passage_text):
-    """The first non-blank line under Extraction `## 7. Candidate name`, or
-    `None` where the text carries no such heading or no line under it."""
-    heading = SECTION7_HEADING.search(passage_text)
-    if heading is None:
-        return None
-    rest = passage_text[heading.end():]
-    next_heading = NEXT_HEADING.search(rest)
-    body = rest[:next_heading.start()] if next_heading else rest
-    for line in body.splitlines():
-        if line.strip():
-            return line.strip()
-    return None
-
-
-def changed_dimension_rows(passage_text):
-    """Section 2's rows whose `after` is not `unchanged`, in table order,
-    each `(dimension, before, after, segment)`."""
-    rows = []
-    for match in EXTRACTION_DIMENSION_ROW.finditer(passage_text):
-        after = match.group("after").strip()
-        if after.lower() == "unchanged":
-            continue
-        rows.append((match.group("dim"), match.group("before").strip(), after,
-                     match.group("segment").strip()))
-    return rows
-
-
-def _state_text(rows, column):
-    """One `<dimension>: <state>.` sentence per changed row, in table
-    order — the shape the Leg library's `before` and `after` already
-    read in."""
-    parts = []
-    for row in rows:
-        state = row[column].rstrip()
-        if state and state[-1] not in ".?!":
-            state += "."
-        parts.append("%s: %s" % (row[0], state))
-    return " ".join(parts)
-
-
-def derive_from_extraction(passage_text, line_no=1):
-    """The proposal `--from-extraction` offers for one Extraction, as a
-    `Proposal` carrying its `Refusal` where the Extraction cannot supply a
-    field. Nothing here is judged: every value is a copy of a section."""
+def derive_from_extraction(record, line_no=1):
+    """The proposal `--from-extraction` offers for one Extraction record, as
+    a `Proposal` carrying its `Refusal` where the Extraction cannot supply a
+    field. Nothing here is judged: every value is a copy of a field."""
     try:
         # Not `check_extraction_dimensions`: under m2 rule 3 every `before`
         # cell is carried in full, so only an `after` other than `unchanged`
         # is a change, and only a change owes its Segment.
-        for refusal in (check_paragraph_level(passage_text),
-                        check_extraction_split_note(passage_text)):
+        for refusal in (check_paragraph_level(record),
+                        check_extraction_split_note(record)):
             if refusal is not None:
                 raise refusal
-        move_id = section7_name(passage_text)
-        if move_id is None or not MOVE_ID.match(move_id):
+        move_id = _cell(record.get("name"))
+        if not MOVE_ID.match(move_id):
             raise Refusal(
                 "from-extraction",
-                "section 7 (\"## 7. Candidate name\") carries no Move id "
-                "-- got %r" % move_id,
+                "`name` carries no Move id -- got %r" % move_id,
             )
-        rows = changed_dimension_rows(passage_text)
+        rows = changed_dimension_rows(record)
         for dim, _before, _after, segment in rows:
             if not segment:
                 raise Refusal(
                     "dimension-segment",
-                    "the `%s` row of section 2 records a change naming no "
+                    "the `%s` row of `reader` records a change naming no "
                     "Segment" % dim,
                 )
         if not rows:
             raise Refusal(
                 "from-extraction",
-                "section 2 records no changed row, so there is no `before` "
+                "`reader` records no changed row, so there is no `before` "
                 "or `after` to read",
             )
-        technique = section6_technique(passage_text)
-        if technique is None:
+        technique = _cell(record.get("technique"))
+        if not technique:
             raise Refusal(
                 "from-extraction",
-                "section 6 (\"## 6. The technique, subject-free\") carries "
-                "no text for `technique`",
+                "`technique` carries no text",
             )
-        breaks = section5_breaks(passage_text)
+        breaks = extraction_breaks(record)
         if breaks is None:
             raise Refusal(
                 "from-extraction",
-                "section 5 (\"## 5. Where it would break\") carries no "
-                "text for `breaks`",
+                "`breaks` carries no test",
             )
         mapping = {
             "id": move_id,
-            "before": _state_text(rows, 1),
-            "after": _state_text(rows, 2),
+            "before": {dim: before for dim, before, _a, _s in rows},
+            "after": {dim: after for dim, _b, after, _s in rows},
             "technique": technique,
             "breaks": breaks,
         }
-        segments_refusal, segments_text = check_segments(mapping, passage_text, line_no)
+        segments_refusal, segments = check_segments(mapping, record, line_no)
         if segments_refusal is not None:
             raise segments_refusal
-        if not segments_text:
+        if not segments:
             raise Refusal(
                 "segments",
-                "section 3 carries no Segment entry in the `\"<opening words>\" "
-                "— <clause> — does: <operation> — relation: <prose>` shape",
+                "`segments` carries no Segment",
             )
-        mapping["segments"] = segments_text
+        mapping["segments"] = segments
         check_field_set(mapping, line_no)
+        check_state_shape(mapping, line_no)
+        check_breaks_shape(mapping, line_no)
     except Refusal as refusal:
         return Proposal(line_no, refusal=refusal)
     return Proposal(line_no, mapping=mapping)
@@ -1577,8 +1541,15 @@ def run_from_extraction(extraction_paths, moves_dir, out_dir, select=None):
     is admitted only for a single Extraction."""
     proposals = []
     for path in extraction_paths:
-        with open(path, encoding="utf-8") as handle:
-            proposals.append(derive_from_extraction(handle.read()))
+        if not path.endswith(EXTRACTION_EXT):
+            raise Refusal(
+                "extraction-form",
+                "%s is not an Extraction record -- `--from-extraction` reads a "
+                "`.yaml` Extraction (kogaki#1413), and a Markdown Extraction is "
+                "refused by name" % path,
+            )
+        _text, record = read_extraction(path)
+        proposals.append(derive_from_extraction(record))
 
     index_rows = read_index_rows(moves_dir)
     screens = []
@@ -1656,18 +1627,17 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
     `--select` once the owner has chosen — never spends the authorship step
     twice on one Passage.
     """
-    with open(passage_path, encoding="utf-8") as handle:
-        passage_text = handle.read()
+    passage_text, record = read_extraction(passage_path)
     with open(contract_path, encoding="utf-8") as handle:
         contract_text = handle.read()
 
     # BEFORE the model is called (kogaki#1319): both checks read the
     # Extraction as given, and a defect in it is never the extraction step's
     # to catch.
-    dimension_refusal = check_extraction_dimensions(passage_text)
+    dimension_refusal = check_extraction_dimensions(record)
     if dimension_refusal is not None:
         raise dimension_refusal
-    split_refusal = check_extraction_split_note(passage_text)
+    split_refusal = check_extraction_split_note(record)
     if split_refusal is not None:
         raise split_refusal
 
@@ -1702,19 +1672,19 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
         # BEFORE anything else (kogaki#1284): a record naming a subject noun
         # the Extraction lists is not merely rewritten, it is refused outright.
         subject_refusal = check_subject_nouns(
-            proposal.mapping, passage_text, proposal.line_no)
+            proposal.mapping, record, proposal.line_no)
         if subject_refusal is not None:
             proposal = Proposal(proposal.line_no, refusal=subject_refusal)
 
     if proposal.admitted:
         # The Extraction's ordered Segments, copied into the record itself
         # (kogaki#1320) — never asked of the model.
-        segments_refusal, segments_text = check_segments(
-            proposal.mapping, passage_text, proposal.line_no)
+        segments_refusal, segments = check_segments(
+            proposal.mapping, record, proposal.line_no)
         if segments_refusal is not None:
             proposal = Proposal(proposal.line_no, refusal=segments_refusal)
         else:
-            proposal.mapping["segments"] = segments_text
+            proposal.mapping["segments"] = segments
 
     duplicates = []
     rewritten = []
@@ -1722,7 +1692,7 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
         # BEFORE the screen and before any near-duplicate read (kogaki#1216):
         # the owner accepts the rewritten record, and the rewrite is named on
         # the screen rather than applied in silence.
-        rewritten = write_none_question(proposal.mapping, passage_text)
+        rewritten = write_none_question(proposal.mapping, record)
         duplicates = near_duplicates(proposal.mapping.get("technique", ""),
                                       read_index_rows(moves_dir))
 
@@ -1872,8 +1842,8 @@ def main_passage(argv):
         "--from-extraction", nargs="+", metavar="EXTRACTION",
         help="one or more written Extractions (one Passage's paragraph "
         "Extractions, passages/FORMAT.md \"The paragraph unit\"): each record "
-        "is read off its Extraction -- id from section 7, before/after from "
-        "section 2's changed rows, segments from section 3 -- and no model "
+        "is read off its Extraction record -- id from `name`, before/after from "
+        "`reader`'s changed rows, segments from `segments` -- and no model "
         "is called",
     )
     parser.add_argument("--model", help="the pinned model id for the authorship step")

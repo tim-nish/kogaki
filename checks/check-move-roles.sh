@@ -15,10 +15,11 @@
 #      (identity, state-before, state-after) and the current optional roles
 #      (specialized-by-the-Leg, tests, segments, figure-roles, continues-from)
 #      with the fields they presently map to.
-#   2. Composing over the current `moves/` library and the judging over its
-#      Legs render byte-identical compose/judge input to what a direct,
-#      hardcoded field read would have produced — the adapter changes
-#      nothing observable for the library as it stands today.
+#   2. Composing over a YAML Move library and the judging over its Legs
+#      render byte-identical compose/judge input to what a direct read
+#      through the Brief's YAML reader produces (kogaki#1413); the committed
+#      library loads, or is refused naming its retired `.md` form until
+#      kogaki#1415 regenerates it.
 #   3. A fixture Move record missing `before` is refused by name at the
 #      `src/compose.mjs` adapter (`moveContract`) — the `tools/move_ingest.py`
 #      half of this same Acceptance item is covered by
@@ -37,6 +38,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { moveRoles, moveContract, loadMoveContracts, moveContractsForLegs } from "./src/compose.mjs";
+import { parseYaml, stringifyYaml } from "./src/yaml.mjs";
 
 const cases = [];
 
@@ -54,53 +56,48 @@ const cases = [];
       && opt["figure-roles"] === "figure" && opt["continues-from"] === "continues_from", opt]);
 }
 
-// --- Acceptance 2: byte-identical compose/judge input over the real library.
-// This is a snapshot: a direct field read off a real record, compared
-// against what the adapter renders for that same record, over the whole
-// admitted set and over a fixture Leg path through two of them. ---
+// --- Acceptance 2: byte-identical compose/judge input. A direct read of a
+// record through the Brief's own YAML reader (kogaki#1413), compared against
+// what the adapter renders for that same record, and over a fixture Leg path
+// through it. The committed library is the retired `.md` form until
+// kogaki#1415 regenerates it, so the snapshot runs over a fixture library and
+// the real one is held to loading or to the refusal naming that form. ---
 {
-  const lib = loadMoveContracts("moves");
-  cases.push(["loadMoveContracts resolves with no error over the real library", !lib.error, lib.error]);
-  const byId = new Map((lib.moves || []).map(m => [m.id, m]));
+  const real = loadMoveContracts("moves");
+  cases.push(["the real library loads, or is refused naming the retired `.md` form",
+    !real.error || (real.error.includes("retired `.md` form") && real.error.includes("kogaki#1415")), real.error]);
+
+  const snapLib = mkdtempSync(join(tmpdir(), "kogaki-1349-snapshot-"));
+  writeFileSync(join(snapLib, "ROLES.json"), readFileSync(join("moves", "ROLES.json")));
   const probe = "qualify_the_dilemma_then_name_its_two_conditions";
-  const text = readFileSync(join("moves", `${probe}.md`), "utf8");
-  // A direct re-implementation of the folded (`>-`) block-scalar read
-  // `moveScalarField` (src/compose.mjs) does internally but does not export
-  // — every following indented line to the first that is not, joined on a
-  // single space with runs of whitespace collapsed, matching the fold a `>`
-  // block always had before this adapter existed.
-  const field = (name) => {
-    const lines = text.split("\n");
-    const head = new RegExp(`^${name}:[ \\t]*(.*)$`);
-    for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(head);
-      if (!m) continue;
-      const body = [];
-      for (let j = i + 1; j < lines.length; j++) {
-        const l = lines[j];
-        if (l.trim() === "") { body.push(""); continue; }
-        if (!/^[ \t]/.test(l)) break;
-        body.push(l.trim());
-      }
-      while (body.length && body[body.length - 1] === "") body.pop();
-      const joined = body.join(" ").replace(/\s+/g, " ").trim();
-      return joined === "" ? null : joined;
-    }
-    return null;
-  };
+  writeFileSync(join(snapLib, `${probe}.yaml`), stringifyYaml({
+    id: probe,
+    before: { knowledge: "holds one mechanism.", trust: "rests on one case." },
+    after: { knowledge: "the mechanism varies by condition.", question: "what determines the variation?" },
+    technique: "Apply the mechanism to a second case, then qualify it.",
+    breaks: ["dropping the qualification leaves the variables nothing to explain"],
+    segments: [{ does: "applies the mechanism." }, { does: "qualifies it.", relation: "narrows the application." }],
+  }));
+  const lib = loadMoveContracts(snapLib);
+  cases.push(["loadMoveContracts resolves with no error over a YAML library", !lib.error, lib.error]);
+  const byId = new Map((lib.moves || []).map(m => [m.id, m]));
+  const rec = parseYaml(readFileSync(join(snapLib, `${probe}.yaml`), "utf8"));
+  const lines = (state) => Object.entries(state).map(([d, s]) => `${d}: ${s}`).join("\n");
   const c = byId.get(probe);
-  cases.push(["the adapter's before/after/technique/breaks for a real record match a direct field read",
-    !!c && c.before === field("before") && c.after === field("after")
-      && c.technique === field("technique") && c.breaks === field("breaks"),
-    { adapter: c, direct: { before: field("before"), after: field("after"), technique: field("technique"), breaks: field("breaks") } }]);
+  cases.push(["the adapter's before/after/technique/breaks for a record match a direct field read",
+    !!c && c.before === lines(rec.before) && c.after === lines(rec.after)
+      && c.technique === rec.technique && JSON.stringify(c.breaks) === JSON.stringify(rec.breaks),
+    { adapter: c, direct: rec }]);
 
   const legs = [{ leg_id: "L1", move: probe, waypoints: ["w1"] }];
-  const judge = moveContractsForLegs(legs, "moves");
+  const judge = moveContractsForLegs(legs, snapLib);
   cases.push(["moveContractsForLegs resolves with no error", !judge.error, judge.error]);
   const j = judge.contracts && judge.contracts[0];
   cases.push(["the judge input carries the same before/after/technique/breaks/segments as the compose input",
     !!j && j.before === c.before && j.after === c.after && j.technique === c.technique
-      && j.breaks === c.breaks && j.segments === c.segments, { judge: j, compose: c }]);
+      && JSON.stringify(j.breaks) === JSON.stringify(c.breaks) && JSON.stringify(j.segments) === JSON.stringify(c.segments),
+    { judge: j, compose: c }]);
+  rmSync(snapLib, { recursive: true, force: true });
 }
 
 // --- Fixture library setup for Acceptance 3 and 4: a tiny two-record
@@ -108,19 +105,14 @@ const cases = [];
 const fixtureLib = mkdtempSync(join(tmpdir(), "kogaki-1349-roles-"));
 const baseRoles = JSON.parse(readFileSync(join("moves", "ROLES.json"), "utf8"));
 function writeMove(dir, id, fields) {
-  const lines = [`id: ${id}`];
-  for (const [k, v] of Object.entries(fields)) {
-    lines.push(`${k}: >-`);
-    lines.push(`  ${v}`);
-  }
-  writeFileSync(join(dir, `${id}.md`), lines.join("\n") + "\n");
+  writeFileSync(join(dir, `${id}.yaml`), stringifyYaml({ id, ...fields }));
 }
 
 // --- Acceptance 3: a fixture Move record missing `before` is refused by
 // name at the src/compose.mjs adapter. ---
 {
   writeFileSync(join(fixtureLib, "ROLES.json"), JSON.stringify(baseRoles));
-  writeMove(fixtureLib, "no_before", { after: "state after", technique: "a technique", breaks: "a break" });
+  writeMove(fixtureLib, "no_before", { after: { knowledge: "state after" }, technique: "a technique", breaks: ["a break"] });
   const c = moveContract("no_before", fixtureLib);
   cases.push(["a Move record missing `before` is refused, naming the field",
     typeof c.error === "string" && c.error.includes("before") && c.error.includes("no_before"), c]);
@@ -135,7 +127,7 @@ rmSync(fixtureLib, { recursive: true, force: true });
   const renamedRoles = JSON.parse(JSON.stringify(baseRoles));
   renamedRoles.optional["specialized-by-the-Leg"] = "approach";
   writeFileSync(join(renamedLib, "ROLES.json"), JSON.stringify(renamedRoles));
-  writeMove(renamedLib, "m1", { before: "state before", after: "state after", approach: "a technique", breaks: "a break" });
+  writeMove(renamedLib, "m1", { before: { knowledge: "state before" }, after: { knowledge: "state after" }, approach: "a technique", breaks: ["a break"] });
   const renamed = moveContract("m1", renamedLib);
   cases.push(["a renamed field composes with no error under the renamed declaration",
     !renamed.error, renamed.error]);
@@ -146,7 +138,7 @@ rmSync(fixtureLib, { recursive: true, force: true });
   // reader still hunting the old field name by itself, rather than through
   // the declaration, would find nothing. Proves the rename is observed
   // through moves/ROLES.json and not through any stray fallback.
-  const direct = readFileSync(join(renamedLib, "m1.md"), "utf8");
+  const direct = readFileSync(join(renamedLib, "m1.yaml"), "utf8");
   cases.push(["the fixture record carries no literal `technique:` field",
     !/^technique:/m.test(direct), direct]);
   rmSync(renamedLib, { recursive: true, force: true });
@@ -171,5 +163,5 @@ if [[ $RC -ne 0 ]] || ! grep -q "move-roles self-test:" <<<"$OUT"; then
   exit 1
 fi
 
-echo "ok: moves/ROLES.json names the three required roles and the current optional roles; the adapter's compose and judge input over the real library match a direct field read; a Move missing before is refused at the adapter naming the field; a renamed optional field composes identically under the renamed declaration (kogaki#1349)"
+echo "ok: moves/ROLES.json names the three required roles and the current optional roles; the adapter's compose and judge input over a YAML library match a direct field read; a Move missing before is refused at the adapter naming the field; a renamed optional field composes identically under the renamed declaration (kogaki#1349)"
 exit 0

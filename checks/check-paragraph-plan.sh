@@ -73,7 +73,7 @@ const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS } =
   await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
-const { parseYaml } = await import(pathToFileURL(join(repo, "src", "yaml.mjs")).href);
+const { parseYaml, stringifyYaml } = await import(pathToFileURL(join(repo, "src", "yaml.mjs")).href);
 const { waypointLines } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-"));
@@ -83,22 +83,26 @@ const moves = join(root, "moves");
 mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
 const PSEG_DOES = "states the point once, plainly.";
-const PSEG = `1. does: ${PSEG_DOES}`;
-writeFileSync(join(moves, "p1.md"), ["id: p1", "technique: >-", "  makes one point and holds it.", "before: >-", "  knowledge: before.",
-  "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if the point is dropped.", "segments: |-", `  ${PSEG}`, ""].join("\n"));
-writeFileSync(join(moves, "p2.md"), ["id: p2", "technique: >-", "  names a case and leaves it.", "before: >-", "  knowledge: before.",
-  "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if the case is never named.", ""].join("\n"));
-const PSEG3 = ["1. does: sets up the point.", "2. does: makes the point. — relation: answers what the setup opened.",
-  "3. does: leaves the point. — relation: draws the consequence of the point."];
+// A Move record is YAML written by the Brief's own writer (kogaki#1413):
+// `before` and `after` maps keyed by dimension, `breaks` a list, `segments`
+// a list of maps.
+const writeMove = (dir, rec) => writeFileSync(join(dir, `${rec.id}.yaml`), stringifyYaml(rec));
+const STATE = { before: { knowledge: "before." }, after: { knowledge: "after." } };
+// p1's state holds two dimensions, so (j) can see them rendered one line each.
+const P1_BEFORE = { knowledge: "before.", question: "holds: none." };
+writeMove(moves, { id: "p1", technique: "makes one point and holds it.", before: P1_BEFORE, after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."],
+  segments: [{ does: PSEG_DOES }] });
+writeMove(moves, { id: "p2", technique: "names a case and leaves it.", ...STATE, breaks: ["breaks if the case is never named."] });
+const PSEG3 = [{ does: "sets up the point." }, { does: "makes the point.", relation: "answers what the setup opened." },
+  { does: "leaves the point.", relation: "draws the consequence of the point." }];
 // (i)'s Move: the 2026-10-16 run's paragraph 2, its Segments as the Extractor wrote them there.
 const P5_SEG1 = "concedes that the distinction just given is hard to hold and promises to simplify it through a pair of contrasting concrete cases.";
-writeFileSync(join(moves, "p5.md"), ["id: p5", "technique: >-", "  concede, then simplify through two cases.", "before: >-",
-  "  knowledge: before.", "after: >-", "  knowledge: after.", "breaks: |-", "  - drop the concession — the cases arrive unmotivated.",
-  "segments: |-", `  1. does: ${P5_SEG1}`, "  2. does: gives the first case. — relation: carries out the promised simplification.", ""].join("\n"));
+writeMove(moves, { id: "p5", technique: "concede, then simplify through two cases.", ...STATE,
+  breaks: ["drop the concession — the cases arrive unmotivated."],
+  segments: [{ does: P5_SEG1 }, { does: "gives the first case.", relation: "carries out the promised simplification." }] });
 const UNRELATED_FIRST_POINT = "In some societies many ordinary people, and not only soldiers or police, carry guns.";
-writeFileSync(join(moves, "p4.md"), ["id: p4", "technique: >-", "  should not be read -- segments present.", "before: >-",
-  "  knowledge: before.", "after: >-", "  knowledge: after.", "breaks: >-", "  breaks if a segment is dropped.",
-  "segments: |-", ...PSEG3.map((s) => `  ${s}`), ""].join("\n"));
+writeMove(moves, { id: "p4", technique: "should not be read -- segments present.", ...STATE,
+  breaks: ["breaks if a segment is dropped."], segments: PSEG3 });
 
 // ---- an isolated Move library for (c): its own ROLES.json leaves `specialized-by-the-Leg`
 // unmapped, the way `segments` already goes unmapped where a schema has nothing for it, so a
@@ -109,8 +113,7 @@ mkdirSync(movesNoOrder);
 const rolesNoTechnique = JSON.parse(readFileSync("moves/ROLES.json", "utf8"));
 rolesNoTechnique.optional["specialized-by-the-Leg"] = null;
 writeFileSync(join(movesNoOrder, "ROLES.json"), JSON.stringify(rolesNoTechnique, null, 2));
-writeFileSync(join(movesNoOrder, "p3.md"), ["id: p3", "before: >-", "  knowledge: before.", "after: >-", "  knowledge: after.",
-  "breaks: >-", "  breaks if the point is dropped.", ""].join("\n"));
+writeMove(movesNoOrder, { id: "p3", ...STATE, breaks: ["breaks if the point is dropped."] });
 
 // ---- the Brief: two Legs, three Leg Waypoints ----
 const C1 = "the installer copies the kit into the consumer's tree.";
@@ -154,8 +157,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const counter = dir + "/judge-" + leg.leg_id;
     const n = (existsSync(counter) ? Number(readFileSync(counter, "utf8")) : 0) + 1;
     writeFileSync(counter, String(n));
-    const doesOf = (w) => String((w.bound_move && w.bound_move.segments) || "").split("\\n")
-      .map((l) => ((l.match(/does:\\s*(.*?)(?:\\s*—\\s*relation:.*)?$/) || [])[1] || "").trim()).filter(Boolean);
+    const doesOf = (w) => ((w.bound_move && w.bound_move.segments) || []).map((s) => String(s.does || "").trim()).filter(Boolean);
     const restatesDescription = mode === "content" && leg.waypoints.some((w) =>
       (w.paragraph_waypoints || []).some((pw) => doesOf(w).some((d) => d && pw.point.includes(d))));
     // (i): refuses only where the row it was handed checks each Paragraph Waypoint against its
@@ -284,6 +286,37 @@ function runStage(name, ls, mode, movesDir = moves) {
   }
   if (existsSync(r.planPath)) fails.push("(b) a ParagraphPlan file was written for a stopped job");
   if (readFileSync(r.briefPath, "utf8") !== r.text) fails.push("(b) the Brief was rewritten by a stopped stage");
+}
+
+// (j) kogaki#1413: the plan call reads the Move record through the Brief's YAML
+// reader, its `before` map rendered one `dimension: sentence` line per dimension;
+// a library holding a `.md` Move, or a Move whose state is one joined line, is
+// refused by name and plans nothing.
+{
+  const r = runStage("yaml-state", legs, "ok");
+  const plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
+  const want = `"before": ${JSON.stringify(Object.entries(P1_BEFORE).map(([d, s]) => `${d}: ${s}`).join("\n"))}`;
+  if (!plans.length || !plans.every((p) => p.includes(want))) fails.push(`(j) a plan prompt does not carry p1's before one dimension per line (${want})`);
+
+  const retired = join(root, "moves-retired");
+  mkdirSync(retired);
+  writeFileSync(join(retired, "ROLES.json"), readFileSync("moves/ROLES.json"));
+  writeMove(retired, { id: "p1", technique: "makes one point and holds it.", ...STATE, breaks: ["breaks if the point is dropped."] });
+  writeFileSync(join(retired, "p9.md"), "id: p9\nbefore: >-\n  knowledge: before.\n");
+  const rr = runStage("retired", legs, "ok", retired);
+  const rOut = `${rr.started.stdout}${rr.started.stderr}${rr.awaited ? rr.awaited.stdout + rr.awaited.stderr : ""}`;
+  if (!rOut.includes("p9.md") || !rOut.includes("retired `.md` form")) fails.push(`(j) a library holding a .md Move is not refused naming it: ${rOut.slice(0, 400)}`);
+  if (existsSync(rr.planPath)) fails.push("(j) a ParagraphPlan file was written over a library holding a .md Move");
+
+  const joined = join(root, "moves-joined");
+  mkdirSync(joined);
+  writeFileSync(join(joined, "ROLES.json"), readFileSync("moves/ROLES.json"));
+  writeMove(joined, { id: "p1", technique: "makes one point and holds it.", before: "knowledge: before. question: holds: none.",
+    after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."] });
+  const jr = runStage("joined", legs, "ok", joined);
+  const jOut = `${jr.started.stdout}${jr.started.stderr}${jr.awaited ? jr.awaited.stdout + jr.awaited.stderr : ""}`;
+  if (!jOut.includes("one joined line")) fails.push(`(j) a Move whose before is one joined line is not refused by name: ${jOut.slice(0, 400)}`);
+  if (existsSync(jr.planPath)) fails.push("(j) a ParagraphPlan file was written over a joined-line Move");
 }
 
 // (c) a bound Move that fills neither `segments` nor `technique` stops the stage naming the Move.
@@ -448,5 +481,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments (each Segment's number, does and relation as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries all five roles; a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a bound Move filling neither segments nor technique stops naming the Move, each with the Brief unchanged and no file written; a Move carrying technique and no segments plans and judges the same as one carrying segments; a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's does is refused by the judge same as any other does-not-fit; the 2026-10-16 paragraph 2 plan, whose first point lost its Segment, is refused by the judge's per-Segment check and re-planned; a Leg Waypoint carrying move or segments is refused at start by name; the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments (each Segment's number, does and relation as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries all five roles; a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a bound Move filling neither segments nor technique stops naming the Move, each with the Brief unchanged and no file written; a Move carrying technique and no segments plans and judges the same as one carrying segments; a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's does is refused by the judge same as any other does-not-fit; the 2026-10-16 paragraph 2 plan, whose first point lost its Segment, is refused by the judge's per-Segment check and re-planned; a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); the skill names only entry points the Harness has.");
 JS

@@ -100,7 +100,7 @@ import { tmpdir } from "node:os";
 import { waypointsRefusal, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, figureKinds, figureLegs,
   journeysRefusal, closureRowsOf, budgetRefusal,
-  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, audienceSection,
+  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, audienceRecord,
   parseBriefRecord, unfilledSlots, briefLegs, legschema, readParagraphPlanBeside } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
@@ -1388,39 +1388,17 @@ function introducedMeaning(p) {
 // Audience's `persona.prior_knowledge` field, read directly here rather than
 // through `readerProse` — that reader refuses by name on an absent register,
 // and an absent or empty `prior_knowledge` is a STATED CASE this one must
-// render, never a refusal. `compose.mjs`'s scalar-field reader is
-// module-private, so this reads the same `key: >-`/`key: |` block-scalar
-// shape it does, over the one field this slot needs, inside the `persona` map
-// `audienceSection` returns.
+// render, never a refusal. The file is read by `audienceRecord`, the YAML
+// reader the Brief and the Move are read by (kogaki#1413).
 export function personaPriorKnowledge(path) {
-  let text;
-  try { text = readFileSync(path, "utf8"); }
-  catch { return null; }
-  const persona = audienceSection(text, "persona");
-  if (persona === null) return null;
-  const lines = persona.split("\n");
-  const head = /^prior_knowledge:[ \t]*(.*)$/;
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(head);
-    if (!m) continue;
-    const marker = m[1].trim();
-    if (marker !== "" && !/^[>|][-+]?$/.test(marker)) {
-      const inline = marker.replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
-      return inline === "" ? null : inline;
-    }
-    const folded = marker === "" || marker.startsWith(">");
-    const body = [];
-    for (let j = i + 1; j < lines.length; j++) {
-      const l = lines[j];
-      if (l.trim() === "") { body.push(""); continue; }
-      if (!/^[ \t]/.test(l)) break;
-      body.push(l.trim());
-    }
-    while (body.length && body[body.length - 1] === "") body.pop();
-    const joined = folded ? body.join(" ").replace(/\s+/g, " ") : body.join("\n");
-    return joined.trim() === "" ? null : joined.trim();
-  }
-  return null;
+  const a = audienceRecord(path);
+  if (a.error) return null;
+  const persona = a.record.persona;
+  if (!persona || typeof persona !== "object" || Array.isArray(persona)) return null;
+  const v = persona.prior_knowledge;
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
 }
 
 // THE STATED ABSENCE (kogaki#1285 acceptance): rendered in place of

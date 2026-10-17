@@ -47,7 +47,7 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { parseYaml, stringifyYaml } from "./yaml.mjs";
 import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveContracts, loadMoveIds,
-  moveContract, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
+  moveContract, MOVE_RECORD_EXT, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
   paragraphPlanRecord, paragraphPlanRecordText, readParagraphPlanBeside, paragraphPlanShapeRefusal,
   paragraphWaypointsRefusal, undeclaredKey } from "./compose.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
@@ -156,29 +156,19 @@ export function planLeg(leg) {
 
 // EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS TWO FIELDS (kogaki#1414, reverting the
 // withholding of kogaki#1403). A Segment is `does`, the step's operation written subject-free,
-// and `relation`, its relation to the Segment before it, in prose -- no label set. `segments`
-// lines are `<n>. does: <operation>[ — relation: <prose>]` (`tools/move_ingest.py`'s
-// `render_segments_text`); this splits each line into `{ segment, does, relation }` so the
-// planner reads the two fields apart. kogaki#1403 withheld the description because the
+// and `relation`, its relation to the Segment before it, in prose -- no label set. The Move
+// record carries `segments` as a list of maps in that shape (kogaki#1413); this numbers each
+// one into `{ segment, does, relation }`, `relation` empty on Segment 1, so the planner reads
+// the two fields apart and by position. kogaki#1403 withheld the description because the
 // planner read it as content; the plan row now says a `does` is an operation to perform and
 // never a point to state, and the judge checks each Paragraph Waypoint against its own
 // Segment, so the leak is refused where it happens rather than by blinding the planner (on
 // the 2026-10-16 run two labels alone could not carry "concede and promise to simplify", and
-// paragraph 2's first point lost its Segment). A line not in that shape rides whole as its `does`. `technique`, `before`,
-// `after` and `breaks` are untouched -- `technique` is the Move's only order where
-// `segments` is empty.
+// paragraph 2's first point lost its Segment). `technique`, `before`, `after` and `breaks`
+// are untouched -- `technique` is the Move's only order where `segments` is empty.
 export function segmentsForPlanCall(segments) {
-  if (typeof segments !== "string" || segments.trim() === "") return segments;
-  return segments.split("\n").map((l) => l.trim()).filter(Boolean).map((line, i) => {
-    const numbered = line.match(/^(\d+)\.\s*(.*)$/);
-    const body = numbered ? numbered[2] : line;
-    const m = body.match(/^does:\s*(.*?)(?:\s*—\s*relation:\s*(.*))?$/);
-    return {
-      segment: numbered ? Number(numbered[1]) : i + 1,
-      does: (m ? m[1] : body).trim(),
-      relation: (m && m[2] ? m[2] : "").trim(),
-    };
-  });
+  if (!Array.isArray(segments) || !segments.length) return segments;
+  return segments.map((s, i) => ({ segment: i + 1, does: String(s.does).trim(), relation: String(s.relation ?? "").trim() }));
 }
 
 export function paragraphPlanUnitInput(leg, moves, persona) {
@@ -212,17 +202,20 @@ export function boundMoveContract(moveId, movesDir) {
     throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and cannot be read for the roles `
       + `this stage needs (${PARAGRAPH_MOVE_ROLES.join(", ")}, and segments or technique) — ${c.error}`);
   }
+  // `before` and `after` arrive rendered one line per dimension, `breaks` as a list of
+  // prose tests and `segments` as a list of Segments (kogaki#1413).
+  const filled = (v) => (Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.trim() !== "");
   for (const role of PARAGRAPH_MOVE_ROLES) {
-    if (typeof c[role] !== "string" || c[role].trim() === "") {
+    if (!filled(c[role])) {
       throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and does not fill the role `
-        + `\`${role}\` (${movesDir}/${moveId}.md) — this stage binds and judges against its before and after, judges `
+        + `\`${role}\` (${movesDir}/${moveId}${MOVE_RECORD_EXT}) — this stage binds and judges against its before and after, judges `
         + "that the Paragraph Waypoints survive its breaks, and orders them by its segments or technique, so nothing is defaulted. "
         + "Repair the Move record under its own issue.");
     }
   }
-  if ((typeof c.segments !== "string" || c.segments.trim() === "") && (typeof c.technique !== "string" || c.technique.trim() === "")) {
+  if (!filled(c.segments) && !filled(c.technique)) {
     throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and fills neither \`segments\` nor `
-      + `\`technique\` (${movesDir}/${moveId}.md) — this stage builds Paragraph Waypoints in the order one of them gives, `
+      + `\`technique\` (${movesDir}/${moveId}${MOVE_RECORD_EXT}) — this stage builds Paragraph Waypoints in the order one of them gives, `
       + "so nothing is defaulted. Repair the Move record under its own issue.");
   }
   return c;

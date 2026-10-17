@@ -41,7 +41,8 @@ import { pathToFileURL } from "node:url";
 import { parseYaml } from "../yaml.mjs";
 import { settingValue, JUDGE_INPUT_MARKER } from "../workflow/judge.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
-import { legParagraphs, EXTRACTION_TABLE } from "./extract.mjs";
+import { legParagraphs, EXTRACTION_TABLE, extractionMarkdown } from "./extract.mjs";
+import { MOVE_RECORD_EXT } from "../compose.mjs";
 
 export const PROVENANCE_SECTION = "## Cells of the Leg card";
 // The provenance map's row for each card, by the name the map's first column carries. These
@@ -244,9 +245,14 @@ function promptPart(named) {
   return named.map(([title, text]) => sub(title, promptHalves(text))).join("");
 }
 
+// A Move file's Segments, read off its YAML record (kogaki#1413); none where the file is
+// absent or unreadable.
 function moveSegments(moveText) {
-  const m = String(moveText || "").match(/^segments:[^\n]*\n((?:[ \t]+[^\n]*\n?)*)/m);
-  return m ? m[1].split("\n").filter((l) => /^\s+\d+\.\s/.test(l)).map((l) => l.replace(/^\s+\d+\.\s*/, "").trim()) : [];
+  if (!moveText) return [];
+  try {
+    const rec = parseYaml(moveText);
+    return rec && Array.isArray(rec.segments) ? rec.segments.map((s) => String((s && s.does) || "").trim()) : [];
+  } catch { return []; }
 }
 function segmentCount(moveText) { return moveSegments(moveText).length; }
 
@@ -397,7 +403,11 @@ function extractionCard(r, idx) {
     const key = inputAt >= 0 ? promptText.slice(inputAt) : null;
     const calls = key ? r.extractCalls.filter((c) => String(c.stdin).includes(key)) : [];
     const segs = answer && Array.isArray(answer.segments) ? answer.segments : [];
-    per.push({ i, file, text, promptText, calls, attempts, segs });
+    // THE RECORD, RENDERED (kogaki#1413): the Extraction file is a YAML record, shown here as
+    // the Markdown `extractionMarkdown` renders, with the file itself folded beneath it.
+    let rendered = null;
+    if (text) { try { rendered = extractionMarkdown(parseYaml(text, file)); } catch { rendered = null; } }
+    per.push({ i, file, text, rendered, promptText, calls, attempts, segs });
   }
   const pairsOf = (p) => (p.segs.length
     ? `<table><thead><tr><th>#</th><th>content clause</th><th>does</th><th>relation</th></tr></thead><tbody>`
@@ -407,7 +417,8 @@ function extractionCard(r, idx) {
   const output = stageNote(r, "extract")
     + `<table class="rows"><thead><tr><th>paragraph</th><th>file</th></tr></thead><tbody>`
     + per.map((p) => `<tr id="${anchorId("extraction", p.i + 1, idx)}"><td>${p.i + 1}</td><td><p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
-      + (p.file ? pre(p.text || "(not written)") + sub("Segments", pairsOf(p)) : "") + `</td></tr>`).join("")
+      + (p.file ? pre(p.rendered || p.text || "(not written)") + sub(`record file — ${esc(rel(p.file))}`, pre(p.text || "(not written)"))
+        + sub("Segments", pairsOf(p)) : "") + `</td></tr>`).join("")
     + `</tbody></table>`;
 
   // The Prompt is the recorded stdin of each paragraph's first call, not the judge's
@@ -429,7 +440,7 @@ function moveCard(r, idx) {
   const rows = [];
   for (let i = 0; i < n; i++) {
     const e = entries[i] || {};
-    const mp = e.move ? join(r.runDir, "moves", `${e.move}.md`) : null;
+    const mp = e.move ? join(r.runDir, "moves", `${e.move}${MOVE_RECORD_EXT}`) : null;
     const mt = mp ? read(mp) : null;
     rows.push(`<tr id="${anchorId("move", i + 1, idx)}"><td>${i + 1}</td><td><p class="meta">${mp ? esc(rel(mp)) : "(not written)"} · sha ${contentHash(mt)}</p>`
       + pre(mt || e.refusal || "(not written)") + (e.screen ? sub(`ingest entry — sha ${contentHash(e.screen)}`, pre(e.screen)) : "") + `</td></tr>`);
@@ -502,7 +513,7 @@ function paragraphPlanCard(r, idx) {
     countsTable = `<table><thead><tr><th>Leg Waypoint</th><th>bound Move</th><th>Paragraph Waypoints</th><th>Segments of the Move</th></tr></thead><tbody>`
       + pl.waypoints.map((w) => {
         const bnd = ((bindings && bindings.bindings) || []).find((x) => x.waypoint === w.waypoint) || {};
-        const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}.md`))) : 0;
+        const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}${MOVE_RECORD_EXT}`))) : 0;
         const pws = w.paragraph_waypoints || [];
         return `<tr id="${anchorId("planwp", w.waypoint, idx)}"${pws.length !== segs ? ' class="off"' : ""}><td>${w.waypoint}</td><td>${esc(bnd.move || "?")}</td>`
           + `<td><ol>${pws.map((p) => `<li>${esc(p.point || "")}</li>`).join("")}</ol></td><td>${segs}</td></tr>`;

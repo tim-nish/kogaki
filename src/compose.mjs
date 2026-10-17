@@ -452,10 +452,9 @@ export const READER_STATE_DIMENSIONS = ["knowledge", "question", "expectation", 
 // STANCE/STATE in the Move library's own dimensions, not a knowledge
 // sentence (kogaki#1176 repair): one `dimension: value` LINE per dimension,
 // each line's dimension drawn from READER_STATE_DIMENSIONS. This is NOT the
-// Move library's own `before`/`after` shape verbatim -- moves/*.md folds
-// its dimensions into one YAML paragraph, separated by `. `, and a value
-// there is free to carry a semicolon or any other punctuation mid-sentence
-// (kogaki#1211). The shape here is the one the composition prompt shows --
+// Move library's own `before`/`after` shape verbatim -- a Move record holds
+// its dimensions as a YAML map (kogaki#1413), and a value there is free to
+// carry a semicolon or any other punctuation mid-sentence (kogaki#1211). The shape here is the one the composition prompt shows --
 // `src/candidate-schema.json` and `src/leg-schema.json`'s field
 // descriptions -- one line per dimension, so a semicolon inside a
 // dimension's own sentence is ordinary prose and never a segment split. A
@@ -996,25 +995,15 @@ export function figureClaimRefusal(figure_roles, claimCount, at) {
 // words a reader sees (src/figure-kinds.json), so reading it compares nothing
 // about the Move's prose, and this function extracts that block only.
 export function figureOf(moveId, movesDir = "moves") {
-  let text;
-  try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
-  catch (e) {
-    return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
+  const r = readMoveRecord(moveId, movesDir);
+  if (r.error) return { error: r.error };
+  const block = r.record.figure;
+  if (block === undefined || block === null) return { form: null };
+  if (!isPlainMap(block)) {
+    return { error: `move "${moveId}" carries a \`figure\` that is not a map of \`kind\` and one line per role (${movesDir}/${moveId}${MOVE_RECORD_EXT})` };
   }
-  const lines = text.split("\n");
-  const start = lines.findIndex((l) => /^figure:[ \t]*$/.test(l));
-  if (start === -1) return { form: null };
   const form = {};
-  for (let i = start + 1; i < lines.length; i++) {
-    const l = lines[i];
-    if (l.trim() === "") continue;
-    // The block ends at the first line that is not indented — the Move record
-    // is a flat mapping with one nested block, so dedent IS the terminator.
-    if (!/^[ \t]/.test(l)) break;
-    const m = l.match(/^[ \t]+([A-Za-z0-9_]+):[ \t]*(.*)$/);
-    if (!m) continue;
-    form[m[1]] = m[2].trim();
-  }
+  for (const [k, v] of Object.entries(block)) form[k] = v === null || v === undefined ? "" : String(v).trim();
   return { form };
 }
 
@@ -1115,12 +1104,17 @@ export function loadMoveIds(movesDir = "moves") {
       + `pass --moves-dir if the library is not at the default path` };
   }
   const ids = new Set();
+  const retired = [];
   for (const n of names) {
-    if (!n.endsWith(".md")) continue;
-    const id = n.slice(0, -3);
-    if (id === "INDEX") continue; // the regenerated view, never a record (the Move file interiora)
-    ids.add(id);
+    if (n.endsWith(MOVE_RECORD_EXT)) { ids.add(n.slice(0, -MOVE_RECORD_EXT.length)); continue; }
+    if (!n.endsWith(".md") || n === "INDEX.md") continue; // INDEX is the regenerated view, never a record
+    retired.push(n);
   }
+  // A `.md` MOVE IS REFUSED BY NAME, NEVER SKIPPED (kogaki#1413). Skipping it
+  // would turn a Leg bound to it into "resolves to no record", a true refusal
+  // for a false reason, and reading it would need the hand-written scalar
+  // parser this record format retired.
+  if (retired.length) return { error: retiredMoveFormRefusal(movesDir, retired.sort()) };
   if (ids.size === 0) {
     return { error: `the Move library at ${movesDir} holds no Move records — `
       + `every Leg's move id would dangle, which is a store problem and not a composition one (the Leg-Move instantiation contract)` };
@@ -1147,7 +1141,7 @@ export function resolveMoveIds(legs, movesDir = "moves") {
     }
     if (!store.ids.has(id)) {
       return { error: `leg ${s.leg_id}: move "${id}" resolves to no record in the Move library `
-        + `(${movesDir}/${id}.md does not exist) — a Leg INSTANTIATES a Move, so a Move that is not there `
+        + `(${movesDir}/${id}${MOVE_RECORD_EXT} does not exist) — a Leg INSTANTIATES a Move, so a Move that is not there `
         + `leaves the Leg with no reader-state transition type to be the instance of (the Leg-Move instantiation contract). `
         + `Bind an admitted Move, or admit this one to the library first — the library grows by an `
         + `admission act, never by a Brief naming an id (the Move library)` };
@@ -1185,45 +1179,76 @@ export function resolveMoveIds(legs, movesDir = "moves") {
 //
 // consulted: coding::lesson/constrain-generation-not-post-hoc-detection@b31d159e45b64065d0deb0944d975ac9a472c1f8c22c872784c66325740e9fe9
 
-// One top-level scalar of a Move record. The record is a flat mapping whose
-// values are folded (`>-`) or literal (`|`) blocks, or plain inline scalars;
-// `figureOf` above reads the one NESTED block by the same dedent rule, and
-// this reads the flat ones. Returns null where the field is absent, which the
-// callers refuse by name rather than papering over with an empty string.
-function moveScalarField(text, name) {
-  const lines = text.split("\n");
-  const head = new RegExp(`^${name}:[ \\t]*(.*)$`);
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(head);
-    if (!m) continue;
-    const marker = m[1].trim();
-    if (marker !== "" && !/^[>|][-+]?$/.test(marker)) {
-      // An inline scalar, quoted or bare. EMPTY IS ABSENT ON THIS ARM TOO, and
-      // the symmetry is the point rather than tidiness (PR #1127 round 1): the
-      // block arm below reports an empty block as absent, so `before: ""` on
-      // this arm would be the one authoring form that yields a present-but-blank
-      // contract — and a judge handed a blank to compare against is the shape
-      // this whole reader exists to end, arriving one spelling over.
-      const inline = marker.replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
-      return inline === "" ? null : inline;
+// THE MOVE RECORD IS A `.yaml` FILE, READ BY THE BRIEF'S YAML READER (kogaki#1413).
+// `before` and `after` are maps keyed by dimension, one sentence per changed
+// dimension, and the hand-written scalar parser that read the `.md` form could
+// not read a map, so it is gone rather than widened: one reader, `parseYaml`,
+// reads the Brief and the Move. Two retired forms are refused by name rather
+// than read -- a `<id>.md` record, and a state written as one joined line.
+export const MOVE_RECORD_EXT = ".yaml";
+// The five reader dimensions, in passages/FORMAT.md's order.
+export const MOVE_STATE_DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
+
+function isPlainMap(v) { return v !== null && typeof v === "object" && !Array.isArray(v); }
+
+function retiredMoveFormRefusal(movesDir, files) {
+  return `the Move library at ${movesDir} holds ${files.length} Move record(s) in the retired \`.md\` form (${files.join(", ")}) — `
+    + `a Move record is a \`.yaml\` file read by the Brief's YAML reader, carrying \`before\` and \`after\` as maps keyed by `
+    + `dimension (kogaki#1413), and a \`.md\` Move is refused by name rather than read. Regenerate the record from its Extraction `
+    + `(kogaki#1415 regenerates the committed Leg Moves)`;
+}
+
+// A state, `before` or `after`: a non-empty map whose keys are reader dimensions
+// and whose values are one-line sentences. Returns a refusal sentence or null.
+export function moveStateRefusal(value, field, at) {
+  if (typeof value === "string") {
+    return `${at}: \`${field}\` is one joined line, not a map keyed by dimension — a Move's state is one \`<dimension>: <sentence>\` `
+      + `entry per changed dimension (kogaki#1413), and a joined-line state is refused by name rather than split`;
+  }
+  if (!isPlainMap(value) || !Object.keys(value).length) {
+    return `${at}: \`${field}\` is not a map keyed by dimension — one entry per changed dimension, over ${MOVE_STATE_DIMENSIONS.join(", ")} (kogaki#1413)`;
+  }
+  for (const [k, v] of Object.entries(value)) {
+    if (!MOVE_STATE_DIMENSIONS.includes(k)) {
+      return `${at}: \`${field}\` carries \`${k}\`, which is not a reader dimension — the dimensions are ${MOVE_STATE_DIMENSIONS.join(", ")}`;
     }
-    // A block scalar: every following INDENTED line, to the first that is not.
-    // Folded (`>`) joins on a space, literal (`|`) keeps the newlines — the
-    // distinction is the block marker's, read rather than assumed, so a Move
-    // written either way renders as its author wrote it.
-    const folded = marker === "" || marker.startsWith(">");
-    const body = [];
-    for (let j = i + 1; j < lines.length; j++) {
-      const l = lines[j];
-      if (l.trim() === "") { body.push(""); continue; }
-      if (!/^[ \t]/.test(l)) break;
-      body.push(l.trim());
+    if (typeof v !== "string" || v.trim() === "" || /[\r\n]/.test(v)) {
+      return `${at}: \`${field}.${k}\` is not one non-empty sentence on one line`;
     }
-    while (body.length && body[body.length - 1] === "") body.pop();
-    const joined = folded ? body.join(" ").replace(/\s+/g, " ") : body.join("\n");
-    return joined.trim() === "" ? null : joined.trim();
   }
   return null;
+}
+
+// A state map rendered for a prompt: one `<dimension>: <sentence>` line per
+// entry, in the dimensions' order -- the shape the binding contract and the
+// ParagraphPlan judge read (kogaki#1413).
+export function moveStateLines(state) {
+  return MOVE_STATE_DIMENSIONS.filter((d) => Object.prototype.hasOwnProperty.call(state, d))
+    .map((d) => `${d}: ${String(state[d]).trim()}`).join("\n");
+}
+
+// One Move record, parsed. Returns `{ record, path }` or `{ error }`: a `.md`
+// record refused by name, an unreadable or malformed file, a record that is
+// not a map, or one whose `id` is not its file's stem.
+export function readMoveRecord(moveId, movesDir = "moves") {
+  const path = join(movesDir, `${moveId}${MOVE_RECORD_EXT}`);
+  const retiredPath = join(movesDir, `${moveId}.md`);
+  if (!existsSync(path) && existsSync(retiredPath)) {
+    return { error: `move "${moveId}" is a \`.md\` record (${retiredPath}) — ` + retiredMoveFormRefusal(movesDir, [`${moveId}.md`]) };
+  }
+  let text;
+  try { text = readFileSync(path, "utf8"); }
+  catch (e) {
+    return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
+  }
+  let record;
+  try { record = parseYaml(text, path); }
+  catch (e) { return { error: `move "${moveId}" is not a readable YAML record (${e.message})` }; }
+  if (!isPlainMap(record)) return { error: `move "${moveId}" (${path}) is not a map of fields` };
+  if (record.id !== moveId) {
+    return { error: `move "${moveId}" (${path}) carries id ${JSON.stringify(record.id ?? null)} — a Move's id is its file's stem` };
+  }
+  return { record, path };
 }
 
 // THE QUESTION-CHAIN JUDGE INPUT IS RETIRED (kogaki#1325). `questionChainPairs`
@@ -1295,31 +1320,35 @@ const REQUIRED_ROLE_OUTPUT_KEYS = [["state-before", "before"], ["state-after", "
 const OPTIONAL_ROLE_OUTPUT_KEYS = [["specialized-by-the-Leg", "technique"], ["tests", "breaks"], ["segments", "segments"]];
 
 export function moveContract(moveId, movesDir = "moves") {
-  let text;
-  try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
-  catch (e) {
-    return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
-  }
+  const read = readMoveRecord(moveId, movesDir);
+  if (read.error) return { error: read.error };
+  const { record, path } = read;
   const rolesResult = moveRoles(movesDir);
   if (rolesResult.error) return rolesResult;
   const { required, optional } = rolesResult.roles;
   const out = { id: moveId };
   const missing = [];
+  const at = `move "${moveId}" (${path})`;
   for (const [role, outKey] of REQUIRED_ROLE_OUTPUT_KEYS) {
     const field = required[role];
     if (typeof field !== "string" || field === "") {
       return { error: `${movesDir}/ROLES.json names no field for the required role "${role}" — every schema maps `
         + `identity, state-before and state-after (specs/spec-draft-pipeline/SPEC.md field-roles table)` };
     }
-    const v = moveScalarField(text, field);
-    if (v === null) missing.push(field);
-    else out[outKey] = v;
+    const v = record[field];
+    if (v === undefined || v === null) { missing.push(field); continue; }
+    // A STATE IS A MAP KEYED BY DIMENSION (kogaki#1413), rendered here one
+    // line per dimension: that is the text the binding contract and the judge
+    // read, so the map's shape is checked at the one place it is rendered.
+    const bad = moveStateRefusal(v, field, at);
+    if (bad) return { error: bad };
+    out[outKey] = moveStateLines(v);
   }
   if (missing.length) {
     // A STORE FAULT, NAMED AS ONE. A Move whose contract is half-written
     // cannot be judged against, and reporting it as a composition problem
     // would send the reader to the Brief rather than to the library.
-    return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${movesDir}/${moveId}.md) — `
+    return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${path}) — `
       + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
       + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
   }
@@ -1329,45 +1358,79 @@ export function moveContract(moveId, movesDir = "moves") {
       out[outKey] = null; // the declaration leaves this role unmapped
       continue;
     }
-    const v = moveScalarField(text, field);
-    if (v === null && (role === "specialized-by-the-Leg" || role === "tests")) {
+    const v = record[field];
+    const absent = v === undefined || v === null || (typeof v === "string" && v.trim() === "")
+      || (Array.isArray(v) && !v.length);
+    if (absent && (role === "specialized-by-the-Leg" || role === "tests")) {
       // Mapped AND absent from the record is a half-written contract, same
       // as a missing required field — the declaration says this library's
       // Moves carry the role, so a record that does not is the fault.
-      return { error: `move "${moveId}" declares no ${field} (${movesDir}/${moveId}.md) — `
+      return { error: `move "${moveId}" declares no ${field} (${path}) — `
         + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
         + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
     }
-    // `segments` IS OPTIONAL EVEN WHEN MAPPED (kogaki#1320): the 21 Moves
-    // ingested before the field existed carry none, and the composer and the
-    // fit judge fall back to `technique` where it is absent rather than
-    // refusing.
-    out[outKey] = v;
+    if (absent) {
+      // `segments` IS OPTIONAL EVEN WHEN MAPPED (kogaki#1320): the composer
+      // and the fit judge fall back to `technique` where it is absent.
+      out[outKey] = null;
+      continue;
+    }
+    const bad = optionalRoleRefusal(role, field, v, at);
+    if (bad) return { error: bad };
+    out[outKey] = role === "specialized-by-the-Leg" ? v.trim() : v;
   }
   return out;
 }
 
+// The shapes moves/ROLES.json's `shapes` states for the list-valued roles,
+// read back at the Adapter (kogaki#1414, carried in YAML by kogaki#1413):
+// `breaks` a list of one-line prose tests, `segments` a list of maps carrying
+// `does` and, on every Segment after the first, `relation`.
+function optionalRoleRefusal(role, field, v, at) {
+  const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
+  if (role === "specialized-by-the-Leg") return typeof v === "string" ? null : `${at}: \`${field}\` is not prose`;
+  if (role === "tests") {
+    if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of prose tests — one entry per test (kogaki#1414, kogaki#1413)`;
+    const i = v.findIndex((x) => !oneLine(x));
+    return i < 0 ? null : `${at}: \`${field}\` test ${i + 1} is not one non-empty line`;
+  }
+  if (role === "segments") {
+    if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of Segments — one map per Segment carrying \`does\` and \`relation\` (kogaki#1414, kogaki#1413)`;
+    for (const [i, s] of v.entries()) {
+      const atS = `${at}: \`${field}\` Segment ${i + 1}`;
+      if (!isPlainMap(s)) return `${atS} is not a map`;
+      const extra = Object.keys(s).find((k) => k !== "does" && k !== "relation");
+      if (extra) return `${atS} carries \`${extra}\` — a Segment carries \`does\` and \`relation\` only`;
+      if (!oneLine(s.does)) return `${atS} carries no one-line \`does\``;
+      if (i === 0 && s.relation !== undefined) return `${atS} carries a \`relation\` — a Move carries no relation to what precedes it (kogaki#1411)`;
+      if (i > 0 && !oneLine(s.relation)) return `${atS} carries no one-line \`relation\` to the Segment before it`;
+    }
+  }
+  return null;
+}
+
 // THE AUDIENCE FILE (kogaki#1370, owner decision 2026-10-13): one
 // owner-authored file under `audiences/` holding two keys -- `persona`, who
-// is read to, and `register`, how they are addressed. `audienceSection`
-// returns the indented lines under a top-level key, dedented, so the flat
-// scalar reader below reads the `persona` map's two fields exactly as it
-// reads a Move record's.
-export function audienceSection(text, name) {
-  const lines = text.split("\n");
-  const head = new RegExp(`^${name}:[ \\t]*$`);
-  const at = lines.findIndex((l) => head.test(l));
-  if (at < 0) return null;
-  const body = [];
-  for (let j = at + 1; j < lines.length; j++) {
-    const l = lines[j];
-    if (l.trim() !== "" && !/^[ \t]/.test(l)) break;
-    body.push(l);
-  }
-  const indents = body.filter((l) => l.trim() !== "").map((l) => l.match(/^[ \t]*/)[0].length);
-  if (!indents.length) return null;
-  const cut = Math.min(...indents);
-  return body.map((l) => l.slice(Math.min(cut, l.match(/^[ \t]*/)[0].length))).join("\n");
+// is read to, and `register`, how they are addressed. It is read by the same
+// YAML reader as the Brief and the Move (kogaki#1413). Returns the parsed map,
+// or `{ error }`.
+export function audienceRecord(path) {
+  let text;
+  try { text = readFileSync(path, "utf8"); }
+  catch (e) { return { error: `the Audience file ${path} cannot be read (${e.message})` }; }
+  let record;
+  try { record = parseYaml(text, path); }
+  catch (e) { return { error: `the Audience file ${path} is not a readable YAML record (${e.message})` }; }
+  if (!isPlainMap(record)) return { error: `the Audience file ${path} is not a map of keys` };
+  return { record };
+}
+
+// One scalar of an Audience map, trimmed; null where absent or empty.
+function audienceScalar(map, key) {
+  const v = isPlainMap(map) ? map[key] : undefined;
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
 }
 
 // THE PERSONA, the Audience file's `persona` key (kogaki#1216, owner-approved
@@ -1380,9 +1443,9 @@ export function audienceSection(text, name) {
 // explanation, and what cannot. Nothing about attitude, trust or the reader's
 // question: those are Reader start dimensions, and holding them here would
 // duplicate it. The
-// map is flat `key: value` like a Move record, so the same scalar reader
-// serves both; a missing field is a store fault named by field, exactly as a
-// half-written Move contract is. The Persona is an INPUT to authoring Reader
+// map is read by the YAML reader the Brief and the Move are (kogaki#1413); a
+// missing field is a store fault named by field, exactly as a half-written
+// Move contract is. The Persona is an INPUT to authoring Reader
 // start and is never copied into the Brief.
 // `reader` IS REQUIRED; `prior_knowledge` IS NOT (kogaki#1281, owner decision
 // 2026-10-06). The Persona may be empty or very general ("Student", "Office
@@ -1392,22 +1455,21 @@ export function audienceSection(text, name) {
 export const READER_PERSONA_FIELDS = ["reader"];
 export const READER_PERSONA_OPTIONAL_FIELDS = ["prior_knowledge"];
 export function readerPersona(path) {
-  let text;
-  try { text = readFileSync(path, "utf8"); }
-  catch (e) {
-    return { error: `the Audience file ${path} cannot be read (${e.message}) — the Brief workflow table names it, and `
+  const a = audienceRecord(path);
+  if (a.error) {
+    return { error: `${a.error} — the Brief workflow table names it, and `
       + "Reader start is authored from its `persona` and the Thesis (kogaki#1216)" };
   }
-  const out = { id: moveScalarField(text, "id") };
-  const persona = audienceSection(text, "persona") ?? "";
+  const out = { id: audienceScalar(a.record, "id") };
+  const persona = a.record.persona;
   const missing = [];
   for (const f of READER_PERSONA_FIELDS) {
-    const v = moveScalarField(persona, f);
+    const v = audienceScalar(persona, f);
     if (v === null) missing.push(`persona.${f}`);
     else out[f] = v;
   }
   for (const f of READER_PERSONA_OPTIONAL_FIELDS) {
-    out[f] = moveScalarField(persona, f); // null is a stated absence, read by personaPriorKnowledgeLine
+    out[f] = audienceScalar(persona, f); // null is a stated absence, read by personaPriorKnowledgeLine
   }
   if (missing.length) {
     return { error: `the Audience file ${path} declares no ${missing.join(" and no ")} — the Persona names `
@@ -1437,12 +1499,11 @@ export function personaPriorKnowledgeLine(persona) {
 // missing register refuses by name: the Packet is the writer's entire input, and
 // a Write block with no register is a hole the writer fills by invention.
 export function readerProse(path) {
-  let text;
-  try { text = readFileSync(path, "utf8"); }
-  catch (e) {
-    return { error: `the Audience file ${path} cannot be read (${e.message}) — the Packet's register is its \`register\` key (kogaki#1261, kogaki#1370)` };
+  const a = audienceRecord(path);
+  if (a.error) {
+    return { error: `${a.error} — the Packet's register is its \`register\` key (kogaki#1261, kogaki#1370)` };
   }
-  const register = moveScalarField(text, "register");
+  const register = audienceScalar(a.record, "register");
   if (register === null) {
     return { error: `the Audience file ${path} declares no \`register\` — the Packet's Write block renders the Audience's register from it (kogaki#1261, kogaki#1370). `
       + "Repair the Audience file under its own issue." };
