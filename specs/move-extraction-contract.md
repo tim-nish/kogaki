@@ -34,7 +34,7 @@ and `after`.
 `segments` added (kogaki#1320, owner ruling 2026-10-10): the record carries
 the Extraction's ordered Segments, so a human can check a Leg's waypoint order
 against something other than the prose of `technique`. The model is never
-asked to write it — the eight keys below are still the whole of what the
+asked to write it — the keys below are still the whole of what the
 model authors — `tools/move_ingest.py`'s `passage` mode copies it from the
 Extraction's own `segments`, entry for entry, after the model has returned its
 record.
@@ -47,6 +47,14 @@ content clause — a content-bearing Segment clause would let a Move's
 structure be reconstructed back to its source paragraph, which the
 generalized clause cannot be. An Extraction Segment carrying only the content clause
 is refused at ingestion, naming the Segment's number.
+
+`technique` retired and `description` added (kogaki#1412, owner decision
+2026-10-17): `technique` restated in prose the structure `segments` already
+carries, so the model no longer writes it and a record carrying it is refused
+by name. `description` — one or two sentences for a person reading the
+library, at most 200 characters, with no machine role — is never written by
+the model either: the tool copies it from the Extraction's own
+`description`, as it copies `segments`.
 
 **Origin.** The Move concept follows Swales' move analysis in genre studies:
 a text is coded as a sequence of communicative purposes, each a move. The
@@ -81,7 +89,7 @@ the article.
 
 ## Output format
 
-One record per Move, exactly these eight keys admissible — five always
+One record per Move, exactly these seven keys admissible — four always
 present, three optional — in this order, separated by one blank line.
 Multi-line values use YAML folded style (`>-`). `before` and `after` are
 maps keyed by dimension, one entry per dimension, never one joined line;
@@ -98,8 +106,6 @@ before:
 after:
   <dimension>: <the reader's state on that dimension after the Move, same
     dimension set as before>
-technique: >-
-  <what the Move does, subject-free, one or two sentences>
 breaks:
   - <one prose test: a change a careful writer might make, and what the
     reader loses>
@@ -127,9 +133,6 @@ figure:
   reader holds, and `after` states whether the Move settled it, replaced it with a narrower
   one, or raised a new one beside it. Write `question: holds: none.` as the
   `before` entry when the reader arrives with no live question.
-- **technique** — subject-free, general to the technique. A person applying
-  this Move to a completely different topic must be able to follow it from
-  this field alone.
 - **breaks** — general to the technique, never specific to this article's
   subject, replacing the old `constraints` + `failure_modes` pair: what
   removing a step, reordering the Move's parts, or stretching it past its
@@ -144,7 +147,7 @@ figure:
 
 1. **`evidence` names the work and where the Passage sits — never a
    quotation, and never an account of the reader movement.** That account
-   belongs in `before`/`after` and `technique`.
+   belongs in `before`/`after` and the Extraction's `segments`.
 2. **Do not paste the source text.** A short quoted phrase naming the
    Passage's location is fine; a transcribed passage is not.
 3. **Optional, and typically empty.** Leave it out where source metadata is
@@ -155,7 +158,7 @@ figure:
 Present only when the Passage refers to a figure the article shows. Follow
 `passages/FIGURE.md` to recover the figure's **structure** — its `kind` and
 the **positions** (roles) it has — and write one line per role into the
-Move's own vocabulary, exactly as `technique` would name it. `relations`
+Move's own vocabulary, exactly as its Segments' `does` clauses would name it. `relations`
 states in one line what holds between the positions. **Never the figure's
 content**: no printed label, no data value, nothing that names this
 article's own subject inside a role's line beyond what makes the role
@@ -166,7 +169,11 @@ empty block.
 
 ## The `segments` field
 
-Not one of the eight keys above, and never written by the model. In
+Not one of the keys above, and never written by the model — and neither is
+`description`, which the tool copies from the Extraction the same way
+(kogaki#1412). A record left with no `segments` or no `description` after the
+copy is refused, naming the field, and a `description` over 200 characters is
+refused naming its length. In
 `tools/move_ingest.py`'s `passage` mode, once the model's record is admitted,
 the tool reads the Extraction record beside the Passage and copies its
 `segments` into the record's own `segments`, entry for entry, in the same
@@ -186,5 +193,4 @@ Segments, so a value it supplied anyway is a defect, not an alternative to
 the copy.
 
 A saved Move renders `segments` as a YAML list of maps, in the
-Extraction's own order, so a human reads the order as a list rather than checking it against
-the prose of `technique`.
+Extraction's own order, so a human reads the order as a list.

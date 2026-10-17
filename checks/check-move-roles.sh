@@ -13,8 +13,8 @@
 # WHAT THIS COVERS (the four Acceptance fixtures named in the Issue):
 #   1. `moves/ROLES.json` exists and names the three required roles
 #      (identity, state-before, state-after) and the current optional roles
-#      (specialized-by-the-Leg, tests, segments, figure-roles, continues-from)
-#      with the fields they presently map to.
+#      (tests, segments, figure-roles, continues-from) with the fields they
+#      presently map to -- and no `technique` (kogaki#1412).
 #   2. Composing over a YAML Move library and the judging over its Legs
 #      render byte-identical compose/judge input to what a direct read
 #      through the Brief's YAML reader produces (kogaki#1413); the committed
@@ -24,10 +24,13 @@
 #      `src/compose.mjs` adapter (`moveContract`) — the `tools/move_ingest.py`
 #      half of this same Acceptance item is covered by
 #      checks/move_ingest_cases.py.
-#   4. A fixture declaration renaming `technique` to another field name
+#   4. A fixture declaration renaming `segments` to another field name
 #      composes the identical result through `moveContract`/
 #      `loadMoveContracts`, with no change to src/compose.mjs, src/draft.mjs
 #      or src/brief-workflow.json — the rename stays inside the declaration.
+#   5. kogaki#1412: a Move with no `segments` is refused by name at the
+#      Adapter, never repaired; a record still carrying `technique` gets no
+#      `technique` on the Adapter's output, which exposes `segments` instead.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -52,8 +55,10 @@ const cases = [];
   cases.push(["required roles name identity, state-before, state-after",
     req.identity === "id" && req["state-before"] === "before" && req["state-after"] === "after", req]);
   cases.push(["optional roles name the current fields",
-    opt["specialized-by-the-Leg"] === "technique" && opt.tests === "breaks" && opt.segments === "segments"
+    opt.tests === "breaks" && opt.segments === "segments"
       && opt["figure-roles"] === "figure" && opt["continues-from"] === "continues_from", opt]);
+  cases.push(["no role maps `technique` (kogaki#1412)",
+    !Object.values({ ...req, ...opt }).includes("technique") && !("specialized-by-the-Leg" in opt), opt]);
 }
 
 // --- Acceptance 2: byte-identical compose/judge input. A direct read of a
@@ -74,7 +79,6 @@ const cases = [];
     id: probe,
     before: { knowledge: "holds one mechanism.", trust: "rests on one case." },
     after: { knowledge: "the mechanism varies by condition.", question: "what determines the variation?" },
-    technique: "Apply the mechanism to a second case, then qualify it.",
     breaks: ["dropping the qualification leaves the variables nothing to explain"],
     segments: [{ does: "applies the mechanism." }, { does: "qualifies it.", relation: "narrows the application." }],
   }));
@@ -84,17 +88,17 @@ const cases = [];
   const rec = parseYaml(readFileSync(join(snapLib, `${probe}.yaml`), "utf8"));
   const lines = (state) => Object.entries(state).map(([d, s]) => `${d}: ${s}`).join("\n");
   const c = byId.get(probe);
-  cases.push(["the adapter's before/after/technique/breaks for a record match a direct field read",
+  cases.push(["the adapter's before/after/segments/breaks for a record match a direct field read",
     !!c && c.before === lines(rec.before) && c.after === lines(rec.after)
-      && c.technique === rec.technique && JSON.stringify(c.breaks) === JSON.stringify(rec.breaks),
+      && JSON.stringify(c.segments) === JSON.stringify(rec.segments) && JSON.stringify(c.breaks) === JSON.stringify(rec.breaks),
     { adapter: c, direct: rec }]);
 
   const legs = [{ leg_id: "L1", move: probe, waypoints: ["w1"] }];
   const judge = moveContractsForLegs(legs, snapLib);
   cases.push(["moveContractsForLegs resolves with no error", !judge.error, judge.error]);
   const j = judge.contracts && judge.contracts[0];
-  cases.push(["the judge input carries the same before/after/technique/breaks/segments as the compose input",
-    !!j && j.before === c.before && j.after === c.after && j.technique === c.technique
+  cases.push(["the judge input carries the same before/after/breaks/segments as the compose input, and no technique",
+    !!j && j.before === c.before && j.after === c.after && !("technique" in j)
       && JSON.stringify(j.breaks) === JSON.stringify(c.breaks) && JSON.stringify(j.segments) === JSON.stringify(c.segments),
     { judge: j, compose: c }]);
   rmSync(snapLib, { recursive: true, force: true });
@@ -112,35 +116,49 @@ function writeMove(dir, id, fields) {
 // name at the src/compose.mjs adapter. ---
 {
   writeFileSync(join(fixtureLib, "ROLES.json"), JSON.stringify(baseRoles));
-  writeMove(fixtureLib, "no_before", { after: { knowledge: "state after" }, technique: "a technique", breaks: ["a break"] });
+  writeMove(fixtureLib, "no_before", { after: { knowledge: "state after" }, breaks: ["a break"], segments: [{ does: "a step." }] });
   const c = moveContract("no_before", fixtureLib);
   cases.push(["a Move record missing `before` is refused, naming the field",
     typeof c.error === "string" && c.error.includes("before") && c.error.includes("no_before"), c]);
 }
+// --- 5 (kogaki#1412): a Move with no `segments` is refused by name, and a
+// record still carrying `technique` exposes none through the Adapter. ---
+{
+  const state = { before: { knowledge: "state before" }, after: { knowledge: "state after" }, breaks: ["a break"] };
+  writeMove(fixtureLib, "no_segments", { ...state, technique: "a technique" });
+  const c = moveContract("no_segments", fixtureLib);
+  cases.push(["a Move with no `segments` is refused, naming the field, the Move and kogaki#1412",
+    typeof c.error === "string" && c.error.includes("no segments") && c.error.includes("no_segments") && c.error.includes("kogaki#1412"), c]);
+  writeMove(fixtureLib, "old_field", { ...state, technique: "a technique", segments: [{ does: "a step." }] });
+  const o = moveContract("old_field", fixtureLib);
+  cases.push(["the Adapter exposes `segments` and no `technique`",
+    !o.error && !("technique" in o) && Array.isArray(o.segments), o]);
+}
 rmSync(fixtureLib, { recursive: true, force: true });
 
-// --- Acceptance 4: renaming `technique` to another field in the
+// --- Acceptance 4: renaming `segments` to another field in the
 // declaration composes the identical result, with no change owed to
 // src/compose.mjs, src/draft.mjs or src/brief-workflow.json. ---
 {
   const renamedLib = mkdtempSync(join(tmpdir(), "kogaki-1349-renamed-"));
   const renamedRoles = JSON.parse(JSON.stringify(baseRoles));
-  renamedRoles.optional["specialized-by-the-Leg"] = "approach";
+  renamedRoles.optional.segments = "steps";
   writeFileSync(join(renamedLib, "ROLES.json"), JSON.stringify(renamedRoles));
-  writeMove(renamedLib, "m1", { before: { knowledge: "state before" }, after: { knowledge: "state after" }, approach: "a technique", breaks: ["a break"] });
+  const steps = [{ does: "a step." }, { does: "another.", relation: "follows it." }];
+  writeMove(renamedLib, "m1", { before: { knowledge: "state before" }, after: { knowledge: "state after" }, steps, breaks: ["a break"] });
   const renamed = moveContract("m1", renamedLib);
   cases.push(["a renamed field composes with no error under the renamed declaration",
     !renamed.error, renamed.error]);
-  cases.push(["the renamed field's value still emits under the `technique` output key",
-    renamed.technique === "a technique", renamed]);
+  cases.push(["the renamed field's value still emits under the `segments` output key",
+    JSON.stringify(renamed.segments) === JSON.stringify(steps), renamed]);
 
-  // The record carries NO `technique` field at all — only `approach` — so a
+  // The record carries NO `segments` field at all — only `steps` — so a
   // reader still hunting the old field name by itself, rather than through
   // the declaration, would find nothing. Proves the rename is observed
   // through moves/ROLES.json and not through any stray fallback.
   const direct = readFileSync(join(renamedLib, "m1.yaml"), "utf8");
-  cases.push(["the fixture record carries no literal `technique:` field",
-    !/^technique:/m.test(direct), direct]);
+  cases.push(["the fixture record carries no literal `segments:` field",
+    !/^segments:/m.test(direct), direct]);
   rmSync(renamedLib, { recursive: true, force: true });
 }
 
@@ -163,5 +181,5 @@ if [[ $RC -ne 0 ]] || ! grep -q "move-roles self-test:" <<<"$OUT"; then
   exit 1
 fi
 
-echo "ok: moves/ROLES.json names the three required roles and the current optional roles; the adapter's compose and judge input over a YAML library match a direct field read; a Move missing before is refused at the adapter naming the field; a renamed optional field composes identically under the renamed declaration (kogaki#1349)"
+echo "ok: moves/ROLES.json names the three required roles and the current optional roles; the adapter's compose and judge input over a YAML library match a direct field read; a Move missing before is refused at the adapter naming the field; a renamed optional field composes identically under the renamed declaration (kogaki#1349); a Move with no segments is refused by name and no technique is exposed (kogaki#1412)"
 exit 0

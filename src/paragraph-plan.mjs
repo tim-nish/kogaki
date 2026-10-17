@@ -22,7 +22,7 @@
 // supervisor (src/workflow/detached-job.mjs). Each attempt is two headless calls:
 // `paragraph_plan_unit` binds a Move to each Leg Waypoint and generates its Paragraph
 // Waypoints, and `paragraph_plan_judge_unit` judges them against the bound Move's
-// `before`, `after`, order (`segments` or `technique`) and `breaks` -- the same four
+// `before`, `after`, order (`segments`) and `breaks` -- the same four
 // criteria the Leg judge judges (kogaki#1378, owner decision 2026-10-14). A refusal of either is put back into the next attempt's
 // prompt verbatim, until `brief.unit_attempts` is spent; a call is bounded by
 // `brief.call_limit_s`; there is no limit on the whole job. A Leg that spends its
@@ -65,11 +65,11 @@ export const PARAGRAPH_PLAN_TABLE = join(REPO, "src", "paragraph-plan-workflow.j
 export const NO_PARAGRAPH_MOVE_FITS = "no_paragraph_move_fits";
 // THE ROLES A BOUND PARAGRAPH MOVE MUST FILL (kogaki#1378, owner decision 2026-10-14,
 // aligning this stage to the Leg judge's four criteria): `before` and `after` to bind
-// and judge against, `breaks` to judge the Paragraph Waypoints survive, and EITHER
-// `segments` OR `technique` to order them by -- `technique` is the fallback the Leg
-// composer already has, read only where the Move carries no `segments`. A bound Move
-// missing one is a fatal stop, never a default.
-export const PARAGRAPH_MOVE_ROLES = ["before", "after", "breaks"];
+// and judge against, `breaks` to judge the Paragraph Waypoints survive, and `segments`
+// to order them by -- the Move's whole structure, with no fallback: `technique` is
+// retired (kogaki#1412) and a Move without `segments` is refused at the Adapter. A
+// bound Move missing one is a fatal stop, never a default.
+export const PARAGRAPH_MOVE_ROLES = ["before", "after", "segments", "breaks"];
 // The run directory's own files, beside the supervisor's.
 const START_FILE = "paragraph-plan-start.json";
 const BINDINGS_FILE = "paragraph-plan-bindings.json";
@@ -164,8 +164,7 @@ export function planLeg(leg) {
 // never a point to state, and the judge checks each Paragraph Waypoint against its own
 // Segment, so the leak is refused where it happens rather than by blinding the planner (on
 // the 2026-10-16 run two labels alone could not carry "concede and promise to simplify", and
-// paragraph 2's first point lost its Segment). `technique`, `before`, `after` and `breaks`
-// are untouched -- `technique` is the Move's only order where `segments` is empty.
+// paragraph 2's first point lost its Segment). `before`, `after` and `breaks` are untouched.
 export function segmentsForPlanCall(segments) {
   if (!Array.isArray(segments) || !segments.length) return segments;
   return segments.map((s, i) => ({ segment: i + 1, does: String(s.does).trim(), relation: String(s.relation ?? "").trim() }));
@@ -200,7 +199,7 @@ export function boundMoveContract(moveId, movesDir) {
   const c = moveContract(moveId, movesDir);
   if (c.error) {
     throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and cannot be read for the roles `
-      + `this stage needs (${PARAGRAPH_MOVE_ROLES.join(", ")}, and segments or technique) — ${c.error}`);
+      + `this stage needs (${PARAGRAPH_MOVE_ROLES.join(", ")}) — ${c.error}`);
   }
   // `before` and `after` arrive rendered one line per dimension, `breaks` as a list of
   // prose tests and `segments` as a list of Segments (kogaki#1413).
@@ -209,14 +208,9 @@ export function boundMoveContract(moveId, movesDir) {
     if (!filled(c[role])) {
       throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and does not fill the role `
         + `\`${role}\` (${movesDir}/${moveId}${MOVE_RECORD_EXT}) — this stage binds and judges against its before and after, judges `
-        + "that the Paragraph Waypoints survive its breaks, and orders them by its segments or technique, so nothing is defaulted. "
+        + "that the Paragraph Waypoints survive its breaks, and orders them by its segments, so nothing is defaulted. "
         + "Repair the Move record under its own issue.");
     }
-  }
-  if (!filled(c.segments) && !filled(c.technique)) {
-    throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and fills neither \`segments\` nor `
-      + `\`technique\` (${movesDir}/${moveId}${MOVE_RECORD_EXT}) — this stage builds Paragraph Waypoints in the order one of them gives, `
-      + "so nothing is defaulted. Repair the Move record under its own issue.");
   }
   return c;
 }
@@ -267,7 +261,7 @@ export function noParagraphMoveFitsRefusal(failures) {
 }
 
 // THE SECOND CALL — the judge. Its input carries each Leg Waypoint with the bound Move's
-// before, after, technique, breaks and segments, and the Paragraph Waypoints generated
+// before, after, segments and breaks, and the Paragraph Waypoints generated
 // for it (kogaki#1378: the same four criteria the Leg judge judges).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
@@ -280,7 +274,7 @@ export function paragraphPlanJudgeInput(record, inputs, unitId) {
         const e = record.waypoints[i];
         const c = boundMoveContract(e.move, inputs.movesDir);
         return { waypoint: i + 1, point: w.point, next_point: w.next_point,
-          bound_move: { before: c.before, after: c.after, technique: c.technique, breaks: c.breaks, segments: c.segments },
+          bound_move: { before: c.before, after: c.after, segments: c.segments, breaks: c.breaks },
           paragraph_waypoints: e.paragraph_waypoints };
       }),
     },
@@ -315,7 +309,7 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId) {
   return { failures, refusal: ["THE PARAGRAPH WAYPOINTS WERE JUDGED, AND THESE DO NOT FIT THE MOVE BOUND TO THEIR LEG WAYPOINT:",
     ...failures.map((f) => `Leg ${f.leg_id}, Waypoint ${f.waypoint}: the judge wrote: "${f.why}"`),
     "Generate the Paragraph Waypoints again so that they begin where the bound Move's before holds, end where its "
-    + "after leaves the reader, follow the Move's order (its segments, or its technique where it carries no segments), "
+    + "after leaves the reader, follow the Move's order (its segments), "
     + "each perform its own Segment's does and stand in that Segment's relation, "
     + "and survive each of its breaks, or bind another Move."].join("\n") };
 }

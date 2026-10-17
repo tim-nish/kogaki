@@ -360,10 +360,10 @@ export function budgetRefusal(budget, at) {
 
 // ---- the route a Leg takes its reader along (kogaki#1311) ----
 //
-// `waypoints` is the Leg's specialization of its Move's `technique`, written
+// `waypoints` is the Leg's specialization of its Move's `segments`, written
 // at composition so that nothing after the Candidate has to open the Move.
 // SHAPE ONLY, and the count is not shape: whether the waypoints specialize
-// the `technique` and survive its `breaks` is the Move-fit judgment's, and
+// the `segments` and survive its `breaks` is the Move-fit judgment's, and
 // how many there are is the composer's (owner decision 2026-10-09).
 //
 // `claimStrands` is the Strand ids this Leg's claims name. Every refusal
@@ -377,7 +377,7 @@ export function waypointsRefusal(waypoints, claimStrands, at) {
     + "`waypoint` (kogaki#1326)";
   if (!Array.isArray(waypoints) || waypoints.length === 0) {
     return `${at}: carries no waypoints — every Leg carries an ordered, non-empty \`waypoints\` list, its `
-      + `specialization of its Move's technique, written at composition because no stage after the Candidate `
+      + `specialization of its Move's segments, written at composition because no stage after the Candidate `
       + `reads the Move (kogaki#1311). ${def}`;
   }
   const strands = new Set(claimStrands);
@@ -638,7 +638,7 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
       return { error: `${at}: carries both move and no_move_fits — a Leg either binds a Move by id or says in one sentence that no Move fits it, never both (kogaki#1276)` };
     }
     if (!hasMove && !hasNoFit) {
-      return { error: `${at}: carries neither move nor no_move_fits — a Leg binds a Move library entry by id (the Move is the State component of a Leg), or says in one sentence what its claims need that no Move's technique provides (kogaki#1276)` };
+      return { error: `${at}: carries neither move nor no_move_fits — a Leg binds a Move library entry by id (the Move is the State component of a Leg), or says in one sentence what its claims need that no Move's segments provide (kogaki#1276)` };
     }
     for (const d of s.depends_on) {
       if (!seen.has(d)) {
@@ -1317,7 +1317,9 @@ const REQUIRED_ROLE_OUTPUT_KEYS = [["state-before", "before"], ["state-after", "
 // The optional roles this reader has a use for. A role this library's
 // declaration leaves null is carried on the output as null, exactly as
 // `segments` already was before this adapter existed (kogaki#1320).
-const OPTIONAL_ROLE_OUTPUT_KEYS = [["specialized-by-the-Leg", "technique"], ["tests", "breaks"], ["segments", "segments"]];
+// `technique` is not among them (kogaki#1412): `segments` is the Move's whole
+// structure, so the Adapter exposes it and never a prose restatement of it.
+const OPTIONAL_ROLE_OUTPUT_KEYS = [["tests", "breaks"], ["segments", "segments"]];
 
 export function moveContract(moveId, movesDir = "moves") {
   const read = readMoveRecord(moveId, movesDir);
@@ -1361,7 +1363,16 @@ export function moveContract(moveId, movesDir = "moves") {
     const v = record[field];
     const absent = v === undefined || v === null || (typeof v === "string" && v.trim() === "")
       || (Array.isArray(v) && !v.length);
-    if (absent && (role === "specialized-by-the-Leg" || role === "tests")) {
+    if (absent && role === "segments") {
+      // `segments` IS REQUIRED WHERE MAPPED (kogaki#1412, owner decision
+      // 2026-10-17): a Move without its Segments is refused by name at every
+      // read, never repaired -- no Segment is derived for an old Move, and
+      // nothing falls back to a prose restatement of the structure.
+      return { error: `move "${moveId}" carries no ${field} (${path}) — a Move's \`${field}\` is its ordered structure, `
+        + `which the composer, the Move-fit judgment and the ParagraphPlan stage each read, and a Move without it is refused, `
+        + `not repaired (kogaki#1412). Regenerate the Move from its Extraction under its own issue.` };
+    }
+    if (absent && role === "tests") {
       // Mapped AND absent from the record is a half-written contract, same
       // as a missing required field — the declaration says this library's
       // Moves carry the role, so a record that does not is the fault.
@@ -1369,15 +1380,9 @@ export function moveContract(moveId, movesDir = "moves") {
         + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
         + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
     }
-    if (absent) {
-      // `segments` IS OPTIONAL EVEN WHEN MAPPED (kogaki#1320): the composer
-      // and the fit judge fall back to `technique` where it is absent.
-      out[outKey] = null;
-      continue;
-    }
     const bad = optionalRoleRefusal(role, field, v, at);
     if (bad) return { error: bad };
-    out[outKey] = role === "specialized-by-the-Leg" ? v.trim() : v;
+    out[outKey] = v;
   }
   return out;
 }
@@ -1388,7 +1393,6 @@ export function moveContract(moveId, movesDir = "moves") {
 // `does` and, on every Segment after the first, `relation`.
 function optionalRoleRefusal(role, field, v, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
-  if (role === "specialized-by-the-Leg") return typeof v === "string" ? null : `${at}: \`${field}\` is not prose`;
   if (role === "tests") {
     if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of prose tests — one entry per test (kogaki#1414, kogaki#1413)`;
     const i = v.findIndex((x) => !oneLine(x));
@@ -1538,15 +1542,13 @@ export function moveContractsForLegs(legs, movesDir = "moves") {
   for (const s of legs) {
     const c = moveContract(s.move, movesDir);
     if (c.error) return { error: `leg ${s.leg_id}: ${c.error}` };
-    // THE LEG'S WAYPOINTS RIDE BESIDE THE MOVE'S `technique` AND `breaks`
-    // (kogaki#1311): the fit judgment judges the waypoints against those two,
-    // so the input sets them side by side rather than leaving the judge to
-    // find them in the Leg array. `segments` RIDES BESIDE THEM TOO
-    // (kogaki#1320), null where the Move carries none, so the fit judge
-    // compares the waypoints' order against `segments` and falls back to
-    // `technique` only where that read is null.
-    out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after, technique: c.technique, breaks: c.breaks,
-      segments: c.segments, waypoints: s.waypoints });
+    // THE LEG'S WAYPOINTS RIDE BESIDE THE MOVE'S `segments` AND `breaks`
+    // (kogaki#1311, kogaki#1320): the fit judgment judges the waypoints
+    // against those two, so the input sets them side by side rather than
+    // leaving the judge to find them in the Leg array. `segments` is the
+    // Move's whole structure and is never null here (kogaki#1412).
+    out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after, segments: c.segments, breaks: c.breaks,
+      waypoints: s.waypoints });
   }
   return { contracts: out };
 }

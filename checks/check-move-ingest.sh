@@ -155,8 +155,6 @@ before:
   knowledge: holds nothing about the technique.
 after:
   knowledge: holds the technique.
-technique: >-
-  demonstrates a simple reusable technique.
 breaks:
 - drop the setup -- the payoff lands for no reason.
 - swap the two halves -- the setup no longer earns the payoff.
@@ -175,6 +173,7 @@ def extraction(directory, segments):
     path = os.path.join(directory, "extracted.yaml")
     with open(path, "w") as fh:
         fh.write(m.yaml_write({"passage": "A Passage.", "segments": segments,
+                               "description": "states a question, then answers it.",
                                "presupposes": "nothing beyond ordinary attention."}))
     return path
 
@@ -342,18 +341,23 @@ fi
 # corpus/p1329/m2/..._cascades/p01, because corpus/ is ignored and CI never
 # sees it; it is a YAML record (kogaki#1413), written by the module's own
 # YAML writer. Cases, each driving the act:
-#   1. the derived record's id, before, after, technique, breaks and segments
-#      are the Extraction's `name`, `reader` (changed rows only, as maps
-#      keyed by dimension), `technique`, `breaks` and `segments`
-#      (kogaki#1377 added technique and breaks);
+#   1. the derived record's id, description, before, after, breaks and
+#      segments are the Extraction's `name`, `description`, `reader` (changed
+#      rows only, as maps keyed by dimension), `breaks` and `segments`
+#      (kogaki#1377 added breaks; kogaki#1412 retired technique for
+#      description);
 #   2. a paragraph Extraction carrying `contains` is refused naming the field;
-#   2b. an Extraction missing `technique` is refused naming the field
-#      (kogaki#1377);
+#   2b. an Extraction missing `description` is refused naming the field
+#      (kogaki#1412);
+#   2d. a Move record carrying `technique` is refused by name, and a
+#      `description` over 200 characters is refused naming its length
+#      (kogaki#1412);
 #   2c. a `breaks` that is not a list of prose tests is refused naming the
 #      field (kogaki#1414);
 #   3. `--select accept` lands the Move as `moves/<id>.yaml` in the one
-#      library and regenerates `moves/INDEX.md`; a Markdown Extraction is
-#      refused by name;
+#      library and regenerates `moves/INDEX.md`, whose columns are id and
+#      description with no technique column (kogaki#1412); a Markdown
+#      Extraction is refused by name;
 #   3b. THE SHARED EXAMPLE (kogaki#1413): the Move the ingest wrote is read
 #      by `moveContract` in src/compose.mjs -- the writer and the reader
 #      tested against one file -- its states rendered one
@@ -399,7 +403,7 @@ EXTRACTION = {
         "name the states before the factor — the reader has no term to hang them on.",
         "add a third state — the completeness claim breaks.",
     ],
-    "technique": "Name the item once, then promise its full set of states before giving any one of them.",
+    "description": "Defines a named factor and promises its full set of states before giving any one of them.",
     "notes": "none",
 }
 
@@ -420,7 +424,7 @@ want = {
         {"does": "announces that a fixed number of items follow.",
          "relation": "opens the defined item into its parts."},
     ],
-    "technique": "Name the item once, then promise its full set of states before giving any one of them.",
+    "description": EXTRACTION["description"],
     "breaks": EXTRACTION["breaks"],
 }
 if not p.admitted:
@@ -434,13 +438,31 @@ if p.admitted or "`contains`" not in str(p.refusal):
     failures.append("case 2: a paragraph Extraction carrying `contains` was not "
                     "refused naming the field -- got %r" % p.refusal)
 
-# case 2b (kogaki#1377): an Extraction missing `technique` is refused naming
-# the field, and nothing is proposed.
-no_technique = {k: v for k, v in EXTRACTION.items() if k != "technique"}
-p = derived(no_technique)
-if p.admitted or "`technique`" not in str(p.refusal):
-    failures.append("case 2b: an Extraction with no `technique` was not refused "
+# case 2b (kogaki#1412): an Extraction missing `description` is refused
+# naming the field, and nothing is proposed.
+no_description = {k: v for k, v in EXTRACTION.items() if k != "description"}
+p = derived(no_description)
+if p.admitted or "`description`" not in str(p.refusal):
+    failures.append("case 2b: an Extraction with no `description` was not refused "
                     "naming the field -- got %r" % p.refusal)
+
+# case 2d (kogaki#1412): a Move record carrying `technique` is refused by
+# name, at condition 3 and at the save; a `description` over 200 characters
+# is refused naming its length, and one of exactly 200 is admitted.
+try:
+    m.check_field_set(dict(want, technique="restates the Segments."), 1)
+    failures.append("case 2d: a record carrying `technique` passed condition 3")
+except m.Refusal as refusal:
+    if refusal.condition != "retired" or "`technique`" not in str(refusal):
+        failures.append("case 2d: the `technique` refusal does not name the "
+                        "retired field -- got %s" % refusal)
+p = derived(dict(EXTRACTION, description="x" * 201))
+if p.admitted or "201 characters" not in str(p.refusal) or "200" not in str(p.refusal):
+    failures.append("case 2d: a 201-character `description` was not refused "
+                    "naming its length -- got %r" % p.refusal)
+p = derived(dict(EXTRACTION, description="x" * 200))
+if not p.admitted:
+    failures.append("case 2d: a 200-character `description` was refused: %s" % p.refusal)
 
 # case 2c (kogaki#1414): `breaks` is a list of prose tests; keyed tests are
 # refused naming the field, and nothing is proposed.
@@ -481,8 +503,12 @@ with tempfile.TemporaryDirectory() as tmp:
             failures.append("case 3: the saved Move is not the derived record, "
                             "round-tripped: %r" % open(saved).read())
         index = open(os.path.join(moves, "INDEX.md")).read()
-        if want["id"] not in index:
-            failures.append("case 3: %s/INDEX.md was not regenerated" % moves)
+        if "| %s | %s |" % (want["id"], want["description"]) not in index:
+            failures.append("case 3: %s/INDEX.md was not regenerated with the "
+                            "Move's description" % moves)
+        if "| id | description |" not in index or "technique" in index:
+            failures.append("case 3: INDEX.md does not carry an id and description "
+                            "column and no technique column: %r" % index)
         # case 3b: the shared example -- the composer's reader reads the
         # file the ingest's writer wrote.
         read = subprocess.run(
@@ -514,16 +540,18 @@ if failures:
     for f in failures:
         print("FAIL: %s" % f)
     sys.exit(1)
-print("ok: --from-extraction reads id, before, after, technique, breaks and segments "
-      "off the Extraction record's name, reader (as maps keyed by dimension), "
-      "technique, breaks and segments, refuses `contains` on a paragraph Extraction "
-      "naming the field, refuses an Extraction missing `technique` naming the field, "
+print("ok: --from-extraction reads id, description, before, after, breaks and segments "
+      "off the Extraction record's name, description, reader (as maps keyed by dimension), "
+      "breaks and segments, refuses `contains` on a paragraph Extraction "
+      "naming the field, refuses an Extraction missing `description` naming the field, "
+      "refuses a Move carrying `technique` by name and a description over 200 "
+      "characters naming its length, writes INDEX.md with a description column, "
       "refuses a `breaks` that is not a list of tests naming the field, refuses a "
       "Markdown Extraction by name, and lands the accepted Move as a .yaml record "
       "and its INDEX.md in the one moves/ library, read back by moveContract one "
       "dimension per line (the shared example), and "
       "--from-analysis is refused naming --from-extraction "
-      "(kogaki#1358, kogaki#1366, kogaki#1369, kogaki#1377, kogaki#1414, kogaki#1413)")
+      "(kogaki#1358, kogaki#1366, kogaki#1369, kogaki#1377, kogaki#1414, kogaki#1413, kogaki#1412)")
 PY
 ); FARC=$?
 printf '%s\n' "$FROM_EXTRACTION_OUT"

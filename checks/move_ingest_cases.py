@@ -26,7 +26,7 @@ before:
   question: holds an unanswered question
 after:
   question: the question is settled
-technique: >-
+description: >-
   does a thing
 breaks:
 - not always
@@ -58,20 +58,47 @@ SEGMENTS = [
 ]
 
 
+# kogaki#1412: the Move's own `segments`, as the Passage path copies them off
+# SEGMENTS, and the Extraction's `description`, which it copies too.
+MOVE_SEGMENTS = [{"does": SEGMENTS[0]["does"]},
+                 {"does": SEGMENTS[1]["does"], "relation": SEGMENTS[1]["relation"]}]
+DESCRIPTION = "names a question the reader did not hold, then answers it."
+
+
 def _extraction(directory, passage, **fields):
     """An Extraction record at `<directory>/passage.yaml`, carrying `passage`,
-    the fixture `segments` unless `segments=None` drops them, and `fields`."""
+    the fixture `segments` unless `segments=None` drops them, the fixture
+    `description` unless `description=None` drops it, and `fields`."""
     import copy
-    record = {"passage": passage}
+    record = {"passage": passage, "description": DESCRIPTION}
     record.update(fields)
     if record.get("segments", "default") == "default":
         record["segments"] = copy.deepcopy(SEGMENTS)
     if record["segments"] is None:
         del record["segments"]
+    if record["description"] is None:
+        del record["description"]
     path = os.path.join(directory, "passage.yaml")
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(yaml_write(record))
     return path
+
+
+# THE OWNER-FILE GRAMMAR CARRIES NO LIST OF SEGMENT MAPS, and every save
+# requires `segments` (kogaki#1412). The cases that save a parsed record stand
+# in for the copy the Passage path makes: `read_proposals` here hands back each
+# admitted record with the fixture Move's `segments` on it, and refuses and
+# parses exactly as the module's does.
+_module_read_proposals = read_proposals
+
+
+def read_proposals(text):
+    import copy
+    proposals = _module_read_proposals(text)
+    for proposal in proposals:
+        if proposal.admitted and "segments" not in proposal.mapping:
+            proposal.mapping["segments"] = copy.deepcopy(MOVE_SEGMENTS)
+    return proposals
 
 
 def _record(move_id="a-move", form=None):
@@ -250,7 +277,7 @@ def self_test():
     # note where one was removed as unreachable). What catches it is the
     # ABSORPTION, twice over, and both halves are exercised here.
     def id_not_first_is_caught_by_absorption():
-        text = _record("first") + "before: >-\n  x\nid: second\ntechnique: >-\n  x\n"
+        text = _record("first") + "before: >-\n  x\nid: second\ndescription: >-\n  x\n"
         proposals = read_proposals(text)
         assert len(proposals) == 2, "expected 2 records, got %d" % len(proposals)
         assert not proposals[0].admitted, "the absorbing record was admitted"
@@ -330,7 +357,8 @@ def self_test():
         assert "```" not in body, "a fence was rendered"
         assert body.startswith("id: x\n"), body[:20]
         keys = [ln.split(":")[0] for ln in body.splitlines() if ln and not ln[:1].isspace()]
-        assert keys == list(FIELDS), "fields not in §4.2's order: %s" % keys
+        # `segments` renders after the fixed fields (OPTIONAL_RENDER_FIELDS).
+        assert keys == list(FIELDS) + ["segments"], "fields not in §4.2's order: %s" % keys
 
     check("AC7 body is the §4.2 mapping, no fence, no delimiter", render_has_no_fence_and_no_delimiter)
 
@@ -342,20 +370,20 @@ def self_test():
         Nothing asserted it until a mutation joining with newlines survived.
         """
         text = _record().replace(
-            "technique: >-\n  does a thing\n",
-            "technique: >-\n  does a thing\n  across two lines\n",
+            "description: >-\n  does a thing\n",
+            "description: >-\n  does a thing\n  across two lines\n",
         )
         mapping = read_proposals(text)[0].mapping
-        assert mapping["technique"] == "does a thing across two lines", repr(mapping["technique"])
-        assert "\n" not in mapping["technique"], "a folded scalar kept its newlines"
+        assert mapping["description"] == "does a thing across two lines", repr(mapping["description"])
+        assert "\n" not in mapping["description"], "a folded scalar kept its newlines"
         # And it survives the save/read round trip unchanged.
         with tempfile.TemporaryDirectory() as tmp:
             moves = os.path.join(tmp, "moves")
             save_accepted(moves, read_proposals(text))
             back = read_saved(move_path(moves, "a-move"))
-            assert back["technique"] == mapping["technique"], (
+            assert back["description"] == mapping["description"], (
                 "the folded value changed across the round trip: %r -> %r"
-                % (mapping["technique"], back["technique"])
+                % (mapping["description"], back["description"])
             )
 
     check("AC7 a `>-` folded scalar folds, and round-trips", folded_scalar_folds)
@@ -435,7 +463,7 @@ def self_test():
             assert rows[0].startswith("| id |"), rows[0]
             assert rows[1].startswith("| a |"), "INDEX is not sorted by id: %s" % rows[1]
             assert rows[2].startswith("| a-b |"), rows[2]
-            assert "does a thing" in rows[1], "technique column not read off the file: %s" % rows[1]
+            assert "does a thing" in rows[1], "description column not read off the file: %s" % rows[1]
 
     check("AC7 INDEX rows are derived and sorted by id", index_columns_are_read_off_files)
 
@@ -889,12 +917,12 @@ def self_test():
         always been. Admitting the nesting by shape would silently retype every
         record whose prose happens to contain a colon at the start of a line."""
         text = _record("colonist").replace(
-            "technique: >-\n  does a thing", "technique:\n  caveat: does a thing")
+            "description: >-\n  does a thing", "description:\n  caveat: does a thing")
         proposals = read_proposals(text)
         assert proposals[0].admitted, proposals[0].refusal
-        value = proposals[0].mapping["technique"]
+        value = proposals[0].mapping["description"]
         assert isinstance(value, str) and "caveat: does a thing" in value, (
-            "an indented `key: value` under `technique` became a mapping: %r" % (value,))
+            "an indented `key: value` under `description` became a mapping: %r" % (value,))
 
     check("#876 the nested block is admitted by NAME, never by shape",
           the_nesting_is_admitted_by_name_not_by_shape)
@@ -1036,8 +1064,7 @@ def self_test():
             save_accepted(moves_dir, read_proposals(_record("existing_move")))
             stub = os.path.join(d, "stub_model")
             _write_passage_stub(stub, _record("proposed_move").replace(
-                "technique: >-\n  does a thing\n",
-                "technique: >-\n  does a merged thing\n"))
+                "breaks:\n- not always\n", "breaks:\n- merges a thing\n"))
             out = os.path.join(d, "run")
             run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
@@ -1048,9 +1075,10 @@ def self_test():
                 "merge also wrote the proposal's own id")
             merged = read_saved(target)
             assert merged["id"] == "existing_move"
-            assert merged["technique"] == "does a merged thing", merged["technique"]
+            assert merged["breaks"] == ["merges a thing"], merged["breaks"]
+            assert merged["description"] == DESCRIPTION, merged["description"]
             index = open(os.path.join(moves_dir, "INDEX.md")).read()
-            assert "| existing_move | does a merged thing |" in index, index
+            assert "| existing_move | %s |" % DESCRIPTION in index, index
 
     check("#1175 passage: --select merge:<id> rewrites the named Move and regenerates INDEX",
           select_merge_rewrites_the_named_move_and_regenerates_the_index)
@@ -1077,31 +1105,37 @@ def self_test():
     check("#1175 passage: --select merge:<id> refuses an unknown target",
           select_merge_refuses_an_unknown_target)
 
-    def a_near_duplicate_is_named_from_the_index():
+    def a_near_duplicate_is_named_from_the_saved_segments():
+        """kogaki#1412: the overlap is read off each saved Move's `segments`,
+        never `technique` and never moves/INDEX.md. A saved Move whose
+        Segments match the proposal's is named; one whose Segments share no
+        word with it is not, whatever its description says."""
         with tempfile.TemporaryDirectory() as d:
             passage_path = _extraction(d, "A passage.\n")
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
             os.makedirs(moves_dir)
-            existing = _record("derive_mitigation_from_mechanism").replace(
-                "technique: >-\n  does a thing\n",
-                "technique: >-\n  derives a mitigation from an observed causal mechanism\n")
-            save_accepted(moves_dir, read_proposals(existing))
+            same = read_proposals(_record("derive_mitigation_from_mechanism"))
+            other = read_proposals(_record("unrelated_move").replace(
+                "description: >-\n  does a thing\n",
+                "description: >-\n  %s\n" % DESCRIPTION))
+            other[0].mapping["segments"] = [{"does": "lists cargo"},
+                                            {"does": "tallies freight", "relation": "sums it"}]
+            save_accepted(moves_dir, same + other)
+            assert "unrelated_move" in open(os.path.join(moves_dir, "INDEX.md")).read()
             stub = os.path.join(d, "stub_model")
-            proposal_text = _record("propose_a_mitigation_from_mechanism").replace(
-                "technique: >-\n  does a thing\n",
-                "technique: >-\n  derives a mitigation from an observed causal mechanism\n")
-            _write_passage_stub(stub, proposal_text)
+            _write_passage_stub(stub, _record("propose_a_mitigation_from_mechanism"))
             out = os.path.join(d, "run")
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
-            assert result["duplicates"], "an identical technique named no near-duplicate"
-            assert result["duplicates"][0][0] == "derive_mitigation_from_mechanism"
+            named = [move_id for move_id, _overlap in result["duplicates"]]
+            assert named == ["derive_mitigation_from_mechanism"], named
             screen = open(result["screen"]).read()
             assert "derive_mitigation_from_mechanism" in screen, screen
+            assert "Segment word overlap" in screen, screen
 
-    check("#1175 passage: a near-duplicate technique is named from moves/INDEX.md",
-          a_near_duplicate_is_named_from_the_index)
+    check("#1412 passage: a near-duplicate is named from the saved Moves' segments",
+          a_near_duplicate_is_named_from_the_saved_segments)
 
     def a_refused_proposal_is_reported_and_never_selectable():
         with tempfile.TemporaryDirectory() as d:
@@ -1211,28 +1245,26 @@ def self_test():
     SUBJECT_NOUNS = ["institutional", "civics"]
     SUBJECT_NOUNS_ROW = {"subject_nouns": SUBJECT_NOUNS}
 
-    def a_technique_naming_a_listed_subject_noun_is_refused():
-        mapping = {"technique": "Compress that domain's example into a "
-                                 "single institutional principle.",
-                   "breaks": ["not always"]}
+    def a_breaks_naming_a_listed_subject_noun_is_refused():
+        mapping = {"breaks": ["compress the example into a single institutional "
+                              "principle -- the reader loses the case"]}
         refusal = check_subject_nouns(mapping, SUBJECT_NOUNS_ROW, 1)
-        assert refusal is not None, "a listed subject noun in `technique` was not refused"
+        assert refusal is not None, "a listed subject noun in `breaks` was not refused"
         assert refusal.condition == "subject-noun", refusal
-        assert "`technique`" in str(refusal), str(refusal)
+        assert "`breaks`" in str(refusal), str(refusal)
         assert "institutional" in str(refusal), str(refusal)
-    check("#1284 subject nouns: a `technique` naming a listed subject noun is refused, "
-          "naming the noun and the field", a_technique_naming_a_listed_subject_noun_is_refused)
+    check("#1284 subject nouns: a `breaks` naming a listed subject noun is refused, "
+          "naming the noun and the field", a_breaks_naming_a_listed_subject_noun_is_refused)
 
     def an_extraction_with_no_subject_nouns_list_refuses_nothing():
-        mapping = {"technique": "Compress that domain's example into a "
-                                 "single institutional principle.",
-                   "breaks": ["not always"]}
+        mapping = {"breaks": ["compress the example into a single institutional "
+                              "principle -- the reader loses the case"]}
         assert check_subject_nouns(mapping, None, 1) is None
         assert check_subject_nouns(mapping, {"subject_nouns": []}, 1) is None
     check("#1284 subject nouns: an Extraction with no list (or \"none\") refuses nothing",
           an_extraction_with_no_subject_nouns_list_refuses_nothing)
 
-    def a_passage_run_refuses_a_subject_noun_in_technique():
+    def a_passage_run_refuses_a_subject_noun_in_breaks():
         with tempfile.TemporaryDirectory() as d:
             passage_path = _extraction(d, "A passage about a guard's reach.\n",
                                        subject_nouns=SUBJECT_NOUNS, segments=None)
@@ -1242,8 +1274,8 @@ def self_test():
             os.makedirs(moves_dir)
             stub = os.path.join(d, "stub_model")
             record = _record("reframe_thing").replace(
-                "technique: >-\n  does a thing\n",
-                "technique: >-\n  compress the domain into one institutional principle\n")
+                "breaks:\n- not always\n",
+                "breaks:\n- compress the domain into one institutional principle\n")
             _write_passage_stub(stub, record)
             out = os.path.join(d, "run")
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
@@ -1252,10 +1284,10 @@ def self_test():
             screen = open(result["screen"]).read()
             assert screen.startswith("refused:"), screen
             assert "institution" in screen, screen
-    check("#1284 subject nouns: the Passage-to-Move path refuses a `technique` "
-          "naming a listed subject noun", a_passage_run_refuses_a_subject_noun_in_technique)
+    check("#1284 subject nouns: the Passage-to-Move path refuses a `breaks` "
+          "naming a listed subject noun", a_passage_run_refuses_a_subject_noun_in_breaks)
 
-    def a_passage_run_admits_a_technique_with_no_subject_noun_listed():
+    def a_passage_run_admits_a_breaks_with_no_subject_noun_listed():
         with tempfile.TemporaryDirectory() as d:
             passage_path = _extraction(d, "A passage about a guard's reach.\n", subject_nouns=[])
             contract_path = os.path.join(d, "contract.md")
@@ -1264,16 +1296,16 @@ def self_test():
             os.makedirs(moves_dir)
             stub = os.path.join(d, "stub_model")
             record = _record("reframe_thing").replace(
-                "technique: >-\n  does a thing\n",
-                "technique: >-\n  compress the domain into one institutional principle\n")
+                "breaks:\n- not always\n",
+                "breaks:\n- compress the domain into one institutional principle\n")
             _write_passage_stub(stub, record)
             out = os.path.join(d, "run")
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
             assert result["proposal"].admitted, (
                 "an Extraction listing no subject nouns still refused the record: %s"
                 % result["proposal"].refusal)
-    check("#1284 subject nouns: an Extraction that lists none admits the same `technique`",
-          a_passage_run_admits_a_technique_with_no_subject_noun_listed)
+    check("#1284 subject nouns: an Extraction that lists none admits the same `breaks`",
+          a_passage_run_admits_a_breaks_with_no_subject_noun_listed)
 
     # ---- kogaki#1319: unchanged by default, and the section 8 split note --
 
@@ -1396,7 +1428,7 @@ def self_test():
             },
             "segments": SEGMENTS,
             "breaks": ["drop the question -- the answer lands on nothing"],
-            "technique": "Ask, then answer.",
+            "description": "Asks, then answers.",
         }
         proposal = derive_from_extraction(record)
         assert proposal.admitted, proposal.refusal

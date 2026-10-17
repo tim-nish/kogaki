@@ -90,7 +90,7 @@ Three artifacts touch the source text, and each keeps a different amount.
 - **A Move carries no quotation.** kogaki's extraction contract already
   rules (kogaki#751, 2026-09-02) that a Move's evidence is the extractor's
   own account of the reader movement and never verbatim text; the Extraction
-  `what_it_does`, `segments` and `technique` are written to be that account. Nothing in
+  `what_it_does` and `segments` are written to be that account. Nothing in
   `passage` is ever copied into a Move.
 
 ---
@@ -154,7 +154,7 @@ Three fields carry the two levels:
 A paragraph Extraction is ingested with `tools/move_ingest.py passage
 --from-extraction <pNN.yaml> [...]`, which reads the record off the
 Extraction rather than asking a model for it, field by field as "Where each
-field goes" below states. An Extraction with no `breaks` or no `technique` is
+field goes" below states. An Extraction with no `breaks` or no `description` is
 refused naming the section, and a Markdown Extraction is refused by name.
 The Move lands in `moves/`, the one library, as `<id>.yaml`, like any other
 Move.
@@ -173,7 +173,7 @@ fields; nothing in the copy is judged.
 | `reader`, the rows whose `after` is not `unchanged` | `before`, each row's `before`, and `after`, each row's `after` — maps keyed by dimension, one entry per changed row |
 | `segments` | `segments` — each Segment's `does`, and its `relation` on every Segment after the first; never `opening`, `content` or Segment 1's `relation` |
 | `breaks` | `breaks`, the list of prose tests |
-| `technique` | `technique` |
+| `description` | `description` — copied, with no machine role; over 200 characters is refused naming the length |
 
 The `answers` (Q1 to Q3), `what_it_does`, `presupposes`, `notes` and the header fields
 fields become no Move field. Of the stages after the Extraction, only the
@@ -181,8 +181,9 @@ Proof Sheet's Leg Brief composer reads them: it hands each paragraph's whole
 record to its reader-start call and its Leg call
 (`src/proof-sheet/leg-brief.mjs`). The `segment` cell of a `reader` row
 stays in the Extraction too: it records where the Passage moved the reader,
-and a Move's state carries no Segment. kogaki#1412 retires `technique` and
-adds `description`; this table changes with it.
+and a Move's state carries no Segment. `technique` is retired (kogaki#1412):
+`segments` is the Move's whole structure, and a Move record carrying
+`technique` is refused by name.
 
 ---
 
@@ -324,7 +325,7 @@ first proposal where the human redrew it.
 
 Fill every field of the record under "The Extraction" and write the file.
 The human's
-answers are the ground truth about what matters: `what_it_does`, `breaks` and `technique` are
+answers are the ground truth about what matters: `what_it_does`, `breaks` and `description` are
 built on them, above all on the answers to Q1 and to whichever question
 the human answered in their own words. Candidates the human did not choose
 are kept in the file. The derivation act later reads, across the Corpus,
@@ -437,7 +438,7 @@ why_this_order: <one sentence>
 presupposes: <two or three lines>
 breaks:
   - <a change a careful writer might make — what the reader loses>
-technique: <two or three sentences>
+description: <one or two sentences, at most 200 characters>
 notes: <anything the contract did not ask for, or nothing>
 split_notes:
   - note: <a second unit the Passage may hold>
@@ -481,7 +482,7 @@ What each field holds:
   step 2. `opening` is the quoted opening words of that Segment. `content`
   is one clause saying what the Segment does, written about this Passage's
   own content. `does` is the Segment's operation in one clause,
-  subject-free — written the way `technique` is written, naming no term,
+  subject-free, naming no term,
   place, person or claim of the original, so that it could be performed on
   any subject, and stating what the step does, never its effect on the
   reader. On every Segment after the first, `relation` is one clause
@@ -502,9 +503,10 @@ What each field holds:
   addition: a longer version is where density goes wrong, so be specific
   about what it would cost. A `breaks` that is not a list of one-line
   strings is refused at ingestion.
-- `technique` — two or three sentences a writer on a completely different
-  topic could follow. No words from `subject_nouns`. If you cannot write it
-  without one, the Passage is not yet understood; say so in `notes`.
+- `description` — one or two sentences telling a person reading the Move
+  library what this Passage does, at most 200 characters. It has no machine
+  role: no prompt renders it, and the ingest reads only that it is present
+  and within the bound (kogaki#1412). The Move's structure is `segments`.
 - `name` — a snake_case verb phrase naming the transformation, like the
   slug. Not the topic.
 - `notes` — anything the contract did not ask for: a question none of
@@ -730,16 +732,14 @@ breaks:
     add two paragraphs defining geopolitics before the question — the first
     specialist claim arrives before the footholds are set, and the reader is
     back to expecting a textbook
-technique: >-
-  Before the first claim that needs the subject, give the reader three
-  things that need none: something they have seen, a map of the kinds of
-  text on the subject, and an admission by the author that costs something.
-  Then name the subject's central question in the reader's voice and answer
-  it in one sentence.
+description: >-
+  Before the first claim that needs the subject, the reader gets three
+  things that need none; then the subject's central question is named in
+  their voice and answered.
 notes: >-
   The human answered Q3 in their own words; the closest candidate was 1,
   which named the same means without the point that none of them needs
-  expertise. That point is carried into what_it_does and technique.
+  expertise. That point is carried into what_it_does and description.
 split_notes:
   - note: the Passage may hold two units, sentences 1 to 5 and 6 to 8
     dismissed: the Passage may hold two units, sentences 1 to 5 and 6 to 8

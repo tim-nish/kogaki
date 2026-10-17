@@ -57,7 +57,12 @@ export const STATUS_LINE = "status: unreviewed model draft (m2)";
 // An Extraction file is its YAML record (kogaki#1413).
 export const EXTRACTION_EXT = ".yaml";
 const RECORD_KEYS = ["version", "paragraph", "source", "prior_text", "language", "subject_nouns", "answers",
-  "what_it_does", "reader", "segments", "why_this_order", "presupposes", "breaks", "technique", "name", "notes"];
+  "what_it_does", "reader", "segments", "why_this_order", "presupposes", "breaks", "description", "name", "notes"];
+// `description` replaces the retired `technique` (kogaki#1412): one or two sentences for a
+// person reading the library, with no machine role, bounded at the ingest's own limit
+// (`DESCRIPTION_MAX` in tools/move_ingest.py) so an over-long one is asked again here rather
+// than refused after the run.
+export const DESCRIPTION_MAX = 200;
 // Q4 Footing is retired (kogaki#1414): its one consumer went with kogaki#1280, and FORMAT
 // says why. Purpose, Question and Disposition are unchanged.
 const ANSWER_KEYS = ["q1", "q2", "q3"];
@@ -163,7 +168,7 @@ function extractionRecordSkeleton(input) {
         : "<in prose, how it relates to the Segment before it>" })),
     why_this_order: "<one sentence>", presupposes: "<two or three lines, as one string>",
     breaks: ["<one change a careful writer might make — what the reader loses>", "<another, naming a different change>"],
-    technique: "<two or three sentences>", name: "<snake_case_verb_phrase>", notes: "",
+    description: `<one or two sentences, at most ${DESCRIPTION_MAX} characters>`, name: "<snake_case_verb_phrase>", notes: "",
   };
 }
 
@@ -230,7 +235,7 @@ export function validateExtractionUnit(record, input) {
   const errors = [];
   if (String(r.version) !== "1") errors.push(`${at}: the record's version is ${JSON.stringify(r.version)}, not "1"`);
   if (r.paragraph !== p.number) errors.push(`${at}: the record names paragraph ${JSON.stringify(r.paragraph)}, not ${p.number}`);
-  for (const k of ["source", "prior_text", "language", "what_it_does", "why_this_order", "presupposes", "technique", "name"]) {
+  for (const k of ["source", "prior_text", "language", "what_it_does", "why_this_order", "presupposes", "description", "name"]) {
     const e = lineRefusal(r[k], `${at}: \`${k}\``);
     if (e) errors.push(e);
   }
@@ -285,9 +290,8 @@ export function validateExtractionUnit(record, input) {
       }
     }
   }
-  if (typeof r.technique === "string") {
-    const noun = nounIn(nouns, r.technique);
-    if (noun) errors.push(`${at}: \`technique\` names "${noun}", one of your subject_nouns — section 6 is subject-free`);
+  if (typeof r.description === "string" && r.description.trim().length > DESCRIPTION_MAX) {
+    errors.push(`${at}: \`description\` is ${r.description.trim().length} characters — at most ${DESCRIPTION_MAX}`);
   }
 
   // Section 2: the five dimensions, the carried before column, a Segment for every change.
@@ -364,7 +368,7 @@ export function extractionRecord(record, input, runRel) {
     why_this_order: record.why_this_order.trim(),
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
-    technique: record.technique.trim(),
+    description: record.description.trim(),
     notes: record.notes.trim(),
   };
 }
@@ -400,7 +404,7 @@ export function extractionMarkdown(rec) {
     "## 3. The order inside the Passage", "", ...segs, "", line(r.why_this_order), "",
     "## 4. What the Passage presupposes", "", line(r.presupposes), "",
     "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
-    "## 6. The technique, subject-free", "", line(r.technique), "",
+    "## 6. Description", "", line(r.description), "",
     "## 7. Candidate name", "", line(r.name), "",
     "## 8. Notes", "", line(r.notes) || "nothing", ...splits, "",
   ].join("\n");

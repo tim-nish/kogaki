@@ -33,9 +33,9 @@ import sys
 # in this position.
 FIELDS = (
     "id",
+    "description",
     "before",
     "after",
-    "technique",
     "breaks",
 )
 
@@ -52,7 +52,23 @@ FIELDS = (
 # `continues_from` are also named by the declaration's optional roles; they
 # are listed here too only as the historical constant their own fixtures
 # still reference.
-OPTIONAL_FIELDS = ("continues_from", "evidence", "figure", "segments")
+OPTIONAL_FIELDS = ("continues_from", "description", "evidence", "figure", "segments")
+
+# THE RETIRED MOVE FIELDS, each refused BY NAME at condition 3 rather than as
+# one more unexpected key (kogaki#1412, owner decision 2026-10-17): `technique`
+# restated in prose the structure `segments` already carries, two carriers of
+# one structure that drift, so it maps no role and a record carrying it is
+# refused, never repaired.
+RETIRED_FIELDS = {
+    "technique": "a Move's structure is its `segments` and its summary for a "
+                 "person is `description` (kogaki#1412)",
+}
+
+# `description` is human-facing and has no machine role (kogaki#1412): no
+# prompt renders it and nothing reads it beyond its presence and this bound,
+# which `src/proof-sheet/extract.mjs`'s `DESCRIPTION_MAX` asks the Extractor
+# to keep.
+DESCRIPTION_MAX = 200
 
 # The keys whose value is a nested mapping. The value model stays
 # deliberately small (§6.9.0): scalars, `>-` folded scalars, column-0
@@ -423,6 +439,15 @@ def check_field_set(mapping, first_line_no, roles=None):
     is named by the declaration nor by `OPTIONAL_FIELDS`, so a record still
     carrying one is refused here, by name, as unexpected.
     """
+    retired = sorted(f for f in mapping if f in RETIRED_FIELDS)
+    if retired:
+        raise Refusal(
+            "retired",
+            "record carries the retired %s — %s"
+            % (", ".join("`%s`" % f for f in retired),
+               "; ".join(RETIRED_FIELDS[f] for f in retired)),
+            line_no=first_line_no,
+        )
     roles = roles if roles is not None else load_roles()
     have = set(mapping)
     want = set(roles["required_fields"])
@@ -514,6 +539,49 @@ def check_breaks_shape(mapping, first_line_no):
                 "`breaks` test %d is not one non-empty line" % (i + 1),
                 line_no=first_line_no,
             )
+
+
+def check_description(mapping, first_line_no):
+    """`description` is one or two sentences for a person reading the
+    library (kogaki#1412): present, on one line, and at most
+    `DESCRIPTION_MAX` characters. A longer one is refused naming its length;
+    nothing else about its wording is read."""
+    value = mapping.get("description")
+    if not isinstance(value, str) or not value.strip() or "\n" in value.strip():
+        raise Refusal(
+            "description",
+            "record carries no `description` — one or two sentences on one "
+            "line, at most %d characters, copied from the Extraction "
+            "(kogaki#1412)" % DESCRIPTION_MAX,
+            line_no=first_line_no,
+        )
+    length = len(value.strip())
+    if length > DESCRIPTION_MAX:
+        raise Refusal(
+            "description",
+            "`description` is %d characters — at most %d (kogaki#1412)"
+            % (length, DESCRIPTION_MAX),
+            line_no=first_line_no,
+        )
+
+
+def check_structure(mapping, first_line_no):
+    """THE INGEST'S HALF OF THE ADAPTER'S RULE (kogaki#1412), checked at the
+    Passage screens and at every save — not at `read_proposals`, whose
+    owner-file grammar carries no list of Segment maps: a
+    Move carries its `segments`, the ordered structure every reader of a
+    Move reads, and its `description`. A Move without `segments` is refused
+    by name, never repaired — no Segment is derived for it."""
+    segments = mapping.get("segments")
+    if not isinstance(segments, list) or not segments:
+        raise Refusal(
+            "segments",
+            "record carries no `segments` — a Move's ordered structure, which "
+            "the Adapter (`moveContract` in src/compose.mjs) requires at every "
+            "read; a Move without it is refused, not repaired (kogaki#1412)",
+            line_no=first_line_no,
+        )
+    check_description(mapping, first_line_no)
 
 
 # --------------------------------------------------------------------------
@@ -923,6 +991,10 @@ def save_accepted(moves_dir, accepted):
     # cleared, which is what makes a refusal leave no residue.
     for proposal in accepted:
         move_id = proposal.id
+        # The Adapter's structure rule (kogaki#1412), held at the one writer
+        # every admission path reaches: a Move is never saved without the
+        # `segments` and `description` every read of it requires.
+        check_structure(proposal.mapping, proposal.line_no)
         if move_id in seen:
             raise Refusal(
                 "1a",
@@ -981,6 +1053,7 @@ def merge_into(moves_dir, target_id, proposal):
     check_field_set(merged, 0)
     check_state_shape(merged, 0)
     check_breaks_shape(merged, 0)
+    check_structure(merged, 0)
     with open(path, "w") as handle:
         handle.write(render_move(merged))
     write_index(moves_dir)
@@ -990,7 +1063,7 @@ def merge_into(moves_dir, target_id, proposal):
 def write_index(moves_dir):
     """Rewrite moves/INDEX.md WHOLE from the files on disk, sorted by id.
 
-    Columns are `id | technique`, and EVERY COLUMN IS READ OFF A FILE — none
+    Columns are `id | description` (kogaki#1412), and EVERY COLUMN IS READ OFF A FILE — none
     is composed. That is the property arm (b) could not have, and it is why
     the regeneration contract binds FRESHNESS ONLY: a stale INDEX is a run
     that did not happen rather than a derivation that drifted.
@@ -1007,7 +1080,7 @@ def write_index(moves_dir):
         rows.append(
             (
                 str(mapping.get("id", "")),
-                str(mapping.get("technique", "")),
+                str(mapping.get("description", "")),
             )
         )
     rows.sort(key=lambda row: row[0])
@@ -1019,11 +1092,11 @@ def write_index(moves_dir):
         "(SPEC-draft-pipeline §6.9.1a). Every column is read off a file; none is "
         "composed. Nothing reads this file to decide anything." % moves_dir.rstrip("/"),
         "",
-        "| id | technique |",
+        "| id | description |",
         "| --- | --- |",
     ]
-    for move_id, technique in rows:
-        out.append("| %s | %s |" % (move_id, technique.replace("|", "\\|")))
+    for move_id, description in rows:
+        out.append("| %s | %s |" % (move_id, description.replace("|", "\\|")))
     out.append("")
 
     path = os.path.join(moves_dir, "INDEX.md")
@@ -1080,28 +1153,36 @@ def spawn_model(command, model, prompt, timeout_s, cwd=None):
     return r.stdout
 
 
-def read_index_rows(moves_dir):
-    """`(id, technique)` pairs read off `moves/INDEX.md`'s own two columns —
-    the same table `write_index` renders, read back rather than re-derived."""
-    path = os.path.join(moves_dir, "INDEX.md")
-    if not os.path.isfile(path):
+def segments_text(segments):
+    """A Move's `segments` as one string of its Segments' `does` and
+    `relation` clauses, in order — what the near-duplicate check compares."""
+    if not isinstance(segments, list):
+        return ""
+    return " ".join(
+        "%s %s" % (_cell(s.get("does")), _cell(s.get("relation")))
+        for s in segments if isinstance(s, dict)
+    )
+
+
+def read_saved_segments(moves_dir):
+    """`(id, segments text)` pairs read off every saved `.yaml` Move's own
+    `segments` (kogaki#1412) — the structure the Adapter reads, never
+    `moves/INDEX.md`, which nothing reads to decide anything."""
+    if not os.path.isdir(moves_dir):
         return []
     rows = []
-    with open(path) as handle:
-        for line in handle:
-            if not line.startswith("|"):
-                continue
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) != 2 or cells[0] in ("id", "---"):
-                continue
-            rows.append((cells[0], cells[1]))
+    for name in sorted(os.listdir(moves_dir)):
+        if not name.endswith(MOVE_RECORD_EXT):
+            continue
+        mapping = read_saved(os.path.join(moves_dir, name))
+        rows.append((str(mapping.get("id", "")), segments_text(mapping.get("segments"))))
     return rows
 
 
 WORD = re.compile(r"[a-z]+")
 
 # A near-duplicate is NAMED, never decided, here (§6.9's own division): word
-# overlap on `technique` is a cheap, deterministic signal that puts a
+# overlap on `segments` (kogaki#1412) is a cheap, deterministic signal that puts a
 # candidate in front of the owner's one confirmation (thread comment
 # 2026-09-23, "one confirmation is asked of the owner per suspected
 # duplicate and none otherwise") — it is not a verdict, and a false positive
@@ -1109,13 +1190,13 @@ WORD = re.compile(r"[a-z]+")
 DUPLICATE_THRESHOLD = 0.34
 
 
-def near_duplicates(proposed_technique, index_rows):
-    words = set(WORD.findall(str(proposed_technique).lower()))
+def near_duplicates(proposed_segments, saved_rows):
+    words = set(WORD.findall(segments_text(proposed_segments).lower()))
     hits = []
     if not words:
         return hits
-    for move_id, technique in index_rows:
-        other = set(WORD.findall(technique.lower()))
+    for move_id, text in saved_rows:
+        other = set(WORD.findall(text.lower()))
         if not other:
             continue
         overlap = len(words & other) / len(words | other)
@@ -1232,14 +1313,14 @@ def write_none_question(mapping, record):
 # Subject nouns, read off the Extraction (kogaki#1284).
 # --------------------------------------------------------------------------
 #
-# specs/move-extraction-contract.md requires `technique` to be subject-free.
+# specs/move-extraction-contract.md requires `breaks` to be subject-free.
 # The Extraction lists its own `subject_nouns` — the nouns naming what the
 # Passage is about, offered by the model and confirmed or edited by the
-# human — and this is the mechanical half: a record whose `technique` or
-# `breaks` contains one of them is refused, naming the noun and the field.
+# human — and this is the mechanical half: a record whose `breaks` contains
+# one of them is refused, naming the noun and the field.
 # The deny list is PER PASSAGE; no global word list exists, and an
 # Extraction that lists none refuses nothing.
-SUBJECT_NOUN_FIELDS = ("technique", "breaks")
+SUBJECT_NOUN_FIELDS = ("breaks",)
 
 
 def extraction_subject_nouns(record):
@@ -1252,7 +1333,7 @@ def extraction_subject_nouns(record):
 
 
 def check_subject_nouns(mapping, record, line_no):
-    """A record whose `technique` or `breaks` names a noun the Extraction
+    """A record whose `breaks` names a noun the Extraction
     lists under `subject_nouns` is refused, naming the noun and the field.
     Returns a `Refusal`, or `None` where nothing is refused."""
     nouns = extraction_subject_nouns(record)
@@ -1435,8 +1516,8 @@ def check_segments(mapping, record, line_no):
 # off a written Extraction, never authored by a model. Every Move field comes
 # from one Extraction field, the table passages/FORMAT.md "Where each field
 # goes" states: `id` is `name`, `before` and `after` are `reader`'s changed
-# rows only, `technique` is `technique` and `breaks` is `breaks`
-# (kogaki#1377), and `segments` is the Extraction's `segments` exactly as `check_segments`
+# rows only, `description` is `description` (kogaki#1412) and `breaks` is
+# `breaks` (kogaki#1377), and `segments` is the Extraction's `segments` exactly as `check_segments`
 # copies it on the Passage path.
 # --------------------------------------------------------------------------
 MOVE_ID = re.compile(r"^[a-z0-9_]+$")
@@ -1498,11 +1579,11 @@ def derive_from_extraction(record, line_no=1):
                 "`reader` records no changed row, so there is no `before` "
                 "or `after` to read",
             )
-        technique = _cell(record.get("technique"))
-        if not technique:
+        description = _cell(record.get("description"))
+        if not description:
             raise Refusal(
                 "from-extraction",
-                "`technique` carries no text",
+                "`description` carries no text",
             )
         breaks = extraction_breaks(record)
         if breaks is None:
@@ -1514,7 +1595,7 @@ def derive_from_extraction(record, line_no=1):
             "id": move_id,
             "before": {dim: before for dim, before, _a, _s in rows},
             "after": {dim: after for dim, _b, after, _s in rows},
-            "technique": technique,
+            "description": description,
             "breaks": breaks,
         }
         segments_refusal, segments = check_segments(mapping, record, line_no)
@@ -1529,6 +1610,7 @@ def derive_from_extraction(record, line_no=1):
         check_field_set(mapping, line_no)
         check_state_shape(mapping, line_no)
         check_breaks_shape(mapping, line_no)
+        check_structure(mapping, line_no)
     except Refusal as refusal:
         return Proposal(line_no, refusal=refusal)
     return Proposal(line_no, mapping=mapping)
@@ -1551,13 +1633,13 @@ def run_from_extraction(extraction_paths, moves_dir, out_dir, select=None):
         _text, record = read_extraction(path)
         proposals.append(derive_from_extraction(record))
 
-    index_rows = read_index_rows(moves_dir)
+    saved_rows = read_saved_segments(moves_dir)
     screens = []
     for proposal in proposals:
         duplicates = []
         if proposal.admitted:
-            duplicates = near_duplicates(proposal.mapping.get("technique", ""),
-                                          index_rows)
+            duplicates = near_duplicates(proposal.mapping.get("segments"),
+                                          saved_rows)
         screens.append(render_passage_screen(proposal, duplicates))
 
     os.makedirs(out_dir, exist_ok=True)
@@ -1604,11 +1686,11 @@ def render_passage_screen(proposal, duplicates, rewritten=()):
                      % " and ".join(rewritten))
         lines.append("")
     if duplicates:
-        lines.append("suspected near-duplicate(s) in moves/INDEX.md:")
+        lines.append("suspected near-duplicate(s) in moves/:")
         for move_id, overlap in duplicates:
-            lines.append("  - %s (technique word overlap %.2f)" % (move_id, overlap))
+            lines.append("  - %s (Segment word overlap %.2f)" % (move_id, overlap))
     else:
-        lines.append("no near-duplicate found in moves/INDEX.md")
+        lines.append("no near-duplicate found in moves/")
     lines.append("")
     lines.append(render_move(proposal.mapping))
     lines.append("")
@@ -1686,6 +1768,18 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
         else:
             proposal.mapping["segments"] = segments
 
+    if proposal.admitted:
+        # The Extraction's `description`, copied the same way (kogaki#1412),
+        # then the Adapter's structure rule checked over the whole record.
+        description = _cell((record or {}).get("description"))
+        proposal.mapping.pop("description", None)
+        if description:
+            proposal.mapping["description"] = description
+        try:
+            check_structure(proposal.mapping, proposal.line_no)
+        except Refusal as refusal:
+            proposal = Proposal(proposal.line_no, refusal=refusal)
+
     duplicates = []
     rewritten = []
     if proposal.admitted:
@@ -1693,8 +1787,8 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
         # the owner accepts the rewritten record, and the rewrite is named on
         # the screen rather than applied in silence.
         rewritten = write_none_question(proposal.mapping, record)
-        duplicates = near_duplicates(proposal.mapping.get("technique", ""),
-                                      read_index_rows(moves_dir))
+        duplicates = near_duplicates(proposal.mapping.get("segments"),
+                                      read_saved_segments(moves_dir))
 
     screen_path = os.path.join(out_dir, "PassageScreen.md")
     with open(screen_path, "w", encoding="utf-8") as handle:

@@ -9,8 +9,9 @@
 #       YAML reader (kogaki#1413): `status` naming the run, `unit: paragraph <N> of 2 in
 #       <slug>`, `reader` a map of the five dimensions, `segments` a list of maps, one per
 #       sentence, carrying `content` and `does`, and `relation` on every Segment but a first
-#       paragraph's Segment 1; `breaks` a list of tests; no Q4 Footing (kogaki#1414); and
-#       the record renders to Markdown for reading.
+#       paragraph's Segment 1; `breaks` a list of tests; no Q4 Footing (kogaki#1414); a
+#       `description` and no `technique` (kogaki#1412); and the record renders to Markdown
+#       for reading.
 #   (b) `tools/move_ingest.py`'s own `read_extraction` and `derive_from_extraction` — the
 #       readers behind `passage --from-extraction` — admit both files unedited, and refuse
 #       a Markdown Extraction by name (`extraction-form`).
@@ -28,8 +29,10 @@
 #       a Segment count other than the sentence count, a `does` clause naming a subject
 #       noun, an empty `relation` on Segment 1 where earlier paragraphs exist (rule 5) or
 #       on any later Segment, a `breaks` given as keyed fields rather than a list of tests,
-#       and an answer for the retired Q4 (kogaki#1414); and a record wrong on BOTH
-#       `answers` and `segments` at once is refused naming both (kogaki#1395).
+#       and an answer for the retired Q4 (kogaki#1414); a record carrying the retired
+#       `technique`, and a `description` over 200 characters, naming its length
+#       (kogaki#1412); and a record wrong on BOTH `answers` and `segments` at once is
+#       refused naming both (kogaki#1395).
 #   (g) a block quotation or list announced by a paragraph stays with it (rule 1).
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
@@ -86,7 +89,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
     why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
     breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
-    technique: "Name an act, then name who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
+    description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
   };
   if (first && attempt === 1) delete record.segments[0].does;
   if (first && attempt === 2) record.paragraph = String(p.number);
@@ -117,7 +120,7 @@ for (const [i, f] of files.entries()) {
   ok(typeof rec.status === "string" && rec.status.startsWith(`${X.STATUS_LINE.slice("status: ".length)} — written by the Extractor run extractor-run-`),
     `(a) ${f} carries no status naming the run`);
   ok(rec.unit === `paragraph ${i + 1} of 2 in leg-fixture`, `(a) ${f} carries no \`unit: paragraph ${i + 1} of 2 in leg-fixture\``);
-  for (const k of ["name", "passage", "answers", "what_it_does", "reader", "segments", "why_this_order", "presupposes", "breaks", "technique"]) {
+  for (const k of ["name", "passage", "answers", "what_it_does", "reader", "segments", "why_this_order", "presupposes", "breaks", "description"]) {
     ok(rec[k] !== undefined, `(a) ${f} carries no \`${k}\``);
   }
   ok(rec.reader && ["knowledge", "question", "expectation", "orientation", "trust"].every((d) => rec.reader[d] && typeof rec.reader[d].before === "string"),
@@ -132,6 +135,7 @@ for (const [i, f] of files.entries()) {
   ok(Array.isArray(rec.breaks) && rec.breaks.length === 3 && rec.breaks.every((b) => typeof b === "string" && !/^(remove|reorder|extend):/.test(b)),
     `(a) ${f}'s breaks is not a list of three prose tests`);
   ok(!/Q4|Footing|^functions:/m.test(t) && !(rec.answers && rec.answers.q4), `(a) ${f} carries a Q4 Footing answer or a functions line`);
+  ok(rec.technique === undefined && !/^technique:/m.test(t), `(a) ${f} carries the retired \`technique\` (kogaki#1412)`);
   const md = X.extractionMarkdown(rec);
   ok(["## Passage", "## Answers", "## 2. Reader before and after", "## 3. The order inside the Passage", "## 5. Where it would break"].every((h) => md.includes(`\n${h}\n`))
     && md.includes(`does: ${segs[0] && segs[0].does}`), `(a) ${f}'s record does not render to Markdown for reading`);
@@ -214,7 +218,7 @@ const good = () => ({ version: "1", paragraph: 2, source: "not given", prior_tex
   reader: ["knowledge", "question", "expectation", "orientation", "trust"].map((d) => ({ dimension: d, before: d[0].toUpperCase(),
     after: d === "knowledge" ? "moved" : "unchanged", segment: d === "knowledge" ? "2" : "" })),
   segments: [1, 2, 3].map(() => ({ content: "c", does: "g", relation: "r" })),
-  why_this_order: "w", presupposes: "p", breaks: ["a change — a loss"], technique: "t", name: "n_m", notes: "" });
+  why_this_order: "w", presupposes: "p", breaks: ["a change — a loss"], description: "d", name: "n_m", notes: "" });
 ok(!X.validateExtractionUnit(good(), input).error, `(f) the validator refused a good record: ${X.validateExtractionUnit(good(), input).error}`);
 const m1 = good(); m1.reader[1].before = "drafted";
 ok(/the `question` row's `before`.*carried, not drafted/.test(X.validateExtractionUnit(m1, input).error || ""), "(f) a before that is not the carried state was not refused naming the row");
@@ -231,6 +235,16 @@ const m4c = good(); m4c.breaks = { remove: "r", reorder: "o", extend: "e" };
 ok(/`breaks` is not a list of prose tests/.test(X.validateExtractionUnit(m4c, input).error || ""), "(f) keyed breaks were not refused as not a list of prose tests");
 const m4d = good(); m4d.answers.q4 = "d";
 ok(/`answers` carries `q4`/.test(X.validateExtractionUnit(m4d, input).error || ""), "(f) an answer for the retired Q4 was not refused");
+
+// kogaki#1412: `description` replaces the retired `technique` -- a record still carrying
+// `technique` is refused as an undeclared key, and a description over 200 characters is
+// refused naming its length; one of exactly 200 passes.
+const m4e = good(); m4e.technique = "t";
+ok(/carries `technique`, which it does not declare/.test(X.validateExtractionUnit(m4e, input).error || ""), "(f) a record carrying the retired technique was not refused by name");
+const m4f = good(); m4f.description = "x".repeat(201);
+ok(/`description` is 201 characters — at most 200/.test(X.validateExtractionUnit(m4f, input).error || ""), "(f) a 201-character description was not refused naming its length");
+const m4g = good(); m4g.description = "x".repeat(200);
+ok(!X.validateExtractionUnit(m4g, input).error, `(f) a 200-character description was refused: ${X.validateExtractionUnit(m4g, input).error}`);
 
 // a record wrong on BOTH `answers` and `segments` at once is refused naming both (kogaki#1395)
 const m5 = good(); delete m5.answers.q3; m5.segments.pop();
