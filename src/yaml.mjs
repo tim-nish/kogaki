@@ -23,6 +23,9 @@
 // double-quoted and broken with YAML's escaped line break, which joins with
 // nothing. `stringifyYaml(v)` read back by `parseYaml` is `v`.
 
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
 const INDENT = 2;
 
 // ---------------------------------------------------------------------------
@@ -613,4 +616,32 @@ export function parseYaml(text, where = "<yaml>") {
     fail(`unread text: ${JSON.stringify(lines[i].trim())}`);
   }
   return value;
+}
+
+// ---------------------------------------------------------------------------
+// THE COMMAND LINE (kogaki#1413). The ingest, `tools/move_ingest.py`, writes
+// and reads the Move record and reads the Extraction record through this
+// module rather than through a Python parser of its own, so one reader and
+// one writer hold every record the pipeline carries:
+//
+//   node src/yaml.mjs parse <file>      the file's value as JSON on stdout
+//   node src/yaml.mjs stringify [width] JSON on stdin, the YAML on stdout
+//
+// A refusal is one line on stderr naming the file and line, exit 1.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const [cmd, arg] = process.argv.slice(2);
+  try {
+    if (cmd === "parse" && arg) {
+      process.stdout.write(`${JSON.stringify(parseYaml(readFileSync(arg, "utf8"), arg))}\n`);
+    } else if (cmd === "stringify") {
+      const width = arg === undefined ? 120 : Number(arg);
+      process.stdout.write(stringifyYaml(JSON.parse(readFileSync(0, "utf8")), { width }));
+    } else {
+      process.stderr.write("usage: node src/yaml.mjs parse <file> | stringify [width] < value.json\n");
+      process.exitCode = 2;
+    }
+  } catch (e) {
+    process.stderr.write(`${e.message}\n`);
+    process.exitCode = 1;
+  }
 }

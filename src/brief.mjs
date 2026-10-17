@@ -2008,7 +2008,7 @@ const STATE_WORK = {
 // instantiation contract, kogaki#1276). Once a compose unit's record passes
 // `validateReaderPathUnit`, the supervisor runs one more headless session over that
 // Candidate alone, with each Leg beside its Move's `before`, `after`, `technique` and
-// `breaks` verbatim from `moves/<id>.md`. Each Leg carries its DERIVED before-state
+// `breaks` verbatim from `moves/<id>.yaml`. Each Leg carries its DERIVED before-state
 // (kogaki#1325) -- the previous Leg's after-state, or Reader start for the first --
 // and `before_state` carries the one question asked of the Move's `before` against
 // it, read from src/specialization-schema.json. `inputs.promptHead` is the `reader_path_fit_unit` row rendered by `judgePrompt`

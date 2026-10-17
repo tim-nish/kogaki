@@ -1010,7 +1010,7 @@ rule could be checked; an arc's causality cannot.
 
 Recording observed sequences is ratified, and a Move's record may not hold
 them. They get **one home**: `analysis/<source-slug>.md`, one file per source
-passage, the slug the whole stem — mirroring `moves/<id>.md`.
+passage, the slug the whole stem — mirroring `moves/<id>.yaml`.
 
 **The interior is prose, and the prose is the point.** Headed sections of
 source-specific precedent, no schema, no field set, no required ordering. **The
@@ -3282,10 +3282,12 @@ reader proposes again.
 #### 6.9.1a What that entails
 
 **The file body.** The five required fields in §4.2's order as a YAML
-mapping, byte-identical in form to the block the owner authored — which is
-what makes normalize over a conforming input close to identity. No fence, no
-`---` delimiters: front-matter delimiters imply a document below the
-metadata, and here the block **is** the document.
+mapping, written by the Brief's one YAML writer (`src/yaml.mjs`) and read back
+by its one reader (kogaki#1413) — `before` and `after` as maps keyed by
+dimension, one sentence per dimension, never one joined line, and `breaks` as
+a list of prose tests. No fence, no `---` delimiters: front-matter delimiters
+imply a document below the metadata, and here the block **is** the
+document.
 
 **The optional fields render after the five, each when present** (kogaki#876,
 carried into the rebuilt schema by kogaki#1175). `continues_from`
@@ -3297,12 +3299,14 @@ a record under the five-field schema always did. **The five remain the
 five**: no optional field is in §4.2's required order and none is counted
 into it, which is why each renders after the loop rather than inside it.
 
-**The filename.** `moves/<id>.md`, the `id` field as the whole stem —
+**The filename.** `moves/<id>.yaml`, the `id` field as the whole stem —
 **derived, never composed.** A review that renames a Move renames its file, and
 nothing else has to agree because nothing else stores the name. Two accepted
 Moves cannot share an `id`; the collision surfaces at the accept/decline question as
 the dedupe judgment §6.9 already assigns to review, never as a silent
-overwrite.
+overwrite. A `moves/<id>.md` record is the retired form: every read refuses it by
+name, and a library holding one is refused whole rather than read around
+(kogaki#1413), until kogaki#1415 regenerates the committed records.
 
 **The INDEX row.** One row per file sorted by `id`, carrying `id` and
 `technique` — **every column read off a file, none composed.** That is the
@@ -3404,8 +3408,9 @@ excludes.
 
 **The value model gains one nesting, admitted BY NAME.** §6.9.0's model is
 deliberately small — plain scalars, `>-` folded scalars, column-0 sequences —
-and `figure` is the one key whose indented `key: value` lines are read as a
-mapping. Admitting the nesting by *shape* was declined: it would silently
+and `figure`, `before` and `after` are the keys whose indented `key: value`
+lines are read as a mapping (`before` and `after` admitted by kogaki#1413,
+each line one reader dimension). Admitting the nesting by *shape* was declined: it would silently
 retype every field whose folded prose happens to begin a line with a word and
 a colon.
 
@@ -3430,7 +3435,7 @@ both selections whose declined arm is recoverable from nothing else.
 **The successor position.** A Move's `evidence` holds **source text only** —
 the work this Move came from and where the Passage sits, never a quotation
 (§4.2, kogaki#1175 — the field renamed from `excerpt`, its provenance role
-unchanged). `git log moves/<id>.md` is the audit trail for when and from what
+unchanged). `git log moves/<id>.yaml` is the audit trail for when and from what
 batch a Move was ingested. **No Source/Provenance schema distinction is
 defined**, because nothing demands one.
 

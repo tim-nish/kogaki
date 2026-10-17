@@ -141,8 +141,10 @@ import move_ingest as mi
 paths, moves_dir, out_dir = json.loads(sys.argv[1]), sys.argv[2], sys.argv[3]
 entries = []
 for p in paths:
-    with open(p, encoding="utf-8") as h:
-        prop = mi.derive_from_extraction(h.read())
+    try:
+        prop = mi.derive_from_extraction(mi.read_extraction(p)[1])
+    except mi.Refusal as e:
+        prop = mi.Proposal(1, refusal=e)
     entries.append({"extraction": os.path.basename(p), "admitted": prop.admitted,
                     "move": prop.id if prop.admitted else None,
                     "refusal": None if prop.admitted else str(prop.refusal),

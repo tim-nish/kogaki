@@ -19,15 +19,17 @@ globals().update({k: v for k, v in vars(_m).items() if not k.startswith("__")})
 # The fixture library — every case CONSTRUCTS the defect and asserts the refusal.
 # --------------------------------------------------------------------------
 
+# kogaki#1413: `before` and `after` are maps keyed by dimension, and `breaks`
+# a column-0 list of prose tests.
 FIVE = """id: {id}
-before: >-
+before:
   question: holds an unanswered question
-after: >-
+after:
   question: the question is settled
 technique: >-
   does a thing
-breaks: >-
-  not always
+breaks:
+- not always
 """
 
 
@@ -39,22 +41,37 @@ AXIS_FORM = """figure:
 """
 
 
-# kogaki#1320: a passage-mode fixture that reaches an admitted proposal now
-# needs an Extraction section 3 for `segments` to copy from — appended to every
-# such fixture's passage text, never to one whose proposal is refused for an
-# earlier reason (the segments check runs only once a proposal is admitted).
-# kogaki#1367: every entry carries the content clause for the owner's reading;
-# kogaki#1414: then a subject-free `does:` clause and, after the first
-# Segment, a prose `relation:` clause -- the two fields `segments` copies.
-SECTION3 = (
-    "\n\n## 3. The order inside the Passage\n\n"
-    '1. "Opening words" — gives the reader an unanswered question about '
-    "this passage's own subject. — does: states a question the reader did "
-    "not hold.\n"
-    '2. "Closing words" — answers this passage\'s own question directly. '
-    "— does: answers it directly. — relation: answers the question the "
-    "step before raised.\n"
-)
+# kogaki#1320: a passage-mode fixture that reaches an admitted proposal
+# needs the Extraction's `segments` to copy from. kogaki#1367: every Segment
+# carries the content clause for the owner's reading; kogaki#1414: then a
+# subject-free `does` and, after the first Segment, a prose `relation` -- the
+# two fields `segments` copies. kogaki#1413: the Extraction is a YAML record,
+# so a fixture writes one through the module's own YAML writer.
+SEGMENTS = [
+    {"opening": "Opening words",
+     "content": "gives the reader an unanswered question about this passage's own subject.",
+     "does": "states a question the reader did not hold."},
+    {"opening": "Closing words",
+     "content": "answers this passage's own question directly.",
+     "does": "answers it directly.",
+     "relation": "answers the question the step before raised."},
+]
+
+
+def _extraction(directory, passage, **fields):
+    """An Extraction record at `<directory>/passage.yaml`, carrying `passage`,
+    the fixture `segments` unless `segments=None` drops them, and `fields`."""
+    import copy
+    record = {"passage": passage}
+    record.update(fields)
+    if record.get("segments", "default") == "default":
+        record["segments"] = copy.deepcopy(SEGMENTS)
+    if record["segments"] is None:
+        del record["segments"]
+    path = os.path.join(directory, "passage.yaml")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(yaml_write(record))
+    return path
 
 
 def _record(move_id="a-move", form=None):
@@ -132,7 +149,7 @@ def self_test():
 
     # ---- AC1/AC3: the boundary is the column-0 `id:` ---------------------
     def blank_line_is_not_the_boundary():
-        text = _record("m0").replace("after: >-\n", "after: >-\n\n") + _record("m1")
+        text = _record("m0").replace("after:\n", "after:\n\n") + _record("m1")
         proposals = read_proposals(text)
         assert len(proposals) == 2, (
             "a blank line inside a record must not split it; got %d records" % len(proposals)
@@ -153,7 +170,7 @@ def self_test():
 
     # ---- condition 2 -----------------------------------------------------
     refuses(
-        _record().replace("breaks: >-", "before: >-\n  x\nbreaks: >-"),
+        _record().replace("breaks:\n", "before:\n  question: x\nbreaks:\n"),
         "2",
         "AC3 cond 2 duplicate key refused",
     )
@@ -163,7 +180,7 @@ def self_test():
     # required roles, so a short record is exercised here by dropping one of
     # those rather than `breaks` (now an optional role's field).
     refuses(
-        _record().replace("before: >-\n  question: holds an unanswered question\n", ""),
+        _record().replace("before:\n  question: holds an unanswered question\n", ""),
         "3",
         "AC3 cond 3 four keys refused",
     )
@@ -256,7 +273,7 @@ def self_test():
     refuses(_record() + "```\n", "4", "AC3 cond 4 fence refused")
     refuses(_record() + "> quoted\n", "4", "AC3 cond 4 blockquote refused")
     refuses(_record() + "***\n", "4", "AC3 cond 4 `***` rule refused")
-    refuses(_record() + "- bullet after a scalar\n", "4", "AC3 cond 4 bullet after a scalar refused")
+    refuses(_record().replace("breaks:\n", "- bullet after a scalar\nbreaks:\n"), "4", "AC3 cond 4 bullet after a scalar refused")
 
     # ---- condition 4's `-` exemption: legal column-0 sequences ADMITTED ---
     def legal_sequence_admitted():
@@ -360,13 +377,6 @@ def self_test():
         proposal = read_proposals(text)[0]
         assert proposal.mapping["evidence"] == ["one", "two"], proposal.mapping["evidence"]
 
-        body = render_move(proposal.mapping)
-        for item_line in ("- one", "- two"):
-            assert "\n%s\n" % item_line in body, (
-                "sequence items must render at column 0 — the form §6.9.0's `-` "
-                "exemption exists for; got:\n%s" % body
-            )
-
         with tempfile.TemporaryDirectory() as tmp:
             moves = os.path.join(tmp, "moves")
             save_accepted(moves, [proposal])
@@ -374,10 +384,11 @@ def self_test():
             assert back["evidence"] == ["one", "two"], (
                 "a sequence did not survive the round trip: %r" % (back["evidence"],)
             )
-            # And the saved file is re-admissible by the grammar that wrote it.
-            reread = read_proposals(open(move_path(moves, "seq")).read())
-            assert reread[0].admitted, (
-                "the renderer produced a file its own parser refuses: %s" % reread[0].refusal
+            # kogaki#1413: the saved file is a YAML record written and read by
+            # the Brief's one YAML reader, so re-admission is that reader
+            # returning the mapping the renderer was handed, whole.
+            assert back == proposal.mapping, (
+                "the YAML reader did not return the rendered mapping: %r" % (back,)
             )
 
     check("AC7 a sequence survives the round trip and re-admits", sequence_survives_the_round_trip)
@@ -401,9 +412,9 @@ def self_test():
     check("AC7 an id saved by an earlier run is not overwritten", collision_spans_earlier_runs)
 
     def filename_is_the_id_as_whole_stem():
-        assert move_path("moves", "some-move") == os.path.join("moves", "some-move.md")
+        assert move_path("moves", "some-move") == os.path.join("moves", "some-move.yaml")
 
-    check("AC7 filename is `moves/<id>.md`", filename_is_the_id_as_whole_stem)
+    check("AC7 filename is `moves/<id>.yaml`", filename_is_the_id_as_whole_stem)
 
     def index_columns_are_read_off_files():
         with tempfile.TemporaryDirectory() as tmp:
@@ -651,7 +662,7 @@ def self_test():
             ]
             save_accepted(moves, offered[:1])
             on_disk = sorted(n for n in os.listdir(moves) if n != "INDEX.md")
-            assert on_disk == ["chosen.md"], (
+            assert on_disk == ["chosen.yaml"], (
                 "a Move the owner did not select reached moves/: %s" % on_disk
             )
             index = open(os.path.join(moves, "INDEX.md")).read()
@@ -683,7 +694,7 @@ def self_test():
         """A refused record's row carries its condition and line number
         verbatim."""
         bad = _record("broken").replace(
-            "before: >-\n  question: holds an unanswered question\n", "")
+            "before:\n  question: holds an unanswered question\n", "")
         proposals = read_proposals(_record("good") + bad)
         body = render_proposals(proposals)
         assert "REFUSED" in body, body
@@ -789,7 +800,11 @@ def self_test():
         assert "figure" not in mapping, "a form appeared on a record that has none"
         rendered = render_move(mapping)
         assert "figure" not in rendered, "the renderer wrote a form that does not exist"
-        back, _ = parse_record(1, rendered.split("\n"))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "plain.yaml")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(rendered)
+            back = yaml_read(path)
         assert back == mapping, "the plain round trip is no longer identity"
 
     check("#876 AC2 a record with no form is untouched, through the round trip",
@@ -861,7 +876,7 @@ def self_test():
         assert bad, "a key outside the optional set was admitted"
         assert bad[0].refusal.condition == "3", bad[0].refusal
         four = _record("subject").replace(
-            "before: >-\n  question: holds an unanswered question\n", "")
+            "before:\n  question: holds an unanswered question\n", "")
         proposals = read_proposals(four)
         assert not proposals[0].admitted, "a four-key record was admitted"
         assert proposals[0].refusal.condition == "3", proposals[0].refusal
@@ -891,7 +906,7 @@ def self_test():
         with tempfile.TemporaryDirectory() as moves_dir:
             proposals = read_proposals(_record("axied", AXIS_FORM))
             save_accepted(moves_dir, proposals)
-            back = read_saved(os.path.join(moves_dir, "axied.md"))
+            back = read_saved(os.path.join(moves_dir, "axied.yaml"))
             assert back["figure"]["kind"] == "axis", back
             assert back == proposals[0].mapping, "the saved form did not read back"
             index = open(os.path.join(moves_dir, "INDEX.md")).read()
@@ -928,9 +943,7 @@ def self_test():
 
     def a_full_run_writes_a_screen_and_saves_nothing_before_select():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            with open(passage_path, "w") as handle:
-                handle.write("A passage about persistent institutions.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage about persistent institutions.\n")
             contract_path = os.path.join(d, "contract.md")
             with open(contract_path, "w") as handle:
                 handle.write("EXTRACTION CONTRACT\n")
@@ -945,7 +958,7 @@ def self_test():
             screen = open(result["screen"]).read()
             assert "accept as new / merge into <id> / decline" in screen, screen
             assert result["written"] is None, "a run with no --select wrote something"
-            assert not os.path.isfile(os.path.join(moves_dir, "derive_a_thing.md")), (
+            assert not os.path.isfile(os.path.join(moves_dir, "derive_a_thing.yaml")), (
                 "a Move landed on disk before the owner's selection")
 
     check("#1175 passage: a full run writes the screen and saves nothing before --select",
@@ -953,8 +966,7 @@ def self_test():
 
     def the_model_is_spawned_at_most_once_per_out_dir():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage.\n")
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -968,15 +980,14 @@ def self_test():
                                   out, 30, select="accept")
             spawns = len(open(counter).read()) if os.path.isfile(counter) else 0
             assert spawns == 1, "the model was spawned %d time(s) for one Passage" % spawns
-            assert result["written"] == [os.path.join(moves_dir, "derive_a_thing.md")]
+            assert result["written"] == [os.path.join(moves_dir, "derive_a_thing.yaml")]
 
     check("#1175 passage: the model is spawned at most once per out_dir",
           the_model_is_spawned_at_most_once_per_out_dir)
 
     def select_accept_writes_and_regenerates_the_index():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage.\n")
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -987,7 +998,7 @@ def self_test():
             run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
                                   out, 30, select="accept")
-            saved = os.path.join(moves_dir, "derive_a_thing.md")
+            saved = os.path.join(moves_dir, "derive_a_thing.yaml")
             assert result["written"] == [saved]
             assert os.path.isfile(saved)
             index = open(os.path.join(moves_dir, "INDEX.md")).read()
@@ -998,8 +1009,7 @@ def self_test():
 
     def decline_writes_nothing():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage.\n")
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1018,8 +1028,7 @@ def self_test():
 
     def select_merge_rewrites_the_named_move_and_regenerates_the_index():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage.\n")
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1033,9 +1042,9 @@ def self_test():
             run_passage(passage_path, contract_path, moves_dir, stub, "n/a", out, 30)
             result = run_passage(passage_path, contract_path, moves_dir, stub, "n/a",
                                   out, 30, select="merge:existing_move")
-            target = os.path.join(moves_dir, "existing_move.md")
+            target = os.path.join(moves_dir, "existing_move.yaml")
             assert result["written"] == [target]
-            assert not os.path.isfile(os.path.join(moves_dir, "proposed_move.md")), (
+            assert not os.path.isfile(os.path.join(moves_dir, "proposed_move.yaml")), (
                 "merge also wrote the proposal's own id")
             merged = read_saved(target)
             assert merged["id"] == "existing_move"
@@ -1048,8 +1057,7 @@ def self_test():
 
     def select_merge_refuses_an_unknown_target():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage.\n")
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1071,8 +1079,7 @@ def self_test():
 
     def a_near_duplicate_is_named_from_the_index():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage.\n")
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1105,7 +1112,7 @@ def self_test():
             moves_dir = os.path.join(d, "moves")
             os.makedirs(moves_dir)
             malformed = _record("broken").replace(
-                "before: >-\n  question: holds an unanswered question\n", "")
+                "before:\n  question: holds an unanswered question\n", "")
             stub = os.path.join(d, "stub_model")
             _write_passage_stub(stub, malformed)
             out = os.path.join(d, "run")
@@ -1126,8 +1133,7 @@ def self_test():
 
     def select_rejects_an_unknown_token():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            open(passage_path, "w").write("A passage.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage.\n")
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1148,37 +1154,40 @@ def self_test():
           select_rejects_an_unknown_token)
 
     # ---- kogaki#1216: the question before the passage, read off the Extraction
-    NONE_ROW = ("## 2. Reader before and after\n\n"
-                "| dimension   | before                         | after |\n"
-                "|-------------|--------------------------------|-------|\n"
-                "| knowledge   | little; may know the word      | one claim |\n"
-                '| question    | none, or "should I read this?" | answered |\n'
-                "| trust       | neutral                        | raised |\n")
-    HELD_ROW = NONE_ROW.replace('none, or "should I read this?"', "holds a question about X")
+    NONE_ROW = {"reader": {
+        "knowledge": {"before": "little; may know the word", "after": "one claim", "segment": "1"},
+        "question": {"before": 'none, or "should I read this?"', "after": "answered", "segment": "1"},
+        "trust": {"before": "neutral", "after": "raised", "segment": "2"},
+    }}
+    HELD_ROW = {"reader": dict(NONE_ROW["reader"], question={
+        "before": "holds a question about X", "after": "answered", "segment": "1"})}
 
     def _proposal_mapping():
         return {
             "id": "a_move",
-            "before": "knowledge: has noticed a crowded shelf. question: holds an "
-                      "unanswered question about why so many such works are appearing "
-                      "now. expectation: anticipates a survey.",
+            "before": {
+                "knowledge": "has noticed a crowded shelf.",
+                "question": "holds an unanswered question about why so many such "
+                            "works are appearing now.",
+                "expectation": "anticipates a survey.",
+            },
         }
 
     def a_none_row_writes_holds_none_and_never_a_composed_question():
         mapping = _proposal_mapping()
         changed = write_none_question(mapping, NONE_ROW)
         assert changed == ["before"], changed
-        assert mapping["before"] == (
-            "knowledge: has noticed a crowded shelf. question: holds: none. "
-            "expectation: anticipates a survey."), mapping["before"]
-        assert "unanswered question" not in mapping["before"]
+        assert mapping["before"] == {
+            "knowledge": "has noticed a crowded shelf.",
+            "question": "holds: none.",
+            "expectation": "anticipates a survey."}, mapping["before"]
     check("#1216 passage: an Extraction whose question-before reads none writes "
           "`holds: none` into `before`, never a composed question",
           a_none_row_writes_holds_none_and_never_a_composed_question)
 
     def a_held_row_leaves_the_proposal_untouched():
         mapping = _proposal_mapping()
-        original = dict(mapping)
+        original = copy.deepcopy(mapping)
         assert write_none_question(mapping, HELD_ROW) == []
         assert mapping == original
     check("#1216 passage: an Extraction whose question-before holds a question "
@@ -1186,9 +1195,9 @@ def self_test():
 
     def a_passage_with_no_extraction_row_leaves_the_proposal_untouched():
         mapping = _proposal_mapping()
-        original = dict(mapping)
-        assert extraction_question_before("just a passage, no table") is None
-        assert write_none_question(mapping, "just a passage, no table") == []
+        original = copy.deepcopy(mapping)
+        assert extraction_question_before(None) is None
+        assert write_none_question(mapping, None) == []
         assert mapping == original
         # And the screen names the rewrite only where one happened.
         prop = Proposal(1, mapping=_proposal_mapping())
@@ -1199,12 +1208,13 @@ def self_test():
           a_passage_with_no_extraction_row_leaves_the_proposal_untouched)
 
     # ---- kogaki#1284: subject nouns, read off the Extraction ----------------
-    SUBJECT_NOUNS_ROW = "subject nouns: institutional, civics\n"
+    SUBJECT_NOUNS = ["institutional", "civics"]
+    SUBJECT_NOUNS_ROW = {"subject_nouns": SUBJECT_NOUNS}
 
     def a_technique_naming_a_listed_subject_noun_is_refused():
         mapping = {"technique": "Compress that domain's example into a "
                                  "single institutional principle.",
-                   "breaks": "not always"}
+                   "breaks": ["not always"]}
         refusal = check_subject_nouns(mapping, SUBJECT_NOUNS_ROW, 1)
         assert refusal is not None, "a listed subject noun in `technique` was not refused"
         assert refusal.condition == "subject-noun", refusal
@@ -1216,17 +1226,16 @@ def self_test():
     def an_extraction_with_no_subject_nouns_list_refuses_nothing():
         mapping = {"technique": "Compress that domain's example into a "
                                  "single institutional principle.",
-                   "breaks": "not always"}
-        assert check_subject_nouns(mapping, "just a passage, no header", 1) is None
-        assert check_subject_nouns(mapping, "subject nouns: none\n", 1) is None
+                   "breaks": ["not always"]}
+        assert check_subject_nouns(mapping, None, 1) is None
+        assert check_subject_nouns(mapping, {"subject_nouns": []}, 1) is None
     check("#1284 subject nouns: an Extraction with no list (or \"none\") refuses nothing",
           an_extraction_with_no_subject_nouns_list_refuses_nothing)
 
     def a_passage_run_refuses_a_subject_noun_in_technique():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            with open(passage_path, "w") as handle:
-                handle.write(SUBJECT_NOUNS_ROW + "\nA passage about a guard's reach.\n")
+            passage_path = _extraction(d, "A passage about a guard's reach.\n",
+                                       subject_nouns=SUBJECT_NOUNS, segments=None)
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1248,10 +1257,7 @@ def self_test():
 
     def a_passage_run_admits_a_technique_with_no_subject_noun_listed():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            with open(passage_path, "w") as handle:
-                handle.write(
-                    "subject nouns: none\n\nA passage about a guard's reach.\n" + SECTION3)
+            passage_path = _extraction(d, "A passage about a guard's reach.\n", subject_nouns=[])
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1272,51 +1278,42 @@ def self_test():
     # ---- kogaki#1319: unchanged by default, and the section 8 split note --
 
     def a_changed_dimension_with_no_segment_is_refused_naming_it():
-        text = (
-            "| dimension   | before    | after     | Segment |\n"
-            "|-------------|-----------|-----------|---------|\n"
-            "| knowledge   | unchanged | unchanged |         |\n"
-            "| question    | none      | settled   |         |\n"
-        )
-        refusal = check_extraction_dimensions(text, 1)
+        record = {"reader": {
+            "knowledge": {"before": "unchanged", "after": "unchanged", "segment": ""},
+            "question": {"before": "none", "after": "answered", "segment": ""},
+        }}
+        refusal = check_extraction_dimensions(record, 1)
         assert refusal is not None, "a changed row with no Segment named was not refused"
         assert refusal.condition == "dimension-segment", refusal
         assert "question" in str(refusal), str(refusal)
-    check("#1319 section 2: a row that records a change with no Segment named "
+    check("#1319 `reader`: a row that records a change with no Segment named "
           "is refused, naming the dimension",
           a_changed_dimension_with_no_segment_is_refused_naming_it)
 
     def an_undismissed_split_note_is_refused_naming_it():
-        text = "## 8. Notes\n\nsplit: the Passage may hold two units\n"
-        refusal = check_extraction_split_note(text, 1)
+        record = {"split_notes": [{"note": "the Passage may hold two units"}]}
+        refusal = check_extraction_split_note(record, 1)
         assert refusal is not None, "an undismissed split note was not refused"
         assert refusal.condition == "split-note", refusal
         assert "two units" in str(refusal), str(refusal)
-    check("#1319 section 8: a split note with no matching `dismissed:` line "
+    check("#1319 `split_notes`: a split note with no matching `dismissed` "
           "is refused, naming the note",
           an_undismissed_split_note_is_refused_naming_it)
 
     def a_split_note_dismissed_by_quotation_refuses_nothing():
-        text = ("## 8. Notes\n\nsplit: the Passage may hold two units\n"
-                "dismissed: the Passage may hold two units\n")
-        assert check_extraction_split_note(text, 1) is None, (
+        record = {"split_notes": [{"note": "the Passage may hold two units",
+                                   "dismissed": "the Passage may hold two units"}]}
+        assert check_extraction_split_note(record, 1) is None, (
             "a split note dismissed by repeating it verbatim was still refused")
-    check("#1319 section 8: a split note dismissed by quoting it verbatim refuses nothing",
+    check("#1319 `split_notes`: a split note dismissed by quoting it verbatim refuses nothing",
           a_split_note_dismissed_by_quotation_refuses_nothing)
 
     def a_passage_with_every_dimension_unchanged_reaches_the_model():
         with tempfile.TemporaryDirectory() as d:
-            passage_path = os.path.join(d, "passage.txt")
-            with open(passage_path, "w") as handle:
-                handle.write(
-                    "| dimension   | before    | after     | Segment |\n"
-                    "|-------------|-----------|-----------|---------|\n"
-                    "| knowledge   | unchanged | unchanged |         |\n"
-                    "| question    | unchanged | unchanged |         |\n"
-                    "| expectation | unchanged | unchanged |         |\n"
-                    "| orientation | unchanged | unchanged |         |\n"
-                    "| trust       | unchanged | unchanged |         |\n"
-                    "\ndimensions changed: 0\n\nA passage about nothing moving.\n" + SECTION3)
+            passage_path = _extraction(
+                d, "A passage about nothing moving.\n", dimensions_changed=0,
+                reader={dim: {"before": "unchanged", "after": "unchanged", "segment": ""}
+                        for dim in DIMENSIONS})
             contract_path = os.path.join(d, "contract.md")
             open(contract_path, "w").write("CONTRACT\n")
             moves_dir = os.path.join(d, "moves")
@@ -1330,6 +1327,86 @@ def self_test():
             assert result["proposal"].admitted, result["proposal"].refusal
     check("#1319 `dimensions changed: 0` is accepted, and ingestion runs to the model",
           a_passage_with_every_dimension_unchanged_reaches_the_model)
+
+    # ---- kogaki#1413: the Move and the Extraction are YAML records ---------
+    refuses(
+        _record().replace("before:\n  question: holds an unanswered question\n",
+                          "before: >-\n  question: holds a question. knowledge: has a fact.\n"),
+        "state",
+        "#1413 a joined-line `before` is refused by name",
+    )
+    refuses(
+        _record().replace("after:\n  question: the question is settled\n",
+                          "after:\n  mood: lifted\n"),
+        "state",
+        "#1413 a state keyed by a non-dimension is refused",
+    )
+    refuses(
+        _record().replace("breaks:\n- not always\n", "breaks: >-\n  not always\n"),
+        "breaks",
+        "#1413 a `breaks` that is not a list of tests is refused",
+    )
+
+    def a_saved_move_is_a_yaml_record_with_map_states():
+        with tempfile.TemporaryDirectory() as tmp:
+            moves = os.path.join(tmp, "moves")
+            save_accepted(moves, [read_proposals(_record("mapped"))[0]])
+            path = move_path(moves, "mapped")
+            assert path.endswith(".yaml"), path
+            back = yaml_read(path)
+            assert back["before"] == {"question": "holds an unanswered question"}, back
+            assert back["breaks"] == ["not always"], back
+    check("#1413 a saved Move is a `.yaml` record carrying its states as maps",
+          a_saved_move_is_a_yaml_record_with_map_states)
+
+    def a_retired_md_move_is_refused_by_name():
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "old.md")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(_record("old"))
+            try:
+                read_saved(path)
+            except Refusal as refusal:
+                assert refusal.condition == "record-form", refusal
+                assert "retired `.md` form" in str(refusal), str(refusal)
+                return
+            raise AssertionError("a `.md` Move was read")
+    check("#1413 a `.md` Move record is refused by name", a_retired_md_move_is_refused_by_name)
+
+    def a_markdown_extraction_is_refused_by_name():
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "p01.md")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("# Extraction: old\n\n## Passage\n\nA sentence.\n")
+            try:
+                read_extraction(path)
+            except Refusal as refusal:
+                assert refusal.condition == "extraction-form", refusal
+                return
+            raise AssertionError("a Markdown Extraction was read")
+    check("#1413 a Markdown Extraction is refused by name", a_markdown_extraction_is_refused_by_name)
+
+    def derive_reads_changed_rows_into_maps():
+        record = {
+            "name": "move_from_record",
+            "reader": {
+                "knowledge": {"before": "little", "after": "one claim", "segment": "2"},
+                "question": {"before": "none", "after": "answered", "segment": "1"},
+                "trust": {"before": "neutral", "after": "unchanged", "segment": ""},
+            },
+            "segments": SEGMENTS,
+            "breaks": ["drop the question -- the answer lands on nothing"],
+            "technique": "Ask, then answer.",
+        }
+        proposal = derive_from_extraction(record)
+        assert proposal.admitted, proposal.refusal
+        m = proposal.mapping
+        assert m["before"] == {"knowledge": "little", "question": "none"}, m["before"]
+        assert m["after"] == {"knowledge": "one claim", "question": "answered"}, m["after"]
+        assert m["breaks"] == record["breaks"], m["breaks"]
+        assert [s.get("relation") for s in m["segments"]] == [None, SEGMENTS[1]["relation"]], m["segments"]
+    check("#1413 --from-extraction reads the record's changed rows into `before`/`after` maps",
+          derive_reads_changed_rows_into_maps)
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)

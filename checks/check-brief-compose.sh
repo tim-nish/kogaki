@@ -224,6 +224,7 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as compose from "./src/compose.mjs";
+import { stringifyYaml } from "./src/yaml.mjs";
 import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFitVerdict,
   composeJobExcluded, composeJobFinished, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
 import { startDetachedJobSupervisor } from "./src/workflow/detached-job.mjs";
@@ -1330,19 +1331,18 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
 // distinctive, and Candidates whose Legs bind it.
 const fitMoves = mkdtempSync(join(tmpdir(), "kogaki-1276-moves-"));
 const FIT_MOVE = {
-  m_open: { technique: "states the claim, then names the one case it does not cover.", breaks: "breaks if the uncovered case is never named." },
+  m_open: { technique: "states the claim, then names the one case it does not cover.", breaks: ["breaks if the uncovered case is never named."] },
   // m_turn CARRIES `segments` (kogaki#1320); m_open carries none, so the two
   // fixtures together exercise the fit judge's fallback to `technique`.
-  m_turn: { technique: "sets a second party answering the first in kind, twice, and ends at a balance.", breaks: "breaks if only one party acts.",
-    segments: "1. raises — opens — the first party states its claim.\n2. settles — answers the opening — the second party answers in kind." },
+  m_turn: { technique: "sets a second party answering the first in kind, twice, and ends at a balance.", breaks: ["breaks if only one party acts."],
+    segments: [{ does: "states the first party's claim." }, { does: "answers the claim in kind.", relation: "answers the opening." }] },
 };
+// A Move record is YAML read by the Brief's own reader (kogaki#1413), so the
+// fixture is written by its writer, with `before` and `after` maps.
 for (const [id, f] of Object.entries(FIT_MOVE)) {
-  const lines = [
-    `id: ${id}`, "technique: >-", `  ${f.technique}`, "before: >-", `  knowledge: before ${id}.`,
-    "after: >-", `  knowledge: after ${id}.`, "question: >-", "  holds: none", "breaks: >-", `  ${f.breaks}`,
-  ];
-  if (f.segments) lines.push("segments: |-", ...f.segments.split("\n").map((l) => `  ${l}`));
-  writeFileSync(join(fitMoves, `${id}.md`), lines.join("\n") + "\n");
+  const rec = { id, technique: f.technique, before: { knowledge: `before ${id}.` }, after: { knowledge: `after ${id}.` }, breaks: f.breaks };
+  if (f.segments) rec.segments = f.segments;
+  writeFileSync(join(fitMoves, `${id}.yaml`), stringifyYaml(rec));
 }
 // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
 // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback to the
@@ -1369,13 +1369,13 @@ const cand1276 = (id, leg2Extra = {}) => ({
   else {
     for (const [id, f] of Object.entries(FIT_MOVE)) {
       const m = library.moves.find((x) => x.id === id);
-      if (!m || m.technique !== f.technique || m.breaks !== f.breaks) fails.push(`(ag) loadMoveContracts does not carry ${id}'s technique and breaks verbatim: ${JSON.stringify(m)}`);
+      if (!m || m.technique !== f.technique || JSON.stringify(m.breaks) !== JSON.stringify(f.breaks)) fails.push(`(ag) loadMoveContracts does not carry ${id}'s technique and breaks verbatim: ${JSON.stringify(m)}`);
     }
     const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
     const input = { state: "compose_path", moves_you_may_bind: library.moves, unit_number: 1 };
     const prompt = judgePrompt(table.reader_path_unit, JSON.stringify(input, null, 2), input, null);
     for (const f of Object.values(FIT_MOVE)) {
-      if (!prompt.includes(f.technique) || !prompt.includes(f.breaks)) fails.push(`(ag) the compose_path unit prompt does not carry a Move's technique and breaks verbatim: ${f.technique}`);
+      if (!prompt.includes(f.technique) || !f.breaks.every((b) => prompt.includes(b))) fails.push(`(ag) the compose_path unit prompt does not carry a Move's technique and breaks verbatim: ${f.technique}`);
     }
     const brief = readFileSync("src/brief.mjs", "utf8");
     const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
@@ -1390,7 +1390,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
     if (!own || own.candidate_id !== "c1") fails.push(`(ag) the per-unit fit input does not hold its one Candidate: ${JSON.stringify(own && own.candidate_id)}`);
     for (const c of (own && own.move_contracts) || []) {
       const f = FIT_MOVE[c.move];
-      if (!f || c.technique !== f.technique || c.breaks !== f.breaks || typeof c.before !== "string" || typeof c.after !== "string") {
+      if (!f || c.technique !== f.technique || JSON.stringify(c.breaks) !== JSON.stringify(f.breaks) || typeof c.before !== "string" || typeof c.after !== "string") {
         fails.push(`(ag) the per-unit fit input does not carry leg ${c.leg_id}'s Move contract verbatim: ${JSON.stringify(c)}`);
       }
     }
@@ -1418,14 +1418,14 @@ const cand1276 = (id, leg2Extra = {}) => ({
   else {
     const mTurn = library.moves.find((m) => m.id === "m_turn");
     const mOpen = library.moves.find((m) => m.id === "m_open");
-    if (!mTurn || mTurn.segments !== FIT_MOVE.m_turn.segments) fails.push(`(at) loadMoveContracts does not carry m_turn's segments verbatim: ${JSON.stringify(mTurn)}`);
+    if (!mTurn || JSON.stringify(mTurn.segments) !== JSON.stringify(FIT_MOVE.m_turn.segments)) fails.push(`(at) loadMoveContracts does not carry m_turn's segments verbatim: ${JSON.stringify(mTurn)}`);
     if (!mOpen || mOpen.segments !== null) fails.push(`(at) loadMoveContracts carries a segments value for a Move with none: ${JSON.stringify(mOpen)}`);
     const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
     const input = { state: "compose_path", moves_you_may_bind: library.moves, unit_number: 1 };
     const prompt = judgePrompt(table.reader_path_unit, JSON.stringify(input, null, 2), input, null);
     // THE PROMPT TEXT IS A JSON-STRINGIFIED INPUT, so a segments value with
     // newlines appears there with escaped `\n`, not a literal newline.
-    if (!prompt.includes(JSON.stringify(FIT_MOVE.m_turn.segments).slice(1, -1))) fails.push("(at) the compose_path unit prompt does not carry m_turn's segments verbatim");
+    if (!FIT_MOVE.m_turn.segments.every((s) => prompt.includes(s.does))) fails.push("(at) the compose_path unit prompt does not carry m_turn's segments verbatim");
   }
   const j = readerPathFitInput(cand1276("c1"), fitMoves, START_1276);
   if (j.error) fails.push(`(at) readerPathFitInput refused: ${j.error}`);
@@ -1433,7 +1433,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
     for (const c of j.input.candidate_you_must_judge.move_contracts) {
       const f = FIT_MOVE[c.move];
       const want = f.segments || null;
-      if (c.segments !== want) fails.push(`(at) the per-unit fit input does not carry leg ${c.leg_id}'s Move segments (want ${JSON.stringify(want)}, got ${JSON.stringify(c.segments)})`);
+      if (JSON.stringify(c.segments) !== JSON.stringify(want)) fails.push(`(at) the per-unit fit input does not carry leg ${c.leg_id}'s Move segments (want ${JSON.stringify(want)}, got ${JSON.stringify(c.segments)})`);
     }
   }
 }
@@ -1844,7 +1844,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
   else {
     for (const mc of j.input.candidate_you_must_judge.move_contracts) {
       const leg = c.legs.find((l) => l.leg_id === mc.leg_id);
-      if (JSON.stringify(mc.waypoints) !== JSON.stringify(leg.waypoints) || typeof mc.technique !== "string" || typeof mc.breaks !== "string") {
+      if (JSON.stringify(mc.waypoints) !== JSON.stringify(leg.waypoints) || typeof mc.technique !== "string" || !Array.isArray(mc.breaks)) {
         fails.push(`(ao2) the fit input does not carry leg ${mc.leg_id}'s waypoints beside its Move's technique and breaks: ${JSON.stringify(mc)}`);
       }
     }

@@ -76,47 +76,63 @@ fi
 # `moves/` is validated against the LIVE closed set. The pass's shipped-record
 # case covers the one record kogaki#876 names; this covers record N+1, which is
 # exactly the one a later admission act adds and no fixture knows about.
+# kogaki#1413: a Move record is a `.yaml` file, so the arm reads every `.yaml`
+# record; a `.md` record is the retired form, which the reader refuses by name
+# (`record-form`) — asserted here over each one — until kogaki#1415 regenerates
+# the committed library. The library is empty only where it holds neither.
 LIVE=$(python3 -c "
 import os, sys
 sys.path.insert(0, 'tools')
 import move_ingest as m
 bad = []
-for name in sorted(os.listdir('moves')):
-    if not name.endswith('.md') or name == 'INDEX.md':
-        continue
+names = sorted(os.listdir('moves'))
+records = [n for n in names if n.endswith(m.MOVE_RECORD_EXT)]
+retired = [n for n in names if n.endswith('.md') and n != 'INDEX.md']
+for name in records:
     path = os.path.join('moves', name)
     try:
         mapping = m.read_saved(path)
         m.check_field_set(mapping, 1)
+        m.check_state_shape(mapping, 1)
         m.check_figure(mapping, 1)
     except Exception as exc:
         bad.append('%s: %s' % (path, exc))
         continue
     if m.render_move(mapping) != open(path).read():
         bad.append('%s: does not round-trip through the renderer' % path)
+for name in retired:
+    path = os.path.join('moves', name)
+    try:
+        m.read_saved(path)
+        bad.append('%s: a retired .md record was read' % path)
+    except m.Refusal as exc:
+        if exc.condition != 'record-form':
+            bad.append('%s: refused on %s, not record-form' % (path, exc.condition))
 for line in bad:
     print(line)
-print('COUNTED %d' % len([n for n in os.listdir('moves') if n.endswith('.md') and n != 'INDEX.md']))
+print('COUNTED %d %d' % (len(records), len(retired)))
 " 2>&1) || { echo "FAIL: the live read over moves/ could not run"; printf '%s\n' "$LIVE"; exit 1; }
 printf '%s\n' "$LIVE" | grep -v '^COUNTED ' || true
 if grep -qv '^COUNTED ' <<<"$LIVE"; then
-  echo "FAIL: a record in moves/ does not satisfy §6.9.0 condition 3 or §6.9.3 against the live kind set"
+  echo "FAIL: a record in moves/ does not satisfy §6.9.0 condition 3 or §6.9.3 against the live kind set, or a retired .md record was not refused by name"
   exit 1
 fi
-COUNT=$(sed -n 's/^COUNTED \([0-9][0-9]*\)$/\1/p' <<<"$LIVE")
+COUNT=$(sed -n 's/^COUNTED \([0-9][0-9]*\) [0-9][0-9]*$/\1/p' <<<"$LIVE")
+RETIRED=$(sed -n 's/^COUNTED [0-9][0-9]* \([0-9][0-9]*\)$/\1/p' <<<"$LIVE")
 # THE EMPTY-SET REFUSAL IS RESTORED (kogaki#1187). It was suspended by
 # kogaki#1175 only until moves/ was repopulated by the Corpus-to-Moves
 # conversion; that conversion has now run (kogaki#1187) and moves/ carries
-# the 21 Corpus-derived records, so a COUNT of zero is once again a FAIL
-# rather than a deliberately-tolerated empty state.
-if [[ -z "$COUNT" ]]; then
+# the 21 Corpus-derived records, so a library holding no record in either
+# form is once again a FAIL rather than a deliberately-tolerated empty state.
+if [[ -z "$COUNT" || -z "$RETIRED" ]]; then
   echo "FAIL: the live read over moves/ produced no count line — the arm did not run"
   exit 1
 fi
-if [[ "$COUNT" -lt 1 ]]; then
+if (( COUNT + RETIRED < 1 )); then
   echo "FAIL: moves/ is empty — the live-record arm has nothing to validate (kogaki#1175's empty-set tolerance ended at kogaki#1187, which repopulated moves/)"
   exit 1
 fi
+echo "ok: moves/ holds $COUNT .yaml record(s), each admitted and round-tripping, and $RETIRED retired .md record(s), each refused by name until kogaki#1415 regenerates them"
 
 # --------------------------------------------------------------------------
 # `segments` (kogaki#1320) — the Passage-to-Move path copies the Extraction's
@@ -135,16 +151,15 @@ sys.path.insert(0, "tools")
 import move_ingest as m
 
 MOVE_RECORD = """id: test_move_segments
-before: >-
+before:
   knowledge: holds nothing about the technique.
-after: >-
+after:
   knowledge: holds the technique.
 technique: >-
   demonstrates a simple reusable technique.
-breaks: >-
-  remove: the setup - the payoff lands for no reason.
-  reorder: swap the two halves - the setup no longer earns the payoff.
-  extend: add a third beat - the point dilutes.
+breaks:
+- drop the setup -- the payoff lands for no reason.
+- swap the two halves -- the setup no longer earns the payoff.
 """
 
 def fake_spawn(command, model, prompt, timeout_s, cwd=None):
@@ -154,17 +169,29 @@ m.spawn_model = fake_spawn
 
 failures = []
 
+def extraction(directory, segments):
+    """An Extraction record (kogaki#1413), written by the module's own YAML
+    writer, carrying `segments` and the fields around it."""
+    path = os.path.join(directory, "extracted.yaml")
+    with open(path, "w") as fh:
+        fh.write(m.yaml_write({"passage": "A Passage.", "segments": segments,
+                               "presupposes": "nothing beyond ordinary attention."}))
+    return path
+
+def run(passage, tmp):
+    return m.run_passage(passage, "specs/move-extraction-contract.md",
+                         os.path.join(tmp, "moves"), "stub", "stub-model",
+                         os.path.join(tmp, "out"), 60, select="accept")
+
 # Case 1 — no Extraction at all: refused, naming `segments`.
 tmp1 = tempfile.mkdtemp()
 passage1 = os.path.join(tmp1, "bare.md")
 with open(passage1, "w") as fh:
     fh.write("A bare Passage with no Extraction at all.\n")
 try:
-    m.run_passage(passage1, "specs/move-extraction-contract.md",
-                  os.path.join(tmp1, "moves"), "stub", "stub-model",
-                  os.path.join(tmp1, "out"), 60, select="accept")
+    run(passage1, tmp1)
     failures.append(
-        "a record with no Extraction section 3 was accepted; it must be "
+        "a record with no Extraction `segments` was accepted; it must be "
         "refused naming `segments`")
 except m.Refusal as refusal:
     if "segments" not in str(refusal):
@@ -172,46 +199,41 @@ except m.Refusal as refusal:
             "the no-Extraction refusal does not name `segments` -- got: %s"
             % refusal)
 
-# Case 2 — an Extraction with section 3, every entry carrying its content
-# clause, its `does:` and, after the first, its `relation:` (kogaki#1414): the
-# saved Move renders `segments` as a numbered list of the two prose fields,
+# Case 2 — an Extraction whose Segments each carry their content clause,
+# their `does` and, after the first, their `relation` (kogaki#1414): the
+# saved Move carries `segments` as a list of maps of the two prose fields,
 # none of the content clauses (kogaki#1367), and Segment 1's recorded
 # relation -- a fact about the source -- is not copied (kogaki#1411).
 tmp2 = tempfile.mkdtemp()
-passage2 = os.path.join(tmp2, "extracted.md")
-with open(passage2, "w") as fh:
-    fh.write("""## 3. The order inside the Passage
-
-1. "Opening words one" — gives the reader an unanswered question about the book's own subject. — does: states a question the reader did not hold. — relation: takes up the source's earlier chapter.
-2. "Opening words two" — answers the book's own question directly. — does: answers it directly. — relation: answers the question the step before raised.
-
-## 4. What the Passage presupposes
-
-nothing beyond ordinary attention.
-""")
-moves_dir2 = os.path.join(tmp2, "moves")
+passage2 = extraction(tmp2, [
+    {"opening": "Opening words one",
+     "content": "gives the reader an unanswered question about the book's own subject.",
+     "does": "states a question the reader did not hold.",
+     "relation": "takes up the source's earlier chapter."},
+    {"opening": "Opening words two",
+     "content": "answers the book's own question directly.",
+     "does": "answers it directly.",
+     "relation": "answers the question the step before raised."},
+])
 try:
-    m.run_passage(passage2, "specs/move-extraction-contract.md", moves_dir2,
-                  "stub", "stub-model", os.path.join(tmp2, "out"), 60,
-                  select="accept")
+    run(passage2, tmp2)
 except m.Refusal as refusal:
     failures.append(
-        "a record with an Extraction section 3 was refused -- %s" % refusal)
+        "a record with an Extraction `segments` was refused -- %s" % refusal)
 else:
-    saved = os.path.join(moves_dir2, "test_move_segments.md")
+    saved = os.path.join(tmp2, "moves", "test_move_segments.yaml")
     if not os.path.isfile(saved):
         failures.append("no Move was saved at %s" % saved)
     else:
         text = open(saved).read()
-        expected = """segments: |-
-  1. does: states a question the reader did not hold.
-  2. does: answers it directly. — relation: answers the question the step before raised.
-"""
-        if expected not in text:
+        back = m.yaml_read(saved)
+        expected = [{"does": "states a question the reader did not hold."},
+                    {"does": "answers it directly.",
+                     "relation": "answers the question the step before raised."}]
+        if back.get("segments") != expected:
             failures.append(
-                "`segments` did not render as a numbered list of each "
-                "Segment's does and relation in section 3's order -- saved "
-                "file:\n%s" % text)
+                "`segments` was not saved as a list of each Segment's does "
+                "and relation in the Extraction's order -- saved file:\n%s" % text)
         if "book's own subject" in text or "book's own question" in text:
             failures.append(
                 "`segments` carried a content clause -- saved file:\n%s" % text)
@@ -220,83 +242,58 @@ else:
                 "`segments` carried Segment 1's relation, a fact about the "
                 "source -- saved file:\n%s" % text)
 
-# Case 3 — a §3 entry with only the content clause (no `does:`) is refused
+# Case 3 — a Segment with only the content clause (no `does`) is refused
 # naming its Segment number (kogaki#1367, kogaki#1414).
 tmp3 = tempfile.mkdtemp()
-passage3 = os.path.join(tmp3, "extracted.md")
-with open(passage3, "w") as fh:
-    fh.write("""## 3. The order inside the Passage
-
-1. "Opening words one" — gives the reader an unanswered question.
-2. "Opening words two" — answers it directly. — does: answers it directly. — relation: answers the question before it.
-
-## 4. What the Passage presupposes
-
-nothing beyond ordinary attention.
-""")
+passage3 = extraction(tmp3, [
+    {"opening": "Opening words one", "content": "gives the reader an unanswered question."},
+    {"opening": "Opening words two", "content": "answers it directly.",
+     "does": "answers it directly.", "relation": "answers the question before it."},
+])
 try:
-    m.run_passage(passage3, "specs/move-extraction-contract.md",
-                  os.path.join(tmp3, "moves"), "stub", "stub-model",
-                  os.path.join(tmp3, "out"), 60, select="accept")
+    run(passage3, tmp3)
     failures.append(
-        "a §3 entry carrying no `does:` was accepted; it must be refused "
+        "a Segment carrying no `does` was accepted; it must be refused "
         "naming the Segment's number")
 except m.Refusal as refusal:
-    if "Segment 1" not in str(refusal) or "does:" not in str(refusal):
+    if "Segment 1" not in str(refusal) or "`does`" not in str(refusal):
         failures.append(
-            "the no-`does:` refusal does not name Segment 1 and the field "
+            "the no-`does` refusal does not name Segment 1 and the field "
             "-- got: %s" % refusal)
 
-# Case 3b — a Segment after the first with no `relation:` is refused naming
+# Case 3b — a Segment after the first with no `relation` is refused naming
 # its number (kogaki#1414).
 tmp3b = tempfile.mkdtemp()
-passage3b = os.path.join(tmp3b, "extracted.md")
-with open(passage3b, "w") as fh:
-    fh.write("""## 3. The order inside the Passage
-
-1. "Opening words one" — gives the reader a question. — does: states a question.
-2. "Opening words two" — answers it directly. — does: answers it directly.
-
-## 4. What the Passage presupposes
-
-nothing beyond ordinary attention.
-""")
+passage3b = extraction(tmp3b, [
+    {"opening": "Opening words one", "content": "gives the reader a question.", "does": "states a question."},
+    {"opening": "Opening words two", "content": "answers it directly.", "does": "answers it directly."},
+])
 try:
-    m.run_passage(passage3b, "specs/move-extraction-contract.md",
-                  os.path.join(tmp3b, "moves"), "stub", "stub-model",
-                  os.path.join(tmp3b, "out"), 60, select="accept")
+    run(passage3b, tmp3b)
     failures.append(
-        "Segment 2 with no `relation:` was accepted; it must be refused "
+        "Segment 2 with no `relation` was accepted; it must be refused "
         "naming the Segment's number")
 except m.Refusal as refusal:
-    if "Segment 2" not in str(refusal) or "relation:" not in str(refusal):
+    if "Segment 2" not in str(refusal) or "`relation`" not in str(refusal):
         failures.append(
-            "the no-`relation:` refusal does not name Segment 2 and the "
+            "the no-`relation` refusal does not name Segment 2 and the "
             "field -- got: %s" % refusal)
 
 # Case 4 — a supplied `segments` value disagreeing with the copy is refused
 # as today.
 tmp4 = tempfile.mkdtemp()
-passage4 = os.path.join(tmp4, "extracted.md")
-with open(passage4, "w") as fh:
-    fh.write("""## 3. The order inside the Passage
-
-1. "Opening words one" — gives the reader an unanswered question. — does: states a question the reader did not hold.
-
-## 4. What the Passage presupposes
-
-nothing beyond ordinary attention.
-""")
-disagreeing_record = MOVE_RECORD + "segments: |-\n  1. does: a disagreeing clause.\n"
+passage4 = extraction(tmp4, [
+    {"opening": "Opening words one", "content": "gives the reader an unanswered question.",
+     "does": "states a question the reader did not hold."},
+])
+disagreeing_record = MOVE_RECORD + "segments:\n- does: a disagreeing clause.\n"
 
 def fake_spawn_disagreeing(command, model, prompt, timeout_s, cwd=None):
     return disagreeing_record
 
 m.spawn_model = fake_spawn_disagreeing
 try:
-    m.run_passage(passage4, "specs/move-extraction-contract.md",
-                  os.path.join(tmp4, "moves"), "stub", "stub-model",
-                  os.path.join(tmp4, "out"), 60, select="accept")
+    run(passage4, tmp4)
     failures.append(
         "a record supplying a `segments` value disagreeing with the "
         "copy was accepted")
@@ -327,11 +324,12 @@ if failures:
     sys.exit(1)
 print(
     "ok: segments refused with no Extraction, naming the field; saved as each "
-    "Segment's does and relation, never the content clause or Segment 1's "
-    "relation; refused naming the Segment's number with no `does:`, or with no "
-    "`relation:` after the first; refused where a supplied `segments` disagrees "
+    "Segment's does and relation as a list of maps, never the content clause "
+    "or Segment 1's relation; Extractions read as YAML records; "
+    "maps; refused naming the Segment's number with no `does`, or with no "
+    "`relation` after the first; refused where a supplied `segments` disagrees "
     "with the copy; no retired label set in the format, the Extractor, the "
-    "ingest or ParagraphPlan (kogaki#1320, kogaki#1367, kogaki#1414)")
+    "ingest or ParagraphPlan (kogaki#1320, kogaki#1367, kogaki#1414, kogaki#1413)")
 PY
 ); SEGRC=$?
 printf '%s\n' "$SEGMENTS_OUT"
@@ -342,156 +340,172 @@ fi
 # --------------------------------------------------------------------------
 # `--from-extraction` (kogaki#1358, design on kogaki#1329; one library,
 # kogaki#1366). The fixture is built here in the shape of
-# corpus/p1329/m2/..._cascades/p01.md, because corpus/ is ignored and CI
-# never sees it. Cases, each driving the act:
+# corpus/p1329/m2/..._cascades/p01, because corpus/ is ignored and CI never
+# sees it; it is a YAML record (kogaki#1413), written by the module's own
+# YAML writer. Cases, each driving the act:
 #   1. the derived record's id, before, after, technique, breaks and segments
-#      are sections 7, 2 (changed rows only), 6, 5 and 3 of the Extraction
+#      are the Extraction's `name`, `reader` (changed rows only, as maps
+#      keyed by dimension), `technique`, `breaks` and `segments`
 #      (kogaki#1377 added technique and breaks);
-#   2. a paragraph Extraction carrying `contains:` is refused naming the line;
-#   2b. an Extraction missing section 6 is refused naming the section
+#   2. a paragraph Extraction carrying `contains` is refused naming the field;
+#   2b. an Extraction missing `technique` is refused naming the field
 #      (kogaki#1377);
-#   2c. a section 5 line before its first `- ` test is refused naming the
-#      section (kogaki#1414);
-#   3. `--select accept` lands the Move in the one `moves/` library and
-#      regenerates `moves/INDEX.md`.
+#   2c. a `breaks` that is not a list of prose tests is refused naming the
+#      field (kogaki#1414);
+#   3. `--select accept` lands the Move as `moves/<id>.yaml` in the one
+#      library and regenerates `moves/INDEX.md`; a Markdown Extraction is
+#      refused by name;
+#   3b. THE SHARED EXAMPLE (kogaki#1413): the Move the ingest wrote is read
+#      by `moveContract` in src/compose.mjs -- the writer and the reader
+#      tested against one file -- its states rendered one
+#      `dimension: sentence` line per dimension.
 # --------------------------------------------------------------------------
 FROM_EXTRACTION_OUT=$(python3 <<'PY'
-import io, os, sys, tempfile, contextlib
+import copy, io, json, os, shutil, subprocess, sys, tempfile, contextlib
 sys.path.insert(0, "tools")
 import move_ingest as m
 
-EXTRACTION = """status: worked example (m2), written from the owner's notes
-
-# Extraction: define_a_named_variable_with_almost_no_new_words
-
-source: not given
-unit: paragraph 1 of 11 in define_attack_defense_advantage_through_opposed_security_cascades
-length: 2 sentences, 1 paragraph
-
-## Passage
-
-A term is defined. Each of its states is defined as follows.
-
-## 2. Reader before and after
-
-| dimension   | before | after | Segment |
-|-------------|--------|-------|---------|
-| knowledge   | the first factor is named and not yet defined | the first factor is defined | 1 |
-| question    | what is the first factor? | "what do its two states look like?" opened | 2 |
-| expectation | the factors will be explained one at a time | unchanged | |
-| orientation | a book explaining politics through named factors | unchanged | |
-| trust       | neutral | unchanged | |
-
-dimensions changed: 2
-
-## 3. The order inside the Passage
-
-1. "A term is defined" [gloss] — takes up item one of the preceding list and defines it. — does: takes up the first of a previously presented list of items and defines it. — relation: takes up the list the previous paragraph closed on.
-2. "Each of its states" — tells the reader two items are coming. — does: announces that a fixed number of items follow.
-   — relation: opens the defined item into its parts.
-
-## 5. Where it would break
-
-- drop the second sentence — the reader never learns the states exist.
-- name the states before the factor — the reader has no term to hang
-  them on.
-- add a third state — the completeness claim breaks.
-
-## 6. The technique, subject-free
-
-Name the item once, then promise its full set of states before giving any one of them.
-
-## 7. Candidate name
-
-define_a_named_variable_with_almost_no_new_words
-
-## 8. Notes
-
-none
-"""
+REPO = os.getcwd()
+EXTRACTION = {
+    "status": "worked example (m2), written from the owner's notes",
+    "name": "define_a_named_variable_with_almost_no_new_words",
+    "source": "not given",
+    "unit": "paragraph 1 of 11 in define_attack_defense_advantage_through_opposed_security_cascades",
+    "length": "2 sentences, 1 paragraph",
+    "passage": "A term is defined. Each of its states is defined as follows.",
+    "reader": {
+        "knowledge": {"before": "the first factor is named and not yet defined",
+                      "after": "the first factor is defined", "segment": "1"},
+        "question": {"before": "what is the first factor?",
+                     "after": "\"what do its two states look like?\" opened", "segment": "2"},
+        "expectation": {"before": "the factors will be explained one at a time",
+                        "after": "unchanged", "segment": ""},
+        "orientation": {"before": "a book explaining politics through named factors",
+                        "after": "unchanged", "segment": ""},
+        "trust": {"before": "neutral", "after": "unchanged", "segment": ""},
+    },
+    "dimensions_changed": 2,
+    "segments": [
+        {"opening": "A term is defined",
+         "content": "takes up item one of the preceding list and defines it.",
+         "does": "takes up the first of a previously presented list of items and defines it.",
+         "relation": "takes up the list the previous paragraph closed on."},
+        {"opening": "Each of its states",
+         "content": "tells the reader two items are coming.",
+         "does": "announces that a fixed number of items follow.",
+         "relation": "opens the defined item into its parts."},
+    ],
+    "breaks": [
+        "drop the second sentence — the reader never learns the states exist.",
+        "name the states before the factor — the reader has no term to hang them on.",
+        "add a third state — the completeness claim breaks.",
+    ],
+    "technique": "Name the item once, then promise its full set of states before giving any one of them.",
+    "notes": "none",
+}
 
 failures = []
 
-p = m.derive_from_extraction(EXTRACTION)
+def derived(record):
+    return m.derive_from_extraction(copy.deepcopy(record))
+
+p = derived(EXTRACTION)
 want = {
     "id": "define_a_named_variable_with_almost_no_new_words",
-    "before": "knowledge: the first factor is named and not yet defined. "
-              "question: what is the first factor?",
-    "after": "knowledge: the first factor is defined. "
-             "question: \"what do its two states look like?\" opened.",
-    "segments": "1. does: takes up the first of a previously presented list of items and defines it.\n"
-                "2. does: announces that a fixed number of items follow. — relation: opens the defined item into its parts.",
+    "before": {"knowledge": "the first factor is named and not yet defined",
+               "question": "what is the first factor?"},
+    "after": {"knowledge": "the first factor is defined",
+              "question": "\"what do its two states look like?\" opened"},
+    "segments": [
+        {"does": "takes up the first of a previously presented list of items and defines it."},
+        {"does": "announces that a fixed number of items follow.",
+         "relation": "opens the defined item into its parts."},
+    ],
     "technique": "Name the item once, then promise its full set of states before giving any one of them.",
-    "breaks": "- drop the second sentence — the reader never learns the states exist.\n"
-              "- name the states before the factor — the reader has no term to hang them on.\n"
-              "- add a third state — the completeness claim breaks.",
+    "breaks": EXTRACTION["breaks"],
 }
 if not p.admitted:
     failures.append("case 1: the p01-shaped Extraction was refused: %s" % p.refusal)
 elif p.mapping != want:
     failures.append("case 1: derived %r, want %r" % (p.mapping, want))
 
-with_contains = EXTRACTION.replace(
-    "length: 2 sentences", "contains: a_slug, b_slug\nlength: 2 sentences")
-p = m.derive_from_extraction(with_contains)
-if p.admitted or "contains: a_slug, b_slug" not in str(p.refusal):
-    failures.append("case 2: a paragraph Extraction carrying `contains:` was not "
-                    "refused naming the line -- got %r" % p.refusal)
+with_contains = dict(EXTRACTION, contains=["a_slug", "b_slug"])
+p = derived(with_contains)
+if p.admitted or "`contains`" not in str(p.refusal):
+    failures.append("case 2: a paragraph Extraction carrying `contains` was not "
+                    "refused naming the field -- got %r" % p.refusal)
 
-# case 2b (kogaki#1377): an Extraction missing section 6 is refused naming
-# the section, and nothing is proposed.
-no_section6 = EXTRACTION.replace(
-    """## 6. The technique, subject-free
+# case 2b (kogaki#1377): an Extraction missing `technique` is refused naming
+# the field, and nothing is proposed.
+no_technique = {k: v for k, v in EXTRACTION.items() if k != "technique"}
+p = derived(no_technique)
+if p.admitted or "`technique`" not in str(p.refusal):
+    failures.append("case 2b: an Extraction with no `technique` was not refused "
+                    "naming the field -- got %r" % p.refusal)
 
-Name the item once, then promise its full set of states before giving any one of them.
-
-""", "")
-p = m.derive_from_extraction(no_section6)
-if p.admitted or "section 6" not in str(p.refusal):
-    failures.append("case 2b: an Extraction with no section 6 was not refused "
-                    "naming the section -- got %r" % p.refusal)
-
-# case 2c (kogaki#1414): section 5 is a list of prose tests; text before its
-# first `- ` test is refused naming the section, and nothing is proposed.
-keyed_breaks = EXTRACTION.replace(
-    "- drop the second sentence", "drop: the second sentence", 1)
-p = m.derive_from_extraction(keyed_breaks)
-if p.admitted or "section 5" not in str(p.refusal):
-    failures.append("case 2c: a section 5 line before its first `- ` test was "
-                    "not refused naming the section -- got %r" % p.refusal)
+# case 2c (kogaki#1414): `breaks` is a list of prose tests; keyed tests are
+# refused naming the field, and nothing is proposed.
+keyed_breaks = dict(EXTRACTION, breaks={"drop": "the second sentence"})
+p = derived(keyed_breaks)
+if p.admitted or "`breaks`" not in str(p.refusal):
+    failures.append("case 2c: a `breaks` that is not a list of tests was "
+                    "not refused naming the field -- got %r" % p.refusal)
 
 with tempfile.TemporaryDirectory() as tmp:
     moves = os.path.join(tmp, "moves")
     os.makedirs(moves)
-    src = os.path.join(tmp, "p01.md")
-    with open(src, "w") as h:
-        h.write(EXTRACTION)
+    shutil.copy(os.path.join(REPO, "moves", "ROLES.json"), moves)
+    with open(os.path.join(tmp, "p01.yaml"), "w") as h:
+        h.write(m.yaml_write(EXTRACTION))
+    with open(os.path.join(tmp, "p02.md"), "w") as h:
+        h.write("# Extraction: old\n\n## Passage\n\nA sentence.\n")
     cwd = os.getcwd()
     os.chdir(tmp)
     try:
         with contextlib.redirect_stdout(io.StringIO()):
-            rc = m.main(["passage", "--from-extraction", "p01.md",
+            rc = m.main(["passage", "--from-extraction", "p01.yaml",
                          "--out", "run", "--select", "accept"])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            rc_md = m.main(["passage", "--from-extraction", "p02.md", "--out", "run2"])
     finally:
         os.chdir(cwd)
-    saved = os.path.join(moves, want["id"] + ".md")
+    if rc_md == 0 or ".yaml" not in err.getvalue():
+        failures.append("case 3: a Markdown Extraction was not refused by name "
+                        "(rc %d, stderr %r)" % (rc_md, err.getvalue()))
+    saved = os.path.join(moves, want["id"] + ".yaml")
     if rc != 0 or not os.path.isfile(saved):
         failures.append("case 3: the accepted Move did not land in %s (rc %d)"
-                        % (moves, rc))
+                        % (saved, rc))
     else:
-        if open(saved).read() != m.render_move(want) or \
-                m.render_move(m.read_saved(saved)) != m.render_move(want):
+        if open(saved).read() != m.render_move(want) or m.read_saved(saved) != want:
             failures.append("case 3: the saved Move is not the derived record, "
                             "round-tripped: %r" % open(saved).read())
         index = open(os.path.join(moves, "INDEX.md")).read()
         if want["id"] not in index:
             failures.append("case 3: %s/INDEX.md was not regenerated" % moves)
+        # case 3b: the shared example -- the composer's reader reads the
+        # file the ingest's writer wrote.
+        read = subprocess.run(
+            ["node", "--input-type=module", "-e",
+             "const { moveContract } = await import(process.argv[1]);"
+             "process.stdout.write(JSON.stringify(moveContract(process.argv[2], process.argv[3])));",
+             "file://" + os.path.join(REPO, "src", "compose.mjs"), want["id"], moves],
+            capture_output=True, text=True)
+        contract = json.loads(read.stdout or "{}") if read.returncode == 0 else {"error": read.stderr}
+        lines = lambda state: "\n".join("%s: %s" % kv for kv in state.items())
+        if contract.get("error") or contract.get("before") != lines(want["before"]) \
+                or contract.get("after") != lines(want["after"]) \
+                or contract.get("breaks") != want["breaks"] \
+                or contract.get("segments") != want["segments"]:
+            failures.append("case 3b: moveContract does not read the Move the ingest "
+                            "wrote, one dimension per line -- got %r" % contract)
 
 # case 4 (kogaki#1369): the old spelling `--from-analysis` is refused by
 # name, naming `--from-extraction`, and is never read as the paragraph path.
 err = io.StringIO()
 with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
-    rc = m.main(["passage", "--from-analysis", "p01.md", "--out", "run"])
+    rc = m.main(["passage", "--from-analysis", "p01.yaml", "--out", "run"])
 if rc == 0 or "--from-analysis is retired" not in err.getvalue() \
         or "--from-extraction" not in err.getvalue():
     failures.append("case 4: --from-analysis was not refused naming "
@@ -502,12 +516,15 @@ if failures:
         print("FAIL: %s" % f)
     sys.exit(1)
 print("ok: --from-extraction reads id, before, after, technique, breaks and segments "
-      "off sections 7, 2, 6, 5 and 3, refuses `contains:` on a paragraph Extraction "
-      "naming the line, refuses an Extraction missing section 6 naming the section, "
-      "refuses a section 5 line before its first `- ` test naming the section, "
-      "and lands the accepted Move and its INDEX.md in the one moves/ library, and "
+      "off the Extraction record's name, reader (as maps keyed by dimension), "
+      "technique, breaks and segments, refuses `contains` on a paragraph Extraction "
+      "naming the field, refuses an Extraction missing `technique` naming the field, "
+      "refuses a `breaks` that is not a list of tests naming the field, refuses a "
+      "Markdown Extraction by name, and lands the accepted Move as a .yaml record "
+      "and its INDEX.md in the one moves/ library, read back by moveContract one "
+      "dimension per line (the shared example), and "
       "--from-analysis is refused naming --from-extraction "
-      "(kogaki#1358, kogaki#1366, kogaki#1369, kogaki#1377, kogaki#1414)")
+      "(kogaki#1358, kogaki#1366, kogaki#1369, kogaki#1377, kogaki#1414, kogaki#1413)")
 PY
 ); FARC=$?
 printf '%s\n' "$FROM_EXTRACTION_OUT"
@@ -515,5 +532,5 @@ if [[ $FARC -ne 0 ]]; then
   exit 1
 fi
 
-echo "ok: ingestion fixture pass ran ${N} case(s) clean, exactly at its floor of ${FLOOR}; ${COUNT} shipped record(s) validate against the live kind set"
+echo "ok: ingestion fixture pass ran ${N} case(s) clean, exactly at its floor of ${FLOOR}; ${COUNT} shipped .yaml record(s) validate against the live kind set and ${RETIRED} retired .md record(s) are refused by name"
 exit 0

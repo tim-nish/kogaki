@@ -28,7 +28,7 @@ Packet reads it either.
 never handed it — the Move it reads is `before`, `after`, `technique` and
 `breaks` — so the one reader it had, path review's question chain, judged a
 Candidate against a field the composer never received. The reader's question
-is carried where the composer does see it: the `question:` line of `before`
+is carried where the composer does see it: the `question` entry of `before`
 and `after`.
 
 `segments` added (kogaki#1320, owner ruling 2026-10-10): the record carries
@@ -36,16 +36,16 @@ the Extraction's ordered Segments, so a human can check a Leg's waypoint order
 against something other than the prose of `technique`. The model is never
 asked to write it — the eight keys below are still the whole of what the
 model authors — `tools/move_ingest.py`'s `passage` mode copies it from the
-Extraction's own section 3, entry for entry, after the model has returned its
+Extraction's own `segments`, entry for entry, after the model has returned its
 record.
 
-`segments` generalized only (kogaki#1367, owner ruling 2026-10-13): each §3
-entry carries two clauses, a content clause written about the original and
+`segments` generalized only (kogaki#1367, owner ruling 2026-10-13): each Extraction
+Segment carries two clauses, a content clause written about the original and
 a generalized clause, subject-free the way `technique` is written.
 `segments` carries the generalized clause of each entry and never the
 content clause — a content-bearing Segment clause would let a Move's
 structure be reconstructed back to its source paragraph, which the
-generalized clause cannot be. A §3 entry carrying only the content clause
+generalized clause cannot be. An Extraction Segment carrying only the content clause
 is refused at ingestion, naming the Segment's number.
 
 **Origin.** The Move concept follows Swales' move analysis in genre studies:
@@ -83,22 +83,26 @@ the article.
 
 One record per Move, exactly these eight keys admissible — five always
 present, three optional — in this order, separated by one blank line.
-Multi-line values use YAML folded style (`>-`).
+Multi-line values use YAML folded style (`>-`). `before` and `after` are
+maps keyed by dimension, one entry per dimension, never one joined line;
+`breaks` is a list. The saved Move is one `.yaml` record, `moves/<id>.yaml`,
+read by the Brief's one YAML reader (`src/yaml.mjs`); a `.md` Move is the
+retired form and is refused by name (kogaki#1413).
 
 ```
 id: <snake_case verb phrase naming the transformation>
-before: >-
-  <one line per reader dimension this Move starts from, e.g.
-  "question: holds an unanswered question about X." Omit dimensions this
-  Move does not touch.>
-after: >-
-  <one line per reader dimension this Move leaves the reader in, same
-  dimension set as before>
+before:
+  <dimension>: <the reader's state on that dimension before the Move, one
+    sentence, e.g. question: holds an unanswered question about X. Omit
+    dimensions this Move does not touch.>
+after:
+  <dimension>: <the reader's state on that dimension after the Move, same
+    dimension set as before>
 technique: >-
   <what the Move does, subject-free, one or two sentences>
-breaks: >-
-  <the three tests a correct performance must survive — remove, reorder,
-  extend — one line each>
+breaks:
+  - <one prose test: a change a careful writer might make, and what the
+    reader loses>
 continues_from: <optional. A prior Move's id, if this one picks up directly
   from it. Omit for a true opening.>
 evidence: >-
@@ -113,16 +117,16 @@ figure:
 
 - **id** — a verb phrase describing the transformation, not the topic:
   `derive_mitigation_from_causal_mechanism`, not `north_korea_diplomacy`.
-- **before / after** — reader states, one line per dimension the Move
-  changes. `passages/FORMAT.md` §2 states the rule once, for the Extraction
-  this Move is drawn from: a dimension its table records as unchanged is
-  omitted from the Move. Written at the **dimension level**, generalizable
-  to another article — not this article's own facts. The `question:` line
-  is the one question-under-
-  discussion analysis governs: it states the question the reader holds, and
-  `after` states whether the Move settled it, replaced it with a narrower
-  one, or raised a new one beside it. Write `question: holds: none.` in
-  `before` when the reader arrives with no live question.
+- **before / after** — reader states, one map entry per dimension the
+  Move changes, keyed by the dimension's name. `passages/FORMAT.md` states
+  the rule once, at the Extraction's `reader`, for the Extraction this Move
+  is drawn from: a dimension it records as unchanged is omitted from the
+  Move. Written at the **dimension level**, generalizable to another
+  article — not this article's own facts. The `question` entry is the one
+  question-under-discussion analysis governs: it states the question the
+  reader holds, and `after` states whether the Move settled it, replaced it with a narrower
+  one, or raised a new one beside it. Write `question: holds: none.` as the
+  `before` entry when the reader arrives with no live question.
 - **technique** — subject-free, general to the technique. A person applying
   this Move to a completely different topic must be able to follow it from
   this field alone.
@@ -164,24 +168,23 @@ empty block.
 
 Not one of the eight keys above, and never written by the model. In
 `tools/move_ingest.py`'s `passage` mode, once the model's record is admitted,
-the tool reads the Extraction beside the Passage and copies its `## 3. The
-order inside the Passage` section into the record's own `segments`, entry
-for entry, in the same order: one line per Segment, each carrying its
-function (raises, advances, settles), its relation to the previous Segment,
-and the generalized clause stating what it does to the reader — the
+the tool reads the Extraction record beside the Passage and copies its
+`segments` into the record's own `segments`, entry for entry, in the same
+order: one map per Segment, carrying its `does` and, on every Segment after
+the first, its `relation` to the one before — the
 quoted opening words stay in the Extraction and are not copied, since they
 locate a Segment in the Passage and `segments` does not carry the Passage,
 and the content clause stays in the Extraction too, since it is written
 about the original and `segments` carries only the generalized clause.
 
 A record is refused, naming `segments`, where the Extraction carries no
-section 3 for the tool to copy it from, where a §3 entry carries only the
-content clause with no generalized clause, naming that Segment's number,
+`segments` for the tool to copy it from, where an Extraction Segment carries no
+`does`, naming that Segment's number,
 or where the model's own record already carried a `segments` value that
 disagrees with the copy — the model is never asked to write or reorder
 Segments, so a value it supplied anyway is a defect, not an alternative to
 the copy.
 
-A saved Move renders `segments` as a numbered list, in section 3's own
-order, so a human reads the order as a list rather than checking it against
+A saved Move renders `segments` as a YAML list of maps, in the
+Extraction's own order, so a human reads the order as a list rather than checking it against
 the prose of `technique`.

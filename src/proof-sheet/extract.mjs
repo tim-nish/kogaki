@@ -18,10 +18,10 @@
 //
 // WHAT THE HARNESS WRITES AND WHAT THE MODEL WRITES. The model answers a JSON record of
 // FORMAT's sections; the Harness cuts the paragraph into sentences (one Segment each), and
-// writes every line it can count or already knows — the status line, `unit:`, `length:`
-// and each Segment's quoted opening words — then renders the file in FORMAT's
-// layout. What it renders is what the ingest's own parser reads, which is why a record the
-// validator passes is a file the ingest takes without edits.
+// writes every field it can count or already knows — `status`, `unit`, `length` and each
+// Segment's quoted `opening` words — then writes the file as FORMAT's YAML record
+// (kogaki#1413). The ingest reads that record through the same YAML module, which is why a
+// record the validator passes is a file the ingest takes without edits.
 //
 // THE RUN DIRECTORY. `<out>/extractor-run-<instant>/`, one subdirectory per paragraph: the
 // supervisor's own files (the prompt in `reader-path-job-units.json`, every attempt's raw
@@ -45,6 +45,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "
 import { join, resolve, basename, extname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine } from "../compose.mjs";
+import { stringifyYaml } from "../yaml.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
@@ -53,6 +54,8 @@ import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
 export const EXTRACTION_TABLE = join(REPO, "src", "proof-sheet", "extraction-workflow.json");
 export const DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
 export const STATUS_LINE = "status: unreviewed model draft (m2)";
+// An Extraction file is its YAML record (kogaki#1413).
+export const EXTRACTION_EXT = ".yaml";
 const RECORD_KEYS = ["version", "paragraph", "source", "prior_text", "language", "subject_nouns", "answers",
   "what_it_does", "reader", "segments", "why_this_order", "presupposes", "breaks", "technique", "name", "notes"];
 // Q4 Footing is retired (kogaki#1414): its one consumer went with kogaki#1280, and FORMAT
@@ -326,82 +329,80 @@ export function validateExtractionUnit(record, input) {
 }
 
 // ---------------------------------------------------------------------------
-// THE FILE, IN FORMAT'S LAYOUT.
+// THE FILE IS THE RECORD, AS YAML (kogaki#1413). The Extraction is written as the record
+// passages/FORMAT.md "The Extraction" declares -- section 2 a map of dimension rows, section 3
+// a list of Segment maps, section 5 a list of prose tests -- through the Brief's YAML writer,
+// and `tools/move_ingest.py passage --from-extraction` reads it through the same module's
+// reader, unedited. `extractionMarkdown` renders the record for reading; nothing reads that
+// rendering back.
+
+export function extractionRecord(record, input, runRel) {
+  const p = input.paragraph_you_must_extract;
+  const nouns = record.subject_nouns.map((s) => s.trim()).filter(Boolean);
+  const reader = {};
+  for (const row of record.reader) {
+    const unchanged = isUnchanged(row.after);
+    reader[row.dimension] = { before: row.before.trim(), after: unchanged ? "unchanged" : row.after.trim(),
+      segment: unchanged ? "" : row.segment.trim() };
+  }
+  return {
+    status: `${STATUS_LINE.slice("status: ".length)} — written by the Extractor run ${runRel}`,
+    name: record.name,
+    source: record.source.trim(),
+    subject_nouns: nouns,
+    prior_text: record.prior_text.trim(),
+    length: `${p.sentences.length} sentence${p.sentences.length === 1 ? "" : "s"}, 1 paragraph`,
+    language: record.language.trim(),
+    unit: `paragraph ${p.number} of ${p.of} in ${p.passage}`,
+    passage: p.text,
+    answers: Object.fromEntries(ANSWER_KEYS.map((k) => [k, { answer: `model — ${record.answers[k].trim()}` }])),
+    what_it_does: record.what_it_does.trim(),
+    reader,
+    dimensions_changed: record.reader.filter((row) => !isUnchanged(row.after)).length,
+    segments: record.segments.map((s, i) => ({ opening: openingWords(p.sentences[i]), content: s.content.trim(), does: s.does.trim(),
+      ...(s.relation.trim() ? { relation: s.relation.trim() } : {}) })),
+    why_this_order: record.why_this_order.trim(),
+    presupposes: record.presupposes.trim(),
+    breaks: record.breaks.map((x) => x.trim()),
+    technique: record.technique.trim(),
+    notes: record.notes.trim(),
+  };
+}
 
 export function extractionFileText(record, input, runRel) {
-  const p = input.paragraph_you_must_extract;
-  const segs = record.segments;
-  const nouns = record.subject_nouns.map((s) => s.trim()).filter(Boolean);
-  const table = [
-    "| dimension   | before | after | Segment |",
-    "|-------------|--------|-------|---------|",
-    ...record.reader.map((row) => `| ${row.dimension.padEnd(11)} | ${row.before.trim()} | ${isUnchanged(row.after) ? "unchanged" : row.after.trim()} | ${isUnchanged(row.after) ? "" : row.segment.trim()} |`),
-  ];
-  const changed = record.reader.filter((row) => !isUnchanged(row.after)).length;
+  return stringifyYaml(extractionRecord(record, input, runRel), { width: 100, header: `Extraction: ${record.name}` });
+}
+
+// THE RECORD RENDERED FOR READING, in the order FORMAT's sections run. Every value comes off
+// the record; a field the record does not carry renders nothing.
+const ANSWER_TITLES = { q1: "Q1 Purpose", q2: "Q2 Question", q3: "Q3 Disposition" };
+export function extractionMarkdown(rec) {
+  const r = rec || {};
+  const line = (v) => String(v ?? "").trim();
+  const cell = (v) => line(v).replace(/\|/g, "\\|");
+  const head = ["source", "subject_nouns", "prior_text", "length", "language", "unit", "contains"]
+    .filter((k) => r[k] !== undefined && r[k] !== null && !(Array.isArray(r[k]) && !r[k].length))
+    .map((k) => `${k.replace(/_/g, " ")}: ${Array.isArray(r[k]) ? r[k].join(", ") : line(r[k])}`);
+  const answers = Object.entries(r.answers || {}).flatMap(([k, a]) => [ANSWER_TITLES[k] || k,
+    ...((a && a.candidates) || []).map((c, i) => `  ${i + 1}. ${line(c)}`), `  answer: ${line(a && a.answer)}`, ""]);
+  const rows = Object.entries(r.reader || {}).map(([d, row]) => `| ${d} | ${cell(row.before)} | ${cell(row.after)} | ${cell(row.segment)} |`);
+  const segs = (r.segments || []).map((s, i) => `${i + 1}. "${line(s.opening)}" — ${line(s.content)} — does: ${line(s.does)}`
+    + (line(s.relation) ? ` — relation: ${line(s.relation)}` : ""));
+  const splits = (r.split_notes || []).flatMap((n) => [`split: ${line(n.note)}`, ...(n.dismissed ? [`dismissed: ${line(n.dismissed)}`] : [])]);
   return [
-    `${STATUS_LINE} — written by the Extractor run ${runRel}`,
-    "",
-    `# Extraction: ${record.name}`,
-    "",
-    `source: ${record.source.trim()}`,
-    `subject nouns: ${nouns.length ? nouns.join(", ") : "none"}`,
-    `prior text: ${record.prior_text.trim()}`,
-    `length: ${p.sentences.length} sentence${p.sentences.length === 1 ? "" : "s"}, 1 paragraph`,
-    `language: ${record.language.trim()}`,
-    `unit: paragraph ${p.number} of ${p.of} in ${p.passage}`,
-    "",
-    "## Passage",
-    "",
-    p.text,
-    "",
-    "## Answers",
-    "",
-    "Q1 Purpose",
-    `  answer: model — ${record.answers.q1.trim()}`,
-    "",
-    "Q2 Question",
-    `  answer: model — ${record.answers.q2.trim()}`,
-    "",
-    "Q3 Disposition",
-    `  answer: model — ${record.answers.q3.trim()}`,
-    "",
-    "## 1. What the Passage does",
-    "",
-    record.what_it_does.trim(),
-    "",
-    "## 2. Reader before and after",
-    "",
-    ...table,
-    "",
-    `dimensions changed: ${changed}`,
-    "",
-    "## 3. The order inside the Passage",
-    "",
-    ...segs.map((s, i) => `${i + 1}. "${openingWords(p.sentences[i])}" — ${s.content.trim()} — does: ${s.does.trim()}`
-      + (s.relation.trim() ? ` — relation: ${s.relation.trim()}` : "")),
-    "",
-    record.why_this_order.trim(),
-    "",
-    "## 4. What the Passage presupposes",
-    "",
-    record.presupposes.trim(),
-    "",
-    "## 5. Where it would break",
-    "",
-    ...record.breaks.map((t) => `- ${t.trim()}`),
-    "",
-    "## 6. The technique, subject-free",
-    "",
-    record.technique.trim(),
-    "",
-    "## 7. Candidate name",
-    "",
-    record.name,
-    "",
-    "## 8. Notes",
-    "",
-    record.notes.trim() || "nothing",
-    "",
+    ...(r.status ? [`status: ${line(r.status)}`, ""] : []),
+    `# Extraction: ${line(r.name)}`, "", ...head, "",
+    "## Passage", "", line(r.passage), "",
+    "## Answers", "", ...answers,
+    "## 1. What the Passage does", "", line(r.what_it_does), "",
+    "## 2. Reader before and after", "", "| dimension | before | after | Segment |", "|---|---|---|---|", ...rows, "",
+    `dimensions changed: ${line(r.dimensions_changed)}`, "",
+    "## 3. The order inside the Passage", "", ...segs, "", line(r.why_this_order), "",
+    "## 4. What the Passage presupposes", "", line(r.presupposes), "",
+    "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
+    "## 6. The technique, subject-free", "", line(r.technique), "",
+    "## 7. Candidate name", "", line(r.name), "",
+    "## 8. Notes", "", line(r.notes) || "nothing", ...splits, "",
   ].join("\n");
 }
 
@@ -485,7 +486,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       const dir = join(runDir, `p${i + 1}`);
       let answer = null;
       try { answer = JSON.parse(readFileSync(join(dir, "answer.json"), "utf8")); } catch { answer = null; }
-      const file = answer ? join(outDir, `${answer.name}.md`) : null;
+      const file = answer ? join(outDir, `${answer.name}${EXTRACTION_EXT}`) : null;
       if (!answer || !file || !existsSync(file)) break;
       written.push(file);
       namesTaken.push(answer.name);
@@ -514,7 +515,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
         + ` after ${u.attempts || 1} attempt(s) — ${String(lastRefusal(job)).split("\n").join(" ")}` };
     }
     writeJson(join(dir, "answer.json"), u.candidate);
-    const file = join(outDir, `${u.candidate.name}.md`);
+    const file = join(outDir, `${u.candidate.name}${EXTRACTION_EXT}`);
     // NEVER OVER AN EARLIER FILE: an Extraction the owner has already reviewed carries no
     // status line and nothing here could tell it from a draft.
     if (existsSync(file)) {

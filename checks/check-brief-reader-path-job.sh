@@ -595,7 +595,7 @@ function pollUntil(dir, pred, timeoutMs) {
 // does.
 {
   const movesScratchDir = mkdtempSync(join(tmpdir(), "kogaki-rpjob-moves-"));
-  writeFileSync(join(movesScratchDir, "m1.md"), "id: m1\n");
+  writeFileSync(join(movesScratchDir, "m1.yaml"), "id: m1\n");
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
   // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback.
   writeFileSync(join(movesScratchDir, "ROLES.json"), readFileSync("moves/ROLES.json"));
@@ -1461,9 +1461,9 @@ chmodSync(resumeJudge, 0o755);
   const moves = join(base, "moves");
   mkdirSync(moves);
   for (const id of ["m_open", "m_turn"]) {
-    writeFileSync(join(moves, `${id}.md`), [
-      `id: ${id}`, "technique: >-", `  the technique of ${id}.`, "before: >-", `  knowledge: before ${id}.`,
-      "after: >-", `  knowledge: after ${id}.`, "question: >-", "  holds: none", "breaks: >-", `  breaks if ${id} is skipped.`, "",
+    writeFileSync(join(moves, `${id}.yaml`), [
+      `id: ${id}`, "technique: >-", `  the technique of ${id}.`, "before:", `  knowledge: before ${id}.`,
+      "after:", `  knowledge: after ${id}.`, "breaks:", `  - breaks if ${id} is skipped.`, "",
     ].join("\n"));
   }
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
@@ -1827,9 +1827,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const base = mkNewScratch();
   const moves = join(base, "moves");
   mkdirSync(moves);
-  writeFileSync(join(moves, "m1.md"), ["id: m1", "technique: >-", "  states the claim, then names the case it leaves out.",
-    "before: >-", "  knowledge: before.", "after: >-", "  knowledge: after.", "question: >-", "  holds: none",
-    "breaks: >-", "  breaks if the left-out case is never named.", ""].join("\n"));
+  writeFileSync(join(moves, "m1.yaml"), ["id: m1", "technique: >-", "  states the claim, then names the case it leaves out.",
+    "before:", "  knowledge: before.", "after:", "  knowledge: after.",
+    "breaks:", "  - breaks if the left-out case is never named.", ""].join("\n"));
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
   // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback.
   writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));

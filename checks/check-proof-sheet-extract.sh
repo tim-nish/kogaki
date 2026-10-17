@@ -5,13 +5,15 @@
 # WHAT THIS COVERS, driven end to end through `node src/proof-sheet/extract.mjs run` over a
 # two-paragraph Leg and a FAKE judge binary this member writes (`KOGAKI_JUDGE_CLI`) — never
 # the actual `claude` CLI:
-#   (a) the run writes one Extraction per paragraph, in FORMAT's paragraph-unit layout: the
-#       status line naming the run, `unit: paragraph <N> of 2 in <slug>`, and in section 3
-#       one entry per sentence carrying the content clause and `— does:`, and `— relation:`
-#       on every entry but a first paragraph's Segment 1; section 5 one `- ` line per test;
-#       and no Q4 Footing (kogaki#1414).
-#   (b) `tools/move_ingest.py`'s own `derive_from_extraction` — the reader behind
-#       `passage --from-extraction` — admits both files unedited.
+#   (a) the run writes one Extraction per paragraph as a `.yaml` record read by the Brief's
+#       YAML reader (kogaki#1413): `status` naming the run, `unit: paragraph <N> of 2 in
+#       <slug>`, `reader` a map of the five dimensions, `segments` a list of maps, one per
+#       sentence, carrying `content` and `does`, and `relation` on every Segment but a first
+#       paragraph's Segment 1; `breaks` a list of tests; no Q4 Footing (kogaki#1414); and
+#       the record renders to Markdown for reading.
+#   (b) `tools/move_ingest.py`'s own `read_extraction` and `derive_from_extraction` — the
+#       readers behind `passage --from-extraction` — admit both files unedited, and refuse
+#       a Markdown Extraction by name (`extraction-form`).
 #   (c) the run directory holds, per paragraph, the prompt as rendered (the
 #       `extraction_unit` row through `judgePrompt`, FORMAT verbatim above the input
 #       marker, and a JSON skeleton of the record with the paragraph number filled as a
@@ -98,44 +100,66 @@ const out = join(root, "out");
 const r = spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "run", "--leg", join(root, "leg-fixture.txt"), "--out", out],
   { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSX_FIXTURE_DIR: root }, timeout: 300000 });
 ok(r.status === 0, `(a) the run exited ${r.status}: ${r.stdout}${r.stderr}`);
-const files = [join(out, "name_an_act_then_its_cost_1.md"), join(out, "name_an_act_then_its_cost_2.md")];
+const files = [join(out, "name_an_act_then_its_cost_1.yaml"), join(out, "name_an_act_then_its_cost_2.yaml")];
 const runDir = (r.stdout.match(/^run directory: (.+)$/m) || [])[1];
+const { parseYaml } = await import(pathToFileURL(join(repo, "src", "yaml.mjs")).href);
+const recordOf = (f) => { try { return parseYaml(readFileSync(f, "utf8"), f); } catch (e) { return { parse_error: e.message }; } };
 
-// (a) the file layout
+// (a) the record layout: one YAML record per paragraph (kogaki#1413), its
+// Segments a list of maps, its reader rows a map keyed by dimension, its
+// tests a list; rendered to Markdown only for reading.
 for (const [i, f] of files.entries()) {
   if (!existsSync(f)) { fails.push(`(a) no Extraction written at ${f}`); continue; }
   const t = readFileSync(f, "utf8");
-  ok(t.startsWith(`${X.STATUS_LINE} — written by the Extractor run extractor-run-`), `(a) ${f} does not open with the status line naming the run`);
-  ok(t.includes(`\nunit: paragraph ${i + 1} of 2 in leg-fixture\n`), `(a) ${f} carries no \`unit: paragraph ${i + 1} of 2 in leg-fixture\` line`);
-  for (const h of ["## Passage", "## Answers", "## 1. What the Passage does", "## 2. Reader before and after", "## 3. The order inside the Passage",
-    "## 4. What the Passage presupposes", "## 5. Where it would break", "## 6. The technique, subject-free", "## 7. Candidate name", "## 8. Notes"]) {
-    ok(t.includes(`\n${h}\n`), `(a) ${f} carries no \`${h}\` heading`);
+  ok(t.startsWith("# Extraction: "), `(a) ${f} does not open with its \`# Extraction:\` header comment`);
+  const rec = recordOf(f);
+  ok(!rec.parse_error, `(a) ${f} is not read by the Brief's YAML reader: ${rec.parse_error}`);
+  ok(typeof rec.status === "string" && rec.status.startsWith(`${X.STATUS_LINE.slice("status: ".length)} — written by the Extractor run extractor-run-`),
+    `(a) ${f} carries no status naming the run`);
+  ok(rec.unit === `paragraph ${i + 1} of 2 in leg-fixture`, `(a) ${f} carries no \`unit: paragraph ${i + 1} of 2 in leg-fixture\``);
+  for (const k of ["name", "passage", "answers", "what_it_does", "reader", "segments", "why_this_order", "presupposes", "breaks", "technique"]) {
+    ok(rec[k] !== undefined, `(a) ${f} carries no \`${k}\``);
   }
-  const entries = t.split("\n").filter((l) => /^\d+\. "/.test(l));
+  ok(rec.reader && ["knowledge", "question", "expectation", "orientation", "trust"].every((d) => rec.reader[d] && typeof rec.reader[d].before === "string"),
+    `(a) ${f}'s reader is not a map of the five dimensions, each with its before`);
+  const segs = Array.isArray(rec.segments) ? rec.segments : [];
   const want = i === 0 ? 2 : 3;
-  ok(entries.length === want, `(a) ${f} carries ${entries.length} section 3 entries for ${want} sentences`);
-  ok(entries.every((l) => / — CONTENT-\d-\d names what the copy does\. — does: \S/.test(l)), `(a) a section 3 entry of ${f} lacks the content clause or the does clause`);
-  ok(entries.every((l, j) => (i === 0 && j === 0) ? !/ — relation:/.test(l) : / — relation: \S/.test(l)),
-    `(a) a section 3 entry of ${f} carries a relation where nothing precedes it, or lacks one where something does`);
-  const s5 = t.slice(t.indexOf("## 5. Where it would break"), t.indexOf("## 6."));
-  ok((s5.match(/^- \S/gm) || []).length === 3 && !/^(remove|reorder|extend):/m.test(s5), `(a) ${f}'s section 5 is not one \`- \` line per test`);
-  ok(!/Q4|Footing|^functions:/m.test(t), `(a) ${f} carries a Q4 Footing answer or a functions line`);
+  ok(segs.length === want, `(a) ${f} carries ${segs.length} Segments for ${want} sentences`);
+  ok(segs.every((s) => /^CONTENT-\d-\d names what the copy does\.$/.test(s.content) && /\S/.test(s.does || "")),
+    `(a) a Segment of ${f} lacks the content clause or the does clause`);
+  ok(segs.every((s, j) => (i === 0 && j === 0) ? s.relation === undefined : /\S/.test(s.relation || "")),
+    `(a) a Segment of ${f} carries a relation where nothing precedes it, or lacks one where something does`);
+  ok(Array.isArray(rec.breaks) && rec.breaks.length === 3 && rec.breaks.every((b) => typeof b === "string" && !/^(remove|reorder|extend):/.test(b)),
+    `(a) ${f}'s breaks is not a list of three prose tests`);
+  ok(!/Q4|Footing|^functions:/m.test(t) && !(rec.answers && rec.answers.q4), `(a) ${f} carries a Q4 Footing answer or a functions line`);
+  const md = X.extractionMarkdown(rec);
+  ok(["## Passage", "## Answers", "## 2. Reader before and after", "## 3. The order inside the Passage", "## 5. Where it would break"].every((h) => md.includes(`\n${h}\n`))
+    && md.includes(`does: ${segs[0] && segs[0].does}`), `(a) ${f}'s record does not render to Markdown for reading`);
 }
 
-// (b) the ingest reads both unedited
+// (b) the ingest reads both unedited, through its YAML reader; a Markdown
+// Extraction is the retired form and refused by name (kogaki#1413).
+const legacy = join(root, "legacy.md");
+writeFileSync(legacy, "# Extraction: legacy\n\n## Passage\n\nA sentence.\n");
 const py = spawnSync("python3", ["-I", "-c", `
 import sys
 sys.path.insert(0, "tools")
 import move_ingest
 bad = []
-for f in sys.argv[1:]:
-    p = move_ingest.derive_from_extraction(open(f, encoding="utf-8").read())
+for f in sys.argv[2:]:
+    p = move_ingest.derive_from_extraction(move_ingest.read_extraction(f)[1])
     if not p.admitted:
         bad.append("%s: %s" % (f, p.refusal))
+try:
+    move_ingest.read_extraction(sys.argv[1])
+    bad.append("a Markdown Extraction was read")
+except move_ingest.Refusal as e:
+    if e.condition != "extraction-form":
+        bad.append("a Markdown Extraction was refused on %s, not extraction-form" % e.condition)
 print("\\n".join(bad))
 sys.exit(1 if bad else 0)
-`, ...files], { encoding: "utf8", cwd: repo });
-ok(py.status === 0, `(b) the ingest refused an Extraction: ${py.stdout}${py.stderr}`);
+`, legacy, ...files], { encoding: "utf8", cwd: repo });
+ok(py.status === 0, `(b) the ingest refused an Extraction, or read a Markdown one: ${py.stdout}${py.stderr}`);
 
 // (c) the run directory
 if (!runDir) fails.push("(c) the run printed no run directory");
@@ -171,8 +195,9 @@ else {
   const in2 = prompts[3] ? JSON.parse(prompts[3].slice(prompts[3].indexOf("----- INPUT (JSON) -----") + 24)) : {};
   ok(in2.reader_state_before && in2.reader_state_before.knowledge === "AFTER-1-knowledge" && in2.reader_state_before.trust === "BEFORE-trust",
     `(e) paragraph 2 was not handed paragraph 1's carried state: ${JSON.stringify(in2.reader_state_before)}`);
-  const t2 = existsSync(files[1]) ? readFileSync(files[1], "utf8") : "";
-  ok(/^\| knowledge\s+\| AFTER-1-knowledge \| AFTER-2-knowledge \| 3 \|$/m.test(t2), "(e) paragraph 2's knowledge row does not carry paragraph 1's after into its before column");
+  const k2 = existsSync(files[1]) ? ((recordOf(files[1]).reader || {}).knowledge || {}) : {};
+  ok(k2.before === "AFTER-1-knowledge" && k2.after === "AFTER-2-knowledge" && String(k2.segment) === "3",
+    `(e) paragraph 2's knowledge row does not carry paragraph 1's after into its before: ${JSON.stringify(k2)}`);
 }
 
 // (d) --tools ""

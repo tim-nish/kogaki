@@ -396,7 +396,7 @@ const draft = (args, env = {}) => trapped([join(repo, "src", "draft.mjs"), ...ar
 // (c) read: none of the three files names a Move reader src/compose.mjs exports.
 {
   const readers = ["resolveMoveIds", "loadMoveIds", "loadMoveContracts", "moveContract", "moveContractsForLegs",
-    "figureOf", "resolveFigureForms", "moveScalarField"];
+    "figureOf", "resolveFigureForms", "readMoveRecord"];
   for (const f of ["src/draft.mjs", "src/review-draft.mjs", "src/assemble.mjs"]) {
     const code = readFileSync(f, "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
     for (const name of readers) {
