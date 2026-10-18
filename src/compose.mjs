@@ -408,6 +408,14 @@ export function waypointsRefusal(waypoints, claimStrands, at) {
           + `after the Brief, and stays in that stage's run directory (kogaki#1375). ${def}`;
       }
     }
+    // THE JOIN IS A PARAGRAPHPLAN OUTPUT, NEVER A BRIEF FIELD (kogaki#1411): it is written by
+    // /paragraph-plan into its own file beside the Brief, so a Brief whose waypoint carries
+    // one is refused here, at every read, the way `move` and `segments` are.
+    if (Object.hasOwn(w, "join")) {
+      return `${at}: ${nth} carries \`join\` — a join is written by /paragraph-plan into the ParagraphPlan file, `
+        + `beside the Brief, and never on a Brief's Leg Waypoint: the relations layer between Leg Waypoints is `
+        + `retired (kogaki#1215, kogaki#1411). ${def}`;
+    }
     if (typeof w.point !== "string" || w.point.trim() === "") {
       return `${at}: ${nth} has an empty point — ${def}`;
     }
@@ -2778,16 +2786,23 @@ const PLAN_HEADER = [
   "reads it beside the Brief and refuses it when the Brief has changed since. It holds nothing of a Move.",
 ].join(" ");
 
+// `legs[i].waypoints` is one array of Paragraph Waypoints per Leg Waypoint, and
+// `legs[i].joins`, where given, one join per Leg Waypoint -- null on the first (kogaki#1411).
+const oneLine = (s) => String(s).replace(/\s*\n\s*/g, " ").trim();
 export function paragraphPlanRecord({ briefPath, briefText, legs }) {
   return {
     version: "1",
     brief: { path: relFromRepo(resolve(briefPath)), sha256: sha256(briefText) },
     legs: legs.map((l) => ({
       leg_id: l.leg_id,
-      waypoints: l.waypoints.map((pws, i) => ({
-        waypoint: i + 1,
-        paragraph_waypoints: pws.map((p) => ({ point: String(p.point).replace(/\s*\n\s*/g, " ").trim(), serves: [...p.serves] })),
-      })),
+      waypoints: l.waypoints.map((pws, i) => {
+        const join = (l.joins || [])[i];
+        return {
+          waypoint: i + 1,
+          ...(typeof join === "string" ? { join: oneLine(join) } : {}),
+          paragraph_waypoints: pws.map((p) => ({ point: oneLine(p.point), serves: [...p.serves] })),
+        };
+      }),
     })),
   };
 }
@@ -2799,7 +2814,7 @@ export function paragraphPlanRecordText(record) {
 const PLAN_KEYS = ["version", "brief", "legs"];
 const PLAN_BRIEF_KEYS = ["path", "sha256"];
 const PLAN_LEG_KEYS = ["leg_id", "waypoints"];
-const PLAN_WAYPOINT_KEYS = ["waypoint", "paragraph_waypoints"];
+const PLAN_WAYPOINT_KEYS = ["waypoint", "join", "paragraph_waypoints"];
 const PARAGRAPH_WAYPOINT_KEYS = ["point", "serves"];
 
 export function undeclaredKey(obj, allowed) {
@@ -2807,8 +2822,9 @@ export function undeclaredKey(obj, allowed) {
 }
 
 // THE READ /draft MAKES (kogaki#1375). `briefPath` and `briefText` are the Brief /draft
-// was handed, `legs` its parsed Legs. Returns `{ path, waypoints }` — `waypoints` a Map
-// from leg_id to one array of Paragraph Waypoints per Leg Waypoint — or `{ error }`,
+// was handed, `legs` its parsed Legs. Returns `{ path, waypoints, joins }` — `waypoints` a
+// Map from leg_id to one array of Paragraph Waypoints per Leg Waypoint, `joins` a Map from
+// leg_id to one join per Leg Waypoint, null on the first (kogaki#1411) — or `{ error }`,
 // naming both files where the two disagree. OPENS NO MOVE FILE: the record carries none.
 export function readParagraphPlanBeside(briefPath, briefText, legs) {
   const path = paragraphPlanPathFor(briefPath);
@@ -2831,7 +2847,8 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
       + `the plan was made, so run /paragraph-plan on this Brief again (kogaki#1375)` };
   }
   const waypoints = new Map(record.legs.map((l) => [l.leg_id, l.waypoints.map((w) => w.paragraph_waypoints)]));
-  return { path, waypoints };
+  const joins = new Map(record.legs.map((l) => [l.leg_id, l.waypoints.map((w) => w.join ?? null)]));
+  return { path, waypoints, joins };
 }
 
 // The record's shape against the Brief's Legs: every key declared, one entry per Leg and
@@ -2871,9 +2888,36 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
       if (kw) return `${atW} carries \`${kw}\`, which a ParagraphPlan record does not declare — the file holds no Move id, `
         + "no Segment and no Move field (kogaki#1375)";
       if (w.waypoint !== j + 1) return `${atW} is numbered ${JSON.stringify(w.waypoint)} — entries are one per Leg Waypoint, in order`;
+      const badJoin = joinRefusal(w, j, atW);
+      if (badJoin) return badJoin;
       const bad = paragraphWaypointsRefusal(w.paragraph_waypoints, leg.waypoints[j].serves, atW);
       if (bad) return bad;
     }
+  }
+  return null;
+}
+
+// THE JOIN, BY ITS PLACE IN THE LEG (kogaki#1411, owner decision 2026-10-18). Every Leg
+// Waypoint after the first carries one non-empty `join` -- one sentence, about the content,
+// stating what the previous paragraph left open and how this paragraph's first point takes
+// it up -- and the first carries none: the connection between Legs is the Brief's
+// (kogaki#1282). The join is composed by /paragraph-plan from reader state and names no Move
+// and no Segment. `j` is the Leg Waypoint's 0-based place. Shared by the plan reader and the
+// plan call's validator, so the file the stage writes is the file /draft reads.
+export function joinRefusal(w, j, at) {
+  const has = Object.hasOwn(w, "join");
+  if (j === 0) {
+    return has ? `${at} carries \`join\` — the first Leg Waypoint of a Leg carries no join: the connection between Legs `
+      + "is the Brief's, admitted by `introduces` and `re-activate` (kogaki#1282), and the join is only for a paragraph "
+      + "after the first within a Leg (kogaki#1411)" : null;
+  }
+  if (!has) {
+    return `${at} carries no \`join\` — every Leg Waypoint after the first carries one sentence stating what the `
+      + "previous paragraph left open and how this paragraph's first point takes it up (kogaki#1411)";
+  }
+  if (typeof w.join !== "string" || w.join.trim() === "") {
+    return `${at} carries an empty \`join\` — a join is one sentence stating what the previous paragraph left open and `
+      + "how this paragraph's first point takes it up (kogaki#1411)";
   }
   return null;
 }

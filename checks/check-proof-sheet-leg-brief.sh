@@ -131,7 +131,8 @@ else {
   // (b) /paragraph-plan's own read, and /draft resolve with a plan written by the stage's writer
   const pp = readAdoptedBrief(briefPath);
   ok(!pp.error, `(b) /paragraph-plan refused the Brief: ${pp.error}`);
-  const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, waypoints: l.waypoints.map((w, i) => [{ point: `Paragraph ${i + 1}.`, serves: [...w.serves] }]) }));
+  const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, waypoints: l.waypoints.map((w, i) => [{ point: `Paragraph ${i + 1}.`, serves: [...w.serves] }]),
+    joins: l.waypoints.map((w, i) => (i ? `Paragraph ${i + 1} takes up what paragraph ${i} left open.` : null)) }));
   writeFileSync(paragraphPlanPathFor(briefPath), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text, legs: planLegs })));
   const dr = spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, "ws")], { encoding: "utf8", timeout: 120000 });
   ok(dr.status === 0, `(b) /draft resolve refused the Brief: ${(dr.stderr || dr.stdout || "").slice(0, 600)}`);

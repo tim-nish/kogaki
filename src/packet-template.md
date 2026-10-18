@@ -87,7 +87,9 @@ the Move and judged there. A paragraph Move's responsibility ends when the
 ParagraphPlan stage has generated the Paragraph Waypoints from it; what the
 writer needs from THAT arrives as the Paragraph Waypoints, read from the
 ParagraphPlan file beside the Brief and rendered under each waypoint -- and
-nothing of the Move itself. No Move file is opened here.
+nothing of the Move itself. No Move file is opened here. The *Opens from* line
+under a waypoint is the ParagraphPlan's join, composed from the reader state
+the previous paragraph leaves, and carries nothing of a Move (kogaki#1411).
 -->
 
 # Write one Leg
@@ -101,6 +103,12 @@ claim it serves: they are not one sentence each, and the paragraph expresses
 them in as many sentences as it needs.
 The point is not quoted: its wording is yours, and no line here is copied or
 announced to the reader.
+
+An *Opens from* line under a numbered line states how that paragraph's first
+point follows from the paragraph before it. The paragraph's opening realises
+it, in a connective, a clause or a sentence of your choosing and wording, under
+the Referents rule of the register. It is not a point of its own, it is not
+copied, and it is not announced.
 
 {{waypoints}}
 

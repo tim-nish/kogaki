@@ -104,6 +104,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const SEG = [2, 2, 3];
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "name_an_act_then_its_cost_" + w.waypoint,
       why: "its before holds the state and its after reaches the next point.",
+      ...(w.waypoint > 1 ? { join: "JOIN-" + w.waypoint + " this paragraph takes up what the paragraph before it left open." } : {}),
       paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
@@ -195,11 +196,15 @@ else {
   ok(ingest.entries.length === 3 && ingest.entries.every((e) => e.admitted && e.screen.includes(`id: ${e.move}`)), "(b) an ingest entry does not carry its screen");
   const plan = parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan");
   ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.length)) === "[2,2,3]", "(b) the ParagraphPlan file's Paragraph Waypoint counts are not the Moves' Segment counts");
+  ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => (w.join || "").slice(0, 6))) === '["","JOIN-2","JOIN-3"]',
+    "(b) the ParagraphPlan file does not carry a join on every Leg Waypoint after the first and none on the first (kogaki#1411)");
 
   // (c) the Writer's prompt is the Packet alone
   const packet = readOr(join(runDir, "draft", "leg-fixture", "packets", "copy-leg.md"), null);
   const w = calls("draft");
   ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(c) the Writer's recorded prompt is not the Packet byte for byte");
+  ok(packet !== null && packet.includes("   *Opens from:* JOIN-2 ") && packet.includes("   *Opens from:* JOIN-3 ")
+    && (packet.match(/\*Opens from:\*/g) || []).length === 2, "(c) the Packet does not render each plan join as its Opens-from line (kogaki#1411)");
   ok(seen.filter((s) => s.stage === "writer").every((s) => s.prompt === packet), "(c) the model binary was handed something other than the Packet");
   ok(w.length && w[0].argv.includes("--tools") && w[0].argv[w[0].argv.indexOf("--tools") + 1] === "", "(c) the Writer was not called with --tools \"\"");
 
@@ -466,6 +471,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const SEG = [2, 2, 3];
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "name_an_act_then_its_cost_" + w.waypoint,
       why: "its before holds the state and its after reaches the next point.",
+      ...(w.waypoint > 1 ? { join: "JOIN-" + w.waypoint + " this paragraph takes up what the paragraph before it left open." } : {}),
       paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
