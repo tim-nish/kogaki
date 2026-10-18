@@ -1152,12 +1152,25 @@ def check_extraction_split_note(record, line_no=None):
 # one, is a fact about the source paragraph's predecessor and is not copied
 # either: a Move carries no relation to what precedes it (kogaki#1411).
 
+# AN ENTRY IS READ AS A SEGMENT OR REFUSED, NEVER DROPPED (kogaki#1416). Every
+# entry of `segments` is copied into the Move, in order, so the Move never
+# carries fewer Segments than the Extraction lists. An entry carrying a key
+# outside SEGMENT_ENTRY_KEYS is refused by name rather than read in part; whether
+# the copied `does` and `relation` are a Segment is the Adapter's question
+# (`validateMoveRecord`, reached through `validate_move`, kogaki#1418), asked
+# once, so the ingest carries no second reading of the Segment's shape. A
+# `reader` row naming a Segment the list does not hold is the Extraction
+# disagreeing with its own count, and is refused naming that Segment.
+SEGMENT_ENTRY_KEYS = ("opening", "content", "does", "relation")
+
+
 def extraction_segments(record, line_no=None):
     """The ordered Segments of the Extraction's `segments` as the Move's own
-    `segments` value: `[{"does": ...}, {"does": ..., "relation": ...}, ...]`.
-    Returns `None` where there is no record or it carries no `segments`, and
-    raises `Refusal` naming the Segment's number where an entry carries no
-    `does`, or where a Segment after the first carries no `relation`."""
+    `segments` value: `[{"does": ...}, {"does": ..., "relation": ...}, ...]`,
+    one per entry. Returns `None` where there is no record or it carries no
+    `segments`, and raises `Refusal` naming the entry where it is not a map
+    or carries a key a Segment entry does not, or naming the Segment where a
+    `reader` row names one the list does not hold."""
     entries = (record or {}).get("segments")
     if entries is None:
         return None
@@ -1169,31 +1182,43 @@ def extraction_segments(record, line_no=None):
         number = index + 1
         if not isinstance(entry, dict):
             raise Refusal("segments", "Segment %d is not a map" % number, line_no=line_no)
+        unknown = [k for k in entry if k not in SEGMENT_ENTRY_KEYS]
+        if unknown:
+            raise Refusal(
+                "segments",
+                "Segment %d carries `%s` — an entry of `segments` carries %s "
+                "and nothing else, so it cannot be read as a Segment"
+                % (number, unknown[0], ", ".join("`%s`" % k for k in SEGMENT_ENTRY_KEYS)),
+                line_no=line_no,
+            )
         does = _cell(entry.get("does"))
-        if not does:
-            raise Refusal(
-                "segments",
-                "Segment %d carries no `does` — the Extraction owes one on every "
-                "entry" % number,
-                line_no=line_no,
-            )
-        relation = _cell(entry.get("relation"))
-        if index > 0 and not relation:
-            raise Refusal(
-                "segments",
-                "Segment %d carries no `relation` — every Segment after the "
-                "first owes its relation to the Segment before it" % number,
-                line_no=line_no,
-            )
-        segments.append({"does": does} if index == 0 else {"does": does, "relation": relation})
+        segments.append({"does": does} if index == 0
+                        else {"does": does, "relation": _cell(entry.get("relation"))})
+    check_reader_segment_numbers(record, len(segments), line_no)
     return segments
+
+
+def check_reader_segment_numbers(record, count, line_no=None):
+    """Every Segment number a `reader` row's `segment` cell names (`3`, or
+    `4, 6`) is one of the `count` Segments `segments` lists; a row naming
+    any other is refused, naming the row and the Segment."""
+    for dim, (_before, _after, cell) in extraction_rows(record).items():
+        for token in [t.strip() for t in cell.split(",") if t.strip()]:
+            if not token.isdigit() or not 1 <= int(token) <= count:
+                raise Refusal(
+                    "segments",
+                    "the `%s` row of `reader` names Segment %s, and `segments` "
+                    "lists %d — the Extraction disagrees with its own Segment "
+                    "count" % (dim, token, count),
+                    line_no=line_no,
+                )
 
 
 def check_segments(mapping, record, line_no):
     """Copy the Extraction's ordered Segments into the record's own
     `segments`. Returns `(Refusal, None)` where the Extraction carries no
-    `segments` to copy from, where a Segment entry is missing a field
-    `extraction_segments` requires, or where the record already carried a
+    `segments` to copy from, where `extraction_segments` refuses an entry
+    or the count, or where the record already carried a
     `segments` value that disagrees with the copy — the model is never asked
     to write or reorder Segments, so a value it supplied anyway is a defect,
     not an alternative reading. Otherwise returns `(None, <the list>)`."""
