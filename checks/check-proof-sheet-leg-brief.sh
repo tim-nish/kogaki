@@ -40,6 +40,10 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+// A HANDED-IN HEARTBEAT (kogaki#1424): every fixture job this check starts, and every
+// poll over its record, runs at 100 ms instead of the production table's 10 s; the
+// table itself is untouched (`jobHeartbeatMs` in src/workflow/detached-job.mjs).
+process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const repo = resolve(".");

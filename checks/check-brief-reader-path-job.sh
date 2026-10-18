@@ -9,8 +9,9 @@
 # the actual `claude` CLI, on the same seam-free convention the sibling
 # `check-brief-compose.sh` states for its own fixtures. It also asserts the
 # owner-facing screen leaks neither a state token nor a path (acceptance 8)
-# and that `job await` over a still-running job returns within its own 30s
-# bound and raises nothing (kogaki#1271). Section (x) drives the path-review
+# and that `job await` over a still-running job returns within its own bound
+# -- handed in short, the production 30s asserted as the unset value
+# (kogaki#1424) -- and raises nothing (kogaki#1271). Section (x) drives the path-review
 # job (kogaki#1301) through `job await` from a finished reader-path job to
 # CANDIDATE_SELECTION.
 #
@@ -54,6 +55,10 @@ import {
 import { judgePrompt, JUDGE_INPUT_MARKER } from "./src/workflow/judge.mjs";
 import { findInternalVocabulary, assembleSelection } from "./src/assemble.mjs";
 
+// A HANDED-IN HEARTBEAT (kogaki#1424): every fixture job this check starts, and every
+// poll over its record, runs at 100 ms instead of the production table's 10 s; the
+// table itself is untouched (`jobHeartbeatMs` in src/workflow/detached-job.mjs).
+process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const root = process.cwd();
 // INJECTABLE, NOT GUESSED (kogaki#1343): (d10) and (v) below watch a real
@@ -272,7 +277,7 @@ function superviseSync(dir, units, opts = {}) {
   const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", unitsPath,
     "--command", fakeJudge, "--model", "m", "--output-format", "json",
     "--call-limit-s", String(opts.callLimitS ?? 100), "--unit-attempts", String(opts.unitAttempts ?? 2),
-    "--stall-s", String(opts.stallS ?? 100), "--heartbeat-ms", String(opts.heartbeatMs ?? 250)];
+    "--stall-s", String(opts.stallS ?? 100), "--heartbeat-ms", String(opts.heartbeatMs ?? 50)];
   return spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8",
     env: { ...process.env, KOGAKI_FAKE_JUDGE_COUNTER: join(dir, "fake-judge-counter.json"), ...(opts.env || {}) } });
 }
@@ -880,7 +885,16 @@ process.stdin.on("end", () => {
 // unit's line reads `attempt <n> of <N>`, and a unit on attempt 2 or later
 // reads `about <m>s to go`, `<m>` being the row's `attempt_1_s` less the time
 // the attempt has run -- here 600 less ~100, read off the record.
+// THE BOUND IS HANDED IN, NOT WAITED OUT (kogaki#1424): the await runs under a
+// fixture-supplied 2 s bound (`KOGAKI_JOB_AWAIT_S`) and must wait at least that
+// long and return well before 30 s; the production bound is asserted as the
+// value `jobAwaitS()` reads with the variable unset.
 {
+  const { READER_PATH_JOB_AWAIT_S: awaitS, jobAwaitS } = await import("./src/brief.mjs");
+  const savedAwait = process.env.KOGAKI_JOB_AWAIT_S;
+  delete process.env.KOGAKI_JOB_AWAIT_S;
+  if (awaitS !== 30 || jobAwaitS() !== 30) fails.push(`(v) the production \`job await\` bound is not 30s with no fixture bound handed in (constant ${awaitS}, read ${jobAwaitS()})`);
+  if (savedAwait !== undefined) process.env.KOGAKI_JOB_AWAIT_S = savedAwait;
   const dir = mkNewRun();
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
@@ -898,7 +912,7 @@ process.stdin.on("end", () => {
     owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
     done: false,
   }, null, 2) + "\n");
-  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir };
+  const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_JOB_AWAIT_S: "2", KOGAKI_JOB_HEARTBEAT_MS: "200" };
   const t0 = Date.now();
   const awaitRun = spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
     { cwd: root, timeout: 60000 * WAIT_SCALE, encoding: "utf8", env });
@@ -906,8 +920,11 @@ process.stdin.on("end", () => {
   if (awaitRun.status !== 0) {
     fails.push(`(v) \`job await\` over a running job did not exit 0 (status ${awaitRun.status}): stdout=${awaitRun.stdout} stderr=${awaitRun.stderr}`);
   }
-  if (tookS > 40 * WAIT_SCALE) {
-    fails.push(`(v) \`job await\` over a running job took ${tookS}s, past its own 30s bound`);
+  if (tookS > 12 * WAIT_SCALE) {
+    fails.push(`(v) \`job await\` over a running job took ${tookS}s, past its handed-in 2s bound`);
+  }
+  if (tookS < 2) {
+    fails.push(`(v) \`job await\` over a running job returned after ${tookS}s, before its handed-in 2s bound`);
   }
   if (!(awaitRun.stdout || "").includes("reader-path job still running — call job await again")) {
     fails.push(`(v) \`job await\` over a running job did not print the still-running line: ${awaitRun.stdout}`);
