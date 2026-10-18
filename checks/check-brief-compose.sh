@@ -1579,7 +1579,7 @@ const cand1276 = (id, leg2Extra = {}) => ({
     const promptsFile = join(sup, "prompts.jsonl");
     const sent = existsSync(promptsFile) ? readFileSync(promptsFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
     const retry = sent[1] || "";
-    if (!retry.includes("YOUR PREVIOUS ANSWER WAS REFUSED") || !retry.includes(SENTENCE)) fails.push("(ai) the retry prompt does not carry the no_move_fits sentence verbatim");
+    if (!retry.includes("----- YOUR PREVIOUS ANSWER (attempt 1) -----") || !retry.includes(SENTENCE)) fails.push("(ai) the retry prompt does not carry the no_move_fits sentence verbatim");
   }
   const good = validate(cand1276("c1"));
   if (good) fails.push(`(ai) the same Candidate with a move on every Leg was refused: ${good}`);
