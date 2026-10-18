@@ -571,12 +571,6 @@ def ordered_record(mapping):
     for field in OPTIONAL_RENDER_FIELDS:
         if field in mapping:
             record[field] = mapping[field]
-    # A field `moves/ROLES.json` names nowhere is carried on the record and
-    # read by nothing (the declaration's own rule, which the Adapter applies,
-    # kogaki#1418): it is written, in name order, rather than dropped in
-    # silence between the owner's screen and the file.
-    for field in sorted(set(mapping) - set(FIELDS) - set(OPTIONAL_RENDER_FIELDS) - {"figure"}):
-        record[field] = mapping[field]
     form = mapping.get("figure")
     if isinstance(form, dict) and form:
         roles = load_figure_kinds().get(form.get(KIND_SELECTOR), [])
@@ -712,7 +706,7 @@ def save_accepted(moves_dir, accepted):
         # The Adapter's contract (kogaki#1418), held at the one writer every
         # admission path reaches: a Move is never saved that the Adapter
         # would refuse to read.
-        validate_move(proposal.mapping, proposal.line_no)
+        validate_move(proposal.mapping, proposal.line_no, moves_dir)
         if move_id in seen:
             raise Refusal(
                 "1a",
@@ -768,7 +762,7 @@ def merge_into(moves_dir, target_id, proposal):
     merged = dict(read_saved(path))
     merged.update(proposal.mapping)
     merged["id"] = target_id
-    validate_move(merged, 0)
+    validate_move(merged, 0, moves_dir)
     with open(path, "w") as handle:
         handle.write(render_move(merged))
     write_index(moves_dir)

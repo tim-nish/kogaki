@@ -21,7 +21,8 @@
 #       is refused in the Adapter's words with nothing written; the ingest carries no
 #       type check of its own and refuses every record the Adapter refuses (a retired
 #       `technique`, a joined-line state, prose `breaks`, no `segments`, no `description`,
-#       an unknown figure kind) in the sentence src/move-validate.mjs prints; and the
+#       an unknown figure kind, a field ROLES.json maps to no role) in the sentence
+#       src/move-validate.mjs prints; and the
 #       Brief's compose and Move-fit judge inputs read the admitted Moves, each bound to a
 #       Leg, without refusal.
 #   (c) the run directory holds, per paragraph, the prompt as rendered (the
@@ -224,7 +225,7 @@ if [n for n in os.listdir(moves2) if n.endswith(".yaml")]:
     bad.append("a refused Extraction left a Move in the library")
 # ONE VALIDATOR: the ingest carries no type check of its own, and every record the
 # Adapter refuses -- a retired \`technique\`, a joined-line state, \`breaks\` as prose, no
-# \`segments\`, no \`description\`, a figure kind outside the closed set -- the ingest
+# \`segments\`, no \`description\`, a figure kind outside the closed set, an unnamed field -- the ingest
 # refuses with the sentence src/move-validate.mjs prints for it, verbatim.
 source = open(os.path.join("tools", "move_ingest.py")).read()
 for name in ("def check_field_set", "def check_state_shape", "def check_breaks_shape",
@@ -236,7 +237,7 @@ good = m.derive_from_extraction(m.read_extraction(files[0])[1]).mapping
 drop = lambda k: {key: v for key, v in good.items() if key != k}
 for record in (dict(good, technique="restates the Segments."), dict(good, before="one joined line"),
                dict(good, breaks="one prose paragraph"), drop("segments"), drop("description"),
-               dict(good, figure={"kind": "no_such_kind"})):
+               dict(good, figure={"kind": "no_such_kind"}), dict(good, notes="a field no role maps")):
     adapter = subprocess.run(["node", os.path.join("src", "move-validate.mjs"), "moves"],
                              input=json.dumps(record), capture_output=True, text=True)
     said = adapter.stdout.strip()

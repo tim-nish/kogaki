@@ -1356,6 +1356,13 @@ export const RETIRED_MOVE_FIELDS = {
   question: "the Move's `after` carries its question (kogaki#1324)",
 };
 
+// THE FIELDS A MOVE MAY CARRY BESIDE THE ONES `moves/ROLES.json` MAPS
+// (kogaki#1418): `description`, human-facing (kogaki#1412), and `evidence`,
+// read by nothing. An Extraction is untrusted input, so any other field is
+// refused by name rather than carried into the library: a record names only
+// what some reader, or the person reading the library, has a use for.
+export const MOVE_CARRIED_FIELDS = ["description", "evidence"];
+
 // `description` is human-facing and maps no role (kogaki#1412): no prompt
 // renders it, and nothing reads it beyond its presence and this bound, which
 // `src/proof-sheet/extract.mjs`'s `DESCRIPTION_MAX` asks the Extractor to keep.
@@ -1425,6 +1432,13 @@ function moveRecordContract(record, moveId, path, movesDir) {
   if (retired.length) {
     return { error: `${at} carries the retired ${retired.map((k) => `\`${k}\``).join(", ")} — `
       + retired.map((k) => RETIRED_MOVE_FIELDS[k]).join("; ") };
+  }
+  const named = new Set([...Object.values(required), ...Object.values(optional)].filter((f) => typeof f === "string" && f !== ""));
+  const unnamed = Object.keys(record).filter((k) => !named.has(k) && !MOVE_CARRIED_FIELDS.includes(k)
+    && !Object.prototype.hasOwnProperty.call(RETIRED_MOVE_FIELDS, k)).sort();
+  if (unnamed.length) {
+    return { error: `${at} carries ${unnamed.map((k) => `\`${k}\``).join(", ")}, which the library's ROLES.json maps to no role — `
+      + `a Move carries the fields its declaration maps plus ${MOVE_CARRIED_FIELDS.map((k) => `\`${k}\``).join(" and ")}, and an unnamed field is refused, not carried into the library (kogaki#1418)` };
   }
   const description = descriptionRefusal(record.description, at);
   if (description) return { error: description };
