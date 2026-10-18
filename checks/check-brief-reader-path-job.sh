@@ -52,7 +52,7 @@ import {
 import {
   READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX,
 } from "./src/workflow/gate.mjs";
-import { judgePrompt, JUDGE_INPUT_MARKER } from "./src/workflow/judge.mjs";
+import { judgePrompt, judgeRefusalBlock, JUDGE_INPUT_MARKER } from "./src/workflow/judge.mjs";
 import { findInternalVocabulary, assembleSelection } from "./src/assemble.mjs";
 
 // A HANDED-IN HEARTBEAT (kogaki#1424): every fixture job this check starts, and every
@@ -129,7 +129,7 @@ process.stdin.on("data", (d) => chunks.push(d));
 process.stdin.on("end", () => {
   const sent = Buffer.concat(chunks).toString("utf8").trim();
   const prompt = sent.startsWith(NO_TOOLS) ? sent.slice(NO_TOOLS.length).trim() : sent;
-  const retried = prompt.includes("YOUR PREVIOUS ANSWER WAS REFUSED");
+  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
   // EVERY PROMPT THE SUPERVISOR SENDS IS RECORDED when the fixture names a
   // file (kogaki#1257), so a retried unit's second prompt is read as sent.
   if (process.env.KOGAKI_FAKE_JUDGE_PROMPTS) appendFileSync(process.env.KOGAKI_FAKE_JUDGE_PROMPTS, JSON.stringify(sent) + "\\n");
@@ -630,8 +630,9 @@ function pollUntil(dir, pred, timeoutMs) {
   // A SEPARATE fake judge, selecting its answer by prompt token the same way
   // `fakeJudge` above does, but answering with these Candidates rather than
   // the generic `{legs: [{id: "s1"}]}` stub -- "ONCE_MISSING" repairs on the
-  // retried prompt (kogaki#1203's own detection, `prompt.includes("YOUR
-  // PREVIOUS ANSWER WAS REFUSED")`), "ALWAYS_MISSING" never does.
+  // retried prompt (kogaki#1203's own detection, keyed since kogaki#1438 on
+  // `prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ")`), "ALWAYS_MISSING"
+  // never does.
   const fakeJudgeLeg = join(scratch, "fake-judge-leg.mjs");
   writeFileSync(fakeJudgeLeg, `#!/usr/bin/env node
 const NO_TOOLS = ${JSON.stringify(JOB_UNIT_NO_TOOLS_SENTENCE)};
@@ -640,7 +641,7 @@ process.stdin.on("data", (d) => chunks.push(d));
 process.stdin.on("end", () => {
   const sent = Buffer.concat(chunks).toString("utf8").trim();
   const prompt = sent.startsWith(NO_TOOLS) ? sent.slice(NO_TOOLS.length).trim() : sent;
-  const retried = prompt.includes("YOUR PREVIOUS ANSWER WAS REFUSED");
+  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
   const write = (candidate) => {
     process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
     process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(candidate) }) + "\\n");
@@ -1002,7 +1003,13 @@ process.stdin.on("end", () => {
 // and answered on its retry, so the second recorded prompt is the retry the
 // supervisor composed, and the unit row's `first_refusal` is what it carried.
 {
-  const RETRY_MARKER = "YOUR PREVIOUS ANSWER WAS REFUSED";
+  // THE ANSWER RIDES BESIDE ITS REFUSAL (kogaki#1438): the attempt-1 record as 2-space
+  // JSON between the two markers, the refusal after the second, all above the input.
+  const RETRY_MARKER = "----- YOUR PREVIOUS ANSWER (attempt 1) -----";
+  const REFUSED_MARKER = "----- IT WAS REFUSED -----";
+  // What the fake judge's refusedRecord answered, as the supervisor classified it.
+  const refusedAnswer = (why) => ({ legs: [{ id: "refused" }], refuse: why });
+  const pairsOf = (refusals) => refusals.map((why) => ({ answer: refusedAnswer(why), refusal: why }));
   const retriedOnce = (prompt) => {
     const dir = mkNewRun();
     const promptsFile = join(dir, "prompts.jsonl");
@@ -1030,6 +1037,15 @@ process.stdin.on("end", () => {
   if (!synthetic.refusal || !retryPrompt.includes(synthetic.refusal)) {
     fails.push("(k) the retried unit prompt does not carry the refusal verbatim");
   }
+  if (synthetic.refusal && !retryPrompt.includes(`${RETRY_MARKER}\n${JSON.stringify(refusedAnswer(synthetic.refusal), null, 2)}\n${REFUSED_MARKER}\n${synthetic.refusal}\n`)) {
+    fails.push("(k) the retried unit prompt does not carry its attempt-1 record as 2-space JSON beside the refusal (kogaki#1438)");
+  }
+  if (retryPrompt.includes("the shape of your record") || retryPrompt.includes("ANSWER WAS REFUSED")) {
+    fails.push("(k) the retried unit prompt still carries the retired marker or repair sentence (kogaki#1438)");
+  }
+  if (!retryPrompt.includes("Keep every part the refusal did not name, and change the parts it\ndid. The input below is unchanged.")) {
+    fails.push("(k) the retried unit prompt does not carry the content-repair sentence (kogaki#1438)");
+  }
   // THE BLOCK SITS BEFORE THE INPUT MARKER (PR #1207 review round 1): over a
   // real unit prompt, the retry prompt is byte-identical to `judgePrompt`'s
   // own re-ask of the same row and input -- a block spliced past the marker
@@ -1042,11 +1058,17 @@ process.stdin.on("end", () => {
     const real = retriedOnce(realFirst);
     const realRetry = real.sent[1] || "";
     if (real.sent[0] !== NT(realFirst).trim() || !real.refusal
-      || realRetry !== NT(judgePrompt(unitRow, inputText, input, real.refusal)).trim()) {
+      || realRetry !== NT(judgePrompt(unitRow, inputText, input, pairsOf([real.refusal]))).trim()) {
       fails.push("(k) the retried unit prompt differs from judgePrompt's own re-ask of the same row and input");
     }
     if (!realRetry.endsWith(`${JUDGE_INPUT_MARKER}\n${inputText}`)) {
       fails.push("(k) the retried unit prompt carries text after its input");
+    }
+    // THE INPUT HALF IS BYTE-IDENTICAL TO ATTEMPT 1's, AND THE BLOCK IS ABOVE IT (kogaki#1438).
+    const inputHalf = (t) => t.slice(t.indexOf(`\n${JUDGE_INPUT_MARKER}\n`));
+    if (inputHalf(realRetry) !== inputHalf(real.sent[0] || "")
+      || realRetry.indexOf(RETRY_MARKER) < 0 || realRetry.indexOf(RETRY_MARKER) > realRetry.indexOf(`\n${JUDGE_INPUT_MARKER}\n`)) {
+      fails.push("(k) the retried unit prompt's input half differs from attempt 1's, or its answer block is not above the input marker");
     }
     // TWO REFUSALS NOW RIDE INTO THE THIRD ATTEMPT, BOTH (kogaki#1395): a unit
     // refused twice is asked a third time with `judgePrompt`'s OWN re-ask over
@@ -1065,10 +1087,30 @@ process.stdin.on("end", () => {
     if (sent2.length !== 3 || refusals2.length !== 2) {
       fails.push(`(k) a unit refused twice was not asked three times with two refusals recorded: ${JSON.stringify({ sent: sent2.length, refusals: refusals2 })}`);
     }
-    const thirdExpected = NT(judgePrompt(unitRow, inputText2, input2, refusals2)).trim();
+    if (!refusals2.every((r) => typeof r === "string")) {
+      fails.push(`(k) the job record's \`refusals\` is no longer an array of strings (kogaki#1438): ${JSON.stringify(refusals2)}`);
+    }
+    const thirdExpected = NT(judgePrompt(unitRow, inputText2, input2, pairsOf(refusals2))).trim();
     if ((sent2[2] || "") !== thirdExpected) {
       fails.push("(k) the third retry prompt differs from judgePrompt's own re-ask over the two-entry refusals list");
     }
+  }
+}
+
+// (k2) THE RENDERER'S OWN CONTRACT (kogaki#1438): a bare refusal string -- the retired
+// shape -- is refused by name rather than rendered without its answer, and an entry with
+// no answer renders the sink in the answer's place.
+{
+  for (const bare of [["a bare refusal"], "a bare refusal"]) {
+    let threw = null;
+    try { judgeRefusalBlock(bare); } catch (e) { threw = e; }
+    if (!threw || !/judgeRefusalBlock/.test(threw.message) || !/answer, refusal/.test(threw.message)) {
+      fails.push(`(k2) judgeRefusalBlock(${JSON.stringify(bare)}) was not refused by name: ${threw ? threw.message : "rendered"}`);
+    }
+  }
+  const sink = judgeRefusalBlock([{ refusal: "raised before any record was read" }]);
+  if (!sink.includes("----- YOUR PREVIOUS ANSWER (attempt 1) -----\n(no record was read)\n----- IT WAS REFUSED -----\nraised before any record was read\n")) {
+    fails.push(`(k2) an entry with no answer does not render the sink: ${JSON.stringify(sink)}`);
   }
 }
 

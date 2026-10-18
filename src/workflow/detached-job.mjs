@@ -112,8 +112,8 @@ function readerPathUnitCandidatePath(dir, unitId) {
 // no `st`, so it splices into the prompt `startDetachedJobSupervisor` wrote rather than
 // re-rendering; splicing the SAME renderer's text is what keeps the two byte-identical
 // (`checks/check-brief-reader-path-job.sh` assertion (k)).
-function readerPathUnitRetryPrompt(firstPrompt, refusals) {
-  const block = judgeRefusalBlock(refusals);
+function readerPathUnitRetryPrompt(firstPrompt, history) {
+  const block = judgeRefusalBlock(history);
   const at = firstPrompt.indexOf(`\n${JUDGE_INPUT_MARKER}\n`);
   if (at < 0) return firstPrompt + "\n" + block;
   return firstPrompt.slice(0, at) + block + "\n" + firstPrompt.slice(at);
@@ -348,7 +348,9 @@ function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = n
   if (validate) {
     const refusal = validate(r.candidate, unitId);
     if (refusal) {
-      return { status: "refused", failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(refusal), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
+      // The refused record rides the classification so the next attempt can be shown it
+      // (kogaki#1438); `endUnit` keeps it off the row, where `candidate` means schema-valid.
+      return { status: "refused", candidate: r.candidate, failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(refusal), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
     }
   }
   return { status: "done", candidate: r.candidate };
@@ -602,7 +604,7 @@ export async function cmdJobSupervise(args) {
     // drifted toward a bound: attempts, malformed outputs, every refusal, every killed call.
     const endUnit = (u, cls, bytes, stdoutPath) => {
       const st = S.get(u.id);
-      const firstRefusal = st.attempts > 1 && st.refusals.length ? st.refusals[0] : undefined;
+      const firstRefusal = st.attempts > 1 && st.refusals.length ? st.refusals[0].refusal : undefined;
       if (cls.status === "died" || cls.status === "refused") {
         cls.failure = { ...cls.failure, file: stdoutPath,
           ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}) };
@@ -612,7 +614,9 @@ export async function cmdJobSupervise(args) {
         ...(st.attempt1S !== undefined ? { attempt_1_s: st.attempt1S } : {}),
         ...(st.malformed > 0 ? { malformed_output: st.malformed } : {}),
         ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}),
-        ...(st.refusals.length ? { refusals: st.refusals.slice() } : {}),
+        // THE RECORD'S `refusals` STAYS AN ARRAY OF STRINGS (kogaki#1438): the Proof Sheet
+        // reads it, and the refused answers live in the unit's own state and its prompts.
+        ...(st.refusals.length ? { refusals: st.refusals.map((h) => h.refusal) } : {}),
         ...(st.timedOut.length ? { timed_out: st.timedOut.slice() } : {}),
       };
       // A SCHEMA-VALID CANDIDATE IS KEPT ON EVERY ENDING (PR #1308 round 1): a unit whose
@@ -620,6 +624,7 @@ export async function cmdJobSupervise(args) {
       // so the record holds it. It is not offered: its Move fit was not judged `consistent`,
       // and "The judged half — the specialization verdict" makes that judgment an occasion with no skip.
       if (st.composed && cls.status !== "done") { row.candidate = st.composed; row.fit_judged = cls.status === "refused" && !!cls.specialization; }
+      else if (cls.status !== "done") delete row.candidate;
       // THE CANDIDATE IS WRITTEN TO DISK THE MOMENT THIS UNIT ENDS `done` (kogaki#1204
       // acceptance 2), whatever its siblings are doing; with a Move-fit judge, the
       // specialization record is written beside it (kogaki#1307).
@@ -664,7 +669,7 @@ export async function cmdJobSupervise(args) {
         return { row: runningRow(u, 0), progressed: true };
       }
       const refusal = `the ${st.phase} call ran past the ${callLimitS}s per-call limit on attempt ${st.attempts} of ${unitAttempts}, the last one`;
-      st.refusals.push(refusal);
+      st.refusals.push({ refusal });
       return { row: endUnit(u, { status: "refused", failure: { class: CALL_TIME_LIMIT, stderr_tail: refusal, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
     };
 
@@ -691,7 +696,7 @@ export async function cmdJobSupervise(args) {
         }
         cls.status = "refused";
         cls.failure = { ...cls.failure, stderr_tail: `malformed output ${st.malformedThisAttempt} times on attempt ${st.attempts}, past the bound of ${unitAttempts} respawns per attempt; the last: ${cls.failure.stderr_tail}` };
-        st.refusals.push(cls.failure.stderr_tail);
+        st.refusals.push({ refusal: cls.failure.stderr_tail });
         return { row: endUnit(u, cls, sp.out.bytes, stdoutPath), progressed: false };
       }
       // A FINISHED, VALID RECORD WITH A DECLARED MOVE-FIT JUDGE IS JUDGED NEXT, inside
@@ -709,8 +714,11 @@ export async function cmdJobSupervise(args) {
       // refusal spliced in verbatim while an attempt is left. The retry decision reads the
       // attempt count only. `died` is never retried: it is a system failure.
       if (cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL) {
+        // THE REFUSED ANSWER IS KEPT BESIDE ITS REFUSAL (kogaki#1438): the composed
+        // Candidate for a fit refusal, the validator's candidate for a schema one, so the
+        // next attempt's fresh session sees what it is asked to repair.
         const refusal = cls.failure.stderr_tail;
-        st.refusals.push(refusal);
+        st.refusals.push({ answer: st.phase === "fit" ? st.composed : cls.candidate, refusal });
         if (st.attempts < unitAttempts) {
           beginNextAttempt(st, endedAt);
           const composePath = readerPathUnitStdoutPath(dir, u.id);

@@ -82,7 +82,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const prompt = Buffer.concat(c).toString("utf8");
   appendFileSync(dir + "/prompts.jsonl", JSON.stringify(prompt) + "\\n");
   const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
-  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER WAS REFUSED -----");
+  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
   let record;
   if (prompt.includes("\`leg_reader_start_unit\` judgment point")) {
     record = retried

@@ -13,7 +13,7 @@
 #       byte-for-byte unchanged; which Move was bound stays in the run
 #       directory's `paragraph-plan-bindings.json`. A `does-not-fit` from the
 #       judge on a first attempt is put verbatim into the second attempt's
-#       prompt; the plan call is handed the Move's `segments` and `breaks`
+#       prompt, beside the attempt-1 plan record it judged (kogaki#1438); the plan call is handed the Move's `segments` and `breaks`
 #       beside the Leg Waypoint's own `point`, `serves` and `next_point` and
 #       the persona, and NO Claim proposition (kogaki#1382); the judge call
 #       is handed the four roles -- `before`, `after`, `segments` and
@@ -311,6 +311,20 @@ function runStage(name, ls, mode, movesDir = moves) {
   const s2Plans = plans.filter((p) => p.includes("The copy is the installer's, not the consumer's."));
   if (s2Plans.length !== 2 || !s2Plans[1].includes("JUDGE-SENTENCE")) {
     fails.push(`(a) the judge's does-not-fit sentence was not put into Leg s2's second plan prompt (${s2Plans.length} plan prompt(s))`);
+  }
+  // THE REFUSED PLAN RIDES BESIDE THE VERDICT (kogaki#1438): the second prompt carries, above
+  // the input marker, attempt 1's plan record as 2-space JSON and then the judge's `why`, in one block.
+  {
+    const p2 = s2Plans[1] || "";
+    const A = "----- YOUR PREVIOUS ANSWER (attempt 1) -----\n", R = "\n----- IT WAS REFUSED -----\n";
+    const at = p2.indexOf(A), rat = at >= 0 ? p2.indexOf(R, at) : -1, inAt = p2.indexOf("\n----- INPUT (JSON) -----\n");
+    let answer = null;
+    try { answer = rat > at ? JSON.parse(p2.slice(at + A.length, rat)) : null; } catch { answer = null; }
+    const pretty = answer && p2.slice(at + A.length, rat) === JSON.stringify(answer, null, 2);
+    if (!answer || !pretty || answer.leg_id !== "s2" || !Array.isArray(answer.waypoints)
+      || !JSON.stringify(answer).includes("PW-s2-") || !(rat < inAt) || !p2.slice(rat, inAt).includes("JUDGE-SENTENCE")) {
+      fails.push("(a) Leg s2's second plan prompt does not carry its attempt-1 plan record as 2-space JSON and the judge's why in one block above the input (kogaki#1438)");
+    }
   }
   if (!plans.length || !plans.every((p) => p.includes(`"does": ${JSON.stringify(PSEG_DOES)}`) && p.includes('"relation": ""')
     && p.includes('"persona"') && p.includes("breaks if the point is dropped."))) {

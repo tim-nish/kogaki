@@ -78,7 +78,7 @@ const attemptBlocks = (cardHtml) => {
 };
 // (l) The refusal block a retry's prompt carries: from its refusal marker to its input marker.
 const refusalBlock = (retry) => {
-  const at = retry.indexOf("----- YOUR PREVIOUS ANSWER WAS REFUSED -----");
+  const at = retry.indexOf("----- YOUR PREVIOUS ANSWER (attempt ");
   const end = retry.indexOf("----- INPUT (JSON) -----");
   return at >= 0 && end > at ? retry.slice(at, end).trim() : null;
 };
@@ -127,7 +127,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     writeSync(1, stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
   };
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
-  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER WAS REFUSED -----");
+  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;
     // (l) PSR_PLAN_REFUSE: "first" refuses Leg Waypoint 2 on the first judge call only, "all" on every one.
@@ -319,7 +319,7 @@ else {
   // retry shows only the refusal block it inserted.
   const occurrences = (needle) => html.split(needle).length - 1;
   const INPUT = "----- INPUT (JSON) -----";
-  const REFUSED = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
+  const REFUSED = "----- YOUR PREVIOUS ANSWER (attempt ";
   let pieces = 0;
   for (const st of ["extract", "brief", "paragraph-plan", "draft"]) {
     const recorded = readOr(join(runDir, st, "calls.jsonl"), "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -515,7 +515,7 @@ if (lRunDir) {
   const blocks = attemptBlocks(ppCard);
   ok(spent >= 2 && blocks.length === spent, `(l) the refused run's Attempts part holds ${blocks.length} block(s) against the ${spent} attempt(s) the job spent`);
   ok(blocks.every((b) => b.includes("does-not-fit") && b.includes("WHY-NOT-FIT")), "(l) a refused attempt's block does not show its does-not-fit verdict and why");
-  ok(blocks.slice(0, -1).every((b) => b.includes("----- YOUR PREVIOUS ANSWER WAS REFUSED -----")), "(l) a refused attempt's block does not show the refusal block the next attempt received");
+  ok(blocks.slice(0, -1).every((b) => b.includes("----- YOUR PREVIOUS ANSWER (attempt ")), "(l) a refused attempt's block does not show the refusal block the next attempt received");
   ok(blocks.length > 0 && blocks[blocks.length - 1].includes(`no further attempt: the job ended \`${lJob.state}\``), "(l) the last refused attempt does not say no further attempt and the job's state");
   const output = ppCard.slice(ppCard.indexOf('<details class="part out"'), ppCard.indexOf('<details class="part attempts"'));
   ok(output.includes("(not written)"), "(l) the refused run's ParagraphPlan Output does not read (not written)");
