@@ -46,6 +46,7 @@ import { REPO } from "../workflow/run-record.mjs";
 import { legParagraphs, writeJson } from "./extract.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { buildSheet } from "./leg-sheet.mjs";
+import { audienceLanguage } from "../compose.mjs";
 
 export const STAGES = ["extract", "ingest", "brief", "paragraph-plan", "draft"];
 export const RUN_FILE = "run.json";
@@ -168,6 +169,14 @@ function resolvedAudience(audience) {
   return audience || String(settingValue({ setting: "brief.audience_file" }));
 }
 
+// THE LANGUAGE THE RUN USED (kogaki#1417), recorded beside the Audience it was read from.
+// An Audience declaring none records `null` here and is refused by name at the Brief stage,
+// whose own read is the refusal; the record states what the run was given either way.
+function recordedLanguage(audiencePath) {
+  const l = audienceLanguage(resolve(REPO, audiencePath));
+  return l.error ? null : l.language;
+}
+
 // THE STAGE ENGINE, shared by a fresh run and a resumed one. `priorStages`, a `Map` of stage
 // name to its previous `run.json` entry, is `null` for a fresh run. A stage already `done`
 // is kept as its own record and never re-entered; a stage short of that re-enters with its
@@ -279,7 +288,7 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
   chmodSync(join(runDir, RECORDER_FILE), 0o755);
   const audiencePath = resolvedAudience(audience);
   const record = { leg: resolve(legPath), passage: slug, paragraphs: paragraphs.length, audience: audiencePath,
-    model_command: realPath, started_at: new Date().toISOString(), stages: [] };
+    language: recordedLanguage(audiencePath), model_command: realPath, started_at: new Date().toISOString(), stages: [] };
   runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug, realPath, audienceArgs: ["--audience", audiencePath], priorStages: null });
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });

@@ -100,7 +100,7 @@ import { tmpdir } from "node:os";
 import { waypointsRefusal, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, figureKinds, figureLegs,
   journeysRefusal, closureRowsOf, budgetRefusal,
-  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, audienceRecord,
+  reactivateRefusal, parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLanguage, audienceRecord,
   parseBriefRecord, unfilledSlots, briefLegs, legschema, readParagraphPlanBeside } from "./compose.mjs";
 import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 // THE ONE RESOLVER FOR A DECLARED COMMAND (kogaki#1076): the writer binary is
@@ -393,6 +393,9 @@ function enterWorkspace(args, slug) {
 // `sections`, `packets`, and the `packets` key in run.json — so the English
 // path's behaviour is unchanged, which is what acceptance item 1 requires
 // ("do not change the English path's behavior").
+// The language a `--lang` track names on the Packet's language line (kogaki#1417), in
+// place of the Audience's: the track's language block is written for that language.
+const REALIZATION_LANGUAGES = { ja: "Japanese" };
 function langOf(args) {
   const v = args.lang;
   return typeof v === "string" && v !== "" ? v : "en";
@@ -1431,7 +1434,7 @@ export function waypointLines(leg) {
     ...(w.paragraph_waypoints || []).map((p, j) => `   ${line(p, j + 1)}`)].join("\n")).join("\n");
 }
 
-export function renderPacket({ template, brief, leg, priorSections, section, sections }) {
+export function renderPacket({ template, brief, leg, priorSections, section, sections, language: languageOverride = null }) {
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
 
@@ -1501,6 +1504,13 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   // empty `prior_knowledge` is the stated case `READER_OWN_WORLD_ABSENT`
   // renders, not a hole in the Packet's input.
   const priorKnowledge = typeof personaPath === "string" ? personaPriorKnowledge(personaPath) : null;
+  // THE ARTICLE'S LANGUAGE (kogaki#1417): the Audience's `language`, read from the
+  // same Audience and refused by name where it is missing. A second-language
+  // realization (`--lang`, kogaki#1158) names its own language instead, so the
+  // line and that track's language block never disagree.
+  const language = languageOverride ? { language: languageOverride }
+    : typeof personaPath === "string" ? audienceLanguage(personaPath) : personaPath;
+  if (language.error) missing.push(`the Audience's language (${language.error})`);
   const closureRows = closureRowsOf(brief.record, leg.leg_id);
 
   const fields = {
@@ -1526,6 +1536,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     claims: claims || "(none recorded)",
     reader_own_world: priorKnowledge || READER_OWN_WORLD_ABSENT,
     register: register.error ? "" : register.register,
+    language: language.error ? "" : `Write this Leg in ${language.language}.`,
     // WHAT CROSSES INTO THIS LEG (kogaki#1282, owner ruling 2026-10-06):
     // LEG LINKING IS DEFAULT-DENY — the whole of what this Leg may speak of
     // as already available is this Leg's own introduced items (each with
@@ -1668,7 +1679,8 @@ function renderAndStorePacket(brief, id, args, ws) {
   const journeysResolved = resolveLegJourneys(leg, brief);
   if (journeysResolved.error) return { error: journeysResolved.error };
 
-  const r = renderPacket({ template, brief, leg: journeysResolved.leg, priorSections: prior, section, sections });
+  const r = renderPacket({ template, brief, leg: journeysResolved.leg, priorSections: prior, section, sections,
+    language: lang === "en" ? null : (REALIZATION_LANGUAGES[lang] || lang) });
   if (r.error) return { error: r.error };
 
   // THE LANGUAGE BLOCK (kogaki#1158): rendered into every Packet when

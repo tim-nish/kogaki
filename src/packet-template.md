@@ -28,6 +28,9 @@ is HARNESS-OWNED, not the register (kogaki#1285): it renders the Audience's
 `persona.prior_knowledge` field verbatim, or a stated absence where the
 Persona declares none, before the register — so the Referents rule above can
 point at material the Packet actually carries.
+`{{language}}` is HARNESS-OWNED too (kogaki#1417): the Audience's `language`
+key, rendered as one line, so the writer is told the article's language rather
+than inferring it from the words its input happens to carry.
 
 THE PARAGRAPH PLAN OWNS PARAGRAPH STRUCTURE, THE AUDIENCE'S REGISTER OWNS
 WORD CHOICE (kogaki#1350, owner ruling 2026-10-12; kogaki#1375): where a
@@ -164,6 +167,8 @@ label, no commentary about what you are doing.
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Leg and never by you.
 Prose that writes its own heading is refused when the Leg is recorded.
+
+**Language.** {{language}}
 
 **The reader's own world.** {{reader_own_world}}
 
