@@ -1488,7 +1488,7 @@ chmodSync(resumeJudge, 0o755);
   mkdirSync(moves);
   for (const id of ["m_open", "m_turn"]) {
     writeFileSync(join(moves, `${id}.yaml`), [
-      `id: ${id}`, "before:", `  knowledge: before ${id}.`,
+      `id: ${id}`, `description: the fixture Move ${id}.`, "before:", `  knowledge: before ${id}.`,
       "after:", `  knowledge: after ${id}.`, "breaks:", `  - breaks if ${id} is skipped.`,
       "segments:", `  - does: opens ${id}.`, `  - does: closes ${id}.`, "    relation: answers the opening.", "",
     ].join("\n"));
@@ -1854,7 +1854,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const base = mkNewScratch();
   const moves = join(base, "moves");
   mkdirSync(moves);
-  writeFileSync(join(moves, "m1.yaml"), ["id: m1",
+  writeFileSync(join(moves, "m1.yaml"), ["id: m1", "description: the fixture Move m1.",
     "before:", "  knowledge: before.", "after:", "  knowledge: after.",
     "breaks:", "  - breaks if the left-out case is never named.",
     "segments:", "  - does: states the claim.", "  - does: names the case it leaves out.", "    relation: limits the claim.", ""].join("\n"));

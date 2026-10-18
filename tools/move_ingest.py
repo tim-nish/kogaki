@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Move ingestion — the mechanical half of SPEC-draft-pipeline §6.9.
 
-This module owns everything §6.9 makes MECHANICAL: locating records, admitting
-them under §6.9.0's four conditions, normalizing to §4.2's five fields,
-rendering a saved file, and regenerating moves/INDEX.md.
+This module owns everything §6.9 makes MECHANICAL: locating records, parsing
+them under §6.9.0's grammar, validating each candidate through the Adapter's
+contract and nothing of its own (`validate_move`, kogaki#1418), rendering a
+saved file, the near-duplicate check over `segments`, and regenerating
+moves/INDEX.md. It is Kogaki's admission gate for Moves: an Extraction is
+untrusted input, refused rather than repaired.
 
 It owns NOTHING §6.9 makes JUDGMENT. There is no scoring, no verdict, and no
 lint here, and nothing in this file admits a Move: `save_accepted()` is called
@@ -26,11 +29,11 @@ import sys
 # §4.2's five fields, in §4.2's order (kogaki#1175 rebuilt this schema from
 # the eight-field one; the prior FIELDS tuple named id, status, intent,
 # requires, effect, constraints, failure_modes, excerpt). This is a RENDER
-# order and a round-trip set, never the admission rule: kogaki#1349 moves
-# condition 3's required/admitted-key test onto `moves/ROLES.json` (see
-# `load_roles`/`check_field_set` below), because a key's presence here no
-# longer says it is required at ingestion — only that a mapped value renders
-# in this position.
+# order and a round-trip set, never the admission rule: which fields a Move
+# must carry is the Adapter's (`validateMoveRecord` in src/compose.mjs, over
+# `moves/ROLES.json`), reached through `validate_move` below (kogaki#1418) —
+# a key's presence here says only that a mapped value renders in this
+# position.
 FIELDS = (
     "id",
     "description",
@@ -39,37 +42,6 @@ FIELDS = (
     "breaks",
 )
 
-# Optional, non-role-bearing fields admitted alongside whatever
-# `moves/ROLES.json` maps (kogaki#1349): `evidence` is read by no role and no
-# composer, so the declaration never names it, and it is admitted here by
-# the same "carried, read by nothing" rule the declaration states for any
-# field it leaves unnamed. `segments` is never one of the eight keys the
-# model authors (the contract's own output format); it is the one field
-# `tools/move_ingest.py`'s `passage` mode writes itself, after the model's
-# record is admitted, so it has to be optional here for condition 3 to admit
-# a record that carries it — and for the 21 Moves ingested before this field
-# existed to keep validating with none. `segments`, `figure` and
-# `continues_from` are also named by the declaration's optional roles; they
-# are listed here too only as the historical constant their own fixtures
-# still reference.
-OPTIONAL_FIELDS = ("continues_from", "description", "evidence", "figure", "segments")
-
-# THE RETIRED MOVE FIELDS, each refused BY NAME at condition 3 rather than as
-# one more unexpected key (kogaki#1412, owner decision 2026-10-17): `technique`
-# restated in prose the structure `segments` already carries, two carriers of
-# one structure that drift, so it maps no role and a record carrying it is
-# refused, never repaired.
-RETIRED_FIELDS = {
-    "technique": "a Move's structure is its `segments` and its summary for a "
-                 "person is `description` (kogaki#1412)",
-}
-
-# `description` is human-facing and has no machine role (kogaki#1412): no
-# prompt renders it and nothing reads it beyond its presence and this bound,
-# which `src/proof-sheet/extract.mjs`'s `DESCRIPTION_MAX` asks the Extractor
-# to keep.
-DESCRIPTION_MAX = 200
-
 # The keys whose value is a nested mapping. The value model stays
 # deliberately small (§6.9.0): scalars, `>-` folded scalars, column-0
 # sequences — and these nestings, admitted by NAME rather than by shape, so
@@ -77,7 +49,7 @@ DESCRIPTION_MAX = 200
 # scalar it has always been. `before` and `after` joined `figure` at
 # kogaki#1413: a Move's state is a map keyed by dimension, one sentence per
 # changed dimension, and a state written as one joined line is refused by
-# name (`check_state_shape`).
+# name — by the Adapter, through `validate_move` (kogaki#1418).
 NESTED_FIELDS = ("figure", "before", "after")
 
 # The two state fields and the five reader dimensions they are keyed by, in
@@ -101,8 +73,9 @@ KIND_SELECTOR = "kind"
 # An indented `key: value` line inside a nested block.
 NESTED_KEY = re.compile(r"^\s+([A-Za-z_][A-Za-z0-9_]*):(.*)$")
 
-# §6.9: the draft fields excluded from the proposal. Stripped BEFORE condition 3
-# runs, so their presence routes to the strip step rather than to a refusal.
+# §6.9: the draft fields excluded from the proposal. Stripped BEFORE the
+# Adapter validates the record, so their presence routes to the strip step
+# rather than to a refusal.
 EXCLUDED_DRAFT_FIELDS = (
     "material_roles",
     "compatible_previous_moves",
@@ -418,170 +391,39 @@ def strip_excluded(mapping):
     return removed
 
 
-def check_field_set(mapping, first_line_no, roles=None):
-    """Condition 3: after the strip step, every field `moves/ROLES.json`
-    marks required is present, and no key outside what the declaration (plus
-    `OPTIONAL_FIELDS`) admits is carried.
+# --------------------------------------------------------------------------
+# THE ONE VALIDATOR (kogaki#1418): every candidate is validated through the
+# Adapter's own contract, `validateMoveRecord` in src/compose.mjs, reached
+# through `src/move-validate.mjs` — the function `moveContract` reads every
+# saved Move through. The ingest carries no field-set, state, `breaks`,
+# `segments`, `description` or `figure` check of its own: two validators of
+# one contract that cannot see each other drift (kogaki#1416 was one), so a
+# record the Adapter refuses is refused here in the Adapter's words.
+# --------------------------------------------------------------------------
 
-    kogaki#1349: this used to be a hard-coded five-key set. It now reads
-    `moves/ROLES.json` instead — the file that owns which Move field answers
-    which role — so a required ROLE missing or empty refuses by name, the
-    same as before, but a field the declaration maps to an OPTIONAL role is
-    no longer required just because §4.2's library happens to fill it today.
-
-    The ordering matters and is not incidental: the excluded draft fields are
-    stripped FIRST, so their presence routes to the strip step rather than to a
-    refusal. What a short or long field set then means is a genuine defect —
-    a record that absorbed its neighbour's `before` leaves that neighbour with
-    FOUR, and this is the condition that catches it. `order` and
-    `presupposes` take this same route (kogaki#1247), `draws_on` takes it
-    too (kogaki#1280), and so does `question` (kogaki#1324): none of the four
-    is named by the declaration nor by `OPTIONAL_FIELDS`, so a record still
-    carrying one is refused here, by name, as unexpected.
-    """
-    retired = sorted(f for f in mapping if f in RETIRED_FIELDS)
-    if retired:
-        raise Refusal(
-            "retired",
-            "record carries the retired %s — %s"
-            % (", ".join("`%s`" % f for f in retired),
-               "; ".join(RETIRED_FIELDS[f] for f in retired)),
-            line_no=first_line_no,
-        )
-    roles = roles if roles is not None else load_roles()
-    have = set(mapping)
-    want = set(roles["required_fields"])
-    missing = sorted(want - have)
-    # The admitted set is the declaration's optional fields plus
-    # `OPTIONAL_FIELDS` (`evidence`, named by no role) — nothing else widens
-    # it. A record carrying any of them still has every required role filled;
-    # a record carrying anything else is still refused, so the condition
-    # keeps its catch — a short record missing a required role is unaffected
-    # either way.
-    admitted_optional = set(roles["optional_fields"]) | set(OPTIONAL_FIELDS)
-    extra = sorted(have - want - admitted_optional)
-    if missing or extra:
-        parts = []
-        if missing:
-            parts.append("missing %s" % ", ".join("`%s`" % k for k in missing))
-        if extra:
-            parts.append("unexpected %s" % ", ".join("`%s`" % k for k in extra))
-        raise Refusal(
-            "3",
-            "record does not carry every role `moves/ROLES.json` requires "
-            "(plus at most %s) — "
-            % ", ".join("`%s`" % f for f in sorted(admitted_optional))
-            + "; ".join(parts),
-            line_no=first_line_no,
-        )
+VALIDATE_MODULE = os.path.join(REPO_ROOT, "src", "move-validate.mjs")
+MOVES_DIR = os.path.join(REPO_ROOT, "moves")
 
 
-def check_state_shape(mapping, first_line_no):
-    """`before` and `after` are maps keyed by dimension (kogaki#1413): one
-    entry per changed dimension, each a one-line sentence, keyed by one of
-    passages/FORMAT.md's five dimensions. A state written as one joined line
-    is refused BY NAME rather than split — splitting it would be the ingest
-    reading prose for structure, which is the joined line's own defect."""
-    for field in STATE_FIELDS:
-        if field not in mapping:
-            continue
-        value = mapping[field]
-        if isinstance(value, str):
-            raise Refusal(
-                "state",
-                "`%s` is one joined line, not a map keyed by dimension — a "
-                "Move's state is one `<dimension>: <sentence>` line per "
-                "changed dimension, indented under `%s:`, and a joined-line "
-                "state is refused by name (kogaki#1413)" % (field, field),
-                line_no=first_line_no,
-            )
-        if not isinstance(value, dict) or not value:
-            raise Refusal(
-                "state",
-                "`%s` is not a map keyed by dimension — one entry per changed "
-                "dimension over %s (kogaki#1413)" % (field, ", ".join(DIMENSIONS)),
-                line_no=first_line_no,
-            )
-        for key, sentence in value.items():
-            if key not in DIMENSIONS:
-                raise Refusal(
-                    "state",
-                    "`%s` carries `%s`, which is not a reader dimension — the "
-                    "dimensions are %s" % (field, key, ", ".join(DIMENSIONS)),
-                    line_no=first_line_no,
-                )
-            if not isinstance(sentence, str) or not sentence.strip() or "\n" in sentence:
-                raise Refusal(
-                    "state",
-                    "`%s.%s` is not one non-empty sentence on one line" % (field, key),
-                    line_no=first_line_no,
-                )
-
-
-def check_breaks_shape(mapping, first_line_no):
-    """`breaks` is a list of prose tests (kogaki#1414), carried as a YAML list
-    (kogaki#1413): one entry per test, each one line. A `breaks` written as
-    one prose paragraph is refused by name, as the Adapter refuses it."""
-    if "breaks" not in mapping:
-        return
-    value = mapping["breaks"]
-    if not isinstance(value, list) or not value:
-        raise Refusal(
-            "breaks",
-            "`breaks` is not a list of prose tests — one `- <a specific change> "
-            "— <what the reader loses>` entry per test (kogaki#1414, kogaki#1413)",
-            line_no=first_line_no,
-        )
-    for i, test in enumerate(value):
-        if not isinstance(test, str) or not test.strip() or "\n" in test:
-            raise Refusal(
-                "breaks",
-                "`breaks` test %d is not one non-empty line" % (i + 1),
-                line_no=first_line_no,
-            )
-
-
-def check_description(mapping, first_line_no):
-    """`description` is one or two sentences for a person reading the
-    library (kogaki#1412): present, on one line, and at most
-    `DESCRIPTION_MAX` characters. A longer one is refused naming its length;
-    nothing else about its wording is read."""
-    value = mapping.get("description")
-    if not isinstance(value, str) or not value.strip() or "\n" in value.strip():
-        raise Refusal(
-            "description",
-            "record carries no `description` — one or two sentences on one "
-            "line, at most %d characters, copied from the Extraction "
-            "(kogaki#1412)" % DESCRIPTION_MAX,
-            line_no=first_line_no,
-        )
-    length = len(value.strip())
-    if length > DESCRIPTION_MAX:
-        raise Refusal(
-            "description",
-            "`description` is %d characters — at most %d (kogaki#1412)"
-            % (length, DESCRIPTION_MAX),
-            line_no=first_line_no,
-        )
-
-
-def check_structure(mapping, first_line_no):
-    """THE INGEST'S HALF OF THE ADAPTER'S RULE (kogaki#1412), checked at the
-    Passage screens and at every save — not at `read_proposals`, whose
-    owner-file grammar carries no list of Segment maps: a
-    Move carries its `segments`, the ordered structure every reader of a
-    Move reads, and its `description`. A Move without `segments` is refused
-    by name, never repaired — no Segment is derived for it."""
-    segments = mapping.get("segments")
-    if not isinstance(segments, list) or not segments:
-        raise Refusal(
-            "segments",
-            "record carries no `segments` — a Move's ordered structure, which "
-            "the Adapter (`moveContract` in src/compose.mjs) requires at every "
-            "read; a Move without it is refused, not repaired (kogaki#1412)",
-            line_no=first_line_no,
-        )
-    check_description(mapping, first_line_no)
+def validate_move(mapping, line_no=None, moves_dir=None):
+    """Validate one candidate Move through the Adapter. Raises `Refusal`
+    (condition `adapter`) carrying the Adapter's refusal verbatim; returns
+    None where the Adapter admits it. `moves_dir` is the library whose
+    `ROLES.json` the record is read against — this repository's `moves/`
+    unless named."""
+    try:
+        r = subprocess.run(["node", VALIDATE_MODULE, moves_dir or MOVES_DIR],
+                           input=json.dumps(mapping), capture_output=True, text=True)
+    except OSError as exc:
+        raise Refusal("adapter", "node could not be run to validate the "
+                      "candidate through src/move-validate.mjs: %s" % exc,
+                      line_no=line_no)
+    if r.returncode == 0:
+        return None
+    if r.returncode == 1:
+        raise Refusal("adapter", r.stdout.strip(), line_no=line_no)
+    raise Refusal("adapter", (r.stderr or "").strip() or
+                  "src/move-validate.mjs exited %d" % r.returncode, line_no=line_no)
 
 
 # --------------------------------------------------------------------------
@@ -638,133 +480,6 @@ def load_figure_kinds(path=None):
     return kinds
 
 
-# kogaki#1349: the Move field-to-role declaration beside the library. The
-# pipeline reads roles, never field names (specs/spec-draft-pipeline/SPEC.md
-# field-roles table); this is the one file that owns which Move field
-# answers which role for the schema this repository ships.
-ROLES_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "moves",
-    "ROLES.json",
-)
-
-_ROLES_CACHE = {}
-
-
-def load_roles(path=None):
-    """The declaration as `{"required_fields": [...], "optional_fields": [...]}`.
-
-    Two properties of the FILE are asserted here rather than trusted, same
-    reasoning as `load_figure_kinds`: a malformed declaration is a defect in
-    this repository, so it raises rather than refusing a Move.
-
-      · `required` and `optional` must each be a role-to-field mapping;
-      · no field may be named by both a required role and an optional one —
-        that would leave condition 3 unable to say whether its absence is a
-        refusal or not.
-
-    A role mapped to nothing (null, or absent from the mapping) contributes
-    no field — that is what "optional roles, null when unmapped" means for a
-    schema that has nothing to map it to.
-    """
-    path = path or ROLES_PATH
-    if path in _ROLES_CACHE:
-        return _ROLES_CACHE[path]
-    with open(path) as handle:
-        data = json.load(handle)
-    required = data.get("required")
-    optional = data.get("optional")
-    if not isinstance(required, dict) or not isinstance(optional, dict):
-        raise ValueError(
-            "%s must declare `required` and `optional` as role-to-field "
-            "mappings" % path
-        )
-    required_fields = sorted({v for v in required.values() if v})
-    optional_fields = sorted({v for v in optional.values() if v})
-    overlap = set(required_fields) & set(optional_fields)
-    if overlap:
-        raise ValueError(
-            "%s maps %s to both a required and an optional role" %
-            (path, ", ".join("`%s`" % f for f in sorted(overlap)))
-        )
-    roles = {"required_fields": required_fields, "optional_fields": optional_fields}
-    _ROLES_CACHE[path] = roles
-    return roles
-
-
-def check_figure(mapping, first_line_no, kinds=None):
-    """§6.9.3: validate the optional `figure` block, or do nothing.
-
-    Renamed from `check_visual_form` (kogaki#1175); the mechanism is
-    unchanged. Exactly three things, named in the refusal:
-
-      1. the block is a mapping naming one `kind` from the closed set;
-      2. every role of that kind is mapped;
-      3. no role outside that kind is mapped.
-
-    It judges NO WORDING. Whether a role's line is a good reading of the Move's
-    vocabulary is the admission act's judgment, and a rule over prose here
-    would be the lint §6.9.2 excludes.
-
-    Absence is not a finding: a Move without the block is untouched, which is
-    what makes every existing record pass unchanged.
-    """
-    if "figure" not in mapping:
-        return
-
-    form = mapping["figure"]
-    if not isinstance(form, dict):
-        raise Refusal(
-            "figure",
-            "`figure` is not a block of `kind:` plus one line per role",
-            line_no=first_line_no,
-        )
-
-    kinds = kinds if kinds is not None else load_figure_kinds()
-
-    kind = form.get(KIND_SELECTOR)
-    if not kind:
-        raise Refusal(
-            "figure",
-            "`figure` names no `kind`; the closed set is %s"
-            % ", ".join("`%s`" % k for k in sorted(kinds)),
-            line_no=first_line_no,
-        )
-    if kind not in kinds:
-        raise Refusal(
-            "figure",
-            "`figure` names unknown kind `%s`; the closed set is %s"
-            % (kind, ", ".join("`%s`" % k for k in sorted(kinds))),
-            line_no=first_line_no,
-        )
-
-    want = set(kinds[kind])
-    have = set(form) - {KIND_SELECTOR}
-    missing = sorted(want - have)
-    extra = sorted(have - want)
-    if missing or extra:
-        parts = []
-        if missing:
-            parts.append("unmapped %s" % ", ".join("`%s`" % r for r in missing))
-        if extra:
-            parts.append("not a role of `%s`: %s" % (kind, ", ".join("`%s`" % r for r in extra)))
-        raise Refusal(
-            "figure",
-            "`figure` does not map exactly kind `%s`'s roles — " % kind
-            + "; ".join(parts),
-            line_no=first_line_no,
-        )
-
-    blank = sorted(r for r in want if not str(form[r]).strip())
-    if blank:
-        raise Refusal(
-            "figure",
-            "`figure` maps %s to nothing; a role carries one line in the "
-            "Move's own vocabulary" % ", ".join("`%s`" % r for r in blank),
-            line_no=first_line_no,
-        )
-
-
 # §6.9.0's stated precondition — `id` MUST be the record's first key — has NO
 # guard of its own here, and that is deliberate rather than an omission.
 #
@@ -776,8 +491,9 @@ def check_figure(mapping, first_line_no, kinds=None):
 # What actually catches the failure is what §6.9.0 says catches it. A record
 # written with `before:` above `id:` is not seen as a boundary at all — it is
 # absorbed into the record above, and the absorption is caught twice over:
-# condition 2 sees the duplicate `before` in the absorbing record, and
-# condition 3 sees the absorbed one left with SIX keys. Both are exercised.
+# condition 2 sees the duplicate `before` in the absorbing record, and the
+# Adapter (`validate_move`, kogaki#1418) sees the absorbed one missing a
+# required field. Both are exercised.
 #
 # The precondition is therefore stated (here) and enforced (there), which is
 # the arrangement §6.9.0 describes. A third guard asserting it directly would
@@ -819,10 +535,6 @@ def read_proposals(text):
             check_column0_shape(first_line_no, lines)
             mapping, _order = parse_record(first_line_no, lines)
             stripped = strip_excluded(mapping)
-            check_field_set(mapping, first_line_no)
-            check_state_shape(mapping, first_line_no)
-            check_breaks_shape(mapping, first_line_no)
-            check_figure(mapping, first_line_no)
         except Refusal as r:
             proposals.append(Proposal(first_line_no, refusal=r))
             continue
@@ -849,7 +561,7 @@ def ordered_record(mapping):
     for field in FIELDS:
         # A field `moves/ROLES.json` leaves optional and the record does not
         # carry renders nothing; the three required roles are always present
-        # on a record condition 3 admitted.
+        # on a record the Adapter admitted.
         if field not in mapping and field not in ("id", "before", "after"):
             continue
         value = mapping.get(field, "")
@@ -991,10 +703,10 @@ def save_accepted(moves_dir, accepted):
     # cleared, which is what makes a refusal leave no residue.
     for proposal in accepted:
         move_id = proposal.id
-        # The Adapter's structure rule (kogaki#1412), held at the one writer
-        # every admission path reaches: a Move is never saved without the
-        # `segments` and `description` every read of it requires.
-        check_structure(proposal.mapping, proposal.line_no)
+        # The Adapter's contract (kogaki#1418), held at the one writer every
+        # admission path reaches: a Move is never saved that the Adapter
+        # would refuse to read.
+        validate_move(proposal.mapping, proposal.line_no, moves_dir)
         if move_id in seen:
             raise Refusal(
                 "1a",
@@ -1050,10 +762,7 @@ def merge_into(moves_dir, target_id, proposal):
     merged = dict(read_saved(path))
     merged.update(proposal.mapping)
     merged["id"] = target_id
-    check_field_set(merged, 0)
-    check_state_shape(merged, 0)
-    check_breaks_shape(merged, 0)
-    check_structure(merged, 0)
+    validate_move(merged, 0, moves_dir)
     with open(path, "w") as handle:
         handle.write(render_move(merged))
     write_index(moves_dir)
@@ -1607,10 +1316,7 @@ def derive_from_extraction(record, line_no=1):
                 "`segments` carries no Segment",
             )
         mapping["segments"] = segments
-        check_field_set(mapping, line_no)
-        check_state_shape(mapping, line_no)
-        check_breaks_shape(mapping, line_no)
-        check_structure(mapping, line_no)
+        validate_move(mapping, line_no)
     except Refusal as refusal:
         return Proposal(line_no, refusal=refusal)
     return Proposal(line_no, mapping=mapping)
@@ -1770,13 +1476,13 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
 
     if proposal.admitted:
         # The Extraction's `description`, copied the same way (kogaki#1412),
-        # then the Adapter's structure rule checked over the whole record.
+        # then the whole record validated through the Adapter (kogaki#1418).
         description = _cell((record or {}).get("description"))
         proposal.mapping.pop("description", None)
         if description:
             proposal.mapping["description"] = description
         try:
-            check_structure(proposal.mapping, proposal.line_no)
+            validate_move(proposal.mapping, proposal.line_no)
         except Refusal as refusal:
             proposal = Proposal(proposal.line_no, refusal=refusal)
 

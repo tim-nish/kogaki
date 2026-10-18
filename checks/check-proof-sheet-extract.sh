@@ -15,6 +15,16 @@
 #   (b) `tools/move_ingest.py`'s own `read_extraction` and `derive_from_extraction` — the
 #       readers behind `passage --from-extraction` — admit both files unedited, and refuse
 #       a Markdown Extraction by name (`extraction-form`).
+#   (b2) `run_from_extraction`, the call the Proof Sheet's ingest stage makes, validates
+#       through the Adapter's own validator (kogaki#1418): the Moves it admits from those
+#       files are read by `moveContract` without refusal, and an over-long `description`
+#       is refused in the Adapter's words with nothing written; the ingest carries no
+#       type check of its own and refuses every record the Adapter refuses (a retired
+#       `technique`, a joined-line state, prose `breaks`, no `segments`, no `description`,
+#       an unknown figure kind, a field ROLES.json maps to no role) in the sentence
+#       src/move-validate.mjs prints; and the
+#       Brief's compose and Move-fit judge inputs read the admitted Moves, each bound to a
+#       Leg, without refusal.
 #   (c) the run directory holds, per paragraph, the prompt as rendered (the
 #       `extraction_unit` row through `judgePrompt`, FORMAT verbatim above the input
 #       marker, and a JSON skeleton of the record with the paragraph number filled as a
@@ -168,6 +178,95 @@ print("\\n".join(bad))
 sys.exit(1 if bad else 0)
 `, legacy, ...files], { encoding: "utf8", cwd: repo });
 ok(py.status === 0, `(b) the ingest refused an Extraction, or read a Markdown one: ${py.stdout}${py.stderr}`);
+
+// (b2) THE PROOF SHEET'S INGEST STAGE IS THE SAME GATE (kogaki#1418). `run_from_extraction`
+// -- the call `src/proof-sheet/leg-run.mjs`'s ingest stage makes -- validates each candidate
+// through the Adapter's own validator (src/move-validate.mjs): the Moves it admits from
+// these Extractions are read by `moveContract`, the production Adapter, without refusal,
+// and an Extraction whose `description` runs past the bound is refused in the Adapter's
+// own words, nothing written.
+const gate = spawnSync("python3", ["-I", "-c", `
+import json, os, shutil, subprocess, sys, tempfile
+sys.path.insert(0, "tools")
+import move_ingest as m
+bad = []
+files = sys.argv[1:]
+tmp = tempfile.mkdtemp()
+moves = os.path.join(tmp, "moves")
+os.makedirs(moves)
+shutil.copy(os.path.join("moves", "ROLES.json"), moves)
+r = m.run_from_extraction(files, moves, os.path.join(tmp, "out"), select="accept")
+for w in r["written"] or []:
+    move_id = os.path.basename(w)[:-len(".yaml")]
+    read = subprocess.run(["node", "--input-type=module", "-e",
+        "const { moveContract } = await import(process.argv[1]);"
+        "process.stdout.write(JSON.stringify(moveContract(process.argv[2], process.argv[3])));",
+        "file://" + os.path.abspath(os.path.join("src", "compose.mjs")), move_id, moves],
+        capture_output=True, text=True)
+    c = json.loads(read.stdout or "{}")
+    if read.returncode != 0 or c.get("error") or not c.get("segments"):
+        bad.append("the Adapter did not read the admitted Move %s: %s%s" % (move_id, read.stdout, read.stderr))
+if len(r["written"] or []) != len(files):
+    bad.append("run_from_extraction wrote %r for %d Extraction(s)" % (r["written"], len(files)))
+record = m.read_extraction(files[0])[1]
+record["description"] = "x" * 201
+long_path = os.path.join(tmp, "long.yaml")
+with open(long_path, "w") as h:
+    h.write(m.yaml_write(record))
+moves2 = os.path.join(tmp, "moves2")
+os.makedirs(moves2)
+try:
+    m.run_from_extraction([long_path], moves2, os.path.join(tmp, "out2"), select="accept")
+    bad.append("an over-long description was admitted by the Proof Sheet's ingest stage")
+except m.Refusal as e:
+    if "condition adapter" not in str(e) or "is 201 characters" not in str(e) or "at most 200" not in str(e):
+        bad.append("the over-long description was not refused in the Adapter's words: %s" % e)
+if [n for n in os.listdir(moves2) if n.endswith(".yaml")]:
+    bad.append("a refused Extraction left a Move in the library")
+# ONE VALIDATOR: the ingest carries no type check of its own, and every record the
+# Adapter refuses -- a retired \`technique\`, a joined-line state, \`breaks\` as prose, no
+# \`segments\`, no \`description\`, a figure kind outside the closed set, an unnamed field -- the ingest
+# refuses with the sentence src/move-validate.mjs prints for it, verbatim.
+source = open(os.path.join("tools", "move_ingest.py")).read()
+for name in ("def check_field_set", "def check_state_shape", "def check_breaks_shape",
+             "def check_structure", "def check_description", "def check_figure",
+             "def load_roles", "RETIRED_FIELDS =", "DESCRIPTION_MAX ="):
+    if name in source:
+        bad.append("tools/move_ingest.py still carries %s of its own" % name)
+good = m.derive_from_extraction(m.read_extraction(files[0])[1]).mapping
+drop = lambda k: {key: v for key, v in good.items() if key != k}
+for record in (dict(good, technique="restates the Segments."), dict(good, before="one joined line"),
+               dict(good, breaks="one prose paragraph"), drop("segments"), drop("description"),
+               dict(good, figure={"kind": "no_such_kind"}), dict(good, notes="a field no role maps")):
+    adapter = subprocess.run(["node", os.path.join("src", "move-validate.mjs"), "moves"],
+                             input=json.dumps(record), capture_output=True, text=True)
+    said = adapter.stdout.strip()
+    try:
+        m.validate_move(record, 1)
+        bad.append("the ingest admitted a record the Adapter refuses: rc %d %s" % (adapter.returncode, said))
+    except m.Refusal as e:
+        if adapter.returncode != 1 or not said or e.condition != "adapter" or e.message != said:
+            bad.append("the ingest's refusal is not the Adapter's words: %r vs rc %d %r"
+                       % (e.message, adapter.returncode, said))
+# THE BRIEF READS WHAT THE INGEST ADMITTED: its compose input and Move-fit judge input read
+# the library run_from_extraction wrote, each Move bound to a Leg, without refusal.
+ids = [os.path.basename(w)[:-len(".yaml")] for w in r["written"] or []]
+brief = subprocess.run(["node", "--input-type=module", "-e",
+    "const { loadMoveContracts, moveContractsForLegs } = await import(process.argv[1]);"
+    "const ids = JSON.parse(process.argv[3]);"
+    "const lib = loadMoveContracts(process.argv[2]);"
+    "const legs = moveContractsForLegs(ids.map((id, i) => ({ leg_id: 'L' + (i + 1), move: id, waypoints: ['w'] })), process.argv[2]);"
+    "process.stdout.write(JSON.stringify({ lib: lib.error || null, legs: legs.error || null, n: (lib.moves || []).length,"
+    " bound: (legs.contracts || []).map((c) => c.move) }));",
+    "file://" + os.path.abspath(os.path.join("src", "compose.mjs")), moves, json.dumps(ids)],
+    capture_output=True, text=True)
+got = json.loads(brief.stdout or "{}") if brief.returncode == 0 else {"error": brief.stderr}
+if got.get("error") or got.get("lib") or got.get("legs") or got.get("n") != len(ids) or got.get("bound") != ids:
+    bad.append("the Brief's compose and judge inputs did not read the admitted Moves: %r" % got)
+print("\\n".join(bad))
+sys.exit(1 if bad else 0)
+`, ...files], { encoding: "utf8", cwd: repo });
+ok(gate.status === 0, `(b2) the Proof Sheet's ingest stage is not the Adapter's gate: ${gate.stdout}${gate.stderr}`);
 
 // (c) the run directory
 if (!runDir) fails.push("(c) the run printed no run directory");

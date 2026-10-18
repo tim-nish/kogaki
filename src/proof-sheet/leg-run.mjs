@@ -133,7 +133,9 @@ function stopLine(rec) {
 }
 
 // THE INGEST: the Extractions, in paragraph order, through `run_from_extraction` with the
-// owner's `accept` recorded, into this run's own library. The library starts empty, so the
+// owner's `accept` recorded, into this run's own library. It is Kogaki's one admission gate
+// for Moves (kogaki#1418): each candidate is validated through the Adapter's own validator
+// (src/move-validate.mjs), so a Move this stage admits is one the production Adapter reads. The library starts empty, so the
 // near-duplicate check has no row to match and each proposal's screen is rendered with none.
 const INGEST_PY = `
 import json, os, sys

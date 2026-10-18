@@ -52,6 +52,10 @@
 #       where the row it was handed carries the criterion -- refuses it, and the
 #       refusal reaches the next plan attempt, after which the stage finishes
 #       (kogaki#1414). Whether a LIVE judge refuses it is the model's judgment.
+#   (k) THE INGEST'S MOVE IS READ (kogaki#1418): `p1`, the Move case (a) and
+#       its neighbours bind, is admitted by `tools/move_ingest.py`'s write gate
+#       (`save_accepted`, validating through the Adapter's src/move-validate.mjs)
+#       rather than written directly, and the stage reads it without refusal.
 #
 # NOT COVERED, stated rather than implied: the `--tools ""` minimal environment
 # and the call-limit stop are the shared supervisor's, held by
@@ -91,12 +95,31 @@ const PSEG_DOES = "states the point once, plainly.";
 // A Move record is YAML written by the Brief's own writer (kogaki#1413):
 // `before` and `after` maps keyed by dimension, `breaks` a list, `segments`
 // a list of maps.
-const writeMove = (dir, rec) => writeFileSync(join(dir, `${rec.id}.yaml`), stringifyYaml(rec));
+// Every Move carries the `description` the Adapter requires (kogaki#1412, kogaki#1418).
+const writeMove = (dir, rec) => writeFileSync(join(dir, `${rec.id}.yaml`),
+  stringifyYaml({ id: rec.id, description: "a fixture Move.", ...rec }));
+// THE INGEST ADMITS p1 (kogaki#1418): the Move every case below binds is
+// written by `tools/move_ingest.py`'s own write gate, `save_accepted`, which
+// validates it through the Adapter (src/move-validate.mjs) -- so the stage
+// reading it without refusal is a Move the ingest admitted being read.
+const INGEST_SAVE = [
+  "import json, sys",
+  "sys.path.insert(0, 'tools')",
+  "import move_ingest as m",
+  "m.save_accepted(sys.argv[1], [m.Proposal(1, mapping=json.load(sys.stdin))])",
+].join("\n");
+const ingestMove = (dir, rec) => {
+  const r = spawnSync("python3", ["-c", INGEST_SAVE, dir],
+    { input: JSON.stringify({ description: "a fixture Move.", ...rec }), encoding: "utf8" });
+  if (r.status !== 0) fails.push(`(k) the ingest refused fixture Move ${rec.id}: ${(r.stderr || "").trim()}`);
+  return r.status === 0;
+};
 const STATE = { before: { knowledge: "before." }, after: { knowledge: "after." } };
 // p1's state holds two dimensions, so (j) can see them rendered one line each.
 const P1_BEFORE = { knowledge: "before.", question: "holds: none." };
-writeMove(moves, { id: "p1", before: P1_BEFORE, after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."],
+const P1_ADMITTED = ingestMove(moves, { id: "p1", before: P1_BEFORE, after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."],
   segments: [{ does: PSEG_DOES }] });
+if (P1_ADMITTED && !existsSync(join(moves, "INDEX.md"))) fails.push("(k) the ingest admitted p1 and wrote no INDEX.md beside it");
 const PSEG3 = [{ does: "sets up the point." }, { does: "makes the point.", relation: "answers what the setup opened." },
   { does: "leaves the point.", relation: "draws the consequence of the point." }];
 // (i)'s Move: the 2026-10-16 run's paragraph 2, its Segments as the Extractor wrote them there.
@@ -470,5 +493,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments (each Segment's number, does and relation as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries the four roles and neither call a technique (kogaki#1412); a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a library holding a Move with no segments stops naming the Move whether or not it carries technique, each with the Brief unchanged and no file written (kogaki#1412); a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's does is refused by the judge same as any other does-not-fit; the 2026-10-16 paragraph 2 plan, whose first point lost its Segment, is refused by the judge's per-Segment check and re-planned; a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments (each Segment's number, does and relation as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries the four roles and neither call a technique (kogaki#1412); a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a library holding a Move with no segments stops naming the Move whether or not it carries technique, each with the Brief unchanged and no file written (kogaki#1412); a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's does is refused by the judge same as any other does-not-fit; the 2026-10-16 paragraph 2 plan, whose first point lost its Segment, is refused by the judge's per-Segment check and re-planned; a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); the Move the stage binds is one the ingest admitted through the Adapter's validator (kogaki#1418); the skill names only entry points the Harness has.");
 JS
