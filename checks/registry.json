@@ -406,6 +406,22 @@
         "removal_signal": "a ruling retires the Leg Proof Sheet, or moves its run onto a production command -- either way the run this check drives is gone",
         "removal_instrument": "probe: ! test -f src/proof-sheet/leg-run.mjs"
       }
+    },
+    {
+      "id": "move-library",
+      "file": "checks/check-move-library.sh",
+      "covers": ["moves/"],
+      "admission": {
+        "contract": "Every committed `moves/*.yaml` record parses as the Brief's YAML reader (`src/yaml.mjs`) reads it, is admitted by the Adapter's own validator (`validateMoveRecord` in `src/compose.mjs`, the one `src/move-validate.mjs` and `tools/move_ingest.py` already run) against `moves/ROLES.json`, and carries its file stem as `id` (a); and `moves/INDEX.md` is byte-for-byte what `tools/move_ingest.py`'s own `write_index` regenerates from the records on disk, run over a copy of the library, so this member and the writer cannot drift (b). Before this member the library's contract was held by the writer alone: the ingest validates a record at the moment it writes it, and nothing ran the same predicate over records already on disk, so the four schema Issues of 2026-10-17 (kogaki#1411 to kogaki#1414) and the Adapter gate (kogaki#1418) left the 21 committed Leg Moves in a shape the Adapter refuses at every read with no check red. The fixture pass runs on every invocation, never behind a flag: (c1) a record carrying `technique` and no `segments`, (c2) a `before` written as one joined line, (c3) an `id` that is not the file stem, (c4) a stale INDEX, and (c5) one admitted record with a fresh INDEX as the control that stops the deny passing vacuously. Declared limit, stated in the file: it does not assert the ABSENCE of the retired `.md` record form, which kogaki#1415 removes.",
+        "license": "kogaki#1434 (owner decision 2026-10-18: a covering check over `moves/` rather than a change to admission, after #1423 left no registered member covering it)",
+        "tier": "pre-push",
+        "runtime_ms": 1400,
+        "runtime_ms_note": "Measured 2026-10-18 at de18fd6 in the kogaki#1434 worktree: 1437, 1441 and 1310 ms over three runs with `moves/` holding no `.yaml` record; the cost is the five fixture libraries plus the real one, each spawning the ingest's Python `write_index`, so a committed record adds its parse and validation and no further process start.",
+        "removal_signal": "the Move library leaves the tree -- `moves/` is deleted, so there is no committed record for the Adapter to refuse and no INDEX to regenerate.",
+        "removal_instrument": "probe: ! test -d moves",
+        "efficacy": "case: checks/check-move-library.sh::(c1) a record carrying `technique` and no `segments` is refused",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-10-18 at de18fd6). Writing `moves/zz-bad.yaml` carrying `technique` and a joined-line `before` FAILED naming the file (`zz-bad.yaml: the Adapter refuses it`) and FAILED the INDEX comparison (`INDEX.md is not the regeneration of the records on disk`); removing it restored PASS. The efficacy case (c1) is the 21 Leg Moves' own shape."
+      }
     }
   ]
 }
