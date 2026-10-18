@@ -61,7 +61,7 @@ export { PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor, paragraphPlanRecord,
 import { judgePrompt, resolveJudgeBinary, settingValue } from "./workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "./workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, readerPathJobPath, readerPathJobBounds,
-  READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "./workflow/detached-job.mjs";
+  jobStallS, jobHeartbeatMs } from "./workflow/detached-job.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 
 export const PARAGRAPH_PLAN_TABLE = join(REPO, "src", "paragraph-plan-workflow.json");
@@ -400,7 +400,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   startDetachedJobSupervisor(dir, {
     units, command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
     callLimitS, unitAttempts,
-    stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S,
+    stallS: jobStallS(table.job.stall_s),
     heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
     recordArray: "waypoints",
     validator: { module: "src/paragraph-plan.mjs", export: "validateParagraphPlanUnit", inputs: { legs, movesDir } },
