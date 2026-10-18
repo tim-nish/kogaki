@@ -310,11 +310,12 @@ else {
   }
 
   // (j) THE PIPELINE DIAGRAM, THE COMPARISON TABLE'S ANCHORS AND THE PACKET'S PER-WAYPOINT
-  // ROWS (kogaki#1402). The diagram opens the page, before the run-conditions line and the
-  // comparison table; its ten nodes -- the sources (Passage, Segments, Persona, Audience) and
-  // the six artifacts -- each click to an id that exists on the page, and its text is also
-  // written as a `<pre>` fallback. Each written-paragraph cell links to that paragraph's row
-  // in Extraction, Move, ParagraphPlan, Packet and Draft. The Packet card gets one row per Leg
+  // ROWS (kogaki#1402, redrawn kogaki#1410). The diagram opens the page, before the
+  // run-conditions line and the comparison table; its eight nodes -- the sources (Passage,
+  // Audience) and the six artifacts, with no Segments node and no Persona node -- each click to
+  // an id that exists on the page, and its text is also written as a `<pre>` fallback inside a
+  // closed details element. Each written-paragraph cell links to that paragraph's row in
+  // Extraction, Move, ParagraphPlan, Packet and Draft. The Packet card gets one row per Leg
   // Waypoint, cut from the rendered Packet by its own numbering, with the whole Packet below.
   const h1At = html.indexOf("<h1>Leg Proof Sheet</h1>");
   const diagramAt = html.indexOf('<div class="diagram">');
@@ -322,10 +323,12 @@ else {
   ok(diagramAt >= 0 && diagramAt < html.indexOf('id="run-conditions"') && diagramAt < pairStart,
     "(j) the diagram is not the sheet's first element, before the run-conditions line and the comparison table");
 
-  const diagramHtml = html.slice(diagramAt, html.indexOf("</div>", html.indexOf("</div>", diagramAt) + 1) + "</div>".length);
+  const diagramHtml = html.slice(diagramAt, html.indexOf('<div class="run-conditions"', diagramAt));
   ok(diagramHtml.includes("flowchart LR"), "(j) the diagram is not a left-to-right flowchart");
-  const DIAGRAM_NODES = ["Passage", "Segments", "Persona", "Audience", "Extraction", "Move", "Brief", "ParagraphPlan", "Packet", "Draft"];
-  const DIAGRAM_LINKS = { Passage: "#comparison-0", Segments: "#card-0-extraction", Persona: "#run-conditions", Audience: "#run-conditions",
+  ok(!diagramHtml.includes(escHtml('Segments_0["Segments"]')), "(j) the diagram still has a Segments node");
+  ok(!diagramHtml.includes(escHtml('Persona_0["Persona"]')), "(j) the diagram still has a Persona node");
+  const DIAGRAM_NODES = ["Passage", "Audience", "Extraction", "Move", "Brief", "ParagraphPlan", "Packet", "Draft"];
+  const DIAGRAM_LINKS = { Passage: "#comparison-0", Audience: "#run-conditions",
     Extraction: "#card-0-extraction", Move: "#card-0-move", Brief: "#card-0-brief", ParagraphPlan: "#card-0-paragraphPlan",
     Packet: "#card-0-packet", Draft: "#card-0-draft" };
   for (const name of DIAGRAM_NODES) {
@@ -335,7 +338,35 @@ else {
   for (const target of ["comparison-0", "run-conditions", "card-0-extraction", "card-0-move", "card-0-brief", "card-0-paragraphPlan", "card-0-packet", "card-0-draft"]) {
     ok(html.includes(`id="${target}"`), `(j) the diagram links to "#${target}", which is not an id on the page`);
   }
-  ok(/<pre>[\s\S]*flowchart LR[\s\S]*<\/pre>/.test(diagramHtml), "(j) the diagram's text is not present as a <pre> fallback");
+
+  // Two rows (kogaki#1410 design): Extraction, Move, ParagraphPlan, Packet, Draft on the chain
+  // row, Brief fed by Extraction and Audience, feeding ParagraphPlan and Packet, on the other --
+  // and the edge from Audience to Packet, the one that governs the Packet's prose rules.
+  const DIAGRAM_EDGES = [["Passage", "Extraction"], ["Audience", "Extraction"],
+    ["Extraction", "Move"], ["Extraction", "Brief"], ["Audience", "Brief"],
+    ["Move", "ParagraphPlan"], ["Brief", "ParagraphPlan"],
+    ["Brief", "Packet"], ["ParagraphPlan", "Packet"], ["Audience", "Packet"],
+    ["Packet", "Draft"]];
+  for (const [a, b] of DIAGRAM_EDGES) {
+    ok(diagramHtml.includes(escHtml(`${a}_0 --> ${b}_0`)), `(j) the diagram has no edge from "${a}" to "${b}"`);
+  }
+  ok(!diagramHtml.includes(escHtml("Segments_0 --> Move_0")), "(j) the diagram still has the edge from Segments to Move, bypassing Extraction");
+
+  // Three provenance classDefs with a legend, Extraction and Brief dashed.
+  for (const cls of ["ownerInput", "modelWritten", "mechanical"]) {
+    ok(diagramHtml.includes(`classDef ${cls} `), `(j) the diagram declares no "${cls}" classDef`);
+  }
+  ok(diagramHtml.includes("classDef dashed stroke-dasharray"), "(j) the diagram declares no dashed classDef");
+  const dashedLine = (diagramHtml.match(/class [^\n<]* dashed/) || [""])[0];
+  ok(dashedLine.includes("Extraction_0") && dashedLine.includes("Brief_0"), "(j) Extraction and Brief are not both assigned the dashed class");
+  ok(/<ul class="legend">/.test(html) && diagramAt < html.indexOf('<ul class="legend">'), "(j) the diagram carries no legend");
+  for (const label of ["owner-authored input", "model-written", "mechanically derived"]) {
+    ok(html.slice(diagramAt, html.indexOf('id="run-conditions"')).includes(label), `(j) the legend names no "${label}" class`);
+  }
+
+  ok(/<details[^>]*><summary>Diagram text/.test(diagramHtml) && !/<details[^>]* open[^>]*><summary>Diagram text/.test(diagramHtml),
+    "(j) the diagram's text fallback is missing, or is not closed by default");
+  ok(/<details[^>]*><summary>Diagram text[\s\S]*flowchart LR[\s\S]*<\/pre><\/details>/.test(diagramHtml), "(j) the diagram's text is not present as a <pre> fallback inside its details element");
 
   for (let i = 1; i <= 3; i++) {
     const cell = legRows[i - 1];
@@ -345,12 +376,34 @@ else {
     }
   }
 
+  // THE PER-PARAGRAPH (AND PER-LEG-WAYPOINT) ROWS ARE FOLDED (kogaki#1410, owner 2026-10-17):
+  // every row on Extraction, Move, ParagraphPlan, Packet and Draft is a `details.prow`, open
+  // only for the first. The link target sits INSIDE the details rather than on it, because
+  // following a fragment opens a closed details that is the target's ancestor and leaves one
+  // that is the target closed -- so this is what makes a comparison-table link open the block.
+  for (const card of ["extraction", "move", "planwp", "packetwp", "draft"]) {
+    for (let i = 1; i <= 3; i++) {
+      const anchor = `${card}-p${i}-0`;
+      const at = html.indexOf(`id="${anchor}"`);
+      ok(at >= 0, `(j) "${anchor}" is not on the page`);
+      if (at < 0) continue;
+      const targetTag = html.slice(html.lastIndexOf("<", at), html.indexOf(">", at) + 1);
+      ok(!targetTag.startsWith("<details"), `(j) "${anchor}" is on the details itself, so following a link to it leaves the block closed: ${targetTag}`);
+      const tagStart = html.lastIndexOf('<details class="prow', at);
+      const enclosed = tagStart >= 0 && !html.slice(tagStart, at).includes("</details>");
+      ok(enclosed, `(j) "${anchor}" is not inside a folded per-paragraph block, so a link to it opens nothing`);
+      if (!enclosed) continue;
+      const tag = html.slice(tagStart, html.indexOf(">", tagStart) + 1);
+      ok(i === 1 ? / open/.test(tag) : !/ open/.test(tag), `(j) "${anchor}"'s block is ${i === 1 ? "not open" : "open"} by default: ${tag}`);
+    }
+  }
+
   if (packetText) {
     for (let i = 1; i <= 3; i++) {
       const rowAt = cards.packet.indexOf(`id="packetwp-p${i}-0"`);
       ok(rowAt >= 0, `(j) the Packet card has no row for Leg Waypoint ${i}`);
       if (rowAt >= 0) {
-        const rowHtml = cards.packet.slice(rowAt, cards.packet.indexOf("</tr>", rowAt));
+        const rowHtml = cards.packet.slice(rowAt, cards.packet.indexOf("</details>", rowAt));
         ok(rowHtml.includes(`POINT-${i}`), `(j) the Packet card's Leg Waypoint ${i} row does not carry its point`);
         ok(rowHtml.includes(`PW-${i}-1`), `(j) the Packet card's Leg Waypoint ${i} row does not carry its Paragraph Waypoints`);
       }
