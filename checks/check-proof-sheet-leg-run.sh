@@ -35,6 +35,13 @@
 #       record its language, hand it to the Leg Brief composer and the Packet, and the Brief
 #       and the Draft carry it; another Audience's language replaces it throughout; an Audience
 #       declaring none is refused by name at the Brief stage.
+#   (l) the ParagraphPlan card's Attempts part (kogaki#1437): the main run's fake judge answers
+#       `does-not-fit` at Leg Waypoint 2 on the first attempt and `fits` on the second, and the
+#       part carries two blocks -- the first with that attempt's Paragraph Waypoints, the verdict
+#       and its `why`, and the refusal block the second attempt received; the second `fits` on
+#       every Leg Waypoint and "no further attempt". A run refused on every attempt shows every
+#       attempt and an Output of "(not written)". The Calls part names "the judge call" and
+#       never "the check call".
 #   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through
 #       `KOGAKI_JOB_STALL_S` and every ParagraphPlan call running 2.5 s past its first line
 #       (a stream line every 200 ms, as a live stream-json call writes),
@@ -61,6 +68,20 @@ import { pathToFileURL } from "node:url";
 process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
+const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
+const escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// (l) The ParagraphPlan card's Attempts part, cut into its per-attempt blocks.
+const attemptBlocks = (cardHtml) => {
+  const a = cardHtml.indexOf('<details class="part attempts">');
+  if (a < 0) return [];
+  return cardHtml.slice(a, cardHtml.indexOf('<details class="part in"', a)).split("<summary>attempt ").slice(1);
+};
+// (l) The refusal block a retry's prompt carries: from its refusal marker to its input marker.
+const refusalBlock = (retry) => {
+  const at = retry.indexOf("----- YOUR PREVIOUS ANSWER WAS REFUSED -----");
+  const end = retry.indexOf("----- INPUT (JSON) -----");
+  return at >= 0 && end > at ? retry.slice(at, end).trim() : null;
+};
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const S = await imp("src/proof-sheet/leg-sheet.mjs");
@@ -84,7 +105,7 @@ writeFileSync(map, mapText(mapRows));
 // ---- the one fake model binary, answering every stage ----
 const judge = join(root, "fake-model.mjs");
 writeFileSync(judge, `#!/usr/bin/env node
-import { appendFileSync, writeSync } from "node:fs";
+import { appendFileSync, writeSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
 const dir = process.env.PSR_FIXTURE_DIR;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
@@ -109,7 +130,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const retried = prompt.includes("----- YOUR PREVIOUS ANSWER WAS REFUSED -----");
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;
-    return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => ({ waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan-judge");
+    // (l) PSR_PLAN_REFUSE: "first" refuses Leg Waypoint 2 on the first judge call only, "all" on every one.
+    const counter = dir + "/judge-count";
+    const n = (existsSync(counter) ? Number(readFileSync(counter, "utf8")) : 0) + 1;
+    writeFileSync(counter, String(n));
+    const refuse = process.env.PSR_PLAN_REFUSE === "all" || (process.env.PSR_PLAN_REFUSE === "first" && n === 1);
+    return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => (refuse && w.waypoint === 2
+      ? { waypoint: w.waypoint, verdict: "does-not-fit", why: "WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on." }
+      : { waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan-judge");
   }
   if (prompt.includes('"leg_you_must_plan"')) {
     const leg = body("leg_you_must_plan").leg_you_must_plan;
@@ -176,7 +204,7 @@ const before = snapshot();
 
 const out = join(root, "out");
 const r = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(root, "leg-fixture.md"), "--out", out, "--provenance", map],
-  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: root }, timeout: 600000 });
+  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: root, PSR_PLAN_REFUSE: "first" }, timeout: 600000 });
 ok(r.status === 0, `(a) the run exited ${r.status}: ${r.stdout}${r.stderr}`);
 const runDir = (r.stdout.match(/^run directory: (.+)$/m) || [])[1];
 const seen = existsSync(join(root, "seen.jsonl")) ? readFileSync(join(root, "seen.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
@@ -201,7 +229,6 @@ else {
   ok(!existsSync(join(runDir, "ingest", "calls.jsonl")), "(a) the ingest made a model call");
 
   // (b) the ingest's Moves and the plan's counts
-  const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
   const ingest = JSON.parse(readOr(join(runDir, "ingest", "ingest.json"), '{"written":[],"entries":[]}'));
   ok(ingest.written.length === 3 && [1, 2, 3].every((n) => existsSync(join(runDir, "moves", `name_an_act_then_its_cost_${n}.yaml`))),
     `(b) the ingest did not write one Move per Extraction into the run's library: ${JSON.stringify(ingest.written)}`);
@@ -260,7 +287,8 @@ else {
     ok(/<details class="part prompt"(?! open)><summary>Prompt<\/summary>/.test(c), `(e) the ${name} card's Prompt is missing, or opens by default`);
     ok(/<details class="part calls"(?! open)><summary>Calls<\/summary>/.test(c), `(e) the ${name} card's Calls is missing, or opens by default`);
     const partOrder = [...c.matchAll(/<details class="part (\w+)"/g)].map((m) => m[1]);
-    ok(JSON.stringify(partOrder) === JSON.stringify(["out", "in", "prompt", "calls"]), `(e) the ${name} card's four parts are out of order: ${partOrder.join(",")}`);
+    const wantOrder = key === "paragraphPlan" ? ["out", "attempts", "in", "prompt", "calls"] : ["out", "in", "prompt", "calls"];
+    ok(JSON.stringify(partOrder) === JSON.stringify(wantOrder), `(e) the ${name} card's parts are out of order: ${partOrder.join(",")}`);
     for (const href of [...c.matchAll(/<a href="#([^"]+)">/g)].map((m) => m[1])) {
       ok(ORDER.some((k) => href === `card-0-${k}`), `(e) the ${name} card's Inputs links to "${href}", which is not a card`);
     }
@@ -289,7 +317,6 @@ else {
   // marker), and each piece, escaped as the sheet escapes it, occurs on the page exactly once
   // -- a call whose prompt is shown under Prompt names it rather than repeating it, and a
   // retry shows only the refusal block it inserted.
-  const escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const occurrences = (needle) => html.split(needle).length - 1;
   const INPUT = "----- INPUT (JSON) -----";
   const REFUSED = "----- YOUR PREVIOUS ANSWER WAS REFUSED -----";
@@ -428,6 +455,27 @@ else {
     ok(cards.packet.includes(escHtml(packetText.trim())), "(j) the whole Packet no longer appears below the per-waypoint table");
   }
 
+  // (l) THE ATTEMPTS PART (kogaki#1437): the first attempt was refused at Leg Waypoint 2 and the
+  // second passed, so the part holds two blocks; the refusal block the second attempt received
+  // is cut from the two recorded plan prompts, so the sheet is held to what was actually sent.
+  const planCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_you_must_plan"'));
+  ok(planCalls.length === 2, `(l) the ParagraphPlan made ${planCalls.length} plan call(s), not 2 (refused once, then passed)`);
+  const blocks = attemptBlocks(cards.paragraphPlan);
+  ok(blocks.length === 2, `(l) the Attempts part holds ${blocks.length} block(s), not 2`);
+  if (blocks.length === 2 && planCalls.length === 2) {
+    const [b1, b2] = blocks;
+    ok(PARAS.every((_, i) => b1.includes(`PW-${i + 1}-1 the paragraph makes its point.`)), "(l) attempt 1's block does not show its Paragraph Waypoints");
+    ok(b1.includes("does-not-fit") && b1.includes("WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on."),
+      "(l) attempt 1's block does not show the does-not-fit verdict with its why");
+    const inserted = refusalBlock(planCalls[1].stdin);
+    ok(!!inserted && b1.includes(`<pre>${escHtml(inserted)}`),
+      "(l) attempt 1's block does not show the refusal block the second attempt received, verbatim");
+    ok(!b2.includes("does-not-fit") && (b2.match(/<b>fits<\/b>/g) || []).length === 3, "(l) attempt 2's block does not show fits on every Leg Waypoint");
+    ok(b2.includes("no further attempt: the job ended `done`"), "(l) attempt 2's block does not say no further attempt");
+    ok(!/class="stop">The judge answered/.test(b1 + b2), "(l) the Attempts part shows a mismatch between the judge and the job record on a run where they agree");
+  }
+  ok(cards.paragraphPlan.includes("the judge call") && !cards.paragraphPlan.includes("the check call"), "(l) the Calls part does not name the judge call, or still names the check call");
+
   // (f) the map gates; a stopped Draft still draws
   const short = join(root, "PROVENANCE-short.md");
   writeFileSync(short, mapText(mapRows.filter((l) => !l.startsWith("| Packet |"))));
@@ -443,6 +491,34 @@ else {
   const built = S.buildSheet({ runs: [stoppedRun], provenance: map, out: join(root, "stopped.html") });
   const sh = built.written ? readFileSync(built.written, "utf8") : "";
   ok(sh.includes("STOP-LINE the writer refused section") && sh.includes("<b>Packet"), "(f) a stopped Draft stage does not draw the card with the stop");
+}
+
+// (l) A PARAGRAPHPLAN REFUSED ON EVERY ATTEMPT: the run stops at paragraph-plan, and the sheet
+// shows every attempt, each refused at Leg Waypoint 2, and an Output of "(not written)".
+const lRoot = join(root, "refused-every-attempt");
+mkdirSync(lRoot, { recursive: true });
+writeFileSync(join(lRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
+const r6 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(lRoot, "leg-fixture.md"), "--out", join(lRoot, "out"), "--provenance", map],
+  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: lRoot, PSR_PLAN_REFUSE: "all" }, timeout: 600000 });
+const lRunDir = (r6.stdout.match(/^run directory: (.+)$/m) || [])[1];
+ok(!!lRunDir, `(l) the run refused on every ParagraphPlan attempt printed no run directory: ${r6.stdout}${r6.stderr}`);
+if (lRunDir) {
+  const lRun = JSON.parse(readFileSync(join(lRunDir, "run.json"), "utf8"));
+  const pp = lRun.stages.find((st) => st.stage === "paragraph-plan") || {};
+  ok(pp.state && pp.state !== "done", `(l) the ParagraphPlan stage ended ${pp.state} on a run refused at every attempt`);
+  const built = S.buildSheet({ runs: [lRunDir], provenance: map, out: join(lRoot, "sheet.html") });
+  const lHtml = built.written ? readFileSync(built.written, "utf8") : "";
+  const ppAt = lHtml.indexOf('id="card-0-paragraphPlan"');
+  const ppCard = ppAt >= 0 ? lHtml.slice(ppAt, lHtml.indexOf('id="card-0-packet"')) : "";
+  const lJob = JSON.parse(readOr(join(lRunDir, "paragraph-plan", "job", "reader-path-job.json"), "{}"));
+  const spent = ((lJob.units || [])[0] || {}).attempts;
+  const blocks = attemptBlocks(ppCard);
+  ok(spent >= 2 && blocks.length === spent, `(l) the refused run's Attempts part holds ${blocks.length} block(s) against the ${spent} attempt(s) the job spent`);
+  ok(blocks.every((b) => b.includes("does-not-fit") && b.includes("WHY-NOT-FIT")), "(l) a refused attempt's block does not show its does-not-fit verdict and why");
+  ok(blocks.slice(0, -1).every((b) => b.includes("----- YOUR PREVIOUS ANSWER WAS REFUSED -----")), "(l) a refused attempt's block does not show the refusal block the next attempt received");
+  ok(blocks.length > 0 && blocks[blocks.length - 1].includes(`no further attempt: the job ended \`${lJob.state}\``), "(l) the last refused attempt does not say no further attempt and the job's state");
+  const output = ppCard.slice(ppCard.indexOf('<details class="part out"'), ppCard.indexOf('<details class="part attempts"'));
+  ok(output.includes("(not written)"), "(l) the refused run's ParagraphPlan Output does not read (not written)");
 }
 
 // (d) nothing in moves/ or theses/
