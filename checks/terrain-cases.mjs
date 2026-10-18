@@ -178,8 +178,11 @@ writeFileSync(LONE_SUBDIVISIONS, JSON.stringify(Object.fromEntries(
     // run of cases that shares no binding with any other part; part k belongs
     // to shard ((k - 1) mod n) + 1. Code outside every part runs in every shard,
     // so it holds definitions and cheap setup, never an `ok`. The parts are
-    // sized to a few seconds each, and there are about as many as the check
-    // starts shards, so a shard runs one part.
+    // sized to a few seconds each — the wall time of the pass is its SLOWEST
+    // part, not its total over the shard count, so a part that runs the real
+    // question-shape command several times in sequence is what sets the floor
+    // (kogaki#1425) — and there are a few more of them than the check starts
+    // shards, so a shard runs one or two.
     let partSeq = 0;
     const part = (body) => { if (partSeq++ % SHARD.n === SHARD.i - 1) body(); };
     // A value several parts read and no other code does, made by the first
@@ -208,9 +211,12 @@ writeFileSync(LONE_SUBDIVISIONS, JSON.stringify(Object.fromEntries(
       const files = existsSync(rd) ? readdirSync(rd).filter((f) => f.endsWith(".terrain-survey.json")) : [];
       return { ...r, record: files.length ? readJson(join(rd, files[0])) : null };
     };
-    part(() => {
     const alpha = [{ kind: "lesson", slug: "alpha", tags: ["agents"] }, { kind: "journey", slug: "alpha", tags: ["agents"] }];
-    const pinned = surveyOver("pinned", "product-lab@aaaaaaa", alpha);
+    // Read by the cite part and the empty-survey part, so made by the first
+    // that asks (kogaki#1425).
+    const pinnedOnce = once(() => surveyOver("pinned", "product-lab@aaaaaaa", alpha));
+    part(() => {
+    const pinned = pinnedOnce();
     ok("a lesson cite composes in the identity form from the record's own fields",
       !!pinned.record && pinned.record.candidates[0].cite === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @aaaaaaa");
     ok("a journey cite carries its own kind in the join key",
@@ -223,6 +229,8 @@ writeFileSync(LONE_SUBDIVISIONS, JSON.stringify(Object.fromEntries(
         .every((r) => r.status !== 0 && /cannot compose an identity cite for lesson alpha/.test(r.stderr) && r.record === null));
     ok("the positional form is not producible by this composer",
       !!pinned.record && [...pinned.record.candidates, ...pinned.record.journeys].every((c) => !/ELEMENTS\.jsonl:\d/.test(c.cite)));
+    });
+    part(() => {
     // ---- THE SHARD ADDRESS IS SELECTED FROM THE SERVED ENUMERATION, NEVER
     // COMPOSED (kogaki#1106). The property is about ADDRESS SELECTION, so each
     // case reads the addresses the runtime actually REQUESTED: `resolveHeadlines`
@@ -343,6 +351,9 @@ console.log(JSON.stringify(out));`, env);
       // THE CONTROL: a row with an addressed tag keeps the read-and-empty
       // marker, so the arm above is about the ROW and not a blanket downgrade.
       && glossFor(addrRow, missEntry, "answered", ["lessons"], new Set(["knowledge-architecture"])) === NO_HEADLINE);
+    });
+    part(() => {
+    const pinned = pinnedOnce();
     // ---- AN EMPTY SURVEY IS A REFUSAL (kogaki#1026). The cases drive `survey`
     // itself over what the fixture gateway serves, and read the refusal off the
     // act: a non-zero exit, the refusal text on stderr, and no survey record
@@ -432,6 +443,8 @@ console.log(JSON.stringify(out));`, env);
           } catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
         })());
     }
+    });
+    part(() => {
     // ---- the control plane CONTROL PLANE (story 1.89). Seam-free: every case below either
     // reads the shipped table or constructs a synthetic one, and no case
     // reaches the gateway. AC8: this pass needs no run record and emits no
@@ -533,6 +546,8 @@ console.log(JSON.stringify(out));`, env);
           && c.judgment_points === 2 && c.conditional_states_entered === 1;
       })());
 
+    });
+    part(() => {
     {
       // THE REFUSING DIRECTIONS, each against a fixture that exists to fail.
       // `fail()` exits the process, so these run as subprocesses — the same
@@ -693,6 +708,8 @@ console.log(JSON.stringify(out));`, env);
       rmSync(scratch, { recursive: true, force: true });
     }
 
+    });
+    part(() => {
     // THE LANE BINDING (kogaki#750). Every case above drives an explicit
     // `--run-dir`, which is the path the relocation did NOT touch, so on their
     // own they are green about a runtime still writing to the retired home
@@ -1192,9 +1209,13 @@ console.log(JSON.stringify(out));`, env);
           ok("the Brief's thesis gate composes a call at all, over a settled set of two served addresses",
             !!thesisCall.tool_input,
             JSON.stringify(thesisCall.r.driveFailed ? thesisCall.r.stderr : "composed"));
+          // THE FIRST REAL CALL IS THE PROBE (kogaki#1425): whether the verb
+          // answers is read off this verdict, so the part pays no separate
+          // empty-payload start for it.
+          const verdict = spawnSync(realCmd, ["lint-question"],
+            { input: JSON.stringify(thesisCall.tool_input), encoding: "utf8" });
+          probe ??= verdict;
           if (realAnswers()) {
-            const verdict = spawnSync(realCmd, ["lint-question"],
-              { input: JSON.stringify(thesisCall.tool_input), encoding: "utf8" });
             ok("that composed payload passes the toolkit's own question-shape command with exit 0 (kogaki#1118 acceptance 1)",
               verdict.status === 0,
               `exit=${verdict.status} ${(verdict.stderr || "").trim().slice(0, 200)}`);
@@ -1328,8 +1349,11 @@ console.log(JSON.stringify(out));`, env);
             // THE RULE'S VERDICT ON A FILE, asked of the command itself: the
             // refusal text when it refuses, null when it admits or cannot answer.
             const refusalOf = (file) => {
-              if (!realAnswers() || !existsSync(file)) return null;
+              if (!existsSync(file) || (probe && !realAnswers())) return null;
               const v = spawnSync(realCmd, ["lint-question"], { input: readFileSync(file, "utf8"), encoding: "utf8" });
+              // THE FIRST REAL CALL IS THE PROBE (kogaki#1425), as above.
+              probe ??= v;
+              if (!realAnswers()) return null;
               return v.status === 1 ? ((v.stderr || "").trim() || "refused") : null;
             };
             const writtenBytes = existsSync(staged.callFile) ? readFileSync(staged.callFile, "utf8") : "";
@@ -2910,6 +2934,14 @@ console.log(JSON.stringify(out));`, env);
         again.status !== 0 && (again.rec.failure || {}).state === "J2_subdivision"
         && JSON.stringify(again.rec.completed) === JSON.stringify(timedOut.rec.completed)
         && Array.isArray(again.rec.prior_failures) && again.rec.prior_failures.length === 1 && noGate(again.rec));
+      // THE ANSWERING RE-ENTRY RUNS UNDER A GENEROUS BOUND (kogaki#1425). The
+      // case asserts that a judge answering inside the bound completes the
+      // state, not how fast the stub starts: the stub is two Node starts,
+      // which a loaded machine takes past 0.3 s, and that was this pass's one
+      // standing flake (red at base on 2026-10-18 under a parallel suite).
+      // The table is rewritten in place, so the record's `workflow.path`
+      // still names it; the two timeout cases above keep the 0.3 s bound.
+      writeFileSync(tp, JSON.stringify({ ...readJson(tp), judge: { ...SHIPPED_TABLE.judge, timeout_s: 30 } }));
       const resumed = advance(0);
       ok("a re-entry whose judge answers inside the bound completes the failed state after the kept ones, and leaves no `failure` standing",
         resumed.status === 0 && !resumed.rec.failure
