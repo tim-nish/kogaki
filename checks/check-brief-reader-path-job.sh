@@ -888,13 +888,22 @@ process.stdin.on("end", () => {
 // THE BOUND IS HANDED IN, NOT WAITED OUT (kogaki#1424): the await runs under a
 // fixture-supplied 2 s bound (`KOGAKI_JOB_AWAIT_S`) and must wait at least that
 // long and return well before 30 s; the production bound is asserted as the
-// value `jobAwaitS()` reads with the variable unset.
+// value `jobAwaitS()` reads with the variable unset. The heartbeat every check
+// now hands in is pinned the same way: unset, `jobHeartbeatMs` reads the table's
+// value, and the 10 s constant where the table gives none (PR #1429 round 1).
 {
   const { READER_PATH_JOB_AWAIT_S: awaitS, jobAwaitS } = await import("./src/brief.mjs");
+  const { READER_PATH_JOB_HEARTBEAT_MS: heartbeatConst, jobHeartbeatMs } = await import("./src/workflow/detached-job.mjs");
   const savedAwait = process.env.KOGAKI_JOB_AWAIT_S;
+  const savedHeartbeat = process.env.KOGAKI_JOB_HEARTBEAT_MS;
   delete process.env.KOGAKI_JOB_AWAIT_S;
+  delete process.env.KOGAKI_JOB_HEARTBEAT_MS;
   if (awaitS !== 30 || jobAwaitS() !== 30) fails.push(`(v) the production \`job await\` bound is not 30s with no fixture bound handed in (constant ${awaitS}, read ${jobAwaitS()})`);
+  if (heartbeatConst !== 10000 || jobHeartbeatMs() !== 10000 || jobHeartbeatMs(10000) !== 10000 || jobHeartbeatMs(7000) !== 7000) {
+    fails.push(`(v) the production heartbeat is not the table's value, or 10000 ms where none is declared, with no fixture heartbeat handed in (constant ${heartbeatConst}, read ${jobHeartbeatMs()} undeclared and ${jobHeartbeatMs(7000)} for a declared 7000)`);
+  }
   if (savedAwait !== undefined) process.env.KOGAKI_JOB_AWAIT_S = savedAwait;
+  if (savedHeartbeat !== undefined) process.env.KOGAKI_JOB_HEARTBEAT_MS = savedHeartbeat;
   const dir = mkNewRun();
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
