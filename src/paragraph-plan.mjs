@@ -14,7 +14,10 @@
 // and nowhere after it. So the ParagraphPlan file holds `point` and `serves` per
 // Paragraph Waypoint and NOTHING OF A MOVE — no id, no Segment, no field — and which
 // Move was bound to which Leg Waypoint stays in this stage's run directory
-// (`paragraph-plan-bindings.json`), a record of the run that no later stage reads.
+// (`paragraph-plan-bindings.json`), a record of the run that no later stage reads. The one
+// thing the file holds beside them is each later Leg Waypoint's `join` (kogaki#1411): one
+// sentence on how its paragraph's first point follows from the paragraph before, composed
+// from reader state, naming no Move and no Segment.
 // The stage never writes the Brief, and the Brief names nothing downstream: the
 // ParagraphPlan file names the Brief it was made from, by path and content hash.
 //
@@ -49,7 +52,7 @@ import { parseYaml, stringifyYaml } from "./yaml.mjs";
 import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveContracts, loadMoveIds,
   moveContract, MOVE_RECORD_EXT, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
   paragraphPlanRecord, paragraphPlanRecordText, readParagraphPlanBeside, paragraphPlanShapeRefusal,
-  paragraphWaypointsRefusal, undeclaredKey } from "./compose.mjs";
+  paragraphWaypointsRefusal, joinRefusal, undeclaredKey } from "./compose.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -189,7 +192,7 @@ export function paragraphPlanUnitPrompt(row, input) {
 }
 
 const UNIT_KEYS = ["version", "leg_id", "waypoints"];
-const UNIT_WAYPOINT_KEYS = ["waypoint", "move", "why", "paragraph_waypoints"];
+const UNIT_WAYPOINT_KEYS = ["waypoint", "move", "why", "join", "paragraph_waypoints"];
 const words = (s) => String(s).trim().split(/\s+/).filter(Boolean).length;
 
 // THE BOUND MOVE'S ROLES, OR A FATAL STOP (kogaki#1378). THROWS: inside the job the
@@ -238,7 +241,7 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     const atW = `${at}, Waypoint ${i + 1}`;
     if (!e || typeof e !== "object" || Array.isArray(e)) return { error: `${atW}: the entry is not a map` };
     const k = undeclaredKey(e, UNIT_WAYPOINT_KEYS);
-    if (k) return { error: `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, move, why and paragraph_waypoints` };
+    if (k) return { error: `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, move, why, join (on every Leg Waypoint after the first) and paragraph_waypoints` };
     if (e.waypoint !== i + 1) return { error: `${atW}: the entry is numbered ${JSON.stringify(e.waypoint)} — entries are one per Leg Waypoint, in order` };
     if (typeof e.why !== "string" || words(e.why) < 4) return { error: `${atW}: \`why\` is under four words` };
     if (e.move === null) { noFit.push({ leg_id: leg.leg_id, waypoint: i + 1, point: ws[i].point, why: e.why.trim() }); continue; }
@@ -246,6 +249,10 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
       return { error: `${atW}: binds move ${JSON.stringify(e.move)}, which names no Move in the library at ${inputs.movesDir}` };
     }
     boundMoveContract(e.move, inputs.movesDir);
+    // THE JOIN, BY THE PLAN READER'S OWN RULE (kogaki#1411): so the file this stage writes is
+    // one /draft reads. Whether it takes up what the previous paragraph left is the judge's.
+    const badJoin = joinRefusal(e, i, atW);
+    if (badJoin) return { error: badJoin };
     const bad = paragraphWaypointsRefusal(e.paragraph_waypoints, ws[i].serves, atW);
     if (bad) return { error: bad };
   }
@@ -262,7 +269,9 @@ export function noParagraphMoveFitsRefusal(failures) {
 
 // THE SECOND CALL — the judge. Its input carries each Leg Waypoint with the bound Move's
 // before, after, segments and breaks, and the Paragraph Waypoints generated
-// for it (kogaki#1378: the same four criteria the Leg judge judges).
+// for it (kogaki#1378: the same four criteria the Leg judge judges); every Leg Waypoint
+// after the first also carries its `join`, judged against the previous entry's bound
+// Move's `after` and every Paragraph Waypoint (kogaki#1411).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   return {
@@ -275,6 +284,7 @@ export function paragraphPlanJudgeInput(record, inputs, unitId) {
         const c = boundMoveContract(e.move, inputs.movesDir);
         return { waypoint: i + 1, point: w.point, next_point: w.next_point,
           bound_move: { before: c.before, after: c.after, segments: c.segments, breaks: c.breaks },
+          ...(i > 0 ? { join: e.join } : {}),
           paragraph_waypoints: e.paragraph_waypoints };
       }),
     },
@@ -311,7 +321,9 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId) {
     "Generate the Paragraph Waypoints again so that they begin where the bound Move's before holds, end where its "
     + "after leaves the reader, follow the Move's order (its segments), "
     + "each perform its own Segment's does and stand in that Segment's relation, "
-    + "and survive each of its breaks, or bind another Move."].join("\n") };
+    + "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the "
+    + "previous paragraph's bound Move's after leaves open, restates no Paragraph Waypoint and states no effect "
+    + "on the reader."].join("\n") };
 }
 
 // ---------------------------------------------------------------------------
@@ -455,7 +467,8 @@ export function finishParagraphPlan(dir) {
       + `at the start, ${sha256(briefText)} now) — nothing was written; run /paragraph-plan on it again.`] };
   }
   const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id,
-    waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints) }));
+    waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints),
+    joins: units[i].candidate.waypoints.map((e) => e.join ?? null) }));
   const record = paragraphPlanRecord({ briefPath, briefText, legs });
   const planPath = paragraphPlanPathFor(briefPath);
   writeFileSync(planPath, paragraphPlanRecordText(record));

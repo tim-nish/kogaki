@@ -464,8 +464,13 @@ function loadBrief(args) {
   // Paragraph Waypoint and NOTHING OF A MOVE, so this read opens no Move file either.
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);
+  // THE JOIN RIDES BESIDE THEM (kogaki#1411): a Leg Waypoint after the first carries the
+  // plan's `join`, which `waypointLines` renders as its Opens-from line.
   const legs = brief.legs.map((leg) => ({ ...leg,
-    waypoints: leg.waypoints.map((w, i) => ({ ...w, paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i] })) }));
+    waypoints: leg.waypoints.map((w, i) => {
+      const join = plan.joins.get(leg.leg_id)[i];
+      return { ...w, ...(join ? { join } : {}), paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i] };
+    }) }));
   return { ...brief, legs, path: resolve(path), paragraphPlanPath: plan.path };
 }
 
@@ -1425,12 +1430,20 @@ export const READER_OWN_WORLD_ABSENT =
 // ParagraphPlan file holds none. A Leg Waypoint carrying no Paragraph Waypoints
 // renders its own line alone, so a Packet rendered over a fixture with no plan still
 // renders; the realization entry (`loadBrief`) is where a missing plan refuses.
+//
+// THE JOIN, AS ITS OPENS-FROM LINE (kogaki#1411, owner decision 2026-10-18): a Leg
+// Waypoint carrying the ParagraphPlan's `join` renders one indented line in the fixed form
+// `*Opens from:* <join>` beneath its own line and before its Paragraph Waypoints — how the
+// paragraph's first point follows from the paragraph before it. The join is composed from
+// reader state and carries nothing of a Move; a Leg Waypoint without one renders as before.
+export const OPENS_FROM_LABEL = "*Opens from:*";
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
   if (!ws.length) return null;
   const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition).trim()]));
   const line = (w, n) => `${n}. ${String(w.point).trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
-  return ws.map((w, i) => [line(w, i + 1),
+  const joinOf = (w) => (typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : []);
+  return ws.map((w, i) => [line(w, i + 1), ...joinOf(w),
     ...(w.paragraph_waypoints || []).map((p, j) => `   ${line(p, j + 1)}`)].join("\n")).join("\n");
 }
 
