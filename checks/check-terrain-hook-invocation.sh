@@ -35,6 +35,12 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 REPO=$PWD
 
+# `python3` IS RESOLVED ONCE, TO THE INTERPRETER ITSELF (kogaki#1425). A version
+# manager's shim in front of it (pyenv's is a bash script) costs several times
+# the interpreter's own start, and this check starts it dozens of times, so
+# every site below names the binary this resolves to.
+PY=$(python3 -c 'import sys; print(sys.executable)')
+
 fail=0
 cases=0
 note() { printf '%s\n' "$*"; }
@@ -51,7 +57,7 @@ for f in "$DENY" "$ADVANCE"; do
     bad "$f is missing — the executor's invocation boundary has no carrier"
     continue
   fi
-  if python3 -c "import ast,sys;ast.parse(open('$f').read())" 2>/dev/null; then
+  if "$PY" -c "import ast,sys;ast.parse(open('$f').read())" 2>/dev/null; then
     pass
   else
     bad "$f does not parse as Python — a hook that cannot load enforces nothing, and PreToolUse load failures are silent to the model"
@@ -90,22 +96,58 @@ fi
 # ---- ACCEPTANCE 3. THE DENY FIRES, AND ADMITS `--status`.
 # Driven over synthesized PreToolUse payloads, which is the shape the dispatcher
 # hands it in a real call.
-deny_verdict() {
-  python3 "$DENY" <<PY 2>/dev/null
-{"tool_name": "Bash", "tool_input": {"command": $(python3 -c "import json,sys;print(json.dumps(sys.argv[1]))" "$1")}}
-PY
+#
+# ONE PYTHON PROCESS DRIVES EVERY VERDICT (kogaki#1425). It loads the hook once
+# and hands its `main` one payload per command, read NUL-terminated from this
+# shell, writing back what the hook printed as one line: the deny's JSON, or an
+# empty line where it admits. A hook that RAISES writes a line naming the
+# exception, so a crash is never read as an admission.
+DENY_DRIVER_SRC=$(cat <<'DRIVER'
+import contextlib, importlib.util, io, json, sys
+spec = importlib.util.spec_from_file_location("gate_terrain_executor", sys.argv[1])
+hook = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(hook)
+source, pending = sys.stdin.buffer, b""
+def verdict(command):
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    out, stdin = io.StringIO(), sys.stdin
+    sys.stdin = io.StringIO(payload)
+    try:
+        with contextlib.redirect_stdout(out):
+            hook.main()
+        line = out.getvalue()
+    except BaseException as e:  # noqa: BLE001
+        line = f"the hook raised {e!r}"
+    finally:
+        sys.stdin = stdin
+    sys.stdout.write(line.strip().replace("\n", " ") + "\n")
+    sys.stdout.flush()
+while chunk := source.read1(65536):
+    pending += chunk
+    while b"\0" in pending:
+        raw, pending = pending.split(b"\0", 1)
+        verdict(raw.decode("utf-8"))
+DRIVER
+)
+coproc DENY_DRIVER { "$PY" -c "$DENY_DRIVER_SRC" "$DENY" 2>/dev/null; }
+# `read_verdict` leaves the line in VERDICT, so the asserts below fork nothing;
+# `deny_verdict` prints it, for the cases that read it as `out=$(...)`.
+read_verdict() {
+  printf '%s\0' "$1" >&"${DENY_DRIVER[1]}"
+  IFS= read -r VERDICT <&"${DENY_DRIVER[0]}" || VERDICT="the deny driver exited"
 }
+deny_verdict() { read_verdict "$1"; printf '%s' "$VERDICT"; }
 assert_denied() {
-  local label=$1 cmd=$2 out
-  out=$(deny_verdict "$cmd")
-  if printf '%s' "$out" | grep -q '"permissionDecision": "deny"'; then pass; else
+  local label=$1 cmd=$2
+  read_verdict "$cmd"
+  if [[ $VERDICT == *'"permissionDecision": "deny"'* ]]; then pass; else
     bad "the deny does not fire on $label: \`$cmd\` — a model-typed route into the executor makes the start attribution unfalsifiable"
   fi
 }
 assert_admitted() {
-  local label=$1 cmd=$2 out
-  out=$(deny_verdict "$cmd")
-  if [ -z "$out" ]; then pass; else
+  local label=$1 cmd=$2
+  read_verdict "$cmd"
+  if [ -z "$VERDICT" ]; then pass; else
     bad "the deny fires on $label: \`$cmd\` — $ADMITTED_NOTE"
   fi
 }
@@ -301,7 +343,7 @@ assert_denied "an invocation after a data mention" \
 # reachable is only reachable below it. Since kogaki#1300 the bound is each
 # workflow table's `judge.advance_timeout_s`, read by its hook, and no
 # `ADVANCE_TIMEOUT_S` constant may come back into `.claude/hooks/`.
-if python3 -c 'import json,sys; v=[json.load(open(f,encoding="utf-8"))["judge"].get("advance_timeout_s") for f in ("src/terrain-workflow.json","src/brief-workflow.json")]; sys.exit(0 if all(isinstance(x,(int,float)) and 0 < x < 600 for x in v) else 1)'; then
+if "$PY" -c 'import json,sys; v=[json.load(open(f,encoding="utf-8"))["judge"].get("advance_timeout_s") for f in ("src/terrain-workflow.json","src/brief-workflow.json")]; sys.exit(0 if all(isinstance(x,(int,float)) and 0 < x < 600 for x in v) else 1)'; then
   pass
 else
   bad "a workflow table's judge.advance_timeout_s is absent or not below the harness's 600s hook default — a child bound at or above it cannot fire first, so the timeout relay it exists for is unreachable"
@@ -311,7 +353,7 @@ if git grep -q -e "ADVANCE_TIMEOUT_S" -- .claude/hooks/; then
 else
   pass
 fi
-if python3 -c 'import importlib.util,sys
+if "$PY" -c 'import importlib.util,sys
 for lane in ("terrain","brief"):
     spec=importlib.util.spec_from_file_location("h_"+lane,".claude/hooks/advance-%s.py"%lane); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
     import json; want=json.load(open("src/%s-workflow.json"%lane,encoding="utf-8"))["judge"]["advance_timeout_s"]
@@ -329,7 +371,7 @@ fi
 if [ -e runs/terrain/open-run ]; then
   note "skipped: a Terrain run is open in this tree, so the no-open-run precondition cannot be staged here"
 else
-  noise=$(printf '%s' '{"tool_name":"AskUserQuestion","tool_use_id":"toolu_x","tool_response":{"answers":{"q":"a"}}}' | python3 .claude/hooks/advance-terrain.py 2>&1)
+  noise=$(printf '%s' '{"tool_name":"AskUserQuestion","tool_use_id":"toolu_x","tool_response":{"answers":{"q":"a"}}}' | "$PY" .claude/hooks/advance-terrain.py 2>&1)
   if [ -z "$noise" ] && [ ! -e runs/terrain/open-run ]; then pass; else
     bad "advance-terrain.py acted on a question with no open Terrain run: ${noise:-(silent, but a workspace pointer appeared)}"
   fi
@@ -352,7 +394,7 @@ fi
 # of this pass's own — the seam-free half of what `src/terrain.mjs self-test`
 # covers on the executor's side, run here because the HOOK is Python and that
 # pass is JavaScript.
-CAPSUF=$(python3 -c 'import json;print(json.load(open("src/gate-schema.json"))["capture"]["suffix"])')
+CAPSUF=$("$PY" -c 'import json;print(json.load(open("src/gate-schema.json"))["capture"]["suffix"])')
 # The constant the hook copies, compared rather than trusted — the discipline
 # `check-gate-capture-hook.sh` applies to the option-set digest, for the same
 # reason: two spellings of one schema key in two languages.
@@ -375,7 +417,7 @@ if [ -n "${hooktmp:-}" ] && [ -d "$hooktmp" ]; then
   chmod +x "$judge_stub"
 
   stage_run() {                      # $1 dir, $2 the capture row's tool_use_id
-    python3 - "$1" "$2" "$CAPSUF" "$REPO/checks/fixtures/survey/lone-tag-member.json" "$judge_stub" <<'PY'
+    "$PY" - "$1" "$2" "$CAPSUF" "$REPO/checks/fixtures/survey/lone-tag-member.json" "$judge_stub" <<'PY'
 import hashlib, json, os, sys, uuid
 d, tuid, suffix, survey_record, judge_stub = sys.argv[1:6]
 os.makedirs(d, exist_ok=True)
@@ -458,7 +500,7 @@ PY
     # refusal rather than the keying.
     printf '{"tool_name":"AskUserQuestion","hook_event_name":"PostToolUse","session_id":"%s","tool_use_id":"%s","tool_response":{"answers":{"Which tag?":"a-tag"}}}' \
       "$sid" "$tuid" \
-      | KOGAKI_OPEN_RUN="$ptr" KOGAKI_OPEN_GATES="$hooktmp/gates" python3 "$ADVANCE" 2>&1
+      | KOGAKI_OPEN_RUN="$ptr" KOGAKI_OPEN_GATES="$hooktmp/gates" "$PY" "$ADVANCE" 2>&1
   }
 
   # (a) A QUESTION THAT PRODUCED NO CAPTURE ROW LEAVES THE RECORD UNCHANGED.
@@ -483,7 +525,7 @@ PY
   b_before=$(md5sum < "$b_dir/run-record.json")
   b_out=$(fire_advance "$b_dir" "toolu_the_gates_own_question" "some-session")
   b_after=$(md5sum < "$b_dir/run-record.json")
-  b_rec=$(python3 -c 'import json,sys;print(",".join(json.load(open(sys.argv[1]))["completed"]))' "$b_dir/run-record.json" 2>/dev/null)
+  b_rec=$("$PY" -c 'import json,sys;print(",".join(json.load(open(sys.argv[1]))["completed"]))' "$b_dir/run-record.json" 2>/dev/null)
   if [ "$b_before" != "$b_after" ] && printf '%s' "$b_rec" | grep -q 'TAG_SELECTION'; then pass; else
     bad "the payload whose id the capture row carries did NOT advance the run — the keying refuses the one question it exists to admit. completed=[$b_rec] ${b_out:-(silent)}"
   fi
@@ -559,7 +601,7 @@ PY
   # two-declarations-of-one-fact shape at a smaller scale, and it is what makes
   # the next change to that constant silently re-arm the bomb. So the constant
   # is READ from the hook that declares it, by loading that hook as a module.
-  ttl_s=$(python3 - "$REPO/$ADVANCE" <<'TTLPY' 2>/dev/null
+  ttl_s=$("$PY" - "$REPO/$ADVANCE" <<'TTLPY' 2>/dev/null
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("advance_terrain_ttl", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
@@ -575,7 +617,7 @@ TTLPY
   # than for their arithmetic: two comfortably inside the window, ordered so the
   # ordering case can oppose them to filename order, and one past it.
   stage_at() {                         # stage_at <seconds before now>
-    python3 -c 'import sys,datetime as d;print((d.datetime.now(d.timezone.utc)-d.timedelta(seconds=int(sys.argv[1]))).isoformat().replace("+00:00","Z"))' "$1"
+    "$PY" -c 'import sys,datetime as d;print((d.datetime.now(d.timezone.utc)-d.timedelta(seconds=int(sys.argv[1]))).isoformat().replace("+00:00","Z"))' "$1"
   }
   FIXTURE_OPENED_LIVE=$(stage_at "$((ttl_s / 4))")
   FIXTURE_OPENED_LIVE_OLDER=$(stage_at "$((ttl_s / 2))")
@@ -590,7 +632,7 @@ TTLPY
   # The capture row is this hook's precondition (the trio above), so the staged
   # run carries one naming the payload's own id -- otherwise the stub is never
   # spawned and both cases would pass on the narrowing rather than on the emit.
-  python3 - "$stub_repo/rundir/terrain$CAPSUF" <<'PY'
+  "$PY" - "$stub_repo/rundir/terrain$CAPSUF" <<'PY'
 import json, sys
 with open(sys.argv[1], "w") as f:
     json.dump({"rows": [{"stop_id": "stop-fixture", "gate_id": "terrain-id-selection",
@@ -631,7 +673,7 @@ JS
       | KOGAKI_RUN_DIR="$stub_repo/rundir" \
         KOGAKI_OPEN_GATES="$hooktmp/stub-gates" \
         FIXTURE_CAPSUF="$CAPSUF" \
-        python3 "$stub_repo/.claude/hooks/advance-terrain.py" 2>/dev/null
+        "$PY" "$stub_repo/.claude/hooks/advance-terrain.py" 2>/dev/null
   }
 
   # (d) THE PAYLOAD ARRIVES, AND IT IS THE FILE'S. Parsed out of the fenced
@@ -676,7 +718,7 @@ if json.dumps(sent, sort_keys=True) != json.dumps(written, sort_keys=True):
 print("ok")
 PY
   d_out=$(fire_stub)
-  d_verdict=$(printf '%s' "$d_out" | python3 "$hooktmp/verdict.py" "$stub_repo/rundir/terrain-id-selection.gate-call.json")
+  d_verdict=$(printf '%s' "$d_out" | "$PY" "$hooktmp/verdict.py" "$stub_repo/rundir/terrain-id-selection.gate-call.json")
   if [ "$d_verdict" = "ok" ]; then pass; else
     bad "the advance hook did not deliver the open gate's payload to the session: ${d_verdict:-(the verdict script produced nothing)}"
   fi
@@ -709,7 +751,7 @@ JS
   # pointer, leaving no second surface to read either. The record's own `done`
   # field is what tells the two apart, and `artifacts_written` is the run's own
   # ledger of what it wrote, relayed rather than recomputed from a path.
-  python3 - "$stub_repo/rundir" <<'PY'
+  "$PY" - "$stub_repo/rundir" <<'PY'
 import json, os, sys
 d = sys.argv[1]
 with open(os.path.join(d, "run-record.json"), "w") as f:
@@ -740,7 +782,7 @@ PY
 // is not what this case is reading the absence of (kogaki#1163).
 JS
   rm -rf "$hooktmp/stub-gates"; mkdir -p "$hooktmp/stub-gates"
-  python3 - "$hooktmp/stub-gates/fixture-answered.json" "$stub_repo/rundir" "$CAPSUF" <<'PY'
+  "$PY" - "$hooktmp/stub-gates/fixture-answered.json" "$stub_repo/rundir" "$CAPSUF" <<'PY'
 import json, os, sys
 out, dir_, suffix = sys.argv[1:4]
 with open(out, "w") as f:
@@ -775,7 +817,7 @@ PY
   # `fixture-answered`, so the ANSWERED filter does not reach it and expiry is
   # the only thing that can keep it off the channel.
   rm -rf "$hooktmp/stub-gates"; mkdir -p "$hooktmp/stub-gates"
-  python3 - "$hooktmp/stub-gates/fixture-stale.json" "$stub_repo/rundir" "$CAPSUF" <<'PY'
+  "$PY" - "$hooktmp/stub-gates/fixture-stale.json" "$stub_repo/rundir" "$CAPSUF" <<'PY'
 import json, os, sys
 out, dir_, suffix = sys.argv[1:4]
 with open(out, "w") as f:
@@ -808,7 +850,7 @@ PY
   # Both live and derived (kogaki#1092); what this case needs of them is
   # their relative order, opposed to filename order, never their value.
   for pair in "0000-first:$FIXTURE_OPENED_LIVE_OLDER" "zzzz-second:$FIXTURE_OPENED_LIVE"; do
-    python3 - "$hooktmp/stub-gates/${pair%%:*}.json" "${pair%%:*}" "${pair#*:}" \
+    "$PY" - "$hooktmp/stub-gates/${pair%%:*}.json" "${pair%%:*}" "${pair#*:}" \
              "$stub_repo/rundir" "$CAPSUF" <<'PY'
 import json, os, sys
 out, instance, opened, dir_, suffix = sys.argv[1:6]
@@ -848,7 +890,7 @@ PY
   # around a shim kills the HOOK instead of the executor, which reads as the
   # silence this case is asserting against.
   mkdir -p "$hooktmp/empty-path"
-  real_python=$(python3 -c 'import sys; print(sys.executable)')
+  real_python=$PY
   h_out=$(printf '{"tool_name":"AskUserQuestion","hook_event_name":"PostToolUse","session_id":"s","tool_use_id":"toolu_the_gates_own_question","tool_response":{"answers":{"Which tag?":"a-tag"}}}' \
     | env PATH="$hooktmp/empty-path" \
           KOGAKI_RUN_DIR="$stub_repo/rundir" \
@@ -896,7 +938,7 @@ print("ok")
 REFPY
   rm -rf "$hooktmp/stub-gates"
   i_out=$(fire_stub)
-  i_verdict=$(printf '%s' "$i_out" | python3 "$hooktmp/refusal-verdict.py" "resolve to no Group or SubGroup")
+  i_verdict=$(printf '%s' "$i_out" | "$PY" "$hooktmp/refusal-verdict.py" "resolve to no Group or SubGroup")
   if [ "$i_verdict" = "ok" ]; then pass; else
     bad "an advance whose executor exited non-zero delivered its refusal on stderr alone — the session that answered the gate is left with a completed wait and no reason (kogaki#1085): ${i_verdict:-(the verdict script produced nothing)}"
   fi
@@ -933,7 +975,7 @@ process.exit(1);
 JS
   rm -rf "$hooktmp/stub-gates"
   j_out=$(fire_stub)
-  j_verdict=$(printf '%s' "$j_out" | python3 "$hooktmp/refusal-verdict.py" \
+  j_verdict=$(printf '%s' "$j_out" | "$PY" "$hooktmp/refusal-verdict.py" \
     "the state after this gate refused" "fixture-raising" '```json')
   if [ "$j_verdict" = "ok" ]; then pass; else
     bad "an advance that opened a gate AND then refused did not deliver both — one of the two readings the session needs was dropped (kogaki#1085): ${j_verdict:-(the verdict script produced nothing)}"
@@ -965,7 +1007,7 @@ settings_committed=$(mktemp) || settings_committed=""
 if [ -z "$settings_committed" ] || ! git show HEAD:.claude/settings.json >"$settings_committed" 2>/dev/null; then
   bad ".claude/settings.json could not be read from HEAD — the order the advance's precondition depends on has no carrier in this commit"
 else
-  order=$(python3 - "$settings_committed" <<'PY'
+  order=$("$PY" - "$settings_committed" <<'PY'
 import json, sys
 doc = json.load(open(sys.argv[1], encoding="utf-8"))
 text = json.dumps(doc.get("hooks", {}).get("PostToolUse", []))
@@ -1001,7 +1043,7 @@ if [ -n "${tmp:-}" ] && [ -d "$tmp" ]; then
 JSON
 
   normalise() {
-    python3 - "$1" <<'PY'
+    "$PY" - "$1" <<'PY'
 import json, re, sys
 rec = json.load(open(sys.argv[1]))
 rec["workflow"]["path"] = "<table>"
@@ -1053,7 +1095,7 @@ $(head -30 "$tmp/diff")"
   # self-declared start attribution is only trustworthy because the Bash route
   # is denied, so a reduced tree in which the deny no longer fires has not
   # reproduced the golden run's guarantees however equal its artifacts are.
-  redout=$(python3 "$tmp/red/.claude/hooks/gate-terrain-executor.py" <<'PY' 2>/dev/null
+  redout=$("$PY" "$tmp/red/.claude/hooks/gate-terrain-executor.py" <<'PY' 2>/dev/null
 {"tool_name": "Bash", "tool_input": {"command": "node src/terrain.mjs start"}}
 PY
 )
@@ -1086,7 +1128,7 @@ fi
 # if the file was read at all; absent that, it is the same CANNOT-DETERMINE the
 # TTL read above refuses on, and this is the carrier that stops site N+1. So the
 # reader prints a sentinel on the clean path and its absence is the refusal.
-absolute_instants=$(python3 - "$REPO/checks/$(basename "$0")" <<'PY' 2>/dev/null
+absolute_instants=$("$PY" - "$REPO/checks/$(basename "$0")" <<'PY' 2>/dev/null
 import re, sys
 pat = re.compile(r"\d{4}-\d\d-\d\d(?:[ T]\d\d:\d\d)?")
 with open(sys.argv[1], encoding="utf-8") as f:

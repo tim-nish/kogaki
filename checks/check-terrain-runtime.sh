@@ -67,10 +67,38 @@ echo "== terrain runtime fixture pass (kogaki#659)"
 . tools/open-gates-guard.sh
 kogaki_open_gates_guard || exit 1
 
-OUT=$(node checks/terrain-cases.mjs 2>&1); RC=$?
-printf '%s\n' "$OUT"
-if [[ $RC -ne 0 ]] || ! grep -q "terrain self-test:" <<<"$OUT"; then
-  echo "FAIL: the runtime's fixture pass did not run clean — the cases live with the runtime and this member only invokes them"
+# THE PASS RUNS AS SHARDS, ONE PER AVAILABLE CORE, BOUNDED (kogaki#1425). Each
+# shard runs its own slice of the parts `terrain-cases.mjs` is cut into and
+# prints its own count; the counts are summed below. `CHECKS_JOBS` bounds how
+# many members the suite runs at once, not this member's own shards.
+SHARDS=$(nproc 2>/dev/null || echo 1)
+(( SHARDS > 16 )) && SHARDS=16
+(( SHARDS < 1 )) && SHARDS=1
+SHARD_DIR=$(mktemp -d)
+trap 'rm -rf "$SHARD_DIR"' EXIT
+# `python3` NAMES THE INTERPRETER ITSELF for every shard (kogaki#1425): the
+# capture hook and the question-shape command are Python, and a version
+# manager's shim in front of the interpreter costs several times the
+# interpreter's own start on every one of them. Resolved once, here.
+PY=$(python3 -c 'import sys; print(sys.executable)' 2>/dev/null) || PY=""
+if [[ -x "$PY" ]]; then
+  mkdir -p "$SHARD_DIR/bin" && ln -s "$PY" "$SHARD_DIR/bin/python3"
+  export PATH="$SHARD_DIR/bin:$PATH"
+fi
+PIDS=()
+for ((i = 1; i <= SHARDS; i++)); do
+  node checks/terrain-cases.mjs --shard "$i/$SHARDS" >"$SHARD_DIR/$i.out" 2>&1 &
+  PIDS+=($!)
+done
+RC=0
+for ((i = 1; i <= SHARDS; i++)); do
+  wait "${PIDS[$((i - 1))]}" || RC=1
+  cat "$SHARD_DIR/$i.out"
+  grep -q "^terrain self-test:" "$SHARD_DIR/$i.out" || RC=1
+done
+OUT=$(cat "$SHARD_DIR"/*.out)
+if [[ $RC -ne 0 ]]; then
+  echo "FAIL: the runtime's fixture pass did not run clean in every shard — the cases live with the runtime and this member only invokes them"
   exit 1
 fi
 
@@ -87,11 +115,12 @@ import json
 d = json.load(open('checks/registry.json'))
 print(next(m['admission']['case_floor'] for m in d['checks'] if m['id'] == 'terrain-runtime'))
 ") || { echo "FAIL: could not read case_floor for terrain-runtime from checks/registry.json"; exit 1; }
-N=$(sed -n 's/^terrain self-test: \([0-9][0-9]*\) case(s) pass.*/\1/p' <<<"$OUT")
-if [[ -z "$N" ]]; then
-  echo "FAIL: no case count readable from the pass's output — an unreadable floor is not a pass"
+COUNTS=$(sed -n 's/^terrain self-test: \([0-9][0-9]*\) case(s) pass.*/\1/p' <<<"$OUT")
+if [[ $(wc -l <<<"$COUNTS") -ne $SHARDS || -z "$COUNTS" ]]; then
+  echo "FAIL: not every shard printed a readable case count — an unreadable floor is not a pass"
   exit 1
 fi
+N=0; while read -r c; do N=$((N + c)); done <<<"$COUNTS"
 if (( N < FLOOR )); then
   echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were LOST rather than broken, and this member would otherwise report their absence as evidence (kogaki#661)"
   exit 1
@@ -122,7 +151,7 @@ fi
 # a patch to the runtime.
 echo "== the empty-survey refusal, driven as an act (kogaki#1026)"
 SCRATCH=$(mktemp -d)
-trap 'rm -rf "$SCRATCH"' EXIT
+trap 'rm -rf "$SCRATCH" "$SHARD_DIR"' EXIT
 mkdir -p "$SCRATCH/policy/kit/bin"
 cp -R src "$SCRATCH/src"
 cat > "$SCRATCH/policy/kit/bin/gateway-query.mjs" <<'STUB'
