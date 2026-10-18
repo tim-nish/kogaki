@@ -1018,7 +1018,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   const personaB = join(dir, "persona-b.md");
   const personaNone = join(dir, "persona-none.md");
   const personaNoKnowledge = join(dir, "persona-no-knowledge.md");
-  const personaHead = "id: fixture\npersona:\n  reader: >-\n    A fixture reader.\n  prior_knowledge: >-\n    Holds nothing.\n";
+  const personaHead = "id: fixture\nlanguage: English\npersona:\n  reader: >-\n    A fixture reader.\n  prior_knowledge: >-\n    Holds nothing.\n";
   writeFileSync(personaA, personaHead + "register: |\n  **Register A.** Persona A's rule, verbatim.\n");
   writeFileSync(personaB, personaHead + "register: |\n  **Register B.** Persona B's rule, verbatim.\n");
   writeFileSync(personaNone, personaHead);
@@ -1028,7 +1028,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   // the reader's-own-world line renders the stated absence rather than
   // refusing (kogaki#1285 acceptance), and an absent `prior_knowledge` grants
   // no extra word to a claim line while refusing nothing (kogaki#1281).
-  writeFileSync(personaNoKnowledge, "id: fixture\npersona:\n  reader: >-\n    A fixture reader.\nregister: |\n  **Register C.** Persona C's rule, verbatim.\n");
+  writeFileSync(personaNoKnowledge, "id: fixture\nlanguage: English\npersona:\n  reader: >-\n    A fixture reader.\nregister: |\n  **Register C.** Persona C's rule, verbatim.\n");
   const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
   const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
     "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
@@ -1088,6 +1088,12 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     const none = briefOf(legs, { compose_path: personaNone });
     const r = render(none, none.legs[0]);
     if (!r.error || !/register/.test(r.error)) fails.push(`(ab) an Audience with no register did not refuse the Packet naming it: ${r.error || "rendered"}`);
+    // AN AUDIENCE WITH NO `language` refuses the Packet naming the key (kogaki#1417).
+    const personaNoLanguage = join(dir, "persona-no-language.md");
+    writeFileSync(personaNoLanguage, "id: fixture\npersona:\n  reader: >-\n    A fixture reader.\nregister: |\n  plain.\n");
+    const noLang = briefOf(legs, { compose_path: personaNoLanguage });
+    const rn = render(noLang, noLang.legs[0]);
+    if (!rn.error || !/`language`/.test(rn.error)) fails.push(`(ab) an Audience with no language did not refuse the Packet naming it: ${rn.error || "rendered"}`);
     // The shipped Audience's register renders, carrying audiences/dev-to-zenn.md's
     // own prior_knowledge and neither the retired "as the Brief describes the
     // reader at the outset" wording nor an unfilled slot (kogaki#1285).
@@ -1096,6 +1102,7 @@ const PATH_1260 = (s1extra = {}, s2extra = {}) => {
     if (rd.error) fails.push(`(ab) the Packet did not render from audiences/dev-to-zenn.md: ${rd.error}`);
     else {
       if (!rd.packet.includes("**Referents.**")) fails.push("(ab) the Packet does not carry audiences/dev-to-zenn.md's register");
+      if (!rd.packet.includes("**Language.** Write this Leg in English.")) fails.push("(ab) the Packet's Write block does not render audiences/dev-to-zenn.md's language");
       if (!rd.packet.includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) the Packet does not render audiences/dev-to-zenn.md's stated prior_knowledge absence");
       if (rd.packet.includes("as the Brief describes the reader at the outset")) fails.push("(ab) the Packet still carries the retired reader-description wording");
     }

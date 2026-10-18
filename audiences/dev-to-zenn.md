@@ -1,4 +1,5 @@
 id: dev-to-zenn
+language: English
 persona:
   reader: >-
     An ordinary person with no specialized knowledge

@@ -31,6 +31,10 @@
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
 #       stopped Draft stage still draws the card with the stop in its Output.
 #   (g) where the owner's map is on disk (corpus/ is not versioned), it carries every row.
+#   (j) the article's language (kogaki#1417): two runs over one Passage under one Audience each
+#       record its language, hand it to the Leg Brief composer and the Packet, and the Brief
+#       and the Draft carry it; another Audience's language replaces it throughout; an Audience
+#       declaring none is refused by name at the Brief stage.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -129,10 +133,15 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
-      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
+      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does + " (in " + input.language + ")" })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })) }] }, "brief-leg-path");
   }
-  return out(${JSON.stringify(WRITTEN.join("\n\n"))}, "writer");
+  // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
+  // read from what the Writer was told rather than from anything the fixture assumes.
+  const LANGUAGE_LINE = "**Language.** Write this Leg in ";
+  const at = prompt.indexOf(LANGUAGE_LINE);
+  const lang = at < 0 ? "no declared language" : prompt.slice(at + LANGUAGE_LINE.length, prompt.indexOf(".", at + LANGUAGE_LINE.length));
+  return out(${JSON.stringify(WRITTEN)}.map((w) => w + " (in " + lang + ")").join("\\n\\n"), "writer");
 });
 `);
 chmodSync(judge, 0o755);
@@ -433,10 +442,15 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
-      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
+      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does + " (in " + input.language + ")" })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })) }] }, "brief-leg-path");
   }
-  return out(${JSON.stringify(WRITTEN.join("\n\n"))}, "writer");
+  // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
+  // read from what the Writer was told rather than from anything the fixture assumes.
+  const LANGUAGE_LINE = "**Language.** Write this Leg in ";
+  const at = prompt.indexOf(LANGUAGE_LINE);
+  const lang = at < 0 ? "no declared language" : prompt.slice(at + LANGUAGE_LINE.length, prompt.indexOf(".", at + LANGUAGE_LINE.length));
+  return out(${JSON.stringify(WRITTEN)}.map((w) => w + " (in " + lang + ")").join("\\n\\n"), "writer");
 });
 `;
 }
@@ -492,7 +506,7 @@ if (hRunDir) {
 }
 
 const iAudience = join(root, "custom-audience.md");
-writeFileSync(iAudience, "id: custom-fixture\npersona:\n  reader: >-\n    A custom reader, fixed for this test.\nregister: |\n  plain.\n");
+writeFileSync(iAudience, "id: custom-fixture\nlanguage: Japanese\npersona:\n  reader: >-\n    A custom reader, fixed for this test.\nregister: |\n  plain.\n");
 const iRoot = join(root, "audience-flag");
 mkdirSync(iRoot, { recursive: true });
 writeFileSync(join(iRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
@@ -518,6 +532,49 @@ if (iRunDir) {
   const sh = built.written ? readFileSync(built.written, "utf8") : "";
   ok(sh.includes("unreadable: the run record names no audience") && !sh.includes(`sha ${S.contentHash(defaultAudienceText)}`),
     "(i) a run record naming no Audience resolved a substitute from the live setting instead of showing itself unreadable");
+}
+
+// (j) THE ARTICLE'S LANGUAGE (kogaki#1417): two Leg runs over the same Passage under the same
+// Audience -- the first run and the resumed one, both under the default Audience -- each record
+// the Audience's language, hand it to both Leg Brief composer calls beside the row's language
+// sentence, and render it on the Packet's language line; the fake model writes in the language
+// it was handed, so the Brief's claims and the Draft's paragraphs are read for it. The --audience
+// run declares another language and every one of those carries it instead. An Audience declaring
+// no language is refused by name at the Brief stage, before any composer call.
+const languageOf = (dir, want) => {
+  const at = `(j) ${dir}`;
+  const run = JSON.parse(readFileSync(join(dir, "run.json"), "utf8"));
+  ok(run.language === want, `${at}: run.json names language ${JSON.stringify(run.language)}, not ${want}`);
+  const bc = existsSync(join(dir, "brief", "calls.jsonl")) ? readFileSync(join(dir, "brief", "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  ok(bc.length === 2 && bc.every((c) => c.stdin.includes(`"language": "${want}"`) && c.stdin.includes("THE ARTICLE'S LANGUAGE (kogaki#1417)")),
+    `${at}: the Leg Brief composer's calls do not each carry the language ${want} and the row's language sentence`);
+  const brief = existsSync(join(dir, "brief", "brief.yaml")) ? readFileSync(join(dir, "brief", "brief.yaml"), "utf8") : "";
+  ok((brief.match(new RegExp(`\\(in ${want}\\)`, "g")) || []).length === 3, `${at}: the Brief's three claims are not written in ${want}`);
+  const packet = existsSync(join(dir, "draft", "leg-fixture", "packets", "copy-leg.md")) ? readFileSync(join(dir, "draft", "leg-fixture", "packets", "copy-leg.md"), "utf8") : "";
+  ok(packet.includes(`**Language.** Write this Leg in ${want}.`), `${at}: the Packet's Write block does not name ${want}`);
+  const section = existsSync(join(dir, "draft", "leg-fixture", "sections", "copy-leg.md")) ? readFileSync(join(dir, "draft", "leg-fixture", "sections", "copy-leg.md"), "utf8") : "";
+  ok((section.match(new RegExp(`\\(in ${want}\\)`, "g")) || []).length === 3, `${at}: the Draft's three paragraphs are not written in ${want}`);
+};
+if (runDir) languageOf(runDir, "English");
+if (hRunDir) languageOf(hRunDir, "English");
+if (iRunDir) languageOf(iRunDir, "Japanese");
+
+const jAudience = join(root, "no-language-audience.md");
+writeFileSync(jAudience, "id: no-language-fixture\npersona:\n  reader: >-\n    A reader.\nregister: |\n  plain.\n");
+const jRoot = join(root, "no-language");
+mkdirSync(jRoot, { recursive: true });
+writeFileSync(join(jRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
+const r4 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(jRoot, "leg-fixture.md"), "--out", join(jRoot, "out"),
+  "--provenance", map, "--audience", jAudience],
+  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: jRoot }, timeout: 600000 });
+const jRunDir = (r4.stdout.match(/^run directory: (.+)$/m) || [])[1];
+ok(r4.status !== 0 && !!jRunDir, `(j) the run under an Audience declaring no language exited ${r4.status}: ${r4.stdout}${r4.stderr}`);
+if (jRunDir) {
+  const run4 = JSON.parse(readFileSync(join(jRunDir, "run.json"), "utf8"));
+  ok(run4.language === null, `(j) run.json names language ${JSON.stringify(run4.language)} for an Audience declaring none`);
+  ok(typeof run4.stopped === "string" && run4.stopped.startsWith("brief:") && run4.stopped.includes("`language`"),
+    `(j) the run did not stop at the Brief stage naming the missing \`language\` key: ${run4.stopped}`);
+  ok(!existsSync(join(jRunDir, "brief", "calls.jsonl")), "(j) the Leg Brief composer made a model call under an Audience declaring no language");
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }

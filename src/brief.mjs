@@ -122,7 +122,7 @@ import {
   validateLegs, validateSpecialization, specializationFailures, specializationSchema, briefStrandIds, briefJourneyStrands,
   briefSlotKeys, briefRecordText, briefRecordDeclaration, readBriefRecord, BRIEF_RECORD_FILE,
   resolveMoveIds, resolveFigureForms, loadMoveContracts, moveContractsForLegs,
-  readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, dischargeRows,
+  readerStateShapeRefusal, readerPersona, personaPriorKnowledgeLine, audienceLanguage, dischargeRows,
   deriveReaderStatesBefore, readerStartThesisRefusal, sectionHeadingsWithLastAfterState,
   definedTermsRefusal, definedTermsOf,
 } from "./compose.mjs";
@@ -1548,6 +1548,10 @@ const STATE_WORK = {
     const readerFile = briefAudienceFile(table);
     const persona = readerPersona(resolve(BRIEF_REPO, readerFile));
     if (persona.error) fail(`${st.id}: ${persona.error}`);
+    // THE ARTICLE'S LANGUAGE (kogaki#1417), read from the same Audience file and
+    // refused by name before the ask where it is missing.
+    const language = audienceLanguage(resolve(BRIEF_REPO, readerFile));
+    if (language.error) fail(`${st.id}: ${language.error}`);
     const validate = (p) => {
       let record;
       try { record = readJson(p); }
@@ -1568,6 +1572,7 @@ const STATE_WORK = {
       // is derived from, line by line, beside the Thesis in `brief_document`.
       reader_file: readerFile,
       reader: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
+      language: language.language,
     });
     const path = await judged(rec, st, table, args, "differentiation", composeInputFor, validate);
     rec.brief_differentiation = path;
@@ -1600,6 +1605,10 @@ const STATE_WORK = {
     // that grant is what let a word's article-specific sense through; which
     // words need introducing is now the Brief's `defined_terms`, refused by
     // `validateLegs`. `prior_knowledge` keeps its one reader at Reader start.
+    // THE ARTICLE'S LANGUAGE (kogaki#1417): the Audience's `language`, handed to
+    // every unit, refused by name before anything starts where it is missing.
+    const language = audienceLanguage(resolve(BRIEF_REPO, briefAudienceFile(table)));
+    if (language.error) fail(`${st.id}: ${language.error}`);
     let composed = null;
     // CROSS-CANDIDATE RULES ONLY (kogaki#1240). Every per-unit rule -- the Leg
     // shape (`validateLegs`), the Move ids, the closed Strand set, the
@@ -1745,6 +1754,7 @@ const STATE_WORK = {
       strands_you_may_use: strandIds,
       moves_you_may_bind: library.moves,
       units: unitCount,
+      language: language.language,
     });
     // THE UNIT'S OWN ROW (kogaki#1203), read fresh per unit build rather than
     // reusing `st`: `st`'s own `input_shape`/`refusal` state the ASSEMBLED
@@ -1774,6 +1784,7 @@ const STATE_WORK = {
         // GIVEN, not composed (kogaki#1216): the Brief's one Reader start, the
         // same value the assignment block above the marker renders.
         reader_start: differentiation.reader_start,
+        language: language.language,
       };
       const entry = (differentiation.entries || []).find((e) => e.unit_number === n)
         || fail(`${st.id}: the differentiation record carries no entry for unit ${n} — its own count `

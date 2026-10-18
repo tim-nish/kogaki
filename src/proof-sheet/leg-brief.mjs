@@ -52,7 +52,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { pathToFileURL } from "node:url";
-import { readerPersona, personaPriorKnowledgeLine, readerStateShapeRefusal, validateLegs, pathRule,
+import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
   introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
@@ -124,17 +124,21 @@ export function derivedRow(table, key) {
 // ---------------------------------------------------------------------------
 // THE INPUTS.
 
-export function readerStartUnitInput({ paragraphs, extractions, persona }) {
+// THE ARTICLE'S LANGUAGE (kogaki#1417) rides both inputs as `language`, the key the
+// production rows' own language sentence names, so the derived rows read it unchanged.
+export function readerStartUnitInput({ paragraphs, extractions, persona, language }) {
   return {
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
+    language,
     paragraph_1: paragraphs[0],
     extraction_1: extractions[0],
   };
 }
 
-export function legPathUnitInput({ paragraphs, extractions, readerStart }) {
+export function legPathUnitInput({ paragraphs, extractions, readerStart, language }) {
   return {
     reader_start: readerStart,
+    language,
     paragraphs: paragraphs.map((text, i) => ({ paragraph: i + 1, claim_strand: `L${i + 1}`, text, extraction: extractions[i] })),
   };
 }
@@ -337,6 +341,9 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
   const persona = readerPersona(audiencePath);
   if (persona.error) fail(persona.error);
+  const lang = audienceLanguage(audiencePath);
+  if (lang.error) fail(`${lang.error} Nothing was started.`);
+  const language = lang.language;
   const outDir = resolve(out);
   const briefPath = join(outDir, "brief.yaml");
   // NEVER OVER AN EARLIER BRIEF: /paragraph-plan and /draft record its hash, so a Brief
@@ -352,19 +359,19 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   mkdirSync(runDir, { recursive: true });
 
   const rs = runRow({ dir: join(runDir, "reader-start"), unitId: "reader-start", row: rows.leg_reader_start_unit,
-    input: readerStartUnitInput({ paragraphs, extractions, persona }), recordArray: "reader_start",
+    input: readerStartUnitInput({ paragraphs, extractions, persona, language }), recordArray: "reader_start",
     validatorExport: "validateLegReaderStartUnit", inputs: {}, bounds });
   if (rs.stopped) return { stopped: rs.stopped, runDir };
   const readerStart = readerStartText(rs.record);
 
   const lp = runRow({ dir: join(runDir, "leg-path"), unitId: "leg-path", row: rows.leg_path_unit,
-    input: legPathUnitInput({ paragraphs, extractions, readerStart }), recordArray: "legs",
+    input: legPathUnitInput({ paragraphs, extractions, readerStart, language }), recordArray: "legs",
     validatorExport: "validateLegPathUnit", inputs: { paragraph_count: paragraphs.length, reader_start: readerStart }, bounds });
   if (lp.stopped) return { stopped: lp.stopped, runDir };
 
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, readerStart, leg: lp.record.legs[0] }));
-  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath });
+  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language });
   return { brief: briefPath, runDir };
 }
 

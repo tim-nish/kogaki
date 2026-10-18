@@ -1515,6 +1515,25 @@ export function readerProse(path) {
   return { register };
 }
 
+// THE AUDIENCE'S `language` (kogaki#1417): the one language the article is
+// written in, declared once on the Audience so that no stage infers it from
+// the terms an earlier stage happened to write. Its readers are the two Brief
+// composers, which are told it in their input, and the Packet, which renders
+// it as one line of the Write block. A missing key refuses by name: a composer
+// handed no language answers in whichever one its input leans toward.
+export function audienceLanguage(path) {
+  const a = audienceRecord(path);
+  if (a.error) {
+    return { error: `${a.error} — the article's language is its \`language\` key (kogaki#1417)` };
+  }
+  const language = audienceScalar(a.record, "language");
+  if (language === null || /\n/.test(language)) {
+    return { error: `the Audience file ${path} declares no one-line \`language\` — the Brief composers write in it and the Packet's Write block renders it (kogaki#1417). `
+      + "Repair the Audience file under its own issue." };
+  }
+  return { language };
+}
+
 // THE WHOLE ADMITTED SET, for the composing state's input. Ordered by id so
 // two runs over one library render byte-identical inputs — a judge input that
 // reordered with the filesystem would make two asks look different when
