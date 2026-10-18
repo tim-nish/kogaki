@@ -49,7 +49,7 @@ import { stringifyYaml } from "../yaml.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
-  READER_PATH_JOB_HEARTBEAT_MS } from "../workflow/detached-job.mjs";
+  jobHeartbeatMs } from "../workflow/detached-job.mjs";
 
 export const EXTRACTION_TABLE = join(REPO, "src", "proof-sheet", "extraction-workflow.json");
 export const DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
@@ -476,7 +476,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const unitAttempts = positiveSetting(table.job, "unit_attempts");
   const binary = resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || table.judge.command), process.env.PATH);
   const model = String(settingValue(table.judge.model));
-  const heartbeatMs = Number(table.job.heartbeat_ms) || READER_PATH_JOB_HEARTBEAT_MS;
+  const heartbeatMs = jobHeartbeatMs(table.job.heartbeat_ms);
   const outDir = resolve(out);
   const runDir = resume ? resolve(resume) : join(outDir, `extractor-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });

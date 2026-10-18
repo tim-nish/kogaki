@@ -101,7 +101,7 @@ import { resolveStrandAddresses } from "./workflow/strands.mjs";
 // each.
 import {
   DetachedJobStarted, READER_PATH_JOB_STALL_S, readerPathJobBounds, RETIRED_JOB_LIMIT_KEYS,
-  READER_PATH_JOB_HEARTBEAT_MS, readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
+  jobHeartbeatMs, readerPathJobPath, readerPathJobStopFlagPath, readReaderPathJob,
   readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES, startDetachedJobSupervisor,
   READER_PATH_JOB_STATUS_COMMAND, READER_PATH_JOB_AWAIT_COMMAND,
 } from "./workflow/detached-job.mjs";
@@ -1808,7 +1808,7 @@ const STATE_WORK = {
       callLimitS,
       unitAttempts,
       stallS: READER_PATH_JOB_STALL_S,
-      heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
+      heartbeatMs: jobHeartbeatMs(),
       // THE DECLARED MOVE-FIT JUDGE (kogaki#1307): once a unit's record passes the
       // validator, the supervisor runs one more headless session over it with what
       // `readerPathFitPrompt` builds, and reads the answer with `readerPathFitVerdict`.
@@ -1940,7 +1940,7 @@ const STATE_WORK = {
       outputFormat: cfg.outputFormat,
       ...briefJobBounds(table, "review_path"),
       stallS: READER_PATH_JOB_STALL_S,
-      heartbeatMs: READER_PATH_JOB_HEARTBEAT_MS,
+      heartbeatMs: jobHeartbeatMs(),
       recordArray: "claim_register",
       validator: {
         module: "src/brief.mjs",
@@ -2441,6 +2441,14 @@ function sleepSync(ms) {
 // `READER_PATH_JOB_STILL_RUNNING_LINE`, raises no question and exits 0; the
 // Brief skill reads that line as "run `job await` again".
 export const READER_PATH_JOB_AWAIT_S = 30;
+// A FIXTURE-SUPPLIED AWAIT BOUND (kogaki#1424), handed in the way the heartbeat is
+// (`jobHeartbeatMs`): a check asserting that `job await` returns within its own bound
+// sets `KOGAKI_JOB_AWAIT_S` short instead of waiting the owner's 30 s out; unset, the
+// bound is the constant above.
+export function jobAwaitS() {
+  const fixture = Number(process.env.KOGAKI_JOB_AWAIT_S);
+  return Number.isFinite(fixture) && fixture > 0 ? fixture : READER_PATH_JOB_AWAIT_S;
+}
 export const READER_PATH_JOB_STILL_RUNNING_LINE = "reader-path job still running — call job await again";
 export const REVIEW_PATH_JOB_STILL_RUNNING_LINE = "path-review job still running — call job await again";
 
@@ -2477,7 +2485,7 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
       continue;
     }
     if (state !== "running") { await finishReaderPathJobAwait(j, { ...job, units }, state, table, tablePath, args); return; }
-    const remainingMs = READER_PATH_JOB_AWAIT_S * 1000 - (Date.now() - awaitStartedAt);
+    const remainingMs = jobAwaitS() * 1000 - (Date.now() - awaitStartedAt);
     if (remainingMs <= 0) {
       // THE HEARTBEAT CARRIES THE ATTEMPTS AND THE ESTIMATE (kogaki#1355), so the owner
       // waiting on a long job sees which attempt each unit is on and how long is left.
@@ -2486,7 +2494,7 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
       return;
     }
     console.log(`${j.label} still running at ${elapsedS}s — waiting for the next heartbeat.`);
-    sleepSync(Math.min(READER_PATH_JOB_HEARTBEAT_MS, remainingMs));
+    sleepSync(Math.min(jobHeartbeatMs(), remainingMs));
     job = readReaderPathJobOrDefect(j) || job;
   }
 }

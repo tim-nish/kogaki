@@ -41,6 +41,18 @@ const READER_PATH_JOB_FILE = "reader-path-job.json";
 export const READER_PATH_JOB_STALL_S = 90;
 export const READER_PATH_JOB_HEARTBEAT_MS = 10000;
 
+// A FIXTURE-SUPPLIED HEARTBEAT (kogaki#1424). The heartbeat paces both the supervisor's
+// own loop and every CLI-side poll over its record, so a check driving a production
+// workflow table against a judge that answers at once still waited a whole 10 s per
+// poll. A check hands in a short one through `KOGAKI_JOB_HEARTBEAT_MS`; a run with it
+// unset reads exactly what the table (or the constant above) declares. The production
+// value is injected around, never shrunk.
+export function jobHeartbeatMs(declared) {
+  const fixture = Number(process.env.KOGAKI_JOB_HEARTBEAT_MS);
+  if (Number.isFinite(fixture) && fixture > 0) return fixture;
+  return Number(declared) || READER_PATH_JOB_HEARTBEAT_MS;
+}
+
 // THE TWO SESSION-TYPEABLE COMMAND LINES, SPELLED ONCE (kogaki#1193 PR #1195
 // review round 1, finding 3). `jobWork`'s continuation text and
 // `DetachedJobStarted`'s own message both used to describe these verbs in

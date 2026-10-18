@@ -56,7 +56,7 @@ import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerState
   introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
-import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS } from "../workflow/detached-job.mjs";
+import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
 import { EXTRACTION_TABLE, legParagraphs, awaitJob, lastRefusal, writeJson } from "./extract.mjs";
 
 const FLOW = { lane: "brief", label: "Leg Brief composer" };
@@ -353,7 +353,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
     command: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || table.judge.command), process.env.PATH).path,
     model: String(settingValue(table.judge.model)), outputFormat: String(table.judge.output_format || "json"),
     callLimitS: positiveSetting(table.job, "call_limit_s"), unitAttempts: positiveSetting(table.job, "unit_attempts"),
-    stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs: Number(table.job.heartbeat_ms) || READER_PATH_JOB_HEARTBEAT_MS,
+    stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
   };
   const runDir = join(outDir, `leg-brief-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });

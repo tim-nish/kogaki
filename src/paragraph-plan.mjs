@@ -58,7 +58,7 @@ export { PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor, paragraphPlanRecord,
 import { judgePrompt, resolveJudgeBinary, settingValue } from "./workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "./workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, readerPathJobPath, readerPathJobBounds,
-  READER_PATH_JOB_STALL_S, READER_PATH_JOB_HEARTBEAT_MS } from "./workflow/detached-job.mjs";
+  READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "./workflow/detached-job.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 
 export const PARAGRAPH_PLAN_TABLE = join(REPO, "src", "paragraph-plan-workflow.json");
@@ -389,7 +389,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     units, command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
     callLimitS, unitAttempts,
     stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S,
-    heartbeatMs: Number(table.job.heartbeat_ms) || READER_PATH_JOB_HEARTBEAT_MS,
+    heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
     recordArray: "waypoints",
     validator: { module: "src/paragraph-plan.mjs", export: "validateParagraphPlanUnit", inputs: { legs, movesDir } },
     fitJudge: { module: "src/paragraph-plan.mjs", prompt_export: "paragraphPlanJudgePrompt", verdict_export: "paragraphPlanJudgeVerdict",
@@ -503,7 +503,7 @@ export function awaitParagraphPlan(dir, waitS = PARAGRAPH_PLAN_AWAIT_S) {
       console.log(PARAGRAPH_PLAN_STILL_RUNNING_LINE);
       return 0;
     }
-    sleepSync(Math.min(READER_PATH_JOB_HEARTBEAT_MS, Math.max(0, until - Date.now())));
+    sleepSync(Math.min(jobHeartbeatMs(), Math.max(0, until - Date.now())));
     job = readReaderPathJob(dir);
   }
   const r = finishParagraphPlan(dir);
