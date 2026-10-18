@@ -25,6 +25,12 @@
 #       src/move-validate.mjs prints; and the
 #       Brief's compose and Move-fit judge inputs read the admitted Moves, each bound to a
 #       Leg, without refusal.
+#   (b3) an entry of `segments` is read as a Segment or refused, never dropped (kogaki#1416):
+#       an admitted Move carries exactly as many Segments as the Extraction lists; an entry
+#       carrying a label key, one with an empty `does`, and one after the first with no
+#       `relation` are each refused naming the Segment, the last two in the Adapter's words;
+#       a `reader` row naming a Segment the list does not hold is refused naming it; and
+#       `tools/move_ingest.py` carries no label set.
 #   (c) the run directory holds, per paragraph, the prompt as rendered (the
 #       `extraction_unit` row through `judgePrompt`, FORMAT verbatim above the input
 #       marker, and a JSON skeleton of the record with the paragraph number filled as a
@@ -248,6 +254,49 @@ for record in (dict(good, technique="restates the Segments."), dict(good, before
         if adapter.returncode != 1 or not said or e.condition != "adapter" or e.message != said:
             bad.append("the ingest's refusal is not the Adapter's words: %r vs rc %d %r"
                        % (e.message, adapter.returncode, said))
+# AN ENTRY IS READ AS A SEGMENT OR REFUSED, NEVER DROPPED (kogaki#1416). The admitted Move
+# carries one Segment per entry; each unreadable entry and a \`reader\` row naming a Segment the
+# list does not hold are refused naming the Segment, and nothing is written for any of them.
+for name in ("FUNCTIONS =", "RELATIONS =", "SEGMENT_ENTRY ="):
+    if name in source:
+        bad.append("tools/move_ingest.py carries a label set: %s" % name)
+BT = chr(96)
+base = m.read_extraction(files[0])[1]
+if len(good["segments"]) != len(base["segments"]):
+    bad.append("the admitted Move carries %d Segment(s) for the Extraction's %d"
+               % (len(good["segments"]), len(base["segments"])))
+def variant(edit):
+    rec = json.loads(json.dumps(base))
+    if len(rec["segments"]) < 2:
+        rec["segments"].append({"content": "c", "does": "it widens the claim", "relation": "it extends it"})
+    edit(rec)
+    return rec
+def label(rec): rec["segments"][1]["function"] = "opens"
+def no_does(rec): rec["segments"][1]["does"] = ""
+def no_relation(rec): rec["segments"][1].pop("relation", None)
+def far_row(rec):
+    row = next(r for r in rec["reader"].values() if str(r.get("after", "")).strip().lower() != "unchanged")
+    row["segment"] = "%d" % (len(rec["segments"]) + 1)
+for edit, words in ((label, ("Segment 2 carries %sfunction%s" % (BT, BT), "cannot be read as a Segment")),
+                    (no_does, ("condition adapter", "Segment 2 carries no one-line %sdoes%s" % (BT, BT))),
+                    (no_relation, ("condition adapter", "Segment 2 carries no one-line %srelation%s" % (BT, BT))),
+                    (far_row, ("names Segment %d" % (len(base["segments"]) + 1 if len(base["segments"]) >= 2 else 3),
+                               "disagrees with its own Segment count"))):
+    path = os.path.join(tmp, "%s.yaml" % edit.__name__)
+    with open(path, "w") as h:
+        h.write(m.yaml_write(variant(edit)))
+    lib = os.path.join(tmp, "lib-" + edit.__name__)
+    os.makedirs(lib)
+    shutil.copy(os.path.join("moves", "ROLES.json"), lib)
+    try:
+        m.run_from_extraction([path], lib, os.path.join(tmp, "out-" + edit.__name__), select="accept")
+        bad.append("%s: an Extraction the ingest cannot read whole was admitted" % edit.__name__)
+    except m.Refusal as e:
+        missing = [w for w in words if w not in str(e)]
+        if missing:
+            bad.append("%s: the refusal does not say %r: %s" % (edit.__name__, missing, e))
+    if [n for n in os.listdir(lib) if n.endswith(".yaml")]:
+        bad.append("%s: a refused Extraction left a Move in the library" % edit.__name__)
 # THE BRIEF READS WHAT THE INGEST ADMITTED: its compose input and Move-fit judge input read
 # the library run_from_extraction wrote, each Move bound to a Leg, without refusal.
 ids = [os.path.basename(w)[:-len(".yaml")] for w in r["written"] or []]
