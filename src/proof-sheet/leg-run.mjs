@@ -73,7 +73,7 @@ export const RECORDER_TEXT = `#!/usr/bin/env node
 // stage's declared command unchanged and appends what it was given and what it answered to
 // the stage's calls.jsonl.
 import { appendFileSync, readFileSync, writeSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 const real = process.env.KOGAKI_PROOF_SHEET_REAL_CLI;
 const log = process.env.KOGAKI_PROOF_SHEET_CALLS;
 const argv = process.argv.slice(2);
@@ -84,15 +84,28 @@ if (argv.includes("--version")) {
 }
 const stdin = readFileSync(0, "utf8");
 const at = new Date().toISOString();
-const r = spawnSync(real, argv, { input: stdin, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
-if (log) {
-  appendFileSync(log, JSON.stringify({ at, argv, stdin, stdout: r.stdout || "", stderr: String(r.stderr || "").slice(-4000),
-    exit: r.status, signal: r.signal || null, ...(r.error ? { error: String(r.error.message) } : {}) }) + "\\n");
-}
+// STREAMED, NOT BUFFERED (kogaki#1439): every chunk the model writes is handed on as it
+// arrives, because the job supervisor reads output growth as the call's liveness and ends a
+// job whose running unit grew nothing for its stall bound. A relay that answers only once the
+// call ends hides that growth, so every call longer than the bound read as stalled.
 // WRITTEN SYNCHRONOUSLY: \`process.stdout.write\` to a pipe is asynchronous, and \`process.exit\`
 // right after it cuts an answer longer than the pipe's buffer — the stage then reads no result line.
-writeSync(1, r.stdout || ""); writeSync(2, r.stderr || "");
-process.exit(r.status === null ? 1 : r.status);
+const out = [], err = [];
+let spawnError = null;
+const child = spawn(real, argv, { stdio: ["pipe", "pipe", "pipe"] });
+child.stdout.on("data", (b) => { out.push(b); writeSync(1, b); });
+child.stderr.on("data", (b) => { err.push(b); writeSync(2, b); });
+child.on("error", (e) => { spawnError = e; });
+child.stdin.on("error", () => {});
+child.stdin.end(stdin);
+child.on("close", (status, signal) => {
+  if (log) {
+    appendFileSync(log, JSON.stringify({ at, argv, stdin, stdout: Buffer.concat(out).toString("utf8"),
+      stderr: Buffer.concat(err).toString("utf8").slice(-4000), exit: spawnError ? null : status, signal: signal || null,
+      ...(spawnError ? { error: String(spawnError.message) } : {}) }) + "\\n");
+  }
+  process.exit(spawnError || status === null ? 1 : status);
+});
 `;
 
 // The one command every stage declares. The recorder stands in for exactly one, so three

@@ -53,6 +53,16 @@ export function jobHeartbeatMs(declared) {
   return Number(declared) || READER_PATH_JOB_HEARTBEAT_MS;
 }
 
+// A FIXTURE-SUPPLIED STALL BOUND (kogaki#1439), the heartbeat's twin above: a check whose
+// assertion is that a call pausing longer than the bound still ends `done` hands in a short
+// one through `KOGAKI_JOB_STALL_S`, rather than waiting out the production 90 s. A run with
+// it unset reads exactly what the table (or the constant above) declares.
+export function jobStallS(declared) {
+  const fixture = Number(process.env.KOGAKI_JOB_STALL_S);
+  if (Number.isFinite(fixture) && fixture > 0) return fixture;
+  return Number(declared) || READER_PATH_JOB_STALL_S;
+}
+
 // THE TWO SESSION-TYPEABLE COMMAND LINES, SPELLED ONCE (kogaki#1193 PR #1195
 // review round 1, finding 3). `jobWork`'s continuation text and
 // `DetachedJobStarted`'s own message both used to describe these verbs in

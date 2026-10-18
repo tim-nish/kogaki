@@ -35,6 +35,11 @@
 #       record its language, hand it to the Leg Brief composer and the Packet, and the Brief
 #       and the Draft carry it; another Audience's language replaces it throughout; an Audience
 #       declaring none is refused by name at the Brief stage.
+#   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through
+#       `KOGAKI_JOB_STALL_S` and every ParagraphPlan call running 2.5 s past its first line
+#       (a stream line every 200 ms, as a live stream-json call writes),
+#       the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries
+#       the binary's whole stdout (past 64 KB) and exit status 0, and run.json keeps its shape.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -85,12 +90,19 @@ const dir = process.env.PSR_FIXTURE_DIR;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const out = (r, stage) => {
-    appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, argv: process.argv.slice(2), prompt, answer: stage === "writer" ? r : JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n" + JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n" }) + "\\n");
+    // (k) A LONG CALL: with PSR_PLAN_PAUSE_MS set, a ParagraphPlan call runs that long after its
+    // first line, writing one short stream line every 200 ms as a live stream-json call does,
+    // then writes its result — a healthy call longer than the stall bound the case hands in.
+    const runMs = stage.startsWith("plan-") ? Number(process.env.PSR_PLAN_PAUSE_MS) || 0 : 0;
+    const ticks = Array.from({ length: Math.ceil(runMs / 200) }, (_, n) => JSON.stringify({ type: "system", tick: n }) + "\\n");
+    const head = JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n";
+    appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, argv: process.argv.slice(2), prompt, answer: stage === "writer" ? r : head + ticks.join("") + JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n" }) + "\\n");
     // The Writer is declared with a text output format (src/draft-workflow.json); every judge with json.
     // A judge's answer is preceded by a stream line longer than a pipe's buffer, as a live
     // stream-json answer is: the recorder must hand all of it through (the 2026-10-15 live run
     // lost the result line of every answer past the first to an asynchronous write).
-    if (stage !== "writer") writeSync(1, JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n");
+    if (stage !== "writer") writeSync(1, head);
+    for (const t of ticks) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200); writeSync(1, t); }
     writeSync(1, stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
   };
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
@@ -638,6 +650,33 @@ if (jRunDir) {
   ok(typeof run4.stopped === "string" && run4.stopped.startsWith("brief:") && run4.stopped.includes("`language`"),
     `(j) the run did not stop at the Brief stage naming the missing \`language\` key: ${run4.stopped}`);
   ok(!existsSync(join(jRunDir, "brief", "calls.jsonl")), "(j) the Leg Brief composer made a model call under an Audience declaring no language");
+}
+
+// (k) THE RECORDER STREAMS (kogaki#1439): the ParagraphPlan job reads output growth as a call's
+// liveness, so a call running longer than the job's stall bound ends `done` only if the
+// recorder hands each chunk on as it arrives. The bound is handed in (`KOGAKI_JOB_STALL_S`,
+// 1 s) and each ParagraphPlan call runs 2.5 s past its first line, writing a stream line every
+// 200 ms; a buffering recorder shows the job no byte for the whole call and the job ends `stalled`.
+const kRoot = join(root, "streaming");
+mkdirSync(kRoot, { recursive: true });
+writeFileSync(join(kRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
+const r5 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(kRoot, "leg-fixture.md"), "--out", join(kRoot, "out"), "--provenance", map],
+  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: kRoot, KOGAKI_JOB_STALL_S: "1", PSR_PLAN_PAUSE_MS: "2500" }, timeout: 600000 });
+const kRunDir = (r5.stdout.match(/^run directory: (.+)$/m) || [])[1];
+ok(r5.status === 0 && !!kRunDir, `(k) the run whose ParagraphPlan calls run past the stall bound exited ${r5.status}: ${r5.stdout}${r5.stderr}`);
+if (kRunDir) {
+  const run5 = JSON.parse(readFileSync(join(kRunDir, "run.json"), "utf8"));
+  const pp = run5.stages.find((st) => st.stage === "paragraph-plan") || {};
+  ok(pp.state === "done", `(k) the ParagraphPlan stage ended ${pp.state} (${pp.stopped || ""}) rather than done under calls running past the stall bound`);
+  if (runDir) {
+    ok(JSON.stringify(Object.keys(run5)) === JSON.stringify(Object.keys(JSON.parse(readFileSync(join(runDir, "run.json"), "utf8")))),
+      "(k) run.json's shape differs between a streamed run and the plain one");
+  }
+  const kSeen = existsSync(join(kRoot, "seen.jsonl")) ? readFileSync(join(kRoot, "seen.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((x) => x.stage.startsWith("plan-")) : [];
+  const kCalls = existsSync(join(kRunDir, "paragraph-plan", "calls.jsonl")) ? readFileSync(join(kRunDir, "paragraph-plan", "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  ok(kCalls.length >= 2 && kCalls.length === kSeen.length, `(k) paragraph-plan/calls.jsonl records ${kCalls.length} call(s) against ${kSeen.length} the binary saw`);
+  ok(kCalls.every((c, i) => c.stdout === kSeen[i].answer && c.stdout.length > 64 * 1024 && c.exit === 0 && c.signal === null),
+    "(k) a recorded streamed call does not carry the binary's whole stdout (past 64 KB) and its exit status 0");
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }
