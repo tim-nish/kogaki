@@ -278,7 +278,14 @@
       "block's reader's-own-world line is Harness-owned and sits inline before the",
       "Persona's own prose rules, never under its own heading, so it is read from",
       "where it OPENS to the next blank line rather than from a heading to the next",
-      "one."
+      "one.",
+      "",
+      "`opens_from` IS A `labelled_lines` BLOCK (kogaki#1447). The ParagraphPlan's join",
+      "renders as an indented `*Opens from:*` line under its numbered Leg Waypoint, which",
+      "`heading_list` drops because it is no list item. `labelled_lines` reads each such",
+      "line under the numbered line it sits beneath and renders it in the block's `entry`",
+      "form, so every entry names the paragraph it opens; a Leg whose Leg Waypoints carry",
+      "no join answers the empty list."
     ],
     "claims": {
       "kind": "heading_list",
@@ -299,6 +306,12 @@
     "reader_own_world": {
       "kind": "paragraph",
       "opens_with": "**The reader's own world.**"
+    },
+    "opens_from": {
+      "kind": "labelled_lines",
+      "heading": "The waypoints this Leg takes the reader through",
+      "label": "*Opens from:*",
+      "entry": "paragraph {n} opens from: {line}"
     }
   },
   "pass_two": {
@@ -494,6 +507,20 @@
       "class": "best-effort",
       "mode": "judged",
       "question": "Each paragraph in the passage below should open on the sentence that states its point, with every later sentence in that paragraph supporting it. Is there a sentence that supports neither its paragraph's opening sentence nor one of this Leg's claims? Answer `fails` if there is."
+    },
+    {
+      "id": "opens-from-copied",
+      "class": "best-effort",
+      "mode": "per-declared",
+      "declared_block": "opens_from",
+      "reverse_source": "opening_sentence",
+      "reverse_entry": "paragraph {n} of the passage opens on this sentence: {sentence}",
+      "reverse_absent": "(the passage has no paragraph {n}, so there is no opening sentence to compare)",
+      "when_declared_absent": {
+        "verdict": "holds",
+        "sentence": "this Leg's Packet carries no Opens-from line, so no paragraph was given a connection to realise and the question below quantifies over nothing"
+      },
+      "question": "Above is one Opens-from line of this Leg's Packet: how the named paragraph's first point follows from the paragraph before it. The Packet tells the writer to realise that connection inside the paragraph's first sentence, in its connective or clause, never as a sentence of its own and never in the line's words. Below it is the sentence that paragraph actually opens on. Is that sentence the line reproduced -- its content restated whole or nearly whole, in the line's words or a close paraphrase of them -- rather than the connection carried in a connective or clause on the way to the paragraph's own point? Answer `fails` where it is the line reproduced, naming the paragraph; answer `holds` where the connection is realised and the sentence is about the paragraph's own point (kogaki#1447)."
     },
     {
       "id": "demonstrative-reference",

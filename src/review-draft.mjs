@@ -1753,6 +1753,26 @@ const PACKET_READERS = {
     if (b === null) return null;
     return PACKET_ABSENCE.test(b) ? "" : b;
   },
+  // ONE LABELLED LINE PER PARAGRAPH, NUMBERED BY ITS PARAGRAPH (kogaki#1447). The
+  // waypoints block renders the ParagraphPlan's join as an indented `*Opens from:*` line
+  // under its numbered Leg Waypoint, and `heading_list` drops it because it is no list
+  // item. This reads each such line under the numbered line it sits beneath, so an entry
+  // names the paragraph it opens; a block carrying none answers the empty list.
+  labelled_lines: (t, spec) => {
+    const block = packetBlock(t, spec.heading);
+    if (block === null) return null;
+    const out = [];
+    let n = null;
+    for (const l of block.split("\n")) {
+      const top = l.match(/^(\d+)\.\s/);
+      if (top) { n = Number(top[1]); continue; }
+      const line = l.trim();
+      if (n !== null && line.startsWith(spec.label)) {
+        out.push(spec.entry.split("{n}").join(String(n)).split("{line}").join(line.slice(spec.label.length).trim()));
+      }
+    }
+    return out;
+  },
   paragraph: (t, spec) => {
     const i = t.indexOf(spec.opens_with);
     if (i === -1) return null;
@@ -1765,6 +1785,25 @@ const PACKET_READERS = {
 // A fixed sentence from the template, as a pattern that ignores how it was
 // wrapped. Every character is escaped and every run of whitespace becomes one
 // `\s+`, so the pattern matches the sentence and never anything else.
+// THE PARAGRAPH A `labelled_lines` ENTRY NAMES, read back by the block's own `entry` form
+// rather than by a second spelling of it here (kogaki#1447).
+function labelledEntryParagraph(items, blockName, entry) {
+  const spec = (items.packet_blocks || {})[blockName] || {};
+  const head = String(spec.entry || "").split("{n}")[0];
+  const m = String(entry).match(new RegExp("^" + head.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(\\d+)"));
+  return m ? Number(m[1]) : null;
+}
+
+// THE OPENING SENTENCE OF ONE PARAGRAPH OF A LEG (kogaki#1447): the Leg's prose split on
+// blank lines, headings dropped, and the paragraph's first sentence as `firstSentenceOf`
+// reads it -- a string fact, so what the judge is shown beside the Opens-from line is the
+// sentence the paragraph actually opens on.
+function legOpeningSentence(leg, n) {
+  const paras = String(leg.prose).split(/\n\s*\n/).map((p) => p.trim()).filter((p) => p && !p.startsWith("#"));
+  const p = paras[n - 1];
+  return p === undefined ? null : firstSentenceOf(p.replace(/\s+/g, " ")).trim();
+}
+
 function wordSequence(s) {
   return new RegExp(String(s).trim().split(/\s+/)
     .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"));
@@ -2650,10 +2689,21 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         // to work out which of several declared claims went missing.
         const declaredEntries = declared[item.declared_block] || [];
         const reverseWhole = renderSide(rec[item.field] || []);
+        // THE REVERSE SIDE OF AN OPENING ROW IS THE PARAGRAPH'S OWN FIRST SENTENCE
+        // (kogaki#1447), read from the prose for the paragraph the declared entry names,
+        // never the reader's outline: whether an opening reproduces its line is a question
+        // about the sentence on the page.
+        const reverseFor = (declaredText) => {
+          if (item.reverse_source !== "opening_sentence") return reverseWhole;
+          const n = labelledEntryParagraph(items, item.declared_block, declaredText);
+          const sentence = n === null ? null : legOpeningSentence(leg, n);
+          return sentence === null ? item.reverse_absent.split("{n}").join(String(n))
+            : item.reverse_entry.split("{n}").join(String(n)).split("{sentence}").join(sentence);
+        };
         declaredEntries.forEach((declaredText, i) => {
           const key = verdictKey(leg.leg_id, item.id, i);
           const file = renderJoinPacket(ws, run, pass, draft, leg, item, i,
-            renderSide(declaredText), reverseWhole);
+            renderSide(declaredText), reverseFor(declaredText));
           // THE VERDICT IS READ BEFORE THE CALL IS LOGGED, so the log can name
           // the model that answered it. An unanswered call carries `model:
           // null` — owed, not judged by nobody.
@@ -4840,6 +4890,8 @@ async function main() {
   COMMANDS[cmd](args);
 }
 
-main();
+// THE CLI RUNS ONLY AS THE ENTRY POINT (kogaki#1447), so a check can import the join and
+// the item table and drive them over a fixture without the usage text exiting the process.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
 
-export { readDraft, resolveInputs, slugOf, missingFor, sha256 };
+export { readDraft, resolveInputs, slugOf, missingFor, sha256, readItems, buildJoin };
