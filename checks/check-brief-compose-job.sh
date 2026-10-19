@@ -14,7 +14,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, chmodSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, chmodSync, existsSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +26,9 @@ import { startDetachedJobSupervisor } from "./src/workflow/detached-job.mjs";
 import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
 import { recordOf, FIT_MOVE, segmentText, START_1276, leg1276, cand1276, fitMoveLibrary } from "./checks/fixtures/brief-compose/fixtures.mjs";
+// The Brief runtime is the entry and every module it was split into (kogaki#1466).
+const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
+  .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
 const { validateLegs } = compose;
 const fitMoves = fitMoveLibrary();
 const fails = [];
@@ -46,7 +49,7 @@ const fails = [];
     for (const f of Object.values(FIT_MOVE)) {
       if (!segmentText(f).every((d) => prompt.includes(d)) || !f.breaks.every((b) => prompt.includes(b))) fails.push(`(ag) the compose_path unit prompt does not carry a Move's segments and breaks verbatim: ${segmentText(f)}`);
     }
-    const brief = readFileSync("src/brief.mjs", "utf8");
+    const brief = briefRuntimeText();
     const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
     if (!/const library = loadMoveContracts\(movesDir\)/.test(composePath) || !/moves_you_may_bind: library\.moves,\n\s+unit_number: n/.test(composePath)) {
       fails.push("(ag) compose_path's unit input no longer takes `moves_you_may_bind` from loadMoveContracts");
@@ -63,7 +66,7 @@ const fails = [];
         fails.push(`(ag) the per-unit fit input does not carry leg ${c.leg_id}'s Move contract verbatim: ${JSON.stringify(c)}`);
       }
     }
-    const brief = readFileSync("src/brief.mjs", "utf8");
+    const brief = briefRuntimeText();
     const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
     if (!/prompt_export: "readerPathFitPrompt"/.test(composePath) || !/verdict_export: "readerPathFitVerdict"/.test(composePath)) {
       fails.push("(ag) compose_path does not declare the per-unit fit judge to its job");
@@ -266,7 +269,7 @@ const fails = [];
   if (!/^You are running with no tools/.test(sentence) || !/not something to open/.test(sentence) || /\n/.test(sentence)) {
     fails.push(`(aj) the sentence every unit prompt begins with does not say the session has no tools and that a path is not to be opened: ${JSON.stringify(sentence)}`);
   }
-  const brief = readFileSync("src/brief.mjs", "utf8");
+  const brief = briefRuntimeText();
   if (!/startDetachedJobSupervisor\(dir, \{\n\s+units,/.test(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")))) {
     fails.push("(aj) compose_path no longer starts its job through startDetachedJobSupervisor, so the units file above is not its prompts");
   }

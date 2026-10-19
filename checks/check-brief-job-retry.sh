@@ -35,6 +35,9 @@ import { assembleSelection } from "./src/assemble.mjs";
 import {
   root, JOB_UNIT_NO_TOOLS_SENTENCE, scratch, fakeJudge, mkNewScratch, mkNewRun, declareUnits, superviseSync, readRecord, runRecordPath, unitRowOf, unitStdoutFile,
 } from "./checks/fixtures/brief-reader-path-job/fixtures.mjs";
+// The Brief runtime is the entry and every module it was split into (kogaki#1466).
+const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
+  .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
 const fails = [];
 if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carries no sentence ahead of the unit's own prompt");
 
@@ -371,9 +374,9 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
   const four = [1, 2, 3, 4].map((n) => ({ ...one, candidate_id: `c${n}`, reader_experience: `exp ${n}`, characteristic: `c${n}` }));
   const r4 = assembleSelection({ candidates: four }, "");
   if (!r4.error || !/4 Candidate\(s\) —/.test(r4.error)) fails.push(`(v5) assembleSelection did not refuse four Candidates on the count: ${JSON.stringify(r4)}`);
-  const brief = readFileSync("src/brief.mjs", "utf8");
+  const brief = briefRuntimeText();
   if (!brief.includes("if (cands.length < 1 || cands.length > 3) {") || brief.includes("cands.length < 2")) {
-    fails.push("(v5) src/brief.mjs's compose_path count check does not admit one Candidate");
+    fails.push("(v5) the Brief runtime's compose_path count check does not admit one Candidate");
   }
   if (brief.includes("default in disguise") || readFileSync("src/assemble.mjs", "utf8").includes("default in disguise")) {
     fails.push("(v5) a count refusal still says a single Candidate is a default in disguise");
@@ -626,11 +629,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 
 // (v7) NO `rerun` OPTION AND NO `job-rerun-unit` VERB REMAINS.
 {
-  const brief = readFileSync("src/brief.mjs", "utf8");
+  const brief = briefRuntimeText();
   // The Terrain runtime is the entry and every module it was split into (kogaki#1259).
   const terrain = ["src/terrain.mjs", ...["src/terrain", "src/workflow"].flatMap((d) => readdirSync(d)
     .filter((f) => f.endsWith(".mjs")).map((f) => join(d, f)))].map((p) => readFileSync(p, "utf8")).join("\n");
-  if (/id:\s*"rerun"/.test(brief)) fails.push("(v7) src/brief.mjs still offers a `rerun` option");
+  if (/id:\s*"rerun"/.test(brief)) fails.push("(v7) the Brief runtime still offers a `rerun` option");
   if (/capOption === "rerun"/.test(terrain)) fails.push("(v7) the Terrain runtime still answers a `rerun` click");
   if (terrain.includes("job-rerun-unit") || terrain.includes("cmdJobRerunUnit") || terrain.includes("startReaderPathUnitRerun")) {
     fails.push("(v7) the Terrain runtime still carries the `job-rerun-unit` verb or its starter");

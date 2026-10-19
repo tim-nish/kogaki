@@ -28,7 +28,7 @@ export CLAUDE_CODE_SESSION_ID="check-brief-job-screen-fixture"
 mkdir -p "$KOGAKI_OPEN_GATES" "$GATE_DECLARATION_SIDECAR_DIR"
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX } from "./src/workflow/gate.mjs";
@@ -36,6 +36,9 @@ import { findInternalVocabulary } from "./src/assemble.mjs";
 import {
   root, WAIT_SCALE, scratch, mkNewRun, superviseSync, readRecord, runRecordPath,
 } from "./checks/fixtures/brief-reader-path-job/fixtures.mjs";
+// The Brief runtime is the entry and every module it was split into (kogaki#1466).
+const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
+  .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
 const fails = [];
 
 // (e) THE SCREEN LEAKS NEITHER A STATE NAME NOR A PATH (acceptance 8). A
@@ -82,7 +85,7 @@ const fails = [];
   // 2), asserted by string: the status verb is hook-run, not fixture-run. The
   // lines are composed by `readerPathJobStatusLines`, which `job status` and
   // `job await`'s heartbeat share (kogaki#1355).
-  const brief = readFileSync("src/brief.mjs", "utf8");
+  const brief = briefRuntimeText();
   const statusFn = brief.slice(brief.indexOf("function readerPathJobStatusLines"), brief.indexOf("function sleepSync"));
   if (!statusFn.includes("u.failure.result")) {
     fails.push("(g) printReaderPathJobStatus no longer renders a dead unit's failure.result — the `job status` line would again say a unit died without saying why");

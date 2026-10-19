@@ -14,7 +14,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFitVerdict } from "./src/brief.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
@@ -22,6 +22,9 @@ import * as compose from "./src/compose.mjs";
 import { attachReview, REVIEW_AREAS, DISCHARGE_VERDICTS } from "./src/review.mjs";
 import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg } from "./src/draft.mjs";
 import { recordOf, briefOfRecord, START_1276, leg1276, cand1276, fitMoveLibrary } from "./checks/fixtures/brief-compose/fixtures.mjs";
+// The Brief runtime is the entry and every module it was split into (kogaki#1466).
+const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
+  .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
 const { validateLegs, readerTargetLegRefusal, legRecord, briefRecordText, dischargeRows } = compose;
 const fitMoves = fitMoveLibrary();
 const fails = [];
@@ -271,8 +274,8 @@ const fails = [];
     if (schema.waypoint.fields[f]) fails.push(`(ax) src/leg-schema.json's waypoint still declares \`${f}\``);
   }
   if (JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).paragraph_move_unit) fails.push("(ax) src/brief-workflow.json still carries the paragraph_move_unit row");
-  const brief = readFileSync("src/brief.mjs", "utf8");
-  if (/bindJudge|paragraphMove(Prompts|Verdict)/.test(brief)) fails.push("(ax) src/brief.mjs still declares the paragraph-Move judge inside the compose job");
+  const brief = briefRuntimeText();
+  if (/bindJudge|paragraphMove(Prompts|Verdict)/.test(brief)) fails.push("(ax) the Brief runtime still declares the paragraph-Move judge inside the compose job");
 }
 
 // (ay) kogaki#1330 — Thesis attainment is verified at composition, at the Leg
