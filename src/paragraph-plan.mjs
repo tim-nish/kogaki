@@ -322,7 +322,8 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId) {
     + "after leaves the reader, follow the Move's order (its segments), "
     + "each perform its own Segment's does and stand in that Segment's relation, "
     + "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the "
-    + "previous paragraph's bound Move's after leaves open, restates no Paragraph Waypoint and states no effect "
+    + "previous paragraph's bound Move's after leaves open, restates no Paragraph Waypoint, names no noun phrase "
+    + "of either paragraph's Paragraph Waypoints, brings no case, example or term of its own and states no effect "
     + "on the reader."].join("\n") };
 }
 
