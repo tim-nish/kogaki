@@ -3,7 +3,8 @@
 #
 # A THIN INVOKER, HOLDING NO ASSERTIONS OF ITS OWN — the same arrangement the
 # registered sibling check-draft-runtime.sh uses, and for the same reason: the
-# cases live in `checks/terrain-cases.mjs` beside this member (kogaki#1238;
+# cases live in `checks/terrain-*-cases.mjs` beside this member (kogaki#1238,
+# one file per section since kogaki#1459;
 # formerly `src/terrain.mjs self-test`), driving the runtime through its
 # COMMAND SURFACE — `node src/terrain.mjs <cmd>` in a child process — and the
 # few exports production modules import, because since kogaki#1257 every
@@ -67,38 +68,38 @@ echo "== terrain runtime fixture pass (kogaki#659)"
 . tools/open-gates-guard.sh
 kogaki_open_gates_guard || exit 1
 
-# THE PASS RUNS AS SHARDS, ONE PER AVAILABLE CORE, BOUNDED (kogaki#1425). Each
-# shard runs its own slice of the parts `terrain-cases.mjs` is cut into and
-# prints its own count; the counts are summed below. `CHECKS_JOBS` bounds how
-# many members the suite runs at once, not this member's own shards.
-SHARDS=$(nproc 2>/dev/null || echo 1)
-(( SHARDS > 16 )) && SHARDS=16
-(( SHARDS < 1 )) && SHARDS=1
-SHARD_DIR=$(mktemp -d)
-trap 'rm -rf "$SHARD_DIR"' EXIT
-# `python3` NAMES THE INTERPRETER ITSELF for every shard (kogaki#1425): the
+# ONE PROCESS PER CASE FILE (kogaki#1459). The pass is cut into one case file
+# per section; each runs as its own process, all at once, and prints its own
+# count, summed below. Each is named on its own line because the registry
+# agreement reads this dispatch text to account for every case file.
+CASE_DIR=$(mktemp -d)
+trap 'rm -rf "$CASE_DIR"' EXIT
+# `python3` NAMES THE INTERPRETER ITSELF for every case file (kogaki#1425): the
 # capture hook and the question-shape command are Python, and a version
 # manager's shim in front of the interpreter costs several times the
 # interpreter's own start on every one of them. Resolved once, here.
 PY=$(python3 -c 'import sys; print(sys.executable)' 2>/dev/null) || PY=""
 if [[ -x "$PY" ]]; then
-  mkdir -p "$SHARD_DIR/bin" && ln -s "$PY" "$SHARD_DIR/bin/python3"
-  export PATH="$SHARD_DIR/bin:$PATH"
+  mkdir -p "$CASE_DIR/bin" && ln -s "$PY" "$CASE_DIR/bin/python3"
+  export PATH="$CASE_DIR/bin:$PATH"
 fi
 PIDS=()
-for ((i = 1; i <= SHARDS; i++)); do
-  node checks/terrain-cases.mjs --shard "$i/$SHARDS" >"$SHARD_DIR/$i.out" 2>&1 &
-  PIDS+=($!)
-done
+node checks/terrain-survey-cases.mjs >"$CASE_DIR/1.out" 2>&1 & PIDS+=($!)
+node checks/terrain-control-cases.mjs >"$CASE_DIR/2.out" 2>&1 & PIDS+=($!)
+node checks/terrain-gate-cases.mjs >"$CASE_DIR/3.out" 2>&1 & PIDS+=($!)
+node checks/terrain-executor-cases.mjs >"$CASE_DIR/4.out" 2>&1 & PIDS+=($!)
+node checks/terrain-judgment-cases.mjs >"$CASE_DIR/5.out" 2>&1 & PIDS+=($!)
+node checks/terrain-neighborhood-cases.mjs >"$CASE_DIR/6.out" 2>&1 & PIDS+=($!)
+CASE_FILES=${#PIDS[@]}
 RC=0
-for ((i = 1; i <= SHARDS; i++)); do
+for ((i = 1; i <= CASE_FILES; i++)); do
   wait "${PIDS[$((i - 1))]}" || RC=1
-  cat "$SHARD_DIR/$i.out"
-  grep -q "^terrain self-test:" "$SHARD_DIR/$i.out" || RC=1
+  cat "$CASE_DIR/$i.out"
+  grep -q "^terrain self-test:" "$CASE_DIR/$i.out" || RC=1
 done
-OUT=$(cat "$SHARD_DIR"/*.out)
+OUT=$(cat "$CASE_DIR"/*.out)
 if [[ $RC -ne 0 ]]; then
-  echo "FAIL: the runtime's fixture pass did not run clean in every shard — the cases live with the runtime and this member only invokes them"
+  echo "FAIL: the runtime's fixture pass did not run clean in every case file — the cases live with the runtime and this member only invokes them"
   exit 1
 fi
 
@@ -116,8 +117,8 @@ d = json.load(open('checks/registry.json'))
 print(next(m['admission']['case_floor'] for m in d['checks'] if m['id'] == 'terrain-runtime'))
 ") || { echo "FAIL: could not read case_floor for terrain-runtime from checks/registry.json"; exit 1; }
 COUNTS=$(sed -n 's/^terrain self-test: \([0-9][0-9]*\) case(s) pass.*/\1/p' <<<"$OUT")
-if [[ $(wc -l <<<"$COUNTS") -ne $SHARDS || -z "$COUNTS" ]]; then
-  echo "FAIL: not every shard printed a readable case count — an unreadable floor is not a pass"
+if [[ $(wc -l <<<"$COUNTS") -ne $CASE_FILES || -z "$COUNTS" ]]; then
+  echo "FAIL: not every case file printed a readable case count — an unreadable floor is not a pass"
   exit 1
 fi
 N=0; while read -r c; do N=$((N + c)); done <<<"$COUNTS"
@@ -151,7 +152,7 @@ fi
 # a patch to the runtime.
 echo "== the empty-survey refusal, driven as an act (kogaki#1026)"
 SCRATCH=$(mktemp -d)
-trap 'rm -rf "$SCRATCH" "$SHARD_DIR"' EXIT
+trap 'rm -rf "$SCRATCH" "$CASE_DIR"' EXIT
 mkdir -p "$SCRATCH/policy/kit/bin"
 cp -R src "$SCRATCH/src"
 cat > "$SCRATCH/policy/kit/bin/gateway-query.mjs" <<'STUB'
