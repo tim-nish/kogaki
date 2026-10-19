@@ -9,8 +9,19 @@
 //     owner-facing half (kogaki#859), and the vocabulary deny still guards it.
 //   adopt-candidate — the owner's recorded answer: the adopted Reader Path and the Brief
 //     record's remaining slots fill from the Candidate (one YAML record since kogaki#1328).
-// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): see `src/SPEC-REFERENCES.md`.
-// Every spec name used here is a pointer to SPEC-draft-pipeline.
+
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
+// The rule these entries are written under -- what a copy is, what the two
+// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
+// names a section number or a line range -- lives in ONE place:
+// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
+// already drifted into eight variants, which is what kogaki#982 collapsed.
+// THE NAMES THIS FILE USES, each naming SPEC-draft-pipeline: the read-not-invented rule; the
+// Leg's shape; the Bridge Leg; the Leg-Move instantiation contract; the owner gate over a
+// passing specialization record; the figure decision; the Reader Path artifact and its five
+// blocks; the claims rule; the judgment rule; the settled structure section; the obligations
+// ledger; the durable home and the entry point; the Candidate gate; journey register as a
+// Candidate axis; the Move library.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
