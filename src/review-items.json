@@ -382,6 +382,11 @@
       "id": "claims",
       "class": "preserved",
       "mode": "per-declared",
+      "binds": {
+        "leg": {
+          "claims": "excluded"
+        }
+      },
       "declared_block": "claims",
       "field": "claims",
       "when_declared_absent": {
@@ -394,6 +399,11 @@
       "id": "waypoints",
       "class": "best-effort",
       "mode": "per-declared",
+      "binds": {
+        "leg": {
+          "waypoints.point": "excluded"
+        }
+      },
       "declared_block": "waypoints",
       "field": "waypoints",
       "when_declared_absent": {
@@ -406,6 +416,11 @@
       "id": "introduces",
       "class": "preserved",
       "mode": "judged",
+      "binds": {
+        "leg": {
+          "introduces": "excluded"
+        }
+      },
       "declared_block": "crosses_here",
       "field": "introduces",
       "when_declared_absent": {
@@ -418,6 +433,11 @@
       "id": "already-knows",
       "class": "best-effort",
       "mode": "judged",
+      "binds": {
+        "leg": {
+          "introduces": "excluded"
+        }
+      },
       "declared_block": "crosses_here",
       "also_declared_blocks": [
         "claims"
@@ -489,6 +509,11 @@
       "id": "attribute-leak",
       "class": "preserved",
       "mode": "judged",
+      "binds": {
+        "leg": {
+          "waypoints.point": "excluded"
+        }
+      },
       "declared_block": "waypoints",
       "question": "Above are this Leg's waypoints: what each step of the passage was meant to do to its reader. The Packet tells the writer they say what a step does, never what to write: none is to be quoted, paraphrased or announced to the reader. Does any sentence in the passage below quote or paraphrase a waypoint, or tell the reader what the passage is doing to them? Answer `fails` if it does."
     },
@@ -512,6 +537,11 @@
       "id": "opens-from-copied",
       "class": "best-effort",
       "mode": "per-declared",
+      "binds": {
+        "paragraph_plan": {
+          "waypoints.join": "excluded"
+        }
+      },
       "declared_block": "opens_from",
       "reverse_source": "opening_sentence",
       "reverse_entry": "paragraph {n} of the passage opens on this sentence: {sentence}",

@@ -1,0 +1,13 @@
+{
+  "note": "kogaki#1452 fixture: a planner row and its judge row carrying one criterion in two wordings, one word apart -- the difference kogaki#1446's gap sat in. checks/check-schema-binds.sh asserts this table fails naming both rows.",
+  "fixture_plan_unit": {
+    "id": "fixture_plan_unit",
+    "judgment_point": "plan the paragraphs of ONE Leg. A Segment's relation is how the Paragraph Waypoint stands to the one before it, and is never part of what the Paragraph Waypoint says.",
+    "governing": "checks/check-schema-binds.sh, fixture (kogaki#1452)"
+  },
+  "fixture_judge_unit": {
+    "id": "fixture_judge_unit",
+    "judgment_point": "judge the paragraphs of ONE Leg. A Segment's relation is how the Paragraph Waypoint stands to the one before it, and is never part of what the Paragraph Waypoint states.",
+    "governing": "checks/check-schema-binds.sh, fixture (kogaki#1452)"
+  }
+}

@@ -23,6 +23,12 @@
   },
   "extraction_unit": {
     "id": "extraction_unit",
+    "binds": {
+      "move": { "before": "content", "after": "content", "breaks": "content", "segments": "content", "description": "content", "segments.does": "content", "segments.relation": "content" }
+    },
+    "binds_unread": {
+      "move": ["id", "figure", "continues_from", "evidence"]
+    },
     "schema_file": "passages/FORMAT.md",
     "note": "The one call per paragraph (kogaki#1384). `src/proof-sheet/extract.mjs` renders this row through the shared `judgePrompt` renderer, FORMAT.md verbatim above the input marker, and the paragraph's own input below it; `validateExtractionUnit` reads the answer back against FORMAT and `extractionFileText` writes it as FORMAT's YAML record, `<name>.yaml` (kogaki#1413), so `tools/move_ingest.py passage --from-extraction` reads it unchanged through the same YAML module; `extractionMarkdown` renders the record for reading on the Proof Sheet. The fields the Harness can count or knows -- `unit`, `length`, `status` -- and each Segment's quoted `opening` words are written by the Harness, never asked.",
     "judgment_point": "write the Extraction of ONE paragraph -- `paragraph_you_must_extract` in the input -- under passages/FORMAT.md, rendered above, as a PARAGRAPH-UNIT Extraction: \"The paragraph unit\"'s seven rules govern, and they override the protocol's human round -- there is no step 2, no candidate is written, and you answer Q1, Q2 and Q3 yourself, one answer each (Q4 Footing is retired, and FORMAT says why). Read `earlier_paragraphs` first (rule 2): the reader you describe has just read them. Section 2: write all five reader dimensions in FORMAT's order; where `reader_state_before` is given, every row's `before` is that state copied EXACTLY, character for character (rule 3); where it is null this is the Leg's first paragraph and `before` is the state of the reader `persona` describes. `after` is the literal `unchanged` where this paragraph does not move the row, otherwise the new state in one short clause, and `segment` names the Segment number(s) after which the new state holds (rule 6). At least one row changes. Section 3: ONE SEGMENT PER SENTENCE, in the order of `sentences` -- the Harness has cut them, and your Segment N is sentence N. Each carries `content` -- what it does, written about this paragraph's own content -- `does` -- the step's operation in one clause, stated subject-free, naming no term, place, person or claim of the original and none of your `subject_nouns`, so that it could be performed on any subject, and never its effect on the reader -- and `relation` -- in your own prose, how the Segment relates to the one before it. No label set is used for either field. Rule 7: a section 2 `after` state is written as `does` is, in general terms, naming no term, place, person or claim of the original and none of `subject_nouns`, and describing nothing of a neighbouring paragraph's content, so that `before` states copied from it stay general. Segment 1's `does` carries no reference to any earlier step or earlier paragraph. A later Segment's `does` is the operation alone, and its `relation` carries the connection to the step before. Segment 1's `relation` states how it takes up the previous paragraph's last point (rule 5), and section 1, `what_it_does`, names that relation too; where `earlier_paragraphs` is empty Segment 1's `relation` is the empty string. Sections 4 to 7 as FORMAT writes them; section 6, `description`, is one or two sentences telling a person reading the Move library what the paragraph does, at most 200 characters; section 7, `name`, is a snake_case verb phrase naming the transformation, not the topic, and is none of `names_taken`. Section 8, `notes`, may be empty and never carries a `split:` line: the paragraph's boundary is the source's own. Write everything in English except where you quote the paragraph.",
@@ -32,6 +38,12 @@
   },
   "leg_reader_start_unit": {
     "id": "leg_reader_start_unit",
+    "binds": {
+      "move": { "before": "excluded" }
+    },
+    "binds_unread": {
+      "move": ["id", "after", "breaks", "segments", "figure", "continues_from", "description", "evidence", "segments.does", "segments.relation"]
+    },
     "note": "The Leg's Reader start (kogaki#1385, owner decision 2026-10-15). NOT AUTHORED HERE: `copy_of` names the production row and `substitutions` the only differences from it, and `src/proof-sheet/leg-brief.mjs` derives the rendered `judgment_point` from the production text at every run, so a fix to the production row reaches this one and a production edit that moves a substituted span refuses naming it. The Reader start half of the production row is copied; its `leg1_survivors` and Candidate-differentiation half is cut. `input_shape` and `refusal` are this row's own, because the record is one Reader start and not a differentiation record; the refusal is the production `differentiation` state's Reader start shape check (`readerStateShapeRefusal`), imported.",
     "copy_of": {
       "file": "src/brief-workflow.json",
@@ -77,6 +89,12 @@
   },
   "leg_path_unit": {
     "id": "leg_path_unit",
+    "binds": {
+      "leg": { "leg_id": "content", "materials": "copied", "purpose": "content", "reader_state_after": "content", "rationale": "content", "claims": "content", "waypoints": "content", "introduces": "content", "depends_on": "copied", "reader_state_before": "structural", "waypoints.point": "content", "waypoints.serves": "copied" }
+    },
+    "binds_unread": {
+      "leg": ["reaches_target", "names", "move", "no_move_fits", "journeys", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget"]
+    },
     "note": "The one Leg and its Leg Waypoints (kogaki#1385, owner decision 2026-10-15). NOT AUTHORED HERE, for the reason `leg_reader_start_unit` gives: `copy_of` names the production `reader_path_unit` row and `substitutions` the only differences, and the rendered `judgment_point` is derived from the production text at every run. The Extractions stand in for Strands as the material, one Claim per paragraph; no Move is bound at the Leg level, and the Section grouping, Journey and Candidate differentiation clauses are not copied. `input_shape` and `refusal` are this row's own because the record is one Leg and not a Candidate; the refusals are the production `validateLegs` (which runs `waypointsRefusal`) over the Leg, imported, plus the one-Leg shape this row adds.",
     "copy_of": {
       "file": "src/brief-workflow.json",
