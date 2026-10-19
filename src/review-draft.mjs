@@ -1,120 +1,22 @@
 #!/usr/bin/env node
 // review-draft — the ReviewDraft Harness: the round-trip review of a
-// CanonicalDraft against the Packets that produced it (kogaki#869 tracking,
-// kogaki#870 this artifact).
-//
-// THE INPUTS ARE CLOSED, AND THAT IS THE WHOLE OF THE DESIGN. This command
-// reads three things: `theses/<slug>/draft.md`; its frontmatter trace, which
-// after kogaki#868 carries each Leg's line range and its Packet's path and
-// sha; and the Packet files those entries name. It reads no Move file and no
-// Strand, and of the Brief only its Defined Terms (kogaki#1331, owner decision
-// 2026-10-10: "The review of the Draft may read it"). The owner's 2026-09-04
-// ruling is why the inputs are otherwise closed:
-//
-//   "The Packet was specifically designed to be the only source required to
-//    generate the Draft without reading the Leg or Move files separately.
-//    Therefore, ReviewDraft should compare the Draft against the Packet. If
-//    ReviewDraft later turns out to require Move information or any other
-//    separate file, that should be treated as evidence that the Packet is
-//    missing information, and that information should be added to the Packet
-//    instead."
-//
-// So a check that needs anything else is a PACKET GAP and is filed against
-// `src/packet-template.md`. It is never satisfied by a side read, and the
-// absence of any such read here is the mechanical half of that ruling: there
-// is no code path in this file that opens a Move or a Strand, which is a
-// stronger statement than a rule saying not to. The one path that opens the
-// Brief reads its `defined_terms` and the Leg each is introduced on, for the
-// `defined-term-order` item, which is a Brief-sense check rather than a
-// reconstruction and so has no Packet side to read instead.
-//
-// THE HARNESS OWNS THE ORDERING (the same ruling `.claude/skills/draft/SKILL.md`
-// records for /draft): `outline` refuses a Leg whose Reverse Outline input it did not
-// render, `compare` refuses while any Leg is still unoutlined, `check`
-// refuses before `compare`, and `close` is reachable from `compare` with zero
-// fails or from `check` in every state. A session does not sequence these acts
-// and cannot get the sequence wrong.
-//
-// THE COMPARISON IS FIXED IN THE HARNESS (kogaki#872). `src/review-items.json`
-// decides which Packet information must be reconstructible per item class, which
-// items are preserved and which best-effort, and which are decided from string
-// facts rather than put to a reader. The judging model sees ONE pair and ONE
-// question and answers with one of three tokens — it never assigns severity,
-// never ranks, and never sees two pairs at once, because the table already
-// holds every consequence a verdict has.
-//
-// COMPLETION: the command runs to completion — it ends when `review.md` exists.
-// Two passes at most (owner ruling 2026-09-04). It finishes with residue rather
-// than reaching for a third pass, because the residue is the useful output:
-// what survives two passes is information about ReviewDraft itself or about the
-// Packet, and the owner classifies which.
-//
-// WHAT THIS ARTIFACT DOES NOT OWN, stated so a reader can tell a boundary from
-// a hole. EVERY DECLARED BOUNDARY IS NOW FILLED, and each is named here as
-// landed rather than dropped from the list, because a boundary that quietly
-// stops being one cannot be told from a boundary a reader misremembered: the
-// Reverse Outline input's record schema (kogaki#871); the item classes, the
-// three-valued verdict and the mechanical checks (kogaki#872); and the
-// correction path with its bounded second pass (kogaki#874).
-//
-// THE COLD READER IS GONE, AND ITS ABSENCE IS A RULING RATHER THAN A TRIM
-// (owner, 2026-09-17; kogaki#1133). kogaki#873 added a second reader of the
-// whole body, a Section ledger and five Section pairs. Reverse Outlining
-// reconstructs the elements of a LEG, and the thesis is not a Leg element: of
-// those five pairs the heading was preserved trivially by the Harness that
-// renders it, the three belief pairs duplicated the reader-state items one level
-// up, and the thesis pair -- the one check no Leg item makes -- had no act here
-// at all, because corrections are Leg-level and a thesis fail could only ever
-// become residue saying the Packets lack something. That is a Brief-time
-// finding. So there is no Section ledger, no Section pair and no thesis check in
-// this file.
-//
-// THE REOPEN TRIGGER IS NAMED, so a later reader can tell a ruling from an
-// omission: a Draft whose every Leg holds the round trip and whose thesis the
-// owner cannot find on reading it. If that happens the check is designed at
-// BRIEF COMPOSITION, where the chain of `reader_state_after` values should reach
-// the thesis, as an operation outside the Reverse Outlining item set -- and
-// never as a sixth pair here.
-//
-// FIGURES REMAIN OUT OF SCOPE for this batch (kogaki#869) — they change the
-// Leg schema and the Packet, so they are a later batch and not a hole here.
-//
-// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
-// The rule these entries are written under -- what a copy is, what the two
-// markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
-// names a section number or a line range -- lives in ONE place:
-// `src/SPEC-REFERENCES.md`. It is not restated here; fifteen copies of it had
-// already drifted into eight variants, which is what kogaki#982 collapsed.
-//
-// This file's own stronger property, established by kogaki#953's sweep and
-// kept at the site because the carrier states only the general rule: NO
-// OWNER-FACING STRING BELOW NAMES A SPEC AT ALL, not merely no spec section.
-//
-// The quoted heading beside a name is the spec content that name stands for.
-// THE NAMES THIS FILE USES, and the spec each one names:
-//   the figure decision
-//       SPEC-draft-pipeline "The figure decision — `figure:` and `figure_roles` on a Leg"
-//   the figure record
-//       SPEC-draft-pipeline "The figure record — the form's instance, filled after the prose"
+// CanonicalDraft against the Packets that produced it (kogaki#869, #870).
+// THE INPUTS ARE CLOSED (owner ruling 2026-09-04): the Draft, its frontmatter
+// trace, the Packets the trace names, and of the Brief only its `defined_terms`
+// (kogaki#1331). No code path under src/review-draft/ opens a Move or a
+// Strand; a check that needs one is a PACKET GAP filed against
+// `src/packet-template.md`. THE HARNESS OWNS THE ORDERING of the commands, the
+// item table (`src/review-items.json`, kogaki#872) holds every consequence a
+// verdict has, and the run ends at `review.md` after at most two passes. The
+// cold reader is gone by ruling (kogaki#1133); figures landed at kogaki#880.
+// The stage modules under src/review-draft/ are cut at this file's former
+// named sections (kogaki#1458); this entry keeps the commands and dispatch.
+
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
+// rule lives in `src/SPEC-REFERENCES.md`, and no owner-facing string below
+// names a spec at all (kogaki#953). THE NAMES THIS FILE USES:
 //   the renderer
 //       SPEC-draft-pipeline "The renderer and the anchor — markup from the record, at the Leg"
-//   the frontmatter trace
-//       SPEC-draft-command "The three-layer boundary"
-//
-// A NODE BUILTIN, so the closed-input allowlist below is satisfied as it is
-// WORDED ("only node builtins and ./runs.mjs") rather than widened past its
-// own property. It is here for exactly one act: `correct` re-enters the
-// realization lane as a subprocess, because a corrected Leg must be realized
-// by the same renderer that wrote the Packets. Nothing here reads a Move or a
-// Strand, and of the Brief it reads its defined terms alone (below) — the
-// reviewer's blindness is a property of what this module READS.
-// THE ONE READ OF THE BRIEF, AND THE OWNER'S RULING THAT ADMITS IT (kogaki#1331,
-// owner decision 2026-10-10): "The review of the Draft may read it." It reads
-// the Brief's `defined_terms` and which Leg's `introduces` carries each term,
-// for the one mechanical item that asks whether a defined term reaches the
-// prose before its introducing Leg — and nothing else of the Brief. The list
-// lives in the Brief and ends there; copying it into a Packet so this module
-// could stay blind would be the copy downstream that ruling refuses.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve, dirname, basename, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -145,19 +47,12 @@ function parseArgs(argv) {
 // The commands.
 
 // THE TERM-LIST CHANGE PATH'S RE-ENTRY (kogaki#1165, discharging kogaki#1160
-// acceptance item 3): `--only-legs` scopes the WHOLE run — outline, compare,
-// correct, check and close all read `run.legs` and nothing else to decide
-// which Legs this run reviews, so filtering it here is the whole of the
-// scoping and no other command needs to know a scoped run exists. A Leg
-// left out is never re-outlined and never re-compared, because there is no
-// code path here that reaches a Leg `run.legs` does not name.
-//
-// `checkJaTermsFreshness` IS SKIPPED FOR A SCOPED OPEN, on purpose: the whole
-// reason this path exists is that a term-list change leaves
-// `terms_sha_at_lint` stale until the named Legs are corrected and the Draft
-// is Linted again, and the ordinary freshness gate would refuse to let that
-// correction start. `src/lint-ja.mjs correct-terms` is what names the Legs
-// this flag takes.
+// acceptance item 3): `--only-legs` scopes the WHOLE run — every command reads
+// `run.legs` and nothing else to decide which Legs it reviews, so filtering
+// here is the whole of the scoping. `checkJaTermsFreshness` IS SKIPPED FOR A
+// SCOPED OPEN on purpose: a term-list change leaves `terms_sha_at_lint` stale
+// until the named Legs are corrected and the Draft is Linted again.
+// `src/lint-ja.mjs correct-terms` names the Legs this flag takes.
 function scopeToOnlyLegs(legs, sections, onlyLegsArg) {
   const onlyLegs = onlyLegsArg.split(",").map((s) => s.trim()).filter(Boolean);
   const known = new Set(legs.map((s) => s.leg_id));
@@ -374,23 +269,11 @@ function missingFor(run) {
 }
 
 // ---------------------------------------------------------------------------
-// THE PER-LEG COMPARISON FILES ARE GONE (kogaki#1134, owner 2026-09-17), AND
-// THIS REVERSES kogaki#1097 BY NAME.
-//
-// #1097 wrote `comparison/<leg>.md` because the surface a person debugged from
-// mid-run was then the verdicts file the session had handed in, which carried
-// the model's answer and nothing about what the answer meant — not the item's
-// class, not whether the fail sent the Leg to correction. kogaki#1100 removed
-// those session-written files the same day, and `join.json` now carries
-// `class`, `verdict`, `reason`, `model` and `span` on every row. Read against
-// that record the comparison files were a legend plus one line per pair
-// restating it, and harder to read than the record they rendered. Their one
-// addition — the consequence word — is derivable from the row's class and
-// verdict by the same rule `consequenceOf` held, so nothing is lost with them.
-//
-// The EMITTED comparison line stays: it is the pass's own report to the person
-// running it, not a file in the run directory, and `comparisonLine` above is
-// the whole of it.
+// THE PER-LEG COMPARISON FILES ARE GONE (kogaki#1134, owner 2026-09-17),
+// reversing kogaki#1097 by name: `join.json` carries `class`, `verdict`,
+// `reason`, `model` and `span` on every row, so `comparison/<leg>.md` was a
+// legend restating it. The EMITTED comparison line stays — it is the pass's
+// own report to the person running it, and `comparisonLine` is the whole of it.
 
 function cmdCompare(args) {
   const draftPath = argString(args, "draft", "usage: review-draft compare --draft <draft.md>   (verdicts on standard input record them)");
@@ -779,25 +662,13 @@ function cmdCheck(args) {
   const priorJoin = readJoin(ws);
 
   // A RE-JUDGED PAIR'S PASS-ONE ANSWER IS DISCARDED WHEN THE PASS OPENS, AND
-  // EXACTLY ONCE. `buildJoin` reads recorded verdicts, so leaving them would
-  // make every in-bound judged pair answer itself with pass one's reading and
-  // report a second pass that asked nothing — and clearing them on EVERY
-  // invocation would delete pass two's own answers as fast as they were
-  // recorded, which is the same silence one turn later. `correct` clears the
+  // EXACTLY ONCE: `buildJoin` reads recorded verdicts, and clearing on every
+  // invocation would delete pass two's own answers. `correct` clears the
   // marker, so a correction landing after the pass opened re-opens it.
-  //
-  // AND THE PASS NUMBER MOVES HERE, BEFORE ANY EVIDENCE IS WRITTEN (kogaki#994).
-  // The Reverse Outlining below is THIS pass's reading, so it belongs in this
-  // pass's directory; setting the number after it would file pass two's re-read
-  // under pass one and overwrite exactly the record the split exists to keep.
-  //
-  // THE NUMBER IS THE PASS THIS COMMAND IS, NOT A COUNTER. `check` IS pass two,
-  // and a correction landing after it re-OPENS pass two — a widened bound and
-  // cleared verdicts over the same corrected Legs — rather than starting a
-  // third. So a re-entry sets 2 again, and its re-rendered inputs land beside
-  // the ones it is replacing, which is within-pass and is what `correct`
-  // discarding the Reverse Outline already means. A genuine third pass would
-  // be a third act, and it gets `pass-3/` with nothing else moving.
+  // THE PASS NUMBER MOVES HERE, BEFORE ANY EVIDENCE IS WRITTEN (kogaki#994),
+  // so this pass's Reverse Outlining lands in this pass's directory.
+  // THE NUMBER IS THE PASS THIS COMMAND IS, NOT A COUNTER: `check` IS pass
+  // two, and a re-entry sets 2 again; a genuine third pass is a third act.
   if (!run.pass_open_at) {
     const verdicts = run.verdicts || {};
     let cleared = 0;

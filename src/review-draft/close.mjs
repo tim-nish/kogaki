@@ -9,37 +9,16 @@ import { currentPass } from "./workspace.mjs";
 
 // ---------------------------------------------------------------------------
 // `close` — the owner record. `theses/<slug>/review.md`, one per Draft,
-// overwritten on re-run, headed by the Draft's body sha and the Packet shas it
-// was reviewed against.
-//
+// overwritten on re-run, headed by the Draft's body sha and the Packet shas.
 // EVERY RESIDUE LINE CARRIES AN EMPTY `classified:` FIELD AND THE TOOL NEVER
-// FILLS IT. The residue is what survived two passes, and what it is evidence
-// ABOUT — the Packet, or ReviewDraft itself — is exactly the judgment the owner
-// holds. A tool that guessed would be answering the one question the whole
-// two-pass bound exists to put in front of a person.
-// The pass-directory pointers item 4 of kogaki#994 asks for, rendered from the
-// passes the run actually made rather than from the layout constant — a run that
-// never reached `check` has no `pass-2/`, and naming one would send a reader to
-// a directory nothing wrote.
-// The outline record and the join input a single verdict rests on. Rendered
-// from the same rule the writers compose their paths with, so a reader following
-// one lands on the file the judge was actually handed.
-//
-// BOTH HALVES ARE READ OFF THE ROW, NEVER OFF THE SECTION IT RENDERS IN (PR
-// #1004 round 2, findings 5 and 6). Which pass read a row: a carried row was
-// read by pass one whatever pass the run has reached, and every other row by
-// the last pass that ran. Whether a Packet exists for it: a Harness-decided
-// line — a mechanical item, a stated absence, an empty reverse side, or a
-// row whose chosen pair the Harness decided — never had a join Packet
-// rendered, so no pointer to one is composed; the pass's join record says how
-// it was decided, on the row's own `judged` key. Composing `pass-2/` for a carried row, or a Packet name for a
-// mechanical row, pointed the owner at files nothing ever wrote.
-//
-// THE OUTLINE RECORD IS THE ONE THE RUN READ, taken from the run record's
-// own map rather than composed from the pass: pass two re-reads only the
-// corrected Legs, so a successor Leg's continuity item is judged in pass two
-// against pass ONE's Reverse Outline, and `run.outlineFields` is the map every
-// join reads from. A carried row's is pass one's by definition.
+// FILLS IT — what the residue is evidence about is the owner's judgment.
+// The pass-directory pointers (kogaki#994 item 4) are rendered from the passes
+// the run actually made. BOTH HALVES OF A POINTER ARE READ OFF THE ROW, NEVER
+// OFF THE SECTION (PR #1004 round 2, findings 5 and 6): which pass read a row
+// (a carried row is pass one's), and whether a join Packet exists for it (a
+// Harness-decided line never had one, per the row's `judged` key). THE OUTLINE
+// RECORD IS THE ONE THE RUN READ, from `run.outlineFields`, never composed
+// from the pass.
 function evidencePass(run, f) {
   return f.carried ? 1 : (run.checked_at ? 2 : 1);
 }

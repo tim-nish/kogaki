@@ -2,7 +2,7 @@
 // Cut from src/review-draft.mjs at its named section (kogaki#1458); the
 // design and its rulings are stated at the entry and in the Issues each
 // block below names.
-//
+
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
 //   the figure record
@@ -17,31 +17,15 @@ import { passReadPath } from "./workspace.mjs";
 
 // ---------------------------------------------------------------------------
 // THE REGRESSION GUARD, AND THE TWO PASSES SIDE BY SIDE (kogaki#1135).
-//
-// WHAT WAS OBSERVED. In the first full review run, a corrected Leg FAILED in
-// pass two an item it had HELD in pass one. The Harness recorded that as
-// residue, indistinguishable from an item that failed in both passes, and
-// nothing put the Leg's pass-one prose back — so the run's product was an
-// article the review had made worse on a dimension the review itself measured,
-// reported as an item for the owner to classify.
-//
-// THE OWNER'S RULING (2026-09-17): `check` REFUSES A REGRESSION. The Leg is
-// restored to the prose it carried in pass one, through the realization lane
-// that wrote it, and the item the correction was made for returns to residue as
-// still failing — which is the true report: the correction was attempted, it
-// broke something that held, and the state the run ends in is the state it
-// started from with the original finding intact.
-//
-// ONLY THE REGRESSED LEG IS RESTORED, and later corrected Legs are neither
-// restored nor marked. Continuity between Legs was settled at Reader Path
-// design and holds while a Leg is unchanged; ReviewDraft is not responsible for
-// Leg-to-Leg continuity, so a restore that reached forward would be this
-// Harness answering a question the Reader Path owns.
-//
-// THE CORRECTION INPUT IS UNCHANGED. The owner weighed an explicit
-// edit-instruction stage and withdrew it: it would make some role responsible
-// for repair advice whose quality nothing guarantees. A failure reason from the
-// round trip is external feedback and stays what the corrector is handed.
+// OBSERVED: a corrected Leg FAILED in pass two an item it HELD in pass one,
+// recorded as residue and never put back. THE OWNER'S RULING (2026-09-17):
+// `check` REFUSES A REGRESSION — the Leg is restored to its pass-one prose
+// through the realization lane, and the item the correction was made for
+// returns to residue as still failing, which is the true report.
+// ONLY THE REGRESSED LEG IS RESTORED: Leg-to-Leg continuity is the Reader
+// Path's, not this Harness's. THE CORRECTION INPUT IS UNCHANGED: the owner
+// withdrew an edit-instruction stage, so the round trip's failure reason
+// stays what the corrector is handed.
 
 // PASS ONE'S ANSWER PER (Leg, item, pair), read off the pass-one join record
 // rather than recomputed. A row with `pairs` answers per pair; a row the
@@ -88,22 +72,14 @@ function regressedPairs(run, priorJoin, results) {
   return out;
 }
 
-// RESTORE ONE LEG, THROUGH THE REALIZATION LANE. The same door `correct` used
-// to move the prose is the door that moves it back — a restore that wrote the
-// Draft here would be a second writer of the trace, which is the reason
-// `correct` enters the lane as a subprocess in the first place.
-//
-// EVERY SEAT THE LEG WAS CORRECTED IN GOES BACK, prose before figure, in the
-// order `correct` itself enforces and for its reason: the record's caption is
-// stated in what the reader holds after reading the passage. A Leg corrected
-// in one seat restores one.
-//
-// PASS ONE'S READING COMES BACK WITH THE PROSE. The Reverse Outline pointer
-// returns to pass one's file and pass one's judged answers are written back
-// into the run's verdicts, because the prose those answers were given on is the
-// prose the Draft now carries again. Leaving pass two's answers beside restored
-// prose would be the defect this Harness exists to refuse — a recorded reading
-// about text that is gone — with the two halves swapped.
+// RESTORE ONE LEG, THROUGH THE REALIZATION LANE — the door `correct` used to
+// move the prose moves it back; a restore written here would be a second
+// writer of the trace. EVERY SEAT THE LEG WAS CORRECTED IN GOES BACK, prose
+// before figure, in the order `correct` enforces. PASS ONE'S READING COMES
+// BACK WITH THE PROSE: the Reverse Outline pointer returns to pass one's file
+// and pass one's judged answers are written back into the run's verdicts,
+// because leaving pass two's answers beside restored prose would be a recorded
+// reading about text that is gone.
 function restoreRegressedLeg(args, { draft, draftPath, ws, run, legId, regressed, passTwoRows, priorJoin }) {
   const inputs = run.correction_inputs || {};
   const seats = (run.corrections || []).filter((c) => c.leg_id === legId)
@@ -210,19 +186,12 @@ function restoreRegressedLeg(args, { draft, draftPath, ws, run, legId, regressed
 }
 
 // THE TWO PASSES SIDE BY SIDE, ONE ROW PER (Leg, item, pair) — `passes.json`
-// at the run root (kogaki#1135). Comparing the passes meant reading
-// `pass-1/join.json` and `pass-2/check.json` side by side by hand, and the
-// question a reader actually has of them — what did this pass DO to this pair —
-// is one word that neither record carries.
-//
-// JSON, NOT MARKDOWN, by the owner's ruling: it is a derived record for reading
-// against the two it is derived from, and the prose surface a person reads is
-// `review.md`.
-//
-// THE ROWS ARE PASS ONE'S KEYS. Pass one is the unbounded join over every Leg,
-// item and pair, so it is the complete index; a key pass two produced that pass
-// one never answered is reported in `pass_two_only` rather than given an
-// outcome word, because none of the five is true of a pair with one reading.
+// at the run root (kogaki#1135), carrying the one word neither `join.json` nor
+// `check.json` does: what this pass DID to this pair. JSON, NOT MARKDOWN, by
+// the owner's ruling — a derived record read against the two it derives from.
+// THE ROWS ARE PASS ONE'S KEYS, the complete index; a key pass two produced
+// that pass one never answered goes in `pass_two_only`, because none of the
+// five outcome words is true of a pair with one reading.
 const PASS_OUTCOMES = ["held", "fixed", "still-failing", "regressed", "carried"];
 function buildPasses(run, priorJoin, results) {
   const one = passOneVerdicts(priorJoin);

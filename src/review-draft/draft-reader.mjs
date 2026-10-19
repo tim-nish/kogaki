@@ -2,7 +2,7 @@
 // Cut from src/review-draft.mjs at its named section (kogaki#1458); the
 // design and its rulings are stated at the entry and in the Issues each
 // block below names.
-//
+
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
 //   the figure record
@@ -69,20 +69,12 @@ function argString(args, key, usage) {
   return v;
 }
 
-// THE REPLY REACHES THE HARNESS ON STANDARD INPUT (kogaki#1100), and the
-// `--file` and `--verdicts` arguments are gone with it. `runs/` is machine
-// state and holds what the Harness wrote; a reply the SESSION names a file for
-// is a write with no owner, and after each act the Harness already holds the
-// same bytes under its own name — so the file the session composed was a
-// duplicate sitting inside the Harness's own layout. Piping is also what the
-// acts are actually for: a spawn's output goes straight into the recording act
-// with nothing written in between.
-//
-// AN ABSENT REPLY IS THE EMPTY STRING, NEVER A BLOCKED READ. A terminal leaves
-// fd 0 open on a tty, so a two-phase act typed by hand would wait forever on a
-// reply nobody is piping; `isTTY` is what tells an absent reply from one still
-// arriving, and it is read here rather than at each call site so the five acts
-// cannot disagree about what absent means.
+// THE REPLY REACHES THE HARNESS ON STANDARD INPUT (kogaki#1100); `--file` and
+// `--verdicts` are gone with it, because a reply the session names a file for
+// is a write with no owner and a duplicate of what `runs/` already holds.
+// AN ABSENT REPLY IS THE EMPTY STRING, NEVER A BLOCKED READ: `isTTY` tells an
+// absent reply from one still arriving, read here rather than at each call
+// site so the five acts cannot disagree about what absent means.
 const STDIN_LABEL = "standard input";
 
 function readReply() {
@@ -135,44 +127,25 @@ function readDraft(draftPath) {
 
   const trace = [];
   let inTrace = false;
-  // THE `brief:` LINE IS READ AND NOTHING ELSE IS DONE WITH IT HERE. It is the
-  // one frontmatter field `correct` needs — the correction path goes back
-  // through the realization lane, and that lane is entered by its Brief — and
-  // it is read by the same line scan the trace is, for the same reason: `emit`
-  // writes it as one line and a general YAML parser would be a second grammar
-  // that can disagree with the writer.
-  //
-  // THIS IS NOT THE CLOSED-INPUT ALLOWLIST BREAKING (the owner's 2026-09-04
-  // ruling). The ruling binds what the REVIEWER reads: a comparison that needs
-  // the Brief, a Move or a Strand is a Packet gap. Nothing here reads the
-  // Brief's content — the path is handed to `src/draft.mjs`, the renderer that
-  // wrote the Packets in the first place, as an argument to a subprocess. The
-  // reviewer's blindness is untouched, and this module still imports only node
-  // builtins and ./runs.mjs.
+  // THE `brief:` LINE IS READ AND NOTHING ELSE IS DONE WITH IT HERE: it is the
+  // one frontmatter field `correct` needs to re-enter the realization lane,
+  // read by the same line scan as the trace because `emit` writes it as one
+  // line. THIS IS NOT THE CLOSED-INPUT ALLOWLIST BREAKING (owner ruling
+  // 2026-09-04): the ruling binds what the REVIEWER reads, and the path is
+  // handed to `src/draft.mjs` as a subprocess argument, never read here.
   let brief = null;
   for (let i = 1; i < end; i++) {
     const m = lines[i].match(/^brief: (.+?)\s*$/);
     if (m) { brief = m[1]; break; }
   }
-  // THE LANGUAGE THE DRAFT WAS REALIZED AT (kogaki#1160). `draft.mjs emit`
-  // writes `lang: <lang>` only for a non-English realization (`langOf`'s own
-  // "at `en` every path resolves to exactly the string it always did"
-  // convention) — so a Draft carrying no `lang:` field is English, never a
-  // Draft this reader refuses. Read by the same line scan as `brief:`, for the
-  // same reason: `emit` writes it as one line and a general YAML parser would
-  // be a second grammar that can disagree with the writer.
-  //
-  // THE VALUE IS FORM-CHECKED AT THE READ, and that is what the field's own
-  // comment above would otherwise only promise (PR #1164 round 1). Before this
-  // field existed the language reached `draft.mjs` from a `--lang` flag a
-  // person typed; it now arrives from FILE CONTENT, and it lands there as a
-  // path segment (`sectionsDir`, `packetsDir`), as a run.json key
-  // (`packetsRecordKey`) and inside the `draft.<lang>.md` emit name. So a
-  // Draft whose frontmatter carried a separator or a `..` would write outside
-  // the track it names. The form checked is the BCP-47-ish one `emit` writes —
-  // a primary subtag and an optional subtag — and it is a REFUSAL rather than
-  // a fallback to `en`, because silently reading an unreadable language as
-  // English is the cross-track write this issue exists to stop.
+  // THE LANGUAGE THE DRAFT WAS REALIZED AT (kogaki#1160): `draft.mjs emit`
+  // writes `lang:` only for a non-English realization, so no `lang:` is
+  // English, never a refusal. Read by the same line scan as `brief:`.
+  // THE VALUE IS FORM-CHECKED AT THE READ (PR #1164 round 1): it lands in
+  // `draft.mjs` as a path segment, a run.json key and inside the emit name, so
+  // a separator or `..` would write outside the track it names. The form is
+  // the BCP-47-ish one `emit` writes, and a bad value is a REFUSAL rather than
+  // a fallback to `en`, which would be the cross-track write itself.
   const LANG_FORM = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
   let lang = "en";
   for (let i = 1; i < end; i++) {
@@ -211,19 +184,12 @@ function readDraft(draftPath) {
   }
 
   // The body is everything after the closing `---` and the blank line the
-  // `\n\n` join leaves. Line numbers in the trace are 1-based over the FILE,
-  // frontmatter included, which is what an editor shows.
-  //
+  // `\n\n` join leaves; trace line numbers are 1-based over the FILE.
   // THE FINAL EMPTY ELEMENT IS DROPPED, AND THAT IS WHAT MAKES `body_sha` THE
-  // SAME NUMBER ON BOTH SIDES (PR #882 round 1, finding 2). `emit` writes
-  // `fm + "\n\n" + body + "\n"` and records `sha256(body)`; splitting that file
-  // on newlines leaves a trailing "" that the naive slice re-joins as a final
-  // "\n", so this hashed `body + "\n"` and an owner comparing
-  // `runs/draft/<slug>/last-emit.json` against the `**Body sha.**` line in
-  // `review.md` saw two different hexes for an unedited Draft. Nothing broke —
-  // `requireCurrent` only ever compared this value against itself — which is
-  // exactly why it could ship: the divergence is invisible to every reader
-  // except the owner, who is the one it misleads.
+  // SAME NUMBER ON BOTH SIDES (PR #882 round 1, finding 2): `emit` records
+  // `sha256(body)` of `fm + "\n\n" + body + "\n"`, and a naive slice re-joined
+  // the trailing "" as a final "\n", so the owner saw two hexes for an
+  // unedited Draft.
   const bodyLines = lines.slice(end + 2);
   if (bodyLines.length && bodyLines[bodyLines.length - 1] === "") bodyLines.pop();
   const body = bodyLines.join("\n");
@@ -349,35 +315,16 @@ function resolveInputs(draft) {
 
 // ---------------------------------------------------------------------------
 // THE JAPANESE-DRAFT PRECONDITION (kogaki#1158, the Terminology List
-// Decision, the versioning rule). A Japanese Draft — a Draft named
-// `theses/<slug>/draft.ja.md`, on the reserved-name reconciliation
-// src/draft.mjs `emit --lang ja` produces — must pass `node src/lint-ja.mjs
-// lint` before ReviewDraft may run against it: Lint runs BEFORE the Round
-// Trip, so a term-list deviation is caught by the cheap deterministic pass
-// rather than spending a Round Trip judgment on it. Conformance is decided
-// by the Lint against the CURRENT term list, never by what constrained
-// generation (the versioning rule) — so this reads `terms_sha_at_lint`
-// (never `terms_sha_at_generation`) against sha256(terms/prh.yml) as it
-// stands NOW, and refuses naming BOTH hashes when they disagree or when the
-// field is absent.
-//
-// READ AS A RAW LINE SCAN, before `readDraft` — the same convention
-// `readDraft`'s own frontmatter reads use, and it runs first so a Draft
-// that is ALSO short a trace or frontmatter is told about the term-list
-// precondition rather than an unrelated refusal about the Draft's own well-formedness.
-//
-// SCOPED TO `.ja.md` ONLY: an English CanonicalDraft carries no
-// `terms_sha_at_lint` field and none is owed — this precondition changes
-// nothing about `theses/<slug>/draft.md`.
-//
-// RESOLVED BESIDE THE RUNTIME, NEVER AGAINST THE WORKING DIRECTORY: the same
-// `terms/prh.yml`, one level up from this file's own directory, that
-// src/lint-ja.mjs's DEFAULT_TERMS_PATH and src/draft.mjs's `--terms-path`
-// default resolve — so `open` finds the term list whatever directory it is
-// invoked from. Computed locally (never imported from ./lint-ja.mjs) because
-// this Harness's own closed-input allowlist (below) forbids importing a
-// reader the Round Trip is not licensed to see; the path constant is not a
-// reader and duplicating a two-line join is what keeps it that way.
+// Decision, the versioning rule). A `theses/<slug>/draft.ja.md` must pass
+// `node src/lint-ja.mjs lint` before ReviewDraft runs against it: this reads
+// `terms_sha_at_lint` (never `terms_sha_at_generation`) against
+// sha256(terms/prh.yml) as it stands NOW, and refuses naming BOTH hashes when
+// they disagree or the field is absent. A raw line scan, run before
+// `readDraft` so the precondition is reported ahead of any other refusal;
+// scoped to `.ja.md` only. RESOLVED BESIDE THE RUNTIME, never against the
+// working directory — the same `terms/prh.yml` src/lint-ja.mjs and
+// src/draft.mjs default to — and computed locally, because the closed-input
+// allowlist forbids importing a reader the Round Trip may not see.
 const TERMS_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "terms", "prh.yml");
 
 function checkJaTermsFreshness(draftPath) {

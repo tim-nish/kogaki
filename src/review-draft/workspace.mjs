@@ -51,26 +51,15 @@ function writeRun(ws, run) {
 
 // ---------------------------------------------------------------------------
 // THE WORKSPACE IS SPLIT BY PASS, AND THE SPLIT IS THE CONTRACT (kogaki#994).
-//
-// Until this, pass two wrote `outline-input/<leg>.md`, `outline/<leg>.json` and
-// `join/<leg>.<item>.md` at the paths pass one had used, so the corrected
-// Legs' first-pass evidence was overwritten in place. `runs/` is gitignored,
-// so nothing else held a copy: pass one's blind reading of the ORIGINAL Draft,
-// and every pair input judged against it, were gone — and the surviving
-// verdicts in `join.json` indexed into Reverse Outlines that no longer
-// existed. A rule saying "do not overwrite" would be prose where a refusal
-// belongs, so the layout is the Harness's:
-//
+// Pass two used to overwrite pass one's outline inputs, outlines and join
+// Packets in place, and `runs/` is gitignored, so the layout is the Harness's:
 //   runs/review/<slug>/pass-1/{outline-input,outline,join,corrections,join.json}
 //   runs/review/<slug>/pass-2/{outline-input,outline,join,check.json}
 //   runs/review/<slug>/snapshots/     — before/after per corrected Leg
 //   runs/review/<slug>/run.json
-//
-// A later third pass is `pass-3/` and NOTHING ELSE MOVES: the pass number is a
-// run-record field, so a pass gains a directory rather than the layout gaining
-// a rule. `snapshots/` and `run.json` stay at the workspace root deliberately —
-// a snapshot pair spans the correction that separates two passes, and the run
-// record is the one file every pass writes.
+// A later third pass is `pass-3/` and NOTHING ELSE MOVES. `snapshots/` and
+// `run.json` stay at the workspace root: a snapshot pair spans the correction
+// between two passes, and the run record is the one file every pass writes.
 
 // The pass the run is ON. Absent on a record written before this split, which
 // reads as pass one — the pass such a record's evidence was in fact written by.

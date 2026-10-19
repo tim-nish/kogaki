@@ -2,9 +2,11 @@
 // Cut from src/review-draft.mjs at its named section (kogaki#1458); the
 // design and its rulings are stated at the entry and in the Issues each
 // block below names.
-//
+
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
+//   the figure decision
+//       SPEC-draft-pipeline "The figure decision — `figure:` and `figure_roles` on a Leg"
 //   the figure record
 //       SPEC-draft-pipeline "The figure record — the form's instance, filled after the prose"
 //   the renderer
@@ -58,34 +60,16 @@ function renderElements(elements) {
 }
 
 // The one figure row the Harness decides alone. EVERY ELEMENT'S TEXT IS
-// ENTAILED BY ITS BOUND CLAIM, and the instrument is containment against the
-// claim the record's address POINTS AT, with its own declared floor — the
-// only containment reading left on either side of the round trip, now that
-// the prose side's `claims` is judged rather than measured by shared words.
-//
-// THE BINDING ITSELF IS NOT WHAT THIS CHECKS, and saying so is the point.
-// The figure record already refuses a record that moves a role to a claim the Brief did
-// not bind it to, at the act that validates the record — so re-deciding it here
-// would be a second validator agreeing with the first until one is edited. What
-// no act before this one can ask is whether the WORDING the element finally got
-// is carried by the material it was licensed from, because the wording is
-// written after the prose and judged against nothing until the round trip.
-//
-// STRING CONTAINMENT FIRST, JUDGED SECOND. What is mechanical here is the
-// verdict: containment above the floor holds, below it fails, and no model is
-// asked either way — which is what the mode declares and what makes a
-// mechanical fail cheap enough to run on every Leg of every pass. The judgment
-// comes second and elsewhere: a fail on this preserved row is what sends the
-// Leg to `correct --figure`, where a reader is shown the element beside the
-// claim it was worded from.
-//
-// THE ADDRESS IS `g<n>` OVER THE LEG'S OWN CLAIMS, 1-based, which is the
-// figure decision's
-// grammar. An address outside the Leg's claim count is refused by name rather
-// than scored against whatever happens to sit at that index — the figure
-// decision's own
-// grammar refuses one at composition, so a record carrying one now was written
-// against a Brief this Draft was not emitted from.
+// ENTAILED BY ITS BOUND CLAIM: containment against the claim the record's
+// address POINTS AT, with its own declared floor. THE BINDING ITSELF IS NOT
+// WHAT THIS CHECKS — the figure record already refuses a role moved to a claim
+// the Brief did not bind; what no earlier act can ask is whether the WORDING
+// is carried by the material it was licensed from. STRING CONTAINMENT FIRST,
+// JUDGED SECOND: no model is asked here, and a fail sends the Leg to
+// `correct --figure`, where a reader sees the element beside its claim.
+// THE ADDRESS IS `g<n>` OVER THE LEG'S OWN CLAIMS, 1-based, the figure
+// decision's grammar; one outside the Leg's claim count is refused by name,
+// since the figure decision refuses it at composition.
 function claimAt(address, claims) {
   const m = /^g(\d+)$/.exec(String(address ?? ""));
   if (!m) return { error: `is bound to ${renderSide(address ?? null)}, which is not a claim `
@@ -203,19 +187,12 @@ const judgedByLine = (...callSets) => {
 };
 
 // THE VERDICT FILE IS VALIDATED AGAINST WHAT THE RUN ACTUALLY OWES, and every
-// refusal names what it saw. Three refusals matter and each is its own mistake:
-// a pair nobody was asked about, a token outside the closed three, and a reason
-// carrying a digit.
-//
-// A DIGIT IN THE REASON IS REFUSED, which is the one rule here that looks like
-// fussiness and is not. The item table holds no severity and the verdict set has
-// no order; a number in the sentence is where a score comes back in — "three of
-// five claims", "eighty percent" — and once one is written a later reader
-// compares them. Line numbers are the Harness's and are already rendered in the
-// span; every other number in a review is a score by another name.
-// THE VERDICTS ARRIVE AS TEXT, not as a path (kogaki#1100). The caller has
-// already taken the reply off standard input, so this validates what it was
-// handed and names the stream in every refusal.
+// refusal names what it saw: a pair nobody was asked about, a token outside
+// the closed three, and a reason carrying a digit. A DIGIT IN THE REASON IS
+// REFUSED because a number in the sentence is where a score comes back in;
+// line numbers are the Harness's and already sit in the span. THE VERDICTS
+// ARRIVE AS TEXT, not as a path (kogaki#1100), and every refusal names the
+// stream.
 function recordVerdicts(run, text, owed, items) {
   let doc;
   try { doc = JSON.parse(text); }
@@ -428,20 +405,14 @@ function renderSide(v) {
   return String(v);
 }
 
-// EVERY (Leg, item) PAIR, computed fresh. Mechanical items are decided here;
-// judged items are rendered as join Packets and answered from the run record.
-// Nothing is cached across a call, because a recorded verdict is exactly what
-// changes the answer.
-// `opts.bound` and `opts.carry` ARE THE SECOND PASS'S WHOLE MECHANISM
-// (kogaki#874). With no bound this is pass one, unchanged: every pair is
-// computed. With one, a pair outside it is CARRIED from the record `opts.carry`
-// holds and is neither rendered as a join Packet nor logged — which is what
-// makes the bound checkable in `check.json` rather than merely stated, since a
-// filter applied after the log was written would count work it did not do.
-// `opts.pass` is REQUIRED and is the pass the CALLING COMMAND is — `compare`
-// passes 1 and `check` passes 2. It is not defaulted: a default here would be a
-// second answer to the question the caller already answers, and the wrong one is
-// exactly the defect this parameter exists to close.
+// EVERY (Leg, item) PAIR, computed fresh: mechanical items are decided here,
+// judged items are rendered as join Packets and answered from the run record,
+// and nothing is cached across a call. `opts.bound` and `opts.carry` ARE THE
+// SECOND PASS'S WHOLE MECHANISM (kogaki#874): with no bound every pair is
+// computed; with one, a pair outside it is CARRIED from `opts.carry` and is
+// neither rendered nor logged, which is what makes the bound checkable in
+// `check.json`. `opts.pass` is REQUIRED and is the pass the CALLING COMMAND
+// is — `compare` passes 1 and `check` passes 2 — never defaulted.
 function buildJoin(draft, run, items, ws, opts = {}) {
   const pass = requirePass(opts.pass, "buildJoin");
   // SCOPED TO `run.legs`, NEVER TO THE WHOLE TRACE (kogaki#1165). An
@@ -559,18 +530,11 @@ function buildJoin(draft, run, items, ws, opts = {}) {
       const subs = [];
       if (item.mode === "per-declared") {
         // ONE PACKET PER DECLARED ENTRY, AND THE QUESTION IS RECOVERY
-        // (kogaki#1132). The pair index is the DECLARED side's — `claims`'s kth
-        // pair is the Leg's kth declared claim — and the reverse side is
-        // everything the reader wrote for the field, whole. Surplus is not
-        // judged: the Packet tells the writer to retell material it asserts
-        // nothing about, so a correctly realized passage asserts MORE than its
-        // declared claim by design, and the item that asked the other way round
-        // failed on every Leg of the first full run.
-        //
-        // EACH ENTRY CARRIES THE DECLARED TEXT IT WAS ASKED ABOUT. That is what
-        // lets the correction name the claim that was lost, in its own words,
-        // rather than reporting that the row failed and leaving the corrector
-        // to work out which of several declared claims went missing.
+        // (kogaki#1132): the pair index is the DECLARED side's, the reverse
+        // side is everything the reader wrote for the field, and surplus is
+        // not judged — a correctly realized passage asserts MORE than its
+        // declared claim by design. EACH ENTRY CARRIES THE DECLARED TEXT IT
+        // WAS ASKED ABOUT, so the correction can name the lost claim.
         const declaredEntries = declared[item.declared_block] || [];
         const reverseWhole = renderSide(rec[item.field] || []);
         // THE REVERSE SIDE OF AN OPENING ROW IS THE PARAGRAPH'S OWN FIRST SENTENCE
@@ -663,31 +627,14 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         pair: chosen.pair,
         verdict: chosen.verdict, reason: chosen.reason,
         // THE KEY IS PRESENT EXACTLY WHERE `judged` IS TRUE, and its VALUE is
-        // the chosen pair's — the pair whose verdict, reason and span this row
-        // renders (PR #1001 round 1).
-        //
-        // `judged` REPLACED `decided_by` AT kogaki#1134, and the two keys said
-        // one thing twice: `decided_by: "model"` beside `model: <id>` read as
-        // the same fact spelled two ways. The boolean says whether a Judge was
-        // asked at all and `model` says which, which is the split that was
-        // there all along.
-        //
-        // The two facts come apart on a HYBRID item — a row some of whose pairs
-        // the Harness decides and some of whose pairs a model answers. `judged`
-        // is a fact about the row's pairs — any one judged makes it true —
-        // while every other field here is the CHOSEN pair's, so the chosen one
-        // can be the Harness's out of a row a model also answered. Keying
-        // presence on the chosen pair, as this first did, then produced a row
-        // saying it was judged and carrying no `model` — the one case the
-        // absence was supposed to rule out. NO ROW IN THE SHIPPED TABLE IS
-        // HYBRID SINCE kogaki#1132 removed the one hybrid mode; the rule is
-        // live code with no current specimen, kept rather than retired.
-        //
-        // So presence answers "was a model asked here at all", which is exactly
-        // what `judged` says, and `null` answers "not for the line you are
-        // reading" — a Harness-decided pair won the selection. A row with no
-        // key is a row where nothing was asked; the truth per pair is in
-        // `pairs`, and it always was.
+        // the chosen pair's (PR #1001 round 1). `judged` REPLACED `decided_by`
+        // AT kogaki#1134: the boolean says whether a Judge was asked at all
+        // and `model` says which. On a HYBRID row (some pairs Harness-decided,
+        // some judged) `judged` is a fact about the row's pairs while every
+        // other field is the CHOSEN pair's, so presence answers "was a model
+        // asked here at all" and `null` answers "not for this line". No row in
+        // the shipped table is hybrid since kogaki#1132; the rule is kept
+        // rather than retired. The truth per pair is in `pairs`.
         ...(rowJudged ? { model: chosen.model ?? null } : {}),
         ...(lost.length ? { evidence: lost } : {}),
         span: chosen.span, pairs: subs });
@@ -714,18 +661,11 @@ function refuseNumericReason(r, where) {
 }
 
 // ONE LINE PER (Leg, item), AND NO NUMBER IN IT THAT IS NOT A LINE NUMBER —
-// ENFORCED HERE RATHER THAN PROMISED. The span is the only numeric field the
-// line carries, and a reason carrying a digit refuses the whole emission by
-// name.
-//
-// THE RULE IS ENFORCED BECAUSE THE FIRST LIVE DRIVE BROKE IT. Quoting the
-// offending material into the reason read as helpful and was the leak: the live
-// Draft's claims are labelled by the Strands they came from, so
-// `claims-unused` rendered `claim (strand L97)` into a comparison line and put
-// a number in front of a reader that was not a line number and could be
-// compared. So quoted material is EVIDENCE — it goes to the join record and to
-// the owner record, where a reader can see it in full — and never into the line
-// whose whole claim is that the only numbers in it are coordinates.
+// ENFORCED HERE RATHER THAN PROMISED: the span is the only numeric field, and
+// a reason carrying a digit refuses the whole emission by name. The first live
+// drive broke it — `claims-unused` rendered `claim (strand L97)` into a line —
+// so quoted material is EVIDENCE, for the join record and the owner record,
+// and never for the line whose only numbers are coordinates.
 function comparisonLine(r) {
   refuseNumericReason(r, `${r.leg_id}/${r.item}`);
   const w = (s, n) => String(s).padEnd(n, " ");

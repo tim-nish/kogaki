@@ -2,7 +2,7 @@
 // Cut from src/review-draft.mjs at its named section (kogaki#1458); the
 // design and its rulings are stated at the entry and in the Issues each
 // block below names.
-//
+
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
 //   the figure record
@@ -20,26 +20,16 @@ import { fail, sha256, readDraft, resolveInputs } from "./draft-reader.mjs";
 import { writeRun, passPathAt, passReadPath } from "./workspace.mjs";
 
 // ---------------------------------------------------------------------------
-// THE CORRECTION PATH (kogaki#874). What a corrected Leg receives, the bounded
+// THE CORRECTION PATH (kogaki#874): what a corrected Leg receives, the bounded
 // second pass, and the drift measure.
-//
 // A CORRECTED LEG IS REALIZED FROM A FRESHLY RENDERED PACKET, never from the
-// Packet that produced the failing prose. That is the whole answer to the
-// owner's 2026-09-04 concern: the Packet's "article so far" block is the
-// continuity mechanism, and a Leg corrected against its ORIGINAL Packet would
-// be re-realized against prose that has since moved — so each correction would
-// carry the Leg a little further from the article it actually sits in, which
-// is exactly the drift the concern names. Rendering fresh makes the corrected
-// Leg's input the current article, including Legs corrected earlier in the
-// same pass.
-//
-// THE REALIZATION LANE IS ENTERED AS A SUBPROCESS, never imported. `draft.mjs`
-// is the renderer that wrote the Packets this review compares against, so a
-// Leg re-realized through it is realized by the same code path the original
-// was; re-implementing `packet`, `section` or `emit` here would be a second
-// writer of the Draft, and the two would disagree about the trace. The
-// closed-input allowlist is untouched — see the note at `readDraft`'s `brief:`
-// read for why the ruling binds the reviewer's reading and not this call.
+// Packet that produced the failing prose (owner concern 2026-09-04): the
+// Packet's "article so far" block is the continuity mechanism, and the current
+// article is what the corrected Leg must sit in.
+// THE REALIZATION LANE IS ENTERED AS A SUBPROCESS, never imported: `draft.mjs`
+// wrote the Packets, and a second writer of the Draft would disagree with it
+// about the trace. See `readDraft`'s `brief:` read for why the closed-input
+// ruling binds the reviewer's reading and not this call.
 function briefOf(draft) {
   if (!draft.brief) {
     fail(`${draft.path} names no Brief in its frontmatter, and the correction path re-enters the `
@@ -111,39 +101,21 @@ function readJoin(ws) {
 }
 
 // THE SEAT-BLIND `correctionOwed` IS DELETED (kogaki#945), not left beside its
-// replacement. Its last reader was `check`'s UNCORRECTED line, which is now
-// per seat; keeping an unreferenced Leg-granular owed-set would leave the next
-// reader a choice between two answers to one question, and the seat-blind one
-// is the answer that was wrong.
-//
-// What it carried that still binds, restated where the computation now lives:
-// best-effort fails never send a Leg to correction — they ride along when the
-// Leg is re-realized anyway, which is what the item table's class means at
-// this act exactly as it means it at `close`. `failingSides` below is now the
-// sole computer of it.
-//
-// A LOCALIZED SECTION FAIL USED TO ADD ITS TARGET LEG HERE (kogaki#873), and
-// that arm is gone with the reader that produced it (kogaki#1133): the failing
-// preserved items of the Leg itself are now the whole of what sends it to
-// correction.
+// replacement: `failingSides` below is the sole computer of what sends a Leg
+// to correction. Best-effort fails never do — they ride along when the Leg is
+// re-realized anyway, which is what the item table's class means here as at
+// `close`. The localized Section-fail arm of kogaki#873 is gone with its
+// reader (kogaki#1133).
 
 // ---------------------------------------------------------------------------
-// THE FIGURE CORRECTION (kogaki#880). A failing PRESERVED figure item sends its
-// Leg to correction exactly as a failing prose item does — same class rule,
-// same consequence — but what is re-realized is the RECORD, not the passage.
-//
-// TWO CORRECTIONS, NOT ONE WIDENED ONE, and the split is the design rather than
-// an implementation convenience. The prose correction hands back prose and goes
-// through `draft.mjs section`; the figure correction hands back a JSON record
-// and goes through `draft.mjs figure`, which re-validates it against
-// src/figure-schema.json and the Move's own form. Composing them would mean one
-// act whose input depends on which item failed, and a session would have
-// to know which before it could answer.
-//
-// PROSE FIRST WHERE A LEG OWES BOTH. The figure record's whole claim for filling the
-// record after the text is that the caption is stated in what the reader holds
-// after reading THIS passage — so a record corrected against prose that is
-// about to change is a record corrected against nothing.
+// THE FIGURE CORRECTION (kogaki#880). A failing PRESERVED figure item sends
+// its Leg to correction as a failing prose item does, but what is re-realized
+// is the RECORD, through `draft.mjs figure`, which re-validates it against
+// src/figure-schema.json. TWO CORRECTIONS, NOT ONE WIDENED ONE: composing them
+// would make one act whose input depends on which item failed.
+// PROSE FIRST WHERE A LEG OWES BOTH: the record's caption is stated in what
+// the reader holds after reading THIS passage, so a record corrected against
+// prose about to change is corrected against nothing.
 
 // The figure rows of the table, read from it rather than spelled here: a
 // runtime naming figure item ids could not be told from one restating the
@@ -177,22 +149,12 @@ function figureCorrectionOwed(run, items) {
   return run.legs.map((s) => s.leg_id).filter((id) => failingSides(run, items, id).figure.length);
 }
 
-// THE (Leg, seat) PAIRS STILL OWED A CORRECTION, in path order, prose first
-// and each figure entry marked with the flag that reaches it. ONE definition
-// for three readers (kogaki#945): the two `correct` reports and `check`'s
-// UNCORRECTED line.
-//
-// THE UNCORRECTED LINE KEYED ON THE LEG ALONE until this, and that is the
-// defect. `bound.corrected` is the set of Legs carrying ANY recorded
-// correction, so a Leg that owed BOTH seats and received one was in it — and
-// `correctionOwed(run).filter((id) => !bound.corrected.has(id))` therefore
-// dropped it, reporting no UNCORRECTED line for a Leg still owing its other
-// seat. That is the same silence PR #906 round 1's finding 1 repaired at the
-// single-seat level, reappearing at the seat kogaki#880 introduced.
-//
-// The two `correct` reports already computed exactly this, twice, inline. They
-// now read it from here, so a third seat cannot be added to one reader and
-// missed by the others.
+// THE (Leg, seat) PAIRS STILL OWED A CORRECTION, in path order, prose first,
+// each figure entry marked with the flag that reaches it. ONE definition for
+// three readers (kogaki#945): the two `correct` reports and `check`'s
+// UNCORRECTED line, which keyed on the Leg alone until this and dropped a Leg
+// that owed both seats and received one — PR #906 round 1 finding 1's silence
+// at the seat kogaki#880 introduced.
 function seatsStillOwed(run, items) {
   const done = (seat) => new Set((run.corrections || [])
     .filter((c) => (c.seat || "prose") === seat).map((c) => c.leg_id));
@@ -542,19 +504,13 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
       : "every Leg pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"));
 }
 
-// THE SECOND PASS'S BOUND. Three arms, and the item ids come from the table
-// rather than from this file (see `pass_two` there):
-//
+// THE SECOND PASS'S BOUND. Three arms, item ids from the table (`pass_two`):
 //   - a corrected Leg, on its own failed items and its held preserved items;
 //   - the Leg immediately AFTER each corrected Leg, on the continuity items
-//     the table names — the correction moved the prose that Leg continues
-//     from;
+//     the table names — the correction moved the prose it continues from;
 //   - every mechanical item, over the whole Draft.
-//
-// Nothing else is re-judged, and "nothing else" is the point rather than a
-// saving: pass two exists to answer what the correction changed, and re-judging
-// an untouched pair would put a second reading beside a recorded one with
-// nothing to distinguish them.
+// Nothing else is re-judged: pass two answers what the correction changed, and
+// a second reading beside a recorded one has nothing to distinguish them.
 function passTwoBound(run, items) {
   // THE ARM MUST BE NON-EMPTY, AND ITS SIZE IS THE TABLE'S (kogaki#1014). This
   // read for a pair of exactly two, which was the runtime restating a layout the

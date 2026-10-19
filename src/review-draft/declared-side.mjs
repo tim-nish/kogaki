@@ -2,7 +2,7 @@
 // Cut from src/review-draft.mjs at its named section (kogaki#1458); the
 // design and its rulings are stated at the entry and in the Issues each
 // block below names.
-//
+
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
 //   the renderer
@@ -15,26 +15,15 @@ import { parseYaml } from "../yaml.mjs";
 import { fail } from "./draft-reader.mjs";
 
 // ---------------------------------------------------------------------------
-// THE COMPARISON (kogaki#872). The join between what a Packet DECLARED and what
-// the Blind Reader read out of the prose it produced.
-//
+// THE COMPARISON (kogaki#872): the join between what a Packet DECLARED and
+// what the Blind Reader read out of the prose it produced.
 // THE ITEM TABLE IS FIXED IN THE HARNESS AND READ FROM `src/review-items.json`
-// — which item classes exist, which are preserved and which are best-effort,
-// which are decided mechanically and which are put to a model. The runtime does
-// not restate it, the same arrangement `src/packet-template.md` has with
-// `src/draft.mjs`: amending the table is one edit.
-//
-// THE MODEL NEVER ASSIGNS SEVERITY, and that is the whole reason the table is
-// here rather than in a prompt. A judging model sees ONE pair, answers ONE
-// question, and returns one of three tokens with one sentence. It cannot rank,
-// weigh or aggregate, because it is never shown two pairs at once. What a
-// `fails` COSTS is the table's: a preserved item's fail sends the Leg to
-// correction, a best-effort item's rides along if that Leg is re-realized
-// anyway.
-//
-// `cannot-decide` IS NEVER ROUNDED. It is a third answer, not a weak `holds`,
-// and it is listed with its pair so a person can look at what the reader could
-// not settle.
+// — classes, preserved or best-effort, mechanical or judged; amending it is
+// one edit, the arrangement `src/packet-template.md` has with `src/draft.mjs`.
+// THE MODEL NEVER ASSIGNS SEVERITY: it sees ONE pair, answers ONE question,
+// returns one of three tokens with one sentence, and what a `fails` COSTS is
+// the table's. `cannot-decide` IS NEVER ROUNDED — it is a third answer,
+// listed with its pair for a person to look at.
 
 function readItems() {
   const p = join(dirname(fileURLToPath(import.meta.url)), "..", "review-items.json");
@@ -439,35 +428,16 @@ const MECHANICAL = {
   // same act, and the binding check below is what makes a row with no
   // implementation refuse rather than silently skip — so the two cannot drift.
 
-  // AND `claims-unused` LEFT WITH THE MATCHER IT READ (kogaki#1132). It was the
-  // best-effort row reporting a declared claim no outlined claim matched, and it
-  // held on every Leg of the first full run while the preserved row failed on
-  // every Leg: the item with a consequence detected surplus, and the item that
-  // detected a lost claim had none. Both halves are now the one preserved
-  // `claims` row, asked once per DECLARED claim, so a lost claim is named to the
-  // correction with its own text instead of being reported beside it.
-  //
-  // READ FROM THE DRAFT ALONE (kogaki#1255 cell 4). `demonstrative-reference`
-  // declares no Packet block and no figure field — a Packet does not carry
-  // the prose's referring expressions, so the only side this item has is the
-  // passage itself. The antecedent it asks about is read mechanically as a
-  // STRING FACT — an enumeration's form, a comma or an "and"/"or" run — never
-  // as which candidate is the right one, which is a reading no string fact
-  // settles and this item never asks.
-  //
-  // THE WINDOW IS ONE PARAGRAPH BACK, named so a later reader can tell the
-  // bound from an oversight: a reader who just read the paragraph before the
-  // one carrying the reference still holds it; a reader three paragraphs past
-  // it does not, which is the fixture `checks/check-brief-review.sh` carries.
-  // So the enumeration must sit in the reference's OWN paragraph (before the
-  // reference) or the one immediately before it — never further back.
-  //
-  // A SECOND TEST OVER A PARAGRAPH'S FIRST SENTENCE (kogaki#1322, owner
-  // ruling 2026-10-10). The owner's boundary for anaphora is the paragraph,
-  // on both sides: a first sentence that opens on a demonstrative or a
-  // third-person pronoun fails by naming the line and the word, with no
-  // lookback at all — the one-paragraph window above stays for a sentence
-  // after the first.
+  // `claims-unused` LEFT WITH THE MATCHER IT READ (kogaki#1132): both halves
+  // are the one preserved `claims` row, asked once per DECLARED claim.
+  // `demonstrative-reference` IS READ FROM THE DRAFT ALONE (kogaki#1255 cell
+  // 4): the antecedent is a STRING FACT — an enumeration's form, a comma or an
+  // "and"/"or" run — never which candidate is right. THE WINDOW IS ONE
+  // PARAGRAPH BACK (fixture: `checks/check-brief-review.sh`): the enumeration
+  // sits in the reference's own paragraph, before it, or the one immediately
+  // before. A SECOND TEST OVER A PARAGRAPH'S FIRST SENTENCE (kogaki#1322,
+  // owner ruling 2026-10-10): a first sentence opening on a demonstrative or a
+  // third-person pronoun fails by naming the line and the word, no lookback.
   "demonstrative-reference": ({ leg, draft }) => {
     const paras = paragraphsOf(draft);
     for (let pi = 0; pi < paras.length; pi++) {

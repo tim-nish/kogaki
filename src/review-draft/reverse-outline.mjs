@@ -2,7 +2,7 @@
 // Cut from src/review-draft.mjs at its named section (kogaki#1458); the
 // design and its rulings are stated at the entry and in the Issues each
 // block below names.
-//
+
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
 //   the figure record
@@ -17,26 +17,14 @@ import { parseLegBlock, legField, fail } from "./draft-reader.mjs";
 import { passPath } from "./workspace.mjs";
 
 // ---------------------------------------------------------------------------
-// Rendering a Reverse Outline input. The reviewer is BLIND: it sees the prose and
-// never the Packet, which is what makes the Reverse Outline evidence about the
-// prose rather than a re-reading of the input.
-//
-// The RECORD's schema is kogaki#871's and is deliberately not fixed here — this
-// artifact renders the input and records what comes back. The line below names
-// that boundary in the rendered file itself, so a reviewer reading an input
-// before #871 lands can see which half is missing rather than inventing one.
-// THE ARTICLE BEFORE THIS PASSAGE, re-derived from the CURRENT Draft rather
-// than read from the Packet that produced the prose (kogaki#871). Two reasons,
-// and only the second is about blindness: the Packet's own "article so far"
-// block was true when the Leg was written and a later correction may have
-// moved it, so the current Draft is the article the reader actually meets; and
-// reading the Packet for it would put Packet bytes into a reviewer whose
-// ignorance is the instrument.
-//
-// Grouped under the Section headings the trace declares, never by scanning the
-// body for `##` lines — the trace already maps each Leg to its Section
-// (kogaki#823), and a heading scan would be a second answer to a question the
-// trace answers.
+// Rendering a Reverse Outline input. The reviewer is BLIND: it sees the prose
+// and never the Packet, which is what makes the Reverse Outline evidence about
+// the prose. The RECORD's schema is kogaki#871's.
+// THE ARTICLE BEFORE THIS PASSAGE is re-derived from the CURRENT Draft rather
+// than read from the Packet (kogaki#871): a later correction may have moved
+// the Packet's "article so far", and Packet bytes would reach a reviewer whose
+// ignorance is the instrument. Grouped under the Section headings the trace
+// declares (kogaki#823), never by scanning the body for `##` lines.
 function articleBefore(legs, legId) {
   const idx = legs.findIndex((s) => s.leg_id === legId);
   if (idx <= 0) {
@@ -74,22 +62,15 @@ function numberedRange(text, lines) {
     .join("\n");
 }
 
-// THE INSTRUCTION NAMES NO SIDE (PR #946 round 1). It read "where it sits
-// relative to the passage BELOW", which was true while the block was always
-// rendered above the passage and became false for half the cases the moment
-// kogaki#945 made the placement faithful — handing a blind reviewer a sentence
-// asserting the opposite arrangement to the one on their page, which is the
-// inverted-order reading `figure-position` exists to prevent, reintroduced in
-// prose one line from the fix. The placement cases assert by slot index and
-// cannot see a wrong word, so a case asserts the absence directly.
-//
-// THE FIGURE AS THE READER MET IT (kogaki#880) — the Draft's own bytes over the
-// range the renderer records, numbered in the same coordinate the prose is, and
-// NOTHING from the record. Two facts reach the blind reviewer from this and
-// they are both facts about the article: what the block says, and where in the
-// Draft it sits relative to the passage. The record's roles, claim addresses,
-// relations, kind and position word reach it nowhere, which is what makes the
-// element-to-claim join downstream a comparison rather than a restatement.
+// THE INSTRUCTION NAMES NO SIDE (PR #946 round 1): "relative to the passage
+// BELOW" became false for half the cases once kogaki#945 made the placement
+// faithful, and the placement cases assert by slot index, so a case asserts
+// the absence directly.
+// THE FIGURE AS THE READER MET IT (kogaki#880): the Draft's own bytes over the
+// range the renderer records, numbered in the prose's coordinate, and NOTHING
+// from the record — its roles, claim addresses, relations, kind and position
+// word reach the blind reviewer nowhere, which is what makes the downstream
+// element-to-claim join a comparison rather than a restatement.
 function numberedFigure(leg) {
   return numberedRange(leg.figure.rendered, leg.figure.lines);
 }
@@ -162,24 +143,15 @@ function renderFigurePassage(leg) {
     ""].join("\n");
 }
 
-// THE BLIND READER'S INPUT IS THE BRIEF LEG SCHEMA AND THE PROSE (kogaki#1014).
-//
-// Reverse Outlining: read the passage, then write the outline entry the passage
-// would have been written from — in the SAME FORM as the forward outline. So
-// the input carries the Brief's own field list with the Brief's own
-// definitions, and nothing else. There is no template file, because there is no
-// second artifact to describe: the reader fills a `leg` block.
-//
-// WHAT IS WITHHELD IS WITHHELD DELIBERATELY. The Forward Artifact is not shown —
-// that is what makes the comparison worth making — and neither is the Move, its
-// candidates, or any of the not-reconstructible fields. Supplying the Move
-// would make the outcome ride on supplied information; its effect is carried by
-// the reader states, which ARE compared.
-//
-// THE ARTICLE'S OWN TEXT GOES IN LAST. `article_so_far`, `leg_prose` and the
-// figure passage are the Draft's own bytes, and an article about this pipeline
-// can quote a field name or a fenced block as its own subject matter — so
-// nothing below substitutes into them.
+// THE BLIND READER'S INPUT IS THE BRIEF LEG SCHEMA AND THE PROSE (kogaki#1014):
+// the reader writes the outline entry the passage would have been written
+// from, in the SAME FORM as the forward outline, so the input carries the
+// Brief's own field list and definitions and no template file. WHAT IS
+// WITHHELD IS WITHHELD DELIBERATELY: the Forward Artifact, the Move, its
+// candidates and every not-reconstructible field, whose effect is carried by
+// the reader states, which ARE compared. THE ARTICLE'S OWN TEXT GOES IN LAST,
+// because an article about this pipeline can quote a field name or a fence as
+// its subject matter — nothing below substitutes into it.
 function renderReverseOutlineInput(ws, run, draft, leg, legs) {
   const figureBlock = leg.figure ? renderFigurePassage(leg) : "";
   const figureFirst = leg.figure ? figureBeforePassage(leg) : false;
@@ -300,35 +272,16 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
 
 // ---------------------------------------------------------------------------
 // THE REVERSE OUTLINE, AND THE FIELDS IT IS WRITTEN IN (kogaki#1013/#1014).
-//
-// Reverse Outlining is the method: after drafting, write an outline of what the
-// prose actually says, in the same form as the forward outline, and compare
-// entry by entry. So the Reverse Outline is a BRIEF LEG BLOCK — every field is
-// a Brief field under the Brief's own name and definition — and there is no
-// second schema for the same information. `src/outlined-schema.json` and
-// `src/outline-template.md` were that second schema and are deleted with this.
-//
-// THE DISPOSITIONS ARE DECLARED ONCE, HERE, PER BRIEF LEG FIELD, and the table
-// below is that declaration. A field the Blind Reader is asked for is one a
-// reader of the prose alone can write; a field they are refused is one whose
-// answer is not in the passage, and asking would get an invention back that the
-// Round Trip would then dutifully compare.
-//
-// `claims` IS THE `claim ` LINES, not a `claims:` field — the line form the
-// figure input renders a Leg's claims in (`claimLines`, src/draft.mjs), read
-// here off the outline by `outlineClaims`.
-//
-// THE FIELDS WERE FIVE, AND TWO LEFT TOGETHER (owner 2026-09-17; kogaki#1132); `waypoints`
-// made them six (kogaki#1311).
-// `concession` was the one field here that was not a Brief field at all — it
-// entered through kogaki#871's body with no design-table row — and
-// `opens_section` is a Brief field whose Round Trip row asked a realization
-// lint of the class removed on 2026-09-09. Both rows left the item table, so
-// neither field has a reader; a field asked for and compared by nothing is a
-// reading the Blind Reader is charged for and nobody looks at. `opens_section`
-// moves to the refused list below, because it IS a Brief Leg field and the
-// closed line set would otherwise admit it silently; `concession` is refused by
-// that closed set itself, which names it and says it is not a Brief Leg field.
+// The Reverse Outline is a BRIEF LEG BLOCK — every field a Brief field under
+// its own name — and there is no second schema; `src/outlined-schema.json` and
+// `src/outline-template.md` were deleted with this. THE DISPOSITIONS ARE
+// DECLARED ONCE, HERE, PER BRIEF LEG FIELD: a field the Blind Reader is asked
+// for is one a reader of the prose alone can write. `claims` IS THE `claim `
+// LINES (`claimLines`, src/draft.mjs), read off the outline by `outlineClaims`.
+// `concession` and `opens_section` left together (owner 2026-09-17,
+// kogaki#1132) — their item rows were removed, so nothing compared them;
+// `waypoints` joined at kogaki#1311. `opens_section` is on the refused list
+// because it IS a Brief Leg field; `concession` is refused by the closed set.
 const RECONSTRUCTIBLE_FIELDS = [
   { name: "purpose", kind: "line",
     definition: "what this passage is for — what it does for the reader, in your words." },
@@ -383,29 +336,15 @@ const NOT_RECONSTRUCTIBLE_FIELDS = [
 ];
 
 // ---------------------------------------------------------------------------
-// THE FIGURE'S OWN ROUND TRIP (kogaki#880, restated against the record's own
-// fields at kogaki#1018).
-//
-// ONE LEVEL DOWN, UNDER THE SAME RULE. A passage is written from a Brief Leg,
-// so its Reverse Outline is a Brief Leg block. A figure is written from its
-// RECORD, so the figure's Reverse Outline is a block in the FIGURE RECORD's own
-// field names — `src/figure-schema.json`'s, which is where they are declared and
-// where they stay. There is no second schema at either level, which is the
-// property kogaki#1014 landed for the passage and this is the same property for
-// the figure.
-//
-// WHY IT IS ITS OWN BLOCK RATHER THAN A FIELD OF THE LEG'S. `figure` IS a Brief
-// Leg field and it is declared NOT reconstructible above — a reader cannot read
-// the Brief's figure decision off a rendered block — so a `figure:` line inside
-// the Reverse Outline is refused there and stays refused. What a reader CAN do
-// is say what they met, and that answer is about a different artifact with a
-// different field list. Filing it as its own fence and its own file is what
-// keeps the Leg reading's key set closed against the Brief's names.
-//
-// THE DISPOSITION RULE IS THE SAME RULE. Reconstructible is "a reader who met
-// the rendered block could say this"; everything else is REFUSED rather than
-// merely unasked, for the reason the Brief half gives — an unasked field a
-// reader supplies anyway is an inference that reaches the comparison.
+// THE FIGURE'S OWN ROUND TRIP (kogaki#880, restated at kogaki#1018). ONE
+// LEVEL DOWN, UNDER THE SAME RULE: a figure is written from its RECORD, so its
+// Reverse Outline is a block in `src/figure-schema.json`'s own field names,
+// with no second schema. ITS OWN BLOCK RATHER THAN A FIELD OF THE LEG'S:
+// `figure` is a Brief Leg field declared NOT reconstructible above, so a
+// `figure:` line inside the Reverse Outline stays refused; what a reader CAN
+// say is what they met, which is a different artifact with a different field
+// list. THE DISPOSITION RULE IS THE SAME RULE: reconstructible is "a reader
+// who met the rendered block could say this", everything else is REFUSED.
 const FIGURE_RECONSTRUCTIBLE_FIELDS = [
   { name: "element", kind: "repeated-line",
     definition: "one `element: <what it is>` line per thing you can name in the block, in your own "
