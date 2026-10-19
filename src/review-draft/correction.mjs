@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { verbatimWindow } from "./declared-side.mjs";
+import { numberedProse, numberedFigure } from "./reverse-outline.mjs";
 import { fail, sha256, readDraft, resolveInputs } from "./draft-reader.mjs";
 import { writeRun, passPathAt, passReadPath } from "./workspace.mjs";
 

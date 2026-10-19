@@ -2,7 +2,10 @@
 // Cut from src/review-draft.mjs at its named section (kogaki#1458); the
 // design and its rulings are stated at the entry and in the Issues each
 // block below names.
-//
+
+// SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
+// rule lives in `src/SPEC-REFERENCES.md`. This module names no spec content,
+// so its names table is empty — stated here rather than left to be inferred.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve, dirname, basename, relative, sep } from "node:path";
 import { enterRun } from "../runs.mjs";
