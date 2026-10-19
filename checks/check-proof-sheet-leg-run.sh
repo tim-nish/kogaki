@@ -42,6 +42,9 @@
 #       every Leg Waypoint and "no further attempt". A run refused on every attempt shows every
 #       attempt and an Output of "(not written)". The Calls part names "the judge call" and
 #       never "the check call".
+#   (m) the ParagraphPlan card's Output rows carry the plan file's join (kogaki#1445): the row
+#       for each Leg Waypoint after the first carries its `join` text, read from the row block
+#       alone since the Attempts part shows it too, and the row for Leg Waypoint 1 carries none.
 #   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through
 #       `KOGAKI_JOB_STALL_S` and every ParagraphPlan call running 2.5 s past its first line
 #       (a stream line every 200 ms, as a live stream-json call writes),
@@ -453,6 +456,22 @@ else {
       }
     }
     ok(cards.packet.includes(escHtml(packetText.trim())), "(j) the whole Packet no longer appears below the per-waypoint table");
+  }
+
+  // (m) THE JOIN IN THE PARAGRAPHPLAN OUTPUT (kogaki#1445): each Leg Waypoint row of the card's
+  // Output carries the plan file's join for a Leg Waypoint after the first and none for the
+  // first. The join also appears in the Attempts part, so this reads the row block alone --
+  // a match over the card or the page would pass with the row's line deleted (the consult
+  // receipt on the Issue).
+  const planWps = (plan.legs && plan.legs[0] && plan.legs[0].waypoints) || [];
+  for (let i = 1; i <= 3; i++) {
+    const rowAt = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0"`);
+    ok(rowAt >= 0, `(m) the ParagraphPlan card has no Output row for Leg Waypoint ${i}`);
+    if (rowAt < 0) continue;
+    const rowHtml = cards.paragraphPlan.slice(rowAt, cards.paragraphPlan.indexOf("</details>", rowAt));
+    const want = (planWps.find((w) => w.waypoint === i) || {}).join;
+    if (i === 1) ok(!/<p>join: /.test(rowHtml), "(m) the ParagraphPlan Output row for Leg Waypoint 1 carries a join line");
+    else ok(want && rowHtml.includes(`<p>join: ${escHtml(want)}</p>`), `(m) the ParagraphPlan Output row for Leg Waypoint ${i} does not carry the plan file's join`);
   }
 
   // (l) THE ATTEMPTS PART (kogaki#1437): the first attempt was refused at Leg Waypoint 2 and the

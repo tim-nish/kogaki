@@ -639,7 +639,8 @@ function attemptsPart(attempts, job, planShown, judgeTitle) {
 }
 
 // CARD 4 — PARAGRAPHPLAN. Output: the plan file, the check verdict as a line (not a card),
-// and Leg Waypoint -> Paragraph Waypoints counts against the bound Move's Segments.
+// and Leg Waypoint -> Paragraph Waypoints counts against the bound Move's Segments, each row
+// carrying the plan file's join for a Leg Waypoint after the first (kogaki#1445).
 // Attempts: every attempt's record, verdicts and the refusal block the next one received
 // (kogaki#1437). Inputs: Brief, Move. Prompt/Calls: the plan call and the judge call, each
 // titled by what it produced.
@@ -670,6 +671,7 @@ function paragraphPlanCard(r, idx) {
       const pws = w.paragraph_waypoints || [];
       return prowBlock("planwp", w.waypoint, idx, `Leg Waypoint ${w.waypoint}`,
         `<p class="meta">bound Move: ${esc(bnd.move || "?")} · Segments of the Move: ${segs}</p>`
+        + (w.join ? `<p>join: ${esc(w.join)}</p>` : "")
         + `<ol>${pws.map((p) => `<li>${esc(p.point || "")}</li>`).join("")}</ol>`,
         pws.length !== segs ? "off" : "");
     }).join("");
