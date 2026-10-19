@@ -100,8 +100,8 @@ Three artifacts touch the source text, and each keeps a different amount.
 A Passage is extracted once as a whole, and each of its paragraphs may be
 extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
-applies to a paragraph Extraction, except the six rules here (mechanism m2,
-kogaki#1348), carried verbatim:
+applies to a paragraph Extraction, except the seven rules here — rules 1 to 6
+are mechanism m2's (kogaki#1348), carried verbatim, and rule 7 is kogaki#1440's:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
    Passage verbatim. A definition list or block quotation announced by the
@@ -138,6 +138,14 @@ kogaki#1348), carried verbatim:
    `expectation` `after` as what the reader, having finished the paragraph,
    expects the next paragraph to do, and say what this paragraph has
    completed.
+7. **Reader states and `does` are written general.** A section 2 `after`
+   state is written as `does` is, in general terms, naming no term, place,
+   person or claim of the original and none of `subject_nouns`, and
+   describing nothing of a neighbouring paragraph's content, so that
+   `before` states copied from it stay general. Segment 1's `does` carries
+   no reference to any earlier step or earlier paragraph. A later Segment's
+   `does` is the operation alone, and its `relation` carries the connection
+   to the step before.
 
 Three fields carry the two levels:
 

@@ -318,6 +318,7 @@ export function validateExtractionUnit(record, input) {
       }
       if (isUnchanged(row.after)) continue;
       changed += 1;
+      { const noun = nounIn(nouns, row.after); if (noun) errors.push(`${atD}'s \`after\` names "${noun}", one of your subject_nouns — it is written general, as \`does\` is (FORMAT "The paragraph unit", rule 7)`); }
       const nums = row.segment.split(",").map((x) => x.trim()).filter(Boolean);
       if (!nums.length) { errors.push(`${atD} records a change naming no Segment`); continue; }
       const off = nums.find((x) => !/^\d+$/.test(x) || Number(x) < 1 || Number(x) > n);

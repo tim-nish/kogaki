@@ -37,7 +37,10 @@
 #       number and `answers` holding exactly q1 to q3), the answer, and the attempt count
 #       with every refusal: paragraph 1's first answer omits a `does` clause and its
 #       second names its paragraph as a string, each refused naming the field, and the
-#       third attempt's prompt carries BOTH refusals, oldest first.
+#       third attempt's prompt carries BOTH refusals, oldest first; paragraph 2's first
+#       answer writes a `subject_nouns` entry into a reader `after` clause and is refused
+#       naming the row (rule 7, kogaki#1440); and the prompt carries rule 7's three
+#       sentences.
 #   (d) every call ran with `--tools ""`, on the shared supervisor.
 #   (e) paragraph 2 is handed the reader state paragraph 1 left (its `after` where a row
 #       moved, its `before` where not), and its before column carries it.
@@ -113,6 +116,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   };
   if (first && attempt === 1) delete record.segments[0].does;
   if (first && attempt === 2) record.paragraph = String(p.number);
+  if (!first && attempt === 1) record.reader[0].after = "knows the installer owns the copy";
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(record) }) + "\\n");
   process.exit(0);
 });
@@ -338,14 +342,24 @@ else {
     && /names paragraph "1", not 1/.test(a1.refusals[1]),
     `(c) p1/attempts.json does not record both refusals in order: ${JSON.stringify(a1.refusals)}`);
   const prompts = readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
-  ok(prompts.length === 4, `(c) the fake judge was called ${prompts.length} time(s), not 4`);
+  ok(prompts.length === 5, `(c) the fake judge was called ${prompts.length} time(s), not 5`);
   ok(prompts[1] && prompts[1].includes(a1.refusals[0]) && !prompts[1].includes(a1.refusals[1]),
     "(c) the second attempt's prompt does not carry only the first attempt's refusal");
   ok(prompts[2] && prompts[2].includes(a1.refusals[0]) && prompts[2].includes(a1.refusals[1])
     && prompts[2].indexOf(a1.refusals[0]) < prompts[2].indexOf(a1.refusals[1]),
     "(c) the third attempt's prompt does not carry BOTH prior refusals, oldest first");
   const a2 = existsSync(join(runDir, "p2", "attempts.json")) ? JSON.parse(readFileSync(join(runDir, "p2", "attempts.json"), "utf8")) : {};
-  ok(a2.attempts === 1, `(c) p2/attempts.json records ${a2.attempts} attempt(s), not 1`);
+  ok(a2.attempts === 2, `(c) p2/attempts.json records ${a2.attempts} attempt(s), not 2`);
+  // rule 7's mechanical half (kogaki#1440): a subject noun in a reader `after` is refused naming the row
+  ok(Array.isArray(a2.refusals) && a2.refusals.length === 1 && /the `knowledge` row's `after` names "installer", one of your subject_nouns/.test(a2.refusals[0]),
+    `(c) a subject noun in a reader \`after\` was not refused naming the row: ${JSON.stringify(a2.refusals)}`);
+  // rule 7's three sentences reach the Extractor in its rendered instruction
+  const instruction = prompt.slice(0, prompt.indexOf("# Extraction: the interaction contract"));
+  for (const sentence of [
+    "a section 2 `after` state is written as `does` is, in general terms, naming no term, place, person or claim of the original and none of `subject_nouns`, and describing nothing of a neighbouring paragraph's content, so that `before` states copied from it stay general.",
+    "Segment 1's `does` carries no reference to any earlier step or earlier paragraph.",
+    "A later Segment's `does` is the operation alone, and its `relation` carries the connection to the step before.",
+  ]) ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 7's sentence: ${sentence}`);
 
   // (e) the carried before column
   const in2 = prompts[3] ? JSON.parse(prompts[3].slice(prompts[3].indexOf("----- INPUT (JSON) -----") + 24)) : {};
@@ -358,7 +372,7 @@ else {
 
 // (d) --tools ""
 const argvs = existsSync(join(root, "argv.jsonl")) ? readFileSync(join(root, "argv.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
-ok(argvs.length === 4 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }),
+ok(argvs.length === 5 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }),
   `(d) a call ran without \`--tools ""\`: ${JSON.stringify(argvs)}`);
 
 // (f) the validator, directly
