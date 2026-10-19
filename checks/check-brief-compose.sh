@@ -5,7 +5,7 @@
 # run, no runtime spawn. It is not the end-to-end member kogaki#1194 removed.
 #   (a)-(c) `validateLegs` refuses a Reader start carrying a term a Leg lists
 #           under `introduces:`, naming term and Leg; whole-word, any case.
-#   (d)     `openingQuestionOf` is gone from src/compose.mjs.
+#   (d)     `openingQuestionOf` is gone from src/compose.mjs and src/compose/.
 #   (e)     the carriers derive nothing from why the reader opened the post.
 # The rest of the Brief composition cases moved to the check-brief-closure,
 # -packet, -mint, -compose-job and -path-rules members (kogaki#1460); each
@@ -14,7 +14,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import * as compose from "./src/compose.mjs";
 import { READER_START } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { validateLegs, introducedTermInReaderStart } = compose;
@@ -75,8 +75,12 @@ const fails = [];
 // (d) no Opening question is read off the first Leg any more.
 {
   if ("openingQuestionOf" in compose) fails.push("(d) src/compose.mjs still exports openingQuestionOf");
-  const src = readFileSync("src/compose.mjs", "utf8");
-  if (/export function openingQuestionOf/.test(src)) fails.push("(d) src/compose.mjs still defines openingQuestionOf");
+  // The library is the entry and every module under src/compose/ (kogaki#1465);
+  // an absence read over the entry alone could no longer fail.
+  const files = ["src/compose.mjs", ...readdirSync("src/compose").filter((f) => f.endsWith(".mjs")).sort().map((f) => `src/compose/${f}`)];
+  for (const f of files) {
+    if (/function\s+openingQuestionOf\b/.test(readFileSync(f, "utf8"))) fails.push(`(d) ${f} still defines openingQuestionOf`);
+  }
 }
 
 // (e) the carriers derive nothing from why the reader opened the post.
