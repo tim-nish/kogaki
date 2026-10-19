@@ -370,7 +370,9 @@ export function budgetRefusal(budget, at) {
 // names the Leg and, where one is at fault, the waypoint by its position.
 // PURE, and exported for the realization entry in `src/draft.mjs`, which
 // re-runs it over a Brief's parsed Legs rather than re-expressing it.
-export function waypointsRefusal(waypoints, claimStrands, at) {
+// `ordinals`, where given, is each waypoint's own number in the list it was taken from, so a
+// refusal over a filtered list names the entry the reader of it numbers (kogaki#1448).
+export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null) {
   const def = "a waypoint is a point its paragraph makes, carrying a `point` "
     + "(the proposition the paragraph makes, in the article's subject, one sentence — never an effect on "
     + "the reader) and `serves` (the claims it serves, by the Strand id each names) — src/leg-schema.json, "
@@ -383,7 +385,7 @@ export function waypointsRefusal(waypoints, claimStrands, at) {
   const strands = new Set(claimStrands);
   const served = new Set();
   for (const [i, w] of waypoints.entries()) {
-    const nth = `waypoint ${i + 1}`;
+    const nth = `waypoint ${ordinals ? ordinals[i] : i + 1}`;
     if (!w || typeof w !== "object" || Array.isArray(w)) {
       return `${at}: ${nth} is not a waypoint — ${def}`;
     }
@@ -2958,12 +2960,14 @@ export function paragraphWaypointsRefusal(pws, parentServes, at) {
         }
       }
     }
-    const points = pws.filter((p) => !(p && typeof p === "object" && Object.hasOwn(p, "performs")));
+    const isPoint = (p) => !(p && typeof p === "object" && Object.hasOwn(p, "performs"));
+    const points = pws.filter(isPoint);
+    const ordinals = pws.map((p, i) => i + 1).filter((n) => isPoint(pws[n - 1]));
     if (pws.length && !points.length) {
       return `${at}: none of its Paragraph Waypoints carries a \`point\` — a \`performs\` Paragraph Waypoint carries no part `
         + "of the Leg Waypoint's point, so every Claim the parent serves is served by at least one `point` Paragraph Waypoint (kogaki#1448)";
     }
-    return waypointsRefusal(points, parentServes, `${at}'s Paragraph Waypoints`);
+    return waypointsRefusal(points, parentServes, `${at}'s Paragraph Waypoints`, ordinals);
   }
   return waypointsRefusal(pws, parentServes, `${at}'s Paragraph Waypoints`);
 }

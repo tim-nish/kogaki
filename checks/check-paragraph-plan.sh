@@ -90,7 +90,9 @@
 #       naming that entry; the attempt is refused and the refusal reaches the
 #       next plan attempt. The plan reader refuses a Leg Waypoint none of whose
 #       Paragraph Waypoints carries a `point`, and a `performs` entry carrying
-#       any key beside it. Whether a LIVE judge refuses it is the model's.
+#       any key beside it, and names a refused `point` entry by its own place,
+#       counting the `performs` entry before it. Whether a LIVE judge refuses
+#       it is the model's.
 #   (k) THE INGEST'S MOVE IS READ (kogaki#1418): `p1`, the Move case (a) and
 #       its neighbours bind, is admitted by `tools/move_ingest.py`'s write gate
 #       (`save_accepted`, validating through the Adapter's src/move-validate.mjs)
@@ -636,6 +638,9 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   }
   const mixed = paragraphPlanShapeRefusal(plan([{ performs: "announces.", serves: ["L1"] }, { point: "a point.", serves: ["L1"] }]), "plan.yaml", [leg0]) || "";
   if (!mixed.includes("carries `performs` beside `serves`")) fails.push(`(p) the plan reader did not refuse a performs entry carrying serves: ${mixed}`);
+  // the ordinal a refusal names is the entry's own place, counting the performs entry before it.
+  const second = paragraphPlanShapeRefusal(plan([{ performs: "announces." }, { point: "", serves: ["L1"] }]), "plan.yaml", [leg0]) || "";
+  if (!second.includes("waypoint 2 has an empty point")) fails.push(`(p) a refusal of a point entry after a performs entry does not name it by its own number: ${second}`);
   const ok = paragraphPlanShapeRefusal(plan([{ performs: "announces." }, { point: "a point.", serves: ["L1"] }]), "plan.yaml", [leg0]);
   if (ok !== null) fails.push(`(p) the plan reader refused a performs entry beside a point entry: ${ok}`);
 }
