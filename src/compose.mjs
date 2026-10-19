@@ -372,7 +372,10 @@ export function budgetRefusal(budget, at) {
 // re-runs it over a Brief's parsed Legs rather than re-expressing it.
 // `ordinals`, where given, is each waypoint's own number in the list it was taken from, so a
 // refusal over a filtered list names the entry the reader of it numbers (kogaki#1448).
-export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null) {
+// `claimText`, where given, maps each of this Leg's Strand ids to its Claim's proposition, and
+// turns on the read-alone rule below — given for Leg Waypoints at composition only, never for
+// Paragraph Waypoints, whose reader has always read the one before (kogaki#1449).
+export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, claimText = null) {
   const def = "a waypoint is a point its paragraph makes, carrying a `point` "
     + "(the proposition the paragraph makes, in the article's subject, one sentence — never an effect on "
     + "the reader) and `serves` (the claims it serves, by the Strand id each names) — src/leg-schema.json, "
@@ -434,12 +437,40 @@ export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null) {
       }
       served.add(x);
     }
+    if (claimText) {
+      const bad = readAloneRefusal(w.point, w.serves.map((x) => claimText[x] || "").join(" "));
+      if (bad) return `${at}: ${nth}'s point ${bad}`;
+    }
   }
   const unserved = [...strands].filter((x) => !served.has(x));
   if (unserved.length) {
     return `${at}: its claim for ${unserved.map((x) => JSON.stringify(x)).join(", ")} is served by no waypoint `
       + `— every claim of a Leg is served by at least one of its waypoints, or the route the prose follows `
       + `never reaches it (kogaki#1311)`;
+  }
+  return null;
+}
+
+// A LEG WAYPOINT'S POINT IS READ ALONE (kogaki#1449, owner decision 2026-10-19): the
+// ParagraphPlan stage reads each Leg Waypoint by itself, and a context-dependent expression
+// in it is relied on as a fact. This is the mechanical half of the rule the `reader_path_unit`
+// row states: a point opening with a demonstrative or "it", or carrying "this <noun>" or
+// "these <noun>" whose noun is in no Claim the waypoint serves, is refused naming the word.
+// The rest of the rule — a bare definite noun, a term outside the Claim's material — is the
+// composer's to keep, stated in the row and never linted here.
+export const READ_ALONE_OPENERS = ["this", "that", "these", "those", "it"];
+function readAloneRefusal(point, claims) {
+  const ground = "a Leg Waypoint is read alone by the ParagraphPlan stage, so its point names what it "
+    + "refers to in full and reaches to no other Leg Waypoint (kogaki#1449)";
+  const first = (point.trim().match(/^[A-Za-z]+/) || [""])[0];
+  if (READ_ALONE_OPENERS.includes(first.toLowerCase())) {
+    return `opens with ${JSON.stringify(first)} — ${ground}`;
+  }
+  const text = claims.toLowerCase();
+  for (const m of point.matchAll(/\b(this|these)\s+([A-Za-z][A-Za-z'-]*)/gi)) {
+    if (!text.includes(m[2].toLowerCase())) {
+      return `carries ${JSON.stringify(m[0])}, and ${JSON.stringify(m[2])} is in no Claim it serves — ${ground}`;
+    }
   }
   return null;
 }
@@ -742,7 +773,8 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
     // because `serves` addresses the claims by Strand, so its address space
     // does not exist until the claims are known to be well formed.
     {
-      const bad = waypointsRefusal(s.waypoints, s.claims.map((g) => g.strand), at);
+      const bad = waypointsRefusal(s.waypoints, s.claims.map((g) => g.strand), at, null,
+        Object.fromEntries(s.claims.map((g) => [g.strand, g.proposition])));
       if (bad) return { error: bad };
     }
     // the figure decision's `figure:`/`figure_roles` (kogaki#877) — OPTIONAL, and validated
