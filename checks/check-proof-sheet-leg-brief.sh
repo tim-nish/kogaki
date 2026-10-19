@@ -26,6 +26,10 @@
 #       retired `effect` (production `waypointsRefusal`), a `reader_state_after` that is
 #       not `dimension: value` lines (production `validateLegs`), and a Reader start that is
 #       not (production `readerStateShapeRefusal`); a good Leg passes.
+#   (g) THE LEG CALL READS AN EXTRACTION'S PARAGRAPH CONTENT ONLY (kogaki#1449): the fixture
+#       Extractions carry `why_this_order`, `breaks`, `presupposes`, `description` and `notes`,
+#       and the Leg call's rendered input carries none of them, nor `name`, while it still
+#       carries each paragraph's `what_it_does`, `reader` rows and Segment `content` clauses.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -67,6 +71,9 @@ for (const [i] of PARAS.entries()) {
   writeFileSync(join(xrun, `p${i + 1}`, "answer.json"), JSON.stringify({
     version: "1", paragraph: i + 1, what_it_does: `WHAT-${i + 1}`, name: `move_${i + 1}`,
     reader: dims.map((d) => ({ dimension: d, before: `B${i + 1}-${d}`, after: d === "knowledge" ? `A${i + 1}-${d}` : "unchanged", segment: d === "knowledge" ? "1" : "" })),
+    segments: [{ content: `CONTENT-${i + 1}`, does: `DOES-${i + 1}`, relation: "" }],
+    why_this_order: `ORDER-${i + 1}`, presupposes: `PRESUPPOSES-${i + 1}`, breaks: [`BREAKS-${i + 1} - the reader loses it`],
+    description: `DESCRIPTION-${i + 1}`, notes: `NOTES-${i + 1}`,
   }));
 }
 writeFileSync(join(xrun, "extractions.json"), JSON.stringify({ leg: join(root, "leg.txt"), passage: "copy-leg", written: ["move_1.md", "move_2.md", "move_3.md"] }));
@@ -165,6 +172,26 @@ else {
   ok(prompts[0] && prompts[0].includes("Author this Leg's READER START") && !prompts[0].includes("leg1_survivors"), "(d) the Reader start prompt is not the cut production row");
   ok(prompts[2] && prompts[2].includes("EVERY LEG CARRIES ITS WAYPOINTS (kogaki#1311)") && prompts[2].includes("THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- src/leg-schema.json"),
     "(d) the Leg path prompt does not carry the production text kept or the Leg schema");
+}
+// (g) the Leg call's input: each paragraph's Extraction, its paragraph-content parts only
+{
+  const prompts = existsSync(join(root, "prompts.jsonl")) ? readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+  const leg = prompts.find((p) => p.includes("`leg_path_unit` judgment point")) || "";
+  const marker = "----- INPUT (JSON) -----";
+  let input = null;
+  try { input = JSON.parse(leg.slice(leg.indexOf(marker) + marker.length)); } catch { /* reported below */ }
+  const xs = input && Array.isArray(input.paragraphs) ? input.paragraphs.map((p) => p.extraction || {}) : [];
+  ok(xs.length === 3, `(g) the Leg call's rendered input carries ${xs.length} paragraph Extraction(s), not 3`);
+  for (const [i, x] of xs.entries()) {
+    for (const k of ["why_this_order", "breaks", "presupposes", "description", "name", "notes"]) {
+      ok(!(k in x), `(g) paragraph ${i + 1}'s Extraction in the Leg call's input carries \`${k}\``);
+    }
+    ok(x.what_it_does === `WHAT-${i + 1}` && Array.isArray(x.reader) && x.reader.length === 5,
+      `(g) paragraph ${i + 1}'s Extraction in the Leg call's input lost \`what_it_does\` or its \`reader\` rows`);
+    ok(JSON.stringify(x.segments) === JSON.stringify([{ content: `CONTENT-${i + 1}` }]),
+      `(g) paragraph ${i + 1}'s Extraction in the Leg call's input does not carry its Segment content clauses alone: ${JSON.stringify(x.segments)}`);
+  }
+  ok(!/ORDER-\d|BREAKS-\d/.test(leg), "(g) the Leg call's rendered prompt still carries a `why_this_order` or `breaks` text");
 }
 const diff = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "diff"], { encoding: "utf8" });
 ok(diff.status === 0 && (diff.stdout.match(/applies cleanly to the production text/g) || []).length === 2, `(d) \`leg-brief.mjs diff\` does not apply both rows cleanly: ${diff.stdout}${diff.stderr}`);
