@@ -113,4 +113,4 @@ function evidenceLines(ws, run, recordDir) {
   return out;
 }
 
-export { chosenJudged, findingEvidencePaths };
+export { chosenJudged, findingEvidencePaths, evidenceLines };

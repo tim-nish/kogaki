@@ -588,4 +588,4 @@ function nextOutlineOwed(run) {
   return run.legs.find((s) => !run.outlineFields[s.leg_id]);
 }
 
-export { quotedPassage, renderReverseOutlineInput, validateFigureOutline, validateReverseOutline, nextOutlineOwed };
+export { quotedPassage, renderReverseOutlineInput, validateFigureOutline, validateReverseOutline, nextOutlineOwed, numberedProse, numberedFigure };
