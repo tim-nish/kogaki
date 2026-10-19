@@ -10,10 +10,8 @@ import { FormatRefusal, loadGrammar, refuseUnlessConformant } from "../src/forma
 import { glossFor } from "../src/workflow/strands.mjs";
 import {
   REPO, readJson, REPORT_FORMAT, NO_HEADLINE, NO_SEAM, NO_SHARD_NAME,
-  NO_SHARD_SERVED, gateway, terrain, drive, servedLine, SCRATCH, ok, once,
-  tagStopFixture, finish,
+  NO_SHARD_SERVED, gateway, terrain, drive, servedLine, SCRATCH, ok, once, finish,
 } from "./fixtures/terrain-cases/helpers.mjs";
-const { rd } = tagStopFixture();
 
 // ---- THE IDENTITY CITE IS COMPOSED BY `survey` (kogaki#612), and these
 // cases read it off the survey record the command writes over what the seam

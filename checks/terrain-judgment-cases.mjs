@@ -10,9 +10,8 @@ import { join } from "node:path";
 import { loadGrammar, validateSurface } from "../src/format-guard.mjs";
 import {
   readJson, REPORT_FORMAT, RUN_RECORD_FILE, DISPLAY_WRAP_COLUMNS,
-  FIXTURE_PAYLOAD, terrain, SCRATCH, ok, tagStopFixture, fixFixture, finish,
+  FIXTURE_PAYLOAD, terrain, SCRATCH, ok, fixFixture, finish,
 } from "./fixtures/terrain-cases/helpers.mjs";
-const { rd, tp } = tagStopFixture();
 const { FIX_GW, fixSurvey, FIX_SUBDIVISIONS, STUB_JUDGE, SHIPPED_TABLE } = fixFixture();
 
 // ---- JUDGMENT PROVENANCE (kogaki#892). A subdivisions record's own

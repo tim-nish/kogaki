@@ -13,10 +13,9 @@ import { readRunRecord } from "../src/workflow/run-record.mjs";
 import {
   REPO, TERRAIN_SCRIPT, readJson, TERRAIN_WORKFLOW_TABLE, RUN_RECORD_FILE,
   FIXTURE_STATE_PREFIX, FIXTURE_RECORD_KEY_VALUE, FIXTURE_PAYLOAD, gateway,
-  terrain, SCRATCH, LONE_ANSWERS, LONE_SUBDIVISIONS, ok, tagStopFixture,
+  terrain, SCRATCH, LONE_ANSWERS, LONE_SUBDIVISIONS, ok, 
   finish,
 } from "./fixtures/terrain-cases/helpers.mjs";
-const { selfPath, rd, tp } = tagStopFixture();
 
 {
   // ---- the control plane CONTROL PLANE (story 1.89). Seam-free: every case below either

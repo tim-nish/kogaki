@@ -14,10 +14,9 @@ import { resolveJudgeBinary } from "../src/workflow/judge.mjs";
 import {
   REPO, readJson, REPORT_FORMAT, RUN_RECORD_FILE, NO_HEADLINE,
   NO_SHARD_ADDRESSED, NO_SEAM, NO_TARGET, NO_JUDGE, FIXTURE_PAYLOAD, gateway,
-  terrain, moduleUrl, SCRATCH, LONE_SUBDIVISIONS, ok, once, tagStopFixture,
+  terrain, moduleUrl, SCRATCH, LONE_SUBDIVISIONS, ok, once, 
   fixFixture, finish,
 } from "./fixtures/terrain-cases/helpers.mjs";
-const { rd, tp } = tagStopFixture();
 const { FIX_GW, fixSurvey, FIX_SUBDIVISIONS, STUB_JUDGE, SHIPPED_TABLE } = fixFixture();
 
 // ---- THE NEIGHBORHOOD ROW NAMES ITS THESIS-CANDIDATE TARGET (kogaki#861,
