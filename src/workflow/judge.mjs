@@ -454,11 +454,54 @@ function judgeRecordExample(st, input) {
   return out;
 }
 
+// SHARED TEXT (kogaki#1452): a criterion two rows of one table must say identically is
+// written ONCE, under the table's `shared_text`, and each row's text names it as
+// `{{shared:<name>}}`. The row declares the table it reads that text from in
+// `shared_text_file`, because this renderer is handed the row and never the table.
+// An unknown name, or a reference with no file declared, fails rather than rendering
+// the token: a criterion the model never sees is a criterion nobody enforces.
+export const SHARED_TEXT_TOKEN = /\{\{shared:([A-Za-z0-9_]+)\}\}/g;
+export const SHARED_TEXT_FIELDS = Object.freeze(["judgment_point", "input_shape", "refusal"]);
+
+export function sharedTextOf(st) {
+  const refs = SHARED_TEXT_FIELDS.some((f) => typeof st[f] === "string" && new RegExp(SHARED_TEXT_TOKEN.source).test(st[f]));
+  if (!st.shared_text_file) {
+    if (refs) fail(`${st.id}: the row names shared text and declares no \`shared_text_file\` to read it from (kogaki#1452).`);
+    return null;
+  }
+  const sp = join(REPO, String(st.shared_text_file));
+  if (!existsSync(sp)) fail(`${st.id}: \`shared_text_file\` ${JSON.stringify(st.shared_text_file)} names no file (kogaki#1452).`);
+  const shared = JSON.parse(readFileSync(sp, "utf8")).shared_text;
+  if (!shared || typeof shared !== "object") {
+    fail(`${st.id}: ${st.shared_text_file} declares no \`shared_text\` block (kogaki#1452).`);
+  }
+  return shared;
+}
+
+// The row with every `{{shared:<name>}}` in its three prompt fields replaced by the text
+// the table declares once. Exported so a check reads the same text the model is shown.
+export function withSharedText(st) {
+  const shared = sharedTextOf(st);
+  if (!shared) return st;
+  const out = { ...st };
+  for (const f of SHARED_TEXT_FIELDS) {
+    if (typeof st[f] !== "string") continue;
+    out[f] = st[f].replace(SHARED_TEXT_TOKEN, (_, name) => {
+      if (typeof shared[name] !== "string") {
+        fail(`${st.id}: \`${f}\` names shared text ${JSON.stringify(name)}, which ${st.shared_text_file} does not declare (kogaki#1452).`);
+      }
+      return shared[name];
+    });
+  }
+  return out;
+}
+
 // The prompt is composed FROM THE TABLE (judgment point, input shape, refusal text).
 // COMPOSED PER ATTEMPT (kogaki#1059): `lastRefusal` -- the attempt history, as
 // `judgeRefusalBlock` takes it -- makes each re-ask a different ask.
 // EXPORTED FOR THE DETACHED JOB (kogaki#1193): unit prompts use this one renderer.
-export function judgePrompt(st, inputText, input, lastRefusal) {
+export function judgePrompt(row, inputText, input, lastRefusal) {
+  const st = withSharedText(row);
   const L = [];
   L.push(`You are the judge at the ${flow().label} workflow's \`${st.id}\` judgment point.`);
   L.push("");
