@@ -559,6 +559,26 @@
         "efficacy": "case: checks/check-schema-binds.sh::(f1) a judge row reading the Move record with no entry for segments.relation fails naming the table and the field",
         "efficacy_note": "MUTATION EVIDENCE (run 2026-10-19 in the kogaki#1452 worktree). Deleting `segments.relation` from `paragraph_plan_judge_unit`'s `binds.move` FAILED naming the table, the row and the field (`src/paragraph-plan-workflow.json: \\`paragraph_plan_judge_unit\\` reads move and declares no entry for \\`segments.relation\\``) and FAILED the view comparison; restoring it restored PASS. The efficacy case (f1) is kogaki#1446's own shape."
       }
+    },
+    {
+      "id": "file-bound",
+      "file": "checks/check-file-bound.sh",
+      "covers": [
+        "src/",
+        "checks/",
+        "tools/"
+      ],
+      "admission": {
+        "contract": "Every tracked source file stays under `module_max_lines` and carries no comment block over `comment_block_max_lines`, unless listed by path in the matching exemption list of `.claude/policy-check.json`; the lists only shrink, and a dead exempt path fails. The measurement is the shared toolkit's `~/.claude/tools/policy-check file-bound`, run with no paths from the repository root, and the member exits with its exit code. Before this member nothing held a file to a size: nine source files had grown past 1,500 lines through individually reasonable changes, and no hard-coded bound remained under checks/. Where it runs is declared in the file: with `GITHUB_ACTIONS` set it prints one skip line and exits 0 before invoking the tool (owner decision 2026-10-19: the bound is enforced by the local suite, not in CI); elsewhere an absent tool fails naming its path, and the tool's exit 2 fails with the tool's line. The fixture pass runs on every invocation: (f1) an over-bound file not exempt, (f2) its control.",
+        "license": "kogaki#1457 (owner decisions 2026-10-08 and 2026-10-19: every consumer declares its file bounds in one file and holds its source files to them through its own registered check)",
+        "tier": "pre-push",
+        "runtime_ms": 550,
+        "runtime_ms_note": "Measured 2026-10-19 at a584e79 plus the uncommitted kogaki#1457 tree in its worktree: 540, 550 and 520 ms over three runs; the cost is two fixture runs of policy-check over a one-file temporary repository and one run over every tracked file.",
+        "removal_signal": "`.claude/policy-check.json` is retired -- the repository no longer declares file bounds, so there is nothing to hold its files to.",
+        "removal_instrument": "probe: ! test -f .claude/policy-check.json",
+        "efficacy": "case: checks/check-file-bound.sh::(f1) a tracked source file over module_max_lines and not exempt fails naming the file",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-10-19 in the kogaki#1457 worktree). Removing `src/assemble.mjs` from `module_max_lines_exempt` FAILED naming the file (`src/assemble.mjs\t1548 lines over module_max_lines=1500`); restoring it restored PASS. With `GITHUB_ACTIONS=1` and HOME pointed at a missing directory the member printed only the skip line and exited 0; without it, and with the tool absent, it exited 1 naming the tool's path."
+      }
     }
   ]
 }
