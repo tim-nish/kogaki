@@ -106,8 +106,10 @@ announced to the reader.
 
 An *Opens from* line under a numbered line states how that paragraph's first
 point follows from the paragraph before it. The paragraph's opening realises
-it, in a connective, a clause or a sentence of your choosing and wording, under
-the Referents rule of the register. It is not a point of its own, it is not
+that connection inside its first sentence, in that sentence's connective or
+clause, in wording of your choosing and under the Referents rule of the
+register: never as a sentence of its own and never in the line's words. The
+line is a connection and nothing more. It is not a point of its own, it is not
 copied, and it is not announced.
 
 {{waypoints}}

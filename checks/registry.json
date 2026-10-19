@@ -352,6 +352,38 @@
       }
     },
     {
+      "id": "draft-packet",
+      "file": "checks/check-draft-packet.sh",
+      "covers": ["src/packet-template.md", "src/draft.mjs"],
+      "admission": {
+        "contract": "kogaki#1447 (owner decision 2026-10-19: a join is a connection and nothing more, and the Writer realises it inside the first sentence rather than as a sentence of its own). Over a Packet rendered by `renderPacket` (src/draft.mjs) from a fixture Brief record whose second Leg Waypoint carries a join: (a) the rendered Packet's Opens-from paragraph carries \"never as a sentence of its own\" and no longer carries \"or a sentence of your choosing\", read as word sequences so a rewrap changes nothing, and nowhere in the Packet is a sentence offered as the opening's form; (b) the join renders as its `*Opens from:*` line under the second Leg Waypoint and nowhere else; (c) the same render over the template as it stood before kogaki#1447 is refused by the predicate (a) applies, so (a) cannot pass vacuously. Before this member the template said the opening realises the line \"in a connective, a clause or a sentence of your choosing\", and on 2026-10-19 paragraph 2 of the attack-defense Proof Sheet run opened on its join rendered nearly whole as a sentence.",
+        "license": "kogaki#1447",
+        "tier": "pre-push",
+        "runtime_ms": 100,
+        "runtime_ms_note": "Measured 2026-10-19 at b75d0f9 in the kogaki#1447 worktree: 60, 64 and 58 ms over three runs; one node process rendering two Packets in memory, no subprocess and no gateway.",
+        "efficacy": "case: checks/check-draft-packet.sh::(c) the counterfactual: the template as it stood before kogaki#1447 is refused.",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-10-19 in the kogaki#1447 worktree): case (c) is itself the counterfactual -- it renders the Packet over the pre-kogaki#1447 Opens-from paragraph and asserts the predicate (a) refuses it, so the member fails if the predicate stops discriminating the old wording from the new.",
+        "removal_signal": "the Packet carries no Opens-from line -- the ParagraphPlan's join is retired, so `src/draft.mjs` no longer exports OPENS_FROM_LABEL and there is no connection for the Writer to realise.",
+        "removal_instrument": "probe: ! grep -q 'export const OPENS_FROM_LABEL' src/draft.mjs"
+      }
+    },
+    {
+      "id": "review-draft",
+      "file": "checks/check-review-draft.sh",
+      "covers": ["src/review-draft.mjs", "src/review-items.json", "src/join-template.md"],
+      "admission": {
+        "contract": "kogaki#1447: the judged best-effort review item `opens-from-copied` (src/review-items.json) reads each paragraph after the first that carries a Packet `*Opens from:*` line against that paragraph's own first sentence. Driven through `buildJoin` (src/review-draft.mjs) over a fixture Draft whose trace names a Packet rendered by `renderPacket` from a fixture Brief record, paragraph 2 opening with its join verbatim: (a) the item owes exactly one pair for the Leg, paragraph 2's, and the join Packet rendered for it carries the line named as paragraph 2's on the declared side and paragraph 2's own first sentence on the reverse side; (b) a `fails` verdict fails the best-effort row and its evidence names paragraph 2 by the declared entry, the Harness's naming rather than the judge's sentence; (c) a `holds` verdict holds the row with no evidence, the control; (d) a Packet with no Opens-from line owes no pair and holds by the item's stated absence. Before this member no review item read a paragraph's opening against its Opens-from line: the Packet's \"it is not copied\" was the only guard, and on 2026-10-19 paragraph 2 of the attack-defense Proof Sheet run opened on its join rendered nearly whole. Whether a LIVE judge answers `fails` is the model's; the fixture supplies the verdict.",
+        "license": "kogaki#1447",
+        "tier": "pre-push",
+        "runtime_ms": 150,
+        "runtime_ms_note": "Measured 2026-10-19 in the kogaki#1447 worktree: 82, 80 and 82 ms over three runs; one node process, two fixture Drafts under the OS temp directory, no subprocess, no judge and no gateway.",
+        "efficacy": "case: checks/check-review-draft.sh::(a) one pair, paragraph 2's, with the line and the sentence on their sides.",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-10-19 in the kogaki#1447 worktree, each applied once and restored). Setting the item's `reverse_source` to anything but `opening_sentence` FAILED (a), the reverse side no longer paragraph 2's first sentence. Making the `labelled_lines` reader number every entry `x` FAILED (a) on the declared side and (b), the evidence reading `paragraph x opens from:` rather than naming paragraph 2.",
+        "removal_signal": "the review item `opens-from-copied` leaves src/review-items.json, so there is no opening to read against its Opens-from line.",
+        "removal_instrument": "probe: ! grep -q '\"opens-from-copied\"' src/review-items.json"
+      }
+    },
+    {
       "id": "proof-sheet-extract",
       "file": "checks/check-proof-sheet-extract.sh",
       "covers": ["src/proof-sheet/extract.mjs", "src/proof-sheet/extraction-workflow.json", "passages/FORMAT.md", "tools/move_ingest.py"],

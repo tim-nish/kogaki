@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# check-review-draft — /review-draft reads each paragraph's opening sentence
+# against the Packet's Opens-from line, and a copied opening fails naming its
+# paragraph (kogaki#1447).
+#
+# THE DEFECT THIS HOLDS: on 2026-10-19 paragraph 2 of the attack-defense Proof
+# Sheet run opened on its plan's join rendered nearly whole, and no review item
+# read the opening against the line: the Packet's "it is not copied" was the
+# only guard, and nothing checked it. The item `opens-from-copied`
+# (src/review-items.json) is that check, judged and best-effort.
+#
+# WHAT THIS COVERS, driven through `buildJoin` (src/review-draft.mjs) over a
+# fixture Draft whose trace names a Packet rendered by `renderPacket`
+# (src/draft.mjs) from a fixture Brief record, the second Leg Waypoint carrying
+# a join, and whose paragraph 2 opens with that join verbatim:
+#   (a) the item owes exactly ONE pair for the Leg -- paragraph 2's, the one
+#       paragraph after the first that carries an Opens-from line -- and the
+#       join Packet rendered for it carries the line, named as paragraph 2's,
+#       on the declared side and paragraph 2's own first sentence on the
+#       reverse side;
+#   (b) a `fails` verdict on that pair fails the item's row, best-effort, and
+#       the row's evidence names paragraph 2 by the declared entry -- the
+#       Harness's naming, not the judge's sentence;
+#   (c) a `holds` verdict holds the row and carries no evidence (the control
+#       that stops (b) passing on any verdict);
+#   (d) a Packet whose Leg Waypoints carry no join owes no pair and holds by
+#       the item's stated absence.
+#
+# NOT COVERED, stated rather than implied: whether a LIVE judge answers
+# `fails` on a copied opening is the model's judgment, never asserted here;
+# the fixture supplies the verdict. The Packet's own Opens-from paragraph is
+# checks/check-draft-packet.sh's.
+set -u
+cd "$(dirname "$0")/.."
+
+node --input-type=module - <<'JS'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
+import { pathToFileURL } from "node:url";
+
+const fails = [];
+const repo = resolve(".");
+const { legRecord, briefRecordText, readerStateMap } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
+const { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
+const { readDraft, readItems, buildJoin } = await import(pathToFileURL(join(repo, "src", "review-draft.mjs")).href);
+const sha = (s) => createHash("sha256").update(s).digest("hex");
+const root = mkdtempSync(join(tmpdir(), "review-draft-"));
+
+const C1 = "the installer copies the kit into the consumer's tree.";
+const JOIN = "The write left the consumer's edits unprotected, and the next run is where that shows.";
+const PARA1 = "The installer copies the kit into the consumer's tree. It writes every file it ships.";
+const PARA2_OWN = "The second run replaces the copy wholesale, edits included.";
+const brief = readBrief(briefRecordText({
+  slug: "review-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
+  strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
+  thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
+  reader_target: "s1",
+  reader_path: [legRecord({ leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1", reader_state_after: "knowledge: after s1.",
+    materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
+    waypoints: [{ point: "The installer writes into the consumer's tree.", serves: ["L1"] },
+      { point: "The next run overwrites any edit to the copy.", serves: ["L1"] }] })],
+  strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+}), "theses/review-brief/brief.yaml");
+const template = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8")).packet;
+const packetFor = (join_) => {
+  const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => (i === 1 && join_ ? { ...w, join: join_ } : w)) };
+  const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
+  if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
+  return r.packet || "";
+};
+
+// A Draft of one Leg, two paragraphs, its trace naming the Packet by path and sha.
+const fixture = (name, packet, para2) => {
+  const dir = join(root, name);
+  mkdirSync(join(dir, "packets"), { recursive: true });
+  writeFileSync(join(dir, "packets", "s1.md"), packet);
+  const body = ["## The fixture Section", "", PARA1, "", para2];
+  const fmHead = ["---", "brief: theses/review-brief/brief.yaml", "trace:"];
+  // The body starts two lines after the closing `---`; the Leg is the two paragraphs.
+  const first = fmHead.length + 1 + 1 + 1 + 2 + 1;
+  const entry = { leg_id: "s1", section: 1, section_title: "The fixture Section", lines: [first, first + 2],
+    packet: "packets/s1.md", packet_sha: sha(packet) };
+  const text = [...fmHead, `  - ${JSON.stringify(entry)}`, "---", "", ...body, ""].join("\n");
+  writeFileSync(join(dir, "draft.md"), text);
+  const draft = readDraft(join(dir, "draft.md"));
+  const prose = draft.lines.slice(entry.lines[0] - 1, entry.lines[1]).join("\n");
+  if (!prose.startsWith(PARA1) || !prose.endsWith(para2)) fails.push(`fixture ${name}: the trace's range does not hold the two paragraphs: ${JSON.stringify(prose)}`);
+  const outline = join(dir, "outline-s1.json");
+  writeFileSync(outline, "{}");
+  return { dir, draft, run: { legs: [{ leg_id: "s1" }], outlineFields: { s1: outline }, verdicts: {} } };
+};
+
+const table = readItems();
+const item = table.items.find((i) => i.id === "opens-from-copied");
+if (!item) fails.push("(a) src/review-items.json declares no `opens-from-copied` item");
+else {
+  if (item.class !== "best-effort" || item.mode === "mechanical") fails.push(`(a) the item is not judged and best-effort: class ${item.class}, mode ${item.mode}`);
+  const only = { ...table, items: [item] };
+  const copied = fixture("copied", packetFor(JOIN), `${JOIN} ${PARA2_OWN}`);
+  const first = buildJoin(copied.draft, copied.run, only, copied.dir, { pass: 1 });
+
+  // (a) one pair, paragraph 2's, with the line and the sentence on their sides.
+  if (first.owed.length !== 1) fails.push(`(a) the item owes ${first.owed.length} pair(s) for a Leg with one Opens-from line, not one`);
+  else {
+    const pkt = readFileSync(first.owed[0].packet, "utf8");
+    if (!pkt.includes(`paragraph 2 opens from: ${JOIN}`)) fails.push("(a) the join Packet's declared side does not carry the Opens-from line named as paragraph 2's");
+    if (!pkt.includes(`paragraph 2 of the passage opens on this sentence: ${JOIN}`)) fails.push("(a) the join Packet's reverse side is not paragraph 2's own first sentence");
+    if (pkt.includes(`opens on this sentence: ${PARA1.split(". ")[0]}`)) fails.push("(a) the join Packet pairs paragraph 1, which carries no Opens-from line");
+  }
+
+  // (b) a `fails` verdict fails the row and the evidence names paragraph 2.
+  const key = first.owed[0] && first.owed[0].key;
+  copied.run.verdicts = { [key]: { verdict: "fails", reason: "the opening sentence is the line reproduced whole.", model: "fixture" } };
+  const failed = buildJoin(copied.draft, copied.run, only, copied.dir, { pass: 1 });
+  const row = failed.results.find((r) => r.item === "opens-from-copied");
+  if (!row || row.verdict !== "fails" || row.class !== "best-effort") fails.push(`(b) a fails verdict did not fail the best-effort row: ${JSON.stringify(row)}`);
+  else if (!(row.evidence || []).some((e) => String(e).startsWith("paragraph 2 opens from:"))) fails.push(`(b) the failing row's evidence does not name paragraph 2: ${JSON.stringify(row.evidence)}`);
+
+  // (c) the control: `holds` holds and carries no evidence.
+  copied.run.verdicts = { [key]: { verdict: "holds", reason: "the connection is carried in a clause on the way to the point.", model: "fixture" } };
+  const held = buildJoin(copied.draft, copied.run, only, copied.dir, { pass: 1 });
+  const hrow = held.results.find((r) => r.item === "opens-from-copied");
+  if (!hrow || hrow.verdict !== "holds" || hrow.evidence) fails.push(`(c) a holds verdict did not hold the row without evidence: ${JSON.stringify(hrow)}`);
+
+  // (d) no join, no pair: the stated absence.
+  const none = fixture("no-join", packetFor(null), PARA2_OWN);
+  const nj = buildJoin(none.draft, none.run, only, none.dir, { pass: 1 });
+  const nrow = nj.results.find((r) => r.item === "opens-from-copied");
+  if (nj.owed.length !== 0 || !nrow || nrow.verdict !== "holds" || nrow.reason !== item.when_declared_absent.sentence) {
+    fails.push(`(d) a Packet with no Opens-from line did not hold by the stated absence: owed ${nj.owed.length}, ${JSON.stringify(nrow)}`);
+  }
+}
+
+if (fails.length) {
+  for (const f of fails) console.log(`FAIL: ${f}`);
+  process.exit(1);
+}
+console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; a fails verdict fails the row with evidence naming the paragraph, a holds verdict holds it, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447).");
+JS
