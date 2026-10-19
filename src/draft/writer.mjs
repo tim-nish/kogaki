@@ -18,17 +18,12 @@ import { fail, foreignStrandRefusal, scanForeignStrands, findTraceStructure } fr
 
 // ---------------------------------------------------------------------------
 // FRESH CALL (kogaki#1237, owner decision 2026-09-30). `section` and `figure`
-// no longer take the realized text from a file the invoking session wrote.
-// Each renders its input -- the Leg Packet; the Packet plus the figure block --
-// and hands it, as the ENTIRE stdin, to the command `src/draft-workflow.json`'s
-// `writer` block declares, then records the response. The session that invokes
-// the act never sees the Packet and never writes the prose, so nothing it read
-// for one Leg can be carried into the next: the Packet is the writer's entire
-// input by construction, not by the file alone.
-//
-// THE TABLE IS HARNESS-OWNED AND REFUSES A MISSING KEY BY NAME. The keys are
-// the ones `src/brief-workflow.json`'s `judge` block declares, and none is
-// defaulted: a bound a table can silently omit is not a bound (kogaki#1030).
+// render their input -- the Leg Packet; the Packet plus the figure block -- and
+// hand it, as the ENTIRE stdin, to the command `src/draft-workflow.json`'s
+// `writer` block declares, then record the response. The invoking session
+// never sees the Packet and never writes the prose.
+// THE TABLE IS HARNESS-OWNED AND REFUSES A MISSING KEY BY NAME: the keys are
+// `src/brief-workflow.json`'s `judge` keys, none defaulted (kogaki#1030).
 const DRAFT_TABLE = join(dirname(fileURLToPath(import.meta.url)), "..", "draft-workflow.json");
 const WRITER_KEYS = ["command", "model", "effort", "output_format", "timeout_s", "retries"];
 const WRITER_ACTS = ["section", "figure"];

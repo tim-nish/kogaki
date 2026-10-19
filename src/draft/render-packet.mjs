@@ -24,32 +24,13 @@ export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 
 // The waypoints block's lines (kogaki#1311, kogaki#1326): a NUMBERED list,
-// `<i>. <point> *Serves:* <claim>[; <claim>]`, one per Leg Waypoint, in order —
-// each point once, and the number is its place in the route. A `serves` entry is
-// resolved to the proposition of this Leg's claim for that Strand; one naming no
-// claim never reaches here, because the realization entry refused it. Returns null
-// on an empty route so the caller's `need` names the hole.
-//
-// THE PARAGRAPH WAYPOINTS, UNDER THEIR LEG WAYPOINT (kogaki#1375): each Leg
-// Waypoint's Paragraph Waypoints, as the ParagraphPlan file carries them, render as
-// an indented numbered sub-list beneath it, in the same `<j>. <point> *Serves:*
-// <claim>` form — one line per paragraph. NOTHING OF A MOVE is rendered: the
-// ParagraphPlan file holds none. A Leg Waypoint carrying no Paragraph Waypoints
-// renders its own line alone, so a Packet rendered over a fixture with no plan still
-// renders; the realization entry (`loadBrief`) is where a missing plan refuses.
-//
-// THE JOIN, AS ITS OPENS-FROM LINE (kogaki#1411, owner decision 2026-10-18): a Leg
-// Waypoint carrying the ParagraphPlan's `join` renders one indented line in the fixed form
-// `*Opens from:* <join>` beneath its own line and before its Paragraph Waypoints — how the
-// paragraph's first point follows from the paragraph before it. The join is composed from
-// reader state and carries nothing of a Move; a Leg Waypoint without one renders as before.
-//
-// THE PERFORMS FORM, AS AN OPERATION LINE (kogaki#1448, owner decision 2026-10-19): a
-// Paragraph Waypoint carrying `performs` renders in its place in the sub-list as
-// `<j>. *<operation>*` -- italic, with no point and no `*Serves:*` -- because its Segment
-// acts on the reader's reading and carries no part of the Leg Waypoint's point. The
-// template tells the Writer such a line is performed in the paragraph's own words and
-// asserts nothing.
+// `<i>. <point> *Serves:* <claim>[; <claim>]`, one per Leg Waypoint, a `serves`
+// entry resolved to this Leg's claim for that Strand; null on an empty route.
+// Beneath each, an indented `*Opens from:* <join>` line where the ParagraphPlan
+// carries a join (kogaki#1411), then its Paragraph Waypoints as a numbered
+// sub-list (kogaki#1375) -- a `performs` entry as the italic `<j>. *<operation>*`
+// with no point and no Serves (kogaki#1448). Nothing of a Move is rendered; a
+// missing plan refuses at the realization entry (`loadBrief`), not here.
 export const OPENS_FROM_LABEL = "*Opens from:*";
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
@@ -194,28 +175,12 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
           + `What the reader keeps: ${o.reader_keeps ?? "(not recorded)"}.`;
       }).join("\n")
       : "(nothing — this Leg carries no Closure row)",
-    // the Journey a Leg draws on (kogaki#1111). THE PACKET NOW RENDERS THE
-    // SERVED TEXT ITSELF, the address kept beside it as citation — not the
-    // address alone (kogaki#1250, owner ruling 2026-10-04). Since Fresh Call
-    // (kogaki#1237) the writer is a separate `claude -p` process with no
-    // permission grant of its own, so an address-only rendering handed it
-    // nothing it could read: the writer had no Journey, and said so in the
-    // article, which is the meta-commentary this issue closes. Resolution
-    // happens in `renderAndStorePacket`, BEFORE this function is ever called —
-    // a Journey that does not resolve refuses the whole Packet build, naming
-    // the Leg and the address, and this renderer never runs for it. By the
-    // time `leg.journeys` reaches here every entry already carries its
-    // `resolvedText`; a caller that skips resolution and calls this renderer
-    // directly (as a fixture may, to drive the render in isolation) gets the
-    // same `need()` refusal an absent block gets anywhere else in this
-    // function — a hole in the model's entire input is a hole the model fills
-    // by invention, resolved text included.
-    //
-    // A JOURNEY-LESS LEG RENDERS THE HEADING AND THE ABSENCE LINE ONLY
-    // (kogaki#1224; owner decision 2026-09-29), unchanged by this issue: the
-    // instruction paragraphs below are instructions on HOW to use Journey
-    // material, and a Leg that draws on none has nothing for them to
-    // instruct.
+    // the Journey a Leg draws on (kogaki#1111), rendered as its served TEXT with
+    // the address beside it as citation (kogaki#1250). Resolution happens in
+    // `renderAndStorePacket` before this runs, so every entry carries its
+    // `resolvedText`; a caller that skips resolution gets the same `need()`
+    // refusal as any absent block. A Journey-less Leg renders the heading and
+    // the absence line only (kogaki#1224; owner decision 2026-09-29).
     journeys: need(`${leg.leg_id}'s Journey text`, (leg.journeys || []).length
       ? ((leg.journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === ""))
         ? null
@@ -359,19 +324,11 @@ export function renderAndStorePacket(brief, id, args, ws) {
   writeFileSync(out, packetText);
   const sha = sha256(packetText);
 
-  // RECORDED IN THE RUN RECORD, not only printed (PR #780 round 1). #749 rules
-  // "path+sha recorded in the run record beside the Section it produced", and
-  // the first form wrote both to stderr and nothing to run.json — a print is
-  // read by whoever is watching and a record is read by whoever comes after,
-  // which is the difference the ruling is about. the Leg Packet restated the ruling as
-  // "announced", which substituted the printing for the recording without
-  // saying it had.
-  //
-  // MERGED rather than overwritten: run.json is written at `resolve` and holds
-  // the run's identity, so the packet entry joins it under its leg id and a
-  // re-render replaces that one entry. A missing or unreadable run.json is not
-  // a failure of the render — the Packet is already written and printed — so it
-  // warns, exactly as the snapshot path does.
+  // RECORDED IN THE RUN RECORD, not only printed (PR #780 round 1): #749 rules
+  // "path+sha recorded in the run record beside the Section it produced".
+  // MERGED rather than overwritten: run.json holds the run's identity from
+  // `resolve`, so the entry joins it under its leg id. A missing or unreadable
+  // run.json warns rather than failing the render, as the snapshot path does.
   const runFile = join(ws, "run.json");
   try {
     let rec = {};

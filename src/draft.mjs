@@ -101,19 +101,11 @@ function cmdResolve(args) {
   driveNextPacket(brief, args, ws);
   process.stdout.write(`closed set: ${brief.strands.map((s) => s.id).join(", ")} — the Brief's own text plus these Strands' served renderings at the pin; nothing else is reachable\n`);
   process.stdout.write(`reader path: ${brief.legs.map((s) => s.leg_id).join(" → ")} (recorded order; realized in this order and no other)\n`);
-  // the reader-knowledge ledger's ledger is DERIVED here and rendered, never stored: no field is
-  // written to the Brief and no key is added to the run record above. A Brief
-  // whose path introduces nothing renders the empty ledger AS an empty ledger
-  // — that is a true reading of the path, not a failure to compute one.
-  // COUNTED FROM THE DERIVATION, never by adding the last Leg's RAW entries
-  // to the deduped union before it (PR #775 round 1). The first form
-  // double-counted a term a later Leg re-declares — and cross-Leg
-  // re-declaration is exactly what the reader-knowledge ledger legalizes, so the wrong case was the
-  // one the field explicitly permits. Appending a terminal sentinel makes the
-  // final row's snapshot the whole path's union, so the count comes from the
-  // same function everything else reads and cannot disagree with it. This
-  // line is the ONLY owner-facing rendering of the ledger, which is why a
-  // wrong number here is the one a reader has no way to check.
+  // the reader-knowledge ledger's ledger is DERIVED here and rendered, never
+  // stored; a path that introduces nothing renders the empty ledger as such.
+  // COUNTED FROM THE DERIVATION (PR #775 round 1): the terminal sentinel makes
+  // the final row the whole path's union, so a term a later Leg re-declares is
+  // counted once. This line is the ledger's only owner-facing rendering.
   const ledger = readerKnowledgeLedger([...brief.legs, { leg_id: "(end)" }]);
   const introduced = ledger[ledger.length - 1].reader_already_knows.length;
   process.stdout.write(`reader-knowledge ledger: ${introduced} term(s) introduced across ${brief.legs.length} leg(s), derived from the path at read time and stored nowhere (the reader-knowledge ledger)${introduced === 0 ? " — this path introduces no terms, which is a reading of it and not an error" : ""}\n`);

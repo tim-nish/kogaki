@@ -46,16 +46,11 @@ export function enterWorkspace(args, slug) {
 }
 
 // ---------------------------------------------------------------------------
-// THE JAPANESE REALIZATION (kogaki#1158). A second realization of the SAME
-// Brief Legs, from the SAME Packet, with one added language block — never a
-// translation of the reviewed English Draft (the owner's 2026-09-19/20
-// ruling: translating from the reviewed Draft would make the later Reverse
-// Outlining target implicitly cover two transformations, the English
-// generation and the translation, at once). `--lang` defaults to `en`, and
-// AT `en` EVERY PATH BELOW RESOLVES TO EXACTLY THE STRING IT ALWAYS DID —
-// `sections`, `packets`, and the `packets` key in run.json — so the English
-// path's behaviour is unchanged, which is what acceptance item 1 requires
-// ("do not change the English path's behavior").
+// THE JAPANESE REALIZATION (kogaki#1158; owner ruling 2026-09-19/20). A second
+// realization of the SAME Brief Legs from the SAME Packet, with one added
+// language block, never a translation of the reviewed English Draft. `--lang`
+// defaults to `en`, and at `en` every path below resolves to exactly the string
+// it always did, so the English path's behaviour is unchanged.
 // The language a `--lang` track names on the Packet's language line (kogaki#1417), in
 // place of the Audience's: the track's language block is written for that language.
 export const REALIZATION_LANGUAGES = { ja: "Japanese" };
@@ -97,19 +92,12 @@ export function loadBrief(args) {
   catch (e) { fail(`the Brief at ${path} cannot be read (${e.message})`); }
   const brief = readBrief(text, path);
   if (brief.refusals.length) fail(brief.refusals[0]);
-  // THE LEG'S ROUTE AT THE REALIZATION ENTRY (kogaki#1311). Every Leg carries
-  // `waypoints`, and a Brief whose Leg carries none refuses here the way any
-  // missing field refuses — by name, naming the Leg — because the Packet
-  // renders the waypoints in place of the Move and has nothing else to give
-  // the writer. A Brief composed before this field (the 2026-10-08
-  // `check-only-good-what-given`) is recomposed by a new `/brief` run, never
-  // patched here. The check is the composition side's own `waypointsRefusal`,
-  // over the claims this Leg's block names.
-  //
-  // NO MOVE ID IS RESOLVED HERE ANY MORE. It was (kogaki#747), beside the
-  // Packet's and the figure's own Move reads, and all three are gone: the
-  // Move is read up to the Candidate and never again, so a Move renamed after
-  // a Brief was composed no longer reaches realization at all.
+  // THE LEG'S ROUTE AT THE REALIZATION ENTRY (kogaki#1311). A Leg carrying no
+  // `waypoints` refuses by name through the composition side's own
+  // `waypointsRefusal`, because the Packet renders the waypoints in place of the
+  // Move. A Brief composed before the field is recomposed by `/brief`, never
+  // patched here. NO MOVE ID IS RESOLVED HERE ANY MORE (kogaki#747 is retired):
+  // the Move is read up to the Candidate and never again.
   if (args["moves-dir"] !== undefined) {
     fail("--moves-dir is no longer taken: /draft opens no Move file (kogaki#1311). A Leg carries its own "
       + "waypoints, written when the Brief was composed, and the Packet renders those");
@@ -138,20 +126,12 @@ export function loadBrief(args) {
   return { ...brief, legs, path: resolve(path), paragraphPlanPath: plan.path };
 }
 
-// the Section grouping's SECTION GROUPING, derived from the Brief and from nothing else
-// (kogaki#823). ONE derivation, shared by the renderer, the frontmatter trace
-// and the Packet: a Section is a run of Legs beginning at a Leg that declares
-// `opens_section` and continuing until the next one does. The Brief is the only
-// input, so what the Draft renders and what a Packet says about where a Leg
-// sits cannot disagree — two derivations of the same grouping is two things
-// that can drift about which Section a Leg is in.
-//
-// A path declaring no `opens_section` at all is the pre-Section-grouping corpus, and it
-// derives ONE untitled Section rather than refusing. The refusal for that shape
-// is rule 3's and it lives at COMPOSITION (`sectionGroupingRefusal`), where the
-// Brief is being authored and can still be fixed; refusing here as well would
-// make every Brief minted before this issue unrenderable, which is a migration
-// this issue has no licence for and did not ask for.
+// the Section grouping's SECTION GROUPING, derived from the Brief and from nothing
+// else (kogaki#823): ONE derivation shared by the renderer, the frontmatter trace
+// and the Packet. A Section is a run of Legs beginning at a Leg that declares
+// `opens_section` and continuing until the next one does. A path declaring none
+// derives ONE untitled Section rather than refusing; that refusal is
+// composition's (`sectionGroupingRefusal`), where the Brief can still be fixed.
 export function sectionsOf(legs) {
   const sections = [];
   for (const s of legs) {
@@ -176,20 +156,12 @@ export function sectionOfLeg(legs) {
   return map;
 }
 
-// THE FIGURE BLOCKS THIS BODY PLACES (the renderer and the anchor, kogaki#879). Read from the run
-// record `figure` wrote, rendered by src/render-figure.mjs, and keyed by Leg.
-//
-// READ, NEVER RE-DERIVED — the same rule the Packet record already holds two
-// functions down. `cmdFigure` recorded the path, the sha and the position at
-// the moment the record was validated; recomputing any of them here would
-// answer for the file as it stands rather than for the record the figure was
-// validated as, which is the whole of what the pin is for.
-//
-// A RENDER FAILURE IS COLLECTED, NEVER THROWN. This function runs inside
-// `snapshotDraft` on every `section`, where a half-filled run is the ORDINARY
-// state and a throw would take the snapshot down with it. `cmdEmit` is what
-// refuses on the collected errors — the trace never gates the write it traces,
-// and the artifact does gate.
+// THE FIGURE BLOCKS THIS BODY PLACES (the renderer and the anchor, kogaki#879),
+// read from the run record `figure` wrote, rendered by src/render-figure.mjs,
+// keyed by Leg. READ, NEVER RE-DERIVED: the pin answers for the record the
+// figure was validated as. A RENDER FAILURE IS COLLECTED, NEVER THROWN, because
+// this runs inside `snapshotDraft` on every `section`; `cmdEmit` refuses on the
+// collected errors.
 function figureBlocks(ws) {
   const out = new Map();
   const errors = [];

@@ -11,20 +11,12 @@ import { figureKinds } from "../compose.mjs";
 
 // ---------------------------------------------------------------------------
 // THE SECTION PACKET (the Leg Packet, kogaki#749; owner rulings 2026-09-01).
-//
-// The harness-assembled input from which the model realizes ONE Leg's prose —
-// the one LLM judgment of the Draft lane. `packet --leg <id>` renders it
-// DETERMINISTICALLY from the template plus the Brief plus
-// the workspace's realized Sections plus the derived ledger; the session
-// realizes the prose; `section` validates it as before.
-//
-// THE PACKET IS THE MODEL'S ENTIRE INPUT. Nothing outside it is read, which is
-// why every block opens with a fixed usage header saying what the block is FOR:
-// a block whose use is not stated gets used for whatever it resembles.
-//
-// DETERMINISTIC means the same inputs render the same bytes. No timestamp, no
-// run id, no ordering that depends on a directory read: the Sections come in
-// the Brief's recorded order and the ledger is recomputed from the path.
+// The input from which the model realizes ONE Leg's prose, rendered
+// DETERMINISTICALLY by `packet --leg <id>` from the template, the Brief, the
+// realized Sections and the derived ledger: the same inputs render the same
+// bytes (no timestamp, no run id, no order that depends on a directory read).
+// THE PACKET IS THE MODEL'S ENTIRE INPUT, so every block opens with a fixed
+// usage header saying what the block is FOR.
 
 // NO MOVE FIELD IS RENDERED (kogaki#1311, owner decision 2026-10-09). The
 // Packet carried the bound Move's `technique`, `question` and `breaks` until
@@ -76,19 +68,13 @@ function claimAt(leg, addr) {
   return claimLines(leg)[Number(m[1]) - 1] ?? null;
 }
 
-// The form for one figure-carrying Leg, with its roles in the CLOSED SET'S
-// declared order rather than the record's key order — the same record must
-// render the same bytes, and object key order is an accident of how the file
-// was written.
-//
-// THE KIND IS READ OFF THE LEG, NOT THE MOVE (kogaki#1311). Every kind in
-// src/figure-kinds.json has its own role set, and the Leg's `figure_roles`
-// binds exactly the roles of its Move's form — composition refused anything
-// else while the Move was still in reach (`resolveFigureForms`). So the kind
-// whose role set equals the Leg's bound roles IS that form's kind, and the
-// figure is designed without opening the Move. What a role means is the
-// kind's `relation` line and the claim it is bound to; the Move's own wording
-// for a role stays with the Move, whose responsibility ends at the Candidate.
+// The form for one figure-carrying Leg, its roles in the CLOSED SET'S declared
+// order so the same record renders the same bytes.
+// THE KIND IS READ OFF THE LEG, NOT THE MOVE (kogaki#1311): the kind in
+// src/figure-kinds.json whose role set equals the Leg's `figure_roles` IS the
+// form's kind, because composition bound exactly those roles
+// (`resolveFigureForms`). What a role means is the kind's `relation` line and
+// the claim it is bound to.
 export function figureFormFor(leg) {
   const kinds = figureKinds().kinds || {};
   const bound = Object.keys(leg.figure_roles || {}).sort();

@@ -14,23 +14,14 @@ import { parseReactivateEntry, parseIntroducesEntry, audienceRecord } from "../c
 import { settingValue } from "../workflow/judge.mjs";
 
 // ---------------------------------------------------------------------------
-// JOURNEY TEXT RESOLUTION (kogaki#1250, owner ruling 2026-10-04). Since
-// kogaki#1111 the Packet rendered a Journey as an ADDRESS ONLY — "Its prose
-// is the served record at `<cite>`" — and handed the writer nothing to read.
-// Since Fresh Call (kogaki#1237) the writer is a separate `claude -p` process
-// with no permission grant of its own, so that address was never reachable
-// FROM INSIDE the realization: the writer had no Journey, and said so in the
-// article, which is the defect this issue closes. The Packet now carries the
-// Journey's served TEXT, resolved through the kit's gateway query BEFORE any
-// writer is called — and a Journey that does not resolve refuses the whole
-// Packet build, naming the Leg and the address, rather than reaching the
-// writer as a hole for it to fill by invention.
-//
+// JOURNEY TEXT RESOLUTION (kogaki#1250, owner ruling 2026-10-04). The writer is
+// a separate `claude -p` process (kogaki#1237) that cannot reach a served
+// address, so the Packet carries each Journey's served TEXT, resolved through
+// the kit's gateway query before any writer is called. A Journey that does not
+// resolve refuses the whole Packet build, naming the Leg and the address.
 // THIS IS A STATED EXCEPTION to "the gateway is an enhancer, never a
-// dependency" (policy/CAPABILITIES.md): every OTHER seam in this repository
-// degrades and continues on an unreachable gateway. A Journey the writer
-// cannot read is not a degraded instruction, it is a Leg the Harness cannot
-// build — so resolution here fails the build rather than falling back.
+// dependency" (policy/CAPABILITIES.md): a Journey the writer cannot read is a
+// Leg the Harness cannot build, so resolution fails rather than degrading.
 
 // The identity a journey cite addresses — the SAME two forms a Draft's own
 // cites are judged against (kogaki#1116/#600 — src/cite-check.mjs): the

@@ -34,25 +34,14 @@ export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 // ---------------------------------------------------------------------------
 // THE BRIEF IS READ AS ITS RECORD (kogaki#1328, owner decision 2026-10-10).
+// `parseBriefRecord` (src/compose.mjs) reads theses/<slug>/brief.yaml and
+// refuses an undeclared key; `briefLegs` returns the Legs in recorded order.
+// No regular expression reads a rendering of the Brief. The composition side's
+// shape predicates run again here, imported, so a hand-edited Leg this side
+// cannot realize refuses by name rather than reaching a Packet half-formed.
 //
-// `theses/<slug>/brief.yaml` is one YAML record, and this is where /draft
-// reads it: `parseBriefRecord` (src/compose.mjs) reads the YAML and refuses a
-// key the record does not declare, and `briefLegs` hands back the Reader
-// Path's Legs in their recorded order with each before-state derived from the
-// state before it. No regular expression reads a rendering of the Brief here:
-// `parseBrief`, `parseLegBlockBody` and the Closure regex they shared are
-// gone, because every field they recovered was structured data a moment
-// before the Brief was written, and the record keeps it structured.
-//
-// THE SHAPE CHECKS STILL RUN AT THE READ, through the composition side's own
-// predicates, imported rather than re-expressed: `validateLegs` ran them
-// before the Brief was written, and a Brief edited by hand afterwards is read
-// as any other record — so a Leg this side cannot realize refuses here,
-// naming the Leg, rather than reaching a Packet half-formed.
-//
-// Returns `{ slug, surveyPin, thesis, strands, legs, refusals, text, record }`.
-// `refusals` collects every reason the Brief is not an input; the caller
-// decides what one costs.
+// Returns `{ slug, surveyPin, thesis, strands, legs, refusals, text, record }`;
+// the caller decides what a refusal costs.
 export function readBrief(text, path = "<brief>") {
   const refusals = [];
   const parsed = parseBriefRecord(text, path);
