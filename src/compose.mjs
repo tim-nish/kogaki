@@ -370,7 +370,9 @@ export function budgetRefusal(budget, at) {
 // names the Leg and, where one is at fault, the waypoint by its position.
 // PURE, and exported for the realization entry in `src/draft.mjs`, which
 // re-runs it over a Brief's parsed Legs rather than re-expressing it.
-export function waypointsRefusal(waypoints, claimStrands, at) {
+// `ordinals`, where given, is each waypoint's own number in the list it was taken from, so a
+// refusal over a filtered list names the entry the reader of it numbers (kogaki#1448).
+export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null) {
   const def = "a waypoint is a point its paragraph makes, carrying a `point` "
     + "(the proposition the paragraph makes, in the article's subject, one sentence — never an effect on "
     + "the reader) and `serves` (the claims it serves, by the Strand id each names) — src/leg-schema.json, "
@@ -383,7 +385,7 @@ export function waypointsRefusal(waypoints, claimStrands, at) {
   const strands = new Set(claimStrands);
   const served = new Set();
   for (const [i, w] of waypoints.entries()) {
-    const nth = `waypoint ${i + 1}`;
+    const nth = `waypoint ${ordinals ? ordinals[i] : i + 1}`;
     if (!w || typeof w !== "object" || Array.isArray(w)) {
       return `${at}: ${nth} is not a waypoint — ${def}`;
     }
@@ -2777,7 +2779,8 @@ export function paragraphPlanPathFor(briefPath) {
 // One YAML record: `version`, `brief` (the path and the content hash of the Brief it
 // was made from), and `legs`, one per Leg of the Brief's Reader Path in order, each
 // carrying one entry per Leg Waypoint in order with that Leg Waypoint's Paragraph
-// Waypoints. A Paragraph Waypoint is `point` and `serves`, and nothing else.
+// Waypoints. A Paragraph Waypoint is `point` and `serves`, and nothing else -- or
+// `performs` alone, for a Segment that acts on the reader's reading (kogaki#1448).
 
 const PLAN_HEADER = [
   "The paragraph plan for one article: under every Leg Waypoint of the Brief named below, the Paragraph Waypoints",
@@ -2800,7 +2803,8 @@ export function paragraphPlanRecord({ briefPath, briefText, legs }) {
         return {
           waypoint: i + 1,
           ...(typeof join === "string" ? { join: oneLine(join) } : {}),
-          paragraph_waypoints: pws.map((p) => ({ point: oneLine(p.point), serves: [...p.serves] })),
+          paragraph_waypoints: pws.map((p) => (Object.hasOwn(p, "performs")
+            ? { performs: oneLine(p.performs) } : { point: oneLine(p.point), serves: [...p.serves] })),
         };
       }),
     })),
@@ -2816,6 +2820,12 @@ const PLAN_BRIEF_KEYS = ["path", "sha256"];
 const PLAN_LEG_KEYS = ["leg_id", "waypoints"];
 const PLAN_WAYPOINT_KEYS = ["waypoint", "join", "paragraph_waypoints"];
 const PARAGRAPH_WAYPOINT_KEYS = ["point", "serves"];
+// THE PERFORMS FORM (kogaki#1448, owner decision 2026-10-19): a Paragraph Waypoint for a
+// Segment that acts on the reader's reading -- announce, flag, concede difficulty, signal a
+// turn -- carries `performs`, the operation in the planner's words, in place of `point` and
+// `serves`: such a Segment carries no part of the Leg Waypoint's point, and a point written
+// for it is invented content.
+const PERFORMS_WAYPOINT_KEYS = ["performs"];
 
 export function undeclaredKey(obj, allowed) {
   return Object.keys(obj).find((k) => !allowed.includes(k));
@@ -2924,18 +2934,40 @@ export function joinRefusal(w, j, at) {
 
 // ONE LEG WAYPOINT'S PARAGRAPH WAYPOINTS, by the Leg Waypoints' own rule (the count is
 // not fixed, and every Claim the parent serves is served by at least one of them) and
-// with `point` and `serves` as their only keys.
+// with `point` and `serves` as their only keys -- or `performs` alone (kogaki#1448), which
+// the Claim-coverage rule does not count: the `point` Paragraph Waypoints carry it, and a
+// Leg Waypoint none of whose Paragraph Waypoints carries a `point` is refused.
 export function paragraphWaypointsRefusal(pws, parentServes, at) {
   if (Array.isArray(pws)) {
     for (const [i, p] of pws.entries()) {
       if (p && typeof p === "object" && !Array.isArray(p)) {
+        if (Object.hasOwn(p, "performs")) {
+          const k = undeclaredKey(p, PERFORMS_WAYPOINT_KEYS);
+          if (k) {
+            return `${at}: Paragraph Waypoint ${i + 1} carries \`performs\` beside \`${k}\` — a \`performs\` Paragraph Waypoint `
+              + "carries its Segment's operation on the reader's reading in place of `point` and `serves`, and nothing else (kogaki#1448)";
+          }
+          if (typeof p.performs !== "string" || p.performs.trim() === "") {
+            return `${at}: Paragraph Waypoint ${i + 1} carries an empty \`performs\` — it names the operation its Segment `
+              + "performs on the reader's reading, in one sentence (kogaki#1448)";
+          }
+          continue;
+        }
         const k = undeclaredKey(p, PARAGRAPH_WAYPOINT_KEYS);
         if (k) {
-          return `${at}: Paragraph Waypoint ${i + 1} carries \`${k}\` — a Paragraph Waypoint carries \`point\` and \`serves\` `
-            + "only, and nothing of a Move reaches past Paragraph Waypoint generation (kogaki#1375)";
+          return `${at}: Paragraph Waypoint ${i + 1} carries \`${k}\` — a Paragraph Waypoint carries \`point\` and \`serves\`, `
+            + "or `performs` alone, and nothing of a Move reaches past Paragraph Waypoint generation (kogaki#1375, kogaki#1448)";
         }
       }
     }
+    const isPoint = (p) => !(p && typeof p === "object" && Object.hasOwn(p, "performs"));
+    const points = pws.filter(isPoint);
+    const ordinals = pws.map((p, i) => i + 1).filter((n) => isPoint(pws[n - 1]));
+    if (pws.length && !points.length) {
+      return `${at}: none of its Paragraph Waypoints carries a \`point\` — a \`performs\` Paragraph Waypoint carries no part `
+        + "of the Leg Waypoint's point, so every Claim the parent serves is served by at least one `point` Paragraph Waypoint (kogaki#1448)";
+    }
+    return waypointsRefusal(points, parentServes, `${at}'s Paragraph Waypoints`, ordinals);
   }
   return waypointsRefusal(pws, parentServes, `${at}'s Paragraph Waypoints`);
 }

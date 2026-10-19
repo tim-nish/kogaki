@@ -12,7 +12,9 @@
 //
 // THE MOVE BOUNDARY. Move information may be used up to Paragraph Waypoint generation
 // and nowhere after it. So the ParagraphPlan file holds `point` and `serves` per
-// Paragraph Waypoint and NOTHING OF A MOVE — no id, no Segment, no field — and which
+// Paragraph Waypoint -- or `performs` alone, the planner's own words for a Segment that
+// acts on the reader's reading and carries no part of the point (kogaki#1448) -- and
+// NOTHING OF A MOVE — no id, no Segment, no field — and which
 // Move was bound to which Leg Waypoint stays in this stage's run directory
 // (`paragraph-plan-bindings.json`), a record of the run that no later stage reads. The one
 // thing the file holds beside them is each later Leg Waypoint's `join` (kogaki#1411): one

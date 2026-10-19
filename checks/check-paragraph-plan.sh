@@ -79,6 +79,20 @@
 #       handed carries that sentence -- naming that Paragraph Waypoint, and the
 #       refusal reaches the next plan attempt, same as the FIFTH refusals of
 #       (h). Whether a LIVE judge refuses it is the model's.
+#   (p) A SEGMENT THAT ACTS ON THE READING CARRIES `performs` (kogaki#1448): a
+#       fake planner bound to p5, whose Segment 1 announces a simplification,
+#       answers a `performs` Paragraph Waypoint on Segment 1 and a `point` one
+#       after it; the plan file is written with that `performs` entry, the
+#       judge's input carries it, and both rows carry the form. A fake planner
+#       bound to p6, whose Segment 1 defines a term, answers `performs` on
+#       Segment 1, and the fake judge -- which refuses only where the row it
+#       was handed carries the SIXTH form refusal -- answers `does-not-fit`
+#       naming that entry; the attempt is refused and the refusal reaches the
+#       next plan attempt. The plan reader refuses a Leg Waypoint none of whose
+#       Paragraph Waypoints carries a `point`, and a `performs` entry carrying
+#       any key beside it, and names a refused `point` entry by its own place,
+#       counting the `performs` entry before it. Whether a LIVE judge refuses
+#       it is the model's.
 #   (k) THE INGEST'S MOVE IS READ (kogaki#1418): `p1`, the Move case (a) and
 #       its neighbours bind, is admitted by `tools/move_ingest.py`'s write gate
 #       (`save_accepted`, validating through the Adapter's src/move-validate.mjs)
@@ -154,6 +168,11 @@ const P5_SEG1 = "concedes that the distinction just given is hard to hold and pr
 writeMove(moves, { id: "p5", ...STATE,
   breaks: ["drop the concession — the cases arrive unmotivated."],
   segments: [{ does: P5_SEG1 }, { does: "gives the first case.", relation: "carries out the promised simplification." }] });
+// (p)'s defining Move: Segment 1 operates on the subject, so a `performs` entry on it is refused.
+const P6_SEG1 = "defines the term the point turns on.";
+writeMove(moves, { id: "p6", ...STATE,
+  breaks: ["drop the definition — the case reads as undefined."],
+  segments: [{ does: P6_SEG1 }, { does: "gives a case.", relation: "applies the definition." }] });
 const UNRELATED_FIRST_POINT = "In some societies many ordinary people, and not only soldiers or police, carry guns.";
 writeMove(moves, { id: "p4", ...STATE,
   breaks: ["breaks if a segment is dropped."], segments: PSEG3 });
@@ -216,7 +235,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     writeFileSync(counter, String(n));
     const doesOf = (w) => ((w.bound_move && w.bound_move.segments) || []).map((s) => String(s.does || "").trim()).filter(Boolean);
     const restatesDescription = mode === "content" && leg.waypoints.some((w) =>
-      (w.paragraph_waypoints || []).some((pw) => doesOf(w).some((d) => d && pw.point.includes(d))));
+      (w.paragraph_waypoints || []).some((pw) => doesOf(w).some((d) => d && String(pw.point || "").includes(d))));
     // (i): refuses only where the row it was handed checks each Paragraph Waypoint against its
     // own Segment, so the fixture fails exactly when that criterion is in the judge row.
     const perSegment = prompt.includes("each Paragraph Waypoint against ITS OWN Segment");
@@ -239,9 +258,15 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const relationRule = prompt.includes("never part of what the Paragraph Waypoint says");
     const relationOf = (w, i) => String((((w.bound_move && w.bound_move.segments) || [])[i] || {}).relation || "").trim();
     const carriesRelation = mode === "relation" && relationRule && leg.waypoints.some((w) =>
-      (w.paragraph_waypoints || []).some((pw, i) => relationOf(w, i) && pw.point.includes(relationOf(w, i))));
-    const refuse = (mode === "ok" && leg.leg_id === "s2" && n === 1) || restatesDescription || lostSegment || badJoin || contentJoin || carriesRelation;
-    const why = carriesRelation ? "RELATION-SENTENCE Paragraph Waypoint 2 carries its Segment's relation as content."
+      (w.paragraph_waypoints || []).some((pw, i) => relationOf(w, i) && String(pw.point || "").includes(relationOf(w, i))));
+    // (p): refuses a \`performs\` Paragraph Waypoint on a Segment whose does defines, only where
+    // the row it was handed carries the SIXTH form refusal (kogaki#1448).
+    const formRule = prompt.includes("a \`performs\` Paragraph Waypoint for a Segment whose \`does\` names an operation on the SUBJECT");
+    const performsOnSubject = mode === "performs-defining" && formRule && leg.waypoints.some((w) =>
+      (w.paragraph_waypoints || []).some((pw, i) => Object.hasOwn(pw, "performs") && /^defines\\b/.test(doesOf(w)[i] || "")));
+    const refuse = (mode === "ok" && leg.leg_id === "s2" && n === 1) || restatesDescription || lostSegment || badJoin || contentJoin || carriesRelation || performsOnSubject;
+    const why = performsOnSubject ? "PERFORMS-SENTENCE Paragraph Waypoint 1 carries performs, and Segment 1's does defines a term on the subject."
+      : carriesRelation ? "RELATION-SENTENCE Paragraph Waypoint 2 carries its Segment's relation as content."
       : badJoin ? "JOIN-SENTENCE the join of Waypoint 2 restates a Paragraph Waypoint or states an effect on the reader."
       : contentJoin ? "JOIN-SENTENCE the join of Waypoint 2 names a noun phrase of a Paragraph Waypoint."
       : restatesDescription
@@ -258,7 +283,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => {
     const nofit = mode === "nofit" && leg.leg_id === "s1" && w.waypoint === 2;
     const move = nofit ? null : mode === "broken" ? "p3" : mode === "technique" ? "p2" : (mode === "segments3" || mode === "content" || mode === "relation") ? "p4"
-      : mode === "mismatch" ? "p5" : "p1";
+      : (mode === "mismatch" || mode === "performs") ? "p5" : mode === "performs-defining" ? "p6" : "p1";
     const pw = (n) => ({ point: "PW-" + leg.leg_id + "-" + w.waypoint + "-" + n + " the paragraph establishes its point.", serves: [...w.serves] });
     const restated = mode === "content" && leg.leg_id === "s1" && w.waypoint === 1 && planN === 1;
     const join = w.waypoint === 1 || nofit ? undefined
@@ -271,7 +296,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return { waypoint: w.waypoint, move,
       why: nofit ? "NOFIT-SENTENCE-" + planN + " no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
       ...(join ? { join } : {}),
-      paragraph_waypoints: nofit ? [] : restated ? [{ point: "RESTATED: sets up the point.", serves: [...w.serves] }]
+      paragraph_waypoints: nofit ? [] : mode === "performs" || (mode === "performs-defining" && planN === 1)
+        ? [{ performs: "PERFORMS-" + leg.leg_id + "-" + w.waypoint + " flags the case as hard and announces the simplification." }, pw(2)]
+        : mode === "performs-defining" ? [pw(1), pw(2)]
+        : restated ? [{ point: "RESTATED: sets up the point.", serves: [...w.serves] }]
         : mode === "mismatch" ? [unrelated ? { point: ${JSON.stringify(UNRELATED_FIRST_POINT)}, serves: [...w.serves] } : pw(1), pw(2)]
         : mode === "relation" ? [pw(1), carried ? { point: "PW-s1-1-2 the overwrite is the consumer's edit, and answers what the setup opened.", serves: [...w.serves] } : pw(2), pw(3)]
         : mode === "segments3" ? [pw(1), pw(2), pw(3)] : [pw(1)] };
@@ -554,6 +582,69 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   }
 }
 
+// (p) A SEGMENT THAT ACTS ON THE READING CARRIES \`performs\` (kogaki#1448): bound to p5, whose
+// Segment 1 announces a simplification, the planner answers a \`performs\` Paragraph Waypoint on
+// Segment 1 and a \`point\` one after it, and the file and the judge's input carry it; bound to
+// p6, whose Segment 1 defines, a \`performs\` entry there is refused naming it and re-planned.
+{
+  const r = runStage("performs", legs, "performs", moves);
+  if (r.started.status !== 0) fails.push(`(p) start failed: ${(r.started.stderr || "").slice(0, 400)}`);
+  else if (!r.awaited || r.awaited.status !== 0) fails.push(`(p) await did not finish the job: ${(r.awaited && (r.awaited.stdout + r.awaited.stderr) || "").slice(0, 600)}`);
+  if (!existsSync(r.planPath)) fails.push("(p) no ParagraphPlan file was written for a plan carrying a performs Paragraph Waypoint");
+  else {
+    const record = parseYaml(readFileSync(r.planPath, "utf8"), r.planPath);
+    const pws = record.legs.find((l) => l.leg_id === "s1").waypoints[0].paragraph_waypoints;
+    const want = [{ performs: "PERFORMS-s1-1 flags the case as hard and announces the simplification." },
+      { point: "PW-s1-1-2 the paragraph establishes its point.", serves: ["L1"] }];
+    if (JSON.stringify(pws) !== JSON.stringify(want)) {
+      fails.push(`(p) the ParagraphPlan file does not carry the performs entry on Segment 1 and the point entry after it: ${JSON.stringify(pws)}`);
+    }
+  }
+  const plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
+  const judges = r.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
+  if (!judges.length || !judges.every((p) => p.includes('"performs": "PERFORMS-'))) fails.push("(p) the judge's input does not carry the performs Paragraph Waypoint");
+  if (!plans.length || !plans.every((p) => p.includes("ONE FORM IS NOT A PART OF THE POINT, AND IS DECLARED AS SUCH"))) {
+    fails.push("(p) a plan prompt's row does not say when a Paragraph Waypoint carries performs");
+  }
+  if (!judges.length || !judges.every((p) => p.includes("a `point` Paragraph Waypoint for a Segment whose `does` acts on the READING"))) {
+    fails.push("(p) a judge prompt's row does not carry the SIXTH refusal of a point Paragraph Waypoint on a reading-directed Segment");
+  }
+}
+{
+  const r = runStage("performs-defining", legs, "performs-defining", moves);
+  if (r.started.status !== 0) fails.push(`(p) start failed on the defining Move: ${(r.started.stderr || "").slice(0, 400)}`);
+  else if (!r.awaited || r.awaited.status !== 0) fails.push(`(p) await did not finish the defining-Move job: ${(r.awaited && (r.awaited.stdout + r.awaited.stderr) || "").slice(0, 600)}`);
+  const judges = r.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
+  if (!judges[0] || !judges[0].includes(P6_SEG1) || !judges[0].includes('"performs": "PERFORMS-')) {
+    fails.push("(p) the first judge call is not handed Segment 1's defining does beside the performs Paragraph Waypoint");
+  }
+  const s1Plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"') && p.includes('"leg_id": "s1"'));
+  if (s1Plans.length !== 2 || !s1Plans[1].includes("PERFORMS-SENTENCE Paragraph Waypoint 1")) {
+    fails.push(`(p) the judge's refusal naming the performs entry on a defining Segment did not reach Leg s1's next plan prompt (${s1Plans.length} plan prompt(s))`);
+  }
+  if (existsSync(r.planPath) && readFileSync(r.planPath, "utf8").includes("PERFORMS-")) {
+    fails.push("(p) the ParagraphPlan file kept the performs entry the judge refused on a defining Segment");
+  }
+}
+{
+  const s1 = legs.find((l) => l.leg_id === "s1");
+  const leg0 = { leg_id: "s1", waypoints: s1.waypoints };
+  const plan = (pws0) => ({ version: "1", brief: { path: "theses/plan-brief/brief.yaml", sha256: "0".repeat(64) },
+    legs: [{ leg_id: "s1", waypoints: [{ waypoint: 1, paragraph_waypoints: pws0 },
+      { waypoint: 2, join: "a join.", paragraph_waypoints: [{ point: "a point.", serves: ["L1", "L2"] }] }] }] });
+  const allPerforms = paragraphPlanShapeRefusal(plan([{ performs: "announces the simplification." }]), "plan.yaml", [leg0]) || "";
+  if (!allPerforms.includes("none of its Paragraph Waypoints carries a `point`")) {
+    fails.push(`(p) the plan reader did not refuse a Leg Waypoint none of whose Paragraph Waypoints carries a point: ${allPerforms}`);
+  }
+  const mixed = paragraphPlanShapeRefusal(plan([{ performs: "announces.", serves: ["L1"] }, { point: "a point.", serves: ["L1"] }]), "plan.yaml", [leg0]) || "";
+  if (!mixed.includes("carries `performs` beside `serves`")) fails.push(`(p) the plan reader did not refuse a performs entry carrying serves: ${mixed}`);
+  // the ordinal a refusal names is the entry's own place, counting the performs entry before it.
+  const second = paragraphPlanShapeRefusal(plan([{ performs: "announces." }, { point: "", serves: ["L1"] }]), "plan.yaml", [leg0]) || "";
+  if (!second.includes("waypoint 2 has an empty point")) fails.push(`(p) a refusal of a point entry after a performs entry does not name it by its own number: ${second}`);
+  const ok = paragraphPlanShapeRefusal(plan([{ performs: "announces." }, { point: "a point.", serves: ["L1"] }]), "plan.yaml", [leg0]);
+  if (ok !== null) fails.push(`(p) the plan reader refused a performs entry beside a point entry: ${ok}`);
+}
+
 // (l) THE JOIN IS JUDGED (kogaki#1411): the plan row asks for the join, the judge row carries
 // the join criterion and the judge call is handed the join; a join restating a Paragraph
 // Waypoint, and one stating an effect on the reader, are each refused by the fake judge (which
@@ -665,5 +756,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments (each Segment's number, does and relation as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries the four roles and neither call a technique (kogaki#1412); a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a library holding a Move with no segments stops naming the Move whether or not it carries technique, each with the Brief unchanged and no file written (kogaki#1412); a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's does is refused by the judge same as any other does-not-fit; both rows state that a Segment's relation is never part of what the Paragraph Waypoint says, and a Paragraph Waypoint carrying its Segment's relation as content is refused naming it (kogaki#1446); the 2026-10-16 paragraph 2 plan, whose first point lost its Segment, is refused by the judge's per-Segment check and re-planned; a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); every Leg Waypoint after the first carries a join and no first one does, the plan reader and the plan call's validator refuse a missing, empty or misplaced join by name, the Brief refuses one, a join restating a Paragraph Waypoint or stating a reader effect is refused under the judge's join criterion, both rows carry the mechanical join test and a join naming a Paragraph Waypoint's noun phrase is refused under it (kogaki#1447), and the Packet renders each join as its Opens-from line under the template's instruction (kogaki#1411); the Move the stage binds is one the ingest admitted through the Adapter's validator (kogaki#1418); the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments (each Segment's number, does and relation as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries the four roles and neither call a technique (kogaki#1412); a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a library holding a Move with no segments stops naming the Move whether or not it carries technique, each with the Brief unchanged and no file written (kogaki#1412); a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's does is refused by the judge same as any other does-not-fit; both rows state that a Segment's relation is never part of what the Paragraph Waypoint says, and a Paragraph Waypoint carrying its Segment's relation as content is refused naming it (kogaki#1446); the 2026-10-16 paragraph 2 plan, whose first point lost its Segment, is refused by the judge's per-Segment check and re-planned; a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); every Leg Waypoint after the first carries a join and no first one does, the plan reader and the plan call's validator refuse a missing, empty or misplaced join by name, the Brief refuses one, a join restating a Paragraph Waypoint or stating a reader effect is refused under the judge's join criterion, both rows carry the mechanical join test and a join naming a Paragraph Waypoint's noun phrase is refused under it (kogaki#1447), and the Packet renders each join as its Opens-from line under the template's instruction (kogaki#1411); a Segment that acts on the reader's reading carries a performs Paragraph Waypoint the plan file and the judge's input carry, a performs entry on a defining Segment is refused naming it, and a Leg Waypoint with no point entry is refused (kogaki#1448); the Move the stage binds is one the ingest admitted through the Adapter's validator (kogaki#1418); the skill names only entry points the Harness has.");
 JS
