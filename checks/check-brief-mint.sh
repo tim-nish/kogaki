@@ -14,11 +14,15 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { composeBrief } from "./src/brief.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS } from "./src/review.mjs";
 import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord } from "./checks/fixtures/brief-compose/fixtures.mjs";
+// The Brief runtime is the entry and every module it was split into (kogaki#1466).
+const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
+  .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
 const fails = [];
 
 // (af) the nearest field's description states the at-most-one-per-path limit
@@ -41,7 +45,7 @@ const fails = [];
 // review_path's input carries the Brief's `defined_terms` in its place. The
 // Persona's line keeps its one reader, differentiation's Reader start.
 {
-  const brief = readFileSync("src/brief.mjs", "utf8");
+  const brief = briefRuntimeText();
   const code = (t) => t.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
   const composePath = code(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")));
   const reviewPath = code(brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  attach_review:")));
