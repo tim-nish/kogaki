@@ -90,6 +90,12 @@ ParagraphPlan file beside the Brief and rendered under each waypoint -- and
 nothing of the Move itself. No Move file is opened here. The *Opens from* line
 under a waypoint is the ParagraphPlan's join, composed from the reader state
 the previous paragraph leaves, and carries nothing of a Move (kogaki#1411).
+
+WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
+rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
+field it renders is held to; checks/check-schema-binds.sh reads it and
+src/SCHEMA-BINDS.md renders it beside the workflow rows.
+BINDS (kogaki#1452): {"waypoints": {"leg": {"waypoints.point": "content", "claims": "content"}, "paragraph_plan": {"waypoints.join": "operation", "paragraph_waypoints.point": "content", "paragraph_waypoints.performs": "operation"}}, "claims": {"leg": {"claims": "content"}}, "journeys": {"leg": {"journeys": "content"}}, "section_placement": {"leg": {"opens_section": "structural"}}, "reader_target_line": {"leg": {"reaches_target": "structural"}}, "crosses_here": {"leg": {"introduces": "content", "re-activate": "content"}}, "budget": {"leg": {"budget": "structural"}}, "figure_reason": {"leg": {"figure": "content"}}}
 -->
 
 # Write one Leg

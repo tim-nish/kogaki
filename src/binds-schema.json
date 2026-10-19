@@ -1,0 +1,53 @@
+{
+  "note": [
+    "WHAT A ROW HOLDS EACH SCHEMA FIELD TO (kogaki#1452, owner decision 2026-10-19).",
+    "Every row of src/brief-workflow.json, src/paragraph-plan-workflow.json and",
+    "src/proof-sheet/extraction-workflow.json that renders a field of one of the",
+    "schemas below into a prompt carries `binds`: a map from schema name to a map",
+    "from field name to ONE hold of the closed set `holds`, and names every field",
+    "of that schema it does not read in `binds_unread`. src/packet-template.md's",
+    "rendered blocks and src/review-items.json's items carry the same key for what",
+    "the Packet renders and what the review reads.",
+    "",
+    "The declarations are not a second authority: what each rule says stays in the",
+    "row's own `judgment_point`, `input_shape` and `refusal`, where its model call",
+    "reads it. checks/check-schema-binds.sh asserts the declarations against that",
+    "text and regenerates src/SCHEMA-BINDS.md from them.",
+    "",
+    "A field name is the schema's own key; a field inside a list entry is named",
+    "`<list>.<key>`, so a Move Segment's relation is `segments.relation`."
+  ],
+  "holds": {
+    "operation": "Performed, never stated: the output carries out what the field says and never says it.",
+    "structural": "Constrains order or standing, never stated: the field decides where or whether an output part stands, and its wording never reaches the output.",
+    "content": "A part the output may state.",
+    "excluded": "Read for judging, never rendered or stated: the field is a criterion the row's judgment reads, and no output carries it.",
+    "copied": "Rendered verbatim: the output carries the field's value unchanged."
+  },
+  "schemas": {
+    "move": {
+      "names": "the Move record",
+      "fields_from": "the field each role of moves/ROLES.json maps, the fields src/compose.mjs's MOVE_CARRIED_FIELDS lets a Move carry beside them, and each `segments` entry's own keys below",
+      "list_fields": {
+        "segments": {
+          "keys": ["does", "relation"],
+          "declared_in": "moves/ROLES.json `shapes.segments`"
+        }
+      }
+    },
+    "leg": {
+      "names": "the Brief's Leg",
+      "fields_from": "src/leg-schema.json `fields` and `derived`, and each `waypoints` entry's keys from its `waypoint.fields`"
+    },
+    "paragraph_plan": {
+      "names": "the ParagraphPlan record",
+      "fields_from": "the keys below, each named by the `paragraph_plan_unit` row's `input_shape` in src/paragraph-plan-workflow.json, where the record's shape is declared",
+      "fields": [
+        "version", "leg_id", "waypoints",
+        "waypoints.waypoint", "waypoints.move", "waypoints.why", "waypoints.join",
+        "waypoints.paragraph_waypoints",
+        "paragraph_waypoints.point", "paragraph_waypoints.serves", "paragraph_waypoints.performs"
+      ]
+    }
+  }
+}
