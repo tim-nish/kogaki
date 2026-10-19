@@ -104,6 +104,13 @@ them in as many sentences as it needs.
 The point is not quoted: its wording is yours, and no line here is copied or
 announced to the reader.
 
+An indented line in italics, with no claim beside it, is not a point. It names
+an operation the paragraph performs on the reader's reading at that place --
+announcing what follows, flagging that the material is hard, signalling a
+turn. Perform it in the paragraph's own words, in its place among the points.
+It asserts nothing: it adds no claim, no cause and no verdict, and it does not
+anticipate what a later point establishes.
+
 An *Opens from* line under a numbered line states how that paragraph's first
 point follows from the paragraph before it. The paragraph's opening realises
 that connection inside its first sentence, in that sentence's connective or

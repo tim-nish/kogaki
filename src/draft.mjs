@@ -461,7 +461,8 @@ function loadBrief(args) {
   // the Brief, naming the Brief's path and content hash, and /draft reads it here. A
   // missing file, and one made from a different Brief, are refused naming both files;
   // the Brief itself names nothing downstream. The file holds `point` and `serves` per
-  // Paragraph Waypoint and NOTHING OF A MOVE, so this read opens no Move file either.
+  // Paragraph Waypoint, or `performs` alone (kogaki#1448), and NOTHING OF A MOVE, so this
+  // read opens no Move file either.
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);
   // THE JOIN RIDES BESIDE THEM (kogaki#1411): a Leg Waypoint after the first carries the
@@ -1436,6 +1437,13 @@ export const READER_OWN_WORLD_ABSENT =
 // `*Opens from:* <join>` beneath its own line and before its Paragraph Waypoints — how the
 // paragraph's first point follows from the paragraph before it. The join is composed from
 // reader state and carries nothing of a Move; a Leg Waypoint without one renders as before.
+//
+// THE PERFORMS FORM, AS AN OPERATION LINE (kogaki#1448, owner decision 2026-10-19): a
+// Paragraph Waypoint carrying `performs` renders in its place in the sub-list as
+// `<j>. *<operation>*` -- italic, with no point and no `*Serves:*` -- because its Segment
+// acts on the reader's reading and carries no part of the Leg Waypoint's point. The
+// template tells the Writer such a line is performed in the paragraph's own words and
+// asserts nothing.
 export const OPENS_FROM_LABEL = "*Opens from:*";
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
@@ -1443,8 +1451,9 @@ export function waypointLines(leg) {
   const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition).trim()]));
   const line = (w, n) => `${n}. ${String(w.point).trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
   const joinOf = (w) => (typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : []);
+  const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : line(p, n));
   return ws.map((w, i) => [line(w, i + 1), ...joinOf(w),
-    ...(w.paragraph_waypoints || []).map((p, j) => `   ${line(p, j + 1)}`)].join("\n")).join("\n");
+    ...(w.paragraph_waypoints || []).map((p, j) => `   ${sub(p, j + 1)}`)].join("\n")).join("\n");
 }
 
 export function renderPacket({ template, brief, leg, priorSections, section, sections, language: languageOverride = null }) {
