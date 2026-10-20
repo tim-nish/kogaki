@@ -280,9 +280,9 @@
       "where it OPENS to the next blank line rather than from a heading to the next",
       "one.",
       "",
-      "`opens_from` IS A `labelled_lines` BLOCK (kogaki#1447). The ParagraphPlan's join",
-      "renders as an indented `*Opens from:*` line under its numbered Leg Waypoint, which",
-      "`heading_list` drops because it is no list item. `labelled_lines` reads each such",
+      "`opens_from` IS A `labelled_lines` BLOCK (kogaki#1447). The ParagraphPlan's join,",
+      "one relation word (kogaki#1477), renders as an indented `*Opens from:*` line",
+      "under its numbered Leg Waypoint, which `heading_list` drops because it is no list item. `labelled_lines` reads each such",
       "line under the numbered line it sits beneath and renders it in the block's `entry`",
       "form, so every entry names the paragraph it opens; a Leg whose Leg Waypoints carry",
       "no join answers the empty list."
@@ -550,7 +550,7 @@
         "verdict": "holds",
         "sentence": "this Leg's Packet carries no Opens-from line, so no paragraph was given a connection to realise and the question below quantifies over nothing"
       },
-      "question": "Above is one Opens-from line of this Leg's Packet: how the named paragraph's first point follows from the paragraph before it. The Packet tells the writer to realise that connection inside the paragraph's first sentence, in its connective or clause, never as a sentence of its own and never in the line's words. Below it is the sentence that paragraph actually opens on. Is that sentence the line reproduced -- its content restated whole or nearly whole, in the line's words or a close paraphrase of them -- rather than the connection carried in a connective or clause on the way to the paragraph's own point? Answer `fails` where it is the line reproduced, naming the paragraph; answer `holds` where the connection is realised and the sentence is about the paragraph's own point (kogaki#1447)."
+      "question": "Above is one Opens-from line of this Leg's Packet: one word -- consequence, grounds, contrast, elaboration, summary or none -- naming how the named paragraph's first point stands to the paragraph before it. The Packet tells the writer to realise that relation with a connective or clause, or with nothing, and never to state it as a proposition of its own. Below it is the sentence that paragraph actually opens on. Does that sentence narrate the connection as a proposition -- state that something was left open, is owed, or is now taken up -- instead of marking it with a connective or clause on the way to the paragraph's own point? Answer `fails` where it narrates the connection, naming the paragraph; answer `holds` where the relation is marked, or left to the order of the sentences, and the sentence is about the paragraph's own point (kogaki#1447, kogaki#1477)."
     },
     {
       "id": "demonstrative-reference",

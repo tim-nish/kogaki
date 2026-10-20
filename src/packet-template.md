@@ -88,8 +88,9 @@ ParagraphPlan stage has generated the Paragraph Waypoints from it; what the
 writer needs from THAT arrives as the Paragraph Waypoints, read from the
 ParagraphPlan file beside the Brief and rendered under each waypoint -- and
 nothing of the Move itself. No Move file is opened here. The *Opens from* line
-under a waypoint is the ParagraphPlan's join, composed from the reader state
-the previous paragraph leaves, and carries nothing of a Move (kogaki#1411).
+under a waypoint is the ParagraphPlan's join, one word of a closed set of
+relations the stage chose from the reader state the previous paragraph leaves,
+and carries nothing of a Move (kogaki#1411, kogaki#1477).
 
 WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
 rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
@@ -117,13 +118,13 @@ turn. Perform it in the paragraph's own words, in its place among the points.
 It asserts nothing: it adds no claim, no cause and no verdict, and it does not
 anticipate what a later point establishes.
 
-An *Opens from* line under a numbered line states how that paragraph's first
-point follows from the paragraph before it. The paragraph's opening realises
-that connection inside its first sentence, in that sentence's connective or
-clause, in wording of your choosing and under the Referents rule of the
-register: never as a sentence of its own and never in the line's words. The
-line is a connection and nothing more. It is not a point of its own, it is not
-copied, and it is not announced.
+An *Opens from* line under a numbered line carries one word -- consequence,
+grounds, contrast, elaboration, summary or none -- naming how that paragraph's
+first point stands to the paragraph before it. Realise it with a connective or
+clause of the register's own, or with nothing where the order of the sentences
+already carries it; `none` adds nothing. Never state the relation as a
+proposition of its own: the opening does not say that something was left open,
+is owed, or is now taken up. The word is not copied and not announced.
 
 {{waypoints}}
 

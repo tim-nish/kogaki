@@ -282,13 +282,28 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
   return null;
 }
 
-// THE JOIN, BY ITS PLACE IN THE LEG (kogaki#1411, owner decision 2026-10-18). Every Leg
-// Waypoint after the first carries one non-empty `join` -- one sentence, about the content,
-// stating what the previous paragraph left open and how this paragraph's first point takes
-// it up -- and the first carries none: the connection between Legs is the Brief's
-// (kogaki#1282). The join is composed by /paragraph-plan from reader state and names no Move
-// and no Segment. `j` is the Leg Waypoint's 0-based place. Shared by the plan reader and the
-// plan call's validator, so the file the stage writes is the file /draft reads.
+// THE JOIN IS A TYPED RELATION (kogaki#1477, owner decision 2026-10-20). Every Leg Waypoint
+// after the first carries one `join`, ONE WORD of this closed set naming how its paragraph's
+// first point stands to the paragraph before it, and the first carries none: the connection
+// between Legs is the Brief's (kogaki#1282). The join was one sentence (kogaki#1411), and the
+// Writer, which must realise it in its own first sentence, paraphrased it as a clause. The set
+// is Halliday and Hasan's conjunctive classes laid over the top-level senses of the Penn
+// Discourse TreeBank, cut to the relations a paragraph opening realises as a connective;
+// temporal is omitted because the plan's order already carries it. The definitions are the
+// ones the planner's row renders, so checks/check-paragraph-plan.sh reads them from here.
+export const JOIN_TYPES = {
+  consequence: "this paragraph follows from what the previous one established",
+  grounds: "this paragraph gives the reason for what the previous one asserted",
+  contrast: "this paragraph sets its matter against the previous one's",
+  elaboration: "this paragraph carries the previous one's matter further or in more detail",
+  summary: "this paragraph draws the preceding paragraphs together",
+  none: "this paragraph opens on its own matter and no connective is owed",
+};
+const JOIN_SET = Object.keys(JOIN_TYPES).join(", ");
+
+// THE JOIN, BY ITS PLACE IN THE LEG (kogaki#1411) AND ITS SET (kogaki#1477). `j` is the Leg
+// Waypoint's 0-based place. Shared by the plan reader and the plan call's validator, so the
+// file the stage writes is the file /draft reads.
 export function joinRefusal(w, j, at) {
   const has = Object.hasOwn(w, "join");
   if (j === 0) {
@@ -297,12 +312,16 @@ export function joinRefusal(w, j, at) {
       + "after the first within a Leg (kogaki#1411)" : null;
   }
   if (!has) {
-    return `${at} carries no \`join\` — every Leg Waypoint after the first carries one sentence stating what the `
-      + "previous paragraph left open and how this paragraph's first point takes it up (kogaki#1411)";
+    return `${at} carries no \`join\` — every Leg Waypoint after the first carries one word of ${JOIN_SET}, naming how `
+      + "this paragraph's first point stands to the paragraph before it (kogaki#1411, kogaki#1477)";
   }
   if (typeof w.join !== "string" || w.join.trim() === "") {
-    return `${at} carries an empty \`join\` — a join is one sentence stating what the previous paragraph left open and `
-      + "how this paragraph's first point takes it up (kogaki#1411)";
+    return `${at} carries an empty \`join\` — a join is one word of ${JOIN_SET} (kogaki#1411, kogaki#1477)`;
+  }
+  if (!Object.hasOwn(JOIN_TYPES, w.join)) {
+    const what = /\s/.test(w.join.trim()) ? "a sentence" : `the word ${JSON.stringify(w.join)}, which is outside the set`;
+    return `${at} carries ${what} for \`join\` — a join is one word of ${JOIN_SET}, never prose the Writer would `
+      + "paraphrase (kogaki#1477)";
   }
   return null;
 }

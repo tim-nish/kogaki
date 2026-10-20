@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# check-draft-packet — the rendered Leg Packet tells the Writer to realise the
-# Opens-from line inside the paragraph's first sentence, never as a sentence of
-# its own (kogaki#1447).
+# check-draft-packet — the rendered Leg Packet carries the Opens-from line as
+# one relation word and tells the Writer to realise it with a connective or
+# clause, or with nothing, never as a proposition of its own (kogaki#1447,
+# kogaki#1477).
 #
-# THE OWNER'S DECISION THIS HOLDS (2026-10-19): "A join is a connection and
+# THE OWNER'S DECISION THIS NOW HOLDS (2026-10-20, kogaki#1477): "I think
+# redefining Join as a relationship type is probably the right direction." On
+# the 2026-10-19 Proof Sheet run every paragraph after the first opened on its
+# join sentence paraphrased as a clause, because a sentence the Writer must
+# realise in its own text is content to the Writer.
+#
+# THE DECISION IT HELD BEFORE (2026-10-19, kogaki#1447): "A join is a connection and
 # nothing more ... the Writer realises it inside the first sentence rather than
 # as a sentence of its own." On 2026-10-19 paragraph 2 of the attack-defense
 # Proof Sheet run opened on its plan's join rendered nearly whole, because
@@ -12,18 +19,20 @@
 # not copied".
 #
 # WHAT THIS COVERS, over a Packet rendered by `renderPacket` (src/draft.mjs)
-# from a fixture Brief record whose second Leg Waypoint carries a join:
+# from a fixture Brief record whose second Leg Waypoint carries the join
+# `consequence`:
 #   (a) the rendered Packet's Opens-from paragraph -- from "An *Opens from*
-#       line" to the blank line -- carries "never as a sentence of its own" and
-#       does not carry "or a sentence of your choosing", read as word sequences
-#       so a rewrap of the template changes nothing; and nowhere in the Packet
-#       is a sentence offered as the opening's form;
+#       line" to the blank line -- carries "a connective or clause", "`none`
+#       adds nothing" and "Never state the relation as a proposition of its
+#       own", and does not carry "or a sentence of your choosing", read as word
+#       sequences so a rewrap of the template changes nothing; and nowhere in
+#       the Packet is a sentence offered as the opening's form;
 #   (b) the join renders as its `*Opens from:*` line under the second Leg
 #       Waypoint, so the paragraph (a) reads is the one governing a line the
 #       Packet actually carries;
-#   (c) THE COUNTERFACTUAL: the same render over the template as it stood
-#       before kogaki#1447 is refused by the same predicate, so (a) is not
-#       passing vacuously.
+#   (c) THE COUNTERFACTUALS: the same render over the template as it stood
+#       before kogaki#1447, and as it stood before kogaki#1477, is each refused
+#       by the same predicate, so (a) is not passing vacuously.
 #   (d) A `performs` PARAGRAPH WAYPOINT RENDERS AS AN OPERATION LINE
 #       (kogaki#1448): in the same Packet, a first Leg Waypoint whose Paragraph
 #       Waypoints are a `performs` entry and a `point` entry renders the first
@@ -58,7 +67,7 @@ const { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg, 
   await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 
 const C1 = "the installer copies the kit into the consumer's tree.";
-const JOIN = "JOIN-2 the overwrite takes up the edit the write left open.";
+const JOIN = "consequence";
 const leg = {
   leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1", reader_state_after: "knowledge: after s1.",
   materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
@@ -87,11 +96,14 @@ const opensFromParagraph = (packet) => {
   const end = packet.indexOf("\n\n", i);
   return flat(packet.slice(i, end === -1 ? undefined : end));
 };
-// THE PREDICATE (a) and (c) share: the paragraph forbids a sentence of its own and offers none.
+// THE PREDICATE (a) and (c) share: the paragraph names the realisations a relation word admits,
+// forbids stating it as a proposition, and offers no sentence.
 const realisedInsideFirstSentence = (packet) => {
   const p = opensFromParagraph(packet);
   if (p === null) return "the Packet carries no Opens-from paragraph";
-  if (!p.includes("never as a sentence of its own")) return `the Opens-from paragraph does not carry "never as a sentence of its own": ${p}`;
+  for (const want of ["a connective or clause", "`none` adds nothing", "Never state the relation as a proposition of its own"]) {
+    if (!p.includes(want)) return `the Opens-from paragraph does not carry "${want}": ${p}`;
+  }
   if (p.includes("or a sentence of your choosing")) return `the Opens-from paragraph still carries "or a sentence of your choosing": ${p}`;
   if (flat(packet).includes("or a sentence of your choosing")) return "the Packet still offers a sentence of the Writer's choosing as the opening's form";
   return null;
@@ -113,17 +125,22 @@ else {
   if (lines.filter((l) => l.includes(OPENS_FROM_LABEL)).length !== 1) fails.push("(b) the Packet carries an Opens-from line other than the second Leg Waypoint's");
 }
 
-// (c) the counterfactual: the template as it stood before kogaki#1447 is refused.
-{
-  const before = template.replace(/The paragraph's opening realises\n[\s\S]*?copied, and it is not announced\./,
-    "The paragraph's opening realises\nit, in a connective, a clause or a sentence of your choosing and wording, under\n"
-    + "the Referents rule of the register. It is not a point of its own, it is not\ncopied, and it is not announced.");
-  if (before === template) fails.push("(c) the fixture could not rebuild the pre-kogaki#1447 Opens-from paragraph from the template");
-  else {
-    const old = render(before);
-    if (old.error) fails.push(`(c) the pre-kogaki#1447 Packet did not render: ${old.error}`);
-    else if (realisedInsideFirstSentence(old.packet) === null) fails.push("(c) a Packet offering \"or a sentence of your choosing\" passed the predicate (a) applies");
-  }
+// (c) the counterfactuals: the template as it stood before kogaki#1447, and before kogaki#1477,
+// is each refused.
+const OPENS_FROM_HEAD = "An *Opens from* line under a numbered line states how that paragraph's first\n"
+  + "point follows from the paragraph before it. ";
+for (const [label, para] of [
+  ["kogaki#1447", OPENS_FROM_HEAD + "The paragraph's opening realises\nit, in a connective, a clause or a sentence of your "
+    + "choosing and wording, under\nthe Referents rule of the register. It is not a point of its own, it is not\ncopied, and it is not announced."],
+  ["kogaki#1477", OPENS_FROM_HEAD + "The paragraph's opening realises\nthat connection inside its first sentence, in that "
+    + "sentence's connective or\nclause, in wording of your choosing and under the Referents rule of the\nregister: never as a sentence "
+    + "of its own and never in the line's words. The\nline is a connection and nothing more. It is not a point of its own, it is not\n"
+    + "copied, and it is not announced."]]) {
+  const before = template.replace(/An \*Opens from\* line under a numbered line[\s\S]*?\n\n/, para + "\n\n");
+  if (before === template) { fails.push(`(c) the fixture could not rebuild the pre-${label} Opens-from paragraph from the template`); continue; }
+  const old = render(before);
+  if (old.error) fails.push(`(c) the pre-${label} Packet did not render: ${old.error}`);
+  else if (realisedInsideFirstSentence(old.packet) === null) fails.push(`(c) the pre-${label} Opens-from paragraph passed the predicate (a) applies`);
 }
 
 // (d) a performs Paragraph Waypoint renders as an operation line, with no point and no Serves.
@@ -176,5 +193,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the connection is realised inside the first sentence, never as a sentence of its own, and offers no sentence of the Writer's choosing; the join renders as its Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 wording is refused by the same predicate (kogaki#1447); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448).");
 JS

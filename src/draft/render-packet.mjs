@@ -27,7 +27,7 @@ export const READER_OWN_WORLD_ABSENT =
 // `<i>. <point> *Serves:* <claim>[; <claim>]`, one per Leg Waypoint, a `serves`
 // entry resolved to this Leg's claim for that Strand; null on an empty route.
 // Beneath each, an indented `*Opens from:* <join>` line where the ParagraphPlan
-// carries a join (kogaki#1411), then its Paragraph Waypoints as a numbered
+// carries a join (kogaki#1411) -- one relation word of its closed set (kogaki#1477) -- then its Paragraph Waypoints as a numbered
 // sub-list (kogaki#1375) -- a `performs` entry as the italic `<j>. *<operation>*`
 // with no point and no Serves (kogaki#1448). Nothing of a Move is rendered; a
 // missing plan refuses at the realization entry (`loadBrief`), not here.
