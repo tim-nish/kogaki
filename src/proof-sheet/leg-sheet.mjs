@@ -818,7 +818,7 @@ function runRecordCard(r, idx) {
 // A Leg Waypoint's point from the Brief, by its number on the run's Leg.
 function legPoint(r, n) {
   const legs = (r.briefRecord && r.briefRecord.reader_path) || [];
-  const leg = legs.find((l) => l && l.leg_id === r.legId) || legs[0];
+  const leg = r.legId ? legs.find((l) => l && l.leg_id === r.legId) : legs[0];
   const wp = leg && Array.isArray(leg.waypoints) ? leg.waypoints[n - 1] : null;
   return (wp && wp.point) || "(no point in the Brief)";
 }
@@ -847,12 +847,25 @@ function reviewBlock(r, idx) {
   const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}</h4>`
     + (p.file ? segmentsTable(p.segs) : `<p class="muted">(not written)</p>`)).join("");
 
+  // An attempt with no readable judge verdict, or one the job record refused where the judge
+  // named no does-not-fit, is a row too, carrying the job record's refusal: only an attempt
+  // both readers agree passed leaves no row, so "no attempt was refused" is never a silence.
   const attempts = planAttempts(r.planCalls);
+  const job = readJson(join(r.jobDir, "reader-path-job.json"));
+  const unit = ((job && job.units) || [])[0] || null;
+  const jobRefusals = (unit && Array.isArray(unit.refusals)) ? unit.refusals : [];
   const refused = [];
   attempts.forEach((a, i) => {
     const v = a.judge ? callAnswer(a.judge) : null;
-    const verdicts = v && v.record && Array.isArray(v.record.verdicts) ? v.record.verdicts : [];
-    for (const x of verdicts) if (x && x.verdict === "does-not-fit") refused.push({ n: i + 1, waypoint: x.waypoint, why: x.why || "" });
+    const verdicts = v && v.record && Array.isArray(v.record.verdicts) ? v.record.verdicts : null;
+    const jobSays = jobRefusals[i] !== undefined ? `the job record's refusal: ${jobRefusals[i]}` : "the job record holds no refusal for this attempt";
+    if (verdicts === null) {
+      refused.push({ n: i + 1, waypoint: "—", why: `${a.judge ? "the judge's answer carried no readable verdicts" : "no judge call was recorded"}; ${jobSays}` });
+      return;
+    }
+    const notFit = verdicts.filter((x) => x && x.verdict === "does-not-fit");
+    for (const x of notFit) refused.push({ n: i + 1, waypoint: x.waypoint, why: x.why || "" });
+    if (!notFit.length && jobRefusals[i] !== undefined) refused.push({ n: i + 1, waypoint: "—", why: `the judge answered fits at every Leg Waypoint; ${jobSays}` });
   });
   const refusedHtml = !attempts.length ? `<p class="muted">No plan call was recorded.</p>`
     : !refused.length ? `<p>no attempt was refused</p>`

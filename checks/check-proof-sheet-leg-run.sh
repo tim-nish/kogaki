@@ -55,7 +55,8 @@
 #       table with exactly one row -- attempt 1, Leg Waypoint 2, the judge's `why` -- linking to
 #       that attempt's block, and a Bindings table with one row per Leg Waypoint carrying its
 #       `point`, the bound Move and the bindings record's `why`, each with a folded "before /
-#       after" block carrying the Move file's before and after; the resumed run (h), refused
+#       after" block carrying the Move file's before and after; an attempt whose judge answer
+#       is unreadable is a row carrying the job record's refusal; the resumed run (h), refused
 #       nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
 #       "Point:" and the Leg Waypoint's `point` from the Brief.
 #   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through
@@ -574,6 +575,22 @@ else {
       && lines.every(([bf, af]) => fold.includes(escHtml(String(bf))) && fold.includes(escHtml(String(af ?? "")))),
       `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no folded before / after block with the Move's lines`);
   }
+  // An attempt whose judge answer is unreadable is a row carrying the job record's refusal,
+  // never a silence read as "no attempt was refused".
+  const unreadable = join(root, "unreadable-judge-run");
+  cpSync(runDir, unreadable, { recursive: true });
+  const ppCalls = readFileSync(join(unreadable, "paragraph-plan", "calls.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const firstJudge = ppCalls.findIndex((c) => c.stdin.includes('"leg_you_must_judge"'));
+  if (firstJudge >= 0) ppCalls[firstJudge].stdout = "UNREADABLE";
+  writeFileSync(join(unreadable, "paragraph-plan", "calls.jsonl"), ppCalls.map((c) => JSON.stringify(c)).join("\n") + "\n");
+  const uBuilt = S.buildSheet({ runs: [unreadable], provenance: map, out: join(root, "unreadable.html") });
+  const uHtml = uBuilt.written ? readFileSync(uBuilt.written, "utf8") : "";
+  const uRef = uHtml.slice(uHtml.indexOf('<details class="rpart refused" open>'), uHtml.indexOf('<details class="rpart bindings"'));
+  const uJob = JSON.parse(readOr(join(unreadable, "paragraph-plan", "job", "reader-path-job.json"), "{}"));
+  const uRefusal = (((uJob.units || [])[0] || {}).refusals || [])[0];
+  ok(firstJudge >= 0 && !uRef.includes("no attempt was refused") && uRef.includes(`href="#attempt-0-1"`) && uRef.includes("no readable verdicts")
+    && !!uRefusal && uRef.includes(escHtml(uRefusal)), "(o) an attempt with an unreadable judge answer does not render a row carrying the job record's refusal");
+
   for (let i = 1; i <= 3; i++) {
     const at = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0">`);
     const body = at >= 0 ? cards.paragraphPlan.slice(at + `id="planwp-p${i}-0">`.length) : "";
