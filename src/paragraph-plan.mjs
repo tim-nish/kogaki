@@ -18,8 +18,8 @@
 // Move was bound to which Leg Waypoint stays in this stage's run directory
 // (`paragraph-plan-bindings.json`), a record of the run that no later stage reads. The one
 // thing the file holds beside them is each later Leg Waypoint's `join` (kogaki#1411): one
-// sentence on how its paragraph's first point follows from the paragraph before, composed
-// from reader state, naming no Move and no Segment.
+// word of a closed set (`JOIN_TYPES`, kogaki#1477) naming how its paragraph's first point
+// stands to the paragraph before, chosen from reader state, naming no Move and no Segment.
 // The stage never writes the Brief, and the Brief names nothing downstream: the
 // ParagraphPlan file names the Brief it was made from, by path and content hash.
 //
@@ -272,8 +272,8 @@ export function noParagraphMoveFitsRefusal(failures) {
 // THE SECOND CALL — the judge. Its input carries each Leg Waypoint with the bound Move's
 // before, after, segments and breaks, and the Paragraph Waypoints generated
 // for it (kogaki#1378: the same four criteria the Leg judge judges); every Leg Waypoint
-// after the first also carries its `join`, judged against the previous entry's bound
-// Move's `after` and every Paragraph Waypoint (kogaki#1411).
+// after the first also carries its `join`, a relation word judged against the previous
+// entry's bound Move's `after` and its own first Paragraph Waypoint (kogaki#1411, kogaki#1477).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   return {

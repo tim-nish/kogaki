@@ -2313,6 +2313,42 @@ Brief hash is not the Brief's (§4.14). Its writer and reader
 shared code, since two commands touch the file and a command module never
 imports another's (kogaki#1302).
 
+**The join is a typed relation (kogaki#1477, owner decision 2026-10-20).**
+Every Leg Waypoint entry after the first carries a `join`, and the first
+carries none: the connection between Legs is the Brief's (kogaki#1282). A join
+is **one word from a closed set**, never a sentence:
+
+| word | this paragraph's first point, against the paragraph before it |
+|---|---|
+| `consequence` | follows from what the previous one established |
+| `grounds` | gives the reason for what the previous one asserted |
+| `contrast` | sets its matter against the previous one's |
+| `elaboration` | carries the previous one's matter further or in more detail |
+| `summary` | draws the preceding paragraphs together |
+| `none` | opens on its own matter, and no connective is owed |
+
+The set is Halliday and Hasan's conjunctive classes (additive, adversative,
+causal, temporal) laid over the top-level senses of the Penn Discourse
+TreeBank (expansion, comparison, contingency, temporal), cut to the relations a
+paragraph opening realises as a connective; temporal is omitted because the
+plan's order already carries it. The planner chooses the word from the previous
+Leg Waypoint's bound Move's `after`, the previous Paragraph Waypoints, this
+Leg Waypoint's bound Move and its first Paragraph Waypoint; the judge's SEVENTH
+asks whether the type is one that `after` admits and the first Paragraph
+Waypoint bears, and admits `none` and `contrast` where the paragraph defers
+what the `after` leaves open — a paragraph may answer a question later than
+the reader raised it. The plan reader and the plan call's validator
+(`joinRefusal`) refuse a sentence, an empty value and a word outside the set by
+name. The Packet renders the word as `*Opens from:* <type>`, and the Writer
+realises it with a connective or clause of the register's own, or with nothing
+where the order of the sentences already carries it, never as a proposition of
+its own. **Why a word and not a sentence**: the join was one sentence
+(kogaki#1411), and it is the one plan field whose reader is the Writer; a
+sentence the Writer must realise in its own text is content to the Writer, and
+on the 2026-10-19 Proof Sheet run every paragraph after the first opened on its
+join paraphrased as a clause. A Segment's `relation` stays prose, because the
+planner consumes it and it never reaches the Writer.
+
 **The Audience.** Paragraph Waypoint generation reads the Audience's `persona`;
 the Packet reads its `register`, which says nothing about paragraph structure.
 

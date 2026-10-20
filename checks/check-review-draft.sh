@@ -1,28 +1,33 @@
 #!/usr/bin/env bash
 # check-review-draft — /review-draft reads each paragraph's opening sentence
-# against the Packet's Opens-from line, and a copied opening fails naming its
-# paragraph (kogaki#1447).
+# against the Packet's Opens-from line, and an opening that narrates its
+# connection fails naming its paragraph (kogaki#1447, kogaki#1477).
 #
 # THE DEFECT THIS HOLDS: on 2026-10-19 paragraph 2 of the attack-defense Proof
 # Sheet run opened on its plan's join rendered nearly whole, and no review item
 # read the opening against the line: the Packet's "it is not copied" was the
 # only guard, and nothing checked it. The item `opens-from-copied`
-# (src/review-items.json) is that check, judged and best-effort.
+# (src/review-items.json) is that check, judged and best-effort. Since
+# kogaki#1477 the line is one relation word, and the item asks whether the
+# opening NARRATES the connection as a proposition -- says something was left
+# open, is owed, or is now taken up -- instead of marking it.
 #
 # WHAT THIS COVERS, driven through `buildJoin` (src/review-draft.mjs) over a
 # fixture Draft whose trace names a Packet rendered by `renderPacket`
 # (src/draft.mjs) from a fixture Brief record, the second Leg Waypoint carrying
-# a join, and whose paragraph 2 opens with that join verbatim:
+# the join `consequence`, and whose paragraph 2 opens by narrating it:
 #   (a) the item owes exactly ONE pair for the Leg -- paragraph 2's, the one
 #       paragraph after the first that carries an Opens-from line -- and the
 #       join Packet rendered for it carries the line, named as paragraph 2's,
 #       on the declared side and paragraph 2's own first sentence on the
 #       reverse side;
-#   (b) a `fails` verdict on that pair fails the item's row, best-effort, and
-#       the row's evidence names paragraph 2 by the declared entry -- the
-#       Harness's naming, not the judge's sentence;
-#   (c) a `holds` verdict holds the row and carries no evidence (the control
-#       that stops (b) passing on any verdict);
+#   (b) the item's question asks whether the opening narrates the connection
+#       as a proposition, and a `fails` verdict on the narrating opening fails
+#       the item's row, best-effort, the row's evidence naming paragraph 2 by
+#       the declared entry -- the Harness's naming, not the judge's sentence;
+#   (c) a paragraph 2 opening on a bare connective is paired the same way and
+#       a `holds` verdict holds its row with no evidence (the control that
+#       stops (b) passing on any verdict);
 #   (d) a Packet whose Leg Waypoints carry no join owes no pair and holds by
 #       the item's stated absence.
 #
@@ -49,7 +54,11 @@ const sha = (s) => createHash("sha256").update(s).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "review-draft-"));
 
 const C1 = "the installer copies the kit into the consumer's tree.";
-const JOIN = "The write left the consumer's edits unprotected, and the next run is where that shows.";
+const JOIN = "consequence";
+// Paragraph 2's two openings (kogaki#1477): one narrating the connection as a proposition of
+// its own, one marking it with a bare connective on the way to the paragraph's own point.
+const NARRATED = "What the first write left open is now taken up: the second run replaces the copy wholesale, edits included.";
+const CONNECTIVE = "So the second run replaces the copy wholesale, edits included.";
 const PARA1 = "The installer copies the kit into the consumer's tree. It writes every file it ships.";
 const PARA2_OWN = "The second run replaces the copy wholesale, edits included.";
 const brief = readBrief(briefRecordText({
@@ -98,29 +107,38 @@ if (!item) fails.push("(a) src/review-items.json declares no `opens-from-copied`
 else {
   if (item.class !== "best-effort" || item.mode === "mechanical") fails.push(`(a) the item is not judged and best-effort: class ${item.class}, mode ${item.mode}`);
   const only = { ...table, items: [item] };
-  const copied = fixture("copied", packetFor(JOIN), `${JOIN} ${PARA2_OWN}`);
-  const first = buildJoin(copied.draft, copied.run, only, copied.dir, { pass: 1 });
+  const narrated = fixture("narrated", packetFor(JOIN), NARRATED);
+  const first = buildJoin(narrated.draft, narrated.run, only, narrated.dir, { pass: 1 });
 
   // (a) one pair, paragraph 2's, with the line and the sentence on their sides.
   if (first.owed.length !== 1) fails.push(`(a) the item owes ${first.owed.length} pair(s) for a Leg with one Opens-from line, not one`);
   else {
     const pkt = readFileSync(first.owed[0].packet, "utf8");
     if (!pkt.includes(`paragraph 2 opens from: ${JOIN}`)) fails.push("(a) the join Packet's declared side does not carry the Opens-from line named as paragraph 2's");
-    if (!pkt.includes(`paragraph 2 of the passage opens on this sentence: ${JOIN}`)) fails.push("(a) the join Packet's reverse side is not paragraph 2's own first sentence");
+    if (!pkt.includes(`paragraph 2 of the passage opens on this sentence: ${NARRATED}`)) fails.push("(a) the join Packet's reverse side is not paragraph 2's own first sentence");
     if (pkt.includes(`opens on this sentence: ${PARA1.split(". ")[0]}`)) fails.push("(a) the join Packet pairs paragraph 1, which carries no Opens-from line");
   }
 
-  // (b) a `fails` verdict fails the row and the evidence names paragraph 2.
+  // (b) the question asks about narration, and a `fails` verdict on the narrating opening fails
+  // the row with evidence naming paragraph 2.
+  if (!item.question.includes("narrate the connection as a proposition")) fails.push("(b) the item's question does not ask whether the opening narrates the connection as a proposition (kogaki#1477)");
   const key = first.owed[0] && first.owed[0].key;
-  copied.run.verdicts = { [key]: { verdict: "fails", reason: "the opening sentence is the line reproduced whole.", model: "fixture" } };
-  const failed = buildJoin(copied.draft, copied.run, only, copied.dir, { pass: 1 });
+  narrated.run.verdicts = { [key]: { verdict: "fails", reason: "the opening says what was left open is now taken up.", model: "fixture" } };
+  const failed = buildJoin(narrated.draft, narrated.run, only, narrated.dir, { pass: 1 });
   const row = failed.results.find((r) => r.item === "opens-from-copied");
   if (!row || row.verdict !== "fails" || row.class !== "best-effort") fails.push(`(b) a fails verdict did not fail the best-effort row: ${JSON.stringify(row)}`);
   else if (!(row.evidence || []).some((e) => String(e).startsWith("paragraph 2 opens from:"))) fails.push(`(b) the failing row's evidence does not name paragraph 2: ${JSON.stringify(row.evidence)}`);
 
-  // (c) the control: `holds` holds and carries no evidence.
-  copied.run.verdicts = { [key]: { verdict: "holds", reason: "the connection is carried in a clause on the way to the point.", model: "fixture" } };
-  const held = buildJoin(copied.draft, copied.run, only, copied.dir, { pass: 1 });
+  // (c) the control: an opening on a bare connective is paired the same way, and `holds` holds
+  // it with no evidence.
+  const marked = fixture("connective", packetFor(JOIN), CONNECTIVE);
+  const owedC = buildJoin(marked.draft, marked.run, only, marked.dir, { pass: 1 });
+  const keyC = owedC.owed[0] && owedC.owed[0].key;
+  if (!keyC || !readFileSync(owedC.owed[0].packet, "utf8").includes(`opens on this sentence: ${CONNECTIVE}`)) {
+    fails.push("(c) the bare-connective opening is not paired against its Opens-from line");
+  }
+  marked.run.verdicts = { [keyC]: { verdict: "holds", reason: "the relation is marked by a connective on the way to the point.", model: "fixture" } };
+  const held = buildJoin(marked.draft, marked.run, only, marked.dir, { pass: 1 });
   const hrow = held.results.find((r) => r.item === "opens-from-copied");
   if (!hrow || hrow.verdict !== "holds" || hrow.evidence) fails.push(`(c) a holds verdict did not hold the row without evidence: ${JSON.stringify(hrow)}`);
 
@@ -137,5 +155,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; a fails verdict fails the row with evidence naming the paragraph, a holds verdict holds it, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447).");
+console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477).");
 JS
