@@ -433,7 +433,8 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
 
 // CARD 1 — EXTRACTION. Output: one collapsible block per paragraph, closed by default except
 // paragraph 1 (kogaki#1410, owner 2026-10-17: "having all of them expanded makes navigation
-// cumbersome"), each with its path, hash and file, with its Segments folded beside it. Inputs:
+// cumbersome"), each with its path and hash, opening on its Segments table with the record's
+// rendering and the record file folded beneath it (kogaki#1479, owner 2026-10-20). Inputs:
 // none drawn as a card (the original paragraph is in the comparison table above, the Audience
 // is in the run-conditions line). Prompt: one per paragraph. Calls: one group per paragraph,
 // with its attempt count.
@@ -454,7 +455,7 @@ function extractionCard(r, idx) {
     const calls = key ? r.extractCalls.filter((c) => String(c.stdin).includes(key)) : [];
     const segs = answer && Array.isArray(answer.segments) ? answer.segments : [];
     // THE RECORD, RENDERED (kogaki#1413): the Extraction file is a YAML record, shown here as
-    // the Markdown `extractionMarkdown` renders, with the file itself folded beneath it.
+    // the Markdown `extractionMarkdown` renders, folded after the Segments table (kogaki#1479).
     let rendered = null;
     if (text) { try { rendered = extractionMarkdown(parseYaml(text, file)); } catch { rendered = null; } }
     per.push({ i, file, text, rendered, promptText, calls, attempts, segs });
@@ -467,8 +468,8 @@ function extractionCard(r, idx) {
   const output = stageNote(r, "extract")
     + per.map((p) => prowBlock("extraction", p.i + 1, idx, `paragraph ${p.i + 1}`,
       `<p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
-      + (p.file ? pre(p.rendered || p.text || "(not written)") + sub(`record file — ${esc(rel(p.file))}`, pre(p.text || "(not written)"))
-        + sub("Segments", pairsOf(p)) : ""))).join("");
+      + (p.file ? pairsOf(p) + sub("rendering", pre(p.rendered || p.text || "(not written)"))
+        + sub("record file", pre(p.text || "(not written)")) : ""))).join("");
 
   // The Prompt is the recorded stdin of each paragraph's first call, not the judge's
   // `prompt.md`: the recorder's stdin carries the CLI preamble the model actually read.
@@ -566,6 +567,10 @@ function planAttempts(calls) {
   return attempts;
 }
 
+// A Paragraph Waypoint as a list item: a `point` entry as its text, a `performs` entry as its
+// text in italics, as the Packet renders it (kogaki#1448), so no item is empty (kogaki#1479).
+const pwItem = (p) => (p && Object.hasOwn(p, "performs") ? `<li><i>${esc(p.performs)}</i></li>` : `<li>${esc((p && p.point) || "")}</li>`);
+
 const waypointsNamed = (text) => [...new Set([...String(text || "").matchAll(/Waypoint (\d+)/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
 
 // THE ATTEMPTS PART (kogaki#1437): one folded block per attempt, in order, each holding the
@@ -584,7 +589,7 @@ function attemptsPart(attempts, job, planShown, judgeTitle) {
     const planner = planRecord
       ? planRecord.waypoints.map((w) => `<p class="meta">Leg Waypoint ${esc(w.waypoint)} · bound Move: ${esc(w.move === null ? "(none bound)" : w.move || "?")}</p>`
         + (w.join ? `<p>join: ${esc(w.join)}</p>` : "")
-        + `<ol>${(w.paragraph_waypoints || []).map((p) => `<li>${esc((p && p.point) || "")}</li>`).join("")}</ol>`).join("")
+        + `<ol>${(w.paragraph_waypoints || []).map(pwItem).join("")}</ol>`).join("")
       : `<p class="stop">(no readable record)</p>${pre(plan.record ? json(plan.record) : plan.raw)}`;
 
     let judge;
@@ -672,7 +677,7 @@ function paragraphPlanCard(r, idx) {
       return prowBlock("planwp", w.waypoint, idx, `Leg Waypoint ${w.waypoint}`,
         `<p class="meta">bound Move: ${esc(bnd.move || "?")} · Segments of the Move: ${segs}</p>`
         + (w.join ? `<p>join: ${esc(w.join)}</p>` : "")
-        + `<ol>${pws.map((p) => `<li>${esc(p.point || "")}</li>`).join("")}</ol>`,
+        + `<ol>${pws.map(pwItem).join("")}</ol>`,
         pws.length !== segs ? "off" : "");
     }).join("");
   }

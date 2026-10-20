@@ -45,6 +45,10 @@
 #   (m) the ParagraphPlan card's Output rows carry the plan file's join (kogaki#1445): the row
 #       for each Leg Waypoint after the first carries its `join` text, read from the row block
 #       alone since the Attempts part shows it too, and the row for Leg Waypoint 1 carries none.
+#   (n) the Leg sheet's first views (kogaki#1479): the main run's plan gives Leg Waypoint 2 a
+#       `performs` Paragraph Waypoint, and the ParagraphPlan card's Output row and Attempts part
+#       carry its text in italics with no list item empty; each Extraction paragraph block opens
+#       on its Segments table, with the folded "rendering" and "record file" blocks after it.
 #   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through
 #       `KOGAKI_JOB_STALL_S` and every ParagraphPlan call running 2.5 s past its first line
 #       (a stream line every 200 ms, as a live stream-json call writes),
@@ -148,7 +152,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "name_an_act_then_its_cost_" + w.waypoint,
       why: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: "JOIN-" + w.waypoint + " this paragraph takes up what the paragraph before it left open." } : {}),
-      paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
+      // (n) Leg Waypoint 2's second Paragraph Waypoint is a \`performs\` entry (kogaki#1448).
+      paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
+        : { point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
@@ -474,6 +480,28 @@ else {
     else ok(want && rowHtml.includes(`<p>join: ${escHtml(want)}</p>`), `(m) the ParagraphPlan Output row for Leg Waypoint ${i} does not carry the plan file's join`);
   }
 
+  // (n) THE LEG SHEET'S FIRST VIEWS (kogaki#1479): the plan carries a `performs` entry at Leg
+  // Waypoint 2, which the old list rendered as an empty item, so the no-empty assertion below is
+  // fed a case that fails without the fix (the consult receipt on the Issue).
+  const PERFORMS = "PERFORMS-2-2 the paragraph turns the reader back on the act.";
+  ok(planWps.some((w) => (w.paragraph_waypoints || []).some((p) => p.performs === PERFORMS)), "(n) the plan file does not carry the fixture's performs Paragraph Waypoint");
+  const row2At = cards.paragraphPlan.indexOf(`id="planwp-p2-0"`);
+  const row2 = row2At >= 0 ? cards.paragraphPlan.slice(row2At, cards.paragraphPlan.indexOf("</details>", row2At)) : "";
+  ok(row2.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) the ParagraphPlan Output row for Leg Waypoint 2 does not carry the performs text in italics");
+  ok(!/<li>(<i>)?\s*(<\/i>)?<\/li>/.test(cards.paragraphPlan), "(n) the ParagraphPlan card carries an empty list item");
+  for (let i = 1; i <= 3; i++) {
+    const at = cards.extraction.indexOf(`<summary>paragraph ${i}</summary>`);
+    ok(at >= 0, `(n) the Extraction card has no block for paragraph ${i}`);
+    if (at < 0) continue;
+    const blk = cards.extraction.slice(at, cards.extraction.indexOf("</div></details>", at));
+    const seg = blk.indexOf("<th>content clause</th>");
+    const rend = blk.indexOf(`<details class="sub"><summary>rendering</summary>`);
+    const file = blk.indexOf(`<details class="sub"><summary>record file</summary>`);
+    ok(seg >= 0 && blk.includes(`CONTENT-${i}-1`) && !blk.slice(0, seg).includes("<details"),
+      `(n) the Extraction block for paragraph ${i} does not open on its Segments table`);
+    ok(seg >= 0 && rend > seg && file > rend, `(n) the Extraction block for paragraph ${i} does not carry the folded rendering and record file after its Segments table`);
+  }
+
   // (l) THE ATTEMPTS PART (kogaki#1437): the first attempt was refused at Leg Waypoint 2 and the
   // second passed, so the part holds two blocks; the refusal block the second attempt received
   // is cut from the two recorded plan prompts, so the sheet is held to what was actually sent.
@@ -484,6 +512,7 @@ else {
   if (blocks.length === 2 && planCalls.length === 2) {
     const [b1, b2] = blocks;
     ok(PARAS.every((_, i) => b1.includes(`PW-${i + 1}-1 the paragraph makes its point.`)), "(l) attempt 1's block does not show its Paragraph Waypoints");
+    ok(b1.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) attempt 1's block does not show the performs Paragraph Waypoint in italics");
     ok(b1.includes("does-not-fit") && b1.includes("WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on."),
       "(l) attempt 1's block does not show the does-not-fit verdict with its why");
     const inserted = refusalBlock(planCalls[1].stdin);
