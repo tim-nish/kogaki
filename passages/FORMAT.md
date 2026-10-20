@@ -100,8 +100,9 @@ Three artifacts touch the source text, and each keeps a different amount.
 A Passage is extracted once as a whole, and each of its paragraphs may be
 extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
-applies to a paragraph Extraction, except the seven rules here — rules 1 to 6
-are mechanism m2's (kogaki#1348), carried verbatim, and rule 7 is kogaki#1440's:
+applies to a paragraph Extraction, except the eight rules here — rules 1 to 6
+are mechanism m2's (kogaki#1348), carried verbatim, rule 7 is kogaki#1440's and
+rule 8 is kogaki#1478's:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
    Passage verbatim. A definition list or block quotation announced by the
@@ -146,6 +147,13 @@ are mechanism m2's (kogaki#1348), carried verbatim, and rule 7 is kogaki#1440's:
    no reference to any earlier step or earlier paragraph. A later Segment's
    `does` is the operation alone, and its `relation` carries the connection
    to the step before.
+8. **`does`, `content` and `relation` describe what the sentence does when
+   read aloud.** Anything the reader would know only from the page, such as
+   emphasis, bullets, numbering, headings, line breaks or a quotation's
+   marks, is layout: it is recorded in `passage` and nowhere else, never in
+   `does`, `content`, `relation` or a reader-state line. "Introduces a bolded
+   term" fails the test; "introduces a term" passes it. The test is the whole
+   mechanism, one rule covering the class rather than a list of its members.
 
 Three fields carry the two levels:
 

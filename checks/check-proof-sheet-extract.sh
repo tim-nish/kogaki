@@ -39,8 +39,9 @@
 #       second names its paragraph as a string, each refused naming the field, and the
 #       third attempt's prompt carries BOTH refusals, oldest first; paragraph 2's first
 #       answer writes a `subject_nouns` entry into a reader `after` clause and is refused
-#       naming the row (rule 7, kogaki#1440); and the prompt carries rule 7's three
-#       sentences.
+#       naming the row (rule 7, kogaki#1440); the prompt carries rule 7's three
+#       sentences; and it carries rule 8's read-aloud test, which excludes the page's
+#       layout from `does`, `content`, `relation` and reader states (kogaki#1478).
 #   (d) every call ran with `--tools ""`, on the shared supervisor.
 #   (e) paragraph 2 is handed the reader state paragraph 1 left (its `after` where a row
 #       moved, its `before` where not), and its before column carries it.
@@ -360,6 +361,12 @@ else {
     "Segment 1's `does` carries no reference to any earlier step or earlier paragraph.",
     "A later Segment's `does` is the operation alone, and its `relation` carries the connection to the step before.",
   ]) ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 7's sentence: ${sentence}`);
+  // rule 8 (kogaki#1478): the read-aloud test reaches the Extractor, naming the class of layout it excludes
+  for (const sentence of [
+    "`does`, `content` and `relation` describe what the sentence does when read aloud.",
+    "Anything the reader would know only from the page, such as emphasis, bullets, numbering, headings, line breaks or a quotation's marks, is layout",
+    "\"introduces a bolded term\" is never written",
+  ]) ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 8's read-aloud test: ${sentence}`);
 
   // (e) the carried before column
   const in2 = prompts[3] ? JSON.parse(prompts[3].slice(prompts[3].indexOf("----- INPUT (JSON) -----") + 24)) : {};
