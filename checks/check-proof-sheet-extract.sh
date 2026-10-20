@@ -361,12 +361,16 @@ else {
     "Segment 1's `does` carries no reference to any earlier step or earlier paragraph.",
     "A later Segment's `does` is the operation alone, and its `relation` carries the connection to the step before.",
   ]) ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 7's sentence: ${sentence}`);
-  // rule 8 (kogaki#1478): the read-aloud test reaches the Extractor, naming the class of layout it excludes
+  // rule 8 (kogaki#1478): the read-aloud test reaches the Extractor in FORMAT's own words, so neither copy can drift
+  const formatText = readFileSync(join(repo, "passages", "FORMAT.md"), "utf8").replace(/\s+/g, " ");
   for (const sentence of [
     "`does`, `content` and `relation` describe what the sentence does when read aloud.",
-    "Anything the reader would know only from the page, such as emphasis, bullets, numbering, headings, line breaks or a quotation's marks, is layout",
-    "\"introduces a bolded term\" is never written",
-  ]) ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 8's read-aloud test: ${sentence}`);
+    "Anything the reader would know only from the page, such as emphasis, bullets, numbering, headings, line breaks or a quotation's marks, is layout: it is recorded in `passage` and nowhere else, never in `does`, `content`, `relation` or a reader-state line.",
+    "\"Introduces a bolded term\" fails the test; \"introduces a term\" passes it.",
+  ]) {
+    ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 8's read-aloud test: ${sentence}`);
+    ok(formatText.includes(sentence), `(c) passages/FORMAT.md's rule 8 does not carry the instruction's sentence: ${sentence}`);
+  }
 
   // (e) the carried before column
   const in2 = prompts[3] ? JSON.parse(prompts[3].slice(prompts[3].indexOf("----- INPUT (JSON) -----") + 24)) : {};
