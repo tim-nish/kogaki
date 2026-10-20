@@ -505,7 +505,7 @@
         "tier": "pre-push",
         "runtime_ms": 100,
         "runtime_ms_note": "Measured 2026-10-19 at b75d0f9 in the kogaki#1447 worktree: 60, 64 and 58 ms over three runs; one node process rendering two Packets in memory, no subprocess and no gateway.",
-        "efficacy": "case: checks/check-draft-packet.sh::(c) the counterfactual: the template as it stood before kogaki#1447 is refused.",
+        "efficacy": "case: checks/check-draft-packet.sh::(c) the counterfactuals: the template as it stood before kogaki#1447, and before kogaki#1477,",
         "efficacy_note": "MUTATION EVIDENCE (run 2026-10-19 in the kogaki#1447 worktree): case (c) is itself the counterfactual -- it renders the Packet over the pre-kogaki#1447 Opens-from paragraph and asserts the predicate (a) refuses it, so the member fails if the predicate stops discriminating the old wording from the new.",
         "removal_signal": "the Packet carries no Opens-from line -- the ParagraphPlan's join is retired, so `src/draft.mjs` no longer exports OPENS_FROM_LABEL and there is no connection for the Writer to realise.",
         "removal_instrument": "probe: ! grep -q 'export const OPENS_FROM_LABEL' src/draft.mjs"
