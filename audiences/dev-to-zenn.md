@@ -21,6 +21,3 @@ register: |
   world — does not carry across a paragraph boundary and does not exist for
   later Legs. A comparison is not a referent:
   it explains a term once, and nothing later points back to it.
-
-  **Voice.** The first person is permitted; where a claim's scope is narrower
-  than the sentence that states it, say so in the first person with a hedge.

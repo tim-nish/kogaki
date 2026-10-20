@@ -44,6 +44,13 @@
 #       ParagraphPlan file beside it accepts a Leg Waypoint carrying a
 #       `performs` entry beside a `point` entry, and refuses one none of whose
 #       Paragraph Waypoints carries a `point`, by name (kogaki#1448).
+#   (f) THE REGISTER CARRIES NO VOICE RULE (kogaki#1488): the Write block of
+#       the Packet rendered from `audiences/dev-to-zenn.md` -- from `## Write`
+#       to the next `## ` heading -- carries the Audience's Referents rule, so
+#       the register reached it, and carries neither "voice" nor "hedge" in
+#       any case; the same render from a copy of that Audience with the
+#       pre-kogaki#1488 Voice paragraph restored is refused by the same
+#       predicate, so the absence is not vacuous.
 #
 # NOT COVERED, stated rather than implied: whether a Writer obeys the
 # paragraph is the written prose's, and the review item `opens-from-copied`
@@ -189,9 +196,44 @@ const PERFORMS = "flags the case as hard and announces a simplification by way o
   }
 }
 
+// (f) the Write block rendered from the Audience carries no voice rule and no hedge (kogaki#1488).
+const writeBlock = (packet) => {
+  const i = packet.indexOf("\n## Write\n");
+  if (i === -1) return null;
+  const end = packet.indexOf("\n## ", i + 1);
+  return packet.slice(i, end === -1 ? undefined : end);
+};
+const carriesNoVoiceRule = (packet) => {
+  const w = writeBlock(packet);
+  if (w === null) return "the Packet carries no Write block";
+  if (!w.includes("**Referents.**")) return "the Write block does not carry the Audience's Referents rule, so the register did not reach it";
+  for (const bad of [/voice/i, /hedge/i]) if (bad.test(w)) return `the Write block carries ${bad}: ${flat(w.slice(w.search(bad) - 80, w.search(bad) + 80))}`;
+  return null;
+};
+if (!r.error) {
+  const why = carriesNoVoiceRule(r.packet);
+  if (why) fails.push(`(f) ${why}`);
+}
+{
+  const VOICE = "  **Voice.** The first person is permitted; where a claim's scope is narrower\n"
+    + "  than the sentence that states it, say so in the first person with a hedge.\n";
+  const dir = mkdtempSync(join(tmpdir(), "draft-packet-voice-"));
+  const audience = join(dir, "dev-to-zenn.md");
+  writeFileSync(audience, readFileSync("audiences/dev-to-zenn.md", "utf8").replace(/\n*$/, "\n\n") + VOICE);
+  const voiced = readBrief(text.replace("compose_path: audiences/dev-to-zenn.md", `compose_path: ${audience}`), "theses/packet-brief/brief.yaml");
+  if (voiced.record?.compose_path !== audience) fails.push("(f) the fixture could not point the Brief at the pre-kogaki#1488 Audience");
+  else {
+    const split = splitPacketTemplate(template);
+    const old = renderPacket({ template: split.packet, brief: voiced, leg: voiced.legs[0], priorSections: [],
+      section: sectionOfLeg(voiced.legs).get(voiced.legs[0].leg_id), sections: sectionsOf(voiced.legs) });
+    if (old.error) fails.push(`(f) the pre-kogaki#1488 Packet did not render: ${old.error}`);
+    else if (carriesNoVoiceRule(old.packet) === null) fails.push("(f) the pre-kogaki#1488 Voice paragraph passed the predicate (f) applies");
+  }
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488).");
 JS
