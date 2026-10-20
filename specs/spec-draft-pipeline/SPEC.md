@@ -1,5 +1,18 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v46, amended 2026-10-21 (kogaki#1488) — **THE REGISTER CARRIES NO
+VOICE RULE.** The Audience's `register` held a Voice paragraph, carried over
+from the Persona's `prose` block, telling the Writer to qualify in the first
+person any claim whose scope was narrower than its sentence. That is a rule
+of what a paragraph says, and since the paragraph Move and the ParagraphPlan
+what a paragraph says is fixed by its Paragraph Waypoints and the Segments
+they realise. The owner decided (2026-10-21): the first person and the scope
+of a claim belong to the Segments of a paragraph Move, and the rule exceeds
+the Register's responsibility. So the paragraph is deleted and nothing
+replaces it, and the Register's examples below no longer name voice (§4.14,
+§5.1.1). Carriers: `audiences/dev-to-zenn.md`, `checks/check-draft-packet.sh`.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v45, amended 2026-10-14 (kogaki#1370) — **THE READER FILE IS THE
 AUDIENCE, WITH A `persona` KEY AND A `register` KEY.** The file the Brief
 composes for held `reader` and `prior_knowledge`, which say who the reader is,
@@ -1682,13 +1695,13 @@ claims blocks, the Journey block and the reader's own world are fixed,
 identical for every Audience, because each changes model behaviour at
 generation and is this file's own concern. A rule that instead governs how
 the prose reads — the first-sentence preference, the paragraph anaphora rule,
-the enumeration bound, voice — carries no runtime check and belongs to the
+the enumeration bound — carries no runtime check and belongs to the
 reader the article is written for, so it lives in the Audience's `register`
 (§4.14, `{{register}}`) and nowhere else: an Audience whose `register` is
 empty asks the template for no register rule at all. The "article so far"
 block follows the same line: it carries the Leg's own Section's prose and one
 fixed header naming what it is, never an instruction, because continuity is a
-question of register the Audience's voice rule already answers.
+question of register the Audience's `register` already answers.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
 run id, and prior Legs' prose in the **Brief's recorded order** rather than from
@@ -2485,7 +2498,7 @@ workflow table names** — `audiences/dev-to-zenn.md`, in an `audiences/`
 directory beside `moves/` and `passages/`, content rather than a schema, its
 first value the current Dev.to and Zenn reader (kogaki#1370). The Audience
 holds two keys: `persona`, who is read to, and `register`, how they are
-addressed — word choice, hedging voice, referent rules, the anaphora rule —
+addressed — word choice, referent rules, the anaphora rule —
 which the Leg Packet alone reads (§4.14) and which carries no rule on
 structure (kogaki#1350). The `persona` key carries **two fields**, one or two
 sentences each, and stays far smaller than a Move:
