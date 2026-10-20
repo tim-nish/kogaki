@@ -30,6 +30,11 @@
 #       Extractions carry `why_this_order`, `breaks`, `presupposes`, `description` and `notes`,
 #       and the Leg call's rendered input carries none of them, nor `name`, while it still
 #       carries each paragraph's `what_it_does`, `reader` rows and Segment `content` clauses.
+#   (h) THE LEG CALL WRITES A CLAIM FROM WHAT THE PARAGRAPH SAYS (kogaki#1480): the rendered
+#       Leg call instruction names the paragraph's `text` and its Segment `content` clauses as
+#       the source of the `proposition` and the `point`, forbids a characterisation of the
+#       paragraph in them, and names `what_it_does` and `reader` beside `reader_state_after`,
+#       `purpose` and `rationale` and never as a `proposition`'s source.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -192,6 +197,22 @@ else {
       `(g) paragraph ${i + 1}'s Extraction in the Leg call's input does not carry its Segment content clauses alone: ${JSON.stringify(x.segments)}`);
   }
   ok(!/ORDER-\d|BREAKS-\d/.test(leg), "(g) the Leg call's rendered prompt still carries a `why_this_order` or `breaks` text");
+}
+// (h) the Leg call's instruction: the Claim and the point from the text, the reader states from the analysis
+{
+  const prompts = existsSync(join(root, "prompts.jsonl")) ? readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+  const leg = prompts.find((p) => p.includes("`leg_path_unit` judgment point")) || "";
+  const jp = (leg.match(/^JUDGMENT POINT: (.*)$/m) || [])[1] || "";
+  ok(jp, "(h) the Leg call's rendered prompt carries no judgment point");
+  ok(jp.includes("Claim N's `proposition` and Leg Waypoint N's `point` are written from paragraph N's `text`, with its Extraction's Segment `content` clauses"),
+    "(h) the Leg call's instruction does not name the paragraph's `text` and its Segment `content` clauses as the source of the proposition and the point");
+  ok(/carry no characterisation of the paragraph -- no "exhaustively", "exactly", "only" or "in parallel"/.test(jp),
+    "(h) the Leg call's instruction does not forbid a characterisation of the paragraph in the proposition and the point");
+  const clauses = jp.split(/; |\. /);
+  const analysis = clauses.filter((c) => c.includes("`what_it_does`") || c.includes("(`reader`)"));
+  ok(analysis.length > 0 && analysis.every((c) => /`reader_state_after`, `purpose` and `rationale` only/.test(c)),
+    `(h) a clause naming \`what_it_does\` or \`reader\` does not name them for \`reader_state_after\`, \`purpose\` and \`rationale\`: ${JSON.stringify(analysis)}`);
+  ok(!analysis.some((c) => /`proposition`[^;]*written from/.test(c)), `(h) the Leg call's instruction still writes a \`proposition\` from \`what_it_does\` or \`reader\`: ${JSON.stringify(analysis)}`);
 }
 const diff = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "diff"], { encoding: "utf8" });
 ok(diff.status === 0 && (diff.stdout.match(/applies cleanly to the production text/g) || []).length === 2, `(d) \`leg-brief.mjs diff\` does not apply both rows cleanly: ${diff.stdout}${diff.stderr}`);
