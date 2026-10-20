@@ -20,8 +20,9 @@
 #       Packet file `/draft` rendered, byte for byte, and equals what the fake binary read.
 #   (d) the run writes nothing to the repository's `moves/` or `theses/`.
 #   (e) the sheet: one run-conditions line, one comparison table, and exactly the seven cards
-#       of `SHEET_CELLS` in pipeline order, Brief and ParagraphPlan in one row; every card has
-#       Output, Inputs, Prompt and Calls in that order, Output open and the other three folded,
+#       of `SHEET_CELLS` in pipeline order, stacked with no `.cols` row (kogaki#1487); every card
+#       has Output, Inputs, Prompt and Calls in that order, Output open -- folded on the Move and
+#       Brief cards (kogaki#1487) -- and the other three folded,
 #       and every Inputs entry links to another card's id on the page; the Extraction card
 #       shows paragraph 1's prompt and two attempts; the Draft card states its prompt equals
 #       the Packet rather than repeating it; every recorded call's prompt, cut into its
@@ -49,6 +50,14 @@
 #       `performs` Paragraph Waypoint, and the ParagraphPlan card's Output row and Attempts part
 #       carry its text in italics with no list item empty; each Extraction paragraph block opens
 #       on its Segments table, with the folded "rendering" and "record file" blocks after it.
+#   (o) the review block and the Point line (kogaki#1487): between the comparison table and the
+#       Extraction card, a block carrying one Segments table per paragraph, a refused-attempts
+#       table with exactly one row -- attempt 1, Leg Waypoint 2, the judge's `why` -- linking to
+#       that attempt's block, and a Bindings table with one row per Leg Waypoint carrying its
+#       `point`, the bound Move and the bindings record's `why`, each with a folded "before /
+#       after" block carrying the Move file's before and after; the resumed run (h), refused
+#       nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
+#       "Point:" and the Leg Waypoint's `point` from the Brief.
 #   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through
 #       `KOGAKI_JOB_STALL_S` and every ParagraphPlan call running 2.5 s past its first line
 #       (a stream line every 200 ms, as a live stream-json call writes),
@@ -280,9 +289,7 @@ else {
   const cards = {};
   for (const key of ORDER) cards[key] = cardHtml(key);
 
-  ok(/<div class="cols">/.test(html) && html.indexOf('<div class="cols">') < starts[ORDER.indexOf("brief")]
-    && starts[ORDER.indexOf("paragraphPlan")] < html.indexOf("</div>", starts[ORDER.indexOf("paragraphPlan")]),
-    "(e) Brief and ParagraphPlan are not in one row");
+  ok(!html.includes('class="cols"') && !html.includes(".cols{"), "(e) the sheet still carries a .cols row (kogaki#1487)");
 
   for (const key of ORDER) {
     const name = S.SHEET_TITLES[key];
@@ -291,7 +298,9 @@ else {
     const badge = S.SHEET_CELL_BADGE[key];
     const wantLabel = badge.type === "substitute" ? "Proof Sheet substitute" : "production";
     ok(c.includes(`<span class="badge ${badge.type}"`) && c.includes(`>${wantLabel}<`), `(e) the ${name} card carries no "${wantLabel}" badge`);
-    ok(/<details class="part out" open><summary>Output<\/summary>/.test(c), `(e) the ${name} card's Output is missing, or does not open by default`);
+    const folded = key === "move" || key === "brief";
+    ok(folded ? /<details class="part out"><summary>Output<\/summary>/.test(c) : /<details class="part out" open><summary>Output<\/summary>/.test(c),
+      `(e) the ${name} card's Output is missing, or ${folded ? "opens" : "does not open"} by default`);
     ok(/<details class="part in"(?! open)><summary>Inputs<\/summary>/.test(c), `(e) the ${name} card's Inputs is missing, or opens by default`);
     ok(/<details class="part prompt"(?! open)><summary>Prompt<\/summary>/.test(c), `(e) the ${name} card's Prompt is missing, or opens by default`);
     ok(/<details class="part calls"(?! open)><summary>Calls<\/summary>/.test(c), `(e) the ${name} card's Calls is missing, or opens by default`);
@@ -524,6 +533,53 @@ else {
   }
   ok(cards.paragraphPlan.includes("the judge call") && !cards.paragraphPlan.includes("the check call"), "(l) the Calls part does not name the judge call, or still names the check call");
 
+  // (o) THE REVIEW BLOCK AND THE POINT LINE (kogaki#1487). Every property is read inside the
+  // part it belongs to, and the refused-attempts table is held to one row naming attempt 1,
+  // Leg Waypoint 2 and the judge's why -- a silent table cannot pass, since the run that
+  // refused nothing must render its own line (below, on the resumed run).
+  const reviewAt = html.indexOf('<section class="review" id="review-0">');
+  const pairEnd = html.indexOf("</table>", pairStart);
+  ok(reviewAt > pairEnd && pairEnd > pairStart && reviewAt < starts[ORDER.indexOf("extraction")],
+    "(o) the review block does not sit between the comparison table and the Extraction card");
+  const review = reviewAt >= 0 ? html.slice(reviewAt, starts[ORDER.indexOf("extraction")]) : "";
+  const rpart = (cls) => {
+    const a = review.indexOf(`<details class="rpart ${cls}" open>`);
+    if (a < 0) return "";
+    const b = review.indexOf('<details class="rpart', a + 1);
+    return review.slice(a, b >= 0 ? b : undefined);
+  };
+  const segPart = rpart("segments");
+  ok((segPart.match(/<th>content clause<\/th>/g) || []).length === 3 && [1, 2, 3].every((i) => segPart.includes(`CONTENT-${i}-1`) && segPart.includes(`paragraph ${i} — name_an_act_then_its_cost_${i}`)),
+    "(o) the review block does not carry one Segments table per paragraph, headed by its paragraph and Move");
+  const refPart = rpart("refused");
+  const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
+  ok(refRows.length === 1 && refRows[0].includes(`href="#attempt-0-1"`) && refRows[0].includes("<td>2</td>")
+    && refRows[0].includes("WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on."),
+    `(o) the refused-attempts table does not carry exactly one row naming attempt 1, Leg Waypoint 2 and the judge's why: ${refRows.length} row(s)`);
+  const att1 = cards.paragraphPlan.indexOf('id="attempt-0-1"');
+  ok(att1 >= 0 && cards.paragraphPlan.lastIndexOf('<details class="part attempts">', att1) >= 0, "(o) the refused row's link names no attempt block on the ParagraphPlan card");
+  const bindRec = JSON.parse(readOr(join(runDir, "paragraph-plan", "job", "paragraph-plan-bindings.json"), '{"bindings":[]}')).bindings;
+  const bindPart = rpart("bindings");
+  const bindRows = bindPart.split("<tr><td>").slice(1).filter((x) => /^\d+<\/td><td>POINT-/.test(x) || /^\d+<\/td><td>\(no point/.test(x));
+  ok(bindRec.length === 3 && bindRows.length === 3, `(o) the Bindings table holds ${bindRows.length} row(s) against the record's ${bindRec.length}`);
+  for (const b of bindRec) {
+    const row = bindRows.find((x) => x.startsWith(`${b.waypoint}</td>`)) || "";
+    ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.why)),
+      `(o) the Bindings row for Leg Waypoint ${b.waypoint} does not carry its point, its Move and the record's why`);
+    const at = bindPart.indexOf(row);
+    const fold = at >= 0 ? bindPart.slice(at, bindPart.indexOf("</details>", at) + 10) : "";
+    const mv = parseYaml(readOr(join(runDir, "moves", `${b.move}.yaml`), "{}"), "move");
+    const lines = Object.keys(mv.before || {}).map((d) => [mv.before[d], (mv.after || {})[d]]);
+    ok(/<details class="sub"><summary>before \/ after<\/summary>/.test(fold) && lines.length > 0
+      && lines.every(([bf, af]) => fold.includes(escHtml(String(bf))) && fold.includes(escHtml(String(af ?? "")))),
+      `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no folded before / after block with the Move's lines`);
+  }
+  for (let i = 1; i <= 3; i++) {
+    const at = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0">`);
+    const body = at >= 0 ? cards.paragraphPlan.slice(at + `id="planwp-p${i}-0">`.length) : "";
+    ok(body.startsWith(`<p>Point: POINT-${i}</p>`), `(o) the ParagraphPlan Output row for Leg Waypoint ${i} does not open on "Point:" and its point from the Brief`);
+  }
+
   // (f) the map gates; a stopped Draft still draws
   const short = join(root, "PROVENANCE-short.md");
   writeFileSync(short, mapText(mapRows.filter((l) => !l.startsWith("| Packet |"))));
@@ -686,6 +742,9 @@ if (hRunDir) {
   const p1Calls = extractCalls.filter((c) => c.stdin.includes('"number": 1,'));
   ok(p1Calls.length === 1, `(h) the resumed run's extract/calls.jsonl does not hold exactly one paragraph-1 call: ${p1Calls.length} of ${extractCalls.length} total`);
   ok(existsSync(join(hRunDir, "sheet.html")), "(h) the resumed run did not write a sheet");
+  const hSheet = readOr(join(hRunDir, "sheet.html"), "");
+  const hRef = hSheet.slice(hSheet.indexOf('<details class="rpart refused" open>'), hSheet.indexOf('<details class="rpart bindings"'));
+  ok(hRef.includes("<p>no attempt was refused</p>") && !hRef.includes("<table"), "(o) the resumed run, refused nowhere, does not render \"no attempt was refused\"");
   const extractCmd = JSON.parse(readFileSync(join(hRunDir, "extract", "command.json"), "utf8"));
   ok(extractCmd.length > extractDoneBefore.length, "(h) the resumed extract stage replaced command.json instead of appending to it");
 }
