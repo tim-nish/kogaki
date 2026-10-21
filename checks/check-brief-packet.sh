@@ -544,7 +544,7 @@ const fails = [];
     }
   }
 
-  // (ad) a typed introduces_item round-trips through the Brief and renders its kind and authority line.
+  // (ad) a typed introduces_item round-trips through the Brief and renders its term, meaning and authority line, never its kind (kogaki#1491).
   {
     const coined = { term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds", nearest: "guard clause", differs: "nothing ever feeds it a failing input" };
     const established = { term: "default-deny", kind: "established", source: "firewall configuration practice" };
@@ -560,8 +560,8 @@ const fails = [];
       const r = render(brief, brief.legs[0]);
       if (r.error) { fails.push(`(ad) the Packet did not render (external_authority ${on ? "on" : "off"}): ${r.error}`); continue; }
       const crosses = block(r.packet, CROSSES, "\n## ");
-      if (!/- unfed guard — coined/.test(crosses)) fails.push(`(ad) What crosses into this Leg does not render the coined term's kind: ${JSON.stringify(crosses)}`);
-      if (!crosses.includes("- default-deny — established")) fails.push(`(ad) What crosses into this Leg does not render the established term's kind: ${JSON.stringify(crosses)}`);
+      if (!crosses.includes(`- unfed guard — ${coined.meaning}`)) fails.push(`(ad) What crosses into this Leg does not render the coined term with its meaning: ${JSON.stringify(crosses)}`);
+      if (!crosses.includes("- default-deny. The reader may be handed this name as given.")) fails.push(`(ad) What crosses into this Leg does not render the established term as a name the reader may be handed (kogaki#1491): ${JSON.stringify(crosses)}`);
       if (crosses.includes("firewall configuration practice")) fails.push(`(ad) What crosses into this Leg carries the established term's source, which is Brief-side material (kogaki#1404): ${JSON.stringify(crosses)}`);
       if (on && !(crosses.includes("nearest existing term: guard clause") && crosses.includes(`differs: ${coined.differs}`))) fails.push(`(ad) with the external authority on, What crosses into this Leg does not carry the nearest and differs line: ${JSON.stringify(crosses)}`);
       if (!on && /nearest|differs/.test(r.packet)) fails.push("(ad) with external_authority: off the Packet still carries a nearest or differs line");

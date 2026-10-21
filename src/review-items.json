@@ -266,8 +266,8 @@
       "(kogaki#1282, owner ruling 2026-10-06). Leg linking is default-deny: the",
       "Packet no longer renders a held list at all, and `introduces` reads the",
       "same \"What crosses into this Leg\" block `already-knows` does — the one",
-      "block carries this Leg's own introduced terms (marked `coined` or",
-      "`established`) and whatever it re-activates (a term or claim, each",
+      "block carries this Leg's own introduced terms (each as its term and",
+      "meaning, with no marker; kogaki#1491) and whatever it re-activates (a term or claim, each",
       "crossing with its meaning or its plain restatement), in the one list",
       "convention above. `already-knows` is handed `claims` as a companion block",
       "beside `crosses_here`, the same companion mechanism that used to hand it",
@@ -427,7 +427,7 @@
         "verdict": "holds",
         "sentence": "this Leg's Packet crosses in no term and re-activates nothing, so the question below quantifies over nothing, and a passage that introduces nothing carries no `introduces:` line to read against it"
       },
-      "question": "Is every term the Packet says to introduce here — the entries above marked `coined` or `established`, never a re-activated one — actually introduced in this passage, usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
+      "question": "Is every term the Packet says to introduce here — the entries above that carry no `(re-activated from …)` marker, never a re-activated one — actually introduced in this passage, usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
     },
     {
       "id": "already-knows",

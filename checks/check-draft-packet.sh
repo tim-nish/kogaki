@@ -66,6 +66,14 @@
 #       sentence, so the paragraph is the template's and no Audience edit
 #       removes it. Whether the Writer yields is the prose's, and no judge
 #       reads it, by the owner's ruling.
+#   (i) THE CROSSING LINE CARRIES A TERM AND ITS MEANING (kogaki#1491): a Leg
+#       introducing one `coined` and one `established` entry renders a
+#       "What crosses into this Leg" block carrying each term with its
+#       meaning, a coined line's `nearest` clause set apart from its meaning by
+#       a period -- read first, so the absences below are read over a block
+#       known to hold the lines in scope -- and carrying neither "coined" nor
+#       "established" nor "present it as a name"; "may be handed this name as
+#       given" is on the established line and on no other line of the block.
 #
 # NOT COVERED, stated rather than implied: whether a Writer obeys the
 # paragraph is the written prose's, and the review item `opens-from-copied`
@@ -300,9 +308,49 @@ if (!r.error) {
   }
 }
 
+// (i) one crossing-line form for both kinds: term and meaning, no presentation instruction (kogaki#1491).
+{
+  const COINED = { term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds", nearest: "guard clause",
+    differs: "nothing ever feeds it a failing input" };
+  const ESTABLISHED = { term: "default-deny", kind: "established", source: "firewall configuration practice",
+    meaning: "every request is refused unless a rule admits it" };
+  const gText = briefRecordText({
+    slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
+    strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
+    thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
+    reader_target: "s1", reader_path: [legRecord({ ...leg, introduces: [COINED, ESTABLISHED] })],
+    strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+  });
+  const gBrief = readBrief(gText, "theses/packet-brief/brief.yaml");
+  const split = splitPacketTemplate(template);
+  const g = (gBrief.refusals || []).length ? { error: JSON.stringify(gBrief.refusals) } : split.error ? { error: split.error }
+    : renderPacket({ template: split.packet, brief: gBrief, leg: gBrief.legs[0], priorSections: [],
+      section: sectionOfLeg(gBrief.legs).get(gBrief.legs[0].leg_id), sections: sectionsOf(gBrief.legs) });
+  if (g.error) fails.push(`(i) the fixture Packet with a coined and an established term did not render: ${g.error}`);
+  else {
+    const i = g.packet.indexOf("## What crosses into this Leg");
+    const end = i === -1 ? -1 : g.packet.indexOf("\n## ", i + 1);
+    const crosses = i === -1 ? "" : g.packet.slice(i, end === -1 ? undefined : end);
+    const lines = crosses.split("\n");
+    const coinedLine = lines.find((l) => l.startsWith(`- ${COINED.term} — `));
+    const establishedLine = lines.find((l) => l.startsWith(`- ${ESTABLISHED.term} — `));
+    if (!coinedLine || !coinedLine.includes(COINED.meaning)) fails.push(`(i) the crossing block does not carry the coined term with its meaning: ${JSON.stringify(crosses)}`);
+    else if (!coinedLine.includes(`${COINED.meaning}. nearest existing term: ${COINED.nearest}.`)) fails.push(`(i) the coined line does not set its nearest clause apart from its meaning with a period: ${JSON.stringify(coinedLine)}`);
+    else if (!establishedLine || !establishedLine.includes(ESTABLISHED.meaning)) fails.push(`(i) the crossing block does not carry the established term with its meaning: ${JSON.stringify(crosses)}`);
+    else {
+      for (const bad of ["coined", "established", "present it as a name"]) {
+        if (crosses.includes(bad)) fails.push(`(i) the crossing block carries "${bad}": ${JSON.stringify(crosses)}`);
+      }
+      if (crosses.includes(ESTABLISHED.source)) fails.push("(i) the crossing block carries the established term's source (kogaki#1404)");
+      const handed = lines.filter((l) => l.includes("may be handed this name as given"));
+      if (handed.length !== 1 || handed[0] !== establishedLine) fails.push(`(i) "may be handed this name as given" is not on the established line alone: ${JSON.stringify(handed)}`);
+    }
+  }
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the italic line is bounded to no part of the subject the paragraph's points do not give, read from the rendered Packet (kogaki#1492); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the italic line is bounded to no part of the subject the paragraph's points do not give, read from the rendered Packet (kogaki#1492); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries a coined and an established term each with its meaning, neither kind word nor any instruction to present it as a name, and \"may be handed this name as given\" on the established line alone (kogaki#1491).");
 JS

@@ -235,24 +235,27 @@ export function externalAuthorityOf(brief) {
   return brief?.record?.external_authority !== "off";
 }
 
-// ONE `Introduce here` LINE (kogaki#1261, amended kogaki#1404). A typed item
-// renders its kind, so the writer names a coined term as coined and brings
-// an established one in under its name alone — never under the `source` that
-// justifies the "established" kind, which is Brief-side material and has no
-// home in the Writer's instruction (kogaki#1404); a coined term's authority
-// line — `nearest` and `differs` — renders on the same line where the item
-// carries it and the Brief has not switched the external authority off. A
-// bare or anchored term renders as it always did.
+// ONE `Introduce here` LINE (kogaki#1261, amended kogaki#1404 and kogaki#1491).
+// A typed item renders one form for both kinds: the term and its meaning, and
+// nothing on how the prose presents it (kogaki#1491, owner decision
+// 2026-10-21) -- a line prescribing an act of naming is a second structural
+// authority beside the bound Move's Segments and the Paragraph Waypoints. The
+// `kind` stays on the Brief's record; an established term only adds that the
+// reader may be handed the name as given, and never its `source`, which is
+// Brief-side material (kogaki#1404). A coined term's authority line --
+// `nearest` and `differs` -- renders on the same line where the item carries
+// it and the Brief has not switched the external authority off. A bare or
+// anchored term renders as it always did.
 export function introduceLine(raw, authorityOn) {
   const p = parseIntroducesEntry(raw);
   if (p.error || !p.kind) return `- ${typeof raw === "string" ? raw : JSON.stringify(raw)}`;
+  const meaning = p.meaning ? ` — ${p.meaning}` : "";
   if (p.kind === "established") {
-    return `- ${p.term} — established: the term already has a home outside this article; bring it in under that name.`
-      + (p.meaning ? ` meaning: ${p.meaning}` : "");
+    return `- ${p.term}${meaning.replace(/\.\s*$/, "")}. The reader may be handed this name as given.`;
   }
-  let line = `- ${p.term} — coined: this article names it for the first time; present it as a name this article gives. meaning: ${p.meaning}`;
+  let line = `- ${p.term}${meaning}`;
   if (authorityOn && p.nearest) {
-    line += ` nearest existing term: ${p.nearest}.`;
+    line = `${line.replace(/\.\s*$/, "")}. nearest existing term: ${p.nearest}.`;
     if (p.differs) line += ` differs: ${p.differs}`;
   }
   return line;
