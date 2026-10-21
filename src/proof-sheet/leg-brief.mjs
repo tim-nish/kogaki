@@ -30,6 +30,15 @@
 // (`introducesNearestRefusal`); the rest it skips are about `opens_section`, defined terms,
 // Closure rows and the target mark, none of which this Brief carries.
 //
+// THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495, owner decision 2026-10-21). The Leg's
+// validator also runs the production recoverability criterion (`recoverabilityOf`,
+// kogaki#1494): a Claim's `proposition` and a Leg Waypoint's `point` are recoverable from the
+// Segment `content` clauses of the paragraph they serve, and the first word that is in none of
+// them, in no `introduces` entry and is not a function word refuses the attempt, naming the
+// word and the Segments. It runs with an EMPTY renderings record: the Extraction's `content`
+// is already the article's own rendering of the source, so there is nothing to map. The run's
+// `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
+//
 // THE RECORD. Written by the production `briefRecordText` writer: the composed fields and,
 // for every field the parser requires that this composition does not compose, a fixed
 // constant marked as such in a comment. `/paragraph-plan` and `/draft` read it unchanged.
@@ -53,7 +62,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
-  introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText } from "../compose.mjs";
+  introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
@@ -201,6 +210,36 @@ export function completedLeg(leg, n) {
   return { ...leg, materials: Array.from({ length: n }, (_, i) => `L${i + 1}`), depends_on: [], no_move_fits: NO_MOVE_AT_THE_LEG };
 }
 
+// Each paragraph's Segment `content` clauses, in order: the material the Leg's words are
+// recovered from.
+export function segmentContents(extractions) {
+  return extractions.map((x) => (Array.isArray(x && x.segments) ? x.segments : []).map((g) => String((g && g.content) ?? "")));
+}
+
+// THE RECOVERABILITY CRITERION over the one Leg (see the header). `segments` is
+// `segmentContents`' answer; an absent or mis-sized one refuses, so a validator handed no
+// material never reads as one whose Leg held. Returns the refusal, or null.
+export function anchoredRefusal(leg, segments, n) {
+  if (!Array.isArray(segments) || segments.length !== n || !segments.every(Array.isArray)) {
+    return `the Leg's validator was handed ${Array.isArray(segments) ? segments.length : "no"} paragraph(s) of Segment content for the original Leg's ${n} — `
+      + "the recoverability criterion reads every paragraph's Segment content (kogaki#1495)";
+  }
+  const material = Object.fromEntries(segments.map((cs, i) => [`L${i + 1}`, cs.join("\n")]));
+  const [v] = recoverabilityOf([leg], { material, renderings: [] });
+  if (!v || v.verdict !== "fails") return null;
+  const m = /^(claims|waypoints)\[(\d+)\]/.exec(v.field) || [];
+  const item = m[1] ? leg[m[1]][Number(m[2])] : null;
+  const ids = !item ? [] : m[1] === "claims" ? [item.strand] : item.serves;
+  const where = ids.map((id) => Number(String(id).replace(/^L/, ""))).filter((k) => k >= 1 && k <= n).map((k) => {
+    const count = segments[k - 1].length;
+    return `paragraph ${k}'s ${count === 1 ? "Segment 1" : `Segments 1–${count}`}`;
+  }).join(" and ");
+  return `leg 1${leg.leg_id ? ` (${leg.leg_id})` : ""}: \`${v.field}\` carries "${v.word}", which is in no Segment \`content\` of ${where || "the paragraph it serves"}, `
+    + "in no `introduces` entry, and is not a function word — a Claim's proposition and a Leg Waypoint's point are written in "
+    + "the words of the Segment content they serve, and this Brief composes no renderings record, since the Extraction's "
+    + "content is already the article's own rendering (kogaki#1495)";
+}
+
 export function validateLegPathUnit(record, inputs) {
   const n = inputs.paragraph_count;
   const bad = keysRefusal(record, ["legs"], "the record");
@@ -242,6 +281,8 @@ export function validateLegPathUnit(record, inputs) {
     const nearest = introducesNearestRefusal([full]);
     if (nearest) return { error: nearest };
   }
+  const anchored = anchoredRefusal(full, inputs.segments, n);
+  if (anchored) return { error: anchored };
   return {};
 }
 
@@ -381,12 +422,13 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
 
   const lp = runRow({ dir: join(runDir, "leg-path"), unitId: "leg-path", row: rows.leg_path_unit,
     input: legPathUnitInput({ paragraphs, extractions, readerStart, language }), recordArray: "legs",
-    validatorExport: "validateLegPathUnit", inputs: { paragraph_count: paragraphs.length, reader_start: readerStart }, bounds });
+    validatorExport: "validateLegPathUnit", bounds,
+    inputs: { paragraph_count: paragraphs.length, reader_start: readerStart, segments: segmentContents(extractions) } });
   if (lp.stopped) return { stopped: lp.stopped, runDir };
 
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, readerStart, leg: lp.record.legs[0] }));
-  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language });
+  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true });
   return { brief: briefPath, runDir };
 }
 

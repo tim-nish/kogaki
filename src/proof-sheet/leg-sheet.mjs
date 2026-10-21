@@ -192,12 +192,22 @@ function callsBlock(calls, label = "recorded model calls", shown = []) {
   }).join("");
 }
 
+// THE ANCHORED BRIEF (kogaki#1495). A Brief whose Leg was judged recoverable from the
+// Extraction's Segment content reads "Proof Sheet substitute, anchored". The mark is read from
+// the run's own Leg Brief composer record (`brief.json`'s `anchored`), never from the live
+// code, so an older run's sheet, composed before the criterion, still reads unanchored.
+export const ANCHORED_SUFFIX = ", anchored";
+export function briefAnchored(legBriefRun) {
+  const rec = legBriefRun ? readJson(join(legBriefRun, "brief.json")) : null;
+  return !!(rec && rec.anchored === true);
+}
+
 // Every card carries one badge: production, or Proof Sheet substitute with a coloured left
 // border and the note (if any) in the badge's title attribute.
-function badgeSpan(key) {
+function badgeSpan(key, anchored = false) {
   const b = SHEET_CELL_BADGE[key];
   if (!b) return "";
-  const label = b.type === "substitute" ? "Proof Sheet substitute" : "production";
+  const label = (b.type === "substitute" ? "Proof Sheet substitute" : "production") + (anchored ? ANCHORED_SUFFIX : "");
   return ` <span class="badge ${b.type}"${b.note ? ` title="${esc(b.note)}"` : ""}>${esc(label)}</span>`;
 }
 
@@ -212,11 +222,11 @@ function inputsList(entries, idx = 0) {
 // One card: Output (open by default, folded where `outputOpen` is false), Inputs, Prompt, Calls,
 // in that order -- and Attempts between Output and Inputs where the card has one (the
 // ParagraphPlan card, kogaki#1437).
-function cardWrap(key, { output, attempts, inputs, prompt, calls, outputOpen = true }, idx = 0) {
+function cardWrap(key, { output, attempts, inputs, prompt, calls, outputOpen = true, anchored = false }, idx = 0) {
   const name = SHEET_TITLES[key];
   const b = SHEET_CELL_BADGE[key];
   const cls = b && b.type === "substitute" ? "pcard substitute" : "pcard";
-  return `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key)}</h3>`
+  return `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key, anchored)}</h3>`
     + `<details class="part out"${outputOpen ? " open" : ""}><summary>Output</summary>${output}</details>`
     + (attempts !== undefined ? `<details class="part attempts"><summary>Attempts</summary>${attempts}</details>` : "")
     + `<details class="part in"><summary>Inputs</summary>${inputs}</details>`
@@ -539,7 +549,7 @@ function briefCard(r, idx) {
       + callsBlock(calls, `${title} calls`, named.map(([t, x]) => [`Prompt, ${t}`, x])));
   }
   return cardWrap("brief", {
-    output, outputOpen: false,
+    output, outputOpen: false, anchored: briefAnchored(r.legBriefRun),
     inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
     prompt: promptPart(named),
     calls: callsHtml,
